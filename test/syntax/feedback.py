@@ -9,9 +9,9 @@ def test_invalid_inputs():
     with raises(NotImplementedError):
         Ty('x').delay(-1)
     with raises(ValueError):
-        HeadOb(Wire('x').delay())
+        HeadWire(Wire('x').delay())
     with raises(ValueError):
-        TailOb(Wire('x').delay())
+        TailWire(Wire('x').delay())
 
 
 def test_Diagram_repr():

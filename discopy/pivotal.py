@@ -83,10 +83,10 @@ class Wire(rigid.Wire):
 @factory
 class Ty(rigid.Ty):
     """
-    A pivotal type is a rigid type with pivotal objects inside.
+    A pivotal type is a rigid type with pivotal wires inside.
 
     Parameters:
-        inside (Wire) : The objects inside the type.
+        inside (Wire) : The wires inside the type.
     """
     generator_factory = Wire
 

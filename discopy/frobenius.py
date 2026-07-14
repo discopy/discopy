@@ -84,10 +84,10 @@ class Wire(pivotal.Wire):
 @factory
 class Ty(pivotal.Ty):
     """
-    A frobenius type is a pivotal type with frobenius objects inside.
+    A frobenius type is a pivotal type with frobenius wires inside.
 
     Parameters:
-        inside (frobenius.Wire) : The objects inside the type.
+        inside (frobenius.Wire) : The wires inside the type.
     """
     generator_factory = Wire
 

@@ -42,6 +42,7 @@ Axioms
 from __future__ import annotations
 
 from collections.abc import Callable
+from warnings import warn
 
 from typing import Iterator
 
@@ -135,16 +136,22 @@ class Wire(monoidal.Wire):
         return cls(base.name, tree.get('z', 0), dom=base.dom, cod=base.cod)
 
 
-Ob = Wire  # Legacy alias so that pickles dumped before the rename still load.
+def __getattr__(name):
+    # Resolve the pre-rename Ob name so old dumps and pickles still load.
+    if name == "Ob":
+        warn("discopy.rigid.Ob has been renamed to discopy.rigid.Wire.",
+             DeprecationWarning)
+        return Wire
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 @factory
 class Ty(Pregroup, biclosed.Ty):
     """
-    A rigid type is a biclosed type with rigid objects inside.
+    A rigid type is a biclosed type with rigid wires inside.
 
     Parameters:
-        inside (tuple[Wire, ...]) : The objects inside the type.
+        inside (tuple[Wire, ...]) : The wires inside the type.
 
     Example
     -------

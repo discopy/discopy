@@ -82,7 +82,7 @@ class Ty(monoidal.Ty):
     A biclosed type is a monoidal type that can be exponentiated.
 
     Parameters:
-        inside (Ty) : The objects inside the type.
+        inside (Ty) : The wires inside the type.
 
     Note
     ----

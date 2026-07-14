@@ -36,9 +36,9 @@ def test_deprecated_from_tree():
     tree = {
         'factory': 'discopy.rigid.Diagram',
         'dom': {'factory': 'discopy.rigid.Ty',
-                'objects': [{'factory': 'discopy.rigid.Wire', 'name': 'n'}]},
+                'objects': [{'factory': 'discopy.rigid.Ob', 'name': 'n'}]},
         'cod': {'factory': 'discopy.rigid.Ty',
-                'objects': [{'factory': 'discopy.rigid.Wire', 'name': 'n'}]},
+                'objects': [{'factory': 'discopy.rigid.Ob', 'name': 'n'}]},
         'boxes': [], 'offsets': []}
     with warns(DeprecationWarning):
         assert from_tree(tree) == rigid.Id(rigid.Ty('n'))

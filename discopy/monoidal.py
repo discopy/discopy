@@ -166,11 +166,11 @@ class FreeMonoid(cat.FreeCategory, ColouredMonoid):
 @factory
 class Ty(cat.Ob, FreeMonoid):
     """
-    A type is a composable path of objects with :meth:`Ty.tensor`
+    A type is a composable path of wires with :meth:`Ty.tensor`
     as concatenation.
 
     Parameters:
-        inside : The objects inside the type (or their names).
+        inside : The wires inside the type (or their names).
 
     Tip
     ---
@@ -196,7 +196,7 @@ class Ty(cat.Ob, FreeMonoid):
     ----
     Types can be indexed and sliced using square brackets. Indexing behaves
     like that of strings, i.e. when we index a type we get a type back.
-    The objects inside the type are still accessible using ``.inside``.
+    The wires inside the type are still accessible using ``.inside``.
 
     >>> t = Ty(*"xyz")
     >>> assert t[0] == t[:1] == Ty('x')
