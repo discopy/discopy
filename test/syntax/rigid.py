@@ -33,6 +33,17 @@ def test_Box_hash():
     assert {f: 42}[f @ Id()] == 42
 
 
+def test_Box_hash_winding():
+    """
+    Rigid boxes that differ only by their winding number must not be equal
+    nor hash equally, see https://github.com/discopy/discopy/pull/387
+    """
+    x = Ty('x')
+    f = Box('f', x, x)
+    assert f != f.rotate() and hash(f) != hash(f.rotate())
+    assert f == Box('f', x, x) and hash(f) == hash(Box('f', x, x))
+
+
 def test_Ob_repr():
     assert repr(Ob('a', z=42)) == "rigid.Ob('a', z=42)"
 

@@ -317,18 +317,56 @@ class Arrow(FreeCategory):
     def __str__(self):
         return ' >> '.join(map(str, self.inside)) or f"Id({self.dom})"
 
-    def __eq__(self, other):
-        return isinstance(other, self.ar)\
-            and self.is_parallel(other) and self.inside == other.inside
-
-    def __hash__(self):
-        return hash(repr(self))
-
     def __add__(self, other):
         return self.sum_factory((self, )) + other
 
     def __radd__(self, other):
         return self if other == 0 else NotImplemented
+
+    @property
+    def is_generator(self):
+        """ Whether an `Arrow` is a generator, i.e. it has length 1. """
+        return len(self.inside) == 1
+
+    @property
+    def generator(self):
+        """ Returns the only box in an `Arrow` of length 1. """
+        return self.inside[0] if self.is_generator else None
+
+    def setoid(self):
+        """
+        Returns data that faithfully describes an `Arrow` making sure that
+        `self.generator.setoid == self.setoid` when `self.is_generator`.
+        This is used to define `Arrow.__eq__` and `Arrow.__hash__`.
+
+        Abstract
+        --------
+        We are defining a [setoid](https://en.wikipedia.org/wiki/Setoid) with
+        the type `Arrow` quotiented by `f.setoid() == g.setoid()` so that the
+        equivalence class satisfies the axioms of category theory e.g.
+
+        >>> f = Box('f', Ob("X"), Ob("Y"))
+        >>> f_ = f >> Id(f.cod)
+        >>> assert f.setoid() == f_.setoid()
+        >>> assert f is not f_ and f == f_
+
+        Warning
+        -------
+        Messing around with this method can lead to so-called **setoid hell**.
+        In Python there is no way to give a formal proof that a function, e.g.
+        functor application, is in fact a morphism of setoids, i.e. that it
+        sends equal inputs to equal outputs.
+        """
+        generator = self.generator
+        if generator is None:
+            return (self.inside, self.dom, self.cod)
+        return generator.setoid()
+
+    def __eq__(self, other):
+        return isinstance(other, self.ar) and self.setoid() == other.setoid()
+
+    def __hash__(self):
+        return hash(self.setoid())
 
     def then(self, *others: Arrow) -> Arrow:
         """
@@ -556,18 +594,14 @@ class Box(Arrow):
     def __str__(self):
         return str(self.name) + ("[::-1]" if self.is_dagger else '')
 
-    def __hash__(self):
-        return hash(Arrow.__repr__(self))
-
-    def __eq__(self, other):
-        if isinstance(other, Box):
-            return type(self) is type(other)\
-                and self.name == other.name\
-                and self.is_parallel(other)\
-                and self.is_dagger == other.is_dagger\
-                and bool(self.data == other.data)
-        return isinstance(other, Arrow)\
-            and self >> self.id(self.cod) == other  # cast box as diagram
+    def setoid(self):
+        """
+        The equality and hash of a box is given by hashing its type as well as
+        its internal attributes `name, dom, cod, is_dagger` and `data`. In
+        particular if the `data` is not hashable then neither is the `Box`.
+        """
+        attributes = self.name, self.dom, self.cod, self.is_dagger, self.data
+        return (type(self), ) + attributes
 
     def __lt__(self, other):
         return self.name < other.name
@@ -630,14 +664,17 @@ class Sum(Box):
         self.terms = terms
         super().__init__(name, dom, cod)
 
-    def __eq__(self, other):
-        if isinstance(other, Sum):
-            return (self.dom, self.cod, self.terms)\
-                == (other.dom, other.cod, other.terms)
-        return len(self.terms) == 1 and self.terms[0] == other
+    @property
+    def is_generator(self):
+        return len(self.terms) == 1 and self.terms[0].is_generator
 
-    def __hash__(self):
-        return hash(repr(self))
+    def generator(self):
+        return self.terms[0].generator if self.is_generator else None
+
+    def setoid(self):
+        """ Ensure that a singleton sum is in fact equal to its only term. """
+        return self.terms[0].setoid() if len(self.terms) == 1 else (
+            type(self), self.terms, self.dom, self.cod)
 
     def __repr__(self):
         return self.name
@@ -734,15 +771,14 @@ class Bubble(Box):
         return len(self.args) == 1 and (
             self.dom, self.cod) == (self.arg.dom, self.arg.cod)
 
-    def __eq__(self, other):
-        if isinstance(other, Bubble):
-            return all(getattr(self, x) == getattr(other, x) for x in (
-                "args", "dom", "cod", "name", "method"))
-        return not isinstance(other, Box) and super().__eq__(other)
-
-    def __hash__(self):
-        return hash(tuple(getattr(self, x) for x in [
-            "args", "dom", "cod", "name", "method"]))
+    def setoid(self):
+        """
+        Ensure that bubbles are equal if they have the same type, their `args`
+        are equal as well as their attributes `dom, cod, name, method`.
+        """
+        args_data = tuple(f.setoid() for f in self.args)
+        return (type(self), ) + args_data + tuple(getattr(self, x) for x in (
+            "dom", "cod", "name", "method"))
 
     def __str__(self):
         str_args = ",".join(map(str, self.args))

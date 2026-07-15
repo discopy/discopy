@@ -33,6 +33,42 @@ def test_Box_hash_hypergraph():
         assert f @ Id() in {f}
 
 
+def test_Box_hash_invariant_under_hypergraph_equality():
+    """
+    A box is a generator, so its hash must not depend on whether we use
+    hypergraph equality, see https://github.com/discopy/discopy/issues/382
+    """
+    x, y = Ty('x'), Ty('y')
+    f = Box('f', x, y)
+    outside = hash(f)
+    with Diagram.hypergraph_equality:
+        inside = hash(f)
+    assert outside == inside == hash(f)
+    # A box stored in a dictionary must still be found inside the context.
+    boxes = {f: 42}
+    with Diagram.hypergraph_equality:
+        assert boxes[f] == 42
+        assert boxes[Box('f', x, y)] == 42
+
+
+def test_Functor_hypergraph_equality():
+    """
+    Regression test for https://github.com/discopy/discopy/issues/382
+
+    A ``Functor`` stores the image of each generator by hashing the boxes in
+    its domain.  Turning on ``hypergraph_equality`` used to change the hash of
+    a box, so the box went missing from the functor's dictionary and its
+    evaluation raised a ``KeyError``.
+    """
+    x, y = Ty('x'), Ty('y')
+    f, g = Box('f', x, y), Box('g', y, x)
+    F = Functor(ob={x: y, y: x}, ar={f: g, g: f})
+    assert F(f) == g and F(g) == f
+    with Diagram.hypergraph_equality:
+        assert F(f) == g and F(g) == f
+        assert F(f >> g) == g >> f
+
+
 def test_Diagram_permutation():
     x = PRO(1)
     tmp, Diagram.ob = Diagram.ob, PRO

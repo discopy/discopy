@@ -89,7 +89,7 @@ from contextlib import contextmanager
 
 from discopy import monoidal, balanced, traced, messages
 from discopy.abc import SymmetricCategory
-from discopy.cat import Arrow, ar_factory
+from discopy.utils import ar_factory
 from discopy.monoidal import Ob, Ty, PRO  # noqa: F401
 from discopy.utils import classproperty
 
@@ -143,18 +143,16 @@ class Diagram(balanced.Diagram, SymmetricCategory):
     Every variable must be used exactly once or this will raise an error.
 
     >>> from pytest import raises
-    >>> from discopy.utils import AxiomError
 
-    >>> with raises(AxiomError) as err:
+    >>> with raises(AttributeError) as err:
     ...     Diagram.from_callable(x, x @ x)(lambda x: (x, x))
     >>> print(err.value)
-    symmetric.Diagram does not have copy or discard.
+    type object 'Diagram' has no attribute 'spider_factory'
 
-    >>> with raises(AxiomError) as err:
+    >>> with raises(AttributeError) as err:
     ...     Diagram.from_callable(x, Ty())(lambda x: ())
     >>> print(err.value)
-    symmetric.Diagram does not have copy or discard.
-
+    type object 'Diagram' has no attribute 'spider_factory'
 
     Note
     ----
@@ -221,27 +219,62 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         """ Simplify by translating back and forth to hypergraph. """
         return self.to_hypergraph().to_diagram()
 
-    def _get_structure(self):
-        return self.to_hypergraph() if self.use_hypergraph_equality else (
-            self.inside, self.cod, self.dom)
+    @property
+    def is_generator(self):
+        """
+        Whether a diagram counts as a single generator
 
-    def __eq__(self, other):
-        return isinstance(other, self.ar)\
-            and self._get_structure() == other._get_structure()
-
-    def __hash__(self):
+        Warning
+        -------
+        The notion of "box" depends on whether we `use_hypergraph_equality`.
+        For instance, the double transpose of a box is a generator when encoded
+        as a hypergraph but not when it's a diagram, the box for a swap is a
+        generator when encoded as a diagram but not when it's a hypergraph.
+        """
         if self.use_hypergraph_equality:
-            return hash(self._get_structure())
-        return hash(repr(self))
+            return self.to_hypergraph().is_generator
+        return super().is_generator
+
+    @property
+    def generator(self):
+        """
+        The generator inside a singleton diagram, see :meth:`is_generator`.
+        """
+        if self.use_hypergraph_equality:
+            return self.to_hypergraph().generator
+        return super().generator
+
+    def setoid(self):
+        """
+        Return an encoding of the equivalence class that a diagram belongs to,
+        used as subroutines for equality and hashing.
+
+        Note
+        ----
+        When `use_hypergraph_equality`, this calls `to_hypergraph` otherwise it
+        returns the attributes `inside, dom, cod`. On generator diagrams, i.e.
+        equal to just a box, we return the box itself to break the circularity.
+        See :meth:`is_generator` for details on when a diagram counts as a box.
+
+        We ensure that a box will get the same hash regardless of the equality
+        method used so that e.g. one can define the mapping for a functor with
+        no hypergraph equality and apply it inside `with hypergraph_equality:`.
+        """
+        if self.use_hypergraph_equality:
+            hypergraph = self.to_hypergraph()
+            generator = hypergraph.generator
+            return hypergraph if generator is None else generator.setoid()
+        return super().setoid()
 
     @classproperty
     @contextmanager
     def hypergraph_equality(cls):
-        tmp, cls.use_hypergraph_equality = cls.use_hypergraph_equality, True
+        tmp, cls.ar.use_hypergraph_equality =\
+            cls.ar.use_hypergraph_equality, True
         try:
             yield
         finally:
-            cls.use_hypergraph_equality = tmp
+            cls.ar.use_hypergraph_equality = tmp
 
     def depth(self):
         """
@@ -268,11 +301,10 @@ class Box(balanced.Box, Diagram):
         dom (monoidal.Ty) : The domain of the box, i.e. its input.
         cod (monoidal.Ty) : The codomain of the box, i.e. its output.
     """
-
-    def __hash__(self):
-        if self.use_hypergraph_equality:
-            return hash(self.to_hypergraph())
-        return hash(Arrow.__repr__(self))
+    def setoid(self):
+        if self.use_hypergraph_equality and not self.is_generator:
+            return Diagram.setoid(self)
+        return balanced.Box.setoid(self)
 
 
 class Swap(balanced.Braid, Box):
@@ -309,11 +341,9 @@ class Trace(balanced.Trace, Box):
     --------
     :meth:`Diagram.trace`
     """
-    __eq__, __hash__ = Diagram.__eq__, Diagram.__hash__
-
-    def _get_structure(self):
-        return super()._get_structure() if self.use_hypergraph_equality else (
-            type(self), self.dom, self.cod, self.arg._get_structure())
+    def setoid(self):
+        return Box.setoid(self) if self.use_hypergraph_equality else\
+            balanced.Trace.setoid(self)
 
 
 class Sum(balanced.Sum, Box):
