@@ -313,18 +313,19 @@ class Functor(frobenius.Functor):
     and ``Tensor[dtype]`` as codomain for a given ``dtype``.
 
     Calling it on a diagram maps every box to its tensor and contracts the
-    resulting network through :class:`CMap`, passing ``params`` through,
-    e.g. ``Functor(ob_map, ar_map, optimize="optimal")``.
+    resulting network in a single ``einsum`` call through :class:`CMap`,
+    passing any optional einsum parameters through.
 
     Parameters:
         ob_map : The object mapping.
         ar_map : The arrow mapping.
-        dom : The domain of the functor,
-            the class attribute ``dom`` by default.
+        dom : The domain of the functor, i.e. the class of diagrams
+            it evaluates, the class attribute ``dom`` by default.
         dtype : The datatype for the codomain ``Tensor[dtype]``.
         backend : The name of the array :func:`backend` to evaluate in,
             the active backend by default.
-        params : Extra keyword arguments passed to :meth:`CMap.eval`.
+        params : Extra keyword arguments passed to :meth:`CMap.eval`,
+            e.g. ``optimize`` for ``np.einsum``.
 
     Example
     -------
