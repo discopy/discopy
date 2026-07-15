@@ -224,8 +224,17 @@ class Functor(pivotal.Functor, balanced.Functor):
         return pivotal.Functor.__call__(self, other)
 
 
+class Hypergraph(balanced.Hypergraph):
+    """
+    A ribbon hypergraph is a balanced hypergraph translated with a ribbon
+    :class:`Functor`, so that both braids and cups and caps are encoded.
+    """
+    functor = Functor
+
+
 Diagram.braid_factory = Braid
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Diagram.twist_factory = Twist
+Diagram.hypergraph_factory = Hypergraph
 
 Id = Diagram.id
