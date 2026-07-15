@@ -395,6 +395,7 @@ Diagram.braid_factory, Diagram.spider_factory = Swap, Spider
 Diagram.bubble_factory = Bubble
 Id = Diagram.id
 
-#: The :class:`Equation` of Frobenius diagrams compared up to hypergraph
-#: isomorphism, i.e. ``Equation = Diagram.to_hypergraph.quotient``.
-Equation = Diagram.to_hypergraph.quotient
+
+class Equation(compact.Equation):
+    """ The :class:`compact.Equation` of Frobenius diagrams. """
+    functor = Diagram.to_hypergraph

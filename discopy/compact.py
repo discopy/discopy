@@ -150,6 +150,7 @@ Diagram.hypergraph_factory = Hypergraph
 Diagram.map_factory = CMap
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 
-#: The :class:`Equation` of compact diagrams compared up to hypergraph
-#: isomorphism, i.e. ``Equation = Diagram.to_hypergraph.quotient``.
-Equation = Diagram.to_hypergraph.quotient
+
+class Equation(symmetric.Equation):
+    """ The :class:`symmetric.Equation` of compact diagrams. """
+    functor = Diagram.to_hypergraph

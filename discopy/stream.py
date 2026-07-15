@@ -18,7 +18,7 @@ We adapted the definition of intensional streams from :cite:t:`DiLavoreEtAl22`.
 Monoidal streams form a feedback category as follows:
 
 >>> from discopy import feedback
->>> from discopy.cat import Equation
+>>> from discopy.monoidal import Equation
 >>> x, y, m = map(feedback.Ty, "xym")
 >>> f = feedback.Box('f', x @ m.delay(), y @ m)
 >>> fb = f.feedback()
@@ -434,7 +434,7 @@ class Stream(MonoidalCategory, NamedGeneric['category']):
         Example
         -------
 
-        >>> from discopy.cat import Equation
+        >>> from discopy.monoidal import Equation
         >>> f = Stream.sequence("f", *map(Ty.sequence, "xym"))
         >>> Equation(f.now, f.unroll().now, f.unroll(2).now, symbol=',').draw(
         ...     figsize=(8, 4), path="docs/_static/stream/unroll.png")
@@ -555,7 +555,7 @@ class Stream(MonoidalCategory, NamedGeneric['category']):
         >>> f = Stream.sequence("f", x @ m.delay(), y @ m)
         >>> fb = f.feedback(x, y, m)
 
-        >>> from discopy.cat import Equation
+        >>> from discopy.monoidal import Equation
         >>> Equation(f.unroll(2).now, fb.unroll(2).now, symbol="$\\\\mapsto$"
         ...     ).draw(path="docs/_static/stream/feedback-unrolling.png")
 

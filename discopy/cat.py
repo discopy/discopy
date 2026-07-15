@@ -943,30 +943,6 @@ class Functor(Category):
             result = result >> self(box)
         return result
 
-    def quotient(self, *terms: Arrow, **params) -> Equation:
-        """
-        The :class:`Equation` that holds when the ``terms`` become equal in
-        the image of ``self``, i.e. up to the equivalence relation (the kernel
-        of the functor) that ``self`` induces on its domain.
-
-        Parameters:
-            terms : The terms of the equation.
-            params : Passed to :class:`Equation`, e.g. ``symbol``, ``space``.
-
-        Example
-        -------
-        The functor that forgets the name of each box identifies any two
-        parallel boxes:
-
-        >>> x = Ob('x')
-        >>> f, g = Box('f', x, x), Box('g', x, x)
-        >>> forget = Functor(
-        ...     ob_map=lambda ob: ob,
-        ...     ar_map=lambda box: Box('*', box.dom, box.cod))
-        >>> assert f != g and forget.quotient(f, g)
-        """
-        return Equation(*terms, functor=self, **params)
-
 
 Arrow.generator_factory = Box
 
@@ -1082,41 +1058,26 @@ class Transformation(Category):
 
 class Equation:
     """
-    An equation is a list of terms with a dedicated draw method and a
-    ``functor`` up to which the terms are compared, the identity by default.
-    Casting it to ``bool`` checks whether its terms are equal up to that
-    functor.
+    An equation is a list of terms and a ``functor`` up to which they are
+    compared, the identity by default.  Casting it to ``bool`` checks whether
+    its terms are equal up to that functor.
+
+    Coarser equalities are made local and explicit as the kernel of a functor:
+    rather than a mutable global flag, each syntax module defines a subclass of
+    :class:`Equation` with the appropriate :attr:`functor`, e.g.
+    :class:`symmetric.Equation` compares diagrams up to hypergraph isomorphism.
 
     Parameters:
         terms : The terms of the equation.
         symbol : The symbol between the terms.
         space : The space between the terms.
         functor : The functor up to which ``bool(equation)`` compares its
-            terms, the identity by default (i.e. syntactic equality).
+            terms, overriding the subclass' :attr:`functor` if given.
 
     Example
     -------
-    >>> from discopy.tensor import Spider, Swap, Dim, Id
-    >>> dim = Dim(2)
-    >>> mu, eta = Spider(2, 1, dim), Spider(0, 1, dim)
-    >>> delta, upsilon = Spider(1, 2, dim), Spider(1, 0, dim)
-    >>> special = Equation(mu >> delta, Id(dim))
-    >>> frobenius = Equation(
-    ...     delta @ Id(dim) >> Id(dim) @ mu,
-    ...     mu >> delta,
-    ...     Id(dim) @ delta >> mu @ Id(dim))
-    >>> Equation(special, frobenius, symbol=', ').draw(
-    ...          aspect='equal', wire_labels=False,
-    ...          path='docs/_static/drawing/frobenius-axioms.png')
-
-    .. image:: /_static/drawing/frobenius-axioms.png
-        :align: center
-
-    Note
-    ----
-    Passing a ``functor`` compares the terms up to that functor, i.e. up to the
-    equivalence relation it induces; this is what :meth:`Functor.quotient`
-    returns.
+    The functor that forgets the name of each box identifies any two parallel
+    boxes, so the equation between them holds up to that functor:
 
     >>> x = Ob('x')
     >>> f, g = Box('f', x, x), Box('g', x, x)
@@ -1124,11 +1085,20 @@ class Equation:
     ...     ob_map=lambda ob: ob,
     ...     ar_map=lambda box: Box('*', box.dom, box.cod))
     >>> assert not Equation(f, g) and Equation(f, g, functor=forget)
+
+    Note
+    ----
+    :class:`Equation` has no ``draw`` method because :class:`Arrow` has none;
+    see :class:`monoidal.Equation` for equations of diagrams.
     """
-    def __init__(self, *terms: Arrow, symbol="=", space=1,
-                 functor=lambda term: term):
+    #: The functor up to which the terms are compared, ``None`` (i.e. the
+    #: identity, syntactic equality) by default; subclasses override it.
+    functor = None
+
+    def __init__(self, *terms: Arrow, symbol="=", space=1, functor=None):
         self.terms, self.symbol, self.space = terms, symbol, space
-        self.functor = functor
+        if functor is not None:
+            self.functor = functor
 
     def __repr__(self):
         return f"Equation({', '.join(map(repr, self.terms))})"
@@ -1136,23 +1106,9 @@ class Equation:
     def __str__(self):
         return f" {self.symbol} ".join(map(str, self.terms))
 
-    def to_drawing(self):
-        result = self.terms[0].to_drawing()
-        for term in self.terms[1:]:
-            result = result.add(term.to_drawing(), self.symbol, self.space)
-        return result
-
-    def draw(self, path=None, **params):
-        """
-        Drawing an equation.
-
-        Parameters:
-            path : Where to save the drawing.
-            params : Passed to :meth:`discopy.monoidal.Diagram.draw`.
-        """
-        return self.to_drawing().draw(path=path, **params)
-
     def __bool__(self):
+        if self.functor is None:
+            return all(term == self.terms[0] for term in self.terms)
         first = self.functor(self.terms[0])
         return all(self.functor(term) == first for term in self.terms[1:])
 

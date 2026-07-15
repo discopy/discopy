@@ -57,7 +57,7 @@ Examples
 >>> F = pregroup.Functor(ob, ar, cod=Circuit)
 >>> assert abs(F(sentence).eval().array) ** 2
 
->>> from discopy.cat import Equation
+>>> from discopy.monoidal import Equation
 >>> Equation(
 ...     sentence, F(sentence).foliation(), symbol='$\\\\mapsto$').draw(
 ...         path='docs/_static/quantum/functor-example.png')

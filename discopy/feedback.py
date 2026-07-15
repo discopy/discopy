@@ -651,6 +651,7 @@ Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.feedback_factory, Diagram.followed_by = Feedback, FollowedBy
 Id = Diagram.id
 
-#: The :class:`Equation` of feedback diagrams compared up to hypergraph
-#: isomorphism, i.e. ``Equation = Diagram.to_hypergraph.quotient``.
-Equation = Diagram.to_hypergraph.quotient
+
+class Equation(markov.Equation):
+    """ The :class:`markov.Equation` of feedback diagrams. """
+    functor = Diagram.to_hypergraph

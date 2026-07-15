@@ -20,6 +20,7 @@ Summary
     Sum
     Bubble
     Functor
+    Equation
 
 Axioms
 ------
@@ -1127,7 +1128,7 @@ class Functor(cat.Functor):
     >>> assert F(f0 >> f0[::-1]) == f1 >> f1[::-1]
     >>> source, target = f0 >> f0[::-1], F(f0 >> f0[::-1])
 
-    >>> from discopy.cat import Equation
+    >>> from discopy.monoidal import Equation
     >>> Equation(source, target, symbol='$\\\\mapsto$').draw(
     ...     path='docs/_static/monoidal/functor-example.png')
 
@@ -1199,6 +1200,34 @@ class CMap(cmap.CMap):
     require_causal = True
     require_oriented = True
     require_connected = True
+
+
+class Equation(cat.Equation):
+    """
+    An :class:`.cat.Equation` of diagrams, i.e. with a :meth:`draw` method.
+
+    Example
+    -------
+    >>> x = Ty('x')
+    >>> f, g = Box('f', x, x), Box('g', x, x)
+    >>> print(Equation(f, g, symbol="=>"))
+    f => g
+    """
+    def to_drawing(self):
+        result = self.terms[0].to_drawing()
+        for term in self.terms[1:]:
+            result = result.add(term.to_drawing(), self.symbol, self.space)
+        return result
+
+    def draw(self, path=None, **params):
+        """
+        Drawing an equation.
+
+        Parameters:
+            path : Where to save the drawing.
+            params : Passed to :meth:`Diagram.draw`.
+        """
+        return self.to_drawing().draw(path=path, **params)
 
 
 Diagram.draw = drawing.draw

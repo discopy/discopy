@@ -325,6 +325,7 @@ Diagram.discard_factory = Discard
 Diagram.sum_factory = Sum
 Id = Diagram.id
 
-#: The :class:`Equation` of Markov diagrams compared up to hypergraph
-#: isomorphism, i.e. ``Equation = Diagram.to_hypergraph.quotient``.
-Equation = Diagram.to_hypergraph.quotient
+
+class Equation(symmetric.Equation):
+    """ The :class:`symmetric.Equation` of Markov diagrams. """
+    functor = Diagram.to_hypergraph

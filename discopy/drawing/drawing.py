@@ -21,7 +21,7 @@ Axioms
 * Associativity and unit
 
 >>> from discopy.monoidal import Ty, Box
->>> from discopy.cat import Equation
+>>> from discopy.monoidal import Equation
 
 >>> x, y, z, w = map(Ty, "xyzw")
 >>> f = Box('f', x, y).to_drawing()
@@ -55,13 +55,11 @@ Axioms
 
 from __future__ import annotations
 
-import warnings
 from typing import NamedTuple, TYPE_CHECKING
 from dataclasses import dataclass
 
 import networkx as nx
 
-from discopy import cat
 from discopy.drawing import backend, Node, Point
 from discopy.config import DRAWING_ATTRIBUTES
 from discopy.abc import TracedCategory
@@ -915,11 +913,6 @@ class Drawing(TracedCategory):
         return self
 
 
-class Equation(cat.Equation):
-    """ Deprecated alias for :class:`discopy.cat.Equation`. """
-    def __init__(self, *args, **kwargs):
-        warnings.warn(
-            "discopy.drawing.Equation is deprecated, use the Equation of the "
-            "relevant module instead, e.g. discopy.symmetric.Equation or "
-            "discopy.cat.Equation.", DeprecationWarning, stacklevel=2)
-        super().__init__(*args, **kwargs)
+# ``Equation`` has moved to :mod:`discopy.cat` (base) and
+# :mod:`discopy.monoidal` (with a ``draw`` method); ``discopy.drawing
+# .Equation`` is a deprecated alias, see :mod:`discopy.drawing`.

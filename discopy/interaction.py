@@ -54,7 +54,7 @@ Example
 >>> image = F(noun_phrase).inside.to_hypergraph().interchange(1, 3)\\
 ...     .to_diagram().interchange(1, 2).naturality(2, left=False)
 
->>> from discopy.cat import Equation
+>>> from discopy.monoidal import Equation
 >>> Equation(noun_phrase, image, symbol="$\\\\mapsto$").draw(
 ...     path="docs/_static/int/alice-loves-interaction.png")
 
@@ -342,7 +342,7 @@ class Diagram(RibbonCategory, NamedGeneric['natural']):
 
         This is what the snake equations look like:
 
-        >>> from discopy.cat import Equation
+        >>> from discopy.monoidal import Equation
         >>> x = Ty('x')
         >>> Equation(
         ...     Diagram.caps(x, -x) @ x >> x @ Diagram.cups(-x, x),
@@ -377,7 +377,7 @@ class Diagram(RibbonCategory, NamedGeneric['natural']):
         >>> from discopy.ribbon import Ty as T, Diagram as D, Box as B
         >>> x, y, u, v = map(Ty[T], "xyuv")
         >>> f = Diagram[D](B('f', T('x', 'v'), T('y', 'u')), x @ -u, y @ -v)
-        >>> from discopy.cat import Equation
+        >>> from discopy.monoidal import Equation
         >>> Equation(f, f[::-1], symbol="$\\\\mapsto$").draw(
         ...     path="docs/_static/int/dagger.png")
 
@@ -408,7 +408,7 @@ class Diagram(RibbonCategory, NamedGeneric['natural']):
         >>> right_snake = D.id(-x).transpose(left=False)
         >>> assert left_snake.simplify() == D.id(x) == right_snake.simplify()
 
-        >>> from discopy.cat import Equation
+        >>> from discopy.monoidal import Equation
         >>> Equation(left_snake, Equation(
         ...     D.id(x), right_snake, symbol="$\\\\leftarrow$"),
         ...         symbol="$\\\\rightarrow$").draw(

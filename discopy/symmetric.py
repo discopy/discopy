@@ -93,9 +93,9 @@ class _ToHypergraph:
     Descriptor exposing the diagram-to-hypergraph functor.
 
     Accessed on the class, ``Diagram.to_hypergraph`` is the :class:`Functor`
-    itself, so that e.g. ``Diagram.to_hypergraph.quotient`` returns an
-    :class:`Equation`.  Accessed on an instance, ``diagram.to_hypergraph()``
-    applies the functor to the diagram, i.e. translates it into a hypergraph.
+    itself, e.g. it is the :attr:`Equation.functor` of :class:`Equation`.
+    Accessed on an instance, ``diagram.to_hypergraph()`` applies the functor to
+    the diagram, i.e. translates it into a hypergraph.
 
     The functor is built once per class rather than on the fly, from the
     class' :attr:`hypergraph_factory`.
@@ -134,9 +134,8 @@ class Diagram(balanced.Diagram, SymmetricCategory):
     Equality and hashing of symmetric diagrams is always syntactic: two
     diagrams are equal if and only if they are built from the same layers.
     To compare diagrams up to hypergraph isomorphism (swaps, spider fusion,
-    trace routing) use the :class:`Equation` of :attr:`to_hypergraph`, e.g.
-    ``from discopy.symmetric import Equation`` or, equivalently,
-    ``Equation = Diagram.to_hypergraph.quotient``.
+    trace routing) use ``from discopy.symmetric import Equation``, i.e. the
+    :class:`Equation` whose :attr:`~Equation.functor` is :attr:`to_hypergraph`.
 
     >>> x, y = Ty("x"), Ty("y")
     >>> a = Swap(x, y) >> Swap(y, x)
@@ -235,8 +234,8 @@ class Diagram(balanced.Diagram, SymmetricCategory):
     #: The functor from diagrams to hypergraphs, see :class:`_ToHypergraph`.
     #: Accessed on an instance it is callable, i.e. ``diagram
     #: .to_hypergraph()`` translates the diagram into a hypergraph; accessed on
-    #: the class it is the :class:`Functor` itself, so it combines with
-    #: :meth:`Functor.quotient` to compare diagrams up to hypergraph iso.
+    #: the class it is the :class:`Functor` itself, used as the
+    #: :attr:`Equation.functor` of :class:`Equation`.
     to_hypergraph = _ToHypergraph()
 
     def simplify(self):
@@ -352,8 +351,15 @@ Diagram.trace_factory = Trace
 Diagram.sum_factory = Sum
 Id = Diagram.id
 
-#: The :class:`Equation` of symmetric diagrams compared up to hypergraph
-#: isomorphism, i.e. ``Equation = Diagram.to_hypergraph.quotient``.  Use it as
-#: ``from discopy.symmetric import Equation`` to test axioms that only hold up
-#: to swaps, spider fusion and trace routing.
-Equation = Diagram.to_hypergraph.quotient
+
+class Equation(monoidal.Equation):
+    """
+    The :class:`monoidal.Equation` of symmetric diagrams compared up to
+    hypergraph isomorphism, i.e. up to swaps, spider fusion and trace routing.
+
+    Example
+    -------
+    >>> x, y = Ty('x'), Ty('y')
+    >>> assert Equation(Swap(x, y) >> Swap(y, x), Id(x @ y))
+    """
+    functor = Diagram.to_hypergraph

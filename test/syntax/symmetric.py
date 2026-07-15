@@ -24,18 +24,16 @@ def test_Box_hash():
     assert {f: 42}[f @ Id()] == 42
 
 
-def test_Equation_to_hypergraph_quotient():
+def test_symmetric_Equation():
     """
-    The :class:`Equation` of ``Diagram.to_hypergraph.quotient`` (a.k.a.
-    ``from discopy.symmetric import Equation``) compares diagrams up to
-    hypergraph isomorphism (e.g. swaps cancel) while ``==`` stays syntactic,
+    ``symmetric.Equation`` compares diagrams up to hypergraph isomorphism
+    (e.g. swaps cancel) while ``==`` stays syntactic,
     see https://github.com/discopy/discopy/issues/382
     """
     x = Ty('x')
     a, b = Swap(x, x) >> Swap(x, x), Id(x @ x)
     assert a != b
     assert Equation(a, b)
-    assert Diagram.to_hypergraph.quotient(a, b)
     assert not Equation(a, Swap(x, x))
 
 

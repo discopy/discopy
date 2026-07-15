@@ -35,7 +35,7 @@ Braids have their dagger as inverse, up to :meth:`Diagram.simplify`.
 >>> RHS = Braid(y, x)[::-1] >> Braid(y, x)
 >>> assert LHS.simplify() == Id(x @ y) == RHS.simplify()
 
->>> from discopy.cat import Equation
+>>> from discopy.monoidal import Equation
 >>> Equation(LHS, Id(x @ y), RHS).draw(
 ...     path='docs/_static/braided/inverse.png')
 

@@ -19,8 +19,23 @@ from discopy.drawing.drawing import (
     Point,
     PlaneGraph,
     Drawing,
-    Equation,  # deprecated alias for discopy.cat.Equation, warns on use
 )
+
+
+def __getattr__(name):
+    # ``discopy.drawing.Equation`` is a deprecated alias: ``Equation`` has
+    # moved to :mod:`discopy.cat` (base) and :mod:`discopy.monoidal` (with a
+    # ``draw`` method), or the relevant syntax module e.g.
+    # :class:`discopy.symmetric.Equation`.
+    if name == "Equation":
+        import warnings
+        from discopy.monoidal import Equation
+        warnings.warn(
+            "discopy.drawing.Equation is deprecated, use the Equation of the "
+            "relevant module instead, e.g. discopy.symmetric.Equation or "
+            "discopy.monoidal.Equation.", DeprecationWarning, stacklevel=2)
+        return Equation
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def draw(diagram, **params):
