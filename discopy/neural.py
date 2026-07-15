@@ -19,6 +19,17 @@ which implements the execution formula of the geometry of interaction, see
 :cite:t:`Abramsky96` and :mod:`discopy.interaction` for the Int-construction
 of Joyal, Street & Verity :cite:p:`JoyalEtAl96`.
 
+The forward pass is vectorized: all the messages live in one flat tensor, one
+round of routing is a single permutation of its last axis, and every box that
+shares a module and a port signature is evaluated in one batched call, so a
+grid of identical cells costs one module call per round rather than one per
+cell. It runs on whatever device its parameters live on, so ``cmap.to("cuda")``
+followed by ``cmap(x.to("cuda"))`` trains on the GPU. :meth:`CMap.forward_reference`
+is the equivalent one-call-per-box implementation, kept for clarity and tests.
+Cells need not be feedforward: a box can carry recurrent state between rounds
+along a self-wired pair of ports, i.e. a feedback loop in the sense of the
+trace.
+
 Note that ``import discopy.neural`` does not import ``torch``: networks can
 be built, composed and rewired without it, only evaluating their modules
 requires it.
@@ -317,11 +328,29 @@ class CMap(compact.CMap):
 
         return Network(name, self.dom, self.cod, module=CMapModule())
 
-    def forward(self, x: "torch.Tensor" = None, init=None,
-                n_rounds: int = None, inject: bool = True):
+    def _prepare(self, x, init):
+        """
+        Common set-up for the two forward passes: the number of rows in the
+        batch and the ``dtype``/``device`` of a reference tensor, taken from
+        the input, the initial messages or the parameters in that order.
+        """
+        given = [x] + (list(init)
+                       if isinstance(init, (list, tuple)) else [init])
+        ref = next((t for t in given if t is not None), None)
+        batch_size = 1 if ref is None else ref.shape[0]
+        proto = ref if ref is not None else next(
+            iter(self.parameters()), None) if self.boxes else None
+        kwargs = {} if proto is None else {
+            "dtype": proto.dtype, "device": proto.device}
+        return batch_size, kwargs
+
+    def forward_reference(self, x: "torch.Tensor" = None, init=None,
+                          n_rounds: int = None, inject: bool = True):
         """
         Synchronous message passing along the wires of the map, i.e. the
-        execution formula of the geometry of interaction.
+        execution formula of the geometry of interaction. Reference
+        implementation: one Python call per box per round, kept for clarity
+        and for testing; see :meth:`forward` for the vectorized equivalent.
 
         Every port carries one message of shape ``(batch_size, width)``.
         The boundary input ports deliver the corresponding slice of ``x``
@@ -346,17 +375,9 @@ class CMap(compact.CMap):
         ports = self.ports
         widths = self.port_widths
         n_rounds = len(self.boxes) if n_rounds is None else n_rounds
-
-        given = [x] + (list(init)
-                       if isinstance(init, (list, tuple)) else [init])
-        ref = next((t for t in given if t is not None), None)
-        batch_size = 1 if ref is None else ref.shape[0]
-        proto = ref if ref is not None else next(
-            iter(self.parameters()), None) if self.boxes else None
+        batch_size, kwargs = self._prepare(x, init)
 
         def zeros(width):
-            kwargs = {} if proto is None else {
-                "dtype": proto.dtype, "device": proto.device}
             return torch.zeros(batch_size, width, **kwargs)
 
         input_ports = [i for i, port in enumerate(ports)
@@ -364,8 +385,11 @@ class CMap(compact.CMap):
         x_slices = dict(zip(input_ports, torch.split(
             x, [widths[i] for i in input_ports], dim=-1))) if x is not None\
             else {i: zeros(widths[i]) for i in input_ports}
-        if init is not None and isinstance(init, torch.Tensor):
-            init = torch.split(init, list(widths), dim=-1)
+        if init is not None:
+            if isinstance(init, torch.Tensor):
+                init = torch.split(init, list(widths), dim=-1)
+            init = [message if message is not None else zeros(width)
+                    for message, width in zip(init, widths)]
 
         incoming = [zeros(width) for width in widths]\
             if init is None else list(init)
@@ -400,6 +424,131 @@ class CMap(compact.CMap):
             return torch.cat([incoming[i] for i in output_ports], dim=-1)\
                 if output_ports else zeros(0)
         return tuple(box_outputs)
+
+    @cached_property
+    def _routing(self) -> dict:
+        """
+        Cached index tensors for the vectorized :meth:`forward`, on the CPU
+        and moved to the working device at call time:
+
+        * ``total`` : the total width, and ``offsets`` : the flat offset of
+          each port,
+        * ``src`` : the routing permutation, ``incoming = outgoing[:, src]``,
+        * ``input``, ``output`` : the boundary ports of the map,
+        * ``groups`` : boxes grouped by shared module and port widths, each
+          with the flat indices of their ports in logical order, so that one
+          module call evaluates a whole group at once.
+        """
+        import torch
+        widths = self.port_widths
+        offsets, total = [], 0
+        for width in widths:
+            offsets.append(total)
+            total += width
+        src = torch.empty(total, dtype=torch.long)
+        for i, width in enumerate(widths):
+            j = self.edges[i]
+            src[offsets[i]:offsets[i] + width] = torch.arange(
+                offsets[j], offsets[j] + widths[j])
+
+        groups: dict = {}
+        for index, box in enumerate(self.boxes):
+            assert_isinstance(box, Network)
+            box_ports = self.box_ports(index)
+            key = (id(box.module), tuple(widths[i] for i in box_ports))
+            groups.setdefault(key, (box.module, []))[1].append(
+                (index, box_ports))
+
+        def gather(members):
+            return torch.tensor([
+                [k for i in box_ports
+                 for k in range(offsets[i], offsets[i] + widths[i])]
+                for _, box_ports in members], dtype=torch.long)
+
+        return {
+            "total": total, "offsets": offsets, "src": src,
+            "input": tuple(i for i, port in enumerate(self.ports)
+                           if port.kind == PortKind.INPUT),
+            "output": tuple(i for i, port in enumerate(self.ports)
+                            if port.kind == PortKind.OUTPUT),
+            "groups": tuple(
+                (module, tuple(index for index, _ in members), gather(members))
+                for module, members in groups.values())}
+
+    def forward(self, x: "torch.Tensor" = None, init=None,
+                n_rounds: int = None, inject: bool = True,
+                return_rounds: bool = False):
+        """
+        Vectorized synchronous message passing, equivalent to
+        :meth:`forward_reference`: all the messages live in one flat tensor
+        of shape ``(batch_size, total width)``, routing along the wires is
+        one permutation of the last axis and all the boxes sharing a module
+        and a port signature are evaluated in one batched call. It runs on
+        the device of the input, the initial messages or the parameters.
+
+        Parameters:
+            x : The input, of shape ``(batch_size, sum of domain widths)``.
+            init : The initial incoming messages, given per port or as one
+                   tensor of shape ``(batch_size, sum of port widths)``.
+            n_rounds : The number of rounds, the number of boxes by default.
+            inject : Whether to re-add ``init`` to the incoming messages at
+                     every round rather than just the first.
+            return_rounds : Whether to return the result after every round
+                            rather than just the last, e.g. so that a loss
+                            can supervise every round of message passing.
+        """
+        import torch
+        routing = self._routing
+        widths, offsets = self.port_widths, routing["offsets"]
+        n_rounds = len(self.boxes) if n_rounds is None else n_rounds
+        batch_size, kwargs = self._prepare(x, init)
+        device = kwargs.get("device", None)
+        src = routing["src"].to(device)
+        groups = tuple((module, indices, gather.to(device))
+                       for module, indices, gather in routing["groups"])
+
+        if isinstance(init, (list, tuple)):
+            init = torch.cat([
+                message if message is not None
+                else torch.zeros(batch_size, width, **kwargs)
+                for message, width in zip(init, widths)], dim=-1)
+        source = torch.zeros(batch_size, routing["total"], **kwargs)
+        if x is not None:
+            for i, chunk in zip(routing["input"], torch.split(
+                    x, [widths[i] for i in routing["input"]], dim=-1)):
+                source[:, offsets[i]:offsets[i] + widths[i]] = chunk
+
+        incoming = source[:, src] if init is None else init + source[:, src]
+        box_outputs = [None] * len(self.boxes)
+
+        def read():
+            if len(self.dom) or len(self.cod):
+                return torch.cat([
+                    incoming[:, offsets[i]:offsets[i] + widths[i]]
+                    for i in routing["output"]], dim=-1)\
+                    if routing["output"] else torch.zeros(
+                        batch_size, 0, **kwargs)
+            return tuple(box_outputs)
+
+        rounds = []
+        for _ in range(n_rounds):
+            outgoing = source.clone()
+            for module, indices, gather in groups:
+                n_boxes, width = gather.shape
+                outputs = module(
+                    incoming[:, gather.reshape(-1)]
+                    .reshape(batch_size * n_boxes, width)
+                ).reshape(batch_size, n_boxes, width)
+                outgoing[:, gather.reshape(-1)] = outputs.reshape(
+                    batch_size, n_boxes * width)
+                for k, index in enumerate(indices):
+                    box_outputs[index] = outputs[:, k]
+            incoming = outgoing[:, src]
+            if inject and init is not None:
+                incoming = incoming + init
+            if return_rounds:
+                rounds.append(read())
+        return rounds if return_rounds else read()
 
     __call__ = forward
 
