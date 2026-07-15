@@ -565,11 +565,6 @@ class Layer(cat.Box):
         if len(more) % 2:
             raise ValueError(messages.LAYERS_MUST_BE_ODD)
         self.boxes_or_types = (left, box, right) + more
-        # Build dom, cod and name from the concatenation of every part in one
-        # pass: ``Ty.tensor`` concatenates all the pieces in a single shot, so
-        # this is linear in the width of the layer. Folding ``dom @ piece``
-        # piece by piece (and rebuilding the name string each step) would
-        # instead be quadratic, which bites for very wide layers.
         dom_pieces, cod_pieces, names = [], [], []
         for i, box_or_typ in enumerate(self.boxes_or_types):
             if i % 2:
@@ -967,9 +962,13 @@ class Diagram(cat.Arrow, MonoidalCategory):
         boundary scan to follow, so without its offset that scan would default
         every state to the left and then need swaps to reorder them -- which a
         category without symmetry (e.g. a formal grammar) does not have.
-        Diagrams that do not embed into a hypergraph (e.g. the cups and caps of
-        a rigid or pregroup category, which are not those of a compact-closed
-        one) return :data:`NotImplemented` rather than raising.
+        Diagrams whose type does not belong to :attr:`hypergraph_factory`'s
+        own category (e.g. the cups and caps of a rigid or pregroup category,
+        whose types are not the self-dual ones of a compact-closed category
+        and so cannot embed into hypergraph spiders in the naive way) return
+        :data:`NotImplemented` rather than raising. This is checked upfront
+        from the type itself, rather than by attempting the translation and
+        catching the resulting error.
 
         Example
         -------
@@ -978,10 +977,10 @@ class Diagram(cat.Arrow, MonoidalCategory):
         >>> diagram = f0 @ f1.dagger() >> f0.dagger() @ f1
         >>> assert diagram.to_hypergraph().to_diagram() == diagram.foliation()
         """
-        try:
-            graph = self.hypergraph_factory.from_diagram(self)
-        except TypeError:  # cups and caps do not embed, e.g. in pregroup.
+        factory = self.hypergraph_factory
+        if type(self.dom) is not factory.category.ob:
             return NotImplemented
+        graph = factory.from_diagram(self)
         # When no box was absorbed into the wiring (e.g. no swaps), the
         # diagram's own offsets line up with the hypergraph's boxes and we can
         # anchor each state at the right place; boxes with a non-empty domain
