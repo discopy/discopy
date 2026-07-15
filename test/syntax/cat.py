@@ -12,7 +12,7 @@ def test_main():
     assert Id(x) >> f == f == f >> Id(y)
     assert (f >> g).dom == f.dom and (f >> g).cod == g.cod
     assert f >> g >> h == f >> (g >> h)
-    F = Functor(ob={x: y, y: z, z: x}, ar={f: g, g: h})
+    F = Functor(ob_map={x: y, y: z, z: x}, ar_map={f: g, g: h})
     assert F(Id(x)) == Id(F(x))
     assert F(f >> g) == F(f) >> F(g)
 

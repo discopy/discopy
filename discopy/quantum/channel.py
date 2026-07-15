@@ -193,11 +193,13 @@ class Channel(Tensor):
             >> f.cod[:1] @ g.cod[:1] @ f.cod[1:2]\
             @ Diagram.swap(f.cod[2:], g.cod[1:2]) @ g.cod[2:]
         array = tensor.Functor(
-            ob={Ty(f"{a}{b}{c}"): getattr(getattr(z, y), x)
+            ob_map={
+                Ty(f"{a}{b}{c}"): getattr(getattr(z, y), x)
                 for a, x in zip(['c', 'q'], ['classical', 'quantum'])
                 for b, y in zip([0, 1], ['dom', 'cod'])
                 for c, z in zip([0, 1], [self, other])},
-            ar={f: self.to_tensor(), g: other.to_tensor()}, dtype=self.dtype
+            ar_map={f: self.to_tensor(), g: other.to_tensor()},
+            dtype=self.dtype
         )(above >> f @ g >> below).array
         return type(self)(array, self.dom @ other.dom, self.cod @ other.cod)
 
@@ -296,8 +298,8 @@ class Functor(tensor.Functor):
     A channel functor is a tensor functor into classical-quantum channels.
 
     Parameters:
-        ob (dict[cat.Ob, CQ]) : The object mapping.
-        ar (dict[cat.Box, array]) : The arrow mapping.
+        ob_map (dict[cat.Ob, CQ]) : The object mapping.
+        ar_map (dict[cat.Box, array]) : The arrow mapping.
         dom : The domain of the functor.
         dtype : The datatype for the codomain ``Channel[dtype]``.
     """

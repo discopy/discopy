@@ -123,9 +123,9 @@ class Functor(symmetric.Functor, ribbon.Functor):
     A compact functor is both a symmetric functor and a ribbon functor.
 
     Parameters:
-        ob (Mapping[pivotal.Ty, pivotal.Ty]) :
+        ob_map (Mapping[pivotal.Ty, pivotal.Ty]) :
             Map from atomic :class:`pivotal.Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
+        ar_map (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
     """
     dom = cod = Diagram

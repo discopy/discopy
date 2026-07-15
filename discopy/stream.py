@@ -25,7 +25,7 @@ Monoidal streams form a feedback category as follows:
 >>> X, Y, M = [Ty.sequence(symmetric.Ty(n)) for n in "xym"]
 >>> Ff = Stream.sequence("f", X @ M.delay(), Y @ M)
 
->>> F = feedback.Functor(ob={x: X, y: Y, m: M}, ar={f: Ff},
+>>> F = feedback.Functor(ob_map={x: X, y: Y, m: M}, ar_map={f: Ff},
 ...                      cod=Stream)
 
 >>> drawing.Equation(fb, F(fb).unroll(2).now, symbol="$\\\\mapsto$").draw(
@@ -70,8 +70,8 @@ category of streams of python types and functions.
 
 >>> cod = stream.Stream[python.Function]
 >>> F = feedback.Functor(
-...     ob={X: int},
-...     ar={zero: cod.singleton(python.Function(lambda: 0, (), int)),
+...     ob_map={X: int},
+...     ar_map={zero: cod.singleton(python.Function(lambda: 0, (), int)),
 ...         one: cod.singleton(python.Function(lambda: 1, (), int)),
 ...         plus: lambda x, y: x + y}, cod=cod)
 >>> assert F(fib).unroll(9).now()[:10] == (0, 1, 1, 2, 3, 5, 8, 13, 21, 34)

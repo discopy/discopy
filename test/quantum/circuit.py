@@ -274,7 +274,7 @@ def test_adjoint():
 
     func_ob = {n: qubit, s: qubit}
     func_ar = {Bob: Ket(0), eats: Ket(1, 1)}
-    F = rigid.Functor(ob=func_ob, ar=func_ar, cod=Circuit)
+    F = rigid.Functor(ob_map=func_ob, ar_map=func_ar, cod=Circuit)
 
     assert F(diagram.transpose_box(0, left=True).normal_form())\
         == Circuit.decode(Ty(), zip([Ket(1, 1), Bra(0)], [0, 0]))

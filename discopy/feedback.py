@@ -115,11 +115,13 @@ Every traced symmetric category is a feedback category with a trivial delay:
 ...     self.trace(len(mem))
 
 >>> F0 = Functor(
-...     ob=lambda x: symmetric.Ty(x.name), ar={}, cod=symmetric.Diagram)
+...     ob_map=lambda x: symmetric.Ty(x.name), ar_map={},
+...     cod=symmetric.Diagram)
 >>> assert F0(x.delay()) == F0(x)
 
 >>> F = Functor(
-...     ob=F0, ar=lambda f: symmetric.Box(f.name, F0(f.dom), F0(f.cod)),
+...     ob_map=F0,
+...     ar_map=lambda f: symmetric.Box(f.name, F0(f.dom), F0(f.cod)),
 ...     cod=symmetric.Diagram)
 >>> f = Box('f', x @ m.delay(), y @ m)
 >>> assert F(f.delay()) == F(f) and F(f.feedback()) == F(f).trace()
@@ -595,9 +597,9 @@ class Functor(markov.Functor):
     A feedback functor is a markov one that preserves delay and feedback.
 
     Parameters:
-        ob (Mapping[monoidal.Ty, monoidal.Ty]) :
+        ob_map (Mapping[monoidal.Ty, monoidal.Ty]) :
             Map from :class:`monoidal.Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
+        ar_map (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) :
             The codomain, :code:`Diagram` by default.
 

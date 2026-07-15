@@ -705,9 +705,9 @@ class Functor(biclosed.Functor):
     A rigid functor is a biclosed functor that preserves cups and caps.
 
     Parameters:
-        ob (Mapping[Ty, Ty]) :
+        ob_map (Mapping[Ty, Ty]) :
             Map from atomic :class:`Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
+        ar_map (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
 
     Example
@@ -777,8 +777,8 @@ def nesting(cls: type, factory: Callable) -> Callable[[Ty, Ty], Diagram]:
 
 def to_rigid(self):
     return biclosed.Functor(
-        ob=lambda x: Ty(x.inside[0].name),
-        ar=lambda f: Box(f.name, to_rigid(f.dom), to_rigid(f.cod)),
+        ob_map=lambda x: Ty(x.inside[0].name),
+        ar_map=lambda f: Box(f.name, to_rigid(f.dom), to_rigid(f.cod)),
         cod=Diagram)(self)
 
 

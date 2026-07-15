@@ -167,7 +167,7 @@ class Diagram(compact.Diagram, markov.Diagram, HypergraphCategory):
             :align: center
         """
         F = compact.Functor(
-            ob=lambda x: x, ar=lambda f:
+            ob_map=lambda x: x, ar_map=lambda f:
                 f.unfuse() if isinstance(f, Spider) else f,
             dom=Diagram, cod=Diagram)
         return F(self)
@@ -293,9 +293,9 @@ class Functor(compact.Functor, markov.Functor):
     A hypergraph functor is a compact functor that preserves spiders.
 
     Parameters:
-        ob (Mapping[Ty, Ty]) :
+        ob_map (Mapping[Ty, Ty]) :
             Map from atomic :class:`Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
+        ar_map (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
     """
 

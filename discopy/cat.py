@@ -783,16 +783,16 @@ class Functor(Category):
     optional codomain category :code:`cod`.
 
     Parameters:
-        ob : Mapping from :class:`Ob` to :code:`cod.ob`.
-        ar : Mapping from :class:`Box` to :code:`cod`.
+        ob_map : Mapping from :class:`Ob` to :code:`cod.ob`.
+        ar_map : Mapping from :class:`Box` to :code:`cod`.
         cod : The codomain, :code:`Arrow` by default.
 
     Example
     -------
     >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
     >>> f, g = Box('f', x, y), Box('g', y, z)
-    >>> ob, ar = {x: y, y: z, z: y}, {f: g, g: g[::-1]}
-    >>> F = Functor(ob, ar)
+    >>> ob_map, ar_map = {x: y, y: z, z: y}, {f: g, g: g[::-1]}
+    >>> F = Functor(ob_map, ar_map)
     >>> assert F(x) == y and F(f) == g
 
     Tip
@@ -802,17 +802,17 @@ class Functor(Category):
     In conjunction with :attr:`Box.data`, this can be used to create a
     :class:`Functor` from a free category with infinitely many generators.
 
-    >>> ob = lambda x: x
-    >>> ar = lambda f: Box(f.name, f.dom, f.cod, data=f.data + 1)
-    >>> F = Functor(ob, ar)
+    >>> ob_map = lambda x: x
+    >>> ar_map = lambda f: Box(f.name, f.dom, f.cod, data=f.data + 1)
+    >>> F = Functor(ob_map, ar_map)
     >>> h = Box('h', x, x, data=42)
     >>> assert F(h).data == 43 and F(F(h)).data == 44
 
     If :attr:`Box.data` is a mutable object, then so can be the image of a
     :class:`Functor` on it.
 
-    >>> ar = lambda f: f if all(f.data) else f[::-1]
-    >>> F = Functor(ob, ar)
+    >>> ar_map = lambda f: f if all(f.data) else f[::-1]
+    >>> F = Functor(ob_map, ar_map)
     >>> m = Box('m', x, x, data=[True])
     >>> assert F(m) == m
     >>> m.data.append(False)
@@ -855,18 +855,19 @@ class Functor(Category):
         """
         assert_isinstance(other, Functor)
         assert_iscomposable(self, other)
-        ob, ar = self.ob_map.then(other), self.ar_map.then(other)
-        return type(self)(ob, ar, dom=self.dom, cod=other.cod)
+        ob_map, ar_map = self.ob_map.then(other), self.ar_map.then(other)
+        return type(self)(ob_map, ar_map, dom=self.dom, cod=other.cod)
 
     def __init__(
             self,
-            ob: Mapping[Ob, Ob] | Callable[[Ob], Ob] | None = None,
-            ar: Mapping[Box, Arrow] | Callable[[Box], Arrow] | None = None,
+            ob_map: Mapping[Ob, Ob] | Callable[[Ob], Ob] | None = None,
+            ar_map: Mapping[Box, Arrow] | Callable[[Box], Arrow] | None = None,
             dom: type = None, cod: type = None):
         self.dom, self.cod = dom or type(self).dom, cod or type(self).cod
-        self.ob_map: MappingOrCallable[Ob, Ob] = MappingOrCallable(ob or {})
+        self.ob_map: MappingOrCallable[Ob, Ob] = MappingOrCallable(
+            ob_map or {})
         self.ar_map: MappingOrCallable[Box, Arrow] = MappingOrCallable(
-            ar or {})
+            ar_map or {})
 
     def __eq__(self, other):
         return type(self) is type(other)\
