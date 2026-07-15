@@ -245,20 +245,27 @@ class Diagram(balanced.Diagram, SymmetricCategory):
             return self.to_hypergraph().generator
         return super().generator
 
-    def hash_data(self):
+    def setoid(self):
         """
         Return an encoding of the equivalence class that a diagram belongs to,
         used as subroutines for equality and hashing.
 
+        Note
+        ----
         When `use_hypergraph_equality`, this calls `to_hypergraph` otherwise it
         returns the attributes `inside, dom, cod`. On generator diagrams, i.e.
         equal to just a box, we return the box itself to break the circularity.
+        See :meth:`is_generator` for details on when a diagram counts as a box.
+
+        We ensure that a box will get the same hash regardless of the equality
+        method used so that e.g. one can define the mapping for a functor with
+        no hypergraph equality and apply it inside `with hypergraph_equality:`.
         """
         if self.use_hypergraph_equality:
             hypergraph = self.to_hypergraph()
             generator = hypergraph.generator
-            return hypergraph if generator is None else generator.hash_data()
-        return super().hash_data()
+            return hypergraph if generator is None else generator.setoid()
+        return super().setoid()
 
     @classproperty
     @contextmanager
@@ -295,10 +302,10 @@ class Box(balanced.Box, Diagram):
         dom (monoidal.Ty) : The domain of the box, i.e. its input.
         cod (monoidal.Ty) : The codomain of the box, i.e. its output.
     """
-    def hash_data(self):
+    def setoid(self):
         if self.use_hypergraph_equality and not self.is_generator:
-            return Diagram.hash_data(self)
-        return balanced.Box.hash_data(self)
+            return Diagram.setoid(self)
+        return balanced.Box.setoid(self)
 
 
 class Swap(balanced.Braid, Box):
@@ -335,9 +342,9 @@ class Trace(balanced.Trace, Box):
     --------
     :meth:`Diagram.trace`
     """
-    def hash_data(self):
-        return Box.hash_data(self) if self.use_hypergraph_equality else\
-            balanced.Trace.hash_data(self)
+    def setoid(self):
+        return Box.setoid(self) if self.use_hypergraph_equality else\
+            balanced.Trace.setoid(self)
 
 
 class Sum(balanced.Sum, Box):
