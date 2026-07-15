@@ -17,8 +17,8 @@ Summary
     :toctree:
 
     Wire
-    HeadWire
-    TailWire
+    Head
+    Tail
     Ty
     Layer
     Diagram
@@ -26,8 +26,8 @@ Summary
     Swap
     Feedback
     FollowedBy
-    Head
-    Tail
+    HeadBox
+    TailBox
     Functor
 
 Axioms
@@ -126,8 +126,10 @@ Every traced symmetric category is a feedback category with a trivial delay:
 
 Note
 ----
-We also implement endofunctors :class:`Head` and :class:`Tail` together with an
-isomorphism :class:`FollowedBy` between `x` and `x.head @ x.tail.delay()`.
+We also implement endofunctors, given on wires by :class:`Head` and
+:class:`Tail` and on diagrams by :class:`HeadBox` and :class:`TailBox`,
+together with an isomorphism :class:`FollowedBy` between `x` and
+`x.head @ x.tail.delay()`.
 
 This satisfies the following equations:
 
@@ -171,15 +173,15 @@ class Wire(braided.Wire):
         return Wire(self.name, self.time_step + n_steps, self.is_constant)
 
     @property
-    def head(self) -> HeadWire | None:
-        """ Syntactic sugar for :class:`HeadWire` or `None` if delayed. """
-        return None if self.time_step else HeadWire(self)
+    def head(self) -> Head | None:
+        """ Syntactic sugar for :class:`Head` or `None` if delayed. """
+        return None if self.time_step else Head(self)
 
     @property
     def tail(self) -> Wire | None:
-        """ Syntactic sugar for :class:`TailWire`, or `self` if constant. """
+        """ Syntactic sugar for :class:`Tail`, or `self` if constant. """
         return self.delay(-1) if self.time_step > 0 else (
-            self if self.is_constant else TailWire(self))
+            self if self.is_constant else Tail(self))
 
     def reset(self) -> Wire:
         """ Reset an object to time step zero, used in :class:`Functor`. """
@@ -222,16 +224,16 @@ class Wire(braided.Wire):
         return self.delay()
 
 
-class HeadWire(Wire):
+class Head(Wire):
     """
     The head of a feedback object, interpreted as the first element of a stream
     followed by the constant stream on the empty type.
 
-    Note the object `arg: Wire` cannot be itself a `HeadWire` or be delayed.
+    Note the object `arg: Wire` cannot be itself a `Head` or be delayed.
     """
     def __init__(self, arg: Wire, time_step: int = 0):
         assert_isinstance(arg, Wire)
-        if isinstance(arg, HeadWire) or arg.time_step:
+        if isinstance(arg, Head) or arg.time_step:
             raise ValueError
         self.arg = arg
         super().__init__(f"{arg}.head", time_step, is_constant=False)
@@ -243,7 +245,7 @@ class HeadWire(Wire):
     def delay(self, n_steps=1):
         return type(self)(self.arg, self.time_step + n_steps)
 
-    def reset(self) -> HeadWire:
+    def reset(self) -> Head:
         return type(self)(self.arg)
 
     @property
@@ -255,7 +257,7 @@ class HeadWire(Wire):
         return self.delay(-1) if self.time_step else None
 
 
-class TailWire(Wire):
+class Tail(Wire):
     """
     The tail of a non-constant feedback object, interpreted as the stream
     starting from the second time step.
@@ -263,16 +265,16 @@ class TailWire(Wire):
     Example
     -------
     >>> x = Wire('x', is_constant=False)
-    >>> assert x.tail == TailWire(x)
+    >>> assert x.tail == Tail(x)
     """
     def __init__(self, arg: Wire, time_step: int = 0):
         assert_isinstance(arg, Wire)
-        if isinstance(arg, HeadWire) or arg.is_constant or arg.time_step > 0:
+        if isinstance(arg, Head) or arg.is_constant or arg.time_step > 0:
             raise ValueError
         self.arg = arg
         super().__init__(f"{arg}.tail", time_step, is_constant=False)
 
-    delay, reset, __repr__ = HeadWire.delay, HeadWire.reset, HeadWire.__repr__
+    delay, reset, __repr__ = Head.delay, Head.reset, Head.__repr__
 
 
 @factory
@@ -286,12 +288,12 @@ class Ty(monoidal.Ty):
 
     @property
     def head(self):
-        """ The head of a feedback type, see :class:`HeadWire`. """
+        """ The head of a feedback type, see :class:`Head`. """
         return type(self)(*(x.head for x in self.inside if x.head))
 
     @property
     def tail(self):
-        """ The tail of a feedback type, see :class:`TailWire`. """
+        """ The tail of a feedback type, see :class:`Tail`. """
         return type(self)(*(x.tail for x in self.inside if x.tail))
 
     d = Wire.d
@@ -376,13 +378,13 @@ class Diagram(markov.Diagram, FeedbackCategory):
 
     @property
     def head(self):
-        """ Syntactic sugar for :class:`Head`. """
-        return Head(self)
+        """ Syntactic sugar for :class:`HeadBox`. """
+        return HeadBox(self)
 
     @property
     def tail(self):
-        """ Syntactic sugar for :class:`Tail`. """
-        return Tail(self)
+        """ Syntactic sugar for :class:`TailBox`. """
+        return TailBox(self)
 
     d = Wire.d
 
@@ -484,7 +486,7 @@ class Merge(markov.Merge, Box):
         return type(self)(self.cod.delay(n_steps), len(self.dom))
 
 
-class Head(monoidal.Bubble, Box):
+class HeadBox(monoidal.Bubble, Box):
     """
     The head of a feedback diagram, interpreted as the first element followed
     by the identity stream on the empty type.
@@ -495,19 +497,19 @@ class Head(monoidal.Bubble, Box):
         monoidal.Bubble.__init__(self, arg, dom=dom, cod=cod)
         Box.__init__(self, f"({arg}).{_attr}", self.dom, self.cod, time_step)
 
-    delay, reset, __repr__ = HeadWire.delay, HeadWire.reset, HeadWire.__repr__
+    delay, reset, __repr__ = Head.delay, Head.reset, Head.__repr__
     __str__ = Box.__str__
 
 
-class Tail(monoidal.Bubble, Box):
+class TailBox(monoidal.Bubble, Box):
     """
     The tail of a feedback diagram, interpreted as the stream starting from the
     second time step with the identity on the empty type at the first step.
     """
     def __init__(self, arg: Diagram, time_step=0):
-        Head.__init__(self, arg, time_step, _attr="tail")
+        HeadBox.__init__(self, arg, time_step, _attr="tail")
 
-    delay, reset, __repr__ = HeadWire.delay, HeadWire.reset, HeadWire.__repr__
+    delay, reset, __repr__ = Head.delay, Head.reset, Head.__repr__
     __str__ = Box.__str__
 
 
@@ -643,10 +645,10 @@ class Functor(markov.Functor):
                 for _ in range(other.time_step):
                     result = result.delay()
                 return result
-        if isinstance(other, (HeadWire, TailWire, Head, Tail)):
+        if isinstance(other, (Head, Tail, HeadBox, TailBox)):
             cod = self.cod if isinstance(
-                other, (Head, Tail)) else self.cod.ob
-            attr = "head" if isinstance(other, (HeadWire, Head)) else "tail"
+                other, (HeadBox, TailBox)) else self.cod.ob
+            attr = "head" if isinstance(other, (Head, HeadBox)) else "tail"
             if hasattr(cod, attr):
                 return getattr(self(other.arg), attr)
         if isinstance(
@@ -671,4 +673,4 @@ Id = Diagram.id
 
 
 __getattr__ = deprecated_renaming(
-    __name__, Ob=Wire, HeadOb=HeadWire, TailOb=TailWire)
+    __name__, Ob=Wire, HeadOb=Head, TailOb=Tail)
