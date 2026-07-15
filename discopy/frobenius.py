@@ -31,7 +31,7 @@ Summary
 Axioms
 ------
 
->>> from discopy.drawing import Equation
+>>> from discopy.frobenius import Equation
 >>> x, y, z = map(Ty, "xyz")
 
 >>> split, merge = Spider(1, 2, x), Spider(2, 1, x)
@@ -42,8 +42,7 @@ Frobenius
 
 >>> frobenius = Equation(
 ...     split @ x >> x @ merge, merge >> split, x @ split >> merge @ x)
->>> with Diagram.hypergraph_equality:
-...     assert frobenius
+>>> assert frobenius
 >>> frobenius.draw(path="docs/_static/frobenius/frobenius.png")
 
 .. image:: /_static/frobenius/frobenius.png
@@ -53,8 +52,7 @@ Speciality
 ==========
 
 >>> special = Equation(split >> merge, Spider(1, 1, x), Id(x))
->>> with Diagram.hypergraph_equality:
-...     assert special
+>>> assert special
 >>> special.draw(path="docs/_static/frobenius/special.png")
 
 .. image:: /_static/frobenius/special.png
@@ -396,3 +394,7 @@ Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Diagram.braid_factory, Diagram.spider_factory = Swap, Spider
 Diagram.bubble_factory = Bubble
 Id = Diagram.id
+
+#: The :class:`Equation` of Frobenius diagrams compared up to hypergraph
+#: isomorphism, i.e. ``Equation = Diagram.to_hypergraph.quotient``.
+Equation = Diagram.to_hypergraph.quotient

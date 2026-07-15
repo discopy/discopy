@@ -43,7 +43,7 @@ It is left-traced when it comes with an operator of the following shape:
 These are subjects to the axioms listed below. Note however that at the moment
 equality of planar traced diagrams is not implemented, only symmetric traced.
 
->>> from discopy.symmetric import Ty, Box, Swap, Id
+>>> from discopy.symmetric import Ty, Box, Swap, Id, Equation
 >>> from discopy import symmetric
 >>> x = Ty('x')
 >>> f, g = Box('f', x @ x, x @ x), Box('g', x, x)
@@ -58,9 +58,8 @@ Vanishing
 Superposing
 ===========
 
->>> with symmetric.Diagram.hypergraph_equality:
-...     assert (x @ f).trace() == x @ f.trace()
-...     assert (f @ x).trace(left=True) == f.trace(left=True) @ x
+>>> assert Equation((x @ f).trace(), x @ f.trace())
+>>> assert Equation((f @ x).trace(left=True), f.trace(left=True) @ x)
 
 Yanking
 =======
@@ -74,7 +73,7 @@ Yanking
 .. image:: /_static/traced/yanking.png
     :align: center
 
->>> with symmetric.Diagram.hypergraph_equality: assert yanking
+>>> assert yanking
 
 Naturality
 ==========
@@ -98,8 +97,7 @@ Naturality
 .. image:: /_static/traced/tightening-right.png
     :align: center
 
->>> with symmetric.Diagram.hypergraph_equality:
-...     assert tightening_left and tightening_right
+>>> assert tightening_left and tightening_right
 
 Dinaturality
 ============
@@ -122,8 +120,7 @@ Dinaturality
 .. image:: /_static/traced/sliding-right.png
     :align: center
 
->>> with symmetric.Diagram.hypergraph_equality:
-...     assert sliding_left and sliding_right
+>>> assert sliding_left and sliding_right
 """
 
 from discopy import monoidal

@@ -21,8 +21,7 @@ Summary
 Axioms
 ------
 
->>> from discopy.drawing import Equation
->>> Diagram.use_hypergraph_equality = True
+>>> from discopy.compact import Equation
 >>> x, y = Ty('x'), Ty('y')
 
 Snake equations
@@ -51,10 +50,8 @@ a.k.a. Reidemeister move 1
 Coherence
 =========
 
->>> assert Diagram.caps(x @ y, y.r @ x.r)\\
-...     == Cap(x, x.r) @ Cap(y, y.r) >> x @ Diagram.swap(x.r, y @ y.r)
-
->>> Diagram.use_hypergraph_equality = False
+>>> assert Equation(Diagram.caps(x @ y, y.r @ x.r),
+...     Cap(x, x.r) @ Cap(y, y.r) >> x @ Diagram.swap(x.r, y @ y.r))
 """
 
 from discopy import symmetric, ribbon
@@ -152,3 +149,7 @@ Diagram.braid_factory = Swap
 Diagram.hypergraph_factory = Hypergraph
 Diagram.map_factory = CMap
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
+
+#: The :class:`Equation` of compact diagrams compared up to hypergraph
+#: isomorphism, i.e. ``Equation = Diagram.to_hypergraph.quotient``.
+Equation = Diagram.to_hypergraph.quotient

@@ -24,49 +24,47 @@ def test_Box_hash():
     assert {f: 42}[f @ Id()] == 42
 
 
-def test_Box_hash_hypergraph():
+def test_Equation_to_hypergraph_quotient():
+    """
+    The :class:`Equation` of ``Diagram.to_hypergraph.quotient`` (a.k.a.
+    ``from discopy.symmetric import Equation``) compares diagrams up to
+    hypergraph isomorphism (e.g. swaps cancel) while ``==`` stays syntactic,
+    see https://github.com/discopy/discopy/issues/382
+    """
+    x = Ty('x')
+    a, b = Swap(x, x) >> Swap(x, x), Id(x @ x)
+    assert a != b
+    assert Equation(a, b)
+    assert Diagram.to_hypergraph.quotient(a, b)
+    assert not Equation(a, Swap(x, x))
+
+
+def test_Box_hash_is_syntactic_and_stable():
+    """
+    Equality and hashing are always syntactic, so a box and the length-one
+    diagram made of it are equal and hash equally, and a box can always be
+    found in a dict, see https://github.com/discopy/discopy/issues/382
+    """
     x, y = Ty('x'), Ty('y')
     f = Box('f', x, y)
-    with Diagram.hypergraph_equality:
-        assert f == f @ Id()
-        assert hash(f) == hash(f @ Id())
-        assert f @ Id() in {f}
+    assert f == f @ Id() and hash(f) == hash(f @ Id())
+    assert f @ Id() in {f}
+    assert {f: 42}[Box('f', x, y)] == 42
 
 
-def test_Box_hash_invariant_under_hypergraph_equality():
-    """
-    A box is a generator, so its hash must not depend on whether we use
-    hypergraph equality, see https://github.com/discopy/discopy/issues/382
-    """
-    x, y = Ty('x'), Ty('y')
-    f = Box('f', x, y)
-    outside = hash(f)
-    with Diagram.hypergraph_equality:
-        inside = hash(f)
-    assert outside == inside == hash(f)
-    # A box stored in a dictionary must still be found inside the context.
-    boxes = {f: 42}
-    with Diagram.hypergraph_equality:
-        assert boxes[f] == 42
-        assert boxes[Box('f', x, y)] == 42
-
-
-def test_Functor_hypergraph_equality():
+def test_Functor_keys_boxes_by_syntax():
     """
     Regression test for https://github.com/discopy/discopy/issues/382
 
     A ``Functor`` stores the image of each generator by hashing the boxes in
-    its domain.  Turning on ``hypergraph_equality`` used to change the hash of
-    a box, so the box went missing from the functor's dictionary and its
-    evaluation raised a ``KeyError``.
+    its domain.  Now that equality and hashing are always syntactic, box
+    lookups are stable and functor application never loses a box.
     """
     x, y = Ty('x'), Ty('y')
     f, g = Box('f', x, y), Box('g', y, x)
-    F = Functor(ob={x: y, y: x}, ar={f: g, g: f})
+    F = Functor(ob_map={x: y, y: x}, ar_map={f: g, g: f})
     assert F(f) == g and F(g) == f
-    with Diagram.hypergraph_equality:
-        assert F(f) == g and F(g) == f
-        assert F(f >> g) == g >> f
+    assert F(f >> g) == g >> f
 
 
 def test_Diagram_permutation():

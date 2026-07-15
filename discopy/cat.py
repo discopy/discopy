@@ -21,6 +21,7 @@ Summary
     Bubble
     Functor
     Transformation
+    Equation
 
 .. admonition:: Functions
 
@@ -942,6 +943,29 @@ class Functor(Category):
             result = result >> self(box)
         return result
 
+    def quotient(self, *terms: Arrow, **params) -> "Equation":
+        """
+        The :class:`Equation` that checks whether some ``terms`` are equal in
+        the image of ``self``, i.e. up to the equivalence relation (the kernel
+        of the functor) that ``self`` induces on its domain.
+
+        This is how DisCoPy exposes coarser equalities without mutating
+        ``__eq__`` / ``__hash__``: the caller picks the granularity by picking
+        the functor, e.g. :attr:`symmetric.Diagram.to_hypergraph`.
+
+        Parameters:
+            terms : The terms of the equation.
+            params : Passed to :class:`Equation`, e.g. ``symbol``, ``space``.
+
+        Example
+        -------
+        >>> x, y = Ob('x'), Ob('y')
+        >>> f, g = Box('f', x, y), Box('g', x, y)
+        >>> F = Functor({x: x, y: y}, {f: f, g: f})
+        >>> assert f != g and F.quotient(f, g)
+        """
+        return Equation(*terms, functor=self, **params)
+
 
 Arrow.generator_factory = Box
 
@@ -1053,6 +1077,82 @@ class Transformation(Category):
         return factory_name(type(self)) + (
             f"(components={self.components}, "
             f"dom={self.dom!r}, cod={self.cod!r})")
+
+
+class Equation:
+    """
+    An equation is a list of terms with a dedicated draw method and a
+    ``functor`` up to which the terms are compared.
+
+    Parameters:
+        terms : The terms of the equation.
+        symbol : The symbol between the terms.
+        space : The space between the terms.
+        functor : The functor up to which ``bool(equation)`` compares its
+            terms, the identity by default (i.e. syntactic equality).
+
+    Example
+    -------
+    >>> from discopy.tensor import Spider, Swap, Dim, Id
+    >>> dim = Dim(2)
+    >>> mu, eta = Spider(2, 1, dim), Spider(0, 1, dim)
+    >>> delta, upsilon = Spider(1, 2, dim), Spider(1, 0, dim)
+    >>> special = Equation(mu >> delta, Id(dim))
+    >>> frobenius = Equation(
+    ...     delta @ Id(dim) >> Id(dim) @ mu,
+    ...     mu >> delta,
+    ...     Id(dim) @ delta >> mu @ Id(dim))
+    >>> Equation(special, frobenius, symbol=', ').draw(
+    ...          aspect='equal', wire_labels=False,
+    ...          path='docs/_static/drawing/frobenius-axioms.png')
+
+    .. image:: /_static/drawing/frobenius-axioms.png
+        :align: center
+
+    Note
+    ----
+    Passing a ``functor`` compares the terms up to that functor, i.e. up to the
+    equivalence relation it induces.  This is what :meth:`Functor.quotient`
+    returns and how coarser equalities such as hypergraph equality are made
+    local and explicit rather than a mutable global flag.
+
+    >>> from discopy.symmetric import Ty, Box, Id, Swap, Diagram
+    >>> x, y = Ty('x'), Ty('y')
+    >>> a = Swap(x, y) >> Swap(y, x)
+    >>> assert a != Id(x @ y)
+    >>> assert Equation(a, Id(x @ y), functor=Diagram.to_hypergraph)
+    """
+    def __init__(self, *terms: "Arrow", symbol="=", space=1, functor=None):
+        self.terms, self.symbol, self.space = terms, symbol, space
+        self.functor = functor
+
+    def __repr__(self):
+        return f"Equation({', '.join(map(repr, self.terms))})"
+
+    def __str__(self):
+        return f" {self.symbol} ".join(map(str, self.terms))
+
+    def to_drawing(self):
+        result = self.terms[0].to_drawing()
+        for term in self.terms[1:]:
+            result = result.add(term.to_drawing(), self.symbol, self.space)
+        return result
+
+    def draw(self, path=None, **params):
+        """
+        Drawing an equation.
+
+        Parameters:
+            path : Where to save the drawing.
+            params : Passed to :meth:`discopy.monoidal.Diagram.draw`.
+        """
+        return self.to_drawing().draw(path=path, **params)
+
+    def __bool__(self):
+        if self.functor is None:
+            return all(term == self.terms[0] for term in self.terms)
+        first = self.functor(self.terms[0])
+        return all(self.functor(term) == first for term in self.terms[1:])
 
 
 Arrow.sum_factory = Sum
