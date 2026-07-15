@@ -62,7 +62,7 @@ def test_Functor_hypergraph_equality():
     """
     x, y = Ty('x'), Ty('y')
     f, g = Box('f', x, y), Box('g', y, x)
-    F = Functor(ob={x: y, y: x}, ar={f: g, g: f})
+    F = Functor(ob_map={x: y, y: x}, ar_map={f: g, g: f})
     assert F(f) == g and F(g) == f
     with Diagram.hypergraph_equality:
         assert F(f) == g and F(g) == f
