@@ -366,7 +366,32 @@ class Arrow(FreeCategory):
         return isinstance(other, self.ar) and self.setoid() == other.setoid()
 
     def __hash__(self):
-        return hash(self.setoid())
+        # Arrows are immutable value objects, so we cache the hash lazily.
+        try:
+            return self._hash
+        except AttributeError:
+            self._hash = hash(self.setoid())
+            return self._hash
+
+    def equal_up_to(self, other, functor):
+        """
+        Whether ``self`` and ``other`` become equal after applying a functor,
+        i.e. the kernel of ``functor``.  Because a functor preserves
+        identities, composition and tensor, this is automatically an
+        equivalence relation compatible with the categorical structure.
+
+        This is how DisCoPy exposes coarser equalities without mutating
+        ``__eq__`` / ``__hash__``: the caller picks the granularity by picking
+        the functor, e.g. :attr:`symmetric.Diagram.to_hypergraph_functor`.
+
+        Example
+        -------
+        >>> x, y = Ob('x'), Ob('y')
+        >>> f, g = Box('f', x, y), Box('g', x, y)
+        >>> F = Functor({x: x, y: y}, {f: f, g: f})
+        >>> assert f != g and f.equal_up_to(g, F)
+        """
+        return functor(self) == functor(other)
 
     def then(self, *others: Arrow) -> Arrow:
         """
@@ -531,6 +556,16 @@ class Box(Arrow):
     >>> x, y = Ob('x'), Ob('y')
     >>> f = Box('f', x, y, data=[42])
     >>> assert f.inside == (f, )
+
+    Note
+    ----
+    A box is an **immutable value object**: its ``name, dom, cod, is_dagger``
+    and ``data`` must not change after construction.  Mutating them in place
+    (e.g. ``box.data.append(...)``) breaks hashing and dict/set lookups, just
+    like mutating any Python dictionary key; we rely on this to cache the hash.
+    The long-term goal is to make :class:`Box` a ``@dataclass(frozen=True)``,
+    currently blocked only by ``data`` payloads such as numpy arrays that
+    cannot be deep-frozen.
     """
     def __setstate__(self, state):
         if 'inside' not in state:  # Backward compatibility
@@ -668,6 +703,7 @@ class Sum(Box):
     def is_generator(self):
         return len(self.terms) == 1 and self.terms[0].is_generator
 
+    @property
     def generator(self):
         return self.terms[0].generator if self.is_generator else None
 
@@ -842,15 +878,15 @@ class Functor(Category):
     >>> h = Box('h', x, x, data=42)
     >>> assert F(h).data == 43 and F(F(h)).data == 44
 
-    If :attr:`Box.data` is a mutable object, then so can be the image of a
-    :class:`Functor` on it.
+    The image of a :class:`Functor` can depend on :attr:`Box.data`.  Boxes are
+    immutable value objects, so rather than mutating ``data`` in place one
+    constructs a new box.
 
     >>> ar_map = lambda f: f if all(f.data) else f[::-1]
     >>> F = Functor(ob_map, ar_map)
-    >>> m = Box('m', x, x, data=[True])
-    >>> assert F(m) == m
-    >>> m.data.append(False)
-    >>> assert F(m) == m[::-1]
+    >>> assert F(Box('m', x, x, data=[True])) == Box('m', x, x, data=[True])
+    >>> assert F(Box('m', x, x, data=[True, False]))\\
+    ...     == Box('m', x, x, data=[True, False])[::-1]
     """
     ob = type[Category]
     dom = cod = Arrow

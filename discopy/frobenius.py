@@ -41,9 +41,9 @@ Frobenius
 =========
 
 >>> frobenius = Equation(
-...     split @ x >> x @ merge, merge >> split, x @ split >> merge @ x)
->>> with Diagram.hypergraph_equality:
-...     assert frobenius
+...     split @ x >> x @ merge, merge >> split, x @ split >> merge @ x,
+...     functor=Diagram.to_hypergraph_functor)
+>>> assert frobenius
 >>> frobenius.draw(path="docs/_static/frobenius/frobenius.png")
 
 .. image:: /_static/frobenius/frobenius.png
@@ -52,9 +52,9 @@ Frobenius
 Speciality
 ==========
 
->>> special = Equation(split >> merge, Spider(1, 1, x), Id(x))
->>> with Diagram.hypergraph_equality:
-...     assert special
+>>> special = Equation(split >> merge, Spider(1, 1, x), Id(x),
+...     functor=Diagram.to_hypergraph_functor)
+>>> assert special
 >>> special.draw(path="docs/_static/frobenius/special.png")
 
 .. image:: /_static/frobenius/special.png

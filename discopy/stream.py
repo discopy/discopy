@@ -60,8 +60,7 @@ category of streams of python types and functions.
 ...                >> plus.d
 ...                >> zero @ X.d
 ...                >> fby >> copy).feedback()
->>> with Diagram.hypergraph_equality:
-...     assert fib == fib_
+>>> assert fib.arg.equal_up_to(fib_.arg, Diagram.to_hypergraph_functor)
 >>> fib_.draw(wire_labels=False, figsize=(5, 5),
 ...           path="docs/_static/stream/fibonacci-feedback.png")
 
@@ -155,8 +154,9 @@ Note that we can only check equality of streams up to a finite number of steps.
     :align: center
 
 >>> pi, id_dom = (0, 1, 2, 4, 3, 5), symmetric.Id(LHS.now.dom)
->>> with symmetric.Diagram.hypergraph_equality:
-...     assert LHS.now == id_dom.permute(*pi) >> RHS.now.permute(*pi)
+>>> assert LHS.now.equal_up_to(
+...     id_dom.permute(*pi) >> RHS.now.permute(*pi),
+...     symmetric.Diagram.to_hypergraph_functor)
 
 See :mod:`discopy.feedback` for the other axioms for feedback categories.
 """

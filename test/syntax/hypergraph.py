@@ -125,7 +125,7 @@ def test_simplify():
     ref = Copy(C) >> param_linear @ C >> P @ placeholder >> P @ Copy(T) >> Swap(P, T) @ T >> linear @ T >> Swap(T, T) >> add
     simpl = residual_block.to_hypergraph().simplify().to_diagram()
 
-    with Diagram.hypergraph_equality:
-        assert residual_block == ref == simpl
+    hg = Diagram.to_hypergraph_functor
+    assert residual_block.equal_up_to(ref, hg) and ref.equal_up_to(simpl, hg)
 
     assert simpl == ref
