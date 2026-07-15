@@ -61,7 +61,7 @@ category of streams of python types and functions.
 ...                >> plus.d
 ...                >> zero @ X.d
 ...                >> fby >> copy).feedback()
->>> assert Diagram.to_hypergraph.quotient(fib.arg, fib_.arg)
+>>> assert Equation(fib.arg, fib_.arg)
 >>> fib_.draw(wire_labels=False, figsize=(5, 5),
 ...           path="docs/_static/stream/fibonacci-feedback.png")
 

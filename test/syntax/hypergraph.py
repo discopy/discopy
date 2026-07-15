@@ -113,7 +113,7 @@ def test_cups():
 
 
 def test_simplify():
-    from discopy.markov import Diagram, Box, Ty, Copy, Swap, Trace
+    from discopy.markov import Box, Ty, Copy, Swap, Trace, Equation
     C, T, P = map(Ty, "CTP")
     linear, param_linear, add, placeholder = (
         Box('linear', T @ P, T),
@@ -125,7 +125,6 @@ def test_simplify():
     ref = Copy(C) >> param_linear @ C >> P @ placeholder >> P @ Copy(T) >> Swap(P, T) @ T >> linear @ T >> Swap(T, T) >> add
     simpl = residual_block.to_hypergraph().simplify().to_diagram()
 
-    hg = Diagram.to_hypergraph.quotient
-    assert hg(residual_block, ref) and hg(ref, simpl)
+    assert Equation(residual_block, ref) and Equation(ref, simpl)
 
     assert simpl == ref

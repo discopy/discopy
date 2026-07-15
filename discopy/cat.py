@@ -1125,7 +1125,8 @@ class Equation:
     ...     ar_map=lambda box: Box('*', box.dom, box.cod))
     >>> assert not Equation(f, g) and Equation(f, g, functor=forget)
     """
-    def __init__(self, *terms: Arrow, symbol="=", space=1, functor=None):
+    def __init__(self, *terms: Arrow, symbol="=", space=1,
+                 functor=lambda term: term):
         self.terms, self.symbol, self.space = terms, symbol, space
         self.functor = functor
 
@@ -1152,8 +1153,6 @@ class Equation:
         return self.to_drawing().draw(path=path, **params)
 
     def __bool__(self):
-        if self.functor is None:
-            return all(term == self.terms[0] for term in self.terms)
         first = self.functor(self.terms[0])
         return all(self.functor(term) == first for term in self.terms[1:])
 

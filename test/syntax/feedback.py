@@ -78,7 +78,7 @@ def test_fibonacci():
             >> plus.d
             >> zero.head @ X.d
             >> fby >> copy).feedback()
-    assert Diagram.to_hypergraph.quotient(fib.arg, fib_.arg)
+    assert Equation(fib.arg, fib_.arg)
 
     F = Functor(
         ob_map={X: (int, )},
