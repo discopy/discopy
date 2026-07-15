@@ -627,7 +627,8 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
     @classmethod
     def from_map(cls, old) -> Hypergraph:
         """
-        Forget orientation and return the underlying bijective hypergraph.
+        Forget orientation and return the underlying bijective hypergraph
+        given by the edge permutation.
 
         >>> from discopy.compact import Ty, Box, CMap, Hypergraph
         >>> x, y = map(Ty, "xy")
@@ -656,7 +657,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
             spider = len(spider_types)
             spider_types.append(old.ports[hypergraph_to_canonical[i]].obj)
             flat_wires[i] = flat_wires[j] = spider
-        spider_types.extend(old.scalars)
+        spider_types.extend(old.loops)
         wires = cls.rebracket(
             None, flat_wires, dom=old.dom, boxes=old.boxes)
         factory = cls if cls.functor is not None else cls[type(old).functor]
@@ -675,10 +676,10 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
             factory = cmap.CMap[type(self).category, type(self).functor]
         relabeling = Permutation(self._hypergraph_to_canonical())
         edges = Permutation(self.bijection).conjugate(relabeling)
-        scalars = tuple(self.spider_types[i] for i in self.scalar_spiders)
+        loops = tuple(self.spider_types[i] for i in self.scalar_spiders)
         return factory(
             self.dom, self.cod, self.boxes, edges, offsets=self.offsets,
-            scalars=scalars)
+            loops=loops)
 
     @property
     def is_bijective(self) -> bool:
@@ -1080,6 +1081,16 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
                 return arg.make_causal().explicit_trace()
         assert self.is_causal
         return self
+
+    @property
+    def is_generator(self):
+        """ Whether the hypergraph is a single generator. """
+        return len(self.boxes) == 1 and self == self.from_box(self.boxes[0])
+
+    @property
+    def generator(self):
+        """ Return the `f` from `Hypergraph.from_box(f)` if `is_generator`. """
+        return self.boxes[0] if self.is_generator else None
 
     @classmethod
     def from_box(cls, box: Box) -> Hypergraph:

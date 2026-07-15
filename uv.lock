@@ -822,6 +822,7 @@ docs = [
     { name = "sphinx" },
     { name = "sphinx-book-theme" },
     { name = "sphinxcontrib-bibtex" },
+    { name = "sphinxcontrib-tikz" },
     { name = "sphinxcontrib-youtube" },
 ]
 grammar = [
@@ -924,6 +925,7 @@ requires-dist = [
     { name = "sphinx", marker = "extra == 'docs'", specifier = "==7.2.*" },
     { name = "sphinx-book-theme", marker = "extra == 'docs'", specifier = "==1.1.*" },
     { name = "sphinxcontrib-bibtex", marker = "extra == 'docs'", specifier = "==2.5.*" },
+    { name = "sphinxcontrib-tikz", marker = "extra == 'docs'", specifier = "==0.4.*" },
     { name = "sphinxcontrib-youtube", marker = "extra == 'docs'", specifier = "==1.4.*" },
     { name = "sympy", marker = "extra == 'quantum'" },
     { name = "tensornetwork", marker = "extra == 'quantum'" },
@@ -3582,6 +3584,15 @@ sdist = { url = "https://files.pythonhosted.org/packages/3b/44/6716b257b0aa6bfd5
 wheels = [
     { url = "https://files.pythonhosted.org/packages/52/a7/d2782e4e3f77c8450f727ba74a8f12756d5ba823d81b941f1b04da9d033a/sphinxcontrib_serializinghtml-2.0.0-py3-none-any.whl", hash = "sha256:6e2cb0eef194e10c27ec0023bfeb25badbbb5868244cf5bc5bdc04e4464bf331", size = 92072, upload-time = "2024-07-29T01:10:08.203Z" },
 ]
+
+[[package]]
+name = "sphinxcontrib-tikz"
+version = "0.4.20"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "sphinx" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/90/f1/514013965c81338d2742b47b6affb633149e809affecedf6a969af31d09f/sphinxcontrib-tikz-0.4.20.tar.gz", hash = "sha256:2ee3bd1f9ca2f349c0823a4f3507d91c410e7f96be20f051fef7af1665f341ca", size = 16230, upload-time = "2024-07-13T08:51:31.296Z" }
 
 [[package]]
 name = "sphinxcontrib-youtube"

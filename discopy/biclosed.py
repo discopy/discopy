@@ -62,7 +62,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from inspect import signature
-from typing import Callable, ClassVar
+from typing import Callable, ClassVar, Self
 
 from discopy import cat, monoidal
 from discopy.abc import BiclosedCategory
@@ -448,6 +448,78 @@ class Functor(monoidal.Functor):
 
 class CMap(monoidal.CMap):
     functor = Functor
+
+    require_causal = False
+
+    def curry(self, n=1, left=False) -> Self:
+        """
+        Curry a combinatorial map using the closed structure of the host
+        category.
+
+        Parameters:
+            n : The number of objects to curry.
+            left : Whether to curry on the left or right.
+
+        >>> from discopy.closed import Ty, Box
+        >>> from discopy.drawing import Equation
+        >>> x, y, z = map(Ty, "xyz")
+        >>> f = Box("f", x @ y, z).to_map()
+        >>> f.curry().uncurry().draw(
+        ...     path="docs/_static/cmap/biclosed-curry-right.png", show=False)
+
+        .. image:: /_static/cmap/biclosed-curry-right.png
+            :align: center
+
+        >>> f.curry(left=True).uncurry(left=True).draw(
+        ...     path="docs/_static/cmap/biclosed-curry-left.png", show=False)
+
+        .. image:: /_static/cmap/biclosed-curry-left.png
+            :align: center
+        """
+        if n < 0 or n > len(self.dom):
+            raise ValueError
+        if not n:
+            return self
+
+        base = self.cod
+        if left:
+            exponent = self.dom[len(self.dom) - n:]
+            exp = base << exponent
+            coev = type(self).from_box(
+                self.category.coeval_factory(exp, left=True))
+            return (self >> coev).trace(n, left=False)
+
+        exponent = self.dom[:n]
+        exp = exponent >> base
+        coev = type(self).from_box(
+            self.category.coeval_factory(exp, left=False))
+        return (self >> coev).trace(n, left=True)
+
+    def uncurry(self, n=1, left=False) -> Self:
+        """
+        Uncurry a combinatorial map using the evaluation box of the host
+        category.
+
+        Parameters:
+            n : The number of objects to uncurry.
+            left : Whether to uncurry on the left or right.
+        """
+        if n < 0:
+            raise ValueError
+        if not n:
+            return self
+        if not self.cod.is_exp:
+            raise ValueError
+
+        exponent = self.cod.exponent
+        if n < len(exponent):
+            raise ValueError
+
+        ev = type(self).from_box(self.category.eval_factory(self.cod, left))
+        result = self @ type(self).id(exponent) >> ev if left\
+            else type(self).id(exponent) @ self >> ev
+        remaining = n - len(exponent)
+        return result if not remaining else result.uncurry(remaining, left)
 
 
 Diagram.map_factory = CMap

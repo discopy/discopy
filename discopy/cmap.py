@@ -1,21 +1,26 @@
 # -*- coding: utf-8 -*-
 
 """
-Combinatorial maps with interfaces.
+An implementation of open `combinatorial maps
+<https://en.wikipedia.org/wiki/Combinatorial_map>`_.
+See :cite:`DelpeuchVicary22` for a comprehensive overview of combinatorial
+maps in relation to string diagrams.
 
-See `combinatorial map
-<https://en.wikipedia.org/wiki/Combinatorial_map>`_ for background.
+A combinatorial map is fully described by a pair of permutations :math:`v` and
+:math:`e` acting on a set of ports :math:`P` (also called darts or
+half-edges) where:
 
-The ports of a map are ordered as in :mod:`discopy.hypergraph`: inputs,
-then the domain and codomain ports of each box, then outputs. A map is given by
-two permutations on these ports:
+* :math:`v` is an arbitrary permutation whose decomposition induces a node for
+  each cycle, giving an orientation on ports;
+* :math:`e` is a fixpoint-free involution, hence its cycle decomposition
+  only contains transpositions which are to be understood as wires of the map.
 
-* ``edges`` is a fixpoint-free involution pairing ports into wires;
-* ``orientation`` is derived from the canonical clockwise port order of the
-  boundary and boxes.
+A map morphism from :math:`(P, v, e)` to :math:`(P', v', e')` is then defined
+as a function :math:`f : P \\rightarrow P'` such that:
 
-Their composite gives the faces of the map. Closed wire components are
-stored separately in ``scalars`` together with their types.
+* :math:`f` defines a homomorphism of the underlying graph:
+  :math:`e; f = f; e'`;
+* :math:`f` respects orientation: :math:`v; f = f; v'`.
 
 Summary
 -------
@@ -121,24 +126,82 @@ class Port:
 class CMap[C0: Pregroup, C1: CMap](
     CompactCategory[C0, C1], NamedGeneric['functor']
 ):
-    """
-    An oriented bijective hypergraph with interface, also known as an open
-    combinatorial map.
+    r"""
+    An open combinatorial map, i.e. a diagram represented as a bijection
+    between its ports.
 
-    The edges involution gives the wires by decomposition into 2-cycles, while
-    the vertex permutation gives an orientation to every box.
+    Contrary to the abstract definition, which has unstructured nodes arising
+    from the given orientation permutation, we take DisCoPy boxes as nodes and
+    derive a canonical clockwise port orientation on boxes: every box of arity
+    :math:`m` and coarity :math:`n` maps to a :math:`(m+n)`-cycle in the
+    generated permutation, consisting of contiguous port indices.
+    Additionally, we allow two kinds of scalars:
+    * `scalar loops` arising from composing cups and caps, parametrized by an
+      atomic type;
+    * `scalar boxes`, i.e. boxes with empty domain and codomain
 
-    Port ordering is fixed by a canonical order given by clockwise order,
-    meaning that every box of arity m and coarity n maps to a (m+n)-cycle
-    consisting of contiguous port indices. The boundary is represented as
-    an apex, as if the domain and codomain ports were connected to the
-    same box.
+    As for the open structure, we represent the map boundary by a virtual apex
+    node, whose signature is the dagger of the that of the overall map.
 
-    The ``require_planar``, ``require_acyclic``, ``require_oriented`` and
-    ``require_connected`` flags can be set to enforce non-symmetric,
-    non-traced, non-compact and connected structure globally, including maps
-    with boxes. When the domain or codomain is non-empty, the boundary apex
-    connects the open boundary. Fully closed maps have no boundary apex.
+    By default, `CMap` defines the free compact category over a set of boxes,
+    but we also want to be able to encode weaker structure, disallowing cups
+    and caps or even traced structure altogether.
+    We therefore further distinguish port sides by assigning a negative
+    polarity on domain ports and a positive polarity on codomain ports
+    by equipping the map with a polarity assignment
+    :math:`m : P \rightarrow \{-1, +1\}`.
+
+    Four knobs are available to restrict the structure:
+
+    * ``require_planar``: the port orientation give us a way to easily compute
+      whether the map is planar by computing its component-wise Euler
+      characteristic, i.e. disallow swaps;
+    * ``require_causal``: checks that the edges are in causal order, i.e.
+      they link positive ports to negative ports with higher rank, i.e. no
+      traced wires;
+    * ``require_oriented``: checks that we connect positive to negative wires,
+      and disallow same-polarity pairings, i.e. we can enforce
+      :math:`e; m = -m` to disallow cups and caps;
+    * ``require_connected``: ensures the map forms a single connected component
+
+    Note that ``require_causal`` implies ``require_oriented`` since cups and
+    caps give rise to traced structure. We can therefore represent the
+    categorical structures we can guarantee by the following diagram:
+
+    .. tikz::
+        :align: center
+
+        \begin{tikzpicture}[
+          x={(2.6cm,0cm)}, y={(0cm,1.6cm)},
+          every node/.style={font=\scriptsize, align=center},
+          label/.style={font=\tiny, text=gray!35!black},
+          edge/.style={draw, -latex}
+        ]
+          \node[label] at (0,1.8) {causal};
+          \node[label] at (1,1.8) {non-causal};
+          \node[label] at (2,1.8) {non-oriented};
+          \node[label, anchor=east] at (-0.65,0) {monoidal};
+          \node[label, anchor=east] at (-0.65,1) {symmetric};
+
+          \node (S)  at (0,0) {spacial};
+          \node (Y)  at (0,1) {symmetric};
+          \node (T)  at (1,1) {traced};
+          \node (P)  at (2,0) {pivotal};
+          \node (C)  at (2,1) {compact};
+
+          \draw[edge] (S) -- (Y);
+          \draw[edge] (Y) -- (T);
+          \draw[edge] (T) -- (C);
+          \draw[edge] (S) -- (P);
+          \draw[edge] (P) -- (C);
+        \end{tikzpicture}
+
+    Note that combinatorial maps as such cannot faithfully represent free
+    monoidal diagrams as there is no way to account for the nesting of
+    connected components, hence the bottom-left corner rather corresponds
+    to the free `spacial` category, i.e. diagrams where entire isolated
+    components can go through wires at once without intermediate overlapping
+    (see :cite:`Selinger10`).
 
     Parameters:
         dom : The domain of the map.
@@ -146,7 +209,7 @@ class CMap[C0: Pregroup, C1: CMap](
         boxes : The boxes inside the map.
         edges : A fixpoint-free involution on ports.
         offsets : Optional drawing offsets, preserved through conversion.
-        scalars : The types of closed wire components with no ports.
+        loops : The types of closed wire components with no ports.
 
     Example
     -------
@@ -167,11 +230,36 @@ class CMap[C0: Pregroup, C1: CMap](
     >>> cm.orientation == Permutation.from_cycles([
     ...     (2, 1, 0, 10, 11), (3, 4, 5, 6), (7, 8, 9)], 12)
     True
+    >>> cm.draw(
+    ...     path="docs/_static/cmap/simple-cmap.png",
+    ...     port_indices=True,
+    ...     show=False,
+    ... )
+
+    .. image:: /_static/cmap/simple-cmap.png
+        :align: center
+
+    Swaps affect the edge permutation but leave the vertex permutation
+    fixed:
+
+    >>> f, g = map(CMap.from_box, [
+    ...     Box("f", x @ y, z @ x),
+    ...     Box("g", z @ z, z),
+    ... ])
+    >>> cm = (f >> CMap.swap(z, x)) @ z >> x @ g
+    >>> cm.draw(
+    ...     path="docs/_static/cmap/swapped-cmap.png",
+    ...     port_indices=True,
+    ...     show=False,
+    ... )
+
+    .. image:: /_static/cmap/swapped-cmap.png
+        :align: center
     """
 
     functor: ClassVar[Functor]
     require_planar: ClassVar[bool] = True
-    require_acyclic: ClassVar[bool] = False
+    require_causal: ClassVar[bool] = False
     require_oriented: ClassVar[bool] = False
     require_connected: ClassVar[bool] = False
     category = classproperty(lambda cls: cls.functor.dom)
@@ -180,25 +268,25 @@ class CMap[C0: Pregroup, C1: CMap](
     dom: C0
     cod: C0
     offsets: tuple[int, ...]
-    scalars: tuple[C0, ...]
+    loops: tuple[C0, ...]
     edges: Permutation
 
     def __init__(
             self, dom: C0, cod: C0, boxes: tuple[Box, ...],
             edges: Iterable[int],
             offsets: tuple[int | None, ...] | None = None,
-            scalars: tuple[C0, ...] = ()):
+            loops: tuple[C0, ...] = ()):
         assert_isinstance(dom, self.category.ob)
         assert_isinstance(cod, self.category.ob)
         for box in boxes:
             assert_isinstance(box, self.category)
-        for scalar in scalars:
-            assert_isinstance(scalar, self.category.ob)
+        for loop in loops:
+            assert_isinstance(loop, self.category.ob)
         self.dom, self.cod, self.boxes = dom, cod, tuple(boxes)
         self.offsets = offsets or tuple(len(boxes) * [None])
         if len(self.offsets) != len(self.boxes):
             raise ValueError
-        self.scalars = tuple(scalars)
+        self.loops = tuple(loops)
 
         self.edges = Permutation(edges, len(self.ports))
         self.validate()
@@ -256,7 +344,7 @@ class CMap[C0: Pregroup, C1: CMap](
     @property
     def n_edges(self) -> int:
         """ The number of edges. """
-        return self.n_ports // 2 + len(self.scalars)
+        return self.n_ports // 2 + len(self.loops)
 
     @property
     def n_faces(self) -> int:
@@ -264,7 +352,7 @@ class CMap[C0: Pregroup, C1: CMap](
         portless_boxes = sum(
             not len(box.dom) and not len(box.cod) for box in self.boxes)
         return len(self.faces.cycles()) + portless_boxes\
-            + len(self.scalars)
+            + len(self.loops)
 
     @property
     def euler_characteristic(self) -> int:
@@ -286,7 +374,7 @@ class CMap[C0: Pregroup, C1: CMap](
         """
         if len(self.connected_components) != 1:
             raise ValueError(messages.NOT_CONNECTED.format(self))
-        if not self.n_ports and not self.boxes and not self.scalars:
+        if not self.n_ports and not self.boxes and not self.loops:
             return 2
         return self.n_vertices - self.n_edges + self.n_faces
 
@@ -298,9 +386,9 @@ class CMap[C0: Pregroup, C1: CMap](
         """
         if self.n_ports > 0:
             return False
-        if not self.boxes and len(self.scalars) == 1:
+        if not self.boxes and len(self.loops) == 1:
             return True
-        return len(self.boxes) == 1 and not self.scalars
+        return len(self.boxes) == 1 and not self.loops
 
     @property
     def is_planar(self) -> bool:
@@ -359,7 +447,7 @@ class CMap[C0: Pregroup, C1: CMap](
                 continue
             type(self).validate_wire(ports[i], ports[j])
 
-        if self.require_acyclic:
+        if self.require_causal:
             self.validate_forward_edges(ports)
 
         if self.require_planar and not self.is_planar:
@@ -373,7 +461,7 @@ class CMap[C0: Pregroup, C1: CMap](
         """ The connected components, with the boundary component first. """
         if not self.n_ports:
             # Avoid recursively rebuilding the same portless component.
-            if len(self.boxes) + len(self.scalars) <= 1:
+            if len(self.boxes) + len(self.loops) <= 1:
                 return [self]
             components = [
                 type(self)(
@@ -381,8 +469,8 @@ class CMap[C0: Pregroup, C1: CMap](
                     offsets=(offset, ))
                 for box, offset in zip(self.boxes, self.offsets)]
             components += [
-                type(self)(self.ob(), self.ob(), (), (), scalars=(scalar, ))
-                for scalar in self.scalars]
+                type(self)(self.ob(), self.ob(), (), (), loops=(loop, ))
+                for loop in self.loops]
             return components
 
         component_of = self.edges.coequalizer(self.orientation)
@@ -410,7 +498,7 @@ class CMap[C0: Pregroup, C1: CMap](
             offsets_by_component.setdefault(component, []).append(offset)
 
         if len(ports_by_component) == 1 and not portless_boxes\
-                and not self.scalars:
+                and not self.loops:
             return [self]
 
         def make_component(component: int) -> CMap:
@@ -448,8 +536,8 @@ class CMap[C0: Pregroup, C1: CMap](
                 self.ob(), self.ob(), (box, ), (), offsets=(offset, ))
             for _, box, offset in portless_boxes]
         components += [
-            type(self)(self.ob(), self.ob(), (), (), scalars=(scalar, ))
-            for scalar in self.scalars]
+            type(self)(self.ob(), self.ob(), (), (), loops=(loop, ))
+            for loop in self.loops]
         return components
 
     def splice(
@@ -574,17 +662,17 @@ class CMap[C0: Pregroup, C1: CMap](
         return factory_name(type(self))\
             + f"(dom={self.dom!r}, cod={self.cod!r}, " \
               f"boxes={self.boxes!r}, edges={self.edges!r}, " \
-              f"ports={ports!r}, scalars={self.scalars!r})"
+              f"ports={ports!r}, scalars={self.loops!r})"
 
     def __eq__(self, other: Any):
         return isinstance(other, CMap) and (
-            self.dom, self.cod, self.boxes, self.edges, self.scalars
+            self.dom, self.cod, self.boxes, self.edges, self.loops
         ) == (
-            other.dom, other.cod, other.boxes, other.edges, other.scalars)
+            other.dom, other.cod, other.boxes, other.edges, other.loops)
 
     def __hash__(self):
         return hash((
-            self.dom, self.cod, self.boxes, self.edges, self.scalars))
+            self.dom, self.cod, self.boxes, self.edges, self.loops))
 
     @classmethod
     def id(cls, dom=None) -> CMap:
@@ -693,18 +781,23 @@ class CMap[C0: Pregroup, C1: CMap](
         Curry a combinatorial map using compact wiring.
 
         Note:
-            This will use the free closed structure obtained from the map
+            This will use the free compact structure obtained from the map
             representation by introducing adjoint ports, even if the host
-            category already has closed structure.
+            category already has compact structure.
 
         Parameters:
             n : The number of objects to curry.
             left : Whether to curry on the left or right.
 
         >>> from discopy.compact import Ty, Box
-        >>> X, Y, Z = Ty("X"), Ty("Y"), Ty("Z")
-        >>> f = Box("f", X @ Y, Z).to_map()
+        >>> x, y, z = map(Ty, "xyz")
+        >>> f = Box("f", x @ y, z).to_map()
         >>> assert f.curry().uncurry() == f
+        >>> f.curry().draw(
+        ...     path="docs/_static/cmap/compact-curry.png", show=False)
+
+        .. image:: /_static/cmap/compact-curry.png
+            :align: center
         """
         if n < 0 or n > len(self.dom):
             raise ValueError
@@ -788,7 +881,7 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> scalar = CMap.caps(x.r, x) >> CMap.cups(x.r, x)
         >>> scalar.boxes
         ()
-        >>> scalar.scalars == (x,)
+        >>> scalar.loops == (x,)
         True
         """
         if not self.cod == other.dom:
@@ -804,10 +897,10 @@ class CMap[C0: Pregroup, C1: CMap](
             Permutation.id(other.n_ports - len(other.dom)))
         edge, new_scalars = self.splice(
             edge, glue, ports)
-        scalars = self.scalars + other.scalars + new_scalars
+        loops = self.loops + other.loops + new_scalars
         return type(self)(
             dom, cod, boxes, edge, offsets=offsets,
-            scalars=scalars)
+            loops=loops)
 
     def trace(self, n: int = 1, left: bool = False) -> CMap:
         """
@@ -839,10 +932,10 @@ class CMap[C0: Pregroup, C1: CMap](
             zip(traced_inputs, traced_outputs), self.n_ports)
         edge, new_scalars = self.splice(
             self.edges, glue, self.ports)
-        scalars = self.scalars + new_scalars
+        loops = self.loops + new_scalars
         return type(self)(
             dom, cod, self.boxes, edge, offsets=self.offsets,
-            scalars=scalars)
+            loops=loops)
 
     @unbiased
     def tensor(self, other: CMap) -> CMap:
@@ -874,7 +967,7 @@ class CMap[C0: Pregroup, C1: CMap](
             other.edges.embed(other_map, n_ports))
         return type(self)(
             dom, cod, boxes, edge, offsets=offsets,
-            scalars=self.scalars + other.scalars)
+            loops=self.loops + other.loops)
 
     def interchange(self, i: int, j: int) -> CMap:
         """
@@ -913,7 +1006,7 @@ class CMap[C0: Pregroup, C1: CMap](
         edge = self.edges.conjugate(Permutation(mapping))
         return type(self)(
             self.dom, self.cod, boxes, edge, offsets=offsets,
-            scalars=self.scalars)
+            loops=self.loops)
 
     def dagger(self) -> CMap:
         """
@@ -944,7 +1037,7 @@ class CMap[C0: Pregroup, C1: CMap](
         edges = self.edges.conjugate(Permutation(mapping))
         return type(self)(
             self.cod, self.dom, boxes, edges, offsets=offsets,
-            scalars=self.scalars)
+            loops=self.loops)
 
     def plug_input(
             self, input_index: int, box: Box,
@@ -1012,7 +1105,7 @@ class CMap[C0: Pregroup, C1: CMap](
 
         return type(self)(
             new_dom, cod, boxes, edge, offsets=offsets,
-            scalars=self.scalars)
+            loops=self.loops)
 
     def to_diagram(self) -> Diagram:
         """
@@ -1077,6 +1170,14 @@ class CMap[C0: Pregroup, C1: CMap](
                 ) @ diagram.cod[j + 1:]
                 scan = scan[:i] + scan[j:j + 1] + scan[i:j] + scan[j + 1:]
         return diagram
+
+    def to_hypergraph(self):
+        """
+        Forget orientation and return the underlying bijective hypergraph
+        given by the edge permutation. See documentation of
+        :func:``Hypergraph.from_map`` for an example.
+        """
+        return self.category.hypergraph_factory.from_map(self)
 
     def to_dot(
             self, engine="dot", seed=None, graph_attr=None,
@@ -1150,7 +1251,7 @@ class CMap[C0: Pregroup, C1: CMap](
             tooltip = escape_html(
                 f"{port.kind} {port.i}: {port.obj} "
                 f"({port.side}, {port.direction})")
-            text = escape_html(port.i) if port_indices else ""
+            text = escape_html(port_index) if port_indices else ""
             cellpadding = 2 if port_indices else 0
             height = 18 if port_indices else 0
             fixedsize = ' FIXEDSIZE="TRUE"' if port_indices else ""
@@ -1171,7 +1272,7 @@ class CMap[C0: Pregroup, C1: CMap](
         def box_table(vertex, box):
             box_ports = self._box_port_indices[vertex]
             dom_ports = box_ports[:len(box.dom)]
-            cod_ports = box_ports[len(box.dom):]
+            cod_ports = tuple(reversed(box_ports[len(box.dom):]))
             dom_arity, cod_arity = len(dom_ports), len(cod_ports)
             grid = lcm(dom_arity or 1, cod_arity or 1)
             box_width = 18 * max(dom_arity, cod_arity, 1)
@@ -1231,17 +1332,17 @@ class CMap[C0: Pregroup, C1: CMap](
             if ports:
                 lines.append(f"  {{ rank={rank}; {name}; }}")
 
-        for i, scalar in enumerate(self.scalars):
+        for i, loop in enumerate(self.loops):
             attributes = dict(
                 label="",
                 width="0.08",
                 height="0.08",
                 shape="point",
-                tooltip=f"scalar {i}: {scalar}")
-            lines.append(f"  scalar{i} [{attr_string(attributes)}];")
-            attributes = dict(len="0.85", label=scalar)
+                tooltip=f"loop {i}: {loop}")
+            lines.append(f"  loop{i} [{attr_string(attributes)}];")
+            attributes = dict(len="0.85", label=loop)
             lines.append(
-                f"  scalar{i} -- scalar{i} "
+                f"  loop{i} -- loop{i} "
                 f"[{attr_string(attributes)}];")
 
         def node_name(port_index):
@@ -1286,26 +1387,18 @@ class CMap[C0: Pregroup, C1: CMap](
             seed : An optional Graphviz layout seed.
             show : Whether to display the rendered image.
             graph_attr : Additional Graphviz graph attributes.
-            boundary_labels : Accepted for drawing API compatibility.
-            box_labels : Accepted for drawing API compatibility.
             port_indices : Whether to display port indices.
             block : Whether displaying blocks execution.
 
-        >>> from discopy.compact import Ty, Box, CMap
+        Scalar loops are drawn as dots with a loop, but the combinatorial map
+        structure does not let us retain inclusion of such loops:
+
+        >>> from discopy.compact import Ty, CMap
         >>> x, y, z = map(Ty, "xyz")
-        >>> Box("f", x @ y, z).to_map().curry().draw(
-        ...     path="docs/_static/cmap/curry.png", show=False)
-
-        .. image:: /_static/cmap/curry.png
-            :align: center
-
-        Scalars are drawn as dots with a loop, but the combinatorial map
-        structure does not let us retain inclusion:
-
         >>> (CMap.caps((x @ y).r, x @ y) >> CMap.cups((x @ y).l, x @ y)).draw(
-        ...     path="docs/_static/cmap/scalar.png", show=False)
+        ...     path="docs/_static/cmap/scalar-loop.png", show=False)
 
-        .. image:: /_static/cmap/scalar.png
+        .. image:: /_static/cmap/scalar-loop.png
             :align: center
         """
         dot = self.to_dot(

@@ -404,6 +404,17 @@ class Layer(cat.Box):
         left, box, right = self
         return type(self)(left, box.subs(*args), right)
 
+    @property
+    def is_generator(self):
+        if len(self.boxes_or_types) != 3:
+            return False
+        left, box, right = self.boxes_or_types
+        return not left.inside and not right.inside
+
+    @property
+    def generator(self):
+        return self.boxes_or_types[1] if self.is_generator else None
+
     @classmethod
     def cast(cls, box: Box) -> Layer:
         """
@@ -531,6 +542,16 @@ class Diagram(cat.Arrow, MonoidalCategory):
     @property
     def size(self):
         return sum(box.size for box in self.inside)
+
+    @property
+    def is_generator(self):
+        """ Whether a `Diagram` is a generator, i.e. a single box. """
+        return len(self) == 1 and self.inside[0].is_generator
+
+    @property
+    def generator(self):
+        """ The single box in a generator `Diagram`. """
+        return self.inside[0].generator if self.is_generator else None
 
     @classmethod
     def from_callable(cls, dom: Ty, cod: Ty) -> Callable[Callable, Diagram]:
@@ -1098,7 +1119,7 @@ class Functor(cat.Functor):
     Example
     -------
     >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-    >>> f0, f1 = Box('f0', x, y, data=[0.1]), Box('f1', z, w, data=[1.1])
+    >>> f0, f1 = Box('f0', x, y, data=0.1), Box('f1', z, w, data=1.1)
     >>> F = Functor({x: z, y: w, z: x, w: y}, {f0: f1, f1: f0})
     >>> assert F(f0) == f1 and F(f1) == f0
     >>> assert F(F(f0)) == f0
@@ -1171,17 +1192,11 @@ class Match:
 class Hypergraph(hypergraph.Hypergraph):
     functor = Functor
 
-    def to_diagram(self):
-        if not self.is_monogamous:
-            raise AxiomError(factory_name(
-                self.category) + " does not have copy or discard.")
-        return super().to_diagram()
-
 
 class CMap(cmap.CMap):
     functor = Functor
     require_planar = True
-    require_acyclic = True
+    require_causal = True
     require_oriented = True
     require_connected = True
 

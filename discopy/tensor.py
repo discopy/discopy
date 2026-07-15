@@ -676,8 +676,8 @@ class CMap(frobenius.CMap):
                 arrays.append(eye(ports[port].obj))
                 indices.append([wires[port], label])
                 output.append(label)
-            for scalar in self.scalars:
-                arrays.append(eye(scalar))
+            for loop in self.loops:
+                arrays.append(eye(loop))
                 indices.append(2 * [next(fresh)])
             if not arrays:
                 return cls([1], self.dom, self.cod)
@@ -729,7 +729,7 @@ class Box(frobenius.Box, Diagram):
             return object.__new__(cls)
         data, dtype = cls._get_data_dtype(data)
         return cls.__new__(
-            cls[dtype],  name, dom, cod, data, *args, **kwargs)
+            cls[dtype], name, dom, cod, data, *args, **kwargs)
 
     @staticmethod
     def _get_data_dtype(data):
@@ -752,6 +752,12 @@ class Box(frobenius.Box, Diagram):
         return self.bubble(
             func=lambda x: getattr(x, "diff", lambda _: 0)(var),
             drawing_name=f"$\\partial {var}$")
+
+    def setoid(self):
+        """ Compare boxes by turning their internal `data` into tuples. """
+        data = () if self.data is None else\
+            tuple(self.data) if isinstance(self.data, list) else (self.data, )
+        return (self.name, self.dom, self.cod, self.dtype) + data
 
 
 class Cup(frobenius.Cup, Box):

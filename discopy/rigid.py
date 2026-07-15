@@ -566,13 +566,12 @@ class Box(biclosed.Box, Diagram):
         return biclosed.Box.__repr__(self)[:-1] + (
             f', z={self.z})' if self.z else ')')
 
-    def __eq__(self, other):
-        if isinstance(other, Box):
-            return cat.Box.__eq__(self, other) and self.z == other.z
-        return monoidal.Box.__eq__(self, other)
-
-    def __hash__(self):
-        return hash(cat.Arrow.__repr__(self))
+    def setoid(self):
+        """
+        Rigid boxes are equal when they are equal as :class:`cat.Box` and their
+        winding numbers `z` are also equal.
+        """
+        return super().setoid() + (self.z, )
 
     def rotate(self, left=False):
         dom, cod = (
