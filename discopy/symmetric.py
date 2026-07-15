@@ -371,7 +371,7 @@ class Functor(balanced.Functor):
 
 
 class CMap(traced.CMap):
-    functor = Functor
+    category = Diagram
     require_planar = False
 
 

@@ -447,9 +447,10 @@ class Functor(monoidal.Functor):
 
 
 class CMap(monoidal.CMap):
-    functor = Functor
+    category = Diagram
 
 
+Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
 
 

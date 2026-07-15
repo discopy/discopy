@@ -170,7 +170,7 @@ class Functor(biclosed.Functor, markov.Functor):
 
 
 class CMap(biclosed.CMap):
-    functor = Functor
+    category = Diagram
     require_planar = False
 
 

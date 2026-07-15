@@ -308,7 +308,7 @@ class Functor(symmetric.Functor):
 
 
 class CMap(symmetric.CMap):
-    functor = Functor
+    category = Diagram
 
 
 Diagram.functor_factory = Functor

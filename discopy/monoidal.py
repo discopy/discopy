@@ -1201,7 +1201,7 @@ class Match:
 
 
 class CMap(cmap.CMap):
-    functor = Functor
+    category = Diagram
     require_planar = True
     require_acyclic = True
     require_oriented = True

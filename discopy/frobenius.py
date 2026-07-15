@@ -383,7 +383,7 @@ def coherence(cls: type, factory: Callable
 
 
 class CMap(compact.CMap):
-    functor = Functor
+    category = Diagram
 
 
 Diagram.functor_factory = Functor

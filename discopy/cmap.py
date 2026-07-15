@@ -54,7 +54,7 @@ from discopy.utils import (
 )
 
 if TYPE_CHECKING:
-    from discopy.monoidal import Ob, Ty, Diagram, Box, Functor
+    from discopy.monoidal import Ob, Ty, Diagram, Box
 
 
 class PortKind(StrEnum):
@@ -119,7 +119,7 @@ class Port:
 
 
 class CMap[C0: Pregroup, C1: CMap](
-    CompactCategory[C0, C1], NamedGeneric['functor']
+    CompactCategory[C0, C1], NamedGeneric['category']
 ):
     """
     An oriented bijective hypergraph with interface, also known as an open
@@ -169,12 +169,12 @@ class CMap[C0: Pregroup, C1: CMap](
     True
     """
 
-    functor: ClassVar[Functor]
+    category: ClassVar[Diagram] = None
     require_planar: ClassVar[bool] = True
     require_acyclic: ClassVar[bool] = False
     require_oriented: ClassVar[bool] = False
     require_connected: ClassVar[bool] = False
-    category = classproperty(lambda cls: cls.functor.dom)
+    functor = classproperty(lambda cls: cls.category.functor_factory)
     ob = classproperty(lambda cls: cls.category.ob)
 
     dom: C0
@@ -626,7 +626,7 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> Swap(x, y).to_map().boxes
         ()
         """
-        factory = cls if cls.functor is not None else cls[type(old).functor]
+        factory = cls if cls.category is not None else cls[type(old).ar]
         return factory.functor(
             ob=lambda typ: typ, ar=factory.from_box,
             dom=type(old), cod=factory)(old)

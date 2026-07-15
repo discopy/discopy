@@ -259,7 +259,7 @@ class Functor(monoidal.Functor):
 
 
 class CMap(monoidal.CMap):
-    functor = Functor
+    category = Diagram
     require_acyclic = False
 
 
