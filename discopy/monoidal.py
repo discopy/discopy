@@ -12,7 +12,7 @@ Summary
     :toctree:
 
     Colour
-    Ob
+    Wire
     Ty
     PRO
     Dim
@@ -63,7 +63,7 @@ from discopy.abc import ColouredMonoid, MonoidalCategory
 from discopy.drawing import Drawing
 from discopy.config import DRAWING_ATTRIBUTES
 from discopy.utils import (
-    ar_factory,
+    factory,
     factory_name,
     from_tree,
     assert_isinstance,
@@ -93,7 +93,7 @@ class Colour(cat.Ob):
 white = Colour("white")
 
 
-class Ob(cat.Ob):
+class Wire(cat.Ob):
     """A generating 1-cell with a colour on either side."""
 
     def __init__(self, name: str, dom: Colour = white,
@@ -149,17 +149,25 @@ class Ob(cat.Ob):
 class FreeMonoid(cat.FreeCategory, ColouredMonoid):
     """A free category whose composition is also its monoid product."""
 
+    def __init__(self, inside, dom: Colour = None, cod: Colour = None,
+                 _scan: bool = True):
+        if dom is None:
+            dom = inside[0].dom if inside else white
+        if cod is None:
+            cod = inside[-1].cod if inside else white
+        cat.FreeCategory.__init__(self, inside, dom, cod, _scan)
+
     def tensor(self, *others):
         # Whiskering: tensoring a type with e.g. a diagram returns
         # NotImplemented so the other operand's __rmatmul__ takes over.
-        if any(not isinstance(other, self.ar) for other in others):
+        if any(not isinstance(other, self.factory) for other in others):
             return NotImplemented
         return cat.FreeCategory.then(self, *others)
 
     then = tensor
 
 
-@ar_factory
+@factory
 class Ty(cat.Ob, FreeMonoid):
     """
     A type is a composable path of objects with :meth:`Ty.tensor`
@@ -180,6 +188,15 @@ class Ty(cat.Ob, FreeMonoid):
 
     >>> assert Ty('x') ** 3 == Ty('x', 'x', 'x')
 
+    Tip
+    ---
+    Types can also be instantiated by keyword, passing the path of
+    generators as ``inside=``; this is what the free-category machinery
+    uses internally, while the variadic form above is the user-friendly
+    ``Ty('x', 'y')`` API.
+
+    >>> assert Ty(inside=(Wire('x'), Wire('y'))) == Ty('x', 'y')
+
     Note
     ----
     Types can be indexed and sliced using square brackets. Indexing behaves
@@ -188,34 +205,25 @@ class Ty(cat.Ob, FreeMonoid):
 
     >>> t = Ty(*"xyz")
     >>> assert t[0] == t[:1] == Ty('x')
-    >>> assert t[0] != t.inside[0] == Ob('x')
+    >>> assert t[0] != t.inside[0] == Wire('x')
     >>> assert t[1:] == t[-2:] == Ty('y', 'z')
     """
     ob = Colour
-    generator_factory = Ob
+    generator_factory = Wire
 
-    def __setstate__(self, state):
-        if 'inside' not in state and "_objects" in state:
-            state["inside"] = state['_objects']
-            del state['_objects']
-        if 'dom' not in state:
-            state['dom'] = white
-        if 'cod' not in state:
-            state['cod'] = white
-        self.__dict__.update(state)
-        if not hasattr(self, 'name'):
-            self.name = str(self)
+    def cast_wire(self, x: str | cat.Ob) -> cat.Ob:
+        """
+        Turn a constructor argument into a ``self.generator_factory``.
 
-    def _coerce_generator(self, x: str | cat.Ob) -> cat.Ob:
-        """ Turn a constructor argument into a ``self.generator_factory``. """
+        Old dumps and pickles used a plain ``cat.Ob``, with no colour, as
+        the generators: upgrade it to ``Wire(x.name)`` for subclasses whose
+        generators are plain ``Wire``.
+        """
         if isinstance(x, self.generator_factory):
             return x
         if isinstance(x, str):
             return self.generator_factory(x)
-        # Old dumps and pickles used a plain cat.Ob, with no colour, as the
-        # generators: upgrade it to Ob(x.name) for subclasses whose
-        # generators are plain Ob.
-        if self.generator_factory is Ob and type(x) is cat.Ob:
+        if self.generator_factory is Wire and type(x) is cat.Ob:
             return self.generator_factory(x.name)
         raise AxiomError(
             messages.TYPE_ERROR.format(self.generator_factory, type(x)))
@@ -223,21 +231,14 @@ class Ty(cat.Ob, FreeMonoid):
     def __init__(self, *inside: str | cat.Ob,
                  dom: Colour = None, cod: Colour = None,
                  _scan: bool = True, **kwargs):
-        # The free-category machinery builds new types by keyword, passing
-        # the path of generators as ``inside=``; the variadic form above is
-        # the user-friendly ``Ty('x', 'y')`` API.
         inside = kwargs.pop('inside', inside)
         if kwargs:
             raise TypeError(f"Unexpected keyword arguments: {list(kwargs)}.")
         for obj in inside:
             assert_isinstance(obj, (str, self.generator_factory) + (
-                (cat.Ob, ) if self.generator_factory is Ob else ()))
-        inside = tuple(map(self._coerce_generator, inside))
-        if dom is None:
-            dom = inside[0].dom if inside else white
-        if cod is None:
-            cod = inside[-1].cod if inside else white
-        cat.FreeCategory.__init__(self, inside, dom, cod, _scan)
+                (cat.Ob, ) if self.generator_factory is Wire else ()))
+        inside = tuple(map(self.cast_wire, inside))
+        FreeMonoid.__init__(self, inside, dom, cod, _scan)
         cat.Ob.__init__(self, str(self))
 
     def count(self, obj: cat.Ob) -> int:
@@ -295,8 +296,20 @@ class Ty(cat.Ob, FreeMonoid):
         assert_isinstance(n_times, int)
         if n_times <= 0:
             assert self.dom == self.cod
-            return self.ar.id(self.dom)
+            return self.factory.id(self.dom)
         return self.tensor(*(n_times - 1) * [self])
+
+    def __setstate__(self, state):
+        if 'inside' not in state and "_objects" in state:
+            state["inside"] = state['_objects']
+            del state['_objects']
+        if 'dom' not in state:
+            state['dom'] = white
+        if 'cod' not in state:
+            state['cod'] = white
+        self.__dict__.update(state)
+        if not hasattr(self, 'name'):
+            self.name = str(self)
 
     def to_tree(self):
         tree = {
@@ -328,23 +341,24 @@ class Ty(cat.Ob, FreeMonoid):
     def to_drawing(self) -> Ty:
         if not self.inside:
             return Ty.id(self.dom)
-        result = Ty(*(Ob(str(x), getattr(x, 'dom', white),
-                         getattr(x, 'cod', white)) for x in self.inside))
+        result = Ty(*(Wire(str(x), getattr(x, 'dom', white),
+                           getattr(x, 'cod', white)) for x in self.inside))
         for new, old in zip(result.inside, self.inside):
             if getattr(old, "frame_boundary", False):
                 new.frame_boundary = True
         return result
 
 
-@ar_factory
+@factory
 class PRO(Ty):
     """
     A PRO is a natural number ``n`` seen as a type with addition as tensor.
 
     Parameters
     ----------
-    n : int
-        The length of the PRO type.
+    inside : int | tuple
+        The length of the PRO type, or a tuple of generators whose
+        length is taken.
 
     Example
     -------
@@ -355,7 +369,7 @@ class PRO(Ty):
     If ``ob`` is ``PRO`` then :class:`Diagram` will automatically turn
     any ``n: int`` into ``PRO(n)``. Thus ``PRO`` never needs to be called.
 
-    >>> @ar_factory
+    >>> @factory
     ... class Circuit(Diagram):
     ...     ob = PRO
     >>> class Gate(Box, Circuit): ...
@@ -363,16 +377,11 @@ class PRO(Ty):
 
     >>> assert CX @ 2 >> 2 @ CX == CX @ CX
     """
-    def __init__(self, n: int = 0, dom: Colour = None, cod: Colour = None,
-                 _scan: bool = True, **kwargs):
-        if 'inside' in kwargs:  # Built by keyword from the free-category path.
-            n = len(kwargs.pop('inside'))
-        if kwargs:
-            raise TypeError(f"Unexpected keyword arguments: {list(kwargs)}.")
-        assert_isinstance(n, int)
-        self.n = n
+    def __init__(self, inside: int | tuple = 0, dom: Colour = None,
+                 cod: Colour = None, _scan: bool = True):
+        self.n = inside if isinstance(inside, int) else len(inside)
         self.dom = self.cod = white
-        cat.Ob.__init__(self, str(self))
+        self.name = str(self)
 
     def __setstate__(self, state):
         if "n" not in state:
@@ -390,15 +399,15 @@ class PRO(Ty):
         for other in others:
             if not isinstance(other, Ty):
                 return NotImplemented  # This allows whiskering on the left.
-            assert_isinstance(self, other.ar)
-            assert_isinstance(other, self.ar)
-        return self.ar(self.n + sum(other.n for other in others))
+            assert_isinstance(self, other.factory)
+            assert_isinstance(other, self.factory)
+        return self.factory(self.n + sum(other.n for other in others))
 
     then = tensor
 
     def __getitem__(self, key):
         if isinstance(key, slice):
-            return self.ar(len(self.inside[key]))
+            return self.factory(len(self.inside[key]))
         return cat.Arrow.__getitem__(self, key)
 
     def __len__(self):
@@ -411,13 +420,13 @@ class PRO(Ty):
         return f"PRO({self.n})"
 
     def __eq__(self, other):
-        return isinstance(other, self.ar) and self.n == other.n
+        return isinstance(other, self.factory) and self.n == other.n
 
     def __hash__(self):
         return hash(repr(self))
 
     def __pow__(self, n_times):
-        return self.ar(n_times * self.n)
+        return self.factory(n_times * self.n)
 
     def to_tree(self):
         return {'factory': factory_name(type(self)), 'n': self.n}
@@ -427,7 +436,7 @@ class PRO(Ty):
         return cls(tree['n'])
 
 
-@ar_factory
+@factory
 class Dim(Ty):
     """
     A dimension is a tuple of positive integers
@@ -456,10 +465,10 @@ class Dim(Ty):
 
     def __getitem__(self, key):
         if isinstance(key, slice):
-            return self.ar(*self.inside[key])
+            return self.factory(*self.inside[key])
         if key >= len(self) or key < -len(self):
             raise IndexError
-        return self.ar(self.inside[key])
+        return self.factory(self.inside[key])
 
     def __repr__(self):
         return f"Dim({', '.join(map(repr, self.inside)) or '1'})"
@@ -631,7 +640,7 @@ class Layer(cat.Box):
         return cls(*(map(from_tree, tree['inside'])))
 
 
-@ar_factory
+@factory
 class Diagram(cat.Arrow, MonoidalCategory):
     """
     A diagram is a tuple of composable layers :code:`inside` with a pair of
@@ -1094,9 +1103,9 @@ class Box(cat.Box, Diagram):
     globular, i.e. its domain and codomain share the same boundary colours.
 
     >>> red, green, blue = map(Colour, ("red", "green", "blue"))
-    >>> x = Ty(Ob("x", red, green))
-    >>> y = Ty(Ob("y", green, blue))
-    >>> z = Ty(Ob("z", red, blue))
+    >>> x = Ty(Wire("x", red, green))
+    >>> y = Ty(Wire("y", green, blue))
+    >>> z = Ty(Wire("z", red, blue))
     >>> coloured = Box("coloured", x @ y, z)
     >>> assert coloured.dom.dom == red == coloured.cod.dom
     >>> assert coloured.dom.cod == blue == coloured.cod.cod
@@ -1326,7 +1335,7 @@ class Functor(cat.Functor):
         if isinstance(other, Colour):
             return self._map_colour(other)
         if isinstance(other, PRO):
-            result = self._map_atomic(other.ar(1))
+            result = self._map_atomic(other.factory(1))
             return sum(other.n * [result], self.cod.ob())
         if isinstance(other, Dim):
             return sum([self.ob_map[x] for x in other], self.cod.ob())
@@ -1342,12 +1351,12 @@ class Functor(cat.Functor):
                 result = result + image
             return result
         if isinstance(other, self.dom.ob.generator_factory):
-            if isinstance(other, Ob) and other.is_dagger:
+            if isinstance(other, Wire) and other.is_dagger:
                 # Map a daggered coloured generator functorially: its image is
                 # the dagger of the image of the underlying generator.
                 return self(other.dagger()).dagger()
             result = self._map_atomic(self.dom.ob(other))
-            if isinstance(other, Ob) and isinstance(result, Ty):
+            if isinstance(other, Wire) and isinstance(result, Ty):
                 expected = self(other.dom), self(other.cod)
                 if (result.dom, result.cod) != expected:
                     raise AxiomError(messages.NOT_GLOBULAR.format(

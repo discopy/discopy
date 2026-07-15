@@ -68,7 +68,7 @@ from typing import Callable, ClassVar
 from discopy import monoidal
 from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
-from discopy.cat import ar_factory
+from discopy.cat import factory
 from discopy.utils import (
     assert_isinstance,
     factory_name,
@@ -76,7 +76,7 @@ from discopy.utils import (
 )
 
 
-@ar_factory
+@factory
 class Ty(monoidal.Ty):
     """
     A biclosed type is a monoidal type that can be exponentiated.
@@ -180,11 +180,11 @@ class Ty(monoidal.Ty):
         return self.inside[0].exponent
 
 
-class Ob(monoidal.Ob):
+class Ob(monoidal.Wire):
     """
-    A biclosed object is a self-dagger :class:`monoidal.Ob`, i.e. its left and
-    right colours always match. Exponentials do not interact meaningfully with
-    colours, so for now we assume everything is white.
+    A biclosed object is a self-dagger :class:`monoidal.Wire`, i.e. its left
+    and right colours always match. Exponentials do not interact meaningfully
+    with colours, so for now we assume everything is white.
     """
     def dagger(self) -> Ob:
         return self
@@ -263,7 +263,7 @@ class Under(Exp):
         return f"({self.exponent} >> {self.base})"
 
 
-@ar_factory
+@factory
 class Diagram(monoidal.Diagram, BiclosedCategory):
     """
     A biclosed diagram is a monoidal diagram

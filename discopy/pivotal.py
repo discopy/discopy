@@ -57,7 +57,7 @@ from __future__ import annotations
 
 from discopy import cat, rigid, traced
 from discopy.abc import PivotalCategory
-from discopy.cat import ar_factory
+from discopy.cat import factory
 
 
 class Ob(rigid.Ob):
@@ -80,7 +80,7 @@ class Ob(rigid.Ob):
         return self.l
 
 
-@ar_factory
+@factory
 class Ty(rigid.Ty):
     """
     A pivotal type is a rigid type with pivotal objects inside.
@@ -91,7 +91,7 @@ class Ty(rigid.Ty):
     generator_factory = Ob
 
 
-@ar_factory
+@factory
 class PRO(rigid.PRO, Ty):
     """
     A pivotal PRO is a natural number ``n``
@@ -105,7 +105,7 @@ class PRO(rigid.PRO, Ty):
     l = r = property(lambda self: self)
 
 
-@ar_factory
+@factory
 class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
     """
     A pivotal diagram is a rigid diagram and a traced diagram

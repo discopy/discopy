@@ -144,7 +144,7 @@ from __future__ import annotations
 from discopy import monoidal, braided, markov
 from discopy.abc import FeedbackCategory
 from discopy.utils import (
-    ar_factory, factory_name, assert_isinstance, AxiomError)
+    factory, factory_name, assert_isinstance, AxiomError)
 
 
 def str_delayed(time_step: int):
@@ -274,7 +274,7 @@ class TailOb(Ob):
     delay, reset, __repr__ = HeadOb.delay, HeadOb.reset, HeadOb.__repr__
 
 
-@ar_factory
+@factory
 class Ty(monoidal.Ty):
     """ A feedback type is a monoidal type with `delay`, `head` and `tail`. """
     generator_factory = Ob
@@ -302,7 +302,7 @@ class Layer(monoidal.Layer):
         return type(self)(*[x.delay(n_steps) for x in self.boxes_or_types])
 
 
-@ar_factory
+@factory
 class Diagram(markov.Diagram, FeedbackCategory):
     """
     A feedback diagram is a markov diagram with a :meth:`delay` endofunctor

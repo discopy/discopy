@@ -47,7 +47,7 @@ from dataclasses import dataclass
 import re
 
 from discopy import biclosed, messages
-from discopy.cat import ar_factory
+from discopy.cat import factory
 from discopy.grammar import thue
 from discopy.utils import (
     BinaryBoxConstructor,
@@ -56,7 +56,7 @@ from discopy.utils import (
 )
 
 
-@ar_factory
+@factory
 class Ty(biclosed.Ty):
     "Base class for categorial grammar types."
 
@@ -73,7 +73,7 @@ class Under(biclosed.Under):
     ob = Ty
 
 
-@ar_factory
+@factory
 class Diagram(biclosed.Diagram):
     """
     A categorial diagram is a biclosed diagram with rules and words as boxes.

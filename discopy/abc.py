@@ -36,7 +36,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Generic, Type, TypeVar, ClassVar
 
-from discopy.utils import get_origin
+from discopy.utils import classproperty, get_origin
 
 
 class Category[C0, C1: Category](ABC):
@@ -57,9 +57,13 @@ class Category[C0, C1: Category](ABC):
     >>> assert List([3]) << List([1, 2]) == List([1, 2, 3])
     """
     ob: ClassVar[Type[C0]]
-    ar: ClassVar[Type[C1]]
+    factory: ClassVar[Type[C1]]
     dom: C0
     cod: C0
+
+    #: Backward-compatible alias for :attr:`factory`, since types are
+    #: themselves the objects of diagrams.
+    ar = classproperty(lambda cls: cls.factory)
 
     @classmethod
     @abstractmethod

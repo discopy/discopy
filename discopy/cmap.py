@@ -54,7 +54,7 @@ from discopy.utils import (
 )
 
 if TYPE_CHECKING:
-    from discopy.monoidal import Ob, Ty, Diagram, Box, Functor
+    from discopy.monoidal import Wire, Ty, Diagram, Box, Functor
 
 
 class PortKind(StrEnum):

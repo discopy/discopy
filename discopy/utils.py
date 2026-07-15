@@ -462,17 +462,19 @@ def untuplify(stuff: tuple) -> any:
     return stuff[0] if len(stuff) == 1 else stuff
 
 
-def ar_factory(cls):
+def factory(cls):
     """
-    Allows the identity and composition of an :class:`Arrow` subclass to remain
-    within the subclass.
+    Allows the identity and composition of an :class:`Arrow` subclass to
+    remain within the subclass, by setting ``cls.factory = cls``.
 
     Parameters:
         cls : Some subclass of :class:`Arrow`.
 
     Note
     ----
-    The factory method pattern (`FMP`_) is used all over DisCoPy.
+    The factory method pattern (`FMP`_) is used all over DisCoPy. For
+    backward compatibility, the factory is also available as the class
+    property ``cls.ar``, see :class:`discopy.abc.Category`.
 
     .. _FMP: https://en.wikipedia.org/wiki/Factory_method_pattern
 
@@ -484,7 +486,7 @@ def ar_factory(cls):
     >>> from discopy.cat import Ob, Arrow, Box
     >>> class Qubit(Ob):
     ...     pass
-    >>> @ar_factory
+    >>> @factory
     ... class Circuit(Arrow):
     ...     ob = Qubit
 
@@ -499,8 +501,9 @@ def ar_factory(cls):
     >>> assert isinstance(X >> X, Circuit)
     >>> assert isinstance(Circuit.id(), Circuit)
     >>> assert isinstance(Circuit.id().dom, Qubit)
+    >>> assert Circuit.factory is Circuit.ar is Circuit
     """
-    cls.ar = cls
+    cls.factory = cls
     return cls
 
 
