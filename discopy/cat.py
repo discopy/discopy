@@ -368,6 +368,26 @@ class Arrow(FreeCategory):
     def __hash__(self):
         return hash(self.setoid())
 
+    def equal_up_to(self, other, functor):
+        """
+        Whether ``self`` and ``other`` become equal after applying a functor,
+        i.e. the kernel of ``functor``.  Because a functor preserves
+        identities, composition and tensor, this is automatically an
+        equivalence relation compatible with the categorical structure.
+
+        This is how DisCoPy exposes coarser equalities without mutating
+        ``__eq__`` / ``__hash__``: the caller picks the granularity by picking
+        the functor, e.g. :attr:`symmetric.Diagram.to_hypergraph_functor`.
+
+        Example
+        -------
+        >>> x, y = Ob('x'), Ob('y')
+        >>> f, g = Box('f', x, y), Box('g', x, y)
+        >>> F = Functor({x: x, y: y}, {f: f, g: f})
+        >>> assert f != g and f.equal_up_to(g, F)
+        """
+        return functor(self) == functor(other)
+
     def then(self, *others: Arrow) -> Arrow:
         """
         Sequential composition, called with :code:`>>` and :code:`<<`.
@@ -668,6 +688,7 @@ class Sum(Box):
     def is_generator(self):
         return len(self.terms) == 1 and self.terms[0].is_generator
 
+    @property
     def generator(self):
         return self.terms[0].generator if self.is_generator else None
 

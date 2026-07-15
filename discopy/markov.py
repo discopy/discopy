@@ -23,7 +23,6 @@ Axioms
 ------
 
 >>> from discopy.drawing import Equation
->>> Diagram.use_hypergraph_equality = True
 >>> x = Ty('x')
 
 >>> copy, merge = Copy(x), Merge(x)
@@ -32,9 +31,12 @@ Axioms
 Commutative monoid
 ==================
 
->>> unitality = Equation(unit @ x >> merge, Id(x), x @ unit >> merge)
->>> associativity = Equation(merge @ x >> merge, x @ merge >> merge)
->>> commutativity = Equation(Swap(x, x) >> merge, merge)
+>>> unitality = Equation(unit @ x >> merge, Id(x), x @ unit >> merge,
+...     functor=Diagram.to_hypergraph_functor)
+>>> associativity = Equation(merge @ x >> merge, x @ merge >> merge,
+...     functor=Diagram.to_hypergraph_functor)
+>>> commutativity = Equation(Swap(x, x) >> merge, merge,
+...     functor=Diagram.to_hypergraph_functor)
 >>> assert unitality and associativity and commutativity
 >>> Equation(unitality, associativity, commutativity, symbol='').draw(
 ...     path="docs/_static/frobenius/monoid.png")
@@ -45,9 +47,12 @@ Commutative monoid
 Cocommutative comonoid
 ======================
 
->>> counitality = Equation(copy >> delete @ x, Id(x), copy >> x @ delete)
->>> coassociativity = Equation(copy >> copy @ x, copy >> x @ copy)
->>> cocommutativity = Equation(copy >> Swap(x, x), copy)
+>>> counitality = Equation(copy >> delete @ x, Id(x), copy >> x @ delete,
+...     functor=Diagram.to_hypergraph_functor)
+>>> coassociativity = Equation(copy >> copy @ x, copy >> x @ copy,
+...     functor=Diagram.to_hypergraph_functor)
+>>> cocommutativity = Equation(copy >> Swap(x, x), copy,
+...     functor=Diagram.to_hypergraph_functor)
 >>> assert counitality and coassociativity and cocommutativity
 >>> Equation(counitality, coassociativity, cocommutativity, symbol='').draw(
 ...     path="docs/_static/frobenius/comonoid.png")
@@ -58,14 +63,13 @@ Cocommutative comonoid
 Coherence
 =========
 
->>> assert Diagram.copy(x @ x, n=0) == delete @ delete
->>> assert Diagram.copy(x @ x)\\
-...     == copy @ copy >> x @ Swap(x, x) @ x
->>> assert Diagram.merge(x @ x, n=0) == unit @ unit
->>> assert Diagram.merge(x @ x)\\
-...     == x @ Swap(x, x) @ x >> merge @ merge
-
->>> Diagram.use_hypergraph_equality = False
+>>> hg = Diagram.to_hypergraph_functor
+>>> assert Diagram.copy(x @ x, n=0).equal_up_to(delete @ delete, hg)
+>>> assert Diagram.copy(x @ x).equal_up_to(
+...     copy @ copy >> x @ Swap(x, x) @ x, hg)
+>>> assert Diagram.merge(x @ x, n=0).equal_up_to(unit @ unit, hg)
+>>> assert Diagram.merge(x @ x).equal_up_to(
+...     x @ Swap(x, x) @ x >> merge @ merge, hg)
 
 Note
 ----

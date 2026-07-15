@@ -940,8 +940,10 @@ class Equation:
     .. image:: /_static/drawing/frobenius-axioms.png
         :align: center
     """
-    def __init__(self, *terms: "monoidal.Diagram", symbol="=", space=1):
+    def __init__(self, *terms: "monoidal.Diagram", symbol="=", space=1,
+                 functor=None):
         self.terms, self.symbol, self.space = terms, symbol, space
+        self.functor = functor
 
     def __repr__(self):
         return f"Equation({', '.join(map(repr, self.terms))})"
@@ -966,4 +968,7 @@ class Equation:
         return self.to_drawing().draw(path=path, **params)
 
     def __bool__(self):
-        return all(term == self.terms[0] for term in self.terms)
+        if self.functor is None:
+            return all(term == self.terms[0] for term in self.terms)
+        return all(term.equal_up_to(self.terms[0], self.functor)
+                   for term in self.terms)

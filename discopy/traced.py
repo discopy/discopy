@@ -58,15 +58,16 @@ Vanishing
 Superposing
 ===========
 
->>> with symmetric.Diagram.hypergraph_equality:
-...     assert (x @ f).trace() == x @ f.trace()
-...     assert (f @ x).trace(left=True) == f.trace(left=True) @ x
+>>> hg = symmetric.Diagram.to_hypergraph_functor
+>>> assert (x @ f).trace().equal_up_to(x @ f.trace(), hg)
+>>> assert (f @ x).trace(left=True).equal_up_to(f.trace(left=True) @ x, hg)
 
 Yanking
 =======
 
 >>> yanking = Equation(
-...     Swap(x, x).trace(left=True), Id(x), Swap(x, x).trace())
+...     Swap(x, x).trace(left=True), Id(x), Swap(x, x).trace(),
+...     functor=symmetric.Diagram.to_hypergraph_functor)
 >>> yanking.draw(
 ...     path='docs/_static/traced/yanking.png',
 ...     wire_labels=False, figsize=(4, 1))
@@ -74,14 +75,15 @@ Yanking
 .. image:: /_static/traced/yanking.png
     :align: center
 
->>> with symmetric.Diagram.hypergraph_equality: assert yanking
+>>> assert yanking
 
 Naturality
 ==========
 
 >>> tightening_left = Equation(
 ...     (x @ g >> f >> x @ g).trace(left=True),
-...     g >> f.trace(left=True) >> g)
+...     g >> f.trace(left=True) >> g,
+...     functor=symmetric.Diagram.to_hypergraph_functor)
 >>> tightening_left.draw(
 ...     path='docs/_static/traced/tightening-left.png', wire_labels=False)
 
@@ -90,7 +92,8 @@ Naturality
 
 >>> tightening_right = Equation(
 ...     (g @ x >> f >> g @ x).trace(),
-...     g >> f.trace() >> g)
+...     g >> f.trace() >> g,
+...     functor=symmetric.Diagram.to_hypergraph_functor)
 >>> tightening_right.draw(
 ...     path='docs/_static/traced/tightening-right.png',
 ...     wire_labels=False)
@@ -98,15 +101,15 @@ Naturality
 .. image:: /_static/traced/tightening-right.png
     :align: center
 
->>> with symmetric.Diagram.hypergraph_equality:
-...     assert tightening_left and tightening_right
+>>> assert tightening_left and tightening_right
 
 Dinaturality
 ============
 
 >>> sliding_left = Equation(
 ...     (f >> g @ x).trace(left=True),
-...     (g @ x >> f).trace(left=True))
+...     (g @ x >> f).trace(left=True),
+...     functor=symmetric.Diagram.to_hypergraph_functor)
 >>> sliding_left.draw(
 ...     path='docs/_static/traced/sliding-left.png', wire_labels=False)
 
@@ -115,15 +118,15 @@ Dinaturality
 
 >>> sliding_right = Equation(
 ...     (f >> x @ g).trace(),
-...     (x @ g >> f).trace())
+...     (x @ g >> f).trace(),
+...     functor=symmetric.Diagram.to_hypergraph_functor)
 >>> sliding_right.draw(
 ...     path='docs/_static/traced/sliding-right.png', wire_labels=False)
 
 .. image:: /_static/traced/sliding-right.png
     :align: center
 
->>> with symmetric.Diagram.hypergraph_equality:
-...     assert sliding_left and sliding_right
+>>> assert sliding_left and sliding_right
 """
 
 from discopy import monoidal

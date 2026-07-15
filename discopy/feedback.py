@@ -98,9 +98,10 @@ This can only be checked up to extensional equivalence of streams.
 >>> LHS, RHS = sliding.terms
 >>> eq = Equation(*map(lambda f: F(f).unroll(2).now, sliding.terms),
 ...     symbol="$\\\\sim$").draw(path='docs/_static/feedback/slide-unroll.png')
->>> with symmetric.Diagram.hypergraph_equality:
-...     assert F(LHS).unroll(2).now == F(RHS).unroll(2).now\\
-...         >> F(y).unroll(2).now @ F(h).later.later.now
+>>> assert F(LHS).unroll(2).now.equal_up_to(
+...     F(RHS).unroll(2).now
+...     >> F(y).unroll(2).now @ F(h).later.later.now,
+...     symmetric.Diagram.to_hypergraph_functor)
 
 .. image:: /_static/feedback/slide-unroll.png
     :align: center
@@ -417,8 +418,6 @@ class Box(markov.Box, Diagram):
         return super().__repr__()[:-1] + time_step + ")"
 
     def setoid(self):
-        if self.use_hypergraph_equality and not self.is_generator:
-            return Diagram.setoid(self)
         return markov.Box.setoid(self) + (self.time_step, )
 
 
