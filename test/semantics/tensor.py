@@ -59,7 +59,7 @@ def test_Tensor():
 def test_Spider_to_tn():
     d = Dim(2)
     tensor = Spider(1, 1, d) >> Spider(1, 2, d) >> Spider(2, 0, d)
-    result = tensor.eval(contractor=tensornetwork).array
+    result = tn.contractors.auto(*tensor.to_tn()).tensor
     assert all(result == np.array([1, 1]))
 
 
@@ -75,7 +75,7 @@ def test_Spider_to_tn_pytorch():
                         np.array([1., 2.]).requires_grad_(True))
             tensor = alice >> Spider[float64](1, 2, d) >> \
                      Spider[float64](2, 0, d)
-            result = tensor.eval(contractor=tensornetwork).array
+            result = tn.contractors.auto(*tensor.to_tn()).tensor
             assert result.item() == 3
     finally:
         tn.set_default_backend('numpy')
@@ -257,9 +257,10 @@ def test_Tensor_dtype_inference():
 
 
 def test_non_numpy_eval():
+    reference = Swap(Dim(2), Dim(2)).eval()
     with backend('pytorch'):
-        with raises(Exception):
-            Swap(Dim(2), Dim(2)).eval()
+        result = Swap(Dim(2), Dim(2)).eval()
+    assert np.allclose(np.asarray(result.array), reference.array)
 
 
 def test_Tensor_array():
@@ -301,28 +302,33 @@ def test_CMap_eval_jax():
         assert float(jax.jit(f)(1.)) == 2.
 
 
-def test_Functor_contractors():
+def test_Functor_backend():
     x = frobenius.Ty('x')
     f = frobenius.Box('f', x, x @ x)
     diagram = f >> frobenius.Spider(1, 1, x) @ x >> f.dagger()
     ob, ar = {x: 2}, {f: [1., 2., 3., 4., 5., 6., 7., 8.]}
     reference = Functor(ob, ar)(diagram)
-    for contractor in (naive, einsum, quimb, tensornetwork):
-        result = Functor(ob, ar, contractor=contractor)(diagram)
-        assert np.allclose(result.array, reference.array)
-    with_backend = Functor(
-        ob, ar, contractor=einsum, backend='jax')(diagram)
+    with_backend = Functor(ob, ar, backend='jax')(diagram)
     assert np.allclose(np.asarray(with_backend.array), reference.array)
 
 
-def test_Functor_contractor_pytorch():
+def test_Functor_markov_copy():
+    from discopy import markov
+    n = markov.Ty('n')
+    f = markov.Box('f', n, n)
+    F = Functor({n: Dim(2)}, {f: [1., 2., 3., 4.]}, dom=markov.Diagram)
+    reference = F(f) >> Tensor.copy(Dim(2), 2)
+    assert F(f >> markov.Copy(n, 2)).is_close(reference)
+
+
+def test_Functor_pytorch():
     import torch
     from torch import float64
     x = frobenius.Ty('x')
     v = frobenius.Box('v', frobenius.Ty(), x)
     t = torch.tensor(3.0, dtype=float64, requires_grad=True)
     F = Functor({x: 2}, {v: torch.stack([t, t])}, dtype=float64,
-                contractor=einsum, backend='pytorch')
+                backend='pytorch')
     result = F(v >> v.dagger()).array
     result.backward()
     assert result.item() == 18. and t.grad.item() == 12.
@@ -331,25 +337,24 @@ def test_Functor_contractor_pytorch():
 def test_eval_params():
     vector = Box('vector', Dim(1), Dim(2), [1., 2.])
     diagram = vector >> vector[::-1]
-    assert diagram.eval(einsum, optimize="optimal") == diagram.eval(einsum)
+    assert diagram.eval(optimize="optimal") == diagram.eval()
     x = frobenius.Ty('x')
     v = frobenius.Box('v', frobenius.Ty(), x)
-    F = Functor({x: 2}, {v: [1., 2.]}, contractor=einsum,
-                optimize="optimal")
+    F = Functor({x: 2}, {v: [1., 2.]}, optimize="optimal")
     assert F(v >> v.dagger()).array == 5.
     assert repr(F) == \
         "tensor.Functor(ob_map={frobenius.Ty(frobenius.Ob('x')): 2}, " \
         "ar_map={frobenius.Box('v', frobenius.Ty(), " \
         "frobenius.Ty(frobenius.Ob('x'))): [1.0, 2.0]}, " \
-        "dom=frobenius.Diagram, dtype=float, " \
-        "contractor=tensor.einsum, optimize='optimal')"
+        "dom=frobenius.Diagram, dtype=float, optimize='optimal')"
 
 
-def test_Functor_bubble_contractor():
+def test_Functor_bubble():
     men = Box("men", Dim(1), Dim(2), [0, 1])
     mortal = Box("mortal", Dim(2), Dim(1), [1, 1])
     men_are_mortal = (men >> mortal.bubble()).bubble()
     assert men_are_mortal.eval(dtype=bool)
-    F = Functor(lambda x: x, lambda box: box.array, contractor=einsum)
-    with raises(NotImplementedError):
-        F(men_are_mortal.arg)
+    F = Functor(lambda x: x, lambda box: box.array, dom=Diagram)
+    assert np.allclose(
+        np.asarray(F(men_are_mortal.arg).array, dtype=float),
+        np.asarray(men_are_mortal.arg.eval().array, dtype=float))
