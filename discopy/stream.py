@@ -17,7 +17,8 @@ We adapted the definition of intensional streams from :cite:t:`DiLavoreEtAl22`.
 
 Monoidal streams form a feedback category as follows:
 
->>> from discopy import feedback, drawing
+>>> from discopy import feedback
+>>> from discopy.cat import Equation
 >>> x, y, m = map(feedback.Ty, "xym")
 >>> f = feedback.Box('f', x @ m.delay(), y @ m)
 >>> fb = f.feedback()
@@ -28,7 +29,7 @@ Monoidal streams form a feedback category as follows:
 >>> F = feedback.Functor(ob_map={x: X, y: Y, m: M}, ar_map={f: Ff},
 ...                      cod=Stream)
 
->>> drawing.Equation(fb, F(fb).unroll(2).now, symbol="$\\\\mapsto$").draw(
+>>> Equation(fb, F(fb).unroll(2).now, symbol="$\\\\mapsto$").draw(
 ...     path="docs/_static/stream/feedback-to-stream.png")
 
 .. image:: /_static/stream/feedback-to-stream.png
@@ -128,8 +129,7 @@ Note that we can only check equality of streams up to a finite number of steps.
 
 * Associativity of tensor holds up to interchanger:
 
->>> from discopy.drawing import Equation
->>> drawing.Equation(*map(lambda x: x.now, ((f @ g) @ h, f @ (g @ h)))).draw(
+>>> Equation(*map(lambda x: x.now, ((f @ g) @ h, f @ (g @ h)))).draw(
 ...     path="docs/_static/stream/feedback-tensor-associativity.png")
 
 .. image:: /_static/stream/feedback-tensor-associativity.png
@@ -147,7 +147,7 @@ Note that we can only check equality of streams up to a finite number of steps.
 >>> g_ = Stream.sequence("g'", y_, z_, n_)
 
 >>> LHS, RHS = f @ f_ >> g @ g_, (f >> g) @ (f_ >> g_)
->>> drawing.Equation(LHS.now, RHS.now, symbol="$\\\\sim$").draw(
+>>> Equation(LHS.now, RHS.now, symbol="$\\\\sim$").draw(
 ...     path="docs/_static/stream/feedback-interchanger.png", figsize=(8, 6))
 
 .. image:: /_static/stream/feedback-interchanger.png
@@ -434,7 +434,7 @@ class Stream(MonoidalCategory, NamedGeneric['category']):
         Example
         -------
 
-        >>> from discopy.drawing import Equation
+        >>> from discopy.cat import Equation
         >>> f = Stream.sequence("f", *map(Ty.sequence, "xym"))
         >>> Equation(f.now, f.unroll().now, f.unroll(2).now, symbol=',').draw(
         ...     figsize=(8, 4), path="docs/_static/stream/unroll.png")
@@ -555,7 +555,7 @@ class Stream(MonoidalCategory, NamedGeneric['category']):
         >>> f = Stream.sequence("f", x @ m.delay(), y @ m)
         >>> fb = f.feedback(x, y, m)
 
-        >>> from discopy.drawing import Equation
+        >>> from discopy.cat import Equation
         >>> Equation(f.unroll(2).now, fb.unroll(2).now, symbol="$\\\\mapsto$"
         ...     ).draw(path="docs/_static/stream/feedback-unrolling.png")
 

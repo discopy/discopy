@@ -55,11 +55,13 @@ Axioms
 
 from __future__ import annotations
 
+import warnings
 from typing import NamedTuple, TYPE_CHECKING
 from dataclasses import dataclass
 
 import networkx as nx
 
+from discopy import cat
 from discopy.drawing import backend, Node, Point
 from discopy.config import DRAWING_ATTRIBUTES
 from discopy.abc import TracedCategory
@@ -913,6 +915,11 @@ class Drawing(TracedCategory):
         return self
 
 
-# ``Equation`` now lives in :mod:`discopy.cat` (with an optional ``functor``
-# up to which its terms are compared).  It is re-exported from
-# :mod:`discopy.drawing` for backward compatibility.
+class Equation(cat.Equation):
+    """ Deprecated alias for :class:`discopy.cat.Equation`. """
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "discopy.drawing.Equation is deprecated, use the Equation of the "
+            "relevant module instead, e.g. discopy.symmetric.Equation or "
+            "discopy.cat.Equation.", DeprecationWarning, stacklevel=2)
+        super().__init__(*args, **kwargs)

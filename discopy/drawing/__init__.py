@@ -15,11 +15,11 @@ from discopy.drawing.backend import (
     COLORS,
     SHAPES,
 )
-from discopy.cat import Equation
 from discopy.drawing.drawing import (
     Point,
     PlaneGraph,
     Drawing,
+    Equation,  # deprecated alias for discopy.cat.Equation, warns on use
 )
 
 

@@ -31,7 +31,7 @@ Axioms
 >>> left_snake, right_snake = Id(n.r).transpose(left=True), Id(n.l).transpose()
 >>> assert left_snake.normal_form() == Id(n) == right_snake.normal_form()
 
->>> from discopy.drawing import Equation
+>>> from discopy.cat import Equation
 >>> Equation(left_snake, Id(n), right_snake).draw(
 ...     figsize=(4, 1), path='docs/_static/rigid/typed-snake-equation.png')
 
@@ -276,7 +276,7 @@ class Diagram(biclosed.Diagram, RigidCategory):
         """
         The curry of a rigid diagram is obtained using cups and caps.
 
-        >>> from discopy.drawing import Equation as Eq
+        >>> from discopy.cat import Equation as Eq
         >>> x = Ty('x')
         >>> g = Box('g', x @ x, x)
         >>> Eq(Eq(g.curry(left=False), g, symbol="$\\\\mapsfrom$"),
@@ -298,13 +298,13 @@ class Diagram(biclosed.Diagram, RigidCategory):
 
         Example
         -------
-        >>> from discopy import drawing
+        >>> from discopy.cat import Equation
         >>> x, y = map(Ty, "xy")
         >>> f = Box('f', Ty(), x)
         >>> g = Box('g', Ty(), x.r @ y)
         >>> diagram = f @ g >> Cup(x, x.r) @ y
-        >>> LHS = drawing.Equation(diagram.l, diagram, symbol="$\\\\mapsfrom$")
-        >>> RHS = drawing.Equation(LHS, diagram.r, symbol="$\\\\mapsto$")
+        >>> LHS = Equation(diagram.l, diagram, symbol="$\\\\mapsfrom$")
+        >>> RHS = Equation(LHS, diagram.r, symbol="$\\\\mapsto$")
         >>> RHS.draw(figsize=(8, 3), path='docs/_static/rigid/rotate.png')
 
         .. image:: /_static/rigid/rotate.png
@@ -327,7 +327,7 @@ class Diagram(biclosed.Diagram, RigidCategory):
 
         Example
         -------
-        >>> from discopy.drawing import Equation
+        >>> from discopy.cat import Equation
         >>> x, y = map(Ty, "xy")
         >>> f = Box('f', x, y)
         >>> LHS = Equation(f.transpose(left=True), f, symbol="$\\\\mapsfrom$")
@@ -356,7 +356,7 @@ class Diagram(biclosed.Diagram, RigidCategory):
 
         Example
         -------
-        >>> from discopy.drawing import Equation
+        >>> from discopy.cat import Equation
         >>> x, y, z = Ty(*"xyz")
         >>> f, g = Box('f', x, y), Box('g', y, z)
         >>> d = (f @ g).foliation()
@@ -708,7 +708,7 @@ class Functor(biclosed.Functor):
     >>> sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ s @ Cup(n.l, n)
     >>> assert F(sentence).normal_form() == Alice >> Id(n) @ Bob >> love_box
 
-    >>> from discopy.drawing import Equation
+    >>> from discopy.cat import Equation
     >>> Equation(sentence, F(sentence), symbol='$\\\\mapsto$').draw(
     ...     figsize=(5, 2), path='docs/_static/rigid/functor-example.png')
 

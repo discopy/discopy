@@ -87,7 +87,7 @@ class Diagram(braided.Diagram, traced.Diagram, BalancedCategory):
         >>> x = Ty('x')
         >>> braided_twist = Diagram.twist(x).to_braided()
 
-        >>> from discopy.drawing import Equation
+        >>> from discopy.cat import Equation
         >>> Equation(Twist(x), braided_twist, symbol='$\\\\mapsto$').draw(
         ...     wire_labels=False,
         ...     path="docs/_static/balanced/twist_dual_rail.png")

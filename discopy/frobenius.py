@@ -155,7 +155,7 @@ class Diagram(compact.Diagram, markov.Diagram, HypergraphCategory):
 
         Example
         -------
-        >>> from discopy.drawing import Equation
+        >>> from discopy.frobenius import Equation
         >>> spider = Spider(3, 5, Ty(''), "$\\\\phi$") @ Ty()
         >>> Spider.color = "red"
         >>> Equation(spider, spider.unfuse(), symbol="$\\\\mapsto$").draw(

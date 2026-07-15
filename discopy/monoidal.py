@@ -1127,7 +1127,7 @@ class Functor(cat.Functor):
     >>> assert F(f0 >> f0[::-1]) == f1 >> f1[::-1]
     >>> source, target = f0 >> f0[::-1], F(f0 >> f0[::-1])
 
-    >>> from discopy.drawing import Equation
+    >>> from discopy.cat import Equation
     >>> Equation(source, target, symbol='$\\\\mapsto$').draw(
     ...     path='docs/_static/monoidal/functor-example.png')
 

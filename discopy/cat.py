@@ -943,15 +943,11 @@ class Functor(Category):
             result = result >> self(box)
         return result
 
-    def quotient(self, *terms: Arrow, **params) -> "Equation":
+    def quotient(self, *terms: Arrow, **params) -> Equation:
         """
-        The :class:`Equation` that checks whether some ``terms`` are equal in
+        The :class:`Equation` that holds when the ``terms`` become equal in
         the image of ``self``, i.e. up to the equivalence relation (the kernel
         of the functor) that ``self`` induces on its domain.
-
-        This is how DisCoPy exposes coarser equalities without mutating
-        ``__eq__`` / ``__hash__``: the caller picks the granularity by picking
-        the functor, e.g. :attr:`symmetric.Diagram.to_hypergraph`.
 
         Parameters:
             terms : The terms of the equation.
@@ -959,10 +955,15 @@ class Functor(Category):
 
         Example
         -------
-        >>> x, y = Ob('x'), Ob('y')
-        >>> f, g = Box('f', x, y), Box('g', x, y)
-        >>> F = Functor({x: x, y: y}, {f: f, g: f})
-        >>> assert f != g and F.quotient(f, g)
+        The functor that forgets the name of each box identifies any two
+        parallel boxes:
+
+        >>> x = Ob('x')
+        >>> f, g = Box('f', x, x), Box('g', x, x)
+        >>> forget = Functor(
+        ...     ob_map=lambda ob: ob,
+        ...     ar_map=lambda box: Box('*', box.dom, box.cod))
+        >>> assert f != g and forget.quotient(f, g)
         """
         return Equation(*terms, functor=self, **params)
 
@@ -1082,7 +1083,9 @@ class Transformation(Category):
 class Equation:
     """
     An equation is a list of terms with a dedicated draw method and a
-    ``functor`` up to which the terms are compared.
+    ``functor`` up to which the terms are compared, the identity by default.
+    Casting it to ``bool`` checks whether its terms are equal up to that
+    functor.
 
     Parameters:
         terms : The terms of the equation.
@@ -1112,17 +1115,17 @@ class Equation:
     Note
     ----
     Passing a ``functor`` compares the terms up to that functor, i.e. up to the
-    equivalence relation it induces.  This is what :meth:`Functor.quotient`
-    returns and how coarser equalities such as hypergraph equality are made
-    local and explicit rather than a mutable global flag.
+    equivalence relation it induces; this is what :meth:`Functor.quotient`
+    returns.
 
-    >>> from discopy.symmetric import Ty, Box, Id, Swap, Diagram
-    >>> x, y = Ty('x'), Ty('y')
-    >>> a = Swap(x, y) >> Swap(y, x)
-    >>> assert a != Id(x @ y)
-    >>> assert Equation(a, Id(x @ y), functor=Diagram.to_hypergraph)
+    >>> x = Ob('x')
+    >>> f, g = Box('f', x, x), Box('g', x, x)
+    >>> forget = Functor(
+    ...     ob_map=lambda ob: ob,
+    ...     ar_map=lambda box: Box('*', box.dom, box.cod))
+    >>> assert not Equation(f, g) and Equation(f, g, functor=forget)
     """
-    def __init__(self, *terms: "Arrow", symbol="=", space=1, functor=None):
+    def __init__(self, *terms: Arrow, symbol="=", space=1, functor=None):
         self.terms, self.symbol, self.space = terms, symbol, space
         self.functor = functor
 

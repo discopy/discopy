@@ -27,7 +27,7 @@ Axioms
 
 A monoidal category is right-traced when it comes with an operator of shape:
 
->>> from discopy.drawing import Equation
+>>> from discopy.cat import Equation
 >>> x, y, z = map(Ty, "xyz")
 >>> f = Box("f", x @ z, y @ z)
 >>> Equation(f, f.trace(), symbol="$\\\\mapsto$").draw(
@@ -154,7 +154,7 @@ class Diagram(monoidal.Diagram, TracedCategory):
 
         Example
         -------
-        >>> from discopy.drawing import Equation as Eq
+        >>> from discopy.cat import Equation as Eq
         >>> x = Ty('x')
         >>> f = Box('f', x @ x, x @ x)
         >>> LHS, RHS = f.trace(left=True), f.trace(left=False)
@@ -243,7 +243,7 @@ class Functor(monoidal.Functor):
     >>> with python.Function.no_type_checking:
     ...     assert F(f.trace())() == F(g)()
 
-    >>> from discopy.drawing import Equation
+    >>> from discopy.cat import Equation
     >>> Equation(f.trace(), g).draw(path="docs/_static/traced/golden.png")
 
     .. image:: /_static/traced/golden.png

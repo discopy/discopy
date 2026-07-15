@@ -36,7 +36,7 @@ A feedback category is a symmetric monoidal category with a monoidal
 endofunctor :meth:`Diagram.delay`, shortened to `.d` and a method
 :meth:`Diagram.feedback` of the following shape:
 
->>> from discopy.drawing import Equation
+>>> from discopy.feedback import Equation
 
 >>> x, y, m = map(Ty, "xym")
 >>> f = Box('f', x @ m.delay(), y @ m)
@@ -503,7 +503,7 @@ class Feedback(monoidal.Bubble, Box):
 
     Examples
     --------
-    >>> from discopy.drawing import Equation
+    >>> from discopy.feedback import Equation
     >>> x, y, z = map(Ty, "xyz")
     >>> f = Box('f', x @ y.delay(), z @ y)
     >>> fb = f.feedback()
