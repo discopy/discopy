@@ -324,8 +324,8 @@ class Functor(frobenius.Functor):
         dtype : The datatype for the codomain ``Tensor[dtype]``.
         backend : The name of the array :func:`backend` to evaluate in,
             the active backend by default.
-        params : Extra keyword arguments passed to :meth:`CMap.eval`,
-            e.g. ``optimize`` for ``np.einsum``.
+        params : Optional parameters given to the backend ``einsum``
+            method for the contraction, e.g. ``optimize``.
 
     Example
     -------
@@ -412,7 +412,8 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
         Parameters:
             dtype : The datatype for spiders and the result,
                 inferred from the boxes by default.
-            params : Extra keyword arguments passed to :meth:`CMap.eval`,
+            params : Optional parameters given to the backend ``einsum``
+                method, passed through :meth:`CMap.eval`,
                 e.g. ``optimize``.
 
         Examples
@@ -605,7 +606,8 @@ class CMap(frobenius.CMap):
         return cls.category.spiders(
             n_legs_in, n_legs_out, typ, phases).to_map()
 
-    def eval(self, dtype: type = None, optimize="greedy") -> Tensor:
+    def eval(self, dtype: type = None, optimize="greedy",
+             **params) -> Tensor:
         """
         Contract the tensor network in a single ``einsum`` call under the
         active :func:`backend`, e.g. ``jax.numpy`` for autodiff, with
@@ -619,6 +621,8 @@ class CMap(frobenius.CMap):
                 explicit path. Under the numpy backend the path is
                 precomputed with ``opt_einsum`` when available, since
                 numpy's own pathfinder chokes on large networks.
+            params : Any other optional parameter of the backend
+                ``einsum`` method, passed verbatim.
 
         Example
         -------
@@ -638,10 +642,10 @@ class CMap(frobenius.CMap):
                 return cls.spider_factory(
                     len(box.dom), len(box.cod), box.typ, box.data).array
             if isinstance(box, Bubble):
-                return box.arg.eval(dtype, optimize=optimize)\
+                return box.arg.eval(dtype, optimize=optimize, **params)\
                     .map(box.func).array
             if not isinstance(box, Box):
-                return box.eval(dtype, optimize=optimize).array
+                return box.eval(dtype, optimize=optimize, **params).array
             factory = Tensor[dtype or box.dtype]
             if box.is_dagger:
                 return factory(
@@ -683,14 +687,15 @@ class CMap(frobenius.CMap):
             if not arrays:
                 return cls([1], self.dom, self.cod)
             operands = [x for pair in zip(arrays, indices) for x in pair]
-            params = dict(optimize=optimize)\
-                if isinstance(get_backend(), (NumPy, JAX)) else {}
+            if isinstance(get_backend(), (NumPy, JAX)):
+                params = dict(params, optimize=optimize)
             if isinstance(get_backend(), NumPy):
                 try:
                     from opt_einsum import contract_path
                     path, _ = contract_path(
                         *operands, output, optimize=optimize)
-                    params = dict(optimize=['einsum_path'] + list(path))
+                    params = dict(params, optimize=[
+                        'einsum_path'] + list(path))
                 except ImportError:
                     pass
             array = np.einsum(*operands, output, **params)
