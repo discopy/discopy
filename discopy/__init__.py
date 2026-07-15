@@ -6,6 +6,7 @@ from discopy import (
     abc,
     cat,
     monoidal,
+    magmatic,
     braided,
     symmetric,
     traced,

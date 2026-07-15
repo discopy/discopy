@@ -17,6 +17,9 @@ Summary
     Variable
     Application
     Abstraction
+    Product
+    Projection
+    LetStatement
     Diagram
     Box
     Eval
@@ -25,6 +28,15 @@ Summary
     Sum
     Functor
     CMap
+
+.. admonition:: Functions
+
+    .. autosummary::
+        :template: function.rst
+        :nosignatures:
+        :toctree:
+
+        let
 
 Axioms
 ------
@@ -50,11 +62,14 @@ Axioms
 
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Dict, ClassVar
+from inspect import signature
+from typing import Callable, Dict, ClassVar
 
 from discopy import cat, monoidal, biclosed, markov
 from discopy.abc import ClosedCategory
 from discopy.cat import ob_factory, ar_factory
+from discopy.drawing import Drawing
+from discopy.utils import assert_isinstance, factory_name
 
 
 @ob_factory
@@ -138,6 +153,10 @@ class Copy(markov.Copy, Box):
     is_linear = False
 
 
+class Discard(markov.Discard, Copy):
+    "The discard of an atomic type in a closed category."
+
+
 class Sum(markov.Sum, biclosed.Sum, Box):
     """
     A markov sum is a symmetric sum and a markov box.
@@ -166,6 +185,9 @@ class Functor(biclosed.Functor, markov.Functor):
         if isinstance(other, (
                 cat.Ob, biclosed.Eval, biclosed.Coeval, biclosed.Curry)):
             return biclosed.Functor.__call__(self, other)
+        if self.cod is Drawing and isinstance(
+                other, (markov.Copy, markov.Merge, markov.Swap)):
+            return monoidal.Functor.__call__(self, other)
         return super().__call__(other)
 
 
@@ -186,7 +208,7 @@ Diagram.curry_factory = Curry
 Diagram.eval_factory = Eval
 Diagram.coeval_factory = Coeval
 Diagram.trace_factory = Trace
-Diagram.discard_factory = lambda X: Copy(X, 0)
+Diagram.discard_factory = Discard
 Diagram.sum_factory = Sum
 Ty.exp_factory = Ty.under_factory = Ty.over_factory = staticmethod(Exp)
 
@@ -196,31 +218,67 @@ Id = Diagram.id
 class TermBase(Box, biclosed.TermBase):
     """
     A term in the internal language of a closed category.
+
+    Note
+    ----
+    Calling a term with several arguments (or none at all) applies it to
+    the :class:`Product` of the arguments, e.g.
+
+    >>> X, Y = Ty("X"), Ty("Y")
+    >>> point, effect = Constant("point", Ty() >> X), (X @ Y >> Ty())("f")
+    >>> assert point() == point(Product())
+    >>> x, y = Variable("x", X), Variable("y", Y)
+    >>> assert effect(x, y) == effect(Product(x, y))
     """
     functor = Functor.id(Diagram)
 
-    def __call__(self, other):
+    def __call__(self, *others):
+        other = others[0] if len(others) == 1 else Product(*others)
         return Application(self, other, left=False)
 
+    def eval(self, functor=None, context=None):
+        """
+        Evaluate a term by calling :code:`__eval__` then simplifying the
+        result by round-trip to hypergraph, whenever the codomain of the
+        functor is a category of diagrams.
+        """
+        functor = functor or self.functor
+        result = self.__eval__(functor, context)
+        return result.simplify()\
+            if isinstance(result, markov.Diagram) else result
 
-type Term = Constant | Variable | Application | Abstraction
+
+type Term = Constant | Variable | Application | Abstraction\
+    | Product | Projection | LetStatement
+
+
+def unbiased_tensor(functor: Functor, diagrams: list) -> Diagram:
+    """
+    The tensor of a list of diagrams in the codomain of a functor.
+
+    Parameters:
+        functor : The functor in whose codomain to tensor.
+        diagrams : The list of diagrams to tensor, possibly empty.
+    """
+    result = functor.cod.id(functor(functor.dom.ob()))
+    for diagram in diagrams:
+        result = result @ diagram
+    return result
 
 
 class Constant(TermBase, biclosed.Constant):
-    def eval(self, functor=None, context=None):
-        functor = functor or self.functor
+    def __eval__(self, functor, context):
         if not context:
-            return super().eval(functor)
-        return functor.cod.discard(functor(context.dom)) >> super().eval(
-            functor)
+            return biclosed.Constant.eval(self, functor)
+        return functor.cod.discard(functor(context.dom))\
+            >> biclosed.Constant.eval(self, functor)
 
 
 class Variable(TermBase, biclosed.Variable):
-    def eval(self, functor=None, context=None):
-        functor = functor or self.functor
+    def __eval__(self, functor, context):
         if not context:
             return functor.cod.id(functor(self.cod))
-        return functor.cod.tensor(*[
+        return unbiased_tensor(functor, [
             functor.cod.id(functor(x.cod)) if x == self
             else functor.cod.discard(functor(x.cod))
             for x in context.inside])
@@ -229,12 +287,11 @@ class Variable(TermBase, biclosed.Variable):
 class Application(TermBase, biclosed.Application):
     def __check_dom__(self, func, args, left):
         self.overlap = set(func.freevars).intersection(args.freevars)
-        self.freevars = list(set(func.freevars + args.freevars))\
+        self.freevars = list(dict.fromkeys(func.freevars + args.freevars))\
             if self.overlap else func.freevars + args.freevars
-        return self.ob.tensor(*[x.cod for x in self.freevars])
+        return self.ob().tensor(*[x.cod for x in self.freevars])
 
-    def eval(self, functor=None, context=None):
-        functor = functor or self.functor
+    def __eval__(self, functor, context):
         base, exponent = self.func.cod.base, self.func.cod.exponent
         evaluate = functor.cod.ev(functor(base), functor(exponent))
         if context is None:
@@ -254,16 +311,219 @@ class Abstraction(TermBase, biclosed.Abstraction):
         self.freevars = [x for x in self.body.freevars if x != self.var]
         return self.ob().tensor(*[x.cod for x in self.freevars])
 
-    def eval(self, functor=None, context=None):
-        functor = functor or self.functor
+    def __eval__(self, functor, context):
         if context:
             new_context = Context([self.var] + context.inside)
             body = self.body.eval(functor=functor, context=new_context)
-            return body.curry(left=True)
+            return body.curry()
         i, n = self.body.freevars.index(self.var), len(self.body.freevars)
         body = self.body.eval(functor=functor)
         p = [0] + [j + 1 if j < i else j for j in range(n) if j != i]
         return (body.permutation(p, body.dom).dagger() >> body).curry()
+
+
+class Product(TermBase):
+    """
+    The product of a tuple of terms, i.e. the tensor of their diagrams
+    with a shared context.
+
+    Parameters:
+        terms : The terms inside the product.
+
+    Example
+    -------
+    >>> X, Y = Ty("X"), Ty("Y")
+    >>> x, y = Variable("x", X), Variable("y", Y)
+    >>> assert Product(x, y).cod == X @ Y
+    >>> assert Product(x, y).eval() == Id(X @ Y)
+    >>> assert Product().cod == Ty() and Product().eval() == Id(Ty())
+
+    Note
+    ----
+    When the terms of a product share free variables, their context is copied:
+
+    >>> assert Product(x, x).eval() == Diagram.copy(X)
+    """
+    def __init__(self, *terms: Term):
+        for term in terms:
+            assert_isinstance(term, TermBase)
+        self.terms = terms
+        name = f"({', '.join(map(str, terms))})"
+        cod = self.ob().tensor(*[term.cod for term in terms])
+        dom = self.__check_dom__()
+        super().__init__(name, dom, cod)
+
+    def __check_dom__(self):
+        freevars = [x for term in self.terms for x in term.freevars]
+        self.overlap = {x for x in freevars if freevars.count(x) > 1}
+        self.freevars = list(dict.fromkeys(freevars)) if self.overlap\
+            else freevars
+        return self.ob().tensor(*[x.cod for x in self.freevars])
+
+    @property
+    def constants(self):
+        return [c for term in self.terms for c in term.constants]
+
+    def __eval__(self, functor, context):
+        if context is None:
+            if not self.overlap:
+                return unbiased_tensor(functor, [
+                    term.eval(functor=functor) for term in self.terms])
+            context = Context(self.freevars)
+        return functor.cod.copy(functor(context.dom), len(self.terms))\
+            >> unbiased_tensor(functor, [
+                term.eval(functor=functor, context=context)
+                for term in self.terms])
+
+    def __repr__(self):
+        return factory_name(type(self))\
+            + f"({', '.join(map(repr, self.terms))})"
+
+
+class Projection(TermBase):
+    """
+    The projection of a term onto one of the atomic components of its type.
+
+    Parameters:
+        arg : The term to project.
+        index : The index of the atomic component.
+
+    Example
+    -------
+    >>> X, Y = Ty("X"), Ty("Y")
+    >>> x, y = Variable("x", X), Variable("y", Y)
+    >>> assert Projection(Product(x, y), 1).cod == Y
+    >>> assert Projection(Product(x, y), 1).eval()\\
+    ...     == Diagram.discard(X) @ Y
+    """
+    def __init__(self, arg: Term, index: int):
+        assert_isinstance(arg, TermBase)
+        assert_isinstance(index, int)
+        if not 0 <= index < len(arg.cod):
+            raise IndexError(f"Expected index < {len(arg.cod)}")
+        self.arg, self.index = arg, index
+        self.freevars = arg.freevars
+        name = f"{arg}[{index}]"
+        super().__init__(name, arg.dom, arg.cod[index])
+
+    @property
+    def constants(self):
+        return self.arg.constants
+
+    def __eval__(self, functor, context):
+        arg = self.arg.eval(functor=functor, context=context)
+        return arg >> unbiased_tensor(functor, [
+            functor.cod.id(functor(x)) if i == self.index
+            else functor.cod.discard(functor(x))
+            for i, x in enumerate(self.arg.cod)])
+
+    def __repr__(self):
+        return factory_name(type(self)) + f"({self.arg!r}, {self.index})"
+
+
+class LetStatement(TermBase):
+    """
+    A let statement evaluates a term ``expression`` and binds its output to a
+    tuple of ``variables`` which may then occur freely in a term ``body``.
+
+    Parameters:
+        expression : The term to evaluate.
+        variables : The variables to which the output is bound.
+        body : The term in which the variables may occur.
+
+    Example
+    -------
+    A let statement evaluates its expression exactly once, e.g. the term
+    ``once`` copies the output of one application of ``f`` while the term
+    ``twice`` applies it two times:
+
+    >>> X, Y = Ty("X"), Ty("Y")
+    >>> f, x = Constant("f", X >> Y), Variable("x", X)
+    >>> once = let(f(x), lambda y: Product(y, y))
+    >>> twice = Product(f(x), f(x))
+    >>> assert once.cod == twice.cod == Y @ Y
+
+    >>> from discopy.drawing import Equation
+    >>> Equation(once.eval(), twice.eval(), symbol="$\\\\neq$").draw(
+    ...     path='docs/_static/closed/let-once-vs-twice.png')
+
+    .. image:: /_static/closed/let-once-vs-twice.png
+        :align: center
+    """
+    def __init__(self, expression: Term, variables: tuple[Variable, ...],
+                 body: Term):
+        assert_isinstance(expression, TermBase)
+        assert_isinstance(body, TermBase)
+        for variable in variables:
+            assert_isinstance(variable, Variable)
+        self.expression, self.variables = expression, tuple(variables)
+        self.body = body
+        cod = self.ob().tensor(*[x.cod for x in self.variables])
+        if expression.cod != cod:
+            raise ValueError(f"Expected {cod}, got {expression.cod}")
+        varnames = " " + ", ".join(x.name for x in self.variables)\
+            if self.variables else ""
+        name = f"let({expression}, lambda{varnames}: {body})"
+        body_freevars = [
+            x for x in body.freevars if x not in self.variables]
+        freevars = expression.freevars + body_freevars
+        self.overlap = set(expression.freevars).intersection(body_freevars)
+        self.freevars = list(dict.fromkeys(freevars)) if self.overlap\
+            else freevars
+        dom = self.ob().tensor(*[x.cod for x in self.freevars])
+        super().__init__(name, dom, body.cod)
+
+    @property
+    def constants(self):
+        return self.expression.constants + self.body.constants
+
+    def __eval__(self, functor, context):
+        if context is None:
+            context = Context(self.freevars)
+        new_context = Context(list(self.variables) + context.inside)
+        expression = self.expression.eval(functor=functor, context=context)
+        body = self.body.eval(functor=functor, context=new_context)
+        dom = functor(context.dom)
+        return functor.cod.copy(dom)\
+            >> expression @ functor.cod.id(dom) >> body
+
+    def __repr__(self):
+        return factory_name(type(self)) + f"({self.expression!r}, "\
+            f"{self.variables!r}, {self.body!r})"
+
+
+def let(expression: Term, func: Callable) -> LetStatement:
+    """
+    Syntactic sugar for :class:`LetStatement`, with variable names extracted
+    by introspection of ``func`` and their types from ``expression.cod``.
+
+    Parameters:
+        expression : The term to evaluate.
+        func : A callable from variables to the body of the let statement.
+
+    Example
+    -------
+    Here is the snake equation with both the cup and the cap implemented as
+    let statements:
+
+    >>> X, Y, Z = Ty("X"), Ty("Y"), Ty("Z")
+    >>> state = Constant("state", Ty() >> X @ Y)
+    >>> effect = Constant("effect", Y @ Z >> Ty())
+    >>> snake = Z(lambda z: let(
+    ...     state(), lambda x, y: let(effect(y, z), lambda: x)))
+    >>> assert snake.cod == Z >> X
+    >>> snake.draw(path='docs/_static/closed/snake-let.png')
+
+    .. image:: /_static/closed/snake-let.png
+        :align: center
+    """
+    varnames = list(signature(func).parameters)
+    if len(varnames) != len(expression.cod):
+        raise ValueError(f"Expected {len(expression.cod)} variables, "
+                         f"got {len(varnames)}")
+    variables = tuple(
+        Variable(name, typ) for name, typ in zip(varnames, expression.cod))
+    return LetStatement(expression, variables, func(*variables))
 
 
 @dataclass
@@ -283,12 +543,23 @@ class Substitution:
     def __call__(self, term: Term) -> Term:
         if isinstance(term, Variable):
             return self.inside.get(term, term)
-        elif isinstance(term, Application):
+        if isinstance(term, Application):
             return self(term.func)(self(term.args))
-        elif isinstance(term, Abstraction):
+        if isinstance(term, Abstraction):
             other = Substitution(
                 {k: v for k, v in self.inside.items() if k != term.var})
-            return other(term)
+            return type(term)(term.var, other(term.body), term.left)
+        if isinstance(term, Product):
+            return type(term)(*map(self, term.terms))
+        if isinstance(term, Projection):
+            return type(term)(self(term.arg), term.index)
+        if isinstance(term, LetStatement):
+            other = Substitution({
+                k: v for k, v in self.inside.items()
+                if k not in term.variables})
+            return type(term)(
+                self(term.expression), term.variables, other(term.body))
+        return term
 
 
 Ty.variable_factory = Variable
