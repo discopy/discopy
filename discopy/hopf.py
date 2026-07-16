@@ -40,7 +40,7 @@ unlink.
 
 >>> import numpy as np
 >>> from discopy import ribbon
->>> H = HopfAlgebra.cyclic(2).double()          # D(Z/2), 4-dimensional
+>>> H = HopfAlgebra.cyclic(2).double()
 >>> assert H.is_valid() and H.dim == 4
 >>> e = Representation.anyon(H, 0, -1)
 >>> m = Representation.anyon(H, 1, 1)
@@ -49,7 +49,7 @@ unlink.
 >>> x = ribbon.Ty('x')
 >>> F = Functor(ob_map={x: V}, ar_map={})
 >>> braid = ribbon.Braid(x, x)
->>> hopf_link = (braid >> braid).trace(n=2)     # closure of sigma^2
+>>> hopf_link = (braid >> braid).trace(n=2)
 >>> unlink = (ribbon.Cap(x, x.r) >> ribbon.Cup(x, x.r)) @ (
 ...     ribbon.Cap(x, x.r) >> ribbon.Cup(x, x.r))
 
@@ -57,26 +57,27 @@ The functor gives the tensor network of each knot; contract it with ``.eval``:
 
 >>> hopf = complex(F(hopf_link).eval(dtype=complex))
 >>> split = complex(F(unlink).eval(dtype=complex))
->>> assert not np.isclose(hopf, split)          # a non-trivial invariant
+>>> assert not np.isclose(hopf, split)
 >>> assert np.isclose(hopf, 0) and np.isclose(split, 4)
 
 Axioms
 ------
 Because the generators are diagrams, an axiom is an equation of diagrams,
-checked by contracting both sides (:meth:`HopfAlgebra.check`). We take a
-concrete example, the group algebra :math:`k[\\mathbb{Z}/2]` (generators
-:math:`\\nabla`, :math:`\\Delta`, ...), and both draw *and* assert each axiom.
+checked by contracting both sides (e.g. :meth:`HopfAlgebra.is_associative`).
+We take a concrete example, the group algebra :math:`k[\\mathbb{Z}/2]`
+(generators :math:`\\nabla`, :math:`\\Delta`, ...), and both draw *and* assert
+each axiom.
 
 >>> from discopy.drawing import Equation
 >>> from discopy.tensor import Diagram
->>> H = HopfAlgebra.cyclic(2)          # the group algebra k[Z/2]
+>>> H = HopfAlgebra.cyclic(2)
 >>> ty = H.ty
->>> assert H.is_valid()               # all the axioms below hold for it
+>>> assert H.is_valid()
 
 Associativity, ``(nabla @ H) >> nabla == (H @ nabla) >> nabla``:
 
 >>> lhs, rhs = H.mult @ ty >> H.mult, ty @ H.mult >> H.mult
->>> assert H.check((lhs, rhs))
+>>> assert H.is_associative()
 >>> Equation(lhs, rhs).draw(path='docs/_static/hopf/associativity.png')
 
 .. image:: /_static/hopf/associativity.png
@@ -87,7 +88,7 @@ The bialgebra law, ``Delta`` is an algebra homomorphism:
 >>> lhs = H.mult >> H.comult
 >>> rhs = H.comult @ H.comult >> ty @ Diagram.swap(ty, ty) @ ty \\
 ...     >> H.mult @ H.mult
->>> assert H.check((lhs, rhs))
+>>> assert H.is_bialgebra()
 >>> Equation(lhs, rhs).draw(path='docs/_static/hopf/bialgebra.png')
 
 .. image:: /_static/hopf/bialgebra.png
@@ -98,7 +99,7 @@ The antipode axiom, ``comult >> (S @ H) >> mult == counit >> unit``:
 >>> left = H.comult >> H.antipode @ ty >> H.mult
 >>> right = H.comult >> ty @ H.antipode >> H.mult
 >>> unit = H.counit >> H.unit
->>> assert H.check((left, unit), (right, unit))
+>>> assert H.has_antipode()
 >>> Equation(left, unit, right).draw(path='docs/_static/hopf/antipode.png')
 
 .. image:: /_static/hopf/antipode.png
@@ -126,7 +127,6 @@ from discopy.abc import RibbonCategory
 from discopy.utils import factory_name, product
 
 Diagram = tensor.Diagram
-TOL = 1e-9
 
 
 class HopfAlgebra:
@@ -144,7 +144,7 @@ class HopfAlgebra:
     ==============  ==============================
 
     An axiom is a diagram equation, checked by evaluating both sides (see
-    :meth:`check`). Build one from concrete structure arrays with
+    :meth:`is_valid`). Build one from concrete structure arrays with
     :meth:`from_arrays`, or compose generators to derive new algebras (see
     :meth:`double`).
 
@@ -208,109 +208,102 @@ class HopfAlgebra:
             R=None if R is None else gen('R', Dim(1), ty @ ty, R),
             antipode_inv=gen('S⁻¹', ty, ty, np.linalg.inv(antipode)))
 
-    # -- axioms as diagram equations -----------------------------------------
-    def check(self, *equations):
-        """
-        Whether every ``(lhs, rhs)`` diagram equation holds, i.e. both sides
-        contract (via a single ``einsum``) to the same tensor.
-        """
-        return all(
-            np.allclose(lhs.eval(dtype=complex).array,
-                        rhs.eval(dtype=complex).array, atol=TOL)
-            for lhs, rhs in equations)
-
     def is_associative(self):
         """ ``(mult @ ty) >> mult == (ty @ mult) >> mult``. """
         ty = self.ty
-        return self.check(
-            (self.mult @ ty >> self.mult, ty @ self.mult >> self.mult))
+        return (self.mult @ ty >> self.mult).eval(dtype=complex).is_close(
+            (ty @ self.mult >> self.mult).eval(dtype=complex))
 
     def is_unital(self):
         """ The unit is a left and right identity for ``mult``. """
         ty = self.ty
-        return self.check(
-            (self.unit @ ty >> self.mult, Id(ty)),
-            (ty @ self.unit >> self.mult, Id(ty)))
+        return all(
+            lhs.eval(dtype=complex).is_close(rhs.eval(dtype=complex))
+            for lhs, rhs in [
+                (self.unit @ ty >> self.mult, Id(ty)),
+                (ty @ self.unit >> self.mult, Id(ty))])
 
     def is_coassociative(self):
         """ ``comult >> (comult @ ty) == comult >> (ty @ comult)``. """
         ty = self.ty
-        return self.check(
-            (self.comult >> self.comult @ ty, self.comult >> ty @ self.comult))
+        return (self.comult >> self.comult @ ty).eval(dtype=complex).is_close(
+            (self.comult >> ty @ self.comult).eval(dtype=complex))
 
     def is_counital(self):
         """ The counit is a left and right identity for ``comult``. """
         ty = self.ty
-        return self.check(
-            (self.comult >> self.counit @ ty, Id(ty)),
-            (self.comult >> ty @ self.counit, Id(ty)))
+        return all(
+            lhs.eval(dtype=complex).is_close(rhs.eval(dtype=complex))
+            for lhs, rhs in [
+                (self.comult >> self.counit @ ty, Id(ty)),
+                (self.comult >> ty @ self.counit, Id(ty))])
 
     def is_commutative(self):
         """ ``Swap >> mult == mult`` (a *property*, not an axiom). """
         ty = self.ty
-        return self.check((Diagram.swap(ty, ty) >> self.mult, self.mult))
+        return (Diagram.swap(ty, ty) >> self.mult).eval(
+            dtype=complex).is_close(self.mult.eval(dtype=complex))
 
     def is_cocommutative(self):
         """ ``comult >> Swap == comult`` (a *property*, not an axiom). """
         ty = self.ty
-        return self.check((self.comult >> Diagram.swap(ty, ty), self.comult))
+        return (self.comult >> Diagram.swap(ty, ty)).eval(
+            dtype=complex).is_close(self.comult.eval(dtype=complex))
 
     def is_bialgebra(self):
         """ ``comult`` and ``counit`` are algebra homomorphisms. """
         ty = self.ty
-        return self.check(
-            (self.mult >> self.comult,
-             self.comult @ self.comult >> ty @ Diagram.swap(ty, ty) @ ty
-             >> self.mult @ self.mult),
-            (self.mult >> self.counit, self.counit @ self.counit),
-            (self.unit >> self.comult, self.unit @ self.unit),
-            (self.unit >> self.counit, Id(Dim(1))))
+        return all(
+            lhs.eval(dtype=complex).is_close(rhs.eval(dtype=complex))
+            for lhs, rhs in [
+                (self.mult >> self.comult,
+                 self.comult @ self.comult >> ty @ Diagram.swap(ty, ty) @ ty
+                 >> self.mult @ self.mult),
+                (self.mult >> self.counit, self.counit @ self.counit),
+                (self.unit >> self.comult, self.unit @ self.unit),
+                (self.unit >> self.counit, Id(Dim(1)))])
 
     def has_antipode(self):
         """ ``comult >> (S @ ty) >> mult == counit >> unit ==
         comult >> (ty @ S) >> mult``. """
-        ty = self.ty
-        return self.check(
-            (self.comult >> self.antipode @ ty >> self.mult,
-             self.counit >> self.unit),
-            (self.comult >> ty @ self.antipode >> self.mult,
-             self.counit >> self.unit))
+        ty, unit = self.ty, self.counit >> self.unit
+        return all(
+            lhs.eval(dtype=complex).is_close(unit.eval(dtype=complex))
+            for lhs in [
+                self.comult >> self.antipode @ ty >> self.mult,
+                self.comult >> ty @ self.antipode >> self.mult])
 
     def is_quasitriangular(self):
         """
         Whether ``R`` is a universal R-matrix: it intertwines ``comult`` with
-        its opposite and satisfies the two hexagon equations.
+        its opposite, :math:`R \\Delta = \\Delta^{op} R`, and satisfies the two
+        hexagon equations :math:`(\\Delta \\otimes 1) R = R_{13} R_{23}` and
+        :math:`(1 \\otimes \\Delta) R = R_{13} R_{12}`.
         """
         if self.R is None:
             return False
         ty, R, m, d = self.ty, self.R, self.mult, self.comult
         swap = Diagram.swap(ty, ty)
-        return self.check(
-            # R Delta = Delta^op R
-            (R @ d >> ty @ swap @ ty >> m @ m,
-             (d >> swap) @ R >> ty @ swap @ ty >> m @ m),
-            # (Delta (x) id) R = R13 R23
-            (R >> d @ ty,
-             R @ R >> ty @ swap @ ty >> ty @ ty @ m),
-            # (id (x) Delta) R = R13 R12
-            (R >> ty @ d,
-             R @ R >> ty @ swap @ ty >> m @ ty @ ty >> ty @ swap))
-
-    def validate(self):
-        """ A dictionary of all the axiom checks. """
-        checks = dict(
-            associative=self.is_associative(), unital=self.is_unital(),
-            coassociative=self.is_coassociative(), counital=self.is_counital(),
-            bialgebra=self.is_bialgebra(), antipode=self.has_antipode())
-        if self.R is not None:
-            checks['quasitriangular'] = self.is_quasitriangular()
-        return checks
+        return all(
+            lhs.eval(dtype=complex).is_close(rhs.eval(dtype=complex))
+            for lhs, rhs in [
+                (R @ d >> ty @ swap @ ty >> m @ m,
+                 (d >> swap) @ R >> ty @ swap @ ty >> m @ m),
+                (R >> d @ ty,
+                 R @ R >> ty @ swap @ ty >> ty @ ty @ m),
+                (R >> ty @ d,
+                 R @ R >> ty @ swap @ ty >> m @ ty @ ty >> ty @ swap)])
 
     def is_valid(self):
-        """ Whether all the axiom checks pass. """
-        return all(self.validate().values())
+        """
+        Whether the axioms of a Hopf algebra hold, and quasitriangularity
+        whenever there is an R-matrix.
+        """
+        return self.is_associative() and self.is_unital() \
+            and self.is_coassociative() and self.is_counital() \
+            and self.is_bialgebra() and self.has_antipode() \
+            and (self.R is None or self.is_quasitriangular())
 
-    # -- constructors --------------------------------------------------------
     @classmethod
     def group_algebra(cls, table):
         """
@@ -392,27 +385,32 @@ class HopfAlgebra:
         ``.dagger()`` (the :math:`H^*` structure) and cups/caps — never
         materialised as big tensors.
 
+        The coadjoint multiplication splits :math:`h` and :math:`\\phi'`
+        each into three, pairs :math:`\\phi'_1` with :math:`S^{-1}(h_3)` and
+        :math:`\\phi'_3` with :math:`h_1`, and multiplies
+        :math:`\\phi \\phi'_2` in :math:`H^*` and :math:`h_2 h'` in
+        :math:`H` — the ``order`` below routes the wires to
+        :math:`\\phi'_1 h_3 \\phi'_3 h_1 \\phi \\phi'_2 h_2 h'`. The antipode
+        is the anti-homomorphism :math:`(\\epsilon \\otimes S) \\circ
+        ((S^{-1})^* \\otimes 1)` composed with that same multiplication.
+
         >>> D = HopfAlgebra.cyclic(2).double()
         >>> assert D.dim == 4 and D.is_valid() and D.is_quasitriangular()
         """
         ty = self.ty
         Sinv = self.antipode_inv
-        # the H* structure is the dagger of H: H*-mult = comult.dagger(), etc.
         mstar, dstar = self.comult.dagger(), self.mult.dagger()
 
-        unit = self.counit.dagger() @ self.unit         # eps_H (x) 1_H
-        counit = self.unit.dagger() @ self.counit       # 1_{H*} (x) eps_H
+        unit = self.counit.dagger() @ self.unit
+        counit = self.unit.dagger() @ self.counit
         comult = dstar @ self.comult \
             >> Diagram.swap(ty, ty) @ ty @ ty >> ty @ Diagram.swap(ty, ty) @ ty
         R = self.counit.dagger() @ Diagram.caps(ty, ty) @ self.unit
 
-        # the coadjoint multiplication: split h and phi' each into three,
-        # pair phi'1 with S^-1(h3) and phi'3 with h1, and multiply phi.phi'2
-        # (in H*) and h2.h' (in H)
         comult2 = self.comult >> self.comult @ ty
         cstar2 = dstar >> dstar @ ty
         split = Id(ty) @ comult2 @ cstar2 @ Id(ty)
-        order = [4, 3, 6, 1, 0, 5, 2, 7]  # phi'1 h3 phi'3 h1 phi phi'2 h2 h'
+        order = [4, 3, 6, 1, 0, 5, 2, 7]
         perm = [i for b in order
                 for i in range(b * len(ty), b * len(ty) + len(ty))]
         route = Diagram.permutation(perm, split.cod)
@@ -421,8 +419,6 @@ class HopfAlgebra:
             @ mstar @ self.mult
         mult = split >> route >> sinv >> contract
 
-        # the antipode is the anti-homomorphism (eps (x) S) . (S^-1* (x) 1),
-        # reusing the multiplication above
         prep = self.counit.dagger() \
             @ (Sinv.dagger() @ self.antipode) @ self.unit
         antipode = prep >> ty @ Diagram.swap(ty, ty) @ ty >> mult
@@ -436,33 +432,43 @@ class Representation(frobenius.Dim):
     :class:`Intertwiner`. It is a :class:`.tensor.Dim` (its underlying vector
     space) carrying the ``algebra`` and its ``action`` diagram
     :math:`H \\otimes V \\to V` (with ``V = action.cod``), which the ribbon
-    classmethods of :class:`Intertwiner` read off. A product of representations
-    (:meth:`tensor`) or an adjoint (:attr:`l`, :attr:`r`) drops the payload,
-    leaving just a :class:`.tensor.Dim`.
+    classmethods of :class:`Intertwiner` read off. Its adjoints :attr:`l` and
+    :attr:`r` are the dual module :math:`V^*` with the antipode-twisted action
+    :math:`\\rho^*(h) = \\rho(S h)^T`; a product of representations
+    (:meth:`tensor`) drops the payload, leaving just a :class:`.tensor.Dim`.
 
     Parameters:
         inside : The dimensions of the underlying space (for a product).
         algebra : The :class:`HopfAlgebra`.
         action : The action diagram :math:`H \\otimes V \\to V`, so that
             ``V = action.cod``.
+
+    A representation satisfies the two module axioms as diagram equations
+    (:meth:`is_module`): the action is associative over ``mult`` and unital
+    over ``unit``. Here is the associativity axiom
+    ``(mult @ V) >> action == (H @ action) >> action`` for a direct sum of
+    two anyon modules of :math:`D(\\mathbb{Z}/2)`, with the left-hand side
+    drawn as the :class:`.tensor.CMap` it contracts to:
+
+    >>> D = HopfAlgebra.cyclic(2).double()
+    >>> e = Representation.anyon(D, 0, -1)
+    >>> m = Representation.anyon(D, 1, 1)
+    >>> V = Representation.direct_sum([e, m])
+    >>> assert V.is_module() and V == Dim(2)
+    >>> ty = V.action.cod
+    >>> (D.mult @ ty >> V.action).to_map().draw(
+    ...     path='docs/_static/hopf/module.png')
+
+    .. image:: /_static/hopf/module.png
+        :align: center
     """
     def __init__(self, *inside, algebra=None, action=None):
         self.algebra, self.action = algebra, action
-        if action is not None and not inside:      # a module: dim from action
+        if action is not None and not inside:
             inside = action.cod.inside
-        flat = [i for x in inside                   # accept ints or Dims
+        flat = [i for x in inside
                 for i in (x.inside if isinstance(x, frobenius.Dim) else (x,))]
         super().__init__(*flat)
-
-    @property
-    def dim(self):
-        """ The dimension of the underlying vector space. """
-        return product(self.inside)
-
-    @property
-    def ty(self):
-        """ The underlying object :math:`V = action.cod`. """
-        return self.action.cod
 
     def __repr__(self):
         if self.action is None:
@@ -472,8 +478,11 @@ class Representation(frobenius.Dim):
             + f"(algebra={self.algebra!r}, action={self.action!r})"
 
     def __eq__(self, other):
-        # a payload-free representation is just a Dim; two modules differ by
-        # their (algebra, action), so distinct one-dimensional anyons differ
+        """
+        A payload-free representation is just a :class:`.tensor.Dim`, while
+        two modules differ by their ``(algebra, action)`` — so distinct
+        one-dimensional anyons are distinct objects.
+        """
         if not (isinstance(other, frobenius.Dim)
                 and self.inside == other.inside):
             return False
@@ -485,42 +494,57 @@ class Representation(frobenius.Dim):
     def __hash__(self):
         return hash((self.inside, repr(self.algebra), repr(self.action)))
 
+    @property
+    def r(self):
+        """
+        The dual module :math:`V^*` with :math:`\\rho^*(h) = \\rho(S h)^T`,
+        built diagrammatically: the antipode composed with the partial
+        transpose of ``action``, taken with cups and caps. The legs of
+        :math:`V^*` come out in reversed order. Left and right adjoints
+        coincide, as for any :class:`.tensor.Dim`.
+
+        >>> H = HopfAlgebra.sweedler()
+        >>> assert Representation.regular(H).r.is_module()
+        """
+        if self.action is None:
+            return self.ob(*self.inside[::-1])
+        H, ty = self.algebra, self.action.cod
+        hn, lv = len(H.ty), len(ty)
+        twisted = H.antipode @ Id(ty) >> self.action
+        bend = Id(H.ty @ ty.r) @ Diagram.caps(ty, ty.r)
+        blocks = [hn, lv, lv, lv]
+        starts = [sum(blocks[:i]) for i in range(len(blocks))]
+        perm = [i for b in [0, 2, 1, 3]
+                for i in range(starts[b], starts[b] + blocks[b])]
+        contract = twisted @ Id(ty.r @ ty.r) \
+            >> Diagram.cups(ty, ty.r) @ Id(ty.r)
+        action = bend >> Diagram.permutation(perm, bend.cod) >> contract
+        return type(self)(algebra=H, action=action)
+
+    l = r
+
     def qdim(self):
         """
         The quantum dimension: the value of a loop coloured by ``V``, i.e. the
         (co)evaluation :math:`\\cup \\circ \\cap` in :class:`Intertwiner`.
         """
-        loop = Intertwiner.caps(self, self) >> Intertwiner.cups(self, self)
+        loop = Intertwiner.caps(self, self.r) >> Intertwiner.cups(self, self.r)
         return complex(loop.eval(dtype=complex).array)
 
     def is_module(self):
         """
         Whether ``action`` is a representation: the two module axioms hold as
-        diagram equations (associative over ``mult``, unital over ``unit``).
-
-        >>> D = HopfAlgebra.cyclic(2).double()
-        >>> e = Representation.anyon(D, 0, -1)
-        >>> m = Representation.anyon(D, 1, 1)
-        >>> V = Representation.direct_sum([e, m])
-        >>> assert V.is_module() and V.dim == 2
-
-        The module axiom ``(mult @ V) >> action == (H @ action) >> action``,
-        with each side drawn as the :class:`.tensor.CMap` it contracts to:
-
-        >>> ty = V.ty
-        >>> (D.mult @ ty >> V.action).to_map().draw(
-        ...     path='docs/_static/hopf/module.png')
-
-        .. image:: /_static/hopf/module.png
-            :align: center
+        diagram equations — the action is associative over ``mult`` and
+        unital over ``unit``. See the axiom drawn in the class docstring.
         """
-        H, ty = self.algebra, self.ty
-        assoc = (H.mult @ ty >> self.action,
-                 H.ty @ self.action >> self.action)
-        unital = (H.unit @ ty >> self.action, Id(ty))
-        return H.check(assoc, unital)
+        H, ty = self.algebra, self.action.cod
+        return all(
+            lhs.eval(dtype=complex).is_close(rhs.eval(dtype=complex))
+            for lhs, rhs in [
+                (H.mult @ ty >> self.action,
+                 H.ty @ self.action >> self.action),
+                (H.unit @ ty >> self.action, Id(ty))])
 
-    # -- constructors --------------------------------------------------------
     @classmethod
     def regular(cls, algebra):
         """ The regular representation, acting on ``H`` by ``mult``. """
@@ -535,7 +559,7 @@ class Representation(frobenius.Dim):
         """
         n = int(round(double.dim ** 0.5))
         assert n * n == double.dim, "not the double of an n-dim algebra"
-        array = np.zeros((n, n), dtype=complex)   # rho(f^b (x) e_a), 1-dim
+        array = np.zeros((n, n), dtype=complex)
         for a in range(n):
             array[flux, a] = charge ** a
         action = Box[complex](
@@ -551,18 +575,19 @@ class Representation(frobenius.Dim):
         >>> e = Representation.anyon(D, 0, -1)
         >>> m = Representation.anyon(D, 1, 1)
         >>> V = Representation.direct_sum([e, m])
-        >>> assert V.is_module() and V.dim == 2      # V = e (+) m
+        >>> assert V.is_module() and V == Dim(2)
         """
         H = reps[0].algebra
-        d = sum(rep.dim for rep in reps)
+        dims = [product(rep.inside) for rep in reps]
+        d = sum(dims)
         array = np.zeros(H.ty.inside + (d, d), dtype=complex)
         offset = 0
-        for rep in reps:
+        for rep, dim in zip(reps, dims):
             block = rep.action.eval(dtype=complex).array
-            block = block.reshape(H.ty.inside + (rep.dim, rep.dim))
-            block_slice = slice(offset, offset + rep.dim)
+            block = block.reshape(H.ty.inside + (dim, dim))
+            block_slice = slice(offset, offset + dim)
             array[..., block_slice, block_slice] = block
-            offset += rep.dim
+            offset += dim
         action = Box[complex](
             'ρ', H.ty @ Dim(d), Dim(d), array.reshape(-1).tolist())
         return cls(algebra=H, action=action)
@@ -575,18 +600,37 @@ class Intertwiner(tensor.Diagram, RibbonCategory):
     :class:`.tensor.Diagram`\\ s whose objects are :class:`Representation`\\ s.
     Its ribbon structure is given by its classmethods — the braiding is
     :meth:`braid` (the R-matrix acting on the two strands, then a swap), the
-    :meth:`twist` is the trace of the self-braiding, and the (co)evaluation
-    ``cups``/``caps`` are inherited from :class:`.tensor.Diagram`
-    (representations are self-dual, :math:`G = 1`).
+    :meth:`twist` is the trace of the self-braiding, and the (co)evaluations
+    ``cups``/``caps`` pair a module with its dual :attr:`Representation.r`,
+    which carries the antipode-twisted action.
 
     Example
     -------
+    An intertwiner ``f`` between modules is a map that commutes with the
+    action, :math:`f \\circ \\rho_V = \\rho_W \\circ (1_H \\otimes f)`. We
+    check this axiom for the braid on :math:`V \\otimes V`, whose action goes
+    through the comultiplication:
+
+    >>> import numpy as np
+    >>> from discopy.drawing import Equation
     >>> D = HopfAlgebra.cyclic(2).double()
     >>> e = Representation.anyon(D, 0, -1)
     >>> m = Representation.anyon(D, 1, 1)
     >>> V = Representation.direct_sum([e, m])
-    >>> import numpy as np
+    >>> ty = V.action.cod
+    >>> action = D.comult @ Id(ty @ ty) \\
+    ...     >> Id(D.ty) @ Diagram.swap(D.ty, ty) @ Id(ty) \\
+    ...     >> V.action @ V.action
     >>> braid = Intertwiner.braid(V, V)
+    >>> lhs, rhs = action >> braid, Id(D.ty) @ braid >> action
+    >>> assert lhs.eval(dtype=complex).is_close(rhs.eval(dtype=complex))
+    >>> Equation(lhs, rhs).draw(path='docs/_static/hopf/intertwiner.png')
+
+    .. image:: /_static/hopf/intertwiner.png
+        :align: center
+
+    The braid contracts to the braiding matrix of the toric code:
+
     >>> matrix = braid.eval(dtype=complex).array.reshape(4, 4)
     >>> assert np.allclose(matrix, [[1, 0, 0, 0], [0, 0, -1, 0],
     ...                             [0, 1, 0, 0], [0, 0, 0, 1]])
@@ -596,11 +640,11 @@ class Intertwiner(tensor.Diagram, RibbonCategory):
     @classmethod
     def braid(cls, left, right, is_dagger=False):
         """
-        The braiding :math:`V \\otimes W \\to W \\otimes V` (its inverse when
-        ``is_dagger``): the R-matrix acting on the two strands, then a swap.
-        The action of the R-matrix ``r_matrix``, i.e. :math:`(\\rho_V \\otimes
-        \\rho_W)(R)`, is built here from the two representations' actions.
-        Raises a :class:`ValueError` if the algebra has no R-matrix.
+        The braiding :math:`V \\otimes W \\to W \\otimes V` (its inverse
+        :math:`R^{-1} = (S \\otimes 1) R` when ``is_dagger``): the R-matrix
+        acting on the two strands, i.e. :math:`(\\rho_V \\otimes \\rho_W)(R)`,
+        then a swap. Raises a :class:`ValueError` if the algebra has no
+        R-matrix.
         """
         H = left.algebra
         if H is None or H.R is None:
@@ -610,7 +654,7 @@ class Intertwiner(tensor.Diagram, RibbonCategory):
         def r_action(a, b, r_matrix):
             tya, tyb = Dim(*a.inside), Dim(*b.inside)
             la, lb = len(tya), len(tyb)
-            arrows = r_matrix @ Id(tya @ tyb)      # -> (R', R'', V, W)
+            arrows = r_matrix @ Id(tya @ tyb)
             order = list(range(hn)) + list(range(2 * hn, 2 * hn + la)) \
                 + list(range(hn, 2 * hn)) \
                 + list(range(2 * hn + la, 2 * hn + la + lb))
@@ -618,18 +662,30 @@ class Intertwiner(tensor.Diagram, RibbonCategory):
                 >> a.action @ b.action
 
         swap = Diagram.swap(Dim(*left.inside), Dim(*right.inside))
-        if is_dagger:                              # R^-1 = (S (x) id) R
+        if is_dagger:
             body = swap >> r_action(right, left, H.R >> H.antipode @ Id(H.ty))
         else:
             body = r_action(left, right, H.R) >> swap
         return cls(body.inside, body.dom, body.cod)
 
     @classmethod
+    def cups(cls, left, right):
+        """ The evaluation of a module against its dual, the plain pairing. """
+        body = Diagram.cups(Dim(*left.inside), Dim(*right.inside))
+        return cls(body.inside, body.dom, body.cod)
+
+    @classmethod
+    def caps(cls, left, right):
+        """ The coevaluation of a module against its dual. """
+        body = Diagram.caps(Dim(*left.inside), Dim(*right.inside))
+        return cls(body.inside, body.dom, body.cod)
+
+    @classmethod
     def twist(cls, dom):
         """ The twist of ``dom``: the ribbon trace of its self-braiding. """
-        return cls.id(dom) @ cls.caps(dom, dom) \
-            >> cls.braid(dom, dom) @ cls.id(dom) \
-            >> cls.id(dom) @ cls.cups(dom, dom)
+        return cls.id(dom) @ cls.caps(dom, dom.r) \
+            >> cls.braid(dom, dom) @ cls.id(dom.r) \
+            >> cls.id(dom) @ cls.cups(dom, dom.r)
 
 
 class Functor(ribbon.Functor):
@@ -679,24 +735,24 @@ class Functor(ribbon.Functor):
     """
     dom, cod = ribbon.Diagram, Intertwiner
 
-    def rep(self, ob):
-        """ The :class:`Representation` assigned to an atomic object. """
-        return self.ob_map[ribbon.Ty(ob.name)]
-
     def __call__(self, other):
+        """
+        On objects, an atom goes to its :class:`Representation` — the dual
+        :attr:`Representation.r` when the winding is odd — and a product of
+        atoms to the product of their dimensions. On arrows, both crossings
+        of a braid go to :meth:`Intertwiner.braid`, generating boxes to their
+        arrays, and everything else through the inherited ribbon dispatch.
+        """
         if isinstance(other, ribbon.Ty):
-            reps = [self.rep(ob) for ob in other.inside]
-            if len(reps) == 1:                 # keep the payload on an atom
-                return reps[0]
-            product = self.cod.ob()            # a product drops the payload
-            for rep in reps:
-                product = product @ rep
-            return product
-        if isinstance(other, ribbon.Braid):    # route both crossings to braid
-            left, right = map(self.rep, other.dom.inside)
-            return self.cod.braid(left, right, is_dagger=other.is_dagger)
+            reps = [self.ob_map[ribbon.Ty(ob.name)].r if ob.z % 2
+                    else self.ob_map[ribbon.Ty(ob.name)]
+                    for ob in other.inside]
+            return reps[0] if len(reps) == 1 else Dim().tensor(*reps)
+        if isinstance(other, ribbon.Braid):
+            return self.cod.braid(self(other.dom[:1]), self(other.dom[1:]),
+                                  is_dagger=other.is_dagger)
         if isinstance(other, ribbon.Box) and not isinstance(
                 other, (ribbon.Cup, ribbon.Cap, ribbon.Twist)):
             return Box(other.name, self(other.dom), self(other.cod),
                        self.ar_map[other])
-        return super().__call__(other)         # cups/caps/twist via dispatch
+        return super().__call__(other)

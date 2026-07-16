@@ -75,7 +75,7 @@ def test_no_r_matrix_paths():
         Z2.unit, Z2.counit, Z2.mult, Z2.comult, Z2.antipode)
     assert noR.R is None
     assert noR.is_quasitriangular() is False
-    assert 'quasitriangular' not in noR.validate()
+    assert noR.is_valid()
     W = Representation.regular(noR)
     try:                             # no R-matrix: the braiding is undefined
         Intertwiner.braid(W, W)
@@ -87,13 +87,14 @@ def test_no_r_matrix_paths():
 def test_representation_is_a_dim():
     # a Representation is a tensor.Dim carrying its (algebra, action)
     D, V = _double_and_module()
-    assert isinstance(V, Dim) and V.dim == 2
+    assert isinstance(V, Dim) and V == Dim(2)
     e, m = Representation.anyon(D, 0, -1), Representation.anyon(D, 1, 1)
     assert e != m                    # distinct 1-dim anyons differ by payload
     assert e != Dim(2)               # ... and from a bare Dim of another size
     assert len({e, m, V}) == 3       # hashable, all distinct
     payloadless = Representation(2)   # a product/adjoint: a Dim, no payload
-    assert payloadless.action is None and payloadless.dim == 2
+    assert payloadless.action is None and payloadless == Dim(2)
+    assert Representation(2, 3).r == Dim(3, 2)
     from discopy import hopf, tensor  # noqa: F401  (used by eval)
     assert eval(repr(payloadless)) == payloadless
 
@@ -116,7 +117,7 @@ def _double_and_module():
 
 def test_representation_is_module():
     D, V = _double_and_module()
-    assert V.is_module() and V.dim == 2
+    assert V.is_module() and V == Dim(2)
     assert Representation.regular(D).is_module()
     for anyon in [(0, 1), (0, -1), (1, 1), (1, -1)]:
         assert Representation.anyon(D, *anyon).is_module()
@@ -124,7 +125,7 @@ def test_representation_is_module():
 
 def test_braiding_yang_baxter_and_inverse():
     _, V = _double_and_module()
-    d = V.dim
+    d = 2
     c = Intertwiner.braid(V, V).eval(dtype=complex).array
     c = c.reshape(d * d, d * d)   # input x output
     # braiding is invertible and not the swap
@@ -148,6 +149,26 @@ def test_braiding_yang_baxter_and_inverse():
 def test_quantum_dimension():
     _, V = _double_and_module()
     assert np.isclose(V.qdim(), 2)
+
+
+def test_dual_representation():
+    # the dual module carries the antipode-twisted action rho(S h)^T,
+    # also when S^2 != id (sweedler) and for structured types (regular)
+    D, V = _double_and_module()
+    assert V.r.is_module() and V != V.r
+    assert Representation.regular(HopfAlgebra.sweedler()).r.is_module()
+    n = D.dim
+    rho = V.action.eval(dtype=complex).array.reshape(n, 2, 2)
+    S = D.antipode.eval(dtype=complex).array.reshape(n, n)
+    dual = V.r.action.eval(dtype=complex).array.reshape(n, 2, 2)
+    assert np.allclose(dual, np.einsum('hk,kio->hoi', S, rho))
+
+
+def test_functor_maps_winding_to_dual():
+    _, V = _double_and_module()
+    x = ribbon.Ty('x')
+    F = Functor(ob_map={x: V}, ar_map={})
+    assert F(x) == V and F(x.r) == V.r and F(x.r) != V
 
 
 def test_twist_from_braid():
