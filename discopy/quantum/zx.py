@@ -384,7 +384,7 @@ def gate2zx(box):
 
 
 circuit2zx = quantum.circuit.Functor(
-    ob={qubit: PRO(1)}, ar=gate2zx,
+    ob_map={qubit: PRO(1)}, ar_map=gate2zx,
     dom=Circuit, cod=Diagram)
 
 H = Box('H', PRO(1), PRO(1))

@@ -282,7 +282,7 @@ def to_tk(circuit):
 
         tk_circ.add_gate(op, i_qubits)
 
-    circuit = Functor(ob=lambda x: x, ar=remove_ket1)(circuit)
+    circuit = Functor(ob_map=lambda x: x, ar_map=remove_ket1)(circuit)
     for left, box, _ in circuit.inside:
         if isinstance(box, Ket):
             qubits = prepare_qubits(qubits, box, left.count(qubit))

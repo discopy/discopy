@@ -5,8 +5,7 @@
 from __future__ import annotations
 
 import json
-import os
-from functools import wraps
+from functools import lru_cache, wraps
 from typing import (
     Callable,
     Mapping,
@@ -18,11 +17,10 @@ from typing import (
     TYPE_CHECKING,
 )
 
-from matplotlib.testing.compare import compare_images
+from matplotlib.textpath import TextPath
 from networkx import Graph, connected_components
 
 import discopy.messages as messages
-from discopy.config import DRAWING_DEFAULT
 
 if TYPE_CHECKING:
     from discopy.monoidal import Ty, Diagram
@@ -399,43 +397,15 @@ class BinaryBoxConstructor:
         return cls(*map(from_tree, (tree['left'], tree['right'])))
 
 
-def draw_and_compare(file, folder, tol, **params):
-    """ Draw a given diagram and compare the result with a baseline. """
-    def decorator(func):
-        def wrapper():
-            diagram = func()
-            draw = params.get('draw', type(diagram).draw)
-            true_path = os.path.join(folder, file)
-            test_path = os.path.join(folder, '_' + file)
-            draw(diagram, path=test_path, show=False, **params)
-            test = compare_images(true_path, test_path, tol)
-            assert test is None
-            os.remove(test_path)
-        return wrapper
-    return decorator
+@lru_cache(maxsize=1024)
+def text_width(text: str, rounded=3, fontsize=12, points_per_inch=72.):
+    """ The width of a text label in drawing units, i.e. inches.
 
-
-def tikz_and_compare(file, folder, **params):
-    """ Tikz a given diagram and compare the result with a baseline. """
-    def decorator(func):
-        def wrapper():
-            diagram = func()
-            draw = params.get('draw', type(diagram).draw)
-            true_paths = [os.path.join(folder, file)]
-            test_paths = [os.path.join(folder, '_' + file)]
-            if params.get("use_tikzstyles", DRAWING_DEFAULT['use_tikzstyles']):
-                true_paths.append(
-                    true_paths[0].replace('.tikz', '.tikzstyles'))
-                test_paths.append(
-                    test_paths[0].replace('.tikz', '.tikzstyles'))
-            draw(diagram, path=test_paths[0], **dict(params, to_tikz=True))
-            for true_path, test_path in zip(true_paths, test_paths):
-                with open(true_path, "r") as true:
-                    with open(test_path, "r") as test:
-                        assert true.read() == test.read()
-                os.remove(test_path)
-        return wrapper
-    return decorator
+    Measured from the actual glyph outlines with matplotlib's text layout up to
+    `rounded` decimals at a given `fontsize` and `points_per_inch` conversion.
+    """
+    width = TextPath((0, 0), text, size=fontsize).get_extents().width
+    return round(width / points_per_inch, rounded)
 
 
 def tuplify(stuff: any) -> tuple:

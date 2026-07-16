@@ -115,11 +115,13 @@ Every traced symmetric category is a feedback category with a trivial delay:
 ...     self.trace(len(mem))
 
 >>> F0 = Functor(
-...     ob=lambda x: symmetric.Ty(x.name), ar={}, cod=symmetric.Diagram)
+...     ob_map=lambda x: symmetric.Ty(x.name), ar_map={},
+...     cod=symmetric.Diagram)
 >>> assert F0(x.delay()) == F0(x)
 
 >>> F = Functor(
-...     ob=F0, ar=lambda f: symmetric.Box(f.name, F0(f.dom), F0(f.cod)),
+...     ob_map=F0,
+...     ar_map=lambda f: symmetric.Box(f.name, F0(f.dom), F0(f.cod)),
 ...     cod=symmetric.Diagram)
 >>> f = Box('f', x @ m.delay(), y @ m)
 >>> assert F(f.delay()) == F(f) and F(f.feedback()) == F(f).trace()
@@ -428,11 +430,10 @@ class Box(markov.Box, Diagram):
         time_step = f", time_step={self.time_step}" if self.time_step else ""
         return super().__repr__()[:-1] + time_step + ")"
 
-    def __eq__(self, other):
-        return super().__eq__(other) and self.time_step == other.time_step
-
-    def __hash__(self):
-        return hash((super().__hash__(), self.time_step))
+    def setoid(self):
+        if self.use_hypergraph_equality and not self.is_generator:
+            return Diagram.setoid(self)
+        return markov.Box.setoid(self) + (self.time_step, )
 
 
 class Swap(markov.Swap, Box):
@@ -540,20 +541,17 @@ class Feedback(monoidal.Bubble, Box):
         self.mem, self.left = mem, left
         monoidal.Bubble.__init__(self, arg, dom=dom, cod=cod)
         Box.__init__(self, self.name, dom, cod)
-        mem_name = "" if len(mem) == 1 else f"mem={mem}"
-        self.name = f"({self.arg}).feedback({mem_name})"
-        self.use_hypergraph_equality = False
 
     def delay(self, n_steps=1):
         return type(self)(self.arg.delay(n_steps), mem=self.mem.delay(n_steps))
 
+    def __str__(self):
+        mem_name = "" if len(self.mem) == 1 else f"mem={self.mem}"
+        return f"({self.arg}).feedback({mem_name})"
+
     def __repr__(self):
         arg, mem = map(repr, (self.arg, self.mem))
         return factory_name(type(self)) + f"({arg}, mem={mem})"
-
-    __str__ = Box.__str__
-    _get_structure = markov.Trace._get_structure
-    __eq__ = markov.Trace.__eq__
 
     def to_drawing(self):
         return self.arg.to_drawing().trace()
@@ -613,9 +611,9 @@ class Functor(markov.Functor):
     A feedback functor is a markov one that preserves delay and feedback.
 
     Parameters:
-        ob (Mapping[monoidal.Ty, monoidal.Ty]) :
+        ob_map (Mapping[monoidal.Ty, monoidal.Ty]) :
             Map from :class:`monoidal.Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
+        ar_map (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) :
             The codomain, :code:`Diagram` by default.
 

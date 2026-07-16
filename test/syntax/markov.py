@@ -47,7 +47,7 @@ def test_neural_network():
     network = Diagram.copy(x @ x, 2)\
     >> Diagram.tensor(*weights) @ bias >> add(5) >> ReLU
 
-    F = Functor(ob={x: int}, ar={
+    F = Functor(ob_map={x: int}, ar_map={
             add(5): lambda *xs: sum(xs),
             ReLU: lambda x: max(0, x),
             bias: lambda: -1, **{

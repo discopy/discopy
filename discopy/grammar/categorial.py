@@ -14,7 +14,6 @@ Summary
     TermBase
     Constant
     Variable
-    Application
     Abstraction
     FA
     BA
@@ -84,10 +83,10 @@ class Diagram(biclosed.Diagram):
         from discopy.grammar import pregroup
 
         return Functor(
-            ob=lambda x: pregroup.Ty(x.inside[0].name),
-            ar=lambda f: pregroup.Box(f.name,
-                                      Diagram.to_pregroup(f.dom),
-                                      Diagram.to_pregroup(f.cod)),
+            ob_map=lambda x: pregroup.Ty(x.inside[0].name),
+            ar_map=lambda f: pregroup.Box(f.name,
+                                          Diagram.to_pregroup(f.dom),
+                                          Diagram.to_pregroup(f.cod)),
             cod=pregroup.Diagram)(self)
 
     @staticmethod
@@ -189,9 +188,9 @@ class Functor(biclosed.Functor):
     for categorial rules.
 
     Parameters:
-        ob (Mapping[Ty, Ty]) :
+        ob_map (Mapping[Ty, Ty]) :
             Map from atomic :class:`Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
+        ar_map (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
     """
     dom = cod = Diagram

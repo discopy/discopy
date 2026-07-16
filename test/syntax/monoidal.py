@@ -396,7 +396,7 @@ def test_PRO_Functor():
 def test_Functor_sum():
     x, y = Ty('x'), Ty('y')
     f, g = Box('f', x, y), Box('g', x, y)
-    F = Functor(ob={x: y, y: x}, ar={f: g[::-1], g: f[::-1]})
+    F = Functor(ob_map={x: y, y: x}, ar_map={f: g[::-1], g: f[::-1]})
     assert F(f + g) == F(f) + F(g)
 
 
