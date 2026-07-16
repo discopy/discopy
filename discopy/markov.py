@@ -22,7 +22,6 @@ Summary
 Axioms
 ------
 
->>> from discopy.markov import Equation
 >>> x = Ty('x')
 
 >>> copy, merge = Copy(x), Merge(x)
@@ -106,7 +105,6 @@ class Diagram(symmetric.Diagram, MarkovCategory):
     ...     y = f(x)
     ...     return y, y
 
-    >>> from discopy.markov import Equation
     >>> Equation(copy_then_apply, apply_then_copy, symbol="$\\\\neq$").draw(
     ...     path="docs/_static/markov/copy_and_apply.png")
 
@@ -288,7 +286,6 @@ class Functor(symmetric.Functor):
     >>> bialgebra_r = add >> copy
     >>> assert F(bialgebra_l)(54, 46) == F(bialgebra_r)(54, 46)
 
-    >>> from discopy.markov import Equation
     >>> Equation(bialgebra_l, bialgebra_r, symbol="=").draw(
     ...     path="docs/_static/markov/bialgebra.png")
 

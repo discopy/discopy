@@ -20,7 +20,6 @@ Summary
 Axioms
 ------
 
->>> from discopy.symmetric import Equation
 >>> x, y, z, w = map(Ty, "xyzw")
 >>> f, g = Box("f", x, y), Box("g", z, w)
 

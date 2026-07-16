@@ -37,7 +37,6 @@ Axioms
 >>> x, y, z = map(Ty, "xyz")
 >>> f, g, h = Box('f', x, z << y), Box('g', x @ y, z), Box('h', y, x >> z)
 
->>> from discopy.monoidal import Equation
 >>> Equation(f.uncurry(left=True).curry(left=True), f).draw(
 ...     path='docs/_static/biclosed/curry-left.png', margins=(0.1, 0.05))
 
@@ -461,7 +460,6 @@ class CMap(monoidal.CMap):
             left : Whether to curry on the left or right.
 
         >>> from discopy.closed import Ty, Box
-        >>> from discopy.monoidal import Equation
         >>> x, y, z = map(Ty, "xyz")
         >>> f = Box("f", x @ y, z).to_map()
         >>> f.curry().uncurry().draw(
@@ -735,3 +733,7 @@ Ty.constant_factory = Constant
 Ty.application_factory = Application
 Ty.abstraction_factory = Abstraction
 Ty.over_factory, Ty.under_factory, Ty.exp_factory = Over, Under, Exp
+
+
+class Equation(monoidal.Equation):
+    """ The :class:`monoidal.Equation` of biclosed diagrams. """

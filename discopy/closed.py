@@ -34,7 +34,6 @@ Axioms
 >>> x, y, z = map(Ty, "xyz")
 >>> f, g = Box('f', x, z << y), Box('g', x @ y, z)
 
->>> from discopy.monoidal import Equation
 >>> Equation(f.uncurry().curry(), f).draw(
 ...     path='docs/_static/closed/curry-left.png', margins=(0.1, 0.05))
 
@@ -295,3 +294,7 @@ Ty.variable_factory = Variable
 Ty.constant_factory = Constant
 Ty.application_factory = Application
 Ty.abstraction_factory = Abstraction
+
+
+class Equation(markov.Equation):
+    """ The :class:`markov.Equation` of closed diagrams. """

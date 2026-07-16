@@ -31,7 +31,6 @@ Summary
 Axioms
 ------
 
->>> from discopy.frobenius import Equation
 >>> x, y, z = map(Ty, "xyz")
 
 >>> split, merge = Spider(1, 2, x), Spider(2, 1, x)
@@ -155,7 +154,6 @@ class Diagram(compact.Diagram, markov.Diagram, HypergraphCategory):
 
         Example
         -------
-        >>> from discopy.frobenius import Equation
         >>> spider = Spider(3, 5, Ty(''), "$\\\\phi$") @ Ty()
         >>> Spider.color = "red"
         >>> Equation(spider, spider.unfuse(), symbol="$\\\\mapsto$").draw(

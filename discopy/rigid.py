@@ -31,7 +31,6 @@ Axioms
 >>> left_snake, right_snake = Id(n.r).transpose(left=True), Id(n.l).transpose()
 >>> assert left_snake.normal_form() == Id(n) == right_snake.normal_form()
 
->>> from discopy.monoidal import Equation
 >>> Equation(left_snake, Id(n), right_snake).draw(
 ...     figsize=(4, 1), path='docs/_static/rigid/typed-snake-equation.png')
 
@@ -276,10 +275,9 @@ class Diagram(biclosed.Diagram, RigidCategory):
         """
         The curry of a rigid diagram is obtained using cups and caps.
 
-        >>> from discopy.monoidal import Equation as Eq
         >>> x = Ty('x')
         >>> g = Box('g', x @ x, x)
-        >>> Eq(Eq(g.curry(left=False), g, symbol="$\\\\mapsfrom$"),
+        >>> Equation(Equation(g.curry(left=False), g, symbol="$\\\\mapsfrom$"),
         ...     g.curry(), symbol="$\\\\mapsto$").draw(
         ...         path="docs/_static/rigid/curry.png")
 
@@ -298,7 +296,6 @@ class Diagram(biclosed.Diagram, RigidCategory):
 
         Example
         -------
-        >>> from discopy.monoidal import Equation
         >>> x, y = map(Ty, "xy")
         >>> f = Box('f', Ty(), x)
         >>> g = Box('g', Ty(), x.r @ y)
@@ -327,7 +324,6 @@ class Diagram(biclosed.Diagram, RigidCategory):
 
         Example
         -------
-        >>> from discopy.monoidal import Equation
         >>> x, y = map(Ty, "xy")
         >>> f = Box('f', x, y)
         >>> LHS = Equation(f.transpose(left=True), f, symbol="$\\\\mapsfrom$")
@@ -356,7 +352,6 @@ class Diagram(biclosed.Diagram, RigidCategory):
 
         Example
         -------
-        >>> from discopy.monoidal import Equation
         >>> x, y, z = Ty(*"xyz")
         >>> f, g = Box('f', x, y), Box('g', y, z)
         >>> d = (f @ g).foliation()
@@ -708,7 +703,6 @@ class Functor(biclosed.Functor):
     >>> sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ s @ Cup(n.l, n)
     >>> assert F(sentence).normal_form() == Alice >> Id(n) @ Bob >> love_box
 
-    >>> from discopy.monoidal import Equation
     >>> Equation(sentence, F(sentence), symbol='$\\\\mapsto$').draw(
     ...     figsize=(5, 2), path='docs/_static/rigid/functor-example.png')
 
@@ -772,3 +766,7 @@ biclosed.Diagram.to_rigid = to_rigid
 Diagram.cup_factory, Diagram.cap_factory, Diagram.sum_factory = Cup, Cap, Sum
 
 Id = Diagram.id
+
+
+class Equation(biclosed.Equation):
+    """ The :class:`biclosed.Equation` of rigid diagrams. """

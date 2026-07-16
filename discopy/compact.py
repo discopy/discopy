@@ -21,7 +21,6 @@ Summary
 Axioms
 ------
 
->>> from discopy.compact import Equation
 >>> x, y = Ty('x'), Ty('y')
 
 Snake equations

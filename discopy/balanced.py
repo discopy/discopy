@@ -87,7 +87,6 @@ class Diagram(braided.Diagram, traced.Diagram, BalancedCategory):
         >>> x = Ty('x')
         >>> braided_twist = Diagram.twist(x).to_braided()
 
-        >>> from discopy.monoidal import Equation
         >>> Equation(Twist(x), braided_twist, symbol='$\\\\mapsto$').draw(
         ...     wire_labels=False,
         ...     path="docs/_static/balanced/twist_dual_rail.png")
@@ -209,3 +208,7 @@ Diagram.twist_factory = Twist
 Diagram.trace_factory = Trace
 Diagram.sum_factory = Sum
 Id = Diagram.id
+
+
+class Equation(braided.Equation):
+    """ The :class:`braided.Equation` of balanced diagrams. """
