@@ -418,9 +418,6 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
         >>> assert (vector >> vector[::-1]).eval(
         ...     optimize="optimal").array == 1
         """
-        if isinstance(self, Sum):
-            return sum((term.eval(dtype, **params) for term in self.terms),
-                       Tensor[dtype].zero(self.dom, self.cod))
         return self.to_map().eval(dtype, **params)
 
     def to_quimb(self, dtype: type = None) -> "quimb.tensor.Tensor":
@@ -631,22 +628,6 @@ class CMap(frobenius.CMap):
         ...     assert jax.grad(f)(1.) == 4.
         """
         cls = Tensor if dtype is None else Tensor[dtype]
-
-        def ground(box):
-            if isinstance(box, Spider):
-                return cls.spider_factory(
-                    len(box.dom), len(box.cod), box.typ, box.data).array
-            if isinstance(box, Bubble):
-                return box.arg.eval(dtype, optimize=optimize, **params)\
-                    .map(box.func).array
-            if not isinstance(box, Box):
-                return box.eval(dtype, optimize=optimize, **params).array
-            factory = Tensor[dtype or box.dtype]
-            if box.is_dagger:
-                return factory(
-                    box.dagger().array, box.cod, box.dom).dagger().array
-            return factory(box.array, box.dom, box.cod).array
-
         eye_dtype = dtype or next(
             (box.dtype for box in self.boxes
              if getattr(box, "dtype", None) is not None), None)
@@ -668,7 +649,8 @@ class CMap(frobenius.CMap):
                 arity, coarity = len(box.dom), len(box.cod)
                 box_ports = list(range(start, start + arity)) + list(
                     reversed(range(start + arity, start + arity + coarity)))
-                arrays.append(ground(box))
+                arrays.append(
+                    box.eval(dtype, optimize=optimize, **params).array)
                 indices.append([wires[port] for port in box_ports])
                 start += arity + coarity
             for port in range(self.n_ports - len(self.cod), self.n_ports):
@@ -749,6 +731,26 @@ class Box(frobenius.Box, Diagram):
                 return np.array(self.data).reshape(
                     self.dom.inside + self.cod.inside)
 
+    def eval(self, dtype: type = None, **params) -> Tensor:
+        """
+        The array of a box as a :class:`Tensor`, cast to ``dtype``.
+
+        Boxes without data, e.g. cups, caps and swaps, evaluate through
+        their wiring like any other diagram.
+
+        Parameters:
+            dtype : The datatype of the result, that of the data by default.
+            params : Passed through to :meth:`Diagram.eval` for boxes
+                without data.
+        """
+        if self.data is None:
+            return Diagram.eval(self, dtype, **params)
+        factory = Tensor[dtype or self.dtype]
+        if self.is_dagger:
+            return factory(
+                self.dagger().array, self.cod, self.dom).dagger()
+        return factory(self.array, self.dom, self.cod)
+
     def grad(self, var, **params):
         return self.bubble(
             func=lambda x: getattr(x, "diff", lambda _: 0)(var),
@@ -813,6 +815,17 @@ class Spider(frobenius.Spider, Box):
     .. image:: /_static/tensor/frobenius-example.png
         :align: center
     """
+    def eval(self, dtype: type = None, **params) -> Tensor:
+        """
+        The array of interleaving spiders as a :class:`Tensor`.
+
+        Parameters:
+            dtype : The datatype of the result.
+            params : Ignored, a spider is its own array.
+        """
+        cls = Tensor if dtype is None else Tensor[dtype]
+        return cls.spider_factory(
+            len(self.dom), len(self.cod), self.typ, self.data)
 
 
 class Sum(monoidal.Sum, Box):
@@ -824,6 +837,16 @@ class Sum(monoidal.Sum, Box):
         dom (Dim) : The domain of the formal sum.
         cod (Dim) : The codomain of the formal sum.
     """
+    def eval(self, dtype: type = None, **params) -> Tensor:
+        """
+        Evaluate a sum of tensor diagrams by evaluating each term.
+
+        Parameters:
+            dtype : The datatype for spiders and the result.
+            params : Passed to the evaluation of each term.
+        """
+        return sum((term.eval(dtype, **params) for term in self.terms),
+                   Tensor[dtype].zero(self.dom, self.cod))
 
 
 class Bubble(monoidal.Bubble, Box):
@@ -873,6 +896,18 @@ class Bubble(monoidal.Bubble, Box):
     def __init__(self, inside, func=lambda x: int(not x), **params):
         self.func = func
         super().__init__(inside, **params)
+
+    def eval(self, dtype: type = None, **params) -> Tensor:
+        """
+        Evaluate the inside of the bubble first, then apply ``func``
+        entrywise, so that the bubble becomes one box in the rest of the
+        network.
+
+        Parameters:
+            dtype : The datatype for spiders and the result.
+            params : Passed to the evaluation of the inside.
+        """
+        return self.arg.eval(dtype, **params).map(self.func)
 
     def grad(self, var, **params):
         """
