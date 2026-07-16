@@ -239,9 +239,10 @@ class Ty(cat.Ob, FreeMonoid):
                 (cat.Ob, ) if self.generator_factory is Wire else ()))
         inside = tuple(map(self.cast_wire, inside))
         FreeMonoid.__init__(self, inside, dom, cod, _scan)
-        # ``name`` is computed lazily by ``__getattr__``: building ``str(self)``
-        # on every construction dominates the cost when hypergraphs iterate
-        # over box domains (each element access builds a fresh singleton Ty).
+        # ``name`` is computed lazily by ``__getattr__``: building
+        # ``str(self)`` on every construction dominates the cost when
+        # hypergraphs iterate over box domains (each element access builds
+        # a fresh singleton Ty).
 
     def count(self, obj: cat.Ob) -> int:
         """
