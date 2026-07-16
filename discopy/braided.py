@@ -72,7 +72,7 @@ from discopy.utils import (
 
 class Wire(monoidal.Wire):
     """
-    A braided object is a self-dagger :class:`monoidal.Wire`. From braided
+    A braided wire is a self-dagger :class:`monoidal.Wire`. From braided
     categories onwards colours stop making sense, i.e. we cannot add colours to
     braids or swaps in any meaningful way, so its colours are always white.
     """

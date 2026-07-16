@@ -183,7 +183,7 @@ class Ty(monoidal.Ty):
 
 class Wire(monoidal.Wire):
     """
-    A biclosed object is a self-dagger :class:`monoidal.Wire`, i.e. its
+    A biclosed wire is a self-dagger :class:`monoidal.Wire`, i.e. its
     left and right colours always match. Exponentials do not interact
     meaningfully with colours, so for now we assume everything is white.
     """

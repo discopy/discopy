@@ -74,10 +74,10 @@ from discopy.utils import (
 
 class Wire(pivotal.Wire):
     """
-    A frobenius object is a self-dual pivotal object.
+    A frobenius wire is a self-dual pivotal wire.
 
     Parameters:
-        name : The name of the object.
+        name : The name of the wire.
     """
     l = r = property(lambda self: self)
 
@@ -97,7 +97,7 @@ class Ty(pivotal.Ty):
 class PRO(rigid.PRO, Ty):
     """
     A PRO is a natural number ``n`` seen as a frobenius type with unnamed
-    objects.
+    wires.
 
     Parameters
     ----------

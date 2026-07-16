@@ -63,18 +63,18 @@ from discopy.utils import deprecated_renaming
 
 class Wire(rigid.Wire):
     """
-    A pivotal object is a rigid object where left and right adjoints coincide.
+    A pivotal wire is a rigid wire where left and right adjoints coincide.
 
     Parameters:
-        name : The name of the object.
-        z (bool) : Whether the object is an adjoint or not.
+        name : The name of the wire.
+        z (bool) : Whether the wire is an adjoint or not.
     """
     l = r = property(lambda self: type(self)(
         self.name, (self.z + 1) % 2, dom=self.cod, cod=self.dom))
 
     def dagger(self) -> Wire:
         """
-        The dagger of a pivotal object coincides with its left and right
+        The dagger of a pivotal wire coincides with its left and right
         adjoints, i.e. it flips the parity of the winding number ``z`` and
         swaps its domain and codomain colours.
         """

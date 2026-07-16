@@ -60,10 +60,10 @@ from discopy.utils import (
 
 class Wire(monoidal.Wire):
     """
-    A rigid object has adjoints :meth:`Wire.l` and :meth:`Wire.r`.
+    A rigid wire has adjoints :meth:`Wire.l` and :meth:`Wire.r`.
 
     Parameters:
-        name : The name of the object.
+        name : The name of the wire.
         z : The winding number.
         dom : The domain colour.
         cod : The codomain colour.
@@ -97,12 +97,12 @@ class Wire(monoidal.Wire):
 
     @property
     def l(self) -> Wire:
-        """ The left adjoint of the object. """
+        """ The left adjoint of the wire. """
         return type(self)(self.name, self.z - 1, dom=self.cod, cod=self.dom)
 
     @property
     def r(self) -> Wire:
-        """ The right adjoint of the object. """
+        """ The right adjoint of the wire. """
         return type(self)(self.name, self.z + 1, dom=self.cod, cod=self.dom)
 
     def __eq__(self, other):

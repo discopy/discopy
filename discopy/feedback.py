@@ -156,8 +156,8 @@ def str_delayed(time_step: int):
 
 class Wire(braided.Wire):
     """
-    A feedback object is an object with a `time_step` and an optional argument
-    `is_constant` for whether the object is interpreted as a constant stream.
+    A feedback wire is a wire with a `time_step` and an optional argument
+    `is_constant` for whether the wire is interpreted as a constant stream.
     """
     def __init__(
             self, name: str, time_step: int = 0, is_constant: bool = True):
@@ -169,7 +169,7 @@ class Wire(braided.Wire):
         super().__init__(name)
 
     def delay(self, n_steps=1):
-        """ The delay of a feedback object. """
+        """ The delay of a feedback wire. """
         return Wire(self.name, self.time_step + n_steps, self.is_constant)
 
     @property
@@ -184,7 +184,7 @@ class Wire(braided.Wire):
             self if self.is_constant else Tail(self))
 
     def reset(self) -> Wire:
-        """ Reset an object to time step zero, used in :class:`Functor`. """
+        """ Reset a wire to time step zero, used in :class:`Functor`. """
         return Wire(self.name, time_step=0, is_constant=self.is_constant)
 
     def __eq__(self, other):
@@ -226,10 +226,10 @@ class Wire(braided.Wire):
 
 class Head(Wire):
     """
-    The head of a feedback object, interpreted as the first element of a stream
+    The head of a feedback wire, interpreted as the first element of a stream
     followed by the constant stream on the empty type.
 
-    Note the object `arg: Wire` cannot be itself a `Head` or be delayed.
+    Note the wire `arg: Wire` cannot be itself a `Head` or be delayed.
     """
     def __init__(self, arg: Wire, time_step: int = 0):
         assert_isinstance(arg, Wire)
@@ -259,7 +259,7 @@ class Head(Wire):
 
 class Tail(Wire):
     """
-    The tail of a non-constant feedback object, interpreted as the stream
+    The tail of a non-constant feedback wire, interpreted as the stream
     starting from the second time step.
 
     Example
