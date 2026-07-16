@@ -1058,50 +1058,46 @@ class Transformation(Category):
 
 class Equation:
     """
-    An equation is a list of terms and a ``functor`` up to which they are
-    compared, the identity by default.  Casting it to ``bool`` checks whether
-    its terms are equal up to that functor.
-
-    Coarser equalities are made local and explicit as the kernel of a functor:
-    rather than a mutable global flag, each syntax module defines a subclass of
-    :class:`Equation` with the appropriate :attr:`functor`, e.g.
-    :class:`symmetric.Equation` compares diagrams up to hypergraph isomorphism.
+    An equation is a list of ``terms`` to be compared up to a function
+    ``up_to``, the identity by default.  Casting it to ``bool`` checks whether
+    its terms are all equal up to that function.
 
     Parameters:
         terms : The terms of the equation.
         symbol : The symbol between the terms.
-        functor : The functor up to which ``bool(equation)`` compares its
-            terms, overriding the subclass' :attr:`functor` if given.
+        up_to : The function up to which ``bool(equation)`` compares its terms,
+            overriding the subclass' :attr:`up_to` if given.
 
     Example
     -------
     The number of boxes inside an arrow is left unchanged by associativity, so
-    we can compare arrows up to the functor that counts them modulo 2:
+    we can compare arrows up to the function that counts them modulo 2:
 
     >>> x = Ob('x')
     >>> f, g = Box('f', x, x), Box('g', x, x)
     >>> parity = lambda term: len(term.inside) % 2
     >>> assert not Equation(f, f >> g >> g)
-    >>> assert Equation(f, f >> g >> g, functor=parity)
+    >>> assert Equation(f, f >> g >> g, up_to=parity)
     """
-    functor = None
+    up_to = None
 
-    def __init__(self, *terms: Arrow, symbol="=", functor=None):
+    def __init__(self, *terms: Arrow, symbol="=", up_to=None):
         self.terms, self.symbol = terms, symbol
-        if functor is not None:
-            self.functor = functor
+        if up_to is not None:
+            self.up_to = up_to
 
     def __repr__(self):
-        return f"Equation({', '.join(map(repr, self.terms))})"
+        return factory_name(type(self))\
+            + f"({', '.join(map(repr, self.terms))})"
 
     def __str__(self):
         return f" {self.symbol} ".join(map(str, self.terms))
 
     def __bool__(self):
-        if self.functor is None:
+        if self.up_to is None:
             return all(term == self.terms[0] for term in self.terms)
-        first = self.functor(self.terms[0])
-        return all(self.functor(term) == first for term in self.terms[1:])
+        first = self.up_to(self.terms[0])
+        return all(self.up_to(term) == first for term in self.terms[1:])
 
 
 Arrow.sum_factory = Sum

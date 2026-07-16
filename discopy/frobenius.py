@@ -398,4 +398,4 @@ Id = Diagram.id
 
 class Equation(compact.Equation):
     """ The :class:`compact.Equation` of Frobenius diagrams. """
-    functor = Diagram.to_hypergraph
+    up_to = Diagram.to_hypergraph

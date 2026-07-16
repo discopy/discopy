@@ -1210,8 +1210,8 @@ class Equation(cat.Equation):
         terms : The terms of the equation.
         symbol : The symbol between the terms.
         space : The space between the terms when drawing the equation.
-        functor : The functor up to which ``bool(equation)`` compares its
-            terms, overriding the subclass' :attr:`functor` if given.
+        up_to : The function up to which ``bool(equation)`` compares its terms,
+            overriding the subclass' :attr:`up_to` if given.
 
     Example
     -------
@@ -1220,8 +1220,8 @@ class Equation(cat.Equation):
     >>> print(Equation(f, g, symbol="=>"))
     f => g
     """
-    def __init__(self, *terms: Diagram, symbol="=", space=1, functor=None):
-        super().__init__(*terms, symbol=symbol, functor=functor)
+    def __init__(self, *terms: Diagram, symbol="=", space=1, up_to=None):
+        super().__init__(*terms, symbol=symbol, up_to=up_to)
         self.space = space
 
     def to_drawing(self):

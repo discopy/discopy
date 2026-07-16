@@ -93,7 +93,7 @@ class _ToHypergraph:
     Descriptor exposing the diagram-to-hypergraph functor.
 
     Accessed on the class, ``Diagram.to_hypergraph`` is the :class:`Functor`
-    itself, e.g. it is the :attr:`Equation.functor` of :class:`Equation`.
+    itself, e.g. it is the :attr:`Equation.up_to` of :class:`Equation`.
     Accessed on an instance, ``diagram.to_hypergraph()`` applies the functor to
     the diagram, i.e. translates it into a hypergraph.
 
@@ -135,7 +135,7 @@ class Diagram(balanced.Diagram, SymmetricCategory):
     diagrams are equal if and only if they are built from the same layers.
     To compare diagrams up to hypergraph isomorphism (swaps, spider fusion,
     trace routing) use ``from discopy.symmetric import Equation``, i.e. the
-    :class:`Equation` whose :attr:`~Equation.functor` is :attr:`to_hypergraph`.
+    :class:`Equation` whose :attr:`~Equation.up_to` is :attr:`to_hypergraph`.
 
     >>> x, y = Ty("x"), Ty("y")
     >>> a = Swap(x, y) >> Swap(y, x)
@@ -235,7 +235,7 @@ class Diagram(balanced.Diagram, SymmetricCategory):
     #: Accessed on an instance it is callable, i.e. ``diagram
     #: .to_hypergraph()`` translates the diagram into a hypergraph; accessed on
     #: the class it is the :class:`Functor` itself, used as the
-    #: :attr:`Equation.functor` of :class:`Equation`.
+    #: :attr:`Equation.up_to` of :class:`Equation`.
     to_hypergraph = _ToHypergraph()
 
     def simplify(self):
@@ -362,4 +362,4 @@ class Equation(monoidal.Equation):
     >>> x, y = Ty('x'), Ty('y')
     >>> assert Equation(Swap(x, y) >> Swap(y, x), Id(x @ y))
     """
-    functor = Diagram.to_hypergraph
+    up_to = Diagram.to_hypergraph
