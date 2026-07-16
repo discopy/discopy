@@ -911,8 +911,3 @@ class Drawing(TracedCategory):
 
     def to_drawing(self):
         return self
-
-
-# ``Equation`` has moved to :mod:`discopy.cat` (base) and
-# :mod:`discopy.monoidal` (with a ``draw`` method); ``discopy.drawing
-# .Equation`` is a deprecated alias, see :mod:`discopy.drawing`.

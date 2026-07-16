@@ -1083,15 +1083,7 @@ class Equation:
     >>> parity = lambda term: len(term.inside) % 2
     >>> assert not Equation(f, f >> g >> g)
     >>> assert Equation(f, f >> g >> g, functor=parity)
-
-    Note
-    ----
-    :class:`Equation` has no ``draw`` method because :class:`Arrow` has none;
-    see :class:`monoidal.Equation` for equations of diagrams, which also adds
-    the ``space`` parameter used when drawing.
     """
-    #: The functor up to which the terms are compared, ``None`` (i.e. the
-    #: identity, syntactic equality) by default; subclasses override it.
     functor = None
 
     def __init__(self, *terms: Arrow, symbol="=", functor=None):
