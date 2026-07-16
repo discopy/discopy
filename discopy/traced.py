@@ -128,7 +128,7 @@ Dinaturality
 
 from discopy import monoidal
 from discopy.abc import TracedCategory
-from discopy.cat import ar_factory
+from discopy.cat import factory
 from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import (
     factory_name,
@@ -137,7 +137,7 @@ from discopy.utils import (
 )
 
 
-@ar_factory
+@factory
 class Diagram(monoidal.Diagram, TracedCategory):
     """
     A traced diagram is a monoidal diagram with :class:`Trace` boxes.

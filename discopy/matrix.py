@@ -43,7 +43,7 @@ from typing import Union, Literal as L, Callable, TYPE_CHECKING
 from discopy import monoidal, config, messages
 from discopy.abc import MonoidalCategory, NamedGeneric
 from discopy.cat import (
-    ar_factory,
+    factory,
     assert_iscomposable,
     assert_isparallel,
 )
@@ -53,7 +53,7 @@ if TYPE_CHECKING:
     import sympy
 
 
-@ar_factory
+@factory
 class Matrix(MonoidalCategory, NamedGeneric['dtype']):
     """
     A matrix is an ``array`` with natural numbers as ``dom`` and ``cod``.

@@ -60,21 +60,20 @@ Or you can keep scrolling down, skip the theory and go straight to the examples 
 - the tensor of diagrams is decomposed in terms of composition and whiskering i.e. `f @ g = f @ g.dom >> f.cod @ g`, this is biased in the sense that `f` happens before `g` so that diagrams really live in a [premonoidal category](https://en.wikipedia.org/wiki/Premonoidal_category)
 - *the first gotcha of DisCoPy:* `Box` is a subclass of `Diagram` with a cyclic reference `list(box.inside) == [Layer(Ty(), box, Ty())]`
 - every categorical structure is implemented with the factory method pattern so that e.g. the method `Diagram.swap` computes the symmetry of arbitrary types with `Diagram.swap_factory = Swap` as subroutine for generating subclasses of `Box` for the symmetry of atomic types
-- *the second gotcha of DisCoPy:* each `C: Category` comes with a class attribute `ar` such that `C.ar = C`; this happens with the decorator `@ar_factory` and it allows for e.g. the subclass `Box` to know that it lives inside a bigger `Diagram` category
+- *the second gotcha of DisCoPy:* each `C: Category` comes with a class attribute `ar` such that `C.ar = C`; this happens with the decorator `@factory` and it allows for e.g. the subclass `Box` to know that it lives inside a bigger `Diagram` category
 
 ## Example: Cooking
 
 This example is inspired from Pawel Sobocinski's blog post [Crema di Mascarpone and Diagrammatic Reasoning](https://graphicallinearalgebra.net/2015/05/06/crema-di-mascarpone-rules-of-the-game-part-2-and-diagrammatic-reasoning/).
 
 ```python
-from discopy.utils import ob_factory, ar_factory
+from discopy.utils import factory
 from discopy.symmetric import Ty, Box, Diagram, Swap
 
-@ob_factory
 class Ingredient(Ty):
   "The objects of the category of recipe diagrams."
 
-@ar_factory
+@factory
 class Recipe(Diagram):
   ob = Ingredient
 

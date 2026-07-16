@@ -71,7 +71,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from discopy import messages, tensor, frobenius
-from discopy.cat import ob_factory, ar_factory
+from discopy.cat import factory
 from discopy.matrix import backend
 from discopy.tensor import Dim, Tensor
 from discopy.utils import factory_name, assert_isinstance
@@ -151,7 +151,7 @@ class Qudit(Ob):
     __setstate__ = Digit.__setstate__
 
 
-@ob_factory
+@factory
 class Ty(frobenius.Ty):
     """
     A circuit type is a frobenius type with :class:`Digit` and :class:`Qudit`
@@ -171,10 +171,10 @@ class Ty(frobenius.Ty):
     >>> print(bit ** 2 @ qubit ** 3)
     bit @ bit @ qubit @ qubit @ qubit
     """
-    ob_factory = Ob
+    generator_factory = Ob
 
 
-@ar_factory
+@factory
 class Circuit(tensor.Diagram[complex]):
     """
     A circuit is a tensor diagram with bits and qubits as ``dom`` and ``cod``.
