@@ -718,15 +718,15 @@ class Box(frobenius.Box, Diagram):
         """
         The array of a box as a :class:`Tensor`, cast to ``dtype``.
 
-        Boxes without data, e.g. cups, caps and swaps, evaluate through
-        their wiring like any other diagram.
+        Boxes without data, e.g. cups, caps and swaps, and rotated boxes
+        evaluate through their wiring like any other diagram.
 
         Parameters:
             dtype : The datatype of the result, that of the data by default.
             params : Passed through to :meth:`Diagram.eval` for boxes
                 without data.
         """
-        if self.data is None:
+        if self.data is None or self.z:
             return Diagram.eval(self, dtype, **params)
         factory = Tensor[dtype or self.dtype]
         if self.is_dagger:

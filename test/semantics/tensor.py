@@ -236,6 +236,12 @@ def test_Tensor_scalar():
         assert isinstance(ptype(s), ptype)
 
 
+def test_rotated_Box_eval():
+    f = Box("f", Dim(2), Dim(2), [1, 2, 3, 4])
+    assert f.r.eval() == f.transpose().eval()
+    assert f.l.eval() == f.transpose(left=True).eval()
+
+
 def test_Tensor_adjoint_eval():
     alice = Box("Alice", Dim(1), Dim(2), [1, 2])
     eats = Box("eats", Dim(1), Dim(2, 3, 2), [3] * 12)
