@@ -18,6 +18,7 @@ DRAWING_ATTRIBUTES = {
     "bubble_opening": lambda _: False,
     "bubble_closing": lambda _: False,
     "frame_boundary": lambda _: False,
+    "frame_colour": lambda _: "lightgrey",
     "draw_as_braid": lambda _: False,
     "draw_as_wires": lambda box: any(getattr(box, a) for a in [
         "bubble_opening", "bubble_closing", "draw_as_braid"]),

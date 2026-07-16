@@ -435,7 +435,8 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
 
     @classmethod
     def cups(cls, left, right):
-        if not getattr(left, 'r', left[::-1]) == right:
+        adjoint = left.r if hasattr(left, "r") else left[::-1]
+        if adjoint != right:
             raise AxiomError
         dom_wires = tuple(range(len(left))) + tuple(reversed(range(len(left))))
         return cls(
@@ -443,7 +444,8 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
 
     @classmethod
     def caps(cls, left, right):
-        if not getattr(left, 'r', left[::-1]) == right:
+        adjoint = left.r if hasattr(left, "r") else left[::-1]
+        if adjoint != right:
             raise AxiomError
         cod_wires = tuple(range(len(left))) + tuple(reversed(range(len(left))))
         return cls(
@@ -504,7 +506,8 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         dom, cod = (self.dom[n:], self.cod[n:]) if left\
             else (self.dom[:-n], self.cod[:-n])
         traced_wires = self.dom[:n] if left else self.dom[len(self.dom) - n:]
-        traced_wires_r = getattr(traced_wires, "r", traced_wires[::-1])
+        traced_wires_r = traced_wires.r if hasattr(traced_wires, "r")\
+            else traced_wires[::-1]
         return self.caps(traced_wires_r, traced_wires) @ dom\
             >> traced_wires_r @ self\
             >> self.cups(traced_wires_r, traced_wires) @ cod if left\

@@ -153,9 +153,9 @@ def test_parameterisation():
 
 def test_subclass_to_hypergraph():
     from discopy import frobenius
-    from discopy.cat import ar_factory
+    from discopy.cat import factory
 
-    @ar_factory
+    @factory
     class Circuit(frobenius.Diagram):
         """ A frobenius diagram with hypergraphs of its own category. """
 

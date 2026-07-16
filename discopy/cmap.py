@@ -714,10 +714,11 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> Swap(x, y).to_map().boxes
         ()
         """
-        factory = cls if cls.category is not None else cls[type(old).ar]
+        category = type(old).ar
+        factory = cls if cls.category is not None else cls[category]
         return factory.functor(
             ob_map=lambda typ: typ, ar_map=factory.from_box,
-            dom=type(old), cod=factory)(old)
+            dom=category, cod=factory)(old)
 
     @classmethod
     def swap(cls, left: Ty, right: Ty) -> CMap:
@@ -736,7 +737,8 @@ class CMap[C0: Pregroup, C1: CMap](
     @classmethod
     def cups(cls, left: Ty, right: Ty) -> CMap:
         """ A cup encoded as boundary wiring between adjoint types. """
-        if not getattr(left, "r", left[::-1]) == right:
+        adjoint = left.r if hasattr(left, "r") else left[::-1]
+        if adjoint != right:
             raise AxiomError
         size = len(left)
         edge = Permutation.from_transpositions(
@@ -747,7 +749,8 @@ class CMap[C0: Pregroup, C1: CMap](
     @classmethod
     def caps(cls, left: Ty, right: Ty) -> CMap:
         """ A cap encoded as boundary wiring between adjoint types. """
-        if not getattr(left, "r", left[::-1]) == right:
+        adjoint = left.r if hasattr(left, "r") else left[::-1]
+        if adjoint != right:
             raise AxiomError
         size = len(left)
         edge = Permutation.from_transpositions(

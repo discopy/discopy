@@ -40,7 +40,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from discopy import monoidal
-from discopy.cat import ar_factory, Functor
+from discopy.cat import factory, Functor
 from discopy.grammar import thue
 from discopy.monoidal import Ty
 from discopy.utils import (
@@ -50,7 +50,7 @@ if TYPE_CHECKING:
     import nltk
 
 
-@ar_factory
+@factory
 class Tree:
     """
     A tree is a rule for the ``root`` and a list of trees called ``branches``.

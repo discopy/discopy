@@ -42,7 +42,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Generic, Type, TypeVar, ClassVar
 
-from discopy.utils import get_origin
+from discopy.utils import classproperty, get_origin
 
 
 class Category[C0, C1: Category](ABC):
@@ -63,9 +63,13 @@ class Category[C0, C1: Category](ABC):
     >>> assert List([3]) << List([1, 2]) == List([1, 2, 3])
     """
     ob: ClassVar[Type[C0]]
-    ar: ClassVar[Type[C1]]
+    factory: ClassVar[Type[C1]]
     dom: C0
     cod: C0
+
+    #: Backward-compatible alias for :attr:`factory`, since types are
+    #: themselves the objects of diagrams.
+    ar = classproperty(lambda cls: cls.factory)
 
     @classmethod
     @abstractmethod
@@ -110,26 +114,44 @@ class Category[C0, C1: Category](ABC):
     __lshift__ = __lrshift__ = lambda self, other: other.then(self)
 
 
-class Monoid[T]:
+class ColouredMonoid[C0, C1: ColouredMonoid](Category[C0, C1]):
     """
-    A monoid is a class with class variable ``ob`` and class method ``tensor``.
+    A coloured monoid is a category whose sequential composition ``then`` is
+    given by a monoidal ``tensor``, with the objects ``C0`` (its colours) as
+    the boundaries of its morphisms.
+
+    An ordinary :obj:`Monoid` is the special case with a single, trivial
+    colour, i.e. :class:`type(None)`. We do not enforce this so
+    that e.g. :class:`monoidal.Ty` can take colours as objects.
     """
-    ob: ClassVar[Type[T]]
+    @classmethod
+    def unit(cls) -> C1:
+        """The monoidal unit, i.e. the empty tensor ``cls()``."""
+        return cls()
 
     @classmethod
-    @abstractmethod
-    def tensor(cls) -> T:
-        """ The unit of a monoid. """
+    def id(cls, dom: C0 = None) -> C1:
+        """The monoidal unit, seen as an identity morphism."""
+        return cls.unit()
 
     @abstractmethod
-    def tensor(self, *objects: T) -> T:
+    def tensor(self, *objects: C1) -> C1:
         """ The n-ary product of a monoid for ``n > 0``. """
+
+    def then(self, *others: C1) -> C1:
+        """Sequential composition, given by the monoid product."""
+        return self.tensor(*others)
 
     def __matmul__(self, other):
         return self.tensor(other)
 
 
-class MonoidalCategory[C0: Monoid, C1: MonoidalCategory](Category[C0, C1]):
+# A monoid is a coloured monoid with a single, trivial colour.
+type Monoid[C1: ColouredMonoid] = ColouredMonoid[type(None), C1]
+
+
+class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](
+        Category[C0, C1]):
     """
     A monoidal category is a :class:`Category` with a method :code:`tensor` for
     both its objects and its morphisms.
@@ -179,17 +201,17 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
         """
 
 
-class ResiduatedMonoid[T](Monoid[T]):
+class ResiduatedMonoid[C0, C1: ResiduatedMonoid](ColouredMonoid[C0, C1]):
     """
     A monoid is residuated when it comes with methods ``over`` and ``under``
     with syntactic sugar ``<<`` and ``>>``.
     """
     @abstractmethod
-    def over(self, other: T) -> T:
+    def over(self, other: C1) -> C1:
         """ The right-to-left exponential object ``self`` to the ``other``. """
 
     @abstractmethod
-    def under(self, other: T) -> T:
+    def under(self, other: C1) -> C1:
         """ The left-to-right exponential object ``self`` to the ``other``. """
 
     def __lshift__(self, other):
@@ -231,24 +253,18 @@ class BiclosedCategory[
         """
 
 
-class Pregroup[T](ResiduatedMonoid[T]):
+class Pregroup[C0, C1: Pregroup](ResiduatedMonoid[C0, C1]):
     """
     A pregroup is a residuated monoid where the left and right exponentials are
     given by tensoring with the chosen left and right duals for each object.
     """
-    l: T
-    r: T
+    l: C1
+    r: C1
 
-    def tensor(self, *others: T) -> T:
-        return super(Monoid, self).tensor(*others)
-
-    def __matmul__(self, other: T) -> T:
-        return self.tensor(other)
-
-    def over(self, other: T) -> T:
+    def over(self, other: C1) -> C1:
         return self @ other.l
 
-    def under(self, other: T) -> T:
+    def under(self, other: C1) -> C1:
         return other.r @ self
 
 
