@@ -22,10 +22,10 @@ from contextlib import contextmanager
 from discopy.abc import Category
 from discopy.utils import (
     assert_iscomposable, assert_isinstance,
-    tuplify, untuplify, classproperty, ar_factory)
+    tuplify, untuplify, classproperty, factory)
 
 
-@ar_factory
+@factory
 @dataclass
 class Function(Category):
     """

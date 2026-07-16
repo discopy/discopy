@@ -143,17 +143,17 @@ In the category of streams, this is just the identity.
 
 from __future__ import annotations
 
-from discopy import cat, monoidal, markov
+from discopy import monoidal, braided, markov
 from discopy.abc import FeedbackCategory
 from discopy.utils import (
-    ob_factory, ar_factory, factory_name, assert_isinstance, AxiomError)
+    factory, factory_name, assert_isinstance, AxiomError)
 
 
 def str_delayed(time_step: int):
     return time_step * ".d" if time_step <= 3 else f".delay({time_step})"
 
 
-class Ob(cat.Ob):
+class Ob(braided.Ob):
     """
     A feedback object is an object with a `time_step` and an optional argument
     `is_constant` for whether the object is interpreted as a constant stream.
@@ -202,6 +202,20 @@ class Ob(cat.Ob):
 
     def __str__(self):
         return super().__str__() + str_delayed(self.time_step)
+
+    def to_tree(self):
+        tree = {'factory': factory_name(type(self)), 'name': self.name}
+        if self.time_step:
+            tree['time_step'] = self.time_step
+        if not self.is_constant:
+            tree['is_constant'] = False
+        return tree
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(
+            tree['name'], tree.get('time_step', 0),
+            tree.get('is_constant', True))
 
     @property
     def d(self):
@@ -262,10 +276,10 @@ class TailOb(Ob):
     delay, reset, __repr__ = HeadOb.delay, HeadOb.reset, HeadOb.__repr__
 
 
-@ob_factory
+@factory
 class Ty(monoidal.Ty):
     """ A feedback type is a monoidal type with `delay`, `head` and `tail`. """
-    ob_factory = Ob
+    generator_factory = Ob
 
     def delay(self, n_steps=1):
         """ The delay of a feedback type by `n_steps`. """
@@ -290,7 +304,7 @@ class Layer(monoidal.Layer):
         return type(self)(*[x.delay(n_steps) for x in self.boxes_or_types])
 
 
-@ar_factory
+@factory
 class Diagram(markov.Diagram, FeedbackCategory):
     """
     A feedback diagram is a markov diagram with a :meth:`delay` endofunctor
@@ -391,7 +405,7 @@ class Box(markov.Box, Diagram):
     def __init__(self, name, dom, cod, time_step: int = 0, **params):
         self._time_step, self._params = time_step, params
         markov.Box.__init__(self, name, dom, cod, **params)
-        Diagram.__init__(self, self.inside, dom, cod)
+        Diagram.__init__(self, self.inside, self.dom, self.cod)
 
     def to_drawing(self):
         result = monoidal.Box.to_drawing(self)

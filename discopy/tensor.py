@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING
 
 from discopy import (
     cat, monoidal, rigid, frobenius)
-from discopy.cat import ar_factory, assert_iscomposable
+from discopy.cat import factory, assert_iscomposable
 from discopy.frobenius import Dim, Cup
 from discopy.matrix import (  # noqa: F401
     Matrix, backend, set_backend, get_backend,
@@ -47,7 +47,7 @@ if TYPE_CHECKING:
     import quimb
 
 
-@ar_factory
+@factory
 class Tensor(Matrix):
     """
     A tensor is a :class:`Matrix` with dimensions as domain and codomain and
@@ -375,7 +375,8 @@ class Functor(frobenius.Functor):
             return other
         if isinstance(other, Bubble):
             return self(other.arg).map(other.func)
-        if isinstance(other, (cat.Ob, cat.Box)):
+        if isinstance(other, (
+                cat.Ob, cat.Box, monoidal.Colour, monoidal.Ty)):
             return super().__call__(other)
         assert_isinstance(other, monoidal.Diagram)
         return frobenius.Functor(
@@ -385,7 +386,7 @@ class Functor(frobenius.Functor):
             dom=self.dom, cod=CMap)(other).eval(self.dtype, **self.params)
 
 
-@ar_factory
+@factory
 class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
     """
     A tensor diagram is a frobenius diagram with tensor boxes.
@@ -581,8 +582,7 @@ class CMap(frobenius.CMap):
     """
     category = Diagram
 
-    def eval(self, dtype: type = None, optimize="greedy",
-             **params) -> Tensor:
+    def eval(self, dtype: type = None, **params) -> Tensor:
         """
         Contract the tensor network in a single ``einsum`` call under the
         active :func:`backend`, e.g. ``jax.numpy`` for autodiff, with
@@ -591,13 +591,11 @@ class CMap(frobenius.CMap):
         Parameters:
             dtype : The datatype for spiders and the result,
                 inferred from the boxes by default.
-            optimize : The contraction path, passed verbatim to
-                ``np.einsum``, e.g. ``"greedy"``, ``"optimal"`` or an
-                explicit path. Under the numpy backend the path is
-                precomputed with ``opt_einsum`` when available, since
+            params : Optional parameters of the backend ``einsum`` method,
+                passed verbatim, e.g. ``optimize`` — the contraction path,
+                ``"greedy"`` by default. Under the numpy backend the path
+                is precomputed with ``opt_einsum`` when available, since
                 numpy's own pathfinder chokes on large networks.
-            params : Any other optional parameter of the backend
-                ``einsum`` method, passed verbatim.
 
         Example
         -------
@@ -611,6 +609,7 @@ class CMap(frobenius.CMap):
         ...     assert jax.grad(f)(1.) == 4.
         """
         cls = Tensor if dtype is None else Tensor[dtype]
+        optimize = params.pop("optimize", "greedy")
         eye_dtype = dtype or next(
             (box.dtype for box in self.boxes
              if getattr(box, "dtype", None) is not None), None)

@@ -11,6 +11,7 @@ Summary
     :nosignatures:
     :toctree:
 
+    Ob
     Ty
     Exp
     Over
@@ -64,10 +65,10 @@ from abc import abstractmethod
 from inspect import signature
 from typing import Callable, ClassVar, Self
 
-from discopy import cat, monoidal
+from discopy import monoidal
 from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
-from discopy.cat import ob_factory, ar_factory
+from discopy.cat import factory
 from discopy.utils import (
     assert_isinstance,
     factory_name,
@@ -75,7 +76,7 @@ from discopy.utils import (
 )
 
 
-@ob_factory
+@factory
 class Ty(monoidal.Ty):
     """
     A biclosed type is a monoidal type that can be exponentiated.
@@ -88,18 +89,19 @@ class Ty(monoidal.Ty):
     Applying a biclosed type to a callable yields a :class:`Abstraction`,
     applying it to a string yields a :class:`Constant`.
     """
+
     def __pow__(self, other: Ty) -> Ty:
         return self.exp(other) if isinstance(other, Ty)\
             else monoidal.Ty.__pow__(self, other)
 
     def exp(self, other: Ty) -> Ty:
-        return self.ob(self.exp_factory(self, other))
+        return self.ar(self.exp_factory(self, other))
 
     def over(self, other: Ty) -> Ty:
-        return self.ob(self.over_factory(self, other))
+        return self.ar(self.over_factory(self, other))
 
     def under(self, other: Ty) -> Ty:
-        return self.ob(self.under_factory(self, other))
+        return self.ar(self.under_factory(self, other))
 
     def __lshift__(self, other):
         return self.over(other)
@@ -178,7 +180,17 @@ class Ty(monoidal.Ty):
         return self.inside[0].exponent
 
 
-class Exp(cat.Ob):
+class Ob(monoidal.Wire):
+    """
+    A biclosed object is a self-dagger :class:`monoidal.Wire`, i.e. its left
+    and right colours always match. Exponentials do not interact meaningfully
+    with colours, so for now we assume everything is white.
+    """
+    def dagger(self) -> Ob:
+        return self
+
+
+class Exp(Ob):
     """
     A :code:`base` type to an :code:`exponent` type, called with :code:`**`.
 
@@ -192,8 +204,6 @@ class Exp(cat.Ob):
     def __init__(self, base: Ty, exponent: Ty):
         assert_isinstance(base, self.ob)
         assert_isinstance(exponent, self.ob)
-
-        assert self.ob == base.ob == exponent.ob
         self.base, self.exponent = base, exponent
         super().__init__(str(self))
 
@@ -253,7 +263,7 @@ class Under(Exp):
         return f"({self.exponent} >> {self.base})"
 
 
-@ar_factory
+@factory
 class Diagram(monoidal.Diagram, BiclosedCategory):
     """
     A biclosed diagram is a monoidal diagram
