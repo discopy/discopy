@@ -581,23 +581,6 @@ class CMap(frobenius.CMap):
     """
     category = Diagram
 
-    @classmethod
-    def spiders(cls, n_legs_in: int, n_legs_out: int,
-                typ: Dim, phases=None) -> CMap:
-        """
-        Spiders are kept as one box for each atomic type.
-
-        Example
-        -------
-        >>> assert CMap.spiders(1, 2, Dim(2, 3)).eval().is_close(
-        ...     Tensor.spiders(1, 2, Dim(2, 3)))
-        """
-        if len(typ) == 1:
-            return cls.from_box(cls.category.spider_factory(
-                n_legs_in, n_legs_out, typ, phases))
-        return cls.category.spiders(
-            n_legs_in, n_legs_out, typ, phases).to_map()
-
     def eval(self, dtype: type = None, optimize="greedy",
              **params) -> Tensor:
         """
