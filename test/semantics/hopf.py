@@ -138,6 +138,7 @@ def test_representation_is_a_dim():
     assert payloadless.action is None and payloadless == Dim(2)
     assert hash(payloadless) == hash(Dim(2))    # consistent with equality
     assert Representation(2, 3).r == Representation(2, 3).l == Dim(3, 2)
+    assert Representation() @ Representation() == Dim(1)   # the unit
     from discopy import hopf, tensor  # noqa: F401  (used by eval)
     assert eval(repr(payloadless)) == payloadless
 

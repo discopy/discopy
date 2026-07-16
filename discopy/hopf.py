@@ -501,6 +501,11 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
             return prefix + f"({', '.join(map(repr, self.inside))})"
         return prefix + f"(action={self.action!r})"
 
+    def __eq__(self, other):
+        return isinstance(other, frobenius.Dim) \
+            and self.inside == other.inside \
+            and (self.dom, self.cod) == (other.dom, other.cod)
+
     def __hash__(self):
         return hash(repr(frobenius.Dim(*self.inside)))
 
@@ -566,7 +571,7 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
         >>> assert Representation[H].regular().r.is_module()
         """
         if self.action is None:
-            return self.ob(*self.inside[::-1])
+            return self.ar(*self.inside[::-1])
         return self.dual(self.algebra.antipode)
 
     @property
@@ -579,7 +584,7 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
         >>> assert Representation[H].regular().l.is_module()
         """
         if self.action is None:
-            return self.ob(*self.inside[::-1])
+            return self.ar(*self.inside[::-1])
         if self.algebra.antipode_inv is None:
             raise ValueError("the left dual needs an inverse antipode")
         return self.dual(self.algebra.antipode_inv)
