@@ -1230,11 +1230,11 @@ class Bubble(cat.Bubble, Box):
     Coloured frames distinguish their outside, frame and slot regions.
 
     >>> red, blue = map(Colour, ("red", "blue"))
-    >>> x = Ty(Ob("x", red, blue))
+    >>> x = Ty(Wire("x", red, blue))
     >>> f = Box("f", x, x)
     >>> frame = f.bubble(
-    ...     dom=Ty(Ob("boundary", blue, red)),
-    ...     cod=Ty(Ob("boundary", blue, red)),
+    ...     dom=Ty(Wire("boundary", blue, red)),
+    ...     cod=Ty(Wire("boundary", blue, red)),
     ...     draw_as_frame=True)
     >>> frame.draw(path='docs/_static/monoidal/coloured-frame.png')
 

@@ -67,11 +67,11 @@ def test_draw_eggs():
 def test_draw_coloured_regions_and_frame():
     red, green, blue = map(
         monoidal.Colour, ("red", "green", "blue"))
-    x = monoidal.Ty(monoidal.Ob("x", red, green))
-    y = monoidal.Ty(monoidal.Ob("y", green, blue))
-    z = monoidal.Ty(monoidal.Ob("z", red, blue))
+    x = monoidal.Ty(monoidal.Wire("x", red, green))
+    y = monoidal.Ty(monoidal.Wire("y", green, blue))
+    z = monoidal.Ty(monoidal.Wire("z", red, blue))
     box = monoidal.Box("f", x @ y, z)
-    outer = monoidal.Ty(monoidal.Ob("u", blue, red))
+    outer = monoidal.Ty(monoidal.Wire("u", blue, red))
     # A box fills its three wire regions.
     assert {'#ff0000', '#008000', '#0000ff'} <= region_hexes(box)
     # A frame additionally fills its frame background (lightgrey).
@@ -84,8 +84,8 @@ def test_draw_coloured_regions_and_frame():
 @draw_and_compare('coloured-frame.png', wire_labels=False, tol=50)
 def test_draw_coloured_frame():
     red, blue = map(monoidal.Colour, ("red", "blue"))
-    x = monoidal.Ty(monoidal.Ob("x", red, blue))
-    boundary = monoidal.Ty(monoidal.Ob("boundary", blue, red))
+    x = monoidal.Ty(monoidal.Wire("x", red, blue))
+    boundary = monoidal.Ty(monoidal.Wire("boundary", blue, red))
     return monoidal.Box("f", x, x).bubble(
         dom=boundary, cod=boundary, draw_as_frame=True)
 
@@ -154,8 +154,8 @@ def test_draw_region_non_colors_string():
     # (a CSS name or a hex code) is filled as given.
     for name, hexcode in [("lightgrey", '#d3d3d3'), ("#abcdef", '#abcdef')]:
         c = monoidal.Colour(name)
-        box = monoidal.Box("f", monoidal.Ty(monoidal.Ob("x", c, c)),
-                           monoidal.Ty(monoidal.Ob("x", c, c)))
+        box = monoidal.Box("f", monoidal.Ty(monoidal.Wire("x", c, c)),
+                           monoidal.Ty(monoidal.Wire("x", c, c)))
         assert hexcode in region_hexes(box)
 
 

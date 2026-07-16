@@ -812,9 +812,9 @@ class Drawing(TracedCategory):
         dom = self.dom if dom is None else dom
         cod = self.cod if cod is None else cod
         arg_dom, arg_cod = self.dom, self.cod
-        from discopy.monoidal import Ob, Ty
-        left = Ty(Ob(name or "", dom.dom, arg_dom.dom))
-        right = Ty(Ob("", arg_dom.cod, dom.cod))
+        from discopy.monoidal import Wire, Ty
+        left = Ty(Wire(name or "", dom.dom, arg_dom.dom))
+        right = Ty(Wire("", arg_dom.cod, dom.cod))
         left[0].always_draw_label = True
         wires_can_go_straight = (
             len(dom), len(cod)) == (len(arg_dom), len(arg_cod))
