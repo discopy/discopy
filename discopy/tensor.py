@@ -314,7 +314,8 @@ class Functor(frobenius.Functor):
 
     Calling it on a diagram maps every box to its tensor and contracts the
     resulting network in a single ``einsum`` call through :class:`CMap`,
-    passing any optional einsum parameters through.
+    under the active :func:`backend` and passing any optional einsum
+    parameters through.
 
     Parameters:
         ob_map : The object mapping.
@@ -322,8 +323,6 @@ class Functor(frobenius.Functor):
         dom : The domain of the functor, i.e. the class of diagrams
             it evaluates, the class attribute ``dom`` by default.
         dtype : The datatype for the codomain ``Tensor[dtype]``.
-        backend : The name of the array :func:`backend` to evaluate in,
-            the active backend by default.
         params : Optional parameters given to the backend ``einsum``
             method for the contraction, e.g. ``optimize``.
 
@@ -358,21 +357,18 @@ class Functor(frobenius.Functor):
 
     def __init__(
             self, ob_map: dict[cat.Ob, Dim], ar_map: dict[cat.Box, list],
-            dom: type = None, dtype: type = float,
-            backend: str = None, **params):
-        self.dtype, self.backend, self.params = dtype, backend, params
+            dom: type = None, dtype: type = float, **params):
+        self.dtype, self.params = dtype, params
         cod = type(self).cod[dtype]
         super().__init__(ob_map, ar_map, dom=dom or type(self).dom, cod=cod)
 
     def __repr__(self):
-        backend_name = "" if self.backend is None\
-            else f", backend={self.backend!r}"
         params = "".join(
             f", {key}={value!r}" for key, value in self.params.items())
         return factory_name(type(self))\
             + f"(ob_map={self.ob_map}, ar_map={self.ar_map}, "\
             + f"dom={factory_name(self.dom)}, "\
-            + f"dtype={self.dtype.__name__}{backend_name}{params})"
+            + f"dtype={self.dtype.__name__}{params})"
 
     def __call__(self, other):
         if isinstance(other, Dim):
@@ -382,12 +378,11 @@ class Functor(frobenius.Functor):
         if isinstance(other, (cat.Ob, cat.Box)):
             return super().__call__(other)
         assert_isinstance(other, monoidal.Diagram)
-        with backend(self.backend):
-            return frobenius.Functor(
-                ob_map=self.ob_map, ar_map=lambda box: CMap.from_box(
-                    Box[self.dtype](box.name, self(box.dom), self(box.cod),
-                                    self(box).array)),
-                dom=self.dom, cod=CMap)(other).eval(self.dtype, **self.params)
+        return frobenius.Functor(
+            ob_map=self.ob_map, ar_map=lambda box: CMap.from_box(
+                Box[self.dtype](box.name, self(box.dom), self(box.cod),
+                                self(box).array)),
+            dom=self.dom, cod=CMap)(other).eval(self.dtype, **self.params)
 
 
 @ar_factory

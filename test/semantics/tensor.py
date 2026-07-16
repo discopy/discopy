@@ -308,7 +308,8 @@ def test_Functor_backend():
     diagram = f >> frobenius.Spider(1, 1, x) @ x >> f.dagger()
     ob, ar = {x: 2}, {f: [1., 2., 3., 4., 5., 6., 7., 8.]}
     reference = Functor(ob, ar)(diagram)
-    with_backend = Functor(ob, ar, backend='jax')(diagram)
+    with backend('jax'):
+        with_backend = Functor(ob, ar)(diagram)
     assert np.allclose(np.asarray(with_backend.array), reference.array)
 
 
@@ -327,9 +328,9 @@ def test_Functor_pytorch():
     x = frobenius.Ty('x')
     v = frobenius.Box('v', frobenius.Ty(), x)
     t = torch.tensor(3.0, dtype=float64, requires_grad=True)
-    F = Functor({x: 2}, {v: torch.stack([t, t])}, dtype=float64,
-                backend='pytorch')
-    result = F(v >> v.dagger()).array
+    F = Functor({x: 2}, {v: torch.stack([t, t])}, dtype=float64)
+    with backend('pytorch'):
+        result = F(v >> v.dagger()).array
     result.backward()
     assert result.item() == 18. and t.grad.item() == 12.
 
