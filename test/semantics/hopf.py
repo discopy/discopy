@@ -59,12 +59,33 @@ def test_double_of_sweedler():
     assert D.is_valid() and D.is_quasitriangular()
 
 
+def test_double_antipode_inverse():
+    # the double's S^-1 = u^-1 S(x) u comes from the Drinfeld element,
+    # a composite of the double's own generators — check it inverts S,
+    # also when S_D^2 != id (the double of sweedler)
+    for base in [HopfAlgebra.cyclic(2), HopfAlgebra.sweedler()]:
+        D, n = base.double(), base.dim ** 2
+        # contract the pieces separately to stay within einsum's symbol limit
+        S = D.antipode.eval(dtype=complex).array.reshape(n, n)
+        mult = D.mult.eval(dtype=complex).array.reshape(n, n, n)
+        swap = tensor.Diagram.swap(D.ty, D.ty)
+        u = (D.R >> tensor.Diagram.id(D.ty) @ D.antipode >> swap
+             >> D.mult).eval(dtype=complex).array.reshape(n)
+        u_inv = (D.R >> (D.antipode >> D.antipode)
+                 @ tensor.Diagram.id(D.ty) >> swap
+                 >> D.mult).eval(dtype=complex).array.reshape(n)
+        Si = np.einsum('xy,i,iyk,j,kjl->xl', S, u_inv, mult, u, mult)
+        assert np.allclose(Si @ S, np.eye(n))
+        assert np.allclose(S @ Si, np.eye(n))
+
+
 def test_double_is_fine_grained():
     # the double's generators are composite diagrams, not materialised tensors:
     # every box acts on the small base object (size 2), never on D's size-4
     # space, so no N=4 -cubed structure tensor is ever formed.
     D = HopfAlgebra.cyclic(2).double()
-    for gen in [D.mult, D.comult, D.unit, D.counit, D.antipode, D.R]:
+    for gen in [D.mult, D.comult, D.unit, D.counit, D.antipode, D.R,
+                D.antipode_inv]:
         for box in gen.boxes:
             assert set(box.dom.inside) <= {2} and set(box.cod.inside) <= {2}
 
@@ -76,25 +97,47 @@ def test_no_r_matrix_paths():
     assert noR.R is None
     assert noR.is_quasitriangular() is False
     assert noR.is_valid()
-    W = Representation.regular(noR)
+    W = Representation[noR].regular()
     try:                             # no R-matrix: the braiding is undefined
+        Intertwiner[noR].braid(W, W)
+        assert False
+    except ValueError:
+        pass
+    try:                             # no algebra at all: same error
         Intertwiner.braid(W, W)
+        assert False
+    except ValueError:
+        pass
+    try:                             # no inverse antipode: no left dual
+        W.l
         assert False
     except ValueError:
         pass
 
 
+def test_class_generic_over_the_algebra():
+    # Representation[H] and Intertwiner[H] carry the algebra on the class,
+    # accessible from instances, and parametrisation is cached by equality
+    D = HopfAlgebra.cyclic(2).double()
+    assert Representation[D] is Representation[HopfAlgebra.cyclic(2).double()]
+    assert Representation[D].algebra == D
+    V = Representation[D].regular()
+    assert V.algebra == D
+    braid = Intertwiner[D].braid(V, V)
+    assert Intertwiner[D].algebra == D and braid.algebra == D
+
+
 def test_representation_is_a_dim():
-    # a Representation is a tensor.Dim carrying its (algebra, action)
+    # a Representation is a tensor.Dim carrying its action
     D, V = _double_and_module()
     assert isinstance(V, Dim) and V == Dim(2)
-    e, m = Representation.anyon(D, 0, -1), Representation.anyon(D, 1, 1)
-    assert e != m                    # distinct 1-dim anyons differ by payload
-    assert e != Dim(2)               # ... and from a bare Dim of another size
-    assert len({e, m, V}) == 3       # hashable, all distinct
-    payloadless = Representation(2)   # a product/adjoint: a Dim, no payload
+    e, m = Representation[D].anyon(0, -1), Representation[D].anyon(1, 1)
+    assert e.action != m.action     # anyons are distinguished by their action
+    assert e != Dim(2)              # equality is that of the underlying Dim
+    payloadless = Representation(2)  # no algebra: a Dim without an action
     assert payloadless.action is None and payloadless == Dim(2)
-    assert Representation(2, 3).r == Dim(3, 2)
+    assert hash(payloadless) == hash(Dim(2))    # consistent with equality
+    assert Representation(2, 3).r == Representation(2, 3).l == Dim(3, 2)
     from discopy import hopf, tensor  # noqa: F401  (used by eval)
     assert eval(repr(payloadless)) == payloadless
 
@@ -103,30 +146,40 @@ def test_repr_is_transparent():
     from discopy import hopf, tensor  # noqa: F401  (used by eval)
     H = HopfAlgebra.cyclic(2)
     assert eval(repr(H)) == H
-    V = Representation.regular(H)
-    assert eval(repr(V)) == V
+    V = Representation[H].regular()
+    assert eval(repr(V)) == V and eval(repr(V)).action == V.action
 
 
 # -- representations & structural morphisms ----------------------------------
 
 def _double_and_module():
     D = HopfAlgebra.cyclic(2).double()
-    e, m = Representation.anyon(D, 0, -1), Representation.anyon(D, 1, 1)
-    return D, Representation.direct_sum([e, m])     # V = e (+) m
+    e, m = Representation[D].anyon(0, -1), Representation[D].anyon(1, 1)
+    return D, Representation[D].direct_sum([e, m])     # V = e (+) m
 
 
 def test_representation_is_module():
     D, V = _double_and_module()
     assert V.is_module() and V == Dim(2)
-    assert Representation.regular(D).is_module()
+    assert Representation[D].regular().is_module()
     for anyon in [(0, 1), (0, -1), (1, 1), (1, -1)]:
-        assert Representation.anyon(D, *anyon).is_module()
+        assert Representation[D].anyon(*anyon).is_module()
+
+
+def test_tensor_of_representations():
+    # the product of modules acts through the comultiplication
+    D, V = _double_and_module()
+    e, m = Representation[D].anyon(0, -1), Representation[D].anyon(1, 1)
+    assert (e @ m).is_module() and (e @ m).action is not None
+    VV = V @ V
+    assert VV == Dim(2, 2) and VV.is_module()
+    assert (V @ e @ m).is_module()       # n-ary, coassociative
 
 
 def test_braiding_yang_baxter_and_inverse():
-    _, V = _double_and_module()
+    D, V = _double_and_module()
     d = 2
-    c = Intertwiner.braid(V, V).eval(dtype=complex).array
+    c = Intertwiner[D].braid(V, V).eval(dtype=complex).array
     c = c.reshape(d * d, d * d)   # input x output
     # braiding is invertible and not the swap
     assert not np.isclose(np.linalg.det(c), 0)
@@ -136,7 +189,7 @@ def test_braiding_yang_baxter_and_inverse():
             swap[a * d + b, b * d + a] = 1
     assert not np.allclose(c, swap)
     # the inverse braiding really inverts it
-    ci = Intertwiner.braid(V, V, is_dagger=True)\
+    ci = Intertwiner[D].braid(V, V, is_dagger=True)\
         .eval(dtype=complex).array
     ci = ci.reshape(d * d, d * d)
     assert np.allclose(c.T @ ci.T, np.eye(d * d))
@@ -152,11 +205,11 @@ def test_quantum_dimension():
 
 
 def test_dual_representation():
-    # the dual module carries the antipode-twisted action rho(S h)^T,
+    # the right dual carries the antipode-twisted action rho(S h)^T,
     # also when S^2 != id (sweedler) and for structured types (regular)
     D, V = _double_and_module()
-    assert V.r.is_module() and V != V.r
-    assert Representation.regular(HopfAlgebra.sweedler()).r.is_module()
+    assert V.r.is_module()
+    assert Representation[HopfAlgebra.sweedler()].regular().r.is_module()
     n = D.dim
     rho = V.action.eval(dtype=complex).array.reshape(n, 2, 2)
     S = D.antipode.eval(dtype=complex).array.reshape(n, n)
@@ -164,11 +217,28 @@ def test_dual_representation():
     assert np.allclose(dual, np.einsum('hk,kio->hoi', S, rho))
 
 
+def test_left_and_right_duals_differ():
+    # without a pivotal structure the left dual (S^-1) differs from the
+    # right dual (S) whenever S^2 != id, as for Sweedler's H4
+    H4 = HopfAlgebra.sweedler()
+    W = Representation[H4].regular()
+    assert W.l.is_module() and W.r.is_module()
+    left = W.l.action.eval(dtype=complex).array
+    right = W.r.action.eval(dtype=complex).array
+    assert not np.allclose(left, right)
+    # for a group algebra S^2 = id, so the two duals coincide
+    Z2 = HopfAlgebra.cyclic(2)
+    U = Representation[Z2].regular()
+    assert np.allclose(U.l.action.eval(dtype=complex).array,
+                       U.r.action.eval(dtype=complex).array)
+
+
 def test_functor_maps_winding_to_dual():
-    _, V = _double_and_module()
+    D, V = _double_and_module()
     x = ribbon.Ty('x')
-    F = Functor(ob_map={x: V}, ar_map={})
-    assert F(x) == V and F(x.r) == V.r and F(x.r) != V
+    F = Functor(ob_map={x: V}, ar_map={}, cod=Intertwiner[D])
+    assert F(x).action == V.action
+    assert F(x.r).action == V.r.action != V.action
 
 
 def test_twist_from_braid():
@@ -177,28 +247,27 @@ def test_twist_from_braid():
 
     def theta(rep):
         return complex(
-            Intertwiner.twist(rep).eval(dtype=complex).array)
+            Intertwiner[D].twist(rep).eval(dtype=complex).array)
 
-    Vem = Representation.direct_sum(
-        [Representation.anyon(D, 0, -1), Representation.anyon(D, 1, 1)])
+    Vem = Representation[D].direct_sum(
+        [Representation[D].anyon(0, -1), Representation[D].anyon(1, 1)])
     assert np.allclose(
-        Intertwiner.twist(Vem).eval(dtype=complex).array, np.eye(2))
-    assert np.isclose(theta(Representation.anyon(D, 1, -1)), -1)  # fermion
-    assert np.isclose(theta(Representation.anyon(D, 0, 1)), 1)    # vacuum
+        Intertwiner[D].twist(Vem).eval(dtype=complex).array, np.eye(2))
+    assert np.isclose(theta(Representation[D].anyon(1, -1)), -1)  # fermion
+    assert np.isclose(theta(Representation[D].anyon(0, 1)), 1)    # vacuum
 
 
 def test_is_module_rejects_non_module():
     Z2 = HopfAlgebra.cyclic(2)
     ty = Z2.ty
     zero = Box('bad', ty @ Dim(2), Dim(2), np.zeros((2, 2, 2)))
-    assert not Representation(
-        algebra=Z2, action=zero).is_module()          # rho(1) != id
+    assert not Representation[Z2](action=zero).is_module()   # rho(1) != id
 
 
 def test_snake_equations():
-    _, V = _double_and_module()
+    D, V = _double_and_module()
     x = ribbon.Ty('x')
-    F = Functor(ob_map={x: V}, ar_map={})
+    F = Functor(ob_map={x: V}, ar_map={}, cod=Intertwiner[D])
     left = ribbon.Id(x.l).transpose(left=True)
     right = ribbon.Id(x.r).transpose(left=False)
     identity = F(ribbon.Id(x)).eval(dtype=complex).array
@@ -209,18 +278,19 @@ def test_snake_equations():
 # -- the functor and the topological invariant -------------------------------
 
 def test_functor_returns_a_tensor_network():
-    _, V = _double_and_module()
+    D, V = _double_and_module()
     x = ribbon.Ty('x')
-    network = Functor(ob_map={x: V}, ar_map={})(_hopf_link(x))
+    network = Functor(
+        ob_map={x: V}, ar_map={}, cod=Intertwiner[D])(_hopf_link(x))
     assert isinstance(network, tensor.Diagram)      # not a contracted Tensor
     # the user contracts it themselves with .eval
     assert np.isclose(complex(network.eval(dtype=complex)), 0)
 
 
 def test_reidemeister_moves():
-    _, V = _double_and_module()
+    D, V = _double_and_module()
     x = ribbon.Ty('x')
-    F = Functor(ob_map={x: V}, ar_map={})
+    F = Functor(ob_map={x: V}, ar_map={}, cod=Intertwiner[D])
     X = ribbon.Ty('x')
     r2 = ribbon.Braid(X, X) >> ribbon.Braid(X, X).dagger()
     identity = F(ribbon.Id(X @ X)).eval(dtype=complex).array
@@ -234,9 +304,9 @@ def test_reidemeister_moves():
 
 
 def test_nontrivial_link_invariant():
-    _, V = _double_and_module()
+    D, V = _double_and_module()
     x = ribbon.Ty('x')
-    F = Functor(ob_map={x: V}, ar_map={})
+    F = Functor(ob_map={x: V}, ar_map={}, cod=Intertwiner[D])
     circle = complex(F(_circle(x)).eval(dtype=complex))
     unlink = complex(F(_unlink(x)).eval(dtype=complex))
     hopf = complex(F(_hopf_link(x)).eval(dtype=complex))
@@ -247,9 +317,9 @@ def test_nontrivial_link_invariant():
 
 
 def test_crossing_number_distinguishes_closures():
-    _, V = _double_and_module()
+    D, V = _double_and_module()
     x = ribbon.Ty('x')
-    F = Functor(ob_map={x: V}, ar_map={})
+    F = Functor(ob_map={x: V}, ar_map={}, cod=Intertwiner[D])
     X = ribbon.Ty('x')
     closures = [
         ribbon.Id(X @ X).trace(n=2),                             # unlink
@@ -262,10 +332,10 @@ def test_crossing_number_distinguishes_closures():
 
 def test_two_colour_mutual_braiding():
     D = HopfAlgebra.cyclic(2).double()
-    e = Representation.anyon(D, 0, -1)
-    m = Representation.anyon(D, 1, 1)
+    e = Representation[D].anyon(0, -1)
+    m = Representation[D].anyon(1, 1)
     xe, xm = ribbon.Ty('e'), ribbon.Ty('m')
-    F = Functor(ob_map={xe: e, xm: m}, ar_map={})
+    F = Functor(ob_map={xe: e, xm: m}, ar_map={}, cod=Intertwiner[D])
 
     def value(a, b):
         link = (ribbon.Braid(a, b) >> ribbon.Braid(b, a)).trace(n=2)
@@ -277,18 +347,19 @@ def test_two_colour_mutual_braiding():
 
 
 def test_functor_on_generic_box():
-    _, V = _double_and_module()
+    D, V = _double_and_module()
     x = ribbon.Ty('x')
     box = ribbon.Box('f', x, x)
-    F = Functor(ob_map={x: V}, ar_map={box: np.array([[1, 2], [3, 4]])})
+    F = Functor(ob_map={x: V}, ar_map={box: np.array([[1, 2], [3, 4]])},
+                cod=Intertwiner[D])
     assert np.allclose(
         F(box).eval(dtype=complex).array, [[1, 2], [3, 4]])
 
 
 def test_functor_on_type():
-    _, V = _double_and_module()
+    D, V = _double_and_module()
     x = ribbon.Ty('x')
-    F = Functor(ob_map={x: V}, ar_map={})
+    F = Functor(ob_map={x: V}, ar_map={}, cod=Intertwiner[D])
     assert F(x) == Dim(2)
     assert F(x @ x) == Dim(2, 2)
 
@@ -296,9 +367,9 @@ def test_functor_on_type():
 def test_twist_in_diagram():
     # a group algebra: trivial twist, but exercises the Twist functor path
     Z2 = HopfAlgebra.cyclic(2)
-    V = Representation.regular(Z2)
+    V = Representation[Z2].regular()
     x = ribbon.Ty('x')
-    F = Functor(ob_map={x: V}, ar_map={})
+    F = Functor(ob_map={x: V}, ar_map={}, cod=Intertwiner[Z2])
     twist = ribbon.Twist(x)
     assert np.allclose(
         F(twist).eval(dtype=complex).array, np.eye(2))
