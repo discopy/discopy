@@ -2,9 +2,10 @@
 
 from pytest import importorskip, raises
 
+from discopy import compact
 from discopy.neural import *
-from discopy.neural import Box, CMap, Diagram, Functor, Id
-from discopy.utils import AxiomError
+from discopy.neural import CMap, Diagram, Functor, Id
+from discopy.python.finset import Permutation
 
 
 def mlp(width):
@@ -37,38 +38,17 @@ def test_network_as_box():
     g = Network('g', Dim(3), Dim(2))
     assert (f >> g).dom == Dim(2) and (f @ g).cod == Dim(3, 2)
     assert f.dagger().dom == Dim(3) and f.rotate().cod == Dim(2)
-    assert repr(f) == "neural.Network('f', dom=Dim(2), cod=Dim(3))"
+    assert repr(f) == "neural.Network('f', Dim(2), Dim(3))"
     assert Network('f', Dim(2), Dim(3)) == Network('f', Dim(2), Dim(3))
     one, other = (
         Network('f', Dim(2), Dim(3), module=object()) for _ in range(2))
     assert one != other and one == one.dagger().dagger()
 
 
-def test_box_ports():
+def test_port_widths():
     f = Network('f', Dim(2, 3), Dim(4, 5, 6))
     fm = f.to_map()
-    assert fm.box_ports(0) == (2, 3, 6, 5, 4)
     assert fm.port_widths == (2, 3, 2, 3, 6, 5, 4, 4, 5, 6)
-
-
-def test_from_wiring():
-    f = Network('f', Dim(2), Dim(2, 3))
-    g = Network('g', Dim(3), Dim(2, 2))
-    cmap = CMap.from_wiring((f, g), [
-        ((0, 0), (1, 1)), ((0, 1), (1, 2)), ((0, 2), (1, 0))])
-    assert cmap.edges.is_fixpoint_free_involution()
-    with raises(ValueError):  # unwired ports
-        CMap.from_wiring((f, g), [((0, 0), (1, 1))])
-    with raises(ValueError):  # port wired twice
-        CMap.from_wiring((f, g), [
-            ((0, 0), (1, 1)), ((0, 1), (1, 1)), ((0, 2), (1, 0))])
-    with raises(ValueError):  # port wired to itself
-        CMap.from_wiring((f, ), [((0, 0), (0, 0))])
-    with raises(ValueError):  # no such port
-        CMap.from_wiring((f, ), [((0, 0), (0, 3))])
-    with raises(AxiomError):  # width mismatch
-        CMap.from_wiring((f, g), [
-            ((0, 0), (1, 0)), ((0, 1), (1, 1)), ((0, 2), (1, 2))])
 
 
 def test_network_module():
@@ -80,10 +60,18 @@ def test_network_module():
 
 
 def ring(n_cells, network):
-    """ A closed ring of identical cells, each wired to its neighbours. """
-    wires = [((cell, 1), ((cell + 1) % n_cells, 0))
+    """
+    A closed ring of identical cells, each wired to its neighbours.
+
+    Assumes an empty domain, wiring the second codomain port of each cell
+    to the first codomain port of the next, in the clockwise (i.e.
+    reversed) codomain order used by combinatorial maps.
+    """
+    width = len(network.cod)
+    pairs = [(cell * width, ((cell + 1) % n_cells) * width + 1)
              for cell in range(n_cells)]
-    return CMap.from_wiring(n_cells * (network, ), wires)
+    edges = Permutation.from_transpositions(pairs, n_cells * width)
+    return CMap(CMap.ob(), CMap.ob(), n_cells * (network, ), edges)
 
 
 def test_weight_sharing():
@@ -131,9 +119,13 @@ def test_forward_closed_map():
     assert all(p.grad is not None for p in grid.parameters())
 
 
+class NotANetwork(compact.Box, Diagram):
+    """ A neural box that is not a network, for negative testing. """
+
+
 def test_forward_errors():
     importorskip("torch")
-    box_map = Box('f', Dim(2), Dim(2)).to_map()
+    box_map = NotANetwork('f', Dim(2), Dim(2)).to_map()
     with raises(TypeError):
         box_map.module_list
     with raises(TypeError):
@@ -179,7 +171,7 @@ def test_training():
         embedded = embedding(clues)
         init = [None] * grid.n_ports
         for box_index in range(n_cells):
-            for port in grid.box_ports(box_index):
+            for port in grid._box_port_indices[box_index]:
                 init[port] = embedded[:, box_index, :]
         states = grid(init=init, n_rounds=4)
         return readout(torch.stack(states, dim=1))

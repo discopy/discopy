@@ -33,7 +33,6 @@ Summary
 
     Dim
     Diagram
-    Box
     Network
     Cup
     Cap
@@ -100,48 +99,7 @@ class Diagram(compact.Diagram):
     ob = Dim
 
 
-class Box(compact.Box, Diagram):
-    """
-    A neural box is a compact box between dimensions.
-
-    Parameters:
-        name (str) : The name of the box.
-        dom (Dim) : The domain of the box, i.e. its input.
-        cod (Dim) : The codomain of the box, i.e. its output.
-    """
-
-
-class Cup(compact.Cup, Box):
-    """
-    A neural cup is a compact cup between self-dual dimensions.
-
-    Parameters:
-        left (Dim) : The atomic dimension.
-        right (Dim) : Its reverse.
-    """
-
-
-class Cap(compact.Cap, Box):
-    """
-    A neural cap is a compact cap between self-dual dimensions.
-
-    Parameters:
-        left (Dim) : The atomic dimension.
-        right (Dim) : Its reverse.
-    """
-
-
-class Swap(compact.Swap, Box):
-    """
-    A neural swap is a compact swap between dimensions.
-
-    Parameters:
-        left (Dim) : The dimension on the top left and bottom right.
-        right (Dim) : The dimension on the top right and bottom left.
-    """
-
-
-class Network(Box):
+class Network(compact.Box, Diagram):
     """
     A network is a neural box together with a torch module computing it.
 
@@ -150,6 +108,9 @@ class Network(Box):
     emitting one outgoing message on every port, in the order given by the
     domain followed by the codomain. Reusing the same network instance, or
     the same module, as several boxes shares its weights.
+
+    Cups, caps and swaps are networks with ``module`` left to ``None``,
+    since they are pure rerouting.
 
     Parameters:
         name : The name of the network.
@@ -175,6 +136,8 @@ class Network(Box):
     torch.Size([1, 5])
     >>> assert f[::-1].module is f.module
     """
+    module = None
+
     def __init__(self, name: str, dom: Dim, cod: Dim,
                  module: "torch.nn.Module" = None, data=None, **params):
         self.module = module if module is not None else data
@@ -183,9 +146,38 @@ class Network(Box):
     def __call__(self, *args, **kwargs):
         return self.module(*args, **kwargs)
 
-    def __repr__(self):
-        return f"neural.Network({self.name!r}, " \
-               f"dom={self.dom!r}, cod={self.cod!r})"
+
+class Cup(compact.Cup, Network):
+    """
+    A neural cup is a compact cup between self-dual dimensions, i.e. a
+    network with no module since it is pure rerouting.
+
+    Parameters:
+        left (Dim) : The atomic dimension.
+        right (Dim) : Its reverse.
+    """
+
+
+class Cap(compact.Cap, Network):
+    """
+    A neural cap is a compact cap between self-dual dimensions, i.e. a
+    network with no module since it is pure rerouting.
+
+    Parameters:
+        left (Dim) : The atomic dimension.
+        right (Dim) : Its reverse.
+    """
+
+
+class Swap(compact.Swap, Network):
+    """
+    A neural swap is a compact swap between dimensions, i.e. a network
+    with no module since it is pure rerouting.
+
+    Parameters:
+        left (Dim) : The dimension on the top left and bottom right.
+        right (Dim) : The dimension on the top right and bottom left.
+    """
 
 
 class Functor(compact.Functor):
@@ -221,25 +213,10 @@ class CMap(compact.CMap):
     -------
     >>> f = Network('f', Dim(2), Dim(3, 2))
     >>> fm = f.to_map()
-    >>> fm.box_ports(0)
-    (1, 3, 2)
     >>> fm.port_widths
     (2, 2, 2, 3, 3, 2)
     """
     functor = Functor
-
-    def box_ports(self, index: int) -> tuple[int, ...]:
-        """
-        The global port indices of a box in logical order, i.e. its domain
-        ports followed by its codomain ports, undoing the clockwise order
-        which stores the codomain ports reversed.
-
-        Parameters:
-            index : The index of the box.
-        """
-        ports = self._box_port_indices[index]
-        arity = len(self.boxes[index].dom)
-        return ports[:arity] + tuple(reversed(ports[arity:]))
 
     @property
     def port_widths(self) -> tuple[int, ...]:
@@ -379,7 +356,9 @@ class CMap(compact.CMap):
                 outgoing[i] = x_slices[i]
             for box_index, box in enumerate(self.boxes):
                 assert_isinstance(box, Network)
-                box_ports = self.box_ports(box_index)
+                indices = self._box_port_indices[box_index]
+                box_ports = indices[:len(box.dom)]\
+                    + tuple(reversed(indices[len(box.dom):]))
                 output = box.module(torch.cat(
                     [incoming[i] for i in box_ports], dim=-1))
                 box_outputs[box_index] = output
