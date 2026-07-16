@@ -1217,8 +1217,8 @@ class Equation(cat.Equation):
     -------
     >>> x = Ty('x')
     >>> f, g = Box('f', x, x), Box('g', x, x)
-    >>> print(Equation(f, g, symbol="=>"))
-    f => g
+    >>> print(Equation(f, g))
+    Equation(f, g)
     """
     def __init__(self, *terms: Diagram, symbol="=", space=1, up_to=None):
         super().__init__(*terms, symbol=symbol, up_to=up_to)

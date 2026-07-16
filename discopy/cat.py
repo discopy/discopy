@@ -1091,13 +1091,13 @@ class Equation:
             + f"({', '.join(map(repr, self.terms))})"
 
     def __str__(self):
-        return f" {self.symbol} ".join(map(str, self.terms))
+        return f"Equation({', '.join(map(str, self.terms))})"
 
     def __bool__(self):
-        if self.up_to is None:
-            return all(term == self.terms[0] for term in self.terms)
-        first = self.up_to(self.terms[0])
-        return all(self.up_to(term) == first for term in self.terms[1:])
+        terms = self.terms
+        if self.up_to is not None:
+            terms = [self.up_to(term) for term in terms]
+        return all(term == terms[0] for term in terms)
 
 
 Arrow.sum_factory = Sum
