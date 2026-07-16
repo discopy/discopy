@@ -833,31 +833,6 @@ class CMap[C0: Pregroup, C1: CMap](
         exponent = exponent_r.l
         return exponent @ self >> self.cups(exponent, exponent.r) @ base
 
-    def transpose(self, left: bool = False) -> CMap:
-        """
-        The transpose of a map, i.e. its composition with cups and caps.
-
-        As in a compact category, the left and right transpose coincide
-        and are involutive.
-
-        Parameters:
-            left : Whether to transpose left or right.
-
-        Example
-        -------
-        >>> from discopy.compact import Ty, Box
-        >>> x, y, z = map(Ty, "xyz")
-        >>> f = Box('f', x, y @ z).to_map()
-        >>> assert f.r == f.l and f.r.r == f
-        """
-        if left:
-            return self.cod.l @ self.caps(self.dom, self.dom.l)\
-                >> self.cod.l @ self @ self.dom.l\
-                >> self.cups(self.cod.l, self.cod) @ self.dom.l
-        return self.caps(self.dom.r, self.dom) @ self.cod.r\
-            >> self.dom.r @ self @ self.cod.r\
-            >> self.dom.r @ self.cups(self.cod, self.cod.r)
-
     l = property(lambda self: self.transpose(left=True))
     r = property(lambda self: self.transpose(left=False))
 
