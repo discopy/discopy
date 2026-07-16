@@ -581,8 +581,7 @@ class CMap(frobenius.CMap):
     """
     category = Diagram
 
-    def eval(self, dtype: type = None, optimize="greedy",
-             **params) -> Tensor:
+    def eval(self, dtype: type = None, **params) -> Tensor:
         """
         Contract the tensor network in a single ``einsum`` call under the
         active :func:`backend`, e.g. ``jax.numpy`` for autodiff, with
@@ -591,13 +590,11 @@ class CMap(frobenius.CMap):
         Parameters:
             dtype : The datatype for spiders and the result,
                 inferred from the boxes by default.
-            optimize : The contraction path, passed verbatim to
-                ``np.einsum``, e.g. ``"greedy"``, ``"optimal"`` or an
-                explicit path. Under the numpy backend the path is
-                precomputed with ``opt_einsum`` when available, since
+            params : Optional parameters of the backend ``einsum`` method,
+                passed verbatim, e.g. ``optimize`` — the contraction path,
+                ``"greedy"`` by default. Under the numpy backend the path
+                is precomputed with ``opt_einsum`` when available, since
                 numpy's own pathfinder chokes on large networks.
-            params : Any other optional parameter of the backend
-                ``einsum`` method, passed verbatim.
 
         Example
         -------
@@ -611,6 +608,7 @@ class CMap(frobenius.CMap):
         ...     assert jax.grad(f)(1.) == 4.
         """
         cls = Tensor if dtype is None else Tensor[dtype]
+        optimize = params.pop("optimize", "greedy")
         eye_dtype = dtype or next(
             (box.dtype for box in self.boxes
              if getattr(box, "dtype", None) is not None), None)

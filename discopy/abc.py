@@ -297,14 +297,6 @@ class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
         >>> RHS.draw(figsize=(8, 3), path="docs/_static/rigid/transpose.png")
 
         .. image:: /_static/rigid/transpose.png
-
-        In a compact category the left and right transpose coincide
-        and are involutive, e.g. on combinatorial maps:
-
-        >>> from discopy.compact import Ty, Box
-        >>> x, y, z = map(Ty, "xyz")
-        >>> g = Box('g', x, y @ z).to_map()
-        >>> assert g.r == g.l and g.r.r == g
         """
         if left:
             return self.cod.l @ self.caps(self.dom, self.dom.l)\
