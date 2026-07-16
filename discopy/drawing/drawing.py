@@ -300,7 +300,7 @@ class Drawing(TracedCategory):
 
     def reposition_box_cod(self, j=-1):
         """ Recenter cod nodes to recover legacy behaviour for layers. """
-        j = j if j > 0 else len(self.boxes) + j
+        j = j if j >= 0 else len(self.boxes) + j
         box = self.boxes[j]
         if box.bubble_closing and len(box.dom[1:-1]) == len(box.cod):
             return  # Otherwise the wires would bend when coming out.
@@ -322,7 +322,7 @@ class Drawing(TracedCategory):
 
     def align_box_cod(self, j=-1):
         """ Align outputs with inputs when they have equal number of wires. """
-        j = j if j > 0 else len(self.boxes) + j
+        j = j if j >= 0 else len(self.boxes) + j
         box = self.boxes[j]
         for i, (x_dom, x_cod) in enumerate(zip(box.dom, box.cod)):
             dom_node = Node("box_dom", i=i, j=j, x=x_dom)
@@ -533,9 +533,9 @@ class Drawing(TracedCategory):
             :align: center
         """
         assert_iscomposable(self, other)
-        if self.is_identity:
+        if self.is_identity and self.height <= 1:
             return other
-        if other.is_identity:
+        if other.is_identity and other.height <= 1:
             return self
         dom, cod = self.dom, other.cod
 
@@ -603,6 +603,10 @@ class Drawing(TracedCategory):
         .. image:: /_static/drawing/stretch.png
             :align: center
         """
+        if not y:
+            # Nothing to stretch: avoid shifting middle nodes by y / 2 == 0.0,
+            # which would turn integer coordinates into floats.
+            return self.relabel_nodes(copy=copy)
         result = self.relabel_nodes(copy=copy, positions={n: p.shift(y=(
                 y if n.kind == "dom" else 0 if n.kind == "cod" else y / 2))
             for n, p in self.positions.items()})
@@ -808,10 +812,17 @@ class Drawing(TracedCategory):
         dom = self.dom if dom is None else dom
         cod = self.cod if cod is None else cod
         arg_dom, arg_cod = self.dom, self.cod
-        left, right = type(dom)(name or ""), type(dom)("")
+        from discopy.monoidal import Wire, Ty
+        left = Ty(Wire(name or "", dom.dom, arg_dom.dom))
+        right = Ty(Wire("", arg_dom.cod, dom.cod))
         left[0].always_draw_label = True
         wires_can_go_straight = (
             len(dom), len(cod)) == (len(arg_dom), len(arg_cod))
+        if draw_as_square:
+            # The left and right sides of a square frame, e.g. the slots of an
+            # Equation between coloured terms, are drawn with zero width.
+            left.inside[0].frame_boundary = right.inside[0].frame_boundary \
+                = True
         if draw_as_square or not wires_can_go_straight:
             top = Drawing.frame_opening(dom, arg_dom, left, right)
             bot = Drawing.frame_closing(arg_cod, cod, left, right)
@@ -850,8 +861,27 @@ class Drawing(TracedCategory):
             result.graph.remove_edges_from([(node, x) for x in cod_nodes])
         return result
 
+    def slot(self, colour, **params):
+        """
+        Wrap the drawing in a square slot filled with a background ``colour``,
+        so that several terms can be tiled on the same background.
+
+        This is shared by :meth:`frame`, for its arguments, and by
+        :meth:`add`, for the terms of an :class:`Equation` between
+        differently-coloured diagrams.
+
+        Parameters:
+            colour : The :class:`monoidal.Colour` of the slot's background.
+            params : Passed to :meth:`bubble`, e.g. ``height`` or ``width``.
+        """
+        from discopy.monoidal import Ty
+        frame_type = Ty.id(colour)
+        return self.bubble(
+            frame_type, frame_type, draw_as_square=True, **params)
+
     def frame(self, *others: Drawing,
-              dom=None, cod=None, name=None, draw_vertically=False) -> Drawing:
+              dom=None, cod=None, name=None, draw_vertically=False,
+              frame_colour=None) -> Drawing:
         """
         >>> from discopy.monoidal import *
         >>> x, y = Ty('x'), Ty('y')
@@ -874,16 +904,18 @@ class Drawing(TracedCategory):
         .. image:: /_static/drawing/vertical-frame.png
             :align: center
         """
-        from discopy.monoidal import Ty
+        from discopy.monoidal import Colour
+        frame_colour = frame_colour or DRAWING_ATTRIBUTES['frame_colour'](self)
+        colour = Colour(frame_colour)
         args = (self, ) + others
         method = "then" if draw_vertically else "tensor"
         params = dict(
                 width=max([arg.width for arg in args] + [0]) + 1
             ) if draw_vertically else dict(
                 height=max([arg.height for arg in args] + [0]))
-        result = getattr(Drawing.id(), method)(*(arg.bubble(
-            Ty(), Ty(), draw_as_square=True, **params)
-            for arg in args)).bubble(dom, cod, name, draw_as_square=True)
+        slots = tuple(arg.slot(colour, **params) for arg in args)
+        result = getattr(slots[0], method)(*slots[1:]).bubble(
+            dom, cod, name, draw_as_square=True)
         result.reposition_box_dom()
         result.reposition_box_cod()
         return result
@@ -896,13 +928,25 @@ class Drawing(TracedCategory):
 
     def add(self, other: Drawing, symbol="+", space=1):
         """ Concatenate two drawings with a symbol in between. """
-        from discopy.monoidal import Ty, Box
+        from discopy.monoidal import Colour, Ty, Box
         if getattr(self, "zero_drawing", False):
             return other
         if getattr(other, "zero_drawing", False):
             return self
-        scalar = Box(symbol, Ty(), Ty(), draw_as_spider=True, color="white")
-        result = self @ scalar.to_drawing() @ other
+        height = max(self.height, other.height)
+        self = self.stretch(height - self.height)
+        other = other.stretch(height - other.height)
+        scalar = Box(
+            symbol, Ty(), Ty(), draw_as_spider=True, color="white"
+        ).to_drawing()
+        white = Colour("white")
+        if self.cod.cod != white or other.dom.dom != white:
+            # The boundary colours are not white, e.g. an Equation between
+            # terms of different colours: give each term its own
+            # white-bordered slot, as for Drawing.frame.
+            self, other = (
+                term.slot(white, height=height) for term in (self, other))
+        result = self @ scalar @ other
         result.make_space(space - 1, self.width + 1)  # Right of the scalar.
         result.make_space(space - 1, self.width)  # Left of the scalar.
         return result

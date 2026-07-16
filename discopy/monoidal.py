@@ -1120,16 +1120,17 @@ class Box(cat.Box, Diagram):
     >>> assert Id(Ty()) @ f == f == f @ Id(Ty())
     >>> assert f == f[::-1][::-1]
 
-    Coloured wires carry a region colour on either side, and a box must be
-    globular, i.e. its domain and codomain share the same boundary colours.
+    Coloured wires separate matplotlib regions.
 
     >>> red, green, blue = map(Colour, ("red", "green", "blue"))
     >>> x = Ty(Wire("x", red, green))
     >>> y = Ty(Wire("y", green, blue))
     >>> z = Ty(Wire("z", red, blue))
     >>> coloured = Box("coloured", x @ y, z)
-    >>> assert coloured.dom.dom == red == coloured.cod.dom
-    >>> assert coloured.dom.cod == blue == coloured.cod.cod
+    >>> coloured.draw(path='docs/_static/monoidal/coloured-box.png')
+
+    .. image:: /_static/monoidal/coloured-box.png
+        :align: center
     """
 
     def __init__(self, name: str, dom: Ty, cod: Ty, **params):
@@ -1225,6 +1226,21 @@ class Bubble(cat.Bubble, Box):
 
     .. image:: /_static/monoidal/frame-vertical-args.png
         :align: center
+
+    Coloured frames distinguish their outside, frame and slot regions.
+
+    >>> red, blue = map(Colour, ("red", "blue"))
+    >>> x = Ty(Wire("x", red, blue))
+    >>> f = Box("f", x, x)
+    >>> frame = f.bubble(
+    ...     dom=Ty(Wire("boundary", blue, red)),
+    ...     cod=Ty(Wire("boundary", blue, red)),
+    ...     draw_as_frame=True)
+    >>> frame.draw(path='docs/_static/monoidal/coloured-frame.png')
+
+    .. image:: /_static/monoidal/coloured-frame.png
+        :align: center
+
     """
 
     ob = Ty
@@ -1239,6 +1255,7 @@ class Bubble(cat.Bubble, Box):
         Box.__init__(self, self.name, self.dom, self.cod)
         self.drawing_name = "" if drawing_name is None else drawing_name
         self.draw_vertically = draw_vertically
+        self.frame_colour = DRAWING_ATTRIBUTES['frame_colour'](self)
         can_draw_as_square = len(args) == 1
         can_draw_as_bubble = (can_draw_as_square
                               and len(self.dom) == len(self.arg.dom)
@@ -1267,6 +1284,7 @@ class Bubble(cat.Bubble, Box):
             name=self.drawing_name)
         if self.draw_as_frame:
             kwargs['draw_vertically'] = self.draw_vertically
+            kwargs['frame_colour'] = self.frame_colour
         else:
             kwargs['draw_as_square'] = self.draw_as_square
         return getattr(Drawing, method)(*args, **kwargs)
