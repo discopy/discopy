@@ -944,7 +944,7 @@ class Functor(Category):
 Arrow.generator_factory = Box
 
 
-@ar_factory
+@factory
 class Transformation(Category):
     """
     A (not necessarily natural) transformation between two parallel functors.

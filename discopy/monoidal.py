@@ -1315,8 +1315,10 @@ class Functor(cat.Functor):
 
     dom = cod = Diagram
 
-    def __init__(self, ob=None, ar=None, dom=None, cod=None, colour_map=None):
-        super().__init__(ob, ar, dom=dom, cod=cod)
+    def __init__(
+            self, ob_map=None, ar_map=None,
+            dom=None, cod=None, colour_map=None):
+        super().__init__(ob_map, ar_map, dom=dom, cod=cod)
         self.colour_map = MappingOrCallable(colour_map or {})
 
     @classmethod
