@@ -1070,33 +1070,32 @@ class Equation:
     Parameters:
         terms : The terms of the equation.
         symbol : The symbol between the terms.
-        space : The space between the terms.
         functor : The functor up to which ``bool(equation)`` compares its
             terms, overriding the subclass' :attr:`functor` if given.
 
     Example
     -------
-    The functor that forgets the name of each box identifies any two parallel
-    boxes, so the equation between them holds up to that functor:
+    The number of boxes inside an arrow is left unchanged by associativity, so
+    we can compare arrows up to the functor that counts them modulo 2:
 
     >>> x = Ob('x')
     >>> f, g = Box('f', x, x), Box('g', x, x)
-    >>> forget = Functor(
-    ...     ob_map=lambda ob: ob,
-    ...     ar_map=lambda box: Box('*', box.dom, box.cod))
-    >>> assert not Equation(f, g) and Equation(f, g, functor=forget)
+    >>> parity = lambda term: len(term.inside) % 2
+    >>> assert not Equation(f, f >> g >> g)
+    >>> assert Equation(f, f >> g >> g, functor=parity)
 
     Note
     ----
     :class:`Equation` has no ``draw`` method because :class:`Arrow` has none;
-    see :class:`monoidal.Equation` for equations of diagrams.
+    see :class:`monoidal.Equation` for equations of diagrams, which also adds
+    the ``space`` parameter used when drawing.
     """
     #: The functor up to which the terms are compared, ``None`` (i.e. the
     #: identity, syntactic equality) by default; subclasses override it.
     functor = None
 
-    def __init__(self, *terms: Arrow, symbol="=", space=1, functor=None):
-        self.terms, self.symbol, self.space = terms, symbol, space
+    def __init__(self, *terms: Arrow, symbol="=", functor=None):
+        self.terms, self.symbol = terms, symbol
         if functor is not None:
             self.functor = functor
 

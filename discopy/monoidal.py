@@ -1206,6 +1206,13 @@ class Equation(cat.Equation):
     """
     An :class:`.cat.Equation` of diagrams, i.e. with a :meth:`draw` method.
 
+    Parameters:
+        terms : The terms of the equation.
+        symbol : The symbol between the terms.
+        space : The space between the terms when drawing the equation.
+        functor : The functor up to which ``bool(equation)`` compares its
+            terms, overriding the subclass' :attr:`functor` if given.
+
     Example
     -------
     >>> x = Ty('x')
@@ -1213,6 +1220,10 @@ class Equation(cat.Equation):
     >>> print(Equation(f, g, symbol="=>"))
     f => g
     """
+    def __init__(self, *terms: Diagram, symbol="=", space=1, functor=None):
+        super().__init__(*terms, symbol=symbol, functor=functor)
+        self.space = space
+
     def to_drawing(self):
         result = self.terms[0].to_drawing()
         for term in self.terms[1:]:
