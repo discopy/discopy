@@ -239,7 +239,9 @@ class Ty(cat.Ob, FreeMonoid):
                 (cat.Ob, ) if self.generator_factory is Wire else ()))
         inside = tuple(map(self.cast_wire, inside))
         FreeMonoid.__init__(self, inside, dom, cod, _scan)
-        cat.Ob.__init__(self, str(self))
+        # ``name`` is computed lazily by ``__getattr__``: building ``str(self)``
+        # on every construction dominates the cost when hypergraphs iterate
+        # over box domains (each element access builds a fresh singleton Ty).
 
     def count(self, obj: cat.Ob) -> int:
         """
@@ -288,6 +290,15 @@ class Ty(cat.Ob, FreeMonoid):
             parts.append(f'{name}("")' if s == '' else s)
         return ' @ '.join(parts)
 
+    def __getattr__(self, attr):
+        # ``name`` is derived from ``inside`` (see ``__init__``); compute it on
+        # first access and cache it so repeated reads stay cheap.
+        if attr == "name":
+            name = self.__dict__["name"] = str(self)
+            return name
+        raise AttributeError(
+            f"{factory_name(type(self))!r} object has no attribute {attr!r}")
+
     def __iter__(self):
         for i in range(len(self)):
             yield self[i]
@@ -307,9 +318,8 @@ class Ty(cat.Ob, FreeMonoid):
             state['dom'] = white
         if 'cod' not in state:
             state['cod'] = white
+        state.pop('name', None)  # recomputed lazily by __getattr__
         self.__dict__.update(state)
-        if not hasattr(self, 'name'):
-            self.name = str(self)
 
     def to_tree(self):
         tree = {
