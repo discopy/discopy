@@ -11,7 +11,7 @@ IGNORE_WARNINGS = [
     "Casting complex values to real discards the imaginary part"]
 
 # Mapping from attribute to function from box to default value.
-DRAWING_ATTRIBUTES = {
+BOX_DRAWING_ATTRIBUTES = {
     "height": lambda _: 1,
     "is_conjugate": lambda _: False,
     "is_transpose": lambda _: False,
@@ -41,6 +41,10 @@ DRAWING_ATTRIBUTES = {
         0 if box.no_label else text_width(box.drawing_name),
     "tikzstyle_name": lambda box: (
         box.name if box.name.isidentifier() else "symbol")
+}
+
+WIRE_DRAWING_ATTRIBUTES = {
+    "right_margin": lambda ob: text_width(str(ob)),
 }
 
 # Default drawing parameters.

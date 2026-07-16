@@ -61,7 +61,7 @@ from warnings import warn
 from discopy import cat, drawing, hypergraph, cmap, messages
 from discopy.abc import ColouredMonoid, MonoidalCategory
 from discopy.drawing import Drawing
-from discopy.config import DRAWING_ATTRIBUTES
+from discopy.config import BOX_DRAWING_ATTRIBUTES, WIRE_DRAWING_ATTRIBUTES
 from discopy.utils import (
     factory,
     factory_name,
@@ -346,7 +346,23 @@ class Ty(cat.Ob, FreeMonoid):
         for new, old in zip(result.inside, self.inside):
             if getattr(old, "frame_boundary", False):
                 new.frame_boundary = True
+            for attr, default in WIRE_DRAWING_ATTRIBUTES.items():
+                setattr(new, attr, getattr(old, attr, default(new)))
         return result
+
+    def wire_offsets(self) -> list:
+        """
+        The x-position of each wire of the type relative to the first, i.e. the
+        sum of the cell widths ``max(1, right_margin)`` of the objects before
+        it: each wire takes up at least a unit, more if its label is longer.
+
+        >>> assert Ty('x', 'y').to_drawing().wire_offsets() == [0, 1]
+        """
+        offsets, total = [], 0
+        for ob in self.inside:
+            offsets.append(total)
+            total += max(1, ob.right_margin)
+        return offsets
 
 
 @factory
@@ -1138,7 +1154,7 @@ class Box(cat.Box, Diagram):
         if (dom.dom, dom.cod) != (cod.dom, cod.cod):
             raise AxiomError(messages.NOT_GLOBULAR.format(
                 dom.dom, dom.cod, cod.dom, cod.cod))
-        for attr in DRAWING_ATTRIBUTES:
+        for attr in BOX_DRAWING_ATTRIBUTES:
             if attr in params:
                 setattr(self, attr, params.pop(attr))
         cat.Box.__init__(self, name, dom, cod, **params)
