@@ -5,6 +5,7 @@ from pytest import raises
 
 from discopy.biclosed import *
 from discopy.python import *
+from discopy.utils import AxiomError
 
 
 def test_Function():
@@ -122,3 +123,90 @@ def test_additive_Function():
 def test_list_generic_in_function():
     func = Function(sum, List[int], int)
     assert func([1, 2, 3]) == 6
+
+
+def test_Hypergraph_call():
+    add = Function(lambda x, y: x + y, (int, int), (int, ))
+
+    # A wire copied into both addends and the other one forwarded: the value
+    # on wire 0 is read twice (by the box and by the output) and wire 1 once.
+    f = Hypergraph(
+        dom=(int, int), cod=(int, int),
+        boxes=(add, ),
+        wires=((0, 1), (((1, 0), (2, )), ), (2, 0)))
+    assert f(2, 3) == (5, 2)
+
+    # A discarded input (wire 1 is read by nothing) and a single output.
+    g = Hypergraph(
+        dom=(int, int), cod=(int, ),
+        boxes=(), wires=((0, 1), (), (0, )))
+    assert g(2, 3) == 2
+
+
+def test_Hypergraph_axioms():
+    swap = Function(lambda x, y: (y, x), (int, int), (int, int))
+    add = Function(lambda x, y: x + y, (int, int), (int, ))
+
+    # Not causal: the swap reads wires that only its own output produces.
+    with raises(AxiomError):
+        Hypergraph((int, ), (int, ),
+                   (swap, ), ((0, ), (((0, 1), (1, 2)), ), (2, )))
+
+    # Not left-monogamous: wire 0 is produced by the input and the box.
+    with raises(AxiomError):
+        Hypergraph((int, ), (int, ),
+                   (add, ), ((0, ), (((0, 0), (0, )), ), (0, )))
+
+
+def _permutation(factory, xs, dom):
+    """ A permutation arrow, as in the arXiv:2105.09257 benchmark. """
+    if len(dom) <= 1:
+        return factory.id(dom)
+    i = xs[0]
+    head = factory.swap(dom[:i], dom[i:i + 1]).tensor(factory.id(dom[i + 1:]))
+    tail = factory.id(dom[i:i + 1]).tensor(_permutation(
+        factory, [x - 1 if x > i else x for x in xs[1:]],
+        dom[:i] + dom[i + 1:]))
+    return head.then(tail)
+
+
+def _adder_step(full_adder, adder, k):
+    """ One incremental ripple-carry step: adder(k) -> adder(k + 1). """
+    factory = type(full_adder)
+    bit = full_adder.dom[:1]
+    reorder1 = list(range(1, k + 1)) + [0, k + 1, k + 2]
+    reorder2 = [k] + list(range(k)) + [k + 1]
+    step = adder.tensor(factory.id(bit @ bit))
+    step = step.then(_permutation(factory, reorder1, step.cod))
+    step = step.then(factory.id(bit ** k).tensor(full_adder))
+    return step.then(_permutation(factory, reorder2, step.cod))
+
+
+def test_Hypergraph_adder():
+    """ The carry-save adder of the #346 benchmark, evaluated directly as a
+    hypergraph of Python functions rather than compiled to a diagram. """
+    import itertools
+    from discopy.symmetric import Ty, Box
+
+    bit = Ty('bit')
+    full_adder = Box('FA', bit @ bit @ bit, bit @ bit)
+
+    def full_adder_function(a, b, carry_in):
+        return a ^ b ^ carry_in, (a & b) | (carry_in & (a ^ b))
+
+    fa = Function(full_adder_function, (int, int, int), (int, int))
+
+    def carry_save_value(outputs):
+        return outputs[0] + 2 * sum(outputs[1:])
+
+    full_adder_hg = full_adder.to_hypergraph()
+    adder = full_adder_hg
+    for k in range(1, 5):
+        compiled = Hypergraph.from_hypergraph(
+            adder, ob={bit: int}, ar={full_adder: fa})
+        # The swaps of the reordering permutations are absorbed into the
+        # wiring, so the only boxes left are the full adders themselves.
+        assert all(box == fa for box in compiled.boxes)
+        for bits in itertools.product((0, 1), repeat=len(compiled.dom)):
+            assert carry_save_value(compiled(*bits)) == sum(bits)
+        adder = _adder_step(full_adder_hg, adder, k)

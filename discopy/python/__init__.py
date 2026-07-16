@@ -13,4 +13,4 @@ Categories of Python functions.
     discopy.python.multiplicative
 """
 
-from discopy.python.multiplicative import exp, Ty, Function
+from discopy.python.multiplicative import exp, Ty, Function, Hypergraph
