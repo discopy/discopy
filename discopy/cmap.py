@@ -59,7 +59,7 @@ from discopy.utils import (
 )
 
 if TYPE_CHECKING:
-    from discopy.monoidal import Ob, Ty, Diagram, Box, Functor
+    from discopy.monoidal import Ty, Diagram, Box, Functor
 
 
 class PortKind(StrEnum):
@@ -714,11 +714,12 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> Swap(x, y).to_map().boxes
         ()
         """
+        category = type(old).ar
         factory = cls if cls.functor is not None else cls[
-            type(old), type(old).functor]
+            category, category.functor]
         return factory.functor(
             ob_map=lambda typ: typ, ar_map=factory.from_box,
-            dom=type(old), cod=factory)(old)
+            dom=category, cod=factory)(old)
 
     @classmethod
     def swap(cls, left: Ty, right: Ty) -> CMap:
