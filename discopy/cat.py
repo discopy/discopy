@@ -1064,7 +1064,9 @@ class Equation:
 
     Parameters:
         terms : The terms of the equation.
-        symbol : The symbol between the terms.
+        symbol : The symbol between each pair of terms, ``"="`` by default.
+        symbols : The symbols between each pair of terms, overriding
+            ``symbol``; ``len(terms) * (symbol, )`` by default.
         up_to : The function up to which ``bool(equation)`` compares its terms,
             overriding the subclass' :attr:`up_to` if given.
 
@@ -1081,8 +1083,10 @@ class Equation:
     """
     up_to = None
 
-    def __init__(self, *terms: Arrow, symbol="=", up_to=None):
-        self.terms, self.symbol = terms, symbol
+    def __init__(self, *terms: Arrow, symbol="=", symbols=None, up_to=None):
+        self.terms = terms
+        self.symbols = tuple(symbols) if symbols is not None\
+            else len(terms) * (symbol, )
         if up_to is not None:
             self.up_to = up_to
 

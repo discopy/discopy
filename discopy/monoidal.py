@@ -1207,7 +1207,9 @@ class Equation(cat.Equation):
 
     Parameters:
         terms : The terms of the equation.
-        symbol : The symbol between the terms.
+        symbol : The symbol between each pair of terms, ``"="`` by default.
+        symbols : The symbols between each pair of terms, overriding
+            ``symbol``; ``len(terms) * (symbol, )`` by default.
         space : The space between the terms when drawing the equation.
         up_to : The function up to which ``bool(equation)`` compares its terms,
             overriding the subclass' :attr:`up_to` if given.
@@ -1219,14 +1221,15 @@ class Equation(cat.Equation):
     >>> print(Equation(f, g))
     Equation(f, g)
     """
-    def __init__(self, *terms: Diagram, symbol="=", space=1, up_to=None):
-        super().__init__(*terms, symbol=symbol, up_to=up_to)
+    def __init__(self, *terms: Diagram, symbol="=", symbols=None, space=1,
+                 up_to=None):
+        super().__init__(*terms, symbol=symbol, symbols=symbols, up_to=up_to)
         self.space = space
 
     def to_drawing(self):
         result = self.terms[0].to_drawing()
-        for term in self.terms[1:]:
-            result = result.add(term.to_drawing(), self.symbol, self.space)
+        for symbol, term in zip(self.symbols, self.terms[1:]):
+            result = result.add(term.to_drawing(), symbol, self.space)
         return result
 
     def draw(self, path=None, **params):

@@ -277,8 +277,8 @@ class Diagram(biclosed.Diagram, RigidCategory):
 
         >>> x = Ty('x')
         >>> g = Box('g', x @ x, x)
-        >>> Equation(Equation(g.curry(left=False), g, symbol="$\\\\mapsfrom$"),
-        ...     g.curry(), symbol="$\\\\mapsto$").draw(
+        >>> Equation(g.curry(left=False), g, g.curry(),
+        ...     symbols=("$\\\\mapsfrom$", "$\\\\mapsto$")).draw(
         ...         path="docs/_static/rigid/curry.png")
 
         .. image:: /_static/rigid/curry.png
@@ -300,9 +300,9 @@ class Diagram(biclosed.Diagram, RigidCategory):
         >>> f = Box('f', Ty(), x)
         >>> g = Box('g', Ty(), x.r @ y)
         >>> diagram = f @ g >> Cup(x, x.r) @ y
-        >>> LHS = Equation(diagram.l, diagram, symbol="$\\\\mapsfrom$")
-        >>> RHS = Equation(LHS, diagram.r, symbol="$\\\\mapsto$")
-        >>> RHS.draw(figsize=(8, 3), path='docs/_static/rigid/rotate.png')
+        >>> Equation(diagram.l, diagram, diagram.r,
+        ...     symbols=("$\\\\mapsfrom$", "$\\\\mapsto$")).draw(
+        ...         figsize=(8, 3), path='docs/_static/rigid/rotate.png')
 
         .. image:: /_static/rigid/rotate.png
             :align: center
@@ -326,9 +326,9 @@ class Diagram(biclosed.Diagram, RigidCategory):
         -------
         >>> x, y = map(Ty, "xy")
         >>> f = Box('f', x, y)
-        >>> LHS = Equation(f.transpose(left=True), f, symbol="$\\\\mapsfrom$")
-        >>> RHS = Equation(LHS, f.transpose(), symbol="$\\\\mapsto$")
-        >>> RHS.draw(figsize=(8, 3), path="docs/_static/rigid/transpose.png")
+        >>> Equation(f.transpose(left=True), f, f.transpose(),
+        ...     symbols=("$\\\\mapsfrom$", "$\\\\mapsto$")).draw(
+        ...         figsize=(8, 3), path="docs/_static/rigid/transpose.png")
 
         .. image:: /_static/rigid/transpose.png
         """
@@ -357,10 +357,11 @@ class Diagram(biclosed.Diagram, RigidCategory):
         >>> d = (f @ g).foliation()
         >>> transpose_l = d.transpose_box(0, 0, left=True)
         >>> transpose_r = d.transpose_box(0, 1, left=False)
-        >>> LHS = Equation(transpose_l, d, symbol="$\\\\mapsfrom$")
-        >>> RHS = Equation(LHS, transpose_r, symbol="$\\\\mapsto$")
-        >>> RHS.draw(
-        ...     figsize=(8, 3), path="docs/_static/rigid/transpose_box.png")
+        >>> Equation(
+        ...     transpose_l, d, transpose_r,
+        ...     symbols=("$\\\\mapsfrom$", "$\\\\mapsto$")).draw(
+        ...         figsize=(8, 3),
+        ...         path="docs/_static/rigid/transpose_box.png")
 
         .. image:: /_static/rigid/transpose_box.png
         """
