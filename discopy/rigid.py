@@ -260,6 +260,8 @@ class Ty(Pregroup, biclosed.Ty):
     >>> assert n.l.r == n == n.r.l
     >>> assert (s @ n).l == n.l @ s.l and (s @ n).r == n.r @ s.r
     """
+    generator_factory = Ob
+
     def __setstate__(self, state):
         if '_z' in state:  # Backward compatibility
             del state['_z']
@@ -305,7 +307,8 @@ class Ty(Pregroup, biclosed.Ty):
         >>> n = Ty('n')
         >>> assert n.r.r.unwind() == n.l.unwind() == n
         """
-        return self.ob(self.inside[0].unwind())
+        assert_isatomic(self)
+        return self.ar(self.inside[0].unwind())
 
 
 @factory
