@@ -20,6 +20,7 @@ Summary
     Sum
     Bubble
     Functor
+    Transformation
 
 .. admonition:: Functions
 
@@ -900,6 +901,89 @@ class Functor(Category):
 
 
 Arrow.generator_factory = Box
+
+
+class Transformation:
+    """
+    A (not necessarily natural) transformation between two functors
+    with the same domain and the same codomain.
+
+    Parameters:
+        components :
+            A mapping from the objects of ``dom.dom`` to arrows of
+            ``dom.cod``, i.e. ``components[x] : dom(x) -> cod(x)``.
+        dom : The domain functor.
+        cod : The codomain functor.
+
+    Note
+    ----
+    Together with :class:`Functor`, this makes the objects of
+    :class:`Cat` (i.e. types of arrows) into the objects of a
+    2-category: 1-cells are functors, 2-cells are transformations,
+    composed vertically with :meth:`then` and horizontally by
+    applying functors to transformations, see :meth:`Functor.__call__`.
+    Naturality, i.e. ``components[x] >> cod(f) == dom(f) >> components[y]``
+    for every box ``f : x -> y``, is not enforced.
+
+    Example
+    -------
+    >>> x, y = Ob('x'), Ob('y')
+    >>> f = Box('f', x, y)
+    >>> F, G = Functor.id(), Functor({x: y, y: x}, {})
+    >>> alpha = Transformation({x: f, y: f[::-1]}, F, G)
+    >>> assert alpha(x) == f and alpha(y) == f[::-1]
+    >>> beta = Transformation.id(G)
+    >>> assert (alpha >> beta)(x) == alpha(x) >> beta(x)
+    """
+    def __init__(
+            self, components: Mapping[Ob, Arrow] | Callable[[Ob], Arrow],
+            dom: Functor, cod: Functor):
+        assert_isinstance(dom, Functor)
+        assert_isinstance(cod, Functor)
+        if dom.dom != cod.dom or dom.cod != cod.cod:
+            raise utils.AxiomError(
+                "Transformation.dom and Transformation.cod must "
+                "have the same domain and codomain.")
+        self.dom, self.cod = dom, cod
+        self.components: MappingOrCallable[Ob, Arrow] = MappingOrCallable(
+            components)
+
+    def __call__(self, x: Ob) -> Arrow:
+        """ The component of the transformation at a given object. """
+        return self.components[x]
+
+    @classmethod
+    def id(cls, dom: Functor) -> Transformation:
+        """ The identity transformation on a given functor ``dom``. """
+        return cls(lambda x: dom.cod.id(dom(x)), dom, dom)
+
+    def then(self, other: Transformation) -> Transformation:
+        """
+        The vertical composition of a transformation with another.
+
+        Parameters:
+            other : The other transformation with which to compose.
+        """
+        assert_isinstance(other, Transformation)
+        if self.cod != other.dom:
+            raise utils.AxiomError(
+                "Transformation.cod must be equal to other.dom.")
+        return type(self)(
+            lambda x: self(x) >> other(x), self.dom, other.cod)
+
+    __rshift__ = then
+
+    def __eq__(self, other):
+        return isinstance(other, Transformation) and (
+            self.components, self.dom, self.cod) == (
+                other.components, other.dom, other.cod)
+
+    def __repr__(self):
+        return factory_name(type(self)) + (
+            f"(components={self.components}, "
+            f"dom={self.dom!r}, cod={self.cod!r})")
+
+
 Arrow.sum_factory = Sum
 Arrow.bubble_factory = Bubble
 CAT = Functor
