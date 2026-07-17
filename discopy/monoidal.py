@@ -298,8 +298,6 @@ class Ty(cat.Ob, FreeMonoid):
         >>> x, y, z = map(Ty, "xyz")
         >>> assert sorted([z, x @ y, x, y]) == [x, x @ y, y, z]
         """
-        if not isinstance(other, Ty):
-            return NotImplemented
         return str(self) < str(other)
 
     def __iter__(self):
