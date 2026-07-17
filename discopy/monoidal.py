@@ -239,11 +239,7 @@ class Ty(cat.Ob, FreeMonoid):
                 (cat.Ob, ) if self.generator_factory is Wire else ()))
         inside = tuple(map(self.cast_wire, inside))
         FreeMonoid.__init__(self, inside, dom, cod, _scan)
-        # A type is identified by its ``inside``, ``dom`` and ``cod``, not by
-        # a name. We still set the class name here -- a cheap constant, unlike
-        # the ``str(self)`` this used to build on every construction -- so a
-        # type satisfies the ``cat.Ob`` interface it subclasses.
-        self.name = type(self).__name__
+        cat.Ob.__init__(self, type(self).__name__)
 
     def count(self, obj: cat.Ob) -> int:
         """
@@ -326,7 +322,7 @@ class Ty(cat.Ob, FreeMonoid):
         if 'cod' not in state:
             state['cod'] = white
         self.__dict__.update(state)
-        self.name = type(self).__name__  # normalise across dump versions
+        cat.Ob.__init__(self, type(self).__name__)
 
     def to_tree(self):
         tree = {
@@ -398,7 +394,7 @@ class PRO(Ty):
                  cod: Colour = None, _scan: bool = True):
         self.n = inside if isinstance(inside, int) else len(inside)
         self.dom = self.cod = white
-        self.name = type(self).__name__
+        cat.Ob.__init__(self, type(self).__name__)
 
     def __setstate__(self, state):
         if "n" not in state:
@@ -406,7 +402,7 @@ class PRO(Ty):
         state.setdefault("dom", white)
         state.setdefault("cod", white)
         self.__dict__.update(state)
-        self.name = type(self).__name__  # normalise across dump versions
+        cat.Ob.__init__(self, type(self).__name__)
 
     @property
     def inside(self):
@@ -478,7 +474,7 @@ class Dim(Ty):
         cat.FreeCategory.__init__(
             self, inside, white if dom is None else dom,
             white if cod is None else cod, _scan=False)
-        self.name = type(self).__name__
+        cat.Ob.__init__(self, type(self).__name__)
 
     def __getitem__(self, key):
         if isinstance(key, slice):
