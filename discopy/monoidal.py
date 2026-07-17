@@ -239,10 +239,6 @@ class Ty(cat.Ob, FreeMonoid):
                 (cat.Ob, ) if self.generator_factory is Wire else ()))
         inside = tuple(map(self.cast_wire, inside))
         FreeMonoid.__init__(self, inside, dom, cod, _scan)
-        # ``name`` is computed lazily by ``__getattr__``: building
-        # ``str(self)`` on every construction dominates the cost when
-        # hypergraphs iterate over box domains (each element access builds
-        # a fresh singleton Ty).
 
     def count(self, obj: cat.Ob) -> int:
         """
@@ -291,14 +287,17 @@ class Ty(cat.Ob, FreeMonoid):
             parts.append(f'{name}("")' if s == '' else s)
         return ' @ '.join(parts)
 
-    def __getattr__(self, attr):
-        # ``name`` is derived from ``inside`` (see ``__init__``); compute it on
-        # first access and cache it so repeated reads stay cheap.
-        if attr == "name":
-            name = self.__dict__["name"] = str(self)
-            return name
-        raise AttributeError(
-            f"{factory_name(type(self))!r} object has no attribute {attr!r}")
+    @property
+    def name(self):
+        """
+        A type is identified by its ``inside``, ``dom`` and ``cod``, not by a
+        name. This reports the class name so that a type still satisfies the
+        :class:`cat.Ob` interface (which it subclasses) without paying to build
+        ``str(self)`` on every construction -- the cost that dominates when a
+        hypergraph iterates over box domains, building a fresh singleton type
+        for each element.
+        """
+        return type(self).__name__
 
     def __iter__(self):
         for i in range(len(self)):
@@ -319,7 +318,7 @@ class Ty(cat.Ob, FreeMonoid):
             state['dom'] = white
         if 'cod' not in state:
             state['cod'] = white
-        state.pop('name', None)  # recomputed lazily by __getattr__
+        state.pop('name', None)  # ``name`` is a property, never stored
         self.__dict__.update(state)
 
     def to_tree(self):
@@ -392,14 +391,13 @@ class PRO(Ty):
                  cod: Colour = None, _scan: bool = True):
         self.n = inside if isinstance(inside, int) else len(inside)
         self.dom = self.cod = white
-        self.name = str(self)
 
     def __setstate__(self, state):
         if "n" not in state:
             state = {"n": len(state["_objects"])}
         state.setdefault("dom", white)
         state.setdefault("cod", white)
-        state.setdefault("name", f"PRO({state['n']})")
+        state.pop("name", None)  # ``name`` is a property, never stored
         self.__dict__.update(state)
 
     @property
@@ -472,7 +470,6 @@ class Dim(Ty):
         cat.FreeCategory.__init__(
             self, inside, white if dom is None else dom,
             white if cod is None else cod, _scan=False)
-        cat.Ob.__init__(self, str(self))
 
     def __getitem__(self, key):
         if isinstance(key, slice):
