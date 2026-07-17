@@ -283,17 +283,10 @@ class Backend(ABC):
             and not box.bubble_opening and not box.bubble_closing
 
     def draw_wires(self, graph, **params):
-        # Coloured regions are filled along the ordinary wire geometry, so
-        # coloured cups and caps must use the same paths to avoid gaps.
-        draw_smooth_cups = not self.region_colours(graph)
-        # Braids and swaps, plus uncoloured cups and caps, are drawn as their
-        # own smooth curves.
+        # Braids and swaps are drawn as their own smooth curves.
         for node in graph.nodes:
             if node.kind == "box" and self._is_crossing(node.box):
                 self.draw_braid(graph.positions, node)
-            elif node.kind == "box" and draw_smooth_cups\
-                    and self._is_cup_or_cap(node.box):
-                self.draw_cup_or_cap(graph.positions, node)
         for source, target in self.visible_edges(graph):
             source_position = graph.positions[source]
             target_position = graph.positions[target]
@@ -304,57 +297,13 @@ class Backend(ABC):
                 self.draw_wire_label(source.x, *source_position, **params)
             if source_position == target_position:
                 continue
-            if any(n.kind == "box" and (
-                    self._is_crossing(n.box)
-                    or draw_smooth_cups and self._is_cup_or_cap(n.box))
-                    for n in (source, target)):
-                continue  # cups, caps and crossings are drawn on their own
+            if any(n.kind == "box" and self._is_crossing(n.box)
+                   for n in (source, target)):
+                continue  # crossings are drawn on their own
             bend_out, bend_in = source.kind == "box", target.kind == "box"
             self.draw_wire(
                 source_position, target_position, bend_out, bend_in,
                 linewidth=(0 if is_frame_boundary else None))
-
-    @staticmethod
-    def _is_cup_or_cap(box):
-        # A cup (two inputs, no output) or a cap (no input, two outputs).
-        if not box.draw_as_wires\
-                or box.bubble_opening or box.bubble_closing:
-            return False
-        return sorted((len(box.dom), len(box.cod))) == [0, 2]
-
-    @staticmethod
-    def _cup_ends(positions, node):
-        # The left end, right end and their shared height for a cup or cap.
-        box, j = node.box, node.j
-        kind, wires = ("box_dom", box.dom) if box.dom else ("box_cod", box.cod)
-        xs = [positions[Node(kind, i=i, j=j, x=wires[i])] for i in range(2)]
-        return min(p[0] for p in xs), max(p[0] for p in xs), xs[0][1]
-
-    def draw_cup_or_cap(self, positions, node):
-        """
-        Draws a cup or a cap as a half circle with vertical sides. Nested ones
-        (e.g. the rails of a ribbon) share the centre of the cup or cap they
-        sit in, so that they stay concentric, i.e. at a constant distance.
-        """
-        left, right, end = self._cup_ends(positions, node)
-        radius = (right - left) / 2
-        down = bool(node.box.dom)  # A cup opens upwards, its arc points down.
-        # Share the centre of the tightest cup or cap we are nested in.
-        centre, span = end, float("inf")
-        for other in positions:
-            if other.kind != "box" or other is node\
-                    or not self._is_cup_or_cap(other.box)\
-                    or bool(other.box.dom) != down:
-                continue
-            o_left, o_right, o_end = self._cup_ends(positions, other)
-            if o_left < left and right < o_right and o_right - o_left < span:
-                centre, span = o_end, o_right - o_left
-        height = 2 * abs(end - positions[node][1])
-        if radius > height:  # Too wide to fit a half circle: fall back to a U.
-            control = (4 * positions[node][1] - end) / 3
-            return self.draw_bezier(
-                [(left, end), (left, control), (right, control), (right, end)])
-        self._half_circle(left, right, end, centre, -1 if down else 1)
 
     def _half_circle(self, left, right, end, centre, sign):
         # A half circle from (left, end) to (right, end) with vertical sides
