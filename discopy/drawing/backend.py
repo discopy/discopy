@@ -31,7 +31,7 @@ from matplotlib.path import Path
 from discopy.drawing import Node, Point
 
 from discopy.config import (  # noqa: F401
-    DRAWING_ATTRIBUTES as ATTRIBUTES,
+    BOX_DRAWING_ATTRIBUTES as ATTRIBUTES,
     DRAWING_DEFAULT as DEFAULT, COLORS, SHAPES)
 
 if TYPE_CHECKING:
@@ -105,6 +105,44 @@ class Backend(ABC):
         """ Draws a polygon given a list of points. """
         self.max_width = max(self.max_width, max(i for i, _ in points))
 
+    def draw_curved_polygon(
+            self, *points, facecolor=None, edgecolor=None, bend_out=False):
+        """
+        Draws a polygon whose first edge is a quadratic Bezier curve
+        rather than a straight line, e.g. for the coloured regions of
+        :meth:`draw_regions`.
+
+        The first two points are the start and end of the curved edge,
+        the remaining points are connected by straight lines back to the
+        start, as in :meth:`draw_polygon`. The Bezier control point is
+        the corner of the start and end points, i.e.
+        ``(points[1].x, points[0].y)``, or ``(points[0].x, points[1].y)``
+        when ``bend_out`` is set, so that the curve hugs a wire bending
+        out of or into a box.
+        """
+        self.max_width = max(self.max_width, max(i for i, _ in points))
+
+    @staticmethod
+    def readable_foreground(colour, threshold=.5):
+        """
+        Pick a readable foreground text colour, i.e. ``"white"`` or
+        ``"black"``, for text drawn on top of a given background
+        ``colour``, using the standard luma formula for perceived
+        brightness.
+
+        >>> Backend.readable_foreground("white")
+        'black'
+        >>> Backend.readable_foreground("black")
+        'white'
+        """
+        from matplotlib.colors import to_rgb
+        try:
+            red, green, blue = to_rgb(colour)
+        except (ValueError, TypeError):
+            return "black"
+        luma = 0.299 * red + 0.587 * green + 0.114 * blue
+        return "white" if luma < threshold else "black"
+
     def draw_wire(self, source, target,
                   bend_out=False, bend_in=False, style=None, linewidth=None):
         """ Draws a wire from source to target, possibly with a Bezier. """
@@ -127,8 +165,15 @@ class Backend(ABC):
         self.draw_polygon(
             (0, 0), (x, 0), (x, y), (0, y), edgecolor=boundary_color)
 
+    @abstractmethod
     def draw_regions(self, graph, **params):
-        """Draw coloured 0-cell regions when supported by the backend."""
+        """
+        Draw coloured 0-cell regions, e.g. the background of a
+        :meth:`Drawing.frame` or the wire-typed regions of a diagram.
+
+        This has no default drawing logic: backends that do not want to
+        support coloured regions can simply inherit this no-op.
+        """
 
     def draw_legend(self, graph, **params):
         """Draw a legend of region colours when supported by the backend."""
@@ -136,7 +181,7 @@ class Backend(ABC):
     @staticmethod
     def region_colours(graph):
         """
-        The distinct non-white region colours of a diagram, keyed by label.
+        The distinct non-white region colours of a diagram, keyed by colour.
 
         Returns an order-preserving mapping from each colour's name to its
         :class:`monoidal.Colour`, suitable for a drawing legend. White is
@@ -180,7 +225,14 @@ class Backend(ABC):
         i += pad_i
         j -= pad_j
         fontsize = params.get('fontsize_types', params.get('fontsize', None))
-        self.draw_text(label, i, j, verticalalignment='top', fontsize=fontsize)
+        # The region to the right of this wire, coloured the same way as
+        # in draw_regions, is what the label is drawn on top of.
+        background = getattr(x, "cod", None)
+        color = self.readable_foreground(
+            background.name if background is not None else "white")
+        self.draw_text(
+            label, i, j, verticalalignment='top', fontsize=fontsize,
+            color=color)
 
     @staticmethod
     def is_frame_boundary(node):
@@ -264,6 +316,7 @@ class Backend(ABC):
         if params.get('draw_box_labels', True):
             self.draw_text(box.drawing_name, *positions[node],
                            ha='center', va='center',
+                           color=self.readable_foreground(box.color),
                            fontsize=params.get('fontsize', None))
 
     def draw_discard(self, positions, node, **params):
@@ -306,6 +359,7 @@ class Backend(ABC):
             self.draw_text(
                 bit, middle[0], middle[1] + (-.25 if is_bra else .2),
                 ha='center', va='center',
+                color=self.readable_foreground(box.color),
                 fontsize=params.get('fontsize', None))
 
     def draw_controlled_gate(self, positions, node, **params):
@@ -416,12 +470,13 @@ class TikZ(Backend):
             int(hex, 16) for hex in [hexcode[1:3], hexcode[3:5], hexcode[5:]]]
         return f"{{rgb,255: red,{rgb[0]}; green,{rgb[1]}; blue,{rgb[2]}}}"
 
-    def add_node(self, i, j, text=None, options=None):
+    def add_node(self, i, j, text=None, options=None, rounded=4):
         """ Add a node to the tikz picture, return its unique id. """
         node = len(self.nodes) + 1
         text = "" if text is None else text
         self.nodelayer.append(
-            f"\\node [{options or ''}] ({node}) at ({i}, {j}) {{{text}}};\n")
+            f"\\node [{options or ''}] ({node}) at "
+            f"({round(i, rounded)}, {round(j, rounded)}) {{{text}}};\n")
         self.nodes.update({(i, j): node})
         return node
 
@@ -465,6 +520,39 @@ class TikZ(Backend):
         str_connections = " to ".join(f"({node}.center)" for node in nodes)
         self.edgelayer.append(f"\\draw [{options}] {str_connections};\n")
         super().draw_polygon(*points)
+
+    def draw_curved_polygon(
+            self, *points,
+            facecolor=DEFAULT["facecolor"], edgecolor=DEFAULT["edgecolor"],
+            bend_out=False):
+        source, target, *rest = points
+        control = (target[0], source[1]) if bend_out\
+            else (source[0], target[1])
+        source_node = self.add_node(*source)
+        control_node = self.add_node(*control)
+        target_node = self.add_node(*target)
+        rest_nodes = [self.add_node(*point) for point in rest]
+        options = f"-, fill={{{facecolor}}}"
+        curve = (
+            f"({source_node}.center) .. controls "
+            f"({control_node}.center) .. ({target_node}.center)")
+        straight = "".join(
+            f" to ({node}.center)" for node in rest_nodes + [source_node])
+        self.edgelayer.append(f"\\draw [{options}] {curve}{straight};\n")
+        super().draw_curved_polygon(
+            *points, facecolor=facecolor, edgecolor=edgecolor,
+            bend_out=bend_out)
+
+    def draw_regions(self, graph, **params):
+        """
+        Coloured regions are not wired up for the TikZ backend yet, even
+        though :meth:`draw_curved_polygon` is implemented above: region
+        colours may be arbitrary matplotlib colours (e.g. hexcodes) that
+        are not valid TikZ/xcolor names, so filling them in for real needs
+        a colour-formatting step similar to :meth:`format_color`. This is
+        a deliberate no-op in the meantime, leaving TikZ's output as-is.
+        """
+        super().draw_regions(graph, **params)
 
     def draw_wire(self, source, target,
                   bend_out=False, bend_in=False, style=None, linewidth=None):
@@ -581,22 +669,39 @@ class Matplotlib(Backend):
             edgecolor=COLORS.get(edgecolor, edgecolor)))
         super().draw_polygon(*points)
 
-    def _draw_right_region(self, source, target, width, facecolor,
-                           bend_out=False):
-        mid = (target[0], source[1]) if bend_out\
+    def draw_curved_polygon(
+            self, *points,
+            facecolor=DEFAULT["facecolor"], edgecolor=DEFAULT["edgecolor"],
+            bend_out=False):
+        source, target, *rest = points
+        control = (target[0], source[1]) if bend_out\
             else (source[0], target[1])
-        points = [source, mid, target, (width, target[1]),
-                  (width, source[1]), source]
-        codes = [Path.MOVETO, Path.CURVE3, Path.CURVE3,
-                 Path.LINETO, Path.LINETO, Path.CLOSEPOLY]
+        vertices = [source, control, target] + rest + [source]
+        codes = [Path.MOVETO, Path.CURVE3, Path.CURVE3]\
+            + len(rest) * [Path.LINETO] + [Path.CLOSEPOLY]
         # Disable antialiasing so that abutting same-colour regions do not
         # leave a hairline seam where the background shows through.
         self.axis.add_patch(PathPatch(
-            Path(points, codes), linewidth=0, antialiased=False,
+            Path(vertices, codes), linewidth=0, antialiased=False,
             facecolor=facecolor, edgecolor='none'))
+        super().draw_curved_polygon(
+            *points, facecolor=facecolor, edgecolor=edgecolor,
+            bend_out=bend_out)
+
+    def _draw_right_region(self, source, target, width, facecolor,
+                           bend_out=False):
+        """
+        Fill the region to the right of a wire from ``source`` to
+        ``target``, up to the diagram's right-hand ``width``, with a
+        curved polygon, see :meth:`draw_curved_polygon` and the example
+        in ``test_draw_right_region_example`` for a concrete case.
+        """
+        self.draw_curved_polygon(
+            source, target, (width, target[1]), (width, source[1]),
+            facecolor=facecolor, bend_out=bend_out)
 
     def draw_regions(self, graph, **params):
-        """Fill planar regions, leaving TikZ's legacy output unchanged."""
+        """ Fill the coloured 0-cell regions of the diagram. """
         self._draw_right_region(
             (0, 0), (0, graph.height), graph.width, graph.dom.dom.name)
 

@@ -2,6 +2,8 @@
 
 """ Discopy configuration. """
 
+from discopy.utils import text_width
+
 DEFAULT_BACKEND = 'numpy'
 NUMPY_THRESHOLD = 16
 IGNORE_WARNINGS = [
@@ -9,7 +11,7 @@ IGNORE_WARNINGS = [
     "Casting complex values to real discards the imaginary part"]
 
 # Mapping from attribute to function from box to default value.
-DRAWING_ATTRIBUTES = {
+BOX_DRAWING_ATTRIBUTES = {
     "height": lambda _: 1,
     "is_conjugate": lambda _: False,
     "is_transpose": lambda _: False,
@@ -33,8 +35,17 @@ DRAWING_ATTRIBUTES = {
     "color": lambda box:
         "black" if getattr(box, "draw_as_spider", False) else "white",
     "drawing_name": lambda box: box.name,
+    "no_label": lambda box: any([
+        box.draw_as_wires, box.draw_as_spider, box.draw_as_brakets,
+        box.draw_as_controlled, box.draw_as_discards, box.draw_as_measures]),
+    "min_width": lambda box:
+        0 if box.no_label else text_width(box.drawing_name),
     "tikzstyle_name": lambda box: (
         box.name if box.name.isidentifier() else "symbol")
+}
+
+WIRE_DRAWING_ATTRIBUTES = {
+    "right_margin": lambda ob: text_width(str(ob)),
 }
 
 # Default drawing parameters.

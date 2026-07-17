@@ -45,8 +45,8 @@ Example
 >>> from discopy.frobenius import Ty as T, Diagram as D, Box, Swap
 >>> S, N = map(T, "SN")
 >>> F = Functor(
-...     ob={s: Ty[T](S), n: Ty[T](N)},
-...     ar={Alice: Box('A', T(), N),
+...     ob_map={s: Ty[T](S), n: Ty[T](N)},
+...     ar_map={Alice: Box('A', T(), N),
 ...         who: Box('W', S @ N, N @ N),
 ...         loves: Box('L', N @ N, S),
 ...         Bob: Box('B', T(), N)},
@@ -77,7 +77,7 @@ from discopy import (
 from discopy.abc import RibbonCategory, TracedCategory, NamedGeneric
 from discopy.cat import assert_iscomposable
 from discopy.utils import (
-    ar_factory, classproperty, unbiased, assert_isinstance, factory_name)
+    factory, classproperty, unbiased, assert_isinstance, factory_name)
 
 
 @dataclass
@@ -146,7 +146,7 @@ class Ty(NamedGeneric['natural']):
     l = r = property(__neg__)
 
 
-@ar_factory
+@factory
 @dataclass
 class Diagram(RibbonCategory, NamedGeneric['natural']):
     """

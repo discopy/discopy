@@ -79,11 +79,11 @@ length-one word on it, while the counit ``epsilon`` evaluates a word of
 elements of a monoid as their product:
 
 >>> from functools import lru_cache
->>> from discopy.abc import Monoid
+>>> from discopy.abc import ColouredMonoid
 >>> from discopy.python.function import Function
->>> from discopy.cat import Functor, Transformation
+>>> from discopy.cat import Ob as CatOb, Functor, Transformation
 
->>> class Z3(Monoid):
+>>> class Z3(ColouredMonoid):
 ...     ''' The monoid of integers modulo three, with addition. '''
 ...     ob, dom, cod = type(None), None, None
 ...     def __init__(self, n):
@@ -101,7 +101,7 @@ elements of a monoid as their product:
 >>> @lru_cache
 ... def Free(X):
 ...     ''' The free monoid on a set ``X``, i.e. words over ``X``. '''
-...     class Word(Monoid):
+...     class Word(ColouredMonoid):
 ...         ob, dom, cod = type(None), None, None
 ...         def __init__(self, xs=()):
 ...             self.xs = list(xs)
@@ -120,38 +120,30 @@ elements of a monoid as their product:
 ...     ''' A morphism of monoids; homomorphism not enforced. '''
 
 The forgetful functor ``G`` does nothing to objects, it just views a monoid
-as a set, while the free functor ``F`` sends a set to its words:
+as a set, while the free functor ``F`` sends a set to its words. We spell
+out the two objects needed below as ``cat.Ob`` instances so that
+``Transformation`` can validate the domains and codomains of its components:
 
->>> Forget_ = Functor(
-...     lambda M: M, lambda f: Function(f.inside, f.dom, f.cod),
-...     dom=Morphism, cod=Function)
->>> Free_ = Functor(
-...     lambda X: Free(X),
-...     lambda f: Morphism(
-...         lambda x: Free(f.cod)(list(map(f, x.xs))),
-...         Free(f.dom), Free(f.cod)),
-...     dom=Function, cod=Morphism)
-
->>> GF = Functor(  # the forgetful functor after the free functor
-...     lambda X: Free(X),
-...     lambda f: Function(Free_.ar_map[f].inside, Free(f.dom), Free(f.cod)),
-...     dom=Function, cod=Function)
->>> FG = Functor(  # the free functor after the forgetful functor
-...     lambda M: Free(M),
-...     lambda f: Morphism(Free_.ar_map[f].inside, Free(f.dom), Free(f.cod)),
-...     dom=Morphism, cod=Morphism)
+>>> X_, M_ = CatOb('X'), CatOb('M')
+>>> Id_set = Functor({X_: str, M_: Z3}, {}, cod=Function)
+>>> GF = Functor({X_: Free(str), M_: Free(Z3)}, {}, cod=Function)
+>>> Id_monoid = Functor({M_: Z3}, {}, cod=Morphism)
+>>> FG = Functor({M_: Free(Z3)}, {}, cod=Morphism)
 
 >>> eta = Transformation(
-...     lambda X: Function(lambda x: Free(X)([x]), X, Free(X)),
-...     Functor.id(Function), GF)
+...     lambda obj: Function(
+...         lambda x: Free(Id_set(obj)[0])([x]), Id_set(obj), GF(obj)),
+...     Id_set, GF)
 >>> epsilon = Transformation(
-...     lambda M: Morphism(lambda w: M.id().tensor(*w.xs), Free(M), M),
-...     FG, Functor.id(Morphism))
+...     lambda obj: Morphism(
+...         lambda w: Id_monoid(obj)[0].id().tensor(*w.xs),
+...         FG(obj), Id_monoid(obj)),
+...     FG, Id_monoid)
 
 >>> X, M = str, Z3
->>> assert all(eta(X)(x) == Free(X)([x]) for x in ('a', 'b'))
->>> assert epsilon(M)(Free(M)([Z3(1), Z3(1), Z3(2)])) == Z3(1 + 1 + 2)
->>> assert all(epsilon(M)(eta(M)(x)) == x for x in (Z3(0), Z3(1), Z3(2)))
+>>> assert all(eta(X_)(x) == Free(X)([x]) for x in ('a', 'b'))
+>>> assert epsilon(M_)(Free(M)([Z3(1), Z3(1), Z3(2)])) == Z3(1 + 1 + 2)
+>>> assert all(epsilon(M_)(eta(M_)(x)) == x for x in (Z3(0), Z3(1), Z3(2)))
 """
 
 from __future__ import annotations
@@ -162,18 +154,17 @@ from typing import Iterator
 
 from discopy import cat, monoidal, biclosed, messages
 from discopy.abc import Pregroup, RigidCategory
-from discopy.cat import ar_factory
+from discopy.cat import factory
 from discopy.utils import (
     assert_isinstance,
     factory_name,
-    from_tree,
     BinaryBoxConstructor,
     AxiomError,
     assert_isatomic
 )
 
 
-class Ob(monoidal.Ob):
+class Ob(monoidal.Wire):
     """
     A rigid object has adjoints :meth:`Ob.l` and :meth:`Ob.r`.
 
@@ -208,7 +199,7 @@ class Ob(monoidal.Ob):
         super().__init__(name, dom, cod)
 
     def dagger(self) -> Ob:
-        return self
+        raise AxiomError("Rigid types have no dagger, use pivotal instead.")
 
     @property
     def l(self) -> Ob:
@@ -221,17 +212,18 @@ class Ob(monoidal.Ob):
         return type(self)(self.name, self.z + 1, dom=self.cod, cod=self.dom)
 
     def __eq__(self, other):
-        return monoidal.Ob.__eq__(self, other)\
+        return monoidal.Wire.__eq__(self, other)\
             and isinstance(other, Ob) and self.z == other.z
 
     def __hash__(self):
         return hash(repr(self))
 
     def __repr__(self):
+        cls_name = factory_name(type(self))
         z_repr = ', z=' + repr(self.z) if self.z else ''
         if self.dom == self.cod == monoidal.white:
-            return f"{factory_name(type(self))}({self.name!r}{z_repr})"
-        return f"{factory_name(type(self))}({self.name!r}{z_repr}, " \
+            return f"{cls_name}({self.name!r}{z_repr})"
+        return f"{cls_name}({self.name!r}{z_repr}, " \
             f"dom={self.dom!r}, cod={self.cod!r})"
 
     def __str__(self):
@@ -246,13 +238,11 @@ class Ob(monoidal.Ob):
 
     @classmethod
     def from_tree(cls, tree):
-        name, z = tree['name'], tree.get('z', 0)
-        dom = from_tree(tree['dom']) if 'dom' in tree else monoidal.white
-        cod = from_tree(tree['cod']) if 'cod' in tree else monoidal.white
-        return cls(name=name, z=z, dom=dom, cod=cod)
+        base = monoidal.Wire.from_tree(tree)  # Parses the dom/cod colours.
+        return cls(base.name, tree.get('z', 0), dom=base.dom, cod=base.cod)
 
 
-@ar_factory
+@factory
 class Ty(Pregroup, biclosed.Ty):
     """
     A rigid type is a biclosed type with rigid objects inside.
@@ -299,10 +289,29 @@ class Ty(Pregroup, biclosed.Ty):
         assert_isatomic(self)
         return self.inside[0].z
 
+    def unwind(self) -> Ty:
+        """
+        Rotate an atomic type until its winding number is zero.
+
+        The previous normalisation applied ``.r`` once, which is only an
+        involution for pivotal types: it sent rigid ``n.r`` to ``n.r.r``.
+
+        Example
+        -------
+        >>> n = Ty('n')
+        >>> assert n.r.r.unwind() == n.l.unwind() == n
+        """
+        typ = self
+        while typ.z > 0:
+            typ = typ.l
+        while typ.z < 0:
+            typ = typ.r
+        return typ
+
     generator_factory = Ob
 
 
-@ar_factory
+@factory
 class PRO(monoidal.PRO, Ty):
     """
     A rigid PRO is a natural number ``n`` seen as a rigid type of length ``n``.
@@ -333,7 +342,7 @@ class Layer(monoidal.Layer):
     r = property(lambda self: self.rotate(left=False))
 
 
-@ar_factory
+@factory
 class Diagram(biclosed.Diagram, RigidCategory):
     """
     A rigid diagram is a biclosed diagram
@@ -700,13 +709,12 @@ class Box(biclosed.Box, Diagram):
         return biclosed.Box.__repr__(self)[:-1] + (
             f', z={self.z})' if self.z else ')')
 
-    def __eq__(self, other):
-        if isinstance(other, Box):
-            return cat.Box.__eq__(self, other) and self.z == other.z
-        return monoidal.Box.__eq__(self, other)
-
-    def __hash__(self):
-        return hash(cat.Arrow.__repr__(self))
+    def setoid(self):
+        """
+        Rigid boxes are equal when they are equal as :class:`cat.Box` and their
+        winding numbers `z` are also equal.
+        """
+        return super().setoid() + (self.z, )
 
     def rotate(self, left=False):
         dom, cod = (
@@ -825,9 +833,9 @@ class Functor(biclosed.Functor):
     A rigid functor is a biclosed functor that preserves cups and caps.
 
     Parameters:
-        ob (Mapping[Ty, Ty]) :
+        ob_map (Mapping[Ty, Ty]) :
             Map from atomic :class:`Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
+        ar_map (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
 
     Example
@@ -897,8 +905,8 @@ def nesting(cls: type, factory: Callable) -> Callable[[Ty, Ty], Diagram]:
 
 def to_rigid(self):
     return biclosed.Functor(
-        ob=lambda x: Ty(x.inside[0].name),
-        ar=lambda f: Box(f.name, to_rigid(f.dom), to_rigid(f.cod)),
+        ob_map=lambda x: Ty(x.inside[0].name),
+        ar_map=lambda f: Box(f.name, to_rigid(f.dom), to_rigid(f.cod)),
         cod=Diagram)(self)
 
 

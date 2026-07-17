@@ -11,6 +11,7 @@ Summary
     :nosignatures:
     :toctree:
 
+    Ob
     Ty
     Exp
     Over
@@ -22,6 +23,7 @@ Summary
     Curry
     Sum
     Functor
+    CMap
     TermBase
     Constant
     Variable
@@ -61,12 +63,12 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from inspect import signature
-from typing import Callable, ClassVar
+from typing import Callable, ClassVar, Self
 
 from discopy import monoidal
 from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
-from discopy.cat import ar_factory
+from discopy.cat import factory
 from discopy.utils import (
     assert_isinstance,
     factory_name,
@@ -74,7 +76,7 @@ from discopy.utils import (
 )
 
 
-@ar_factory
+@factory
 class Ty(monoidal.Ty):
     """
     A biclosed type is a monoidal type that can be exponentiated.
@@ -178,7 +180,17 @@ class Ty(monoidal.Ty):
         return self.inside[0].exponent
 
 
-class Exp(monoidal.Ob):
+class Ob(monoidal.Wire):
+    """
+    A biclosed object is a self-dagger :class:`monoidal.Wire`, i.e. its left
+    and right colours always match. Exponentials do not interact meaningfully
+    with colours, so for now we assume everything is white.
+    """
+    def dagger(self) -> Ob:
+        return self
+
+
+class Exp(Ob):
     """
     A :code:`base` type to an :code:`exponent` type, called with :code:`**`.
 
@@ -194,9 +206,6 @@ class Exp(monoidal.Ob):
         assert_isinstance(exponent, self.ob)
         self.base, self.exponent = base, exponent
         super().__init__(str(self))
-
-    def dagger(self):
-        return self
 
     def __eq__(self, other):
         return isinstance(other, type(self))\
@@ -254,7 +263,7 @@ class Under(Exp):
         return f"({self.exponent} >> {self.base})"
 
 
-@ar_factory
+@factory
 class Diagram(monoidal.Diagram, BiclosedCategory):
     """
     A biclosed diagram is a monoidal diagram
@@ -445,6 +454,86 @@ class Functor(monoidal.Functor):
                 # Avoid infinite recursion when drawing.
                 return self.ob_map[other]
         return super().__call__(other)
+
+
+class CMap(monoidal.CMap):
+    category = Diagram
+
+    require_causal = False
+
+    def curry(self, n=1, left=False) -> Self:
+        """
+        Curry a combinatorial map using the closed structure of the host
+        category.
+
+        Parameters:
+            n : The number of objects to curry.
+            left : Whether to curry on the left or right.
+
+        >>> from discopy.closed import Ty, Box
+        >>> from discopy.drawing import Equation
+        >>> x, y, z = map(Ty, "xyz")
+        >>> f = Box("f", x @ y, z).to_map()
+        >>> f.curry().uncurry().draw(
+        ...     path="docs/_static/cmap/biclosed-curry-right.png", show=False)
+
+        .. image:: /_static/cmap/biclosed-curry-right.png
+            :align: center
+
+        >>> f.curry(left=True).uncurry(left=True).draw(
+        ...     path="docs/_static/cmap/biclosed-curry-left.png", show=False)
+
+        .. image:: /_static/cmap/biclosed-curry-left.png
+            :align: center
+        """
+        if n < 0 or n > len(self.dom):
+            raise ValueError
+        if not n:
+            return self
+
+        base = self.cod
+        if left:
+            exponent = self.dom[len(self.dom) - n:]
+            exp = base << exponent
+            coev = type(self).from_box(
+                self.category.coeval_factory(exp, left=True))
+            return (self >> coev).trace(n, left=False)
+
+        exponent = self.dom[:n]
+        exp = exponent >> base
+        coev = type(self).from_box(
+            self.category.coeval_factory(exp, left=False))
+        return (self >> coev).trace(n, left=True)
+
+    def uncurry(self, n=1, left=False) -> Self:
+        """
+        Uncurry a combinatorial map using the evaluation box of the host
+        category.
+
+        Parameters:
+            n : The number of objects to uncurry.
+            left : Whether to uncurry on the left or right.
+        """
+        if n < 0:
+            raise ValueError
+        if not n:
+            return self
+        if not self.cod.is_exp:
+            raise ValueError
+
+        exponent = self.cod.exponent
+        if n < len(exponent):
+            raise ValueError
+
+        ev = type(self).from_box(self.category.eval_factory(self.cod, left))
+        result = self @ type(self).id(exponent) >> ev if left\
+            else type(self).id(exponent) @ self >> ev
+        remaining = n - len(exponent)
+        return result if not remaining else result.uncurry(remaining, left)
+
+
+Diagram.functor_factory = Functor
+Diagram.map_factory = CMap
 
 
 class TermBase(Box):

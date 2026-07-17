@@ -8,6 +8,12 @@ the characteristic generator of its categorical structure as an
 :func:`abc.abstractmethod`, e.g. :class:`BraidedCategory` is a
 :class:`MonoidalCategory` with an abstract :meth:`BraidedCategory.braid`.
 
+.. raw:: html
+    :file: api/architecture.html
+
+Software dependencies between modules go top-to-bottom, left-to-right and
+forgetful functors between categories go the other way.
+
 Summary
 -------
 
@@ -36,7 +42,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Generic, Type, TypeVar, ClassVar
 
-from discopy.utils import get_origin
+from discopy.utils import classproperty, get_origin
 
 
 class Category[C0, C1: Category](ABC):
@@ -57,9 +63,13 @@ class Category[C0, C1: Category](ABC):
     >>> assert List([3]) << List([1, 2]) == List([1, 2, 3])
     """
     ob: ClassVar[Type[C0]]
-    ar: ClassVar[Type[C1]]
+    factory: ClassVar[Type[C1]]
     dom: C0
     cod: C0
+
+    #: Backward-compatible alias for :attr:`factory`, since types are
+    #: themselves the objects of diagrams.
+    ar = classproperty(lambda cls: cls.factory)
 
     @classmethod
     @abstractmethod
@@ -104,25 +114,25 @@ class Category[C0, C1: Category](ABC):
     __lshift__ = __lrshift__ = lambda self, other: other.then(self)
 
 
-class Monoid[C0, C1: Monoid](Category[C0, C1]):
+class ColouredMonoid[C0, C1: ColouredMonoid](Category[C0, C1]):
     """
-    A monoid is a category with ``then`` given by ``tensor``.
+    A coloured monoid is a category whose sequential composition ``then`` is
+    given by a monoidal ``tensor``, with the objects ``C0`` (its colours) as
+    the boundaries of its morphisms.
 
-    Note
-    ----
-    Usually, a monoid is expected to have :class:`type(None)` as its object
-    type. We do not enforce this constraint so that :class:`monoidal.Ty` can
-    instead take colours as objects.
+    An ordinary :obj:`Monoid` is the special case with a single, trivial
+    colour, i.e. :class:`type(None)`. We do not enforce this so
+    that e.g. :class:`monoidal.Ty` can take colours as objects.
     """
     @classmethod
-    @abstractmethod
-    def tensor(cls) -> C1:
-        """The empty tensor, i.e. the monoidal unit."""
+    def unit(cls) -> C1:
+        """The monoidal unit, i.e. the empty tensor ``cls()``."""
+        return cls()
 
     @classmethod
     def id(cls, dom: C0 = None) -> C1:
         """The monoidal unit, seen as an identity morphism."""
-        return cls.tensor()
+        return cls.unit()
 
     @abstractmethod
     def tensor(self, *objects: C1) -> C1:
@@ -136,7 +146,12 @@ class Monoid[C0, C1: Monoid](Category[C0, C1]):
         return self.tensor(other)
 
 
-class MonoidalCategory[C0: Monoid, C1: MonoidalCategory](Category[C0, C1]):
+# A monoid is a coloured monoid with a single, trivial colour.
+type Monoid[C1: ColouredMonoid] = ColouredMonoid[type(None), C1]
+
+
+class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](
+        Category[C0, C1]):
     """
     A monoidal category is a :class:`Category` with a method :code:`tensor` for
     both its objects and its morphisms.
@@ -186,7 +201,7 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
         """
 
 
-class ResiduatedMonoid[C0, C1: ResiduatedMonoid](Monoid[C0, C1]):
+class ResiduatedMonoid[C0, C1: ResiduatedMonoid](ColouredMonoid[C0, C1]):
     """
     A monoid is residuated when it comes with methods ``over`` and ``under``
     with syntactic sugar ``<<`` and ``>>``.

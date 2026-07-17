@@ -71,7 +71,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from discopy import messages, tensor, frobenius
-from discopy.cat import ar_factory
+from discopy.cat import factory
 from discopy.matrix import backend
 from discopy.tensor import Dim, Tensor
 from discopy.utils import factory_name, assert_isinstance
@@ -151,7 +151,7 @@ class Qudit(Ob):
     __setstate__ = Digit.__setstate__
 
 
-@ar_factory
+@factory
 class Ty(frobenius.Ty):
     """
     A circuit type is a frobenius type with :class:`Digit` and :class:`Qudit`
@@ -174,7 +174,7 @@ class Ty(frobenius.Ty):
     generator_factory = Ob
 
 
-@ar_factory
+@factory
 class Circuit(tensor.Diagram[complex]):
     """
     A circuit is a tensor diagram with bits and qubits as ``dom`` and ``cod``.
@@ -906,11 +906,11 @@ class Functor(frobenius.Functor):
     """ :class:`Circuit`-valued functor. """
     dom = cod = Circuit
 
-    def __init__(self, ob, ar, dom=None, cod=None):
-        if isinstance(ob, Mapping):
-            ob = {x: qubit ** y if isinstance(y, int) else y
-                  for x, y in ob.items()}
-        super().__init__(ob, ar, dom=dom, cod=cod)
+    def __init__(self, ob_map, ar_map, dom=None, cod=None):
+        if isinstance(ob_map, Mapping):
+            ob_map = {x: qubit ** y if isinstance(y, int) else y
+                      for x, y in ob_map.items()}
+        super().__init__(ob_map, ar_map, dom=dom, cod=cod)
 
 
 def index2bitstring(i: int, length: int) -> tuple[int, ...]:

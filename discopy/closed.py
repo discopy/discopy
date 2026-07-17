@@ -24,6 +24,7 @@ Summary
     Curry
     Sum
     Functor
+    CMap
 
 Axioms
 ------
@@ -51,12 +52,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, ClassVar
 
-from discopy import cat, monoidal, biclosed, markov
+from discopy import cat, monoidal, biclosed, markov, hypergraph
 from discopy.abc import ClosedCategory
-from discopy.cat import ar_factory
+from discopy.cat import factory
 
 
-@ar_factory
+@factory
 class Ty(biclosed.Ty):
     """
     A closed type is a biclosed type in a symmetric category where left and
@@ -84,7 +85,7 @@ class Exp(biclosed.Exp):
         return f"({self.exponent} >> {self.base})"
 
 
-@ar_factory
+@factory
 class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
     """
     A closed diagram is both a markov and a biclosed diagram.
@@ -154,9 +155,9 @@ class Functor(biclosed.Functor, markov.Functor):
     that preserves evaluation and currying.
 
     Parameters:
-        ob (Mapping[Ty, Ty]) :
+        ob_map (Mapping[Ty, Ty]) :
             Map from atomic :class:`Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
+        ar_map (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
     """
     dom = cod = Diagram
@@ -168,11 +169,14 @@ class Functor(biclosed.Functor, markov.Functor):
         return super().__call__(other)
 
 
-class Hypergraph(markov.Hypergraph):
-    functor = Functor
+class CMap(biclosed.CMap):
+    category = Diagram
+    require_planar = False
 
 
-Diagram.hypergraph_factory = Hypergraph
+Diagram.functor_factory = Functor
+Diagram.map_factory = CMap
+Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.copy_factory = Copy
 Diagram.braid_factory = Swap
 Diagram.curry_factory = Curry

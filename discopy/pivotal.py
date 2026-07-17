@@ -57,7 +57,7 @@ from __future__ import annotations
 
 from discopy import cat, rigid, traced
 from discopy.abc import PivotalCategory
-from discopy.cat import ar_factory
+from discopy.cat import factory
 
 
 class Ob(rigid.Ob):
@@ -71,8 +71,16 @@ class Ob(rigid.Ob):
     l = r = property(lambda self: type(self)(
         self.name, (self.z + 1) % 2, dom=self.cod, cod=self.dom))
 
+    def dagger(self) -> Ob:
+        """
+        The dagger of a pivotal object coincides with its left and right
+        adjoints, i.e. it flips the parity of the winding number ``z`` and
+        swaps its domain and codomain colours.
+        """
+        return self.l
 
-@ar_factory
+
+@factory
 class Ty(rigid.Ty):
     """
     A pivotal type is a rigid type with pivotal objects inside.
@@ -83,7 +91,7 @@ class Ty(rigid.Ty):
     generator_factory = Ob
 
 
-@ar_factory
+@factory
 class PRO(rigid.PRO, Ty):
     """
     A pivotal PRO is a natural number ``n``
@@ -97,7 +105,7 @@ class PRO(rigid.PRO, Ty):
     l = r = property(lambda self: self)
 
 
-@ar_factory
+@factory
 class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
     """
     A pivotal diagram is a rigid diagram and a traced diagram
@@ -238,9 +246,9 @@ class Functor(rigid.Functor):
     A pivotal functor is a rigid functor on a pivotal category.
 
     Parameters:
-        ob (Mapping[Ty, Ty]) :
+        ob_map (Mapping[Ty, Ty]) :
             Map from atomic :class:`Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
+        ar_map (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
     """
     dom = cod = Diagram
