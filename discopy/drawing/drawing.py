@@ -925,7 +925,8 @@ class Drawing(TracedCategory):
             :align: center
         """
         from discopy.monoidal import Colour
-        frame_colour = frame_colour or DRAWING_ATTRIBUTES['frame_colour'](self)
+        frame_colour = frame_colour or \
+            BOX_DRAWING_ATTRIBUTES['frame_colour'](self)
         colour = Colour(frame_colour)
         args = (self, ) + others
         method = "then" if draw_vertically else "tensor"
