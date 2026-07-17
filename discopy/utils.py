@@ -285,8 +285,8 @@ def is_tuple(typ: type) -> bool:
 def assert_isinstance(object_, cls: type | tuple[type, ...]):
     """ Raise ``TypeError`` if ``object`` is not instance of ``cls``. """
     classes = cls if isinstance(cls, tuple) else (cls, )
-    cls_name = ' | '.join(map(factory_name, classes))
     if not any(isinstance(object_, get_origin(cls)) for cls in classes):
+        cls_name = ' | '.join(map(factory_name, classes))
         raise TypeError(messages.TYPE_ERROR.format(
             cls_name, factory_name(type(object_))))
 

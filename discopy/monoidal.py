@@ -239,7 +239,10 @@ class Ty(cat.Ob, FreeMonoid):
                 (cat.Ob, ) if self.generator_factory is Wire else ()))
         inside = tuple(map(self.cast_wire, inside))
         FreeMonoid.__init__(self, inside, dom, cod, _scan)
-        cat.Ob.__init__(self, str(self))
+        # ``name`` is computed lazily by ``__getattr__``: building
+        # ``str(self)`` on every construction dominates the cost when
+        # hypergraphs iterate over box domains (each element access builds
+        # a fresh singleton Ty).
 
     def count(self, obj: cat.Ob) -> int:
         """
@@ -288,6 +291,15 @@ class Ty(cat.Ob, FreeMonoid):
             parts.append(f'{name}("")' if s == '' else s)
         return ' @ '.join(parts)
 
+    def __getattr__(self, attr):
+        # ``name`` is derived from ``inside`` (see ``__init__``); compute it on
+        # first access and cache it so repeated reads stay cheap.
+        if attr == "name":
+            name = self.__dict__["name"] = str(self)
+            return name
+        raise AttributeError(
+            f"{factory_name(type(self))!r} object has no attribute {attr!r}")
+
     def __iter__(self):
         for i in range(len(self)):
             yield self[i]
@@ -307,9 +319,8 @@ class Ty(cat.Ob, FreeMonoid):
             state['dom'] = white
         if 'cod' not in state:
             state['cod'] = white
+        state.pop('name', None)  # recomputed lazily by __getattr__
         self.__dict__.update(state)
-        if not hasattr(self, 'name'):
-            self.name = str(self)
 
     def to_tree(self):
         tree = {
@@ -1136,16 +1147,17 @@ class Box(cat.Box, Diagram):
     >>> assert Id(Ty()) @ f == f == f @ Id(Ty())
     >>> assert f == f[::-1][::-1]
 
-    Coloured wires carry a region colour on either side, and a box must be
-    globular, i.e. its domain and codomain share the same boundary colours.
+    Coloured wires separate matplotlib regions.
 
     >>> red, green, blue = map(Colour, ("red", "green", "blue"))
     >>> x = Ty(Wire("x", red, green))
     >>> y = Ty(Wire("y", green, blue))
     >>> z = Ty(Wire("z", red, blue))
     >>> coloured = Box("coloured", x @ y, z)
-    >>> assert coloured.dom.dom == red == coloured.cod.dom
-    >>> assert coloured.dom.cod == blue == coloured.cod.cod
+    >>> coloured.draw(path='docs/_static/monoidal/coloured-box.png')
+
+    .. image:: /_static/monoidal/coloured-box.png
+        :align: center
     """
 
     def __init__(self, name: str, dom: Ty, cod: Ty, **params):
@@ -1241,6 +1253,21 @@ class Bubble(cat.Bubble, Box):
 
     .. image:: /_static/monoidal/frame-vertical-args.png
         :align: center
+
+    Coloured frames distinguish their outside, frame and slot regions.
+
+    >>> red, blue = map(Colour, ("red", "blue"))
+    >>> x = Ty(Wire("x", red, blue))
+    >>> f = Box("f", x, x)
+    >>> frame = f.bubble(
+    ...     dom=Ty(Wire("boundary", blue, red)),
+    ...     cod=Ty(Wire("boundary", blue, red)),
+    ...     draw_as_frame=True)
+    >>> frame.draw(path='docs/_static/monoidal/coloured-frame.png')
+
+    .. image:: /_static/monoidal/coloured-frame.png
+        :align: center
+
     """
 
     ob = Ty
@@ -1255,6 +1282,7 @@ class Bubble(cat.Bubble, Box):
         Box.__init__(self, self.name, self.dom, self.cod)
         self.drawing_name = "" if drawing_name is None else drawing_name
         self.draw_vertically = draw_vertically
+        self.frame_colour = DRAWING_ATTRIBUTES['frame_colour'](self)
         can_draw_as_square = len(args) == 1
         can_draw_as_bubble = (can_draw_as_square
                               and len(self.dom) == len(self.arg.dom)
@@ -1283,6 +1311,7 @@ class Bubble(cat.Bubble, Box):
             name=self.drawing_name)
         if self.draw_as_frame:
             kwargs['draw_vertically'] = self.draw_vertically
+            kwargs['frame_colour'] = self.frame_colour
         else:
             kwargs['draw_as_square'] = self.draw_as_square
         return getattr(Drawing, method)(*args, **kwargs)
