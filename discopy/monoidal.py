@@ -319,8 +319,7 @@ class Ty(cat.Ob, FreeMonoid):
             state['dom'] = white
         if 'cod' not in state:
             state['cod'] = white
-        self.__dict__.update(state)
-        cat.Ob.__init__(self, type(self).__name__)
+        cat.Ob.__setstate__(self, state)
 
     def to_tree(self):
         tree = {
@@ -399,8 +398,8 @@ class PRO(Ty):
             state = {"n": len(state["_objects"])}
         state.setdefault("dom", white)
         state.setdefault("cod", white)
-        self.__dict__.update(state)
-        cat.Ob.__init__(self, type(self).__name__)
+        state.setdefault("name", type(self).__name__)
+        cat.Ob.__setstate__(self, state)
 
     @property
     def inside(self):
