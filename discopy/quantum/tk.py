@@ -398,7 +398,7 @@ def from_tk(tk_circuit):
         circuit = circuit >> swaps >> Id(left) @ box @ Id(right) >> swaps[::-1]
     circuit = circuit >> Id().tensor(*(
         Bra(bras[i]) if i in bras
-        else Discard() if x.name == 'qubit' else Id(bit)
+        else Discard() if x == qubit else Id(bit)
         for i, x in enumerate(circuit.cod)))
     if tk_circuit.scalar != 1:
         circuit = circuit @ MixedScalar(tk_circuit.scalar)
