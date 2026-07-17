@@ -733,7 +733,11 @@ class Matplotlib(Backend):
         if ylim is not None:
             self.axis.set_ylim(*ylim)
         if path is not None:
-            plt.savefig(path)
+            # Drop the Matplotlib version from the PNG metadata so that the
+            # images in docs/_static are reproducible across environments,
+            # rather than differing by a few bytes on every version bump.
+            is_png = str(path).endswith(".png")
+            plt.savefig(path, metadata={"Software": None} if is_png else None)
             plt.close()
         if show:
             plt.show()
