@@ -54,7 +54,7 @@ We can check the Eckmann-Hilton argument, up to interchanger.
 from __future__ import annotations
 
 import itertools
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Iterator, Callable, TYPE_CHECKING
 from warnings import warn
 
@@ -79,15 +79,41 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class Colour(cat.Ob):
-    """A 0-cell, drawn using its matplotlib-compatible name."""
+    """
+    A 0-cell, drawn using its matplotlib-compatible ``name``.
+
+    An optional ``label`` gives the region a human-readable name for the
+    drawing legend (e.g. a category) while still filling with ``name``. It
+    is ignored for equality and hashing, so two regions with the same fill
+    colour still merge.
+    """
 
     name: str = "white"
+    label: "str | None" = field(default=None, compare=False)
 
     def __post_init__(self):
         assert_isinstance(self.name, str)
+        if self.label is not None:
+            assert_isinstance(self.label, str)
+
+    @property
+    def legend_label(self) -> str:
+        """ The name shown for this colour in a drawing legend. """
+        return self.name if self.label is None else self.label
 
     def __repr__(self):
-        return f"{factory_name(type(self))}({self.name!r})"
+        label = "" if self.label is None else f", label={self.label!r}"
+        return f"{factory_name(type(self))}({self.name!r}{label})"
+
+    def to_tree(self):
+        tree = super().to_tree()
+        if self.label is not None:
+            tree['label'] = self.label
+        return tree
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(tree['name'], label=tree.get('label'))
 
 
 white = Colour("white")
