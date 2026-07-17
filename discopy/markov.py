@@ -78,12 +78,12 @@ from __future__ import annotations
 
 from discopy import symmetric, monoidal, hypergraph
 from discopy.abc import MarkovCategory
-from discopy.cat import ar_factory
+from discopy.cat import factory
 from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import assert_isatomic, factory_name
 
 
-@ar_factory
+@factory
 class Diagram(symmetric.Diagram, MarkovCategory):
     """
     A Markov diagram is a symmetric diagram with :class:`Copy` boxes.
@@ -270,9 +270,9 @@ class Functor(symmetric.Functor):
     A Markov functor is a symmetric functor that preserves copies.
 
     Parameters:
-        ob (Mapping[monoidal.Ty, monoidal.Ty]) :
+        ob_map (Mapping[monoidal.Ty, monoidal.Ty]) :
             Map from :class:`monoidal.Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
+        ar_map (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) :
             The codomain, :code:`Diagram` by default.
 
@@ -307,15 +307,13 @@ class Functor(symmetric.Functor):
         return super().__call__(other)
 
 
-class Hypergraph(hypergraph.Hypergraph):
-    functor = Functor
-
-    def to_diagram(self, make_causal_first=True) -> Diagram:
-        return super().to_diagram(
-            make_causal_first=make_causal_first)
+class CMap(symmetric.CMap):
+    category = Diagram
 
 
-Diagram.hypergraph_factory = Hypergraph
+Diagram.functor_factory = Functor
+Diagram.map_factory = CMap
+Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.braid_factory = Swap
 Diagram.trace_factory = Trace

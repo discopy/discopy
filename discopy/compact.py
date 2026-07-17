@@ -57,13 +57,13 @@ Coherence
 >>> Diagram.use_hypergraph_equality = False
 """
 
-from discopy import symmetric, ribbon
+from discopy import symmetric, ribbon, hypergraph
 from discopy.abc import CompactCategory
-from discopy.cat import ar_factory
+from discopy.cat import factory
 from discopy.pivotal import Ob, Ty  # noqa: F401
 
 
-@ar_factory
+@factory
 class Diagram(symmetric.Diagram, ribbon.Diagram, CompactCategory):
     """
     A compact diagram is a symmetric diagram and a ribbon diagram.
@@ -123,9 +123,9 @@ class Functor(symmetric.Functor, ribbon.Functor):
     A compact functor is both a symmetric functor and a ribbon functor.
 
     Parameters:
-        ob (Mapping[pivotal.Ty, pivotal.Ty]) :
+        ob_map (Mapping[pivotal.Ty, pivotal.Ty]) :
             Map from atomic :class:`pivotal.Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
+        ar_map (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
     """
     dom = cod = Diagram
@@ -136,12 +136,16 @@ class Functor(symmetric.Functor, ribbon.Functor):
         return ribbon.Functor.__call__(self, other)
 
 
-class Hypergraph(symmetric.Hypergraph):
-    functor = Functor
+class CMap(symmetric.CMap):
+    category = Diagram
+    require_oriented = False
+    require_connected = False
 
 
 Id = Diagram.id
 
 Diagram.braid_factory = Swap
-Diagram.hypergraph_factory = Hypergraph
+Diagram.functor_factory = Functor
+Diagram.map_factory = CMap
+Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap

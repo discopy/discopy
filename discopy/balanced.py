@@ -34,9 +34,9 @@ from __future__ import annotations
 
 from copy import copy
 
-from discopy import monoidal, braided, traced
+from discopy import monoidal, braided, traced, hypergraph
 from discopy.abc import BalancedCategory
-from discopy.cat import ar_factory
+from discopy.cat import factory
 from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import factory_name, assert_isatomic
 
@@ -70,7 +70,7 @@ def double_rail(typ: monoidal.Ty, width=0.25) -> monoidal.Ty:
         type(typ)(*[ob for ob in typ.inside for _ in range(2)]), width)
 
 
-@ar_factory
+@factory
 class Diagram(braided.Diagram, traced.Diagram, BalancedCategory):
     """
     A balanced diagram is a braided diagram with :class:`Twist`.
@@ -278,9 +278,9 @@ class Functor(braided.Functor, traced.Functor):
     A balanced functor is a braided functor that twists.
 
     Parameters:
-        ob (Mapping[monoidal.Ty, monoidal.Ty]) :
+        ob_map (Mapping[monoidal.Ty, monoidal.Ty]) :
             Map from :class:`monoidal.Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
+        ar_map (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) :
             The codomain, :code:`Diagram` by default.
     """
@@ -294,11 +294,9 @@ class Functor(braided.Functor, traced.Functor):
         return braided.Functor.__call__(self, other)
 
 
-class Hypergraph(traced.Hypergraph):
-    functor = Functor
-
-
-Diagram.hypergraph_factory = Hypergraph
+Diagram.functor_factory = Functor
+Diagram.map_factory = traced.CMap
+Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.braid_factory = Braid
 Diagram.twist_factory = Twist
 Diagram.trace_factory = Trace

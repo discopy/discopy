@@ -37,6 +37,113 @@ Axioms
 
 .. image:: /_static/rigid/typed-snake-equation.png
     :align: center
+
+Objects may be coloured on both sides, i.e. an object ``F : a -> b`` is a
+wire separating a region ``a`` on its left from a region ``b`` on its
+right. Taking an adjoint reverses the direction of the wire, hence it
+swaps the two regions: ``G = F.r : b -> a``. The unit and counit of the
+adjunction, i.e. ``eta = Cap(G, F)`` and ``epsilon = Cup(F, G)``, then
+satisfy the snake equations, one for ``F`` and one for ``G``, for any
+colours ``a`` and ``b``:
+
+>>> from discopy.monoidal import Colour
+>>> a = Colour('cornflowerblue', label='Function')
+>>> b = Colour('palegreen', label='Morphism')
+>>> F = Ty(Ob('F', dom=a, cod=b))
+>>> G = F.r
+>>> eta, epsilon = Cap(G, F), Cup(F, G)
+>>> left_snake = Id(F) @ eta >> epsilon @ Id(F)
+>>> right_snake = eta @ Id(G) >> Id(G) @ epsilon
+>>> assert left_snake.normal_form() == Id(F)
+>>> assert right_snake.normal_form() == Id(G)
+
+>>> from discopy.drawing import Equation
+>>> Equation(left_snake, Id(F)).draw(
+...     figsize=(3, 2), legend=True,
+...     path='docs/_static/rigid/coloured-snake-equation.png')
+>>> Equation(right_snake, Id(G)).draw(
+...     figsize=(3, 2), legend=True,
+...     path='docs/_static/rigid/coloured-snake-equation-G.png')
+
+.. image:: /_static/rigid/coloured-snake-equation.png
+    :align: center
+
+.. image:: /_static/rigid/coloured-snake-equation-G.png
+    :align: center
+
+This is an instance of the free-forgetful adjunction between sets and
+monoids, with ``F`` the free monoid functor, sending a set of generators to
+the monoid of words over it, and ``G`` the forgetful functor, sending a
+monoid to its underlying set. The unit ``eta`` sends a generator to the
+length-one word on it, while the counit ``epsilon`` evaluates a word of
+elements of a monoid as their product:
+
+>>> from functools import lru_cache
+>>> from discopy.abc import ColouredMonoid
+>>> from discopy.python.function import Function
+>>> from discopy.cat import Ob as CatOb, Functor, Transformation
+
+>>> class Z3(ColouredMonoid):
+...     ''' The monoid of integers modulo three, with addition. '''
+...     ob, dom, cod = type(None), None, None
+...     def __init__(self, n):
+...         self.n = n % 3
+...     def __eq__(self, other):
+...         return isinstance(other, Z3) and self.n == other.n
+...     def __repr__(self):
+...         return f"Z3({self.n})"
+...     @classmethod
+...     def id(cls, dom=None):
+...         return cls(0)
+...     def tensor(self, *others):
+...         return Z3(self.n + sum(other.n for other in others))
+
+>>> @lru_cache
+... def Free(X):
+...     ''' The free monoid on a set ``X``, i.e. words over ``X``. '''
+...     class Word(ColouredMonoid):
+...         ob, dom, cod = type(None), None, None
+...         def __init__(self, xs=()):
+...             self.xs = list(xs)
+...         def __eq__(self, other):
+...             return isinstance(other, Word) and self.xs == other.xs
+...         def __repr__(self):
+...             return f"Word({self.xs})"
+...         @classmethod
+...         def id(cls, dom=None):
+...             return cls()
+...         def tensor(self, *others):
+...             return Word(self.xs + sum((other.xs for other in others), []))
+...     return Word
+
+>>> class Morphism(Function):
+...     ''' A morphism of monoids; homomorphism not enforced. '''
+
+The forgetful functor ``G`` does nothing to objects, it just views a monoid
+as a set, while the free functor ``F`` sends a set to its words. We spell
+out the two objects needed below as ``cat.Ob`` instances so that
+``Transformation`` can validate the domains and codomains of its components:
+
+>>> X_, M_ = CatOb('X'), CatOb('M')
+>>> Id_set = Functor({X_: str, M_: Z3}, {}, cod=Function)
+>>> GF = Functor({X_: Free(str), M_: Free(Z3)}, {}, cod=Function)
+>>> Id_monoid = Functor({M_: Z3}, {}, cod=Morphism)
+>>> FG = Functor({M_: Free(Z3)}, {}, cod=Morphism)
+
+>>> eta = Transformation(
+...     lambda obj: Function(
+...         lambda x: Free(Id_set(obj)[0])([x]), Id_set(obj), GF(obj)),
+...     Id_set, GF)
+>>> epsilon = Transformation(
+...     lambda obj: Morphism(
+...         lambda w: Id_monoid(obj)[0].id().tensor(*w.xs),
+...         FG(obj), Id_monoid(obj)),
+...     FG, Id_monoid)
+
+>>> X, M = str, Z3
+>>> assert all(eta(X_)(x) == Free(X)([x]) for x in ('a', 'b'))
+>>> assert epsilon(M_)(Free(M)([Z3(1), Z3(1), Z3(2)])) == Z3(1 + 1 + 2)
+>>> assert all(epsilon(M_)(eta(M_)(x)) == x for x in (Z3(0), Z3(1), Z3(2)))
 """
 
 from __future__ import annotations
@@ -47,7 +154,7 @@ from typing import Iterator
 
 from discopy import cat, monoidal, biclosed, messages
 from discopy.abc import Pregroup, RigidCategory
-from discopy.cat import ob_factory, ar_factory
+from discopy.cat import factory
 from discopy.utils import (
     assert_isinstance,
     factory_name,
@@ -57,13 +164,20 @@ from discopy.utils import (
 )
 
 
-class Ob(cat.Ob):
+class Ob(monoidal.Wire):
     """
     A rigid object has adjoints :meth:`Ob.l` and :meth:`Ob.r`.
 
     Parameters:
         name : The name of the object.
         z : The winding number.
+        dom : The domain colour.
+        cod : The codomain colour.
+
+    Note
+    ----
+    Taking an adjoint reverses the direction of the wire, hence it
+    swaps the domain and codomain colours.
 
     Example
     -------
@@ -77,30 +191,40 @@ class Ob(cat.Ob):
             del state['_z']
         super().__setstate__(state)
 
-    def __init__(self, name: str, z: int = 0):
+    def __init__(self, name: str, z: int = 0,
+                 dom: monoidal.Colour = monoidal.white,
+                 cod: monoidal.Colour = monoidal.white):
         assert_isinstance(z, int)
         self.z = z
-        super().__init__(name)
+        super().__init__(name, dom, cod)
+
+    def dagger(self) -> Ob:
+        raise AxiomError("Rigid types have no dagger, use pivotal instead.")
 
     @property
     def l(self) -> Ob:
         """ The left adjoint of the object. """
-        return type(self)(self.name, self.z - 1)
+        return type(self)(self.name, self.z - 1, dom=self.cod, cod=self.dom)
 
     @property
     def r(self) -> Ob:
         """ The right adjoint of the object. """
-        return type(self)(self.name, self.z + 1)
+        return type(self)(self.name, self.z + 1, dom=self.cod, cod=self.dom)
 
     def __eq__(self, other):
-        return cat.Ob.__eq__(self, other) and self.z == other.z
+        return monoidal.Wire.__eq__(self, other)\
+            and isinstance(other, Ob) and self.z == other.z
 
     def __hash__(self):
         return hash(repr(self))
 
     def __repr__(self):
-        return factory_name(type(self))\
-            + f"({repr(self.name)}{', z=' + repr(self.z) if self.z else ''})"
+        cls_name = factory_name(type(self))
+        z_repr = ', z=' + repr(self.z) if self.z else ''
+        if self.dom == self.cod == monoidal.white:
+            return f"{cls_name}({self.name!r}{z_repr})"
+        return f"{cls_name}({self.name!r}{z_repr}, " \
+            f"dom={self.dom!r}, cod={self.cod!r})"
 
     def __str__(self):
         return str(self.name) + (
@@ -114,11 +238,11 @@ class Ob(cat.Ob):
 
     @classmethod
     def from_tree(cls, tree):
-        name, z = tree['name'], tree.get('z', 0)
-        return cls(name=name, z=z)
+        base = monoidal.Wire.from_tree(tree)  # Parses the dom/cod colours.
+        return cls(base.name, tree.get('z', 0), dom=base.dom, cod=base.cod)
 
 
-@ob_factory
+@factory
 class Ty(Pregroup, biclosed.Ty):
     """
     A rigid type is a biclosed type with rigid objects inside.
@@ -152,12 +276,12 @@ class Ty(Pregroup, biclosed.Ty):
     @property
     def l(self) -> Ty:
         """ The left adjoint of the type. """
-        return self.ob(*[x.l for x in self.inside[::-1]])
+        return self.ar(*[x.l for x in self.inside[::-1]])
 
     @property
     def r(self) -> Ty:
         """ The right adjoint of the type. """
-        return self.ob(*[x.r for x in self.inside[::-1]])
+        return self.ar(*[x.r for x in self.inside[::-1]])
 
     @property
     def z(self) -> int:
@@ -165,10 +289,29 @@ class Ty(Pregroup, biclosed.Ty):
         assert_isatomic(self)
         return self.inside[0].z
 
-    ob_factory = Ob
+    def unwind(self) -> Ty:
+        """
+        Rotate an atomic type until its winding number is zero.
+
+        The previous normalisation applied ``.r`` once, which is only an
+        involution for pivotal types: it sent rigid ``n.r`` to ``n.r.r``.
+
+        Example
+        -------
+        >>> n = Ty('n')
+        >>> assert n.r.r.unwind() == n.l.unwind() == n
+        """
+        typ = self
+        while typ.z > 0:
+            typ = typ.l
+        while typ.z < 0:
+            typ = typ.r
+        return typ
+
+    generator_factory = Ob
 
 
-@ob_factory
+@factory
 class PRO(monoidal.PRO, Ty):
     """
     A rigid PRO is a natural number ``n`` seen as a rigid type of length ``n``.
@@ -199,7 +342,7 @@ class Layer(monoidal.Layer):
     r = property(lambda self: self.rotate(left=False))
 
 
-@ar_factory
+@factory
 class Diagram(biclosed.Diagram, RigidCategory):
     """
     A rigid diagram is a biclosed diagram
@@ -566,13 +709,12 @@ class Box(biclosed.Box, Diagram):
         return biclosed.Box.__repr__(self)[:-1] + (
             f', z={self.z})' if self.z else ')')
 
-    def __eq__(self, other):
-        if isinstance(other, Box):
-            return cat.Box.__eq__(self, other) and self.z == other.z
-        return monoidal.Box.__eq__(self, other)
-
-    def __hash__(self):
-        return hash(cat.Arrow.__repr__(self))
+    def setoid(self):
+        """
+        Rigid boxes are equal when they are equal as :class:`cat.Box` and their
+        winding numbers `z` are also equal.
+        """
+        return super().setoid() + (self.z, )
 
     def rotate(self, left=False):
         dom, cod = (
@@ -632,7 +774,7 @@ class Cup(BinaryBoxConstructor, Box):
         assert_isatomic(right, Ty)
         left.assert_isadjoint(right)
         name = f"Cup({left}, {right})"
-        dom, cod = left @ right, self.ob()
+        dom, cod = left @ right, self.ob(dom=left.dom, cod=left.dom)
         BinaryBoxConstructor.__init__(self, left, right)
         Box.__init__(self, name, dom, cod, draw_as_wires=True)
 
@@ -670,7 +812,7 @@ class Cap(BinaryBoxConstructor, Box):
         assert_isatomic(right, Ty)
         right.assert_isadjoint(left)
         name = f"Cap({left}, {right})"
-        dom, cod = self.ob(), left @ right
+        dom, cod = self.ob(dom=left.dom, cod=left.dom), left @ right
         BinaryBoxConstructor.__init__(self, left, right)
         Box.__init__(self, name, dom, cod, draw_as_wires=True)
 
@@ -691,9 +833,9 @@ class Functor(biclosed.Functor):
     A rigid functor is a biclosed functor that preserves cups and caps.
 
     Parameters:
-        ob (Mapping[Ty, Ty]) :
+        ob_map (Mapping[Ty, Ty]) :
             Map from atomic :class:`Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
+        ar_map (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
 
     Example
@@ -763,8 +905,8 @@ def nesting(cls: type, factory: Callable) -> Callable[[Ty, Ty], Diagram]:
 
 def to_rigid(self):
     return biclosed.Functor(
-        ob=lambda x: Ty(x.inside[0].name),
-        ar=lambda f: Box(f.name, to_rigid(f.dom), to_rigid(f.cod)),
+        ob_map=lambda x: Ty(x.inside[0].name),
+        ar_map=lambda f: Box(f.name, to_rigid(f.dom), to_rigid(f.cod)),
         cod=Diagram)(self)
 
 
