@@ -44,11 +44,7 @@ def draw(graph: PlaneGraph, **params):
     if params.get('legend', False) and not params.get('to_tikz', False):
         colours = Backend.region_colours(graph)
         if colours:
-            # Make room for the legend by widening the figure rather than
-            # squeezing the diagram: grow the figure and the data width by
-            # the legend's width plus a margin, in inches, keeping the
-            # diagram at the same scale and leaving a constant gap between
-            # the diagram and the legend.
+            # Widen the figure by the legend width rather than squeeze diagram.
             longest = max(len(c.legend_label) for c in colours.values())
             legend_inches = DEFAULT['legend_base_width']\
                 + DEFAULT['legend_char_width'] * longest
