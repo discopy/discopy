@@ -239,6 +239,11 @@ class Ty(cat.Ob, FreeMonoid):
                 (cat.Ob, ) if self.generator_factory is Wire else ()))
         inside = tuple(map(self.cast_wire, inside))
         FreeMonoid.__init__(self, inside, dom, cod, _scan)
+        # A type is identified by its ``inside``, ``dom`` and ``cod``, not by
+        # a name. We still set the class name here -- a cheap constant, unlike
+        # the ``str(self)`` this used to build on every construction -- so a
+        # type satisfies the ``cat.Ob`` interface it subclasses.
+        self.name = type(self).__name__
 
     def count(self, obj: cat.Ob) -> int:
         """
@@ -287,17 +292,19 @@ class Ty(cat.Ob, FreeMonoid):
             parts.append(f'{name}("")' if s == '' else s)
         return ' @ '.join(parts)
 
-    @property
-    def name(self):
+    def __lt__(self, other):
         """
-        A type is identified by its ``inside``, ``dom`` and ``cod``, not by a
-        name. This reports the class name so that a type still satisfies the
-        :class:`cat.Ob` interface (which it subclasses) without paying to build
-        ``str(self)`` on every construction -- the cost that dominates when a
-        hypergraph iterates over box domains, building a fresh singleton type
-        for each element.
+        Types are totally ordered by the lexicographic order on their string
+        form, e.g. ``Ty('a') < Ty('a', 'b') < Ty('b')``. The remaining
+        comparisons are filled in by :func:`functools.total_ordering` on the
+        :class:`cat.Ob` base class.
+
+        >>> x, y, z = map(Ty, "xyz")
+        >>> assert sorted([z, x @ y, x, y]) == [x, x @ y, y, z]
         """
-        return type(self).__name__
+        if not isinstance(other, Ty):
+            return NotImplemented
+        return str(self) < str(other)
 
     def __iter__(self):
         for i in range(len(self)):
@@ -318,8 +325,8 @@ class Ty(cat.Ob, FreeMonoid):
             state['dom'] = white
         if 'cod' not in state:
             state['cod'] = white
-        state.pop('name', None)  # ``name`` is a property, never stored
         self.__dict__.update(state)
+        self.name = type(self).__name__  # normalise across dump versions
 
     def to_tree(self):
         tree = {
@@ -391,14 +398,15 @@ class PRO(Ty):
                  cod: Colour = None, _scan: bool = True):
         self.n = inside if isinstance(inside, int) else len(inside)
         self.dom = self.cod = white
+        self.name = type(self).__name__
 
     def __setstate__(self, state):
         if "n" not in state:
             state = {"n": len(state["_objects"])}
         state.setdefault("dom", white)
         state.setdefault("cod", white)
-        state.pop("name", None)  # ``name`` is a property, never stored
         self.__dict__.update(state)
+        self.name = type(self).__name__  # normalise across dump versions
 
     @property
     def inside(self):
@@ -470,6 +478,7 @@ class Dim(Ty):
         cat.FreeCategory.__init__(
             self, inside, white if dom is None else dom,
             white if cod is None else cod, _scan=False)
+        self.name = type(self).__name__
 
     def __getitem__(self, key):
         if isinstance(key, slice):
