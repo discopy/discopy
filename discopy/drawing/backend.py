@@ -283,11 +283,16 @@ class Backend(ABC):
             and not box.bubble_opening and not box.bubble_closing
 
     def draw_wires(self, graph, **params):
-        # Braids, swaps, cups and caps are drawn as their own smooth curves.
+        # Coloured regions are filled along the ordinary wire geometry, so
+        # coloured cups and caps must use the same paths to avoid gaps.
+        draw_smooth_cups = not self.region_colours(graph)
+        # Braids and swaps, plus uncoloured cups and caps, are drawn as their
+        # own smooth curves.
         for node in graph.nodes:
             if node.kind == "box" and self._is_crossing(node.box):
                 self.draw_braid(graph.positions, node)
-            elif node.kind == "box" and self._is_cup_or_cap(node.box):
+            elif node.kind == "box" and draw_smooth_cups\
+                    and self._is_cup_or_cap(node.box):
                 self.draw_cup_or_cap(graph.positions, node)
         for source, target in self.visible_edges(graph):
             source_position = graph.positions[source]
@@ -299,8 +304,10 @@ class Backend(ABC):
                 self.draw_wire_label(source.x, *source_position, **params)
             if source_position == target_position:
                 continue
-            if any(n.kind == "box" and (self._is_crossing(n.box)
-                   or self._is_cup_or_cap(n.box)) for n in (source, target)):
+            if any(n.kind == "box" and (
+                    self._is_crossing(n.box)
+                    or draw_smooth_cups and self._is_cup_or_cap(n.box))
+                    for n in (source, target)):
                 continue  # cups, caps and crossings are drawn on their own
             bend_out, bend_in = source.kind == "box", target.kind == "box"
             self.draw_wire(
