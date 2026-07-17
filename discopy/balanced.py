@@ -32,7 +32,7 @@ The axiom for the twist holds on the nose.
 
 from __future__ import annotations
 
-from discopy import monoidal, braided, traced
+from discopy import monoidal, braided, traced, hypergraph
 from discopy.abc import BalancedCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty  # noqa: F401
@@ -198,12 +198,9 @@ class Functor(braided.Functor, traced.Functor):
         return braided.Functor.__call__(self, other)
 
 
-class Hypergraph(traced.Hypergraph):
-    functor = Functor
-
-
-Diagram.hypergraph_factory = Hypergraph
+Diagram.functor_factory = Functor
 Diagram.map_factory = traced.CMap
+Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.braid_factory = Braid
 Diagram.twist_factory = Twist
 Diagram.trace_factory = Trace

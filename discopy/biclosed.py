@@ -457,7 +457,7 @@ class Functor(monoidal.Functor):
 
 
 class CMap(monoidal.CMap):
-    functor = Functor
+    category = Diagram
 
     require_causal = False
 
@@ -532,6 +532,7 @@ class CMap(monoidal.CMap):
         return result if not remaining else result.uncurry(remaining, left)
 
 
+Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
 
 

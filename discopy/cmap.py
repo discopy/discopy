@@ -46,7 +46,7 @@ import shutil
 import subprocess
 from typing import Any, TYPE_CHECKING, ClassVar, Literal
 
-from discopy import messages
+from discopy import messages, hypergraph
 from discopy.cat import Ob
 from discopy.abc import CompactCategory, NamedGeneric, Pregroup
 from discopy.python.finset import Permutation
@@ -59,7 +59,7 @@ from discopy.utils import (
 )
 
 if TYPE_CHECKING:
-    from discopy.monoidal import Ty, Diagram, Box, Functor
+    from discopy.monoidal import Ob, Ty, Diagram, Box
 
 
 class PortKind(StrEnum):
@@ -124,7 +124,7 @@ class Port:
 
 
 class CMap[C0: Pregroup, C1: CMap](
-    CompactCategory[C0, C1], NamedGeneric['functor']
+    CompactCategory[C0, C1], NamedGeneric['category']
 ):
     r"""
     An open combinatorial map, i.e. a diagram represented as a bijection
@@ -257,12 +257,12 @@ class CMap[C0: Pregroup, C1: CMap](
         :align: center
     """
 
-    functor: ClassVar[Functor]
+    category: ClassVar[Diagram] = None
     require_planar: ClassVar[bool] = True
     require_causal: ClassVar[bool] = False
     require_oriented: ClassVar[bool] = False
     require_connected: ClassVar[bool] = False
-    category = classproperty(lambda cls: cls.functor.dom)
+    functor = classproperty(lambda cls: cls.category.functor_factory)
     ob = classproperty(lambda cls: cls.category.ob)
 
     dom: C0
@@ -715,8 +715,7 @@ class CMap[C0: Pregroup, C1: CMap](
         ()
         """
         category = type(old).ar
-        factory = cls if cls.functor is not None else cls[
-            category, category.functor]
+        factory = cls if cls.category is not None else cls[category]
         return factory.functor(
             ob_map=lambda typ: typ, ar_map=factory.from_box,
             dom=category, cod=factory)(old)
@@ -738,7 +737,8 @@ class CMap[C0: Pregroup, C1: CMap](
     @classmethod
     def cups(cls, left: Ty, right: Ty) -> CMap:
         """ A cup encoded as boundary wiring between adjoint types. """
-        if not getattr(left, "r", left[::-1]) == right:
+        adjoint = left.r if hasattr(left, "r") else left[::-1]
+        if adjoint != right:
             raise AxiomError
         size = len(left)
         edge = Permutation.from_transpositions(
@@ -749,7 +749,8 @@ class CMap[C0: Pregroup, C1: CMap](
     @classmethod
     def caps(cls, left: Ty, right: Ty) -> CMap:
         """ A cap encoded as boundary wiring between adjoint types. """
-        if not getattr(left, "r", left[::-1]) == right:
+        adjoint = left.r if hasattr(left, "r") else left[::-1]
+        if adjoint != right:
             raise AxiomError
         size = len(left)
         edge = Permutation.from_transpositions(
@@ -1119,7 +1120,7 @@ class CMap[C0: Pregroup, C1: CMap](
         given by the edge permutation. See documentation of
         :func:``Hypergraph.from_map`` for an example.
         """
-        return self.category.hypergraph_factory.from_map(self)
+        return hypergraph.Hypergraph[self.category].from_map(self)
 
     def to_dot(
             self, engine="dot", seed=None, graph_attr=None,

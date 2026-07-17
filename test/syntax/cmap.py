@@ -1,7 +1,7 @@
 import pytest
 from pytest import raises
 
-from discopy import biclosed, closed, compact, symmetric
+from discopy import closed, biclosed, compact, symmetric
 from discopy.python.finset import Permutation
 from discopy.utils import AxiomError
 
