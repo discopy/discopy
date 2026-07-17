@@ -431,6 +431,19 @@ def test_draw_box_min_width():
     return Box('$\\Lambda$', x, x, min_width=3) @ Box('f', x, x)
 
 
+@draw_and_compare('wire-custom-margin.png', aspect='equal')
+def test_draw_wire_custom_margin():
+    x, custom = Ty('x'), Ty('custom_margin_wire')
+    custom.inside[0].right_margin = 3
+    return Id(x @ custom @ x)
+
+
+@draw_and_compare('wire-auto-margin.png', aspect='equal')
+def test_draw_wire_auto_margin():
+    x = Ty('x')
+    return Box('f', x, x @ Ty('a_long_output_type'))
+
+
 @draw_and_compare('long-latex-name.png', aspect='equal', tol=100)
 def test_draw_long_latex_name():
     x = Ty('x')

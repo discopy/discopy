@@ -31,7 +31,7 @@ from matplotlib.path import Path
 from discopy.drawing import Node, Point
 
 from discopy.config import (  # noqa: F401
-    DRAWING_ATTRIBUTES as ATTRIBUTES,
+    BOX_DRAWING_ATTRIBUTES as ATTRIBUTES,
     DRAWING_DEFAULT as DEFAULT, COLORS, SHAPES)
 
 if TYPE_CHECKING:
