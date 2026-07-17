@@ -126,9 +126,9 @@ Dinaturality
 ...     assert sliding_left and sliding_right
 """
 
-from discopy import monoidal
+from discopy import monoidal, hypergraph
 from discopy.abc import TracedCategory
-from discopy.cat import ar_factory
+from discopy.cat import factory
 from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import (
     factory_name,
@@ -137,7 +137,7 @@ from discopy.utils import (
 )
 
 
-@ar_factory
+@factory
 class Diagram(monoidal.Diagram, TracedCategory):
     """
     A traced diagram is a monoidal diagram with :class:`Trace` boxes.
@@ -222,9 +222,9 @@ class Functor(monoidal.Functor):
     A traced functor is a monoidal functor that preserves traces.
 
     Parameters:
-        ob (Mapping[monoidal.Ty, monoidal.Ty]) :
+        ob_map (Mapping[monoidal.Ty, monoidal.Ty]) :
             Map from :class:`monoidal.Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
+        ar_map (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) :
             The codomain, :code:`Diagram` by default.
 
@@ -238,8 +238,10 @@ class Functor(monoidal.Functor):
     >>> f = Box('$\\\\lambda x . (x, 1 + 1 / x)$', x, x @ x)
     >>> g = Box('$\\\\frac{1 + \\\\sqrt{5}}{2}$', Ty(), x)
     >>> F = Functor(
-    ...     ob={x: (float, )},
-    ...     ar={f: lambda x=1.: (x, 1 + 1. / x), g: lambda: (1 + sqrt(5)) / 2},
+    ...     ob_map={x: (float, )},
+    ...     ar_map={
+    ...         f: lambda x=1.: (x, 1 + 1. / x),
+    ...         g: lambda: (1 + sqrt(5)) / 2},
     ...     cod=python.Function)
     >>> with python.Function.no_type_checking:
     ...     assert F(f.trace())() == F(g)()
@@ -258,16 +260,13 @@ class Functor(monoidal.Functor):
         return super().__call__(other)
 
 
-class Hypergraph(monoidal.Hypergraph):
-    functor = Functor
-
-
 class CMap(monoidal.CMap):
-    functor = Functor
-    require_acyclic = False
+    category = Diagram
+    require_causal = False
 
 
-Diagram.hypergraph_factory = Hypergraph
+Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
 Diagram.trace_factory = Trace
+Hypergraph = hypergraph.Hypergraph[Diagram]
 Id = Diagram.id

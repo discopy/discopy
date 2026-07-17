@@ -184,8 +184,8 @@ def _full_adder():
 
 def _adder_functor(full_adder):
     return Functor(
-        ob={full_adder.dom[:1]: int},
-        ar={full_adder: full_adder_function}, cod=Function)
+        ob_map={full_adder.dom[:1]: int},
+        ar_map={full_adder: full_adder_function}, cod=Function)
 
 
 # --- k-fold tensor ---------------------------------------------------------

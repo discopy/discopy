@@ -51,7 +51,8 @@ from networkx import (
 from networkx.algorithms.isomorphism import is_isomorphic
 
 from discopy import cmap, messages
-from discopy.abc import MonoidalCategory, NamedGeneric
+from discopy.abc import (
+    HypergraphCategory, MarkovCategory, MonoidalCategory, NamedGeneric)
 from discopy.drawing import Node
 from discopy.python.finset import Permutation
 from discopy.utils import (
@@ -93,7 +94,7 @@ Mapping from :class:`Spider` to atomic :class:`frobenius.Ty`.
 """
 
 
-class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
+class Hypergraph(MonoidalCategory, NamedGeneric['category']):
     """
     A hypergraph is given by:
 
@@ -145,10 +146,14 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
     >>> from discopy.frobenius import Ty, Diagram
     >>> assert H.category.ob == Ty and H.category == Diagram
 
-    They are also parameterised by a ``Functor`` called by :meth:`to_diagram`.
+    The :class:`Functor` used by :meth:`from_diagram` is read off the category
+    itself, i.e. ``H.functor == H.category.functor_factory``.
 
     >>> from discopy.frobenius import Functor
     >>> assert H.functor == Functor
+
+    Thus subclasses of :class:`Diagram` get hypergraphs of their own category
+    without a dedicated ``Hypergraph`` class, e.g. ``Hypergraph[Diagram]``.
 
     Examples
     --------
@@ -177,9 +182,9 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
     >>> assert (f @ g).n_spiders == 4
     >>> assert (f @ g).wires == ((0, 1), (((0,), (2,)), ((1,), (3,))), (2, 3))
     """
-    functor = None
+    category = None
 
-    category = classproperty(lambda cls: cls.functor.dom)
+    functor = classproperty(lambda cls: cls.category.functor_factory)
     ob = classproperty(lambda cls: cls.category.ob)
 
     def __init__(
@@ -430,7 +435,8 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
 
     @classmethod
     def cups(cls, left, right):
-        if not getattr(left, 'r', left[::-1]) == right:
+        adjoint = left.r if hasattr(left, "r") else left[::-1]
+        if adjoint != right:
             raise AxiomError
         dom_wires = tuple(range(len(left))) + tuple(reversed(range(len(left))))
         return cls(
@@ -438,7 +444,8 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
 
     @classmethod
     def caps(cls, left, right):
-        if not getattr(left, 'r', left[::-1]) == right:
+        adjoint = left.r if hasattr(left, "r") else left[::-1]
+        if adjoint != right:
             raise AxiomError
         cod_wires = tuple(range(len(left))) + tuple(reversed(range(len(left))))
         return cls(
@@ -499,7 +506,8 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
         dom, cod = (self.dom[n:], self.cod[n:]) if left\
             else (self.dom[:-n], self.cod[:-n])
         traced_wires = self.dom[:n] if left else self.dom[len(self.dom) - n:]
-        traced_wires_r = getattr(traced_wires, "r", traced_wires[::-1])
+        traced_wires_r = traced_wires.r if hasattr(traced_wires, "r")\
+            else traced_wires[::-1]
         return self.caps(traced_wires_r, traced_wires) @ dom\
             >> traced_wires_r @ self\
             >> self.cups(traced_wires_r, traced_wires) @ cod if left\
@@ -633,7 +641,8 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
     @classmethod
     def from_map(cls, old) -> Hypergraph:
         """
-        Forget orientation and return the underlying bijective hypergraph.
+        Forget orientation and return the underlying bijective hypergraph
+        given by the edge permutation.
 
         >>> from discopy.compact import Ty, Box, CMap, Hypergraph
         >>> x, y = map(Ty, "xy")
@@ -662,10 +671,10 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
             spider = len(spider_types)
             spider_types.append(old.ports[hypergraph_to_canonical[i]].obj)
             flat_wires[i] = flat_wires[j] = spider
-        spider_types.extend(old.scalars)
+        spider_types.extend(old.loops)
         wires = cls.rebracket(
             None, flat_wires, dom=old.dom, boxes=old.boxes)
-        factory = cls if cls.functor is not None else cls[type(old).functor]
+        factory = cls[old.category]
         return factory(
             old.dom, old.cod, old.boxes, wires,
             tuple(spider_types), old.offsets)
@@ -678,13 +687,13 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
             return self.make_bijective().to_map()
         factory = getattr(self.category, "map_factory", None)
         if factory is None:
-            factory = cmap.CMap[type(self).category, type(self).functor]
+            factory = cmap.CMap[type(self).category]
         relabeling = Permutation(self._hypergraph_to_canonical())
         edges = Permutation(self.bijection).conjugate(relabeling)
-        scalars = tuple(self.spider_types[i] for i in self.scalar_spiders)
+        loops = tuple(self.spider_types[i] for i in self.scalar_spiders)
         return factory(
             self.dom, self.cod, self.boxes, edges, offsets=self.offsets,
-            scalars=scalars)
+            loops=loops)
 
     @property
     def is_bijective(self) -> bool:
@@ -1089,6 +1098,16 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
         assert self.is_causal
         return self
 
+    @property
+    def is_generator(self):
+        """ Whether the hypergraph is a single generator. """
+        return len(self.boxes) == 1 and self == self.from_box(self.boxes[0])
+
+    @property
+    def generator(self):
+        """ Return the `f` from `Hypergraph.from_box(f)` if `is_generator`. """
+        return self.boxes[0] if self.is_generator else None
+
     @classmethod
     def from_box(cls, box: Box) -> Hypergraph:
         """
@@ -1133,16 +1152,14 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
         ...           H.spiders(1, 2, x @ y)]:
         ...     assert back_n_forth(d) == d
         """
-        return cls.functor(
-            ob=lambda typ: typ, ar=cls.from_box,
+        factory = cls[type(old).ar]
+        return factory.functor(
+            ob_map=lambda typ: typ, ar_map=cls.from_box,
             dom=type(old), cod=cls)(old)
 
-    def to_diagram(self, make_causal_first: bool = False) -> Diagram:
+    def to_diagram(self) -> Diagram:
         """
         Downgrade to :class:`Diagram`, called by :code:`print`.
-
-        Parameters:
-            make_causal_first : The order in which we downgrade.
 
         Note
         ----
@@ -1155,6 +1172,13 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
           :meth:`make_causal` (introducing traces) and finally
           :meth:`make_bijective` (introducing copies).
 
+        We use the first order whenever :attr:`category` is a subclass of
+        :class:`HypergraphCategory`, i.e. it has a self-dual supply of spiders,
+        or when it has cups and caps. Otherwise, if it is a subclass of
+        :class:`MarkovCategory`, i.e. it has a supply of comonoids, we use the
+        second order and introduce copies. When the category has neither, a
+        non-monogamous hypergraph cannot be downgraded and we raise an error.
+
         Examples
         --------
         >>> from discopy.frobenius import Ty, Box, Hypergraph as H
@@ -1166,10 +1190,15 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
         x @ Swap(x, x) >> v[::-1] @ x
         """
         if self.scalar_spiders or not self.is_causal or not self.is_monogamous:
-            if make_causal_first:
-                return self.make_causal().make_bijective().to_diagram()
-            else:
+            if issubclass(self.category, HypergraphCategory):
                 return self.make_monogamous().make_causal().to_diagram()
+            if issubclass(self.category, MarkovCategory):
+                return self.make_causal().make_bijective().to_diagram()
+            if not self.is_monogamous and getattr(
+                    self.category, "cup_factory", None) is None:
+                raise AxiomError(messages.NO_STRUCTURE_TO_DOWNGRADE.format(
+                    factory_name(self.category)))
+            return self.make_monogamous().make_causal().to_diagram()
         diagram, scan = self.category.id(self.dom), self.dom_wires
         for depth, (box, offset) in enumerate(zip(self.boxes, self.offsets)):
             dom_wires, cod_wires = self.box_wires[depth]

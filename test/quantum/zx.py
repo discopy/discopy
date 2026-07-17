@@ -61,8 +61,8 @@ def test_Functor():
     x = frobenius.Ty('x')
     f = frobenius.Box('f', x, x)
     F = frobenius.Functor(
-        ob=lambda _: PRO(1),
-        ar=lambda f: Z(len(f.dom), len(f.cod)),
+        ob_map=lambda _: PRO(1),
+        ar_map=lambda f: Z(len(f.dom), len(f.cod)),
         cod=Diagram)
     assert F(f) == Z(1, 1)
     assert F(frobenius.Swap(x, x)) == Diagram.permutation([1, 0]) == SWAP

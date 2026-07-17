@@ -26,7 +26,7 @@ def test_Hypergraph_str():
 def test_Hypergraph_repr():
     x, y = map(Ty, "xy")
     assert repr(H.spiders(1, 0, x @ y))\
-        == "frobenius.Hypergraph("\
+        == "hypergraph.Hypergraph[Diagram]("\
            "dom=frobenius.Ty(frobenius.Ob('x'), frobenius.Ob('y')), "\
            "cod=frobenius.Ty(), boxes=(), wires=((0, 1), (), ()))"
 
@@ -111,6 +111,10 @@ def test_non_self_dual():
     with compact.Diagram.hypergraph_equality:
         assert compact.Cap(x.r, x).to_hypergraph().to_diagram()\
             == compact.Cap(x.r, x)
+def test_non_adjoint_wire():
+    from discopy import compact
+    x = compact.Ty('x')
+    K = compact.Hypergraph
     # A cap with non-adjoint legs (x, x) is rejected at construction.
     with raises(AxiomError):
         K(compact.Ty(), x @ x, (), ((), (), (0, 0)))
@@ -166,3 +170,31 @@ def test_simplify():
         assert residual_block == ref == simpl
 
     assert simpl == ref
+
+
+def test_parameterisation():
+    from discopy import frobenius
+    assert H == Hypergraph[frobenius.Diagram]
+    assert H.category == frobenius.Diagram
+    assert H.functor == frobenius.Functor == H.category.functor_factory
+    assert H.ob == frobenius.Ty
+
+
+def test_subclass_to_hypergraph():
+    from discopy import frobenius
+    from discopy.cat import factory
+
+    @factory
+    class Circuit(frobenius.Diagram):
+        """ A frobenius diagram with hypergraphs of its own category. """
+
+    class Gate(frobenius.Box, Circuit):
+        """ A gate is a box in a circuit. """
+
+    x = Ty('x')
+    f, g = Gate('f', x, x), Gate('g', x, x)
+    assert (f >> g).to_hypergraph().category == Circuit
+    assert isinstance((f >> g).to_hypergraph().to_diagram(), Circuit)
+    with Circuit.hypergraph_equality:
+        assert f >> g == (f >> g)
+        assert hash(f >> g) == hash(f >> g)

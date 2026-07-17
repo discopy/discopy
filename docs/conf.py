@@ -33,6 +33,7 @@ extensions = ['sphinx.ext.autodoc',
               'youtube',
               'bases-fullname',
               'sphinxcontrib.bibtex',
+              'sphinxcontrib.tikz',
               'nbsphinx',
               'IPython.sphinxext.ipython_console_highlighting'
               ]

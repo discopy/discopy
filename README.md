@@ -31,6 +31,7 @@ DisCoPy is a Python toolkit for computing with [string diagrams](https://en.wiki
 * a `Drawing` data structure for labeled graphs embedded in the plane
 * a `Term` data structure for lambda terms in the internal language of (bi)closed monoidal categories and their translation back and forth to diagrams
 * a `Hypergraph` data structure for string diagrams in hypergraph categories and its restrictions to symmetric, traced, compact and Markov categories
+* a combinantorial map data structure for string diagrams in compact categories and its restrictions to symmetric, (bi)closed and traced categories. The orientation on boxes can also help to enforce planarity.
 * a `Stream` data structure, an implementation of [monoidal streams](https://arxiv.org/abs/2212.14494) as a [category with delayed feedback](https://doi.org/10.1051/ita:2002009)
 * the `Int`-construction, also called the [geometry of interaction](https://ncatlab.org/nlab/show/Geometry+of+Interaction), i.e. the free tortile/compact closed category on a balanced/symmetric traced category
 
@@ -59,21 +60,20 @@ Or you can keep scrolling down, skip the theory and go straight to the examples 
 - the tensor of diagrams is decomposed in terms of composition and whiskering i.e. `f @ g = f @ g.dom >> f.cod @ g`, this is biased in the sense that `f` happens before `g` so that diagrams really live in a [premonoidal category](https://en.wikipedia.org/wiki/Premonoidal_category)
 - *the first gotcha of DisCoPy:* `Box` is a subclass of `Diagram` with a cyclic reference `list(box.inside) == [Layer(Ty(), box, Ty())]`
 - every categorical structure is implemented with the factory method pattern so that e.g. the method `Diagram.swap` computes the symmetry of arbitrary types with `Diagram.swap_factory = Swap` as subroutine for generating subclasses of `Box` for the symmetry of atomic types
-- *the second gotcha of DisCoPy:* each `C: Category` comes with a class attribute `ar` such that `C.ar = C`; this happens with the decorator `@ar_factory` and it allows for e.g. the subclass `Box` to know that it lives inside a bigger `Diagram` category
+- *the second gotcha of DisCoPy:* each `C: Category` comes with a class attribute `ar` such that `C.ar = C`; this happens with the decorator `@factory` and it allows for e.g. the subclass `Box` to know that it lives inside a bigger `Diagram` category
 
 ## Example: Cooking
 
 This example is inspired from Pawel Sobocinski's blog post [Crema di Mascarpone and Diagrammatic Reasoning](https://graphicallinearalgebra.net/2015/05/06/crema-di-mascarpone-rules-of-the-game-part-2-and-diagrammatic-reasoning/).
 
 ```python
-from discopy.utils import ob_factory, ar_factory
+from discopy.utils import factory
 from discopy.symmetric import Ty, Box, Diagram, Swap
 
-@ob_factory
 class Ingredient(Ty):
   "The objects of the category of recipe diagrams."
 
-@ar_factory
+@factory
 class Recipe(Diagram):
   ob = Ingredient
 
@@ -214,9 +214,9 @@ from discopy.grammar import pregroup
 from discopy.tensor import Dim, Tensor
 
 F = pregroup.Functor(
-  {s: 1, n: 2},
-  {Alice: [1, 0], loves: [[0, 1], [1, 0]], Bob: [0, 1]},
-  cod=Tensor)
+    ob_map={s: 1, n: 2},
+    ar_map={Alice: [1, 0], loves: [[0, 1], [1, 0]], Bob: [0, 1]},
+    cod=Tensor)
 
 assert F(sentence)
 ```
@@ -234,7 +234,7 @@ def wiring(word):
         box = Box(word.name, n @ n, s)
         return Cap(n.r, n) @ Cap(n, n.l) >> n.r @ box @ n.l
 
-W = pregroup.Functor(ob={s: s, n: n}, ar=wiring)
+W = pregroup.Functor(ob_map={s: s, n: n}, ar_map=wiring)
 
 rewrite_steps = W(sentence).normalize()
 sentence.to_gif(*rewrite_steps)
@@ -269,8 +269,8 @@ A, B = Box('A', N, N), Box('B', N, N)
 L = Box('L', N @ S @ N, N @ S @ N)
 swaps = D.permutation((2, 1, 0), N @ S @ N)
 G = pregroup.Functor(
-    ob={s: Ty[T](S, S), n: Ty[T](N, N)},
-    ar={Alice: A, loves: swaps >> L, Bob: B},
+    ob_map={s: Ty[T](S, S), n: Ty[T](N, N)},
+    ar_map={Alice: A, loves: swaps >> L, Bob: B},
     cod=Int(D))
 
 ALB_trace = (A @ S @ B >> L).trace(left=True).trace(left=False).foliation()

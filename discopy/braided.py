@@ -11,6 +11,7 @@ Summary
     :nosignatures:
     :toctree:
 
+    Ob
     Diagram
     Box
     Braid
@@ -62,12 +63,22 @@ from collections.abc import Callable
 
 from discopy import monoidal
 from discopy.abc import BraidedCategory
-from discopy.cat import ar_factory
+from discopy.cat import factory
 from discopy.monoidal import Ty, Match
 from discopy.utils import factory_name, BinaryBoxConstructor, assert_isatomic
 
 
-@ar_factory
+class Ob(monoidal.Wire):
+    """
+    A braided object is a self-dagger :class:`monoidal.Wire`. From braided
+    categories onwards colours stop making sense, i.e. we cannot add colours to
+    braids or swaps in any meaningful way, so its colours are always white.
+    """
+    def dagger(self) -> Ob:
+        return self
+
+
+@factory
 class Diagram(monoidal.Diagram, BraidedCategory):
     """
     A braided diagram is a monoidal diagram with :class:`Braid` boxes.
@@ -231,9 +242,9 @@ class Functor(monoidal.Functor):
     A braided functor is a monoidal functor that preserves braids.
 
     Parameters:
-        ob (Mapping[monoidal.Ty, monoidal.Ty]) :
+        ob_map (Mapping[monoidal.Ty, monoidal.Ty]) :
             Map from :class:`monoidal.Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
+        ar_map (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) :
             The codomain, :code:`Diagram` by default.
     """
