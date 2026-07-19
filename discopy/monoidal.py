@@ -265,10 +265,7 @@ class Ty(cat.Ob, FreeMonoid):
                 (cat.Ob, ) if self.generator_factory is Wire else ()))
         inside = tuple(map(self.cast_wire, inside))
         FreeMonoid.__init__(self, inside, dom, cod, _scan)
-        # ``name`` is computed lazily by ``__getattr__``: building
-        # ``str(self)`` on every construction dominates the cost when
-        # hypergraphs iterate over box domains (each element access builds
-        # a fresh singleton Ty).
+        cat.Ob.__init__(self, type(self).__name__)
 
     def count(self, obj: cat.Ob) -> int:
         """
@@ -327,14 +324,19 @@ class Ty(cat.Ob, FreeMonoid):
             parts.append(f'{name}("")' if s == '' else s)
         return ' @ '.join(parts)
 
-    def __getattr__(self, attr):
-        # ``name`` is derived from ``inside`` (see ``__init__``); compute it on
-        # first access and cache it so repeated reads stay cheap.
-        if attr == "name":
-            name = self.__dict__["name"] = str(self)
-            return name
-        raise AttributeError(
-            f"{factory_name(type(self))!r} object has no attribute {attr!r}")
+    def __lt__(self, other):
+        """
+        Types are totally ordered by length first, then lexicographically on
+        the objects inside, e.g. ``Ty('a') < Ty('b') < Ty('a', 'b')``. The
+        remaining comparisons are filled in by :func:`functools.total_ordering`
+        on the :class:`cat.Ob` base class.
+
+        >>> x, y, z = map(Ty, "xyz")
+        >>> assert sorted([z, x @ y, x, y]) == [x, y, z, x @ y]
+        """
+        assert_isinstance(other, Ty)
+        return (len(self.inside), self.inside)\
+            < (len(other.inside), other.inside)
 
     def __iter__(self):
         for i in range(len(self)):
@@ -355,8 +357,7 @@ class Ty(cat.Ob, FreeMonoid):
             state['dom'] = white
         if 'cod' not in state:
             state['cod'] = white
-        state.pop('name', None)  # recomputed lazily by __getattr__
-        self.__dict__.update(state)
+        cat.Ob.__setstate__(self, state)
 
     def to_tree(self):
         tree = {
@@ -444,15 +445,15 @@ class PRO(Ty):
                  cod: Colour = None, _scan: bool = True):
         self.n = inside if isinstance(inside, int) else len(inside)
         self.dom = self.cod = white
-        self.name = str(self)
+        cat.Ob.__init__(self, type(self).__name__)
 
     def __setstate__(self, state):
         if "n" not in state:
             state = {"n": len(state["_objects"])}
         state.setdefault("dom", white)
         state.setdefault("cod", white)
-        state.setdefault("name", f"PRO({state['n']})")
-        self.__dict__.update(state)
+        state.setdefault("name", type(self).__name__)
+        cat.Ob.__setstate__(self, state)
 
     @property
     def inside(self):
@@ -524,7 +525,7 @@ class Dim(Ty):
         cat.FreeCategory.__init__(
             self, inside, white if dom is None else dom,
             white if cod is None else cod, _scan=False)
-        cat.Ob.__init__(self, str(self))
+        cat.Ob.__init__(self, type(self).__name__)
 
     def __getitem__(self, key):
         if isinstance(key, slice):
