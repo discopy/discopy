@@ -290,16 +290,17 @@ class Ty(cat.Ob, FreeMonoid):
 
     def __lt__(self, other):
         """
-        Types are totally ordered by the lexicographic order on their string
-        form, e.g. ``Ty('a') < Ty('a', 'b') < Ty('b')``. The remaining
-        comparisons are filled in by :func:`functools.total_ordering` on the
-        :class:`cat.Ob` base class.
+        Types are totally ordered by length first, then lexicographically on
+        the objects inside, e.g. ``Ty('a') < Ty('b') < Ty('a', 'b')``. The
+        remaining comparisons are filled in by :func:`functools.total_ordering`
+        on the :class:`cat.Ob` base class.
 
         >>> x, y, z = map(Ty, "xyz")
-        >>> assert sorted([z, x @ y, x, y]) == [x, x @ y, y, z]
+        >>> assert sorted([z, x @ y, x, y]) == [x, y, z, x @ y]
         """
         assert_isinstance(other, Ty)
-        return str(self) < str(other)
+        return (len(self.inside), self.inside)\
+            < (len(other.inside), other.inside)
 
     def __iter__(self):
         for i in range(len(self)):
