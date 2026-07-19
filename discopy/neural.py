@@ -209,21 +209,23 @@ class CMap(compact.CMap):
     :meth:`as_network` wraps it back into a :class:`Network` with a fresh
     module inside, for use inside a larger model.
 
+    :attr:`ports` lists the diagram's input ports, then each box's domain
+    ports followed by its codomain ports (reversed), then the diagram's
+    output ports, see :attr:`discopy.cmap.CMap.ports`.
+
     Example
     -------
     >>> f = Network('f', Dim(2), Dim(3, 2))
     >>> fm = f.to_map()
-    >>> fm.port_widths
+    >>> fm.port_dims  # f's dom, then f's dom, f's cod (reversed), f's cod
     (2, 2, 2, 3, 3, 2)
     """
     functor = Functor
 
     @property
-    def port_widths(self) -> tuple[int, ...]:
+    def port_dims(self) -> tuple[int, ...]:
         """ The dimension carried by each port of the map. """
-        return tuple(
-            sum(getattr(port.obj, "inside", (port.obj, )))
-            for port in self.ports)
+        return tuple(sum(port.obj.inside) for port in self.ports)
 
     @cached_property
     def module_list(self) -> "torch.nn.ModuleList":
@@ -321,7 +323,7 @@ class CMap(compact.CMap):
         """
         import torch
         ports = self.ports
-        widths = self.port_widths
+        widths = self.port_dims
         n_rounds = len(self.boxes) if n_rounds is None else n_rounds
 
         given = [x] + (list(init)

@@ -45,10 +45,10 @@ def test_network_as_box():
     assert one != other and one == one.dagger().dagger()
 
 
-def test_port_widths():
+def test_port_dims():
     f = Network('f', Dim(2, 3), Dim(4, 5, 6))
     fm = f.to_map()
-    assert fm.port_widths == (2, 3, 2, 3, 6, 5, 4, 4, 5, 6)
+    assert fm.port_dims == (2, 3, 2, 3, 6, 5, 4, 4, 5, 6)
 
 
 def test_network_module():
@@ -109,7 +109,7 @@ def test_forward_closed_map():
     grid = ring(16, cell)
     states = grid()
     assert len(states) == 16 and all(s.shape == (1, 6) for s in states)
-    init = torch.rand(5, sum(grid.port_widths))
+    init = torch.rand(5, sum(grid.port_dims))
     injected, not_injected = (
         grid(init=init, n_rounds=2, inject=inject)
         for inject in (True, False))
