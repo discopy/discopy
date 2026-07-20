@@ -168,10 +168,10 @@ Example
 ```
 
 You do not need to commit these images yourself: on every pull request the
-[`docs-static` workflow](.github/workflows/docs-static.yml) reruns the doctests
-and, whenever an image actually changed, commits the regenerated `docs/_static`
-back to your branch. If you do commit images by hand, avoid pushing changes
-that are only due to minor glitches e.g. font aliasing.
+`docs-static` job in the [build workflow](.github/workflows/build.yml) reuses
+the images drawn by the test run and, whenever one actually changed, commits the
+regenerated `docs/_static` back to your branch. If you do commit images by hand,
+avoid pushing changes that are only due to minor glitches e.g. font aliasing.
 
 ## Request features
 
