@@ -153,15 +153,26 @@ class HopfAlgebra:
     Parameters:
         unit, counit, mult, comult, antipode : The generators as diagrams.
         R : The R-matrix generator (optional).
-        antipode_inv : The inverse antipode (optional, used by :meth:`double`).
+        antipode_inv : The inverse antipode as a diagram, e.g. a composite of
+            the other generators (see :meth:`double`); computed by inverting
+            the matrix of ``antipode`` when not given, raising
+            :class:`ValueError` if the antipode is not invertible.
     """
     def __init__(self, unit, counit, mult, comult, antipode,
                  R=None, antipode_inv=None):
         self.unit, self.counit = unit, counit
         self.mult, self.comult, self.antipode = mult, comult, antipode
-        self.R, self.antipode_inv = R, antipode_inv
         self.ty = mult.cod
         self.dim = product(self.ty.inside)
+        if antipode_inv is None:
+            array = antipode.eval(dtype=complex).array.reshape(
+                self.dim, self.dim)
+            if np.isclose(np.linalg.det(array), 0):
+                raise ValueError("the antipode is not invertible")
+            antipode_inv = Box[complex](
+                'S⁻¹', self.ty, self.ty,
+                np.linalg.inv(array).reshape(-1).tolist())
+        self.R, self.antipode_inv = R, antipode_inv
 
     @property
     def generators(self):
@@ -213,8 +224,7 @@ class HopfAlgebra:
             mult=gen('∇', ty @ ty, ty, mult),
             comult=gen('Δ', ty, ty @ ty, comult),
             antipode=gen('S', ty, ty, antipode),
-            R=None if R is None else gen('R', Dim(1), ty @ ty, R),
-            antipode_inv=gen('S⁻¹', ty, ty, np.linalg.inv(antipode)))
+            R=None if R is None else gen('R', Dim(1), ty @ ty, R))
 
     def is_associative(self):
         """ ``(mult @ ty) >> mult == (ty @ mult) >> mult``. """
@@ -585,8 +595,6 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
         """
         if self.action is None:
             return self.ar(*self.inside[::-1])
-        if self.algebra.antipode_inv is None:
-            raise ValueError("the left dual needs an inverse antipode")
         return self.dual(self.algebra.antipode_inv)
 
     def qdim(self):
@@ -673,16 +681,21 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
     with its dual :attr:`Representation.r`, which carries the
     antipode-twisted action.
 
+    An intertwiner can also be built from concrete data:
+    ``Intertwiner[H](array, dom, cod)`` wraps the array in a single box, as
+    for a :class:`.tensor.Tensor` — this is how a ribbon :class:`Functor`
+    maps its generating boxes.
+
     Example
     -------
     An intertwiner ``f`` between modules is a map that commutes with the
     action, :math:`f \\circ \\rho_V = \\rho_W \\circ (1_H \\otimes f)`. We
     check this axiom for the braid on :math:`V \\otimes V`, whose product
     action :math:`\\rho_{V \\otimes V}` goes through the comultiplication
-    (see :meth:`Representation.tensor`):
+    (see :meth:`Representation.tensor`), and draw the left-hand side as the
+    :class:`.tensor.CMap` it contracts to:
 
     >>> import numpy as np
-    >>> from discopy.drawing import Equation
     >>> D = HopfAlgebra.cyclic(2).double()
     >>> e = Representation[D].anyon(0, -1)
     >>> m = Representation[D].anyon(1, 1)
@@ -691,7 +704,7 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
     >>> braid = Intertwiner[D].braid(V, V)
     >>> lhs, rhs = action >> braid, Id(D.ty) @ braid >> action
     >>> assert lhs.eval(dtype=complex).is_close(rhs.eval(dtype=complex))
-    >>> Equation(lhs, rhs).draw(path='docs/_static/hopf/intertwiner.png')
+    >>> lhs.to_map().draw(path='docs/_static/hopf/intertwiner.png')
 
     .. image:: /_static/hopf/intertwiner.png
         :align: center
@@ -705,6 +718,11 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
     ob = classproperty(
         lambda cls: Representation if cls.algebra is None
         else Representation[cls.algebra])
+
+    def __init__(self, inside, dom, cod, _scan=True):
+        if not isinstance(inside, tuple):      # concrete data: a single box
+            inside = Box('', dom, cod, inside).inside
+        super().__init__(inside, dom, cod, _scan=_scan)
 
     @classmethod
     def braid(cls, left, right, is_dagger=False):
@@ -798,8 +816,4 @@ class Functor(ribbon.Functor):
         if isinstance(other, ribbon.Braid):
             return self.cod.braid(self(other.dom[:1]), self(other.dom[1:]),
                                   is_dagger=other.is_dagger)
-        if isinstance(other, ribbon.Box) and not isinstance(
-                other, (ribbon.Cup, ribbon.Cap, ribbon.Twist)):
-            return Box(other.name, self(other.dom), self(other.cod),
-                       self.ar_map[other])
         return super().__call__(other)

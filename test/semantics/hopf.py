@@ -108,8 +108,15 @@ def test_no_r_matrix_paths():
         assert False
     except ValueError:
         pass
-    try:                             # no inverse antipode: no left dual
-        W.l
+    assert W.l.is_module()           # the inverse antipode is computed
+
+
+def test_non_invertible_antipode_is_flagged():
+    Z2 = HopfAlgebra.cyclic(2)
+    ty = Z2.ty
+    zero = Box('S', ty, ty, np.zeros((2, 2)))
+    try:
+        HopfAlgebra(Z2.unit, Z2.counit, Z2.mult, Z2.comult, zero)
         assert False
     except ValueError:
         pass
