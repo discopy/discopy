@@ -21,7 +21,16 @@ of Joyal, Street & Verity :cite:p:`JoyalEtAl96`.
 
 Note that ``import discopy.neural`` does not import ``torch``: networks can
 be built, composed and rewired without it, only evaluating their modules
-requires it.
+requires it. This mirrors :func:`discopy.matrix.backend`, where ``numpy``,
+``jax`` and ``tensorflow`` are each imported lazily inside a
+:class:`~discopy.matrix.Backend` subclass rather than at module scope, so
+importing e.g. :mod:`discopy.tensor` never forces an unused array library
+onto the user. Going further and making :meth:`CMap.forward` itself
+backend-pluggable (e.g. to run on ``jax``/``keras`` modules instead of
+``torch.nn.Module``) is a bigger design question than lazy imports: it
+would need a stand-in for ``torch.nn.Module``'s stateful
+parameters/``state_dict``/train-eval API, not just an array namespace like
+:class:`discopy.matrix.Backend`.
 
 Summary
 -------
