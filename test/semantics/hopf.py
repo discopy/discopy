@@ -383,3 +383,81 @@ def test_twist_in_diagram():
         F(twist).eval(dtype=complex).array, np.eye(2))
     assert np.allclose(
         F(twist.dagger()).eval(dtype=complex).array, np.eye(2))
+
+
+# -- the chart of the space of intertwiners -----------------------------------
+
+def _double_and_four_anyons():
+    D = HopfAlgebra.cyclic(2).double()
+    anyons = [Representation[D].anyon(f, c) for f in (0, 1) for c in (1, -1)]
+    return D, anyons, Representation[D].direct_sum(anyons)
+
+
+def test_chart_fusion_dimensions():
+    # one fusion channel per ordered pair of anyons, and Schur's lemma
+    D, anyons, V = _double_and_four_anyons()
+    assert Intertwiner[D].chart(V @ V, V).dom == Dim(16, 4, 4)
+    assert Intertwiner[D].chart(V, V).dom == Dim(4, 4)
+    assert Intertwiner[D].chart(anyons[1] @ anyons[2], anyons[3]).dom == Dim(1)
+    for anyon in anyons:
+        assert Intertwiner[D].chart(anyon, anyon).dom == Dim(1)
+
+
+def test_chart_slices_intertwine_and_span():
+    D, _, V = _double_and_four_anyons()
+    Q = Intertwiner[D].chart(V @ V, V)
+    lhs = tensor.Id(D.ty) @ Q >> V.action
+    rhs = tensor.Diagram.swap(D.ty, Dim(16)) @ tensor.Id(Dim(4, 4)) \
+        >> tensor.Id(Dim(16)) @ (V @ V).action >> Q
+    assert lhs.eval(dtype=complex).is_close(rhs.eval(dtype=complex))
+    basis = Q.eval(dtype=complex).array.reshape(16, -1)
+    assert np.allclose(basis @ basis.conj().T, np.eye(16))
+    # the identity is an intertwiner, so the chart of End(V) spans it
+    end = Intertwiner[D].chart(V, V).eval(dtype=complex).array.reshape(-1, 16)
+    identity = np.eye(4).reshape(-1)
+    assert np.allclose(end.T.conj() @ (end.conj() @ identity), identity)
+
+
+def test_chart_zero_and_no_algebra():
+    D, anyons, _ = _double_and_four_anyons()
+    try:
+        Intertwiner[D].chart(anyons[1], anyons[2])   # e -> m: no intertwiner
+        assert False
+    except ValueError:
+        pass
+    try:
+        Intertwiner.chart(anyons[1], anyons[2])
+        assert False
+    except ValueError:
+        pass
+
+
+def test_chart_needs_no_semisimplicity():
+    # Sweedler's H4 is not semisimple: no equivariant projector exists, but
+    # the nullspace of the commutant constraints still gives the chart
+    H = HopfAlgebra.sweedler()
+    W = Representation[H].regular()
+    Q = Intertwiner[H].chart(W, W)
+    assert Q.dom == Dim(4, 4)
+    lhs = tensor.Id(H.ty) @ Q >> W.action
+    rhs = tensor.Diagram.swap(H.ty, Dim(4)) @ tensor.Id(Dim(4)) \
+        >> tensor.Id(Dim(4)) @ W.action >> Q
+    assert lhs.eval(dtype=complex).is_close(rhs.eval(dtype=complex))
+
+
+def test_chart_braid_action():
+    # pre-composing with the braiding preserves the space of intertwiners,
+    # inducing a genuine (not symmetric) braid representation on parameters
+    D, _, V = _double_and_four_anyons()
+    Q3 = Intertwiner[D].chart(V @ V @ V, V)
+    r = Q3.dom.inside[0]
+    basis = Q3.eval(dtype=complex).array.reshape(r, 64, 4)
+    braid = Intertwiner[D].braid(V, V).eval(dtype=complex).array
+    braid = braid.reshape(16, 16).T
+    action = [np.kron(braid, np.eye(4)), np.kron(np.eye(4), braid)]
+    matrices = [
+        np.einsum('kva,vw,lwa->kl', basis.conj(), c, basis) for c in action]
+    b1, b2 = matrices
+    assert np.allclose(b1 @ b1.conj().T, np.eye(r))
+    assert np.allclose(b1 @ b2 @ b1, b2 @ b1 @ b2)
+    assert not np.allclose(b1 @ b1, np.eye(r))

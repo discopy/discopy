@@ -762,6 +762,66 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
             >> cls.braid(dom, dom) @ cls.id(dom.r) \
             >> cls.id(dom) @ cls.cups(dom, dom.r)
 
+    @classmethod
+    def chart(cls, dom, cod):
+        """
+        The parametrised intertwiner ``Dim(r) @ dom -> cod`` whose slices
+        form an orthonormal basis of the space of intertwiners
+        :math:`\\mathrm{Hom}_H(V, W) = \\{T : \\rho_W(h) \\circ T
+        = T \\circ \\rho_V(h)\\}`, so that every value of the ``r``
+        parameters gives an intertwiner and every intertwiner arises this
+        way. Each action is contracted once, the commutant constraints are
+        stacked over a basis of the algebra and solved by one SVD — no
+        semisimplicity is needed. Raises a :class:`ValueError` when the
+        space of intertwiners is zero.
+
+        Parameters:
+            dom : The domain :class:`Representation`.
+            cod : The codomain :class:`Representation`.
+
+        Example
+        -------
+        The fusion spaces of the toric code: for ``V`` the sum of the four
+        anyons of :math:`D(k[\\mathbb{Z}/2])`, each ordered pair of anyons
+        fuses to a unique third, so :math:`\\mathrm{Hom}(V \\otimes V, V)`
+        has dimension :math:`16`.
+
+        >>> D = HopfAlgebra.cyclic(2).double()
+        >>> V = Representation[D].direct_sum(
+        ...     [Representation[D].anyon(f, c) for f in (0, 1)
+        ...      for c in (1, -1)])
+        >>> Q = Intertwiner[D].chart(V @ V, V)
+        >>> assert Q.dom == Dim(16, 4, 4) and Q.cod == Dim(4)
+
+        The parameters spectate in the intertwiner axiom, which holds for
+        every value at once, :math:`\\rho_W \\circ (1_H \\otimes Q)
+        = Q \\circ (1_r \\otimes \\rho_{V \\otimes V})`:
+
+        >>> lhs = Id(D.ty) @ Q >> V.action
+        >>> rhs = Diagram.swap(D.ty, Dim(16)) @ Id(Dim(4, 4)) \\
+        ...     >> Id(Dim(16)) @ (V @ V).action >> Q
+        >>> assert lhs.eval(dtype=complex).is_close(rhs.eval(dtype=complex))
+        >>> lhs.to_map().draw(path='docs/_static/hopf/chart.png')
+
+        .. image:: /_static/hopf/chart.png
+            :align: center
+        """
+        H = cls.algebra
+        if H is None:
+            raise ValueError("the chart needs an algebra, use Intertwiner[H]")
+        n, d, c = H.dim, product(dom.inside), product(cod.inside)
+        rho = dom.action.eval(dtype=complex).array.reshape(n, d, d)
+        sigma = cod.action.eval(dtype=complex).array.reshape(n, c, c)
+        stack = np.concatenate([
+            np.kron(np.eye(d), sigma[i].T) - np.kron(rho[i], np.eye(c))
+            for i in range(n)])
+        _, sv, vh = np.linalg.svd(stack)
+        basis = vh[np.sum(~np.isclose(sv, 0)):].conj()
+        if not basis.size:
+            raise ValueError("the space of intertwiners is zero")
+        return cls(basis.reshape((len(basis), ) + dom.inside + cod.inside),
+                   Dim(len(basis)) @ dom, cod)
+
 
 class Functor(ribbon.Functor):
     """
