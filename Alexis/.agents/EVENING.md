@@ -1,4 +1,4 @@
-# EVENING.md — planner + reporter (runs 02:00). Follow repo-root AGENTS.md and ROUTINE.md FIRST.
+# EVENING.md — planner + reporter (runs 02:00). Follow RULES.md and ROUTINE.md FIRST.
 
 Read the repo state and the Slack channel (shared memory), think hard about the day ahead, and
 post discussion points + an executive summary for Alexis to answer in the morning. Report-only —

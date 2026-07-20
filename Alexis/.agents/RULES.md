@@ -1,4 +1,4 @@
-# AGENTS.md
+# RULES.md
 
 Rules for every agent — human-run or autonomous — that writes code in this repo.
 

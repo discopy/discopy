@@ -1,4 +1,4 @@
-# BIRDSONG.md — implementation advisor (runs 09:50). Follow repo-root AGENTS.md and ROUTINE.md FIRST.
+# BIRDSONG.md — implementation advisor (runs 09:50). Follow RULES.md and ROUTINE.md FIRST.
 
 Read Alexis's morning feedback on Evening's points and shape the day's approved work into
 well-scoped, plan-aligned TODO.md checklists. ADVISORY only: never authorize an unapproved change,
