@@ -159,6 +159,77 @@ def test_draw_region_non_colors_string():
         assert hexcode in region_hexes(box)
 
 
+def test_draw_legend():
+    from matplotlib.colors import to_hex
+    from matplotlib import pyplot as plt
+    red, green, blue = map(monoidal.Colour, ("red", "green", "blue"))
+    x = monoidal.Ty(monoidal.Wire("x", red, green))
+    y = monoidal.Ty(monoidal.Wire("y", green, blue))
+    z = monoidal.Ty(monoidal.Wire("z", red, blue))
+    drawing = monoidal.Box("f", x @ y, z).to_drawing()
+    drawing.add_box_corners()
+    backend = Matplotlib(figsize=(3, 3))
+    backend.draw_regions(drawing)
+    backend.draw_legend(drawing)
+    legend = backend.axis.get_legend()
+    labels = [text.get_text() for text in legend.get_texts()]
+    assert set(labels) == {"red", "green", "blue"}
+    # Each swatch is filled with its own colour, white is left out.
+    swatches = {to_hex(handle.get_facecolor())
+                for handle in legend.legend_handles}
+    assert swatches == {'#ff0000', '#008000', '#0000ff'}
+    plt.close(backend.axis.figure)
+
+
+def test_draw_legend_skipped_without_colours():
+    from matplotlib import pyplot as plt
+    drawing = Box("f", Ty("a"), Ty("a")).to_drawing()
+    drawing.add_box_corners()
+    backend = Matplotlib(figsize=(2, 2))
+    backend.draw_legend(drawing)
+    assert backend.axis.get_legend() is None
+    plt.close(backend.axis.figure)
+
+
+def test_draw_legend_uses_colour_label():
+    from matplotlib.colors import to_hex
+    from matplotlib import pyplot as plt
+    # A label gives the region a name in the legend while filling with its
+    # actual colour.
+    a = monoidal.Colour("cornflowerblue", label="Function")
+    b = monoidal.Colour("palegreen", label="Morphism")
+    x = monoidal.Ty(monoidal.Wire("F", dom=a, cod=b))
+    drawing = monoidal.Box("f", x, x).to_drawing()
+    drawing.add_box_corners()
+    backend = Matplotlib(figsize=(3, 3))
+    backend.draw_regions(drawing)
+    backend.draw_legend(drawing)
+    legend = backend.axis.get_legend()
+    assert [text.get_text() for text in legend.get_texts()] == [
+        "Function", "Morphism"]
+    assert sorted(to_hex(handle.get_facecolor())
+                  for handle in legend.legend_handles) == ['#6495ed', '#98fb98']
+    plt.close(backend.axis.figure)
+
+
+def test_draw_legend_figsize_and_space():
+    import tempfile
+    from matplotlib import image as mpimg
+    red, green = monoidal.Colour("red"), monoidal.Colour("green")
+    x = monoidal.Ty(monoidal.Wire("x", red, green))
+    box = monoidal.Box("f", x, x)
+    with tempfile.TemporaryDirectory() as folder:
+        plain = os.path.join(folder, "plain.png")
+        legend = os.path.join(folder, "legend.png")
+        box.draw(show=False, figsize=(3, 2), path=plain)
+        # With an explicit figsize the figure is widened by legend_space.
+        box.draw(show=False, figsize=(3, 2), legend=True, legend_space=2,
+                 path=legend)
+        assert mpimg.imread(legend).shape[1] > mpimg.imread(plain).shape[1]
+    # legend=True on an uncoloured diagram adds nothing.
+    Box("g", Ty("a"), Ty("a")).draw(show=False, legend=True)
+
+
 def test_draw_right_region_example():
     """
     Concrete example clarifying ``Matplotlib._draw_right_region`` and the
@@ -324,6 +395,19 @@ def test_draw_typed_snake():
     from discopy.rigid import Ty, Id
     x = Ty('x')
     return Equation(Id(x.r).transpose(left=True), Id(x), Id(x.l).transpose())
+
+
+# tol=50: the abutting coloured regions make this sensitive to sub-pixel
+# boundary shifts across environments, as for test_draw_coloured_frame.
+@draw_and_compare(
+    'coloured-snake-equation.png', figsize=(3, 2), legend=True, tol=50)
+def test_draw_coloured_snake_equation():
+    from discopy.rigid import Ty, Ob, Id, Cup, Cap
+    a = monoidal.Colour("cornflowerblue", label="Function")
+    b = monoidal.Colour("palegreen", label="Morphism")
+    F = Ty(Ob("F", dom=a, cod=b))
+    G = F.r
+    return Equation(Id(F) @ Cap(G, F) >> Cup(F, G) @ Id(F), Id(F))
 
 
 @tikz_and_compare("spiral.tikz", wire_labels=False, use_tikzstyles=True)

@@ -37,6 +37,113 @@ Axioms
 
 .. image:: /_static/rigid/typed-snake-equation.png
     :align: center
+
+Objects may be coloured on both sides, i.e. an object ``F : a -> b`` is a
+wire separating a region ``a`` on its left from a region ``b`` on its
+right. Taking an adjoint reverses the direction of the wire, hence it
+swaps the two regions: ``G = F.r : b -> a``. The unit and counit of the
+adjunction, i.e. ``eta = Cap(G, F)`` and ``epsilon = Cup(F, G)``, then
+satisfy the snake equations, one for ``F`` and one for ``G``, for any
+colours ``a`` and ``b``:
+
+>>> from discopy.monoidal import Colour
+>>> a = Colour('cornflowerblue', label='Function')
+>>> b = Colour('palegreen', label='Morphism')
+>>> F = Ty(Ob('F', dom=a, cod=b))
+>>> G = F.r
+>>> eta, epsilon = Cap(G, F), Cup(F, G)
+>>> left_snake = Id(F) @ eta >> epsilon @ Id(F)
+>>> right_snake = eta @ Id(G) >> Id(G) @ epsilon
+>>> assert left_snake.normal_form() == Id(F)
+>>> assert right_snake.normal_form() == Id(G)
+
+>>> from discopy.drawing import Equation
+>>> Equation(left_snake, Id(F)).draw(
+...     figsize=(3, 2), legend=True,
+...     path='docs/_static/rigid/coloured-snake-equation.png')
+>>> Equation(right_snake, Id(G)).draw(
+...     figsize=(3, 2), legend=True,
+...     path='docs/_static/rigid/coloured-snake-equation-G.png')
+
+.. image:: /_static/rigid/coloured-snake-equation.png
+    :align: center
+
+.. image:: /_static/rigid/coloured-snake-equation-G.png
+    :align: center
+
+This is an instance of the free-forgetful adjunction between sets and
+monoids, with ``F`` the free monoid functor, sending a set of generators to
+the monoid of words over it, and ``G`` the forgetful functor, sending a
+monoid to its underlying set. The unit ``eta`` sends a generator to the
+length-one word on it, while the counit ``epsilon`` evaluates a word of
+elements of a monoid as their product:
+
+>>> from functools import lru_cache
+>>> from discopy.abc import ColouredMonoid
+>>> from discopy.python.function import Function
+>>> from discopy.cat import Ob as CatOb, Functor, Transformation
+
+>>> class Z3(ColouredMonoid):
+...     ''' The monoid of integers modulo three, with addition. '''
+...     ob, dom, cod = type(None), None, None
+...     def __init__(self, n):
+...         self.n = n % 3
+...     def __eq__(self, other):
+...         return isinstance(other, Z3) and self.n == other.n
+...     def __repr__(self):
+...         return f"Z3({self.n})"
+...     @classmethod
+...     def id(cls, dom=None):
+...         return cls(0)
+...     def tensor(self, *others):
+...         return Z3(self.n + sum(other.n for other in others))
+
+>>> @lru_cache
+... def Free(X):
+...     ''' The free monoid on a set ``X``, i.e. words over ``X``. '''
+...     class Word(ColouredMonoid):
+...         ob, dom, cod = type(None), None, None
+...         def __init__(self, xs=()):
+...             self.xs = list(xs)
+...         def __eq__(self, other):
+...             return isinstance(other, Word) and self.xs == other.xs
+...         def __repr__(self):
+...             return f"Word({self.xs})"
+...         @classmethod
+...         def id(cls, dom=None):
+...             return cls()
+...         def tensor(self, *others):
+...             return Word(self.xs + sum((other.xs for other in others), []))
+...     return Word
+
+>>> class Morphism(Function):
+...     ''' A morphism of monoids; homomorphism not enforced. '''
+
+The forgetful functor ``G`` does nothing to objects, it just views a monoid
+as a set, while the free functor ``F`` sends a set to its words. We spell
+out the two objects needed below as ``cat.Ob`` instances so that
+``Transformation`` can validate the domains and codomains of its components:
+
+>>> X_, M_ = CatOb('X'), CatOb('M')
+>>> Id_set = Functor({X_: str, M_: Z3}, {}, cod=Function)
+>>> GF = Functor({X_: Free(str), M_: Free(Z3)}, {}, cod=Function)
+>>> Id_monoid = Functor({M_: Z3}, {}, cod=Morphism)
+>>> FG = Functor({M_: Free(Z3)}, {}, cod=Morphism)
+
+>>> eta = Transformation(
+...     lambda obj: Function(
+...         lambda x: Free(Id_set(obj)[0])([x]), Id_set(obj), GF(obj)),
+...     Id_set, GF)
+>>> epsilon = Transformation(
+...     lambda obj: Morphism(
+...         lambda w: Id_monoid(obj)[0].id().tensor(*w.xs),
+...         FG(obj), Id_monoid(obj)),
+...     FG, Id_monoid)
+
+>>> X, M = str, Z3
+>>> assert all(eta(X_)(x) == Free(X)([x]) for x in ('a', 'b'))
+>>> assert epsilon(M_)(Free(M)([Z3(1), Z3(1), Z3(2)])) == Z3(1 + 1 + 2)
+>>> assert all(epsilon(M_)(eta(M_)(x)) == x for x in (Z3(0), Z3(1), Z3(2)))
 """
 
 from __future__ import annotations
