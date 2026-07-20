@@ -81,6 +81,8 @@ def draw(graph: PlaneGraph, **params):
         baseline=graph.height / 2 or .5,
         tikz_options=params.get('tikz_options', None),
         show=params.get('show', True), aspect=aspect,
+        format=params.get('format', None),
+        metadata=params.get('metadata', None),
         margins=params.get('margins', DEFAULT['margins']))
 
 
@@ -953,15 +955,19 @@ class Matplotlib(Backend):
             # so that images are reproducible across environments: PNGs embed
             # the Matplotlib version as "Software", SVGs embed the current date
             # and randomise the ids of their clip paths.
-            path_str = str(path)
-            if path_str.endswith(".svg"):
-                metadata, context = {"Date": None}, {"svg.hashsalt": "discopy"}
-            elif path_str.endswith(".png"):
-                metadata, context = {"Software": None}, {}
-            else:
-                metadata, context = None, {}
+            format, path_str = params.get("format", None), str(path)
+            is_svg = format == "svg" or (
+                format is None and path_str.endswith(".svg"))
+            is_png = format == "png" or (
+                format is None and path_str.endswith(".png"))
+            metadata = params.get("metadata", None)
+            if metadata is None:
+                metadata = {"Date": None} if is_svg else\
+                    {"Software": None} if is_png else None
+            context = {
+                "svg.hashsalt": DEFAULT["svg_hashsalt"]} if is_svg else {}
             with plt.rc_context(context):
-                plt.savefig(path, metadata=metadata)
+                plt.savefig(path, format=format, metadata=metadata)
             plt.close()
         if show:
             plt.show()
