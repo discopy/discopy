@@ -37,11 +37,12 @@ from copy import copy
 from discopy import monoidal, braided, traced, hypergraph
 from discopy.abc import BalancedCategory
 from discopy.cat import factory
+from discopy.config import RIBBON_WIDTH
 from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import factory_name, assert_isatomic
 
 
-def set_rail_margins(typ: monoidal.Ty, width=0.25) -> monoidal.Ty:
+def set_rail_margins(typ: monoidal.Ty, width: float = None) -> monoidal.Ty:
     """
     Sets the :attr:`min_right_margin` of each object of an already-doubled type
     by position, so that the two rails of every ribbon (i.e. each consecutive
@@ -51,7 +52,20 @@ def set_rail_margins(typ: monoidal.Ty, width=0.25) -> monoidal.Ty:
     rotation: ``.l`` and ``.r`` reverse the order of the rails and drop the
     margin (it is a per-object attribute that cannot know about its pair-mate),
     so the margins are re-asserted by position on each doubled type built.
+
+    Parameters:
+        typ : An already-doubled type, i.e. with an even number of objects.
+        width : The gap between the two rails of each ribbon, defaults to
+            :data:`discopy.config.RIBBON_WIDTH`.
+
+    Note
+    ----
+    Each object of ``typ`` is copied before its margin is set. This is not
+    just defensive: ``typ`` is usually built by repeating the same object
+    twice (e.g. in :func:`double_rail`), so mutating in place would set the
+    margin on a single shared object instead of on each rail independently.
     """
+    width = RIBBON_WIDTH if width is None else width
     rails = []
     for i, ob in enumerate(typ.inside):
         ob = copy(ob)
@@ -60,11 +74,16 @@ def set_rail_margins(typ: monoidal.Ty, width=0.25) -> monoidal.Ty:
     return type(typ)(*rails)
 
 
-def double_rail(typ: monoidal.Ty, width=0.25) -> monoidal.Ty:
+def double_rail(typ: monoidal.Ty, width: float = None) -> monoidal.Ty:
     """
     Doubles every object of a type into the two rails of a ribbon, setting the
     :attr:`min_right_margin` of the first rail to ``width - 1`` so that the two
     rails are drawn ``width`` apart rather than at the usual minimal width.
+
+    Parameters:
+        typ : The type to double.
+        width : The gap between the two rails of each ribbon, defaults to
+            :data:`discopy.config.RIBBON_WIDTH`.
     """
     return set_rail_margins(
         type(typ)(*[ob for ob in typ.inside for _ in range(2)]), width)
@@ -108,15 +127,16 @@ class Diagram(braided.Diagram, traced.Diagram, BalancedCategory):
             >> cls.twist(dom[1:]) @ cls.twist_factory(dom[0])\
             >> cls.braid(dom[1:], dom[0])
 
-    def to_braided(self, width=0.25):
+    def to_braided(self, width: float = None):
         """
         Doubles evry object and sends the twist to the braid.
 
         Parameters:
             width : The width of a ribbon, i.e. the gap between the two wires
-                encoding each object, default is ``0.25`` (four times closer
-                than the minimal width). If ``None``, the underlying braided
-                diagram is returned rather than its drawing.
+                encoding each object, defaults to
+                :data:`discopy.config.RIBBON_WIDTH` (four times closer than
+                the minimal width). Set to ``0`` to return the diagram as is,
+                i.e. without doubling it into dual rails.
 
         Example
         -------
@@ -131,23 +151,8 @@ class Diagram(braided.Diagram, traced.Diagram, BalancedCategory):
 
         .. image:: /_static/balanced/twist_dual_rail.png
         """
-        def double(x):
-            return x @ x if width is None else double_rail(x, width)
-
-        class DualRail(Functor):
-            cod = braided.Diagram
-
-            def __call__(self, other):
-                if width is not None and isinstance(other, monoidal.Ty):
-                    return set_rail_margins(super().__call__(other), width)
-                if isinstance(other, Twist):
-                    return DualRailTwist(self(other.dom))
-                if isinstance(other, Braid):
-                    return DualRailBraid(
-                        self(other.left), self(other.right), other.is_dagger)
-                return super().__call__(other)
-
-        return DualRail(double, lambda f: f.name)(self)
+        width = RIBBON_WIDTH if width is None else width
+        return self if not width else self.dual_rail_factory(width)(self)
 
 
 class Box(braided.Box, traced.Box, Diagram):
@@ -294,6 +299,42 @@ class Functor(braided.Functor, traced.Functor):
         return braided.Functor.__call__(self, other)
 
 
+class DualRail(Functor):
+    """
+    The functor sending a balanced diagram to its dual rail encoding in
+    :class:`discopy.braided.Diagram`, i.e. doubling every object into the two
+    rails of a ribbon and sending every :class:`Twist` and :class:`Braid` to
+    a single box crossing the two ribbons of a wire as a whole.
+
+    Parameters:
+        width : The gap between the two rails of each ribbon, defaults to
+            :data:`discopy.config.RIBBON_WIDTH`.
+
+    See also
+    --------
+    :meth:`Diagram.to_braided`
+    """
+    cod = braided.Diagram
+    dual_rail_twist_factory = DualRailTwist
+    dual_rail_braid_factory = DualRailBraid
+
+    def __init__(self, width: float = None):
+        self.width = RIBBON_WIDTH if width is None else width
+        super().__init__(
+            ob_map=lambda x: double_rail(x, self.width),
+            ar_map=lambda f: f.name)
+
+    def __call__(self, other):
+        if isinstance(other, monoidal.Ty):
+            return set_rail_margins(super().__call__(other), self.width)
+        if isinstance(other, Twist):
+            return self.dual_rail_twist_factory(self(other.dom))
+        if isinstance(other, Braid):
+            return self.dual_rail_braid_factory(
+                self(other.left), self(other.right), other.is_dagger)
+        return super().__call__(other)
+
+
 Diagram.functor_factory = Functor
 Diagram.map_factory = traced.CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
@@ -301,4 +342,5 @@ Diagram.braid_factory = Braid
 Diagram.twist_factory = Twist
 Diagram.trace_factory = Trace
 Diagram.sum_factory = Sum
+Diagram.dual_rail_factory = DualRail
 Id = Diagram.id

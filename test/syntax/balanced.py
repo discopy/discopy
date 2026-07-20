@@ -47,3 +47,16 @@ def test_dual_rail_braid_and_twist():
     twist, = Diagram.twist(x).to_braided(width=None).boxes
     assert isinstance(twist, DualRailTwist)
     assert twist.dom == twist.cod == x @ x
+
+
+def test_to_braided_default_and_zero_width():
+    from discopy import config
+
+    x = Ty('x')
+    twist = Diagram.twist(x)
+
+    # width=None pulls the default width from discopy.config.
+    assert twist.to_braided() == twist.to_braided(config.RIBBON_WIDTH)
+
+    # width=0 returns the diagram as is, i.e. without dual rails.
+    assert twist.to_braided(width=0) == twist

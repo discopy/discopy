@@ -15,6 +15,19 @@ def test_to_ribbons_width():
     assert round(dom[1] - dom[0], 3) == 1.0
 
 
+def test_to_ribbons_default_and_zero_width():
+    from discopy import config
+
+    x = Ty('x')
+    twist = Diagram.twist(x)
+
+    # width=None pulls the default width from discopy.config.
+    assert twist.to_ribbons() == twist.to_ribbons(config.RIBBON_WIDTH)
+
+    # width=0 returns the diagram as is, i.e. without dual rails.
+    assert twist.to_ribbons(width=0) == twist
+
+
 def test_to_ribbons_trace_width():
     x = Ty('x')
 
