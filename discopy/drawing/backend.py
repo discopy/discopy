@@ -81,6 +81,8 @@ def draw(graph: PlaneGraph, **params):
         baseline=graph.height / 2 or .5,
         tikz_options=params.get('tikz_options', None),
         show=params.get('show', True), aspect=aspect,
+        format=params.get('format', None),
+        metadata=params.get('metadata', None),
         margins=params.get('margins', DEFAULT['margins']))
 
 
@@ -790,7 +792,9 @@ class Matplotlib(Backend):
         if ylim is not None:
             self.axis.set_ylim(*ylim)
         if path is not None:
-            plt.savefig(path)
+            with plt.rc_context({"svg.hashsalt": DEFAULT["svg_hashsalt"]}):
+                plt.savefig(path, format=params.get("format", None),
+                            metadata=params.get("metadata", None))
             plt.close()
         if show:
             plt.show()

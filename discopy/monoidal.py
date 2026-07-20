@@ -71,6 +71,7 @@ from discopy.utils import (
     AxiomError,
     get_origin,
     MappingOrCallable,
+    RichDisplay,
 )
 
 if TYPE_CHECKING:
@@ -716,7 +717,7 @@ class Layer(cat.Box):
 
 
 @factory
-class Diagram(cat.Arrow, MonoidalCategory):
+class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
     """
     A diagram is a tuple of composable layers :code:`inside` with a pair of
     types :code:`dom` and :code:`cod` as domain and codomain.

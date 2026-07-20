@@ -558,3 +558,26 @@ def test_to_gif():
     params = dict(
         path=IMG_FOLDER + 'autonomisation.gif', timestep=1000, figsize=(4, 4))
     sentence.to_gif(*rewrite_steps, **params)
+
+
+def test_rich_display():
+    from io import StringIO
+    from discopy.monoidal import Ty, Box
+
+    f = Box('f', Ty('x'), Ty('y'))
+    diagram, drawing, equation = f, f.to_drawing(), Equation(f, f)
+
+    for obj in (diagram, drawing, equation):
+        svg = obj._repr_svg_()
+        assert svg.startswith('<?xml') and '</svg>\n' in svg
+        assert obj._repr_mimebundle_() == {'image/svg+xml': svg}
+        assert obj._repr_mimebundle_(include=['image/png']) == {}
+        assert obj._repr_mimebundle_(exclude=['image/svg+xml']) == {}
+
+    # SVG output is deterministic, i.e. the same diagram renders byte-for-byte.
+    assert diagram._repr_svg_() == diagram._repr_svg_()
+
+    # The format parameter of draw allows rendering to an in-memory buffer.
+    buffer = StringIO()
+    diagram.draw(path=buffer, format='svg', show=False, metadata={'Date': None})
+    assert buffer.getvalue() == diagram.to_svg()

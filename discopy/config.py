@@ -57,6 +57,9 @@ DRAWING_DEFAULT = {
     "edgecolor": "black",
     "use_tikzstyles": False,
     "braid_shadow": (.3, .1),
+    # Fixed hash salt so that SVG element ids are deterministic, see
+    # https://matplotlib.org/stable/users/explain/customizing.html
+    "svg_hashsalt": "discopy",
     # Legend width in inches is legend_base_width + legend_char_width
     # times the length of the longest label.
     "legend_base_width": 0.5,
