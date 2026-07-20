@@ -259,6 +259,36 @@ def test_tikz_ribbon_colors():
     return Braid(x, x).trace(left=False).to_ribbons()
 
 
+@draw_and_compare('twist-colors.png', wire_labels=False, aspect='equal')
+def test_draw_twist_colors():
+    # The back of a twisting ribbon, where it turns over, is filled with a
+    # darker shade of the colour filling its front.
+    from discopy.ribbon import Ty, Diagram
+    x = Ty('x')
+    return Diagram.twist(x).to_ribbons()
+
+
+@tikz_and_compare('twist-colors.tikz', wire_labels=False)
+def test_tikz_twist_colors():
+    from discopy.ribbon import Ty, Diagram
+    x = Ty('x')
+    return Diagram.twist(x).to_ribbons()
+
+
+def test_darken():
+    # A darker shade of a colour keeps each RGB channel smaller, and the
+    # darker shades filling the back of a twisting ribbon are precomputed
+    # for every named colour, see discopy.config.COLORS.
+    from discopy.config import COLORS, darken
+    for name in ["red", "green", "blue", "yellow"]:
+        hexcode, dark_hexcode = COLORS[name], COLORS[f"dark_{name}"]
+        assert darken(hexcode) == dark_hexcode
+        channels = [int(hexcode[i:i + 2], 16) for i in (1, 3, 5)]
+        dark_channels = [int(dark_hexcode[i:i + 2], 16) for i in (1, 3, 5)]
+        assert all(d <= c for d, c in zip(dark_channels, channels))
+        assert any(d < c for d, c in zip(dark_channels, channels))
+
+
 @draw_and_compare('nested-ribbons.png', wire_labels=False, aspect='equal')
 def test_draw_nested_ribbons():
     # Nested cups and caps stay folds of constant (ribbon) width, i.e. the

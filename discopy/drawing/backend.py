@@ -480,7 +480,9 @@ class Backend(ABC):
     def draw_dual_rail_twist(self, positions, node, **params):
         """
         Draws a :class:`discopy.balanced.DualRailTwist`, i.e. the two rails of
-        a ribbon crossing each other twice in quick succession.
+        a ribbon crossing each other twice in quick succession. The lens
+        between the two crossings, where the ribbon shows its back, is filled
+        with a darker shade of the ribbon's colour.
         """
         box, j = node.box, node.j
         dom = [positions[Node("box_dom", i=i, j=j, x=box.dom[i])]
@@ -492,17 +494,41 @@ class Backend(ABC):
         swap = [(dom[1][0], middle), (dom[0][0], middle)]
         upper, lower = (dom[0][1] + middle) / 2, (middle + cod[0][1]) / 2
         color = self._ribbon_color(box.dom[:1])
-        if color is not None:  # Fill the band between the two twisting rails.
-            rail0 = self._strand(dom[0], swap[0], upper)\
-                + self._strand(swap[0], cod[0], lower)[1:]
-            rail1 = self._strand(dom[1], swap[1], upper)\
-                + self._strand(swap[1], cod[1], lower)[1:]
-            self.draw_filled_shape(rail0[0], [
-                ("curve", rail0[1], rail0[2], rail0[3]),
-                ("curve", rail0[4], rail0[5], rail0[6]),
-                ("line", rail1[6]),
-                ("curve", rail1[5], rail1[4], rail1[3]),
-                ("curve", rail1[2], rail1[1], rail1[0])], color)
+        if color is not None:
+            top0, bottom0 = (
+                self._strand(dom[0], swap[0], upper),
+                self._strand(swap[0], cod[0], lower))
+            top1, bottom1 = (
+                self._strand(dom[1], swap[1], upper),
+                self._strand(swap[1], cod[1], lower))
+            # Each rail crosses the other at the midpoint (t=0.5) of `top`
+            # and of `bottom`. The two crossings pinch off a lens where the
+            # ribbon has turned over: fill it with a darker shade of the
+            # front colour, for a nicer visual of the twist.
+            front_top0, back_top0 = (
+                _bezier_subcurve(top0, 0, .5), _bezier_subcurve(top0, .5, 1))
+            back_bottom0, front_bottom0 = (
+                _bezier_subcurve(bottom0, 0, .5),
+                _bezier_subcurve(bottom0, .5, 1))
+            front_top1, back_top1 = (
+                _bezier_subcurve(top1, 0, .5), _bezier_subcurve(top1, .5, 1))
+            back_bottom1, front_bottom1 = (
+                _bezier_subcurve(bottom1, 0, .5),
+                _bezier_subcurve(bottom1, .5, 1))
+            self.draw_filled_shape(front_top0[0], [
+                ("curve", *front_top0[1:]), ("line", front_top1[3]),
+                ("curve", front_top1[2], front_top1[1], front_top1[0])],
+                color)
+            self.draw_filled_shape(back_top0[0], [
+                ("curve", *back_top0[1:]), ("curve", *back_bottom0[1:]),
+                ("line", back_bottom1[3]),
+                ("curve", back_bottom1[2], back_bottom1[1], back_bottom1[0]),
+                ("curve", back_top1[2], back_top1[1], back_top1[0])],
+                f"dark_{color}")
+            self.draw_filled_shape(front_bottom0[0], [
+                ("curve", *front_bottom0[1:]), ("line", front_bottom1[3]),
+                ("curve", front_bottom1[2], front_bottom1[1],
+                 front_bottom1[0])], color)
         crossings = [
             [(dom[0], swap[0], upper), (dom[1], swap[1], upper)],
             [(swap[0], cod[0], lower), (swap[1], cod[1], lower)]]

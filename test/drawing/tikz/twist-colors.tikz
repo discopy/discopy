@@ -1,0 +1,71 @@
+\begin{tikzpicture}[baseline=(0.base)]
+\begin{pgfonlayer}{nodelayer}
+\node (0) at (0, 0.5) {};
+\node [] (1) at (0, 0) {};
+\node [] (2) at (1.25, 0) {};
+\node [] (3) at (1.25, 1) {};
+\node [] (4) at (0, 1) {};
+\node [] (5) at (0.5, 1) {};
+\node [] (6) at (0.5, 0.75) {};
+\node [] (7) at (0.75, 0.75) {};
+\node [] (8) at (0.75, 1) {};
+\node [] (9) at (0.5, 0.25) {};
+\node [] (10) at (0.5, 0) {};
+\node [] (11) at (0.75, 0) {};
+\node [] (12) at (0.75, 0.25) {};
+\node [] (13) at (0.5, 0.6875) {};
+\node [] (14) at (0.5625, 0.65625) {};
+\node [] (15) at (0.625, 0.625) {};
+\node [] (16) at (0.6875, 0.65625) {};
+\node [] (17) at (0.75, 0.6875) {};
+\node [] (18) at (0.6875, 0.59375) {};
+\node [] (19) at (0.75, 0.5625) {};
+\node [] (20) at (0.75, 0.5) {};
+\node [] (21) at (0.75, 0.4375) {};
+\node [] (22) at (0.6875, 0.40625) {};
+\node [] (23) at (0.625, 0.375) {};
+\node [] (24) at (0.5625, 0.40625) {};
+\node [] (25) at (0.5, 0.4375) {};
+\node [] (26) at (0.5, 0.5) {};
+\node [] (27) at (0.5, 0.5625) {};
+\node [] (28) at (0.5625, 0.59375) {};
+\node [] (29) at (0.5625, 0.34375) {};
+\node [] (30) at (0.5, 0.3125) {};
+\node [] (31) at (0.75, 0.3125) {};
+\node [] (32) at (0.6875, 0.34375) {};
+\node [] (33) at (0.5, 0.70625) {};
+\node [] (34) at (0.530625, 0.6778125) {};
+\node [] (35) at (0.5704375, 0.65396875) {};
+\node [] (36) at (0.6795625, 0.59603125) {};
+\node [] (37) at (0.719375, 0.5721875) {};
+\node [] (38) at (0.75, 0.54375) {};
+\node [] (39) at (0.75, 0.625) {};
+\node [] (40) at (0.5, 0.625) {};
+\node [] (41) at (0.5, 0.45625) {};
+\node [] (42) at (0.530625, 0.4278125) {};
+\node [] (43) at (0.5704375, 0.40396875) {};
+\node [] (44) at (0.6795625, 0.34603125) {};
+\node [] (45) at (0.719375, 0.3221875) {};
+\node [] (46) at (0.75, 0.29375) {};
+\node [] (47) at (0.75, 0.375) {};
+\node [] (48) at (0.5, 0.375) {};
+\end{pgfonlayer}
+\begin{pgfonlayer}{edgelayer}
+\draw [-, fill={white}] (1.center) to (2.center) to (3.center) to (4.center) to (1.center);
+\draw [fill={rgb,255: red,232; green,165; blue,165}, draw=none] (5.center) to (6.center) to (7.center) to (8.center) -- cycle;
+\draw [fill={rgb,255: red,232; green,165; blue,165}, draw=none] (9.center) to (10.center) to (11.center) to (12.center) -- cycle;
+\draw [in=90, out=-90] (5.center) to (6.center);
+\draw [in=90, out=-90] (8.center) to (7.center);
+\draw [in=90, out=-90] (9.center) to (10.center);
+\draw [in=90, out=-90] (12.center) to (11.center);
+\draw [fill={rgb,255: red,232; green,165; blue,165}, draw=none] (6.center) .. controls (13.center) and (14.center) .. (15.center) to (15.center) .. controls (16.center) and (17.center) .. (7.center) -- cycle;
+\draw [fill={rgb,255: red,139; green,99; blue,99}, draw=none] (15.center) .. controls (18.center) and (19.center) .. (20.center) .. controls (21.center) and (22.center) .. (23.center) to (23.center) .. controls (24.center) and (25.center) .. (26.center) .. controls (27.center) and (28.center) .. (15.center) -- cycle;
+\draw [fill={rgb,255: red,232; green,165; blue,165}, draw=none] (23.center) .. controls (29.center) and (30.center) .. (9.center) to (12.center) .. controls (31.center) and (32.center) .. (23.center) -- cycle;
+\draw (6.center) .. controls (33.center) and (34.center) .. (35.center);
+\draw (36.center) .. controls (37.center) and (38.center) .. (20.center);
+\draw (7.center) .. controls (39.center) and (40.center) .. (26.center);
+\draw (26.center) .. controls (41.center) and (42.center) .. (43.center);
+\draw (44.center) .. controls (45.center) and (46.center) .. (12.center);
+\draw (20.center) .. controls (47.center) and (48.center) .. (9.center);
+\end{pgfonlayer}
+\end{tikzpicture}
