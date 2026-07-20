@@ -5,6 +5,20 @@ marimo-version: 0.23.14
 
 ```python {.marimo}
 import marimo as mo
+import matplotlib.pyplot as plt
+```
+
+```python {.marimo}
+def show(diagram, **params):
+    """Draw a diagram and return its figure, so marimo displays it inline.
+
+    ``Diagram.draw`` calls ``plt.show()`` internally, which marimo routes to
+    the console area rather than the cell's output -- the console area is
+    not rendered in the "app" view. Passing ``show=False`` keeps the figure
+    open so we can return its axes as the cell's last expression instead.
+    """
+    diagram.draw(show=False, **params)
+    return plt.gca()
 ```
 
 # Categories for Quantum
@@ -67,7 +81,7 @@ f, g = Box('f', x, y), Box('g', y, z)
 a, b, c, d = (Box(x, Ty(), Ty()) for x in 'abcd')
 
 assert a @ x >> f == (f >> a @ y).normal_form()
-Equation(a @ x >> f, f >> a @ y).draw(figsize=(5, 2))
+show(Equation(a @ x >> f, f >> a @ y), figsize=(5, 2))
 ```
 
 **Lemma:** In a monoidal category, scalars form a commutative monoid.
@@ -82,7 +96,7 @@ assert (a @ b).interchange(0, 1).interchange(0, 1) == a @ b
 
 A, B = a.to_drawing(), b.to_drawing()
 
-drawing.Equation(A @ B, A >> B, B @ A, B >> A).draw()
+show(drawing.Equation(A @ B, A >> B, B @ A, B >> A))
 ```
 
 **Definition:** A monoidal category is enriched in commutative monoids (com.mon. enriched) if every homset is a commutative monoid such that composition and tensor are monoid homomorphisms.
@@ -133,7 +147,7 @@ In terms of diagrams, the dagger is the vertical reflexion.
 We may draw asymmetric boxes to distinguish a generator from its dagger.
 
 ```python {.marimo}
-Equation(f, f[::-1], symbol="$\mapsto$").draw(asymmetry=.25, figsize=(3, 1))
+show(Equation(f, f[::-1], symbol="$\mapsto$"), asymmetry=.25, figsize=(3, 1))
 ```
 
 ```python {.marimo}
@@ -143,7 +157,7 @@ assert Id(x)[::-1] == Id(x)
 assert (f >> g)[::-1] ==  g[::-1] >> f[::-1]
 assert (f @ g)[::-1].normal_form() ==  f[::-1] @ g[::-1]
 
-Equation((f @ g)[::-1], f[::-1] @ g[::-1]).draw(figsize=(5, 2))
+show(Equation((f @ g)[::-1], f[::-1] @ g[::-1]), figsize=(5, 2))
 ```
 
 The dagger allows us to formulate the notion of inner product in an abstract setting.
@@ -394,12 +408,18 @@ i.e. the probability $P(a \vert b)$ is constant.
 ```python {.marimo}
 from discopy.quantum import CX, H, Ket, Id as Id_q
 circuit = Ket(0, 0) >> H @ Id_q(1) >> CX
-circuit.draw(figsize=(2, 3))
+show(circuit, figsize=(2, 3))
+```
+
+```python {.marimo}
 circuit.eval()
 ```
 
 ```python {.marimo}
-Id_q(1).transpose().draw(figsize=(3, 4))
+show(Id_q(1).transpose(), figsize=(3, 4))
+```
+
+```python {.marimo}
 Id_q(1).transpose().eval()
 ```
 
@@ -419,7 +439,7 @@ It turns out that the presentation is much simpler if you axiomatize all of $\ma
 ```python {.marimo}
 from discopy.quantum.zx import circuit2zx
 
-circuit2zx(CX).draw()
+show(circuit2zx(CX))
 ```
 
 The axioms are not arcane combinations of black boxes anymore, they come from the interaction of our two friends: $\dagger$ special commutative Frobenius algebras and Hopf algebras.

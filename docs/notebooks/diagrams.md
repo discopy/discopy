@@ -5,6 +5,20 @@ marimo-version: 0.23.14
 
 ```python {.marimo}
 import marimo as mo
+import matplotlib.pyplot as plt
+```
+
+```python {.marimo}
+def show(diagram, **params):
+    """Draw a diagram and return its figure, so marimo displays it inline.
+
+    ``Diagram.draw`` calls ``plt.show()`` internally, which marimo routes to
+    the console area rather than the cell's output -- the console area is
+    not rendered in the "app" view. Passing ``show=False`` keeps the figure
+    open so we can return its axes as the cell's last expression instead.
+    """
+    diagram.draw(show=False, **params)
+    return plt.gca()
 ```
 
 # What is a diagram?
@@ -416,7 +430,7 @@ This is implemented by the class `monoidal.Box`, which comes with a method `draw
 
 ```python {.marimo}
 box = monoidal.Box('box', x_1 @ x_1 @ x_1, y_1 @ z_1)
-box.draw(figsize=(3, 2))
+show(box, figsize=(3, 2))
 ```
 
 Boxes with the empty list as domain and codomain are called a **states** and **effects** respectively.
@@ -471,7 +485,7 @@ a, b, c = map(Ty, "abc")
 
 layer = Layer(a, box, b)
 
-(a @ box @ b).draw(figsize=(4, 2))
+show(a @ box @ b, figsize=(4, 2))
 ```
 
 We can tensor a layer by a type on its left or right, this is called **whiskering**.
@@ -491,7 +505,7 @@ from discopy.monoidal import Diagram
 x_2, y_2, x_, y_ = (Ty('x'), Ty('y'), Ty('x_'), Ty('y_'))
 f_1, f__1 = (monoidal.Box('f', x_2, y_2), monoidal.Box('f_', x_, y_))
 assert f_1 @ f__1 == f_1 @ x_ >> y_2 @ f__1 == Diagram(inside=(Layer(Ty(), f_1, x_), Layer(y_2, f__1, Ty())), dom=x_2 @ x_, cod=y_2 @ y_)
-(f_1 @ f__1).draw(figsize=(2, 2))
+show(f_1 @ f__1, figsize=(2, 2))
 ```
 
 In fact, the full list of layers is redundant.
@@ -514,20 +528,20 @@ g_1, h_1 = (monoidal.Box('g', y_2, z_1), monoidal.Box('h', z_1, w))
 assert f_1 >> g_1 >> h_1 == f_1 >> (g_1 >> h_1)
 assert f_1 @ g_1 @ h_1 == f_1 @ (g_1 @ h_1)
 # Associativity
-Equation(f_1 >> g_1 >> h_1, f_1 @ g_1 @ h_1, symbol='and').draw(figsize=(6, 4))
+show(Equation(f_1 >> g_1 >> h_1, f_1 @ g_1 @ h_1, symbol='and'), figsize=(6, 4))
 ```
 
 ```python {.marimo}
 # Unit
 assert Diagram.id(x_2) >> f_1 == f_1 == f_1 >> Diagram.id(y_2)
 assert Ty() @ f_1 == f_1 == f_1 @ Ty()
-f_1.draw(figsize=(1, 2))
+show(f_1, figsize=(1, 2))
 ```
 
 ```python {.marimo}
 # Identity interchange
 assert Diagram.id(x_2) @ Diagram.id(y_2) == Diagram.id(x_2 @ y_2)
-Diagram.id(x_2 @ y_2).draw(figsize=(1, 1))
+show(Diagram.id(x_2 @ y_2), figsize=(1, 1))
 ```
 
 ...except the interchange of `@` and `>>`!
@@ -536,7 +550,7 @@ Diagram.id(x_2 @ y_2).draw(figsize=(1, 1))
 z_ = Ty('z_')
 g__1 = monoidal.Box('g_', y_, z_)
 assert f_1 @ f__1 >> g_1 @ g__1 == f_1 @ x_ >> y_2 @ f__1 >> g_1 @ y_ >> z_1 @ g__1 != f_1 @ x_ >> g_1 @ x_ >> z_1 @ f__1 >> z_1 @ g__1 == (f_1 >> g_1) @ (f__1 >> g__1)
-Equation(f_1 @ f__1 >> g_1 @ g__1, (f_1 >> g_1) @ (f__1 >> g__1), symbol='$\\neq$').draw(figsize=(6, 4))
+show(Equation(f_1 @ f__1 >> g_1 @ g__1, (f_1 >> g_1) @ (f__1 >> g__1), symbol='$\\neq$'), figsize=(6, 4))
 ```
 
 If we assume that there are no side effects, then these two diagrams should represent the same process.
@@ -557,7 +571,7 @@ LHS = above >> a_1 @ f_1 @ b_1 @ x_ @ c_1 >> a_1 @ y_2 @ b_1 @ f__1 @ c_1 >> bel
 RHS = above >> a_1 @ x_2 @ b_1 @ f__1 @ c_1 >> a_1 @ f_1 @ b_1 @ y_ @ c_1 >> below
 assert LHS.interchange(1, 2) == RHS
 assert RHS.interchange(1, 2) == LHS
-Equation(LHS, RHS, symbol='$\\sim$').draw(figsize=(10, 4))
+show(Equation(LHS, RHS, symbol='$\\sim$'), figsize=(10, 4))
 ```
 
 One special case of interest is when we interchange an effect and a state with nothing between them, i.e. `y == b == x_ == Ty()`.
@@ -568,7 +582,7 @@ effect = monoidal.Box('effect', x_2, Ty())
 state = monoidal.Box('state', Ty(), y_2)
 right_interchange = (effect >> state).interchange(0, 1)
 left_interchange = (effect >> state).interchange(0, 1, left=True)
-Equation(left_interchange, Equation(effect >> state, right_interchange, symbol='$\\longrightarrow$'), symbol='$\\longleftarrow$').draw(figsize=(10, 3))
+show(Equation(left_interchange, Equation(effect >> state, right_interchange, symbol='$\\longrightarrow$'), symbol='$\\longleftarrow$'), figsize=(10, 3))
 ```
 
 ### Normal form
@@ -589,7 +603,7 @@ assert u @ v == u >> v
 assert (u >> v).interchange(0, 1) == v >> u == v @ u
 assert (u >> v).interchange(0, 1).interchange(0, 1) == u >> v
 
-Equation(u @ v, v @ u, u @ v, symbol="$\\longrightarrow$").draw(figsize=(6, 2))
+show(Equation(u @ v, v @ u, u @ v, symbol="$\\longrightarrow$"), figsize=(6, 2))
 ```
 
 In the worst-case, a boundary-connected diagram with $n$ boxes will take $O(n^3)$ interchanges to reach a normal form.
@@ -599,8 +613,10 @@ An example of this worst-case is given by the following family of spiral-shaped 
 ```python {.marimo}
 from discopy.drawing import spiral
 
-for i in range(1, 4):
-    Equation(spiral(i), spiral(i).normal_form()).draw(figsize=(4, 3), wire_labels=False)
+mo.vstack([
+    show(Equation(spiral(i), spiral(i).normal_form()),
+         figsize=(4, 3), wire_labels=False)
+    for i in range(1, 4)])
 ```
 
 We can iterate through the normalisation steps using the method `normalize` and visualise them as an animated picture using the method `to_gif`, e.g.

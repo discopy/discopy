@@ -5,6 +5,20 @@ marimo-version: 0.23.14
 
 ```python {.marimo}
 import marimo as mo
+import matplotlib.pyplot as plt
+```
+
+```python {.marimo}
+def show(diagram, **params):
+    """Draw a diagram and return its figure, so marimo displays it inline.
+
+    ``Diagram.draw`` calls ``plt.show()`` internally, which marimo routes to
+    the console area rather than the cell's output -- the console area is
+    not rendered in the "app" view. Passing ``show=False`` keeps the figure
+    open so we can return its axes as the cell's last expression instead.
+    """
+    diagram.draw(show=False, **params)
+    return plt.gca()
 ```
 
 # Examples
@@ -25,7 +39,7 @@ assert f >> g @ h == Diagram(
         Layer(Ty(), g, z),
         Layer(z,    h, Ty())))
 
-(f >> g @ h).draw()
+show(f >> g @ h)
 ```
 
 ## Boolean circuits as a subclass of Diagram
@@ -58,7 +72,7 @@ SWAP = CNOT >> NOTC >> CNOT  # Exercise: Find a cheaper SWAP circuit!
 assert all(SWAP(x, y) == (y, x) for x in [True, False]
                                 for y in [True, False])
 
-SWAP.draw(figsize=(4, 8), wire_labels=False)
+show(SWAP, figsize=(4, 8), wire_labels=False)
 ```
 
 ## Spirals as the worst-case for normalisation
@@ -79,7 +93,7 @@ def spiral(length):
     return diagram
 assert spiral(8).dagger() != spiral(8)
 assert spiral(8).dagger() == spiral(8).normal_form()
-Equation(spiral(8), spiral(8).dagger()).draw()
+show(Equation(spiral(8), spiral(8).dagger()))
 ```
 
 ## The golden ratio as the trace of a string diagram
@@ -94,7 +108,7 @@ F = traced.Functor(ob={x_2: float}, ar={div: lambda x, y=1.0: x / y, add: lambda
 with python.Function.no_type_checking:
     assert F(phi)() == 0.5 * (1 + 5 ** 0.5)
 # The default y=1 is the initial value for the fixed point.
-phi.draw()
+show(phi)
 ```
 
 ## The Kauffman bracket as a ribbon functor
@@ -125,7 +139,7 @@ class Variable(ribbon.Box, Kauffman):
     pass
 Kauffman.braid = lambda x, y: Variable('A', 0, 0) @ x @ y + (Cup(x, y) >> Variable('A', 0, 0).dagger() >> Cap(x, y))
 K = ribbon.Functor(ob=lambda _: 1, ar={}, cod=Kauffman)
-drawing.Equation(link, K(link), symbol='$\\mapsto$').draw(figsize=(8, 4), wire_labels=False)
+show(drawing.Equation(link, K(link), symbol='$\\mapsto$'), figsize=(8, 4), wire_labels=False)
 ```
 
 ## Checking the equality of two diagrams
@@ -140,7 +154,7 @@ diagram_right = f_2 >> h_1 @ g_1 >> symmetric.Swap(z_1, x_4)
 assert diagram_left != diagram_right
 with symmetric.Diagram.hypergraph_equality:
     assert diagram_left == diagram_right
-drawing.Equation(diagram_left, diagram_right).draw()
+show(drawing.Equation(diagram_left, diagram_right))
 ```
 
 ## Defining a diagram from a Python function
@@ -159,7 +173,7 @@ def markov_diagram(a, b):  # Take two wires as inputs
 assert markov_diagram == markov.Copy(mx) @ markov.Copy(mx)\
     >> mx @ (markov.Swap(mx, mx) >> mf >> markov.Discard(my)) @ mx >> mf
 
-markov_diagram.draw()
+show(markov_diagram)
 ```
 
 ## The hypergraph representation of a diagram
@@ -187,7 +201,7 @@ hypergraph = frobenius.Hypergraph(
 
 assert diagram_lhs.to_hypergraph() == hypergraph == diagram_rhs.to_hypergraph()
 
-drawing.Equation(diagram_lhs, diagram_rhs).draw()
+show(drawing.Equation(diagram_lhs, diagram_rhs))
 ```
 
 ## First-order logic with diagrams
@@ -225,5 +239,5 @@ assert bool(formula.eval(size, model)) == any(
     lg[x] and all(not lg[y] or x == y for y in range(size))
     and lm[z] and lp[z][x] for x in range(size) for z in range(size))
 
-formula.draw(wire_labels=False)
+show(formula, wire_labels=False)
 ```

@@ -5,6 +5,20 @@ marimo-version: 0.23.14
 
 ```python {.marimo}
 import marimo as mo
+import matplotlib.pyplot as plt
+```
+
+```python {.marimo}
+def show(diagram, **params):
+    """Draw a diagram and return its figure, so marimo displays it inline.
+
+    ``Diagram.draw`` calls ``plt.show()`` internally, which marimo routes to
+    the console area rather than the cell's output -- the console area is
+    not rendered in the "app" view. Passing ``show=False`` keeps the figure
+    open so we can return its axes as the cell's last expression instead.
+    """
+    diagram.draw(show=False, **params)
+    return plt.gca()
 ```
 
 # QNLP Tutorial
@@ -46,7 +60,7 @@ from discopy.symmetric import Box
 
 crack = Box(name='crack', dom=egg, cod=white @ yolk)
 
-crack.draw(figsize=(2, 2))
+show(crack, figsize=(2, 2))
 ```
 
 We can put boxes side by side with `@` (_tensor_) and compose them in sequence with `>>` (_then_).
@@ -58,7 +72,7 @@ crack_tensor_mix = crack @ mix
 crack_then_mix = crack >> mix
 
 from discopy.drawing import Equation
-Equation(crack_tensor_mix, crack_then_mix, symbol=' and ').draw(space=2, figsize=(8, 2))
+show(Equation(crack_tensor_mix, crack_then_mix, symbol=' and '), space=2, figsize=(8, 2))
 ```
 
 We can draw the `Id` (_identity_) for a type, i.e. just some parallel wires. Composing with an identity does nothing. Tensoring with `Id()` (_the empty diagram_) does nothing either.
@@ -81,7 +95,7 @@ beat = Box('beat', yolk @ sugar, yolky_paste)
 
 crack_then_beat = crack @ sugar >> white @ beat
 
-crack_then_beat.draw(figsize=(3, 2))
+show(crack_then_beat, figsize=(3, 2))
 ```
 
 We can change the order of ingredients using special boxes called `Swap`. This is needed for cooking indeed some recipes cannot be written on the plane. For example:
@@ -95,7 +109,7 @@ crack_two_eggs = crack @ crack\
     >> white @ Swap(yolk, white) @ yolk\
     >> merge(white) @ merge(yolk)
 
-crack_two_eggs.draw(figsize=(3, 4))
+show(crack_two_eggs, figsize=(3, 4))
 ```
 
 **Exercise:** Draw your favorite cooking recipe as a diagram. You'll want to keep your ingredients in order if you want to avoid swapping them too much.
@@ -138,8 +152,8 @@ open_crack2 = Functor(
 
 crack2_then_beat = crack2 @ Id(sugar) >> Id(white) @ beat
 
-Equation(crack2_then_beat, open_crack2(crack2_then_beat),
-         symbol='$\\mapsto$').draw(figsize=(7, 3.5))
+show(Equation(crack2_then_beat, open_crack2(crack2_then_beat),
+              symbol='$\\mapsto$'), figsize=(7, 3.5))
 ```
 
 Another example of a functor is the translation from English cooking to French cuisine.
@@ -159,7 +173,7 @@ english2french = Functor(
     ar={crack: ouvrir,
         beat: battre})
 
-english2french(crack_then_beat).draw(figsize=(3, 2))
+show(english2french(crack_then_beat), figsize=(3, 2))
 ```
 
 Functors compose just like Python functions, e.g.
@@ -171,7 +185,7 @@ melanger = lambda x: Box("mélanger", x @ x, x)
 for x in [white, yolk]:
     english2french.ar_map[merge(x)] = melanger(english2french(x))
 
-english2french(open_crack2(crack2_then_beat)).draw(figsize=(4, 4))
+show(english2french(open_crack2(crack2_then_beat)), figsize=(4, 4))
 ```
 
 **Exercise:** Define a functor that translate your favorite language to English, try composing it with `english2french`.
@@ -297,7 +311,7 @@ In order to draw a more meaningful equation, we need to draw diagrams, not array
 from discopy.tensor import Cup, Cap, Id as tId
 left_snake = Cap(Dim(2), Dim(2)) @ tId(Dim(2)) >> tId(Dim(2)) @ Cup(Dim(2), Dim(2))
 right_snake = tId(Dim(2)) @ Cap(Dim(2), Dim(2)) >> Cup(Dim(2), Dim(2)) @ tId(Dim(2))
-Equation(left_snake, tId(Dim(2)), right_snake).draw(figsize=(5, 2), wire_labels=False)
+show(Equation(left_snake, tId(Dim(2)), right_snake), figsize=(5, 2), wire_labels=False)
 ```
 
 Two diagrams that are drawn differently cannot be equal Python objects: they have different lists of boxes and offsets. What we can say however, is that the diagrams are interpreted as the same `Tensor` box. This interpretation can be computed using a `tensor.Functor`, defined by two mappings: `ob` from type to dimension (e.g. `qubit` to `Dim(2)`) and `ar` from box to array (e.g. `X` to `[0, 1, 1, 0]`). For now let's take these two mappings to be identity functions.
@@ -319,8 +333,10 @@ The distinction between a `tensor.Diagram` and its interpretation as a `Tensor` 
 ```python {.marimo}
 f = tensor.Box("f", Dim(2), Dim(2), data=[1, 2, 3, 4])
 
-Equation(f.transpose(), f.r).draw(figsize=(3, 2), wire_labels=False)
+show(Equation(f.transpose(), f.r), figsize=(3, 2), wire_labels=False)
+```
 
+```python {.marimo}
 assert f.r.eval() == f.transpose().eval()
 print(f.r.eval())
 ```
@@ -349,7 +365,7 @@ A (_pure_) quantum `Circuit` is simply a recipe with qubits as ingredients and `
 from discopy.quantum import qubit, H, CX, QuantumGate, Id as QId
 assert H == QuantumGate('H', qubit, qubit, data=[2 ** (-0.5) * x for x in [1, 1, 1, -1]], is_dagger=None, z=None)
 circuit = H @ qubit >> CX
-circuit.draw(figsize=(2, 2), wire_labels=True, margins=(0.1, 0.1))
+show(circuit, figsize=(2, 2), wire_labels=True, margins=(0.1, 0.1))
 ```
 
 A pure quantum circuit can be evaluated as a `Tensor` object, i.e. it is a subclass of `tensor.Diagram`.
@@ -362,7 +378,7 @@ Pure quantum circuits are reversible. We call the reverse of a circuit its _dagg
 
 ```python {.marimo}
 print(circuit[::-1])
-circuit[::-1].draw(figsize=(2, 2), margins=(.1,.1))
+show(circuit[::-1], figsize=(2, 2), margins=(.1,.1))
 ```
 
 ```python {.marimo}
@@ -376,7 +392,7 @@ In our example `circuit`, the resulting state is the so called Bell state $\frac
 ```python {.marimo}
 from discopy.quantum import Ket
 
-(Ket(0, 0) >> circuit).draw(figsize=(2, 2.5))
+show(Ket(0, 0) >> circuit, figsize=(2, 2.5))
 ```
 
 ```python {.marimo}
@@ -392,9 +408,11 @@ experiment = Ket(0, 0) >> circuit >> Bra(0, 0)
 amplitude = experiment.eval().array
 
 print(f"amplitude: {amplitude}")
-experiment.draw(figsize=(2, 3))
-
 print(f"probability: {abs(amplitude) ** 2}")
+```
+
+```python {.marimo}
+show(experiment, figsize=(2, 3))
 ```
 
 If we want to get the probability distribution over bitstrings, we need to leave the realm of purity to consider **mixed** quantum circuits with both `bit` and `qubit` ingredients.
@@ -411,8 +429,12 @@ print(Measure().eval())
 ```
 
 ```python {.marimo}
-(Ket(0, 0) >> circuit >> Measure() @ Discard()).draw(figsize=(2, 4))
-(Ket(0, 0) >> circuit >> Measure() @ Discard()).eval()
+mixed_circuit = Ket(0, 0) >> circuit >> Measure() @ Discard()
+show(mixed_circuit, figsize=(2, 4))
+```
+
+```python {.marimo}
+mixed_circuit.eval()
 ```
 
 Note that as for diagrams of cooking recipes, we need to introduce swaps in order to apply two-qubit gates to non-adjacent qubits. These swaps have no physical meaning, they are just an artefact of drawing circuits in 2 dimensions rather than 4. Indeed, we can forget about swaps by compiling our planar diagram into the graph-based data structure of the [$\mathrm{t|ket\rangle}$ compiler](https://github.com/CQCL/tket).
@@ -456,7 +478,7 @@ loves = Word('loves', n.r @ s @ n.l)
 Bob = Word('Bob', n)
 grammar = pregroup.Cup(n, n.r) @ s @ pregroup.Cup(n.l, n)
 sentence = Alice @ loves @ Bob >> grammar
-sentence.draw(figsize=(5, 5))
+show(sentence, figsize=(5, 5))
 ```
 
 Note that although in this tutorial we draw all our diagram by hand, this parsing process can be automated. Indeed once you fix a **dictionary**, i.e. a set of words with their possible grammatical types, it is completely mechanical to decide whether a sequence of words is grammatical. More precisely, it takes $O(n^3)$ time to decide whether a sequence of length $n$ is a sentence, and to output the diagram for its grammatical structure.
@@ -503,7 +525,7 @@ If we evaluate the meaning of noun phrases rather than sentences, we get vectors
 ```python {.marimo}
 assert not F(Alice) >> F(Bob).dagger()
 
-Equation(Alice, Bob, symbol="$\\neq$").draw(figsize=(3, 1))
+show(Equation(Alice, Bob, symbol="$\\neq$"), figsize=(3, 1))
 ```
 
 Let's define some more words:
@@ -520,7 +542,7 @@ rich_man = rich @ man >> pregroup.Id(n) @ pregroup.Cup(n.l, n)
 
 assert F(Bob) >> F(rich_man).dagger()  # i.e. Bob is a rich man.
 
-Equation(Bob, rich_man).draw(figsize=(5, 2))
+show(Equation(Bob, rich_man), figsize=(5, 2))
 ```
 
 If we draw the diagram of a Who? question, the inner product with a noun phrase measures how well it answers the question.
@@ -540,7 +562,7 @@ answer = Alice
 
 assert F(question) == F(answer)
 
-Equation(question, answer).draw(figsize=(6, 3))
+show(Equation(question, answer), figsize=(6, 3))
 ```
 
 **Exercise:** Draw your favorite sentence, define the meaning of each word then evaluate it as a tensor.
@@ -565,7 +587,10 @@ from discopy.quantum import sqrt, X
 from discopy.quantum.circuit import Functor as CircuitFunctor
 F_ = CircuitFunctor(ob={s: qubit ** 0, n: qubit ** 1}, ar={Alice: Ket(0), loves: sqrt(2) @ Ket(0, 0) >> H @ X >> CX, Bob: Ket(1)})
 F_.dom = pregroup.Diagram
-F_(sentence).draw(figsize=(6, 6))
+show(F_(sentence), figsize=(6, 6))
+```
+
+```python {.marimo}
 assert F_(sentence).eval().is_close(F(sentence).cast(complex))
 ```
 
