@@ -258,7 +258,7 @@ class CMap[C0: Pregroup, C1: CMap](
     """
 
     category: ClassVar[Diagram] = None
-    require_planar: ClassVar[bool] = True
+    require_planar: ClassVar[bool] = False
     require_causal: ClassVar[bool] = False
     require_oriented: ClassVar[bool] = False
     require_connected: ClassVar[bool] = False
