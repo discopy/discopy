@@ -396,6 +396,7 @@ class Ty(cat.Ob, FreeMonoid):
                 new.frame_boundary = True
             for attr, default in WIRE_DRAWING_ATTRIBUTES.items():
                 setattr(new, attr, getattr(old, attr, default(new)))
+            new.min_right_margin = getattr(old, "min_right_margin", 0)
         return result
 
     def wire_offsets(self) -> list:
@@ -409,7 +410,10 @@ class Ty(cat.Ob, FreeMonoid):
         offsets, total = [], 0
         for ob in self.inside:
             offsets.append(total)
-            total += max(1, ob.right_margin)
+            min_right_margin = getattr(ob, "min_right_margin", 0)
+            cell_width = max(1, ob.right_margin)
+            total += cell_width + min_right_margin if min_right_margin < 0\
+                else max(cell_width, 1 + min_right_margin)
         return offsets
 
 

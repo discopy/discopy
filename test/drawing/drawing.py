@@ -561,6 +561,15 @@ def test_draw_box_min_width():
     return Box('$\\Lambda$', x, x, min_width=3) @ Box('f', x, x)
 
 
+@draw_and_compare('wire-min-right-margin.png', aspect='equal')
+def test_draw_wire_min_right_margin():
+    # An object's `min_right_margin` adds space to the right of its wire,
+    # e.g. to fit a long label without colliding with the next wire.
+    x, long_type = Ty('x'), Ty('a_long_type_name')
+    long_type.inside[0].min_right_margin = 1.5
+    return Id(x @ long_type @ x)
+
+
 @draw_and_compare('wire-custom-margin.png', aspect='equal')
 def test_draw_wire_custom_margin():
     x, custom = Ty('x'), Ty('custom_margin_wire')
@@ -570,6 +579,8 @@ def test_draw_wire_custom_margin():
 
 @draw_and_compare('wire-auto-margin.png', aspect='equal')
 def test_draw_wire_auto_margin():
+    # A long wire label reserves space to its right on its own, so it does
+    # not overflow even without setting min_right_margin by hand.
     x = Ty('x')
     return Box('f', x, x @ Ty('a_long_output_type'))
 

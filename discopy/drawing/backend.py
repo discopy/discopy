@@ -84,6 +84,21 @@ def draw(graph: PlaneGraph, **params):
         margins=params.get('margins', DEFAULT['margins']))
 
 
+def _bezier_subcurve(points, t0, t1):
+    """ Restrict a cubic Bezier (4 control points) to the range [t0, t1]. """
+    def lerp(a, b, t):
+        return (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
+
+    def split(p, t):  # The two halves of a cubic Bezier split at ``t``.
+        a, b, c = lerp(p[0], p[1], t), lerp(p[1], p[2], t), lerp(p[2], p[3], t)
+        d, e = lerp(a, b, t), lerp(b, c, t)
+        f = lerp(d, e, t)
+        return [p[0], a, d, f], [f, e, c, p[3]]
+
+    right = split(points, t0)[1]
+    return split(right, (t1 - t0) / (1 - t0))[0]
+
+
 class Backend(ABC):
     """ Abstract drawing backend. """
     def __init__(self, linewidth=1):
@@ -143,6 +158,24 @@ class Backend(ABC):
                   bend_out=False, bend_in=False, style=None, linewidth=None):
         """ Draws a wire from source to target, possibly with a Bezier. """
         self.max_width = max(self.max_width, source[0], target[0])
+
+    def draw_bezier(self, points):
+        """ Draws a cubic Bezier curve from a list of four control points. """
+        self.max_width = max(self.max_width, max(x for x, _ in points))
+
+    def draw_braid_strand(self, source, target, middle, gap=0):
+        """
+        Draws a single strand of a braid crossing the horizontal line at
+        height ``middle``. The strand is vertical at both ends and diagonal in
+        between, so that two strands cross at a right angle rather than meeting
+        flat. If ``gap`` is non-zero the strand is broken around the crossing,
+        i.e. it goes under the other strand.
+        """
+        control = [source, (source[0], middle), (target[0], middle), target]
+        if not gap:
+            return self.draw_bezier(control)
+        self.draw_bezier(_bezier_subcurve(control, 0, 0.5 - gap))
+        self.draw_bezier(_bezier_subcurve(control, 0.5 + gap, 1))
 
     def draw_spiders(self, graph, draw_box_labels=True, **params):
         """ Draws a list of boxes depicted as spiders. """
@@ -256,7 +289,19 @@ class Backend(ABC):
         return typ is not None and getattr(
             typ.inside[0], "frame_boundary", False)
 
+    @staticmethod
+    def _is_crossing(box):
+        # A braid or a swap, i.e. a box whose two wires cross over each other.
+        if getattr(box, "draw_as_braid", False):
+            return True
+        return box.draw_as_wires and len(box.dom) == 2 == len(box.cod)\
+            and not box.bubble_opening and not box.bubble_closing
+
     def draw_wires(self, graph, **params):
+        # Braids and swaps are drawn as their own smooth curves.
+        for node in graph.nodes:
+            if node.kind == "box" and self._is_crossing(node.box):
+                self.draw_braid(graph.positions, node)
         for source, target in self.visible_edges(graph):
             source_position = graph.positions[source]
             target_position = graph.positions[target]
@@ -267,33 +312,68 @@ class Backend(ABC):
                 self.draw_wire_label(source.x, *source_position, **params)
             if source_position == target_position:
                 continue
+            if any(n.kind == "box" and self._is_crossing(n.box)
+                   for n in (source, target)):
+                continue  # crossings are drawn on their own
             bend_out, bend_in = source.kind == "box", target.kind == "box"
-            braid_shadow = DEFAULT["braid_shadow"]
-            if source.kind == "box" and source.box.draw_as_braid:
-                if source.box.is_dagger and target.i == 0:
-                    source_position = tuple(
-                        x + b * shadow
-                        for x, b, shadow in zip(
-                            source_position, [-1, -1], braid_shadow))
-                if not source.box.is_dagger and target.i == 1:
-                    source_position = tuple(
-                        x + b * shadow
-                        for x, b, shadow in zip(
-                            source_position, [1, -1], braid_shadow))
-            if target.kind == "box" and target.box.draw_as_braid:
-                if target.box.is_dagger and source.i == 1:
-                    target_position = tuple(
-                        x + b * shadow
-                        for x, b, shadow in zip(
-                            target_position, [1, 1], braid_shadow))
-                if not target.box.is_dagger and source.i == 0:
-                    target_position = tuple(
-                        x + b * shadow
-                        for x, b, shadow in zip(
-                            target_position, [-1, 1], braid_shadow))
             self.draw_wire(
                 source_position, target_position, bend_out, bend_in,
                 linewidth=(0 if is_frame_boundary else None))
+
+    def _half_circle(self, left, right, end, centre, sign):
+        # A half circle from (left, end) to (right, end) with vertical sides
+        # down to ``centre``, drawn as two quarters with the Bezier constant.
+        middle, radius = (left + right) / 2, (right - left) / 2
+        k = radius * 4 * (sqrt(2) - 1) / 3
+        if end != centre:
+            self.draw_wire((left, end), (left, centre))
+            self.draw_wire((right, centre), (right, end))
+        self.draw_bezier([
+            (left, centre), (left, centre + sign * k),
+            (middle - k, centre + sign * radius),
+            (middle, centre + sign * radius)])
+        self.draw_bezier([
+            (middle, centre + sign * radius),
+            (middle + k, centre + sign * radius),
+            (right, centre + sign * k), (right, centre)])
+
+    def draw_dual_rail_cup(self, positions, node, **params):
+        """
+        Draws a :class:`discopy.ribbon.DualRailCup` (or cap) as a single
+        constant-width fold, i.e. two concentric half circles joining the outer
+        and inner rails of two ribbons.
+        """
+        box, j = node.box, node.j
+        kind, wires = ("box_dom", box.dom) if box.dom else ("box_cod", box.cod)
+        xs = [positions[Node(kind, i=i, j=j, x=wires[i])] for i in range(4)]
+        end, sign = xs[0][1], -1 if box.dom else 1
+        for a, b in [(0, 3), (1, 2)]:  # The outer and the inner fold.
+            self._half_circle(xs[a][0], xs[b][0], end, end, sign)
+
+    def draw_braid(self, positions, node):
+        """
+        Draws a braid or a swap as its two wires crossing diagonally, so that
+        they meet at a right angle. A braid (over/under) breaks the wire that
+        goes under; a symmetric swap simply crosses both wires.
+        """
+        box, j = node.box, node.j
+        dom = [positions[Node("box_dom", i=i, j=j, x=box.dom[i])]
+               for i in range(2)]
+        cod = [positions[Node("box_cod", i=i, j=j, x=box.cod[i])]
+               for i in range(2)]
+        _, middle = positions[node]
+        left, right = (dom[0], cod[1]), (dom[1], cod[0])
+        if not getattr(box, "draw_as_braid", False):
+            self.draw_braid_strand(*left, middle)
+            self.draw_braid_strand(*right, middle)
+            return
+        # Keep the shadow roughly the same height, e.g. for a double braid,
+        # by widening the (relative) gap when the braid is short.
+        gap = min(0.3, 0.1 / (dom[0][1] - cod[0][1]))
+        # The left wire goes under the right one unless the box is dagger.
+        over, under = (left, right) if box.is_dagger else (right, left)
+        self.draw_braid_strand(*under, middle, gap=gap)
+        self.draw_braid_strand(*over, middle)
 
     def draw_boxes(self, graph, **params):
         drawing_methods = [
@@ -301,6 +381,9 @@ class Backend(ABC):
             ("draw_as_controlled", "draw_controlled_gate"),
             ("draw_as_discards", "draw_discard"),
             ("draw_as_measures", "draw_measure"),
+            ("draw_as_dual_rail_braid", "draw_dual_rail_braid"),
+            ("draw_as_dual_rail_twist", "draw_dual_rail_twist"),
+            ("draw_as_dual_rail_cup", "draw_dual_rail_cup"),
             (None, "draw_box")]
         box_nodes = [node for node in graph.nodes if node.kind == "box"]
         for node in box_nodes:
@@ -351,6 +434,50 @@ class Backend(ABC):
         self.draw_wire((i - .15, j - .1), (i, j + .1), bend_in=True)
         self.draw_wire((i, j + .1), (i + .15, j - .1), bend_out=True)
         self.draw_wire((i, j - .1), (i + .05, j + .15), style='->')
+
+    def draw_dual_rail_braid(self, positions, node, **params):
+        """
+        Draws a :class:`discopy.balanced.DualRailBraid`, i.e. the two ribbons
+        ``(0, 1)`` and ``(2, 3)`` crossing as a whole rather than wire by wire.
+        """
+        box, j = node.box, node.j
+        dom = [positions[Node("box_dom", i=i, j=j, x=box.dom[i])]
+               for i in range(len(box.dom))]
+        cod = [positions[Node("box_cod", i=i, j=j, x=box.cod[i])]
+               for i in range(len(box.cod))]
+        _, y_middle = positions[node]
+        # The left ribbon goes to the right and vice-versa. As with a braid,
+        # the left ribbon goes under the right one unless the box is dagger.
+        left = [(dom[0], cod[2]), (dom[1], cod[3])]
+        right = [(dom[2], cod[0]), (dom[3], cod[1])]
+        over, under = (left, right) if box.is_dagger else (right, left)
+        for ribbon, gap in [(under, 0.2), (over, 0)]:
+            for source, target in ribbon:
+                self.draw_braid_strand(source, target, y_middle, gap)
+
+    def draw_dual_rail_twist(self, positions, node, **params):
+        """
+        Draws a :class:`discopy.balanced.DualRailTwist`, i.e. the two rails of
+        a ribbon crossing each other twice in quick succession.
+        """
+        box, j = node.box, node.j
+        dom = [positions[Node("box_dom", i=i, j=j, x=box.dom[i])]
+               for i in range(2)]
+        cod = [positions[Node("box_cod", i=i, j=j, x=box.cod[i])]
+               for i in range(2)]
+        _, middle = positions[node]
+        # The rails swap at the middle then swap back, i.e. they twist.
+        swap = [(dom[1][0], middle), (dom[0][0], middle)]
+        upper, lower = (dom[0][1] + middle) / 2, (middle + cod[0][1]) / 2
+        crossings = [
+            [(dom[0], swap[0], upper), (dom[1], swap[1], upper)],
+            [(swap[0], cod[0], lower), (swap[1], cod[1], lower)]]
+        for first_rail, second_rail in crossings:
+            # The first rail goes under at both crossings unless it is dagger.
+            under, over = (second_rail, first_rail) if box.is_dagger\
+                else (first_rail, second_rail)
+            self.draw_braid_strand(under[0], under[1], under[2], gap=0.15)
+            self.draw_braid_strand(over[0], over[1], over[2])
 
     def draw_brakets(self, positions, node, **params):
         """ Draws a :class:`discopy.quantum.gates.Ket` box. """
@@ -595,6 +722,15 @@ class TikZ(Backend):
             self.nodes[source], self.nodes[target]))
         super().draw_wire(source, target, bend_out=bend_out, bend_in=bend_in)
 
+    def draw_bezier(self, points):
+        for point in points:
+            if tuple(point) not in self.nodes:
+                self.add_node(*point)
+        self.edgelayer.append(
+            "\\draw ({}.center) .. controls ({}.center) and ({}.center) .. "
+            "({}.center);\n".format(*(self.nodes[tuple(p)] for p in points)))
+        super().draw_bezier(points)
+
     def draw_spiders(self, graph, draw_box_labels=True, **params):
         spiders = [(node, node.box.color, node.box.shape)
                    for node in graph.nodes
@@ -773,6 +909,14 @@ class Matplotlib(Backend):
             self.axis.add_patch(PathPatch(
                 path, facecolor='none', linewidth=linewidth))
         super().draw_wire(source, target, bend_out=bend_out, bend_in=bend_in)
+
+    def draw_bezier(self, points):
+        path = Path(
+            list(points),
+            [Path.MOVETO, Path.CURVE4, Path.CURVE4, Path.CURVE4])
+        self.axis.add_patch(PathPatch(
+            path, facecolor='none', linewidth=self.linewidth))
+        super().draw_bezier(points)
 
     def draw_spiders(self, graph, draw_box_labels=True, **params):
         import networkx as nx
