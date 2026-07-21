@@ -150,7 +150,7 @@ def test_Hypergraph_eq_fast_path_trace():
     trace = g.trace()
 
     assert trace.is_acyclic is False
-    assert trace._is_fast_eligible
+    assert trace.is_fast_eligible
 
     shuffled = trace.interchange(0, min(1, len(trace.boxes) - 1))
     assert trace == shuffled
@@ -162,7 +162,7 @@ def test_Hypergraph_eq_fallback_scalars_and_empty_boundary():
     diagrams) must still compare correctly via the VF2 fallback. """
     scalar_a = Box('s', Ty(), Ty()).to_hypergraph()
     scalar_b = Box('s', Ty(), Ty()).to_hypergraph()
-    assert not (scalar_a @ scalar_b)._is_fast_eligible
+    assert not (scalar_a @ scalar_b).is_fast_eligible
     assert scalar_a @ scalar_b == scalar_b @ scalar_a
 
     x = Ty('x')

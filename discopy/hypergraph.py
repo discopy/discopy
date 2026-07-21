@@ -598,12 +598,12 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
             return False
         if not self.is_parallel(other):
             return False
-        self_ok, other_ok = self._is_fast_eligible, other._is_fast_eligible
+        self_ok, other_ok = self.is_fast_eligible, other.is_fast_eligible
         if self_ok != other_ok:
             return False
         if self_ok:
-            self_form = self._boundary_rooted_canonical()
-            other_form = other._boundary_rooted_canonical()
+            self_form = self.boundary_rooted_canonical()
+            other_form = other.boundary_rooted_canonical()
             if self_form is not None and other_form is not None:
                 return self_form.boxes == other_form.boxes\
                     and self_form.wires == other_form.wires
@@ -611,7 +611,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
             self.to_graph(), other.to_graph(), lambda x, y: x == y)
 
     def __hash__(self):
-        if self._is_fast_eligible:
+        if self.is_fast_eligible:
             return hash((
                 self.dom, self.cod, len(self.boxes), self.n_spiders,
                 tuple(sorted(repr(box) for box in self.boxes)),
@@ -619,7 +619,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         return hash((self.dom, self.cod, weisfeiler_lehman_graph_hash(
             self.to_graph(), node_attr="box")))
 
-    def _box_dependencies(self):
+    def box_dependencies(self):
         """
         Box-level dependency graph induced by the wiring, used to detect
         cycles and to compute a canonical box order in linear time, as an
@@ -710,14 +710,14 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         return len({find(i) for i in range(n_spiders_and_boxes + 1)}) == 1
 
     @cached_property
-    def _is_fast_eligible(self) -> bool:
+    def is_fast_eligible(self) -> bool:
         """
         Whether :meth:`__eq__` and :meth:`__hash__` can use the linear-time
         boundary-rooted canonical form instead of graph isomorphism.
         """
         return self.is_monogamous and self.is_boundary_connected
 
-    def _boundary_rooted_canonical(self) -> Hypergraph | None:
+    def boundary_rooted_canonical(self) -> Hypergraph | None:
         """
         Canonical form of a monogamous, boundary-connected hypergraph, used
         to compare such diagrams in linear time instead of checking for
@@ -734,7 +734,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         independent parts of the diagram, in which case the caller should
         fall back to a slower method.
         """
-        producer, consumer, _, _, _ = self._box_dependencies()
+        producer, consumer, _, _, _ = self.box_dependencies()
         canon: dict[int, int] = {}
         order: list[int] = []
 
@@ -1038,7 +1038,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         """
         if self.scalar_spiders:
             return False
-        _, _, _, dependents, indegree = self._box_dependencies()
+        _, _, _, dependents, indegree = self.box_dependencies()
         indegree, seen = list(indegree), 0
         ready = [i for i, d in enumerate(indegree) if d == 0]
         while ready:
@@ -1419,14 +1419,6 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
                 raise AxiomError(messages.NO_STRUCTURE_TO_DOWNGRADE.format(
                     factory_name(self.category)))
             return self.make_monogamous().make_causal().to_diagram()
-        # When the hypergraph is boundary-connected, group boxes into wide
-        # layers instead of a staircase: a box is added to the current layer
-        # while its inputs sit to the right of the boxes already in it (i.e.
-        # independent of them); a swap, or a box reaching back to the left,
-        # flushes the layer and starts a new one. ``layer_dom`` is the boundary
-        # the current layer reads from and ``shift`` accumulates the width
-        # change of its boxes, so an offset in ``scan`` maps to ``offset -
-        # shift`` in ``layer_dom``. Otherwise every box is flushed on its own.
         foliate = self.is_boundary_connected
         diagram, scan = self.category.id(self.dom), self.dom_wires
         pending, layer_dom, layer_right, shift = [], self.dom, 0, 0

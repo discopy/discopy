@@ -962,13 +962,6 @@ class Diagram(cat.Arrow, MonoidalCategory):
         boundary scan to follow, so without its offset that scan would default
         every state to the left and then need swaps to reorder them -- which a
         category without symmetry (e.g. a formal grammar) does not have.
-        Diagrams whose type does not belong to :attr:`hypergraph_factory`'s
-        own category (e.g. the cups and caps of a rigid or pregroup category,
-        whose types are not the self-dual ones of a compact-closed category
-        and so cannot embed into hypergraph spiders in the naive way) return
-        :data:`NotImplemented` rather than raising. This is checked upfront
-        from the type itself, rather than by attempting the translation and
-        catching the resulting error.
 
         Example
         -------
@@ -977,14 +970,7 @@ class Diagram(cat.Arrow, MonoidalCategory):
         >>> diagram = f0 @ f1.dagger() >> f0.dagger() @ f1
         >>> assert diagram.to_hypergraph().to_diagram() == diagram.foliation()
         """
-        factory = self.hypergraph_factory
-        if type(self.dom) is not factory.category.ob:
-            return NotImplemented
-        graph = factory.from_diagram(self)
-        # When no box was absorbed into the wiring (e.g. no swaps), the
-        # diagram's own offsets line up with the hypergraph's boxes and we can
-        # anchor each state at the right place; boxes with a non-empty domain
-        # keep ``None`` as the scan recovers their offset from their inputs.
+        graph = hypergraph.Hypergraph[type(self).ar].from_diagram(self)
         if len(graph.boxes) == len(self.boxes):
             offsets = tuple(
                 offset if not box.dom else None
@@ -1015,19 +1001,22 @@ class Diagram(cat.Arrow, MonoidalCategory):
         Note
         ----
         If one defines a foliation as a sequence of unmergeable layers,
-        there may exist many distinct foliations for the same diagram. When
-        the diagram embeds into a hypergraph (i.e. :meth:`to_hypergraph` does
-        not return :data:`NotImplemented`) and the result is monogamous,
-        causal and boundary-connected, the foliation is read off the
-        hypergraph in one pass over the boundary (see
-        :meth:`discopy.hypergraph.Hypergraph.to_diagram`). Otherwise this scans
-        top to bottom and merges layers eagerly.
+        there may exist many distinct foliations for the same diagram. When the
+        diagram lives in a symmetric category with self-dual objects and its
+        hypergraph is monogamous, causal and boundary-connected, the foliation
+        is read off the hypergraph in one pass over the boundary (see
+        :meth:`discopy.hypergraph.Hypergraph.to_diagram`). The self-duality is
+        needed because that pass reconstructs the diagram with swaps, which
+        would not be faithful in a rigid category such as pregroup, where the
+        left and right adjoints of an object differ. Otherwise this scans top
+        to bottom and merges layers eagerly.
         """
-        hypergraph = self.to_hypergraph()
-        if hypergraph is not NotImplemented and hypergraph.is_monogamous\
-                and hypergraph.is_causal\
-                and hypergraph.is_boundary_connected:
-            return hypergraph.to_diagram()
+        graph = self.to_hypergraph()
+        if hasattr(self, "swap") and graph.is_monogamous and graph.is_causal\
+                and graph.is_boundary_connected and all(
+                    getattr(obj, "l", obj) == getattr(obj, "r", obj)
+                    for obj in graph.spider_types):
+            return graph.to_diagram()
         diagram = self
         while len(diagram) > 1:
             keep_on_going = False
