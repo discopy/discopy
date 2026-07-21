@@ -3,7 +3,8 @@
 Rules for every agent — human-run or autonomous — that writes code in this repo.
 
 1. **Never commit `TODO.md` to the default branch.** It lives only on working branches; a merge
-   gate blocks any PR that still contains it.
+   gate blocks any PR whose tree still contains a file or directory named `TODO` (any case, any
+   extension). The same goes for `TODO` comments in code — open an issue instead.
 
 2. **Never write or edit a PR title or description.** Human-authored only — open PRs as drafts
    with an empty body.
