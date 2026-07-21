@@ -28,3 +28,13 @@ todo.md
 discopy/version.py
 benchmark-results/
 plans/
+
+# neural-sudoku-comparative: the report keeps its figures and its result
+# tables, but not the downloaded benchmark or the trained checkpoints, which
+# `python -m experiments.run` regenerates.
+!docs/neural/figures/*.pdf
+docs/neural/sudoku_data/
+docs/neural/artifacts/*.pt
+docs/neural/artifacts/*lrsearch*
+docs/neural/*.pt
+docs/neural/__pycache__/
