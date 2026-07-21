@@ -29,7 +29,3 @@ HAS_NO_ATTRIBUTE = "{!r} object has no attribute {!r}"
 WRONG_DOM = "Expected inside.dom == {}, got {} instead."
 WRONG_COD = "Expected inside.cod == {}, got {} instead."
 COMPLEX_TYPE_HAS_NO_ATTR = "{!r} object of length != 1 has no attribute {!r}"
-DEPRECATED_DRAWING_EQUATION = (
-    "discopy.drawing.Equation is deprecated, use the Equation of the relevant"
-    " module instead, e.g. discopy.symmetric.Equation or"
-    " discopy.monoidal.Equation.")

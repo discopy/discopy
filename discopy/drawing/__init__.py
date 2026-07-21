@@ -25,11 +25,11 @@ from discopy.drawing.drawing import (
 def __getattr__(name):
     if name == "Equation":
         import warnings
-        from discopy import messages
         from discopy.monoidal import Equation
         warnings.warn(
-            messages.DEPRECATED_DRAWING_EQUATION,
-            DeprecationWarning, stacklevel=2)
+            "discopy.drawing.Equation is deprecated, use the Equation of the "
+            "relevant module instead, e.g. discopy.symmetric.Equation or "
+            "discopy.monoidal.Equation.", DeprecationWarning, stacklevel=2)
         return Equation
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
