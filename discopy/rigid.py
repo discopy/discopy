@@ -461,32 +461,6 @@ class Diagram(biclosed.Diagram, RigidCategory):
     l = property(lambda self: self.rotate(left=True))
     r = property(lambda self: self.rotate(left=False))
 
-    def transpose(self, left=False):
-        """
-        The transpose of a diagram, i.e. its composition with cups and caps.
-
-        Parameters:
-            left : Whether to transpose left or right.
-
-        Example
-        -------
-        >>> from discopy.drawing import Equation
-        >>> x, y = map(Ty, "xy")
-        >>> f = Box('f', x, y)
-        >>> LHS = Equation(f.transpose(left=True), f, symbol="$\\\\mapsfrom$")
-        >>> RHS = Equation(LHS, f.transpose(), symbol="$\\\\mapsto$")
-        >>> RHS.draw(figsize=(8, 3), path="docs/_static/rigid/transpose.png")
-
-        .. image:: /_static/rigid/transpose.png
-        """
-        if left:
-            return self.cod.l @ self.caps(self.dom, self.dom.l)\
-                >> self.cod.l @ self @ self.dom.l\
-                >> self.cups(self.cod.l, self.cod) @ self.dom.l
-        return self.caps(self.dom.r, self.dom) @ self.cod.r\
-            >> self.dom.r @ self @ self.cod.r\
-            >> self.dom.r @ self.cups(self.cod, self.cod.r)
-
     def transpose_box(self, i, j=0, left=False):
         """
         Transpose the box at index ``i``.

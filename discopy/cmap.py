@@ -258,7 +258,7 @@ class CMap[C0: Pregroup, C1: CMap](
     """
 
     category: ClassVar[Diagram] = None
-    require_planar: ClassVar[bool] = True
+    require_planar: ClassVar[bool] = False
     require_causal: ClassVar[bool] = False
     require_oriented: ClassVar[bool] = False
     require_connected: ClassVar[bool] = False
@@ -469,8 +469,8 @@ class CMap[C0: Pregroup, C1: CMap](
                     offsets=(offset, ))
                 for box, offset in zip(self.boxes, self.offsets)]
             components += [
-                type(self)(self.ob(), self.ob(), (), (), scalars=(scalar, ))
-                for scalar in self.loops]
+                type(self)(self.ob(), self.ob(), (), (), loops=(loop, ))
+                for loop in self.loops]
             return components
 
         component_of = self.edges.coequalizer(self.orientation)
@@ -835,11 +835,53 @@ class CMap[C0: Pregroup, C1: CMap](
         exponent = exponent_r.l
         return exponent @ self >> self.cups(exponent, exponent.r) @ base
 
+    l = property(lambda self: self.transpose(left=True))
+    r = property(lambda self: self.transpose(left=False))
+
+    def dagger(self) -> CMap:
+        """
+        Reverse a combinatorial map: swap the boundary, dagger each box in
+        reverse order and conjugate the edges by the port relabeling.
+
+        Boundary ports keep their order while each box block is reversed:
+        the clockwise port order of a daggered box is the reversed clockwise
+        order of the original.
+
+        >>> from discopy.compact import Ty, Box
+        >>> x, y = map(Ty, "xy")
+        >>> f, g = Box('f', x, y @ y), Box('g', y @ y, x)
+        >>> assert (f >> g).dagger().to_map() == (f >> g).to_map().dagger()
+        >>> assert (f >> g).to_map().dagger().dagger() == (f >> g).to_map()
+        """
+        n, n_dom, n_cod = self.n_ports, len(self.dom), len(self.cod)
+        boxes = tuple(box.dagger() for box in reversed(self.boxes))
+        offsets = tuple(reversed(self.offsets))
+        sizes = [len(box.dom) + len(box.cod) for box in self.boxes]
+        starts = [n_cod + sum(sizes[i + 1:]) for i in range(len(sizes))]
+        dom_mapping = list(range(n - n_dom, n))
+        box_mapping = sum([
+            list(reversed(range(start, start + size)))
+            for start, size in zip(starts, sizes)], [])
+        cod_mapping = list(range(n_cod))
+        mapping = dom_mapping + box_mapping + cod_mapping
+        edges = self.edges.conjugate(Permutation(mapping))
+        return type(self)(
+            self.cod, self.dom, boxes, edges, offsets=offsets,
+            loops=self.loops)
+
     @classmethod
     def spiders(
             cls, n_legs_in: int, n_legs_out: int,
             typ: Ty, phases=None) -> CMap:
-        """ Spiders are kept as boxes, including their phase data. """
+        """
+        Spiders are kept as boxes, including their phase data.
+
+        Example
+        -------
+        >>> from discopy.tensor import CMap, Dim, Tensor
+        >>> assert CMap.spiders(1, 2, Dim(2, 3)).eval().is_close(
+        ...     Tensor.spiders(1, 2, Dim(2, 3)))
+        """
         return cls.from_box(cls.category.spiders(
             n_legs_in, n_legs_out, typ, phases))
 
