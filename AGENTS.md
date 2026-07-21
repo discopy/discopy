@@ -11,6 +11,12 @@ Please read the following documents (<10k tokens) before attempting any serious 
 - @README.md contains a high-level description of the features along with some examples.
 - @CONTRIBUTING.md contains setup instructions, our philosophy and a code style guide.
 
+## Rules
+
+@RULES.md binds every agent — human-run or autonomous — that writes code in this repo:
+the `TODO.md` protocol, the per-point `[WIP]` mutex and the pull request conventions.
+Follow it exactly.
+
 ## Where
 
 - [discopy](discopy/) contains the code with a lot of modules and a few submodules
