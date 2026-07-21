@@ -197,6 +197,7 @@ That is, we do our best to make sure that critical parts of the reasoning / impl
 - **DisCoPy does not show off.** If there is a simpler way to name or explain something, don't make it sound more complicated.
 - **DisCoPy never repeats itself.** The identity and composition of diagrams are defined once in `cat`, not in every level of the hierarchy. If there's duplicate code then you're probably working at the wrong level of abstraction.
 - **DisCoPy aims at never nesting.** We believe if your code goes beyond three levels deep then you're probably working at the wrong level of abstraction.
+- **DisCoPy has no TODOs.** Never commit a file or directory named `TODO` to the default branch — a merge gate blocks any PR whose tree contains one (any case, any extension) — and never leave `TODO` comments in the code: open an issue instead.
 
 ## LLM guidelines
 
