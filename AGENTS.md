@@ -14,8 +14,8 @@ Please read the following documents (<10k tokens) before attempting any serious 
 ## Rules
 
 @RULES.md binds every agent — human-run or autonomous — that writes code in this repo:
-the `TODO.md` protocol, the per-point `[WIP]` mutex and the pull request conventions.
-Follow it exactly.
+the working-branch checklist protocol, the per-point `[WIP]` mutex and the pull request
+conventions. Follow it exactly.
 
 ## Where
 

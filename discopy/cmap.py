@@ -615,15 +615,15 @@ class CMap[C0: Pregroup, C1: CMap](
         graph = {i: set() for i in range(len(self.boxes))}
 
         def has_path(source: int, target: int) -> bool:
-            todo, seen = [source], set()
-            while todo:
-                node = todo.pop()
+            unseen, seen = [source], set()
+            while unseen:
+                node = unseen.pop()
                 if node == target:
                     return True
                 if node in seen:
                     continue
                 seen.add(node)
-                todo.extend(graph[node])
+                unseen.extend(graph[node])
             return False
 
         for i, j in enumerate(self.edges):

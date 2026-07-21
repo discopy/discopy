@@ -150,10 +150,7 @@ testpaths = [
     "test/*/*.py",
     "docs/notebooks/*.ipynb",
 ]
-norecursedirs = [
-    "test/utils/pickles/pending",
-]
-addopts = "--doctest-modules --nbmake --ignore=test/utils/pickles/pending"
+addopts = "--doctest-modules --nbmake"
 
 [tool.coverage.report]
 fail_under = 98
