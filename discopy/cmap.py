@@ -469,8 +469,8 @@ class CMap[C0: Pregroup, C1: CMap](
                     offsets=(offset, ))
                 for box, offset in zip(self.boxes, self.offsets)]
             components += [
-                type(self)(self.ob(), self.ob(), (), (), scalars=(scalar, ))
-                for scalar in self.loops]
+                type(self)(self.ob(), self.ob(), (), (), loops=(loop, ))
+                for loop in self.loops]
             return components
 
         component_of = self.edges.coequalizer(self.orientation)
@@ -834,6 +834,40 @@ class CMap[C0: Pregroup, C1: CMap](
         exponent_r, base = self.cod[:n], self.cod[n:]
         exponent = exponent_r.l
         return exponent @ self >> self.cups(exponent, exponent.r) @ base
+
+    l = property(lambda self: self.transpose(left=True))
+    r = property(lambda self: self.transpose(left=False))
+
+    def dagger(self) -> CMap:
+        """
+        Reverse a combinatorial map: swap the boundary, dagger each box in
+        reverse order and conjugate the edges by the port relabeling.
+
+        Boundary ports keep their order while each box block is reversed:
+        the clockwise port order of a daggered box is the reversed clockwise
+        order of the original.
+
+        >>> from discopy.compact import Ty, Box
+        >>> x, y = map(Ty, "xy")
+        >>> f, g = Box('f', x, y @ y), Box('g', y @ y, x)
+        >>> assert (f >> g).dagger().to_map() == (f >> g).to_map().dagger()
+        >>> assert (f >> g).to_map().dagger().dagger() == (f >> g).to_map()
+        """
+        n, n_dom, n_cod = self.n_ports, len(self.dom), len(self.cod)
+        boxes = tuple(box.dagger() for box in reversed(self.boxes))
+        offsets = tuple(reversed(self.offsets))
+        sizes = [len(box.dom) + len(box.cod) for box in self.boxes]
+        starts = [n_cod + sum(sizes[i + 1:]) for i in range(len(sizes))]
+        dom_mapping = list(range(n - n_dom, n))
+        box_mapping = sum([
+            list(reversed(range(start, start + size)))
+            for start, size in zip(starts, sizes)], [])
+        cod_mapping = list(range(n_cod))
+        mapping = dom_mapping + box_mapping + cod_mapping
+        edges = self.edges.conjugate(Permutation(mapping))
+        return type(self)(
+            self.cod, self.dom, boxes, edges, offsets=offsets,
+            loops=self.loops)
 
     @classmethod
     def spiders(
