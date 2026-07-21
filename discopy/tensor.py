@@ -386,16 +386,7 @@ class Functor(frobenius.Functor):
         if isinstance(other, cmap.CMap):
             return self.contract(other)
         assert_isinstance(other, monoidal.Diagram)
-        if other.is_generator:
-            return self(other.generator)
-        if issubclass(type(other).ob, Dim):
-            return self.contract(other.to_map())
-        return frobenius.Functor(
-            ob_map=self.ob_map, ar_map=lambda box: CMap.from_box(
-                Box[self.dtype](box.name, self(box.dom), self(box.cod),
-                                self(box).array)),
-            dom=self.dom, cod=CMap)(other).eval(
-                self.dtype, self.optimize, **self.params)
+        return self.contract(cmap.CMap.from_diagram(other))
 
     def contract(self, other: "cmap.CMap") -> Tensor:
         """
