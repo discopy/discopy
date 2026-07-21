@@ -231,20 +231,27 @@ class Backend(ABC):
             color=color)
 
     @staticmethod
+    def has_boundary_sides(typ):
+        """ Whether the first or last object of a type is a frame side, i.e.
+        it carries the ``frame_boundary`` flag set by :meth:`Drawing.bubble`
+        with ``draw_as_square``. """
+        return any(getattr(obj, "frame_boundary", False)
+                   for obj in typ.inside[:1] + typ.inside[-1:])
+
+    @staticmethod
     def is_frame_boundary(node):
         """ Whether a node belongs to the sides of a frame, i.e. the box drawn
-        around the terms of an :class:`Equation` with coloured boundaries. """
-        def has_boundary_sides(typ):
-            return any(getattr(obj, "frame_boundary", False)
-                       for obj in typ.inside[:1] + typ.inside[-1:])
+        around the terms of an :class:`Equation` with coloured boundaries.
+
+        A box carrying the ``frame_boundary`` flag is a bubble opening or
+        closing squashed to half height, whose horizontal boundary is drawn
+        as a wire through the box node. That boundary is hidden only for a
+        square frame, i.e. when the left and right side types carry the flag
+        too; a plain bubble keeps its top and bottom boundaries visible. """
         box = getattr(node, "box", None)
         if box is not None and getattr(box, "frame_boundary", False):
-            # The flag on the box alone marks a squashed bubble opening or
-            # closing, whose horizontal boundary is drawn as a wire through
-            # the box node: it is invisible only when the sides are too,
-            # i.e. when the left and right types carry the frame_boundary
-            # flag as set by Drawing.bubble with draw_as_square.
-            return has_boundary_sides(box.dom) or has_boundary_sides(box.cod)
+            return Backend.has_boundary_sides(box.dom)\
+                or Backend.has_boundary_sides(box.cod)
         typ = getattr(node, "x", None)
         return typ is not None and getattr(
             typ.inside[0], "frame_boundary", False)
