@@ -38,6 +38,13 @@ EXPIRY — an approval older than 7 DAYS (from the reaction's or "/code" comment
 EXPIRED: do not implement; list it in the Evening summary under "expired approvals — re-approve to
 reactivate". Re-approval = a fresh :${APPROVE_EMOJI_GH}: or a fresh "/code".
 
+MECHANICAL CHECK — INTEGRITY and EXPIRY are verified by running
+`Alexis/.agents/check-approval.sh <comment-url> rocket|code` (needs `gh` + `jq`), which
+implements the two rules above and prints APPROVED / VOID / EXPIRED (exit 0/1/2). Its verdict is
+binding: only exit 0 authorizes implementation. Run it per item at implementation time, on live
+data. If the script is missing or errors, perform the same checks manually per the spec above —
+never skip them, and note the fallback in your summary.
+
 ## Routine hard rules
 - Act ONLY on PRs authored by ALEXIS_GH. A :${APPROVE_EMOJI_GH}: counts only from ALEXIS_GH.
 - Push only to `claude/` branches (your push permission is limited to them). Never merge; never

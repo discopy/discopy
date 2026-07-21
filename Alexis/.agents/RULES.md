@@ -15,7 +15,11 @@ Rules for every agent — human-run or autonomous — that writes code in this r
 4. **Claim a checkbox before working it — a per-point mutex.** Set it to `[WIP] @<SessionID>` and
    push *before* any code change; the committed claim is the lock. If the push is rejected
    (non-fast-forward) or the point is already `[WIP]`/`[x]`, take a different point. Parallel
-   across points is fine; only the same point is serialized.
+   across points is fine; only the same point is serialized. A claim goes STALE after 24 HOURS:
+   if `git blame` on the point's `TODO.md` line shows its `[WIP]` claim is older than 24h, any
+   agent may reset it to `[ ]` in a commit of its own (never touching other lines), push the
+   reset, then claim it normally — noting the reclaim and the abandoned `@<SessionID>` in its
+   summary. Never reclaim a `[x]`, and never reset a claim younger than 24h.
 
 5. **An agent talks only to its own human.** Never reply to another user's comment unless the
    human you act for replied first in that thread or marked the comment with a :rocket: — and
