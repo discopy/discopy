@@ -149,10 +149,12 @@ injection paths. Findings from this first live round:
    to committing this file to a `claude/` branch — consistent with
    ROUTINE.md's push rules, but worth writing down as the intended
    fallback so future rounds behave predictably.
-5. **No stale-claim recovery for the mutex**: a crashed session leaves a
-   point `[WIP] @<SessionID>` forever, and no rule allows reclaiming it.
-   Suggest: a `[WIP]` older than ~24h may be reset to `[ ]` with a note
-   in the Slack summary.
+5. **No stale-claim recovery for the mutex** — RESOLVED overnight at
+   your request: RULES.md #4 now lets any agent reset a `[WIP]` older
+   than 24h (per `git blame` on the TODO.md line), and ROUTINE.md's
+   INTEGRITY/EXPIRY checks are now enforced by a tested
+   `Alexis/.agents/check-approval.sh` whose verdict is binding
+   (commit `9c9e6e0` on the prompts branch).
 6. **Birdsong→Daylight timing is tight**: Birdsong (09:50) pushes TODO.md
    guidance and Daylight (10:00) starts claiming points ten minutes
    later. Birdsong's full GitHub scan can easily run past 10:00; its
