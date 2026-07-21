@@ -132,10 +132,11 @@ edits), the 7-day EXPIRY, the reaction-only-from-`toumix` rule and the
 anti-forgery convention for Slack tags together close most of the obvious
 injection paths. Findings from this first live round:
 
-1. **Config placeholders are unfilled**: `ALEXIS_SLACK_ID = "U________"`
-   and `SLACK_CHANNEL = "#________"`. Evening's READ MEMORY and POST
-   steps cannot run until these are set, and no Slack connector is
-   attached to this environment.
+1. **Config placeholders are unfilled** — PARTLY RESOLVED overnight:
+   Slack was removed from the pipeline entirely (commit `901f6be`), so
+   the Slack placeholders are gone. Remaining: `CONTROL_REPO` in
+   ROUTINE.md still reads `toumix/________` pending the personal repo's
+   name.
 2. **Session scope doesn't match `REPOS`**: `rel-int/wiki` (the
    CONTROL_REPO) is not in this session's GitHub scope — only
    `discopy/discopy` is. DECIDED overnight: the control plane moves out
@@ -146,11 +147,13 @@ injection paths. Findings from this first live round:
    "a merge gate blocks any PR that still contains it", but neither
    `build.yml` nor `benchmark.yml` checks for TODO.md. Until that
    workflow exists the sign-off mechanism is honour-system.
-4. **No Slack fallback for Evening**: EVENING.md is report-only and
-   posts to Slack. Tonight (no Slack, no channel configured) I fell back
-   to committing this file to a `claude/` branch — consistent with
-   ROUTINE.md's push rules, but worth writing down as the intended
-   fallback so future rounds behave predictably.
+4. **No Slack fallback for Evening** — RESOLVED overnight by removing
+   Slack altogether (commit `901f6be`): Evening is now bound to a
+   persistent "bridge" Claude session (your replies there are the
+   feedback channel, unforgeably you), and shared memory moved to a
+   `state/` folder in CONTROL_REPO — `evening/`, `feedback/`
+   (verbatim-quoted bridge feedback, the sole new-task authorization),
+   `birdsong/`, `daylight/`. The anti-forgery tag apparatus is deleted.
 5. **No stale-claim recovery for the mutex** — RESOLVED overnight at
    your request: RULES.md #4 now lets any agent reset a `[WIP]` older
    than 24h (per `git blame` on the TODO.md line), and ROUTINE.md's
@@ -192,22 +195,25 @@ injection paths. Findings from this first live round:
 - [ ] Optional: green-light / reorder the proposed evening-round queue
       above.
 
-To activate the routine pipeline (see the prompts review above):
+To activate the routine pipeline (see the prompts review above; the
+prompts now live on `claude/evening-discopy-planning-4etphi` at commit
+`901f6be`, Slack-free with the bridge + `state/` architecture):
 
-- [ ] Fill in `ALEXIS_SLACK_ID` and `SLACK_CHANNEL` in `ROUTINE.md` and
-      attach a Slack connector to the routine environment.
-- [ ] Move `Alexis/.agents/` to the personal website repo (the new
-      CONTROL_REPO), update `CONTROL_REPO`/`REPOS` in ROUTINE.md and
-      HANDOFF.md, and add that repo to the routine environments'
-      sources. Two gotchas: exclude `.agents/` and `state/` from the
-      site build so the generator never publishes them, and if the repo
-      is public treat the prompts as published — keep the Slack channel
-      ID and any secrets in the routines' env, not in ROUTINE.md.
-- [ ] Add the TODO.md merge-gate workflow that RULES.md #1 assumes.
-- [ ] Create the schedules (02:00, 09:50, 10:00, 14:00, 18:00 UTC?) —
-      and decide the timezone, which the prompts don't state.
-- [ ] Decide the Evening fallback when Slack is unreachable (suggested:
-      commit the report to a `claude/` branch, as done tonight).
+- [ ] Move `Alexis/.agents/` to the personal website repo and fill in
+      `CONTROL_REPO` in ROUTINE.md. Exclude `Alexis/` and `state/` from
+      the site build so the generator never publishes them; if the repo
+      is public, treat the prompts as published and keep secrets in the
+      routines' env.
+- [ ] Run the HANDOFF.md bootstrap: discopy CODEOWNERS, the TODO.md
+      merge-gate workflow + required check, the workflow-path ruleset,
+      and (optional but recommended) a no-bypass ruleset on
+      `Alexis/.agents/**` in CONTROL_REPO so even rule changes go via
+      PR.
+- [ ] Open the bridge session (both repos as sources), have it create
+      the self-bound Evening routine (daily 02:00), then create
+      Birdsong (09:50) and Daylight (10/14/18) as fresh-session
+      routines — and decide the timezone, which the prompts don't
+      state.
 
 ## Environment notes for future rounds
 
