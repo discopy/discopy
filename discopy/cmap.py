@@ -873,7 +873,15 @@ class CMap[C0: Pregroup, C1: CMap](
     def spiders(
             cls, n_legs_in: int, n_legs_out: int,
             typ: Ty, phases=None) -> CMap:
-        """ Spiders are kept as boxes, including their phase data. """
+        """
+        Spiders are kept as boxes, including their phase data.
+
+        Example
+        -------
+        >>> from discopy.tensor import CMap, Dim, Tensor
+        >>> assert CMap.spiders(1, 2, Dim(2, 3)).eval().is_close(
+        ...     Tensor.spiders(1, 2, Dim(2, 3)))
+        """
         return cls.from_box(cls.category.spiders(
             n_legs_in, n_legs_out, typ, phases))
 
