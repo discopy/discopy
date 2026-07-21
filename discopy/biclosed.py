@@ -65,7 +65,7 @@ from abc import abstractmethod
 from inspect import signature
 from typing import Callable, ClassVar, Self
 
-from discopy import monoidal
+from discopy import monoidal, cmap
 from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
 from discopy.cat import factory
@@ -456,10 +456,12 @@ class Functor(monoidal.Functor):
         return super().__call__(other)
 
 
-class CMap(monoidal.CMap):
+class CMap(cmap.CMap):
+    """
+    A combinatorial map that curries with the closed structure of the host
+    category rather than with free compact wiring.
+    """
     category = Diagram
-
-    require_causal = False
 
     def curry(self, n=1, left=False) -> Self:
         """

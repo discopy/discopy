@@ -87,7 +87,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 
-from discopy import monoidal, balanced, traced, messages, hypergraph
+from discopy import monoidal, balanced, messages, hypergraph, cmap
 from discopy.abc import SymmetricCategory
 from discopy.cat import factory
 from discopy.monoidal import Wire, Ty, PRO  # noqa: F401
@@ -377,10 +377,7 @@ class Functor(balanced.Functor):
         return super().__call__(other)
 
 
-class CMap(traced.CMap):
-    category = Diagram
-    require_planar = False
-
+CMap = cmap.CMap[Diagram]
 
 Diagram.functor_factory = Functor
 Diagram.map_factory = CMap

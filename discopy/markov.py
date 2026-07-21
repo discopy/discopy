@@ -76,7 +76,7 @@ in the same diagram they automatically satisfy the :mod:`frobenius` axioms.
 
 from __future__ import annotations
 
-from discopy import symmetric, monoidal, hypergraph
+from discopy import symmetric, monoidal, hypergraph, cmap
 from discopy.abc import MarkovCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty  # noqa: F401
@@ -307,9 +307,7 @@ class Functor(symmetric.Functor):
         return super().__call__(other)
 
 
-class CMap(symmetric.CMap):
-    category = Diagram
-
+CMap = cmap.CMap[Diagram]
 
 Diagram.functor_factory = Functor
 Diagram.map_factory = CMap

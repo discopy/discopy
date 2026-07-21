@@ -1505,13 +1505,7 @@ class Match:
         return self.above >> self.left @ target @ self.right >> self.below
 
 
-class CMap(cmap.CMap):
-    category = Diagram
-    require_planar = True
-    require_causal = True
-    require_oriented = True
-    require_connected = True
-
+CMap = cmap.CMap[Diagram]
 
 Diagram.draw = drawing.draw
 Diagram.to_gif = drawing.to_gif

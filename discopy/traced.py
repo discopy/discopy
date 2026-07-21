@@ -126,7 +126,7 @@ Dinaturality
 ...     assert sliding_left and sliding_right
 """
 
-from discopy import monoidal, hypergraph
+from discopy import monoidal, hypergraph, cmap
 from discopy.abc import TracedCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty  # noqa: F401
@@ -260,10 +260,7 @@ class Functor(monoidal.Functor):
         return super().__call__(other)
 
 
-class CMap(monoidal.CMap):
-    category = Diagram
-    require_causal = False
-
+CMap = cmap.CMap[Diagram]
 
 Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
