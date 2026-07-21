@@ -112,8 +112,7 @@ By default, DisCoPy diagrams are made of layers with exactly one box in between 
 We can get more general diagrams by specifying the list of layers `inside` manually:
 
 ```python
-from discopy.monoidal import Layer
-from discopy.drawing import Equation
+from discopy.monoidal import Layer, Equation
 
 A, B, C, D = Ty(*"ABCD")
 f, g = Box("f", A, B), Box("g", C, D)
@@ -170,8 +169,7 @@ For instance, the `Int`-construction takes traced categories to compact categori
 Wires can be bent using two special kinds of boxes: **cups** and **caps**, which satisfy the [snake equations](https://ncatlab.org/nlab/show/triangle+identities).
 
 ```python
-from discopy.drawing import Equation
-from discopy.rigid import Ty, Id, Cup, Cap
+from discopy.rigid import Ty, Id, Cup, Cap, Equation
 
 x = Ty('x')
 left_snake = x @ Cap(x.r, x) >> Cup(x, x.r) @ x
@@ -263,7 +261,7 @@ We can use this geometry of interaction to interpret words as processes rather t
 
 ```python
 from discopy.interaction import Ty, Int
-from discopy.compact import Ty as T, Diagram as D, Box
+from discopy.compact import Ty as T, Diagram as D, Box, Equation
 
 N, S = T('N'), T('S')
 A, B = Box('A', N, N), Box('B', N, N)
@@ -276,7 +274,7 @@ G = pregroup.Functor(
 
 ALB_trace = (A @ S @ B >> L).trace(left=True).trace(left=False).foliation()
 
-assert D.to_hypergraph.quotient(G(sentence).inside, ALB_trace)
+assert Equation(G(sentence).inside, ALB_trace)
 
 Equation(sentence.foliation(), ALB_trace, symbol="$\\mapsto$").draw()
 ```
