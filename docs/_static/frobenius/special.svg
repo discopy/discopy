@@ -257,6 +257,9 @@ z
      <use xlink:href="#C0_0_42e322a767" x="180" y="72" style="fill: #ffffff; stroke: #ffffff"/>
     </g>
     <g clip-path="url(#pb608f8dd4e)">
+     <use xlink:href="#C0_0_42e322a767" x="72" y="36" style="stroke: #000000"/>
+    </g>
+    <g clip-path="url(#pb608f8dd4e)">
      <use xlink:href="#C0_0_42e322a767" x="324" y="72" style="fill: #ffffff; stroke: #ffffff"/>
     </g>
     <g clip-path="url(#pb608f8dd4e)">
@@ -264,9 +267,6 @@ z
     </g>
     <g clip-path="url(#pb608f8dd4e)">
      <use xlink:href="#C0_0_42e322a767" x="252" y="72" style="stroke: #000000"/>
-    </g>
-    <g clip-path="url(#pb608f8dd4e)">
-     <use xlink:href="#C0_0_42e322a767" x="72" y="36" style="stroke: #000000"/>
     </g>
    </g>
    <g id="text_1">
