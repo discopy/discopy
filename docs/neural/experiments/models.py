@@ -232,6 +232,18 @@ class Solver(torch.nn.Module):
             (cell[layout.answer[0]], cell[layout.answer[1]])
         ) if layout.answer else ()
 
+    def compile_cells(self, **kwargs):
+        """
+        Compile the round step of the map with ``torch.compile``; see
+        :meth:`discopy.neural.CMap.compile`. Message passing on these maps
+        is launch-bound (many small kernels per round), so this is a
+        several-fold wall-clock speedup on a GPU at identical numerics up
+        to rounding error. Named ``compile_cells`` so as not to shadow
+        ``torch.nn.Module.compile``.
+        """
+        self.grid.compile(**kwargs)
+        return self
+
     def initial(self, clues):
         """
         The initial per-port messages: the clue embedding on both ends of
@@ -289,11 +301,11 @@ class GoISolver(Solver):
     def forward(self, clues, deep: bool = False, rounds: int = None):
         init = self.initial(clues)
         emitted = self.cells(init=init, n_rounds=rounds or self.rounds,
-                             inject=True, return_rounds=deep)
+                             inject=True, return_rounds=deep,
+                             return_flat=True)
 
-        def head(outgoing):
-            states = self.router.read(
-                self.router(outgoing), self.state_ports)
+        def head(flat):
+            states = self.router.read(flat, self.state_ports)
             return self.readout_from(states)
         return [head(step) for step in emitted] if deep else head(emitted)
 
@@ -323,11 +335,11 @@ class RRNSolver(Solver):
     def forward(self, clues, deep: bool = False, rounds: int = None):
         init = self.initial(clues)
         emitted = self.cells(init=init, n_rounds=rounds or self.rounds,
-                             inject=True, return_rounds=deep)
+                             inject=True, return_rounds=deep,
+                             return_flat=True)
 
-        def head(outgoing):
-            states = self.router.read(
-                self.router(outgoing), self.state_ports)
+        def head(flat):
+            states = self.router.read(flat, self.state_ports)
             return self.readout_from(states[..., :self.widths.state_dim])
         return [head(step) for step in emitted] if deep else head(emitted)
 
@@ -340,11 +352,12 @@ class TRMSolver(Solver):
     The map is exactly model A's, plus an answer loop of width ``y_dim`` on
     every cell which the cell reads but passes through unchanged, and a cell
     that re-emits its clue so a run carries its own clues. Message passing is
-    then resumable: :meth:`cycle` runs ``n`` rounds with ``inject=False``,
-    :func:`experiments.maps.route` turns the emitted messages back into
-    incoming ones, and the answer ``y`` is refreshed from the latent state
-    ``z`` by a ``GRUCell`` before the next macro-step. One supervision step
-    is ``T`` such cycles, the first ``T - 1`` without gradients.
+    then resumable: :meth:`cycle` runs ``n`` rounds with ``inject=False``
+    and reads back the flat incoming messages (``return_flat=True``, the
+    same tensor :func:`experiments.maps.route` would rebuild), and the
+    answer ``y`` is refreshed from the latent state ``z`` by a ``GRUCell``
+    before the next macro-step. One supervision step is ``T`` such cycles,
+    the first ``T - 1`` without gradients.
 
     Parameters:
         widths : The widths of this model.
@@ -388,9 +401,8 @@ class TRMSolver(Solver):
             rounds : The rounds of this cycle, ``self.rounds`` by default.
         """
         assert state.shape[-1] == self.router.total, "bad state width"
-        emitted = self.cells(init=state, n_rounds=rounds or self.rounds,
-                             inject=False)
-        state = self.router(emitted)
+        state = self.cells(init=state, n_rounds=rounds or self.rounds,
+                           inject=False, return_flat=True)
         latent = self.router.read(state, self.state_ports)
         answer = self.router.read(state, self.answer_ports)[:, ::2]
         assert latent.shape[1:] == (self.n_cells, self.widths.state_dim)

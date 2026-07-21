@@ -34,7 +34,6 @@ plans/
 # `python -m experiments.run` regenerates.
 !docs/neural/figures/*.pdf
 docs/neural/sudoku_data/
-docs/neural/artifacts/*.pt
-docs/neural/artifacts/*lrsearch*
+docs/neural/artifacts/
 docs/neural/*.pt
 docs/neural/__pycache__/

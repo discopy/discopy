@@ -1,54 +1,41 @@
 # -*- coding: utf-8 -*-
 
 """
-The wirings of the three sudoku maps, and the routing helper that makes
+The semantics of the three sudoku maps, and the routing helper that makes
 message passing resumable.
 
-Each builder returns a *closed* :class:`discopy.neural.CMap` together with a
-description of the port layout of a cell, so that the models know where to
-inject clues and where to read states. Only the wiring and the port types
-differ between the three: A and C wire cells to shared factor boxes, B wires
-peers directly; A and C carry a message of width ``dim`` on a cell-to-unit
-wire, B carries a full hidden state of width ``state_dim`` on a peer wire.
+The *syntax* of each model -- which cell talks to which unit or peer -- is an
+abstract, torch-free skeleton from :mod:`experiments.skeleton`, whose atomic
+types are roles (``message``, ``state``, ``clue``, ...) rather than widths.
+This module fills the skeleton in: one :class:`discopy.neural.Functor` per
+model sends each role to the :class:`Dim` it carries and each abstract box to
+the :class:`Network` computing it, and :func:`interpret` applies the functor
+to the skeleton, giving the closed :class:`discopy.neural.CMap` the model
+runs.  Models A and C interpret the *same* skeleton -- their wiring is
+identical -- with two different functors: model A sends the ``answer`` role
+to ``Dim(0)``, the monoidal unit, which erases the answer loop altogether;
+model C sends it to ``Dim(y_dim)``.
+
+Each builder returns the interpreted map together with a :class:`Layout`, a
+description of the port layout of a cell read off the same functor, so that
+the models know where to inject clues and where to read states.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from functools import lru_cache
 from typing import TYPE_CHECKING
 
-import numpy as np
+from discopy import frobenius
+from discopy.neural import CMap, Dim, Functor, Network
+from discopy.utils import assert_isinstance
 
-from discopy.neural import CMap, Dim, Network
+from experiments import skeleton
+from experiments.skeleton import (  # noqa: F401 -- re-exported for callers
+    N, N_CELLS, peers_of, positional_ids)
 
 if TYPE_CHECKING:
     import torch
-
-N = 9
-N_CELLS = 81
-
-
-@lru_cache(maxsize=None)
-def positional_ids(n: int = N) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """ The row, column and block index of each of the ``n * n`` cells. """
-    index = np.arange(n * n)
-    root = int(round(n ** 0.5))
-    row, col = index // n, index % n
-    block = (row // root) * root + (col // root)
-    return row, col, block
-
-
-@lru_cache(maxsize=None)
-def peers_of(n: int = N) -> tuple[tuple[int, ...], ...]:
-    """ The cells each cell must differ from: its row, column and block. """
-    row, col, block = positional_ids(n)
-    return tuple(tuple(
-        other for other in range(n * n)
-        if other != cell and (
-            row[other] == row[cell] or col[other] == col[cell]
-            or block[other] == block[cell]))
-        for cell in range(n * n))
 
 
 @dataclass(frozen=True)
@@ -83,29 +70,109 @@ class Layout:
         return self.n_message * self.message_width
 
 
-def _cell_ports(layout: Layout) -> Dim:
-    """ The codomain of a cell box, from its layout. """
-    dim = Dim(layout.message_width) ** layout.n_message
-    dim = dim @ Dim(layout.state_width) ** 2 @ Dim(layout.clue_width) ** 2
-    if layout.answer:
-        dim = dim @ Dim(layout.answer_width) ** 2
-    return dim
+# --- interpreting a skeleton ----------------------------------------------
 
-
-def _self_loops(wires: list, cell: int, layout: Layout) -> None:
-    """ Wire a cell's state, clue and answer ports to themselves. """
-    for pair in (layout.state, layout.clue, layout.answer):
-        if pair:
-            wires.append(((cell, pair[0]), (cell, pair[1])))
-
-
-def build_factor_graph(cell_module, factor_module, dim: int, state_dim: int,
-                       answer_dim: int = 0, n: int = N
-                       ) -> tuple[CMap, Layout]:
+def interpret(functor: Functor, abstract: frobenius.CMap) -> CMap:
     """
-    The bipartite factor graph of models A and C: one shared cell box per
-    cell with three message ports, one shared factor box per row, column and
-    block, and a wire from each cell to each of its three units.
+    Apply a :class:`discopy.neural.Functor` to a closed abstract map,
+    port by port: each box becomes its image :class:`Network`, each wire
+    becomes a wire between the image ports.  This is the boundary between
+    syntax and semantics: the skeleton fixes the combinatorics, the functor
+    fixes the widths and the modules.
+
+    The functor must send each atomic role to an atomic ``Dim`` -- one
+    abstract port becomes one concrete port -- or to ``Dim(0)``, the
+    monoidal unit, in which case the port vanishes from the image box and
+    the wire is erased with it.  A wire may only be erased whole: a role
+    wired to a surviving role cannot be erased.
+
+    Parameters:
+        functor : The neural functor giving the widths and the networks.
+        abstract : The closed skeleton to interpret.
+    """
+    boxes = tuple(functor(box) for box in abstract.boxes)
+    for box, image in zip(abstract.boxes, boxes):
+        assert_isinstance(image, Network)
+        assert (image.dom, image.cod) \
+            == (functor(box.dom), functor(box.cod)), \
+            f"the image of {box} does not have the image type"
+
+    erased, position = {}, {}
+    for index in range(len(abstract.boxes)):
+        cursor = 0
+        for pos, role in enumerate(skeleton.roles_of(abstract, index)):
+            width = functor(role)
+            assert len(width) <= 1, f"{role} maps to the non-atomic {width}"
+            erased[index, pos] = not len(width)
+            position[index, pos] = cursor
+            cursor += len(width)
+
+    wires = []
+    for (one, other) in skeleton.wires_of(abstract):
+        if erased[one] and erased[other]:
+            continue
+        assert not (erased[one] or erased[other]), \
+            f"the wire {one} -- {other} is only erased at one end"
+        wires.append(((one[0], position[one]), (other[0], position[other])))
+    return CMap.from_wiring(boxes, wires)
+
+
+def layout_of(functor: Functor, abstract: frobenius.CMap) -> Layout:
+    """
+    The port layout of a cell under a functor: where each surviving role
+    sits among the concrete ports of a cell box, and how wide it is.  Read
+    off the same functor as :func:`interpret`, so the two cannot drift.
+
+    Parameters:
+        functor : The neural functor giving the widths.
+        abstract : The skeleton whose cells to lay out.
+    """
+    roles = skeleton.roles_of(abstract, 0)
+    kept = [role for role in roles if len(functor(role))]
+
+    def positions(role):
+        return tuple(i for i, other in enumerate(kept) if other == role)
+
+    def width(role):
+        return sum(functor(role).inside)
+
+    message = kept[0]
+    assert message not in skeleton.LOOP_ROLES, "a cell starts with a loop"
+    return Layout(
+        n_message=len(positions(message)), message_width=width(message),
+        state=positions(skeleton.STATE), clue=positions(skeleton.CLUE),
+        answer=positions(skeleton.ANSWER),
+        state_width=width(skeleton.STATE), clue_width=width(skeleton.CLUE),
+        answer_width=width(skeleton.ANSWER) if positions(skeleton.ANSWER)
+        else 0,
+        n_cells=sum(box.name == "cell" for box in abstract.boxes))
+
+
+def _functor(ob: dict, modules: dict, abstract: frobenius.CMap) -> Functor:
+    """
+    The neural functor with the given object map, sending each abstract box
+    of a skeleton to a :class:`Network` of the image type around the module
+    of the same name.  One shared module means one shared box.
+
+    Parameters:
+        ob : Map from atomic role to the :class:`Dim` it carries.
+        modules : Map from box name to the torch module filling it.
+        abstract : The skeleton whose boxes to interpret.
+    """
+    types = Functor(ob=ob, dom=frobenius.Diagram)
+    networks = {
+        box: Network(box.name, types(box.dom), types(box.cod),
+                     module=modules[box.name])
+        for box in dict.fromkeys(abstract.boxes)}
+    return Functor(ob=ob, ar=networks, dom=frobenius.Diagram)
+
+
+def factor_functor(cell_module, factor_module, dim: int, state_dim: int,
+                   answer_dim: int = 0, n: int = N) -> Functor:
+    """
+    The functor interpreting :func:`experiments.skeleton.factor_graph` as
+    model A when ``answer_dim`` is ``0`` -- the answer loop is erased -- and
+    as model C otherwise.
 
     Parameters:
         cell_module : The shared module of every cell box.
@@ -115,40 +182,19 @@ def build_factor_graph(cell_module, factor_module, dim: int, state_dim: int,
         answer_dim : The width of model C's answer loop, ``0`` for model A.
         n : The size of the grid.
     """
-    n_cells = n * n
-    row, col, block = positional_ids(n)
-    layout = Layout(
-        n_message=3, message_width=dim, state=(3, 4), clue=(5, 6),
-        answer=(7, 8) if answer_dim else (),
-        state_width=state_dim, clue_width=dim, answer_width=answer_dim,
-        n_cells=n_cells)
-    cell = Network("cell", Dim(0), _cell_ports(layout), module=cell_module)
-    factors = tuple(
-        Network("unit", Dim(0), Dim(dim) ** n, module=factor_module)
-        for _ in range(3 * n))
-
-    units = [(int(row[i]), n + int(col[i]), 2 * n + int(block[i]))
-             for i in range(n_cells)]
-    free = [0] * (3 * n)
-    wires: list = []
-    for index in range(n_cells):
-        for position, unit in enumerate(units[index]):
-            wires.append(((index, position), (n_cells + unit, free[unit])))
-            free[unit] += 1
-        _self_loops(wires, index, layout)
-    assert all(slot == n for slot in free), "a unit box is not full"
-    return CMap.from_wiring((cell, ) * n_cells + factors, wires), layout
+    return _functor(
+        ob={skeleton.MESSAGE: Dim(dim), skeleton.STATE: Dim(state_dim),
+            skeleton.CLUE: Dim(dim), skeleton.ANSWER: Dim(answer_dim)},
+        modules={"cell": cell_module, "unit": factor_module},
+        abstract=skeleton.factor_graph(n))
 
 
-def build_clique(cell_module, state_dim: int, dim: int, n: int = N
-                 ) -> tuple[CMap, Layout]:
+def clique_functor(cell_module, state_dim: int, dim: int, n: int = N
+                   ) -> Functor:
     """
-    The pairwise peer clique of model B: one shared cell box per cell with
-    one message port per peer, and one wire between each pair of peers. No
-    factor boxes, and the wires carry a full hidden state rather than a
-    message of width ``dim``.
-
-    The state loop carries the concatenated hidden and cell state of the
+    The functor interpreting :func:`experiments.skeleton.clique` as model B:
+    a peer wire carries a full hidden state of width ``state_dim``, and the
+    state loop carries the concatenated hidden and cell state of the
     ``LSTMCell``, hence its width of ``2 * state_dim``.
 
     Parameters:
@@ -157,24 +203,51 @@ def build_clique(cell_module, state_dim: int, dim: int, n: int = N
         dim : The width of a clue embedding.
         n : The size of the grid.
     """
-    n_cells = n * n
-    peers = peers_of(n)
-    n_peers = len(peers[0])
-    layout = Layout(
-        n_message=n_peers, message_width=state_dim,
-        state=(n_peers, n_peers + 1), clue=(n_peers + 2, n_peers + 3),
-        answer=(), state_width=2 * state_dim, clue_width=dim, answer_width=0,
-        n_cells=n_cells)
-    cell = Network("cell", Dim(0), _cell_ports(layout), module=cell_module)
+    return _functor(
+        ob={skeleton.PEER: Dim(state_dim), skeleton.STATE: Dim(2 * state_dim),
+            skeleton.CLUE: Dim(dim)},
+        modules={"cell": cell_module},
+        abstract=skeleton.clique(n))
 
-    wires: list = []
-    for index in range(n_cells):
-        for other in peers[index]:
-            if index < other:
-                wires.append(((index, peers[index].index(other)),
-                              (other, peers[other].index(index))))
-        _self_loops(wires, index, layout)
-    return CMap.from_wiring((cell, ) * n_cells, wires), layout
+
+def build_factor_graph(cell_module, factor_module, dim: int, state_dim: int,
+                       answer_dim: int = 0, n: int = N
+                       ) -> tuple[CMap, Layout]:
+    """
+    The bipartite factor graph of models A and C: the skeleton of
+    :func:`experiments.skeleton.factor_graph` interpreted by
+    :func:`factor_functor`.
+
+    Parameters:
+        cell_module : The shared module of every cell box.
+        factor_module : The shared module of every unit box.
+        dim : The width of a message and of a clue embedding.
+        state_dim : The width of a cell's recurrent state.
+        answer_dim : The width of model C's answer loop, ``0`` for model A.
+        n : The size of the grid.
+    """
+    abstract = skeleton.factor_graph(n)
+    functor = factor_functor(
+        cell_module, factor_module, dim, state_dim, answer_dim, n)
+    return interpret(functor, abstract), layout_of(functor, abstract)
+
+
+def build_clique(cell_module, state_dim: int, dim: int, n: int = N
+                 ) -> tuple[CMap, Layout]:
+    """
+    The pairwise peer clique of model B: the skeleton of
+    :func:`experiments.skeleton.clique` interpreted by
+    :func:`clique_functor`.
+
+    Parameters:
+        cell_module : The shared module of every cell box.
+        state_dim : The width of a hidden state, i.e. of a peer wire.
+        dim : The width of a clue embedding.
+        n : The size of the grid.
+    """
+    abstract = skeleton.clique(n)
+    functor = clique_functor(cell_module, state_dim, dim, n)
+    return interpret(functor, abstract), layout_of(functor, abstract)
 
 
 # --- resumable message passing --------------------------------------------

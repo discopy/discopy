@@ -25,7 +25,9 @@ shares a module and a port signature is evaluated in one batched call, so a
 grid of identical cells costs one module call per round rather than one per
 cell. It runs on whatever device its parameters live on, so ``cmap.to("cuda")``
 followed by ``cmap(x.to("cuda"))`` trains on the GPU. :meth:`CMap.forward_reference`
-is the equivalent one-call-per-box implementation, kept for clarity and tests.
+is the equivalent one-call-per-box implementation, kept for clarity and tests;
+:meth:`CMap.compile` wraps the per-round step in ``torch.compile`` for maps
+whose rounds are launch-bound rather than compute-bound.
 Cells need not be feedforward: a box can carry recurrent state between rounds
 along a self-wired pair of ports, i.e. a feedback loop in the sense of the
 trace.
@@ -475,9 +477,83 @@ class CMap(compact.CMap):
                 (module, tuple(index for index, _ in members), gather(members))
                 for module, members in groups.values())}
 
+    def _device_routing(self, device) -> dict:
+        """
+        The index tensors of :attr:`_routing` on a device, cached so that
+        repeated forward passes do not re-copy them from the CPU.
+        """
+        cache = self.__dict__.setdefault("_device_routing_cache", {})
+        if device not in cache:
+            routing = self._routing
+            cache[device] = {
+                "src": routing["src"].to(device),
+                "groups": tuple(
+                    (module, indices, gather.to(device))
+                    for module, indices, gather in routing["groups"])}
+        return cache[device]
+
+    def compile(self, **kwargs) -> CMap:
+        """
+        Compile the per-round step of :meth:`forward` with ``torch.compile``.
+
+        Message passing over a small map is launch-bound rather than
+        compute-bound: each round issues many small kernels whose launch
+        overhead dwarfs their arithmetic. Compiling the round step fuses
+        them, typically a several-fold wall-clock speedup on a GPU. The
+        round loop stays in Python, so ``n_rounds`` stays dynamic and does
+        not trigger recompilation; compilation happens lazily on the first
+        forward pass per device and batch size.
+
+        Parameters:
+            kwargs : Passed through to ``torch.compile``, e.g. ``mode``.
+
+        Note
+        ----
+        Compiled kernels may reorder floating-point reductions, so results
+        can differ from the eager path by rounding error (relative
+        differences of about ``1e-6``); gradients agree to the same order.
+        """
+        self._step_compile = kwargs
+        self.__dict__.pop("_step_cache", None)
+        return self
+
+    def _step(self, device):
+        """
+        One round of message passing as a single function of flat tensors,
+        ``(incoming, source, init) -> (incoming, group outputs)``, cached
+        per device and wrapped in ``torch.compile`` when :meth:`compile`
+        was called on the map.
+        """
+        cache = self.__dict__.setdefault("_step_cache", {})
+        if device not in cache:
+            routing = self._device_routing(device)
+            src, groups = routing["src"], routing["groups"]
+
+            def step(incoming, source, init):
+                outgoing = source.clone()
+                group_outputs = []
+                for module, _, gather in groups:
+                    n_boxes, width = gather.shape
+                    outputs = module(
+                        incoming[:, gather.reshape(-1)]
+                        .reshape(-1, width)).reshape(-1, n_boxes, width)
+                    outgoing[:, gather.reshape(-1)] = outputs.reshape(
+                        outputs.shape[0], n_boxes * width)
+                    group_outputs.append(outputs)
+                incoming = outgoing[:, src]
+                if init is not None:
+                    incoming = incoming + init
+                return incoming, group_outputs
+
+            if getattr(self, "_step_compile", None) is not None:
+                import torch
+                step = torch.compile(step, **self._step_compile)
+            cache[device] = step
+        return cache[device]
+
     def forward(self, x: "torch.Tensor" = None, init=None,
                 n_rounds: int = None, inject: bool = True,
-                return_rounds: bool = False):
+                return_rounds: bool = False, return_flat: bool = False):
         """
         Vectorized synchronous message passing, equivalent to
         :meth:`forward_reference`: all the messages live in one flat tensor
@@ -496,6 +572,15 @@ class CMap(compact.CMap):
             return_rounds : Whether to return the result after every round
                             rather than just the last, e.g. so that a loss
                             can supervise every round of message passing.
+            return_flat : Whether to return the flat incoming messages of
+                          the next round -- one tensor of shape
+                          ``(batch_size, sum of port widths)`` in port
+                          order -- instead of slicing the boundary ports or
+                          collecting the per-box outputs. This is the same
+                          tensor that re-routing the per-box outputs would
+                          rebuild, so reading a family of ports from it
+                          directly skips that round-trip and keeps the
+                          backward graph small; see :meth:`compile`.
         """
         import torch
         routing = self._routing
@@ -503,9 +588,9 @@ class CMap(compact.CMap):
         n_rounds = len(self.boxes) if n_rounds is None else n_rounds
         batch_size, kwargs = self._prepare(x, init)
         device = kwargs.get("device", None)
-        src = routing["src"].to(device)
-        groups = tuple((module, indices, gather.to(device))
-                       for module, indices, gather in routing["groups"])
+        step = self._step(device)
+        device_routing = self._device_routing(device)
+        src, groups = device_routing["src"], device_routing["groups"]
 
         if isinstance(init, (list, tuple)):
             init = torch.cat([
@@ -519,36 +604,31 @@ class CMap(compact.CMap):
                 source[:, offsets[i]:offsets[i] + widths[i]] = chunk
 
         incoming = source[:, src] if init is None else init + source[:, src]
-        box_outputs = [None] * len(self.boxes)
+        injected = init if (inject and init is not None) else None
+        closed = not (len(self.dom) or len(self.cod))
 
-        def read():
-            if len(self.dom) or len(self.cod):
-                return torch.cat([
-                    incoming[:, offsets[i]:offsets[i] + widths[i]]
-                    for i in routing["output"]], dim=-1)\
-                    if routing["output"] else torch.zeros(
-                        batch_size, 0, **kwargs)
-            return tuple(box_outputs)
+        def read(incoming, group_outputs):
+            if return_flat:
+                return incoming
+            if closed:
+                box_outputs = [None] * len(self.boxes)
+                for (_, indices, _), outputs in zip(groups, group_outputs):
+                    if outputs is not None:
+                        for k, index in enumerate(indices):
+                            box_outputs[index] = outputs[:, k]
+                return tuple(box_outputs)
+            return torch.cat([
+                incoming[:, offsets[i]:offsets[i] + widths[i]]
+                for i in routing["output"]], dim=-1)\
+                if routing["output"] else torch.zeros(
+                    batch_size, 0, **kwargs)
 
-        rounds = []
+        rounds, group_outputs = [], [None] * len(groups)
         for _ in range(n_rounds):
-            outgoing = source.clone()
-            for module, indices, gather in groups:
-                n_boxes, width = gather.shape
-                outputs = module(
-                    incoming[:, gather.reshape(-1)]
-                    .reshape(batch_size * n_boxes, width)
-                ).reshape(batch_size, n_boxes, width)
-                outgoing[:, gather.reshape(-1)] = outputs.reshape(
-                    batch_size, n_boxes * width)
-                for k, index in enumerate(indices):
-                    box_outputs[index] = outputs[:, k]
-            incoming = outgoing[:, src]
-            if inject and init is not None:
-                incoming = incoming + init
+            incoming, group_outputs = step(incoming, source, injected)
             if return_rounds:
-                rounds.append(read())
-        return rounds if return_rounds else read()
+                rounds.append(read(incoming, group_outputs))
+        return rounds if return_rounds else read(incoming, group_outputs)
 
     __call__ = forward
 
