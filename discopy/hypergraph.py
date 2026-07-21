@@ -213,10 +213,11 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         flat_wires = dom_wires + sum(
             [x + y for x, y in box_wires], ()) + cod_wires
         connected_spiders = set(flat_wires)
+        ports = self.ports
 
         if spider_types is None:
             spider_types = {spider: port.obj for spider, port in zip(
-                flat_wires, self.ports)}
+                flat_wires, ports)}
         if not isinstance(spider_types, Mapping):
             spider_types = dict(enumerate(spider_types))
 
@@ -233,13 +234,13 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         for obj, (producers, consumers) in zip(
                 self.spider_types, self.spider_wires):
             for i in producers | consumers:
-                if self.ports[i].obj.unwind() != obj:
+                if ports[i].obj.unwind() != obj:
                     raise AxiomError(messages.TYPE_ERROR.format(
-                        obj, self.ports[i].obj))
+                        obj, ports[i].obj))
             same_side = producers if len(producers) == 2 else\
                 consumers if len(consumers) == 2 else None
             if same_side is not None:
-                left, right = (self.ports[i].obj for i in sorted(same_side))
+                left, right = (ports[i].obj for i in sorted(same_side))
                 if getattr(left, "r", left) != right\
                         and getattr(right, "r", right) != left:
                     raise AxiomError(messages.NOT_ADJOINT.format(left, right))
