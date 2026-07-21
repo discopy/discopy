@@ -10,7 +10,11 @@ on:
 jobs:
   benchmark:
     runs-on: ubuntu-latest
-    timeout-minutes: 15   # backstop: BENCH_FLAGS=bench:full has no in-process cap (~3-4 min observed)
+    # backstop: PRs run the small/medium sizes in-runner (~15m, see #385);
+    # main/dispatch hand the full sweep to Modal (see modal_app.py) and this
+    # job just waits on it, so the cap only needs to clear Modal's own
+    # function timeout (30m) plus setup.
+    timeout-minutes: 40
     strategy:
       matrix:
         python-version: [ "3.14" ]
@@ -35,11 +39,23 @@ jobs:
       env:
         REF: ${{ github.head_ref || github.ref_name }}
     - name: Run composition benchmark
-      # PRs run the small/medium sizes as a smoke; main / manual dispatch run the
-      # full size tail (BENCH_FLAGS=bench:full).
+      # PRs run the small/medium sizes as a smoke, in-runner (fast, free). main
+      # / manual dispatch run the full size tail on a dedicated Modal
+      # container instead of this runner -- it's ~7-8x slower than Modal/dev
+      # hardware for this suite and can't fit the full sweep under a sane
+      # timeout (see #346/#385/modal_app.py).
+      env:
+        MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+        MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
       run: |
         mkdir -p benchmark-results
-        uv run pytest benchmark/ -v --benchmark-json=benchmark-results/bench.json
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          uv run pytest benchmark/ -v --ignore=benchmark/modal_app.py --benchmark-json=benchmark-results/bench.json
+        else
+          uv run --with modal==1.5.1 modal run benchmark/modal_app.py \
+            --bench-flags bench:full \
+            --output benchmark-results/bench.json
+        fi
     - name: Render report (and gate on the committed baseline, if present)
       if: always()
       run:
