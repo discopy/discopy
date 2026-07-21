@@ -10,6 +10,8 @@ Please read the following documents (<10k tokens) before attempting any serious 
 
 - @README.md contains a high-level description of the features along with some examples.
 - @CONTRIBUTING.md contains setup instructions, our philosophy and a code style guide.
+- @RULES.md contains the rules for every agent — human-run or autonomous — that writes code
+  in this repo, enforced by the `no-todo-on-main` merge gate.
 
 ## Where
 
