@@ -79,6 +79,52 @@ def test_draw_coloured_regions_and_frame():
     assert {'#ff0000', '#008000', '#0000ff', '#d3d3d3'} <= region_hexes(frame)
 
 
+def coloured_bubble():
+    """
+    A bubble whose ten planar regions each get a distinct colour: six
+    outside (left, two along the top, right, two along the bottom) and
+    four inside (left, above and below the inner box, right). Every region
+    is enclosed by wires, so all ten colours show only when the bubble's
+    top and bottom boundaries are drawn, see issue #426.
+    """
+    Ty, Wire, Colour = monoidal.Ty, monoidal.Wire, monoidal.Colour
+    ol, o1, o2, o_r, o3, o4 = map(Colour, (
+        "red", "orange", "gold", "green", "blue", "purple"))
+    il, i1, i_r, i2 = map(Colour, ("cyan", "magenta", "brown", "pink"))
+    outer_dom = Ty(Wire("d", ol, o1), Wire("c", o1, o2), Wire("c", o2, o_r))
+    outer_cod = Ty(Wire("b", ol, o3), Wire("a", o3, o4), Wire("a", o4, o_r))
+    inner_dom = Ty(Wire("a", il, i1), Wire("b", i1, i_r))
+    inner_cod = Ty(Wire("c", il, i2), Wire("d", i2, i_r))
+    return monoidal.Box("f", inner_dom, inner_cod).bubble(
+        dom=outer_dom, cod=outer_cod, name="g")
+
+
+# A higher tolerance: abutting high-contrast regions turn a sub-pixel
+# boundary shift across environments into a large RMS at tol=20.
+@draw_and_compare('coloured-bubble.png', wire_labels=False, tol=50)
+def test_draw_bubble():
+    return coloured_bubble()
+
+
+def test_bubble_regions_are_distinct():
+    # All ten regions get their own colour only when the bubble's top and
+    # bottom boundaries enclose the four inside regions, see issue #426.
+    assert len(region_hexes(coloured_bubble())) == 10
+
+
+def test_bubble_boundary_is_visible():
+    # A plain bubble opening keeps its horizontal boundary, i.e. its box
+    # node is not a frame side, while the frame sides of a square slot are.
+    x, y, z = map(monoidal.Ty, "xyz")
+    box_node, = Drawing.frame_opening(x, y, z, monoidal.Ty("")).box_nodes
+    assert not Backend.is_frame_boundary(box_node)
+    slot = Drawing.from_box(
+        monoidal.Box("f", x, x)).slot(monoidal.Colour("white"))
+    frame_box_nodes = [n for n in slot.box_nodes if n.box.frame_boundary]
+    assert frame_box_nodes
+    assert all(map(Backend.is_frame_boundary, frame_box_nodes))
+
+
 # A higher tolerance: abutting high-contrast regions turn a sub-pixel
 # boundary shift across environments into a large RMS at tol=20.
 @draw_and_compare('coloured-frame.png', wire_labels=False, tol=50)
