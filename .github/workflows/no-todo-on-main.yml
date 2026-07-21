@@ -7,9 +7,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Block TODO.md on the default branch
+      - name: Block TODO files from the default branch
         run: |
-          if git ls-files | grep -qiE '(^|/)todo\.md$'; then
-            echo "::error::A TODO.md is present — a human must review it and delete it before merge."
+          if git ls-files | grep -qiE '(^|/)todo(\.[^/]*)?(/|$)'; then
+            echo "::error::A file or directory named TODO is present — a human must review it and delete it before merge."
             exit 1
           fi

@@ -151,9 +151,9 @@ testpaths = [
     "docs/notebooks/*.ipynb",
 ]
 norecursedirs = [
-    "test/utils/pickles/TODO",
+    "test/utils/pickles/pending",
 ]
-addopts = "--doctest-modules --nbmake --ignore=test/utils/pickles/TODO"
+addopts = "--doctest-modules --nbmake --ignore=test/utils/pickles/pending"
 
 [tool.coverage.report]
 fail_under = 98
