@@ -70,6 +70,7 @@ This example is inspired from Pawel Sobocinski's blog post [Crema di Mascarpone 
 from discopy.utils import factory
 from discopy.symmetric import Ty, Box, Diagram, Swap
 
+@factory
 class Ingredient(Ty):
   "The objects of the category of recipe diagrams."
 
@@ -83,7 +84,7 @@ class CookingStep(Box, Recipe):
 class CookingSwap(Swap, CookingStep):
   "A cooking swap takes two ingredients `X @ Y` and gives `Y @ X`."
 
-Recipe.swap_factory = CookingSwap  # Recipes need to know how to swap.
+Recipe.braid_factory = CookingSwap  # Recipes need to know how to swap.
 
 egg, white, yolk = Ingredient("egg"), Ingredient("white"), Ingredient("yolk")
 crack = CookingStep("crack", egg, white @ yolk)
@@ -132,11 +133,13 @@ or by calling the method `Diagram.foliation` which will minimize the length of t
 
 crack_two_eggs_at_once = crack_two_eggs.foliation()
 
+empty = Ingredient()
+
 assert crack_two_eggs_at_once == Recipe(
   dom=egg @ egg, cod=white @ yolk, inside=(
-    Layer(Ty(), crack, Ty(), crack, Ty()),
+    Layer(empty, crack, empty, crack, empty),
     Layer(white, CookingSwap(yolk, white), yolk),
-    Layer(Ty(), merge(white), Ty(), merge(yolk), Ty())))
+    Layer(empty, merge(white), empty, merge(yolk), empty)))
 
 crack_two_eggs_at_once.draw()
 ```
