@@ -56,7 +56,8 @@ def test_to_braided_default_and_zero_width():
     twist = Diagram.twist(x)
 
     # width=None pulls the default width from discopy.config.
-    assert twist.to_braided() == twist.to_braided(config.RIBBON_WIDTH)
+    assert twist.to_braided() == twist.to_braided(
+        config.DRAWING_DEFAULT["ribbon_width"])
 
     # width=0 returns the diagram as is, i.e. without dual rails.
     assert twist.to_braided(width=0) == twist

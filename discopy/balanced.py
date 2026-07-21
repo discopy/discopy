@@ -34,10 +34,9 @@ from __future__ import annotations
 
 from copy import copy
 
-from discopy import monoidal, braided, traced, hypergraph
+from discopy import config, monoidal, braided, traced, hypergraph
 from discopy.abc import BalancedCategory
 from discopy.cat import factory
-from discopy.config import RIBBON_WIDTH
 from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import factory_name, assert_isatomic
 
@@ -45,48 +44,33 @@ from discopy.utils import factory_name, assert_isatomic
 def set_rail_margins(typ: monoidal.Ty, width: float = None) -> monoidal.Ty:
     """
     Sets the :attr:`min_right_margin` of each object of an already-doubled type
-    by position, so that the two rails of every ribbon (i.e. each consecutive
-    pair) are drawn ``width`` apart rather than at the usual minimal width.
-
-    Unlike setting the margin once at doubling time, this is robust to
-    rotation: ``.l`` and ``.r`` reverse the order of the rails and drop the
-    margin (it is a per-object attribute that cannot know about its pair-mate),
-    so the margins are re-asserted by position on each doubled type built.
+    by position, so that the two rails of every ribbon are drawn ``width``
+    apart. This is re-applied after rotation, which reverses the rails and
+    drops the margin (a per-object attribute that cannot know its pair-mate).
 
     Parameters:
         typ : An already-doubled type, i.e. with an even number of objects.
-        width : The gap between the two rails of each ribbon, defaults to
-            :data:`discopy.config.RIBBON_WIDTH`.
-
-    Note
-    ----
-    Each object of ``typ`` is copied before its margin is set. This is not
-    just defensive: ``typ`` is usually built by repeating the same object
-    twice (e.g. in :func:`double_rail`), so mutating in place would set the
-    margin on a single shared object instead of on each rail independently.
+        width : The gap between the two rails, defaults to the ``ribbon_width``
+            in :data:`discopy.config.DRAWING_DEFAULT`.
     """
-    width = RIBBON_WIDTH if width is None else width
-    rails = []
+    width = config.DRAWING_DEFAULT["ribbon_width"] if width is None else width
     for i, ob in enumerate(typ.inside):
-        ob = copy(ob)
         ob.min_right_margin = width - 1 if i % 2 == 0 else 0
-        rails.append(ob)
-    return type(typ)(*rails)
+    return typ
 
 
 def double_rail(typ: monoidal.Ty, width: float = None) -> monoidal.Ty:
     """
-    Doubles every object of a type into the two rails of a ribbon, setting the
-    :attr:`min_right_margin` of the first rail to ``width - 1`` so that the two
-    rails are drawn ``width`` apart rather than at the usual minimal width.
+    Doubles every object of a type into the two rails of a ribbon ``width``
+    apart, copying each object so the two rails hold independent margins.
 
     Parameters:
         typ : The type to double.
-        width : The gap between the two rails of each ribbon, defaults to
-            :data:`discopy.config.RIBBON_WIDTH`.
+        width : The gap between the two rails, defaults to the ``ribbon_width``
+            in :data:`discopy.config.DRAWING_DEFAULT`.
     """
     return set_rail_margins(
-        type(typ)(*[ob for ob in typ.inside for _ in range(2)]), width)
+        type(typ)(*[copy(ob) for ob in typ.inside for _ in range(2)]), width)
 
 
 @factory
@@ -129,14 +113,13 @@ class Diagram(braided.Diagram, traced.Diagram, BalancedCategory):
 
     def to_braided(self, width: float = None):
         """
-        Doubles evry object and sends the twist to the braid.
+        Doubles every object and sends the twist to the braid.
 
         Parameters:
             width : The width of a ribbon, i.e. the gap between the two wires
-                encoding each object, defaults to
-                :data:`discopy.config.RIBBON_WIDTH` (four times closer than
-                the minimal width). Set to ``0`` to return the diagram as is,
-                i.e. without doubling it into dual rails.
+                encoding each object, defaults to the ``ribbon_width`` in
+                :data:`discopy.config.DRAWING_DEFAULT`. Set to ``0`` to return
+                the diagram as is, i.e. without doubling it into dual rails.
 
         Example
         -------
@@ -151,7 +134,8 @@ class Diagram(braided.Diagram, traced.Diagram, BalancedCategory):
 
         .. image:: /_static/balanced/twist_dual_rail.png
         """
-        width = RIBBON_WIDTH if width is None else width
+        width = config.DRAWING_DEFAULT["ribbon_width"]\
+            if width is None else width
         return self if not width else self.dual_rail_factory(width)(self)
 
 
@@ -307,8 +291,8 @@ class DualRail(Functor):
     a single box crossing the two ribbons of a wire as a whole.
 
     Parameters:
-        width : The gap between the two rails of each ribbon, defaults to
-            :data:`discopy.config.RIBBON_WIDTH`.
+        width : The gap between the two rails of each ribbon, defaults to the
+            ``ribbon_width`` in :data:`discopy.config.DRAWING_DEFAULT`.
 
     See also
     --------
@@ -319,7 +303,8 @@ class DualRail(Functor):
     dual_rail_braid_factory = DualRailBraid
 
     def __init__(self, width: float = None):
-        self.width = RIBBON_WIDTH if width is None else width
+        self.width = config.DRAWING_DEFAULT["ribbon_width"]\
+            if width is None else width
         super().__init__(
             ob_map=lambda x: double_rail(x, self.width),
             ar_map=lambda f: f.name)

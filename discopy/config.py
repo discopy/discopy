@@ -10,10 +10,6 @@ IGNORE_WARNINGS = [
     "No GPU/TPU found, falling back to CPU.",
     "Casting complex values to real discards the imaginary part"]
 
-# Default gap between the two rails of a ribbon, e.g. in
-# discopy.balanced.Diagram.to_braided and discopy.ribbon.Diagram.to_ribbons.
-RIBBON_WIDTH = 0.25
-
 # Mapping from attribute to function from box to default value.
 BOX_DRAWING_ATTRIBUTES = {
     "height": lambda _: 1,
@@ -72,6 +68,7 @@ DRAWING_DEFAULT = {
     "legend_char_width": 0.085,
     # Gap in inches between the diagram and the legend.
     "legend_margin": 0.4,
+    "ribbon_width": 0.25,
 }
 
 # Mapping from tikz colors to hexcodes.

@@ -109,15 +109,14 @@ class Diagram(pivotal.Diagram, balanced.Diagram, RibbonCategory):
 
     def to_ribbons(self, width: float = None):
         """
-        Doubles evry object and sends the twist to the braid, folding cups
+        Doubles every object and sends the twist to the braid, folding cups
         and caps into a single box.
 
         Parameters:
             width : The width of a ribbon, i.e. the gap between the two wires
-                encoding each object, defaults to
-                :data:`discopy.config.RIBBON_WIDTH` (four times closer than
-                the minimal width). Set to ``0`` to return the diagram as is,
-                i.e. without doubling it into dual rails.
+                encoding each object, defaults to the ``ribbon_width`` in
+                :data:`discopy.config.DRAWING_DEFAULT`. Set to ``0`` to return
+                the diagram as is, i.e. without doubling it into dual rails.
 
         Example
         -------
