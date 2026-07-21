@@ -138,8 +138,10 @@ injection paths. Findings from this first live round:
    attached to this environment.
 2. **Session scope doesn't match `REPOS`**: `rel-int/wiki` (the
    CONTROL_REPO) is not in this session's GitHub scope — only
-   `discopy/discopy` is. The routine environment needs both sources, or
-   the prompts folder should live in a repo the sessions can reach.
+   `discopy/discopy` is. DECIDED overnight: the control plane moves out
+   of the org wiki into your personal website repo, with only the thin
+   public-safe AGENTS.md (mutex rules) staying in discopy. Update
+   `CONTROL_REPO`/`REPOS` in ROUTINE.md and HANDOFF.md accordingly.
 3. **The TODO.md merge gate doesn't exist yet**: RULES.md #1 relies on
    "a merge gate blocks any PR that still contains it", but neither
    `build.yml` nor `benchmark.yml` checks for TODO.md. Until that
@@ -194,7 +196,13 @@ To activate the routine pipeline (see the prompts review above):
 
 - [ ] Fill in `ALEXIS_SLACK_ID` and `SLACK_CHANNEL` in `ROUTINE.md` and
       attach a Slack connector to the routine environment.
-- [ ] Add `rel-int/wiki` (CONTROL_REPO) to the environment's sources.
+- [ ] Move `Alexis/.agents/` to the personal website repo (the new
+      CONTROL_REPO), update `CONTROL_REPO`/`REPOS` in ROUTINE.md and
+      HANDOFF.md, and add that repo to the routine environments'
+      sources. Two gotchas: exclude `.agents/` and `state/` from the
+      site build so the generator never publishes them, and if the repo
+      is public treat the prompts as published — keep the Slack channel
+      ID and any secrets in the routines' env, not in ROUTINE.md.
 - [ ] Add the TODO.md merge-gate workflow that RULES.md #1 assumes.
 - [ ] Create the schedules (02:00, 09:50, 10:00, 14:00, 18:00 UTC?) —
       and decide the timezone, which the prompts don't state.
