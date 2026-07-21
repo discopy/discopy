@@ -805,7 +805,11 @@ class Matplotlib(Backend):
         if ylim is not None:
             self.axis.set_ylim(*ylim)
         if path is not None:
-            plt.savefig(path)
+            # Drop metadata to make images reproducible across environments.
+            # Only PNGs: they embed the Matplotlib version by default, and the
+            # SVG writer would raise on an unknown "Software" metadata key.
+            is_png = str(path).endswith(".png")
+            plt.savefig(path, metadata={"Software": None} if is_png else None)
             plt.close()
         if show:
             plt.show()

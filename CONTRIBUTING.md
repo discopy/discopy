@@ -167,7 +167,11 @@ Example
     :align: center
 ```
 
-For now this is not done automatically so make sure you remember to push changes to these documentation images but don't push if the changes are only due to minor glitches e.g. font aliasing.
+You do not need to commit these images yourself: on every pull request the
+`docs-static` job in the [build workflow](.github/workflows/build.yml) reuses
+the images drawn by the test run and, whenever one actually changed, commits the
+regenerated `docs/_static` back to your branch. If you do commit images by hand,
+avoid pushing changes that are only due to minor glitches e.g. font aliasing.
 
 ## Request features
 
