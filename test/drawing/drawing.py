@@ -79,6 +79,28 @@ def test_draw_coloured_regions_and_frame():
     assert {'#ff0000', '#008000', '#0000ff', '#d3d3d3'} <= region_hexes(frame)
 
 
+@draw_and_compare('bubble-drawing.png')
+def test_draw_bubble():
+    a, b, c, d = map(monoidal.Ty, "abcd")
+    return monoidal.Box('f', a @ b, c @ d).to_drawing().bubble(
+        d @ c @ c, b @ a @ a, name="g")
+
+
+def test_bubble_boundary_is_visible():
+    # The top and bottom boundaries of a plain bubble are drawn as wires
+    # through the node of a box with the frame_boundary flag: they are only
+    # invisible for a square frame, whose left and right types carry the
+    # flag too and whose boundaries are delineated by coloured regions.
+    x, y, z = map(monoidal.Ty, "xyz")
+    box_node, = Drawing.frame_opening(x, y, z, monoidal.Ty("")).box_nodes
+    assert not Backend.is_frame_boundary(box_node)
+    slot = Drawing.from_box(
+        monoidal.Box("f", x, x)).slot(monoidal.Colour("white"))
+    frame_box_nodes = [n for n in slot.box_nodes if n.box.frame_boundary]
+    assert frame_box_nodes
+    assert all(map(Backend.is_frame_boundary, frame_box_nodes))
+
+
 # A higher tolerance: abutting high-contrast regions turn a sub-pixel
 # boundary shift across environments into a large RMS at tol=20.
 @draw_and_compare('coloured-frame.png', wire_labels=False, tol=50)

@@ -234,9 +234,17 @@ class Backend(ABC):
     def is_frame_boundary(node):
         """ Whether a node belongs to the sides of a frame, i.e. the box drawn
         around the terms of an :class:`Equation` with coloured boundaries. """
+        def has_boundary_sides(typ):
+            return any(getattr(obj, "frame_boundary", False)
+                       for obj in typ.inside[:1] + typ.inside[-1:])
         box = getattr(node, "box", None)
         if box is not None and getattr(box, "frame_boundary", False):
-            return True
+            # The flag on the box alone marks a squashed bubble opening or
+            # closing, whose horizontal boundary is drawn as a wire through
+            # the box node: it is invisible only when the sides are too,
+            # i.e. when the left and right types carry the frame_boundary
+            # flag as set by Drawing.bubble with draw_as_square.
+            return has_boundary_sides(box.dom) or has_boundary_sides(box.cod)
         typ = getattr(node, "x", None)
         return typ is not None and getattr(
             typ.inside[0], "frame_boundary", False)
