@@ -207,5 +207,5 @@ We recommend using our [AGENTS.md](AGENTS.md) in your prompts so that the model 
 LLMs have shifted the bottleneck of software development from writing code to reviewing it, please ensure that your AI assistants save more human time than they require to supervise them.
 In particular, AI contributions should be small (a thousand lines is a red line not to cross lightly) and well-planned (delegate the execution not the design).
 
-One specific guideline for PR titles and descriptions: they must be entirely human-authored, LLM-generated descriptions are forbidden.
-Agents open pull requests as drafts with an empty body and never write or edit a title or description — see [RULES.md](RULES.md) for the full protocol that binds every agent writing code in this repo.
+One specific guideline for PR descriptions: it's fine to have the detailed list of changes LLM-generated but the high-level description should be either written by a human or quoting a human's prompt verbatim.
+Agents open pull requests as drafts — see [RULES.md](RULES.md) for the checklist and mutex protocol that binds every agent writing code in this repo.
