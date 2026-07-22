@@ -507,13 +507,13 @@ class Backend(ABC):
         c_size = len(box.controlled.dom)
 
         index = (0, distance) if distance > 0 else (c_size - distance - 1, 0)
-        dom = Node("box_dom", x=box.dom[0], i=index[0], j=j)
-        cod = Node("box_cod", x=box.cod[0], i=index[0], j=j)
+        dom = Node("box_dom", x=box.dom[index[0]], i=index[0], j=j)
+        cod = Node("box_cod", x=box.cod[index[0]], i=index[0], j=j)
         middle = positions[dom][0], (positions[dom][1] + positions[cod][1]) / 2
         controlled_box = box.controlled.to_drawing().box
         controlled = Node("box", box=controlled_box, j=j)
-        c_dom = Node("box_dom", x=box.dom[0], i=index[1], j=j)
-        c_cod = Node("box_cod", x=box.cod[0], i=index[1], j=j)
+        c_dom = Node("box_dom", x=box.dom[index[1]], i=index[1], j=j)
+        c_cod = Node("box_cod", x=box.cod[index[1]], i=index[1], j=j)
         c_middle = Point(
             positions[c_dom][0],
             (positions[c_dom][1] + positions[c_cod][1]) / 2)
@@ -523,10 +523,8 @@ class Backend(ABC):
         target_boundary = target
         if controlled_box.name == "X":  # CX gets drawn as a circled plus sign.
             self.draw_wire(positions[c_dom], positions[c_cod])
-            eps = 1e-10
-            perturbed_target = target[0], target[1] + eps
             self.draw_node(
-                *perturbed_target,
+                *target,
                 shape="circle", color="white", edgecolor="black",
                 nodesize=2 * params.get("nodesize", 1))
             self.draw_node(
@@ -539,11 +537,11 @@ class Backend(ABC):
                 for b, y in enumerate([-0.25, 0.25])}
 
             for i in range(c_size):
-                dom_node = Node("box_dom", x=box.dom[i], i=i, j=j)
+                dom_node = Node("box_dom", x=controlled_box.dom[i], i=i, j=j)
                 x, y = positions[c_dom][0] + i, positions[c_dom][1]
                 fake_positions[dom_node] = x, y
 
-                cod_node = Node("box_cod", x=box.cod[i], i=i, j=j)
+                cod_node = Node("box_cod", x=controlled_box.cod[i], i=i, j=j)
                 x, y = positions[c_cod][0] + i, positions[c_cod][1]
                 fake_positions[cod_node] = x, y
 
@@ -608,7 +606,7 @@ class TikZ(Backend):
 
     def add_node(self, i, j, text=None, options=None, rounded=4):
         """ Add a node to the tikz picture, return its unique id. """
-        node = len(self.nodes) + 1
+        node = len(self.nodelayer) + 1
         text = "" if text is None else text
         self.nodelayer.append(
             f"\\node [{options or ''}] ({node}) at "
