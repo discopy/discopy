@@ -31,7 +31,6 @@ Axioms
 >>> left_snake, right_snake = Id(n.r).transpose(left=True), Id(n.l).transpose()
 >>> assert left_snake.normal_form() == Id(n) == right_snake.normal_form()
 
->>> from discopy.drawing import Equation
 >>> Equation(left_snake, Id(n), right_snake).draw(
 ...     figsize=(4, 1), path='docs/_static/rigid/typed-snake-equation.svg')
 
@@ -57,7 +56,7 @@ colours ``a`` and ``b``:
 >>> assert left_snake.normal_form() == Id(F)
 >>> assert right_snake.normal_form() == Id(G)
 
->>> from discopy.drawing import Equation
+>>> from discopy.monoidal import Equation
 >>> Equation(left_snake, Id(F)).draw(
 ...     figsize=(3, 2), legend=True,
 ...     path='docs/_static/rigid/coloured-snake-equation.svg')
@@ -421,11 +420,10 @@ class Diagram(biclosed.Diagram, RigidCategory):
         """
         The curry of a rigid diagram is obtained using cups and caps.
 
-        >>> from discopy.drawing import Equation as Eq
         >>> x = Ty('x')
         >>> g = Box('g', x @ x, x)
-        >>> Eq(Eq(g.curry(left=False), g, symbol="$\\\\mapsfrom$"),
-        ...     g.curry(), symbol="$\\\\mapsto$").draw(
+        >>> Equation(g.curry(left=False), g, g.curry(),
+        ...     symbols=("$\\\\mapsfrom$", "$\\\\mapsto$")).draw(
         ...         path="docs/_static/rigid/curry.svg")
 
         .. image:: /_static/rigid/curry.svg
@@ -443,14 +441,13 @@ class Diagram(biclosed.Diagram, RigidCategory):
 
         Example
         -------
-        >>> from discopy import drawing
         >>> x, y = map(Ty, "xy")
         >>> f = Box('f', Ty(), x)
         >>> g = Box('g', Ty(), x.r @ y)
         >>> diagram = f @ g >> Cup(x, x.r) @ y
-        >>> LHS = drawing.Equation(diagram.l, diagram, symbol="$\\\\mapsfrom$")
-        >>> RHS = drawing.Equation(LHS, diagram.r, symbol="$\\\\mapsto$")
-        >>> RHS.draw(figsize=(8, 3), path='docs/_static/rigid/rotate.svg')
+        >>> Equation(diagram.l, diagram, diagram.r,
+        ...     symbols=("$\\\\mapsfrom$", "$\\\\mapsto$")).draw(
+        ...         figsize=(8, 3), path='docs/_static/rigid/rotate.svg')
 
         .. image:: /_static/rigid/rotate.svg
             :align: center
@@ -475,16 +472,16 @@ class Diagram(biclosed.Diagram, RigidCategory):
 
         Example
         -------
-        >>> from discopy.drawing import Equation
         >>> x, y, z = Ty(*"xyz")
         >>> f, g = Box('f', x, y), Box('g', y, z)
         >>> d = (f @ g).foliation()
         >>> transpose_l = d.transpose_box(0, 0, left=True)
         >>> transpose_r = d.transpose_box(0, 1, left=False)
-        >>> LHS = Equation(transpose_l, d, symbol="$\\\\mapsfrom$")
-        >>> RHS = Equation(LHS, transpose_r, symbol="$\\\\mapsto$")
-        >>> RHS.draw(
-        ...     figsize=(8, 3), path="docs/_static/rigid/transpose_box.svg")
+        >>> Equation(
+        ...     transpose_l, d, transpose_r,
+        ...     symbols=("$\\\\mapsfrom$", "$\\\\mapsto$")).draw(
+        ...         figsize=(8, 3),
+        ...         path="docs/_static/rigid/transpose_box.svg")
 
         .. image:: /_static/rigid/transpose_box.svg
         """
@@ -827,7 +824,6 @@ class Functor(biclosed.Functor):
     >>> sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ s @ Cup(n.l, n)
     >>> assert F(sentence).normal_form() == Alice >> Id(n) @ Bob >> love_box
 
-    >>> from discopy.drawing import Equation
     >>> Equation(sentence, F(sentence), symbol='$\\\\mapsto$').draw(
     ...     figsize=(5, 2), path='docs/_static/rigid/functor-example.svg')
 
@@ -891,3 +887,7 @@ biclosed.Diagram.to_rigid = to_rigid
 Diagram.cup_factory, Diagram.cap_factory, Diagram.sum_factory = Cup, Cap, Sum
 
 Id = Diagram.id
+
+
+class Equation(biclosed.Equation):
+    """ The :class:`biclosed.Equation` of rigid diagrams. """

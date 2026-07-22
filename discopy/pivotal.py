@@ -28,7 +28,6 @@ A pivotal category is a rigid category where left and right transpose coincide.
 >>> assert x.r == x.l and x.l.l == x == x.r.r
 >>> f = Box('f', x, y)
 
->>> from discopy.drawing import Equation
 >>> Equation(f.transpose(left=True), f.r, f.transpose(left=False)).draw(
 ...     path="docs/_static/pivotal/axiom.svg")
 
@@ -127,7 +126,6 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
         >>> x, y, z = map(Ty, "xyz")
         >>> f = Box('f', x @ y, z).curry()
 
-        >>> from discopy.drawing import Equation
         >>> Equation(f, f.dagger(), symbol="$\\\\mapsto$").draw(
         ...     asymmetry=.1,
         ...     path="docs/_static/pivotal/dagger.svg")
@@ -151,7 +149,6 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
         >>> f = Box('f', x @ y, z).curry()
         >>> assert f.conjugate() == f[::-1].rotate() == f.rotate()[::-1]
 
-        >>> from discopy.drawing import Equation
         >>> Equation(f, f.conjugate(), symbol="$\\\\mapsto$").draw(
         ...     path="docs/_static/pivotal/conjugate.svg")
 
@@ -256,3 +253,7 @@ class Functor(rigid.Functor):
 
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Id = Diagram.id
+
+
+class Equation(rigid.Equation):
+    """ The :class:`rigid.Equation` of pivotal diagrams. """

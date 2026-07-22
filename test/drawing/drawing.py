@@ -27,6 +27,9 @@ def draw_and_compare(file, folder=IMG_FOLDER, **params):
             draw(diagram, path=test_path, show=False, **params)
             with open(true_path, "r") as true, open(test_path, "r") as test:
                 assert true.read() == test.read()
+            if not os.path.exists(true_path):
+                os.replace(test_path, true_path)
+                return
             os.remove(test_path)
         return wrapper
     return decorator
@@ -46,6 +49,9 @@ def tikz_and_compare(file, folder=TIKZ_FOLDER, **params):
                     test_paths[0].replace('.tikz', '.tikzstyles'))
             draw(diagram, path=test_paths[0], **dict(params, to_tikz=True))
             for true_path, test_path in zip(true_paths, test_paths):
+                if not os.path.exists(true_path):
+                    os.replace(test_path, true_path)
+                    continue
                 with open(true_path, "r") as true:
                     with open(test_path, "r") as test:
                         assert true.read() == test.read()

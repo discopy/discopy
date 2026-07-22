@@ -304,7 +304,7 @@ class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
 
         Example
         -------
-        >>> from discopy.drawing import Equation
+        >>> from discopy.monoidal import Equation
         >>> from discopy.rigid import Ty, Box
         >>> x, y = map(Ty, "xy")
         >>> f = Box('f', x, y)

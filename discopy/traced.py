@@ -27,7 +27,7 @@ Axioms
 
 A monoidal category is right-traced when it comes with an operator of shape:
 
->>> from discopy.drawing import Equation
+>>> from discopy.monoidal import Equation
 >>> x, y, z = map(Ty, "xyz")
 >>> f = Box("f", x @ z, y @ z)
 >>> Equation(f, f.trace(), symbol="$\\\\mapsto$").draw(
@@ -43,7 +43,7 @@ It is left-traced when it comes with an operator of the following shape:
 These are subjects to the axioms listed below. Note however that at the moment
 equality of planar traced diagrams is not implemented, only symmetric traced.
 
->>> from discopy.symmetric import Ty, Box, Swap, Id
+>>> from discopy.symmetric import Ty, Box, Swap, Id, Equation
 >>> from discopy import symmetric
 >>> x = Ty('x')
 >>> f, g = Box('f', x @ x, x @ x), Box('g', x, x)
@@ -58,9 +58,8 @@ Vanishing
 Superposing
 ===========
 
->>> with symmetric.Diagram.hypergraph_equality:
-...     assert (x @ f).trace() == x @ f.trace()
-...     assert (f @ x).trace(left=True) == f.trace(left=True) @ x
+>>> assert Equation((x @ f).trace(), x @ f.trace())
+>>> assert Equation((f @ x).trace(left=True), f.trace(left=True) @ x)
 
 Yanking
 =======
@@ -74,7 +73,7 @@ Yanking
 .. image:: /_static/traced/yanking.svg
     :align: center
 
->>> with symmetric.Diagram.hypergraph_equality: assert yanking
+>>> assert yanking
 
 Naturality
 ==========
@@ -98,8 +97,7 @@ Naturality
 .. image:: /_static/traced/tightening-right.svg
     :align: center
 
->>> with symmetric.Diagram.hypergraph_equality:
-...     assert tightening_left and tightening_right
+>>> assert tightening_left and tightening_right
 
 Dinaturality
 ============
@@ -122,8 +120,7 @@ Dinaturality
 .. image:: /_static/traced/sliding-right.svg
     :align: center
 
->>> with symmetric.Diagram.hypergraph_equality:
-...     assert sliding_left and sliding_right
+>>> assert sliding_left and sliding_right
 """
 
 from discopy import monoidal, hypergraph
@@ -157,7 +154,7 @@ class Diagram(monoidal.Diagram, TracedCategory):
 
         Example
         -------
-        >>> from discopy.drawing import Equation as Eq
+        >>> from discopy.monoidal import Equation as Eq
         >>> x = Ty('x')
         >>> f = Box('f', x @ x, x @ x)
         >>> LHS, RHS = f.trace(left=True), f.trace(left=False)
@@ -246,7 +243,7 @@ class Functor(monoidal.Functor):
     >>> with python.Function.no_type_checking:
     ...     assert F(f.trace())() == F(g)()
 
-    >>> from discopy.drawing import Equation
+    >>> from discopy.monoidal import Equation
     >>> Equation(f.trace(), g).draw(path="docs/_static/traced/golden.svg")
 
     .. image:: /_static/traced/golden.svg
