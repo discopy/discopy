@@ -554,22 +554,15 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
     def dual(self, antipode):
         """
         The dual module :math:`V^*` with :math:`\\rho^*(h) = \\rho(S h)^T`
-        for the given ``antipode`` diagram :math:`S`, built diagrammatically:
-        the antipode composed with the partial transpose of ``action``, taken
-        with cups and caps. The legs of :math:`V^*` come out in reversed
-        order.
+        for the given ``antipode`` diagram :math:`S`: the
+        :meth:`~discopy.abc.RigidCategory.transpose` of the twisted action,
+        with the algebra wire bent back to the domain. The legs of
+        :math:`V^*` come out in reversed order.
         """
         H, ty = self.algebra, self.action.cod
-        hn, lv = len(H.ty), len(ty)
-        twisted = antipode @ Id(ty) >> self.action
-        bend = Id(H.ty @ ty.r) @ Diagram.caps(ty, ty.r)
-        blocks = [hn, lv, lv, lv]
-        starts = [sum(blocks[:i]) for i in range(len(blocks))]
-        perm = [i for b in [0, 2, 1, 3]
-                for i in range(starts[b], starts[b] + blocks[b])]
-        contract = twisted @ Id(ty.r @ ty.r) \
-            >> Diagram.cups(ty, ty.r) @ Id(ty.r)
-        action = bend >> Diagram.permutation(perm, bend.cod) >> contract
+        twisted = (antipode @ Id(ty) >> self.action).transpose()
+        action = Diagram.swap(H.ty, ty.r) >> twisted @ Id(H.ty) \
+            >> Id(ty.r) @ Diagram.cups(H.ty.r, H.ty)
         return type(self)(action=action)
 
     @property
@@ -758,9 +751,7 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
     @classmethod
     def twist(cls, dom):
         """ The twist of ``dom``: the ribbon trace of its self-braiding. """
-        return cls.id(dom) @ cls.caps(dom, dom.r) \
-            >> cls.braid(dom, dom) @ cls.id(dom.r) \
-            >> cls.id(dom) @ cls.cups(dom, dom.r)
+        return cls.braid(dom, dom).trace(n=len(dom))
 
 
 class Functor(ribbon.Functor):

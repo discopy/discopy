@@ -62,18 +62,16 @@ def test_double_of_sweedler():
 def test_double_antipode_inverse():
     # the double's S^-1 = u^-1 S(x) u comes from the Drinfeld element,
     # a composite of the double's own generators — check it inverts S,
-    # also when S_D^2 != id (the double of sweedler)
+    # also when S_D^2 != id (the double of sweedler). The composite is too
+    # deep for a single einsum (see issue #447), so contract each generator
+    # to a matrix and assemble u = S(R'')R' and u^-1 = R''S^2(R') by hand.
     for base in [HopfAlgebra.cyclic(2), HopfAlgebra.sweedler()]:
         D, n = base.double(), base.dim ** 2
-        # contract the pieces separately to stay within einsum's symbol limit
         S = D.antipode.eval(dtype=complex).array.reshape(n, n)
+        R = D.R.eval(dtype=complex).array.reshape(n, n)
         mult = D.mult.eval(dtype=complex).array.reshape(n, n, n)
-        swap = tensor.Diagram.swap(D.ty, D.ty)
-        u = (D.R >> tensor.Diagram.id(D.ty) @ D.antipode >> swap
-             >> D.mult).eval(dtype=complex).array.reshape(n)
-        u_inv = (D.R >> (D.antipode >> D.antipode)
-                 @ tensor.Diagram.id(D.ty) >> swap
-                 >> D.mult).eval(dtype=complex).array.reshape(n)
+        u = np.einsum('ij,ja,aik->k', R, S, mult)
+        u_inv = np.einsum('ij,ib,ba,jak->k', R, S, S, mult)
         Si = np.einsum('xy,i,iyk,j,kjl->xl', S, u_inv, mult, u, mult)
         assert np.allclose(Si @ S, np.eye(n))
         assert np.allclose(S @ Si, np.eye(n))
