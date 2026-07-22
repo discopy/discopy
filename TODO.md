@@ -18,8 +18,10 @@ and should become unnecessary.
   has `RichDisplay` mixin (`to_svg`, `_repr_svg_`, SVG-only `_repr_mimebundle_`),
   format/metadata threaded through the matplotlib backend, deterministic `svg_hashsalt`;
   missing: `image/png` in the mimebundle, figure-leak assertions
-- [WIP] @bridge-2026-07-22-repr Merge origin/main into this branch (post-#421/#402 main; no force-push of Ale's branch)
-- [ ] Implement `_repr_svg_` (and `_repr_mimebundle_` with svg+png) for `Diagram` and `Drawing` via the matplotlib backend, no display side effects
+- [x] Merge origin/main into this branch (post-#421/#402 main; no force-push of Ale's branch) —
+  one conflict in `backend.py` `Matplotlib.output`, resolved by combining main's
+  reproducible-PNG metadata default with the branch's format/metadata threading + svg hashsalt
+- [WIP] @bridge-2026-07-22-repr Implement `_repr_svg_` (and `_repr_mimebundle_` with svg+png) for `Diagram` and `Drawing` via the matplotlib backend, no display side effects
 - [ ] Tests: hooks return valid SVG/mimebundle without opening figures; doctest examples
 - [ ] Check the #404 `show()` helper becomes unnecessary (a bare diagram as last cell expression renders) — note findings, don't touch #404's branch
 - [ ] Run `pflake8 discopy` and `coverage run -m pytest`
