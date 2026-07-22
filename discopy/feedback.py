@@ -36,7 +36,6 @@ A feedback category is a symmetric monoidal category with a monoidal
 endofunctor :meth:`Diagram.delay`, shortened to `.d` and a method
 :meth:`Diagram.feedback` of the following shape:
 
->>> from discopy.drawing import Equation
 
 >>> x, y, m = map(Ty, "xym")
 >>> f = Box('f', x @ m.delay(), y @ m)
@@ -100,9 +99,10 @@ This can only be checked up to extensional equivalence of streams.
 >>> assert F(LHS).unroll(2).now.dom == symmetric.Ty("x0", "x1", "x2")
 >>> eq = Equation(*map(lambda f: F(f).unroll(2).now, sliding.terms),
 ...     symbol="$\\\\sim$").draw(path='docs/_static/feedback/slide-unroll.svg')
->>> with symmetric.Diagram.hypergraph_equality:
-...     assert F(LHS).unroll(2).now == F(RHS).unroll(2).now\\
-...         >> F(y).unroll(2).now @ F(h).later.later.now
+>>> assert symmetric.Equation(
+...     F(LHS).unroll(2).now,
+...     F(RHS).unroll(2).now
+...         >> F(y).unroll(2).now @ F(h).later.later.now)
 
 .. image:: /_static/feedback/slide-unroll.svg
     :align: center
@@ -433,8 +433,6 @@ class Box(markov.Box, Diagram):
         return super().__repr__()[:-1] + time_step + ")"
 
     def setoid(self):
-        if self.use_hypergraph_equality and not self.is_generator:
-            return Diagram.setoid(self)
         return markov.Box.setoid(self) + (self.time_step, )
 
 
@@ -520,7 +518,6 @@ class Feedback(monoidal.Bubble, Box):
 
     Examples
     --------
-    >>> from discopy.drawing import Equation
     >>> x, y, z = map(Ty, "xyz")
     >>> f = Box('f', x @ y.delay(), z @ y)
     >>> fb = f.feedback()
@@ -664,3 +661,8 @@ Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.feedback_factory, Diagram.followed_by = Feedback, FollowedBy
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Id = Diagram.id
+
+
+class Equation(markov.Equation):
+    """ The :class:`markov.Equation` of feedback diagrams. """
+    up_to = staticmethod(Diagram.to_hypergraph)

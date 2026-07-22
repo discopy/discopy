@@ -36,7 +36,6 @@ Braids have their dagger as inverse, up to :meth:`Diagram.simplify`.
 >>> RHS = Braid(y, x)[::-1] >> Braid(y, x)
 >>> assert LHS.simplify() == Id(x @ y) == RHS.simplify()
 
->>> from discopy.drawing import Equation
 >>> Equation(LHS, Id(x @ y), RHS).draw(
 ...     path='docs/_static/braided/inverse.svg')
 
@@ -259,3 +258,7 @@ class Functor(monoidal.Functor):
 Diagram.braid_factory = Braid
 Diagram.sum_factory = Sum
 Id = Diagram.id
+
+
+class Equation(monoidal.Equation):
+    """ The :class:`monoidal.Equation` of braided diagrams. """
