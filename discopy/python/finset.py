@@ -25,7 +25,7 @@ from discopy.abc import MonoidalCategory, SymmetricCategory
 
 
 @dataclass
-class Function(SymmetricCategory):
+class Function(MonoidalCategory):
     """
     A function between finite sets encoded as a Python list.
 
@@ -88,7 +88,7 @@ type Cycle = Iterable[int]
 type Cycles = Iterable[Cycle]
 
 
-class Permutation(Function):
+class Permutation(Function, SymmetricCategory):
     """
     A permutation of a finite set, seen as a bijective finite-set function.
 
