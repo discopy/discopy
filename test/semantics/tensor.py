@@ -269,6 +269,21 @@ def test_non_numpy_eval():
     assert np.allclose(np.asarray(result.array), reference.array)
 
 
+def test_eval_over_52_indices():  # issue #447
+    f = Box('f', Dim(2), Dim(2), [1, 0, 0, 1])
+    diagram = f
+    for _ in range(60):
+        diagram = diagram >> f
+    assert np.allclose(diagram.eval().array, np.eye(2))
+    g = Box('g', Dim(2), Dim(2), [1., 0., 0., 1.])
+    diagram = g
+    for _ in range(60):
+        diagram = diagram >> g
+    with backend('pytorch'):
+        result = diagram.eval()
+    assert np.allclose(np.asarray(result.array), np.eye(2))
+
+
 def test_Tensor_array():
     box = Box("box", Dim(2), Dim(2), None)
     assert box.array is None
@@ -345,12 +360,12 @@ def test_eval_params():
     vector = Box('vector', Dim(1), Dim(2), [1., 2.])
     diagram = vector >> vector[::-1]
     assert diagram.eval(optimize="optimal") == diagram.eval()
-    assert diagram.eval(order='C') == diagram.eval()
+    assert diagram.eval(use_blas=False) == diagram.eval()
     x = frobenius.Ty('x')
     v = frobenius.Box('v', frobenius.Ty(), x)
     F = Functor({x: 2}, {v: [1., 2.]}, optimize="optimal")
     assert F(v >> v.dagger()).array == 5.
-    assert Functor({x: 2}, {v: [1., 2.]}, order='C')(v >> v.dagger()) \
+    assert Functor({x: 2}, {v: [1., 2.]}, use_blas=False)(v >> v.dagger()) \
         == F(v >> v.dagger())
     assert repr(F) == \
         "tensor.Functor(ob_map={frobenius.Ty(frobenius.Ob('x')): 2}, " \

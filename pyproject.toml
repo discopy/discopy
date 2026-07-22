@@ -39,6 +39,7 @@ dependencies = [
   "numpy",
   "networkx",
   "matplotlib",
+  "opt_einsum",
   "pillow"
 ]
 
