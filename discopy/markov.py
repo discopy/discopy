@@ -37,9 +37,9 @@ Commutative monoid
 >>> commutativity = Equation(Swap(x, x) >> merge, merge)
 >>> assert unitality and associativity and commutativity
 >>> Equation(unitality, associativity, commutativity, symbol='').draw(
-...     path="docs/_static/frobenius/monoid.png")
+...     path="docs/_static/frobenius/monoid.svg")
 
-.. image:: /_static/frobenius/monoid.png
+.. image:: /_static/frobenius/monoid.svg
     :align: center
 
 Cocommutative comonoid
@@ -50,9 +50,9 @@ Cocommutative comonoid
 >>> cocommutativity = Equation(copy >> Swap(x, x), copy)
 >>> assert counitality and coassociativity and cocommutativity
 >>> Equation(counitality, coassociativity, cocommutativity, symbol='').draw(
-...     path="docs/_static/frobenius/comonoid.png")
+...     path="docs/_static/frobenius/comonoid.svg")
 
-.. image:: /_static/frobenius/comonoid.png
+.. image:: /_static/frobenius/comonoid.svg
     :align: center
 
 Coherence
@@ -111,9 +111,9 @@ class Diagram(symmetric.Diagram, MarkovCategory):
 
     >>> from discopy.drawing import Equation
     >>> Equation(copy_then_apply, apply_then_copy, symbol="$\\\\neq$").draw(
-    ...     path="docs/_static/markov/copy_and_apply.png")
+    ...     path="docs/_static/markov/copy_and_apply.svg")
 
-    .. image:: /_static/markov/copy_and_apply.png
+    .. image:: /_static/markov/copy_and_apply.svg
     """
     @classmethod
     def spider_factory(cls, n_legs_in, n_legs_out, typ, phase=None):
@@ -293,9 +293,9 @@ class Functor(symmetric.Functor):
 
     >>> from discopy.drawing import Equation
     >>> Equation(bialgebra_l, bialgebra_r, symbol="=").draw(
-    ...     path="docs/_static/markov/bialgebra.png")
+    ...     path="docs/_static/markov/bialgebra.svg")
 
-    .. image:: /_static/markov/bialgebra.png
+    .. image:: /_static/markov/bialgebra.svg
     """
     dom = cod = Diagram
 

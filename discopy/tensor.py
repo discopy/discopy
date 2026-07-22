@@ -348,9 +348,9 @@ class Functor(frobenius.Functor):
     ...     .transpose_box(2).transpose_box(0, left=True).normal_form()
     >>> from discopy.drawing import Equation
     >>> Equation(diagram, rewrite).draw(
-    ...     figsize=(8, 3), path='docs/_static/tensor/rewrite.png')
+    ...     figsize=(8, 3), path='docs/_static/tensor/rewrite.svg')
 
-    .. image :: /_static/tensor/rewrite.png
+    .. image:: /_static/tensor/rewrite.svg
         :align: center
 
     >>> assert F(diagram) == F(rewrite)
@@ -768,9 +768,9 @@ class Spider(frobenius.Spider, Box):
     >>> assert (vector >> spider).eval() == (vector @ vector).eval()
     >>> from discopy.drawing import Equation
     >>> Equation(vector >> spider, vector @ vector).draw(
-    ...     path='docs/_static/tensor/frobenius-example.png', figsize=(3, 2))
+    ...     path='docs/_static/tensor/frobenius-example.svg', figsize=(3, 2))
 
-    .. image:: /_static/tensor/frobenius-example.png
+    .. image:: /_static/tensor/frobenius-example.svg
         :align: center
     """
 
@@ -805,9 +805,9 @@ class Bubble(monoidal.Bubble, Box):
     >>> men_are_mortal = (men >> mortal.bubble()).bubble()
     >>> assert men_are_mortal.eval(dtype=bool)
     >>> men_are_mortal.draw(wire_labels=False,
-    ...                     path='docs/_static/tensor/men-are-mortal.png')
+    ...                     path='docs/_static/tensor/men-are-mortal.svg')
 
-    .. image:: /_static/tensor/men-are-mortal.png
+    .. image:: /_static/tensor/men-are-mortal.svg
         :align: center
 
     >>> from sympy import Expr
@@ -824,9 +824,9 @@ class Bubble(monoidal.Bubble, Box):
 
     >>> from discopy.drawing import Equation
     >>> Equation(lhs, rhs).draw(figsize=(5, 2), wire_labels=False,
-    ...                         path='docs/_static/tensor/product-rule.png')
+    ...                         path='docs/_static/tensor/product-rule.svg')
 
-    .. image:: /_static/tensor/product-rule.png
+    .. image:: /_static/tensor/product-rule.svg
         :align: center
     """
 
@@ -845,9 +845,9 @@ class Bubble(monoidal.Bubble, Box):
 
         >>> from discopy.drawing import Equation
         >>> Equation(lhs, rhs).draw(wire_labels=False,
-        ...                         path='docs/_static/tensor/chain-rule.png')
+        ...                         path='docs/_static/tensor/chain-rule.svg')
 
-        .. image:: /_static/tensor/chain-rule.png
+        .. image:: /_static/tensor/chain-rule.svg
             :align: center
         """
         from sympy import Symbol

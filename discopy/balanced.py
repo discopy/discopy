@@ -25,9 +25,9 @@ The axiom for the twist holds on the nose.
 >>> x, y = Ty('x'), Ty('y')
 >>> assert Diagram.twist(x @ y) == (Braid(x, y)
 ...     >> Twist(y) @ Twist(x) >> Braid(y, x))
->>> Diagram.twist(x @ y).draw(path="docs/_static/balanced/twist.png")
+>>> Diagram.twist(x @ y).draw(path="docs/_static/balanced/twist.svg")
 
-.. image:: /_static/balanced/twist.png
+.. image:: /_static/balanced/twist.svg
 """
 
 from __future__ import annotations
@@ -130,9 +130,9 @@ class Diagram(braided.Diagram, traced.Diagram, BalancedCategory):
         >>> from discopy.drawing import Equation
         >>> Equation(Twist(x), braided_twist, symbol='$\\\\mapsto$').draw(
         ...     wire_labels=False,
-        ...     path="docs/_static/balanced/twist_dual_rail.png")
+        ...     path="docs/_static/balanced/twist_dual_rail.svg")
 
-        .. image:: /_static/balanced/twist_dual_rail.png
+        .. image:: /_static/balanced/twist_dual_rail.svg
         """
         width = config.DRAWING_DEFAULT["ribbon_width"]\
             if width is None else width

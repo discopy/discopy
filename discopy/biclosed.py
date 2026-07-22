@@ -40,22 +40,22 @@ Axioms
 
 >>> from discopy.drawing import Equation
 >>> Equation(f.uncurry(left=True).curry(left=True), f).draw(
-...     path='docs/_static/biclosed/curry-left.png', margins=(0.1, 0.05))
+...     path='docs/_static/biclosed/curry-left.svg', margins=(0.1, 0.05))
 
-.. image:: /_static/biclosed/curry-left.png
+.. image:: /_static/biclosed/curry-left.svg
     :align: center
 
 >>> Equation(h.uncurry().curry(), h).draw(
-...     path='docs/_static/biclosed/curry-right.png', margins=(0.1, 0.05))
+...     path='docs/_static/biclosed/curry-right.svg', margins=(0.1, 0.05))
 
-.. image:: /_static/biclosed/curry-right.png
+.. image:: /_static/biclosed/curry-right.svg
     :align: center
 
 >>> Equation(
 ...     g.curry(left=True).uncurry(left=True), g, g.curry().uncurry()).draw(
-...         path='docs/_static/biclosed/uncurry.png')
+...         path='docs/_static/biclosed/uncurry.svg')
 
-.. image:: /_static/biclosed/uncurry.png
+.. image:: /_static/biclosed/uncurry.svg
     :align: center
 """
 
@@ -475,15 +475,15 @@ class CMap(monoidal.CMap):
         >>> x, y, z = map(Ty, "xyz")
         >>> f = Box("f", x @ y, z).to_map()
         >>> f.curry().uncurry().draw(
-        ...     path="docs/_static/cmap/biclosed-curry-right.png", show=False)
+        ...     path="docs/_static/cmap/biclosed-curry-right.svg", show=False)
 
-        .. image:: /_static/cmap/biclosed-curry-right.png
+        .. image:: /_static/cmap/biclosed-curry-right.svg
             :align: center
 
         >>> f.curry(left=True).uncurry(left=True).draw(
-        ...     path="docs/_static/cmap/biclosed-curry-left.png", show=False)
+        ...     path="docs/_static/cmap/biclosed-curry-left.svg", show=False)
 
-        .. image:: /_static/cmap/biclosed-curry-left.png
+        .. image:: /_static/cmap/biclosed-curry-left.svg
             :align: center
         """
         if n < 0 or n > len(self.dom):
@@ -571,7 +571,7 @@ class TermBase(Box):
     >>> N, S = Ty("N"), Ty("S")
     >>> Alice, loves, Bob = N("Alice"), ((N >> S) << N)("loves"), N("Bob")
     >>> Alice(loves(Bob), left=True).draw(
-    ...     path='docs/_static/biclosed/alice-loves-bob.png',
+    ...     path='docs/_static/biclosed/alice-loves-bob.svg',
     ...     margins=(.3, 0), figsize=(5, 4))
     """
     dom: Ty
