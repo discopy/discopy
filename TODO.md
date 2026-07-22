@@ -14,7 +14,7 @@ and should become unnecessary.
 
 ---
 
-- [ ] Review ab7d6ac: what hooks exist, what's missing vs the marimo scan order
+- [WIP] @bridge-2026-07-22-repr Review ab7d6ac: what hooks exist, what's missing vs the marimo scan order
 - [ ] Merge origin/main into this branch (post-#421/#402 main; no force-push of Ale's branch)
 - [ ] Implement `_repr_svg_` (and `_repr_mimebundle_` with svg+png) for `Diagram` and `Drawing` via the matplotlib backend, no display side effects
 - [ ] Tests: hooks return valid SVG/mimebundle without opening figures; doctest examples
