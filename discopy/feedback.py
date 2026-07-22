@@ -64,7 +64,8 @@ Strength
 This can only be checked up to a functor into streams.
 
 >>> from discopy import stream
->>> F0 = Functor(lambda x: stream.Ty.sequence(x.name), cod=stream.Stream)
+>>> F0 = Functor(
+...     lambda x: stream.Ty.sequence(x.generator.name), cod=stream.Stream)
 >>> F = Functor(
 ...     F0, lambda f: stream.Stream.sequence(f.name, F0(f.dom), F0(f.cod)),
 ...     cod=stream.Stream)
@@ -96,6 +97,7 @@ This can only be checked up to extensional equivalence of streams.
     :align: center
 
 >>> LHS, RHS = sliding.terms
+>>> assert F(LHS).unroll(2).now.dom == symmetric.Ty("x0", "x1", "x2")
 >>> eq = Equation(*map(lambda f: F(f).unroll(2).now, sliding.terms),
 ...     symbol="$\\\\sim$").draw(path='docs/_static/feedback/slide-unroll.svg')
 >>> with symmetric.Diagram.hypergraph_equality:
@@ -115,7 +117,7 @@ Every traced symmetric category is a feedback category with a trivial delay:
 ...     self.trace(len(mem))
 
 >>> F0 = Functor(
-...     ob_map=lambda x: symmetric.Ty(x.name), ar_map={},
+...     ob_map=lambda x: symmetric.Ty(x.generator.name), ar_map={},
 ...     cod=symmetric.Diagram)
 >>> assert F0(x.delay()) == F0(x)
 
