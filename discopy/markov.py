@@ -80,7 +80,7 @@ from discopy.utils import assert_isatomic, factory_name
 
 
 @factory
-class Diagram(symmetric.Diagram, MarkovCategory):
+class Diagram(symmetric.Diagram, MarkovCategory)m:
     """
     A Markov diagram is a symmetric diagram with :class:`Copy` boxes.
 
