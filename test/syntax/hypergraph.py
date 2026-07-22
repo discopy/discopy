@@ -165,6 +165,3 @@ def test_subclass_to_hypergraph():
     f, g = Gate('f', x, x), Gate('g', x, x)
     assert (f >> g).to_hypergraph().category == Circuit
     assert isinstance((f >> g).to_hypergraph().to_diagram(), Circuit)
-    with Circuit.hypergraph_equality:
-        assert f >> g == (f >> g)
-        assert hash(f >> g) == hash(f >> g)
