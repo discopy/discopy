@@ -152,4 +152,4 @@ Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 
 class Equation(symmetric.Equation):
     """ The :class:`symmetric.Equation` of compact diagrams. """
-    up_to = Diagram.to_hypergraph
+    up_to = staticmethod(Diagram.to_hypergraph)

@@ -1098,9 +1098,8 @@ class Equation:
         return f"Equation({', '.join(map(str, self.terms))})"
 
     def __bool__(self):
-        terms = self.terms
-        if self.up_to is not None:
-            terms = [self.up_to(term) for term in terms]
+        terms = self.terms if self.up_to is None\
+            else list(map(self.up_to, self.terms))
         return all(term == terms[0] for term in terms)
 
 

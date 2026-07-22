@@ -87,37 +87,6 @@ from discopy.utils import ar_factory
 from discopy.monoidal import Ob, Ty, PRO  # noqa: F401
 
 
-class _ToHypergraph:
-    """
-    Descriptor exposing the diagram-to-hypergraph functor.
-
-    Accessed on the class, ``Diagram.to_hypergraph`` is the :class:`Functor`
-    itself, e.g. it is the :attr:`Equation.up_to` of :class:`Equation`.
-    Accessed on an instance, ``diagram.to_hypergraph()`` applies the functor to
-    the diagram, i.e. translates it into a hypergraph.
-
-    The functor is built once per class rather than on the fly, from the
-    class' :attr:`hypergraph_factory`.
-    """
-    _cache: dict = {}
-
-    @classmethod
-    def functor(cls, diagram_cls):
-        try:
-            return cls._cache[diagram_cls]
-        except KeyError:
-            factory = diagram_cls.hypergraph_factory
-            functor = factory.functor(
-                ob_map=lambda typ: typ, ar_map=factory.from_box,
-                dom=diagram_cls, cod=factory)
-            cls._cache[diagram_cls] = functor
-            return functor
-
-    def __get__(self, obj, objtype=None):
-        functor = self.functor(objtype if obj is None else type(obj))
-        return functor if obj is None else lambda: functor(obj)
-
-
 @ar_factory
 class Diagram(balanced.Diagram, SymmetricCategory):
     """
@@ -230,12 +199,12 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         """
         return self >> self.permutation(list(xs), self.cod)
 
-    #: The functor from diagrams to hypergraphs, see :class:`_ToHypergraph`.
-    #: Accessed on an instance it is callable, i.e. ``diagram
-    #: .to_hypergraph()`` translates the diagram into a hypergraph; accessed on
-    #: the class it is the :class:`Functor` itself, used as the
-    #: :attr:`Equation.up_to` of :class:`Equation`.
-    to_hypergraph = _ToHypergraph()
+    def to_hypergraph(self):
+        """ Translates the diagram into a hypergraph. """
+        factory = type(self).hypergraph_factory
+        return factory.functor(
+            ob_map=lambda typ: typ, ar_map=factory.from_box,
+            dom=type(self), cod=factory)(self)
 
     def simplify(self):
         """ Simplify by translating back and forth to hypergraph. """
@@ -361,4 +330,4 @@ class Equation(monoidal.Equation):
     >>> x, y = Ty('x'), Ty('y')
     >>> assert Equation(Swap(x, y) >> Swap(y, x), Id(x @ y))
     """
-    up_to = Diagram.to_hypergraph
+    up_to = staticmethod(Diagram.to_hypergraph)

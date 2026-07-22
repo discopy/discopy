@@ -325,4 +325,4 @@ Id = Diagram.id
 
 class Equation(symmetric.Equation):
     """ The :class:`symmetric.Equation` of Markov diagrams. """
-    up_to = Diagram.to_hypergraph
+    up_to = staticmethod(Diagram.to_hypergraph)

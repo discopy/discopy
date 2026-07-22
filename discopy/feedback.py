@@ -652,4 +652,4 @@ Id = Diagram.id
 
 class Equation(markov.Equation):
     """ The :class:`markov.Equation` of feedback diagrams. """
-    up_to = Diagram.to_hypergraph
+    up_to = staticmethod(Diagram.to_hypergraph)
