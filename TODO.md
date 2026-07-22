@@ -16,3 +16,14 @@ Prompt ([#437](https://github.com/discopy/discopy/issues/437), verbatim):
 - [ ] Adjust `dom`/`cod`/`name` computation and `boxes_and_offsets` to the new representation
 - [ ] Sweep dependent code (drawing, foliation, `symmetric.Layer` from #362) and update doctests + README
 - [ ] Run `pflake8 discopy` and `coverage run -m pytest`
+
+## Guidance (🐦 birdsong, 2026-07-22)
+
+- wait for #362 (symmetric-layer refactor, branch `claude/discopy-main-work-xu4vkj`) to land
+  first. its own TODO defers this exact representation change to here, and
+  `symmetric.Layer` subclasses `monoidal.Layer` — start now, rebase twice.
+- #362 just fixed a `Layer.merge` crash on permutation layers. keep it fixed, add a
+  regression test so this change can't reintroduce it.
+- `boxes_and_offsets` feeds the drawing backend directly. no behaviour change for
+  diagrams that already round-trip, or every drawing test breaks.
+- eval(repr(x)) == x still has to hold on the new representation.
