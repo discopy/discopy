@@ -28,5 +28,10 @@ and should become unnecessary.
   `test_rich_display` asserts svg header, png magic bytes, mimebundle
   include/exclude filtering, `plt.get_fignums() == []` and determinism for
   `Diagram`, `Drawing` and `Equation`; `RichDisplay` doctest covers the same
-- [WIP] @bridge-2026-07-22-repr Check the #404 `show()` helper becomes unnecessary (a bare diagram as last cell expression renders) — note findings, don't touch #404's branch
-- [ ] Run `pflake8 discopy` and `coverage run -m pytest`
+- [x] Check the #404 `show()` helper becomes unnecessary (a bare diagram as last cell expression renders) — note findings, don't touch #404's branch —
+  simulated marimo's scan order (`_repr_html_` → `_repr_mimebundle_` → `_repr_svg_` →
+  `_repr_json_` → `_repr_png_`) on `pregroup.Diagram`, `rigid.Diagram`, `Drawing` and
+  `Equation`: all resolve at `_repr_mimebundle_` with svg+png, `plt.show` never called,
+  `plt.get_fignums()` empty after; the helper (which returns `plt.gca()` and leaks an
+  open figure) is now unnecessary — a bare diagram as last cell expression renders
+- [WIP] @bridge-2026-07-22-repr Run `pflake8 discopy` and `coverage run -m pytest`
