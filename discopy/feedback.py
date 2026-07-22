@@ -65,7 +65,7 @@ This can only be checked up to a functor into streams.
 
 >>> from discopy import stream
 >>> F0 = Functor(
-...     lambda x: stream.Ty.sequence(x.inside[0].name), cod=stream.Stream)
+...     lambda x: stream.Ty.sequence(x.generator.name), cod=stream.Stream)
 >>> F = Functor(
 ...     F0, lambda f: stream.Stream.sequence(f.name, F0(f.dom), F0(f.cod)),
 ...     cod=stream.Stream)
@@ -117,7 +117,7 @@ Every traced symmetric category is a feedback category with a trivial delay:
 ...     self.trace(len(mem))
 
 >>> F0 = Functor(
-...     ob_map=lambda x: symmetric.Ty(x.inside[0].name), ar_map={},
+...     ob_map=lambda x: symmetric.Ty(x.generator.name), ar_map={},
 ...     cod=symmetric.Diagram)
 >>> assert F0(x.delay()) == F0(x)
 

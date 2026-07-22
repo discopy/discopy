@@ -192,6 +192,16 @@ class FreeMonoid(cat.FreeCategory, ColouredMonoid):
 
     then = tensor
 
+    @property
+    def is_generator(self):
+        """ Whether a type is a single generating object. """
+        return len(self.inside) == 1
+
+    @property
+    def generator(self):
+        """ The single object inside a generator type. """
+        return self.inside[0] if self.is_generator else None
+
 
 @factory
 class Ty(cat.Ob, FreeMonoid):

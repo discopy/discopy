@@ -98,6 +98,13 @@ def test_Ty_getitem():
     assert Ty('x', 'y', 'z')[:1] == Ty('x')
 
 
+def test_Ty_generator():
+    x = Ty('x')
+    assert x.is_generator and x.generator == Wire('x')
+    assert not (x @ x).is_generator and (x @ x).generator is None
+    assert not Ty().is_generator and Ty().generator is None
+
+
 def test_Ty_pow():
     assert Ty('x') ** 42 == Ty('x') ** 21 @ Ty('x') ** 21
     with raises(TypeError) as err:

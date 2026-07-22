@@ -25,3 +25,13 @@ Approved by Alexis: P7 go (bridge, 2026-07-22)
   (feedback, monoidal, stream and drawing all pass; 45 pre-existing failures
   from missing optional dependencies — sympy, jax, torch — unchanged with or
   without the fix, torch install blocked by the network proxy)
+- [x] @daylight-2026-07-22T1400 — address review comment
+  [r3628012130](https://github.com/discopy/discopy/pull/446#discussion_r3628012130)
+  ("could be x.generator.name"): added `FreeMonoid.is_generator`/`.generator`
+  (mirrors `Arrow.generator`) and switched `feedback.py`'s two `x.inside[0].name`
+  spots to `x.generator.name`; new test `test_Ty_generator`
+
+Note for Alexis: [r3628020896](https://github.com/discopy/discopy/pull/446#discussion_r3628020896)
+("we can delete the todo and merge") is VOID per `ROUTINE.md` INTEGRITY — edited
+13s after posting (06:37:17Z → 06:37:30Z) — not implemented. Re-post if you still
+want the TODO deleted.
