@@ -33,9 +33,9 @@ Axioms
 
 >>> from discopy.drawing import Equation
 >>> Equation(left_snake, Id(n), right_snake).draw(
-...     figsize=(4, 1), path='docs/_static/rigid/typed-snake-equation.png')
+...     figsize=(4, 1), path='docs/_static/rigid/typed-snake-equation.svg')
 
-.. image:: /_static/rigid/typed-snake-equation.png
+.. image:: /_static/rigid/typed-snake-equation.svg
     :align: center
 
 Objects may be coloured on both sides, i.e. an object ``F : a -> b`` is a
@@ -60,15 +60,15 @@ colours ``a`` and ``b``:
 >>> from discopy.drawing import Equation
 >>> Equation(left_snake, Id(F)).draw(
 ...     figsize=(3, 2), legend=True,
-...     path='docs/_static/rigid/coloured-snake-equation.png')
+...     path='docs/_static/rigid/coloured-snake-equation.svg')
 >>> Equation(right_snake, Id(G)).draw(
 ...     figsize=(3, 2), legend=True,
-...     path='docs/_static/rigid/coloured-snake-equation-G.png')
+...     path='docs/_static/rigid/coloured-snake-equation-G.svg')
 
-.. image:: /_static/rigid/coloured-snake-equation.png
+.. image:: /_static/rigid/coloured-snake-equation.svg
     :align: center
 
-.. image:: /_static/rigid/coloured-snake-equation-G.png
+.. image:: /_static/rigid/coloured-snake-equation-G.svg
     :align: center
 
 This is an instance of the free-forgetful adjunction between sets and
@@ -361,9 +361,9 @@ class Diagram(biclosed.Diagram, RigidCategory):
     >>> Alice, jokes = Box('Alice', I, n), Box('jokes', I, n.r @ s)
     >>> d = Alice >> Id(n) @ jokes >> Cup(n, n.r) @ Id(s)
     >>> d.draw(figsize=(3, 2),
-    ...        path='docs/_static/rigid/diagram-example.png')
+    ...        path='docs/_static/rigid/diagram-example.svg')
 
-    .. image:: /_static/rigid/diagram-example.png
+    .. image:: /_static/rigid/diagram-example.svg
         :align: center
     """
 
@@ -390,9 +390,9 @@ class Diagram(biclosed.Diagram, RigidCategory):
         -------
         >>> a, b = Ty('a'), Ty('b')
         >>> Diagram.cups(a.l @ b, b.r @ a).draw(figsize=(3, 1),\\
-        ... margins=(0.3, 0.05), path='docs/_static/rigid/cups.png')
+        ... margins=(0.3, 0.05), path='docs/_static/rigid/cups.svg')
 
-        .. image:: /_static/rigid/cups.png
+        .. image:: /_static/rigid/cups.svg
             :align: center
         """
         return nesting(cls, cls.cup_factory)(left, right)
@@ -410,9 +410,9 @@ class Diagram(biclosed.Diagram, RigidCategory):
         -------
         >>> a, b = Ty('a'), Ty('b')
         >>> Diagram.caps(a.r @ b, b.l @ a).draw(figsize=(3, 1),\\
-        ... margins=(0.3, 0.05), path='docs/_static/rigid/caps.png')
+        ... margins=(0.3, 0.05), path='docs/_static/rigid/caps.svg')
 
-        .. image:: /_static/rigid/caps.png
+        .. image:: /_static/rigid/caps.svg
             :align: center
         """
         return nesting(cls, cls.cap_factory)(left, right)
@@ -426,9 +426,9 @@ class Diagram(biclosed.Diagram, RigidCategory):
         >>> g = Box('g', x @ x, x)
         >>> Eq(Eq(g.curry(left=False), g, symbol="$\\\\mapsfrom$"),
         ...     g.curry(), symbol="$\\\\mapsto$").draw(
-        ...         path="docs/_static/rigid/curry.png")
+        ...         path="docs/_static/rigid/curry.svg")
 
-        .. image:: /_static/rigid/curry.png
+        .. image:: /_static/rigid/curry.svg
             :align: center
         """
         if left:
@@ -450,9 +450,9 @@ class Diagram(biclosed.Diagram, RigidCategory):
         >>> diagram = f @ g >> Cup(x, x.r) @ y
         >>> LHS = drawing.Equation(diagram.l, diagram, symbol="$\\\\mapsfrom$")
         >>> RHS = drawing.Equation(LHS, diagram.r, symbol="$\\\\mapsto$")
-        >>> RHS.draw(figsize=(8, 3), path='docs/_static/rigid/rotate.png')
+        >>> RHS.draw(figsize=(8, 3), path='docs/_static/rigid/rotate.svg')
 
-        .. image:: /_static/rigid/rotate.png
+        .. image:: /_static/rigid/rotate.svg
             :align: center
         """
         dom, cod = (x.l if left else x.r for x in (self.cod, self.dom))
@@ -484,9 +484,9 @@ class Diagram(biclosed.Diagram, RigidCategory):
         >>> LHS = Equation(transpose_l, d, symbol="$\\\\mapsfrom$")
         >>> RHS = Equation(LHS, transpose_r, symbol="$\\\\mapsto$")
         >>> RHS.draw(
-        ...     figsize=(8, 3), path="docs/_static/rigid/transpose_box.png")
+        ...     figsize=(8, 3), path="docs/_static/rigid/transpose_box.svg")
 
-        .. image:: /_static/rigid/transpose_box.png
+        .. image:: /_static/rigid/transpose_box.svg
         """
         box = list(self.inside[i])[2 * j + 1]
         transposed_box = (box.r if left else box.l).transpose(left)
@@ -740,9 +740,9 @@ class Cup(BinaryBoxConstructor, Box):
     -------
     >>> n = Ty('n')
     >>> Cup(n, n.r).draw(figsize=(2,1), margins=(0.5, 0.05),\\
-    ... path='docs/_static/rigid/cup.png')
+    ... path='docs/_static/rigid/cup.svg')
 
-    .. image:: /_static/rigid/cup.png
+    .. image:: /_static/rigid/cup.svg
         :align: center
     """
     def __init__(self, left: Ty, right: Ty):
@@ -778,9 +778,9 @@ class Cap(BinaryBoxConstructor, Box):
     -------
     >>> n = Ty('n')
     >>> Cap(n, n.l).draw(figsize=(2,1), margins=(0.5, 0.05),\\
-    ... path='docs/_static/rigid/cap.png')
+    ... path='docs/_static/rigid/cap.svg')
 
-    .. image:: /_static/rigid/cap.png
+    .. image:: /_static/rigid/cap.svg
         :align: center
     """
     def __init__(self, left: Ty, right: Ty):
@@ -829,9 +829,9 @@ class Functor(biclosed.Functor):
 
     >>> from discopy.drawing import Equation
     >>> Equation(sentence, F(sentence), symbol='$\\\\mapsto$').draw(
-    ...     figsize=(5, 2), path='docs/_static/rigid/functor-example.png')
+    ...     figsize=(5, 2), path='docs/_static/rigid/functor-example.svg')
 
-    .. image:: /_static/rigid/functor-example.png
+    .. image:: /_static/rigid/functor-example.svg
         :align: center
     """
     dom = cod = Diagram

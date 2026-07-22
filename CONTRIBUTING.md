@@ -161,9 +161,9 @@ Example
 -------
 >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
 >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
->>> (f0 @ f1).draw(path='docs/_static/monoidal/tensor-example.png')
+>>> (f0 @ f1).draw(path='docs/_static/monoidal/tensor-example.svg')
 
-.. image:: /_static/monoidal/tensor-example.png
+.. image:: /_static/monoidal/tensor-example.svg
     :align: center
 ```
 

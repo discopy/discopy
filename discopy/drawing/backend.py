@@ -1125,11 +1125,19 @@ class Matplotlib(Backend):
         if ylim is not None:
             self.axis.set_ylim(*ylim)
         if path is not None:
-            # Drop metadata to make images reproducible across environments.
-            # Only PNGs: they embed the Matplotlib version by default, and the
-            # SVG writer would raise on an unknown "Software" metadata key.
-            is_png = str(path).endswith(".png")
-            plt.savefig(path, metadata={"Software": None} if is_png else None)
+            # Drop volatile metadata and fix the salt used for SVG element ids
+            # so that images are reproducible across environments: PNGs embed
+            # the Matplotlib version as "Software", SVGs embed the current date
+            # and randomise the ids of their clip paths.
+            path_str = str(path)
+            if path_str.endswith(".svg"):
+                metadata, context = {"Date": None}, {"svg.hashsalt": "discopy"}
+            elif path_str.endswith(".png"):
+                metadata, context = {"Software": None}, {}
+            else:
+                metadata, context = None, {}
+            with plt.rc_context(context):
+                plt.savefig(path, metadata=metadata)
             plt.close()
         if show:
             plt.show()

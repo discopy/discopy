@@ -1407,15 +1407,15 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         >>> x, y, z = map(Ty, "xyz")
         >>> f = Box('f', x, y @ z).to_hypergraph()
         >>> f.draw(
-        ...     path='docs/_static/hypergraph/box.png', seed=42)
+        ...     path='docs/_static/hypergraph/box.svg', seed=42)
 
-        .. image:: /_static/hypergraph/box.png
+        .. image:: /_static/hypergraph/box.svg
             :align: center
 
         >>> (H.spiders(2, 2, x) >> f @ x).draw(
-        ...     path='docs/_static/hypergraph/diagram.png', seed=42)
+        ...     path='docs/_static/hypergraph/diagram.svg', seed=42)
 
-        .. image:: /_static/hypergraph/diagram.png
+        .. image:: /_static/hypergraph/diagram.svg
             :align: center
         """
         graph, pos = self.spring_layout(seed=seed, k=k)

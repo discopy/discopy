@@ -44,9 +44,9 @@ Frobenius
 ...     split @ x >> x @ merge, merge >> split, x @ split >> merge @ x)
 >>> with Diagram.hypergraph_equality:
 ...     assert frobenius
->>> frobenius.draw(path="docs/_static/frobenius/frobenius.png")
+>>> frobenius.draw(path="docs/_static/frobenius/frobenius.svg")
 
-.. image:: /_static/frobenius/frobenius.png
+.. image:: /_static/frobenius/frobenius.svg
     :align: center
 
 Speciality
@@ -55,9 +55,9 @@ Speciality
 >>> special = Equation(split >> merge, Spider(1, 1, x), Id(x))
 >>> with Diagram.hypergraph_equality:
 ...     assert special
->>> special.draw(path="docs/_static/frobenius/special.png")
+>>> special.draw(path="docs/_static/frobenius/special.svg")
 
-.. image:: /_static/frobenius/special.png
+.. image:: /_static/frobenius/special.svg
     :align: center
 """
 
@@ -161,9 +161,9 @@ class Diagram(compact.Diagram, markov.Diagram, HypergraphCategory):
         >>> spider = Spider(3, 5, Ty(''), "$\\\\phi$") @ Ty()
         >>> Spider.color = "red"
         >>> Equation(spider, spider.unfuse(), symbol="$\\\\mapsto$").draw(
-        ...     path='docs/_static/hypergraph/unfuse.png')
+        ...     path='docs/_static/hypergraph/unfuse.svg')
 
-        .. image:: /_static/hypergraph/unfuse.png
+        .. image:: /_static/hypergraph/unfuse.svg
             :align: center
         """
         F = compact.Functor(
