@@ -346,7 +346,6 @@ class Functor(frobenius.Functor):
 
     >>> rewrite = diagram\\
     ...     .transpose_box(2).transpose_box(0, left=True).normal_form()
-    >>> from discopy.drawing import Equation
     >>> Equation(diagram, rewrite).draw(
     ...     figsize=(8, 3), path='docs/_static/tensor/rewrite.svg')
 
@@ -766,7 +765,6 @@ class Spider(frobenius.Spider, Box):
     >>> vector = Box('vec', Dim(1), Dim(2), [0, 1])
     >>> spider = Spider(1, 2, Dim(2))
     >>> assert (vector >> spider).eval() == (vector @ vector).eval()
-    >>> from discopy.drawing import Equation
     >>> Equation(vector >> spider, vector @ vector).draw(
     ...     path='docs/_static/tensor/frobenius-example.svg', figsize=(3, 2))
 
@@ -822,7 +820,6 @@ class Bubble(monoidal.Bubble, Box):
     >>> rhs = (grad(f, x) >> g) + (f >> grad(g, x))
     >>> assert lhs.eval(dtype=Expr) == rhs.eval(dtype=Expr)
 
-    >>> from discopy.drawing import Equation
     >>> Equation(lhs, rhs).draw(figsize=(5, 2), wire_labels=False,
     ...                         path='docs/_static/tensor/product-rule.svg')
 
@@ -843,7 +840,6 @@ class Bubble(monoidal.Bubble, Box):
         >>> f = lambda d: d.bubble(func=lambda x: x ** 2, drawing_name="f")
         >>> lhs, rhs = Box.grad(f(g), x), f(g).grad(x)
 
-        >>> from discopy.drawing import Equation
         >>> Equation(lhs, rhs).draw(wire_labels=False,
         ...                         path='docs/_static/tensor/chain-rule.svg')
 
@@ -865,3 +861,7 @@ Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Diagram.spider_factory, Diagram.bubble_factory = Spider, Bubble
 Diagram.map_factory = CMap
 Id = Diagram.id
+
+
+class Equation(frobenius.Equation):
+    """ The :class:`frobenius.Equation` of tensor diagrams. """

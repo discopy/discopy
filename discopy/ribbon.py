@@ -24,7 +24,6 @@ A ribbon category is a braided pivotal category, such that
 the trace of the braid is unitary.
 
 >>> x = Ty('x')
->>> from discopy.drawing import Equation
 >>> twist_l = Braid(x, x).trace(left=True)
 >>> twist_r = Braid(x, x).trace(left=False)
 >>> eq = Equation(twist_l >> twist_l[::-1], Id(x), twist_r >> twist_r[::-1])
@@ -332,3 +331,7 @@ Diagram.twist_factory = Twist
 Diagram.dual_rail_factory = DualRail
 
 Id = Diagram.id
+
+
+class Equation(pivotal.Equation):
+    """ The :class:`pivotal.Equation` of ribbon diagrams. """
