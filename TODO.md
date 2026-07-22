@@ -60,4 +60,4 @@ Prompt ([#395](https://github.com/discopy/discopy/issues/395), verbatim):
 - [x] Document on `symmetric.Diagram` that swaps come from `braid_factory`
 - [x] Test: a custom subclass setting `swap_factory` gets its own swaps through `Diagram.swap`, `Hypergraph.to_diagram` and `Diagram.from_callable` (README cooking example)
 - [x] Switch the README cooking example back to `swap_factory`
-- [ ] Run `pflake8 discopy` and `coverage run -m pytest`
+- [WIP] @bridge-2026-07-22-swap Run `pflake8 discopy` and `coverage run -m pytest`
