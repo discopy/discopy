@@ -34,4 +34,8 @@ and should become unnecessary.
   `Equation`: all resolve at `_repr_mimebundle_` with svg+png, `plt.show` never called,
   `plt.get_fignums()` empty after; the helper (which returns `plt.gca()` and leaks an
   open figure) is now unnecessary — a bare diagram as last cell expression renders
-- [WIP] @bridge-2026-07-22-repr Run `pflake8 discopy` and `coverage run -m pytest`
+- [x] Run `pflake8 discopy` and `coverage run -m pytest` — pflake8 clean;
+  pytest 203 passed with quantum/tensor extras excluded (the sandbox proxy blocks
+  the torch download so `uv sync --group all` fails; the 47 remaining failures are
+  all `ModuleNotFoundError` for jax/sympy/pytket/pyzx/tensornetwork/nltk at import,
+  unrelated to this change); `test_rich_display` and the `RichDisplay` doctest pass
