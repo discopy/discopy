@@ -624,6 +624,7 @@ def test_rich_display():
 
     f = Box('f', Ty('x'), Ty('y'))
     diagram, drawing, equation = f, f.to_drawing(), Equation(f, f)
+    plt.close('all')
 
     for obj in (diagram, drawing, equation):
         svg, png = obj._repr_svg_(), obj.to_png()
