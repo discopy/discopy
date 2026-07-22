@@ -35,9 +35,9 @@ Hexagon
 >>> assert Diagram.swap(x, y @ z) == Swap(x, y) @ z >> y @ Swap(x, z)
 >>> assert Diagram.swap(x @ y, z) == x @ Swap(y, z) >> Swap(x, z) @ y
 >>> Equation(Diagram.swap(x, y @ z), Diagram.swap(x @ y, z), symbol='').draw(
-...     space=2, path='docs/_static/symmetric/hexagons.png', figsize=(5, 2))
+...     space=2, path='docs/_static/symmetric/hexagons.svg', figsize=(5, 2))
 
-.. image:: /_static/symmetric/hexagons.png
+.. image:: /_static/symmetric/hexagons.svg
     :align: center
 
 Involution
@@ -48,9 +48,9 @@ a.k.a. Reidemeister move 2
 >>> with Diagram.hypergraph_equality:
 ...     assert Swap(x, y) >> Swap(y, x) == Id(x @ y)
 >>> Equation(Swap(x, y) >> Swap(y, x), Id(x @ y)).draw(
-...     path='docs/_static/symmetric/inverse.png', figsize=(3, 2))
+...     path='docs/_static/symmetric/inverse.svg', figsize=(3, 2))
 
-.. image:: /_static/symmetric/inverse.png
+.. image:: /_static/symmetric/inverse.svg
     :align: center
 
 Naturality
@@ -61,9 +61,9 @@ Naturality
 >>> with Diagram.hypergraph_equality:
 ...     assert naturality
 >>> naturality.draw(
-...     path='docs/_static/symmetric/naturality.png', figsize=(3, 2))
+...     path='docs/_static/symmetric/naturality.svg', figsize=(3, 2))
 
-.. image:: /_static/symmetric/naturality.png
+.. image:: /_static/symmetric/naturality.svg
     :align: center
 
 Yang-Baxter
@@ -77,9 +77,9 @@ This is a special case of naturality.
 >>> with Diagram.hypergraph_equality:
 ...     assert yang_baxter_left == yang_baxter_right
 >>> Equation(yang_baxter_left, yang_baxter_right).draw(
-...     path='docs/_static/symmetric/yang-baxter.png', figsize=(3, 2))
+...     path='docs/_static/symmetric/yang-baxter.svg', figsize=(3, 2))
 
-.. image:: /_static/symmetric/yang-baxter.png
+.. image:: /_static/symmetric/yang-baxter.svg
     :align: center
 """
 
@@ -135,9 +135,9 @@ class Diagram(balanced.Diagram, SymmetricCategory):
     ...     x4, x5 = g(x1)
     ...     return x5, x3, x4
     >>> diagram.draw(wire_labels=False,
-    ...              path='docs/_static/symmetric/decorator.png')
+    ...              path='docs/_static/symmetric/decorator.svg')
 
-    .. image:: /_static/symmetric/decorator.png
+    .. image:: /_static/symmetric/decorator.svg
         :align: center
 
     Every variable must be used exactly once or this will raise an error.

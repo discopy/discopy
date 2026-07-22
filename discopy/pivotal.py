@@ -30,26 +30,26 @@ A pivotal category is a rigid category where left and right transpose coincide.
 
 >>> from discopy.drawing import Equation
 >>> Equation(f.transpose(left=True), f.r, f.transpose(left=False)).draw(
-...     path="docs/_static/pivotal/axiom.png")
+...     path="docs/_static/pivotal/axiom.svg")
 
-.. image:: /_static/pivotal/axiom.png
+.. image:: /_static/pivotal/axiom.svg
     :align: center
 
 For each diagram, we have its conjugate:
 
 >>> d = Box('g', x @ y, z).curry()
 >>> Equation(d, d.conjugate(), symbol="").draw(
-...     space=2, path="docs/_static/pivotal/box-conjugate.png")
+...     space=2, path="docs/_static/pivotal/box-conjugate.svg")
 
-.. image:: /_static/pivotal/box-conjugate.png
+.. image:: /_static/pivotal/box-conjugate.svg
     :align: center
 
 We also have its dagger and its transpose:
 
 >>> Equation(d.dagger(), d.rotate(), symbol="").draw(
-...     space=2, path="docs/_static/pivotal/dagger-transpose.png")
+...     space=2, path="docs/_static/pivotal/dagger-transpose.svg")
 
-.. image:: /_static/pivotal/dagger-transpose.png
+.. image:: /_static/pivotal/dagger-transpose.svg
     :align: center
 """
 
@@ -130,9 +130,9 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
         >>> from discopy.drawing import Equation
         >>> Equation(f, f.dagger(), symbol="$\\\\mapsto$").draw(
         ...     asymmetry=.1,
-        ...     path="docs/_static/pivotal/dagger.png")
+        ...     path="docs/_static/pivotal/dagger.svg")
 
-        .. image:: /_static/pivotal/dagger.png
+        .. image:: /_static/pivotal/dagger.svg
             :align: center
         """
         return cat.Arrow.dagger(self)
@@ -153,9 +153,9 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
 
         >>> from discopy.drawing import Equation
         >>> Equation(f, f.conjugate(), symbol="$\\\\mapsto$").draw(
-        ...     path="docs/_static/pivotal/conjugate.png")
+        ...     path="docs/_static/pivotal/conjugate.svg")
 
-        .. image:: /_static/pivotal/conjugate.png
+        .. image:: /_static/pivotal/conjugate.svg
             :align: center
         """
         return self.rotate().dagger()

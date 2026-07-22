@@ -38,9 +38,9 @@ Examples
 >>> circuit = Ket(0, 0) >> CX >> Controlled(Rz(0.25)) >> Measure() @ Discard()
 >>> circuit.draw(
 ...     figsize=(3, 6),
-...     path='docs/_static/quantum/circuit-example.png')
+...     path='docs/_static/quantum/circuit-example.svg')
 
-.. image:: /_static/quantum/circuit-example.png
+.. image:: /_static/quantum/circuit-example.svg
     :align: center
 
 >>> from discopy.grammar import pregroup
@@ -60,9 +60,9 @@ Examples
 >>> from discopy.drawing import Equation
 >>> Equation(
 ...     sentence, F(sentence).foliation(), symbol='$\\\\mapsto$').draw(
-...         path='docs/_static/quantum/functor-example.png')
+...         path='docs/_static/quantum/functor-example.svg')
 
-.. image:: /_static/quantum/functor-example.png
+.. image:: /_static/quantum/functor-example.svg
     :align: center
 """
 

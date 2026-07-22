@@ -30,9 +30,9 @@ Snake equations
 
 >>> snake = Equation(Id(x.l).transpose(left=True), Id(x), Id(x.r).transpose())
 >>> assert snake
->>> snake.draw(path="docs/_static/compact/snake.png")
+>>> snake.draw(path="docs/_static/compact/snake.svg")
 
-.. image:: /_static/compact/snake.png
+.. image:: /_static/compact/snake.svg
     :align: center
 
 Yanking
@@ -43,9 +43,9 @@ a.k.a. Reidemeister move 1
 >>> cup_yanking = Equation(Swap(x, x.r) >> Cup(x.r, x), Cup(x, x.r))
 >>> assert cap_yanking and cup_yanking
 >>> Equation(cap_yanking, cup_yanking, symbol='', space=1).draw(
-...     path="docs/_static/compact/yanking_cup_and_cap.png")
+...     path="docs/_static/compact/yanking_cup_and_cap.svg")
 
-.. image:: /_static/compact/yanking_cup_and_cap.png
+.. image:: /_static/compact/yanking_cup_and_cap.svg
     :align: center
 
 Coherence
