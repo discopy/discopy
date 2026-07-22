@@ -512,7 +512,6 @@ class Backend(ABC):
         middle = positions[dom][0], (positions[dom][1] + positions[cod][1]) / 2
         controlled_box = box.controlled.to_drawing().box
         controlled = Node("box", box=controlled_box, j=j)
-        # TODO select x properly for classical gates
         c_dom = Node("box_dom", x=box.dom[0], i=index[1], j=j)
         c_cod = Node("box_cod", x=box.cod[0], i=index[1], j=j)
         c_middle = Point(
@@ -583,7 +582,6 @@ class Backend(ABC):
             node2 = Node("box_cod", x=box.cod[i], i=i, j=j)
             self.draw_wire(positions[node1], positions[node2])
 
-        # TODO change bend_in and bend_out for tikz backend
         self.draw_wire(middle, target_boundary, bend_in=True, bend_out=True)
 
         self.draw_node(
