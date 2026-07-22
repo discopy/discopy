@@ -92,6 +92,10 @@ generate it once on the CI runner (`workflow_dispatch` on `main`, with
 requests (smoke sizes) and on `main` / manual dispatch (full sizes), uploading the
 report as an artifact.
 
+A benchmarking job is available in the CI pipeline. By default, it is running only
+on the main branch, but you can enable it on your pull requests by attaching the
+tag `benchmark`.
+
 ## Build the docs
 
 You can build the documentation locally with [sphinx](https://www.sphinx-doc.org/en/master/):
