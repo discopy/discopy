@@ -33,10 +33,10 @@ diagram.draw()
 ```python
 from discopy import monoidal, python
 F = monoidal.Functor(
-  {X: str, Y: list[str], Z: ()},
-  {f: lambda x, xs: print(", ".join([x] + xs)), g: lambda x: x.split()},
+  {X: str, Y: str, Z: str},
+  {f: lambda x, y: ", ".join([x, y]), g: lambda x: tuple(x.split())},
   cod=python.Function)
-F(diagram)("Hello", "world!")  # Prints "Hello, world!" returns `()`
+assert F(diagram)("Hello", "world !") == ("Hello, world", "!")
 ```
 
 ## Quickstart
