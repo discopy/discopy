@@ -1,4 +1,4 @@
-, # TODO
+# TODO
 
 Prompt ([#373](https://github.com/discopy/discopy/issues/373), verbatim):
 
