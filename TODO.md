@@ -24,6 +24,9 @@ and should become unnecessary.
 - [x] Implement `_repr_svg_` (and `_repr_mimebundle_` with svg+png) for `Diagram` and `Drawing` via the matplotlib backend, no display side effects —
   `RichDisplay.to_png` added, `_repr_mimebundle_` now returns both mimetypes
   lazily filtered by include/exclude; both svg and png byte-for-byte deterministic
-- [WIP] @bridge-2026-07-22-repr Tests: hooks return valid SVG/mimebundle without opening figures; doctest examples
-- [ ] Check the #404 `show()` helper becomes unnecessary (a bare diagram as last cell expression renders) — note findings, don't touch #404's branch
+- [x] Tests: hooks return valid SVG/mimebundle without opening figures; doctest examples —
+  `test_rich_display` asserts svg header, png magic bytes, mimebundle
+  include/exclude filtering, `plt.get_fignums() == []` and determinism for
+  `Diagram`, `Drawing` and `Equation`; `RichDisplay` doctest covers the same
+- [WIP] @bridge-2026-07-22-repr Check the #404 `show()` helper becomes unnecessary (a bare diagram as last cell expression renders) — note findings, don't touch #404's branch
 - [ ] Run `pflake8 discopy` and `coverage run -m pytest`
