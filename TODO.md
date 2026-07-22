@@ -18,8 +18,8 @@ Prompt ([#429](https://github.com/discopy/discopy/issues/429), verbatim):
 
 ---
 
-- [WIP] @bridge-2026-07-22-cgate Reproduce the misplacement with a `Controlled` gate over classical wires
-- [WIP] @bridge-2026-07-22-cgate Select the controlled sub-gate's x-coordinate from the wire it actually sits on instead of `box.dom[0]`
-- [WIP] @bridge-2026-07-22-cgate Compare `draw(to_tikz=True)` against the matplotlib output and adjust `bend_in`/`bend_out` for the TikZ backend
-- [WIP] @bridge-2026-07-22-cgate Add regression tests and regenerate the affected docs images
-- [WIP] @bridge-2026-07-22-cgate Run `pflake8 discopy` and `coverage run -m pytest`
+- [x] Reproduce the misplacement with a `Controlled` gate over classical wires
+- [x] Select the controlled sub-gate's x-coordinate from the wire it actually sits on instead of `box.dom[0]`
+- [x] Compare `draw(to_tikz=True)` against the matplotlib output and adjust `bend_in`/`bend_out` for the TikZ backend
+- [x] Add regression tests and regenerate the affected docs images
+- [x] Run `pflake8 discopy` and `coverage run -m pytest`
