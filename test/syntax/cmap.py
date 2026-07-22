@@ -303,6 +303,28 @@ def test_to_diagram_introduces_cups_caps_and_traces():
     assert loop.to_diagram().to_map() == loop
 
 
+def test_make_monogamous_and_planar():
+    from discopy import compact, symmetric, traced
+
+    x, y = map(compact.Ty, "xy")
+    nested = compact.CMap.cups(x @ y, (x @ y).r)
+    assert nested.make_monogamous().is_oriented
+    assert nested.make_causal().is_causal
+    assert nested.to_diagram().to_map() == nested
+
+    sx, sy = map(symmetric.Ty, "xy")
+    f = symmetric.Box("f", sx @ sy, sy @ sx)
+    cycle = (f.to_map() >> symmetric.CMap.swap(sy, sx)).trace()
+    assert not cycle.is_planar and not cycle.is_progressive
+    assert cycle.make_planar().is_planar
+    assert cycle.to_diagram().to_map() == cycle
+
+    tx = traced.Ty("x")
+    twisted = traced.CMap(tx @ tx, tx @ tx, (), (3, 2, 1, 0))
+    with raises(AxiomError):
+        twisted.make_planar()
+
+
 def test_to_diagram_validates_structure():
     from discopy import cmap, monoidal, pivotal
 
