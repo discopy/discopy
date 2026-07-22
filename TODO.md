@@ -13,8 +13,8 @@ Prompt ([#374](https://github.com/discopy/discopy/issues/374), verbatim):
 
 ---
 
-- [WIP] @evening-2026-07-22T02:00 `discopy.kleisli.monad`: monads as monoids over a new `python.function.EndoFunctor`, with maybe, powerset and subdistribution examples
-- [WIP] @evening-2026-07-22T02:00 `discopy.kleisli.channel`: `Channel[M]` as a `NamedGeneric` over `M: Monad`
+- [x] `discopy.kleisli.monad`: monads as monoids over a new `python.function.EndoFunctor`, with maybe, powerset and subdistribution examples
+- [x] `discopy.kleisli.channel`: `Channel[M]` as a `NamedGeneric` over `M: Monad`
 - [ ] `discopy.kleisli.additive`: traced cocartesian Kleisli with the execution formula as trace; convergence tests for sub-additive monads
 - [ ] `discopy.kleisli.multiplicative`: premonoidal copy-discard Kleisli with pointwise strength; test monoidal iff the monad is commutative
 - [ ] `Hypergraph` evaluation methods: token passing for `additive`, message passing for `multiplicative` — coordinate with #366 and #363
