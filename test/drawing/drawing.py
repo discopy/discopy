@@ -619,20 +619,29 @@ def test_to_gif():
 
 def test_rich_display():
     from io import StringIO
+    import matplotlib.pyplot as plt
     from discopy.monoidal import Ty, Box
 
     f = Box('f', Ty('x'), Ty('y'))
     diagram, drawing, equation = f, f.to_drawing(), Equation(f, f)
 
     for obj in (diagram, drawing, equation):
-        svg = obj._repr_svg_()
+        svg, png = obj._repr_svg_(), obj.to_png()
         assert svg.startswith('<?xml') and '</svg>\n' in svg
-        assert obj._repr_mimebundle_() == {'image/svg+xml': svg}
-        assert obj._repr_mimebundle_(include=['image/png']) == {}
-        assert obj._repr_mimebundle_(exclude=['image/svg+xml']) == {}
+        assert png.startswith(b'\x89PNG')
+        assert obj._repr_mimebundle_() == {
+            'image/svg+xml': svg, 'image/png': png}
+        assert obj._repr_mimebundle_(include=['image/svg+xml']) == {
+            'image/svg+xml': svg}
+        assert obj._repr_mimebundle_(exclude=['image/svg+xml']) == {
+            'image/png': png}
+        assert obj._repr_mimebundle_(include=['text/html']) == {}
 
-    # SVG output is deterministic, i.e. the same diagram renders byte-for-byte.
+    assert plt.get_fignums() == []
+
+    # Output is deterministic, i.e. the same diagram renders byte-for-byte.
     assert diagram._repr_svg_() == diagram._repr_svg_()
+    assert diagram.to_png() == diagram.to_png()
 
     # The format parameter of draw allows rendering to an in-memory buffer.
     buffer = StringIO()
