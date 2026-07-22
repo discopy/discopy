@@ -11,11 +11,17 @@ Approved by Alexis: P7 go (bridge, 2026-07-22)
   `monoidal.Ty.__init__` now sets `name` to `type(self).__name__` (e.g. "Ty")
   instead of `str(self)`, so `stream.Ty.sequence(x.name)` iterated the string
   "Ty" character-wise into `T`/`y` wire pairs
-- [WIP] @bridge-2026-07-22-fbdoc Fix the feedback module so the docstring image
-  renders correctly (use `x.inside[0].name`, the idiom of `rigid.py` and
-  `grammar/categorial.py`)
-- [WIP] @bridge-2026-07-22-fbdoc Regenerate `docs/_static/feedback/*.png` and
-  commit the corrected image
-- [ ] Add a regression test if feasible
-- [ ] Check whether other drawings / docstrings were affected by the same change
-- [ ] Run `uv run pflake8 discopy` and `uv run coverage run -m pytest`
+- [x] Fix the feedback module so the docstring image renders correctly
+  (use `x.inside[0].name`, the idiom of `rigid.py` and `grammar/categorial.py`,
+  on lines 67 and 118)
+- [x] Regenerate `docs/_static/feedback/*.png` and commit the corrected image
+  (only `slide-unroll.png` changed; it matches the pre-#421 drawing)
+- [x] Add a regression test: a doctest assertion pinning the unrolled wire
+  names `x0 @ x1 @ x2` next to the image, which fails with the old `.name`
+- [x] Check whether other drawings / docstrings were affected — grep found no
+  other `.name`-on-`Ty` usage; only `slide-unroll.png` blew up when CI
+  regenerated `docs/_static` after #421
+- [x] Run `uv run pflake8 discopy` (clean) and `uv run coverage run -m pytest`
+  (feedback, monoidal, stream and drawing all pass; 45 pre-existing failures
+  from missing optional dependencies — sympy, jax, torch — unchanged with or
+  without the fix, torch install blocked by the network proxy)
