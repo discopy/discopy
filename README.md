@@ -84,7 +84,7 @@ class CookingStep(Box, Recipe):
 class CookingSwap(Swap, CookingStep):
   "A cooking swap takes two ingredients `X @ Y` and gives `Y @ X`."
 
-Recipe.braid_factory = CookingSwap  # Recipes need to know how to swap.
+Recipe.swap_factory = CookingSwap  # Recipes need to know how to swap.
 
 egg, white, yolk = Ingredient("egg"), Ingredient("white"), Ingredient("yolk")
 crack = CookingStep("crack", egg, white @ yolk)
