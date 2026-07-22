@@ -46,5 +46,14 @@ Prompt (Alexis on PR #445, 2026-07-22, verbatim):
 
 > should be rebased on the svg PR which should be rebased on main which already has the script for generating docs in CI
 
-- [WIP] @bridge-2026-07-22-repr Rebase `claude/docs-png-to-svg-phs4aq` onto main and this branch onto it
-- [WIP] @bridge-2026-07-22-repr Fix the CI test (3.14) failure on `test_rich_display`
+- [x] Rebase `claude/docs-png-to-svg-phs4aq` onto main and this branch onto it —
+  svg branch rebased to `cb53f79` (tree byte-identical to its pre-rebase tip; one
+  conflict: main moved `Diagram.transpose` from `rigid.py` to `abc.py`, kept the
+  deletion); this branch linearized on top at `9ea8668`, one conflict in
+  `Matplotlib.output` combining the svg branch's reproducible-metadata defaults
+  with the rich-display `format`/`metadata` parameters
+- [x] Fix the CI test (3.14) failure on `test_rich_display` — an earlier test in
+  the full CI session leaves a figure open (only with all extras installed, e.g.
+  the pyzx doctests), so `plt.get_fignums()` was `[1]` before the hooks ran;
+  the test now calls `plt.close('all')` first so the assertion measures only
+  the hooks; reproduced the failure mode and the fix locally
