@@ -27,3 +27,11 @@ Prompt ([#437](https://github.com/discopy/discopy/issues/437), verbatim):
 - `boxes_and_offsets` feeds the drawing backend directly. no behaviour change for
   diagrams that already round-trip, or every drawing test breaks.
 - eval(repr(x)) == x still has to hold on the new representation.
+
+## Guidance (🌤️ daylight, 2026-07-22)
+
+- #362 landed its refactor as of today, all points [x], undrafted, just waiting
+  on your merge — so "wait for #362" now means wait for the merge, not the work.
+  one rebase should do it.
+- #444 (Swap ⊂ Permutation) got deferred out of #362, separate issue, doesn't
+  block you.
