@@ -37,3 +37,7 @@ docs/neural/sudoku_data/
 docs/neural/artifacts/
 docs/neural/*.pt
 docs/neural/__pycache__/
+
+# optuna study storage (sqlite dbs, journal files + their .lock files, worker
+# logs): host-specific run state, not something to version.
+docs/neural/optuna/runs/
