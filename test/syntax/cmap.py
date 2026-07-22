@@ -1,7 +1,7 @@
 import pytest
 from pytest import raises
 
-from discopy import biclosed, closed, compact, symmetric
+from discopy import closed, biclosed, compact, symmetric
 from discopy.python.finset import Permutation
 from discopy.utils import AxiomError
 
@@ -456,6 +456,18 @@ def test_scalar_is_not_eliminated():
     assert scalar_map.is_planar
     assert (D.caps(x.r, x) >> D.cups(x.r, x)).to_map() == scalar_map
     assert scalar_map.to_hypergraph() == scalar_dgm.to_hypergraph()
+
+
+def test_connected_components_of_loops():
+    from discopy.compact import Ty, CMap as M
+
+    x, y = Ty("x"), Ty("y")
+    loops = (M.caps(x.r, x) >> M.cups(x.r, x))\
+        @ (M.caps(y.r, y) >> M.cups(y.r, y))
+    assert loops.loops == (x, y)
+    components = loops.connected_components
+    assert len(components) == 2
+    assert tuple(c.loops for c in components) == ((x,), (y,))
 
 
 def test_hypergraph_to_map():

@@ -54,14 +54,14 @@ We can check the Eckmann-Hilton argument, up to interchanger.
 from __future__ import annotations
 
 import itertools
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Iterator, Callable, TYPE_CHECKING
 from warnings import warn
 
 from discopy import cat, drawing, hypergraph, cmap, messages
 from discopy.abc import ColouredMonoid, MonoidalCategory
 from discopy.drawing import Drawing
-from discopy.config import DRAWING_ATTRIBUTES
+from discopy.config import BOX_DRAWING_ATTRIBUTES, WIRE_DRAWING_ATTRIBUTES
 from discopy.utils import (
     factory,
     factory_name,
@@ -79,15 +79,41 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class Colour(cat.Ob):
-    """A 0-cell, drawn using its matplotlib-compatible name."""
+    """
+    A 0-cell, drawn using its matplotlib-compatible ``name``.
+
+    An optional ``label`` gives the region a human-readable name for the
+    drawing legend (e.g. a category) while still filling with ``name``. It
+    is ignored for equality and hashing, so two regions with the same fill
+    colour still merge.
+    """
 
     name: str = "white"
+    label: "str | None" = field(default=None, compare=False)
 
     def __post_init__(self):
         assert_isinstance(self.name, str)
+        if self.label is not None:
+            assert_isinstance(self.label, str)
+
+    @property
+    def legend_label(self) -> str:
+        """ The name shown for this colour in a drawing legend. """
+        return self.name if self.label is None else self.label
 
     def __repr__(self):
-        return f"{factory_name(type(self))}({self.name!r})"
+        label = "" if self.label is None else f", label={self.label!r}"
+        return f"{factory_name(type(self))}({self.name!r}{label})"
+
+    def to_tree(self):
+        tree = super().to_tree()
+        if self.label is not None:
+            tree['label'] = self.label
+        return tree
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(tree['name'], label=tree.get('label'))
 
 
 white = Colour("white")
@@ -239,7 +265,7 @@ class Ty(cat.Ob, FreeMonoid):
                 (cat.Ob, ) if self.generator_factory is Wire else ()))
         inside = tuple(map(self.cast_wire, inside))
         FreeMonoid.__init__(self, inside, dom, cod, _scan)
-        cat.Ob.__init__(self, str(self))
+        cat.Ob.__init__(self, type(self).__name__)
 
     def count(self, obj: cat.Ob) -> int:
         """
@@ -257,6 +283,16 @@ class Ty(cat.Ob, FreeMonoid):
         """
         obj, = obj.inside if isinstance(obj, Ty) else (obj, )
         return self.inside.count(obj)
+
+    def unwind(self) -> Ty:
+        """
+        Rotate an atomic type to winding number zero.
+
+        This is the identity for monoidal types, which have no winding. It is
+        overridden by :class:`rigid.Ty` to give a canonical representative for
+        the compact quotient, i.e. the base type on which spiders are labelled.
+        """
+        return self
 
     @property
     def is_atomic(self) -> bool:
@@ -288,6 +324,20 @@ class Ty(cat.Ob, FreeMonoid):
             parts.append(f'{name}("")' if s == '' else s)
         return ' @ '.join(parts)
 
+    def __lt__(self, other):
+        """
+        Types are totally ordered by length first, then lexicographically on
+        the objects inside, e.g. ``Ty('a') < Ty('b') < Ty('a', 'b')``. The
+        remaining comparisons are filled in by :func:`functools.total_ordering`
+        on the :class:`cat.Ob` base class.
+
+        >>> x, y, z = map(Ty, "xyz")
+        >>> assert sorted([z, x @ y, x, y]) == [x, y, z, x @ y]
+        """
+        assert_isinstance(other, Ty)
+        return (len(self.inside), self.inside)\
+            < (len(other.inside), other.inside)
+
     def __iter__(self):
         for i in range(len(self)):
             yield self[i]
@@ -307,9 +357,7 @@ class Ty(cat.Ob, FreeMonoid):
             state['dom'] = white
         if 'cod' not in state:
             state['cod'] = white
-        self.__dict__.update(state)
-        if not hasattr(self, 'name'):
-            self.name = str(self)
+        cat.Ob.__setstate__(self, state)
 
     def to_tree(self):
         tree = {
@@ -346,7 +394,27 @@ class Ty(cat.Ob, FreeMonoid):
         for new, old in zip(result.inside, self.inside):
             if getattr(old, "frame_boundary", False):
                 new.frame_boundary = True
+            for attr, default in WIRE_DRAWING_ATTRIBUTES.items():
+                setattr(new, attr, getattr(old, attr, default(new)))
+            new.min_right_margin = getattr(old, "min_right_margin", 0)
         return result
+
+    def wire_offsets(self) -> list:
+        """
+        The x-position of each wire of the type relative to the first, i.e. the
+        sum of the cell widths ``max(1, right_margin)`` of the objects before
+        it: each wire takes up at least a unit, more if its label is longer.
+
+        >>> assert Ty('x', 'y').to_drawing().wire_offsets() == [0, 1]
+        """
+        offsets, total = [], 0
+        for ob in self.inside:
+            offsets.append(total)
+            min_right_margin = getattr(ob, "min_right_margin", 0)
+            cell_width = max(1, ob.right_margin)
+            total += cell_width + min_right_margin if min_right_margin < 0\
+                else max(cell_width, 1 + min_right_margin)
+        return offsets
 
 
 @factory
@@ -381,15 +449,15 @@ class PRO(Ty):
                  cod: Colour = None, _scan: bool = True):
         self.n = inside if isinstance(inside, int) else len(inside)
         self.dom = self.cod = white
-        self.name = str(self)
+        cat.Ob.__init__(self, type(self).__name__)
 
     def __setstate__(self, state):
         if "n" not in state:
             state = {"n": len(state["_objects"])}
         state.setdefault("dom", white)
         state.setdefault("cod", white)
-        state.setdefault("name", f"PRO({state['n']})")
-        self.__dict__.update(state)
+        state.setdefault("name", type(self).__name__)
+        cat.Ob.__setstate__(self, state)
 
     @property
     def inside(self):
@@ -461,7 +529,7 @@ class Dim(Ty):
         cat.FreeCategory.__init__(
             self, inside, white if dom is None else dom,
             white if cod is None else cod, _scan=False)
-        cat.Ob.__init__(self, str(self))
+        cat.Ob.__init__(self, type(self).__name__)
 
     def __getitem__(self, key):
         if isinstance(key, slice):
@@ -726,8 +794,9 @@ class Diagram(cat.Arrow, MonoidalCategory):
             :align: center
         """
         def decorator(func):
-            hypergraph = cls.hypergraph_factory.from_callable(dom, cod)(func)
-            return hypergraph.to_diagram()
+            graph = hypergraph.Hypergraph[
+                cls.ar].from_callable(dom, cod)(func)
+            return graph.to_diagram()
 
         return decorator
 
@@ -1139,7 +1208,7 @@ class Box(cat.Box, Diagram):
         if (dom.dom, dom.cod) != (cod.dom, cod.cod):
             raise AxiomError(messages.NOT_GLOBULAR.format(
                 dom.dom, dom.cod, cod.dom, cod.cod))
-        for attr in DRAWING_ATTRIBUTES:
+        for attr in BOX_DRAWING_ATTRIBUTES:
             if attr in params:
                 setattr(self, attr, params.pop(attr))
         cat.Box.__init__(self, name, dom, cod, **params)
@@ -1255,7 +1324,7 @@ class Bubble(cat.Bubble, Box):
         Box.__init__(self, self.name, self.dom, self.cod)
         self.drawing_name = "" if drawing_name is None else drawing_name
         self.draw_vertically = draw_vertically
-        self.frame_colour = DRAWING_ATTRIBUTES['frame_colour'](self)
+        self.frame_colour = BOX_DRAWING_ATTRIBUTES['frame_colour'](self)
         can_draw_as_square = len(args) == 1
         can_draw_as_bubble = (can_draw_as_square
                               and len(self.dom) == len(self.arg.dom)
@@ -1440,12 +1509,8 @@ class Match:
         return self.above >> self.left @ target @ self.right >> self.below
 
 
-class Hypergraph(hypergraph.Hypergraph):
-    functor = Functor
-
-
 class CMap(cmap.CMap):
-    functor = Functor
+    category = Diagram
     require_planar = True
     require_causal = True
     require_oriented = True
@@ -1457,7 +1522,8 @@ Diagram.to_gif = drawing.to_gif
 
 Diagram.sum_factory = Sum
 Diagram.bubble_factory = Bubble
-Diagram.hypergraph_factory = Hypergraph
+Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
+Hypergraph = hypergraph.Hypergraph[Diagram]
 Drawing.ob = Ty
 Id = Diagram.id

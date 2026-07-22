@@ -238,8 +238,8 @@ def test_Tensor_scalar():
 
 def test_rotated_Box_eval():
     f = Box("f", Dim(2), Dim(2), [1, 2, 3, 4])
-    assert f.r.eval() == f.transpose().eval()
-    assert f.l.eval() == f.transpose(left=True).eval()
+    assert f.r.eval().is_close(f.transpose().eval())
+    assert f.l.eval().is_close(f.transpose(left=True).eval())
 
 
 def test_Tensor_adjoint_eval():

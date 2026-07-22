@@ -61,13 +61,20 @@ from dataclasses import dataclass
 import networkx as nx
 
 from discopy.drawing import backend, Node, Point
-from discopy.config import DRAWING_ATTRIBUTES
+from discopy.config import BOX_DRAWING_ATTRIBUTES
 from discopy.abc import TracedCategory
 from discopy.utils import (
     assert_isinstance, assert_iscomposable, unbiased, factory)
 
 if TYPE_CHECKING:
     from discopy import monoidal
+
+
+def _trailing_margin(ob) -> float:
+    """ The extra width needed to the right of the last wire of a type. """
+    return max(
+        0, getattr(ob, "right_margin", 0) - 0.5,
+        getattr(ob, "min_right_margin", 0))
 
 
 class PlaneGraph(NamedTuple):
@@ -406,7 +413,7 @@ class Drawing(TracedCategory):
         old_box, box = box, Box(
             box.name, box_dom, box_cod, is_dagger=box.is_dagger)
 
-        for attr, default in DRAWING_ATTRIBUTES.items():
+        for attr, default in BOX_DRAWING_ATTRIBUTES.items():
             setattr(box, attr, getattr(old_box, attr, default(box)))
 
         if box.draw_as_wires and not box.frame_boundary:
@@ -414,27 +421,35 @@ class Drawing(TracedCategory):
                 obj.reposition_label = 0.5 if (
                     box.bubble_closing or box.bubble_opening and i) else 0.25
 
+        is_bubble = box.bubble_opening or box.bubble_closing
+        offsets_dom = box.dom.wire_offsets()
+        offsets_cod = box.cod.wire_offsets()
+        span_dom = offsets_dom[-1] if offsets_dom else -1
+        span_cod = offsets_cod[-1] if offsets_cod else -1
+
         if box.bubble_opening:
-            width = max(1, len(box.dom), len(box.cod) - 2) + 0.5
+            content = max(1, len(box.dom), len(box.cod) - 2) + 0.5
         elif box.bubble_closing:
-            width = max(1, len(box.dom) - 2, len(box.cod)) + 0.5
-        elif len(box.dom) <= 1 and len(box.cod) <= 1:
-            width = 1
+            content = max(1, len(box.dom) - 2, len(box.cod)) + 0.5
         else:
-            width = max(len(box.dom), len(box.cod))
+            content = max(1, span_dom + 1, span_cod + 1)
 
-        # Leave a 0.25 margin on either side between the box and its wires.
-        width = max(width, box.min_width + 0.5) if box.min_width else width
-        height = box.height
+        content = max(content, box.min_width + 0.5)\
+            if box.min_width else content
 
-        left, right = 0.25, width - 0.25
+        trailing = 0 if is_bubble else max(
+            (_trailing_margin(row.inside[-1])
+             for row in (box.dom, box.cod) if row.inside), default=0)
+        width, height = content + trailing, box.height
+
+        left, right = 0.25, content - 0.25
 
         inside = PlaneGraph(nx.DiGraph(), dict())
         result = Drawing(
             inside, box.dom, box.cod, (box, ), width, height, _check=False)
 
         box_node = Node("box", box=box, j=0)
-        result.add_nodes({box_node: Point(width / 2, height / 2)})
+        result.add_nodes({box_node: Point(content / 2, height / 2)})
 
         dom = [Node("dom", i=i, x=x) for i, x in enumerate(box.dom)]
         cod = [Node("cod", i=i, x=x) for i, x in enumerate(box.cod)]
@@ -461,12 +476,21 @@ class Drawing(TracedCategory):
                 dom[-1]: Point(right, height)})
             dom, box_dom = dom[1:-1], box_dom[1:-1]
 
+        if is_bubble:
+            offsets_dom = list(range(len(dom)))
+            offsets_cod = list(range(len(cod)))
+            span_dom = offsets_dom[-1] if offsets_dom else -1
+            span_cod = offsets_cod[-1] if offsets_cod else -1
+
         result.add_nodes({
-            x: Point(i + (width - len(xs) + 1) / 2, y) for xs, y in [
-                (dom, height),
-                (box_dom, height if box.draw_as_wires else height - 0.25),
-                (box_cod, 0 if box.draw_as_wires else 0.25),
-                (cod, 0)]
+            x: Point((content - span - 1) / 2 + 0.5 + offsets[i], y)
+            for xs, y, offsets, span in [
+                (dom, height, offsets_dom, span_dom),
+                (box_dom, height if box.draw_as_wires else height - 0.25,
+                 offsets_dom, span_dom),
+                (box_cod, 0 if box.draw_as_wires else 0.25,
+                 offsets_cod, span_cod),
+                (cod, 0, offsets_cod, span_cod)]
             for i, x in enumerate(xs)})
         return result
 
@@ -492,16 +516,19 @@ class Drawing(TracedCategory):
             :align: center
         """
         from discopy.monoidal import Ty
-        dom = Ty() if dom is None else dom
+        dom = (Ty() if dom is None else dom).to_drawing()
         inside = PlaneGraph(nx.DiGraph(), dict())
-        height, width = 0.5, len(dom) - 0.5 if len(dom) > 1 else 0.5
+        offsets = dom.wire_offsets()
+        height = 0.5
+        width = 0.5 + offsets[-1] + _trailing_margin(
+            dom.inside[-1]) if dom else 0.5
         result = Drawing(inside, dom, dom, (), width, height, _check=False)
         dom_nodes = [Node("dom", i=i, x=x) for i, x in enumerate(dom)]
         cod_nodes = [Node("cod", i=i, x=x) for i, x in enumerate(dom)]
         result.add_nodes({
-            x: Point(i + 0.25, 1) for i, x in enumerate(dom_nodes)})
+            x: Point(0.25 + offsets[i], 1) for i, x in enumerate(dom_nodes)})
         result.add_nodes({
-            x: Point(i + 0.25, 0) for i, x in enumerate(cod_nodes)})
+            x: Point(0.25 + offsets[i], 0) for i, x in enumerate(cod_nodes)})
         result.add_edges(list(zip(dom_nodes, cod_nodes)))
         return result
 
@@ -671,7 +698,7 @@ class Drawing(TracedCategory):
         """ The reflection of a drawing along the the horizontal axis. """
         def box_dagger(box):
             result = box.dagger()
-            for attr in DRAWING_ATTRIBUTES:
+            for attr in BOX_DRAWING_ATTRIBUTES:
                 setattr(result, attr, getattr(box, attr))
             return result
 
@@ -905,7 +932,8 @@ class Drawing(TracedCategory):
             :align: center
         """
         from discopy.monoidal import Colour
-        frame_colour = frame_colour or DRAWING_ATTRIBUTES['frame_colour'](self)
+        frame_colour = frame_colour or \
+            BOX_DRAWING_ATTRIBUTES['frame_colour'](self)
         colour = Colour(frame_colour)
         args = (self, ) + others
         method = "then" if draw_vertically else "tensor"

@@ -321,6 +321,8 @@ def interleaving(cls: type, factory: Callable
     """
     def method(n_legs_in, n_legs_out, typ, phases=None):
         phases = phases or len(typ) * [None]
+        if len(typ) == 1:
+            return factory(n_legs_in, n_legs_out, typ, phases[0])
         result = cls.id().tensor(*[
             factory(n_legs_in, n_legs_out, x, p) for x, p in zip(typ, phases)])
         for i, t in enumerate(typ):
@@ -382,17 +384,14 @@ def coherence(cls: type, factory: Callable
     return method
 
 
-class Hypergraph(hypergraph.Hypergraph):
-    functor = Functor
-
-
 class CMap(compact.CMap):
-    functor = Functor
+    category = Diagram
 
 
-Diagram.hypergraph_factory = Hypergraph
+Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Diagram.braid_factory, Diagram.spider_factory = Swap, Spider
 Diagram.bubble_factory = Bubble
+Hypergraph = hypergraph.Hypergraph[Diagram]
 Id = Diagram.id

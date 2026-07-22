@@ -87,7 +87,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 
-from discopy import monoidal, balanced, traced, messages
+from discopy import monoidal, balanced, traced, messages, hypergraph
 from discopy.abc import SymmetricCategory
 from discopy.cat import factory
 from discopy.monoidal import Wire, Ty, PRO  # noqa: F401
@@ -143,16 +143,17 @@ class Diagram(balanced.Diagram, SymmetricCategory):
     Every variable must be used exactly once or this will raise an error.
 
     >>> from pytest import raises
+    >>> from discopy.utils import AxiomError
 
-    >>> with raises(AttributeError) as err:
+    >>> with raises(AxiomError) as err:
     ...     Diagram.from_callable(x, x @ x)(lambda x: (x, x))
     >>> print(err.value)
-    type object 'Diagram' has no attribute 'spider_factory'
+    symmetric.Diagram has no spiders, cups or caps to draw this hypergraph.
 
-    >>> with raises(AttributeError) as err:
+    >>> with raises(AxiomError) as err:
     ...     Diagram.from_callable(x, Ty())(lambda x: ())
     >>> print(err.value)
-    type object 'Diagram' has no attribute 'spider_factory'
+    symmetric.Diagram has no spiders, cups or caps to draw this hypergraph.
 
     Note
     ----
@@ -213,7 +214,7 @@ class Diagram(balanced.Diagram, SymmetricCategory):
 
     def to_hypergraph(self) -> Hypergraph:
         """ Translate a diagram into a hypergraph. """
-        return self.hypergraph_factory.from_diagram(self)
+        return hypergraph.Hypergraph[type(self).ar].from_diagram(self)
 
     def simplify(self):
         """ Simplify by translating back and forth to hypergraph. """
@@ -376,17 +377,14 @@ class Functor(balanced.Functor):
         return super().__call__(other)
 
 
-class Hypergraph(balanced.Hypergraph):
-    functor = Functor
-
-
 class CMap(traced.CMap):
-    functor = Functor
+    category = Diagram
     require_planar = False
 
 
-Diagram.hypergraph_factory = Hypergraph
+Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
+Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.braid_factory = Swap
 Diagram.trace_factory = Trace
 Diagram.sum_factory = Sum

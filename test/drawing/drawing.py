@@ -79,6 +79,52 @@ def test_draw_coloured_regions_and_frame():
     assert {'#ff0000', '#008000', '#0000ff', '#d3d3d3'} <= region_hexes(frame)
 
 
+def coloured_bubble():
+    """
+    A bubble whose ten planar regions each get a distinct colour: six
+    outside (left, two along the top, right, two along the bottom) and
+    four inside (left, above and below the inner box, right). Every region
+    is enclosed by wires, so all ten colours show only when the bubble's
+    top and bottom boundaries are drawn, see issue #426.
+    """
+    Ty, Wire, Colour = monoidal.Ty, monoidal.Wire, monoidal.Colour
+    ol, o1, o2, o_r, o3, o4 = map(Colour, (
+        "red", "orange", "gold", "green", "blue", "purple"))
+    il, i1, i_r, i2 = map(Colour, ("cyan", "magenta", "brown", "pink"))
+    outer_dom = Ty(Wire("d", ol, o1), Wire("c", o1, o2), Wire("c", o2, o_r))
+    outer_cod = Ty(Wire("b", ol, o3), Wire("a", o3, o4), Wire("a", o4, o_r))
+    inner_dom = Ty(Wire("a", il, i1), Wire("b", i1, i_r))
+    inner_cod = Ty(Wire("c", il, i2), Wire("d", i2, i_r))
+    return monoidal.Box("f", inner_dom, inner_cod).bubble(
+        dom=outer_dom, cod=outer_cod, name="g")
+
+
+# A higher tolerance: abutting high-contrast regions turn a sub-pixel
+# boundary shift across environments into a large RMS at tol=20.
+@draw_and_compare('coloured-bubble.png', wire_labels=False, tol=50)
+def test_draw_bubble():
+    return coloured_bubble()
+
+
+def test_bubble_regions_are_distinct():
+    # All ten regions get their own colour only when the bubble's top and
+    # bottom boundaries enclose the four inside regions, see issue #426.
+    assert len(region_hexes(coloured_bubble())) == 10
+
+
+def test_bubble_boundary_is_visible():
+    # A plain bubble opening keeps its horizontal boundary, i.e. its box
+    # node is not a frame side, while the frame sides of a square slot are.
+    x, y, z = map(monoidal.Ty, "xyz")
+    box_node, = Drawing.frame_opening(x, y, z, monoidal.Ty("")).box_nodes
+    assert not Backend.is_frame_boundary(box_node)
+    slot = Drawing.from_box(
+        monoidal.Box("f", x, x)).slot(monoidal.Colour("white"))
+    frame_box_nodes = [n for n in slot.box_nodes if n.box.frame_boundary]
+    assert frame_box_nodes
+    assert all(map(Backend.is_frame_boundary, frame_box_nodes))
+
+
 # A higher tolerance: abutting high-contrast regions turn a sub-pixel
 # boundary shift across environments into a large RMS at tol=20.
 @draw_and_compare('coloured-frame.png', wire_labels=False, tol=50)
@@ -157,6 +203,77 @@ def test_draw_region_non_colors_string():
         box = monoidal.Box("f", monoidal.Ty(monoidal.Wire("x", c, c)),
                            monoidal.Ty(monoidal.Wire("x", c, c)))
         assert hexcode in region_hexes(box)
+
+
+def test_draw_legend():
+    from matplotlib.colors import to_hex
+    from matplotlib import pyplot as plt
+    red, green, blue = map(monoidal.Colour, ("red", "green", "blue"))
+    x = monoidal.Ty(monoidal.Wire("x", red, green))
+    y = monoidal.Ty(monoidal.Wire("y", green, blue))
+    z = monoidal.Ty(monoidal.Wire("z", red, blue))
+    drawing = monoidal.Box("f", x @ y, z).to_drawing()
+    drawing.add_box_corners()
+    backend = Matplotlib(figsize=(3, 3))
+    backend.draw_regions(drawing)
+    backend.draw_legend(drawing)
+    legend = backend.axis.get_legend()
+    labels = [text.get_text() for text in legend.get_texts()]
+    assert set(labels) == {"red", "green", "blue"}
+    # Each swatch is filled with its own colour, white is left out.
+    swatches = {to_hex(handle.get_facecolor())
+                for handle in legend.legend_handles}
+    assert swatches == {'#ff0000', '#008000', '#0000ff'}
+    plt.close(backend.axis.figure)
+
+
+def test_draw_legend_skipped_without_colours():
+    from matplotlib import pyplot as plt
+    drawing = Box("f", Ty("a"), Ty("a")).to_drawing()
+    drawing.add_box_corners()
+    backend = Matplotlib(figsize=(2, 2))
+    backend.draw_legend(drawing)
+    assert backend.axis.get_legend() is None
+    plt.close(backend.axis.figure)
+
+
+def test_draw_legend_uses_colour_label():
+    from matplotlib.colors import to_hex
+    from matplotlib import pyplot as plt
+    # A label gives the region a name in the legend while filling with its
+    # actual colour.
+    a = monoidal.Colour("cornflowerblue", label="Function")
+    b = monoidal.Colour("palegreen", label="Morphism")
+    x = monoidal.Ty(monoidal.Wire("F", dom=a, cod=b))
+    drawing = monoidal.Box("f", x, x).to_drawing()
+    drawing.add_box_corners()
+    backend = Matplotlib(figsize=(3, 3))
+    backend.draw_regions(drawing)
+    backend.draw_legend(drawing)
+    legend = backend.axis.get_legend()
+    assert [text.get_text() for text in legend.get_texts()] == [
+        "Function", "Morphism"]
+    assert sorted(to_hex(handle.get_facecolor())
+                  for handle in legend.legend_handles) == ['#6495ed', '#98fb98']
+    plt.close(backend.axis.figure)
+
+
+def test_draw_legend_figsize_and_space():
+    import tempfile
+    from matplotlib import image as mpimg
+    red, green = monoidal.Colour("red"), monoidal.Colour("green")
+    x = monoidal.Ty(monoidal.Wire("x", red, green))
+    box = monoidal.Box("f", x, x)
+    with tempfile.TemporaryDirectory() as folder:
+        plain = os.path.join(folder, "plain.png")
+        legend = os.path.join(folder, "legend.png")
+        box.draw(show=False, figsize=(3, 2), path=plain)
+        # With an explicit figsize the figure is widened by legend_space.
+        box.draw(show=False, figsize=(3, 2), legend=True, legend_space=2,
+                 path=legend)
+        assert mpimg.imread(legend).shape[1] > mpimg.imread(plain).shape[1]
+    # legend=True on an uncoloured diagram adds nothing.
+    Box("g", Ty("a"), Ty("a")).draw(show=False, legend=True)
 
 
 def test_draw_right_region_example():
@@ -326,6 +443,19 @@ def test_draw_typed_snake():
     return Equation(Id(x.r).transpose(left=True), Id(x), Id(x.l).transpose())
 
 
+# tol=50: the abutting coloured regions make this sensitive to sub-pixel
+# boundary shifts across environments, as for test_draw_coloured_frame.
+@draw_and_compare(
+    'coloured-snake-equation.png', figsize=(3, 2), legend=True, tol=50)
+def test_draw_coloured_snake_equation():
+    from discopy.rigid import Ty, Ob, Id, Cup, Cap
+    a = monoidal.Colour("cornflowerblue", label="Function")
+    b = monoidal.Colour("palegreen", label="Morphism")
+    F = Ty(Ob("F", dom=a, cod=b))
+    G = F.r
+    return Equation(Id(F) @ Cap(G, F) >> Cup(F, G) @ Id(F), Id(F))
+
+
 @tikz_and_compare("spiral.tikz", wire_labels=False, use_tikzstyles=True)
 def test_spiral_to_tikz():
     return spiral(2)
@@ -429,6 +559,30 @@ def test_draw_box_min_width():
     # LaTeX name whose rendered width cannot be guessed from its characters.
     x = Ty('x')
     return Box('$\\Lambda$', x, x, min_width=3) @ Box('f', x, x)
+
+
+@draw_and_compare('wire-min-right-margin.png', aspect='equal')
+def test_draw_wire_min_right_margin():
+    # An object's `min_right_margin` adds space to the right of its wire,
+    # e.g. to fit a long label without colliding with the next wire.
+    x, long_type = Ty('x'), Ty('a_long_type_name')
+    long_type.inside[0].min_right_margin = 1.5
+    return Id(x @ long_type @ x)
+
+
+@draw_and_compare('wire-custom-margin.png', aspect='equal')
+def test_draw_wire_custom_margin():
+    x, custom = Ty('x'), Ty('custom_margin_wire')
+    custom.inside[0].right_margin = 3
+    return Id(x @ custom @ x)
+
+
+@draw_and_compare('wire-auto-margin.png', aspect='equal')
+def test_draw_wire_auto_margin():
+    # A long wire label reserves space to its right on its own, so it does
+    # not overflow even without setting min_right_margin by hand.
+    x = Ty('x')
+    return Box('f', x, x @ Ty('a_long_output_type'))
 
 
 @draw_and_compare('long-latex-name.png', aspect='equal', tol=100)

@@ -218,11 +218,11 @@ class Circuit(tensor.Diagram[complex]):
         circuit = self
         if circuit.dom:
             init = Id().tensor(*(
-                Bits(0) if x.name == "bit" else Ket(0) for x in circuit.dom))
+                Bits(0) if x == bit else Ket(0) for x in circuit.dom))
             circuit = init >> circuit
         if circuit.cod != bit ** len(circuit.cod):
             discards = Id().tensor(*(
-                Discard() if x.name == "qubit"
+                Discard() if x == qubit
                 else Id(bit) for x in circuit.cod))
             circuit = circuit >> discards
         return circuit
@@ -805,7 +805,6 @@ class Box(tensor.Box[complex], Circuit):
         data : The array inside the box.
         is_mixed : Whether the box is mixed.
     """
-    eval = Circuit.eval
 
     def __init__(self, name: str, dom: Ty, cod: Ty,
                  data=None, is_mixed=True, **params):

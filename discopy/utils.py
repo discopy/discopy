@@ -285,8 +285,8 @@ def is_tuple(typ: type) -> bool:
 def assert_isinstance(object_, cls: type | tuple[type, ...]):
     """ Raise ``TypeError`` if ``object`` is not instance of ``cls``. """
     classes = cls if isinstance(cls, tuple) else (cls, )
-    cls_name = ' | '.join(map(factory_name, classes))
     if not any(isinstance(object_, get_origin(cls)) for cls in classes):
+        cls_name = ' | '.join(map(factory_name, classes))
         raise TypeError(messages.TYPE_ERROR.format(
             cls_name, factory_name(type(object_))))
 
@@ -404,6 +404,8 @@ def text_width(text: str, rounded=3, fontsize=12, points_per_inch=72.):
     Measured from the actual glyph outlines with matplotlib's text layout up to
     `rounded` decimals at a given `fontsize` and `points_per_inch` conversion.
     """
+    if not text:
+        return 0
     width = TextPath((0, 0), text, size=fontsize).get_extents().width
     return round(width / points_per_inch, rounded)
 
