@@ -79,11 +79,11 @@ cap becomes a ribbon folding back.
 
 from discopy import rigid, pivotal, balanced
 from discopy.abc import RibbonCategory
-from discopy.cat import ar_factory
+from discopy.cat import factory
 from discopy.pivotal import Ty, PRO  # noqa: F401
 
 
-@ar_factory
+@factory
 class Diagram(pivotal.Diagram, balanced.Diagram, RibbonCategory):
     """
     A ribbon diagram is a pivotal diagram and a balanced diagram.
@@ -128,15 +128,16 @@ class Diagram(pivotal.Diagram, balanced.Diagram, RibbonCategory):
         cup = self.cup_factory(self.cod[y - 1], self.cod[y])
         return self >> self.cod[:y - 1] @ cup @ self.cod[y + 1:]
 
-    def to_ribbons(self, width=0.25, color="auto"):
+    def to_ribbons(self, width: float = None, color="auto"):
         """
-        Doubles evry object and sends the twist to the braid.
+        Doubles every object and sends the twist to the braid, folding cups
+        and caps into a single box.
 
         Parameters:
             width : The width of a ribbon, i.e. the gap between the two wires
-                encoding each object, default is ``0.25`` (four times closer
-                than the minimal width). If ``None``, the underlying ribbon
-                diagram is returned rather than its drawing.
+                encoding each object, defaults to the ``ribbon_width`` in
+                :data:`discopy.config.DRAWING_DEFAULT`. Set to ``0`` to return
+                the diagram as is, i.e. without doubling it into dual rails.
             color : The colour with which to fill the inside of each ribbon,
                 see :func:`discopy.balanced.ribbon_color_map`. Defaults to
                 ``"auto"``, i.e. one colour per distinct object. Use ``None``
@@ -150,33 +151,7 @@ class Diagram(pivotal.Diagram, balanced.Diagram, RibbonCategory):
 
         .. image:: /_static/balanced/twist_dual_rail.png
         """
-        get_color = balanced.ribbon_color_map(self, color)
-
-        def double(x):
-            return x @ x if width is None\
-                else balanced.double_rail(x, width, get_color)
-
-        class DualRail(Functor):
-            def __call__(self, other):
-                if isinstance(other, Twist):
-                    return DualRailTwist(self(other.dom))
-                if isinstance(other, Braid):
-                    return DualRailBraid(
-                        self(other.left), self(other.right), other.is_dagger)
-                if isinstance(other, Cup):
-                    return DualRailCup(
-                        self(other.dom[:1]), self(other.dom[1:]))
-                if isinstance(other, Cap):
-                    return DualRailCap(
-                        self(other.cod[:1]), self(other.cod[1:]))
-                if isinstance(other, Box) and not isinstance(other, Sum):
-                    # A generator is doubled into a box on the rails of its
-                    # ribbons; self doubles its domain and codomain per object.
-                    return Box(other.name, self(other.dom), self(other.cod),
-                               is_dagger=other.is_dagger)
-                return super().__call__(other)
-
-        return DualRail(double, lambda f: f)(self)
+        return self.to_braided(width, color)
 
 
 class Box(pivotal.Box, balanced.Box, Diagram):
@@ -341,9 +316,9 @@ class Functor(pivotal.Functor, balanced.Functor):
     A ribbon functor is both a pivotal functor and a balanced functor.
 
     Parameters:
-        ob (Mapping[pivotal.Ty, pivotal.Ty]) :
+        ob_map (Mapping[pivotal.Ty, pivotal.Ty]) :
             Map from atomic :class:`pivotal.Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
+        ar_map (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
     """
     dom = cod = Diagram
@@ -354,8 +329,39 @@ class Functor(pivotal.Functor, balanced.Functor):
         return pivotal.Functor.__call__(self, other)
 
 
+class DualRail(balanced.DualRail, Functor):
+    """
+    The functor sending a ribbon diagram to its dual rail encoding, extending
+    :class:`discopy.balanced.DualRail` with the folding of :class:`Cup` and
+    :class:`Cap` into a single box each and the doubling of a generator into a
+    box on the rails of its ribbons.
+
+    See also
+    --------
+    :meth:`Diagram.to_ribbons`
+    """
+    cod = Diagram
+    dual_rail_twist_factory = DualRailTwist
+    dual_rail_braid_factory = DualRailBraid
+
+    def __call__(self, other):
+        if isinstance(other, Cup):
+            return DualRailCup(self(other.dom[:1]), self(other.dom[1:]))
+        if isinstance(other, Cap):
+            return DualRailCap(self(other.cod[:1]), self(other.cod[1:]))
+        if isinstance(other, (Braid, Twist)):
+            return super().__call__(other)  # A single dual rail box crossing.
+        if isinstance(other, Box) and not isinstance(other, Sum):
+            # A generator is doubled into a box on the rails of its ribbons;
+            # self doubles its domain and codomain per object.
+            return Box(other.name, self(other.dom), self(other.cod),
+                       is_dagger=other.is_dagger)
+        return super().__call__(other)
+
+
 Diagram.braid_factory = Braid
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Diagram.twist_factory = Twist
+Diagram.dual_rail_factory = DualRail
 
 Id = Diagram.id

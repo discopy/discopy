@@ -11,12 +11,19 @@ def test_repr():
 
 def test_double_rail():
     x = Ty('x')
-    # Doubling makes the two rails share a ribbon of the given width and colour.
-    rail = double_rail(x, .25, color="red")
+    # Doubling sets the first rail's margin so the two rails are `width` apart.
+    rail = double_rail(x, .25)
     assert len(rail) == 2
+    margins = [getattr(o, "min_right_margin", 0) for o in rail.inside]
+    assert margins == [-0.75, 0]
+
+
+def test_double_rail_color():
+    x = Ty('x')
+    # Doubling makes the two rails share a ribbon carrying the given colour.
+    rail = double_rail(x, .25, color="red")
     left, right = rail.inside
-    assert left.ribbon is right.ribbon
-    assert left.ribbon.width == .25 and left.ribbon.color == "red"
+    assert left.ribbon is right.ribbon and left.ribbon.color == "red"
 
 
 def test_double_rail_color_callable():
@@ -64,3 +71,17 @@ def test_dual_rail_braid_and_twist():
     twist, = Diagram.twist(x).to_braided(width=None).boxes
     assert isinstance(twist, DualRailTwist)
     assert twist.dom == twist.cod == x @ x
+
+
+def test_to_braided_default_and_zero_width():
+    from discopy import config
+
+    x = Ty('x')
+    twist = Diagram.twist(x)
+
+    # width=None pulls the default width from discopy.config.
+    assert twist.to_braided() == twist.to_braided(
+        config.DRAWING_DEFAULT["ribbon_width"])
+
+    # width=0 returns the diagram as is, i.e. without dual rails.
+    assert twist.to_braided(width=0) == twist

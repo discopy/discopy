@@ -34,9 +34,9 @@ from __future__ import annotations
 
 from copy import copy
 
-from discopy import monoidal, braided, traced
+from discopy import config, monoidal, braided, traced, hypergraph
 from discopy.abc import BalancedCategory
-from discopy.cat import ar_factory
+from discopy.cat import factory
 from discopy.config import RIBBON_COLORS
 from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import factory_name, assert_isatomic
@@ -46,32 +46,50 @@ class Ribbon:
     """
     The colour region of a ribbon in the dual rail encoding of a balanced or
     ribbon diagram, see :meth:`double_rail`. It is shared by the two rails of a
-    ribbon and carries both the colour filling the inside of the ribbon and the
-    gap between its two rails. Being a property of the region rather than of
-    the rails, it is preserved when the adjoint of a compound type reverses
-    the order of the two rails.
+    ribbon and carries the colour filling the inside of the ribbon. Being a
+    property of the region rather than of the rails, it is preserved when the
+    adjoint of a compound type reverses the order of the two rails.
 
     Parameters:
         color : The colour filling the inside of the ribbon, or ``None``.
-        width : The gap between the two rails of the ribbon.
     """
-    def __init__(self, color=None, width=0.25):
-        self.color, self.width = color, width
+    def __init__(self, color=None):
+        self.color = color
 
     def __repr__(self):
-        return f"Ribbon(color={self.color!r}, width={self.width!r})"
+        return f"Ribbon(color={self.color!r})"
 
 
-def double_rail(typ: monoidal.Ty, width=0.25, color=None) -> monoidal.Ty:
+def set_rail_margins(typ: monoidal.Ty, width: float = None) -> monoidal.Ty:
     """
-    Doubles every object of a type into the two rails of a ribbon, both sharing
-    a :class:`Ribbon` so that they are drawn ``width`` apart (rather than at
-    the usual minimal width) and the inside of the ribbon is filled with
-    ``color``.
+    Sets the :attr:`min_right_margin` of each object of an already-doubled type
+    by position, so that the two rails of every ribbon are drawn ``width``
+    apart. This is re-applied after rotation, which reverses the rails and
+    drops the margin (a per-object attribute that cannot know its pair-mate).
+
+    Parameters:
+        typ : An already-doubled type, i.e. with an even number of objects.
+        width : The gap between the two rails, defaults to the ``ribbon_width``
+            in :data:`discopy.config.DRAWING_DEFAULT`.
+    """
+    width = config.DRAWING_DEFAULT["ribbon_width"] if width is None else width
+    for i, ob in enumerate(typ.inside):
+        ob.min_right_margin = width - 1 if i % 2 == 0 else 0
+    return typ
+
+
+def double_rail(
+        typ: monoidal.Ty, width: float = None, color=None) -> monoidal.Ty:
+    """
+    Doubles every object of a type into the two rails of a ribbon ``width``
+    apart, copying each object so the two rails hold independent margins. The
+    two rails share a :class:`Ribbon` carrying the colour that fills the inside
+    of the ribbon.
 
     Parameters:
         typ : The type to double.
-        width : The gap between the two rails of each ribbon.
+        width : The gap between the two rails, defaults to the ``ribbon_width``
+            in :data:`discopy.config.DRAWING_DEFAULT`.
         color : The colour with which to fill the inside of each ribbon. It can
             be a colour name (used for every ribbon) or a function from object
             to colour name (or ``None`` for no fill). Defaults to ``None``.
@@ -80,9 +98,9 @@ def double_rail(typ: monoidal.Ty, width=0.25, color=None) -> monoidal.Ty:
     for ob in typ.inside:
         left, right = copy(ob), copy(ob)
         left.ribbon = right.ribbon = Ribbon(
-            color(ob) if callable(color) else color, width)
+            color(ob) if callable(color) else color)
         rails += [left, right]
-    return type(typ)(*rails)
+    return set_rail_margins(type(typ)(*rails), width)
 
 
 def ribbon_color_map(diagram, color="auto"):
@@ -116,7 +134,7 @@ def _atoms(diagram):
     return obs
 
 
-@ar_factory
+@factory
 class Diagram(braided.Diagram, traced.Diagram, BalancedCategory):
     """
     A balanced diagram is a braided diagram with :class:`Twist`.
@@ -154,15 +172,15 @@ class Diagram(braided.Diagram, traced.Diagram, BalancedCategory):
             >> cls.twist(dom[1:]) @ cls.twist_factory(dom[0])\
             >> cls.braid(dom[1:], dom[0])
 
-    def to_braided(self, width=0.25, color="auto"):
+    def to_braided(self, width: float = None, color="auto"):
         """
-        Doubles evry object and sends the twist to the braid.
+        Doubles every object and sends the twist to the braid.
 
         Parameters:
             width : The width of a ribbon, i.e. the gap between the two wires
-                encoding each object, default is ``0.25`` (four times closer
-                than the minimal width). If ``None``, the underlying braided
-                diagram is returned rather than its drawing.
+                encoding each object, defaults to the ``ribbon_width`` in
+                :data:`discopy.config.DRAWING_DEFAULT`. Set to ``0`` to return
+                the diagram as is, i.e. without doubling it into dual rails.
             color : The colour with which to fill the inside of each ribbon,
                 see :func:`ribbon_color_map`. Defaults to ``"auto"``, i.e. one
                 colour per distinct object. Use ``None`` for no fill.
@@ -181,22 +199,10 @@ class Diagram(braided.Diagram, traced.Diagram, BalancedCategory):
         .. image:: /_static/balanced/twist_dual_rail.png
         """
         get_color = ribbon_color_map(self, color)
-
-        def double(x):
-            return x @ x if width is None else double_rail(x, width, get_color)
-
-        class DualRail(Functor):
-            cod = braided.Diagram
-
-            def __call__(self, other):
-                if isinstance(other, Twist):
-                    return DualRailTwist(self(other.dom))
-                if isinstance(other, Braid):
-                    return DualRailBraid(
-                        self(other.left), self(other.right), other.is_dagger)
-                return super().__call__(other)
-
-        return DualRail(double, lambda f: f.name)(self)
+        width = config.DRAWING_DEFAULT["ribbon_width"]\
+            if width is None else width
+        return self if not width\
+            else self.dual_rail_factory(width, get_color)(self)
 
 
 class Box(braided.Box, traced.Box, Diagram):
@@ -327,9 +333,9 @@ class Functor(braided.Functor, traced.Functor):
     A balanced functor is a braided functor that twists.
 
     Parameters:
-        ob (Mapping[monoidal.Ty, monoidal.Ty]) :
+        ob_map (Mapping[monoidal.Ty, monoidal.Ty]) :
             Map from :class:`monoidal.Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
+        ar_map (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) :
             The codomain, :code:`Diagram` by default.
     """
@@ -343,13 +349,52 @@ class Functor(braided.Functor, traced.Functor):
         return braided.Functor.__call__(self, other)
 
 
-class Hypergraph(traced.Hypergraph):
-    functor = Functor
+class DualRail(Functor):
+    """
+    The functor sending a balanced diagram to its dual rail encoding in
+    :class:`discopy.braided.Diagram`, i.e. doubling every object into the two
+    rails of a ribbon and sending every :class:`Twist` and :class:`Braid` to
+    a single box crossing the two ribbons of a wire as a whole.
+
+    Parameters:
+        width : The gap between the two rails of each ribbon, defaults to the
+            ``ribbon_width`` in :data:`discopy.config.DRAWING_DEFAULT`.
+        color : The colour filling the inside of each ribbon, either ``None``
+            or a function from object to colour name, see :func:`double_rail`.
+
+    See also
+    --------
+    :meth:`Diagram.to_braided`
+    """
+    cod = braided.Diagram
+    dual_rail_twist_factory = DualRailTwist
+    dual_rail_braid_factory = DualRailBraid
+
+    def __init__(self, width: float = None, color=None):
+        self.width = config.DRAWING_DEFAULT["ribbon_width"]\
+            if width is None else width
+        self.color = color
+        super().__init__(
+            ob_map=lambda x: double_rail(x, self.width, self.color),
+            ar_map=lambda f: f.name)
+
+    def __call__(self, other):
+        if isinstance(other, monoidal.Ty):
+            return set_rail_margins(super().__call__(other), self.width)
+        if isinstance(other, Twist):
+            return self.dual_rail_twist_factory(self(other.dom))
+        if isinstance(other, Braid):
+            return self.dual_rail_braid_factory(
+                self(other.left), self(other.right), other.is_dagger)
+        return super().__call__(other)
 
 
-Diagram.hypergraph_factory = Hypergraph
+Diagram.functor_factory = Functor
+Diagram.map_factory = traced.CMap
+Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.braid_factory = Braid
 Diagram.twist_factory = Twist
 Diagram.trace_factory = Trace
 Diagram.sum_factory = Sum
+Diagram.dual_rail_factory = DualRail
 Id = Diagram.id

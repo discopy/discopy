@@ -15,6 +15,36 @@ def test_to_ribbons_width():
     assert round(dom[1] - dom[0], 3) == 1.0
 
 
+def test_to_ribbons_default_and_zero_width():
+    from discopy import config
+
+    x = Ty('x')
+    twist = Diagram.twist(x)
+
+    # width=None pulls the default width from discopy.config.
+    assert twist.to_ribbons() == twist.to_ribbons(
+        config.DRAWING_DEFAULT["ribbon_width"])
+
+    # width=0 returns the diagram as is, i.e. without dual rails.
+    assert twist.to_ribbons(width=0) == twist
+
+
+def test_to_ribbons_trace_width():
+    x = Ty('x')
+
+    # The looped ribbon of a trace stays compressed all the way around, even
+    # though its wires are rotated (which drops the per-object margin).
+    drawing = Braid(x, x).trace(left=True).to_ribbons().to_drawing()
+    rows = {}
+    for node, point in drawing.positions.items():
+        if node.kind in ("box_dom", "box_cod"):
+            rows.setdefault(round(point.y, 3), []).append(round(point.x, 3))
+    for xs in rows.values():
+        xs = sorted(xs)
+        gaps = [round(xs[i + 1] - xs[i], 3) for i in range(len(xs) - 1)]
+        assert gaps == [0.25, 1.0, 0.25]
+
+
 def test_to_ribbons_gadgets():
     x = Ty('x')
     trace = Braid(x, x).trace(left=True)
@@ -49,7 +79,7 @@ def test_Kauffman():
         def braid(x, y):
             return (A @ x @ y) + (Cup(x, y) >> A.dagger() >> Cap(x, y))
 
-    Kauffman = Functor(ob={x: x}, ar={}, cod=Polynomial)
+    Kauffman = Functor(ob_map={x: x}, ar_map={}, cod=Polynomial)
 
     assert Kauffman(Braid(x, x))\
         == (A @ x @ x) + (Cup(x, x) >> A.dagger() >> Cap(x, x))

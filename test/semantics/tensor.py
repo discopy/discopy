@@ -59,7 +59,7 @@ def test_Tensor():
 def test_Spider_to_tn():
     d = Dim(2)
     tensor = Spider(1, 1, d) >> Spider(1, 2, d) >> Spider(2, 0, d)
-    result = tensor.eval(contractor=tn.contractors.auto).array
+    result = tn.contractors.auto(*tensor.to_tn()).tensor
     assert all(result == np.array([1, 1]))
 
 
@@ -75,7 +75,7 @@ def test_Spider_to_tn_pytorch():
                         np.array([1., 2.]).requires_grad_(True))
             tensor = alice >> Spider[float64](1, 2, d) >> \
                      Spider[float64](2, 0, d)
-            result = tensor.eval(contractor=tn.contractors.auto).array
+            result = tn.contractors.auto(*tensor.to_tn()).tensor
             assert result.item() == 3
     finally:
         tn.set_default_backend('numpy')
@@ -156,7 +156,7 @@ def test_Functor_call():
     assert list(F(g.transpose(left=True)).array.flatten()) == [0.0, 1.0, 2.0]
     with raises(TypeError):
         F("Alice")
-    assert Functor(ob={x: Dim(2, 3)}, ar=None)(x) == Dim(2, 3)
+    assert Functor(ob_map={x: Dim(2, 3)}, ar_map=None)(x) == Dim(2, 3)
 
 
 def test_Functor_swap():
@@ -236,6 +236,12 @@ def test_Tensor_scalar():
         assert isinstance(ptype(s), ptype)
 
 
+def test_rotated_Box_eval():
+    f = Box("f", Dim(2), Dim(2), [1, 2, 3, 4])
+    assert f.r.eval().is_close(f.transpose().eval())
+    assert f.l.eval().is_close(f.transpose(left=True).eval())
+
+
 def test_Tensor_adjoint_eval():
     alice = Box("Alice", Dim(1), Dim(2), [1, 2])
     eats = Box("eats", Dim(1), Dim(2, 3, 2), [3] * 12)
@@ -257,11 +263,108 @@ def test_Tensor_dtype_inference():
 
 
 def test_non_numpy_eval():
+    reference = Swap(Dim(2), Dim(2)).eval()
     with backend('pytorch'):
-        with raises(Exception):
-            Swap(Dim(2), Dim(2)).eval()
+        result = Swap(Dim(2), Dim(2)).eval()
+    assert np.allclose(np.asarray(result.array), reference.array)
 
 
 def test_Tensor_array():
     box = Box("box", Dim(2), Dim(2), None)
     assert box.array is None
+
+
+def test_CMap_eval():
+    vector = Box('vector', Dim(1), Dim(2), [0., 1.])
+    f = Box('f', Dim(2), Dim(2), [0., 1., 1., 0.])
+    a = Box('a', Dim(1), Dim(2), [1., 2.])
+    b = Box('b', Dim(1), Dim(2), [3., 4.])
+    u = Box('u', Dim(1), Dim(2, 3), list(map(float, range(6))))
+    spider = Spider(1, 1, Dim(2)) >> Spider(1, 2, Dim(2)) \
+        >> Spider(2, 0, Dim(2))
+    for diagram in [
+            vector >> vector[::-1],
+            spider,
+            f >> f,
+            a @ b >> Swap(Dim(2), Dim(2)),
+            u >> u[::-1],
+            Id(Dim(2)),
+            Cup(Dim(2), Dim(2)),
+            Cap(Dim(2), Dim(2)) >> Cup(Dim(2), Dim(2))]:
+        tensor, reference = diagram.to_map().eval(), diagram.eval()
+        assert (tensor.dom, tensor.cod) == (reference.dom, reference.cod)
+        assert np.allclose(
+            np.asarray(tensor.array, dtype=float),
+            np.asarray(reference.array, dtype=float))
+
+
+def test_CMap_eval_jax():
+    import jax
+    import jax.numpy as jnp
+    with backend('jax'):
+        b = lambda x: Box[float]('v', Dim(1), Dim(2), x * jnp.ones(2))
+        f = lambda x: (b(x) >> b(x)[::-1]).to_map().eval().array
+        assert jax.grad(f)(1.) == 4.
+        assert float(jax.jit(f)(1.)) == 2.
+
+
+def test_Functor_backend():
+    x = frobenius.Ty('x')
+    f = frobenius.Box('f', x, x @ x)
+    diagram = f >> frobenius.Spider(1, 1, x) @ x >> f.dagger()
+    ob, ar = {x: 2}, {f: [1., 2., 3., 4., 5., 6., 7., 8.]}
+    reference = Functor(ob, ar)(diagram)
+    with backend('jax'):
+        with_backend = Functor(ob, ar)(diagram)
+    assert np.allclose(np.asarray(with_backend.array), reference.array)
+
+
+def test_Functor_markov_copy():
+    from discopy import markov
+    n = markov.Ty('n')
+    f = markov.Box('f', n, n)
+    F = Functor({n: Dim(2)}, {f: [1., 2., 3., 4.]}, dom=markov.Diagram)
+    reference = F(f) >> Tensor.copy(Dim(2), 2)
+    assert F(f >> markov.Copy(n, 2)).is_close(reference)
+
+
+def test_Functor_pytorch():
+    import torch
+    from torch import float64
+    x = frobenius.Ty('x')
+    v = frobenius.Box('v', frobenius.Ty(), x)
+    t = torch.tensor(3.0, dtype=float64, requires_grad=True)
+    F = Functor({x: 2}, {v: torch.stack([t, t])}, dtype=float64)
+    with backend('pytorch'):
+        result = F(v >> v.dagger()).array
+    result.backward()
+    assert result.item() == 18. and t.grad.item() == 12.
+
+
+def test_eval_params():
+    vector = Box('vector', Dim(1), Dim(2), [1., 2.])
+    diagram = vector >> vector[::-1]
+    assert diagram.eval(optimize="optimal") == diagram.eval()
+    assert diagram.eval(order='C') == diagram.eval()
+    x = frobenius.Ty('x')
+    v = frobenius.Box('v', frobenius.Ty(), x)
+    F = Functor({x: 2}, {v: [1., 2.]}, optimize="optimal")
+    assert F(v >> v.dagger()).array == 5.
+    assert Functor({x: 2}, {v: [1., 2.]}, order='C')(v >> v.dagger()) \
+        == F(v >> v.dagger())
+    assert repr(F) == \
+        "tensor.Functor(ob_map={frobenius.Ty(frobenius.Ob('x')): 2}, " \
+        "ar_map={frobenius.Box('v', frobenius.Ty(), " \
+        "frobenius.Ty(frobenius.Ob('x'))): [1.0, 2.0]}, " \
+        "dom=frobenius.Diagram, dtype=float, optimize='optimal')"
+
+
+def test_Functor_bubble():
+    men = Box("men", Dim(1), Dim(2), [0, 1])
+    mortal = Box("mortal", Dim(2), Dim(1), [1, 1])
+    men_are_mortal = (men >> mortal.bubble()).bubble()
+    assert men_are_mortal.eval(dtype=bool)
+    F = Functor(lambda x: x, lambda box: box.array, dom=Diagram)
+    assert np.allclose(
+        np.asarray(F(men_are_mortal.arg).array, dtype=float),
+        np.asarray(men_are_mortal.arg.eval().array, dtype=float))

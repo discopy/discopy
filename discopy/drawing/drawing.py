@@ -61,63 +61,20 @@ from dataclasses import dataclass
 import networkx as nx
 
 from discopy.drawing import backend, Node, Point
-from discopy.config import DRAWING_ATTRIBUTES
+from discopy.config import BOX_DRAWING_ATTRIBUTES
 from discopy.abc import TracedCategory
 from discopy.utils import (
-    assert_isinstance, assert_iscomposable, unbiased, ar_factory)
+    assert_isinstance, assert_iscomposable, unbiased, factory)
 
 if TYPE_CHECKING:
     from discopy import monoidal
 
 
-def _draws_label(box) -> bool:
-    """ Whether a box is drawn as a rectangle with its name in the middle.
-
-    Boxes drawn as wires, spiders, brakets, controlled gates, discards or
-    measures render their own shape rather than a centered label, so their
-    width should not be adjusted to fit :attr:`drawing_name`.
-    """
-    return not any(getattr(box, attr, False) for attr in (
-        "draw_as_wires", "draw_as_spider", "draw_as_brakets",
-        "draw_as_controlled", "draw_as_discards", "draw_as_measures",
-        "draw_as_dual_rail_braid", "draw_as_dual_rail_twist",
-        "draw_as_dual_rail_cup"))
-
-
-def _box_min_width(box) -> float:
-    """ The minimum width of a box outline.
-
-    This is the widest of the space needed to fit the box's name (see
-    :func:`discopy.config.box_label_width`) and its user-set :attr:`min_width`.
-    It is zero for boxes that do not draw a centered label.
-    """
-    if not _draws_label(box):
-        return 0
+def _trailing_margin(ob) -> float:
+    """ The extra width needed to the right of the last wire of a type. """
     return max(
-        getattr(box, "box_label_width", 0), getattr(box, "min_width", 0))
-
-
-def _wire_offsets(ty) -> tuple:
-    """ The extra x-offset of each wire of a type, and their total.
-
-    Each object's :attr:`min_right_margin` pushes every wire to its right
-    further along, so wire ``i`` is shifted by the sum of the margins of the
-    objects before it. The two rails of a ribbon (i.e. two consecutive wires
-    sharing a :class:`~discopy.balanced.Ribbon`) are instead drawn the ribbon's
-    width apart, whichever order they are in after taking an adjoint. Returns
-    ``(offsets, total)`` where ``total`` is the sum of all the margins, i.e.
-    the extra width the type takes up.
-    """
-    offsets, total = [], 0
-    obs = list(getattr(ty, "inside", ()))
-    for i, ob in enumerate(obs):
-        offsets.append(total)
-        total += getattr(ob, "min_right_margin", 0)
-        ribbon = getattr(ob, "ribbon", None)
-        nxt = obs[i + 1] if i + 1 < len(obs) else None
-        if ribbon is not None and getattr(nxt, "ribbon", None) is ribbon:
-            total += ribbon.width - 1  # Squeeze the two rails of a ribbon.
-    return offsets, total
+        0, getattr(ob, "right_margin", 0) - 0.5,
+        getattr(ob, "min_right_margin", 0))
 
 
 class PlaneGraph(NamedTuple):
@@ -126,7 +83,7 @@ class PlaneGraph(NamedTuple):
     positions: dict[Node, Point]
 
 
-@ar_factory
+@factory
 @dataclass
 class Drawing(TracedCategory):
     """
@@ -247,7 +204,6 @@ class Drawing(TracedCategory):
                 box.is_dagger and not box.draw_as_braid)
             for box in self.boxes))
         self.add_box_corners()
-        self.frame_dual_rail()
         return backend.draw(self, asymmetry=asymmetry, **params)
 
     def add_box_corners(self):
@@ -260,12 +216,10 @@ class Drawing(TracedCategory):
                 for kind, xs in [("box_dom", box.dom), ("box_cod", box.cod)])
             xs = [self.positions[n].x for n in box_dom_nodes + box_cod_nodes]
             left, right = min(xs + [box_x]) - 0.25, max(xs + [box_x]) + 0.25
-            # Widen the box symmetrically if its name/min_width does not fit.
-            min_width = _box_min_width(box)
-            if min_width > right - left:
+            if box.min_width and right - left < box.min_width:
                 center = (left + right) / 2
-                left = center - min_width / 2
-                right = center + min_width / 2
+                left = center - box.min_width / 2
+                right = center + box.min_width / 2
             self.add_nodes({
                 Node(f"box-corner-{a}{b}", j=j): Point(x, box_y + y)
                 for a, x in enumerate([left, right])
@@ -344,18 +298,16 @@ class Drawing(TracedCategory):
               if n.kind == "box_cod" and n.j == j]
         box_x = self.positions[self.box_nodes[j]].x
         left, right = min(xs + [box_x]), max(xs + [box_x])
-        offsets, acc = _wire_offsets(box_dom)
-        start = (right + left - (len(box_dom) - 1) - acc) / 2
         for i, x in enumerate(box_dom):
             target = Node("box_dom", i=i, j=j, x=x)
             source, = self.graph.predecessors(target)
             for n in (source, target):
-                x = start + i + offsets[i]
+                x = (right + left - len(box_dom) + 1) / 2 + i
                 self.positions[n] = Point(x, self.positions[n].y)
 
     def reposition_box_cod(self, j=-1):
         """ Recenter cod nodes to recover legacy behaviour for layers. """
-        j = j if j > 0 else len(self.boxes) + j
+        j = j if j >= 0 else len(self.boxes) + j
         box = self.boxes[j]
         if box.bubble_closing and len(box.dom[1:-1]) == len(box.cod):
             return  # Otherwise the wires would bend when coming out.
@@ -363,15 +315,13 @@ class Drawing(TracedCategory):
               if n.kind == "box_dom" and n.j == j]
         box_x = self.positions[self.box_nodes[j]].x
         left, right = min(xs + [box_x]), max(xs + [box_x])
-        offsets, acc = _wire_offsets(box.cod)
-        start = (right + left - (len(box.cod) - 1) - acc) / 2
         for i, x in enumerate(box.cod):
             source = Node("box_cod", i=i, j=j, x=x)
             target, = self.graph.successors(source)
             if target.kind != "cod":
                 return  # Otherwise we would have to reposition everything.
             for n in (source, target):
-                x = start + i + offsets[i]
+                x = (right + left - len(box.cod) + 1) / 2 + i
                 self.positions[n] = Point(x, self.positions[n].y)
             if box.draw_as_spider and len(box.cod) == 1:
                 box_node = Node("box", box=box, j=j)
@@ -379,7 +329,7 @@ class Drawing(TracedCategory):
 
     def align_box_cod(self, j=-1):
         """ Align outputs with inputs when they have equal number of wires. """
-        j = j if j > 0 else len(self.boxes) + j
+        j = j if j >= 0 else len(self.boxes) + j
         box = self.boxes[j]
         for i, (x_dom, x_cod) in enumerate(zip(box.dom, box.cod)):
             dom_node = Node("box_dom", i=i, j=j, x=x_dom)
@@ -463,7 +413,7 @@ class Drawing(TracedCategory):
         old_box, box = box, Box(
             box.name, box_dom, box_cod, is_dagger=box.is_dagger)
 
-        for attr, default in DRAWING_ATTRIBUTES.items():
+        for attr, default in BOX_DRAWING_ATTRIBUTES.items():
             setattr(box, attr, getattr(old_box, attr, default(box)))
 
         if box.draw_as_wires and not box.frame_boundary:
@@ -471,38 +421,35 @@ class Drawing(TracedCategory):
                 obj.reposition_label = 0.5 if (
                     box.bubble_closing or box.bubble_opening and i) else 0.25
 
-        # Extra space added to the right of each wire by its min_right_margin.
-        extra_dom, acc_dom = _wire_offsets(box.dom)
-        extra_cod, acc_cod = _wire_offsets(box.cod)
-        if box.bubble_opening or box.bubble_closing:
-            # The boundary wires of a bubble are placed by hand below, so we
-            # leave their wires evenly spaced rather than apply margins.
-            extra_dom, acc_dom = [0] * len(box.dom), 0
-            extra_cod, acc_cod = [0] * len(box.cod), 0
+        is_bubble = box.bubble_opening or box.bubble_closing
+        offsets_dom = box.dom.wire_offsets()
+        offsets_cod = box.cod.wire_offsets()
+        span_dom = offsets_dom[-1] if offsets_dom else -1
+        span_cod = offsets_cod[-1] if offsets_cod else -1
 
         if box.bubble_opening:
-            width = max(1, len(box.dom), len(box.cod) - 2) + 0.5
+            content = max(1, len(box.dom), len(box.cod) - 2) + 0.5
         elif box.bubble_closing:
-            width = max(1, len(box.dom) - 2, len(box.cod)) + 0.5
+            content = max(1, len(box.dom) - 2, len(box.cod)) + 0.5
         else:
-            width = max(
-                1, len(box.dom) + acc_dom, len(box.cod) + acc_cod)
+            content = max(1, span_dom + 1, span_cod + 1)
 
-        # Reserve enough horizontal space to fit the box's name or min_width,
-        # leaving a 0.25 margin on either side between the box and its
-        # neighbours.
-        width = max(width, _box_min_width(box) + 0.5)
+        content = max(content, box.min_width + 0.5)\
+            if box.min_width else content
 
-        height = box.height
+        trailing = 0 if is_bubble else max(
+            (_trailing_margin(row.inside[-1])
+             for row in (box.dom, box.cod) if row.inside), default=0)
+        width, height = content + trailing, box.height
 
-        left, right = 0.25, width - 0.25
+        left, right = 0.25, content - 0.25
 
         inside = PlaneGraph(nx.DiGraph(), dict())
         result = Drawing(
             inside, box.dom, box.cod, (box, ), width, height, _check=False)
 
         box_node = Node("box", box=box, j=0)
-        result.add_nodes({box_node: Point(width / 2, height / 2)})
+        result.add_nodes({box_node: Point(content / 2, height / 2)})
 
         dom = [Node("dom", i=i, x=x) for i, x in enumerate(box.dom)]
         cod = [Node("cod", i=i, x=x) for i, x in enumerate(box.cod)]
@@ -529,15 +476,21 @@ class Drawing(TracedCategory):
                 dom[-1]: Point(right, height)})
             dom, box_dom = dom[1:-1], box_dom[1:-1]
 
+        if is_bubble:
+            offsets_dom = list(range(len(dom)))
+            offsets_cod = list(range(len(cod)))
+            span_dom = offsets_dom[-1] if offsets_dom else -1
+            span_cod = offsets_cod[-1] if offsets_cod else -1
+
         result.add_nodes({
-            x: Point((width - len(xs) - acc) / 2 + 0.5 + i + extra[i], y)
-            for xs, y, extra, acc in [
-                (dom, height, extra_dom, acc_dom),
+            x: Point((content - span - 1) / 2 + 0.5 + offsets[i], y)
+            for xs, y, offsets, span in [
+                (dom, height, offsets_dom, span_dom),
                 (box_dom, height if box.draw_as_wires else height - 0.25,
-                 extra_dom, acc_dom),
+                 offsets_dom, span_dom),
                 (box_cod, 0 if box.draw_as_wires else 0.25,
-                 extra_cod, acc_cod),
-                (cod, 0, extra_cod, acc_cod)]
+                 offsets_cod, span_cod),
+                (cod, 0, offsets_cod, span_cod)]
             for i, x in enumerate(xs)})
         return result
 
@@ -563,20 +516,19 @@ class Drawing(TracedCategory):
             :align: center
         """
         from discopy.monoidal import Ty
-        dom = Ty() if dom is None else dom
+        dom = (Ty() if dom is None else dom).to_drawing()
         inside = PlaneGraph(nx.DiGraph(), dict())
-        offsets, margin = _wire_offsets(dom)
-        height, width = 0.5, margin + (
-            len(dom) - 0.5 if len(dom) > 1 else 0.5)
+        offsets = dom.wire_offsets()
+        height = 0.5
+        width = 0.5 + offsets[-1] + _trailing_margin(
+            dom.inside[-1]) if dom else 0.5
         result = Drawing(inside, dom, dom, (), width, height, _check=False)
         dom_nodes = [Node("dom", i=i, x=x) for i, x in enumerate(dom)]
         cod_nodes = [Node("cod", i=i, x=x) for i, x in enumerate(dom)]
         result.add_nodes({
-            x: Point(i + 0.25 + offsets[i], 1)
-            for i, x in enumerate(dom_nodes)})
+            x: Point(0.25 + offsets[i], 1) for i, x in enumerate(dom_nodes)})
         result.add_nodes({
-            x: Point(i + 0.25 + offsets[i], 0)
-            for i, x in enumerate(cod_nodes)})
+            x: Point(0.25 + offsets[i], 0) for i, x in enumerate(cod_nodes)})
         result.add_edges(list(zip(dom_nodes, cod_nodes)))
         return result
 
@@ -608,9 +560,9 @@ class Drawing(TracedCategory):
             :align: center
         """
         assert_iscomposable(self, other)
-        if self.is_identity:
+        if self.is_identity and self.height <= 1:
             return other
-        if other.is_identity:
+        if other.is_identity and other.height <= 1:
             return self
         dom, cod = self.dom, other.cod
 
@@ -678,54 +630,15 @@ class Drawing(TracedCategory):
         .. image:: /_static/drawing/stretch.png
             :align: center
         """
+        if not y:
+            # Nothing to stretch: avoid shifting middle nodes by y / 2 == 0.0,
+            # which would turn integer coordinates into floats.
+            return self.relabel_nodes(copy=copy)
         result = self.relabel_nodes(copy=copy, positions={n: p.shift(y=(
                 y if n.kind == "dom" else 0 if n.kind == "cod" else y / 2))
             for n, p in self.positions.items()})
         result.height += y
         return result
-
-    def frame_dual_rail(self, margin=0.5):
-        """
-        Reframe a dual rail drawing so its boundary box contains the cup and
-        cap arcs, which fold past the layout, with a uniform ``margin`` on each
-        side. The input and output (identity) wires still run all the way to
-        the top and bottom borders, only the folds are held a ``margin`` away.
-        Drawings without dual rail cups or caps (found by the
-        ``draw_as_dual_rail_cup`` attribute) are left unchanged.
-        """
-        from discopy.config import RIBBON_FOLD_DEPTH
-        cups = [node for node in self.box_nodes
-                if getattr(node.box, "draw_as_dual_rail_cup", False)]
-        if not cups:
-            return self
-        xs = [p.x for p in self.positions.values()]
-        # The folds may bulge below the bottom (cups) or above the top (caps).
-        left, right = min(xs), max(xs)
-        bottom, top = 0.0, self.height
-        for node in cups:
-            box = node.box
-            kind, wires = ("box_dom", box.dom) if box.dom\
-                else ("box_cod", box.cod)
-            ends = [self.positions[Node(kind, i=i, j=node.j, x=wires[i])]
-                    for i in (0, 3)]
-            radius, wire_y = abs(ends[1].x - ends[0].x) / 2, ends[0].y
-            depth = min(radius, RIBBON_FOLD_DEPTH)  # The fold is capped.
-            if box.dom:  # A cup folds downwards.
-                bottom = min(bottom, wire_y - depth)
-            else:  # A cap folds upwards.
-                top = max(top, wire_y + depth)
-        self.relabel_nodes(copy=False, positions={
-            n: p.shift(x=margin - left, y=margin - bottom)
-            for n, p in self.positions.items()})
-        self.width = right - left + 2 * margin
-        self.height = top - bottom + 2 * margin
-        # The identity wires run to the borders rather than stopping a margin
-        # short, so that the diagram still composes along its inputs/outputs.
-        for node in self.dom_nodes:
-            self.positions[node] = Point(self.positions[node].x, self.height)
-        for node in self.cod_nodes:
-            self.positions[node] = Point(self.positions[node].x, 0)
-        return self
 
     @unbiased
     def tensor(self, other: Drawing) -> Drawing:
@@ -785,7 +698,7 @@ class Drawing(TracedCategory):
         """ The reflection of a drawing along the the horizontal axis. """
         def box_dagger(box):
             result = box.dagger()
-            for attr in DRAWING_ATTRIBUTES:
+            for attr in BOX_DRAWING_ATTRIBUTES:
                 setattr(result, attr, getattr(box, attr))
             return result
 
@@ -926,10 +839,17 @@ class Drawing(TracedCategory):
         dom = self.dom if dom is None else dom
         cod = self.cod if cod is None else cod
         arg_dom, arg_cod = self.dom, self.cod
-        left, right = type(dom)(name or ""), type(dom)("")
+        from discopy.monoidal import Wire, Ty
+        left = Ty(Wire(name or "", dom.dom, arg_dom.dom))
+        right = Ty(Wire("", arg_dom.cod, dom.cod))
         left[0].always_draw_label = True
         wires_can_go_straight = (
             len(dom), len(cod)) == (len(arg_dom), len(arg_cod))
+        if draw_as_square:
+            # The left and right sides of a square frame, e.g. the slots of an
+            # Equation between coloured terms, are drawn with zero width.
+            left.inside[0].frame_boundary = right.inside[0].frame_boundary \
+                = True
         if draw_as_square or not wires_can_go_straight:
             top = Drawing.frame_opening(dom, arg_dom, left, right)
             bot = Drawing.frame_closing(arg_cod, cod, left, right)
@@ -968,8 +888,27 @@ class Drawing(TracedCategory):
             result.graph.remove_edges_from([(node, x) for x in cod_nodes])
         return result
 
+    def slot(self, colour, **params):
+        """
+        Wrap the drawing in a square slot filled with a background ``colour``,
+        so that several terms can be tiled on the same background.
+
+        This is shared by :meth:`frame`, for its arguments, and by
+        :meth:`add`, for the terms of an :class:`Equation` between
+        differently-coloured diagrams.
+
+        Parameters:
+            colour : The :class:`monoidal.Colour` of the slot's background.
+            params : Passed to :meth:`bubble`, e.g. ``height`` or ``width``.
+        """
+        from discopy.monoidal import Ty
+        frame_type = Ty.id(colour)
+        return self.bubble(
+            frame_type, frame_type, draw_as_square=True, **params)
+
     def frame(self, *others: Drawing,
-              dom=None, cod=None, name=None, draw_vertically=False) -> Drawing:
+              dom=None, cod=None, name=None, draw_vertically=False,
+              frame_colour=None) -> Drawing:
         """
         >>> from discopy.monoidal import *
         >>> x, y = Ty('x'), Ty('y')
@@ -992,16 +931,19 @@ class Drawing(TracedCategory):
         .. image:: /_static/drawing/vertical-frame.png
             :align: center
         """
-        from discopy.monoidal import Ty
+        from discopy.monoidal import Colour
+        frame_colour = frame_colour or \
+            BOX_DRAWING_ATTRIBUTES['frame_colour'](self)
+        colour = Colour(frame_colour)
         args = (self, ) + others
         method = "then" if draw_vertically else "tensor"
         params = dict(
                 width=max([arg.width for arg in args] + [0]) + 1
             ) if draw_vertically else dict(
                 height=max([arg.height for arg in args] + [0]))
-        result = getattr(Drawing.id(), method)(*(arg.bubble(
-            Ty(), Ty(), draw_as_square=True, **params)
-            for arg in args)).bubble(dom, cod, name, draw_as_square=True)
+        slots = tuple(arg.slot(colour, **params) for arg in args)
+        result = getattr(slots[0], method)(*slots[1:]).bubble(
+            dom, cod, name, draw_as_square=True)
         result.reposition_box_dom()
         result.reposition_box_cod()
         return result
@@ -1014,13 +956,25 @@ class Drawing(TracedCategory):
 
     def add(self, other: Drawing, symbol="+", space=1):
         """ Concatenate two drawings with a symbol in between. """
-        from discopy.monoidal import Ty, Box
+        from discopy.monoidal import Colour, Ty, Box
         if getattr(self, "zero_drawing", False):
             return other
         if getattr(other, "zero_drawing", False):
             return self
-        scalar = Box(symbol, Ty(), Ty(), draw_as_spider=True, color="white")
-        result = self @ scalar.to_drawing() @ other
+        height = max(self.height, other.height)
+        self = self.stretch(height - self.height)
+        other = other.stretch(height - other.height)
+        scalar = Box(
+            symbol, Ty(), Ty(), draw_as_spider=True, color="white"
+        ).to_drawing()
+        white = Colour("white")
+        if self.cod.cod != white or other.dom.dom != white:
+            # The boundary colours are not white, e.g. an Equation between
+            # terms of different colours: give each term its own
+            # white-bordered slot, as for Drawing.frame.
+            self, other = (
+                term.slot(white, height=height) for term in (self, other))
+        result = self @ scalar @ other
         result.make_space(space - 1, self.width + 1)  # Right of the scalar.
         result.make_space(space - 1, self.width)  # Left of the scalar.
         return result

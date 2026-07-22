@@ -25,14 +25,14 @@ from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
 
-from matplotlib.patches import PathPatch
+from matplotlib.patches import PathPatch, Patch
 from matplotlib.path import Path
 
 from discopy.drawing import Node, Point
 
 from discopy.config import (  # noqa: F401
-    DRAWING_ATTRIBUTES as ATTRIBUTES,
-    DRAWING_DEFAULT as DEFAULT, COLORS, SHAPES, RIBBON_FOLD_DEPTH)
+    BOX_DRAWING_ATTRIBUTES as ATTRIBUTES,
+    DRAWING_DEFAULT as DEFAULT, COLORS, SHAPES)
 
 if TYPE_CHECKING:
     from discopy.drawing import PlaneGraph
@@ -41,6 +41,22 @@ if TYPE_CHECKING:
 def draw(graph: PlaneGraph, **params):
     """ Load a :class:`Backend` and draw a :class:`PlaneGraph` on it. """
     aspect = params.get('aspect', 'auto' if 'figsize' in params else 'equal')
+    if params.get('legend', False) and not params.get('to_tikz', False):
+        colours = Backend.region_colours(graph)
+        if colours:
+            # Widen the figure by the legend width rather than squeeze diagram.
+            longest = max(len(c.legend_label) for c in colours.values())
+            legend_inches = DEFAULT['legend_base_width']\
+                + DEFAULT['legend_char_width'] * longest
+            margin_inches = DEFAULT['legend_margin']
+            extra = legend_inches + margin_inches
+            fig_width = params['figsize'][0] if 'figsize' in params\
+                else (graph.width or 1)
+            if 'figsize' in params:
+                params['figsize'] = (fig_width + extra, params['figsize'][1])
+            space = params.get('legend_space', extra * graph.width / fig_width)
+            graph = graph.make_space(
+                space, graph.width, exclusive=True, copy=True)
     figsize = params.get('figsize', None if aspect == 'auto' else (
         graph.width or 1, graph.height or 1))
     backend = (
@@ -53,10 +69,13 @@ def draw(graph: PlaneGraph, **params):
     params['nodesize'] = round(params.get('nodesize', 1.) / sqrt(max_v), 3)
 
     backend.draw_boundary(graph, **params)
+    backend.draw_regions(graph, **params)
     backend.draw_ribbons(graph, **params)
     backend.draw_wires(graph, **params)
     backend.draw_boxes(graph, **params)
     backend.draw_spiders(graph, **params)
+    if params.get('legend', False):
+        backend.draw_legend(graph, **params)
 
     return backend.output(
         path=params.get('path', None),
@@ -98,8 +117,46 @@ class Backend(ABC):
         """ Draws a polygon given a list of points. """
         self.max_width = max(self.max_width, max(i for i, _ in points))
 
+    def draw_curved_polygon(
+            self, *points, facecolor=None, edgecolor=None, bend_out=False):
+        """
+        Draws a polygon whose first edge is a quadratic Bezier curve
+        rather than a straight line, e.g. for the coloured regions of
+        :meth:`draw_regions`.
+
+        The first two points are the start and end of the curved edge,
+        the remaining points are connected by straight lines back to the
+        start, as in :meth:`draw_polygon`. The Bezier control point is
+        the corner of the start and end points, i.e.
+        ``(points[1].x, points[0].y)``, or ``(points[0].x, points[1].y)``
+        when ``bend_out`` is set, so that the curve hugs a wire bending
+        out of or into a box.
+        """
+        self.max_width = max(self.max_width, max(i for i, _ in points))
+
+    @staticmethod
+    def readable_foreground(colour, threshold=.5):
+        """
+        Pick a readable foreground text colour, i.e. ``"white"`` or
+        ``"black"``, for text drawn on top of a given background
+        ``colour``, using the standard luma formula for perceived
+        brightness.
+
+        >>> Backend.readable_foreground("white")
+        'black'
+        >>> Backend.readable_foreground("black")
+        'white'
+        """
+        from matplotlib.colors import to_rgb
+        try:
+            red, green, blue = to_rgb(colour)
+        except (ValueError, TypeError):
+            return "black"
+        luma = 0.299 * red + 0.587 * green + 0.114 * blue
+        return "white" if luma < threshold else "black"
+
     def draw_wire(self, source, target,
-                  bend_out=False, bend_in=False, style=None):
+                  bend_out=False, bend_in=False, style=None, linewidth=None):
         """ Draws a wire from source to target, possibly with a Bezier. """
         self.max_width = max(self.max_width, source[0], target[0])
 
@@ -119,6 +176,11 @@ class Backend(ABC):
         self.max_width = max([self.max_width] + [x for x, _ in points])
 
     @staticmethod
+    def _strand(source, target, middle):
+        # The four control points of a braid strand, see draw_braid_strand.
+        return [source, (source[0], middle), (target[0], middle), target]
+
+    @staticmethod
     def _ribbon(typ):
         # The Ribbon a wire belongs to, shared by its two rails, or None.
         inside = getattr(typ, "inside", None)
@@ -129,6 +191,32 @@ class Backend(ABC):
         # The colour filling the ribbon a wire belongs to, or None.
         ribbon = Backend._ribbon(typ)
         return None if ribbon is None else ribbon.color
+
+    def _half_circle_beziers(self, left, right, centre, sign, depth=None):
+        # The two Bezier control groups of the arc of a half circle (or ellipse
+        # if ``depth`` differs from the radius), from (left, centre) to
+        # (right, centre) bulging to ``centre + sign * depth`` at the apex.
+        middle, radius = (left + right) / 2, (right - left) / 2
+        depth = radius if depth is None else depth
+        kx, ky = (d * 4 * (sqrt(2) - 1) / 3 for d in (radius, depth))
+        apex = centre + sign * depth
+        return ([(left, centre), (left, centre + sign * ky),
+                 (middle - kx, apex), (middle, apex)],
+                [(middle, apex), (middle + kx, apex),
+                 (right, centre + sign * ky), (right, centre)])
+
+    def _fill_strand_band(self, first, second, middle, color, gap=0):
+        # Fills the band between two parallel braid strands of a ribbon. A
+        # non-zero gap breaks the band around the crossing, matching the broken
+        # strands, so the ribbon going under is shadowed by the one going over.
+        a, b = self._strand(*first, middle), self._strand(*second, middle)
+        spans = [(0, 1)] if not gap else [(0, 0.5 - gap), (0.5 + gap, 1)]
+        for t0, t1 in spans:
+            a_sub, b_sub = (
+                _bezier_subcurve(a, t0, t1), _bezier_subcurve(b, t0, t1))
+            self.draw_filled_shape(a_sub[0], [
+                ("curve", a_sub[1], a_sub[2], a_sub[3]), ("line", b_sub[3]),
+                ("curve", b_sub[2], b_sub[1], b_sub[0])], color)
 
     def draw_ribbons(self, graph, **params):
         """
@@ -165,36 +253,6 @@ class Backend(ABC):
                 ("line", positions[partner_target]),
                 ("line", positions[partner])], ribbon.color)
 
-    def _strand(self, source, target, middle):
-        # The four control points of a braid strand, see draw_braid_strand.
-        return [source, (source[0], middle), (target[0], middle), target]
-
-    def _fill_strand_band(self, first, second, middle, color, gap=0):
-        # Fills the band between two parallel braid strands of a ribbon. A
-        # non-zero gap breaks the band around the crossing, matching the broken
-        # strands, so the ribbon going under is shadowed by the one going over.
-        a, b = self._strand(*first, middle), self._strand(*second, middle)
-        spans = [(0, 1)] if not gap else [(0, 0.5 - gap), (0.5 + gap, 1)]
-        for t0, t1 in spans:
-            a_sub, b_sub = (
-                _bezier_subcurve(a, t0, t1), _bezier_subcurve(b, t0, t1))
-            self.draw_filled_shape(a_sub[0], [
-                ("curve", a_sub[1], a_sub[2], a_sub[3]), ("line", b_sub[3]),
-                ("curve", b_sub[2], b_sub[1], b_sub[0])], color)
-
-    def _half_circle_beziers(self, left, right, centre, sign, depth=None):
-        # The two Bezier control groups of the arc of a half circle (or ellipse
-        # if ``depth`` differs from the radius), from (left, centre) to
-        # (right, centre) bulging to ``centre + sign * depth`` at the apex.
-        middle, radius = (left + right) / 2, (right - left) / 2
-        depth = radius if depth is None else depth
-        kx, ky = (d * 4 * (sqrt(2) - 1) / 3 for d in (radius, depth))
-        apex = centre + sign * depth
-        return ([(left, centre), (left, centre + sign * ky),
-                 (middle - kx, apex), (middle, apex)],
-                [(middle, apex), (middle + kx, apex),
-                 (right, centre + sign * ky), (right, centre)])
-
     def draw_braid_strand(self, source, target, middle, gap=0):
         """
         Draws a single strand of a braid crossing the horizontal line at
@@ -226,6 +284,54 @@ class Backend(ABC):
         self.draw_polygon(
             (0, 0), (x, 0), (x, y), (0, y), edgecolor=boundary_color)
 
+    @abstractmethod
+    def draw_regions(self, graph, **params):
+        """
+        Draw coloured 0-cell regions, e.g. the background of a
+        :meth:`Drawing.frame` or the wire-typed regions of a diagram.
+
+        This has no default drawing logic: backends that do not want to
+        support coloured regions can simply inherit this no-op.
+        """
+
+    def draw_legend(self, graph, **params):
+        """Draw a legend of region colours when supported by the backend."""
+
+    @staticmethod
+    def region_colours(graph):
+        """
+        The distinct non-white region colours of a diagram, keyed by colour.
+
+        Returns an order-preserving mapping from each colour's name to its
+        :class:`monoidal.Colour`, suitable for a drawing legend. White is
+        omitted as it is the neutral background.
+        """
+        colours = {}
+        types = [graph.dom, graph.cod]
+        for box in graph.boxes:
+            types += [box.dom, box.cod]
+        for typ in types:
+            candidates = [getattr(typ, "dom", None), getattr(typ, "cod", None)]
+            for obj in getattr(typ, "inside", ()):
+                candidates += [
+                    getattr(obj, "dom", None), getattr(obj, "cod", None)]
+            for colour in candidates:
+                if colour is not None and colour.name != "white":
+                    colours.setdefault(colour.name, colour)
+        return colours
+
+    @staticmethod
+    def visible_edges(graph):
+        """ Yield the edges of a graph that are not inside a box. """
+        def inside_a_box(node):
+            return node.kind == "box"\
+                and not node.box.draw_as_wires\
+                and not node.box.draw_as_spider
+        for source, target in graph.edges():
+            if inside_a_box(source) or inside_a_box(target):
+                continue  # no need to draw wires inside a box
+            yield source, target
+
     def draw_wire_label(self, x, i, j, **params):
         draw_label_anyway = params.get('draw_box_labels', True) and getattr(
             x, "always_draw_label", False)
@@ -238,8 +344,40 @@ class Backend(ABC):
         i += pad_i
         j -= pad_j
         fontsize = params.get('fontsize_types', params.get('fontsize', None))
-        self.draw_text(label, i, j, verticalalignment='top',
-                       family='monospace', fontsize=fontsize)
+        # The region to the right of this wire, coloured the same way as
+        # in draw_regions, is what the label is drawn on top of.
+        background = getattr(x, "cod", None)
+        color = self.readable_foreground(
+            background.name if background is not None else "white")
+        self.draw_text(
+            label, i, j, verticalalignment='top', fontsize=fontsize,
+            color=color)
+
+    @staticmethod
+    def has_boundary_sides(typ):
+        """ Whether the first or last object of a type is a frame side, i.e.
+        it carries the ``frame_boundary`` flag set by :meth:`Drawing.bubble`
+        with ``draw_as_square``. """
+        return any(getattr(obj, "frame_boundary", False)
+                   for obj in typ.inside[:1] + typ.inside[-1:])
+
+    @staticmethod
+    def is_frame_boundary(node):
+        """ Whether a node belongs to the sides of a frame, i.e. the box drawn
+        around the terms of an :class:`Equation` with coloured boundaries.
+
+        A box carrying the ``frame_boundary`` flag is a bubble opening or
+        closing squashed to half height, whose horizontal boundary is drawn
+        as a wire through the box node. That boundary is hidden only for a
+        square frame, i.e. when the left and right side types carry the flag
+        too; a plain bubble keeps its top and bottom boundaries visible. """
+        box = getattr(node, "box", None)
+        if box is not None and getattr(box, "frame_boundary", False):
+            return Backend.has_boundary_sides(box.dom)\
+                or Backend.has_boundary_sides(box.cod)
+        typ = getattr(node, "x", None)
+        return typ is not None and getattr(
+            typ.inside[0], "frame_boundary", False)
 
     @staticmethod
     def _is_crossing(box):
@@ -250,120 +388,66 @@ class Backend(ABC):
             and not box.bubble_opening and not box.bubble_closing
 
     def draw_wires(self, graph, **params):
-        # Braids and swaps cross their two wires diagonally, see draw_braid.
+        # Braids and swaps are drawn as their own smooth curves.
         for node in graph.nodes:
             if node.kind == "box" and self._is_crossing(node.box):
                 self.draw_braid(graph.positions, node)
-            elif node.kind == "box" and self._is_cup_or_cap(node.box):
-                self.draw_cup_or_cap(graph.positions, node)
-        for source, target in graph.edges():
-            def inside_a_box(node):
-                return node.kind == "box"\
-                    and not node.box.draw_as_wires\
-                    and not node.box.draw_as_spider
-            if inside_a_box(source) or inside_a_box(target):
-                continue  # no need to draw wires inside a box
+        for source, target in self.visible_edges(graph):
             source_position = graph.positions[source]
             target_position = graph.positions[target]
+            # The sides of a frame are drawn with zero width.
+            is_frame_boundary = self.is_frame_boundary(source)\
+                or self.is_frame_boundary(target)
             if source.kind in ["dom", "box_cod"]:
                 self.draw_wire_label(source.x, *source_position, **params)
             if source_position == target_position:
                 continue
-            if any(n.kind == "box" and (self._is_crossing(n.box)
-                   or self._is_cup_or_cap(n.box)) for n in (source, target)):
-                continue  # cups, caps and crossings are drawn on their own
+            if any(n.kind == "box" and self._is_crossing(n.box)
+                   for n in (source, target)):
+                continue  # crossings are drawn on their own
             bend_out, bend_in = source.kind == "box", target.kind == "box"
             self.draw_wire(
-                source_position, target_position, bend_out, bend_in)
+                source_position, target_position, bend_out, bend_in,
+                linewidth=(0 if is_frame_boundary else None))
 
-    @staticmethod
-    def _is_cup_or_cap(box):
-        # A cup (two inputs, no output) or a cap (no input, two outputs).
-        if not box.draw_as_wires\
-                or box.bubble_opening or box.bubble_closing:
-            return False
-        return sorted((len(box.dom), len(box.cod))) == [0, 2]
-
-    @staticmethod
-    def _cup_ends(positions, node):
-        # The left end, right end and their shared height for a cup or cap.
-        box, j = node.box, node.j
-        kind, wires = ("box_dom", box.dom) if box.dom else ("box_cod", box.cod)
-        xs = [positions[Node(kind, i=i, j=j, x=wires[i])] for i in range(2)]
-        return min(p[0] for p in xs), max(p[0] for p in xs), xs[0][1]
-
-    def draw_cup_or_cap(self, positions, node):
-        """
-        Draws a cup or a cap as a half circle with vertical sides. Nested ones
-        (e.g. the rails of a ribbon) share the centre of the cup or cap they
-        sit in, so that they stay concentric, i.e. at a constant distance.
-        """
-        left, right, end = self._cup_ends(positions, node)
-        radius = (right - left) / 2
-        down = bool(node.box.dom)  # A cup opens upwards, its arc points down.
-        # Share the centre of the tightest cup or cap we are nested in.
-        centre, span = end, float("inf")
-        for other in positions:
-            if other.kind != "box" or other is node\
-                    or not self._is_cup_or_cap(other.box)\
-                    or bool(other.box.dom) != down:
-                continue
-            o_left, o_right, o_end = self._cup_ends(positions, other)
-            if o_left < left and right < o_right and o_right - o_left < span:
-                centre, span = o_end, o_right - o_left
-        height = 2 * abs(end - positions[node][1])
-        if radius > height:  # Too wide to fit a half circle: fall back to a U.
-            control = (4 * positions[node][1] - end) / 3
-            return self.draw_bezier(
-                [(left, end), (left, control), (right, control), (right, end)])
-        self._half_circle(left, right, end, centre, -1 if down else 1)
-
-    def _half_circle(self, left, right, end, centre, sign, depth=None):
-        # A half circle (or ellipse if ``depth`` differs from the radius) from
-        # (left, end) to (right, end) with vertical sides down to ``centre``,
-        # drawn as two quarters with the Bezier constant.
+    def _half_circle(self, left, right, end, centre, sign):
+        # A half circle from (left, end) to (right, end) with vertical sides
+        # down to ``centre``, drawn as two quarters with the Bezier constant.
+        middle, radius = (left + right) / 2, (right - left) / 2
+        k = radius * 4 * (sqrt(2) - 1) / 3
         if end != centre:
             self.draw_wire((left, end), (left, centre))
             self.draw_wire((right, centre), (right, end))
-        arcs = self._half_circle_beziers(left, right, centre, sign, depth)
-        self.draw_bezier(arcs[0])
-        self.draw_bezier(arcs[1])
-
-    @staticmethod
-    def _fold_depths(xs):
-        # The vertical depth of the outer and inner fold of a dual rail cup,
-        # capping the half circle so a wide cup flattens into an ellipse. The
-        # inner fold is one ribbon width shallower, keeping the band width.
-        radius, ribbon = (xs[3][0] - xs[0][0]) / 2, xs[1][0] - xs[0][0]
-        outer = min(radius, RIBBON_FOLD_DEPTH)
-        return outer, outer - ribbon
+        self.draw_bezier([
+            (left, centre), (left, centre + sign * k),
+            (middle - k, centre + sign * radius),
+            (middle, centre + sign * radius)])
+        self.draw_bezier([
+            (middle, centre + sign * radius),
+            (middle + k, centre + sign * radius),
+            (right, centre + sign * k), (right, centre)])
 
     def draw_dual_rail_cup(self, positions, node, **params):
         """
         Draws a :class:`discopy.ribbon.DualRailCup` (or cap) as a single
         constant-width fold, i.e. two concentric half circles joining the outer
-        and inner rails of two ribbons. A wide cup is flattened into a half
-        ellipse of depth :data:`~discopy.config.RIBBON_FOLD_DEPTH` so that the
-        drawing stays compact, see :meth:`draw_dual_rail.frame_dual_rail`.
+        and inner rails of two ribbons.
         """
         box, j = node.box, node.j
         kind, wires = ("box_dom", box.dom) if box.dom else ("box_cod", box.cod)
         xs = [positions[Node(kind, i=i, j=j, x=wires[i])] for i in range(4)]
         end, sign = xs[0][1], -1 if box.dom else 1
-        outer_depth, inner_depth = self._fold_depths(xs)
         color = self._ribbon_color(wires[:1])
         if color is not None:  # Fill the fold between outer and inner arcs.
-            outer = self._half_circle_beziers(
-                xs[0][0], xs[3][0], end, sign, outer_depth)
-            inner = self._half_circle_beziers(
-                xs[1][0], xs[2][0], end, sign, inner_depth)
+            outer = self._half_circle_beziers(xs[0][0], xs[3][0], end, sign)
+            inner = self._half_circle_beziers(xs[1][0], xs[2][0], end, sign)
             self.draw_filled_shape(outer[0][0], [
                 ("curve", *outer[0][1:]), ("curve", *outer[1][1:]),
                 ("line", inner[1][3]),
                 ("curve", inner[1][2], inner[1][1], inner[1][0]),
                 ("curve", inner[0][2], inner[0][1], inner[0][0])], color)
-        for (a, b), depth in [((0, 3), outer_depth), ((1, 2), inner_depth)]:
-            self._half_circle(xs[a][0], xs[b][0], end, end, sign, depth)
+        for a, b in [(0, 3), (1, 2)]:  # The outer and the inner fold.
+            self._half_circle(xs[a][0], xs[b][0], end, end, sign)
 
     def draw_braid(self, positions, node):
         """
@@ -424,7 +508,8 @@ class Backend(ABC):
         self.draw_polygon(*points, facecolor=box.color)
         if params.get('draw_box_labels', True):
             self.draw_text(box.drawing_name, *positions[node],
-                           ha='center', va='center', family='monospace',
+                           ha='center', va='center',
+                           color=self.readable_foreground(box.color),
                            fontsize=params.get('fontsize', None))
 
     def draw_discard(self, positions, node, **params):
@@ -480,9 +565,7 @@ class Backend(ABC):
     def draw_dual_rail_twist(self, positions, node, **params):
         """
         Draws a :class:`discopy.balanced.DualRailTwist`, i.e. the two rails of
-        a ribbon crossing each other twice in quick succession. The lens
-        between the two crossings, where the ribbon shows its back, is filled
-        with a darker shade of the ribbon's colour.
+        a ribbon crossing each other twice in quick succession.
         """
         box, j = node.box, node.j
         dom = [positions[Node("box_dom", i=i, j=j, x=box.dom[i])]
@@ -532,13 +615,10 @@ class Backend(ABC):
         crossings = [
             [(dom[0], swap[0], upper), (dom[1], swap[1], upper)],
             [(swap[0], cod[0], lower), (swap[1], cod[1], lower)]]
-        for k, (first_rail, second_rail) in enumerate(crossings):
-            # A twist is a braid followed by another of the same handedness
-            # (not by its inverse), so the same diagonal stays on top: the
-            # rails swap which one goes under between the two crossings.
-            first_under = (k == 0) != box.is_dagger
-            under, over = (first_rail, second_rail) if first_under\
-                else (second_rail, first_rail)
+        for first_rail, second_rail in crossings:
+            # The first rail goes under at both crossings unless it is dagger.
+            under, over = (second_rail, first_rail) if box.is_dagger\
+                else (first_rail, second_rail)
             self.draw_braid_strand(under[0], under[1], under[2], gap=0.15)
             self.draw_braid_strand(over[0], over[1], over[2])
 
@@ -560,6 +640,7 @@ class Backend(ABC):
             self.draw_text(
                 bit, middle[0], middle[1] + (-.25 if is_bra else .2),
                 ha='center', va='center',
+                color=self.readable_foreground(box.color),
                 fontsize=params.get('fontsize', None))
 
     def draw_controlled_gate(self, positions, node, **params):
@@ -670,12 +751,13 @@ class TikZ(Backend):
             int(hex, 16) for hex in [hexcode[1:3], hexcode[3:5], hexcode[5:]]]
         return f"{{rgb,255: red,{rgb[0]}; green,{rgb[1]}; blue,{rgb[2]}}}"
 
-    def add_node(self, i, j, text=None, options=None):
+    def add_node(self, i, j, text=None, options=None, rounded=4):
         """ Add a node to the tikz picture, return its unique id. """
         node = len(self.nodes) + 1
         text = "" if text is None else text
         self.nodelayer.append(
-            f"\\node [{options or ''}] ({node}) at ({i}, {j}) {{{text}}};\n")
+            f"\\node [{options or ''}] ({node}) at "
+            f"({round(i, rounded)}, {round(j, rounded)}) {{{text}}};\n")
         self.nodes.update({(i, j): node})
         return node
 
@@ -720,8 +802,41 @@ class TikZ(Backend):
         self.edgelayer.append(f"\\draw [{options}] {str_connections};\n")
         super().draw_polygon(*points)
 
+    def draw_curved_polygon(
+            self, *points,
+            facecolor=DEFAULT["facecolor"], edgecolor=DEFAULT["edgecolor"],
+            bend_out=False):
+        source, target, *rest = points
+        control = (target[0], source[1]) if bend_out\
+            else (source[0], target[1])
+        source_node = self.add_node(*source)
+        control_node = self.add_node(*control)
+        target_node = self.add_node(*target)
+        rest_nodes = [self.add_node(*point) for point in rest]
+        options = f"-, fill={{{facecolor}}}"
+        curve = (
+            f"({source_node}.center) .. controls "
+            f"({control_node}.center) .. ({target_node}.center)")
+        straight = "".join(
+            f" to ({node}.center)" for node in rest_nodes + [source_node])
+        self.edgelayer.append(f"\\draw [{options}] {curve}{straight};\n")
+        super().draw_curved_polygon(
+            *points, facecolor=facecolor, edgecolor=edgecolor,
+            bend_out=bend_out)
+
+    def draw_regions(self, graph, **params):
+        """
+        Coloured regions are not wired up for the TikZ backend yet, even
+        though :meth:`draw_curved_polygon` is implemented above: region
+        colours may be arbitrary matplotlib colours (e.g. hexcodes) that
+        are not valid TikZ/xcolor names, so filling them in for real needs
+        a colour-formatting step similar to :meth:`format_color`. This is
+        a deliberate no-op in the meantime, leaving TikZ's output as-is.
+        """
+        super().draw_regions(graph, **params)
+
     def draw_wire(self, source, target,
-                  bend_out=False, bend_in=False, style=None):
+                  bend_out=False, bend_in=False, style=None, linewidth=None):
         out = -90 if not bend_out or source[0] == target[0]\
             else (180 if source[0] > target[0] else 0)
         inp = 90 if not bend_in or source[0] == target[0]\
@@ -857,12 +972,91 @@ class Matplotlib(Backend):
         self.axis.add_patch(PathPatch(
             path,
             linewidth=self.linewidth,
-            facecolor=COLORS[facecolor],
-            edgecolor=COLORS[edgecolor]))
+            facecolor=COLORS.get(facecolor, facecolor),
+            edgecolor=COLORS.get(edgecolor, edgecolor)))
         super().draw_polygon(*points)
 
+    def draw_curved_polygon(
+            self, *points,
+            facecolor=DEFAULT["facecolor"], edgecolor=DEFAULT["edgecolor"],
+            bend_out=False):
+        source, target, *rest = points
+        control = (target[0], source[1]) if bend_out\
+            else (source[0], target[1])
+        vertices = [source, control, target] + rest + [source]
+        codes = [Path.MOVETO, Path.CURVE3, Path.CURVE3]\
+            + len(rest) * [Path.LINETO] + [Path.CLOSEPOLY]
+        # Disable antialiasing so that abutting same-colour regions do not
+        # leave a hairline seam where the background shows through.
+        self.axis.add_patch(PathPatch(
+            Path(vertices, codes), linewidth=0, antialiased=False,
+            facecolor=facecolor, edgecolor='none'))
+        super().draw_curved_polygon(
+            *points, facecolor=facecolor, edgecolor=edgecolor,
+            bend_out=bend_out)
+
+    def _draw_right_region(self, source, target, width, facecolor,
+                           bend_out=False):
+        """
+        Fill the region to the right of a wire from ``source`` to
+        ``target``, up to the diagram's right-hand ``width``, with a
+        curved polygon, see :meth:`draw_curved_polygon` and the example
+        in ``test_draw_right_region_example`` for a concrete case.
+        """
+        self.draw_curved_polygon(
+            source, target, (width, target[1]), (width, source[1]),
+            facecolor=facecolor, bend_out=bend_out)
+
+    def draw_regions(self, graph, **params):
+        """ Fill the coloured 0-cell regions of the diagram. """
+        self._draw_right_region(
+            (0, 0), (0, graph.height), graph.width, graph.dom.dom.name)
+
+        separators = []
+
+        for source, target in self.visible_edges(graph):
+            source_position, target_position = (
+                graph.positions[source], graph.positions[target])
+            if source_position == target_position:
+                continue
+            typ = getattr(source, 'x', None) or getattr(target, 'x', None)
+            bend_out = source.kind == "box"
+            x = (source_position.x + target_position.x) / 2
+            separators.append((x, source_position, target_position,
+                               typ.cod.name, bend_out))
+
+        for node in graph.box_nodes:
+            box = node.box
+            if box.draw_as_wires or box.draw_as_spider:
+                continue
+            j = node.j
+            top_right = graph.positions[Node("box-corner-11", j=j)]
+            bottom_right = graph.positions[Node("box-corner-10", j=j)]
+            separators.append((top_right.x, top_right, bottom_right,
+                               box.dom.cod.name, False))
+
+        for _, source, target, colour, bend_out in sorted(
+                separators, key=lambda item: item[0]):
+            self._draw_right_region(
+                source, target, graph.width, colour, bend_out=bend_out)
+        super().draw_regions(graph, **params)
+
+    def draw_legend(self, graph, **params):
+        """Add a legend mapping each region colour to its label."""
+        colours = self.region_colours(graph)
+        if not colours:
+            return
+        handles = [
+            Patch(facecolor=colour.name, edgecolor="none",
+                  label=colour.legend_label)
+            for colour in colours.values()]
+        self.axis.legend(
+            handles=handles, loc=params.get("legend_loc", "upper right"),
+            fontsize=params.get("fontsize_types", params.get("fontsize")))
+
     def draw_wire(self, source, target,
-                  bend_out=False, bend_in=False, style=None):
+                  bend_out=False, bend_in=False, style=None, linewidth=None):
+        linewidth = self.linewidth if linewidth is None else linewidth
         if style == '->':  # pragma: no cover
             self.axis.arrow(
                 *(source + (target[0] - source[0], target[1] - source[1])),
@@ -873,7 +1067,7 @@ class Matplotlib(Backend):
             path = Path([source, mid, target],
                         [Path.MOVETO, Path.CURVE3, Path.CURVE3])
             self.axis.add_patch(PathPatch(
-                path, facecolor='none', linewidth=self.linewidth))
+                path, facecolor='none', linewidth=linewidth))
         super().draw_wire(source, target, bend_out=bend_out, bend_in=bend_in)
 
     def draw_bezier(self, points):
@@ -896,7 +1090,7 @@ class Matplotlib(Backend):
         vertices.append(start)
         codes.append(Path.CLOSEPOLY)
         self.axis.add_patch(PathPatch(
-            Path(vertices, codes), facecolor=COLORS[color],
+            Path(vertices, codes), facecolor=COLORS.get(color, color),
             edgecolor='none', linewidth=0))
         super().draw_filled_shape(start, steps, color)
 
@@ -931,7 +1125,11 @@ class Matplotlib(Backend):
         if ylim is not None:
             self.axis.set_ylim(*ylim)
         if path is not None:
-            plt.savefig(path)
+            # Drop metadata to make images reproducible across environments.
+            # Only PNGs: they embed the Matplotlib version by default, and the
+            # SVG writer would raise on an unknown "Software" metadata key.
+            is_png = str(path).endswith(".png")
+            plt.savefig(path, metadata={"Software": None} if is_png else None)
             plt.close()
         if show:
             plt.show()

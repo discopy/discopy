@@ -2,43 +2,24 @@
 
 """ Discopy configuration. """
 
+from discopy.utils import text_width
+
 DEFAULT_BACKEND = 'numpy'
 NUMPY_THRESHOLD = 16
 IGNORE_WARNINGS = [
     "No GPU/TPU found, falling back to CPU.",
     "Casting complex values to real discards the imaginary part"]
 
-# Width (in drawing units) of one monospace character at the default fontsize.
-# Box labels are drawn in a monospace font so that the width needed to fit a
-# name is simply its number of characters times this coefficient. A drawing
-# unit is one inch, a point is 1/72 inch and a monospace glyph is about 0.6 em
-# wide, hence the coefficient fontsize / 72 * 0.6 = fontsize / 120.
-BOX_LABEL_CHAR_WIDTH = 12 / 120
-
-
-def box_label_width(box):
-    """ The width needed to fit a box's name on one line, in drawing units.
-
-    LaTeX math (any name containing a ``$``) is rendered by the backend, so
-    its width cannot be guessed from the number of characters: we fall back to
-    the default width and let :attr:`min_width` widen the box if needed.
-    """
-    name = getattr(box, "drawing_name", None)
-    name = box.name if name is None else name
-    if not name or "$" in name:
-        return 0
-    longest_line = max(name.split("\n"), key=len)
-    return len(longest_line) * BOX_LABEL_CHAR_WIDTH
-
 
 # Mapping from attribute to function from box to default value.
-DRAWING_ATTRIBUTES = {
+BOX_DRAWING_ATTRIBUTES = {
     "height": lambda _: 1,
     "is_conjugate": lambda _: False,
     "is_transpose": lambda _: False,
     "bubble_opening": lambda _: False,
     "bubble_closing": lambda _: False,
     "frame_boundary": lambda _: False,
+    "frame_colour": lambda _: "lightgrey",
     "draw_as_braid": lambda _: False,
     "draw_as_dual_rail_braid": lambda _: False,
     "draw_as_dual_rail_twist": lambda _: False,
@@ -58,12 +39,19 @@ DRAWING_ATTRIBUTES = {
     "color": lambda box:
         "black" if getattr(box, "draw_as_spider", False) else "white",
     "drawing_name": lambda box: box.name,
-    # Minimum width of the box outline, e.g. to fit a LaTeX name by hand.
-    "min_width": lambda _: 0,
-    # Depends on drawing_name, so it must come after it in this mapping.
-    "box_label_width": box_label_width,
+    "no_label": lambda box: any([
+        box.draw_as_wires, box.draw_as_spider, box.draw_as_brakets,
+        box.draw_as_controlled, box.draw_as_discards, box.draw_as_measures,
+        box.draw_as_dual_rail_braid, box.draw_as_dual_rail_twist,
+        box.draw_as_dual_rail_cup]),
+    "min_width": lambda box:
+        0 if box.no_label else text_width(box.drawing_name),
     "tikzstyle_name": lambda box: (
         box.name if box.name.isidentifier() else "symbol")
+}
+
+WIRE_DRAWING_ATTRIBUTES = {
+    "right_margin": lambda ob: text_width(str(ob)),
 }
 
 # Default drawing parameters.
@@ -74,6 +62,14 @@ DRAWING_DEFAULT = {
     "facecolor": "white",
     "edgecolor": "black",
     "use_tikzstyles": False,
+    "braid_shadow": (.3, .1),
+    # Legend width in inches is legend_base_width + legend_char_width
+    # times the length of the longest label.
+    "legend_base_width": 0.5,
+    "legend_char_width": 0.085,
+    # Gap in inches between the diagram and the legend.
+    "legend_margin": 0.4,
+    "ribbon_width": 0.25,
 }
 
 # Mapping from tikz colors to hexcodes.
@@ -108,12 +104,6 @@ COLORS.update({f"dark_{name}": darken(hexcode)
 # of balanced and ribbon diagrams, one colour per distinct object, see
 # :meth:`discopy.balanced.Diagram.to_braided`.
 RIBBON_COLORS = ("red", "green", "blue", "yellow")
-
-# The vertical depth that a ribbon cup or cap folds by in the dual rail
-# drawing. It caps the depth of the fold's half circle, so that a wide cup
-# flattens into an ellipse rather than a deep semicircle and the drawing stays
-# compact.
-RIBBON_FOLD_DEPTH = 1.0
 
 # Mapping from tikz shapes to matplotlib shapes.
 SHAPES = {

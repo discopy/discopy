@@ -14,7 +14,6 @@ Summary
     TermBase
     Constant
     Variable
-    Application
     Abstraction
     FA
     BA
@@ -28,6 +27,7 @@ Summary
     ForwardCrossedComposition
     BackwardCrossedComposition
     Functor
+    CMap
 
 .. admonition:: Functions
 
@@ -46,17 +46,16 @@ from dataclasses import dataclass
 import re
 
 from discopy import biclosed, messages
+from discopy.cat import factory
 from discopy.grammar import thue
 from discopy.utils import (
-    ob_factory,
-    ar_factory,
     BinaryBoxConstructor,
     AxiomError,
     factory_name,
 )
 
 
-@ob_factory
+@factory
 class Ty(biclosed.Ty):
     "Base class for categorial grammar types."
 
@@ -73,7 +72,7 @@ class Under(biclosed.Under):
     ob = Ty
 
 
-@ar_factory
+@factory
 class Diagram(biclosed.Diagram):
     """
     A categorial diagram is a biclosed diagram with rules and words as boxes.
@@ -84,10 +83,10 @@ class Diagram(biclosed.Diagram):
         from discopy.grammar import pregroup
 
         return Functor(
-            ob=lambda x: pregroup.Ty(x.inside[0].name),
-            ar=lambda f: pregroup.Box(f.name,
-                                      Diagram.to_pregroup(f.dom),
-                                      Diagram.to_pregroup(f.cod)),
+            ob_map=lambda x: pregroup.Ty(x.inside[0].name),
+            ar_map=lambda f: pregroup.Box(f.name,
+                                          Diagram.to_pregroup(f.dom),
+                                          Diagram.to_pregroup(f.cod)),
             cod=pregroup.Diagram)(self)
 
     @staticmethod
@@ -189,9 +188,9 @@ class Functor(biclosed.Functor):
     for categorial rules.
 
     Parameters:
-        ob (Mapping[Ty, Ty]) :
+        ob_map (Mapping[Ty, Ty]) :
             Map from atomic :class:`Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
+        ar_map (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
     """
     dom = cod = Diagram
@@ -208,6 +207,14 @@ class Functor(biclosed.Functor):
             right = other.dom.inside[1].right
             return self.cod.bx(self(left), self(middle), self(right))
         return super().__call__(other)
+
+
+class CMap(biclosed.CMap):
+    """
+    A combinatorial map for categorial diagrams.
+    """
+
+    category = Diagram
 
 
 class TermBase(Box, biclosed.TermBase):
@@ -487,6 +494,8 @@ def tree2diagram(tree: dict, dom=Ty()) -> Diagram:
 
 
 Id = Diagram.id
+Diagram.functor_factory = Functor
+Diagram.map_factory = CMap
 Diagram.curry_factory = Curry
 Diagram.eval_factory = Eval
 

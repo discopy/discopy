@@ -230,6 +230,10 @@ class QuantumGate(Box):
                 state["_z"] = GATES[state["_name"]].z
         super().__setstate__(state)
 
+    def setoid(self):
+        """ Avoid checking for equality of matrices when comparing gates. """
+        return (repr(self), )
+
 
 class ClassicalGate(SelfConjugate):
     """
