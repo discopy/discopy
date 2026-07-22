@@ -12,6 +12,7 @@ Summary
     :toctree:
 
     Function
+    EndoFunctor
 """
 from __future__ import annotations
 
@@ -20,6 +21,7 @@ from dataclasses import dataclass
 from contextlib import contextmanager
 
 from discopy.abc import Category
+from discopy.cat import Functor
 from discopy.utils import (
     assert_iscomposable, assert_isinstance,
     tuplify, untuplify, classproperty, factory)
@@ -92,3 +94,44 @@ class Function(Category):
         if self.type_checking:
             assert_isinstance(result, self.cod)
         return result
+
+
+@factory
+class EndoFunctor(Functor):
+    """
+    An endofunctor on the category of Python functions, i.e. a functorial
+    mapping from types to types and from functions to functions.
+
+    Parameters:
+        ob_map : Mapping from tuples of types to tuples of types, e.g.
+            sending ``X`` to some container type over ``X``.
+        ar_map : Mapping from functions to functions, e.g. ``fmap``.
+
+    Note
+    ----
+    Since :attr:`Function.ob` is :code:`tuple[type, ...]`, calling an
+    :class:`EndoFunctor` on a bare type tuplifies it for convenience, but the
+    result is always a tuple, matching :attr:`Function.dom` and
+    :attr:`Function.cod`.
+
+    Example
+    -------
+    >>> Maybe = EndoFunctor(
+    ...     lambda X: (untuplify(X) | None, ),
+    ...     lambda f: Function(
+    ...         lambda x: None if x is None else f(x),
+    ...         (untuplify(f.dom) | None, ), (untuplify(f.cod) | None, )))
+    >>> Maybe(int)
+    (int | None,)
+    >>> f = Function(lambda x: x + 1, int, int)
+    >>> Maybe(f)(1), Maybe(f)(None)
+    (2, None)
+    >>> assert EndoFunctor.id()(int) == (int, )
+    """
+    ob = tuple[type, ...]
+    dom = cod = Function
+
+    def __call__(self, other):
+        if isinstance(other, Function):
+            return self.ar_map[other]
+        return self.ob_map[tuplify(other)]
