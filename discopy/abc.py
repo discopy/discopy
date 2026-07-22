@@ -310,9 +310,9 @@ class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
         >>> f = Box('f', x, y)
         >>> LHS = Equation(f.transpose(left=True), f, symbol="$\\\\mapsfrom$")
         >>> RHS = Equation(LHS, f.transpose(), symbol="$\\\\mapsto$")
-        >>> RHS.draw(figsize=(8, 3), path="docs/_static/rigid/transpose.png")
+        >>> RHS.draw(figsize=(8, 3), path="docs/_static/rigid/transpose.svg")
 
-        .. image:: /_static/rigid/transpose.png
+        .. image:: /_static/rigid/transpose.svg
         """
         if left:
             return self.cod.l @ self.caps(self.dom, self.dom.l)\
