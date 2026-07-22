@@ -2,7 +2,6 @@
 import os
 
 from pytest import raises
-from matplotlib.testing.compare import compare_images
 
 from discopy.utils import AxiomError
 from discopy.config import DRAWING_DEFAULT
@@ -10,11 +9,14 @@ from discopy.compact import *
 from discopy.drawing import *
 from discopy import monoidal
 
-IMG_FOLDER, TIKZ_FOLDER, TOL = 'test/drawing/imgs/', 'test/drawing/tikz/', 20
+IMG_FOLDER, TIKZ_FOLDER = 'test/drawing/imgs/', 'test/drawing/tikz/'
 
 
 def draw_and_compare(file, folder=IMG_FOLDER, **params):
-    tol = params.pop('tol', TOL)
+    # Diagrams are drawn and compared as SVG (deterministic text) rather than
+    # raster PNG, so the reference images match on the nose across machines.
+    params.pop('tol', None)
+    file = os.path.splitext(file)[0] + '.svg'
 
     def decorator(func):
         def wrapper():
@@ -23,8 +25,8 @@ def draw_and_compare(file, folder=IMG_FOLDER, **params):
             true_path = os.path.join(folder, file)
             test_path = os.path.join(folder, '_' + file)
             draw(diagram, path=test_path, show=False, **params)
-            test = compare_images(true_path, test_path, tol)
-            assert test is None
+            with open(true_path, "r") as true, open(test_path, "r") as test:
+                assert true.read() == test.read()
             os.remove(test_path)
         return wrapper
     return decorator
