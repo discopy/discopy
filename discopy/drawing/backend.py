@@ -1096,8 +1096,6 @@ class Matplotlib(Backend):
 
     def draw_spiders(self, graph, draw_box_labels=True, **params):
         import networkx as nx
-        # Iterate in graph (insertion) order rather than set-iteration order,
-        # which depends on hashing and would make the drawing nondeterministic.
         nodes = [node for node in graph.nodes
                  if node.kind == "box" and node.box.draw_as_spider]
         shapes = {node: node.box.shape for node in nodes}
