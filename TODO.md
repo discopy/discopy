@@ -39,3 +39,12 @@ and should become unnecessary.
   the torch download so `uv sync --group all` fails; the 47 remaining failures are
   all `ModuleNotFoundError` for jax/sympy/pytket/pyzx/tensornetwork/nltk at import,
   unrelated to this change); `test_rich_display` and the `RichDisplay` doctest pass
+
+---
+
+Prompt (Alexis on PR #445, 2026-07-22, verbatim):
+
+> should be rebased on the svg PR which should be rebased on main which already has the script for generating docs in CI
+
+- [WIP] @bridge-2026-07-22-repr Rebase `claude/docs-png-to-svg-phs4aq` onto main and this branch onto it
+- [WIP] @bridge-2026-07-22-repr Fix the CI test (3.14) failure on `test_rich_display`
