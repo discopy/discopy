@@ -18,6 +18,10 @@ Prompt ([#374](https://github.com/discopy/discopy/issues/374), verbatim):
 - [ ] `discopy.kleisli.additive`: traced cocartesian Kleisli with the execution formula as trace; convergence tests for sub-additive monads
 - [ ] `discopy.kleisli.multiplicative`: premonoidal copy-discard Kleisli with pointwise strength; test monoidal iff the monad is commutative
 - [ ] `Hypergraph` evaluation methods: token passing for `additive`, message passing for `multiplicative` — coordinate with #366 and #363
+- [ ] `multiplicative` stress test: compare results against tensor contraction on small enough models (per issue comment)
+- [ ] Implement the state monad for seeded randomness; compare empirical distributions against the ones computed explicitly via sub-distribution dicts (value → nonzero weight)
+- [ ] `additive` worked example: Dal Lago–Hoshino's token machines (*Geometry of Bayesian Programming*) — the best source found so far for a non-trivial case
+- [ ] Write every example as a term in the effectful lambda calculus of #370, not as a diagram built with tensor/composition
 - [ ] Run `pflake8 discopy` and `coverage run -m pytest`
 
 ## Guidance (🐦 birdsong, 2026-07-22)
@@ -32,3 +36,10 @@ Prompt ([#374](https://github.com/discopy/discopy/issues/374), verbatim):
 - the monoidal-iff-commutative test for `multiplicative` is the one non-obvious
   correctness property here — write it first, as a property-based test if #347
   (property-based testing PR) has landed by the time you start.
+
+## Guidance (🐦 birdsong, 2026-07-23)
+
+- Folded in guidance from two issue comments on #374 (2026-07-07, `toumix`) that
+  predate this checklist's drafting and were never incorporated: the
+  tensor-contraction stress test + state-monad idea, and the "examples as #370
+  terms, not diagrams" requirement — both now their own points above.
