@@ -22,12 +22,12 @@ Prompt ([#373](https://github.com/discopy/discopy/issues/373), verbatim):
 
 ---
 
-- [ ] Implement capture-avoiding substitution on `closed.Term`, preserving variable names when capture can be avoided
-- [ ] Implement the `BohmTree` class as specified (`cod`, `variables`, `head`, `args`)
-- [ ] Beta reduction with a redex budget returning an incomplete Böhm tree, extensible reduction strategies with leftmost-outermost as default
-- [ ] Method back to standard term syntax; test that normalisation is idempotent
-- [ ] Unit tests: addition, multiplication, exponentiation of Church numerals, with a "unitype" that is its own exponential
-- [ ] Run `pflake8 discopy` and `coverage run -m pytest`
+- [WIP] @bridge-2026-07-22-beta Implement capture-avoiding substitution on `closed.Term`, preserving variable names when capture can be avoided
+- [WIP] @bridge-2026-07-22-beta Implement the `BohmTree` class as specified (`cod`, `variables`, `head`, `args`)
+- [WIP] @bridge-2026-07-22-beta Beta reduction with a redex budget returning an incomplete Böhm tree, extensible reduction strategies with leftmost-outermost as default
+- [WIP] @bridge-2026-07-22-beta Method back to standard term syntax; test that normalisation is idempotent
+- [WIP] @bridge-2026-07-22-beta Unit tests: addition, multiplication, exponentiation of Church numerals, with a "unitype" that is its own exponential
+- [WIP] @bridge-2026-07-22-beta Run `pflake8 discopy` and `coverage run -m pytest`
 
 ## Guidance (🐦 birdsong, 2026-07-22)
 
