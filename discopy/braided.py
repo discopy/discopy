@@ -11,6 +11,7 @@ Summary
     :nosignatures:
     :toctree:
 
+    Ob
     Diagram
     Box
     Braid
@@ -36,9 +37,9 @@ Braids have their dagger as inverse, up to :meth:`Diagram.simplify`.
 >>> assert LHS.simplify() == Id(x @ y) == RHS.simplify()
 
 >>> Equation(LHS, Id(x @ y), RHS).draw(
-...     path='docs/_static/braided/inverse.png')
+...     path='docs/_static/braided/inverse.svg')
 
-.. image:: /_static/braided/inverse.png
+.. image:: /_static/braided/inverse.svg
     :align: center
 
 The hexagon equations hold on the nose.
@@ -49,9 +50,9 @@ The hexagon equations hold on the nose.
 >>> assert right_hexagon == Diagram.braid(x @ y, z)
 
 >>> Equation(left_hexagon, right_hexagon, symbol='').draw(
-...     space=2, path='docs/_static/braided/hexagons.png')
+...     space=2, path='docs/_static/braided/hexagons.svg')
 
-.. image:: /_static/braided/hexagons.png
+.. image:: /_static/braided/hexagons.svg
     :align: center
 """
 
@@ -61,12 +62,22 @@ from collections.abc import Callable
 
 from discopy import monoidal
 from discopy.abc import BraidedCategory
-from discopy.cat import ar_factory
+from discopy.cat import factory
 from discopy.monoidal import Ty, Match
 from discopy.utils import factory_name, BinaryBoxConstructor, assert_isatomic
 
 
-@ar_factory
+class Ob(monoidal.Wire):
+    """
+    A braided object is a self-dagger :class:`monoidal.Wire`. From braided
+    categories onwards colours stop making sense, i.e. we cannot add colours to
+    braids or swaps in any meaningful way, so its colours are always white.
+    """
+    def dagger(self) -> Ob:
+        return self
+
+
+@factory
 class Diagram(monoidal.Diagram, BraidedCategory):
     """
     A braided diagram is a monoidal diagram with :class:`Braid` boxes.

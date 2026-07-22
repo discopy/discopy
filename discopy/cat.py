@@ -30,8 +30,7 @@ Summary
         :nosignatures:
         :toctree:
 
-        ob_factory
-        ar_factory
+        factory
         dumps
         loads
 
@@ -85,8 +84,7 @@ from typing import (
 from discopy import messages, utils
 from discopy.abc import Category
 from discopy.utils import (  # noqa: F401
-    ob_factory,
-    ar_factory,
+    factory,
     factory_name,
     from_tree,
     rsubs,
@@ -116,7 +114,18 @@ class Ob:
     -------
     >>> x, x_, y = Ob('x'), Ob('x'), Ob('y')
     >>> assert x == x_ and x != y
+
+    Note
+    ----
+    The drawing attribute :code:`min_right_margin` sets how much extra
+    horizontal space (in drawing units) is added to the right of a wire
+    labelled by this object, e.g. to make room for a long label.
+
+    >>> x.min_right_margin = 1.5
     """
+    #: Extra space drawn to the right of a wire labelled by this object.
+    min_right_margin = 0
+
     def __setstate__(self, state):
         if "name" not in state and "_name" in state:
             state["name"] = state["_name"]
@@ -253,7 +262,7 @@ class FreeCategory(Category):
         return self[::-1]
 
 
-@ar_factory
+@factory
 class Arrow(FreeCategory):
     """
     An arrow is a tuple of composable boxes :code:`inside` with a pair of
@@ -811,7 +820,7 @@ class Bubble(Box):
         return cls(*map(from_tree, args), dom=dom, cod=cod)
 
 
-@ar_factory
+@factory
 class Functor(Category):
     """
     A functor is a pair of maps :code:`ob_map` and :code:`ar_map` and an
@@ -947,7 +956,7 @@ class Functor(Category):
 Arrow.generator_factory = Box
 
 
-@ar_factory
+@factory
 class Transformation(Category):
     """
     A (not necessarily natural) transformation between two parallel functors.

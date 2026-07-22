@@ -40,9 +40,9 @@ endofunctor :meth:`Diagram.delay`, shortened to `.d` and a method
 >>> x, y, m = map(Ty, "xym")
 >>> f = Box('f', x @ m.delay(), y @ m)
 >>> Equation(f, f.feedback(), symbol="$\\\\mapsto$").draw(
-...     path="docs/_static/feedback/feedback-operator.png")
+...     path="docs/_static/feedback/feedback-operator.svg")
 
-.. image:: /_static/feedback/feedback-operator.png
+.. image:: /_static/feedback/feedback-operator.svg
     :align: center
 
 such that the following equations are satisfied:
@@ -74,9 +74,9 @@ This can only be checked up to a functor into streams.
 >>> strength = Equation(g @ f.feedback(), (g @ f).feedback())
 >>> assert eq_up_to_F(*strength.terms)
 >>> strength.draw(
-...     path='docs/_static/feedback/strength.png', wire_labels=False)
+...     path='docs/_static/feedback/strength.svg', wire_labels=False)
 
-.. image:: /_static/feedback/strength.png
+.. image:: /_static/feedback/strength.svg
     :align: center
 
 Sliding
@@ -89,20 +89,20 @@ This can only be checked up to extensional equivalence of streams.
 >>> f = Box('f', x @ n.d, y @ m)
 >>> sliding = Equation((f >> y @ h).feedback(), (x @ h.d >> f).feedback())
 >>> sliding.draw(
-...     path='docs/_static/feedback/sliding.png', wire_labels=False)
+...     path='docs/_static/feedback/sliding.svg', wire_labels=False)
 
-.. image:: /_static/feedback/sliding.png
+.. image:: /_static/feedback/sliding.svg
     :align: center
 
 >>> LHS, RHS = sliding.terms
 >>> eq = Equation(*map(lambda f: F(f).unroll(2).now, sliding.terms),
-...     symbol="$\\\\sim$").draw(path='docs/_static/feedback/slide-unroll.png')
+...     symbol="$\\\\sim$").draw(path='docs/_static/feedback/slide-unroll.svg')
 >>> assert symmetric.Equation(
 ...     F(LHS).unroll(2).now,
 ...     F(RHS).unroll(2).now
 ...         >> F(y).unroll(2).now @ F(h).later.later.now)
 
-.. image:: /_static/feedback/slide-unroll.png
+.. image:: /_static/feedback/slide-unroll.svg
     :align: center
 
 Note
@@ -143,17 +143,17 @@ In the category of streams, this is just the identity.
 
 from __future__ import annotations
 
-from discopy import cat, monoidal, markov
+from discopy import monoidal, braided, markov, hypergraph
 from discopy.abc import FeedbackCategory
 from discopy.utils import (
-    ob_factory, ar_factory, factory_name, assert_isinstance, AxiomError)
+    factory, factory_name, assert_isinstance, AxiomError)
 
 
 def str_delayed(time_step: int):
     return time_step * ".d" if time_step <= 3 else f".delay({time_step})"
 
 
-class Ob(cat.Ob):
+class Ob(braided.Ob):
     """
     A feedback object is an object with a `time_step` and an optional argument
     `is_constant` for whether the object is interpreted as a constant stream.
@@ -202,6 +202,20 @@ class Ob(cat.Ob):
 
     def __str__(self):
         return super().__str__() + str_delayed(self.time_step)
+
+    def to_tree(self):
+        tree = {'factory': factory_name(type(self)), 'name': self.name}
+        if self.time_step:
+            tree['time_step'] = self.time_step
+        if not self.is_constant:
+            tree['is_constant'] = False
+        return tree
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(
+            tree['name'], tree.get('time_step', 0),
+            tree.get('is_constant', True))
 
     @property
     def d(self):
@@ -262,10 +276,10 @@ class TailOb(Ob):
     delay, reset, __repr__ = HeadOb.delay, HeadOb.reset, HeadOb.__repr__
 
 
-@ob_factory
+@factory
 class Ty(monoidal.Ty):
     """ A feedback type is a monoidal type with `delay`, `head` and `tail`. """
-    ob_factory = Ob
+    generator_factory = Ob
 
     def delay(self, n_steps=1):
         """ The delay of a feedback type by `n_steps`. """
@@ -290,7 +304,7 @@ class Layer(monoidal.Layer):
         return type(self)(*[x.delay(n_steps) for x in self.boxes_or_types])
 
 
-@ar_factory
+@factory
 class Diagram(markov.Diagram, FeedbackCategory):
     """
     A feedback diagram is a markov diagram with a :meth:`delay` endofunctor
@@ -309,9 +323,9 @@ class Diagram(markov.Diagram, FeedbackCategory):
     >>> plus = Box('+', x @ x, x)
     >>> walk = (rand.delay() @ x.delay() >> zero @ plus.delay()
     ...         >> FollowedBy(x) >> Copy(x)).feedback()
-    >>> walk.draw(path="docs/_static/feedback/feedback-random-walk.png")
+    >>> walk.draw(path="docs/_static/feedback/feedback-random-walk.svg")
 
-    .. image:: /_static/feedback/feedback-random-walk.png
+    .. image:: /_static/feedback/feedback-random-walk.svg
         :align: center
     """
     ob = Ty
@@ -338,9 +352,9 @@ class Diagram(markov.Diagram, FeedbackCategory):
         -------
         >>> x = Ty('x')
         >>> assert Diagram.wait(x) == Swap(x, x.delay()).feedback()
-        >>> Diagram.wait(x).draw(path="docs/_static/feedback/wait.png")
+        >>> Diagram.wait(x).draw(path="docs/_static/feedback/wait.svg")
 
-        .. image:: /_static/feedback/wait.png
+        .. image:: /_static/feedback/wait.svg
             :align: center
         """
         return cls.swap(dom, dom.delay()).feedback()
@@ -391,7 +405,7 @@ class Box(markov.Box, Diagram):
     def __init__(self, name, dom, cod, time_step: int = 0, **params):
         self._time_step, self._params = time_step, params
         markov.Box.__init__(self, name, dom, cod, **params)
-        Diagram.__init__(self, self.inside, dom, cod)
+        Diagram.__init__(self, self.inside, self.dom, self.cod)
 
     def to_drawing(self):
         result = monoidal.Box.to_drawing(self)
@@ -506,9 +520,9 @@ class Feedback(monoidal.Bubble, Box):
     >>> f = Box('f', x @ y.delay(), z @ y)
     >>> fb = f.feedback()
     >>> Equation(f, fb, symbol="$\\\\mapsto$").draw(
-    ...     path="docs/_static/feedback/feedback-operator.png")
+    ...     path="docs/_static/feedback/feedback-operator.svg")
 
-    .. image:: /_static/feedback/feedback-operator.png
+    .. image:: /_static/feedback/feedback-operator.svg
         :align: center
     """
     def __init__(self, arg: Diagram, dom=None, cod=None, mem=None, left=False):
@@ -550,9 +564,9 @@ class FollowedBy(Box):
     -------
     >>> from discopy import stream
     >>> x = Ty(Ob('x', is_constant=False))
-    >>> FollowedBy(x).draw(path="docs/_static/feedback/followed-by.png")
+    >>> FollowedBy(x).draw(path="docs/_static/feedback/followed-by.svg")
 
-    .. image:: /_static/feedback/followed-by.png
+    .. image:: /_static/feedback/followed-by.svg
         :align: center
 
     >>> F = Functor({x: stream.Ty.sequence('x')}, cod=stream.Stream)
@@ -639,14 +653,11 @@ class Functor(markov.Functor):
         return super().__call__(other)
 
 
-class Hypergraph(markov.Hypergraph):
-    functor = Functor
-
-
-Diagram.hypergraph_factory = Hypergraph
+Diagram.functor_factory = Functor
 Diagram.braid_factory = Swap
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.feedback_factory, Diagram.followed_by = Feedback, FollowedBy
+Hypergraph = hypergraph.Hypergraph[Diagram]
 Id = Diagram.id
 
 

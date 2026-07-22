@@ -34,9 +34,9 @@ Hexagon
 >>> assert Diagram.swap(x, y @ z) == Swap(x, y) @ z >> y @ Swap(x, z)
 >>> assert Diagram.swap(x @ y, z) == x @ Swap(y, z) >> Swap(x, z) @ y
 >>> Equation(Diagram.swap(x, y @ z), Diagram.swap(x @ y, z), symbol='').draw(
-...     space=2, path='docs/_static/symmetric/hexagons.png', figsize=(5, 2))
+...     space=2, path='docs/_static/symmetric/hexagons.svg', figsize=(5, 2))
 
-.. image:: /_static/symmetric/hexagons.png
+.. image:: /_static/symmetric/hexagons.svg
     :align: center
 
 Involution
@@ -46,9 +46,9 @@ a.k.a. Reidemeister move 2
 >>> assert Swap(x, y)[::-1] == Swap(y, x)
 >>> assert Equation(Swap(x, y) >> Swap(y, x), Id(x @ y))
 >>> Equation(Swap(x, y) >> Swap(y, x), Id(x @ y)).draw(
-...     path='docs/_static/symmetric/inverse.png', figsize=(3, 2))
+...     path='docs/_static/symmetric/inverse.svg', figsize=(3, 2))
 
-.. image:: /_static/symmetric/inverse.png
+.. image:: /_static/symmetric/inverse.svg
     :align: center
 
 Naturality
@@ -58,9 +58,9 @@ Naturality
 ...     f @ g >> Swap(f.cod, g.cod), Swap(f.dom, g.dom) >> g @ f)
 >>> assert naturality
 >>> naturality.draw(
-...     path='docs/_static/symmetric/naturality.png', figsize=(3, 2))
+...     path='docs/_static/symmetric/naturality.svg', figsize=(3, 2))
 
-.. image:: /_static/symmetric/naturality.png
+.. image:: /_static/symmetric/naturality.svg
     :align: center
 
 Yang-Baxter
@@ -73,21 +73,21 @@ This is a special case of naturality.
 >>> yang_baxter_right = x @ Swap(y, z) >> Swap(x, z) @ y >> z @ Swap(x, y)
 >>> assert Equation(yang_baxter_left, yang_baxter_right)
 >>> Equation(yang_baxter_left, yang_baxter_right).draw(
-...     path='docs/_static/symmetric/yang-baxter.png', figsize=(3, 2))
+...     path='docs/_static/symmetric/yang-baxter.svg', figsize=(3, 2))
 
-.. image:: /_static/symmetric/yang-baxter.png
+.. image:: /_static/symmetric/yang-baxter.svg
     :align: center
 """
 
 from __future__ import annotations
 
-from discopy import monoidal, balanced, traced, messages
+from discopy import monoidal, balanced, traced, messages, hypergraph
 from discopy.abc import SymmetricCategory
-from discopy.utils import ar_factory
-from discopy.monoidal import Ob, Ty, PRO  # noqa: F401
+from discopy.cat import factory
+from discopy.monoidal import Wire, Ty, PRO  # noqa: F401
 
 
-@ar_factory
+@factory
 class Diagram(balanced.Diagram, SymmetricCategory):
     """
     A symmetric diagram is a balanced diagram with :class:`Swap` boxes.
@@ -124,24 +124,25 @@ class Diagram(balanced.Diagram, SymmetricCategory):
     ...     x4, x5 = g(x1)
     ...     return x5, x3, x4
     >>> diagram.draw(wire_labels=False,
-    ...              path='docs/_static/symmetric/decorator.png')
+    ...              path='docs/_static/symmetric/decorator.svg')
 
-    .. image:: /_static/symmetric/decorator.png
+    .. image:: /_static/symmetric/decorator.svg
         :align: center
 
     Every variable must be used exactly once or this will raise an error.
 
     >>> from pytest import raises
+    >>> from discopy.utils import AxiomError
 
-    >>> with raises(AttributeError) as err:
+    >>> with raises(AxiomError) as err:
     ...     Diagram.from_callable(x, x @ x)(lambda x: (x, x))
     >>> print(err.value)
-    type object 'Diagram' has no attribute 'spider_factory'
+    symmetric.Diagram has no spiders, cups or caps to draw this hypergraph.
 
-    >>> with raises(AttributeError) as err:
+    >>> with raises(AxiomError) as err:
     ...     Diagram.from_callable(x, Ty())(lambda x: ())
     >>> print(err.value)
-    type object 'Diagram' has no attribute 'spider_factory'
+    symmetric.Diagram has no spiders, cups or caps to draw this hypergraph.
 
     Note
     ----
@@ -199,12 +200,9 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         """
         return self >> self.permutation(list(xs), self.cod)
 
-    def to_hypergraph(self):
-        """ Translates the diagram into a hypergraph. """
-        factory = type(self).hypergraph_factory
-        return factory.functor(
-            ob_map=lambda typ: typ, ar_map=factory.from_box,
-            dom=type(self), cod=factory)(self)
+    def to_hypergraph(self) -> Hypergraph:
+        """ Translate a diagram into a hypergraph. """
+        return hypergraph.Hypergraph[type(self).ar].from_diagram(self)
 
     def simplify(self):
         """ Simplify by translating back and forth to hypergraph. """
@@ -303,17 +301,14 @@ class Functor(balanced.Functor):
         return super().__call__(other)
 
 
-class Hypergraph(balanced.Hypergraph):
-    functor = Functor
-
-
 class CMap(traced.CMap):
-    functor = Functor
+    category = Diagram
     require_planar = False
 
 
-Diagram.hypergraph_factory = Hypergraph
+Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
+Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.braid_factory = Swap
 Diagram.trace_factory = Trace
 Diagram.sum_factory = Sum

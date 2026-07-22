@@ -40,7 +40,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from discopy import monoidal
-from discopy.cat import ar_factory, Functor
+from discopy.cat import factory, Functor
 from discopy.grammar import thue
 from discopy.monoidal import Ty
 from discopy.utils import (
@@ -50,7 +50,7 @@ if TYPE_CHECKING:
     import nltk
 
 
-@ar_factory
+@factory
 class Tree:
     """
     A tree is a rule for the ``root`` and a list of trees called ``branches``.
@@ -118,9 +118,9 @@ class Tree:
         >>> f = Rule(x @ x, x, name='f')
         >>> tree = f(f(f, f), f)
         >>> tree.to_diagram().foliation().draw(
-        ...     path='docs/_static/grammar/tree-to-diagram.png')
+        ...     path='docs/_static/grammar/tree-to-diagram.svg')
 
-        .. image:: /_static/grammar/tree-to-diagram.png
+        .. image:: /_static/grammar/tree-to-diagram.svg
             :align: center
         """
         return self.root.to_diagram()\

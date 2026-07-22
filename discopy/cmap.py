@@ -46,7 +46,7 @@ import shutil
 import subprocess
 from typing import Any, TYPE_CHECKING, ClassVar, Literal
 
-from discopy import messages
+from discopy import messages, hypergraph
 from discopy.cat import Ob
 from discopy.abc import CompactCategory, NamedGeneric, Pregroup
 from discopy.python.finset import Permutation
@@ -59,7 +59,7 @@ from discopy.utils import (
 )
 
 if TYPE_CHECKING:
-    from discopy.monoidal import Ob, Ty, Diagram, Box, Functor
+    from discopy.monoidal import Ob, Ty, Diagram, Box
 
 
 class PortKind(StrEnum):
@@ -124,7 +124,7 @@ class Port:
 
 
 class CMap[C0: Pregroup, C1: CMap](
-    CompactCategory[C0, C1], NamedGeneric['functor']
+    CompactCategory[C0, C1], NamedGeneric['category']
 ):
     r"""
     An open combinatorial map, i.e. a diagram represented as a bijection
@@ -231,12 +231,12 @@ class CMap[C0: Pregroup, C1: CMap](
     ...     (2, 1, 0, 10, 11), (3, 4, 5, 6), (7, 8, 9)], 12)
     True
     >>> cm.draw(
-    ...     path="docs/_static/cmap/simple-cmap.png",
+    ...     path="docs/_static/cmap/simple-cmap.svg",
     ...     port_indices=True,
     ...     show=False,
     ... )
 
-    .. image:: /_static/cmap/simple-cmap.png
+    .. image:: /_static/cmap/simple-cmap.svg
         :align: center
 
     Swaps affect the edge permutation but leave the vertex permutation
@@ -248,21 +248,21 @@ class CMap[C0: Pregroup, C1: CMap](
     ... ])
     >>> cm = (f >> CMap.swap(z, x)) @ z >> x @ g
     >>> cm.draw(
-    ...     path="docs/_static/cmap/swapped-cmap.png",
+    ...     path="docs/_static/cmap/swapped-cmap.svg",
     ...     port_indices=True,
     ...     show=False,
     ... )
 
-    .. image:: /_static/cmap/swapped-cmap.png
+    .. image:: /_static/cmap/swapped-cmap.svg
         :align: center
     """
 
-    functor: ClassVar[Functor]
-    require_planar: ClassVar[bool] = True
+    category: ClassVar[Diagram] = None
+    require_planar: ClassVar[bool] = False
     require_causal: ClassVar[bool] = False
     require_oriented: ClassVar[bool] = False
     require_connected: ClassVar[bool] = False
-    category = classproperty(lambda cls: cls.functor.dom)
+    functor = classproperty(lambda cls: cls.category.functor_factory)
     ob = classproperty(lambda cls: cls.category.ob)
 
     dom: C0
@@ -469,8 +469,8 @@ class CMap[C0: Pregroup, C1: CMap](
                     offsets=(offset, ))
                 for box, offset in zip(self.boxes, self.offsets)]
             components += [
-                type(self)(self.ob(), self.ob(), (), (), scalars=(scalar, ))
-                for scalar in self.loops]
+                type(self)(self.ob(), self.ob(), (), (), loops=(loop, ))
+                for loop in self.loops]
             return components
 
         component_of = self.edges.coequalizer(self.orientation)
@@ -714,11 +714,11 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> Swap(x, y).to_map().boxes
         ()
         """
-        factory = cls if cls.functor is not None else cls[
-            type(old), type(old).functor]
+        category = type(old).ar
+        factory = cls if cls.category is not None else cls[category]
         return factory.functor(
             ob_map=lambda typ: typ, ar_map=factory.from_box,
-            dom=type(old), cod=factory)(old)
+            dom=category, cod=factory)(old)
 
     @classmethod
     def swap(cls, left: Ty, right: Ty) -> CMap:
@@ -737,7 +737,8 @@ class CMap[C0: Pregroup, C1: CMap](
     @classmethod
     def cups(cls, left: Ty, right: Ty) -> CMap:
         """ A cup encoded as boundary wiring between adjoint types. """
-        if not getattr(left, "r", left[::-1]) == right:
+        adjoint = left.r if hasattr(left, "r") else left[::-1]
+        if adjoint != right:
             raise AxiomError
         size = len(left)
         edge = Permutation.from_transpositions(
@@ -748,7 +749,8 @@ class CMap[C0: Pregroup, C1: CMap](
     @classmethod
     def caps(cls, left: Ty, right: Ty) -> CMap:
         """ A cap encoded as boundary wiring between adjoint types. """
-        if not getattr(left, "r", left[::-1]) == right:
+        adjoint = left.r if hasattr(left, "r") else left[::-1]
+        if adjoint != right:
             raise AxiomError
         size = len(left)
         edge = Permutation.from_transpositions(
@@ -794,9 +796,9 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> f = Box("f", x @ y, z).to_map()
         >>> assert f.curry().uncurry() == f
         >>> f.curry().draw(
-        ...     path="docs/_static/cmap/compact-curry.png", show=False)
+        ...     path="docs/_static/cmap/compact-curry.svg", show=False)
 
-        .. image:: /_static/cmap/compact-curry.png
+        .. image:: /_static/cmap/compact-curry.svg
             :align: center
         """
         if n < 0 or n > len(self.dom):
@@ -833,11 +835,53 @@ class CMap[C0: Pregroup, C1: CMap](
         exponent = exponent_r.l
         return exponent @ self >> self.cups(exponent, exponent.r) @ base
 
+    l = property(lambda self: self.transpose(left=True))
+    r = property(lambda self: self.transpose(left=False))
+
+    def dagger(self) -> CMap:
+        """
+        Reverse a combinatorial map: swap the boundary, dagger each box in
+        reverse order and conjugate the edges by the port relabeling.
+
+        Boundary ports keep their order while each box block is reversed:
+        the clockwise port order of a daggered box is the reversed clockwise
+        order of the original.
+
+        >>> from discopy.compact import Ty, Box
+        >>> x, y = map(Ty, "xy")
+        >>> f, g = Box('f', x, y @ y), Box('g', y @ y, x)
+        >>> assert (f >> g).dagger().to_map() == (f >> g).to_map().dagger()
+        >>> assert (f >> g).to_map().dagger().dagger() == (f >> g).to_map()
+        """
+        n, n_dom, n_cod = self.n_ports, len(self.dom), len(self.cod)
+        boxes = tuple(box.dagger() for box in reversed(self.boxes))
+        offsets = tuple(reversed(self.offsets))
+        sizes = [len(box.dom) + len(box.cod) for box in self.boxes]
+        starts = [n_cod + sum(sizes[i + 1:]) for i in range(len(sizes))]
+        dom_mapping = list(range(n - n_dom, n))
+        box_mapping = sum([
+            list(reversed(range(start, start + size)))
+            for start, size in zip(starts, sizes)], [])
+        cod_mapping = list(range(n_cod))
+        mapping = dom_mapping + box_mapping + cod_mapping
+        edges = self.edges.conjugate(Permutation(mapping))
+        return type(self)(
+            self.cod, self.dom, boxes, edges, offsets=offsets,
+            loops=self.loops)
+
     @classmethod
     def spiders(
             cls, n_legs_in: int, n_legs_out: int,
             typ: Ty, phases=None) -> CMap:
-        """ Spiders are kept as boxes, including their phase data. """
+        """
+        Spiders are kept as boxes, including their phase data.
+
+        Example
+        -------
+        >>> from discopy.tensor import CMap, Dim, Tensor
+        >>> assert CMap.spiders(1, 2, Dim(2, 3)).eval().is_close(
+        ...     Tensor.spiders(1, 2, Dim(2, 3)))
+        """
         return cls.from_box(cls.category.spiders(
             n_legs_in, n_legs_out, typ, phases))
 
@@ -1118,7 +1162,7 @@ class CMap[C0: Pregroup, C1: CMap](
         given by the edge permutation. See documentation of
         :func:``Hypergraph.from_map`` for an example.
         """
-        return self.category.hypergraph_factory.from_map(self)
+        return hypergraph.Hypergraph[self.category].from_map(self)
 
     def to_dot(
             self, engine="dot", seed=None, graph_attr=None,
@@ -1337,9 +1381,9 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> from discopy.compact import Ty, CMap
         >>> x, y, z = map(Ty, "xyz")
         >>> (CMap.caps((x @ y).r, x @ y) >> CMap.cups((x @ y).l, x @ y)).draw(
-        ...     path="docs/_static/cmap/scalar-loop.png", show=False)
+        ...     path="docs/_static/cmap/scalar-loop.svg", show=False)
 
-        .. image:: /_static/cmap/scalar-loop.png
+        .. image:: /_static/cmap/scalar-loop.svg
             :align: center
         """
         dot = self.to_dot(

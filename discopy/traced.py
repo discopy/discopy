@@ -31,13 +31,13 @@ A monoidal category is right-traced when it comes with an operator of shape:
 >>> x, y, z = map(Ty, "xyz")
 >>> f = Box("f", x @ z, y @ z)
 >>> Equation(f, f.trace(), symbol="$\\\\mapsto$").draw(
-...     path='docs/_static/traced/right-trace.png')
+...     path='docs/_static/traced/right-trace.svg')
 
 It is left-traced when it comes with an operator of the following shape:
 
 >>> g = Box("g", z @ x, z @ y)
 >>> Equation(g, g.trace(left=True), symbol="$\\\\mapsto$").draw(
-...     path='docs/_static/traced/left-trace.png')
+...     path='docs/_static/traced/left-trace.svg')
 
 
 These are subjects to the axioms listed below. Note however that at the moment
@@ -67,10 +67,10 @@ Yanking
 >>> yanking = Equation(
 ...     Swap(x, x).trace(left=True), Id(x), Swap(x, x).trace())
 >>> yanking.draw(
-...     path='docs/_static/traced/yanking.png',
+...     path='docs/_static/traced/yanking.svg',
 ...     wire_labels=False, figsize=(4, 1))
 
-.. image:: /_static/traced/yanking.png
+.. image:: /_static/traced/yanking.svg
     :align: center
 
 >>> assert yanking
@@ -82,19 +82,19 @@ Naturality
 ...     (x @ g >> f >> x @ g).trace(left=True),
 ...     g >> f.trace(left=True) >> g)
 >>> tightening_left.draw(
-...     path='docs/_static/traced/tightening-left.png', wire_labels=False)
+...     path='docs/_static/traced/tightening-left.svg', wire_labels=False)
 
-.. image:: /_static/traced/tightening-left.png
+.. image:: /_static/traced/tightening-left.svg
     :align: center
 
 >>> tightening_right = Equation(
 ...     (g @ x >> f >> g @ x).trace(),
 ...     g >> f.trace() >> g)
 >>> tightening_right.draw(
-...     path='docs/_static/traced/tightening-right.png',
+...     path='docs/_static/traced/tightening-right.svg',
 ...     wire_labels=False)
 
-.. image:: /_static/traced/tightening-right.png
+.. image:: /_static/traced/tightening-right.svg
     :align: center
 
 >>> assert tightening_left and tightening_right
@@ -106,26 +106,26 @@ Dinaturality
 ...     (f >> g @ x).trace(left=True),
 ...     (g @ x >> f).trace(left=True))
 >>> sliding_left.draw(
-...     path='docs/_static/traced/sliding-left.png', wire_labels=False)
+...     path='docs/_static/traced/sliding-left.svg', wire_labels=False)
 
-.. image:: /_static/traced/sliding-left.png
+.. image:: /_static/traced/sliding-left.svg
     :align: center
 
 >>> sliding_right = Equation(
 ...     (f >> x @ g).trace(),
 ...     (x @ g >> f).trace())
 >>> sliding_right.draw(
-...     path='docs/_static/traced/sliding-right.png', wire_labels=False)
+...     path='docs/_static/traced/sliding-right.svg', wire_labels=False)
 
-.. image:: /_static/traced/sliding-right.png
+.. image:: /_static/traced/sliding-right.svg
     :align: center
 
 >>> assert sliding_left and sliding_right
 """
 
-from discopy import monoidal
+from discopy import monoidal, hypergraph
 from discopy.abc import TracedCategory
-from discopy.cat import ar_factory
+from discopy.cat import factory
 from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import (
     factory_name,
@@ -134,7 +134,7 @@ from discopy.utils import (
 )
 
 
-@ar_factory
+@factory
 class Diagram(monoidal.Diagram, TracedCategory):
     """
     A traced diagram is a monoidal diagram with :class:`Trace` boxes.
@@ -160,9 +160,9 @@ class Diagram(monoidal.Diagram, TracedCategory):
         >>> LHS, RHS = f.trace(left=True), f.trace(left=False)
         >>> Eq(Eq(LHS, f, symbol="$\\\\mapsfrom$"),
         ...     RHS, symbol="$\\\\mapsto$").draw(
-        ...         path="docs/_static/traced/trace.png")
+        ...         path="docs/_static/traced/trace.svg")
 
-        .. image:: /_static/traced/trace.png
+        .. image:: /_static/traced/trace.svg
         """
         return self if n == 0\
             else self.trace_factory(self, left).trace(n - 1, left)
@@ -244,9 +244,9 @@ class Functor(monoidal.Functor):
     ...     assert F(f.trace())() == F(g)()
 
     >>> from discopy.monoidal import Equation
-    >>> Equation(f.trace(), g).draw(path="docs/_static/traced/golden.png")
+    >>> Equation(f.trace(), g).draw(path="docs/_static/traced/golden.svg")
 
-    .. image:: /_static/traced/golden.png
+    .. image:: /_static/traced/golden.svg
     """
     dom = cod = Diagram
 
@@ -257,16 +257,13 @@ class Functor(monoidal.Functor):
         return super().__call__(other)
 
 
-class Hypergraph(monoidal.Hypergraph):
-    functor = Functor
-
-
 class CMap(monoidal.CMap):
-    functor = Functor
+    category = Diagram
     require_causal = False
 
 
-Diagram.hypergraph_factory = Hypergraph
+Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
 Diagram.trace_factory = Trace
+Hypergraph = hypergraph.Hypergraph[Diagram]
 Id = Diagram.id

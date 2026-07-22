@@ -46,17 +46,16 @@ from dataclasses import dataclass
 import re
 
 from discopy import biclosed, messages
+from discopy.cat import factory
 from discopy.grammar import thue
 from discopy.utils import (
-    ob_factory,
-    ar_factory,
     BinaryBoxConstructor,
     AxiomError,
     factory_name,
 )
 
 
-@ob_factory
+@factory
 class Ty(biclosed.Ty):
     "Base class for categorial grammar types."
 
@@ -73,7 +72,7 @@ class Under(biclosed.Under):
     ob = Ty
 
 
-@ar_factory
+@factory
 class Diagram(biclosed.Diagram):
     """
     A categorial diagram is a biclosed diagram with rules and words as boxes.
@@ -215,7 +214,7 @@ class CMap(biclosed.CMap):
     A combinatorial map for categorial diagrams.
     """
 
-    functor = Functor
+    category = Diagram
 
 
 class TermBase(Box, biclosed.TermBase):
@@ -495,6 +494,7 @@ def tree2diagram(tree: dict, dom=Ty()) -> Diagram:
 
 
 Id = Diagram.id
+Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
 Diagram.curry_factory = Curry
 Diagram.eval_factory = Eval

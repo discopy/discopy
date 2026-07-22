@@ -42,9 +42,9 @@ Frobenius
 >>> frobenius = Equation(
 ...     split @ x >> x @ merge, merge >> split, x @ split >> merge @ x)
 >>> assert frobenius
->>> frobenius.draw(path="docs/_static/frobenius/frobenius.png")
+>>> frobenius.draw(path="docs/_static/frobenius/frobenius.svg")
 
-.. image:: /_static/frobenius/frobenius.png
+.. image:: /_static/frobenius/frobenius.svg
     :align: center
 
 Speciality
@@ -52,9 +52,9 @@ Speciality
 
 >>> special = Equation(split >> merge, Spider(1, 1, x), Id(x))
 >>> assert special
->>> special.draw(path="docs/_static/frobenius/special.png")
+>>> special.draw(path="docs/_static/frobenius/special.svg")
 
-.. image:: /_static/frobenius/special.png
+.. image:: /_static/frobenius/special.svg
     :align: center
 """
 
@@ -64,7 +64,7 @@ from collections.abc import Callable
 
 from discopy import monoidal, rigid, markov, compact, pivotal, hypergraph
 from discopy.abc import HypergraphCategory
-from discopy.cat import ob_factory, ar_factory
+from discopy.cat import factory
 from discopy.utils import factory_name, assert_isatomic
 
 
@@ -78,7 +78,7 @@ class Ob(pivotal.Ob):
     l = r = property(lambda self: self)
 
 
-@ob_factory
+@factory
 class Ty(pivotal.Ty):
     """
     A frobenius type is a pivotal type with frobenius objects inside.
@@ -86,10 +86,10 @@ class Ty(pivotal.Ty):
     Parameters:
         inside (frobenius.Ob) : The objects inside the type.
     """
-    ob_factory = Ob
+    generator_factory = Ob
 
 
-@ob_factory
+@factory
 class PRO(rigid.PRO, Ty):
     """
     A PRO is a natural number ``n`` seen as a frobenius type with unnamed
@@ -104,14 +104,14 @@ class PRO(rigid.PRO, Ty):
     l = r = property(lambda self: self)
 
 
-@ob_factory
+@factory
 class Dim(monoidal.Dim, Ty):
     """ A dimension is a tuple of integers greater than one seen as a type. """
 
-    l = r = property(lambda self: self.ob(*self.inside[::-1]))
+    l = r = property(lambda self: self.ar(*self.inside[::-1]))
 
 
-@ar_factory
+@factory
 class Diagram(compact.Diagram, markov.Diagram, HypergraphCategory):
     """
     A frobenius diagram is a compact diagram and a Markov diagram.
@@ -157,9 +157,9 @@ class Diagram(compact.Diagram, markov.Diagram, HypergraphCategory):
         >>> spider = Spider(3, 5, Ty(''), "$\\\\phi$") @ Ty()
         >>> Spider.color = "red"
         >>> Equation(spider, spider.unfuse(), symbol="$\\\\mapsto$").draw(
-        ...     path='docs/_static/hypergraph/unfuse.png')
+        ...     path='docs/_static/hypergraph/unfuse.svg')
 
-        .. image:: /_static/hypergraph/unfuse.png
+        .. image:: /_static/hypergraph/unfuse.svg
             :align: center
         """
         F = compact.Functor(
@@ -317,6 +317,8 @@ def interleaving(cls: type, factory: Callable
     """
     def method(n_legs_in, n_legs_out, typ, phases=None):
         phases = phases or len(typ) * [None]
+        if len(typ) == 1:
+            return factory(n_legs_in, n_legs_out, typ, phases[0])
         result = cls.id().tensor(*[
             factory(n_legs_in, n_legs_out, x, p) for x, p in zip(typ, phases)])
         for i, t in enumerate(typ):
@@ -378,19 +380,16 @@ def coherence(cls: type, factory: Callable
     return method
 
 
-class Hypergraph(hypergraph.Hypergraph):
-    functor = Functor
-
-
 class CMap(compact.CMap):
-    functor = Functor
+    category = Diagram
 
 
-Diagram.hypergraph_factory = Hypergraph
+Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Diagram.braid_factory, Diagram.spider_factory = Swap, Spider
 Diagram.bubble_factory = Bubble
+Hypergraph = hypergraph.Hypergraph[Diagram]
 Id = Diagram.id
 
 

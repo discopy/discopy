@@ -38,9 +38,9 @@ Examples
 >>> circuit = Ket(0, 0) >> CX >> Controlled(Rz(0.25)) >> Measure() @ Discard()
 >>> circuit.draw(
 ...     figsize=(3, 6),
-...     path='docs/_static/quantum/circuit-example.png')
+...     path='docs/_static/quantum/circuit-example.svg')
 
-.. image:: /_static/quantum/circuit-example.png
+.. image:: /_static/quantum/circuit-example.svg
     :align: center
 
 >>> from discopy.grammar import pregroup
@@ -60,9 +60,9 @@ Examples
 >>> from discopy.monoidal import Equation
 >>> Equation(
 ...     sentence, F(sentence).foliation(), symbol='$\\\\mapsto$').draw(
-...         path='docs/_static/quantum/functor-example.png')
+...         path='docs/_static/quantum/functor-example.svg')
 
-.. image:: /_static/quantum/functor-example.png
+.. image:: /_static/quantum/functor-example.svg
     :align: center
 """
 
@@ -71,7 +71,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from discopy import messages, tensor, frobenius
-from discopy.cat import ob_factory, ar_factory
+from discopy.cat import factory
 from discopy.matrix import backend
 from discopy.tensor import Dim, Tensor
 from discopy.utils import factory_name, assert_isinstance
@@ -151,7 +151,7 @@ class Qudit(Ob):
     __setstate__ = Digit.__setstate__
 
 
-@ob_factory
+@factory
 class Ty(frobenius.Ty):
     """
     A circuit type is a frobenius type with :class:`Digit` and :class:`Qudit`
@@ -171,10 +171,10 @@ class Ty(frobenius.Ty):
     >>> print(bit ** 2 @ qubit ** 3)
     bit @ bit @ qubit @ qubit @ qubit
     """
-    ob_factory = Ob
+    generator_factory = Ob
 
 
-@ar_factory
+@factory
 class Circuit(tensor.Diagram[complex]):
     """
     A circuit is a tensor diagram with bits and qubits as ``dom`` and ``cod``.
@@ -218,11 +218,11 @@ class Circuit(tensor.Diagram[complex]):
         circuit = self
         if circuit.dom:
             init = Id().tensor(*(
-                Bits(0) if x.name == "bit" else Ket(0) for x in circuit.dom))
+                Bits(0) if x == bit else Ket(0) for x in circuit.dom))
             circuit = init >> circuit
         if circuit.cod != bit ** len(circuit.cod):
             discards = Id().tensor(*(
-                Discard() if x.name == "qubit"
+                Discard() if x == qubit
                 else Id(bit) for x in circuit.cod))
             circuit = circuit >> discards
         return circuit

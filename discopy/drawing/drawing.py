@@ -40,15 +40,15 @@ Axioms
 >>> g0, g1 = (Box(f'g{i}', f'y{i}', f'z{i}').to_drawing() for i in (0, 1))
 
 >>> Equation(f0 @ f1 >> g0 @ g1, (f0 >> g0) @ (f1 >> g1)).draw(
-...     path="docs/_static/drawing/interchanger-1.png")
+...     path="docs/_static/drawing/interchanger-1.svg")
 
-.. image:: /_static/drawing/interchanger-1.png
+.. image:: /_static/drawing/interchanger-1.svg
     :align: center
 
 >>> Equation(f @ g.dom >> f.cod @ g, f @ g, f.dom @ g >> f @ g.cod).draw(
-...     path="docs/_static/drawing/interchanger-2.png")
+...     path="docs/_static/drawing/interchanger-2.svg")
 
-.. image:: /_static/drawing/interchanger-2.png
+.. image:: /_static/drawing/interchanger-2.svg
     :align: center
 """
 
@@ -61,13 +61,20 @@ from dataclasses import dataclass
 import networkx as nx
 
 from discopy.drawing import backend, Node, Point
-from discopy.config import DRAWING_ATTRIBUTES
+from discopy.config import BOX_DRAWING_ATTRIBUTES
 from discopy.abc import TracedCategory
 from discopy.utils import (
-    assert_isinstance, assert_iscomposable, unbiased, ar_factory)
+    assert_isinstance, assert_iscomposable, unbiased, factory)
 
 if TYPE_CHECKING:
     from discopy import monoidal
+
+
+def _trailing_margin(ob) -> float:
+    """ The extra width needed to the right of the last wire of a type. """
+    return max(
+        0, getattr(ob, "right_margin", 0) - 0.5,
+        getattr(ob, "min_right_margin", 0))
 
 
 class PlaneGraph(NamedTuple):
@@ -76,7 +83,7 @@ class PlaneGraph(NamedTuple):
     positions: dict[Node, Point]
 
 
-@ar_factory
+@factory
 @dataclass
 class Drawing(TracedCategory):
     """
@@ -271,9 +278,9 @@ class Drawing(TracedCategory):
         >>> x, y, z = map(Ty, "xyz")
         >>> f = Drawing.from_box(Box('f', x @ y, z))
         >>> f.make_space(2, 0.5, 0.75, 1.0, copy=True).draw(
-        ...     aspect='equal', path="docs/_static/drawing/make-space.png")
+        ...     aspect='equal', path="docs/_static/drawing/make-space.svg")
 
-        .. image:: /_static/drawing/make-space.png
+        .. image:: /_static/drawing/make-space.svg
             :align: center
         """
         y_min = 0 if y_min is None else y_min
@@ -300,7 +307,7 @@ class Drawing(TracedCategory):
 
     def reposition_box_cod(self, j=-1):
         """ Recenter cod nodes to recover legacy behaviour for layers. """
-        j = j if j > 0 else len(self.boxes) + j
+        j = j if j >= 0 else len(self.boxes) + j
         box = self.boxes[j]
         if box.bubble_closing and len(box.dom[1:-1]) == len(box.cod):
             return  # Otherwise the wires would bend when coming out.
@@ -322,7 +329,7 @@ class Drawing(TracedCategory):
 
     def align_box_cod(self, j=-1):
         """ Align outputs with inputs when they have equal number of wires. """
-        j = j if j > 0 else len(self.boxes) + j
+        j = j if j >= 0 else len(self.boxes) + j
         box = self.boxes[j]
         for i, (x_dom, x_cod) in enumerate(zip(box.dom, box.cod)):
             dom_node = Node("box_dom", i=i, j=j, x=x_dom)
@@ -396,9 +403,9 @@ class Drawing(TracedCategory):
         Node('box_cod', i=1, j=0, x=z) Point(x=1.5, y=0.25)
         Node('cod', i=0, x=y) Point(x=0.5, y=0)
         Node('cod', i=1, x=z) Point(x=1.5, y=0)
-        >>> f.draw(path="docs/_static/drawing/box.png")
+        >>> f.draw(path="docs/_static/drawing/box.svg")
 
-        .. image:: /_static/drawing/box.png
+        .. image:: /_static/drawing/box.svg
             :align: center
         """
         from discopy.monoidal import Box
@@ -406,7 +413,7 @@ class Drawing(TracedCategory):
         old_box, box = box, Box(
             box.name, box_dom, box_cod, is_dagger=box.is_dagger)
 
-        for attr, default in DRAWING_ATTRIBUTES.items():
+        for attr, default in BOX_DRAWING_ATTRIBUTES.items():
             setattr(box, attr, getattr(old_box, attr, default(box)))
 
         if box.draw_as_wires and not box.frame_boundary:
@@ -414,27 +421,35 @@ class Drawing(TracedCategory):
                 obj.reposition_label = 0.5 if (
                     box.bubble_closing or box.bubble_opening and i) else 0.25
 
+        is_bubble = box.bubble_opening or box.bubble_closing
+        offsets_dom = box.dom.wire_offsets()
+        offsets_cod = box.cod.wire_offsets()
+        span_dom = offsets_dom[-1] if offsets_dom else -1
+        span_cod = offsets_cod[-1] if offsets_cod else -1
+
         if box.bubble_opening:
-            width = max(1, len(box.dom), len(box.cod) - 2) + 0.5
+            content = max(1, len(box.dom), len(box.cod) - 2) + 0.5
         elif box.bubble_closing:
-            width = max(1, len(box.dom) - 2, len(box.cod)) + 0.5
-        elif len(box.dom) <= 1 and len(box.cod) <= 1:
-            width = 1
+            content = max(1, len(box.dom) - 2, len(box.cod)) + 0.5
         else:
-            width = max(len(box.dom), len(box.cod))
+            content = max(1, span_dom + 1, span_cod + 1)
 
-        # Leave a 0.25 margin on either side between the box and its wires.
-        width = max(width, box.min_width + 0.5) if box.min_width else width
-        height = box.height
+        content = max(content, box.min_width + 0.5)\
+            if box.min_width else content
 
-        left, right = 0.25, width - 0.25
+        trailing = 0 if is_bubble else max(
+            (_trailing_margin(row.inside[-1])
+             for row in (box.dom, box.cod) if row.inside), default=0)
+        width, height = content + trailing, box.height
+
+        left, right = 0.25, content - 0.25
 
         inside = PlaneGraph(nx.DiGraph(), dict())
         result = Drawing(
             inside, box.dom, box.cod, (box, ), width, height, _check=False)
 
         box_node = Node("box", box=box, j=0)
-        result.add_nodes({box_node: Point(width / 2, height / 2)})
+        result.add_nodes({box_node: Point(content / 2, height / 2)})
 
         dom = [Node("dom", i=i, x=x) for i, x in enumerate(box.dom)]
         cod = [Node("cod", i=i, x=x) for i, x in enumerate(box.cod)]
@@ -461,12 +476,21 @@ class Drawing(TracedCategory):
                 dom[-1]: Point(right, height)})
             dom, box_dom = dom[1:-1], box_dom[1:-1]
 
+        if is_bubble:
+            offsets_dom = list(range(len(dom)))
+            offsets_cod = list(range(len(cod)))
+            span_dom = offsets_dom[-1] if offsets_dom else -1
+            span_cod = offsets_cod[-1] if offsets_cod else -1
+
         result.add_nodes({
-            x: Point(i + (width - len(xs) + 1) / 2, y) for xs, y in [
-                (dom, height),
-                (box_dom, height if box.draw_as_wires else height - 0.25),
-                (box_cod, 0 if box.draw_as_wires else 0.25),
-                (cod, 0)]
+            x: Point((content - span - 1) / 2 + 0.5 + offsets[i], y)
+            for xs, y, offsets, span in [
+                (dom, height, offsets_dom, span_dom),
+                (box_dom, height if box.draw_as_wires else height - 0.25,
+                 offsets_dom, span_dom),
+                (box_cod, 0 if box.draw_as_wires else 0.25,
+                 offsets_cod, span_cod),
+                (cod, 0, offsets_cod, span_cod)]
             for i, x in enumerate(xs)})
         return result
 
@@ -476,32 +500,35 @@ class Drawing(TracedCategory):
         Draw the identity diagram.
 
         >>> from discopy.monoidal import Ty
-        >>> Drawing.id(Ty()).draw(path="docs/_static/drawing/empty.png")
+        >>> Drawing.id(Ty()).draw(path="docs/_static/drawing/empty.svg")
 
-        .. image:: /_static/drawing/empty.png
+        .. image:: /_static/drawing/empty.svg
             :align: center
 
-        >>> Drawing.id(Ty('x')).draw(path="docs/_static/drawing/idx.png")
+        >>> Drawing.id(Ty('x')).draw(path="docs/_static/drawing/idx.svg")
 
-        .. image:: /_static/drawing/idx.png
+        .. image:: /_static/drawing/idx.svg
             :align: center
 
-        >>> Drawing.id(Ty('x', 'y')).draw(path="docs/_static/drawing/idxy.png")
+        >>> Drawing.id(Ty('x', 'y')).draw(path="docs/_static/drawing/idxy.svg")
 
-        .. image:: /_static/drawing/idxy.png
+        .. image:: /_static/drawing/idxy.svg
             :align: center
         """
         from discopy.monoidal import Ty
-        dom = Ty() if dom is None else dom
+        dom = (Ty() if dom is None else dom).to_drawing()
         inside = PlaneGraph(nx.DiGraph(), dict())
-        height, width = 0.5, len(dom) - 0.5 if len(dom) > 1 else 0.5
+        offsets = dom.wire_offsets()
+        height = 0.5
+        width = 0.5 + offsets[-1] + _trailing_margin(
+            dom.inside[-1]) if dom else 0.5
         result = Drawing(inside, dom, dom, (), width, height, _check=False)
         dom_nodes = [Node("dom", i=i, x=x) for i, x in enumerate(dom)]
         cod_nodes = [Node("cod", i=i, x=x) for i, x in enumerate(dom)]
         result.add_nodes({
-            x: Point(i + 0.25, 1) for i, x in enumerate(dom_nodes)})
+            x: Point(0.25 + offsets[i], 1) for i, x in enumerate(dom_nodes)})
         result.add_nodes({
-            x: Point(i + 0.25, 0) for i, x in enumerate(cod_nodes)})
+            x: Point(0.25 + offsets[i], 0) for i, x in enumerate(cod_nodes)})
         result.add_edges(list(zip(dom_nodes, cod_nodes)))
         return result
 
@@ -533,9 +560,9 @@ class Drawing(TracedCategory):
             :align: center
         """
         assert_iscomposable(self, other)
-        if self.is_identity:
+        if self.is_identity and self.height <= 1:
             return other
-        if other.is_identity:
+        if other.is_identity and other.height <= 1:
             return self
         dom, cod = self.dom, other.cod
 
@@ -598,11 +625,15 @@ class Drawing(TracedCategory):
         -------
         >>> from discopy.monoidal import Box
         >>> f = Drawing.from_box(Box('f', 'x', 'x'))
-        >>> f.stretch(2).draw(path="docs/_static/drawing/stretch.png")
+        >>> f.stretch(2).draw(path="docs/_static/drawing/stretch.svg")
 
-        .. image:: /_static/drawing/stretch.png
+        .. image:: /_static/drawing/stretch.svg
             :align: center
         """
+        if not y:
+            # Nothing to stretch: avoid shifting middle nodes by y / 2 == 0.0,
+            # which would turn integer coordinates into floats.
+            return self.relabel_nodes(copy=copy)
         result = self.relabel_nodes(copy=copy, positions={n: p.shift(y=(
                 y if n.kind == "dom" else 0 if n.kind == "cod" else y / 2))
             for n, p in self.positions.items()})
@@ -619,9 +650,9 @@ class Drawing(TracedCategory):
         >>> from discopy.monoidal import Box
         >>> f = Drawing.from_box(Box('f', 'x', 'x'))
         >>> d = (f >> f >> f) @ (f >> f)
-        >>> d.draw(path="docs/_static/drawing/tensor.png")
+        >>> d.draw(path="docs/_static/drawing/tensor.svg")
 
-        .. image:: /_static/drawing/tensor.png
+        .. image:: /_static/drawing/tensor.svg
             :align: center
         """
         if self.is_empty:
@@ -667,7 +698,7 @@ class Drawing(TracedCategory):
         """ The reflection of a drawing along the the horizontal axis. """
         def box_dagger(box):
             result = box.dagger()
-            for attr in DRAWING_ATTRIBUTES:
+            for attr in BOX_DRAWING_ATTRIBUTES:
                 setattr(result, attr, getattr(box, attr))
             return result
 
@@ -701,9 +732,9 @@ class Drawing(TracedCategory):
         >>> from discopy.monoidal import Ty
         >>> x, y, z = map(Ty, "xyz")
         >>> Drawing.bubble_opening(x, y, z, Ty("")).draw(
-        ...     path="docs/_static/drawing/bubble-opening.png")
+        ...     path="docs/_static/drawing/bubble-opening.svg")
 
-        .. image:: /_static/drawing/bubble-opening.png
+        .. image:: /_static/drawing/bubble-opening.svg
             :align: center
         """
         from discopy.monoidal import Box
@@ -720,9 +751,9 @@ class Drawing(TracedCategory):
         >>> from discopy.monoidal import Ty
         >>> x, y, z = map(Ty, "xyz")
         >>> Drawing.bubble_closing(x, y, z, Ty("")).draw(
-        ...     path="docs/_static/drawing/bubble-closing.png")
+        ...     path="docs/_static/drawing/bubble-closing.svg")
 
-        .. image:: /_static/drawing/bubble-closing.png
+        .. image:: /_static/drawing/bubble-closing.svg
             :align: center
         """
         from discopy.monoidal import Box
@@ -740,9 +771,9 @@ class Drawing(TracedCategory):
         >>> from discopy.monoidal import Ty
         >>> x, y, z = map(Ty, "xyz")
         >>> Drawing.frame_opening(x, y, z, Ty("")).draw(
-        ...     path="docs/_static/drawing/frame-opening.png")
+        ...     path="docs/_static/drawing/frame-opening.svg")
 
-        .. image:: /_static/drawing/frame-opening.png
+        .. image:: /_static/drawing/frame-opening.svg
             :align: center
         """
         result = Drawing.bubble_opening(
@@ -767,9 +798,9 @@ class Drawing(TracedCategory):
         >>> from discopy.monoidal import Ty
         >>> x, y, z = map(Ty, "xyz")
         >>> Drawing.frame_closing(x, y, z, Ty("")).draw(
-        ...     path="docs/_static/drawing/frame-closing.png")
+        ...     path="docs/_static/drawing/frame-closing.svg")
 
-        .. image:: /_static/drawing/frame-closing.png
+        .. image:: /_static/drawing/frame-closing.svg
             :align: center
         """
         result = Drawing.bubble_closing(
@@ -800,18 +831,25 @@ class Drawing(TracedCategory):
         >>> a, b, c, d = map(Ty, "abcd")
         >>> f = Box('f', a @ b, c @ d).to_drawing()
         >>> f.bubble(d @ c @ c, b @ a @ a, name="g").draw(
-        ...     path="docs/_static/drawing/bubble-drawing.png")
+        ...     path="docs/_static/drawing/bubble-drawing.svg")
 
-        .. image:: /_static/drawing/bubble-drawing.png
+        .. image:: /_static/drawing/bubble-drawing.svg
             :align: center
         """
         dom = self.dom if dom is None else dom
         cod = self.cod if cod is None else cod
         arg_dom, arg_cod = self.dom, self.cod
-        left, right = type(dom)(name or ""), type(dom)("")
+        from discopy.monoidal import Wire, Ty
+        left = Ty(Wire(name or "", dom.dom, arg_dom.dom))
+        right = Ty(Wire("", arg_dom.cod, dom.cod))
         left[0].always_draw_label = True
         wires_can_go_straight = (
             len(dom), len(cod)) == (len(arg_dom), len(arg_cod))
+        if draw_as_square:
+            # The left and right sides of a square frame, e.g. the slots of an
+            # Equation between coloured terms, are drawn with zero width.
+            left.inside[0].frame_boundary = right.inside[0].frame_boundary \
+                = True
         if draw_as_square or not wires_can_go_straight:
             top = Drawing.frame_opening(dom, arg_dom, left, right)
             bot = Drawing.frame_closing(arg_cod, cod, left, right)
@@ -850,40 +888,62 @@ class Drawing(TracedCategory):
             result.graph.remove_edges_from([(node, x) for x in cod_nodes])
         return result
 
+    def slot(self, colour, **params):
+        """
+        Wrap the drawing in a square slot filled with a background ``colour``,
+        so that several terms can be tiled on the same background.
+
+        This is shared by :meth:`frame`, for its arguments, and by
+        :meth:`add`, for the terms of an :class:`Equation` between
+        differently-coloured diagrams.
+
+        Parameters:
+            colour : The :class:`monoidal.Colour` of the slot's background.
+            params : Passed to :meth:`bubble`, e.g. ``height`` or ``width``.
+        """
+        from discopy.monoidal import Ty
+        frame_type = Ty.id(colour)
+        return self.bubble(
+            frame_type, frame_type, draw_as_square=True, **params)
+
     def frame(self, *others: Drawing,
-              dom=None, cod=None, name=None, draw_vertically=False) -> Drawing:
+              dom=None, cod=None, name=None, draw_vertically=False,
+              frame_colour=None) -> Drawing:
         """
         >>> from discopy.monoidal import *
         >>> x, y = Ty('x'), Ty('y')
         >>> f, g, h = Box('f', x, y ** 3), Box('g', y, y @ y), Box('h', x, y)
         >>> f.bubble(dom=x @ x, cod=y @ y, name="b", draw_as_frame=True
-        ...     ).draw(path="docs/_static/drawing/single-frame.png")
+        ...     ).draw(path="docs/_static/drawing/single-frame.svg")
 
-        .. image:: /_static/drawing/single-frame.png
+        .. image:: /_static/drawing/single-frame.svg
             :align: center
 
         >>> Bubble(f, g, h >> h[::-1], dom=x, cod=y @ y
-        ...     ).draw(path="docs/_static/drawing/horizontal-frame.png")
+        ...     ).draw(path="docs/_static/drawing/horizontal-frame.svg")
 
-        .. image:: /_static/drawing/horizontal-frame.png
+        .. image:: /_static/drawing/horizontal-frame.svg
             :align: center
 
         >>> Bubble(f, g, h, dom=x, cod=y @ y, draw_vertically=True
-        ...     ).draw(path="docs/_static/drawing/vertical-frame.png")
+        ...     ).draw(path="docs/_static/drawing/vertical-frame.svg")
 
-        .. image:: /_static/drawing/vertical-frame.png
+        .. image:: /_static/drawing/vertical-frame.svg
             :align: center
         """
-        from discopy.monoidal import Ty
+        from discopy.monoidal import Colour
+        frame_colour = frame_colour or \
+            BOX_DRAWING_ATTRIBUTES['frame_colour'](self)
+        colour = Colour(frame_colour)
         args = (self, ) + others
         method = "then" if draw_vertically else "tensor"
         params = dict(
                 width=max([arg.width for arg in args] + [0]) + 1
             ) if draw_vertically else dict(
                 height=max([arg.height for arg in args] + [0]))
-        result = getattr(Drawing.id(), method)(*(arg.bubble(
-            Ty(), Ty(), draw_as_square=True, **params)
-            for arg in args)).bubble(dom, cod, name, draw_as_square=True)
+        slots = tuple(arg.slot(colour, **params) for arg in args)
+        result = getattr(slots[0], method)(*slots[1:]).bubble(
+            dom, cod, name, draw_as_square=True)
         result.reposition_box_dom()
         result.reposition_box_cod()
         return result
@@ -896,13 +956,25 @@ class Drawing(TracedCategory):
 
     def add(self, other: Drawing, symbol="+", space=1):
         """ Concatenate two drawings with a symbol in between. """
-        from discopy.monoidal import Ty, Box
+        from discopy.monoidal import Colour, Ty, Box
         if getattr(self, "zero_drawing", False):
             return other
         if getattr(other, "zero_drawing", False):
             return self
-        scalar = Box(symbol, Ty(), Ty(), draw_as_spider=True, color="white")
-        result = self @ scalar.to_drawing() @ other
+        height = max(self.height, other.height)
+        self = self.stretch(height - self.height)
+        other = other.stretch(height - other.height)
+        scalar = Box(
+            symbol, Ty(), Ty(), draw_as_spider=True, color="white"
+        ).to_drawing()
+        white = Colour("white")
+        if self.cod.cod != white or other.dom.dom != white:
+            # The boundary colours are not white, e.g. an Equation between
+            # terms of different colours: give each term its own
+            # white-bordered slot, as for Drawing.frame.
+            self, other = (
+                term.slot(white, height=height) for term in (self, other))
+        result = self @ scalar @ other
         result.make_space(space - 1, self.width + 1)  # Right of the scalar.
         result.make_space(space - 1, self.width)  # Left of the scalar.
         return result

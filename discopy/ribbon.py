@@ -27,9 +27,9 @@ the trace of the braid is unitary.
 >>> twist_l = Braid(x, x).trace(left=True)
 >>> twist_r = Braid(x, x).trace(left=False)
 >>> eq = Equation(twist_l >> twist_l[::-1], Id(x), twist_r >> twist_r[::-1])
->>> eq.draw(margins=(.2, 0), path='docs/_static/ribbon/twist-untwist.png')
+>>> eq.draw(margins=(.2, 0), path='docs/_static/ribbon/twist-untwist.svg')
 
-.. image:: /_static/ribbon/twist-untwist.png
+.. image:: /_static/ribbon/twist-untwist.svg
     :align: center
 
 Equivalently, a ribbon category is a balanced pivotal category, such that
@@ -40,28 +40,28 @@ i.e. two parallel wires with the twist drawn as the double braid.
 >>> ribbon_twist = Diagram.twist(x).to_ribbons()
 >>> eq = Equation(ribbon_twist, twist_l.to_ribbons())
 >>> eq.draw(symbol='$\\\\mapsto$', wire_labels=False,
-...     path="docs/_static/balanced/ribbon_twist.png")
+...     path="docs/_static/balanced/ribbon_twist.svg")
 
-.. image:: /_static/balanced/ribbon_twist.png
+.. image:: /_static/balanced/ribbon_twist.svg
 
 A ribbon category is strict whenever the twist is the identity.
 Strict ribbon categories have diagrams with knots, i.e. ribbons where the two
 parallel wires coincide and the twist is the identity.
 
 >>> eq_strict = Equation(twist_l, Id(x), twist_r)
->>> eq_strict.draw(margins=(.2, .1), path='docs/_static/ribbon/strict.png')
+>>> eq_strict.draw(margins=(.2, .1), path='docs/_static/ribbon/strict.svg')
 
-.. image:: /_static/ribbon/strict.png
+.. image:: /_static/ribbon/strict.svg
     :align: center
 """
 
 from discopy import rigid, pivotal, balanced
 from discopy.abc import RibbonCategory
-from discopy.cat import ar_factory
+from discopy.cat import factory
 from discopy.pivotal import Ty, PRO  # noqa: F401
 
 
-@ar_factory
+@factory
 class Diagram(pivotal.Diagram, balanced.Diagram, RibbonCategory):
     """
     A ribbon diagram is a pivotal diagram and a balanced diagram.
@@ -106,9 +106,16 @@ class Diagram(pivotal.Diagram, balanced.Diagram, RibbonCategory):
         cup = self.cup_factory(self.cod[y - 1], self.cod[y])
         return self >> self.cod[:y - 1] @ cup @ self.cod[y + 1:]
 
-    def to_ribbons(self):
+    def to_ribbons(self, width: float = None):
         """
-        Doubles evry object and sends the twist to the braid.
+        Doubles every object and sends the twist to the braid, folding cups
+        and caps into a single box.
+
+        Parameters:
+            width : The width of a ribbon, i.e. the gap between the two wires
+                encoding each object, defaults to the ``ribbon_width`` in
+                :data:`discopy.config.DRAWING_DEFAULT`. Set to ``0`` to return
+                the diagram as is, i.e. without doubling it into dual rails.
 
         Example
         -------
@@ -116,16 +123,9 @@ class Diagram(pivotal.Diagram, balanced.Diagram, RibbonCategory):
         >>> x = Ty('x')
         >>> braided_twist = Diagram.twist(x).to_ribbons()
 
-        .. image:: /_static/balanced/twist_dual_rail.png
+        .. image:: /_static/balanced/twist_dual_rail.svg
         """
-        class DualRail(Functor):
-            def __call__(self, other):
-                if isinstance(other, Twist):
-                    braid = Braid(other.dom, other.dom)
-                    return braid >> braid
-                return super().__call__(other)
-
-        return DualRail(lambda x: x @ x, lambda f: f)(self)
+        return self.to_braided(width)
 
 
 class Box(pivotal.Box, balanced.Box, Diagram):
@@ -177,6 +177,86 @@ class Braid(balanced.Braid, Box):
         return braid.dagger() if self.is_dagger else braid
 
 
+class DualRailBraid(balanced.DualRailBraid, Box):
+    """
+    The crossing of two ribbons in the dual rail encoding of a ribbon swap.
+
+    See also
+    --------
+    :class:`discopy.balanced.DualRailBraid`
+    """
+
+    z = 0
+
+    def rotate(self, left=False):
+        del left
+        return type(self)(self.right, self.left, self.is_dagger)
+
+
+class DualRailTwist(balanced.DualRailTwist, Box):
+    """
+    The twist of a ribbon in the dual rail encoding of a ribbon twist.
+
+    See also
+    --------
+    :class:`discopy.balanced.DualRailTwist`
+    """
+
+    z = 0
+
+    def rotate(self, left=False):
+        del left
+        return self
+
+
+class DualRailCup(Box):
+    """
+    A cup joining two ribbons in the dual rail encoding, drawn as a single
+    constant-width fold. It is only used by :meth:`Diagram.to_ribbons`.
+
+    Parameters:
+        left : The ribbon (doubled type) on the outside left.
+        right : The ribbon on the outside right.
+    """
+    z = 0
+
+    def __init__(self, left, right, is_dagger=False):
+        self.left, self.right = left, right
+        name = type(self).__name__ + f"({left}, {right})"
+        Box.__init__(
+            self, name, left @ right, type(left)(),
+            is_dagger=is_dagger, draw_as_dual_rail_cup=True)
+
+    def rotate(self, left=False):
+        del left
+        return DualRailCap(self.left.r, self.right.r)
+
+    def dagger(self):
+        return DualRailCap(self.left, self.right, not self.is_dagger)
+
+
+class DualRailCap(Box):
+    """
+    A cap joining two ribbons in the dual rail encoding, see
+    :class:`DualRailCup`.
+    """
+    z = 0
+
+    def __init__(self, left, right, is_dagger=False):
+        self.left, self.right = left, right
+        name = type(self).__name__ + f"({left}, {right})"
+        Box.__init__(
+            self, name, type(left)(), left @ right,
+            is_dagger=is_dagger, draw_as_dual_rail_cup=True)
+
+    def rotate(self, left=False):
+        del left
+        return DualRailCup(self.left.r, self.right.r)
+
+    def dagger(self):
+        return DualRailCup(self.left, self.right, not self.is_dagger)
+
+
 class Twist(balanced.Twist, Box):
     """
     Balanced twist in a ribbon category.
@@ -223,9 +303,32 @@ class Functor(pivotal.Functor, balanced.Functor):
         return pivotal.Functor.__call__(self, other)
 
 
+class DualRail(balanced.DualRail, Functor):
+    """
+    The functor sending a ribbon diagram to its dual rail encoding, extending
+    :class:`discopy.balanced.DualRail` with the folding of :class:`Cup` and
+    :class:`Cap` into a single box each.
+
+    See also
+    --------
+    :meth:`Diagram.to_ribbons`
+    """
+    cod = Diagram
+    dual_rail_twist_factory = DualRailTwist
+    dual_rail_braid_factory = DualRailBraid
+
+    def __call__(self, other):
+        if isinstance(other, Cup):
+            return DualRailCup(self(other.dom[:1]), self(other.dom[1:]))
+        if isinstance(other, Cap):
+            return DualRailCap(self(other.cod[:1]), self(other.cod[1:]))
+        return super().__call__(other)
+
+
 Diagram.braid_factory = Braid
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Diagram.twist_factory = Twist
+Diagram.dual_rail_factory = DualRail
 
 Id = Diagram.id
 

@@ -35,9 +35,9 @@ Commutative monoid
 >>> commutativity = Equation(Swap(x, x) >> merge, merge)
 >>> assert unitality and associativity and commutativity
 >>> Equation(unitality, associativity, commutativity, symbol='').draw(
-...     path="docs/_static/frobenius/monoid.png")
+...     path="docs/_static/frobenius/monoid.svg")
 
-.. image:: /_static/frobenius/monoid.png
+.. image:: /_static/frobenius/monoid.svg
     :align: center
 
 Cocommutative comonoid
@@ -48,9 +48,9 @@ Cocommutative comonoid
 >>> cocommutativity = Equation(copy >> Swap(x, x), copy)
 >>> assert counitality and coassociativity and cocommutativity
 >>> Equation(counitality, coassociativity, cocommutativity, symbol='').draw(
-...     path="docs/_static/frobenius/comonoid.png")
+...     path="docs/_static/frobenius/comonoid.svg")
 
-.. image:: /_static/frobenius/comonoid.png
+.. image:: /_static/frobenius/comonoid.svg
     :align: center
 
 Coherence
@@ -74,12 +74,12 @@ from __future__ import annotations
 
 from discopy import symmetric, monoidal, hypergraph
 from discopy.abc import MarkovCategory
-from discopy.cat import ar_factory
+from discopy.cat import factory
 from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import assert_isatomic, factory_name
 
 
-@ar_factory
+@factory
 class Diagram(symmetric.Diagram, MarkovCategory):
     """
     A Markov diagram is a symmetric diagram with :class:`Copy` boxes.
@@ -106,9 +106,9 @@ class Diagram(symmetric.Diagram, MarkovCategory):
     ...     return y, y
 
     >>> Equation(copy_then_apply, apply_then_copy, symbol="$\\\\neq$").draw(
-    ...     path="docs/_static/markov/copy_and_apply.png")
+    ...     path="docs/_static/markov/copy_and_apply.svg")
 
-    .. image:: /_static/markov/copy_and_apply.png
+    .. image:: /_static/markov/copy_and_apply.svg
     """
     @classmethod
     def spider_factory(cls, n_legs_in, n_legs_out, typ, phase=None):
@@ -287,9 +287,9 @@ class Functor(symmetric.Functor):
     >>> assert F(bialgebra_l)(54, 46) == F(bialgebra_r)(54, 46)
 
     >>> Equation(bialgebra_l, bialgebra_r, symbol="=").draw(
-    ...     path="docs/_static/markov/bialgebra.png")
+    ...     path="docs/_static/markov/bialgebra.svg")
 
-    .. image:: /_static/markov/bialgebra.png
+    .. image:: /_static/markov/bialgebra.svg
     """
     dom = cod = Diagram
 
@@ -301,20 +301,13 @@ class Functor(symmetric.Functor):
         return super().__call__(other)
 
 
-class Hypergraph(hypergraph.Hypergraph):
-    functor = Functor
-
-    def to_diagram(self, make_causal_first=True) -> Diagram:
-        return super().to_diagram(
-            make_causal_first=make_causal_first)
-
-
 class CMap(symmetric.CMap):
-    functor = Functor
+    category = Diagram
 
 
-Diagram.hypergraph_factory = Hypergraph
+Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
+Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.braid_factory = Swap
 Diagram.trace_factory = Trace

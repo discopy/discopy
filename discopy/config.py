@@ -11,14 +11,18 @@ IGNORE_WARNINGS = [
     "Casting complex values to real discards the imaginary part"]
 
 # Mapping from attribute to function from box to default value.
-DRAWING_ATTRIBUTES = {
+BOX_DRAWING_ATTRIBUTES = {
     "height": lambda _: 1,
     "is_conjugate": lambda _: False,
     "is_transpose": lambda _: False,
     "bubble_opening": lambda _: False,
     "bubble_closing": lambda _: False,
     "frame_boundary": lambda _: False,
+    "frame_colour": lambda _: "lightgrey",
     "draw_as_braid": lambda _: False,
+    "draw_as_dual_rail_braid": lambda _: False,
+    "draw_as_dual_rail_twist": lambda _: False,
+    "draw_as_dual_rail_cup": lambda _: False,
     "draw_as_wires": lambda box: any(getattr(box, a) for a in [
         "bubble_opening", "bubble_closing", "draw_as_braid"]),
     "draw_as_spider": lambda _: False,
@@ -36,11 +40,17 @@ DRAWING_ATTRIBUTES = {
     "drawing_name": lambda box: box.name,
     "no_label": lambda box: any([
         box.draw_as_wires, box.draw_as_spider, box.draw_as_brakets,
-        box.draw_as_controlled, box.draw_as_discards, box.draw_as_measures]),
+        box.draw_as_controlled, box.draw_as_discards, box.draw_as_measures,
+        box.draw_as_dual_rail_braid, box.draw_as_dual_rail_twist,
+        box.draw_as_dual_rail_cup]),
     "min_width": lambda box:
         0 if box.no_label else text_width(box.drawing_name),
     "tikzstyle_name": lambda box: (
         box.name if box.name.isidentifier() else "symbol")
+}
+
+WIRE_DRAWING_ATTRIBUTES = {
+    "right_margin": lambda ob: text_width(str(ob)),
 }
 
 # Default drawing parameters.
@@ -51,7 +61,14 @@ DRAWING_DEFAULT = {
     "facecolor": "white",
     "edgecolor": "black",
     "use_tikzstyles": False,
-    "braid_shadow": (.3, .1)
+    "braid_shadow": (.3, .1),
+    # Legend width in inches is legend_base_width + legend_char_width
+    # times the length of the longest label.
+    "legend_base_width": 0.5,
+    "legend_char_width": 0.085,
+    # Gap in inches between the diagram and the legend.
+    "legend_margin": 0.4,
+    "ribbon_width": 0.25,
 }
 
 # Mapping from tikz colors to hexcodes.

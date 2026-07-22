@@ -104,7 +104,7 @@ def to_gif(diagram, *diagrams, **params):  # pragma: no cover
     with TemporaryDirectory() as directory:
         for i, _diagram in enumerate(steps):
             tmp_path = os.path.join(directory, f'{i}.png')
-            _diagram.draw(path=tmp_path, **params)
+            _diagram.draw(path=tmp_path, **dict(params, show=False))
             frames.append(Image.open(tmp_path))
         if loop:
             frames = frames + frames[::-1]
