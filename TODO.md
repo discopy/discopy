@@ -1,4 +1,4 @@
-# TODO
+, # TODO
 
 Prompt ([#373](https://github.com/discopy/discopy/issues/373), verbatim):
 
@@ -28,3 +28,14 @@ Prompt ([#373](https://github.com/discopy/discopy/issues/373), verbatim):
 - [ ] Method back to standard term syntax; test that normalisation is idempotent
 - [ ] Unit tests: addition, multiplication, exponentiation of Church numerals, with a "unitype" that is its own exponential
 - [ ] Run `pflake8 discopy` and `coverage run -m pytest`
+
+## Guidance (🐦 birdsong, 2026-07-22)
+
+- `Term` already lives in `discopy/closed.py` — put `BohmTree` and the reduction code
+  there too, not a new top-level module.
+- low collision risk, no other in-flight PR touches `closed.py` — safe to start now,
+  no need to wait on the other five drafts.
+- "unitype which is its own exponential" — check `closed.Ty`'s `exp`/`__lshift__` for
+  the cleanest way to build a self-exponential type before inventing a new mechanism.
+- style guide: no comments explaining the substitution logic, a docstring with a
+  doctest instead.
