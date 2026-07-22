@@ -21,7 +21,9 @@ and should become unnecessary.
 - [x] Merge origin/main into this branch (post-#421/#402 main; no force-push of Ale's branch) —
   one conflict in `backend.py` `Matplotlib.output`, resolved by combining main's
   reproducible-PNG metadata default with the branch's format/metadata threading + svg hashsalt
-- [WIP] @bridge-2026-07-22-repr Implement `_repr_svg_` (and `_repr_mimebundle_` with svg+png) for `Diagram` and `Drawing` via the matplotlib backend, no display side effects
-- [ ] Tests: hooks return valid SVG/mimebundle without opening figures; doctest examples
+- [x] Implement `_repr_svg_` (and `_repr_mimebundle_` with svg+png) for `Diagram` and `Drawing` via the matplotlib backend, no display side effects —
+  `RichDisplay.to_png` added, `_repr_mimebundle_` now returns both mimetypes
+  lazily filtered by include/exclude; both svg and png byte-for-byte deterministic
+- [WIP] @bridge-2026-07-22-repr Tests: hooks return valid SVG/mimebundle without opening figures; doctest examples
 - [ ] Check the #404 `show()` helper becomes unnecessary (a bare diagram as last cell expression renders) — note findings, don't touch #404's branch
 - [ ] Run `pflake8 discopy` and `coverage run -m pytest`
