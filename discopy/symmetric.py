@@ -11,6 +11,7 @@ Summary
     :nosignatures:
     :toctree:
 
+    Swappable
     Diagram
     Box
     Swap
@@ -81,14 +82,45 @@ This is a special case of naturality.
 
 from __future__ import annotations
 
+from abc import ABCMeta
+
 from discopy import monoidal, balanced, traced, messages, hypergraph
 from discopy.abc import SymmetricCategory
 from discopy.cat import factory
 from discopy.monoidal import Wire, Ty, PRO  # noqa: F401
 
 
+class Swappable(ABCMeta):
+    """
+    The metaclass for :class:`Diagram`, it makes ``swap_factory`` an alias
+    that reads and writes :attr:`braided.Diagram.braid_factory`.
+
+    Example
+    -------
+    >>> assert Diagram.swap_factory is Diagram.braid_factory is Swap
+
+    >>> class Permutation(Diagram): ...
+    >>> class Transposition(Swap, Permutation): ...
+    >>> Permutation.swap_factory = Transposition
+    >>> assert Permutation.braid_factory is Transposition
+    """
+    @property
+    def swap_factory(cls) -> type:
+        """ The subclass of :class:`Swap` called by :meth:`Diagram.swap`. """
+        return cls.braid_factory
+
+    @swap_factory.setter
+    def swap_factory(cls, value: type):
+        cls.braid_factory = value
+
+    def __init__(cls, name, bases, namespace, **kwargs):
+        super().__init__(name, bases, namespace, **kwargs)
+        if "swap_factory" in namespace:
+            cls.braid_factory = namespace["swap_factory"]
+
+
 @factory
-class Diagram(balanced.Diagram, SymmetricCategory):
+class Diagram(balanced.Diagram, SymmetricCategory, metaclass=Swappable):
     """
     A symmetric diagram is a balanced diagram with :class:`Swap` boxes.
 
@@ -309,7 +341,7 @@ class CMap(traced.CMap):
 Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
-Diagram.braid_factory = Swap
+Diagram.swap_factory = Swap
 Diagram.trace_factory = Trace
 Diagram.sum_factory = Sum
 Id = Diagram.id

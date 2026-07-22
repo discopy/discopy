@@ -56,7 +56,7 @@ Prompt ([#395](https://github.com/discopy/discopy/issues/395), verbatim):
 
 ---
 
-- [WIP] @bridge-2026-07-22-swap Add a `swap_factory` property on `symmetric.Diagram` that reads/writes `braid_factory`
+- [x] Add a `swap_factory` property on `symmetric.Diagram` that reads/writes `braid_factory`
 - [ ] Document on `symmetric.Diagram` that swaps come from `braid_factory`
 - [ ] Test: a custom subclass setting `swap_factory` gets its own swaps through `Diagram.swap`, `Hypergraph.to_diagram` and `Diagram.from_callable` (README cooking example)
 - [ ] Switch the README cooking example back to `swap_factory`
