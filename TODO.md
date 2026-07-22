@@ -19,3 +19,16 @@ Prompt ([#374](https://github.com/discopy/discopy/issues/374), verbatim):
 - [ ] `discopy.kleisli.multiplicative`: premonoidal copy-discard Kleisli with pointwise strength; test monoidal iff the monad is commutative
 - [ ] `Hypergraph` evaluation methods: token passing for `additive`, message passing for `multiplicative` — coordinate with #366 and #363
 - [ ] Run `pflake8 discopy` and `coverage run -m pytest`
+
+## Guidance (🐦 birdsong, 2026-07-22)
+
+- last of the six drafts by design (per Alexis's own wave order) — start `monad` +
+  `channel` (self-contained) whenever, but hold off on `additive`/`multiplicative`'s
+  `Hypergraph` evaluation methods until #366 (additive.Hypergraph) and #363
+  (multiplicative.Hypergraph) land — both still draft, both build the base classes
+  this module's token-passing/message-passing hooks into.
+- `python.function.EndoFunctor` is new — check `python.function`'s existing
+  `Function`/`Transformation` factory pattern before adding it, keep the same shape.
+- the monoidal-iff-commutative test for `multiplicative` is the one non-obvious
+  correctness property here — write it first, as a property-based test if #347
+  (property-based testing PR) has landed by the time you start.
