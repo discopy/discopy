@@ -709,25 +709,16 @@ z
 "/>
     </defs>
     <g clip-path="url(#p368cf9789c)">
-     <use xlink:href="#C0_0_043773a5dc" x="666" y="324" style="fill: #e8a5a5; stroke: #e8a5a5"/>
-    </g>
-    <g clip-path="url(#p368cf9789c)">
-     <use xlink:href="#C0_0_043773a5dc" x="180" y="252" style="fill: #e8a5a5; stroke: #e8a5a5"/>
+     <use xlink:href="#C0_0_043773a5dc" x="504" y="36" style="fill: #e8a5a5; stroke: #e8a5a5"/>
     </g>
     <g clip-path="url(#p368cf9789c)">
      <use xlink:href="#C0_0_043773a5dc" x="630" y="396" style="fill: #e8a5a5; stroke: #e8a5a5"/>
     </g>
     <g clip-path="url(#p368cf9789c)">
-     <use xlink:href="#C0_0_043773a5dc" x="558" y="108" style="fill: #e8a5a5; stroke: #e8a5a5"/>
-    </g>
-    <g clip-path="url(#p368cf9789c)">
-     <use xlink:href="#C0_0_043773a5dc" x="558" y="252" style="fill: #e8a5a5; stroke: #e8a5a5"/>
-    </g>
-    <g clip-path="url(#p368cf9789c)">
      <use xlink:href="#C0_0_043773a5dc" x="558" y="180" style="fill: #e8a5a5; stroke: #e8a5a5"/>
     </g>
     <g clip-path="url(#p368cf9789c)">
-     <use xlink:href="#C0_0_043773a5dc" x="504" y="36" style="fill: #e8a5a5; stroke: #e8a5a5"/>
+     <use xlink:href="#C0_0_043773a5dc" x="558" y="252" style="fill: #e8a5a5; stroke: #e8a5a5"/>
     </g>
     <g clip-path="url(#p368cf9789c)">
      <use xlink:href="#C0_0_043773a5dc" x="396" y="252" style="fill: #ffffff; stroke: #ffffff"/>
@@ -735,11 +726,20 @@ z
     <g clip-path="url(#p368cf9789c)">
      <use xlink:href="#C0_0_043773a5dc" x="774" y="468" style="fill: #e8a5a5; stroke: #e8a5a5"/>
     </g>
+    <g clip-path="url(#p368cf9789c)">
+     <use xlink:href="#C0_0_043773a5dc" x="666" y="324" style="fill: #e8a5a5; stroke: #e8a5a5"/>
+    </g>
+    <g clip-path="url(#p368cf9789c)">
+     <use xlink:href="#C0_0_043773a5dc" x="180" y="252" style="fill: #e8a5a5; stroke: #e8a5a5"/>
+    </g>
+    <g clip-path="url(#p368cf9789c)">
+     <use xlink:href="#C0_0_043773a5dc" x="558" y="108" style="fill: #e8a5a5; stroke: #e8a5a5"/>
+    </g>
    </g>
    <g id="text_1">
     <g clip-path="url(#p368cf9789c)">
      <!-- $\phi$ -->
-     <g transform="translate(176.04 255.3) scale(0.12 -0.12)">
+     <g transform="translate(554.04 183.3) scale(0.12 -0.12)">
       <defs>
        <path id="DejaVuSans-Oblique-3d5" d="M 2991 4863 
 L 2738 3572 
@@ -779,14 +779,6 @@ z
    </g>
    <g id="text_2">
     <g clip-path="url(#p368cf9789c)">
-     <!-- $\phi$ -->
-     <g transform="translate(554.04 183.3) scale(0.12 -0.12)">
-      <use xlink:href="#DejaVuSans-Oblique-3d5" transform="translate(0 0.015625)"/>
-     </g>
-    </g>
-   </g>
-   <g id="text_3">
-    <g clip-path="url(#p368cf9789c)">
      <!-- $\mapsto$ -->
      <g transform="translate(388.62 255.31125) scale(0.12 -0.12)">
       <defs>
@@ -809,6 +801,14 @@ z
 " transform="scale(0.015625)"/>
       </defs>
       <use xlink:href="#DejaVuSans-21a6" transform="translate(19.482422 0.265625)"/>
+     </g>
+    </g>
+   </g>
+   <g id="text_3">
+    <g clip-path="url(#p368cf9789c)">
+     <!-- $\phi$ -->
+     <g transform="translate(176.04 255.3) scale(0.12 -0.12)">
+      <use xlink:href="#DejaVuSans-Oblique-3d5" transform="translate(0 0.015625)"/>
      </g>
     </g>
    </g>
