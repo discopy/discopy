@@ -8,8 +8,9 @@ The no-TODO rule binds humans too, so it lives in the
    the top, then the work as `[ ]` checkboxes. Agents may update it but must **never delete it**
    or alter the verbatim prompt.
 
-2. **Never write or edit a PR title or description.** Human-authored only — open PRs as drafts
-   with an empty body.
+2. **A PR description must carry its human mandate.** LLM-generated descriptions are fine so
+   long as they link the issue being implemented or quote the human prompt verbatim. Open PRs
+   as drafts, and never edit or delete what a human wrote there.
 
 3. **Claim a checkbox before working it — a per-point mutex.** Set it to `[WIP] @<SessionID>` and
    push *before* any code change; the committed claim is the lock. If the push is rejected
