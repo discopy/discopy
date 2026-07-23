@@ -602,6 +602,205 @@ def test_then_tensor():
     ) >> g.to_hypergraph()
 
 
+def rooted_trivalent_map(rotation):
+    """
+    Build a rooted trivalent map from a rotation system, i.e. a dict from
+    vertices to the cyclic order of their neighbours, with ``None`` marking
+    the half-edge to the root.
+    """
+    from collections import defaultdict, deque
+    from discopy import symmetric
+
+    x = symmetric.Ty("x")
+    vertices = list(rotation)
+    index = {vertex: i for i, vertex in enumerate(vertices)}
+
+    def is_incoming(source, target):
+        # Orient each edge from the lower- to the higher-indexed vertex.
+        return target is not None and index[source] > index[target]
+
+    doms, cods = {}, {}
+    for vertex, neighbours in rotation.items():
+        neighbours = tuple(neighbours)
+        n_incoming = sum(is_incoming(vertex, n) for n in neighbours)
+        for i in range(3):
+            rotated = neighbours[i:] + neighbours[:i]
+            if all(is_incoming(vertex, n) for n in rotated[:n_incoming])\
+                    and not any(is_incoming(vertex, n)
+                                for n in rotated[n_incoming:]):
+                break
+        doms[vertex] = rotated[:n_incoming]
+        cods[vertex] = tuple(reversed(rotated[n_incoming:]))
+
+    boxes = tuple(
+        symmetric.Box("v", x ** len(doms[v]), x ** len(cods[v]))
+        for v in vertices)
+
+    port, port_of = 0, {}
+    for vertex in vertices:
+        for i, _ in enumerate(doms[vertex]):
+            port_of[(vertex, 'dom', i)] = port
+            port += 1
+        n_cod = len(cods[vertex])
+        for j in range(n_cod):  # the canonical order lists cod reversed
+            port_of[(vertex, 'cod', n_cod - 1 - j)] = port
+            port += 1
+    output_port = port
+
+    slots, root_slot = defaultdict(deque), None
+    for vertex in vertices:
+        for i, neighbour in enumerate(doms[vertex]):
+            slots[(vertex, neighbour)].append(port_of[(vertex, 'dom', i)])
+        for j, neighbour in enumerate(cods[vertex]):
+            if neighbour is None:
+                root_slot = port_of[(vertex, 'cod', j)]
+            else:
+                slots[(vertex, neighbour)].append(
+                    port_of[(vertex, 'cod', j)])
+
+    pairs, seen = [(root_slot, output_port)], set()
+    for (vertex, neighbour), ports in slots.items():
+        if (neighbour, vertex) in seen:
+            continue
+        seen.add((vertex, neighbour))
+        other = slots[(neighbour, vertex)]
+        while ports:
+            pairs.append((ports.popleft(), other.popleft()))
+    edges = Permutation.from_transpositions(pairs, output_port + 1)
+    return symmetric.CMap(symmetric.Ty(), x, boxes, edges)
+
+
+def test_to_term():
+    from discopy import closed
+
+    a, b, c = closed.Ty("a"), closed.Ty("b"), closed.Ty("c")
+    f, v = closed.Variable("f", a >> b), closed.Variable("v", a)
+    for term in [
+            closed.Variable("z", a),
+            f(v),
+            a(lambda u: u),
+            (a >> b)(lambda g: a(lambda u: g(u))),
+            (a >> b)(lambda g: (c >> a)(lambda h: c(lambda u: g(h(u))))),
+            a(lambda p: (a >> b)(lambda q: q(p))),
+            ((a >> a)(lambda p: p))(a(lambda q: q))]:  # beta redex
+        result = term.to_map().to_term()
+        assert result == term and str(result) == str(term)
+        assert term.to_map() == result.to_map()
+
+
+def test_to_term_fresh_names_and_types():
+    from discopy import closed, symmetric
+
+    x = symmetric.Ty("x")
+    cmap = symmetric.CMap.id(x).plug_input(
+        0, symmetric.Box("λ", x, x @ x), x)
+    term = cmap.to_term()  # no varname annotations, so a fresh name is used
+    assert isinstance(term, closed.Abstraction)
+    assert term.var.cod == closed.Ty("a")
+    assert term.cod == closed.Ty("a") >> closed.Ty("a")
+
+
+def test_to_term_multigraph():
+    """ A rooted trivalent map with parallel edges encodes a beta redex. """
+    theta = rooted_trivalent_map({
+        "A": (None, "B", "B"),
+        "B": ("A", "A", "C"),
+        "C": ("B", "D", "E"),
+        "D": ("C", "E", "E"),
+        "E": ("C", "D", "D")})
+    term = theta.to_term()
+    assert not term.freevars and theta.is_planar
+    assert term.to_map().to_term() == term
+
+
+def test_to_term_errors():
+    from discopy import compact, symmetric
+
+    x = symmetric.Ty("x")
+    with raises(ValueError):
+        symmetric.CMap.id(x @ x).to_term()  # two output ports
+    with raises(ValueError):
+        symmetric.CMap.from_box(
+            symmetric.Box("f", x, x)).to_term()  # not trivalent
+    y = compact.Ty("y")
+    with raises(ValueError):  # a scalar next to an identity wire
+        (compact.CMap.id(y)
+         @ (compact.CMap.caps(y.r, y) >> compact.CMap.cups(y.r, y))).to_term()
+    # a rooted trivalent vertex next to a closed triple-edge component
+    abstraction = compact.Box("λ", y, y @ y)
+    P = compact.Box("P", compact.Ty(), y @ y @ y)
+    Q = compact.Box("Q", y @ y @ y, compact.Ty())
+    disconnected = compact.CMap(
+        compact.Ty(), y, (abstraction, P, Q), Permutation.from_transpositions(
+            [(0, 1), (2, 9), (3, 8), (4, 7), (5, 6)], 10))
+    with raises(ValueError):
+        disconnected.to_term()
+
+
+def test_to_map_almost_linear():
+    from discopy import closed
+
+    a, b = closed.Ty("a"), closed.Ty("b")
+    constant = (a >> b)("g").to_map()  # constants are univalent boxes
+    assert len(constant.boxes) == 1 and len(constant.cod) == 1
+    u = closed.Variable("u", a >> (a >> (a >> b)))
+    v = closed.Variable("v", a)
+    copying = closed.Abstraction(v, u(v)(v)(v)).to_map()
+    assert sorted(box.name for box in copying.boxes)\
+        == ['@', '@', '@', 'δ', 'λ']
+    delta, = (box for box in copying.boxes if box.name == 'δ')
+    assert len(delta.cod) == 3  # one delta with a port per occurrence
+    with raises(ValueError):  # to_term does not support delta nodes
+        copying.to_term()
+    with raises(ValueError):  # discarding is not almost-linear
+        closed.Abstraction(v, b("c")).to_map()
+
+
+def test_petersen():
+    """
+    The Petersen graph, with a root hanging off the subdivided edge (0, 1),
+    encodes a closed linear lambda term with six abstractions and five
+    applications, one for each of its 2 * 5 + 1 trivalent vertices.
+    """
+    from discopy import closed
+
+    petersen = rooted_trivalent_map({
+        0: (4, "root", 5),
+        1: ("root", 2, 6),
+        2: (1, 3, 7),
+        3: (2, 4, 8),
+        4: (3, 0, 9),
+        5: (0, 7, 8),
+        6: (1, 8, 9),
+        7: (2, 9, 5),
+        8: (3, 5, 6),
+        9: (4, 6, 7),
+        "root": (0, 1, None)})
+    assert not petersen.is_planar
+    assert petersen.euler_characteristic == -2
+
+    term = petersen.to_term()
+    assert not term.freevars
+
+    def count_nodes(term):
+        if isinstance(term, closed.Abstraction):
+            n_abs, n_app = count_nodes(term.body)
+            return n_abs + 1, n_app
+        if isinstance(term, closed.Application):
+            func_counts = count_nodes(term.func)
+            args_counts = count_nodes(term.args)
+            return (func_counts[0] + args_counts[0],
+                    func_counts[1] + args_counts[1] + 1)
+        return 0, 0
+
+    assert count_nodes(term) == (6, 5)
+
+    back = term.to_map()
+    assert not back.is_planar
+    assert back.euler_characteristic == -2
+    assert back.to_term() == term
+
+
 def test_euler_characteristic():
     from discopy import closed, compact
 
@@ -640,3 +839,24 @@ def test_euler_characteristic():
     t = compact.Box("t", compact.Ty(), compact.Ty()).to_map()
     assert (s @ t).connected_components == [s, t]
     assert compact.CMap.id().connected_components == [compact.CMap.id()]
+
+
+def test_merge_inputs_errors():
+    from discopy import compact, symmetric
+
+    x, y = symmetric.Ty('x'), symmetric.Ty('y')
+    fm = symmetric.Box('f', x @ x @ x, y).to_map()
+    delta = symmetric.Box('δ', x, x @ x)
+    with raises(ValueError):  # wrong box arity
+        fm.merge_inputs((0, 1, 2), delta)
+    with raises(ValueError):  # single input
+        fm.merge_inputs((0, ), delta)
+    with raises(ValueError):  # not distinct
+        fm.merge_inputs((0, 0), delta)
+    with raises(ValueError):  # out of range
+        fm.merge_inputs((0, 3), delta)
+
+    z = compact.Ty('z')
+    cup = compact.CMap.cups(z, z.r)  # two inputs wired to each other
+    with raises(ValueError):
+        cup.merge_inputs((0, 1), compact.Box('δ', z, z @ z.r))

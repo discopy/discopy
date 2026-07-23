@@ -40,8 +40,11 @@ from enum import StrEnum
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from functools import cached_property
 from io import BytesIO
+from itertools import count
 from math import lcm
+from string import ascii_lowercase
 import shutil
 import subprocess
 from typing import Any, TYPE_CHECKING, ClassVar, Literal
@@ -321,7 +324,7 @@ class CMap[C0: Pregroup, C1: CMap](
         return len(self.dom) + sum(
             len(box.dom) + len(box.cod) for box in self.boxes) + len(self.cod)
 
-    @property
+    @cached_property
     def _box_port_indices(self) -> tuple[tuple[int, ...], ...]:
         """ The consecutive port indices belonging to each box. """
         result, start = [], len(self.dom)
@@ -697,6 +700,66 @@ class CMap[C0: Pregroup, C1: CMap](
         return cls(box.dom, box.cod, (box, ), edge)
 
     @classmethod
+    def from_wiring(cls, boxes: tuple[Box, ...], wires) -> CMap:
+        """
+        A closed map given by boxes and wires between pairs
+        ``(box_index, port_position)``, where the position counts the
+        domain ports of the box followed by its codomain ports.
+
+        Parameters:
+            boxes : The boxes of the map.
+            wires : Pairs of ``(box_index, port_position)`` pairs.
+
+        Raises:
+            ValueError : If a port is left unwired or wired twice.
+
+        Example
+        -------
+        >>> from discopy.symmetric import Ty, Box, CMap
+        >>> x = Ty('x')
+        >>> f, g = Box('f', x, x @ x), Box('g', x @ x, x)
+        >>> cm = CMap.from_wiring((f, g), [
+        ...     ((0, 0), (1, 2)), ((0, 1), (1, 0)), ((0, 2), (1, 1))])
+        >>> assert cm.edges.is_fixpoint_free_involution()
+        >>> CMap.from_wiring((f, ), [((0, 0), (0, 0))])
+        Traceback (most recent call last):
+            ...
+        ValueError: Port (0, 0) is wired to itself.
+        """
+        boxes = tuple(boxes)
+        starts, n_ports = [], 0
+        for box in boxes:
+            starts.append(n_ports)
+            n_ports += len(box.dom) + len(box.cod)
+
+        def global_index(box_index: int, position: int) -> int:
+            box = boxes[box_index]
+            arity, coarity = len(box.dom), len(box.cod)
+            if not 0 <= position < arity + coarity:
+                raise ValueError(
+                    f"Box {box_index} has no port {position}.")
+            if position < arity:
+                return starts[box_index] + position
+            return starts[box_index] + arity\
+                + (coarity - 1 - (position - arity))
+
+        pairs, seen = [], set()
+        for (one, other) in wires:
+            i, j = global_index(*one), global_index(*other)
+            if i == j:
+                raise ValueError(f"Port {one} is wired to itself.")
+            for port, position in ((i, one), (j, other)):
+                if port in seen:
+                    raise ValueError(f"Port {position} is wired twice.")
+            seen.update((i, j))
+            pairs.append((i, j))
+        if len(seen) != n_ports:
+            missing = sorted(set(range(n_ports)) - seen)
+            raise ValueError(f"Ports {missing} are left unwired.")
+        edges = Permutation.from_transpositions(pairs, n_ports)
+        return cls(cls.ob(), cls.ob(), boxes, edges)
+
+    @classmethod
     def from_diagram(cls, old: Diagram) -> CMap:
         """
         Turn a :class:`Diagram` into a :class:`CMap`.
@@ -1024,6 +1087,91 @@ class CMap[C0: Pregroup, C1: CMap](
             self.dom, self.cod, boxes, edge, offsets=offsets,
             loops=self.loops)
 
+    def merge_inputs(self, indices: tuple[int, ...], box: Box) -> CMap:
+        """
+        Merge input boundary ports through a box ``x -> x ** k``: the merged
+        inputs are replaced by a single new input at position
+        ``min(indices)`` wired to the domain of ``box``, and the ``i``-th
+        codomain port of ``box`` is wired to the old partner of
+        ``indices[i]``.
+
+        Parameters:
+            indices : The distinct input positions to merge.
+            box : The merging box, with one domain port and ``len(indices)``
+                  codomain ports.
+
+        Raises:
+            ValueError : If the box does not have the required arity, the
+                indices are out of range or not distinct, or two merged
+                inputs are wired to each other.
+
+        Example
+        -------
+        >>> from discopy.symmetric import Ty, Box
+        >>> x, y = Ty('x'), Ty('y')
+        >>> fm = Box('f', x @ x @ x, y).to_map()
+        >>> merged = fm.merge_inputs((0, 2), Box('δ', x, x @ x))
+        >>> assert merged.dom == x @ x and len(merged.boxes) == 2
+        >>> assert merged.edges.is_fixpoint_free_involution()
+        """
+        assert_isinstance(box, self.category)
+        indices = tuple(indices)
+        if len(indices) < 2 or len(box.dom) != 1\
+                or len(box.cod) != len(indices):
+            raise ValueError(
+                f"Expected a box with one input and {len(indices)} outputs, "
+                f"got {box}.")
+        if len(set(indices)) != len(indices) or not all(
+                0 <= i < len(self.dom) for i in indices):
+            raise ValueError(f"Expected distinct inputs, got {indices}.")
+        if any(self.edges[i] in indices for i in indices):
+            raise ValueError(
+                f"The inputs {indices} are wired to each other.")
+
+        position = min(indices)
+        new_dom = self.ob()
+        for i, obj in enumerate(self.dom):
+            new_dom = new_dom @ (
+                box.dom if i == position
+                else self.ob() if i in indices else obj)
+        boxes = self.boxes + (box, )
+        offsets = self.offsets + (None, )
+
+        mapping, new_index, new_input = {}, 0, None
+        for i in range(len(self.dom)):
+            if i == position:
+                new_input = new_index
+                new_index += 1
+            if i in indices:
+                continue
+            mapping[i] = new_index
+            new_index += 1
+        for i in range(len(self.dom), self.n_ports - len(self.cod)):
+            mapping[i] = new_index
+            new_index += 1
+
+        box_dom = new_index
+        box_cods = tuple(
+            box_dom + 1 + len(box.cod) - i - 1
+            for i in range(len(box.cod)))
+        new_index += 1 + len(box.cod)
+        for i in range(self.n_ports - len(self.cod), self.n_ports):
+            mapping[i] = new_index
+            new_index += 1
+        n_ports = new_index
+
+        edge_pairs = [(new_input, box_dom)]
+        for i, j in enumerate(self.edges):
+            if i < j and i not in indices and j not in indices:
+                edge_pairs.append((mapping[i], mapping[j]))
+        for i, index in enumerate(indices):
+            edge_pairs.append((box_cods[i], mapping[self.edges[index]]))
+        edges = Permutation.from_transpositions(edge_pairs, n_ports)
+
+        return type(self)(
+            new_dom, self.cod, boxes, edges, offsets=offsets,
+            scalars=self.scalars)
+
     def plug_input(
             self, input_index: int, box: Box,
             cod: C0, root_index: int = 0) -> CMap:
@@ -1163,6 +1311,156 @@ class CMap[C0: Pregroup, C1: CMap](
         :func:``Hypergraph.from_map`` for an example.
         """
         return hypergraph.Hypergraph[self.category].from_map(self)
+    def to_term(self):
+        """
+        Extract the linear lambda term encoded by a rooted trivalent map,
+        i.e. the inverse of Zeilberger's isomorphism from linear lambda terms
+        to rooted trivalent maps, see :meth:`discopy.closed.TermBase.to_map`.
+
+        The single output port is the root and the input ports are the free
+        variables of the term. Box labels and the direction of the wires are
+        ignored: the term structure is recovered with the following naive
+        algorithm. For each root node we remove it from the map; if the
+        result is disconnected then it was an application and we recurse with
+        the two disconnected subtrees as function and argument; if the result
+        is connected then it was an abstraction, we introduce a fresh
+        variable as a new node on the input side and recurse with the subtree
+        at the output side as body. Which subtree is which is determined by
+        the cyclic order of the ports around the removed node, starting from
+        the port facing the root.
+
+        Variable names are recovered from the ``varname`` attribute attached
+        to the objects carried by the ports, see
+        :func:`discopy.biclosed.annotate`; fresh names are generated from a
+        global counter in case the attribute is absent. The result is a
+        :class:`discopy.closed.Term` typed by unification, with fresh atomic
+        types for the type variables left unconstrained.
+
+        Example
+        -------
+        >>> from discopy.closed import Ty
+        >>> term = Ty("a")(lambda v: v)
+        >>> assert term.to_map().to_term() == term
+        """
+        # Imported here to avoid a circular dependency with biclosed.
+        from discopy import biclosed, closed
+
+        if len(self.cod) != 1 or self.scalars:
+            raise ValueError(
+                "Expected a rooted map with a single output port and no "
+                f"scalars, got {self}.")
+        for box in self.boxes:
+            if len(box.dom) + len(box.cod) != 3:
+                raise ValueError(f"Expected trivalent boxes, got {box}.")
+
+        ports, edges = self.ports, self.edges
+        box_ports = self._box_port_indices
+        vertex_of = {
+            port: vertex for vertex, indices in enumerate(box_ports)
+            for port in indices}
+
+        subst, tvars, atoms = {}, count(), {}
+
+        def resolve(typ):
+            while isinstance(typ, int) and typ in subst:
+                typ = subst[typ]
+            return typ
+
+        def unify(left, right):
+            # No occurs check: linear terms are always simply typeable.
+            left, right = resolve(left), resolve(right)
+            if isinstance(left, int) or isinstance(right, int):
+                if not isinstance(left, int):
+                    left, right = right, left
+                if left != right:
+                    subst[left] = right
+                return
+            unify(left[0], right[0])
+            unify(left[1], right[1])
+
+        leaf, variables, visited = {}, {}, set()
+
+        def new_variable(port):
+            obj = ports[port].obj
+            names = {
+                getattr(x, "varname", None)
+                for x in getattr(obj, "inside", (obj, ))}
+            name = names.pop() if len(names) == 1 else None
+            name = biclosed.fresh_name() if name is None else name
+            variable = (name, next(tvars))
+            leaf[port] = variable
+            return variable
+
+        for port, _ in enumerate(self.dom):
+            new_variable(port)
+
+        def connected(source, target, live):
+            seen, todo = {source}, [source]
+            while todo:
+                vertex = todo.pop()
+                if vertex == target:
+                    return True
+                for port in box_ports[vertex]:
+                    other = vertex_of.get(edges[port])
+                    if other in live and other not in seen:
+                        seen.add(other)
+                        todo.append(other)
+            return False
+
+        def extract(entry, live):
+            if entry in leaf:
+                return ('var', leaf[entry]), leaf[entry][1]
+            vertex = vertex_of[entry]
+            visited.add(vertex)
+            live = live - {vertex}
+            cycle = box_ports[vertex]
+            index = cycle.index(entry)
+            first, second = cycle[(index + 1) % 3], cycle[(index + 2) % 3]
+            if edges[first] == second:  # The identity abstraction.
+                variable = new_variable(second)
+                tree = ('abs', variable, ('var', variable))
+                return tree, (variable[1], variable[1])
+            far_first, far_second = edges[first], edges[second]
+            first_vertex = vertex_of.get(far_first)
+            second_vertex = vertex_of.get(far_second)
+            if first_vertex in live and second_vertex in live\
+                    and connected(first_vertex, second_vertex, live):
+                variable = new_variable(second)
+                body, body_type = extract(far_first, live)
+                return ('abs', variable, body), (variable[1], body_type)
+            func, func_type = extract(far_first, live)
+            args, args_type = extract(far_second, live)
+            result_type = next(tvars)
+            unify(func_type, (args_type, result_type))
+            return ('app', func, args), result_type
+
+        root = edges[self.n_ports - 1]
+        tree, _ = extract(root, set(range(len(self.boxes))))
+        if len(visited) != len(self.boxes):
+            raise ValueError(f"Expected a connected rooted map, got {self}.")
+
+        def to_ty(typ):
+            typ = resolve(typ)
+            if isinstance(typ, tuple):
+                return to_ty(typ[0]) >> to_ty(typ[1])
+            if typ not in atoms:
+                index = len(atoms)
+                atoms[typ] = closed.Ty(ascii_lowercase[index % 26] + (
+                    "" if index < 26 else str(index // 26)))
+            return atoms[typ]
+
+        def build(node):
+            if node[0] == 'var':
+                name, tvar = node[1]
+                if node[1] not in variables:
+                    variables[node[1]] = closed.Variable(name, to_ty(tvar))
+                return variables[node[1]]
+            if node[0] == 'app':
+                return build(node[1])(build(node[2]))
+            variable, body = build(('var', node[1])), build(node[2])
+            return closed.Abstraction(variable, body)
+
+        return build(tree)
 
     def to_dot(
             self, engine="dot", seed=None, graph_attr=None,
