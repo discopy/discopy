@@ -42,7 +42,7 @@ Q 0 0 0 0
 L 144 0 
 L 144 72 
 z
-" clip-path="url(#p6e9f1cc674)" style="fill: #ff0000"/>
+" clip-path="url(#p6e9f1cc674)" style="fill: #e8a5a5"/>
    </g>
    <g id="patch_4">
     <path d="M 36 0 
@@ -50,7 +50,7 @@ Q 36 18 36 18
 L 144 18 
 L 144 0 
 z
-" clip-path="url(#p6e9f1cc674)" style="fill: #008000"/>
+" clip-path="url(#p6e9f1cc674)" style="fill: #d8f8d8"/>
    </g>
    <g id="patch_5">
     <path d="M 72 54 
@@ -58,7 +58,7 @@ Q 72 72 72 72
 L 144 72 
 L 144 54 
 z
-" clip-path="url(#p6e9f1cc674)" style="fill: #0000ff"/>
+" clip-path="url(#p6e9f1cc674)" style="fill: #776ff3"/>
    </g>
    <g id="patch_6">
     <path d="M 108 0 
@@ -66,7 +66,7 @@ Q 108 18 108 18
 L 144 18 
 L 144 0 
 z
-" clip-path="url(#p6e9f1cc674)" style="fill: #0000ff"/>
+" clip-path="url(#p6e9f1cc674)" style="fill: #776ff3"/>
    </g>
    <g id="patch_7">
     <path d="M 126 18 
@@ -74,7 +74,7 @@ Q 126 54 126 54
 L 144 54 
 L 144 18 
 z
-" clip-path="url(#p6e9f1cc674)" style="fill: #0000ff"/>
+" clip-path="url(#p6e9f1cc674)" style="fill: #776ff3"/>
    </g>
    <g id="patch_8">
     <path d="M 36 0 
@@ -101,7 +101,7 @@ z
    </g>
    <g id="text_1">
     <!-- x -->
-    <g style="fill: #ffffff" transform="translate(40.5 12.098438) scale(0.1 -0.1)">
+    <g transform="translate(40.5 12.098438) scale(0.1 -0.1)">
      <defs>
       <path id="DejaVuSans-78" d="M 3513 3500 
 L 2247 1797 
@@ -124,7 +124,7 @@ z
    </g>
    <g id="text_2">
     <!-- y -->
-    <g style="fill: #ffffff" transform="translate(112.5 12.098438) scale(0.1 -0.1)">
+    <g transform="translate(112.5 12.098438) scale(0.1 -0.1)">
      <defs>
       <path id="DejaVuSans-79" d="M 2059 -325 
 Q 1816 -950 1584 -1140 
@@ -149,7 +149,7 @@ z
    </g>
    <g id="text_3">
     <!-- z -->
-    <g style="fill: #ffffff" transform="translate(76.5 66.098438) scale(0.1 -0.1)">
+    <g transform="translate(76.5 66.098438) scale(0.1 -0.1)">
      <defs>
       <path id="DejaVuSans-7a" d="M 353 3500 
 L 3084 3500 
