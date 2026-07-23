@@ -1,0 +1,147 @@
+from pytest import raises
+
+from discopy import cat, grammar
+from discopy.grammar import categorial
+from discopy.grammar.abstract import *
+from discopy.utils import AxiomError
+
+
+def test_Diagram():
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
+    assert Diagram.id(x) == Id(x)
+    assert Diagram.ev(y, x, left=False) == Eval(x >> y)
+    assert Diagram.swap(x, y) == Swap(x, y)
+    assert Diagram.copy(x) == Copy(x)
+    assert Diagram.discard(x) == Copy(x, 0)
+    assert Box('f', x @ y, y).curry() == Curry(Box('f', x @ y, y))
+
+    assert Diagram.fa(x, y) == Eval(x ** y, left=True)
+    assert Diagram.ba(x, y) == Eval(x >> y, left=False)
+    fc, bc = Diagram.fc(x, y, z), Diagram.bc(x, y, z)
+    assert fc.dom == (x ** y) @ (y ** z) and fc.cod == x ** z
+    assert bc.dom == (x >> y) @ (y >> z) and bc.cod == x >> z
+    assert Diagram.fx(x, y, z) == fc and Diagram.bx(x, y, z) == bc
+
+
+def test_Lexicon_on_diagrams():
+    x_, y_, z_ = map(categorial.Ty, "xyz")
+    w1, w2 = categorial.Word("w1", y_ << x_), categorial.Word("w2", z_ >> x_)
+    diagram = w1 @ w2 >> categorial.Diagram.fx(y_, x_, z_)
+    lexicon = Lexicon(
+        ob_map=lambda ob: Ty(ob.inside[0].name),
+        ar_map=lambda box: Box(box.name, Ty.from_categorial(box.dom),
+                           Ty.from_categorial(box.cod)))
+    assert lexicon(diagram).cod == Ty("z") >> Ty("y")
+
+
+def test_Term():
+    x, y = Ty('x'), Ty('y')
+    f, a = (x >> y)("f"), x("a")
+    assert isinstance(f, Constant)
+    assert Word("a", x).cod == x and isinstance(Word("a", x), Constant)
+    assert f(a).cod == y
+    var = Variable("v", x)
+    assert Abstraction(var, f(var)).cod == x >> y
+    assert eval(str(f(a)), dict(locals())) == f(a)
+    assert eval(repr(f(a)), {"grammar": grammar, "cat": cat}) == f(a)
+    assert isinstance(f(a).eval(), Diagram)
+
+
+def test_from_categorial():
+    X, Y, Z = Ty("X"), Ty("Y"), Ty("Z")
+    f, g, x = (X >> Y)("f"), (X >> Y)("g"), X("x")
+    X_, Y_, Z_ = map(categorial.Ty, "XYZ")
+    f_, g_, x_ = (Y_ << X_)("f"), (X_ >> Y_)("g"), X_("x")
+
+    assert f_(x_).to_abstract() == f(x)
+    assert x_(g_, left=True).to_abstract() == g(x)
+
+    assert categorial.FX(f_, (Z_ >> X_)("g")).to_abstract()\
+        == Z(lambda x: f((Z >> X)("g")(x)))
+    assert categorial.BX(f_, (Y_ >> Z_)("g")).to_abstract()\
+        == X(lambda x: (Y >> Z)("g")(f(x)))
+    assert categorial.FC((Z_ << Y_)("h"), f_).to_abstract()\
+        == X(lambda x: (Y >> Z)("h")(f(x)))
+    assert categorial.FTR(Y_, x_).to_abstract()\
+        == (X >> Y)(lambda f: f(x))
+
+
+def test_crossed_composition_requires_symmetry():
+    x, y, z = map(categorial.Ty, "xyz")
+    fx = categorial.FX((y << x)("f"), (z >> x)("g"))
+    bx = categorial.BX((y << x)("f"), (y >> z)("g"))
+    F = categorial.Functor(
+        ob_map=lambda ob: categorial.Ty(ob.inside[0].name),
+        ar_map=lambda c: categorial.Constant(c.name, c.cod),
+        cod=categorial.Diagram)
+    with raises(AxiomError):
+        F(fx)
+    with raises(AxiomError):
+        F(bx)
+
+
+def test_Lexicon_Montague_semantics():
+    # Syntax: two sentences with the same grammatical structure.
+    n, np, s = map(categorial.Ty, ("n", "np", "s"))
+    every, a = (np << n)("every"), (np << n)("a")
+    woman, man, child, song = (n(w) for w in ("woman", "man", "child", "song"))
+    married, learnt = (((np >> s) << np)(v) for v in ("married", "learnt"))
+
+    def sentence(det1, noun1, verb, det2, noun2):
+        return det1(noun1)(verb(det2(noun2)), left=True)
+
+    every_woman_married_a_man = sentence(every, woman, married, a, man)
+    every_child_learnt_a_song = sentence(every, child, learnt, a, song)
+    assert every_woman_married_a_man.cod == every_child_learnt_a_song.cod == s
+
+    # Semantics: logical formulas as lambda terms with higher-order
+    # constants for the quantifiers and connectives.
+    e, t = Ty("e"), Ty("t")
+    ET, NP = e >> t, (e >> t) >> t
+    forall, exists = (ET >> t)("forall"), (ET >> t)("exists")
+    implies, and_ = (t >> (t >> t))("implies"), (t >> (t >> t))("and")
+    WOMAN, MAN, CHILD, SONG = (
+        ET(w) for w in ("WOMAN", "MAN", "CHILD", "SONG"))
+    MARRIED, LEARNT = ((e >> (e >> t))(v) for v in ("MARRIED", "LEARNT"))
+
+    EVERY = ET(lambda p: ET(lambda q: forall(
+        e(lambda x: implies(p(x))(q(x))))))
+    A = ET(lambda p: ET(lambda q: exists(
+        e(lambda y: and_(p(y))(q(y))))))
+
+    # "married" is interpreted de dicto, "learnt" de re: the object
+    # quantifier scopes below or above the subject quantifier.
+    married_sem = NP(lambda o: NP(lambda su: su(
+        e(lambda z: o(e(lambda w: MARRIED(w)(z)))))))
+    learnt_sem = NP(lambda o: NP(lambda su: o(
+        e(lambda w: su(e(lambda z: LEARNT(w)(z)))))))
+
+    lexicon = Lexicon(
+        ob_map={n: ET, np: NP, s: t},
+        ar_map={every: EVERY, a: A,
+            woman: WOMAN, man: MAN, child: CHILD, song: SONG,
+            married: married_sem, learnt: learnt_sem})
+
+    # For every woman there exists a man that she married.
+    de_dicto = forall(e(lambda x: implies(WOMAN(x))(
+        exists(e(lambda y: and_(MAN(y))(MARRIED(y)(x)))))))
+    # There exists a song that every child learnt.
+    de_re = exists(e(lambda y: and_(SONG(y))(
+        forall(e(lambda x: implies(CHILD(x))(LEARNT(y)(x)))))))
+
+    assert lexicon(every_woman_married_a_man).normal_form() == de_dicto
+    assert lexicon(every_child_learnt_a_song).normal_form() == de_re
+
+
+def test_python_Functor_on_terms():
+    from discopy.python import Function
+    n, s = categorial.Ty("n"), categorial.Ty("s")
+    Alice, sleeps = n("Alice"), (n >> s)("sleeps")
+    F = categorial.Functor(
+        ob_map={n: str, s: bool},
+        ar_map={Alice: Function(lambda: "Alice", dom=(), cod=(str, )),
+            sleeps: Function(
+                lambda x: x == "Alice",
+                dom=(str, ), cod=(bool, )).curry(left=True)},
+        cod=Function)
+    assert F(Alice(sleeps, left=True))()

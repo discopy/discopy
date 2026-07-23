@@ -33,6 +33,7 @@ DisCoPy documentation
     notebooks/21-05-03-tallcat
     notebooks/21-05-05-tallcat
     notebooks/higher-order-discocat
+    notebooks/datalog-arithmetic
 
 
 .. toctree::

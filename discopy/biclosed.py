@@ -12,6 +12,7 @@ Summary
     :toctree:
 
     Ob
+    InternalLanguage
     Ty
     Exp
     Over
@@ -64,9 +65,9 @@ from abc import abstractmethod
 from copy import copy
 from inspect import signature
 from itertools import count
-from typing import Callable, ClassVar, Self
+from typing import Callable, ClassVar, Self, get_origin
 
-from discopy import monoidal
+from discopy import cat, monoidal
 from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
 from discopy.cat import factory
@@ -117,8 +118,51 @@ def varname(obj: cat.Ob) -> str | None:
     return getattr(obj, "varname", None)
 
 
+class InternalLanguage:
+    """
+    The internal language of a biclosed category, i.e. the interface for types
+    that can construct variables, constants, applications and abstractions.
+
+    Attributes:
+        variable_factory : The class used to construct variables.
+        constant_factory : The class used to construct constants.
+        application_factory : The class used to construct applications.
+        abstraction_factory : The class used to construct abstractions.
+
+    Note
+    ----
+    Applying a type to a callable yields an :class:`Abstraction`,
+    applying it to a string yields a :class:`Constant`.
+
+    A :class:`Functor` with types in the internal language as codomain objects
+    sends terms to terms rather than evaluating them to morphisms.
+    """
+    variable_factory: ClassVar[type]
+    constant_factory: ClassVar[type]
+    application_factory: ClassVar[type]
+    abstraction_factory: ClassVar[type]
+
+    def __call__(self, arg):
+        if isinstance(arg, str):
+            return self.constant_factory(arg, self)
+        elif isinstance(arg, Callable):
+            parameters = dict(signature(arg).parameters)
+            left = False
+            if "left" in parameters:
+                left_param = parameters.pop("left")
+                left = left_param.default
+                if not isinstance(left, bool):
+                    raise NotImplementedError
+            varnames = list(parameters.keys())
+            if len(varnames) != 1:
+                raise NotImplementedError
+            var = self.variable_factory(varnames[0], self)
+            return self.abstraction_factory(var, arg(var), left)
+        raise ValueError
+
+
 @factory
-class Ty(monoidal.Ty):
+class Ty(InternalLanguage, monoidal.Ty):
     """
     A biclosed type is a monoidal type that can be exponentiated.
 
@@ -149,24 +193,6 @@ class Ty(monoidal.Ty):
 
     def __rshift__(self, other):
         return other.under(self)
-
-    def __call__(self, arg):
-        if isinstance(arg, str):
-            return self.constant_factory(arg, self)
-        elif isinstance(arg, Callable):
-            parameters = dict(signature(arg).parameters)
-            left = False
-            if "left" in parameters:
-                left_param = parameters.pop("left")
-                left = left_param.default
-                if not isinstance(left, bool):
-                    raise NotImplementedError
-            varnames = list(parameters.keys())
-            if len(varnames) != 1:
-                raise NotImplementedError
-            var = self.variable_factory(varnames[0], self)
-            return self.abstraction_factory(var, arg(var), left)
-        raise ValueError
 
     def __repr__(self):
         return factory_name(type(self))\
@@ -440,11 +466,16 @@ class Curry(monoidal.Bubble, Box):
     """
     The currying of a biclosed diagram.
 
+    The ``ob`` attribute is redeclared because :class:`monoidal.Bubble`
+    shadows the one of :class:`Box` in the method resolution order.
+
     Parameters:
         arg : The diagram to curry.
         n : The number of atomic types to curry.
         left : Whether to curry on the left or right.
     """
+    ob = Ty
+
     def __init__(self, arg: Diagram, n=1, left=False):
         self.n, self.left = n, left
         name = f"Curry({arg}, {n}, {left})"
@@ -493,11 +524,25 @@ class Functor(monoidal.Functor):
             Map from atomic :class:`Ty` to :code:`cod.ob`.
         ar_map (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
+
+    Note
+    ----
+    When the codomain objects are types in an :class:`InternalLanguage`, the
+    functor sends terms to terms rather than evaluating them to morphisms:
+
+    >>> X, Y = Ty("X"), Ty("Y")
+    >>> f, x = (Y << X)("f"), X("x")
+    >>> F = Functor(ob_map={X: Ty("A"), Y: Ty("B")},
+    ...             ar_map={f: (Ty("B") << Ty("A"))("g"), x: Ty("A")("a")})
+    >>> assert F(f(x)) == F(f)(F(x))
     """
     dom = cod = Diagram
 
     def __call__(self, other):
         if isinstance(other, TermBase):
+            if issubclass(
+                    get_origin(self.cod.ob) or self.cod.ob, InternalLanguage):
+                return other.map(self)
             return other.eval(self)
         for cls, attr in [(Over, "over"), (Under, "under"), (Exp, "exp")]:
             if isinstance(other, cls):
@@ -650,6 +695,14 @@ class TermBase(Box):
         category, i.e. terms are compiled to diagrams with constants as boxes.
         """
 
+    @abstractmethod
+    def map(functor: Functor) -> Term:
+        """
+        The image of a term under a :class:`Functor` whose codomain objects
+        are types in an :class:`InternalLanguage`, i.e. a term in the
+        codomain's internal language rather than a morphism.
+        """
+
     def draw(self, **kwargs):
         "Drawing a term by evaluating it in the free biclosed category."
         return self.eval().draw(**kwargs)
@@ -681,6 +734,9 @@ class Constant(TermBase):
         functor = functor or self.functor
         return functor.ar_map[self]
 
+    def map(self, functor):
+        return functor.ar_map[self]
+
     def __repr__(self):
         return factory_name(type(self)) + f"({self.name!r}, {self.cod!r})"
 
@@ -706,6 +762,9 @@ class Variable(TermBase):
         if isinstance(typ, monoidal.Ty):
             typ = annotate(typ, self.name)
         return functor.cod.id(typ)
+
+    def map(self, functor):
+        return functor.cod.ob.variable_factory(self.name, functor(self.cod))
 
     @property
     def constants(self):
@@ -756,6 +815,12 @@ class Application(TermBase):
             functor(base), functor(exponent), left=not self.left)
         return args @ func >> ev if self.left else func @ args >> ev
 
+    def map(self, functor):
+        ob = functor.cod.ob
+        left = self.left and ob.over_factory is not ob.under_factory
+        return ob.application_factory(
+            functor(self.func), functor(self.args), left)
+
     def __repr__(self):
         func, args = repr(self.func), repr(self.args)
         left = ", left=True" if self.left else ""
@@ -793,7 +858,16 @@ class Abstraction(TermBase):
         return self.body.dom[1:] if self.left else self.body.dom[:-1]
 
     def eval(self, functor=None):
-        return (functor or self.functor)(self.body.curry(left=not self.left))
+        functor = functor or self.functor
+        return functor.cod.curry(
+            self.body.eval(functor), len(functor(self.var.cod)),
+            not self.left)
+
+    def map(self, functor):
+        ob = functor.cod.ob
+        left = self.left and ob.over_factory is not ob.under_factory
+        return ob.abstraction_factory(
+            functor(self.var), functor(self.body), left)
 
     def __repr__(self):
         var, body = repr(self.var), repr(self.body)

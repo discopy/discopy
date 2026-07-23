@@ -12,3 +12,5 @@ grammar
     discopy.grammar.categorial
     discopy.grammar.pregroup
     discopy.grammar.dependency
+    discopy.grammar.abstract
+    discopy.grammar.datalog

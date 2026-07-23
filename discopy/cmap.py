@@ -1170,7 +1170,7 @@ class CMap[C0: Pregroup, C1: CMap](
 
         return type(self)(
             new_dom, self.cod, boxes, edges, offsets=offsets,
-            scalars=self.scalars)
+            loops=self.loops)
 
     def plug_input(
             self, input_index: int, box: Box,
@@ -1311,6 +1311,7 @@ class CMap[C0: Pregroup, C1: CMap](
         :func:``Hypergraph.from_map`` for an example.
         """
         return hypergraph.Hypergraph[self.category].from_map(self)
+
     def to_term(self):
         """
         Extract the linear lambda term encoded by a rooted trivalent map,
@@ -1345,7 +1346,7 @@ class CMap[C0: Pregroup, C1: CMap](
         # Imported here to avoid a circular dependency with biclosed.
         from discopy import biclosed, closed
 
-        if len(self.cod) != 1 or self.scalars:
+        if len(self.cod) != 1 or self.loops:
             raise ValueError(
                 "Expected a rooted map with a single output port and no "
                 f"scalars, got {self}.")

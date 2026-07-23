@@ -25,6 +25,10 @@ Summary
     Eval
     Coeval
     Curry
+    Swap
+    Trace
+    Copy
+    Discard
     Sum
     Functor
     CMap
@@ -76,6 +80,32 @@ class Ty(biclosed.Ty):
     .. image:: /_static/closed/diagram.svg
         :align: center
     """
+    @classmethod
+    def from_biclosed(cls, old: biclosed.Ty) -> Ty:
+        """
+        Translate a biclosed type into a closed type, collapsing left and
+        right exponentials into a single exponential.
+
+        Parameters:
+            old : The biclosed type to translate.
+
+        Example
+        -------
+        >>> x, y = biclosed.Ty("x"), biclosed.Ty("y")
+        >>> assert Ty.from_biclosed(x << y) == Ty.from_biclosed(y >> x)
+        """
+        return cls().tensor(*[
+            cls.from_biclosed(ob.base) ** cls.from_biclosed(ob.exponent)
+            if isinstance(ob, biclosed.Exp) else cls(ob.name)
+            for ob in old.inside])
+
+    def __eq__(self, other):
+        if isinstance(self, Unitype) != isinstance(other, Unitype):
+            return isinstance(other, Ty) and self.inside == other.inside\
+                and (self.dom, self.cod) == (other.dom, other.cod)
+        return super().__eq__(other)
+
+    __hash__ = biclosed.Ty.__hash__
 
 
 class Exp(biclosed.Exp):
@@ -113,6 +143,9 @@ class Unitype(Ty):
 
     is_exp = property(lambda self: True)
     base = exponent = property(lambda self: self)
+
+    def __hash__(self):
+        return hash(self.factory(*self.inside))
 
     def exp(self, other: Ty) -> Ty:
         return self if other == self else super().exp(other)
@@ -157,6 +190,7 @@ class Coeval(biclosed.Coeval, Box):
 
 class Curry(biclosed.Curry, Box):
     "The currying of a closed diagram."
+    ob = Ty
 
 
 class Swap(markov.Swap, Box):
@@ -203,7 +237,8 @@ class Functor(biclosed.Functor, markov.Functor):
 
     def __call__(self, other):
         if isinstance(other, (
-                cat.Ob, biclosed.Eval, biclosed.Coeval, biclosed.Curry)):
+                cat.Ob, biclosed.Eval, biclosed.Coeval, biclosed.Curry,
+                biclosed.TermBase)):
             return biclosed.Functor.__call__(self, other)
         return super().__call__(other)
 
@@ -235,8 +270,54 @@ class TermBase(Box, biclosed.TermBase):
     """
     functor = Functor.id(Diagram)
 
-    def __call__(self, other):
-        return Application(self, other, left=False)
+    @classmethod
+    def from_biclosed(cls, term: biclosed.Term) -> Term:
+        """
+        Translate a biclosed term into a closed term, dropping planarity by
+        collapsing left and right exponentials and applications.
+
+        Parameters:
+            term : The biclosed term to translate.
+
+        Note
+        ----
+        This method is inherited by :class:`Constant`, :class:`Variable`,
+        :class:`Application` and :class:`Abstraction`, i.e. every closed
+        :class:`Term`.
+
+        Example
+        -------
+        >>> X, Y = biclosed.Ty("X"), biclosed.Ty("Y")
+        >>> g, x = (Y << X)("g"), X("x")
+        >>> print(TermBase.from_biclosed(g(x)))
+        (X >> Y)('g')(X('x'))
+        """
+        functor = biclosed.Functor(
+            ob_map=lambda x: cls.ob(x.inside[0].name),
+            ar_map=lambda c: cls.ob.constant_factory(c.name, functor(c.cod)),
+            dom=biclosed.Diagram, cod=cls.functor.cod)
+        return functor(term)
+
+    def normal_form(self) -> Term:
+        """
+        The beta-normal form of a term, obtained by normal-order reduction.
+
+        Example
+        -------
+        >>> X, Y = Ty("X"), Ty("Y")
+        >>> f, x = (X >> Y)("f"), X("x")
+        >>> assert X(lambda y: f(y))(x).normal_form() == f(x)
+        """
+        term = self
+        if isinstance(term, Application):
+            func = term.func.normal_form()
+            if isinstance(func, Abstraction):
+                return Substitution(
+                    {func.var: term.args})(func.body).normal_form()
+            return type(term)(func, term.args.normal_form(), term.left)
+        if isinstance(term, Abstraction):
+            return type(term)(term.var, term.body.normal_form(), term.left)
+        return term
 
     def to_map(self) -> symmetric.CMap:
         """
@@ -598,6 +679,7 @@ Ty.variable_factory = Variable
 Ty.constant_factory = Constant
 Ty.application_factory = Application
 Ty.abstraction_factory = Abstraction
+biclosed.TermBase.to_closed = lambda self: TermBase.from_biclosed(self)
 
 
 class Equation(markov.Equation):

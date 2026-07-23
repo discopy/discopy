@@ -113,6 +113,7 @@ class Dim(monoidal.Dim, Ty):
     """
     unit = 0
     l = r = property(lambda self: self.factory(*self.inside[::-1]))
+    z = property(lambda self: 0)
 
 
 @factory
@@ -254,6 +255,7 @@ class CMap(compact.CMap):
     >>> fm.port_widths
     (2, 2, 2, 3, 3, 2)
     """
+    category = Diagram
     functor = Functor
 
     def box_ports(self, index: int) -> tuple[int, ...]:
