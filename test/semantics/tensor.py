@@ -269,7 +269,7 @@ def test_non_numpy_eval():
     assert np.allclose(np.asarray(result.array), reference.array)
 
 
-def test_eval_over_52_indices():  # issue #447
+def test_eval_over_52_indices():
     f = Box('f', Dim(2), Dim(2), [1, 0, 0, 1])
     diagram = f
     for _ in range(60):

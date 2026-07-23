@@ -6,8 +6,6 @@ from discopy.utils import text_width
 
 DEFAULT_BACKEND = 'numpy'
 NUMPY_THRESHOLD = 16
-# Beyond this number of indices, backend einsum fails and
-# tensor.Functor.contract falls back to the optional opt_einsum.
 MAX_EINSUM_INDICES = 52
 IGNORE_WARNINGS = [
     "No GPU/TPU found, falling back to CPU.",
