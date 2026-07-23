@@ -512,7 +512,6 @@ class Backend(ABC):
         middle = positions[dom][0], (positions[dom][1] + positions[cod][1]) / 2
         controlled_box = box.controlled.to_drawing().box
         controlled = Node("box", box=controlled_box, j=j)
-        # TODO select x properly for classical gates
         c_dom = Node("box_dom", x=box.dom[0], i=index[1], j=j)
         c_cod = Node("box_cod", x=box.cod[0], i=index[1], j=j)
         c_middle = Point(
@@ -583,7 +582,6 @@ class Backend(ABC):
             node2 = Node("box_cod", x=box.cod[i], i=i, j=j)
             self.draw_wire(positions[node1], positions[node2])
 
-        # TODO change bend_in and bend_out for tikz backend
         self.draw_wire(middle, target_boundary, bend_in=True, bend_out=True)
 
         self.draw_node(
@@ -920,10 +918,10 @@ class Matplotlib(Backend):
 
     def draw_spiders(self, graph, draw_box_labels=True, **params):
         import networkx as nx
-        nodes = {node for node in graph.nodes
-                 if node.kind == "box" and node.box.draw_as_spider}
+        nodes = [node for node in graph.nodes
+                 if node.kind == "box" and node.box.draw_as_spider]
         shapes = {node: node.box.shape for node in nodes}
-        for shape in set(shapes.values()):
+        for shape in dict.fromkeys(shapes.values()):
             colors = {n: n.box.color for n, s in shapes.items() if s == shape}
             nodes, colors = zip(*colors.items())
             nx.draw_networkx_nodes(
@@ -949,11 +947,19 @@ class Matplotlib(Backend):
         if ylim is not None:
             self.axis.set_ylim(*ylim)
         if path is not None:
-            # Drop metadata to make images reproducible across environments.
-            # Only PNGs: they embed the Matplotlib version by default, and the
-            # SVG writer would raise on an unknown "Software" metadata key.
-            is_png = str(path).endswith(".png")
-            plt.savefig(path, metadata={"Software": None} if is_png else None)
+            # Drop volatile metadata and fix the salt used for SVG element ids
+            # so that images are reproducible across environments: PNGs embed
+            # the Matplotlib version as "Software", SVGs embed the current date
+            # and randomise the ids of their clip paths.
+            path_str = str(path)
+            if path_str.endswith(".svg"):
+                metadata, context = {"Date": None}, {"svg.hashsalt": "discopy"}
+            elif path_str.endswith(".png"):
+                metadata, context = {"Software": None}, {}
+            else:
+                metadata, context = None, {}
+            with plt.rc_context(context):
+                plt.savefig(path, metadata=metadata)
             plt.close()
         if show:
             plt.show()

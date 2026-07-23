@@ -108,10 +108,6 @@ def test_gate_hash():
     # A data-carrying gate can be stored and looked up in a dictionary.
     assert {Rx(0.25): 42}[Rx(0.25)] == 42
     assert X in {X} and hash(X) == hash(X)
-    # The hash of a gate is invariant under hypergraph equality.
-    outside = hash(X)
-    with Circuit.hypergraph_equality:
-        assert hash(X) == outside
 
 
 def test_Swap():

@@ -285,10 +285,12 @@ def is_tuple(typ: type) -> bool:
 def assert_isinstance(object_, cls: type | tuple[type, ...]):
     """ Raise ``TypeError`` if ``object`` is not instance of ``cls``. """
     classes = cls if isinstance(cls, tuple) else (cls, )
-    if not any(isinstance(object_, get_origin(cls)) for cls in classes):
-        cls_name = ' | '.join(map(factory_name, classes))
-        raise TypeError(messages.TYPE_ERROR.format(
-            cls_name, factory_name(type(object_))))
+    for cls in classes:
+        if isinstance(object_, get_origin(cls)):
+            return
+    cls_name = ' | '.join(map(factory_name, classes))
+    raise TypeError(messages.TYPE_ERROR.format(
+        cls_name, factory_name(type(object_))))
 
 
 def unbiased(binary_method):
@@ -543,6 +545,7 @@ class Node:
         self.kind, self.data = kind, data
         for key, value in data.items():
             setattr(self, key, value)
+        self.__hash = None
 
     def __eq__(self, other):
         return isinstance(other, Node)\
@@ -553,7 +556,9 @@ class Node:
             f"{key}={value}" for key, value in sorted(self.data.items()))})"""
 
     def __hash__(self):
-        return hash(repr(self))
+        if self.__hash is None:
+            self.__hash = hash(repr(self))
+        return self.__hash
 
     def shift_i(self, i):
         return Node(self.kind, **dict(self.data, i=self.i + i))

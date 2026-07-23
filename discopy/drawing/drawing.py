@@ -14,7 +14,6 @@ Summary
     Point
     PlaneGraph
     Drawing
-    Equation
 
 Axioms
 ------
@@ -22,6 +21,7 @@ Axioms
 * Associativity and unit
 
 >>> from discopy.monoidal import Ty, Box
+>>> from discopy.monoidal import Equation
 
 >>> x, y, z, w = map(Ty, "xyzw")
 >>> f = Box('f', x, y).to_drawing()
@@ -40,15 +40,15 @@ Axioms
 >>> g0, g1 = (Box(f'g{i}', f'y{i}', f'z{i}').to_drawing() for i in (0, 1))
 
 >>> Equation(f0 @ f1 >> g0 @ g1, (f0 >> g0) @ (f1 >> g1)).draw(
-...     path="docs/_static/drawing/interchanger-1.png")
+...     path="docs/_static/drawing/interchanger-1.svg")
 
-.. image:: /_static/drawing/interchanger-1.png
+.. image:: /_static/drawing/interchanger-1.svg
     :align: center
 
 >>> Equation(f @ g.dom >> f.cod @ g, f @ g, f.dom @ g >> f @ g.cod).draw(
-...     path="docs/_static/drawing/interchanger-2.png")
+...     path="docs/_static/drawing/interchanger-2.svg")
 
-.. image:: /_static/drawing/interchanger-2.png
+.. image:: /_static/drawing/interchanger-2.svg
     :align: center
 """
 
@@ -278,9 +278,9 @@ class Drawing(TracedCategory):
         >>> x, y, z = map(Ty, "xyz")
         >>> f = Drawing.from_box(Box('f', x @ y, z))
         >>> f.make_space(2, 0.5, 0.75, 1.0, copy=True).draw(
-        ...     aspect='equal', path="docs/_static/drawing/make-space.png")
+        ...     aspect='equal', path="docs/_static/drawing/make-space.svg")
 
-        .. image:: /_static/drawing/make-space.png
+        .. image:: /_static/drawing/make-space.svg
             :align: center
         """
         y_min = 0 if y_min is None else y_min
@@ -403,9 +403,9 @@ class Drawing(TracedCategory):
         Node('box_cod', i=1, j=0, x=z) Point(x=1.5, y=0.25)
         Node('cod', i=0, x=y) Point(x=0.5, y=0)
         Node('cod', i=1, x=z) Point(x=1.5, y=0)
-        >>> f.draw(path="docs/_static/drawing/box.png")
+        >>> f.draw(path="docs/_static/drawing/box.svg")
 
-        .. image:: /_static/drawing/box.png
+        .. image:: /_static/drawing/box.svg
             :align: center
         """
         from discopy.monoidal import Box
@@ -500,19 +500,19 @@ class Drawing(TracedCategory):
         Draw the identity diagram.
 
         >>> from discopy.monoidal import Ty
-        >>> Drawing.id(Ty()).draw(path="docs/_static/drawing/empty.png")
+        >>> Drawing.id(Ty()).draw(path="docs/_static/drawing/empty.svg")
 
-        .. image:: /_static/drawing/empty.png
+        .. image:: /_static/drawing/empty.svg
             :align: center
 
-        >>> Drawing.id(Ty('x')).draw(path="docs/_static/drawing/idx.png")
+        >>> Drawing.id(Ty('x')).draw(path="docs/_static/drawing/idx.svg")
 
-        .. image:: /_static/drawing/idx.png
+        .. image:: /_static/drawing/idx.svg
             :align: center
 
-        >>> Drawing.id(Ty('x', 'y')).draw(path="docs/_static/drawing/idxy.png")
+        >>> Drawing.id(Ty('x', 'y')).draw(path="docs/_static/drawing/idxy.svg")
 
-        .. image:: /_static/drawing/idxy.png
+        .. image:: /_static/drawing/idxy.svg
             :align: center
         """
         from discopy.monoidal import Ty
@@ -625,9 +625,9 @@ class Drawing(TracedCategory):
         -------
         >>> from discopy.monoidal import Box
         >>> f = Drawing.from_box(Box('f', 'x', 'x'))
-        >>> f.stretch(2).draw(path="docs/_static/drawing/stretch.png")
+        >>> f.stretch(2).draw(path="docs/_static/drawing/stretch.svg")
 
-        .. image:: /_static/drawing/stretch.png
+        .. image:: /_static/drawing/stretch.svg
             :align: center
         """
         if not y:
@@ -650,9 +650,9 @@ class Drawing(TracedCategory):
         >>> from discopy.monoidal import Box
         >>> f = Drawing.from_box(Box('f', 'x', 'x'))
         >>> d = (f >> f >> f) @ (f >> f)
-        >>> d.draw(path="docs/_static/drawing/tensor.png")
+        >>> d.draw(path="docs/_static/drawing/tensor.svg")
 
-        .. image:: /_static/drawing/tensor.png
+        .. image:: /_static/drawing/tensor.svg
             :align: center
         """
         if self.is_empty:
@@ -732,9 +732,9 @@ class Drawing(TracedCategory):
         >>> from discopy.monoidal import Ty
         >>> x, y, z = map(Ty, "xyz")
         >>> Drawing.bubble_opening(x, y, z, Ty("")).draw(
-        ...     path="docs/_static/drawing/bubble-opening.png")
+        ...     path="docs/_static/drawing/bubble-opening.svg")
 
-        .. image:: /_static/drawing/bubble-opening.png
+        .. image:: /_static/drawing/bubble-opening.svg
             :align: center
         """
         from discopy.monoidal import Box
@@ -751,9 +751,9 @@ class Drawing(TracedCategory):
         >>> from discopy.monoidal import Ty
         >>> x, y, z = map(Ty, "xyz")
         >>> Drawing.bubble_closing(x, y, z, Ty("")).draw(
-        ...     path="docs/_static/drawing/bubble-closing.png")
+        ...     path="docs/_static/drawing/bubble-closing.svg")
 
-        .. image:: /_static/drawing/bubble-closing.png
+        .. image:: /_static/drawing/bubble-closing.svg
             :align: center
         """
         from discopy.monoidal import Box
@@ -771,9 +771,9 @@ class Drawing(TracedCategory):
         >>> from discopy.monoidal import Ty
         >>> x, y, z = map(Ty, "xyz")
         >>> Drawing.frame_opening(x, y, z, Ty("")).draw(
-        ...     path="docs/_static/drawing/frame-opening.png")
+        ...     path="docs/_static/drawing/frame-opening.svg")
 
-        .. image:: /_static/drawing/frame-opening.png
+        .. image:: /_static/drawing/frame-opening.svg
             :align: center
         """
         result = Drawing.bubble_opening(
@@ -798,9 +798,9 @@ class Drawing(TracedCategory):
         >>> from discopy.monoidal import Ty
         >>> x, y, z = map(Ty, "xyz")
         >>> Drawing.frame_closing(x, y, z, Ty("")).draw(
-        ...     path="docs/_static/drawing/frame-closing.png")
+        ...     path="docs/_static/drawing/frame-closing.svg")
 
-        .. image:: /_static/drawing/frame-closing.png
+        .. image:: /_static/drawing/frame-closing.svg
             :align: center
         """
         result = Drawing.bubble_closing(
@@ -831,9 +831,9 @@ class Drawing(TracedCategory):
         >>> a, b, c, d = map(Ty, "abcd")
         >>> f = Box('f', a @ b, c @ d).to_drawing()
         >>> f.bubble(d @ c @ c, b @ a @ a, name="g").draw(
-        ...     path="docs/_static/drawing/bubble-drawing.png")
+        ...     path="docs/_static/drawing/bubble-drawing.svg")
 
-        .. image:: /_static/drawing/bubble-drawing.png
+        .. image:: /_static/drawing/bubble-drawing.svg
             :align: center
         """
         dom = self.dom if dom is None else dom
@@ -914,21 +914,21 @@ class Drawing(TracedCategory):
         >>> x, y = Ty('x'), Ty('y')
         >>> f, g, h = Box('f', x, y ** 3), Box('g', y, y @ y), Box('h', x, y)
         >>> f.bubble(dom=x @ x, cod=y @ y, name="b", draw_as_frame=True
-        ...     ).draw(path="docs/_static/drawing/single-frame.png")
+        ...     ).draw(path="docs/_static/drawing/single-frame.svg")
 
-        .. image:: /_static/drawing/single-frame.png
+        .. image:: /_static/drawing/single-frame.svg
             :align: center
 
         >>> Bubble(f, g, h >> h[::-1], dom=x, cod=y @ y
-        ...     ).draw(path="docs/_static/drawing/horizontal-frame.png")
+        ...     ).draw(path="docs/_static/drawing/horizontal-frame.svg")
 
-        .. image:: /_static/drawing/horizontal-frame.png
+        .. image:: /_static/drawing/horizontal-frame.svg
             :align: center
 
         >>> Bubble(f, g, h, dom=x, cod=y @ y, draw_vertically=True
-        ...     ).draw(path="docs/_static/drawing/vertical-frame.png")
+        ...     ).draw(path="docs/_static/drawing/vertical-frame.svg")
 
-        .. image:: /_static/drawing/vertical-frame.png
+        .. image:: /_static/drawing/vertical-frame.svg
             :align: center
         """
         from discopy.monoidal import Colour
@@ -983,59 +983,3 @@ class Drawing(TracedCategory):
 
     def to_drawing(self):
         return self
-
-
-class Equation:
-    """
-    An equation is a list of diagrams with a dedicated draw method.
-
-    Parameters:
-        terms : The terms of the equation.
-        symbol : The symbol between the terms.
-        space : The space between the terms.
-
-    Example
-    -------
-    >>> from discopy.tensor import Spider, Swap, Dim, Id
-    >>> dim = Dim(2)
-    >>> mu, eta = Spider(2, 1, dim), Spider(0, 1, dim)
-    >>> delta, upsilon = Spider(1, 2, dim), Spider(1, 0, dim)
-    >>> special = Equation(mu >> delta, Id(dim))
-    >>> frobenius = Equation(
-    ...     delta @ Id(dim) >> Id(dim) @ mu,
-    ...     mu >> delta,
-    ...     Id(dim) @ delta >> mu @ Id(dim))
-    >>> Equation(special, frobenius, symbol=', ').draw(
-    ...          aspect='equal', wire_labels=False,
-    ...          path='docs/_static/drawing/frobenius-axioms.png')
-
-    .. image:: /_static/drawing/frobenius-axioms.png
-        :align: center
-    """
-    def __init__(self, *terms: "monoidal.Diagram", symbol="=", space=1):
-        self.terms, self.symbol, self.space = terms, symbol, space
-
-    def __repr__(self):
-        return f"Equation({', '.join(map(repr, self.terms))})"
-
-    def __str__(self):
-        return f" {self.symbol} ".join(map(str, self.terms))
-
-    def to_drawing(self):
-        result = self.terms[0].to_drawing()
-        for term in self.terms[1:]:
-            result = result.add(term.to_drawing(), self.symbol, self.space)
-        return result
-
-    def draw(self, path=None, **params):
-        """
-        Drawing an equation.
-
-        Parameters:
-            path : Where to save the drawing.
-            params : Passed to :meth:`discopy.monoidal.Diagram.draw`.
-        """
-        return self.to_drawing().draw(path=path, **params)
-
-    def __bool__(self):
-        return all(term == self.terms[0] for term in self.terms)

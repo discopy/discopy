@@ -19,8 +19,19 @@ from discopy.drawing.drawing import (
     Point,
     PlaneGraph,
     Drawing,
-    Equation,
 )
+
+
+def __getattr__(name):
+    if name == "Equation":
+        import warnings
+        from discopy.monoidal import Equation
+        warnings.warn(
+            "discopy.drawing.Equation is deprecated, use the Equation of the "
+            "relevant module instead, e.g. discopy.symmetric.Equation or "
+            "discopy.monoidal.Equation.", DeprecationWarning, stacklevel=2)
+        return Equation
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def draw(diagram, **params):
