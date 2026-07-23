@@ -22,6 +22,7 @@ Summary
     Sum
     Bubble
     Functor
+    Equation
 
 Axioms
 ------
@@ -191,6 +192,16 @@ class FreeMonoid(cat.FreeCategory, ColouredMonoid):
         return cat.FreeCategory.then(self, *others)
 
     then = tensor
+
+    @property
+    def is_generator(self):
+        """ Whether a type is a single generating object. """
+        return len(self.inside) == 1
+
+    @property
+    def generator(self):
+        """ The single object inside a generator type. """
+        return self.inside[0] if self.is_generator else None
 
 
 @factory
@@ -396,6 +407,7 @@ class Ty(cat.Ob, FreeMonoid):
                 new.frame_boundary = True
             for attr, default in WIRE_DRAWING_ATTRIBUTES.items():
                 setattr(new, attr, getattr(old, attr, default(new)))
+            new.min_right_margin = getattr(old, "min_right_margin", 0)
         return result
 
     def wire_offsets(self) -> list:
@@ -409,7 +421,10 @@ class Ty(cat.Ob, FreeMonoid):
         offsets, total = [], 0
         for ob in self.inside:
             offsets.append(total)
-            total += max(1, ob.right_margin)
+            min_right_margin = getattr(ob, "min_right_margin", 0)
+            cell_width = max(1, ob.right_margin)
+            total += cell_width + min_right_margin if min_right_margin < 0\
+                else max(cell_width, 1 + min_right_margin)
         return offsets
 
 
@@ -789,9 +804,9 @@ class Diagram(cat.Arrow, MonoidalCategory):
         ...     middle, right = cap(offset=1)
         ...     cup(left, middle)
         ...     return right
-        >>> snake.draw(path='docs/_static/monoidal/diagramize.png')
+        >>> snake.draw(path='docs/_static/monoidal/diagramize.svg')
 
-        .. image:: /_static/monoidal/diagramize.png
+        .. image:: /_static/monoidal/diagramize.svg
             :align: center
         """
         def decorator(func):
@@ -822,9 +837,9 @@ class Diagram(cat.Arrow, MonoidalCategory):
         >>> assert f0 @ f1 == f0.tensor(f1) == f0 @ Id(z) >> Id(y) @ f1
 
         >>> (f0 @ f1).draw(
-        ...     path='docs/_static/monoidal/tensor-example.png')
+        ...     path='docs/_static/monoidal/tensor-example.svg')
 
-        .. image:: /_static/monoidal/tensor-example.png
+        .. image:: /_static/monoidal/tensor-example.svg
             :align: center
         """
         if other is None:
@@ -877,9 +892,9 @@ class Diagram(cat.Arrow, MonoidalCategory):
         >>> assert dom == x @ z
         >>> assert boxes_and_offsets == [(f0, 0), (f1, 1), (g, 0)]
         >>> assert diagram == Diagram.decode(*diagram.encode())
-        >>> diagram.draw(path='docs/_static/monoidal/arrow-example.png')
+        >>> diagram.draw(path='docs/_static/monoidal/arrow-example.svg')
 
-        .. image:: /_static/monoidal/arrow-example.png
+        .. image:: /_static/monoidal/arrow-example.svg
             :align: center
         """
         return self.dom, list(zip(self.boxes, self.offsets))
@@ -994,9 +1009,9 @@ class Diagram(cat.Arrow, MonoidalCategory):
         >>> print(diagram)
         f0 @ x >> y @ f1[::-1] >> f0[::-1] @ y >> x @ f1
         >>> diagram.foliation().draw(
-        ...     path='docs/_static/monoidal/foliation-example.png')
+        ...     path='docs/_static/monoidal/foliation-example.svg')
 
-        .. image:: /_static/monoidal/foliation-example.png
+        .. image:: /_static/monoidal/foliation-example.svg
             :align: center
 
         Note
@@ -1240,9 +1255,9 @@ class Box(cat.Box, Diagram):
     >>> y = Ty(Wire("y", green, blue))
     >>> z = Ty(Wire("z", red, blue))
     >>> coloured = Box("coloured", x @ y, z)
-    >>> coloured.draw(path='docs/_static/monoidal/coloured-box.png')
+    >>> coloured.draw(path='docs/_static/monoidal/coloured-box.svg')
 
-    .. image:: /_static/monoidal/coloured-box.png
+    .. image:: /_static/monoidal/coloured-box.svg
         :align: center
     """
 
@@ -1323,21 +1338,21 @@ class Bubble(cat.Bubble, Box):
     >>> x, y = Ty('x'), Ty('y')
     >>> f, g, h = Box('f', x, y ** 3), Box('g', y, y @ y), Box('h', x, y)
     >>> d = (f.bubble(dom=x ** 3, cod=y, draw_as_square=True) >> g).bubble()
-    >>> d.draw(path='docs/_static/monoidal/bubble-example.png')
+    >>> d.draw(path='docs/_static/monoidal/bubble-example.svg')
 
-    .. image:: /_static/monoidal/bubble-example.png
+    .. image:: /_static/monoidal/bubble-example.svg
         :align: center
 
     >>> b = Bubble(f, g, h >> h[::-1], dom=x, cod=y @ y)
-    >>> b.draw(path='docs/_static/monoidal/bubble-multiple-args.png')
+    >>> b.draw(path='docs/_static/monoidal/bubble-multiple-args.svg')
 
-    .. image:: /_static/monoidal/bubble-multiple-args.png
+    .. image:: /_static/monoidal/bubble-multiple-args.svg
         :align: center
 
     >>> b = Bubble(f, g, h, dom=x, cod=y @ y, draw_vertically=True)
-    >>> b.draw(path='docs/_static/monoidal/frame-vertical-args.png')
+    >>> b.draw(path='docs/_static/monoidal/frame-vertical-args.svg')
 
-    .. image:: /_static/monoidal/frame-vertical-args.png
+    .. image:: /_static/monoidal/frame-vertical-args.svg
         :align: center
 
     Coloured frames distinguish their outside, frame and slot regions.
@@ -1349,9 +1364,9 @@ class Bubble(cat.Bubble, Box):
     ...     dom=Ty(Wire("boundary", blue, red)),
     ...     cod=Ty(Wire("boundary", blue, red)),
     ...     draw_as_frame=True)
-    >>> frame.draw(path='docs/_static/monoidal/coloured-frame.png')
+    >>> frame.draw(path='docs/_static/monoidal/coloured-frame.svg')
 
-    .. image:: /_static/monoidal/coloured-frame.png
+    .. image:: /_static/monoidal/coloured-frame.svg
         :align: center
 
     """
@@ -1436,11 +1451,10 @@ class Functor(cat.Functor):
     >>> assert F(f0 >> f0[::-1]) == f1 >> f1[::-1]
     >>> source, target = f0 >> f0[::-1], F(f0 >> f0[::-1])
 
-    >>> from discopy.drawing import Equation
     >>> Equation(source, target, symbol='$\\\\mapsto$').draw(
-    ...     path='docs/_static/monoidal/functor-example.png')
+    ...     path='docs/_static/monoidal/functor-example.svg')
 
-    .. image:: /_static/monoidal/functor-example.png
+    .. image:: /_static/monoidal/functor-example.svg
         :align: center
     """
 
@@ -1559,6 +1573,48 @@ class CMap(cmap.CMap):
     require_causal = True
     require_oriented = True
     require_connected = True
+
+
+class Equation(cat.Equation):
+    """
+    An :class:`.cat.Equation` of diagrams, i.e. with a :meth:`draw` method.
+
+    Parameters:
+        terms : The terms of the equation.
+        symbol : The symbol between each pair of terms, ``"="`` by default.
+        symbols : The symbols between each pair of terms, overriding
+            ``symbol``; ``len(terms) * (symbol, )`` by default.
+        space : The space between the terms when drawing the equation.
+        up_to : The function up to which ``bool(equation)`` compares its terms,
+            overriding the subclass' :attr:`up_to` if given.
+
+    Example
+    -------
+    >>> x = Ty('x')
+    >>> f, g = Box('f', x, x), Box('g', x, x)
+    >>> print(Equation(f, g))
+    Equation(f, g)
+    """
+    def __init__(self, *terms: Diagram, symbol="=", symbols=None, space=1,
+                 up_to=None):
+        super().__init__(*terms, symbol=symbol, symbols=symbols, up_to=up_to)
+        self.space = space
+
+    def to_drawing(self):
+        result = self.terms[0].to_drawing()
+        for symbol, term in zip(self.symbols, self.terms[1:]):
+            result = result.add(term.to_drawing(), symbol, self.space)
+        return result
+
+    def draw(self, path=None, **params):
+        """
+        Drawing an equation.
+
+        Parameters:
+            path : Where to save the drawing.
+            params : Passed to :meth:`Diagram.draw`.
+        """
+        return self.to_drawing().draw(path=path, **params)
 
 
 Diagram.draw = drawing.draw

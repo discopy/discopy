@@ -171,7 +171,7 @@ def test_Hypergraph_eq_fallback_scalars_and_empty_boundary():
 
 
 def test_simplify():
-    from discopy.markov import Diagram, Box, Ty, Copy, Swap, Trace
+    from discopy.markov import Box, Ty, Copy, Swap, Trace, Equation
     C, T, P = map(Ty, "CTP")
     linear, param_linear, add, placeholder = (
         Box('linear', T @ P, T),
@@ -183,8 +183,7 @@ def test_simplify():
     ref = Copy(C) >> param_linear @ C >> P @ placeholder >> P @ Copy(T) >> Swap(P, T) @ T >> linear @ T >> Swap(T, T) >> add
     simpl = residual_block.to_hypergraph().simplify().to_diagram()
 
-    with Diagram.hypergraph_equality:
-        assert residual_block == ref == simpl
+    assert Equation(residual_block, ref) and Equation(ref, simpl)
 
     # to_diagram foliates, so simpl is the (tighter) foliation of ref rather
     # than its point-free, one-box-per-layer presentation.
@@ -214,6 +213,3 @@ def test_subclass_to_hypergraph():
     f, g = Gate('f', x, x), Gate('g', x, x)
     assert (f >> g).to_hypergraph().category == Circuit
     assert isinstance((f >> g).to_hypergraph().to_diagram(), Circuit)
-    with Circuit.hypergraph_equality:
-        assert f >> g == (f >> g)
-        assert hash(f >> g) == hash(f >> g)

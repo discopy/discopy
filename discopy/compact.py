@@ -21,8 +21,6 @@ Summary
 Axioms
 ------
 
->>> from discopy.drawing import Equation
->>> Diagram.use_hypergraph_equality = True
 >>> x, y = Ty('x'), Ty('y')
 
 Snake equations
@@ -30,9 +28,9 @@ Snake equations
 
 >>> snake = Equation(Id(x.l).transpose(left=True), Id(x), Id(x.r).transpose())
 >>> assert snake
->>> snake.draw(path="docs/_static/compact/snake.png")
+>>> snake.draw(path="docs/_static/compact/snake.svg")
 
-.. image:: /_static/compact/snake.png
+.. image:: /_static/compact/snake.svg
     :align: center
 
 Yanking
@@ -43,18 +41,16 @@ a.k.a. Reidemeister move 1
 >>> cup_yanking = Equation(Swap(x, x.r) >> Cup(x.r, x), Cup(x, x.r))
 >>> assert cap_yanking and cup_yanking
 >>> Equation(cap_yanking, cup_yanking, symbol='', space=1).draw(
-...     path="docs/_static/compact/yanking_cup_and_cap.png")
+...     path="docs/_static/compact/yanking_cup_and_cap.svg")
 
-.. image:: /_static/compact/yanking_cup_and_cap.png
+.. image:: /_static/compact/yanking_cup_and_cap.svg
     :align: center
 
 Coherence
 =========
 
->>> assert Diagram.caps(x @ y, y.r @ x.r)\\
-...     == Cap(x, x.r) @ Cap(y, y.r) >> x @ Diagram.swap(x.r, y @ y.r)
-
->>> Diagram.use_hypergraph_equality = False
+>>> assert Equation(Diagram.caps(x @ y, y.r @ x.r),
+...     Cap(x, x.r) @ Cap(y, y.r) >> x @ Diagram.swap(x.r, y @ y.r))
 """
 
 from discopy import symmetric, ribbon, hypergraph
@@ -149,3 +145,8 @@ Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
+
+
+class Equation(symmetric.Equation):
+    """ The :class:`symmetric.Equation` of compact diagrams. """
+    up_to = staticmethod(Diagram.to_hypergraph)

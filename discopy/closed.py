@@ -34,17 +34,16 @@ Axioms
 >>> x, y, z = map(Ty, "xyz")
 >>> f, g = Box('f', x, z << y), Box('g', x @ y, z)
 
->>> from discopy.drawing import Equation
 >>> Equation(f.uncurry().curry(), f).draw(
-...     path='docs/_static/closed/curry-left.png', margins=(0.1, 0.05))
+...     path='docs/_static/closed/curry-left.svg', margins=(0.1, 0.05))
 
-.. image:: /_static/closed/curry-left.png
+.. image:: /_static/closed/curry-left.svg
     :align: center
 
 >>> Equation(g.curry().uncurry(), g).draw(
-...     path='docs/_static/closed/uncurry.png')
+...     path='docs/_static/closed/uncurry.svg')
 
-.. image:: /_static/closed/uncurry.png
+.. image:: /_static/closed/uncurry.svg
     :align: center
 """
 
@@ -68,10 +67,10 @@ class Ty(biclosed.Ty):
     >>> X, Y = Ty("X"), Ty("Y")
     >>> t = X(lambda x: (X >> Y)(lambda f: f(x)))
     >>> t.draw(
-    ...     path='docs/_static/closed/diagram.png',
+    ...     path='docs/_static/closed/diagram.svg',
     ...     aspect="auto", figsize=(8, 8), margins=(0.2, 0))
 
-    .. image:: /_static/closed/diagram.png
+    .. image:: /_static/closed/diagram.svg
         :align: center
     """
 
@@ -292,3 +291,7 @@ Ty.variable_factory = Variable
 Ty.constant_factory = Constant
 Ty.application_factory = Application
 Ty.abstraction_factory = Abstraction
+
+
+class Equation(markov.Equation):
+    """ The :class:`markov.Equation` of closed diagrams. """

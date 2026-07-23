@@ -295,6 +295,33 @@ class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
             right : Its adjoint, i.e. the right-hand side of the caps.
         """
 
+    def transpose(self, left: bool = False) -> C1:
+        """
+        The transpose of a morphism, i.e. its composition with cups and caps.
+
+        Parameters:
+            left : Whether to transpose left or right.
+
+        Example
+        -------
+        >>> from discopy.monoidal import Equation
+        >>> from discopy.rigid import Ty, Box
+        >>> x, y = map(Ty, "xy")
+        >>> f = Box('f', x, y)
+        >>> Equation(f.transpose(left=True), f, f.transpose(),
+        ...     symbols=("$\\\\mapsfrom$", "$\\\\mapsto$")).draw(
+        ...         figsize=(8, 3), path="docs/_static/rigid/transpose.svg")
+
+        .. image:: /_static/rigid/transpose.svg
+        """
+        if left:
+            return self.cod.l @ self.caps(self.dom, self.dom.l)\
+                >> self.cod.l @ self @ self.dom.l\
+                >> self.cups(self.cod.l, self.cod) @ self.dom.l
+        return self.caps(self.dom.r, self.dom) @ self.cod.r\
+            >> self.dom.r @ self @ self.cod.r\
+            >> self.dom.r @ self.cups(self.cod, self.cod.r)
+
 
 class PivotalCategory[C0, C1](RigidCategory[C0, C1], TracedCategory[C0, C1]):
     """

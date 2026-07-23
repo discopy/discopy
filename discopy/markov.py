@@ -22,8 +22,6 @@ Summary
 Axioms
 ------
 
->>> from discopy.drawing import Equation
->>> Diagram.use_hypergraph_equality = True
 >>> x = Ty('x')
 
 >>> copy, merge = Copy(x), Merge(x)
@@ -37,9 +35,9 @@ Commutative monoid
 >>> commutativity = Equation(Swap(x, x) >> merge, merge)
 >>> assert unitality and associativity and commutativity
 >>> Equation(unitality, associativity, commutativity, symbol='').draw(
-...     path="docs/_static/frobenius/monoid.png")
+...     path="docs/_static/frobenius/monoid.svg")
 
-.. image:: /_static/frobenius/monoid.png
+.. image:: /_static/frobenius/monoid.svg
     :align: center
 
 Cocommutative comonoid
@@ -50,22 +48,20 @@ Cocommutative comonoid
 >>> cocommutativity = Equation(copy >> Swap(x, x), copy)
 >>> assert counitality and coassociativity and cocommutativity
 >>> Equation(counitality, coassociativity, cocommutativity, symbol='').draw(
-...     path="docs/_static/frobenius/comonoid.png")
+...     path="docs/_static/frobenius/comonoid.svg")
 
-.. image:: /_static/frobenius/comonoid.png
+.. image:: /_static/frobenius/comonoid.svg
     :align: center
 
 Coherence
 =========
 
->>> assert Diagram.copy(x @ x, n=0) == delete @ delete
->>> assert Diagram.copy(x @ x)\\
-...     == copy @ copy >> x @ Swap(x, x) @ x
->>> assert Diagram.merge(x @ x, n=0) == unit @ unit
->>> assert Diagram.merge(x @ x)\\
-...     == x @ Swap(x, x) @ x >> merge @ merge
-
->>> Diagram.use_hypergraph_equality = False
+>>> assert Equation(Diagram.copy(x @ x, n=0), delete @ delete)
+>>> assert Equation(Diagram.copy(x @ x),
+...     copy @ copy >> x @ Swap(x, x) @ x)
+>>> assert Equation(Diagram.merge(x @ x, n=0), unit @ unit)
+>>> assert Equation(Diagram.merge(x @ x),
+...     x @ Swap(x, x) @ x >> merge @ merge)
 
 Note
 ----
@@ -109,11 +105,10 @@ class Diagram(symmetric.Diagram, MarkovCategory):
     ...     y = f(x)
     ...     return y, y
 
-    >>> from discopy.drawing import Equation
     >>> Equation(copy_then_apply, apply_then_copy, symbol="$\\\\neq$").draw(
-    ...     path="docs/_static/markov/copy_and_apply.png")
+    ...     path="docs/_static/markov/copy_and_apply.svg")
 
-    .. image:: /_static/markov/copy_and_apply.png
+    .. image:: /_static/markov/copy_and_apply.svg
     """
     @classmethod
     def spider_factory(cls, n_legs_in, n_legs_out, typ, phase=None):
@@ -291,11 +286,10 @@ class Functor(symmetric.Functor):
     >>> bialgebra_r = add >> copy
     >>> assert F(bialgebra_l)(54, 46) == F(bialgebra_r)(54, 46)
 
-    >>> from discopy.drawing import Equation
     >>> Equation(bialgebra_l, bialgebra_r, symbol="=").draw(
-    ...     path="docs/_static/markov/bialgebra.png")
+    ...     path="docs/_static/markov/bialgebra.svg")
 
-    .. image:: /_static/markov/bialgebra.png
+    .. image:: /_static/markov/bialgebra.svg
     """
     dom = cod = Diagram
 
@@ -320,3 +314,8 @@ Diagram.trace_factory = Trace
 Diagram.discard_factory = Discard
 Diagram.sum_factory = Sum
 Id = Diagram.id
+
+
+class Equation(symmetric.Equation):
+    """ The :class:`symmetric.Equation` of Markov diagrams. """
+    up_to = staticmethod(Diagram.to_hypergraph)

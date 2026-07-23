@@ -458,6 +458,18 @@ def test_scalar_is_not_eliminated():
     assert scalar_map.to_hypergraph() == scalar_dgm.to_hypergraph()
 
 
+def test_connected_components_of_loops():
+    from discopy.compact import Ty, CMap as M
+
+    x, y = Ty("x"), Ty("y")
+    loops = (M.caps(x.r, x) >> M.cups(x.r, x))\
+        @ (M.caps(y.r, y) >> M.cups(y.r, y))
+    assert loops.loops == (x, y)
+    components = loops.connected_components
+    assert len(components) == 2
+    assert tuple(c.loops for c in components) == ((x,), (y,))
+
+
 def test_hypergraph_to_map():
     from discopy import compact, frobenius
 

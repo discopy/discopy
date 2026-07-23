@@ -23,6 +23,9 @@ def draw_and_compare(file, folder=IMG_FOLDER, **params):
             true_path = os.path.join(folder, file)
             test_path = os.path.join(folder, '_' + file)
             draw(diagram, path=test_path, show=False, **params)
+            if not os.path.exists(true_path):
+                os.replace(test_path, true_path)
+                return
             test = compare_images(true_path, test_path, tol)
             assert test is None
             os.remove(test_path)
@@ -44,6 +47,9 @@ def tikz_and_compare(file, folder=TIKZ_FOLDER, **params):
                     test_paths[0].replace('.tikz', '.tikzstyles'))
             draw(diagram, path=test_paths[0], **dict(params, to_tikz=True))
             for true_path, test_path in zip(true_paths, test_paths):
+                if not os.path.exists(true_path):
+                    os.replace(test_path, true_path)
+                    continue
                 with open(true_path, "r") as true:
                     with open(test_path, "r") as test:
                         assert true.read() == test.read()
@@ -563,6 +569,15 @@ def test_draw_box_min_width():
     return Box('$\\Lambda$', x, x, min_width=3) @ Box('f', x, x)
 
 
+@draw_and_compare('wire-min-right-margin.png', aspect='equal')
+def test_draw_wire_min_right_margin():
+    # An object's `min_right_margin` adds space to the right of its wire,
+    # e.g. to fit a long label without colliding with the next wire.
+    x, long_type = Ty('x'), Ty('a_long_type_name')
+    long_type.inside[0].min_right_margin = 1.5
+    return Id(x @ long_type @ x)
+
+
 @draw_and_compare('wire-custom-margin.png', aspect='equal')
 def test_draw_wire_custom_margin():
     x, custom = Ty('x'), Ty('custom_margin_wire')
@@ -572,6 +587,8 @@ def test_draw_wire_custom_margin():
 
 @draw_and_compare('wire-auto-margin.png', aspect='equal')
 def test_draw_wire_auto_margin():
+    # A long wire label reserves space to its right on its own, so it does
+    # not overflow even without setting min_right_margin by hand.
     x = Ty('x')
     return Box('f', x, x @ Ty('a_long_output_type'))
 

@@ -146,13 +146,11 @@ pythonpath = [
 ]
 testpaths = [
     "discopy",
+    "test/readme.py",
     "test/*/*.py",
     "docs/notebooks/*.ipynb",
 ]
-norecursedirs = [
-    "test/utils/pickles/TODO",
-]
-addopts = "--doctest-modules --nbmake --ignore=test/utils/pickles/TODO"
+addopts = "--doctest-modules --nbmake"
 
 [tool.coverage.report]
 fail_under = 98

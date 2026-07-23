@@ -31,7 +31,6 @@ Summary
 Axioms
 ------
 
->>> from discopy.drawing import Equation
 >>> x, y, z = map(Ty, "xyz")
 
 >>> split, merge = Spider(1, 2, x), Spider(2, 1, x)
@@ -42,22 +41,20 @@ Frobenius
 
 >>> frobenius = Equation(
 ...     split @ x >> x @ merge, merge >> split, x @ split >> merge @ x)
->>> with Diagram.hypergraph_equality:
-...     assert frobenius
->>> frobenius.draw(path="docs/_static/frobenius/frobenius.png")
+>>> assert frobenius
+>>> frobenius.draw(path="docs/_static/frobenius/frobenius.svg")
 
-.. image:: /_static/frobenius/frobenius.png
+.. image:: /_static/frobenius/frobenius.svg
     :align: center
 
 Speciality
 ==========
 
 >>> special = Equation(split >> merge, Spider(1, 1, x), Id(x))
->>> with Diagram.hypergraph_equality:
-...     assert special
->>> special.draw(path="docs/_static/frobenius/special.png")
+>>> assert special
+>>> special.draw(path="docs/_static/frobenius/special.svg")
 
-.. image:: /_static/frobenius/special.png
+.. image:: /_static/frobenius/special.svg
     :align: center
 """
 
@@ -157,13 +154,12 @@ class Diagram(compact.Diagram, markov.Diagram, HypergraphCategory):
 
         Example
         -------
-        >>> from discopy.drawing import Equation
         >>> spider = Spider(3, 5, Ty(''), "$\\\\phi$") @ Ty()
         >>> Spider.color = "red"
         >>> Equation(spider, spider.unfuse(), symbol="$\\\\mapsto$").draw(
-        ...     path='docs/_static/hypergraph/unfuse.png')
+        ...     path='docs/_static/hypergraph/unfuse.svg')
 
-        .. image:: /_static/hypergraph/unfuse.png
+        .. image:: /_static/hypergraph/unfuse.svg
             :align: center
         """
         F = compact.Functor(
@@ -321,6 +317,8 @@ def interleaving(cls: type, factory: Callable
     """
     def method(n_legs_in, n_legs_out, typ, phases=None):
         phases = phases or len(typ) * [None]
+        if len(typ) == 1:
+            return factory(n_legs_in, n_legs_out, typ, phases[0])
         result = cls.id().tensor(*[
             factory(n_legs_in, n_legs_out, x, p) for x, p in zip(typ, phases)])
         for i, t in enumerate(typ):
@@ -393,3 +391,8 @@ Diagram.braid_factory, Diagram.spider_factory = Swap, Spider
 Diagram.bubble_factory = Bubble
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Id = Diagram.id
+
+
+class Equation(compact.Equation):
+    """ The :class:`compact.Equation` of Frobenius diagrams. """
+    up_to = staticmethod(Diagram.to_hypergraph)
