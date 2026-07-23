@@ -99,9 +99,9 @@ def crack_two_eggs(x, y):
 
 # ... or in point-free style using parallel (@) and sequential (>>) composition
 
-assert crack_two_eggs == crack @ crack\
-  >> white @ CookingSwap(yolk, white) @ yolk\
-  >> merge(white) @ merge(yolk)
+assert crack_two_eggs == (crack @ crack
+  >> white @ CookingSwap(yolk, white) @ yolk
+  >> merge(white) @ merge(yolk)).foliation()
 
 crack_two_eggs.draw()
 ```
