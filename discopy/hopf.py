@@ -71,7 +71,7 @@ We take a concrete example, the group algebra :math:`k[\\mathbb{Z}/2]`
 (generators :math:`\\nabla`, :math:`\\Delta`, ...), and both draw *and* assert
 each axiom.
 
->>> from discopy.drawing import Equation
+>>> from discopy.tensor import Equation
 >>> from discopy.tensor import Diagram
 >>> H = HopfAlgebra.cyclic(2)
 >>> ty = H.ty
@@ -783,12 +783,11 @@ class Functor(ribbon.Functor):
     Example
     -------
     The twist followed by the trace of the inverse braid is the identity in
-    any ribbon category. The functor maps the left-hand side — a ribbon
-    diagram, drawn in the dual rail encoding — to the tensor network that
-    contracts to the identity:
+    any ribbon category. The functor maps this ribbon diagram to a tensor
+    network that contracts to the identity, drawn as the
+    :class:`.tensor.CMap`:
 
     >>> import numpy as np
-    >>> from discopy.drawing import Equation
     >>> D = Double(HopfAlgebra.cyclic(2))
     >>> e = Representation[D].anyon(0, -1)
     >>> m = Representation[D].anyon(1, 1)
@@ -799,11 +798,9 @@ class Functor(ribbon.Functor):
     >>> network = F(d)
     >>> assert network.eval(dtype=complex).is_close(
     ...     F(ribbon.Id(x)).eval(dtype=complex))
-    >>> lhs = Equation(d.to_ribbons(), network, symbol='$\\\\mapsto$')
-    >>> Equation(lhs, Id(Dim(2)), symbol='$=$').draw(
-    ...     wire_labels=False, path='docs/_static/hopf/functor.png')
+    >>> network.to_map().draw(path='docs/_static/hopf/ribbon-functor.png')
 
-    .. image:: /_static/hopf/functor.png
+    .. image:: /_static/hopf/ribbon-functor.png
         :align: center
 
     A single braid contracts to the braiding matrix of the toric code:
