@@ -36,14 +36,13 @@ A feedback category is a symmetric monoidal category with a monoidal
 endofunctor :meth:`Diagram.delay`, shortened to `.d` and a method
 :meth:`Diagram.feedback` of the following shape:
 
->>> from discopy.drawing import Equation
 
 >>> x, y, m = map(Ty, "xym")
 >>> f = Box('f', x @ m.delay(), y @ m)
 >>> Equation(f, f.feedback(), symbol="$\\\\mapsto$").draw(
-...     path="docs/_static/feedback/feedback-operator.png")
+...     path="docs/_static/feedback/feedback-operator.svg")
 
-.. image:: /_static/feedback/feedback-operator.png
+.. image:: /_static/feedback/feedback-operator.svg
     :align: center
 
 such that the following equations are satisfied:
@@ -64,7 +63,8 @@ Strength
 This can only be checked up to a functor into streams.
 
 >>> from discopy import stream
->>> F0 = Functor(lambda x: stream.Ty.sequence(x.name), cod=stream.Stream)
+>>> F0 = Functor(
+...     lambda x: stream.Ty.sequence(x.generator.name), cod=stream.Stream)
 >>> F = Functor(
 ...     F0, lambda f: stream.Stream.sequence(f.name, F0(f.dom), F0(f.cod)),
 ...     cod=stream.Stream)
@@ -75,9 +75,9 @@ This can only be checked up to a functor into streams.
 >>> strength = Equation(g @ f.feedback(), (g @ f).feedback())
 >>> assert eq_up_to_F(*strength.terms)
 >>> strength.draw(
-...     path='docs/_static/feedback/strength.png', wire_labels=False)
+...     path='docs/_static/feedback/strength.svg', wire_labels=False)
 
-.. image:: /_static/feedback/strength.png
+.. image:: /_static/feedback/strength.svg
     :align: center
 
 Sliding
@@ -90,19 +90,21 @@ This can only be checked up to extensional equivalence of streams.
 >>> f = Box('f', x @ n.d, y @ m)
 >>> sliding = Equation((f >> y @ h).feedback(), (x @ h.d >> f).feedback())
 >>> sliding.draw(
-...     path='docs/_static/feedback/sliding.png', wire_labels=False)
+...     path='docs/_static/feedback/sliding.svg', wire_labels=False)
 
-.. image:: /_static/feedback/sliding.png
+.. image:: /_static/feedback/sliding.svg
     :align: center
 
 >>> LHS, RHS = sliding.terms
+>>> assert F(LHS).unroll(2).now.dom == symmetric.Ty("x0", "x1", "x2")
 >>> eq = Equation(*map(lambda f: F(f).unroll(2).now, sliding.terms),
-...     symbol="$\\\\sim$").draw(path='docs/_static/feedback/slide-unroll.png')
->>> with symmetric.Diagram.hypergraph_equality:
-...     assert F(LHS).unroll(2).now == F(RHS).unroll(2).now\\
-...         >> F(y).unroll(2).now @ F(h).later.later.now
+...     symbol="$\\\\sim$").draw(path='docs/_static/feedback/slide-unroll.svg')
+>>> assert symmetric.Equation(
+...     F(LHS).unroll(2).now,
+...     F(RHS).unroll(2).now
+...         >> F(y).unroll(2).now @ F(h).later.later.now)
 
-.. image:: /_static/feedback/slide-unroll.png
+.. image:: /_static/feedback/slide-unroll.svg
     :align: center
 
 Note
@@ -115,7 +117,7 @@ Every traced symmetric category is a feedback category with a trivial delay:
 ...     self.trace(len(mem))
 
 >>> F0 = Functor(
-...     ob_map=lambda x: symmetric.Ty(x.name), ar_map={},
+...     ob_map=lambda x: symmetric.Ty(x.generator.name), ar_map={},
 ...     cod=symmetric.Diagram)
 >>> assert F0(x.delay()) == F0(x)
 
@@ -323,9 +325,9 @@ class Diagram(markov.Diagram, FeedbackCategory):
     >>> plus = Box('+', x @ x, x)
     >>> walk = (rand.delay() @ x.delay() >> zero @ plus.delay()
     ...         >> FollowedBy(x) >> Copy(x)).feedback()
-    >>> walk.draw(path="docs/_static/feedback/feedback-random-walk.png")
+    >>> walk.draw(path="docs/_static/feedback/feedback-random-walk.svg")
 
-    .. image:: /_static/feedback/feedback-random-walk.png
+    .. image:: /_static/feedback/feedback-random-walk.svg
         :align: center
     """
     ob = Ty
@@ -352,9 +354,9 @@ class Diagram(markov.Diagram, FeedbackCategory):
         -------
         >>> x = Ty('x')
         >>> assert Diagram.wait(x) == Swap(x, x.delay()).feedback()
-        >>> Diagram.wait(x).draw(path="docs/_static/feedback/wait.png")
+        >>> Diagram.wait(x).draw(path="docs/_static/feedback/wait.svg")
 
-        .. image:: /_static/feedback/wait.png
+        .. image:: /_static/feedback/wait.svg
             :align: center
         """
         return cls.swap(dom, dom.delay()).feedback()
@@ -431,8 +433,6 @@ class Box(markov.Box, Diagram):
         return super().__repr__()[:-1] + time_step + ")"
 
     def setoid(self):
-        if self.use_hypergraph_equality and not self.is_generator:
-            return Diagram.setoid(self)
         return markov.Box.setoid(self) + (self.time_step, )
 
 
@@ -518,14 +518,13 @@ class Feedback(monoidal.Bubble, Box):
 
     Examples
     --------
-    >>> from discopy.drawing import Equation
     >>> x, y, z = map(Ty, "xyz")
     >>> f = Box('f', x @ y.delay(), z @ y)
     >>> fb = f.feedback()
     >>> Equation(f, fb, symbol="$\\\\mapsto$").draw(
-    ...     path="docs/_static/feedback/feedback-operator.png")
+    ...     path="docs/_static/feedback/feedback-operator.svg")
 
-    .. image:: /_static/feedback/feedback-operator.png
+    .. image:: /_static/feedback/feedback-operator.svg
         :align: center
     """
     def __init__(self, arg: Diagram, dom=None, cod=None, mem=None, left=False):
@@ -567,9 +566,9 @@ class FollowedBy(Box):
     -------
     >>> from discopy import stream
     >>> x = Ty(Ob('x', is_constant=False))
-    >>> FollowedBy(x).draw(path="docs/_static/feedback/followed-by.png")
+    >>> FollowedBy(x).draw(path="docs/_static/feedback/followed-by.svg")
 
-    .. image:: /_static/feedback/followed-by.png
+    .. image:: /_static/feedback/followed-by.svg
         :align: center
 
     >>> F = Functor({x: stream.Ty.sequence('x')}, cod=stream.Stream)
@@ -662,3 +661,8 @@ Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.feedback_factory, Diagram.followed_by = Feedback, FollowedBy
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Id = Diagram.id
+
+
+class Equation(markov.Equation):
+    """ The :class:`markov.Equation` of feedback diagrams. """
+    up_to = staticmethod(Diagram.to_hypergraph)

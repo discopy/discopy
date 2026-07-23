@@ -304,15 +304,15 @@ class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
 
         Example
         -------
-        >>> from discopy.drawing import Equation
+        >>> from discopy.monoidal import Equation
         >>> from discopy.rigid import Ty, Box
         >>> x, y = map(Ty, "xy")
         >>> f = Box('f', x, y)
-        >>> LHS = Equation(f.transpose(left=True), f, symbol="$\\\\mapsfrom$")
-        >>> RHS = Equation(LHS, f.transpose(), symbol="$\\\\mapsto$")
-        >>> RHS.draw(figsize=(8, 3), path="docs/_static/rigid/transpose.png")
+        >>> Equation(f.transpose(left=True), f, f.transpose(),
+        ...     symbols=("$\\\\mapsfrom$", "$\\\\mapsto$")).draw(
+        ...         figsize=(8, 3), path="docs/_static/rigid/transpose.svg")
 
-        .. image:: /_static/rigid/transpose.png
+        .. image:: /_static/rigid/transpose.svg
         """
         if left:
             return self.cod.l @ self.caps(self.dom, self.dom.l)\

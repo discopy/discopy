@@ -20,7 +20,6 @@ Summary
 Axioms
 ------
 
->>> from discopy.drawing import Equation
 >>> x, y, z, w = map(Ty, "xyzw")
 >>> f, g = Box("f", x, y), Box("g", z, w)
 
@@ -35,9 +34,9 @@ Hexagon
 >>> assert Diagram.swap(x, y @ z) == Swap(x, y) @ z >> y @ Swap(x, z)
 >>> assert Diagram.swap(x @ y, z) == x @ Swap(y, z) >> Swap(x, z) @ y
 >>> Equation(Diagram.swap(x, y @ z), Diagram.swap(x @ y, z), symbol='').draw(
-...     space=2, path='docs/_static/symmetric/hexagons.png', figsize=(5, 2))
+...     space=2, path='docs/_static/symmetric/hexagons.svg', figsize=(5, 2))
 
-.. image:: /_static/symmetric/hexagons.png
+.. image:: /_static/symmetric/hexagons.svg
     :align: center
 
 Involution
@@ -45,12 +44,11 @@ Involution
 a.k.a. Reidemeister move 2
 
 >>> assert Swap(x, y)[::-1] == Swap(y, x)
->>> with Diagram.hypergraph_equality:
-...     assert Swap(x, y) >> Swap(y, x) == Id(x @ y)
+>>> assert Equation(Swap(x, y) >> Swap(y, x), Id(x @ y))
 >>> Equation(Swap(x, y) >> Swap(y, x), Id(x @ y)).draw(
-...     path='docs/_static/symmetric/inverse.png', figsize=(3, 2))
+...     path='docs/_static/symmetric/inverse.svg', figsize=(3, 2))
 
-.. image:: /_static/symmetric/inverse.png
+.. image:: /_static/symmetric/inverse.svg
     :align: center
 
 Naturality
@@ -58,12 +56,11 @@ Naturality
 
 >>> naturality = Equation(
 ...     f @ g >> Swap(f.cod, g.cod), Swap(f.dom, g.dom) >> g @ f)
->>> with Diagram.hypergraph_equality:
-...     assert naturality
+>>> assert naturality
 >>> naturality.draw(
-...     path='docs/_static/symmetric/naturality.png', figsize=(3, 2))
+...     path='docs/_static/symmetric/naturality.svg', figsize=(3, 2))
 
-.. image:: /_static/symmetric/naturality.png
+.. image:: /_static/symmetric/naturality.svg
     :align: center
 
 Yang-Baxter
@@ -74,24 +71,20 @@ This is a special case of naturality.
 
 >>> yang_baxter_left = Swap(x, y) @ z >> y @ Swap(x, z) >> Swap(y, z) @ x
 >>> yang_baxter_right = x @ Swap(y, z) >> Swap(x, z) @ y >> z @ Swap(x, y)
->>> with Diagram.hypergraph_equality:
-...     assert yang_baxter_left == yang_baxter_right
+>>> assert Equation(yang_baxter_left, yang_baxter_right)
 >>> Equation(yang_baxter_left, yang_baxter_right).draw(
-...     path='docs/_static/symmetric/yang-baxter.png', figsize=(3, 2))
+...     path='docs/_static/symmetric/yang-baxter.svg', figsize=(3, 2))
 
-.. image:: /_static/symmetric/yang-baxter.png
+.. image:: /_static/symmetric/yang-baxter.svg
     :align: center
 """
 
 from __future__ import annotations
 
-from contextlib import contextmanager
-
 from discopy import monoidal, balanced, traced, messages, hypergraph
 from discopy.abc import SymmetricCategory
 from discopy.cat import factory
 from discopy.monoidal import Wire, Ty, PRO  # noqa: F401
-from discopy.utils import classproperty
 
 
 @factory
@@ -105,21 +98,17 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         cod (monoidal.Ty) : The codomain of the diagram, i.e. its output.
 
     Note
-    ____
-    Symmetric diagrams have a class property `use_hypergraph_equality`, that
-    changes the behaviour of equality and hashing.
-    When set to `False`, two diagrams equal if they are built from the same
-    layers.
-    When set to `True`, the underlying hypergraphs are used for hashing and
-    equality checking.
-    The default value of `use_hypergraph_equality` is `False`.
+    ----
+    Equality and hashing of symmetric diagrams is always syntactic: two
+    diagrams are equal if and only if they are built from the same layers.
+    To compare diagrams up to hypergraph isomorphism (swaps, spider fusion,
+    trace routing) use ``from discopy.symmetric import Equation``, i.e. the
+    :class:`Equation` whose :attr:`~Equation.up_to` is :attr:`to_hypergraph`.
 
     >>> x, y = Ty("x"), Ty("y")
-    >>> id_hash = hash(Id(x @ y))
-    >>> assert Swap(x, y) >> Swap(y, x) != Id(x @ y)
-    >>> with Diagram.hypergraph_equality:
-    ...     assert Swap(x, y) >> Swap(y, x) == Id(x @ y)
-    ...     assert id_hash != hash(Id(x @ y))
+    >>> a = Swap(x, y) >> Swap(y, x)
+    >>> assert a != Id(x @ y)
+    >>> assert Equation(a, Id(x @ y))
 
     Note
     ----
@@ -135,9 +124,9 @@ class Diagram(balanced.Diagram, SymmetricCategory):
     ...     x4, x5 = g(x1)
     ...     return x5, x3, x4
     >>> diagram.draw(wire_labels=False,
-    ...              path='docs/_static/symmetric/decorator.png')
+    ...              path='docs/_static/symmetric/decorator.svg')
 
-    .. image:: /_static/symmetric/decorator.png
+    .. image:: /_static/symmetric/decorator.svg
         :align: center
 
     Every variable must be used exactly once or this will raise an error.
@@ -161,7 +150,6 @@ class Diagram(balanced.Diagram, SymmetricCategory):
     by default. However now we have that the axioms for trace hold on the nose.
     """
     twist_factory = classmethod(lambda cls, dom: cls.id(dom))
-    use_hypergraph_equality = False
 
     @classmethod
     def swap(cls, left: monoidal.Ty, right: monoidal.Ty) -> Diagram:
@@ -220,63 +208,6 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         """ Simplify by translating back and forth to hypergraph. """
         return self.to_hypergraph().to_diagram()
 
-    @property
-    def is_generator(self):
-        """
-        Whether a diagram counts as a single generator
-
-        Warning
-        -------
-        The notion of "box" depends on whether we `use_hypergraph_equality`.
-        For instance, the double transpose of a box is a generator when encoded
-        as a hypergraph but not when it's a diagram, the box for a swap is a
-        generator when encoded as a diagram but not when it's a hypergraph.
-        """
-        if self.use_hypergraph_equality:
-            return self.to_hypergraph().is_generator
-        return super().is_generator
-
-    @property
-    def generator(self):
-        """
-        The generator inside a singleton diagram, see :meth:`is_generator`.
-        """
-        if self.use_hypergraph_equality:
-            return self.to_hypergraph().generator
-        return super().generator
-
-    def setoid(self):
-        """
-        Return an encoding of the equivalence class that a diagram belongs to,
-        used as subroutines for equality and hashing.
-
-        Note
-        ----
-        When `use_hypergraph_equality`, this calls `to_hypergraph` otherwise it
-        returns the attributes `inside, dom, cod`. On generator diagrams, i.e.
-        equal to just a box, we return the box itself to break the circularity.
-        See :meth:`is_generator` for details on when a diagram counts as a box.
-
-        We ensure that a box will get the same hash regardless of the equality
-        method used so that e.g. one can define the mapping for a functor with
-        no hypergraph equality and apply it inside `with hypergraph_equality:`.
-        """
-        if self.use_hypergraph_equality:
-            hypergraph = self.to_hypergraph()
-            generator = hypergraph.generator
-            return hypergraph if generator is None else generator.setoid()
-        return super().setoid()
-
-    @classproperty
-    @contextmanager
-    def hypergraph_equality(cls):
-        tmp, cls.ar.use_hypergraph_equality =\
-            cls.ar.use_hypergraph_equality, True
-        try:
-            yield
-        finally:
-            cls.ar.use_hypergraph_equality = tmp
-
     def depth(self):
         """
         The depth of a symmetric diagram.
@@ -302,10 +233,6 @@ class Box(balanced.Box, Diagram):
         dom (monoidal.Ty) : The domain of the box, i.e. its input.
         cod (monoidal.Ty) : The codomain of the box, i.e. its output.
     """
-    def setoid(self):
-        if self.use_hypergraph_equality and not self.is_generator:
-            return Diagram.setoid(self)
-        return balanced.Box.setoid(self)
 
 
 class Swap(balanced.Braid, Box):
@@ -342,9 +269,6 @@ class Trace(balanced.Trace, Box):
     --------
     :meth:`Diagram.trace`
     """
-    def setoid(self):
-        return Box.setoid(self) if self.use_hypergraph_equality else\
-            balanced.Trace.setoid(self)
 
 
 class Sum(balanced.Sum, Box):
@@ -389,3 +313,16 @@ Diagram.braid_factory = Swap
 Diagram.trace_factory = Trace
 Diagram.sum_factory = Sum
 Id = Diagram.id
+
+
+class Equation(monoidal.Equation):
+    """
+    The :class:`monoidal.Equation` of symmetric diagrams compared up to
+    hypergraph isomorphism, i.e. up to swaps, spider fusion and trace routing.
+
+    Example
+    -------
+    >>> x, y = Ty('x'), Ty('y')
+    >>> assert Equation(Swap(x, y) >> Swap(y, x), Id(x @ y))
+    """
+    up_to = staticmethod(Diagram.to_hypergraph)
