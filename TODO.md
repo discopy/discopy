@@ -19,9 +19,9 @@ Issue body (toumix, rel-int/internal-issues#14):
 
 ## Work
 
-- [WIP] @session_01WDgGCrsEatnVAkEJm1KUNZ-2026-07-23 18:00 - Merge PR #400 (`claude/acg-issue-plan-hx5an6`) and PR #401 (`claude/neural-lambda-experiment`) into this branch
-- [WIP] @session_01WDgGCrsEatnVAkEJm1KUNZ-2026-07-23 18:00 - Parse a sentence to a categorial diagram and lambda term (issue step 1)
-- [WIP] @session_01WDgGCrsEatnVAkEJm1KUNZ-2026-07-23 18:00 - Bubble-bracketing heuristic: split the term's map into quantum bubbles of maximal size called from a classical `python.additive` outside (issue step 2)
-- [WIP] @session_01WDgGCrsEatnVAkEJm1KUNZ-2026-07-23 18:00 - Additive token-passing GoI with the token setting circuit parameters on entry and reading measurements on exit (issue step 3)
-- [WIP] @session_01WDgGCrsEatnVAkEJm1KUNZ-2026-07-23 18:00 - Incremental decoding of the token trace as a linear lambda term, one subtree at a time (issue step 4)
-- [WIP] @session_01WDgGCrsEatnVAkEJm1KUNZ-2026-07-23 18:00 - Interactive two-pane time-slider display: diagram + token position on top, decoded answer below (issue step 5)
+- [x] Merge PR #400 (`claude/acg-issue-plan-hx5an6`) and PR #401 (`claude/neural-lambda-experiment`) into this branch
+- [x] Parse a sentence to a categorial diagram and lambda term (issue step 1)
+- [x] Bubble-bracketing heuristic: split the term's map into quantum bubbles of maximal size called from a classical `python.additive` outside (issue step 2)
+- [x] Additive token-passing GoI with the token setting circuit parameters on entry and reading measurements on exit (issue step 3)
+- [x] Incremental decoding of the token trace as a linear lambda term, one subtree at a time (issue step 4)
+- [x] Interactive two-pane time-slider display: diagram + token position on top, decoded answer below (issue step 5)
