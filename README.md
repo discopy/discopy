@@ -106,7 +106,7 @@ assert crack_two_eggs == crack @ crack\
 crack_two_eggs.draw()
 ```
 
-![crack_two_eggs.draw()](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/crack-eggs.png)
+![crack_two_eggs.draw()](docs/_static/readme/crack-eggs.svg)
 
 By default, DisCoPy diagrams are made of layers with exactly one box in between some (possibly empty) list of wires on its left- and right-hand side.
 We can get more general diagrams by specifying the list of layers `inside` manually:
@@ -143,7 +143,7 @@ assert crack_two_eggs_at_once == Recipe(
 crack_two_eggs_at_once.draw()
 ```
 
-![crack_two_eggs_at_once.draw()](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/crack-two-eggs-at-once.png)
+![crack_two_eggs_at_once.draw()](docs/_static/readme/crack-two-eggs-at-once.svg)
 
 ## Theory: functors, terms, maps and hypergraphs
 
@@ -181,7 +181,7 @@ assert left_snake.normal_form() == Id(x) == right_snake.normal_form()
 Equation(left_snake, Id(x), right_snake).draw()
 ```
 
-![Equation(left_snake, Id(x), right_snake).draw()](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/typed-snake-equation.png)
+![Equation(left_snake, Id(x), right_snake).draw()](docs/_static/readme/typed-snake-equation.svg)
 
 In particular, DisCoPy can draw the grammatical structure of natural language sentences encoded as reductions in a [pregroup grammar](https://ncatlab.org/nlab/show/pregroup+grammar).
 See Lambek, [From Word To Sentence (2008)](http://www.math.mcgill.ca/barr/lambek/pdffiles/2008lambek.pdf) for an introduction.
@@ -197,7 +197,7 @@ sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ s @ Cup(n.l, n)
 sentence.foliation().draw()
 ```
 
-![Alice loves Bob](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/alice-loves-bob.png)
+![Alice loves Bob](docs/_static/readme/alice-loves-bob.svg)
 
 Many other grammatical frameworks can be encoded as diagrams, e.g. [`cfg`](https://docs.discopy.org/en/main/_api/discopy.grammar.cfg.html) (context-free), [`categorial`](https://docs.discopy.org/en/main/_api/discopy.grammar.categorial.html) and [`dependency`](https://docs.discopy.org/en/main/_api/discopy.grammar.dependency.html) grammars.
 
