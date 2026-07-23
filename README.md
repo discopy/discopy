@@ -112,8 +112,7 @@ By default, DisCoPy diagrams are made of layers with exactly one box in between 
 We can get more general diagrams by specifying the list of layers `inside` manually:
 
 ```python
-from discopy.monoidal import Layer
-from discopy.drawing import Equation
+from discopy.monoidal import Layer, Equation
 
 A, B, C, D = Ty(*"ABCD")
 f, g = Box("f", A, B), Box("g", C, D)
@@ -125,7 +124,7 @@ Equation(Equation(
   left, middle, symbol="$\\rightarrow$"), right, symbol="$\\leftarrow$").draw()
 ```
 
-![](docs/_static/readme/interchanger.png)
+![](docs/_static/readme/interchanger.svg)
 
 or by calling the method `Diagram.foliation` which will minimize the length of the diagram:
 
@@ -172,8 +171,7 @@ For instance, the `Int`-construction takes traced categories to compact categori
 Wires can be bent using two special kinds of boxes: **cups** and **caps**, which satisfy the [snake equations](https://ncatlab.org/nlab/show/triangle+identities).
 
 ```python
-from discopy.drawing import Equation
-from discopy.rigid import Ty, Id, Cup, Cap
+from discopy.rigid import Ty, Id, Cup, Cap, Equation
 
 x = Ty('x')
 left_snake = x @ Cap(x.r, x) >> Cup(x, x.r) @ x
@@ -254,18 +252,18 @@ The [`Int`](https://docs.discopy.org/en/main/_api/discopy.interaction.Int.html)-
 
 i.e. the same we can pretend that a commutative monoid is a group so long as it is cancellative (i.e. `a + x == b + x` implies `a == b`) we can pretend that a monoidal category has cups and caps so long as it is traced, i.e. it has feedback loops:
 
-![feedback loop](docs/_static/traced/right-trace.png)
+![feedback loop](docs/_static/traced/right-trace.svg)
 
 Concretely, we get a compact category where the objects are given by pairs of objects in the traced category, morphisms are bidirectional processes with a positive and a negative direction.
 Composition given by symmetric feedback, i.e. tracing out the common boundary of the two processes so they can communicate along an infinity-shaped pair of wires between them:
 
-![](docs/_static/int/symmetric-feedback.png)
+![](docs/_static/int/symmetric-feedback.svg)
 
 We can use this geometry of interaction to interpret words as processes rather than states:
 
 ```python
 from discopy.interaction import Ty, Int
-from discopy.compact import Ty as T, Diagram as D, Box
+from discopy.compact import Ty as T, Diagram as D, Box, Equation
 
 N, S = T('N'), T('S')
 A, B = Box('A', N, N), Box('B', N, N)
@@ -278,23 +276,22 @@ G = pregroup.Functor(
 
 ALB_trace = (A @ S @ B >> L).trace(left=True).trace(left=False).foliation()
 
-with D.hypergraph_equality:
-  assert G(sentence).inside == ALB_trace
+assert Equation(G(sentence).inside, ALB_trace)
 
 Equation(sentence.foliation(), ALB_trace, symbol="$\\mapsto$").draw()
 ```
 
-![Alice loves traces](https://github.com/discopy/discopy/raw/main/docs/_static/int/alice-loves-traces.png)
+![Alice loves traces](https://github.com/discopy/discopy/raw/main/docs/_static/int/alice-loves-traces.svg)
 
 ### Streams and delayed feedback
 
 A key axiom of traced monoidal categories which allows to simplify diagrams is the **yanking equation**:
 
-![yanking](https://github.com/discopy/discopy/raw/main/docs/_static/traced/yanking.png)
+![yanking](https://github.com/discopy/discopy/raw/main/docs/_static/traced/yanking.svg)
 
 If we relax this assumption we get the concept of a [`feedback`](https://docs.discopy.org/en/main/_api/discopy.feedback.html) category where the objects come with a [`delay`](https://docs.discopy.org/en/main/_api/discopy.feedback.Ob.html#discopy.feedback.Ob.delay) operation and the feedback loops have a more restricted shape:
 
-![feedback operator](https://github.com/discopy/discopy/raw/main/docs/_static/feedback/feedback-operator.png)
+![feedback operator](https://github.com/discopy/discopy/raw/main/docs/_static/feedback/feedback-operator.svg)
 
 Given a symmetric category, we can construct a feedback category of **monoidal streams** where the feedback operation is given by adding an internal state. We can use this to unroll our diagram of the previous section:
 
@@ -308,7 +305,7 @@ ALB = (L >> A @ B).feedback(dom=S.head, cod=Ty(), mem=N @ N)
 ALB.unroll(2).now.foliation().draw()
 ```
 
-![Alice loves unrolling](https://github.com/discopy/discopy/raw/main/docs/_static/stream/alice-loves-unrolling.png)
+![Alice loves unrolling](https://github.com/discopy/discopy/raw/main/docs/_static/stream/alice-loves-unrolling.svg)
 
 ## References
 

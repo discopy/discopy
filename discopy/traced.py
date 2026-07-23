@@ -27,23 +27,23 @@ Axioms
 
 A monoidal category is right-traced when it comes with an operator of shape:
 
->>> from discopy.drawing import Equation
+>>> from discopy.monoidal import Equation
 >>> x, y, z = map(Ty, "xyz")
 >>> f = Box("f", x @ z, y @ z)
 >>> Equation(f, f.trace(), symbol="$\\\\mapsto$").draw(
-...     path='docs/_static/traced/right-trace.png')
+...     path='docs/_static/traced/right-trace.svg')
 
 It is left-traced when it comes with an operator of the following shape:
 
 >>> g = Box("g", z @ x, z @ y)
 >>> Equation(g, g.trace(left=True), symbol="$\\\\mapsto$").draw(
-...     path='docs/_static/traced/left-trace.png')
+...     path='docs/_static/traced/left-trace.svg')
 
 
 These are subjects to the axioms listed below. Note however that at the moment
 equality of planar traced diagrams is not implemented, only symmetric traced.
 
->>> from discopy.symmetric import Ty, Box, Swap, Id
+>>> from discopy.symmetric import Ty, Box, Swap, Id, Equation
 >>> from discopy import symmetric
 >>> x = Ty('x')
 >>> f, g = Box('f', x @ x, x @ x), Box('g', x, x)
@@ -58,9 +58,8 @@ Vanishing
 Superposing
 ===========
 
->>> with symmetric.Diagram.hypergraph_equality:
-...     assert (x @ f).trace() == x @ f.trace()
-...     assert (f @ x).trace(left=True) == f.trace(left=True) @ x
+>>> assert Equation((x @ f).trace(), x @ f.trace())
+>>> assert Equation((f @ x).trace(left=True), f.trace(left=True) @ x)
 
 Yanking
 =======
@@ -68,13 +67,13 @@ Yanking
 >>> yanking = Equation(
 ...     Swap(x, x).trace(left=True), Id(x), Swap(x, x).trace())
 >>> yanking.draw(
-...     path='docs/_static/traced/yanking.png',
+...     path='docs/_static/traced/yanking.svg',
 ...     wire_labels=False, figsize=(4, 1))
 
-.. image:: /_static/traced/yanking.png
+.. image:: /_static/traced/yanking.svg
     :align: center
 
->>> with symmetric.Diagram.hypergraph_equality: assert yanking
+>>> assert yanking
 
 Naturality
 ==========
@@ -83,23 +82,22 @@ Naturality
 ...     (x @ g >> f >> x @ g).trace(left=True),
 ...     g >> f.trace(left=True) >> g)
 >>> tightening_left.draw(
-...     path='docs/_static/traced/tightening-left.png', wire_labels=False)
+...     path='docs/_static/traced/tightening-left.svg', wire_labels=False)
 
-.. image:: /_static/traced/tightening-left.png
+.. image:: /_static/traced/tightening-left.svg
     :align: center
 
 >>> tightening_right = Equation(
 ...     (g @ x >> f >> g @ x).trace(),
 ...     g >> f.trace() >> g)
 >>> tightening_right.draw(
-...     path='docs/_static/traced/tightening-right.png',
+...     path='docs/_static/traced/tightening-right.svg',
 ...     wire_labels=False)
 
-.. image:: /_static/traced/tightening-right.png
+.. image:: /_static/traced/tightening-right.svg
     :align: center
 
->>> with symmetric.Diagram.hypergraph_equality:
-...     assert tightening_left and tightening_right
+>>> assert tightening_left and tightening_right
 
 Dinaturality
 ============
@@ -108,22 +106,21 @@ Dinaturality
 ...     (f >> g @ x).trace(left=True),
 ...     (g @ x >> f).trace(left=True))
 >>> sliding_left.draw(
-...     path='docs/_static/traced/sliding-left.png', wire_labels=False)
+...     path='docs/_static/traced/sliding-left.svg', wire_labels=False)
 
-.. image:: /_static/traced/sliding-left.png
+.. image:: /_static/traced/sliding-left.svg
     :align: center
 
 >>> sliding_right = Equation(
 ...     (f >> x @ g).trace(),
 ...     (x @ g >> f).trace())
 >>> sliding_right.draw(
-...     path='docs/_static/traced/sliding-right.png', wire_labels=False)
+...     path='docs/_static/traced/sliding-right.svg', wire_labels=False)
 
-.. image:: /_static/traced/sliding-right.png
+.. image:: /_static/traced/sliding-right.svg
     :align: center
 
->>> with symmetric.Diagram.hypergraph_equality:
-...     assert sliding_left and sliding_right
+>>> assert sliding_left and sliding_right
 """
 
 from discopy import monoidal, hypergraph
@@ -157,15 +154,15 @@ class Diagram(monoidal.Diagram, TracedCategory):
 
         Example
         -------
-        >>> from discopy.drawing import Equation as Eq
+        >>> from discopy.monoidal import Equation as Eq
         >>> x = Ty('x')
         >>> f = Box('f', x @ x, x @ x)
         >>> LHS, RHS = f.trace(left=True), f.trace(left=False)
         >>> Eq(Eq(LHS, f, symbol="$\\\\mapsfrom$"),
         ...     RHS, symbol="$\\\\mapsto$").draw(
-        ...         path="docs/_static/traced/trace.png")
+        ...         path="docs/_static/traced/trace.svg")
 
-        .. image:: /_static/traced/trace.png
+        .. image:: /_static/traced/trace.svg
         """
         return self if n == 0\
             else self.trace_factory(self, left).trace(n - 1, left)
@@ -246,10 +243,10 @@ class Functor(monoidal.Functor):
     >>> with python.Function.no_type_checking:
     ...     assert F(f.trace())() == F(g)()
 
-    >>> from discopy.drawing import Equation
-    >>> Equation(f.trace(), g).draw(path="docs/_static/traced/golden.png")
+    >>> from discopy.monoidal import Equation
+    >>> Equation(f.trace(), g).draw(path="docs/_static/traced/golden.svg")
 
-    .. image:: /_static/traced/golden.png
+    .. image:: /_static/traced/golden.svg
     """
     dom = cod = Diagram
 

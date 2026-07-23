@@ -24,13 +24,12 @@ A ribbon category is a braided pivotal category, such that
 the trace of the braid is unitary.
 
 >>> x = Ty('x')
->>> from discopy.drawing import Equation
 >>> twist_l = Braid(x, x).trace(left=True)
 >>> twist_r = Braid(x, x).trace(left=False)
 >>> eq = Equation(twist_l >> twist_l[::-1], Id(x), twist_r >> twist_r[::-1])
->>> eq.draw(margins=(.2, 0), path='docs/_static/ribbon/twist-untwist.png')
+>>> eq.draw(margins=(.2, 0), path='docs/_static/ribbon/twist-untwist.svg')
 
-.. image:: /_static/ribbon/twist-untwist.png
+.. image:: /_static/ribbon/twist-untwist.svg
     :align: center
 
 Equivalently, a ribbon category is a balanced pivotal category, such that
@@ -41,18 +40,18 @@ i.e. two parallel wires with the twist drawn as the double braid.
 >>> ribbon_twist = Diagram.twist(x).to_ribbons()
 >>> eq = Equation(ribbon_twist, twist_l.to_ribbons())
 >>> eq.draw(symbol='$\\\\mapsto$', wire_labels=False,
-...     path="docs/_static/balanced/ribbon_twist.png")
+...     path="docs/_static/balanced/ribbon_twist.svg")
 
-.. image:: /_static/balanced/ribbon_twist.png
+.. image:: /_static/balanced/ribbon_twist.svg
 
 A ribbon category is strict whenever the twist is the identity.
 Strict ribbon categories have diagrams with knots, i.e. ribbons where the two
 parallel wires coincide and the twist is the identity.
 
 >>> eq_strict = Equation(twist_l, Id(x), twist_r)
->>> eq_strict.draw(margins=(.2, .1), path='docs/_static/ribbon/strict.png')
+>>> eq_strict.draw(margins=(.2, .1), path='docs/_static/ribbon/strict.svg')
 
-.. image:: /_static/ribbon/strict.png
+.. image:: /_static/ribbon/strict.svg
     :align: center
 """
 
@@ -124,7 +123,7 @@ class Diagram(pivotal.Diagram, balanced.Diagram, RibbonCategory):
         >>> x = Ty('x')
         >>> braided_twist = Diagram.twist(x).to_ribbons()
 
-        .. image:: /_static/balanced/twist_dual_rail.png
+        .. image:: /_static/balanced/twist_dual_rail.svg
         """
         return self.to_braided(width)
 
@@ -332,3 +331,7 @@ Diagram.twist_factory = Twist
 Diagram.dual_rail_factory = DualRail
 
 Id = Diagram.id
+
+
+class Equation(pivotal.Equation):
+    """ The :class:`pivotal.Equation` of ribbon diagrams. """

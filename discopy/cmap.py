@@ -231,12 +231,12 @@ class CMap[C0: Pregroup, C1: CMap](
     ...     (2, 1, 0, 10, 11), (3, 4, 5, 6), (7, 8, 9)], 12)
     True
     >>> cm.draw(
-    ...     path="docs/_static/cmap/simple-cmap.png",
+    ...     path="docs/_static/cmap/simple-cmap.svg",
     ...     port_indices=True,
     ...     show=False,
     ... )
 
-    .. image:: /_static/cmap/simple-cmap.png
+    .. image:: /_static/cmap/simple-cmap.svg
         :align: center
 
     Swaps affect the edge permutation but leave the vertex permutation
@@ -248,12 +248,12 @@ class CMap[C0: Pregroup, C1: CMap](
     ... ])
     >>> cm = (f >> CMap.swap(z, x)) @ z >> x @ g
     >>> cm.draw(
-    ...     path="docs/_static/cmap/swapped-cmap.png",
+    ...     path="docs/_static/cmap/swapped-cmap.svg",
     ...     port_indices=True,
     ...     show=False,
     ... )
 
-    .. image:: /_static/cmap/swapped-cmap.png
+    .. image:: /_static/cmap/swapped-cmap.svg
         :align: center
     """
 
@@ -615,15 +615,15 @@ class CMap[C0: Pregroup, C1: CMap](
         graph = {i: set() for i in range(len(self.boxes))}
 
         def has_path(source: int, target: int) -> bool:
-            todo, seen = [source], set()
-            while todo:
-                node = todo.pop()
+            unseen, seen = [source], set()
+            while unseen:
+                node = unseen.pop()
                 if node == target:
                     return True
                 if node in seen:
                     continue
                 seen.add(node)
-                todo.extend(graph[node])
+                unseen.extend(graph[node])
             return False
 
         for i, j in enumerate(self.edges):
@@ -796,9 +796,9 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> f = Box("f", x @ y, z).to_map()
         >>> assert f.curry().uncurry() == f
         >>> f.curry().draw(
-        ...     path="docs/_static/cmap/compact-curry.png", show=False)
+        ...     path="docs/_static/cmap/compact-curry.svg", show=False)
 
-        .. image:: /_static/cmap/compact-curry.png
+        .. image:: /_static/cmap/compact-curry.svg
             :align: center
         """
         if n < 0 or n > len(self.dom):
@@ -1381,9 +1381,9 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> from discopy.compact import Ty, CMap
         >>> x, y, z = map(Ty, "xyz")
         >>> (CMap.caps((x @ y).r, x @ y) >> CMap.cups((x @ y).l, x @ y)).draw(
-        ...     path="docs/_static/cmap/scalar-loop.png", show=False)
+        ...     path="docs/_static/cmap/scalar-loop.svg", show=False)
 
-        .. image:: /_static/cmap/scalar-loop.png
+        .. image:: /_static/cmap/scalar-loop.svg
             :align: center
         """
         dot = self.to_dot(
