@@ -30,10 +30,8 @@ from __future__ import annotations
 from itertools import count
 from typing import TYPE_CHECKING
 
-import opt_einsum
-
 from discopy import (
-    cat, monoidal, rigid, frobenius, cmap)
+    cat, monoidal, rigid, frobenius, cmap, config)
 from discopy.cat import factory, assert_iscomposable
 from discopy.frobenius import Dim, Cup
 from discopy.matrix import (  # noqa: F401
@@ -315,8 +313,8 @@ class Functor(frobenius.Functor):
     and ``Tensor[dtype]`` as codomain for a given ``dtype``.
 
     Calling it on a diagram converts it to a :class:`CMap` and contracts
-    the network in a single ``opt_einsum.contract`` call dispatching to
-    the active :func:`backend`, passing any optional parameters through.
+    the network in a single ``einsum`` call under the active
+    :func:`backend`, passing any optional einsum parameters through.
 
     Parameters:
         ob_map : The object mapping.
@@ -324,11 +322,11 @@ class Functor(frobenius.Functor):
         dom : The domain of the functor, i.e. the class of diagrams
             it evaluates, the class attribute ``dom`` by default.
         dtype : The datatype for the codomain ``Tensor[dtype]``.
-        optimize : The contraction path, passed verbatim to
-            ``opt_einsum.contract``, e.g. ``"greedy"``, ``"optimal"``
-            or an explicit path.
-        params : Any other optional parameter of
-            ``opt_einsum.contract``, passed verbatim.
+        optimize : The contraction path, passed verbatim to the backend
+            ``einsum``, e.g. ``"greedy"``, ``"optimal"`` or an explicit
+            path.
+        params : Any other optional parameter of the backend ``einsum``
+            method, passed verbatim.
 
     Example
     -------
@@ -392,15 +390,15 @@ class Functor(frobenius.Functor):
 
     def contract(self, other: "cmap.CMap") -> Tensor:
         """
-        Contract the image of a combinatorial map in a single
-        ``opt_einsum.contract`` call dispatching to the active
-        :func:`backend`.
+        Contract the image of a combinatorial map in a single ``einsum``
+        call under the active :func:`backend`.
 
         The map is Einstein notation: the 2-cycles of its ``edges``
         involution are the summed indices, boxes are the tensors and the
-        boundary ports are the free indices, with integer labels so that
-        networks are not limited to 52 indices. A wire is one index of
-        the size of its object's image.
+        boundary ports are the free indices, with integer labels. A wire
+        is one index of the size of its object's image. Networks with
+        more than ``config.MAX_EINSUM_INDICES`` indices are contracted
+        with the optional ``opt_einsum`` package instead.
 
         Parameters:
             other : The combinatorial map to contract.
@@ -442,8 +440,16 @@ class Functor(frobenius.Functor):
                 return self.cod([1], self(other.dom), self(other.cod))
             operands = [
                 x for pair in zip(arrays, indices) for x in pair]
-            array = opt_einsum.contract(
-                *operands, output, optimize=self.optimize, **self.params)
+            if next(fresh) > config.MAX_EINSUM_INDICES:
+                import opt_einsum
+                array = opt_einsum.contract(
+                    *operands, output,
+                    optimize=self.optimize, **self.params)
+            else:
+                params = dict(self.params, optimize=self.optimize)\
+                    if isinstance(get_backend(), (NumPy, JAX))\
+                    else self.params
+                array = np.einsum(*operands, output, **params)
         return self.cod(array, self(other.dom), self(other.cod))
 
 
@@ -470,10 +476,10 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
         Parameters:
             dtype : The datatype for spiders and the result,
                 inferred from the boxes by default.
-            optimize : The contraction path, passed verbatim to
-                ``opt_einsum.contract``.
-            params : Any other optional parameter of
-                ``opt_einsum.contract``, passed verbatim.
+            optimize : The contraction path, passed verbatim to the
+                backend ``einsum``.
+            params : Any other optional parameter of the backend
+                ``einsum`` method, passed verbatim.
 
         Examples
         --------

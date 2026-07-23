@@ -360,12 +360,12 @@ def test_eval_params():
     vector = Box('vector', Dim(1), Dim(2), [1., 2.])
     diagram = vector >> vector[::-1]
     assert diagram.eval(optimize="optimal") == diagram.eval()
-    assert diagram.eval(use_blas=False) == diagram.eval()
+    assert diagram.eval(order='C') == diagram.eval()
     x = frobenius.Ty('x')
     v = frobenius.Box('v', frobenius.Ty(), x)
     F = Functor({x: 2}, {v: [1., 2.]}, optimize="optimal")
     assert F(v >> v.dagger()).array == 5.
-    assert Functor({x: 2}, {v: [1., 2.]}, use_blas=False)(v >> v.dagger()) \
+    assert Functor({x: 2}, {v: [1., 2.]}, order='C')(v >> v.dagger()) \
         == F(v >> v.dagger())
     assert repr(F) == \
         "tensor.Functor(ob_map={frobenius.Ty(frobenius.Ob('x')): 2}, " \
