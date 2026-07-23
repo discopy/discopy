@@ -111,14 +111,32 @@ def test_reduce_budget():
     X = Ty('X')
     h = Variable('h', X >> (X >> X))
     c, d = Variable('c', X), Variable('d', X)
-    term = h(X(lambda x: x)(c))(X(lambda x: x)(d))
+    identity = X(lambda x: x)
+    term = h(identity(c))(identity(d))
     scope = (h, c, d)
-    leaf_c, leaf_d = [BohmTree(X, scope, i, ()) for i in (1, 2)]
-    assert term.reduce(budget=0) == BohmTree(X, scope, 0, (None, None))
-    assert term.reduce(budget=1) == BohmTree(X, scope, 0, (leaf_c, None))
-    assert term.reduce() == BohmTree(X, scope, 0, (leaf_c, leaf_d))
+
+    tree0 = term.reduce(budget=0)
+    assert (tree0.cod, tree0.variables, tree0.head) == (X, scope, 0)
+    assert tree0.spine == (identity(c), identity(d))
     with raises(ValueError):
-        term.reduce(budget=1).to_term()
+        tree0[0]
+    with raises(ValueError):
+        tree0[1]
+    with raises(ValueError):
+        tree0.to_term()
+
+    tree1 = term.reduce(budget=1)
+    assert tree1[0].to_term(len(scope)) == c
+    with raises(ValueError):
+        tree1[1]
+    with raises(ValueError):
+        tree1.to_term()
+
+    tree = term.reduce()
+    assert tree[0].to_term(len(scope)) == c
+    assert tree[1].to_term(len(scope)) == d
+    assert tree.to_term(len(scope)) == h(c)(d)
+
     with raises(ValueError):
         term.normal_form(budget=1)
     assert term.normal_form(budget=2) == h(c)(d) == term.normal_form()
@@ -132,14 +150,19 @@ def test_reduce_strategy():
     scope = (h, c, d)
 
     class RightmostFirst(LeftmostOutermost):
-        def arguments(self, terms, variables):
-            return tuple(reversed(
-                [self(term, variables) for term in reversed(terms)]))
+        def order(self, terms):
+            return tuple(reversed(range(len(terms))))
 
-    assert term.reduce(budget=1, strategy=RightmostFirst)\
-        == BohmTree(X, scope, 0, (None, BohmTree(X, scope, 2, ())))
+    tree = term.reduce(budget=1, strategy=RightmostFirst)
+    assert tree.strategy.order(tree.spine) == (1, 0)
+    with raises(ValueError):
+        tree.to_term()
+    assert tree[1].to_term(len(scope)) == d
+    with raises(ValueError):
+        tree[0]
+
     with raises(NotImplementedError):
-        Strategy()(c, scope)
+        Strategy().order((c, ))
     with raises(TypeError):
         Constant('e', X).reduce()
 

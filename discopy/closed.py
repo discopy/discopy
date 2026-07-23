@@ -52,7 +52,7 @@ Axioms
 """
 
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, ClassVar, Optional
 
 from discopy import cat, monoidal, biclosed, markov, hypergraph
@@ -206,9 +206,11 @@ class TermBase(Box, biclosed.TermBase):
     def reduce(self, budget: int = None, strategy: type = None
                ) -> Optional[BohmTree]:
         """
-        The :class:`BohmTree` of the term, contracting at most ``budget``
-        beta redexes, or ``None`` when the budget runs out before a head
-        normal form is reached.
+        The head normal form of the term as a :class:`BohmTree`, contracting
+        at most ``budget`` beta redexes to reach it, or ``None`` when the
+        budget runs out before a head normal form is reached. The tree's
+        arguments are computed lazily, i.e. indexing into it may itself run
+        out of budget, see :meth:`BohmTree.__getitem__`.
 
         Parameters:
             budget : The number of beta redexes to contract, no bound if
@@ -221,8 +223,9 @@ class TermBase(Box, biclosed.TermBase):
         >>> X = Ty('X')
         >>> f, x = Variable('f', X >> X), Variable('x', X)
         >>> two = (X >> X)(lambda f: X(lambda x: f(f(x))))
-        >>> assert two.reduce() == BohmTree(X, (f, x), 0, (
-        ...     BohmTree(X, (f, x), 0, (BohmTree(X, (f, x), 1, ()), )), ))
+        >>> tree = two.reduce()
+        >>> assert tree.spine == (f(x), )
+        >>> assert tree[0][0] == BohmTree(X, (f, x), 1, tree.strategy, ())
         >>> assert two(X(lambda x: x))(x).reduce(budget=1) is None
         """
         return (strategy or self.strategy_factory)(budget)(
@@ -405,15 +408,19 @@ class BohmTree:
     A `Böhm tree <https://en.wikipedia.org/wiki/B%C3%B6hm_tree>`_ is the
     normal form of a :class:`Term`: each node abstracts the variables in
     scope beyond those of its parent, then applies a head variable to the
-    trees of its arguments, with ``None`` for the arguments left unreduced
-    when the budget of a :class:`Strategy` runs out.
+    trees of its arguments. Arguments are computed lazily and cached, i.e.
+    ``tree[i]`` reduces ``spine[i]`` with ``strategy`` on first access and
+    raises :class:`ValueError` if its budget has run out.
 
     Parameters:
         cod : The type of the head variable applied to the arguments.
         variables : The variables in scope, those of the parent followed by
             the ones bound at this node.
         head : The index in ``variables`` of the head variable.
-        args : The trees of the arguments of the head variable.
+        strategy : The strategy used to reduce the arguments, shared with
+            every node of the tree so that its budget is spent only once.
+        spine : The unreduced terms of the arguments of the head variable,
+            in their original left-to-right order.
 
     Example
     -------
@@ -421,7 +428,8 @@ class BohmTree:
     >>> X = Ty('X')
     >>> f, x = Variable('f', X >> X), Variable('x', X)
     >>> tree = (X >> X)(lambda f: X(lambda x: f(x))).reduce()
-    >>> assert tree == BohmTree(X, (f, x), 0, (BohmTree(X, (f, x), 1, ()), ))
+    >>> assert tree.spine == (x, )
+    >>> assert tree[0] == BohmTree(X, (f, x), 1, tree.strategy, ())
     >>> assert tree == eval(repr(tree))
     >>> print(tree.to_term())
     (X >> X)(lambda f: X(lambda x: f(x)))
@@ -429,14 +437,17 @@ class BohmTree:
     cod: Ty
     variables: tuple[Variable, ...]
     head: int
-    args: tuple[Optional[BohmTree], ...]
+    strategy: Strategy
+    spine: tuple[Term, ...]
+    cache: dict[int, BohmTree] = field(
+        default_factory=dict, compare=False, repr=False, init=False)
 
     def __post_init__(self):
         assert 0 <= self.head < len(self.variables)
         cod = self.variables[self.head].cod
-        for arg in self.args:
+        for term in self.spine:
             assert cod.is_exp
-            assert arg is None or arg.ty(len(self.variables)) == cod.exponent
+            assert term.cod == cod.exponent
             cod = cod.base
         assert cod == self.cod
 
@@ -453,26 +464,44 @@ class BohmTree:
             result = var.cod >> result
         return result
 
+    def __getitem__(self, key: int) -> BohmTree:
+        """
+        The tree of the ``key``-th argument, reduced from ``spine[key]`` on
+        first access and cached thereafter.
+
+        Parameters:
+            key : The index of the argument in :attr:`spine`.
+        """
+        if key not in self.cache:
+            tree = self.strategy(self.spine[key], self.variables)
+            if tree is None:
+                raise ValueError(f"Missing arguments in {self}.")
+            self.cache[key] = tree
+        return self.cache[key]
+
     def to_term(self, n: int = 0) -> Term:
         """
         The term of the tree in the standard syntax, abstracting over
         ``variables[n:]`` for ``n`` the number of variables of the parent.
+        Forces every argument, in the order chosen by ``strategy``, raising
+        :class:`ValueError` if any of them is missing.
 
         Parameters:
             n : The number of variables bound by the parent.
         """
-        if None in self.args:
-            raise ValueError(f"Missing arguments in {self}.")
+        for i in self.strategy.order(self.spine):
+            self[i]
         result = self.variables[self.head]
-        for arg in self.args:
-            result = result(arg.to_term(len(self.variables)))
+        for i in range(len(self.spine)):
+            result = result(self[i].to_term(len(self.variables)))
         for var in reversed(self.variables[n:]):
             result = var.cod.abstraction_factory(var, result)
         return result
 
     def __repr__(self):
-        return factory_name(type(self))\
-            + f"({self.cod!r}, {self.variables!r}, {self.head}, {self.args!r})"
+        return factory_name(type(self)) + (
+            f"({self.cod!r}, {self.variables!r}, {self.head}, "
+            f"{self.strategy!r}, {self.spine!r})")
 
 
 @dataclass
@@ -482,9 +511,11 @@ class Strategy:
     ``budget`` of beta redexes to contract, with no bound when ``None``.
 
     Contracting the head redex comes first in every strategy that reaches a
-    head normal form; concrete strategies such as :class:`LeftmostOutermost`
-    choose the order in which the arguments of the head variable are reduced
-    by implementing :meth:`Strategy.arguments`.
+    head normal form; the arguments of the head variable are left lazy in
+    the resulting tree, see :meth:`BohmTree.__getitem__`. Concrete
+    strategies such as :class:`LeftmostOutermost` choose the order in which
+    the arguments are forced, e.g. by :meth:`BohmTree.to_term`, by
+    implementing :meth:`Strategy.order`.
 
     Parameters:
         budget : The number of beta redexes left to contract.
@@ -493,8 +524,9 @@ class Strategy:
 
     def __call__(self, term: Term, variables=()) -> Optional[BohmTree]:
         """
-        The Böhm tree of a term in a scope of variables, or ``None`` when
-        the budget runs out before a head normal form is reached.
+        The head normal form of a term in a scope of variables as a
+        :class:`BohmTree` with its arguments left lazy, or ``None`` when the
+        budget runs out before a head normal form is reached.
 
         Parameters:
             term : The term to reduce.
@@ -518,8 +550,8 @@ class Strategy:
         cod = term.cod
         for _ in spine:
             cod = cod.base
-        args = self.arguments(tuple(reversed(spine)), tuple(variables))
-        return BohmTree(cod, tuple(variables), head, args)
+        return BohmTree(
+            cod, tuple(variables), head, self, tuple(reversed(spine)))
 
     def spend(self) -> bool:
         "Take one beta redex from the budget, or return ``False``."
@@ -528,23 +560,22 @@ class Strategy:
         self.budget = None if self.budget is None else self.budget - 1
         return True
 
-    def arguments(self, terms: tuple[Term, ...],
-                  variables: tuple[Variable, ...]
-                  ) -> tuple[Optional[BohmTree], ...]:
+    def order(self, terms: tuple[Term, ...]) -> tuple[int, ...]:
         """
-        The trees of the arguments of a head variable, reduced in the order
-        chosen by the concrete strategy.
+        The order, as indices into ``terms``, in which to force the
+        arguments of a head variable when forcing the whole tree, e.g. in
+        :meth:`BohmTree.to_term`.
 
         Parameters:
-            terms : The arguments of the head variable.
-            variables : The variables in scope.
+            terms : The unreduced arguments of the head variable, i.e. a
+                :class:`BohmTree`'s :attr:`BohmTree.spine`.
         """
         raise NotImplementedError
 
 
 class LeftmostOutermost(Strategy):
     """
-    The default :class:`Strategy`: contract the head redex, then reduce the
+    The default :class:`Strategy`: contract the head redex, then force the
     arguments of the head variable from left to right.
 
     Example
@@ -552,13 +583,18 @@ class LeftmostOutermost(Strategy):
     >>> X = Ty('X')
     >>> f, x = Variable('f', X >> X), Variable('x', X)
     >>> term = (X >> X)(lambda f: X(lambda x: f(X(lambda x: x)(x))))
-    >>> assert LeftmostOutermost(0)(term)\\
-    ...     == BohmTree(X, (f, x), 0, (None, ))
-    >>> assert LeftmostOutermost(1)(term) == term.reduce() == BohmTree(
-    ...     X, (f, x), 0, (BohmTree(X, (f, x), 1, ()), ))
+    >>> tree = LeftmostOutermost(0)(term)
+    >>> try:
+    ...     tree[0]
+    ... except ValueError:
+    ...     print("starved")
+    starved
+    >>> tree = LeftmostOutermost(1)(term)
+    >>> assert tree == term.reduce(budget=1)
+    >>> assert tree[0] == BohmTree(X, (f, x), 1, tree.strategy, ())
     """
-    def arguments(self, terms, variables):
-        return tuple(self(term, variables) for term in terms)
+    def order(self, terms):
+        return tuple(range(len(terms)))
 
 
 Ty.variable_factory = Variable
