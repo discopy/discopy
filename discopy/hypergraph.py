@@ -31,7 +31,9 @@ Summary
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from functools import cached_property
 from inspect import isclass
+from itertools import chain
 
 import random
 from typing import Any, Iterable, Union, TYPE_CHECKING
@@ -43,7 +45,6 @@ from networkx import (
     spring_layout,
     draw_networkx,
     has_path,
-    is_directed_acyclic_graph,
     dag_longest_path_length,
     topological_sort,
     weisfeiler_lehman_graph_hash,
@@ -210,8 +211,8 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
             if len(box_cod_wires) != len(box.cod):
                 raise ValueError
 
-        flat_wires = dom_wires + sum(
-            [x + y for x, y in box_wires], ()) + cod_wires
+        flat_wires = dom_wires + tuple(
+            chain.from_iterable(x + y for x, y in box_wires)) + cod_wires
         connected_spiders = set(flat_wires)
 
         if spider_types is None:
@@ -220,33 +221,38 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         if not isinstance(spider_types, Mapping):
             spider_types = dict(enumerate(spider_types))
 
-        relabeling = sorted(connected_spiders, key=flat_wires.index)
+        first_occurrence = {}
+        for index, spider in enumerate(flat_wires):
+            first_occurrence.setdefault(spider, index)
+        relabeling = sorted(connected_spiders, key=first_occurrence.get)
         relabeling += sorted(set(spider_types.keys()) - connected_spiders)
         self.spider_types = tuple(
             spider_types[s].unwind() for s in relabeling)
-        self.flat_wires = tuple(relabeling.index(s) for s in flat_wires)
+        new_index = {s: i for i, s in enumerate(relabeling)}
+        self.flat_wires = tuple(new_index[s] for s in flat_wires)
         self.wires = self.rebracket(self.flat_wires)
         self.dom_wires, self.box_wires, self.cod_wires = self.wires
 
+        ports = self.ports
         for obj in self.spider_types:
             assert_isatomic(obj, self.category.ob)
         for obj, (producers, consumers) in zip(
                 self.spider_types, self.spider_wires):
             for i in producers | consumers:
-                if self.ports[i].obj.unwind() != obj:
+                if ports[i].obj.unwind() != obj:
                     raise AxiomError(messages.TYPE_ERROR.format(
-                        obj, self.ports[i].obj))
+                        obj, ports[i].obj))
             same_side = producers if len(producers) == 2 else\
                 consumers if len(consumers) == 2 else None
             if same_side is not None:
-                left, right = (self.ports[i].obj for i in sorted(same_side))
+                left, right = (ports[i].obj for i in sorted(same_side))
                 if getattr(left, "r", left) != right\
                         and getattr(right, "r", right) != left:
                     raise AxiomError(messages.NOT_ADJOINT.format(left, right))
 
         self.offsets = offsets or tuple(len(boxes) * [None])
 
-    @property
+    @cached_property
     def spider_wires(self) -> list[tuple[set[int], set[int]]]:
         """
         The input and output wires for each spider of a hypergraph.
@@ -275,8 +281,8 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
             result[spider][1].add(port + n_ports)
         return result
 
-    @property
-    def ports(self):
+    @cached_property
+    def ports(self) -> list[Node]:
         """
         The ports in a diagram.
 
@@ -299,11 +305,11 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         """
         inputs = [Node("input", i=i, obj=obj)
                   for i, obj in enumerate(self.dom)]
-        doms_and_cods = sum([[
+        doms_and_cods = [
             Node(kind, depth=depth, i=i, obj=obj)
-            for i, obj in enumerate(typ)]
             for depth, box in enumerate(self.boxes)
-            for kind, typ in [("dom", box.dom), ("cod", box.cod)]], [])
+            for kind, typ in [("dom", box.dom), ("cod", box.cod)]
+            for i, obj in enumerate(typ)]
         outputs = [Node("output", i=i, obj=obj)
                    for i, obj in enumerate(self.cod)]
         return inputs + doms_and_cods + outputs
@@ -411,6 +417,24 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         return cls(dom, cod, boxes, (dom_wires, (), cod_wires))
 
     braid = swap
+
+    @classmethod
+    def permutation(cls, xs: list[int], dom) -> Hypergraph:
+        """
+        The hypergraph that encodes a given permutation, with the same
+        semantics as :meth:`discopy.symmetric.Diagram.permutation` but
+        built directly as wires rather than as a chain of swap boxes,
+        i.e. in time linear rather than quadratic in ``len(xs)``.
+
+        Parameters:
+            xs : A list of integers representing a permutation.
+            dom : A type of the same length as ``xs``.
+        """
+        if list(range(len(dom))) != sorted(xs):
+            raise ValueError(messages.WRONG_PERMUTATION.format(len(dom), xs))
+        cod, boxes = dom.ob(*(dom.inside[i] for i in xs)), ()
+        dom_wires, cod_wires = tuple(range(len(dom))), tuple(xs)
+        return cls(dom, cod, boxes, (dom_wires, (), cod_wires))
 
     @classmethod
     def spiders(cls, n_legs_in, n_legs_out, typ):
@@ -572,12 +596,191 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
     def __eq__(self, other: Any):
         if not isinstance(other, Hypergraph):
             return False
-        return self.is_parallel(other) and is_isomorphic(
+        if not self.is_parallel(other):
+            return False
+        self_ok, other_ok = self.is_fast_eligible, other.is_fast_eligible
+        if self_ok != other_ok:
+            return False
+        if self_ok:
+            self_form = self.boundary_rooted_canonical()
+            other_form = other.boundary_rooted_canonical()
+            if self_form is not None and other_form is not None:
+                return self_form.boxes == other_form.boxes\
+                    and self_form.wires == other_form.wires
+        return is_isomorphic(
             self.to_graph(), other.to_graph(), lambda x, y: x == y)
 
     def __hash__(self):
+        if self.is_fast_eligible:
+            return hash((
+                self.dom, self.cod, len(self.boxes), self.n_spiders,
+                tuple(sorted(repr(box) for box in self.boxes)),
+                tuple(sorted(map(repr, self.spider_types)))))
         return hash((self.dom, self.cod, weisfeiler_lehman_graph_hash(
             self.to_graph(), node_attr="box")))
+
+    def box_dependencies(self):
+        """
+        Box-level dependency graph induced by the wiring, used to detect
+        cycles and to compute a canonical box order in linear time, as an
+        alternative to building the full port-level :meth:`causal_graph`.
+
+        Returns a producer and a consumer box index for each spider
+        (``-1`` for the global boundary), a mapping from each spider to its
+        position in :attr:`dom_wires` and the resulting dependents/indegree
+        lists for the boxes.
+        """
+        producer, consumer = [-1] * self.n_spiders, [-1] * self.n_spiders
+        for i, (box_dom, box_cod) in enumerate(self.box_wires):
+            for spider in box_dom:
+                consumer[spider] = i
+            for spider in box_cod:
+                producer[spider] = i
+        dom_port = {spider: i for i, spider in enumerate(self.dom_wires)}
+        dependents = [[] for _ in self.boxes]
+        indegree = [0] * len(self.boxes)
+        for i, (box_dom, _) in enumerate(self.box_wires):
+            for spider in box_dom:
+                j = producer[spider]
+                if j != -1:
+                    dependents[j].append(i)
+                    indegree[i] += 1
+        return producer, consumer, dom_port, dependents, indegree
+
+    @cached_property
+    def is_boundary_connected(self) -> bool:
+        """
+        Checks boundary-connectedness, i.e. whether the graph with boxes as
+        edges and spiders as vertices is connected, after adding one extra
+        boundary node joined to every spider in :attr:`dom_wires` and
+        :attr:`cod_wires`. The boundary node is always added, even when the
+        boundary is empty, so that e.g. a closed diagram with a non-trivial
+        interior (such as a trace of a tensor, or a scalar spider) is *not*
+        boundary-connected: the boundary node then has no edges and is its
+        own isolated component.
+
+        Note this has nothing to do with acyclicity: there are acyclic
+        diagrams that are not boundary-connected, e.g. a tensor of two
+        scalar boxes, and there are boundary-connected diagrams that are
+        cyclic, e.g. the trace of an endomorphism.
+
+        Examples
+        --------
+        >>> from discopy.frobenius import Ty, Box, Hypergraph as H
+        >>> x, y, z = map(Ty, "xyz")
+        >>> f = Box('f', x, x).to_hypergraph()
+        >>> assert f.is_boundary_connected
+
+        >>> # The trace of an endomorphism with a non-empty boundary is
+        >>> # boundary-connected even though it is cyclic.
+        >>> g = Box('g', x @ z, y @ z).to_hypergraph()
+        >>> assert g.trace().is_boundary_connected
+
+        >>> # Tracing away the whole domain leaves an empty, closed loop.
+        >>> assert not f.trace().is_boundary_connected
+
+        >>> scalar = Box('s', Ty(), Ty()).to_hypergraph()
+        >>> assert not (scalar @ scalar).is_boundary_connected
+        >>> assert not H.spiders(0, 0, x).is_boundary_connected
+
+        >>> assert H.id(Ty()).is_boundary_connected
+        """
+        n_boxes = len(self.boxes)
+        n_spiders_and_boxes = self.n_spiders + n_boxes
+        parent = list(range(n_spiders_and_boxes + 1))
+
+        def find(i):
+            while parent[i] != i:
+                parent[i] = parent[parent[i]]
+                i = parent[i]
+            return i
+
+        def union(i, j):
+            i, j = find(i), find(j)
+            if i != j:
+                parent[i] = j
+
+        for i, (box_dom, box_cod) in enumerate(self.box_wires):
+            for spider in box_dom + box_cod:
+                union(self.n_spiders + i, spider)
+        for spider in self.dom_wires:
+            union(n_spiders_and_boxes, spider)
+        for spider in self.cod_wires:
+            union(n_spiders_and_boxes, spider)
+        return len({find(i) for i in range(n_spiders_and_boxes + 1)}) == 1
+
+    @cached_property
+    def is_fast_eligible(self) -> bool:
+        """
+        Whether :meth:`__eq__` and :meth:`__hash__` can use the linear-time
+        boundary-rooted canonical form instead of graph isomorphism.
+        """
+        return self.is_monogamous and self.is_boundary_connected
+
+    def boundary_rooted_canonical(self) -> Hypergraph | None:
+        """
+        Canonical form of a monogamous, boundary-connected hypergraph, used
+        to compare such diagrams in linear time instead of checking for
+        graph isomorphism. Computed by a deterministic breadth-first
+        traversal rooted at the boundary, assigning each spider and box a
+        canonical rank the first time it is reached; this tolerates cycles
+        natively, unlike a topological sort. Two hypergraphs are then equal
+        iff their canonical forms have equal ``boxes`` and ``wires``
+        (compared as plain attributes, not with ``==``, to avoid recursing
+        back into :meth:`__eq__`).
+
+        Returns ``None`` if the traversal could not certify a complete
+        canonical order, e.g. because of a genuine symmetry between two
+        independent parts of the diagram, in which case the caller should
+        fall back to a slower method.
+        """
+        producer, consumer, _, _, _ = self.box_dependencies()
+        canon: dict[int, int] = {}
+        order: list[int] = []
+
+        def see(spider):
+            if spider not in canon:
+                canon[spider] = len(order)
+                order.append(spider)
+
+        for spider in self.dom_wires:
+            see(spider)
+        for spider in self.cod_wires:
+            see(spider)
+
+        box_rank = [None] * len(self.boxes)
+        next_rank = 0
+        position = 0
+        while position < len(order):
+            spider = order[position]
+            position += 1
+            for box in (producer[spider], consumer[spider]):
+                if box != -1 and box_rank[box] is None:
+                    box_rank[box] = next_rank
+                    next_rank += 1
+                    box_dom, box_cod = self.box_wires[box]
+                    for s in box_dom:
+                        see(s)
+                    for s in box_cod:
+                        see(s)
+
+        if next_rank != len(self.boxes):
+            return None
+        if len(order) != self.n_spiders - len(self.scalar_spiders):
+            return None
+
+        box_order = sorted(range(len(self.boxes)), key=box_rank.__getitem__)
+        boxes = tuple(self.boxes[i] for i in box_order)
+        wires = (
+            tuple(canon[s] for s in self.dom_wires),
+            tuple(
+                (tuple(canon[s] for s in self.box_wires[i][0]),
+                 tuple(canon[s] for s in self.box_wires[i][1]))
+                for i in box_order),
+            tuple(canon[s] for s in self.cod_wires))
+        spider_types = tuple(
+            self.spider_types[order[c]] for c in range(len(order)))
+        return type(self)(self.dom, self.cod, boxes, wires, spider_types)
 
     def __repr__(self):
         spider_types = f", spider_types={self.spider_types}"\
@@ -804,7 +1007,9 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
     @property
     def is_acyclic(self) -> bool:
         """
-        Checks that the causal graph has no directed cycle.
+        Checks that the causal graph has no directed cycle, with a plain
+        Kahn's algorithm on the box-level dependency graph, avoiding the
+        construction of a full networkx graph on ports.
         As an edge case, we also need to check that there are no scalar
         spiders, otherwise the causal graph has 0 nodes and is thus trivially
         acyclic.
@@ -831,8 +1036,19 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         >>> # Edge case: cyclic hypergraph without boxes
         >>> assert not (Cap(x, x) >> Cup(x, x)).to_hypergraph().is_acyclic
         """
-        return not self.scalar_spiders\
-            and is_directed_acyclic_graph(self.causal_graph())
+        if self.scalar_spiders:
+            return False
+        _, _, _, dependents, indegree = self.box_dependencies()
+        indegree, seen = list(indegree), 0
+        ready = [i for i, d in enumerate(indegree) if d == 0]
+        while ready:
+            i = ready.pop()
+            seen += 1
+            for j in dependents[i]:
+                indegree[j] -= 1
+                if indegree[j] == 0:
+                    ready.append(j)
+        return seen == len(self.boxes)
 
     @property
     def is_topologically_ordered(self) -> bool:
@@ -1159,7 +1375,11 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
 
     def to_diagram(self) -> Diagram:
         """
-        Downgrade to :class:`Diagram`, called by :code:`print`.
+        Downgrade to :class:`Diagram`, called by :code:`print`. When the
+        hypergraph is boundary-connected, the boxes are grouped into wide
+        layers (a foliation) rather than a staircase, by scanning the boundary
+        in one pass; this is what :meth:`discopy.symmetric.Diagram.foliation`
+        relies on.
 
         Note
         ----
@@ -1199,31 +1419,56 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
                 raise AxiomError(messages.NO_STRUCTURE_TO_DOWNGRADE.format(
                     factory_name(self.category)))
             return self.make_monogamous().make_causal().to_diagram()
+        foliate = self.is_boundary_connected
         diagram, scan = self.category.id(self.dom), self.dom_wires
+        pending, layer_dom, layer_right, shift = [], self.dom, 0, 0
+
+        def flush():
+            nonlocal diagram, pending, layer_right, shift
+            if pending:
+                parts, cursor = [], 0
+                for placed, placed_offset in pending:
+                    parts += [layer_dom[cursor:placed_offset], placed]
+                    cursor = placed_offset + len(placed.dom)
+                parts.append(layer_dom[cursor:])
+                layer = diagram.layer_factory(*parts)
+                diagram >>= diagram.ar((layer,), layer.dom, layer.cod)
+            pending, layer_right, shift = [], 0, 0
+
         for depth, (box, offset) in enumerate(zip(self.boxes, self.offsets)):
             dom_wires, cod_wires = self.box_wires[depth]
             for i, obj in enumerate(box.dom):
                 j = scan.index(dom_wires[i])
                 if i == 0 and offset is None:
                     offset = j
-                elif j > offset + i:
-                    diagram >>= diagram.cod[:offset + i] @ diagram.swap(
-                        diagram.cod[offset + i:j], diagram.cod[j]
-                    ) @ diagram.cod[j + 1:]
-                    scan = (scan[:offset + i] + scan[j:j + 1]) + (
-                        scan[offset + i:j] + scan[j + 1:])
-                elif j < offset + i:
-                    diagram >>= diagram.cod[:j] @ diagram.swap(
-                        diagram.cod[j], diagram.cod[j + 1:offset + i]
-                    ) @ diagram.cod[offset + i:]
-                    scan = (scan[:j] + scan[j + 1:offset + i]) + (
-                        scan[j:j + 1] + scan[offset + i:])
-                    offset -= 1
-                assert len(scan) == len(diagram.cod)
+                elif j != offset + i:
+                    flush()  # a swap is a layer of its own
+                    if j > offset + i:
+                        diagram >>= diagram.cod[:offset + i] @ diagram.swap(
+                            diagram.cod[offset + i:j], diagram.cod[j]
+                        ) @ diagram.cod[j + 1:]
+                        scan = (scan[:offset + i] + scan[j:j + 1]) + (
+                            scan[offset + i:j] + scan[j + 1:])
+                    else:
+                        diagram >>= diagram.cod[:j] @ diagram.swap(
+                            diagram.cod[j], diagram.cod[j + 1:offset + i]
+                        ) @ diagram.cod[offset + i:]
+                        scan = (scan[:j] + scan[j + 1:offset + i]) + (
+                            scan[j:j + 1] + scan[offset + i:])
+                        offset -= 1
+                    assert len(scan) == len(diagram.cod)
             offset = 0 if offset is None else offset
+            if pending and offset < layer_right:
+                flush()
+            if not pending:
+                layer_dom = diagram.cod
+            pending.append((box, offset - shift))
+            shift += len(box.cod) - len(box.dom)
+            layer_right = offset + len(box.cod)
             scan = scan[:offset] + cod_wires + scan[offset + len(box.dom):]
-            diagram >>= diagram.cod[:offset] @ box @ diagram.cod[
-                offset + len(box.dom):]
+            if not foliate:
+                flush()
+        flush()
         for i, spider in enumerate(self.cod_wires):
             j = scan.index(spider)
             if i < j:
