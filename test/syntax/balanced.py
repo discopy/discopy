@@ -11,35 +11,35 @@ def test_repr():
 
 def test_double_rail():
     x = Ty('x')
-    # Doubling sets the first rail's margin so the two rails are `width` apart.
+    # Doubling puts a shared Ribbon region between the two rails of a wire,
+    # gray by default, carrying both the colour and the width of the ribbon.
     rail = double_rail(x, .25)
-    assert len(rail) == 2
-    margins = [getattr(o, "min_right_margin", 0) for o in rail.inside]
-    assert margins == [-0.75, 0]
-
-
-def test_double_rail_color():
-    x = Ty('x')
-    # Doubling makes the two rails share a ribbon carrying the given colour.
-    rail = double_rail(x, .25, color="red")
     left, right = rail.inside
-    assert left.ribbon is right.ribbon and left.ribbon.color == "red"
+    assert len(rail) == 2
+    assert left.cod is right.dom == Ribbon("gray", width=.25)
 
 
-def test_double_rail_color_callable():
+def test_double_rail_colour():
     x = Ty('x')
-    rail = double_rail(x, color=lambda ob: ob.name.upper())
-    assert rail.inside[0].ribbon.color == "X"
+    rail = double_rail(x, .25, colour="red")
+    assert rail.inside[0].cod == Ribbon("red", width=.25)
+
+
+def test_double_rail_colour_callable():
+    x = Ty('x')
+    rail = double_rail(x, colour=lambda ob: ob.name.upper())
+    assert rail.inside[0].cod.name == "X"
 
 
 def test_ribbon_survives_adjoint():
     from discopy.pivotal import Ty as PivotalTy
     x = PivotalTy('x')
-    # Taking the adjoint reverses the two rails but keeps them a colour region.
-    rail = double_rail(x, .25, color="red")
-    ribbon = rail.inside[0].ribbon
+    # The adjoint reverses the two rails and swaps the sides of each object,
+    # so the pair stays one colour region of the same colour and width.
+    rail = double_rail(x, .25, colour="red")
+    ribbon = rail.inside[0].cod
     adjoint = rail.r
-    assert [o.ribbon for o in adjoint.inside] == [ribbon, ribbon]
+    assert adjoint.inside[0].cod is ribbon is adjoint.inside[1].dom
 
 
 def test_to_braided_width():
@@ -65,12 +65,12 @@ def test_dual_rail_braid_and_twist():
     # and a twist becomes a single DualRailTwist.
     braid, = Braid(x, y).to_braided(width=None).boxes
     assert isinstance(braid, DualRailBraid)
-    assert braid.dom == x @ x @ y @ y and braid.cod == y @ y @ x @ x
+    assert braid.dom == double_rail(x @ y) and braid.cod == double_rail(y @ x)
     assert braid.dagger().dom == braid.cod and braid.dagger().cod == braid.dom
 
     twist, = Diagram.twist(x).to_braided(width=None).boxes
     assert isinstance(twist, DualRailTwist)
-    assert twist.dom == twist.cod == x @ x
+    assert twist.dom == twist.cod == double_rail(x)
 
 
 def test_to_braided_default_and_zero_width():

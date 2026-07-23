@@ -80,11 +80,13 @@ def test_draw_coloured_regions_and_frame():
     z = monoidal.Ty(monoidal.Wire("z", red, blue))
     box = monoidal.Box("f", x @ y, z)
     outer = monoidal.Ty(monoidal.Wire("u", blue, red))
-    # A box fills its three wire regions.
-    assert {'#ff0000', '#008000', '#0000ff'} <= region_hexes(box)
+    # A box fills its three wire regions, with the names in
+    # discopy.config.COLORS resolved to their hexcodes as for boxes.
+    assert {'#e8a5a5', '#d8f8d8', '#776ff3'} <= region_hexes(box)
     # A frame additionally fills its frame background (lightgrey).
     frame = box.bubble(dom=outer, cod=outer, draw_as_frame=True)
-    assert {'#ff0000', '#008000', '#0000ff', '#d3d3d3'} <= region_hexes(frame)
+    assert {'#e8a5a5', '#d8f8d8', '#776ff3', '#d3d3d3'}\
+        <= region_hexes(frame)
 
 
 def coloured_bubble():
@@ -173,9 +175,10 @@ def test_draw_regions_uncoloured_shapes():
 def test_draw_coloured_cups_and_caps():
     red, green = map(monoidal.Colour, ("red", "green"))
     x = Ty(Ob("x", dom=red, cod=green))
-    # A cup and a cap each separate the two boundary regions.
-    assert region_hexes(Cup(x, x.r)) == {'#ff0000', '#008000'}
-    assert region_hexes(Cap(x.r, x)) == {'#ff0000', '#008000'}
+    # A cup and a cap each separate the two boundary regions, with the
+    # names in discopy.config.COLORS resolved to their hexcodes.
+    assert region_hexes(Cup(x, x.r)) == {'#e8a5a5', '#d8f8d8'}
+    assert region_hexes(Cap(x.r, x)) == {'#e8a5a5', '#d8f8d8'}
 
 
 def test_draw_coloured_crossings_are_monochrome():
@@ -185,9 +188,9 @@ def test_draw_coloured_crossings_are_monochrome():
     # on both sides, so their regions are a single colour.
     assert region_hexes(Swap(
         Ty(Ob("x", dom=red, cod=red)), Ty(Ob("y", dom=red, cod=red)))
-    ) == {'#ff0000'}
+    ) == {'#e8a5a5'}
     assert region_hexes(Spider(2, 1, FTy(FOb("x", dom=red, cod=red)))) == {
-        '#ff0000'}
+        '#e8a5a5'}
     # A swap of wires separating different regions is not globular.
     green = monoidal.Colour("green")
     with raises(AxiomError):
@@ -200,7 +203,7 @@ def test_draw_coloured_equation():
     equation = Equation(Box("f", x, x), Box("g", x, x))
     colours = region_hexes(equation)
     # Both term regions show, each in its own white-bordered slot.
-    assert {'#ff0000', '#008000', '#ffffff'} <= colours
+    assert {'#e8a5a5', '#d8f8d8', '#ffffff'} <= colours
 
 
 def test_draw_region_non_colors_string():
@@ -231,7 +234,7 @@ def test_draw_legend():
     # Each swatch is filled with its own colour, white is left out.
     swatches = {to_hex(handle.get_facecolor())
                 for handle in legend.legend_handles}
-    assert swatches == {'#ff0000', '#008000', '#0000ff'}
+    assert swatches == {'#e8a5a5', '#d8f8d8', '#776ff3'}
     plt.close(backend.axis.figure)
 
 
@@ -578,6 +581,23 @@ def test_draw_wire_min_right_margin():
     return Id(x @ long_type @ x)
 
 
+RIBBON_COLOURS = ("red", "green", "blue", "yellow")
+
+
+def auto_colour_ribbons(diagram):
+    """
+    A colour map for nice looking dual rail examples: cycles through
+    ``RIBBON_COLOURS`` assigning one colour per distinct object. An object
+    and its adjoint encode the same wire, hence share the same colour.
+    """
+    obs = list(diagram.dom.inside)
+    for box in diagram.boxes:
+        obs += list(box.dom.inside) + list(box.cod.inside)
+    palette = {name: RIBBON_COLOURS[i % len(RIBBON_COLOURS)]
+               for i, name in enumerate(sorted({ob.name for ob in obs}))}
+    return lambda ob: palette[ob.name]
+
+
 @draw_and_compare('ribbon-colors.png', wire_labels=False, aspect='equal')
 def test_draw_ribbon_colors():
     # The inside of each ribbon is filled with a colour in the dual rail
@@ -585,14 +605,16 @@ def test_draw_ribbon_colors():
     # and braids, with the colour and width preserved across the adjoint.
     from discopy.ribbon import Ty, Braid
     x = Ty('x')
-    return Braid(x, x).trace(left=False).to_ribbons()
+    diagram = Braid(x, x).trace(left=False)
+    return diagram.to_ribbons(colour=auto_colour_ribbons(diagram))
 
 
 @tikz_and_compare('ribbon-colors.tikz', wire_labels=False)
 def test_tikz_ribbon_colors():
     from discopy.ribbon import Ty, Braid
     x = Ty('x')
-    return Braid(x, x).trace(left=False).to_ribbons()
+    diagram = Braid(x, x).trace(left=False)
+    return diagram.to_ribbons(colour=auto_colour_ribbons(diagram))
 
 
 @draw_and_compare('twist-colors.png', wire_labels=False, aspect='equal')
@@ -616,7 +638,7 @@ def test_darken():
     # darker shades filling the back of a twisting ribbon are precomputed
     # for every named colour, see discopy.config.COLORS.
     from discopy.config import COLORS, darken
-    for name in ["red", "green", "blue", "yellow"]:
+    for name in ["red", "green", "blue", "yellow", "gray"]:
         hexcode, dark_hexcode = COLORS[name], COLORS[f"dark_{name}"]
         assert darken(hexcode) == dark_hexcode
         channels = [int(hexcode[i:i + 2], 16) for i in (1, 3, 5)]

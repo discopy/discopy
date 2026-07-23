@@ -62,7 +62,9 @@ from warnings import warn
 from discopy import cat, drawing, hypergraph, cmap, messages
 from discopy.abc import ColouredMonoid, MonoidalCategory
 from discopy.drawing import Drawing
-from discopy.config import BOX_DRAWING_ATTRIBUTES, WIRE_DRAWING_ATTRIBUTES
+from discopy.config import (
+    BOX_DRAWING_ATTRIBUTES, WIRE_DRAWING_ATTRIBUTES,
+    COLOUR_DRAWING_ATTRIBUTES)
 from discopy.utils import (
     factory,
     factory_name,
@@ -405,10 +407,10 @@ class Ty(cat.Ob, FreeMonoid):
         for new, old in zip(result.inside, self.inside):
             if getattr(old, "frame_boundary", False):
                 new.frame_boundary = True
-            for attr, default in WIRE_DRAWING_ATTRIBUTES.items():
+            for attr, default in (
+                    WIRE_DRAWING_ATTRIBUTES | COLOUR_DRAWING_ATTRIBUTES
+            ).items():
                 setattr(new, attr, getattr(old, attr, default(new)))
-            new.min_right_margin = getattr(old, "min_right_margin", 0)
-            new.ribbon = getattr(old, "ribbon", None)
         return result
 
     def wire_offsets(self) -> list:
@@ -416,16 +418,21 @@ class Ty(cat.Ob, FreeMonoid):
         The x-position of each wire of the type relative to the first, i.e. the
         sum of the cell widths ``max(1, right_margin)`` of the objects before
         it: each wire takes up at least a unit, more if its label is longer.
+        A wire followed by a region carrying a ``width`` (e.g. the inside of
+        a :class:`discopy.balanced.Ribbon`) is only that width away from the
+        next wire, i.e. the region carries the width.
 
         >>> assert Ty('x', 'y').to_drawing().wire_offsets() == [0, 1]
         """
         offsets, total = [], 0
         for ob in self.inside:
             offsets.append(total)
-            min_right_margin = getattr(ob, "min_right_margin", 0)
+            ribbon = getattr(ob, "ribbon", None)
+            if ribbon is not None:
+                total += ribbon.width
+                continue
             cell_width = max(1, ob.right_margin)
-            total += cell_width + min_right_margin if min_right_margin < 0\
-                else max(cell_width, 1 + min_right_margin)
+            total += max(cell_width, 1 + getattr(ob, "min_right_margin", 0))
         return offsets
 
 

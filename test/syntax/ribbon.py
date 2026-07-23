@@ -33,7 +33,7 @@ def test_to_ribbons_trace_width():
     x = Ty('x')
 
     # The looped ribbon of a trace stays compressed all the way around, even
-    # though its wires are rotated (which drops the per-object margin).
+    # though its wires are rotated (the adjoint keeps the region between).
     drawing = Braid(x, x).trace(left=True).to_ribbons().to_drawing()
     rows = {}
     for node, point in drawing.positions.items():
@@ -61,11 +61,13 @@ def test_to_ribbons_gadgets():
 
 
 def test_to_ribbons_box():
+    from discopy.balanced import double_rail
     x, y = Ty('x'), Ty('y')
     # A generator is doubled into a box on the rails of its ribbons.
     f, g = Box('f', x, x @ y), Box('g', x @ y, x)
     doubled, = f.to_ribbons(width=None).boxes
-    assert doubled.dom == x @ x and doubled.cod == x @ x @ y @ y
+    assert doubled.dom == double_rail(x)
+    assert doubled.cod == double_rail(x @ y)
     # It still composes with the doubled wires (and gadgets) around it.
     assert (f >> x @ Twist(y) >> g).to_ribbons(width=None)
 

@@ -127,7 +127,7 @@ class Diagram(pivotal.Diagram, balanced.Diagram, RibbonCategory):
         cup = self.cup_factory(self.cod[y - 1], self.cod[y])
         return self >> self.cod[:y - 1] @ cup @ self.cod[y + 1:]
 
-    def to_ribbons(self, width: float = None, color="auto"):
+    def to_ribbons(self, width: float = None, colour="gray"):
         """
         Doubles every object and sends the twist to the braid, folding cups
         and caps into a single box.
@@ -137,10 +137,9 @@ class Diagram(pivotal.Diagram, balanced.Diagram, RibbonCategory):
                 encoding each object, defaults to the ``ribbon_width`` in
                 :data:`discopy.config.DRAWING_DEFAULT`. Set to ``0`` to return
                 the diagram as is, i.e. without doubling it into dual rails.
-            color : The colour with which to fill the inside of each ribbon,
-                see :func:`discopy.balanced.ribbon_color_map`. Defaults to
-                ``"auto"``, i.e. one colour per distinct object. Use ``None``
-                for no fill.
+            colour : The name of the colour filling the inside of each ribbon
+                (or a function from object to colour name), see
+                :func:`discopy.balanced.double_rail`.
 
         Example
         -------
@@ -150,7 +149,7 @@ class Diagram(pivotal.Diagram, balanced.Diagram, RibbonCategory):
 
         .. image:: /_static/balanced/twist_dual_rail.svg
         """
-        return self.to_braided(width, color)
+        return self.to_braided(width, colour)
 
 
 class Box(pivotal.Box, balanced.Box, Diagram):
@@ -272,7 +271,7 @@ class DualRailCap(Box):
         name = type(self).__name__ + f"({left}, {right})"
         Box.__init__(
             self, name, type(left)(), left @ right,
-            is_dagger=is_dagger, draw_as_dual_rail_cup=True)
+            is_dagger=is_dagger, draw_as_dual_rail_cap=True)
 
     def rotate(self, left=False):
         del left
