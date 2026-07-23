@@ -60,6 +60,16 @@ def test_to_ribbons_gadgets():
     assert isinstance(cup.dagger(), DualRailCap)
 
 
+def test_to_ribbons_box():
+    x, y = Ty('x'), Ty('y')
+    # A generator is doubled into a box on the rails of its ribbons.
+    f, g = Box('f', x, x @ y), Box('g', x @ y, x)
+    doubled, = f.to_ribbons(width=None).boxes
+    assert doubled.dom == x @ x and doubled.cod == x @ x @ y @ y
+    # It still composes with the doubled wires (and gadgets) around it.
+    assert (f >> x @ Twist(y) >> g).to_ribbons(width=None)
+
+
 def test_Kauffman():
     tmp = Ty.l, Ty.r
     Ty.l = Ty.r = property(lambda self: self)

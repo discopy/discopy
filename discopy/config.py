@@ -10,6 +10,7 @@ IGNORE_WARNINGS = [
     "No GPU/TPU found, falling back to CPU.",
     "Casting complex values to real discards the imaginary part"]
 
+
 # Mapping from attribute to function from box to default value.
 BOX_DRAWING_ATTRIBUTES = {
     "height": lambda _: 1,
@@ -80,6 +81,29 @@ COLORS = {
     "yellow": '#f7f700',
     "black": '#000000',
 }
+
+
+def darken(hexcode, factor=0.6):
+    """ A darker shade of a hexcode, keeping ``factor`` of each RGB channel.
+
+    Used to fill the back of a twisting ribbon with a darker shade of the
+    colour filling its front, see
+    :meth:`discopy.drawing.backend.Backend.draw_dual_rail_twist`.
+    """
+    channels = (int(hexcode[i:i + 2], 16) for i in (1, 3, 5))
+    return '#' + ''.join(
+        f'{round(channel * factor):02x}' for channel in channels)
+
+
+# A key ``f"dark_{name}"`` for every named colour, mapping to a darker shade
+# of its hexcode, see :func:`darken`.
+COLORS.update({f"dark_{name}": darken(hexcode)
+               for name, hexcode in COLORS.items()})
+
+# Palette cycled through to fill the inside of ribbons in the dual rail drawing
+# of balanced and ribbon diagrams, one colour per distinct object, see
+# :meth:`discopy.balanced.Diagram.to_braided`.
+RIBBON_COLORS = ("red", "green", "blue", "yellow")
 
 # Mapping from tikz shapes to matplotlib shapes.
 SHAPES = {

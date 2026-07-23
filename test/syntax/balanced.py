@@ -18,6 +18,30 @@ def test_double_rail():
     assert margins == [-0.75, 0]
 
 
+def test_double_rail_color():
+    x = Ty('x')
+    # Doubling makes the two rails share a ribbon carrying the given colour.
+    rail = double_rail(x, .25, color="red")
+    left, right = rail.inside
+    assert left.ribbon is right.ribbon and left.ribbon.color == "red"
+
+
+def test_double_rail_color_callable():
+    x = Ty('x')
+    rail = double_rail(x, color=lambda ob: ob.name.upper())
+    assert rail.inside[0].ribbon.color == "X"
+
+
+def test_ribbon_survives_adjoint():
+    from discopy.pivotal import Ty as PivotalTy
+    x = PivotalTy('x')
+    # Taking the adjoint reverses the two rails but keeps them a colour region.
+    rail = double_rail(x, .25, color="red")
+    ribbon = rail.inside[0].ribbon
+    adjoint = rail.r
+    assert [o.ribbon for o in adjoint.inside] == [ribbon, ribbon]
+
+
 def test_to_braided_width():
     x, y = Ty('x'), Ty('y')
 

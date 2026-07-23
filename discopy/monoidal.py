@@ -408,6 +408,7 @@ class Ty(cat.Ob, FreeMonoid):
             for attr, default in WIRE_DRAWING_ATTRIBUTES.items():
                 setattr(new, attr, getattr(old, attr, default(new)))
             new.min_right_margin = getattr(old, "min_right_margin", 0)
+            new.ribbon = getattr(old, "ribbon", None)
         return result
 
     def wire_offsets(self) -> list:

@@ -2,7 +2,6 @@
 import os
 
 from pytest import raises
-from matplotlib.testing.compare import compare_images
 
 from discopy.utils import AxiomError
 from discopy.config import DRAWING_DEFAULT
@@ -10,11 +9,14 @@ from discopy.compact import *
 from discopy.drawing import *
 from discopy import monoidal
 
-IMG_FOLDER, TIKZ_FOLDER, TOL = 'test/drawing/imgs/', 'test/drawing/tikz/', 20
+IMG_FOLDER, TIKZ_FOLDER = 'test/drawing/imgs/', 'test/drawing/tikz/'
 
 
 def draw_and_compare(file, folder=IMG_FOLDER, **params):
-    tol = params.pop('tol', TOL)
+    # Diagrams are drawn and compared as SVG (deterministic text) rather than
+    # raster PNG, so the reference images match on the nose across machines.
+    params.pop('tol', None)
+    file = os.path.splitext(file)[0] + '.svg'
 
     def decorator(func):
         def wrapper():
@@ -23,11 +25,11 @@ def draw_and_compare(file, folder=IMG_FOLDER, **params):
             true_path = os.path.join(folder, file)
             test_path = os.path.join(folder, '_' + file)
             draw(diagram, path=test_path, show=False, **params)
+            with open(true_path, "r") as true, open(test_path, "r") as test:
+                assert true.read() == test.read()
             if not os.path.exists(true_path):
                 os.replace(test_path, true_path)
                 return
-            test = compare_images(true_path, test_path, tol)
-            assert test is None
             os.remove(test_path)
         return wrapper
     return decorator
@@ -574,6 +576,63 @@ def test_draw_wire_min_right_margin():
     x, long_type = Ty('x'), Ty('a_long_type_name')
     long_type.inside[0].min_right_margin = 1.5
     return Id(x @ long_type @ x)
+
+
+@draw_and_compare('ribbon-colors.png', wire_labels=False, aspect='equal')
+def test_draw_ribbon_colors():
+    # The inside of each ribbon is filled with a colour in the dual rail
+    # drawing of a ribbon diagram, covering the straight rails, the cups, caps
+    # and braids, with the colour and width preserved across the adjoint.
+    from discopy.ribbon import Ty, Braid
+    x = Ty('x')
+    return Braid(x, x).trace(left=False).to_ribbons()
+
+
+@tikz_and_compare('ribbon-colors.tikz', wire_labels=False)
+def test_tikz_ribbon_colors():
+    from discopy.ribbon import Ty, Braid
+    x = Ty('x')
+    return Braid(x, x).trace(left=False).to_ribbons()
+
+
+@draw_and_compare('twist-colors.png', wire_labels=False, aspect='equal')
+def test_draw_twist_colors():
+    # The back of a twisting ribbon, where it turns over, is filled with a
+    # darker shade of the colour filling its front.
+    from discopy.ribbon import Ty, Diagram
+    x = Ty('x')
+    return Diagram.twist(x).to_ribbons()
+
+
+@tikz_and_compare('twist-colors.tikz', wire_labels=False)
+def test_tikz_twist_colors():
+    from discopy.ribbon import Ty, Diagram
+    x = Ty('x')
+    return Diagram.twist(x).to_ribbons()
+
+
+def test_darken():
+    # A darker shade of a colour keeps each RGB channel smaller, and the
+    # darker shades filling the back of a twisting ribbon are precomputed
+    # for every named colour, see discopy.config.COLORS.
+    from discopy.config import COLORS, darken
+    for name in ["red", "green", "blue", "yellow"]:
+        hexcode, dark_hexcode = COLORS[name], COLORS[f"dark_{name}"]
+        assert darken(hexcode) == dark_hexcode
+        channels = [int(hexcode[i:i + 2], 16) for i in (1, 3, 5)]
+        dark_channels = [int(dark_hexcode[i:i + 2], 16) for i in (1, 3, 5)]
+        assert all(d <= c for d, c in zip(dark_channels, channels))
+        assert any(d < c for d, c in zip(dark_channels, channels))
+
+
+@draw_and_compare('nested-ribbons.png', wire_labels=False, aspect='equal')
+def test_draw_nested_ribbons():
+    # Nested cups and caps stay folds of constant (ribbon) width, i.e. the
+    # inner ribbon is squeezed just like the outer one.
+    from discopy.ribbon import Ty, Diagram
+    x, y = Ty('x'), Ty('y')
+    return (Diagram.caps(x @ y, (x @ y).r)
+            >> Diagram.cups(x @ y, (x @ y).r)).to_ribbons()
 
 
 @draw_and_compare('wire-custom-margin.png', aspect='equal')

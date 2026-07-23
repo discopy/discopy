@@ -203,12 +203,14 @@ class Ob(monoidal.Wire):
     @property
     def l(self) -> Ob:
         """ The left adjoint of the object. """
-        return type(self)(self.name, self.z - 1, dom=self.cod, cod=self.dom)
+        return self._with_ribbon(
+            type(self)(self.name, self.z - 1, dom=self.cod, cod=self.dom))
 
     @property
     def r(self) -> Ob:
         """ The right adjoint of the object. """
-        return type(self)(self.name, self.z + 1, dom=self.cod, cod=self.dom)
+        return self._with_ribbon(
+            type(self)(self.name, self.z + 1, dom=self.cod, cod=self.dom))
 
     def __eq__(self, other):
         return monoidal.Wire.__eq__(self, other)\

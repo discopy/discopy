@@ -122,9 +122,25 @@ class Ob:
     labelled by this object, e.g. to make room for a long label.
 
     >>> x.min_right_margin = 1.5
+
+    The drawing attribute :code:`ribbon` holds the :class:`Ribbon` that a wire
+    belongs to in the dual rail encoding of a balanced or ribbon diagram, see
+    :meth:`discopy.balanced.double_rail`. Both rails of a ribbon share the same
+    :class:`Ribbon`, which carries the colour filling the inside of the ribbon.
+    It defaults to ``None``, i.e. the object is not a rail.
     """
     #: Extra space drawn to the right of a wire labelled by this object.
     min_right_margin = 0
+    #: The :class:`Ribbon` a rail belongs to, see :meth:`double_rail`.
+    ribbon = None
+
+    def _with_ribbon(self, other):
+        # Carry the ribbon colour onto an adjoint or rotation of ``self`` so
+        # that the two rails of a ribbon stay one colour region after taking
+        # the adjoint of a compound type. The margins are re-applied by
+        # position, see :func:`discopy.balanced.set_rail_margins`.
+        other.ribbon = self.ribbon
+        return other
 
     def __setstate__(self, state):
         if "name" not in state and "_name" in state:

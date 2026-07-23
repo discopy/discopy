@@ -37,8 +37,27 @@ from copy import copy
 from discopy import config, monoidal, braided, traced, hypergraph
 from discopy.abc import BalancedCategory
 from discopy.cat import factory
+from discopy.config import RIBBON_COLORS
 from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import factory_name, assert_isatomic
+
+
+class Ribbon:
+    """
+    The colour region of a ribbon in the dual rail encoding of a balanced or
+    ribbon diagram, see :meth:`double_rail`. It is shared by the two rails of a
+    ribbon and carries the colour filling the inside of the ribbon. Being a
+    property of the region rather than of the rails, it is preserved when the
+    adjoint of a compound type reverses the order of the two rails.
+
+    Parameters:
+        color : The colour filling the inside of the ribbon, or ``None``.
+    """
+    def __init__(self, color=None):
+        self.color = color
+
+    def __repr__(self):
+        return f"Ribbon(color={self.color!r})"
 
 
 def set_rail_margins(typ: monoidal.Ty, width: float = None) -> monoidal.Ty:
@@ -59,18 +78,60 @@ def set_rail_margins(typ: monoidal.Ty, width: float = None) -> monoidal.Ty:
     return typ
 
 
-def double_rail(typ: monoidal.Ty, width: float = None) -> monoidal.Ty:
+def double_rail(
+        typ: monoidal.Ty, width: float = None, color=None) -> monoidal.Ty:
     """
     Doubles every object of a type into the two rails of a ribbon ``width``
-    apart, copying each object so the two rails hold independent margins.
+    apart, copying each object so the two rails hold independent margins. The
+    two rails share a :class:`Ribbon` carrying the colour that fills the inside
+    of the ribbon.
 
     Parameters:
         typ : The type to double.
         width : The gap between the two rails, defaults to the ``ribbon_width``
             in :data:`discopy.config.DRAWING_DEFAULT`.
+        color : The colour with which to fill the inside of each ribbon. It can
+            be a colour name (used for every ribbon) or a function from object
+            to colour name (or ``None`` for no fill). Defaults to ``None``.
     """
-    return set_rail_margins(
-        type(typ)(*[copy(ob) for ob in typ.inside for _ in range(2)]), width)
+    rails = []
+    for ob in typ.inside:
+        left, right = copy(ob), copy(ob)
+        left.ribbon = right.ribbon = Ribbon(
+            color(ob) if callable(color) else color)
+        rails += [left, right]
+    return set_rail_margins(type(typ)(*rails), width)
+
+
+def ribbon_color_map(diagram, color="auto"):
+    """
+    Resolves the ``color`` argument of :meth:`Diagram.to_braided` into a
+    function from object to colour name (or ``None`` for no fill).
+
+    ``color`` can be ``None`` (no fill), a colour name (used for every ribbon),
+    a mapping from object name to colour name, a function from object to colour
+    name, or ``"auto"`` (the default) which cycles through
+    :data:`RIBBON_COLORS` assigning one colour per distinct object. An object
+    and its adjoint encode the same wire, hence share the same ribbon colour.
+    """
+    if color is None or callable(color):
+        return color
+    if hasattr(color, "get"):  # A mapping from object name to colour name.
+        return lambda ob: color.get(ob.name)
+    if color != "auto":  # A single colour name used for every ribbon.
+        return lambda ob: color
+    names = sorted({ob.name for ob in _atoms(diagram)})
+    palette = {name: RIBBON_COLORS[i % len(RIBBON_COLORS)]
+               for i, name in enumerate(names)}
+    return lambda ob: palette.get(ob.name)
+
+
+def _atoms(diagram):
+    # Every object appearing in the domain, codomain or boxes of a diagram.
+    obs = list(getattr(diagram.dom, "inside", ()))
+    for box in diagram.boxes:
+        obs += list(box.dom.inside) + list(box.cod.inside)
+    return obs
 
 
 @factory
@@ -111,7 +172,7 @@ class Diagram(braided.Diagram, traced.Diagram, BalancedCategory):
             >> cls.twist(dom[1:]) @ cls.twist_factory(dom[0])\
             >> cls.braid(dom[1:], dom[0])
 
-    def to_braided(self, width: float = None):
+    def to_braided(self, width: float = None, color="auto"):
         """
         Doubles every object and sends the twist to the braid.
 
@@ -120,6 +181,9 @@ class Diagram(braided.Diagram, traced.Diagram, BalancedCategory):
                 encoding each object, defaults to the ``ribbon_width`` in
                 :data:`discopy.config.DRAWING_DEFAULT`. Set to ``0`` to return
                 the diagram as is, i.e. without doubling it into dual rails.
+            color : The colour with which to fill the inside of each ribbon,
+                see :func:`ribbon_color_map`. Defaults to ``"auto"``, i.e. one
+                colour per distinct object. Use ``None`` for no fill.
 
         Example
         -------
@@ -133,9 +197,11 @@ class Diagram(braided.Diagram, traced.Diagram, BalancedCategory):
 
         .. image:: /_static/balanced/twist_dual_rail.svg
         """
+        get_color = ribbon_color_map(self, color)
         width = config.DRAWING_DEFAULT["ribbon_width"]\
             if width is None else width
-        return self if not width else self.dual_rail_factory(width)(self)
+        return self if not width\
+            else self.dual_rail_factory(width, get_color)(self)
 
 
 class Box(braided.Box, traced.Box, Diagram):
@@ -292,6 +358,8 @@ class DualRail(Functor):
     Parameters:
         width : The gap between the two rails of each ribbon, defaults to the
             ``ribbon_width`` in :data:`discopy.config.DRAWING_DEFAULT`.
+        color : The colour filling the inside of each ribbon, either ``None``
+            or a function from object to colour name, see :func:`double_rail`.
 
     See also
     --------
@@ -301,11 +369,12 @@ class DualRail(Functor):
     dual_rail_twist_factory = DualRailTwist
     dual_rail_braid_factory = DualRailBraid
 
-    def __init__(self, width: float = None):
+    def __init__(self, width: float = None, color=None):
         self.width = config.DRAWING_DEFAULT["ribbon_width"]\
             if width is None else width
+        self.color = color
         super().__init__(
-            ob_map=lambda x: double_rail(x, self.width),
+            ob_map=lambda x: double_rail(x, self.width, self.color),
             ar_map=lambda f: f.name)
 
     def __call__(self, other):

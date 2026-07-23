@@ -308,9 +308,9 @@ class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
         >>> from discopy.rigid import Ty, Box
         >>> x, y = map(Ty, "xy")
         >>> f = Box('f', x, y)
-        >>> Equation(f.transpose(left=True), f, f.transpose(),
-        ...     symbols=("$\\\\mapsfrom$", "$\\\\mapsto$")).draw(
-        ...         figsize=(8, 3), path="docs/_static/rigid/transpose.svg")
+        >>> LHS = Equation(f.transpose(left=True), f, symbol="$\\\\mapsfrom$")
+        >>> RHS = Equation(LHS, f.transpose(), symbol="$\\\\mapsto$")
+        >>> RHS.draw(figsize=(8, 3), path="docs/_static/rigid/transpose.svg")
 
         .. image:: /_static/rigid/transpose.svg
         """
