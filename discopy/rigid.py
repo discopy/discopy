@@ -210,6 +210,10 @@ class Ob(monoidal.Wire):
         """ The right adjoint of the object. """
         return type(self)(self.name, self.z + 1, dom=self.cod, cod=self.dom)
 
+    def unwind(self) -> Ob:
+        """ The object with winding number zero. """
+        return type(self)(self.name)
+
     def __eq__(self, other):
         return monoidal.Wire.__eq__(self, other)\
             and isinstance(other, Ob) and self.z == other.z
@@ -255,6 +259,8 @@ class Ty(Pregroup, biclosed.Ty):
     >>> assert n.l.r == n == n.r.l
     >>> assert (s @ n).l == n.l @ s.l and (s @ n).r == n.r @ s.r
     """
+    generator_factory = Ob
+
     def __setstate__(self, state):
         if '_z' in state:  # Backward compatibility
             del state['_z']
@@ -290,7 +296,7 @@ class Ty(Pregroup, biclosed.Ty):
 
     def unwind(self) -> Ty:
         """
-        Rotate an atomic type until its winding number is zero.
+        The atomic type with winding number zero, see :meth:`Ob.unwind`.
 
         The previous normalisation applied ``.r`` once, which is only an
         involution for pivotal types: it sent rigid ``n.r`` to ``n.r.r``.
@@ -300,14 +306,8 @@ class Ty(Pregroup, biclosed.Ty):
         >>> n = Ty('n')
         >>> assert n.r.r.unwind() == n.l.unwind() == n
         """
-        typ = self
-        while typ.z > 0:
-            typ = typ.l
-        while typ.z < 0:
-            typ = typ.r
-        return typ
-
-    generator_factory = Ob
+        assert_isatomic(self)
+        return self.ar(self.inside[0].unwind())
 
 
 @factory

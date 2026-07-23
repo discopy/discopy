@@ -103,6 +103,14 @@ def test_AxiomError():
         H.caps(x @ y, x @ y)
 
 
+def test_non_self_dual():
+    from discopy import compact
+    x = compact.Ty('x')
+    K = compact.Hypergraph
+    # A non-self-dual cap round-trips through its hypergraph, see issue #390.
+    with compact.Diagram.hypergraph_equality:
+        assert compact.Cap(x.r, x).to_hypergraph().to_diagram()\
+            == compact.Cap(x.r, x)
 def test_non_adjoint_wire():
     from discopy import compact
     x = compact.Ty('x')
@@ -113,6 +121,27 @@ def test_non_adjoint_wire():
     # Adjoint cups and caps, and self-dual frobenius caps, are fine.
     assert K.cups(x, x.r) and K.caps(x.r, x)
     assert Cap(Ty('x'), Ty('x')).to_hypergraph()
+
+
+def test_spider_producers_and_consumers():
+    from discopy import compact
+    K = compact.Hypergraph
+    x, e = compact.Ty('x'), compact.Ty()
+    f, g, h = (
+        compact.Box('f', e, x), compact.Box('g', e, x), compact.Box('h', x, e))
+    # A spider with two producers (f, g) and a consumer (h) is a genuine
+    # merge, not a cup, so the adjointness check should not apply even
+    # though x is not self-dual, see issue #390.
+    merge = K(e, e, (f, g, h),
+              ((), (((), (0,)), ((), (0,)), ((0,), ())), ()))
+    assert merge.spider_wires == [({0, 1}, {2})]
+
+    # Symmetrically, a spider with a producer and two consumers is a
+    # genuine copy, not a cap.
+    g, h = compact.Box('g', x, e), compact.Box('h', x, e)
+    copy = K(e, e, (f, g, h),
+             ((), (((), (0,)), ((0,), ()), ((0,), ())), ()))
+    assert copy.spider_wires == [({0}, {1, 2})]
 
 
 def test_cups():
