@@ -204,7 +204,53 @@ class Drawing(TracedCategory):
                 box.is_dagger and not box.draw_as_braid)
             for box in self.boxes))
         self.add_box_corners()
+        self.frame_dual_rail()
         return backend.draw(self, asymmetry=asymmetry, **params)
+
+    def frame_dual_rail(self, margin=0.5):
+        """
+        Reframe a dual rail drawing so its boundary box contains the cup and
+        cap arcs, which fold past the layout, with a uniform ``margin`` on each
+        side. The input and output (identity) wires still run all the way to
+        the top and bottom borders, only the folds are held a ``margin`` away.
+        Drawings without dual rail cups or caps (found by the
+        ``draw_as_dual_rail_cup`` and ``draw_as_dual_rail_cap`` attributes)
+        are left unchanged.
+        """
+        from discopy.config import RIBBON_FOLD_DEPTH
+        folds = [node for node in self.box_nodes
+                 if getattr(node.box, "draw_as_dual_rail_cup", False)
+                 or getattr(node.box, "draw_as_dual_rail_cap", False)]
+        if not folds:
+            return self
+        xs = [p.x for p in self.positions.values()]
+        # The folds may bulge below the bottom (cups) or above the top (caps).
+        left, right = min(xs), max(xs)
+        bottom, top = 0.0, self.height
+        for node in folds:
+            box = node.box
+            kind, wires = ("box_dom", box.dom) if box.dom\
+                else ("box_cod", box.cod)
+            ends = [self.positions[Node(kind, i=i, j=node.j, x=wires[i])]
+                    for i in (0, 3)]
+            radius, wire_y = abs(ends[1].x - ends[0].x) / 2, ends[0].y
+            depth = min(radius, RIBBON_FOLD_DEPTH)  # The fold is capped.
+            if box.dom:  # A cup folds downwards.
+                bottom = min(bottom, wire_y - depth)
+            else:  # A cap folds upwards.
+                top = max(top, wire_y + depth)
+        self.relabel_nodes(copy=False, positions={
+            n: p.shift(x=margin - left, y=margin - bottom)
+            for n, p in self.positions.items()})
+        self.width = right - left + 2 * margin
+        self.height = top - bottom + 2 * margin
+        # The identity wires run to the borders rather than stopping a margin
+        # short, so that the diagram still composes along its inputs/outputs.
+        for node in self.dom_nodes:
+            self.positions[node] = Point(self.positions[node].x, self.height)
+        for node in self.cod_nodes:
+            self.positions[node] = Point(self.positions[node].x, 0)
+        return self
 
     def add_box_corners(self):
         """ Recenter boxes w.r.t their wires then draw the corners. """
@@ -298,11 +344,12 @@ class Drawing(TracedCategory):
               if n.kind == "box_cod" and n.j == j]
         box_x = self.positions[self.box_nodes[j]].x
         left, right = min(xs + [box_x]), max(xs + [box_x])
+        offsets = box_dom.wire_offsets()
         for i, x in enumerate(box_dom):
             target = Node("box_dom", i=i, j=j, x=x)
             source, = self.graph.predecessors(target)
             for n in (source, target):
-                x = (right + left - len(box_dom) + 1) / 2 + i
+                x = (right + left - offsets[-1]) / 2 + offsets[i]
                 self.positions[n] = Point(x, self.positions[n].y)
 
     def reposition_box_cod(self, j=-1):
@@ -315,13 +362,14 @@ class Drawing(TracedCategory):
               if n.kind == "box_dom" and n.j == j]
         box_x = self.positions[self.box_nodes[j]].x
         left, right = min(xs + [box_x]), max(xs + [box_x])
+        offsets = box.cod.wire_offsets()
         for i, x in enumerate(box.cod):
             source = Node("box_cod", i=i, j=j, x=x)
             target, = self.graph.successors(source)
             if target.kind != "cod":
                 return  # Otherwise we would have to reposition everything.
             for n in (source, target):
-                x = (right + left - len(box.cod) + 1) / 2 + i
+                x = (right + left - offsets[-1]) / 2 + offsets[i]
                 self.positions[n] = Point(x, self.positions[n].y)
             if box.draw_as_spider and len(box.cod) == 1:
                 box_node = Node("box", box=box, j=j)
