@@ -2,10 +2,10 @@ import numpy as np
 
 from discopy import ribbon, tensor
 from discopy.tensor import Dim, Box
-from discopy.hopf import HopfAlgebra, Representation, Intertwiner, Functor
+from discopy.hopf import (
+    HopfAlgebra, Double, Representation, Intertwiner, Functor)
 
 
-# link diagrams, built inline from the ribbon generators where used
 def _circle(x):
     return ribbon.Cap(x, x.r) >> ribbon.Cup(x, x.r)
 
@@ -16,57 +16,55 @@ def _unlink(x):
 
 def _hopf_link(x):
     braid = ribbon.Braid(x, x)
-    return (braid >> braid).trace(n=2)          # closure of sigma^2
+    return (braid >> braid).trace(n=2)
 
 
-# -- the Hopf algebra layer --------------------------------------------------
+def _double_and_module():
+    D = Double(HopfAlgebra.cyclic(2))
+    e, m = Representation[D].anyon(0, -1), Representation[D].anyon(1, 1)
+    return D, Representation[D].direct_sum([e, m])
+
 
 def test_group_algebra_is_valid():
     for n in [1, 2, 3, 5]:
         assert HopfAlgebra.cyclic(n).is_valid()
-    # a non-cyclic group (Klein four) from its table
     table = [[0, 1, 2, 3], [1, 0, 3, 2], [2, 3, 0, 1], [3, 2, 1, 0]]
     assert HopfAlgebra.group_algebra(table).is_valid()
 
 
 def test_double_is_quasitriangular_hopf_algebra():
-    # the general double() applied to k[Z/n], not a hardcoded table
     for n in [2, 3]:
-        D = HopfAlgebra.cyclic(n).double()
+        D = Double(HopfAlgebra.cyclic(n))
         assert D.dim == n * n
         assert D.is_valid()
         assert D.is_quasitriangular()
 
 
 def test_commutativity_properties():
-    # D(Z/2) is commutative and cocommutative; Sweedler's H4 is neither.
-    D = HopfAlgebra.cyclic(2).double()
+    """D(Z/2) is commutative and cocommutative, Sweedler's H4 is neither."""
+    D = Double(HopfAlgebra.cyclic(2))
     assert D.is_commutative() and D.is_cocommutative()
     H4 = HopfAlgebra.sweedler()
     assert not H4.is_commutative() and not H4.is_cocommutative()
 
 
 def test_double_of_sweedler():
-    # Sweedler's H4 is neither commutative nor cocommutative and has S^2 != id,
-    # so its double genuinely exercises the S^-1 in the double's multiplication
-    # (a group algebra, being cocommutative with S^2 = id, would not).
+    """The double of H4 exercises S^-1 in the coadjoint multiplication."""
     H4 = HopfAlgebra.sweedler()
     assert H4.is_valid() and H4.dim == 4
     Sarr = H4.antipode.eval(dtype=complex).array
-    assert not np.allclose(Sarr @ Sarr, np.eye(4))     # S^2 != id
-    D = H4.double()
+    assert not np.allclose(Sarr @ Sarr, np.eye(4))
+    D = Double(H4)
     assert D.dim == 16
     assert D.is_valid() and D.is_quasitriangular()
 
 
 def test_double_antipode_inverse():
-    # the double's S^-1 = u^-1 S(x) u comes from the Drinfeld element,
-    # a composite of the double's own generators — check it inverts S,
-    # also when S_D^2 != id (the double of sweedler). The composite is too
-    # deep for a single einsum (see issue #447), so contract each generator
-    # to a matrix and assemble u = S(R'')R' and u^-1 = R''S^2(R') by hand.
+    """S^-1 = u^-1 S(x) u for the Drinfeld element u = S(R'')R', with
+    u^-1 = R''S^2(R'), also when S^2 != id. The composite is too deep for a
+    single einsum (issue #447), so assemble it from the generator matrices."""
     for base in [HopfAlgebra.cyclic(2), HopfAlgebra.sweedler()]:
-        D, n = base.double(), base.dim ** 2
+        D, n = Double(base), base.dim ** 2
         S = D.antipode.eval(dtype=complex).array.reshape(n, n)
         R = D.R.eval(dtype=complex).array.reshape(n, n)
         mult = D.mult.eval(dtype=complex).array.reshape(n, n, n)
@@ -78,12 +76,10 @@ def test_double_antipode_inverse():
 
 
 def test_double_is_fine_grained():
-    # the double's generators are composite diagrams, not materialised tensors:
-    # every box acts on the small base object (size 2), never on D's size-4
-    # space, so no N=4 -cubed structure tensor is ever formed.
-    D = HopfAlgebra.cyclic(2).double()
-    for gen in [D.mult, D.comult, D.unit, D.counit, D.antipode, D.R,
-                D.antipode_inv]:
+    """Every box in the double's generators acts on the base object, so no
+    structure tensor of the doubled dimension is ever materialised."""
+    D = Double(HopfAlgebra.cyclic(2))
+    for gen in D.generators:
         for box in gen.boxes:
             assert set(box.dom.inside) <= {2} and set(box.cod.inside) <= {2}
 
@@ -96,35 +92,34 @@ def test_no_r_matrix_paths():
     assert noR.is_quasitriangular() is False
     assert noR.is_valid()
     W = Representation[noR].regular()
-    try:                             # no R-matrix: the braiding is undefined
+    try:
         Intertwiner[noR].braid(W, W)
         assert False
     except ValueError:
         pass
-    try:                             # no algebra at all: same error
+    try:
         Intertwiner.braid(W, W)
         assert False
     except ValueError:
         pass
-    assert W.l.is_module()           # the inverse antipode is computed
+    assert W.l.is_module()
 
 
 def test_non_invertible_antipode_is_flagged():
     Z2 = HopfAlgebra.cyclic(2)
-    ty = Z2.ty
-    zero = Box('S', ty, ty, np.zeros((2, 2)))
+    zero = Box('S', Z2.ty, Z2.ty, np.zeros((2, 2)))
+    H = HopfAlgebra(Z2.unit, Z2.counit, Z2.mult, Z2.comult, zero)
     try:
-        HopfAlgebra(Z2.unit, Z2.counit, Z2.mult, Z2.comult, zero)
+        H.antipode_inv
         assert False
     except ValueError:
         pass
 
 
 def test_class_generic_over_the_algebra():
-    # Representation[H] and Intertwiner[H] carry the algebra on the class,
-    # accessible from instances, and parametrisation is cached by equality
-    D = HopfAlgebra.cyclic(2).double()
-    assert Representation[D] is Representation[HopfAlgebra.cyclic(2).double()]
+    """The algebra lives on the class, parametrisation caches by equality."""
+    D = Double(HopfAlgebra.cyclic(2))
+    assert Representation[D] is Representation[Double(HopfAlgebra.cyclic(2))]
     assert Representation[D].algebra == D
     V = Representation[D].regular()
     assert V.algebra == D
@@ -133,35 +128,54 @@ def test_class_generic_over_the_algebra():
 
 
 def test_representation_is_a_dim():
-    # a Representation is a tensor.Dim carrying its action
     D, V = _double_and_module()
     assert isinstance(V, Dim) and V == Dim(2)
     e, m = Representation[D].anyon(0, -1), Representation[D].anyon(1, 1)
-    assert e.action != m.action     # anyons are distinguished by their action
-    assert e != Dim(2)              # equality is that of the underlying Dim
-    payloadless = Representation(2)  # no algebra: a Dim without an action
-    assert payloadless.action is None and payloadless == Dim(2)
-    assert hash(payloadless) == hash(Dim(2))    # consistent with equality
-    assert Representation(2, 3).r == Representation(2, 3).l == Dim(3, 2)
-    assert Representation() @ Representation() == Dim(1)   # the unit
-    from discopy import hopf, tensor  # noqa: F401  (used by eval)
-    assert eval(repr(payloadless)) == payloadless
+    assert e.action != m.action
+    assert e != Dim(2)
+    trivial = Representation[D](Dim(2))
+    assert trivial == Dim(2) and trivial.is_module()
+    assert hash(trivial) == hash(Dim(2))
+    from discopy import hopf, rigid, tensor  # noqa: F401  (used by eval)
+    assert eval(repr(trivial)) == trivial
+
+
+def test_representation_init_checks():
+    D, V = _double_and_module()
+    try:
+        Representation(Dim(2))
+        assert False
+    except ValueError:
+        pass
+    try:
+        Representation[D](Dim(2), action=D.counit)
+        assert False
+    except ValueError:
+        pass
+    try:
+        Representation[D](2)
+        assert False
+    except TypeError:
+        pass
+
+
+def test_anyon_needs_a_double():
+    Z2 = HopfAlgebra.cyclic(2)
+    try:
+        Representation[Z2].anyon(0, 1)
+        assert False
+    except ValueError:
+        pass
 
 
 def test_repr_is_transparent():
     from discopy import hopf, tensor  # noqa: F401  (used by eval)
     H = HopfAlgebra.cyclic(2)
     assert eval(repr(H)) == H
+    D = Double(H)
+    assert eval(repr(D)) == D
     V = Representation[H].regular()
     assert eval(repr(V)) == V and eval(repr(V)).action == V.action
-
-
-# -- representations & structural morphisms ----------------------------------
-
-def _double_and_module():
-    D = HopfAlgebra.cyclic(2).double()
-    e, m = Representation[D].anyon(0, -1), Representation[D].anyon(1, 1)
-    return D, Representation[D].direct_sum([e, m])     # V = e (+) m
 
 
 def test_representation_is_module():
@@ -173,33 +187,33 @@ def test_representation_is_module():
 
 
 def test_tensor_of_representations():
-    # the product of modules acts through the comultiplication
+    """Products act through the comultiplication, plain Dims trivially."""
     D, V = _double_and_module()
     e, m = Representation[D].anyon(0, -1), Representation[D].anyon(1, 1)
     assert (e @ m).is_module() and (e @ m).action is not None
     VV = V @ V
     assert VV == Dim(2, 2) and VV.is_module()
-    assert (V @ e @ m).is_module()       # n-ary, coassociative
+    assert (V @ e @ m).is_module()
+    assert (V @ Dim(2)).is_module() and (V @ Dim(2)) == Dim(2, 2)
+    unit = Representation[D]()
+    assert unit @ unit == Dim(1) and (unit @ V).action == V.action
 
 
 def test_braiding_yang_baxter_and_inverse():
     D, V = _double_and_module()
     d = 2
     c = Intertwiner[D].braid(V, V).eval(dtype=complex).array
-    c = c.reshape(d * d, d * d)   # input x output
-    # braiding is invertible and not the swap
+    c = c.reshape(d * d, d * d)
     assert not np.isclose(np.linalg.det(c), 0)
     swap = np.zeros((d * d, d * d))
     for a in range(d):
         for b in range(d):
             swap[a * d + b, b * d + a] = 1
     assert not np.allclose(c, swap)
-    # the inverse braiding really inverts it
     ci = Intertwiner[D].braid(V, V, is_dagger=True)\
         .eval(dtype=complex).array
     ci = ci.reshape(d * d, d * d)
     assert np.allclose(c.T @ ci.T, np.eye(d * d))
-    # Yang-Baxter on the braiding operator R = c^T (output x input)
     R, eye = c.T, np.eye(d)
     R12, R23 = np.kron(R, eye), np.kron(eye, R)
     assert np.allclose(R12 @ R23 @ R12, R23 @ R12 @ R23)
@@ -211,8 +225,8 @@ def test_quantum_dimension():
 
 
 def test_dual_representation():
-    # the right dual carries the antipode-twisted action rho(S h)^T,
-    # also when S^2 != id (sweedler) and for structured types (regular)
+    """The right dual carries the twisted action rho(S h)^T, also when
+    S^2 != id and on structured types."""
     D, V = _double_and_module()
     assert V.r.is_module()
     assert Representation[HopfAlgebra.sweedler()].regular().r.is_module()
@@ -224,15 +238,14 @@ def test_dual_representation():
 
 
 def test_left_and_right_duals_differ():
-    # without a pivotal structure the left dual (S^-1) differs from the
-    # right dual (S) whenever S^2 != id, as for Sweedler's H4
+    """The left dual twists by S^-1, so it differs from the right dual
+    whenever S^2 != id, as for Sweedler's H4 but not a group algebra."""
     H4 = HopfAlgebra.sweedler()
     W = Representation[H4].regular()
     assert W.l.is_module() and W.r.is_module()
     left = W.l.action.eval(dtype=complex).array
     right = W.r.action.eval(dtype=complex).array
     assert not np.allclose(left, right)
-    # for a group algebra S^2 = id, so the two duals coincide
     Z2 = HopfAlgebra.cyclic(2)
     U = Representation[Z2].regular()
     assert np.allclose(U.l.action.eval(dtype=complex).array,
@@ -248,8 +261,9 @@ def test_functor_maps_winding_to_dual():
 
 
 def test_twist_from_braid():
-    # the twist is the trace of the braid, defined without a ribbon element
-    D = HopfAlgebra.cyclic(2).double()
+    """The twist is the trace of the braid: the identity on e (+) m, minus
+    one on the fermion, one on the vacuum."""
+    D = Double(HopfAlgebra.cyclic(2))
 
     def theta(rep):
         return complex(
@@ -259,15 +273,14 @@ def test_twist_from_braid():
         [Representation[D].anyon(0, -1), Representation[D].anyon(1, 1)])
     assert np.allclose(
         Intertwiner[D].twist(Vem).eval(dtype=complex).array, np.eye(2))
-    assert np.isclose(theta(Representation[D].anyon(1, -1)), -1)  # fermion
-    assert np.isclose(theta(Representation[D].anyon(0, 1)), 1)    # vacuum
+    assert np.isclose(theta(Representation[D].anyon(1, -1)), -1)
+    assert np.isclose(theta(Representation[D].anyon(0, 1)), 1)
 
 
 def test_is_module_rejects_non_module():
     Z2 = HopfAlgebra.cyclic(2)
-    ty = Z2.ty
-    zero = Box('bad', ty @ Dim(2), Dim(2), np.zeros((2, 2, 2)))
-    assert not Representation[Z2](action=zero).is_module()   # rho(1) != id
+    zero = Box('bad', Z2.ty @ Dim(2), Dim(2), np.zeros((2, 2, 2)))
+    assert not Representation[Z2](Dim(2), zero).is_module()
 
 
 def test_snake_equations():
@@ -281,15 +294,12 @@ def test_snake_equations():
     assert np.allclose(F(right).eval(dtype=complex).array, identity)
 
 
-# -- the functor and the topological invariant -------------------------------
-
 def test_functor_returns_a_tensor_network():
     D, V = _double_and_module()
     x = ribbon.Ty('x')
     network = Functor(
         ob_map={x: V}, ar_map={}, cod=Intertwiner[D])(_hopf_link(x))
-    assert isinstance(network, tensor.Diagram)      # not a contracted Tensor
-    # the user contracts it themselves with .eval
+    assert isinstance(network, tensor.Diagram)
     assert np.isclose(complex(network.eval(dtype=complex)), 0)
 
 
@@ -316,28 +326,30 @@ def test_nontrivial_link_invariant():
     circle = complex(F(_circle(x)).eval(dtype=complex))
     unlink = complex(F(_unlink(x)).eval(dtype=complex))
     hopf = complex(F(_hopf_link(x)).eval(dtype=complex))
-    assert np.isclose(circle, 2)       # unknot -> qdim
-    assert np.isclose(unlink, 4)       # 2 unknots
-    assert np.isclose(hopf, 0)         # Hopf link
+    assert np.isclose(circle, 2)
+    assert np.isclose(unlink, 4)
+    assert np.isclose(hopf, 0)
     assert not np.isclose(hopf, unlink)
 
 
 def test_crossing_number_distinguishes_closures():
+    """The unlink, the unknot and the Hopf link as braid closures."""
     D, V = _double_and_module()
     x = ribbon.Ty('x')
     F = Functor(ob_map={x: V}, ar_map={}, cod=Intertwiner[D])
     X = ribbon.Ty('x')
     closures = [
-        ribbon.Id(X @ X).trace(n=2),                             # unlink
-        ribbon.Braid(X, X).trace(n=2),                           # unknot
-        (ribbon.Braid(X, X) >> ribbon.Braid(X, X)).trace(n=2),   # Hopf link
+        ribbon.Id(X @ X).trace(n=2),
+        ribbon.Braid(X, X).trace(n=2),
+        (ribbon.Braid(X, X) >> ribbon.Braid(X, X)).trace(n=2),
     ]
     values = [complex(F(c).eval(dtype=complex)) for c in closures]
     assert np.allclose(values, [4, 2, 0])
 
 
 def test_two_colour_mutual_braiding():
-    D = HopfAlgebra.cyclic(2).double()
+    """The e and m anyons of the toric code have mutual statistics -1."""
+    D = Double(HopfAlgebra.cyclic(2))
     e = Representation[D].anyon(0, -1)
     m = Representation[D].anyon(1, 1)
     xe, xm = ribbon.Ty('e'), ribbon.Ty('m')
@@ -347,7 +359,7 @@ def test_two_colour_mutual_braiding():
         link = (ribbon.Braid(a, b) >> ribbon.Braid(b, a)).trace(n=2)
         return complex(F(link).eval(dtype=complex))
 
-    assert np.isclose(value(xe, xm), -1)   # mutual statistics -1
+    assert np.isclose(value(xe, xm), -1)
     assert np.isclose(value(xe, xe), 1)
     assert np.isclose(value(xm, xm), 1)
 
@@ -371,7 +383,7 @@ def test_functor_on_type():
 
 
 def test_twist_in_diagram():
-    # a group algebra: trivial twist, but exercises the Twist functor path
+    """A group algebra has a trivial twist, mapped through the functor."""
     Z2 = HopfAlgebra.cyclic(2)
     V = Representation[Z2].regular()
     x = ribbon.Ty('x')

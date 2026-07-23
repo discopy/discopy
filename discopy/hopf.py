@@ -11,6 +11,7 @@ Summary
     :nosignatures:
 
     HopfAlgebra
+    Double
     Representation
     Intertwiner
     Functor
@@ -42,7 +43,7 @@ unlink.
 
 >>> import numpy as np
 >>> from discopy import ribbon
->>> H = HopfAlgebra.cyclic(2).double()
+>>> H = Double(HopfAlgebra.cyclic(2))
 >>> assert H.is_valid() and H.dim == 4
 >>> e = Representation[H].anyon(0, -1)
 >>> m = Representation[H].anyon(1, 1)
@@ -112,7 +113,7 @@ and cups/caps — never materialised. Here is its multiplication, the coadjoint
 product of :math:`D(H) = H \\otimes H^*`, drawn as a :class:`.tensor.CMap` (the
 tensor network that gets contracted):
 
->>> HopfAlgebra.cyclic(2).double().mult.to_map().draw(
+>>> Double(HopfAlgebra.cyclic(2)).mult.to_map().draw(
 ...     path='docs/_static/hopf/double_mult.png')
 
 .. image:: /_static/hopf/double_mult.png
@@ -121,12 +122,15 @@ tensor network that gets contracted):
 
 from __future__ import annotations
 
+from functools import cached_property
+
 import numpy as np
 
 from discopy import monoidal, ribbon, tensor, frobenius
 from discopy.tensor import Dim, Box, Id
 from discopy.abc import RibbonCategory, NamedGeneric
-from discopy.utils import classproperty, factory_name, get_origin, product
+from discopy.utils import (
+    assert_isinstance, classproperty, factory_name, get_origin, product)
 
 Diagram = tensor.Diagram
 
@@ -148,43 +152,42 @@ class HopfAlgebra:
     An axiom is a diagram equation, checked by evaluating both sides (see
     :meth:`is_valid`). Build one from concrete structure arrays with
     :meth:`from_arrays`, or compose generators to derive new algebras (see
-    :meth:`double`).
+    :class:`Double`).
 
     Parameters:
         unit, counit, mult, comult, antipode : The generators as diagrams.
         R : The R-matrix generator (optional).
-        antipode_inv : The inverse antipode as a diagram, e.g. a composite of
-            the other generators (see :meth:`double`); computed by inverting
-            the matrix of ``antipode`` when not given, raising
-            :class:`ValueError` if the antipode is not invertible.
     """
-    def __init__(self, unit, counit, mult, comult, antipode,
-                 R=None, antipode_inv=None):
+    def __init__(self, unit, counit, mult, comult, antipode, R=None):
         self.unit, self.counit = unit, counit
         self.mult, self.comult, self.antipode = mult, comult, antipode
+        self.R = R
         self.ty = mult.cod
         self.dim = product(self.ty.inside)
-        if antipode_inv is None:
-            array = antipode.eval(dtype=complex).array.reshape(
-                self.dim, self.dim)
-            if np.isclose(np.linalg.det(array), 0):
-                raise ValueError("the antipode is not invertible")
-            antipode_inv = Box[complex](
-                'S⁻¹', self.ty, self.ty,
-                np.linalg.inv(array).reshape(-1).tolist())
-        self.R, self.antipode_inv = R, antipode_inv
 
     @property
     def generators(self):
         """ The tuple of structural generators, in constructor order. """
         return (self.unit, self.counit, self.mult, self.comult,
-                self.antipode, self.R, self.antipode_inv)
+                self.antipode, self.R)
+
+    @cached_property
+    def antipode_inv(self):
+        """
+        The inverse of the antipode, computed by inverting its matrix on
+        first access — raising :class:`ValueError` if the antipode is not
+        invertible.
+        """
+        array = self.antipode.eval(dtype=complex).array.reshape(
+            self.dim, self.dim)
+        if np.isclose(np.linalg.det(array), 0):
+            raise ValueError("the antipode is not invertible")
+        return Box[complex](
+            'S⁻¹', self.ty, self.ty,
+            np.linalg.inv(array).reshape(-1).tolist())
 
     def __repr__(self):
-        optional = "".join(
-            f", {name}={value!r}" for name, value in
-            [("R", self.R), ("antipode_inv", self.antipode_inv)]
-            if value is not None)
+        optional = "" if self.R is None else f", R={self.R!r}"
         return factory_name(type(self)) + (
             f"(unit={self.unit!r}, counit={self.counit!r}, "
             f"mult={self.mult!r}, comult={self.comult!r}, "
@@ -198,7 +201,7 @@ class HopfAlgebra:
             and self.generators == other.generators
 
     def __hash__(self):
-        return hash(repr(self))
+        return hash(repr(self.generators))
 
     @classmethod
     def from_arrays(cls, unit, counit, mult, comult, antipode, R=None):
@@ -342,12 +345,12 @@ class HopfAlgebra:
         comult = np.zeros((n, n, n))
         antipode = np.zeros((n, n))
         for i in range(n):
-            comult[i, i, i] = 1                 # grouplike
+            comult[i, i, i] = 1
             antipode[i, inverse[i]] = 1
             for j in range(n):
                 mult[i, j, table[i][j]] = 1
         R = np.zeros((n, n))
-        R[0, 0] = 1                             # cocommutative: trivial R
+        R[0, 0] = 1
         return cls.from_arrays(unit, counit, mult, comult, antipode, R)
 
     @classmethod
@@ -376,56 +379,62 @@ class HopfAlgebra:
         counit = np.array([1, 1, 0, 0])
         mult = np.zeros((4, 4, 4))
         for j in range(4):
-            mult[0, j, j] = 1                      # 1 . e_j = e_j
-        mult[1, 0, 1] = mult[1, 1, 0] = 1          # g.1=g, g.g=1
-        mult[1, 2, 3] = mult[1, 3, 2] = 1          # g.x=gx, g.gx=x
-        mult[2, 0, 2] = 1                          # x.1=x
-        mult[2, 1, 3] = -1                         # x.g = -gx
-        mult[3, 0, 3] = 1                          # gx.1=gx
-        mult[3, 1, 2] = -1                         # gx.g = -x
+            mult[0, j, j] = 1
+        mult[1, 0, 1] = mult[1, 1, 0] = 1
+        mult[1, 2, 3] = mult[1, 3, 2] = 1
+        mult[2, 0, 2] = 1
+        mult[2, 1, 3] = -1
+        mult[3, 0, 3] = 1
+        mult[3, 1, 2] = -1
         comult = np.zeros((4, 4, 4))
-        comult[0, 0, 0] = 1                        # D(1) = 1 (x) 1
-        comult[1, 1, 1] = 1                        # D(g) = g (x) g
-        comult[2, 2, 0] = comult[2, 1, 2] = 1      # D(x) = x(x)1 + g(x)x
-        comult[3, 3, 1] = comult[3, 0, 3] = 1      # D(gx) = gx(x)g + 1(x)gx
+        comult[0, 0, 0] = 1
+        comult[1, 1, 1] = 1
+        comult[2, 2, 0] = comult[2, 1, 2] = 1
+        comult[3, 3, 1] = comult[3, 0, 3] = 1
         antipode = np.zeros((4, 4))
-        antipode[0, 0] = antipode[1, 1] = 1        # S(1)=1, S(g)=g
-        antipode[2, 3] = -1                        # S(x) = -gx
-        antipode[3, 2] = 1                         # S(gx) = x
+        antipode[0, 0] = antipode[1, 1] = 1
+        antipode[2, 3] = -1
+        antipode[3, 2] = 1
         return cls.from_arrays(unit, counit, mult, comult, antipode)
 
-    def double(self):
-        """
-        The Drinfeld quantum double :math:`D(H) = H \\otimes H^*`
-        (Def. 1.23 of *Hopf Algebras in Quantum Computation*), a
-        quasitriangular Hopf algebra of dimension ``self.dim ** 2`` whose
-        generators are **composites** of ``self``'s generators, their
-        ``.dagger()`` (the :math:`H^*` structure) and cups/caps — never
-        materialised as big tensors.
 
-        The coadjoint multiplication splits :math:`h` and :math:`\\phi'`
-        each into three, pairs :math:`\\phi'_1` with :math:`S^{-1}(h_3)` and
-        :math:`\\phi'_3` with :math:`h_1`, and multiplies
-        :math:`\\phi \\phi'_2` in :math:`H^*` and :math:`h_2 h'` in
-        :math:`H` — the ``order`` below routes the wires to
-        :math:`\\phi'_1 h_3 \\phi'_3 h_1 \\phi \\phi'_2 h_2 h'`. The antipode
-        is the anti-homomorphism :math:`(\\epsilon \\otimes S) \\circ
-        ((S^{-1})^* \\otimes 1)` composed with that same multiplication.
+class Double(HopfAlgebra):
+    """
+    The Drinfeld quantum double :math:`D(H) = H \\otimes H^*` of a
+    :class:`HopfAlgebra` ``base`` (Def. 1.23 of *Hopf Algebras in Quantum
+    Computation*), a quasitriangular Hopf algebra of dimension
+    ``base.dim ** 2`` whose generators are **composites** of the base
+    generators, their ``.dagger()`` (the :math:`H^*` structure) and
+    cups/caps — never materialised as big tensors.
 
-        >>> D = HopfAlgebra.cyclic(2).double()
-        >>> assert D.dim == 4 and D.is_valid() and D.is_quasitriangular()
-        """
-        ty = self.ty
-        Sinv = self.antipode_inv
-        mstar, dstar = self.comult.dagger(), self.mult.dagger()
+    Parameters:
+        base : The Hopf algebra to double.
 
-        unit = self.counit.dagger() @ self.unit
-        counit = self.unit.dagger() @ self.counit
-        comult = dstar @ self.comult \
+    The coadjoint multiplication splits :math:`h` and :math:`\\phi'`
+    each into three, pairs :math:`\\phi'_1` with :math:`S^{-1}(h_3)` and
+    :math:`\\phi'_3` with :math:`h_1`, and multiplies
+    :math:`\\phi \\phi'_2` in :math:`H^*` and :math:`h_2 h'` in
+    :math:`H` — the ``order`` below routes the wires to
+    :math:`\\phi'_1 h_3 \\phi'_3 h_1 \\phi \\phi'_2 h_2 h'`. The antipode
+    is the anti-homomorphism :math:`(\\epsilon \\otimes S) \\circ
+    ((S^{-1})^* \\otimes 1)` composed with that same multiplication.
+
+    >>> D = Double(HopfAlgebra.cyclic(2))
+    >>> assert D.dim == 4 and D.is_valid() and D.is_quasitriangular()
+    """
+    def __init__(self, base):
+        assert_isinstance(base, HopfAlgebra)
+        self.base = base
+        ty, Sinv = base.ty, base.antipode_inv
+        mstar, dstar = base.comult.dagger(), base.mult.dagger()
+
+        unit = base.counit.dagger() @ base.unit
+        counit = base.unit.dagger() @ base.counit
+        comult = dstar @ base.comult \
             >> Diagram.swap(ty, ty) @ ty @ ty >> ty @ Diagram.swap(ty, ty) @ ty
-        R = self.counit.dagger() @ Diagram.caps(ty, ty) @ self.unit
+        R = base.counit.dagger() @ Diagram.caps(ty, ty) @ base.unit
 
-        comult2 = self.comult >> self.comult @ ty
+        comult2 = base.comult >> base.comult @ ty
         cstar2 = dstar >> dstar @ ty
         split = Id(ty) @ comult2 @ cstar2 @ Id(ty)
         order = [4, 3, 6, 1, 0, 5, 2, 7]
@@ -434,23 +443,16 @@ class HopfAlgebra:
         route = Diagram.permutation(perm, split.cod)
         sinv = Id(ty) @ Sinv @ Id(ty ** 6)
         contract = Diagram.cups(ty, ty) @ Diagram.cups(ty, ty) \
-            @ mstar @ self.mult
+            @ mstar @ base.mult
         mult = split >> route >> sinv >> contract
 
-        prep = self.counit.dagger() \
-            @ (Sinv.dagger() @ self.antipode) @ self.unit
+        prep = base.counit.dagger() \
+            @ (Sinv.dagger() @ base.antipode) @ base.unit
         antipode = prep >> ty @ Diagram.swap(ty, ty) @ ty >> mult
+        super().__init__(unit, counit, mult, comult, antipode, R=R)
 
-        # the antipode inverse comes from the Drinfeld element
-        # u = S(R'') R' with S^2(x) = u x u^-1 and u^-1 = R'' S^2(R'),
-        # so that S^-1(x) = u^-1 S(x) u -- all composites of the above
-        dty = ty ** 2
-        u = R >> Id(dty) @ antipode >> Diagram.swap(dty, dty) >> mult
-        u_inv = R >> (antipode >> antipode) @ Id(dty) \
-            >> Diagram.swap(dty, dty) >> mult
-        antipode_inv = u_inv @ antipode @ u >> mult @ Id(dty) >> mult
-        return HopfAlgebra(unit, counit, mult, comult, antipode,
-                           R=R, antipode_inv=antipode_inv)
+    def __repr__(self):
+        return factory_name(type(self)) + f"({self.base!r})"
 
 
 class Representation(NamedGeneric["algebra"], frobenius.Dim):
@@ -465,9 +467,10 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
     which the ribbon classmethods of :class:`Intertwiner` read off.
 
     Parameters:
-        inside : The dimensions of the underlying vector space :math:`V`.
-        action : The action diagram :math:`H \\otimes V \\to V`, so that
-            ``V = action.cod``.
+        dim : The underlying vector space :math:`V` as a single
+            :class:`.tensor.Dim`, ``Dim(1)`` by default.
+        action : The action diagram :math:`H \\otimes V \\to V`; when not
+            given, the trivial action ``algebra.counit @ Id(dim)``.
 
     The product of representations (:meth:`tensor`) acts through the
     comultiplication and the adjoints :attr:`l`, :attr:`r` are the dual
@@ -482,7 +485,7 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
     two anyon modules of :math:`D(\\mathbb{Z}/2)`, with the left-hand side
     drawn as the :class:`.tensor.CMap` it contracts to:
 
-    >>> D = HopfAlgebra.cyclic(2).double()
+    >>> D = Double(HopfAlgebra.cyclic(2))
     >>> e = Representation[D].anyon(0, -1)
     >>> m = Representation[D].anyon(1, 1)
     >>> V = Representation[D].direct_sum([e, m])
@@ -495,21 +498,27 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
     .. image:: /_static/hopf/module.png
         :align: center
     """
-    def __init__(self, *inside, action=None):
+    def __init__(self, dim=None, action=None):
+        if self.algebra is None:
+            raise ValueError(
+                "a representation needs an algebra, use Representation[H]")
+        dim = Dim(1) if dim is None else dim
+        assert_isinstance(dim, frobenius.Dim)
+        dim = Dim(*dim.inside)
+        if action is None:
+            action = self.algebra.counit @ Id(dim)
+        assert_isinstance(action, Diagram)
+        if (action.dom, action.cod) != (self.algebra.ty @ dim, dim):
+            raise ValueError(
+                f"expected an action {self.algebra.ty @ dim} -> {dim}, "
+                f"got {action.dom} -> {action.cod}")
         self.action = action
-        if action is not None and not inside:
-            inside = action.cod.inside
-        flat = [i for x in inside
-                for i in (x.inside if isinstance(x, frobenius.Dim) else (x,))]
-        super().__init__(*flat)
+        super().__init__(*dim.inside)
 
     def __repr__(self):
         prefix = factory_name(get_origin(type(self)))
-        if self.algebra is not None:
-            prefix += f"[{self.algebra!r}]"
-        if self.action is None:
-            return prefix + f"({', '.join(map(repr, self.inside))})"
-        return prefix + f"(action={self.action!r})"
+        return prefix + f"[{self.algebra!r}]" \
+            + f"({Dim(*self.inside)!r}, action={self.action!r})"
 
     def __eq__(self, other):
         return isinstance(other, frobenius.Dim) \
@@ -524,31 +533,31 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
         The product of representations: the underlying spaces concatenate as
         for a :class:`.tensor.Dim` and the product of modules acts through
         the comultiplication, :math:`\\rho_{V \\otimes W} = (\\rho_V \\otimes
-        \\rho_W) (\\Delta \\otimes 1_{V \\otimes W})`.
+        \\rho_W) (\\Delta \\otimes 1_{V \\otimes W})`. A plain
+        :class:`.tensor.Dim` factor is taken as the trivial representation.
 
-        >>> D = HopfAlgebra.cyclic(2).double()
+        >>> D = Double(HopfAlgebra.cyclic(2))
         >>> e = Representation[D].anyon(0, -1)
         >>> m = Representation[D].anyon(1, 1)
-        >>> assert (e @ m).is_module()
+        >>> assert (e @ m).is_module() and (e @ Dim(2)).is_module()
         """
         if any(not isinstance(other, monoidal.Ty) for other in others):
             return NotImplemented
-        factors = [f for f in (self, ) + others
-                   if f.inside or getattr(f, 'action', None) is not None]
+        unit = type(self)()
+        factors = [f if isinstance(f, Representation)
+                   else type(self)(Dim(*f.inside))
+                   for f in (self, ) + others]
+        factors = [f for f in factors
+                   if (f.inside, f.action) != (unit.inside, unit.action)]
         if not factors:
-            return type(self)()
-        if len(factors) == 1:
-            return factors[0]
-        if not all(isinstance(f, Representation) and f.action is not None
-                   for f in factors):
-            return frobenius.Dim(*[i for f in factors for i in f.inside])
+            return unit
         result, H = factors[0], self.algebra
         for other in factors[1:]:
             tyV, tyW = result.action.cod, other.action.cod
             action = H.comult @ Id(tyV @ tyW) \
                 >> Id(H.ty) @ Diagram.swap(H.ty, tyV) @ Id(tyW) \
                 >> result.action @ other.action
-            result = type(self)(action=action)
+            result = type(self)(tyV @ tyW, action)
         return result
 
     def dual(self, antipode):
@@ -563,7 +572,7 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
         twisted = (antipode @ Id(ty) >> self.action).transpose()
         action = Diagram.swap(H.ty, ty.r) >> twisted @ Id(H.ty) \
             >> Id(ty.r) @ Diagram.cups(H.ty.r, H.ty)
-        return type(self)(action=action)
+        return type(self)(ty.r, action)
 
     @property
     def r(self):
@@ -573,8 +582,6 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
         >>> H = HopfAlgebra.sweedler()
         >>> assert Representation[H].regular().r.is_module()
         """
-        if self.action is None:
-            return self.ar(*self.inside[::-1])
         return self.dual(self.algebra.antipode)
 
     @property
@@ -586,8 +593,6 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
         >>> H = HopfAlgebra.sweedler()
         >>> assert Representation[H].regular().l.is_module()
         """
-        if self.action is None:
-            return self.ar(*self.inside[::-1])
         return self.dual(self.algebra.antipode_inv)
 
     def qdim(self):
@@ -615,7 +620,7 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
     @classmethod
     def regular(cls):
         """ The regular representation, acting on ``H`` by ``mult``. """
-        return cls(action=cls.algebra.mult)
+        return cls(cls.algebra.ty, cls.algebra.mult)
 
     @classmethod
     def anyon(cls, flux, charge):
@@ -624,22 +629,22 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
         algebra: the group element ``e_a`` acts by ``charge ** a`` in the flux
         sector ``flux``.
         """
-        double = cls.algebra
-        n = int(round(double.dim ** 0.5))
-        assert n * n == double.dim, "not the double of an n-dim algebra"
+        if not isinstance(cls.algebra, Double):
+            raise ValueError(f"an anyon needs a Double, got {cls.algebra}")
+        double, n = cls.algebra, cls.algebra.base.dim
         array = np.zeros((n, n), dtype=complex)
         for a in range(n):
             array[flux, a] = charge ** a
         action = Box[complex](
             'ρ', double.ty @ Dim(1), Dim(1), array.reshape(-1).tolist())
-        return cls(action=action)
+        return cls(Dim(1), action)
 
     @classmethod
     def direct_sum(cls, reps):
         """
         The direct sum of modules over one algebra, acting block-diagonally.
 
-        >>> D = HopfAlgebra.cyclic(2).double()
+        >>> D = Double(HopfAlgebra.cyclic(2))
         >>> e = Representation[D].anyon(0, -1)
         >>> m = Representation[D].anyon(1, 1)
         >>> V = Representation[D].direct_sum([e, m])
@@ -658,7 +663,7 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
             offset += dim
         action = Box[complex](
             'ρ', H.ty @ Dim(d), Dim(d), array.reshape(-1).tolist())
-        return cls(action=action)
+        return cls(Dim(d), action)
 
 
 class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
@@ -689,7 +694,7 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
     :class:`.tensor.CMap` it contracts to:
 
     >>> import numpy as np
-    >>> D = HopfAlgebra.cyclic(2).double()
+    >>> D = Double(HopfAlgebra.cyclic(2))
     >>> e = Representation[D].anyon(0, -1)
     >>> m = Representation[D].anyon(1, 1)
     >>> V = Representation[D].direct_sum([e, m])
@@ -709,11 +714,11 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
     ...                             [0, 1, 0, 0], [0, 0, 0, 1]])
     """
     ob = classproperty(
-        lambda cls: Representation if cls.algebra is None
+        lambda cls: frobenius.Dim if cls.algebra is None
         else Representation[cls.algebra])
 
     def __init__(self, inside, dom, cod, _scan=True):
-        if not isinstance(inside, tuple):      # concrete data: a single box
+        if not isinstance(inside, tuple):
             inside = Box('', dom, cod, inside).inside
         super().__init__(inside, dom, cod, _scan=_scan)
 
@@ -777,29 +782,35 @@ class Functor(ribbon.Functor):
 
     Example
     -------
-    The functor sends a :class:`.ribbon.Braid` to the tensor network of the
-    braiding — the R-matrix acting on the two strands, then a swap:
+    The twist followed by the trace of the inverse braid is the identity in
+    any ribbon category. The functor maps the left-hand side — a ribbon
+    diagram, drawn in the dual rail encoding — to the tensor network that
+    contracts to the identity:
 
-    >>> D = HopfAlgebra.cyclic(2).double()
+    >>> import numpy as np
+    >>> from discopy.drawing import Equation
+    >>> D = Double(HopfAlgebra.cyclic(2))
     >>> e = Representation[D].anyon(0, -1)
     >>> m = Representation[D].anyon(1, 1)
     >>> V = Representation[D].direct_sum([e, m])
     >>> x = ribbon.Ty('x')
     >>> F = Functor(ob_map={x: V}, ar_map={}, cod=Intertwiner[D])
-    >>> network = F(ribbon.Braid(x, x))
-    >>> from discopy import tensor
-    >>> assert isinstance(network, tensor.Diagram)
-    >>> network.draw(path='docs/_static/hopf/braid_network.png')
+    >>> d = ribbon.Twist(x) >> ribbon.Braid(x, x)[::-1].trace()
+    >>> network = F(d)
+    >>> assert network.eval(dtype=complex).is_close(
+    ...     F(ribbon.Id(x)).eval(dtype=complex))
+    >>> lhs = Equation(d.to_ribbons(), network, symbol='$\\\\mapsto$')
+    >>> Equation(lhs, Id(Dim(2)), symbol='$=$').draw(
+    ...     wire_labels=False, path='docs/_static/hopf/functor.png')
 
-    .. image:: /_static/hopf/braid_network.png
+    .. image:: /_static/hopf/functor.png
         :align: center
 
-    The user contracts it to a :class:`.tensor.Tensor`:
+    A single braid contracts to the braiding matrix of the toric code:
 
-    >>> import numpy as np
-    >>> matrix = network.eval(dtype=complex).array.reshape(4, 4)
-    >>> assert np.allclose(matrix, [[1, 0, 0, 0], [0, 0, -1, 0],
-    ...                             [0, 1, 0, 0], [0, 0, 0, 1]])
+    >>> matrix = F(ribbon.Braid(x, x)).eval(dtype=complex).array
+    >>> assert np.allclose(matrix.reshape(4, 4), [[1, 0, 0, 0], [0, 0, -1, 0],
+    ...                                           [0, 1, 0, 0], [0, 0, 0, 1]])
     """
     dom, cod = ribbon.Diagram, Intertwiner
 
