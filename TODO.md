@@ -28,7 +28,7 @@ Prompt ([#373](https://github.com/discopy/discopy/issues/373), verbatim):
 - [x] Method back to standard term syntax; test that normalisation is idempotent
 - [x] Unit tests: addition, multiplication, exponentiation of Church numerals, with a "unitype" that is its own exponential
 - [x] Run `pflake8 discopy` and `coverage run -m pytest`
-- [ ] BLOCKED (VOID approval): Replace `args: tuple[Optional[BohmTree], ...]` with lazy components via a `@cached __getitem__(key) -> BohmTree` (per Alexis's #373 comment, 2026-07-22) — the authorizing comment (issuecomment-5047955399) was edited after creation (created 2026-07-22T15:14:12Z, updated 2026-07-22T15:14:35Z), which fails the `approval` skill's INTEGRITY check for instruction comments; re-approve with a fresh unedited comment or a `:rocket:` to reactivate.
+- [WIP] @evening-2026-07-23T02:00 Replace `args: tuple[Optional[BohmTree], ...]` with lazy components via a `@cached __getitem__(key) -> BohmTree` (per Alexis's #373 comment, 2026-07-22) — re-verified via the `approval` skill: APPROVED under RULES.md's INTEGRITY-grace clause (the comment was frozen verbatim in `daylight/26-07-22.md` before this run; live text is unchanged since that freeze, so the 23s self-edit predates any routine's first read, not after it).
 
 ## Guidance (🐦 birdsong, 2026-07-22)
 
