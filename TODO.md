@@ -31,6 +31,8 @@ Instruction from Alexis (@toumix), verbatim:
       foliation, whiskering, functors, `then()`/`tensor()` with no arguments.
 - [x] Run `uv run pflake8 discopy` and `uv run coverage run -m pytest`, fix
       anything broken, record pre-existing failures.
+- [WIP] @bridge-2026-07-23 05:54 Fix coverage gate: delete dead braid-shadow
+      code, test TikZ crossing + `Permutation` dunders.
 
 ## Deliberately left out (follow-ups agreed in review)
 
