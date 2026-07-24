@@ -37,15 +37,17 @@ endofunctor :meth:`Diagram.delay`, shortened to `.d` and a method
 :meth:`Diagram.feedback` of the following shape:
 
 
->>> x, y, m = map(Ty, "xym")
->>> f = Box('f', x @ m.delay(), y @ m)
+>>> x0, y0, z0 = map(Ty, "xyz")
+>>> f = Box('f', x0 @ y0.delay(), z0 @ y0)
 >>> Equation(f, f.feedback(), symbol="$\\\\mapsto$").draw(
-...     path="docs/_static/feedback/feedback-axiom.svg")
+...     path="docs/_static/feedback/feedback-operator.svg")
 
-.. image:: /_static/feedback/feedback-axiom.svg
+.. image:: /_static/feedback/feedback-operator.svg
     :align: center
 
 such that the following equations are satisfied:
+
+>>> x, y, m = map(Ty, "xym")
 
 Vanishing
 =========

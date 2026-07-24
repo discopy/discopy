@@ -1401,7 +1401,7 @@ class CMap[C0: Pregroup, C1: CMap](
                 def save(actual_path):
                     with open(actual_path, "w", encoding="utf-8") as stream:
                         stream.write(dot)
-                backend.save_drawing(
+                backend.save_and_compare(
                     path, save, replace=replace, tol=tol)
                 return None
 
@@ -1417,7 +1417,7 @@ class CMap[C0: Pregroup, C1: CMap](
                 subprocess.run(
                     [executable, f"-T{output_format}", "-o", actual_path],
                     input=dot.encode(), check=True)
-            backend.save_drawing(path, save, replace=replace, tol=tol)
+            backend.save_and_compare(path, save, replace=replace, tol=tol)
         if not show:
             return None
 

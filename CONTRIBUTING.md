@@ -175,8 +175,9 @@ Example
 
 If the image already exists, drawing the example checks it against the
 committed baseline and raises an error when they differ. To update an image,
-pass `replace=True`, or set `discopy.config.OVERRIDE_DOCS_IMAGES = True` before
-running the tests to regenerate all documentation images.
+delete its baseline, pass `replace=True`, or set
+`discopy.config.OVERRIDE_DOCS_IMAGES = True` before running the tests to
+regenerate all documentation images.
 
 ## Request features
 

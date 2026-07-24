@@ -58,6 +58,26 @@ def test_draw_baseline(tmp_path, monkeypatch):
     assert path.read_text() != "<svg/>"
 
 
+def test_normalize_svg(tmp_path):
+    expected = tmp_path / "expected.svg"
+    actual = tmp_path / "actual.svg"
+    expected.write_text("""\
+<svg xmlns="http://www.w3.org/2000/svg" width="1">
+  <metadata>volatile</metadata>
+  <g id="one"><text x="1">f</text></g>
+</svg>""")
+    actual.write_text("""\
+<svg xmlns="http://www.w3.org/2000/svg" width="2">
+  <g id="one"><g id="link"><a title="volatile">
+    <text x="2">f</text>
+  </a></g></g>
+</svg>""")
+
+    assert backend.normalize_svg(expected) == backend.normalize_svg(actual)
+    actual.write_text(actual.read_text().replace(">f<", ">g<"))
+    assert backend.normalize_svg(expected) != backend.normalize_svg(actual)
+
+
 def test_draw_coloured_regions_and_frame():
     red, green, blue = map(
         monoidal.Colour, ("red", "green", "blue"))

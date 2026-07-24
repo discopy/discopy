@@ -119,7 +119,7 @@ def to_gif(diagram, *diagrams, **params):  # pragma: no cover
                 save_all=True, duration=timestep,
                 **{'loop': 0} if loop else {})
 
-        backend.save_drawing(
+        backend.save_and_compare(
             path, save, replace=params.get("replace", None),
             tol=params.get("tol", backend.DEFAULT['tol']))
         try:

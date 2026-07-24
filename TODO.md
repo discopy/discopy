@@ -6,7 +6,7 @@ User prompt, verbatim:
 
 ## Checklist
 
-- [WIP] @codex-2026-07-24 21:32 Address all four unresolved review threads: rename the save helper,
+- [x] @codex-2026-07-24 21:32 Address all four unresolved review threads: rename the save helper,
       replace regex SVG filtering with structured XML normalization, restore
       the feedback image name, document baseline deletion, and verify fully.
 
