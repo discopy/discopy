@@ -249,6 +249,10 @@ class Layer:
     The layer represents the parallel composite
     ``perm0 @ box0 @ perm1 @ ... @ boxN @ permN+1``.
 
+    A layer with no boxes is just a single :class:`Permutation`, i.e.
+    ``Layer(perm)``. This makes a symmetric diagram uniformly a list of
+    layers, with permutation-only layers routing wires between box-layers.
+
     Parameters:
         *inside : Alternating :class:`Permutation` and :class:`Box` objects,
                   with permutations at even positions and boxes at odd.
@@ -261,11 +265,20 @@ class Layer:
     >>> layer = Layer(p, f, Permutation.id(y))
     >>> assert layer.dom == x @ y @ x @ y
     >>> assert layer.cod == y @ x @ y @ y
+
+    A permutation-only layer has length one:
+
+    >>> perm_layer = Layer(Permutation([1, 0], x @ y))
+    >>> assert perm_layer.dom == x @ y and perm_layer.cod == y @ x
+    >>> assert perm_layer.boxes == ()
     """
     def __init__(self, *inside):
-        if len(inside) < 3 or len(inside) % 2 == 0:
+        if len(inside) < 1 or len(inside) % 2 == 0:
             raise ValueError(
-                "Layer needs an odd number of elements (>= 3).")
+                "Layer needs an odd number of elements (>= 1).")
+        for i, x in enumerate(inside):
+            if i % 2 == 0:
+                assert_isinstance(x, Permutation)
         self.inside = inside
 
     @property
@@ -490,6 +503,128 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         >>> assert d.dom == layer.dom and d.cod == layer.cod
         """
         return layer.to_diagram()
+
+    @classmethod
+    def from_layers(cls, layers: list[Layer], dom: monoidal.Ty = None
+                    ) -> Diagram:
+        """
+        Rebuild a diagram from a list of symmetric :class:`Layer`, i.e. the
+        inverse of :meth:`to_layers`.
+
+        Parameters:
+            layers : The list of layers, composed sequentially.
+            dom : The domain, needed only if ``layers`` is empty.
+
+        Examples
+        --------
+        >>> x, y = Ty('x'), Ty('y')
+        >>> f, g = Box('f', x, y), Box('g', y, x)
+        >>> d = f >> g
+        >>> assert Diagram.from_layers(d.to_layers()) == d
+        """
+        if not layers:
+            return cls.id(cls.ty_factory() if dom is None else dom)
+        result = cls.id(layers[0].dom)
+        for layer in layers:
+            result = result >> layer.to_diagram()
+        return result
+
+    def to_layers(self) -> list[Layer]:
+        """
+        Foliate into the smallest possible list of symmetric :class:`Layer`,
+        encoding permutations natively rather than as networks of swaps.
+
+        The boxes are scheduled as early as possible (ASAP), so that the
+        number of box-bearing layers equals the depth of the diagram. Swaps
+        are absorbed into :class:`Permutation`-only layers that route wires
+        between consecutive box-layers; identity permutations are dropped and
+        consecutive permutation-only layers are merged, so permutations are
+        compressed as much as the segmented structure of a layer allows.
+
+        Examples
+        --------
+        >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
+        >>> f, g = Box('f', x, y), Box('g', y, z)
+
+        Sequential boxes give one box-layer each:
+
+        >>> layers = (f >> g).to_layers()
+        >>> assert [bool(l.boxes) for l in layers] == [True, True]
+
+        Parallel boxes are merged into a single layer:
+
+        >>> layers = (f @ g.dom >> f.cod @ g).to_layers()
+
+        Swaps become permutation-only layers and round-trip on the nose:
+
+        >>> d = f @ Box('h', z, x) >> Swap(y, x)
+        >>> with Diagram.hypergraph_equality:
+        ...     assert Diagram.from_layers(d.to_layers()) == d
+        """
+        if any(isinstance(box, Sum) for box in self.boxes):
+            raise NotImplementedError
+        empty = self.dom[:0]
+        n = len(self.dom)
+        # --- Pass 1: track wires through the diagram, scheduling boxes ASAP.
+        frontier = list(range(n))
+        wire_type = {i: self.dom[i] for i in range(n)}
+        depth = {i: 0 for i in range(n)}
+        next_id, records = n, []  # records: (box, in_wids, out_wids, layer)
+        for layer in self.inside:
+            delta = 0
+            for box, offset in layer.boxes_and_offsets:
+                off = offset + delta
+                dim_dom, dim_cod = len(box.dom), len(box.cod)
+                in_wids = frontier[off:off + dim_dom]
+                if isinstance(box, Swap):  # A swap just permutes two wires.
+                    frontier[off:off + dim_dom] = in_wids[::-1]
+                    continue
+                out_wids = list(range(next_id, next_id + dim_cod))
+                next_id += dim_cod
+                box_layer = 1 + max((depth[w] for w in in_wids), default=0)
+                for i, w in enumerate(out_wids):
+                    depth[w], wire_type[w] = box_layer, box.cod[i]
+                frontier[off:off + dim_dom] = out_wids
+                delta += dim_cod - dim_dom
+                records.append((box, in_wids, out_wids, box_layer))
+        output_wids = list(frontier)
+        n_layers = max((layer for _, _, _, layer in records), default=0)
+
+        # --- Pass 2: build a routing permutation then the box-layer per depth.
+        def type_of(wids):
+            return empty.tensor(*[wire_type[w] for w in wids])
+
+        def route(source, target):
+            index = {w: i for i, w in enumerate(source)}
+            return Layer(Permutation(
+                [index[w] for w in target], type_of(source)))
+
+        result, cur = [], list(range(n))
+        for box_layer in range(1, n_layers + 1):
+            in_layer = [r for r in records if r[3] == box_layer]
+            consumed = [w for _, in_wids, _, _ in in_layer for w in in_wids]
+            passthrough = [w for w in cur if w not in set(consumed)]
+            result.append(route(cur, consumed + passthrough))
+            inside = []
+            for box, _, _, _ in in_layer:
+                inside += [Permutation.id(empty), box]
+            inside.append(Permutation.id(type_of(passthrough)))
+            result.append(Layer(*inside))
+            cur = [w for _, _, out_wids, _ in in_layer for w in out_wids]\
+                + passthrough
+        result.append(route(cur, output_wids))
+
+        # --- Pass 3: drop identities and merge consecutive permutations.
+        layers = []
+        for layer in result:
+            if not layer.boxes and layer.inside[0].is_identity:
+                continue
+            if layers and not layers[-1].boxes and not layer.boxes:
+                merged = layers[-1].inside[0].then(layer.inside[0])
+                layers[-1] = Layer(merged)
+                continue
+            layers.append(layer)
+        return layers or [Layer(Permutation.id(self.dom))]
 
     def to_hypergraph(self) -> Hypergraph:
         """ Translate a diagram into a hypergraph. """
