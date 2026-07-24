@@ -320,9 +320,6 @@ class Backend(ABC):
                    for n in (source, target)):
                 continue  # crossings are drawn on their own
             bend_out, bend_in = source.kind == "box", target.kind == "box"
-            # A wire straight from a box's input to its output is a permutation
-            # crossing: draw it as an S-curve with vertical tangents at both
-            # ends rather than the default single-tangent Bezier.
             crossing = source.kind == "box_dom" and target.kind == "box_cod"
             braid_shadow = DEFAULT["braid_shadow"]
             if source.kind == "box" and source.box.draw_as_braid:
@@ -941,9 +938,6 @@ class Matplotlib(Backend):
                 *(source + (target[0] - source[0], target[1] - source[1])),
                 head_width=.02, color="black")
         elif crossing:
-            # A cubic Bezier whose control points sit directly below the source
-            # and above the target, so the tangents are vertical at both ends
-            # while the wire crosses smoothly in between.
             third = (source[1] - target[1]) / 3
             path = Path(
                 [source, (source[0], source[1] - third),
