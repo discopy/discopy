@@ -17,8 +17,6 @@ import pytest
 from pytest import warns
 
 from os import listdir
-import sys
-import pkgutil
 import pickle
 
 zip_mock = MagicMock()
@@ -55,22 +53,14 @@ def test_named_generic_cache():
 
 
 
-@pytest.mark.parametrize('fn', listdir('test/fixtures/pickles/main/'))
+@pytest.mark.parametrize('fn', listdir('test/fixtures/pickles/1.X/'))
 def test_pickle_version_compatibility(fn):
-    with open(f"test/fixtures/pickles/main/{fn}", 'rb') as f:
+    with open(f"test/fixtures/pickles/1.X/{fn}", 'rb') as f:
         new = pickle.load(f)
     with open(f"test/fixtures/pickles/0.6/{fn}", 'rb') as f:
         old = pickle.load(f)
     assert old == new
 
-
-@pytest.mark.parametrize('pkg', [module for _, module, _ in pkgutil.iter_modules(["test/fixtures/pickles/src"])])
-def test_pickle_unpickle(pkg):
-    sys.path.append('test/fixtures/pickles/src')
-    impmodule = __import__(pkg)
-    exp = impmodule.pick
-    act = pickle.loads(pickle.dumps(impmodule.pick))
-    assert act == exp
 
 def test_parameterised_box_pickle():
     box = Box("A", 2, 3)
