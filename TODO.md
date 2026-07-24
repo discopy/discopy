@@ -135,5 +135,5 @@ A symmetric layer represents
 each `f_i` is a non-permutation generator. `Swap` remains distinct from
 `Permutation(..., [1, 0])` and occupies a generator slot.
 
-- [ ] Rework the PR around permutation-valued layer slots, preserving the
+- [WIP] @codex-2026-07-24T15:55+0530 Rework the PR around permutation-valued layer slots, preserving the
       existing generator treatment of swaps.
