@@ -31,6 +31,12 @@ def concatenate(values: tuple[torch.Tensor, ...]) -> torch.Tensor:
     return torch.cat(values, dim=-1)
 
 
+def activate(module: torch.nn.Module, value: torch.Tensor) -> torch.Tensor:
+    """ Apply a module using its nested-box protocol when available. """
+    method = getattr(module, "box_forward", module)
+    return method(value)
+
+
 def prototype(modules: tuple[torch.nn.Module, ...]):
     """ Find a parameter or buffer whose dtype and device zeros should use. """
     for module in modules:
@@ -71,6 +77,42 @@ class CMapModule(torch.nn.Module):
     def forward(self, *args, **kwargs):
         """ Execute message passing over the wrapped map. """
         return self.inside.forward(*args, **kwargs)
+
+    def box_forward(self, messages: torch.Tensor) -> torch.Tensor:
+        """ Adapt direct map execution to the neural all-port protocol. """
+        from discopy.neural import Execution
+
+        dom_width, cod_width = (
+            sum(self.inside.dom.inside), sum(self.inside.cod.inside))
+        memory_width = sum(
+            sum(box.mem.inside) for box in self.inside.boxes)
+        expected = dom_width + cod_width + memory_width
+        if len(messages.shape) != 2 or messages.shape[-1] != expected:
+            raise ValueError(
+                f"Nested map messages have shape {tuple(messages.shape)}, "
+                f"expected (batch_size, {expected}).")
+        inputs, outputs, memory = messages.split(
+            (dom_width, cod_width, memory_width), dim=-1)
+        execution = Execution(
+            self.inside, memory=memory if memory_width else None)
+        boundary_ports = execution.input_ports + execution.output_ports
+        boundary = torch.split(
+            torch.cat((inputs, outputs), dim=-1),
+            tuple(self.inside.port_dims[i] for i in boundary_ports), dim=-1)\
+            if boundary_ports else ()
+        initial = [None] * self.inside.n_ports
+        for port, value in zip(boundary_ports, boundary):
+            initial[self.inside.edges[port]] = value
+        execution.init = initial
+        execution.forward()
+        public = torch.cat(
+            tuple(execution.incoming[i] for i in boundary_ports), dim=-1)\
+            if boundary_ports\
+            else messages.new_zeros((messages.shape[0], 0))
+        next_memory = torch.cat(execution.memories, dim=-1)\
+            if execution.memories\
+            else messages.new_zeros((messages.shape[0], 0))
+        return torch.cat((public, next_memory), dim=-1)
 
 
 def wrap(inside: "CMap") -> CMapModule:

@@ -87,7 +87,8 @@ from discopy import compact, hypergraph, monoidal
 from discopy.cat import factory
 from discopy.cmap import PortKind
 from discopy.pivotal import Ty
-from discopy.utils import assert_isinstance
+from discopy.utils import (
+    assert_isinstance, factory_name, from_tree as decode)
 
 if TYPE_CHECKING:
     import torch
@@ -161,6 +162,17 @@ class Dim(monoidal.Dim, Ty):
     def unwind(self) -> Dim:
         """ Dimensions have no winding number to normalize. """
         return self
+
+    def to_tree(self) -> dict:
+        """ Serialize an additive dimension. """
+        return {
+            'factory': factory_name(type(self)),
+            'inside': list(self.inside)}
+
+    @classmethod
+    def from_tree(cls, tree: dict) -> Dim:
+        """ Deserialize an additive dimension. """
+        return cls(*tree['inside'])
 
 
 @factory
@@ -245,6 +257,23 @@ class Network(compact.Box, Diagram):
     def setoid(self):
         """ Include the private memory dimension in equality and hashing. """
         return super().setoid() + (self.mem, )
+
+    def to_tree(self) -> dict:
+        """ Serialize the network shape, including its private memory. """
+        tree = super().to_tree()
+        tree['mem'] = self.mem.to_tree()
+        if self.z:
+            tree['z'] = self.z
+        return tree
+
+    @classmethod
+    def from_tree(cls, tree: dict) -> Network:
+        """ Deserialize a network, accepting trees without private memory. """
+        dom, cod = map(decode, (tree['dom'], tree['cod']))
+        mem = decode(tree['mem']) if 'mem' in tree else Dim()
+        return cls(
+            tree['name'], dom, cod, data=tree.get('data'), mem=mem,
+            is_dagger='is_dagger' in tree, z=tree.get('z', 0))
 
 
 class Cup(compact.Cup, Network):
@@ -345,12 +374,16 @@ class CMap(compact.CMap):
         Parameters:
             name : The name of the network.
         """
+        memory_width = sum(
+            sum(box.mem.inside) for box in self.boxes)
         return Network(
-            name, self.dom, self.cod, module=get_backend().wrap(self))
+            name, self.dom, self.cod, module=get_backend().wrap(self),
+            mem=Dim(memory_width))
 
     def forward(self, x: "torch.Tensor" = None, init=None,
                 n_rounds: int = None, inject: bool = True,
-                memory=None, return_memory: bool = False):
+                memory=None, return_memory: bool = False,
+                causal: bool = False):
         """
         Apply the geometry-of-interaction :class:`Execution` of the map.
 
@@ -365,6 +398,9 @@ class CMap(compact.CMap):
                      one tensor of their concatenated memory dimensions.
             return_memory : Whether to return the final per-box memories
                             together with the usual result.
+            causal : Whether to activate every box once in topological order.
+                     This is only valid for feed-forward maps and cannot be
+                     combined with ``n_rounds``.
 
         Returns:
             The final messages at the boundary output ports, concatenated,
@@ -372,8 +408,13 @@ class CMap(compact.CMap):
             order when the map is closed. If ``return_memory`` is true, this
             result is paired with the tuple of final per-box memories.
         """
-        return Execution(self, x, init, memory).forward(
-            n_rounds, inject, return_memory)
+        execution = Execution(self, x, init, memory)
+        if causal:
+            if n_rounds is not None:
+                raise ValueError(
+                    "A causal schedule cannot be combined with n_rounds.")
+            return execution.forward_causal(inject, return_memory)
+        return execution.forward(n_rounds, inject, return_memory)
 
     __call__ = forward
 
@@ -438,6 +479,68 @@ class Execution:
     def memory_widths(self) -> tuple[int, ...]:
         """ The private memory width of each box occurrence. """
         return tuple(sum(box.mem.inside) for box in self.inside.boxes)
+
+    @cached_property
+    def topological_order(self) -> tuple[int, ...]:
+        """ Order boxes from boundary inputs towards boundary outputs. """
+        domain_owner, codomain_owner, box_port_owner = {}, {}, {}
+        for box_index, (box, ports) in enumerate(zip(
+                self.inside.boxes, self.box_ports)):
+            for port in ports:
+                box_port_owner[port] = box_index
+            for port in ports[:len(box.dom)]:
+                domain_owner[port] = box_index
+            for port in ports[len(box.dom):]:
+                codomain_owner[port] = box_index
+
+        dependencies = []
+        for box_index, (box, ports) in enumerate(zip(
+                self.inside.boxes, self.box_ports)):
+            current = set()
+            for port in ports[:len(box.dom)]:
+                source = self.inside.edges[port]
+                if source in codomain_owner:
+                    current.add(codomain_owner[source])
+                elif source in box_port_owner:
+                    raise ValueError(
+                        "A causal schedule requires every box input to be "
+                        "wired from a box output or boundary input.")
+                elif self.inside.ports[source].kind != PortKind.INPUT:
+                    raise ValueError(
+                        "A causal schedule requires every box input to be "
+                        "wired from a box output or boundary input.")
+            dependencies.append(current)
+
+            for port in ports[len(box.dom):]:
+                target = self.inside.edges[port]
+                if target in box_port_owner and target not in domain_owner:
+                    raise ValueError(
+                        "A causal schedule requires every box output to be "
+                        "wired to a box input or boundary output.")
+                if target not in box_port_owner\
+                        and self.inside.ports[target].kind != PortKind.OUTPUT:
+                    raise ValueError(
+                        "A causal schedule requires every box output to be "
+                        "wired to a box input or boundary output.")
+
+        remaining = [set(items) for items in dependencies]
+        ready = [
+            box_index for box_index, items in enumerate(remaining)
+            if not items]
+        order = []
+        while ready:
+            box_index = ready.pop(0)
+            order.append(box_index)
+            for target, items in enumerate(remaining):
+                if box_index in items:
+                    items.remove(box_index)
+                    if not items and target not in order\
+                            and target not in ready:
+                        ready.append(target)
+        if len(order) != len(self.inside.boxes):
+            raise ValueError(
+                "A causal schedule requires an acyclic box dependency graph.")
+        return tuple(order)
 
     def zeros(self, width: int):
         """ A zero message with the execution's batch size and prototype. """
@@ -524,6 +627,27 @@ class Execution:
         self.memories = memories
         return self.incoming
 
+    def activate_box(self, box_index: int, incoming):
+        """ Apply one network to its public messages and private memory. """
+        widths = self.inside.port_dims
+        box, ports = (
+            self.inside.boxes[box_index], self.box_ports[box_index])
+        public_widths = tuple(widths[i] for i in ports)
+        memory_width = self.memory_widths[box_index]
+        values = tuple(incoming[i] for i in ports)\
+            + (self.memories[box_index], )
+        output = self.backend.activate(
+            box.module, self.backend.concatenate(values))
+        self.validate(
+            output, sum(public_widths) + memory_width,
+            f"output of box {box_index}")
+        chunks = self.backend.split(
+            output, public_widths + (memory_width, ))
+        public, next_memory = chunks[:-1], chunks[-1]
+        box_output = (
+            self.backend.concatenate(public) if public else self.zeros(0))
+        return public, next_memory, box_output
+
     def activate(self) -> tuple:
         """ Apply each network to its public messages and private memory. """
         widths = self.inside.port_dims
@@ -532,21 +656,10 @@ class Execution:
             outgoing[i] = self.boundary[i]
 
         box_outputs, memories = [], []
-        for box_index, (box, ports) in enumerate(zip(
-                self.inside.boxes, self.box_ports)):
-            public_widths = tuple(widths[i] for i in ports)
-            memory_width = self.memory_widths[box_index]
-            values = tuple(self.incoming[i] for i in ports)\
-                + (self.memories[box_index], )
-            output = box.module(self.backend.concatenate(values))
-            self.validate(
-                output, sum(public_widths) + memory_width,
-                f"output of box {box_index}")
-            chunks = self.backend.split(
-                output, public_widths + (memory_width, ))
-            public, next_memory = chunks[:-1], chunks[-1]
-            box_outputs.append(
-                self.backend.concatenate(public) if public else self.zeros(0))
+        for box_index, ports in enumerate(self.box_ports):
+            public, next_memory, box_output = self.activate_box(
+                box_index, self.incoming)
+            box_outputs.append(box_output)
             memories.append(next_memory)
             for i, chunk in zip(ports, public):
                 outgoing[i] = chunk
@@ -589,6 +702,36 @@ class Execution:
             self.route()
             if inject and self.init is not None:
                 self.inject()
+        result = self.readout()
+        return (result, self.memories) if return_memory else result
+
+    def forward_causal(
+            self, inject: bool = True, return_memory: bool = False):
+        """ Execute every box once in topological order. """
+        self.initialize()
+        widths = self.inside.port_dims
+        incoming = list(self.incoming)
+        outgoing = [self.zeros(width) for width in widths]
+        for port in self.input_ports:
+            outgoing[port] = self.boundary[port]
+        box_outputs = list(self.box_outputs)
+        memories = list(self.memories)
+
+        for box_index in self.topological_order:
+            ports = self.box_ports[box_index]
+            public, next_memory, box_output = self.activate_box(
+                box_index, incoming)
+            box_outputs[box_index] = box_output
+            memories[box_index] = next_memory
+            for port, chunk in zip(ports, public):
+                outgoing[port] = chunk
+                target = self.inside.edges[port]
+                incoming[target] = chunk + self.initial[target]\
+                    if inject and self.init is not None else chunk
+
+        self.incoming, self.outgoing = tuple(incoming), tuple(outgoing)
+        self.box_outputs, self.memories = (
+            tuple(box_outputs), tuple(memories))
         result = self.readout()
         return (result, self.memories) if return_memory else result
 

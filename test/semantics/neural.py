@@ -11,6 +11,7 @@ from discopy import compact
 from discopy.neural import *
 from discopy.neural import CMap, Diagram, Functor, Id
 from discopy.python.finset import Permutation
+from discopy.utils import dumps, loads
 
 
 def mlp(width):
@@ -32,6 +33,7 @@ def test_dim():
     assert Dim(0) @ Dim(2) == Dim(2) and Dim(2) @ Dim(3) == Dim(2, 3)
     assert Dim(2).l == Dim(2).r == Dim(2)
     assert Dim(2, 3).r == Dim(3, 2)
+    assert loads(dumps(Dim(2, 3))) == Dim(2, 3)
     with raises(ValueError):
         Dim(-1)
 
@@ -59,6 +61,7 @@ def test_network_as_box():
     assert stateful.dagger().mem == stateful.rotate().mem == Dim(4)
     assert stateful == stateful.dagger().dagger()
     assert stateful.to_map().port_dims == f.to_map().port_dims
+    assert loads(dumps(stateful)) == stateful
 
 
 def test_port_dims():
@@ -133,6 +136,38 @@ def test_forward_open_map():
     assert torch.allclose(execution.readout(), expected)
 
 
+def test_forward_causal_schedule():
+    torch = importorskip("torch")
+
+    class Identity(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.calls = 0
+
+        def forward(self, value):
+            self.calls += 1
+            incoming, _ = value.chunk(2, dim=-1)
+            return torch.cat((torch.zeros_like(incoming), incoming), dim=-1)
+
+    first_module, second_module = Identity(), Identity()
+    first = Network('first', Dim(1), Dim(1), module=first_module)
+    second = Network('second', Dim(1), Dim(1), module=second_module)
+    cmap = (first >> second).to_map()
+    value = torch.tensor([[42.]])
+
+    assert torch.equal(cmap(value, causal=True), value)
+    assert first_module.calls == second_module.calls == 1
+    with raises(ValueError, match="cannot be combined"):
+        cmap(value, causal=True, n_rounds=2)
+    with raises(ValueError, match="acyclic"):
+        first.to_map().trace()(causal=True)
+
+    cell = Network(
+        'cell', Dim(0), Dim(1, 1), module=torch.nn.Identity())
+    with raises(ValueError, match="causal schedule"):
+        ring(2, cell)(causal=True)
+
+
 def test_private_memory():
     torch = importorskip("torch")
 
@@ -160,7 +195,14 @@ def test_private_memory():
     assert torch.equal(output, torch.tensor([[14.]]))
     assert torch.equal(memory[0], torch.tensor([[14.]]))
 
-    output, memory = cmap.as_network()(
+    wrapped = cmap.as_network()
+    output, memory = wrapped(
+        x, n_rounds=2, return_memory=True)
+    assert torch.equal(output, torch.tensor([[4.]]))
+    assert torch.equal(memory[0], torch.tensor([[4.]]))
+
+    assert wrapped.mem == Dim(1)
+    output, memory = wrapped.to_map()(
         x, n_rounds=2, return_memory=True)
     assert torch.equal(output, torch.tensor([[4.]]))
     assert torch.equal(memory[0], torch.tensor([[4.]]))
@@ -265,6 +307,26 @@ def test_torch_wrapper():
     assert list(outer.parameters()) == list(model.parameters())
     states = network()
     assert len(states) == 16
+
+
+def test_nested_torch_wrapper():
+    torch = importorskip("torch")
+
+    class Bidirectional(torch.nn.Module):
+        def forward(self, value):
+            left, right = value.chunk(2, dim=-1)
+            return torch.cat((2 * right, 3 * left), dim=-1)
+
+    module = Bidirectional()
+    inner = Network('f', Dim(1), Dim(1), module=module).to_map()
+    wrapped = inner.as_network()
+    value = torch.tensor([[3.]])
+
+    assert torch.equal(wrapped(value), 3 * value)
+    assert torch.equal(wrapped.to_map()(value), 3 * value)
+    assert torch.equal(
+        wrapped.module.box_forward(torch.tensor([[3., 5.]])),
+        torch.tensor([[10., 9.]]))
 
 
 def test_torch_wrapper_copy_and_pickle():

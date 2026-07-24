@@ -21,16 +21,18 @@ For a model input ``X`` and parameter tuple ``P``, the diagram has type
 
 The full six-block shape is useful for checking parameter counts.  Execution
 and derivative conformance normally use :meth:`CatGPTConfig.tiny`; set
-``CATGPT_FULL=1`` in :mod:`benchmark.test_catgpt` to opt into the full shape.
-Set ``CATGPT_10K=1`` to opt into the original 10,000 SGD steps on deterministic
-synthetic tokens.  No dataset or pretrained weights are downloaded.
+``CATGPT_FULL=1`` in :mod:`benchmark.test_catgpt` to opt into one full-shape
+forward/VJP check.
+Set ``CATGPT_10K=1`` to opt into the original 10,000-step count on the tiny
+shape and a deterministic synthetic stream.  No dataset or pretrained weights
+are downloaded.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import cached_property
-from math import prod, sqrt
+from math import e, prod, sqrt
 
 import torch
 
@@ -100,6 +102,13 @@ assert (
 def attention_scale(width: int) -> float:
     """Reproduce CatGPT's float32-derived ``sqrt(model_width)``."""
     return torch.sqrt(torch.tensor(width)).item()
+
+
+def stable_softmax(value: torch.Tensor, dim: int = -1) -> torch.Tensor:
+    """CatGPT's explicit maximum-shifted exponential normalisation."""
+    shifted = value - value.amax(dim=dim, keepdim=True)
+    exponential = torch.tensor(e, device=value.device) ** shifted
+    return exponential / exponential.sum(dim=dim, keepdim=True)
 
 
 class Operation:
@@ -180,7 +189,7 @@ class LayerNorm(Operation):
         centred = value - value.mean(dim=-1, keepdim=True)
         inverse_std = (
             centred.square().mean(dim=-1, keepdim=True) + self.eps
-        ).rsqrt()
+        ).pow(-.5)
         return centred * inverse_std, inverse_std
 
     def forward(self, value):
@@ -237,7 +246,8 @@ class CausalSelfAttention(Operation):
         mask = torch.ones(
             self.context, self.context,
             dtype=torch.bool, device=value.device).triu(1)
-        probabilities = scores.masked_fill(mask, -torch.inf).softmax(dim=-1)
+        probabilities = stable_softmax(
+            scores.masked_fill(mask, -torch.inf), dim=-1)
         output = probabilities @ content
         return query, key, content, probabilities, output
 
@@ -310,8 +320,8 @@ class Softmax(Operation):
         self.dom_dims = self.cod_dims = (items * width, )
 
     def forward(self, value):
-        return value.reshape(
-            -1, self.items, self.width).softmax(dim=-1).flatten(1)
+        value = value.reshape(-1, self.items, self.width)
+        return stable_softmax(value, dim=-1).flatten(1)
 
     def reverse(self, value, cotangent):
         output = self.forward(value).reshape(
@@ -493,7 +503,8 @@ class CatGPT:
         return token_grad, parameter_grads
 
     def __call__(self, tokens, parameters):
-        output = self.cmap(self.pack(tokens, parameters))
+        output = self.cmap(
+            self.pack(tokens, parameters), causal=True)
         width = self.config.vocab
         return output.reshape(
             self.config.batch, self.config.context, width)
@@ -503,7 +514,8 @@ class CatGPT:
         boundary = torch.cat(
             (self.pack(tokens, parameters),
              cotangent.flatten().unsqueeze(0)), dim=-1)
-        return self.unpack_gradient(self.reverse_map(boundary))
+        return self.unpack_gradient(
+            self.reverse_map(boundary, causal=True))
 
 
 def initialise(
@@ -531,8 +543,10 @@ def reference(
         config.context, config.context,
         dtype=torch.bool, device=tokens.device).triu(1)
     for i in range(config.blocks):
-        normalised = torch.nn.functional.layer_norm(
-            state, (config.width,), eps=config.eps)
+        centred = state - state.mean(dim=-1, keepdim=True)
+        normalised = centred * (
+            centred.square().mean(dim=-1, keepdim=True) + config.eps
+        ).pow(-.5)
         qkv = torch.nn.functional.linear(
             normalised, parameters[f"blocks.{i}.qkv"])
         query, key, content = qkv.chunk(3, dim=-1)
@@ -547,14 +561,38 @@ def reference(
         scores = (
             query @ key.transpose(-2, -1)
             / attention_scale(config.width))
-        probability = scores.masked_fill(
-            mask, -torch.inf).softmax(dim=-1)
+        probability = stable_softmax(
+            scores.masked_fill(mask, -torch.inf), dim=-1)
         attended = (probability @ content).transpose(1, 2).reshape_as(state)
         state = state + attended
-    state = torch.nn.functional.layer_norm(
-        state, (config.width,), eps=config.eps)
+    centred = state - state.mean(dim=-1, keepdim=True)
+    state = centred * (
+        centred.square().mean(dim=-1, keepdim=True) + config.eps
+    ).pow(-.5)
     result = torch.nn.functional.linear(state, parameters["output"])
-    return result.softmax(dim=-1) if softmax else result
+    return stable_softmax(result, dim=-1) if softmax else result
+
+
+def random_batch(
+        stream, config: CatGPTConfig, generator=None,
+        dtype: torch.dtype = torch.float32):
+    """Sample fresh shifted windows from a one-dimensional token stream."""
+    stream = torch.as_tensor(stream, dtype=torch.long)
+    if len(stream.shape) != 1:
+        raise ValueError("The token stream must be one-dimensional.")
+    if len(stream) <= config.context + 1:
+        raise ValueError(
+            "The token stream must be longer than context + 1.")
+    if stream.min() < 0 or stream.max() >= config.vocab:
+        raise ValueError("The token stream contains an invalid token.")
+    starts = torch.randint(
+        0, len(stream) - (config.context + 1),
+        (config.batch,), generator=generator)
+    offsets = starts[:, None] + torch.arange(config.context)
+    inputs, targets = stream[offsets], stream[offsets + 1]
+    tokens = torch.nn.functional.one_hot(
+        inputs, config.vocab).to(dtype=dtype)
+    return tokens, targets
 
 
 def negative_log_likelihood_vjp(probability, targets):
@@ -573,23 +611,32 @@ def negative_log_likelihood_vjp(probability, targets):
 
 
 def train(
-        config: CatGPTConfig = CATGPT, steps: int = 10_000,
+        config: CatGPTConfig = None, steps: int = 10_000,
         rate: float = .1, seed: int = 0,
-        dtype: torch.dtype = torch.float32):
+        dtype: torch.dtype = torch.float32, stream=None):
     """
-    Run structural-VJP SGD on a deterministic synthetic next-token batch.
+    Run structural-VJP SGD on deterministic next-token windows.
 
-    This mirrors the original benchmark's 10,000-step, learning-rate ``.1``
-    workload while remaining self-contained.  The full call is intentionally
-    opt-in because reverse evaluation is interpreted directly as a DisCoPy
-    message-passing graph rather than compiled native code.
+    This mirrors the original benchmark's fresh shifted-window sampling,
+    10,000-step count and learning rate ``.1`` while remaining self-contained.
+    The tiny shape is the default because reverse evaluation is interpreted
+    directly as a DisCoPy graph rather than compiled native code. Pass
+    :data:`CATGPT` explicitly to request the full architecture.
     """
     if steps < 0:
         raise ValueError("The number of steps cannot be negative.")
-    tokens, parameters = initialise(config, seed=seed, dtype=dtype)
-    targets = tokens.argmax(dim=-1).roll(-1, dims=-1)
+    config = CatGPTConfig.tiny() if config is None else config
+    _, parameters = initialise(config, seed=seed, dtype=dtype)
+    if stream is None:
+        stream_generator = torch.Generator().manual_seed(seed + 1)
+        stream = torch.randint(
+            config.vocab, (max(4096, config.context + 2),),
+            generator=stream_generator)
+    batch_generator = torch.Generator().manual_seed(seed)
     model, losses = CatGPT(config, softmax=True), []
     for _ in range(steps):
+        tokens, targets = random_batch(
+            stream, config, generator=batch_generator, dtype=dtype)
         probability = model(tokens, parameters)
         loss, cotangent = negative_log_likelihood_vjp(
             probability, targets)
