@@ -1,5 +1,6 @@
 
 import os
+import re
 
 from pytest import raises
 
@@ -12,10 +13,23 @@ from discopy import monoidal
 IMG_FOLDER, TIKZ_FOLDER = 'test/drawing/imgs/', 'test/drawing/tikz/'
 
 
+def _normalize_svg(path):
+    """ Normalise SVG for cross-platform comparison: strip <metadata>
+    and replace every quoted attribute value with a placeholder so
+    only element structure and text content are compared.  This is
+    necessary because Matplotlib SVG output depends on local font
+    metrics (coordinates, canvas size) and the hash-salt (clip-path
+    ids), none of which are reproducible across environments. """
+    with open(path) as f:
+        text = f.read()
+    text = re.sub(
+        r'<[^>]*metadata[^>]*>.*?</[^>]*metadata\s*>',
+        '', text, flags=re.DOTALL)
+    text = re.sub(r'="[^"]*"', '="#"', text)
+    return text
+
+
 def draw_and_compare(file, folder=IMG_FOLDER, **params):
-    # SVG drawing is deterministic (see #457), so we compare the generated
-    # image byte-for-byte rather than with a raster tolerance: this is
-    # reproducible across environments, free of antialiasing flakiness.
     def decorator(func):
         def wrapper():
             diagram = func()
@@ -26,8 +40,7 @@ def draw_and_compare(file, folder=IMG_FOLDER, **params):
             if not os.path.exists(true_path):
                 os.replace(test_path, true_path)
                 return
-            with open(true_path) as true, open(test_path) as test:
-                assert true.read() == test.read()
+            assert _normalize_svg(true_path) == _normalize_svg(test_path)
             os.remove(test_path)
         return wrapper
     return decorator
