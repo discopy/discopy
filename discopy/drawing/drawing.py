@@ -77,6 +77,10 @@ def _trailing_margin(ob) -> float:
         getattr(ob, "min_right_margin", 0))
 
 
+def _permutation_name(perm) -> str:
+    return f"Permutation({list(perm)})"
+
+
 class PlaneGraph(NamedTuple):
     """ A plane graph is a graph with a mapping from nodes to points. """
     graph: nx.DiGraph
@@ -415,6 +419,10 @@ class Drawing(TracedCategory):
 
         for attr, default in BOX_DRAWING_ATTRIBUTES.items():
             setattr(box, attr, getattr(old_box, attr, default(box)))
+        if box.drawing_permutation is not None:
+            box.name = box.drawing_name = _permutation_name(
+                box.drawing_permutation)
+            box.is_dagger = False
 
         if box.draw_as_wires and not box.frame_boundary:
             for i, obj in enumerate(box.cod.inside):
@@ -530,44 +538,6 @@ class Drawing(TracedCategory):
         result.add_nodes({
             x: Point(0.25 + offsets[i], 0) for i, x in enumerate(cod_nodes)})
         result.add_edges(list(zip(dom_nodes, cod_nodes)))
-        return result
-
-    @staticmethod
-    def permutation(inside: list[int], dom: "monoidal.Ty") -> Drawing:
-        """
-        Draw a permutation as a single compact band of crossing wires.
-
-        The convention follows :class:`discopy.symmetric.Permutation`: the
-        ``i``-th output wire comes from the input wire ``inside[i]``. A whole
-        permutation thus occupies the height of a single layer rather than a
-        staircase of swaps. This is drawn as a box with ``draw_as_wires``
-        where each input is wired to its image output.
-
-        >>> from discopy.monoidal import Ty
-        >>> x, y, z = map(Ty, "xyz")
-        >>> Drawing.permutation([2, 0, 1], x @ y @ z).draw(
-        ...     path="docs/_static/drawing/permutation.png")
-
-        .. image:: /_static/drawing/permutation.png
-            :align: center
-        """
-        from discopy.monoidal import Ty, Box
-        dom = Ty() if dom is None else dom
-        if list(inside) == list(range(len(dom))):
-            return Drawing.id(dom)
-        cod = dom[:0].tensor(*[dom[j] for j in inside])
-        box = Box("permutation", dom, cod, draw_as_wires=True)
-        result = Drawing.from_box(box)
-        box_node = Node("box", box=result.boxes[0], j=0)
-        box_dom = sorted((n for n in result.nodes if n.kind == "box_dom"),
-                         key=lambda n: n.i)
-        box_cod = sorted((n for n in result.nodes if n.kind == "box_cod"),
-                         key=lambda n: n.i)
-        result.graph.remove_edges_from(
-            list(result.graph.in_edges(box_node))
-            + list(result.graph.out_edges(box_node)))
-        result.add_edges([
-            (box_dom[inside[i]], box_cod[i]) for i in range(len(inside))])
         return result
 
     @unbiased
@@ -737,7 +707,17 @@ class Drawing(TracedCategory):
         def box_dagger(box):
             result = box.dagger()
             for attr in BOX_DRAWING_ATTRIBUTES:
-                setattr(result, attr, getattr(box, attr))
+                value = getattr(box, attr)
+                if attr == "drawing_permutation" and value is not None:
+                    inverse = [0] * len(value)
+                    for i, j in enumerate(value):
+                        inverse[j] = i
+                    value = tuple(inverse)
+                setattr(result, attr, value)
+            if result.drawing_permutation is not None:
+                result.name = result.drawing_name = _permutation_name(
+                    result.drawing_permutation)
+                result.is_dagger = False
             return result
 
         if self.is_box:

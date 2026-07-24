@@ -30,6 +30,8 @@ class Function(MonoidalCategory, Sequence):
     """
     A function between finite sets encoded as a Python list.
 
+    Functions implement the standard Python sequence protocol.
+
     Parameters:
         inside : The list from ``range(cod)`` to ``range(dom)``.
         dom : The size of domain of the function.
@@ -62,7 +64,7 @@ class Function(MonoidalCategory, Sequence):
     def __getitem__(self, key):
         return self.inside[key]
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.cod
 
     @staticmethod
@@ -125,7 +127,7 @@ class Permutation(Function, SymmetricCategory):
     def __getitem__(self, key: int) -> int:
         if isinstance(key, slice):
             return tuple(self)[key]
-        return super().__getitem__(key % len(self))
+        return super().__getitem__(key)
 
     def __repr__(self) -> str:
         return repr(tuple(self))

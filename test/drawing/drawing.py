@@ -334,6 +334,32 @@ def test_draw_curved_polygon_tikz():
     assert "fill={red}" in line
 
 
+def test_draw_permutation():
+    from matplotlib import pyplot as plt
+    from discopy.symmetric import Ty, Permutation
+
+    x, y, z = map(Ty, "xyz")
+    perm = Permutation(x @ y @ z, [2, 0, 1])
+    drawing = perm.to_drawing()
+    box_node = drawing.box_nodes[0]
+    assert len(list(drawing.graph.predecessors(box_node))) == len(perm.dom)
+    assert len(list(drawing.graph.successors(box_node))) == len(perm.cod)
+    assert drawing.box.drawing_permutation == tuple(perm.perm)
+    assert drawing.dagger().box.drawing_permutation\
+        == tuple(perm.perm.dagger())
+    assert drawing.dagger() == perm.dagger().to_drawing()
+
+    swap = Permutation(x @ y, [1, 0]).to_drawing()
+    swap.add_box_corners()
+    tikz = TikZ()
+    tikz.draw_wires(swap)
+    assert len(tikz.edgelayer) == 2
+    matplotlib = Matplotlib()
+    matplotlib.draw_wires(swap)
+    assert len(matplotlib.axis.patches) == 2
+    plt.close(matplotlib.axis.figure)
+
+
 def test_readable_foreground():
     # White and light colours get black text, dark colours get white text.
     assert Backend.readable_foreground("white") == "black"

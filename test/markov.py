@@ -63,6 +63,6 @@ def test_Permutation():
     assert Diagram.permutation_factory is Permutation
     perm = Permutation(x @ y @ z, [2, 0, 1])
     assert isinstance(perm, Box) and perm.cod == z @ x @ y
-    assert perm >> perm.dagger() == Id(x @ y @ z)
-    assert Permutation(x @ y, [1, 0]) == Swap(x, y)
+    assert Equation(perm >> perm.dagger(), Id(x @ y @ z))
+    assert Permutation(x @ y, [1, 0]) != Swap(x, y)
     assert Equation(perm, perm.to_swaps())

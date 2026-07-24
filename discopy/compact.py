@@ -16,6 +16,7 @@ Summary
     Cup
     Cap
     Swap
+    Permutation
     Functor
 
 Axioms
@@ -53,18 +54,10 @@ Coherence
 ...     Cap(x, x.r) @ Cap(y, y.r) >> x @ Diagram.swap(x.r, y @ y.r))
 """
 
-from discopy import symmetric, ribbon, rigid, hypergraph
+from discopy import symmetric, ribbon, hypergraph
 from discopy.abc import CompactCategory
 from discopy.cat import factory
 from discopy.pivotal import Ob, Ty  # noqa: F401
-
-
-class Layer(symmetric.Layer, rigid.Layer):
-    """
-    A compact layer is a symmetric layer that can also be rotated: it supports
-    permutations at even positions (from :class:`symmetric.Layer`) and the
-    transpose (from :class:`rigid.Layer`).
-    """
 
 
 @factory
@@ -78,7 +71,6 @@ class Diagram(symmetric.Diagram, ribbon.Diagram, CompactCategory):
         cod (pivotal.Ty) : The codomain of the diagram, i.e. its output.
     """
     ob = Ty
-    layer_factory = Layer
     trace_factory = ribbon.Diagram.trace_factory
 
 
@@ -131,6 +123,11 @@ class Permutation(symmetric.Permutation, Box):
         dom (pivotal.Ty) : The domain, i.e. the wires to permute.
         perm : The permutation as a :class:`finset.Permutation` or a list.
     """
+    def rotate(self, left=False):
+        reverse = type(self.perm)(reversed(range(len(self.perm))))
+        perm = self.perm.dagger().conjugate(reverse)
+        dom = self.cod.l if left else self.cod.r
+        return self.ar.from_permutation(perm, dom)
 
 
 class Functor(symmetric.Functor, ribbon.Functor):

@@ -3,7 +3,7 @@
 from pytest import raises
 
 from discopy.symmetric import *
-from discopy.utils import AxiomError
+from discopy import monoidal
 
 
 def test_Swap():
@@ -92,10 +92,13 @@ def test_Permutation():
     perm = Permutation(x @ y @ z, [1, 2, 0])
     assert perm.dom == x @ y @ z and perm.cod == y @ z @ x
     assert list(perm.perm) == [1, 2, 0]
-    assert perm == Diagram((Layer(perm),), perm.dom, perm.cod)
+    assert perm.inside == (monoidal.Layer(Ty(), perm, Ty()),)
+    assert perm.boxes == [perm] and perm.offsets == [0] and perm.size == 1
+    assert Diagram.decode(*perm.encode()) == perm
     assert Permutation.id(x @ y @ z) == Id(x @ y @ z)
     assert Permutation.id(x @ y @ z).inside == ()
-    assert perm >> perm.dagger() == Id(x @ y @ z)
+    assert perm >> perm.dagger() != Id(x @ y @ z)
+    assert Equation(perm >> perm.dagger(), Id(x @ y @ z))
     assert perm.dagger().dagger() == perm
     a = Permutation(x @ y @ z, [1, 2, 0])
     b = Permutation(a.cod, [2, 0, 1])
@@ -104,10 +107,10 @@ def test_Permutation():
     assert Id(x @ y @ z) >> a == a == a >> Id(a.cod)
     assert (a >> b).dagger() == b.dagger() >> a.dagger()
     q = Permutation(z @ y, [1, 0])
-    assert (perm @ q).dagger() == perm.dagger() @ q.dagger()
+    assert Equation((perm @ q).dagger(), perm.dagger() @ q.dagger())
     assert (perm @ q).dom == perm.dom @ q.dom
-    assert Permutation(x @ y, [1, 0]) == Swap(x, y)
-    assert hash(Permutation(x @ y, [1, 0])) == hash(Swap(x, y))
+    assert Permutation(x @ y, [1, 0]) != Swap(x, y)
+    assert Equation(Permutation(x @ y, [1, 0]), Swap(x, y))
     with raises(ValueError):
         Permutation(x @ y @ z, [0, 1, 2])
     with raises(ValueError):
@@ -116,29 +119,20 @@ def test_Permutation():
         Permutation(x @ y @ z, [0, 0, 1])
 
 
-def test_Layer():
-    x, y, z = Ty('x'), Ty('y'), Ty('z')
-    f = Box('f', x, y)
-    p = Permutation(x @ y, [1, 0])
-    layer = Layer(p, f, y)
-    assert layer.dom == x @ y @ x @ y and layer.cod == y @ x @ y @ y
-    assert layer.boxes == [f]
-    perm_layer = Layer(p)
-    assert perm_layer.boxes == [] and perm_layer.dom == x @ y
-    assert perm_layer.cod == y @ x
-    assert layer.dagger().dom == layer.cod and layer.dagger().cod == layer.dom
-    assert layer.dagger().dagger() == layer
-    assert (z @ layer).dom == z @ layer.dom
-    assert (layer @ z).dom == layer.dom @ z
-    assert Layer.cast(f) == Layer(Ty(), f, Ty())
-    assert Layer.cast(p) == Layer(p)
-    from discopy import monoidal
-    assert Layer(Ty(), f, Ty()) == monoidal.Layer(Ty(), f, Ty())
-    assert monoidal.Layer(Ty(), f, Ty()) == Layer(Ty(), f, Ty())
-    with raises(ValueError):
-        Layer(x, f)
-    with raises(ValueError):
-        Layer(x, p, y)
+def test_Permutation_box_setoid():
+    x = Ty("x")
+    p = Permutation(x ** 3, [1, 2, 0])
+    q = p.dagger()
+    f = Box("f", x ** 3, x ** 3)
+    representatives = p, p[:], Id(p.dom) >> p, p >> Id(p.cod)
+    for other in representatives:
+        assert other == p and hash(other) == hash(p)
+        assert other >> q == p >> q
+        assert q >> other == q >> p
+        assert other @ q == p @ q
+        assert other.dagger() == p.dagger()
+    assert (p >> q) >> f == p >> (q >> f)
+    assert (p @ q) @ f == p @ (q @ f)
 
 
 def test_permutation_factory():
@@ -151,13 +145,28 @@ def test_permutation_factory():
     assert Equation(functor(perm), functor(perm.to_swaps()))
 
 
+def test_inherited_permutation_factory():
+    from discopy import closed, feedback, frobenius, tensor
+
+    cases = [
+        (closed, closed.Ty("x"), closed.Ty("y")),
+        (feedback, feedback.Ty("x"), feedback.Ty("y")),
+        (frobenius, frobenius.Ty("x"), frobenius.Ty("y")),
+        (tensor, tensor.Dim(2), tensor.Dim(3))]
+    for module, x, y in cases:
+        perm = module.Diagram.from_permutation([1, 0], x @ y)
+        assert isinstance(perm, module.Diagram)
+        assert perm.ar is module.Diagram
+        assert not any(
+            isinstance(box, Permutation) for box in perm.boxes)
+
+
 def test_Permutation_whiskering():
     x, y, z = Ty('x'), Ty('y'), Ty('z')
     perm = Permutation(x @ y, [1, 0])
-    assert perm @ z == Permutation(x @ y @ z, [1, 0, 2]) == perm @ Id(z)
-    assert z @ perm == Permutation(z @ x @ y, [0, 2, 1])
-    assert isinstance(perm @ z, Permutation)
-    assert isinstance(z @ perm, Permutation)
+    assert Equation(perm @ z, Permutation(x @ y @ z, [1, 0, 2]))
+    assert Equation(z @ perm, Permutation(z @ x @ y, [0, 2, 1]))
+    assert perm @ z == perm @ Id(z)
     assert perm @ Ty() == perm == Ty() @ perm
     assert perm.tensor() == perm == perm.then()
 
@@ -168,14 +177,21 @@ def test_Permutation_foliation():
     g0, g1 = Box("g0", y, z), Box("g1", x, w)
     reverse = Permutation(x @ y @ z @ w, [3, 2, 1, 0])
     diagram = (reverse >> f0 @ f1 @ g0 @ g1).foliation()
-    assert diagram.inside == (Layer(reverse), Layer(
-        Ty(), f0, Ty(), f1, Ty(), g0, Ty(), g1, Ty()))
-    with raises(AxiomError):
-        diagram.inside[0].merge(diagram.inside[1])
+    assert diagram.inside == (
+        monoidal.Layer(Ty(), reverse, Ty()), monoidal.Layer(
+            Ty(), f0, Ty(), f1, Ty(), g0, Ty(), g1, Ty()))
+    assert diagram.boxes == [reverse, f0, f1, g0, g1]
 
 
 def test_Functor_on_composite_types():
     x, y, z = Ty('x'), Ty('y'), Ty('z')
-    perm = Permutation(x @ y, [1, 0])
+    perm, other = (
+        Permutation(x @ y, [1, 0]), Permutation(y @ x, [1, 0]))
     functor = Functor(ob_map={x: y @ z, y: z}, ar_map={})
-    assert functor(perm) == Diagram.swap(y @ z, z)
+    assert functor(perm) == Permutation(y @ z @ z, [2, 0, 1])
+    assert functor(perm >> other) == functor(perm) >> functor(other)
+    assert functor(perm @ other) == functor(perm) @ functor(other)
+    assert functor(perm.dagger()) == functor(perm).dagger()
+
+    erase = Functor(ob_map={x: Ty(), y: z}, ar_map={})
+    assert erase(perm) == Id(z)

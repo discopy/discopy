@@ -614,7 +614,7 @@ class Layer(cat.Box):
         return self.boxes_or_types[key]
 
     def __eq__(self, other):
-        return isinstance(other, Layer) and tuple(self) == tuple(other)
+        return isinstance(other, type(self)) and tuple(self) == tuple(other)
 
     def __hash__(self):
         return hash(tuple(self))

@@ -76,9 +76,23 @@ Instruction from Alexis, verbatim:
 > Refactor this symmetric Layer PR after Claude did a messy job
 > https://github.com/discopy/discopy/pull/362
 
-The mathematical object is a tensor product whose even factors are symmetry
-morphisms and whose odd factors are non-symmetry boxes. Identity symmetries are
-stored as their boundary type, non-identity symmetries as `Permutation`, and
-the concatenated domains and codomains determine the layer boundaries. The
-implementation should enforce that alternating representation in one place;
-composition and whiskering should reuse the existing diagram operations.
+The audit rejected the proposed `symmetric.Layer` representation. Putting a
+`Permutation` in a `monoidal.Layer` type slot made equal diagrams behave
+differently under composition and tensor, and broke `boxes`, `offsets`,
+`encode`, `normalize`, substitution, compact rotation, and category factories.
+
+The refactored invariant is that `Permutation` is an ordinary `Box` in an
+ordinary box slot. Composition and tensor use the ordinary `Diagram`
+operations so strict associativity is preserved, identity permutations are
+empty diagrams, and semantic equality with swap networks is expressed by
+`Equation`. Drawing metadata renders the ordinary box as a compact band
+without rewriting the drawing graph.
+
+- [x] Add regressions for setoid congruence, offsets/encoding, factories,
+      length-changing functors, compact rotation, drawing graph integrity, and
+      the finite-set `Sequence` contract.
+- [x] Make `finset.Function` a real `Sequence`; permutation indexing now uses
+      normal Python bounds instead of modulo wraparound.
+- [x] Remove generated asset churn; let the `docs-static` job regenerate it.
+- [ ] Merge current `main`, run the full lint/test/coverage suite, and update
+      the PR title and description.

@@ -48,6 +48,15 @@ def test_FinSet():
         finset.Permutation.from_transpositions([(0, 1), (1, 2)], 4)
     with raises(ValueError):
         finset.Permutation((0,)).cycle(1)
+    function = finset.Function([1, 0], 2, 2)
+    permutation = finset.Permutation((1, 0))
+    assert list(function) == [1, 0]
+    assert function.index(0) == permutation.index(0) == 1
+    assert function[-1] == permutation[-1] == 0
+    with raises(IndexError):
+        permutation[2]
+    with raises(ValueError):
+        permutation.index(2)
 
     x = Ty('x')
     copy, discard, swap = Diagram.copy(x), Diagram.copy(x, 0), Diagram.swap(x, x)

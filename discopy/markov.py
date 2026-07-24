@@ -15,6 +15,7 @@ Summary
     Diagram
     Box
     Swap
+    Permutation
     Copy
     Functor
 

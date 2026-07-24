@@ -33,6 +33,12 @@ def test_Permutation():
     assert Diagram.permutation_factory is Permutation
     perm = Permutation(x @ y @ z, [2, 0, 1])
     assert isinstance(perm, Box) and perm.cod == z @ x @ y
-    assert perm >> perm.dagger() == Id(x @ y @ z)
-    assert Permutation(x @ y, [1, 0]) == Swap(x, y)
+    assert Equation(perm >> perm.dagger(), Id(x @ y @ z))
+    assert Permutation(x @ y, [1, 0]) != Swap(x, y)
     assert Equation(perm, perm.to_swaps())
+
+    perm = Permutation(x @ y @ z, [1, 0, 2])
+    rotated = Permutation(perm.cod.r, [0, 2, 1])
+    assert perm.l == perm.r == rotated
+    assert perm.r.r == perm
+    assert Equation(perm.r, perm.to_swaps().r)

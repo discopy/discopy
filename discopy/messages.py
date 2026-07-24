@@ -27,11 +27,6 @@ WRONG_PERMUTATION = "Expected a permutation of length {}, got {}."
 IDENTITY_PERMUTATION = (
     "The identity permutation is the identity diagram, "
     "use Permutation.id or Diagram.id instead.")
-PERMUTATION_AT_ODD_INDEX = (
-    "Permutations must be at even indices of a Layer, boxes at odd indices.")
-PERMUTATION_HAS_NO_OFFSET = (
-    "boxes_and_offsets is undefined for a layer with a non-identity "
-    "permutation.")
 ZERO_DISTANCE_CONTROLLED = "Zero-distance controlled gates are ill-defined."
 HAS_NO_ATTRIBUTE = "{!r} object has no attribute {!r}"
 WRONG_DOM = "Expected inside.dom == {}, got {} instead."
