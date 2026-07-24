@@ -3,6 +3,7 @@
 from pytest import raises
 
 from discopy.symmetric import *
+from discopy.utils import AxiomError
 
 
 def test_Swap():
@@ -91,32 +92,24 @@ def test_Permutation():
     perm = Permutation(x @ y @ z, [1, 2, 0])
     assert perm.dom == x @ y @ z and perm.cod == y @ z @ x
     assert list(perm.perm) == [1, 2, 0]
-    # a permutation box is equal to the diagram with just that permutation
     assert perm == Diagram((Layer(perm),), perm.dom, perm.cod)
-    # the identity permutation is the identity diagram, an empty list of layers
     assert Permutation.id(x @ y @ z) == Id(x @ y @ z)
     assert Permutation.id(x @ y @ z).inside == ()
-    # composition with the inverse is the identity diagram
     assert perm >> perm.dagger() == Id(x @ y @ z)
     assert perm.dagger().dagger() == perm
-    # composition is associative and respects identities
     a = Permutation(x @ y @ z, [1, 2, 0])
     b = Permutation(a.cod, [2, 0, 1])
     c = Permutation(b.cod, [0, 2, 1])
     assert (a >> b) >> c == a >> (b >> c)
     assert Id(x @ y @ z) >> a == a == a >> Id(a.cod)
     assert (a >> b).dagger() == b.dagger() >> a.dagger()
-    # tensor is functorial
     q = Permutation(z @ y, [1, 0])
     assert (perm @ q).dagger() == perm.dagger() @ q.dagger()
     assert (perm @ q).dom == perm.dom @ q.dom
-    # the permutation (1, 0) is the swap, even though stored differently
     assert Permutation(x @ y, [1, 0]) == Swap(x, y)
     assert hash(Permutation(x @ y, [1, 0])) == hash(Swap(x, y))
-    # the identity permutation is the identity diagram, not a Permutation box
     with raises(ValueError):
         Permutation(x @ y @ z, [0, 1, 2])
-    # wrong permutations are rejected
     with raises(ValueError):
         Permutation(x @ y @ z, [2, 0])
     with raises(ValueError):
@@ -130,23 +123,17 @@ def test_Layer():
     layer = Layer(p, f, y)
     assert layer.dom == x @ y @ x @ y and layer.cod == y @ x @ y @ y
     assert layer.boxes == [f]
-    # a permutation-only layer has a single argument and no box
     perm_layer = Layer(p)
     assert perm_layer.boxes == [] and perm_layer.dom == x @ y
     assert perm_layer.cod == y @ x
-    # dagger is component-wise (parallel) and involutive
     assert layer.dagger().dom == layer.cod and layer.dagger().cod == layer.dom
     assert layer.dagger().dagger() == layer
-    # whiskering with a type extends the boundary permutations
     assert (z @ layer).dom == z @ layer.dom
     assert (layer @ z).dom == layer.dom @ z
-    # cast turns a box into a layer, a permutation into a one-argument layer
     assert Layer.cast(f) == Layer(Ty(), f, Ty())
     assert Layer.cast(p) == Layer(p)
-    # layers must have an odd number of elements
     with raises(ValueError):
         Layer(x, f)
-    # permutations may not sit at odd indices
     with raises(ValueError):
         Layer(x, p, y)
 
@@ -155,10 +142,38 @@ def test_permutation_factory():
     x, y, z = Ty('x'), Ty('y'), Ty('z')
     assert Diagram.permutation_factory is Permutation
     perm = Permutation(x @ y @ z, [2, 0, 1])
-    # a symmetric functor maps a permutation to a permutation of the image
     functor = Functor(ob={x: y, y: z, z: x}, ar={})
     assert functor(perm) == Permutation(y @ z @ x, [2, 0, 1])
-    # and it agrees with the same permutation expanded into swaps
     with Diagram.hypergraph_equality:
         assert perm == perm.to_swaps()
         assert functor(perm) == functor(perm.to_swaps())
+
+
+def test_Permutation_whiskering():
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
+    perm = Permutation(x @ y, [1, 0])
+    assert perm @ z == Permutation(x @ y @ z, [1, 0, 2]) == perm @ Id(z)
+    assert z @ perm == Permutation(z @ x @ y, [0, 2, 1])
+    assert isinstance(perm @ z, Permutation)
+    assert isinstance(z @ perm, Permutation)
+    assert perm @ Ty() == perm == Ty() @ perm
+    assert perm.tensor() == perm == perm.then()
+
+
+def test_Permutation_foliation():
+    x, y, z, w = map(Ty, "xyzw")
+    f0, f1 = Box("f0", w, x), Box("f1", z, y)
+    g0, g1 = Box("g0", y, z), Box("g1", x, w)
+    reverse = Permutation(x @ y @ z @ w, [3, 2, 1, 0])
+    diagram = (reverse >> f0 @ f1 @ g0 @ g1).foliation()
+    assert diagram.inside == (Layer(reverse), Layer(
+        Ty(), f0, Ty(), f1, Ty(), g0, Ty(), g1, Ty()))
+    with raises(AxiomError):
+        diagram.inside[0].merge(diagram.inside[1])
+
+
+def test_Functor_on_composite_types():
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
+    perm = Permutation(x @ y, [1, 0])
+    functor = Functor(ob={x: y @ z, y: z}, ar={})
+    assert functor(perm) == Diagram.swap(y @ z, z)
