@@ -4,10 +4,12 @@
 The compact closed category of bidirectional neural networks, with additive
 dimensions as objects and concatenation as tensor.
 
-A :class:`Network` with domain ``Dim(a_1, ..., a_m)`` and codomain
-``Dim(b_1, ..., b_n)`` carries one :class:`torch.nn.Module` from ``R ** w``
-to ``R ** w`` for ``w = a_1 + ... + a_m + b_1 + ... + b_n``, reading incoming
-messages on all its ports and emitting outgoing messages on all its ports.
+A :class:`Network` with domain ``Dim(a_1, ..., a_m)``, codomain
+``Dim(b_1, ..., b_n)`` and private memory ``Dim(c_1, ..., c_k)`` carries one
+:class:`torch.nn.Module` from ``R ** w`` to ``R ** w`` for
+``w = sum(a_i) + sum(b_i) + sum(c_i)``. It reads incoming messages on all its
+public ports followed by its previous private memory, and emits outgoing
+public messages followed by its next private memory.
 Networks compose with the cartesian product of vector spaces, so the tensor
 of dimensions is their sum with the zero-dimensional space ``Dim(0)`` as
 unit; dimensions are self-dual so that cups, caps and swaps are pure
@@ -25,12 +27,9 @@ requires it. This mirrors :func:`discopy.matrix.backend`, where ``numpy``,
 ``jax`` and ``tensorflow`` are each imported lazily inside a
 :class:`~discopy.matrix.Backend` subclass rather than at module scope, so
 importing e.g. :mod:`discopy.tensor` never forces an unused array library
-onto the user. Going further and making :meth:`CMap.forward` itself
-backend-pluggable (e.g. to run on ``jax``/``keras`` modules instead of
-``torch.nn.Module``) is a bigger design question than lazy imports: it
-would need a stand-in for ``torch.nn.Module``'s stateful
-parameters/``state_dict``/train-eval API, not just an array namespace like
-:class:`discopy.matrix.Backend`.
+onto the user. :class:`Execution` isolates the backend operations from the
+geometry-of-interaction stages, while :meth:`CMap.as_network` delegates
+framework-specific parameter management to a lazily imported module wrapper.
 
 Summary
 -------
@@ -49,6 +48,19 @@ Summary
     Functor
     Hypergraph
     CMap
+    Execution
+    Backend
+    PyTorch
+
+.. admonition:: Functions
+
+    .. autosummary::
+        :template: function.rst
+        :nosignatures:
+        :toctree:
+
+        backend
+        get_backend
 
 Example
 -------
@@ -66,9 +78,10 @@ under the execution formula, e.g. rerouting for a snake:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
+from contextlib import contextmanager
 from functools import cached_property
+from types import ModuleType
+from typing import TYPE_CHECKING
 
 from discopy import compact, hypergraph, monoidal
 from discopy.cat import factory
@@ -78,6 +91,57 @@ from discopy.utils import assert_isinstance
 
 if TYPE_CHECKING:
     import torch
+
+
+class Backend:
+    """
+    A neural execution backend.
+
+    Parameters:
+        module : The backend module implementing tensor operations and
+                 framework-specific wrapping.
+    """
+    def __init__(self, module: ModuleType):
+        self.module = module
+
+    def __getattr__(self, attr):
+        return getattr(self.module, attr)
+
+
+class PyTorch(Backend):
+    """ The PyTorch neural execution backend, imported lazily. """
+    def __init__(self):
+        from discopy import neural_torch
+        super().__init__(neural_torch)
+
+
+BACKENDS = {
+    'pytorch': PyTorch,
+}
+
+
+@contextmanager
+def backend(name: str = None, _stack=['pytorch'], _cache=dict()):
+    """
+    Context manager for neural execution backends.
+
+    Parameters:
+        name : The backend name, ``"pytorch"`` by default.
+    """
+    name = name or _stack[-1]
+    _stack.append(name)
+    try:
+        if name not in _cache:
+            _cache[name] = BACKENDS[name]()
+        yield _cache[name]
+    finally:
+        _stack.pop()
+
+
+def get_backend() -> Backend:
+    """ Get the current neural execution backend. """
+    with backend() as result:
+        return result
 
 
 @factory
@@ -93,6 +157,10 @@ class Dim(monoidal.Dim, Ty):
     """
     unit = 0
     l = r = property(lambda self: self.ar(*self.inside[::-1]))
+
+    def unwind(self) -> Dim:
+        """ Dimensions have no winding number to normalize. """
+        return self
 
 
 @factory
@@ -113,10 +181,12 @@ class Network(compact.Box, Diagram):
     A network is a neural box together with a torch module computing it.
 
     The module maps ``R ** width`` to ``R ** width`` for ``width`` the sum
-    of the domain and codomain dimensions, reading one incoming message and
-    emitting one outgoing message on every port, in the order given by the
-    domain followed by the codomain. Reusing the same network instance, or
-    the same module, as several boxes shares its weights.
+    of the domain, codomain and private memory dimensions. It reads one
+    incoming message and emits one outgoing message on every public port,
+    in the order given by the domain followed by the codomain, then reads
+    the previous memory and emits the next memory. Reusing the same network
+    instance, or the same module, as several boxes shares its weights but
+    each box occurrence has its own memory.
 
     Cups, caps and swaps are networks with ``module`` left to ``None``,
     since they are pure rerouting.
@@ -126,13 +196,14 @@ class Network(compact.Box, Diagram):
         dom : The domain of the network, i.e. its input.
         cod : The codomain of the network, i.e. its output.
         module : The torch module of the network.
+        mem : The private memory dimension.
 
     Note
     ----
-    Networks compare equal when they have the same name, shape and module,
-    where missing modules compare equal and given modules compare by
-    identity. The dagger and rotation of a network reuse its module, with
-    the weights read in the new port order.
+    Networks compare equal when they have the same name, shape, memory and
+    module, where missing modules compare equal and given modules compare
+    by identity. The dagger and rotation of a network reuse its module and
+    preserve its private memory, with the public ports read in the new order.
 
     Example
     -------
@@ -145,15 +216,42 @@ class Network(compact.Box, Diagram):
     torch.Size([1, 5])
     >>> assert f[::-1].module is f.module
     """
-    module = None
+    module, mem = None, Dim()
 
     def __init__(self, name: str, dom: Dim, cod: Dim,
-                 module: "torch.nn.Module" = None, data=None, **params):
+                 module: "torch.nn.Module" = None, mem: Dim = Dim(),
+                 data=None, **params):
+        assert_isinstance(mem, Dim)
+        self.mem = mem
         self.module = module if module is not None else data
         super().__init__(name, dom, cod, data=self.module, **params)
 
     def __call__(self, *args, **kwargs):
         return self.module(*args, **kwargs)
+
+    def dagger(self) -> Network:
+        """ Reverse the public ports while preserving module and memory. """
+        return type(self)(
+            self.name, dom=self.cod, cod=self.dom, module=self.module,
+            mem=self.mem, is_dagger=not self.is_dagger, z=self.z)
+
+    def rotate(self, left=False) -> Network:
+        """ Rotate the public ports while preserving module and memory. """
+        del left
+        return type(self)(
+            self.name, dom=self.cod.r, cod=self.dom.r, module=self.module,
+            mem=self.mem, is_dagger=self.is_dagger, z=(self.z + 1) % 2)
+
+    def __repr__(self):
+        if self.is_dagger:
+            return repr(self.dagger()) + ".dagger()"
+        result = super().__repr__()
+        return result if not self.mem\
+            else result[:-1] + f", mem={self.mem!r})"
+
+    def setoid(self):
+        """ Include the private memory dimension in equality and hashing. """
+        return super().setoid() + (self.mem, )
 
 
 class Cup(compact.Cup, Network):
@@ -211,10 +309,8 @@ class CMap(compact.CMap):
 
     The :meth:`forward` pass does synchronous message passing: one message
     per port, travelling along the wires given by the ``edges`` involution.
-    An optimizer only needs :meth:`parameters` and a training loop only
-    needs to call the map, so it can be trained like any torch module;
-    :meth:`as_network` wraps it back into a :class:`Network` with a fresh
-    module inside, for use inside a larger model.
+    :meth:`as_network` wraps the map into a :class:`Network` with a fresh
+    backend module inside, which owns parameter and training state.
 
     :attr:`ports` lists the diagram's input ports, then each box's domain
     ports followed by its codomain ports (reversed), then the diagram's
@@ -235,9 +331,8 @@ class CMap(compact.CMap):
         return tuple(sum(port.obj.inside) for port in self.ports)
 
     @cached_property
-    def module_list(self) -> "torch.nn.ModuleList":
-        """ The distinct torch modules of the networks inside the map. """
-        import torch
+    def modules(self) -> tuple["torch.nn.Module", ...]:
+        """ The distinct modules of the networks inside the map. """
         modules, seen = [], set()
         for box in self.boxes:
             assert_isinstance(box, Network)
@@ -246,74 +341,25 @@ class CMap(compact.CMap):
             if id(box.module) not in seen:
                 seen.add(id(box.module))
                 modules.append(box.module)
-        return torch.nn.ModuleList(modules)
-
-    def parameters(self, recurse: bool = True):
-        """ The parameters of the networks inside the map. """
-        return self.module_list.parameters(recurse)
-
-    def named_parameters(self, prefix: str = '', recurse: bool = True):
-        """ The named parameters of the networks inside the map. """
-        return self.module_list.named_parameters(prefix, recurse)
-
-    def state_dict(self, *args, **kwargs):
-        """ The state dict of the networks inside the map. """
-        return self.module_list.state_dict(*args, **kwargs)
-
-    def load_state_dict(self, state_dict, **kwargs):
-        """ Load a state dict into the networks inside the map. """
-        return self.module_list.load_state_dict(state_dict, **kwargs)
-
-    def train(self, mode: bool = True) -> CMap:
-        """ Set the networks inside the map to training mode. """
-        self.module_list.train(mode)
-        return self
-
-    def eval(self) -> CMap:
-        """ Set the networks inside the map to evaluation mode. """
-        return self.train(False)
-
-    def to(self, *args, **kwargs) -> CMap:
-        """ Move the networks inside the map to a device or dtype. """
-        self.module_list.to(*args, **kwargs)
-        return self
+        return tuple(modules)
 
     def as_network(self, name: str = "network") -> Network:
         """
-        Wrap the map back into a :class:`Network` with a fresh torch module
-        inside, whose forward pass is the message passing of the map. The
-        module registers the modules of the networks inside the map, so
-        that the result can be used inside a larger model.
+        Wrap the map back into a :class:`Network` with a fresh backend module
+        inside. The wrapper registers the modules of the networks in the map,
+        so that it can be trained or nested inside a larger model.
 
         Parameters:
             name : The name of the network.
         """
-        import torch
-        cmap = self
-
-        class CMapModule(torch.nn.Module):
-            """ A combinatorial map wrapped as a torch module. """
-            def __init__(self):
-                super().__init__()
-                self.networks = cmap.module_list
-
-            def forward(self, *args, **kwargs):
-                """ Message passing over the wrapped map. """
-                return cmap.forward(*args, **kwargs)
-
-        return Network(name, self.dom, self.cod, module=CMapModule())
+        return Network(
+            name, self.dom, self.cod, module=get_backend().wrap(self))
 
     def forward(self, x: "torch.Tensor" = None, init=None,
-                n_rounds: int = None, inject: bool = True):
+                n_rounds: int = None, inject: bool = True,
+                memory=None, return_memory: bool = False):
         """
-        Synchronous message passing along the wires of the map, i.e. the
-        execution formula of the geometry of interaction.
-
-        Every port carries one message of shape ``(batch_size, width)``.
-        The boundary input ports deliver the corresponding slice of ``x``
-        along their wires before the first round and after every round.
-        Each round, every network reads the incoming messages on its ports
-        and emits outgoing ones, then all messages travel along the wires.
+        Apply the geometry-of-interaction :class:`Execution` of the map.
 
         Parameters:
             x : The input, of shape ``(batch_size, sum of domain widths)``.
@@ -322,72 +368,236 @@ class CMap(compact.CMap):
             n_rounds : The number of rounds, the number of boxes by default.
             inject : Whether to re-add ``init`` to the incoming messages at
                      every round rather than just the first.
+            memory : Initial private memory, given per box occurrence or as
+                     one tensor of their concatenated memory dimensions.
+            return_memory : Whether to return the final per-box memories
+                            together with the usual result.
 
         Returns:
             The final messages at the boundary output ports, concatenated,
             or the tuple of final per-box outgoing messages in logical port
-            order when the map is closed.
+            order when the map is closed. If ``return_memory`` is true, this
+            result is paired with the tuple of final per-box memories.
         """
-        import torch
-        ports = self.ports
-        widths = self.port_dims
-        n_rounds = len(self.boxes) if n_rounds is None else n_rounds
+        return Execution(self, x, init, memory).forward(
+            n_rounds, inject, return_memory)
 
-        given = [x] + (list(init)
-                       if isinstance(init, (list, tuple)) else [init])
-        ref = next((t for t in given if t is not None), None)
-        batch_size = 1 if ref is None else ref.shape[0]
-        proto = ref if ref is not None else next(
-            iter(self.parameters()), None) if self.boxes else None
+    __call__ = forward
 
-        def zeros(width):
-            kwargs = {} if proto is None else {
-                "dtype": proto.dtype, "device": proto.device}
-            return torch.zeros(batch_size, width, **kwargs)
 
-        input_ports = [i for i, port in enumerate(ports)
-                       if port.kind == PortKind.INPUT]
-        x_slices = dict(zip(input_ports, torch.split(
-            x, [widths[i] for i in input_ports], dim=-1))) if x is not None\
-            else {i: zeros(widths[i]) for i in input_ports}
-        if init is not None and isinstance(init, torch.Tensor):
-            init = torch.split(init, list(widths), dim=-1)
+class Execution:
+    """
+    The geometry-of-interaction execution of a neural combinatorial map.
 
-        incoming = [zeros(width) for width in widths]\
-            if init is None else list(init)
-        for i in input_ports:
-            incoming[self.edges[i]] = incoming[self.edges[i]] + x_slices[i]
-        box_outputs = [None] * len(self.boxes)
+    Let ``edge`` be the fixpoint-free involution on ports and ``activate``
+    apply every network independently. One synchronous round first activates
+    the boxes, then routes their outgoing messages with
+    ``incoming[i] = outgoing[edge[i]]``. Boundary inputs are emitted before
+    every round, while ``init`` is optionally injected after every routing
+    step as well as before the first round.
 
+    Parameters:
+        inside : The combinatorial map to execute.
+        x : The boundary input.
+        init : The initial incoming messages.
+        memory : The initial private memory, one tensor per box occurrence.
+        backend : The execution backend, the current backend by default.
+    """
+    def __init__(
+            self, inside: CMap, x=None, init=None, memory=None,
+            backend: Backend = None):
+        assert_isinstance(inside, CMap)
+        self.inside, self.x, self.init = inside, x, init
+        self.memory = memory
+        self.backend = get_backend() if backend is None else backend
+        self.modules = inside.modules
+        self.batch_size, self.prototype = 1, None
+        self.initial = self.boundary = self.incoming = ()
+        self.outgoing = self.box_outputs = ()
+        self.memories = ()
+
+    @cached_property
+    def input_ports(self) -> tuple[int, ...]:
+        """ The indices of boundary input ports. """
+        return tuple(
+            i for i, port in enumerate(self.inside.ports)
+            if port.kind == PortKind.INPUT)
+
+    @cached_property
+    def output_ports(self) -> tuple[int, ...]:
+        """ The indices of boundary output ports. """
+        return tuple(
+            i for i, port in enumerate(self.inside.ports)
+            if port.kind == PortKind.OUTPUT)
+
+    @cached_property
+    def box_ports(self) -> tuple[tuple[int, ...], ...]:
+        """ The ports of each box in domain-then-codomain order. """
+        result = []
+        for box, indices in zip(
+                self.inside.boxes, self.inside._box_port_indices):
+            arity = len(box.dom)
+            result.append(
+                indices[:arity] + tuple(reversed(indices[arity:])))
+        return tuple(result)
+
+    @cached_property
+    def memory_widths(self) -> tuple[int, ...]:
+        """ The private memory width of each box occurrence. """
+        return tuple(sum(box.mem.inside) for box in self.inside.boxes)
+
+    def zeros(self, width: int):
+        """ A zero message with the execution's batch size and prototype. """
+        return self.backend.zeros(
+            self.batch_size, width, like=self.prototype)
+
+    def validate(self, value, width: int, label: str):
+        """ Validate the rank, batch size and width of a message tensor. """
+        shape = getattr(value, "shape", None)
+        if shape is None or len(shape) != 2:
+            raise ValueError(
+                f"{label} must have shape (batch_size, {width}).")
+        if shape[0] != self.batch_size or shape[1] != width:
+            raise ValueError(
+                f"{label} has shape {tuple(shape)}, expected "
+                f"({self.batch_size}, {width}).")
+        return value
+
+    @staticmethod
+    def _values(given):
+        """ Yield non-null tensors from a tensor or per-item sequence. """
+        if isinstance(given, (list, tuple)):
+            return (value for value in given if value is not None)
+        return iter(()) if given is None else iter((given, ))
+
+    def _initialize_messages(self, given, widths, label):
+        """ Normalize a tensor or nullable per-item sequence to messages. """
+        if given is None:
+            values = len(widths) * (None, )
+        elif isinstance(given, (list, tuple)):
+            if len(given) != len(widths):
+                raise ValueError(
+                    f"{label} must contain {len(widths)} messages, "
+                    f"got {len(given)}.")
+            values = given
+        else:
+            self.validate(given, sum(widths), label)
+            values = self.backend.split(given, widths) if widths else ()
+        return tuple(
+            self.zeros(width) if value is None
+            else self.validate(value, width, f"{label}[{i}]")
+            for i, (value, width) in enumerate(zip(values, widths)))
+
+    def initialize(self) -> tuple:
+        """ Initialize public messages and per-box private memories. """
+        widths = self.inside.port_dims
+        given = (
+            self._values(self.x), self._values(self.init),
+            self._values(self.memory))
+        reference = next((
+            value for values in given for value in values), None)
+        if reference is not None:
+            shape = getattr(reference, "shape", None)
+            if shape is None or len(shape) != 2:
+                raise ValueError(
+                    "Messages must have shape (batch_size, width).")
+        self.batch_size = 1 if reference is None else shape[0]
+        self.prototype = reference if reference is not None\
+            else self.backend.prototype(self.modules)
+
+        boundary = [self.zeros(width) for width in widths]
+        if self.x is not None:
+            self.validate(
+                self.x, sum(widths[i] for i in self.input_ports), "x")
+            slices = self.backend.split(
+                self.x, tuple(widths[i] for i in self.input_ports))
+            for i, message in zip(self.input_ports, slices):
+                boundary[i] = message
+
+        initial = self._initialize_messages(self.init, widths, "init")
+        memories = self._initialize_messages(
+            self.memory, self.memory_widths, "memory")
+
+        incoming = list(initial)
+        for i in self.input_ports:
+            edge = self.inside.edges[i]
+            incoming[edge] = incoming[edge] + boundary[i]
+
+        self.initial = tuple(initial)
+        self.boundary = tuple(boundary)
+        self.incoming = tuple(incoming)
+        self.outgoing = ()
+        self.box_outputs = len(self.inside.boxes) * (None, )
+        self.memories = memories
+        return self.incoming
+
+    def activate(self) -> tuple:
+        """ Apply each network to its public messages and private memory. """
+        widths = self.inside.port_dims
+        outgoing = [self.zeros(width) for width in widths]
+        for i in self.input_ports:
+            outgoing[i] = self.boundary[i]
+
+        box_outputs, memories = [], []
+        for box_index, (box, ports) in enumerate(zip(
+                self.inside.boxes, self.box_ports)):
+            public_widths = tuple(widths[i] for i in ports)
+            memory_width = self.memory_widths[box_index]
+            values = tuple(self.incoming[i] for i in ports)\
+                + (self.memories[box_index], )
+            output = box.module(self.backend.concatenate(values))
+            self.validate(
+                output, sum(public_widths) + memory_width,
+                f"output of box {box_index}")
+            chunks = self.backend.split(
+                output, public_widths + (memory_width, ))
+            public, next_memory = chunks[:-1], chunks[-1]
+            box_outputs.append(
+                self.backend.concatenate(public) if public else self.zeros(0))
+            memories.append(next_memory)
+            for i, chunk in zip(ports, public):
+                outgoing[i] = chunk
+
+        self.outgoing = tuple(outgoing)
+        self.box_outputs = tuple(box_outputs)
+        self.memories = tuple(memories)
+        return self.outgoing
+
+    def route(self) -> tuple:
+        """ Route outgoing messages along the edge involution. """
+        self.incoming = tuple(
+            self.outgoing[self.inside.edges[i]]
+            for i in range(self.inside.n_ports))
+        return self.incoming
+
+    def inject(self) -> tuple:
+        """ Add the initial messages to the current incoming messages. """
+        self.incoming = tuple(
+            message + initial
+            for message, initial in zip(self.incoming, self.initial))
+        return self.incoming
+
+    def readout(self):
+        """ Read boundary outputs, or final box outputs for a closed map. """
+        if len(self.inside.dom) or len(self.inside.cod):
+            return self.backend.concatenate(tuple(
+                self.incoming[i] for i in self.output_ports))\
+                if self.output_ports else self.zeros(0)
+        return self.box_outputs
+
+    def forward(
+            self, n_rounds: int = None, inject: bool = True,
+            return_memory: bool = False):
+        """ Execute synchronous activation and routing rounds. """
+        self.initialize()
+        n_rounds = len(self.inside.boxes) if n_rounds is None else n_rounds
         for _ in range(n_rounds):
-            outgoing = [None] * len(ports)
-            for i in input_ports:
-                outgoing[i] = x_slices[i]
-            for box_index, box in enumerate(self.boxes):
-                assert_isinstance(box, Network)
-                indices = self._box_port_indices[box_index]
-                box_ports = indices[:len(box.dom)]\
-                    + tuple(reversed(indices[len(box.dom):]))
-                output = box.module(torch.cat(
-                    [incoming[i] for i in box_ports], dim=-1))
-                box_outputs[box_index] = output
-                for i, chunk in zip(box_ports, torch.split(
-                        output, [widths[i] for i in box_ports], dim=-1)):
-                    outgoing[i] = chunk
-            incoming = [
-                outgoing[self.edges[i]]
-                if outgoing[self.edges[i]] is not None else zeros(width)
-                for i, width in enumerate(widths)]
-            if inject and init is not None:
-                incoming = [message + initial
-                            for message, initial in zip(incoming, init)]
-
-        if len(self.dom) or len(self.cod):
-            output_ports = [i for i, port in enumerate(ports)
-                            if port.kind == PortKind.OUTPUT]
-            return torch.cat([incoming[i] for i in output_ports], dim=-1)\
-                if output_ports else zeros(0)
-        return tuple(box_outputs)
+            self.activate()
+            self.route()
+            if inject and self.init is not None:
+                self.inject()
+        result = self.readout()
+        return (result, self.memories) if return_memory else result
 
     __call__ = forward
 

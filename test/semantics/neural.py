@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
 
+from copy import deepcopy
+import pickle
+import subprocess
+import sys
+
 from pytest import importorskip, raises
 
 from discopy import compact
@@ -13,6 +18,13 @@ def mlp(width):
     return torch.nn.Sequential(
         torch.nn.Linear(width, 2 * width), torch.nn.Tanh(),
         torch.nn.Linear(2 * width, width))
+
+
+def test_lazy_torch_import():
+    subprocess.run([
+        sys.executable, "-c",
+        "import sys; import discopy.neural; "
+        "assert 'torch' not in sys.modules"], check=True)
 
 
 def test_dim():
@@ -42,12 +54,27 @@ def test_network_as_box():
     one, other = (
         Network('f', Dim(2), Dim(3), module=object()) for _ in range(2))
     assert one != other and one == one.dagger().dagger()
+    stateful = Network('f', Dim(2), Dim(3), mem=Dim(4))
+    assert stateful != f
+    assert stateful.dagger().mem == stateful.rotate().mem == Dim(4)
+    assert stateful == stateful.dagger().dagger()
+    assert stateful.to_map().port_dims == f.to_map().port_dims
+    assert repr(stateful) == \
+        "neural.Network('f', Dim(2), Dim(3), mem=Dim(4))"
 
 
 def test_port_dims():
     f = Network('f', Dim(2, 3), Dim(4, 5, 6))
     fm = f.to_map()
     assert fm.port_dims == (2, 3, 2, 3, 6, 5, 4, 4, 5, 6)
+
+
+def test_to_hypergraph():
+    f = Network('f', Dim(2), Dim(3), mem=Dim(4))
+    hypergraph = f.to_hypergraph()
+    round_trip = hypergraph.to_diagram()
+    assert round_trip.to_hypergraph() == hypergraph
+    assert tuple(round_trip.boxes) == (f, )
 
 
 def test_network_module():
@@ -77,8 +104,9 @@ def test_weight_sharing():
     importorskip("torch")
     cell = Network('cell', Dim(0), Dim(4) ** 2, module=mlp(8))
     grid = ring(6, cell)
-    assert len(grid.module_list) == 1
-    assert sum(p.numel() for p in grid.parameters()) \
+    model = grid.as_network().module
+    assert len(grid.modules) == len(model.networks) == 1
+    assert sum(p.numel() for p in model.parameters()) \
         == sum(p.numel() for p in cell.module.parameters())
 
 
@@ -100,22 +128,110 @@ def test_forward_open_map():
     assert torch.allclose(f.to_map()(x), expected)
     assert f.to_map()().shape == (1, 3)
 
+    execution = Execution(f.to_map(), x)
+    execution.initialize()
+    execution.activate()
+    execution.route()
+    assert torch.allclose(execution.readout(), expected)
+
+
+def test_private_memory():
+    torch = importorskip("torch")
+
+    class Accumulator(torch.nn.Module):
+        def forward(self, value):
+            incoming, outgoing, memory = value.split((1, 1, 1), dim=-1)
+            del outgoing
+            next_memory = incoming + memory
+            return torch.cat(
+                (torch.zeros_like(incoming), next_memory, next_memory),
+                dim=-1)
+
+    cell = Network(
+        'accumulator', Dim(1), Dim(1), module=Accumulator(), mem=Dim(1))
+    cmap = cell.to_map()
+    x = torch.tensor([[2.]])
+
+    output, memory = cmap(x, n_rounds=3, return_memory=True)
+    assert torch.equal(output, torch.tensor([[6.]]))
+    assert torch.equal(memory[0], torch.tensor([[6.]]))
+
+    output, memory = cmap(
+        x, memory=torch.tensor([[10.]]),
+        n_rounds=2, inject=False, return_memory=True)
+    assert torch.equal(output, torch.tensor([[14.]]))
+    assert torch.equal(memory[0], torch.tensor([[14.]]))
+
+    output, memory = cmap.as_network()(
+        x, n_rounds=2, return_memory=True)
+    assert torch.equal(output, torch.tensor([[4.]]))
+    assert torch.equal(memory[0], torch.tensor([[4.]]))
+
+
+def test_private_memory_per_occurrence():
+    torch = importorskip("torch")
+
+    class Counter(torch.nn.Module):
+        def forward(self, value):
+            public, memory = value.split((1, 1), dim=-1)
+            return torch.cat((public, memory + 1), dim=-1)
+
+    cell = Network(
+        'counter', Dim(0), Dim(1), module=Counter(), mem=Dim(1))
+    cmap = CMap(
+        CMap.ob(), CMap.ob(), 2 * (cell, ),
+        Permutation.from_transpositions([(0, 1)], 2))
+    initial = [torch.tensor([[3.]]), torch.tensor([[7.]])]
+    _, memory = cmap(
+        memory=initial, n_rounds=2, return_memory=True)
+
+    assert cmap.boxes[0].module is cmap.boxes[1].module
+    assert torch.equal(memory[0], torch.tensor([[5.]]))
+    assert torch.equal(memory[1], torch.tensor([[9.]]))
+    assert memory[0] is not memory[1]
+
+
+def test_private_memory_validation():
+    torch = importorskip("torch")
+    cell = Network(
+        'stateful', Dim(0), Dim(1),
+        module=torch.nn.Identity(), mem=Dim(1))
+    cmap = cell.to_map()
+
+    with raises(ValueError, match="init must contain"):
+        cmap(init=[])
+    with raises(ValueError, match="memory must contain"):
+        cmap(memory=[])
+    with raises(ValueError, match="memory\\[0\\] has shape"):
+        cmap(memory=[torch.zeros(1, 2)])
+    malformed = Network(
+        'malformed', Dim(0), Dim(1),
+        module=torch.nn.Linear(2, 1), mem=Dim(1)).to_map()
+    with raises(ValueError, match="output of box 0 has shape"):
+        malformed(n_rounds=1)
+
+    public = Network(
+        'public', Dim(0), Dim(1), module=torch.nn.Identity()).to_map()
+    output = public(init=[None, None], n_rounds=1)
+    assert torch.equal(output, torch.zeros(1, 1))
+
 
 def test_forward_closed_map():
     torch = importorskip("torch")
     torch.manual_seed(0)
     cell = Network('cell', Dim(0), Dim(3) ** 2, module=mlp(6))
     grid = ring(16, cell)
-    states = grid()
+    network = grid.as_network()
+    states = network()
     assert len(states) == 16 and all(s.shape == (1, 6) for s in states)
     init = torch.rand(5, sum(grid.port_dims))
     injected, not_injected = (
-        grid(init=init, n_rounds=2, inject=inject)
+        network(init=init, n_rounds=2, inject=inject)
         for inject in (True, False))
     assert not any(map(torch.equal, injected, not_injected))
-    loss = sum(state.sum() for state in grid(init=init))
+    loss = sum(state.sum() for state in network(init=init))
     loss.backward()
-    assert all(p.grad is not None for p in grid.parameters())
+    assert all(p.grad is not None for p in network.module.parameters())
 
 
 class NotANetwork(compact.Box, Diagram):
@@ -126,29 +242,52 @@ def test_forward_errors():
     importorskip("torch")
     box_map = NotANetwork('f', Dim(2), Dim(2)).to_map()
     with raises(TypeError):
-        box_map.module_list
+        box_map.modules
     with raises(TypeError):
         box_map()
     with raises(ValueError):  # a network with no module
-        Network('f', Dim(2), Dim(2)).to_map().module_list
+        Network('f', Dim(2), Dim(2)).to_map().modules
 
 
-def test_torch_protocol():
+def test_torch_wrapper():
     torch = importorskip("torch")
     cell = Network('cell', Dim(0), Dim(2) ** 2, module=mlp(4))
     grid = ring(16, cell)
-    assert grid.train() is grid and grid.eval() is grid
-    assert grid.to(torch.float32) is grid
-    assert dict(grid.named_parameters()).keys() \
-        == grid.state_dict().keys()
-    grid.load_state_dict(grid.state_dict())
     network = grid.as_network()
+    other = grid.as_network()
+    model = network.module
     assert network.dom == network.cod == Dim(0)
-    assert list(network.module.parameters()) == list(grid.parameters())
-    outer = torch.nn.Sequential(network.module)
-    assert list(outer.parameters()) == list(grid.parameters())
+    assert model is not other.module and type(model) is type(other.module)
+    assert model.networks[0] is other.module.networks[0] is cell.module
+    assert model.train() is model and model.eval() is model
+    assert model.to(torch.float32) is model
+    assert dict(model.named_parameters()).keys() == model.state_dict().keys()
+    model.load_state_dict(model.state_dict())
+    outer = torch.nn.Sequential(model)
+    assert list(outer.parameters()) == list(model.parameters())
     states = network()
     assert len(states) == 16
+
+
+def test_torch_wrapper_copy_and_pickle():
+    torch = importorskip("torch")
+    module = torch.nn.Linear(2, 2, bias=False)
+    with torch.no_grad():
+        module.weight.copy_(torch.tensor([[0., 0.], [1., 0.]]))
+    cmap = Network('f', Dim(1), Dim(1), module=module).to_map()
+    wrapped = cmap.as_network().module
+    x = torch.tensor([[3.]])
+
+    clone = deepcopy(wrapped)
+    assert clone.inside.boxes[0].module is clone.networks[0]
+    with torch.no_grad():
+        clone.networks[0].weight.zero_()
+    assert torch.equal(wrapped(x), x)
+    assert torch.equal(clone(x), torch.zeros_like(x))
+
+    restored = pickle.loads(pickle.dumps(wrapped))
+    assert restored.inside.boxes[0].module is restored.networks[0]
+    assert torch.equal(restored(x), x)
 
 
 def test_training():
@@ -157,10 +296,11 @@ def test_training():
     n_cells, n_classes, dim = 8, 4, 4
     cell = Network('cell', Dim(0), Dim(dim) ** 2, module=mlp(2 * dim))
     grid = ring(n_cells, cell)
+    network = grid.as_network()
     embedding = torch.nn.Embedding(n_classes, dim)
     readout = torch.nn.Linear(2 * dim, n_classes)
     optimizer = torch.optim.Adam([
-        *grid.parameters(), *embedding.parameters(),
+        *network.module.parameters(), *embedding.parameters(),
         *readout.parameters()], lr=0.02)
 
     clues = torch.arange(n_cells).remainder(n_classes)[None]
@@ -172,7 +312,7 @@ def test_training():
         for box_index in range(n_cells):
             for port in grid._box_port_indices[box_index]:
                 init[port] = embedded[:, box_index, :]
-        states = grid(init=init, n_rounds=4)
+        states = network(init=init, n_rounds=4)
         return readout(torch.stack(states, dim=1))
 
     losses = []
