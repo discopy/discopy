@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 
+import pickle
+
 from pytest import raises
 
 from discopy.symmetric import *
 from discopy import monoidal
+from discopy.utils import AxiomError, dumps, loads
 
 
 def test_Swap():
@@ -92,13 +95,17 @@ def test_Permutation():
     perm = Permutation(x @ y @ z, [1, 2, 0])
     assert perm.dom == x @ y @ z and perm.cod == y @ z @ x
     assert list(perm.perm) == [1, 2, 0]
-    assert perm.inside == (monoidal.Layer(Ty(), perm, Ty()),)
-    assert perm.boxes == [perm] and perm.offsets == [0] and perm.size == 1
-    assert Diagram.decode(*perm.encode()) == perm
+    assert perm.inside == (Layer(perm),)
+    assert perm.boxes == [] and perm.size == 0
+    assert not perm.is_generator and perm.generator is None
+    with raises(NotImplementedError):
+        perm.encode()
+    identity = Permutation(x @ y @ z, [0, 1, 2])
+    assert identity.is_identity and identity == Id(x @ y @ z)
+    assert identity.inside == () and identity.boxes == []
     assert Permutation.id(x @ y @ z) == Id(x @ y @ z)
     assert Permutation.id(x @ y @ z).inside == ()
-    assert perm >> perm.dagger() != Id(x @ y @ z)
-    assert Equation(perm >> perm.dagger(), Id(x @ y @ z))
+    assert perm >> perm.dagger() == Id(x @ y @ z)
     assert perm.dagger().dagger() == perm
     a = Permutation(x @ y @ z, [1, 2, 0])
     b = Permutation(a.cod, [2, 0, 1])
@@ -107,16 +114,136 @@ def test_Permutation():
     assert Id(x @ y @ z) >> a == a == a >> Id(a.cod)
     assert (a >> b).dagger() == b.dagger() >> a.dagger()
     q = Permutation(z @ y, [1, 0])
-    assert Equation((perm @ q).dagger(), perm.dagger() @ q.dagger())
+    assert (perm @ q).dagger() == perm.dagger() @ q.dagger()
     assert (perm @ q).dom == perm.dom @ q.dom
     assert Permutation(x @ y, [1, 0]) != Swap(x, y)
     assert Equation(Permutation(x @ y, [1, 0]), Swap(x, y))
     with raises(ValueError):
-        Permutation(x @ y @ z, [0, 1, 2])
-    with raises(ValueError):
         Permutation(x @ y @ z, [2, 0])
     with raises(ValueError):
         Permutation(x @ y @ z, [0, 0, 1])
+
+
+def test_Layer():
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
+    f = Box('f', x, y)
+    swap, permutation = Swap(x, y), Permutation(x @ y, [1, 0])
+    layer = Layer(x, f, y)
+    assert all(
+        isinstance(component, Permutation) for component in layer[::2])
+    assert all(component.is_identity for component in layer[::2])
+    assert layer.boxes_and_types == (x, f, y)
+    assert layer.boxes == [f]
+    assert Layer.cast(f) == Layer(Ty(), f, Ty())
+    assert Layer.cast(permutation) == Layer(permutation)
+    assert Layer(x, swap, z).boxes == [swap]
+    assert permutation != swap
+    assert layer.dagger().dagger() == layer
+    assert (z @ layer).boxes_and_types == (z @ x, f, y)
+    assert (layer @ z).boxes_and_types == (x, f, y @ z)
+    assert all(
+        isinstance(component, Permutation)
+        for component in (z @ layer)[::2] + (layer @ z)[::2])
+    with raises(ValueError):
+        Layer(x, f)
+    with raises(ValueError):
+        Layer(x, permutation, y)
+
+
+def test_Diagram_normalises_Layer_storage():
+    x, y = Ty('x'), Ty('y')
+    f = Box('f', x, y)
+    raw = monoidal.Layer(Ty(), f, Ty())
+    diagram = Diagram((raw,), x, y)
+    assert isinstance(diagram.inside[0], Layer)
+    assert diagram.inside[0].boxes_and_types == (Ty(), f, Ty())
+    assert all(
+        isinstance(component, Permutation)
+        for component in diagram.inside[0][::2])
+    permutation = Permutation(x @ y, [1, 0])
+    legacy = monoidal.Layer(Ty(), permutation, Ty())
+    assert Diagram(
+        (legacy,), permutation.dom, permutation.cod) == permutation
+    tree = dict(
+        factory='symmetric.Diagram',
+        inside=[legacy.to_tree()],
+        dom=permutation.dom.to_tree(), cod=permutation.cod.to_tree())
+    assert Diagram.from_tree(tree) == permutation
+    legacy = object.__new__(Layer)
+    legacy.__dict__.update(
+        monoidal.Layer(Ty(), permutation, Ty()).__dict__)
+    assert Diagram(
+        (legacy,), permutation.dom, permutation.cod) == permutation
+
+
+def test_Diagram_validates_before_canonicalising():
+    x, y, z, w = map(Ty, 'xyzw')
+    f, g = Box('f', x, y), Box('g', y, w)
+    identity = Layer(Permutation(z, [0]))
+    with raises(AxiomError):
+        Diagram((f.inside[0], identity, g.inside[0]), x, w)
+    with raises(AxiomError):
+        Diagram((identity,), x, x)
+
+
+def test_Layer_serialisation():
+    x, y = Ty('x'), Ty('y')
+    f = Box('f', x, y)
+    permutation = Permutation(x @ y, [1, 0])
+    for layer in (Layer(x, f, y), Layer(permutation)):
+        result = loads(dumps(layer))
+        assert result == layer
+        assert all(
+            isinstance(component, Permutation) for component in result[::2])
+        result = pickle.loads(pickle.dumps(layer))
+        assert result == layer
+        assert all(
+            isinstance(component, Permutation) for component in result[::2])
+    identity = Permutation(x @ y, [0, 1])
+    assert isinstance(loads(dumps(identity)), Permutation)
+
+
+def test_Layer_identity():
+    x, y = Ty('x'), Ty('y')
+    f = Box('f', x, y)
+    identity = Layer(x)
+    layer = Layer.cast(f)
+    assert identity.boxes_and_offsets == []
+    assert identity.merge(layer) == layer
+    assert layer.merge(Layer(y)) == layer
+
+
+def test_Layer_factory_ownership():
+    from discopy import compact, markov
+
+    for module in (compact, markov):
+        x, y = module.Ty('x'), module.Ty('y')
+        permutation = Permutation(x @ y, [1, 0])
+        layer = module.Layer(permutation)
+        assert type(layer.permutation) is module.Permutation
+
+
+def test_Layer_tensor():
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
+    f, g = Box('f', x, y), Box('g', y, z)
+    left, right = Layer(x, f, y), Layer(z, g, x)
+    result = left @ right
+    assert result.boxes_and_types == (x, f, y @ z, g, x)
+    assert result.boxes == [f, g]
+    assert all(
+        isinstance(component, Permutation) for component in result[::2])
+    assert (left @ right).dagger() == left.dagger() @ right.dagger()
+    permutation = Layer(Permutation(x @ y, [1, 0]))
+    assert (left @ right) @ permutation == left @ (right @ permutation)
+
+
+def test_noncommuting_Permutation_composition():
+    x = Ty('x')
+    first = Permutation(x ** 3, [1, 0, 2])
+    second = Permutation(first.cod, [0, 2, 1])
+    composite = first >> second
+    assert composite == Permutation(x ** 3, [1, 2, 0])
+    assert composite != Permutation(x ** 3, [2, 0, 1])
 
 
 def test_Permutation_box_setoid():
@@ -164,11 +291,37 @@ def test_inherited_permutation_factory():
 def test_Permutation_whiskering():
     x, y, z = Ty('x'), Ty('y'), Ty('z')
     perm = Permutation(x @ y, [1, 0])
-    assert Equation(perm @ z, Permutation(x @ y @ z, [1, 0, 2]))
-    assert Equation(z @ perm, Permutation(z @ x @ y, [0, 2, 1]))
+    assert perm @ z == Permutation(x @ y @ z, [1, 0, 2])
+    assert z @ perm == Permutation(z @ x @ y, [0, 2, 1])
+    assert isinstance(perm @ z, Permutation)
+    assert isinstance(z @ perm, Permutation)
     assert perm @ z == perm @ Id(z)
     assert perm @ Ty() == perm == Ty() @ perm
     assert perm.tensor() == perm == perm.then()
+    identity = Permutation(x, [0])
+    assert isinstance(identity @ y, Permutation)
+    assert isinstance(y @ identity, Permutation)
+
+
+def test_mixed_Layer_routing():
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
+    permutation = Permutation(x @ y, [1, 0])
+    f = Box('f', z, z)
+    layer = Layer(permutation, f, Ty())
+    diagram = Diagram((layer,), layer.dom, layer.cod)
+    assert diagram.dagger().dagger() == diagram
+    assert diagram.to_hypergraph().dom == diagram.dom
+    assert diagram.to_drawing().dom == diagram.dom.to_drawing()
+    assert loads(dumps(diagram)) == diagram
+    assert pickle.loads(pickle.dumps(diagram)) == diagram
+    with raises(NotImplementedError):
+        layer.boxes_and_types
+    with raises(NotImplementedError):
+        diagram.normalize()
+    with raises(NotImplementedError):
+        diagram.interchange(0, 0)
+    with raises(NotImplementedError):
+        diagram.substitute(0, f)
 
 
 def test_Permutation_foliation():
@@ -181,9 +334,11 @@ def test_Permutation_foliation():
     assert Equation(diagram, foliated)
     assert foliated.depth() == 1
     assert foliated.inside == (
-        monoidal.Layer(Ty(), reverse, Ty()), monoidal.Layer(
+        Layer(reverse), Layer(
             Ty(), f0, Ty(), f1, Ty(), g0, Ty(), g1, Ty()))
-    assert foliated.boxes == [reverse, f0, f1, g0, g1]
+    assert foliated.boxes == [f0, f1, g0, g1]
+    with raises(AxiomError):
+        foliated.inside[0].merge(foliated.inside[1])
 
 
 def test_large_Permutation_to_hypergraph():
@@ -214,3 +369,15 @@ def test_Functor_on_composite_types():
 
     erase = Functor(ob_map={x: Ty(), y: z}, ar_map={})
     assert erase(perm) == Id(z)
+
+
+def test_Permutation_to_drawing_with_composite_types():
+    from discopy.drawing import Drawing
+
+    x, y, z = map(Ty, 'xyz')
+    perm = Permutation(x @ y, [1, 0])
+    functor = Functor(
+        ob_map={x: y @ z, y: x}, ar_map={}, cod=Drawing)
+    drawing = functor(perm)
+    assert drawing.dom == (y @ z @ x).to_drawing()
+    assert drawing.cod == (x @ y @ z).to_drawing()

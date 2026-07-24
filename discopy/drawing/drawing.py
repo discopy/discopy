@@ -77,10 +77,6 @@ def _trailing_margin(ob) -> float:
         getattr(ob, "min_right_margin", 0))
 
 
-def _permutation_name(perm) -> str:
-    return f"Permutation({list(perm)})"
-
-
 class PlaneGraph(NamedTuple):
     """ A plane graph is a graph with a mapping from nodes to points. """
     graph: nx.DiGraph
@@ -413,16 +409,17 @@ class Drawing(TracedCategory):
             :align: center
         """
         from discopy.monoidal import Box
+        from discopy.symmetric import Permutation
         box_dom, box_cod = box.dom.to_drawing(), box.cod.to_drawing()
-        old_box, box = box, Box(
-            box.name, box_dom, box_cod, is_dagger=box.is_dagger)
+        old_box = box
+        box = Permutation(box_dom, old_box.perm)\
+            if isinstance(old_box, Permutation)\
+            else Box(
+                old_box.name, box_dom, box_cod,
+                is_dagger=old_box.is_dagger)
 
         for attr, default in BOX_DRAWING_ATTRIBUTES.items():
             setattr(box, attr, getattr(old_box, attr, default(box)))
-        if box.drawing_permutation is not None:
-            box.name = box.drawing_name = _permutation_name(
-                box.drawing_permutation)
-            box.is_dagger = False
 
         if box.draw_as_wires and not box.frame_boundary:
             for i, obj in enumerate(box.cod.inside):
@@ -705,8 +702,11 @@ class Drawing(TracedCategory):
     def dagger(self) -> Drawing:
         """ The reflection of a drawing along the the horizontal axis. """
         def box_dagger(box):
+            from discopy.symmetric import Permutation
             result = box.dagger()
             for attr in BOX_DRAWING_ATTRIBUTES:
+                if attr == "drawing_name" and isinstance(box, Permutation):
+                    continue
                 value = getattr(box, attr)
                 if attr == "drawing_permutation" and value is not None:
                     inverse = [0] * len(value)
@@ -714,10 +714,6 @@ class Drawing(TracedCategory):
                         inverse[j] = i
                     value = tuple(inverse)
                 setattr(result, attr, value)
-            if result.drawing_permutation is not None:
-                result.name = result.drawing_name = _permutation_name(
-                    result.drawing_permutation)
-                result.is_dagger = False
             return result
 
         if self.is_box:

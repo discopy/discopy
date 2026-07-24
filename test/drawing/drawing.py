@@ -336,6 +336,7 @@ def test_draw_curved_polygon_tikz():
 
 def test_draw_permutation():
     from matplotlib import pyplot as plt
+    from discopy.monoidal import Box
     from discopy.symmetric import Ty, Permutation
 
     x, y, z = map(Ty, "xyz")
@@ -348,6 +349,8 @@ def test_draw_permutation():
     assert drawing.dagger().box.drawing_permutation\
         == tuple(perm.perm.dagger())
     assert drawing.dagger() == perm.dagger().to_drawing()
+    assert drawing.dagger().box.drawing_name\
+        == perm.dagger().to_drawing().box.drawing_name
 
     swap = Permutation(x @ y, [1, 0]).to_drawing()
     swap.add_box_corners()
@@ -358,6 +361,12 @@ def test_draw_permutation():
     matplotlib.draw_wires(swap)
     assert len(matplotlib.axis.patches) == 2
     plt.close(matplotlib.axis.figure)
+
+    custom = Box(
+        'custom', x @ y, y @ x, draw_as_wires=True,
+        drawing_permutation=(1, 0)).to_drawing()
+    assert custom.dagger().dagger() == custom
+    assert custom.dagger().dagger().box.name == 'custom'
 
 
 def test_readable_foreground():
@@ -386,8 +395,7 @@ def test_draw_box_foreground_on_dark_background():
 
 @draw_and_compare('crack-two-eggs-at-once.svg')
 def test_crack_two_eggs_at_once():
-    from discopy.monoidal import Layer
-    from discopy.symmetric import Ty, Box, Diagram
+    from discopy.symmetric import Ty, Box, Diagram, Layer
 
     egg, white, yolk = Ty("egg"), Ty("white"), Ty("yolk")
     crack = Box("crack", egg, white @ yolk)

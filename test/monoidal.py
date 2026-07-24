@@ -240,6 +240,12 @@ def test_Diagram_getitem():
 
 def test_Diagram_offsets():
     assert Diagram((), Ty('x'), Ty('x')).offsets == []
+    x = Ty('x')
+    f, g = Box('f', x, x @ x), Box('g', x, x)
+    layer = Layer(Ty(), f, Ty(), g, Ty())
+    diagram = Diagram((layer,), layer.dom, layer.cod)
+    assert layer.boxes_and_offsets == [(f, 0), (g, 2)]
+    assert diagram.offsets == [0, 2]
 
 
 def test_Diagram_hash():

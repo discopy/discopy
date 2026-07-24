@@ -24,6 +24,7 @@ def test_FinSet():
     assert finset.Permutation((1, 0)).then((1, 0)) == (0, 1)
     assert finset.Permutation((1, 0, 2)).then((1, 2, 0)) == (2, 1, 0)
     assert finset.Permutation((1, 2, 0)).dagger() == (2, 0, 1)
+    assert finset.Permutation((1, 0, 2)).rotate() == (0, 2, 1)
     assert finset.Permutation((1, 0, 2)).conjugate((2, 0, 1))\
         == (2, 1, 0)
     assert finset.Permutation((1, 2, 0)).cycle(1) == (1, 2, 0)

@@ -222,6 +222,11 @@ class Permutation(Function, SymmetricCategory):
             result[target] = source
         return type(self)(result, len(self))
 
+    def rotate(self) -> Self:
+        """ Rotate by reversing and inverting the permutation. """
+        reverse = type(self)(reversed(range(len(self))))
+        return self.dagger().conjugate(reverse)
+
     def conjugate(self, other: Self) -> Self:
         """ Return ``other^-1 ; self ; other``. """
         other = type(self)(other, len(self))

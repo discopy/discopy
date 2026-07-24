@@ -42,8 +42,10 @@ Instruction from Alexis (@toumix), verbatim:
 - `Swap` as a subclass of `Permutation` (own issue) — now
   [#444](https://github.com/discopy/discopy/issues/444), opened 2026-07-22 with the
   "new" dunder catching `(1, 0)" spelled out.
-- Uniform storage of even slots ("everything is a permutation") and the
-  relaxation of the alternating-list `Layer` representation (#437).
+- Relaxation of the alternating-list `Layer` representation (#437).
+
+Uniform storage of even slots was subsequently brought back into scope by the
+corrected specification below.
 
 ## Guidance (🐦 birdsong, 2026-07-22)
 
@@ -75,6 +77,9 @@ Instruction from Alexis, verbatim:
 
 > Refactor this symmetric Layer PR after Claude did a messy job
 > https://github.com/discopy/discopy/pull/362
+
+This section records the discarded first pass. Its ordinary-box invariant was
+superseded by the corrected specification below.
 
 The audit rejected the proposed `symmetric.Layer` representation. Putting a
 `Permutation` in a `monoidal.Layer` type slot made equal diagrams behave
@@ -135,5 +140,27 @@ A symmetric layer represents
 each `f_i` is a non-permutation generator. `Swap` remains distinct from
 `Permutation(..., [1, 0])` and occupies a generator slot.
 
-- [WIP] @codex-2026-07-24T15:55+0530 Rework the PR around permutation-valued layer slots, preserving the
-      existing generator treatment of swaps.
+- [x] @codex-2026-07-24T15:55+0530 Rework the PR around permutation-valued
+      layer slots, preserving the existing generator treatment of swaps.
+- [x] Normalise every even slot, including identities, to the category's
+      concrete `Permutation` factory; reject permutations in odd slots.
+- [x] Keep `Swap` as a distinct odd-slot generator and preserve its semantic
+      equality with the corresponding permutation only through `Equation`.
+- [x] Canonicalise identity and adjacent permutation-only layers so
+      composition, tensor, dagger and whiskering respect diagram equality.
+- [x] Preserve compact rotation, feedback delay, functor application, drawing,
+      hypergraph conversion and descendant-category factories.
+- [x] Make offset-based operations fail explicitly on non-identity routing
+      rather than silently treating a permutation as a type.
+- [x] Upgrade legacy JSON and pickle representations without rebuilding
+      incomplete cyclic `Box`/`Layer` objects during unpickling.
+
+## Corrected-spec verification (2026-07-24, @codex)
+
+- `uv run pflake8 discopy` is clean.
+- `uv run coverage run -m pytest`: 782 passed, 1 skipped.
+- Coverage is 98%.
+- Exhaustive permutation composition, dagger and compact-rotation laws passed
+  through arity 5; tensor laws passed through arity 3 on each side.
+- Current and earlier PR-era symmetric box and diagram JSON/pickle
+  representations normalise to permutation-valued layer slots.
