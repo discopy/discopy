@@ -119,3 +119,21 @@ without rewriting the drawing graph.
   `TypeError` on otherwise valid drawings.
 - Daggering a multi-box `Drawing` can fail validation because relabeling does
   not preserve the box-node order expected by `validate_attributes()`.
+
+## Corrected specification (2026-07-24)
+
+Instruction from Alexis, verbatim:
+
+> You misunderstood the spec: we want permutations everywhere, not
+> permutations as ordinary boxes so a layer is an alternation of permutation,
+> generator, permutation. In a first iteration the swaps are distinct from
+> (1, 0) permutations and are considered as generators so that we don't need
+> to change much of the code.
+
+A symmetric layer represents
+`p_0 @ f_1 @ p_1 @ ... @ f_n @ p_n`, where each `p_i` is a permutation and
+each `f_i` is a non-permutation generator. `Swap` remains distinct from
+`Permutation(..., [1, 0])` and occupies a generator slot.
+
+- [ ] Rework the PR around permutation-valued layer slots, preserving the
+      existing generator treatment of swaps.
