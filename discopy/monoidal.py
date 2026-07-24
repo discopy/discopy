@@ -72,6 +72,7 @@ from discopy.utils import (
     AxiomError,
     get_origin,
     MappingOrCallable,
+    RichDisplay,
 )
 
 if TYPE_CHECKING:
@@ -736,7 +737,7 @@ class Layer(cat.Box):
 
 
 @factory
-class Diagram(cat.Arrow, MonoidalCategory):
+class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
     """
     A diagram is a tuple of composable layers :code:`inside` with a pair of
     types :code:`dom` and :code:`cod` as domain and codomain.
@@ -946,6 +947,31 @@ class Diagram(cat.Arrow, MonoidalCategory):
         dom = self.ar
         cod = Drawing
         return (functor_factory or Functor)(ob, ar, dom, cod)(self)
+
+    def to_typst(self, **params):
+        """
+        Return a Typst Document AST for this diagram.
+
+        Parameters
+        ----------
+        params : Passed to :class:`Typst`.
+
+        Returns
+        -------
+        doc : Document
+            A Typst Document AST with imports and a ``cetz.canvas`` block.
+
+        Example
+        -------
+        >>> from discopy.monoidal import Ty, Box
+        >>> f = Box('f', Ty('x'), Ty('y'))
+        >>> doc = f.to_typst()
+        >>> source = doc.render()
+        >>> 'cetz' in source and 'canvas' in source
+        True
+        """
+        from discopy.drawing import to_typst
+        return to_typst(self, **params)
 
     def to_map(self) -> CMap:
         """ Translate a diagram into a combinatorial map. """
@@ -1575,7 +1601,7 @@ class CMap(cmap.CMap):
     require_connected = True
 
 
-class Equation(cat.Equation):
+class Equation(cat.Equation, RichDisplay):
     """
     An :class:`.cat.Equation` of diagrams, i.e. with a :meth:`draw` method.
 

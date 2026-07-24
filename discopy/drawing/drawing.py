@@ -64,7 +64,7 @@ from discopy.drawing import backend, Node, Point
 from discopy.config import BOX_DRAWING_ATTRIBUTES
 from discopy.abc import TracedCategory
 from discopy.utils import (
-    assert_isinstance, assert_iscomposable, unbiased, factory)
+    assert_isinstance, assert_iscomposable, unbiased, factory, RichDisplay)
 
 if TYPE_CHECKING:
     from discopy import monoidal
@@ -85,7 +85,7 @@ class PlaneGraph(NamedTuple):
 
 @factory
 @dataclass
-class Drawing(TracedCategory):
+class Drawing(TracedCategory, RichDisplay):
     """
     A drawing is a plane graph with designated input and output types.
 
@@ -205,6 +205,11 @@ class Drawing(TracedCategory):
             for box in self.boxes))
         self.add_box_corners()
         return backend.draw(self, asymmetry=asymmetry, **params)
+
+    def to_typst(self, **params):
+        """Return a Typst Document AST for this drawing."""
+        from discopy.drawing import to_typst
+        return to_typst(self, **params)
 
     def add_box_corners(self):
         """ Recenter boxes w.r.t their wires then draw the corners. """

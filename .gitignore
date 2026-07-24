@@ -27,3 +27,5 @@ dist/*
 discopy/version.py
 benchmark-results/
 plans/
+wip/
+__marimo__/

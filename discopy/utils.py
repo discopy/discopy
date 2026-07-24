@@ -574,3 +574,95 @@ class Point(NamedTuple):
 
     def shift(self, x=0, y=0):
         return Point(self.x + x, self.y + y)
+
+
+class RichDisplay:
+    """
+    Mixin implementing IPython's rich display protocol, see
+    https://ipython.readthedocs.io/en/stable/config/integrating.html
+
+    Any DisCoPy object with a :meth:`to_drawing` method, e.g. a
+    :class:`discopy.monoidal.Diagram`, a :class:`discopy.drawing.Drawing`
+    or an :class:`discopy.drawing.Equation`, is displayed as an interactive
+    anywidget (with SVG and PNG fallbacks in the mimebundle) when it is the
+    output of a cell in Jupyter, marimo and other frontends that support
+    the protocol.
+
+    Example
+    -------
+    >>> from discopy.monoidal import Ty, Box
+    >>> f = Box('f', Ty('x'), Ty('y'))
+    >>> svg, png = f._repr_svg_(), f.to_png()
+    >>> assert svg.startswith('<?xml') and '</svg>\\n' in svg
+    >>> assert png.startswith(b'\\x89PNG')
+    >>> bundle = f._repr_mimebundle_()
+    >>> assert 'image/svg+xml' in bundle
+    >>> assert 'image/png' in bundle
+    >>> assert 'application/vnd.jupyter.widget-view+json' in bundle
+    >>> assert f._repr_mimebundle_(include=['image/svg+xml']) == {
+    ...     'image/svg+xml': svg}
+    >>> sub = f._repr_mimebundle_(exclude=['image/svg+xml'])
+    >>> assert 'image/png' in sub
+    >>> assert 'image/svg+xml' not in sub
+    >>> assert f._repr_mimebundle_(include=['text/html']) == {}
+    """
+    def to_svg(self, **params) -> str:
+        """ Draw as a standalone SVG string. """
+        from io import StringIO
+        buffer = StringIO()
+        params.setdefault("metadata", {"Date": None})
+        self.to_drawing().draw(
+            path=buffer, format="svg", show=False, **params)
+        return buffer.getvalue()
+
+    def to_png(self, **params) -> bytes:
+        """ Draw as PNG bytes. """
+        from io import BytesIO
+        buffer = BytesIO()
+        self.to_drawing().draw(
+            path=buffer, format="png", show=False, **params)
+        return buffer.getvalue()
+
+    def _repr_svg_(self) -> str:
+        return self.to_svg()
+
+    @property
+    def _widget(self):
+        """ Lazily cached anywidget for rich display. """
+        if not hasattr(self, "__widget_cache"):
+            self.__widget_cache = self.to_widget()
+        return self.__widget_cache
+
+    def to_widget(self, **params):
+        """
+        Return an anywidget displaying the diagram's SVG.
+
+        Parameters:
+            params : Passed to :meth:`to_svg`.
+
+        Example
+        -------
+        >>> from discopy.monoidal import Ty, Box
+        >>> f = Box('f', Ty('x'), Ty('y'))
+        >>> widget = f.to_widget()
+        >>> widget.svg.startswith('<?xml')  # doctest: +SKIP
+        True
+        """
+        from discopy.drawing.widget import DiagramWidget
+        return DiagramWidget(svg=self.to_svg(**params))
+
+    def _repr_mimebundle_(self, include=None, exclude=None) -> dict:
+        data = {"image/svg+xml": self.to_svg, "image/png": self.to_png}
+        try:
+            import typst  # noqa: F401
+            if hasattr(self, "to_typst"):
+                data["text/x-typst"] = lambda: self.to_typst().render()
+        except ImportError:
+            pass
+        widget_data = self._widget._repr_mimebundle_(
+            include=include, exclude=exclude)[0]
+        data |= widget_data
+        return {mimetype: draw() if callable(draw) else draw
+                for mimetype, draw in data.items()
+                if (include is None or mimetype in include)
+                and (exclude is None or mimetype not in exclude)}
