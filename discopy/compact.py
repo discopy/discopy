@@ -53,10 +53,18 @@ Coherence
 ...     Cap(x, x.r) @ Cap(y, y.r) >> x @ Diagram.swap(x.r, y @ y.r))
 """
 
-from discopy import symmetric, ribbon, hypergraph
+from discopy import symmetric, ribbon, rigid, hypergraph
 from discopy.abc import CompactCategory
 from discopy.cat import factory
 from discopy.pivotal import Ob, Ty  # noqa: F401
+
+
+class Layer(symmetric.Layer, rigid.Layer):
+    """
+    A compact layer is a symmetric layer that can also be rotated: it supports
+    permutations at even positions (from :class:`symmetric.Layer`) and the
+    transpose (from :class:`rigid.Layer`).
+    """
 
 
 @factory
@@ -70,6 +78,7 @@ class Diagram(symmetric.Diagram, ribbon.Diagram, CompactCategory):
         cod (pivotal.Ty) : The codomain of the diagram, i.e. its output.
     """
     ob = Ty
+    layer_factory = Layer
     trace_factory = ribbon.Diagram.trace_factory
 
 

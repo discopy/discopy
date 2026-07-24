@@ -93,15 +93,18 @@ def test_Permutation():
     assert list(perm.perm) == [1, 2, 0]
     # a permutation box is equal to the diagram with just that permutation
     assert perm == Diagram((Layer(perm),), perm.dom, perm.cod)
+    # the identity permutation is the identity diagram, an empty list of layers
+    assert Permutation.id(x @ y @ z) == Id(x @ y @ z)
+    assert Permutation.id(x @ y @ z).inside == ()
     # composition with the inverse is the identity diagram
-    assert perm >> perm.dagger() == Permutation.id(x @ y @ z)
+    assert perm >> perm.dagger() == Id(x @ y @ z)
     assert perm.dagger().dagger() == perm
     # composition is associative and respects identities
     a = Permutation(x @ y @ z, [1, 2, 0])
     b = Permutation(a.cod, [2, 0, 1])
     c = Permutation(b.cod, [0, 2, 1])
     assert (a >> b) >> c == a >> (b >> c)
-    assert Permutation.id(x @ y @ z) >> a == a == a >> Permutation.id(a.cod)
+    assert Id(x @ y @ z) >> a == a == a >> Id(a.cod)
     assert (a >> b).dagger() == b.dagger() >> a.dagger()
     # tensor is functorial
     q = Permutation(z @ y, [1, 0])

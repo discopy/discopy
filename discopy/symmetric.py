@@ -90,8 +90,8 @@ crossing wires rather than a staircase of swaps.
 
 >>> perm = Permutation(x @ y @ z, [2, 0, 1])
 >>> assert perm.cod == z @ x @ y
->>> assert perm >> perm.dagger() == Permutation.id(x @ y @ z)
->>> assert perm @ Permutation.id(w) == Permutation(x @ y @ z @ w, [2, 0, 1, 3])
+>>> assert perm >> perm.dagger() == Id(x @ y @ z)
+>>> assert perm @ Id(w) == Permutation(x @ y @ z @ w, [2, 0, 1, 3])
 >>> assert Permutation(x @ y, [1, 0]) == Swap(x, y)
 
 Layers
@@ -336,7 +336,7 @@ class Permutation(Box):
     >>> perm = Permutation(x @ y @ z, [1, 2, 0])
     >>> assert perm.cod == y @ z @ x
     >>> assert perm.dagger() == Permutation(y @ z @ x, [2, 0, 1])
-    >>> assert perm >> perm.dagger() == Permutation.id(x @ y @ z)
+    >>> assert perm >> perm.dagger() == Id(x @ y @ z)
     """
     def __init__(self, dom: monoidal.Ty, perm):
         perm = finset.Permutation(perm, len(dom))
@@ -398,6 +398,13 @@ class Permutation(Box):
 
     def dagger(self) -> Permutation:
         return type(self)(self.cod, self.perm.dagger())
+
+    def __rmatmul__(self, other):
+        if isinstance(other, monoidal.Ty):
+            return type(self).cast(
+                other @ self.dom,
+                finset.Permutation.id(len(other)).tensor(self.perm))
+        return super().__rmatmul__(other)
 
     def __repr__(self):
         return f"{factory_name(type(self))}({self.dom!r}, {list(self.perm)})"
@@ -492,52 +499,24 @@ class Layer(monoidal.Layer):
             x.dagger() if i % 2 or isinstance(x, Permutation) else x
             for i, x in enumerate(self)))
 
-    def rotate(self, left=False):
-        return type(self)(*(x.l if left else x.r for x in list(self)[::-1]))
-
-    l = property(lambda self: self.rotate(left=True))
-    r = property(lambda self: self.rotate(left=False))
-
-    def __matmul__(self, other: monoidal.Ty) -> Layer:
-        *tail, head = self
-        if isinstance(head, Permutation):
-            head = type(head).cast(
-                head.dom @ other,
-                head.perm.tensor(finset.Permutation.id(len(other))))
-        else:
-            head = head @ other
-        return type(self)(*tail, head)
-
-    def __rmatmul__(self, other: monoidal.Ty) -> Layer:
-        head, *tail = self
-        if isinstance(head, Permutation):
-            head = type(head).cast(
-                other @ head.dom,
-                finset.Permutation.id(len(other)).tensor(head.perm))
-        else:
-            head = other @ head
-        return type(self)(head, *tail)
-
     @property
     def boxes_and_offsets(self) -> list[tuple[monoidal.Box, int]]:
         """
-        The boxes and permutations inside the layer with their offsets.
+        The boxes inside the layer with their offsets, as in
+        :class:`monoidal.Layer`. A non-identity :class:`Permutation` has no
+        offset interpretation, so this raises when the layer has one.
 
-        >>> a, b, c = map(Ty, "abc")
-        >>> f, g = Box('f', a, b), Box('g', c, a)
-        >>> p = Permutation(a @ b, [1, 0])
-        >>> layer = Layer(p, f, c, g, a)
-        >>> [(str(box), offset) for box, offset in layer.boxes_and_offsets]
-        [('Permutation(a @ b, [1, 0])', 0), ('f', 2), ('g', 4)]
+        >>> x, y = Ty('x'), Ty('y')
+        >>> f = Box('f', x, y)
+        >>> [(str(b), i) for b, i in Layer(x, f, y).boxes_and_offsets]
+        [('f', 1)]
+        >>> from pytest import raises
+        >>> with raises(NotImplementedError):
+        ...     Layer(Permutation(x @ y, [1, 0])).boxes_and_offsets
         """
-        result, offset = [], 0
-        for x in self:
-            if isinstance(x, monoidal.Ty):
-                offset += len(x)
-            else:
-                result.append((x, offset))
-                offset += len(x.dom)
-        return result
+        if any(isinstance(x, Permutation) for x in self):
+            raise NotImplementedError(messages.PERMUTATION_HAS_NO_OFFSET)
+        return super().boxes_and_offsets
 
 
 class Trace(balanced.Trace, Box):
