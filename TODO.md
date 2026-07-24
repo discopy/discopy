@@ -16,6 +16,9 @@ User prompt, verbatim:
 - [x] @claude-2026-07-24 17:22 Make `utils.text_width` system-independent: it measures glyph extents
       with `TextPath` so baselines drawn on different freetype versions
       drift, e.g. `long-box-name.svg` (218.88pt vs 218.952pt).
+- [WIP] @claude-2026-07-24 17:39 Count LaTeX commands as single symbols in
+      `text_width` instead of summing their source characters, and compare
+      SVG coordinates up to a small tolerance for rounding errors.
 
 ## Mathematical description
 
