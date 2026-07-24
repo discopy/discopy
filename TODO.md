@@ -8,7 +8,7 @@ Context: <https://github.com/discopy/discopy/issues/468>
 
 ## Checklist
 
-- [WIP] @codex-2026-07-24 19:29 Make `hypergraph.draw` reproducible by ensuring a fixed layout seed
+- [x] @codex-2026-07-24 19:29 Make `hypergraph.draw` reproducible by ensuring a fixed layout seed
       determines all random coordinates without mutating global random state;
       add a concise regression test and run focused and full verification.
 
