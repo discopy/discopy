@@ -6,7 +6,7 @@ DisCoPy is a Python toolkit for computing with string diagrams.
 
 Read the following documents (<10k tokens) before any work on the package:
 
-- @RULES.md describes a protocol based on checkboxes as mutex, follow it exactly.
+- @RULES.md describes the collaboration and Git protocol for shared PR branches, follow it exactly.
 - @STYLE.md describes coding guidelines that all your work should try to follow.
 - @README.md contains a high-level description of the features along with some examples.
 - @CONTRIBUTING.md contains setup instructions and our general coding philosophy.

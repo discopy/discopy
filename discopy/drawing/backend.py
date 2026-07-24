@@ -186,6 +186,19 @@ def savefig(path, replace=None, tol=DEFAULT['tol']):
     save_and_compare(path, save, replace=replace, tol=tol)
 
 
+def savefig(path):
+    """ Save the current figure with reproducible metadata and identifiers. """
+    path_str = str(path)
+    if path_str.endswith(".svg"):
+        metadata, context = {"Date": None}, {"svg.hashsalt": "discopy"}
+    elif path_str.endswith(".png"):
+        metadata, context = {"Software": None}, {}
+    else:
+        metadata, context = None, {}
+    with plt.rc_context(context):
+        plt.savefig(path, metadata=metadata)
+
+
 def _bezier_subcurve(points, t0, t1):
     """ Restrict a cubic Bezier (4 control points) to the range [t0, t1]. """
     def lerp(a, b, t):

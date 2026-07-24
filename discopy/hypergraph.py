@@ -1616,8 +1616,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
 
     def spring_layout(self, seed=None, k=None):
         """ Computes a layout using a force-directed algorithm. """
-        if seed is not None:
-            random.seed(seed)
+        rng = random.Random(seed)
         graph, pos = self.to_graph().to_undirected(), {}
         height = len(self.boxes) + self.n_spiders
         width = max(len(self.dom), len(self.cod))
@@ -1626,15 +1625,15 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         for i, (dom_wires, cod_wires) in enumerate(self.box_wires):
             box_node = Node("box", i=i, box=self.boxes[i])
             pos[box_node] = (
-                random.uniform(-width / 2, width / 2),
-                random.uniform(0, height))
+                rng.uniform(-width / 2, width / 2),
+                rng.uniform(0, height))
             for kind, wires in [("dom", dom_wires), ("cod", cod_wires)]:
                 for j, spider in enumerate(wires):
                     pos[Node(kind, i=i, j=j)] = pos[box_node]
         for i, obj in enumerate(self.spider_types):
             pos[Node("spider", i=i, obj=obj)] = (
-                random.uniform(-width / 2, width / 2),
-                random.uniform(0, height))
+                rng.uniform(-width / 2, width / 2),
+                rng.uniform(0, height))
         for i, obj in enumerate(self.cod):
             pos[Node("output", i=i, obj=obj)] = (i, 0)
         fixed = self.ports[:len(self.dom)] + self.ports[
@@ -1642,7 +1641,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         pos = spring_layout(graph, pos=pos, fixed=fixed, k=k, seed=seed)
         return graph, pos
 
-    def draw(self, seed=None, k=.25, path=None, replace=None, tol=20):
+    def draw(self, seed=None, k=.25, path=None, replace=None):
         """
         Draw a hypegraph using a force-based layout algorithm.
 
@@ -1688,7 +1687,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
             node_color="white", edgecolors="black")
         if path is not None:
             try:
-                backend.savefig(path, replace=replace, tol=tol)
+                backend.savefig(path, replace=replace)
             finally:
                 plt.close()
         plt.show()
