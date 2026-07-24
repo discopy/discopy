@@ -1,3 +1,5 @@
+import random
+
 from pytest import raises
 
 from discopy.hypergraph import *
@@ -70,6 +72,19 @@ def test_Hypergraph_make_causal_does_not_assume_topological_order():
     assert not h.is_causal
     assert h.make_causal().is_causal
     assert h.topological_order().is_causal
+
+
+def test_Hypergraph_draw_is_reproducible(tmp_path):
+    x = Ty('x')
+    diagram = Box('f', x, x).to_hypergraph()
+    first, second = tmp_path / "first.svg", tmp_path / "second.svg"
+    state = random.getstate()
+
+    diagram.draw(seed=42, path=first)
+    diagram.draw(seed=42, path=second)
+
+    assert first.read_bytes() == second.read_bytes()
+    assert random.getstate() == state
 
 
 def test_Hypergraph_simplify_bubble_size():

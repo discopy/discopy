@@ -54,7 +54,7 @@ from networkx.algorithms.isomorphism import is_isomorphic
 from discopy import cmap, messages
 from discopy.abc import (
     HypergraphCategory, MarkovCategory, MonoidalCategory, NamedGeneric)
-from discopy.drawing import Node
+from discopy.drawing import Node, backend
 from discopy.python.finset import Permutation
 from discopy.utils import (
     factory_name,
@@ -1616,8 +1616,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
 
     def spring_layout(self, seed=None, k=None):
         """ Computes a layout using a force-directed algorithm. """
-        if seed is not None:
-            random.seed(seed)
+        rng = random.Random(seed)
         graph, pos = self.to_graph().to_undirected(), {}
         height = len(self.boxes) + self.n_spiders
         width = max(len(self.dom), len(self.cod))
@@ -1626,15 +1625,15 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         for i, (dom_wires, cod_wires) in enumerate(self.box_wires):
             box_node = Node("box", i=i, box=self.boxes[i])
             pos[box_node] = (
-                random.uniform(-width / 2, width / 2),
-                random.uniform(0, height))
+                rng.uniform(-width / 2, width / 2),
+                rng.uniform(0, height))
             for kind, wires in [("dom", dom_wires), ("cod", cod_wires)]:
                 for j, spider in enumerate(wires):
                     pos[Node(kind, i=i, j=j)] = pos[box_node]
         for i, obj in enumerate(self.spider_types):
             pos[Node("spider", i=i, obj=obj)] = (
-                random.uniform(-width / 2, width / 2),
-                random.uniform(0, height))
+                rng.uniform(-width / 2, width / 2),
+                rng.uniform(0, height))
         for i, obj in enumerate(self.cod):
             pos[Node("output", i=i, obj=obj)] = (i, 0)
         fixed = self.ports[:len(self.dom)] + self.ports[
@@ -1687,6 +1686,6 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
             nodelist=nodelist, node_size=node_size,
             node_color="white", edgecolors="black")
         if path is not None:
-            plt.savefig(path)
+            backend.savefig(path)
             plt.close()
         plt.show()
