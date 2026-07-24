@@ -10,5 +10,7 @@ DisCoPy's computational core: categories of functions, matrices and tensors.
     discopy.python
     discopy.matrix
     discopy.tensor
+    discopy.neural
+    discopy.neural_rdiff
     discopy.stream
     discopy.interaction

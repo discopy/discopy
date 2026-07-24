@@ -78,6 +78,13 @@ uv run pytest benchmark/ -v --benchmark-json=benchmark-results/bench.json
 uv run python benchmark/report.py benchmark-results/bench.json
 ```
 
+The clean-room CatGPT conformance workload lives in
+`benchmark/test_catgpt.py`. Its tiny synthetic forward/VJP checks run with the
+benchmark suite and never download data or weights. Set `CATGPT_FULL=1` to
+run one forward/VJP on the original 65-token, 64-by-32, six-block shape, or
+`CATGPT_10K=1` to opt into the original 10,000-step count on the tiny
+structural-VJP workload.
+
 `report.py` writes `results.md`, `results.csv` and `scaling.png` into
 `benchmark-results/`. To gate on a regression, pass a committed baseline:
 
