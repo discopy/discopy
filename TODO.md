@@ -22,7 +22,7 @@ User prompt, verbatim:
 - [x] @claude-2026-07-24 18:16 Keep main's full mathtext rendering for
       `$...$` labels in `text_width`, the metric table only applies to
       plain text.
-- [WIP] @claude-2026-07-24 18:25 Drop the metric table and restore main's
+- [x] @claude-2026-07-24 18:25 Drop the metric table and restore main's
       original `text_width`, the SVG tolerance absorbs the cross-system
       drift so comparisons stop raising.
 

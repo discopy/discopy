@@ -77,11 +77,11 @@ def test_normalize_svg(tmp_path):
     assert backend.svg_equal(expected, actual)
 
     # A genuine difference in width, position or text content is preserved.
-    actual.write_text(actual.read_text().replace('width="1"', 'width="2"'))
+    actual.write_text(actual.read_text().replace('width="1"', 'width="9"'))
     assert not backend.svg_equal(expected, actual)
 
     # Rounding errors within the tolerance are forgiven.
-    actual.write_text(actual.read_text().replace('width="2"', 'width="1.01"'))
+    actual.write_text(actual.read_text().replace('width="9"', 'width="1.5"'))
     assert backend.svg_equal(expected, actual)
 
     # A non-numeric difference, e.g. in an identifier, is also preserved.

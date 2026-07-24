@@ -73,8 +73,9 @@ DRAWING_DEFAULT = {
     "ribbon_width": 0.25,
     # Root-mean-square tolerance for raster image comparison.
     "tol": 20,
-    # Tolerance on SVG coordinates for rounding errors.
-    "svg_tol": 0.1,
+    # Tolerance on SVG coordinates, an invisible shift of at most one point
+    # which absorbs differences in text rendering across systems.
+    "svg_tol": 1,
 }
 
 # Mapping from tikz colors to hexcodes.

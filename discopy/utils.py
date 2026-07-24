@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import json
-import os
 from functools import lru_cache, wraps
 from typing import (
     Callable,
@@ -18,7 +17,6 @@ from typing import (
     TYPE_CHECKING,
 )
 
-import matplotlib
 from matplotlib.textpath import TextPath
 from networkx import Graph, connected_components
 
@@ -401,43 +399,17 @@ class BinaryBoxConstructor:
         return cls(*map(from_tree, (tree['left'], tree['right'])))
 
 
-@lru_cache(maxsize=None)
-def font_metrics(font="phvr8a.afm") -> dict[str, float]:
-    """ The advance width of each printable ASCII character in em units.
-
-    Read from one of the Adobe Font Metrics files distributed with matplotlib,
-    Helvetica by default, i.e. a static table rather than a measurement of
-    glyph outlines which would depend on the system's font rendering.
-    """
-    path = os.path.join(matplotlib.get_data_path(), "fonts", "afm", font)
-    with open(path, encoding="latin-1") as file:
-        codes_and_widths = [
-            [int(field.split()[1]) for field in line.split(";")[:2]]
-            for line in file if line.startswith("C ")]
-    return {
-        chr(code): width / 1000 for code, width in codes_and_widths
-        if code in range(32, 127)}
-
-
 @lru_cache(maxsize=1024)
 def text_width(text: str, rounded=3, fontsize=12, points_per_inch=72.):
     """ The width of a text label in drawing units, i.e. inches.
 
-    The sum of the advance widths of the characters from :func:`font_metrics`
-    up to `rounded` decimals at a given `fontsize` and `points_per_inch`
-    conversion; characters outside the table count as one em. Mathtext labels
-    get matplotlib's full layout instead, measured from the glyph outlines.
-
-    >>> text_width("Alice loves Bob")
-    1.139
-    >>> assert text_width("") == 0 and text_width("†") == round(12 / 72, 3)
-    >>> assert 0 < text_width("$\\\\mapsto$") < text_width("mapsto")
+    Measured from the actual glyph outlines with matplotlib's text layout up to
+    `rounded` decimals at a given `fontsize` and `points_per_inch` conversion.
     """
-    em = fontsize / points_per_inch
-    if "$" in text:
-        width = TextPath((0, 0), text, size=fontsize).get_extents().width
-        return round(width / points_per_inch, rounded)
-    return round(sum(font_metrics().get(c, 1.) for c in text) * em, rounded)
+    if not text:
+        return 0
+    width = TextPath((0, 0), text, size=fontsize).get_extents().width
+    return round(width / points_per_inch, rounded)
 
 
 def tuplify(stuff: any) -> tuple:
