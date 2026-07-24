@@ -84,6 +84,19 @@ def draw(graph: PlaneGraph, **params):
         margins=params.get('margins', DEFAULT['margins']))
 
 
+def savefig(path):
+    """ Save the current figure with reproducible metadata and identifiers. """
+    path_str = str(path)
+    if path_str.endswith(".svg"):
+        metadata, context = {"Date": None}, {"svg.hashsalt": "discopy"}
+    elif path_str.endswith(".png"):
+        metadata, context = {"Software": None}, {}
+    else:
+        metadata, context = None, {}
+    with plt.rc_context(context):
+        plt.savefig(path, metadata=metadata)
+
+
 def _bezier_subcurve(points, t0, t1):
     """ Restrict a cubic Bezier (4 control points) to the range [t0, t1]. """
     def lerp(a, b, t):
@@ -947,19 +960,7 @@ class Matplotlib(Backend):
         if ylim is not None:
             self.axis.set_ylim(*ylim)
         if path is not None:
-            # Drop volatile metadata and fix the salt used for SVG element ids
-            # so that images are reproducible across environments: PNGs embed
-            # the Matplotlib version as "Software", SVGs embed the current date
-            # and randomise the ids of their clip paths.
-            path_str = str(path)
-            if path_str.endswith(".svg"):
-                metadata, context = {"Date": None}, {"svg.hashsalt": "discopy"}
-            elif path_str.endswith(".png"):
-                metadata, context = {"Software": None}, {}
-            else:
-                metadata, context = None, {}
-            with plt.rc_context(context):
-                plt.savefig(path, metadata=metadata)
+            savefig(path)
             plt.close()
         if show:
             plt.show()
