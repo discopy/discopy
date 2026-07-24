@@ -19,6 +19,27 @@ Only causal monogamous hypergraphs are accepted. Identity wires and swaps
 have structural rules; every other generator needs an explicit rule. This
 keeps residuals in the diagram rather than in an autograd tape or a module
 cache.
+
+Summary
+-------
+
+.. autosummary::
+    :template: class.rst
+    :nosignatures:
+    :toctree:
+
+    ReverseRule
+
+.. admonition:: Functions
+
+    .. autosummary::
+        :template: function.rst
+        :nosignatures:
+        :toctree:
+
+        differentiate
+        discard
+        rdiff
 """
 
 from __future__ import annotations

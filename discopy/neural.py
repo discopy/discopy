@@ -242,13 +242,6 @@ class Network(compact.Box, Diagram):
             self.name, dom=self.cod.r, cod=self.dom.r, module=self.module,
             mem=self.mem, is_dagger=self.is_dagger, z=(self.z + 1) % 2)
 
-    def __repr__(self):
-        if self.is_dagger:
-            return repr(self.dagger()) + ".dagger()"
-        result = super().__repr__()
-        return result if not self.mem\
-            else result[:-1] + f", mem={self.mem!r})"
-
     def setoid(self):
         """ Include the private memory dimension in equality and hashing. """
         return super().setoid() + (self.mem, )

@@ -59,8 +59,6 @@ def test_network_as_box():
     assert stateful.dagger().mem == stateful.rotate().mem == Dim(4)
     assert stateful == stateful.dagger().dagger()
     assert stateful.to_map().port_dims == f.to_map().port_dims
-    assert repr(stateful) == \
-        "neural.Network('f', Dim(2), Dim(3), mem=Dim(4))"
 
 
 def test_port_dims():
