@@ -132,6 +132,9 @@ def test_Layer():
     assert (layer @ z).dom == layer.dom @ z
     assert Layer.cast(f) == Layer(Ty(), f, Ty())
     assert Layer.cast(p) == Layer(p)
+    from discopy import monoidal
+    assert Layer(Ty(), f, Ty()) == monoidal.Layer(Ty(), f, Ty())
+    assert monoidal.Layer(Ty(), f, Ty()) == Layer(Ty(), f, Ty())
     with raises(ValueError):
         Layer(x, f)
     with raises(ValueError):
