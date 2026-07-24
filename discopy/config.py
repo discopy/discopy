@@ -5,6 +5,7 @@
 from discopy.utils import text_width
 
 DEFAULT_BACKEND = 'numpy'
+OVERRIDE_DOCS_IMAGES = False
 NUMPY_THRESHOLD = 16
 MAX_EINSUM_INDICES = 52
 IGNORE_WARNINGS = [
@@ -70,6 +71,7 @@ DRAWING_DEFAULT = {
     # Gap in inches between the diagram and the legend.
     "legend_margin": 0.4,
     "ribbon_width": 0.25,
+    "tol": 20,
 }
 
 # Mapping from tikz colors to hexcodes.

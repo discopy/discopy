@@ -54,7 +54,7 @@ from networkx.algorithms.isomorphism import is_isomorphic
 from discopy import cmap, messages
 from discopy.abc import (
     HypergraphCategory, MarkovCategory, MonoidalCategory, NamedGeneric)
-from discopy.drawing import Node
+from discopy.drawing import Node, backend
 from discopy.python.finset import Permutation
 from discopy.utils import (
     factory_name,
@@ -1642,7 +1642,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         pos = spring_layout(graph, pos=pos, fixed=fixed, k=k, seed=seed)
         return graph, pos
 
-    def draw(self, seed=None, k=.25, path=None):
+    def draw(self, seed=None, k=.25, path=None, replace=None, tol=20):
         """
         Draw a hypegraph using a force-based layout algorithm.
 
@@ -1687,6 +1687,8 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
             nodelist=nodelist, node_size=node_size,
             node_color="white", edgecolors="black")
         if path is not None:
-            plt.savefig(path)
-            plt.close()
+            try:
+                backend.savefig(path, replace=replace, tol=tol)
+            finally:
+                plt.close()
         plt.show()

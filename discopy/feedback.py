@@ -40,9 +40,9 @@ endofunctor :meth:`Diagram.delay`, shortened to `.d` and a method
 >>> x, y, m = map(Ty, "xym")
 >>> f = Box('f', x @ m.delay(), y @ m)
 >>> Equation(f, f.feedback(), symbol="$\\\\mapsto$").draw(
-...     path="docs/_static/feedback/feedback-operator.svg")
+...     path="docs/_static/feedback/feedback-axiom.svg")
 
-.. image:: /_static/feedback/feedback-operator.svg
+.. image:: /_static/feedback/feedback-axiom.svg
     :align: center
 
 such that the following equations are satisfied:

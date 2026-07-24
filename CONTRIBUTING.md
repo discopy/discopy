@@ -173,11 +173,10 @@ Example
     :align: center
 ```
 
-You do not need to commit these images yourself: on every pull request the
-`docs-static` job in the [build workflow](.github/workflows/build.yml) reuses
-the images drawn by the test run and, whenever one actually changed, commits the
-regenerated `docs/_static` back to your branch. If you do commit images by hand,
-avoid pushing changes that are only due to minor glitches e.g. font aliasing.
+If the image already exists, drawing the example checks it against the
+committed baseline and raises an error when they differ. To update an image,
+pass `replace=True`, or set `discopy.config.OVERRIDE_DOCS_IMAGES = True` before
+running the tests to regenerate all documentation images.
 
 ## Request features
 

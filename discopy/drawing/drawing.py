@@ -50,6 +50,89 @@ Axioms
 
 .. image:: /_static/drawing/interchanger-2.svg
     :align: center
+
+Gallery
+-------
+
+The drawing parameters below are exercised by the documentation itself.
+
+>>> from discopy import monoidal
+>>> Ty, Box, Id = monoidal.Ty, monoidal.Box, monoidal.Diagram.id
+>>> x = Ty('x')
+
+Boxes and wires reserve enough horizontal space for their labels:
+
+>>> (Box('f', x, x @ x)
+...  >> Box('a_box_with_a_very_long_name', x @ x, x)
+...  >> Box('g', x, x)).draw(
+...      aspect='equal', path="docs/_static/drawing/long-box-name.svg")
+>>> (Box('$\\\\Lambda$', x, x, min_width=3) @ Box('f', x, x)).draw(
+...     aspect='equal', path="docs/_static/drawing/box-min-width.svg")
+>>> long_type = Ty('a_long_type_name')
+>>> long_type.inside[0].min_right_margin = 1.5
+>>> Id(x @ long_type @ x).draw(
+...     aspect='equal', path="docs/_static/drawing/wire-min-right-margin.svg")
+>>> custom = Ty('custom_margin_wire')
+>>> custom.inside[0].right_margin = 3
+>>> Id(x @ custom @ x).draw(
+...     aspect='equal', path="docs/_static/drawing/wire-custom-margin.svg")
+>>> Box('f', x, x @ Ty('a_long_output_type')).draw(
+...     aspect='equal', path="docs/_static/drawing/wire-auto-margin.svg")
+>>> (Box('$\\\\int_a^b f(x)\\\\,dx = \\\\sqrt{2}$', x, x)
+...  @ Box('f', x, x)).draw(
+...      aspect='equal', path="docs/_static/drawing/long-latex-name.svg")
+
+Bubbles, grammatical diagrams and quantum circuits use the same backend:
+
+>>> (x @ Box('s', Ty(), Ty())).bubble().draw(
+...     wire_labels=False,
+...     path="docs/_static/drawing/bubble-straight-wire.svg")
+>>> from discopy.compact import (
+...     Cap, Ty as RTy, Box as RBox, Id as RId)
+>>> n, s = map(RTy, 'ns')
+>>> who = (Cap(n.r, n) >> RId(n.r) @ RBox('copy', n, n @ n)
+...        >> RId(n.r @ n) @ Cap(s, s.l) @ RId(n)
+...        >> RId(n.r) @ RBox('update', n @ s, s) @ RId(s.l @ n))
+>>> who.draw(aspect='equal', path="docs/_static/drawing/who-ansatz.svg")
+>>> from discopy.grammar.categorial import Eval, Ty as CTy, Word
+>>> s, n = map(CTy, 'sn')
+>>> sentence = (Word('Alice', n) @ Word('loves', (n >> s) << n)
+...             @ Word('Bob', n) >> n @ Eval((n >> s) << n) >> Eval(n >> s))
+>>> sentence.draw(
+...     aspect='equal', path="docs/_static/drawing/categorial-grammar.svg")
+>>> from discopy.quantum.zx import Z, X, Id as ZId, SWAP
+>>> bialgebra = (Z(1, 2) @ Z(1, 2) >> ZId(1) @ SWAP @ ZId(1)
+...              >> X(2, 1) @ X(2, 1))
+>>> (bialgebra + bialgebra).draw(
+...     aspect='equal', path="docs/_static/drawing/bialgebra.svg")
+>>> from discopy.quantum import qubit, H, sqrt, Bra, Ket, CX
+>>> bell = sqrt(2) >> Ket(0, 0) >> H @ qubit >> CX >> Bra(0) @ qubit
+>>> bell.draw(aspect='equal', path="docs/_static/drawing/bell-state.svg")
+>>> from discopy.quantum import Controlled, CZ
+>>> circuit = (Controlled(CX.l, distance=3)
+...            >> Controlled(Controlled(CZ.l, distance=2), distance=-1))
+>>> circuit.draw(
+...     wire_labels=False, path="docs/_static/drawing/long-controlled.svg")
+
+Coloured regions are also checked as part of the gallery:
+
+>>> Colour, Wire = monoidal.Colour, monoidal.Wire
+>>> ol, o1, o2, o_r, o3, o4 = map(
+...     Colour, ("red", "orange", "gold", "green", "blue", "purple"))
+>>> il, i1, i_r, i2 = map(
+...     Colour, ("cyan", "magenta", "brown", "pink"))
+>>> outer_dom = Ty(
+...     Wire("d", ol, o1), Wire("c", o1, o2), Wire("c", o2, o_r))
+>>> outer_cod = Ty(
+...     Wire("b", ol, o3), Wire("a", o3, o4), Wire("a", o4, o_r))
+>>> inner_dom = Ty(Wire("a", il, i1), Wire("b", i1, i_r))
+>>> inner_cod = Ty(Wire("c", il, i2), Wire("d", i2, i_r))
+>>> Box("f", inner_dom, inner_cod).bubble(
+...     dom=outer_dom, cod=outer_cod, name="g").draw(
+...         wire_labels=False, path="docs/_static/drawing/coloured-bubble.svg")
+
+.. image:: /_static/drawing/coloured-bubble.svg
+    :align: center
 """
 
 

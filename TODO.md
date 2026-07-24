@@ -8,7 +8,7 @@ User prompts, verbatim:
 
 ## Checklist
 
-- [WIP] @codex-2026-07-24 20:06 Replace the separate drawing fixture workflow with documentation images
+- [x] @codex-2026-07-24 20:06 Replace the separate drawing fixture workflow with documentation images
       as executable drawing baselines, including safe compare/replace behavior,
       migrated examples, concise tests, and full verification.
 
