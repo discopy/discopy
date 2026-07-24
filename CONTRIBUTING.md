@@ -5,7 +5,9 @@
 
 Thank you for considering contributing to DisCoPy, we're so excited to have you here! If you got this far, you are already part of a new generation of engineers, scientists and mathematicians making equations and programs free of the one-dimensional cave in which they are being chained.
 
-This is an open source project which started as part of [two PhD theses](https://docs.discopy.org/en/main/extra/papers.html#phd-theses) i.e. we come from academia and we are always enthusiastic about collaboration, sharing ideas and their implementations.
+This is an open source project which started as part of [two PhD theses](https://docs.discopy.org/en/main/extra/papers.html#phd-theses) i.e. we come from academia and we are always enthusiastic about sharing ideas and their implementations.
+
+Please read the [STYLE.md](STYLE.md) for guidelines which encapsulate some our coding philosophy.
 
 ## Make a first contribution
 
@@ -91,6 +93,10 @@ generate it once on the CI runner (`workflow_dispatch` on `main`, with
 `benchmark/baseline.json`. The `benchmark` GitHub workflow runs the suite on pull
 requests (smoke sizes) and on `main` / manual dispatch (full sizes), uploading the
 report as an artifact.
+
+A benchmarking job is available in the CI pipeline. By default, it is running only
+on the main branch, but you can enable it on your pull requests by attaching the
+tag `benchmark`.
 
 ## Build the docs
 
@@ -186,24 +192,13 @@ If your request is for some general abstract nonsense that can be used throughou
 We take our pull request reviews to the same level of rigour and courtesy as our academic peer reviews.
 That is, we do our best to make sure that critical parts of the reasoning / implementation are correct but we also know there can be a next PR / paper fixing our mistakes.
 
-## Code style guide
-
-- **DisCoPy is pure.** Diagram composition should never cause side-effects, only functor application does when the codomain is effectful.
-- **DisCoPy is deterministic.** Even in their internal representation, data structures should not depend on sources of non-determinism (e.g. hashing).
-- **DisCoPy is transparent.** `eval(repr(x)) == x` should always be true and `eval(str(x)) == x` should be true assuming the obvious variable naming convention e.g. `x, y = Ob("x"), Ob("y")` and `f = Box("f", x, y)`. This `str(x)` should be as close as possible to what a mathematician would write on the board.
-- **DisCoPy has no secrets.** We avoid using private or semiprivate attributes and let the user see the internals of each data structure. We expose the interface of every subprocedure as methods that can be tested and reused.
-- **DisCoPy cares about naming.** Classes and methods should have short descriptive names, when possible the names correspond to well-known mathematical definitions.
-- **DisCoPy speaks for itself.** The code should be clear enough that it doesn't need comments, only documentation with links to mathematical definitions.
-- **DisCoPy does not show off.** If there is a simpler way to name or explain something, don't make it sound more complicated.
-- **DisCoPy never repeats itself.** The identity and composition of diagrams are defined once in `cat`, not in every level of the hierarchy. If there's duplicate code then you're probably working at the wrong level of abstraction.
-- **DisCoPy aims at never nesting.** We believe if your code goes beyond three levels deep then you're probably working at the wrong level of abstraction.
-
 ## LLM guidelines
 
 We accept contributions from large language models so long as they are explicitly indicated as such.
-We recommend using our [AGENTS.md](AGENTS.md) in your prompts so that the model has enough context to give quality results.
+The [RULES.md](RULES.md) bind every agent writing code in this repo, it implements a mutex protocol that aims to prevent conflicts and duplicate work.
+Use our [AGENTS.md](AGENTS.md) in your prompts so that the model has enough context to give quality results.
 
 LLMs have shifted the bottleneck of software development from writing code to reviewing it, please ensure that your AI assistants save more human time than they require to supervise them.
 In particular, AI contributions should be small (a thousand lines is a red line not to cross lightly) and well-planned (delegate the execution not the design).
 
-One specific guideline for PR descriptions: it's fine to have the detailed list of changes LLM-generated but the high-level description should be either written by a human or quoting a human's prompt verbatim.
+One specific guideline for PR descriptions: it's fine to have the detailed list of changes LLM-generated but the high-level description should be either a) written by a human, b) linking to a human-written prompt or c) quoting a human's prompt verbatim.

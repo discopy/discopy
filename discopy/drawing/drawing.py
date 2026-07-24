@@ -14,7 +14,6 @@ Summary
     Point
     PlaneGraph
     Drawing
-    Equation
 
 Axioms
 ------
@@ -22,6 +21,7 @@ Axioms
 * Associativity and unit
 
 >>> from discopy.monoidal import Ty, Box
+>>> from discopy.monoidal import Equation
 
 >>> x, y, z, w = map(Ty, "xyzw")
 >>> f = Box('f', x, y).to_drawing()
@@ -983,59 +983,3 @@ class Drawing(TracedCategory, RichDisplay):
 
     def to_drawing(self):
         return self
-
-
-class Equation(RichDisplay):
-    """
-    An equation is a list of diagrams with a dedicated draw method.
-
-    Parameters:
-        terms : The terms of the equation.
-        symbol : The symbol between the terms.
-        space : The space between the terms.
-
-    Example
-    -------
-    >>> from discopy.tensor import Spider, Swap, Dim, Id
-    >>> dim = Dim(2)
-    >>> mu, eta = Spider(2, 1, dim), Spider(0, 1, dim)
-    >>> delta, upsilon = Spider(1, 2, dim), Spider(1, 0, dim)
-    >>> special = Equation(mu >> delta, Id(dim))
-    >>> frobenius = Equation(
-    ...     delta @ Id(dim) >> Id(dim) @ mu,
-    ...     mu >> delta,
-    ...     Id(dim) @ delta >> mu @ Id(dim))
-    >>> Equation(special, frobenius, symbol=', ').draw(
-    ...          aspect='equal', wire_labels=False,
-    ...          path='docs/_static/drawing/frobenius-axioms.svg')
-
-    .. image:: /_static/drawing/frobenius-axioms.svg
-        :align: center
-    """
-    def __init__(self, *terms: "monoidal.Diagram", symbol="=", space=1):
-        self.terms, self.symbol, self.space = terms, symbol, space
-
-    def __repr__(self):
-        return f"Equation({', '.join(map(repr, self.terms))})"
-
-    def __str__(self):
-        return f" {self.symbol} ".join(map(str, self.terms))
-
-    def to_drawing(self):
-        result = self.terms[0].to_drawing()
-        for term in self.terms[1:]:
-            result = result.add(term.to_drawing(), self.symbol, self.space)
-        return result
-
-    def draw(self, path=None, **params):
-        """
-        Drawing an equation.
-
-        Parameters:
-            path : Where to save the drawing.
-            params : Passed to :meth:`discopy.monoidal.Diagram.draw`.
-        """
-        return self.to_drawing().draw(path=path, **params)
-
-    def __bool__(self):
-        return all(term == self.terms[0] for term in self.terms)

@@ -393,10 +393,10 @@ z
 "/>
     </defs>
     <g clip-path="url(#pd3ba3cf658)">
-     <use xlink:href="#C0_0_e4afccc1e4" x="468" y="108" style="fill: #ffffff; stroke: #ffffff"/>
+     <use xlink:href="#C0_0_e4afccc1e4" x="252" y="108" style="fill: #ffffff; stroke: #ffffff"/>
     </g>
     <g clip-path="url(#pd3ba3cf658)">
-     <use xlink:href="#C0_0_e4afccc1e4" x="252" y="108" style="fill: #ffffff; stroke: #ffffff"/>
+     <use xlink:href="#C0_0_e4afccc1e4" x="468" y="108" style="fill: #ffffff; stroke: #ffffff"/>
     </g>
    </g>
    <g id="text_1">
@@ -543,33 +543,6 @@ z
    </g>
    <g id="text_18">
     <g clip-path="url(#pd3ba3cf658)">
-     <!-- $\mapsto$ -->
-     <g transform="translate(460.62 111.31125) scale(0.12 -0.12)">
-      <defs>
-       <path id="DejaVuSans-21a6" d="M 4175 1741 
-L 897 1741 
-L 897 663 
-L 366 663 
-L 366 3350 
-L 897 3350 
-L 897 2272 
-L 4175 2272 
-L 3447 3000 
-L 3822 3375 
-L 5050 2147 
-L 5050 1866 
-L 3822 638 
-L 3447 1013 
-L 4175 1741 
-z
-" transform="scale(0.015625)"/>
-      </defs>
-      <use xlink:href="#DejaVuSans-21a6" transform="translate(19.482422 0.265625)"/>
-     </g>
-    </g>
-   </g>
-   <g id="text_19">
-    <g clip-path="url(#pd3ba3cf658)">
      <!-- $\mapsfrom$ -->
      <g transform="translate(244.62 111.31125) scale(0.12 -0.12)">
       <defs>
@@ -592,6 +565,33 @@ z
 " transform="scale(0.015625)"/>
       </defs>
       <use xlink:href="#DejaVuSans-21a4" transform="translate(19.482422 0.265625)"/>
+     </g>
+    </g>
+   </g>
+   <g id="text_19">
+    <g clip-path="url(#pd3ba3cf658)">
+     <!-- $\mapsto$ -->
+     <g transform="translate(460.62 111.31125) scale(0.12 -0.12)">
+      <defs>
+       <path id="DejaVuSans-21a6" d="M 4175 1741 
+L 897 1741 
+L 897 663 
+L 366 663 
+L 366 3350 
+L 897 3350 
+L 897 2272 
+L 4175 2272 
+L 3447 3000 
+L 3822 3375 
+L 5050 2147 
+L 5050 1866 
+L 3822 638 
+L 3447 1013 
+L 4175 1741 
+z
+" transform="scale(0.015625)"/>
+      </defs>
+      <use xlink:href="#DejaVuSans-21a6" transform="translate(19.482422 0.265625)"/>
      </g>
     </g>
    </g>

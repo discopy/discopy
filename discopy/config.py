@@ -6,6 +6,7 @@ from discopy.utils import text_width
 
 DEFAULT_BACKEND = 'numpy'
 NUMPY_THRESHOLD = 16
+MAX_EINSUM_INDICES = 52
 IGNORE_WARNINGS = [
     "No GPU/TPU found, falling back to CPU.",
     "Casting complex values to real discards the imaginary part"]

@@ -72,13 +72,13 @@ def test_fibonacci():
         y = fby(zero.head(), plus.d(fby.d(one.head.d(), wait.d(x)), x))
         return (y, y)
 
-    with Diagram.hypergraph_equality:
-        assert fib == (
-            copy.d >> one.head.d @ wait.d @ X.d
-                >> fby.d @ X.d
-                >> plus.d
-                >> zero.head @ X.d
-                >> fby >> copy).feedback()
+    fib_ = (
+        copy.d >> one.head.d @ wait.d @ X.d
+            >> fby.d @ X.d
+            >> plus.d
+            >> zero.head @ X.d
+            >> fby >> copy).feedback()
+    assert Equation(fib.arg, fib_.arg)
 
     F = Functor(
         ob_map={X: (int, )},
