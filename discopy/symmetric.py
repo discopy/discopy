@@ -135,7 +135,8 @@ from discopy.abc import SymmetricCategory
 from discopy.cat import factory
 from discopy.monoidal import Wire, Ty, PRO  # noqa: F401
 from discopy.python import finset
-from discopy.utils import AxiomError, factory_name, assert_isinstance
+from discopy.utils import (
+    AxiomError, factory_name, assert_isinstance, from_tree)
 
 
 @factory
@@ -248,8 +249,9 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         :class:`Permutation` box, or the identity diagram if ``perm`` is the
         identity, so that no diagram ever contains an identity permutation.
 
-        Every operation on permutation boxes factors through this method,
-        which is the inverse of taking the ``perm`` attribute of its result.
+        Every operation on permutation boxes factors through this method: its
+        images, i.e. permutation boxes and identity diagrams, are exactly the
+        values allowed at even positions of a :class:`Layer`.
 
         Parameters:
             perm : A permutation, as a sequence of integers or a
@@ -376,6 +378,22 @@ class Permutation(Box):
         >>> assert Equation(perm.to_swaps(), perm)
         """
         return self.ar.permutation(self.perm, self.dom)
+
+    def to_tree(self) -> dict:
+        """
+        Serialise a permutation, see :func:`discopy.utils.dumps`.
+
+        >>> from discopy.utils import dumps, loads
+        >>> x, y = Ty('x'), Ty('y')
+        >>> assert loads(dumps(Permutation(x @ y, [1, 0])))\\
+        ...     == Permutation(x @ y, [1, 0])
+        """
+        return dict(factory=factory_name(type(self)),
+                    dom=self.dom.to_tree(), perm=list(self.perm))
+
+    @classmethod
+    def from_tree(cls, tree: dict) -> Permutation:
+        return cls(from_tree(tree['dom']), tree['perm'])
 
     def then(self, *others):
         """
