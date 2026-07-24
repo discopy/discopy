@@ -164,3 +164,15 @@ each `f_i` is a non-permutation generator. `Swap` remains distinct from
   through arity 5; tensor laws passed through arity 3 on each side.
 - Current and earlier PR-era symmetric box and diagram JSON/pickle
   representations normalise to permutation-valued layer slots.
+
+## Review follow-up (2026-07-24)
+
+Instruction from Alexis, verbatim:
+
+> added some review on symmetric.Layer, you haven't done a much better job
+> than Claude I must say
+
+- [WIP] @codex-2026-07-24T20:02+0530 Address every unresolved actionable
+        review thread by simplifying `symmetric.Layer`, removing redundant
+        hierarchy-specific factories and private validation machinery, and
+        rerunning the full verification suite.
