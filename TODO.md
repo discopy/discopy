@@ -13,7 +13,7 @@ User prompt, verbatim:
       previous fix: unjustified `x0, y0, z0` rename and duplicate `x, y, m`
       assignment in feedback.py, and the unused `tol` parameter on
       `Hypergraph.draw`; merge main into the branch.
-- [ ] Make `utils.text_width` system-independent: it measures glyph extents
+- [WIP] @claude-2026-07-24 17:22 Make `utils.text_width` system-independent: it measures glyph extents
       with `TextPath` so baselines drawn on different freetype versions
       drift, e.g. `long-box-name.svg` (218.88pt vs 218.952pt).
 
