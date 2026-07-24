@@ -9,7 +9,7 @@ Instruction from Alexis (@toumix), verbatim:
 
 ## Checklist
 
-- [ ] Investigate the tensor-of-layers semantics: map every call path into
+- [WIP] @bridge-2026-07-22 Investigate the tensor-of-layers semantics: map every call path into
       `Permutation.tensor` (`abc.whisker`, `Layer.__matmul__`/`__rmatmul__`,
       direct calls) and pin down which branches are live.
 - [ ] Refactor `Permutation.then`/`tensor`/`dagger`/`__rmatmul__` so they all
