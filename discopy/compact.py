@@ -114,6 +114,16 @@ class Swap(symmetric.Swap, ribbon.Braid, Box):
     """
 
 
+class Permutation(symmetric.Permutation, Box):
+    """
+    A compact permutation is a symmetric permutation in a compact category.
+
+    Parameters:
+        dom (pivotal.Ty) : The domain, i.e. the wires to permute.
+        perm : The permutation as a :class:`finset.Permutation` or a list.
+    """
+
+
 class Functor(symmetric.Functor, ribbon.Functor):
     """
     A compact functor is both a symmetric functor and a ribbon functor.
@@ -127,7 +137,7 @@ class Functor(symmetric.Functor, ribbon.Functor):
     dom = cod = Diagram
 
     def __call__(self, other):
-        if isinstance(other, Swap):
+        if isinstance(other, (Swap, Permutation)):
             return symmetric.Functor.__call__(self, other)
         return ribbon.Functor.__call__(self, other)
 
@@ -142,6 +152,7 @@ Id = Diagram.id
 
 Diagram.braid_factory = Swap
 Diagram.functor_factory = Functor
+Diagram.permutation_factory = Permutation
 Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap

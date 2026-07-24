@@ -24,6 +24,11 @@ LAYERS_MUST_BE_ODD = "Layers must have an odd number of boxes and types."
 NOT_MERGEABLE = "Layers {} and {} cannot be merged."
 INTERCHANGER_ERROR = "Boxes {} and {} do not commute."
 WRONG_PERMUTATION = "Expected a permutation of length {}, got {}."
+IDENTITY_PERMUTATION = (
+    "The identity permutation is the identity diagram, "
+    "use Permutation.id or Diagram.id instead.")
+PERMUTATION_AT_ODD_INDEX = (
+    "Permutations must be at even indices of a Layer, boxes at odd indices.")
 ZERO_DISTANCE_CONTROLLED = "Zero-distance controlled gates are ill-defined."
 HAS_NO_ATTRIBUTE = "{!r} object has no attribute {!r}"
 WRONG_DOM = "Expected inside.dom == {}, got {} instead."

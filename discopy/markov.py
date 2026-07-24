@@ -172,6 +172,16 @@ class Swap(symmetric.Swap, Box):
     """
 
 
+class Permutation(symmetric.Permutation, Box):
+    """
+    A permutation in a Markov category.
+
+    Parameters:
+        dom (monoidal.Ty) : The domain, i.e. the wires to permute.
+        perm : The permutation as a :class:`finset.Permutation` or a list.
+    """
+
+
 class Trace(symmetric.Trace, Box):
     """
     A trace in a Markov category.
@@ -310,6 +320,7 @@ Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.braid_factory = Swap
+Diagram.permutation_factory = Permutation
 Diagram.trace_factory = Trace
 Diagram.discard_factory = Discard
 Diagram.sum_factory = Sum
