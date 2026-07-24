@@ -72,6 +72,7 @@ from discopy.utils import (
     AxiomError,
     get_origin,
     MappingOrCallable,
+    RichDisplay,
 )
 
 if TYPE_CHECKING:
@@ -736,7 +737,7 @@ class Layer(cat.Box):
 
 
 @factory
-class Diagram(cat.Arrow, MonoidalCategory):
+class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
     """
     A diagram is a tuple of composable layers :code:`inside` with a pair of
     types :code:`dom` and :code:`cod` as domain and codomain.
@@ -1575,7 +1576,7 @@ class CMap(cmap.CMap):
     require_connected = True
 
 
-class Equation(cat.Equation):
+class Equation(cat.Equation, RichDisplay):
     """
     An :class:`.cat.Equation` of diagrams, i.e. with a :meth:`draw` method.
 

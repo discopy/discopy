@@ -64,7 +64,7 @@ from discopy.drawing import backend, Node, Point
 from discopy.config import BOX_DRAWING_ATTRIBUTES
 from discopy.abc import TracedCategory
 from discopy.utils import (
-    assert_isinstance, assert_iscomposable, unbiased, factory)
+    assert_isinstance, assert_iscomposable, unbiased, factory, RichDisplay)
 
 if TYPE_CHECKING:
     from discopy import monoidal
@@ -85,7 +85,7 @@ class PlaneGraph(NamedTuple):
 
 @factory
 @dataclass
-class Drawing(TracedCategory):
+class Drawing(TracedCategory, RichDisplay):
     """
     A drawing is a plane graph with designated input and output types.
 
