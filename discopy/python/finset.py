@@ -127,9 +127,6 @@ class Permutation(Function, SymmetricCategory):
             return tuple(self)[key]
         return super().__getitem__(key % len(self))
 
-    def __len__(self) -> int:
-        return self.cod
-
     def __repr__(self) -> str:
         return repr(tuple(self))
 
