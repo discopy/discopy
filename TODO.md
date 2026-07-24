@@ -9,6 +9,9 @@ Instruction from Alexis (@toumix), verbatim:
 
 ## Checklist
 
+- [WIP] @codex-2026-07-24T12:46+0530 Refactor the PR around one explicit
+      symmetric-layer invariant, remove incidental complexity, and verify the
+      result against focused and full tests.
 - [x] Investigate the tensor-of-layers semantics: map every call path into
       `Permutation.tensor` (`abc.whisker`, `Layer.__matmul__`/`__rmatmul__`,
       direct calls) and pin down which branches are live.
@@ -65,3 +68,17 @@ Instruction from Alexis (@toumix), verbatim:
   now structural.
 - Found and fixed `dumps`/`loads` breaking on `Permutation` boxes
   (`to_tree`/`from_tree` added).
+
+## Codex refactor pass
+
+Instruction from Alexis, verbatim:
+
+> Refactor this symmetric Layer PR after Claude did a messy job
+> https://github.com/discopy/discopy/pull/362
+
+The mathematical object is a tensor product whose even factors are symmetry
+morphisms and whose odd factors are non-symmetry boxes. Identity symmetries are
+stored as their boundary type, non-identity symmetries as `Permutation`, and
+the concatenated domains and codomains determine the layer boundaries. The
+implementation should enforce that alternating representation in one place;
+composition and whiskering should reuse the existing diagram operations.
