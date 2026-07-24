@@ -9,7 +9,7 @@ Instruction from Alexis (@toumix), verbatim:
 
 ## Checklist
 
-- [WIP] @codex-2026-07-24T12:46+0530 Refactor the PR around one explicit
+- [x] @codex-2026-07-24T12:46+0530 Refactor the PR around one explicit
       permutation-storage invariant, remove incidental complexity, and verify
       the result against focused and full tests.
 - [x] Investigate the tensor-of-layers semantics: map every call path into
@@ -94,20 +94,24 @@ without rewriting the drawing graph.
 - [x] Make `finset.Function` a real `Sequence`; permutation indexing now uses
       normal Python bounds instead of modulo wraparound.
 - [x] Remove generated asset churn; let the `docs-static` job regenerate it.
-- [ ] Merge current `main`, run the full lint/test/coverage suite, and update
-      the PR title and description.
+- [x] Merge current `main` and run the full lint/test/coverage suite.
+- [x] Prepare replacement PR title and description. The GitHub integration
+      rejected the metadata update with HTTP 403, and `gh` has no authenticated
+      host in this environment.
 
 ## Verification (2026-07-24, @codex)
 
 - Merged `origin/main` at `b365bfa4`.
 - `uv run pflake8 discopy` is clean.
-- Focused post-merge suite: 91 passed.
-- Full suite: 763 passed, 1 skipped; the only 4 failures require the external
+- Post-audit focused suites: 108 tests and 57 doctests passed.
+- Full suite: 766 passed, 1 skipped; the only 4 failures require the external
   Graphviz `dot` executable, which is not installed in this environment.
 - Coverage after the full run: 98%.
 - Exhaustive permutation and compact-rotation laws passed through arity 5;
   serialization and category-factory ownership passed across symmetric,
   compact, Markov, and inherited descendant categories.
+- Native permutations survive foliation as boxes, and a 1,100-wire reverse
+  permutation converts directly to a hypergraph without recursive swaps.
 
 ## Unrelated pre-existing drawing issues observed
 

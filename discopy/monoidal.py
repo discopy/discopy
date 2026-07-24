@@ -1033,6 +1033,9 @@ class Diagram(cat.Arrow, MonoidalCategory):
                     getattr(obj, "l", obj) == getattr(obj, "r", obj)
                     for obj in graph.spider_types):
             return graph.to_diagram()
+        return self._merge_layers()
+
+    def _merge_layers(self):
         diagram = self
         while len(diagram) > 1:
             keep_on_going = False
@@ -1504,7 +1507,8 @@ class Functor(cat.Functor):
             return self._map_colour(other)
         if isinstance(other, PRO):
             result = self._map_atomic(other.factory(1))
-            return sum(other.n * [result], self.cod.ob())
+            unit = result[:0] if isinstance(result, Ty) else self.cod.ob()
+            return sum(other.n * [result], unit)
         if isinstance(other, Dim):
             return sum([self.ob_map[x] for x in other], self.cod.ob())
         if isinstance(other, Ty):

@@ -417,6 +417,7 @@ def test_PRO_Functor():
 
     G = Functor(lambda x: x @ x, lambda f: f, cod=PRODiagram)
     assert G(PRO(2)) == PRO(4)
+    assert Functor(lambda x: x, lambda f: f)(PRO(2)) == PRO(2)
 
 
 def test_Functor_sum():

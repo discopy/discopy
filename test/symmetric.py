@@ -176,11 +176,30 @@ def test_Permutation_foliation():
     f0, f1 = Box("f0", w, x), Box("f1", z, y)
     g0, g1 = Box("g0", y, z), Box("g1", x, w)
     reverse = Permutation(x @ y @ z @ w, [3, 2, 1, 0])
-    diagram = (reverse >> f0 @ f1 @ g0 @ g1).foliation()
-    assert diagram.inside == (
+    diagram = reverse >> f0 @ f1 @ g0 @ g1
+    foliated = diagram.foliation()
+    assert Equation(diagram, foliated)
+    assert foliated.depth() == 1
+    assert foliated.inside == (
         monoidal.Layer(Ty(), reverse, Ty()), monoidal.Layer(
             Ty(), f0, Ty(), f1, Ty(), g0, Ty(), g1, Ty()))
-    assert diagram.boxes == [reverse, f0, f1, g0, g1]
+    assert foliated.boxes == [reverse, f0, f1, g0, g1]
+
+
+def test_large_Permutation_to_hypergraph():
+    x, n = Ty("x"), 1100
+    perm = Permutation(x ** n, reversed(range(n)))
+    graph = perm.to_hypergraph()
+    assert graph.boxes == ()
+    assert graph.cod_wires == tuple(reversed(range(n)))
+
+
+def test_default_Permutation_to_hypergraph():
+    perm = Diagram.from_permutation([2, 1, 0])
+    graph = perm.to_hypergraph()
+    assert graph.cod == PRO(3)
+    assert graph.cod_wires == (2, 1, 0)
+    assert Equation(perm, perm.to_swaps())
 
 
 def test_Functor_on_composite_types():

@@ -284,6 +284,18 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         """ Simplify by translating back and forth to hypergraph. """
         return self.to_hypergraph().to_diagram()
 
+    def foliation(self):
+        """
+        Merge independent boxes while keeping native permutations as boxes.
+
+        >>> x, y = Ty('x'), Ty('y')
+        >>> perm = Permutation(x @ y, [1, 0])
+        >>> assert perm.foliation() == perm
+        """
+        if any(isinstance(box, Permutation) for box in self.boxes):
+            return self._merge_layers()
+        return super().foliation()
+
     def depth(self):
         """
         The depth of a symmetric diagram.
@@ -454,7 +466,8 @@ class Functor(balanced.Functor):
         if isinstance(other, Swap):
             return self.cod.swap(self(other.dom[0]), self(other.dom[1]))
         if isinstance(other, Permutation):
-            if hasattr(self.cod, "from_permutation"):
+            if hasattr(self.cod, "from_permutation")\
+                    or hasattr(self.cod, "permutation"):
                 lengths = [len(self(x)) for x in other.dom]
                 offsets = [0]
                 for length in lengths:
@@ -462,7 +475,10 @@ class Functor(balanced.Functor):
                 perm = [
                     offsets[i] + j
                     for i in other.perm for j in range(lengths[i])]
+            if hasattr(self.cod, "from_permutation"):
                 return self.cod.from_permutation(perm, self(other.dom))
+            if hasattr(self.cod, "permutation"):
+                return self.cod.permutation(perm, self(other.dom))
             return self(other.to_swaps())
         return super().__call__(other)
 
