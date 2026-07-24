@@ -577,15 +577,17 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         Foliate into a list of symmetric :class:`Layer`, encoding permutations
         natively rather than as networks of swaps.
 
-        Boxes are scheduled greedily, in place: scanning the wires from left to
-        right, a box happens as soon as its input wires are already lined up in
-        the right order, otherwise the wire is left as an identity. A
-        :class:`Permutation`-only layer is inserted only when no box can happen
-        without reordering, and just brings the next box's inputs together.
-        This avoids the gratuitous swaps of an ASAP schedule that gathers every
-        box to the left, at the cost of occasionally using one more box-layer.
-        Identity permutations are dropped and consecutive permutation-only
-        layers are merged.
+        At each step every box whose inputs are available happens, scanning the
+        wires from left to right. A box whose inputs are already lined up in
+        the right order happens in one step; a box whose inputs are all present
+        but out of order is plugged in two steps, i.e. after a
+        :class:`Permutation`-only layer that lines it up. A single permutation
+        reorders all the boxes that need it at once and leaves the others in
+        place, so a permutation only appears when some box genuinely needs one.
+        This keeps the box-layer count equal to the depth while avoiding the
+        gratuitous swaps of an ASAP schedule that gathers every box to the
+        left. Identity permutations are dropped and consecutive
+        permutation-only layers are merged.
 
         Examples
         --------
@@ -642,51 +644,47 @@ class Diagram(balanced.Diagram, SymmetricCategory):
             return Layer(Permutation(
                 [index[w] for w in target], type_of(source)))
 
-        # --- Pass 2: schedule boxes greedily in place, scanning left to right.
+        # --- Pass 2: at each step, fire every box whose inputs are available,
+        # scanning left to right. A box whose inputs are already lined up
+        # happens in one step; one whose inputs are all present but out of
+        # order is plugged in two steps, i.e. after a permutation that lines it
+        # up. A single permutation handles all the boxes that need reordering
+        # at once and leaves the others in place, so a permutation only appears
+        # when some box genuinely needs it.
         result, frontier, remaining = [], list(range(n)), list(records)
         while remaining:
-            old, first_input, empties = list(frontier), {}, []
-            for rec in remaining:
-                if rec[1]:
-                    first_input.setdefault(rec[1][0], rec)
-                else:
-                    empties.append(rec)
+            available = [r for r in remaining if set(r[1]) <= set(frontier)]
+            by_wire = {w: r for r in available for w in r[1]}
             # Empty-domain boxes have no trigger wire, so happen straightaway.
-            segments = [("box", r) for r in empties]
-            fired, i = list(empties), 0
-            while i < len(old):
-                rec = first_input.get(old[i])
-                if rec is not None and tuple(old[i:i + len(rec[1])]) == rec[1]:
-                    segments.append(("box", rec))
-                    fired.append(rec)
-                    i += len(rec[1])
-                else:
-                    segments.append(("wire", old[i]))
-                    i += 1
-            if fired:
-                inside, block = [], []
-                for kind, val in segments:
-                    if kind == "wire":
-                        block.append(val)
-                    else:
-                        inside += [Permutation.id(type_of(block)), val[0]]
-                        block = []
-                inside.append(Permutation.id(type_of(block)))
-                result.append(Layer(*inside))
-                frontier = [w for kind, val in segments for w in (
-                    [val] if kind == "wire" else val[2])]
-                done = set(map(id, fired))
-                remaining = [r for r in remaining if id(r) not in done]
-            else:  # Nobody can happen: permute to line up the next box.
-                avail = [r for r in remaining if set(r[1]) <= set(frontier)]
-                in_wids = min(avail, key=lambda r: min(
-                    frontier.index(w) for w in r[1]))[1]
-                kept = [w for w in frontier if w not in set(in_wids)]
-                k = sum(1 for w in kept if frontier.index(w) < min(
-                    frontier.index(v) for v in in_wids))
-                target = kept[:k] + list(in_wids) + kept[k:]
+            layout = [("box", r) for r in available if not r[1]]
+            target, placed = [], set()
+            for w in frontier:
+                if w in placed:
+                    continue
+                rec = by_wire.get(w)
+                if rec is None:
+                    layout.append(("wire", w))
+                    target.append(w)
+                    placed.add(w)
+                else:  # Line up this box's whole input block in order.
+                    layout.append(("box", rec))
+                    target += list(rec[1])
+                    placed.update(rec[1])
+            if target != frontier:
                 result.append(route(frontier, target))
-                frontier = target
+            inside, block = [], []
+            for kind, val in layout:
+                if kind == "wire":
+                    block.append(val)
+                else:
+                    inside += [Permutation.id(type_of(block)), val[0]]
+                    block = []
+            inside.append(Permutation.id(type_of(block)))
+            result.append(Layer(*inside))
+            frontier = [w for kind, val in layout for w in (
+                [val] if kind == "wire" else val[2])]
+            done = set(map(id, available))
+            remaining = [r for r in remaining if id(r) not in done]
         result.append(route(frontier, output_wids))
 
         # --- Pass 3: drop identities and merge consecutive permutations.
