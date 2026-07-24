@@ -653,6 +653,12 @@ class RichDisplay:
 
     def _repr_mimebundle_(self, include=None, exclude=None) -> dict:
         data = {"image/svg+xml": self.to_svg, "image/png": self.to_png}
+        try:
+            import typst  # noqa: F401
+            if hasattr(self, "to_typst"):
+                data["text/x-typst"] = lambda: self.to_typst().render()
+        except ImportError:
+            pass
         widget_data = self._widget._repr_mimebundle_(
             include=include, exclude=exclude)[0]
         data |= widget_data

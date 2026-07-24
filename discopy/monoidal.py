@@ -948,6 +948,31 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
         cod = Drawing
         return (functor_factory or Functor)(ob, ar, dom, cod)(self)
 
+    def to_typst(self, **params):
+        """
+        Return a Typst Document AST for this diagram.
+
+        Parameters
+        ----------
+        params : Passed to :class:`Typst`.
+
+        Returns
+        -------
+        doc : Document
+            A Typst Document AST with imports and a ``cetz.canvas`` block.
+
+        Example
+        -------
+        >>> from discopy.monoidal import Ty, Box
+        >>> f = Box('f', Ty('x'), Ty('y'))
+        >>> doc = f.to_typst()
+        >>> source = doc.render()
+        >>> 'cetz' in source and 'canvas' in source
+        True
+        """
+        from discopy.drawing import to_typst
+        return to_typst(self, **params)
+
     def to_map(self) -> CMap:
         """ Translate a diagram into a combinatorial map. """
         return self.map_factory.from_diagram(self)

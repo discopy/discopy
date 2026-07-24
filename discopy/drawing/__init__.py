@@ -9,6 +9,7 @@ from discopy.drawing import backend, drawing, widget
 from discopy.drawing.backend import (
     Backend,
     TikZ,
+    Typst,
     Matplotlib,
     ATTRIBUTES,
     DEFAULT,
@@ -68,11 +69,65 @@ def draw(diagram, **params):
         Where to save the image, if `None` we call :code:`plt.show()`.
     to_tikz : bool, optional
         Whether to output tikz code instead of matplotlib.
+    format : str, optional
+        Output format: ``"svg"``, ``"png"``, or ``"typst"``.
     asymmetry : float, optional
         Make a box and its dagger mirror images, default is
         :code:`.25 * any(box.is_dagger for box in diagram.boxes)`.
     """
+    if params.get("format") == "typst":
+        drawing = diagram.to_drawing()
+        drawing.add_box_corners()
+        asymmetry = params.pop("asymmetry", 0.125 * any(
+            box.is_conjugate or box.is_transpose or (
+                box.is_dagger and not box.draw_as_braid)
+            for box in drawing.boxes))
+        backend = Typst(**params)
+        return backend.draw(drawing, asymmetry=asymmetry, **params)
     return diagram.to_drawing().draw(**params)
+
+
+def to_typst(diagram, **params):
+    """
+    Convert a diagram to a Typst Document AST.
+
+    Parameters
+    ----------
+    diagram : Diagram
+        The diagram to convert.
+    params : Passed to :class:`Typst`.
+
+    Returns
+    -------
+    doc : Document
+        A Typst Document AST that can be rendered to source text or SVG.
+
+    Example
+    -------
+    >>> from discopy.monoidal import Ty, Box
+    >>> f = Box('f', Ty('x'), Ty('y'))
+    >>> doc = to_typst(f)
+    >>> source = doc.render()
+    >>> assert 'import "@preview/cetz' in source
+    >>> assert 'bezier' in source or 'line' in source
+    """
+    from math import sqrt
+    drawing = diagram.to_drawing()
+    drawing.add_box_corners()
+    asymmetry = params.pop("asymmetry", 0.125 * any(
+        box.is_conjugate or box.is_transpose or (
+            box.is_dagger and not box.draw_as_braid)
+        for box in drawing.boxes))
+    max_v = max(drawing.height, drawing.width, 0.01)
+    params["nodesize"] = round(params.get("nodesize", 1.0) / sqrt(max_v), 3)
+    from discopy.drawing.backend import Typst as TB
+    backend = TB(**params)
+    backend.draw_boundary(drawing, **params)
+    backend.draw_regions(drawing, **params)
+    backend.draw_wires(drawing, **params)
+    backend.draw_boxes(drawing, asymmetry=asymmetry, **params)
+    backend.draw_spiders(drawing, **params)
+    return backend.to_document(**params)
 
 
 def to_gif(diagram, *diagrams, **params):  # pragma: no cover

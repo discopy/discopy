@@ -206,6 +206,11 @@ class Drawing(TracedCategory, RichDisplay):
         self.add_box_corners()
         return backend.draw(self, asymmetry=asymmetry, **params)
 
+    def to_typst(self, **params):
+        """Return a Typst Document AST for this drawing."""
+        from discopy.drawing import to_typst
+        return to_typst(self, **params)
+
     def add_box_corners(self):
         """ Recenter boxes w.r.t their wires then draw the corners. """
         for j, box in enumerate(self.boxes):
