@@ -18,6 +18,7 @@ Summary
 
 from __future__ import annotations
 from typing import Iterable, Self, Any
+from collections.abc import Sequence
 
 from dataclasses import dataclass
 
@@ -25,7 +26,7 @@ from discopy.abc import MonoidalCategory, SymmetricCategory
 
 
 @dataclass
-class Function(MonoidalCategory):
+class Function(MonoidalCategory, Sequence):
     """
     A function between finite sets encoded as a Python list.
 
@@ -60,6 +61,9 @@ class Function(MonoidalCategory):
 
     def __getitem__(self, key):
         return self.inside[key]
+
+    def __len__(self):
+        return self.cod
 
     @staticmethod
     def id(x: int = 0):
@@ -145,6 +149,11 @@ class Permutation(Function, SymmetricCategory):
         return cls(range(dom), dom)
 
     identity = id
+
+    @property
+    def is_identity(self) -> bool:
+        """ Whether this is the identity permutation. """
+        return list(self) == list(range(len(self)))
 
     @classmethod
     def from_cycles(cls, cycles: Cycles, size: int) -> Self:

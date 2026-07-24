@@ -151,6 +151,10 @@ class Ob:
     def __lt__(self, other):
         return self.name < other.name
 
+    def dagger(self) -> Ob:
+        """ The dagger of an object is the object itself. """
+        return self
+
     def to_tree(self) -> dict:
         """
         Serialise a DisCoPy object, see :func:`dumps`.

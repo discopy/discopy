@@ -128,6 +128,8 @@ permutation layer followed by a box layer.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from discopy import monoidal, balanced, traced, messages, hypergraph
 from discopy.abc import SymmetricCategory
 from discopy.cat import factory
@@ -216,15 +218,18 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         return cls.braid(left, right)
 
     @classmethod
-    def permutation(cls, xs: list[int], dom: monoidal.Ty = None) -> Diagram:
+    def permutation(cls, xs: Sequence[int], dom: monoidal.Ty = None
+                    ) -> Diagram:
         """
-        The diagram that encodes a given permutation.
+        The diagram that encodes a given permutation as a network of swaps.
 
         Parameters:
-            xs : A list of integers representing a permutation.
-            dom : A type of the same length as :code:`permutation`,
-                  default is :code:`PRO(len(permutation))`.
+            xs : A permutation, as a sequence of integers or a
+                 :class:`finset.Permutation`.
+            dom : A type of the same length as :code:`xs`,
+                  default is :code:`PRO(len(xs))`.
         """
+        xs = list(xs)
         dom = PRO(len(xs)) if dom is None else dom
         if list(range(len(dom))) != sorted(xs):
             raise ValueError(messages.WRONG_PERMUTATION.format(len(dom), xs))
@@ -234,6 +239,32 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         return cls.swap(dom[:i], dom[i]) @ dom[i + 1:]\
             >> dom[i] @ cls.permutation(
                 [x - 1 if x > i else x for x in xs[1:]], dom[:i] + dom[i + 1:])
+
+    @classmethod
+    def from_permutation(cls, perm: Sequence[int], dom: monoidal.Ty = None
+                         ) -> Diagram:
+        """
+        The diagram made of a single permutation layer, or the identity if the
+        permutation is the identity.
+
+        Unlike :meth:`permutation`, this encodes the permutation natively as a
+        :class:`Permutation` box rather than a network of swaps. Eliminating
+        identity permutations is the responsibility of this method rather than
+        the :attr:`permutation_factory`.
+
+        Examples
+        --------
+        >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
+        >>> assert Diagram.from_permutation([1, 2, 0], x @ y @ z)\\
+        ...     == Permutation(x @ y @ z, [1, 2, 0])
+        >>> assert Diagram.from_permutation(
+        ...     [0, 1, 2], x @ y @ z) == Id(x @ y @ z)
+        """
+        perm = finset.Permutation(perm, None if dom is None else len(dom))
+        dom = PRO(len(perm)) if dom is None else dom
+        if perm.is_identity:
+            return cls.id(dom)
+        return cls.permutation_factory(dom, perm)
 
     def permute(self, *xs: int) -> Diagram:
         """
@@ -284,35 +315,6 @@ class Box(balanced.Box, Diagram):
     """
 
 
-class Swap(balanced.Braid, Box):
-    """
-    The swap of atomic types :code:`left` and :code:`right`.
-
-    Parameters:
-        left : The type on the top left and bottom right.
-        right : The type on the top right and bottom left.
-
-    Important
-    ---------
-    :class:`Swap` is only defined for atomic types (i.e. of length 1).
-    For complex types, use :meth:`Diagram.swap` instead.
-    """
-    def __init__(self, left, right):
-        balanced.Braid.__init__(self, left, right)
-        Box.__init__(self, self.name, self.dom, self.cod,
-                     draw_as_wires=True, draw_as_braid=False)
-
-    def dagger(self):
-        return type(self)(self.right, self.left)
-
-    def __eq__(self, other):
-        if isinstance(other, Permutation):
-            return other == self
-        return super().__eq__(other)
-
-    __hash__ = Box.__hash__
-
-
 class Permutation(Box):
     """
     A permutation box, i.e. a :class:`Box` that reorders its input wires.
@@ -340,25 +342,18 @@ class Permutation(Box):
     """
     def __init__(self, dom: monoidal.Ty, perm):
         perm = finset.Permutation(perm, len(dom))
-        if list(perm) == list(range(len(dom))):
+        if perm.is_identity:
             raise ValueError(messages.IDENTITY_PERMUTATION)
         self.perm = perm
         cod = dom[:0].tensor(*[dom[perm[i]] for i in range(len(perm))])
         super().__init__(
             f"Permutation({dom}, {list(perm)})", dom, cod, draw_as_wires=True)
 
-    @classmethod
-    def cast(cls, dom: monoidal.Ty, perm) -> Diagram:
-        """
-        The permutation with a given domain, or the identity if ``perm`` is.
-
-        Unlike the constructor, this returns the identity diagram rather than
-        raising when ``perm`` is the identity permutation.
-        """
-        perm = finset.Permutation(perm, len(dom))
-        if list(perm) == list(range(len(dom))):
-            return cls.id(dom)
-        return cls(dom, perm)
+    @property
+    def is_identity(self) -> bool:
+        """ Whether this is the identity permutation (never true by
+        construction, as identity permutations are the identity diagram). """
+        return self.perm.is_identity
 
     def to_drawing(self):
         from discopy.drawing import Drawing
@@ -371,39 +366,38 @@ class Permutation(Box):
         >>> perm = Permutation(x @ y @ z, [1, 2, 0])
         >>> assert Equation(perm.to_swaps(), perm)
         """
-        return self.ar.permutation(list(self.perm), self.dom)
+        return self.ar.permutation(self.perm, self.dom)
 
     def then(self, other=None, *others):
         if isinstance(other, Permutation) and self.cod == other.dom:
-            result = type(self).cast(self.dom, self.perm.then(other.perm))
+            result = self.ar.from_permutation(
+                self.perm.then(other.perm), self.dom)
             return result if not others else result.then(*others)
         return super().then(other, *others)
 
     def tensor(self, other=None, *others):
         if other is None:
             return self
-        extra = None
         if isinstance(other, Permutation):
-            extra = other.perm
+            perm, dom = other.perm, other.dom
         elif isinstance(other, monoidal.Ty):
-            extra = finset.Permutation.id(len(other))
-        elif isinstance(other, Diagram) and other == other.id(other.dom):
-            extra = finset.Permutation.id(len(other.dom))
-        if extra is not None:
-            dom = self.dom @ (other if isinstance(other, monoidal.Ty)
-                              else other.dom)
-            result = type(self).cast(dom, self.perm.tensor(extra))
-            return result if not others else result.tensor(*others)
-        return super().tensor(other, *others)
+            perm, dom = finset.Permutation.id(len(other)), other
+        elif isinstance(other, Diagram) and not other.inside:  # An identity.
+            perm, dom = finset.Permutation.id(len(other.dom)), other.dom
+        else:
+            return super().tensor(other, *others)
+        result = self.ar.from_permutation(
+            self.perm.tensor(perm), self.dom @ dom)
+        return result if not others else result.tensor(*others)
 
     def dagger(self) -> Permutation:
-        return type(self)(self.cod, self.perm.dagger())
+        return self.ar.from_permutation(self.perm.dagger(), self.cod)
 
     def __rmatmul__(self, other):
         if isinstance(other, monoidal.Ty):
-            return type(self).cast(
-                other @ self.dom,
-                finset.Permutation.id(len(other)).tensor(self.perm))
+            return self.ar.from_permutation(
+                finset.Permutation.id(len(other)).tensor(self.perm),
+                other @ self.dom)
         return super().__rmatmul__(other)
 
     def __repr__(self):
@@ -480,7 +474,7 @@ class Layer(monoidal.Layer):
         super(monoidal.Layer, self).__init__(name, dom, cod)
 
     @classmethod
-    def cast(cls, box: monoidal.Box) -> Layer:
+    def cast(cls, box: "Box") -> Layer:
         """
         Turn a box into a layer, a permutation into a permutation-only layer.
 
@@ -495,9 +489,7 @@ class Layer(monoidal.Layer):
         return cls(box.dom[:0], box, box.cod[len(box.cod):])
 
     def dagger(self) -> Layer:
-        return type(self)(*(
-            x.dagger() if i % 2 or isinstance(x, Permutation) else x
-            for i, x in enumerate(self)))
+        return type(self)(*(x.dagger() for x in self))
 
     @property
     def boxes_and_offsets(self) -> list[tuple[monoidal.Box, int]]:
@@ -517,6 +509,35 @@ class Layer(monoidal.Layer):
         if any(isinstance(x, Permutation) for x in self):
             raise NotImplementedError(messages.PERMUTATION_HAS_NO_OFFSET)
         return super().boxes_and_offsets
+
+
+class Swap(balanced.Braid, Box):
+    """
+    The swap of atomic types :code:`left` and :code:`right`.
+
+    Parameters:
+        left : The type on the top left and bottom right.
+        right : The type on the top right and bottom left.
+
+    Important
+    ---------
+    :class:`Swap` is only defined for atomic types (i.e. of length 1).
+    For complex types, use :meth:`Diagram.swap` instead.
+    """
+    def __init__(self, left, right):
+        balanced.Braid.__init__(self, left, right)
+        Box.__init__(self, self.name, self.dom, self.cod,
+                     draw_as_wires=True, draw_as_braid=False)
+
+    def dagger(self):
+        return type(self)(self.right, self.left)
+
+    def __eq__(self, other):
+        if isinstance(other, Permutation):
+            return other == self
+        return super().__eq__(other)
+
+    __hash__ = Box.__hash__
 
 
 class Trace(balanced.Trace, Box):
@@ -558,13 +579,13 @@ class Functor(balanced.Functor):
     dom = cod = Diagram
 
     def __call__(self, other):
-        if isinstance(other, Permutation):
-            factory = getattr(self.cod, "permutation_factory", None)
-            if factory is not None:
-                return factory.cast(self(other.dom), list(other.perm))
-            return self(other.to_swaps())
         if isinstance(other, Swap):
             return self.cod.swap(self(other.dom[0]), self(other.dom[1]))
+        if isinstance(other, Permutation):
+            from_permutation = getattr(self.cod, "from_permutation", None)
+            if from_permutation is not None:
+                return from_permutation(list(other.perm), self(other.dom))
+            return self(other.to_swaps())
         return super().__call__(other)
 
 
