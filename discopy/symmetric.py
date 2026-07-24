@@ -500,6 +500,27 @@ class Layer(monoidal.Layer):
         super(monoidal.Layer, self).__init__(
             name, doms[0][:0].tensor(*doms), doms[0][:0].tensor(*cods))
 
+    @property
+    def is_generator(self) -> bool:
+        """
+        Whether this layer is just a single generator, i.e. whether the
+        diagram made of this layer alone is equal to that generator. This is
+        the case for a permutation-only layer, on top of the cases already
+        covered by :attr:`monoidal.Layer.is_generator`.
+
+        >>> x, y = Ty('x'), Ty('y')
+        >>> p = Permutation(x @ y, [1, 0])
+        >>> assert Layer(p).is_generator and Layer(p).generator == p
+        """
+        if len(self.boxes_or_types) == 1:
+            return True
+        return super().is_generator
+
+    @property
+    def generator(self) -> "Box":
+        return self.boxes_or_types[0] if len(self.boxes_or_types) == 1\
+            else super().generator
+
     @classmethod
     def cast(cls, box: "Box") -> Layer:
         """
@@ -512,6 +533,11 @@ class Layer(monoidal.Layer):
         >>> assert Layer.cast(p) == Layer(p)
         """
         return cls(box) if isinstance(box, Permutation) else super().cast(box)
+
+    def dagger(self) -> Layer:
+        return type(self)(*(
+            x.dagger() if i % 2 or isinstance(x, Permutation) else x
+            for i, x in enumerate(self)))
 
     def merge(self, other: Layer) -> Layer:
         """

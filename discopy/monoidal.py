@@ -666,7 +666,8 @@ class Layer(cat.Box):
         return cls(box.dom[:0], box, box.cod[len(box.cod):])
 
     def dagger(self) -> Layer:
-        return type(self)(*(x.dagger() for x in self))
+        return type(self)(*(
+            x.dagger() if i % 2 else x for i, x in enumerate(self)))
 
     @property
     def boxes_and_offsets(self) -> list[tuple[Box, int]]:

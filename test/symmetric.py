@@ -145,11 +145,10 @@ def test_permutation_factory():
     x, y, z = Ty('x'), Ty('y'), Ty('z')
     assert Diagram.permutation_factory is Permutation
     perm = Permutation(x @ y @ z, [2, 0, 1])
-    functor = Functor(ob={x: y, y: z, z: x}, ar={})
+    functor = Functor(ob_map={x: y, y: z, z: x}, ar_map={})
     assert functor(perm) == Permutation(y @ z @ x, [2, 0, 1])
-    with Diagram.hypergraph_equality:
-        assert perm == perm.to_swaps()
-        assert functor(perm) == functor(perm.to_swaps())
+    assert Equation(perm, perm.to_swaps())
+    assert Equation(functor(perm), functor(perm.to_swaps()))
 
 
 def test_Permutation_whiskering():
@@ -178,5 +177,5 @@ def test_Permutation_foliation():
 def test_Functor_on_composite_types():
     x, y, z = Ty('x'), Ty('y'), Ty('z')
     perm = Permutation(x @ y, [1, 0])
-    functor = Functor(ob={x: y @ z, y: z}, ar={})
+    functor = Functor(ob_map={x: y @ z, y: z}, ar_map={})
     assert functor(perm) == Diagram.swap(y @ z, z)

@@ -35,5 +35,4 @@ def test_Permutation():
     assert isinstance(perm, Box) and perm.cod == z @ x @ y
     assert perm >> perm.dagger() == Id(x @ y @ z)
     assert Permutation(x @ y, [1, 0]) == Swap(x, y)
-    with Diagram.hypergraph_equality:
-        assert perm == perm.to_swaps()
+    assert Equation(perm, perm.to_swaps())
