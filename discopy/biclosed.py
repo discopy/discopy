@@ -65,13 +65,14 @@ from inspect import signature
 from typing import Callable, ClassVar, Self
 
 from discopy import monoidal
-from discopy.abc import BiclosedCategory
+from discopy.abc import BiclosedCategory, ClosedCategory
 from discopy.drawing import Drawing
 from discopy.cat import factory
 from discopy.utils import (
     assert_isinstance,
     factory_name,
     from_tree,
+    get_origin,
 )
 
 
@@ -428,11 +429,24 @@ class Functor(monoidal.Functor):
             Map from atomic :class:`Ty` to :code:`cod.ob`.
         ar_map (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
+
+    Note
+    ----
+    When the codomain objects are biclosed types, the functor sends terms to
+    terms rather than evaluating them to morphisms:
+
+    >>> X, Y = Ty("X"), Ty("Y")
+    >>> f, x = (Y << X)("f"), X("x")
+    >>> F = Functor(ob_map={X: Ty("A"), Y: Ty("B")},
+    ...             ar_map={f: (Ty("B") << Ty("A"))("g"), x: Ty("A")("a")})
+    >>> assert F(f(x)) == F(f)(F(x))
     """
     dom = cod = Diagram
 
     def __call__(self, other):
         if isinstance(other, TermBase):
+            if issubclass(get_origin(self.cod.ob), Ty):
+                return other.map(self)
             return other.eval(self)
         for cls, attr in [(Over, "over"), (Under, "under"), (Exp, "exp")]:
             if isinstance(other, cls):
@@ -585,9 +599,29 @@ class TermBase(Box):
         category, i.e. terms are compiled to diagrams with constants as boxes.
         """
 
+    @abstractmethod
+    def map(functor: Functor) -> Term:
+        """
+        The image of a term under a :class:`Functor` whose codomain objects
+        are biclosed types, i.e. a term in the codomain's internal language
+        rather than a morphism.
+        """
+
+    @property
+    @abstractmethod
+    def variables(self) -> list[Variable]:
+        """The variables occurring in the term, both free and bound."""
+
     def draw(self, **kwargs):
         "Drawing a term by evaluating it in the free biclosed category."
         return self.eval().draw(**kwargs)
+
+    def to_closed(self):
+        """
+        Translate the term into the internal language of a closed category.
+        """
+        from discopy.closed import TermBase
+        return TermBase.from_biclosed(self)
 
     def __call__(self, other, left=False):
         args = (other, self, left) if left else (self, other, left)
@@ -612,8 +646,15 @@ class Constant(TermBase):
     def constants(self):
         return [self]
 
+    @property
+    def variables(self):
+        return []
+
     def eval(self, functor=None):
         functor = functor or self.functor
+        return functor.ar_map[self]
+
+    def map(self, functor):
         return functor.ar_map[self]
 
     def __repr__(self):
@@ -639,9 +680,26 @@ class Variable(TermBase):
         functor = functor or self.functor
         return functor.cod.id(functor(self.cod))
 
+    def map(self, functor):
+        return functor.cod.ob.variable_factory(self.name, functor(self.cod))
+
     @property
     def constants(self):
         return []
+
+    @property
+    def variables(self):
+        return [self]
+
+    @classmethod
+    def fresh(cls, name, cod, *terms):
+        """Construct a variable whose name does not occur in ``terms``."""
+        names = {
+            variable.name
+            for term in terms for variable in term.variables}
+        while name in names:
+            name += "_"
+        return cls(name, cod)
 
     __repr__ = Constant.__repr__
 
@@ -675,8 +733,8 @@ class Application(TermBase):
         assert_isinstance(func.cod.inside[0], Under if left else Over)
         if set(func.freevars).intersection(args.freevars):
             raise ValueError("Expected disjoint free variables.")
-        self.freevars = func.freevars + args.freevars if self.left\
-            else args.freevars + func.freevars
+        self.freevars = args.freevars + func.freevars if self.left\
+            else func.freevars + args.freevars
         return args.dom @ func.dom if left else func.dom @ args.dom
 
     def eval(self, functor=None):
@@ -688,6 +746,14 @@ class Application(TermBase):
             functor(base), functor(exponent), left=not self.left)
         return args @ func >> ev if self.left else func @ args >> ev
 
+    def map(self, functor):
+        ob = functor.cod.ob
+        func, args = functor(self.func), functor(self.args)
+        is_closed = issubclass(get_origin(functor.cod), ClosedCategory)
+        left = self.left and (
+            not is_closed or bool(func.dom) and bool(args.dom))
+        return ob.application_factory(func, args, left)
+
     def __repr__(self):
         func, args = repr(self.func), repr(self.args)
         left = ", left=True" if self.left else ""
@@ -697,6 +763,11 @@ class Application(TermBase):
     def constants(self):
         return self.args.constants + self.func.constants if self.left\
             else self.func.constants + self.args.constants
+
+    @property
+    def variables(self):
+        return list(dict.fromkeys(
+            self.func.variables + self.args.variables))
 
 
 class Abstraction(TermBase):
@@ -722,10 +793,22 @@ class Abstraction(TermBase):
         if not self.left and index != len(body_freevars) - 1:
             raise ValueError("Expected abstraction of right-most variable.")
         self.freevars = body_freevars[1:] if self.left else body_freevars[:-1]
-        return self.body.dom[1:] if self.left else self.body.dom[:-1]
+        n = len(self.var.cod)
+        return self.body.dom[n:] if self.left\
+            else self.body.dom[:len(self.body.dom) - n]
 
     def eval(self, functor=None):
-        return (functor or self.functor)(self.body.curry(left=not self.left))
+        functor = functor or self.functor
+        return functor.cod.curry(
+            self.body.eval(functor), len(functor(self.var.cod)),
+            not self.left)
+
+    def map(self, functor):
+        ob = functor.cod.ob
+        is_closed = issubclass(get_origin(functor.cod), ClosedCategory)
+        left = self.left and not is_closed
+        return ob.abstraction_factory(
+            functor(self.var), functor(self.body), left)
 
     def __repr__(self):
         var, body = repr(self.var), repr(self.body)
@@ -735,6 +818,10 @@ class Abstraction(TermBase):
     @property
     def constants(self):
         return self.body.constants
+
+    @property
+    def variables(self):
+        return list(dict.fromkeys([self.var] + self.body.variables))
 
 
 type Term = Constant | Variable | Application | Abstraction

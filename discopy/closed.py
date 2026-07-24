@@ -22,6 +22,10 @@ Summary
     Eval
     Coeval
     Curry
+    Swap
+    Trace
+    Copy
+    Discard
     Sum
     Functor
     CMap
@@ -54,6 +58,7 @@ from typing import Dict, ClassVar
 from discopy import cat, monoidal, biclosed, markov, hypergraph
 from discopy.abc import ClosedCategory
 from discopy.cat import factory
+from discopy.drawing import Drawing
 
 
 @factory
@@ -73,6 +78,24 @@ class Ty(biclosed.Ty):
     .. image:: /_static/closed/diagram.svg
         :align: center
     """
+    @classmethod
+    def from_biclosed(cls, old: biclosed.Ty) -> Ty:
+        """
+        Translate a biclosed type into a closed type, collapsing left and
+        right exponentials into a single exponential.
+
+        Parameters:
+            old : The biclosed type to translate.
+
+        Example
+        -------
+        >>> x, y = biclosed.Ty("x"), biclosed.Ty("y")
+        >>> assert Ty.from_biclosed(x << y) == Ty.from_biclosed(y >> x)
+        """
+        return cls().tensor(*[
+            cls.from_biclosed(ob.base) ** cls.from_biclosed(ob.exponent)
+            if isinstance(ob, biclosed.Exp) else cls(ob.name)
+            for ob in old.inside])
 
 
 class Exp(biclosed.Exp):
@@ -100,6 +123,32 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
     @classmethod
     def ev(cls, base: Ty, exponent: Ty, left: bool = True):
         return cls.eval_factory(exponent >> base, left=left)
+
+    @classmethod
+    def fa(cls, left, right):
+        """Forward application."""
+        return cls.ev(left, right, left=True)
+
+    @classmethod
+    def ba(cls, left, right):
+        """Backward application."""
+        return cls.ev(right, left, left=False)
+
+    @classmethod
+    def fc(cls, left, middle, right):
+        """Forward composition."""
+        return (cls.id(left ** middle) @ cls.fa(middle, right)
+                >> cls.fa(left, middle)).curry(
+                    n=len(right), left=True)
+
+    @classmethod
+    def bc(cls, left, middle, right):
+        """Backward composition."""
+        return (cls.ba(left, middle) @ cls.id(middle >> right)
+                >> cls.ba(middle, right)).curry(n=len(left))
+
+    fx = fc
+    bx = bc
 
     def to_drawing(self):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
@@ -137,6 +186,10 @@ class Copy(markov.Copy, Box):
     is_linear = False
 
 
+class Discard(markov.Discard, Copy):
+    "The discard of a closed type, i.e. a copy with zero legs."
+
+
 class Sum(markov.Sum, biclosed.Sum, Box):
     """
     A markov sum is a symmetric sum and a markov box.
@@ -162,8 +215,11 @@ class Functor(biclosed.Functor, markov.Functor):
     dom = cod = Diagram
 
     def __call__(self, other):
+        if self.cod is Drawing and isinstance(other, markov.Swap):
+            return other.to_drawing()
         if isinstance(other, (
-                cat.Ob, biclosed.Eval, biclosed.Coeval, biclosed.Curry)):
+                cat.Ob, biclosed.Eval, biclosed.Coeval, biclosed.Curry,
+                biclosed.TermBase)):
             return biclosed.Functor.__call__(self, other)
         return super().__call__(other)
 
@@ -182,7 +238,7 @@ Diagram.curry_factory = Curry
 Diagram.eval_factory = Eval
 Diagram.coeval_factory = Coeval
 Diagram.trace_factory = Trace
-Diagram.discard_factory = lambda X: Copy(X, 0)
+Diagram.discard_factory = Discard
 Diagram.sum_factory = Sum
 Ty.exp_factory = Ty.under_factory = Ty.over_factory = staticmethod(Exp)
 
@@ -195,8 +251,87 @@ class TermBase(Box, biclosed.TermBase):
     """
     functor = Functor.id(Diagram)
 
-    def __call__(self, other):
-        return Application(self, other, left=False)
+    def __call__(self, other, left=False):
+        args = (other, self, left) if left else (self, other, left)
+        return self.cod.application_factory(*args)
+
+    def occurrences(self, variable: Variable) -> int:
+        """Count the free occurrences of ``variable`` in the term."""
+        if isinstance(self, Variable):
+            return int(self == variable)
+        if isinstance(self, Application):
+            return self.func.occurrences(variable)\
+                + self.args.occurrences(variable)
+        if isinstance(self, Abstraction):
+            return 0 if self.var == variable\
+                else self.body.occurrences(variable)
+        return 0
+
+    @classmethod
+    def from_biclosed(cls, term: biclosed.Term) -> Term:
+        """
+        Translate a biclosed term into a closed term, dropping planarity by
+        collapsing left and right exponentials and applications.
+
+        Parameters:
+            term : The biclosed term to translate.
+
+        Note
+        ----
+        This method is inherited by :class:`Constant`, :class:`Variable`,
+        :class:`Application` and :class:`Abstraction`, i.e. every closed
+        :class:`Term`.
+
+        Example
+        -------
+        >>> X, Y = biclosed.Ty("X"), biclosed.Ty("Y")
+        >>> g, x = (Y << X)("g"), X("x")
+        >>> print(TermBase.from_biclosed(g(x)))
+        (X >> Y)('g')(X('x'))
+        """
+        functor = biclosed.Functor(
+            ob_map=lambda x: cls.ob(x.inside[0].name),
+            ar_map=lambda c: cls.ob.constant_factory(c.name, functor(c.cod)),
+            dom=biclosed.Diagram, cod=cls.functor.cod)
+        return functor(term)
+
+    def normal_form(self) -> Term:
+        """
+        The beta-normal form of a term, obtained by normal-order reduction.
+
+        Raises
+        ------
+        ValueError
+            If reduction changes the ordered free-variable context or would
+            duplicate an argument in a non-cartesian category.
+
+        Example
+        -------
+        >>> X, Y = Ty("X"), Ty("Y")
+        >>> f, x = (X >> Y)("f"), X("x")
+        >>> assert X(lambda y: f(y))(x).normal_form() == f(x)
+        """
+        def normalize(term):
+            if isinstance(term, Application):
+                func = normalize(term.func)
+                if isinstance(func, Abstraction):
+                    if func.body.occurrences(func.var) > 1:
+                        raise ValueError(
+                            "Beta reduction would duplicate an argument.")
+                    return normalize(
+                        Substitution({func.var: term.args})(func.body))
+                return type(term)(
+                    func, normalize(term.args), term.left)
+            if isinstance(term, Abstraction):
+                return type(term)(
+                    term.var, normalize(term.body), term.left)
+            return term
+
+        result = normalize(self)
+        if result.freevars != self.freevars:
+            raise ValueError(
+                "Beta reduction changed the free-variable context.")
+        return result
 
 
 type Term = Constant | Variable | Application | Abstraction
@@ -224,25 +359,28 @@ class Variable(TermBase, biclosed.Variable):
 
 class Application(TermBase, biclosed.Application):
     def __check_dom__(self, func, args, left):
-        self.overlap = set(func.freevars).intersection(args.freevars)
-        self.freevars = list(set(func.freevars + args.freevars))\
-            if self.overlap else func.freevars + args.freevars
-        return self.ob.tensor(*[x.cod for x in self.freevars])
+        self.overlap = any(
+            variable in args.freevars for variable in func.freevars)
+        freevars = args.freevars + func.freevars if left\
+            else func.freevars + args.freevars
+        self.freevars = list(dict.fromkeys(freevars))
+        return self.ob().tensor(*[x.cod for x in self.freevars])
 
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
         base, exponent = self.func.cod.base, self.func.cod.exponent
-        evaluate = functor.cod.ev(functor(base), functor(exponent))
+        evaluate = functor.cod.ev(
+            functor(base), functor(exponent), left=not self.left)
         if context is None:
             if not self.overlap:
                 func = self.func.eval(functor=functor)
                 args = self.args.eval(functor=functor)
-                return func @ args >> evaluate
+                return (args @ func if self.left else func @ args) >> evaluate
             context = Context(self.freevars)
         func = self.func.eval(functor=functor, context=context)
         args = self.args.eval(functor=functor, context=context)
         return functor.cod.copy(functor(context.dom))\
-            >> func @ args >> evaluate
+            >> (args @ func if self.left else func @ args) >> evaluate
 
 
 class Abstraction(TermBase, biclosed.Abstraction):
@@ -252,14 +390,35 @@ class Abstraction(TermBase, biclosed.Abstraction):
 
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
-        if context:
-            new_context = Context([self.var] + context.inside)
+        mapped_var = functor(self.var.cod)
+        n = len(mapped_var)
+        if context is not None:
+            inside = [self.var] + context.inside if self.left\
+                else context.inside + [self.var]
+            new_context = Context(inside)
             body = self.body.eval(functor=functor, context=new_context)
-            return body.curry(left=True)
-        i, n = self.body.freevars.index(self.var), len(self.body.freevars)
+            return functor.cod.curry(body, n, not self.left)
+
         body = self.body.eval(functor=functor)
-        p = [0] + [j + 1 if j < i else j for j in range(n) if j != i]
-        return (body.permutation(p, body.dom).dagger() >> body).curry()
+        if self.var not in self.body.freevars:
+            discard = functor.cod.discard(mapped_var)
+            body = discard @ body if self.left else body @ discard
+            return functor.cod.curry(body, n, not self.left)
+
+        i = self.body.freevars.index(self.var)
+        start = sum(
+            len(functor(variable.cod))
+            for variable in self.body.freevars[:i])
+        stop = start + n
+        before, bound, after = (
+            list(range(start)), list(range(start, stop)),
+            list(range(stop, len(body.dom))))
+        permutation = bound + before + after if self.left\
+            else before + after + bound
+        if permutation != list(range(len(body.dom))):
+            permute = functor.cod.permutation(permutation, body.dom).dagger()
+            body = permute >> body
+        return functor.cod.curry(body, n, not self.left)
 
 
 @dataclass
@@ -274,17 +433,44 @@ class Context:
 
 @dataclass
 class Substitution:
+    """
+    The simultaneous substitution of terms for free variables.
+
+    Attributes:
+        inside : The mapping from variables to the terms substituted for them.
+
+    Substitution is simultaneous and capture-avoiding.
+    """
     inside: Dict[Variable, Term]
+
+    def __post_init__(self):
+        for variable, term in self.inside.items():
+            if not isinstance(variable, Variable)\
+                    or not isinstance(term, TermBase):
+                raise TypeError
+            if variable.cod != term.cod:
+                raise ValueError(
+                    f"Expected {variable.cod}, got {term.cod}")
 
     def __call__(self, term: Term) -> Term:
         if isinstance(term, Variable):
             return self.inside.get(term, term)
-        elif isinstance(term, Application):
-            return self(term.func)(self(term.args))
-        elif isinstance(term, Abstraction):
+        if isinstance(term, Application):
+            return type(term)(self(term.func), self(term.args), term.left)
+        if isinstance(term, Abstraction):
             other = Substitution(
                 {k: v for k, v in self.inside.items() if k != term.var})
-            return other(term)
+            capture = any(
+                key in term.body.freevars and term.var in value.freevars
+                for key, value in other.inside.items())
+            if not capture:
+                return type(term)(term.var, other(term.body), term.left)
+            var = type(term.var).fresh(
+                term.var.name, term.var.cod, term.body,
+                *other.inside, *other.inside.values())
+            body = Substitution({term.var: var})(term.body)
+            return type(term)(var, other(body), term.left)
+        return term
 
 
 Ty.variable_factory = Variable

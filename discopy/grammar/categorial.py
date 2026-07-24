@@ -46,12 +46,14 @@ from dataclasses import dataclass
 import re
 
 from discopy import biclosed, messages
+from discopy.abc import ClosedCategory
 from discopy.cat import factory
 from discopy.grammar import thue
 from discopy.utils import (
     BinaryBoxConstructor,
     AxiomError,
     factory_name,
+    get_origin,
 )
 
 
@@ -104,14 +106,14 @@ class Diagram(biclosed.Diagram):
         """ Forward composition. """
         return (
             (left << middle) @ Eval(middle << right) >> Eval(left << middle)
-        ).curry(left=True)
+        ).curry(n=len(right), left=True)
 
     @staticmethod
     def bc(left, middle, right):
         """ Backward composition. """
         return (
             Eval(left >> middle) @ (middle >> right) >> Eval(middle >> right)
-        ).curry()
+        ).curry(n=len(left))
 
     @staticmethod
     def fx(left, middle, right):
@@ -227,6 +229,11 @@ class TermBase(Box, biclosed.TermBase):
     def __call__(self, other, left=False):
         return BA(self, other) if left else FA(self, other)
 
+    def to_abstract(self):
+        """Translate the term into an abstract categorial grammar."""
+        from discopy.grammar.abstract import TermBase
+        return TermBase.from_categorial(self)
+
 
 class Constant(TermBase, biclosed.Constant):
     def __init__(self, name: str, cod: Ty):
@@ -291,12 +298,19 @@ class TypeRaising(TermBase):
     def eval(self, **kwargs):
         return self.simplify().eval(**kwargs)
 
+    def map(self, functor):
+        return functor(self.simplify())
+
     def __repr__(self):
         return factory_name(type(self)) + f"({self.base!r}, {self.child!r})"
 
     @property
     def constants(self):
         return self.child.constants
+
+    @property
+    def variables(self):
+        return self.child.variables
 
 
 class FTR(TypeRaising):
@@ -305,8 +319,10 @@ class FTR(TypeRaising):
         super().__init__(base, child, base << (child.cod >> base))
 
     def simplify(self):
-        f = Variable("f", self.child.cod >> self.base)
-        return Abstraction(f, self.child.simplify()(f, left=True))
+        child = self.child.simplify()
+        f = Variable.fresh(
+            "f", self.child.cod >> self.base, child)
+        return Abstraction(f, child(f, left=True))
 
 
 class BTR(TypeRaising):
@@ -315,8 +331,10 @@ class BTR(TypeRaising):
         super().__init__(base, child, (base << child.cod) >> base)
 
     def simplify(self):
-        f = Variable("f", self.base << self.child.cod)
-        return Abstraction(f, f(self.child.simplify()), left=True)
+        child = self.child.simplify()
+        f = Variable.fresh(
+            "f", self.base << self.child.cod, child)
+        return Abstraction(f, f(child), left=True)
 
 
 @dataclass(frozen=True, repr=False)
@@ -341,12 +359,20 @@ class BinaryTerm(TermBase):
     def eval(self, **kwargs):
         return self.simplify().eval(**kwargs)
 
+    def map(self, functor):
+        return functor(self.simplify())
+
     def __repr__(self):
         return factory_name(type(self)) + f"({self.left!r}, {self.right!r})"
 
     @property
     def constants(self):
         return self.left.constants + self.right.constants
+
+    @property
+    def variables(self):
+        return list(dict.fromkeys(
+            self.left.variables + self.right.variables))
 
 
 @dataclass(frozen=True, repr=False)
@@ -367,7 +393,8 @@ class FC(BinaryTerm):
 
     def simplify(self):
         f, g = self.left.simplify(), self.right.simplify()
-        x = Variable("x", self.right.cod.exponent)
+        x = Variable.fresh(
+            "x", self.right.cod.exponent, f, g)
         return Abstraction(x, f(g(x)))
 
 
@@ -389,7 +416,8 @@ class BC(BinaryTerm):
 
     def simplify(self):
         f, g = self.left.simplify(), self.right.simplify()
-        x = Variable("x", self.left.cod.exponent)
+        x = Variable.fresh(
+            "x", self.left.cod.exponent, f, g)
         return Abstraction(x, x(f, left=True)(g, left=True), left=True)
 
 
@@ -410,6 +438,16 @@ class FX(BinaryTerm):
         f, g = self.left.eval(functor), self.right.eval(functor)
         return f @ g >> functor.cod.fx(*map(functor, [X, Y, Z]))
 
+    def map(self, functor):
+        if not issubclass(get_origin(functor.cod), ClosedCategory):
+            raise AxiomError(
+                "Crossed composition requires a closed codomain.")
+        ob = functor.cod.ob
+        f, g = functor(self.left), functor(self.right)
+        var = ob.variable_factory.fresh(
+            "x", functor(self.right.cod.exponent), f, g)
+        return ob.abstraction_factory(var, f(g(var)))
+
 
 @dataclass(frozen=True, repr=False)
 class BX(BinaryTerm):
@@ -428,9 +466,21 @@ class BX(BinaryTerm):
         f, g = self.left.eval(functor), self.right.eval(functor)
         return f @ g >> functor.cod.bx(*map(functor, [X, Y, Z]))
 
+    def map(self, functor):
+        if not issubclass(get_origin(functor.cod), ClosedCategory):
+            raise AxiomError(
+                "Crossed composition requires a closed codomain.")
+        ob = functor.cod.ob
+        f, g = functor(self.left), functor(self.right)
+        var = ob.variable_factory.fresh(
+            "x", functor(self.left.cod.exponent), f, g)
+        body = f(var)(g, left=True)\
+            if f.dom and g.dom else g(f(var))
+        return ob.abstraction_factory(var, body)
+
 
 type Term = (
-    Constant | Variable | Abstraction
+    Constant | Variable | Abstraction | FTR | BTR
     | FA | BA | FC | BC | FX | BX)
 
 
