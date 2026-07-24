@@ -20,11 +20,11 @@ from __future__ import annotations
 import hashlib
 import urllib.request
 import zipfile
-from dataclasses import dataclass
 
 import numpy as np
 
-from experiments.config import DATA_DIR
+from core.study import Split  # noqa: F401 -- re-exported
+from sudoku.config import DATA_DIR, N, N_CELLS
 
 #: The authors' download, as given by ``tasks/sudoku/data.py`` in their repo.
 URL = "https://www.dropbox.com/s/rp3hbjs91xiqdgc/sudoku-hard.zip?dl=1"
@@ -40,47 +40,6 @@ ROWS = {"train": 180000, "valid": 18000, "test": 18000}
 
 #: The range of givens, uniform over this range by construction.
 GIVENS = (17, 34)
-
-N = 9
-N_CELLS = 81
-
-
-@dataclass(frozen=True)
-class Split:
-    """
-    One split of the benchmark.
-
-    Parameters:
-        name : ``"train"``, ``"valid"`` or ``"test"``.
-        puzzles : The clues, of shape ``(n, 81)``, with ``0`` for a blank.
-        solutions : The solutions, of shape ``(n, 81)``, digits ``1..9``.
-        surrogate : Whether these puzzles were regenerated rather than
-                    downloaded, i.e. whether they deviate from the paper.
-    """
-    name: str
-    puzzles: np.ndarray
-    solutions: np.ndarray
-    surrogate: bool = False
-
-    def __len__(self) -> int:
-        return len(self.puzzles)
-
-    @property
-    def givens(self) -> np.ndarray:
-        """ The number of givens of each puzzle. """
-        return (self.puzzles > 0).sum(1)
-
-    def subsample(self, n: int, seed: int = 0) -> Split:
-        """
-        The first ``n`` puzzles, or all of them when ``n`` is larger.
-
-        The benchmark is already in random order and stratified by givens, so
-        taking a prefix keeps the givens distribution; we check that below.
-        """
-        if n >= len(self):
-            return self
-        return Split(self.name, self.puzzles[:n], self.solutions[:n],
-                     self.surrogate)
 
 
 def fetch(force: bool = False) -> tuple[bool, str]:
@@ -168,13 +127,7 @@ def check(split: Split) -> None:
             f"{split.name}: a solution breaks the rules"
 
 
-def givens_histogram(split: Split) -> dict[int, int]:
-    """ How many puzzles the split has for each number of givens. """
-    counts = np.bincount(split.givens, minlength=GIVENS[1] + 1)
-    return {int(k): int(counts[k]) for k in range(GIVENS[0], GIVENS[1] + 1)}
-
-
-# --- the sudoku symmetry group, used only for the optional ablation --------
+# --- the sudoku symmetry group, for on-the-fly augmentation ----------------
 
 def symmetry(rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray]:
     """

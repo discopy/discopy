@@ -1,56 +1,59 @@
 # -*- coding: utf-8 -*-
 
 """
-Optuna search for model C -- the TRM recursion of ``train_c_trm.py``.
+Optuna search for the TRM recursion on the sudoku-extreme benchmark.
 
     pip install optuna
-    CUDA_VISIBLE_DEVICES=2 python optuna_c_trm.py --trials 40
+    CUDA_VISIBLE_DEVICES=0 python optuna_trm_extreme.py --trials 40
 
-Each trial trains one configuration from scratch and returns its **best
-validation board-solve rate across epochs**, i.e. with checkpoint
-selection. The space targets the diagnosed weaknesses of the recorded
-configuration:
+The protocol of ``optuna_deep_goi.py``, moved to the harder dataset:
+each trial trains one configuration from scratch on
+``sudoku_extreme_special_large`` (1,001,000 examples: 1,000 base puzzles
+plus 1,000 transposed, relabeled augmentations each, see
+:mod:`sudoku.sudoku_extreme`) and returns its **best validation
+board-solve rate across evaluations**, i.e. with checkpoint selection.
 
-* ``ema_decay`` (optional) -- an exponential moving average of the
-  weights, the TRM recipe detail whose absence matches the observed
-  peak-then-drift (0.911 -> 0.885 on the n=8 variant). C takes ``N_sup``
-  noisy optimizer steps per batch with shallow gradients, so it is the
-  model most exposed to late-training parameter noise. When enabled,
-  validation and the saved checkpoint use the averaged weights.
-* ``n``, ``T``, ``n_sup`` -- the recursion shape; the n=8 probe looked
-  better than the recorded n=6 but was never finished. Note the objective
-  is quality only: deeper shapes cost proportionally more wall-clock per
-  trial, which the pruner partially compensates for.
-* ``lr`` + ``warmup_frac`` -- warmup + cosine decay over the *optimizer*
-  steps (of which there are ``N_sup`` per batch), against the baseline's
-  constant learning rate.
-* ``weight_decay`` -- AdamW on matrix weights only, never on biases,
-  norms or embeddings.
+Training is measured in *iterations* (batches) rather than epochs: with
+the default batch size of 512, one epoch of the training set is ~1,955
+iterations, so the default ``--iterations 6000`` is about three epochs.
+Validation runs every ``--eval-every 200`` iterations -- roughly every
+100k examples -- so a trial prints, reports to the pruner, and can
+checkpoint about 30 times. Each evaluation scores ``--n-valid 2000``
+held-out puzzles as a single GPU batch at :data:`EVAL_COMPUTE` = 8, 16
+and 32 supervision steps; the trial's reported value is the best of the
+three, since the deployment protocol picks the inference depth anyway.
+All three depths on 2,000 puzzles cost about as much as one pass at
+trained depth over the full 18,000 (sampling error ~1% at board 0.3);
+re-score the saved winner on the full split for the honest number.
 
-The model itself is built at :data:`SEARCH_WIDTHS`, smaller than the
-recorded ``WIDTHS["trm"]`` in ``sudoku.config``: this search ranks
-hyperparameters as cheaply as possible, it does not need to match the
-final accuracy number or the cross-model parameter budget. Retrain the
-winning hyperparameters at the full recorded widths before trusting the
-accuracy.
+The space is centered one notch *above* the shape that won on the Palm
+benchmark (n=8, T=4, n_sup=6, valid board 0.9933): the extreme puzzles
+are harder, so the recursion gets slightly more iterations to work with,
+``n`` in {8, 10}, ``T`` in {4, 6} and ``n_sup`` in {8, 12}. The learning
+rate range tops out at 3e-3 since the previous winner (1.5e-3) sat near
+the old 2e-3 edge. The remaining dimensions -- EMA, weight decay on
+matrix weights only, warmup + cosine decay over the *optimizer* steps
+(``n_sup`` per iteration) -- are unchanged.
 
-``--n-train`` and ``--n-valid`` default to the full 180k/18k puzzles of
-the paper's train and validation splits (not a subsample), so board-solve
-rates reported here are on the same data Palm et al. used and comparable
-to their numbers. Lowering either still works for a quicker smoke test,
-just note the run is then on less data.
+The model is built at :data:`SEARCH_WIDTHS`, three times the widths of
+the Palm-benchmark searches (~1.0M parameters): the extreme puzzles need
+more capacity -- reference results on this benchmark use models in the
+millions of parameters -- and part of the extra math still hides under
+the kernel-launch overhead that dominates at these sizes. Retrain the
+winner -- wider and longer -- before trusting the accuracy, and only
+then evaluate it once on the test split, which is never touched here
+(``valid`` is 18k puzzles held out from the authors' train.csv, disjoint
+from the base subsample).
 
 The seed is drawn at random for every trial and recorded in the trial's
 user attributes, so the search ranks configurations rather than lucky
-seeds -- re-validate the winners over fixed seeds. Symmetry augmentation
-is deliberately absent: the map is equivariant to the positional sudoku
-group by construction. The test split is never touched here; retrain the
-winner at the full recorded widths, for longer, and evaluate it once.
+seeds. The dataset artifacts are built on first use; with ``--gpus`` > 1
+run a single worker once (or ``python -m sudoku.sudoku_extreme``)
+before a multi-worker launch, so the children do not race the build.
 
 ``--gpus`` runs one worker process per GPU on this host, sharing one
-study, capped at however many are actually visible -- ``--gpus 8`` on a
-3-GPU box just uses the 3; the combined trial budget is ``--trials`` times
-that count.
+study, capped at however many are actually visible; the combined trial
+budget is ``--trials`` times that count.
 """
 
 from __future__ import annotations
@@ -70,8 +73,8 @@ import torch
 # so the script imports ``sudoku`` regardless of the caller's cwd or
 # PYTHONPATH, e.g. when launched directly from an IDE's run button.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "neural"))
-from sudoku import data as datasets
 from sudoku import models as zoo
+from sudoku import sudoku_extreme
 from sudoku.config import ARTIFACTS, GRAD_CLIP, Widths
 from sudoku.train import evaluate, seed_everything
 
@@ -83,19 +86,21 @@ CE = torch.nn.functional.cross_entropy
 # Set at import so it applies in every worker process regardless of entry path.
 torch.set_float32_matmul_precision("high")
 
-#: Deliberately smaller than ``sudoku.config.WIDTHS["trm"]``
-#: (24/88/172/48): this search ranks hyperparameters, so cheaper trials
-#: matter more than matching the recorded model's size.
-SEARCH_WIDTHS = Widths(dim=24, state_dim=64, hidden=128, y_dim=32)
+#: Three times the widths of the Palm-benchmark searches (~1.0M parameters
+#: vs 113k): the extreme puzzles need more capacity -- reference results
+#: on this benchmark use models in the millions of parameters -- and part
+#: of the extra math still hides under the kernel-launch overhead that
+#: dominates at these sizes.
+SEARCH_WIDTHS = Widths(dim=72, state_dim=192, hidden=384, y_dim=96)
 
-#: The best configuration of the first-round study ("c-trm" trial 1, valid
-#: board 0.9917 at :data:`SEARCH_WIDTHS`), enqueued as the first trial of a
-#: fresh study so the narrowed space is always compared against the recorded
-#: winner under identical conditions (same code, same data, fresh seed).
-BASELINE = {
-    "lr": 7.5846175213136e-4, "n": 8, "T": 4, "n_sup": 8, "use_ema": False,
-    "warmup_frac": 0.07154900475109112,
-    "weight_decay": 1.3603987719515442e-4}
+#: Supervision steps the periodic evaluation sweeps; a trial is ranked and
+#: checkpointed on the best of the three, so the search rewards models that
+#: benefit from test-time compute -- what the final protocol will exploit.
+EVAL_COMPUTE = (8, 16, 32)
+
+#: The whole validation subset is scored as one forward-only GPU batch:
+#: fewer kernel launches, and a few GB of transient memory at most.
+EVAL_BATCH = 2000
 
 
 def available_gpu_ids() -> list[str]:
@@ -110,7 +115,8 @@ def child_argv(arguments: argparse.Namespace) -> list[str]:
     """ A CLI invocation of this script matching ``arguments``, ``--gpus 1``. """
     argv = [
         "--trials", str(arguments.trials),
-        "--epochs", str(arguments.epochs),
+        "--iterations", str(arguments.iterations),
+        "--eval-every", str(arguments.eval_every),
         "--n-train", str(arguments.n_train),
         "--n-valid", str(arguments.n_valid),
         "--batch-size", str(arguments.batch_size),
@@ -145,9 +151,15 @@ def run_on_gpus(arguments: argparse.Namespace, ids: list[str]) -> int:
 
 def report(study: optuna.Study) -> None:
     """ Print the best trial's board-solve rate, seed and hyperparameters. """
-    print(f"\nbest valid boards {study.best_value:.4f} "
-          f"(seed {study.best_trial.user_attrs.get('seed')}, "
-          f"epoch {study.best_trial.user_attrs.get('best_epoch')})")
+    try:
+        best_value, best_trial = study.best_value, study.best_trial
+    except ValueError:
+        print("\nno completed trials")
+        return
+    print(f"\nbest valid boards {best_value:.4f} "
+          f"(seed {best_trial.user_attrs.get('seed')}, "
+          f"iteration {best_trial.user_attrs.get('best_iteration')}, "
+          f"n_sup at eval {best_trial.user_attrs.get('best_compute')})")
     for key, value in study.best_params.items():
         print(f"  {key}: {value}")
 
@@ -204,9 +216,6 @@ class EMA:
 
     @torch.no_grad()
     def update(self, model) -> None:
-        # one fused foreach call rather than one tiny kernel per tensor;
-        # measured 0.28ms -> 0.02ms per call (called n_sup times per batch,
-        # so this was minor either way).
         state = model.state_dict()
         torch._foreach_lerp_(
             [self.shadow[key] for key in self.shadow],
@@ -230,13 +239,11 @@ def to_device(split, device):
     The whole split resident on ``device`` as two ``long`` tensors: the clues
     and the 0-indexed targets.
 
-    The benchmark is tiny -- 180k puzzles of 81 cells is ~117 MB per tensor as
-    ``int64`` -- so it fits in VRAM with room to spare. Keeping it there makes
-    a batch a single on-device gather with no host->device copy on the
-    training step, which is the fastest possible feed for data this small and
-    is why there is no ``DataLoader``/``num_workers`` here: a worker pool would
-    only serialise these micro-batches over a pipe for no gain, so the
-    effective best worker count is none.
+    Even the 1,001,000-example extreme training set is only ~650 MB per
+    tensor as ``int64``, so it fits in VRAM with room to spare. Keeping it
+    there makes a batch a single on-device gather with no host->device copy
+    on the training step -- the fastest possible feed for data this small,
+    and why there is no ``DataLoader``/``num_workers`` here.
     """
     clues = torch.as_tensor(split.puzzles, dtype=torch.long, device=device)
     targets = torch.as_tensor(
@@ -247,14 +254,10 @@ def to_device(split, device):
 def batches(clues, targets, batch_size: int, rng):
     """
     One shuffled epoch of ``(clues, target)`` by indexing the GPU-resident
-    tensors. The next batch's gather is enqueued on the CUDA stream ahead of
-    the step that consumes it rather than copied from the host in between, so
-    the prefetch is implicit in never leaving the device.
-
-    The tail batch (``len % batch_size`` puzzles) is dropped so every step
-    sees the same shapes: dynamo then compiles one graph per trial instead of
-    a second one for the odd tail, and the loop stays CUDA-graph-friendly.
-    The shuffle is fresh every epoch, so no puzzle is systematically skipped.
+    tensors. The tail batch is dropped so every step sees the same shapes:
+    dynamo compiles one graph per trial and the loop stays
+    CUDA-graph-friendly; the shuffle is fresh every epoch, so no example is
+    systematically skipped.
     """
     order = torch.as_tensor(
         rng.permutation(clues.shape[0]), device=clues.device)
@@ -264,26 +267,25 @@ def batches(clues, targets, batch_size: int, rng):
         yield clues[index], targets[index]
 
 
-def train_one_epoch(model, clues_all, targets_all, optimizer, scheduler, ema,
-                    batch_size, rng) -> float:
-    """
-    One epoch of the segmented outer loop, ``n_sup`` steps per batch.
+def stream(clues, targets, batch_size: int, rng):
+    """ An endless stream of batches, reshuffling after every epoch. """
+    while True:
+        yield from batches(clues, targets, batch_size, rng)
 
-    The running loss is accumulated in a device tensor and read back once at
-    the end of the epoch. With this model the ``n_sup`` optimizer steps per
-    batch are individually cheap, so a per-step ``loss.item()`` -- which blocks
-    the CPU until the GPU drains just to fetch a scalar for logging -- was the
-    dominant idle gap: the CPU stalling between kernels instead of racing ahead
-    to enqueue the next step's work.
+
+def train_chunk(model, batch_stream, optimizer, scheduler, ema,
+                iterations: int) -> float:
+    """
+    ``iterations`` batches of the segmented outer loop, ``n_sup`` optimizer
+    steps each. The running loss lives in a device tensor and is read back
+    once at the end, so the loop never blocks on the GPU mid-chunk.
     """
     model.train()
-    device = clues_all.device
+    device = next(model.parameters()).device
     total, checkpoints = torch.zeros((), device=device), 0
-    for clues, target in batches(clues_all, targets_all, batch_size, rng):
+    for _ in range(iterations):
+        clues, target = next(batch_stream)
         flat = target.reshape(-1)
-        # a new cudagraph generation: under ``--compile-mode reduce-overhead``
-        # the previous step's graph outputs may now be reused (a cheap no-op
-        # under the default mode).
         torch.compiler.cudagraph_mark_step_begin()
         state = model.initial(clues)
         for _ in range(model.n_sup):
@@ -305,8 +307,15 @@ def train_one_epoch(model, clues_all, targets_all, optimizer, scheduler, ema,
 
 
 def save_if_best(trial: optuna.Trial, board: float, state: dict,
-                 study_name: str) -> None:
-    """ Keep the weights of the best trial seen so far, and only those. """
+                 study_name: str, extra: dict = None) -> None:
+    """
+    Keep the weights of the best trial seen so far, and only those.
+
+    Parameters:
+        extra : Additional evaluation results to store alongside the
+                checkpoint, e.g. cell accuracy or adaptive-compute stats
+                (merged into the saved dict; ``None`` for none).
+    """
     try:
         previous = trial.study.best_value
     except ValueError:
@@ -314,19 +323,18 @@ def save_if_best(trial: optuna.Trial, board: float, state: dict,
     if state is not None and board > previous:
         torch.save(
             {"state_dict": state, "params": trial.params,
-             "seed": trial.user_attrs["seed"], "valid_board": board},
+             "seed": trial.user_attrs["seed"], "valid_board": board,
+             **(extra or {})},
             ARTIFACTS / f"optuna-{study_name}-trial{trial.number}.pt")
 
 
 def objective(trial, arguments, train_clues, train_targets,
               valid_split, device) -> float:
     seed = random_seed(trial)
-    lr = trial.suggest_float("lr", 1e-4, 2e-3, log=True)
-    n = trial.suggest_categorical("n", [6, 8])
-    # 4 is the baseline's cycle count and must stay admissible for the
-    # enqueued BASELINE trial; 3 probes one cycle cheaper.
-    cycles = trial.suggest_categorical("T", [3, 4])
-    n_sup = trial.suggest_categorical("n_sup", [6, 8])
+    lr = trial.suggest_float("lr", 2e-4, 3e-3, log=True)
+    n = trial.suggest_categorical("n", [8, 10])
+    cycles = trial.suggest_categorical("T", [4, 6])
+    n_sup = trial.suggest_categorical("n_sup", [8, 12])
     weight_decay = trial.suggest_float("weight_decay", 1e-5, 1e-3, log=True)
     warmup_frac = trial.suggest_float("warmup_frac", 0.0, 0.1)
     use_ema = trial.suggest_categorical("use_ema", [True, False])
@@ -342,32 +350,42 @@ def objective(trial, arguments, train_clues, train_targets,
         torch._dynamo.reset()
         model.compile_cells(**({"mode": arguments.compile_mode}
                                if arguments.compile_mode else {}))
-    # floor, matching the tail-batch drop in ``batches``, so the cosine
-    # schedule finishes exactly at the last optimizer step.
-    total = max(train_clues.shape[0] // arguments.batch_size, 1) \
-        * arguments.epochs * n_sup
+    total = arguments.iterations * n_sup
     optimizer = adamw(model, lr, weight_decay)
     scheduler = cosine_schedule(optimizer, int(warmup_frac * total), total)
     ema = EMA(model, ema_decay) if use_ema else None
     rng = np.random.default_rng(seed)
+    batch_stream = stream(
+        train_clues, train_targets, arguments.batch_size, rng)
 
+    checks = arguments.iterations // arguments.eval_every
     best, best_state = 0.0, None
     try:
-        for epoch in range(1, arguments.epochs + 1):
-            loss = train_one_epoch(
-                model, train_clues, train_targets, optimizer, scheduler, ema,
-                arguments.batch_size, rng)
+        for check in range(1, checks + 1):
+            loss = train_chunk(model, batch_stream, optimizer, scheduler,
+                               ema, arguments.eval_every)
             with ema.averaged(model) if ema else contextlib.nullcontext():
-                scores = evaluate(model, valid_split)
-                if scores["board"] > best:
-                    best, best_state = scores["board"], {
+                scores = {
+                    compute: evaluate(model, valid_split, compute=compute,
+                                      batch_size=EVAL_BATCH)
+                    for compute in EVAL_COMPUTE}
+                top = max(EVAL_COMPUTE, key=lambda c: scores[c]["board"])
+                board = scores[top]["board"]
+                if board > best:
+                    best, best_state = board, {
                         key: value.detach().cpu().clone()
                         for key, value in model.state_dict().items()}
-                    trial.set_user_attr("best_epoch", epoch)
-            print(f"  trial {trial.number} epoch {epoch}/{arguments.epochs}"
-                  f"  loss {loss:.4f}  cell {scores['cell']:.4f}"
-                  f"  board {scores['board']:.4f}")
-            trial.report(scores["board"], epoch)
+                    trial.set_user_attr(
+                        "best_iteration", check * arguments.eval_every)
+                    trial.set_user_attr("best_compute", top)
+            boards = "/".join(
+                f"{scores[compute]['board']:.4f}" for compute in EVAL_COMPUTE)
+            print(f"  trial {trial.number} iteration "
+                  f"{check * arguments.eval_every}/{arguments.iterations}"
+                  f"  loss {loss:.4f}  cell {scores[top]['cell']:.4f}"
+                  f"  board {boards} @n_sup "
+                  + "/".join(map(str, EVAL_COMPUTE)))
+            trial.report(board, check)
             if trial.should_prune():
                 raise optuna.TrialPruned()
         save_if_best(trial, best, best_state, arguments.study_name)
@@ -384,18 +402,28 @@ def objective(trial, arguments, train_clues, train_targets,
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--trials", type=int, default=40)
-    parser.add_argument("--epochs", type=int, default=15)
-    parser.add_argument("--n-train", type=int, default=180_000)
-    parser.add_argument("--n-valid", type=int, default=18_000)
-    parser.add_argument("--batch-size", type=int, default=256)
+    parser.add_argument("--iterations", type=int, default=6000,
+                        help="training batches per trial (~3 epochs of the "
+                             "1M examples at the default batch size)")
+    parser.add_argument("--eval-every", type=int, default=200,
+                        help="iterations between validation evaluations, "
+                             "prints and pruner reports")
+    parser.add_argument("--n-train", type=int, default=1_001_000)
+    parser.add_argument("--n-valid", type=int, default=2000,
+                        help="validation puzzles per periodic evaluation "
+                             "(a prefix of the pre-shuffled split; ~1% "
+                             "sampling error at board 0.3 -- re-score the "
+                             "saved winner on the full 18k)")
+    parser.add_argument("--batch-size", type=int, default=512)
     parser.add_argument("--timeout", type=float, default=None,
                         help="stop starting new trials after this many s")
-    parser.add_argument("--storage", default="sqlite:///optuna_c_trm.db")
-    # v2: the shape choices were narrowed (n=8, T=3, n_sup in {6, 8}) after
-    # the first round; optuna forbids changing a categorical's choice set
-    # within a study, so the narrowed space gets a fresh study in the same
-    # sqlite file. The first round's trials stay readable under "c-trm".
-    parser.add_argument("--study-name", default="c-trm-v2")
+    parser.add_argument("--storage", default="sqlite:///optuna_trm_extreme.db")
+    # -3x: each width setting gets its own study, so results from different
+    # model sizes are never mixed (the original "trm-extreme" study only
+    # ever held pre-guard failed trials). -tt: the objective changed to
+    # best-over-EVAL_COMPUTE, which is not comparable to the single-depth
+    # values of the earlier studies, so it gets a fresh study too.
+    parser.add_argument("--study-name", default="trm-extreme-3x-tt")
     parser.add_argument("--compile", default=True,
                         action=argparse.BooleanOptionalAction,
                         help="torch.compile the round step (same numerics "
@@ -406,7 +434,7 @@ def main(argv=None) -> int:
                              "default reduce-overhead replays it as a CUDA "
                              "graph, the fix for launch-bound loops (relies "
                              "on the static shapes the tail-batch drop "
-                             "guarantees, verified bit-exact vs 'default')")
+                             "guarantees)")
     parser.add_argument("--device", default="cuda"
                         if torch.cuda.is_available() else "cpu")
     parser.add_argument("--gpus", type=int, default=1,
@@ -426,10 +454,10 @@ def main(argv=None) -> int:
 
     device = torch.device(arguments.device)
 
-    splits = datasets.load()
+    splits = sudoku_extreme.load("special_large")
     train_split = splits["train"].subsample(arguments.n_train)
     valid_split = splits["valid"].subsample(arguments.n_valid)
-    # resident on the GPU once, shared read-only across every trial's epochs.
+    # resident on the GPU once, shared read-only across every trial.
     train_clues, train_targets = to_device(train_split, device)
 
     study = optuna.create_study(
@@ -438,11 +466,6 @@ def main(argv=None) -> int:
         sampler=optuna.samplers.TPESampler(multivariate=True, group=True),
         pruner=optuna.pruners.MedianPruner(
             n_startup_trials=5, n_warmup_steps=2))
-    # the first-round winner runs first, as the in-study baseline;
-    # skip_if_exists stops restarts and sibling workers from re-queueing it
-    # once it is in the study (simultaneous first launches can still race,
-    # in which case the baseline just runs twice -- harmless).
-    study.enqueue_trial(BASELINE, skip_if_exists=True)
     study.optimize(
         lambda trial: objective(
             trial, arguments, train_clues, train_targets, valid_split, device),

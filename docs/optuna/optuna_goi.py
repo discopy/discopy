@@ -24,7 +24,7 @@ of the recorded configuration, not the architecture:
   norms or embeddings.
 
 The model itself is built at :data:`SEARCH_WIDTHS`, smaller than the
-recorded ``WIDTHS["goi"]`` in ``experiments.config``: this search ranks
+recorded ``WIDTHS["goi"]`` in ``sudoku.config``: this search ranks
 hyperparameters as cheaply as possible, it does not need to match the
 final accuracy number or the cross-model parameter budget. Retrain the
 winning hyperparameters at the full recorded widths before trusting the
@@ -72,13 +72,13 @@ import torch
 from optuna.storages import JournalStorage
 from optuna.storages.journal import JournalFileBackend, JournalFileSymlinkLock
 
-# so the script imports ``experiments`` regardless of the caller's cwd or
+# so the script imports ``sudoku`` regardless of the caller's cwd or
 # PYTHONPATH, e.g. when launched directly from an IDE's run button.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from experiments import data as datasets
-from experiments import models as zoo
-from experiments.config import ARTIFACTS, GRAD_CLIP, Widths
-from experiments.train import evaluate, seed_everything
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "neural"))
+from sudoku import data as datasets
+from sudoku import models as zoo
+from sudoku.config import ARTIFACTS, GRAD_CLIP, Widths
+from sudoku.train import evaluate, seed_everything
  
 CE = torch.nn.functional.cross_entropy
 
@@ -88,7 +88,7 @@ CE = torch.nn.functional.cross_entropy
 # Set at import so it applies in every worker process regardless of entry path.
 torch.set_float32_matmul_precision("high")
 
-#: Deliberately smaller than ``experiments.config.WIDTHS["goi"]`` (24/96/192):
+#: Deliberately smaller than ``sudoku.config.WIDTHS["goi"]`` (24/96/192):
 #: this search ranks hyperparameters, so cheaper trials matter more than
 #: matching the recorded model's size.
 SEARCH_WIDTHS = Widths(dim=16, state_dim=64, hidden=128)

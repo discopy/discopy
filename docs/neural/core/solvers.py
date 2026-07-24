@@ -1,21 +1,27 @@
 # -*- coding: utf-8 -*-
 
 """
-The three sudoku solvers, as combinatorial maps in :mod:`discopy.neural`.
+The solver family: three architectures over a constraint-satisfaction
+skeleton, generic in the task.
 
-All three share a digit embedding, a linear readout, the data pipeline and
-the decode rule; they differ in the wiring of the map, the width carried by a
-wire, the update cell, and -- for model C only -- the *evaluation strategy*
-that composes macro-steps of message passing.
+All three are closed combinatorial maps in :mod:`discopy.neural` and share
+an input embedding, a linear readout and the decode rule of
+:mod:`core.train`; they differ in the shape of the skeleton they
+interpret, the width carried by a wire, the update cell, and -- for the
+recursion solver -- the *evaluation strategy* that composes macro-steps of
+message passing.
 
-* **A, ``GoISolver``** : the bipartite factor graph, a shared GRU cell wired
-  to shared Deep-Sets unit boxes, supervised at every round.
-* **B, ``RRNSolver``** : the pairwise peer clique of :cite:t:`PalmEtAl18`,
+* :class:`FactorGraphSolver` : a bipartite variable/unit factor graph, a
+  shared GRU cell wired to shared Deep-Sets unit boxes, supervised at
+  every round.
+* :class:`CliqueSolver` : the pairwise peer clique of :cite:t:`PalmEtAl18`,
   full hidden states on the wires, pairwise messages sum-pooled into an
   ``LSTMCell``, supervised at every round.
-* **C, ``TRMSolver``** : model A's map plus a traced answer loop, run by the
-  segmented outer loop of :cite:t:`JolicoeurMartineau25`.
+* :class:`RecursionSolver` : the factor graph plus a traced answer loop,
+  run by the segmented outer loop of :cite:t:`JolicoeurMartineau25`.
 
+A task instantiates a solver by handing it the abstract skeleton built
+from its combinatorics -- see ``sudoku/models.py`` for the worked example.
 Every module asserts the shape of what it reads and what it emits, since a
 mis-sliced port would otherwise train quietly into a wrong model.
 """
@@ -24,11 +30,9 @@ from __future__ import annotations
 
 import torch
 
-from experiments import maps
-from experiments.config import WIDTHS, Widths
-
-N = 9
-N_CELLS = 81
+from core.cmaps import Router
+from core.functors import build, clique_functor, factor_functor
+from core.study import Widths
 
 
 def count_parameters(module) -> int:
@@ -40,9 +44,9 @@ def count_parameters(module) -> int:
 
 class FactorBox(torch.nn.Module):
     """
-    The shared unit box of models A and C: a permutation-equivariant
-    Deep-Sets relation over the nine members of a row, column or block. It
-    embeds each incoming message, *sums* the embeddings into an
+    The shared unit box of the factor-graph solvers: a permutation-
+    equivariant Deep-Sets relation over the members of a constraint unit.
+    It embeds each incoming message, *sums* the embeddings into an
     order-invariant summary of the unit, and answers each member with that
     summary alongside its own message.
 
@@ -72,27 +76,27 @@ class FactorBox(torch.nn.Module):
 
 class GoICell(torch.nn.Module):
     """
-    The shared cell box of models A and C.
+    The shared cell box of the factor-graph solvers.
 
     It reads its ports as ``[m_1 .. m_P | h, h' | c, c' (| y, y')]``: ``P``
-    unit messages, a state loop, a clue loop and, for model C, an answer
-    loop. Each round it encodes every incoming message against its own
-    state, *mean*-pools the encodings, runs a ``GRUCell`` from the pool, the
-    clue and (for C) the answer, normalises the result, and broadcasts a
-    fresh belief to its units.
+    unit messages, a state loop, a clue loop and, for a recursion solver,
+    an answer loop. Each round it encodes every incoming message against
+    its own state, *mean*-pools the encodings, runs a ``GRUCell`` from the
+    pool, the clue and (when present) the answer, normalises the result,
+    and broadcasts a fresh belief to its units.
 
-    On the clue loop it emits zeros when ``resumable`` is false, so that the
-    clue must be re-injected every round by ``inject=True``; it emits the
-    clue back when ``resumable`` is true, so that the run carries its own
-    clues and can be stopped and restarted with ``inject=False``. The answer
-    loop is passed through unchanged: the cell reads ``y`` but never writes
-    it, the outer loop does.
+    On the clue loop it emits zeros when ``resumable`` is false, so that
+    the clue must be re-injected every round by ``inject=True``; it emits
+    the clue back when ``resumable`` is true, so that the run carries its
+    own clues and can be stopped and restarted with ``inject=False``. The
+    answer loop is passed through unchanged: the cell reads ``y`` but
+    never writes it, the outer loop does.
 
     Parameters:
         dim : The width of a message and of a clue.
         state_dim : The width of the state.
         hidden : The width of the hidden layers.
-        answer_dim : The width of the answer loop, ``0`` for model A.
+        answer_dim : The width of the answer loop, ``0`` for none.
         resumable : Whether to re-emit the clue rather than zeros.
     """
     def __init__(self, dim: int, state_dim: int, hidden: int,
@@ -139,7 +143,8 @@ class GoICell(torch.nn.Module):
 
 class RRNCell(torch.nn.Module):
     """
-    The shared cell box of model B, faithful to :cite:t:`PalmEtAl18`.
+    The shared cell box of the clique solver, faithful to
+    :cite:t:`PalmEtAl18`.
 
     A peer wire carries a full hidden state, so the message a cell receives
     from a peer *is* that peer's ``h``. The cell forms the pairwise message
@@ -147,8 +152,8 @@ class RRNCell(torch.nn.Module):
     updates its node state with an ``LSTMCell`` reading ``[pooled, clue]``.
     Computing ``f`` at the receiver rather than at the sender is
     mathematically the same edge function, since the receiver holds both
-    endpoint states; broadcasting ``h`` and evaluating ``f`` on arrival just
-    lets one shared box play both roles.
+    endpoint states; broadcasting ``h`` and evaluating ``f`` on arrival
+    just lets one shared box play both roles.
 
     The state loop carries ``[h, c]`` concatenated, since an ``LSTMCell``
     keeps two states; only ``h`` goes out on the peer wires.
@@ -173,7 +178,7 @@ class RRNCell(torch.nn.Module):
         width = x.shape[-1] - 4 * state_dim - 2 * dim
         n_peers = width // state_dim
         assert width == n_peers * state_dim and n_peers > 0, \
-            f"cannot read {x.shape[-1]} as an RRN cell"
+            f"cannot read {x.shape[-1]} as a clique cell"
         cursor = n_peers * state_dim
         peers = x[:, :cursor].reshape(-1, n_peers, state_dim)
         hidden = x[:, cursor:cursor + state_dim]
@@ -201,27 +206,28 @@ class RRNCell(torch.nn.Module):
 
 class Solver(torch.nn.Module):
     """
-    What the three solvers share: a digit embedding, a linear readout, the
-    map and its layout, and the ports that clues and states live on.
+    What the solvers share: an input embedding, a linear readout, the map
+    and its layout, and the ports that clues and states live on.
 
     Parameters:
-        widths : The widths of this model.
-        n : The size of the grid.
+        widths : The widths of this solver.
+        n_classes : The number of classes a variable can take.
     """
-    #: Whether training reads a list of per-round logits (A and B) or drives
-    #: the outer loop itself (C).
+    #: Whether training reads a list of per-round logits or drives the
+    #: outer loop itself (the recursion solver).
     outer_loop = False
 
-    def __init__(self, widths: Widths, n: int = N):
+    def __init__(self, widths: Widths, n_classes: int):
         super().__init__()
-        self.widths, self.n, self.n_cells = widths, n, n * n
-        self.embedding = torch.nn.Embedding(n + 1, widths.dim)
+        self.widths, self.n = widths, n_classes
+        self.embedding = torch.nn.Embedding(n_classes + 1, widths.dim)
 
     def _finish(self, cmap, layout):
         """ Cache the map, its router and the port families we read. """
         self.grid, self.layout = cmap, layout
+        self.n_cells = layout.n_cells
         self.cells = cmap.as_network().module
-        self.router = maps.Router(cmap)
+        self.router = Router(cmap)
         ports = [cmap.box_ports(cell) for cell in range(self.n_cells)]
         self.clue_ports = tuple(
             port for cell in ports for port in
@@ -263,9 +269,10 @@ class Solver(torch.nn.Module):
             embedded.repeat_interleave(2, dim=1))
 
     def readout_from(self, states):
-        """ Digit logits of shape ``(batch, n_cells, n)`` from cell states. """
+        """ Class logits of shape ``(batch, n_cells, n)`` from states. """
         logits = self.readout(states)
-        assert logits.shape[1:] == (self.n_cells, self.n), "bad logits shape"
+        assert logits.shape[1:] == (self.n_cells, self.n), \
+            "bad logits shape"
         return logits
 
     @property
@@ -274,9 +281,9 @@ class Solver(torch.nn.Module):
         return self.grid.n_ports // 2
 
 
-class GoISolver(Solver):
+class FactorGraphSolver(Solver):
     """
-    Model A: the geometry-of-interaction baseline.
+    The geometry-of-interaction factor graph.
 
     Clues enter as initial messages on the traced clue loops and are
     re-injected every round (``inject=True``); a shared linear head reads
@@ -284,19 +291,22 @@ class GoISolver(Solver):
     logits of *every* round, which is how deep supervision is applied.
 
     Parameters:
-        widths : The widths of this model.
+        abstract : The factor-graph skeleton to interpret, from
+                   :func:`core.skeletons.factor_graph`.
+        widths : The widths of this solver.
         rounds : The default number of message-passing rounds.
-        n : The size of the grid.
+        n_classes : The number of classes a variable can take.
     """
-    def __init__(self, widths: Widths = None, rounds: int = 16, n: int = N):
-        widths = widths or WIDTHS["goi"]
-        super().__init__(widths, n)
+    def __init__(self, abstract, widths: Widths, rounds: int,
+                 n_classes: int):
+        super().__init__(widths, n_classes)
         self.rounds = rounds
         self.cell = GoICell(widths.dim, widths.state_dim, widths.hidden)
         self.factor = FactorBox(widths.dim, widths.hidden)
-        self.readout = torch.nn.Linear(widths.state_dim, n)
-        self._finish(*maps.build_factor_graph(
-            self.cell, self.factor, widths.dim, widths.state_dim, n=n))
+        self.readout = torch.nn.Linear(widths.state_dim, n_classes)
+        functor = factor_functor(
+            abstract, self.cell, self.factor, widths.dim, widths.state_dim)
+        self._finish(*build(functor, abstract))
 
     def forward(self, clues, deep: bool = False, rounds: int = None):
         init = self.initial(clues)
@@ -310,27 +320,30 @@ class GoISolver(Solver):
         return [head(step) for step in emitted] if deep else head(emitted)
 
 
-class RRNSolver(Solver):
+class CliqueSolver(Solver):
     """
-    Model B: the recurrent relational network of :cite:t:`PalmEtAl18`.
+    The recurrent relational network of :cite:t:`PalmEtAl18`.
 
-    Same map-level semantics as model A -- clues injected on a traced loop,
-    a shared readout, a loss on every round -- but the wiring is the pairwise
-    peer clique and the wires carry hidden states.
+    Same map-level semantics as the factor-graph solver -- clues injected
+    on a traced loop, a shared readout, a loss on every round -- but the
+    wiring is the pairwise peer clique and the wires carry hidden states.
 
     Parameters:
-        widths : The widths of this model.
+        abstract : The clique skeleton to interpret, from
+                   :func:`core.skeletons.clique`.
+        widths : The widths of this solver.
         rounds : The default number of message-passing rounds.
-        n : The size of the grid.
+        n_classes : The number of classes a variable can take.
     """
-    def __init__(self, widths: Widths = None, rounds: int = 16, n: int = N):
-        widths = widths or WIDTHS["rrn"]
-        super().__init__(widths, n)
+    def __init__(self, abstract, widths: Widths, rounds: int,
+                 n_classes: int):
+        super().__init__(widths, n_classes)
         self.rounds = rounds
         self.cell = RRNCell(widths.dim, widths.state_dim, widths.hidden)
-        self.readout = torch.nn.Linear(widths.state_dim, n)
-        self._finish(*maps.build_clique(
-            self.cell, widths.state_dim, widths.dim, n=n))
+        self.readout = torch.nn.Linear(widths.state_dim, n_classes)
+        functor = clique_functor(
+            abstract, self.cell, widths.state_dim, widths.dim)
+        self._finish(*build(functor, abstract))
 
     def forward(self, clues, deep: bool = False, rounds: int = None):
         init = self.initial(clues)
@@ -344,48 +357,49 @@ class RRNSolver(Solver):
         return [head(step) for step in emitted] if deep else head(emitted)
 
 
-class TRMSolver(Solver):
+class RecursionSolver(Solver):
     """
-    Model C: model A's map with one extra traced loop, run by the segmented
+    The factor-graph map with one extra traced loop, run by the segmented
     outer loop of :cite:t:`JolicoeurMartineau25`.
 
-    The map is exactly model A's, plus an answer loop of width ``y_dim`` on
-    every cell which the cell reads but passes through unchanged, and a cell
-    that re-emits its clue so a run carries its own clues. Message passing is
-    then resumable: :meth:`cycle` runs ``n`` rounds with ``inject=False``
-    and reads back the flat incoming messages (``return_flat=True``, the
-    same tensor :func:`experiments.maps.route` would rebuild), and the
-    answer ``y`` is refreshed from the latent state ``z`` by a ``GRUCell``
-    before the next macro-step. One supervision step is ``T`` such cycles,
-    the first ``T - 1`` without gradients.
+    The map is the factor-graph solver's, plus an answer loop of width
+    ``y_dim`` on every cell which the cell reads but passes through
+    unchanged, and a cell that re-emits its clue so a run carries its own
+    clues. Message passing is then resumable: :meth:`cycle` runs ``n``
+    rounds with ``inject=False`` and reads back the flat incoming messages
+    (``return_flat=True``, the same tensor :func:`core.cmaps.route` would
+    rebuild), and the answer ``y`` is refreshed from the latent state
+    ``z`` by a ``GRUCell`` before the next macro-step. One supervision
+    step is ``T`` such cycles, the first ``T - 1`` without gradients.
 
     Parameters:
-        widths : The widths of this model.
+        abstract : The factor-graph skeleton to interpret.
+        widths : The widths of this solver.
         rounds : The rounds per cycle, ``n``.
         cycles : The cycles per supervision step, ``T``.
         n_sup : The default number of supervision steps.
-        n : The size of the grid.
+        n_classes : The number of classes a variable can take.
     """
     outer_loop = True
 
-    def __init__(self, widths: Widths = None, rounds: int = 6,
-                 cycles: int = 3, n_sup: int = 8, n: int = N):
-        widths = widths or WIDTHS["trm"]
-        super().__init__(widths, n)
+    def __init__(self, abstract, widths: Widths, rounds: int, cycles: int,
+                 n_sup: int, n_classes: int):
+        super().__init__(widths, n_classes)
         self.rounds, self.cycles, self.n_sup = rounds, cycles, n_sup
         self.cell = GoICell(widths.dim, widths.state_dim, widths.hidden,
                             answer_dim=widths.y_dim, resumable=True)
         self.factor = FactorBox(widths.dim, widths.hidden)
         self.answer = torch.nn.GRUCell(widths.state_dim, widths.y_dim)
         self.answer_norm = torch.nn.LayerNorm(widths.y_dim)
-        self.readout = torch.nn.Linear(widths.y_dim, n)
+        self.readout = torch.nn.Linear(widths.y_dim, n_classes)
         self.y0 = torch.nn.Parameter(torch.zeros(widths.y_dim))
-        self._finish(*maps.build_factor_graph(
-            self.cell, self.factor, widths.dim, widths.state_dim,
-            answer_dim=widths.y_dim, n=n))
+        functor = factor_functor(
+            abstract, self.cell, self.factor, widths.dim, widths.state_dim,
+            answer_dim=widths.y_dim)
+        self._finish(*build(functor, abstract))
 
     def initial(self, clues):
-        """ Model A's initial messages plus the learned answer ``y_0``. """
+        """ The shared initial messages plus the learned answer ``y_0``. """
         flat = super().initial(clues)
         y = self.y0.expand(len(clues), self.n_cells, self.widths.y_dim)
         return self.router.write(
@@ -393,8 +407,8 @@ class TRMSolver(Solver):
 
     def cycle(self, state, rounds: int = None):
         """
-        One macro-step: ``rounds`` rounds of resumable message passing, then
-        one refresh of the answer from the latent state.
+        One macro-step: ``rounds`` rounds of resumable message passing,
+        then one refresh of the answer from the latent state.
 
         Parameters:
             state : The flat incoming messages, of width ``router.total``.
@@ -440,7 +454,8 @@ class TRMSolver(Solver):
         Run the whole outer loop without gradients, e.g. to evaluate.
 
         Training does not call this: it interleaves :meth:`step` with a
-        backward pass and an optimizer step, detaching the state in between.
+        backward pass and an optimizer step, detaching the state in
+        between.
         """
         n_sup = n_sup or self.n_sup
         state, every = self.initial(clues), []
@@ -449,41 +464,3 @@ class TRMSolver(Solver):
             state = state.detach()
             every.append(logits)
         return every if deep else every[-1]
-
-
-BUILDERS = {"goi": GoISolver, "rrn": RRNSolver, "trm": TRMSolver}
-
-
-def build(name: str, budget=None, widths: Widths = None, **kwargs) -> Solver:
-    """
-    One solver by name, with the rounds taken from a budget.
-
-    Parameters:
-        name : ``"goi"``, ``"rrn"`` or ``"trm"``.
-        budget : The :class:`experiments.config.Budget` giving the depths.
-        widths : Widths overriding :data:`experiments.config.WIDTHS`.
-    """
-    widths = widths or WIDTHS[name]
-    if budget is not None:
-        kwargs.setdefault("rounds", budget.trm_n if name == "trm"
-                          else budget.rounds)
-        if name == "trm":
-            kwargs.setdefault("cycles", budget.trm_T)
-            kwargs.setdefault("n_sup", budget.trm_n_sup)
-    return BUILDERS[name](widths=widths, **kwargs)
-
-
-def match_widths(target: int, tolerance: float = 0.1) -> dict:
-    """
-    Report the parameter count of the three models at the configured widths,
-    together with whether they all fall within ``tolerance`` of ``target``.
-
-    Parameters:
-        target : The parameter count the three models should match.
-        tolerance : The relative tolerance, ``0.1`` for the 10% of the
-                    fairness protocol.
-    """
-    counts = {name: count_parameters(build(name)) for name in BUILDERS}
-    return {"counts": counts, "target": target, "matched": all(
-        abs(count - target) <= tolerance * target
-        for count in counts.values())}

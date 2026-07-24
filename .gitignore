@@ -29,15 +29,25 @@ discopy/version.py
 benchmark-results/
 plans/
 
-# neural-sudoku-comparative: the report keeps its figures and its result
-# tables, but not the downloaded benchmark or the trained checkpoints, which
-# `python -m experiments.run` regenerates.
+# docs/neural: the study keeps its code and figures, but not the downloaded
+# benchmarks or the trained checkpoints, which the scripts regenerate.
 !docs/neural/figures/*.pdf
 docs/neural/sudoku_data/
 docs/neural/artifacts/
 docs/neural/*.pt
 docs/neural/__pycache__/
 
+# local-only compatibility shim for optuna searches launched before the
+# experiments package was split into core/ and sudoku/; delete when idle.
+docs/neural/experiments/
+
 # optuna study storage (sqlite dbs, journal files + their .lock files, worker
 # logs): host-specific run state, not something to version.
 docs/neural/optuna/runs/
+docs/optuna/runs/
+*.db
+*.journal
+*.lock
+
+# marimo's per-notebook working state
+__marimo__/

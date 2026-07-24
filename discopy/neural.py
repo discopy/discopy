@@ -23,8 +23,12 @@ The forward pass is vectorized: all the messages live in one flat tensor, one
 round of routing is a single permutation of its last axis, and every box that
 shares a module and a port signature is evaluated in one batched call, so a
 grid of identical cells costs one module call per round rather than one per
-cell. It runs on whatever device its parameters live on, so ``cmap.to("cuda")``
-followed by ``cmap(x.to("cuda"))`` trains on the GPU. :meth:`CMap.forward_reference`
+cell. On a closed map -- no boundary, every port owned by a box -- the
+messages are stored in box order rather than port order, so each module reads
+its inputs as a contiguous view and one round costs exactly one permutation,
+with no gather or scatter around the module calls. It runs on whatever device
+its parameters live on, so ``cmap.to("cuda")`` followed by
+``cmap(x.to("cuda"))`` trains on the GPU. :meth:`CMap.forward_reference`
 is the equivalent one-call-per-box implementation, kept for clarity and tests;
 :meth:`CMap.compile` wraps the per-round step in ``torch.compile`` for maps
 whose rounds are launch-bound rather than compute-bound.
@@ -477,22 +481,66 @@ class CMap(compact.CMap):
                 (module, tuple(index for index, _ in members), gather(members))
                 for module, members in groups.values())}
 
+    @cached_property
+    def _fused_routing(self) -> dict:
+        """
+        Index tensors for the closed-map fast path of :meth:`forward`, where
+        the flat messages are stored in *box order* -- for each group of
+        boxes sharing a module, one contiguous block of shape ``(n_boxes,
+        width)`` -- rather than in port order:
+
+        * ``layout`` : the port-order position stored at each box-order
+          position, i.e. ``box_order = port_order[..., layout]``,
+        * ``inverse`` : the inverse permutation, back to port order,
+        * ``perm`` : one round of routing in box order, the wire involution
+          conjugated by the change of layout, ``inverse . src . layout``,
+        * ``metas`` : per group, its module, box indices and block shape.
+
+        In this layout every module reads its inputs as a contiguous view
+        and one round of routing is the single permutation ``perm``: the
+        clone, the scatters and the input gathers of the port-order step
+        all disappear.  Only defined for closed maps, where every port
+        belongs to a box, so the group blocks partition the flat tensor.
+        """
+        import torch
+        routing = self._routing
+        layout = torch.cat([
+            gather.reshape(-1) for _, _, gather in routing["groups"]])
+        assert len(layout) == routing["total"], "the map is not closed"
+        inverse = torch.empty_like(layout)
+        inverse[layout] = torch.arange(len(layout))
+        return {
+            "layout": layout, "inverse": inverse,
+            "perm": inverse[routing["src"][layout]],
+            "metas": tuple(
+                (module, indices, gather.shape[0], gather.shape[1])
+                for module, indices, gather in routing["groups"])}
+
     def _device_routing(self, device) -> dict:
         """
-        The index tensors of :attr:`_routing` on a device, cached so that
-        repeated forward passes do not re-copy them from the CPU.
+        The index tensors of :attr:`_routing` -- and, for closed maps, of
+        :attr:`_fused_routing` -- on a device, cached so that repeated
+        forward passes do not re-copy them from the CPU.
         """
         cache = self.__dict__.setdefault("_device_routing_cache", {})
         if device not in cache:
             routing = self._routing
-            cache[device] = {
+            entry = {
                 "src": routing["src"].to(device),
                 "groups": tuple(
                     (module, indices, gather.to(device))
                     for module, indices, gather in routing["groups"])}
+            if not routing["input"] and not routing["output"] and self.boxes:
+                fused = self._fused_routing
+                entry.update(
+                    layout=fused["layout"].to(device),
+                    inverse=fused["inverse"].to(device),
+                    perm=fused["perm"].to(device),
+                    metas=fused["metas"])
+            cache[device] = entry
         return cache[device]
 
-    def compile(self, **kwargs) -> CMap:
+    def compile(self, unroll: bool = False, **kwargs) -> CMap:
         """
         Compile the per-round step of :meth:`forward` with ``torch.compile``.
 
@@ -505,6 +553,13 @@ class CMap(compact.CMap):
         forward pass per device and batch size.
 
         Parameters:
+            unroll : Whether to compile the whole ``n_rounds`` loop of a
+                     closed map as one function rather than one round at a
+                     time, so that e.g. ``mode="reduce-overhead"`` replays a
+                     run as a single CUDA graph. One graph is compiled per
+                     distinct ``n_rounds``, so this suits loops whose depth
+                     is fixed; ``return_rounds`` falls back to the
+                     round-by-round step.
             kwargs : Passed through to ``torch.compile``, e.g. ``mode``.
 
         Note
@@ -514,42 +569,122 @@ class CMap(compact.CMap):
         differences of about ``1e-6``); gradients agree to the same order.
         """
         self._step_compile = kwargs
+        self._unroll = unroll
         self.__dict__.pop("_step_cache", None)
+        self.__dict__.pop("_step_flat_cache", None)
+        self.__dict__.pop("_runner_cache", None)
         return self
 
-    def _step(self, device):
+    def _step_body(self, device):
         """
         One round of message passing as a single function of flat tensors,
         ``(incoming, source, init) -> (incoming, group outputs)``, cached
-        per device and wrapped in ``torch.compile`` when :meth:`compile`
-        was called on the map.
+        per device. On a closed map the flat tensors are in the box-order
+        layout of :attr:`_fused_routing` and ``source`` is ignored; on an
+        open map they are in port order.
+        """
+        import torch
+        cache = self.__dict__.setdefault("_step_body_cache", {})
+        if device not in cache:
+            routing = self._device_routing(device)
+            if "perm" in routing:
+                perm, metas = routing["perm"], routing["metas"]
+
+                def step(incoming, source, init):
+                    chunks, group_outputs, offset = [], [], 0
+                    for module, _, n_boxes, width in metas:
+                        block = n_boxes * width
+                        outputs = module(
+                            incoming[:, offset:offset + block]
+                            .reshape(-1, width))
+                        group_outputs.append(
+                            outputs.reshape(-1, n_boxes, width))
+                        chunks.append(outputs.reshape(-1, block))
+                        offset += block
+                    incoming = torch.cat(chunks, dim=-1)[:, perm]
+                    if init is not None:
+                        incoming = incoming + init
+                    return incoming, group_outputs
+            else:
+                src, groups = routing["src"], routing["groups"]
+
+                def step(incoming, source, init):
+                    outgoing = source.clone()
+                    group_outputs = []
+                    for module, _, gather in groups:
+                        n_boxes, width = gather.shape
+                        outputs = module(
+                            incoming[:, gather.reshape(-1)]
+                            .reshape(-1, width)).reshape(-1, n_boxes, width)
+                        outgoing[:, gather.reshape(-1)] = outputs.reshape(
+                            outputs.shape[0], n_boxes * width)
+                        group_outputs.append(outputs)
+                    incoming = outgoing[:, src]
+                    if init is not None:
+                        incoming = incoming + init
+                    return incoming, group_outputs
+            cache[device] = step
+        return cache[device]
+
+    def _compiled(self, function):
+        """
+        The function wrapped in ``torch.compile`` when :meth:`compile` was
+        called on the map, the function itself otherwise.
+        """
+        if getattr(self, "_step_compile", None) is None:
+            return function
+        import torch
+        return torch.compile(function, **self._step_compile)
+
+    def _step(self, device):
+        """
+        The round step of :meth:`_step_body`, wrapped in ``torch.compile``
+        when :meth:`compile` was called on the map, cached per device.
         """
         cache = self.__dict__.setdefault("_step_cache", {})
         if device not in cache:
-            routing = self._device_routing(device)
-            src, groups = routing["src"], routing["groups"]
+            cache[device] = self._compiled(self._step_body(device))
+        return cache[device]
 
-            def step(incoming, source, init):
-                outgoing = source.clone()
-                group_outputs = []
-                for module, _, gather in groups:
-                    n_boxes, width = gather.shape
-                    outputs = module(
-                        incoming[:, gather.reshape(-1)]
-                        .reshape(-1, width)).reshape(-1, n_boxes, width)
-                    outgoing[:, gather.reshape(-1)] = outputs.reshape(
-                        outputs.shape[0], n_boxes * width)
-                    group_outputs.append(outputs)
-                incoming = outgoing[:, src]
-                if init is not None:
-                    incoming = incoming + init
+    def _step_flat(self, device):
+        """
+        The round step of :meth:`_step_body` followed by the permutation
+        back to port order, ``(incoming, init) -> (incoming, flat, group
+        outputs)``, cached per device and compiled like :meth:`_step`.
+        This is the step of ``return_rounds`` with ``return_flat`` on a
+        closed map: emitting the port-order flat inside the step keeps
+        the per-round read out of the eager path.
+        """
+        cache = self.__dict__.setdefault("_step_flat_cache", {})
+        if device not in cache:
+            body = self._step_body(device)
+            inverse = self._device_routing(device)["inverse"]
+
+            def step(incoming, init):
+                incoming, group_outputs = body(incoming, None, init)
+                return incoming, incoming[:, inverse], group_outputs
+
+            cache[device] = self._compiled(step)
+        return cache[device]
+
+    def _runner(self, device, n_rounds: int):
+        """
+        The whole ``n_rounds`` loop over :meth:`_step_body` as one function,
+        wrapped in ``torch.compile`` when :meth:`compile` was called with
+        ``unroll=True``, cached per device and number of rounds.
+        """
+        cache = self.__dict__.setdefault("_runner_cache", {})
+        if (device, n_rounds) not in cache:
+            step = self._step_body(device)
+
+            def run(incoming, init):
+                group_outputs = None
+                for _ in range(n_rounds):
+                    incoming, group_outputs = step(incoming, None, init)
                 return incoming, group_outputs
 
-            if getattr(self, "_step_compile", None) is not None:
-                import torch
-                step = torch.compile(step, **self._step_compile)
-            cache[device] = step
-        return cache[device]
+            cache[device, n_rounds] = self._compiled(run)
+        return cache[device, n_rounds]
 
     def forward(self, x: "torch.Tensor" = None, init=None,
                 n_rounds: int = None, inject: bool = True,
@@ -581,6 +716,14 @@ class CMap(compact.CMap):
                           rebuild, so reading a family of ports from it
                           directly skips that round-trip and keeps the
                           backward graph small; see :meth:`compile`.
+
+        Note
+        ----
+        On a closed map the messages are held in the box-order layout of
+        :attr:`_fused_routing` -- module inputs are contiguous views, one
+        round of routing is one permutation -- and are only permuted back
+        to port order where the caller sees them, so the results are
+        identical to the port-order path element for element.
         """
         import torch
         routing = self._routing
@@ -590,26 +733,36 @@ class CMap(compact.CMap):
         device = kwargs.get("device", None)
         step = self._step(device)
         device_routing = self._device_routing(device)
-        src, groups = device_routing["src"], device_routing["groups"]
+        groups = device_routing["groups"]
+        fused = "perm" in device_routing
+        closed = not (len(self.dom) or len(self.cod))
 
         if isinstance(init, (list, tuple)):
             init = torch.cat([
                 message if message is not None
                 else torch.zeros(batch_size, width, **kwargs)
                 for message, width in zip(init, widths)], dim=-1)
-        source = torch.zeros(batch_size, routing["total"], **kwargs)
-        if x is not None:
-            for i, chunk in zip(routing["input"], torch.split(
-                    x, [widths[i] for i in routing["input"]], dim=-1)):
-                source[:, offsets[i]:offsets[i] + widths[i]] = chunk
 
-        incoming = source[:, src] if init is None else init + source[:, src]
-        injected = init if (inject and init is not None) else None
-        closed = not (len(self.dom) or len(self.cod))
+        if fused:
+            source = None
+            incoming = torch.zeros(batch_size, routing["total"], **kwargs)\
+                if init is None else init[:, device_routing["layout"]]
+            injected = incoming if (inject and init is not None) else None
+        else:
+            src = device_routing["src"]
+            source = torch.zeros(batch_size, routing["total"], **kwargs)
+            if x is not None:
+                for i, chunk in zip(routing["input"], torch.split(
+                        x, [widths[i] for i in routing["input"]], dim=-1)):
+                    source[:, offsets[i]:offsets[i] + widths[i]] = chunk
+            incoming = source[:, src] if init is None \
+                else init + source[:, src]
+            injected = init if (inject and init is not None) else None
 
         def read(incoming, group_outputs):
             if return_flat:
-                return incoming
+                return incoming[:, device_routing["inverse"]] if fused \
+                    else incoming
             if closed:
                 box_outputs = [None] * len(self.boxes)
                 for (_, indices, _), outputs in zip(groups, group_outputs):
@@ -623,7 +776,19 @@ class CMap(compact.CMap):
                 if routing["output"] else torch.zeros(
                     batch_size, 0, **kwargs)
 
+        if fused and n_rounds and not return_rounds \
+                and getattr(self, "_unroll", False):
+            incoming, group_outputs = self._runner(device, n_rounds)(
+                incoming, injected)
+            return read(incoming, group_outputs)
+
         rounds, group_outputs = [], [None] * len(groups)
+        if fused and return_rounds and return_flat:
+            step_flat = self._step_flat(device)
+            for _ in range(n_rounds):
+                incoming, flat, group_outputs = step_flat(incoming, injected)
+                rounds.append(flat)
+            return rounds
         for _ in range(n_rounds):
             incoming, group_outputs = step(incoming, source, injected)
             if return_rounds:
