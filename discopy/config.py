@@ -71,7 +71,10 @@ DRAWING_DEFAULT = {
     # Gap in inches between the diagram and the legend.
     "legend_margin": 0.4,
     "ribbon_width": 0.25,
+    # Root-mean-square tolerance for raster image comparison.
     "tol": 20,
+    # Tolerance on SVG coordinates for rounding errors.
+    "svg_tol": 0.1,
 }
 
 # Mapping from tikz colors to hexcodes.

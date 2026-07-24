@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from functools import lru_cache, wraps
 from typing import (
     Callable,
@@ -424,15 +425,22 @@ def text_width(text: str, rounded=3, fontsize=12, points_per_inch=72.):
 
     The sum of the advance widths of the characters from :func:`font_metrics`
     up to `rounded` decimals at a given `fontsize` and `points_per_inch`
-    conversion; characters outside the table count as one em.
+    conversion; each LaTeX command stands for a single symbol so it counts as
+    one em, like every other character outside the table; LaTeX markup
+    characters ``$``, ``{``, ``}``, ``^`` and ``_`` take no space.
 
     >>> text_width("Alice loves Bob")
     1.139
-    >>> assert text_width("") == 0 and text_width("†") == round(12 / 72, 3)
+    >>> one_em = round(12 / 72, 3)
+    >>> assert text_width("$\\\\mapsto$") == text_width("†") == one_em
+    >>> assert text_width("") == 0 and text_width("$x_1$") == text_width("x1")
     """
     em = fontsize / points_per_inch
+    commands = re.findall(r"\\[a-zA-Z]+", text)
+    text = re.sub(r"\\[a-zA-Z]+|[${}^_]", "", text)
     return round(
-        sum(font_metrics().get(char, 1.) for char in text) * em, rounded)
+        (len(commands) + sum(font_metrics().get(c, 1.) for c in text)) * em,
+        rounded)
 
 
 def tuplify(stuff: any) -> tuple:

@@ -21,6 +21,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from math import sqrt
 import os
+import re
 from xml.etree import ElementTree
 
 from typing import TYPE_CHECKING
@@ -91,13 +92,13 @@ def draw(graph: PlaneGraph, **params):
         tol=params.get('tol', DEFAULT['tol']))
 
 
-def normalize_svg(path):
+def normalize_svg(path) -> ElementTree.Element:
     """
-    Normalise an SVG for comparison: drop the volatile creation metadata
-    and renumber clip path ids, whose hash depends on the Matplotlib
+    Parse an SVG into a normalised element tree: drop the volatile creation
+    metadata and renumber clip path ids, whose hash depends on the Matplotlib
     version, in document order. Every other attribute, e.g. the path data
     of a glyph or its identifier, is left untouched so that a genuine
-    difference in the drawing still makes the comparison fail.
+    difference in the drawing still makes :func:`svg_equal` fail.
     """
     root = ElementTree.parse(path).getroot()
     clip_ids = {}
@@ -133,7 +134,34 @@ def normalize_svg(path):
         element.tail = None
 
     normalize(root)
-    return ElementTree.tostring(root, encoding="unicode")
+    return root
+
+
+NUMBER = re.compile(r"-?\d+(?:\.\d+)?(?:e-?\d+)?")
+
+
+def close_enough(expected: str, actual: str, tol: float) -> bool:
+    """ Whether two strings are equal up to `tol` on their numbers. """
+    if NUMBER.sub("#", expected) != NUMBER.sub("#", actual):
+        return False
+    return all(
+        x == y or abs(float(x) - float(y)) <= tol for x, y in
+        zip(NUMBER.findall(expected), NUMBER.findall(actual)))
+
+
+def svg_equal(path, actual_path, tol=DEFAULT['svg_tol']) -> bool:
+    """ Whether two SVG files are equal after :func:`normalize_svg`,
+    with coordinates compared up to `tol` for rounding errors. """
+    def equal(expected, actual):
+        return expected.tag == actual.tag\
+            and (expected.text or "") == (actual.text or "")\
+            and expected.attrib.keys() == actual.attrib.keys()\
+            and all(close_enough(value, actual.attrib[key], tol)
+                    for key, value in expected.attrib.items())\
+            and len(expected) == len(actual)\
+            and all(map(equal, expected, actual))
+
+    return equal(normalize_svg(path), normalize_svg(actual_path))
 
 
 def temporary_path(path):
@@ -146,7 +174,7 @@ def compare_drawing(path, actual_path, tol=DEFAULT['tol']):
     """ Compare a drawing against its baseline and remove it when equal. """
     extension = os.path.splitext(os.fspath(path))[1].lower()
     if extension == ".svg":
-        equal = normalize_svg(path) == normalize_svg(actual_path)
+        equal = svg_equal(path, actual_path)
         difference = None
     elif extension in [".png", ".jpg", ".jpeg", ".tif", ".tiff"]:
         difference = compare_images(path, actual_path, tol)

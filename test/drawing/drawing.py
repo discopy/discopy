@@ -74,11 +74,19 @@ def test_normalize_svg(tmp_path):
 </svg>""")
 
     # Metadata and hyperlink wrappers are volatile, they get normalised away.
-    assert backend.normalize_svg(expected) == backend.normalize_svg(actual)
+    assert backend.svg_equal(expected, actual)
 
     # A genuine difference in width, position or text content is preserved.
     actual.write_text(actual.read_text().replace('width="1"', 'width="2"'))
-    assert backend.normalize_svg(expected) != backend.normalize_svg(actual)
+    assert not backend.svg_equal(expected, actual)
+
+    # Rounding errors within the tolerance are forgiven.
+    actual.write_text(actual.read_text().replace('width="2"', 'width="1.01"'))
+    assert backend.svg_equal(expected, actual)
+
+    # A non-numeric difference, e.g. in an identifier, is also preserved.
+    actual.write_text(actual.read_text().replace('id="one"', 'id="two"'))
+    assert not backend.svg_equal(expected, actual)
 
 
 def test_normalize_svg_clip_path_ids(tmp_path):
@@ -94,7 +102,7 @@ def test_normalize_svg_clip_path_ids(tmp_path):
 
     # Clip path hashes depend on the Matplotlib version, they get renamed
     # consistently in document order regardless of their actual value.
-    assert backend.normalize_svg(expected) == backend.normalize_svg(actual)
+    assert backend.svg_equal(expected, actual)
 
 
 def test_draw_coloured_regions_and_frame():
