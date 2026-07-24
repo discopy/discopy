@@ -31,6 +31,7 @@ DisCoPy is a Python toolkit for computing with [string diagrams](https://en.wiki
 * a `Drawing` data structure for labeled graphs embedded in the plane
 * a `Term` data structure for lambda terms in the internal language of (bi)closed monoidal categories and their translation back and forth to diagrams
 * a `Hypergraph` data structure for string diagrams in hypergraph categories and its restrictions to symmetric, traced, compact and Markov categories
+* a combinantorial map data structure for string diagrams in compact categories and its restrictions to symmetric, (bi)closed and traced categories. The orientation on boxes can also help to enforce planarity.
 * a `Stream` data structure, an implementation of [monoidal streams](https://arxiv.org/abs/2212.14494) as a [category with delayed feedback](https://doi.org/10.1051/ita:2002009)
 * the `Int`-construction, also called the [geometry of interaction](https://ncatlab.org/nlab/show/Geometry+of+Interaction), i.e. the free tortile/compact closed category on a balanced/symmetric traced category
 
@@ -59,21 +60,21 @@ Or you can keep scrolling down, skip the theory and go straight to the examples 
 - the tensor of diagrams is decomposed in terms of composition and whiskering i.e. `f @ g = f @ g.dom >> f.cod @ g`, this is biased in the sense that `f` happens before `g` so that diagrams really live in a [premonoidal category](https://en.wikipedia.org/wiki/Premonoidal_category)
 - *the first gotcha of DisCoPy:* `Box` is a subclass of `Diagram` with a cyclic reference `list(box.inside) == [Layer(Ty(), box, Ty())]`
 - every categorical structure is implemented with the factory method pattern so that e.g. the method `Diagram.swap` computes the symmetry of arbitrary types with `Diagram.swap_factory = Swap` as subroutine for generating subclasses of `Box` for the symmetry of atomic types
-- *the second gotcha of DisCoPy:* each `C: Category` comes with a class attribute `ar` such that `C.ar = C`; this happens with the decorator `@ar_factory` and it allows for e.g. the subclass `Box` to know that it lives inside a bigger `Diagram` category
+- *the second gotcha of DisCoPy:* each `C: Category` comes with a class attribute `ar` such that `C.ar = C`; this happens with the decorator `@factory` and it allows for e.g. the subclass `Box` to know that it lives inside a bigger `Diagram` category
 
 ## Example: Cooking
 
 This example is inspired from Pawel Sobocinski's blog post [Crema di Mascarpone and Diagrammatic Reasoning](https://graphicallinearalgebra.net/2015/05/06/crema-di-mascarpone-rules-of-the-game-part-2-and-diagrammatic-reasoning/).
 
 ```python
-from discopy.utils import ob_factory, ar_factory
+from discopy.utils import factory
 from discopy.symmetric import Ty, Box, Diagram, Swap
 
-@ob_factory
+@factory
 class Ingredient(Ty):
   "The objects of the category of recipe diagrams."
 
-@ar_factory
+@factory
 class Recipe(Diagram):
   ob = Ingredient
 
@@ -83,7 +84,7 @@ class CookingStep(Box, Recipe):
 class CookingSwap(Swap, CookingStep):
   "A cooking swap takes two ingredients `X @ Y` and gives `Y @ X`."
 
-Recipe.swap_factory = CookingSwap  # Recipes need to know how to swap.
+Recipe.braid_factory = CookingSwap  # Recipes need to know how to swap.
 
 egg, white, yolk = Ingredient("egg"), Ingredient("white"), Ingredient("yolk")
 crack = CookingStep("crack", egg, white @ yolk)
@@ -98,9 +99,9 @@ def crack_two_eggs(x, y):
 
 # ... or in point-free style using parallel (@) and sequential (>>) composition
 
-assert crack_two_eggs == crack @ crack\
-  >> white @ CookingSwap(yolk, white) @ yolk\
-  >> merge(white) @ merge(yolk)
+assert crack_two_eggs == (crack @ crack
+  >> white @ CookingSwap(yolk, white) @ yolk
+  >> merge(white) @ merge(yolk)).foliation()
 
 crack_two_eggs.draw()
 ```
@@ -111,8 +112,7 @@ By default, DisCoPy diagrams are made of layers with exactly one box in between 
 We can get more general diagrams by specifying the list of layers `inside` manually:
 
 ```python
-from discopy.monoidal import Layer
-from discopy.drawing import Equation
+from discopy.monoidal import Layer, Equation
 
 A, B, C, D = Ty(*"ABCD")
 f, g = Box("f", A, B), Box("g", C, D)
@@ -124,7 +124,7 @@ Equation(Equation(
   left, middle, symbol="$\\rightarrow$"), right, symbol="$\\leftarrow$").draw()
 ```
 
-![](docs/_static/readme/interchanger.png)
+![](docs/_static/readme/interchanger.svg)
 
 or by calling the method `Diagram.foliation` which will minimize the length of the diagram:
 
@@ -132,11 +132,13 @@ or by calling the method `Diagram.foliation` which will minimize the length of t
 
 crack_two_eggs_at_once = crack_two_eggs.foliation()
 
+empty = Ingredient()
+
 assert crack_two_eggs_at_once == Recipe(
   dom=egg @ egg, cod=white @ yolk, inside=(
-    Layer(Ty(), crack, Ty(), crack, Ty()),
+    Layer(empty, crack, empty, crack, empty),
     Layer(white, CookingSwap(yolk, white), yolk),
-    Layer(Ty(), merge(white), Ty(), merge(yolk), Ty())))
+    Layer(empty, merge(white), empty, merge(yolk), empty)))
 
 crack_two_eggs_at_once.draw()
 ```
@@ -169,8 +171,7 @@ For instance, the `Int`-construction takes traced categories to compact categori
 Wires can be bent using two special kinds of boxes: **cups** and **caps**, which satisfy the [snake equations](https://ncatlab.org/nlab/show/triangle+identities).
 
 ```python
-from discopy.drawing import Equation
-from discopy.rigid import Ty, Id, Cup, Cap
+from discopy.rigid import Ty, Id, Cup, Cap, Equation
 
 x = Ty('x')
 left_snake = x @ Cap(x.r, x) >> Cup(x, x.r) @ x
@@ -214,9 +215,9 @@ from discopy.grammar import pregroup
 from discopy.tensor import Dim, Tensor
 
 F = pregroup.Functor(
-  {s: 1, n: 2},
-  {Alice: [1, 0], loves: [[0, 1], [1, 0]], Bob: [0, 1]},
-  cod=Tensor)
+    ob_map={s: 1, n: 2},
+    ar_map={Alice: [1, 0], loves: [[0, 1], [1, 0]], Bob: [0, 1]},
+    cod=Tensor)
 
 assert F(sentence)
 ```
@@ -234,7 +235,7 @@ def wiring(word):
         box = Box(word.name, n @ n, s)
         return Cap(n.r, n) @ Cap(n, n.l) >> n.r @ box @ n.l
 
-W = pregroup.Functor(ob={s: s, n: n}, ar=wiring)
+W = pregroup.Functor(ob_map={s: s, n: n}, ar_map=wiring)
 
 rewrite_steps = W(sentence).normalize()
 sentence.to_gif(*rewrite_steps)
@@ -251,47 +252,46 @@ The [`Int`](https://docs.discopy.org/en/main/_api/discopy.interaction.Int.html)-
 
 i.e. the same we can pretend that a commutative monoid is a group so long as it is cancellative (i.e. `a + x == b + x` implies `a == b`) we can pretend that a monoidal category has cups and caps so long as it is traced, i.e. it has feedback loops:
 
-![feedback loop](docs/_static/traced/right-trace.png)
+![feedback loop](docs/_static/traced/right-trace.svg)
 
 Concretely, we get a compact category where the objects are given by pairs of objects in the traced category, morphisms are bidirectional processes with a positive and a negative direction.
 Composition given by symmetric feedback, i.e. tracing out the common boundary of the two processes so they can communicate along an infinity-shaped pair of wires between them:
 
-![](docs/_static/int/symmetric-feedback.png)
+![](docs/_static/int/symmetric-feedback.svg)
 
 We can use this geometry of interaction to interpret words as processes rather than states:
 
 ```python
 from discopy.interaction import Ty, Int
-from discopy.compact import Ty as T, Diagram as D, Box
+from discopy.compact import Ty as T, Diagram as D, Box, Equation
 
 N, S = T('N'), T('S')
 A, B = Box('A', N, N), Box('B', N, N)
 L = Box('L', N @ S @ N, N @ S @ N)
 swaps = D.permutation((2, 1, 0), N @ S @ N)
 G = pregroup.Functor(
-    ob={s: Ty[T](S, S), n: Ty[T](N, N)},
-    ar={Alice: A, loves: swaps >> L, Bob: B},
+    ob_map={s: Ty[T](S, S), n: Ty[T](N, N)},
+    ar_map={Alice: A, loves: swaps >> L, Bob: B},
     cod=Int(D))
 
 ALB_trace = (A @ S @ B >> L).trace(left=True).trace(left=False).foliation()
 
-with D.hypergraph_equality:
-  assert G(sentence).inside == ALB_trace
+assert Equation(G(sentence).inside, ALB_trace)
 
 Equation(sentence.foliation(), ALB_trace, symbol="$\\mapsto$").draw()
 ```
 
-![Alice loves traces](https://github.com/discopy/discopy/raw/main/docs/_static/int/alice-loves-traces.png)
+![Alice loves traces](https://github.com/discopy/discopy/raw/main/docs/_static/int/alice-loves-traces.svg)
 
 ### Streams and delayed feedback
 
 A key axiom of traced monoidal categories which allows to simplify diagrams is the **yanking equation**:
 
-![yanking](https://github.com/discopy/discopy/raw/main/docs/_static/traced/yanking.png)
+![yanking](https://github.com/discopy/discopy/raw/main/docs/_static/traced/yanking.svg)
 
 If we relax this assumption we get the concept of a [`feedback`](https://docs.discopy.org/en/main/_api/discopy.feedback.html) category where the objects come with a [`delay`](https://docs.discopy.org/en/main/_api/discopy.feedback.Ob.html#discopy.feedback.Ob.delay) operation and the feedback loops have a more restricted shape:
 
-![feedback operator](https://github.com/discopy/discopy/raw/main/docs/_static/feedback/feedback-operator.png)
+![feedback operator](https://github.com/discopy/discopy/raw/main/docs/_static/feedback/feedback-operator.svg)
 
 Given a symmetric category, we can construct a feedback category of **monoidal streams** where the feedback operation is given by adding an internal state. We can use this to unroll our diagram of the previous section:
 
@@ -305,7 +305,7 @@ ALB = (L >> A @ B).feedback(dom=S.head, cod=Ty(), mem=N @ N)
 ALB.unroll(2).now.foliation().draw()
 ```
 
-![Alice loves unrolling](https://github.com/discopy/discopy/raw/main/docs/_static/stream/alice-loves-unrolling.png)
+![Alice loves unrolling](https://github.com/discopy/discopy/raw/main/docs/_static/stream/alice-loves-unrolling.svg)
 
 ## References
 

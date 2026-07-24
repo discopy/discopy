@@ -26,11 +26,10 @@ def test_dim():
 
 def test_axioms():
     x = Dim(2)
-    Diagram.use_hypergraph_equality = True
-    assert Id(x).transpose() == Id(x) == Id(x).transpose(left=True)
-    assert Cap(x, x.r) >> Swap(x, x.r) == Cap(x.r, x)
-    assert Swap(x, x.r) >> Cup(x.r, x) == Cup(x, x.r)
-    Diagram.use_hypergraph_equality = False
+    assert Equation(
+        Id(x).transpose(), Id(x), Id(x).transpose(left=True))
+    assert Equation(Cap(x, x.r) >> Swap(x, x.r), Cap(x.r, x))
+    assert Equation(Swap(x, x.r) >> Cup(x.r, x), Cup(x, x.r))
 
 
 def test_network_as_box():

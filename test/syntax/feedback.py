@@ -31,8 +31,8 @@ def test_functor_python_stream():
     x = Ty('x')
     zero, wait = Box('zero', Ty(), x), Diagram.wait(x)
     F = Functor(
-        ob={x: int},
-        ar={zero: lambda: 0},
+        ob_map={x: int},
+        ar_map={zero: lambda: 0},
         cod=stream.Stream[python.Function])
     assert F(wait @ zero).unroll(2).now(1, 2, 3) == (0, ) + (1, 0) + (2, 0) + (3, )
 
@@ -49,8 +49,8 @@ def test_walk():
         return (y, y)
 
     F = Functor(
-        ob={X: int},
-        ar={zero: lambda: 0,
+        ob_map={X: int},
+        ar_map={zero: lambda: 0,
             rand: lambda: choice([-1, +1]),
             plus: lambda x, y: x + y},
         cod=stream.Stream[python.Function])
@@ -72,17 +72,17 @@ def test_fibonacci():
         y = fby(zero.head(), plus.d(fby.d(one.head.d(), wait.d(x)), x))
         return (y, y)
 
-    with Diagram.hypergraph_equality:
-        assert fib == (
-            copy.d >> one.head.d @ wait.d @ X.d
-                >> fby.d @ X.d
-                >> plus.d
-                >> zero.head @ X.d
-                >> fby >> copy).feedback()
+    fib_ = (
+        copy.d >> one.head.d @ wait.d @ X.d
+            >> fby.d @ X.d
+            >> plus.d
+            >> zero.head @ X.d
+            >> fby >> copy).feedback()
+    assert Equation(fib.arg, fib_.arg)
 
     F = Functor(
-        ob={X: (int, )},
-        ar={zero: lambda: 0,
+        ob_map={X: (int, )},
+        ar_map={zero: lambda: 0,
             one: lambda: 1,
             plus: lambda x, y: x + y},
         cod=stream.Stream[python.Function])

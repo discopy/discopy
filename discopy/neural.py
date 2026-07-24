@@ -70,8 +70,8 @@ from typing import TYPE_CHECKING
 
 from functools import cached_property
 
-from discopy import compact, monoidal
-from discopy.cat import ar_factory, ob_factory
+from discopy import compact, hypergraph, monoidal
+from discopy.cat import factory
 from discopy.cmap import PortKind
 from discopy.pivotal import Ty
 from discopy.utils import assert_isinstance
@@ -80,7 +80,7 @@ if TYPE_CHECKING:
     import torch
 
 
-@ob_factory
+@factory
 class Dim(monoidal.Dim, Ty):
     """
     A dimension is a tuple of positive integers seen as a self-dual type,
@@ -92,10 +92,10 @@ class Dim(monoidal.Dim, Ty):
     >>> assert Dim(2, 3).l == Dim(2, 3).r == Dim(3, 2)
     """
     unit = 0
-    l = r = property(lambda self: self.ob(*self.inside[::-1]))
+    l = r = property(lambda self: self.ar(*self.inside[::-1]))
 
 
-@ar_factory
+@factory
 class Diagram(compact.Diagram):
     """
     A neural diagram is a compact diagram with dimensions as objects.
@@ -201,9 +201,7 @@ class Functor(compact.Functor):
     dom = cod = Diagram
 
 
-class Hypergraph(compact.Hypergraph):
-    """ A neural hypergraph is a compact hypergraph between dimensions. """
-    functor = Functor
+Hypergraph = hypergraph.Hypergraph[Diagram]
 
 
 class CMap(compact.CMap):
@@ -229,7 +227,7 @@ class CMap(compact.CMap):
     >>> fm.port_dims  # f's dom, then f's dom, f's cod (reversed), f's cod
     (2, 2, 2, 3, 3, 2)
     """
-    functor = Functor
+    category = Diagram
 
     @property
     def port_dims(self) -> tuple[int, ...]:
@@ -397,6 +395,11 @@ class CMap(compact.CMap):
 Id = Diagram.id
 
 Diagram.braid_factory = Swap
-Diagram.hypergraph_factory = Hypergraph
+Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
+
+
+class Equation(compact.Equation):
+    """ An equation between neural diagrams, compared up to maps. """
+    up_to = staticmethod(Diagram.to_map)

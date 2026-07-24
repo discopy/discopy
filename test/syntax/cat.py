@@ -12,7 +12,7 @@ def test_main():
     assert Id(x) >> f == f == f >> Id(y)
     assert (f >> g).dom == f.dom and (f >> g).cod == g.cod
     assert f >> g >> h == f >> (g >> h)
-    F = Functor(ob={x: y, y: z, z: x}, ar={f: g, g: h})
+    F = Functor(ob_map={x: y, y: z, z: x}, ar_map={f: g, g: h})
     assert F(Id(x)) == Id(F(x))
     assert F(f >> g) == F(f) >> F(g)
 
@@ -198,6 +198,35 @@ def test_Box_hash():
 def test_Box_eq():
     f = Box('f', Ob('x'), Ob('y'), data=[42, {0: 1}])
     assert f == Arrow((f, ), Ob('x'), Ob('y')) and f != Ob('x')
+
+
+def test_Box_generator_hash():
+    """
+    A box and the length-one arrow made of that box are equal, so they must
+    also hash equally, see https://github.com/discopy/discopy/pull/387
+    """
+    x, y = Ob('x'), Ob('y')
+    f = Box('f', x, y)
+    assert f.is_generator and f.generator is f
+    arrow = Id(x) >> f
+    assert arrow.is_generator and arrow.generator == f
+    assert f == arrow and hash(f) == hash(arrow)
+    assert {f: 42}[arrow] == 42 and {arrow: 42}[f] == 42
+    # A genuine arrow of length two is not a generator.
+    g = Box('g', y, x)
+    assert not (f >> g).is_generator and (f >> g).generator is None
+
+
+def test_Sum_generator_hash():
+    """
+    A singleton ``Sum`` equals its unique term, so it must hash like it too,
+    see https://github.com/discopy/discopy/pull/387
+    """
+    x, y = Ob('x'), Ob('y')
+    f = Box('f', x, y)
+    singleton = Sum((f, ), x, y)
+    assert singleton == f and hash(singleton) == hash(f)
+    assert {f: 42}[singleton] == 42
 
 
 def test_Functor():

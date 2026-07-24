@@ -17,7 +17,8 @@ We adapted the definition of intensional streams from :cite:t:`DiLavoreEtAl22`.
 
 Monoidal streams form a feedback category as follows:
 
->>> from discopy import feedback, drawing
+>>> from discopy import feedback
+>>> from discopy.monoidal import Equation
 >>> x, y, m = map(feedback.Ty, "xym")
 >>> f = feedback.Box('f', x @ m.delay(), y @ m)
 >>> fb = f.feedback()
@@ -25,13 +26,13 @@ Monoidal streams form a feedback category as follows:
 >>> X, Y, M = [Ty.sequence(symmetric.Ty(n)) for n in "xym"]
 >>> Ff = Stream.sequence("f", X @ M.delay(), Y @ M)
 
->>> F = feedback.Functor(ob={x: X, y: Y, m: M}, ar={f: Ff},
+>>> F = feedback.Functor(ob_map={x: X, y: Y, m: M}, ar_map={f: Ff},
 ...                      cod=Stream)
 
->>> drawing.Equation(fb, F(fb).unroll(2).now, symbol="$\\\\mapsto$").draw(
-...     path="docs/_static/stream/feedback-to-stream.png")
+>>> Equation(fb, F(fb).unroll(2).now, symbol="$\\\\mapsto$").draw(
+...     path="docs/_static/stream/feedback-to-stream.svg")
 
-.. image:: /_static/stream/feedback-to-stream.png
+.. image:: /_static/stream/feedback-to-stream.svg
     :align: center
 
 ## Examples
@@ -60,18 +61,17 @@ category of streams of python types and functions.
 ...                >> plus.d
 ...                >> zero @ X.d
 ...                >> fby >> copy).feedback()
->>> with Diagram.hypergraph_equality:
-...     assert fib == fib_
+>>> assert Equation(fib.arg, fib_.arg)
 >>> fib_.draw(wire_labels=False, figsize=(5, 5),
-...           path="docs/_static/stream/fibonacci-feedback.png")
+...           path="docs/_static/stream/fibonacci-feedback.svg")
 
-.. image:: /_static/stream/fibonacci-feedback.png
+.. image:: /_static/stream/fibonacci-feedback.svg
     :align: center
 
 >>> cod = stream.Stream[python.Function]
 >>> F = feedback.Functor(
-...     ob={X: int},
-...     ar={zero: cod.singleton(python.Function(lambda: 0, (), int)),
+...     ob_map={X: int},
+...     ar_map={zero: cod.singleton(python.Function(lambda: 0, (), int)),
 ...         one: cod.singleton(python.Function(lambda: 1, (), int)),
 ...         plus: lambda x, y: x + y}, cod=cod)
 >>> assert F(fib).unroll(9).now()[:10] == (0, 1, 1, 2, 3, 5, 8, 13, 21, 34)
@@ -93,9 +93,9 @@ category of streams of python types and probabilistic functions.
 ...     return (x, x)
 
 >>> walk.draw(wire_labels=False, figsize=(5, 5),
-...           path="docs/_static/stream/random-walk-feedback.png")
+...           path="docs/_static/stream/random-walk-feedback.svg")
 
-.. image:: /_static/stream/random-walk-feedback.png
+.. image:: /_static/stream/random-walk-feedback.svg
     :align: center
 
 >>> assert F(walk).unroll(9).now()[:10] == (0, -1, 0, 1, 2, 1, 0, -1, 0, 1)
@@ -122,18 +122,17 @@ Note that we can only check equality of streams up to a finite number of steps.
 >>> assert eq_up_to_n(f >> _id(f.cod), f, _id(f.dom) >> f)
 >>> assert eq_up_to_n((f >> g) >> h), (f >> (g >> h))
 >>> ((f >> g) >> h).now.draw(
-...     path="docs/_static/stream/feedback-associativity.png")
+...     path="docs/_static/stream/feedback-associativity.svg")
 
-.. image:: /_static/stream/feedback-associativity.png
+.. image:: /_static/stream/feedback-associativity.svg
     :align: center
 
 * Associativity of tensor holds up to interchanger:
 
->>> from discopy.drawing import Equation
->>> drawing.Equation(*map(lambda x: x.now, ((f @ g) @ h, f @ (g @ h)))).draw(
-...     path="docs/_static/stream/feedback-tensor-associativity.png")
+>>> Equation(*map(lambda x: x.now, ((f @ g) @ h, f @ (g @ h)))).draw(
+...     path="docs/_static/stream/feedback-tensor-associativity.svg")
 
-.. image:: /_static/stream/feedback-tensor-associativity.png
+.. image:: /_static/stream/feedback-tensor-associativity.svg
     :align: center
 
 >>> eq_up_to_interchanger = lambda *xs: all_eq(
@@ -148,15 +147,15 @@ Note that we can only check equality of streams up to a finite number of steps.
 >>> g_ = Stream.sequence("g'", y_, z_, n_)
 
 >>> LHS, RHS = f @ f_ >> g @ g_, (f >> g) @ (f_ >> g_)
->>> drawing.Equation(LHS.now, RHS.now, symbol="$\\\\sim$").draw(
-...     path="docs/_static/stream/feedback-interchanger.png", figsize=(8, 6))
+>>> Equation(LHS.now, RHS.now, symbol="$\\\\sim$").draw(
+...     path="docs/_static/stream/feedback-interchanger.svg", figsize=(8, 6))
 
-.. image:: /_static/stream/feedback-interchanger.png
+.. image:: /_static/stream/feedback-interchanger.svg
     :align: center
 
 >>> pi, id_dom = (0, 1, 2, 4, 3, 5), symmetric.Id(LHS.now.dom)
->>> with symmetric.Diagram.hypergraph_equality:
-...     assert LHS.now == id_dom.permute(*pi) >> RHS.now.permute(*pi)
+>>> assert symmetric.Equation(
+...     LHS.now, id_dom.permute(*pi) >> RHS.now.permute(*pi))
 
 See :mod:`discopy.feedback` for the other axioms for feedback categories.
 """
@@ -435,12 +434,12 @@ class Stream(MonoidalCategory, NamedGeneric['category']):
         Example
         -------
 
-        >>> from discopy.drawing import Equation
+        >>> from discopy.monoidal import Equation
         >>> f = Stream.sequence("f", *map(Ty.sequence, "xym"))
         >>> Equation(f.now, f.unroll().now, f.unroll(2).now, symbol=',').draw(
-        ...     figsize=(8, 4), path="docs/_static/stream/unroll.png")
+        ...     figsize=(8, 4), path="docs/_static/stream/unroll.svg")
 
-        .. image:: /_static/stream/unroll.png
+        .. image:: /_static/stream/unroll.svg
             :align: center
         """
         later = self.later
@@ -480,9 +479,9 @@ class Stream(MonoidalCategory, NamedGeneric['category']):
         >>> x, y, z, m, n = map(Ty.sequence, "xyzmn")
         >>> f = Stream.sequence("f", x, y, m)
         >>> g = Stream.sequence("g", y, z, n)
-        >>> (f >> g).now.draw(path="docs/_static/stream/stream-then.png")
+        >>> (f >> g).now.draw(path="docs/_static/stream/stream-then.svg")
 
-        .. image:: /_static/stream/stream-then.png
+        .. image:: /_static/stream/stream-then.svg
             :align: center
         """
         swap = self.category.swap
@@ -505,9 +504,9 @@ class Stream(MonoidalCategory, NamedGeneric['category']):
         >>> x, y, z, w, m, n = map(Ty.sequence, "xyzwmn")
         >>> f = Stream.sequence("f", x, y, m)
         >>> g = Stream.sequence("g", z, w, n)
-        >>> (f @ g).now.draw(path="docs/_static/stream/stream-tensor.png")
+        >>> (f @ g).now.draw(path="docs/_static/stream/stream-tensor.svg")
 
-        .. image:: /_static/stream/stream-tensor.png
+        .. image:: /_static/stream/stream-tensor.svg
             :align: center
         """
         assert_isinstance(other, Stream)
@@ -556,11 +555,11 @@ class Stream(MonoidalCategory, NamedGeneric['category']):
         >>> f = Stream.sequence("f", x @ m.delay(), y @ m)
         >>> fb = f.feedback(x, y, m)
 
-        >>> from discopy.drawing import Equation
+        >>> from discopy.monoidal import Equation
         >>> Equation(f.unroll(2).now, fb.unroll(2).now, symbol="$\\\\mapsto$"
-        ...     ).draw(path="docs/_static/stream/feedback-unrolling.png")
+        ...     ).draw(path="docs/_static/stream/feedback-unrolling.svg")
 
-        .. image:: /_static/stream/feedback-unrolling.png
+        .. image:: /_static/stream/feedback-unrolling.svg
             :align: center
         """
         if mem is None or dom is None or cod is None:

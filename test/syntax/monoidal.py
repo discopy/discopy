@@ -5,14 +5,73 @@ from pytest import raises
 from discopy.cat import *
 from discopy.monoidal import *
 from discopy.drawing import spiral
-from discopy.utils import AxiomError
+from discopy.utils import AxiomError, from_tree
 
 
 def test_Ty():
     x, y, z = Ty('x'), Ty('y'), Ty('z')
+    assert Ty.ob is Colour and Ty.ar is Ty
+    assert isinstance(white, cat.Ob)
+    assert isinstance(x, cat.FreeCategory)
+    assert isinstance(x, cat.Ob) and not isinstance(x, Wire)
     assert x @ y != y @ x
+    assert x.then(y) == x @ y  # >> is overridden by closed.Ob exponentials.
     assert x @ Ty() == x == Ty() @ x
     assert (x @ y) @ z == x @ y @ z == x @ (y @ z)
+
+
+def test_coloured_Ty():
+    red, green, blue = map(Colour, ("red", "green", "blue"))
+    x = Ty(Wire("x", red, green))
+    y = Ty(Wire("y", green, blue))
+    path = x @ y
+
+    assert Ty() == Ty.id(white)
+    assert path.dom == red and path.cod == blue
+    assert Ty.id(red) >> path == path == path >> Ty.id(blue)
+    assert path[:0] == Ty.id(red)
+    assert path[1:1] == Ty.id(green)
+    assert path[len(path):] == Ty.id(blue)
+    assert path[::-1].dom == blue and path[::-1].cod == red
+    assert path[::-1][::-1] == path
+
+    with raises(AxiomError):
+        y @ x
+    with raises(AxiomError):
+        Ty(Wire("x", red, green), Wire("z", blue, red))
+
+
+def test_Colour_label():
+    plain = Colour("cornflowerblue")
+    labelled = Colour("cornflowerblue", label="Function")
+    # The label names the region for the legend but is ignored for identity,
+    # so regions with the same fill colour still merge.
+    assert labelled.legend_label == "Function" and plain.legend_label == \
+        "cornflowerblue"
+    assert labelled == plain and hash(labelled) == hash(plain)
+    assert from_tree(labelled.to_tree()) == labelled
+    assert repr(labelled) == "monoidal.Colour('cornflowerblue', label='Function')"
+
+
+def test_coloured_Ty_power_and_steps():
+    red, green = map(Colour, ("red", "green"))
+    loop = Ty(Wire("x", red, red))
+    assert loop ** 0 == Ty.id(red)
+    assert loop ** 2 == loop @ loop
+    assert (loop @ loop @ loop)[::2] == loop @ loop
+    with raises(AxiomError):
+        Ty(Wire("y", red, green)) ** 2
+
+
+def test_coloured_Ty_tree_and_legacy_tree():
+    red, green = map(Colour, ("red", "green"))
+    typ = Ty(Wire("x", red, green))
+    assert from_tree(typ.to_tree()) == typ
+    assert from_tree(Ty.id(red).to_tree()) == Ty.id(red)
+    legacy = {
+        'factory': 'monoidal.Ty',
+        'inside': [{'factory': 'cat.Ob', 'name': 'x'}]}
+    assert from_tree(legacy) == Ty('x')
 
 
 def test_Ty_init():
@@ -37,6 +96,13 @@ def test_Ty_str():
 
 def test_Ty_getitem():
     assert Ty('x', 'y', 'z')[:1] == Ty('x')
+
+
+def test_Ty_generator():
+    x = Ty('x')
+    assert x.is_generator and x.generator == Wire('x')
+    assert not (x @ x).is_generator and (x @ x).generator is None
+    assert not Ty().is_generator and Ty().generator is None
 
 
 def test_Ty_pow():
@@ -76,6 +142,27 @@ def test_PRO_str():
 def test_PRO_getitem():
     assert PRO(42)[2: 4] == PRO(2)
     assert all(PRO(42)[i] == PRO(1) for i in range(42))
+
+
+def test_PRO_identity_and_dagger():
+    # PRO(0) is the monoidal unit and identity.
+    assert PRO(0) @ PRO(3) == PRO(3) == PRO(3) @ PRO(0)
+    assert PRO.id() == PRO(0) == PRO.id(PRO(0))
+    # Reversing a PRO is a no-op: all wires are interchangeable.
+    assert PRO(3)[::-1] == PRO(3)
+    assert PRO(3).dagger() == PRO(3)
+
+
+def test_Dim_identity_and_slicing():
+    # Dim(1) is the monoidal unit, dropped on tensor.
+    assert Dim(1) @ Dim(2, 3) == Dim(2, 3) == Dim(2, 3) @ Dim(1)
+    assert Dim(2) @ Dim(3, 4) == Dim(2, 3, 4)
+    # Slicing and indexing return Dim.
+    assert Dim(2, 3, 4)[:2] == Dim(2, 3)
+    assert Dim(2, 3, 4)[1] == Dim(3)
+    assert Dim(2, 3, 4)[1:] == Dim(3, 4)
+    # Reversing reverses the factors.
+    assert Dim(2, 3, 4)[::-1] == Dim(4, 3, 2)
 
 
 def test_Layer_init():
@@ -191,7 +278,7 @@ def test_Diagram_interchange():
 
 
 def test_Diagram_size():
-    x, y, z = map(Ob, "xyz")
+    x, y, z = map(Wire, "xyz")
     f, g = Box('f', x, y), Box('g', y, z)
     assert Id(x).size == 0
     assert f.size == 1
@@ -202,6 +289,14 @@ def test_Diagram_size():
     diagram = (
         Box('f', a, b) @ Box('g', c, d)).foliation()
     assert len(diagram) == 1 and diagram.size == 2
+
+
+def test_Box_globularity():
+    red, green, blue = map(Colour, ("red", "green", "blue"))
+    x, y = Ty(Wire("x", red, green)), Ty(Wire("y", red, green))
+    assert Box("f", x, y)[::-1][::-1] == Box("f", x, y)
+    with raises(AxiomError):
+        Box("f", x, Ty(Wire("z", red, blue)))
 
 
 def test_Diagram_substitute():
@@ -320,8 +415,94 @@ def test_PRO_Functor():
 def test_Functor_sum():
     x, y = Ty('x'), Ty('y')
     f, g = Box('f', x, y), Box('g', x, y)
-    F = Functor(ob={x: y, y: x}, ar={f: g[::-1], g: f[::-1]})
+    F = Functor(ob_map={x: y, y: x}, ar_map={f: g[::-1], g: f[::-1]})
     assert F(f + g) == F(f) + F(g)
+
+
+def test_coloured_Functor():
+    red, green, blue = map(Colour, ("red", "green", "blue"))
+    pink, lime, cyan = map(Colour, ("pink", "lime", "cyan"))
+    x = Ty(Wire("x", red, green))
+    y = Ty(Wire("y", green, blue))
+    X = Ty(Wire("X", pink, lime))
+    Y = Ty(Wire("Y", lime, cyan))
+    F = Functor(
+        {x: X, y: Y}, {},
+        colour_map={red: pink, green: lime, blue: cyan})
+
+    assert F(red) == pink
+    assert F(x @ y) == X @ Y
+    assert F(Ty.id(green)) == Ty.id(lime)
+    assert Functor.id()(x @ y) == x @ y
+    # Composing the identity with a coloured functor keeps its colours.
+    assert (Functor.id() >> F)(red) == pink == (F >> Functor.id())(red)
+
+    red2, purple, blue2 = map(
+        Colour, ("salmon", "purple", "navy"))
+    U = Ty(Wire("U", red2, purple))
+    V = Ty(Wire("V", purple, blue2))
+    G = Functor(
+        {X: U, Y: V}, {},
+        colour_map={pink: red2, lime: purple, cyan: blue2})
+    assert (F >> G)(x @ y) == U @ V
+    assert (F >> G)(red) == red2
+
+    bad = Functor({x: Y}, {}, colour_map={red: pink, green: lime})
+    with raises(AxiomError):
+        bad(x)
+
+
+def test_coloured_Functor_repr():
+    red, green = Colour("red"), Colour("green")
+    x = Ty(Wire("x", red, green))
+    F = Functor({x: x}, {}, colour_map={red: green, green: red})
+    assert "colour_map=" in repr(F)
+
+
+def test_coloured_Functor_empty_identity():
+    green, lime = Colour("green"), Colour("lime")
+    # Colour maps preserve the (mapped) colour of an empty identity.
+    F = Functor({}, {}, colour_map={green: lime})
+    assert F(Ty.id(green)) == Ty.id(lime) != Ty.id(green)
+
+
+def test_coloured_Ob_dagger():
+    red, green = Colour("red"), Colour("green")
+    x = Wire("x", red, green)
+    # Dagger swaps the boundary colours and toggles is_dagger.
+    assert x.dagger() == Wire("x", green, red)
+    assert x.is_dagger is False and x.dagger().is_dagger is True
+    assert x.dagger().dagger() == x and x.dagger().dagger().is_dagger is False
+    # Equality and hashing ignore is_dagger.
+    assert x.dagger() == Wire("x", green, red, is_dagger=True)
+    assert hash(x.dagger()) == hash(Wire("x", green, red))
+
+
+def test_coloured_Functor_dagger():
+    red, green, blue = map(Colour, ("red", "green", "blue"))
+    pink, lime, cyan = map(Colour, ("pink", "lime", "cyan"))
+    x = Ty(Wire("x", red, green))
+    y = Ty(Wire("y", green, blue))
+    X = Ty(Wire("X", pink, lime))
+    Y = Ty(Wire("Y", lime, cyan))
+    F = Functor(
+        {x: X, y: Y}, {}, colour_map={red: pink, green: lime, blue: cyan})
+    # Functors send daggered (reversed) coloured types to daggered images.
+    assert F(x[::-1]) == F(x)[::-1]
+    assert F((x @ y)[::-1]) == F(x @ y)[::-1]
+    assert F(x[::-1][::-1]) == F(x)
+
+
+def test_coloured_serialization():
+    red, green, blue = map(Colour, ("red", "green", "blue"))
+    x = Ty(Wire("x", red, green))
+    y = Ty(Wire("y", green, blue))
+    for typ in [x, x[::-1], x @ y, Ty.id(green), Ty()]:
+        assert from_tree(typ.to_tree()) == typ
+    # Daggered generators round-trip, keeping is_dagger.
+    obj = Wire("x", red, green).dagger()
+    restored = from_tree(obj.to_tree())
+    assert restored == obj and restored.is_dagger is True
 
 
 def test_Sum():

@@ -21,6 +21,7 @@ Summary
     Bubble
     Functor
     Transformation
+    Equation
 
 .. admonition:: Functions
 
@@ -29,8 +30,7 @@ Summary
         :nosignatures:
         :toctree:
 
-        ob_factory
-        ar_factory
+        factory
         dumps
         loads
 
@@ -84,8 +84,7 @@ from typing import (
 from discopy import messages, utils
 from discopy.abc import Category
 from discopy.utils import (  # noqa: F401
-    ob_factory,
-    ar_factory,
+    factory,
     factory_name,
     from_tree,
     rsubs,
@@ -115,7 +114,18 @@ class Ob:
     -------
     >>> x, x_, y = Ob('x'), Ob('x'), Ob('y')
     >>> assert x == x_ and x != y
+
+    Note
+    ----
+    The drawing attribute :code:`min_right_margin` sets how much extra
+    horizontal space (in drawing units) is added to the right of a wire
+    labelled by this object, e.g. to make room for a long label.
+
+    >>> x.min_right_margin = 1.5
     """
+    #: Extra space drawn to the right of a wire labelled by this object.
+    min_right_margin = 0
+
     def __setstate__(self, state):
         if "name" not in state and "_name" in state:
             state["name"] = state["_name"]
@@ -252,7 +262,7 @@ class FreeCategory(Category):
         return self[::-1]
 
 
-@ar_factory
+@factory
 class Arrow(FreeCategory):
     """
     An arrow is a tuple of composable boxes :code:`inside` with a pair of
@@ -317,18 +327,56 @@ class Arrow(FreeCategory):
     def __str__(self):
         return ' >> '.join(map(str, self.inside)) or f"Id({self.dom})"
 
-    def __eq__(self, other):
-        return isinstance(other, self.ar)\
-            and self.is_parallel(other) and self.inside == other.inside
-
-    def __hash__(self):
-        return hash(repr(self))
-
     def __add__(self, other):
         return self.sum_factory((self, )) + other
 
     def __radd__(self, other):
         return self if other == 0 else NotImplemented
+
+    @property
+    def is_generator(self):
+        """ Whether an `Arrow` is a generator, i.e. it has length 1. """
+        return len(self.inside) == 1
+
+    @property
+    def generator(self):
+        """ Returns the only box in an `Arrow` of length 1. """
+        return self.inside[0] if self.is_generator else None
+
+    def setoid(self):
+        """
+        Returns data that faithfully describes an `Arrow` making sure that
+        `self.generator.setoid == self.setoid` when `self.is_generator`.
+        This is used to define `Arrow.__eq__` and `Arrow.__hash__`.
+
+        Abstract
+        --------
+        We are defining a [setoid](https://en.wikipedia.org/wiki/Setoid) with
+        the type `Arrow` quotiented by `f.setoid() == g.setoid()` so that the
+        equivalence class satisfies the axioms of category theory e.g.
+
+        >>> f = Box('f', Ob("X"), Ob("Y"))
+        >>> f_ = f >> Id(f.cod)
+        >>> assert f.setoid() == f_.setoid()
+        >>> assert f is not f_ and f == f_
+
+        Warning
+        -------
+        Messing around with this method can lead to so-called **setoid hell**.
+        In Python there is no way to give a formal proof that a function, e.g.
+        functor application, is in fact a morphism of setoids, i.e. that it
+        sends equal inputs to equal outputs.
+        """
+        generator = self.generator
+        if generator is None:
+            return (self.inside, self.dom, self.cod)
+        return generator.setoid()
+
+    def __eq__(self, other):
+        return isinstance(other, self.ar) and self.setoid() == other.setoid()
+
+    def __hash__(self):
+        return hash(self.setoid())
 
     def then(self, *others: Arrow) -> Arrow:
         """
@@ -556,18 +604,14 @@ class Box(Arrow):
     def __str__(self):
         return str(self.name) + ("[::-1]" if self.is_dagger else '')
 
-    def __hash__(self):
-        return hash(Arrow.__repr__(self))
-
-    def __eq__(self, other):
-        if isinstance(other, Box):
-            return type(self) is type(other)\
-                and self.name == other.name\
-                and self.is_parallel(other)\
-                and self.is_dagger == other.is_dagger\
-                and bool(self.data == other.data)
-        return isinstance(other, Arrow)\
-            and self >> self.id(self.cod) == other  # cast box as diagram
+    def setoid(self):
+        """
+        The equality and hash of a box is given by hashing its type as well as
+        its internal attributes `name, dom, cod, is_dagger` and `data`. In
+        particular if the `data` is not hashable then neither is the `Box`.
+        """
+        attributes = self.name, self.dom, self.cod, self.is_dagger, self.data
+        return (type(self), ) + attributes
 
     def __lt__(self, other):
         return self.name < other.name
@@ -630,14 +674,17 @@ class Sum(Box):
         self.terms = terms
         super().__init__(name, dom, cod)
 
-    def __eq__(self, other):
-        if isinstance(other, Sum):
-            return (self.dom, self.cod, self.terms)\
-                == (other.dom, other.cod, other.terms)
-        return len(self.terms) == 1 and self.terms[0] == other
+    @property
+    def is_generator(self):
+        return len(self.terms) == 1 and self.terms[0].is_generator
 
-    def __hash__(self):
-        return hash(repr(self))
+    def generator(self):
+        return self.terms[0].generator if self.is_generator else None
+
+    def setoid(self):
+        """ Ensure that a singleton sum is in fact equal to its only term. """
+        return self.terms[0].setoid() if len(self.terms) == 1 else (
+            type(self), self.terms, self.dom, self.cod)
 
     def __repr__(self):
         return self.name
@@ -734,15 +781,14 @@ class Bubble(Box):
         return len(self.args) == 1 and (
             self.dom, self.cod) == (self.arg.dom, self.arg.cod)
 
-    def __eq__(self, other):
-        if isinstance(other, Bubble):
-            return all(getattr(self, x) == getattr(other, x) for x in (
-                "args", "dom", "cod", "name", "method"))
-        return not isinstance(other, Box) and super().__eq__(other)
-
-    def __hash__(self):
-        return hash(tuple(getattr(self, x) for x in [
-            "args", "dom", "cod", "name", "method"]))
+    def setoid(self):
+        """
+        Ensure that bubbles are equal if they have the same type, their `args`
+        are equal as well as their attributes `dom, cod, name, method`.
+        """
+        args_data = tuple(f.setoid() for f in self.args)
+        return (type(self), ) + args_data + tuple(getattr(self, x) for x in (
+            "dom", "cod", "name", "method"))
 
     def __str__(self):
         str_args = ",".join(map(str, self.args))
@@ -774,23 +820,23 @@ class Bubble(Box):
         return cls(*map(from_tree, args), dom=dom, cod=cod)
 
 
-@ar_factory
+@factory
 class Functor(Category):
     """
     A functor is a pair of maps :code:`ob_map` and :code:`ar_map` and an
     optional codomain category :code:`cod`.
 
     Parameters:
-        ob : Mapping from :class:`Ob` to :code:`cod.ob`.
-        ar : Mapping from :class:`Box` to :code:`cod`.
+        ob_map : Mapping from :class:`Ob` to :code:`cod.ob`.
+        ar_map : Mapping from :class:`Box` to :code:`cod`.
         cod : The codomain, :code:`Arrow` by default.
 
     Example
     -------
     >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
     >>> f, g = Box('f', x, y), Box('g', y, z)
-    >>> ob, ar = {x: y, y: z, z: y}, {f: g, g: g[::-1]}
-    >>> F = Functor(ob, ar)
+    >>> ob_map, ar_map = {x: y, y: z, z: y}, {f: g, g: g[::-1]}
+    >>> F = Functor(ob_map, ar_map)
     >>> assert F(x) == y and F(f) == g
 
     Tip
@@ -800,17 +846,17 @@ class Functor(Category):
     In conjunction with :attr:`Box.data`, this can be used to create a
     :class:`Functor` from a free category with infinitely many generators.
 
-    >>> ob = lambda x: x
-    >>> ar = lambda f: Box(f.name, f.dom, f.cod, data=f.data + 1)
-    >>> F = Functor(ob, ar)
+    >>> ob_map = lambda x: x
+    >>> ar_map = lambda f: Box(f.name, f.dom, f.cod, data=f.data + 1)
+    >>> F = Functor(ob_map, ar_map)
     >>> h = Box('h', x, x, data=42)
     >>> assert F(h).data == 43 and F(F(h)).data == 44
 
     If :attr:`Box.data` is a mutable object, then so can be the image of a
     :class:`Functor` on it.
 
-    >>> ar = lambda f: f if all(f.data) else f[::-1]
-    >>> F = Functor(ob, ar)
+    >>> ar_map = lambda f: f if all(f.data) else f[::-1]
+    >>> F = Functor(ob_map, ar_map)
     >>> m = Box('m', x, x, data=[True])
     >>> assert F(m) == m
     >>> m.data.append(False)
@@ -853,18 +899,19 @@ class Functor(Category):
         """
         assert_isinstance(other, Functor)
         assert_iscomposable(self, other)
-        ob, ar = self.ob_map.then(other), self.ar_map.then(other)
-        return type(self)(ob, ar, dom=self.dom, cod=other.cod)
+        ob_map, ar_map = self.ob_map.then(other), self.ar_map.then(other)
+        return type(self)(ob_map, ar_map, dom=self.dom, cod=other.cod)
 
     def __init__(
             self,
-            ob: Mapping[Ob, Ob] | Callable[[Ob], Ob] | None = None,
-            ar: Mapping[Box, Arrow] | Callable[[Box], Arrow] | None = None,
+            ob_map: Mapping[Ob, Ob] | Callable[[Ob], Ob] | None = None,
+            ar_map: Mapping[Box, Arrow] | Callable[[Box], Arrow] | None = None,
             dom: type = None, cod: type = None):
         self.dom, self.cod = dom or type(self).dom, cod or type(self).cod
-        self.ob_map: MappingOrCallable[Ob, Ob] = MappingOrCallable(ob or {})
+        self.ob_map: MappingOrCallable[Ob, Ob] = MappingOrCallable(
+            ob_map or {})
         self.ar_map: MappingOrCallable[Box, Arrow] = MappingOrCallable(
-            ar or {})
+            ar_map or {})
 
     def __eq__(self, other):
         return type(self) is type(other)\
@@ -909,7 +956,7 @@ class Functor(Category):
 Arrow.generator_factory = Box
 
 
-@ar_factory
+@factory
 class Transformation(Category):
     """
     A (not necessarily natural) transformation between two parallel functors.
@@ -1016,6 +1063,53 @@ class Transformation(Category):
         return factory_name(type(self)) + (
             f"(components={self.components}, "
             f"dom={self.dom!r}, cod={self.cod!r})")
+
+
+class Equation:
+    """
+    An equation is a list of ``terms`` to be compared up to a function
+    ``up_to``, the identity by default.  Casting it to ``bool`` checks whether
+    its terms are all equal up to that function.
+
+    Parameters:
+        terms : The terms of the equation.
+        symbol : The symbol between each pair of terms, ``"="`` by default.
+        symbols : The symbols between each pair of terms, overriding
+            ``symbol``; ``len(terms) * (symbol, )`` by default.
+        up_to : The function up to which ``bool(equation)`` compares its terms,
+            overriding the subclass' :attr:`up_to` if given.
+
+    Example
+    -------
+    The number of boxes inside an arrow is left unchanged by associativity, so
+    we can compare arrows up to the function that counts them modulo 2:
+
+    >>> x = Ob('x')
+    >>> f, g = Box('f', x, x), Box('g', x, x)
+    >>> parity = lambda term: len(term.inside) % 2
+    >>> assert not Equation(f, f >> g >> g)
+    >>> assert Equation(f, f >> g >> g, up_to=parity)
+    """
+    up_to = None
+
+    def __init__(self, *terms: Arrow, symbol="=", symbols=None, up_to=None):
+        self.terms = terms
+        self.symbols = tuple(symbols) if symbols is not None\
+            else len(terms) * (symbol, )
+        if up_to is not None:
+            self.up_to = up_to
+
+    def __repr__(self):
+        return factory_name(type(self))\
+            + f"({', '.join(map(repr, self.terms))})"
+
+    def __str__(self):
+        return f"Equation({', '.join(map(str, self.terms))})"
+
+    def __bool__(self):
+        terms = self.terms if self.up_to is None\
+            else list(map(self.up_to, self.terms))
+        return all(term == terms[0] for term in terms)
 
 
 Arrow.sum_factory = Sum

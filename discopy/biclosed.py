@@ -11,6 +11,7 @@ Summary
     :nosignatures:
     :toctree:
 
+    Ob
     Ty
     Exp
     Over
@@ -37,24 +38,23 @@ Axioms
 >>> x, y, z = map(Ty, "xyz")
 >>> f, g, h = Box('f', x, z << y), Box('g', x @ y, z), Box('h', y, x >> z)
 
->>> from discopy.drawing import Equation
 >>> Equation(f.uncurry(left=True).curry(left=True), f).draw(
-...     path='docs/_static/biclosed/curry-left.png', margins=(0.1, 0.05))
+...     path='docs/_static/biclosed/curry-left.svg', margins=(0.1, 0.05))
 
-.. image:: /_static/biclosed/curry-left.png
+.. image:: /_static/biclosed/curry-left.svg
     :align: center
 
 >>> Equation(h.uncurry().curry(), h).draw(
-...     path='docs/_static/biclosed/curry-right.png', margins=(0.1, 0.05))
+...     path='docs/_static/biclosed/curry-right.svg', margins=(0.1, 0.05))
 
-.. image:: /_static/biclosed/curry-right.png
+.. image:: /_static/biclosed/curry-right.svg
     :align: center
 
 >>> Equation(
 ...     g.curry(left=True).uncurry(left=True), g, g.curry().uncurry()).draw(
-...         path='docs/_static/biclosed/uncurry.png')
+...         path='docs/_static/biclosed/uncurry.svg')
 
-.. image:: /_static/biclosed/uncurry.png
+.. image:: /_static/biclosed/uncurry.svg
     :align: center
 """
 
@@ -62,12 +62,12 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from inspect import signature
-from typing import Callable, ClassVar
+from typing import Callable, ClassVar, Self
 
-from discopy import cat, monoidal
+from discopy import monoidal
 from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
-from discopy.cat import ob_factory, ar_factory
+from discopy.cat import factory
 from discopy.utils import (
     assert_isinstance,
     factory_name,
@@ -75,7 +75,7 @@ from discopy.utils import (
 )
 
 
-@ob_factory
+@factory
 class Ty(monoidal.Ty):
     """
     A biclosed type is a monoidal type that can be exponentiated.
@@ -88,18 +88,19 @@ class Ty(monoidal.Ty):
     Applying a biclosed type to a callable yields a :class:`Abstraction`,
     applying it to a string yields a :class:`Constant`.
     """
+
     def __pow__(self, other: Ty) -> Ty:
         return self.exp(other) if isinstance(other, Ty)\
             else monoidal.Ty.__pow__(self, other)
 
     def exp(self, other: Ty) -> Ty:
-        return self.ob(self.exp_factory(self, other))
+        return self.ar(self.exp_factory(self, other))
 
     def over(self, other: Ty) -> Ty:
-        return self.ob(self.over_factory(self, other))
+        return self.ar(self.over_factory(self, other))
 
     def under(self, other: Ty) -> Ty:
-        return self.ob(self.under_factory(self, other))
+        return self.ar(self.under_factory(self, other))
 
     def __lshift__(self, other):
         return self.over(other)
@@ -178,7 +179,17 @@ class Ty(monoidal.Ty):
         return self.inside[0].exponent
 
 
-class Exp(cat.Ob):
+class Ob(monoidal.Wire):
+    """
+    A biclosed object is a self-dagger :class:`monoidal.Wire`, i.e. its left
+    and right colours always match. Exponentials do not interact meaningfully
+    with colours, so for now we assume everything is white.
+    """
+    def dagger(self) -> Ob:
+        return self
+
+
+class Exp(Ob):
     """
     A :code:`base` type to an :code:`exponent` type, called with :code:`**`.
 
@@ -192,8 +203,6 @@ class Exp(cat.Ob):
     def __init__(self, base: Ty, exponent: Ty):
         assert_isinstance(base, self.ob)
         assert_isinstance(exponent, self.ob)
-
-        assert self.ob == base.ob == exponent.ob
         self.base, self.exponent = base, exponent
         super().__init__(str(self))
 
@@ -253,7 +262,7 @@ class Under(Exp):
         return f"({self.exponent} >> {self.base})"
 
 
-@ar_factory
+@factory
 class Diagram(monoidal.Diagram, BiclosedCategory):
     """
     A biclosed diagram is a monoidal diagram
@@ -447,9 +456,81 @@ class Functor(monoidal.Functor):
 
 
 class CMap(monoidal.CMap):
-    functor = Functor
+    category = Diagram
+
+    require_causal = False
+
+    def curry(self, n=1, left=False) -> Self:
+        """
+        Curry a combinatorial map using the closed structure of the host
+        category.
+
+        Parameters:
+            n : The number of objects to curry.
+            left : Whether to curry on the left or right.
+
+        >>> from discopy.closed import Ty, Box
+        >>> x, y, z = map(Ty, "xyz")
+        >>> f = Box("f", x @ y, z).to_map()
+        >>> f.curry().uncurry().draw(
+        ...     path="docs/_static/cmap/biclosed-curry-right.svg", show=False)
+
+        .. image:: /_static/cmap/biclosed-curry-right.svg
+            :align: center
+
+        >>> f.curry(left=True).uncurry(left=True).draw(
+        ...     path="docs/_static/cmap/biclosed-curry-left.svg", show=False)
+
+        .. image:: /_static/cmap/biclosed-curry-left.svg
+            :align: center
+        """
+        if n < 0 or n > len(self.dom):
+            raise ValueError
+        if not n:
+            return self
+
+        base = self.cod
+        if left:
+            exponent = self.dom[len(self.dom) - n:]
+            exp = base << exponent
+            coev = type(self).from_box(
+                self.category.coeval_factory(exp, left=True))
+            return (self >> coev).trace(n, left=False)
+
+        exponent = self.dom[:n]
+        exp = exponent >> base
+        coev = type(self).from_box(
+            self.category.coeval_factory(exp, left=False))
+        return (self >> coev).trace(n, left=True)
+
+    def uncurry(self, n=1, left=False) -> Self:
+        """
+        Uncurry a combinatorial map using the evaluation box of the host
+        category.
+
+        Parameters:
+            n : The number of objects to uncurry.
+            left : Whether to uncurry on the left or right.
+        """
+        if n < 0:
+            raise ValueError
+        if not n:
+            return self
+        if not self.cod.is_exp:
+            raise ValueError
+
+        exponent = self.cod.exponent
+        if n < len(exponent):
+            raise ValueError
+
+        ev = type(self).from_box(self.category.eval_factory(self.cod, left))
+        result = self @ type(self).id(exponent) >> ev if left\
+            else type(self).id(exponent) @ self >> ev
+        remaining = n - len(exponent)
+        return result if not remaining else result.uncurry(remaining, left)
 
 
+Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
 
 
@@ -488,7 +569,7 @@ class TermBase(Box):
     >>> N, S = Ty("N"), Ty("S")
     >>> Alice, loves, Bob = N("Alice"), ((N >> S) << N)("loves"), N("Bob")
     >>> Alice(loves(Bob), left=True).draw(
-    ...     path='docs/_static/biclosed/alice-loves-bob.png',
+    ...     path='docs/_static/biclosed/alice-loves-bob.svg',
     ...     margins=(.3, 0), figsize=(5, 4))
     """
     dom: Ty
@@ -663,3 +744,7 @@ Ty.constant_factory = Constant
 Ty.application_factory = Application
 Ty.abstraction_factory = Abstraction
 Ty.over_factory, Ty.under_factory, Ty.exp_factory = Over, Under, Exp
+
+
+class Equation(monoidal.Equation):
+    """ The :class:`monoidal.Equation` of biclosed diagrams. """

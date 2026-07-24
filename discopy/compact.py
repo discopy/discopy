@@ -21,8 +21,6 @@ Summary
 Axioms
 ------
 
->>> from discopy.drawing import Equation
->>> Diagram.use_hypergraph_equality = True
 >>> x, y = Ty('x'), Ty('y')
 
 Snake equations
@@ -30,9 +28,9 @@ Snake equations
 
 >>> snake = Equation(Id(x.l).transpose(left=True), Id(x), Id(x.r).transpose())
 >>> assert snake
->>> snake.draw(path="docs/_static/compact/snake.png")
+>>> snake.draw(path="docs/_static/compact/snake.svg")
 
-.. image:: /_static/compact/snake.png
+.. image:: /_static/compact/snake.svg
     :align: center
 
 Yanking
@@ -43,27 +41,25 @@ a.k.a. Reidemeister move 1
 >>> cup_yanking = Equation(Swap(x, x.r) >> Cup(x.r, x), Cup(x, x.r))
 >>> assert cap_yanking and cup_yanking
 >>> Equation(cap_yanking, cup_yanking, symbol='', space=1).draw(
-...     path="docs/_static/compact/yanking_cup_and_cap.png")
+...     path="docs/_static/compact/yanking_cup_and_cap.svg")
 
-.. image:: /_static/compact/yanking_cup_and_cap.png
+.. image:: /_static/compact/yanking_cup_and_cap.svg
     :align: center
 
 Coherence
 =========
 
->>> assert Diagram.caps(x @ y, y.r @ x.r)\\
-...     == Cap(x, x.r) @ Cap(y, y.r) >> x @ Diagram.swap(x.r, y @ y.r)
-
->>> Diagram.use_hypergraph_equality = False
+>>> assert Equation(Diagram.caps(x @ y, y.r @ x.r),
+...     Cap(x, x.r) @ Cap(y, y.r) >> x @ Diagram.swap(x.r, y @ y.r))
 """
 
-from discopy import symmetric, ribbon
+from discopy import symmetric, ribbon, hypergraph
 from discopy.abc import CompactCategory
-from discopy.cat import ar_factory
+from discopy.cat import factory
 from discopy.pivotal import Ob, Ty  # noqa: F401
 
 
-@ar_factory
+@factory
 class Diagram(symmetric.Diagram, ribbon.Diagram, CompactCategory):
     """
     A compact diagram is a symmetric diagram and a ribbon diagram.
@@ -123,9 +119,9 @@ class Functor(symmetric.Functor, ribbon.Functor):
     A compact functor is both a symmetric functor and a ribbon functor.
 
     Parameters:
-        ob (Mapping[pivotal.Ty, pivotal.Ty]) :
+        ob_map (Mapping[pivotal.Ty, pivotal.Ty]) :
             Map from atomic :class:`pivotal.Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
+        ar_map (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
     """
     dom = cod = Diagram
@@ -136,12 +132,8 @@ class Functor(symmetric.Functor, ribbon.Functor):
         return ribbon.Functor.__call__(self, other)
 
 
-class Hypergraph(symmetric.Hypergraph):
-    functor = Functor
-
-
 class CMap(symmetric.CMap):
-    functor = Functor
+    category = Diagram
     require_oriented = False
     require_connected = False
 
@@ -149,6 +141,12 @@ class CMap(symmetric.CMap):
 Id = Diagram.id
 
 Diagram.braid_factory = Swap
-Diagram.hypergraph_factory = Hypergraph
+Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
+Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
+
+
+class Equation(symmetric.Equation):
+    """ The :class:`symmetric.Equation` of compact diagrams. """
+    up_to = staticmethod(Diagram.to_hypergraph)
