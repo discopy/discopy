@@ -12,24 +12,24 @@ Instruction from Alexis (@toumix), verbatim:
 - [x] Investigate the tensor-of-layers semantics: map every call path into
       `Permutation.tensor` (`abc.whisker`, `Layer.__matmul__`/`__rmatmul__`,
       direct calls) and pin down which branches are live.
-- [WIP] @bridge-2026-07-22 Refactor `Permutation.then`/`tensor`/`dagger`/`__rmatmul__` so they all
+- [x] Refactor `Permutation.then`/`tensor`/`dagger`/`__rmatmul__` so they all
       flow through the single chokepoint `Diagram.from_permutation`, with no
       case explosion; make the reason `@unbiased` does not fit visible in the
       structure (results leave the `Permutation` subtype, so the tail of the
       arguments is delegated to the result's own method).
-- [WIP] @bridge-2026-07-22 Refactor `symmetric.Layer`: `__init__` (compact, validated), `cast`,
+- [x] Refactor `symmetric.Layer`: `__init__` (compact, validated), `cast`,
       drop `dagger` (subsumed by `monoidal.Layer` + `cat.Ob.dagger`), guard
       `merge` so `foliation()` of permutation layers stops crashing.
-- [WIP] @bridge-2026-07-22 Move misplaced logic to `monoidal.Layer`: uniform `dagger`, fix the
+- [x] Move misplaced logic to `monoidal.Layer`: uniform `dagger`, fix the
       odd-slot validation bug in `__init__`, fix `free_symbols`/`subs` on
       foliated (5+ slot) layers.
-- [WIP] @bridge-2026-07-22 Fix `symmetric.Functor.__call__` on `Permutation` with a
+- [x] Fix `symmetric.Functor.__call__` on `Permutation` with a
       length-changing ob map (currently a bare `ValueError`).
-- [ ] Style-guide sweep of the whole diff: no code comments, docstrings with
+- [x] Style-guide sweep of the whole diff: no code comments, docstrings with
       doctests, short names, `eval(repr(x)) == x`, drawing backend comments.
-- [ ] Update docs and tests: module docstring, doctests, regression tests for
+- [x] Update docs and tests: module docstring, doctests, regression tests for
       foliation, whiskering, functors, `then()`/`tensor()` with no arguments.
-- [ ] Run `uv run pflake8 discopy` and `uv run coverage run -m pytest`, fix
+- [x] Run `uv run pflake8 discopy` and `uv run coverage run -m pytest`, fix
       anything broken, record pre-existing failures.
 
 ## Deliberately left out (follow-ups agreed in review)
@@ -48,3 +48,18 @@ Instruction from Alexis (@toumix), verbatim:
   lower-priority drafts.
 - once merged, worth a beat to check whether #444 (Swap ⊂ Permutation) is now
   smaller/easier given the refactored chokepoint — not required, just likely.
+
+## Verification (2026-07-22, @bridge-2026-07-22)
+
+- `uv run pflake8 discopy` clean.
+- `uv run coverage run -m pytest` on everything except quantum: 523 passed,
+  0 failed. Excluded as environment-blocked (proxy forbids installing torch
+  and pytket): `discopy/quantum`, `test/quantum`, `docs/notebooks/qnlp.ipynb`
+  and 4 torch-only tests in `test/semantics/{tensor,matrix}.py` — all
+  pre-existing, unrelated to this refactoring.
+- Found and fixed a regression the PR had introduced: the README cooking
+  example (`test/drawing/drawing.py::test_crack_two_eggs_at_once`) failed
+  because `Layer.__eq__` compared classes asymmetrically; layer equality is
+  now structural.
+- Found and fixed `dumps`/`loads` breaking on `Permutation` boxes
+  (`to_tree`/`from_tree` added).
