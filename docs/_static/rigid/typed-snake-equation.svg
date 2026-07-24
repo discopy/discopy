@@ -228,10 +228,10 @@ z
 "/>
     </defs>
     <g clip-path="url(#pd708c80fa6)">
-     <use xlink:href="#C0_0_c069b3fa76" x="108.972973" y="36" style="fill: #ffffff; stroke: #ffffff"/>
+     <use xlink:href="#C0_0_c069b3fa76" x="171.243243" y="36" style="fill: #ffffff; stroke: #ffffff"/>
     </g>
     <g clip-path="url(#pd708c80fa6)">
-     <use xlink:href="#C0_0_c069b3fa76" x="171.243243" y="36" style="fill: #ffffff; stroke: #ffffff"/>
+     <use xlink:href="#C0_0_c069b3fa76" x="108.972973" y="36" style="fill: #ffffff; stroke: #ffffff"/>
     </g>
    </g>
    <g id="text_1">
@@ -339,7 +339,7 @@ z
    <g id="text_8">
     <g clip-path="url(#pd708c80fa6)">
      <!-- = -->
-     <g transform="translate(103.94516 39.31125) scale(0.12 -0.12)">
+     <g transform="translate(166.215431 39.31125) scale(0.12 -0.12)">
       <defs>
        <path id="DejaVuSans-3d" d="M 678 2906 
 L 4684 2906 
@@ -362,7 +362,7 @@ z
    <g id="text_9">
     <g clip-path="url(#pd708c80fa6)">
      <!-- = -->
-     <g transform="translate(166.215431 39.31125) scale(0.12 -0.12)">
+     <g transform="translate(103.94516 39.31125) scale(0.12 -0.12)">
       <use xlink:href="#DejaVuSans-3d"/>
      </g>
     </g>
