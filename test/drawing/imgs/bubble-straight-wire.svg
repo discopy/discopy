@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="198pt" height="216pt" viewBox="0 0 198 216" xmlns="http://www.w3.org/2000/svg" version="1.1">
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>Matplotlib v3.10.9, https://matplotlib.org/</dc:title>
+     </cc:Agent>
+    </dc:creator>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 216 
+L 198 216 
+L 198 0 
+L 0 0 
+z
+" style="fill: #ffffff"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 0 216 
+L 198 216 
+L 198 0 
+L 0 0 
+z
+" clip-path="url(#p3ac32b2ff5)" style="fill: #ffffff; stroke: #ffffff; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_3">
+    <path d="M 0 216 
+Q 0 0 0 0 
+L 198 0 
+L 198 216 
+z
+" clip-path="url(#p3ac32b2ff5)" style="fill: #ffffff"/>
+   </g>
+   <g id="patch_4">
+    <path d="M 18 72 
+Q 18 144 18 144 
+L 198 144 
+L 198 72 
+z
+" clip-path="url(#p3ac32b2ff5)" style="fill: #ffffff"/>
+   </g>
+   <g id="patch_5">
+    <path d="M 54 36 
+Q 18 36 18 72 
+L 198 72 
+L 198 36 
+z
+" clip-path="url(#p3ac32b2ff5)" style="fill: #ffffff"/>
+   </g>
+   <g id="patch_6">
+    <path d="M 18 144 
+Q 18 180 54 180 
+L 198 180 
+L 198 144 
+z
+" clip-path="url(#p3ac32b2ff5)" style="fill: #ffffff"/>
+   </g>
+   <g id="patch_7">
+    <path d="M 54 0 
+Q 54 72 54 72 
+L 198 72 
+L 198 0 
+z
+" clip-path="url(#p3ac32b2ff5)" style="fill: #ffffff"/>
+   </g>
+   <g id="patch_8">
+    <path d="M 54 72 
+Q 54 144 54 144 
+L 198 144 
+L 198 72 
+z
+" clip-path="url(#p3ac32b2ff5)" style="fill: #ffffff"/>
+   </g>
+   <g id="patch_9">
+    <path d="M 54 144 
+Q 54 216 54 216 
+L 198 216 
+L 198 144 
+z
+" clip-path="url(#p3ac32b2ff5)" style="fill: #ffffff"/>
+   </g>
+   <g id="patch_10">
+    <path d="M 54 36 
+Q 180 36 180 72 
+L 198 72 
+L 198 36 
+z
+" clip-path="url(#p3ac32b2ff5)" style="fill: #ffffff"/>
+   </g>
+   <g id="patch_11">
+    <path d="M 180 144 
+Q 180 180 54 180 
+L 198 180 
+L 198 144 
+z
+" clip-path="url(#p3ac32b2ff5)" style="fill: #ffffff"/>
+   </g>
+   <g id="patch_12">
+    <path d="M 144 90 
+Q 144 126 144 126 
+L 198 126 
+L 198 90 
+z
+" clip-path="url(#p3ac32b2ff5)" style="fill: #ffffff"/>
+   </g>
+   <g id="patch_13">
+    <path d="M 180 72 
+Q 180 144 180 144 
+L 198 144 
+L 198 72 
+z
+" clip-path="url(#p3ac32b2ff5)" style="fill: #ffffff"/>
+   </g>
+   <g id="patch_14">
+    <path d="M 54 36 
+Q 18 36 18 72 
+" clip-path="url(#p3ac32b2ff5)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_15">
+    <path d="M 54 36 
+Q 180 36 180 72 
+" clip-path="url(#p3ac32b2ff5)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_16">
+    <path d="M 54 0 
+Q 54 72 54 72 
+" clip-path="url(#p3ac32b2ff5)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_17">
+    <path d="M 18 72 
+Q 18 144 18 144 
+" clip-path="url(#p3ac32b2ff5)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_18">
+    <path d="M 54 72 
+Q 54 144 54 144 
+" clip-path="url(#p3ac32b2ff5)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_19">
+    <path d="M 180 72 
+Q 180 144 180 144 
+" clip-path="url(#p3ac32b2ff5)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_20">
+    <path d="M 18 144 
+Q 18 180 54 180 
+" clip-path="url(#p3ac32b2ff5)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_21">
+    <path d="M 54 144 
+Q 54 216 54 216 
+" clip-path="url(#p3ac32b2ff5)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_22">
+    <path d="M 180 144 
+Q 180 180 54 180 
+" clip-path="url(#p3ac32b2ff5)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_23">
+    <path d="M 108 126 
+L 108 90 
+L 144 90 
+L 144 126 
+z
+" clip-path="url(#p3ac32b2ff5)" style="fill: #ffffff; stroke: #000000; stroke-linejoin: miter"/>
+   </g>
+   <g id="text_1">
+    <!-- s -->
+    <g transform="translate(123.395313 110.759375) scale(0.1 -0.1)">
+     <defs>
+      <path id="DejaVuSans-73" d="M 2834 3397 
+L 2834 2853 
+Q 2591 2978 2328 3040 
+Q 2066 3103 1784 3103 
+Q 1356 3103 1142 2972 
+Q 928 2841 928 2578 
+Q 928 2378 1081 2264 
+Q 1234 2150 1697 2047 
+L 1894 2003 
+Q 2506 1872 2764 1633 
+Q 3022 1394 3022 966 
+Q 3022 478 2636 193 
+Q 2250 -91 1575 -91 
+Q 1294 -91 989 -36 
+Q 684 19 347 128 
+L 347 722 
+Q 666 556 975 473 
+Q 1284 391 1588 391 
+Q 1994 391 2212 530 
+Q 2431 669 2431 922 
+Q 2431 1156 2273 1281 
+Q 2116 1406 1581 1522 
+L 1381 1569 
+Q 847 1681 609 1914 
+Q 372 2147 372 2553 
+Q 372 3047 722 3315 
+Q 1072 3584 1716 3584 
+Q 2034 3584 2315 3537 
+Q 2597 3491 2834 3397 
+z
+" transform="scale(0.015625)"/>
+     </defs>
+     <use xlink:href="#DejaVuSans-73"/>
+    </g>
+   </g>
+  </g>
+ </g>
+ <defs>
+  <clipPath id="p3ac32b2ff5">
+   <rect x="0" y="0" width="198" height="216"/>
+  </clipPath>
+ </defs>
+</svg>
