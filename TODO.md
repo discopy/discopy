@@ -19,6 +19,9 @@ User prompt, verbatim:
 - [x] @claude-2026-07-24 17:39 Count LaTeX commands as single symbols in
       `text_width` instead of summing their source characters, and compare
       SVG coordinates up to a small tolerance for rounding errors.
+- [WIP] @claude-2026-07-24 18:16 Keep main's full mathtext rendering for
+      `$...$` labels in `text_width`, the metric table only applies to
+      plain text.
 
 ## Mathematical description
 
