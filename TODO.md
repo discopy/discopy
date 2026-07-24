@@ -10,8 +10,8 @@ Instruction from Alexis (@toumix), verbatim:
 ## Checklist
 
 - [WIP] @codex-2026-07-24T12:46+0530 Refactor the PR around one explicit
-      symmetric-layer invariant, remove incidental complexity, and verify the
-      result against focused and full tests.
+      permutation-storage invariant, remove incidental complexity, and verify
+      the result against focused and full tests.
 - [x] Investigate the tensor-of-layers semantics: map every call path into
       `Permutation.tensor` (`abc.whisker`, `Layer.__matmul__`/`__rmatmul__`,
       direct calls) and pin down which branches are live.
@@ -34,7 +34,7 @@ Instruction from Alexis (@toumix), verbatim:
       foliation, whiskering, functors, `then()`/`tensor()` with no arguments.
 - [x] Run `uv run pflake8 discopy` and `uv run coverage run -m pytest`, fix
       anything broken, record pre-existing failures.
-- [WIP] @evening-2026-07-23T20:40 Fix coverage gate: delete dead braid-shadow
+- [x] @evening-2026-07-23T20:40 Fix coverage gate: delete dead braid-shadow
       code, test TikZ crossing + `Permutation` dunders.
 
 ## Deliberately left out (follow-ups agreed in review)
@@ -96,3 +96,22 @@ without rewriting the drawing graph.
 - [x] Remove generated asset churn; let the `docs-static` job regenerate it.
 - [ ] Merge current `main`, run the full lint/test/coverage suite, and update
       the PR title and description.
+
+## Verification (2026-07-24, @codex)
+
+- Merged `origin/main` at `b365bfa4`.
+- `uv run pflake8 discopy` is clean.
+- Focused post-merge suite: 91 passed.
+- Full suite: 763 passed, 1 skipped; the only 4 failures require the external
+  Graphviz `dot` executable, which is not installed in this environment.
+- Coverage after the full run: 98%.
+- Exhaustive permutation and compact-rotation laws passed through arity 5;
+  serialization and category-factory ownership passed across symmetric,
+  compact, Markov, and inherited descendant categories.
+
+## Unrelated pre-existing drawing issues observed
+
+- `Drawing.validate_attributes()` reaches `set(...) + set(...)` and raises
+  `TypeError` on otherwise valid drawings.
+- Daggering a multi-box `Drawing` can fail validation because relabeling does
+  not preserve the box-node order expected by `validate_attributes()`.
