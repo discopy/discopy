@@ -154,9 +154,13 @@ class Backend(ABC):
         luma = 0.299 * red + 0.587 * green + 0.114 * blue
         return "white" if luma < threshold else "black"
 
-    def draw_wire(self, source, target,
-                  bend_out=False, bend_in=False, style=None, linewidth=None):
-        """ Draws a wire from source to target, possibly with a Bezier. """
+    def draw_wire(self, source, target, bend_out=False, bend_in=False,
+                  style=None, linewidth=None, crossing=False):
+        """
+        Draws a wire from source to target, possibly with a Bezier.
+        A crossing wire, i.e. from the input to the output of a box drawn as
+        wires, is drawn as an S-curve with vertical tangents at both ends.
+        """
         self.max_width = max(self.max_width, source[0], target[0])
 
     def draw_bezier(self, points):
@@ -316,9 +320,37 @@ class Backend(ABC):
                    for n in (source, target)):
                 continue  # crossings are drawn on their own
             bend_out, bend_in = source.kind == "box", target.kind == "box"
+            # A wire straight from a box's input to its output is a permutation
+            # crossing: draw it as an S-curve with vertical tangents at both
+            # ends rather than the default single-tangent Bezier.
+            crossing = source.kind == "box_dom" and target.kind == "box_cod"
+            braid_shadow = DEFAULT["braid_shadow"]
+            if source.kind == "box" and source.box.draw_as_braid:
+                if source.box.is_dagger and target.i == 0:
+                    source_position = tuple(
+                        x + b * shadow
+                        for x, b, shadow in zip(
+                            source_position, [-1, -1], braid_shadow))
+                if not source.box.is_dagger and target.i == 1:
+                    source_position = tuple(
+                        x + b * shadow
+                        for x, b, shadow in zip(
+                            source_position, [1, -1], braid_shadow))
+            if target.kind == "box" and target.box.draw_as_braid:
+                if target.box.is_dagger and source.i == 1:
+                    target_position = tuple(
+                        x + b * shadow
+                        for x, b, shadow in zip(
+                            target_position, [1, 1], braid_shadow))
+                if not target.box.is_dagger and source.i == 0:
+                    target_position = tuple(
+                        x + b * shadow
+                        for x, b, shadow in zip(
+                            target_position, [-1, 1], braid_shadow))
             self.draw_wire(
                 source_position, target_position, bend_out, bend_in,
-                linewidth=(0 if is_frame_boundary else None))
+                linewidth=(0 if is_frame_boundary else None),
+                crossing=crossing)
 
     def _half_circle(self, left, right, end, centre, sign):
         # A half circle from (left, end) to (right, end) with vertical sides
@@ -690,8 +722,17 @@ class TikZ(Backend):
         """
         super().draw_regions(graph, **params)
 
-    def draw_wire(self, source, target,
-                  bend_out=False, bend_in=False, style=None, linewidth=None):
+    def draw_wire(self, source, target, bend_out=False, bend_in=False,
+                  style=None, linewidth=None, crossing=False):
+        if crossing:  # An S-curve with vertical tangents at both ends.
+            if source not in self.nodes:
+                self.add_node(*source)
+            if target not in self.nodes:
+                self.add_node(*target)
+            self.edgelayer.append(
+                "\\draw [in=90, out=-90] ({}.center) to ({}.center);\n".format(
+                    self.nodes[source], self.nodes[target]))
+            return super().draw_wire(source, target)
         out = -90 if not bend_out or source[0] == target[0]\
             else (180 if source[0] > target[0] else 0)
         inp = 90 if not bend_in or source[0] == target[0]\
@@ -892,13 +933,24 @@ class Matplotlib(Backend):
             handles=handles, loc=params.get("legend_loc", "upper right"),
             fontsize=params.get("fontsize_types", params.get("fontsize")))
 
-    def draw_wire(self, source, target,
-                  bend_out=False, bend_in=False, style=None, linewidth=None):
+    def draw_wire(self, source, target, bend_out=False, bend_in=False,
+                  style=None, linewidth=None, crossing=False):
         linewidth = self.linewidth if linewidth is None else linewidth
         if style == '->':  # pragma: no cover
             self.axis.arrow(
                 *(source + (target[0] - source[0], target[1] - source[1])),
                 head_width=.02, color="black")
+        elif crossing:
+            # A cubic Bezier whose control points sit directly below the source
+            # and above the target, so the tangents are vertical at both ends
+            # while the wire crosses smoothly in between.
+            third = (source[1] - target[1]) / 3
+            path = Path(
+                [source, (source[0], source[1] - third),
+                 (target[0], target[1] + third), target],
+                [Path.MOVETO, Path.CURVE4, Path.CURVE4, Path.CURVE4])
+            self.axis.add_patch(PathPatch(
+                path, facecolor='none', linewidth=linewidth))
         else:
             mid = (target[0], source[1])\
                 if bend_out else (source[0], target[1])
