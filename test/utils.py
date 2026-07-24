@@ -53,11 +53,12 @@ def test_named_generic_cache():
 
 
 
-@pytest.mark.parametrize('fn', listdir('test/fixtures/pickles/1.X/'))
-def test_pickle_version_compatibility(fn):
-    with open(f"test/fixtures/pickles/1.X/{fn}", 'rb') as f:
+@pytest.mark.parametrize('version', ['0.6', '1.2'])
+@pytest.mark.parametrize('fn', listdir('test/fixtures/pickles/1.3/'))
+def test_pickle_version_compatibility(fn, version):
+    with open(f"test/fixtures/pickles/1.3/{fn}", 'rb') as f:
         new = pickle.load(f)
-    with open(f"test/fixtures/pickles/0.6/{fn}", 'rb') as f:
+    with open(f"test/fixtures/pickles/{version}/{fn}", 'rb') as f:
         old = pickle.load(f)
     assert old == new
 
