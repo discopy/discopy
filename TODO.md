@@ -9,10 +9,13 @@ User prompt, verbatim:
 - [x] @codex-2026-07-24 21:32 Address all four unresolved review threads: rename the save helper,
       replace regex SVG filtering with structured XML normalization, restore
       the feedback image name, document baseline deletion, and verify fully.
-- [WIP] @claude-2026-07-24 16:42 Address toumix's follow-up comments on the
+- [x] @claude-2026-07-24 16:42 Address toumix's follow-up comments on the
       previous fix: unjustified `x0, y0, z0` rename and duplicate `x, y, m`
       assignment in feedback.py, and the unused `tol` parameter on
       `Hypergraph.draw`; merge main into the branch.
+- [ ] Make `utils.text_width` system-independent: it measures glyph extents
+      with `TextPath` so baselines drawn on different freetype versions
+      drift, e.g. `long-box-name.svg` (218.88pt vs 218.952pt).
 
 ## Mathematical description
 

@@ -37,8 +37,8 @@ endofunctor :meth:`Diagram.delay`, shortened to `.d` and a method
 :meth:`Diagram.feedback` of the following shape:
 
 
->>> x0, y0, z0 = map(Ty, "xyz")
->>> f = Box('f', x0 @ y0.delay(), z0 @ y0)
+>>> x, y, m = map(Ty, "xym")
+>>> f = Box('f', x @ m.delay(), y @ m)
 >>> Equation(f, f.feedback(), symbol="$\\\\mapsto$").draw(
 ...     path="docs/_static/feedback/feedback-operator.svg")
 
@@ -46,8 +46,6 @@ endofunctor :meth:`Diagram.delay`, shortened to `.d` and a method
     :align: center
 
 such that the following equations are satisfied:
-
->>> x, y, m = map(Ty, "xym")
 
 Vanishing
 =========
@@ -524,9 +522,9 @@ class Feedback(monoidal.Bubble, Box):
     >>> f = Box('f', x @ y.delay(), z @ y)
     >>> fb = f.feedback()
     >>> Equation(f, fb, symbol="$\\\\mapsto$").draw(
-    ...     path="docs/_static/feedback/feedback-operator.svg")
+    ...     path="docs/_static/feedback/feedback-bubble.svg")
 
-    .. image:: /_static/feedback/feedback-operator.svg
+    .. image:: /_static/feedback/feedback-bubble.svg
         :align: center
     """
     def __init__(self, arg: Diagram, dom=None, cod=None, mem=None, left=False):

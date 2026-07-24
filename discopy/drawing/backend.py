@@ -92,8 +92,18 @@ def draw(graph: PlaneGraph, **params):
 
 
 def normalize_svg(path):
-    """ Normalise platform-dependent SVG attributes for comparison. """
+    """
+    Normalise an SVG for comparison: drop the volatile creation metadata
+    and renumber clip path ids, whose hash depends on the Matplotlib
+    version, in document order. Every other attribute, e.g. the path data
+    of a glyph or its identifier, is left untouched so that a genuine
+    difference in the drawing still makes the comparison fail.
+    """
     root = ElementTree.parse(path).getroot()
+    clip_ids = {}
+
+    def normalize_clip_id(fragment):
+        return f"clip{clip_ids.setdefault(fragment, len(clip_ids))}"
 
     def normalize(element):
         children = []
@@ -110,8 +120,14 @@ def normalize_svg(path):
         element[:] = children
         element.attrib.pop(
             "{http://www.w3.org/XML/1998/namespace}space", None)
-        element.attrib.update(
-            (attribute, "#") for attribute in element.attrib)
+        if element.tag.rsplit("}", 1)[-1] == "clipPath"\
+                and "id" in element.attrib:
+            element.attrib["id"] = normalize_clip_id(element.attrib["id"])
+        if "clip-path" in element.attrib:
+            value = element.attrib["clip-path"]
+            fragment = value[value.index("#") + 1:value.index(")")]
+            element.attrib["clip-path"]\
+                = f"url(#{normalize_clip_id(fragment)})"
         if element.text is not None:
             element.text = element.text.strip() or None
         element.tail = None
@@ -184,19 +200,6 @@ def savefig(path, replace=None, tol=DEFAULT['tol']):
             plt.savefig(actual_path, metadata=metadata)
 
     save_and_compare(path, save, replace=replace, tol=tol)
-
-
-def savefig(path):
-    """ Save the current figure with reproducible metadata and identifiers. """
-    path_str = str(path)
-    if path_str.endswith(".svg"):
-        metadata, context = {"Date": None}, {"svg.hashsalt": "discopy"}
-    elif path_str.endswith(".png"):
-        metadata, context = {"Software": None}, {}
-    else:
-        metadata, context = None, {}
-    with plt.rc_context(context):
-        plt.savefig(path, metadata=metadata)
 
 
 def _bezier_subcurve(points, t0, t1):

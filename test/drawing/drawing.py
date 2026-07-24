@@ -67,15 +67,34 @@ def test_normalize_svg(tmp_path):
   <g id="one"><text x="1">f</text></g>
 </svg>""")
     actual.write_text("""\
-<svg xmlns="http://www.w3.org/2000/svg" width="2">
+<svg xmlns="http://www.w3.org/2000/svg" width="1">
   <g id="one"><g id="link"><a title="volatile">
-    <text x="2">f</text>
+    <text x="1">f</text>
   </a></g></g>
 </svg>""")
 
+    # Metadata and hyperlink wrappers are volatile, they get normalised away.
     assert backend.normalize_svg(expected) == backend.normalize_svg(actual)
-    actual.write_text(actual.read_text().replace(">f<", ">g<"))
+
+    # A genuine difference in width, position or text content is preserved.
+    actual.write_text(actual.read_text().replace('width="1"', 'width="2"'))
     assert backend.normalize_svg(expected) != backend.normalize_svg(actual)
+
+
+def test_normalize_svg_clip_path_ids(tmp_path):
+    expected = tmp_path / "expected.svg"
+    actual = tmp_path / "actual.svg"
+    template = """\
+<svg xmlns="http://www.w3.org/2000/svg">
+  <path clip-path="url(#{clip_id})"/>
+  <defs><clipPath id="{clip_id}"><rect/></clipPath></defs>
+</svg>"""
+    expected.write_text(template.format(clip_id="p0123456789abcdef"))
+    actual.write_text(template.format(clip_id="pfedcba9876543210"))
+
+    # Clip path hashes depend on the Matplotlib version, they get renamed
+    # consistently in document order regardless of their actual value.
+    assert backend.normalize_svg(expected) == backend.normalize_svg(actual)
 
 
 def test_draw_coloured_regions_and_frame():
