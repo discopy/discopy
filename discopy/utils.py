@@ -574,3 +574,56 @@ class Point(NamedTuple):
 
     def shift(self, x=0, y=0):
         return Point(self.x + x, self.y + y)
+
+
+class RichDisplay:
+    """
+    Mixin implementing IPython's rich display protocol, see
+    https://ipython.readthedocs.io/en/stable/config/integrating.html
+
+    Any DisCoPy object with a :meth:`to_drawing` method, e.g. a
+    :class:`discopy.monoidal.Diagram`, a :class:`discopy.drawing.Drawing`
+    or an :class:`discopy.drawing.Equation`, is displayed as an SVG image
+    (with a PNG fallback in the mimebundle) when it is the output of a cell
+    in Jupyter, marimo and other frontends that support the protocol.
+
+    Example
+    -------
+    >>> from discopy.monoidal import Ty, Box
+    >>> f = Box('f', Ty('x'), Ty('y'))
+    >>> svg, png = f._repr_svg_(), f.to_png()
+    >>> assert svg.startswith('<?xml') and '</svg>\\n' in svg
+    >>> assert png.startswith(b'\\x89PNG')
+    >>> assert f._repr_mimebundle_() == {
+    ...     'image/svg+xml': svg, 'image/png': png}
+    >>> assert f._repr_mimebundle_(include=['image/svg+xml']) == {
+    ...     'image/svg+xml': svg}
+    >>> assert f._repr_mimebundle_(exclude=['image/svg+xml']) == {
+    ...     'image/png': png}
+    >>> assert f._repr_mimebundle_(include=['text/html']) == {}
+    """
+    def to_svg(self, **params) -> str:
+        """ Draw as a standalone SVG string. """
+        from io import StringIO
+        buffer = StringIO()
+        params.setdefault("metadata", {"Date": None})
+        self.to_drawing().draw(
+            path=buffer, format="svg", show=False, **params)
+        return buffer.getvalue()
+
+    def to_png(self, **params) -> bytes:
+        """ Draw as PNG bytes. """
+        from io import BytesIO
+        buffer = BytesIO()
+        self.to_drawing().draw(
+            path=buffer, format="png", show=False, **params)
+        return buffer.getvalue()
+
+    def _repr_svg_(self) -> str:
+        return self.to_svg()
+
+    def _repr_mimebundle_(self, include=None, exclude=None) -> dict:
+        data = {"image/svg+xml": self.to_svg, "image/png": self.to_png}
+        return {mimetype: draw() for mimetype, draw in data.items()
+                if (include is None or mimetype in include)
+                and (exclude is None or mimetype not in exclude)}
