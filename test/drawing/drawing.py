@@ -105,6 +105,25 @@ def test_normalize_svg_clip_path_ids(tmp_path):
     assert backend.svg_equal(expected, actual)
 
 
+def test_compare_drawing_raster_and_bytes(tmp_path):
+    from PIL import Image
+    baseline, actual = tmp_path / "box.png", tmp_path / "_box.png"
+    Image.new("RGB", (8, 8), "white").save(baseline)
+    Image.new("RGB", (8, 8), "white").save(actual)
+    backend.compare_drawing(baseline, actual)
+    assert not actual.exists()
+
+    Image.new("RGB", (8, 8), "black").save(actual)
+    with raises(ValueError, match="Drawing differs"):
+        backend.compare_drawing(baseline, actual)
+
+    baseline, actual = tmp_path / "box.tikz", tmp_path / "_box.tikz"
+    baseline.write_text("tikz")
+    actual.write_text("tikz")
+    backend.compare_drawing(baseline, actual)
+    assert not actual.exists()
+
+
 def test_draw_coloured_regions_and_frame():
     red, green, blue = map(
         monoidal.Colour, ("red", "green", "blue"))

@@ -25,7 +25,7 @@ User prompt, verbatim:
 - [x] @claude-2026-07-24 18:25 Drop the metric table and restore main's
       original `text_width`, the SVG tolerance absorbs the cross-system
       drift so comparisons stop raising.
-- [WIP] @claude-2026-07-24 20:20 Fix the CI coverage gate: cover the raster
+- [x] @claude-2026-07-24 20:20 Fix the CI coverage gate: cover the raster
       and byte comparison branches of `compare_drawing` that no committed
       baseline exercises.
 
