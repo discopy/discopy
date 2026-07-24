@@ -1354,7 +1354,8 @@ class CMap[C0: Pregroup, C1: CMap](
 
     def draw(
             self, path=None, engine="dot", format=None, seed=None,
-            show=None, graph_attr=None, port_indices=False, block=True):
+            show=None, graph_attr=None, port_indices=False, block=True,
+            replace=None, tol=20):
         """
         Draw as a combinatorial map using Graphviz.
 
@@ -1392,11 +1393,16 @@ class CMap[C0: Pregroup, C1: CMap](
 
         show = show if show is not None else path is None
         if path is not None:
-            suffix = "" if path is None else (
-                path.rsplit(".", 1)[-1].lower() if "." in path else "")
+            from discopy.drawing import backend
+            path_str = str(path)
+            suffix = path_str.rsplit(".", 1)[-1].lower()\
+                if "." in path_str else ""
             if suffix in ["dot", "gv"]:
-                with open(path, "w", encoding="utf-8") as stream:
-                    stream.write(dot)
+                def save(actual_path):
+                    with open(actual_path, "w", encoding="utf-8") as stream:
+                        stream.write(dot)
+                backend.save_and_compare(
+                    path, save, replace=replace, tol=tol)
                 return None
 
         executable = shutil.which(engine) or shutil.which("dot")
@@ -1406,9 +1412,12 @@ class CMap[C0: Pregroup, C1: CMap](
 
         if path is not None:
             output_format = format or suffix or "svg"
-            subprocess.run(
-                [executable, f"-T{output_format}", "-o", path],
-                input=dot.encode(), check=True)
+
+            def save(actual_path):
+                subprocess.run(
+                    [executable, f"-T{output_format}", "-o", actual_path],
+                    input=dot.encode(), check=True)
+            backend.save_and_compare(path, save, replace=replace, tol=tol)
         if not show:
             return None
 

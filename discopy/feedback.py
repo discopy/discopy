@@ -522,9 +522,9 @@ class Feedback(monoidal.Bubble, Box):
     >>> f = Box('f', x @ y.delay(), z @ y)
     >>> fb = f.feedback()
     >>> Equation(f, fb, symbol="$\\\\mapsto$").draw(
-    ...     path="docs/_static/feedback/feedback-operator.svg")
+    ...     path="docs/_static/feedback/feedback-bubble.svg")
 
-    .. image:: /_static/feedback/feedback-operator.svg
+    .. image:: /_static/feedback/feedback-bubble.svg
         :align: center
     """
     def __init__(self, arg: Diagram, dom=None, cod=None, mem=None, left=False):

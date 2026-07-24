@@ -65,6 +65,10 @@ def draw(diagram, **params):
         Figure size.
     path : str, optional
         Where to save the image, if `None` we call :code:`plt.show()`.
+    replace : bool, optional
+        Whether to replace an existing image instead of checking it.
+    tol : float, optional
+        Comparison tolerance for raster images, default is :code:`20`.
     to_tikz : bool, optional
         Whether to output tikz code instead of matplotlib.
     asymmetry : float, optional
@@ -108,9 +112,16 @@ def to_gif(diagram, *diagrams, **params):  # pragma: no cover
             frames.append(Image.open(tmp_path))
         if loop:
             frames = frames + frames[::-1]
-        frames[0].save(path, format='GIF', append_images=frames[1:],
-                       save_all=True, duration=timestep,
-                       **{'loop': 0} if loop else {})
+
+        def save(actual_path):
+            frames[0].save(
+                actual_path, format='GIF', append_images=frames[1:],
+                save_all=True, duration=timestep,
+                **{'loop': 0} if loop else {})
+
+        backend.save_and_compare(
+            path, save, replace=params.get("replace", None),
+            tol=params.get("tol", backend.DEFAULT['tol']))
         try:
             from IPython.display import HTML
             return HTML(f'<img src="{path}">')

@@ -11,8 +11,8 @@ README = Path(__file__).parent.parent / "README.md"
 CODE_BLOCK = re.compile(r"```python\n(.*?)```", re.DOTALL)
 
 
-def test_readme(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)  # to_gif saves a gif in the working directory
+def test_readme(monkeypatch):
+    monkeypatch.chdir(README.parent)
     matplotlib.use("Agg")
     text = README.read_text(encoding="utf-8")
     blocks = list(CODE_BLOCK.finditer(text))

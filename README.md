@@ -103,10 +103,10 @@ assert crack_two_eggs == (crack @ crack
   >> white @ CookingSwap(yolk, white) @ yolk
   >> merge(white) @ merge(yolk)).foliation()
 
-crack_two_eggs.draw()
+crack_two_eggs.draw(path="docs/_static/readme/crack-eggs.svg")
 ```
 
-![crack_two_eggs.draw()](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/crack-eggs.svg)
+![crack_two_eggs.draw()](docs/_static/readme/crack-eggs.svg)
 
 By default, DisCoPy diagrams are made of layers with exactly one box in between some (possibly empty) list of wires on its left- and right-hand side.
 We can get more general diagrams by specifying the list of layers `inside` manually:
@@ -140,10 +140,11 @@ assert crack_two_eggs_at_once == Recipe(
     Layer(white, CookingSwap(yolk, white), yolk),
     Layer(empty, merge(white), empty, merge(yolk), empty)))
 
-crack_two_eggs_at_once.draw()
+crack_two_eggs_at_once.draw(
+  path="docs/_static/readme/crack-two-eggs-at-once.svg")
 ```
 
-![crack_two_eggs_at_once.draw()](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/crack-two-eggs-at-once.svg)
+![crack_two_eggs_at_once.draw()](docs/_static/readme/crack-two-eggs-at-once.svg)
 
 ## Theory: functors, terms, maps and hypergraphs
 
@@ -178,10 +179,11 @@ left_snake = x @ Cap(x.r, x) >> Cup(x, x.r) @ x
 right_snake =  Cap(x, x.l) @ x >> x @ Cup(x.l, x)
 assert left_snake.normal_form() == Id(x) == right_snake.normal_form()
 
-Equation(left_snake, Id(x), right_snake).draw()
+Equation(left_snake, Id(x), right_snake).draw(
+  path="docs/_static/readme/typed-snake-equation.svg")
 ```
 
-![Equation(left_snake, Id(x), right_snake).draw()](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/typed-snake-equation.svg)
+![Equation(left_snake, Id(x), right_snake).draw()](docs/_static/readme/typed-snake-equation.svg)
 
 In particular, DisCoPy can draw the grammatical structure of natural language sentences encoded as reductions in a [pregroup grammar](https://ncatlab.org/nlab/show/pregroup+grammar).
 See Lambek, [From Word To Sentence (2008)](http://www.math.mcgill.ca/barr/lambek/pdffiles/2008lambek.pdf) for an introduction.
@@ -194,10 +196,10 @@ Alice, Bob = Word('Alice', n), Word('Bob', n)
 loves = Word('loves', n.r @ s @ n.l)
 
 sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ s @ Cup(n.l, n)
-sentence.foliation().draw()
+sentence.foliation().draw(path="docs/_static/readme/alice-loves-bob.svg")
 ```
 
-![Alice loves Bob](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/alice-loves-bob.svg)
+![Alice loves Bob](docs/_static/readme/alice-loves-bob.svg)
 
 Many other grammatical frameworks can be encoded as diagrams, e.g. [`cfg`](https://docs.discopy.org/en/main/_api/discopy.grammar.cfg.html) (context-free), [`categorial`](https://docs.discopy.org/en/main/_api/discopy.grammar.categorial.html) and [`dependency`](https://docs.discopy.org/en/main/_api/discopy.grammar.dependency.html) grammars.
 
@@ -238,10 +240,12 @@ def wiring(word):
 W = pregroup.Functor(ob_map={s: s, n: n}, ar_map=wiring)
 
 rewrite_steps = W(sentence).normalize()
-sentence.to_gif(*rewrite_steps)
+sentence.to_gif(
+  *rewrite_steps, path="docs/_static/readme/autonomisation.gif",
+  timestep=1000, figsize=(4, 4))
 ```
 
-![sentence.to_gif(*rewrite_steps)](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/autonomisation.gif)
+![sentence.to_gif(*rewrite_steps)](docs/_static/readme/autonomisation.gif)
 
 ## A geometry of chatbot interaction
 
