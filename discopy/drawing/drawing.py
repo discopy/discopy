@@ -532,6 +532,47 @@ class Drawing(TracedCategory):
         result.add_edges(list(zip(dom_nodes, cod_nodes)))
         return result
 
+    @staticmethod
+    def permutation(inside: list[int], dom: "monoidal.Ty") -> Drawing:
+        """
+        Draw a permutation as a single compact band of crossing wires.
+
+        The convention follows :class:`discopy.symmetric.Permutation`: the
+        ``i``-th output wire comes from the input wire ``inside[i]``. A whole
+        permutation thus occupies the height of a single layer rather than a
+        staircase of swaps.
+
+        >>> from discopy.monoidal import Ty
+        >>> x, y, z = map(Ty, "xyz")
+        >>> Drawing.permutation([2, 0, 1], x @ y @ z).draw(
+        ...     path="docs/_static/drawing/permutation.png")
+
+        .. image:: /_static/drawing/permutation.png
+            :align: center
+        """
+        from discopy.monoidal import Ty, Box
+        dom = Ty() if dom is None else dom
+        if list(inside) == list(range(len(dom))):
+            return Drawing.id(dom)
+        cod = dom[:0].tensor(*[dom[j] for j in inside])
+        # A single draw_as_wires box so the band survives composition (a
+        # box-less drawing is treated as the identity) without drawing a frame.
+        box = Box("permutation", dom, cod, draw_as_wires=True)
+        result = Drawing.from_box(box)
+        box_node = Node("box", box=result.boxes[0], j=0)
+        box_dom = [n for n in result.nodes if n.kind == "box_dom"]
+        box_cod = [n for n in result.nodes if n.kind == "box_cod"]
+        box_dom.sort(key=lambda n: n.i)
+        box_cod.sort(key=lambda n: n.i)
+        # Rewire the straight wires through the box node into crossing wires:
+        # the i-th output wire comes from the input wire inside[i].
+        result.graph.remove_edges_from(
+            list(result.graph.in_edges(box_node))
+            + list(result.graph.out_edges(box_node)))
+        result.add_edges([
+            (box_dom[inside[i]], box_cod[i]) for i in range(len(inside))])
+        return result
+
     @unbiased
     def then(self, other: Drawing, draw_step_by_step=False) -> Drawing:
         """
