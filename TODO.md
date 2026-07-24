@@ -8,7 +8,7 @@ private memory is threaded between rounds but is not part of the categorical
 wiring. Backend-specific tensor and module operations should be isolated from
 this geometry-of-interaction execution.
 
-- [ ] Refactor neural execution around an explicit backend boundary and make the geometry-of-interaction steps legible.
+- [WIP] @codex-pr399-2026-07-24 13:00 Refactor neural execution around an explicit backend boundary and make the geometry-of-interaction steps legible.
 - [ ] Add optional per-network memory without representing private state as public wiring.
 - [ ] Port the CatGPT benchmark to DisCoPy.
 - [ ] Add concise tests and documentation, then run lint and the full test suite.
