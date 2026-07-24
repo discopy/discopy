@@ -633,11 +633,11 @@ class Layer(cat.Box):
 
     @property
     def free_symbols(self) -> "set[sympy.Symbol]":
-        return {x for _, box, _ in self.inside for x in box.free_symbols}
+        return {x for box in self.boxes for x in box.free_symbols}
 
     def subs(self, *args) -> Layer:
-        left, box, right = self
-        return type(self)(left, box.subs(*args), right)
+        return type(self)(*(
+            x.subs(*args) if i % 2 else x for i, x in enumerate(self)))
 
     @property
     def is_generator(self):
@@ -666,8 +666,7 @@ class Layer(cat.Box):
         return cls(box.dom[:0], box, box.cod[len(box.cod):])
 
     def dagger(self) -> Layer:
-        return type(self)(*(
-            x.dagger() if i % 2 else x for i, x in enumerate(self)))
+        return type(self)(*(x.dagger() for x in self))
 
     @property
     def boxes_and_offsets(self) -> list[tuple[Box, int]]:

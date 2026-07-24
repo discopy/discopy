@@ -168,6 +168,13 @@ def test_Dim_identity_and_slicing():
 def test_Layer_init():
     with raises(ValueError):
         Layer(1, 2, 3, 4)
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
+    f, g = Box('f', x, y), Box('g', y, z)
+    with raises(TypeError):
+        Layer(x, f, y, z, z)
+    layer = Layer(x, f, y, g, z)
+    assert layer.dagger() == Layer(x, f[::-1], y, g[::-1], z)
+    assert layer.free_symbols == set()
 
 
 def test_Layer_getitem():
