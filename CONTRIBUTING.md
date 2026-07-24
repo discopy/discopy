@@ -195,7 +195,7 @@ That is, we do our best to make sure that critical parts of the reasoning / impl
 ## LLM guidelines
 
 We accept contributions from large language models so long as they are explicitly indicated as such.
-The [RULES.md](RULES.md) bind every agent writing code in this repo, it implements a mutex protocol that aims to prevent conflicts and duplicate work.
+The [RULES.md](RULES.md) bind every agent working on a branch or pull request in this repo; they define the checkbox mutex and append-only shared-branch protocol.
 Use our [AGENTS.md](AGENTS.md) in your prompts so that the model has enough context to give quality results.
 
 LLMs have shifted the bottleneck of software development from writing code to reviewing it, please ensure that your AI assistants save more human time than they require to supervise them.
