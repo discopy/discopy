@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 from functools import lru_cache, wraps
 from typing import (
     Callable,
@@ -20,6 +19,7 @@ from typing import (
 )
 
 import matplotlib
+from matplotlib.textpath import TextPath
 from networkx import Graph, connected_components
 
 import discopy.messages as messages
@@ -425,22 +425,19 @@ def text_width(text: str, rounded=3, fontsize=12, points_per_inch=72.):
 
     The sum of the advance widths of the characters from :func:`font_metrics`
     up to `rounded` decimals at a given `fontsize` and `points_per_inch`
-    conversion; each LaTeX command stands for a single symbol so it counts as
-    one em, like every other character outside the table; LaTeX markup
-    characters ``$``, ``{``, ``}``, ``^`` and ``_`` take no space.
+    conversion; characters outside the table count as one em. Mathtext labels
+    get matplotlib's full layout instead, measured from the glyph outlines.
 
     >>> text_width("Alice loves Bob")
     1.139
-    >>> one_em = round(12 / 72, 3)
-    >>> assert text_width("$\\\\mapsto$") == text_width("†") == one_em
-    >>> assert text_width("") == 0 and text_width("$x_1$") == text_width("x1")
+    >>> assert text_width("") == 0 and text_width("†") == round(12 / 72, 3)
+    >>> assert 0 < text_width("$\\\\mapsto$") < text_width("mapsto")
     """
     em = fontsize / points_per_inch
-    commands = re.findall(r"\\[a-zA-Z]+", text)
-    text = re.sub(r"\\[a-zA-Z]+|[${}^_]", "", text)
-    return round(
-        (len(commands) + sum(font_metrics().get(c, 1.) for c in text)) * em,
-        rounded)
+    if "$" in text:
+        width = TextPath((0, 0), text, size=fontsize).get_extents().width
+        return round(width / points_per_inch, rounded)
+    return round(sum(font_metrics().get(c, 1.) for c in text) * em, rounded)
 
 
 def tuplify(stuff: any) -> tuple:
