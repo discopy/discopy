@@ -120,7 +120,7 @@ def test_from_pyzx_errors():
 
 def test_backnforth_pyzx_1():
     from pyzx import Graph
-    path = 'test/utils/zx-graph.json'
+    path = 'test/fixtures/zx-graph.json'
     graph = Graph.from_json(open(path).read())
     diagram = Diagram.from_pyzx(graph)
     backnforth = lambda diagram: Diagram.from_pyzx(diagram.to_pyzx())
