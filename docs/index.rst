@@ -27,6 +27,7 @@ DisCoPy documentation
     notebooks/examples
     notebooks/qnlp
     notebooks/diag-diff
+    notebooks/neural-sudoku
     notebooks/21-05-03-tallcat
     notebooks/21-05-05-tallcat
     notebooks/higher-order-discocat
