@@ -172,7 +172,21 @@ Instruction from Alexis, verbatim:
 > added some review on symmetric.Layer, you haven't done a much better job
 > than Claude I must say
 
-- [WIP] @codex-2026-07-24T20:02+0530 Address every unresolved actionable
-        review thread by simplifying `symmetric.Layer`, removing redundant
-        hierarchy-specific factories and private validation machinery, and
-        rerunning the full verification suite.
+- [x] @codex-2026-07-24T20:02+0530 Address every unresolved actionable
+      review thread by simplifying `symmetric.Layer`, removing redundant
+      hierarchy-specific factories and private validation machinery, and
+      rerunning the full verification suite.
+
+The review supersedes the earlier constructor canonicalisation and migration
+work: `Diagram` no longer has a custom constructor or state hook, `Layer` has
+no private conversion helpers, and sequential permutations are compared
+semantically with `Equation`. The permutation factory for a generator layer is
+derived from the generator's category, so Markov no longer defines a redundant
+`Layer` subclass.
+
+## Review-follow-up verification (2026-07-24, @codex)
+
+- `pflake8 discopy` is clean.
+- Full non-notebook suite: 772 passed, 1 skipped; coverage is 98%.
+- The seven configured notebooks were deselected because the app sandbox
+  forbids the local sockets needed to start their kernels.

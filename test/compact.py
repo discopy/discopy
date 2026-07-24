@@ -33,7 +33,7 @@ def test_Permutation():
     assert Diagram.permutation_factory is Permutation
     perm = Permutation(x @ y @ z, [2, 0, 1])
     assert isinstance(perm, Box) and perm.cod == z @ x @ y
-    assert perm >> perm.dagger() == Id(x @ y @ z)
+    assert Equation(perm >> perm.dagger(), Id(x @ y @ z))
     assert isinstance(perm.inside[0], Layer)
     assert all(isinstance(p, Permutation) for p in Box('f', x, y).inside[0][::2])
     assert Permutation(x @ y, [1, 0]) != Swap(x, y)

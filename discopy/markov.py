@@ -80,8 +80,7 @@ from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import assert_isatomic, factory_name
 
 
-class Layer(symmetric.Layer):
-    """ A Markov layer with category-owned permutation routing. """
+Layer = symmetric.Layer
 
 
 @factory
@@ -115,8 +114,6 @@ class Diagram(symmetric.Diagram, MarkovCategory):
 
     .. image:: /_static/markov/copy_and_apply.svg
     """
-    layer_factory = Layer
-
     @classmethod
     def spider_factory(cls, n_legs_in, n_legs_out, typ, phase=None):
         if phase is not None or 1 not in (n_legs_in, n_legs_out):
@@ -328,7 +325,6 @@ Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.braid_factory = Swap
 Diagram.permutation_factory = Permutation
-Layer.permutation_factory = Permutation
 Diagram.trace_factory = Trace
 Diagram.discard_factory = Discard
 Diagram.sum_factory = Sum

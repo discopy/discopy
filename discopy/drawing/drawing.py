@@ -387,6 +387,15 @@ class Drawing(TracedCategory):
         return target.kind == "cod" and target.i == len(self.cod) - 1
 
     @staticmethod
+    def permutation(xs, dom) -> Drawing:
+        """ Draw a permutation of the wires in ``dom``. """
+        from discopy.symmetric import Permutation
+        xs = list(xs)
+        if xs == list(range(len(xs))):
+            return Drawing.id(dom)
+        return Permutation(dom, xs).to_drawing()
+
+    @staticmethod
     def from_box(box: "monoidal.Box") -> Drawing:
         """
         Draw a diagram with just one box.

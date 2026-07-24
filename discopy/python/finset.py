@@ -86,6 +86,13 @@ class Function(MonoidalCategory, Sequence):
         return Function(inside, x + y, x + y)
 
     @staticmethod
+    def permutation(xs, dom: int) -> Function:
+        xs = list(xs)
+        if xs == list(range(len(xs))):
+            return Function.id(dom)
+        return Function(list(Permutation(xs, dom)), dom, dom)
+
+    @staticmethod
     def copy(x: int, n=2) -> Function:
         return Function([i % x for i in range(n * x)], x, n * x)
 

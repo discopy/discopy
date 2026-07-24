@@ -430,6 +430,9 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
             xs : A list of integers representing a permutation.
             dom : A type of the same length as ``xs``.
         """
+        xs = list(xs)
+        if xs == list(range(len(xs))):
+            return cls.id(dom)
         if list(range(len(dom))) != sorted(xs):
             raise ValueError(messages.WRONG_PERMUTATION.format(len(dom), xs))
         cod = dom[:0].tensor(*(dom[i] for i in xs))
