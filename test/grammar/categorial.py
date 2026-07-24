@@ -87,6 +87,10 @@ def test_Diagram():
     assert Diagram.fx(x, y, z) == ForwardCrossedComposition(x << y, z >> y)
     assert Diagram.bx(x, y, z) == BackwardCrossedComposition(y << x, y >> z)
 
+    left, middle, right = x @ y, y @ z, z @ x
+    assert Diagram.fc(left, middle, right).cod == left << right
+    assert Diagram.bc(left, middle, right).cod == left >> right
+
 
 def test_BA_FA():
     X, Y = Ty('X'), Ty('Y')
@@ -121,6 +125,7 @@ def test_terms_simplify_and_eval():
 
     for term in [FTR(Y, x), BTR(Y, x)]:
         assert term.freevars == []
+        assert term.variables == []
         assert str(term) == f"{type(term).__name__}({Y}, {x})"
         assert isinstance(term.simplify(), Abstraction)
         assert term.eval() == term.simplify().eval()
@@ -129,6 +134,7 @@ def test_terms_simplify_and_eval():
 
     fc, bc = FC(g_left, f_left), BC(f_right, g_right)
     assert fc.freevars == []
+    assert fc.variables == []
     assert str(fc) == f"FC({g_left}, {f_left})"
     x_var = Variable("x", X)
     assert fc.simplify() == Abstraction(x_var, g_left(f_left(x_var)))

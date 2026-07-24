@@ -63,7 +63,7 @@ def test_Term_str():
 
 def test_Term_linear_planar():
     x, y, z = Ty('x'), Ty('y'), Ty('z')
-    f, g = (x << y)("f"), (y >> x)("g")
+    f = (x << y)("f")
     fvar = Variable('fvar', x << y)
     gvar = Variable('gvar', y >> x)
     h = ((x << y) << y)("h")
@@ -73,10 +73,68 @@ def test_Term_linear_planar():
         h(var)(var)
     with raises(ValueError):
         z(lambda u, left=True: f(var))
+    assert Abstraction(var, fvar(var))
+    assert Abstraction(var, var(gvar, left=True), left=True)
     with raises(ValueError):
-        Abstraction(var, fvar(var))
+        Abstraction(var, var(gvar, left=True))
     with raises(ValueError):
-        Abstraction(var, var(gvar, left=True), left=True)
+        Abstraction(var, fvar(var), left=True)
+
+
+def test_Ty_call_errors():
+    x = Ty('x')
+    with raises(NotImplementedError):
+        x(lambda u, left=1: u)
+    with raises(NotImplementedError):
+        x(lambda u, v: u)
+    with raises(ValueError):
+        x(42)
+
+
+def test_Term_context_order_and_composite_abstraction():
+    X, Y, Z = map(Ty, "XYZ")
+    x = Variable("x", X)
+    f, g = Variable("f", X >> Y), Variable("g", Y << X)
+
+    assert g(x).freevars == [g, x]
+    assert g(x).dom == (Y << X) @ X
+    assert x(f, left=True).freevars == [x, f]
+    assert x(f, left=True).dom == X @ (X >> Y)
+
+    XY, var = X @ Y, Variable("var", X @ Y)
+    over, under = Variable("over", Z << XY), Variable("under", XY >> Z)
+    abstractions = [
+        Abstraction(var, over(var)),
+        Abstraction(var, var(under, left=True), left=True)]
+    assert [term.dom for term in abstractions] == [over.cod, under.cod]
+    assert abstractions[0].variables == [var, over]
+    for term in abstractions:
+        assert (term.eval().dom, term.eval().cod) == (term.dom, term.cod)
+
+
+def test_term_Functor():
+    x, y = Ty('x'), Ty('y')
+    f, a = (y << x)("f"), x("a")
+    g, b = (y << x)("g"), x("b")
+    var = Variable("v", x)
+    F = Functor(ob_map={x: x, y: y}, ar_map={f: g, a: b})
+
+    assert F(f(a)) == g(b)
+    assert F(var) == var
+    assert F(Abstraction(var, f(var))) == Abstraction(var, g(var))
+
+    h, c = (x >> y)("h"), (x >> y)("k")
+    G = Functor(ob_map={x: x, y: y}, ar_map={h: c, a: b})
+    assert G(a(h, left=True)) == b(c, left=True)
+
+
+def test_Abstraction_eval():
+    x, y = Ty('x'), Ty('y')
+    f, g = (y << x)("f"), (x >> y)("g")
+    assert x(lambda v: f(v)).eval()\
+        == (f @ Id(x) >> Diagram.ev(y, x, left=True)).curry(left=True)
+    assert x(lambda v, left=True: v(g, left=True)).eval()\
+        == (Id(x) @ g >> Diagram.ev(y, x, left=False)).curry(left=False)
 
 
 def test_to_rigid():
