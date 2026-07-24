@@ -34,6 +34,17 @@ Instruction from Alexis (@toumix), verbatim:
 
 ## Deliberately left out (follow-ups agreed in review)
 
-- `Swap` as a subclass of `Permutation` (own issue).
+- `Swap` as a subclass of `Permutation` (own issue) — now
+  [#444](https://github.com/discopy/discopy/issues/444), opened 2026-07-22 with the
+  "new" dunder catching `(1, 0)" spelled out.
 - Uniform storage of even slots ("everything is a permutation") and the
   relaxation of the alternating-list `Layer` representation (#437).
+
+## Guidance (🐦 birdsong, 2026-07-22)
+
+- top of the dependency chain right now — #438 (layer-simplification, #437) is
+  seeded and waiting for this to land before it starts, since it builds on the
+  representation you land here. land this first, don't let it stall behind the
+  lower-priority drafts.
+- once merged, worth a beat to check whether #444 (Swap ⊂ Permutation) is now
+  smaller/easier given the refactored chokepoint — not required, just likely.
