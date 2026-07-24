@@ -15,6 +15,7 @@ Summary
     Diagram
     Box
     Swap
+    Permutation
     Copy
     Functor
 
@@ -77,6 +78,9 @@ from discopy.abc import MarkovCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import assert_isatomic, factory_name
+
+
+Layer = symmetric.Layer
 
 
 @factory
@@ -169,6 +173,16 @@ class Swap(symmetric.Swap, Box):
     Parameters:
         left (monoidal.Ty) : The type on the top left and bottom right.
         right (monoidal.Ty) : The type on the top right and bottom left.
+    """
+
+
+class Permutation(symmetric.Permutation, Box):
+    """
+    A permutation in a Markov category.
+
+    Parameters:
+        dom (monoidal.Ty) : The domain, i.e. the wires to permute.
+        perm : The permutation as a :class:`finset.Permutation` or a list.
     """
 
 
@@ -310,6 +324,7 @@ Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.braid_factory = Swap
+Diagram.permutation_factory = Permutation
 Diagram.trace_factory = Trace
 Diagram.discard_factory = Discard
 Diagram.sum_factory = Sum

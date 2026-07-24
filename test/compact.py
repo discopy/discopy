@@ -26,3 +26,37 @@ def test_cup_chaining():
 
     with raises(ValueError):
         Id(n @ n.r).cup(0, 2)
+
+
+def test_Permutation():
+    x, y, z = map(Ty, "xyz")
+    assert Diagram.permutation_factory is Permutation
+    perm = Permutation(x @ y @ z, [2, 0, 1])
+    assert isinstance(perm, Box) and perm.cod == z @ x @ y
+    assert Equation(perm >> perm.dagger(), Id(x @ y @ z))
+    assert isinstance(perm.inside[0], Layer)
+    assert all(isinstance(p, Permutation) for p in Box('f', x, y).inside[0][::2])
+    assert Permutation(x @ y, [1, 0]) != Swap(x, y)
+    assert Equation(perm, perm.to_swaps())
+
+    perm = Permutation(x @ y @ z, [1, 0, 2])
+    rotated = Permutation(perm.cod.r, [0, 2, 1])
+    assert perm.l == perm.r == rotated
+    assert perm.r.r == perm
+    assert Equation(perm.r, perm.to_swaps().r)
+    identity = Permutation(x @ y, [0, 1])
+    assert identity.r.is_identity and isinstance(identity.r, Permutation)
+
+
+def test_mixed_Layer_rotation_and_transpose():
+    x, y, z = map(Ty, 'xyz')
+    permutation = Permutation(x @ y, [1, 0])
+    f = Box('f', z, z)
+    layer = Layer(permutation, f, Ty())
+    assert layer.r.r == layer
+    assert all(isinstance(p, Permutation) for p in layer.r[::2])
+    diagram = Diagram((layer,), layer.dom, layer.cod)
+    with raises(NotImplementedError):
+        diagram.transpose_box(0)
+    with raises(NotImplementedError):
+        next(diagram.snake_removal())

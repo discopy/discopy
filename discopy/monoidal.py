@@ -603,6 +603,17 @@ class Layer(cat.Box):
             yield box_or_typ
 
     @property
+    def boxes_and_types(self):
+        """
+        The alternating boxes and types represented by the layer.
+
+        This is the same as :attr:`boxes_or_types` for monoidal layers.
+        Subclasses can store richer structural data while exposing the
+        underlying types to generic layer algorithms.
+        """
+        return self.boxes_or_types
+
+    @property
     def boxes(self):
         return list(self.boxes_or_types[1::2])
 
@@ -633,11 +644,11 @@ class Layer(cat.Box):
 
     @property
     def free_symbols(self) -> "set[sympy.Symbol]":
-        return {x for _, box, _ in self.inside for x in box.free_symbols}
+        return {x for box in self.boxes for x in box.free_symbols}
 
     def subs(self, *args) -> Layer:
-        left, box, right = self
-        return type(self)(left, box.subs(*args), right)
+        return type(self)(*(
+            x.subs(*args) if i % 2 else x for i, x in enumerate(self)))
 
     @property
     def is_generator(self):
@@ -680,11 +691,11 @@ class Layer(cat.Box):
         >>> f, g = Box('f', a, b), Box('g', c, d)
         >>> assert Layer(e, f, e, g, e).boxes_and_offsets == [(f, 1), (g, 3)]
         """
-        left, box, *tail = self
+        left, box, *tail = self.boxes_and_types
         boxes, offsets = [box], [len(left)]
         for typ, box in zip(tail[::2], tail[1::2]):
+            offsets.append(offsets[-1] + len(boxes[-1].cod) + len(typ))
             boxes.append(box)
-            offsets.append(offsets[-1] + len(boxes[-1].dom) + len(typ))
         return list(zip(boxes, offsets))
 
     def merge(self, other: Layer) -> Layer:
@@ -711,7 +722,7 @@ class Layer(cat.Box):
             diagram = exception.last_step
         boxes_or_types, offset = [self.dom[:0]], 0
         for layer in diagram.inside:
-            left, box, right = layer
+            left, box, right = layer.boxes_and_types
             if len(left) < offset:
                 raise AxiomError(
                     messages.NOT_MERGEABLE.format(self, other))
@@ -863,7 +874,10 @@ class Diagram(cat.Arrow, MonoidalCategory):
     @property
     def offsets(self) -> list[int]:
         """ The offset of a box is the length of the type on its left. """
-        return list(len(left) for left, _, _ in self)
+        return [
+            offset
+            for layer in self.inside
+            for _, offset in layer.boxes_and_offsets]
 
     @property
     def width(self):
@@ -1033,6 +1047,9 @@ class Diagram(cat.Arrow, MonoidalCategory):
                     getattr(obj, "l", obj) == getattr(obj, "r", obj)
                     for obj in graph.spider_types):
             return graph.to_diagram()
+        return self._merge_layers()
+
+    def _merge_layers(self):
         diagram = self
         while len(diagram) > 1:
             keep_on_going = False
@@ -1110,8 +1127,8 @@ class Diagram(cat.Arrow, MonoidalCategory):
         if j < i:
             i, j = j, i
         off0, off1 = self.offsets[i], self.offsets[j]
-        left0, box0, right0 = self.inside[i]
-        left1, box1, right1 = self.inside[j]
+        left0, box0, right0 = self.inside[i].boxes_and_types
+        left1, box1, right1 = self.inside[j].boxes_and_types
         # By default, we check if box0 is to the right first, then to the left.
         if left and off1 >= off0 + len(box0.cod):  # box0 left of box1
             off1 = off1 - len(box0.cod) + len(box0.dom)
@@ -1142,7 +1159,7 @@ class Diagram(cat.Arrow, MonoidalCategory):
             i : Index of the box to substitute.
             other : The diagram to substitute with.
         """
-        left, _, right = self.inside[i]
+        left, _, right = self.inside[i].boxes_and_types
         outside = Match(self[:i], self[i + 1:], left, right)
         return outside.substitute(other)
 
@@ -1504,7 +1521,8 @@ class Functor(cat.Functor):
             return self._map_colour(other)
         if isinstance(other, PRO):
             result = self._map_atomic(other.factory(1))
-            return sum(other.n * [result], self.cod.ob())
+            unit = result[:0] if isinstance(result, Ty) else self.cod.ob()
+            return sum(other.n * [result], unit)
         if isinstance(other, Dim):
             return sum([self.ob_map[x] for x in other], self.cod.ob())
         if isinstance(other, Ty):

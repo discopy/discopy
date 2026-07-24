@@ -171,6 +171,7 @@ class Diagram(RibbonCategory, NamedGeneric['natural']):
     ...     == D.id(T(2, 2))\\
     ...     == D.id(T(2, 2)).transpose(left=True)
     """
+    ar = classproperty(lambda cls: cls)
     natural = ribbon.Diagram
 
     ob = classproperty(lambda cls: Ty[cls.natural.ob])
