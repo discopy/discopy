@@ -60,5 +60,11 @@ Instruction from Alexis, verbatim:
 The branch should be current `main` plus this trusted checklist. Generated
 documentation assets remain inherited from `main` and are left to docs-static.
 
-- [WIP] @evening-codex-2026-07-25-11:11 Restart the branch from current
+- [x] Restart the branch from current
   `main` while preserving this checklist.
+
+Verification: restored all generated assets, then merged current `main`
+append-only per `RULES.md`; the PR diff is now only `TODO.md`.
+`pflake8 discopy` passes. Non-optional tests: 319 passed; 4 require missing
+SymPy/Torch dependencies. Full collection is blocked by the same optional
+quantum and tensor dependencies.
