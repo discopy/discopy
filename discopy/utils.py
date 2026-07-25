@@ -14,6 +14,7 @@ from typing import (
     Any,
     Collection,
     NamedTuple,
+    Union,
     TYPE_CHECKING,
 )
 
@@ -107,8 +108,17 @@ class MappingOrCallable(Mapping[KT, VT]):
 
 
 def get_origin(typ):
-    """ Get origin of a parameterized generic type. """
-    return getattr(typ, "__origin__", typ)
+    """
+    Get origin of a parameterized generic type, leaving a union type
+    untouched so that ``isinstance`` can be called on it directly.
+
+    Example
+    -------
+    >>> assert get_origin(tuple[int, str]) is tuple
+    >>> assert get_origin(int | None) == (int | None)
+    """
+    origin = getattr(typ, "__origin__", typ)
+    return typ if origin is Union else origin
 
 
 def product(xs: list, unit=1):
@@ -131,7 +141,10 @@ def factory_name(cls: type) -> str:
     -------
     >>> from discopy.grammar.pregroup import Word
     >>> assert factory_name(Word) == "grammar.pregroup.Word"
+    >>> assert factory_name(int | None) == "int | None"
     """
+    if not isinstance(cls, type):
+        return str(cls).removeprefix('discopy.')
     module = cls.__module__.removeprefix('discopy.')
     return f"{module}.{cls.__name__}".removeprefix('builtins.')
 
