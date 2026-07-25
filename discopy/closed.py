@@ -53,12 +53,12 @@ Axioms
 
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Dict, ClassVar, Optional
+from typing import ClassVar
 
 from discopy import cat, monoidal, biclosed, markov, hypergraph
 from discopy.abc import ClosedCategory
 from discopy.cat import factory
-from discopy.utils import assert_isinstance, factory_name
+from discopy.utils import AxiomError, assert_isinstance, factory_name
 
 
 @factory
@@ -203,8 +203,8 @@ class TermBase(Box, biclosed.TermBase):
     def __call__(self, other):
         return Application(self, other, left=False)
 
-    def reduce(self, budget: int = None, strategy: type = None
-               ) -> Optional[BohmTree]:
+    def reduce(self, budget: int | None = None,
+               strategy: type[Strategy] | None = None) -> BohmTree | None:
         """
         The head normal form of the term as a :class:`BohmTree`, contracting
         at most ``budget`` beta redexes to reach it, or ``None`` when the
@@ -231,7 +231,8 @@ class TermBase(Box, biclosed.TermBase):
         return (strategy or self.strategy_factory)(budget)(
             self, tuple(self.freevars))
 
-    def normal_form(self, budget: int = None, strategy: type = None) -> Term:
+    def normal_form(self, budget: int | None = None,
+                    strategy: type[Strategy] | None = None) -> Term:
         """
         The beta normal form of the term, i.e. the term of its Böhm tree,
         so that normalisation is idempotent.
@@ -357,7 +358,7 @@ class Substitution:
     >>> print(Substitution({f: g(y)})(X(lambda y: f(y))))
     X(lambda y': g(y)(y'))
     """
-    inside: Dict[Variable, Term]
+    inside: dict[Variable, Term]
 
     def __call__(self, term: Term) -> Term:
         if isinstance(term, Variable):
@@ -437,19 +438,32 @@ class BohmTree:
     cod: Ty
     variables: tuple[Variable, ...]
     head: int
-    strategy: Strategy
+    strategy: Strategy = field(compare=False)
     spine: tuple[Term, ...]
     cache: dict[int, BohmTree] = field(
         default_factory=dict, compare=False, repr=False, init=False)
 
     def __post_init__(self):
-        assert 0 <= self.head < len(self.variables)
+        assert_isinstance(self.cod, Ty)
+        assert_isinstance(self.head, int)
+        assert_isinstance(self.strategy, Strategy)
+        if not 0 <= self.head < len(self.variables):
+            raise AxiomError(
+                f"Expected 0 <= head < {len(self.variables)}, "
+                f"got {self.head} instead.")
         cod = self.variables[self.head].cod
         for term in self.spine:
-            assert cod.is_exp
-            assert term.cod == cod.exponent
+            assert_isinstance(term, TermBase)
+            if not cod.is_exp:
+                raise AxiomError(f"Expected an exponential type, got {cod}.")
+            if term.cod != cod.exponent:
+                raise AxiomError(
+                    f"Expected argument.cod == {cod.exponent}, "
+                    f"got {term.cod} instead.")
             cod = cod.base
-        assert cod == self.cod
+        if cod != self.cod:
+            raise AxiomError(
+                f"Expected result type {cod}, got {self.cod} instead.")
 
     def ty(self, n: int = 0) -> Ty:
         """
@@ -520,9 +534,10 @@ class Strategy:
     Parameters:
         budget : The number of beta redexes left to contract.
     """
-    budget: Optional[int] = None
+    budget: int | None = None
 
-    def __call__(self, term: Term, variables=()) -> Optional[BohmTree]:
+    def __call__(self, term: Term,
+                 variables=()) -> BohmTree | None:
         """
         The head normal form of a term in a scope of variables as a
         :class:`BohmTree` with its arguments left lazy, or ``None`` when the

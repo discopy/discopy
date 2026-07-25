@@ -175,6 +175,22 @@ def test_bohm_tree_ty():
     assert tree.to_term() == two
 
 
+def test_bohm_tree_validation_and_equality():
+    X, Y = Ty('X'), Ty('Y')
+    x, y = Variable('x', X), Variable('y', Y)
+    term = (X >> X)(lambda f: X(lambda x: f(x)))
+    assert term.reduce() == term.reduce(budget=10)
+
+    with raises(AxiomError):
+        BohmTree(X, (x, ), 1, Strategy(), ())
+    with raises(AxiomError):
+        BohmTree(X, (x, ), 0, Strategy(), (x, ))
+    with raises(AxiomError):
+        BohmTree(X, (Variable('f', X >> X), ), 0, Strategy(), (y, ))
+    with raises(AxiomError):
+        BohmTree(Y, (x, ), 0, Strategy(), ())
+
+
 def test_substitution():
     X = Ty('X')
     c, g, x = Constant('c', X), Variable('g', X >> X), Variable('x', X)
