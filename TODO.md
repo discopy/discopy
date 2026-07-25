@@ -50,3 +50,14 @@ Prompt ([#437](https://github.com/discopy/discopy/issues/437), verbatim):
   to match. Per `RULES.md` rule 1 this refresh is authorized by his direct
   instruction in today's session ("make sure the todos reflect any changes to the
   issues").
+
+## Review follow-up (2026-07-25)
+
+Instruction from Alexis, verbatim:
+
+> Go through the discopy PRs you own and follow the agents/EVENING.md prompt i.e. go through the reviews and implement them
+
+The branch should be current `main` plus this trusted checklist. Generated
+documentation assets remain inherited from `main` and are left to docs-static.
+
+- [ ] Restart the branch from current `main` while preserving this checklist.
