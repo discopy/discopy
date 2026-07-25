@@ -15,7 +15,7 @@ Prompt ([#374](https://github.com/discopy/discopy/issues/374), verbatim):
 
 - [x] `discopy.kleisli.monad`: monads as monoids over a new `python.function.EndoFunctor`, with maybe, powerset and subdistribution examples
 - [x] `discopy.kleisli.channel`: `Channel[M]` as a `NamedGeneric` over `M: Monad`
-- [ ] `discopy.kleisli.additive`: traced cocartesian Kleisli with the execution formula as trace; convergence tests for sub-additive monads
+- [WIP] @evening-2026-07-25T02:25 `discopy.kleisli.additive`: traced cocartesian Kleisli with the execution formula as trace; convergence tests for sub-additive monads
 - [ ] `discopy.kleisli.multiplicative`: premonoidal copy-discard Kleisli with pointwise strength; test monoidal iff the monad is commutative
 - [ ] `Hypergraph` evaluation methods: token passing for `additive`, message passing for `multiplicative` — coordinate with #366 and #363
 - [ ] `multiplicative` stress test: compare results against tensor contraction on small enough models (per issue comment)
@@ -43,3 +43,19 @@ Prompt ([#374](https://github.com/discopy/discopy/issues/374), verbatim):
   predate this checklist's drafting and were never incorporated: the
   tensor-contraction stress test + state-monad idea, and the "examples as #370
   terms, not diagrams" requirement — both now their own points above.
+
+## CI fix (🌙 evening, 2026-07-25)
+
+`test (3.14)` was genuinely red on this head (not stale-base): Python 3.14 unified
+`X | Y` onto `typing.Union` (`type(int | None)` is now `typing.Union`, was
+`types.UnionType` on 3.12/3.13), which broke `utils.get_origin`/`assert_isinstance`
+for any `Function` with a union-typed `dom`/`cod` — exactly what `EndoFunctor`'s
+`Maybe` monad constructs. Fixed in
+[038cacd](https://github.com/discopy/discopy/commit/038cacd): `get_origin` leaves
+union types untouched (so `isinstance` handles them natively) and `factory_name`
+falls back to `str()` for non-`type` objects (the same union also crashed the
+rejection-message path on 3.12/3.13 with `AttributeError`, latent but unreached
+before). Verified on 3.12/3.13/3.14 directly; full suite diffed before/after
+(75→70 failures, all 5 fixed were exactly the reported ones, remaining 70 are
+pre-existing `ModuleNotFoundError`s for the unavailable quantum/tensor optional
+deps in this sandbox, identical set before and after).
