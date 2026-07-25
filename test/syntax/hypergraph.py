@@ -106,11 +106,12 @@ def test_AxiomError():
 def test_non_self_dual():
     from discopy import compact
     x = compact.Ty('x')
-    K = compact.Hypergraph
     # A non-self-dual cap round-trips through its hypergraph, see issue #390.
     with compact.Diagram.hypergraph_equality:
         assert compact.Cap(x.r, x).to_hypergraph().to_diagram()\
             == compact.Cap(x.r, x)
+
+
 def test_non_adjoint_wire():
     from discopy import compact
     x = compact.Ty('x')

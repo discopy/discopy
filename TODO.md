@@ -6,7 +6,7 @@ Alexis's live directive, verbatim:
 
 ## Checklist
 
-- [WIP] @evening-2026-07-25T09:00Z-2026-07-25 09:16Z Address the review on
+- [x] @evening-2026-07-25T09:00Z-2026-07-25 09:16Z Address the review on
   [PR #393](https://github.com/discopy/discopy/pull/393): preserve nondefault
   `dom` and `cod` in `Ob.unwind`, test it, document `Ty.unwind` as atomic-only,
   and clean the unused test alias and spacing.

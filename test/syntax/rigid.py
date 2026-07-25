@@ -1,5 +1,6 @@
 from pytest import raises
 
+from discopy.monoidal import Colour
 from discopy.rigid import *
 
 
@@ -51,6 +52,12 @@ def test_Ob_repr():
 def test_Ob_str():
     a = Ob('a')
     assert str(a) == "a" and str(a.r) == "a.r" and str(a.l) == "a.l"
+
+
+def test_Ob_unwind():
+    red, blue = Colour("red"), Colour("blue")
+    x = Ob("x", dom=red, cod=blue)
+    assert x.r.r.unwind() == x
 
 
 def test_Ty_z():

@@ -212,8 +212,8 @@ class Ob(monoidal.Wire):
         return type(self)(self.name, self.z + 1, dom=self.cod, cod=self.dom)
 
     def unwind(self) -> Ob:
-        """ The object with winding number zero. """
-        return type(self)(self.name)
+        """ The object with winding number zero and the same colours. """
+        return type(self)(self.name, dom=self.dom, cod=self.cod)
 
     def __eq__(self, other):
         return monoidal.Wire.__eq__(self, other)\
@@ -298,6 +298,7 @@ class Ty(Pregroup, biclosed.Ty):
     def unwind(self) -> Ty:
         """
         The atomic type with winding number zero, see :meth:`Ob.unwind`.
+        This method is only defined for atomic types.
 
         The previous normalisation applied ``.r`` once, which is only an
         involution for pivotal types: it sent rigid ``n.r`` to ``n.r.r``.
