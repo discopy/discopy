@@ -209,7 +209,7 @@ one ordinary boxes-and-types view. Category-specific permutation ownership
 comes from the generator or permutation itself; only categories which add
 layer behaviour, such as compact rotation, define a `Layer` subclass.
 
-- [ ] Implement the new structural review: store identity routing in `Layer`
+- [WIP] @evening-2026-07-25T11:15+0200 Implement the new structural review: store identity routing in `Layer`
       rather than invalid identity boxes; expose native permutations as real
       boxes with offsets to `normalize`, `interchange` and `substitute`;
       collapse structural checks to `Layer.is_structural`; simplify factory
