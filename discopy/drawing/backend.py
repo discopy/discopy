@@ -86,6 +86,25 @@ def draw(graph: PlaneGraph, **params):
         margins=params.get('margins', DEFAULT['margins']))
 
 
+def savefig(path, format=None, metadata=None):
+    """
+    Save the current figure with reproducible metadata and identifiers.
+
+    The format is taken from the extension of ``path`` unless it is given
+    explicitly, e.g. when ``path`` is an in-memory buffer.
+    """
+    extension = format or str(path).split(".")[-1]
+    if extension == "svg":
+        metadata = metadata or {"Date": None}
+        context = {"svg.hashsalt": "discopy"}
+    elif extension == "png":
+        metadata, context = metadata or {"Software": None}, {}
+    else:
+        context = {}
+    with plt.rc_context(context):
+        plt.savefig(path, format=format, metadata=metadata)
+
+
 def _bezier_subcurve(points, t0, t1):
     """ Restrict a cubic Bezier (4 control points) to the range [t0, t1]. """
     def lerp(a, b, t):
@@ -514,7 +533,6 @@ class Backend(ABC):
         middle = positions[dom][0], (positions[dom][1] + positions[cod][1]) / 2
         controlled_box = box.controlled.to_drawing().box
         controlled = Node("box", box=controlled_box, j=j)
-        # TODO select x properly for classical gates
         c_dom = Node("box_dom", x=box.dom[0], i=index[1], j=j)
         c_cod = Node("box_cod", x=box.cod[0], i=index[1], j=j)
         c_middle = Point(
@@ -585,7 +603,6 @@ class Backend(ABC):
             node2 = Node("box_cod", x=box.cod[i], i=i, j=j)
             self.draw_wire(positions[node1], positions[node2])
 
-        # TODO change bend_in and bend_out for tikz backend
         self.draw_wire(middle, target_boundary, bend_in=True, bend_out=True)
 
         self.draw_node(
@@ -951,23 +968,8 @@ class Matplotlib(Backend):
         if ylim is not None:
             self.axis.set_ylim(*ylim)
         if path is not None:
-            # Drop volatile metadata and fix the salt used for SVG element ids
-            # so that images are reproducible across environments: PNGs embed
-            # the Matplotlib version as "Software", SVGs embed the current date
-            # and randomise the ids of their clip paths.
-            format, path_str = params.get("format", None), str(path)
-            is_svg = format == "svg" or (
-                format is None and path_str.endswith(".svg"))
-            is_png = format == "png" or (
-                format is None and path_str.endswith(".png"))
-            metadata = params.get("metadata", None)
-            if metadata is None:
-                metadata = {"Date": None} if is_svg else\
-                    {"Software": None} if is_png else None
-            context = {
-                "svg.hashsalt": DEFAULT["svg_hashsalt"]} if is_svg else {}
-            with plt.rc_context(context):
-                plt.savefig(path, format=format, metadata=metadata)
+            savefig(path, params.get("format", None),
+                    params.get("metadata", None))
             plt.close()
         if show:
             plt.show()
