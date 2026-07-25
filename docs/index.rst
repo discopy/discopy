@@ -9,14 +9,6 @@ DisCoPy documentation
     :parser: myst_parser.sphinx_
     :start-line: 8
 
-Architecture
-------------
-
-Software dependencies between modules go top-to-bottom, left-to-right and forgetful functors between categories go the other way.
-
-.. raw:: html
-    :file: api/architecture.html
-
 .. toctree::
     :caption: Reference API
     :hidden:
