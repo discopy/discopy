@@ -29,8 +29,8 @@ def IQPansatz(n_qubits, params) -> Circuit:
     >>> pprint(IQPansatz(3, [[0.1, 0.2], [0.3, 0.4]]))
     H @ H @ H
       >> CRz(0.1) @ qubit
-      >> H @ CRz(0.2)
-      >> qubit @ H @ H
+      >> qubit @ CRz(0.2)
+      >> H @ H @ H
       >> CRz(0.3) @ qubit
       >> qubit @ CRz(0.4)
     >>> print(IQPansatz(1, [0.3, 0.8, 0.4]))
@@ -71,8 +71,8 @@ def Sim14ansatz(n_qubits, params) -> Circuit:
     Ry(0) @ Ry(0.1) @ Ry(0.2)
       >> Controlled(Rx(0.3), distance=2)
       >> Controlled(Rx(0.4), distance=-1) @ qubit
-      >> Ry(0.6) @ Controlled(Rx(0.5), distance=-1)
-      >> qubit @ Ry(0.7) @ Ry(0.8)
+      >> qubit @ Controlled(Rx(0.5), distance=-1)
+      >> Ry(0.6) @ Ry(0.7) @ Ry(0.8)
       >> CRx(0.9) @ qubit
       >> Controlled(Rx(1), distance=-2)
       >> qubit @ CRx(1.1)
@@ -129,8 +129,8 @@ def Sim15ansatz(n_qubits, params) -> Circuit:
     Ry(0.1) @ Ry(0.2) @ Ry(0.3)
       >> Controlled(X, distance=2)
       >> Controlled(X, distance=-1) @ qubit
-      >> Ry(0.4) @ Controlled(X, distance=-1)
-      >> qubit @ Ry(0.5) @ Ry(0.6)
+      >> qubit @ Controlled(X, distance=-1)
+      >> Ry(0.4) @ Ry(0.5) @ Ry(0.6)
       >> CX @ qubit
       >> Controlled(X, distance=-2)
       >> qubit @ CX

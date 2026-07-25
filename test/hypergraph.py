@@ -1,3 +1,5 @@
+import random
+
 from pytest import raises
 
 from discopy.hypergraph import *
@@ -20,7 +22,7 @@ def test_Hypergraph_str():
     x, y = map(Ty, "xy")
     assert str(H.swap(x, y)) == "Swap(x, y)"
     assert str(H.spiders(1, 0, x @ y))\
-        == "Spider(1, 0, x) @ y >> Spider(1, 0, y)"
+        == "Spider(1, 0, x) @ Spider(1, 0, y)"
 
 
 def test_Hypergraph_repr():
@@ -70,6 +72,19 @@ def test_Hypergraph_make_causal_does_not_assume_topological_order():
     assert not h.is_causal
     assert h.make_causal().is_causal
     assert h.topological_order().is_causal
+
+
+def test_Hypergraph_draw_is_reproducible(tmp_path):
+    x = Ty('x')
+    diagram = Box('f', x, x).to_hypergraph()
+    first, second = tmp_path / "first.svg", tmp_path / "second.svg"
+    state = random.getstate()
+
+    diagram.draw(seed=42, path=first)
+    diagram.draw(seed=42, path=second)
+
+    assert first.read_bytes() == second.read_bytes()
+    assert random.getstate() == state
 
 
 def test_Hypergraph_simplify_bubble_size():
@@ -124,6 +139,52 @@ def test_cups():
     assert H.caps(x, x).to_diagram() == Cap(x, x)
 
 
+def test_Hypergraph_is_boundary_connected():
+    x, y, z = map(Ty, "xyz")
+    f = Box('f', x, x).to_hypergraph()
+    assert f.is_boundary_connected
+
+    g = Box('g', x @ z, y @ z).to_hypergraph()
+    assert g.trace().is_boundary_connected
+
+    assert not f.trace().is_boundary_connected
+
+    scalar = Box('s', Ty(), Ty()).to_hypergraph()
+    assert not (scalar @ scalar).is_boundary_connected
+    assert not H.spiders(0, 0, x).is_boundary_connected
+
+    assert H.id(Ty()).is_boundary_connected
+    assert H.id(x).is_boundary_connected
+
+
+def test_Hypergraph_eq_fast_path_trace():
+    """ Traces are cyclic but boundary-connected, so they should use the
+    fast canonical-form path rather than falling back to VF2. """
+    x, y, z = map(Ty, "xyz")
+    g = Box('g', x @ z, y @ z).to_hypergraph()
+    trace = g.trace()
+
+    assert trace.is_acyclic is False
+    assert trace.is_fast_eligible
+
+    shuffled = trace.interchange(0, min(1, len(trace.boxes) - 1))
+    assert trace == shuffled
+    assert hash(trace) == hash(shuffled)
+
+
+def test_Hypergraph_eq_fallback_scalars_and_empty_boundary():
+    """ Hypergraphs that are not boundary-connected (scalars, closed
+    diagrams) must still compare correctly via the VF2 fallback. """
+    scalar_a = Box('s', Ty(), Ty()).to_hypergraph()
+    scalar_b = Box('s', Ty(), Ty()).to_hypergraph()
+    assert not (scalar_a @ scalar_b).is_fast_eligible
+    assert scalar_a @ scalar_b == scalar_b @ scalar_a
+
+    x = Ty('x')
+    f = Box('f', x, x).to_hypergraph()
+    assert f.trace() == f.trace()
+
+
 def test_simplify():
     from discopy.markov import Box, Ty, Copy, Swap, Trace, Equation
     C, T, P = map(Ty, "CTP")
@@ -139,7 +200,9 @@ def test_simplify():
 
     assert Equation(residual_block, ref) and Equation(ref, simpl)
 
-    assert simpl == ref
+    # to_diagram foliates, so simpl is the (tighter) foliation of ref rather
+    # than its point-free, one-box-per-layer presentation.
+    assert simpl == ref.foliation()
 
 
 def test_parameterisation():
