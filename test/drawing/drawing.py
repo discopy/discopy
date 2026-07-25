@@ -663,3 +663,22 @@ def test_rich_display():
     buffer = StringIO()
     diagram.draw(path=buffer, format='svg', show=False, metadata={'Date': None})
     assert buffer.getvalue() == diagram.to_svg()
+
+    import subprocess
+    import sys
+    script = """
+from discopy.monoidal import Box, Ty
+x = Ty("x")
+boxes = [Box(str(i), x, x, draw_as_spider=True) for i in range(4)]
+for box, color, shape in zip(
+        boxes, ("red", "blue", "green", "yellow"),
+        ("circle", "rectangle", "circle", "rectangle")):
+    box.color, box.shape, box.drawing_name = color, shape, ""
+print((boxes[0] @ boxes[1] @ boxes[2] @ boxes[3]).to_svg())
+"""
+    outputs = [
+        subprocess.check_output(
+            [sys.executable, "-c", script],
+            env=dict(os.environ, PYTHONHASHSEED=str(seed)))
+        for seed in range(3)]
+    assert outputs[0] == outputs[1] == outputs[2]
