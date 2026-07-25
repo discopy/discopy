@@ -66,4 +66,4 @@ Prompt ([#395](https://github.com/discopy/discopy/issues/395), verbatim):
 
 > Go through the discopy PRs you own and follow the agents/EVENING.md prompt i.e. go through the reviews and implement them
 
-- [WIP] @evening-codex-2026-07-25-14:43 Replace the stale metaclass alias with the simplest class-and-instance alias, and test both access paths
+- [x] Replace the stale metaclass alias with the simplest class-and-instance alias, and test both access paths
