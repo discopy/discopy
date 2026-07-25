@@ -45,4 +45,4 @@ Prompt ([#373](https://github.com/discopy/discopy/issues/373), verbatim):
 
 > Go through the discopy PRs you own and follow the agents/EVENING.md prompt i.e. go through the reviews and implement them
 
-- [WIP] @evening-codex-2026-07-25-14:34 Make mutable strategy state irrelevant to Böhm-tree equality, use project validation, modernise typing, and test the review regressions
+- [x] Make mutable strategy state irrelevant to Böhm-tree equality, use project validation, modernise typing, and test the review regressions
