@@ -88,6 +88,7 @@ from discopy import monoidal, balanced, traced, messages, hypergraph
 from discopy.abc import SymmetricCategory
 from discopy.cat import factory
 from discopy.monoidal import Wire, Ty, PRO  # noqa: F401
+from discopy.utils import classproperty
 
 
 class Swappable(ABCMeta):
@@ -113,10 +114,17 @@ class Swappable(ABCMeta):
     def swap_factory(cls, value: type):
         cls.braid_factory = value
 
-    def __init__(cls, name, bases, namespace, **kwargs):
-        super().__init__(name, bases, namespace, **kwargs)
-        if "swap_factory" in namespace:
-            cls.braid_factory = namespace["swap_factory"]
+    def __new__(mcls, name, bases, namespace, **kwargs):
+        swap_factory = namespace.get("swap_factory")
+        is_factory = "swap_factory" in namespace\
+            and not isinstance(swap_factory, classproperty)
+        if is_factory:
+            namespace = dict(namespace)
+            namespace.pop("swap_factory")
+        cls = super().__new__(mcls, name, bases, namespace, **kwargs)
+        if is_factory:
+            cls.braid_factory = swap_factory
+        return cls
 
 
 @factory
@@ -191,6 +199,7 @@ class Diagram(balanced.Diagram, SymmetricCategory, metaclass=Swappable):
     >>> Diagram.braid_factory = Swap
     >>> Diagram.swap_factory = Swap
     """
+    swap_factory = classproperty(lambda cls: cls.braid_factory)
     twist_factory = classmethod(lambda cls, dom: cls.id(dom))
 
     @classmethod

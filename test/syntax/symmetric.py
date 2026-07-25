@@ -113,6 +113,7 @@ def test_swap_factory():
     white, yolk = Ingredient("white"), Ingredient("yolk")
     swap = Recipe.swap(white, yolk)
     assert isinstance(swap, CookingSwap)
+    assert swap.swap_factory is CookingSwap
     roundtrip = swap.to_hypergraph().to_diagram()
     assert isinstance(roundtrip, Recipe)
     assert all(isinstance(box, CookingSwap) for box in roundtrip.boxes)
@@ -130,3 +131,5 @@ def test_swap_factory():
         swap_factory = Transposition
 
     assert SubPermutation.braid_factory is Transposition
+    assert "swap_factory" not in SubPermutation.__dict__
+    assert Diagram.swap(PRO(1), PRO(1)).swap_factory is Swap
