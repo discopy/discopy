@@ -5,7 +5,8 @@ from pytest import raises
 from discopy.cat import Transformation
 from discopy.utils import AxiomError
 from discopy.python.function import Function, EndoFunctor
-from discopy.kleisli.monad import Monad, Maybe, Powerset, Subdistribution
+from discopy.kleisli.monad import (
+    Monad, Maybe, Powerset, Subdistribution, make_monad)
 from discopy.kleisli.channel import Channel
 
 
@@ -35,6 +36,14 @@ def test_Monad_type_errors():
 def test_Monad_repr():
     assert repr(Maybe) == "Monad('Maybe')"
     assert str(Maybe) == Maybe.__name__ == "Maybe"
+
+
+def test_make_monad():
+    identity = make_monad(
+        "Identity", lambda X: X, lambda f: f,
+        lambda X: Function.id(X), lambda X: Function.id(X))
+    assert identity(int) == (int, )
+    assert identity.unit(int)(42) == identity.mult(int)(42) == 42
 
 
 def unit_laws(monad: Monad, X: type, values: list):
