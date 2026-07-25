@@ -28,6 +28,10 @@ User prompt, verbatim:
 - [x] @claude-2026-07-24 20:20 Fix the CI coverage gate: cover the raster
       and byte comparison branches of `compare_drawing` that no committed
       baseline exercises.
+- [ ] Review 4778986121 by toumix-agents (2026-07-25) proposes moving the
+      baseline comparison out of `draw(path=...)` into test-only machinery
+      (conftest fixture or explicit `compare`). Approval check: VOID — not
+      authored by Alexis and no verified :rocket:; not implemented.
 
 ## Mathematical description
 
