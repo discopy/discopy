@@ -82,3 +82,15 @@ pin down in mathematical terms with Alexis before coding (this is normally
 Daylight's job). Flagging for the bridge chat / next Birdsong plan rather than
 guessing at the semantics; happy to implement once the trace's exact recursion
 is spelled out.
+
+## Review follow-up (🌙 evening, 2026-07-25)
+
+Alexis's live directive, verbatim:
+
+> Go through the discopy PRs you own and follow the agents/EVENING.md prompt i.e. go through the reviews and implement them
+
+- [WIP] @evening-2026-07-25T09:00Z-2026-07-25 09:05Z Address the review on
+  [PR #443](https://github.com/discopy/discopy/pull/443): fix the `Iterable`
+  annotation, align the subdistribution contract and implementation, expose
+  monad APIs in autosummary, prefer `Monad.from_maps`, and file the pre-existing
+  callable-repr problem separately if needed.
