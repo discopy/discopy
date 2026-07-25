@@ -60,4 +60,5 @@ Instruction from Alexis, verbatim:
 The branch should be current `main` plus this trusted checklist. Generated
 documentation assets remain inherited from `main` and are left to docs-static.
 
-- [ ] Restart the branch from current `main` while preserving this checklist.
+- [WIP] @evening-codex-2026-07-25-11:11 Restart the branch from current
+  `main` while preserving this checklist.
