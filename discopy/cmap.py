@@ -231,7 +231,7 @@ class CMap[C0: Pregroup, C1: CMap](
     ...     (2, 1, 0, 10, 11), (3, 4, 5, 6), (7, 8, 9)], 12)
     True
     >>> cm.draw(
-    ...     path="docs/_static/cmap/simple-cmap.svg",
+    ...     doctest="docs/_static/cmap/simple-cmap.svg",
     ...     port_indices=True,
     ...     show=False,
     ... )
@@ -248,7 +248,7 @@ class CMap[C0: Pregroup, C1: CMap](
     ... ])
     >>> cm = (f >> CMap.swap(z, x)) @ z >> x @ g
     >>> cm.draw(
-    ...     path="docs/_static/cmap/swapped-cmap.svg",
+    ...     doctest="docs/_static/cmap/swapped-cmap.svg",
     ...     port_indices=True,
     ...     show=False,
     ... )
@@ -796,7 +796,7 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> f = Box("f", x @ y, z).to_map()
         >>> assert f.curry().uncurry() == f
         >>> f.curry().draw(
-        ...     path="docs/_static/cmap/compact-curry.svg", show=False)
+        ...     doctest="docs/_static/cmap/compact-curry.svg", show=False)
 
         .. image:: /_static/cmap/compact-curry.svg
             :align: center
@@ -1353,9 +1353,9 @@ class CMap[C0: Pregroup, C1: CMap](
         return "\n".join(lines) + "\n"
 
     def draw(
-            self, path=None, engine="dot", format=None, seed=None,
-            show=None, graph_attr=None, port_indices=False, block=True,
-            replace=None, tol=20):
+            self, path=None, doctest=None, engine="dot", format=None,
+            seed=None, show=None, graph_attr=None, port_indices=False,
+            block=True, replace=None, tol=20):
         """
         Draw as a combinatorial map using Graphviz.
 
@@ -1382,7 +1382,7 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> from discopy.compact import Ty, CMap
         >>> x, y, z = map(Ty, "xyz")
         >>> (CMap.caps((x @ y).r, x @ y) >> CMap.cups((x @ y).l, x @ y)).draw(
-        ...     path="docs/_static/cmap/scalar-loop.svg", show=False)
+        ...     doctest="docs/_static/cmap/scalar-loop.svg", show=False)
 
         .. image:: /_static/cmap/scalar-loop.svg
             :align: center
@@ -1391,9 +1391,10 @@ class CMap[C0: Pregroup, C1: CMap](
             engine=engine, seed=seed, graph_attr=graph_attr,
             port_indices=port_indices)
 
+        from discopy.drawing import backend
+        path, replace = backend.doctest_or_path(path, doctest, replace)
         show = show if show is not None else path is None
         if path is not None:
-            from discopy.drawing import backend
             path_str = str(path)
             suffix = path_str.rsplit(".", 1)[-1].lower()\
                 if "." in path_str else ""

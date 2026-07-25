@@ -82,14 +82,23 @@ def draw(graph: PlaneGraph, **params):
     if params.get('legend', False):
         backend.draw_legend(graph, **params)
 
+    path, replace = doctest_or_path(
+        params.get('path', None), params.get('doctest', None),
+        params.get('replace', None))
     return backend.output(
-        path=params.get('path', None),
+        path=path,
         baseline=graph.height / 2 or .5,
         tikz_options=params.get('tikz_options', None),
         show=params.get('show', True), aspect=aspect,
         margins=params.get('margins', DEFAULT['margins']),
-        replace=params.get('replace', None),
+        replace=replace,
         tol=params.get('tol', DEFAULT['tol']))
+
+
+def doctest_or_path(path=None, doctest=None, replace=None):
+    """ A doctest path is a baseline that drawing checks against,
+    a plain path is just where the drawing gets saved. """
+    return (doctest, replace) if doctest is not None else (path, True)
 
 
 def normalize_svg(path) -> ElementTree.Element:

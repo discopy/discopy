@@ -167,7 +167,7 @@ Example
 -------
 >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
 >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
->>> (f0 @ f1).draw(path='docs/_static/monoidal/tensor-example.svg')
+>>> (f0 @ f1).draw(doctest='docs/_static/monoidal/tensor-example.svg')
 
 .. image:: /_static/monoidal/tensor-example.svg
     :align: center
@@ -177,7 +177,8 @@ If the image already exists, drawing the example checks it against the
 committed baseline and raises an error when they differ. To update an image,
 delete its baseline, pass `replace=True`, or set
 `discopy.config.OVERRIDE_DOCS_IMAGES = True` before running the tests to
-regenerate all documentation images.
+regenerate all documentation images. A plain `draw(path=...)` just saves
+the drawing, overwriting any existing file.
 
 ## Request features
 

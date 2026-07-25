@@ -103,7 +103,7 @@ assert crack_two_eggs == (crack @ crack
   >> white @ CookingSwap(yolk, white) @ yolk
   >> merge(white) @ merge(yolk)).foliation()
 
-crack_two_eggs.draw(path="docs/_static/readme/crack-eggs.svg")
+crack_two_eggs.draw(doctest="docs/_static/readme/crack-eggs.svg")
 ```
 
 ![crack_two_eggs.draw()](docs/_static/readme/crack-eggs.svg)
@@ -141,7 +141,7 @@ assert crack_two_eggs_at_once == Recipe(
     Layer(empty, merge(white), empty, merge(yolk), empty)))
 
 crack_two_eggs_at_once.draw(
-  path="docs/_static/readme/crack-two-eggs-at-once.svg")
+  doctest="docs/_static/readme/crack-two-eggs-at-once.svg")
 ```
 
 ![crack_two_eggs_at_once.draw()](docs/_static/readme/crack-two-eggs-at-once.svg)
@@ -180,7 +180,7 @@ right_snake =  Cap(x, x.l) @ x >> x @ Cup(x.l, x)
 assert left_snake.normal_form() == Id(x) == right_snake.normal_form()
 
 Equation(left_snake, Id(x), right_snake).draw(
-  path="docs/_static/readme/typed-snake-equation.svg")
+  doctest="docs/_static/readme/typed-snake-equation.svg")
 ```
 
 ![Equation(left_snake, Id(x), right_snake).draw()](docs/_static/readme/typed-snake-equation.svg)
@@ -196,7 +196,7 @@ Alice, Bob = Word('Alice', n), Word('Bob', n)
 loves = Word('loves', n.r @ s @ n.l)
 
 sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ s @ Cup(n.l, n)
-sentence.foliation().draw(path="docs/_static/readme/alice-loves-bob.svg")
+sentence.foliation().draw(doctest="docs/_static/readme/alice-loves-bob.svg")
 ```
 
 ![Alice loves Bob](docs/_static/readme/alice-loves-bob.svg)
@@ -241,7 +241,7 @@ W = pregroup.Functor(ob_map={s: s, n: n}, ar_map=wiring)
 
 rewrite_steps = W(sentence).normalize()
 sentence.to_gif(
-  *rewrite_steps, path="docs/_static/readme/autonomisation.gif",
+  *rewrite_steps, doctest="docs/_static/readme/autonomisation.gif",
   timestep=1000, figsize=(4, 4))
 ```
 

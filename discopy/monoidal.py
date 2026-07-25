@@ -804,7 +804,7 @@ class Diagram(cat.Arrow, MonoidalCategory):
         ...     middle, right = cap(offset=1)
         ...     cup(left, middle)
         ...     return right
-        >>> snake.draw(path='docs/_static/monoidal/diagramize.svg')
+        >>> snake.draw(doctest='docs/_static/monoidal/diagramize.svg')
 
         .. image:: /_static/monoidal/diagramize.svg
             :align: center
@@ -837,7 +837,7 @@ class Diagram(cat.Arrow, MonoidalCategory):
         >>> assert f0 @ f1 == f0.tensor(f1) == f0 @ Id(z) >> Id(y) @ f1
 
         >>> (f0 @ f1).draw(
-        ...     path='docs/_static/monoidal/tensor-example.svg')
+        ...     doctest='docs/_static/monoidal/tensor-example.svg')
 
         .. image:: /_static/monoidal/tensor-example.svg
             :align: center
@@ -892,7 +892,7 @@ class Diagram(cat.Arrow, MonoidalCategory):
         >>> assert dom == x @ z
         >>> assert boxes_and_offsets == [(f0, 0), (f1, 1), (g, 0)]
         >>> assert diagram == Diagram.decode(*diagram.encode())
-        >>> diagram.draw(path='docs/_static/monoidal/arrow-example.svg')
+        >>> diagram.draw(doctest='docs/_static/monoidal/arrow-example.svg')
 
         .. image:: /_static/monoidal/arrow-example.svg
             :align: center
@@ -1009,7 +1009,7 @@ class Diagram(cat.Arrow, MonoidalCategory):
         >>> print(diagram)
         f0 @ x >> y @ f1[::-1] >> f0[::-1] @ y >> x @ f1
         >>> diagram.foliation().draw(
-        ...     path='docs/_static/monoidal/foliation-example.svg')
+        ...     doctest='docs/_static/monoidal/foliation-example.svg')
 
         .. image:: /_static/monoidal/foliation-example.svg
             :align: center
@@ -1255,7 +1255,7 @@ class Box(cat.Box, Diagram):
     >>> y = Ty(Wire("y", green, blue))
     >>> z = Ty(Wire("z", red, blue))
     >>> coloured = Box("coloured", x @ y, z)
-    >>> coloured.draw(path='docs/_static/monoidal/coloured-box.svg')
+    >>> coloured.draw(doctest='docs/_static/monoidal/coloured-box.svg')
 
     .. image:: /_static/monoidal/coloured-box.svg
         :align: center
@@ -1338,19 +1338,19 @@ class Bubble(cat.Bubble, Box):
     >>> x, y = Ty('x'), Ty('y')
     >>> f, g, h = Box('f', x, y ** 3), Box('g', y, y @ y), Box('h', x, y)
     >>> d = (f.bubble(dom=x ** 3, cod=y, draw_as_square=True) >> g).bubble()
-    >>> d.draw(path='docs/_static/monoidal/bubble-example.svg')
+    >>> d.draw(doctest='docs/_static/monoidal/bubble-example.svg')
 
     .. image:: /_static/monoidal/bubble-example.svg
         :align: center
 
     >>> b = Bubble(f, g, h >> h[::-1], dom=x, cod=y @ y)
-    >>> b.draw(path='docs/_static/monoidal/bubble-multiple-args.svg')
+    >>> b.draw(doctest='docs/_static/monoidal/bubble-multiple-args.svg')
 
     .. image:: /_static/monoidal/bubble-multiple-args.svg
         :align: center
 
     >>> b = Bubble(f, g, h, dom=x, cod=y @ y, draw_vertically=True)
-    >>> b.draw(path='docs/_static/monoidal/frame-vertical-args.svg')
+    >>> b.draw(doctest='docs/_static/monoidal/frame-vertical-args.svg')
 
     .. image:: /_static/monoidal/frame-vertical-args.svg
         :align: center
@@ -1364,7 +1364,7 @@ class Bubble(cat.Bubble, Box):
     ...     dom=Ty(Wire("boundary", blue, red)),
     ...     cod=Ty(Wire("boundary", blue, red)),
     ...     draw_as_frame=True)
-    >>> frame.draw(path='docs/_static/monoidal/coloured-frame.svg')
+    >>> frame.draw(doctest='docs/_static/monoidal/coloured-frame.svg')
 
     .. image:: /_static/monoidal/coloured-frame.svg
         :align: center
@@ -1452,7 +1452,7 @@ class Functor(cat.Functor):
     >>> source, target = f0 >> f0[::-1], F(f0 >> f0[::-1])
 
     >>> Equation(source, target, symbol='$\\\\mapsto$').draw(
-    ...     path='docs/_static/monoidal/functor-example.svg')
+    ...     doctest='docs/_static/monoidal/functor-example.svg')
 
     .. image:: /_static/monoidal/functor-example.svg
         :align: center

@@ -42,17 +42,23 @@ def test_draw_baseline(tmp_path, monkeypatch):
     actual_path = tmp_path / "_box.svg"
     box = Box("f", Ty("x"), Ty("x"))
 
-    box.draw(path=path, show=False)
-    box.draw(path=path, show=False)
+    box.draw(doctest=path, show=False)
+    box.draw(doctest=path, show=False)
     assert not actual_path.exists()
 
     path.write_text("<svg/>")
     with raises(ValueError, match="Drawing differs"):
-        box.draw(path=path, show=False)
+        box.draw(doctest=path, show=False)
     assert actual_path.exists()
 
-    box.draw(path=path, show=False, replace=True)
+    box.draw(doctest=path, show=False, replace=True)
     monkeypatch.setattr(config, "OVERRIDE_DOCS_IMAGES", True)
+    path.write_text("<svg/>")
+    box.draw(doctest=path, show=False)
+    assert path.read_text() != "<svg/>"
+
+    # A plain path just saves the drawing, overwriting silently.
+    monkeypatch.setattr(config, "OVERRIDE_DOCS_IMAGES", False)
     path.write_text("<svg/>")
     box.draw(path=path, show=False)
     assert path.read_text() != "<svg/>"

@@ -28,7 +28,7 @@ User prompt, verbatim:
 - [x] @claude-2026-07-24 20:20 Fix the CI coverage gate: cover the raster
       and byte comparison branches of `compare_drawing` that no committed
       baseline exercises.
-- [WIP] @claude-2026-07-25 08:45 Review 4778986121 by toumix-agents proposed
+- [x] @claude-2026-07-25 08:45 Review 4778986121 by toumix-agents proposed
       moving the baseline comparison out of `draw(path=...)`. First approval
       check was VOID (not authored by Alexis); now approved by Alexis's PR
       comment (2026-07-25), frozen verbatim:
