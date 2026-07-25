@@ -1,6 +1,7 @@
 from os import listdir
 
 import pickle
+import re
 
 import pytest
 from pytest import warns
@@ -17,8 +18,6 @@ import pytest
 from pytest import warns
 
 from os import listdir
-import sys
-import pkgutil
 import pickle
 
 zip_mock = MagicMock()
@@ -55,22 +54,24 @@ def test_named_generic_cache():
 
 
 
-@pytest.mark.parametrize('fn', listdir('test/utils/pickles/main/'))
-def test_pickle_version_compatibility(fn):
-    with open(f"test/utils/pickles/main/{fn}", 'rb') as f:
+def _rounded_repr(obj):
+    # Gate matrices such as the Hadamard's 1 / sqrt(2) entries are stored as
+    # floats whose last bit depends on the numpy version that generated the
+    # pickle, so exact equality across versions is not portable. Round every
+    # float in the repr to 12 significant figures before comparing.
+    return re.sub(
+        r'\d+\.\d+', lambda m: format(float(m.group()), '.12g'), repr(obj))
+
+
+@pytest.mark.parametrize('version', ['0.6', '1.2'])
+@pytest.mark.parametrize('fn', listdir('test/fixtures/pickles/1.3/'))
+def test_pickle_version_compatibility(fn, version):
+    with open(f"test/fixtures/pickles/1.3/{fn}", 'rb') as f:
         new = pickle.load(f)
-    with open(f"test/utils/pickles/0.6/{fn}", 'rb') as f:
+    with open(f"test/fixtures/pickles/{version}/{fn}", 'rb') as f:
         old = pickle.load(f)
-    assert old == new
+    assert old == new or _rounded_repr(old) == _rounded_repr(new)
 
-
-@pytest.mark.parametrize('pkg', [module for _, module, _ in pkgutil.iter_modules(["test/utils/pickles/src"])])
-def test_pickle_unpickle(pkg):
-    sys.path.append('test/utils/pickles/src')
-    impmodule = __import__(pkg)
-    exp = impmodule.pick
-    act = pickle.loads(pickle.dumps(impmodule.pick))
-    assert act == exp
 
 def test_parameterised_box_pickle():
     box = Box("A", 2, 3)

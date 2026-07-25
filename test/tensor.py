@@ -269,6 +269,21 @@ def test_non_numpy_eval():
     assert np.allclose(np.asarray(result.array), reference.array)
 
 
+def test_eval_over_52_indices():
+    f = Box('f', Dim(2), Dim(2), [1, 0, 0, 1])
+    diagram = f
+    for _ in range(60):
+        diagram = diagram >> f
+    assert np.allclose(diagram.eval().array, np.eye(2))
+    g = Box('g', Dim(2), Dim(2), [1., 0., 0., 1.])
+    diagram = g
+    for _ in range(60):
+        diagram = diagram >> g
+    with backend('pytorch'):
+        result = diagram.eval()
+    assert np.allclose(np.asarray(result.array), np.eye(2))
+
+
 def test_Tensor_array():
     box = Box("box", Dim(2), Dim(2), None)
     assert box.array is None
