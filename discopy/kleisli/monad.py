@@ -28,8 +28,14 @@ Summary
     :toctree:
 
     Monad
+    Maybe
+    Powerset
+    Subdistribution
+    make_monad
 """
 from __future__ import annotations
+
+from collections.abc import Iterable
 
 from discopy.cat import Transformation
 from discopy.python.function import EndoFunctor, Function
@@ -88,6 +94,30 @@ class Monad:
         """
         return self.functor(X)
 
+    @classmethod
+    def from_maps(
+            cls, name, ob_map, lift, unit_map, mult_map) -> Monad:
+        """
+        Build a monad from mappings on types and functions.
+
+        Parameters:
+            name : The name of the monad.
+            ob_map : Mapping from a type ``X`` to the type ``M(X)``.
+            lift : Mapping from a function ``f : X -> Y`` to ``M(f) : M(X)
+                -> M(Y)``, i.e. the functorial action on functions.
+            unit_map : Mapping from a type ``X`` to the function ``eta_X : X
+                -> M(X)``.
+            mult_map : Mapping from a type ``X`` to the function
+                ``mu_X : M(M(X)) -> M(X)``.
+        """
+        unwrap = lambda X: untuplify(tuplify(X))
+        functor = EndoFunctor(lambda X: (ob_map(untuplify(X)), ), lift)
+        unit = Transformation(
+            lambda X: unit_map(unwrap(X)), EndoFunctor.id(), functor)
+        mult = Transformation(
+            lambda X: mult_map(unwrap(X)), functor.then(functor), functor)
+        return cls(name, functor, unit, mult)
+
     def __repr__(self):
         return f"Monad({self.name!r})"
 
@@ -97,9 +127,7 @@ class Monad:
 
 def make_monad(name, ob_map, lift, unit_map, mult_map) -> Monad:
     """
-    Build a :class:`Monad` from a mapping on types and three mappings on
-    functions indexed by a type, i.e. avoid repeating the boilerplate of
-    building the :class:`EndoFunctor` and the two :class:`Transformation`.
+    Alias for :meth:`Monad.from_maps`.
 
     Parameters:
         name : The name of the monad.
@@ -111,16 +139,10 @@ def make_monad(name, ob_map, lift, unit_map, mult_map) -> Monad:
         mult_map : Mapping from a type ``X`` to the function ``mu_X : M(M(X))
             -> M(X)``.
     """
-    unwrap = lambda X: untuplify(tuplify(X))
-    functor = EndoFunctor(lambda X: (ob_map(untuplify(X)), ), lift)
-    unit = Transformation(
-        lambda X: unit_map(unwrap(X)), EndoFunctor.id(), functor)
-    mult = Transformation(
-        lambda X: mult_map(unwrap(X)), functor.then(functor), functor)
-    return Monad(name, functor, unit, mult)
+    return Monad.from_maps(name, ob_map, lift, unit_map, mult_map)
 
 
-Maybe = make_monad(
+Maybe = Monad.from_maps(
     "Maybe",
     ob_map=lambda X: X | None,
     lift=lambda f: Function(
@@ -134,7 +156,7 @@ multiplication are both the identity, since Python's native optional type
 does not distinguish ``None`` from a doubly-wrapped ``None``.
 """
 
-Powerset = make_monad(
+Powerset = Monad.from_maps(
     "Powerset",
     ob_map=lambda X: frozenset[X],
     lift=lambda f: Function(
@@ -151,7 +173,7 @@ a singleton and the multiplication takes a union.
 """
 
 
-def merge(pairs: iter) -> frozenset:
+def merge(pairs: Iterable) -> frozenset:
     """
     Sum the weights of duplicate outcomes in an iterator of pairs, used to
     build the :attr:`Subdistribution` monad's functor and multiplication.
@@ -167,9 +189,8 @@ def merge(pairs: iter) -> frozenset:
 
 def dist(X: type) -> type:
     """
-    The type of subdistributions over ``X``, i.e. finite sets of pairs of an
-    outcome in ``X`` and a non-negative weight, with the total weight at
-    most one.
+    The representation type for subdistributions over ``X``, i.e. finite
+    sets of pairs of an outcome in ``X`` and a weight.
 
     Parameters:
         X : The type of outcomes.
@@ -177,7 +198,7 @@ def dist(X: type) -> type:
     return frozenset[tuple[X, float]]
 
 
-Subdistribution = make_monad(
+Subdistribution = Monad.from_maps(
     "Subdistribution",
     ob_map=dist,
     lift=lambda f: Function(
