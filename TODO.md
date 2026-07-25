@@ -190,3 +190,29 @@ derived from the generator's category, so Markov no longer defines a redundant
 - Full non-notebook suite: 772 passed, 1 skipped; coverage is 98%.
 - The seven configured notebooks were deselected because the app sandbox
   forbids the local sockets needed to start their kernels.
+
+## Structural review follow-up (2026-07-25)
+
+Instruction from Alexis, verbatim:
+
+> Go through the discopy PRs you own and follow the agents/EVENING.md prompt i.e. go through the reviews and implement them
+
+A symmetric layer presents
+`s_0 @ f_1 @ s_1 @ ... @ f_n @ s_n`, where each `f_i` is a
+non-permutation generator (including `Swap`) and each `s_i` is either a type,
+representing identity routing, or a non-identity native `Permutation`.
+Forgetting the structural distinction expands every non-identity `s_i` to an
+ordinary box between empty types and coalesces each identity `s_i` into its
+adjacent type slot. Thus every actual `Permutation` satisfies the ordinary
+`Box` invariant, and `boxes`, `offsets`, encoding and box-indexed rewrites use
+one ordinary boxes-and-types view. Category-specific permutation ownership
+comes from the generator or permutation itself; only categories which add
+layer behaviour, such as compact rotation, define a `Layer` subclass.
+
+- [ ] Implement the new structural review: store identity routing in `Layer`
+      rather than invalid identity boxes; expose native permutations as real
+      boxes with offsets to `normalize`, `interchange` and `substitute`;
+      collapse structural checks to `Layer.is_structural`; simplify factory
+      selection without hierarchy-wide `Layer` subclasses; add the
+      unequal-arity offset regression and concise docs; run focused tests,
+      `pflake8`, and the full coverage suite.
