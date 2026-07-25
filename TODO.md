@@ -61,3 +61,9 @@ Prompt ([#395](https://github.com/discopy/discopy/issues/395), verbatim):
 - [x] Test: a custom subclass setting `swap_factory` gets its own swaps through `Diagram.swap`, `Hypergraph.to_diagram` and `Diagram.from_callable` (README cooking example)
 - [x] Switch the README cooking example back to `swap_factory`
 - [x] Run `pflake8 discopy` and `coverage run -m pytest`
+
+## Review follow-up (2026-07-25)
+
+> Go through the discopy PRs you own and follow the agents/EVENING.md prompt i.e. go through the reviews and implement them
+
+- [WIP] @evening-codex-2026-07-25-14:43 Replace the stale metaclass alias with the simplest class-and-instance alias, and test both access paths
