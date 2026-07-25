@@ -61,60 +61,40 @@ Axioms
 from __future__ import annotations
 
 from abc import abstractmethod
-from copy import copy
+from collections.abc import Iterable
 from inspect import signature
-from itertools import count
 from typing import Callable, ClassVar
 
-from discopy import cat, monoidal
+from discopy import cat, messages, monoidal
 from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
 from discopy.cat import ob_factory, ar_factory
 from discopy.utils import (
     assert_isinstance,
+    classproperty,
     factory_name,
     from_tree,
 )
 
-_fresh_names = count()
 
-
-def fresh_name() -> str:
-    """ Generate a fresh variable name from a global counter. """
-    return f"x{next(_fresh_names)}"
-
-
-def annotate(typ: monoidal.Ty, name: str) -> monoidal.Ty:
+def fresh_name(level: int, avoid: Iterable[str] = ()) -> str:
     """
-    Return a copy of ``typ`` with a ``varname`` attribute attached to each of
-    the objects inside, used to remember the name of the variable that a wire
-    stands for so that :meth:`Diagram.to_term` is inverse to
-    :meth:`TermBase.eval` on the nose rather than up to alpha equivalence.
+    The canonical name for the variable at a given de Bruijn level, with
+    primes appended until it avoids a collection of names.
 
     Parameters:
-        typ : The type to annotate.
-        name : The name of the variable carried by the wires of ``typ``.
+        level : The number of variables already in scope.
+        avoid : The names that are already taken.
 
-    Note
-    ----
-    The annotated objects still compare equal to the original ones:
-
-    >>> x = Ty('x')
-    >>> assert annotate(x, 'v') == x
-    >>> annotate(x, 'v').inside[0].varname
-    'v'
+    Example
+    -------
+    >>> assert fresh_name(0) == "x0" and fresh_name(1) == "x1"
+    >>> assert fresh_name(0, ["x0", "x0'"]) == "x0''"
     """
-    inside = []
-    for obj in typ.inside:
-        obj = copy(obj)
-        obj.varname = name
-        inside.append(obj)
-    return type(typ)(*inside)
-
-
-def varname(obj: cat.Ob) -> str | None:
-    """ The variable name attached to an object, or ``None`` if absent. """
-    return getattr(obj, "varname", None)
+    name, avoid = f"x{level}", set(avoid)
+    while name in avoid:
+        name += "'"
+    return name
 
 
 @ob_factory
@@ -346,28 +326,106 @@ class Diagram(monoidal.Diagram, BiclosedCategory):
     def to_drawing(self):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
 
-    def to_term(self) -> TermBase:
+    def to_term(self, *freevars: Variable) -> TermBase:
         """
-        Decompile a diagram back to a term in the internal language, i.e. the
-        inverse of :meth:`TermBase.eval` for the identity functor.
+        Decompile a diagram back to a term in the internal language, i.e. a
+        section of :meth:`TermBase.eval` for the identity functor, so that
+        ``diagram.to_term().eval() == diagram``.
 
-        Free variables are read off the domain of the diagram, abstracted
-        variables off the exponent of each :class:`Curry` box. Their names
-        are recovered from the ``varname`` attribute attached to objects by
-        :meth:`Variable.eval` so that the round-trip from term to diagram and
-        back is faithful on the nose; fresh names are generated from a global
-        counter in case the attribute is absent. Boxes with no input other
-        than :class:`Eval`, :class:`Coeval` and :class:`Curry` are decompiled
-        to :class:`Constant` terms.
+        Parameters:
+            freevars : The variables carried by the wires of :attr:`dom`, one
+                variable per object by default.
+
+        Bound variables are named by their de Bruijn level, see
+        :func:`fresh_name`, so that decompiling depends only on the diagram.
+        Thus ``term.eval().to_term()`` is equal to ``term`` up to the renaming
+        of its bound variables, and equal on the nose when the term is already
+        named canonically. Evaluation quotients terms by alpha equivalence, so
+        the round-trip is faithful after another :meth:`TermBase.eval`.
 
         Example
         -------
         >>> X, Y = Ty("X"), Ty("Y")
         >>> f = (X >> Y)("f")
         >>> term = X(lambda x, left=True: x(f, left=True))
-        >>> assert term.eval().to_term() == term
+        >>> print(term.eval().to_term())
+        X(lambda x0, left=True: x0((X >> Y)('f'), left=True))
+        >>> assert term.eval().to_term().eval() == term.eval()
+
+        The name of a free variable is not written anywhere in the diagram,
+        so pass it in to recover it, along with the grouping of the wires it
+        stands for:
+
+        >>> pair = Variable("pair", X @ Y)
+        >>> assert pair.eval().to_term(pair) == pair
         """
-        return _diagram_to_term(self, _dom_to_variables(self))
+        factory = self.ob.variable_factory
+        scan = list(freevars) or [
+            factory(fresh_name(i), self.dom[i:i + 1])
+            for i in range(len(self.dom))]
+        return self.decompile(scan, tuple(scan))
+
+    def decompile(
+            self, scan: list[TermBase], scope: tuple[Variable, ...]
+            ) -> TermBase:
+        """
+        Sweep through the layers of a diagram, feeding each box the terms
+        carried by the wires it consumes, see :meth:`Box.to_terms`.
+
+        Parameters:
+            scan : The terms carried by the wires of :attr:`dom`.
+            scope : The variables bound by the enclosing abstractions.
+        """
+        for layer in self.inside:
+            parts = tuple(layer)
+            if len(parts) != 3:
+                raise ValueError(messages.LAYER_IS_FOLIATED.format(layer))
+            left, box, _ = parts
+            before, consumed, after = self.split_scan(
+                scan, len(left), len(box.dom))
+            scan = before + box.to_terms(consumed, scope) + after
+        if len(scan) != 1:
+            raise ValueError(messages.NOT_A_SINGLE_TERM.format(scan))
+        return scan[0]
+
+    @staticmethod
+    def split_scan(scan: list[TermBase], offset: int, width: int) -> tuple:
+        """
+        Split a scan of terms into the segments before, inside and after the
+        wires ``[offset, offset + width)``, raising when the boundaries do not
+        align with the terms in the scan.
+
+        Parameters:
+            scan : The terms carried by the wires.
+            offset : The index of the first wire to split at.
+            width : The number of wires to split off.
+        """
+        total, i = 0, 0
+        while total < offset:
+            total += len(scan[i].cod)
+            i += 1
+        j, consumed = i, 0
+        while consumed < width:
+            consumed += len(scan[j].cod)
+            j += 1
+        if total != offset or consumed != width:
+            raise ValueError(
+                messages.NOT_WHOLE_TERMS.format(scan, offset, width))
+        return scan[:i], scan[i:j], scan[j:]
+
+    def term_left(self, left: bool) -> bool:
+        """
+        Whether a box that curries or evaluates on the given side gives a term
+        that binds on the left: never in a braided category, where the
+        symmetry makes the two conventions equal.
+
+        Parameters:
+            left : Whether the box curries or evaluates on the left.
+        """
+        return not left and not self.is_braided
+
+    #: Whether the category has a braiding, i.e. whether its terms are planar.
+    is_braided = classproperty(lambda cls: hasattr(cls, "braid_factory"))
 
 
 class Box(monoidal.Box, Diagram):
@@ -379,6 +437,21 @@ class Box(monoidal.Box, Diagram):
         dom (Ty) : The domain of the box, i.e. its input.
         cod (Ty) : The codomain of the box, i.e. its output.
     """
+    def to_terms(self, args: list[TermBase], scope: tuple[Variable, ...]
+                 ) -> list[TermBase]:
+        """
+        The terms carried by the output wires of the box, given the terms
+        carried by its input wires, see :meth:`Diagram.decompile`. A box with
+        no input is a constant, anything else is not in the image of
+        :meth:`TermBase.eval`.
+
+        Parameters:
+            args : The terms carried by the wires of :attr:`dom`.
+            scope : The variables bound by the enclosing abstractions.
+        """
+        if self.dom or isinstance(self, monoidal.Bubble):
+            raise ValueError(messages.NOT_A_TERM.format(self))
+        return [self.ob.constant_factory(self.name, self.cod)]
 
 
 class Eval(Box):
@@ -404,6 +477,17 @@ class Eval(Box):
     def drawing_name(self):
         return "<<" if self.left else ">>"
 
+    def to_terms(self, args, scope):
+        """ Apply the function to its argument, see :meth:`Box.to_terms`. """
+        if len(args) != 2:
+            raise ValueError(messages.NOT_FUNC_AND_ARGS.format(self, args))
+        func, arg = args if self.left else args[::-1]
+        if func.cod != self.x or arg.cod != self.x.exponent:
+            raise ValueError(messages.WRONG_FUNC_AND_ARGS.format(
+                self.x, self.x.exponent, args))
+        return [self.ob.application_factory(
+            func, arg, self.term_left(self.left))]
+
 
 class Coeval(Box):
     """
@@ -425,6 +509,10 @@ class Coeval(Box):
 
     def dagger(self) -> Eval:
         return self.eval_factory(self.x, self.left)
+
+    def to_terms(self, args, scope):
+        """ A coevaluation is not in the image of :meth:`TermBase.eval`. """
+        raise ValueError(messages.NOT_A_TERM.format(self))
 
 
 class Curry(monoidal.Bubble, Box):
@@ -455,6 +543,21 @@ class Curry(monoidal.Bubble, Box):
         f, e = self.arg, self.coeval_factory(self.cod)
         return (f >> e).to_drawing().trace(left=True)
 
+    @property
+    def abstracted(self) -> Ty:
+        """ The type of the variable bound by the currying. """
+        return self.arg.dom[len(self.arg.dom) - self.n:] if self.left\
+            else self.arg.dom[:self.n]
+
+    def to_terms(self, args, scope):
+        """ Abstract the curried variable, see :meth:`Box.to_terms`. """
+        var = self.ob.variable_factory(
+            fresh_name(len(scope), (x.name for x in scope)), self.abstracted)
+        body = self.arg.decompile(
+            args + [var] if self.left else [var] + args, scope + (var, ))
+        return [self.ob.abstraction_factory(
+            var, body, self.term_left(self.left))]
+
 
 class Sum(monoidal.Sum, Box):
     """
@@ -465,6 +568,9 @@ class Sum(monoidal.Sum, Box):
         dom (Ty) : The domain of the formal sum.
         cod (Ty) : The codomain of the formal sum.
     """
+    def to_terms(self, args, scope):
+        """ A formal sum is not in the image of :meth:`TermBase.eval`. """
+        raise ValueError(messages.NOT_A_TERM.format(self))
 
 
 Id = Diagram.id
@@ -573,6 +679,13 @@ class TermBase(Box):
         "Drawing a term by evaluating it in the free biclosed category."
         return self.eval().draw(**kwargs)
 
+    def to_terms(self, args, scope):
+        """ A term with no input decompiles to itself, see
+        :meth:`Box.to_terms`. """
+        if self.dom:
+            raise ValueError(messages.NOT_A_TERM.format(self))
+        return [self]
+
     def __call__(self, other, left=False):
         args = (other, self, left) if left else (self, other, left)
         return self.cod.application_factory(*args)
@@ -621,10 +734,7 @@ class Variable(TermBase):
 
     def eval(self, functor=None):
         functor = functor or self.functor
-        typ = functor(self.cod)
-        if isinstance(typ, monoidal.Ty):
-            typ = annotate(typ, self.name)
-        return functor.cod.id(typ)
+        return functor.cod.id(functor(self.cod))
 
     @property
     def constants(self):
@@ -725,115 +835,6 @@ class Abstraction(TermBase):
 
 
 type Term = Constant | Variable | Application | Abstraction
-
-
-def _dom_to_variables(diagram: Diagram) -> list[TermBase]:
-    """
-    Turn the domain of a diagram into a list of free variables, grouping
-    consecutive objects that carry the same ``varname`` annotation and
-    generating fresh names for unannotated objects.
-    """
-    scan, i, inside = [], 0, diagram.dom.inside
-    factory = diagram.ob.variable_factory
-    while i < len(inside):
-        name, j = varname(inside[i]), i + 1
-        if name is None:
-            name = fresh_name()
-        else:
-            while j < len(inside) and varname(inside[j]) == name:
-                j += 1
-        scan.append(factory(name, diagram.dom[i:j]))
-        i = j
-    return scan
-
-
-def _split_scan(scan: list, offset: int, width: int) -> tuple:
-    """
-    Split a scan of terms into the segments before, inside and after the
-    wires ``[offset, offset + width)``, raising when the boundaries do not
-    align with the terms in the scan.
-    """
-    total, i = 0, 0
-    while total < offset:
-        total += len(scan[i].cod)
-        i += 1
-    j, consumed = i, 0
-    while consumed < width:
-        consumed += len(scan[j].cod)
-        j += 1
-    if total != offset or consumed != width:
-        raise ValueError(
-            f"Expected a box acting on whole terms, got {scan} "
-            f"at offset {offset} and width {width}.")
-    return scan[:i], scan[i:j], scan[j:]
-
-
-def _box_to_term(diagram: Diagram, box: Box, consumed: list) -> list:
-    """ Apply one box of a diagram to the scan of terms built so far. """
-    ob = diagram.ob
-    if isinstance(box, Curry):
-        arg, n = box.arg, box.n
-        abstracted = arg.dom[len(arg.dom) - n:] if box.left else arg.dom[:n]
-        names = {varname(obj) for obj in abstracted.inside}
-        name = names.pop() if len(names) == 1 and None not in names\
-            else fresh_name()
-        var = ob.variable_factory(name, abstracted)
-        seed = consumed + [var] if box.left else [var] + consumed
-        body = _diagram_to_term(arg, seed)
-        is_symmetric = getattr(type(diagram), "braid_factory", None)\
-            is not None
-        return [ob.abstraction_factory(
-            var, body, False if is_symmetric else not box.left)]
-    if isinstance(box, Eval):
-        if len(consumed) != 2:
-            raise ValueError(
-                f"Expected the function and argument of {box}, "
-                f"got {consumed}.")
-        func, args = consumed if box.left else consumed[::-1]
-        if func.cod != box.x or args.cod != box.x.exponent:
-            raise ValueError(
-                f"Expected terms of type {box.x} and {box.x.exponent}, "
-                f"got {consumed}.")
-        is_symmetric = getattr(type(diagram), "braid_factory", None)\
-            is not None
-        return [ob.application_factory(
-            func, args, False if is_symmetric else not box.left)]
-    if isinstance(box, TermBase):
-        if box.dom:
-            raise ValueError(f"Unexpected term box with inputs: {box}.")
-        return [box]
-    braid_factory = getattr(type(diagram), "braid_factory", None)
-    if braid_factory is not None and isinstance(box, braid_factory):
-        before, inside, after = _split_scan(consumed, 0, len(box.left))
-        assert not before
-        return after + inside
-    copy_factory = getattr(type(diagram), "copy_factory", None)
-    if copy_factory is not None and isinstance(box, copy_factory):
-        term, = consumed
-        if not isinstance(term, Variable):
-            raise ValueError(f"Expected a variable to copy, got {term}.")
-        return len(box.cod) * [term]
-    if not box.dom and not isinstance(
-            box, (Eval, Coeval, monoidal.Bubble, monoidal.Sum)):
-        return [ob.constant_factory(box.name, box.cod)]
-    raise ValueError(
-        f"Expected a diagram in the image of TermBase.eval, got {box}.")
-
-
-def _diagram_to_term(diagram: Diagram, scan: list) -> TermBase:
-    """ Sweep through the layers of a diagram, building terms bottom-up. """
-    for layer in diagram.inside:
-        parts = tuple(layer)
-        if len(parts) != 3:
-            raise ValueError(f"Expected an unfoliated layer, got {layer}.")
-        left, box, _ = parts
-        before, consumed, after = _split_scan(
-            scan, len(left), len(box.dom))
-        scan = before + _box_to_term(diagram, box, consumed) + after
-    if len(scan) != 1:
-        raise ValueError(
-            f"Expected a diagram encoding a single term, got {scan}.")
-    return scan[0]
 
 
 Ty.variable_factory = Variable

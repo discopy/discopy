@@ -36,12 +36,11 @@ from enum import StrEnum
 from collections.abc import Iterable
 from dataclasses import dataclass
 from io import BytesIO
-from itertools import count
 from math import lcm
 from string import ascii_lowercase
 import shutil
 import subprocess
-from typing import Any, TYPE_CHECKING, ClassVar, Literal
+from typing import Any, NamedTuple, TYPE_CHECKING, ClassVar, Literal
 
 from discopy import messages
 from discopy.cat import Ob
@@ -1024,153 +1023,28 @@ class CMap[C0: Pregroup, C1: CMap](
     def to_term(self):
         """
         Extract the linear lambda term encoded by a rooted trivalent map,
-        i.e. the inverse of Zeilberger's isomorphism from linear lambda terms
+        i.e. a section of Zeilberger's isomorphism from linear lambda terms
         to rooted trivalent maps, see :meth:`discopy.closed.TermBase.to_map`.
 
         The single output port is the root and the input ports are the free
-        variables of the term. Box labels and the direction of the wires are
-        ignored: the term structure is recovered with the following naive
-        algorithm. For each root node we remove it from the map; if the
-        result is disconnected then it was an application and we recurse with
-        the two disconnected subtrees as function and argument; if the result
-        is connected then it was an abstraction, we introduce a fresh
-        variable as a new node on the input side and recurse with the subtree
-        at the output side as body. Which subtree is which is determined by
-        the cyclic order of the ports around the removed node, starting from
-        the port facing the root.
+        variables of the term, see :class:`TermReader` for the algorithm.
 
-        Variable names are recovered from the ``varname`` attribute attached
-        to the objects carried by the ports, see
-        :func:`discopy.biclosed.annotate`; fresh names are generated from a
-        global counter in case the attribute is absent. The result is a
-        :class:`discopy.closed.Term` typed by unification, with fresh atomic
-        types for the type variables left unconstrained.
+        A map carries no variable names, so they are chosen canonically, see
+        :func:`discopy.biclosed.fresh_name`. Thus decompiling depends only on
+        the map and ``cmap.to_term().to_map() == cmap``, while
+        ``term.to_map().to_term()`` gives back the term up to alpha
+        equivalence. The result is typed by unification, with atomic types
+        for the type variables left unconstrained.
 
         Example
         -------
         >>> from discopy.closed import Ty
         >>> term = Ty("a")(lambda v: v)
-        >>> assert term.to_map().to_term() == term
+        >>> print(term.to_map().to_term())
+        a(lambda x0: x0)
+        >>> assert term.to_map().to_term().to_map() == term.to_map()
         """
-        # Imported here to avoid a circular dependency with biclosed.
-        from discopy import biclosed, closed
-
-        if len(self.cod) != 1 or self.scalars:
-            raise ValueError(
-                "Expected a rooted map with a single output port and no "
-                f"scalars, got {self}.")
-        for box in self.boxes:
-            if len(box.dom) + len(box.cod) != 3:
-                raise ValueError(f"Expected trivalent boxes, got {box}.")
-
-        ports, edges = self.ports, self.edges
-        box_ports = self._box_port_indices
-        vertex_of = {
-            port: vertex for vertex, indices in enumerate(box_ports)
-            for port in indices}
-
-        subst, tvars, atoms = {}, count(), {}
-
-        def resolve(typ):
-            while isinstance(typ, int) and typ in subst:
-                typ = subst[typ]
-            return typ
-
-        def unify(left, right):
-            # No occurs check: linear terms are always simply typeable.
-            left, right = resolve(left), resolve(right)
-            if isinstance(left, int) or isinstance(right, int):
-                if not isinstance(left, int):
-                    left, right = right, left
-                if left != right:
-                    subst[left] = right
-                return
-            unify(left[0], right[0])
-            unify(left[1], right[1])
-
-        leaf, variables, visited = {}, {}, set()
-
-        def new_variable(port):
-            obj = ports[port].obj
-            names = {
-                getattr(x, "varname", None)
-                for x in getattr(obj, "inside", (obj, ))}
-            name = names.pop() if len(names) == 1 else None
-            name = biclosed.fresh_name() if name is None else name
-            variable = (name, next(tvars))
-            leaf[port] = variable
-            return variable
-
-        for port, _ in enumerate(self.dom):
-            new_variable(port)
-
-        def connected(source, target, live):
-            seen, todo = {source}, [source]
-            while todo:
-                vertex = todo.pop()
-                if vertex == target:
-                    return True
-                for port in box_ports[vertex]:
-                    other = vertex_of.get(edges[port])
-                    if other in live and other not in seen:
-                        seen.add(other)
-                        todo.append(other)
-            return False
-
-        def extract(entry, live):
-            if entry in leaf:
-                return ('var', leaf[entry]), leaf[entry][1]
-            vertex = vertex_of[entry]
-            visited.add(vertex)
-            live = live - {vertex}
-            cycle = box_ports[vertex]
-            index = cycle.index(entry)
-            first, second = cycle[(index + 1) % 3], cycle[(index + 2) % 3]
-            if edges[first] == second:  # The identity abstraction.
-                variable = new_variable(second)
-                tree = ('abs', variable, ('var', variable))
-                return tree, (variable[1], variable[1])
-            far_first, far_second = edges[first], edges[second]
-            first_vertex = vertex_of.get(far_first)
-            second_vertex = vertex_of.get(far_second)
-            if first_vertex in live and second_vertex in live\
-                    and connected(first_vertex, second_vertex, live):
-                variable = new_variable(second)
-                body, body_type = extract(far_first, live)
-                return ('abs', variable, body), (variable[1], body_type)
-            func, func_type = extract(far_first, live)
-            args, args_type = extract(far_second, live)
-            result_type = next(tvars)
-            unify(func_type, (args_type, result_type))
-            return ('app', func, args), result_type
-
-        root = edges[self.n_ports - 1]
-        tree, _ = extract(root, set(range(len(self.boxes))))
-        if len(visited) != len(self.boxes):
-            raise ValueError(f"Expected a connected rooted map, got {self}.")
-
-        def to_ty(typ):
-            typ = resolve(typ)
-            if isinstance(typ, tuple):
-                return to_ty(typ[0]) >> to_ty(typ[1])
-            if typ not in atoms:
-                index = len(atoms)
-                atoms[typ] = closed.Ty(ascii_lowercase[index % 26] + (
-                    "" if index < 26 else str(index // 26)))
-            return atoms[typ]
-
-        def build(node):
-            if node[0] == 'var':
-                name, tvar = node[1]
-                if node[1] not in variables:
-                    variables[node[1]] = closed.Variable(name, to_ty(tvar))
-                return variables[node[1]]
-            if node[0] == 'app':
-                return build(node[1])(build(node[2]))
-            variable, body = build(('var', node[1])), build(node[2])
-            return closed.Abstraction(variable, body)
-
-        return build(tree)
+        return TermReader(self).to_term()
 
     def to_dot(
             self, engine="dot", seed=None, graph_attr=None,
@@ -1443,3 +1317,231 @@ class CMap[C0: Pregroup, C1: CMap](
             top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
         plt.show(block=block)
         return None
+
+
+class Unifier:
+    """
+    The union-find used to type the term read off a rooted trivalent map, see
+    :class:`TermReader`.
+
+    A type is either an ``int`` standing for a type variable or a pair
+    ``(exponent, base)`` standing for a function type.
+
+    Example
+    -------
+    >>> unifier = Unifier()
+    >>> x, y, z = unifier.fresh(), unifier.fresh(), unifier.fresh()
+    >>> unifier.unify(x, (y, z))
+    >>> unifier.unify(y, z)
+    >>> assert unifier.resolve(x) == (y, z) and unifier.resolve(y) == z
+    """
+    def __init__(self):
+        self.subst, self.n_tvars = {}, 0
+
+    def fresh(self) -> int:
+        """ A type variable that no other type has been unified with yet. """
+        self.n_tvars += 1
+        return self.n_tvars - 1
+
+    def resolve(self, typ):
+        """
+        Follow the substitution until an unbound variable or a function type.
+
+        Parameters:
+            typ : The type to resolve.
+        """
+        while isinstance(typ, int) and typ in self.subst:
+            typ = self.subst[typ]
+        return typ
+
+    def unify(self, left, right):
+        """
+        Identify two types, no occurs check needed since linear terms are
+        always simply typeable.
+
+        Parameters:
+            left : The first of the two types to identify.
+            right : The second of the two types to identify.
+        """
+        left, right = self.resolve(left), self.resolve(right)
+        if isinstance(left, int) or isinstance(right, int):
+            if not isinstance(left, int):
+                left, right = right, left
+            if left != right:
+                self.subst[left] = right
+            return
+        self.unify(left[0], right[0])
+        self.unify(left[1], right[1])
+
+    def to_ty(self, typ, atoms: dict):
+        """
+        The closed type of a resolved type, naming the type variables left
+        unconstrained after the letters of the alphabet.
+
+        Parameters:
+            typ : The type to translate.
+            atoms : The types already given to type variables, updated in
+                place so that the same variable always gets the same type.
+        """
+        from discopy import closed
+        typ = self.resolve(typ)
+        if isinstance(typ, tuple):
+            return self.to_ty(typ[0], atoms) >> self.to_ty(typ[1], atoms)
+        if typ not in atoms:
+            index = len(atoms)
+            atoms[typ] = closed.Ty(ascii_lowercase[index % 26] + (
+                "" if index < 26 else str(index // 26)))
+        return atoms[typ]
+
+
+class Var(NamedTuple):
+    """ A variable of a term skeleton, see :class:`TermReader`. """
+    name: str
+    tvar: int
+
+    def to_term(self, reader: TermReader):
+        """ Build the variable, sharing it between its occurrences. """
+        from discopy import closed
+        if self not in reader.variables:
+            reader.variables[self] = closed.Variable(
+                self.name, reader.unifier.to_ty(self.tvar, reader.atoms))
+        return reader.variables[self]
+
+
+class App(NamedTuple):
+    """ An application of a term skeleton, see :class:`TermReader`. """
+    func: Var | App | Abs
+    args: Var | App | Abs
+
+    def to_term(self, reader: TermReader):
+        """ Build the application of the function to its argument. """
+        return self.func.to_term(reader)(self.args.to_term(reader))
+
+
+class Abs(NamedTuple):
+    """ An abstraction of a term skeleton, see :class:`TermReader`. """
+    var: Var
+    body: Var | App | Abs
+
+    def to_term(self, reader: TermReader):
+        """ Build the abstraction of the variable in the body. """
+        from discopy import closed
+        return closed.Abstraction(
+            self.var.to_term(reader), self.body.to_term(reader))
+
+
+class TermReader:
+    """
+    Reads the linear lambda term encoded by a rooted trivalent map, see
+    :meth:`CMap.to_term`.
+
+    Parameters:
+        cmap : The rooted trivalent map to read, i.e. with a single output
+            port, no scalars and every box of arity three.
+
+    Box labels and the direction of the wires are ignored: the term structure
+    is recovered with the following naive algorithm, see :meth:`extract`. For
+    each root node we remove it from the map; if the result is disconnected
+    then it was an application and we recurse with the two disconnected
+    subtrees as function and argument; if the result is connected then it was
+    an abstraction, we introduce a variable as a new node on the input side
+    and recurse with the subtree at the output side as body. Which subtree is
+    which is determined by the cyclic order of the ports around the removed
+    node, starting from the port facing the root.
+
+    The skeleton of :class:`Var`, :class:`App` and :class:`Abs` comes first
+    because the type of a variable is only known once :attr:`unifier` has
+    seen every application it takes part in.
+    """
+    def __init__(self, cmap: CMap):
+        if len(cmap.cod) != 1 or cmap.scalars:
+            raise ValueError(messages.NOT_ROOTED.format(cmap))
+        for box in cmap.boxes:
+            if len(box.dom) + len(box.cod) != 3:
+                raise ValueError(messages.NOT_TRIVALENT.format(box))
+        self.cmap, self.edges = cmap, cmap.edges
+        self.box_ports = cmap._box_port_indices
+        self.vertex_of = {
+            port: vertex for vertex, indices in enumerate(self.box_ports)
+            for port in indices}
+        self.unifier, self.atoms, self.variables = Unifier(), {}, {}
+        self.leaf, self.visited = {}, set()
+
+    def fresh_variable(self, port: int) -> Var:
+        """
+        A variable for the wire at a port, named after the number of
+        variables already read, see :func:`discopy.biclosed.fresh_name`.
+
+        Parameters:
+            port : The index of the port carrying the variable.
+        """
+        from discopy import biclosed
+        variable = Var(
+            biclosed.fresh_name(len(self.leaf)), self.unifier.fresh())
+        self.leaf[port] = variable
+        return variable
+
+    def connected(self, source: int, target: int, live: set) -> bool:
+        """
+        Whether two vertices are connected through the live ones, i.e. those
+        that have not been removed from the map yet.
+
+        Parameters:
+            source : The vertex to search from.
+            target : The vertex to search for.
+            live : The vertices that have not been removed.
+        """
+        seen, todo = {source}, [source]
+        while todo:
+            vertex = todo.pop()
+            if vertex == target:
+                return True
+            for port in self.box_ports[vertex]:
+                other = self.vertex_of.get(self.edges[port])
+                if other in live and other not in seen:
+                    seen.add(other)
+                    todo.append(other)
+        return False
+
+    def extract(self, entry: int, live: set) -> tuple:
+        """
+        The skeleton of the subterm rooted at a port, with its type.
+
+        Parameters:
+            entry : The port at which to enter the subterm.
+            live : The vertices that have not been removed.
+        """
+        if entry in self.leaf:
+            return self.leaf[entry], self.leaf[entry].tvar
+        vertex = self.vertex_of[entry]
+        self.visited.add(vertex)
+        live = live - {vertex}
+        cycle = self.box_ports[vertex]
+        index = cycle.index(entry)
+        first, second = cycle[(index + 1) % 3], cycle[(index + 2) % 3]
+        if self.edges[first] == second:  # The identity abstraction.
+            var = self.fresh_variable(second)
+            return Abs(var, var), (var.tvar, var.tvar)
+        far_first, far_second = self.edges[first], self.edges[second]
+        if all(self.vertex_of.get(port) in live
+               for port in (far_first, far_second)) and self.connected(
+                   self.vertex_of[far_first], self.vertex_of[far_second],
+                   live):
+            var = self.fresh_variable(second)
+            body, body_type = self.extract(far_first, live)
+            return Abs(var, body), (var.tvar, body_type)
+        func, func_type = self.extract(far_first, live)
+        args, args_type = self.extract(far_second, live)
+        result_type = self.unifier.fresh()
+        self.unifier.unify(func_type, (args_type, result_type))
+        return App(func, args), result_type
+
+    def to_term(self):
+        """ The term encoded by the map, see :meth:`CMap.to_term`. """
+        for port, _ in enumerate(self.cmap.dom):
+            self.fresh_variable(port)
+        root = self.edges[self.cmap.n_ports - 1]
+        skeleton, _ = self.extract(root, set(range(len(self.cmap.boxes))))
+        if len(self.visited) != len(self.cmap.boxes):
+            raise ValueError(messages.NOT_CONNECTED.format(self.cmap))
+        return skeleton.to_term(self)

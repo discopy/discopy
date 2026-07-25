@@ -71,16 +71,17 @@ def test_to_term_round_trip():
                 X(lambda u: g(u)(z))))]:                   # shared context
         diagram = term.eval()
         assert (diagram.dom, diagram.cod) == (term.dom, term.cod)
-        result = diagram.to_term()
-        assert result == term and str(result) == str(term)
+        result = diagram.to_term(*term.freevars)
+        assert result.eval() == diagram
+        assert result.cod == term.cod and result.freevars == term.freevars
 
 
 def test_to_term_fresh_names():
     X, Y = Ty("X"), Ty("Y")
-    diagram = Curry(Eval(X >> Y, left=True))  # no varname attributes
+    diagram = Curry(Eval(X >> Y, left=True))  # no term structure to read
     term = diagram.to_term()
     assert isinstance(term, Abstraction)
-    assert term.eval() == diagram
+    assert term.var.name == "x1" and term.eval() == diagram
 
 
 def test_to_term_errors():
@@ -91,14 +92,21 @@ def test_to_term_errors():
         Swap(X, X).to_term()  # two variables are not a single term
 
 
-def test_context_image():
-    from discopy.python import Function
+def test_freevars_are_deterministic():
+    """ The order of the free variables is the order of the wires, it cannot
+    depend on hashing, see STYLE.md. """
+    X, Y, T = Ty("X"), Ty("Y"), Ty("T")
+    f, x = Variable("f", X >> Y), Variable("x", X)
+    shared = (X >> ((X >> Y) >> Y))("m")(x)(X(lambda u: f(u)))
+    assert shared.freevars == [x, f]  # overlapping, i.e. deduplicated
+    church = (T >> T)(lambda fn: T(lambda a: fn(fn(a))))
+    assert [v.name for v in church.body.body.freevars] == ["fn", "a"]
 
-    X = Ty("X")
-    context = Context([Variable("z", X)])
-    assert context.dom == X
-    F = Functor(ob={X: int}, ar={}, cod=Function)
-    assert context.image(F) == F(context.dom)
+
+def test_context_dom():
+    X, Y = Ty("X"), Ty("Y")
+    context = Context([Variable("z", X), Variable("w", Y)])
+    assert context.dom == X @ Y
 
 
 def test_substitution():
