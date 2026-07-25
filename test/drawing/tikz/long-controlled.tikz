@@ -35,7 +35,7 @@
 \node [] (32) at (3.5, 0) {};
 \node [] (33) at (4.5, 0.25) {};
 \node [] (34) at (4.5, 0) {};
-\node [circle, white] (35) at (3.5, 1.5000000001) {};
+\node [circle, white] (35) at (3.5, 1.5) {};
 \node [plus] (36) at (3.5, 1.5) {};
 \node [] (37) at (4.5, 1.5) {};
 \node [circle, black] (38) at (4.5, 1.5) {};
