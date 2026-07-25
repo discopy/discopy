@@ -28,10 +28,15 @@ User prompt, verbatim:
 - [x] @claude-2026-07-24 20:20 Fix the CI coverage gate: cover the raster
       and byte comparison branches of `compare_drawing` that no committed
       baseline exercises.
-- [ ] Review 4778986121 by toumix-agents (2026-07-25) proposes moving the
-      baseline comparison out of `draw(path=...)` into test-only machinery
-      (conftest fixture or explicit `compare`). Approval check: VOID — not
-      authored by Alexis and no verified :rocket:; not implemented.
+- [WIP] @claude-2026-07-25 08:45 Review 4778986121 by toumix-agents proposed
+      moving the baseline comparison out of `draw(path=...)`. First approval
+      check was VOID (not authored by Alexis); now approved by Alexis's PR
+      comment (2026-07-25), frozen verbatim:
+      > I agree this would be annoying for users just running scripts.
+      >
+      > Let's add a new argument doctest argument to draw and update all the
+      > "path=" in the doctests with "doctest=" so that the diff stays small.
+      > The path argument recovers its previous behaviour.
 
 ## Mathematical description
 
