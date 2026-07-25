@@ -40,3 +40,9 @@ Prompt ([#373](https://github.com/discopy/discopy/issues/373), verbatim):
   the cleanest way to build a self-exponential type before inventing a new mechanism.
 - style guide: no comments explaining the substitution logic, a docstring with a
   doctest instead.
+
+## Review follow-up (2026-07-25)
+
+> Go through the discopy PRs you own and follow the agents/EVENING.md prompt i.e. go through the reviews and implement them
+
+- [WIP] @evening-codex-2026-07-25-14:34 Make mutable strategy state irrelevant to Böhm-tree equality, use project validation, modernise typing, and test the review regressions
