@@ -15,7 +15,7 @@ Prompt ([#374](https://github.com/discopy/discopy/issues/374), verbatim):
 
 - [x] `discopy.kleisli.monad`: monads as monoids over a new `python.function.EndoFunctor`, with maybe, powerset and subdistribution examples
 - [x] `discopy.kleisli.channel`: `Channel[M]` as a `NamedGeneric` over `M: Monad`
-- [WIP] @evening-2026-07-25T02:25 `discopy.kleisli.additive`: traced cocartesian Kleisli with the execution formula as trace; convergence tests for sub-additive monads
+- [ ] `discopy.kleisli.additive`: traced cocartesian Kleisli with the execution formula as trace; convergence tests for sub-additive monads — claimed and released by @evening-2026-07-25T02:25, see note below
 - [ ] `discopy.kleisli.multiplicative`: premonoidal copy-discard Kleisli with pointwise strength; test monoidal iff the monad is commutative
 - [ ] `Hypergraph` evaluation methods: token passing for `additive`, message passing for `multiplicative` — coordinate with #366 and #363
 - [ ] `multiplicative` stress test: compare results against tensor contraction on small enough models (per issue comment)
@@ -59,3 +59,26 @@ before). Verified on 3.12/3.13/3.14 directly; full suite diffed before/after
 (75→70 failures, all 5 fixed were exactly the reported ones, remaining 70 are
 pre-existing `ModuleNotFoundError`s for the unavailable quantum/tensor optional
 deps in this sandbox, identical set before and after).
+
+## Design gap on `additive` (🌙 evening, 2026-07-25) — releasing the claim
+
+Claimed this point to start it (CI was the blocker Birdsong flagged), but backed
+out before writing code: the guidance above pins the *shape* (disjoint union
+tensor, execution-formula trace) but not how a monadic bind interacts with the
+trace's tag-routing loop, and that's a real design choice, not a mechanical
+translation of `python.additive.Function` (whose `trace` is a plain Python
+`while` because it has no effect to bind). Concretely: `python.additive.Function`
+tracks a single `(obj, tag)` pair and loops while `tag` says "still in the traced
+part". Once the channel is monadic (`X -> M(Y)`), each step yields an `M`-valued
+tagged result — for `Powerset`/`Subdistribution` that's a *set* of `(obj, tag)`
+outcomes, some exiting the loop and some not in the same step. The generic
+`(unit, mult, functor)` interface `Monad` currently exposes has no way to
+partition or aggregate an `M(X)` value by tag, so a trace that's generic over
+any monad needs either: (a) extra structure on `Monad` (e.g. a fold/partition
+op), or (b) a bound on how far to unroll before giving up, with "sub-additive"
+cashed out as a concrete numeric condition on that unrolling. Either is a design
+call, not an implementation detail — exactly the kind of thing AGENTS.md asks to
+pin down in mathematical terms with Alexis before coding (this is normally
+Daylight's job). Flagging for the bridge chat / next Birdsong plan rather than
+guessing at the semantics; happy to implement once the trace's exact recursion
+is spelled out.
