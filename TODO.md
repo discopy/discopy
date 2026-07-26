@@ -46,6 +46,9 @@ User prompt, verbatim:
       `plt_tol` and drop its comments, keep absolute URLs for README images,
       and fix the contributing guidelines (images are committed like tests).
 
+- [WIP] @claude-2026-07-26 08:49 Fix the coverage gate: cover the plain-path
+      branches of `CMap.draw` that no doctest exercises anymore.
+
 ## Mathematical description
 
 Drawing comparison is equality after a canonical projection of an image:
