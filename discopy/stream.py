@@ -545,6 +545,19 @@ class Stream(MonoidalCategory, NamedGeneric['category']):
         return cls(now, dom, cod, _later=_later)
 
     @classmethod
+    def function(cls, fun, dom: Ty) -> Stream:
+        """ Construct a stream of finite-set function opposites. """
+        fun = list(fun)
+        if fun == list(range(len(dom.now))):
+            return cls.id(dom)
+        now = cls.category.ar.function(fun, dom.now)
+        _later = None if dom.is_constant else (
+            lambda: cls.function(fun, dom.later))
+        cod = type(dom)(now.cod, None if _later is None
+                        else lambda: _later().cod)
+        return cls(now, dom, cod, _later=_later)
+
+    @classmethod
     def copy(cls, dom: Ty, n: int = 2) -> Stream:
         """ Construct a stream of diagonal morphisms. """
         now, cod = cls.category.copy(dom.now, n), dom ** n

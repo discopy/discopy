@@ -179,14 +179,16 @@ def test_Layer_identity():
 def test_Layer_factory_ownership():
     from discopy import compact, markov
 
-    for module in (compact, markov):
+    for module, structure in (
+            (compact, "Permutation"), (markov, "Function")):
         x, y = module.Ty('x'), module.Ty('y')
         permutation = module.Permutation(x @ y, [1, 0])
         layer = module.Layer(permutation)
         assert type(layer.permutation) is module.Permutation
         f = module.Box('f', x, y)
         layer = module.Layer(x[:0], f, y[:0])
-        assert all(type(p) is module.Permutation for p in layer[::2])
+        assert all(
+            type(p) is getattr(module, structure) for p in layer[::2])
 
 
 def test_Layer_tensor():

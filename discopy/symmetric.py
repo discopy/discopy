@@ -153,6 +153,11 @@ class Layer(monoidal.Layer):
     in this first iteration :class:`Swap` remains such a generator and is
     distinct from the permutation ``[1, 0]``.
 
+    The classes accepted at even positions are listed in the class attribute
+    :attr:`structures`, the first one is the default factory; subclasses such
+    as :class:`discopy.markov.Layer` override them to allow more general
+    structural boxes.
+
     Parameters:
         inside : An odd number of alternating permutations and generators.
 
@@ -170,25 +175,24 @@ class Layer(monoidal.Layer):
             raise ValueError(messages.LAYERS_MUST_BE_ODD)
         for box in inside[1::2]:
             assert_isinstance(box, monoidal.Box)
-            if isinstance(box, Permutation):
+            if isinstance(box, self.structures):
                 raise ValueError(messages.PERMUTATION_AT_ODD_INDEX)
         factory_ = type(inside[0]) if len(inside) == 1\
-            and isinstance(inside[0], Permutation)\
-            else inside[1].ar.permutation_factory if len(inside) > 1\
-            else Permutation
+            and isinstance(inside[0], self.structures)\
+            else self.structure_factory(inside[1]) if len(inside) > 1\
+            else self.structures[0]
         if len(inside) > 1 and not isinstance(inside[1].dom, factory_.ob):
-            factory_ = Permutation
+            factory_ = self.structures[0]
         normalised = []
         for i, value in enumerate(inside):
             if i % 2:
                 normalised.append(value)
                 continue
             if isinstance(value, monoidal.Ty):
-                value = factory_(value, finset.Permutation.id(len(value)))
+                value = factory_(value, range(len(value)))
             else:
-                assert_isinstance(value, Permutation)
-                if type(value) is not factory_:
-                    value = factory_(value.dom, value.perm)
+                assert_isinstance(value, self.structures)
+                value = factory_.cast(value)
             normalised.append(value)
         self.boxes_or_types = tuple(normalised)
         empty = normalised[0].dom[:0]
@@ -200,6 +204,11 @@ class Layer(monoidal.Layer):
             for i, value in enumerate(normalised)
             if i % 2 or not value.is_identity or value.dom]
         cat.Box.__init__(self, " @ ".join(names), dom, cod)
+
+    @classmethod
+    def structure_factory(cls, generator: monoidal.Box) -> type:
+        """ The class of structural boxes for the category of a generator. """
+        return generator.ar.permutation_factory
 
     @property
     def boxes_and_types(self):
@@ -242,8 +251,8 @@ class Layer(monoidal.Layer):
 
     @classmethod
     def cast(cls, box: Box) -> Layer:
-        """ Turn a generator or permutation into a uniform layer. """
-        if isinstance(box, Permutation):
+        """ Turn a generator or structural box into a uniform layer. """
+        if isinstance(box, cls.structures):
             return cls(box)
         return cls(box.dom[:0], box, box.cod[len(box.cod):])
 
@@ -558,6 +567,17 @@ class Permutation(Box):
         if self.is_identity:
             self.inside = ()
 
+    @classmethod
+    def cast(cls, box: Permutation) -> Permutation:
+        """
+        Rewrap a structural box into this class, used by :class:`Layer`.
+
+        >>> x, y = Ty('x'), Ty('y')
+        >>> assert Permutation.cast(Permutation(x @ y, [1, 0]))\\
+        ...     == Permutation(x @ y, [1, 0])
+        """
+        return box if type(box) is cls else cls(box.dom, box.perm)
+
     @property
     def is_identity(self) -> bool:
         """
@@ -718,6 +738,7 @@ Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.braid_factory = Swap
 Diagram.permutation_factory = Permutation
+Layer.structures = (Permutation, )
 Diagram.trace_factory = Trace
 Diagram.sum_factory = Sum
 Id = Diagram.id

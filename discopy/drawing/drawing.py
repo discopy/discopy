@@ -396,6 +396,15 @@ class Drawing(TracedCategory):
         return Permutation(dom, xs).to_drawing()
 
     @staticmethod
+    def function(fun, dom) -> Drawing:
+        """ Draw the opposite of a function on the wires in ``dom``. """
+        from discopy.markov import Function
+        fun = list(fun)
+        if fun == list(range(len(dom))):
+            return Drawing.id(dom)
+        return Function(dom, fun).to_drawing()
+
+    @staticmethod
     def from_box(box: "monoidal.Box") -> Drawing:
         """
         Draw a diagram with just one box.

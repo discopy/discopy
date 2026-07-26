@@ -570,3 +570,10 @@ def test_Diagram_from_callable():
         @Diagram.from_callable(x, y)
         def diagram(wire):
             return f(x)
+
+
+def test_identity_function():
+    x, y = Ty('x'), Ty('y')
+    assert Diagram.function([0, 1], x @ y) == Id(x @ y)
+    with raises(NotImplementedError):
+        Diagram.function([0, 0], x)

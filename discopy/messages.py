@@ -24,6 +24,7 @@ LAYERS_MUST_BE_ODD = "Layers must have an odd number of boxes and types."
 NOT_MERGEABLE = "Layers {} and {} cannot be merged."
 INTERCHANGER_ERROR = "Boxes {} and {} do not commute."
 WRONG_PERMUTATION = "Expected a permutation of length {}, got {}."
+NOT_A_DAGGER = "The dagger of {} does not live in the same category."
 PERMUTATION_AT_ODD_INDEX = (
     "Permutations must be at even indices of a Layer, generators at odd "
     "indices.")
