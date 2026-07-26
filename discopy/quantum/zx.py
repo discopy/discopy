@@ -24,7 +24,7 @@ Summary
 from math import pi
 
 from discopy import cat, rigid, tensor, quantum
-from discopy.cat import ar_factory
+from discopy.cat import factory
 from discopy.quantum.circuit import qubit, Circuit
 from discopy.quantum.gates import (
     Bra, Ket, Rz, Rx, CX, CZ, Controlled, format_number)
@@ -33,7 +33,7 @@ from discopy.rigid import Sum, PRO
 from discopy.utils import factory_name
 
 
-@ar_factory
+@factory
 class Diagram(tensor.Diagram[complex]):
     """ ZX Diagram. """
     ob = PRO
@@ -384,7 +384,7 @@ def gate2zx(box):
 
 
 circuit2zx = quantum.circuit.Functor(
-    ob={qubit: PRO(1)}, ar=gate2zx,
+    ob_map={qubit: PRO(1)}, ar_map=gate2zx,
     dom=Circuit, cod=Diagram)
 
 H = Box('H', PRO(1), PRO(1))

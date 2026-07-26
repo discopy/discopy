@@ -36,3 +36,25 @@ round-trip faithful on the nose.
 - [x] Fix `closed.Application.__check_dom__`: `list(set(...))` made the order of
       the free variables depend on `PYTHONHASHSEED`
 - [x] `uv run pflake8 discopy` and `uv run coverage run -m pytest`
+
+## Follow-up
+
+Instruction ([#473 comment](https://github.com/discopy/discopy/pull/473#issuecomment-5082656898),
+by `toumix` on 2026-07-26T08:07:29Z, quoted verbatim to freeze it per the
+`approval` skill):
+
+> fix conflicts and merge
+
+Approval gate: APPROVED via channel (C). `check-approval.sh` could not run on this
+runner (no `gh`), so the same checks were made with the GitHub MCP tools — author is
+`ALEXIS_GH`, `created_at == updated_at` so unedited, 0 days old.
+
+- [x] Merge `codex/linear-term-extraction` into this branch (append-only, no rebase)
+- [x] Resolve the conflicts: keep `Self`, drop the `itertools.count` import, drop the
+      four private functions, union the `closed` imports, keep `TermReader`
+- [x] Follow main's renames: `diagram.ob` → `diagram.factory.ob`, `CMap.scalars` →
+      `CMap.loops`
+- [x] Rename `messages.NOT_CONNECTED` to `MAP_NOT_CONNECTED`, it collided with main's
+      `"{} is not boundary-connected."`
+- [x] `uv run pflake8 discopy` and `uv run coverage run -m pytest` after the merge
+- [ ] Merge the PR once CI is green
