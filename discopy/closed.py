@@ -51,7 +51,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, ClassVar
 
-from discopy import cat, monoidal, biclosed, markov, hypergraph
+from discopy import (
+    cat, messages, monoidal, biclosed, markov, symmetric, hypergraph)
 from discopy.abc import ClosedCategory
 from discopy.cat import factory
 
@@ -126,6 +127,12 @@ class Curry(biclosed.Curry, Box):
 class Swap(markov.Swap, Box):
     "Symmetric swap in a closed diagram."
 
+    def to_terms(self, args, scope):
+        """ Swap the terms on its two wires, see
+        :meth:`discopy.biclosed.Box.to_terms`. """
+        before, inside, after = self.split_scan(args, 0, len(self.left))
+        return after + inside + before
+
 
 class Trace(markov.Trace, Box):
     "A trace in a closed category."
@@ -135,6 +142,14 @@ class Copy(markov.Copy, Box):
     "A markov copy in a closed category"
 
     is_linear = False
+
+    def to_terms(self, args, scope):
+        """ Copy the variable on its wire, or discard it when the codomain is
+        empty, see :meth:`discopy.biclosed.Box.to_terms`. """
+        term, = args
+        if not isinstance(term, biclosed.Variable):
+            raise ValueError(messages.NOT_A_VARIABLE_TO_COPY.format(term))
+        return len(self.cod) * [term]
 
 
 class Discard(markov.Discard, Copy):
@@ -202,6 +217,48 @@ class TermBase(Box, biclosed.TermBase):
     def __call__(self, other):
         return Application(self, other, left=False)
 
+    #: The generating object of the map encoding, see :meth:`to_map`.
+    map_ob = symmetric.Ty("x")
+    #: The trivalent box for an application, see :meth:`to_map`.
+    application_box = symmetric.Box("@", map_ob @ map_ob, map_ob)
+    #: The trivalent box for an abstraction, see :meth:`to_map`.
+    abstraction_box = symmetric.Box("λ", map_ob, map_ob @ map_ob)
+
+    def to_map(self) -> symmetric.CMap:
+        """
+        Encode a pure linear lambda term as a rooted trivalent map over a
+        single generating object, i.e. one direction of Zeilberger's
+        isomorphism; the inverse is :meth:`discopy.cmap.CMap.to_term`.
+
+        Each application becomes a node with the function and argument
+        subtrees as inputs and the result as output, each abstraction becomes
+        a node plugging the root and the wire of the abstracted variable, see
+        :meth:`discopy.cmap.CMap.plug_input`. The free variables of the term
+        are the inputs of the map and the root is its output.
+
+        A map carries no variable names, so it is the quotient of terms by
+        alpha equivalence: :meth:`discopy.cmap.CMap.to_term` is a section of
+        this, naming the variables canonically.
+
+        Example
+        -------
+        >>> a, b = Ty("a"), Ty("b")
+        >>> term = (a >> b)(lambda f: a(lambda v: f(v)))
+        >>> cmap = term.to_map()
+        >>> len(cmap.boxes)
+        3
+        >>> assert cmap.to_term().to_map() == cmap
+        """
+        return self.to_map_and_freevars()[0]
+
+    def to_map_and_freevars(
+            self) -> tuple[symmetric.CMap, list[biclosed.Variable]]:
+        """
+        The map encoding of a term, see :meth:`to_map`, together with the free
+        variables it takes as inputs, in the order of those inputs.
+        """
+        raise NotImplementedError(messages.NOT_A_LINEAR_TERM.format(self))
+
 
 type Term = Constant | Variable | Application | Abstraction
 
@@ -211,31 +268,31 @@ class Constant(TermBase, biclosed.Constant):
         functor = functor or self.functor
         if not context:
             return super().eval(functor)
-        return functor.cod.discard(context.image(functor)) >> super().eval(
+        return functor.cod.discard(functor(context.dom)) >> super().eval(
             functor)
 
 
 class Variable(TermBase, biclosed.Variable):
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
-
-        def annotated(x):
-            typ = functor(x.cod)
-            return biclosed.annotate(typ, x.name)\
-                if isinstance(typ, monoidal.Ty) else typ
-
         if not context:
-            return functor.cod.id(annotated(self))
+            return functor.cod.id(functor(self.cod))
         return functor.cod.tensor(*[
-            functor.cod.id(annotated(x)) if x == self
-            else functor.cod.discard(annotated(x))
+            functor.cod.id(functor(x.cod)) if x == self
+            else functor.cod.discard(functor(x.cod))
             for x in context.inside])
+
+    def to_map_and_freevars(self):
+        """ A variable is a wire, see :meth:`TermBase.to_map`. """
+        return symmetric.CMap.id(self.map_ob), [self]
 
 
 class Application(TermBase, biclosed.Application):
     def __check_dom__(self, func, args, left):
         self.overlap = set(func.freevars).intersection(args.freevars)
-        self.freevars = list(set(func.freevars + args.freevars))\
+        # dict.fromkeys rather than set: the order of the free variables is
+        # the order of the wires, it cannot depend on hashing.
+        self.freevars = list(dict.fromkeys(func.freevars + args.freevars))\
             if self.overlap else func.freevars + args.freevars
         return self.ob().tensor(*[x.cod for x in self.freevars])
 
@@ -251,14 +308,33 @@ class Application(TermBase, biclosed.Application):
             context = Context(self.freevars)
         func = self.func.eval(functor=functor, context=context)
         args = self.args.eval(functor=functor, context=context)
-        return functor.cod.copy(context.image(functor))\
+        return functor.cod.copy(functor(context.dom))\
             >> func @ args >> evaluate
+
+    def to_map_and_freevars(self):
+        """ An application is a node, see :meth:`TermBase.to_map`. """
+        func, func_vars = self.func.to_map_and_freevars()
+        args, args_vars = self.args.to_map_and_freevars()
+        if set(func_vars) & set(args_vars):
+            raise ValueError(messages.NOT_A_LINEAR_TERM.format(self))
+        return func @ args >> symmetric.CMap.from_box(
+            self.application_box), func_vars + args_vars
 
 
 class Abstraction(TermBase, biclosed.Abstraction):
     def __check_dom__(self):
         self.freevars = [x for x in self.body.freevars if x != self.var]
         return self.ob().tensor(*[x.cod for x in self.freevars])
+
+    def to_map_and_freevars(self):
+        """
+        An abstraction plugs the root back into the wire of the variable it
+        binds, see :meth:`TermBase.to_map`.
+        """
+        body, body_vars = self.body.to_map_and_freevars()
+        i = body_vars.index(self.var)
+        return body.plug_input(i, self.abstraction_box, self.map_ob), (
+            body_vars[:i] + body_vars[i + 1:])
 
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
@@ -284,21 +360,6 @@ class Context:
     @property
     def dom(self):
         return self.category.ob.tensor(*[x.cod for x in self.inside])
-
-    def image(self, functor) -> monoidal.Ty:
-        """
-        The image of :attr:`dom` under a functor, with the name of each
-        variable attached to the objects of its wires, see
-        :func:`biclosed.annotate`.
-        """
-        segments = [functor(x.cod) for x in self.inside]
-        if all(isinstance(seg, monoidal.Ty) for seg in segments):
-            segments = [
-                biclosed.annotate(seg, x.name)
-                for seg, x in zip(segments, self.inside)]
-            return segments[0].tensor(*segments[1:]) if segments\
-                else functor(self.dom)
-        return functor(self.dom)
 
 
 @dataclass

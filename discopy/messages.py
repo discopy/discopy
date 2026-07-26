@@ -24,6 +24,20 @@ LAYERS_MUST_BE_ODD = "Layers must have an odd number of boxes and types."
 NOT_MERGEABLE = "Layers {} and {} cannot be merged."
 INTERCHANGER_ERROR = "Boxes {} and {} do not commute."
 WRONG_PERMUTATION = "Expected a permutation of length {}, got {}."
+NOT_A_TERM = "Expected a diagram in the image of TermBase.eval, got {}."
+NOT_A_SINGLE_TERM = "Expected a diagram encoding a single term, got {}."
+NOT_WHOLE_TERMS = (
+    "Expected a box acting on whole terms, got {} at offset {} and width {}.")
+NOT_FUNC_AND_ARGS = "Expected the function and argument of {}, got {}."
+WRONG_FUNC_AND_ARGS = "Expected terms of type {} and {}, got {}."
+LAYER_IS_FOLIATED = "Expected an unfoliated layer, got {}."
+NOT_A_VARIABLE_TO_COPY = "Expected a variable to copy, got {}."
+NOT_A_LINEAR_TERM = "Only pure linear terms have a map encoding, got {}."
+NOT_ROOTED = (
+    "Expected a rooted map with a single output port and no scalar loops, "
+    "got {}.")
+NOT_TRIVALENT = "Expected trivalent boxes, got {}."
+MAP_NOT_CONNECTED = "Expected a connected rooted map, got {}."
 ZERO_DISTANCE_CONTROLLED = "Zero-distance controlled gates are ill-defined."
 HAS_NO_ATTRIBUTE = "{!r} object has no attribute {!r}"
 WRONG_DOM = "Expected inside.dom == {}, got {} instead."
