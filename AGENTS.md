@@ -6,7 +6,7 @@ DisCoPy is a Python toolkit for computing with string diagrams.
 
 Read the following documents (<10k tokens) before any work on the package:
 
-- @RULES.md describes a protocol based on checkboxes as mutex, follow it exactly.
+- @RULES.md describes the collaboration and Git protocol for shared PR branches, follow it exactly.
 - @STYLE.md describes coding guidelines that all your work should try to follow.
 - @README.md contains a high-level description of the features along with some examples.
 - @CONTRIBUTING.md contains setup instructions and our general coding philosophy.
@@ -15,7 +15,7 @@ Read the following documents (<10k tokens) before any work on the package:
 
 - [discopy](discopy/) contains the code with a lot of modules and a few submodules
 - [discopy.abc](discopy/abc.py) contains abstract base classes for each level of the hierarchy
-- [test](test/) is split into `syntax` and `semantics` with one file for each module or submodule
+- [test](test/) is flat with one file for each module, mirroring `discopy/`; submodules (`grammar`, `quantum`, `drawing`, `python`) keep their own directory with one file per submodule, and shared test data lives in `fixtures`
 - [docs](docs/) contains notebooks and pictures generated automatically when running the tests
 
 ## How
