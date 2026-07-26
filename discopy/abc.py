@@ -69,7 +69,7 @@ class Category[C0, C1: Category](ABC):
 
     #: Backward-compatible alias for :attr:`factory`, since types are
     #: themselves the objects of diagrams.
-    ar = classproperty(lambda cls: cls.factory)
+    ar = classproperty(lambda cls: getattr(cls, "factory", cls))
 
     @classmethod
     @abstractmethod
@@ -167,6 +167,14 @@ class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](
         Parameters:
             other : The other morphism to compose in parallel.
         """
+
+    @classmethod
+    def permutation(cls, xs, dom: C0) -> C1:
+        """ Map an identity permutation to the identity morphism. """
+        xs = list(xs)
+        if xs != list(range(len(xs))):
+            raise NotImplementedError
+        return cls.id(dom)
 
     @classmethod
     def whisker(cls, other: C0 | C1) -> C1:
@@ -380,6 +388,21 @@ class SymmetricCategory[C0, C1](BalancedCategory[C0, C1]):
             left : The object on the left of the swap.
             right : The object on the right of the swap.
         """
+
+    @classmethod
+    def permutation(cls, xs, dom: C0) -> C1:
+        """ Compose swaps to permute the atomic objects in ``dom``. """
+        xs = list(xs)
+        if xs == list(range(len(xs))):
+            return cls.id(dom)
+        if list(range(len(dom))) != sorted(xs):
+            raise ValueError
+        i = xs[0]
+        head = dom[i:i + 1]
+        return cls.swap(dom[:i], head) @ dom[i + 1:]\
+            >> head @ cls.permutation(
+                [x - 1 if x > i else x for x in xs[1:]],
+                dom[:i] + dom[i + 1:])
 
     @classmethod
     def twist(cls, dom: C0) -> C1:

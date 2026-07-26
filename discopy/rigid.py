@@ -486,8 +486,9 @@ class Diagram(biclosed.Diagram, RigidCategory):
         box = list(self.inside[i])[2 * j + 1]
         transposed_box = (box.r if left else box.l).transpose(left)
         top, bottom = self[:i], self[i + 1:]
-        left_boxes_and_types = list(self.inside[i])[:2 * j + 1]
-        right_boxes_and_types = list(self.inside[i])[2 * j + 2:]
+        boxes_and_types = list(self.inside[i].boxes_and_types)
+        left_boxes_and_types = boxes_and_types[:2 * j + 1]
+        right_boxes_and_types = boxes_and_types[2 * j + 2:]
         left_layer, right_layer = [
             self.id().tensor(
                 *(x if k % 2 else self.id(x) for k, x in enumerate(xs)))
@@ -515,6 +516,9 @@ class Diagram(biclosed.Diagram, RigidCategory):
         """
         from discopy import monoidal
         from discopy.rigid import Cup, Cap
+
+        if getattr(self, "has_nonidentity_permutation", False):
+            raise NotImplementedError(messages.PERMUTATION_HAS_NO_OFFSET)
 
         def follow_wire(diagram, i, j):
             """

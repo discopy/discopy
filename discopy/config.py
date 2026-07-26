@@ -21,11 +21,14 @@ BOX_DRAWING_ATTRIBUTES = {
     "frame_boundary": lambda _: False,
     "frame_colour": lambda _: "lightgrey",
     "draw_as_braid": lambda _: False,
+    "drawing_permutation": lambda _: None,
     "draw_as_dual_rail_braid": lambda _: False,
     "draw_as_dual_rail_twist": lambda _: False,
     "draw_as_dual_rail_cup": lambda _: False,
-    "draw_as_wires": lambda box: any(getattr(box, a) for a in [
-        "bubble_opening", "bubble_closing", "draw_as_braid"]),
+    "draw_as_wires": lambda box: getattr(
+        box, "drawing_permutation", None) is not None or any(
+            getattr(box, a) for a in [
+                "bubble_opening", "bubble_closing", "draw_as_braid"]),
     "draw_as_spider": lambda _: False,
     "draw_as_brakets": lambda _: False,
     "draw_as_discards": lambda _: False,

@@ -532,6 +532,19 @@ class Stream(MonoidalCategory, NamedGeneric['category']):
         return cls(now, dom, cod, _later=_later)
 
     @classmethod
+    def permutation(cls, xs, dom: Ty) -> Stream:
+        """ Construct a stream of permutations. """
+        xs = list(xs)
+        if xs == list(range(len(xs))):
+            return cls.id(dom)
+        now = cls.category.ar.permutation(xs, dom.now)
+        _later = None if dom.is_constant else (
+            lambda: cls.permutation(xs, dom.later))
+        cod = type(dom)(now.cod, None if _later is None
+                        else lambda: _later().cod)
+        return cls(now, dom, cod, _later=_later)
+
+    @classmethod
     def copy(cls, dom: Ty, n: int = 2) -> Stream:
         """ Construct a stream of diagonal morphisms. """
         now, cod = cls.category.copy(dom.now, n), dom ** n

@@ -56,3 +56,15 @@ def test_neural_network():
         cod=Function)
 
     assert F(network)(42, 43) == max(0, sum([42 * 0, 43 * 1, 42 * 2, 43 * 3, -1]))
+
+
+def test_Permutation():
+    x, y, z = map(Ty, "xyz")
+    assert Diagram.permutation_factory is Permutation
+    perm = Permutation(x @ y @ z, [2, 0, 1])
+    assert isinstance(perm, Box) and perm.cod == z @ x @ y
+    assert Equation(perm >> perm.dagger(), Id(x @ y @ z))
+    assert isinstance(perm.inside[0], Layer)
+    assert all(isinstance(p, Permutation) for p in Box('f', x, y).inside[0][::2])
+    assert Permutation(x @ y, [1, 0]) != Swap(x, y)
+    assert Equation(perm, perm.to_swaps())
