@@ -84,6 +84,12 @@ def test_Term_linear_planar():
 
 
 def test_to_term_round_trip():
+    """
+    ``to_term`` is a section of ``eval``, which quotients terms by alpha
+    equivalence: the round-trip is faithful on the diagram and gives back the
+    term itself once its free variables are supplied and its bound variables
+    are already named canonically.
+    """
     X, Y, N, S = Ty('X'), Ty('Y'), Ty('N'), Ty('S')
     f, g, h = (X >> Y)("f"), (Y << X)("g"), ((X >> Y) << X)("h")
     x = Variable("x", X)
@@ -98,31 +104,41 @@ def test_to_term_round_trip():
             X(lambda a: h(a)),
             Abstraction(x, Variable("fv", Y << X)(x)),
             Abstraction(x, x(Variable("gv", X >> Y), left=True), left=True)]:
-        result = term.eval().to_term()
-        assert result == term and str(result) == str(term)
+        diagram = term.eval()
+        result = diagram.to_term(*term.freevars)
+        assert result.eval() == diagram
+        assert result.cod == term.cod and result.freevars == term.freevars
 
 
-def test_to_term_varnames():
+def test_to_term_is_canonical():
+    """ Bound variables are named by de Bruijn level, so decompiling depends
+    only on the diagram and not on how many terms came before it. """
     X, Y = Ty('X'), Ty('Y')
     f = (X >> Y)("f")
-    diagram = X(lambda my_var, left=True: my_var(f, left=True)).eval()
-    assert [
-        getattr(obj, "varname", None)
-        for obj in diagram.boxes[0].arg.dom.inside] == ["my_var"]
+    term = X(lambda my_var, left=True: my_var(f, left=True))
+    canonical = X(lambda x0, left=True: x0(f, left=True))
+    assert term.eval().to_term() == canonical == term.eval().to_term()
+    nested = X(lambda x0, left=True: (X >> Y)(
+        lambda x1: x0(x1, left=True)))
+    assert nested.eval().to_term() == nested
 
 
 def test_to_term_fresh_names():
     X, Y = Ty('X'), Ty('Y')
-    diagram = Curry(Eval(Y << X))  # hand-built, hence no varname attributes
+    diagram = Curry(Eval(Y << X))  # hand-built, no term structure to read
     term = diagram.to_term()
     assert isinstance(term, Abstraction)
-    assert term.eval() == diagram
+    # x0 is the free variable on the wire of dom, so the binder is at level 1.
+    assert term.var.name == "x1" and term.eval() == diagram
 
 
 def test_to_term_multi_object_variable():
     x, y = Ty('x'), Ty('y')
     pair = Variable("pair", x @ y)
-    assert pair.eval().to_term() == pair
+    # A wire carries no name, so the grouping comes from the argument.
+    assert pair.eval().to_term(pair) == pair
+    with raises(ValueError):
+        pair.eval().to_term()  # two variables are not a single term
 
 
 def test_to_term_errors():

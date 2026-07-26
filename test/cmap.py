@@ -683,21 +683,29 @@ def test_to_term():
             (a >> b)(lambda g: (c >> a)(lambda h: c(lambda u: g(h(u))))),
             a(lambda p: (a >> b)(lambda q: q(p))),
             ((a >> a)(lambda p: p))(a(lambda q: q))]:  # beta redex
+        # A map forgets variable names, so to_term is a section of to_map.
         result = term.to_map().to_term()
-        assert result == term and str(result) == str(term)
-        assert term.to_map() == result.to_map()
+        assert result.to_map() == term.to_map()
+        assert len(result.freevars) == len(term.freevars)
 
 
-def test_to_term_fresh_names_and_types():
+def test_to_term_is_canonical():
+    """ Variables are named by the order in which they are read, so
+    decompiling depends only on the map. """
     from discopy import closed, symmetric
+
+    a = closed.Ty("a")
+    term = a(lambda my_var: my_var)
+    cmap = term.to_map()
+    assert cmap.to_term() == a(lambda x0: x0) == cmap.to_term()
 
     x = symmetric.Ty("x")
     cmap = symmetric.CMap.id(x).plug_input(
         0, symmetric.Box("λ", x, x @ x), x)
-    term = cmap.to_term()  # no varname annotations, so a fresh name is used
-    assert isinstance(term, closed.Abstraction)
-    assert term.var.cod == closed.Ty("a")
-    assert term.cod == closed.Ty("a") >> closed.Ty("a")
+    result = cmap.to_term()  # hand-built, no term structure to read
+    assert isinstance(result, closed.Abstraction)
+    assert result.var.name == "x0" and result.var.cod == closed.Ty("a")
+    assert result.cod == closed.Ty("a") >> closed.Ty("a")
 
 
 def test_to_term_multigraph():
