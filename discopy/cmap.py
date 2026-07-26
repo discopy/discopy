@@ -1355,7 +1355,7 @@ class CMap[C0: Pregroup, C1: CMap](
     def draw(
             self, path=None, doctest=None, engine="dot", format=None,
             seed=None, show=None, graph_attr=None, port_indices=False,
-            block=True, replace=None, tol=20):
+            block=True, tol=20):
         """
         Draw as a combinatorial map using Graphviz.
 
@@ -1392,7 +1392,7 @@ class CMap[C0: Pregroup, C1: CMap](
             port_indices=port_indices)
 
         from discopy.drawing import backend
-        path, replace = backend.doctest_or_path(path, doctest, replace)
+        path, compare = backend.doctest_or_path(path, doctest)
         show = show if show is not None else path is None
         if path is not None:
             path_str = str(path)
@@ -1402,8 +1402,10 @@ class CMap[C0: Pregroup, C1: CMap](
                 def save(actual_path):
                     with open(actual_path, "w", encoding="utf-8") as stream:
                         stream.write(dot)
-                backend.save_and_compare(
-                    path, save, replace=replace, tol=tol)
+                if compare:
+                    backend.save_and_compare(path, save, tol=tol)
+                else:
+                    save(path)
                 return None
 
         executable = shutil.which(engine) or shutil.which("dot")
@@ -1418,7 +1420,10 @@ class CMap[C0: Pregroup, C1: CMap](
                 subprocess.run(
                     [executable, f"-T{output_format}", "-o", actual_path],
                     input=dot.encode(), check=True)
-            backend.save_and_compare(path, save, replace=replace, tol=tol)
+            if compare:
+                backend.save_and_compare(path, save, tol=tol)
+            else:
+                save(path)
         if not show:
             return None
 

@@ -38,7 +38,7 @@ User prompt, verbatim:
       > "path=" in the doctests with "doctest=" so that the diff stays small.
       > The path argument recovers its previous behaviour.
 
-- [WIP] @claude-2026-07-26 08:30 Address Alexis's review 4781256804: drop the
+- [x] @claude-2026-07-26 08:30 Address Alexis's review 4781256804: drop the
       `replace` argument (only `OVERRIDE_DOCTEST_IMAGES`, renamed, with
       missing baselines saved), retire the docs-static bot job, remove
       `normalize_svg` in favour of telling matplotlib not to emit volatile

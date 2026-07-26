@@ -27,11 +27,12 @@ from xml.etree import ElementTree
 from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
+import numpy as np
 
 from matplotlib.testing.compare import compare_images
 from matplotlib.patches import PathPatch, Patch
 from matplotlib.path import Path
-from PIL import Image, ImageChops, ImageSequence
+from PIL import Image, ImageSequence
 
 from discopy import config
 from discopy.drawing import Node, Point
@@ -82,68 +83,22 @@ def draw(graph: PlaneGraph, **params):
     if params.get('legend', False):
         backend.draw_legend(graph, **params)
 
-    path, replace = doctest_or_path(
-        params.get('path', None), params.get('doctest', None),
-        params.get('replace', None))
+    path, compare = doctest_or_path(
+        params.get('path', None), params.get('doctest', None))
     return backend.output(
         path=path,
         baseline=graph.height / 2 or .5,
         tikz_options=params.get('tikz_options', None),
         show=params.get('show', True), aspect=aspect,
         margins=params.get('margins', DEFAULT['margins']),
-        replace=replace,
-        tol=params.get('tol', DEFAULT['tol']))
+        compare=compare,
+        tol=params.get('tol', DEFAULT['plt_tol']))
 
 
-def doctest_or_path(path=None, doctest=None, replace=None):
+def doctest_or_path(path=None, doctest=None):
     """ A doctest path is a baseline that drawing checks against,
     a plain path is just where the drawing gets saved. """
-    return (doctest, replace) if doctest is not None else (path, True)
-
-
-def normalize_svg(path) -> ElementTree.Element:
-    """
-    Parse an SVG into a normalised element tree: drop the volatile creation
-    metadata and renumber clip path ids, whose hash depends on the Matplotlib
-    version, in document order. Every other attribute, e.g. the path data
-    of a glyph or its identifier, is left untouched so that a genuine
-    difference in the drawing still makes :func:`svg_equal` fail.
-    """
-    root = ElementTree.parse(path).getroot()
-    clip_ids = {}
-
-    def normalize_clip_id(fragment):
-        return f"clip{clip_ids.setdefault(fragment, len(clip_ids))}"
-
-    def normalize(element):
-        children = []
-        for child in element:
-            if child.tag.rsplit("}", 1)[-1] == "metadata":
-                continue
-            normalize(child)
-            if child.tag.rsplit("}", 1)[-1] == "g"\
-                    and len(child) == 1\
-                    and child[0].tag.rsplit("}", 1)[-1] == "a":
-                children.extend(child[0])
-            else:
-                children.append(child)
-        element[:] = children
-        element.attrib.pop(
-            "{http://www.w3.org/XML/1998/namespace}space", None)
-        if element.tag.rsplit("}", 1)[-1] == "clipPath"\
-                and "id" in element.attrib:
-            element.attrib["id"] = normalize_clip_id(element.attrib["id"])
-        if "clip-path" in element.attrib:
-            value = element.attrib["clip-path"]
-            fragment = value[value.index("#") + 1:value.index(")")]
-            element.attrib["clip-path"]\
-                = f"url(#{normalize_clip_id(fragment)})"
-        if element.text is not None:
-            element.text = element.text.strip() or None
-        element.tail = None
-
-    normalize(root)
-    return root
+    return (doctest, True) if doctest is not None else (path, False)
 
 
 NUMBER = re.compile(r"-?\d+(?:\.\d+)?(?:e-?\d+)?")
@@ -159,18 +114,24 @@ def close_enough(expected: str, actual: str, tol: float) -> bool:
 
 
 def svg_equal(path, actual_path, tol=DEFAULT['svg_tol']) -> bool:
-    """ Whether two SVG files are equal after :func:`normalize_svg`,
-    with coordinates compared up to `tol` for rounding errors. """
+    """ Whether two SVG files are equal as element trees,
+    with coordinates compared up to `tol` for rounding errors.
+
+    There is nothing to normalise: :func:`savefig` tells matplotlib to
+    drop the creation date and fix the salt that hashes clip path ids.
+    """
     def equal(expected, actual):
         return expected.tag == actual.tag\
-            and (expected.text or "") == (actual.text or "")\
+            and (expected.text or "").strip() == (actual.text or "").strip()\
             and expected.attrib.keys() == actual.attrib.keys()\
             and all(close_enough(value, actual.attrib[key], tol)
                     for key, value in expected.attrib.items())\
             and len(expected) == len(actual)\
             and all(map(equal, expected, actual))
 
-    return equal(normalize_svg(path), normalize_svg(actual_path))
+    return equal(
+        ElementTree.parse(path).getroot(),
+        ElementTree.parse(actual_path).getroot())
 
 
 def temporary_path(path):
@@ -179,7 +140,7 @@ def temporary_path(path):
     return os.path.join(folder, "_" + name)
 
 
-def compare_drawing(path, actual_path, tol=DEFAULT['tol']):
+def compare_drawing(path, actual_path, tol=DEFAULT['plt_tol']):
     """ Compare a drawing against its baseline and remove it when equal. """
     extension = os.path.splitext(os.fspath(path))[1].lower()
     if extension == ".svg":
@@ -196,9 +157,12 @@ def compare_drawing(path, actual_path, tol=DEFAULT['tol']):
             actual_frames = [
                 frame.convert("RGBA")
                 for frame in ImageSequence.Iterator(actual)]
-        equal = len(expected_frames) == len(actual_frames) and all(
-            ImageChops.difference(expected, actual).getbbox() is None
-            for expected, actual in zip(expected_frames, actual_frames))
+        rms = [np.sqrt(np.mean((
+            np.asarray(expected, dtype=float)
+            - np.asarray(actual, dtype=float)) ** 2))
+            for expected, actual in zip(expected_frames, actual_frames)]
+        equal = len(expected_frames) == len(actual_frames)\
+            and all(value <= tol for value in rms)
         difference = None
     else:
         with open(path, "rb") as expected, open(actual_path, "rb") as actual:
@@ -212,18 +176,18 @@ def compare_drawing(path, actual_path, tol=DEFAULT['tol']):
     os.remove(actual_path)
 
 
-def save_and_compare(path, save, replace=None, tol=DEFAULT['tol']):
-    """ Save or compare a drawing against an existing baseline. """
-    replace = config.OVERRIDE_DOCS_IMAGES if replace is None else replace
-    actual_path = path if replace or not os.path.exists(path)\
-        else temporary_path(path)
+def save_and_compare(path, save, tol=DEFAULT['plt_tol']):
+    """ Save a drawing baseline when missing, compare against it otherwise. """
+    if config.OVERRIDE_DOCTEST_IMAGES or not os.path.exists(path):
+        save(path)
+        return
+    actual_path = temporary_path(path)
     save(actual_path)
-    if os.fspath(actual_path) != os.fspath(path):
-        compare_drawing(path, actual_path, tol)
+    compare_drawing(path, actual_path, tol)
 
 
-def savefig(path, replace=None, tol=DEFAULT['tol']):
-    """ Save the current Matplotlib figure as a drawing baseline. """
+def savefig(path, compare=False, tol=DEFAULT['plt_tol']):
+    """ Save the current Matplotlib figure, as a baseline when `compare`. """
     path_str = os.fspath(path)
     if path_str.endswith(".svg"):
         metadata, context = {"Date": None}, {"svg.hashsalt": "discopy"}
@@ -236,7 +200,7 @@ def savefig(path, replace=None, tol=DEFAULT['tol']):
         with plt.rc_context(context):
             plt.savefig(actual_path, metadata=metadata)
 
-    save_and_compare(path, save, replace=replace, tol=tol)
+    save_and_compare(path, save, tol) if compare else save(path)
 
 
 def _bezier_subcurve(points, t0, t1):
@@ -1104,8 +1068,8 @@ class Matplotlib(Backend):
         if path is not None:
             try:
                 savefig(
-                    path, replace=params.get("replace", None),
-                    tol=params.get("tol", DEFAULT['tol']))
+                    path, compare=params.get("compare", False),
+                    tol=params.get("tol", DEFAULT['plt_tol']))
             finally:
                 plt.close()
         if show:

@@ -51,64 +51,43 @@ def test_draw_baseline(tmp_path, monkeypatch):
         box.draw(doctest=path, show=False)
     assert actual_path.exists()
 
-    box.draw(doctest=path, show=False, replace=True)
-    monkeypatch.setattr(config, "OVERRIDE_DOCS_IMAGES", True)
+    # Deleting a failing baseline regenerates it on the next draw.
+    path.unlink()
+    box.draw(doctest=path, show=False)
+    assert path.exists()
+
+    monkeypatch.setattr(config, "OVERRIDE_DOCTEST_IMAGES", True)
     path.write_text("<svg/>")
     box.draw(doctest=path, show=False)
     assert path.read_text() != "<svg/>"
 
     # A plain path just saves the drawing, overwriting silently.
-    monkeypatch.setattr(config, "OVERRIDE_DOCS_IMAGES", False)
+    monkeypatch.setattr(config, "OVERRIDE_DOCTEST_IMAGES", False)
     path.write_text("<svg/>")
     box.draw(path=path, show=False)
     assert path.read_text() != "<svg/>"
 
 
-def test_normalize_svg(tmp_path):
-    expected = tmp_path / "expected.svg"
-    actual = tmp_path / "actual.svg"
-    expected.write_text("""\
-<svg xmlns="http://www.w3.org/2000/svg" width="1">
-  <metadata>volatile</metadata>
-  <g id="one"><text x="1">f</text></g>
-</svg>""")
-    actual.write_text("""\
-<svg xmlns="http://www.w3.org/2000/svg" width="1">
-  <g id="one"><g id="link"><a title="volatile">
-    <text x="1">f</text>
-  </a></g></g>
-</svg>""")
-
-    # Metadata and hyperlink wrappers are volatile, they get normalised away.
-    assert backend.svg_equal(expected, actual)
-
-    # A genuine difference in width, position or text content is preserved.
-    actual.write_text(actual.read_text().replace('width="1"', 'width="9"'))
-    assert not backend.svg_equal(expected, actual)
-
-    # Rounding errors within the tolerance are forgiven.
-    actual.write_text(actual.read_text().replace('width="9"', 'width="1.5"'))
-    assert backend.svg_equal(expected, actual)
-
-    # A non-numeric difference, e.g. in an identifier, is also preserved.
-    actual.write_text(actual.read_text().replace('id="one"', 'id="two"'))
-    assert not backend.svg_equal(expected, actual)
-
-
-def test_normalize_svg_clip_path_ids(tmp_path):
+def test_svg_equal(tmp_path):
     expected = tmp_path / "expected.svg"
     actual = tmp_path / "actual.svg"
     template = """\
-<svg xmlns="http://www.w3.org/2000/svg">
-  <path clip-path="url(#{clip_id})"/>
-  <defs><clipPath id="{clip_id}"><rect/></clipPath></defs>
+<svg xmlns="http://www.w3.org/2000/svg" width="{width}">
+  <g id="{name}"><text x="1">f</text></g>
 </svg>"""
-    expected.write_text(template.format(clip_id="p0123456789abcdef"))
-    actual.write_text(template.format(clip_id="pfedcba9876543210"))
+    expected.write_text(template.format(width=1, name="one"))
 
-    # Clip path hashes depend on the Matplotlib version, they get renamed
-    # consistently in document order regardless of their actual value.
+    # Rounding errors within the tolerance are forgiven.
+    actual.write_text(template.format(width=1.5, name="one"))
     assert backend.svg_equal(expected, actual)
+
+    # A genuine difference in width, position or text content is preserved.
+    actual.write_text(template.format(width=9, name="one"))
+    assert not backend.svg_equal(expected, actual)
+
+    # A non-numeric difference, e.g. in an identifier, is also preserved.
+    actual.write_text(template.format(width=1, name="two"))
+    assert not backend.svg_equal(expected, actual)
 
 
 def test_compare_drawing_raster_and_bytes(tmp_path):

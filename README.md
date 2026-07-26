@@ -106,7 +106,7 @@ assert crack_two_eggs == (crack @ crack
 crack_two_eggs.draw(doctest="docs/_static/readme/crack-eggs.svg")
 ```
 
-![crack_two_eggs.draw()](docs/_static/readme/crack-eggs.svg)
+![crack_two_eggs.draw()](https://github.com/discopy/discopy/raw/main/docs/_static/readme/crack-eggs.svg)
 
 By default, DisCoPy diagrams are made of layers with exactly one box in between some (possibly empty) list of wires on its left- and right-hand side.
 We can get more general diagrams by specifying the list of layers `inside` manually:
@@ -124,7 +124,7 @@ Equation(Equation(
   left, middle, symbol="$\\rightarrow$"), right, symbol="$\\leftarrow$").draw()
 ```
 
-![](docs/_static/readme/interchanger.svg)
+![](https://github.com/discopy/discopy/raw/main/docs/_static/readme/interchanger.svg)
 
 or by calling the method `Diagram.foliation` which will minimize the length of the diagram:
 
@@ -144,7 +144,7 @@ crack_two_eggs_at_once.draw(
   doctest="docs/_static/readme/crack-two-eggs-at-once.svg")
 ```
 
-![crack_two_eggs_at_once.draw()](docs/_static/readme/crack-two-eggs-at-once.svg)
+![crack_two_eggs_at_once.draw()](https://github.com/discopy/discopy/raw/main/docs/_static/readme/crack-two-eggs-at-once.svg)
 
 ## Theory: functors, terms, maps and hypergraphs
 
@@ -183,7 +183,7 @@ Equation(left_snake, Id(x), right_snake).draw(
   doctest="docs/_static/readme/typed-snake-equation.svg")
 ```
 
-![Equation(left_snake, Id(x), right_snake).draw()](docs/_static/readme/typed-snake-equation.svg)
+![Equation(left_snake, Id(x), right_snake).draw()](https://github.com/discopy/discopy/raw/main/docs/_static/readme/typed-snake-equation.svg)
 
 In particular, DisCoPy can draw the grammatical structure of natural language sentences encoded as reductions in a [pregroup grammar](https://ncatlab.org/nlab/show/pregroup+grammar).
 See Lambek, [From Word To Sentence (2008)](http://www.math.mcgill.ca/barr/lambek/pdffiles/2008lambek.pdf) for an introduction.
@@ -199,7 +199,7 @@ sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ s @ Cup(n.l, n)
 sentence.foliation().draw(doctest="docs/_static/readme/alice-loves-bob.svg")
 ```
 
-![Alice loves Bob](docs/_static/readme/alice-loves-bob.svg)
+![Alice loves Bob](https://github.com/discopy/discopy/raw/main/docs/_static/readme/alice-loves-bob.svg)
 
 Many other grammatical frameworks can be encoded as diagrams, e.g. [`cfg`](https://docs.discopy.org/en/main/_api/discopy.grammar.cfg.html) (context-free), [`categorial`](https://docs.discopy.org/en/main/_api/discopy.grammar.categorial.html) and [`dependency`](https://docs.discopy.org/en/main/_api/discopy.grammar.dependency.html) grammars.
 
@@ -245,7 +245,7 @@ sentence.to_gif(
   timestep=1000, figsize=(4, 4))
 ```
 
-![sentence.to_gif(*rewrite_steps)](docs/_static/readme/autonomisation.gif)
+![sentence.to_gif(*rewrite_steps)](https://github.com/discopy/discopy/raw/main/docs/_static/readme/autonomisation.gif)
 
 ## A geometry of chatbot interaction
 
@@ -256,12 +256,12 @@ The [`Int`](https://docs.discopy.org/en/main/_api/discopy.interaction.Int.html)-
 
 i.e. the same we can pretend that a commutative monoid is a group so long as it is cancellative (i.e. `a + x == b + x` implies `a == b`) we can pretend that a monoidal category has cups and caps so long as it is traced, i.e. it has feedback loops:
 
-![feedback loop](docs/_static/traced/right-trace.svg)
+![feedback loop](https://github.com/discopy/discopy/raw/main/docs/_static/traced/right-trace.svg)
 
 Concretely, we get a compact category where the objects are given by pairs of objects in the traced category, morphisms are bidirectional processes with a positive and a negative direction.
 Composition given by symmetric feedback, i.e. tracing out the common boundary of the two processes so they can communicate along an infinity-shaped pair of wires between them:
 
-![](docs/_static/int/symmetric-feedback.svg)
+![](https://github.com/discopy/discopy/raw/main/docs/_static/int/symmetric-feedback.svg)
 
 We can use this geometry of interaction to interpret words as processes rather than states:
 
