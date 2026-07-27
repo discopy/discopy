@@ -3,7 +3,7 @@ import numpy as np
 from discopy import ribbon, tensor
 from discopy.tensor import Dim, Box
 from discopy.hopf import (
-    HopfAlgebra, Double, Representation, Intertwiner, Functor)
+    Algebra, Double, Representation, Intertwiner, Functor)
 
 
 circle = lambda x: ribbon.Cap(x, x.r) >> ribbon.Cup(x, x.r)
@@ -12,21 +12,21 @@ hopf_link = lambda x: (ribbon.Braid(x, x) >> ribbon.Braid(x, x)).trace(n=2)
 
 
 def double_and_module():
-    D = Double(HopfAlgebra.cyclic(2))
+    D = Double(Algebra.cyclic(2))
     e, m = Representation[D].anyon(0, -1), Representation[D].anyon(1, 1)
     return D, Representation[D].direct_sum([e, m])
 
 
 def test_group_algebra_is_valid():
     for n in [1, 2, 3, 5]:
-        assert HopfAlgebra.cyclic(n).is_valid()
+        assert Algebra.cyclic(n).is_valid()
     table = [[0, 1, 2, 3], [1, 0, 3, 2], [2, 3, 0, 1], [3, 2, 1, 0]]
-    assert HopfAlgebra.group_algebra(table).is_valid()
+    assert Algebra.group_algebra(table).is_valid()
 
 
 def test_double_is_quasitriangular_hopf_algebra():
     for n in [2, 3]:
-        D = Double(HopfAlgebra.cyclic(n))
+        D = Double(Algebra.cyclic(n))
         assert D.dim == n * n
         assert D.is_valid()
         assert D.is_quasitriangular()
@@ -34,15 +34,15 @@ def test_double_is_quasitriangular_hopf_algebra():
 
 def test_commutativity_properties():
     """D(Z/2) is commutative and cocommutative, Sweedler's H4 is neither."""
-    D = Double(HopfAlgebra.cyclic(2))
+    D = Double(Algebra.cyclic(2))
     assert D.is_commutative() and D.is_cocommutative()
-    H4 = HopfAlgebra.sweedler()
+    H4 = Algebra.sweedler()
     assert not H4.is_commutative() and not H4.is_cocommutative()
 
 
 def test_double_of_sweedler():
     """The double of H4 exercises S^-1 in the coadjoint multiplication."""
-    H4 = HopfAlgebra.sweedler()
+    H4 = Algebra.sweedler()
     assert H4.is_valid() and H4.dim == 4
     Sarr = H4.antipode.eval(dtype=complex).array
     assert not np.allclose(Sarr @ Sarr, np.eye(4))
@@ -55,7 +55,7 @@ def test_double_antipode_inverse():
     """S^-1 = u^-1 S(x) u for the Drinfeld element u = S(R'')R', with
     u^-1 = R''S^2(R'), also when S^2 != id, assembled from the generator
     matrices."""
-    for base in [HopfAlgebra.cyclic(2), HopfAlgebra.sweedler()]:
+    for base in [Algebra.cyclic(2), Algebra.sweedler()]:
         D, n = Double(base), base.dim ** 2
         S = D.antipode.eval(dtype=complex).array.reshape(n, n)
         R = D.R.eval(dtype=complex).array.reshape(n, n)
@@ -70,15 +70,15 @@ def test_double_antipode_inverse():
 def test_double_is_fine_grained():
     """Every box in the double's generators acts on the base object, so no
     structure tensor of the doubled dimension is ever materialised."""
-    D = Double(HopfAlgebra.cyclic(2))
+    D = Double(Algebra.cyclic(2))
     for gen in D.generators:
         for box in gen.boxes:
             assert set(box.dom.inside) <= {2} and set(box.cod.inside) <= {2}
 
 
 def test_no_r_matrix_paths():
-    Z2 = HopfAlgebra.cyclic(2)
-    noR = HopfAlgebra(
+    Z2 = Algebra.cyclic(2)
+    noR = Algebra(
         Z2.unit, Z2.counit, Z2.mult, Z2.comult, Z2.antipode)
     assert noR.R is None
     assert noR.is_quasitriangular() is False
@@ -103,9 +103,9 @@ def test_no_r_matrix_paths():
 
 
 def test_non_invertible_antipode_is_flagged():
-    Z2 = HopfAlgebra.cyclic(2)
+    Z2 = Algebra.cyclic(2)
     zero = Box('S', Z2.ty, Z2.ty, np.zeros((2, 2)))
-    H = HopfAlgebra(Z2.unit, Z2.counit, Z2.mult, Z2.comult, zero)
+    H = Algebra(Z2.unit, Z2.counit, Z2.mult, Z2.comult, zero)
     try:
         H.antipode_inv
         assert False
@@ -115,8 +115,8 @@ def test_non_invertible_antipode_is_flagged():
 
 def test_class_generic_over_the_algebra():
     """The algebra lives on the class, parametrisation caches by equality."""
-    D = Double(HopfAlgebra.cyclic(2))
-    assert Representation[D] is Representation[Double(HopfAlgebra.cyclic(2))]
+    D = Double(Algebra.cyclic(2))
+    assert Representation[D] is Representation[Double(Algebra.cyclic(2))]
     assert Representation[D].algebra == D
     V = Representation[D].regular()
     assert V.algebra == D
@@ -157,7 +157,7 @@ def test_representation_init_checks():
 
 
 def test_anyon_needs_a_double():
-    Z2 = HopfAlgebra.cyclic(2)
+    Z2 = Algebra.cyclic(2)
     try:
         Representation[Z2].anyon(0, 1)
         assert False
@@ -167,7 +167,7 @@ def test_anyon_needs_a_double():
 
 def test_repr_is_transparent():
     from discopy import hopf, tensor  # noqa: F401  (used by eval)
-    H = HopfAlgebra.cyclic(2)
+    H = Algebra.cyclic(2)
     assert eval(repr(H)) == H
     D = Double(H)
     assert eval(repr(D)) == D
@@ -226,7 +226,7 @@ def test_dual_representation():
     S^2 != id and on structured types."""
     D, V = double_and_module()
     assert V.r.is_module()
-    assert Representation[HopfAlgebra.sweedler()].regular().r.is_module()
+    assert Representation[Algebra.sweedler()].regular().r.is_module()
     n = D.dim
     rho = V.action.eval(dtype=complex).array.reshape(n, 2, 2)
     S = D.antipode.eval(dtype=complex).array.reshape(n, n)
@@ -237,13 +237,13 @@ def test_dual_representation():
 def test_left_and_right_duals_differ():
     """The left dual twists by S^-1, so it differs from the right dual
     whenever S^2 != id, as for Sweedler's H4 but not a group algebra."""
-    H4 = HopfAlgebra.sweedler()
+    H4 = Algebra.sweedler()
     W = Representation[H4].regular()
     assert W.l.is_module() and W.r.is_module()
     left = W.l.action.eval(dtype=complex).array
     right = W.r.action.eval(dtype=complex).array
     assert not np.allclose(left, right)
-    Z2 = HopfAlgebra.cyclic(2)
+    Z2 = Algebra.cyclic(2)
     U = Representation[Z2].regular()
     assert np.allclose(U.l.action.eval(dtype=complex).array,
                        U.r.action.eval(dtype=complex).array)
@@ -260,7 +260,7 @@ def test_functor_maps_winding_to_dual():
 def test_twist_from_braid():
     """The twist is the trace of the braid: the identity on e (+) m, minus
     one on the fermion, one on the vacuum."""
-    D = Double(HopfAlgebra.cyclic(2))
+    D = Double(Algebra.cyclic(2))
 
     def theta(rep):
         return complex(
@@ -275,7 +275,7 @@ def test_twist_from_braid():
 
 
 def test_is_module_rejects_non_module():
-    Z2 = HopfAlgebra.cyclic(2)
+    Z2 = Algebra.cyclic(2)
     zero = Box('bad', Z2.ty @ Dim(2), Dim(2), np.zeros((2, 2, 2)))
     assert not Representation[Z2](Dim(2), zero).is_module()
 
@@ -343,7 +343,7 @@ def test_crossing_number_distinguishes_closures():
 
 def test_two_colour_mutual_braiding():
     """The e and m anyons of the toric code have mutual statistics -1."""
-    D = Double(HopfAlgebra.cyclic(2))
+    D = Double(Algebra.cyclic(2))
     e = Representation[D].anyon(0, -1)
     m = Representation[D].anyon(1, 1)
     xe, xm = ribbon.Ty('e'), ribbon.Ty('m')
@@ -378,7 +378,7 @@ def test_functor_on_type():
 
 def test_twist_in_diagram():
     """A group algebra has a trivial twist, mapped through the functor."""
-    Z2 = HopfAlgebra.cyclic(2)
+    Z2 = Algebra.cyclic(2)
     V = Representation[Z2].regular()
     x = ribbon.Ty('x')
     F = Functor(ob_map={x: V}, ar_map={}, cod=Intertwiner[Z2])

@@ -10,7 +10,7 @@ Summary
     :template: class.rst
     :nosignatures:
 
-    HopfAlgebra
+    Algebra
     Double
     Representation
     Intertwiner
@@ -29,7 +29,7 @@ invariant of tangles is then a ribbon :class:`Functor` from the free
 :mod:`.ribbon` category into ``Intertwiner[H]``, evaluated as concrete
 tensors (see :mod:`.tensor`).
 
-The structural generators of a :class:`HopfAlgebra` (and of a
+The structural generators of a :class:`Algebra` (and of a
 :class:`Representation`) are stored as :class:`.tensor.Diagram`\\ s, so that
 composing them, e.g. ``H.comult >> H.mult``, builds a fine-grained network; the
 network is only contracted (a single ``einsum``) when a morphism is evaluated —
@@ -43,7 +43,7 @@ unlink.
 
 >>> import numpy as np
 >>> from discopy import ribbon
->>> H = Double(HopfAlgebra.cyclic(2))
+>>> H = Double(Algebra.cyclic(2))
 >>> assert H.is_valid() and H.dim == 4
 >>> e = Representation[H].anyon(0, -1)
 >>> m = Representation[H].anyon(1, 1)
@@ -66,14 +66,14 @@ The functor gives the tensor network of each knot; contract it with ``.eval``:
 Axioms
 ------
 Because the generators are diagrams, an axiom is an equation of diagrams,
-checked by contracting both sides (e.g. :meth:`HopfAlgebra.is_associative`).
+checked by contracting both sides (e.g. :meth:`Algebra.is_associative`).
 We take a concrete example, the group algebra :math:`k[\\mathbb{Z}/2]`
 (generators :math:`\\nabla`, :math:`\\Delta`, ...), and both draw *and* assert
 each axiom.
 
 >>> from discopy.tensor import Equation
 >>> from discopy.tensor import Diagram
->>> H = HopfAlgebra.cyclic(2)
+>>> H = Algebra.cyclic(2)
 >>> ty = H.ty
 >>> assert H.is_valid()
 
@@ -81,9 +81,9 @@ Associativity, ``(nabla @ H) >> nabla == (H @ nabla) >> nabla``:
 
 >>> lhs, rhs = H.mult @ ty >> H.mult, ty @ H.mult >> H.mult
 >>> assert H.is_associative()
->>> Equation(lhs, rhs).draw(path='docs/_static/hopf/associativity.png')
+>>> Equation(lhs, rhs).draw(doctest='docs/_static/hopf/associativity.svg')
 
-.. image:: /_static/hopf/associativity.png
+.. image:: /_static/hopf/associativity.svg
     :align: center
 
 The bialgebra law, ``Delta`` is an algebra homomorphism:
@@ -92,9 +92,9 @@ The bialgebra law, ``Delta`` is an algebra homomorphism:
 >>> rhs = H.comult @ H.comult >> ty @ Diagram.swap(ty, ty) @ ty \\
 ...     >> H.mult @ H.mult
 >>> assert H.is_bialgebra()
->>> Equation(lhs, rhs).draw(path='docs/_static/hopf/bialgebra.png')
+>>> Equation(lhs, rhs).draw(doctest='docs/_static/hopf/bialgebra.svg')
 
-.. image:: /_static/hopf/bialgebra.png
+.. image:: /_static/hopf/bialgebra.svg
     :align: center
 
 The antipode axiom, ``comult >> (S @ H) >> mult == counit >> unit``:
@@ -103,9 +103,9 @@ The antipode axiom, ``comult >> (S @ H) >> mult == counit >> unit``:
 >>> right = H.comult >> ty @ H.antipode >> H.mult
 >>> unit = H.counit >> H.unit
 >>> assert H.has_antipode()
->>> Equation(left, unit, right).draw(path='docs/_static/hopf/antipode.png')
+>>> Equation(left, unit, right).draw(doctest='docs/_static/hopf/antipode.svg')
 
-.. image:: /_static/hopf/antipode.png
+.. image:: /_static/hopf/antipode.svg
     :align: center
 
 The derived generators of the double are *composites* of the base generators
@@ -113,10 +113,10 @@ and cups/caps — never materialised. Here is its multiplication, the coadjoint
 product of :math:`D(H) = H \\otimes H^*`, drawn as a :class:`.tensor.CMap` (the
 tensor network that gets contracted):
 
->>> Double(HopfAlgebra.cyclic(2)).mult.to_map().draw(
-...     path='docs/_static/hopf/double_mult.png')
+>>> Double(Algebra.cyclic(2)).mult.to_map().draw(
+...     doctest='docs/_static/hopf/double_mult.svg')
 
-.. image:: /_static/hopf/double_mult.png
+.. image:: /_static/hopf/double_mult.svg
     :align: center
 """
 
@@ -135,7 +135,7 @@ from discopy.utils import (
 Diagram = tensor.Diagram
 
 
-class HopfAlgebra:
+class Algebra:
     """
     A finite-dimensional Hopf algebra whose structural generators are
     :class:`.tensor.Diagram`\\ s over one object ``ty``:
@@ -214,7 +214,7 @@ class HopfAlgebra:
         return f"{type(self).__name__}({self.dim})"
 
     def __eq__(self, other):
-        return isinstance(other, HopfAlgebra) \
+        return isinstance(other, Algebra) \
             and self.generators == other.generators
 
     def __hash__(self):
@@ -348,7 +348,7 @@ class HopfAlgebra:
         The group algebra :math:`k[G]` from a group multiplication ``table``,
         with ``table[i][j]`` the index of :math:`g_i g_j` and ``g_0`` the unit.
 
-        >>> Z2 = HopfAlgebra.group_algebra([[0, 1], [1, 0]])
+        >>> Z2 = Algebra.group_algebra([[0, 1], [1, 0]])
         >>> assert Z2.is_valid()
         """
         table = [list(row) for row in table]
@@ -375,7 +375,7 @@ class HopfAlgebra:
         """
         The group algebra of the cyclic group :math:`\\mathbb{Z}/n`.
 
-        >>> assert HopfAlgebra.cyclic(3).is_valid()
+        >>> assert Algebra.cyclic(3).is_valid()
         """
         table = [[(i + j) % n for j in range(n)] for i in range(n)]
         return cls.group_algebra(table)
@@ -388,7 +388,7 @@ class HopfAlgebra:
         (:math:`g^2 = 1`, :math:`x^2 = 0`, :math:`xg = -gx`) and
         :math:`S^2 \\neq \\mathrm{id}`.
 
-        >>> H = HopfAlgebra.sweedler()
+        >>> H = Algebra.sweedler()
         >>> assert H.is_valid() and H.dim == 4
         >>> assert not H.is_commutative() and not H.is_cocommutative()
         """
@@ -415,10 +415,10 @@ class HopfAlgebra:
         return cls.from_arrays(unit, counit, mult, comult, antipode)
 
 
-class Double(HopfAlgebra):
+class Double(Algebra):
     """
     The Drinfeld quantum double :math:`D(H) = H \\otimes H^*` of a
-    :class:`HopfAlgebra` ``base`` (Def. 1.23 of *Hopf Algebras in Quantum
+    :class:`Algebra` ``base`` (Def. 1.23 of *Hopf Algebras in Quantum
     Computation*), a quasitriangular Hopf algebra of dimension
     ``base.dim ** 2`` whose generators are **composites** of the base
     generators, their ``.dagger()`` (the :math:`H^*` structure) and
@@ -436,11 +436,11 @@ class Double(HopfAlgebra):
     is the anti-homomorphism :math:`(\\epsilon \\otimes S) \\circ
     ((S^{-1})^* \\otimes 1)` composed with that same multiplication.
 
-    >>> D = Double(HopfAlgebra.cyclic(2))
+    >>> D = Double(Algebra.cyclic(2))
     >>> assert D.dim == 4 and D.is_valid() and D.is_quasitriangular()
     """
     def __init__(self, base):
-        assert_isinstance(base, HopfAlgebra)
+        assert_isinstance(base, Algebra)
         self.base = base
         ty, Sinv = base.ty, base.antipode_inv
         mstar, dstar = base.comult.dagger(), base.mult.dagger()
@@ -475,7 +475,7 @@ class Double(HopfAlgebra):
 class Representation(NamedGeneric["algebra"], frobenius.Dim):
     """
     A finite-dimensional (left) module over the class parameter ``algebra``:
-    given a :class:`HopfAlgebra` ``H``, the class ``Representation[H]`` is
+    given a :class:`Algebra` ``H``, the class ``Representation[H]`` is
     the type of objects of :math:`\\mathrm{Rep}(H)`, the category
     :class:`Intertwiner`\\ ``[H]``, and ``algebra`` is accessible on both the
     class and its instances. A representation is a :class:`.tensor.Dim` —
@@ -502,7 +502,7 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
     two anyon modules of :math:`D(\\mathbb{Z}/2)`, with the left-hand side
     drawn as the :class:`.tensor.CMap` it contracts to:
 
-    >>> D = Double(HopfAlgebra.cyclic(2))
+    >>> D = Double(Algebra.cyclic(2))
     >>> e = Representation[D].anyon(0, -1)
     >>> m = Representation[D].anyon(1, 1)
     >>> V = Representation[D].direct_sum([e, m])
@@ -510,9 +510,9 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
     >>> assert V.is_module() and V == Dim(2)
     >>> ty = V.action.cod
     >>> (D.mult @ ty >> V.action).to_map().draw(
-    ...     path='docs/_static/hopf/module.png')
+    ...     doctest='docs/_static/hopf/module.svg')
 
-    .. image:: /_static/hopf/module.png
+    .. image:: /_static/hopf/module.svg
         :align: center
     """
     def __init__(self, dim=None, action=None):
@@ -553,7 +553,7 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
         \\rho_W) (\\Delta \\otimes 1_{V \\otimes W})`. A plain
         :class:`.tensor.Dim` factor is taken as the trivial representation.
 
-        >>> D = Double(HopfAlgebra.cyclic(2))
+        >>> D = Double(Algebra.cyclic(2))
         >>> e = Representation[D].anyon(0, -1)
         >>> m = Representation[D].anyon(1, 1)
         >>> assert (e @ m).is_module() and (e @ Dim(2)).is_module()
@@ -596,7 +596,7 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
         """
         The right dual, :meth:`dual` for the antipode.
 
-        >>> H = HopfAlgebra.sweedler()
+        >>> H = Algebra.sweedler()
         >>> assert Representation[H].regular().r.is_module()
         """
         return self.dual(self.algebra.antipode)
@@ -607,7 +607,7 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
         The left dual, :meth:`dual` for the inverse antipode — it differs
         from :attr:`r` unless :math:`S^2 = 1`.
 
-        >>> H = HopfAlgebra.sweedler()
+        >>> H = Algebra.sweedler()
         >>> assert Representation[H].regular().l.is_module()
         """
         return self.dual(self.algebra.antipode_inv)
@@ -661,7 +661,7 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
         """
         The direct sum of modules over one algebra, acting block-diagonally.
 
-        >>> D = Double(HopfAlgebra.cyclic(2))
+        >>> D = Double(Algebra.cyclic(2))
         >>> e = Representation[D].anyon(0, -1)
         >>> m = Representation[D].anyon(1, 1)
         >>> V = Representation[D].direct_sum([e, m])
@@ -686,7 +686,7 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
 class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
     """
     The ribbon category :math:`\\mathrm{Rep}(H)` of representations of the
-    class parameter ``algebra``: given a :class:`HopfAlgebra` ``H``, the
+    class parameter ``algebra``: given a :class:`Algebra` ``H``, the
     class ``Intertwiner[H]`` is a category of :class:`.tensor.Diagram`\\ s
     whose objects are ``Representation[H]``, and ``algebra`` is accessible on
     both the class and its instances. Its ribbon structure is given by its
@@ -711,7 +711,7 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
     :class:`.tensor.CMap` it contracts to:
 
     >>> import numpy as np
-    >>> D = Double(HopfAlgebra.cyclic(2))
+    >>> D = Double(Algebra.cyclic(2))
     >>> e = Representation[D].anyon(0, -1)
     >>> m = Representation[D].anyon(1, 1)
     >>> V = Representation[D].direct_sum([e, m])
@@ -719,9 +719,9 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
     >>> braid = Intertwiner[D].braid(V, V)
     >>> lhs, rhs = action >> braid, Id(D.ty) @ braid >> action
     >>> assert lhs.eval(dtype=complex).is_close(rhs.eval(dtype=complex))
-    >>> lhs.to_map().draw(path='docs/_static/hopf/intertwiner.png')
+    >>> lhs.to_map().draw(doctest='docs/_static/hopf/intertwiner.svg')
 
-    .. image:: /_static/hopf/intertwiner.png
+    .. image:: /_static/hopf/intertwiner.svg
         :align: center
 
     The braid contracts to the braiding matrix of the toric code:
@@ -774,7 +774,7 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
     def twist(cls, dom):
         """
         The twist of ``dom``: the action of the ribbon element
-        :attr:`HopfAlgebra.twist`, computed once as the ribbon trace of the
+        :attr:`Algebra.twist`, computed once as the ribbon trace of the
         self-braiding of the regular representation.
         """
         if cls.algebra is None:
@@ -812,7 +812,7 @@ class Functor(ribbon.Functor):
     :class:`.tensor.CMap`:
 
     >>> import numpy as np
-    >>> D = Double(HopfAlgebra.cyclic(2))
+    >>> D = Double(Algebra.cyclic(2))
     >>> e = Representation[D].anyon(0, -1)
     >>> m = Representation[D].anyon(1, 1)
     >>> V = Representation[D].direct_sum([e, m])
@@ -822,9 +822,9 @@ class Functor(ribbon.Functor):
     >>> network = F(d)
     >>> assert network.eval(dtype=complex).is_close(
     ...     F(ribbon.Id(x)).eval(dtype=complex))
-    >>> network.to_map().draw(path='docs/_static/hopf/ribbon-functor.png')
+    >>> network.to_map().draw(doctest='docs/_static/hopf/ribbon-functor.svg')
 
-    .. image:: /_static/hopf/ribbon-functor.png
+    .. image:: /_static/hopf/ribbon-functor.svg
         :align: center
 
     A single braid contracts to the braiding matrix of the toric code:
