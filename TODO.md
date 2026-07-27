@@ -11,8 +11,8 @@ goes away.
 
 - [x] Merge `main` into the branch, resolving the conflicts (`.ipynb` deletions,
       `docs/conf.py`, `pyproject.toml`, `CONTRIBUTING.md`)
-- [ ] Port main's notebook changes to the marimo `.md` notebooks: `ob`/`ar` renamed to
+- [x] Port main's notebook changes to the marimo `.md` notebooks: `ob`/`ar` renamed to
       `ob_map`/`ar_map`, `ar_factory` renamed to `factory`, `drawing.Equation` moved to the
       relevant module, and the semantic changes (`foliation`, `is_close`, `Equation` truthiness)
-- [ ] Drop the `show` helper from every notebook, displaying diagrams through `RichDisplay`
-- [ ] Run `docs/export_notebooks.py --check`, `pflake8 discopy` and the test suite
+- [x] Drop the `show` helper from every notebook, displaying diagrams through `RichDisplay`
+- [x] Run `docs/export_notebooks.py --check`, `pflake8 discopy` and the test suite

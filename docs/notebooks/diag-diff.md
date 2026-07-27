@@ -5,20 +5,6 @@ marimo-version: 0.23.14
 
 ```python {.marimo}
 import marimo as mo
-import matplotlib.pyplot as plt
-```
-
-```python {.marimo}
-def show(diagram, **params):
-    """Draw a diagram and return its figure, so marimo displays it inline.
-
-    ``Diagram.draw`` calls ``plt.show()`` internally, which marimo routes to
-    the console area rather than the cell's output -- the console area is
-    not rendered in the "app" view. Passing ``show=False`` keeps the figure
-    open so we can return its axes as the cell's last expression instead.
-    """
-    diagram.draw(show=False, **params)
-    return plt.gca()
 ```
 
 # Diagrammatic Differentiation
@@ -72,7 +58,7 @@ _f = Box('f', x, y, [phi + 1, -phi * 2])
 _g = Box('g', y @ y, z, [1, 0, 0, 0, 0, 0, 0, phi ** 2 + 1])
 d = _f @ _f >> _g
 print(d)
-show(d, figsize=(2, 2))
+d
 ```
 
 ```python {.marimo}
@@ -112,7 +98,7 @@ $$
 **Example:**
 
 ```python {.marimo}
-show(d.grad(phi), figsize=(8, 3), wire_labels=False)
+d.grad(phi)
 ```
 
 ## 4) Chain rule
@@ -135,8 +121,8 @@ where the elementwise product can be encoded as pre- and post-composition with s
 _g = Box('g', Dim(2), Dim(2), [2 * phi, 0, 0, phi + 1])
 _f = lambda d: d.bubble(func=lambda x: x ** 2, drawing_name='f')
 lhs, rhs = (Box.grad(_f(_g), phi), _f(_g).grad(phi))
-from discopy.drawing import Equation
-show(Equation(lhs, rhs), wire_labels=False)
+from discopy.monoidal import Equation
+Equation(lhs, rhs)
 ```
 
 ## 5) Applications

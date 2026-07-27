@@ -5,20 +5,6 @@ marimo-version: 0.23.14
 
 ```python {.marimo}
 import marimo as mo
-import matplotlib.pyplot as plt
-```
-
-```python {.marimo}
-def show(diagram, **params):
-    """Draw a diagram and return its figure, so marimo displays it inline.
-
-    ``Diagram.draw`` calls ``plt.show()`` internally, which marimo routes to
-    the console area rather than the cell's output -- the console area is
-    not rendered in the "app" view. Passing ``show=False`` keeps the figure
-    open so we can return its axes as the cell's last expression instead.
-    """
-    diagram.draw(show=False, **params)
-    return plt.gca()
 ```
 
 # Categories for Linguistics
@@ -200,7 +186,7 @@ assert f @ g == Diagram.decode(
     dom=x @ z,
     boxes_and_offsets=[(f, 0), (g, 1)])
 
-show(f @ g, figsize=(2, 2))
+f @ g
 ```
 
 ```python {.marimo}
@@ -211,7 +197,7 @@ pprint((f @ g).to_tree())
 ```
 
 ```python {.marimo}
-from discopy.drawing import Equation
+from discopy.monoidal import Equation
 
 assert f @ g == f @ z >> y @ g\
              != x @ g >> f @ w\
@@ -220,9 +206,9 @@ assert f @ g == f @ z >> y @ g\
 assert (f @ g).interchange(0, 1).normal_form()\
     == (f @ g).normal_form() == f @ g
 
-show(Equation(
+Equation(
     (f @ g).interchange(0, 1), (f @ g),
-    symbol="$\\mapsto$"), figsize=(5, 2))
+    symbol="$\\mapsto$")
 ```
 
 **Lemma:** Given a boundary-connected diagram with $n$ boxes, a normal form can be reached in at most $O(n^3)$ steps.
@@ -354,7 +340,7 @@ _s, _n, tv, itv = Ty(*'s n tv itv'.split())
 words = [Word('Alice', _n), Word('loves', tv), Word('Bob', _n)]
 rules = [Rule(tv @ _n, itv), Rule(_n @ itv, _s)]
 tree = Diagram.tensor(*words).foliation() >> _n @ rules[0] >> rules[1]
-show(tree)
+tree
 ```
 
 **Theorem:** Parsing context-free grammars is $\mathtt{P}$-complete.
@@ -399,7 +385,7 @@ _Alice = categorial.Word('Alice', _n)
 _loves = categorial.Word('loves', _n >> _s << _n)
 _Bob = categorial.Word('Bob', _n)
 _sentence = _Alice @ _loves @ _Bob >> _n @ categorial.Eval(_n >> _s << _n) >> categorial.Eval(_n >> _s)
-show(_sentence)
+_sentence
 ```
 
 **Theorem:** AB grammars have the same expressive power as context-free grammars.
@@ -429,7 +415,7 @@ x_1 = rigid.Ty('x')
 left_snake = x_1 @ rigid.Cap(x_1.r, x_1) >> rigid.Cup(x_1, x_1.r) @ x_1
 right_snake = rigid.Cap(x_1, x_1.l) @ x_1 >> x_1 @ rigid.Cup(x_1.l, x_1)
 assert left_snake.normal_form() == rigid.Id(x_1) == right_snake.normal_form()
-show(Equation(left_snake, rigid.Id(x_1), right_snake), figsize=(5, 2))
+Equation(left_snake, rigid.Id(x_1), right_snake)
 ```
 
 **Definition:** A pregroup grammar is a tuple $G = (V, X, D, s)$ where:
@@ -448,7 +434,7 @@ _s, _n = (pregroup.Ty('s'), pregroup.Ty('n'))
 _Alice, _Bob = (pregroup.Word('Alice', _n), pregroup.Word('Bob', _n))
 _loves = pregroup.Word('loves', _n.r @ _s @ _n.l)
 _sentence = _Alice @ _loves @ _Bob >> pregroup.Cup(_n, _n.r) @ _s @ pregroup.Cup(_n.l, _n)
-show(_sentence)
+_sentence
 ```
 
 ## Functorial semantics

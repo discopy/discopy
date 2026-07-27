@@ -18,16 +18,16 @@ import marimo as mo
 ```python {.marimo}
 from discopy import frobenius
 from discopy.tensor import Dim, Tensor
-from discopy.cat import ar_factory
+from discopy.cat import factory
 
-@ar_factory
+@factory
 class Formula(frobenius.Diagram):
     ob = frobenius.PRO  # i.e. natural numbers as objects
 
     def eval(self, size):
         return frobenius.Functor(
-            ob=lambda _: Dim(size),
-            ar=lambda box: box.data,
+            ob_map=lambda _: Dim(size),
+            ar_map=lambda box: box.data,
             cod=Tensor[bool])(self)
 
 class Cut(frobenius.Bubble, Formula): pass
@@ -89,8 +89,8 @@ from discopy.python import Function
 
 F = Functor(
     cod=Function,
-    ob={s: Formula, n: Formula, p: Callable[[Formula], Formula]},
-    ar={Alice: lambda: lambda f: A >> f,
+    ob_map={s: Formula, n: Formula, p: Callable[[Formula], Formula]},
+    ar_map={Alice: lambda: lambda f: A >> f,
         sleeps: lambda: lambda P: P(S.dagger()),
         man: lambda: M, island: lambda: I,
         big: lambda: lambda f: f @ B >> Ligature(2, 1, frobenius.PRO(1)),

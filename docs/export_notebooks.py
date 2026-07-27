@@ -26,6 +26,7 @@ import argparse
 import subprocess
 import sys
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 DOCS = Path(__file__).resolve().parent
 NOTEBOOKS = DOCS / "notebooks"
@@ -62,13 +63,16 @@ def title_of(notebook: Path) -> str:
 
 def export(notebook: Path, *, check: bool) -> None:
     """Run ``notebook`` and export the computed HTML (unless ``check``)."""
-    HTML_DIR.mkdir(parents=True, exist_ok=True)
-    output = "-" if check else str(HTML_DIR / f"{notebook.stem}.html")
-    subprocess.run(
-        [sys.executable, "-m", "marimo", "export", "html", notebook.name,
-         "-o", output, "-f"],
-        cwd=NOTEBOOKS, check=True,
-        stdout=subprocess.DEVNULL if check else None)
+    with TemporaryDirectory() as scratch:
+        if check:
+            output = Path(scratch) / f"{notebook.stem}.html"
+        else:
+            HTML_DIR.mkdir(parents=True, exist_ok=True)
+            output = HTML_DIR / f"{notebook.stem}.html"
+        subprocess.run(
+            [sys.executable, "-m", "marimo", "export", "html", notebook.name,
+             "-o", str(output), "-f"],
+            cwd=NOTEBOOKS, check=True)
 
 
 def write_page(notebook: Path, *, rendered: bool) -> None:
