@@ -1,4 +1,9 @@
-""" The ``--skip-extra`` flag, see CONTRIBUTING.md. """
+"""
+The ``--skip-extra`` flag, see CONTRIBUTING.md.
+
+Registered as a pytest plugin by the ``pytest11`` entry point, so the flag is
+available wherever discopy is installed.
+"""
 
 import re
 

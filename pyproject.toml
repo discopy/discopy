@@ -155,10 +155,13 @@ norecursedirs = [
 ]
 addopts = "--doctest-modules --nbmake --ignore=test/fixtures"
 
+[project.entry-points.pytest11]
+discopy = "discopy.pytest_plugin"
+
 [tool.coverage.run]
-# The skip paths in conftest.py are unreachable once the extras are installed,
-# which is exactly when coverage runs.
-omit = ["conftest.py"]
+# The skip paths are unreachable unless --skip-extra is passed, and coverage
+# runs the full suite with every extra installed.
+omit = ["discopy/pytest_plugin.py"]
 
 [tool.coverage.report]
 fail_under = 98
