@@ -12,4 +12,10 @@
 - [x] Fix `closed.Diagram.discard` crashing: `discard_factory` was a lambda while `markov.Copy.__new__` needs a class, replaced by a `closed.Discard`; also removed the duplicated `__new__` in `markov.Copy`.
 - [x] Fix drawing of closed diagrams containing `Copy`, `Swap` or `Twist`: the functor chain called `cod.copy`, `cod.swap`, `cod.braid`, `cod.twist` without checking the codomain has them, which `Drawing` does not.
 - [x] Make `python.Function.tensor` variadic like `monoidal.Diagram.tensor`, so that `functor.cod.tensor(*terms)` works with any number of terms.
-- [x] Run `pflake8` and the full test suite, commit any regenerated documentation images. (The quantum extras cannot be installed in this sandbox — torch download is blocked — so `test/tensor.py`, `test/quantum` and the jax/sympy/graphviz doctests were compared against `main` instead: the failure lists are byte-for-byte identical, everything else passes.)
+- [x] Run `pflake8` and the full test suite, commit any regenerated documentation images.
+
+> i'm more interested in seeing diagrams printed as terms in a super compact way that reads almost like textbook effectful lambda calculus (same principle that guided the existing Term for lambda calculus)
+> also use hypergraphs to simplify stuff
+
+- [WIP] @claude-8u19lz-2026-07-27 19:23 Print `closed.Constant` as its bare name so terms read like textbook effectful lambda calculus under the obvious variable naming convention of STYLE.md.
+- [WIP] @claude-8u19lz-2026-07-27 19:23 Add `Diagram.to_term` reading a causal diagram as one let statement per box, via `Hypergraph` so that copy, discard and swap simplify away into the spider structure. (The quantum extras cannot be installed in this sandbox — torch download is blocked — so `test/tensor.py`, `test/quantum` and the jax/sympy/graphviz doctests were compared against `main` instead: the failure lists are byte-for-byte identical, everything else passes.)
