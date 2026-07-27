@@ -18,7 +18,7 @@ Prompt ([#374](https://github.com/discopy/discopy/issues/374), verbatim):
 - [ ] `discopy.kleisli.additive`: traced cocartesian Kleisli with the execution formula as trace; convergence tests for sub-additive monads — claimed and released by @evening-2026-07-25T02:25, see note below
 - [x] @evening-2026-07-27T06:34-2026-07-27T07:20 `discopy.kleisli.multiplicative`: premonoidal copy-discard Kleisli with pointwise strength; test monoidal iff the monad is commutative
 - [ ] `Hypergraph` evaluation methods: token passing for `additive`, message passing for `multiplicative` — coordinate with #366 and #363
-- [WIP] @evening-2026-07-27T15:11 `multiplicative` stress test: compare results against tensor contraction on small enough models (per issue comment)
+- [x] @evening-2026-07-27T15:11-2026-07-27T15:35 `multiplicative` stress test: compare results against tensor contraction on small enough models (per issue comment)
 - [ ] Implement the state monad for seeded randomness; compare empirical distributions against the ones computed explicitly via sub-distribution dicts (value → nonzero weight)
 - [ ] `additive` worked example: Dal Lago–Hoshino's token machines (*Geometry of Bayesian Programming*) — the best source found so far for a non-trivial case
 - [ ] Write every example as a term in the effectful lambda calculus of #370, not as a diagram built with tensor/composition
@@ -124,3 +124,28 @@ is non-commutative) built only for this test. `pflake8 discopy` clean;
 environment-only `ModuleNotFoundError`s (torch/jax/sympy/pytket/pyzx/
 tensornetwork unavailable in this sandbox), same shape as prior cycles'
 notes above; `discopy/kleisli/` and `test/kleisli.py` at 100% coverage.
+
+## `multiplicative` stress test (🌙 evening, 2026-07-27)
+
+Added `test_multiplicative_tensor_contraction` to `test/kleisli.py`: two small
+stochastic matrices (`Tensor[float]` on `Dim(2)`/`Dim(3)`) are read as
+`Subdistribution`-valued `multiplicative.Channel`s via a `stochastic_channel`
+helper, then checked exhaustively over every input against the equivalent
+`discopy.tensor.Tensor` computation — Kleisli `>>` against `Tensor.then`
+(`tensordot`, i.e. matrix multiplication: sum over the shared variable of
+`P(y|x) · P(z|y)`, exactly the monad's `mult`) and Kleisli `@` against
+`Tensor.tensor` (the Kronecker product, since tensoring two independent
+channels is exactly the product `P(y|x) · P(y'|x')` of their probabilities).
+Both agree on the nose. Not exported as public API — the two helpers are
+local to the test, same shape as `swapped_tensor`/`make_writer` above.
+
+This sandbox forbids installing packages from the PyTorch/PyTket custom
+index URLs directly, but plain `uv pip install <pkg>` (bypassing the
+`quantum` dependency group's bundled resolution) succeeds for every one of
+them, torch included — so unlike prior notes on this branch, this run
+verifies with the **full** extra stack installed, not "all failures assumed
+environment-only". `pflake8 discopy test/kleisli.py` clean; `coverage run -m
+pytest`: **777 passed, 1 skipped, 4 failed** — all 4 failures are the
+pre-existing `RuntimeError: Graphviz executable 'dot' was not found` in
+`discopy/{biclosed,cmap}.py` doctests, this environment has no `dot` binary,
+unrelated to this change.

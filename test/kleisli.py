@@ -10,6 +10,7 @@ from discopy.kleisli.monad import (
 from discopy.kleisli.channel import Channel
 from discopy.kleisli import multiplicative
 from discopy.kleisli.multiplicative import Row
+from discopy.tensor import Dim, Tensor
 
 
 def test_EndoFunctor():
@@ -266,3 +267,54 @@ def test_interchange_fails_for_noncommutative_monad():
     assert f_first(1, 2) == Row((1, 2), "ab")
     assert g_first(1, 2) == Row((1, 2), "ba")
     assert f_first(1, 2) != g_first(1, 2)
+
+
+def stochastic_tensor(array, n: int, m: int) -> Tensor:
+    """ A stochastic matrix from ``n`` outcomes to ``m``, as a Tensor. """
+    return Tensor[float](array, Dim(n), Dim(m))
+
+
+def stochastic_channel(tensor: Tensor) -> multiplicative.Channel:
+    """
+    The :class:`Subdistribution`-valued channel reading its conditional
+    probabilities off a stochastic ``tensor``, used below to cross-check
+    Kleisli composition and tensor against matrix multiplication and the
+    Kronecker product.
+    """
+    Prob = multiplicative.Channel[Subdistribution]
+    m = tensor.cod.inside[0]
+
+    def inside(x):
+        return frozenset(
+            (y, float(tensor.array[x, y]))
+            for y in range(m) if tensor.array[x, y])
+    return Prob(inside, int, int)
+
+
+def test_multiplicative_tensor_contraction():
+    """
+    Kleisli composition and tensor of subdistribution channels agree with
+    matrix multiplication and the Kronecker product of the corresponding
+    stochastic matrices, i.e. probabilistic Kleisli channels contract like
+    tensor networks on small enough models -- the stress-case suggested on
+    issue #374.
+    """
+    xy = stochastic_tensor([[.5, .5, 0.], [0., .25, .75]], 2, 3)
+    yz = stochastic_tensor([[1., 0.], [.5, .5], [0., 1.]], 3, 2)
+    f, g = stochastic_channel(xy), stochastic_channel(yz)
+    composite = stochastic_channel(xy >> yz)
+
+    for x in range(2):
+        assert (f >> g)(x) == composite(x)
+
+    identity = stochastic_tensor([[1., 0.], [0., 1.]], 2, 2)
+    h = stochastic_channel(identity)
+    parallel = xy @ identity
+
+    for x in range(2):
+        for x_ in range(2):
+            expected = frozenset(
+                ((y, y_), float(parallel.array[x, x_, y, y_]))
+                for y in range(3) for y_ in range(2)
+                if parallel.array[x, x_, y, y_])
+            assert (f @ h)(x, x_) == expected
