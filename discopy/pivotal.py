@@ -29,7 +29,7 @@ A pivotal category is a rigid category where left and right transpose coincide.
 >>> f = Box('f', x, y)
 
 >>> Equation(f.transpose(left=True), f.r, f.transpose(left=False)).draw(
-...     path="docs/_static/pivotal/axiom.svg")
+...     doctest="docs/_static/pivotal/axiom.svg")
 
 .. image:: /_static/pivotal/axiom.svg
     :align: center
@@ -38,7 +38,7 @@ For each diagram, we have its conjugate:
 
 >>> d = Box('g', x @ y, z).curry()
 >>> Equation(d, d.conjugate(), symbol="").draw(
-...     space=2, path="docs/_static/pivotal/box-conjugate.svg")
+...     space=2, doctest="docs/_static/pivotal/box-conjugate.svg")
 
 .. image:: /_static/pivotal/box-conjugate.svg
     :align: center
@@ -46,7 +46,7 @@ For each diagram, we have its conjugate:
 We also have its dagger and its transpose:
 
 >>> Equation(d.dagger(), d.rotate(), symbol="").draw(
-...     space=2, path="docs/_static/pivotal/dagger-transpose.svg")
+...     space=2, doctest="docs/_static/pivotal/dagger-transpose.svg")
 
 .. image:: /_static/pivotal/dagger-transpose.svg
     :align: center
@@ -128,7 +128,7 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
 
         >>> Equation(f, f.dagger(), symbol="$\\\\mapsto$").draw(
         ...     asymmetry=.1,
-        ...     path="docs/_static/pivotal/dagger.svg")
+        ...     doctest="docs/_static/pivotal/dagger.svg")
 
         .. image:: /_static/pivotal/dagger.svg
             :align: center
@@ -150,7 +150,7 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
         >>> assert f.conjugate() == f[::-1].rotate() == f.rotate()[::-1]
 
         >>> Equation(f, f.conjugate(), symbol="$\\\\mapsto$").draw(
-        ...     path="docs/_static/pivotal/conjugate.svg")
+        ...     doctest="docs/_static/pivotal/conjugate.svg")
 
         .. image:: /_static/pivotal/conjugate.svg
             :align: center
