@@ -280,6 +280,7 @@ class Drawing(TracedCategory, RichDisplay):
             return False
         return self.is_parallel(other) and self.positions == other.positions
 
+    @backend.matplotlib_context()
     def draw(self, **params):
         """ Call :meth:`add_box_corners` then :func:`backend.draw`. """
         asymmetry = params.pop("asymmetry", 0.125 * any(
