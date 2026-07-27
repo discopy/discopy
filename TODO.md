@@ -23,9 +23,9 @@ missing wheel.
       the plugin. Same set of skips as the error-reading version, checked by diffing the two runs.
 - [x] Put it behind one flag, `--skip-extra`, per review: without it the run is byte-for-byte what
       `main` does today, with it the run is green. CONTRIBUTING.md is one line.
-- [x] `conftest.py` gone: the flag moved into the package as `discopy/pytest_plugin.py`, registered
-      by a `pytest11` entry point — Alexis on the review, "it's fine to ship the flag to everyone
-      who installs discopy, we even mention it in the contributing guide"
+- [x] `conftest.py` gone. The flag now lives at `test/plugin.py`, loaded by `-p plugin` in
+      `addopts` with `test` on the `pythonpath` — so it is not shipped to users after all, and
+      `test/__init__.py` was not possible, see the PR comments
 - [x] `uv run pflake8 discopy conftest.py`
 - [x] `uv run pytest` green on the default install: 509 passed, 80 skipped after merging `main`
 - [x] Confirm on CI that the full install still runs everything, with nothing skipped — `test (3.14)` on `03ebf1a`: **753 passed, 1 skipped**, every quantum module still collected and covered
