@@ -201,6 +201,53 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
     def to_drawing(self):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
 
+    def to_term(self) -> Term:
+        """
+        Read a causal diagram as a term in fine-grain call-by-value style:
+        one let statement per box in topological order with a variable for
+        each wire, going through :class:`Hypergraph` so that the copy,
+        discard and swap structure simplifies away into the spiders.
+
+        The free variables of the term are the inputs that the diagram
+        actually uses; a diagram with no box is a tuple of variables.
+
+        Example
+        -------
+        >>> X, Y = Ty("X"), Ty("Y")
+        >>> f, g = Box("f", X, Y @ Y), Box("g", Y @ Y, Y)
+        >>> diagram = Diagram.copy(X) >> f @ Diagram.discard(X) >> g
+        >>> print(diagram.to_term())
+        let(f(x0), lambda x1, x2: g(Tuple(x1, x2)))
+        >>> assert Diagram.swap(X, Y).to_term()\\
+        ...     == Tuple(Variable("x1", Y), Variable("x0", X))
+        """
+        hypergraph = Hypergraph.from_diagram(self)
+        if not hypergraph.is_causal:
+            raise ValueError(f"Expected a causal diagram, got {self}")
+        variables = [self.ob.variable_factory(f"x{i}", typ)
+                     for i, typ in enumerate(hypergraph.spider_types)]
+        outputs = [variables[i] for i in hypergraph.cod_wires]
+        result = outputs[0] if len(outputs) == 1 else Tuple(*outputs)
+        for box, (dom_wires, cod_wires) in reversed(list(zip(
+                hypergraph.boxes, hypergraph.box_wires))):
+            expression = self.__box_to_term__(
+                box, [variables[i] for i in dom_wires])
+            bound = [variables[i] for i in cod_wires]
+            result = expression if bound == [result]\
+                else Let(expression, tuple(bound), result)
+        return result
+
+    @classmethod
+    def __box_to_term__(cls, box, args):
+        "The application of a box as a constant to variables for its inputs."
+        if not box.dom:
+            return cls.ob.constant_factory(box.name, box.cod)
+        factors = [box.dom[i:i + 1] for i in range(len(box.dom))]
+        exponent = box.dom if len(factors) == 1\
+            else factors[0].product(*factors[1:])
+        constant = cls.ob.constant_factory(box.name, exponent >> box.cod)
+        return constant(args[0] if len(args) == 1 else Tuple(*args))
+
 
 class Box(markov.Box, biclosed.Box, Diagram):
     "A closed box is a markov and biclosed box in a closed diagram."
@@ -373,6 +420,15 @@ type Term = Constant | Variable | Application | Abstraction\
 
 
 class Constant(TermBase, biclosed.Constant):
+    """
+    A constant term prints as its bare name, so that terms read like
+    textbook effectful lambda calculus and ``eval(str(term)) == term``
+    under the obvious variable naming convention, e.g.
+    ``query = (E >> E)("query")``.
+    """
+    def __str__(self):
+        return self.name
+
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
         if not context:

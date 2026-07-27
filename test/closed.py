@@ -99,6 +99,51 @@ def test_substitution():
     assert s(let(f(x), lambda y: y)) == let(f(z), lambda y: y)
 
 
+def test_compact_str():
+    E = Ty("E")
+    query, feed_forward = (E >> E)("query"), (E >> E)("feed_forward")
+    x = Variable("x", E)
+    t = let(query(x), lambda q: feed_forward(q))
+    assert str(t) == "let(query(x), lambda q: feed_forward(q))"
+    assert eval(str(t), dict(
+        let=let, query=query, feed_forward=feed_forward, x=x)) == t
+
+
+def test_to_term():
+    X, Y = Ty("X"), Ty("Y")
+    f, g = Box("f", X, Y @ Y), Box("g", Y @ Y, Y)
+    diagram = Diagram.copy(X) >> f @ Diagram.discard(X) >> g
+    t = diagram.to_term()
+    assert str(t) == "let(f(x0), lambda x1, x2: g(Tuple(x1, x2)))"
+    x0 = Variable("x0", X)
+    assert eval(str(t), dict(
+        let=let, Tuple=Tuple, x0=x0,
+        f=(X >> Y @ Y)("f"), g=(Y.product(Y) >> Y)("g"))) == t
+
+    assert Copy(X).to_term() == Tuple(x0, x0)
+    assert Box("h", X, Y).to_term() == (X >> Y)("h")(x0)
+
+
+def test_to_term_round_trip():
+    from discopy.python import Function
+    X, Y = Ty("X"), Ty("Y")
+    f, g = Box("f", X, Y @ Y), Box("g", Y @ Y, Y)
+    diagram = Diagram.copy(X) >> f @ Diagram.discard(X) >> g
+    term = diagram.to_term()
+    F = Functor({X: int, Y: int}, {
+        f: Function(lambda n: (n, n + 1), (int,), (int, int)),
+        g: Function(lambda a, b: a * b, (int, int), (int,))}, cod=Function)
+    constant_f, constant_g = term.constants
+    G = Functor({X: int, Y: int}, {
+        constant_f: Function(
+            lambda: lambda n: (n, n + 1), (),
+            Function.exp((int, int), (int,))),
+        constant_g: Function(
+            lambda: lambda a, b: a * b, (),
+            Function.exp((int,), (int, int)))}, cod=Function)
+    assert F(diagram)(3) == G(term)(3) == 12
+
+
 def test_python_let():
     from discopy.python import Function
     x = Ty("x")
