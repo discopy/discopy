@@ -30,7 +30,7 @@ Monoidal streams form a feedback category as follows:
 ...                      cod=Stream)
 
 >>> Equation(fb, F(fb).unroll(2).now, symbol="$\\\\mapsto$").draw(
-...     path="docs/_static/stream/feedback-to-stream.svg")
+...     doctest="docs/_static/stream/feedback-to-stream.svg")
 
 .. image:: /_static/stream/feedback-to-stream.svg
     :align: center
@@ -63,7 +63,7 @@ category of streams of python types and functions.
 ...                >> fby >> copy).feedback()
 >>> assert Equation(fib.arg, fib_.arg)
 >>> fib_.draw(wire_labels=False, figsize=(5, 5),
-...           path="docs/_static/stream/fibonacci-feedback.svg")
+...           doctest="docs/_static/stream/fibonacci-feedback.svg")
 
 .. image:: /_static/stream/fibonacci-feedback.svg
     :align: center
@@ -93,7 +93,7 @@ category of streams of python types and probabilistic functions.
 ...     return (x, x)
 
 >>> walk.draw(wire_labels=False, figsize=(5, 5),
-...           path="docs/_static/stream/random-walk-feedback.svg")
+...           doctest="docs/_static/stream/random-walk-feedback.svg")
 
 .. image:: /_static/stream/random-walk-feedback.svg
     :align: center
@@ -122,7 +122,7 @@ Note that we can only check equality of streams up to a finite number of steps.
 >>> assert eq_up_to_n(f >> _id(f.cod), f, _id(f.dom) >> f)
 >>> assert eq_up_to_n((f >> g) >> h), (f >> (g >> h))
 >>> ((f >> g) >> h).now.draw(
-...     path="docs/_static/stream/feedback-associativity.svg")
+...     doctest="docs/_static/stream/feedback-associativity.svg")
 
 .. image:: /_static/stream/feedback-associativity.svg
     :align: center
@@ -130,7 +130,7 @@ Note that we can only check equality of streams up to a finite number of steps.
 * Associativity of tensor holds up to interchanger:
 
 >>> Equation(*map(lambda x: x.now, ((f @ g) @ h, f @ (g @ h)))).draw(
-...     path="docs/_static/stream/feedback-tensor-associativity.svg")
+...     doctest="docs/_static/stream/feedback-tensor-associativity.svg")
 
 .. image:: /_static/stream/feedback-tensor-associativity.svg
     :align: center
@@ -147,8 +147,8 @@ Note that we can only check equality of streams up to a finite number of steps.
 >>> g_ = Stream.sequence("g'", y_, z_, n_)
 
 >>> LHS, RHS = f @ f_ >> g @ g_, (f >> g) @ (f_ >> g_)
->>> Equation(LHS.now, RHS.now, symbol="$\\\\sim$").draw(
-...     path="docs/_static/stream/feedback-interchanger.svg", figsize=(8, 6))
+>>> Equation(LHS.now, RHS.now, symbol="$\\\\sim$").draw(figsize=(8, 6),
+...     doctest="docs/_static/stream/feedback-interchanger.svg")
 
 .. image:: /_static/stream/feedback-interchanger.svg
     :align: center
@@ -437,7 +437,7 @@ class Stream(MonoidalCategory, NamedGeneric['category']):
         >>> from discopy.monoidal import Equation
         >>> f = Stream.sequence("f", *map(Ty.sequence, "xym"))
         >>> Equation(f.now, f.unroll().now, f.unroll(2).now, symbol=',').draw(
-        ...     figsize=(8, 4), path="docs/_static/stream/unroll.svg")
+        ...     figsize=(8, 4), doctest="docs/_static/stream/unroll.svg")
 
         .. image:: /_static/stream/unroll.svg
             :align: center
@@ -479,7 +479,7 @@ class Stream(MonoidalCategory, NamedGeneric['category']):
         >>> x, y, z, m, n = map(Ty.sequence, "xyzmn")
         >>> f = Stream.sequence("f", x, y, m)
         >>> g = Stream.sequence("g", y, z, n)
-        >>> (f >> g).now.draw(path="docs/_static/stream/stream-then.svg")
+        >>> (f >> g).now.draw(doctest="docs/_static/stream/stream-then.svg")
 
         .. image:: /_static/stream/stream-then.svg
             :align: center
@@ -504,7 +504,7 @@ class Stream(MonoidalCategory, NamedGeneric['category']):
         >>> x, y, z, w, m, n = map(Ty.sequence, "xyzwmn")
         >>> f = Stream.sequence("f", x, y, m)
         >>> g = Stream.sequence("g", z, w, n)
-        >>> (f @ g).now.draw(path="docs/_static/stream/stream-tensor.svg")
+        >>> (f @ g).now.draw(doctest="docs/_static/stream/stream-tensor.svg")
 
         .. image:: /_static/stream/stream-tensor.svg
             :align: center
@@ -557,7 +557,7 @@ class Stream(MonoidalCategory, NamedGeneric['category']):
 
         >>> from discopy.monoidal import Equation
         >>> Equation(f.unroll(2).now, fb.unroll(2).now, symbol="$\\\\mapsto$"
-        ...     ).draw(path="docs/_static/stream/feedback-unrolling.svg")
+        ...     ).draw(doctest="docs/_static/stream/feedback-unrolling.svg")
 
         .. image:: /_static/stream/feedback-unrolling.svg
             :align: center

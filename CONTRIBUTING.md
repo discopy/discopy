@@ -168,24 +168,27 @@ If you happen to find one, please [open an issue](https://github.com/discopy/dis
 We would be thrilled to welcome contributions in the form of examples, tests, notebooks, etc.
 We are also keen to hear if you spot any part of the documentation that you suspect is broken, outdated or plain wrong.
 
-We use the following convention so that documentation images are generated automatically when running doctests:
+We use the following convention so that documentation images are generated and compared against a baseline when running doctests:
 
 ```
 Example
 -------
 >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
 >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
->>> (f0 @ f1).draw(path='docs/_static/monoidal/tensor-example.svg')
+>>> (f0 @ f1).draw(doctest='docs/_static/monoidal/tensor-example.svg')
 
 .. image:: /_static/monoidal/tensor-example.svg
     :align: center
 ```
 
-You do not need to commit these images yourself: on every pull request the
-`docs-static` job in the [build workflow](.github/workflows/build.yml) reuses
-the images drawn by the test run and, whenever one actually changed, commits the
-regenerated `docs/_static` back to your branch. If you do commit images by hand,
-avoid pushing changes that are only due to minor glitches e.g. font aliasing.
+If the image already exists, drawing the example checks it against the
+committed baseline and raises an error when they differ. To update an image,
+delete its baseline so the next run regenerates it, or set
+`discopy.config.OVERRIDE_DOCTEST_IMAGES = True` before running the tests, in
+which case `doctest=` behaves like `path=` and just overrides the images.
+Commit the regenerated images just like any other test change, otherwise
+the CI won't pass. A plain `draw(path=...)` just saves the drawing,
+overwriting any existing file.
 
 ## Request features
 

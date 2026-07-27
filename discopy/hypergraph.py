@@ -1641,7 +1641,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         pos = spring_layout(graph, pos=pos, fixed=fixed, k=k, seed=seed)
         return graph, pos
 
-    def draw(self, seed=None, k=.25, path=None):
+    def draw(self, seed=None, k=.25, path=None, doctest=None):
         """
         Draw a hypegraph using a force-based layout algorithm.
 
@@ -1651,13 +1651,13 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         >>> x, y, z = map(Ty, "xyz")
         >>> f = Box('f', x, y @ z).to_hypergraph()
         >>> f.draw(
-        ...     path='docs/_static/hypergraph/box.svg', seed=42)
+        ...     doctest='docs/_static/hypergraph/box.svg', seed=42)
 
         .. image:: /_static/hypergraph/box.svg
             :align: center
 
         >>> (H.spiders(2, 2, x) >> f @ x).draw(
-        ...     path='docs/_static/hypergraph/diagram.svg', seed=42)
+        ...     doctest='docs/_static/hypergraph/diagram.svg', seed=42)
 
         .. image:: /_static/hypergraph/diagram.svg
             :align: center
@@ -1685,7 +1685,10 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
             graph, pos=pos, labels=labels,
             nodelist=nodelist, node_size=node_size,
             node_color="white", edgecolors="black")
+        path, compare = backend.doctest_or_path(path, doctest)
         if path is not None:
-            backend.savefig(path)
-            plt.close()
+            try:
+                backend.savefig(path, compare=compare)
+            finally:
+                plt.close()
         plt.show()

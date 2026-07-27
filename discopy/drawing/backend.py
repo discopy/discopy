@@ -20,14 +20,21 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from math import sqrt
+import os
+import re
+from xml.etree import ElementTree
 
 from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
+import numpy as np
 
+from matplotlib.testing.compare import compare_images
 from matplotlib.patches import PathPatch, Patch
 from matplotlib.path import Path
+from PIL import Image, ImageSequence
 
+from discopy import config
 from discopy.drawing import Node, Point
 
 from discopy.config import (  # noqa: F401
@@ -76,25 +83,124 @@ def draw(graph: PlaneGraph, **params):
     if params.get('legend', False):
         backend.draw_legend(graph, **params)
 
+    path, compare = doctest_or_path(
+        params.get('path', None), params.get('doctest', None))
     return backend.output(
-        path=params.get('path', None),
+        path=path,
         baseline=graph.height / 2 or .5,
         tikz_options=params.get('tikz_options', None),
         show=params.get('show', True), aspect=aspect,
-        margins=params.get('margins', DEFAULT['margins']))
+        margins=params.get('margins', DEFAULT['margins']),
+        compare=compare,
+        tol=params.get('tol', DEFAULT['plt_tol']))
 
 
-def savefig(path):
-    """ Save the current figure with reproducible metadata and identifiers. """
-    path_str = str(path)
+def doctest_or_path(path=None, doctest=None):
+    """ A doctest path is a baseline that drawing checks against,
+    a plain path is just where the drawing gets saved. """
+    return (doctest, True) if doctest is not None else (path, False)
+
+
+NUMBER = re.compile(r"-?\d+(?:\.\d+)?(?:e-?\d+)?")
+
+
+def close_enough(expected: str, actual: str, tol: float) -> bool:
+    """ Whether two strings are equal up to `tol` on their numbers. """
+    if NUMBER.sub("#", expected) != NUMBER.sub("#", actual):
+        return False
+    return all(
+        x == y or abs(float(x) - float(y)) <= tol for x, y in
+        zip(NUMBER.findall(expected), NUMBER.findall(actual)))
+
+
+def svg_equal(path, actual_path, tol=DEFAULT['svg_tol']) -> bool:
+    """ Whether two SVG files are equal as element trees,
+    with coordinates compared up to `tol` for rounding errors.
+
+    There is nothing to normalise: :func:`savefig` tells matplotlib to
+    drop the creation date and fix the salt that hashes clip path ids.
+    """
+    def equal(expected, actual):
+        return expected.tag == actual.tag\
+            and (expected.text or "").strip() == (actual.text or "").strip()\
+            and expected.attrib.keys() == actual.attrib.keys()\
+            and all(close_enough(value, actual.attrib[key], tol)
+                    for key, value in expected.attrib.items())\
+            and len(expected) == len(actual)\
+            and all(map(equal, expected, actual))
+
+    return equal(
+        ElementTree.parse(path).getroot(),
+        ElementTree.parse(actual_path).getroot())
+
+
+def temporary_path(path):
+    """ Prefix the basename of a path with an underscore. """
+    folder, name = os.path.split(os.fspath(path))
+    return os.path.join(folder, "_" + name)
+
+
+def compare_drawing(path, actual_path, tol=DEFAULT['plt_tol']):
+    """ Compare a drawing against its baseline and remove it when equal. """
+    extension = os.path.splitext(os.fspath(path))[1].lower()
+    if extension == ".svg":
+        equal = svg_equal(path, actual_path)
+        difference = None
+    elif extension in [".png", ".jpg", ".jpeg", ".tif", ".tiff"]:
+        difference = compare_images(path, actual_path, tol)
+        equal = difference is None
+    elif extension == ".gif":
+        with Image.open(path) as expected, Image.open(actual_path) as actual:
+            expected_frames = [
+                frame.convert("RGBA")
+                for frame in ImageSequence.Iterator(expected)]
+            actual_frames = [
+                frame.convert("RGBA")
+                for frame in ImageSequence.Iterator(actual)]
+        rms = [np.sqrt(np.mean((
+            np.asarray(expected, dtype=float)
+            - np.asarray(actual, dtype=float)) ** 2))
+            for expected, actual in zip(expected_frames, actual_frames)]
+        equal = len(expected_frames) == len(actual_frames)\
+            and all(value <= tol for value in rms)
+        difference = None
+    else:
+        with open(path, "rb") as expected, open(actual_path, "rb") as actual:
+            equal = expected.read() == actual.read()
+        difference = None
+    if not equal:
+        message = f"Drawing differs from {path!r}; see {actual_path!r}."
+        if difference is not None:
+            message += f"\n{difference}"
+        raise ValueError(message)
+    os.remove(actual_path)
+
+
+def save_and_compare(path, save, tol=DEFAULT['plt_tol']):
+    """ Save a drawing baseline when missing, compare against it otherwise. """
+    if config.OVERRIDE_DOCTEST_IMAGES or not os.path.exists(path):
+        save(path)
+        return
+    actual_path = temporary_path(path)
+    save(actual_path)
+    compare_drawing(path, actual_path, tol)
+
+
+def savefig(path, compare=False, tol=DEFAULT['plt_tol']):
+    """ Save the current Matplotlib figure, as a baseline when `compare`. """
+    path_str = os.fspath(path)
     if path_str.endswith(".svg"):
         metadata, context = {"Date": None}, {"svg.hashsalt": "discopy"}
     elif path_str.endswith(".png"):
         metadata, context = {"Software": None}, {}
     else:
         metadata, context = None, {}
-    with plt.rc_context(context):
-        plt.savefig(path, metadata=metadata)
+
+    def save(actual_path):
+        with plt.rc_context(context):
+            plt.savefig(actual_path, metadata=metadata)
+
+    save_and_compare(path, save, tol) if compare else save(path)
 
 
 def _bezier_subcurve(points, t0, t1):
@@ -960,7 +1066,11 @@ class Matplotlib(Backend):
         if ylim is not None:
             self.axis.set_ylim(*ylim)
         if path is not None:
-            savefig(path)
-            plt.close()
+            try:
+                savefig(
+                    path, compare=params.get("compare", False),
+                    tol=params.get("tol", DEFAULT['plt_tol']))
+            finally:
+                plt.close()
         if show:
             plt.show()
