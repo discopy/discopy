@@ -22,7 +22,7 @@ Axioms
 ------
 The axiom for the twist holds on the nose.
 
->>> x, y = Ty('x'), Ty('y')
+>>> x, y = Ty('a'), Ty('b')
 >>> assert Diagram.twist(x @ y) == (Braid(x, y)
 ...     >> Twist(y) @ Twist(x) >> Braid(y, x))
 >>> Diagram.twist(x @ y).draw(doctest="docs/_static/balanced/twist.svg")
