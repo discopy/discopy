@@ -60,13 +60,7 @@ uv run coverage run -m pytest
 uv run coverage report -m
 ```
 
-With only `uv sync --dev`, the optional backends (pytket, torch, tensornetwork, jax, pyzx,
-pennylane, qiskit, quimb, sympy, nltk) and the graphviz `dot` binary are missing. Rather than let
-that abort collection and run nothing at all, `conftest.py` skips whatever fails for want of one of
-them — a module that cannot be imported, a doctest that needs a backend, a notebook that imports one
-— and runs everything else. There is a single rule: read the error, and if it names one of those
-dependencies, skip instead of fail. `uv sync --dev --group all` installs them all and nothing is
-skipped, which is what CI runs, so a green run with skips is never a substitute for the full one.
+Without the extras installed, run `uv run pytest --skip-extra` to skip what needs them.
 
 ## Run the benchmarks
 

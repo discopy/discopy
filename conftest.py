@@ -1,4 +1,4 @@
-""" Skip what needs more than ``uv sync --dev``, see CONTRIBUTING.md. """
+""" The ``--skip-extra`` flag, see CONTRIBUTING.md. """
 
 import re
 
@@ -41,10 +41,18 @@ def missing_dependency(error: BaseException) -> str | None:
     return None
 
 
+def pytest_addoption(parser):
+    parser.addoption("--skip-extra", action="store_true", help=(
+        "Skip what needs a dependency outside `uv sync --dev`, rather than "
+        "fail. Nothing is skipped once the extras are installed."))
+
+
 @pytest.hookimpl(wrapper=True)
 def pytest_make_collect_report(collector):
     """ A module that cannot be imported for want of a backend is skipped. """
     report = yield
+    if not collector.config.getoption("--skip-extra"):
+        return report
     if report.failed and (module := missing_module(str(report.longrepr))):
         report.outcome, report.longrepr = "skipped", (
             str(collector.path), None, f"Skipped: needs {module}")
@@ -57,6 +65,8 @@ def pytest_runtest_call(item):
     try:
         return (yield)
     except BaseException as error:
+        if not item.config.getoption("--skip-extra"):
+            raise
         if (module := missing_dependency(error)) is None:
             raise
         pytest.skip(f"needs {module}")

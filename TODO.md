@@ -14,7 +14,10 @@ missing wheel.
       `uv sync --dev`, skip instead of fail — at collection (a module that cannot be imported) and
       at call (a doctest or a notebook that needs a backend). No per-file list, no edits to the
       test modules.
-- [x] Put the explanation in CONTRIBUTING.md where it belongs, not in the `conftest.py` docstring
+- [x] Put it behind one flag, `--skip-extra`, per review: without it the run is byte-for-byte what
+      `main` does today, with it the run is green. CONTRIBUTING.md is one line.
+- [ ] Decide where `pytest_addoption` lives — `conftest.py` is the only place that does not ship
+      the flag to everyone who installs discopy, see the reply on the review
 - [x] `uv run pflake8 discopy conftest.py`
 - [x] `uv run pytest` green on the default install: 509 passed, 80 skipped after merging `main`
 - [x] Confirm on CI that the full install still runs everything, with nothing skipped — `test (3.14)` on `03ebf1a`: **753 passed, 1 skipped**, every quantum module still collected and covered
