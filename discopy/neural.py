@@ -155,7 +155,40 @@ class PyTorch(Backend):
         return neural_torch.zeros_module()
 
 
+class JAX(Backend):
+    """ The JAX neural execution backend, imported lazily. """
+
+    def zeros(self, batch_size: int, width: int, like=None):
+        from discopy import neural_jax
+        return neural_jax.zeros(batch_size, width, like=like)
+
+    def split(self, value, widths: tuple[int, ...]) -> tuple:
+        from discopy import neural_jax
+        return neural_jax.split(value, widths)
+
+    def concatenate(self, values: tuple):
+        from discopy import neural_jax
+        return neural_jax.concatenate(values)
+
+    def activate(self, module, value):
+        from discopy import neural_jax
+        return neural_jax.activate(module, value)
+
+    def prototype(self, modules: tuple):
+        from discopy import neural_jax
+        return neural_jax.prototype(modules)
+
+    def wrap(self, inside: CMap):
+        from discopy import neural_jax
+        return neural_jax.wrap(inside, backend=self)
+
+    def zeros_module(self):
+        from discopy import neural_jax
+        return neural_jax.zeros_module()
+
+
 BACKENDS = {
+    'jax': JAX,
     'pytorch': PyTorch,
 }
 
