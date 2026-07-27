@@ -14,9 +14,13 @@ missing wheel.
       `uv sync --dev`, skip instead of fail — at collection (a module that cannot be imported) and
       at call (a doctest or a notebook that needs a backend). No per-file list, no edits to the
       test modules.
-- [x] Hook for the modules that cannot be imported, `# doctest: +EXTRA` on the 45 doctests that
-      can say so themselves, per review. This turned out to fix a real leak, see the PR comment:
-      11 tests were being skipped for a dependency they never needed.
+- [x] `# doctest: +EXTRA` on the 45 doctests that need a backend, per review. This turned out to
+      fix a real leak, see the PR comment: 11 tests were being skipped for a dependency they
+      never needed.
+- [x] No reading of errors, per review: every test that needs a backend says so with
+      `pytest.importorskip`, so it skips itself under plain `pytest` with no flag at all. What
+      cannot say it — two modules whose *import* is the failure, and two notebooks — is named in
+      the plugin. Same set of skips as the error-reading version, checked by diffing the two runs.
 - [x] Put it behind one flag, `--skip-extra`, per review: without it the run is byte-for-byte what
       `main` does today, with it the run is green. CONTRIBUTING.md is one line.
 - [x] `conftest.py` gone: the flag moved into the package as `discopy/pytest_plugin.py`, registered
