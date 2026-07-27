@@ -174,7 +174,10 @@ class JAX(Backend):
     :class:`ExecutionPlan` is static metadata and whose distinct modules are
     dynamic children. Pass that wrapper as an argument to transformations,
     for example ``jax.jit(lambda model, x: model(x))(model, x)``. Execution
-    controls such as ``n_rounds`` remain static Python values under JIT.
+    controls such as ``n_rounds``, ``inject``, ``causal`` and
+    ``return_memory`` remain static Python values under JIT. Passing the
+    wrapper itself directly to ``jax.jit`` closes over its current parameters;
+    pass it as an argument when parameters should remain dynamic.
     """
 
     def zeros(self, batch_size: int, width: int, like=None):

@@ -65,9 +65,9 @@ class CMapModule:
     """
     A compiled neural combinatorial map represented as a callable JAX PyTree.
 
-    The immutable execution plan is static tree metadata, while the distinct
-    modules are dynamic children visible to JAX transformations. Pass the
-    model as an argument to transformations, for example
+    The immutable execution plan and stateless backend are static tree
+    metadata, while the distinct modules are dynamic children visible to JAX
+    transformations. Pass the model as an argument to transformations, e.g.
     ``jax.jit(lambda model, x: model(x))(model, x)``. Parameterized modules
     can use ``jax.tree_util.Partial`` so their bound arrays remain
     dynamic leaves.
@@ -75,24 +75,21 @@ class CMapModule:
     Parameters:
         plan : The backend-neutral execution plan.
         modules : The callable PyTrees indexed by the plan.
+        backend : The stateless backend bound to this wrapper.
     """
     plan: "ExecutionPlan"
     modules: tuple
-
-    @property
-    def backend(self):
-        """ A stateless JAX backend for interpreting the execution plan. """
-        from discopy.neural import JAX
-        return JAX()
+    backend: "Backend"
 
     def tree_flatten(self):
         """ Expose modules as dynamic children and the plan as static data. """
-        return self.modules, self.plan
+        return self.modules, (self.plan, self.backend)
 
     @classmethod
-    def tree_unflatten(cls, plan, modules):
+    def tree_unflatten(cls, metadata, modules):
         """ Rebuild a model after a JAX tree transformation. """
-        return cls(plan, tuple(modules))
+        plan, backend = metadata
+        return cls(plan, tuple(modules), backend)
 
     def forward(self, x=None, init=None,
                 n_rounds: int = None, inject: bool = True,
@@ -155,5 +152,4 @@ class CMapModule:
 
 def wrap(inside: "CMap", backend: "Backend") -> CMapModule:
     """ Wrap a combinatorial map in a fresh callable JAX PyTree. """
-    del backend
-    return CMapModule(inside.execution_plan, inside.modules)
+    return CMapModule(inside.execution_plan, inside.modules, backend)

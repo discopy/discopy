@@ -61,6 +61,7 @@ def test_jax_backend_eager_and_closed():
     cell = Network(
         "cell", Dim(0), Dim(1, 1), module=module())
     model = ring(2, cell).as_network(backend=selected).module
+    assert model.backend is selected
     states = model(
         init=jnp.array([[1., 2., 3., 4.]]),
         n_rounds=1, inject=False)
