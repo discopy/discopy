@@ -141,11 +141,26 @@ def doctest_or_path(path=None, doctest=None):
     return (doctest, True) if doctest is not None else (path, False)
 
 
-NUMBER = re.compile(r"-?\d+(?:\.\d+)?(?:e-?\d+)?")
+XML_SPACE = "{http://www.w3.org/XML/1998/namespace}space"
+NUMBER = re.compile(
+    r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?")
+CLIP_REFERENCE = re.compile(r"url\(#([^)]+)\)")
+GEOMETRY_ATTRIBUTES = {
+    "d", "points", "transform", "viewBox",
+    "x", "y", "dx", "dy", "x1", "y1", "x2", "y2",
+    "cx", "cy", "r", "rx", "ry", "fx", "fy", "fr",
+    "refX", "refY", "width", "height", "markerWidth", "markerHeight",
+    "pathLength",
+}
+
+
+def local_name(name):
+    """ Drop an XML namespace from a tag or attribute name. """
+    return name.rsplit("}", 1)[-1]
 
 
 def close_enough(expected: str, actual: str, tol: float) -> bool:
-    """ Whether two strings are equal up to `tol` on their numbers. """
+    """ Whether two geometry strings differ by at most `tol`. """
     if NUMBER.sub("#", expected) != NUMBER.sub("#", actual):
         return False
     return all(
@@ -153,25 +168,49 @@ def close_enough(expected: str, actual: str, tol: float) -> bool:
         zip(NUMBER.findall(expected), NUMBER.findall(actual)))
 
 
-def svg_equal(path, actual_path, tol=DEFAULT['svg_tol']) -> bool:
-    """ Whether two SVG files are equal as element trees,
-    with coordinates compared up to `tol` for rounding errors.
+def normalize_svg(path):
+    """ Remove metadata and normalize geometry-derived clip ids. """
+    root = ElementTree.parse(path).getroot()
+    clip_ids = {}
 
-    There is nothing to normalise: :func:`savefig` tells matplotlib to
-    drop the creation date and fix the salt that hashes clip path ids.
-    """
+    def clip_id(identifier):
+        return f"clip-{clip_ids.setdefault(identifier, len(clip_ids))}"
+
+    for parent in root.iter():
+        for child in list(parent):
+            if local_name(child.tag) == "metadata":
+                parent.remove(child)
+    for element in root.iter():
+        element.attrib.pop(XML_SPACE, None)
+        if element.text is not None and not element.text.strip():
+            element.text = None
+        element.tail = None
+        if local_name(element.tag) == "clipPath"\
+                and "id" in element.attrib:
+            element.set("id", clip_id(element.attrib["id"]))
+        reference = CLIP_REFERENCE.fullmatch(
+            element.attrib.get("clip-path", ""))
+        if reference:
+            element.set(
+                "clip-path", f"url(#{clip_id(reference[1])})")
+    return root
+
+
+def svg_equal(path, actual_path, tol=DEFAULT['svg_tol']) -> bool:
+    """ Compare exact SVG structure with geometry tolerance. """
     def equal(expected, actual):
         return expected.tag == actual.tag\
-            and (expected.text or "").strip() == (actual.text or "").strip()\
+            and expected.text == actual.text\
             and expected.attrib.keys() == actual.attrib.keys()\
-            and all(close_enough(value, actual.attrib[key], tol)
-                    for key, value in expected.attrib.items())\
+            and all(
+                close_enough(value, actual.attrib[key], tol)
+                if local_name(key) in GEOMETRY_ATTRIBUTES
+                else value == actual.attrib[key]
+                for key, value in expected.attrib.items())\
             and len(expected) == len(actual)\
             and all(map(equal, expected, actual))
 
-    return equal(
-        ElementTree.parse(path).getroot(),
-        ElementTree.parse(actual_path).getroot())
+    return equal(normalize_svg(path), normalize_svg(actual_path))
 
 
 def temporary_path(path):
@@ -190,18 +229,31 @@ def compare_drawing(path, actual_path, tol=DEFAULT['plt_tol']):
         difference = compare_images(path, actual_path, tol)
         equal = difference is None
     elif extension == ".gif":
-        with Image.open(path) as expected, Image.open(actual_path) as actual:
-            expected_frames = [
-                frame.convert("RGBA")
-                for frame in ImageSequence.Iterator(expected)]
-            actual_frames = [
-                frame.convert("RGBA")
-                for frame in ImageSequence.Iterator(actual)]
-        rms = [np.sqrt(np.mean((
-            np.asarray(expected, dtype=float)
-            - np.asarray(actual, dtype=float)) ** 2))
-            for expected, actual in zip(expected_frames, actual_frames)]
-        equal = len(expected_frames) == len(actual_frames)\
+        def gif_data(gif_path):
+            with Image.open(gif_path) as image:
+                default_duration = image.info.get("duration")
+                loop = image.info.get("loop")
+                frames = [
+                    (frame.convert("RGBA"), frame.size,
+                     frame.info.get("duration", default_duration))
+                    for frame in ImageSequence.Iterator(image)]
+            return frames, loop
+
+        expected_frames, expected_loop = gif_data(path)
+        actual_frames, actual_loop = gif_data(actual_path)
+        same_animation = expected_loop == actual_loop\
+            and len(expected_frames) == len(actual_frames)\
+            and all(
+                expected[1:] == actual[1:]
+                for expected, actual
+                in zip(expected_frames, actual_frames))
+        rms = [
+            np.sqrt(np.mean((
+                np.asarray(expected[0], dtype=float)
+                - np.asarray(actual[0], dtype=float)) ** 2))
+            for expected, actual in zip(expected_frames, actual_frames)
+            if expected[1] == actual[1]]
+        equal = same_animation and len(rms) == len(expected_frames)\
             and all(value <= tol for value in rms)
         difference = None
     else:
@@ -239,12 +291,13 @@ def savefig(path, format=None, compare=False, tol=DEFAULT['plt_tol']):
     path_str = str(path)
     is_svg = format == "svg" or (format is None and path_str.endswith(".svg"))
     is_png = format == "png" or (format is None and path_str.endswith(".png"))
-    metadata = {"Date": None} if is_svg else\
+    metadata = {
+        "Date": None, "Creator": None, "Format": None, "Type": None
+    } if is_svg else\
         {"Software": None} if is_png else None
-    context = {"svg.hashsalt": DEFAULT["svg_hashsalt"]} if is_svg else {}
 
     def save(actual_path):
-        with plt.rc_context(context):
+        with matplotlib_context():
             plt.savefig(actual_path, format=format, metadata=metadata)
 
     save_and_compare(path, save, tol) if compare else save(path)

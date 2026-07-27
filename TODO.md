@@ -7,6 +7,6 @@ introduce the fixes from the other branch one by one
 
 - [x] Pin text metrics and isolate Matplotlib configuration.
 - [ ] Make Matplotlib drawing and saving figure-owned.
-- [ ] Tighten SVG and GIF comparison semantics.
+- [x] Tighten SVG and GIF comparison semantics.
 - [ ] Isolate hypergraph drawing state.
 - [ ] Ignore local Matplotlib cache artifacts.
