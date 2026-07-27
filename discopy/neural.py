@@ -147,7 +147,7 @@ class PyTorch(Backend):
 
     def wrap(self, inside: CMap):
         from discopy import neural_torch
-        return neural_torch.wrap(inside)
+        return neural_torch.wrap(inside, backend=self)
 
     def zeros_module(self):
         from discopy import neural_torch

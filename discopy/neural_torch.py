@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 import torch
 
 if TYPE_CHECKING:
-    from discopy.neural import CMap
+    from discopy.neural import Backend, CMap
 
 
 def zeros(batch_size: int, width: int, like=None) -> torch.Tensor:
@@ -69,13 +69,14 @@ class CMapModule(torch.nn.Module):
     Parameters:
         inside : The combinatorial map to wrap.
     """
-    def __init__(self, inside: "CMap"):
+    def __init__(self, inside: "CMap", backend: "Backend"):
         super().__init__()
-        self.inside = inside
+        self.inside, self.backend = inside, backend
         self.networks = torch.nn.ModuleList(inside.modules)
 
     def forward(self, *args, **kwargs):
         """ Execute message passing over the wrapped map. """
+        kwargs.update(backend=self.backend, modules=self.networks)
         return self.inside.forward(*args, **kwargs)
 
     def box_forward(self, messages: torch.Tensor) -> torch.Tensor:
@@ -94,7 +95,8 @@ class CMapModule(torch.nn.Module):
         inputs, outputs, memory = messages.split(
             (dom_width, cod_width, memory_width), dim=-1)
         execution = Execution(
-            self.inside, memory=memory if memory_width else None)
+            self.inside, memory=memory if memory_width else None,
+            backend=self.backend, modules=self.networks)
         boundary_ports = execution.input_ports + execution.output_ports
         boundary = torch.split(
             torch.cat((inputs, outputs), dim=-1),
@@ -115,6 +117,6 @@ class CMapModule(torch.nn.Module):
         return torch.cat((public, next_memory), dim=-1)
 
 
-def wrap(inside: "CMap") -> CMapModule:
+def wrap(inside: "CMap", backend: "Backend") -> CMapModule:
     """ Wrap a combinatorial map in a fresh PyTorch module. """
-    return CMapModule(inside)
+    return CMapModule(inside, backend)
