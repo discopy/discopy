@@ -19,6 +19,6 @@ ok split the work in three abc / torch / jax: first refactor the existing torch 
 you can push directly to this PR for abc+torch, open a fresh one for jax
 
 - [x] Merge current main into the PR branch and resolve conflicts.
-- [ ] Turn `neural.Backend` into an explicit abstract interface and pass backend-owned modules into execution.
+- [WIP] @codex-pr399-abc-2026-07-28 00:51 Turn `neural.Backend` into an explicit abstract interface and pass backend-owned modules into execution.
 - [ ] Adapt and bind the existing PyTorch implementation to the abstract interface.
 - [ ] Add concise backend contract and PyTorch regression tests, update the documentation, and run lint and tests.
