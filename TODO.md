@@ -7,7 +7,7 @@ what is metadata used for? if it's just to remove them I would just remove them 
 
 what the fuck is going on ? explain and evaluate all the possible solutions with their tradeoffs
 
-- [ ] Merge `origin/main` into the branch, resolving the `draw` conflicts by
+- [WIP] @01H4qh8wP78PLoRLjhd6NwyK-2026-07-27 14:18 Merge `origin/main` into the branch, resolving the `draw` conflicts by
   dropping the `metadata` parameter and making `format` an attribute of the
   `Matplotlib` backend, as suggested in the review.
 
