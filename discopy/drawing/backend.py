@@ -19,7 +19,7 @@ Summary
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from contextlib import nullcontext
+from contextlib import contextmanager
 from math import sqrt
 import os
 import re
@@ -71,68 +71,62 @@ MATPLOTLIB_RC = {
 }
 
 
+@contextmanager
 def matplotlib_context():
     """ Isolate DisCoPy drawings from the caller's Matplotlib settings. """
-    return matplotlib.rc_context(MATPLOTLIB_RC)
+    with matplotlib.rc_context(MATPLOTLIB_RC):
+        yield
 
 
 def draw(graph: PlaneGraph, **params):
     """ Load a :class:`Backend` and draw a :class:`PlaneGraph` on it. """
-    context = nullcontext() if params.get('to_tikz', False)\
-        else matplotlib_context()
-    with context:
-        aspect = params.get(
-            'aspect', 'auto' if 'figsize' in params else 'equal')
-        if params.get('legend', False)\
-                and not params.get('to_tikz', False):
-            colours = Backend.region_colours(graph)
-            if colours:
-                # Widen figure by legend width rather than squeeze diagram.
-                longest = max(len(c.legend_label) for c in colours.values())
-                legend_inches = DEFAULT['legend_base_width']\
-                    + DEFAULT['legend_char_width'] * longest
-                margin_inches = DEFAULT['legend_margin']
-                extra = legend_inches + margin_inches
-                fig_width = params['figsize'][0] if 'figsize' in params\
-                    else (graph.width or 1)
-                if 'figsize' in params:
-                    params['figsize'] = (
-                        fig_width + extra, params['figsize'][1])
-                space = params.get(
-                    'legend_space', extra * graph.width / fig_width)
-                graph = graph.make_space(
-                    space, graph.width, exclusive=True, copy=True)
-        figsize = params.get('figsize', None if aspect == 'auto' else (
-            graph.width or 1, graph.height or 1))
-        backend = (
-            TikZ(use_tikzstyles=params.get('use_tikzstyles', None))
-            if params.get('to_tikz', False)
-            else Matplotlib(figsize=figsize,
-                            linewidth=params.get('linewidth', 1),
-                            format=params.get('format', None)))
+    aspect = params.get('aspect', 'auto' if 'figsize' in params else 'equal')
+    if params.get('legend', False) and not params.get('to_tikz', False):
+        colours = Backend.region_colours(graph)
+        if colours:
+            # Widen the figure by the legend width rather than squeeze diagram.
+            longest = max(len(c.legend_label) for c in colours.values())
+            legend_inches = DEFAULT['legend_base_width']\
+                + DEFAULT['legend_char_width'] * longest
+            margin_inches = DEFAULT['legend_margin']
+            extra = legend_inches + margin_inches
+            fig_width = params['figsize'][0] if 'figsize' in params\
+                else (graph.width or 1)
+            if 'figsize' in params:
+                params['figsize'] = (fig_width + extra, params['figsize'][1])
+            space = params.get('legend_space', extra * graph.width / fig_width)
+            graph = graph.make_space(
+                space, graph.width, exclusive=True, copy=True)
+    figsize = params.get('figsize', None if aspect == 'auto' else (
+        graph.width or 1, graph.height or 1))
+    backend = (
+        TikZ(use_tikzstyles=params.get('use_tikzstyles', None))
+        if params.get('to_tikz', False)
+        else Matplotlib(figsize=figsize,
+                        linewidth=params.get('linewidth', 1),
+                        format=params.get('format', None)))
 
-        max_v = max(graph.height, graph.width, 0.01)
-        params['nodesize'] = round(
-            params.get('nodesize', 1.) / sqrt(max_v), 3)
+    max_v = max(graph.height, graph.width, 0.01)
+    params['nodesize'] = round(params.get('nodesize', 1.) / sqrt(max_v), 3)
 
-        backend.draw_boundary(graph, **params)
-        backend.draw_regions(graph, **params)
-        backend.draw_wires(graph, **params)
-        backend.draw_boxes(graph, **params)
-        backend.draw_spiders(graph, **params)
-        if params.get('legend', False):
-            backend.draw_legend(graph, **params)
+    backend.draw_boundary(graph, **params)
+    backend.draw_regions(graph, **params)
+    backend.draw_wires(graph, **params)
+    backend.draw_boxes(graph, **params)
+    backend.draw_spiders(graph, **params)
+    if params.get('legend', False):
+        backend.draw_legend(graph, **params)
 
-        path, compare = doctest_or_path(
-            params.get('path', None), params.get('doctest', None))
-        return backend.output(
-            path=path,
-            baseline=graph.height / 2 or .5,
-            tikz_options=params.get('tikz_options', None),
-            show=params.get('show', True), aspect=aspect,
-            margins=params.get('margins', DEFAULT['margins']),
-            compare=compare,
-            tol=params.get('tol', DEFAULT['plt_tol']))
+    path, compare = doctest_or_path(
+        params.get('path', None), params.get('doctest', None))
+    return backend.output(
+        path=path,
+        baseline=graph.height / 2 or .5,
+        tikz_options=params.get('tikz_options', None),
+        show=params.get('show', True), aspect=aspect,
+        margins=params.get('margins', DEFAULT['margins']),
+        compare=compare,
+        tol=params.get('tol', DEFAULT['plt_tol']))
 
 
 def doctest_or_path(path=None, doctest=None):
