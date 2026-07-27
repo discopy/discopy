@@ -17,7 +17,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   [#355](https://github.com/discopy/discopy/pull/355)).
 - `Transformation` in `discopy.cat`, the natural transformations between
   functors ([#351](https://github.com/discopy/discopy/pull/351)).
-- `cat.Equation` for displaying equations between arrows
+- `cat.Equation` with an argument `up_to` for computing quotients
   ([#415](https://github.com/discopy/discopy/pull/415)).
 - Ribbon diagram support with configurable wire spacing
   ([#358](https://github.com/discopy/discopy/pull/358)).
@@ -29,6 +29,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - Composition benchmark suite for diagram operations, reproducing the
   scaling experiments of arXiv:2105.09257
   ([#346](https://github.com/discopy/discopy/pull/346)).
+- The benchmark job runs only on `main` and on pull requests labelled
+  `benchmark` ([#385](https://github.com/discopy/discopy/pull/385),
+  [#459](https://github.com/discopy/discopy/pull/459)).
 
 ### Changed
 
@@ -46,23 +49,21 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   ([#369](https://github.com/discopy/discopy/pull/369),
   [#411](https://github.com/discopy/discopy/pull/411),
   [#417](https://github.com/discopy/discopy/pull/417)).
-- `Ty.name` is cleaned up
+- `Ty.name` is a cached property computed from its `inside`
   ([#421](https://github.com/discopy/discopy/pull/421)).
 - SVG drawings are made deterministic by ordering spiders and boxes
   reproducibly
   ([#457](https://github.com/discopy/discopy/pull/457),
   [#469](https://github.com/discopy/discopy/pull/469)).
-- Documentation and test images are converted from PNG to SVG and
-  generated in CI
+- Documentation images are converted from PNG to SVG and checked in as
+  drawing-test baselines: there are no separate test images anymore,
+  every image in the docs doubles as a drawing test
   ([#419](https://github.com/discopy/discopy/pull/419),
   [#435](https://github.com/discopy/discopy/pull/435),
   [#463](https://github.com/discopy/discopy/pull/463),
   [#470](https://github.com/discopy/discopy/pull/470)).
 - The `test/` directory is reorganised to mirror `discopy/`
   ([#403](https://github.com/discopy/discopy/pull/403)).
-- The benchmark job runs only on `main` and on pull requests labelled
-  `benchmark` ([#385](https://github.com/discopy/discopy/pull/385),
-  [#459](https://github.com/discopy/discopy/pull/459)).
 
 ### Fixed
 
@@ -73,10 +74,6 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   ([#387](https://github.com/discopy/discopy/pull/387)).
 - Bubble drawing
   ([#431](https://github.com/discopy/discopy/pull/431)).
-- Unrolled drawing in the `feedback` docstring
-  ([#446](https://github.com/discopy/discopy/pull/446)).
-- Stale `Application` entry in the `categorial` autosummary docs
-  ([#409](https://github.com/discopy/discopy/pull/409)).
 
 ### Performance
 
@@ -101,9 +98,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Project
 
-- `AGENTS.md`/`CLAUDE.md`/`RULES.md`/`STYLE.md` introduced and iterated on
-  to describe the collaboration and coding protocol for AI agents working
-  on the repo
+- `AGENTS.md`/`CLAUDE.md`/`RULES.md`/`STYLE.md` introduced and iterated on,
+  and `CONTRIBUTING.md`/`README.md` updated to match, to describe the
+  collaboration and coding protocol for AI agents working on the repo
   ([#378](https://github.com/discopy/discopy/pull/378),
   [#422](https://github.com/discopy/discopy/pull/422),
   [#428](https://github.com/discopy/discopy/pull/428),
