@@ -6,7 +6,7 @@ dimensions as objects and concatenation as tensor.
 
 A :class:`Network` with domain ``Dim(a_1, ..., a_m)``, codomain
 ``Dim(b_1, ..., b_n)`` and private memory ``Dim(c_1, ..., c_k)`` carries one
-:class:`torch.nn.Module` from ``R ** w`` to ``R ** w`` for
+backend-owned callable from ``R ** w`` to ``R ** w`` for
 ``w = sum(a_i) + sum(b_i) + sum(c_i)``. It reads incoming messages on all its
 public ports followed by its previous private memory, and emits outgoing
 public messages followed by its next private memory.
@@ -23,13 +23,12 @@ of Joyal, Street & Verity :cite:p:`JoyalEtAl96`.
 
 Note that ``import discopy.neural`` does not import ``torch``: networks can
 be built, composed and rewired without it, only evaluating their modules
-requires it. This mirrors :func:`discopy.matrix.backend`, where ``numpy``,
-``jax`` and ``tensorflow`` are each imported lazily inside a
-:class:`~discopy.matrix.Backend` subclass rather than at module scope, so
-importing e.g. :mod:`discopy.tensor` never forces an unused array library
-onto the user. :class:`Execution` isolates the backend operations from the
-geometry-of-interaction stages, while :meth:`CMap.as_network` delegates
-framework-specific parameter management to a lazily imported module wrapper.
+requires a concrete :class:`Backend`. The abstract backend owns the tensor
+primitives and module protocol, while :class:`ExecutionPlan` keeps graph
+geometry independent from runtime parameters. :class:`Execution` interprets
+that plan and :meth:`CMap.as_network` delegates framework-specific parameter
+management to a lazily imported module wrapper. :class:`PyTorch` is the
+default concrete backend.
 
 Summary
 -------
@@ -48,6 +47,7 @@ Summary
     Functor
     Hypergraph
     CMap
+    ExecutionPlan
     Execution
     Backend
     PyTorch
@@ -80,6 +80,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
+from dataclasses import dataclass
 from functools import cached_property
 
 from discopy import compact, hypergraph, monoidal
@@ -235,7 +236,7 @@ class Diagram(compact.Diagram):
 
 class Network(compact.Box, Diagram):
     """
-    A network is a neural box together with a torch module computing it.
+    A network is a neural box together with a backend module computing it.
 
     The module maps ``R ** width`` to ``R ** width`` for ``width`` the sum
     of the domain, codomain and private memory dimensions. It reads one
@@ -252,7 +253,7 @@ class Network(compact.Box, Diagram):
         name : The name of the network.
         dom : The domain of the network, i.e. its input.
         cod : The codomain of the network, i.e. its output.
-        module : The torch module of the network.
+        module : The backend-owned module of the network.
         mem : The private memory dimension.
 
     Note
@@ -300,8 +301,10 @@ class Network(compact.Box, Diagram):
             mem=self.mem, is_dagger=self.is_dagger, z=(self.z + 1) % 2)
 
     def setoid(self):
-        """ Include the private memory dimension in equality and hashing. """
-        return super().setoid() + (self.mem, )
+        """ Compare given modules by identity and include private memory. """
+        result = super().setoid()
+        module = None if self.module is None else id(self.module)
+        return result[:5] + (module, ) + result[6:] + (self.mem, )
 
     def to_tree(self) -> dict:
         """ Serialize the network shape, including its private memory. """
@@ -369,6 +372,38 @@ class Functor(compact.Functor):
 Hypergraph = hypergraph.Hypergraph[Diagram]
 
 
+@dataclass(frozen=True)
+class ExecutionPlan:
+    """
+    Immutable backend-neutral data needed to execute a neural map.
+
+    A plan contains only graph topology, dimensions and indices into the
+    separate tuple of runtime modules. Thus backend wrappers can expose those
+    modules as trainable state without retaining them in compiled graph data.
+    """
+    port_dims: tuple[int, ...]
+    port_kinds: tuple[PortKind, ...]
+    edges: tuple[int, ...]
+    box_ports: tuple[tuple[int, ...], ...]
+    box_dom_arities: tuple[int, ...]
+    memory_widths: tuple[int, ...]
+    module_indices: tuple[int, ...]
+    input_ports: tuple[int, ...]
+    output_ports: tuple[int, ...]
+    has_boundary: bool
+    n_modules: int
+
+    @property
+    def n_ports(self) -> int:
+        """ The number of ports in the plan. """
+        return len(self.port_dims)
+
+    @property
+    def n_boxes(self) -> int:
+        """ The number of box occurrences in the plan. """
+        return len(self.box_ports)
+
+
 class CMap(compact.CMap):
     """
     A neural combinatorial map is a compact map with networks as boxes,
@@ -415,6 +450,33 @@ class CMap(compact.CMap):
         """ The unique-module index used by each box occurrence. """
         indices = {id(module): i for i, module in enumerate(self.modules)}
         return tuple(indices[id(box.module)] for box in self.boxes)
+
+    @cached_property
+    def execution_plan(self) -> ExecutionPlan:
+        """ Compile the map into immutable backend-neutral execution data. """
+        modules = self.modules
+        box_ports = []
+        for box, indices in zip(self.boxes, self._box_port_indices):
+            arity = len(box.dom)
+            box_ports.append(
+                indices[:arity] + tuple(reversed(indices[arity:])))
+        return ExecutionPlan(
+            port_dims=self.port_dims,
+            port_kinds=tuple(port.kind for port in self.ports),
+            edges=tuple(self.edges),
+            box_ports=tuple(box_ports),
+            box_dom_arities=tuple(len(box.dom) for box in self.boxes),
+            memory_widths=tuple(
+                sum(box.mem.inside) for box in self.boxes),
+            module_indices=self.module_indices,
+            input_ports=tuple(
+                i for i, port in enumerate(self.ports)
+                if port.kind == PortKind.INPUT),
+            output_ports=tuple(
+                i for i, port in enumerate(self.ports)
+                if port.kind == PortKind.OUTPUT),
+            has_boundary=bool(len(self.dom) or len(self.cod)),
+            n_modules=len(modules))
 
     def as_network(
             self, name: str = "network",
@@ -493,7 +555,7 @@ class Execution:
     step as well as before the first round.
 
     Parameters:
-        inside : The combinatorial map to execute.
+        inside : The combinatorial map or compiled execution plan to execute.
         x : The boundary input.
         init : The initial incoming messages.
         memory : The initial private memory, one tensor per box occurrence.
@@ -501,17 +563,26 @@ class Execution:
         modules : The backend-owned modules, in the map's unique-module order.
     """
     def __init__(
-            self, inside: CMap, x=None, init=None, memory=None,
+            self, inside: CMap | ExecutionPlan, x=None, init=None, memory=None,
             backend: str | Backend = None, modules=None):
-        assert_isinstance(inside, CMap)
-        self.inside, self.x, self.init = inside, x, init
+        if isinstance(inside, CMap):
+            self.inside, self.plan = inside, inside.execution_plan
+            expected_modules = inside.modules
+        else:
+            assert_isinstance(inside, ExecutionPlan)
+            self.inside, self.plan = None, inside
+            expected_modules = None
+        self.x, self.init = x, init
         self.memory = memory
         self.backend = get_backend(backend)
-        expected_modules = inside.modules
-        self.modules = expected_modules if modules is None else tuple(modules)
-        if len(self.modules) != len(expected_modules):
+        if modules is None and expected_modules is None:
             raise ValueError(
-                f"Expected {len(expected_modules)} modules, "
+                "Runtime modules are required with an execution plan.")
+        self.modules = expected_modules\
+            if modules is None else tuple(modules)
+        if len(self.modules) != self.plan.n_modules:
+            raise ValueError(
+                f"Expected {self.plan.n_modules} modules, "
                 f"got {len(self.modules)}.")
         self.batch_size, self.prototype = 1, None
         self.initial = self.boundary = self.incoming = ()
@@ -521,72 +592,62 @@ class Execution:
     @cached_property
     def input_ports(self) -> tuple[int, ...]:
         """ The indices of boundary input ports. """
-        return tuple(
-            i for i, port in enumerate(self.inside.ports)
-            if port.kind == PortKind.INPUT)
+        return self.plan.input_ports
 
     @cached_property
     def output_ports(self) -> tuple[int, ...]:
         """ The indices of boundary output ports. """
-        return tuple(
-            i for i, port in enumerate(self.inside.ports)
-            if port.kind == PortKind.OUTPUT)
+        return self.plan.output_ports
 
     @cached_property
     def box_ports(self) -> tuple[tuple[int, ...], ...]:
         """ The ports of each box in domain-then-codomain order. """
-        result = []
-        for box, indices in zip(
-                self.inside.boxes, self.inside._box_port_indices):
-            arity = len(box.dom)
-            result.append(
-                indices[:arity] + tuple(reversed(indices[arity:])))
-        return tuple(result)
+        return self.plan.box_ports
 
     @cached_property
     def memory_widths(self) -> tuple[int, ...]:
         """ The private memory width of each box occurrence. """
-        return tuple(sum(box.mem.inside) for box in self.inside.boxes)
+        return self.plan.memory_widths
 
     @cached_property
     def topological_order(self) -> tuple[int, ...]:
         """ Order boxes from boundary inputs towards boundary outputs. """
         domain_owner, codomain_owner, box_port_owner = {}, {}, {}
-        for box_index, (box, ports) in enumerate(zip(
-                self.inside.boxes, self.box_ports)):
+        for box_index, (arity, ports) in enumerate(zip(
+                self.plan.box_dom_arities, self.box_ports)):
             for port in ports:
                 box_port_owner[port] = box_index
-            for port in ports[:len(box.dom)]:
+            for port in ports[:arity]:
                 domain_owner[port] = box_index
-            for port in ports[len(box.dom):]:
+            for port in ports[arity:]:
                 codomain_owner[port] = box_index
 
         dependencies = []
-        for box_index, (box, ports) in enumerate(zip(
-                self.inside.boxes, self.box_ports)):
+        for box_index, (arity, ports) in enumerate(zip(
+                self.plan.box_dom_arities, self.box_ports)):
             current = set()
-            for port in ports[:len(box.dom)]:
-                source = self.inside.edges[port]
+            for port in ports[:arity]:
+                source = self.plan.edges[port]
                 if source in codomain_owner:
                     current.add(codomain_owner[source])
                 elif source in box_port_owner:
                     raise ValueError(
                         "A causal schedule requires every box input to be "
                         "wired from a box output or boundary input.")
-                elif self.inside.ports[source].kind != PortKind.INPUT:
+                elif self.plan.port_kinds[source] != PortKind.INPUT:
                     raise ValueError(
                         "A causal schedule requires every box input to be "
                         "wired from a box output or boundary input.")
             dependencies.append(current)
 
-            for port in ports[len(box.dom):]:
-                target = self.inside.edges[port]
+            for port in ports[arity:]:
+                target = self.plan.edges[port]
                 if target in box_port_owner and target not in domain_owner:
                     raise ValueError(
                         "A causal schedule requires every box output to be "
                         "wired to a box input or boundary output.")
                 if target not in box_port_owner\
-                        and self.inside.ports[target].kind != PortKind.OUTPUT:
+                        and self.plan.port_kinds[target] != PortKind.OUTPUT:
                     raise ValueError(
                         "A causal schedule requires every box output to be "
                         "wired to a box input or boundary output.")
@@ -605,7 +666,7 @@ class Execution:
                     if not items and target not in order\
                             and target not in ready:
                         ready.append(target)
-        if len(order) != len(self.inside.boxes):
+        if len(order) != self.plan.n_boxes:
             raise ValueError(
                 "A causal schedule requires an acyclic box dependency graph.")
         return tuple(order)
@@ -654,7 +715,7 @@ class Execution:
 
     def initialize(self) -> tuple:
         """ Initialize public messages and per-box private memories. """
-        widths = self.inside.port_dims
+        widths = self.plan.port_dims
         given = (
             self._values(self.x), self._values(self.init),
             self._values(self.memory))
@@ -684,26 +745,26 @@ class Execution:
 
         incoming = list(initial)
         for i in self.input_ports:
-            edge = self.inside.edges[i]
+            edge = self.plan.edges[i]
             incoming[edge] = incoming[edge] + boundary[i]
 
         self.initial = tuple(initial)
         self.boundary = tuple(boundary)
         self.incoming = tuple(incoming)
         self.outgoing = ()
-        self.box_outputs = len(self.inside.boxes) * (None, )
+        self.box_outputs = self.plan.n_boxes * (None, )
         self.memories = memories
         return self.incoming
 
     def activate_box(self, box_index: int, incoming):
         """ Apply one network to its public messages and private memory. """
-        widths = self.inside.port_dims
+        widths = self.plan.port_dims
         ports = self.box_ports[box_index]
         public_widths = tuple(widths[i] for i in ports)
         memory_width = self.memory_widths[box_index]
         values = tuple(incoming[i] for i in ports)\
             + (self.memories[box_index], )
-        module = self.modules[self.inside.module_indices[box_index]]
+        module = self.modules[self.plan.module_indices[box_index]]
         output = self.backend.activate(
             module, self.backend.concatenate(values))
         self.validate(
@@ -718,7 +779,7 @@ class Execution:
 
     def activate(self) -> tuple:
         """ Apply each network to its public messages and private memory. """
-        widths = self.inside.port_dims
+        widths = self.plan.port_dims
         outgoing = [self.zeros(width) for width in widths]
         for i in self.input_ports:
             outgoing[i] = self.boundary[i]
@@ -740,8 +801,8 @@ class Execution:
     def route(self) -> tuple:
         """ Route outgoing messages along the edge involution. """
         self.incoming = tuple(
-            self.outgoing[self.inside.edges[i]]
-            for i in range(self.inside.n_ports))
+            self.outgoing[self.plan.edges[i]]
+            for i in range(self.plan.n_ports))
         return self.incoming
 
     def inject(self) -> tuple:
@@ -753,7 +814,7 @@ class Execution:
 
     def readout(self):
         """ Read boundary outputs, or final box outputs for a closed map. """
-        if len(self.inside.dom) or len(self.inside.cod):
+        if self.plan.has_boundary:
             return self.backend.concatenate(tuple(
                 self.incoming[i] for i in self.output_ports))\
                 if self.output_ports else self.zeros(0)
@@ -764,7 +825,7 @@ class Execution:
             return_memory: bool = False):
         """ Execute synchronous activation and routing rounds. """
         self.initialize()
-        n_rounds = len(self.inside.boxes) if n_rounds is None else n_rounds
+        n_rounds = self.plan.n_boxes if n_rounds is None else n_rounds
         for _ in range(n_rounds):
             self.activate()
             self.route()
@@ -777,7 +838,7 @@ class Execution:
             self, inject: bool = True, return_memory: bool = False):
         """ Execute every box once in topological order. """
         self.initialize()
-        widths = self.inside.port_dims
+        widths = self.plan.port_dims
         incoming = list(self.incoming)
         outgoing = [self.zeros(width) for width in widths]
         for port in self.input_ports:
@@ -793,7 +854,7 @@ class Execution:
             memories[box_index] = next_memory
             for port, chunk in zip(ports, public):
                 outgoing[port] = chunk
-                target = self.inside.edges[port]
+                target = self.plan.edges[port]
                 incoming[target] = chunk + self.initial[target]\
                     if inject and self.init is not None else chunk
 

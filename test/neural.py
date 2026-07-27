@@ -28,6 +28,17 @@ def test_lazy_torch_import():
         "assert 'torch' not in sys.modules"], check=True)
 
 
+def test_backend_contract():
+    methods = {
+        "zeros", "split", "concatenate", "activate",
+        "prototype", "wrap", "zeros_module"}
+    assert Backend.__abstractmethods__ == methods
+    with raises(TypeError):
+        Backend()
+    pytorch = PyTorch()
+    assert get_backend(pytorch) is pytorch
+
+
 def test_dim():
     assert Dim(0) == Dim() == Dim(0, 0)
     assert Dim(0) @ Dim(2) == Dim(2) and Dim(2) @ Dim(3) == Dim(2, 3)
@@ -56,6 +67,9 @@ def test_network_as_box():
     one, other = (
         Network('f', Dim(2), Dim(3), module=object()) for _ in range(2))
     assert one != other and one == one.dagger().dagger()
+    unhashable = Network('f', Dim(2), Dim(3), module=[])
+    assert hash(unhashable)
+    assert unhashable != Network('f', Dim(2), Dim(3), module=[])
     stateful = Network('f', Dim(2), Dim(3), mem=Dim(4))
     assert stateful != f
     assert stateful.dagger().mem == stateful.rotate().mem == Dim(4)
@@ -109,6 +123,40 @@ def test_weight_sharing():
     assert len(grid.modules) == len(model.networks) == 1
     assert sum(p.numel() for p in model.parameters()) \
         == sum(p.numel() for p in cell.module.parameters())
+
+
+def test_execution_plan_and_runtime_modules():
+    torch = importorskip("torch")
+
+    class Scale(torch.nn.Module):
+        def __init__(self, scalar):
+            super().__init__()
+            self.scalar = scalar
+
+        def forward(self, value):
+            incoming, outgoing = value.chunk(2, dim=-1)
+            del outgoing
+            return torch.cat(
+                (torch.zeros_like(incoming), self.scalar * incoming), dim=-1)
+
+    original, replacement = Scale(2), Scale(3)
+    cell = Network('cell', Dim(1), Dim(1), module=original)
+    cmap = (cell >> cell).to_map()
+    plan = cmap.execution_plan
+    value = torch.tensor([[5.]])
+
+    assert plan.module_indices == (0, 0)
+    assert plan.n_modules == 1 and hash(plan)
+    assert torch.equal(
+        cmap(value, modules=(replacement, ), causal=True), 9 * value)
+    assert torch.equal(
+        Execution(
+            plan, value, backend=PyTorch(), modules=(replacement, )
+        ).forward_causal(), 9 * value)
+    with raises(ValueError, match="Expected 1 modules, got 0"):
+        Execution(plan, value, modules=())
+    with raises(ValueError, match="Runtime modules are required"):
+        Execution(plan, value)
 
 
 def test_forward_rerouting():
@@ -307,6 +355,26 @@ def test_torch_wrapper():
     assert list(outer.parameters()) == list(model.parameters())
     states = network()
     assert len(states) == 16
+
+
+def test_torch_wrapper_binds_backend():
+    torch = importorskip("torch")
+
+    class Exploding(PyTorch):
+        def activate(self, module, value):
+            raise AssertionError("ambient backend must not be used")
+
+    selected = PyTorch()
+    module = torch.nn.Linear(2, 2, bias=False)
+    with torch.no_grad():
+        module.weight.copy_(torch.tensor([[0., 0.], [1., 0.]]))
+    wrapped = Network(
+        'f', Dim(1), Dim(1), module=module
+    ).to_map().as_network(backend=selected)
+    value = torch.tensor([[3.]])
+
+    assert wrapped.module.backend is selected
+    assert torch.equal(wrapped.module(value, backend=Exploding()), value)
 
 
 def test_nested_torch_wrapper():
