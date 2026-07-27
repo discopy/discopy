@@ -16,6 +16,6 @@ missing wheel.
       test modules.
 - [x] Put the explanation in CONTRIBUTING.md where it belongs, not in the `conftest.py` docstring
 - [x] `uv run pflake8 discopy conftest.py`
-- [x] `uv run pytest` green on the default install: 521 passed, 70 skipped
+- [x] `uv run pytest` green on the default install: 509 passed, 80 skipped after merging `main`
 - [x] Confirm on CI that the full install still runs everything, with nothing skipped — `test (3.14)` on `03ebf1a`: **753 passed, 1 skipped**, every quantum module still collected and covered
 - [x] Keep `conftest.py` out of coverage: its skip paths are unreachable once the extras are installed, so they were pulling the total under the 98% gate
