@@ -23,5 +23,5 @@
 > can you avoid producing pack then unpack in the transformer? for now i don't want to introduce rewriting just yet but it should be possible in that case
 > open issues with the bugs you reported
 
-- [WIP] @claude-8u19lz-2026-07-27 19:29 Avoid producing `Pack` then `Unpack` when a let statement binds a literal tuple: `TermBase.eval_unpacked` overridden by `Tuple`, no rewriting involved.
-- [WIP] @claude-8u19lz-2026-07-27 19:29 Open issues for the bugs reported in the PR description and link them. (The quantum extras cannot be installed in this sandbox — torch download is blocked — so `test/tensor.py`, `test/quantum` and the jax/sympy/graphviz doctests were compared against `main` instead: the failure lists are byte-for-byte identical, everything else passes.)
+- [x] Avoid producing `Pack` then `Unpack` when a let statement binds a literal tuple: `TermBase.eval_unpacked` overridden by `Tuple`, no rewriting involved.
+- [x] Open issues for the bugs reported in the PR description and link them: #490, #491, #492, #493, #494; the non-deterministic ordering was already filed as #450. (The quantum extras cannot be installed in this sandbox — torch download is blocked — so `test/tensor.py`, `test/quantum` and the jax/sympy/graphviz doctests were compared against `main` instead: the failure lists are byte-for-byte identical, everything else passes.)
