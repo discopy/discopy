@@ -287,37 +287,24 @@ z
     </g>
    </g>
    <g id="text_2">
-    <!-- m.d -->
+    <!-- y.d -->
     <g transform="translate(112.5 12.098437) scale(0.1 -0.1)">
      <defs>
-      <path id="DejaVuSans-6d" d="M 3328 2828 
-Q 3544 3216 3844 3400 
-Q 4144 3584 4550 3584 
-Q 5097 3584 5394 3201 
-Q 5691 2819 5691 2113 
-L 5691 0 
-L 5113 0 
-L 5113 2094 
-Q 5113 2597 4934 2840 
-Q 4756 3084 4391 3084 
-Q 3944 3084 3684 2787 
-Q 3425 2491 3425 1978 
-L 3425 0 
-L 2847 0 
-L 2847 2094 
-Q 2847 2600 2669 2842 
-Q 2491 3084 2119 3084 
-Q 1678 3084 1418 2786 
-Q 1159 2488 1159 1978 
-L 1159 0 
-L 581 0 
-L 581 3500 
-L 1159 3500 
-L 1159 2956 
-Q 1356 3278 1631 3431 
-Q 1906 3584 2284 3584 
-Q 2666 3584 2933 3390 
-Q 3200 3197 3328 2828 
+      <path id="DejaVuSans-79" d="M 2059 -325 
+Q 1816 -950 1584 -1140 
+Q 1353 -1331 966 -1331 
+L 506 -1331 
+L 506 -850 
+L 844 -850 
+Q 1081 -850 1212 -737 
+Q 1344 -625 1503 -206 
+L 1606 56 
+L 191 3500 
+L 800 3500 
+L 1894 763 
+L 2988 3500 
+L 3597 3500 
+L 2059 -325 
 z
 " transform="scale(0.015625)"/>
       <path id="DejaVuSans-2e" d="M 684 794 
@@ -354,40 +341,36 @@ Q 947 2381 947 1747
 z
 " transform="scale(0.015625)"/>
      </defs>
-     <use xlink:href="#DejaVuSans-6d"/>
-     <use xlink:href="#DejaVuSans-2e" transform="translate(97.412109 0)"/>
-     <use xlink:href="#DejaVuSans-64" transform="translate(129.199219 0)"/>
+     <use xlink:href="#DejaVuSans-79"/>
+     <use xlink:href="#DejaVuSans-2e" transform="translate(44.929688 0)"/>
+     <use xlink:href="#DejaVuSans-64" transform="translate(76.716797 0)"/>
     </g>
    </g>
    <g id="text_3">
-    <!-- y -->
+    <!-- z -->
     <g transform="translate(40.5 138.098437) scale(0.1 -0.1)">
      <defs>
-      <path id="DejaVuSans-79" d="M 2059 -325 
-Q 1816 -950 1584 -1140 
-Q 1353 -1331 966 -1331 
-L 506 -1331 
-L 506 -850 
-L 844 -850 
-Q 1081 -850 1212 -737 
-Q 1344 -625 1503 -206 
-L 1606 56 
-L 191 3500 
-L 800 3500 
-L 1894 763 
-L 2988 3500 
-L 3597 3500 
-L 2059 -325 
+      <path id="DejaVuSans-7a" d="M 353 3500 
+L 3084 3500 
+L 3084 2975 
+L 922 459 
+L 3084 459 
+L 3084 0 
+L 275 0 
+L 275 525 
+L 2438 3041 
+L 353 3041 
+L 353 3500 
 z
 " transform="scale(0.015625)"/>
      </defs>
-     <use xlink:href="#DejaVuSans-79"/>
+     <use xlink:href="#DejaVuSans-7a"/>
     </g>
    </g>
    <g id="text_4">
-    <!-- m -->
+    <!-- y -->
     <g transform="translate(112.5 138.098437) scale(0.1 -0.1)">
-     <use xlink:href="#DejaVuSans-6d"/>
+     <use xlink:href="#DejaVuSans-79"/>
     </g>
    </g>
    <g id="text_5">
@@ -397,31 +380,31 @@ z
     </g>
    </g>
    <g id="text_6">
-    <!-- m.d -->
+    <!-- y.d -->
     <g transform="translate(328.5 66.098437) scale(0.1 -0.1)">
-     <use xlink:href="#DejaVuSans-6d"/>
-     <use xlink:href="#DejaVuSans-2e" transform="translate(97.412109 0)"/>
-     <use xlink:href="#DejaVuSans-64" transform="translate(129.199219 0)"/>
+     <use xlink:href="#DejaVuSans-79"/>
+     <use xlink:href="#DejaVuSans-2e" transform="translate(44.929688 0)"/>
+     <use xlink:href="#DejaVuSans-64" transform="translate(76.716797 0)"/>
     </g>
    </g>
    <g id="text_7">
-    <!-- m.d -->
+    <!-- y.d -->
     <g transform="translate(400.5 66.098437) scale(0.1 -0.1)">
-     <use xlink:href="#DejaVuSans-6d"/>
-     <use xlink:href="#DejaVuSans-2e" transform="translate(97.412109 0)"/>
-     <use xlink:href="#DejaVuSans-64" transform="translate(129.199219 0)"/>
+     <use xlink:href="#DejaVuSans-79"/>
+     <use xlink:href="#DejaVuSans-2e" transform="translate(44.929688 0)"/>
+     <use xlink:href="#DejaVuSans-64" transform="translate(76.716797 0)"/>
     </g>
    </g>
    <g id="text_8">
-    <!-- y -->
+    <!-- z -->
     <g transform="translate(256.5 138.098437) scale(0.1 -0.1)">
-     <use xlink:href="#DejaVuSans-79"/>
+     <use xlink:href="#DejaVuSans-7a"/>
     </g>
    </g>
    <g id="text_9">
-    <!-- m -->
+    <!-- y -->
     <g transform="translate(328.5 138.098437) scale(0.1 -0.1)">
-     <use xlink:href="#DejaVuSans-6d"/>
+     <use xlink:href="#DejaVuSans-79"/>
     </g>
    </g>
    <g id="text_10">
