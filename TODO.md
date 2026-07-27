@@ -18,7 +18,7 @@ Prompt ([#374](https://github.com/discopy/discopy/issues/374), verbatim):
 - [ ] `discopy.kleisli.additive`: traced cocartesian Kleisli with the execution formula as trace; convergence tests for sub-additive monads — claimed and released by @evening-2026-07-25T02:25, see note below
 - [x] @evening-2026-07-27T06:34-2026-07-27T07:20 `discopy.kleisli.multiplicative`: premonoidal copy-discard Kleisli with pointwise strength; test monoidal iff the monad is commutative
 - [ ] `Hypergraph` evaluation methods: token passing for `additive`, message passing for `multiplicative` — coordinate with #366 and #363
-- [ ] `multiplicative` stress test: compare results against tensor contraction on small enough models (per issue comment)
+- [WIP] @evening-2026-07-27T15:11 `multiplicative` stress test: compare results against tensor contraction on small enough models (per issue comment)
 - [ ] Implement the state monad for seeded randomness; compare empirical distributions against the ones computed explicitly via sub-distribution dicts (value → nonzero weight)
 - [ ] `additive` worked example: Dal Lago–Hoshino's token machines (*Geometry of Bayesian Programming*) — the best source found so far for a non-trivial case
 - [ ] Write every example as a term in the effectful lambda calculus of #370, not as a diagram built with tensor/composition
