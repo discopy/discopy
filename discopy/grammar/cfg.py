@@ -118,7 +118,7 @@ class Tree:
         >>> f = Rule(x @ x, x, name='f')
         >>> tree = f(f(f, f), f)
         >>> tree.to_diagram().foliation().draw(
-        ...     path='docs/_static/grammar/tree-to-diagram.svg')
+        ...     doctest='docs/_static/grammar/tree-to-diagram.svg')
 
         .. image:: /_static/grammar/tree-to-diagram.svg
             :align: center
