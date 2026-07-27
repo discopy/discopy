@@ -25,7 +25,7 @@ The axiom for the twist holds on the nose.
 >>> x, y = Ty('x'), Ty('y')
 >>> assert Diagram.twist(x @ y) == (Braid(x, y)
 ...     >> Twist(y) @ Twist(x) >> Braid(y, x))
->>> Diagram.twist(x @ y).draw(path="docs/_static/balanced/twist.svg")
+>>> Diagram.twist(x @ y).draw(doctest="docs/_static/balanced/twist.svg")
 
 .. image:: /_static/balanced/twist.svg
 """
@@ -129,7 +129,7 @@ class Diagram(braided.Diagram, traced.Diagram, BalancedCategory):
 
         >>> Equation(Twist(x), braided_twist, symbol='$\\\\mapsto$').draw(
         ...     wire_labels=False,
-        ...     path="docs/_static/balanced/twist_dual_rail.svg")
+        ...     doctest="docs/_static/balanced/twist_dual_rail.svg")
 
         .. image:: /_static/balanced/twist_dual_rail.svg
         """

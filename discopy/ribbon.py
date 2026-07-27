@@ -27,7 +27,7 @@ the trace of the braid is unitary.
 >>> twist_l = Braid(x, x).trace(left=True)
 >>> twist_r = Braid(x, x).trace(left=False)
 >>> eq = Equation(twist_l >> twist_l[::-1], Id(x), twist_r >> twist_r[::-1])
->>> eq.draw(margins=(.2, 0), path='docs/_static/ribbon/twist-untwist.svg')
+>>> eq.draw(margins=(.2, 0), doctest='docs/_static/ribbon/twist-untwist.svg')
 
 .. image:: /_static/ribbon/twist-untwist.svg
     :align: center
@@ -40,7 +40,7 @@ i.e. two parallel wires with the twist drawn as the double braid.
 >>> ribbon_twist = Diagram.twist(x).to_ribbons()
 >>> eq = Equation(ribbon_twist, twist_l.to_ribbons())
 >>> eq.draw(symbol='$\\\\mapsto$', wire_labels=False,
-...     path="docs/_static/balanced/ribbon_twist.svg")
+...     doctest="docs/_static/balanced/ribbon_twist.svg")
 
 .. image:: /_static/balanced/ribbon_twist.svg
 
@@ -49,7 +49,7 @@ Strict ribbon categories have diagrams with knots, i.e. ribbons where the two
 parallel wires coincide and the twist is the identity.
 
 >>> eq_strict = Equation(twist_l, Id(x), twist_r)
->>> eq_strict.draw(margins=(.2, .1), path='docs/_static/ribbon/strict.svg')
+>>> eq_strict.draw(margins=(.2, .1), doctest='docs/_static/ribbon/strict.svg')
 
 .. image:: /_static/ribbon/strict.svg
     :align: center

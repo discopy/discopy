@@ -606,7 +606,6 @@ class RichDisplay:
         """ Draw as a standalone SVG string. """
         from io import StringIO
         buffer = StringIO()
-        params.setdefault("metadata", {"Date": None})
         self.to_drawing().draw(
             path=buffer, format="svg", show=False, **params)
         return buffer.getvalue()
