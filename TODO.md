@@ -22,4 +22,4 @@ you can push directly to this PR for abc+torch, open a fresh one for jax
 - [x] Turn `neural.Backend` into an explicit abstract interface and pass backend-owned modules into execution.
 - [x] Adapt and bind the existing PyTorch implementation to the abstract interface.
 - [x] Add concise backend contract and PyTorch regression tests, update the documentation, and run lint and tests.
-- [WIP] @codex-pr399-doc-cleanup-2026-07-28 01:36 Remove the accidentally tracked generated execution-plan API stub.
+- [x] Remove the accidentally tracked generated execution-plan API stub.
