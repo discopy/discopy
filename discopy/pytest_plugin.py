@@ -3,12 +3,21 @@ The ``--skip-extra`` flag, see CONTRIBUTING.md.
 
 Registered as a pytest plugin by the ``pytest11`` entry point, so the flag is
 available wherever discopy is installed.
+
+A doctest that needs an optional backend says so itself with a ``+EXTRA``
+directive on one of its examples. What cannot say so -- a module that fails to
+import, a test function, a notebook -- is caught by reading the error instead.
 """
 
+import doctest
 import re
 
 import pytest
+from _pytest.doctest import DoctestItem
 
+
+doctest.register_optionflag("EXTRA")
+doctest.OPTIONFLAGS_BY_NAME["EXTRA"] = 0  # inert: the plugin does the skipping
 
 OPTIONAL = frozenset((
     "graphviz", "jax", "jaxlib", "nltk", "pennylane", "pytket", "pyzx",
@@ -46,10 +55,25 @@ def missing_dependency(error: BaseException) -> str | None:
     return None
 
 
+def needs_extra(item) -> bool:
+    """ Whether a doctest declares itself as needing an optional backend. """
+    return isinstance(item, DoctestItem) and item.dtest is not None and any(
+        "+EXTRA" in example.source for example in item.dtest.examples)
+
+
 def pytest_addoption(parser):
     parser.addoption("--skip-extra", action="store_true", help=(
         "Skip what needs a dependency outside `uv sync --dev`, rather than "
         "fail. Nothing is skipped once the extras are installed."))
+
+
+def pytest_collection_modifyitems(config, items):
+    """ A doctest marked ``+EXTRA`` is skipped before it runs. """
+    if not config.getoption("--skip-extra"):
+        return
+    for item in items:
+        if needs_extra(item):
+            item.add_marker(pytest.mark.skip(reason="needs an extra"))
 
 
 @pytest.hookimpl(wrapper=True)
@@ -66,7 +90,7 @@ def pytest_make_collect_report(collector):
 
 @pytest.hookimpl(wrapper=True)
 def pytest_runtest_call(item):
-    """ So is a test that only fails for want of one. """
+    """ So is a test function or notebook that only fails for want of one. """
     try:
         return (yield)
     except BaseException as error:

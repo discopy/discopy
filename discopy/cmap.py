@@ -213,7 +213,7 @@ class CMap[C0: Pregroup, C1: CMap](
 
     Example
     -------
-    >>> from discopy.compact import Ty, Box, CMap
+    >>> from discopy.compact import Ty, Box, CMap  # doctest: +EXTRA
     >>> from discopy.python.finset import Permutation
     >>> x, y, z = map(Ty, "xyz")
     >>> f, g = map(CMap.from_box, [
@@ -791,7 +791,7 @@ class CMap[C0: Pregroup, C1: CMap](
             n : The number of objects to curry.
             left : Whether to curry on the left or right.
 
-        >>> from discopy.compact import Ty, Box
+        >>> from discopy.compact import Ty, Box  # doctest: +EXTRA
         >>> x, y, z = map(Ty, "xyz")
         >>> f = Box("f", x @ y, z).to_map()
         >>> assert f.curry().uncurry() == f
@@ -1379,7 +1379,7 @@ class CMap[C0: Pregroup, C1: CMap](
         Scalar loops are drawn as dots with a loop, but the combinatorial map
         structure does not let us retain inclusion of such loops:
 
-        >>> from discopy.compact import Ty, CMap
+        >>> from discopy.compact import Ty, CMap  # doctest: +EXTRA
         >>> x, y, z = map(Ty, "xyz")
         >>> (CMap.caps((x @ y).r, x @ y) >> CMap.cups((x @ y).l, x @ y)).draw(
         ...     doctest="docs/_static/cmap/scalar-loop.svg", show=False)

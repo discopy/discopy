@@ -26,7 +26,7 @@ def IQPansatz(n_qubits, params) -> Circuit:
     Build an IQP ansatz on n qubits, if n = 1 returns an Euler decomposition.
 
     >>> pprint = lambda c: print(str(c.foliation()).replace(' >>', '\\n  >>'))
-    >>> pprint(IQPansatz(3, [[0.1, 0.2], [0.3, 0.4]]))
+    >>> pprint(IQPansatz(3, [[0.1, 0.2], [0.3, 0.4]]))  # doctest: +EXTRA
     H @ H @ H
       >> CRz(0.1) @ qubit
       >> qubit @ CRz(0.2)
@@ -67,7 +67,7 @@ def Sim14ansatz(n_qubits, params) -> Circuit:
     opposite orientation.
 
     >>> pprint = lambda c: print(str(c.foliation()).replace(' >>', '\\n  >>'))
-    >>> pprint(Sim14ansatz(3, [[i/10 for i in range(12)]]))
+    >>> pprint(Sim14ansatz(3, [[i/10 for i in range(12)]]))  # doctest: +EXTRA
     Ry(0) @ Ry(0.1) @ Ry(0.2)
       >> Controlled(Rx(0.3), distance=2)
       >> Controlled(Rx(0.4), distance=-1) @ qubit
@@ -134,7 +134,7 @@ def Sim15ansatz(n_qubits, params) -> Circuit:
       >> CX @ qubit
       >> Controlled(X, distance=-2)
       >> qubit @ CX
-    >>> print(Sim15ansatz(1, [0.1, 0.2, 0.3]))
+    >>> print(Sim15ansatz(1, [0.1, 0.2, 0.3]))  # doctest: +EXTRA
     Rx(0.1) >> Rz(0.2) >> Rx(0.3)
     """
     from discopy.quantum.gates import Rx, Ry, Rz

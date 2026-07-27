@@ -420,7 +420,7 @@ class Arrow(FreeCategory):
         Example
         -------
 
-        >>> from sympy.abc import phi, psi
+        >>> from sympy.abc import phi, psi  # doctest: +EXTRA
         >>> x, y = Ob('x'), Ob('y')
         >>> f = Box('f', x, y, data={"Alice": [phi + 1]})
         >>> g = Box('g', y, x, data={"Bob": [psi / 2]})
@@ -443,7 +443,7 @@ class Arrow(FreeCategory):
 
         Example
         -------
-        >>> from sympy.abc import phi, psi
+        >>> from sympy.abc import phi, psi  # doctest: +EXTRA
         >>> x, y = Ob('x'), Ob('y')
         >>> f = Box('f', x, y, data={"Alice": [phi + 1]})
         >>> g = Box('g', y, x, data={"Bob": [psi / 2]})
@@ -464,7 +464,7 @@ class Arrow(FreeCategory):
 
         Example
         -------
-        >>> from sympy.abc import phi, psi
+        >>> from sympy.abc import phi, psi  # doctest: +EXTRA
         >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
         >>> f, g = Box('f', x, y, data=phi), Box('g', y, z, data=psi)
         >>> assert f.lambdify(psi)(42) == f

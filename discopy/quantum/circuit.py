@@ -33,7 +33,7 @@ Summary
 
 Examples
 --------
->>> from discopy.quantum.gates import (
+>>> from discopy.quantum.gates import (  # doctest: +EXTRA
 ...     Ket, CX, H, X, Rz, sqrt, Controlled, Measure, Discard)
 >>> circuit = Ket(0, 0) >> CX >> Controlled(Rz(0.25)) >> Measure() @ Discard()
 >>> circuit.draw(
@@ -262,7 +262,7 @@ class Circuit(tensor.Diagram[complex]):
         We can evaluate a pure circuit (i.e. with :code:`not circuit.is_mixed`)
         as a unitary :class:`discopy.tensor.Tensor` or as a :class:`Channel`:
 
-        >>> from discopy.quantum import *
+        >>> from discopy.quantum import *  # doctest: +EXTRA
 
         >>> H.eval().round(2)  # doctest: +ELLIPSIS
         Tensor[complex]([0.71+0.j, ..., -0.71+0.j], dom=Dim(2), cod=Dim(2))
@@ -362,7 +362,7 @@ class Circuit(tensor.Diagram[complex]):
 
         Examples
         --------
-        >>> from discopy.quantum import *
+        >>> from discopy.quantum import *  # doctest: +EXTRA
         >>> circuit = H @ X >> CX >> Measure(2)
         >>> from discopy.quantum.tk import mockBackend
         >>> backend = mockBackend({(0, 1): 512, (1, 0): 512})
@@ -541,7 +541,7 @@ class Circuit(tensor.Diagram[complex]):
 
         Examples
         --------
-        >>> from discopy.quantum import *
+        >>> from discopy.quantum import *  # doctest: +EXTRA
 
         >>> bell_test = H @ qubit >> CX >> Measure() @ Measure()
         >>> bell_test.to_tk()
@@ -629,7 +629,7 @@ class Circuit(tensor.Diagram[complex]):
 
         Examples
         --------
-        >>> from discopy.quantum import *
+        >>> from discopy.quantum import *  # doctest: +EXTRA
         >>> import pytket as tk
 
         >>> c = Rz(0.5) @ qubit >> qubit @ Rx(0.25) >> CX
@@ -689,7 +689,7 @@ class Circuit(tensor.Diagram[complex]):
 
         Examples
         --------
-        >>> from math import pi
+        >>> from math import pi  # doctest: +EXTRA
         >>> from sympy.abc import phi
         >>> from discopy.quantum import *
         >>> circuit = Rz(phi / 2) @ Rz(phi + 1) >> CX
@@ -716,7 +716,7 @@ class Circuit(tensor.Diagram[complex]):
 
         Examples
         --------
-        >>> from sympy.abc import x, y
+        >>> from sympy.abc import x, y  # doctest: +EXTRA
         >>> from discopy.quantum.gates import Bits, Ket, Rx, Rz
         >>> circuit = Ket(0) >> Rx(x) >> Rz(y)
         >>> assert circuit.jacobian([x, y])\\

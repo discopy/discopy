@@ -65,7 +65,7 @@ class Diagram(tensor.Diagram[complex]):
 
         Examples
         --------
-        >>> from sympy.abc import phi
+        >>> from sympy.abc import phi  # doctest: +EXTRA
         >>> assert Z(1, 1, phi).grad(phi) == scalar(pi) @ Z(1, 1, phi + .5)
         """
         return super().grad(var, **params)
@@ -74,7 +74,7 @@ class Diagram(tensor.Diagram[complex]):
         """
         Returns a :class:`pyzx.Graph`.
 
-        >>> bialgebra = Z(1, 2, .25) @ Z(1, 2, .75)\\
+        >>> bialgebra = Z(1, 2, .25) @ Z(1, 2, .75)\\  # doctest: +EXTRA
         ...     >> Id(1) @ SWAP @ Id(1) >> X(2, 1, .5) @ X(2, 1, .5)
         >>> graph = bialgebra.to_pyzx()
         >>> assert len(graph.vertices()) == 8
@@ -140,7 +140,7 @@ class Diagram(tensor.Diagram[complex]):
         Examples
         --------
 
-        >>> bialgebra = Z(1, 2, .25) @ Z(1, 2, .75)\\
+        >>> bialgebra = Z(1, 2, .25) @ Z(1, 2, .75)\\  # doctest: +EXTRA
         ...     >> Id(1) @ SWAP @ Id(1) >> X(2, 1, .5) @ X(2, 1, .5)
         >>> graph = bialgebra.to_pyzx()
         >>> assert Diagram.from_pyzx(graph) == bialgebra

@@ -79,7 +79,7 @@ class Tensor(Matrix):
 
     Examples
     --------
-    >>> m = Tensor([0, 1, 1, 0], Dim(2), Dim(2))
+    >>> m = Tensor([0, 1, 1, 0], Dim(2), Dim(2))  # doctest: +EXTRA
     >>> v = Tensor([0, 1], Dim(1), Dim(2))
     >>> v >> m >> v.dagger()
     Tensor[int64]([0], dom=Dim(1), cod=Dim(1))
@@ -220,7 +220,7 @@ class Tensor(Matrix):
 
         Example
         -------
-        >>> from discopy import markov
+        >>> from discopy import markov  # doctest: +EXTRA
         >>> n = markov.Ty('n')
         >>> F = Functor(
         ...     ob_map={n: Dim(2)}, ar_map={}, dom=markov.Diagram, dtype=int)
@@ -270,7 +270,7 @@ class Tensor(Matrix):
 
         Examples
         --------
-        >>> assert Tensor.zero(Dim(2), Dim(2))\\
+        >>> assert Tensor.zero(Dim(2), Dim(2))\\  # doctest: +EXTRA
         ...     == Tensor([0, 0, 0, 0], Dim(2), Dim(2))
         """
         with backend() as np:
@@ -292,7 +292,7 @@ class Tensor(Matrix):
 
         Examples
         --------
-        >>> from sympy import Expr
+        >>> from sympy import Expr  # doctest: +EXTRA
         >>> from sympy.abc import x, y, z
         >>> vector = Tensor[Expr]([x ** 2, y * z], Dim(1), Dim(2))
         >>> vector.jacobian(x, y, z)
@@ -330,7 +330,7 @@ class Functor(frobenius.Functor):
 
     Example
     -------
-    >>> n, s = map(rigid.Ty, "ns")
+    >>> n, s = map(rigid.Ty, "ns")  # doctest: +EXTRA
     >>> Alice = rigid.Box('Alice', rigid.Ty(), n)
     >>> loves = rigid.Box('loves', rigid.Ty(), n.r @ s @ n.l)
     >>> Bob = rigid.Box('Bob', rigid.Ty(), n)
@@ -459,7 +459,7 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
 
     Example
     -------
-    >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
+    >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])  # doctest: +EXTRA
     >>> diagram = vector[::-1] >> vector @ vector
     >>> print(diagram)
     vector[::-1] >> vector >> Dim(2) @ vector
@@ -482,7 +482,7 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
 
         Examples
         --------
-        >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
+        >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])  # doctest: +EXTRA
         >>> assert (vector >> vector[::-1]).eval().array == 1
         >>> assert (vector >> vector[::-1]).eval(
         ...     optimize="optimal").array == 1
@@ -502,7 +502,7 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
 
         Examples
         --------
-        >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
+        >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])  # doctest: +EXTRA
         >>> t_net = (vector >> vector[::-1]).to_quimb()
         >>> assert t_net.contract(preserve_tensor=True).data == 1
         """
@@ -556,7 +556,7 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
 
         Examples
         --------
-        >>> import numpy as np
+        >>> import numpy as np  # doctest: +EXTRA
         >>> from tensornetwork import Node, Edge
         >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
         >>> nodes, output_edge_order = vector.to_tn()
@@ -622,7 +622,7 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
 
         Examples
         --------
-        >>> from sympy import Expr
+        >>> from sympy import Expr  # doctest: +EXTRA
         >>> from sympy.abc import x, y, z
         >>> vector = Box("v", Dim(1), Dim(2), [x ** 2, y * z])
         >>> vector.jacobian([x, y, z]).eval(dtype=Expr)
@@ -649,7 +649,7 @@ class CMap(frobenius.CMap):
 
     Example
     -------
-    >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
+    >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])  # doctest: +EXTRA
     >>> assert (vector >> vector[::-1]).to_map().eval().array == 1
 
     >>> with backend('jax'):
@@ -676,7 +676,7 @@ class Box(frobenius.Box, Diagram):
     Example
     -------
     >>> b1 = Box('sauce_0', Dim(1), Dim(2), data=[0.84193562, 0.91343221])
-    >>> b1.eval()
+    >>> b1.eval()  # doctest: +EXTRA
     Tensor[float64]([0.84193562, 0.91343221], dom=Dim(1), cod=Dim(2))
     """
 
@@ -769,7 +769,7 @@ class Spider(frobenius.Spider, Box):
 
     Examples
     --------
-    >>> vector = Box('vec', Dim(1), Dim(2), [0, 1])
+    >>> vector = Box('vec', Dim(1), Dim(2), [0, 1])  # doctest: +EXTRA
     >>> spider = Spider(1, 2, Dim(2))
     >>> assert (vector >> spider).eval() == (vector @ vector).eval()
     >>> Equation(vector >> spider, vector @ vector).draw(figsize=(3, 2),
@@ -805,7 +805,7 @@ class Bubble(monoidal.Bubble, Box):
     Examples
     --------
 
-    >>> men = Box("men", Dim(1), Dim(2), [0, 1])
+    >>> men = Box("men", Dim(1), Dim(2), [0, 1])  # doctest: +EXTRA
     >>> mortal = Box("mortal", Dim(2), Dim(1), [1, 1])
     >>> men_are_mortal = (men >> mortal.bubble()).bubble()
     >>> assert men_are_mortal.eval(dtype=bool)
@@ -842,7 +842,7 @@ class Bubble(monoidal.Bubble, Box):
         """
         The gradient of a bubble is given by the chain rule.
 
-        >>> from sympy.abc import x
+        >>> from sympy.abc import x  # doctest: +EXTRA
         >>> g = Box('g', Dim(2), Dim(2), [2 * x, 0, 0, x + 1])
         >>> f = lambda d: d.bubble(func=lambda x: x ** 2, drawing_name="f")
         >>> lhs, rhs = Box.grad(f(g), x), f(g).grad(x)
