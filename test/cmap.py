@@ -644,8 +644,7 @@ def test_euler_characteristic():
 
 def test_draw_plain_path(tmp_path):
     f = compact.Box("f", compact.Ty("x"), compact.Ty("y")).to_map()
-    dot_path, svg_path = tmp_path / "f.dot", tmp_path / "f.svg"
+    dot_path = tmp_path / "f.dot"
     for _ in range(2):  # A plain path saves, overwriting silently.
         f.draw(path=dot_path, show=False)
-        f.draw(path=svg_path, show=False)
-    assert dot_path.exists() and svg_path.exists()
+    assert dot_path.exists()

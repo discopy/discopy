@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 from functools import lru_cache, wraps
+from pathlib import Path
 from typing import (
     Callable,
     Mapping,
@@ -17,6 +18,8 @@ from typing import (
     TYPE_CHECKING,
 )
 
+import matplotlib
+from matplotlib.font_manager import FontProperties
 from matplotlib.textpath import TextPath
 from networkx import Graph, connected_components
 
@@ -29,6 +32,10 @@ if TYPE_CHECKING:
 KT = TypeVar('KT')
 VT = TypeVar('VT')
 V2T = TypeVar('V2T')
+
+_DEFAULT_FONT_PATH = (
+    Path(matplotlib.get_data_path()) / "fonts" / "ttf" / "DejaVuSans.ttf")
+_DEFAULT_FONT = FontProperties(fname=_DEFAULT_FONT_PATH)
 
 
 class MappingOrCallable(Mapping[KT, VT]):
@@ -408,7 +415,9 @@ def text_width(text: str, rounded=3, fontsize=12, points_per_inch=72.):
     """
     if not text:
         return 0
-    width = TextPath((0, 0), text, size=fontsize).get_extents().width
+    width = TextPath(
+        (0, 0), text, prop=_DEFAULT_FONT, size=fontsize,
+        usetex=False).get_extents().width
     return round(width / points_per_inch, rounded)
 
 

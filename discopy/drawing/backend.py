@@ -19,6 +19,7 @@ Summary
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from contextlib import nullcontext
 from math import sqrt
 import os
 import re
@@ -26,6 +27,7 @@ from xml.etree import ElementTree
 
 from typing import TYPE_CHECKING
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -45,54 +47,91 @@ if TYPE_CHECKING:
     from discopy.drawing import PlaneGraph
 
 
+MATPLOTLIB_RC = {
+    "agg.path.chunksize": 0,
+    "figure.dpi": 100.,
+    "font.family": ["sans-serif"],
+    "font.sans-serif": ["DejaVu Sans"],
+    "font.size": 10.,
+    "mathtext.fontset": "dejavusans",
+    "path.simplify": True,
+    "path.simplify_threshold": 0.111111111111,
+    "savefig.bbox": None,
+    "savefig.dpi": "figure",
+    "savefig.pad_inches": 0.1,
+    "savefig.transparent": False,
+    "svg.fonttype": "path",
+    "svg.hashsalt": "discopy",
+    "svg.image_inline": True,
+    "text.antialiased": True,
+    "text.hinting": "force_autohint",
+    "text.hinting_factor": 8,
+    # Keep ``$...$`` mathtext, but never invoke a machine-local TeX install.
+    "text.usetex": False,
+}
+
+
+def matplotlib_context():
+    """ Isolate DisCoPy drawings from the caller's Matplotlib settings. """
+    return matplotlib.rc_context(MATPLOTLIB_RC)
+
+
 def draw(graph: PlaneGraph, **params):
     """ Load a :class:`Backend` and draw a :class:`PlaneGraph` on it. """
-    aspect = params.get('aspect', 'auto' if 'figsize' in params else 'equal')
-    if params.get('legend', False) and not params.get('to_tikz', False):
-        colours = Backend.region_colours(graph)
-        if colours:
-            # Widen the figure by the legend width rather than squeeze diagram.
-            longest = max(len(c.legend_label) for c in colours.values())
-            legend_inches = DEFAULT['legend_base_width']\
-                + DEFAULT['legend_char_width'] * longest
-            margin_inches = DEFAULT['legend_margin']
-            extra = legend_inches + margin_inches
-            fig_width = params['figsize'][0] if 'figsize' in params\
-                else (graph.width or 1)
-            if 'figsize' in params:
-                params['figsize'] = (fig_width + extra, params['figsize'][1])
-            space = params.get('legend_space', extra * graph.width / fig_width)
-            graph = graph.make_space(
-                space, graph.width, exclusive=True, copy=True)
-    figsize = params.get('figsize', None if aspect == 'auto' else (
-        graph.width or 1, graph.height or 1))
-    backend = (
-        TikZ(use_tikzstyles=params.get('use_tikzstyles', None))
-        if params.get('to_tikz', False)
-        else Matplotlib(figsize=figsize,
-                        linewidth=params.get('linewidth', 1)))
+    context = nullcontext() if params.get('to_tikz', False)\
+        else matplotlib_context()
+    with context:
+        aspect = params.get(
+            'aspect', 'auto' if 'figsize' in params else 'equal')
+        if params.get('legend', False)\
+                and not params.get('to_tikz', False):
+            colours = Backend.region_colours(graph)
+            if colours:
+                # Widen figure by legend width rather than squeeze diagram.
+                longest = max(len(c.legend_label) for c in colours.values())
+                legend_inches = DEFAULT['legend_base_width']\
+                    + DEFAULT['legend_char_width'] * longest
+                margin_inches = DEFAULT['legend_margin']
+                extra = legend_inches + margin_inches
+                fig_width = params['figsize'][0] if 'figsize' in params\
+                    else (graph.width or 1)
+                if 'figsize' in params:
+                    params['figsize'] = (
+                        fig_width + extra, params['figsize'][1])
+                space = params.get(
+                    'legend_space', extra * graph.width / fig_width)
+                graph = graph.make_space(
+                    space, graph.width, exclusive=True, copy=True)
+        figsize = params.get('figsize', None if aspect == 'auto' else (
+            graph.width or 1, graph.height or 1))
+        backend = (
+            TikZ(use_tikzstyles=params.get('use_tikzstyles', None))
+            if params.get('to_tikz', False)
+            else Matplotlib(figsize=figsize,
+                            linewidth=params.get('linewidth', 1)))
 
-    max_v = max(graph.height, graph.width, 0.01)
-    params['nodesize'] = round(params.get('nodesize', 1.) / sqrt(max_v), 3)
+        max_v = max(graph.height, graph.width, 0.01)
+        params['nodesize'] = round(
+            params.get('nodesize', 1.) / sqrt(max_v), 3)
 
-    backend.draw_boundary(graph, **params)
-    backend.draw_regions(graph, **params)
-    backend.draw_wires(graph, **params)
-    backend.draw_boxes(graph, **params)
-    backend.draw_spiders(graph, **params)
-    if params.get('legend', False):
-        backend.draw_legend(graph, **params)
+        backend.draw_boundary(graph, **params)
+        backend.draw_regions(graph, **params)
+        backend.draw_wires(graph, **params)
+        backend.draw_boxes(graph, **params)
+        backend.draw_spiders(graph, **params)
+        if params.get('legend', False):
+            backend.draw_legend(graph, **params)
 
-    path, compare = doctest_or_path(
-        params.get('path', None), params.get('doctest', None))
-    return backend.output(
-        path=path,
-        baseline=graph.height / 2 or .5,
-        tikz_options=params.get('tikz_options', None),
-        show=params.get('show', True), aspect=aspect,
-        margins=params.get('margins', DEFAULT['margins']),
-        compare=compare,
-        tol=params.get('tol', DEFAULT['plt_tol']))
+        path, compare = doctest_or_path(
+            params.get('path', None), params.get('doctest', None))
+        return backend.output(
+            path=path,
+            baseline=graph.height / 2 or .5,
+            tikz_options=params.get('tikz_options', None),
+            show=params.get('show', True), aspect=aspect,
+            margins=params.get('margins', DEFAULT['margins']),
+            compare=compare,
+            tol=params.get('tol', DEFAULT['plt_tol']))
 
 
 def doctest_or_path(path=None, doctest=None):
@@ -101,11 +140,26 @@ def doctest_or_path(path=None, doctest=None):
     return (doctest, True) if doctest is not None else (path, False)
 
 
-NUMBER = re.compile(r"-?\d+(?:\.\d+)?(?:e-?\d+)?")
+XML_SPACE = "{http://www.w3.org/XML/1998/namespace}space"
+NUMBER = re.compile(
+    r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?")
+CLIP_REFERENCE = re.compile(r"url\(#([^)]+)\)")
+GEOMETRY_ATTRIBUTES = {
+    "d", "points", "transform", "viewBox",
+    "x", "y", "dx", "dy", "x1", "y1", "x2", "y2",
+    "cx", "cy", "r", "rx", "ry", "fx", "fy", "fr",
+    "refX", "refY", "width", "height", "markerWidth", "markerHeight",
+    "pathLength",
+}
+
+
+def local_name(name):
+    """ Drop an XML namespace from a tag or attribute name. """
+    return name.rsplit("}", 1)[-1]
 
 
 def close_enough(expected: str, actual: str, tol: float) -> bool:
-    """ Whether two strings are equal up to `tol` on their numbers. """
+    """ Whether two geometry strings differ by at most `tol`. """
     if NUMBER.sub("#", expected) != NUMBER.sub("#", actual):
         return False
     return all(
@@ -113,25 +167,49 @@ def close_enough(expected: str, actual: str, tol: float) -> bool:
         zip(NUMBER.findall(expected), NUMBER.findall(actual)))
 
 
-def svg_equal(path, actual_path, tol=DEFAULT['svg_tol']) -> bool:
-    """ Whether two SVG files are equal as element trees,
-    with coordinates compared up to `tol` for rounding errors.
+def normalize_svg(path):
+    """ Remove metadata and normalize geometry-derived clip ids. """
+    root = ElementTree.parse(path).getroot()
+    clip_ids = {}
 
-    There is nothing to normalise: :func:`savefig` tells matplotlib to
-    drop the creation date and fix the salt that hashes clip path ids.
-    """
+    def clip_id(identifier):
+        return f"clip-{clip_ids.setdefault(identifier, len(clip_ids))}"
+
+    for parent in root.iter():
+        for child in list(parent):
+            if local_name(child.tag) == "metadata":
+                parent.remove(child)
+    for element in root.iter():
+        element.attrib.pop(XML_SPACE, None)
+        if element.text is not None and not element.text.strip():
+            element.text = None
+        element.tail = None
+        if local_name(element.tag) == "clipPath"\
+                and "id" in element.attrib:
+            element.set("id", clip_id(element.attrib["id"]))
+        reference = CLIP_REFERENCE.fullmatch(
+            element.attrib.get("clip-path", ""))
+        if reference:
+            element.set(
+                "clip-path", f"url(#{clip_id(reference[1])})")
+    return root
+
+
+def svg_equal(path, actual_path, tol=DEFAULT['svg_tol']) -> bool:
+    """ Compare exact SVG structure with geometry tolerance. """
     def equal(expected, actual):
         return expected.tag == actual.tag\
-            and (expected.text or "").strip() == (actual.text or "").strip()\
+            and expected.text == actual.text\
             and expected.attrib.keys() == actual.attrib.keys()\
-            and all(close_enough(value, actual.attrib[key], tol)
-                    for key, value in expected.attrib.items())\
+            and all(
+                close_enough(value, actual.attrib[key], tol)
+                if local_name(key) in GEOMETRY_ATTRIBUTES
+                else value == actual.attrib[key]
+                for key, value in expected.attrib.items())\
             and len(expected) == len(actual)\
             and all(map(equal, expected, actual))
 
-    return equal(
-        ElementTree.parse(path).getroot(),
-        ElementTree.parse(actual_path).getroot())
+    return equal(normalize_svg(path), normalize_svg(actual_path))
 
 
 def temporary_path(path):
@@ -150,18 +228,31 @@ def compare_drawing(path, actual_path, tol=DEFAULT['plt_tol']):
         difference = compare_images(path, actual_path, tol)
         equal = difference is None
     elif extension == ".gif":
-        with Image.open(path) as expected, Image.open(actual_path) as actual:
-            expected_frames = [
-                frame.convert("RGBA")
-                for frame in ImageSequence.Iterator(expected)]
-            actual_frames = [
-                frame.convert("RGBA")
-                for frame in ImageSequence.Iterator(actual)]
-        rms = [np.sqrt(np.mean((
-            np.asarray(expected, dtype=float)
-            - np.asarray(actual, dtype=float)) ** 2))
-            for expected, actual in zip(expected_frames, actual_frames)]
-        equal = len(expected_frames) == len(actual_frames)\
+        def gif_data(gif_path):
+            with Image.open(gif_path) as image:
+                default_duration = image.info.get("duration")
+                loop = image.info.get("loop")
+                frames = [
+                    (frame.convert("RGBA"), frame.size,
+                     frame.info.get("duration", default_duration))
+                    for frame in ImageSequence.Iterator(image)]
+            return frames, loop
+
+        expected_frames, expected_loop = gif_data(path)
+        actual_frames, actual_loop = gif_data(actual_path)
+        same_animation = expected_loop == actual_loop\
+            and len(expected_frames) == len(actual_frames)\
+            and all(
+                expected[1:] == actual[1:]
+                for expected, actual
+                in zip(expected_frames, actual_frames))
+        rms = [
+            np.sqrt(np.mean((
+                np.asarray(expected[0], dtype=float)
+                - np.asarray(actual[0], dtype=float)) ** 2))
+            for expected, actual in zip(expected_frames, actual_frames)
+            if expected[1] == actual[1]]
+        equal = same_animation and len(rms) == len(expected_frames)\
             and all(value <= tol for value in rms)
         difference = None
     else:
@@ -186,19 +277,21 @@ def save_and_compare(path, save, tol=DEFAULT['plt_tol']):
     compare_drawing(path, actual_path, tol)
 
 
-def savefig(path, compare=False, tol=DEFAULT['plt_tol']):
-    """ Save the current Matplotlib figure, as a baseline when `compare`. """
+def savefig(path, compare=False, tol=DEFAULT['plt_tol'], figure=None):
+    """ Save a Matplotlib figure, as a baseline when `compare`. """
     path_str = os.fspath(path)
     if path_str.endswith(".svg"):
-        metadata, context = {"Date": None}, {"svg.hashsalt": "discopy"}
+        metadata = {
+            "Date": None, "Creator": None, "Format": None, "Type": None}
     elif path_str.endswith(".png"):
-        metadata, context = {"Software": None}, {}
+        metadata = {"Software": None}
     else:
-        metadata, context = None, {}
+        metadata = None
+    figure = plt.gcf() if figure is None else figure
 
     def save(actual_path):
-        with plt.rc_context(context):
-            plt.savefig(actual_path, metadata=metadata)
+        with matplotlib_context():
+            figure.savefig(actual_path, metadata=metadata)
 
     save_and_compare(path, save, tol) if compare else save(path)
 
@@ -900,7 +993,9 @@ class TikZ(Backend):
 class Matplotlib(Backend):
     """ Matplotlib drawing backend. """
     def __init__(self, axis=None, figsize=None, linewidth=1):
-        self.axis = axis or plt.subplots(figsize=figsize, facecolor='white')[1]
+        if axis is None:
+            _, axis = plt.subplots(figsize=figsize, facecolor='white')
+        self.axis, self.figure = axis, axis.figure
         self.linewidth = linewidth
         super().__init__()
 
@@ -1009,7 +1104,9 @@ class Matplotlib(Backend):
             for colour in colours.values()]
         self.axis.legend(
             handles=handles, loc=params.get("legend_loc", "upper right"),
-            fontsize=params.get("fontsize_types", params.get("fontsize")))
+            fontsize=params.get("fontsize_types")
+            or params.get("fontsize")
+            or MATPLOTLIB_RC["font.size"])
 
     def draw_wire(self, source, target,
                   bend_out=False, bend_in=False, style=None, linewidth=None):
@@ -1049,18 +1146,22 @@ class Matplotlib(Backend):
                 node_shape=SHAPES[shape], ax=self.axis,
                 node_size=300 * params.get("nodesize", 1))
             if draw_box_labels:
-                labels = {node: node.box.drawing_name for node in nodes}
-                nx.draw_networkx_labels(*graph.inside, labels)
+                fontsize = params.get('fontsize') or DEFAULT['fontsize']
+                labels = {
+                    node: node.box.drawing_name for node in nodes}
+                nx.draw_networkx_labels(
+                    *graph.inside, labels=labels, ax=self.axis,
+                    font_size=fontsize)
         super().draw_spiders(graph, draw_box_labels)
 
     def output(self, path=None, show=True, **params):
         xlim, ylim = params.get("xlim", None), params.get("ylim", None)
         margins = params.get("margins", DEFAULT['margins'])
-        plt.margins(*margins)
-        plt.subplots_adjust(
+        self.axis.margins(*margins)
+        self.figure.subplots_adjust(
             top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
         self.axis.set_aspect(params.get("aspect"))
-        plt.axis('off')
+        self.axis.axis('off')
         if xlim is not None:
             self.axis.set_xlim(*xlim)
         if ylim is not None:
@@ -1069,8 +1170,9 @@ class Matplotlib(Backend):
             try:
                 savefig(
                     path, compare=params.get("compare", False),
-                    tol=params.get("tol", DEFAULT['plt_tol']))
+                    tol=params.get("tol", DEFAULT['plt_tol']),
+                    figure=self.figure)
             finally:
-                plt.close()
-        if show:
+                plt.close(self.figure)
+        if show and path is None:
             plt.show()
