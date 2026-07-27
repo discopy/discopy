@@ -1,8 +1,8 @@
 
 import os
+import re
 
 from pytest import raises
-from matplotlib.testing.compare import compare_images
 
 from discopy.utils import AxiomError
 from discopy.config import DRAWING_DEFAULT
@@ -10,12 +10,26 @@ from discopy.compact import *
 from discopy.drawing import *
 from discopy import monoidal
 
-IMG_FOLDER, TIKZ_FOLDER, TOL = 'test/drawing/imgs/', 'test/drawing/tikz/', 20
+IMG_FOLDER, TIKZ_FOLDER = 'test/drawing/imgs/', 'test/drawing/tikz/'
+
+
+def _normalize_svg(path):
+    """ Normalise SVG for cross-platform comparison: strip <metadata>
+    and replace every quoted attribute value with a placeholder so
+    only element structure and text content are compared.  This is
+    necessary because Matplotlib SVG output depends on local font
+    metrics (coordinates, canvas size) and the hash-salt (clip-path
+    ids), none of which are reproducible across environments. """
+    with open(path) as f:
+        text = f.read()
+    text = re.sub(
+        r'<[^>]*metadata[^>]*>.*?</[^>]*metadata\s*>',
+        '', text, flags=re.DOTALL)
+    text = re.sub(r'="[^"]*"', '="#"', text)
+    return text
 
 
 def draw_and_compare(file, folder=IMG_FOLDER, **params):
-    tol = params.pop('tol', TOL)
-
     def decorator(func):
         def wrapper():
             diagram = func()
@@ -26,8 +40,7 @@ def draw_and_compare(file, folder=IMG_FOLDER, **params):
             if not os.path.exists(true_path):
                 os.replace(test_path, true_path)
                 return
-            test = compare_images(true_path, test_path, tol)
-            assert test is None
+            assert _normalize_svg(true_path) == _normalize_svg(test_path)
             os.remove(test_path)
         return wrapper
     return decorator
@@ -58,7 +71,7 @@ def tikz_and_compare(file, folder=TIKZ_FOLDER, **params):
     return decorator
 
 
-@draw_and_compare('crack-eggs.png')
+@draw_and_compare('crack-eggs.svg')
 def test_draw_eggs():
     def merge(x):
         return Box('merge', x @ x, x)
@@ -105,9 +118,7 @@ def coloured_bubble():
         dom=outer_dom, cod=outer_cod, name="g")
 
 
-# A higher tolerance: abutting high-contrast regions turn a sub-pixel
-# boundary shift across environments into a large RMS at tol=20.
-@draw_and_compare('coloured-bubble.png', wire_labels=False, tol=50)
+@draw_and_compare('coloured-bubble.svg', wire_labels=False)
 def test_draw_bubble():
     return coloured_bubble()
 
@@ -131,9 +142,7 @@ def test_bubble_boundary_is_visible():
     assert all(map(Backend.is_frame_boundary, frame_box_nodes))
 
 
-# A higher tolerance: abutting high-contrast regions turn a sub-pixel
-# boundary shift across environments into a large RMS at tol=20.
-@draw_and_compare('coloured-frame.png', wire_labels=False, tol=50)
+@draw_and_compare('coloured-frame.svg', wire_labels=False)
 def test_draw_coloured_frame():
     red, blue = map(monoidal.Colour, ("red", "blue"))
     x = monoidal.Ty(monoidal.Wire("x", red, blue))
@@ -349,7 +358,7 @@ def test_draw_box_foreground_on_dark_background():
     plt.close(backend.axis.figure)
 
 
-@draw_and_compare('crack-two-eggs-at-once.png')
+@draw_and_compare('crack-two-eggs-at-once.svg')
 def test_crack_two_eggs_at_once():
     from discopy.monoidal import Layer
     from discopy.symmetric import Ty, Box, Diagram
@@ -384,19 +393,19 @@ def test_crack_two_eggs_at_once():
     return crack_two_eggs_at_once
 
 
-@draw_and_compare("bubble-straight-wire.png", wire_labels=False)
+@draw_and_compare("bubble-straight-wire.svg", wire_labels=False)
 def test_draw_bubble_wires():
     return (Ty('x') @ Box('s', Ty(), Ty())).bubble()
 
 
 @draw_and_compare(
-    'spiral.png', wire_labels=False,
+    'spiral.svg', wire_labels=False,
     draw_box_labels=False, aspect='equal')
 def test_draw_spiral():
     return spiral(2)
 
 
-@draw_and_compare('who-ansatz.png', aspect='equal')
+@draw_and_compare('who-ansatz.svg', aspect='equal')
 def test_draw_who():
     n, s = Ty('n'), Ty('s')
     copy, update = Box('copy', n, n @ n), Box('update', n @ s, s)
@@ -406,7 +415,7 @@ def test_draw_who():
         >> Id(n.r) @ update @ Id(s.l @ n)
 
 
-@draw_and_compare('alice-loves-bob.png')
+@draw_and_compare('alice-loves-bob.svg')
 def test_draw_pregroup_sentence():
     from discopy.grammar.pregroup import Ty, Cup, Word, Id
     s, n = Ty('s'), Ty('n')
@@ -416,7 +425,7 @@ def test_draw_pregroup_sentence():
     return sentence.foliation()
 
 
-@draw_and_compare('categorial-grammar.png', aspect='equal')
+@draw_and_compare('categorial-grammar.svg', aspect='equal')
 def test_draw_sentence():
     from discopy.grammar.categorial import Eval, Ty, Word
 
@@ -429,14 +438,14 @@ def test_draw_sentence():
     return Alice @ loves @ Bob >> n @ Eval((n >> s) << n) >> Eval(n >> s)
 
 
-@draw_and_compare('bialgebra.png', aspect='equal')
+@draw_and_compare('bialgebra.svg', aspect='equal')
 def test_draw_bialgebra():
     from discopy.quantum.zx import Z, X, Id, SWAP
     bialgebra = Z(1, 2) @ Z(1, 2) >> Id(1) @ SWAP @ Id(1) >> X(2, 1) @ X(2, 1)
     return bialgebra + bialgebra
 
 
-@draw_and_compare("snake-equation.png",
+@draw_and_compare("snake-equation.svg",
                   aspect='auto', figsize=(5, 2), wire_labels=False)
 def test_snake_equation():
     from discopy.rigid import Ty, Id
@@ -444,17 +453,15 @@ def test_snake_equation():
     return Equation(Id(x.r).transpose(left=True), Id(x), Id(x.l).transpose())
 
 
-@draw_and_compare('typed-snake-equation.png', figsize=(4, 1))
+@draw_and_compare('typed-snake-equation.svg', figsize=(4, 1))
 def test_draw_typed_snake():
     from discopy.rigid import Ty, Id
     x = Ty('x')
     return Equation(Id(x.r).transpose(left=True), Id(x), Id(x.l).transpose())
 
 
-# tol=50: the abutting coloured regions make this sensitive to sub-pixel
-# boundary shifts across environments, as for test_draw_coloured_frame.
 @draw_and_compare(
-    'coloured-snake-equation.png', figsize=(3, 2), legend=True, tol=50)
+    'coloured-snake-equation.svg', figsize=(3, 2), legend=True)
 def test_draw_coloured_snake_equation():
     from discopy.rigid import Ty, Ob, Id, Cup, Cap
     a = monoidal.Colour("cornflowerblue", label="Function")
@@ -479,12 +486,12 @@ def test_copy_to_tikz():
     return copy_x @ copy_y >> Id(x) @ Swap(x, y) @ Id(y)
 
 
-@draw_and_compare('empty_diagram.png')
+@draw_and_compare('empty_diagram.svg')
 def test_empty_diagram():
     return Id()
 
 
-@draw_and_compare('bell-state.png', aspect='equal')
+@draw_and_compare('bell-state.svg', aspect='equal')
 def test_draw_bell_state():
     from discopy.quantum import qubit, H, sqrt, Bra, Ket, CX
     return sqrt(2) >> Ket(0, 0) >> H @ qubit >> CX >> Bra(0) @ qubit
@@ -537,7 +544,7 @@ def test_tikz_eggs():
         >> merge(white) @ merge(yolk)
 
 
-@draw_and_compare('long-controlled.png', wire_labels=False, tol=5)
+@draw_and_compare('long-controlled.svg', wire_labels=False)
 def test_draw_long_controlled():
     from discopy.quantum import Controlled, CZ, CX
     return (Controlled(CX.l, distance=3) >> Controlled(
@@ -551,7 +558,7 @@ def test_tikz_long_controlled():
         Controlled(CZ.l, distance=2), distance=-1))
 
 
-@draw_and_compare('long-box-name.png', aspect='equal')
+@draw_and_compare('long-box-name.svg', aspect='equal')
 def test_draw_long_box_name():
     # A box gets wider when its name is too long to fit between its wires,
     # while boxes with short names keep their default size.
@@ -561,7 +568,7 @@ def test_draw_long_box_name():
         >> Box('g', x, x)
 
 
-@draw_and_compare('box-min-width.png', aspect='equal')
+@draw_and_compare('box-min-width.svg', aspect='equal')
 def test_draw_box_min_width():
     # The width of a box can be set by hand with `min_width`, e.g. for a
     # LaTeX name whose rendered width cannot be guessed from its characters.
@@ -569,7 +576,7 @@ def test_draw_box_min_width():
     return Box('$\\Lambda$', x, x, min_width=3) @ Box('f', x, x)
 
 
-@draw_and_compare('wire-min-right-margin.png', aspect='equal')
+@draw_and_compare('wire-min-right-margin.svg', aspect='equal')
 def test_draw_wire_min_right_margin():
     # An object's `min_right_margin` adds space to the right of its wire,
     # e.g. to fit a long label without colliding with the next wire.
@@ -578,14 +585,14 @@ def test_draw_wire_min_right_margin():
     return Id(x @ long_type @ x)
 
 
-@draw_and_compare('wire-custom-margin.png', aspect='equal')
+@draw_and_compare('wire-custom-margin.svg', aspect='equal')
 def test_draw_wire_custom_margin():
     x, custom = Ty('x'), Ty('custom_margin_wire')
     custom.inside[0].right_margin = 3
     return Id(x @ custom @ x)
 
 
-@draw_and_compare('wire-auto-margin.png', aspect='equal')
+@draw_and_compare('wire-auto-margin.svg', aspect='equal')
 def test_draw_wire_auto_margin():
     # A long wire label reserves space to its right on its own, so it does
     # not overflow even without setting min_right_margin by hand.
@@ -593,7 +600,7 @@ def test_draw_wire_auto_margin():
     return Box('f', x, x @ Ty('a_long_output_type'))
 
 
-@draw_and_compare('long-latex-name.png', aspect='equal', tol=100)
+@draw_and_compare('long-latex-name.svg', aspect='equal')
 def test_draw_long_latex_name():
     x = Ty('x')
     return Box('$\\int_a^b f(x)\\,dx = \\sqrt{2}$', x, x) @ Box('f', x, x)
