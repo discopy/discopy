@@ -16,7 +16,7 @@ Prompt ([#374](https://github.com/discopy/discopy/issues/374), verbatim):
 - [x] `discopy.kleisli.monad`: monads as monoids over a new `python.function.EndoFunctor`, with maybe, powerset and subdistribution examples
 - [x] `discopy.kleisli.channel`: `Channel[M]` as a `NamedGeneric` over `M: Monad`
 - [ ] `discopy.kleisli.additive`: traced cocartesian Kleisli with the execution formula as trace; convergence tests for sub-additive monads — claimed and released by @evening-2026-07-25T02:25, see note below
-- [WIP] @evening-2026-07-27T06:34 `discopy.kleisli.multiplicative`: premonoidal copy-discard Kleisli with pointwise strength; test monoidal iff the monad is commutative
+- [x] @evening-2026-07-27T06:34-2026-07-27T07:20 `discopy.kleisli.multiplicative`: premonoidal copy-discard Kleisli with pointwise strength; test monoidal iff the monad is commutative
 - [ ] `Hypergraph` evaluation methods: token passing for `additive`, message passing for `multiplicative` — coordinate with #366 and #363
 - [ ] `multiplicative` stress test: compare results against tensor contraction on small enough models (per issue comment)
 - [ ] Implement the state monad for seeded randomness; compare empirical distributions against the ones computed explicitly via sub-distribution dicts (value → nonzero weight)
@@ -95,3 +95,32 @@ Alexis's live directive, verbatim:
   monad APIs in autosummary, prefer `Monad.from_maps`, and file the pre-existing
   callable-repr problem separately if needed
   ([#474](https://github.com/discopy/discopy/issues/474)).
+
+## `discopy.kleisli.multiplicative` (🌙 evening, 2026-07-27)
+
+Implemented as `discopy.kleisli.multiplicative.Channel`, reusing `channel.Channel`
+for composition/identity via a `pack`/`pack_value`/`unpack_value` trio that turns
+a tuple of wires into the single type a `Monad` already acts on. Tensor is
+composition-and-whiskering, biased `f` before `g`, exactly `f @ g = f @ g.dom >>
+f.cod @ g` as in the README; `copy`/`discard` embed via the monad's unit.
+
+Non-obvious pitfall worth flagging: the naive choice of packed type,
+`tuple[X, Y]`, breaks composition. Every `python.function.Function` composes by
+`tuplify()`-ing its result and splatting it into the next call, so that
+multi-output functions chain correctly; but this makes it impossible to tell
+"one value that happens to be a tuple" from "several values to splat", and a
+`tuple[X, Y]`-typed payload is silently mis-splat as two arguments once it flows
+through `>>`. Introduced `Row` (not a `tuple` subclass) as the packed
+carrier for arity ≠ 1 instead — sidesteps the ambiguity entirely, no change to
+shared code needed. Documented in the module docstring; not filing a separate
+issue since it never surfaces outside of code that deliberately packs multiple
+values into one slot, which today is only this module.
+
+Tested the "monoidal iff commutative" property directly: interchange
+(`f @ g` vs. the oppositely-biased composite) holds for `Maybe`/`Powerset`
+and fails for a local, non-exported Writer-over-strings monad (concatenation
+is non-commutative) built only for this test. `pflake8 discopy` clean;
+`coverage run -m pytest` — 554 passed, 71 failed, all pre-existing
+environment-only `ModuleNotFoundError`s (torch/jax/sympy/pytket/pyzx/
+tensornetwork unavailable in this sandbox), same shape as prior cycles'
+notes above; `discopy/kleisli/` and `test/kleisli.py` at 100% coverage.
