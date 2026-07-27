@@ -7,6 +7,11 @@ on:
       - 'tooling/uv-migration'
   pull_request:
 
+# Cancel superseded runs so only the latest pipeline runs to completion.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   SRC_DIR: discopy
   TEST_DIR: test
@@ -95,7 +100,7 @@ jobs:
         path: |
           ${{ env.DOCS_DIR }}/_api
           ${{ env.DOCS_DIR }}/_build
-        key: ${{ runner.os }}-docs-${{ hashFiles('discopy/**', 'docs/**') }}  # TODO: refactor to use env.SRC_DIR and DOCS_DIR
+        key: ${{ runner.os }}-docs-${{ hashFiles('discopy/**', 'docs/**') }}
         restore-keys: |
           ${{ runner.os }}-docs
     - name: Install

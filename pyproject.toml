@@ -100,6 +100,7 @@ docs  = [
     "sphinx == 7.2.*",
     "sphinx-book-theme == 1.1.*",
     "sphinxcontrib-bibtex == 2.5.*",
+    "sphinxcontrib-tikz == 0.4.*",
     "sphinxcontrib-youtube == 1.4.*",
 ]
 
@@ -148,12 +149,13 @@ pythonpath = [
 ]
 testpaths = [
     "discopy",
+    "test/*.py",
     "test/*/*.py",
 ]
 norecursedirs = [
-    "test/utils/pickles/TODO",
+    "test/fixtures",
 ]
-addopts = "--doctest-modules --ignore=test/utils/pickles/TODO"
+addopts = "--doctest-modules --ignore=test/fixtures"
 
 [tool.coverage.report]
 fail_under = 98

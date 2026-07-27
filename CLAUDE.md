@@ -1,0 +1,3 @@
+@AGENTS.md
+@RULES.md
+@STYLE.md
