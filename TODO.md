@@ -32,4 +32,4 @@ you can push directly to this PR for abc+torch, open a fresh one for jax
 - [x] Add a lazy JAX implementation of the neural backend primitives.
 - [x] Wrap compiled execution plans as callable JAX PyTrees with explicit runtime modules.
 - [x] Cover eager execution, JIT, gradients, sharing, nesting, and private memory.
-- [ ] Document the JAX module protocol and run lint and tests.
+- [WIP] @codex-jax-validation-2026-07-28 01:39 Document the JAX module protocol and run lint and tests.
