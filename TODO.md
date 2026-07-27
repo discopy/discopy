@@ -12,3 +12,13 @@ this geometry-of-interaction execution.
 - [x] @codex-memory-2026-07-24 13:15 Add optional per-network memory without representing private state as public wiring.
 - [x] @codex-catgpt-2026-07-24 13:00 Port the CatGPT benchmark to DisCoPy.
 - [x] @codex-validation-2026-07-24 14:10 Add concise tests and documentation, then run lint and the full test suite.
+
+## Backend split follow-up
+
+ok split the work in three abc / torch / jax: first refactor the existing torch into abc and torch then add jax on top
+you can push directly to this PR for abc+torch, open a fresh one for jax
+
+- [ ] Merge current main into the PR branch and resolve conflicts.
+- [ ] Turn `neural.Backend` into an explicit abstract interface and pass backend-owned modules into execution.
+- [ ] Adapt and bind the existing PyTorch implementation to the abstract interface.
+- [ ] Add concise backend contract and PyTorch regression tests, update the documentation, and run lint and tests.
