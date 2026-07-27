@@ -2,10 +2,6 @@
 
 from unittest.mock import Mock
 
-import pytest
-
-pytest.importorskip("pytket")
-
 import numpy as np
 from pytest import raises
 

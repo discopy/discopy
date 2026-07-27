@@ -2,9 +2,6 @@
 
 import pytest
 
-for backend in ("sympy", "torch", "tensornetwork"):
-    pytest.importorskip(backend)
-
 import numpy as np
 import sympy
 import torch

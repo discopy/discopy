@@ -1,46 +1,13 @@
-"""
-Turn a missing optional dependency into a skip, rather than an error.
-
-The default install has only the dependencies of :mod:`discopy` itself, so a
-module wrapping an optional backend cannot be imported at all. Two modules of
-the package are in that case: they are listed in ``REQUIREMENTS`` and ignored
-before collection. The test modules in the same case skip themselves with
-``pytest.importorskip``, the only thing that works for a path named directly
-in ``testpaths``.
-
-Everywhere else the dependency is needed by one doctest rather than a whole
-file, so we let the test run and read the error: if it is one of the
-``OPTIONAL`` backends missing, the test is skipped rather than failed.
-
-Install the extras (``uv sync --dev --group all``) and nothing is skipped.
-"""
+""" Skip what needs more than ``uv sync --dev``, see CONTRIBUTING.md. """
 
 import re
-from importlib.util import find_spec
 
 import pytest
 
 
-REQUIREMENTS = {
-    "discopy/quantum/pennylane.py": "pennylane",
-    "discopy/quantum/tk.py": "pytket",
-}
-
 OPTIONAL = frozenset((
-    "jax", "jaxlib", "nltk", "pennylane", "pytket", "pyzx", "qiskit", "sympy",
-    "tensornetwork", "torch", "quimb"))
-
-
-def is_available(module: str) -> bool:
-    """ Whether ``module`` can be imported, without importing it. """
-    try:
-        return find_spec(module) is not None
-    except (ImportError, ValueError):
-        return False
-
-
-collect_ignore = [
-    path for path, module in REQUIREMENTS.items() if not is_available(module)]
+    "graphviz", "jax", "jaxlib", "nltk", "pennylane", "pytket", "pyzx",
+    "qiskit", "quimb", "sympy", "tensornetwork", "torch"))
 
 
 def causes(error: BaseException):
@@ -54,31 +21,42 @@ def causes(error: BaseException):
         error = error.__cause__ or error.__context__
 
 
-def missing_dependency(error: BaseException) -> str | None:
-    """
-    The optional dependency that ``error`` is really about, if any.
+def missing_module(text: str) -> str | None:
+    """ The optional dependency that a message complains about, if any. """
+    if "Graphviz executable" in text:
+        return "graphviz"
+    for module in re.findall(r"No module named '([\w.]+)'", text):
+        if module.split(".")[0] in OPTIONAL:
+            return module
+    return None
 
-    A notebook reports the error as text rather than as an exception, hence
-    the regular expression as well as the :class:`ModuleNotFoundError`.
-    """
+
+def missing_dependency(error: BaseException) -> str | None:
+    """ The same, for an exception and everything it wraps. """
     for cause in causes(error):
         if isinstance(cause, ModuleNotFoundError) and cause.name in OPTIONAL:
             return cause.name
-        if "Graphviz executable" in str(cause):
-            return "graphviz"
-        for module in re.findall(r"No module named '([\w.]+)'", str(cause)):
-            if module.split(".")[0] in OPTIONAL:
-                return module
+        if module := missing_module(str(cause)):
+            return module
     return None
 
 
 @pytest.hookimpl(wrapper=True)
+def pytest_make_collect_report(collector):
+    """ A module that cannot be imported for want of a backend is skipped. """
+    report = yield
+    if report.failed and (module := missing_module(str(report.longrepr))):
+        report.outcome, report.longrepr = "skipped", (
+            str(collector.path), None, f"Skipped: needs {module}")
+    return report
+
+
+@pytest.hookimpl(wrapper=True)
 def pytest_runtest_call(item):
-    """ Skip a test that only fails for want of an optional dependency. """
+    """ So is a test that only fails for want of one. """
     try:
         return (yield)
     except BaseException as error:
-        module = missing_dependency(error)
-        if module is None:
+        if (module := missing_dependency(error)) is None:
             raise
         pytest.skip(f"needs {module}")

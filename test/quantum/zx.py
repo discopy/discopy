@@ -1,9 +1,5 @@
 import random
 
-import pytest
-
-pytest.importorskip("pyzx")
-
 import numpy as np
 from pytest import raises, fixture
 

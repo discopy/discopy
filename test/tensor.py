@@ -1,7 +1,3 @@
-import pytest
-
-pytest.importorskip("tensornetwork")
-
 import numpy as np
 import tensornetwork as tn
 from pytest import raises
