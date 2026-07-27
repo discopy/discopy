@@ -70,7 +70,8 @@ def draw(graph: PlaneGraph, **params):
         TikZ(use_tikzstyles=params.get('use_tikzstyles', None))
         if params.get('to_tikz', False)
         else Matplotlib(figsize=figsize,
-                        linewidth=params.get('linewidth', 1)))
+                        linewidth=params.get('linewidth', 1),
+                        format=params.get('format', None)))
 
     max_v = max(graph.height, graph.width, 0.01)
     params['nodesize'] = round(params.get('nodesize', 1.) / sqrt(max_v), 3)
@@ -186,19 +187,26 @@ def save_and_compare(path, save, tol=DEFAULT['plt_tol']):
     compare_drawing(path, actual_path, tol)
 
 
-def savefig(path, compare=False, tol=DEFAULT['plt_tol']):
-    """ Save the current Matplotlib figure, as a baseline when `compare`. """
-    path_str = os.fspath(path)
-    if path_str.endswith(".svg"):
-        metadata, context = {"Date": None}, {"svg.hashsalt": "discopy"}
-    elif path_str.endswith(".png"):
-        metadata, context = {"Software": None}, {}
-    else:
-        metadata, context = None, {}
+def savefig(path, format=None, compare=False, tol=DEFAULT['plt_tol']):
+    """
+    Save the current Matplotlib figure, as a baseline when ``compare``.
+
+    The format is taken from the extension of ``path`` when it is a file name,
+    it has to be given explicitly when ``path`` is an in-memory buffer. PNGs
+    embed the Matplotlib version as ``"Software"``, SVGs embed the current date
+    and randomise the ids of their clip paths, so we drop the former and fix
+    the salt used for the latter.
+    """
+    path_str = str(path)
+    is_svg = format == "svg" or (format is None and path_str.endswith(".svg"))
+    is_png = format == "png" or (format is None and path_str.endswith(".png"))
+    metadata = {"Date": None} if is_svg else\
+        {"Software": None} if is_png else None
+    context = {"svg.hashsalt": DEFAULT["svg_hashsalt"]} if is_svg else {}
 
     def save(actual_path):
         with plt.rc_context(context):
-            plt.savefig(actual_path, metadata=metadata)
+            plt.savefig(actual_path, format=format, metadata=metadata)
 
     save_and_compare(path, save, tol) if compare else save(path)
 
@@ -899,9 +907,10 @@ class TikZ(Backend):
 
 class Matplotlib(Backend):
     """ Matplotlib drawing backend. """
-    def __init__(self, axis=None, figsize=None, linewidth=1):
+    def __init__(self, axis=None, figsize=None, linewidth=1, format=None):
         self.axis = axis or plt.subplots(figsize=figsize, facecolor='white')[1]
         self.linewidth = linewidth
+        self.format = format
         super().__init__()
 
     def draw_text(self, text, i, j, **params):
@@ -1068,7 +1077,8 @@ class Matplotlib(Backend):
         if path is not None:
             try:
                 savefig(
-                    path, compare=params.get("compare", False),
+                    path, format=self.format,
+                    compare=params.get("compare", False),
                     tol=params.get("tol", DEFAULT['plt_tol']))
             finally:
                 plt.close()

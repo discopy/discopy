@@ -467,3 +467,55 @@ def test_tikz_long_controlled():
     from discopy.quantum import Controlled, CZ, CX
     return (Controlled(CX.l, distance=3) >> Controlled(
         Controlled(CZ.l, distance=2), distance=-1))
+
+
+def test_rich_display():
+    from io import StringIO
+    import matplotlib.pyplot as plt
+    from discopy.monoidal import Ty, Box
+
+    f = Box('f', Ty('x'), Ty('y'))
+    diagram, drawing, equation = f, f.to_drawing(), Equation(f, f)
+    plt.close('all')
+
+    for obj in (diagram, drawing, equation):
+        svg, png = obj._repr_svg_(), obj.to_png()
+        assert svg.startswith('<?xml') and '</svg>\n' in svg
+        assert png.startswith(b'\x89PNG')
+        assert obj._repr_mimebundle_() == {
+            'image/svg+xml': svg, 'image/png': png}
+        assert obj._repr_mimebundle_(include=['image/svg+xml']) == {
+            'image/svg+xml': svg}
+        assert obj._repr_mimebundle_(exclude=['image/svg+xml']) == {
+            'image/png': png}
+        assert obj._repr_mimebundle_(include=['text/html']) == {}
+
+    assert plt.get_fignums() == []
+
+    # Output is deterministic, i.e. the same diagram renders byte-for-byte.
+    assert diagram._repr_svg_() == diagram._repr_svg_()
+    assert diagram.to_png() == diagram.to_png()
+
+    # The format parameter of draw allows rendering to an in-memory buffer.
+    buffer = StringIO()
+    diagram.draw(path=buffer, format='svg', show=False)
+    assert buffer.getvalue() == diagram.to_svg()
+
+    import subprocess
+    import sys
+    script = """
+from discopy.monoidal import Box, Ty
+x = Ty("x")
+boxes = [Box(str(i), x, x, draw_as_spider=True) for i in range(4)]
+for box, color, shape in zip(
+        boxes, ("red", "blue", "green", "yellow"),
+        ("circle", "rectangle", "circle", "rectangle")):
+    box.color, box.shape, box.drawing_name = color, shape, ""
+print((boxes[0] @ boxes[1] @ boxes[2] @ boxes[3]).to_svg())
+"""
+    outputs = [
+        subprocess.check_output(
+            [sys.executable, "-c", script],
+            env=dict(os.environ, PYTHONHASHSEED=str(seed)))
+        for seed in range(3)]
+    assert outputs[0] == outputs[1] == outputs[2]
