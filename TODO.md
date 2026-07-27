@@ -17,4 +17,5 @@ missing wheel.
 - [x] `uv run pflake8 discopy conftest.py`
 - [x] `uv run pytest` green on the default install: 521 passed, 70 skipped
 - [x] Confirm on CI that the full install still runs everything, with nothing skipped — `test (3.14)` on `03ebf1a`: **753 passed, 1 skipped**, every quantum module still collected and covered
+- [x] Rename `.claude/` to `.agents/` and repoint RULES.md rule 4 — Alexis on the review: "Also let's rename .claude to .agents to be provider-agnostic", "no same PR is fine"
 - [x] Keep `conftest.py` out of coverage: its skip paths are unreachable once the extras are installed, so they were pulling the total under the 98% gate
