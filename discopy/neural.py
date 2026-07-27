@@ -21,14 +21,15 @@ which implements the execution formula of the geometry of interaction, see
 :cite:t:`Abramsky96` and :mod:`discopy.interaction` for the Int-construction
 of Joyal, Street & Verity :cite:p:`JoyalEtAl96`.
 
-Note that ``import discopy.neural`` does not import ``torch``: networks can
-be built, composed and rewired without it, only evaluating their modules
-requires a concrete :class:`Backend`. The abstract backend owns the tensor
-primitives and module protocol, while :class:`ExecutionPlan` keeps graph
-geometry independent from runtime parameters. :class:`Execution` interprets
-that plan and :meth:`CMap.as_network` delegates framework-specific parameter
-management to a lazily imported module wrapper. :class:`PyTorch` is the
-default concrete backend.
+Note that ``import discopy.neural`` imports neither ``torch`` nor ``jax``:
+networks can be built, composed and rewired without either library, and only
+evaluation requires a concrete :class:`Backend`. The abstract backend owns
+the tensor primitives and module protocol, while :class:`ExecutionPlan` keeps
+graph geometry independent from runtime parameters. :class:`Execution`
+interprets that plan and :meth:`CMap.as_network` delegates framework-specific
+parameter management to a lazily imported module wrapper. :class:`PyTorch`
+is the default concrete backend and :class:`JAX` is available with
+``backend="jax"``.
 
 Summary
 -------
@@ -51,6 +52,7 @@ Summary
     Execution
     Backend
     PyTorch
+    JAX
 
 .. admonition:: Functions
 
@@ -92,7 +94,13 @@ from discopy.utils import (
 
 
 class Backend(ABC):
-    """ An abstract neural execution backend. """
+    """
+    An abstract neural execution backend.
+
+    A backend supplies array operations, activation of backend-owned callable
+    modules, parameter prototypes for allocating messages, and a trainable
+    wrapper for compiled maps.
+    """
 
     @abstractmethod
     def zeros(self, batch_size: int, width: int, like=None):
@@ -156,7 +164,18 @@ class PyTorch(Backend):
 
 
 class JAX(Backend):
-    """ The JAX neural execution backend, imported lazily. """
+    """
+    The JAX neural execution backend, imported lazily.
+
+    A module is a callable PyTree from one batched all-port array to an array
+    of the same width. ``jax.tree_util.Partial`` can bind parameter arrays
+    to a function while leaving them visible to JAX transformations.
+    :meth:`CMap.as_network` returns a callable PyTree whose immutable
+    :class:`ExecutionPlan` is static metadata and whose distinct modules are
+    dynamic children. Pass that wrapper as an argument to transformations,
+    for example ``jax.jit(lambda model, x: model(x))(model, x)``. Execution
+    controls such as ``n_rounds`` remain static Python values under JIT.
+    """
 
     def zeros(self, batch_size: int, width: int, like=None):
         from discopy import neural_jax

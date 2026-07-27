@@ -3,7 +3,7 @@
 from pytest import importorskip
 
 from discopy.neural import (
-    CMap, Dim, Id, JAX, Network, backend, get_backend)
+    CMap, Diagram, Dim, Id, JAX, Network, backend, get_backend)
 from discopy.neural_rdiff import discard
 from discopy.python.finset import Permutation
 
@@ -47,6 +47,11 @@ def test_jax_backend_eager_and_closed():
     value = jnp.array([[1., 2.]])
     snake = Id(Dim(2)).transpose().to_map()
     assert jnp.array_equal(snake(value, backend=selected), value)
+    swap = Diagram.swap(Dim(1), Dim(1)).to_map()
+    assert jnp.array_equal(
+        swap(value, backend=selected), jnp.array([[2., 1.]]))
+    cup = Diagram.cups(Dim(1), Dim(1)).to_map()
+    assert cup(value, backend=selected).shape == (1, 0)
 
     open_map = Network(
         "open", Dim(1), Dim(1), module=module()).to_map()
@@ -56,9 +61,11 @@ def test_jax_backend_eager_and_closed():
     cell = Network(
         "cell", Dim(0), Dim(1, 1), module=module())
     model = ring(2, cell).as_network(backend=selected).module
-    states = model(n_rounds=1)
-    assert len(states) == 2
-    assert all(state.shape == (1, 2) for state in states)
+    states = model(
+        init=jnp.array([[1., 2., 3., 4.]]),
+        n_rounds=1, inject=False)
+    assert all(map(jnp.array_equal, states, (
+        jnp.array([[2., 4.]]), jnp.array([[6., 8.]]))))
 
     with backend("jax"):
         zero = discard(Dim(2)).module
@@ -85,8 +92,10 @@ def test_jax_jit_gradient_update_and_sharing():
     assert jnp.array_equal(
         jax.tree_util.tree_leaves(gradient)[0], jnp.array(12.))
 
-    updated = jax.tree.map(lambda parameter: parameter / 2, model)
-    assert jnp.array_equal(apply(updated, value), value)
+    updated = jax.tree_util.tree_map(
+        lambda parameter, tangent: parameter - .01 * tangent,
+        model, gradient)
+    assert apply(updated, value).sum() < apply(model, value).sum()
     assert jnp.array_equal(apply(model, value), 4 * value)
 
 
@@ -100,6 +109,9 @@ def test_nested_jax_wrapper_is_one_pytree():
     assert len(jax.tree_util.tree_leaves(outer)) == 1
     result = jax.jit(lambda current, x: current(x))(outer, value)
     assert jnp.array_equal(result, 2 * value)
+    assert jnp.array_equal(
+        outer.box_forward(jnp.array([[3., 5.]])),
+        jnp.array([[10., 6.]]))
     gradient = jax.grad(lambda current: current(value).sum())(outer)
     assert jnp.array_equal(
         jax.tree_util.tree_leaves(gradient)[0], value.sum())
@@ -108,13 +120,19 @@ def test_nested_jax_wrapper_is_one_pytree():
 def test_jax_private_memory_under_jit():
     cell = Network(
         "accumulator", Dim(1), Dim(1),
-        module=module(accumulator), mem=Dim(1))
+        module=module(accumulator, weight=1.), mem=Dim(1))
     model = cell.to_map().as_network(backend="jax").module
     value = jnp.array([[2.]])
     apply = jax.jit(lambda current, x: current(
         x, n_rounds=3, return_memory=True))
 
     output, memories = apply(model, value)
-    assert jnp.array_equal(output, jnp.array([[12.]]))
+    assert jnp.array_equal(output, jnp.array([[6.]]))
     assert len(memories) == 1
-    assert jnp.array_equal(memories[0], jnp.array([[12.]]))
+    assert jnp.array_equal(memories[0], jnp.array([[6.]]))
+
+    output, memories = jax.jit(lambda current, x, memory: current(
+        x, memory=memory, n_rounds=2, return_memory=True))(
+            model, value, jnp.array([[10.]]))
+    assert jnp.array_equal(output, jnp.array([[14.]]))
+    assert jnp.array_equal(memories[0], jnp.array([[14.]]))

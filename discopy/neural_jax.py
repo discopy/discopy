@@ -66,7 +66,11 @@ class CMapModule:
     A compiled neural combinatorial map represented as a callable JAX PyTree.
 
     The immutable execution plan is static tree metadata, while the distinct
-    modules are dynamic children visible to JAX transformations.
+    modules are dynamic children visible to JAX transformations. Pass the
+    model as an argument to transformations, for example
+    ``jax.jit(lambda model, x: model(x))(model, x)``. Parameterized modules
+    can use ``jax.tree_util.Partial`` so their bound arrays remain
+    dynamic leaves.
 
     Parameters:
         plan : The backend-neutral execution plan.
