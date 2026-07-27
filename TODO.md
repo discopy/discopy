@@ -11,7 +11,7 @@ what the fuck is going on ? explain and evaluate all the possible solutions with
   dropping the `metadata` parameter and making `format` an attribute of the
   `Matplotlib` backend, as suggested in the review.
 
-- [WIP] @01H4qh8wP78PLoRLjhd6NwyK-2026-07-27 14:18 Reply to toumix's comment on #445.
+- [x] Reply to toumix's comment on #445.
 
 Mathematical design: saving a figure is a function of the format, determined
 by the path when it is a file name and given explicitly when it is an
