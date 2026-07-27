@@ -187,20 +187,13 @@ class HopfAlgebra:
             np.linalg.inv(array).reshape(-1).tolist())
 
     @cached_property
-    def ribbon_element(self):
+    def twist(self):
         """
-        The ribbon element :math:`v` as a state :math:`1 \\to H`: the
-        invertible central element of a quasitriangular Hopf algebra whose
-        action is the twist, :math:`\\theta_V = \\rho_V(v)`, so that
-        :meth:`Intertwiner.twist` is a single application of the action. It
-        is computed on first access, as the ribbon trace of the
-        self-braiding of the regular representation applied to the unit —
-        valid since the twist of the regular representation is left
-        multiplication by :math:`v`.
-
-        Not to be confused with the *pivotal element*, the grouplike
-        :math:`g = u v^{-1}` with :math:`S^2(x) = g x g^{-1}`, for
-        :math:`u` the Drinfeld element.
+        The ribbon element as a state :math:`1 \\to H`: the central element
+        whose action is the twist, so that :meth:`Intertwiner.twist` is a
+        single application of the action. It is computed on first access,
+        as the ribbon trace of the self-braiding of the regular
+        representation applied to the unit.
         """
         reg = Representation[self].regular()
         braid = Intertwiner[self].braid(reg, reg)
@@ -781,13 +774,12 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
     def twist(cls, dom):
         """
         The twist of ``dom``: the action of the ribbon element
-        :attr:`HopfAlgebra.ribbon_element`, computed once as the ribbon
-        trace of the self-braiding of the regular representation.
+        :attr:`HopfAlgebra.twist`, computed once as the ribbon trace of the
+        self-braiding of the regular representation.
         """
         if cls.algebra is None:
             raise ValueError("the twist needs a quasitriangular structure")
-        body = cls.algebra.ribbon_element @ Id(Dim(*dom.inside)) \
-            >> dom.action
+        body = cls.algebra.twist @ Id(Dim(*dom.inside)) >> dom.action
         return cls(body.inside, body.dom, body.cod)
 
 
