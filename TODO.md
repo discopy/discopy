@@ -23,3 +23,13 @@ you can push directly to this PR for abc+torch, open a fresh one for jax
 - [x] Adapt and bind the existing PyTorch implementation to the abstract interface.
 - [x] Add concise backend contract and PyTorch regression tests, update the documentation, and run lint and tests.
 - [x] Remove the accidentally tracked generated execution-plan API stub.
+
+## JAX backend follow-up
+
+ok split the work in three abc / torch / jax: first refactor the existing torch into abc and torch then add jax on top
+you can push directly to this PR for abc+torch, open a fresh one for jax
+
+- [x] Add a lazy JAX implementation of the neural backend primitives.
+- [x] Wrap compiled execution plans as callable JAX PyTrees with explicit runtime modules.
+- [x] Cover eager execution, JIT, gradients, sharing, nesting, and private memory.
+- [x] Document the JAX module protocol and run lint and tests.

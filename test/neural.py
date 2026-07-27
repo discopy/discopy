@@ -25,7 +25,8 @@ def test_lazy_torch_import():
     subprocess.run([
         sys.executable, "-c",
         "import sys; import discopy.neural; "
-        "assert 'torch' not in sys.modules"], check=True)
+        "assert 'torch' not in sys.modules; "
+        "assert 'jax' not in sys.modules"], check=True)
 
 
 def test_backend_contract():
