@@ -49,8 +49,10 @@ def test_tuple():
 def test_projection():
     X, Y = Ty("X"), Ty("Y")
     x, y = Variable("x", X), Variable("y", Y)
-    assert Projection(Tuple(x, y), 1).eval()\
-        == Pack(X * Y) >> Unpack(X * Y) >> Discard(X) @ Y
+    assert Projection(Tuple(x, y), 1).eval() == Discard(X) @ Y
+    f = (X >> X * Y)("f")
+    assert Projection(f(x), 1).eval()\
+        == f @ X >> Diagram.ev(X * Y, X) >> Unpack(X * Y) >> Discard(X) @ Y
     with raises(TypeError):
         Projection(x, 0)
     with raises(IndexError):

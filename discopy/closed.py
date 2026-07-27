@@ -414,6 +414,18 @@ class TermBase(Box, biclosed.TermBase):
     def __call__(self, other):
         return Application(self, other, left=False)
 
+    def eval_unpacked(self, functor=None, context=None):
+        """
+        The evaluation of a term followed by the unpacking of its product
+        codomain, overriden by :class:`Tuple` so that binding a literal
+        tuple never produces a :class:`Pack` followed by an
+        :class:`Unpack`.
+        """
+        functor = functor or self.functor
+        result = self.eval(functor=functor, context=context)
+        return result >> functor(Unpack(self.cod))\
+            if self.cod.is_product else result
+
 
 type Term = Constant | Variable | Application | Abstraction\
     | Tuple | Projection | Let
@@ -521,20 +533,24 @@ class Tuple(TermBase):
         name = f"Tuple({', '.join(map(str, terms))})"
         super().__init__(name, dom, cod)
 
-    def eval(self, functor=None, context=None):
+    def eval(self, functor=None, context=None, pack=True):
         functor = functor or self.functor
-        pack = functor(Pack(self.cod))
         identity = functor.cod.id(functor(self.ob()))
         splits = not self.overlap\
             and (context is None or self.freevars == context.inside)
         if splits:
-            return identity.tensor(
-                *[t.eval(functor=functor) for t in self.terms]) >> pack
-        context = context or Context(self.freevars)
-        terms = [t.eval(functor=functor, context=context)
-                 for t in self.terms]
-        return functor.cod.copy(functor(context.dom), len(terms))\
-            >> identity.tensor(*terms) >> pack
+            result = identity.tensor(
+                *[t.eval(functor=functor) for t in self.terms])
+        else:
+            context = context or Context(self.freevars)
+            terms = [t.eval(functor=functor, context=context)
+                     for t in self.terms]
+            result = functor.cod.copy(functor(context.dom), len(terms))\
+                >> identity.tensor(*terms)
+        return result >> functor(Pack(self.cod)) if pack else result
+
+    def eval_unpacked(self, functor=None, context=None):
+        return self.eval(functor=functor, context=context, pack=False)
 
     def __repr__(self):
         return factory_name(type(self))\
@@ -574,13 +590,12 @@ class Projection(TermBase):
 
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
-        unpack = functor(Unpack(self.arg.cod))
         discards = functor.cod.id(functor(self.ob())).tensor(*[
             functor.cod.id(functor(typ)) if i == self.index
             else functor.cod.discard(functor(typ))
             for i, typ in enumerate(self.arg.cod.factors)])
-        return self.arg.eval(functor=functor, context=context)\
-            >> unpack >> discards
+        return self.arg.eval_unpacked(
+            functor=functor, context=context) >> discards
 
     def __repr__(self):
         return factory_name(type(self)) + f"({self.arg!r}, {self.index!r})"
@@ -638,31 +653,29 @@ class Let(TermBase):
 
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
-        unpack = functor(Unpack(self.expression.cod))\
-            if self.expression.cod.is_product\
-            else functor.cod.id(functor(self.expression.cod))
         shared = set(self.expression.freevars).intersection(
             self.body.freevars)
         if context is None and not shared:
             rest = [x for x in self.body.freevars
                     if x not in self.variables]
-            expression = self.expression.eval(functor=functor)
+            expression = self.expression.eval_unpacked(functor=functor)
             body = self.body.eval(functor=functor, context=Context(
                 list(self.variables) + rest))
             identity = functor.cod.id(functor(
                 self.ob().tensor(*[x.cod for x in rest])))
-            return (expression >> unpack) @ identity >> body
+            return expression @ identity >> body
         context = context or Context(self.freevars)
-        expression = self.expression.eval(functor=functor, context=context)
+        expression = self.expression.eval_unpacked(
+            functor=functor, context=context)
         if not shared and all(x in self.expression.freevars
                               for x in context.inside):
             body = self.body.eval(
                 functor=functor, context=Context(list(self.variables)))
-            return expression >> unpack >> body
+            return expression >> body
         body = self.body.eval(functor=functor, context=Context(
             list(self.variables) + context.inside))
         return functor.cod.copy(functor(context.dom))\
-            >> (expression >> unpack) @ functor.cod.id(functor(context.dom))\
+            >> expression @ functor.cod.id(functor(context.dom))\
             >> body
 
     def __repr__(self):
