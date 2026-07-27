@@ -78,10 +78,9 @@ under the execution formula, e.g. rerouting for a snake:
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from functools import cached_property
-from types import ModuleType
-from typing import TYPE_CHECKING
 
 from discopy import compact, hypergraph, monoidal
 from discopy.cat import factory
@@ -90,30 +89,69 @@ from discopy.pivotal import Ty
 from discopy.utils import (
     assert_isinstance, factory_name, from_tree as decode)
 
-if TYPE_CHECKING:
-    import torch
 
+class Backend(ABC):
+    """ An abstract neural execution backend. """
 
-class Backend:
-    """
-    A neural execution backend.
+    @abstractmethod
+    def zeros(self, batch_size: int, width: int, like=None):
+        """ Return a batch of zero messages. """
 
-    Parameters:
-        module : The backend module implementing tensor operations and
-                 framework-specific wrapping.
-    """
-    def __init__(self, module: ModuleType):
-        self.module = module
+    @abstractmethod
+    def split(self, value, widths: tuple[int, ...]) -> tuple:
+        """ Split a batch into messages of the given widths. """
 
-    def __getattr__(self, attr):
-        return getattr(self.module, attr)
+    @abstractmethod
+    def concatenate(self, values: tuple):
+        """ Concatenate messages along their final dimension. """
+
+    @abstractmethod
+    def activate(self, module, value):
+        """ Apply a backend-owned module to an all-port message. """
+
+    @abstractmethod
+    def prototype(self, modules: tuple):
+        """ Find a value whose dtype and device zero messages should use. """
+
+    @abstractmethod
+    def wrap(self, inside: CMap):
+        """ Wrap a combinatorial map as a backend-owned module. """
+
+    @abstractmethod
+    def zeros_module(self):
+        """ Return a parameter-free all-port zero module. """
 
 
 class PyTorch(Backend):
     """ The PyTorch neural execution backend, imported lazily. """
-    def __init__(self):
+
+    def zeros(self, batch_size: int, width: int, like=None):
         from discopy import neural_torch
-        super().__init__(neural_torch)
+        return neural_torch.zeros(batch_size, width, like=like)
+
+    def split(self, value, widths: tuple[int, ...]) -> tuple:
+        from discopy import neural_torch
+        return neural_torch.split(value, widths)
+
+    def concatenate(self, values: tuple):
+        from discopy import neural_torch
+        return neural_torch.concatenate(values)
+
+    def activate(self, module, value):
+        from discopy import neural_torch
+        return neural_torch.activate(module, value)
+
+    def prototype(self, modules: tuple):
+        from discopy import neural_torch
+        return neural_torch.prototype(modules)
+
+    def wrap(self, inside: CMap):
+        from discopy import neural_torch
+        return neural_torch.wrap(inside)
+
+    def zeros_module(self):
+        from discopy import neural_torch
+        return neural_torch.zeros_module()
 
 
 BACKENDS = {
@@ -139,9 +177,16 @@ def backend(name: str = None, _stack=['pytorch'], _cache=dict()):
         _stack.pop()
 
 
-def get_backend() -> Backend:
-    """ Get the current neural execution backend. """
-    with backend() as result:
+def get_backend(name: str | Backend = None) -> Backend:
+    """
+    Get a neural execution backend by name, or return a given backend.
+
+    Parameters:
+        name : The backend name or instance, the current backend by default.
+    """
+    if isinstance(name, Backend):
+        return name
+    with backend(name) as result:
         return result
 
 
@@ -231,7 +276,7 @@ class Network(compact.Box, Diagram):
     module, mem = None, Dim()
 
     def __init__(self, name: str, dom: Dim, cod: Dim,
-                 module: "torch.nn.Module" = None, mem: Dim = Dim(),
+                 module: object = None, mem: Dim = Dim(),
                  data=None, **params):
         assert_isinstance(mem, Dim)
         self.mem = mem
@@ -353,7 +398,7 @@ class CMap(compact.CMap):
         return tuple(sum(port.obj.inside) for port in self.ports)
 
     @cached_property
-    def modules(self) -> tuple["torch.nn.Module", ...]:
+    def modules(self) -> tuple:
         """ The distinct modules of the networks inside the map. """
         modules, seen = [], set()
         for box in self.boxes:
@@ -365,7 +410,15 @@ class CMap(compact.CMap):
                 modules.append(box.module)
         return tuple(modules)
 
-    def as_network(self, name: str = "network") -> Network:
+    @cached_property
+    def module_indices(self) -> tuple[int, ...]:
+        """ The unique-module index used by each box occurrence. """
+        indices = {id(module): i for i, module in enumerate(self.modules)}
+        return tuple(indices[id(box.module)] for box in self.boxes)
+
+    def as_network(
+            self, name: str = "network",
+            backend: str | Backend = None) -> Network:
         """
         Wrap the map back into a :class:`Network` with a fresh backend module
         inside. The wrapper registers the modules of the networks in the map,
@@ -373,17 +426,21 @@ class CMap(compact.CMap):
 
         Parameters:
             name : The name of the network.
+            backend : The backend name or instance, the current backend by
+                      default.
         """
+        backend = get_backend(backend)
         memory_width = sum(
             sum(box.mem.inside) for box in self.boxes)
         return Network(
-            name, self.dom, self.cod, module=get_backend().wrap(self),
+            name, self.dom, self.cod, module=backend.wrap(self),
             mem=Dim(memory_width))
 
-    def forward(self, x: "torch.Tensor" = None, init=None,
+    def forward(self, x=None, init=None,
                 n_rounds: int = None, inject: bool = True,
                 memory=None, return_memory: bool = False,
-                causal: bool = False):
+                causal: bool = False, backend: str | Backend = None,
+                modules=None):
         """
         Apply the geometry-of-interaction :class:`Execution` of the map.
 
@@ -401,6 +458,10 @@ class CMap(compact.CMap):
             causal : Whether to activate every box once in topological order.
                      This is only valid for feed-forward maps and cannot be
                      combined with ``n_rounds``.
+            backend : The backend name or instance, the current backend by
+                      default.
+            modules : The backend-owned modules, in :attr:`module_indices`
+                      order. The modules in the boxes are used by default.
 
         Returns:
             The final messages at the boundary output ports, concatenated,
@@ -408,7 +469,8 @@ class CMap(compact.CMap):
             order when the map is closed. If ``return_memory`` is true, this
             result is paired with the tuple of final per-box memories.
         """
-        execution = Execution(self, x, init, memory)
+        execution = Execution(
+            self, x, init, memory, backend=backend, modules=modules)
         if causal:
             if n_rounds is not None:
                 raise ValueError(
@@ -436,15 +498,21 @@ class Execution:
         init : The initial incoming messages.
         memory : The initial private memory, one tensor per box occurrence.
         backend : The execution backend, the current backend by default.
+        modules : The backend-owned modules, in the map's unique-module order.
     """
     def __init__(
             self, inside: CMap, x=None, init=None, memory=None,
-            backend: Backend = None):
+            backend: str | Backend = None, modules=None):
         assert_isinstance(inside, CMap)
         self.inside, self.x, self.init = inside, x, init
         self.memory = memory
-        self.backend = get_backend() if backend is None else backend
-        self.modules = inside.modules
+        self.backend = get_backend(backend)
+        expected_modules = inside.modules
+        self.modules = expected_modules if modules is None else tuple(modules)
+        if len(self.modules) != len(expected_modules):
+            raise ValueError(
+                f"Expected {len(expected_modules)} modules, "
+                f"got {len(self.modules)}.")
         self.batch_size, self.prototype = 1, None
         self.initial = self.boundary = self.incoming = ()
         self.outgoing = self.box_outputs = ()
@@ -630,14 +698,14 @@ class Execution:
     def activate_box(self, box_index: int, incoming):
         """ Apply one network to its public messages and private memory. """
         widths = self.inside.port_dims
-        box, ports = (
-            self.inside.boxes[box_index], self.box_ports[box_index])
+        ports = self.box_ports[box_index]
         public_widths = tuple(widths[i] for i in ports)
         memory_width = self.memory_widths[box_index]
         values = tuple(incoming[i] for i in ports)\
             + (self.memories[box_index], )
+        module = self.modules[self.inside.module_indices[box_index]]
         output = self.backend.activate(
-            box.module, self.backend.concatenate(values))
+            module, self.backend.concatenate(values))
         self.validate(
             output, sum(public_widths) + memory_width,
             f"output of box {box_index}")
