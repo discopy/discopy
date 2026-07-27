@@ -9,4 +9,4 @@ introduce the fixes from the other branch one by one
 - [ ] Make Matplotlib drawing and saving figure-owned.
 - [x] Tighten SVG and GIF comparison semantics.
 - [x] Isolate hypergraph drawing state.
-- [ ] Ignore local Matplotlib cache artifacts.
+- [x] Ignore local Matplotlib cache artifacts.
