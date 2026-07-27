@@ -22,3 +22,13 @@ you can push directly to this PR for abc+torch, open a fresh one for jax
 - [x] Turn `neural.Backend` into an explicit abstract interface and pass backend-owned modules into execution.
 - [x] Adapt and bind the existing PyTorch implementation to the abstract interface.
 - [x] Add concise backend contract and PyTorch regression tests, update the documentation, and run lint and tests.
+
+## JAX backend follow-up
+
+ok split the work in three abc / torch / jax: first refactor the existing torch into abc and torch then add jax on top
+you can push directly to this PR for abc+torch, open a fresh one for jax
+
+- [ ] Add a lazy JAX implementation of the neural backend primitives.
+- [ ] Wrap compiled execution plans as callable JAX PyTrees with explicit runtime modules.
+- [ ] Cover eager execution, JIT, gradients, sharing, nesting, and private memory.
+- [ ] Document the JAX module protocol and run lint and tests.
