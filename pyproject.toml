@@ -155,5 +155,10 @@ norecursedirs = [
 ]
 addopts = "--doctest-modules --nbmake --ignore=test/fixtures"
 
+[tool.coverage.run]
+# The skip paths in conftest.py are unreachable once the extras are installed,
+# which is exactly when coverage runs.
+omit = ["conftest.py"]
+
 [tool.coverage.report]
 fail_under = 98
