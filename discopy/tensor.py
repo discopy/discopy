@@ -270,8 +270,8 @@ class Tensor(Matrix):
 
         Examples
         --------
-        >>> assert Tensor.zero(Dim(2), Dim(2))\\  # doctest: +EXTRA
-        ...     == Tensor([0, 0, 0, 0], Dim(2), Dim(2))
+        >>> assert Tensor.zero(Dim(2), Dim(2))\\
+        ...     == Tensor([0, 0, 0, 0], Dim(2), Dim(2))  # doctest: +EXTRA
         """
         with backend() as np:
             return cls(np.zeros((dom @ cod).inside, dtype=cls.dtype or int),

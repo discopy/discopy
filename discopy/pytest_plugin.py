@@ -9,15 +9,11 @@ directive on one of its examples. What cannot say so -- a module that fails to
 import, a test function, a notebook -- is caught by reading the error instead.
 """
 
-import doctest
 import re
 
 import pytest
 from _pytest.doctest import DoctestItem
 
-
-doctest.register_optionflag("EXTRA")
-doctest.OPTIONFLAGS_BY_NAME["EXTRA"] = 0  # inert: the plugin does the skipping
 
 OPTIONAL = frozenset((
     "graphviz", "jax", "jaxlib", "nltk", "pennylane", "pytket", "pyzx",

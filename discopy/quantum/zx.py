@@ -74,9 +74,9 @@ class Diagram(tensor.Diagram[complex]):
         """
         Returns a :class:`pyzx.Graph`.
 
-        >>> bialgebra = Z(1, 2, .25) @ Z(1, 2, .75)\\  # doctest: +EXTRA
+        >>> bialgebra = Z(1, 2, .25) @ Z(1, 2, .75)\\
         ...     >> Id(1) @ SWAP @ Id(1) >> X(2, 1, .5) @ X(2, 1, .5)
-        >>> graph = bialgebra.to_pyzx()
+        >>> graph = bialgebra.to_pyzx()  # doctest: +EXTRA
         >>> assert len(graph.vertices()) == 8
         >>> assert (graph.inputs(), graph.outputs()) == ((0, 1), (6, 7))
         >>> from pyzx import VertexType
@@ -140,9 +140,9 @@ class Diagram(tensor.Diagram[complex]):
         Examples
         --------
 
-        >>> bialgebra = Z(1, 2, .25) @ Z(1, 2, .75)\\  # doctest: +EXTRA
+        >>> bialgebra = Z(1, 2, .25) @ Z(1, 2, .75)\\
         ...     >> Id(1) @ SWAP @ Id(1) >> X(2, 1, .5) @ X(2, 1, .5)
-        >>> graph = bialgebra.to_pyzx()
+        >>> graph = bialgebra.to_pyzx()  # doctest: +EXTRA
         >>> assert Diagram.from_pyzx(graph) == bialgebra
 
         Note
