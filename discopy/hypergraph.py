@@ -1662,33 +1662,39 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         .. image:: /_static/hypergraph/diagram.svg
             :align: center
         """
-        graph, pos = self.spring_layout(seed=seed, k=k)
-        for i, (box, (dom_wires, cod_wires)) in enumerate(
-                zip(self.boxes, self.box_wires)):
-            box_node = Node("box", i=i, box=box)
-            for kind, wires in [("dom", dom_wires), ("cod", cod_wires)]:
-                for j, spider in enumerate(wires):
-                    port_node = Node(kind, i=i, j=j)
-                    x, y = pos[box_node]
-                    if not getattr(box, "draw_as_spider", False):
-                        y += .25 if kind == "dom" else -.25
-                        x -= .25 * (len(wires[:-1]) / 2 - j)
-                    pos[port_node] = x, y
-        labels = {
-            node: self.spider_types[node.i] if node.kind == "spider"
-            else self.boxes[node.i].name if node.kind == "box" else ""
-            for node in graph.nodes}
-        nodelist = list(graph.nodes)
-        node_size = [
-            300 if node.kind in ["spider", "box"] else 0 for node in nodelist]
-        draw_networkx(
-            graph, pos=pos, labels=labels,
-            nodelist=nodelist, node_size=node_size,
-            node_color="white", edgecolors="black")
-        path, compare = backend.doctest_or_path(path, doctest)
-        if path is not None:
-            try:
-                backend.savefig(path, compare=compare)
-            finally:
-                plt.close()
-        plt.show()
+        with backend.matplotlib_context():
+            graph, pos = self.spring_layout(seed=seed, k=k)
+            for i, (box, (dom_wires, cod_wires)) in enumerate(
+                    zip(self.boxes, self.box_wires)):
+                box_node = Node("box", i=i, box=box)
+                for kind, wires in [
+                        ("dom", dom_wires), ("cod", cod_wires)]:
+                    for j, spider in enumerate(wires):
+                        port_node = Node(kind, i=i, j=j)
+                        x, y = pos[box_node]
+                        if not getattr(box, "draw_as_spider", False):
+                            y += .25 if kind == "dom" else -.25
+                            x -= .25 * (len(wires[:-1]) / 2 - j)
+                        pos[port_node] = x, y
+            labels = {
+                node: self.spider_types[node.i] if node.kind == "spider"
+                else self.boxes[node.i].name if node.kind == "box" else ""
+                for node in graph.nodes}
+            nodelist = list(graph.nodes)
+            node_size = [
+                300 if node.kind in ["spider", "box"] else 0
+                for node in nodelist]
+            figure, axis = plt.subplots(facecolor="white")
+            draw_networkx(
+                graph, pos=pos, labels=labels, ax=axis,
+                nodelist=nodelist, node_size=node_size,
+                node_color="white", edgecolors="black")
+            path, compare = backend.doctest_or_path(path, doctest)
+            if path is not None:
+                try:
+                    backend.savefig(
+                        path, compare=compare, figure=figure)
+                finally:
+                    plt.close(figure)
+            else:  # pragma: no cover
+                plt.show()
