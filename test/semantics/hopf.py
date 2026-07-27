@@ -6,20 +6,12 @@ from discopy.hopf import (
     HopfAlgebra, Double, Representation, Intertwiner, Functor)
 
 
-def _circle(x):
-    return ribbon.Cap(x, x.r) >> ribbon.Cup(x, x.r)
+circle = lambda x: ribbon.Cap(x, x.r) >> ribbon.Cup(x, x.r)
+unlink = lambda x: circle(x) @ circle(x)
+hopf_link = lambda x: (ribbon.Braid(x, x) >> ribbon.Braid(x, x)).trace(n=2)
 
 
-def _unlink(x):
-    return _circle(x) @ _circle(x)
-
-
-def _hopf_link(x):
-    braid = ribbon.Braid(x, x)
-    return (braid >> braid).trace(n=2)
-
-
-def _double_and_module():
+def double_and_module():
     D = Double(HopfAlgebra.cyclic(2))
     e, m = Representation[D].anyon(0, -1), Representation[D].anyon(1, 1)
     return D, Representation[D].direct_sum([e, m])
@@ -61,8 +53,8 @@ def test_double_of_sweedler():
 
 def test_double_antipode_inverse():
     """S^-1 = u^-1 S(x) u for the Drinfeld element u = S(R'')R', with
-    u^-1 = R''S^2(R'), also when S^2 != id. The composite is too deep for a
-    single einsum (issue #447), so assemble it from the generator matrices."""
+    u^-1 = R''S^2(R'), also when S^2 != id, assembled from the generator
+    matrices."""
     for base in [HopfAlgebra.cyclic(2), HopfAlgebra.sweedler()]:
         D, n = Double(base), base.dim ** 2
         S = D.antipode.eval(dtype=complex).array.reshape(n, n)
@@ -102,6 +94,11 @@ def test_no_r_matrix_paths():
         assert False
     except ValueError:
         pass
+    try:
+        Intertwiner.twist(W)
+        assert False
+    except ValueError:
+        pass
     assert W.l.is_module()
 
 
@@ -128,7 +125,7 @@ def test_class_generic_over_the_algebra():
 
 
 def test_representation_is_a_dim():
-    D, V = _double_and_module()
+    D, V = double_and_module()
     assert isinstance(V, Dim) and V == Dim(2)
     e, m = Representation[D].anyon(0, -1), Representation[D].anyon(1, 1)
     assert e.action != m.action
@@ -141,7 +138,7 @@ def test_representation_is_a_dim():
 
 
 def test_representation_init_checks():
-    D, V = _double_and_module()
+    D, V = double_and_module()
     try:
         Representation(Dim(2))
         assert False
@@ -179,7 +176,7 @@ def test_repr_is_transparent():
 
 
 def test_representation_is_module():
-    D, V = _double_and_module()
+    D, V = double_and_module()
     assert V.is_module() and V == Dim(2)
     assert Representation[D].regular().is_module()
     for anyon in [(0, 1), (0, -1), (1, 1), (1, -1)]:
@@ -188,7 +185,7 @@ def test_representation_is_module():
 
 def test_tensor_of_representations():
     """Products act through the comultiplication, plain Dims trivially."""
-    D, V = _double_and_module()
+    D, V = double_and_module()
     e, m = Representation[D].anyon(0, -1), Representation[D].anyon(1, 1)
     assert (e @ m).is_module() and (e @ m).action is not None
     VV = V @ V
@@ -200,7 +197,7 @@ def test_tensor_of_representations():
 
 
 def test_braiding_yang_baxter_and_inverse():
-    D, V = _double_and_module()
+    D, V = double_and_module()
     d = 2
     c = Intertwiner[D].braid(V, V).eval(dtype=complex).array
     c = c.reshape(d * d, d * d)
@@ -220,14 +217,14 @@ def test_braiding_yang_baxter_and_inverse():
 
 
 def test_quantum_dimension():
-    _, V = _double_and_module()
+    _, V = double_and_module()
     assert np.isclose(V.qdim(), 2)
 
 
 def test_dual_representation():
     """The right dual carries the twisted action rho(S h)^T, also when
     S^2 != id and on structured types."""
-    D, V = _double_and_module()
+    D, V = double_and_module()
     assert V.r.is_module()
     assert Representation[HopfAlgebra.sweedler()].regular().r.is_module()
     n = D.dim
@@ -253,7 +250,7 @@ def test_left_and_right_duals_differ():
 
 
 def test_functor_maps_winding_to_dual():
-    D, V = _double_and_module()
+    D, V = double_and_module()
     x = ribbon.Ty('x')
     F = Functor(ob_map={x: V}, ar_map={}, cod=Intertwiner[D])
     assert F(x).action == V.action
@@ -284,7 +281,7 @@ def test_is_module_rejects_non_module():
 
 
 def test_snake_equations():
-    D, V = _double_and_module()
+    D, V = double_and_module()
     x = ribbon.Ty('x')
     F = Functor(ob_map={x: V}, ar_map={}, cod=Intertwiner[D])
     left = ribbon.Id(x.l).transpose(left=True)
@@ -295,16 +292,16 @@ def test_snake_equations():
 
 
 def test_functor_returns_a_tensor_network():
-    D, V = _double_and_module()
+    D, V = double_and_module()
     x = ribbon.Ty('x')
     network = Functor(
-        ob_map={x: V}, ar_map={}, cod=Intertwiner[D])(_hopf_link(x))
+        ob_map={x: V}, ar_map={}, cod=Intertwiner[D])(hopf_link(x))
     assert isinstance(network, tensor.Diagram)
     assert np.isclose(complex(network.eval(dtype=complex)), 0)
 
 
 def test_reidemeister_moves():
-    D, V = _double_and_module()
+    D, V = double_and_module()
     x = ribbon.Ty('x')
     F = Functor(ob_map={x: V}, ar_map={}, cod=Intertwiner[D])
     X = ribbon.Ty('x')
@@ -320,21 +317,18 @@ def test_reidemeister_moves():
 
 
 def test_nontrivial_link_invariant():
-    D, V = _double_and_module()
+    D, V = double_and_module()
     x = ribbon.Ty('x')
     F = Functor(ob_map={x: V}, ar_map={}, cod=Intertwiner[D])
-    circle = complex(F(_circle(x)).eval(dtype=complex))
-    unlink = complex(F(_unlink(x)).eval(dtype=complex))
-    hopf = complex(F(_hopf_link(x)).eval(dtype=complex))
-    assert np.isclose(circle, 2)
-    assert np.isclose(unlink, 4)
-    assert np.isclose(hopf, 0)
-    assert not np.isclose(hopf, unlink)
+    values = [complex(F(d).eval(dtype=complex))
+              for d in [circle(x), unlink(x), hopf_link(x)]]
+    assert np.allclose(values, [2, 4, 0])
+    assert not np.isclose(values[2], values[1])
 
 
 def test_crossing_number_distinguishes_closures():
     """The unlink, the unknot and the Hopf link as braid closures."""
-    D, V = _double_and_module()
+    D, V = double_and_module()
     x = ribbon.Ty('x')
     F = Functor(ob_map={x: V}, ar_map={}, cod=Intertwiner[D])
     X = ribbon.Ty('x')
@@ -365,7 +359,7 @@ def test_two_colour_mutual_braiding():
 
 
 def test_functor_on_generic_box():
-    D, V = _double_and_module()
+    D, V = double_and_module()
     x = ribbon.Ty('x')
     box = ribbon.Box('f', x, x)
     F = Functor(ob_map={x: V}, ar_map={box: np.array([[1, 2], [3, 4]])},
@@ -375,7 +369,7 @@ def test_functor_on_generic_box():
 
 
 def test_functor_on_type():
-    D, V = _double_and_module()
+    D, V = double_and_module()
     x = ribbon.Ty('x')
     F = Functor(ob_map={x: V}, ar_map={}, cod=Intertwiner[D])
     assert F(x) == Dim(2)

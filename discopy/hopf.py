@@ -186,6 +186,23 @@ class HopfAlgebra:
             'S⁻¹', self.ty, self.ty,
             np.linalg.inv(array).reshape(-1).tolist())
 
+    @cached_property
+    def twist(self):
+        """
+        The ribbon element as a state :math:`1 \\to H`: the central element
+        whose action is the twist, so that :meth:`Intertwiner.twist` is a
+        single application of the action. It is computed on first access,
+        as the ribbon trace of the self-braiding of the regular
+        representation applied to the unit.
+        """
+        reg = Representation[self].regular()
+        braid = Intertwiner[self].braid(reg, reg)
+        trace = braid.trace(n=len(reg)).eval(dtype=complex).array
+        unit = self.unit.eval(dtype=complex).array.reshape(self.dim)
+        array = unit @ trace.reshape(self.dim, self.dim)
+        return Box[complex](
+            'ν', Dim(1), self.ty, array.reshape(-1).tolist())
+
     def __repr__(self):
         optional = "" if self.R is None else f", R={self.R!r}"
         return factory_name(type(self)) + (
@@ -755,8 +772,15 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
 
     @classmethod
     def twist(cls, dom):
-        """ The twist of ``dom``: the ribbon trace of its self-braiding. """
-        return cls.braid(dom, dom).trace(n=len(dom))
+        """
+        The twist of ``dom``: the action of the ribbon element
+        :attr:`HopfAlgebra.twist`, computed once as the ribbon trace of the
+        self-braiding of the regular representation.
+        """
+        if cls.algebra is None:
+            raise ValueError("the twist needs a quasitriangular structure")
+        body = cls.algebra.twist @ Id(Dim(*dom.inside)) >> dom.action
+        return cls(body.inside, body.dom, body.cod)
 
 
 class Functor(ribbon.Functor):
