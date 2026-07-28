@@ -63,7 +63,7 @@ Example
 """
 
 from __future__ import annotations
-from typing import Sequence, Literal
+from typing import Sequence
 from dataclasses import dataclass
 from functools import wraps
 
@@ -345,17 +345,11 @@ class Diagram(RibbonCategory, NamedGeneric['natural']):
             return cls.id(dom)
 
         base = cls.natural
-
-        def dom_pole(pol: Literal["positive", "negative"]) -> base.ob:
-            if doms:
-                return base.ob.tensor(*(getattr(ob, pol) for ob in doms))
-            else:
-                return base.ob()
-
-        dom_pos, dom_neg = dom_pole("positive"), dom_pole("negative")
+        positive = [ob.positive for ob in doms]
+        negative = [doms[i].negative for i in reversed(xs)]
         inside = (
-            base.permutation(xs, dom_pos) @
-            base.permutation(xs, dom_neg)
+            base.permutation(xs, positive) @
+            base.permutation(xs.rotate(), negative)
         )
         cod = cls.ob.tensor(*(doms[i] for i in xs)) if doms else cls.ob.unit()
         return cls(inside, dom, cod)
