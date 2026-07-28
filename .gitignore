@@ -10,6 +10,7 @@
 .coverage
 .pylintrc
 .pytest_cache
+.mpl-cache/
 .readthedocs.yaml
 .uv-cache
 .venv

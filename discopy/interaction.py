@@ -56,7 +56,7 @@ Example
 
 >>> from discopy.monoidal import Equation
 >>> Equation(noun_phrase, image, symbol="$\\\\mapsto$").draw(
-...     path="docs/_static/int/alice-loves-interaction.svg")
+...     doctest="docs/_static/int/alice-loves-interaction.svg")
 
 .. image:: /_static/int/alice-loves-interaction.svg
     :align: center
@@ -206,7 +206,7 @@ class Diagram(RibbonCategory, NamedGeneric['natural']):
         >>> X, Y, Z = Ty[T](x0, x1), Ty[T](y0, y1), Ty[T](z0, z1)
         >>> f = Diagram[D](B('f', x0 @ y1, y0 @ x1), X, Y)
         >>> g = Diagram[D](B('g', y0 @ z1, z0 @ y1), Y, Z)
-        >>> (f >> g).draw(path='docs/_static/int/composition.svg')
+        >>> (f >> g).draw(doctest='docs/_static/int/composition.svg')
 
         .. image:: /_static/int/composition.svg
             :align: center
@@ -224,7 +224,7 @@ class Diagram(RibbonCategory, NamedGeneric['natural']):
         >>> symmetric_feedback =\\
         ...     caps >> (f_ @ Swap(y1.r, y0.r) @ g_).foliation() >> cups
         >>> symmetric_feedback.draw(
-        ...     path='docs/_static/int/symmetric-feedback.svg')
+        ...     doctest='docs/_static/int/symmetric-feedback.svg')
 
         .. image:: /_static/int/symmetric-feedback.svg
             :align: center
@@ -257,12 +257,14 @@ class Diagram(RibbonCategory, NamedGeneric['natural']):
         >>> from discopy.ribbon import Ty as T, Diagram as D, Box as B
         >>> x, y, u, v = map(Ty[T], "xyuv")
         >>> f = Diagram[D](B('f', T('x', 'v'), T('y', 'u')), x @ -u, y @ -v)
-        >>> (Diagram[D].id(x @ -u) >> f).draw(path='docs/_static/int/idl.svg')
+        >>> (Diagram[D].id(x @ -u) >> f).draw(
+        ...     doctest='docs/_static/int/idl.svg')
 
         .. image:: /_static/int/idl.svg
             :align: center
 
-        >>> (f >> Diagram[D].id(y @ -v)).draw(path='docs/_static/int/idr.svg')
+        >>> (f >> Diagram[D].id(y @ -v)).draw(
+        ...     doctest='docs/_static/int/idr.svg')
 
         .. image:: /_static/int/idr.svg
             :align: center
@@ -289,7 +291,7 @@ class Diagram(RibbonCategory, NamedGeneric['natural']):
         >>> f = Diagram[D](B('f', T('x', 'v'), T('y', 'u')), x @ -u, y @ -v)
         >>> f_ = Diagram[D](
         ...     B('f_', T('x_', 'v_'), T('y_', 'u_')), x_ @ -u_, y_ @ -v_)
-        >>> (f @ f_).draw(path='docs/_static/int/tensor.svg')
+        >>> (f @ f_).draw(doctest='docs/_static/int/tensor.svg')
 
         .. image:: /_static/int/tensor.svg
             :align: center
@@ -311,7 +313,7 @@ class Diagram(RibbonCategory, NamedGeneric['natural']):
         >>> from discopy.ribbon import Ty as T, Diagram as D, Box as B
         >>> x, u, y, v = map(Ty[T], "xuyv")
         >>> Diagram.braid(x @ -u, y @ -v).draw(
-        ...     path="docs/_static/int/braid.svg")
+        ...     doctest="docs/_static/int/braid.svg")
 
         .. image:: /_static/int/braid.svg
             :align: center
@@ -348,7 +350,7 @@ class Diagram(RibbonCategory, NamedGeneric['natural']):
         ...     Diagram.caps(x, -x) @ x >> x @ Diagram.cups(-x, x),
         ...     Diagram.id(x),
         ...     x @ Diagram.caps(-x, x) >> Diagram.cups(x, -x) @ x).draw(
-        ...         path="docs/_static/int/int-snake-equations.svg")
+        ...         doctest="docs/_static/int/int-snake-equations.svg")
 
         .. image:: /_static/int/int-snake-equations.svg
             :align: center
@@ -379,7 +381,7 @@ class Diagram(RibbonCategory, NamedGeneric['natural']):
         >>> f = Diagram[D](B('f', T('x', 'v'), T('y', 'u')), x @ -u, y @ -v)
         >>> from discopy.monoidal import Equation
         >>> Equation(f, f[::-1], symbol="$\\\\mapsto$").draw(
-        ...     path="docs/_static/int/dagger.svg")
+        ...     doctest="docs/_static/int/dagger.svg")
 
         .. image:: /_static/int/dagger.svg
             :align: center
@@ -412,7 +414,7 @@ class Diagram(RibbonCategory, NamedGeneric['natural']):
         >>> Equation(left_snake, Equation(
         ...     D.id(x), right_snake, symbol="$\\\\leftarrow$"),
         ...         symbol="$\\\\rightarrow$").draw(
-        ...             path="docs/_static/int/simplify.svg")
+        ...             doctest="docs/_static/int/simplify.svg")
 
         .. image:: /_static/int/simplify.svg
             :align: center

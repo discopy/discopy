@@ -62,7 +62,9 @@ from warnings import warn
 from discopy import cat, drawing, hypergraph, cmap, messages
 from discopy.abc import ColouredMonoid, MonoidalCategory
 from discopy.drawing import Drawing
-from discopy.config import BOX_DRAWING_ATTRIBUTES, WIRE_DRAWING_ATTRIBUTES
+from discopy.config import (
+    BOX_DRAWING_ATTRIBUTES, WIRE_DRAWING_ATTRIBUTES,
+    COLOUR_DRAWING_ATTRIBUTES)
 from discopy.utils import (
     factory,
     factory_name,
@@ -72,6 +74,7 @@ from discopy.utils import (
     AxiomError,
     get_origin,
     MappingOrCallable,
+    RichDisplay,
 )
 
 if TYPE_CHECKING:
@@ -405,9 +408,10 @@ class Ty(cat.Ob, FreeMonoid):
         for new, old in zip(result.inside, self.inside):
             if getattr(old, "frame_boundary", False):
                 new.frame_boundary = True
-            for attr, default in WIRE_DRAWING_ATTRIBUTES.items():
+            for attr, default in (
+                    WIRE_DRAWING_ATTRIBUTES | COLOUR_DRAWING_ATTRIBUTES
+            ).items():
                 setattr(new, attr, getattr(old, attr, default(new)))
-            new.min_right_margin = getattr(old, "min_right_margin", 0)
         return result
 
     def wire_offsets(self) -> list:
@@ -415,16 +419,21 @@ class Ty(cat.Ob, FreeMonoid):
         The x-position of each wire of the type relative to the first, i.e. the
         sum of the cell widths ``max(1, right_margin)`` of the objects before
         it: each wire takes up at least a unit, more if its label is longer.
+        A wire followed by a region carrying a ``width`` (e.g. the inside of
+        a :class:`discopy.balanced.Ribbon`) is only that width away from the
+        next wire, i.e. the region carries the width.
 
         >>> assert Ty('x', 'y').to_drawing().wire_offsets() == [0, 1]
         """
         offsets, total = [], 0
         for ob in self.inside:
             offsets.append(total)
-            min_right_margin = getattr(ob, "min_right_margin", 0)
+            ribbon = getattr(ob, "ribbon", None)
+            if ribbon is not None:
+                total += ribbon.width
+                continue
             cell_width = max(1, ob.right_margin)
-            total += cell_width + min_right_margin if min_right_margin < 0\
-                else max(cell_width, 1 + min_right_margin)
+            total += max(cell_width, 1 + getattr(ob, "min_right_margin", 0))
         return offsets
 
 
@@ -736,7 +745,7 @@ class Layer(cat.Box):
 
 
 @factory
-class Diagram(cat.Arrow, MonoidalCategory):
+class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
     """
     A diagram is a tuple of composable layers :code:`inside` with a pair of
     types :code:`dom` and :code:`cod` as domain and codomain.
@@ -804,7 +813,7 @@ class Diagram(cat.Arrow, MonoidalCategory):
         ...     middle, right = cap(offset=1)
         ...     cup(left, middle)
         ...     return right
-        >>> snake.draw(path='docs/_static/monoidal/diagramize.svg')
+        >>> snake.draw(doctest='docs/_static/monoidal/diagramize.svg')
 
         .. image:: /_static/monoidal/diagramize.svg
             :align: center
@@ -837,7 +846,7 @@ class Diagram(cat.Arrow, MonoidalCategory):
         >>> assert f0 @ f1 == f0.tensor(f1) == f0 @ Id(z) >> Id(y) @ f1
 
         >>> (f0 @ f1).draw(
-        ...     path='docs/_static/monoidal/tensor-example.svg')
+        ...     doctest='docs/_static/monoidal/tensor-example.svg')
 
         .. image:: /_static/monoidal/tensor-example.svg
             :align: center
@@ -892,7 +901,7 @@ class Diagram(cat.Arrow, MonoidalCategory):
         >>> assert dom == x @ z
         >>> assert boxes_and_offsets == [(f0, 0), (f1, 1), (g, 0)]
         >>> assert diagram == Diagram.decode(*diagram.encode())
-        >>> diagram.draw(path='docs/_static/monoidal/arrow-example.svg')
+        >>> diagram.draw(doctest='docs/_static/monoidal/arrow-example.svg')
 
         .. image:: /_static/monoidal/arrow-example.svg
             :align: center
@@ -1009,7 +1018,7 @@ class Diagram(cat.Arrow, MonoidalCategory):
         >>> print(diagram)
         f0 @ x >> y @ f1[::-1] >> f0[::-1] @ y >> x @ f1
         >>> diagram.foliation().draw(
-        ...     path='docs/_static/monoidal/foliation-example.svg')
+        ...     doctest='docs/_static/monoidal/foliation-example.svg')
 
         .. image:: /_static/monoidal/foliation-example.svg
             :align: center
@@ -1255,7 +1264,7 @@ class Box(cat.Box, Diagram):
     >>> y = Ty(Wire("y", green, blue))
     >>> z = Ty(Wire("z", red, blue))
     >>> coloured = Box("coloured", x @ y, z)
-    >>> coloured.draw(path='docs/_static/monoidal/coloured-box.svg')
+    >>> coloured.draw(doctest='docs/_static/monoidal/coloured-box.svg')
 
     .. image:: /_static/monoidal/coloured-box.svg
         :align: center
@@ -1338,19 +1347,19 @@ class Bubble(cat.Bubble, Box):
     >>> x, y = Ty('x'), Ty('y')
     >>> f, g, h = Box('f', x, y ** 3), Box('g', y, y @ y), Box('h', x, y)
     >>> d = (f.bubble(dom=x ** 3, cod=y, draw_as_square=True) >> g).bubble()
-    >>> d.draw(path='docs/_static/monoidal/bubble-example.svg')
+    >>> d.draw(doctest='docs/_static/monoidal/bubble-example.svg')
 
     .. image:: /_static/monoidal/bubble-example.svg
         :align: center
 
     >>> b = Bubble(f, g, h >> h[::-1], dom=x, cod=y @ y)
-    >>> b.draw(path='docs/_static/monoidal/bubble-multiple-args.svg')
+    >>> b.draw(doctest='docs/_static/monoidal/bubble-multiple-args.svg')
 
     .. image:: /_static/monoidal/bubble-multiple-args.svg
         :align: center
 
     >>> b = Bubble(f, g, h, dom=x, cod=y @ y, draw_vertically=True)
-    >>> b.draw(path='docs/_static/monoidal/frame-vertical-args.svg')
+    >>> b.draw(doctest='docs/_static/monoidal/frame-vertical-args.svg')
 
     .. image:: /_static/monoidal/frame-vertical-args.svg
         :align: center
@@ -1364,7 +1373,7 @@ class Bubble(cat.Bubble, Box):
     ...     dom=Ty(Wire("boundary", blue, red)),
     ...     cod=Ty(Wire("boundary", blue, red)),
     ...     draw_as_frame=True)
-    >>> frame.draw(path='docs/_static/monoidal/coloured-frame.svg')
+    >>> frame.draw(doctest='docs/_static/monoidal/coloured-frame.svg')
 
     .. image:: /_static/monoidal/coloured-frame.svg
         :align: center
@@ -1452,7 +1461,7 @@ class Functor(cat.Functor):
     >>> source, target = f0 >> f0[::-1], F(f0 >> f0[::-1])
 
     >>> Equation(source, target, symbol='$\\\\mapsto$').draw(
-    ...     path='docs/_static/monoidal/functor-example.svg')
+    ...     doctest='docs/_static/monoidal/functor-example.svg')
 
     .. image:: /_static/monoidal/functor-example.svg
         :align: center
@@ -1575,7 +1584,7 @@ class CMap(cmap.CMap):
     require_connected = True
 
 
-class Equation(cat.Equation):
+class Equation(cat.Equation, RichDisplay):
     """
     An :class:`.cat.Equation` of diagrams, i.e. with a :meth:`draw` method.
 

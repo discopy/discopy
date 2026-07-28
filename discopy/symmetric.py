@@ -35,7 +35,7 @@ Hexagon
 >>> assert Diagram.swap(x, y @ z) == Swap(x, y) @ z >> y @ Swap(x, z)
 >>> assert Diagram.swap(x @ y, z) == x @ Swap(y, z) >> Swap(x, z) @ y
 >>> Equation(Diagram.swap(x, y @ z), Diagram.swap(x @ y, z), symbol='').draw(
-...     space=2, path='docs/_static/symmetric/hexagons.svg', figsize=(5, 2))
+...     space=2, doctest='docs/_static/symmetric/hexagons.svg', figsize=(5, 2))
 
 .. image:: /_static/symmetric/hexagons.svg
     :align: center
@@ -47,7 +47,7 @@ a.k.a. Reidemeister move 2
 >>> assert Swap(x, y)[::-1] == Swap(y, x)
 >>> assert Equation(Swap(x, y) >> Swap(y, x), Id(x @ y))
 >>> Equation(Swap(x, y) >> Swap(y, x), Id(x @ y)).draw(
-...     path='docs/_static/symmetric/inverse.svg', figsize=(3, 2))
+...     doctest='docs/_static/symmetric/inverse.svg', figsize=(3, 2))
 
 .. image:: /_static/symmetric/inverse.svg
     :align: center
@@ -59,7 +59,7 @@ Naturality
 ...     f @ g >> Swap(f.cod, g.cod), Swap(f.dom, g.dom) >> g @ f)
 >>> assert naturality
 >>> naturality.draw(
-...     path='docs/_static/symmetric/naturality.svg', figsize=(3, 2))
+...     doctest='docs/_static/symmetric/naturality.svg', figsize=(3, 2))
 
 .. image:: /_static/symmetric/naturality.svg
     :align: center
@@ -74,7 +74,7 @@ This is a special case of naturality.
 >>> yang_baxter_right = x @ Swap(y, z) >> Swap(x, z) @ y >> z @ Swap(x, y)
 >>> assert Equation(yang_baxter_left, yang_baxter_right)
 >>> Equation(yang_baxter_left, yang_baxter_right).draw(
-...     path='docs/_static/symmetric/yang-baxter.svg', figsize=(3, 2))
+...     doctest='docs/_static/symmetric/yang-baxter.svg', figsize=(3, 2))
 
 .. image:: /_static/symmetric/yang-baxter.svg
     :align: center
@@ -164,7 +164,7 @@ class Diagram(balanced.Diagram, SymmetricCategory, metaclass=Swappable):
     ...     x4, x5 = g(x1)
     ...     return x5, x3, x4
     >>> diagram.draw(wire_labels=False,
-    ...              path='docs/_static/symmetric/decorator.svg')
+    ...              doctest='docs/_static/symmetric/decorator.svg')
 
     .. image:: /_static/symmetric/decorator.svg
         :align: center
