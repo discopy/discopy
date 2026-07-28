@@ -117,11 +117,13 @@ def test_draw_coloured_regions_and_frame():
     z = monoidal.Ty(monoidal.Wire("z", red, blue))
     box = monoidal.Box("f", x @ y, z)
     outer = monoidal.Ty(monoidal.Wire("u", blue, red))
-    # A box fills its three wire regions.
-    assert {'#ff0000', '#008000', '#0000ff'} <= region_hexes(box)
+    # A box fills its three wire regions, with the names in
+    # discopy.config.COLORS resolved to their hexcodes as for boxes.
+    assert {'#e8a5a5', '#d8f8d8', '#776ff3'} <= region_hexes(box)
     # A frame additionally fills its frame background (lightgrey).
     frame = box.bubble(dom=outer, cod=outer, draw_as_frame=True)
-    assert {'#ff0000', '#008000', '#0000ff', '#d3d3d3'} <= region_hexes(frame)
+    assert {'#e8a5a5', '#d8f8d8', '#776ff3', '#d3d3d3'}\
+        <= region_hexes(frame)
 
 
 def coloured_bubble():
@@ -192,9 +194,10 @@ def test_draw_regions_uncoloured_shapes():
 def test_draw_coloured_cups_and_caps():
     red, green = map(monoidal.Colour, ("red", "green"))
     x = Ty(Ob("x", dom=red, cod=green))
-    # A cup and a cap each separate the two boundary regions.
-    assert region_hexes(Cup(x, x.r)) == {'#ff0000', '#008000'}
-    assert region_hexes(Cap(x.r, x)) == {'#ff0000', '#008000'}
+    # A cup and a cap each separate the two boundary regions, with the
+    # names in discopy.config.COLORS resolved to their hexcodes.
+    assert region_hexes(Cup(x, x.r)) == {'#e8a5a5', '#d8f8d8'}
+    assert region_hexes(Cap(x.r, x)) == {'#e8a5a5', '#d8f8d8'}
 
 
 def test_draw_coloured_crossings_are_monochrome():
@@ -204,9 +207,9 @@ def test_draw_coloured_crossings_are_monochrome():
     # on both sides, so their regions are a single colour.
     assert region_hexes(Swap(
         Ty(Ob("x", dom=red, cod=red)), Ty(Ob("y", dom=red, cod=red)))
-    ) == {'#ff0000'}
+    ) == {'#e8a5a5'}
     assert region_hexes(Spider(2, 1, FTy(FOb("x", dom=red, cod=red)))) == {
-        '#ff0000'}
+        '#e8a5a5'}
     # A swap of wires separating different regions is not globular.
     green = monoidal.Colour("green")
     with raises(AxiomError):
@@ -219,7 +222,7 @@ def test_draw_coloured_equation():
     equation = Equation(Box("f", x, x), Box("g", x, x))
     colours = region_hexes(equation)
     # Both term regions show, each in its own white-bordered slot.
-    assert {'#ff0000', '#008000', '#ffffff'} <= colours
+    assert {'#e8a5a5', '#d8f8d8', '#ffffff'} <= colours
 
 
 def test_draw_region_non_colors_string():
@@ -250,7 +253,7 @@ def test_draw_legend():
     # Each swatch is filled with its own colour, white is left out.
     swatches = {to_hex(handle.get_facecolor())
                 for handle in legend.legend_handles}
-    assert swatches == {'#ff0000', '#008000', '#0000ff'}
+    assert swatches == {'#e8a5a5', '#d8f8d8', '#776ff3'}
     plt.close(backend.axis.figure)
 
 
@@ -560,3 +563,82 @@ print((boxes[0] @ boxes[1] @ boxes[2] @ boxes[3]).to_svg())
             env=dict(os.environ, PYTHONHASHSEED=str(seed)))
         for seed in range(3)]
     assert outputs[0] == outputs[1] == outputs[2]
+
+
+RIBBON_COLOURS = ("red", "green", "blue", "yellow")
+
+
+def auto_colour_ribbons(diagram):
+    """
+    A colour map for nice looking dual rail examples: cycles through
+    ``RIBBON_COLOURS`` assigning one colour per distinct object. An object
+    and its adjoint encode the same wire, hence share the same colour.
+    """
+    obs = list(diagram.dom.inside)
+    for box in diagram.boxes:
+        obs += list(box.dom.inside) + list(box.cod.inside)
+    palette = {name: RIBBON_COLOURS[i % len(RIBBON_COLOURS)]
+               for i, name in enumerate(sorted({ob.name for ob in obs}))}
+    return lambda ob: palette[ob.name]
+
+
+def test_draw_ribbon_colors():
+    # The inside of each ribbon is filled with a colour in the dual rail
+    # drawing of a ribbon diagram, covering the straight rails, the cups, caps
+    # and braids, with the colour and width preserved across the adjoint.
+    from discopy.ribbon import Ty, Braid
+    x = Ty('x')
+    diagram = Braid(x, x).trace(left=False)
+    diagram.to_ribbons(colour=auto_colour_ribbons(diagram)).draw(
+        wire_labels=False, aspect='equal', show=False,
+        doctest="docs/_static/ribbon/ribbon-colors.svg")
+
+
+@tikz_and_compare('ribbon-colors.tikz', wire_labels=False)
+def test_tikz_ribbon_colors():
+    from discopy.ribbon import Ty, Braid
+    x = Ty('x')
+    diagram = Braid(x, x).trace(left=False)
+    return diagram.to_ribbons(colour=auto_colour_ribbons(diagram))
+
+
+def test_draw_twist_colors():
+    # The back of a twisting ribbon, where it turns over, is filled with a
+    # darker shade of the colour filling its front.
+    from discopy.ribbon import Ty, Diagram
+    x = Ty('x')
+    Diagram.twist(x).to_ribbons().draw(
+        wire_labels=False, aspect='equal', show=False,
+        doctest="docs/_static/ribbon/twist-colors.svg")
+
+
+@tikz_and_compare('twist-colors.tikz', wire_labels=False)
+def test_tikz_twist_colors():
+    from discopy.ribbon import Ty, Diagram
+    x = Ty('x')
+    return Diagram.twist(x).to_ribbons()
+
+
+def test_darken():
+    # A darker shade of a colour keeps each RGB channel smaller, and the
+    # darker shades filling the back of a twisting ribbon are precomputed
+    # for every named colour, see discopy.config.COLORS.
+    from discopy.config import COLORS, darken
+    for name in ["red", "green", "blue", "yellow", "gray"]:
+        hexcode, dark_hexcode = COLORS[name], COLORS[f"dark_{name}"]
+        assert darken(hexcode) == dark_hexcode
+        channels = [int(hexcode[i:i + 2], 16) for i in (1, 3, 5)]
+        dark_channels = [int(dark_hexcode[i:i + 2], 16) for i in (1, 3, 5)]
+        assert all(d <= c for d, c in zip(dark_channels, channels))
+        assert any(d < c for d, c in zip(dark_channels, channels))
+
+
+def test_draw_nested_ribbons():
+    # Nested cups and caps stay folds of constant (ribbon) width, i.e. the
+    # inner ribbon is squeezed just like the outer one.
+    from discopy.ribbon import Ty, Diagram
+    x, y = Ty('x'), Ty('y')
+    (Diagram.caps(x @ y, (x @ y).r)
+        >> Diagram.cups(x @ y, (x @ y).r)).to_ribbons().draw(
+        wire_labels=False, aspect='equal', show=False,
+        doctest="docs/_static/ribbon/nested-ribbons.svg")
