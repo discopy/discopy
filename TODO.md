@@ -67,3 +67,10 @@ Prompt ([#395](https://github.com/discopy/discopy/issues/395), verbatim):
 > Go through the discopy PRs you own and follow the agents/EVENING.md prompt i.e. go through the reviews and implement them
 
 - [x] Replace the stale metaclass alias with the simplest class-and-instance alias, and test both access paths
+
+## Review follow-up (2026-07-26)
+
+> this is rubbish let's get rid of it altogether. a simple "braid_factory = classproperty(lambda
+> cls: cls.swap_factory)" does the job already
+
+- [WIP] @evening-2026-07-28 21:40 Delete the `Swappable` metaclass, make `swap_factory` the attribute symmetric diagrams set and `braid_factory` the `classproperty` reading it
