@@ -19,15 +19,24 @@ Summary
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
 from math import sqrt
+import os
+import re
+from xml.etree import ElementTree
 
 from typing import TYPE_CHECKING
 
+import matplotlib
 import matplotlib.pyplot as plt
+import numpy as np
 
+from matplotlib.testing.compare import compare_images
 from matplotlib.patches import PathPatch, Patch
 from matplotlib.path import Path
+from PIL import Image, ImageSequence
 
+from discopy import config
 from discopy.drawing import Node, Point
 
 from discopy.config import (  # noqa: F401
@@ -36,6 +45,37 @@ from discopy.config import (  # noqa: F401
 
 if TYPE_CHECKING:
     from discopy.drawing import PlaneGraph
+
+
+MATPLOTLIB_RC = {
+    "agg.path.chunksize": 0,
+    "figure.dpi": 100.,
+    "font.family": ["sans-serif"],
+    "font.sans-serif": ["DejaVu Sans"],
+    "font.size": 10.,
+    "mathtext.fontset": "dejavusans",
+    "path.simplify": True,
+    "path.simplify_threshold": 0.111111111111,
+    "savefig.bbox": None,
+    "savefig.dpi": "figure",
+    "savefig.pad_inches": 0.1,
+    "savefig.transparent": False,
+    "svg.fonttype": "path",
+    "svg.hashsalt": "discopy",
+    "svg.image_inline": True,
+    "text.antialiased": True,
+    "text.hinting": "force_autohint",
+    "text.hinting_factor": 8,
+    # Keep ``$...$`` mathtext, but never invoke a machine-local TeX install.
+    "text.usetex": False,
+}
+
+
+@contextmanager
+def matplotlib_context():
+    """ Isolate DisCoPy drawings from the caller's Matplotlib settings. """
+    with matplotlib.rc_context(MATPLOTLIB_RC):
+        yield
 
 
 def draw(graph: PlaneGraph, **params):
@@ -63,7 +103,8 @@ def draw(graph: PlaneGraph, **params):
         TikZ(use_tikzstyles=params.get('use_tikzstyles', None))
         if params.get('to_tikz', False)
         else Matplotlib(figsize=figsize,
-                        linewidth=params.get('linewidth', 1)))
+                        linewidth=params.get('linewidth', 1),
+                        format=params.get('format', None)))
 
     max_v = max(graph.height, graph.width, 0.01)
     params['nodesize'] = round(params.get('nodesize', 1.) / sqrt(max_v), 3)
@@ -76,12 +117,184 @@ def draw(graph: PlaneGraph, **params):
     if params.get('legend', False):
         backend.draw_legend(graph, **params)
 
+    path, compare = doctest_or_path(
+        params.get('path', None), params.get('doctest', None))
     return backend.output(
-        path=params.get('path', None),
+        path=path,
         baseline=graph.height / 2 or .5,
         tikz_options=params.get('tikz_options', None),
         show=params.get('show', True), aspect=aspect,
-        margins=params.get('margins', DEFAULT['margins']))
+        margins=params.get('margins', DEFAULT['margins']),
+        compare=compare,
+        tol=params.get('tol', DEFAULT['plt_tol']))
+
+
+def doctest_or_path(path=None, doctest=None):
+    """ A doctest path is a baseline that drawing checks against,
+    a plain path is just where the drawing gets saved. """
+    return (doctest, True) if doctest is not None else (path, False)
+
+
+XML_SPACE = "{http://www.w3.org/XML/1998/namespace}space"
+NUMBER = re.compile(
+    r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?")
+CLIP_REFERENCE = re.compile(r"url\(#([^)]+)\)")
+GEOMETRY_ATTRIBUTES = {
+    "d", "points", "transform", "viewBox",
+    "x", "y", "dx", "dy", "x1", "y1", "x2", "y2",
+    "cx", "cy", "r", "rx", "ry", "fx", "fy", "fr",
+    "refX", "refY", "width", "height", "markerWidth", "markerHeight",
+    "pathLength",
+}
+
+
+def local_name(name):
+    """ Drop an XML namespace from a tag or attribute name. """
+    return name.rsplit("}", 1)[-1]
+
+
+def close_enough(expected: str, actual: str, tol: float) -> bool:
+    """ Whether two geometry strings differ by at most `tol`. """
+    if NUMBER.sub("#", expected) != NUMBER.sub("#", actual):
+        return False
+    return all(
+        x == y or abs(float(x) - float(y)) <= tol for x, y in
+        zip(NUMBER.findall(expected), NUMBER.findall(actual)))
+
+
+def normalize_svg(path):
+    """ Remove metadata and normalize geometry-derived clip ids. """
+    root = ElementTree.parse(path).getroot()
+    clip_ids = {}
+
+    def clip_id(identifier):
+        return f"clip-{clip_ids.setdefault(identifier, len(clip_ids))}"
+
+    for parent in root.iter():
+        for child in list(parent):
+            if local_name(child.tag) == "metadata":
+                parent.remove(child)
+    for element in root.iter():
+        element.attrib.pop(XML_SPACE, None)
+        if element.text is not None and not element.text.strip():
+            element.text = None
+        element.tail = None
+        if local_name(element.tag) == "clipPath"\
+                and "id" in element.attrib:
+            element.set("id", clip_id(element.attrib["id"]))
+        reference = CLIP_REFERENCE.fullmatch(
+            element.attrib.get("clip-path", ""))
+        if reference:
+            element.set(
+                "clip-path", f"url(#{clip_id(reference[1])})")
+    return root
+
+
+def svg_equal(path, actual_path, tol=DEFAULT['svg_tol']) -> bool:
+    """ Compare exact SVG structure with geometry tolerance. """
+    def equal(expected, actual):
+        return expected.tag == actual.tag\
+            and expected.text == actual.text\
+            and expected.attrib.keys() == actual.attrib.keys()\
+            and all(
+                close_enough(value, actual.attrib[key], tol)
+                if local_name(key) in GEOMETRY_ATTRIBUTES
+                else value == actual.attrib[key]
+                for key, value in expected.attrib.items())\
+            and len(expected) == len(actual)\
+            and all(map(equal, expected, actual))
+
+    return equal(normalize_svg(path), normalize_svg(actual_path))
+
+
+def temporary_path(path):
+    """ Prefix the basename of a path with an underscore. """
+    folder, name = os.path.split(os.fspath(path))
+    return os.path.join(folder, "_" + name)
+
+
+def compare_drawing(path, actual_path, tol=DEFAULT['plt_tol']):
+    """ Compare a drawing against its baseline and remove it when equal. """
+    extension = os.path.splitext(os.fspath(path))[1].lower()
+    if extension == ".svg":
+        equal = svg_equal(path, actual_path)
+        difference = None
+    elif extension in [".png", ".jpg", ".jpeg", ".tif", ".tiff"]:
+        difference = compare_images(path, actual_path, tol)
+        equal = difference is None
+    elif extension == ".gif":
+        def gif_data(gif_path):
+            with Image.open(gif_path) as image:
+                default_duration = image.info.get("duration")
+                loop = image.info.get("loop")
+                frames = [
+                    (frame.convert("RGBA"), frame.size,
+                     frame.info.get("duration", default_duration))
+                    for frame in ImageSequence.Iterator(image)]
+            return frames, loop
+
+        expected_frames, expected_loop = gif_data(path)
+        actual_frames, actual_loop = gif_data(actual_path)
+        same_animation = expected_loop == actual_loop\
+            and len(expected_frames) == len(actual_frames)\
+            and all(
+                expected[1:] == actual[1:]
+                for expected, actual
+                in zip(expected_frames, actual_frames))
+        rms = [
+            np.sqrt(np.mean((
+                np.asarray(expected[0], dtype=float)
+                - np.asarray(actual[0], dtype=float)) ** 2))
+            for expected, actual in zip(expected_frames, actual_frames)
+            if expected[1] == actual[1]]
+        equal = same_animation and len(rms) == len(expected_frames)\
+            and all(value <= tol for value in rms)
+        difference = None
+    else:
+        with open(path, "rb") as expected, open(actual_path, "rb") as actual:
+            equal = expected.read() == actual.read()
+        difference = None
+    if not equal:
+        message = f"Drawing differs from {path!r}; see {actual_path!r}."
+        if difference is not None:
+            message += f"\n{difference}"
+        raise ValueError(message)
+    os.remove(actual_path)
+
+
+def save_and_compare(path, save, tol=DEFAULT['plt_tol']):
+    """ Save a drawing baseline when missing, compare against it otherwise. """
+    if config.OVERRIDE_DOCTEST_IMAGES or not os.path.exists(path):
+        save(path)
+        return
+    actual_path = temporary_path(path)
+    save(actual_path)
+    compare_drawing(path, actual_path, tol)
+
+
+def savefig(path, format=None, compare=False, tol=DEFAULT['plt_tol']):
+    """
+    Save the current Matplotlib figure, as a baseline when ``compare``.
+
+    The format is taken from the extension of ``path`` when it is a file name,
+    it has to be given explicitly when ``path`` is an in-memory buffer. PNGs
+    embed the Matplotlib version as ``"Software"``, SVGs embed the current date
+    and randomise the ids of their clip paths, so we drop the former and fix
+    the salt used for the latter.
+    """
+    path_str = str(path)
+    is_svg = format == "svg" or (format is None and path_str.endswith(".svg"))
+    is_png = format == "png" or (format is None and path_str.endswith(".png"))
+    metadata = {
+        "Date": None, "Creator": None, "Format": None, "Type": None
+    } if is_svg else\
+        {"Software": None} if is_png else None
+
+    def save(actual_path):
+        with matplotlib_context():
+            plt.savefig(actual_path, format=format, metadata=metadata)
+
+    save_and_compare(path, save, tol) if compare else save(path)
 
 
 def _bezier_subcurve(points, t0, t1):
@@ -778,9 +991,10 @@ class TikZ(Backend):
 
 class Matplotlib(Backend):
     """ Matplotlib drawing backend. """
-    def __init__(self, axis=None, figsize=None, linewidth=1):
+    def __init__(self, axis=None, figsize=None, linewidth=1, format=None):
         self.axis = axis or plt.subplots(figsize=figsize, facecolor='white')[1]
         self.linewidth = linewidth
+        self.format = format
         super().__init__()
 
     def draw_text(self, text, i, j, **params):
@@ -945,19 +1159,12 @@ class Matplotlib(Backend):
         if ylim is not None:
             self.axis.set_ylim(*ylim)
         if path is not None:
-            # Drop volatile metadata and fix the salt used for SVG element ids
-            # so that images are reproducible across environments: PNGs embed
-            # the Matplotlib version as "Software", SVGs embed the current date
-            # and randomise the ids of their clip paths.
-            path_str = str(path)
-            if path_str.endswith(".svg"):
-                metadata, context = {"Date": None}, {"svg.hashsalt": "discopy"}
-            elif path_str.endswith(".png"):
-                metadata, context = {"Software": None}, {}
-            else:
-                metadata, context = None, {}
-            with plt.rc_context(context):
-                plt.savefig(path, metadata=metadata)
-            plt.close()
+            try:
+                savefig(
+                    path, format=self.format,
+                    compare=params.get("compare", False),
+                    tol=params.get("tol", DEFAULT['plt_tol']))
+            finally:
+                plt.close()
         if show:
             plt.show()

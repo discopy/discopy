@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 from functools import lru_cache, wraps
+from pathlib import Path
 from typing import (
     Callable,
     Mapping,
@@ -17,6 +18,8 @@ from typing import (
     TYPE_CHECKING,
 )
 
+import matplotlib
+from matplotlib.font_manager import FontProperties
 from matplotlib.textpath import TextPath
 from networkx import Graph, connected_components
 
@@ -29,6 +32,10 @@ if TYPE_CHECKING:
 KT = TypeVar('KT')
 VT = TypeVar('VT')
 V2T = TypeVar('V2T')
+
+_DEFAULT_FONT_PATH = (
+    Path(matplotlib.get_data_path()) / "fonts" / "ttf" / "DejaVuSans.ttf")
+_DEFAULT_FONT = FontProperties(fname=_DEFAULT_FONT_PATH)
 
 
 class MappingOrCallable(Mapping[KT, VT]):
@@ -285,10 +292,12 @@ def is_tuple(typ: type) -> bool:
 def assert_isinstance(object_, cls: type | tuple[type, ...]):
     """ Raise ``TypeError`` if ``object`` is not instance of ``cls``. """
     classes = cls if isinstance(cls, tuple) else (cls, )
-    if not any(isinstance(object_, get_origin(cls)) for cls in classes):
-        cls_name = ' | '.join(map(factory_name, classes))
-        raise TypeError(messages.TYPE_ERROR.format(
-            cls_name, factory_name(type(object_))))
+    for cls in classes:
+        if isinstance(object_, get_origin(cls)):
+            return
+    cls_name = ' | '.join(map(factory_name, classes))
+    raise TypeError(messages.TYPE_ERROR.format(
+        cls_name, factory_name(type(object_))))
 
 
 def unbiased(binary_method):
@@ -406,7 +415,9 @@ def text_width(text: str, rounded=3, fontsize=12, points_per_inch=72.):
     """
     if not text:
         return 0
-    width = TextPath((0, 0), text, size=fontsize).get_extents().width
+    width = TextPath(
+        (0, 0), text, prop=_DEFAULT_FONT, size=fontsize,
+        usetex=False).get_extents().width
     return round(width / points_per_inch, rounded)
 
 
@@ -543,6 +554,7 @@ class Node:
         self.kind, self.data = kind, data
         for key, value in data.items():
             setattr(self, key, value)
+        self.__hash = None
 
     def __eq__(self, other):
         return isinstance(other, Node)\
@@ -553,7 +565,9 @@ class Node:
             f"{key}={value}" for key, value in sorted(self.data.items()))})"""
 
     def __hash__(self):
-        return hash(repr(self))
+        if self.__hash is None:
+            self.__hash = hash(repr(self))
+        return self.__hash
 
     def shift_i(self, i):
         return Node(self.kind, **dict(self.data, i=self.i + i))
@@ -569,3 +583,55 @@ class Point(NamedTuple):
 
     def shift(self, x=0, y=0):
         return Point(self.x + x, self.y + y)
+
+
+class RichDisplay:
+    """
+    Mixin implementing IPython's rich display protocol, see
+    https://ipython.readthedocs.io/en/stable/config/integrating.html
+
+    Any DisCoPy object with a :meth:`to_drawing` method, e.g. a
+    :class:`discopy.monoidal.Diagram`, a :class:`discopy.drawing.Drawing`
+    or an :class:`discopy.drawing.Equation`, is displayed as an SVG image
+    (with a PNG fallback in the mimebundle) when it is the output of a cell
+    in Jupyter, marimo and other frontends that support the protocol.
+
+    Example
+    -------
+    >>> from discopy.monoidal import Ty, Box
+    >>> f = Box('f', Ty('x'), Ty('y'))
+    >>> svg, png = f._repr_svg_(), f.to_png()
+    >>> assert svg.startswith('<?xml') and '</svg>\\n' in svg
+    >>> assert png.startswith(b'\\x89PNG')
+    >>> assert f._repr_mimebundle_() == {
+    ...     'image/svg+xml': svg, 'image/png': png}
+    >>> assert f._repr_mimebundle_(include=['image/svg+xml']) == {
+    ...     'image/svg+xml': svg}
+    >>> assert f._repr_mimebundle_(exclude=['image/svg+xml']) == {
+    ...     'image/png': png}
+    >>> assert f._repr_mimebundle_(include=['text/html']) == {}
+    """
+    def to_svg(self, **params) -> str:
+        """ Draw as a standalone SVG string. """
+        from io import StringIO
+        buffer = StringIO()
+        self.to_drawing().draw(
+            path=buffer, format="svg", show=False, **params)
+        return buffer.getvalue()
+
+    def to_png(self, **params) -> bytes:
+        """ Draw as PNG bytes. """
+        from io import BytesIO
+        buffer = BytesIO()
+        self.to_drawing().draw(
+            path=buffer, format="png", show=False, **params)
+        return buffer.getvalue()
+
+    def _repr_svg_(self) -> str:
+        return self.to_svg()
+
+    def _repr_mimebundle_(self, include=None, exclude=None) -> dict:
+        data = {"image/svg+xml": self.to_svg, "image/png": self.to_png}
+        return {mimetype: draw() for mimetype, draw in data.items()
+                if (include is None or mimetype in include)
+                and (exclude is None or mimetype not in exclude)}

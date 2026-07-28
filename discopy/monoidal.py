@@ -72,6 +72,7 @@ from discopy.utils import (
     AxiomError,
     get_origin,
     MappingOrCallable,
+    RichDisplay,
 )
 
 if TYPE_CHECKING:
@@ -351,7 +352,7 @@ class Ty(cat.Ob, FreeMonoid):
 
     def __iter__(self):
         for i in range(len(self)):
-            yield self[i]
+            yield self[i:i + 1]
 
     def __pow__(self, n_times):
         assert_isinstance(n_times, int)
@@ -580,18 +581,23 @@ class Layer(cat.Box):
         if len(more) % 2:
             raise ValueError(messages.LAYERS_MUST_BE_ODD)
         self.boxes_or_types = (left, box, right) + more
-        name, dom, cod = "", left[:0], left[:0]
+        dom_pieces, cod_pieces, names = [], [], []
         for i, box_or_typ in enumerate(self.boxes_or_types):
             if i % 2:
-                assert_isinstance(box, Box)
-                dom, cod = dom @ box_or_typ.dom, cod @ box_or_typ.cod
-                name += ("" if not name else " @ ") + str(box_or_typ)
+                assert_isinstance(box_or_typ, Box)
+                dom_pieces.append(box_or_typ.dom)
+                cod_pieces.append(box_or_typ.cod)
+                names.append(str(box_or_typ))
             else:
                 assert_isinstance(box_or_typ, Ty)
-                dom, cod = dom @ box_or_typ, cod @ box_or_typ
-                name += "" if not box_or_typ\
-                    else ("" if not name else " @ ") + str(box_or_typ)
-        super().__init__(name, dom, cod)
+                dom_pieces.append(box_or_typ)
+                cod_pieces.append(box_or_typ)
+                if box_or_typ:
+                    names.append(str(box_or_typ))
+        empty = left[:0]
+        super().__init__(
+            " @ ".join(names),
+            empty.tensor(*dom_pieces), empty.tensor(*cod_pieces))
 
     def __iter__(self):
         for box_or_typ in self.boxes_or_types:
@@ -731,7 +737,7 @@ class Layer(cat.Box):
 
 
 @factory
-class Diagram(cat.Arrow, MonoidalCategory):
+class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
     """
     A diagram is a tuple of composable layers :code:`inside` with a pair of
     types :code:`dom` and :code:`cod` as domain and codomain.
@@ -799,7 +805,7 @@ class Diagram(cat.Arrow, MonoidalCategory):
         ...     middle, right = cap(offset=1)
         ...     cup(left, middle)
         ...     return right
-        >>> snake.draw(path='docs/_static/monoidal/diagramize.svg')
+        >>> snake.draw(doctest='docs/_static/monoidal/diagramize.svg')
 
         .. image:: /_static/monoidal/diagramize.svg
             :align: center
@@ -832,7 +838,7 @@ class Diagram(cat.Arrow, MonoidalCategory):
         >>> assert f0 @ f1 == f0.tensor(f1) == f0 @ Id(z) >> Id(y) @ f1
 
         >>> (f0 @ f1).draw(
-        ...     path='docs/_static/monoidal/tensor-example.svg')
+        ...     doctest='docs/_static/monoidal/tensor-example.svg')
 
         .. image:: /_static/monoidal/tensor-example.svg
             :align: center
@@ -887,7 +893,7 @@ class Diagram(cat.Arrow, MonoidalCategory):
         >>> assert dom == x @ z
         >>> assert boxes_and_offsets == [(f0, 0), (f1, 1), (g, 0)]
         >>> assert diagram == Diagram.decode(*diagram.encode())
-        >>> diagram.draw(path='docs/_static/monoidal/arrow-example.svg')
+        >>> diagram.draw(doctest='docs/_static/monoidal/arrow-example.svg')
 
         .. image:: /_static/monoidal/arrow-example.svg
             :align: center
@@ -954,13 +960,42 @@ class Diagram(cat.Arrow, MonoidalCategory):
         -------
         >>> x, y = Ty('x'), Ty('y')
         >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
-        >>> diagram = y @ f0 >> f1 @ y
+        >>> diagram = f0 @ y >> y @ f1
         >>> print(diagram.foliation())
-        f1 @ f0
+        f0 @ f1
         >>> print(diagram.foliation().to_staircases())
-        f1 @ x >> x @ f0
+        f0 @ y >> y @ f1
         """
         return Functor.id(self.ar)(self)
+
+    def to_hypergraph(self) -> Hypergraph:
+        """
+        Translate a planar diagram into a hypergraph.
+
+        The offset of each *state* (a box with an empty domain) is recorded on
+        the hypergraph, so :meth:`discopy.hypergraph.Hypergraph.to_diagram` can
+        place it back without a swap. A state has no input wires for the
+        boundary scan to follow, so without its offset that scan would default
+        every state to the left and then need swaps to reorder them -- which a
+        category without symmetry (e.g. a formal grammar) does not have.
+
+        Example
+        -------
+        >>> x, y = Ty('x'), Ty('y')
+        >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
+        >>> diagram = f0 @ f1.dagger() >> f0.dagger() @ f1
+        >>> assert diagram.to_hypergraph().to_diagram() == diagram.foliation()
+        """
+        graph = hypergraph.Hypergraph[type(self).ar].from_diagram(self)
+        staircase = len(self.boxes) == len(self.inside)
+        if staircase and len(graph.boxes) == len(self.boxes):
+            offsets = tuple(
+                offset if not box.dom else None
+                for box, offset in zip(self.boxes, self.offsets))
+            graph = type(graph)(
+                graph.dom, graph.cod, graph.boxes, graph.wires,
+                graph.spider_types, offsets)
+        return graph
 
     def foliation(self):
         """
@@ -975,7 +1010,7 @@ class Diagram(cat.Arrow, MonoidalCategory):
         >>> print(diagram)
         f0 @ x >> y @ f1[::-1] >> f0[::-1] @ y >> x @ f1
         >>> diagram.foliation().draw(
-        ...     path='docs/_static/monoidal/foliation-example.svg')
+        ...     doctest='docs/_static/monoidal/foliation-example.svg')
 
         .. image:: /_static/monoidal/foliation-example.svg
             :align: center
@@ -983,24 +1018,38 @@ class Diagram(cat.Arrow, MonoidalCategory):
         Note
         ----
         If one defines a foliation as a sequence of unmergeable layers,
-        there may exist many distinct foliations for the same diagram.
-        This method scans top to bottom and merges layers eagerly.
+        there may exist many distinct foliations for the same diagram. When the
+        diagram lives in a symmetric category with self-dual objects and its
+        hypergraph is monogamous, causal and boundary-connected, the foliation
+        is read off the hypergraph in one pass over the boundary (see
+        :meth:`discopy.hypergraph.Hypergraph.to_diagram`). The self-duality is
+        needed because that pass reconstructs the diagram with swaps, which
+        would not be faithful in a rigid category such as pregroup, where the
+        left and right adjoints of an object differ. Otherwise this scans top
+        to bottom and merges layers eagerly.
         """
-        while len(self) > 1:
+        graph = self.to_hypergraph()
+        if hasattr(self, "swap") and graph.is_monogamous and graph.is_causal\
+                and graph.is_boundary_connected and all(
+                    getattr(obj, "l", obj) == getattr(obj, "r", obj)
+                    for obj in graph.spider_types):
+            return graph.to_diagram()
+        diagram = self
+        while len(diagram) > 1:
             keep_on_going = False
             for i, (first, second) in enumerate(zip(
-                    self.inside, self.inside[1:])):
+                    diagram.inside, diagram.inside[1:])):
                 try:
-                    inside = self.inside[:i] + (first.merge(second), )\
-                        + self.inside[i + 2:]
-                    self = self.ar(inside, self.dom, self.cod)
+                    inside = diagram.inside[:i] + (first.merge(second), )\
+                        + diagram.inside[i + 2:]
+                    diagram = diagram.ar(inside, diagram.dom, diagram.cod)
                     keep_on_going = True
                     break
                 except AxiomError:
                     continue
             if not keep_on_going:
                 break
-        return self
+        return diagram
 
     def depth(self):
         """
@@ -1207,7 +1256,7 @@ class Box(cat.Box, Diagram):
     >>> y = Ty(Wire("y", green, blue))
     >>> z = Ty(Wire("z", red, blue))
     >>> coloured = Box("coloured", x @ y, z)
-    >>> coloured.draw(path='docs/_static/monoidal/coloured-box.svg')
+    >>> coloured.draw(doctest='docs/_static/monoidal/coloured-box.svg')
 
     .. image:: /_static/monoidal/coloured-box.svg
         :align: center
@@ -1290,19 +1339,19 @@ class Bubble(cat.Bubble, Box):
     >>> x, y = Ty('x'), Ty('y')
     >>> f, g, h = Box('f', x, y ** 3), Box('g', y, y @ y), Box('h', x, y)
     >>> d = (f.bubble(dom=x ** 3, cod=y, draw_as_square=True) >> g).bubble()
-    >>> d.draw(path='docs/_static/monoidal/bubble-example.svg')
+    >>> d.draw(doctest='docs/_static/monoidal/bubble-example.svg')
 
     .. image:: /_static/monoidal/bubble-example.svg
         :align: center
 
     >>> b = Bubble(f, g, h >> h[::-1], dom=x, cod=y @ y)
-    >>> b.draw(path='docs/_static/monoidal/bubble-multiple-args.svg')
+    >>> b.draw(doctest='docs/_static/monoidal/bubble-multiple-args.svg')
 
     .. image:: /_static/monoidal/bubble-multiple-args.svg
         :align: center
 
     >>> b = Bubble(f, g, h, dom=x, cod=y @ y, draw_vertically=True)
-    >>> b.draw(path='docs/_static/monoidal/frame-vertical-args.svg')
+    >>> b.draw(doctest='docs/_static/monoidal/frame-vertical-args.svg')
 
     .. image:: /_static/monoidal/frame-vertical-args.svg
         :align: center
@@ -1316,7 +1365,7 @@ class Bubble(cat.Bubble, Box):
     ...     dom=Ty(Wire("boundary", blue, red)),
     ...     cod=Ty(Wire("boundary", blue, red)),
     ...     draw_as_frame=True)
-    >>> frame.draw(path='docs/_static/monoidal/coloured-frame.svg')
+    >>> frame.draw(doctest='docs/_static/monoidal/coloured-frame.svg')
 
     .. image:: /_static/monoidal/coloured-frame.svg
         :align: center
@@ -1404,7 +1453,7 @@ class Functor(cat.Functor):
     >>> source, target = f0 >> f0[::-1], F(f0 >> f0[::-1])
 
     >>> Equation(source, target, symbol='$\\\\mapsto$').draw(
-    ...     path='docs/_static/monoidal/functor-example.svg')
+    ...     doctest='docs/_static/monoidal/functor-example.svg')
 
     .. image:: /_static/monoidal/functor-example.svg
         :align: center
@@ -1527,7 +1576,7 @@ class CMap(cmap.CMap):
     require_connected = True
 
 
-class Equation(cat.Equation):
+class Equation(cat.Equation, RichDisplay):
     """
     An :class:`.cat.Equation` of diagrams, i.e. with a :meth:`draw` method.
 
