@@ -28,6 +28,7 @@ import discopy.messages as messages
 if TYPE_CHECKING:
     from discopy.monoidal import Ty, Diagram
     from discopy.abc import Category
+    from discopy.drawing.widget import DiagramWidget
 
 KT = TypeVar('KT')
 VT = TypeVar('VT')
@@ -585,6 +586,9 @@ class Point(NamedTuple):
         return Point(self.x + x, self.y + y)
 
 
+WIDGET_MIMETYPE = "application/vnd.jupyter.widget-view+json"
+
+
 class RichDisplay:
     """
     Mixin implementing IPython's rich display protocol, see
@@ -596,6 +600,10 @@ class RichDisplay:
     (with a PNG fallback in the mimebundle) when it is the output of a cell
     in Jupyter, marimo and other frontends that support the protocol.
 
+    When the optional dependency ``anywidget`` is installed, the mimebundle
+    also contains the view of a :class:`discopy.drawing.widget.DiagramWidget`
+    which frontends that support Jupyter widgets render instead.
+
     Example
     -------
     >>> from discopy.monoidal import Ty, Box
@@ -603,12 +611,12 @@ class RichDisplay:
     >>> svg, png = f._repr_svg_(), f.to_png()
     >>> assert svg.startswith('<?xml') and '</svg>\\n' in svg
     >>> assert png.startswith(b'\\x89PNG')
-    >>> assert f._repr_mimebundle_() == {
-    ...     'image/svg+xml': svg, 'image/png': png}
+    >>> bundle = f._repr_mimebundle_()
+    >>> assert bundle['image/svg+xml'] == svg and bundle['image/png'] == png
     >>> assert f._repr_mimebundle_(include=['image/svg+xml']) == {
     ...     'image/svg+xml': svg}
-    >>> assert f._repr_mimebundle_(exclude=['image/svg+xml']) == {
-    ...     'image/png': png}
+    >>> assert 'image/svg+xml' not in f._repr_mimebundle_(
+    ...     exclude=['image/svg+xml'])
     >>> assert f._repr_mimebundle_(include=['text/html']) == {}
     """
     def to_svg(self, **params) -> str:
@@ -627,11 +635,39 @@ class RichDisplay:
             path=buffer, format="png", show=False, **params)
         return buffer.getvalue()
 
+    def to_widget(self, **params) -> DiagramWidget:
+        """
+        Draw as a :class:`discopy.drawing.widget.DiagramWidget`, requires the
+        optional dependency ``anywidget``.
+
+        Parameters:
+            params : Passed to :meth:`to_svg`.
+        """
+        from discopy.drawing.widget import DiagramWidget
+        return DiagramWidget(svg=self.to_svg(**params))
+
+    def to_widget_view(self, **params) -> dict:
+        """
+        Draw as a widget view, i.e. the reference to the model of
+        :meth:`to_widget` that a frontend resolves into a rendered widget.
+
+        Note
+        ----
+        ``Widget._repr_mimebundle_`` returns a pair of data and metadata in
+        ipywidgets 7 where it returns the data alone in ipywidgets 8.
+        """
+        bundle = self.to_widget(**params)._repr_mimebundle_()
+        data = bundle[0] if isinstance(bundle, tuple) else bundle
+        return data[WIDGET_MIMETYPE]
+
     def _repr_svg_(self) -> str:
         return self.to_svg()
 
     def _repr_mimebundle_(self, include=None, exclude=None) -> dict:
+        from importlib.util import find_spec
         data = {"image/svg+xml": self.to_svg, "image/png": self.to_png}
+        if find_spec("anywidget") is not None:
+            data[WIDGET_MIMETYPE] = self.to_widget_view
         return {mimetype: draw() for mimetype, draw in data.items()
                 if (include is None or mimetype in include)
                 and (exclude is None or mimetype not in exclude)}

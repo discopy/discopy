@@ -482,12 +482,12 @@ def test_rich_display():
         svg, png = obj._repr_svg_(), obj.to_png()
         assert svg.startswith('<?xml') and '</svg>\n' in svg
         assert png.startswith(b'\x89PNG')
-        assert obj._repr_mimebundle_() == {
-            'image/svg+xml': svg, 'image/png': png}
+        bundle = obj._repr_mimebundle_()
+        assert bundle['image/svg+xml'] == svg and bundle['image/png'] == png
         assert obj._repr_mimebundle_(include=['image/svg+xml']) == {
             'image/svg+xml': svg}
-        assert obj._repr_mimebundle_(exclude=['image/svg+xml']) == {
-            'image/png': png}
+        assert 'image/svg+xml' not in obj._repr_mimebundle_(
+            exclude=['image/svg+xml'])
         assert obj._repr_mimebundle_(include=['text/html']) == {}
 
     assert plt.get_fignums() == []
@@ -519,3 +519,23 @@ print((boxes[0] @ boxes[1] @ boxes[2] @ boxes[3]).to_svg())
             env=dict(os.environ, PYTHONHASHSEED=str(seed)))
         for seed in range(3)]
     assert outputs[0] == outputs[1] == outputs[2]
+
+
+def test_to_widget():
+    from pytest import importorskip
+    importorskip('anywidget')
+
+    from discopy.utils import WIDGET_MIMETYPE
+    from discopy.drawing.widget import DiagramWidget
+    from discopy.monoidal import Ty, Box
+
+    f = Box('f', Ty('x'), Ty('y'))
+
+    for obj in (f, f.to_drawing(), Equation(f, f)):
+        widget = obj.to_widget()
+        assert isinstance(widget, DiagramWidget)
+        assert widget.svg == obj.to_svg()
+        assert obj.to_widget_view()['model_id'] != widget.model_id
+        assert obj._repr_mimebundle_()[WIDGET_MIMETYPE]['model_id']
+        assert obj._repr_mimebundle_(exclude=[WIDGET_MIMETYPE]) == {
+            'image/svg+xml': obj.to_svg(), 'image/png': obj.to_png()}
