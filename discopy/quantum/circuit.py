@@ -262,7 +262,7 @@ class Circuit(tensor.Diagram[complex]):
         We can evaluate a pure circuit (i.e. with :code:`not circuit.is_mixed`)
         as a unitary :class:`discopy.tensor.Tensor` or as a :class:`Channel`:
 
-        >>> from discopy.quantum import *  # doctest: +EXTRA
+        >>> from discopy.quantum import *
 
         >>> H.eval().round(2)  # doctest: +ELLIPSIS
         Tensor[complex]([0.71+0.j, ..., -0.71+0.j], dom=Dim(2), cod=Dim(2))
@@ -282,7 +282,7 @@ class Circuit(tensor.Diagram[complex]):
         :class:`discopy.tensor.Tensor` of real-valued probabilities.
 
         >>> circuit = Ket(0, 0) >> sqrt(2) @ H @ X >> CX >> Measure() @ Bra(0)
-        >>> from discopy.quantum.tk import mockBackend
+        >>> from discopy.quantum.tk import mockBackend  # doctest: +EXTRA
         >>> backend = mockBackend({(0, 1): 512, (1, 0): 512})
         >>> assert circuit.eval(backend=backend, n_shots=2**10).round()\\
         ...     == Tensor[float](dom=Dim(1), cod=Dim(2), array=[0., 1.])
@@ -362,9 +362,9 @@ class Circuit(tensor.Diagram[complex]):
 
         Examples
         --------
-        >>> from discopy.quantum import *  # doctest: +EXTRA
+        >>> from discopy.quantum import *
         >>> circuit = H @ X >> CX >> Measure(2)
-        >>> from discopy.quantum.tk import mockBackend
+        >>> from discopy.quantum.tk import mockBackend  # doctest: +EXTRA
         >>> backend = mockBackend({(0, 1): 512, (1, 0): 512})
         >>> circuit.get_counts(backend=backend, n_shots=2**10)
         {(0, 1): 0.5, (1, 0): 0.5}
@@ -541,10 +541,10 @@ class Circuit(tensor.Diagram[complex]):
 
         Examples
         --------
-        >>> from discopy.quantum import *  # doctest: +EXTRA
+        >>> from discopy.quantum import *
 
         >>> bell_test = H @ qubit >> CX >> Measure() @ Measure()
-        >>> bell_test.to_tk()
+        >>> bell_test.to_tk()  # doctest: +EXTRA
         tk.Circuit(2, 2).H(0).CX(0, 1).Measure(0, 0).Measure(1, 1)
 
         >>> circuit0 = sqrt(2) @ H @ Rx(0.5) >> CX >> Measure() @ Discard()
@@ -629,8 +629,8 @@ class Circuit(tensor.Diagram[complex]):
 
         Examples
         --------
-        >>> from discopy.quantum import *  # doctest: +EXTRA
-        >>> import pytket as tk
+        >>> from discopy.quantum import *
+        >>> import pytket as tk  # doctest: +EXTRA
 
         >>> c = Rz(0.5) @ qubit >> qubit @ Rx(0.25) >> CX
         >>> assert Circuit.from_tk(c.to_tk()) == c.init_and_discard()
@@ -689,8 +689,8 @@ class Circuit(tensor.Diagram[complex]):
 
         Examples
         --------
-        >>> from math import pi  # doctest: +EXTRA
-        >>> from sympy.abc import phi
+        >>> from math import pi
+        >>> from sympy.abc import phi  # doctest: +EXTRA
         >>> from discopy.quantum import *
         >>> circuit = Rz(phi / 2) @ Rz(phi + 1) >> CX
         >>> assert circuit.grad(phi, mixed=False)\\

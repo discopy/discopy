@@ -79,7 +79,7 @@ class Tensor(Matrix):
 
     Examples
     --------
-    >>> m = Tensor([0, 1, 1, 0], Dim(2), Dim(2))  # doctest: +EXTRA
+    >>> m = Tensor([0, 1, 1, 0], Dim(2), Dim(2))
     >>> v = Tensor([0, 1], Dim(1), Dim(2))
     >>> v >> m >> v.dagger()
     Tensor[int64]([0], dom=Dim(1), cod=Dim(1))
@@ -88,7 +88,7 @@ class Tensor(Matrix):
     -----
     Tensors can have sympy symbols as free variables.
 
-    >>> from sympy import Expr
+    >>> from sympy import Expr  # doctest: +EXTRA
     >>> from sympy.abc import phi, psi
     >>> v = Tensor[Expr]([phi, psi], Dim(1), Dim(2))
     >>> d = v >> v.dagger()
@@ -502,8 +502,8 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
 
         Examples
         --------
-        >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])  # doctest: +EXTRA
-        >>> t_net = (vector >> vector[::-1]).to_quimb()
+        >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
+        >>> t_net = (vector >> vector[::-1]).to_quimb()  # doctest: +EXTRA
         >>> assert t_net.contract(preserve_tensor=True).data == 1
         """
         import quimb.tensor as qtn
@@ -556,8 +556,8 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
 
         Examples
         --------
-        >>> import numpy as np  # doctest: +EXTRA
-        >>> from tensornetwork import Node, Edge
+        >>> import numpy as np
+        >>> from tensornetwork import Node, Edge  # doctest: +EXTRA
         >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
         >>> nodes, output_edge_order = vector.to_tn()
         >>> node, = nodes
@@ -649,10 +649,10 @@ class CMap(frobenius.CMap):
 
     Example
     -------
-    >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])  # doctest: +EXTRA
+    >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
     >>> assert (vector >> vector[::-1]).to_map().eval().array == 1
 
-    >>> with backend('jax'):
+    >>> with backend('jax'):  # doctest: +EXTRA
     ...     import jax, jax.numpy as jnp
     ...     b = lambda x: Box[float]('v', Dim(1), Dim(2), x * jnp.ones(2))
     ...     f = lambda x: (b(x) >> b(x)[::-1]).to_map().eval().array
@@ -769,7 +769,7 @@ class Spider(frobenius.Spider, Box):
 
     Examples
     --------
-    >>> vector = Box('vec', Dim(1), Dim(2), [0, 1])  # doctest: +EXTRA
+    >>> vector = Box('vec', Dim(1), Dim(2), [0, 1])
     >>> spider = Spider(1, 2, Dim(2))
     >>> assert (vector >> spider).eval() == (vector @ vector).eval()
     >>> Equation(vector >> spider, vector @ vector).draw(figsize=(3, 2),
@@ -805,7 +805,7 @@ class Bubble(monoidal.Bubble, Box):
     Examples
     --------
 
-    >>> men = Box("men", Dim(1), Dim(2), [0, 1])  # doctest: +EXTRA
+    >>> men = Box("men", Dim(1), Dim(2), [0, 1])
     >>> mortal = Box("mortal", Dim(2), Dim(1), [1, 1])
     >>> men_are_mortal = (men >> mortal.bubble()).bubble()
     >>> assert men_are_mortal.eval(dtype=bool)
@@ -815,7 +815,7 @@ class Bubble(monoidal.Bubble, Box):
     .. image:: /_static/tensor/men-are-mortal.svg
         :align: center
 
-    >>> from sympy import Expr
+    >>> from sympy import Expr  # doctest: +EXTRA
     >>> from sympy.abc import x
     >>> f = Box('f', Dim(2), Dim(2), [1, 0, 0, x])
     >>> g = Box('g', Dim(2), Dim(2), [-x, 0, 0, 1])

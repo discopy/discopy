@@ -469,10 +469,10 @@ class CMap(monoidal.CMap):
             n : The number of objects to curry.
             left : Whether to curry on the left or right.
 
-        >>> from discopy.closed import Ty, Box  # doctest: +EXTRA
+        >>> from discopy.closed import Ty, Box
         >>> x, y, z = map(Ty, "xyz")
         >>> f = Box("f", x @ y, z).to_map()
-        >>> f.curry().uncurry().draw(show=False,
+        >>> f.curry().uncurry().draw(show=False,  # doctest: +EXTRA
         ...     doctest="docs/_static/cmap/biclosed-curry-right.svg")
 
         .. image:: /_static/cmap/biclosed-curry-right.svg
