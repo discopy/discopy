@@ -27,6 +27,7 @@ release = get_version()
 extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.napoleon',
               'sphinx.ext.autosummary',
+              'sphinx.ext.graphviz',
               'sphinx.ext.viewcode',
               'myst_parser',
               'sphinx.ext.mathjax',
@@ -39,6 +40,7 @@ extensions = ['sphinx.ext.autodoc',
               ]
 
 bibtex_bibfiles = ['discopy.bib']
+graphviz_output_format = 'svg'
 
 autosummary_generate = True
 
