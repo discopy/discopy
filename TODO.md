@@ -73,4 +73,4 @@ Prompt ([#395](https://github.com/discopy/discopy/issues/395), verbatim):
 > this is rubbish let's get rid of it altogether. a simple "braid_factory = classproperty(lambda
 > cls: cls.swap_factory)" does the job already
 
-- [WIP] @evening-2026-07-28 21:40 Delete the `Swappable` metaclass, make `swap_factory` the attribute symmetric diagrams set and `braid_factory` the `classproperty` reading it
+- [x] Delete the `Swappable` metaclass, make `swap_factory` the attribute symmetric diagrams set and `braid_factory` the `classproperty` reading it

@@ -140,7 +140,7 @@ class CMap(symmetric.CMap):
 
 Id = Diagram.id
 
-Diagram.braid_factory = Swap
+Diagram.swap_factory = Swap
 Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]

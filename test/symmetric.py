@@ -89,8 +89,8 @@ def test_bad_permute():
 
 def test_swap_factory():
     """
-    Setting ``swap_factory`` on a custom subclass sets ``braid_factory``,
-    so its swaps stay in the subclass all the way through ``Diagram.swap``,
+    Setting ``swap_factory`` on a custom subclass is what ``braid_factory``
+    reads, so its swaps stay in the subclass through ``Diagram.swap``,
     ``Hypergraph.to_diagram`` and ``Diagram.from_callable``,
     see https://github.com/discopy/discopy/issues/395
     """
@@ -131,5 +131,5 @@ def test_swap_factory():
         swap_factory = Transposition
 
     assert SubPermutation.braid_factory is Transposition
-    assert "swap_factory" not in SubPermutation.__dict__
-    assert Diagram.swap(PRO(1), PRO(1)).swap_factory is Swap
+    assert Permutation.braid_factory is Swap
+    assert Diagram.swap(PRO(1), PRO(1)).braid_factory is Swap

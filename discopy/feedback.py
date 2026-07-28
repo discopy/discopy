@@ -657,7 +657,7 @@ class Functor(markov.Functor):
 
 
 Diagram.functor_factory = Functor
-Diagram.braid_factory = Swap
+Diagram.swap_factory = Swap
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.feedback_factory, Diagram.followed_by = Feedback, FollowedBy
 Hypergraph = hypergraph.Hypergraph[Diagram]
