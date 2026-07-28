@@ -25,7 +25,8 @@ Example
 >>> r0, r1 = Rule(n @ p, s), Rule(v @ n, p)
 >>> Jane, loves, John = Word('Jane', n), Word('loves', v), Word('John', n)
 >>> sentence = Jane @ loves @ John >> n @ r1 >> r0
->>> sentence.draw(figsize=(4, 3), path='docs/_static/grammar/cfg-example.svg')
+>>> sentence.draw(
+...     figsize=(4, 3), doctest='docs/_static/grammar/cfg-example.svg')
 
 .. image:: /_static/grammar/cfg-example.svg
     :align: center

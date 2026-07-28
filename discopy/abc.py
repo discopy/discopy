@@ -318,7 +318,7 @@ class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
         >>> f = Box('f', x, y)
         >>> Equation(f.transpose(left=True), f, f.transpose(),
         ...     symbols=("$\\\\mapsfrom$", "$\\\\mapsto$")).draw(
-        ...         figsize=(8, 3), path="docs/_static/rigid/transpose.svg")
+        ...         figsize=(8, 3), doctest="docs/_static/rigid/transpose.svg")
 
         .. image:: /_static/rigid/transpose.svg
         """

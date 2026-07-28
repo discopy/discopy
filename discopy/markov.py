@@ -36,7 +36,7 @@ Commutative monoid
 >>> commutativity = Equation(Swap(x, x) >> merge, merge)
 >>> assert unitality and associativity and commutativity
 >>> Equation(unitality, associativity, commutativity, symbol='').draw(
-...     path="docs/_static/frobenius/monoid.svg")
+...     doctest="docs/_static/frobenius/monoid.svg")
 
 .. image:: /_static/frobenius/monoid.svg
     :align: center
@@ -49,7 +49,7 @@ Cocommutative comonoid
 >>> cocommutativity = Equation(copy >> Swap(x, x), copy)
 >>> assert counitality and coassociativity and cocommutativity
 >>> Equation(counitality, coassociativity, cocommutativity, symbol='').draw(
-...     path="docs/_static/frobenius/comonoid.svg")
+...     doctest="docs/_static/frobenius/comonoid.svg")
 
 .. image:: /_static/frobenius/comonoid.svg
     :align: center
@@ -110,7 +110,7 @@ class Diagram(symmetric.Diagram, MarkovCategory):
     ...     return y, y
 
     >>> Equation(copy_then_apply, apply_then_copy, symbol="$\\\\neq$").draw(
-    ...     path="docs/_static/markov/copy_and_apply.svg")
+    ...     doctest="docs/_static/markov/copy_and_apply.svg")
 
     .. image:: /_static/markov/copy_and_apply.svg
     """
@@ -301,7 +301,7 @@ class Functor(symmetric.Functor):
     >>> assert F(bialgebra_l)(54, 46) == F(bialgebra_r)(54, 46)
 
     >>> Equation(bialgebra_l, bialgebra_r, symbol="=").draw(
-    ...     path="docs/_static/markov/bialgebra.svg")
+    ...     doctest="docs/_static/markov/bialgebra.svg")
 
     .. image:: /_static/markov/bialgebra.svg
     """

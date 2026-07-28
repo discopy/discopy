@@ -54,7 +54,7 @@ from networkx.algorithms.isomorphism import is_isomorphic
 from discopy import cmap, messages
 from discopy.abc import (
     HypergraphCategory, MarkovCategory, MonoidalCategory, NamedGeneric)
-from discopy.drawing import Node
+from discopy.drawing import Node, backend
 from discopy.python.finset import Permutation
 from discopy.utils import (
     factory_name,
@@ -1620,8 +1620,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
 
     def spring_layout(self, seed=None, k=None):
         """ Computes a layout using a force-directed algorithm. """
-        if seed is not None:
-            random.seed(seed)
+        rng = random.Random(seed)
         graph, pos = self.to_graph().to_undirected(), {}
         height = len(self.boxes) + self.n_spiders
         width = max(len(self.dom), len(self.cod))
@@ -1630,15 +1629,15 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         for i, (dom_wires, cod_wires) in enumerate(self.box_wires):
             box_node = Node("box", i=i, box=self.boxes[i])
             pos[box_node] = (
-                random.uniform(-width / 2, width / 2),
-                random.uniform(0, height))
+                rng.uniform(-width / 2, width / 2),
+                rng.uniform(0, height))
             for kind, wires in [("dom", dom_wires), ("cod", cod_wires)]:
                 for j, spider in enumerate(wires):
                     pos[Node(kind, i=i, j=j)] = pos[box_node]
         for i, obj in enumerate(self.spider_types):
             pos[Node("spider", i=i, obj=obj)] = (
-                random.uniform(-width / 2, width / 2),
-                random.uniform(0, height))
+                rng.uniform(-width / 2, width / 2),
+                rng.uniform(0, height))
         for i, obj in enumerate(self.cod):
             pos[Node("output", i=i, obj=obj)] = (i, 0)
         fixed = self.ports[:len(self.dom)] + self.ports[
@@ -1646,7 +1645,8 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         pos = spring_layout(graph, pos=pos, fixed=fixed, k=k, seed=seed)
         return graph, pos
 
-    def draw(self, seed=None, k=.25, path=None):
+    @backend.matplotlib_context()
+    def draw(self, seed=None, k=.25, path=None, doctest=None):
         """
         Draw a hypegraph using a force-based layout algorithm.
 
@@ -1656,13 +1656,13 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         >>> x, y, z = map(Ty, "xyz")
         >>> f = Box('f', x, y @ z).to_hypergraph()
         >>> f.draw(
-        ...     path='docs/_static/hypergraph/box.svg', seed=42)
+        ...     doctest='docs/_static/hypergraph/box.svg', seed=42)
 
         .. image:: /_static/hypergraph/box.svg
             :align: center
 
         >>> (H.spiders(2, 2, x) >> f @ x).draw(
-        ...     path='docs/_static/hypergraph/diagram.svg', seed=42)
+        ...     doctest='docs/_static/hypergraph/diagram.svg', seed=42)
 
         .. image:: /_static/hypergraph/diagram.svg
             :align: center
@@ -1690,7 +1690,10 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
             graph, pos=pos, labels=labels,
             nodelist=nodelist, node_size=node_size,
             node_color="white", edgecolors="black")
+        path, compare = backend.doctest_or_path(path, doctest)
         if path is not None:
-            plt.savefig(path)
-            plt.close()
+            try:
+                backend.savefig(path, compare=compare)
+            finally:
+                plt.close()
         plt.show()

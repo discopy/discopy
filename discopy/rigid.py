@@ -32,7 +32,7 @@ Axioms
 >>> assert left_snake.normal_form() == Id(n) == right_snake.normal_form()
 
 >>> Equation(left_snake, Id(n), right_snake).draw(
-...     figsize=(4, 1), path='docs/_static/rigid/typed-snake-equation.svg')
+...     figsize=(4, 1), doctest='docs/_static/rigid/typed-snake-equation.svg')
 
 .. image:: /_static/rigid/typed-snake-equation.svg
     :align: center
@@ -59,10 +59,10 @@ colours ``a`` and ``b``:
 >>> from discopy.monoidal import Equation
 >>> Equation(left_snake, Id(F)).draw(
 ...     figsize=(3, 2), legend=True,
-...     path='docs/_static/rigid/coloured-snake-equation.svg')
+...     doctest='docs/_static/rigid/coloured-snake-equation.svg')
 >>> Equation(right_snake, Id(G)).draw(
 ...     figsize=(3, 2), legend=True,
-...     path='docs/_static/rigid/coloured-snake-equation-G.svg')
+...     doctest='docs/_static/rigid/coloured-snake-equation-G.svg')
 
 .. image:: /_static/rigid/coloured-snake-equation.svg
     :align: center
@@ -358,7 +358,7 @@ class Diagram(biclosed.Diagram, RigidCategory):
     >>> Alice, jokes = Box('Alice', I, n), Box('jokes', I, n.r @ s)
     >>> d = Alice >> Id(n) @ jokes >> Cup(n, n.r) @ Id(s)
     >>> d.draw(figsize=(3, 2),
-    ...        path='docs/_static/rigid/diagram-example.svg')
+    ...        doctest='docs/_static/rigid/diagram-example.svg')
 
     .. image:: /_static/rigid/diagram-example.svg
         :align: center
@@ -387,7 +387,7 @@ class Diagram(biclosed.Diagram, RigidCategory):
         -------
         >>> a, b = Ty('a'), Ty('b')
         >>> Diagram.cups(a.l @ b, b.r @ a).draw(figsize=(3, 1),\\
-        ... margins=(0.3, 0.05), path='docs/_static/rigid/cups.svg')
+        ... margins=(0.3, 0.05), doctest='docs/_static/rigid/cups.svg')
 
         .. image:: /_static/rigid/cups.svg
             :align: center
@@ -407,7 +407,7 @@ class Diagram(biclosed.Diagram, RigidCategory):
         -------
         >>> a, b = Ty('a'), Ty('b')
         >>> Diagram.caps(a.r @ b, b.l @ a).draw(figsize=(3, 1),\\
-        ... margins=(0.3, 0.05), path='docs/_static/rigid/caps.svg')
+        ... margins=(0.3, 0.05), doctest='docs/_static/rigid/caps.svg')
 
         .. image:: /_static/rigid/caps.svg
             :align: center
@@ -422,7 +422,7 @@ class Diagram(biclosed.Diagram, RigidCategory):
         >>> g = Box('g', x @ x, x)
         >>> Equation(g.curry(left=False), g, g.curry(),
         ...     symbols=("$\\\\mapsfrom$", "$\\\\mapsto$")).draw(
-        ...         path="docs/_static/rigid/curry.svg")
+        ...         doctest="docs/_static/rigid/curry.svg")
 
         .. image:: /_static/rigid/curry.svg
             :align: center
@@ -445,7 +445,7 @@ class Diagram(biclosed.Diagram, RigidCategory):
         >>> diagram = f @ g >> Cup(x, x.r) @ y
         >>> Equation(diagram.l, diagram, diagram.r,
         ...     symbols=("$\\\\mapsfrom$", "$\\\\mapsto$")).draw(
-        ...         figsize=(8, 3), path='docs/_static/rigid/rotate.svg')
+        ...         figsize=(8, 3), doctest='docs/_static/rigid/rotate.svg')
 
         .. image:: /_static/rigid/rotate.svg
             :align: center
@@ -479,7 +479,7 @@ class Diagram(biclosed.Diagram, RigidCategory):
         ...     transpose_l, d, transpose_r,
         ...     symbols=("$\\\\mapsfrom$", "$\\\\mapsto$")).draw(
         ...         figsize=(8, 3),
-        ...         path="docs/_static/rigid/transpose_box.svg")
+        ...         doctest="docs/_static/rigid/transpose_box.svg")
 
         .. image:: /_static/rigid/transpose_box.svg
         """
@@ -739,7 +739,7 @@ class Cup(BinaryBoxConstructor, Box):
     -------
     >>> n = Ty('n')
     >>> Cup(n, n.r).draw(figsize=(2,1), margins=(0.5, 0.05),\\
-    ... path='docs/_static/rigid/cup.svg')
+    ... doctest='docs/_static/rigid/cup.svg')
 
     .. image:: /_static/rigid/cup.svg
         :align: center
@@ -751,7 +751,7 @@ class Cup(BinaryBoxConstructor, Box):
         name = f"Cup({left}, {right})"
         dom, cod = left @ right, self.ob(dom=left.dom, cod=left.dom)
         BinaryBoxConstructor.__init__(self, left, right)
-        Box.__init__(self, name, dom, cod, draw_as_wires=True)
+        Box.__init__(self, name, dom, cod, draw_as_cup=True)
 
     def rotate(self, left=False):
         return self.cap_factory(self.right.l, self.left.l) if left\
@@ -777,7 +777,7 @@ class Cap(BinaryBoxConstructor, Box):
     -------
     >>> n = Ty('n')
     >>> Cap(n, n.l).draw(figsize=(2,1), margins=(0.5, 0.05),\\
-    ... path='docs/_static/rigid/cap.svg')
+    ... doctest='docs/_static/rigid/cap.svg')
 
     .. image:: /_static/rigid/cap.svg
         :align: center
@@ -789,7 +789,7 @@ class Cap(BinaryBoxConstructor, Box):
         name = f"Cap({left}, {right})"
         dom, cod = self.ob(dom=left.dom, cod=left.dom), left @ right
         BinaryBoxConstructor.__init__(self, left, right)
-        Box.__init__(self, name, dom, cod, draw_as_wires=True)
+        Box.__init__(self, name, dom, cod, draw_as_cap=True)
 
     def rotate(self, left=False):
         return self.cup_factory(self.right.l, self.left.l) if left\
@@ -827,7 +827,7 @@ class Functor(biclosed.Functor):
     >>> assert F(sentence).normal_form() == Alice >> Id(n) @ Bob >> love_box
 
     >>> Equation(sentence, F(sentence), symbol='$\\\\mapsto$').draw(
-    ...     figsize=(5, 2), path='docs/_static/rigid/functor-example.svg')
+    ...     figsize=(5, 2), doctest='docs/_static/rigid/functor-example.svg')
 
     .. image:: /_static/rigid/functor-example.svg
         :align: center
