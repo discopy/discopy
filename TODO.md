@@ -67,3 +67,31 @@ whose conflict resolution silently dropped a slice of the drawing code:
 - [x] Also lost there: the ribbon-aware wire spacing in `reposition_box_dom`/`reposition_box_cod`
   (`then`'s "recover legacy behaviour" step), which spread nested rails back to unit gaps and
   made the inner fold fat. They now use the one `Ty.wire_offsets`.
+
+## Maintenance (🌙 evening, 2026-07-28)
+
+Merged `main` in (14 commits behind, mostly #470 "documentation images as drawing tests" and
+#488 "fix drawing reproducibility"), per RULES.md rule 3. Real conflicts in `discopy/abc.py`
+(docstring only, took main's `Equation(..., symbols=...)` form), `discopy/utils.py`
+(`text_width`: kept both fixes — main's fixed `_DEFAULT_FONT` for cross-platform determinism
+and this branch's round-up-to-`1/16`-inch grid for the CI 3.14 sub-pixel drift) and
+`test/drawing/drawing.py` (dropped `IMG_FOLDER`/`draw_and_compare`, now superseded by main's
+`doctest=`/`OVERRIDE_DOCTEST_IMAGES` mechanism; `test_draw_wire_custom_margin`,
+`test_draw_wire_auto_margin`, `test_draw_long_latex_name` and `test_to_gif` deleted as
+duplicates of main's own docstring/README migration; `ribbon-colors`/`twist-colors`/
+`nested-ribbons` now draw with `doctest="docs/_static/ribbon/*.svg"` instead of the old
+decorator). Git's directory-rename heuristic also misfiled every image under
+`test/drawing/imgs/` as `docs/_static/readme/*`; removed the 21 spurious duplicates by hand
+(their real content already landed cleanly at `docs/_static/drawing/*` from main) and let the
+4 genuine `docs/_static/readme/*` conflicts (`alice-loves-bob`, `crack-eggs`,
+`crack-two-eggs-at-once`, `typed-snake-equation`) plus `docs/_static/hypergraph/{box,diagram}`
+regenerate from a clean test run. Combining the two `text_width` fixes made 4 more baselines
+stale (`bell-state`, `categorial-grammar`, `coloured-bubble`, `long-box-name`) plus the plain
+`path=`-saved `docs/_static/ribbon/dual_rail.svg`; regenerated those individually rather than a
+blanket `OVERRIDE_DOCTEST_IMAGES` pass, since the latter also touched unrelated images whose
+only diff was this sandbox's matplotlib SVG metadata (already tolerated by `svg_equal`) —
+those were reverted to avoid manufacturing a mismatch against CI's own matplotlib version.
+`pflake8 discopy` is clean; `coverage run -m pytest` scoped to the non-quantum/non-torch
+surface is 531 passed, 99 failed — every failure is a pre-existing missing optional dependency
+in this sandbox (`sympy`, `jax`, `torch`, `pyzx`, `pytket`, `tensornetwork`, `pennylane`) or
+the missing `dot` binary, none touch drawing/balanced/rigid/pivotal/ribbon logic.
