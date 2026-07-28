@@ -123,9 +123,9 @@ permutation layer followed by a box layer.
 >>> diagram.depth()
 1
 >>> diagram.draw(
-...     path='docs/_static/symmetric/foliation.png', figsize=(4, 4))
+...     doctest='docs/_static/symmetric/foliation.svg', figsize=(4, 4))
 
-.. image:: /_static/symmetric/foliation.png
+.. image:: /_static/symmetric/foliation.svg
     :align: center
 """
 
