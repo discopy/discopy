@@ -648,8 +648,8 @@ def test_draw_plain_path(tmp_path):
     if shutil.which("dot") is None:
         pytest.skip("needs the graphviz dot binary")
     f = compact.Box("f", compact.Ty("x"), compact.Ty("y")).to_map()
-    dot_path, svg_path = tmp_path / "f.dot", tmp_path / "f.svg"
-    for _ in range(2):  # A plain path saves, overwriting silently.
-        f.draw(path=dot_path, show=False)
-        f.draw(path=svg_path, show=False)
-    assert dot_path.exists() and svg_path.exists()
+    for fmt in ("dot", "svg"):
+        path = tmp_path / f"f.{fmt}"
+        for _ in range(2):  # A plain path saves, overwriting silently.
+            f.draw(path=path, show=False)
+        assert path.exists()
