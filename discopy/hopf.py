@@ -9,6 +9,7 @@ Summary
 .. autosummary::
     :template: class.rst
     :nosignatures:
+    :toctree:
 
     Algebra
     Double
