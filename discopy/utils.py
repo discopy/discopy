@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 from functools import lru_cache, wraps
+from math import ceil
 from pathlib import Path
 from typing import (
     Callable,
@@ -407,18 +408,22 @@ class BinaryBoxConstructor:
 
 
 @lru_cache(maxsize=1024)
-def text_width(text: str, rounded=3, fontsize=12, points_per_inch=72.):
+def text_width(text: str, fontsize=12, points_per_inch=72., grid=16):
     """ The width of a text label in drawing units, i.e. inches.
 
-    Measured from the actual glyph outlines with matplotlib's text layout up to
-    `rounded` decimals at a given `fontsize` and `points_per_inch` conversion.
+    Measured from the actual glyph outlines with matplotlib's text layout,
+    using the fixed font bundled with matplotlib so that different systems
+    agree, at a given `fontsize` and `points_per_inch` conversion, then
+    rounded up to the next `1 / grid` of an inch so that any remaining
+    sub-pixel differences in font metrics across environments cannot change
+    the layout of a diagram.
     """
     if not text:
         return 0
     width = TextPath(
         (0, 0), text, prop=_DEFAULT_FONT, size=fontsize,
         usetex=False).get_extents().width
-    return round(width / points_per_inch, rounded)
+    return ceil(width / points_per_inch * grid) / grid
 
 
 def tuplify(stuff: any) -> tuple:

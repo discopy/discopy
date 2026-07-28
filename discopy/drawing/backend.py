@@ -41,7 +41,7 @@ from discopy.drawing import Node, Point
 
 from discopy.config import (  # noqa: F401
     BOX_DRAWING_ATTRIBUTES as ATTRIBUTES,
-    DRAWING_DEFAULT as DEFAULT, COLORS, SHAPES)
+    DRAWING_DEFAULT as DEFAULT, COLORS, SHAPES, RIBBON_FOLD_DEPTH)
 
 if TYPE_CHECKING:
     from discopy.drawing import PlaneGraph
@@ -361,7 +361,7 @@ class Backend(ABC):
         """
         from matplotlib.colors import to_rgb
         try:
-            red, green, blue = to_rgb(colour)
+            red, green, blue = to_rgb(COLORS.get(colour, colour))
         except (ValueError, TypeError):
             return "black"
         luma = 0.299 * red + 0.587 * green + 0.114 * blue
@@ -376,6 +376,87 @@ class Backend(ABC):
         """ Draws a cubic Bezier curve from a list of four control points. """
         self.max_width = max(self.max_width, max(x for x, _ in points))
 
+    def draw_filled_shape(self, start, steps, color):
+        """
+        Fills the closed region whose boundary starts at ``start`` and follows
+        ``steps``, a list of either ``("line", end)`` for a straight segment or
+        ``("curve", control1, control2, end)`` for a cubic Bezier. The region
+        is filled with ``color`` and drawn without an outline, e.g. behind the
+        wires to colour the inside of a ribbon.
+        """
+        points = [start] + [step[-1] for step in steps]
+        self.max_width = max([self.max_width] + [x for x, _ in points])
+
+    @staticmethod
+    def braid_strand(source, target, middle):
+        """
+        The four control points of the cubic Bezier drawn by
+        :meth:`draw_braid_strand`, i.e. a strand from ``source`` to ``target``
+        crossing the horizontal line at height ``middle``.
+        """
+        return [source, (source[0], middle), (target[0], middle), target]
+
+    @staticmethod
+    def half_circle_beziers(left, right, centre, sign, depth=None):
+        """
+        The two Bezier control groups of the arc of a half circle (or ellipse
+        if ``depth`` differs from the radius) from ``(left, centre)`` to
+        ``(right, centre)``, bulging to ``centre + sign * depth`` at the apex,
+        as drawn by :meth:`draw_half_circle`.
+        """
+        middle, radius = (left + right) / 2, (right - left) / 2
+        depth = radius if depth is None else depth
+        kx, ky = (d * 4 * (sqrt(2) - 1) / 3 for d in (radius, depth))
+        apex = centre + sign * depth
+        return ([(left, centre), (left, centre + sign * ky),
+                 (middle - kx, apex), (middle, apex)],
+                [(middle, apex), (middle + kx, apex),
+                 (right, centre + sign * ky), (right, centre)])
+
+    def draw_half_circle(self, left, right, end, centre, sign, depth=None):
+        """
+        Draws a half circle (or ellipse if ``depth`` differs from the radius)
+        from ``(left, centre)`` to ``(right, centre)`` with vertical sides up
+        to ``end``, e.g. the fold of a :class:`discopy.ribbon.DualRailCup`,
+        see :meth:`half_circle_beziers`.
+        """
+        if end != centre:
+            self.draw_wire((left, end), (left, centre))
+            self.draw_wire((right, centre), (right, end))
+        for points in self.half_circle_beziers(
+                left, right, centre, sign, depth):
+            self.draw_bezier(points)
+
+    @staticmethod
+    def fold_depths(xs):
+        """
+        The vertical depth of the outer and inner fold of a dual rail cup or
+        cap with rails at the four positions ``xs``, capping the half circle
+        at :data:`~discopy.config.RIBBON_FOLD_DEPTH` so a wide cup flattens
+        into an ellipse. The inner fold is one ribbon width shallower,
+        keeping the width of the band constant.
+        """
+        radius, ribbon = (xs[3][0] - xs[0][0]) / 2, xs[1][0] - xs[0][0]
+        outer = min(radius, RIBBON_FOLD_DEPTH)
+        return outer, outer - ribbon
+
+    def fill_strand_band(self, first, second, middle, color, gap=0):
+        """
+        Fills the band between the two parallel braid strands of a ribbon,
+        see :meth:`draw_dual_rail_braid`. A non-zero ``gap`` breaks the band
+        around the crossing, matching the broken strands, so the ribbon going
+        under is shadowed by the one going over.
+        """
+        a, b = (self.braid_strand(*first, middle),
+                self.braid_strand(*second, middle))
+        spans = [(0, 1)] if not gap else [(0, 0.5 - gap), (0.5 + gap, 1)]
+        for t0, t1 in spans:
+            a_sub, b_sub = (
+                _bezier_subcurve(a, t0, t1), _bezier_subcurve(b, t0, t1))
+            self.draw_filled_shape(a_sub[0], [
+                ("curve", a_sub[1], a_sub[2], a_sub[3]), ("line", b_sub[3]),
+                ("curve", b_sub[2], b_sub[1], b_sub[0])], color)
+
     def draw_braid_strand(self, source, target, middle, gap=0):
         """
         Draws a single strand of a braid crossing the horizontal line at
@@ -384,7 +465,7 @@ class Backend(ABC):
         flat. If ``gap`` is non-zero the strand is broken around the crossing,
         i.e. it goes under the other strand.
         """
-        control = [source, (source[0], middle), (target[0], middle), target]
+        control = self.braid_strand(source, target, middle)
         if not gap:
             return self.draw_bezier(control)
         self.draw_bezier(_bezier_subcurve(control, 0, 0.5 - gap))
@@ -533,35 +614,61 @@ class Backend(ABC):
                 source_position, target_position, bend_out, bend_in,
                 linewidth=(0 if is_frame_boundary else None))
 
-    def _half_circle(self, left, right, end, centre, sign):
-        # A half circle from (left, end) to (right, end) with vertical sides
-        # down to ``centre``, drawn as two quarters with the Bezier constant.
-        middle, radius = (left + right) / 2, (right - left) / 2
-        k = radius * 4 * (sqrt(2) - 1) / 3
-        if end != centre:
-            self.draw_wire((left, end), (left, centre))
-            self.draw_wire((right, centre), (right, end))
-        self.draw_bezier([
-            (left, centre), (left, centre + sign * k),
-            (middle - k, centre + sign * radius),
-            (middle, centre + sign * radius)])
-        self.draw_bezier([
-            (middle, centre + sign * radius),
-            (middle + k, centre + sign * radius),
-            (right, centre + sign * k), (right, centre)])
+    def fill_fold(self, outer, inner, color):
+        """
+        Fills the fold of a ribbon between two concentric arcs given as pairs
+        of Bezier control groups, see :meth:`half_circle_beziers` and e.g.
+        :meth:`draw_dual_rail_cup`.
+        """
+        self.draw_filled_shape(outer[0][0], [
+            ("curve", *outer[0][1:]), ("curve", *outer[1][1:]),
+            ("line", inner[1][3]),
+            ("curve", inner[1][2], inner[1][1], inner[1][0]),
+            ("curve", inner[0][2], inner[0][1], inner[0][0])], color)
 
     def draw_dual_rail_cup(self, positions, node, **params):
         """
-        Draws a :class:`discopy.ribbon.DualRailCup` (or cap) as a single
-        constant-width fold, i.e. two concentric half circles joining the outer
-        and inner rails of two ribbons.
+        Draws a :class:`discopy.ribbon.DualRailCup` as a single constant-width
+        fold, i.e. two concentric half circles joining the outer and inner
+        rails of two ribbons, filled with the colour of their region. A wide
+        cup is flattened into a half ellipse, see :meth:`fold_depths`.
         """
         box, j = node.box, node.j
-        kind, wires = ("box_dom", box.dom) if box.dom else ("box_cod", box.cod)
-        xs = [positions[Node(kind, i=i, j=j, x=wires[i])] for i in range(4)]
-        end, sign = xs[0][1], -1 if box.dom else 1
-        for a, b in [(0, 3), (1, 2)]:  # The outer and the inner fold.
-            self._half_circle(xs[a][0], xs[b][0], end, end, sign)
+        xs = [positions[Node("box_dom", i=i, j=j, x=box.dom[i])]
+              for i in range(4)]
+        end, ribbon = xs[0][1], box.dom.inside[0].ribbon
+        outer_depth, inner_depth = self.fold_depths(xs)
+        if ribbon is not None:  # Fill between the outer and the inner arc.
+            self.fill_fold(
+                self.half_circle_beziers(
+                    xs[0][0], xs[3][0], end, -1, outer_depth),
+                self.half_circle_beziers(
+                    xs[1][0], xs[2][0], end, -1, inner_depth),
+                ribbon.name)
+        for (a, b), depth in [((0, 3), outer_depth), ((1, 2), inner_depth)]:
+            self.draw_half_circle(xs[a][0], xs[b][0], end, end, -1, depth)
+
+    def draw_dual_rail_cap(self, positions, node, **params):
+        """
+        Draws a :class:`discopy.ribbon.DualRailCap` as a single constant-width
+        fold, i.e. two concentric half circles joining the outer and inner
+        rails of two ribbons, filled with the colour of their region. A wide
+        cap is flattened into a half ellipse, see :meth:`fold_depths`.
+        """
+        box, j = node.box, node.j
+        xs = [positions[Node("box_cod", i=i, j=j, x=box.cod[i])]
+              for i in range(4)]
+        end, ribbon = xs[0][1], box.cod.inside[0].ribbon
+        outer_depth, inner_depth = self.fold_depths(xs)
+        if ribbon is not None:  # Fill between the outer and the inner arc.
+            self.fill_fold(
+                self.half_circle_beziers(
+                    xs[0][0], xs[3][0], end, 1, outer_depth),
+                self.half_circle_beziers(
+                    xs[1][0], xs[2][0], end, 1, inner_depth),
+                ribbon.name)
+        for (a, b), depth in [((0, 3), outer_depth), ((1, 2), inner_depth)]:
+            self.draw_half_circle(xs[a][0], xs[b][0], end, end, 1, depth)
 
     def draw_braid(self, positions, node):
         """
@@ -597,6 +704,7 @@ class Backend(ABC):
             ("draw_as_dual_rail_braid", "draw_dual_rail_braid"),
             ("draw_as_dual_rail_twist", "draw_dual_rail_twist"),
             ("draw_as_dual_rail_cup", "draw_dual_rail_cup"),
+            ("draw_as_dual_rail_cap", "draw_dual_rail_cap"),
             (None, "draw_box")]
         box_nodes = [node for node in graph.nodes if node.kind == "box"]
         for node in box_nodes:
@@ -661,10 +769,18 @@ class Backend(ABC):
         _, y_middle = positions[node]
         # The left ribbon goes to the right and vice-versa. As with a braid,
         # the left ribbon goes under the right one unless the box is dagger.
-        left = [(dom[0], cod[2]), (dom[1], cod[3])]
-        right = [(dom[2], cod[0]), (dom[3], cod[1])]
+        left = ([(dom[0], cod[2]), (dom[1], cod[3])],
+                getattr(box.dom.inside[0].ribbon, "name", None))
+        right = ([(dom[2], cod[0]), (dom[3], cod[1])],
+                 getattr(box.dom.inside[2].ribbon, "name", None))
         over, under = (left, right) if box.is_dagger else (right, left)
-        for ribbon, gap in [(under, 0.2), (over, 0)]:
+        # Fill (and stroke) under first, then over: the band going under is
+        # broken around the crossing so the one going over is clearly on top.
+        for (ribbon, color), gap in [(under, 0.2), (over, 0)]:
+            if color is not None:  # Fill the band between the two strands.
+                self.fill_strand_band(
+                    ribbon[0], ribbon[1], y_middle, color, gap)
+        for (ribbon, _), gap in [(under, 0.2), (over, 0)]:
             for source, target in ribbon:
                 self.draw_braid_strand(source, target, y_middle, gap)
 
@@ -682,13 +798,52 @@ class Backend(ABC):
         # The rails swap at the middle then swap back, i.e. they twist.
         swap = [(dom[1][0], middle), (dom[0][0], middle)]
         upper, lower = (dom[0][1] + middle) / 2, (middle + cod[0][1]) / 2
+        color = getattr(box.dom.inside[0].ribbon, "name", None)
+        if color is not None:
+            top0, bottom0 = (
+                self.braid_strand(dom[0], swap[0], upper),
+                self.braid_strand(swap[0], cod[0], lower))
+            top1, bottom1 = (
+                self.braid_strand(dom[1], swap[1], upper),
+                self.braid_strand(swap[1], cod[1], lower))
+            # Each rail crosses the other at the midpoint (t=0.5) of `top`
+            # and of `bottom`. The two crossings pinch off a lens where the
+            # ribbon has turned over: fill it with a darker shade of the
+            # front colour, for a nicer visual of the twist.
+            front_top0, back_top0 = (
+                _bezier_subcurve(top0, 0, .5), _bezier_subcurve(top0, .5, 1))
+            back_bottom0, front_bottom0 = (
+                _bezier_subcurve(bottom0, 0, .5),
+                _bezier_subcurve(bottom0, .5, 1))
+            front_top1, back_top1 = (
+                _bezier_subcurve(top1, 0, .5), _bezier_subcurve(top1, .5, 1))
+            back_bottom1, front_bottom1 = (
+                _bezier_subcurve(bottom1, 0, .5),
+                _bezier_subcurve(bottom1, .5, 1))
+            self.draw_filled_shape(front_top0[0], [
+                ("curve", *front_top0[1:]), ("line", front_top1[3]),
+                ("curve", front_top1[2], front_top1[1], front_top1[0])],
+                color)
+            self.draw_filled_shape(back_top0[0], [
+                ("curve", *back_top0[1:]), ("curve", *back_bottom0[1:]),
+                ("line", back_bottom1[3]),
+                ("curve", back_bottom1[2], back_bottom1[1], back_bottom1[0]),
+                ("curve", back_top1[2], back_top1[1], back_top1[0])],
+                f"dark_{color}")
+            self.draw_filled_shape(front_bottom0[0], [
+                ("curve", *front_bottom0[1:]), ("line", front_bottom1[3]),
+                ("curve", front_bottom1[2], front_bottom1[1],
+                 front_bottom1[0])], color)
         crossings = [
             [(dom[0], swap[0], upper), (dom[1], swap[1], upper)],
             [(swap[0], cod[0], lower), (swap[1], cod[1], lower)]]
-        for first_rail, second_rail in crossings:
-            # The first rail goes under at both crossings unless it is dagger.
-            under, over = (second_rail, first_rail) if box.is_dagger\
-                else (first_rail, second_rail)
+        for k, (first_rail, second_rail) in enumerate(crossings):
+            # A twist is a braid followed by another of the same handedness
+            # (not by its inverse), so the same diagonal stays on top: the
+            # rails swap which one goes under between the two crossings.
+            first_under = (k == 0) != box.is_dagger
+            under, over = (first_rail, second_rail) if first_under\
+                else (second_rail, first_rail)
             self.draw_braid_strand(under[0], under[1], under[2], gap=0.15)
             self.draw_braid_strand(over[0], over[1], over[2])
 
@@ -942,6 +1097,23 @@ class TikZ(Backend):
             "({}.center);\n".format(*(self.nodes[tuple(p)] for p in points)))
         super().draw_bezier(points)
 
+    def draw_filled_shape(self, start, steps, color):
+        def node(point):
+            if tuple(point) not in self.nodes:
+                self.add_node(*point)
+            return self.nodes[tuple(point)]
+        path = f"({node(start)}.center)"
+        for step in steps:
+            if step[0] == "line":
+                path += f" to ({node(step[1])}.center)"
+            else:
+                path += " .. controls ({}.center) and ({}.center) .. "\
+                    "({}.center)".format(*(node(p) for p in step[1:]))
+        self.edgelayer.append(
+            f"\\draw [fill={self.format_color(color)}, draw=none] "
+            f"{path} -- cycle;\n")
+        super().draw_filled_shape(start, steps, color)
+
     def draw_spiders(self, graph, draw_box_labels=True, **params):
         spiders = [(node, node.box.color, node.box.shape)
                    for node in graph.nodes
@@ -1042,7 +1214,7 @@ class Matplotlib(Backend):
         # leave a hairline seam where the background shows through.
         self.axis.add_patch(PathPatch(
             Path(vertices, codes), linewidth=0, antialiased=False,
-            facecolor=facecolor, edgecolor='none'))
+            facecolor=COLORS.get(facecolor, facecolor), edgecolor='none'))
         super().draw_curved_polygon(
             *points, facecolor=facecolor, edgecolor=edgecolor,
             bend_out=bend_out)
@@ -1099,8 +1271,8 @@ class Matplotlib(Backend):
         if not colours:
             return
         handles = [
-            Patch(facecolor=colour.name, edgecolor="none",
-                  label=colour.legend_label)
+            Patch(facecolor=COLORS.get(colour.name, colour.name),
+                  edgecolor="none", label=colour.legend_label)
             for colour in colours.values()]
         self.axis.legend(
             handles=handles, loc=params.get("legend_loc", "upper right"),
@@ -1129,6 +1301,22 @@ class Matplotlib(Backend):
         self.axis.add_patch(PathPatch(
             path, facecolor='none', linewidth=self.linewidth))
         super().draw_bezier(points)
+
+    def draw_filled_shape(self, start, steps, color):
+        vertices, codes = [start], [Path.MOVETO]
+        for step in steps:
+            if step[0] == "line":
+                vertices.append(step[1])
+                codes.append(Path.LINETO)
+            else:
+                vertices += [step[1], step[2], step[3]]
+                codes += 3 * [Path.CURVE4]
+        vertices.append(start)
+        codes.append(Path.CLOSEPOLY)
+        self.axis.add_patch(PathPatch(
+            Path(vertices, codes), facecolor=COLORS.get(color, color),
+            edgecolor='none', linewidth=0))
+        super().draw_filled_shape(start, steps, color)
 
     def draw_spiders(self, graph, draw_box_labels=True, **params):
         import networkx as nx
