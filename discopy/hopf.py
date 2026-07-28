@@ -114,9 +114,9 @@ product of :math:`D(H) = H \\otimes H^*`, drawn as a :class:`.tensor.CMap` (the
 tensor network that gets contracted):
 
 >>> Double(Algebra.cyclic(2)).mult.to_map().draw(
-...     doctest='docs/_static/hopf/double_mult.svg')
+...     doctest='docs/_static/hopf/double-mult.dot')
 
-.. image:: /_static/hopf/double_mult.svg
+.. graphviz:: /_static/hopf/double-mult.dot
     :align: center
 """
 
@@ -510,9 +510,9 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
     >>> assert V.is_module() and V == Dim(2)
     >>> ty = V.action.cod
     >>> (D.mult @ ty >> V.action).to_map().draw(
-    ...     doctest='docs/_static/hopf/module.svg')
+    ...     doctest='docs/_static/hopf/module.dot')
 
-    .. image:: /_static/hopf/module.svg
+    .. graphviz:: /_static/hopf/module.dot
         :align: center
     """
     def __init__(self, dim=None, action=None):
@@ -719,9 +719,9 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
     >>> braid = Intertwiner[D].braid(V, V)
     >>> lhs, rhs = action >> braid, Id(D.ty) @ braid >> action
     >>> assert lhs.eval(dtype=complex).is_close(rhs.eval(dtype=complex))
-    >>> lhs.to_map().draw(doctest='docs/_static/hopf/intertwiner.svg')
+    >>> lhs.to_map().draw(doctest='docs/_static/hopf/intertwiner.dot')
 
-    .. image:: /_static/hopf/intertwiner.svg
+    .. graphviz:: /_static/hopf/intertwiner.dot
         :align: center
 
     The braid contracts to the braiding matrix of the toric code:
@@ -822,9 +822,9 @@ class Functor(ribbon.Functor):
     >>> network = F(d)
     >>> assert network.eval(dtype=complex).is_close(
     ...     F(ribbon.Id(x)).eval(dtype=complex))
-    >>> network.to_map().draw(doctest='docs/_static/hopf/ribbon-functor.svg')
+    >>> network.to_map().draw(doctest='docs/_static/hopf/ribbon-functor.dot')
 
-    .. image:: /_static/hopf/ribbon-functor.svg
+    .. graphviz:: /_static/hopf/ribbon-functor.dot
         :align: center
 
     A single braid contracts to the braiding matrix of the toric code:
