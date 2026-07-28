@@ -292,7 +292,7 @@ class Functor(balanced.Functor):
     dom = cod = Diagram
 
     def __call__(self, other):
-        if isinstance(other, Swap):
+        if isinstance(other, Swap) and hasattr(self.cod, "swap"):
             return self.cod.swap(self(other.dom[0]), self(other.dom[1]))
         return super().__call__(other)
 
