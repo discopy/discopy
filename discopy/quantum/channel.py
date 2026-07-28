@@ -36,7 +36,7 @@ For example, states of type :class:`Q` are density matrices:
 
 Example
 -------
->>> from discopy.quantum import Ket, H  # doctest: +EXTRA
+>>> from discopy.quantum import Ket, H
 >>> (Ket(0) >> H).eval(mixed=True).round(1)
 Channel([0.5+0.j, 0.5+0.j, 0.5+0.j, 0.5+0.j], dom=CQ(), cod=Q(Dim(2)))
 """

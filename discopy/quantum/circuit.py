@@ -33,7 +33,7 @@ Summary
 
 Examples
 --------
->>> from discopy.quantum.gates import (  # doctest: +EXTRA
+>>> from discopy.quantum.gates import (
 ...     Ket, CX, H, X, Rz, sqrt, Controlled, Measure, Discard)
 >>> circuit = Ket(0, 0) >> CX >> Controlled(Rz(0.25)) >> Measure() @ Discard()
 >>> circuit.draw(

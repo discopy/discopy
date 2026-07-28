@@ -220,7 +220,7 @@ class Tensor(Matrix):
 
         Example
         -------
-        >>> from discopy import markov  # doctest: +EXTRA
+        >>> from discopy import markov
         >>> n = markov.Ty('n')
         >>> F = Functor(
         ...     ob_map={n: Dim(2)}, ar_map={}, dom=markov.Diagram, dtype=int)
@@ -271,7 +271,7 @@ class Tensor(Matrix):
         Examples
         --------
         >>> assert Tensor.zero(Dim(2), Dim(2))\\
-        ...     == Tensor([0, 0, 0, 0], Dim(2), Dim(2))  # doctest: +EXTRA
+        ...     == Tensor([0, 0, 0, 0], Dim(2), Dim(2))
         """
         with backend() as np:
             return cls(np.zeros((dom @ cod).inside, dtype=cls.dtype or int),
@@ -330,7 +330,7 @@ class Functor(frobenius.Functor):
 
     Example
     -------
-    >>> n, s = map(rigid.Ty, "ns")  # doctest: +EXTRA
+    >>> n, s = map(rigid.Ty, "ns")
     >>> Alice = rigid.Box('Alice', rigid.Ty(), n)
     >>> loves = rigid.Box('loves', rigid.Ty(), n.r @ s @ n.l)
     >>> Bob = rigid.Box('Bob', rigid.Ty(), n)
@@ -459,7 +459,7 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
 
     Example
     -------
-    >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])  # doctest: +EXTRA
+    >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
     >>> diagram = vector[::-1] >> vector @ vector
     >>> print(diagram)
     vector[::-1] >> vector >> Dim(2) @ vector
@@ -482,7 +482,7 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
 
         Examples
         --------
-        >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])  # doctest: +EXTRA
+        >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
         >>> assert (vector >> vector[::-1]).eval().array == 1
         >>> assert (vector >> vector[::-1]).eval(
         ...     optimize="optimal").array == 1
@@ -676,7 +676,7 @@ class Box(frobenius.Box, Diagram):
     Example
     -------
     >>> b1 = Box('sauce_0', Dim(1), Dim(2), data=[0.84193562, 0.91343221])
-    >>> b1.eval()  # doctest: +EXTRA
+    >>> b1.eval()
     Tensor[float64]([0.84193562, 0.91343221], dom=Dim(1), cod=Dim(2))
     """
 
