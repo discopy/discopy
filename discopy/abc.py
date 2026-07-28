@@ -38,9 +38,10 @@ Summary
 """
 
 from __future__ import annotations
+from itertools import starmap
 
 from abc import ABC, abstractmethod
-from typing import Generic, Type, TypeVar, ClassVar
+from typing import Generic, Type, TypeVar, ClassVar, Sequence
 
 from discopy.utils import classproperty, get_origin
 
@@ -158,6 +159,25 @@ class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](
 
     This base class also implements syntactic sugar :code:`@` for whiskering.
     """
+
+    # @classmethod
+    # def unit_obj(cls) -> C0:
+    #     """
+    #     Monoidal unit object. When ``C1`` isn't a proper ColouredMonoid
+    #     (e.g. PROs or tuples), this can be overridden to keep.
+    #     Otherwise, it must coincide with ``C1.unit``.
+    #     """
+    #     return cls.ob.unit()
+
+    # @classmethod
+    # def tensor_obj(cls, *args: C0) -> C0:
+    #     """
+    #     Monoidal unit object. When ``C1`` isn't a proper ColouredMonoid
+    #     (e.g. PROs or tuples), this can be overridden to keep.
+    #     Otherwise, it must coincide with ``C1.unit``.
+    #     """
+    #     return cls.ob.tensor(*args)
+
     @classmethod
     @abstractmethod
     def tensor(cls, *morphisms: C1) -> C1:
@@ -167,14 +187,6 @@ class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](
         Parameters:
             other : The other morphism to compose in parallel.
         """
-
-    @classmethod
-    def permutation(cls, xs, dom: C0) -> C1:
-        """ Map an identity permutation to the identity morphism. """
-        xs = list(xs)
-        if xs != list(range(len(xs))):
-            raise NotImplementedError
-        return cls.id(dom)
 
     @classmethod
     def whisker(cls, other: C0 | C1) -> C1:
@@ -390,19 +402,25 @@ class SymmetricCategory[C0, C1](BalancedCategory[C0, C1]):
         """
 
     @classmethod
-    def permutation(cls, xs, dom: C0) -> C1:
+    def permutation(cls, xs: Sequence[int], doms: Sequence[C0]) -> C1:
         """ Compose swaps to permute the atomic objects in ``dom``. """
         xs = list(xs)
         if xs == list(range(len(xs))):
+            dom = sum(doms, start=cls.ob())
             return cls.id(dom)
-        if list(range(len(dom))) != sorted(xs):
+        if list(range(len(doms))) != sorted(xs):
             raise ValueError
         i = xs[0]
-        head = dom[i:i + 1]
-        return cls.swap(dom[:i], head) @ dom[i + 1:]\
+        left, head, right = (
+            sum(doms[slice], start=cls.ob())
+            for slice in (
+                slice(0, i), slice(i, i + 1), slice(i + 1)
+            )
+        )
+        return cls.swap(left, head) @ right\
             >> head @ cls.permutation(
                 [x - 1 if x > i else x for x in xs[1:]],
-                dom[:i] + dom[i + 1:])
+                cls.tensor_obj(*left, *right))
 
     @classmethod
     def twist(cls, dom: C0) -> C1:

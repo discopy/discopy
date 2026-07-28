@@ -132,6 +132,7 @@ permutation layer followed by a box layer.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from functools import partial
 
 from discopy import cat, monoidal, balanced, traced, messages, hypergraph
 from discopy.abc import SymmetricCategory
@@ -382,8 +383,8 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         return cls.braid(left, right)
 
     @classmethod
-    def permutation(cls, xs: Sequence[int], dom: monoidal.Ty = None
-                    ) -> Diagram:
+    def permutation(cls, xs: Sequence[int],
+                    doms: Sequence[monoidal.Ty] | None = None) -> Diagram:
         """
         The diagram that encodes a given permutation as a composition of
         swaps.
@@ -394,16 +395,35 @@ class Diagram(balanced.Diagram, SymmetricCategory):
             dom : A type of the same length as :code:`xs`,
                   default is :code:`PRO(len(xs))`.
         """
-        xs = list(xs)
-        dom = PRO(len(xs)) if dom is None else dom
-        if xs == list(range(len(xs))):
+
+        if doms is None:
+            size = len(xs)
+            unit = PRO(0)
+            doms = PRO(size)
+        elif isinstance(doms, PRO):
+            size = len(doms)
+            unit = type(doms)(0)
+        else:
+            size = len(doms)
+            unit = cls.ob()
+
+        tensor = lambda tys: unit.tensor(*tys)
+        dom = tensor(doms)
+
+        xs = finset.Permutation(xs, size)
+        if xs.is_identity:
             return cls.id(dom)
-        if list(range(len(dom))) != sorted(xs):
-            raise ValueError(messages.WRONG_PERMUTATION.format(len(dom), xs))
         i = xs[0]
-        return cls.swap(dom[:i], dom[i]) @ dom[i + 1:]\
-            >> dom[i] @ cls.permutation(
-                [x - 1 if x > i else x for x in xs[1:]], dom[:i] + dom[i + 1:])
+        left, head, right = (
+            doms[slice]
+            for slice in (
+                slice(0, i), i, slice(i + 1, None)
+            )
+        )
+        return cls.swap(tensor(left), head) @ tensor(right)\
+            >> head @ cls.permutation(
+                [x - 1 if x > i else x for x in xs[1:]],
+                left + right)
 
     @classmethod
     def from_permutation(cls, perm: Sequence[int], dom: monoidal.Ty = None
@@ -544,6 +564,7 @@ class Permutation(Box):
     >>> assert perm.dagger() == Permutation(y @ z @ x, [2, 0, 1])
     >>> assert Equation(perm >> perm.dagger(), Id(x @ y @ z))
     """
+
     def __init__(self, dom: monoidal.Ty, perm: Sequence[int]):
         self.perm = finset.Permutation(perm, len(dom))
         cod = dom[:0].tensor(*(dom[i] for i in self.perm))
@@ -591,7 +612,8 @@ class Permutation(Box):
         >>> perm = Permutation(x @ y @ z, [1, 2, 0])
         >>> assert Equation(perm.to_swaps(), perm)
         """
-        return self.ar.permutation(self.perm, self.dom)
+        doms = self.dom if isinstance(self.dom, PRO) else list(map(self.ob, self.dom.inside))
+        return self.ar.permutation(self.perm, doms)
 
     def to_tree(self) -> dict:
         """
@@ -704,7 +726,11 @@ class Functor(balanced.Functor):
         if isinstance(other, Swap):
             return self.cod.ar.swap(self(other.dom[0]), self(other.dom[1]))
         if isinstance(other, Permutation):
-            return self.cod.ar.permutation(other.perm, self(other.dom))
+            if isinstance(other.dom, PRO):
+                doms = self(other.dom)
+            else:
+                doms = list(map(self, other.dom))
+            return self.cod.ar.permutation(other.perm, doms)
         return super().__call__(other)
 
 

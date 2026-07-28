@@ -28,7 +28,7 @@ Summary
 from __future__ import annotations
 
 from itertools import count
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Sequence
 
 from discopy import (
     cat, monoidal, rigid, frobenius, cmap, config)
@@ -38,6 +38,7 @@ from discopy.matrix import (  # noqa: F401
     Matrix, backend, set_backend, get_backend,
     NumPy, JAX, PyTorch, TensorFlow)
 from discopy.abc import NamedGeneric
+from discopy.python import finset
 from discopy.utils import (
     factory_name, assert_isinstance, product, assert_isatomic)
 
@@ -180,6 +181,24 @@ class Tensor(Matrix):
                   else i - len(left) for i in source]
         with backend() as np:
             return cls(np.moveaxis(array, source, target), dom, cod)
+
+    @classmethod
+    def permutation(cls, xs: Sequence[int], doms: Sequence[Dim]) -> Tensor:
+        xs = finset.Permutation(xs, len(doms))
+        dom = cls.ob.unit().tensor(*doms)
+        if xs.is_identity:
+            return cls.id(dom)
+        offsets = [0]
+        for dim in doms:
+            offsets.append(offsets[-1] + len(dim))
+        axes = finset.Permutation([
+            axis for i in xs for axis in range(offsets[i], offsets[i + 1])])
+        source = list(range(len(dom), 2 * len(dom)))
+        target = [len(dom) + axis for axis in axes.dagger()]
+        cod = Dim().tensor(*(doms[i] for i in xs))
+        with backend() as np:
+            array = np.moveaxis(cls.id(dom).array, source, target)
+        return cls(array, dom, cod)
 
     @classmethod
     def spider_factory(cls, n_legs_in: int, n_legs_out: int,

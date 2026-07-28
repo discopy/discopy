@@ -138,7 +138,7 @@ Coloured regions are also checked as part of the gallery:
 
 from __future__ import annotations
 
-from typing import NamedTuple, TYPE_CHECKING
+from typing import NamedTuple, TYPE_CHECKING, Sequence
 from dataclasses import dataclass
 
 import networkx as nx
@@ -146,6 +146,7 @@ import networkx as nx
 from discopy.drawing import backend, Node, Point
 from discopy.config import BOX_DRAWING_ATTRIBUTES
 from discopy.abc import TracedCategory
+from discopy.python import finset
 from discopy.utils import (
     assert_isinstance, assert_iscomposable, unbiased, factory, RichDisplay)
 
@@ -518,12 +519,13 @@ class Drawing(TracedCategory, RichDisplay):
         target, = self.graph.successors(right_dom)
         return target.kind == "cod" and target.i == len(self.cod) - 1
 
-    @staticmethod
-    def permutation(xs, dom) -> Drawing:
+    @classmethod
+    def permutation(cls, xs: Sequence[int], doms) -> Drawing:
         """ Draw a permutation of the wires in ``dom``. """
         from discopy.symmetric import Permutation
-        xs = list(xs)
-        if xs == list(range(len(xs))):
+        xs = finset.Permutation(xs)
+        dom = cls.ob.tensor(*doms) if doms else cls.ob.unit()
+        if xs.is_identity:
             return Drawing.id(dom)
         return Permutation(dom, xs).to_drawing()
 

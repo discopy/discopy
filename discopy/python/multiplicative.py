@@ -90,6 +90,14 @@ class Function(function.Function, ClosedCategory):
                 callable(y) or assert_isinstance(y, t)
         return ys
 
+    # @classmethod
+    # def unit_obj(cls) -> Ty:
+    #     return ()
+
+    # @classmethod
+    # def tensor_obj(cls, *args: Ty) -> Ty:
+    #     return sum(args, start=())
+
     def tensor(self, other: Function) -> Function:
         """
         The parallel composition of two functions, called with :code:`@`.

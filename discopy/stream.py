@@ -161,11 +161,12 @@ See :mod:`discopy.feedback` for the other axioms for feedback categories.
 """
 from __future__ import annotations
 
-from typing import Callable, Optional
+from typing import Callable, Optional, Sequence, Self
 from dataclasses import dataclass
 
 from discopy import symmetric
 from discopy.abc import MonoidalCategory, NamedGeneric
+from discopy.python import finset
 from discopy.utils import (
     AxiomError, get_origin, is_tuple,
     assert_isinstance, unbiased, inductive, classproperty, factory_name)
@@ -271,6 +272,18 @@ class Ty(NamedGeneric['base']):
         x3
         """
         return type(self)(self.now + self.later.now, lambda: self.later.later)
+
+    @classmethod
+    def unit(cls) -> Ty:
+        """
+        Monoidal unit for stream types, defined as infinite repetition of the
+        monoidal unit of the base category.
+        """
+        if hasattr(cls.base, '__origin__') and issubclass(cls.base.__origin__, tuple):
+            base_unit = ()
+        else:
+            base_unit = cls.base.unit()
+        return cls.sequence(base_unit)
 
     @unbiased
     def tensor(self, other: Ty) -> Ty:
@@ -532,10 +545,11 @@ class Stream(MonoidalCategory, NamedGeneric['category']):
         return cls(now, dom, cod, _later=_later)
 
     @classmethod
-    def permutation(cls, xs, dom: Ty) -> Stream:
+    def permutation(cls, xs: Sequence[int], dom: Sequence[Ty]) -> Stream:
         """ Construct a stream of permutations. """
-        xs = list(xs)
-        if xs == list(range(len(xs))):
+        xs = finset.Permutation(xs, len(dom))
+        if xs.is_identity:
+            dom = cls.ob.unit().tensor(*dom)
             return cls.id(dom)
         now = cls.category.ar.permutation(xs, dom.now)
         _later = None if dom.is_constant else (

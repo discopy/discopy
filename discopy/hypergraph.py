@@ -36,7 +36,7 @@ from inspect import isclass
 from itertools import chain
 
 import random
-from typing import Any, Iterable, Union, TYPE_CHECKING
+from typing import Any, Iterable, Union, TYPE_CHECKING, Sequence
 
 import matplotlib.pyplot as plt
 
@@ -419,7 +419,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
     braid = swap
 
     @classmethod
-    def permutation(cls, xs: list[int], dom) -> Hypergraph:
+    def permutation(cls, xs: Sequence[int], doms: Sequence) -> Hypergraph:
         """
         The hypergraph that encodes a given permutation, with the same
         semantics as :meth:`discopy.symmetric.Diagram.permutation` but
@@ -428,14 +428,14 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
 
         Parameters:
             xs : A list of integers representing a permutation.
-            dom : A type of the same length as ``xs``.
+            dom : A list of types of the same length as ``xs``.
         """
-        xs = list(xs)
-        if xs == list(range(len(xs))):
+        xs = Permutation(xs, len(doms))
+        dom = cls.ob.tensor(*doms) if doms else\
+            doms if isinstance(doms, cls.ob) else cls.ob.unit()
+        if xs.is_identity:
             return cls.id(dom)
-        if list(range(len(dom))) != sorted(xs):
-            raise ValueError(messages.WRONG_PERMUTATION.format(len(dom), xs))
-        cod = dom[:0].tensor(*(dom[i] for i in xs))
+        cod = cls.ob.tensor(*(doms[i] for i in xs)) if dom else cls.ob.unit()
         boxes = ()
         dom_wires, cod_wires = tuple(range(len(dom))), tuple(xs)
         return cls(dom, cod, boxes, (dom_wires, (), cod_wires))

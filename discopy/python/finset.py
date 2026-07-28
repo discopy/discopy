@@ -17,11 +17,13 @@ Summary
 """
 
 from __future__ import annotations
+from discopy.utils import assert_isinstance
 from typing import Iterable, Self, Any
 from collections.abc import Sequence
 
 from dataclasses import dataclass
 
+from discopy import messages
 from discopy.abc import MonoidalCategory, SymmetricCategory
 
 
@@ -86,10 +88,11 @@ class Function(MonoidalCategory, Sequence):
         return Function(inside, x + y, x + y)
 
     @staticmethod
-    def permutation(xs, dom: int) -> Function:
-        xs = list(xs)
-        if xs == list(range(len(xs))):
-            return Function.id(dom)
+    def permutation(xs: Sequence[int], doms: Sequence[int]) -> Function:
+        xs = Permutation(xs)
+        dom = sum(doms)
+        if xs.is_identity:
+            return Function.id(sum(doms))
         return Function(list(Permutation(xs, dom)), dom, dom)
 
     @staticmethod
@@ -122,10 +125,12 @@ class Permutation(Function, SymmetricCategory):
         inside = tuple(inside)
         if size is None:
             size = len(inside)
+        else:
+            assert_isinstance(size, int)
         if len(inside) != size:
-            raise ValueError
+            raise ValueError(messages.WRONG_PERMUTATION.format(size, len(inside)))
         if sorted(inside) != list(range(size)):
-            raise ValueError
+            raise ValueError(messages.WRONG_PERMUTATION.format(size, len(inside)))
         super().__init__(list(inside), size, size)
 
     def __iter__(self):

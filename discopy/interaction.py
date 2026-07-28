@@ -63,6 +63,7 @@ Example
 """
 
 from __future__ import annotations
+from typing import Sequence, Literal
 from dataclasses import dataclass
 from functools import wraps
 
@@ -76,6 +77,7 @@ from discopy import (
 )
 from discopy.abc import RibbonCategory, TracedCategory, NamedGeneric
 from discopy.cat import assert_iscomposable
+from discopy.python import finset
 from discopy.utils import (
     factory, classproperty, unbiased, assert_isinstance, factory_name)
 
@@ -128,6 +130,10 @@ class Ty(NamedGeneric['natural']):
                 f"-{x}" for x in reversed(self.negative)])
         except TypeError:  # e.g. when Ty.natural == int
             return repr(self)
+
+    @classmethod
+    def unit(cls) -> Ty:
+        return cls(cls.natural.unit(), cls.natural.unit())
 
     def tensor(self, *others: Ty):
         if any(not isinstance(other, Ty) for other in others):
@@ -330,6 +336,26 @@ class Diagram(RibbonCategory, NamedGeneric['natural']):
             >> y @ (_braid(v, x).dagger() >> _braid(x, v).dagger()) @ u
         twists = y @ x @ _twist(v).dagger() @ _twist(u).dagger()
         return cls(braids >> twists, left @ right, right @ left)
+
+    @classmethod
+    def permutation(cls, xs: Sequence[int], dom: Sequence[Ty]) -> Diagram:
+        xs = finset.Permutation(xs, len(dom))
+        if xs.is_identity:
+            dom = cls.ob.tensor(*dom) if dom else cls.ob.unit()
+            return cls.id(dom)
+
+        base = cls.natural.ob
+
+        def dom_pole(pol: Literal["positive", "negative"]) -> base:
+            return base.tensor(*(getattr(ob, pol) for ob in dom)) if dom else base.unit()
+
+        dom_pos, dom_neg = dom_pole("positive"), dom_pole("negative")
+        inside = (
+            cls.natural.permutation(xs, dom_pos) @ \
+            cls.natural.permutation(xs, dom_neg)
+        )
+        cod = cls.ob.tensor(*(dom[i] for i in xs)) if dom else cls.ob.unit()
+        return cls(inside, dom, cod)
 
     @classmethod
     def cups(cls, left: Ty, right: Ty) -> Diagram:

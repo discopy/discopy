@@ -1397,8 +1397,6 @@ class Bubble(cat.Bubble, Box):
 
     """
 
-    ob = Ty
-
     def __init__(
             self, *args: Diagram,
             drawing_name: str = None,
