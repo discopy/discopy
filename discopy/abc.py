@@ -38,10 +38,10 @@ Summary
 """
 
 from __future__ import annotations
-from itertools import starmap
 
 from abc import ABC, abstractmethod
-from typing import Generic, Type, TypeVar, ClassVar, Sequence
+from collections.abc import Sequence
+from typing import ClassVar, Generic, TypeVar
 
 from discopy.utils import classproperty, get_origin
 
@@ -63,8 +63,8 @@ class Category[C0, C1: Category](ABC):
     >>> assert List([1, 2]) >> List([3]) == List([1, 2, 3])
     >>> assert List([3]) << List([1, 2]) == List([1, 2, 3])
     """
-    ob: ClassVar[Type[C0]]
-    factory: ClassVar[Type[C1]]
+    ob: ClassVar[type[C0]]
+    factory: ClassVar[type[C1]]
     dom: C0
     cod: C0
 

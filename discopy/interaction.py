@@ -338,23 +338,26 @@ class Diagram(RibbonCategory, NamedGeneric['natural']):
         return cls(braids >> twists, left @ right, right @ left)
 
     @classmethod
-    def permutation(cls, xs: Sequence[int], dom: Sequence[Ty]) -> Diagram:
-        xs = finset.Permutation(xs, len(dom))
+    def permutation(cls, xs: Sequence[int], doms: Sequence[Ty]) -> Diagram:
+        xs = finset.Permutation(xs, len(doms))
+        dom = cls.ob.tensor(*doms) if doms else cls.ob.unit()
         if xs.is_identity:
-            dom = cls.ob.tensor(*dom) if dom else cls.ob.unit()
             return cls.id(dom)
 
-        base = cls.natural.ob
+        base = cls.natural
 
-        def dom_pole(pol: Literal["positive", "negative"]) -> base:
-            return base.tensor(*(getattr(ob, pol) for ob in dom)) if dom else base.unit()
+        def dom_pole(pol: Literal["positive", "negative"]) -> base.ob:
+            if doms:
+                return base.ob.tensor(*(getattr(ob, pol) for ob in doms))
+            else:
+                return base.ob()
 
         dom_pos, dom_neg = dom_pole("positive"), dom_pole("negative")
         inside = (
-            cls.natural.permutation(xs, dom_pos) @ \
-            cls.natural.permutation(xs, dom_neg)
+            base.permutation(xs, dom_pos) @
+            base.permutation(xs, dom_neg)
         )
-        cod = cls.ob.tensor(*(dom[i] for i in xs)) if dom else cls.ob.unit()
+        cod = cls.ob.tensor(*(doms[i] for i in xs)) if doms else cls.ob.unit()
         return cls(inside, dom, cod)
 
     @classmethod

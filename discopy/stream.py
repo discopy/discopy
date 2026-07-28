@@ -161,7 +161,8 @@ See :mod:`discopy.feedback` for the other axioms for feedback categories.
 """
 from __future__ import annotations
 
-from typing import Callable, Optional, Sequence, Self
+from typing import Optional
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from discopy import symmetric
@@ -272,18 +273,6 @@ class Ty(NamedGeneric['base']):
         x3
         """
         return type(self)(self.now + self.later.now, lambda: self.later.later)
-
-    @classmethod
-    def unit(cls) -> Ty:
-        """
-        Monoidal unit for stream types, defined as infinite repetition of the
-        monoidal unit of the base category.
-        """
-        if hasattr(cls.base, '__origin__') and issubclass(cls.base.__origin__, tuple):
-            base_unit = ()
-        else:
-            base_unit = cls.base.unit()
-        return cls.sequence(base_unit)
 
     @unbiased
     def tensor(self, other: Ty) -> Ty:
@@ -545,18 +534,18 @@ class Stream(MonoidalCategory, NamedGeneric['category']):
         return cls(now, dom, cod, _later=_later)
 
     @classmethod
-    def permutation(cls, xs: Sequence[int], dom: Sequence[Ty]) -> Stream:
+    def permutation(cls, xs: Sequence[int], doms: Sequence[Ty]) -> Stream:
         """ Construct a stream of permutations. """
-        xs = finset.Permutation(xs, len(dom))
+        xs = finset.Permutation(xs, len(doms))
         if xs.is_identity:
-            dom = cls.ob.unit().tensor(*dom)
+            dom = cls.ob().tensor(*doms)
             return cls.id(dom)
-        now = cls.category.ar.permutation(xs, dom.now)
-        _later = None if dom.is_constant else (
-            lambda: cls.permutation(xs, dom.later))
-        cod = type(dom)(now.cod, None if _later is None
-                        else lambda: _later().cod)
-        return cls(now, dom, cod, _later=_later)
+        now = cls.category.ar.permutation(xs, doms.now)
+        _later = None if doms.is_constant else (
+            lambda: cls.permutation(xs, doms.later))
+        cod = type(doms)(now.cod, None if _later is None
+                         else lambda: _later().cod)
+        return cls(now, doms, cod, _later=_later)
 
     @classmethod
     def copy(cls, dom: Ty, n: int = 2) -> Stream:

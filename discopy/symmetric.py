@@ -132,7 +132,6 @@ permutation layer followed by a box layer.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from functools import partial
 
 from discopy import cat, monoidal, balanced, traced, messages, hypergraph
 from discopy.abc import SymmetricCategory
@@ -612,7 +611,8 @@ class Permutation(Box):
         >>> perm = Permutation(x @ y @ z, [1, 2, 0])
         >>> assert Equation(perm.to_swaps(), perm)
         """
-        doms = self.dom if isinstance(self.dom, PRO) else list(map(self.ob, self.dom.inside))
+        doms = self.dom if isinstance(self.dom, PRO)\
+            else list(map(self.ob, self.dom.inside))
         return self.ar.permutation(self.perm, doms)
 
     def to_tree(self) -> dict:

@@ -128,9 +128,13 @@ class Permutation(Function, SymmetricCategory):
         else:
             assert_isinstance(size, int)
         if len(inside) != size:
-            raise ValueError(messages.WRONG_PERMUTATION.format(size, len(inside)))
+            raise ValueError(
+                messages.WRONG_PERMUTATION.format(size, len(inside))
+            )
         if sorted(inside) != list(range(size)):
-            raise ValueError(messages.WRONG_PERMUTATION.format(size, len(inside)))
+            raise ValueError(
+                messages.WRONG_PERMUTATION.format(size, len(inside))
+            )
         super().__init__(list(inside), size, size)
 
     def __iter__(self):
