@@ -38,7 +38,7 @@ def test_repeat():
 
 def test_autotyping():
     pytest.importorskip("jax")
-    import torch
+    torch = pytest.importorskip("torch")
     assert Matrix([0.5, 0.5], dom=1, cod=2).dtype == np.float64
     assert Matrix([0.5j], dom=1, cod=1).dtype == np.complex128
     with backend('jax'):

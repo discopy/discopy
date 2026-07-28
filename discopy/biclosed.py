@@ -472,7 +472,7 @@ class CMap(monoidal.CMap):
         >>> from discopy.closed import Ty, Box
         >>> x, y, z = map(Ty, "xyz")
         >>> f = Box("f", x @ y, z).to_map()
-        >>> f.curry().uncurry().draw(show=False,  # doctest: +EXTRA
+        >>> f.curry().uncurry().draw(show=False,
         ...     doctest="docs/_static/cmap/biclosed-curry-right.dot")
 
         .. graphviz:: /_static/cmap/biclosed-curry-right.dot

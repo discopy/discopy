@@ -231,7 +231,7 @@ class CMap[C0: Pregroup, C1: CMap](
     >>> cm.orientation == Permutation.from_cycles([
     ...     (2, 1, 0, 10, 11), (3, 4, 5, 6), (7, 8, 9)], 12)
     True
-    >>> cm.draw(  # doctest: +EXTRA
+    >>> cm.draw(
     ...     doctest="docs/_static/cmap/simple-cmap.dot",
     ...     port_indices=True,
     ...     show=False,
@@ -796,7 +796,7 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> x, y, z = map(Ty, "xyz")
         >>> f = Box("f", x @ y, z).to_map()
         >>> assert f.curry().uncurry() == f
-        >>> f.curry().draw(  # doctest: +EXTRA
+        >>> f.curry().draw(
         ...     doctest="docs/_static/cmap/compact-curry.dot", show=False)
 
         .. graphviz:: /_static/cmap/compact-curry.dot
@@ -1387,7 +1387,7 @@ class CMap[C0: Pregroup, C1: CMap](
 
         >>> from discopy.compact import Ty, CMap
         >>> x, y, z = map(Ty, "xyz")
-        >>> (CMap.caps((x @ y).r, x @ y) >> CMap.cups((x @ y).l, x @ y)).draw(  # doctest: +EXTRA
+        >>> (CMap.caps((x @ y).r, x @ y) >> CMap.cups((x @ y).l, x @ y)).draw(
         ...     doctest="docs/_static/cmap/scalar-loop.dot", show=False)
 
         .. graphviz:: /_static/cmap/scalar-loop.dot
