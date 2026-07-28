@@ -40,15 +40,98 @@ Axioms
 >>> g0, g1 = (Box(f'g{i}', f'y{i}', f'z{i}').to_drawing() for i in (0, 1))
 
 >>> Equation(f0 @ f1 >> g0 @ g1, (f0 >> g0) @ (f1 >> g1)).draw(
-...     path="docs/_static/drawing/interchanger-1.svg")
+...     doctest="docs/_static/drawing/interchanger-1.svg")
 
 .. image:: /_static/drawing/interchanger-1.svg
     :align: center
 
 >>> Equation(f @ g.dom >> f.cod @ g, f @ g, f.dom @ g >> f @ g.cod).draw(
-...     path="docs/_static/drawing/interchanger-2.svg")
+...     doctest="docs/_static/drawing/interchanger-2.svg")
 
 .. image:: /_static/drawing/interchanger-2.svg
+    :align: center
+
+Gallery
+-------
+
+The drawing parameters below are exercised by the documentation itself.
+
+>>> from discopy import monoidal
+>>> Ty, Box, Id = monoidal.Ty, monoidal.Box, monoidal.Diagram.id
+>>> x = Ty('x')
+
+Boxes and wires reserve enough horizontal space for their labels:
+
+>>> (Box('f', x, x @ x)
+...  >> Box('a_box_with_a_very_long_name', x @ x, x)
+...  >> Box('g', x, x)).draw(
+...      aspect='equal', doctest="docs/_static/drawing/long-box-name.svg")
+>>> (Box('$\\\\Lambda$', x, x, min_width=3) @ Box('f', x, x)).draw(
+...     aspect='equal', doctest="docs/_static/drawing/box-min-width.svg")
+>>> long_type = Ty('a_long_type_name')
+>>> long_type.inside[0].min_right_margin = 1.5
+>>> Id(x @ long_type @ x).draw(aspect='equal',
+...     doctest="docs/_static/drawing/wire-min-right-margin.svg")
+>>> custom = Ty('custom_margin_wire')
+>>> custom.inside[0].right_margin = 3
+>>> Id(x @ custom @ x).draw(
+...     aspect='equal', doctest="docs/_static/drawing/wire-custom-margin.svg")
+>>> Box('f', x, x @ Ty('a_long_output_type')).draw(
+...     aspect='equal', doctest="docs/_static/drawing/wire-auto-margin.svg")
+>>> (Box('$\\\\int_a^b f(x)\\\\,dx = \\\\sqrt{2}$', x, x)
+...  @ Box('f', x, x)).draw(
+...      aspect='equal', doctest="docs/_static/drawing/long-latex-name.svg")
+
+Bubbles, grammatical diagrams and quantum circuits use the same backend:
+
+>>> (x @ Box('s', Ty(), Ty())).bubble().draw(
+...     wire_labels=False,
+...     doctest="docs/_static/drawing/bubble-straight-wire.svg")
+>>> from discopy.compact import (
+...     Cap, Ty as RTy, Box as RBox, Id as RId)
+>>> n, s = map(RTy, 'ns')
+>>> who = (Cap(n.r, n) >> RId(n.r) @ RBox('copy', n, n @ n)
+...        >> RId(n.r @ n) @ Cap(s, s.l) @ RId(n)
+...        >> RId(n.r) @ RBox('update', n @ s, s) @ RId(s.l @ n))
+>>> who.draw(aspect='equal', doctest="docs/_static/drawing/who-ansatz.svg")
+>>> from discopy.grammar.categorial import Eval, Ty as CTy, Word
+>>> s, n = map(CTy, 'sn')
+>>> sentence = (Word('Alice', n) @ Word('loves', (n >> s) << n)
+...             @ Word('Bob', n) >> n @ Eval((n >> s) << n) >> Eval(n >> s))
+>>> sentence.draw(
+...     aspect='equal', doctest="docs/_static/drawing/categorial-grammar.svg")
+>>> from discopy.quantum.zx import Z, X, Id as ZId, SWAP
+>>> bialgebra = (Z(1, 2) @ Z(1, 2) >> ZId(1) @ SWAP @ ZId(1)
+...              >> X(2, 1) @ X(2, 1))
+>>> (bialgebra + bialgebra).draw(
+...     aspect='equal', doctest="docs/_static/drawing/bialgebra.svg")
+>>> from discopy.quantum import qubit, H, sqrt, Bra, Ket, CX
+>>> bell = sqrt(2) >> Ket(0, 0) >> H @ qubit >> CX >> Bra(0) @ qubit
+>>> bell.draw(aspect='equal', doctest="docs/_static/drawing/bell-state.svg")
+>>> from discopy.quantum import Controlled, CZ
+>>> circuit = (Controlled(CX.l, distance=3)
+...            >> Controlled(Controlled(CZ.l, distance=2), distance=-1))
+>>> circuit.draw(
+...     wire_labels=False, doctest="docs/_static/drawing/long-controlled.svg")
+
+Coloured regions are also checked as part of the gallery:
+
+>>> Colour, Wire = monoidal.Colour, monoidal.Wire
+>>> ol, o1, o2, o_r, o3, o4 = map(
+...     Colour, ("red", "orange", "gold", "green", "blue", "purple"))
+>>> il, i1, i_r, i2 = map(
+...     Colour, ("cyan", "magenta", "brown", "pink"))
+>>> outer_dom = Ty(
+...     Wire("d", ol, o1), Wire("c", o1, o2), Wire("c", o2, o_r))
+>>> outer_cod = Ty(
+...     Wire("b", ol, o3), Wire("a", o3, o4), Wire("a", o4, o_r))
+>>> inner_dom = Ty(Wire("a", il, i1), Wire("b", i1, i_r))
+>>> inner_cod = Ty(Wire("c", il, i2), Wire("d", i2, i_r))
+>>> Box("f", inner_dom, inner_cod).bubble(
+...     dom=outer_dom, cod=outer_cod, name="g").draw(wire_labels=False,
+...         doctest="docs/_static/drawing/coloured-bubble.svg")
+
+.. image:: /_static/drawing/coloured-bubble.svg
     :align: center
 """
 
@@ -64,7 +147,7 @@ from discopy.drawing import backend, Node, Point
 from discopy.config import BOX_DRAWING_ATTRIBUTES
 from discopy.abc import TracedCategory
 from discopy.utils import (
-    assert_isinstance, assert_iscomposable, unbiased, factory)
+    assert_isinstance, assert_iscomposable, unbiased, factory, RichDisplay)
 
 if TYPE_CHECKING:
     from discopy import monoidal
@@ -85,7 +168,7 @@ class PlaneGraph(NamedTuple):
 
 @factory
 @dataclass
-class Drawing(TracedCategory):
+class Drawing(TracedCategory, RichDisplay):
     """
     A drawing is a plane graph with designated input and output types.
 
@@ -197,6 +280,7 @@ class Drawing(TracedCategory):
             return False
         return self.is_parallel(other) and self.positions == other.positions
 
+    @backend.matplotlib_context()
     def draw(self, **params):
         """ Call :meth:`add_box_corners` then :func:`backend.draw`. """
         asymmetry = params.pop("asymmetry", 0.125 * any(
@@ -324,7 +408,7 @@ class Drawing(TracedCategory):
         >>> x, y, z = map(Ty, "xyz")
         >>> f = Drawing.from_box(Box('f', x @ y, z))
         >>> f.make_space(2, 0.5, 0.75, 1.0, copy=True).draw(
-        ...     aspect='equal', path="docs/_static/drawing/make-space.svg")
+        ...     aspect='equal', doctest="docs/_static/drawing/make-space.svg")
 
         .. image:: /_static/drawing/make-space.svg
             :align: center
@@ -451,7 +535,7 @@ class Drawing(TracedCategory):
         Node('box_cod', i=1, j=0, x=z) Point(x=1.5, y=0.25)
         Node('cod', i=0, x=y) Point(x=0.5, y=0)
         Node('cod', i=1, x=z) Point(x=1.5, y=0)
-        >>> f.draw(path="docs/_static/drawing/box.svg")
+        >>> f.draw(doctest="docs/_static/drawing/box.svg")
 
         .. image:: /_static/drawing/box.svg
             :align: center
@@ -548,17 +632,18 @@ class Drawing(TracedCategory):
         Draw the identity diagram.
 
         >>> from discopy.monoidal import Ty
-        >>> Drawing.id(Ty()).draw(path="docs/_static/drawing/empty.svg")
+        >>> Drawing.id(Ty()).draw(doctest="docs/_static/drawing/empty.svg")
 
         .. image:: /_static/drawing/empty.svg
             :align: center
 
-        >>> Drawing.id(Ty('x')).draw(path="docs/_static/drawing/idx.svg")
+        >>> Drawing.id(Ty('x')).draw(doctest="docs/_static/drawing/idx.svg")
 
         .. image:: /_static/drawing/idx.svg
             :align: center
 
-        >>> Drawing.id(Ty('x', 'y')).draw(path="docs/_static/drawing/idxy.svg")
+        >>> Drawing.id(Ty('x', 'y')).draw(
+        ...     doctest="docs/_static/drawing/idxy.svg")
 
         .. image:: /_static/drawing/idxy.svg
             :align: center
@@ -601,7 +686,7 @@ class Drawing(TracedCategory):
         >>> Diagram.to_gif(
         ...     *top.then(bottom, draw_step_by_step=True), loop=True,
         ...     wire_labels=False, draw_box_labels=False,
-        ...     path="docs/_static/drawing/composition.gif")
+        ...     doctest="docs/_static/drawing/composition.gif")
         <IPython.core.display.HTML object>
 
         .. image:: /_static/drawing/composition.gif
@@ -673,7 +758,7 @@ class Drawing(TracedCategory):
         -------
         >>> from discopy.monoidal import Box
         >>> f = Drawing.from_box(Box('f', 'x', 'x'))
-        >>> f.stretch(2).draw(path="docs/_static/drawing/stretch.svg")
+        >>> f.stretch(2).draw(doctest="docs/_static/drawing/stretch.svg")
 
         .. image:: /_static/drawing/stretch.svg
             :align: center
@@ -698,7 +783,7 @@ class Drawing(TracedCategory):
         >>> from discopy.monoidal import Box
         >>> f = Drawing.from_box(Box('f', 'x', 'x'))
         >>> d = (f >> f >> f) @ (f >> f)
-        >>> d.draw(path="docs/_static/drawing/tensor.svg")
+        >>> d.draw(doctest="docs/_static/drawing/tensor.svg")
 
         .. image:: /_static/drawing/tensor.svg
             :align: center
@@ -780,7 +865,7 @@ class Drawing(TracedCategory):
         >>> from discopy.monoidal import Ty
         >>> x, y, z = map(Ty, "xyz")
         >>> Drawing.bubble_opening(x, y, z, Ty("")).draw(
-        ...     path="docs/_static/drawing/bubble-opening.svg")
+        ...     doctest="docs/_static/drawing/bubble-opening.svg")
 
         .. image:: /_static/drawing/bubble-opening.svg
             :align: center
@@ -799,7 +884,7 @@ class Drawing(TracedCategory):
         >>> from discopy.monoidal import Ty
         >>> x, y, z = map(Ty, "xyz")
         >>> Drawing.bubble_closing(x, y, z, Ty("")).draw(
-        ...     path="docs/_static/drawing/bubble-closing.svg")
+        ...     doctest="docs/_static/drawing/bubble-closing.svg")
 
         .. image:: /_static/drawing/bubble-closing.svg
             :align: center
@@ -819,7 +904,7 @@ class Drawing(TracedCategory):
         >>> from discopy.monoidal import Ty
         >>> x, y, z = map(Ty, "xyz")
         >>> Drawing.frame_opening(x, y, z, Ty("")).draw(
-        ...     path="docs/_static/drawing/frame-opening.svg")
+        ...     doctest="docs/_static/drawing/frame-opening.svg")
 
         .. image:: /_static/drawing/frame-opening.svg
             :align: center
@@ -846,7 +931,7 @@ class Drawing(TracedCategory):
         >>> from discopy.monoidal import Ty
         >>> x, y, z = map(Ty, "xyz")
         >>> Drawing.frame_closing(x, y, z, Ty("")).draw(
-        ...     path="docs/_static/drawing/frame-closing.svg")
+        ...     doctest="docs/_static/drawing/frame-closing.svg")
 
         .. image:: /_static/drawing/frame-closing.svg
             :align: center
@@ -879,7 +964,7 @@ class Drawing(TracedCategory):
         >>> a, b, c, d = map(Ty, "abcd")
         >>> f = Box('f', a @ b, c @ d).to_drawing()
         >>> f.bubble(d @ c @ c, b @ a @ a, name="g").draw(
-        ...     path="docs/_static/drawing/bubble-drawing.svg")
+        ...     doctest="docs/_static/drawing/bubble-drawing.svg")
 
         .. image:: /_static/drawing/bubble-drawing.svg
             :align: center
@@ -962,19 +1047,19 @@ class Drawing(TracedCategory):
         >>> x, y = Ty('x'), Ty('y')
         >>> f, g, h = Box('f', x, y ** 3), Box('g', y, y @ y), Box('h', x, y)
         >>> f.bubble(dom=x @ x, cod=y @ y, name="b", draw_as_frame=True
-        ...     ).draw(path="docs/_static/drawing/single-frame.svg")
+        ...     ).draw(doctest="docs/_static/drawing/single-frame.svg")
 
         .. image:: /_static/drawing/single-frame.svg
             :align: center
 
         >>> Bubble(f, g, h >> h[::-1], dom=x, cod=y @ y
-        ...     ).draw(path="docs/_static/drawing/horizontal-frame.svg")
+        ...     ).draw(doctest="docs/_static/drawing/horizontal-frame.svg")
 
         .. image:: /_static/drawing/horizontal-frame.svg
             :align: center
 
         >>> Bubble(f, g, h, dom=x, cod=y @ y, draw_vertically=True
-        ...     ).draw(path="docs/_static/drawing/vertical-frame.svg")
+        ...     ).draw(doctest="docs/_static/drawing/vertical-frame.svg")
 
         .. image:: /_static/drawing/vertical-frame.svg
             :align: center

@@ -31,7 +31,7 @@ from itertools import count
 from typing import TYPE_CHECKING
 
 from discopy import (
-    cat, monoidal, rigid, frobenius, cmap)
+    cat, monoidal, rigid, frobenius, cmap, config)
 from discopy.cat import factory, assert_iscomposable
 from discopy.frobenius import Dim, Cup
 from discopy.matrix import (  # noqa: F401
@@ -347,7 +347,7 @@ class Functor(frobenius.Functor):
     >>> rewrite = diagram\\
     ...     .transpose_box(2).transpose_box(0, left=True).normal_form()
     >>> Equation(diagram, rewrite).draw(
-    ...     figsize=(8, 3), path='docs/_static/tensor/rewrite.svg')
+    ...     figsize=(8, 3), doctest='docs/_static/tensor/rewrite.svg')
 
     .. image:: /_static/tensor/rewrite.svg
         :align: center
@@ -394,9 +394,10 @@ class Functor(frobenius.Functor):
 
         The map is Einstein notation: the 2-cycles of its ``edges``
         involution are the summed indices, boxes are the tensors and the
-        boundary ports are the free indices, with integer labels lifting
-        the 52-index limit of subscript strings. A wire is one index of
-        the size of its object's image.
+        boundary ports are the free indices, with integer labels. A wire
+        is one index of the size of its object's image. Networks with
+        more than ``config.MAX_EINSUM_INDICES`` indices are contracted
+        with the optional ``opt_einsum`` package instead.
 
         Parameters:
             other : The combinatorial map to contract.
@@ -438,10 +439,16 @@ class Functor(frobenius.Functor):
                 return self.cod([1], self(other.dom), self(other.cod))
             operands = [
                 x for pair in zip(arrays, indices) for x in pair]
-            params = dict(self.params, optimize=self.optimize)\
-                if isinstance(get_backend(), (NumPy, JAX))\
-                else self.params
-            array = np.einsum(*operands, output, **params)
+            if next(fresh) > config.MAX_EINSUM_INDICES:
+                import opt_einsum
+                array = opt_einsum.contract(
+                    *operands, output,
+                    optimize=self.optimize, **self.params)
+            else:
+                params = dict(self.params, optimize=self.optimize)\
+                    if isinstance(get_backend(), (NumPy, JAX))\
+                    else self.params
+                array = np.einsum(*operands, output, **params)
         return self.cod(array, self(other.dom), self(other.cod))
 
 
@@ -765,8 +772,8 @@ class Spider(frobenius.Spider, Box):
     >>> vector = Box('vec', Dim(1), Dim(2), [0, 1])
     >>> spider = Spider(1, 2, Dim(2))
     >>> assert (vector >> spider).eval() == (vector @ vector).eval()
-    >>> Equation(vector >> spider, vector @ vector).draw(
-    ...     path='docs/_static/tensor/frobenius-example.svg', figsize=(3, 2))
+    >>> Equation(vector >> spider, vector @ vector).draw(figsize=(3, 2),
+    ...     doctest='docs/_static/tensor/frobenius-example.svg')
 
     .. image:: /_static/tensor/frobenius-example.svg
         :align: center
@@ -803,7 +810,7 @@ class Bubble(monoidal.Bubble, Box):
     >>> men_are_mortal = (men >> mortal.bubble()).bubble()
     >>> assert men_are_mortal.eval(dtype=bool)
     >>> men_are_mortal.draw(wire_labels=False,
-    ...                     path='docs/_static/tensor/men-are-mortal.svg')
+    ...                     doctest='docs/_static/tensor/men-are-mortal.svg')
 
     .. image:: /_static/tensor/men-are-mortal.svg
         :align: center
@@ -821,7 +828,7 @@ class Bubble(monoidal.Bubble, Box):
     >>> assert lhs.eval(dtype=Expr) == rhs.eval(dtype=Expr)
 
     >>> Equation(lhs, rhs).draw(figsize=(5, 2), wire_labels=False,
-    ...                         path='docs/_static/tensor/product-rule.svg')
+    ...                         doctest='docs/_static/tensor/product-rule.svg')
 
     .. image:: /_static/tensor/product-rule.svg
         :align: center
@@ -841,7 +848,7 @@ class Bubble(monoidal.Bubble, Box):
         >>> lhs, rhs = Box.grad(f(g), x), f(g).grad(x)
 
         >>> Equation(lhs, rhs).draw(wire_labels=False,
-        ...                         path='docs/_static/tensor/chain-rule.svg')
+        ...     doctest='docs/_static/tensor/chain-rule.svg')
 
         .. image:: /_static/tensor/chain-rule.svg
             :align: center
