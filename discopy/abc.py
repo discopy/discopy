@@ -160,24 +160,6 @@ class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](
     This base class also implements syntactic sugar :code:`@` for whiskering.
     """
 
-    # @classmethod
-    # def unit_obj(cls) -> C0:
-    #     """
-    #     Monoidal unit object. When ``C1`` isn't a proper ColouredMonoid
-    #     (e.g. PROs or tuples), this can be overridden to keep.
-    #     Otherwise, it must coincide with ``C1.unit``.
-    #     """
-    #     return cls.ob.unit()
-
-    # @classmethod
-    # def tensor_obj(cls, *args: C0) -> C0:
-    #     """
-    #     Monoidal unit object. When ``C1`` isn't a proper ColouredMonoid
-    #     (e.g. PROs or tuples), this can be overridden to keep.
-    #     Otherwise, it must coincide with ``C1.unit``.
-    #     """
-    #     return cls.ob.tensor(*args)
-
     @classmethod
     @abstractmethod
     def tensor(cls, *morphisms: C1) -> C1:
