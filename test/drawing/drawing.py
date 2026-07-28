@@ -68,6 +68,27 @@ def test_draw_baseline(tmp_path, monkeypatch):
     assert path.read_text() != "<svg/>"
 
 
+def test_transparent_background_and_bordered_wires(tmp_path):
+    from matplotlib import pyplot as plt
+    from matplotlib import patheffects
+    from PIL import Image
+    path = tmp_path / "wire.png"
+
+    Id(Ty("x")).draw(path=path, show=False)
+
+    with Image.open(path) as image:
+        assert image.mode == "RGBA"
+        assert image.getpixel((5, 5))[3] == 0
+
+    drawing = Id(Ty("x")).to_drawing()
+    backend = Matplotlib(figsize=(2, 2))
+    backend.draw_wires(drawing)
+    effects = backend.axis.patches[-1].get_path_effects()
+    assert isinstance(effects[0], patheffects.Stroke)
+    assert isinstance(effects[1], patheffects.Normal)
+    plt.close(backend.axis.figure)
+
+
 def test_svg_equal(tmp_path):
     expected = tmp_path / "expected.svg"
     actual = tmp_path / "actual.svg"
@@ -179,8 +200,7 @@ def region_hexes(diagram, **params):
 
 
 def test_draw_regions_uncoloured_shapes():
-    # Region filling runs for cups, caps, swaps, spiders and many-legged
-    # boxes; with no colours every region is the default white.
+    # The default white region is the transparent drawing background.
     from discopy.frobenius import Spider, Ty as FTy
     x = Ty('x')
     shapes = [
@@ -188,7 +208,7 @@ def test_draw_regions_uncoloured_shapes():
         Box('f', x @ x, x @ x @ x), Spider(2, 1, FTy('x')),
         Cap(x.r, x) >> Swap(x.r, x) >> Cup(x, x.r)]
     for shape in shapes:
-        assert region_hexes(shape) == {'#ffffff'}
+        assert region_hexes(shape) == set()
 
 
 def test_draw_coloured_cups_and_caps():
@@ -221,8 +241,9 @@ def test_draw_coloured_equation():
     x = Ty(Ob("x", dom=red, cod=green))
     equation = Equation(Box("f", x, x), Box("g", x, x))
     colours = region_hexes(equation)
-    # Both term regions show, each in its own white-bordered slot.
-    assert {'#e8a5a5', '#d8f8d8', '#ffffff'} <= colours
+    # Both term regions show; the neutral white region stays transparent.
+    assert {'#e8a5a5', '#d8f8d8'} <= colours
+    assert '#ffffff' not in colours
 
 
 def test_draw_region_non_colors_string():

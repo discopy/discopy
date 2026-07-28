@@ -2,19 +2,6 @@
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
   "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 <svg xmlns:xlink="http://www.w3.org/1999/xlink" width="288pt" height="72pt" viewBox="0 0 288 72" xmlns="http://www.w3.org/2000/svg" version="1.1">
- <metadata>
-  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
-   <cc:Work>
-    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
-    <dc:format>image/svg+xml</dc:format>
-    <dc:creator>
-     <cc:Agent>
-      <dc:title>Matplotlib v3.10.9, https://matplotlib.org/</dc:title>
-     </cc:Agent>
-    </dc:creator>
-   </cc:Work>
-  </rdf:RDF>
- </metadata>
  <defs>
   <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
  </defs>
@@ -24,8 +11,9 @@
 L 288 72 
 L 288 0 
 L 0 0 
+L 0 72 
 z
-" style="fill: #ffffff"/>
+" style="fill: none"/>
   </g>
   <g id="axes_1">
    <g id="patch_2">
@@ -33,52 +21,30 @@ z
 L 288 72 
 L 288 0 
 L 0 0 
+L 0 72 
 z
-" clip-path="url(#pd708c80fa6)" style="fill: #ffffff; stroke: #ffffff; stroke-linejoin: miter"/>
+" clip-path="url(#pd708c80fa6)" style="fill: none; stroke: #ffffff; stroke-linejoin: miter"/>
    </g>
    <g id="patch_3">
-    <path d="M 0 72 
-Q 0 0 0 0 
-L 288 0 
-L 288 72 
-z
-" clip-path="url(#pd708c80fa6)" style="fill: #ffffff"/>
+    <path d="M 18 0 
+Q 18 72 18 72 
+" clip-path="url(#pd708c80fa6)" style="fill: none; stroke: #ffffff; stroke-width: 3; stroke-linejoin: miter"/>
+    <path d="M 18 0 
+Q 18 72 18 72 
+" clip-path="url(#pd708c80fa6)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
    <g id="patch_4">
-    <path d="M 18 0 
-Q 18 72 18 72 
-L 288 72 
-L 288 0 
-z
-" clip-path="url(#pd708c80fa6)" style="fill: #ffffff"/>
+    <path d="M 90 0 
+Q 90 72 90 72 
+" clip-path="url(#pd708c80fa6)" style="fill: none; stroke: #ffffff; stroke-width: 3; stroke-linejoin: miter"/>
+    <path d="M 90 0 
+Q 90 72 90 72 
+" clip-path="url(#pd708c80fa6)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
    <g id="patch_5">
-    <path d="M 90 0 
-Q 90 72 90 72 
-L 288 72 
-L 288 0 
-z
-" clip-path="url(#pd708c80fa6)" style="fill: #ffffff"/>
-   </g>
-   <g id="patch_6">
     <path d="M 270 0 
 Q 270 72 270 72 
-L 288 72 
-L 288 0 
-z
-" clip-path="url(#pd708c80fa6)" style="fill: #ffffff"/>
-   </g>
-   <g id="patch_7">
-    <path d="M 18 0 
-Q 18 72 18 72 
-" clip-path="url(#pd708c80fa6)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
-   </g>
-   <g id="patch_8">
-    <path d="M 90 0 
-Q 90 72 90 72 
-" clip-path="url(#pd708c80fa6)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
-   </g>
-   <g id="patch_9">
+" clip-path="url(#pd708c80fa6)" style="fill: none; stroke: #ffffff; stroke-width: 3; stroke-linejoin: miter"/>
     <path d="M 270 0 
 Q 270 72 270 72 
 " clip-path="url(#pd708c80fa6)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>

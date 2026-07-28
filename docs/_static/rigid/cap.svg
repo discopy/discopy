@@ -2,19 +2,6 @@
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
   "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 <svg xmlns:xlink="http://www.w3.org/1999/xlink" width="144pt" height="72pt" viewBox="0 0 144 72" xmlns="http://www.w3.org/2000/svg" version="1.1">
- <metadata>
-  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
-   <cc:Work>
-    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
-    <dc:format>image/svg+xml</dc:format>
-    <dc:creator>
-     <cc:Agent>
-      <dc:title>Matplotlib v3.10.9, https://matplotlib.org/</dc:title>
-     </cc:Agent>
-    </dc:creator>
-   </cc:Work>
-  </rdf:RDF>
- </metadata>
  <defs>
   <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
  </defs>
@@ -24,8 +11,9 @@
 L 144 72 
 L 144 0 
 L 0 0 
+L 0 72 
 z
-" style="fill: #ffffff"/>
+" style="fill: none"/>
   </g>
   <g id="axes_1">
    <g id="patch_2">
@@ -33,39 +21,22 @@ z
 L 108 68.727273 
 L 108 3.272727 
 L 36 3.272727 
+L 36 68.727273 
 z
-" clip-path="url(#p6e9f1cc674)" style="fill: #ffffff; stroke: #ffffff; stroke-linejoin: miter"/>
+" clip-path="url(#p6e9f1cc674)" style="fill: none; stroke: #ffffff; stroke-linejoin: miter"/>
    </g>
    <g id="patch_3">
-    <path d="M 36 68.727273 
-Q 36 3.272727 36 3.272727 
-L 108 3.272727 
-L 108 68.727273 
-z
-" clip-path="url(#p6e9f1cc674)" style="fill: #ffffff"/>
-   </g>
-   <g id="patch_4">
     <path d="M 72 36 
 Q 54 36 54 68.727273 
-L 108 68.727273 
-L 108 36 
-z
-" clip-path="url(#p6e9f1cc674)" style="fill: #ffffff"/>
-   </g>
-   <g id="patch_5">
-    <path d="M 72 36 
-Q 90 36 90 68.727273 
-L 108 68.727273 
-L 108 36 
-z
-" clip-path="url(#p6e9f1cc674)" style="fill: #ffffff"/>
-   </g>
-   <g id="patch_6">
+" clip-path="url(#p6e9f1cc674)" style="fill: none; stroke: #ffffff; stroke-width: 3; stroke-linejoin: miter"/>
     <path d="M 72 36 
 Q 54 36 54 68.727273 
 " clip-path="url(#p6e9f1cc674)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_7">
+   <g id="patch_4">
+    <path d="M 72 36 
+Q 90 36 90 68.727273 
+" clip-path="url(#p6e9f1cc674)" style="fill: none; stroke: #ffffff; stroke-width: 3; stroke-linejoin: miter"/>
     <path d="M 72 36 
 Q 90 36 90 68.727273 
 " clip-path="url(#p6e9f1cc674)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>

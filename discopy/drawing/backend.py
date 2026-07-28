@@ -32,6 +32,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from matplotlib.testing.compare import compare_images
+from matplotlib import patheffects
 from matplotlib.patches import PathPatch, Patch
 from matplotlib.path import Path
 from PIL import Image, ImageSequence
@@ -59,7 +60,7 @@ MATPLOTLIB_RC = {
     "savefig.bbox": None,
     "savefig.dpi": "figure",
     "savefig.pad_inches": 0.1,
-    "savefig.transparent": False,
+    "savefig.transparent": True,
     "svg.fonttype": "path",
     "svg.hashsalt": "discopy",
     "svg.image_inline": True,
@@ -1166,10 +1167,26 @@ class TikZ(Backend):
 class Matplotlib(Backend):
     """ Matplotlib drawing backend. """
     def __init__(self, axis=None, figsize=None, linewidth=1, format=None):
-        self.axis = axis or plt.subplots(figsize=figsize, facecolor='white')[1]
+        self.axis = axis or plt.subplots(figsize=figsize)[1]
+        if axis is None:
+            self.axis.set_facecolor("none")
         self.linewidth = linewidth
         self.format = format
         super().__init__()
+
+    @staticmethod
+    def wire_effects(linewidth):
+        """ Draw a thin white border underneath a black wire. """
+        return [
+            patheffects.Stroke(linewidth=linewidth + 2, foreground="white"),
+            patheffects.Normal()]
+
+    def draw_boundary(self, graph, boundary_color="white", **params):
+        """ Draw a transparent canvas with a white boundary. """
+        x, y = graph.width, graph.height
+        self.draw_polygon(
+            (0, 0), (x, 0), (x, y), (0, y),
+            facecolor="none", edgecolor=boundary_color)
 
     def draw_text(self, text, i, j, **params):
         params['fontsize'] = params.get('fontsize', DEFAULT['fontsize'])
@@ -1227,9 +1244,10 @@ class Matplotlib(Backend):
         curved polygon, see :meth:`draw_curved_polygon` and the example
         in ``test_draw_right_region_example`` for a concrete case.
         """
-        self.draw_curved_polygon(
-            source, target, (width, target[1]), (width, source[1]),
-            facecolor=facecolor, bend_out=bend_out)
+        if facecolor != "white":
+            self.draw_curved_polygon(
+                source, target, (width, target[1]), (width, source[1]),
+                facecolor=facecolor, bend_out=bend_out)
 
     def draw_regions(self, graph, **params):
         """ Fill the coloured 0-cell regions of the diagram. """
@@ -1282,16 +1300,18 @@ class Matplotlib(Backend):
                   bend_out=False, bend_in=False, style=None, linewidth=None):
         linewidth = self.linewidth if linewidth is None else linewidth
         if style == '->':  # pragma: no cover
-            self.axis.arrow(
+            arrow = self.axis.arrow(
                 *(source + (target[0] - source[0], target[1] - source[1])),
                 head_width=.02, color="black")
+            arrow.set_path_effects(self.wire_effects(linewidth))
         else:
             mid = (target[0], source[1])\
                 if bend_out else (source[0], target[1])
             path = Path([source, mid, target],
                         [Path.MOVETO, Path.CURVE3, Path.CURVE3])
             self.axis.add_patch(PathPatch(
-                path, facecolor='none', linewidth=linewidth))
+                path, facecolor='none', linewidth=linewidth,
+                path_effects=self.wire_effects(linewidth)))
         super().draw_wire(source, target, bend_out=bend_out, bend_in=bend_in)
 
     def draw_bezier(self, points):
@@ -1299,7 +1319,8 @@ class Matplotlib(Backend):
             list(points),
             [Path.MOVETO, Path.CURVE4, Path.CURVE4, Path.CURVE4])
         self.axis.add_patch(PathPatch(
-            path, facecolor='none', linewidth=self.linewidth))
+            path, facecolor='none', linewidth=self.linewidth,
+            path_effects=self.wire_effects(self.linewidth)))
         super().draw_bezier(points)
 
     def draw_filled_shape(self, start, steps, color):
