@@ -6,182 +6,59 @@ on:
 permissions:
   contents: read
   pull-requests: read
-concurrency:
-  group: no-todo-on-main-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
 jobs:
   guard:
     runs-on: ubuntu-latest
     steps:
-    - name: Inspect TODO state
-      id: gate
-      env:
-        ACTION: ${{ github.event.action }}
-        BEFORE_SHA: ${{ github.event.before }}
-        HEAD_OWNER: ${{ github.event.pull_request.head.repo.owner.login }}
-        HEAD_REPO: ${{ github.event.pull_request.head.repo.name }}
-        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        NODE_ID: ${{ github.event.pull_request.node_id }}
-        GH_TOKEN: ${{ github.token }}
-      run: |
-        todo_at() {
-          local object_type result revision_type sha="$1"
-          if ! result="$(gh api graphql \
-            -f owner="$HEAD_OWNER" -f name="$HEAD_REPO" \
-            -f revision="$sha" -f todo="${sha}:TODO.md" -f query='
-              query(
-                $owner: String!, $name: String!, $revision: String!,
-                $todo: String!
-              ) {
-                repository(owner: $owner, name: $name) {
-                  revision: object(expression: $revision) { __typename }
-                  todo: object(expression: $todo) { __typename }
-                }
-              }' --jq '
-                [
-                  (.data.repository.revision.__typename // "missing"),
-                  (.data.repository.todo.__typename // "absent")
-                ] | @tsv')"; then
-            echo "::error::Could not inspect TODO.md at $sha." >&2
-            return 1
-          fi
-          read -r revision_type object_type <<< "$result"
-          if [ "$revision_type" != Commit ]; then
-            echo "::error::Could not resolve pull request commit $sha." >&2
-            return 1
-          fi
-          case "$object_type" in
-            Blob) echo present ;;
-            absent) echo absent ;;
-            *)
-              echo "::error::TODO.md at $sha is neither a file nor absent." >&2
-              return 1
-              ;;
-          esac
-        }
-
-        if ! live="$(gh api graphql -f id="$NODE_ID" -f query='
-          query($id: ID!) {
-            node(id: $id) {
-              ... on PullRequest { headRefOid isDraft }
-            }
-          }' --jq '.data.node | [.headRefOid, .isDraft] | @tsv')"; then
-          echo "::error::Could not read the live pull request state."
-          exit 1
-        fi
-        read -r live_head is_draft <<< "$live"
-        if [ -z "$live_head" ] \
-          || { [ "$is_draft" != true ] && [ "$is_draft" != false ]; }; then
-          echo "::error::The live pull request state was incomplete."
-          exit 1
-        fi
-        if [ "$live_head" != "$HEAD_SHA" ]; then
-          echo "::notice::A newer pull request head will decide the draft state."
-          echo "transition=none" >> "$GITHUB_OUTPUT"
-          exit 0
-        fi
-
-        current="$(todo_at "$HEAD_SHA")" || exit 1
-        echo "todo=$current" >> "$GITHUB_OUTPUT"
-        transition=none
-        if [ "$current" = present ] && [ "$is_draft" != true ]; then
-          transition=draft
-        elif [ "$current" = absent ] && [ "$is_draft" = true ] \
-          && [ "$ACTION" = synchronize ]; then
-          previous="$(todo_at "$BEFORE_SHA")" || exit 1
-          [ "$previous" = present ] && transition=ready
-        fi
-        echo "transition=$transition" >> "$GITHUB_OUTPUT"
-
     - name: Generate a discopy-bot token
       id: app-token
-      # Draft-state mutations answer FORBIDDEN to the default GITHUB_TOKEN even
-      # with pull-requests: write, so they run as the App. Without it the gate
-      # degrades to a red required check rather than to nothing.
-      if: steps.gate.outputs.transition != 'none' && vars.DISCOPY_BOT_APP_ID != ''
       uses: actions/create-github-app-token@v1
       with:
         app-id: ${{ vars.DISCOPY_BOT_APP_ID }}
         private-key: ${{ secrets.DISCOPY_BOT_PRIVATE_KEY }}
         permission-pull-requests: write
 
-    - name: Apply draft state
-      if: steps.gate.outputs.transition != 'none'
+    - name: Enforce the TODO state
       env:
-        GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
+        ACTION: ${{ github.event.action }}
+        APP_TOKEN: ${{ steps.app-token.outputs.token }}
+        BEFORE_SHA: ${{ github.event.before }}
+        GH_TOKEN: ${{ github.token }}
+        HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
         HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        IS_DRAFT: ${{ github.event.pull_request.draft }}
         NODE_ID: ${{ github.event.pull_request.node_id }}
-        TRANSITION: ${{ steps.gate.outputs.transition }}
       run: |
-        if ! live="$(gh api graphql -f id="$NODE_ID" -f query='
-          query($id: ID!) {
-            node(id: $id) {
-              ... on PullRequest { headRefOid isDraft }
-            }
-          }' --jq '.data.node | [.headRefOid, .isDraft] | @tsv')"; then
-          echo "::error::Could not re-read the live pull request state."
-          exit 1
-        fi
-        read -r live_head is_draft <<< "$live"
-        if [ -z "$live_head" ] \
-          || { [ "$is_draft" != true ] && [ "$is_draft" != false ]; }; then
-          echo "::error::The live pull request state was incomplete."
-          exit 1
-        fi
-        if [ "$live_head" != "$HEAD_SHA" ]; then
-          echo "::notice::A newer pull request head will apply the draft state."
-          exit 0
-        fi
-        if { [ "$TRANSITION" = draft ] && [ "$is_draft" = true ]; } \
-          || { [ "$TRANSITION" = ready ] && [ "$is_draft" = false ]; }; then
-          echo "::notice::The pull request already reached its expected draft state."
+        todo_at() {
+          gh api "repos/$HEAD_REPO/git/trees/$1" --jq '
+            if .truncated == false then
+              any(.tree[]; .path == "TODO.md" and .type == "blob")
+            else error("tree response truncated") end'
+        }
+        set_draft() {
+          local mutation="$1" expected="$2" result
+          result="$(GH_TOKEN="$APP_TOKEN" gh api graphql -f id="$NODE_ID" -f query="
+            mutation(\$id: ID!) {
+              $mutation(input: {pullRequestId: \$id}) {
+                pullRequest { isDraft }
+              }
+            }" --jq ".data.$mutation.pullRequest.isDraft")" || return 1
+          [ "$result" = "$expected" ]
+        }
+
+        current="$(todo_at "$HEAD_SHA")" || exit 1
+        if [ "$current" = true ]; then
+          if [ "$IS_DRAFT" = false ]; then
+            set_draft convertPullRequestToDraft true || exit 1
+            echo "::notice::TODO.md is present — pull request is now draft."
+          fi
           exit 0
         fi
 
-        if [ "$TRANSITION" = draft ]; then
-          expected=true
-          if ! drafted="$(gh api graphql -f id="$NODE_ID" -f query='
-            mutation($id: ID!) {
-              convertPullRequestToDraft(input: {pullRequestId: $id}) {
-                pullRequest { headRefOid isDraft }
-              }
-            }' --jq '
-              .data.convertPullRequestToDraft.pullRequest
-              | [.headRefOid, .isDraft] | @tsv')"; then
-            echo "::error::TODO.md is present but this pull request could not be drafted."
-            exit 1
+        if [ "$ACTION" = synchronize ] && [ "$IS_DRAFT" = true ]; then
+          previous="$(todo_at "$BEFORE_SHA")" || exit 1
+          if [ "$previous" = true ]; then
+            set_draft markPullRequestReadyForReview false || exit 1
+            echo "::notice::TODO.md was deleted — pull request is now ready."
           fi
-        elif [ "$TRANSITION" = ready ]; then
-          expected=false
-          if ! drafted="$(gh api graphql -f id="$NODE_ID" -f query='
-            mutation($id: ID!) {
-              markPullRequestReadyForReview(input: {pullRequestId: $id}) {
-                pullRequest { headRefOid isDraft }
-              }
-            }' --jq '
-              .data.markPullRequestReadyForReview.pullRequest
-              | [.headRefOid, .isDraft] | @tsv')"; then
-            echo "::error::TODO.md was deleted but this pull request could not be marked ready."
-            exit 1
-          fi
-        else
-          echo "::error::Unknown draft-gate transition: $TRANSITION."
-          exit 1
         fi
-        read -r drafted_head drafted_state <<< "$drafted"
-        if [ "$drafted_head" != "$HEAD_SHA" ] \
-          || [ "$drafted_state" != "$expected" ]; then
-          echo "::error::The pull request did not reach its expected draft state."
-          exit 1
-        fi
-        if [ "$expected" = true ]; then
-          echo "::notice::TODO.md is present — pull request is now draft."
-        else
-          echo "::notice::TODO.md was deleted — pull request is now ready."
-        fi
-
-    - name: Enforce TODO deletion
-      if: always() && steps.gate.outputs.todo == 'present'
-      run: |
-        echo "::error::TODO.md is present. Delete it to make this pull request mergeable."
-        exit 1
