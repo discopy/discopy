@@ -74,3 +74,9 @@ Prompt ([#395](https://github.com/discopy/discopy/issues/395), verbatim):
 > cls: cls.swap_factory)" does the job already
 
 - [x] Delete the `Swappable` metaclass, make `swap_factory` the attribute symmetric diagrams set and `braid_factory` the `classproperty` reading it
+
+## Review follow-up (2026-07-28)
+
+> redundant with the readme test, remove it
+
+- [WIP] @evening-2026-07-28 23:05 Remove `test_swap_factory`
