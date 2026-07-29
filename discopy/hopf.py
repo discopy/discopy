@@ -9,6 +9,7 @@ Summary
 .. autosummary::
     :template: class.rst
     :nosignatures:
+    :toctree:
 
     Algebra
     Double
@@ -114,9 +115,9 @@ product of :math:`D(H) = H \\otimes H^*`, drawn as a :class:`.tensor.CMap` (the
 tensor network that gets contracted):
 
 >>> Double(Algebra.cyclic(2)).mult.to_map().draw(
-...     doctest='docs/_static/hopf/double_mult.svg')
+...     doctest='docs/_static/hopf/double-mult.dot')
 
-.. image:: /_static/hopf/double_mult.svg
+.. graphviz:: /_static/hopf/double-mult.dot
     :align: center
 """
 
@@ -277,17 +278,24 @@ class Algebra:
         :math:`1 \\to H`, for :math:`u` the Drinfeld element and :math:`g`
         the pivotal element: the invertible central element with
         :math:`v^2 = uS(u)`, :math:`S(v) = v` and :math:`\\epsilon(v) = 1`
-        whose action is the twist, :math:`\\theta_V = \\rho_V(v)`, so that
-        :meth:`Intertwiner.twist` is a single application of the action.
-        These properties are checked by :meth:`is_ribbon` on first access,
-        raising :class:`ValueError` when the algebra is not ribbon — e.g.
-        the double of a Taft algebra of even dimension, by Kauffman and
-        Radford's criterion.
+        whose action is the twist, :math:`\\theta_V = \\rho_V(v)` —
+        materialised as a single state box so that
+        :meth:`Intertwiner.twist` is one state and one application of the
+        action. The ribbon properties are checked by :meth:`is_ribbon` on
+        first access, raising :class:`ValueError` when the algebra is not
+        ribbon — e.g. the double of a Taft algebra of even dimension, by
+        Kauffman and Radford's criterion.
         """
         if not self.is_ribbon():
             raise ValueError("this is not a ribbon Hopf algebra")
-        return self.drinfeld_element \
-            @ (self.pivotal_element >> self.antipode) >> self.mult
+        n = self.dim
+        S = self.antipode.eval(dtype=complex).array.reshape(n, n)
+        mult = self.mult.eval(dtype=complex).array.reshape(n, n, n)
+        R = self.R.eval(dtype=complex).array.reshape(n, n)
+        u = np.einsum('ij,ja,aik->k', R, S, mult)
+        g = self.pivotal_element.eval(dtype=complex).array.reshape(n)
+        v = np.einsum('i,j,ijk->k', u, S.T @ g, mult)
+        return Box[complex]('v', Dim(1), self.ty, v.tolist())
 
     def __repr__(self):
         optional = "" if self.R is None else f", R={self.R!r}"
@@ -654,9 +662,9 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
     >>> assert V.is_module() and V == Dim(2)
     >>> ty = V.action.cod
     >>> (D.mult @ ty >> V.action).to_map().draw(
-    ...     doctest='docs/_static/hopf/module.svg')
+    ...     doctest='docs/_static/hopf/module.dot')
 
-    .. image:: /_static/hopf/module.svg
+    .. graphviz:: /_static/hopf/module.dot
         :align: center
     """
     def __init__(self, dim=None, action=None):
@@ -863,9 +871,9 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
     >>> braid = Intertwiner[D].braid(V, V)
     >>> lhs, rhs = action >> braid, Id(D.ty) @ braid >> action
     >>> assert lhs.eval(dtype=complex).is_close(rhs.eval(dtype=complex))
-    >>> lhs.to_map().draw(doctest='docs/_static/hopf/intertwiner.svg')
+    >>> lhs.to_map().draw(doctest='docs/_static/hopf/intertwiner.dot')
 
-    .. image:: /_static/hopf/intertwiner.svg
+    .. graphviz:: /_static/hopf/intertwiner.dot
         :align: center
 
     The braid contracts to the braiding matrix of the toric code:
@@ -1011,9 +1019,9 @@ class Functor(ribbon.Functor):
     >>> network = F(d)
     >>> assert network.eval(dtype=complex).is_close(
     ...     F(ribbon.Id(x)).eval(dtype=complex))
-    >>> network.to_map().draw(doctest='docs/_static/hopf/ribbon-functor.svg')
+    >>> network.to_map().draw(doctest='docs/_static/hopf/ribbon-functor.dot')
 
-    .. image:: /_static/hopf/ribbon-functor.svg
+    .. graphviz:: /_static/hopf/ribbon-functor.dot
         :align: center
 
     A single braid contracts to the braiding matrix of the toric code:
