@@ -32,13 +32,9 @@ Before pushing anything, make sure that:
 - you have `uv run` both `pflake8 discopy` and `coverage run -m pytest` as described in @CONTRIBUTING.md
 - you have respected the [code style guide](CONTRIBUTING.md#code-style-guide)
 
-A pull request is **ready for sign-off** when all four of these hold, and whatever
-reports readiness says which one fails rather than rounding to an impression:
+A pull request is **ready for sign-off** when all four of these hold:
 
 1) every point of its `TODO.md` is `[x]`, the rest filed as issues
 2) CI is green on the real jobs
-3) no unresolved review thread is waiting on an agent, i.e. every instruction has landed
+3) no review thread is waiting on an agent, i.e. every thread is either resolved or waiting on human feedback
 4) it is not behind its target branch
-
-Clause 3) is about direction, not count: a thread waiting on a human *is* the sign-off,
-so a pull request can be ready with unresolved threads and merge with them still open.
