@@ -38,9 +38,9 @@ Examples
 >>> circuit = Ket(0, 0) >> CX >> Controlled(Rz(0.25)) >> Measure() @ Discard()
 >>> circuit.draw(
 ...     figsize=(3, 6),
-...     path='docs/_static/quantum/circuit-example.png')
+...     doctest='docs/_static/quantum/circuit-example.svg')
 
-.. image:: /_static/quantum/circuit-example.png
+.. image:: /_static/quantum/circuit-example.svg
     :align: center
 
 >>> from discopy.grammar import pregroup
@@ -57,12 +57,12 @@ Examples
 >>> F = pregroup.Functor(ob, ar, cod=Circuit)
 >>> assert abs(F(sentence).eval().array) ** 2
 
->>> from discopy.drawing import Equation
+>>> from discopy.monoidal import Equation
 >>> Equation(
 ...     sentence, F(sentence).foliation(), symbol='$\\\\mapsto$').draw(
-...         path='docs/_static/quantum/functor-example.png')
+...         doctest='docs/_static/quantum/functor-example.svg')
 
-.. image:: /_static/quantum/functor-example.png
+.. image:: /_static/quantum/functor-example.svg
     :align: center
 """
 
@@ -71,7 +71,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from discopy import messages, tensor, frobenius
-from discopy.cat import ob_factory, ar_factory
+from discopy.cat import factory
 from discopy.matrix import backend
 from discopy.tensor import Dim, Tensor
 from discopy.utils import factory_name, assert_isinstance
@@ -151,7 +151,7 @@ class Qudit(Ob):
     __setstate__ = Digit.__setstate__
 
 
-@ob_factory
+@factory
 class Ty(frobenius.Ty):
     """
     A circuit type is a frobenius type with :class:`Digit` and :class:`Qudit`
@@ -171,10 +171,10 @@ class Ty(frobenius.Ty):
     >>> print(bit ** 2 @ qubit ** 3)
     bit @ bit @ qubit @ qubit @ qubit
     """
-    ob_factory = Ob
+    generator_factory = Ob
 
 
-@ar_factory
+@factory
 class Circuit(tensor.Diagram[complex]):
     """
     A circuit is a tensor diagram with bits and qubits as ``dom`` and ``cod``.
@@ -218,11 +218,11 @@ class Circuit(tensor.Diagram[complex]):
         circuit = self
         if circuit.dom:
             init = Id().tensor(*(
-                Bits(0) if x.name == "bit" else Ket(0) for x in circuit.dom))
+                Bits(0) if x == bit else Ket(0) for x in circuit.dom))
             circuit = init >> circuit
         if circuit.cod != bit ** len(circuit.cod):
             discards = Id().tensor(*(
-                Discard() if x.name == "qubit"
+                Discard() if x == qubit
                 else Id(bit) for x in circuit.cod))
             circuit = circuit >> discards
         return circuit
@@ -282,7 +282,7 @@ class Circuit(tensor.Diagram[complex]):
         :class:`discopy.tensor.Tensor` of real-valued probabilities.
 
         >>> circuit = Ket(0, 0) >> sqrt(2) @ H @ X >> CX >> Measure() @ Bra(0)
-        >>> from discopy.quantum.tk import mockBackend
+        >>> from discopy.quantum.tk import mockBackend  # doctest: +EXTRA
         >>> backend = mockBackend({(0, 1): 512, (1, 0): 512})
         >>> assert circuit.eval(backend=backend, n_shots=2**10).round()\\
         ...     == Tensor[float](dom=Dim(1), cod=Dim(2), array=[0., 1.])
@@ -364,7 +364,7 @@ class Circuit(tensor.Diagram[complex]):
         --------
         >>> from discopy.quantum import *
         >>> circuit = H @ X >> CX >> Measure(2)
-        >>> from discopy.quantum.tk import mockBackend
+        >>> from discopy.quantum.tk import mockBackend  # doctest: +EXTRA
         >>> backend = mockBackend({(0, 1): 512, (1, 0): 512})
         >>> circuit.get_counts(backend=backend, n_shots=2**10)
         {(0, 1): 0.5, (1, 0): 0.5}
@@ -544,7 +544,7 @@ class Circuit(tensor.Diagram[complex]):
         >>> from discopy.quantum import *
 
         >>> bell_test = H @ qubit >> CX >> Measure() @ Measure()
-        >>> bell_test.to_tk()
+        >>> bell_test.to_tk()  # doctest: +EXTRA
         tk.Circuit(2, 2).H(0).CX(0, 1).Measure(0, 0).Measure(1, 1)
 
         >>> circuit0 = sqrt(2) @ H @ Rx(0.5) >> CX >> Measure() @ Discard()
@@ -630,7 +630,7 @@ class Circuit(tensor.Diagram[complex]):
         Examples
         --------
         >>> from discopy.quantum import *
-        >>> import pytket as tk
+        >>> import pytket as tk  # doctest: +EXTRA
 
         >>> c = Rz(0.5) @ qubit >> qubit @ Rx(0.25) >> CX
         >>> assert Circuit.from_tk(c.to_tk()) == c.init_and_discard()
@@ -690,7 +690,7 @@ class Circuit(tensor.Diagram[complex]):
         Examples
         --------
         >>> from math import pi
-        >>> from sympy.abc import phi
+        >>> from sympy.abc import phi  # doctest: +EXTRA
         >>> from discopy.quantum import *
         >>> circuit = Rz(phi / 2) @ Rz(phi + 1) >> CX
         >>> assert circuit.grad(phi, mixed=False)\\
@@ -716,7 +716,7 @@ class Circuit(tensor.Diagram[complex]):
 
         Examples
         --------
-        >>> from sympy.abc import x, y
+        >>> from sympy.abc import x, y  # doctest: +EXTRA
         >>> from discopy.quantum.gates import Bits, Ket, Rx, Rz
         >>> circuit = Ket(0) >> Rx(x) >> Rz(y)
         >>> assert circuit.jacobian([x, y])\\
@@ -906,11 +906,11 @@ class Functor(frobenius.Functor):
     """ :class:`Circuit`-valued functor. """
     dom = cod = Circuit
 
-    def __init__(self, ob, ar, dom=None, cod=None):
-        if isinstance(ob, Mapping):
-            ob = {x: qubit ** y if isinstance(y, int) else y
-                  for x, y in ob.items()}
-        super().__init__(ob, ar, dom=dom, cod=cod)
+    def __init__(self, ob_map, ar_map, dom=None, cod=None):
+        if isinstance(ob_map, Mapping):
+            ob_map = {x: qubit ** y if isinstance(y, int) else y
+                      for x, y in ob_map.items()}
+        super().__init__(ob_map, ar_map, dom=dom, cod=cod)
 
 
 def index2bitstring(i: int, length: int) -> tuple[int, ...]:

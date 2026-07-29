@@ -5,8 +5,9 @@
 from __future__ import annotations
 
 import json
-import os
-from functools import wraps
+from functools import lru_cache, wraps
+from math import ceil
+from pathlib import Path
 from typing import (
     Callable,
     Mapping,
@@ -18,11 +19,12 @@ from typing import (
     TYPE_CHECKING,
 )
 
-from matplotlib.testing.compare import compare_images
+import matplotlib
+from matplotlib.font_manager import FontProperties
+from matplotlib.textpath import TextPath
 from networkx import Graph, connected_components
 
 import discopy.messages as messages
-from discopy.config import DRAWING_DEFAULT
 
 if TYPE_CHECKING:
     from discopy.monoidal import Ty, Diagram
@@ -31,6 +33,10 @@ if TYPE_CHECKING:
 KT = TypeVar('KT')
 VT = TypeVar('VT')
 V2T = TypeVar('V2T')
+
+_DEFAULT_FONT_PATH = (
+    Path(matplotlib.get_data_path()) / "fonts" / "ttf" / "DejaVuSans.ttf")
+_DEFAULT_FONT = FontProperties(fname=_DEFAULT_FONT_PATH)
 
 
 class MappingOrCallable(Mapping[KT, VT]):
@@ -287,10 +293,12 @@ def is_tuple(typ: type) -> bool:
 def assert_isinstance(object_, cls: type | tuple[type, ...]):
     """ Raise ``TypeError`` if ``object`` is not instance of ``cls``. """
     classes = cls if isinstance(cls, tuple) else (cls, )
+    for cls in classes:
+        if isinstance(object_, get_origin(cls)):
+            return
     cls_name = ' | '.join(map(factory_name, classes))
-    if not any(isinstance(object_, get_origin(cls)) for cls in classes):
-        raise TypeError(messages.TYPE_ERROR.format(
-            cls_name, factory_name(type(object_))))
+    raise TypeError(messages.TYPE_ERROR.format(
+        cls_name, factory_name(type(object_))))
 
 
 def unbiased(binary_method):
@@ -399,43 +407,23 @@ class BinaryBoxConstructor:
         return cls(*map(from_tree, (tree['left'], tree['right'])))
 
 
-def draw_and_compare(file, folder, tol, **params):
-    """ Draw a given diagram and compare the result with a baseline. """
-    def decorator(func):
-        def wrapper():
-            diagram = func()
-            draw = params.get('draw', type(diagram).draw)
-            true_path = os.path.join(folder, file)
-            test_path = os.path.join(folder, '_' + file)
-            draw(diagram, path=test_path, show=False, **params)
-            test = compare_images(true_path, test_path, tol)
-            assert test is None
-            os.remove(test_path)
-        return wrapper
-    return decorator
+@lru_cache(maxsize=1024)
+def text_width(text: str, fontsize=12, points_per_inch=72., grid=16):
+    """ The width of a text label in drawing units, i.e. inches.
 
-
-def tikz_and_compare(file, folder, **params):
-    """ Tikz a given diagram and compare the result with a baseline. """
-    def decorator(func):
-        def wrapper():
-            diagram = func()
-            draw = params.get('draw', type(diagram).draw)
-            true_paths = [os.path.join(folder, file)]
-            test_paths = [os.path.join(folder, '_' + file)]
-            if params.get("use_tikzstyles", DRAWING_DEFAULT['use_tikzstyles']):
-                true_paths.append(
-                    true_paths[0].replace('.tikz', '.tikzstyles'))
-                test_paths.append(
-                    test_paths[0].replace('.tikz', '.tikzstyles'))
-            draw(diagram, path=test_paths[0], **dict(params, to_tikz=True))
-            for true_path, test_path in zip(true_paths, test_paths):
-                with open(true_path, "r") as true:
-                    with open(test_path, "r") as test:
-                        assert true.read() == test.read()
-                os.remove(test_path)
-        return wrapper
-    return decorator
+    Measured from the actual glyph outlines with matplotlib's text layout,
+    using the fixed font bundled with matplotlib so that different systems
+    agree, at a given `fontsize` and `points_per_inch` conversion, then
+    rounded up to the next `1 / grid` of an inch so that any remaining
+    sub-pixel differences in font metrics across environments cannot change
+    the layout of a diagram.
+    """
+    if not text:
+        return 0
+    width = TextPath(
+        (0, 0), text, prop=_DEFAULT_FONT, size=fontsize,
+        usetex=False).get_extents().width
+    return ceil(width / points_per_inch * grid) / grid
 
 
 def tuplify(stuff: any) -> tuple:
@@ -462,35 +450,19 @@ def untuplify(stuff: tuple) -> any:
     return stuff[0] if len(stuff) == 1 else stuff
 
 
-def ob_factory(cls):
+def factory(cls):
     """
-    Allows the tensor product of a :class:`Ty` subclass to remain within
-    the subclass.
-
-    Parameters:
-        cls : Some subclass of :class:`Ty`.
-
-    Note
-    ----
-    The factory method pattern (`FMP`_) is used all over DisCoPy.
-
-    .. _FMP: https://en.wikipedia.org/wiki/Factory_method_pattern
-    """
-    cls.ob = cls
-    return cls
-
-
-def ar_factory(cls):
-    """
-    Allows the identity and composition of an :class:`Arrow` subclass to remain
-    within the subclass.
+    Allows the identity and composition of an :class:`Arrow` subclass to
+    remain within the subclass, by setting ``cls.factory = cls``.
 
     Parameters:
         cls : Some subclass of :class:`Arrow`.
 
     Note
     ----
-    The factory method pattern (`FMP`_) is used all over DisCoPy.
+    The factory method pattern (`FMP`_) is used all over DisCoPy. For
+    backward compatibility, the factory is also available as the class
+    property ``cls.ar``, see :class:`discopy.abc.Category`.
 
     .. _FMP: https://en.wikipedia.org/wiki/Factory_method_pattern
 
@@ -502,7 +474,7 @@ def ar_factory(cls):
     >>> from discopy.cat import Ob, Arrow, Box
     >>> class Qubit(Ob):
     ...     pass
-    >>> @ar_factory
+    >>> @factory
     ... class Circuit(Arrow):
     ...     ob = Qubit
 
@@ -517,8 +489,9 @@ def ar_factory(cls):
     >>> assert isinstance(X >> X, Circuit)
     >>> assert isinstance(Circuit.id(), Circuit)
     >>> assert isinstance(Circuit.id().dom, Qubit)
+    >>> assert Circuit.factory is Circuit.ar is Circuit
     """
-    cls.ar = cls
+    cls.factory = cls
     return cls
 
 
@@ -586,6 +559,7 @@ class Node:
         self.kind, self.data = kind, data
         for key, value in data.items():
             setattr(self, key, value)
+        self.__hash = None
 
     def __eq__(self, other):
         return isinstance(other, Node)\
@@ -596,7 +570,9 @@ class Node:
             f"{key}={value}" for key, value in sorted(self.data.items()))})"""
 
     def __hash__(self):
-        return hash(repr(self))
+        if self.__hash is None:
+            self.__hash = hash(repr(self))
+        return self.__hash
 
     def shift_i(self, i):
         return Node(self.kind, **dict(self.data, i=self.i + i))
@@ -612,3 +588,55 @@ class Point(NamedTuple):
 
     def shift(self, x=0, y=0):
         return Point(self.x + x, self.y + y)
+
+
+class RichDisplay:
+    """
+    Mixin implementing IPython's rich display protocol, see
+    https://ipython.readthedocs.io/en/stable/config/integrating.html
+
+    Any DisCoPy object with a :meth:`to_drawing` method, e.g. a
+    :class:`discopy.monoidal.Diagram`, a :class:`discopy.drawing.Drawing`
+    or an :class:`discopy.drawing.Equation`, is displayed as an SVG image
+    (with a PNG fallback in the mimebundle) when it is the output of a cell
+    in Jupyter, marimo and other frontends that support the protocol.
+
+    Example
+    -------
+    >>> from discopy.monoidal import Ty, Box
+    >>> f = Box('f', Ty('x'), Ty('y'))
+    >>> svg, png = f._repr_svg_(), f.to_png()
+    >>> assert svg.startswith('<?xml') and '</svg>\\n' in svg
+    >>> assert png.startswith(b'\\x89PNG')
+    >>> assert f._repr_mimebundle_() == {
+    ...     'image/svg+xml': svg, 'image/png': png}
+    >>> assert f._repr_mimebundle_(include=['image/svg+xml']) == {
+    ...     'image/svg+xml': svg}
+    >>> assert f._repr_mimebundle_(exclude=['image/svg+xml']) == {
+    ...     'image/png': png}
+    >>> assert f._repr_mimebundle_(include=['text/html']) == {}
+    """
+    def to_svg(self, **params) -> str:
+        """ Draw as a standalone SVG string. """
+        from io import StringIO
+        buffer = StringIO()
+        self.to_drawing().draw(
+            path=buffer, format="svg", show=False, **params)
+        return buffer.getvalue()
+
+    def to_png(self, **params) -> bytes:
+        """ Draw as PNG bytes. """
+        from io import BytesIO
+        buffer = BytesIO()
+        self.to_drawing().draw(
+            path=buffer, format="png", show=False, **params)
+        return buffer.getvalue()
+
+    def _repr_svg_(self) -> str:
+        return self.to_svg()
+
+    def _repr_mimebundle_(self, include=None, exclude=None) -> dict:
+        data = {"image/svg+xml": self.to_svg, "image/png": self.to_png}
+        return {mimetype: draw() for mimetype, draw in data.items()
+                if (include is None or mimetype in include)
+                and (exclude is None or mimetype not in exclude)}

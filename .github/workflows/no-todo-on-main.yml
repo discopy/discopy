@@ -1,0 +1,31 @@
+name: no-todo-on-main
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
+permissions:
+  contents: read
+  pull-requests: write
+jobs:
+  guard:
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Draft the pull request while a TODO file is present
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          NODE_ID: ${{ github.event.pull_request.node_id }}
+          REPO: ${{ github.repository }}
+        run: |
+          todo="$(gh api "repos/$REPO/pulls/$PR/files" --paginate \
+            --jq '.[] | select(.status != "removed") | .filename' \
+            | grep -iE '(^|/)todo(\.[^/]*)?$' || true)"
+          [ -n "$todo" ] || exit 0
+          gh api graphql -f id="$NODE_ID" -f query='
+            mutation($id: ID!) {
+              convertPullRequestToDraft(input: {pullRequestId: $id}) {
+                pullRequest { isDraft }
+              }
+            }'
+          echo "::notice::$todo is still here — back to draft. A human deletes it to mark ready."

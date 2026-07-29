@@ -2,6 +2,11 @@
 requires = ["setuptools>=80", "setuptools-scm[simple]>=9.2"]
 build-backend = "setuptools.build_meta"
 
+# Pin package discovery to discopy* so top-level dirs (benchmark/, plans/, ...)
+# don't trip setuptools flat-layout "multiple top-level packages" detection.
+[tool.setuptools.packages.find]
+include = ["discopy*"]
+
 [project]
 name = "discopy"
 dynamic = ["version"]
@@ -40,10 +45,12 @@ dependencies = [
 [dependency-groups]
 dev = [
     "coverage",
-    "nbmake",
+    "marimo",
     "pyproject-flake8",
     "pylint",
     "pytest",
+    "pytest-benchmark",
+    "polars",
 ]
 docs = ["discopy[docs]"]
 quantum = ["discopy[quantum]"]
@@ -76,7 +83,7 @@ grammar = [
 test = [
     "discopy[grammar,quantum]",
     "coverage",
-    "nbmake",
+    "marimo",
     "pyproject-flake8",
     "pylint",
     "pytest",
@@ -85,11 +92,15 @@ docs  = [
     "IPython",
     "ipykernel == 6.23.*",
     "jinja2 == 3.1.*",
+    "marimo",
     "myst-parser == 2.0.*",
-    "nbsphinx == 0.9.*",
+    # executed by marimo when rendering the notebooks at docs build time
+    "pytket",
+    "sympy",
     "sphinx == 7.2.*",
     "sphinx-book-theme == 1.1.*",
     "sphinxcontrib-bibtex == 2.5.*",
+    "sphinxcontrib-tikz == 0.4.*",
     "sphinxcontrib-youtube == 1.4.*",
 ]
 
@@ -134,14 +145,23 @@ per-file-ignores = [
 
 [tool.pytest.ini_options]
 pythonpath = [
-    "."
+    ".",
+    "test"
 ]
 testpaths = [
     "discopy",
+    "test/*.py",
     "test/*/*.py",
-    "docs/notebooks/*.ipynb",
 ]
 norecursedirs = [
-    "test/utils/pickles/TODO",
+    "test/fixtures",
 ]
-addopts = "--doctest-modules --nbmake --ignore=test/utils/pickles/TODO"
+addopts = "--doctest-modules --ignore=test/fixtures -p plugin"
+
+[tool.coverage.run]
+# The skip paths are unreachable unless --skip-extra is passed, and coverage
+# runs the full suite with every extra installed.
+omit = ["test/plugin.py"]
+
+[tool.coverage.report]
+fail_under = 98
