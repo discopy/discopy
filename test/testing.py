@@ -7,7 +7,7 @@ from discopy import (
     markov, compact, frobenius, feedback)
 from pytest import raises
 
-from discopy.abc import Monoid, Pregroup
+from discopy.abc import Pregroup
 from discopy.testing import (
     random_ty, random_diagram, random_parallel_pair,
     random_composable_pair, random_composable_triple,
@@ -46,8 +46,9 @@ def test_category_typing():
 def test_monoid_unitality_and_associativity():
     assert check_property(
         lambda rng: tuple(nonempty(monoidal.Ty)(rng) for _ in range(3)),
-        lambda xyz: Monoid.check_monoid_unitality(xyz[0], monoidal.Ty())
-        and Monoid.check_monoid_associativity(*xyz), n_trials=N_TRIALS)
+        lambda xyz: xyz[0].check_monoid_unitality(monoidal.Ty())
+        and xyz[0].check_monoid_associativity(*xyz[1:]),
+        n_trials=N_TRIALS)
 
 
 def test_tensor_unitality_and_typing():
@@ -63,8 +64,8 @@ def test_tensor_unitality_and_typing():
 def test_bifunctoriality():
     def predicate(pairs):
         (f, g), (other, h) = pairs
-        with symmetric.Diagram.hypergraph_equality:
-            return f.check_bifunctoriality(other, g, h)
+        return f.check_bifunctoriality(
+            other, g, h, eq=symmetric.Equation)
     assert check_property(
         lambda rng: (
             random_composable_pair(symmetric.Box, rng=rng),
@@ -108,8 +109,8 @@ def test_braided_hexagon():
 
 def test_braid_naturality():
     def predicate(fg):
-        with symmetric.Diagram.hypergraph_equality:
-            return fg[0].check_braid_naturality(fg[1])
+        return fg[0].check_braid_naturality(
+            fg[1], eq=symmetric.Equation)
     assert check_property(
         lambda rng: (
             random_diagram(symmetric.Box, rng=rng),
@@ -127,8 +128,8 @@ def test_balanced_twist():
 
 def test_swap_inverse():
     def predicate(xy):
-        with symmetric.Diagram.hypergraph_equality:
-            return symmetric.Diagram.check_swap_inverse(*xy)
+        return symmetric.Diagram.check_swap_inverse(
+            *xy, eq=symmetric.Equation)
     assert check_property(
         lambda rng: (nonempty(symmetric.Ty)(rng), nonempty(symmetric.Ty)(rng)),
         predicate, n_trials=N_TRIALS)
@@ -144,10 +145,11 @@ def test_trace_vanishing_and_superposing():
     def predicate(args):
         x, obj, f = args
         endo = symmetric.Box('f', x, x)
-        with symmetric.Diagram.hypergraph_equality:
-            return f.check_trace_vanishing()\
-                and endo.check_trace_superposing(obj, left=False)\
-                and endo.check_trace_superposing(obj, left=True)
+        return f.check_trace_vanishing(eq=symmetric.Equation)\
+            and endo.check_trace_superposing(
+                obj, left=False, eq=symmetric.Equation)\
+            and endo.check_trace_superposing(
+                obj, left=True, eq=symmetric.Equation)
     assert check_property(generator, predicate, n_trials=N_TRIALS)
 
 
@@ -155,21 +157,27 @@ def test_trace_naturality_and_dinaturality():
     def predicate(x):
         f = symmetric.Box('f', x @ x, x @ x)
         g = symmetric.Box('g', x, x)
-        with symmetric.Diagram.hypergraph_equality:
-            return f.check_trace_naturality(x, g, left=False)\
-                and f.check_trace_naturality(x, g, left=True)\
-                and f.check_trace_dinaturality(x, g, left=False)\
-                and f.check_trace_dinaturality(x, g, left=True)
+        return f.check_trace_naturality(
+            x, g, left=False, eq=symmetric.Equation)\
+            and f.check_trace_naturality(
+                x, g, left=True, eq=symmetric.Equation)\
+            and f.check_trace_dinaturality(
+                x, g, left=False, eq=symmetric.Equation)\
+            and f.check_trace_dinaturality(
+                x, g, left=True, eq=symmetric.Equation)
     assert check_property(atomic(symmetric.Ty), predicate, n_trials=N_TRIALS)
 
 
 def test_markov_copy_axioms():
     def predicate(x):
-        with markov.Diagram.hypergraph_equality:
-            return markov.Diagram.check_copy_counitality(x)\
-                and markov.Diagram.check_copy_coassociativity(x)\
-                and markov.Diagram.check_copy_cocommutativity(x)\
-                and markov.Diagram.check_copy_coherence(x)
+        return markov.Diagram.check_copy_counitality(
+            x, eq=markov.Equation)\
+            and markov.Diagram.check_copy_coassociativity(
+                x, eq=markov.Equation)\
+            and markov.Diagram.check_copy_cocommutativity(
+                x, eq=markov.Equation)\
+            and markov.Diagram.check_copy_coherence(
+                x, eq=markov.Equation)
     assert check_property(nonempty(markov.Ty), predicate, n_trials=N_TRIALS)
 
 
@@ -189,16 +197,17 @@ def test_feedback_vanishing_and_joining():
 
 def test_compact_reidemeister_1():
     def predicate(x):
-        with compact.Diagram.hypergraph_equality:
-            return compact.Diagram.check_reidemeister_1(x)
+        return compact.Diagram.check_reidemeister_1(
+            x, eq=compact.Equation)
     assert check_property(nonempty(compact.Ty), predicate, n_trials=N_TRIALS)
 
 
 def test_frobenius_and_speciality():
     def predicate(x):
-        with frobenius.Diagram.hypergraph_equality:
-            return frobenius.Diagram.check_frobenius(x)\
-                and frobenius.Diagram.check_speciality(x)
+        return frobenius.Diagram.check_frobenius(
+            x, eq=frobenius.Equation)\
+            and frobenius.Diagram.check_speciality(
+                x, eq=frobenius.Equation)
     assert check_property(nonempty(frobenius.Ty), predicate, n_trials=N_TRIALS)
 
 
@@ -211,13 +220,11 @@ def test_pivotal_transpose():
 
     # The pivotal axiom is semantic: it fails on the nose but is witnessed by
     # the pivotal hypergraph, which forgets planarity.
-    def predicate(g):
-        return g.transpose(left=True).to_hypergraph()\
-            == g.transpose(left=False).to_hypergraph()
+    eq = lambda left, right: left.to_hypergraph() == right.to_hypergraph()
     assert check_property(
         lambda rng: pivotal.Box(
             'g', nonempty(pivotal.Ty)(rng), nonempty(pivotal.Ty)(rng)),
-        predicate, n_trials=N_TRIALS)
+        lambda g: g.check_transpose(eq=eq), n_trials=N_TRIALS)
 
 
 def test_random_parallel_pair_is_parallel():

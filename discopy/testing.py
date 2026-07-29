@@ -47,11 +47,11 @@ generated diagrams in any monoidal category, e.g. :mod:`discopy.symmetric`.
 ...     lambda f: f.check_unitality())
 
 Some axioms only hold up to some notion of equality, e.g. the swap is its
-own inverse only up to :attr:`symmetric.Diagram.hypergraph_equality`.
+own inverse only up to :class:`symmetric.Equation`.
 
 >>> def swap_is_inverse(xy):
-...     with symmetric.Diagram.hypergraph_equality:
-...         return symmetric.Diagram.check_swap_inverse(*xy)
+...     return symmetric.Diagram.check_swap_inverse(
+...         *xy, eq=symmetric.Equation)
 >>> assert check_property(
 ...     lambda rng: (random_ty(symmetric.Ty, min_length=1, rng=rng),
 ...                  random_ty(symmetric.Ty, min_length=1, rng=rng)),

@@ -54,8 +54,8 @@ We also have its dagger and its transpose:
 
 from __future__ import annotations
 
-from discopy import cat, rigid, traced
-from discopy.abc import PivotalCategory
+from discopy import cat, hypergraph, rigid, traced
+from discopy.abc import PivotalCategory, SymmetricCategory
 from discopy.cat import factory
 
 
@@ -161,11 +161,12 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
         """
         Translate a pivotal diagram into a :class:`Hypergraph`.
 
-        Unlike :mod:`symmetric` diagrams, pivotal diagrams are planar, so their
-        hypergraph is only a faithful encoding when the diagram is
+        Unlike :mod:`symmetric` diagrams, purely pivotal diagrams are planar,
+        so their hypergraph is only a faithful encoding when the diagram is
         boundary-connected, see Delpeuch and Vicary :cite:t:`DelpeuchVicary22`.
         We check this by computing the :meth:`normal_form`, raising a
-        :class:`NotImplementedError` à la place otherwise.
+        :class:`NotImplementedError` à la place otherwise. For subclasses
+        which are also symmetric, this restriction does not apply.
 
         Example
         -------
@@ -182,15 +183,16 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
         >>> nested = Cap(x, x.r) >> x @ circle(y) @ x.r >> Cup(x, x.r)
         >>> side_by_side = circle(x) @ circle(y)
         >>> assert nested != side_by_side
-        >>> assert Diagram.hypergraph_factory.from_diagram(nested)\\
-        ...     == Diagram.hypergraph_factory.from_diagram(side_by_side)
-        >>> side_by_side.to_hypergraph()
+        >>> assert Hypergraph.from_diagram(nested)\\
+        ...     == Hypergraph.from_diagram(side_by_side)
+        >>> side_by_side.to_hypergraph()  # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
-        NotImplementedError: Cap(x, x.r) >> Cup(x, x.r) >> Cap(y, y.r) >> Cup(y, y.r) is not boundary-connected.
+        NotImplementedError: ... is not boundary-connected.
         """
-        self.normal_form()
-        return self.hypergraph_factory.from_diagram(self)
+        if not isinstance(self, SymmetricCategory):
+            self.normal_form()
+        return super().to_hypergraph()
 
     @classmethod
     def trace_factory(cls, diagram: Diagram, left=False):
@@ -286,17 +288,9 @@ class Functor(rigid.Functor):
     dom = cod = Diagram
 
 
-class Hypergraph(traced.Hypergraph):
-    """
-    A pivotal hypergraph is a traced hypergraph translated with a pivotal
-    :class:`Functor`, so that cups and caps are encoded as hypergraph cups and
-    caps rather than as opaque boxes.
-    """
-    functor = Functor
-
-
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
-Diagram.hypergraph_factory = Hypergraph
+Diagram.functor_factory = Functor
+Hypergraph = hypergraph.Hypergraph[Diagram]
 Id = Diagram.id
 
 

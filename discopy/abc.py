@@ -163,7 +163,7 @@ class ColouredMonoid[C0, C1: ColouredMonoid](Category[C0, C1]):
     colour, i.e. :class:`type(None)`. We do not enforce this so
     that e.g. :class:`monoidal.Ty` can take colours as objects.
     """
-    
+
     @classmethod
     def unit(cls) -> C1:
         """The monoidal unit, i.e. the empty tensor ``cls()``."""
@@ -178,7 +178,7 @@ class ColouredMonoid[C0, C1: ColouredMonoid](Category[C0, C1]):
     def tensor(self, *objects: C1) -> C1:
         """ The n-ary product of a monoid for ``n > 0``. """
 
-    def check_monoid_unitality(self, unit: T) -> bool:
+    def check_monoid_unitality(self, unit: C1) -> bool:
         """
         Check that :code:`self` is unchanged by tensoring with the unit.
 
@@ -187,7 +187,7 @@ class ColouredMonoid[C0, C1: ColouredMonoid](Category[C0, C1]):
         """
         return unit @ self == self and self @ unit == self
 
-    def check_monoid_associativity(self, other: T, another: T) -> bool:
+    def check_monoid_associativity(self, other: C1, another: C1) -> bool:
         """
         Check associativity of the tensor with two other objects.
 
@@ -243,7 +243,9 @@ class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](
     def __rmatmul__(self, other):
         return self.whisker(other).tensor(self)
 
-    def check_bifunctoriality(self, other: C0 | C1, g: C1, h: C0 | C1) -> bool:
+    def check_bifunctoriality(
+            self, other: C0 | C1, g: C1, h: C0 | C1,
+            eq: Callable[[C1, C1], bool] = None) -> bool:
         """
         Check the interchange law between :code:`self.then(g)` and
         :code:`other.then(h)`.
@@ -252,9 +254,11 @@ class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](
             other : A morphism or object to tensor with :code:`self`.
             g : A morphism composable after :code:`self`.
             h : A morphism or object composable after :code:`other`.
+            eq : The notion of equality to use, ``==`` by default.
         """
-        return (self @ other).then(g @ h)\
-            == self.then(g) @ self.whisker(other).then(h)
+        left = (self @ other).then(g @ h)
+        right = self.then(g) @ self.whisker(other).then(h)
+        return bool(eq(left, right) if eq else left == right)
 
     @classmethod
     def check_tensor_unitality(cls, x: C0, y: C0) -> bool:
@@ -294,13 +298,22 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
             left : Whether to trace the wires on the left or right.
         """
 
-    def check_trace_vanishing(self) -> bool:
+    def check_trace_vanishing(
+            self, eq: Callable[[C1, C1], bool] = None) -> bool:
         """
         Check that tracing over the unit object does nothing.
-        """
-        return self.trace(0) == self and self.trace(0, left=True) == self
 
-    def check_trace_superposing(self, obj: C0, left: bool = False) -> bool:
+        Parameters:
+            eq : The notion of equality to use, ``==`` by default.
+        """
+        equal = lambda left, right: bool(
+            eq(left, right) if eq else left == right)
+        return equal(self.trace(0), self)\
+            and equal(self.trace(0, left=True), self)
+
+    def check_trace_superposing(
+            self, obj: C0, left: bool = False,
+            eq: Callable[[C1, C1], bool] = None) -> bool:
         """
         Check that tracing :code:`self` superposed with :code:`obj` is the
         same as superposing :code:`obj` with the trace of :code:`self`.
@@ -308,13 +321,15 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
         Parameters:
             obj : The object to superpose :code:`self` with.
             left : Whether to trace the wires on the left or right.
+            eq : The notion of equality to use, ``==`` by default.
         """
-        if left:
-            return (self @ obj).trace(left=True) == self.trace(left=True) @ obj
-        return (obj @ self).trace() == obj @ self.trace()
+        lhs = (self @ obj).trace(left=True) if left else (obj @ self).trace()
+        rhs = self.trace(left=True) @ obj if left else obj @ self.trace()
+        return bool(eq(lhs, rhs) if eq else lhs == rhs)
 
     def check_trace_naturality(
-            self, x: C0, g: C1, left: bool = False) -> bool:
+            self, x: C0, g: C1, left: bool = False,
+            eq: Callable[[C1, C1], bool] = None) -> bool:
         """
         Check the tightening axiom, i.e. that an endomorphism :code:`g` on
         the untraced wires can be slid through the trace over :code:`x`.
@@ -323,6 +338,7 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
             x : The object to trace over.
             g : An endomorphism on the untraced wires of :code:`self`.
             left : Whether to trace the wires on the left or right.
+            eq : The notion of equality to use, ``==`` by default.
         """
         if left:
             lhs = (x @ g).then(self).then(x @ g).trace(left=True)
@@ -330,10 +346,11 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
         else:
             lhs = (g @ x).then(self).then(g @ x).trace()
             rhs = g.then(self.trace()).then(g)
-        return lhs == rhs
+        return bool(eq(lhs, rhs) if eq else lhs == rhs)
 
     def check_trace_dinaturality(
-            self, x: C0, g: C1, left: bool = False) -> bool:
+            self, x: C0, g: C1, left: bool = False,
+            eq: Callable[[C1, C1], bool] = None) -> bool:
         """
         Check the sliding axiom, i.e. that a morphism :code:`g` can be slid
         from before to after the trace over the untraced wires :code:`x`.
@@ -342,6 +359,7 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
             x : The object left untraced.
             g : The morphism to slide across the trace.
             left : Whether to trace the wires on the left or right.
+            eq : The notion of equality to use, ``==`` by default.
         """
         if left:
             lhs = self.then(g @ x).trace(left=True)
@@ -349,7 +367,7 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
         else:
             lhs = self.then(x @ g).trace()
             rhs = (x @ g).then(self).trace()
-        return lhs == rhs
+        return bool(eq(lhs, rhs) if eq else lhs == rhs)
 
 
 class ResiduatedMonoid[C0, C1: ResiduatedMonoid](ColouredMonoid[C0, C1]):
@@ -557,7 +575,8 @@ class PivotalCategory[C0, C1](RigidCategory[C0, C1], TracedCategory[C0, C1]):
         """
         return x.r == x.l
 
-    def check_transpose(self) -> bool:
+    def check_transpose(
+            self, eq: Callable[[C1, C1], bool] = None) -> bool:
         """
         Check that the left and right transpose of :code:`self` coincide.
         This is the defining axiom of a pivotal category on top of a rigid one,
@@ -572,13 +591,18 @@ class PivotalCategory[C0, C1](RigidCategory[C0, C1], TracedCategory[C0, C1]):
         ----
         This is in general a semantic axiom, e.g. it need not hold for free
         pivotal diagrams under syntactic equality.
+
+        Parameters:
+            eq : The notion of equality to use, ``==`` by default.
         """
         dom, cod = self.dom, self.cod
         left_transpose = (cod.l @ self.caps(dom, dom.l)).then(
             cod.l @ self @ dom.l).then(self.cups(cod.l, cod) @ dom.l)
         right_transpose = (self.caps(dom.r, dom) @ cod.r).then(
             dom.r @ self @ cod.r).then(dom.r @ self.cups(cod, cod.r))
-        return left_transpose == right_transpose
+        return bool(
+            eq(left_transpose, right_transpose)
+            if eq else left_transpose == right_transpose)
 
 
 class BraidedCategory[C0, C1](MonoidalCategory[C0, C1]):
@@ -612,16 +636,20 @@ class BraidedCategory[C0, C1](MonoidalCategory[C0, C1]):
             == (x @ cls.braid(y, z)).then(cls.braid(x, z) @ y)
         return left and right
 
-    def check_braid_naturality(self, other: C1) -> bool:
+    def check_braid_naturality(
+            self, other: C1,
+            eq: Callable[[C1, C1], bool] = None) -> bool:
         """
         Check the naturality of the braid with respect to :code:`self` and
         :code:`other`.
 
         Parameters:
             other : The other morphism to braid with :code:`self`.
+            eq : The notion of equality to use, ``==`` by default.
         """
-        return (self @ other).then(type(self).braid(self.cod, other.cod))\
-            == type(self).braid(self.dom, other.dom).then(other @ self)
+        left = (self @ other).then(type(self).braid(self.cod, other.cod))
+        right = type(self).braid(self.dom, other.dom).then(other @ self)
+        return bool(eq(left, right) if eq else left == right)
 
 
 class BalancedCategory[C0, C1](
@@ -679,14 +707,19 @@ class SymmetricCategory[C0, C1](BalancedCategory[C0, C1]):
         return cls.swap(left, right)
 
     @classmethod
-    def check_swap_inverse(cls, x: C0, y: C0) -> bool:
+    def check_swap_inverse(
+            cls, x: C0, y: C0,
+            eq: Callable[[C1, C1], bool] = None) -> bool:
         """
         Check that the swap is its own inverse, i.e. Reidemeister move 2.
 
         Parameters:
             x, y : The two objects to swap.
+            eq : The notion of equality to use, ``==`` by default.
         """
-        return cls.swap(x, y).then(cls.swap(y, x)) == cls.id(x @ y)
+        left = cls.swap(x, y).then(cls.swap(y, x))
+        right = cls.id(x @ y)
+        return bool(eq(left, right) if eq else left == right)
 
 
 class MarkovCategory[C0, C1](SymmetricCategory[C0, C1]):
@@ -706,52 +739,68 @@ class MarkovCategory[C0, C1](SymmetricCategory[C0, C1]):
         """
 
     @classmethod
-    def check_copy_counitality(cls, x: C0) -> bool:
+    def check_copy_counitality(
+            cls, x: C0, eq: Callable[[C1, C1], bool] = None) -> bool:
         """
         Check the counitality of :code:`copy`, i.e. that discarding one of
         the two copies of :code:`x` does nothing.
 
         Parameters:
             x : The object to copy and discard.
+            eq : The notion of equality to use, ``==`` by default.
         """
         copy, discard = cls.copy(x), cls.copy(x, n=0)
-        return copy.then(discard @ x) == cls.id(x)\
-            and copy.then(x @ discard) == cls.id(x)
+        equal = lambda left, right: bool(
+            eq(left, right) if eq else left == right)
+        return equal(copy.then(discard @ x), cls.id(x))\
+            and equal(copy.then(x @ discard), cls.id(x))
 
     @classmethod
-    def check_copy_coassociativity(cls, x: C0) -> bool:
+    def check_copy_coassociativity(
+            cls, x: C0, eq: Callable[[C1, C1], bool] = None) -> bool:
         """
         Check the coassociativity of :code:`copy`.
 
         Parameters:
             x : The object to copy three times.
+            eq : The notion of equality to use, ``==`` by default.
         """
         copy = cls.copy(x)
-        return copy.then(copy @ x) == copy.then(x @ copy)
+        left, right = copy.then(copy @ x), copy.then(x @ copy)
+        return bool(eq(left, right) if eq else left == right)
 
     @classmethod
-    def check_copy_cocommutativity(cls, x: C0) -> bool:
+    def check_copy_cocommutativity(
+            cls, x: C0, eq: Callable[[C1, C1], bool] = None) -> bool:
         """
         Check the cocommutativity of :code:`copy`.
 
         Parameters:
             x : The object to copy.
+            eq : The notion of equality to use, ``==`` by default.
         """
         copy = cls.copy(x)
-        return copy.then(cls.swap(x, x)) == copy
+        left = copy.then(cls.swap(x, x))
+        return bool(eq(left, copy) if eq else left == copy)
 
     @classmethod
-    def check_copy_coherence(cls, x: C0) -> bool:
+    def check_copy_coherence(
+            cls, x: C0, eq: Callable[[C1, C1], bool] = None) -> bool:
         """
         Check that copying :code:`x @ x` decomposes into copying each
         factor and swapping the middle wires.
 
         Parameters:
             x : The object to tensor with itself before copying.
+            eq : The notion of equality to use, ``==`` by default.
         """
-        return cls.copy(x @ x, n=0) == cls.copy(x, n=0) @ cls.copy(x, n=0)\
-            and cls.copy(x @ x)\
-            == (cls.copy(x) @ cls.copy(x)).then(x @ cls.swap(x, x) @ x)
+        equal = lambda left, right: bool(
+            eq(left, right) if eq else left == right)
+        return equal(
+            cls.copy(x @ x, n=0), cls.copy(x, n=0) @ cls.copy(x, n=0))\
+            and equal(
+                cls.copy(x @ x),
+                (cls.copy(x) @ cls.copy(x)).then(x @ cls.swap(x, x) @ x))
 
 
 class ClosedCategory[C0, C1](BiclosedCategory[C0, C1], MarkovCategory[C0, C1]):
@@ -838,16 +887,23 @@ class CompactCategory[C0, C1](
     :class:`SymmetricCategory`, i.e. with cups, caps and swaps.
     """
     @classmethod
-    def check_reidemeister_1(cls, x: C0) -> bool:
+    def check_reidemeister_1(
+            cls, x: C0, eq: Callable[[C1, C1], bool] = None) -> bool:
         """
         Check Reidemeister move 1, i.e. that a cap or cup can be slid past
         a swap.
 
         Parameters:
             x : The object to check the equation for.
+            eq : The notion of equality to use, ``==`` by default.
         """
-        return cls.caps(x, x.r).then(cls.swap(x, x.r)) == cls.caps(x.r, x)\
-            and cls.swap(x, x.r).then(cls.cups(x.r, x)) == cls.cups(x, x.r)
+        equal = lambda left, right: bool(
+            eq(left, right) if eq else left == right)
+        return equal(
+            cls.caps(x, x.r).then(cls.swap(x, x.r)), cls.caps(x.r, x))\
+            and equal(
+                cls.swap(x, x.r).then(cls.cups(x.r, x)),
+                cls.cups(x, x.r))
 
 
 class HypergraphCategory[C0, C1](
@@ -871,32 +927,39 @@ class HypergraphCategory[C0, C1](
         """
 
     @classmethod
-    def check_frobenius(cls, x: C0) -> bool:
+    def check_frobenius(
+            cls, x: C0, eq: Callable[[C1, C1], bool] = None) -> bool:
         """
         Check the Frobenius law relating the splitting and merging spiders
         on :code:`x`.
 
         Parameters:
             x : The object to take spiders on.
+            eq : The notion of equality to use, ``==`` by default.
         """
         split, merge = cls.spiders(1, 2, x), cls.spiders(2, 1, x)
         left = (split @ x).then(x @ merge)
         middle = merge.then(split)
         right = (x @ split).then(merge @ x)
-        return left == middle and middle == right
+        equal = lambda lhs, rhs: bool(eq(lhs, rhs) if eq else lhs == rhs)
+        return equal(left, middle) and equal(middle, right)
 
     @classmethod
-    def check_speciality(cls, x: C0) -> bool:
+    def check_speciality(
+            cls, x: C0, eq: Callable[[C1, C1], bool] = None) -> bool:
         """
         Check that splitting then merging the spiders on :code:`x` is the
         identity.
 
         Parameters:
             x : The object to take spiders on.
+            eq : The notion of equality to use, ``==`` by default.
         """
         split, merge = cls.spiders(1, 2, x), cls.spiders(2, 1, x)
-        return split.then(merge) == cls.spiders(1, 1, x)\
-            and cls.spiders(1, 1, x) == cls.id(x)
+        equal = lambda left, right: bool(
+            eq(left, right) if eq else left == right)
+        spider = cls.spiders(1, 1, x)
+        return equal(split.then(merge), spider) and equal(spider, cls.id(x))
 
 
 class NamedGeneric(Generic[TypeVar('T')]):
