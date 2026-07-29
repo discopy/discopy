@@ -202,3 +202,13 @@ def test_substitution():
     term = X(lambda y: f(y))
     assert Substitution({f: h(y)(y_)})(term)\
         == Abstraction(y__, h(y)(y_)(y__))
+
+
+def test_discard():
+    """ A discard in a closed diagram is a Discard, not a Copy with n=0. """
+    x = Ty('x')
+    assert Diagram.discard(x) == Copy(x, 0) == Discard(x)
+    assert isinstance(Diagram.discard(x), Discard)
+    from discopy import cat, closed  # noqa: F401  (used by eval)
+    assert eval(repr(Discard(x))) == Discard(x)
+    assert Diagram.discard(x @ x) == Discard(x) @ Discard(x)
