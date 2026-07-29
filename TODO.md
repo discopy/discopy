@@ -11,12 +11,17 @@ authenticate with a PAT or a GitHub App installation that can perform it*:
 
 > we removed it here take a look https://github.com/discopy/discopy/commit/d7f67f7f900796244587cac03e771edcc8d3eb98
 
-That bot is a GitHub App: `vars.DOCS_BOT_APP_ID` and `secrets.DOCS_BOT_PRIVATE_KEY`, minted with
-`actions/create-github-app-token`, removed from `build.yml` in #470.
+That bot is a GitHub App, minted with `actions/create-github-app-token`, removed from `build.yml`
+in #470. It is being renamed from the docs bot it used to be:
+
+> i updated the app's permissions
+> help me rename it to remove "docs" from its title too, it should be just discopy-bot
 
 - [x] Mint the App token in `no-todo-on-main.yml` so `convertPullRequestToDraft` is reachable
 - [x] Fail the job unless the pull request really came back draft, so the gate can never exit 0
       while a TODO file is present on a non-draft pull request
 - [x] Drop `pull-requests: write` from a `pull_request_target` workflow
-- [ ] Alexis grants the App **Pull requests: write** on this repository — it only needed
-      **Contents: write** to push docs baselines, and the mutation stays FORBIDDEN without it
+- [x] Alexis grants the App **Pull requests: write** on this repository
+- [x] Read the App id and private key from `DISCOPY_BOT_APP_ID` / `DISCOPY_BOT_PRIVATE_KEY`
+- [ ] Alexis renames the App to `discopy-bot` in its settings, and re-creates the repository
+      variable and secret under the new names — neither rename can be done from here

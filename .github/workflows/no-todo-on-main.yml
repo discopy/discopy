@@ -11,17 +11,17 @@ jobs:
     if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     steps:
-    - name: Generate a bot token
+    - name: Generate a discopy-bot token
       id: app-token
       # convertPullRequestToDraft answers FORBIDDEN to the default GITHUB_TOKEN
       # even when pull-requests: write is granted, so the mutation runs as the
       # App instead. Falls back to GITHUB_TOKEN when the App is not configured,
       # in which case the gate degrades to a red check rather than to nothing.
-      if: vars.DOCS_BOT_APP_ID != ''
+      if: vars.DISCOPY_BOT_APP_ID != ''
       uses: actions/create-github-app-token@v1
       with:
-        app-id: ${{ vars.DOCS_BOT_APP_ID }}
-        private-key: ${{ secrets.DOCS_BOT_PRIVATE_KEY }}
+        app-id: ${{ vars.DISCOPY_BOT_APP_ID }}
+        private-key: ${{ secrets.DISCOPY_BOT_PRIVATE_KEY }}
     - name: Draft the pull request while a TODO file is present
       env:
         GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
