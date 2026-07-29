@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import pytest
 from pytest import raises
 
 from discopy.cat import *
@@ -343,6 +344,7 @@ def test_from_tree():
 
 
 def test_sum_lambdify():
+    pytest.importorskip("sympy")
     from sympy.abc import phi
     f = Box('f', Ob('x'), Ob('y'), data=[phi])
     g = Box('g', Ob('x'), Ob('y'), data=[phi])

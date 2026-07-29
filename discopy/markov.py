@@ -218,10 +218,6 @@ class Copy(Box):
         return super().__new__(cls) if n else\
             cls.discard_factory.__new__(cls.discard_factory, x)
 
-    def __new__(cls, x: monoidal.Ty, n: int = 2):
-        return super().__new__(cls) if n else\
-            cls.discard_factory.__new__(cls.discard_factory, x)
-
     def dagger(self) -> Merge:
         return Merge(self.dom, len(self.cod))
 
