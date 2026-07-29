@@ -471,13 +471,6 @@ class Permutation(Box):
         super().__init__(
             f"Permutation({list(self.perm)})", dom, cod,
             draw_as_wires=True, draw_as_permutation=tuple(self.perm))
-        if self.perm.is_identity:
-            self.inside = ()
-
-    def __setstate__(self, state):
-        super().__setstate__(state)
-        if self.is_identity:
-            self.inside = ()
 
     @property
     def is_identity(self) -> bool:
