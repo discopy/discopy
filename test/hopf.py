@@ -82,6 +82,7 @@ def test_no_r_matrix_paths():
         Z2.unit, Z2.counit, Z2.mult, Z2.comult, Z2.antipode)
     assert noR.R is None
     assert noR.is_quasitriangular() is False
+    assert noR.is_ribbon() is False
     assert noR.is_valid()
     W = Representation[noR].regular()
     try:
