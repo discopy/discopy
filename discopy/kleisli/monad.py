@@ -31,15 +31,19 @@ Summary
     Maybe
     Powerset
     Subdistribution
+    Seed
     make_monad
+    make_state
 """
 from __future__ import annotations
 
-from collections.abc import Iterable
+import random
+from collections.abc import Callable, Iterable
 
 from discopy.cat import Transformation
 from discopy.python.function import EndoFunctor, Function
-from discopy.utils import assert_isinstance, tuplify, untuplify
+from discopy.utils import (
+    assert_isinstance, factory_name, tuplify, untuplify)
 
 
 class Monad:
@@ -216,3 +220,132 @@ distributions over ``X``: the unit is the Dirac distribution and the
 multiplication averages a distribution over distributions, allowing some
 probability mass to be lost, e.g. to represent failure or divergence.
 """
+
+
+def state_map(f: Callable, m: Callable) -> Callable:
+    """
+    The functorial action of a state monad, i.e. apply ``f`` to the value
+    returned by the computation ``m`` and thread the state through.
+
+    Parameters:
+        f : The function to apply to the value.
+        m : The computation from a state to a value and the next state.
+    """
+    def inside(state):
+        value, next_state = m(state)
+        return f(value), next_state
+    return inside
+
+
+def state_join(mm: Callable) -> Callable:
+    """
+    The multiplication of a state monad, i.e. run the outer computation
+    ``mm`` then the inner one it returns on the state it left.
+
+    Parameters:
+        mm : The computation returning a computation.
+    """
+    def inside(state):
+        m, next_state = mm(state)
+        return m(next_state)
+    return inside
+
+
+def make_state(S: type) -> Monad:
+    """
+    The state monad for a type ``S`` of states, sending a type ``X`` to the
+    type ``S -> (X, S)`` of computations reading a state and returning a
+    value together with the next state.
+
+    Parameters:
+        S : The type of states.
+
+    Note
+    ----
+    The state monad is not commutative: the effects of two computations run
+    in a given order, see :class:`Channel[State]
+    <discopy.kleisli.multiplicative.Channel>`.
+
+    Example
+    -------
+    >>> State = make_state(int)
+    >>> assert State(str) == (Callable[[int], tuple[str, int]], )
+
+    The unit leaves the state untouched and the multiplication runs the
+    outer computation before the inner one:
+
+    >>> tick = lambda x: lambda s: (x, s + 1)
+    >>> assert State.unit(str)("egg")(0) == ("egg", 0)
+    >>> assert State.mult(str)(lambda s: (tick("egg"), s + 1))(0) == ("egg", 2)
+    """
+    ob_map = lambda X: Callable[[S], tuple[X, S]]
+    return Monad.from_maps(
+        f"State[{factory_name(S)}]",
+        ob_map=ob_map,
+        lift=lambda f: Function(
+            lambda m: state_map(f, m),
+            ob_map(untuplify(f.dom)), ob_map(untuplify(f.cod))),
+        unit_map=lambda X: Function(
+            lambda x: lambda state: (x, state), X, ob_map(X)),
+        mult_map=lambda X: Function(
+            state_join, ob_map(ob_map(X)), ob_map(X)))
+
+
+Seed = make_state(int)
+"""
+The state monad on integer seeds, i.e. the monad of seeded randomness: a
+random computation is the pure function sending a seed to a sample and the
+seed for the next sample, see :func:`uniform` and :func:`sample`.
+"""
+
+
+def uniform(seed: int) -> tuple[float, int]:
+    """
+    A sample from the uniform distribution on the unit interval together
+    with the seed for the next sample, i.e. a computation in the
+    :attr:`Seed` monad.
+
+    Parameters:
+        seed : The seed for this sample.
+
+    Example
+    -------
+    >>> assert uniform(420) == uniform(420) != uniform(1337)
+    >>> assert 0 <= uniform(420)[0] < 1
+    """
+    generator = random.Random(seed)
+    return generator.random(), generator.getrandbits(64)
+
+
+def sample(d: frozenset) -> Callable:
+    """
+    Draw an outcome from a subdistribution ``d`` by `inverse transform
+    sampling <https://en.wikipedia.org/wiki/Inverse_transform_sampling>`_,
+    i.e. a computation in the :attr:`Seed` monad.
+
+    The outcomes are ordered by their representation so that the sample
+    depends on the seed only, never on the iteration order of a
+    :class:`frozenset`. The missing mass of a subdistribution is drawn as
+    ``None``, i.e. sampling lands in :attr:`Maybe` composed with
+    :attr:`Seed`.
+
+    Parameters:
+        d : The subdistribution to sample from, i.e. a finite set of pairs
+            of an outcome and its weight.
+
+    Example
+    -------
+    >>> coin = frozenset({("heads", .5), ("tails", .5)})
+    >>> assert sample(coin)(420)[0] in ("heads", "tails")
+    >>> assert sample(frozenset({("heads", .5)}))(420)[0] in ("heads", None)
+    """
+    outcomes = sorted(d, key=lambda pair: repr(pair[0]))
+
+    def inside(seed):
+        draw, next_seed = uniform(seed)
+        for outcome, weight in outcomes:
+            draw -= weight
+            if draw < 0:
+                return outcome, next_seed
+        return None, next_seed
+    return inside

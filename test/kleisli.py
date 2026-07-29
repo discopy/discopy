@@ -6,7 +6,8 @@ from discopy.cat import Transformation
 from discopy.utils import AxiomError
 from discopy.python.function import Function, EndoFunctor
 from discopy.kleisli.monad import (
-    Monad, Maybe, Powerset, Subdistribution, make_monad)
+    Monad, Maybe, Powerset, Subdistribution, Seed,
+    make_monad, make_state, sample)
 from discopy.kleisli.channel import Channel
 from discopy.kleisli import multiplicative
 from discopy.kleisli.multiplicative import Row
@@ -318,3 +319,84 @@ def test_multiplicative_tensor_contraction():
                 for y in range(3) for y_ in range(2)
                 if parallel.array[x, x_, y, y_])
             assert (f @ h)(x, x_) == expected
+
+
+def tick(value):
+    """ The state-monad computation returning ``value`` and ticking a log. """
+    return lambda state: (value, state + 1)
+
+
+def run(computation, states: list) -> list:
+    """ Run a state-monad ``computation`` on each state, for equality. """
+    return [computation(state) for state in states]
+
+
+def test_state_laws():
+    State = make_state(int)
+    states = [0, 1, 42]
+    for value in [tick("egg"), tick("yolk")]:
+        assert run(State.mult(str)(State.unit(State(str))(value)), states)\
+            == run(value, states)\
+            == run(State.mult(str)(State.functor(State.unit(str))(value)),
+                   states)
+    lifted = State.functor(Function(lambda x: x + "s", str, str))
+    assert lifted(tick("egg"))(0) == ("eggs", 1)
+
+
+def test_state_is_not_commutative():
+    """
+    The state monad is not commutative: whiskering on the left and on the
+    right of a channel do not commute, so the two biased tensors differ.
+    """
+    Stateful = multiplicative.Channel[make_state(str)]
+    tag_a = Stateful(lambda x: lambda s: (x, s + "a"), int, int)
+    tag_b = Stateful(lambda x: lambda s: (x, s + "b"), int, int)
+
+    assert (tag_a @ tag_b)(1, 2)("") == ((1, 2), "ab")
+    assert swapped_tensor(tag_a, tag_b)(1, 2)("") == ((1, 2), "ba")
+
+
+def empirical(computation, seed: int, size: int) -> frozenset:
+    """
+    The empirical subdistribution of ``size`` samples drawn by a ``Seed``
+    computation, i.e. the outcomes with their observed frequency.
+    """
+    counts = {}
+    for _ in range(size):
+        outcome, seed = computation(seed)
+        counts[outcome] = counts.get(outcome, 0) + 1
+    return frozenset((x, n / size) for x, n in counts.items())
+
+
+def assert_close(sampled: frozenset, exact: frozenset, tolerance=.02):
+    """ Assert two subdistributions agree outcome by outcome. """
+    weights = dict(sampled)
+    assert set(weights) == {x for x, _ in exact}
+    for outcome, weight in exact:
+        assert abs(weights[outcome] - weight) < tolerance
+
+
+def test_sample_matches_subdistribution():
+    """
+    Sampling a Kleisli composite in the ``Seed`` monad converges to the
+    exact composite computed in the ``Subdistribution`` monad, i.e. seeded
+    randomness simulates sub-distribution semantics -- the comparison asked
+    for on issue #374.
+    """
+    weather = [frozenset({(0, .7), (1, .3)}), frozenset({(0, .4), (1, .6)})]
+    sensor = [frozenset({(0, .9), (1, .1)}), frozenset({(0, .2), (1, .8)})]
+
+    exact = Channel[Subdistribution](weather.__getitem__, int, int)\
+        >> Channel[Subdistribution](sensor.__getitem__, int, int)
+    sampled = Channel[Seed](lambda x: sample(weather[x]), int, int)\
+        >> Channel[Seed](lambda x: sample(sensor[x]), int, int)
+
+    assert_close(empirical(sampled(0), 420, 10000), exact(0))
+
+
+def test_sample_misses_the_missing_mass():
+    """ The missing mass of a subdistribution is sampled as ``None``. """
+    half = frozenset({(0, .25), (1, .25)})
+    assert_close(
+        empirical(sample(half), 420, 10000),
+        frozenset({(0, .25), (1, .25), (None, .5)}))

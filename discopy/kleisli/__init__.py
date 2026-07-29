@@ -13,5 +13,6 @@ DisCoPy's Kleisli modules: monad, channel and multiplicative.
 """
 
 from discopy.kleisli import monad, channel, multiplicative
-from discopy.kleisli.monad import Monad, Maybe, Powerset, Subdistribution
+from discopy.kleisli.monad import (
+    Monad, Maybe, Powerset, Subdistribution, Seed)
 from discopy.kleisli.channel import Channel
