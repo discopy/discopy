@@ -466,9 +466,11 @@ class Permutation(Box):
     def __init__(self, dom: monoidal.Ty, perm: Sequence[int]):
         self.perm = finset.Permutation(perm, len(dom))
         cod = dom[:0].tensor(*(dom[i] for i in self.perm))
+        name = f"Permutation({list(self.perm)})"
         super().__init__(
-            f"Permutation({list(self.perm)})", dom, cod,
-            draw_as_wires=True, draw_as_permutation=tuple(self.perm))
+            name, dom, cod, drawing_name=name,
+            draw_as_wires=True, draw_as_permutation=True,
+            permutation_indices=tuple(self.perm))
 
     @property
     def is_identity(self) -> bool:

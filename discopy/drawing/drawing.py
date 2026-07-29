@@ -846,18 +846,10 @@ class Drawing(TracedCategory, RichDisplay):
     def dagger(self) -> Drawing:
         """ The reflection of a drawing along the the horizontal axis. """
         def box_dagger(box):
-            from discopy.symmetric import Permutation
             result = box.dagger()
             for attr in BOX_DRAWING_ATTRIBUTES:
-                if attr == "drawing_name" and isinstance(box, Permutation):
-                    continue
-                value = getattr(box, attr)
-                if attr == "draw_as_permutation" and value is not None:
-                    inverse = [0] * len(value)
-                    for i, j in enumerate(value):
-                        inverse[j] = i
-                    value = tuple(inverse)
-                setattr(result, attr, value)
+                if not hasattr(result, attr):
+                    setattr(result, attr, getattr(box, attr))
             return result
 
         if self.is_box:

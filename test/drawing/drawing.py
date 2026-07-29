@@ -360,8 +360,9 @@ def test_draw_permutation():
     box_node = drawing.box_nodes[0]
     assert len(list(drawing.graph.predecessors(box_node))) == len(perm.dom)
     assert len(list(drawing.graph.successors(box_node))) == len(perm.cod)
-    assert drawing.box.draw_as_permutation == tuple(perm.perm)
-    assert drawing.dagger().box.draw_as_permutation\
+    assert drawing.box.draw_as_permutation is True
+    assert drawing.box.permutation_indices == tuple(perm.perm)
+    assert drawing.dagger().box.permutation_indices\
         == tuple(perm.perm.dagger())
     assert drawing.dagger() == perm.dagger().to_drawing()
     assert drawing.dagger().box.drawing_name\
@@ -379,7 +380,7 @@ def test_draw_permutation():
 
     custom = Box(
         'custom', x @ y, y @ x, draw_as_wires=True,
-        draw_as_permutation=(1, 0)).to_drawing()
+        draw_as_permutation=True, permutation_indices=(1, 0)).to_drawing()
     assert custom.dagger().dagger() == custom
     assert custom.dagger().dagger().box.name == 'custom'
 

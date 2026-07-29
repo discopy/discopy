@@ -588,7 +588,7 @@ class Backend(ABC):
         for node in graph.nodes:
             if node.kind != "box":
                 continue
-            if node.box.draw_as_permutation is not None:
+            if node.box.draw_as_permutation:
                 self.draw_permutation(graph.positions, node)
             elif node.box.is_crossing:
                 self.draw_braid(graph.positions, node)
@@ -695,7 +695,7 @@ class Backend(ABC):
         """ Draw a permutation as a band of crossing wires. """
         box, j = node.box, node.j
         middle = positions[node][1]
-        for i, source in enumerate(box.draw_as_permutation):
+        for i, source in enumerate(box.permutation_indices):
             dom = positions[Node(
                 "box_dom", i=source, j=j, x=box.dom[source])]
             cod = positions[Node("box_cod", i=i, j=j, x=box.cod[i])]
