@@ -82,6 +82,7 @@ jobs:
         fi
 
         current="$(todo_at "$HEAD_SHA")" || exit 1
+        echo "todo=$current" >> "$GITHUB_OUTPUT"
         transition=none
         if [ "$current" = present ] && [ "$is_draft" != true ]; then
           transition=draft
@@ -178,3 +179,9 @@ jobs:
         else
           echo "::notice::TODO.md was deleted — pull request is now ready."
         fi
+
+    - name: Enforce TODO deletion
+      if: always() && steps.gate.outputs.todo == 'present'
+      run: |
+        echo "::error::TODO.md is present. Delete it to make this pull request mergeable."
+        exit 1
