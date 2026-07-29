@@ -278,17 +278,24 @@ class Algebra:
         :math:`1 \\to H`, for :math:`u` the Drinfeld element and :math:`g`
         the pivotal element: the invertible central element with
         :math:`v^2 = uS(u)`, :math:`S(v) = v` and :math:`\\epsilon(v) = 1`
-        whose action is the twist, :math:`\\theta_V = \\rho_V(v)`, so that
-        :meth:`Intertwiner.twist` is a single application of the action.
-        These properties are checked by :meth:`is_ribbon` on first access,
-        raising :class:`ValueError` when the algebra is not ribbon — e.g.
-        the double of a Taft algebra of even dimension, by Kauffman and
-        Radford's criterion.
+        whose action is the twist, :math:`\\theta_V = \\rho_V(v)` —
+        materialised as a single state box so that
+        :meth:`Intertwiner.twist` is one state and one application of the
+        action. The ribbon properties are checked by :meth:`is_ribbon` on
+        first access, raising :class:`ValueError` when the algebra is not
+        ribbon — e.g. the double of a Taft algebra of even dimension, by
+        Kauffman and Radford's criterion.
         """
         if not self.is_ribbon():
             raise ValueError("this is not a ribbon Hopf algebra")
-        return self.drinfeld_element \
-            @ (self.pivotal_element >> self.antipode) >> self.mult
+        n = self.dim
+        S = self.antipode.eval(dtype=complex).array.reshape(n, n)
+        mult = self.mult.eval(dtype=complex).array.reshape(n, n, n)
+        R = self.R.eval(dtype=complex).array.reshape(n, n)
+        u = np.einsum('ij,ja,aik->k', R, S, mult)
+        g = self.pivotal_element.eval(dtype=complex).array.reshape(n)
+        v = np.einsum('i,j,ijk->k', u, S.T @ g, mult)
+        return Box[complex]('v', Dim(1), self.ty, v.tolist())
 
     def __repr__(self):
         optional = "" if self.R is None else f", R={self.R!r}"
