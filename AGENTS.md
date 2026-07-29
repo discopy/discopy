@@ -32,9 +32,8 @@ Before pushing anything, make sure that:
 - you have `uv run` both `pflake8 discopy` and `coverage run -m pytest` as described in @CONTRIBUTING.md
 - you have respected the [code style guide](CONTRIBUTING.md#code-style-guide)
 
-A pull request is **ready for sign-off** when all four of these hold:
+A pull request is **ready for sign-off** when all three of these hold:
 
 1) every point of its `TODO.md` is `[x]`, the rest filed as issues
-2) CI is green on the real jobs
+2) CI is green on the real jobs, with the target branch merged in
 3) no review thread is waiting on an agent, i.e. every thread is either resolved or waiting on human feedback
-4) it is not behind its target branch
