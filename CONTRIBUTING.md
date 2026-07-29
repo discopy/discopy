@@ -60,6 +60,8 @@ uv run coverage run -m pytest
 uv run coverage report -m
 ```
 
+Without the extras installed, run `uv run pytest --skip-extra` to skip what needs them.
+
 ## Run the benchmarks
 
 The composition benchmark (`benchmark/test_composition.py`) reproduces the scaling
