@@ -206,60 +206,71 @@ class Algebra:
         :math:`g` conjugating the square of the antipode,
         :math:`S^2(x) = g x g^{-1}`, which makes the representation category
         pivotal. It is the ``unit`` whenever :math:`S^2 = 1`; otherwise it
-        is found on first access by solving :math:`S^2(x) g = g x` for all
-        basis :math:`x` and looking for grouplikes
-        :math:`\\Delta(g) = g \\otimes g` in the solution space, raising
-        :class:`ValueError` when there is none. A pivot is not unique: for a
-        quasitriangular algebra the one turning the Drinfeld element into a
-        ribbon element is preferred (see :attr:`ribbon_element`).
+        is found on first access by solving the linear system
+        :math:`S^2(x) g = g x` for all basis :math:`x`, then reading the
+        grouplikes off the solution space: since
+        :math:`\\Delta(g) = g \\otimes g` implies
+        :math:`(1 \\otimes \\varphi) \\Delta (g) = \\varphi(g) g`, they are
+        among the eigenvectors of that operator for a fixed generic
+        functional :math:`\\varphi`, exactly filtered — raising
+        :class:`ValueError` when there is none. A pivot is not unique: an
+        :meth:`is_ribbon` one is preferred (see :attr:`ribbon_element`).
         """
         n = self.dim
         S = self.antipode.eval(dtype=complex).array.reshape(n, n)
+        if np.allclose(S @ S, np.eye(n)):
+            return self.unit
         mult = self.mult.eval(dtype=complex).array.reshape(n, n, n)
         counit = self.counit.eval(dtype=complex).array.reshape(n)
         comult = self.comult.eval(dtype=complex).array.reshape(n, n, n)
-        if np.allclose(S @ S, np.eye(n)):
-            return self.unit
         system = np.einsum('xw,wgz->xzg', S @ S, mult).reshape(-1, n) \
             - np.einsum('gxz->xzg', mult).reshape(-1, n)
         _, values, vectors = np.linalg.svd(system)
         space = vectors[np.sum(values > 1e-7 * values[0]):].conj().T
-        found = []
-        for seed in range(3):
-            weights = np.random.default_rng(seed).standard_normal(n)
-            operator = np.einsum('ipq,q->pi', comult, weights)
-            projected = space.conj().T @ operator @ space
-            for coeffs in np.linalg.eig(projected)[1].T:
-                g = space @ coeffs
-                if abs(counit @ g) < 1e-8:
-                    continue
-                g = g / (counit @ g)
-                if np.allclose(np.einsum('i,ipq->pq', g, comult),
-                               np.outer(g, g), atol=1e-6) \
-                        and not any(np.allclose(g, h, atol=1e-6)
-                                    for h in found):
-                    found.append(g)
+        functional = np.exp(2j * np.pi * np.sqrt(2) * np.arange(n))
+        operator = np.einsum('ipq,q->pi', comult, functional)
+        projected = space.conj().T @ operator @ space
+        candidates = [g / (counit @ g)
+                      for g in (space @ np.linalg.eig(projected)[1]).T
+                      if abs(counit @ g) > 1e-8]
+        found = [g for g in candidates
+                 if np.allclose(np.einsum('i,ipq->pq', g, comult),
+                                np.outer(g, g), atol=1e-6)]
         if not found:
             raise ValueError("the square of the antipode is not inner "
                              "by a grouplike, there is no pivotal element")
-        if self.R is not None and len(found) > 1:
-            R = self.R.eval(dtype=complex).array.reshape(n, n)
-            u = np.einsum('ij,ja,aik->k', R, S, mult)
-            unit = self.unit.eval(dtype=complex).array.reshape(n)
 
-            def is_ribbon(g):
-                g_inv = np.linalg.solve(
-                    np.einsum('i,ijk->jk', g, mult).T, unit)
-                v = np.einsum('i,j,ijk->k', u, g_inv, mult)
-                return np.allclose(
-                    np.einsum('i,ijk->jk', v, mult),
-                    np.einsum('i,jik->jk', v, mult), atol=1e-6) \
-                    and np.allclose(S.T @ v, v, atol=1e-6)
-            found.sort(key=lambda g: (
-                not is_ribbon(g), repr(np.round(g, 6).tolist())))
-        g = found[0]
-        return Box[complex](
-            'g', Dim(1), self.ty, g.reshape(-1).tolist())
+        def state(g):
+            return Box[complex]('g', Dim(1), self.ty, g.reshape(-1).tolist())
+
+        found.sort(key=lambda g: repr(np.round(g, 6).tolist()))
+        if self.R is not None and len(found) > 1:
+            found.sort(key=lambda g: not self.is_ribbon(state(g)))
+        return state(found[0])
+
+    def is_ribbon(self, pivot=None):
+        """
+        Whether the given ``pivot`` state — the :attr:`pivotal_element` by
+        default — turns the Drinfeld element into a ribbon element: whether
+        :math:`v = u g^{-1}` is central, fixed by the antipode and squares
+        to :math:`u S(u)`. ``False`` without a quasitriangular structure.
+        """
+        if self.R is None:
+            return False
+        n = self.dim
+        pivot = self.pivotal_element if pivot is None else pivot
+        S = self.antipode.eval(dtype=complex).array.reshape(n, n)
+        mult = self.mult.eval(dtype=complex).array.reshape(n, n, n)
+        R = self.R.eval(dtype=complex).array.reshape(n, n)
+        u = np.einsum('ij,ja,aik->k', R, S, mult)
+        g = pivot.eval(dtype=complex).array.reshape(n)
+        v = np.einsum('i,j,ijk->k', u, S.T @ g, mult)
+        return np.allclose(np.einsum('i,ijk->jk', v, mult),
+                           np.einsum('i,jik->jk', v, mult), atol=1e-6) \
+            and np.allclose(S.T @ v, v, atol=1e-6) \
+            and np.allclose(
+                np.einsum('i,j,ijk->k', v, v, mult),
+                np.einsum('i,j,ijk->k', u, S.T @ u, mult), atol=1e-6)
 
     @cached_property
     def ribbon_element(self):
@@ -270,25 +281,12 @@ class Algebra:
         :math:`v^2 = uS(u)`, :math:`S(v) = v` and :math:`\\epsilon(v) = 1`
         whose action is the twist, :math:`\\theta_V = \\rho_V(v)`, so that
         :meth:`Intertwiner.twist` is a single application of the action.
-        These properties are checked on first access, raising
-        :class:`ValueError` when the algebra is not ribbon — e.g. the
-        double of a Taft algebra of even dimension, by Kauffman and
+        These properties are checked by :meth:`is_ribbon` on first access,
+        raising :class:`ValueError` when the algebra is not ribbon — e.g.
+        the double of a Taft algebra of even dimension, by Kauffman and
         Radford's criterion.
         """
-        n = self.dim
-        S = self.antipode.eval(dtype=complex).array.reshape(n, n)
-        mult = self.mult.eval(dtype=complex).array.reshape(n, n, n)
-        R = self.R.eval(dtype=complex).array.reshape(n, n)
-        u = np.einsum('ij,ja,aik->k', R, S, mult)
-        g = self.pivotal_element.eval(dtype=complex).array.reshape(n)
-        v = np.einsum('i,j,ijk->k', u, S.T @ g, mult)
-        central = np.allclose(np.einsum('i,ijk->jk', v, mult),
-                              np.einsum('i,jik->jk', v, mult), atol=1e-6)
-        square = np.allclose(
-            np.einsum('i,j,ijk->k', v, v, mult),
-            np.einsum('i,j,ijk->k', u, S.T @ u, mult), atol=1e-6)
-        if not (central and square
-                and np.allclose(S.T @ v, v, atol=1e-6)):
+        if not self.is_ribbon():
             raise ValueError("this is not a ribbon Hopf algebra")
         return self.drinfeld_element \
             @ (self.pivotal_element >> self.antipode) >> self.mult
@@ -507,16 +505,19 @@ class Algebra:
     @classmethod
     def taft(cls, n):
         """
-        The Taft algebra of dimension :math:`n^2` with basis
-        :math:`g^a x^b` for :math:`0 \\leq a, b < n`: the relations are
+        The Taft algebra of dimension :math:`n^2`, generated by a grouplike
+        :math:`g` — i.e. :math:`\\Delta(g) = g \\otimes g` — and a
+        skew-primitive :math:`x` with
+        :math:`\\Delta(x) = x \\otimes 1 + g \\otimes x`, with basis
+        :math:`g^a x^b` for :math:`0 \\leq a, b < n` and relations
         :math:`g^n = 1`, :math:`x^n = 0` and :math:`xg = q\\,gx` for
-        :math:`q` a primitive :math:`n`-th root of unity, with
-        :math:`\\Delta(g) = g \\otimes g`,
-        :math:`\\Delta(x) = x \\otimes 1 + g \\otimes x`,
-        :math:`S(g) = g^{-1}` and :math:`S(x) = -g^{-1}x`. Sweedler's
-        algebra is the case :math:`n = 2` up to a change of basis; for
-        :math:`n > 2` the structure constants are complex and the pivotal
-        element has order :math:`n`.
+        :math:`q` a primitive :math:`n`-th root of unity. The antipode is
+        the anti-homomorphism with :math:`S(g) = g^{-1}` and
+        :math:`S(x) = -g^{-1}x`, so :math:`S^2` is conjugation by
+        :math:`g`: the generator is itself the :attr:`pivotal_element`, of
+        order :math:`n`. Sweedler's algebra is the case :math:`n = 2` up to
+        a change of basis; for :math:`n > 2` the structure constants are
+        complex.
 
         >>> assert Algebra.taft(3).is_valid()
         """
@@ -582,14 +583,23 @@ class Double(Algebra):
     >>> D = Double(Algebra.cyclic(2))
     >>> assert D.dim == 4 and D.is_valid() and D.is_quasitriangular()
     """
+    @staticmethod
+    def star(box):
+        """
+        The transpose of a generator as a generator of :math:`H^*`: the
+        :meth:`.tensor.Tensor.dagger` with the conjugation undone, so that
+        complex structure constants dualise correctly.
+        """
+        transpose = box.eval(dtype=complex).dagger().conjugate(
+            diagrammatic=False)
+        return Box[complex](
+            box.name + '*', box.cod, box.dom,
+            transpose.array.reshape(-1).tolist())
+
     def __init__(self, base):
         assert_isinstance(base, Algebra)
         self.base = base
-        ty, Sinv = base.ty, base.antipode_inv
-        star = lambda box: Box[complex](  # noqa: E731
-            box.name + '*', box.cod, box.dom,
-            np.asarray(box.array, dtype=complex).reshape(
-                product(box.dom.inside), -1).T.reshape(-1).tolist())
+        ty, Sinv, star = base.ty, base.antipode_inv, self.star
         mstar, dstar = star(base.comult), star(base.mult)
 
         unit = star(base.counit) @ base.unit
@@ -930,17 +940,21 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
         return cls(body.inside, body.dom, body.cod)
 
     @classmethod
-    def cups(cls, left, right, is_right_dual=True):
+    def cups(cls, left, right):
         """
         The evaluation of a module against its dual. When ``right`` is the
-        right dual of ``left`` this is the *pivotal* evaluation, twisting
-        the dual leg by the inverse of the pivotal element; the pairing of
-        a dual against its module is the plain one. Both coincide whenever
+        right dual of ``left`` — read off the ``action`` of the two
+        modules, so that the standard :class:`.rigid.Functor` dispatch
+        applies unchanged — this is the *pivotal* evaluation, twisting the
+        dual leg by the inverse of the pivotal element; the pairing of a
+        dual against its module is the plain one. Both coincide whenever
         the pivotal element is trivial.
         """
         body = Diagram.cups(Dim(*left.inside), Dim(*right.inside))
-        if is_right_dual and cls.algebra is not None \
+        if cls.algebra is not None \
+                and isinstance(left, Representation) \
                 and isinstance(right, Representation) \
+                and right.action == left.r.action \
                 and cls.algebra.pivotal_element != cls.algebra.unit:
             H = cls.algebra
             g_inv = H.pivotal_element >> H.antipode
@@ -949,17 +963,20 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
         return cls(body.inside, body.dom, body.cod)
 
     @classmethod
-    def caps(cls, left, right, is_right_dual=True):
+    def caps(cls, left, right):
         """
         The coevaluation of a module against its dual. When ``right`` is
         the right dual of ``left`` this is the plain copairing; a dual
-        followed by its module is the *pivotal* coevaluation, twisting the
-        module leg by the inverse of the pivotal element. Both coincide
-        whenever the pivotal element is trivial.
+        followed by its module — read off the ``action`` of the two
+        modules, as for :meth:`cups` — is the *pivotal* coevaluation,
+        twisting the module leg by the inverse of the pivotal element.
+        Both coincide whenever the pivotal element is trivial.
         """
         body = Diagram.caps(Dim(*left.inside), Dim(*right.inside))
-        if not is_right_dual and cls.algebra is not None \
+        if cls.algebra is not None \
+                and isinstance(left, Representation) \
                 and isinstance(right, Representation) \
+                and left.action == right.r.action \
                 and cls.algebra.pivotal_element != cls.algebra.unit:
             H = cls.algebra
             g_inv = H.pivotal_element >> H.antipode
@@ -1024,12 +1041,4 @@ class Functor(ribbon.Functor):
         if isinstance(other, ribbon.Braid):
             return self.cod.braid(self(other.dom[:1]), self(other.dom[1:]),
                                   is_dagger=other.is_dagger)
-        if isinstance(other, ribbon.Cup):
-            first, second = (ob.z for ob in other.dom.inside)
-            return self.cod.cups(self(other.dom[:1]), self(other.dom[1:]),
-                                 is_right_dual=second == first + 1)
-        if isinstance(other, ribbon.Cap):
-            first, second = (ob.z for ob in other.cod.inside)
-            return self.cod.caps(self(other.cod[:1]), self(other.cod[1:]),
-                                 is_right_dual=second == first + 1)
         return super().__call__(other)
