@@ -34,5 +34,8 @@ in #470. It is being renamed from the docs bot it used to be:
 
 > implement it and push to the existing branch
 
+> cut the workflow code down it looks way too bloated, you’re over engineering it: just check if there is a todo and it’s not draft make it draft, if the last commit deletes the todo make it ready
+
 - [x] Make TODO inspection fail closed and the gate bidirectional for gate-managed pull requests
-- [WIP] @codex-ruleset-2026-07-29 19:47 Make `guard` a required status check on `main`
+- [WIP] @codex-gate-2026-07-29 20:42 Reduce the gate to the two requested state transitions
+- [ ] Make `guard` a required status check on `main`
