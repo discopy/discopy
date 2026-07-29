@@ -35,7 +35,7 @@ Commutative monoid
 >>> commutativity = Equation(Swap(x, x) >> merge, merge)
 >>> assert unitality and associativity and commutativity
 >>> Equation(unitality, associativity, commutativity, symbol='').draw(
-...     path="docs/_static/frobenius/monoid.svg")
+...     doctest="docs/_static/frobenius/monoid.svg")
 
 .. image:: /_static/frobenius/monoid.svg
     :align: center

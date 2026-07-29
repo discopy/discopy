@@ -37,7 +37,7 @@ Cocommutative comonoid
 >>> cocommutativity = Equation(copy >> Swap(x, x), copy)
 >>> assert counitality and coassociativity and cocommutativity
 >>> Equation(counitality, coassociativity, cocommutativity, symbol='').draw(
-...     path="docs/_static/frobenius/comonoid.svg")
+...     doctest="docs/_static/frobenius/comonoid.svg")
 
 .. image:: /_static/frobenius/comonoid.svg
     :align: center
@@ -146,7 +146,7 @@ class Diagram(symmetric.Diagram, MarkovCategory):
     ...     return y, y
 
     >>> Equation(copy_then_apply, apply_then_copy, symbol="$\\\\neq$").draw(
-    ...     path="docs/_static/markov/copy_and_apply.svg")
+    ...     doctest="docs/_static/markov/copy_and_apply.svg")
 
     .. image:: /_static/markov/copy_and_apply.svg
     """
@@ -477,7 +477,7 @@ class Functor(symmetric.Functor):
     >>> assert F(Function(x @ x, [1, 0, 0]))(4, 2) == (2, 4, 4)
 
     >>> Equation(bialgebra_l, bialgebra_r, symbol="=").draw(
-    ...     path="docs/_static/markov/bialgebra.svg")
+    ...     doctest="docs/_static/markov/bialgebra.svg")
 
     .. image:: /_static/markov/bialgebra.svg
     """

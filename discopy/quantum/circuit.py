@@ -38,7 +38,7 @@ Examples
 >>> circuit = Ket(0, 0) >> CX >> Controlled(Rz(0.25)) >> Measure() @ Discard()
 >>> circuit.draw(
 ...     figsize=(3, 6),
-...     path='docs/_static/quantum/circuit-example.svg')
+...     doctest='docs/_static/quantum/circuit-example.svg')
 
 .. image:: /_static/quantum/circuit-example.svg
     :align: center
@@ -60,7 +60,7 @@ Examples
 >>> from discopy.monoidal import Equation
 >>> Equation(
 ...     sentence, F(sentence).foliation(), symbol='$\\\\mapsto$').draw(
-...         path='docs/_static/quantum/functor-example.svg')
+...         doctest='docs/_static/quantum/functor-example.svg')
 
 .. image:: /_static/quantum/functor-example.svg
     :align: center

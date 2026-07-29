@@ -643,3 +643,12 @@ def test_euler_characteristic():
     t = compact.Box("t", compact.Ty(), compact.Ty()).to_map()
     assert (s @ t).connected_components == [s, t]
     assert compact.CMap.id().connected_components == [compact.CMap.id()]
+
+
+def test_draw_plain_path(tmp_path):
+    f = compact.Box("f", compact.Ty("x"), compact.Ty("y")).to_map()
+    for fmt in ("dot", "svg"):
+        path = tmp_path / f"f.{fmt}"
+        for _ in range(2):  # A plain path saves, overwriting silently.
+            f.draw(path=path, show=False)
+        assert path.exists()
