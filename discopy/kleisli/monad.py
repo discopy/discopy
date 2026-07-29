@@ -262,9 +262,9 @@ def make_state(S: type) -> Monad:
 
     Note
     ----
-    The state monad is not commutative: the effects of two computations run
-    in a given order, see :class:`Channel[State]
-    <discopy.kleisli.multiplicative.Channel>`.
+    The state monad is not commutative: two channels tensored in its Kleisli
+    category run their effects in a given order, so the two biased tensors
+    differ, see :mod:`discopy.kleisli.multiplicative`.
 
     Example
     -------
