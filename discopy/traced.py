@@ -31,13 +31,13 @@ A monoidal category is right-traced when it comes with an operator of shape:
 >>> x, y, z = map(Ty, "xyz")
 >>> f = Box("f", x @ z, y @ z)
 >>> Equation(f, f.trace(), symbol="$\\\\mapsto$").draw(
-...     path='docs/_static/traced/right-trace.svg')
+...     doctest='docs/_static/traced/right-trace.svg')
 
 It is left-traced when it comes with an operator of the following shape:
 
 >>> g = Box("g", z @ x, z @ y)
 >>> Equation(g, g.trace(left=True), symbol="$\\\\mapsto$").draw(
-...     path='docs/_static/traced/left-trace.svg')
+...     doctest='docs/_static/traced/left-trace.svg')
 
 
 These are subjects to the axioms listed below. Note however that at the moment
@@ -67,7 +67,7 @@ Yanking
 >>> yanking = Equation(
 ...     Swap(x, x).trace(left=True), Id(x), Swap(x, x).trace())
 >>> yanking.draw(
-...     path='docs/_static/traced/yanking.svg',
+...     doctest='docs/_static/traced/yanking.svg',
 ...     wire_labels=False, figsize=(4, 1))
 
 .. image:: /_static/traced/yanking.svg
@@ -82,7 +82,7 @@ Naturality
 ...     (x @ g >> f >> x @ g).trace(left=True),
 ...     g >> f.trace(left=True) >> g)
 >>> tightening_left.draw(
-...     path='docs/_static/traced/tightening-left.svg', wire_labels=False)
+...     doctest='docs/_static/traced/tightening-left.svg', wire_labels=False)
 
 .. image:: /_static/traced/tightening-left.svg
     :align: center
@@ -91,7 +91,7 @@ Naturality
 ...     (g @ x >> f >> g @ x).trace(),
 ...     g >> f.trace() >> g)
 >>> tightening_right.draw(
-...     path='docs/_static/traced/tightening-right.svg',
+...     doctest='docs/_static/traced/tightening-right.svg',
 ...     wire_labels=False)
 
 .. image:: /_static/traced/tightening-right.svg
@@ -106,7 +106,7 @@ Dinaturality
 ...     (f >> g @ x).trace(left=True),
 ...     (g @ x >> f).trace(left=True))
 >>> sliding_left.draw(
-...     path='docs/_static/traced/sliding-left.svg', wire_labels=False)
+...     doctest='docs/_static/traced/sliding-left.svg', wire_labels=False)
 
 .. image:: /_static/traced/sliding-left.svg
     :align: center
@@ -115,7 +115,7 @@ Dinaturality
 ...     (f >> x @ g).trace(),
 ...     (x @ g >> f).trace())
 >>> sliding_right.draw(
-...     path='docs/_static/traced/sliding-right.svg', wire_labels=False)
+...     doctest='docs/_static/traced/sliding-right.svg', wire_labels=False)
 
 .. image:: /_static/traced/sliding-right.svg
     :align: center
@@ -160,7 +160,7 @@ class Diagram(monoidal.Diagram, TracedCategory):
         >>> LHS, RHS = f.trace(left=True), f.trace(left=False)
         >>> Eq(Eq(LHS, f, symbol="$\\\\mapsfrom$"),
         ...     RHS, symbol="$\\\\mapsto$").draw(
-        ...         path="docs/_static/traced/trace.svg")
+        ...         doctest="docs/_static/traced/trace.svg")
 
         .. image:: /_static/traced/trace.svg
         """
@@ -244,7 +244,7 @@ class Functor(monoidal.Functor):
     ...     assert F(f.trace())() == F(g)()
 
     >>> from discopy.monoidal import Equation
-    >>> Equation(f.trace(), g).draw(path="docs/_static/traced/golden.svg")
+    >>> Equation(f.trace(), g).draw(doctest="docs/_static/traced/golden.svg")
 
     .. image:: /_static/traced/golden.svg
     """
