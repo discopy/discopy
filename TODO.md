@@ -34,5 +34,5 @@ in #470. It is being renamed from the docs bot it used to be:
 
 > implement it and push to the existing branch
 
-- [ ] Make TODO inspection fail closed and the gate bidirectional for gate-managed pull requests
+- [WIP] @codex-gate-2026-07-29 19:32 Make TODO inspection fail closed and the gate bidirectional for gate-managed pull requests
 - [ ] Make `guard` a required status check on `main`
