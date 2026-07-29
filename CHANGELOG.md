@@ -32,18 +32,26 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - The benchmark job runs only on `main` and on pull requests labelled
   `benchmark` ([#385](https://github.com/discopy/discopy/pull/385),
   [#459](https://github.com/discopy/discopy/pull/459)).
+- Diagram spacing is now automatically computed from exact font-dependent
+  text width, for both box names and wire labels, instead of overflowing
+  or colliding with neighbouring wires
+  ([#364](https://github.com/discopy/discopy/pull/364),
+  [#365](https://github.com/discopy/discopy/pull/365)).
 
 ### Changed
 
 - `Arrow` is refactored onto a `FreeCategory` base class
   ([#350](https://github.com/discopy/discopy/pull/350)).
-- Tensor networks are contracted with `opt_einsum`, fixing the 52-index
-  limit of `numpy.einsum`
-  ([#448](https://github.com/discopy/discopy/pull/448)).
 - The `tensor` module is refactored to go through `CMap` for `einsum`
   ([#402](https://github.com/discopy/discopy/pull/402)).
-- `hypergraph_factory` is refactored
+- Add a `functor_factory` attribute to each `Diagram` class and remove
+  `hypergraph_factory`: `Hypergraph` is now a `NamedGeneric["category"]`
+  instead of a `NamedGeneric["functor"]`
   ([#379](https://github.com/discopy/discopy/pull/379)).
+- Documentation notebooks are migrated from Jupyter (`.ipynb`) to marimo
+  markdown, with docs (`nbsphinx` → embedded marimo HTML) and CI
+  (`nbmake` → `marimo export`) updated to match
+  ([#404](https://github.com/discopy/discopy/pull/404)).
 - The `Functor` keyword arguments `ob`/`ar` are renamed to
   `ob_map`/`ar_map` throughout the codebase, docs and benchmarks
   ([#369](https://github.com/discopy/discopy/pull/369),
@@ -67,9 +75,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
-- Boxes are widened to fit long names and wire labels get right margins
-  ([#364](https://github.com/discopy/discopy/pull/364),
-  [#365](https://github.com/discopy/discopy/pull/365)).
+- Tensor networks are contracted with `opt_einsum` when the number of
+  indices exceeds `numpy.einsum`'s 52-index limit
+  ([#448](https://github.com/discopy/discopy/pull/448)).
 - Hypergraph hash
   ([#387](https://github.com/discopy/discopy/pull/387)).
 - Bubble drawing
@@ -82,19 +90,6 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `Hypergraph` equality, permutations and other micro-optimizations bring
   equality checks down to `O(n)`
   ([#353](https://github.com/discopy/discopy/pull/353)).
-
-### Dependencies
-
-- Bump `jupyter-server`, `jupyterlab` (twice), `soupsieve`, `mistune`,
-  `nltk`, `torch` and `pillow` to their latest patch/minor releases
-  ([#344](https://github.com/discopy/discopy/pull/344),
-  [#345](https://github.com/discopy/discopy/pull/345),
-  [#460](https://github.com/discopy/discopy/pull/460),
-  [#388](https://github.com/discopy/discopy/pull/388),
-  [#396](https://github.com/discopy/discopy/pull/396),
-  [#423](https://github.com/discopy/discopy/pull/423),
-  [#424](https://github.com/discopy/discopy/pull/424),
-  [#434](https://github.com/discopy/discopy/pull/434)).
 
 ### Project
 
