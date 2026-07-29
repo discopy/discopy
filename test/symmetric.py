@@ -377,3 +377,16 @@ def test_abc_permutation():
             assert Equation(result, Diagram.permutation(list(xs), doms))
     with raises(ValueError):
         abc_permutation(Diagram, [0, 0], [Ty('a'), Ty('b')])
+
+
+def test_coloured_Layer_boxes_and_types():
+    from discopy import monoidal
+    from discopy.monoidal import Wire
+
+    red, green = map(monoidal.Colour, ("red", "green"))
+    x = Ty(Wire('x', dom=red, cod=green))
+    f = Box('f', x, x)
+    empty_red, empty_green = x[:0], x[len(x):]
+    assert Layer.cast(f).boxes_and_types == (empty_red, f, empty_green)
+    assert Layer(empty_red, f, empty_green).boxes_and_types\
+        == (empty_red, f, empty_green)

@@ -179,13 +179,11 @@ class Layer(monoidal.Layer):
         """ Every permutation as an ordinary box between empty types. """
         result = []
         for i, value in enumerate(self.boxes_or_types):
-            if i % 2 or isinstance(value, Permutation):
-                empty = value.dom[:0]
-                result += [value, empty] if result else [empty, value, empty]
-            elif result and isinstance(result[-1], monoidal.Ty):
-                result[-1] @= value
-            else:
+            if i % 2 or not isinstance(value, Permutation):
                 result.append(value)
+            else:
+                result += [
+                    value.dom[:0], value, value.cod[len(value.cod):]]
         return tuple(result)
 
     @classmethod
