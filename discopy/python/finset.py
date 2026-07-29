@@ -87,12 +87,12 @@ class Function(MonoidalCategory, Sequence):
         inside = list(Permutation.swap(x, y))
         return Function(inside, x + y, x + y)
 
-    @staticmethod
-    def permutation(xs: Sequence[int], doms: Sequence[int]) -> Function:
+    @classmethod
+    def permutation(cls, xs: Sequence[int], doms: Sequence[int]) -> Function:
         xs = Permutation(xs)
         dom = sum(doms)
         if xs.is_identity:
-            return Function.id(sum(doms))
+            return Function.id(dom)
         return Function(list(Permutation(xs, dom)), dom, dom)
 
     @staticmethod
