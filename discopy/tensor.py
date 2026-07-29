@@ -88,7 +88,7 @@ class Tensor(Matrix):
     -----
     Tensors can have sympy symbols as free variables.
 
-    >>> from sympy import Expr
+    >>> from sympy import Expr  # doctest: +EXTRA
     >>> from sympy.abc import phi, psi
     >>> v = Tensor[Expr]([phi, psi], Dim(1), Dim(2))
     >>> d = v >> v.dagger()
@@ -292,7 +292,7 @@ class Tensor(Matrix):
 
         Examples
         --------
-        >>> from sympy import Expr
+        >>> from sympy import Expr  # doctest: +EXTRA
         >>> from sympy.abc import x, y, z
         >>> vector = Tensor[Expr]([x ** 2, y * z], Dim(1), Dim(2))
         >>> vector.jacobian(x, y, z)
@@ -503,7 +503,7 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
         Examples
         --------
         >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
-        >>> t_net = (vector >> vector[::-1]).to_quimb()
+        >>> t_net = (vector >> vector[::-1]).to_quimb()  # doctest: +EXTRA
         >>> assert t_net.contract(preserve_tensor=True).data == 1
         """
         import quimb.tensor as qtn
@@ -557,7 +557,7 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
         Examples
         --------
         >>> import numpy as np
-        >>> from tensornetwork import Node, Edge
+        >>> from tensornetwork import Node, Edge  # doctest: +EXTRA
         >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
         >>> nodes, output_edge_order = vector.to_tn()
         >>> node, = nodes
@@ -622,7 +622,7 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
 
         Examples
         --------
-        >>> from sympy import Expr
+        >>> from sympy import Expr  # doctest: +EXTRA
         >>> from sympy.abc import x, y, z
         >>> vector = Box("v", Dim(1), Dim(2), [x ** 2, y * z])
         >>> vector.jacobian([x, y, z]).eval(dtype=Expr)
@@ -652,7 +652,7 @@ class CMap(frobenius.CMap):
     >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
     >>> assert (vector >> vector[::-1]).to_map().eval().array == 1
 
-    >>> with backend('jax'):
+    >>> with backend('jax'):  # doctest: +EXTRA
     ...     import jax, jax.numpy as jnp
     ...     b = lambda x: Box[float]('v', Dim(1), Dim(2), x * jnp.ones(2))
     ...     f = lambda x: (b(x) >> b(x)[::-1]).to_map().eval().array
@@ -815,7 +815,7 @@ class Bubble(monoidal.Bubble, Box):
     .. image:: /_static/tensor/men-are-mortal.svg
         :align: center
 
-    >>> from sympy import Expr
+    >>> from sympy import Expr  # doctest: +EXTRA
     >>> from sympy.abc import x
     >>> f = Box('f', Dim(2), Dim(2), [1, 0, 0, x])
     >>> g = Box('g', Dim(2), Dim(2), [-x, 0, 0, 1])
@@ -842,7 +842,7 @@ class Bubble(monoidal.Bubble, Box):
         """
         The gradient of a bubble is given by the chain rule.
 
-        >>> from sympy.abc import x
+        >>> from sympy.abc import x  # doctest: +EXTRA
         >>> g = Box('g', Dim(2), Dim(2), [2 * x, 0, 0, x + 1])
         >>> f = lambda d: d.bubble(func=lambda x: x ** 2, drawing_name="f")
         >>> lhs, rhs = Box.grad(f(g), x), f(g).grad(x)

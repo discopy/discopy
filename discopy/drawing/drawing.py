@@ -683,7 +683,7 @@ class Drawing(TracedCategory, RichDisplay):
         >>> v = Drawing.from_box(Box('v', x ** 7, Ty()))
 
         >>> top, bottom = u >> g @ f, g @ f @ f >> v
-        >>> Diagram.to_gif(
+        >>> Diagram.to_gif(  # doctest: +EXTRA
         ...     *top.then(bottom, draw_step_by_step=True), loop=True,
         ...     wire_labels=False, draw_box_labels=False,
         ...     doctest="docs/_static/drawing/composition.gif")
