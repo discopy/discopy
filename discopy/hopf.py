@@ -239,14 +239,12 @@ class Algebra:
         if not found:
             raise ValueError("the square of the antipode is not inner "
                              "by a grouplike, there is no pivotal element")
-
-        def state(g):
-            return Box[complex]('g', Dim(1), self.ty, g.reshape(-1).tolist())
-
         found.sort(key=lambda g: repr(np.round(g, 6).tolist()))
-        if self.R is not None and len(found) > 1:
-            found.sort(key=lambda g: not self.is_ribbon(state(g)))
-        return state(found[0])
+        states = [Box[complex]('g', Dim(1), self.ty, g.tolist())
+                  for g in found]
+        if self.R is not None and len(states) > 1:
+            states.sort(key=lambda state: not self.is_ribbon(state))
+        return states[0]
 
     def is_ribbon(self, pivot=None):
         """
@@ -564,9 +562,10 @@ class Double(Algebra):
     :class:`Algebra` ``base`` (Def. 1.23 of *Hopf Algebras in Quantum
     Computation*), a quasitriangular Hopf algebra of dimension
     ``base.dim ** 2`` whose generators are **composites** of the base
-    generators, their transposes (the :math:`H^*` structure, without
-    conjugation so that complex structure constants dualise correctly) and
-    cups/caps — never materialised as big tensors.
+    generators, their pivotal rotations ``.r`` (the :math:`H^*` structure:
+    the transpose without conjugation, so complex structure constants
+    dualise correctly, with a swap restoring the leg order on ``mult`` and
+    ``comult``) and cups/caps — never materialised as big tensors.
 
     Parameters:
         base : The Hopf algebra to double.
@@ -583,30 +582,18 @@ class Double(Algebra):
     >>> D = Double(Algebra.cyclic(2))
     >>> assert D.dim == 4 and D.is_valid() and D.is_quasitriangular()
     """
-    @staticmethod
-    def star(box):
-        """
-        The transpose of a generator as a generator of :math:`H^*`: the
-        :meth:`.tensor.Tensor.dagger` with the conjugation undone, so that
-        complex structure constants dualise correctly.
-        """
-        transpose = box.eval(dtype=complex).dagger().conjugate(
-            diagrammatic=False)
-        return Box[complex](
-            box.name + '*', box.cod, box.dom,
-            transpose.array.reshape(-1).tolist())
-
     def __init__(self, base):
         assert_isinstance(base, Algebra)
         self.base = base
-        ty, Sinv, star = base.ty, base.antipode_inv, self.star
-        mstar, dstar = star(base.comult), star(base.mult)
+        ty, Sinv = base.ty, base.antipode_inv
+        swap = Diagram.swap(ty, ty)
+        mstar, dstar = swap >> base.comult.r, base.mult.r >> swap
 
-        unit = star(base.counit) @ base.unit
-        counit = star(base.unit) @ base.counit
+        unit = base.counit.r @ base.unit
+        counit = base.unit.r @ base.counit
         comult = dstar @ base.comult \
-            >> Diagram.swap(ty, ty) @ ty @ ty >> ty @ Diagram.swap(ty, ty) @ ty
-        R = star(base.counit) @ Diagram.caps(ty, ty) @ base.unit
+            >> swap @ ty @ ty >> ty @ swap @ ty
+        R = base.counit.r @ Diagram.caps(ty, ty) @ base.unit
 
         comult2 = base.comult >> base.comult @ ty
         cstar2 = dstar >> dstar @ ty
@@ -620,8 +607,8 @@ class Double(Algebra):
             @ mstar @ base.mult
         mult = split >> route >> sinv >> contract
 
-        prep = star(base.counit) \
-            @ (star(Sinv) @ base.antipode) @ base.unit
+        prep = base.counit.r \
+            @ (Sinv.r @ base.antipode) @ base.unit
         antipode = prep >> ty @ Diagram.swap(ty, ty) @ ty >> mult
         super().__init__(unit, counit, mult, comult, antipode, R=R)
 

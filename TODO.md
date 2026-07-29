@@ -14,3 +14,12 @@ Review feedback from @giodefelice on #484, quoted verbatim (one point per commen
       — "This looks strange very strange. this be done with transposition?"
 - [x] discopy/hopf.py:1034 (`Functor.__call__`, the `ribbon.Cap`
       branch) — "Isn't this already handled in the standard ribbon.Functor?"
+
+Review feedback from @giodefelice on #505, quoted verbatim:
+
+- [x] discopy/hopf.py:597 (`Double.star`) — "We need to find a better way to fix this.
+      Definitely shouldn't be a method of Double. [...] This "star" should be obtainable from
+      methods of pivotal, maybe also conjugate or dagger, and the definition of duals in Rep"
+- [x] discopy/hopf.py:244 (`state` in `pivotal_element`) — "Let's avoid these function
+      definitions inside methods. Can we make the calculations of gs so we don't need to
+      reshape?"
