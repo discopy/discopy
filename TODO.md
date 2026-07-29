@@ -23,5 +23,5 @@ in #470. It is being renamed from the docs bot it used to be:
 - [x] Drop `pull-requests: write` from a `pull_request_target` workflow
 - [x] Alexis grants the App **Pull requests: write** on this repository
 - [x] Read the App id and private key from `DISCOPY_BOT_APP_ID` / `DISCOPY_BOT_PRIVATE_KEY`
-- [ ] Alexis renames the App to `discopy-bot` in its settings, and re-creates the repository
+- [x] Alexis renames the App to `discopy-bot` in its settings, and re-creates the repository
       variable and secret under the new names — neither rename can be done from here
