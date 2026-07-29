@@ -60,6 +60,8 @@ uv run coverage run -m pytest
 uv run coverage report -m
 ```
 
+Without the extras installed, run `uv run pytest --skip-extra` to skip what needs them.
+
 ## Run the benchmarks
 
 The composition benchmark (`benchmark/test_composition.py`) reproduces the scaling
@@ -118,7 +120,7 @@ python -m venv .venv
 . .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -e '.[test]'
-python -m pip install coverage pyproject-flake8 pytest nbmake
+python -m pip install coverage pyproject-flake8 pytest marimo
 ```
 
 Then run:
