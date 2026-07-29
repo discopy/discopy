@@ -3,8 +3,8 @@ The ``--skip-extra`` flag, see CONTRIBUTING.md.
 
 Everything that can say for itself that it needs an optional backend does:
 a test with ``pytest.importorskip``, a doctest with a ``+EXTRA`` directive.
-What is left cannot -- a module whose import is the thing that fails, and a
-notebook -- so it is named here.
+What is left cannot -- a module whose import is the thing that fails -- so
+it is named here.
 """
 
 import pytest
@@ -12,7 +12,6 @@ from _pytest.doctest import DoctestItem
 
 
 UNIMPORTABLE = ("discopy/quantum/pennylane.py", "discopy/quantum/tk.py")
-NOTEBOOKS = ("docs/notebooks/diag-diff.ipynb", "docs/notebooks/qnlp.ipynb")
 
 
 def pytest_addoption(parser):
@@ -28,11 +27,10 @@ def pytest_ignore_collect(collection_path, config):
 
 
 def pytest_collection_modifyitems(config, items):
-    """ A doctest marked ``+EXTRA``, and the notebooks, are skipped. """
+    """ A doctest marked ``+EXTRA`` is skipped. """
     if not config.getoption("--skip-extra"):
         return
     for item in items:
-        if item.path.as_posix().endswith(NOTEBOOKS) or (
-                isinstance(item, DoctestItem) and item.dtest is not None
-                and any("+EXTRA" in e.source for e in item.dtest.examples)):
+        if isinstance(item, DoctestItem) and item.dtest is not None and any(
+                "+EXTRA" in e.source for e in item.dtest.examples):
             item.add_marker(pytest.mark.skip(reason="needs an extra"))
