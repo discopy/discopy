@@ -524,7 +524,7 @@ class Drawing(TracedCategory, RichDisplay):
         """ Draw a permutation of the wires in ``dom``. """
         from discopy.symmetric import Permutation
         xs = finset.Permutation(xs)
-        dom = cls.ob.tensor(*doms) if doms else cls.ob.unit()
+        dom = cls.ob().tensor(*doms)
         if xs.is_identity:
             return Drawing.id(dom)
         return Permutation(dom, xs).to_drawing()

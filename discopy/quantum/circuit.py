@@ -739,10 +739,11 @@ class Circuit(tensor.Diagram[complex]):
         params = dict({'wire_labels': wire_labels}, **params)
         return super().draw(**params)
 
-    @staticmethod
-    def permutation(perm, dom=None):
-        dom = qubit ** len(perm) if dom is None else dom
-        return frobenius.Diagram.permutation.__func__(Circuit, perm, dom)
+    @classmethod
+    def permutation(cls, perm, doms=None):
+        doms = qubit ** len(perm) if doms is None\
+            else doms
+        return super().permutation(perm, doms)
 
     @staticmethod
     def cup_factory(left, right):
