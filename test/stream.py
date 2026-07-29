@@ -31,3 +31,17 @@ def test_python_stream():
     s.unroll().check_later()
     assert s.feedback(T(x), T(y), T(m)).unroll(2).now(1, 2, 3) == (
         True, False, True, '1 2 3')
+
+
+def test_function():
+    T, S = Ty[python.Ty], Stream[python.Function]
+    dom = T(int) @ T(bool)
+    assert S.function([0, 1], dom).now(42, True) == (42, True)
+    assert S.function([1, 0, 0], dom).now(42, True) == (True, 42, 42)
+
+
+def test_permutation():
+    T, S = Ty[python.Ty], Stream[python.Function]
+    dom = T(int) @ T(bool)
+    assert S.permutation([0, 1], dom).now(42, True) == (42, True)
+    assert S.permutation([1, 0], dom).now(42, True) == (True, 42)

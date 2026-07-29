@@ -88,3 +88,8 @@ def test_fibonacci():
         cod=stream.Stream[python.Function])
 
     assert F(fib).unroll(9).now()[:10] == (0, 1, 1, 2, 3, 5, 8, 13, 21, 34)
+
+
+def test_Copy_Merge_dagger():
+    x = Ty('x')
+    assert Copy(x).dagger() == Merge(x) and Merge(x).dagger() == Copy(x)

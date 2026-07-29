@@ -146,7 +146,7 @@ In the category of streams, this is just the identity.
 
 from __future__ import annotations
 
-from discopy import monoidal, braided, markov, hypergraph
+from discopy import monoidal, braided, markov, comarkov, hypergraph
 from discopy.abc import FeedbackCategory
 from discopy.utils import (
     factory, factory_name, assert_isinstance, AxiomError)
@@ -301,17 +301,20 @@ class Ty(monoidal.Ty):
     d = Ob.d
 
 
-class Layer(monoidal.Layer):
+class Layer(markov.Layer):
     """ A feedback layer is a monoidal layer with a `delay` method. """
     def delay(self, n_steps=1):
-        return type(self)(*[x.delay(n_steps) for x in self.boxes_or_types])
+        return type(self)(*(type(x)(x.dom.delay(n_steps), x.fun)
+                            if isinstance(x, markov.Function)
+                            else x.delay(n_steps)
+                            for x in self.boxes_or_types))
 
 
 @factory
-class Diagram(markov.Diagram, FeedbackCategory):
+class Diagram(markov.Diagram, comarkov.Diagram, FeedbackCategory):
     """
-    A feedback diagram is a markov diagram with a :meth:`delay` endofunctor
-    and a :meth:`feedback` operator.
+    A feedback diagram is a markov and comarkov diagram with a :meth:`delay`
+    endofunctor and a :meth:`feedback` operator.
 
     Parameters:
         inside(monoidal.Layer) : The layers inside the diagram.
@@ -333,6 +336,13 @@ class Diagram(markov.Diagram, FeedbackCategory):
     """
     ob = Ty
     layer_factory = Layer
+
+    @classmethod
+    def spider_factory(cls, n_legs_in, n_legs_out, typ, phase=None):
+        if phase is not None or 1 not in (n_legs_in, n_legs_out):
+            raise ValueError
+        return cls.copy_factory(typ, n_legs_out) if n_legs_in == 1\
+            else cls.merge_factory(typ, n_legs_in)
 
     def delay(self, n_steps=1):
         """ The delay of a feedback diagram. """
@@ -469,7 +479,7 @@ class Copy(markov.Copy, Box):
         return type(self)(self.dom.delay(n_steps), len(self.cod))
 
 
-class Merge(markov.Merge, Box):
+class Merge(comarkov.Merge, Box):
     """
     The merge of an atomic type :code:`x` some :code:`n` number of times.
 
@@ -478,7 +488,7 @@ class Merge(markov.Merge, Box):
         n : The number of wires to merge.
     """
     def __init__(self, x: Ty, n: int = 2):
-        markov.Merge.__init__(self, x, n)
+        comarkov.Merge.__init__(self, x, n)
         Box.__init__(self, self.name, self.dom, self.cod)
 
     def delay(self, n_steps=1):
@@ -606,9 +616,10 @@ class FollowedBy(Box):
         return type(self)(self.arg, self.is_dagger)
 
 
-class Functor(markov.Functor):
+class Functor(markov.Functor, comarkov.Functor):
     """
-    A feedback functor is a markov one that preserves delay and feedback.
+    A feedback functor is a markov and comarkov one that preserves delay
+    and feedback.
 
     Parameters:
         ob_map (Mapping[monoidal.Ty, monoidal.Ty]) :

@@ -430,11 +430,36 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
             xs : A list of integers representing a permutation.
             dom : A type of the same length as ``xs``.
         """
+        xs = list(xs)
+        if xs == list(range(len(xs))):
+            return cls.id(dom)
         if list(range(len(dom))) != sorted(xs):
             raise ValueError(messages.WRONG_PERMUTATION.format(len(dom), xs))
-        cod, boxes = dom.ob(*(dom.inside[i] for i in xs)), ()
+        cod = dom[:0].tensor(*(dom[i] for i in xs))
+        boxes = ()
         dom_wires, cod_wires = tuple(range(len(dom))), tuple(xs)
         return cls(dom, cod, boxes, (dom_wires, (), cod_wires))
+
+    @classmethod
+    def function(cls, fun, dom) -> Hypergraph:
+        """
+        The hypergraph that encodes the opposite of a function between
+        finite sets, with the same semantics as
+        :meth:`discopy.abc.MarkovCategory.function` but built directly as
+        wires, the spiders doing the copying and deleting.
+
+        Parameters:
+            fun : A list of integers in ``range(len(dom))``.
+            dom : The type at the domain of the function.
+        """
+        fun = list(fun)
+        if fun == list(range(len(dom))):
+            return cls.id(dom)
+        if any(i not in range(len(dom)) for i in fun):
+            raise ValueError(messages.WRONG_PERMUTATION.format(len(dom), fun))
+        cod = dom[:0].tensor(*(dom[i] for i in fun))
+        dom_wires, cod_wires = tuple(range(len(dom))), tuple(fun)
+        return cls(dom, cod, (), (dom_wires, (), cod_wires))
 
     @classmethod
     def spiders(cls, n_legs_in, n_legs_out, typ):

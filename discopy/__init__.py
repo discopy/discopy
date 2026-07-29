@@ -15,6 +15,7 @@ from discopy import (
     ribbon,
     compact,
     markov,
+    comarkov,
     closed,
     frobenius,
     hypergraph,

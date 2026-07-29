@@ -519,6 +519,24 @@ class Drawing(TracedCategory, RichDisplay):
         return target.kind == "cod" and target.i == len(self.cod) - 1
 
     @staticmethod
+    def permutation(xs, dom) -> Drawing:
+        """ Draw a permutation of the wires in ``dom``. """
+        from discopy.symmetric import Permutation
+        xs = list(xs)
+        if xs == list(range(len(xs))):
+            return Drawing.id(dom)
+        return Permutation(dom, xs).to_drawing()
+
+    @staticmethod
+    def function(fun, dom) -> Drawing:
+        """ Draw the opposite of a function on the wires in ``dom``. """
+        from discopy.markov import Function
+        fun = list(fun)
+        if fun == list(range(len(dom))):
+            return Drawing.id(dom)
+        return Function(dom, fun).to_drawing()
+
+    @staticmethod
     def from_box(box: "monoidal.Box") -> Drawing:
         """
         Draw a diagram with just one box.
@@ -541,9 +559,14 @@ class Drawing(TracedCategory, RichDisplay):
             :align: center
         """
         from discopy.monoidal import Box
+        from discopy.symmetric import Permutation
         box_dom, box_cod = box.dom.to_drawing(), box.cod.to_drawing()
-        old_box, box = box, Box(
-            box.name, box_dom, box_cod, is_dagger=box.is_dagger)
+        old_box = box
+        box = Permutation(box_dom, old_box.perm)\
+            if isinstance(old_box, Permutation)\
+            else Box(
+                old_box.name, box_dom, box_cod,
+                is_dagger=old_box.is_dagger)
 
         for attr, default in BOX_DRAWING_ATTRIBUTES.items():
             setattr(box, attr, getattr(old_box, attr, default(box)))
@@ -830,9 +853,18 @@ class Drawing(TracedCategory, RichDisplay):
     def dagger(self) -> Drawing:
         """ The reflection of a drawing along the the horizontal axis. """
         def box_dagger(box):
+            from discopy.symmetric import Permutation
             result = box.dagger()
             for attr in BOX_DRAWING_ATTRIBUTES:
-                setattr(result, attr, getattr(box, attr))
+                if attr == "drawing_name" and isinstance(box, Permutation):
+                    continue
+                value = getattr(box, attr)
+                if attr == "drawing_permutation" and value is not None:
+                    inverse = [0] * len(value)
+                    for i, j in enumerate(value):
+                        inverse[j] = i
+                    value = tuple(inverse)
+                setattr(result, attr, value)
             return result
 
         if self.is_box:

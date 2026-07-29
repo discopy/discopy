@@ -133,7 +133,7 @@ def test_representation_is_a_dim():
     trivial = Representation[D](Dim(2))
     assert trivial == Dim(2) and trivial.is_module()
     assert hash(trivial) == hash(Dim(2))
-    from discopy import hopf, rigid, tensor  # noqa: F401  (used by eval)
+    from discopy import compact, hopf, rigid, tensor  # noqa: F401
     assert eval(repr(trivial)) == trivial
 
 
@@ -166,7 +166,7 @@ def test_anyon_needs_a_double():
 
 
 def test_repr_is_transparent():
-    from discopy import hopf, tensor  # noqa: F401  (used by eval)
+    from discopy import compact, hopf, tensor  # noqa: F401
     H = Algebra.cyclic(2)
     assert eval(repr(H)) == H
     D = Double(H)

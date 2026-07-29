@@ -283,7 +283,8 @@ def to_tk(circuit):
         tk_circ.add_gate(op, i_qubits)
 
     circuit = Functor(ob_map=lambda x: x, ar_map=remove_ket1)(circuit)
-    for left, box, _ in circuit.inside:
+    for layer in circuit.inside:
+        left, box, _ = layer.boxes_and_types
         if isinstance(box, Ket):
             qubits = prepare_qubits(qubits, box, left.count(qubit))
         elif isinstance(box, Digits) and box._dim == 2 and not box.is_dagger:

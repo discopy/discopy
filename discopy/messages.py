@@ -24,6 +24,15 @@ LAYERS_MUST_BE_ODD = "Layers must have an odd number of boxes and types."
 NOT_MERGEABLE = "Layers {} and {} cannot be merged."
 INTERCHANGER_ERROR = "Boxes {} and {} do not commute."
 WRONG_PERMUTATION = "Expected a permutation of length {}, got {}."
+NOT_A_DAGGER = "The dagger of {} does not live in the same category."
+PERMUTATION_AT_ODD_INDEX = (
+    "Permutations must be at even indices of a Layer, generators at odd "
+    "indices.")
+PERMUTATION_HAS_NO_OFFSET = (
+    "Box offsets are undefined for a layer with a non-identity permutation.")
+PERMUTATION_HAS_NO_TYPE_SLOT = (
+    "A non-identity permutation cannot be treated as an ordinary Layer type "
+    "slot.")
 ZERO_DISTANCE_CONTROLLED = "Zero-distance controlled gates are ill-defined."
 HAS_NO_ATTRIBUTE = "{!r} object has no attribute {!r}"
 WRONG_DOM = "Expected inside.dom == {}, got {} instead."
