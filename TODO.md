@@ -14,9 +14,9 @@ authenticate with a PAT or a GitHub App installation that can perform it*:
 That bot is a GitHub App: `vars.DOCS_BOT_APP_ID` and `secrets.DOCS_BOT_PRIVATE_KEY`, minted with
 `actions/create-github-app-token`, removed from `build.yml` in #470.
 
-- [WIP] @daylight-2026-07-29 08:05 Mint the App token in `no-todo-on-main.yml` so `convertPullRequestToDraft` is reachable
-- [WIP] @daylight-2026-07-29 08:05 Fail the job unless the pull request really came back draft, so the gate can never exit 0
+- [x] Mint the App token in `no-todo-on-main.yml` so `convertPullRequestToDraft` is reachable
+- [x] Fail the job unless the pull request really came back draft, so the gate can never exit 0
       while a TODO file is present on a non-draft pull request
-- [WIP] @daylight-2026-07-29 08:05 Drop `pull-requests: write` from a `pull_request_target` workflow
-- [WIP] @daylight-2026-07-29 08:05 Alexis grants the App **Pull requests: write** on this repository — it only needed
+- [x] Drop `pull-requests: write` from a `pull_request_target` workflow
+- [ ] Alexis grants the App **Pull requests: write** on this repository — it only needed
       **Contents: write** to push docs baselines, and the mutation stays FORBIDDEN without it

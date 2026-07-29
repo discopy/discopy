@@ -5,27 +5,42 @@ on:
     branches: [main]
 permissions:
   contents: read
-  pull-requests: write
+  pull-requests: read
 jobs:
   guard:
     if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     steps:
-      - name: Draft the pull request while a TODO file is present
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR: ${{ github.event.pull_request.number }}
-          NODE_ID: ${{ github.event.pull_request.node_id }}
-          REPO: ${{ github.repository }}
-        run: |
-          todo="$(gh api "repos/$REPO/pulls/$PR/files" --paginate \
-            --jq '.[] | select(.status != "removed") | .filename' \
-            | grep -iE '(^|/)todo(\.[^/]*)?$' || true)"
-          [ -n "$todo" ] || exit 0
-          gh api graphql -f id="$NODE_ID" -f query='
-            mutation($id: ID!) {
-              convertPullRequestToDraft(input: {pullRequestId: $id}) {
-                pullRequest { isDraft }
-              }
-            }'
-          echo "::notice::$todo is still here — back to draft. A human deletes it to mark ready."
+    - name: Generate a bot token
+      id: app-token
+      # convertPullRequestToDraft answers FORBIDDEN to the default GITHUB_TOKEN
+      # even when pull-requests: write is granted, so the mutation runs as the
+      # App instead. Falls back to GITHUB_TOKEN when the App is not configured,
+      # in which case the gate degrades to a red check rather than to nothing.
+      if: vars.DOCS_BOT_APP_ID != ''
+      uses: actions/create-github-app-token@v1
+      with:
+        app-id: ${{ vars.DOCS_BOT_APP_ID }}
+        private-key: ${{ secrets.DOCS_BOT_PRIVATE_KEY }}
+    - name: Draft the pull request while a TODO file is present
+      env:
+        GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
+        PR: ${{ github.event.pull_request.number }}
+        NODE_ID: ${{ github.event.pull_request.node_id }}
+        REPO: ${{ github.repository }}
+      run: |
+        todo="$(gh api "repos/$REPO/pulls/$PR/files" --paginate \
+          --jq '.[] | select(.status != "removed") | .filename' \
+          | grep -iE '(^|/)todo(\.[^/]*)?$' || true)"
+        [ -n "$todo" ] || exit 0
+        drafted="$(gh api graphql -f id="$NODE_ID" -f query='
+          mutation($id: ID!) {
+            convertPullRequestToDraft(input: {pullRequestId: $id}) {
+              pullRequest { isDraft }
+            }
+          }' --jq '.data.convertPullRequestToDraft.pullRequest.isDraft' || true)"
+        if [ "$drafted" != "true" ]; then
+          echo "::error::$todo is still here and this pull request could not be drafted. A human deletes the file to mark ready."
+          exit 1
+        fi
+        echo "::notice::$todo is still here — back to draft. A human deletes it to mark ready."
