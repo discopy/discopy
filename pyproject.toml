@@ -45,7 +45,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "coverage",
-    "nbmake",
+    "marimo",
     "pyproject-flake8",
     "pylint",
     "pytest",
@@ -83,7 +83,7 @@ grammar = [
 test = [
     "discopy[grammar,quantum]",
     "coverage",
-    "nbmake",
+    "marimo",
     "pyproject-flake8",
     "pylint",
     "pytest",
@@ -93,8 +93,11 @@ docs  = [
     "anywidget",
     "ipykernel == 6.23.*",
     "jinja2 == 3.1.*",
+    "marimo",
     "myst-parser == 2.0.*",
-    "nbsphinx == 0.9.*",
+    # executed by marimo when rendering the notebooks at docs build time
+    "pytket",
+    "sympy",
     "sphinx == 7.2.*",
     "sphinx-book-theme == 1.1.*",
     "sphinxcontrib-bibtex == 2.5.*",
@@ -149,12 +152,11 @@ testpaths = [
     "discopy",
     "test/*.py",
     "test/*/*.py",
-    "docs/notebooks/*.ipynb",
 ]
 norecursedirs = [
     "test/fixtures",
 ]
-addopts = "--doctest-modules --nbmake --ignore=test/fixtures"
+addopts = "--doctest-modules --ignore=test/fixtures"
 
 [tool.coverage.report]
 fail_under = 98
