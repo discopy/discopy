@@ -570,11 +570,9 @@ class Layer(cat.Box):
     :code:`left` and :code:`right`.
 
     Parameters:
-        left : The type on the left of the layer.
-        box : The box in the middle of the layer.
-        right : The type on the right of the layer.
-        more : More boxes and types to the right,
-               used by :meth:`Diagram.foliation`.
+        inside : An odd number of alternating types and boxes, starting and
+                 ending with a type. More than one box is used by
+                 :meth:`Diagram.foliation`.
     """
     ob = Ty
 
@@ -585,12 +583,15 @@ class Layer(cat.Box):
             del state['_left'], state['_box'], state['_right']
         super().__setstate__(state)
 
-    def __init__(self, left: Ty, box: Box, right: Ty, *more):
-        if len(more) % 2:
+    def __init__(self, *inside: Ty | Box):
+        self.boxes_or_types = inside
+        boxes_and_types = self.boxes_and_types
+        if not len(boxes_and_types) % 2:
             raise ValueError(messages.LAYERS_MUST_BE_ODD)
-        self.boxes_or_types = (left, box, right) + more
+        if len(boxes_and_types) < 3:
+            raise ValueError(messages.LAYERS_MUST_HAVE_A_BOX)
         dom_pieces, cod_pieces, names = [], [], []
-        for i, box_or_typ in enumerate(self.boxes_or_types):
+        for i, box_or_typ in enumerate(boxes_and_types):
             if i % 2:
                 assert_isinstance(box_or_typ, Box)
                 dom_pieces.append(box_or_typ.dom)
@@ -602,7 +603,7 @@ class Layer(cat.Box):
                 cod_pieces.append(box_or_typ)
                 if box_or_typ:
                     names.append(str(box_or_typ))
-        empty = left[:0]
+        empty = boxes_and_types[0][:0]
         super().__init__(
             " @ ".join(names),
             empty.tensor(*dom_pieces), empty.tensor(*cod_pieces))
@@ -624,7 +625,7 @@ class Layer(cat.Box):
 
     @property
     def boxes(self):
-        return list(self.boxes_or_types[1::2])
+        return list(self.boxes_and_types[1::2])
 
     @property
     def size(self):
@@ -661,14 +662,14 @@ class Layer(cat.Box):
 
     @property
     def is_generator(self):
-        if len(self.boxes_or_types) != 3:
+        if len(self.boxes_and_types) != 3:
             return False
-        left, box, right = self.boxes_or_types
+        left, _, right = self.boxes_and_types
         return not left.inside and not right.inside
 
     @property
     def generator(self):
-        return self.boxes_or_types[1] if self.is_generator else None
+        return self.boxes_and_types[1] if self.is_generator else None
 
     @classmethod
     def cast(cls, box: Box) -> Layer:
@@ -687,7 +688,7 @@ class Layer(cat.Box):
 
     def dagger(self) -> Layer:
         return type(self)(*(
-            x.dagger() if i % 2 else x for i, x in enumerate(self)))
+            x if isinstance(x, Ty) else x.dagger() for x in self))
 
     @property
     def boxes_and_offsets(self) -> list[tuple[Box, int]]:
@@ -725,7 +726,7 @@ class Layer(cat.Box):
         """
         assert_iscomposable(self, other)
         try:
-            diagram = Diagram.normal_form(self.boxes_or_types[1].ar(
+            diagram = Diagram.normal_form(self.boxes_and_types[1].ar(
                 (self, other), self.dom, other.cod).to_staircases())
         except NotImplementedError as exception:  # Eckmann-Hilton argument.
             diagram = exception.last_step
@@ -1056,9 +1057,9 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
                     getattr(obj, "l", obj) == getattr(obj, "r", obj)
                     for obj in graph.spider_types):
             return graph.to_diagram()
-        return self._merge_layers()
+        return self.merge_layers()
 
-    def _merge_layers(self):
+    def merge_layers(self):
         diagram = self
         while len(diagram) > 1:
             keep_on_going = False
@@ -1297,8 +1298,11 @@ class Box(cat.Box, Diagram):
             if attr in params:
                 setattr(self, attr, params.pop(attr))
         cat.Box.__init__(self, name, dom, cod, **params)
-        inside = (self.layer_factory.cast(self), )
+        inside = () if self.is_identity\
+            else (self.layer_factory.cast(self), )
         Diagram.__init__(self, inside, dom, cod)
+
+    is_identity = False
 
     @property
     def size(self):

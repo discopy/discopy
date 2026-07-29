@@ -22,7 +22,7 @@ BOX_DRAWING_ATTRIBUTES = {
     "bubble_closing": lambda _: False,
     "frame_boundary": lambda _: False,
     "frame_colour": lambda _: "lightgrey",
-    "drawing_permutation": lambda _: None,
+    "draw_as_permutation": lambda _: None,
     "draw_as_braid": lambda _: False,
     "draw_as_cup": lambda _: False,
     "draw_as_cap": lambda _: False,
@@ -33,6 +33,11 @@ BOX_DRAWING_ATTRIBUTES = {
     "draw_as_wires": lambda box: any(getattr(box, a) for a in [
         "bubble_opening", "bubble_closing", "draw_as_braid",
         "draw_as_cup", "draw_as_cap"]),
+    # A box whose wires cross over each other, drawn as its own smooth curves.
+    "is_crossing": lambda box: box.draw_as_permutation is not None
+    or box.draw_as_braid or (
+        box.draw_as_wires and len(box.dom) == 2 == len(box.cod)
+        and not box.bubble_opening and not box.bubble_closing),
     "draw_as_spider": lambda _: False,
     "draw_as_brakets": lambda _: False,
     "draw_as_discards": lambda _: False,

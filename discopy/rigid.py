@@ -328,11 +328,7 @@ class Layer(monoidal.Layer):
     A rigid layer is a monoidal layer that can be rotated.
 
     Parameters:
-        left : The type on the left of the layer.
-        box : The box in the middle of the layer.
-        right : The type on the right of the layer.
-        more : More boxes and types to the right,
-               used by :meth:`Diagram.foliation`.
+        inside : An odd number of alternating types and boxes.
     """
     def rotate(self, left=False):
         return type(self)(*(x.l if left else x.r for x in list(self)[::-1]))
@@ -483,7 +479,7 @@ class Diagram(biclosed.Diagram, RigidCategory):
 
         .. image:: /_static/rigid/transpose_box.svg
         """
-        box = list(self.inside[i])[2 * j + 1]
+        box = self.inside[i].boxes_and_types[2 * j + 1]
         transposed_box = (box.r if left else box.l).transpose(left)
         top, bottom = self[:i], self[i + 1:]
         boxes_and_types = list(self.inside[i].boxes_and_types)

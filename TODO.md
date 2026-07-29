@@ -209,10 +209,37 @@ one ordinary boxes-and-types view. Category-specific permutation ownership
 comes from the generator or permutation itself; only categories which add
 layer behaviour, such as compact rotation, define a `Layer` subclass.
 
-- [WIP] @daylight-2026-07-29T07:37+0000 Implement the new structural review: store identity routing in `Layer`
+- [x] @daylight-2026-07-29T07:37+0000 Implement the new structural review: store identity routing in `Layer`
       rather than invalid identity boxes; expose native permutations as real
       boxes with offsets to `normalize`, `interchange` and `substitute`;
       collapse structural checks to `Layer.is_structural`; simplify factory
       selection without hierarchy-wide `Layer` subclasses; add the
       unequal-arity offset regression and concise docs; run focused tests,
       `pflake8`, and the full coverage suite.
+
+## Review round 2026-07-29 (19 threads)
+
+Five of these landed on the factory-selection block the structural review
+deletes, so they are answered by that work rather than by a separate change.
+
+- [x] @daylight-2026-07-29T07:37+0000 `symmetric.Layer`: drop the
+      `permutation_factory` selection, the type-to-permutation conversion and
+      the normalisation loop; drop the `is_permutation` branch of
+      `is_generator`, redundant with the case below it.
+- [x] @daylight-2026-07-29T07:37+0000 `symmetric.Layer`: reject a layer whose
+      single permutation is the identity, as `LAYERS_MUST_HAVE_A_BOX` at the
+      `monoidal.Layer` level. `monoidal.Box` gets `is_identity = False` so a
+      permutation that is the identity never builds that layer.
+- [x] @daylight-2026-07-29T07:37+0000 `Diagram.permutation`: drop the `PRO`
+      unit branch, `PRO()` is `PRO(0)`.
+- [x] @daylight-2026-07-29T07:37+0000 `monoidal.Diagram._merge_layers` is
+      semiprivate against STYLE.md: rename to `merge_layers`.
+- [x] @daylight-2026-07-29T07:37+0000 Move the module docstring's
+      Permutations, Layers and Foliation sections into the `Permutation` and
+      `Layer` docstrings.
+- [x] @daylight-2026-07-29T07:37+0000 Drawing: rename `drawing_permutation` to
+      `draw_as_permutation`, move `Backend._is_crossing` into
+      `BOX_DRAWING_ATTRIBUTES` as `is_crossing` so the attribute is set with
+      its default and the `getattr` calls go.
+- [x] @daylight-2026-07-29T07:37+0000 `abc.Diagram.permutation`: rewrite the
+      nested recursion as a for loop.

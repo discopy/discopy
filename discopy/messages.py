@@ -21,17 +21,13 @@ MATRIX_REPEAT_ERROR = "The reflexive transitive closure is only defined for "\
                       "square boolean matrices."
 BOX_IS_MIXED = "Pure boxes can have only digits or only qudits as dom and cod."
 LAYERS_MUST_BE_ODD = "Layers must have an odd number of boxes and types."
+LAYERS_MUST_HAVE_A_BOX = "Layers must have at least one box."
 NOT_MERGEABLE = "Layers {} and {} cannot be merged."
 INTERCHANGER_ERROR = "Boxes {} and {} do not commute."
 WRONG_PERMUTATION = "Expected a permutation of length {}, got {}."
-PERMUTATION_AT_ODD_INDEX = (
-    "Permutations must be at even indices of a Layer, generators at odd "
-    "indices.")
-PERMUTATION_HAS_NO_OFFSET = (
-    "Box offsets are undefined for a layer with a non-identity permutation.")
-PERMUTATION_HAS_NO_TYPE_SLOT = (
-    "A non-identity permutation cannot be treated as an ordinary Layer type "
-    "slot.")
+LAYERS_MUST_ALTERNATE = (
+    "Layers must alternate routing and generators, starting and ending with "
+    "routing.")
 ZERO_DISTANCE_CONTROLLED = "Zero-distance controlled gates are ill-defined."
 HAS_NO_ATTRIBUTE = "{!r} object has no attribute {!r}"
 WRONG_DOM = "Expected inside.dom == {}, got {} instead."

@@ -583,24 +583,14 @@ class Backend(ABC):
         return typ is not None and getattr(
             typ.inside[0], "frame_boundary", False)
 
-    @staticmethod
-    def _is_crossing(box):
-        # A braid or a swap, i.e. a box whose two wires cross over each other.
-        if getattr(box, "drawing_permutation", None) is not None:
-            return False
-        if getattr(box, "draw_as_braid", False):
-            return True
-        return box.draw_as_wires and len(box.dom) == 2 == len(box.cod)\
-            and not box.bubble_opening and not box.bubble_closing
-
     def draw_wires(self, graph, **params):
         # Braids, swaps and permutations are drawn as their own smooth curves.
         for node in graph.nodes:
             if node.kind != "box":
                 continue
-            if getattr(node.box, "drawing_permutation", None) is not None:
+            if node.box.draw_as_permutation is not None:
                 self.draw_permutation(graph.positions, node)
-            elif self._is_crossing(node.box):
+            elif node.box.is_crossing:
                 self.draw_braid(graph.positions, node)
         for source, target in self.visible_edges(graph):
             source_position = graph.positions[source]
@@ -612,12 +602,8 @@ class Backend(ABC):
                 self.draw_wire_label(source.x, *source_position, **params)
             if source_position == target_position:
                 continue
-            if any(
-                    n.kind == "box" and (
-                        self._is_crossing(n.box)
-                        or getattr(n.box, "drawing_permutation", None)
-                        is not None)
-                    for n in (source, target)):
+            if any(n.kind == "box" and n.box.is_crossing
+                   for n in (source, target)):
                 continue  # crossings are drawn on their own
             bend_out, bend_in = source.kind == "box", target.kind == "box"
             self.draw_wire(
@@ -709,7 +695,7 @@ class Backend(ABC):
         """ Draw a permutation as a band of crossing wires. """
         box, j = node.box, node.j
         middle = positions[node][1]
-        for i, source in enumerate(box.drawing_permutation):
+        for i, source in enumerate(box.draw_as_permutation):
             dom = positions[Node(
                 "box_dom", i=source, j=j, x=box.dom[source])]
             cod = positions[Node("box_cod", i=i, j=j, x=box.cod[i])]

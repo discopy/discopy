@@ -386,23 +386,18 @@ class SymmetricCategory[C0, C1](BalancedCategory[C0, C1]):
     @classmethod
     def permutation(cls, xs: Sequence[int], doms: Sequence[C0]) -> C1:
         """ Compose swaps to permute the atomic objects in ``dom``. """
-        xs = list(xs)
-        if xs == list(range(len(xs))):
-            dom = sum(doms, start=cls.ob())
-            return cls.id(dom)
+        xs, doms = list(xs), list(doms)
         if list(range(len(doms))) != sorted(xs):
             raise ValueError
-        i = xs[0]
-        left, head, right = (
-            sum(doms[slice], start=cls.ob())
-            for slice in (
-                slice(0, i), slice(i, i + 1), slice(i + 1)
-            )
-        )
-        return cls.swap(left, head) @ right\
-            >> head @ cls.permutation(
-                [x - 1 if x > i else x for x in xs[1:]],
-                cls.tensor_obj(*left, *right))
+        tensor = lambda objects: sum(objects, start=cls.ob())
+        result, done = cls.id(tensor(doms)), cls.ob()
+        while xs != list(range(len(xs))):
+            i = xs[0]
+            left, head = tensor(doms[:i]), tensor(doms[i:i + 1])
+            result >>= done @ cls.swap(left, head) @ tensor(doms[i + 1:])
+            done, doms = done @ head, doms[:i] + doms[i + 1:]
+            xs = [x - 1 if x > i else x for x in xs[1:]]
+        return result
 
     @classmethod
     def twist(cls, dom: C0) -> C1:

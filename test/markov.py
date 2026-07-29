@@ -65,6 +65,7 @@ def test_Permutation():
     assert isinstance(perm, Box) and perm.cod == z @ x @ y
     assert Equation(perm >> perm.dagger(), Id(x @ y @ z))
     assert isinstance(perm.inside[0], Layer)
-    assert all(isinstance(p, Permutation) for p in Box('f', x, y).inside[0][::2])
+    assert Box('f', x, y).inside[0].boxes_or_types == (Ty(), Box('f', x, y), Ty())
+    assert type(perm.inside[0].boxes_and_types[1]) is Permutation
     assert Permutation(x @ y, [1, 0]) != Swap(x, y)
     assert Equation(perm, perm.to_swaps())

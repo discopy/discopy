@@ -852,7 +852,7 @@ class Drawing(TracedCategory, RichDisplay):
                 if attr == "drawing_name" and isinstance(box, Permutation):
                     continue
                 value = getattr(box, attr)
-                if attr == "drawing_permutation" and value is not None:
+                if attr == "draw_as_permutation" and value is not None:
                     inverse = [0] * len(value)
                     for i, j in enumerate(value):
                         inverse[j] = i
