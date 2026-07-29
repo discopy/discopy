@@ -79,4 +79,4 @@ Prompt ([#395](https://github.com/discopy/discopy/issues/395), verbatim):
 
 > redundant with the readme test, remove it
 
-- [WIP] @evening-2026-07-28 23:05 Remove `test_swap_factory`
+- [x] Remove `test_swap_factory`

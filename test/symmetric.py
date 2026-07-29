@@ -3,7 +3,6 @@
 from pytest import raises
 
 from discopy.symmetric import *
-from discopy.utils import factory
 
 
 def test_Swap():
@@ -85,51 +84,3 @@ def test_bad_permute():
         Id(Ty('n')).permute(1)
     with raises(ValueError):
         Id(Ty('n')).permute(0, 0)
-
-
-def test_swap_factory():
-    """
-    Setting ``swap_factory`` on a custom subclass is what ``braid_factory``
-    reads, so its swaps stay in the subclass through ``Diagram.swap``,
-    ``Hypergraph.to_diagram`` and ``Diagram.from_callable``,
-    see https://github.com/discopy/discopy/issues/395
-    """
-    @factory
-    class Ingredient(Ty):
-        pass
-
-    @factory
-    class Recipe(Diagram):
-        ob = Ingredient
-
-    class CookingStep(Box, Recipe):
-        pass
-
-    class CookingSwap(Swap, CookingStep):
-        pass
-
-    Recipe.swap_factory = CookingSwap
-    assert Recipe.swap_factory is Recipe.braid_factory is CookingSwap
-    white, yolk = Ingredient("white"), Ingredient("yolk")
-    swap = Recipe.swap(white, yolk)
-    assert isinstance(swap, CookingSwap)
-    assert swap.swap_factory is CookingSwap
-    roundtrip = swap.to_hypergraph().to_diagram()
-    assert isinstance(roundtrip, Recipe)
-    assert all(isinstance(box, CookingSwap) for box in roundtrip.boxes)
-    diagram = Recipe.from_callable(white @ yolk, yolk @ white)(
-        lambda white, yolk: (yolk, white))
-    assert diagram == swap
-
-    class Permutation(Diagram):
-        pass
-
-    class Transposition(Swap, Permutation):
-        pass
-
-    class SubPermutation(Permutation):
-        swap_factory = Transposition
-
-    assert SubPermutation.braid_factory is Transposition
-    assert Permutation.braid_factory is Swap
-    assert Diagram.swap(PRO(1), PRO(1)).braid_factory is Swap
