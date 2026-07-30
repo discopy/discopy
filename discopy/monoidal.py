@@ -761,7 +761,7 @@ class Layer(cat.Box):
         Example
         -------
         >>> f = Box('f', Ty('x'), Ty('y'))
-        >>> assert Layer.cast(f) == Layer(Ty(), f, Ty())
+        >>> assert Layer.cast(f) == Layer(f)
         """
         return cls(cls._normalize_routing(box), scan=False)
 

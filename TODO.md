@@ -20,7 +20,7 @@ Prompt ([#437](https://github.com/discopy/discopy/issues/437), verbatim):
 - [x] Constructor defaults to `scan=True` (rescans the list, merging consecutive types to restore the invariant); every internal call site that already preserves the invariant constructs with `scan=False`, so tensoring `n` layers is linear rather than quadratic
 - [x] `symmetric.Layer` (#362): the same invariant with "permutation" in place of "type", except it may also be a singleton list holding one non-identity permutation and no boxes
 - [x] Adjust `dom`/`cod`/`name` computation and `boxes_and_offsets` to the new representation
-- [WIP] @evening-2026-07-30T10:14+0200 Sweep dependent code (drawing, foliation, `symmetric.Layer` from #362) and update doctests + README
+- [x] Sweep dependent code (drawing, foliation, `symmetric.Layer` from #362) and update doctests + README
 - [ ] Run `pflake8 discopy` and `coverage run -m pytest`
 
 ## Guidance (🐦 birdsong, 2026-07-22)
