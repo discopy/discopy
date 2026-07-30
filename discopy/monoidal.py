@@ -566,47 +566,85 @@ class Dim(Ty):
 
 class Layer(cat.Box):
     """
-    A layer is a :code:`box` in the middle of a pair of types
-    :code:`left` and :code:`right`.
+    A layer is a tensor product of boxes and non-empty types.
 
     Parameters:
-        inside : An odd number of alternating types and boxes, starting and
-                 ending with a type. More than one box is used by
-                 :meth:`Diagram.foliation`.
+        inside : Boxes and types, with at least one box.
+        scan : Whether to remove empty types and tensor consecutive types.
     """
     ob = Ty
 
     def __setstate__(self, state):
         if 'boxes_or_types' not in state:  # Backward compatibility
-            self.boxes_or_types = tuple(
+            state['boxes_or_types'] = tuple(
                 state[key] for key in ['_left', '_box', '_right'])
             del state['_left'], state['_box'], state['_right']
+        # Boxes may not have had their cyclic state restored yet, so only
+        # remove the empty type sentinels used by the old representation.
+        state['boxes_or_types'] = tuple(
+            value for value in state['boxes_or_types']
+            if not isinstance(value, Ty) or value)
         super().__setstate__(state)
 
-    def __init__(self, *inside: Ty | Box):
+    def __init__(self, *inside: Ty | Box, scan: bool = True):
+        inside = tuple(inside)
+        if scan:
+            self._check_inside(inside)
+            inside = self._scan(inside)
         self.boxes_or_types = inside
-        boxes_and_types = self.boxes_and_types
-        if not len(boxes_and_types) % 2:
-            raise ValueError(messages.LAYERS_MUST_BE_ODD)
-        if len(boxes_and_types) < 3:
-            raise ValueError(messages.LAYERS_MUST_HAVE_A_BOX)
         dom_pieces, cod_pieces, names = [], [], []
-        for i, box_or_typ in enumerate(boxes_and_types):
-            if i % 2:
-                assert_isinstance(box_or_typ, Box)
-                dom_pieces.append(box_or_typ.dom)
-                cod_pieces.append(box_or_typ.cod)
-                names.append(str(box_or_typ))
-            else:
-                assert_isinstance(box_or_typ, Ty)
+        for box_or_typ in inside:
+            assert_isinstance(box_or_typ, (Ty, Box))
+            if isinstance(box_or_typ, Ty):
                 dom_pieces.append(box_or_typ)
                 cod_pieces.append(box_or_typ)
-                if box_or_typ:
-                    names.append(str(box_or_typ))
-        empty = boxes_and_types[0][:0]
+                names.append(str(box_or_typ))
+                continue
+            dom_pieces.append(box_or_typ.dom)
+            cod_pieces.append(box_or_typ.cod)
+            names.append(str(box_or_typ))
+        if not self.boxes:
+            raise ValueError(messages.LAYERS_MUST_HAVE_A_BOX)
+        first = dom_pieces[0]
+        empty = first[:0]
         super().__init__(
             " @ ".join(names),
             empty.tensor(*dom_pieces), empty.tensor(*cod_pieces))
+
+    @staticmethod
+    def is_routing(value) -> bool:
+        """ Whether a component is a type rather than a box. """
+        return isinstance(value, Ty)
+
+    @staticmethod
+    def _normalize_routing(value):
+        return value
+
+    def _check_inside(self, inside):
+        """ Type-check components and preserve coloured unit constraints. """
+        dom_pieces, cod_pieces = [], []
+        for value in inside:
+            assert_isinstance(value, (Ty, Box))
+            dom_pieces.append(value if isinstance(value, Ty) else value.dom)
+            cod_pieces.append(value if isinstance(value, Ty) else value.cod)
+        if dom_pieces:
+            empty = dom_pieces[0][:0]
+            empty.tensor(*dom_pieces)
+            empty.tensor(*cod_pieces)
+
+    def _scan(self, inside):
+        """ Return the canonical word of non-empty routing and boxes. """
+        result = []
+        for value in inside:
+            value = self._normalize_routing(value)
+            if not self.is_routing(value):
+                result.append(value)
+            elif value:
+                if result and self.is_routing(result[-1]):
+                    result[-1] = result[-1] @ value
+                else:
+                    result.append(value)
+        return tuple(result)
 
     def __iter__(self):
         for box_or_typ in self.boxes_or_types:
@@ -615,17 +653,28 @@ class Layer(cat.Box):
     @property
     def boxes_and_types(self):
         """
-        The alternating boxes and types represented by the layer.
+        The layer expanded to alternating types and boxes.
 
-        This is the same as :attr:`boxes_or_types` for monoidal layers.
-        Subclasses can store richer structural data while exposing the
-        underlying types to generic layer algorithms.
+        Empty types are inserted around consecutive boxes for compatibility
+        with algorithms defined on the old layer representation.
         """
-        return self.boxes_or_types
+        result = []
+        for value in self.boxes_or_types:
+            if isinstance(value, Ty):
+                result.append(value)
+            else:
+                if not result or not isinstance(result[-1], Ty):
+                    result.append(value.dom[:0])
+                result.append(value)
+        if not isinstance(result[-1], Ty):
+            result.append(result[-1].cod[len(result[-1].cod):])
+        return tuple(result)
 
     @property
     def boxes(self):
-        return list(self.boxes_and_types[1::2])
+        return [
+            box_or_typ for box_or_typ in self.boxes_or_types
+            if isinstance(box_or_typ, Box)]
 
     @property
     def size(self):
@@ -644,13 +693,44 @@ class Layer(cat.Box):
         return factory_name(type(self))\
             + f"({', '.join(map(repr, self))})"
 
-    def __matmul__(self, other: Ty) -> Layer:
-        *tail, head = self
-        return type(self)(*tail + [head @ other])
+    def tensor(self, other: Layer = None, *others: Layer) -> Layer:
+        """ Tensor layers, merging routing at their common boundaries. """
+        if other is None:
+            return self
+        inside = list(self)
+        for layer in (other, *others):
+            assert_isinstance(layer, type(self))
+            if self.is_routing(inside[-1])\
+                    and self.is_routing(layer[0]):
+                inside[-1] = inside[-1] @ layer[0]
+                inside.extend(layer[1:])
+            else:
+                inside.extend(layer)
+        return type(self)(*inside, scan=False)
+
+    def __matmul__(self, other: Ty | Layer) -> Layer:
+        if isinstance(other, type(self)):
+            return self.tensor(other)
+        assert_isinstance(other, Ty)
+        if not other:
+            self.cod @ other
+            return self
+        if self.is_routing(self[-1]):
+            inside = (*self[:-1], self[-1] @ other)
+        else:
+            inside = (*self, other)
+        return type(self)(*inside, scan=False)
 
     def __rmatmul__(self, other: Ty) -> Layer:
-        head, *tail = self
-        return type(self)(other @ head, *tail)
+        assert_isinstance(other, Ty)
+        if not other:
+            other @ self.dom
+            return self
+        if self.is_routing(self[0]):
+            inside = (other @ self[0], *self[1:])
+        else:
+            inside = (other, *self)
+        return type(self)(*inside, scan=False)
 
     @property
     def free_symbols(self) -> "set[sympy.Symbol]":
@@ -658,37 +738,37 @@ class Layer(cat.Box):
 
     def subs(self, *args) -> Layer:
         return type(self)(*(
-            x.subs(*args) if i % 2 else x for i, x in enumerate(self)))
+            x if self.is_routing(x) else x.subs(*args) for x in self),
+            scan=False)
 
     @property
     def is_generator(self):
-        if len(self.boxes_and_types) != 3:
-            return False
-        left, _, right = self.boxes_and_types
-        return not left.inside and not right.inside
+        return len(self.boxes_or_types) == 1\
+            and isinstance(self.boxes_or_types[0], Box)
 
     @property
     def generator(self):
-        return self.boxes_and_types[1] if self.is_generator else None
+        return self.boxes_or_types[0] if self.is_generator else None
 
     @classmethod
     def cast(cls, box: Box) -> Layer:
         """
-        Turns a box into a layer with empty types on the left and right.
+        Turns a box into a singleton layer.
 
         Parameters:
-            box : The box in the middle of empty types.
+            box : The box in the singleton layer.
 
         Example
         -------
         >>> f = Box('f', Ty('x'), Ty('y'))
         >>> assert Layer.cast(f) == Layer(Ty(), f, Ty())
         """
-        return cls(box.dom[:0], box, box.cod[len(box.cod):])
+        return cls(cls._normalize_routing(box), scan=False)
 
     def dagger(self) -> Layer:
         return type(self)(*(
-            x if isinstance(x, Ty) else x.dagger() for x in self))
+            x if isinstance(x, Ty) else x.dagger() for x in self),
+            scan=False)
 
     @property
     def boxes_and_offsets(self) -> list[tuple[Box, int]]:
@@ -701,12 +781,14 @@ class Layer(cat.Box):
         >>> f, g = Box('f', a, b), Box('g', c, d)
         >>> assert Layer(e, f, e, g, e).boxes_and_offsets == [(f, 1), (g, 3)]
         """
-        left, box, *tail = self.boxes_and_types
-        boxes, offsets = [box], [len(left)]
-        for typ, box in zip(tail[::2], tail[1::2]):
-            offsets.append(offsets[-1] + len(boxes[-1].cod) + len(typ))
-            boxes.append(box)
-        return list(zip(boxes, offsets))
+        result, offset = [], 0
+        for box_or_typ in self.boxes_or_types:
+            if isinstance(box_or_typ, Ty):
+                offset += len(box_or_typ)
+            else:
+                result.append((box_or_typ, offset))
+                offset += len(box_or_typ.cod)
+        return result
 
     def merge(self, other: Layer) -> Layer:
         """
@@ -744,8 +826,9 @@ class Layer(cat.Box):
 
     def lambdify(self, *symbols, **kwargs):
         return lambda *xs: type(self)(*(
-            x if not i % 2 else x.lambdify(*symbols, **kwargs)(*xs)
-            for i, x in enumerate(self)))
+            x if self.is_routing(x)
+            else x.lambdify(*symbols, **kwargs)(*xs) for x in self),
+            scan=False)
 
     def to_tree(self) -> dict:
         return dict(factory=factory_name(type(self)),
@@ -1118,12 +1201,14 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
             top >> left @ box1     @ mid @ box0.dom @ right\\
                 >> left @ box1.cod @ mid @ box0     @ right >> bottom
         """
-        if any(len(list(layer)) != 3 for layer in self.inside):
+        if i == j:
+            if not 0 <= i < len(self):
+                raise IndexError
+            return self
+        if any(len(layer.boxes_and_types) != 3 for layer in self.inside):
             raise NotImplementedError
         if not 0 <= i < len(self) or not 0 <= j < len(self):
             raise IndexError
-        if i == j:
-            return self
         if j < i - 1:
             result = self
             for k in range(i - j):

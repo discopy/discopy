@@ -86,25 +86,22 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from discopy import monoidal, balanced, traced, messages, hypergraph
+from discopy import monoidal, balanced, traced, hypergraph
 from discopy.abc import SymmetricCategory
 from discopy.cat import factory
 from discopy.monoidal import Wire, Ty, PRO  # noqa: F401
 from discopy.python import finset
-from discopy.utils import (
-    assert_isinstance, factory_name,
-    from_tree)
+from discopy.utils import factory_name, from_tree
 
 
 class Layer(monoidal.Layer):
     """
-    A tensor product :math:`s_0 \\otimes f_1 \\otimes \\dots \\otimes f_n
-    \\otimes s_n` of generators :math:`f_i` and routing :math:`s_i`, where
-    routing is a type when it is the identity and a :class:`Permutation`
-    otherwise. :class:`Swap` is a generator, distinct from ``[1, 0]``.
+    A tensor product of generators and non-empty routing, where routing is a
+    type when it is the identity and a :class:`Permutation` otherwise.
+    :class:`Swap` is a generator, distinct from ``[1, 0]``.
 
     Routing components are coalesced, so a permutation given between two
-    types becomes one permutation and the layer stays alternating. An
+    types becomes one permutation. Generators can be consecutive. An
     identity permutation is stored as its type, hence a layer with a single
     permutation always permutes: the identity is the empty diagram, not a
     layer.
@@ -113,8 +110,8 @@ class Layer(monoidal.Layer):
     :class:`discopy.monoidal.Layer`.
 
     Parameters:
-        inside : Alternating routing and generators, starting and ending
-                 with routing.
+        inside : Generators and routing, with at least one generator or one
+                 non-identity permutation.
 
     Examples
     --------
@@ -134,22 +131,6 @@ class Layer(monoidal.Layer):
     ...     x, f, Ty(), perm, Ty())
     >>> assert Layer(x, f, perm).boxes_and_offsets == [(f, 1), (perm, 2)]
     """
-    def __init__(self, *inside):
-        boxes_or_types = []
-        for value in inside:
-            if boxes_or_types and self.is_routing(value)\
-                    and self.is_routing(boxes_or_types[-1]):
-                boxes_or_types[-1] = boxes_or_types[-1] @ value
-            else:
-                boxes_or_types.append(value)
-        if not len(boxes_or_types) % 2 or any(
-                self.is_routing(value) != (not i % 2)
-                for i, value in enumerate(boxes_or_types)):
-            raise ValueError(messages.LAYERS_MUST_ALTERNATE)
-        super().__init__(*(
-            value.dom if isinstance(value, Permutation) and value.is_identity
-            else value for value in boxes_or_types))
-
     @staticmethod
     def is_routing(value) -> bool:
         """
@@ -162,6 +143,12 @@ class Layer(monoidal.Layer):
         """
         return isinstance(value, (monoidal.Ty, Permutation))
 
+    @staticmethod
+    def _normalize_routing(value):
+        if isinstance(value, Permutation) and value.is_identity:
+            return value.dom
+        return value
+
     @property
     def is_structural(self) -> bool:
         """
@@ -173,35 +160,6 @@ class Layer(monoidal.Layer):
         >>> assert not Layer(x, Box('f', x, y), y).is_structural
         """
         return any(isinstance(value, Permutation) for value in self)
-
-    @property
-    def boxes_and_types(self):
-        """ Every permutation as an ordinary box between empty types. """
-        result = []
-        for i, value in enumerate(self.boxes_or_types):
-            if i % 2 or not isinstance(value, Permutation):
-                result.append(value)
-            else:
-                result += [
-                    value.dom[:0], value, value.cod[len(value.cod):]]
-        return tuple(result)
-
-    @classmethod
-    def cast(cls, box: Box) -> Layer:
-        """ Turn a generator or a permutation into a layer. """
-        if isinstance(box, Permutation):
-            return cls(box)
-        return cls(box.dom[:0], box, box.cod[len(box.cod):])
-
-    def tensor(self, other: Layer) -> Layer:
-        """ Tensor layers, coalescing their touching routing. """
-        assert_isinstance(other, type(self))
-        return type(self)(*self, *other)
-
-    def __matmul__(self, other):
-        if isinstance(other, type(self)):
-            return self.tensor(other)
-        return super().__matmul__(other)
 
 
 @factory

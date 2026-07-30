@@ -145,8 +145,8 @@ def test_Layer():
     assert routed.boxes_and_types == (x, f, Ty(), permutation, Ty())
     assert routed.boxes == [f, permutation]
     assert routed.dagger() == Layer(x, f.dagger(), permutation.dagger())
-    with raises(ValueError):
-        Layer(x, f)
+    assert Layer(x, f).boxes_or_types == (x, f)
+    assert Layer(x, f).boxes_and_types == (x, f, Ty())
     with raises(ValueError):
         Layer(x)
 
@@ -171,6 +171,8 @@ def test_Layer_identity_routing():
         == (x, f, y @ z)
     assert Layer(x, Permutation(y, [0]), f, z).boxes_or_types == (x @ y, f, z)
     assert Permutation(x @ y, [0, 1]).inside == ()
+    with raises(ValueError):
+        Layer(Permutation(x @ y, [0, 1]))
 
 
 def test_Layer_coalesces_routing():
@@ -210,6 +212,11 @@ def test_Layer_tensor():
     assert (left @ right).dagger() == left.dagger() @ right.dagger()
     permutation = Layer(Permutation(x @ y, [1, 0]))
     assert (left @ right) @ permutation == left @ (right @ permutation)
+    assert Layer(f).tensor(Layer(g), permutation).boxes_or_types == (
+        f, g, permutation[0])
+    routed = Layer(f, z).tensor(permutation, Layer(x, g))
+    assert routed.boxes_or_types == (f, z @ permutation[0] @ x, g)
+    assert isinstance(routed[1], Permutation)
 
 
 def test_noncommuting_Permutation_composition():
