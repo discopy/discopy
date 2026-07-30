@@ -251,6 +251,21 @@ def test_draw_coloured_equation():
     assert '#ffffff' not in colours
 
 
+def test_equation_symbol_has_no_spider_background():
+    from matplotlib import pyplot as plt
+    equation = Equation(
+        Box("f", Ty("x"), Ty("x")), Box("g", Ty("x"), Ty("x")))
+    drawing = equation.to_drawing()
+    drawing.add_box_corners()
+    symbol, = [
+        node for node in drawing.box_nodes if node.box.drawing_name == "="]
+    assert symbol.box.color == "none"
+    backend = Matplotlib(figsize=(2, 2))
+    backend.draw_spiders(drawing)
+    assert backend.axis.collections[-1].get_facecolors()[0][-1] == 0
+    plt.close(backend.axis.figure)
+
+
 def test_draw_region_non_colors_string():
     # Colours need not be discopy COLORS keys: any Matplotlib colour string
     # (a CSS name or a hex code) is filled as given.

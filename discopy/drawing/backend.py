@@ -1355,7 +1355,7 @@ class Matplotlib(Backend):
             nodes, colors = zip(*colors.items())
             nx.draw_networkx_nodes(
                 *graph.inside, nodelist=nodes,
-                node_color=[COLORS[color] for color in colors],
+                node_color=[COLORS.get(color, color) for color in colors],
                 node_shape=SHAPES[shape], ax=self.axis,
                 node_size=300 * params.get("nodesize", 1))
             if draw_box_labels:
