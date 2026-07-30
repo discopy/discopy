@@ -135,6 +135,29 @@ def test_compare_drawing_raster_and_bytes(tmp_path):
     assert not actual.exists()
 
 
+def test_transparent_gif_frames_do_not_accumulate(tmp_path):
+    import numpy as np
+    from PIL import Image
+    x = monoidal.Ty("x")
+    first = monoidal.Box("f", x, x @ x @ x)
+    second = monoidal.Box("g", x @ x, x)
+    gif, expected = tmp_path / "animation.gif", tmp_path / "second.png"
+    params = dict(
+        figsize=(4, 4), wire_labels=False, draw_box_labels=False)
+
+    monoidal.Diagram.to_gif(first, second, path=gif, **params)
+    second.draw(path=expected, show=False, **params)
+
+    with Image.open(gif) as image:
+        image.seek(1)
+        actual_array = np.asarray(image.convert("RGBA"), dtype=float)
+        assert image.disposal_method == 2
+    with Image.open(expected) as image:
+        expected_array = np.asarray(image.convert("RGBA"), dtype=float)
+    rms = np.sqrt(np.mean((actual_array - expected_array) ** 2))
+    assert rms <= DRAWING_DEFAULT["plt_tol"]
+
+
 def test_draw_coloured_regions_and_frame():
     red, green, blue = map(
         monoidal.Colour, ("red", "green", "blue"))

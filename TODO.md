@@ -11,5 +11,5 @@ make sure you find a trick to have the same image draw on both white and black, 
 
 - [x] not sure where it comes from but let's add an option for the border colour too (with transparent as default)
 - [x] artefact of drawing equation symbols as white spiders, let's remove it
-- [WIP] @evening-2026-07-30T10:12+0200 something's going very wrong here
+- [x] something's going very wrong here
 - [ ] background inside the frames should be transparent too!
