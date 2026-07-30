@@ -40,7 +40,8 @@ Summary
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Generic, Type, TypeVar, ClassVar
+from collections.abc import Sequence
+from typing import ClassVar, Generic, TypeVar
 
 from discopy.utils import classproperty, get_origin
 
@@ -62,14 +63,14 @@ class Category[C0, C1: Category](ABC):
     >>> assert List([1, 2]) >> List([3]) == List([1, 2, 3])
     >>> assert List([3]) << List([1, 2]) == List([1, 2, 3])
     """
-    ob: ClassVar[Type[C0]]
-    factory: ClassVar[Type[C1]]
+    ob: ClassVar[type[C0]]
+    factory: ClassVar[type[C1]]
     dom: C0
     cod: C0
 
     #: Backward-compatible alias for :attr:`factory`, since types are
     #: themselves the objects of diagrams.
-    ar = classproperty(lambda cls: cls.factory)
+    ar = classproperty(lambda cls: getattr(cls, "factory", cls))
 
     @classmethod
     @abstractmethod
@@ -158,6 +159,7 @@ class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](
 
     This base class also implements syntactic sugar :code:`@` for whiskering.
     """
+
     @classmethod
     @abstractmethod
     def tensor(cls, *morphisms: C1) -> C1:
@@ -380,6 +382,22 @@ class SymmetricCategory[C0, C1](BalancedCategory[C0, C1]):
             left : The object on the left of the swap.
             right : The object on the right of the swap.
         """
+
+    @classmethod
+    def permutation(cls, xs: Sequence[int], doms: Sequence[C0]) -> C1:
+        """ Compose swaps to permute the atomic objects in ``dom``. """
+        xs, doms = list(xs), list(doms)
+        if list(range(len(doms))) != sorted(xs):
+            raise ValueError
+        tensor = lambda objects: sum(objects, start=cls.ob())
+        result, done = cls.id(tensor(doms)), cls.ob()
+        while xs != list(range(len(xs))):
+            i = xs[0]
+            left, head = tensor(doms[:i]), tensor(doms[i:i + 1])
+            result >>= done @ cls.swap(left, head) @ tensor(doms[i + 1:])
+            done, doms = done @ head, doms[:i] + doms[i + 1:]
+            xs = [x - 1 if x > i else x for x in xs[1:]]
+        return result
 
     @classmethod
     def twist(cls, dom: C0) -> C1:

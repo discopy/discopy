@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from pytest import raises
 
 from discopy.matrix import Matrix, backend
@@ -36,7 +37,8 @@ def test_repeat():
 
 
 def test_autotyping():
-    import torch
+    pytest.importorskip("jax")
+    torch = pytest.importorskip("torch")
     assert Matrix([0.5, 0.5], dom=1, cod=2).dtype == np.float64
     assert Matrix([0.5j], dom=1, cod=1).dtype == np.complex128
     with backend('jax'):
