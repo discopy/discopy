@@ -114,7 +114,7 @@ and cups/caps — never materialised. Here is its multiplication, the coadjoint
 product of :math:`D(H) = H \\otimes H^*`, drawn as a :class:`.tensor.CMap` (the
 tensor network that gets contracted):
 
->>> Double(Algebra.cyclic(2)).mult.to_map().draw(
+>>> Double(Algebra.cyclic(2)).mult.to_map().draw(  # doctest: +EXTRA
 ...     doctest='docs/_static/hopf/double-mult.dot')
 
 .. graphviz:: /_static/hopf/double-mult.dot
@@ -191,14 +191,19 @@ class Algebra:
     def drinfeld_element(self):
         """
         The Drinfeld element :math:`u = \\nabla (S \\otimes 1) R_{21}` of a
-        quasitriangular Hopf algebra as a state :math:`1 \\to H`, a
-        composite of the generators satisfying :math:`S^2(x) = u x u^{-1}`.
+        quasitriangular Hopf algebra, satisfying
+        :math:`S^2(x) = u x u^{-1}` — computed as a single tensor on first
+        access, a state :math:`1 \\to H`.
         """
         if self.R is None:
             raise ValueError(
                 "the Drinfeld element needs a quasitriangular structure")
-        return self.R >> Id(self.ty) @ self.antipode \
-            >> Diagram.swap(self.ty, self.ty) >> self.mult
+        n = self.dim
+        S = self.antipode.eval(dtype=complex).array.reshape(n, n)
+        mult = self.mult.eval(dtype=complex).array.reshape(n, n, n)
+        R = self.R.eval(dtype=complex).array.reshape(n, n)
+        return Box[complex]('u', Dim(1), self.ty,
+                            np.einsum('ij,ja,aik->k', R, S, mult).tolist())
 
     @cached_property
     def pivotal_element(self):
@@ -260,8 +265,7 @@ class Algebra:
         pivot = self.pivotal_element if pivot is None else pivot
         S = self.antipode.eval(dtype=complex).array.reshape(n, n)
         mult = self.mult.eval(dtype=complex).array.reshape(n, n, n)
-        R = self.R.eval(dtype=complex).array.reshape(n, n)
-        u = np.einsum('ij,ja,aik->k', R, S, mult)
+        u = self.drinfeld_element.eval(dtype=complex).array.reshape(n)
         g = pivot.eval(dtype=complex).array.reshape(n)
         v = np.einsum('i,j,ijk->k', u, S.T @ g, mult)
         return np.allclose(np.einsum('i,ijk->jk', v, mult),
@@ -291,8 +295,7 @@ class Algebra:
         n = self.dim
         S = self.antipode.eval(dtype=complex).array.reshape(n, n)
         mult = self.mult.eval(dtype=complex).array.reshape(n, n, n)
-        R = self.R.eval(dtype=complex).array.reshape(n, n)
-        u = np.einsum('ij,ja,aik->k', R, S, mult)
+        u = self.drinfeld_element.eval(dtype=complex).array.reshape(n)
         g = self.pivotal_element.eval(dtype=complex).array.reshape(n)
         v = np.einsum('i,j,ijk->k', u, S.T @ g, mult)
         return Box[complex]('v', Dim(1), self.ty, v.tolist())
@@ -661,7 +664,7 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
     >>> assert V.algebra == D
     >>> assert V.is_module() and V == Dim(2)
     >>> ty = V.action.cod
-    >>> (D.mult @ ty >> V.action).to_map().draw(
+    >>> (D.mult @ ty >> V.action).to_map().draw(  # doctest: +EXTRA
     ...     doctest='docs/_static/hopf/module.dot')
 
     .. graphviz:: /_static/hopf/module.dot
@@ -871,7 +874,8 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
     >>> braid = Intertwiner[D].braid(V, V)
     >>> lhs, rhs = action >> braid, Id(D.ty) @ braid >> action
     >>> assert lhs.eval(dtype=complex).is_close(rhs.eval(dtype=complex))
-    >>> lhs.to_map().draw(doctest='docs/_static/hopf/intertwiner.dot')
+    >>> lhs.to_map().draw(  # doctest: +EXTRA
+    ...   doctest='docs/_static/hopf/intertwiner.dot')
 
     .. graphviz:: /_static/hopf/intertwiner.dot
         :align: center
@@ -1003,9 +1007,11 @@ class Functor(ribbon.Functor):
 
     Example
     -------
-    The twist followed by the trace of the inverse braid is the identity in
-    any ribbon category. The functor maps this ribbon diagram to a tensor
-    network that contracts to the identity, drawn as the
+    The left trace of the braid is the inverse twist in any ribbon
+    category, so the twist followed by it is the identity. The functor
+    sends this ribbon diagram to a tensor network made of the ribbon
+    element acting through the module and the R-matrix closed by the
+    trace, which contracts to the identity — drawn as the
     :class:`.tensor.CMap`:
 
     >>> import numpy as np
@@ -1015,11 +1021,12 @@ class Functor(ribbon.Functor):
     >>> V = Representation[D].direct_sum([e, m])
     >>> x = ribbon.Ty('x')
     >>> F = Functor(ob_map={x: V}, ar_map={}, cod=Intertwiner[D])
-    >>> d = ribbon.Twist(x) >> ribbon.Braid(x, x)[::-1].trace()
+    >>> d = ribbon.Twist(x) >> ribbon.Braid(x, x).trace(left=True)
     >>> network = F(d)
     >>> assert network.eval(dtype=complex).is_close(
     ...     F(ribbon.Id(x)).eval(dtype=complex))
-    >>> network.to_map().draw(doctest='docs/_static/hopf/ribbon-functor.dot')
+    >>> network.to_map().draw(  # doctest: +EXTRA
+    ...     doctest='docs/_static/hopf/ribbon-functor.dot')
 
     .. graphviz:: /_static/hopf/ribbon-functor.dot
         :align: center

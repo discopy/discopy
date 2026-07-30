@@ -1,3 +1,5 @@
+import shutil
+
 import pytest
 from pytest import raises
 
@@ -643,6 +645,8 @@ def test_euler_characteristic():
 
 
 def test_draw_plain_path(tmp_path):
+    if shutil.which("dot") is None:
+        pytest.skip("needs the graphviz dot binary")
     f = compact.Box("f", compact.Ty("x"), compact.Ty("y")).to_map()
     for fmt in ("dot", "svg"):
         path = tmp_path / f"f.{fmt}"
