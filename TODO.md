@@ -21,7 +21,7 @@ Prompt ([#437](https://github.com/discopy/discopy/issues/437), verbatim):
 - [x] `symmetric.Layer` (#362): the same invariant with "permutation" in place of "type", except it may also be a singleton list holding one non-identity permutation and no boxes
 - [x] Adjust `dom`/`cod`/`name` computation and `boxes_and_offsets` to the new representation
 - [x] Sweep dependent code (drawing, foliation, `symmetric.Layer` from #362) and update doctests + README
-- [WIP] @evening-2026-07-30T10:20+0200 Run `pflake8 discopy` and `coverage run -m pytest`
+- [x] Run `pflake8 discopy` and `coverage run -m pytest`
 
 ## Guidance (🐦 birdsong, 2026-07-22)
 
