@@ -169,10 +169,13 @@ def test_draw_coloured_regions_and_frame():
     # A box fills its three wire regions, with the names in
     # discopy.config.COLORS resolved to their hexcodes as for boxes.
     assert {'#e8a5a5', '#d8f8d8', '#776ff3'} <= region_hexes(box)
-    # A frame additionally fills its frame background (lightgrey).
+    # A frame leaves its default white background transparent.
     frame = box.bubble(dom=outer, cod=outer, draw_as_frame=True)
-    assert {'#e8a5a5', '#d8f8d8', '#776ff3', '#d3d3d3'}\
-        <= region_hexes(frame)
+    assert {'#e8a5a5', '#d8f8d8', '#776ff3'} <= region_hexes(frame)
+    assert '#d3d3d3' not in region_hexes(frame)
+    # An explicit frame colour is still filled.
+    drawing = box.to_drawing().frame(frame_colour="lightgrey")
+    assert '#d3d3d3' in region_hexes(drawing)
 
 
 def coloured_bubble():
