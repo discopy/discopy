@@ -55,6 +55,8 @@ def draw(diagram, **params):
         Aspect ratio, one of :code:`['auto', 'equal']`.
     margins : tuple, optional
         Margins, default is :code:`(0.05, 0.05)`.
+    boundary_color : str, optional
+        Colour of the drawing boundary, transparent by default.
     nodesize : float, optional
         Node size for spiders and controlled gates.
     fontsize : int, optional

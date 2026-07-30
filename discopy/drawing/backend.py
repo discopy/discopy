@@ -1187,8 +1187,8 @@ class Matplotlib(Backend):
             patheffects.Stroke(linewidth=linewidth + 2, foreground="white"),
             patheffects.Normal()]
 
-    def draw_boundary(self, graph, boundary_color="white", **params):
-        """ Draw a transparent canvas with a white boundary. """
+    def draw_boundary(self, graph, boundary_color="none", **params):
+        """ Draw a transparent canvas with an optional boundary colour. """
         x, y = graph.width, graph.height
         self.draw_polygon(
             (0, 0), (x, 0), (x, y), (0, y),

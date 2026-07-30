@@ -70,6 +70,7 @@ def test_draw_baseline(tmp_path, monkeypatch):
 
 def test_transparent_background_and_bordered_wires(tmp_path):
     from matplotlib import pyplot as plt
+    from matplotlib.colors import to_rgba
     from matplotlib import patheffects
     from PIL import Image
     path = tmp_path / "wire.png"
@@ -86,6 +87,10 @@ def test_transparent_background_and_bordered_wires(tmp_path):
     effects = backend.axis.patches[-1].get_path_effects()
     assert isinstance(effects[0], patheffects.Stroke)
     assert isinstance(effects[1], patheffects.Normal)
+    backend.draw_boundary(drawing)
+    assert backend.axis.patches[-1].get_edgecolor() == to_rgba("none")
+    backend.draw_boundary(drawing, boundary_color="red")
+    assert backend.axis.patches[-1].get_edgecolor() == to_rgba(COLORS["red"])
     plt.close(backend.axis.figure)
 
 
