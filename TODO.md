@@ -18,7 +18,7 @@ Prompt ([#437](https://github.com/discopy/discopy/issues/437), verbatim):
 - [WIP] @evening-2026-07-30T09:54+0200 Whiskering appends the type only when it is non-empty and the outermost element is a box, otherwise merges it into the boundary type
 - [WIP] @evening-2026-07-30T09:54+0200 Tensoring layers merges a trailing type with a leading type (resulting length = sum of lengths − 1)
 - [WIP] @evening-2026-07-30T09:54+0200 Constructor defaults to `scan=True` (rescans the list, merging consecutive types to restore the invariant); every internal call site that already preserves the invariant constructs with `scan=False`, so tensoring `n` layers is linear rather than quadratic
-- [ ] `symmetric.Layer` (#362): the same invariant with "permutation" in place of "type", except it may also be a singleton list holding one non-identity permutation and no boxes
+- [WIP] @evening-2026-07-30T09:54+0200 `symmetric.Layer` (#362): the same invariant with "permutation" in place of "type", except it may also be a singleton list holding one non-identity permutation and no boxes
 - [ ] Adjust `dom`/`cod`/`name` computation and `boxes_and_offsets` to the new representation
 - [ ] Sweep dependent code (drawing, foliation, `symmetric.Layer` from #362) and update doctests + README
 - [ ] Run `pflake8 discopy` and `coverage run -m pytest`
