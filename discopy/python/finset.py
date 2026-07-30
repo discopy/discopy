@@ -17,17 +17,22 @@ Summary
 """
 
 from __future__ import annotations
+from discopy.utils import assert_isinstance
 from typing import Iterable, Self, Any
+from collections.abc import Sequence
 
 from dataclasses import dataclass
 
+from discopy import messages
 from discopy.abc import MonoidalCategory, SymmetricCategory
 
 
 @dataclass
-class Function(MonoidalCategory):
+class Function(MonoidalCategory, Sequence):
     """
     A function between finite sets encoded as a Python list.
+
+    Functions implement the standard Python sequence protocol.
 
     Parameters:
         inside : The list from ``range(cod)`` to ``range(dom)``.
@@ -61,6 +66,9 @@ class Function(MonoidalCategory):
     def __getitem__(self, key):
         return self.inside[key]
 
+    def __len__(self) -> int:
+        return self.cod
+
     @staticmethod
     def id(x: int = 0):
         return Function(list(range(x)), x, x)
@@ -78,6 +86,14 @@ class Function(MonoidalCategory):
     def swap(x: int, y: int) -> Function:
         inside = list(Permutation.swap(x, y))
         return Function(inside, x + y, x + y)
+
+    @classmethod
+    def permutation(cls, xs: Sequence[int], doms: Sequence[int]) -> Function:
+        xs = Permutation(xs)
+        dom = sum(doms)
+        if xs.is_identity:
+            return Function.id(dom)
+        return Function(list(Permutation(xs, dom)), dom, dom)
 
     @staticmethod
     def copy(x: int, n=2) -> Function:
@@ -109,10 +125,16 @@ class Permutation(Function, SymmetricCategory):
         inside = tuple(inside)
         if size is None:
             size = len(inside)
+        else:
+            assert_isinstance(size, int)
         if len(inside) != size:
-            raise ValueError
+            raise ValueError(
+                messages.WRONG_PERMUTATION.format(size, len(inside))
+            )
         if sorted(inside) != list(range(size)):
-            raise ValueError
+            raise ValueError(
+                messages.WRONG_PERMUTATION.format(size, len(inside))
+            )
         super().__init__(list(inside), size, size)
 
     def __iter__(self):
@@ -121,10 +143,7 @@ class Permutation(Function, SymmetricCategory):
     def __getitem__(self, key: int) -> int:
         if isinstance(key, slice):
             return tuple(self)[key]
-        return super().__getitem__(key % len(self))
-
-    def __len__(self) -> int:
-        return self.cod
+        return super().__getitem__(key)
 
     def __repr__(self) -> str:
         return repr(tuple(self))
@@ -145,6 +164,11 @@ class Permutation(Function, SymmetricCategory):
         return cls(range(dom), dom)
 
     identity = id
+
+    @property
+    def is_identity(self) -> bool:
+        """ Whether this is the identity permutation. """
+        return list(self) == list(range(len(self)))
 
     @classmethod
     def from_cycles(cls, cycles: Cycles, size: int) -> Self:
@@ -213,6 +237,11 @@ class Permutation(Function, SymmetricCategory):
         for source, target in enumerate(self):
             result[target] = source
         return type(self)(result, len(self))
+
+    def rotate(self) -> Self:
+        """ Rotate by reversing and inverting the permutation. """
+        reverse = type(self)(reversed(range(len(self))))
+        return self.dagger().conjugate(reverse)
 
     def conjugate(self, other: Self) -> Self:
         """ Return ``other^-1 ; self ; other``. """

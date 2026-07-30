@@ -480,7 +480,7 @@ def backend(name: BackendName = None,
 
     Example
     -------
-    >>> with backend('jax'):
+    >>> with backend('jax'):  # doctest: +EXTRA
     ...     assert type(Matrix([0, 1, 1, 0], 2, 2).array).__module__\\
     ...         == 'jaxlib._jax'
     """
@@ -505,7 +505,7 @@ def set_backend(name: BackendName) -> None:
     -------
     >>> set_backend('jax')
     >>> assert type(Matrix([0, 1, 1, 0], 2, 2).array).__module__\\
-    ...     == 'jaxlib._jax'
+    ...     == 'jaxlib._jax'  # doctest: +EXTRA
     >>> set_backend('numpy')
     >>> assert type(Matrix([0, 1, 1, 0], 2, 2).array).__module__\\
     ...     == 'numpy'
@@ -520,7 +520,7 @@ def get_backend() -> Backend:
     Example
     -------
     >>> set_backend('jax')
-    >>> assert isinstance(get_backend(), JAX)
+    >>> assert isinstance(get_backend(), JAX)  # doctest: +EXTRA
     >>> set_backend('numpy')
     >>> assert isinstance(get_backend(), NumPy)
     """

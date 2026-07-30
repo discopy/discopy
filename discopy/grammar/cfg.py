@@ -131,7 +131,7 @@ class Tree:
         """
         Interface with NLTK
 
-        >>> import nltk
+        >>> import nltk  # doctest: +EXTRA
         >>> t = nltk.Tree.fromstring("(S (NP I) (VP (V saw) (NP him)))")
         >>> print(Tree.from_nltk(t))
         S(I, VP(saw, him))
