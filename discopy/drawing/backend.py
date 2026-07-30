@@ -976,6 +976,8 @@ class TikZ(Backend):
     @staticmethod
     def format_color(color):
         """ Formats a color. """
+        if color == "none":
+            return color
         hexcode = COLORS[color]
         rgb = [
             int(hex, 16) for hex in [hexcode[1:3], hexcode[3:5], hexcode[5:]]]

@@ -23,7 +23,7 @@ L 216 0
 L 0 0 
 L 0 144 
 z
-" clip-path="url(#p73fb16c204)" style="fill: none; stroke: #ffffff; stroke-linejoin: miter"/>
+" clip-path="url(#p73fb16c204)" style="fill: none"/>
    </g>
    <g id="patch_3">
     <path d="M 22.736842 0 
@@ -75,7 +75,7 @@ Q 204.631579 144 204.631579 144
    </g>
    <g id="PathCollection_1">
     <defs>
-     <path id="m4b6c72a8ef" d="M 0 5.867282 
+     <path id="m57df343987" d="M 0 5.867282 
 C 1.556021 5.867282 3.048522 5.249068 4.148795 4.148795 
 C 5.249068 3.048522 5.867282 1.556021 5.867282 0 
 C 5.867282 -1.556021 5.249068 -3.048522 4.148795 -4.148795 
@@ -85,10 +85,10 @@ C -5.249068 -3.048522 -5.867282 -1.556021 -5.867282 0
 C -5.867282 1.556021 -5.249068 3.048522 -4.148795 4.148795 
 C -3.048522 5.249068 -1.556021 5.867282 0 5.867282 
 z
-" style="stroke: #ffffff"/>
+" style="stroke: #000000; stroke-opacity: 0"/>
     </defs>
     <g clip-path="url(#p73fb16c204)">
-     <use xlink:href="#m4b6c72a8ef" x="113.684211" y="72" style="fill: #ffffff; stroke: #ffffff"/>
+     <use xlink:href="#m57df343987" x="113.684211" y="72" style="fill-opacity: 0; stroke: #000000; stroke-opacity: 0"/>
     </g>
    </g>
    <g id="text_1">

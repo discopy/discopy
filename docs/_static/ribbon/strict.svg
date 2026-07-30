@@ -23,7 +23,7 @@ L 570.857143 30.857143
 L 95.142857 30.857143 
 L 95.142857 185.142857 
 z
-" clip-path="url(#p58f076ce27)" style="fill: none; stroke: #ffffff; stroke-linejoin: miter"/>
+" clip-path="url(#p58f076ce27)" style="fill: none"/>
    </g>
    <g id="patch_3">
     <path d="M 172.285714 82.285714 
@@ -208,10 +208,10 @@ z
 "/>
     </defs>
     <g clip-path="url(#p58f076ce27)">
-     <use xlink:href="#C0_0_c069b3fa76" x="275.142857" y="108" style="fill: #ffffff; stroke: #ffffff"/>
+     <use xlink:href="#C0_0_c069b3fa76" x="275.142857" y="108" style="fill: none"/>
     </g>
     <g clip-path="url(#p58f076ce27)">
-     <use xlink:href="#C0_0_c069b3fa76" x="378" y="108" style="fill: #ffffff; stroke: #ffffff"/>
+     <use xlink:href="#C0_0_c069b3fa76" x="378" y="108" style="fill: none"/>
     </g>
    </g>
    <g id="text_1">

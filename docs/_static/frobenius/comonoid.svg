@@ -23,7 +23,7 @@ L 1530 0
 L 0 0 
 L 0 144 
 z
-" clip-path="url(#p3d95f6eda1)" style="fill: none; stroke: #ffffff; stroke-linejoin: miter"/>
+" clip-path="url(#p3d95f6eda1)" style="fill: none"/>
    </g>
    <g id="patch_3">
     <path d="M 1206 72 
@@ -454,10 +454,10 @@ z
      <use xlink:href="#C0_0_6d494f3e48" x="36" y="108" style="stroke: #000000"/>
     </g>
     <g clip-path="url(#p3d95f6eda1)">
-     <use xlink:href="#C0_0_6d494f3e48" x="180" y="72" style="fill: #ffffff; stroke: #ffffff"/>
+     <use xlink:href="#C0_0_6d494f3e48" x="180" y="72" style="fill: none"/>
     </g>
     <g clip-path="url(#p3d95f6eda1)">
-     <use xlink:href="#C0_0_6d494f3e48" x="324" y="72" style="fill: #ffffff; stroke: #ffffff"/>
+     <use xlink:href="#C0_0_6d494f3e48" x="324" y="72" style="fill: none"/>
     </g>
     <g clip-path="url(#p3d95f6eda1)">
      <use xlink:href="#C0_0_6d494f3e48" x="450" y="36" style="stroke: #000000"/>
@@ -466,7 +466,7 @@ z
      <use xlink:href="#C0_0_6d494f3e48" x="486" y="108" style="stroke: #000000"/>
     </g>
     <g clip-path="url(#p3d95f6eda1)">
-     <use xlink:href="#C0_0_6d494f3e48" x="558" y="72" style="fill: #ffffff; stroke: #ffffff"/>
+     <use xlink:href="#C0_0_6d494f3e48" x="558" y="72" style="fill: none"/>
     </g>
     <g clip-path="url(#p3d95f6eda1)">
      <use xlink:href="#C0_0_6d494f3e48" x="702" y="36" style="stroke: #000000"/>
@@ -475,7 +475,7 @@ z
      <use xlink:href="#C0_0_6d494f3e48" x="666" y="108" style="stroke: #000000"/>
     </g>
     <g clip-path="url(#p3d95f6eda1)">
-     <use xlink:href="#C0_0_6d494f3e48" x="846" y="72" style="fill: #ffffff; stroke: #ffffff"/>
+     <use xlink:href="#C0_0_6d494f3e48" x="846" y="72" style="fill: none"/>
     </g>
     <g clip-path="url(#p3d95f6eda1)">
      <use xlink:href="#C0_0_6d494f3e48" x="954" y="36" style="stroke: #000000"/>
@@ -484,13 +484,13 @@ z
      <use xlink:href="#C0_0_6d494f3e48" x="1026" y="108" style="stroke: #000000"/>
     </g>
     <g clip-path="url(#p3d95f6eda1)">
-     <use xlink:href="#C0_0_6d494f3e48" x="1134" y="72" style="fill: #ffffff; stroke: #ffffff"/>
+     <use xlink:href="#C0_0_6d494f3e48" x="1134" y="72" style="fill: none"/>
     </g>
     <g clip-path="url(#p3d95f6eda1)">
      <use xlink:href="#C0_0_6d494f3e48" x="1242" y="36" style="stroke: #000000"/>
     </g>
     <g clip-path="url(#p3d95f6eda1)">
-     <use xlink:href="#C0_0_6d494f3e48" x="1350" y="72" style="fill: #ffffff; stroke: #ffffff"/>
+     <use xlink:href="#C0_0_6d494f3e48" x="1350" y="72" style="fill: none"/>
     </g>
     <g clip-path="url(#p3d95f6eda1)">
      <use xlink:href="#C0_0_6d494f3e48" x="1458" y="72" style="stroke: #000000"/>

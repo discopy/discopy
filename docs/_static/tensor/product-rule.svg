@@ -23,7 +23,7 @@ L 360 0
 L 0 0 
 L 0 144 
 z
-" clip-path="url(#p47b61f2627)" style="fill: none; stroke: #ffffff; stroke-linejoin: miter"/>
+" clip-path="url(#p47b61f2627)" style="fill: none"/>
    </g>
    <g id="patch_3">
     <path d="M 45 18 
@@ -368,10 +368,10 @@ z
 "/>
     </defs>
     <g clip-path="url(#p47b61f2627)">
-     <use xlink:href="#C0_0_8c61628325" x="112.5" y="72" style="fill: #ffffff; stroke: #ffffff"/>
+     <use xlink:href="#C0_0_8c61628325" x="112.5" y="72" style="fill: none"/>
     </g>
     <g clip-path="url(#p47b61f2627)">
-     <use xlink:href="#C0_0_8c61628325" x="247.5" y="72" style="fill: #ffffff; stroke: #ffffff"/>
+     <use xlink:href="#C0_0_8c61628325" x="247.5" y="72" style="fill: none"/>
     </g>
    </g>
    <g id="text_1">

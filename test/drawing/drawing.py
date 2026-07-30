@@ -290,6 +290,9 @@ def test_equation_symbol_has_no_spider_background():
     backend.draw_spiders(drawing)
     assert backend.axis.collections[-1].get_facecolors()[0][-1] == 0
     plt.close(backend.axis.figure)
+    tikz = TikZ(use_tikzstyles=True)
+    tikz.draw_spiders(drawing)
+    assert "fill=none" in tikz.node_styles[-1]
 
 
 def test_draw_region_non_colors_string():
