@@ -14,7 +14,7 @@ Prompt ([#437](https://github.com/discopy/discopy/issues/437), verbatim):
 
 ---
 
-- [ ] Redefine `monoidal.Layer` on the new representation: boxes and non-empty types, at least one box, no two consecutive types
+- [WIP] @evening-2026-07-30T09:50+0200 Redefine `monoidal.Layer` on the new representation: boxes and non-empty types, at least one box, no two consecutive types
 - [ ] Whiskering appends the type only when it is non-empty and the outermost element is a box, otherwise merges it into the boundary type
 - [ ] Tensoring layers merges a trailing type with a leading type (resulting length = sum of lengths − 1)
 - [ ] Constructor defaults to `scan=True` (rescans the list, merging consecutive types to restore the invariant); every internal call site that already preserves the invariant constructs with `scan=False`, so tensoring `n` layers is linear rather than quadratic
