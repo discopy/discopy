@@ -15,7 +15,7 @@ Prompt ([#437](https://github.com/discopy/discopy/issues/437), verbatim):
 ---
 
 - [WIP] @evening-2026-07-30T09:50+0200 Redefine `monoidal.Layer` on the new representation: boxes and non-empty types, at least one box, no two consecutive types
-- [ ] Whiskering appends the type only when it is non-empty and the outermost element is a box, otherwise merges it into the boundary type
+- [WIP] @evening-2026-07-30T09:54+0200 Whiskering appends the type only when it is non-empty and the outermost element is a box, otherwise merges it into the boundary type
 - [ ] Tensoring layers merges a trailing type with a leading type (resulting length = sum of lengths − 1)
 - [ ] Constructor defaults to `scan=True` (rescans the list, merging consecutive types to restore the invariant); every internal call site that already preserves the invariant constructs with `scan=False`, so tensoring `n` layers is linear rather than quadratic
 - [ ] `symmetric.Layer` (#362): the same invariant with "permutation" in place of "type", except it may also be a singleton list holding one non-identity permutation and no boxes
