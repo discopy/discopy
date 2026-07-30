@@ -99,6 +99,10 @@ class CQ:
             else f"Q({self.classical})" if not self.quantum\
             else f"C({self.classical}) @ Q({self.quantum})"
 
+    @classmethod
+    def unit(cls) -> CQ:
+        return cls(Dim(), quantum=Dim())
+
     def tensor(self, *others):
         """
         The tensor of a classical-quantum dimension with some ``others``.

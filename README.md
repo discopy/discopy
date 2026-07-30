@@ -112,7 +112,8 @@ By default, DisCoPy diagrams are made of layers with exactly one box in between 
 We can get more general diagrams by specifying the list of layers `inside` manually:
 
 ```python
-from discopy.monoidal import Layer, Equation
+from discopy.monoidal import Equation
+from discopy.symmetric import Layer
 
 A, B, C, D = Ty(*"ABCD")
 f, g = Box("f", A, B), Box("g", C, D)
