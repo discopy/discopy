@@ -37,6 +37,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   or colliding with neighbouring wires
   ([#364](https://github.com/discopy/discopy/pull/364),
   [#365](https://github.com/discopy/discopy/pull/365)).
+- Explicit permutations in symmetric layers: `symmetric.P` supports the
+  permutation operations and functorial semantics, while `symmetric.Layer`
+  alternates permutations with generators without canonicalising diagram
+  state ([#362](https://github.com/discopy/discopy/pull/362)).
 
 ### Changed
 
