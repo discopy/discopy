@@ -23,3 +23,12 @@ Review feedback from @giodefelice on #505, quoted verbatim:
 - [x] discopy/hopf.py:244 (`state` in `pivotal_element`) — "Let's avoid these function
       definitions inside methods. Can we make the calculations of gs so we don't need to
       reshape?"
+
+Comment from @giodefelice on #484 (2026-07-30), quoted verbatim:
+
+- [x] "1) merge main and get CI green."
+- [x] "2) Make sure that the ribbon_element, pivotal_element and drinfeld_element are computed
+      as single tensors (not tensor diagrams) as cached properties"
+- [x] "3) Rewrite the doctest of Functor, draw the twist followed by the left trace of the
+      braid, apply the functor get a tensor network with ribbon element and R matrix, check
+      that the contraction is the identity."
