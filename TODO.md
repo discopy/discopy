@@ -16,11 +16,14 @@ so the generated fusion table is not a group law.
 - [x] merge origin/main into the branch, adapt to the marimo notebook
       convention and the current hopf.py (the notebook conversion itself
       happens with the notebook rework below)
-- [ ] `HopfAlgebra.symmetric(n)`: the group algebra of the symmetric group
-- [ ] generalise `Representation.anyon` to the double of any group algebra:
-      the irrep of a conjugacy class and an irrep of its centraliser
-- [ ] tests: the 8 anyons of D(k[S3]) are valid modules with dims summing
-      in squares to 36, S unitary, Verlinde integral, agreement with chart dims
+- [WIP] @serialized-yeti-2026-07-31 13:52 `Algebra.symmetric(n)`: the group
+      algebra of the symmetric group
+- [WIP] @serialized-yeti-2026-07-31 13:52 generalise `Representation.anyon`
+      to the double of any group algebra: the irrep of a conjugacy class
+      and an irrep of its centraliser
+- [WIP] @serialized-yeti-2026-07-31 13:52 tests: the 8 anyons of D(k[S3])
+      are valid modules with dims summing in squares to 36, S unitary,
+      Verlinde integral, agreement with chart dims
 - [ ] notebook: fusion rules from braiding, exactly — monodromy traces, S,
       Verlinde, cross-checked against per-channel chart dimensions
 - [ ] notebook: learning the fusion rules from finite-shot simulated
