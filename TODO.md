@@ -28,4 +28,4 @@ so the generated fusion table is not a group law.
 - [x] notebook: the D(k[S3]) fusion table, generated not assumed
 - [x] notebook: anyons as an error-correcting code — Hom(1, V1 (x) ... (x) Vn)
       as the code space via the chart, covariant encoder = intertwiner, references
-- [ ] update the PR body
+- [x] update the PR body
