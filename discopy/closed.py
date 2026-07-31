@@ -22,6 +22,7 @@ Summary
     Eval
     Coeval
     Curry
+    Discard
     Sum
     Functor
     CMap
@@ -34,17 +35,16 @@ Axioms
 >>> x, y, z = map(Ty, "xyz")
 >>> f, g = Box('f', x, z << y), Box('g', x @ y, z)
 
->>> from discopy.drawing import Equation
 >>> Equation(f.uncurry().curry(), f).draw(
-...     path='docs/_static/closed/curry-left.png', margins=(0.1, 0.05))
+...     doctest='docs/_static/closed/curry-left.svg', margins=(0.1, 0.05))
 
-.. image:: /_static/closed/curry-left.png
+.. image:: /_static/closed/curry-left.svg
     :align: center
 
 >>> Equation(g.curry().uncurry(), g).draw(
-...     path='docs/_static/closed/uncurry.png')
+...     doctest='docs/_static/closed/uncurry.svg')
 
-.. image:: /_static/closed/uncurry.png
+.. image:: /_static/closed/uncurry.svg
     :align: center
 """
 
@@ -52,7 +52,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, ClassVar
 
-from discopy import cat, monoidal, biclosed, markov
+from discopy import cat, monoidal, biclosed, markov, hypergraph
 from discopy.abc import ClosedCategory
 from discopy.cat import factory
 
@@ -68,10 +68,10 @@ class Ty(biclosed.Ty):
     >>> X, Y = Ty("X"), Ty("Y")
     >>> t = X(lambda x: (X >> Y)(lambda f: f(x)))
     >>> t.draw(
-    ...     path='docs/_static/closed/diagram.png',
+    ...     doctest='docs/_static/closed/diagram.svg',
     ...     aspect="auto", figsize=(8, 8), margins=(0.2, 0))
 
-    .. image:: /_static/closed/diagram.png
+    .. image:: /_static/closed/diagram.svg
         :align: center
     """
 
@@ -138,6 +138,10 @@ class Copy(markov.Copy, Box):
     is_linear = False
 
 
+class Discard(markov.Discard, Copy):
+    "A markov discard in a closed category."
+
+
 class Sum(markov.Sum, biclosed.Sum, Box):
     """
     A markov sum is a symmetric sum and a markov box.
@@ -169,24 +173,21 @@ class Functor(biclosed.Functor, markov.Functor):
         return super().__call__(other)
 
 
-class Hypergraph(markov.Hypergraph):
-    functor = Functor
-
-
 class CMap(biclosed.CMap):
-    functor = Functor
+    category = Diagram
     require_planar = False
 
 
-Diagram.hypergraph_factory = Hypergraph
+Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
+Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.copy_factory = Copy
 Diagram.braid_factory = Swap
 Diagram.curry_factory = Curry
 Diagram.eval_factory = Eval
 Diagram.coeval_factory = Coeval
 Diagram.trace_factory = Trace
-Diagram.discard_factory = lambda X: Copy(X, 0)
+Diagram.discard_factory = Discard
 Diagram.sum_factory = Sum
 Ty.exp_factory = Ty.under_factory = Ty.over_factory = staticmethod(Exp)
 
@@ -263,7 +264,8 @@ class Abstraction(TermBase, biclosed.Abstraction):
         i, n = self.body.freevars.index(self.var), len(self.body.freevars)
         body = self.body.eval(functor=functor)
         p = [0] + [j + 1 if j < i else j for j in range(n) if j != i]
-        return (body.permutation(p, body.dom).dagger() >> body).curry()
+        doms = [self.ob(wire) for wire in body.dom.inside]
+        return (body.permutation(p, doms).dagger() >> body).curry()
 
 
 @dataclass
@@ -295,3 +297,7 @@ Ty.variable_factory = Variable
 Ty.constant_factory = Constant
 Ty.application_factory = Application
 Ty.abstraction_factory = Abstraction
+
+
+class Equation(markov.Equation):
+    """ The :class:`markov.Equation` of closed diagrams. """

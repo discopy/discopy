@@ -70,6 +70,7 @@ This example is inspired from Pawel Sobocinski's blog post [Crema di Mascarpone 
 from discopy.utils import factory
 from discopy.symmetric import Ty, Box, Diagram, Swap
 
+@factory
 class Ingredient(Ty):
   "The objects of the category of recipe diagrams."
 
@@ -83,7 +84,7 @@ class CookingStep(Box, Recipe):
 class CookingSwap(Swap, CookingStep):
   "A cooking swap takes two ingredients `X @ Y` and gives `Y @ X`."
 
-Recipe.swap_factory = CookingSwap  # Recipes need to know how to swap.
+Recipe.braid_factory = CookingSwap  # Recipes need to know how to swap.
 
 egg, white, yolk = Ingredient("egg"), Ingredient("white"), Ingredient("yolk")
 crack = CookingStep("crack", egg, white @ yolk)
@@ -98,21 +99,21 @@ def crack_two_eggs(x, y):
 
 # ... or in point-free style using parallel (@) and sequential (>>) composition
 
-assert crack_two_eggs == crack @ crack\
-  >> white @ CookingSwap(yolk, white) @ yolk\
-  >> merge(white) @ merge(yolk)
+assert crack_two_eggs == (crack @ crack
+  >> white @ CookingSwap(yolk, white) @ yolk
+  >> merge(white) @ merge(yolk)).foliation()
 
-crack_two_eggs.draw()
+crack_two_eggs.draw(doctest="docs/_static/readme/crack-eggs.svg")
 ```
 
-![crack_two_eggs.draw()](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/crack-eggs.png)
+![crack_two_eggs.draw()](https://github.com/discopy/discopy/raw/main/docs/_static/readme/crack-eggs.svg)
 
 By default, DisCoPy diagrams are made of layers with exactly one box in between some (possibly empty) list of wires on its left- and right-hand side.
 We can get more general diagrams by specifying the list of layers `inside` manually:
 
 ```python
-from discopy.monoidal import Layer
-from discopy.drawing import Equation
+from discopy.monoidal import Equation
+from discopy.symmetric import Layer
 
 A, B, C, D = Ty(*"ABCD")
 f, g = Box("f", A, B), Box("g", C, D)
@@ -124,7 +125,7 @@ Equation(Equation(
   left, middle, symbol="$\\rightarrow$"), right, symbol="$\\leftarrow$").draw()
 ```
 
-![](docs/_static/readme/interchanger.png)
+![](https://github.com/discopy/discopy/raw/main/docs/_static/readme/interchanger.svg)
 
 or by calling the method `Diagram.foliation` which will minimize the length of the diagram:
 
@@ -132,16 +133,19 @@ or by calling the method `Diagram.foliation` which will minimize the length of t
 
 crack_two_eggs_at_once = crack_two_eggs.foliation()
 
+empty = Ingredient()
+
 assert crack_two_eggs_at_once == Recipe(
   dom=egg @ egg, cod=white @ yolk, inside=(
-    Layer(Ty(), crack, Ty(), crack, Ty()),
+    Layer(empty, crack, empty, crack, empty),
     Layer(white, CookingSwap(yolk, white), yolk),
-    Layer(Ty(), merge(white), Ty(), merge(yolk), Ty())))
+    Layer(empty, merge(white), empty, merge(yolk), empty)))
 
-crack_two_eggs_at_once.draw()
+crack_two_eggs_at_once.draw(
+  doctest="docs/_static/readme/crack-two-eggs-at-once.svg")
 ```
 
-![crack_two_eggs_at_once.draw()](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/crack-two-eggs-at-once.png)
+![crack_two_eggs_at_once.draw()](https://github.com/discopy/discopy/raw/main/docs/_static/readme/crack-two-eggs-at-once.svg)
 
 ## Theory: functors, terms, maps and hypergraphs
 
@@ -169,18 +173,18 @@ For instance, the `Int`-construction takes traced categories to compact categori
 Wires can be bent using two special kinds of boxes: **cups** and **caps**, which satisfy the [snake equations](https://ncatlab.org/nlab/show/triangle+identities).
 
 ```python
-from discopy.drawing import Equation
-from discopy.rigid import Ty, Id, Cup, Cap
+from discopy.rigid import Ty, Id, Cup, Cap, Equation
 
 x = Ty('x')
 left_snake = x @ Cap(x.r, x) >> Cup(x, x.r) @ x
 right_snake =  Cap(x, x.l) @ x >> x @ Cup(x.l, x)
 assert left_snake.normal_form() == Id(x) == right_snake.normal_form()
 
-Equation(left_snake, Id(x), right_snake).draw()
+Equation(left_snake, Id(x), right_snake).draw(
+  doctest="docs/_static/readme/typed-snake-equation.svg")
 ```
 
-![Equation(left_snake, Id(x), right_snake).draw()](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/typed-snake-equation.png)
+![Equation(left_snake, Id(x), right_snake).draw()](https://github.com/discopy/discopy/raw/main/docs/_static/readme/typed-snake-equation.svg)
 
 In particular, DisCoPy can draw the grammatical structure of natural language sentences encoded as reductions in a [pregroup grammar](https://ncatlab.org/nlab/show/pregroup+grammar).
 See Lambek, [From Word To Sentence (2008)](http://www.math.mcgill.ca/barr/lambek/pdffiles/2008lambek.pdf) for an introduction.
@@ -193,10 +197,10 @@ Alice, Bob = Word('Alice', n), Word('Bob', n)
 loves = Word('loves', n.r @ s @ n.l)
 
 sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ s @ Cup(n.l, n)
-sentence.foliation().draw()
+sentence.foliation().draw(doctest="docs/_static/readme/alice-loves-bob.svg")
 ```
 
-![Alice loves Bob](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/alice-loves-bob.png)
+![Alice loves Bob](https://github.com/discopy/discopy/raw/main/docs/_static/readme/alice-loves-bob.svg)
 
 Many other grammatical frameworks can be encoded as diagrams, e.g. [`cfg`](https://docs.discopy.org/en/main/_api/discopy.grammar.cfg.html) (context-free), [`categorial`](https://docs.discopy.org/en/main/_api/discopy.grammar.categorial.html) and [`dependency`](https://docs.discopy.org/en/main/_api/discopy.grammar.dependency.html) grammars.
 
@@ -237,10 +241,12 @@ def wiring(word):
 W = pregroup.Functor(ob_map={s: s, n: n}, ar_map=wiring)
 
 rewrite_steps = W(sentence).normalize()
-sentence.to_gif(*rewrite_steps)
+sentence.to_gif(
+  *rewrite_steps, doctest="docs/_static/readme/autonomisation.gif",
+  timestep=1000, figsize=(4, 4))
 ```
 
-![sentence.to_gif(*rewrite_steps)](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/autonomisation.gif)
+![sentence.to_gif(*rewrite_steps)](https://github.com/discopy/discopy/raw/main/docs/_static/readme/autonomisation.gif)
 
 ## A geometry of chatbot interaction
 
@@ -251,18 +257,18 @@ The [`Int`](https://docs.discopy.org/en/main/_api/discopy.interaction.Int.html)-
 
 i.e. the same we can pretend that a commutative monoid is a group so long as it is cancellative (i.e. `a + x == b + x` implies `a == b`) we can pretend that a monoidal category has cups and caps so long as it is traced, i.e. it has feedback loops:
 
-![feedback loop](docs/_static/traced/right-trace.png)
+![feedback loop](https://github.com/discopy/discopy/raw/main/docs/_static/traced/right-trace.svg)
 
 Concretely, we get a compact category where the objects are given by pairs of objects in the traced category, morphisms are bidirectional processes with a positive and a negative direction.
 Composition given by symmetric feedback, i.e. tracing out the common boundary of the two processes so they can communicate along an infinity-shaped pair of wires between them:
 
-![](docs/_static/int/symmetric-feedback.png)
+![](https://github.com/discopy/discopy/raw/main/docs/_static/int/symmetric-feedback.svg)
 
 We can use this geometry of interaction to interpret words as processes rather than states:
 
 ```python
 from discopy.interaction import Ty, Int
-from discopy.compact import Ty as T, Diagram as D, Box
+from discopy.compact import Ty as T, Diagram as D, Box, Equation
 
 N, S = T('N'), T('S')
 A, B = Box('A', N, N), Box('B', N, N)
@@ -275,23 +281,22 @@ G = pregroup.Functor(
 
 ALB_trace = (A @ S @ B >> L).trace(left=True).trace(left=False).foliation()
 
-with D.hypergraph_equality:
-  assert G(sentence).inside == ALB_trace
+assert Equation(G(sentence).inside, ALB_trace)
 
 Equation(sentence.foliation(), ALB_trace, symbol="$\\mapsto$").draw()
 ```
 
-![Alice loves traces](https://github.com/discopy/discopy/raw/main/docs/_static/int/alice-loves-traces.png)
+![Alice loves traces](https://github.com/discopy/discopy/raw/main/docs/_static/int/alice-loves-traces.svg)
 
 ### Streams and delayed feedback
 
 A key axiom of traced monoidal categories which allows to simplify diagrams is the **yanking equation**:
 
-![yanking](https://github.com/discopy/discopy/raw/main/docs/_static/traced/yanking.png)
+![yanking](https://github.com/discopy/discopy/raw/main/docs/_static/traced/yanking.svg)
 
 If we relax this assumption we get the concept of a [`feedback`](https://docs.discopy.org/en/main/_api/discopy.feedback.html) category where the objects come with a [`delay`](https://docs.discopy.org/en/main/_api/discopy.feedback.Ob.html#discopy.feedback.Ob.delay) operation and the feedback loops have a more restricted shape:
 
-![feedback operator](https://github.com/discopy/discopy/raw/main/docs/_static/feedback/feedback-operator.png)
+![feedback operator](https://github.com/discopy/discopy/raw/main/docs/_static/feedback/feedback-operator.svg)
 
 Given a symmetric category, we can construct a feedback category of **monoidal streams** where the feedback operation is given by adding an internal state. We can use this to unroll our diagram of the previous section:
 
@@ -305,7 +310,7 @@ ALB = (L >> A @ B).feedback(dom=S.head, cod=Ty(), mem=N @ N)
 ALB.unroll(2).now.foliation().draw()
 ```
 
-![Alice loves unrolling](https://github.com/discopy/discopy/raw/main/docs/_static/stream/alice-loves-unrolling.png)
+![Alice loves unrolling](https://github.com/discopy/discopy/raw/main/docs/_static/stream/alice-loves-unrolling.svg)
 
 ## References
 

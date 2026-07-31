@@ -36,11 +36,10 @@ Braids have their dagger as inverse, up to :meth:`Diagram.simplify`.
 >>> RHS = Braid(y, x)[::-1] >> Braid(y, x)
 >>> assert LHS.simplify() == Id(x @ y) == RHS.simplify()
 
->>> from discopy.drawing import Equation
 >>> Equation(LHS, Id(x @ y), RHS).draw(
-...     path='docs/_static/braided/inverse.png')
+...     doctest='docs/_static/braided/inverse.svg')
 
-.. image:: /_static/braided/inverse.png
+.. image:: /_static/braided/inverse.svg
     :align: center
 
 The hexagon equations hold on the nose.
@@ -51,9 +50,9 @@ The hexagon equations hold on the nose.
 >>> assert right_hexagon == Diagram.braid(x @ y, z)
 
 >>> Equation(left_hexagon, right_hexagon, symbol='').draw(
-...     space=2, path='docs/_static/braided/hexagons.png')
+...     space=2, doctest='docs/_static/braided/hexagons.svg')
 
-.. image:: /_static/braided/hexagons.png
+.. image:: /_static/braided/hexagons.svg
     :align: center
 """
 
@@ -106,8 +105,9 @@ class Diagram(monoidal.Diagram, BraidedCategory):
 
     def simplify(self) -> Diagram:
         """ Remove braids followed by their dagger. """
+        layers = [layer.boxes_and_types for layer in self.inside]
         for i, ((x, f, _), (y, g, _)) in enumerate(
-                zip(self.inside, self.inside[1:])):
+                zip(layers, layers[1:])):
             if x == y and isinstance(f, Braid) and f == g[::-1]:
                 inside = self.inside[:i] + self.inside[i + 2:]
                 return self.ar(
@@ -138,7 +138,7 @@ class Diagram(monoidal.Diagram, BraidedCategory):
         >>> assert bot_left.naturality(1, left=False, down=False) == top_right
         """
         braid = braid or self.braid
-        left_wires, box, right_wires = self.inside[i]
+        left_wires, box, right_wires = self.inside[i].boxes_and_types
         if left and down:
             source = left_wires[-1] @ box >> braid(left_wires[-1], box.cod)
             target = braid(left_wires[-1], box.dom) >> box @ left_wires[-1]
@@ -259,3 +259,7 @@ class Functor(monoidal.Functor):
 Diagram.braid_factory = Braid
 Diagram.sum_factory = Sum
 Id = Diagram.id
+
+
+class Equation(monoidal.Equation):
+    """ The :class:`monoidal.Equation` of braided diagrams. """

@@ -118,9 +118,9 @@ class Tree:
         >>> f = Rule(x @ x, x, name='f')
         >>> tree = f(f(f, f), f)
         >>> tree.to_diagram().foliation().draw(
-        ...     path='docs/_static/grammar/tree-to-diagram.png')
+        ...     doctest='docs/_static/grammar/tree-to-diagram.svg')
 
-        .. image:: /_static/grammar/tree-to-diagram.png
+        .. image:: /_static/grammar/tree-to-diagram.svg
             :align: center
         """
         return self.root.to_diagram()\
@@ -131,7 +131,7 @@ class Tree:
         """
         Interface with NLTK
 
-        >>> import nltk
+        >>> import nltk  # doctest: +EXTRA
         >>> t = nltk.Tree.fromstring("(S (NP I) (VP (V saw) (NP him)))")
         >>> print(Tree.from_nltk(t))
         S(I, VP(saw, him))

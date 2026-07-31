@@ -214,7 +214,7 @@ class CMap(biclosed.CMap):
     A combinatorial map for categorial diagrams.
     """
 
-    functor = Functor
+    category = Diagram
 
 
 class TermBase(Box, biclosed.TermBase):
@@ -494,6 +494,7 @@ def tree2diagram(tree: dict, dom=Ty()) -> Diagram:
 
 
 Id = Diagram.id
+Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
 Diagram.curry_factory = Curry
 Diagram.eval_factory = Eval

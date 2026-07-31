@@ -2,6 +2,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.abspath('..'))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.abspath("./_ext"))
 
 
@@ -27,6 +28,7 @@ release = get_version()
 extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.napoleon',
               'sphinx.ext.autosummary',
+              'sphinx.ext.graphviz',
               'sphinx.ext.viewcode',
               'myst_parser',
               'sphinx.ext.mathjax',
@@ -34,11 +36,11 @@ extensions = ['sphinx.ext.autodoc',
               'bases-fullname',
               'sphinxcontrib.bibtex',
               'sphinxcontrib.tikz',
-              'nbsphinx',
               'IPython.sphinxext.ipython_console_highlighting'
               ]
 
 bibtex_bibfiles = ['discopy.bib']
+graphviz_output_format = 'svg'
 
 autosummary_generate = True
 
@@ -56,7 +58,10 @@ templates_path = ['_templates']
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_images_path and html_extra_path.
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+# The marimo notebooks under ``notebooks/`` are plain-text ``.md`` files; they
+# are rendered to HTML by ``export_notebooks.py`` and embedded from the
+# generated ``.rst`` pages, so they must not be parsed as Sphinx source pages.
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'notebooks/*.md']
 
 
 # -- Options for HTML output -------------------------------------------------
@@ -92,3 +97,10 @@ myst_url_schemes = {
 master_doc = 'index'
 
 html_baseurl = "https://docs.discopy.org"
+
+
+def setup(app):
+    # Render the marimo notebooks (docs/notebooks/*.md) to computed HTML and
+    # generate the pages that embed them, before Sphinx reads the sources.
+    import export_notebooks
+    app.connect('builder-inited', lambda _app: export_notebooks.generate())

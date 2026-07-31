@@ -13,8 +13,9 @@ from Verlinde's formula, cross-check against chart dimensions; deepen the Kitaev
 reference into a covariant-QEC section; add the smallest non-abelian double D(k[S3])
 so the generated fusion table is not a group law.
 
-- [WIP] @serialized-yeti-2026-07-31 13:45 merge origin/main into the branch,
-      adapt to the marimo notebook convention and the current hopf.py
+- [x] merge origin/main into the branch, adapt to the marimo notebook
+      convention and the current hopf.py (the notebook conversion itself
+      happens with the notebook rework below)
 - [ ] `HopfAlgebra.symmetric(n)`: the group algebra of the symmetric group
 - [ ] generalise `Representation.anyon` to the double of any group algebra:
       the irrep of a conjugacy class and an irrep of its centraliser
