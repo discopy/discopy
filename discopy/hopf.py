@@ -124,6 +124,7 @@ tensor network that gets contracted):
 from __future__ import annotations
 
 from functools import cached_property
+from itertools import permutations
 
 import numpy as np
 
@@ -379,6 +380,24 @@ class Algebra:
         >>> assert Algebra.cyclic(3).is_valid()
         """
         table = [[(i + j) % n for j in range(n)] for i in range(n)]
+        return cls.group_algebra(table)
+
+    @classmethod
+    def symmetric(cls, n):
+        """
+        The group algebra of the symmetric group :math:`S_n`, with elements
+        the permutations of ``range(n)`` in lexicographic order — so that
+        ``g_0`` is the identity — and :math:`g_i g_j` the permutation
+        applying :math:`g_j` first.
+
+        >>> S3 = Algebra.symmetric(3)
+        >>> assert S3.is_valid() and S3.dim == 6
+        >>> assert not S3.is_commutative()
+        """
+        perms = sorted(permutations(range(n)))
+        index = {p: i for i, p in enumerate(perms)}
+        table = [[index[tuple(p[x] for x in q)] for q in perms]
+                 for p in perms]
         return cls.group_algebra(table)
 
     @classmethod
@@ -643,19 +662,47 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
     @classmethod
     def anyon(cls, flux, charge):
         """
-        A one-dimensional anyon module of the quantum double of a cyclic group
-        algebra: the group element ``e_a`` acts by ``charge ** a`` in the flux
-        sector ``flux``.
+        An irreducible anyon module of the quantum double of a group algebra,
+        labelled by the conjugacy class of the group element ``flux`` and an
+        irrep of its centraliser ``charge``: a mapping from the indices of the
+        centraliser elements to unitary matrices, or a scalar ``q`` for the
+        cyclic character ``e_a -> q ** a``. The basis is one copy of the
+        charge space per element of the class: :math:`\\delta_f \\otimes h`
+        sends the flux :math:`c` to :math:`h c h^{-1}` when it equals
+        :math:`f` and acts on the charge by :math:`\\pi(q_{h c h^{-1}}^{-1}
+        h q_c)`, for :math:`q_c` a transversal conjugating ``flux`` to
+        :math:`c`.
+
+        >>> D = Double(Algebra.symmetric(3))
+        >>> sigma = Representation[D].anyon(1, {0: 1, 1: -1})
+        >>> assert sigma == Dim(3) and sigma.is_module()
         """
         if not isinstance(cls.algebra, Double):
             raise ValueError(f"an anyon needs a Double, got {cls.algebra}")
         double, n = cls.algebra, cls.algebra.base.dim
-        array = np.zeros((n, n), dtype=complex)
-        for a in range(n):
-            array[flux, a] = charge ** a
+        mult = double.base.mult.eval(dtype=complex).array.reshape(n, n, n)
+        table = np.argmax(mult.real, axis=2)
+        inverse = np.argmax(mult.real[:, :, 0], axis=1)
+        conjugate = table[table, inverse[:, None]]
+        orbit = sorted({int(c) for c in conjugate[:, flux]})
+        transversal = {
+            c: int(np.argmax(conjugate[:, flux] == c)) for c in orbit}
+        if not isinstance(charge, dict):
+            charge = {a: charge ** a for a in range(n)}
+        pi = {z: np.atleast_2d(v) for z, v in charge.items()}
+        d = len(next(iter(pi.values())))
+        dim = len(orbit) * d
+        array = np.zeros((n, n, dim, dim), dtype=complex)
+        for h in range(n):
+            for i, c in enumerate(orbit):
+                new = int(conjugate[h, c])
+                j = orbit.index(new)
+                z = int(table[
+                    table[inverse[transversal[new]], h], transversal[c]])
+                array[new, h, i * d:(i + 1) * d, j * d:(j + 1) * d] = pi[z].T
         action = Box[complex](
-            'ρ', double.ty @ Dim(1), Dim(1), array.reshape(-1).tolist())
-        return cls(Dim(1), action)
+            'ρ', double.ty @ Dim(dim), Dim(dim), array.reshape(-1).tolist())
+        return cls(Dim(dim), action)
 
     @classmethod
     def direct_sum(cls, reps):
