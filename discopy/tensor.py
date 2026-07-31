@@ -28,7 +28,7 @@ Summary
 from __future__ import annotations
 
 from itertools import count
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Sequence
 
 from discopy import (
     cat, monoidal, rigid, frobenius, cmap, config)
@@ -38,6 +38,7 @@ from discopy.matrix import (  # noqa: F401
     Matrix, backend, set_backend, get_backend,
     NumPy, JAX, PyTorch, TensorFlow)
 from discopy.abc import NamedGeneric
+from discopy.python import finset
 from discopy.utils import (
     factory_name, assert_isinstance, product, assert_isatomic)
 
@@ -88,7 +89,7 @@ class Tensor(Matrix):
     -----
     Tensors can have sympy symbols as free variables.
 
-    >>> from sympy import Expr
+    >>> from sympy import Expr  # doctest: +EXTRA
     >>> from sympy.abc import phi, psi
     >>> v = Tensor[Expr]([phi, psi], Dim(1), Dim(2))
     >>> d = v >> v.dagger()
@@ -180,6 +181,24 @@ class Tensor(Matrix):
                   else i - len(left) for i in source]
         with backend() as np:
             return cls(np.moveaxis(array, source, target), dom, cod)
+
+    @classmethod
+    def permutation(cls, xs: Sequence[int], doms: Sequence[Dim]) -> Tensor:
+        xs = finset.Permutation(xs, len(doms))
+        dom = cls.ob.unit().tensor(*doms)
+        if xs.is_identity:
+            return cls.id(dom)
+        offsets = [0]
+        for dim in doms:
+            offsets.append(offsets[-1] + len(dim))
+        axes = finset.Permutation([
+            axis for i in xs for axis in range(offsets[i], offsets[i + 1])])
+        source = list(range(len(dom), 2 * len(dom)))
+        target = [len(dom) + axis for axis in axes.dagger()]
+        cod = Dim().tensor(*(doms[i] for i in xs))
+        with backend() as np:
+            array = np.moveaxis(cls.id(dom).array, source, target)
+        return cls(array, dom, cod)
 
     @classmethod
     def spider_factory(cls, n_legs_in: int, n_legs_out: int,
@@ -292,7 +311,7 @@ class Tensor(Matrix):
 
         Examples
         --------
-        >>> from sympy import Expr
+        >>> from sympy import Expr  # doctest: +EXTRA
         >>> from sympy.abc import x, y, z
         >>> vector = Tensor[Expr]([x ** 2, y * z], Dim(1), Dim(2))
         >>> vector.jacobian(x, y, z)
@@ -347,7 +366,7 @@ class Functor(frobenius.Functor):
     >>> rewrite = diagram\\
     ...     .transpose_box(2).transpose_box(0, left=True).normal_form()
     >>> Equation(diagram, rewrite).draw(
-    ...     figsize=(8, 3), path='docs/_static/tensor/rewrite.svg')
+    ...     figsize=(8, 3), doctest='docs/_static/tensor/rewrite.svg')
 
     .. image:: /_static/tensor/rewrite.svg
         :align: center
@@ -503,7 +522,7 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
         Examples
         --------
         >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
-        >>> t_net = (vector >> vector[::-1]).to_quimb()
+        >>> t_net = (vector >> vector[::-1]).to_quimb()  # doctest: +EXTRA
         >>> assert t_net.contract(preserve_tensor=True).data == 1
         """
         import quimb.tensor as qtn
@@ -557,7 +576,7 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
         Examples
         --------
         >>> import numpy as np
-        >>> from tensornetwork import Node, Edge
+        >>> from tensornetwork import Node, Edge  # doctest: +EXTRA
         >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
         >>> nodes, output_edge_order = vector.to_tn()
         >>> node, = nodes
@@ -600,7 +619,8 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
         """ Gradient with respect to :code:`var`. """
         if var not in self.free_symbols:
             return self.sum_factory((), self.dom, self.cod)
-        left, box, right, tail = tuple(self.inside[0]) + (self[1:], )
+        left, box, right = self.inside[0].boxes_and_types
+        tail = self[1:]
         t1 = self.id(left) @ box.grad(var, **params) @ self.id(right) >> tail
         t2 = self.id(left) @ box @ self.id(right) >> tail.grad(var, **params)
         return t1 + t2
@@ -622,7 +642,7 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
 
         Examples
         --------
-        >>> from sympy import Expr
+        >>> from sympy import Expr  # doctest: +EXTRA
         >>> from sympy.abc import x, y, z
         >>> vector = Box("v", Dim(1), Dim(2), [x ** 2, y * z])
         >>> vector.jacobian([x, y, z]).eval(dtype=Expr)
@@ -652,7 +672,7 @@ class CMap(frobenius.CMap):
     >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
     >>> assert (vector >> vector[::-1]).to_map().eval().array == 1
 
-    >>> with backend('jax'):
+    >>> with backend('jax'):  # doctest: +EXTRA
     ...     import jax, jax.numpy as jnp
     ...     b = lambda x: Box[float]('v', Dim(1), Dim(2), x * jnp.ones(2))
     ...     f = lambda x: (b(x) >> b(x)[::-1]).to_map().eval().array
@@ -772,8 +792,8 @@ class Spider(frobenius.Spider, Box):
     >>> vector = Box('vec', Dim(1), Dim(2), [0, 1])
     >>> spider = Spider(1, 2, Dim(2))
     >>> assert (vector >> spider).eval() == (vector @ vector).eval()
-    >>> Equation(vector >> spider, vector @ vector).draw(
-    ...     path='docs/_static/tensor/frobenius-example.svg', figsize=(3, 2))
+    >>> Equation(vector >> spider, vector @ vector).draw(figsize=(3, 2),
+    ...     doctest='docs/_static/tensor/frobenius-example.svg')
 
     .. image:: /_static/tensor/frobenius-example.svg
         :align: center
@@ -810,12 +830,12 @@ class Bubble(monoidal.Bubble, Box):
     >>> men_are_mortal = (men >> mortal.bubble()).bubble()
     >>> assert men_are_mortal.eval(dtype=bool)
     >>> men_are_mortal.draw(wire_labels=False,
-    ...                     path='docs/_static/tensor/men-are-mortal.svg')
+    ...                     doctest='docs/_static/tensor/men-are-mortal.svg')
 
     .. image:: /_static/tensor/men-are-mortal.svg
         :align: center
 
-    >>> from sympy import Expr
+    >>> from sympy import Expr  # doctest: +EXTRA
     >>> from sympy.abc import x
     >>> f = Box('f', Dim(2), Dim(2), [1, 0, 0, x])
     >>> g = Box('g', Dim(2), Dim(2), [-x, 0, 0, 1])
@@ -828,7 +848,7 @@ class Bubble(monoidal.Bubble, Box):
     >>> assert lhs.eval(dtype=Expr) == rhs.eval(dtype=Expr)
 
     >>> Equation(lhs, rhs).draw(figsize=(5, 2), wire_labels=False,
-    ...                         path='docs/_static/tensor/product-rule.svg')
+    ...                         doctest='docs/_static/tensor/product-rule.svg')
 
     .. image:: /_static/tensor/product-rule.svg
         :align: center
@@ -842,13 +862,13 @@ class Bubble(monoidal.Bubble, Box):
         """
         The gradient of a bubble is given by the chain rule.
 
-        >>> from sympy.abc import x
+        >>> from sympy.abc import x  # doctest: +EXTRA
         >>> g = Box('g', Dim(2), Dim(2), [2 * x, 0, 0, x + 1])
         >>> f = lambda d: d.bubble(func=lambda x: x ** 2, drawing_name="f")
         >>> lhs, rhs = Box.grad(f(g), x), f(g).grad(x)
 
         >>> Equation(lhs, rhs).draw(wire_labels=False,
-        ...                         path='docs/_static/tensor/chain-rule.svg')
+        ...     doctest='docs/_static/tensor/chain-rule.svg')
 
         .. image:: /_static/tensor/chain-rule.svg
             :align: center

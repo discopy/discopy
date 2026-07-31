@@ -40,7 +40,7 @@ endofunctor :meth:`Diagram.delay`, shortened to `.d` and a method
 >>> x, y, m = map(Ty, "xym")
 >>> f = Box('f', x @ m.delay(), y @ m)
 >>> Equation(f, f.feedback(), symbol="$\\\\mapsto$").draw(
-...     path="docs/_static/feedback/feedback-operator.svg")
+...     doctest="docs/_static/feedback/feedback-operator.svg")
 
 .. image:: /_static/feedback/feedback-operator.svg
     :align: center
@@ -75,7 +75,7 @@ This can only be checked up to a functor into streams.
 >>> strength = Equation(g @ f.feedback(), (g @ f).feedback())
 >>> assert eq_up_to_F(*strength.terms)
 >>> strength.draw(
-...     path='docs/_static/feedback/strength.svg', wire_labels=False)
+...     doctest='docs/_static/feedback/strength.svg', wire_labels=False)
 
 .. image:: /_static/feedback/strength.svg
     :align: center
@@ -90,7 +90,7 @@ This can only be checked up to extensional equivalence of streams.
 >>> f = Box('f', x @ n.d, y @ m)
 >>> sliding = Equation((f >> y @ h).feedback(), (x @ h.d >> f).feedback())
 >>> sliding.draw(
-...     path='docs/_static/feedback/sliding.svg', wire_labels=False)
+...     doctest='docs/_static/feedback/sliding.svg', wire_labels=False)
 
 .. image:: /_static/feedback/sliding.svg
     :align: center
@@ -98,7 +98,8 @@ This can only be checked up to extensional equivalence of streams.
 >>> LHS, RHS = sliding.terms
 >>> assert F(LHS).unroll(2).now.dom == symmetric.Ty("x0", "x1", "x2")
 >>> eq = Equation(*map(lambda f: F(f).unroll(2).now, sliding.terms),
-...     symbol="$\\\\sim$").draw(path='docs/_static/feedback/slide-unroll.svg')
+...     symbol="$\\\\sim$").draw(
+...         doctest='docs/_static/feedback/slide-unroll.svg')
 >>> assert symmetric.Equation(
 ...     F(LHS).unroll(2).now,
 ...     F(RHS).unroll(2).now
@@ -300,10 +301,13 @@ class Ty(monoidal.Ty):
     d = Ob.d
 
 
-class Layer(monoidal.Layer):
+class Layer(markov.Layer):
     """ A feedback layer is a monoidal layer with a `delay` method. """
     def delay(self, n_steps=1):
-        return type(self)(*[x.delay(n_steps) for x in self.boxes_or_types])
+        return type(self)(*(type(x)(x.dom.delay(n_steps), x.perm)
+                            if isinstance(x, markov.Permutation)
+                            else x.delay(n_steps)
+                            for x in self.boxes_or_types))
 
 
 @factory
@@ -325,7 +329,7 @@ class Diagram(markov.Diagram, FeedbackCategory):
     >>> plus = Box('+', x @ x, x)
     >>> walk = (rand.delay() @ x.delay() >> zero @ plus.delay()
     ...         >> FollowedBy(x) >> Copy(x)).feedback()
-    >>> walk.draw(path="docs/_static/feedback/feedback-random-walk.svg")
+    >>> walk.draw(doctest="docs/_static/feedback/feedback-random-walk.svg")
 
     .. image:: /_static/feedback/feedback-random-walk.svg
         :align: center
@@ -354,7 +358,7 @@ class Diagram(markov.Diagram, FeedbackCategory):
         -------
         >>> x = Ty('x')
         >>> assert Diagram.wait(x) == Swap(x, x.delay()).feedback()
-        >>> Diagram.wait(x).draw(path="docs/_static/feedback/wait.svg")
+        >>> Diagram.wait(x).draw(doctest="docs/_static/feedback/wait.svg")
 
         .. image:: /_static/feedback/wait.svg
             :align: center
@@ -522,9 +526,9 @@ class Feedback(monoidal.Bubble, Box):
     >>> f = Box('f', x @ y.delay(), z @ y)
     >>> fb = f.feedback()
     >>> Equation(f, fb, symbol="$\\\\mapsto$").draw(
-    ...     path="docs/_static/feedback/feedback-operator.svg")
+    ...     doctest="docs/_static/feedback/feedback-bubble.svg")
 
-    .. image:: /_static/feedback/feedback-operator.svg
+    .. image:: /_static/feedback/feedback-bubble.svg
         :align: center
     """
     def __init__(self, arg: Diagram, dom=None, cod=None, mem=None, left=False):
@@ -566,7 +570,7 @@ class FollowedBy(Box):
     -------
     >>> from discopy import stream
     >>> x = Ty(Ob('x', is_constant=False))
-    >>> FollowedBy(x).draw(path="docs/_static/feedback/followed-by.svg")
+    >>> FollowedBy(x).draw(doctest="docs/_static/feedback/followed-by.svg")
 
     .. image:: /_static/feedback/followed-by.svg
         :align: center

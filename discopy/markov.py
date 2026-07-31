@@ -15,6 +15,7 @@ Summary
     Diagram
     Box
     Swap
+    Permutation
     Copy
     Functor
 
@@ -35,7 +36,7 @@ Commutative monoid
 >>> commutativity = Equation(Swap(x, x) >> merge, merge)
 >>> assert unitality and associativity and commutativity
 >>> Equation(unitality, associativity, commutativity, symbol='').draw(
-...     path="docs/_static/frobenius/monoid.svg")
+...     doctest="docs/_static/frobenius/monoid.svg")
 
 .. image:: /_static/frobenius/monoid.svg
     :align: center
@@ -48,7 +49,7 @@ Cocommutative comonoid
 >>> cocommutativity = Equation(copy >> Swap(x, x), copy)
 >>> assert counitality and coassociativity and cocommutativity
 >>> Equation(counitality, coassociativity, cocommutativity, symbol='').draw(
-...     path="docs/_static/frobenius/comonoid.svg")
+...     doctest="docs/_static/frobenius/comonoid.svg")
 
 .. image:: /_static/frobenius/comonoid.svg
     :align: center
@@ -79,6 +80,9 @@ from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import assert_isatomic, factory_name
 
 
+Layer = symmetric.Layer
+
+
 @factory
 class Diagram(symmetric.Diagram, MarkovCategory):
     """
@@ -106,7 +110,7 @@ class Diagram(symmetric.Diagram, MarkovCategory):
     ...     return y, y
 
     >>> Equation(copy_then_apply, apply_then_copy, symbol="$\\\\neq$").draw(
-    ...     path="docs/_static/markov/copy_and_apply.svg")
+    ...     doctest="docs/_static/markov/copy_and_apply.svg")
 
     .. image:: /_static/markov/copy_and_apply.svg
     """
@@ -172,6 +176,16 @@ class Swap(symmetric.Swap, Box):
     """
 
 
+class Permutation(symmetric.Permutation, Box):
+    """
+    A permutation in a Markov category.
+
+    Parameters:
+        dom (monoidal.Ty) : The domain, i.e. the wires to permute.
+        perm : The permutation as a :class:`finset.Permutation` or a list.
+    """
+
+
 class Trace(symmetric.Trace, Box):
     """
     A trace in a Markov category.
@@ -199,10 +213,6 @@ class Copy(Box):
         name = f"Copy({x}" + ("" if n == 2 else f", {n}") + ")"
         Box.__init__(self, name, dom=x, cod=x ** n,
                      draw_as_spider=True, color="black", drawing_name="")
-
-    def __new__(cls, x: monoidal.Ty, n: int = 2):
-        return super().__new__(cls) if n else\
-            cls.discard_factory.__new__(cls.discard_factory, x)
 
     def __new__(cls, x: monoidal.Ty, n: int = 2):
         return super().__new__(cls) if n else\
@@ -287,7 +297,7 @@ class Functor(symmetric.Functor):
     >>> assert F(bialgebra_l)(54, 46) == F(bialgebra_r)(54, 46)
 
     >>> Equation(bialgebra_l, bialgebra_r, symbol="=").draw(
-    ...     path="docs/_static/markov/bialgebra.svg")
+    ...     doctest="docs/_static/markov/bialgebra.svg")
 
     .. image:: /_static/markov/bialgebra.svg
     """
@@ -310,6 +320,7 @@ Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.braid_factory = Swap
+Diagram.permutation_factory = Permutation
 Diagram.trace_factory = Trace
 Diagram.discard_factory = Discard
 Diagram.sum_factory = Sum
