@@ -79,6 +79,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `closed.Substitution` returns constants unchanged, keeps the `left` flag
+  of an application and recurses into the body of an abstraction instead of
+  looping forever ([#492](https://github.com/discopy/discopy/issues/492)).
+- `python.Function.then` and `python.Function.tensor` are variadic like the
+  rest of the categorical interface, in `multiplicative`, `additive` and
+  `finset` ([#493](https://github.com/discopy/discopy/issues/493)).
+- `biclosed.Constant` documents the attributes it has, rather than an
+  `inside` diagram it never carried
+  ([#494](https://github.com/discopy/discopy/issues/494)).
 - Tensor networks are contracted with `opt_einsum` when the number of
   indices exceeds `numpy.einsum`'s 52-index limit
   ([#448](https://github.com/discopy/discopy/pull/448)).

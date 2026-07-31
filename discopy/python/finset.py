@@ -17,7 +17,7 @@ Summary
 """
 
 from __future__ import annotations
-from discopy.utils import assert_isinstance
+from discopy.utils import assert_isinstance, unbiased
 from typing import Iterable, Self, Any
 from collections.abc import Sequence
 
@@ -73,10 +73,12 @@ class Function(MonoidalCategory, Sequence):
     def id(x: int = 0):
         return Function(list(range(x)), x, x)
 
+    @unbiased
     def then(self, other: Function) -> Function:
         inside = [self[other[i]] for i in range(other.cod)]
         return Function(inside, self.dom, other.cod)
 
+    @unbiased
     def tensor(self, other: Function) -> Function:
         inside = list(self.inside) + [
             self.dom + other[i] for i in range(other.cod)]

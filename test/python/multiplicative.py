@@ -33,3 +33,14 @@ def test_trace():
 def test_list_generic_in_function():
     func = Function(sum, List[int], int)
     assert func([1, 2, 3]) == 6
+
+
+def test_variadic_tensor():
+    """ https://github.com/discopy/discopy/issues/493 """
+    from discopy.python import Function
+    f = Function(lambda x: x + 1, int, int)
+
+    assert Function.tensor(f) == f
+    assert Function.tensor(f, f, f)(0, 1, 2) == (1, 2, 3)
+    assert Function.then(f) == f
+    assert Function.then(f, f, f)(0) == 3
