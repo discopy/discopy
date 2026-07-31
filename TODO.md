@@ -21,11 +21,11 @@ so the generated fusion table is not a group law.
       the irrep of a conjugacy class and an irrep of its centraliser
 - [x] tests: the 8 anyons of D(k[S3]) are valid modules with dims summing
       in squares to 36, S unitary, Verlinde integral, agreement with chart dims
-- [WIP] @serialized-yeti-2026-07-31 14:10 notebook: fusion rules from braiding, exactly — monodromy traces, S,
+- [x] notebook: fusion rules from braiding, exactly — monodromy traces, S,
       Verlinde, cross-checked against per-channel chart dimensions
-- [WIP] @serialized-yeti-2026-07-31 14:10 notebook: learning the fusion rules from finite-shot simulated
+- [x] notebook: learning the fusion rules from finite-shot simulated
       interferometry, rounding Verlinde to integers
-- [WIP] @serialized-yeti-2026-07-31 14:10 notebook: the D(k[S3]) fusion table, generated not assumed
-- [WIP] @serialized-yeti-2026-07-31 14:10 notebook: anyons as an error-correcting code — Hom(1, V1 (x) ... (x) Vn)
+- [x] notebook: the D(k[S3]) fusion table, generated not assumed
+- [x] notebook: anyons as an error-correcting code — Hom(1, V1 (x) ... (x) Vn)
       as the code space via the chart, covariant encoder = intertwiner, references
 - [ ] update the PR body
