@@ -1,41 +1,36 @@
 # -*- coding: utf-8 -*-
 
 """
-Adaptive computation time for model C: :mod:`core.act` bound to the sudoku
-factor graph.  The halt head, the slot-refill trainer and early-stopping
-inference are the family's; this module only fixes the skeleton and the
-default widths.
+Adaptive computation time for model C.
+
+The halt head, the slot-refill trainer and early-stopping inference are
+:mod:`discopy.neural.engine`'s and apply to any skeleton; this module only
+binds the sudoku decode rule to :func:`evaluate_act` so that a caller does
+not have to pass it.  The model itself is :func:`sudoku.models.act`.
 """
 
 from __future__ import annotations
 
-from core.act import (  # noqa: F401 -- trainer and inference re-exported
-    ACTTrainer, PuzzleStream, evaluate_act)
-from core import act as _act
-from sudoku import skeleton
-from sudoku.config import N, WIDTHS, Widths
+from discopy.neural.engine import (  # noqa: F401 -- re-exported
+    ACTEngine, ACTTrainer, HaltHead, PuzzleStream)
+from discopy.neural import engine as _engine
+from sudoku.heads import Decoder
+from sudoku.models import act  # noqa: F401 -- the builder, re-exported
 
 
-class ACTSolver(_act.ACTSolver):
+def evaluate_act(model, split, max_sup: int = None, batch_size: int = 2000,
+                 threshold: float = 0.0) -> dict:
     """
-    Model C with the halt head of :class:`core.act.ACTSolver`, on the
-    sudoku factor graph.  Built with the same seed it has bitwise the same
-    weights as a plain :class:`sudoku.models.TRMSolver`.
+    Inference with the paper's early stopping, on sudoku; see
+    :func:`discopy.neural.engine.evaluate_act`.
 
     Parameters:
-        widths : The widths of the model, ``WIDTHS["trm"]`` by default.
-        rounds : The rounds per cycle, ``n``.
-        cycles : The cycles per supervision step, ``T``.
-        n_sup : The maximum number of supervision steps.
-        n : The size of the grid.
-        halt_detach : See :class:`core.act.ACTSolver`.
-        halt_head : ``"mean"`` or ``"softmin"``, see
-                    :class:`core.act.ACTSolver`.
+        model : The trained model.
+        split : The split to evaluate on.
+        max_sup : The cap on supervision steps.
+        batch_size : The evaluation batch size.
+        threshold : The margin the halt logit must clear.
     """
-    def __init__(self, widths: Widths = None, rounds: int = 6,
-                 cycles: int = 3, n_sup: int = 8, n: int = N,
-                 halt_detach: bool = False, halt_head: str = "mean"):
-        super().__init__(skeleton.factor_graph(n),
-                         widths or WIDTHS["trm"], rounds, cycles, n_sup,
-                         n_classes=n, halt_detach=halt_detach,
-                         halt_head=halt_head)
+    return _engine.evaluate_act(
+        model, split, Decoder.decode, max_sup=max_sup,
+        batch_size=batch_size, threshold=threshold)

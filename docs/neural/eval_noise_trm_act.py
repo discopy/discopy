@@ -9,7 +9,7 @@ supervision step.
 
     CUDA_VISIBLE_DEVICES=2 python eval_noise_trm_act.py
 
-**The perturbed state.**  The solver (:class:`experiments.act.ACTSolver`,
+**The perturbed state.**  The solver (:func:`sudoku.models.act`,
 the tiny-recursive-model recursion on the factor-graph map) carries one
 flat message tensor between supervision steps; inside it live three
 recurrent families:
@@ -96,7 +96,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 torch.set_float32_matmul_precision("high")
 
 from experiments import sudoku_extreme                        # noqa: E402
-from experiments.act import ACTSolver                         # noqa: E402
+from experiments.act import act as build_act                  # noqa: E402
 from experiments.config import ARTIFACTS, FIGURES, Widths     # noqa: E402
 from experiments.train import decode                          # noqa: E402
 
@@ -119,11 +119,11 @@ RECORD_KEYS = ("fixed_correct", "fixed_cell", "fixed_q",
                "act_correct", "act_cell", "act_q", "act_depth")
 
 
-def load_model(path: Path, device) -> tuple[ACTSolver, dict]:
-    """ The pretrained :class:`ACTSolver` rebuilt from a search checkpoint. """
+def load_model(path: Path, device) -> tuple:
+    """ The pretrained model rebuilt from a search checkpoint. """
     stored = torch.load(path, map_location="cpu", weights_only=False)
     params = stored["params"]
-    model = ACTSolver(
+    model = build_act(
         SEARCH_WIDTHS, rounds=params["n"], cycles=params["T"],
         n_sup=params["n_sup"], halt_detach=True, halt_head="softmin")
     model.load_state_dict(stored["state_dict"])
@@ -143,7 +143,7 @@ def valid_node_mask(shape, device, dtype) -> torch.Tensor:
     return torch.ones(shape, device=device, dtype=dtype)
 
 
-def perturb_answer(model: ACTSolver, state, sigma: float,
+def perturb_answer(model, state, sigma: float,
                    generator) -> torch.Tensor:
     """
     The carried state with ``y <- y + eps`` on the answer loop, the noise
@@ -165,7 +165,7 @@ def perturb_answer(model: ACTSolver, state, sigma: float,
 
 
 @torch.no_grad()
-def latent_stats(model: ACTSolver, clues, steps: int = 16) -> dict:
+def latent_stats(model, clues, steps: int = 16) -> dict:
     """
     Statistics of the deterministic carried states over the evaluation
     examples, pooled over ``steps`` supervision steps: global mean,
@@ -218,7 +218,7 @@ def latent_stats(model: ACTSolver, clues, steps: int = 16) -> dict:
     return result
 
 
-def fresh_book(model: ACTSolver, clues) -> dict:
+def fresh_book(model, clues) -> dict:
     """ A trajectory at step zero: initial state, nothing halted yet. """
     torch.compiler.cudagraph_mark_step_begin()
     n, device = len(clues), clues.device
@@ -255,7 +255,7 @@ def assemble(snapshots: list[dict], choice) -> dict:
 
 
 @torch.no_grad()
-def run_segment(model: ACTSolver, clues, target, sigma: float, caps,
+def run_segment(model, clues, target, sigma: float, caps,
                 generator, threshold: float, book: dict,
                 t_stop: int) -> dict:
     """
@@ -304,7 +304,7 @@ def run_segment(model: ACTSolver, clues, target, sigma: float, caps,
     return out
 
 
-def sweep_chunk(model: ACTSolver, clues, target, sigma: float, si: int,
+def sweep_chunk(model, clues, target, sigma: float, si: int,
                 arguments, seeds: dict, log=print) -> dict:
     """
     The whole beam schedule of one noise level on one batch of examples:

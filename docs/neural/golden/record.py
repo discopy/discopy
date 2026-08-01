@@ -57,7 +57,6 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 
 from core.train import CE, GRAD_CLIP                             # noqa: E402
-from sudoku import act as act_module                             # noqa: E402
 from sudoku import data as datasets                              # noqa: E402
 from sudoku import models as zoo                                 # noqa: E402
 from sudoku.config import WIDTHS                                 # noqa: E402
@@ -93,17 +92,8 @@ def build(spec: dict):
     """ One model of :data:`MODELS`, freshly seeded. """
     torch.manual_seed(0)
     np.random.seed(0)
-    kind = spec["kind"]
-    if kind == "goi":
-        return zoo.GoISolver(spec["widths"], rounds=spec["rounds"])
-    if kind == "rrn":
-        return zoo.RRNSolver(spec["widths"], rounds=spec["rounds"])
-    if kind == "trm":
-        return zoo.TRMSolver(spec["widths"], rounds=spec["rounds"],
-                             cycles=spec["cycles"], n_sup=spec["n_sup"])
-    return act_module.ACTSolver(
-        spec["widths"], rounds=spec["rounds"], cycles=spec["cycles"],
-        n_sup=spec["n_sup"], halt_head=spec["halt_head"])
+    arguments = {key: value for key, value in spec.items() if key != "kind"}
+    return zoo.BUILDERS[spec["kind"]](**arguments)
 
 
 # --- the fingerprints ------------------------------------------------------

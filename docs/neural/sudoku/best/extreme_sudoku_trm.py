@@ -82,8 +82,8 @@ def main(iterations: int = None, n_train: int = 1_001_000,
         splits["train"].subsample(n_train), device)
     valid_small = splits["valid"].subsample(n_valid)
 
-    model = zoo.TRMSolver(WIDTHS, rounds=hp["n"], cycles=hp["T"],
-                          n_sup=hp["n_sup"]).to(device)
+    model = zoo.trm(WIDTHS, rounds=hp["n"], cycles=hp["T"],
+                    n_sup=hp["n_sup"]).to(device)
     print(f"parameters: {zoo.count_parameters(model)}")
     if compile and device.type == "cuda":
         model.compile_cells(mode="reduce-overhead")

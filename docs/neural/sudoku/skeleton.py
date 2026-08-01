@@ -8,9 +8,8 @@ sits in which row, column and block (:func:`positional_ids`), which cells
 must differ (:func:`peers_of`), and the two abstract wirings a solver can
 interpret -- the bipartite cell/unit factor graph and the pairwise peer
 clique -- obtained by handing those combinatorics to the generic builders
-of :mod:`core.skeletons`.  The roles (``message``, ``state``, ``clue``,
-...) and the shapes are the solver family's; only the membership structure
-is sudoku's.
+of :mod:`discopy.neural.skeleton`.  The roles and the signatures live in
+:mod:`sudoku.signature`; only the membership structure is sudoku's.
 """
 
 from __future__ import annotations
@@ -19,9 +18,8 @@ from functools import lru_cache
 
 import numpy as np
 
-from core import skeletons
-from core.skeletons import (  # noqa: F401 -- the family's roles, re-exported
-    ANSWER, CLUE, LOOP_ROLES, MESSAGE, PEER, STATE)
+from discopy.neural import skeleton as skeletons
+from sudoku import signature
 from sudoku.config import N
 
 
@@ -48,19 +46,37 @@ def peers_of(n: int = N) -> tuple[tuple[int, ...], ...]:
 
 
 @lru_cache(maxsize=None)
-def factor_graph(n: int = N):
+def memberships(n: int = N) -> tuple[tuple[int, ...], ...]:
     """
-    The bipartite factor graph of the factor-graph and recursion solvers:
-    every cell is wired to the three units it belongs to -- its row, its
-    column and its block, numbered in that order.
+    The three units each cell belongs to -- its row, its column and its
+    block, numbered in that order.
 
     Parameters:
         n : The size of the grid.
     """
     row, col, block = positional_ids(n)
-    return skeletons.factor_graph(tuple(
+    return tuple(
         (int(row[i]), n + int(col[i]), 2 * n + int(block[i]))
-        for i in range(n * n)))
+        for i in range(n * n))
+
+
+@lru_cache(maxsize=None)
+def factor_graph(n: int = N):
+    """
+    The bipartite factor graph of the factor-graph and recursion solvers:
+    every cell is wired to the three units it belongs to.
+
+    Parameters:
+        n : The size of the grid.
+
+    Example
+    -------
+    >>> grid = factor_graph()
+    >>> len(grid.boxes), grid.cmap.n_ports // 2
+    (108, 486)
+    """
+    return skeletons.from_incidence(
+        memberships(n), signature.cell(3), signature.unit(n))
 
 
 @lru_cache(maxsize=None)
@@ -71,5 +87,12 @@ def clique(n: int = N):
 
     Parameters:
         n : The size of the grid.
+
+    Example
+    -------
+    >>> grid = clique()
+    >>> len(grid.boxes), grid.cmap.n_ports // 2
+    (81, 1053)
     """
-    return skeletons.clique(peers_of(n))
+    peers = peers_of(n)
+    return skeletons.from_relation(peers, signature.peer_cell(len(peers[0])))
