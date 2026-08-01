@@ -8,6 +8,40 @@
 - [x] Make `markov.Layer` alternate between function-opposites and generators, the same way `symmetric.Layer` alternates permutations and generators
 - [ ] Add `frobenius.Cospan` and make `frobenius.Layer` alternate cospans and generators (see issue #472)
 
+## Port onto the merged #362 (🌙 evening, 2026-08-01)
+
+#362 was **squash**-merged as `a4f7a73`, so git has no common ancestry for it
+and merging `main` conflicts in 16 files / 49 hunks. That is an artifact; the
+real problem is that #362 kept changing after the state this branch merged
+(`afbcc44`), and the merged design drops three things this branch is built on.
+A 3-way merge with `afbcc44` as base cuts the conflicts to 15 hunks; the rest
+is a port, not a merge.
+
+- [ ] Decide whether the base `Category` keeps routing stubs. Merged #362
+      **removed** `Category.permutation`; this branch adds the mirror
+      `Category.function`, and `test/monoidal.py::test_identity_function`
+      asserts `monoidal.Diagram.function([0, 1], x @ y) == Id(x @ y)`.
+      Keeping one without the other leaves the base class asymmetric —
+      it wants a ruling before an implementation
+- [ ] Restore or replace `symmetric.Layer.permutations`, dropped by merged
+      #362 and still asserted by `test/markov.py::test_Layer`
+- [ ] Give `symmetric.Layer` an extension point for what counts as routing.
+      Merged #362 hard-codes `Permutation` in `is_routing`, `__init__`,
+      `is_structural`, `boxes_and_types` and `cast`; this branch needs
+      `Function` to count too. A `routing_factory` class attribute (a class
+      or a tuple, read by all five) is the smallest change that keeps #362's
+      vocabulary: `Layer.routing_factory = Permutation` and
+      `markov.Layer.routing_factory = (Function, symmetric.Permutation)`
+- [ ] Rewrite `markov.Layer` and the `markov` module docstring for the merged
+      representation: identity routing is stored as a `Ty`, so
+      `all(isinstance(g, Function) for g in layer[::2])` no longer holds
+- [ ] Take `main`'s side wholesale for the renames it settled:
+      `drawing_permutation` → `draw_as_permutation`, `_is_crossing` →
+      `config.is_crossing`, and `PERMUTATION_AT_ODD_INDEX` /
+      `LAYERS_MUST_BE_ODD` → `LAYERS_MUST_ALTERNATE`
+- [ ] Drop `77eb4eb`: `main` already names `compact` in the `test/hopf.py`
+      eval imports
+
 ---
 
 # TODO — refactoring of PR #362 (Add symmetric.Layer)
