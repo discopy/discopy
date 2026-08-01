@@ -76,5 +76,10 @@ quantum and tensor dependencies.
 asks for an `[Unreleased]` entry on every user-facing change, and the new
 `Layer` representation is one.
 
-- [WIP] @evening-2026-08-01 00:06 Merge current `main` and add the
-  `CHANGELOG.md` entry for the new `Layer` representation
+- [x] Merge current `main` and add the `CHANGELOG.md` entry for the new
+  `Layer` representation
+
+Verification: merged `main` (`e80ea38`) append-only, no conflicts.
+`pflake8 discopy` clean; `pytest --skip-extra` gives 623 passed, 51 skipped.
+Every point above is `[x]`, so this is ready for sign-off as soon as a human
+deletes `TODO.md`.
