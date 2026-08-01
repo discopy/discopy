@@ -22,3 +22,7 @@
 - [x] Add a `CHANGELOG.md` entry under `[Unreleased]` / `Fixed`
 - [x] Run `pflake8 discopy` and the test suite
 - [x] Open the PR, linking it and the issue back to rel-int/optyx#15
+
+> There should be a doctest showing the multiple discards drawing.
+
+- [WIP] @07455c9b-2026-08-01 15:35 Add a doctest drawing a discard on more than one wire
