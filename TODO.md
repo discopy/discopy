@@ -16,9 +16,9 @@
 > `+                target = (right - .1 * k, height - .1 * k)`
 > Verified: with this patch the repro draws at n = 1, 2, 3, 5, and `at_time(3).draw()` works again in optyx ([rel-int/optyx#15](https://github.com/rel-int/optyx/issues/15)). Link the issue and PR back to that PR.
 
-- [WIP] @07455c9b-2026-08-01 09:00 File the issue on `discopy/discopy` (done: [#513](https://github.com/discopy/discopy/issues/513))
-- [WIP] @07455c9b-2026-08-01 09:00 Rename the inner loop variable in `Backend.draw_discard`
-- [WIP] @07455c9b-2026-08-01 09:00 Add a regression test drawing a discard on more than one wire
-- [WIP] @07455c9b-2026-08-01 09:00 Add a `CHANGELOG.md` entry under `[Unreleased]` / `Fixed`
-- [WIP] @07455c9b-2026-08-01 09:00 Run `pflake8 discopy` and the test suite
-- [WIP] @07455c9b-2026-08-01 09:00 Open the PR, linking it and the issue back to rel-int/optyx#15
+- [x] File the issue on `discopy/discopy` (done: [#513](https://github.com/discopy/discopy/issues/513))
+- [x] Rename the inner loop variable in `Backend.draw_discard`
+- [x] Add a regression test drawing a discard on more than one wire
+- [x] Add a `CHANGELOG.md` entry under `[Unreleased]` / `Fixed`
+- [x] Run `pflake8 discopy` and the test suite
+- [x] Open the PR, linking it and the issue back to rel-int/optyx#15

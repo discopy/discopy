@@ -86,6 +86,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   ([#387](https://github.com/discopy/discopy/pull/387)).
 - Bubble drawing
   ([#431](https://github.com/discopy/discopy/pull/431)).
+- Drawing a discard on more than one wire: `draw_discard` was shadowing the
+  layer index with its inner loop counter
+  ([#513](https://github.com/discopy/discopy/issues/513)).
 
 ### Performance
 
