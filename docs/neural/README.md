@@ -1,6 +1,6 @@
 # Neural networks as combinatorial maps
 
-Three sudoku solvers built with [`discopy.neural`](../../discopy/neural.py),
+Three sudoku solvers built with [`discopy.neural`](../../discopy/neural/),
 compared under one protocol: same data, same embedding and readout, same
 optimizer, parameter counts matched within 10%. Only the *wiring* of the map,
 the width on its wires, the update cell and — for one model — the evaluation
@@ -34,24 +34,41 @@ A **trace** is a port wired to another port of the same box: private memory
 that survives a round. Every cell here has at least two, a *state loop* and
 a *clue loop*; model C adds an *answer loop*.
 
-The maps themselves are built in two stages, syntax then semantics: an
-abstract, torch-free *skeleton* (`core/skeletons.py`, fed the grid's
-combinatorics by `sudoku/skeleton.py`) fixes who talks to whom, with
-atomic types naming the *role* of each port rather than its width; a
-`discopy.neural.Functor` (`core/functors.py`) then sends each role to the
-`Dim` it carries and each abstract box to the `Network` computing it,
-applied by `core.cmaps.interpret`. Since `Dim(0)` is the monoidal unit, a
-functor can erase a role's ports altogether — which is how models A and C
-share one skeleton: A's functor sends the answer role to `Dim(0)`, C's to
-`Dim(48)`.
+The maps themselves are built in two stages, syntax then semantics. A
+`Signature` (`sudoku/signature.py`) says what ports a box has — how many,
+grouped into orbits, which of them are traced, and which are one orbit
+under a permutation. From it, `discopy.neural.skeleton` builds an
+abstract, torch-free *skeleton* out of the grid's combinatorics
+(`sudoku/skeleton.py`): a closed map whose atomic types name the *role* of
+each port rather than its width. An `Interpretation`
+(`discopy.neural.functor`) then sends each role to the `Dim` it carries and
+each box name to the torch module computing it, and `interpret` applies it.
+Since `Dim(0)` is the monoidal unit, an interpretation can erase a role's
+ports altogether — which is how models A and C share one skeleton: A sends
+the answer role to `Dim(0)`, C to `Dim(48)`.
+
+The signature is also the *only* place a port offset is written down. The
+abstract type of a box, the loop wiring the skeleton lays down and the flat
+slices a module reads and writes are all derived from it, so they cannot
+drift apart; and it is what a symmetry is declared on, which
+`check_equivariant` then measures numerically. A learned cell is only
+*laxly* structured — permutation-equivariance holds up to the reordering of
+a floating-point sum, Frobenius fusion does not hold at all, and
+`cells.fusion_residual` reports how far off it is rather than claiming
+otherwise.
 
 ## The three models
 
 | | map | wires | update cell | supervision |
 |---|---|---|---|---|
-| **A · GoI** (`sudoku/train_a_goi.py`) | bipartite cell/unit factor graph | 405 | GRU cell + Deep-Sets unit | every round, one backward graph |
-| **B · RRN** (`sudoku/train_b_rrn.py`) | pairwise peer clique (Palm et al. 2018) | 972 | LSTM cell, summed pair messages | every round, one backward graph |
-| **C · TRM** (`sudoku/train_c_trm.py`) | A's map + traced answer loop | 486 | A's cell, resumable | per detached segment (Jolicoeur-Martineau 2025) |
+| **A · GoI** (`sudoku/train_a_goi.py`) | bipartite cell/unit factor graph | 405 | GRU site + Deep-Sets relation | every round, one backward graph |
+| **B · RRN** (`sudoku/train_b_rrn.py`) | pairwise peer clique (Palm et al. 2018) | 972 | LSTM site, summed pair messages | every round, one backward graph |
+| **C · TRM** (`sudoku/train_c_trm.py`) | A's map + traced answer loop | 486 | A's site, resumable | per detached segment (Jolicoeur-Martineau 2025) |
+
+The wire counts are of the *messages*: model B's cell keeps the two states
+of its `LSTMCell` as two named roles, `hidden` and `memory`, on one traced
+loop, so its map has 81 more traced wires than the 972 above — the same
+bytes in the same places, named twice instead of sliced in two.
 
 Best results on the held-out test split of the Palm et al. (2018) benchmark
 (18,000 puzzles; 50k training puzzles, 8 epochs, mean over seeds 0–1 —
@@ -73,34 +90,39 @@ steps).
 
 ## Layout
 
-The folder separates the *method* from the *instance*: `core/` is the
-general library — the solver family and everything needed to build, train
-and evaluate it — and `sudoku/` brings only what is irreducibly sudoku:
-the grid combinatorics, the two benchmarks, and the recorded
-configurations of the study. A future task adds a sibling package with
-its own combinatorics and data, and instantiates the same solvers.
+The *method* is not here at all: the wiring, the cells, the interpretation
+and the message-passing schedules live in
+[`discopy.neural`](../../discopy/neural/), where they are generic in the
+task and in the source category. What is left in this folder is a *study*:
+`core/` holds the harness that trains and scores a model, and `sudoku/`
+brings only what is irreducibly sudoku — the grid combinatorics, the roles
+its wires carry, an encoder, a decoder, the two benchmarks and the recorded
+configurations. There is no cell class and no solver class here; a model is
+a choice of skeleton, widths and schedule. A future task adds a sibling
+package with its own combinatorics and data, and configures the same
+engine.
 
-    core/                 the general library (see core/__init__.py)
+    core/                 the study harness (see core/__init__.py)
       study.py            the torch-free dataclasses: Widths, Budget, Split
-      cmaps.py            map readers, interpret, resumable routing
-      skeletons.py        port roles + the factor-graph and clique shapes
-      functors.py         the functors filling a skeleton in, Layout
-      solvers.py          the cells + the three solver architectures
-      act.py              adaptive computation time for the recursion solver
       train.py            the harness: deep supervision, evaluation, batching
       recipes.py          optimizer, schedule, EMA, segmented loop
     sudoku/               the sudoku task (see sudoku/__init__.py)
       config.py           grid constants, paths, budgets, matched widths
+      signature.py        the roles a port can play + the box signatures
       skeleton.py         rows/columns/blocks/peers -> the two skeletons
+      heads.py            the encoder and the decoder
       data.py             the Palm et al. (2018) benchmark + symmetry group
       sudoku_extreme.py   the sudoku-extreme benchmark, three variants
-      models.py           models A, B, C = the family bound to the skeletons
+      models.py           models A, B, C = skeleton + widths + schedule
       act.py              model C with the halt head
       train.py            the study protocol: checkpoints, registry, lr grid
       train_a_goi.py      model A: recorded best configuration + protocol
       train_b_rrn.py      model B: likewise
       train_c_trm.py      model C: likewise
       best/               the optuna-winner recipes, on core.recipes
+    golden/               the frozen pre-refactor fingerprints + recorder
+    migration.py          loading a checkpoint trained before the refactor
+    NOTES.md              what was left alone, and why
     artifacts/            checkpoints and cached results   (gitignored)
     sudoku_data/          the two benchmarks, fetched on first use (gitignored)
     figures/              figures written by the notebooks  (gitignored)
@@ -119,5 +141,5 @@ folder's packages.
     python sudoku/best/simple_sudoku_trm.py        # the 0.9933-boards recipe
 
 One GPU suffices; the maps train through `CMap.forward` and speed up
-several-fold under `CMap.compile` (see `Solver.compile_cells`), which the
+several-fold under `CMap.compile` (see `Engine.compile_cells`), which the
 `best/` recipes enable by default.
