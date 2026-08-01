@@ -36,3 +36,7 @@
 - [x] Fix the missing comma between a TikZ wire style and its looseness
 - [x] Add tests and a drawn example in the docs, regenerate the feedback baselines
 - [x] Run `pflake8 discopy` and the test suite
+
+> Is the method tested on diagrams with more than one feedback loop?
+
+- [WIP] @07455c9b-2026-08-01 15:45 Test diagrams with more than one feedback loop
