@@ -39,4 +39,4 @@
 
 > Is the method tested on diagrams with more than one feedback loop?
 
-- [WIP] @07455c9b-2026-08-01 15:45 Test diagrams with more than one feedback loop
+- [x] Test diagrams with more than one feedback loop

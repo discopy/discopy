@@ -38,10 +38,30 @@ def test_draw_feedback_arrow(tmp_path):
         drawing.trace(n=2, feedback=True), tmp_path).count("\\draw [->]") == 2
 
 
-def test_feedback_to_drawing_is_directed():
+def test_draw_one_arrow_per_feedback_loop(tmp_path):
+    """ Each feedback loop gets its own arrow, the traces get none. """
+    x = Ty('x')
+    f, g = (Box(name, x ** 2, x ** 2).to_drawing() for name in "fg")
+    for drawing, expected in [
+            (f.trace(feedback=True) @ g.trace(feedback=True), 2),
+            (f.trace(feedback=True) >> g.trace(feedback=True), 2),
+            (f.trace(feedback=True) @ g.trace(), 1),
+            (f.trace() >> g.trace(feedback=True), 1),
+            (f.trace(n=2, feedback=True).trace(), 2),
+            (f.trace(left=True, feedback=True), 1)]:
+        assert tikz_source(
+            drawing, tmp_path).count("\\draw [->]") == expected
+
+
+def test_feedback_to_drawing_is_directed(tmp_path):
     """ :class:`discopy.feedback.Feedback` draws its loop with an arrow. """
     from discopy.feedback import Ty as FTy, Box as FBox
     x = FTy('x')
-    drawing = FBox('f', x @ x.d, x @ x).feedback().to_drawing()
-    assert [box.draw_as_feedback for box in drawing.boxes if box.draw_as_wires]\
+    f = FBox('f', x @ x.d, x @ x).feedback()
+    assert [box.draw_as_feedback
+            for box in f.to_drawing().boxes if box.draw_as_wires]\
         == [True, True]
+    nested = FBox('g', x @ x.d @ x.d, x @ x @ x).feedback().feedback()
+    for diagram in (f >> f, f @ f, nested):
+        assert tikz_source(
+            diagram.to_drawing(), tmp_path).count("\\draw [->]") == 2
