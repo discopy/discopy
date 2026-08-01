@@ -25,4 +25,4 @@
 
 > There should be a doctest showing the multiple discards drawing.
 
-- [WIP] @07455c9b-2026-08-01 15:35 Add a doctest drawing a discard on more than one wire
+- [x] Add a doctest drawing a discard on more than one wire
