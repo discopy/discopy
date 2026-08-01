@@ -68,3 +68,13 @@ append-only per `RULES.md`; the PR diff is now only `TODO.md`.
 `pflake8 discopy` passes. Non-optional tests: 319 passed; 4 require missing
 SymPy/Torch dependencies. Full collection is blocked by the same optional
 quantum and tensor dependencies.
+
+## Sign-off follow-up (🌙 evening, 2026-08-01)
+
+#362 merged on 2026-07-29, which was the last thing this branch waited on, and
+`CHANGELOG.md` landed after this checklist was written (#487): `AGENTS.md` now
+asks for an `[Unreleased]` entry on every user-facing change, and the new
+`Layer` representation is one.
+
+- [WIP] @evening-2026-08-01 00:06 Merge current `main` and add the
+  `CHANGELOG.md` entry for the new `Layer` representation
