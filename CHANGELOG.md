@@ -76,6 +76,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   [#470](https://github.com/discopy/discopy/pull/470)).
 - The `test/` directory is reorganised to mirror `discopy/`
   ([#403](https://github.com/discopy/discopy/pull/403)).
+- Drawings are saved with a transparent background instead of an opaque
+  white one, so they read on both light and dark pages
+  ([#497](https://github.com/discopy/discopy/pull/497)).
 
 ### Fixed
 
