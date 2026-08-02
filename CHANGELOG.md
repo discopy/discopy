@@ -76,6 +76,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   [#470](https://github.com/discopy/discopy/pull/470)).
 - The `test/` directory is reorganised to mirror `discopy/`
   ([#403](https://github.com/discopy/discopy/pull/403)).
+- `Sqrt` rejects negative and complex numbers instead of silently picking
+  one of their two square roots, which made `Sqrt.dagger` unsound
+  ([#482](https://github.com/discopy/discopy/issues/482)).
 
 ### Fixed
 
@@ -86,6 +89,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   ([#387](https://github.com/discopy/discopy/pull/387)).
 - Bubble drawing
   ([#431](https://github.com/discopy/discopy/pull/431)).
+- Bugs in `discopy.quantum` reported in
+  [#482](https://github.com/discopy/discopy/issues/482): `CQ.__str__`
+  printed classical dimensions as quantum, `Measure(override_bits=True)`
+  could not be evaluated, `Encode` ignored `constructive`/`reset_bits` in
+  its types so daggers were not type-correct, `CRz`/`CRx`/`CU1` raised at
+  any `distance` other than one, and `Channel.cups`/`Channel.discard`
+  hard-coded `Channel` so `Channel[float]` silently gave a
+  `Channel[complex]`.
 
 ### Performance
 
@@ -94,6 +105,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `Hypergraph` equality, permutations and other micro-optimizations bring
   equality checks down to `O(n)`
   ([#353](https://github.com/discopy/discopy/pull/353)).
+- `Channel.tensor` contracts the two arrays directly and interleaves their
+  axes, instead of building four boxes, two swap diagrams and a fresh
+  `tensor.Functor` on every `@`: ~120x on one tensor and ~12x on
+  `eval(mixed=True)` for a four-qubit circuit. `Channel.measure` builds its
+  copy spider instead of a Python list comprehension, and
+  `Circuit.measure(mixed=False)` reads the Born rule off a single
+  contraction instead of running `2**n` of them: ~18x at ten qubits
+  ([#482](https://github.com/discopy/discopy/issues/482)).
 
 ### Project
 

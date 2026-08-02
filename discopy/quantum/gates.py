@@ -191,6 +191,10 @@ class Encode(SelfConjugate):
 
     def __init__(self, n_bits=1, constructive=True, reset_bits=False):
         dom, cod = bit ** n_bits, qubit ** n_bits
+        if not constructive:
+            dom = qubit ** n_bits @ dom
+        if reset_bits:
+            cod = cod @ bit ** n_bits
         name = Measure(n_bits, constructive, reset_bits).name\
             .replace("Measure", "Encode")\
             .replace("destructive", "constructive")\
@@ -425,6 +429,16 @@ class Controlled(QuantumGate):
         dom = cod = qubit ** n_qubits
         QuantumGate.__init__(self, name, dom, cod, data=controlled.data)
 
+    def with_distance(self, distance) -> "Controlled":
+        """
+        The same controlled gate with the control at a given ``distance``.
+
+        Example
+        -------
+        >>> assert CRz(0.25, distance=-1).with_distance(1) == CRz(0.25)
+        """
+        return type(self)(self.controlled, distance=distance)
+
     def dagger(self):
         return Controlled(self.controlled.dagger(), distance=self.distance)
 
@@ -492,7 +506,7 @@ class Controlled(QuantumGate):
 
         perm = Circuit.permutation(pattern)
         diagram = (perm
-                   >> type(self)(controlled) @ Id(skipped_qbs)
+                   >> self.with_distance(1) @ Id(skipped_qbs)
                    >> perm[::-1])
 
         return diagram
@@ -672,6 +686,9 @@ class ControlledRotation(Controlled, Rotation):
     def __init__(self, phase, distance=1):
         Controlled.__init__(self, self.controlled(phase), distance)
 
+    def with_distance(self, distance) -> "ControlledRotation":
+        return type(self)(self.phase, distance=distance)
+
     lambdify = Rotation.lambdify
     subs = Rotation.subs
 
@@ -728,9 +745,29 @@ class MixedScalar(Scalar):
 
 
 class Sqrt(Scalar):
-    """ Square root. """
+    """
+    Square root of a non-negative real number.
+
+    Negative and complex numbers have two square roots and nothing here
+    picks one of them, so they are rejected rather than silently resolved.
+    Symbolic data is left alone, since it cannot be decided.
+
+    Example
+    -------
+    >>> assert Sqrt(4).array == 2
+    >>> Sqrt(-1)
+    Traceback (most recent call last):
+    ...
+    ValueError: Sqrt(-1) is undefined: -1 has two square roots.
+    """
     def __init__(self, data):
         super().__init__(data, name="sqrt")
+        if not self.free_symbols:
+            value = complex(data)
+            if value.imag or value.real < 0:
+                raise ValueError(
+                    f"Sqrt({format_number(data)}) is undefined: "
+                    f"{format_number(data)} has two square roots.")
         self.drawing_name = f"sqrt({format_number(data)})"
 
     def __setstate__(self, state):
