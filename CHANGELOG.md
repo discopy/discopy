@@ -41,6 +41,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   permutation operations and functorial semantics, while `symmetric.Layer`
   alternates permutations with generators without canonicalising diagram
   state ([#362](https://github.com/discopy/discopy/pull/362)).
+- Syntactic beta reduction on `closed.Term` with capture-avoiding
+  substitution, and `closed.BohmTree` as the normal form: its arguments are
+  reduced lazily against a shared budget, with pluggable reduction
+  strategies defaulting to leftmost-outermost
+  ([#442](https://github.com/discopy/discopy/pull/442)).
 
 ### Changed
 
