@@ -41,6 +41,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   permutation operations and functorial semantics, while `symmetric.Layer`
   alternates permutations with generators without canonicalising diagram
   state ([#362](https://github.com/discopy/discopy/pull/362)).
+- `discopy.kleisli`, the Kleisli category of a `Monad`, with the
+  multiplicative and channel instances
+  ([#443](https://github.com/discopy/discopy/pull/443)).
 
 ### Changed
 
