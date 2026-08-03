@@ -168,5 +168,7 @@ omit = ["test/plugin.py"]
 
 [tool.coverage.report]
 fail_under = 98
-    "def __repr__",
-    "def __str__",
+exclude_also = [
+    "def strategy",
+    "if TYPE_CHECKING",
+]
