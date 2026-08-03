@@ -201,7 +201,6 @@ def test_diagram_to_map_structure_and_errors():
     from discopy import (
         balanced,
         braided,
-        cmap,
         closed,
         compact,
         frobenius,
@@ -213,15 +212,12 @@ def test_diagram_to_map_structure_and_errors():
     from discopy.cmap import Port, PortKind
 
     mx, my = map(monoidal.Ty, "xy")
-    monoidal_map = cmap.CMap[monoidal.Diagram]
-    assert monoidal.CMap is monoidal_map
     f = monoidal.Box("f", mx, my)
-    assert monoidal.Diagram.map_factory is monoidal.CMap
-    assert f.to_map() == monoidal_map.from_box(f)
+    assert f.to_map() == monoidal.CMap.from_box(f)
 
     bx, by = map(braided.Ty, "xy")
     braid = braided.Braid(bx, by)
-    assert monoidal_map.from_diagram(braid).boxes == (braid, )
+    assert monoidal.CMap.from_diagram(braid).boxes == (braid, )
 
     sx, sy = map(symmetric.Ty, "xy")
     assert symmetric.Swap(sx, sy).to_map() == symmetric.CMap.swap(sx, sy)
@@ -281,23 +277,23 @@ def test_diagram_to_map_structure_and_errors():
 
     x = monoidal.Ty("x")
     with raises(AxiomError):
-        monoidal_map.cups(x, x)
+        monoidal.CMap.cups(x, x)
     with raises(AxiomError):
-        monoidal_map.caps(x, x)
+        monoidal.CMap.caps(x, x)
     with raises(AxiomError):
-        monoidal_map(x @ x, monoidal.Ty(), (), (1, 0))
+        monoidal.CMap(x @ x, monoidal.Ty(), (), (1, 0))
     with raises(AxiomError):
-        monoidal_map(monoidal.Ty(), x @ x, (), (1, 0))
-    assert monoidal_map.id(x).edges == (1, 0)
+        monoidal.CMap(monoidal.Ty(), x @ x, (), (1, 0))
+    assert monoidal.CMap.id(x).edges == (1, 0)
     f = monoidal.Box("f", x, x)
     g = monoidal.Box("g", x, x)
-    circuit = monoidal_map(
+    circuit = monoidal.CMap(
         monoidal.Ty(), monoidal.Ty(), (f, g), (3, 2, 1, 0))
     with raises(AxiomError):
         circuit.to_diagram()
     s = monoidal.Box("s", monoidal.Ty(), monoidal.Ty())
     t = monoidal.Box("t", monoidal.Ty(), monoidal.Ty())
-    scalars = monoidal_map(monoidal.Ty(), monoidal.Ty(), (s, t), ())
+    scalars = monoidal.CMap(monoidal.Ty(), monoidal.Ty(), (s, t), ())
     assert scalars.to_diagram() == s >> t
     x = closed.Ty("x")
     f = closed.Box("f", x, x)
@@ -387,13 +383,12 @@ def test_to_diagram_validates_structure():
     from discopy import cmap, monoidal, pivotal
 
     x = monoidal.Ty("x")
-    monoidal_map = cmap.CMap[monoidal.Diagram]
     f = monoidal.Box("f", x, x)
-    feedback = monoidal_map(x, x, (f, ), (3, 2, 1, 0))
+    feedback = monoidal.CMap(x, x, (f, ), (3, 2, 1, 0))
     assert not feedback.is_acyclic
     with raises(AxiomError):
         feedback.to_diagram()
-    loop = monoidal_map(
+    loop = monoidal.CMap(
         monoidal.Ty(), monoidal.Ty(), (), (), loops=(x, ))
     with raises(AxiomError):
         loop.to_diagram()
