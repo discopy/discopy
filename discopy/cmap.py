@@ -51,9 +51,11 @@ from typing import Any, TYPE_CHECKING, ClassVar, Literal
 from discopy import messages, hypergraph
 from discopy.cat import Ob
 from discopy.abc import (
+    BiclosedCategory,
     CompactCategory,
     NamedGeneric,
     Pregroup,
+    RigidCategory,
     SymmetricCategory,
     TracedCategory,
 )
@@ -779,13 +781,9 @@ class CMap[C0: Pregroup, C1: CMap](
         """ Evaluation kept as a box. """
         return cls.from_box(cls.category.ev(base, exponent, left))
 
-    @classmethod
-    def _uses_exponentials(cls) -> bool:
-        """ Whether the host category keeps exponentials as atomic types. """
-        unit = cls.ob()
-        return hasattr(unit, "is_exp") and (unit >> unit).is_exp
-
-    def curry(self, n: int = 1, left: bool = False) -> CMap:
+    def curry(
+            self, n: int = 1, left: bool = False,
+            exp: bool | None = None) -> CMap:
         """
         Curry a combinatorial map using the structure of its host category.
 
@@ -797,6 +795,8 @@ class CMap[C0: Pregroup, C1: CMap](
         Parameters:
             n : The number of objects to curry.
             left : Whether to curry on the left or right.
+            exp : Whether to use exponential structure. By default, use the
+                strongest structure supplied by the host category.
 
         >>> from discopy.compact import Ty, Box
         >>> x, y, z = map(Ty, "xyz")
@@ -812,11 +812,15 @@ class CMap[C0: Pregroup, C1: CMap](
             raise ValueError
         if not n:
             return self
-        if type(self)._uses_exponentials():
+        if exp is None:
+            exp = issubclass(self.category, BiclosedCategory)\
+                and not issubclass(self.category, RigidCategory)
+        if exp:
             exponent = self.dom[len(self.dom) - n:] if left else self.dom[:n]
-            exp = self.cod << exponent if left else exponent >> self.cod
+            exponential = self.cod << exponent if left\
+                else exponent >> self.cod
             coev = type(self).from_box(
-                self.category.coeval_factory(exp, left=left))
+                self.category.coeval_factory(exponential, left=left))
             return (self >> coev).trace(n, left=not left)
         if left:
             base, exponent = self.dom[:-n], self.dom[-n:]
@@ -825,13 +829,17 @@ class CMap[C0: Pregroup, C1: CMap](
         base, exponent = self.dom[n:], self.dom[:n]
         return self.caps(exponent.r, exponent) @ base >> exponent.r @ self
 
-    def uncurry(self, n: int = 1, left: bool = False) -> CMap:
+    def uncurry(
+            self, n: int = 1, left: bool = False,
+            exp: bool | None = None) -> CMap:
         """
         Uncurry a combinatorial map using the structure of its host category.
 
         Parameters:
             n : The number of objects to uncurry.
             left : Whether to uncurry on the left or right.
+            exp : Whether to use exponential structure. By default, use the
+                strongest structure supplied by the host category.
 
         This is inverse to :meth:`curry` when applied on the same side.
         """
@@ -839,7 +847,10 @@ class CMap[C0: Pregroup, C1: CMap](
             raise ValueError
         if not n:
             return self
-        if type(self)._uses_exponentials():
+        if exp is None:
+            exp = issubclass(self.category, BiclosedCategory)\
+                and not issubclass(self.category, RigidCategory)
+        if exp:
             if not self.cod.is_exp:
                 raise ValueError
             exponent = self.cod.exponent
@@ -851,7 +862,7 @@ class CMap[C0: Pregroup, C1: CMap](
                 else type(self).id(exponent) @ self >> ev
             remaining = n - len(exponent)
             return result if not remaining\
-                else result.uncurry(remaining, left)
+                else result.uncurry(remaining, left, exp=True)
         if n > len(self.cod):
             raise ValueError
         if left:

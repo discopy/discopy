@@ -48,6 +48,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   through their underlying hypergraphs, and separates acyclicity from box order
   with `is_acyclic`, `is_topologically_ordered`, and `topological_order`
   ([#391](https://github.com/discopy/discopy/issues/391)).
+- `CMap.curry` and `CMap.uncurry` accept an `exp` flag for selecting
+  exponential or compact structure, defaulting to the strongest structure of
+  the host category ([#391](https://github.com/discopy/discopy/issues/391)).
 - `Arrow` is refactored onto a `FreeCategory` base class
   ([#350](https://github.com/discopy/discopy/pull/350)).
 - The `tensor` module is refactored to go through `CMap` for `einsum`

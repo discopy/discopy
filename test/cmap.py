@@ -438,12 +438,15 @@ def test_curry_uncurry_roundtrip(module):
         cmap.uncurry(n=2)
 
     if module is compact:
+        assert cmap.curry() == cmap.curry(exp=False)
         assert cmap.curry().uncurry() == cmap
+        assert cmap.curry(exp=False).uncurry(exp=False) == cmap
         assert cmap.curry(left=True).uncurry(left=True) == cmap
         assert cmap.curry(n=2, left=True).uncurry(n=2, left=True) == cmap
         return
 
     right = cmap.curry()
+    assert right == cmap.curry(exp=True)
     assert right.dom == y
     assert right.cod == x >> z
     assert right.boxes == (
@@ -459,6 +462,7 @@ def test_curry_uncurry_roundtrip(module):
 
     h = module.Box("h", y, x >> z)
     uncurried = h.to_map().uncurry()
+    assert uncurried == h.to_map().uncurry(exp=True)
     assert uncurried.dom == x @ y
     assert uncurried.cod == z
     assert uncurried.boxes == (
