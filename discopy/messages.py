@@ -35,3 +35,5 @@ WRONG_COD = "Expected inside.cod == {}, got {} instead."
 COMPLEX_TYPE_HAS_NO_ATTR = "{!r} object of length != 1 has no attribute {!r}"
 NO_STRUCTURE_TO_DOWNGRADE = \
     "{} has no spiders, cups or caps to draw this hypergraph."
+NOT_RIGID = "{} has no cups or caps to downgrade this map."
+NOT_TRACED = "{} has no traces to downgrade this map."

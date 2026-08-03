@@ -138,14 +138,14 @@ def test_symmetric_diagram_to_map_encodes_swap_as_wiring():
 
     x = symmetric.Ty("x")
     with raises(AxiomError):
-        monoidal.CMap(x @ x, x @ x, (), (3, 2, 1, 0))
+        monoidal.CMap(x @ x, x @ x, (), (3, 2, 1, 0)).to_diagram()
     assert symmetric.CMap(x @ x, x @ x, (), (3, 2, 1, 0))\
         == symmetric.CMap.swap(x, x)
 
     x, y, z = map(monoidal.Ty, "xyz")
     f = monoidal.Box("f", x @ y, z)
     with raises(AxiomError):
-        monoidal.CMap(y @ x, z, (f, ), (3, 2, 1, 0, 5, 4))
+        monoidal.CMap(y @ x, z, (f, ), (3, 2, 1, 0, 5, 4)).to_diagram()
 
 
 def test_diagram_to_map_structure_and_errors():
@@ -164,10 +164,6 @@ def test_diagram_to_map_structure_and_errors():
 
     mx, my = map(monoidal.Ty, "xy")
     f = monoidal.Box("f", mx, my)
-    assert monoidal.CMap.require_planar is True
-    assert monoidal.CMap.require_causal is True
-    assert monoidal.CMap.require_oriented is True
-    assert monoidal.CMap.require_connected is True
     assert f.to_map() == monoidal.CMap.from_box(f)
 
     bx, by = map(braided.Ty, "xy")
@@ -175,29 +171,17 @@ def test_diagram_to_map_structure_and_errors():
     assert monoidal.CMap.from_diagram(braid).boxes == (braid, )
 
     sx, sy = map(symmetric.Ty, "xy")
-    assert symmetric.CMap.require_planar is False
-    assert symmetric.CMap.require_causal is False
-    assert symmetric.CMap.require_oriented is True
-    assert symmetric.CMap.require_connected is True
     assert symmetric.Swap(sx, sy).to_map() == symmetric.CMap.swap(sx, sy)
 
     cx = compact.Ty("x")
     cup = compact.Cup(cx, cx.r)
     cap = compact.Cap(cx.r, cx)
-    assert compact.CMap.require_planar is False
-    assert compact.CMap.require_causal is False
-    assert compact.CMap.require_oriented is False
-    assert compact.CMap.require_connected is False
     assert symmetric.CMap.from_diagram(cup).boxes == (cup, )
     assert cup.to_map() == compact.CMap.cups(cx, cx.r)
     assert cap.to_map() == compact.CMap.caps(cx.r, cx)
 
     tx = traced.Ty("x")
     traced_box = traced.Box("f", tx, tx)
-    assert traced.CMap.require_planar is True
-    assert traced.CMap.require_causal is False
-    assert traced.CMap.require_oriented is True
-    assert traced.CMap.require_connected is True
     assert traced.Trace(traced_box).to_map() == traced_box.to_map().trace()
 
     bx = balanced.Ty("x")
@@ -207,10 +191,6 @@ def test_diagram_to_map_structure_and_errors():
 
     cx, cy = map(closed.Ty, "xy")
     ev = closed.Eval(cy << cx)
-    assert closed.CMap.require_planar is False
-    assert closed.CMap.require_causal is False
-    assert closed.CMap.require_oriented is True
-    assert closed.CMap.require_connected is True
     assert ev.to_map() == closed.CMap.ev(cy, cx, left=False)
     assert ev.to_map().boxes == (ev, )
     assert closed.Box("f", cx, cx).to_map().trace()
@@ -258,12 +238,14 @@ def test_diagram_to_map_structure_and_errors():
     assert monoidal.CMap.id(x).edges == (1, 0)
     f = monoidal.Box("f", x, x)
     g = monoidal.Box("g", x, x)
+    circuit = monoidal.CMap(
+        monoidal.Ty(), monoidal.Ty(), (f, g), (3, 2, 1, 0))
     with raises(AxiomError):
-        monoidal.CMap(monoidal.Ty(), monoidal.Ty(), (f, g), (3, 2, 1, 0))
+        circuit.to_diagram()
     s = monoidal.Box("s", monoidal.Ty(), monoidal.Ty())
     t = monoidal.Box("t", monoidal.Ty(), monoidal.Ty())
-    with raises(AxiomError):
-        monoidal.CMap(monoidal.Ty(), monoidal.Ty(), (s, t), ())
+    scalars = monoidal.CMap(monoidal.Ty(), monoidal.Ty(), (s, t), ())
+    assert scalars.to_diagram() == s >> t
     x = closed.Ty("x")
     f = closed.Box("f", x, x)
     g = closed.Box("g", x, x)
@@ -298,6 +280,84 @@ def test_diagram_to_map_structure_and_errors():
     assert frobenius.CMap.spiders(1, 2, x).boxes == (
         frobenius.Diagram.spiders(1, 2, x), )
     assert frobenius.Diagram.map_factory is frobenius.CMap
+
+
+def test_to_diagram_introduces_cups_caps_and_traces():
+    from discopy import compact, traced, symmetric
+
+    x = compact.Ty("x")
+    assert compact.CMap.cups(x, x.r).to_diagram()\
+        == compact.Diagram.cups(x, x.r)
+    assert compact.CMap.caps(x.r, x).to_diagram()\
+        == compact.Diagram.caps(x.r, x)
+
+    scalar = compact.CMap.caps(x.r, x) >> compact.CMap.cups(x.r, x)
+    assert scalar.to_diagram().to_map() == scalar
+
+    t = traced.Ty("t")
+    f = traced.Box("f", t, t)
+    trace = f.to_map().trace()
+    assert trace.to_diagram() == traced.Trace(f)
+    assert trace.to_diagram().to_map() == trace
+
+    s = symmetric.Ty("s")
+    loop = symmetric.CMap.id(s).trace()
+    assert loop.to_diagram().to_map() == loop
+
+
+def test_make_monogamous_and_planar():
+    from discopy import compact, symmetric, traced
+
+    x, y = map(compact.Ty, "xy")
+    nested = compact.CMap.cups(x @ y, (x @ y).r)
+    assert nested.make_monogamous().is_oriented
+    assert nested.make_causal().is_causal
+    assert nested.to_diagram().to_map() == nested
+
+    sx, sy = map(symmetric.Ty, "xy")
+    f = symmetric.Box("f", sx @ sy, sy @ sx)
+    cycle = (f.to_map() >> symmetric.CMap.swap(sy, sx)).trace()
+    assert not cycle.is_planar and not cycle.is_progressive
+    assert cycle.make_planar().is_planar
+    assert cycle.to_diagram().to_map() == cycle
+
+    tx = traced.Ty("x")
+    twisted = traced.CMap(tx @ tx, tx @ tx, (), (3, 2, 1, 0))
+    with raises(AxiomError):
+        twisted.make_planar()
+
+
+def test_to_diagram_validates_structure():
+    from discopy import cmap, monoidal, pivotal
+
+    x = monoidal.Ty("x")
+    f = monoidal.Box("f", x, x)
+    swap = monoidal.CMap(x @ x, x @ x, (), (3, 2, 1, 0))
+    assert not swap.is_planar
+    with raises(AxiomError):
+        swap.to_diagram()
+    feedback = monoidal.CMap(x, x, (f, ), (3, 2, 1, 0))
+    assert not feedback.is_progressive
+    with raises(AxiomError):
+        feedback.to_diagram()
+    loop = monoidal.CMap(monoidal.Ty(), monoidal.Ty(), (), (), loops=(x, ))
+    with raises(AxiomError):
+        loop.to_diagram()
+
+    bx, by, bz = map(biclosed.Ty, "xyz")
+    curried = biclosed.Box("f", bx @ by, bz).to_map().curry()
+    with raises(AxiomError):
+        curried.to_diagram()
+
+    class PlanarPivotal(pivotal.Diagram):
+        """ A category with adjoint types but no cups or caps. """
+        cup_factory = None
+
+    p = pivotal.Ty("p")
+    cup = cmap.CMap[PlanarPivotal](p @ p.r, pivotal.Ty(), (), (1, 0))
+    assert not cup.is_oriented
+    with raises(AxiomError):
+        cup.to_diagram()
 
 
 @pytest.mark.parametrize(
@@ -642,6 +702,9 @@ def test_euler_characteristic():
     t = compact.Box("t", compact.Ty(), compact.Ty()).to_map()
     assert (s @ t).connected_components == [s, t]
     assert compact.CMap.id().connected_components == [compact.CMap.id()]
+
+    loop = compact.CMap(compact.Ty(), compact.Ty(), (), (), loops=(cx, ))
+    assert (s @ loop).connected_components == [s, loop]
 
 
 def test_draw_plain_path(tmp_path):

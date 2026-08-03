@@ -175,7 +175,6 @@ class Functor(biclosed.Functor, markov.Functor):
 
 class CMap(biclosed.CMap):
     category = Diagram
-    require_planar = False
 
 
 Diagram.functor_factory = Functor

@@ -26,7 +26,6 @@ Summary
     Spider
     Bubble
     Functor
-    CMap
 
 Axioms
 ------
@@ -62,7 +61,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from discopy import monoidal, rigid, markov, compact, pivotal, hypergraph
+from discopy import (
+    monoidal, rigid, markov, compact, pivotal, hypergraph, cmap)
 from discopy.abc import HypergraphCategory
 from discopy.cat import factory
 from discopy.utils import factory_name, assert_isatomic
@@ -380,9 +380,7 @@ def coherence(cls: type, factory: Callable
     return method
 
 
-class CMap(compact.CMap):
-    category = Diagram
-
+CMap = cmap.CMap[Diagram]
 
 Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
