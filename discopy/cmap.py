@@ -380,7 +380,7 @@ class CMap[C0: Pregroup, C1: CMap](
         0
         """
         if len(self.connected_components) != 1:
-            raise ValueError(messages.NOT_CONNECTED.format(self))
+            raise ValueError(messages.NOT_CONNECTED.format(repr(self)))
         if not self.n_ports and not self.boxes and not self.loops:
             return 2
         return self.n_vertices - self.n_edges + self.n_faces
@@ -654,21 +654,13 @@ class CMap[C0: Pregroup, C1: CMap](
             and self.is_topologically_ordered
 
     def __repr__(self):
-        def port_repr(index, port):
-            port_depth = getattr(port, "depth", None)
-            depth = "" if port_depth is None else f"@{port_depth}"
-            return (
-                f"{port.kind}{depth}[{port.i}]:{port.obj}:"
-                f"{port.side}/{port.direction}"
-                f"->{self.edges[index]}")
-
-        ports = tuple(
-            port_repr(index, port)
-            for index, port in enumerate(self.ports))
         return factory_name(type(self))\
             + f"(dom={self.dom!r}, cod={self.cod!r}, " \
               f"boxes={self.boxes!r}, edges={self.edges!r}, " \
-              f"ports={ports!r}, loops={self.loops!r})"
+              f"offsets={self.offsets!r}, loops={self.loops!r})"
+
+    def __str__(self):
+        return str(self.to_diagram())
 
     def __eq__(self, other: Any):
         return isinstance(other, CMap)\
@@ -1250,7 +1242,7 @@ class CMap[C0: Pregroup, C1: CMap](
         if self.is_planar:
             return self
         if not issubclass(self.category, SymmetricCategory):
-            raise AxiomError(messages.NOT_PLANAR.format(self))
+            raise AxiomError(messages.NOT_PLANAR.format(repr(self)))
         if not self.is_causal:
             return self.make_monogamous().make_causal().make_planar()
         from discopy.monoidal import Functor
@@ -1294,7 +1286,7 @@ class CMap[C0: Pregroup, C1: CMap](
             return self.make_monogamous().make_causal().to_diagram()
         if not issubclass(self.category, SymmetricCategory)\
                 and not self.is_planar:
-            raise AxiomError(messages.NOT_PLANAR.format(self))
+            raise AxiomError(messages.NOT_PLANAR.format(repr(self)))
         edge_wire = {}
         for i, j in enumerate(self.edges):
             if i <= j:

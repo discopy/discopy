@@ -52,11 +52,23 @@ def test_M_init():
 
 
 def test_repr_eq_and_hash():
+    from discopy import cmap, compact, pivotal
     from discopy.compact import Ty, Box, CMap as M
 
     x, y = map(Ty, "xy")
     cm = M.from_box(Box("f", x, y))
-    assert "ports=" in repr(cm)
+    cm = M(cm.dom, cm.cod, cm.boxes, cm.edges, offsets=(0, ))
+    namespace = {
+        "cmap": cmap,
+        "compact": compact,
+        "Diagram": compact.Diagram,
+        "pivotal": pivotal,
+    }
+    restored = eval(repr(cm), namespace)
+    assert restored == cm
+    assert restored.offsets == cm.offsets
+    assert "ports=" not in repr(cm)
+    assert str(cm) == str(cm.to_diagram())
     assert cm == M.from_box(Box("f", x, y))
     assert cm != object()
     assert hash(cm) == hash(M.from_box(Box("f", x, y)))
@@ -365,6 +377,8 @@ def test_to_diagram_validates_structure():
     assert not swap.is_planar
     with raises(AxiomError):
         swap.to_diagram()
+    with raises(AxiomError):
+        str(swap)
     feedback = monoidal.CMap(x, x, (f, ), (3, 2, 1, 0))
     assert not feedback.is_acyclic
     with raises(AxiomError):
