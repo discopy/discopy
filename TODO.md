@@ -16,8 +16,8 @@ make sure you find a trick to have the same image draw on both white and black, 
 
 ## Review feedback, second round (2026-08-03)
 
-- [WIP] @claude-br96gc-2026-08-03 15:35 wires should have no outline on coloured regions, only when the region colour has a non-FF alpha; outline anticorrelated to region transparency, half-outlines if possible (single-frame, coloured-box, coloured-frame threads)
-- [WIP] @claude-br96gc-2026-08-03 15:35 spider nodes should have an outline too when the background is transparent (feedback-random-walk thread)
-- [WIP] @claude-br96gc-2026-08-03 15:35 coloured-bubble corners are funky: diagnose and fix
-- [WIP] @claude-br96gc-2026-08-03 15:35 ribbon dual_rail messed up: region-drawing bug introduced or made visible? diagnose and answer
-- [WIP] @claude-br96gc-2026-08-03 15:35 monoidal bubble-example looks weird even in the base branch: diagnose, file issue if pre-existing
+- [x] wires should have no outline on coloured regions, only when the region colour has a non-FF alpha; outline anticorrelated to region transparency, half-outlines if possible (single-frame, coloured-box, coloured-frame threads)
+- [x] spider nodes should have an outline too when the background is transparent (feedback-random-walk thread)
+- [x] coloured-bubble corners are funky: diagnose and fix
+- [x] ribbon dual_rail messed up: region-drawing bug introduced or made visible? diagnose and answer
+- [x] monoidal bubble-example looks weird even in the base branch: diagnose, file issue if pre-existing (filed [#520](https://github.com/discopy/discopy/issues/520))
