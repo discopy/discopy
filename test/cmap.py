@@ -11,7 +11,9 @@ from discopy.utils import AxiomError
 def test_port_side_and_direction():
     from discopy.compact import Ty, CMap as M
     x = Ty("x")
-    ports = M.id(x).ports
+    cmap = M.id(x)
+    ports = cmap.ports
+    assert ports is cmap.ports
     assert ports[0].side == "up"
     assert ports[1].side == "down"
     assert ports[0].direction == "up"
