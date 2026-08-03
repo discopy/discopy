@@ -61,6 +61,11 @@ def test_repr_eq_and_hash():
     assert cm != object()
     assert hash(cm) == hash(M.from_box(Box("f", x, y)))
 
+    g = M.from_box(Box("g", y, x))
+    interchanged = (cm >> g).interchange(0, 1)
+    assert cm >> g == interchanged
+    assert hash(cm >> g) == hash(interchanged)
+
 
 def test_id_and_tensor():
     from discopy.compact import Ty, CMap as M, Hypergraph as H
@@ -618,7 +623,7 @@ def test_interchange(module):
         [(0, 7), (1, 5), (2, 3), (4, 11), (6, 10), (8, 9)],
         12,
     )
-    assert swapped != cm
+    assert swapped == cm
     assert swapped.interchange(2, 0) == cm
     with raises(IndexError):
         cm.interchange(0, 3)

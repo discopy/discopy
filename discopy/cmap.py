@@ -673,14 +673,11 @@ class CMap[C0: Pregroup, C1: CMap](
               f"ports={ports!r}, loops={self.loops!r})"
 
     def __eq__(self, other: Any):
-        return isinstance(other, CMap) and (
-            self.dom, self.cod, self.boxes, self.edges, self.loops
-        ) == (
-            other.dom, other.cod, other.boxes, other.edges, other.loops)
+        return isinstance(other, CMap)\
+            and self.to_hypergraph() == other.to_hypergraph()
 
     def __hash__(self):
-        return hash((
-            self.dom, self.cod, self.boxes, self.edges, self.loops))
+        return hash(self.to_hypergraph())
 
     @classmethod
     def id(cls, dom=None) -> CMap:
