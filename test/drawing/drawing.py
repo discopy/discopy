@@ -1,7 +1,7 @@
 
 import os
 
-from pytest import raises
+from pytest import importorskip, raises
 
 from discopy.utils import AxiomError
 from discopy.config import DRAWING_DEFAULT
@@ -508,6 +508,7 @@ def test_tikz_long_controlled():
 
 
 def test_rich_display():
+    importorskip("anywidget")
     from io import StringIO
     import matplotlib.pyplot as plt
     from discopy.monoidal import Ty, Box

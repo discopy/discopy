@@ -609,7 +609,7 @@ class RichDisplay:
     >>> svg, png = f._repr_svg_(), f.to_png()
     >>> assert svg.startswith('<?xml') and '</svg>\\n' in svg
     >>> assert png.startswith(b'\\x89PNG')
-    >>> bundle = f._repr_mimebundle_()
+    >>> bundle = f._repr_mimebundle_()  # doctest: +EXTRA
     >>> assert 'image/svg+xml' in bundle
     >>> assert 'image/png' in bundle
     >>> assert 'application/vnd.jupyter.widget-view+json' in bundle
@@ -657,7 +657,7 @@ class RichDisplay:
         -------
         >>> from discopy.monoidal import Ty, Box
         >>> f = Box('f', Ty('x'), Ty('y'))
-        >>> widget = f.to_widget()
+        >>> widget = f.to_widget()  # doctest: +EXTRA
         >>> widget.svg.startswith('<?xml')  # doctest: +SKIP
         True
         """

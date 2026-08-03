@@ -53,11 +53,13 @@ dev = [
     "polars",
 ]
 docs = ["discopy[docs]"]
+notebooks = ["discopy[notebooks]"]
 quantum = ["discopy[quantum]"]
 grammar = ["discopy[grammar]"]
 all = [
     { include-group = "dev" },
     { include-group = "docs" },
+    { include-group = "notebooks" },
     { include-group = "quantum" },
     { include-group = "grammar" },
 ]
@@ -88,12 +90,15 @@ test = [
     "pylint",
     "pytest",
 ]
-docs  = [
+notebooks = [
     "IPython",
     "anywidget",
     "ipykernel == 6.23.*",
-    "jinja2 == 3.1.*",
     "marimo",
+]
+docs  = [
+    "discopy[notebooks]",
+    "jinja2 == 3.1.*",
     "myst-parser == 2.0.*",
     # executed by marimo when rendering the notebooks at docs build time
     "pytket",

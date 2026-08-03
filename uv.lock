@@ -845,6 +845,12 @@ docs = [
 grammar = [
     { name = "nltk" },
 ]
+notebooks = [
+    { name = "anywidget" },
+    { name = "ipykernel" },
+    { name = "ipython" },
+    { name = "marimo" },
+]
 quantum = [
     { name = "jax" },
     { name = "jaxlib" },
@@ -885,7 +891,7 @@ test = [
 [package.dev-dependencies]
 all = [
     { name = "coverage" },
-    { name = "discopy", extra = ["docs", "grammar", "quantum"] },
+    { name = "discopy", extra = ["docs", "grammar", "notebooks", "quantum"] },
     { name = "marimo" },
     { name = "polars" },
     { name = "pylint" },
@@ -908,21 +914,25 @@ docs = [
 grammar = [
     { name = "discopy", extra = ["grammar"] },
 ]
+notebooks = [
+    { name = "discopy", extra = ["notebooks"] },
+]
 quantum = [
     { name = "discopy", extra = ["quantum"] },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "anywidget", marker = "extra == 'docs'" },
+    { name = "anywidget", marker = "extra == 'notebooks'" },
     { name = "coverage", marker = "extra == 'test'" },
     { name = "discopy", extras = ["grammar", "quantum"], marker = "extra == 'test'" },
-    { name = "ipykernel", marker = "extra == 'docs'", specifier = "==6.23.*" },
-    { name = "ipython", marker = "extra == 'docs'" },
+    { name = "discopy", extras = ["notebooks"], marker = "extra == 'docs'" },
+    { name = "ipykernel", marker = "extra == 'notebooks'", specifier = "==6.23.*" },
+    { name = "ipython", marker = "extra == 'notebooks'" },
     { name = "jax", marker = "extra == 'quantum'" },
     { name = "jaxlib", marker = "extra == 'quantum'" },
     { name = "jinja2", marker = "extra == 'docs'", specifier = "==3.1.*" },
-    { name = "marimo", marker = "extra == 'docs'" },
+    { name = "marimo", marker = "extra == 'notebooks'" },
     { name = "marimo", marker = "extra == 'test'" },
     { name = "matplotlib" },
     { name = "myst-parser", marker = "extra == 'docs'", specifier = "==2.0.*" },
@@ -952,13 +962,14 @@ requires-dist = [
     { name = "torch", marker = "sys_platform == 'linux' and extra == 'quantum'", index = "https://download.pytorch.org/whl/cpu" },
     { name = "torch", marker = "sys_platform != 'linux' and extra == 'quantum'" },
 ]
-provides-extras = ["quantum", "grammar", "test", "docs"]
+provides-extras = ["quantum", "grammar", "test", "notebooks", "docs"]
 
 [package.metadata.requires-dev]
 all = [
     { name = "coverage" },
     { name = "discopy", extras = ["docs"] },
     { name = "discopy", extras = ["grammar"] },
+    { name = "discopy", extras = ["notebooks"] },
     { name = "discopy", extras = ["quantum"] },
     { name = "marimo" },
     { name = "polars" },
@@ -978,6 +989,7 @@ dev = [
 ]
 docs = [{ name = "discopy", extras = ["docs"] }]
 grammar = [{ name = "discopy", extras = ["grammar"] }]
+notebooks = [{ name = "discopy", extras = ["notebooks"] }]
 quantum = [{ name = "discopy", extras = ["quantum"] }]
 
 [[package]]
