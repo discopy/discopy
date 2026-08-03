@@ -346,7 +346,7 @@ def test_make_monogamous_and_planar():
     sx, sy = map(symmetric.Ty, "xy")
     f = symmetric.Box("f", sx @ sy, sy @ sx)
     cycle = (f.to_map() >> symmetric.CMap.swap(sy, sx)).trace()
-    assert not cycle.is_planar and not cycle.is_progressive
+    assert not cycle.is_planar and not cycle.is_acyclic
     assert cycle.make_planar().is_planar
     assert cycle.to_diagram().to_map() == cycle
 
@@ -366,7 +366,7 @@ def test_to_diagram_validates_structure():
     with raises(AxiomError):
         swap.to_diagram()
     feedback = monoidal.CMap(x, x, (f, ), (3, 2, 1, 0))
-    assert not feedback.is_progressive
+    assert not feedback.is_acyclic
     with raises(AxiomError):
         feedback.to_diagram()
     loop = monoidal.CMap(monoidal.Ty(), monoidal.Ty(), (), (), loops=(x, ))
@@ -640,6 +640,26 @@ def test_interchange(module):
         ),
         6
     )
+
+
+def test_causal_properties_and_topological_order():
+    from discopy.compact import Ty, Box, CMap
+
+    x, y, z = map(Ty, "xyz")
+    f, g = Box("f", x, y), Box("g", y, z)
+    cmap = f.to_map() >> g.to_map()
+    assert cmap.is_acyclic
+    assert cmap.is_topologically_ordered
+    assert cmap.is_causal
+
+    reordered = cmap.interchange(0, 1)
+    assert reordered.is_acyclic
+    assert not reordered.is_topologically_ordered
+    assert not reordered.is_causal
+    assert reordered.topological_order().boxes == (f, g)
+    assert reordered.topological_order().is_causal
+
+    assert not CMap.id(x).trace().is_acyclic
 
 
 def test_plug_input():

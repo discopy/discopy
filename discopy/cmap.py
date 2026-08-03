@@ -171,9 +171,9 @@ class CMap[C0: Pregroup, C1: CMap](
     * cups and caps, i.e. same-polarity pairings :math:`e; m = m` (see
       :attr:`is_oriented`), require a category with cups and caps and can
       be made explicit with :meth:`make_monogamous`;
-    * traces, i.e. backward wires and loops (see :attr:`is_progressive`),
-      require a traced category and can be made explicit with
-      :meth:`make_causal`.
+    * traces, i.e. cycles, backward wires and loops (see :attr:`is_acyclic`
+      and :attr:`is_topologically_ordered`), require a traced category and
+      can be made explicit with :meth:`make_causal`.
 
     We can therefore represent the categorical structures we can guarantee
     by the following diagram:
@@ -623,29 +623,26 @@ class CMap[C0: Pregroup, C1: CMap](
             for i, j in enumerate(self.edges) if i < j)
 
     @property
-    def is_progressive(self) -> bool:
+    def is_acyclic(self) -> bool:
         """
-        Whether every oriented wire points forward in the box order and
-        there are no loops, i.e. the map has no traces.
+        Whether the directed wiring has no cycles or scalar loops.
 
         >>> from discopy.compact import Ty, Box
         >>> x = Ty("x")
         >>> f = Box("f", x, x).to_map()
-        >>> assert f.is_progressive
-        >>> assert not f.trace().is_progressive
+        >>> assert f.is_acyclic
+        >>> assert not f.trace().is_acyclic
         """
-        if self.loops:
-            return False
-        ports = self.ports
-        for i, j in enumerate(self.edges):
-            if i > j:
-                continue
-            source, target = (ports[i], ports[j])\
-                if ports[i].kind.is_positive else (ports[j], ports[i])
-            if source.kind == PortKind.COD and target.kind == PortKind.DOM\
-                    and int(source.depth + 0.5) >= int(target.depth - 0.5):
-                return False
-        return True
+        return self.to_hypergraph().is_acyclic
+
+    @property
+    def is_topologically_ordered(self) -> bool:
+        """ Whether every directed wire points forward in the box order. """
+        return self.to_hypergraph().is_topologically_ordered
+
+    def topological_order(self) -> CMap:
+        """ Reorder boxes so that every directed wire points forward. """
+        return self.to_hypergraph().topological_order().to_map()
 
     @property
     def is_causal(self) -> bool:
@@ -653,7 +650,8 @@ class CMap[C0: Pregroup, C1: CMap](
         Whether the map is both oriented and progressive, i.e. it has no
         cups, caps, traces or loops.
         """
-        return self.is_oriented and self.is_progressive
+        return self.is_oriented and self.is_acyclic\
+            and self.is_topologically_ordered
 
     def __repr__(self):
         def port_repr(index, port):
@@ -1289,8 +1287,8 @@ class CMap[C0: Pregroup, C1: CMap](
                     self.category, "cup_factory", None) is None:
                 raise AxiomError(messages.NOT_RIGID.format(
                     factory_name(self.category)))
-            if not self.is_progressive and not issubclass(
-                    self.category, TracedCategory):
+            if (not self.is_acyclic or not self.is_topologically_ordered)\
+                    and not issubclass(self.category, TracedCategory):
                 raise AxiomError(messages.NOT_TRACED.format(
                     factory_name(self.category)))
             return self.make_monogamous().make_causal().to_diagram()
