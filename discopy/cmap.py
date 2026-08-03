@@ -269,7 +269,6 @@ class CMap[C0: Pregroup, C1: CMap](
     """
 
     category: ClassVar[Diagram] = None
-    category_cache: ClassVar[dict[tuple[type, type], type]] = {}
     functor = classproperty(lambda cls: cls.category.functor_factory)
     ob = classproperty(lambda cls: cls.category.ob)
 
@@ -693,23 +692,6 @@ class CMap[C0: Pregroup, C1: CMap](
         return cls(box.dom, box.cod, (box, ), edge)
 
     @classmethod
-    def with_category(cls, category: type[Diagram]) -> type[CMap]:
-        """ Rebind a map factory while preserving specialised subclasses. """
-        if cls.category is category:
-            return cls
-        if cls.category is None or "__is_named_generic__" in cls.__dict__:
-            return cls[category]
-        key = cls, category
-        if key not in cls.category_cache:
-            name = f"{cls.__name__}[{category.__name__}]"
-            cls.category_cache[key] = type(
-                name, (cls, ), {
-                    "category": category,
-                    "__module__": cls.__module__,
-                })
-        return cls.category_cache[key]
-
-    @classmethod
     def from_diagram(cls, old: Diagram) -> CMap:
         """
         Turn a :class:`Diagram` into a :class:`CMap`.
@@ -728,7 +710,7 @@ class CMap[C0: Pregroup, C1: CMap](
         ()
         """
         category = type(old).ar
-        factory = cls.with_category(category)
+        factory = cls if cls.category is category else cls[category]
         functor = factory.functor if cls.category is None else cls.functor
         return functor(
             ob_map=lambda typ: typ, ar_map=factory.from_box,
@@ -797,14 +779,20 @@ class CMap[C0: Pregroup, C1: CMap](
         """ Evaluation kept as a box. """
         return cls.from_box(cls.category.ev(base, exponent, left))
 
+    @classmethod
+    def _uses_exponentials(cls) -> bool:
+        """ Whether the host category keeps exponentials as atomic types. """
+        unit = cls.ob()
+        return hasattr(unit, "is_exp") and (unit >> unit).is_exp
+
     def curry(self, n: int = 1, left: bool = False) -> CMap:
         """
-        Curry a combinatorial map using compact wiring.
+        Curry a combinatorial map using the structure of its host category.
 
         Note:
-            This will use the free compact structure obtained from the map
-            representation by introducing adjoint ports, even if the host
-            category already has compact structure.
+            Biclosed categories use their exponential and coevaluation
+            factories. Other categories use the free compact structure of the
+            map representation by introducing adjoint ports.
 
         Parameters:
             n : The number of objects to curry.
@@ -824,6 +812,12 @@ class CMap[C0: Pregroup, C1: CMap](
             raise ValueError
         if not n:
             return self
+        if type(self)._uses_exponentials():
+            exponent = self.dom[len(self.dom) - n:] if left else self.dom[:n]
+            exp = self.cod << exponent if left else exponent >> self.cod
+            coev = type(self).from_box(
+                self.category.coeval_factory(exp, left=left))
+            return (self >> coev).trace(n, left=not left)
         if left:
             base, exponent = self.dom[:-n], self.dom[-n:]
             return base @ self.caps(
@@ -833,7 +827,7 @@ class CMap[C0: Pregroup, C1: CMap](
 
     def uncurry(self, n: int = 1, left: bool = False) -> CMap:
         """
-        Uncurry a combinatorial map.
+        Uncurry a combinatorial map using the structure of its host category.
 
         Parameters:
             n : The number of objects to uncurry.
@@ -841,10 +835,25 @@ class CMap[C0: Pregroup, C1: CMap](
 
         This is inverse to :meth:`curry` when applied on the same side.
         """
-        if n < 0 or n > len(self.cod):
+        if n < 0:
             raise ValueError
         if not n:
             return self
+        if type(self)._uses_exponentials():
+            if not self.cod.is_exp:
+                raise ValueError
+            exponent = self.cod.exponent
+            if n < len(exponent):
+                raise ValueError
+            ev = type(self).from_box(
+                self.category.eval_factory(self.cod, left))
+            result = self @ type(self).id(exponent) >> ev if left\
+                else type(self).id(exponent) @ self >> ev
+            remaining = n - len(exponent)
+            return result if not remaining\
+                else result.uncurry(remaining, left)
+        if n > len(self.cod):
+            raise ValueError
         if left:
             base, exponent_l = self.cod[:-n], self.cod[-n:]
             exponent = exponent_l.r

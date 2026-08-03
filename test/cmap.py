@@ -171,6 +171,15 @@ def test_diagram_subclass_to_map_rebinds_category():
     base_cmap = discopy_cmap.CMap.from_diagram(box)
     assert base_cmap.category is Diagram
     assert base_cmap.to_diagram() == box
+    assert type(base_cmap) is discopy_cmap.CMap[Diagram]
+
+
+def test_named_generic_category_factories():
+    from discopy import biclosed, closed, cmap
+    from discopy.grammar import categorial
+
+    for module in (biclosed, closed, categorial):
+        assert module.CMap is cmap.CMap[module.Diagram]
 
 
 def test_symmetric_diagram_to_map_encodes_swap_as_wiring():
