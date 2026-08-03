@@ -1598,6 +1598,7 @@ class Match:
 
 CMap = cmap.CMap[Diagram]
 
+
 class Equation(cat.Equation, RichDisplay):
     """
     An :class:`.cat.Equation` of diagrams, i.e. with a :meth:`draw` method.
