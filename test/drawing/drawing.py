@@ -272,9 +272,65 @@ def test_draw_coloured_equation():
     x = Ty(Ob("x", dom=red, cod=green))
     equation = Equation(Box("f", x, x), Box("g", x, x))
     colours = region_hexes(equation)
-    # Both term regions show; the neutral white region stays transparent.
+    # Both term regions show; white only overpaints the colours before it.
     assert {'#e8a5a5', '#d8f8d8'} <= colours
-    assert '#ffffff' not in colours
+
+
+def test_white_region_overpaints_clipped():
+    from matplotlib import pyplot as plt
+    from matplotlib.colors import to_hex
+    red, white, blue = map(monoidal.Colour, ("red", "white", "blue"))
+    x = monoidal.Ty(monoidal.Wire("x", red, white))
+    y = monoidal.Ty(monoidal.Wire("y", white, blue))
+    drawing = monoidal.Box("f", x @ y, x @ y).to_drawing()
+    drawing.add_box_corners()
+    backend = Matplotlib(figsize=(2, 2))
+    backend.draw_regions(drawing)
+    whites = [patch for patch in backend.axis.patches
+              if to_hex(patch.get_facecolor()) == "#ffffff"]
+    # The white region between the colours overpaints them, clipped to the
+    # colours painted so far, so the canvas itself stays transparent.
+    assert whites
+    assert all(patch.get_clip_path() is not None for patch in whites)
+    coloured = [patch for patch in backend.axis.patches
+                if to_hex(patch.get_facecolor()) != "#ffffff"]
+    assert coloured
+    assert all(patch.get_clip_path() is None for patch in coloured)
+    plt.close(backend.axis.figure)
+
+
+def test_wire_outline_underneath_coloured_regions():
+    from matplotlib import pyplot as plt
+    backend = Matplotlib(figsize=(2, 2))
+    # A wire bordering a coloured region has its outline as a separate patch
+    # below the region fills, so the region hides its side of the outline.
+    backend.draw_wire((0, 0), (0, 1), colours=("red", "white"))
+    outline, wire = backend.axis.patches[-2:]
+    assert outline.get_zorder() < 1
+    assert not wire.get_path_effects()
+    # A wire between white regions keeps its outline in place.
+    before = len(backend.axis.patches)
+    backend.draw_wire((1, 0), (1, 1), colours=("white", "white"))
+    assert len(backend.axis.patches) == before + 1
+    assert backend.axis.patches[-1].get_path_effects()
+    # A zero-width wire, e.g. a frame boundary, gets no outline at all.
+    before = len(backend.axis.patches)
+    backend.draw_wire((2, 0), (2, 1), linewidth=0)
+    assert len(backend.axis.patches) == before + 1
+    assert not backend.axis.patches[-1].get_path_effects()
+    plt.close(backend.axis.figure)
+
+
+def test_spider_outline_underneath():
+    from matplotlib import pyplot as plt
+    from discopy.frobenius import Spider, Ty as FTy
+    drawing = Spider(2, 1, FTy('x')).to_drawing()
+    drawing.add_box_corners()
+    backend = Matplotlib(figsize=(2, 2))
+    backend.draw_spiders(drawing)
+    outline, spider = backend.axis.collections[-2:]
+    assert outline.get_zorder() < 1 < spider.get_zorder()
+    plt.close(backend.axis.figure)
 
 
 def test_equation_symbol_has_no_spider_background():
@@ -445,7 +501,8 @@ def test_draw_permutation():
     assert len(tikz.edgelayer) == 2
     matplotlib = Matplotlib()
     matplotlib.draw_wires(swap)
-    assert len(matplotlib.axis.patches) == 2
+    # Each of the two strands is a white outline patch and a black one.
+    assert len(matplotlib.axis.patches) == 4
     plt.close(matplotlib.axis.figure)
 
     custom = Box(
