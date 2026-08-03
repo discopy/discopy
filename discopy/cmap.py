@@ -268,6 +268,7 @@ class CMap[C0: Pregroup, C1: CMap](
     """
 
     category: ClassVar[Diagram] = None
+    category_cache: ClassVar[dict[tuple[type, type], type]] = {}
     functor = classproperty(lambda cls: cls.category.functor_factory)
     ob = classproperty(lambda cls: cls.category.ob)
 
@@ -704,6 +705,23 @@ class CMap[C0: Pregroup, C1: CMap](
         return cls(box.dom, box.cod, (box, ), edge)
 
     @classmethod
+    def with_category(cls, category: type[Diagram]) -> type[CMap]:
+        """ Rebind a map factory while preserving specialised subclasses. """
+        if cls.category is category:
+            return cls
+        if cls.category is None or "__is_named_generic__" in cls.__dict__:
+            return cls[category]
+        key = cls, category
+        if key not in cls.category_cache:
+            name = f"{cls.__name__}[{category.__name__}]"
+            cls.category_cache[key] = type(
+                name, (cls, ), {
+                    "category": category,
+                    "__module__": cls.__module__,
+                })
+        return cls.category_cache[key]
+
+    @classmethod
     def from_diagram(cls, old: Diagram) -> CMap:
         """
         Turn a :class:`Diagram` into a :class:`CMap`.
@@ -721,9 +739,9 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> Swap(x, y).to_map().boxes
         ()
         """
-        category = type(old).ar
-        factory = cls if cls.category is not None else cls[category]
-        return factory.functor(
+        category, functor = type(old).ar, cls.functor
+        factory = cls.with_category(category)
+        return functor(
             ob_map=lambda typ: typ, ar_map=factory.from_box,
             dom=category, cod=factory)(old)
 

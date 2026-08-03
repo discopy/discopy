@@ -126,6 +126,30 @@ def test_diagram_to_map():
     assert (f @ g).to_map() == f.to_map() @ g.to_map()
 
 
+def test_diagram_subclass_to_map_rebinds_category():
+    from discopy import balanced, monoidal
+    from discopy.cat import factory
+
+    twist = balanced.Twist(balanced.Ty("x"))
+    cmap = twist.to_map()
+    assert cmap.category is balanced.Diagram
+    assert cmap.to_diagram() == twist
+    assert twist.to_hypergraph().to_map().category is balanced.Diagram
+
+    @factory
+    class Diagram(monoidal.Diagram):
+        pass
+
+    class Box(monoidal.Box, Diagram):
+        pass
+
+    x = monoidal.Ty("x")
+    box = Box("f", x, x)
+    cmap = box.to_map()
+    assert cmap.category is Diagram
+    assert cmap.to_diagram() == box
+
+
 def test_symmetric_diagram_to_map_encodes_swap_as_wiring():
     from discopy import monoidal, symmetric
 
