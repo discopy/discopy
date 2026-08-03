@@ -44,6 +44,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Changed
 
+- `CMap` conversion now preserves concrete diagram categories, compares maps
+  through their underlying hypergraphs, and separates acyclicity from box order
+  with `is_acyclic`, `is_topologically_ordered`, and `topological_order`
+  ([#391](https://github.com/discopy/discopy/issues/391)).
 - `Arrow` is refactored onto a `FreeCategory` base class
   ([#350](https://github.com/discopy/discopy/pull/350)).
 - The `tensor` module is refactored to go through `CMap` for `einsum`
@@ -79,6 +83,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `CMap` representations now expose only accepted constructor fields, preserve
+  offsets and loops, and avoid recursive error formatting during conversion
+  ([#391](https://github.com/discopy/discopy/issues/391)).
 - Tensor networks are contracted with `opt_einsum` when the number of
   indices exceeds `numpy.einsum`'s 52-index limit
   ([#448](https://github.com/discopy/discopy/pull/448)).
@@ -89,6 +96,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Performance
 
+- Derived `CMap` port structures are cached
+  ([#391](https://github.com/discopy/discopy/issues/391)).
 - `Ty` construction is sped up with `assert_isinstance` and lazy naming
   ([#420](https://github.com/discopy/discopy/pull/420)).
 - `Hypergraph` equality, permutations and other micro-optimizations bring
