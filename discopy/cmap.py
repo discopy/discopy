@@ -727,8 +727,9 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> Swap(x, y).to_map().boxes
         ()
         """
-        category, functor = type(old).ar, cls.functor
+        category = type(old).ar
         factory = cls.with_category(category)
+        functor = factory.functor if cls.category is None else cls.functor
         return functor(
             ob_map=lambda typ: typ, ar_map=factory.from_box,
             dom=category, cod=factory)(old)

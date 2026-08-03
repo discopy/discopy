@@ -146,7 +146,7 @@ def test_diagram_to_map():
 
 
 def test_diagram_subclass_to_map_rebinds_category():
-    from discopy import balanced, monoidal
+    from discopy import balanced, cmap as discopy_cmap, monoidal
     from discopy.cat import factory
 
     twist = balanced.Twist(balanced.Ty("x"))
@@ -167,6 +167,10 @@ def test_diagram_subclass_to_map_rebinds_category():
     cmap = box.to_map()
     assert cmap.category is Diagram
     assert cmap.to_diagram() == box
+
+    base_cmap = discopy_cmap.CMap.from_diagram(box)
+    assert base_cmap.category is Diagram
+    assert base_cmap.to_diagram() == box
 
 
 def test_symmetric_diagram_to_map_encodes_swap_as_wiring():
