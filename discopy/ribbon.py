@@ -367,3 +367,6 @@ Id = Diagram.id
 
 class Equation(pivotal.Equation):
     """ The :class:`pivotal.Equation` of ribbon diagrams. """
+
+
+Diagram.equation_factory = Equation

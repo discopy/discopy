@@ -189,6 +189,15 @@ class Box(braided.Box, traced.Box, Diagram):
         cod (monoidal.Ty) : The codomain of the box, i.e. its output.
     """
 
+    @classmethod
+    def strategy(cls, **params):
+        """Add twists to the inherited box distribution."""
+        base = super().strategy(**params)
+        factory = cls.ar.twist_factory
+        return cls.extend_strategy(
+            base, factory,
+            lambda factory: cls.atomic_strategy().map(factory), **params)
+
 
 class Braid(braided.Braid, Box):
     """
@@ -374,3 +383,6 @@ Id = Diagram.id
 
 class Equation(braided.Equation):
     """ The :class:`braided.Equation` of balanced diagrams. """
+
+
+Diagram.equation_factory = Equation

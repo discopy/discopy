@@ -181,6 +181,32 @@ class Box(monoidal.Box, Diagram):
         cod (monoidal.Ty) : The codomain of the box, i.e. its output.
     """
 
+    @classmethod
+    def strategy(cls, **params):
+        """Add traces to the inherited box distribution."""
+        from hypothesis import strategies as st
+
+        base = super().strategy(**params)
+        factory = cls.ar.trace_factory
+        types = params.get("types")
+        types = cls.ob.strategy() if types is None else types
+
+        def traces(factory):
+            def build(args):
+                memory, dom, cod, left = args
+                arg_dom = memory @ dom if left else dom @ memory
+                arg_cod = memory @ cod if left else cod @ memory
+                return cls.free_strategy(
+                    types=types, dom=arg_dom, cod=arg_cod).map(
+                        lambda arg: factory(arg, left))
+
+            return st.tuples(
+                cls.atomic_strategy(), types, types,
+                st.booleans()).flatmap(build)
+
+        return cls.extend_strategy(
+            base, factory, traces, **params)
+
 
 class Trace(Box, monoidal.Bubble):
     """

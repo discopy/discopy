@@ -324,6 +324,20 @@ class Box(monoidal.Box, Diagram):
         cod (Ty) : The codomain of the box, i.e. its output.
     """
 
+    @classmethod
+    def strategy(cls, **params):
+        """Add evaluations to the inherited box distribution."""
+        from hypothesis import strategies as st
+
+        base = super().strategy(**params)
+        factory = cls.ar.eval_factory
+        return cls.extend_strategy(
+            base, factory,
+            lambda _factory: st.tuples(
+                cls.atomic_strategy(), cls.atomic_strategy(),
+                st.booleans()).map(
+                    lambda args: cls.ar.ev(*args)), **params)
+
 
 class Eval(Box):
     """
@@ -748,3 +762,6 @@ Ty.over_factory, Ty.under_factory, Ty.exp_factory = Over, Under, Exp
 
 class Equation(monoidal.Equation):
     """ The :class:`monoidal.Equation` of biclosed diagrams. """
+
+
+Diagram.equation_factory = Equation

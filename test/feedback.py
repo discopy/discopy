@@ -5,6 +5,14 @@ from discopy import *
 from discopy.feedback import *
 
 
+def test_factories():
+    assert Diagram.trace_factory is Trace
+    assert Diagram.discard_factory is Discard
+    x = Ty("x")
+    assert type(Diagram.id(x @ x).trace()) is Trace
+    assert type(Diagram.discard(x)) is Discard
+
+
 def test_invalid_inputs():
     with raises(NotImplementedError):
         Ty('x').delay(-1)

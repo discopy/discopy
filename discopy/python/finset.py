@@ -17,17 +17,23 @@ Summary
 """
 
 from __future__ import annotations
+from discopy.utils import assert_isinstance
 from typing import Iterable, Self, Any
+from collections.abc import Sequence
 
 from dataclasses import dataclass
 
+from discopy import messages
 from discopy.abc import MonoidalCategory, SymmetricCategory
+from discopy.testing import Natural, Strategy
 
 
 @dataclass
-class Function(MonoidalCategory):
+class Function(MonoidalCategory, Sequence, Strategy["Function"]):
     """
     A function between finite sets encoded as a Python list.
+
+    Functions implement the standard Python sequence protocol.
 
     Parameters:
         inside : The list from ``range(cod)`` to ``range(dom)``.
@@ -48,9 +54,63 @@ class Function(MonoidalCategory):
     dom: int
     cod: int
 
-    ob = int
+    ob = Natural
+
+    @classmethod
+    def generator_strategy(
+            cls, *, dom=None, cod=None, max_size=400):
+        """Generate finite functions with optional exact boundaries."""
+        from hypothesis import strategies as st
+
+        @st.composite
+        def functions(sample):
+            source = sample(st.integers(
+                min_value=0, max_value=max_size)) if dom is None else dom
+            target = sample(st.integers(
+                min_value=0,
+                max_value=0 if source == 0 else max_size))\
+                if cod is None else cod
+            if source == 0 and target:
+                return sample(st.nothing())
+            inside = sample(st.lists(
+                st.integers(min_value=0, max_value=max(0, source - 1)),
+                min_size=target, max_size=target)) if target else []
+            return cls(inside, source, target)
+
+        return functions()
+
+    @classmethod
+    def strategy(
+            cls, *, min_leaves=None, max_leaves=10, max_size=400,
+            dom=None, cod=None):
+        """Generate finite functions recursively under tensor and compose."""
+        from hypothesis import strategies as st
+
+        if dom is not None or cod is not None:
+            return cls.generator_strategy(
+                dom=dom, cod=cod, max_size=max_size)
+        objects = cls.ob.strategy(max_size=max_size)
+        atoms = st.one_of(
+            objects.map(cls.id),
+            cls.generator_strategy(max_size=max_size))
+
+        def extend(children):
+            compositions = children.flatmap(
+                lambda left: cls.generator_strategy(
+                    dom=left.cod, max_size=max_size).map(
+                        lambda right: left >> right))
+            tensors = st.tuples(children, children).map(
+                lambda pair: pair[0] @ pair[1])
+            return st.booleans().flatmap(
+                lambda take_tensor: tensors if take_tensor
+                else compositions)
+
+        return st.recursive(
+            atoms, extend,
+            min_leaves=min_leaves, max_leaves=max_leaves)
 
     def __post_init__(self):
+        self.dom, self.cod = map(self.ob, (self.dom, self.cod))
         if isinstance(self.inside, dict):
             self.inside = [self.inside[i] for i in range(self.cod)]
         else:
@@ -60,6 +120,9 @@ class Function(MonoidalCategory):
 
     def __getitem__(self, key):
         return self.inside[key]
+
+    def __len__(self) -> int:
+        return self.cod
 
     @staticmethod
     def id(x: int = 0):
@@ -78,6 +141,14 @@ class Function(MonoidalCategory):
     def swap(x: int, y: int) -> Function:
         inside = list(Permutation.swap(x, y))
         return Function(inside, x + y, x + y)
+
+    @classmethod
+    def permutation(cls, xs: Sequence[int], doms: Sequence[int]) -> Function:
+        xs = Permutation(xs)
+        dom = sum(doms)
+        if xs.is_identity:
+            return Function.id(dom)
+        return Function(list(Permutation(xs, dom)), dom, dom)
 
     @staticmethod
     def copy(x: int, n=2) -> Function:
@@ -103,16 +174,37 @@ class Permutation(Function, SymmetricCategory):
     >>> Permutation((1, 0)).is_fixpoint_free_involution()
     True
     """
-    ob = int
+    ob = Natural
+
+    @classmethod
+    def strategy(
+            cls, *, max_size=10, dom=None, cod=None):
+        """Generate permutations with optional exact boundaries."""
+        from hypothesis import strategies as st
+
+        if dom is not None and cod is not None and dom != cod:
+            return st.nothing()
+        size = dom if dom is not None else cod
+        sizes = st.integers(min_value=0, max_value=max_size)\
+            if size is None else st.just(size)
+        return sizes.flatmap(lambda size: st.permutations(
+            tuple(range(size))).map(
+                lambda inside: cls(inside, size)))
 
     def __init__(self, inside=(), size: int | None = None):
         inside = tuple(inside)
         if size is None:
             size = len(inside)
+        else:
+            assert_isinstance(size, int)
         if len(inside) != size:
-            raise ValueError
+            raise ValueError(
+                messages.WRONG_PERMUTATION.format(size, len(inside))
+            )
         if sorted(inside) != list(range(size)):
-            raise ValueError
+            raise ValueError(
+                messages.WRONG_PERMUTATION.format(size, len(inside))
+            )
         super().__init__(list(inside), size, size)
 
     def __iter__(self):
@@ -121,10 +213,7 @@ class Permutation(Function, SymmetricCategory):
     def __getitem__(self, key: int) -> int:
         if isinstance(key, slice):
             return tuple(self)[key]
-        return super().__getitem__(key % len(self))
-
-    def __len__(self) -> int:
-        return self.cod
+        return super().__getitem__(key)
 
     def __repr__(self) -> str:
         return repr(tuple(self))
@@ -145,6 +234,11 @@ class Permutation(Function, SymmetricCategory):
         return cls(range(dom), dom)
 
     identity = id
+
+    @property
+    def is_identity(self) -> bool:
+        """ Whether this is the identity permutation. """
+        return list(self) == list(range(len(self)))
 
     @classmethod
     def from_cycles(cls, cycles: Cycles, size: int) -> Self:
@@ -213,6 +307,11 @@ class Permutation(Function, SymmetricCategory):
         for source, target in enumerate(self):
             result[target] = source
         return type(self)(result, len(self))
+
+    def rotate(self) -> Self:
+        """ Rotate by reversing and inverting the permutation. """
+        reverse = type(self)(reversed(range(len(self))))
+        return self.dagger().conjugate(reverse)
 
     def conjugate(self, other: Self) -> Self:
         """ Return ``other^-1 ; self ; other``. """

@@ -105,8 +105,9 @@ class Diagram(monoidal.Diagram, BraidedCategory):
 
     def simplify(self) -> Diagram:
         """ Remove braids followed by their dagger. """
+        layers = [layer.boxes_and_types for layer in self.inside]
         for i, ((x, f, _), (y, g, _)) in enumerate(
-                zip(self.inside, self.inside[1:])):
+                zip(layers, layers[1:])):
             if x == y and isinstance(f, Braid) and f == g[::-1]:
                 inside = self.inside[:i] + self.inside[i + 2:]
                 return self.ar(
@@ -137,7 +138,7 @@ class Diagram(monoidal.Diagram, BraidedCategory):
         >>> assert bot_left.naturality(1, left=False, down=False) == top_right
         """
         braid = braid or self.braid
-        left_wires, box, right_wires = self.inside[i]
+        left_wires, box, right_wires = self.inside[i].boxes_and_types
         if left and down:
             source = left_wires[-1] @ box >> braid(left_wires[-1], box.cod)
             target = braid(left_wires[-1], box.dom) >> box @ left_wires[-1]
@@ -167,6 +168,19 @@ class Box(monoidal.Box, Diagram):
         cod (monoidal.Ty) : The codomain of the box, i.e. its output.
     """
 
+    @classmethod
+    def strategy(cls, **params):
+        """Add braids to the inherited box distribution."""
+        from hypothesis import strategies as st
+
+        base = super().strategy(**params)
+        factory = cls.ar.braid_factory
+        return cls.extend_strategy(
+            base, factory,
+            lambda factory: st.tuples(
+                cls.atomic_strategy(), cls.atomic_strategy()).map(
+                    lambda pair: factory(*pair)), **params)
+
 
 class Braid(BinaryBoxConstructor, Box):
     """
@@ -182,6 +196,7 @@ class Braid(BinaryBoxConstructor, Box):
     :class:`Braid` is only defined for atomic types (i.e. of length 1).
     For complex types, use :meth:`Diagram.braid` instead.
     """
+
     def __init__(self, left: monoidal.Ty, right: monoidal.Ty, is_dagger=False):
         assert_isatomic(left, monoidal.Ty)
         assert_isatomic(right, monoidal.Ty)
@@ -262,3 +277,6 @@ Id = Diagram.id
 
 class Equation(monoidal.Equation):
     """ The :class:`monoidal.Equation` of braided diagrams. """
+
+
+Diagram.equation_factory = Equation

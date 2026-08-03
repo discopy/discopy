@@ -70,6 +70,12 @@ class Ob(rigid.Ob):
     l = r = property(lambda self: type(self)(
         self.name, (self.z + 1) % 2, dom=self.cod, cod=self.dom))
 
+    @classmethod
+    def strategy(cls, **params):
+        """Generate pivotal objects with parity-valued winding."""
+        return super().strategy(
+            min_winding=0, max_winding=1, **params)
+
     def dagger(self) -> Ob:
         """
         The dagger of a pivotal object coincides with its left and right
@@ -158,38 +164,7 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
         return self.rotate().dagger()
 
     def to_hypergraph(self) -> Hypergraph:
-        """
-        Translate a pivotal diagram into a :class:`Hypergraph`.
-
-        Unlike :mod:`symmetric` diagrams, purely pivotal diagrams are planar,
-        so their hypergraph is only a faithful encoding when the diagram is
-        boundary-connected, see Delpeuch and Vicary :cite:t:`DelpeuchVicary22`.
-        We check this by computing the :meth:`normal_form`, raising a
-        :class:`NotImplementedError` à la place otherwise. For subclasses
-        which are also symmetric, this restriction does not apply.
-
-        Example
-        -------
-        >>> x, y = Ty('x'), Ty('y')
-        >>> f = Box('f', x, y)
-        >>> assert f.transpose(left=True).to_hypergraph()\\
-        ...     == f.transpose(left=False).to_hypergraph()
-
-        A diagram that is not boundary-connected has no faithful hypergraph,
-        e.g. two circles side by side become indistinguishable from two
-        nested circles:
-
-        >>> circle = lambda t: Cap(t, t.r) >> Cup(t, t.r)
-        >>> nested = Cap(x, x.r) >> x @ circle(y) @ x.r >> Cup(x, x.r)
-        >>> side_by_side = circle(x) @ circle(y)
-        >>> assert nested != side_by_side
-        >>> assert Hypergraph.from_diagram(nested)\\
-        ...     == Hypergraph.from_diagram(side_by_side)
-        >>> side_by_side.to_hypergraph()  # doctest: +ELLIPSIS
-        Traceback (most recent call last):
-        ...
-        NotImplementedError: ... is not boundary-connected.
-        """
+        """Translate a boundary-connected pivotal diagram to a hypergraph."""
         if not isinstance(self, SymmetricCategory):
             self.normal_form()
         return super().to_hypergraph()
@@ -291,8 +266,14 @@ class Functor(rigid.Functor):
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Diagram.functor_factory = Functor
 Hypergraph = hypergraph.Hypergraph[Diagram]
+Diagram.strategy_condition = staticmethod(
+    lambda diagram: hypergraph.Hypergraph[
+        type(diagram)].from_diagram(diagram).is_boundary_connected)
 Id = Diagram.id
 
 
 class Equation(rigid.Equation):
     """ The :class:`rigid.Equation` of pivotal diagrams. """
+
+
+Diagram.equation_factory = Equation

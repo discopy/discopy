@@ -1,348 +1,330 @@
-# -*- coding: utf-8 -*-
-
-"""
-Random generation of diagrams, for property-based testing with shrinking.
-
-This module provides functions for generating seeded random objects and
-diagrams, as well as composable and parallel tuples of diagrams. These can
-be fed into the ``check_*`` methods defined on the classes of
-:mod:`discopy.abc`, in order to test that the axioms of a category hold
-(possibly up to some notion of equality) for randomly generated examples.
-
-The entry point is :func:`check_property`, which takes a ``generator`` from a
-random source to an example and a ``predicate`` from an example to a boolean.
-When the predicate fails, the example is **shrunk** to a (locally) minimal
-counterexample. This uses integrated shrinking, i.e. we record the sequence of
-random draws made by the generator, shrink that sequence and regenerate, so
-that structural invariants such as composability are preserved automatically.
-
-Summary
--------
-
-.. autosummary::
-    :template: function.rst
-    :nosignatures:
-    :toctree:
-
-    random_ty
-    random_diagram
-    random_parallel_pair
-    random_composable_pair
-    random_composable_triple
-    check_property
-
-Example
--------
-We can check the associativity and unitality of composition for randomly
-generated diagrams in any monoidal category, e.g. :mod:`discopy.symmetric`.
-
->>> from discopy import symmetric
-
->>> assert check_property(
-...     lambda rng: random_composable_triple(symmetric.Box, rng=rng),
-...     lambda fgh: fgh[0].check_associativity(fgh[1], fgh[2]))
-
->>> assert check_property(
-...     lambda rng: random_diagram(symmetric.Box, rng=rng),
-...     lambda f: f.check_unitality())
-
-Some axioms only hold up to some notion of equality, e.g. the swap is its
-own inverse only up to :class:`symmetric.Equation`.
-
->>> def swap_is_inverse(xy):
-...     return symmetric.Diagram.check_swap_inverse(
-...         *xy, eq=symmetric.Equation)
->>> assert check_property(
-...     lambda rng: (random_ty(symmetric.Ty, min_length=1, rng=rng),
-...                  random_ty(symmetric.Ty, min_length=1, rng=rng)),
-...     swap_is_inverse)
-"""
+"""Data structures and strategies for property tests."""
 
 from __future__ import annotations
 
-import random as _random
-from string import ascii_lowercase as ALPHABET
-from typing import Callable
+import inspect
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import ClassVar, TYPE_CHECKING
 
-DEFAULT_OBJECTS = ALPHABET
+from discopy.utils import assert_iscomposable
 
-
-class Falsified(AssertionError):
-    """
-    Raised by :func:`check_property` when a predicate is falsified, carrying
-    the minimal counterexample found by shrinking as its ``example`` attribute.
-    """
-    def __init__(self, example):
-        self.example = example
-        super().__init__(repr(example))
+if TYPE_CHECKING:
+    from hypothesis import strategies as st
 
 
-class _Source:
-    """
-    A source of randomness that records the integers it draws, so that they
-    can be replayed and shrunk for integrated shrinking.
+class Strategy[T](ABC):
+    """A type with a canonical property-test strategy."""
 
-    Parameters:
-        draws : A sequence of integers to replay, clamped to the bounds asked.
-        rng : The generator used once ``draws`` is exhausted, or ``None`` to
-            fall back to the minimum, i.e. deterministic shrinking.
-    """
-    def __init__(self, draws=(), rng: _random.Random = None):
-        self.draws, self.rng, self.taken = list(draws), rng, []
-
-    def _next(self, low: int, high: int) -> int:
-        index = len(self.taken)
-        if index < len(self.draws):
-            value = min(max(self.draws[index], low), high)
-        elif self.rng is not None:
-            value = self.rng.randint(low, high)
-        else:
-            value = low
-        self.taken.append(value)
-        return value
-
-    def randint(self, low: int, high: int) -> int:
-        """ Draw an integer in ``range(low, high + 1)``. """
-        return self._next(low, high)
-
-    def choice(self, seq):
-        """ Draw an element from a non-empty sequence. """
-        return seq[self._next(0, len(seq) - 1)]
+    @classmethod
+    @abstractmethod
+    def strategy(cls, **params) -> "st.SearchStrategy[T]":
+        """Build a strategy for instances of ``cls``."""
 
 
-def random_ty(
-        ty: type, objects=DEFAULT_OBJECTS,
-        min_length: int = 0, max_length: int = 3,
-        seed: int = None, rng=None):
-    """
-    Generate a random type.
+class Natural(int, Strategy["Natural"]):
+    """ A non-negative integer with tensor given by addition. """
 
-    Parameters:
-        ty : The class of types to generate, e.g. :class:`monoidal.Ty`.
-        objects : The pool of names to draw atomic objects from.
-        min_length : The minimum length of the type.
-        max_length : The maximum length of the type.
-        seed : A seed for reproducibility, ignored if ``rng`` is given.
-        rng : A random source, ``random.Random(seed)`` by default.
+    def __new__(cls, value=0):
+        if not isinstance(value, int) or value < 0:
+            raise ValueError("Expected a non-negative integer.")
+        return super().__new__(cls, value)
 
-    Example
-    -------
-    >>> from discopy.monoidal import Ty
-    >>> assert random_ty(Ty, seed=420) == random_ty(Ty, seed=420)
-    """
-    rng = rng or _random.Random(seed)
-    length = rng.randint(min_length, max_length)
-    return ty(*(rng.choice(objects) for _ in range(length)))
+    def __matmul__(self, other):
+        return type(self)(self + other) if isinstance(other, int)\
+            else NotImplemented
 
+    __rmatmul__ = __matmul__
+    __len__ = lambda self: int(self)
 
-def random_diagram(
-        box: type, dom=None, n_boxes: int = 5, objects=DEFAULT_OBJECTS,
-        max_cod_length: int = 2, seed: int = None, rng=None):
-    """
-    Generate a random diagram, by repeatedly whiskering and composing with
-    boxes of a random domain (a sub-type of the current codomain) and a
-    random codomain.
+    @classmethod
+    def strategy(cls, *, max_size=3):
+        """Generate non-negative integers."""
+        from hypothesis import strategies as st
 
-    Parameters:
-        box : The class of boxes to generate, e.g. :class:`monoidal.Box`.
-        dom : The domain of the diagram, random by default.
-        n_boxes : The maximum number of boxes to compose, the actual number
-            being drawn at random so that it can be shrunk.
-        objects : The pool of names to draw atomic objects from.
-        max_cod_length : The maximum length of the codomain of each box.
-        seed : A seed for reproducibility, ignored if ``rng`` is given.
-        rng : A random source, ``random.Random(seed)`` by default.
-
-    Example
-    -------
-    >>> from discopy.monoidal import Ty, Box
-    >>> diagram = random_diagram(Box, Ty('x'), n_boxes=5, seed=420)
-    >>> assert diagram.dom == Ty('x')
-    """
-    rng = rng or _random.Random(seed)
-    if dom is None:
-        dom = random_ty(box.ob, objects, 1, max_cod_length, rng=rng)
-    ty = type(dom)
-    diagram, cod = box.id(dom), dom
-    for i in range(rng.randint(0, n_boxes)):
-        left = rng.randint(0, len(cod))
-        right = rng.randint(left, len(cod))
-        box_cod = random_ty(ty, objects, 0, max_cod_length, rng=rng)
-        new_box = box(f"f{i}", cod[left:right], box_cod)
-        diagram = diagram >> cod[:left] @ new_box @ cod[right:]
-        cod = cod[:left] @ box_cod @ cod[right:]
-    return diagram
+        return st.one_of(
+            st.just(1),
+            st.integers(min_value=0, max_value=max_size)).map(cls)
 
 
-def random_parallel_pair(
-        box: type, dom=None, n_boxes: int = 3, seed: int = None,
-        rng=None, **kwargs):
-    """
-    Generate a random pair of parallel diagrams, i.e. with the same domain
-    and codomain.
+@dataclass(frozen=True)
+class Atomic[T](Strategy[T]):
+    """ An object containing exactly one generator. """
 
-    Parameters:
-        box : The class of boxes to generate.
-        dom : The shared domain of the two diagrams, random by default.
-        n_boxes : The number of boxes to compose for each diagram.
-        seed : A seed for reproducibility, ignored if ``rng`` is given.
-        rng : A random source, ``random.Random(seed)`` by default.
-        kwargs : Passed to :func:`random_diagram`.
+    value: T
 
-    Example
-    -------
-    >>> from discopy.monoidal import Ty, Box
-    >>> f, g = random_parallel_pair(Box, Ty('x'), seed=420)
-    >>> assert f.is_parallel(g)
-    """
-    rng = rng or _random.Random(seed)
-    f = random_diagram(box, dom, n_boxes, rng=rng, **kwargs)
-    g = random_diagram(box, f.dom, n_boxes, rng=rng, **kwargs)
-    return f, g >> box("g", g.cod, f.cod)
+    def __post_init__(self):
+        if len(self.value) != 1:
+            raise ValueError("Expected an atomic object.")
+
+    @classmethod
+    def strategy(cls, *, factory: type[T]):
+        """Generate an object containing exactly one generator."""
+        return factory.strategy().filter(
+            lambda value: len(value) == 1).map(cls)
 
 
-def random_composable_pair(
-        box: type, dom=None, n_boxes: int = 3, seed: int = None,
-        rng=None, **kwargs):
-    """
-    Generate a random pair of composable diagrams, i.e. such that the
-    codomain of the first is the domain of the second.
+@dataclass(frozen=True)
+class NonEmpty[T](Strategy[T]):
+    """ A non-empty object. """
 
-    Parameters:
-        box : The class of boxes to generate.
-        dom : The domain of the first diagram, random by default.
-        n_boxes : The number of boxes to compose for each diagram.
-        seed : A seed for reproducibility, ignored if ``rng`` is given.
-        rng : A random source, ``random.Random(seed)`` by default.
-        kwargs : Passed to :func:`random_diagram`.
+    value: T
 
-    Example
-    -------
-    >>> from discopy.monoidal import Ty, Box
-    >>> f, g = random_composable_pair(Box, Ty('x'), seed=420)
-    >>> assert f.is_composable(g)
-    """
-    rng = rng or _random.Random(seed)
-    f = random_diagram(box, dom, n_boxes, rng=rng, **kwargs)
-    g = random_diagram(box, f.cod, n_boxes, rng=rng, **kwargs)
-    return f, g
+    def __post_init__(self):
+        if not len(self.value):
+            raise ValueError("Expected a non-empty object.")
+
+    @classmethod
+    def strategy(cls, *, factory: type[T], **params):
+        """Generate a non-empty object."""
+        return factory.strategy(**params).filter(bool).map(cls)
 
 
-def random_composable_triple(
-        box: type, dom=None, n_boxes: int = 3, seed: int = None,
-        rng=None, **kwargs):
-    """
-    Generate a random triple of pairwise composable diagrams, e.g. for
-    checking associativity of composition.
+class PastingDiagram[T](Strategy[tuple[T, ...]], tuple[T, ...]):
+    """ A rectangular grid with composable rows and columns. """
 
-    Parameters:
-        box : The class of boxes to generate.
-        dom : The domain of the first diagram, random by default.
-        n_boxes : The number of boxes to compose for each diagram.
-        seed : A seed for reproducibility, ignored if ``rng`` is given.
-        rng : A random source, ``random.Random(seed)`` by default.
-        kwargs : Passed to :func:`random_diagram`.
+    n_rows: ClassVar[int]
+    n_columns: ClassVar[int]
+    n_active_rows: ClassVar[int] = 1
 
-    Example
-    -------
-    >>> from discopy.monoidal import Ty, Box
-    >>> f, g, h = random_composable_triple(Box, Ty('x'), seed=420)
-    >>> assert f.check_associativity(g, h)
-    """
-    rng = rng or _random.Random(seed)
-    f, g = random_composable_pair(box, dom, n_boxes, rng=rng, **kwargs)
-    h = random_diagram(box, g.cod, n_boxes, rng=rng, **kwargs)
-    return f, g, h
+    def __new__(cls, *cells: T):
+        if len(cells) != cls.n_rows * cls.n_columns:
+            raise ValueError("Expected one value per cell.")
+        for row in range(cls.n_rows - 1):
+            for column in range(cls.n_columns):
+                i = row * cls.n_columns + column
+                assert_iscomposable(cells[i], cells[i + cls.n_columns])
+        for row in range(cls.n_rows):
+            for column in range(cls.n_columns - 1):
+                i = row * cls.n_columns + column
+                cells[i] @ cells[i + 1]
+        return super().__new__(cls, cells)
 
+    @classmethod
+    def strategy(cls, *, factory: type[T], **params):
+        """Generate a grid column-by-column using composable boundaries."""
+        from hypothesis import strategies as st
 
-def _replay(generator, predicate, draws):
-    """ Replay ``draws`` through the generator and test the predicate. """
-    source = _Source(draws)
-    try:
-        passed = bool(predicate(generator(source)))
-    except Exception:  # An invalid example does not count as a counterexample.
-        passed = True
-    return passed, source.taken
+        dom, cod = params.pop("dom", None), params.pop("cod", None)
 
+        @st.composite
+        def pasting_diagram(draw):
+            active = draw(st.integers(
+                min_value=0,
+                max_value=cls.n_rows - cls.n_active_rows))
+            columns = []
+            for _ in range(cls.n_columns):
+                column, boundary = [], dom
+                for row in range(cls.n_active_rows):
+                    cell = draw(factory.strategy(
+                        dom=boundary,
+                        cod=cod if row == cls.n_active_rows - 1 else None,
+                        **params))
+                    column.append(cell)
+                    boundary = cell.cod
+                columns.append(
+                    active * [factory.id(column[0].dom)]
+                    + column
+                    + (cls.n_rows - active - cls.n_active_rows)
+                    * [factory.id(column[-1].cod)])
+            return cls(*(
+                columns[column][row]
+                for row in range(cls.n_rows)
+                for column in range(cls.n_columns)))
 
-def _candidates(draws):
-    """ The smaller draw sequences to try when shrinking ``draws``. """
-    for i in range(len(draws)):
-        yield draws[:i] + draws[i + 1:]
-    for i, value in enumerate(draws):
-        for smaller in {value // 2, value - 1} if value > 0 else ():
-            yield draws[:i] + [smaller] + draws[i + 1:]
-
-
-def _shrink(generator, predicate, draws):
-    """ Greedily shrink ``draws`` to a local minimum that still fails. """
-    shrinking = True
-    while shrinking:
-        shrinking = False
-        for candidate in _candidates(draws):
-            passed, taken = _replay(generator, predicate, candidate)
-            if not passed and (len(taken), sum(taken)) < (
-                    len(draws), sum(draws)):
-                draws, shrinking = taken, True
-                break
-    return draws
+        return pasting_diagram()
 
 
-def check_property(
-        generator: Callable[[_Source], object],
-        predicate: Callable[[object], bool],
-        n_trials: int = 100, seed: int = 0) -> bool:
-    """
-    Run a property-based test: check that ``predicate`` holds for examples
-    drawn by ``generator`` over ``n_trials`` seeds, shrinking to a minimal
-    counterexample if it does not.
+class ComposablePair[T](PastingDiagram[T], tuple[T, T]):
+    """ Two morphisms composable from left to right. """
 
-    Parameters:
-        generator : A function from a random source to an example.
-        predicate : A function from an example to a boolean.
-        n_trials : The number of random trials to run.
-        seed : The first seed to try.
+    n_rows, n_columns = 2, 1
+    n_active_rows = 2
 
-    Returns:
-        ``True`` if the predicate held for every trial.
 
-    Raises:
-        Falsified : With the minimal counterexample, if the predicate failed.
+class ComposableTriple[T](PastingDiagram[T], tuple[T, T, T]):
+    """ Three values composable from left to right. """
 
-    Example
-    -------
-    The interchange law does not hold on the nose for monoidal diagrams, only
-    up to interchanger normal form. We generate a pair of boxes with atomic
-    domain and codomain, then check that their two interchanger forms are
-    syntactically equal:
+    n_rows, n_columns = 3, 1
+    n_active_rows = 3
 
-    >>> from discopy.monoidal import Ty, Box
-    >>> def two_boxes(rng):
-    ...     atom = lambda: random_ty(Ty, min_length=1, max_length=1, rng=rng)
-    ...     return Box('f', atom(), atom()), Box('g', atom(), atom())
-    >>> def interchange_on_the_nose(boxes):
-    ...     f, g = boxes
-    ...     return f @ g.dom >> f.cod @ g == f.dom @ g >> f @ g.cod
 
-    The smallest counterexample is a pair of boxes on a single atomic wire:
+class HorizontalPair[T](PastingDiagram[T], tuple[T, T]):
+    """ Two horizontally composable cells. """
 
-    >>> try:
-    ...     check_property(two_boxes, interchange_on_the_nose)
-    ... except Falsified as error:
-    ...     f, g = error.example
-    >>> assert f.dom == f.cod == g.dom == g.cod == Ty('a')
+    n_rows, n_columns = 1, 2
 
-    These two diagrams are not equal on the nose, but they do become equal
-    once we put them in interchanger normal form:
 
-    >>> lhs, rhs = f @ g.dom >> f.cod @ g, f.dom @ g >> f @ g.cod
-    >>> assert lhs != rhs
-    >>> assert lhs.normal_form() == rhs.normal_form()
-    """
-    rng = _random.Random(seed)
-    for _ in range(n_trials):
-        source = _Source(rng=rng)
-        if not predicate(generator(source)):
-            minimal = _shrink(generator, predicate, source.taken)
-            raise Falsified(generator(_Source(minimal)))
-    return True
+class Bifunctor[T](PastingDiagram[T], tuple[T, T, T, T]):
+    """ A two-by-two pasting diagram for bifunctoriality. """
+
+    n_rows = n_columns = 2
+
+
+class TraceSuperposing[C0, C1](
+        Strategy[tuple[C1, C0]], tuple[C1, C0]):
+    """ A traceable arrow and an object to superpose. """
+
+    def __new__(cls, traced: C1, obj: C0):
+        traced.trace()
+        return super().__new__(cls, (traced, obj))
+
+    @classmethod
+    def strategy(cls, *, factory: type[C1]):
+        """Generate a traceable identity and an arbitrary object."""
+        from hypothesis import strategies as st
+
+        object_type, arrow_type = factory.ob, factory
+        objects = object_type.strategy()
+        atomic = object_type.strategy().filter(lambda obj: len(obj) == 1)
+        return st.tuples(atomic, objects).map(
+            lambda pair: cls(arrow_type.id(pair[0]), pair[1]))
+
+
+class TraceSliding[C0, C1](
+        Strategy[tuple[C1, C0, C1]], tuple[C1, C0, C1]):
+    """ Arguments satisfying the trace sliding boundaries. """
+
+    def __new__(cls, traced: C1, obj: C0, sliding: C1):
+        if sliding.dom != obj or sliding.cod != obj:
+            raise ValueError("Expected an endomorphism on the sliding object.")
+        if traced.dom != obj @ obj or traced.cod != obj @ obj:
+            raise ValueError("Expected an endomorphism on two copies.")
+        return super().__new__(cls, (traced, obj, sliding))
+
+    @classmethod
+    def strategy(cls, *, factory: type[C1]):
+        """Generate identities satisfying the trace sliding boundaries."""
+        object_type, arrow_type = factory.ob, factory
+        return object_type.strategy().filter(lambda obj: len(obj) == 1).map(
+            lambda obj: cls(
+                arrow_type.id(obj @ obj), obj, arrow_type.id(obj)))
+
+
+class LeftCurrying[C0, C1](
+        Strategy[tuple[C1, C0, C0]], tuple[C1, C0, C0]):
+    """ Arguments for left currying followed by evaluation. """
+
+    left = True
+
+    def __new__(cls, arrow: C1, base: C0, exponent: C0):
+        arrow.curry(left=cls.left)
+        return super().__new__(cls, (arrow, base, exponent))
+
+    @classmethod
+    def strategy(cls, *, factory: type[C1]):
+        """Generate an evaluation suitable for left or right currying."""
+        from hypothesis import strategies as st
+
+        object_type, arrow_type = factory.ob, factory
+        objects = object_type.strategy().filter(lambda obj: len(obj) == 1)
+        return st.tuples(objects, objects).map(lambda pair: cls(
+            arrow_type.ev(*pair, left=cls.left), *pair))
+
+
+class RightCurrying[C0, C1](LeftCurrying[C0, C1]):
+    """ Arguments for right currying followed by evaluation. """
+
+    left = False
+
+
+class FeedbackVanishing[C0, C1](
+        Strategy[tuple[C1, C0]], tuple[C1, C0]):
+    """ A feedback arrow together with the monoidal unit. """
+
+    def __new__(cls, arrow: C1, unit: C0):
+        if len(unit):
+            raise ValueError("Expected the monoidal unit.")
+        arrow.feedback(mem=unit)
+        return super().__new__(cls, (arrow, unit))
+
+    @classmethod
+    def strategy(cls, *, factory: type[C1], **params):
+        """Generate a feedback arrow paired with the monoidal unit."""
+        object_type, arrow_type = factory.ob, factory
+        return arrow_type.strategy(**params).map(
+            lambda arrow: cls(arrow, object_type()))
+
+
+class FeedbackJoining[C0, C1](
+        Strategy[tuple[C1, C0]], tuple[C1, C0]):
+    """ A feedback arrow with a non-empty memory object. """
+
+    def __new__(cls, arrow: C1, memory: C0):
+        if not len(memory):
+            raise ValueError("Expected a non-empty memory object.")
+        arrow.feedback(mem=memory)
+        arrow.feedback().feedback()
+        return super().__new__(cls, (arrow, memory))
+
+    @classmethod
+    def strategy(cls, *, factory: type[C1]):
+        """Generate a feedback arrow with two units of memory."""
+        from hypothesis import strategies as st
+
+        object_type, arrow_type = factory.ob, factory
+        objects = object_type.strategy()
+        atomic = object_type.strategy().filter(lambda obj: len(obj) == 1)
+
+        def arrows(args):
+            obj, atom = args
+            memory = atom @ atom
+            return arrow_type.strategy(
+                dom=obj @ memory.delay(), cod=obj @ memory).map(
+                    lambda arrow: cls(arrow, memory))
+
+        return st.tuples(objects, atomic).flatmap(arrows)
+
+
+class Axiom[T]:
+    """ A carrier-parametrised equation with explicit arguments. """
+
+    def __init__(self, equation, *, strict=True, carrier=None):
+        self.equation = equation if isinstance(equation, classmethod)\
+            else classmethod(equation)
+        function = self.equation.__func__
+        self.signature = inspect.signature(function)
+        self.carrier = carrier
+        self.name = self.__name__ = function.__name__
+        self.strict = strict
+        self.__doc__ = function.__doc__
+
+    def __repr__(self):
+        return f"Axiom({self.name})"
+
+    def bind(self, carrier: type[T]) -> Axiom[T]:
+        """ Bind the axiom to a concrete carrier. """
+        return type(self)(
+            self.equation, strict=self.strict, carrier=carrier)
+
+    def __get__(self, instance, owner: type[T]) -> Axiom[T]:
+        return self.bind(owner)
+
+    @property
+    def parameters(self) -> tuple[inspect.Parameter, ...]:
+        """ The explicit parameters of the equation. """
+        return tuple(self.signature.parameters.values())[1:]
+
+    def __call__(self, *args, **kwargs):
+        if self.carrier is None:
+            raise TypeError(f"{self.name} is not bound to a class.")
+        signature = self.signature.replace(parameters=self.parameters)
+        bound = signature.bind(*args, **kwargs)
+        bound.apply_defaults()
+        arguments = {
+            next(iter(self.signature.parameters)): self.carrier,
+            **bound.arguments}
+        result = self.equation.__func__(**arguments)
+        equation_type = type(self.carrier.equation_factory())
+        if not isinstance(result, equation_type):
+            raise TypeError(
+                f"{self.name} returned {type(result).__name__}, "
+                f"expected an {equation_type}.")
+        return result
+
+
+def axiom(equation=None, *, strict=True):
+    """ Decorate an equation as an inherited categorical axiom. """
+    if equation is None:
+        return lambda function: Axiom(function, strict=strict)
+    return Axiom(equation, strict=strict)

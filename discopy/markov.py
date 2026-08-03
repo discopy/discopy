@@ -15,6 +15,7 @@ Summary
     Diagram
     Box
     Swap
+    Permutation
     Copy
     Functor
 
@@ -77,6 +78,9 @@ from discopy.abc import MarkovCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import assert_isatomic, factory_name
+
+
+Layer = symmetric.Layer
 
 
 @factory
@@ -161,6 +165,20 @@ class Box(symmetric.Box, Diagram):
         cod (monoidal.Ty) : The codomain of the box, i.e. its output.
     """
 
+    @classmethod
+    def strategy(cls, **params):
+        """Add copying and discarding to the inherited distribution."""
+        from hypothesis import strategies as st
+
+        base = super().strategy(**params)
+        factory = cls.ar.copy_factory
+        return cls.extend_strategy(
+            base, factory,
+            lambda factory: st.tuples(
+                cls.atomic_strategy(),
+                st.sampled_from((0, 2, 3))).map(
+                    lambda args: factory(*args)), **params)
+
 
 class Swap(symmetric.Swap, Box):
     """
@@ -169,6 +187,16 @@ class Swap(symmetric.Swap, Box):
     Parameters:
         left (monoidal.Ty) : The type on the top left and bottom right.
         right (monoidal.Ty) : The type on the top right and bottom left.
+    """
+
+
+class Permutation(symmetric.Permutation, Box):
+    """
+    A permutation in a Markov category.
+
+    Parameters:
+        dom (monoidal.Ty) : The domain, i.e. the wires to permute.
+        perm : The permutation as a :class:`finset.Permutation` or a list.
     """
 
 
@@ -306,6 +334,7 @@ Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.braid_factory = Swap
+Diagram.permutation_factory = Permutation
 Diagram.trace_factory = Trace
 Diagram.discard_factory = Discard
 Diagram.sum_factory = Sum
@@ -315,3 +344,6 @@ Id = Diagram.id
 class Equation(symmetric.Equation):
     """ The :class:`symmetric.Equation` of Markov diagrams. """
     up_to = staticmethod(Diagram.to_hypergraph)
+
+
+Diagram.equation_factory = Equation
