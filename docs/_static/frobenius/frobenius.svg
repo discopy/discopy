@@ -16,6 +16,29 @@ z
 " style="fill: none"/>
   </g>
   <g id="axes_1">
+   <g id="PathCollection_1">
+    <defs>
+     <path id="m0239ccae29" d="M 0 5.754492 
+C 1.526109 5.754492 2.989918 5.148162 4.06904 4.06904 
+C 5.148162 2.989918 5.754492 1.526109 5.754492 0 
+C 5.754492 -1.526109 5.148162 -2.989918 4.06904 -4.06904 
+C 2.989918 -5.148162 1.526109 -5.754492 0 -5.754492 
+C -1.526109 -5.754492 -2.989918 -5.148162 -4.06904 -4.06904 
+C -5.148162 -2.989918 -5.754492 -1.526109 -5.754492 0 
+C -5.754492 1.526109 -5.148162 2.989918 -4.06904 4.06904 
+C -2.989918 5.148162 -1.526109 5.754492 0 5.754492 
+z
+" style="stroke: #ffffff"/>
+    </defs>
+    <g clip-path="url(#p4e02c2beb7)">
+     <use xlink:href="#m0239ccae29" x="72" y="36" style="fill: #ffffff; stroke: #ffffff"/>
+     <use xlink:href="#m0239ccae29" x="144" y="108" style="fill: #ffffff; stroke: #ffffff"/>
+     <use xlink:href="#m0239ccae29" x="360" y="36" style="fill: #ffffff; stroke: #ffffff"/>
+     <use xlink:href="#m0239ccae29" x="360" y="108" style="fill: #ffffff; stroke: #ffffff"/>
+     <use xlink:href="#m0239ccae29" x="648" y="36" style="fill: #ffffff; stroke: #ffffff"/>
+     <use xlink:href="#m0239ccae29" x="576" y="108" style="fill: #ffffff; stroke: #ffffff"/>
+    </g>
+   </g>
    <g id="patch_2">
     <path d="M 0 144 
 L 720 144 
@@ -289,7 +312,7 @@ Q 576 144 576 144
 Q 576 144 576 144 
 " clip-path="url(#p4e02c2beb7)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="PathCollection_1">
+   <g id="PathCollection_2">
     <defs>
      <path id="C0_0_e4afccc1e4" d="M 0 4.868265 
 C 1.291079 4.868265 2.529452 4.355314 3.442383 3.442383 

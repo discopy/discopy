@@ -16,6 +16,31 @@ z
 " style="fill: none"/>
   </g>
   <g id="axes_1">
+   <g id="PathCollection_1">
+    <defs>
+     <path id="mac824ede52" d="M 0 5.565971 
+C 1.476113 5.565971 2.891966 4.979505 3.935735 3.935735 
+C 4.979505 2.891966 5.565971 1.476113 5.565971 0 
+C 5.565971 -1.476113 4.979505 -2.891966 3.935735 -3.935735 
+C 2.891966 -4.979505 1.476113 -5.565971 0 -5.565971 
+C -1.476113 -5.565971 -2.891966 -4.979505 -3.935735 -3.935735 
+C -4.979505 -2.891966 -5.565971 -1.476113 -5.565971 0 
+C -5.565971 1.476113 -4.979505 2.891966 -3.935735 3.935735 
+C -2.891966 4.979505 -1.476113 5.565971 0 5.565971 
+z
+" style="stroke: #ffffff"/>
+    </defs>
+    <g clip-path="url(#p368cf9789c)">
+     <use xlink:href="#mac824ede52" x="180" y="252" style="fill: #ffffff; stroke: #ffffff"/>
+     <use xlink:href="#mac824ede52" x="504" y="36" style="fill: #ffffff; stroke: #ffffff"/>
+     <use xlink:href="#mac824ede52" x="558" y="108" style="fill: #ffffff; stroke: #ffffff"/>
+     <use xlink:href="#mac824ede52" x="558" y="180" style="fill: #ffffff; stroke: #ffffff"/>
+     <use xlink:href="#mac824ede52" x="558" y="252" style="fill: #ffffff; stroke: #ffffff"/>
+     <use xlink:href="#mac824ede52" x="666" y="324" style="fill: #ffffff; stroke: #ffffff"/>
+     <use xlink:href="#mac824ede52" x="630" y="396" style="fill: #ffffff; stroke: #ffffff"/>
+     <use xlink:href="#mac824ede52" x="774" y="468" style="fill: #ffffff; stroke: #ffffff"/>
+    </g>
+   </g>
    <g id="patch_2">
     <path d="M 0 504 
 L 846 504 
@@ -425,7 +450,7 @@ Q 810 504 810 504
 Q 810 504 810 504 
 " clip-path="url(#p368cf9789c)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="PathCollection_1">
+   <g id="PathCollection_2">
     <defs>
      <path id="C0_0_043773a5dc" d="M 0 4.679744 
 C 1.241083 4.679744 2.431501 4.186656 3.309078 3.309078 

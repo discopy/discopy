@@ -17,6 +17,26 @@ z
   </g>
   <g id="axes_1">
    <g id="patch_2">
+    <path d="M 22.736842 0 
+C 22.736842 36 68.210526 36 68.210526 72 
+" clip-path="url(#p73fb16c204)" style="fill: none; stroke: #ffffff; stroke-width: 3; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_3">
+    <path d="M 68.210526 0 
+C 68.210526 36 22.736842 36 22.736842 72 
+" clip-path="url(#p73fb16c204)" style="fill: none; stroke: #ffffff; stroke-width: 3; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_4">
+    <path d="M 22.736842 72 
+C 22.736842 108 68.210526 108 68.210526 144 
+" clip-path="url(#p73fb16c204)" style="fill: none; stroke: #ffffff; stroke-width: 3; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_5">
+    <path d="M 68.210526 72 
+C 68.210526 108 22.736842 108 22.736842 144 
+" clip-path="url(#p73fb16c204)" style="fill: none; stroke: #ffffff; stroke-width: 3; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_6">
     <path d="M 0 144 
 L 216 144 
 L 216 0 
@@ -25,47 +45,35 @@ L 0 144
 z
 " clip-path="url(#p73fb16c204)" style="fill: none"/>
    </g>
-   <g id="patch_3">
-    <path d="M 22.736842 0 
-C 22.736842 36 68.210526 36 68.210526 72 
-" clip-path="url(#p73fb16c204)" style="fill: none; stroke: #ffffff; stroke-width: 3; stroke-linejoin: miter"/>
-    <path d="M 22.736842 0 
-C 22.736842 36 68.210526 36 68.210526 72 
-" clip-path="url(#p73fb16c204)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
-   </g>
-   <g id="patch_4">
-    <path d="M 68.210526 0 
-C 68.210526 36 22.736842 36 22.736842 72 
-" clip-path="url(#p73fb16c204)" style="fill: none; stroke: #ffffff; stroke-width: 3; stroke-linejoin: miter"/>
-    <path d="M 68.210526 0 
-C 68.210526 36 22.736842 36 22.736842 72 
-" clip-path="url(#p73fb16c204)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
-   </g>
-   <g id="patch_5">
-    <path d="M 22.736842 72 
-C 22.736842 108 68.210526 108 68.210526 144 
-" clip-path="url(#p73fb16c204)" style="fill: none; stroke: #ffffff; stroke-width: 3; stroke-linejoin: miter"/>
-    <path d="M 22.736842 72 
-C 22.736842 108 68.210526 108 68.210526 144 
-" clip-path="url(#p73fb16c204)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
-   </g>
-   <g id="patch_6">
-    <path d="M 68.210526 72 
-C 68.210526 108 22.736842 108 22.736842 144 
-" clip-path="url(#p73fb16c204)" style="fill: none; stroke: #ffffff; stroke-width: 3; stroke-linejoin: miter"/>
-    <path d="M 68.210526 72 
-C 68.210526 108 22.736842 108 22.736842 144 
-" clip-path="url(#p73fb16c204)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
-   </g>
    <g id="patch_7">
-    <path d="M 159.157895 0 
-Q 159.157895 144 159.157895 144 
-" clip-path="url(#p73fb16c204)" style="fill: none; stroke: #ffffff; stroke-width: 3; stroke-linejoin: miter"/>
-    <path d="M 159.157895 0 
-Q 159.157895 144 159.157895 144 
+    <path d="M 22.736842 0 
+C 22.736842 36 68.210526 36 68.210526 72 
 " clip-path="url(#p73fb16c204)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
    <g id="patch_8">
+    <path d="M 68.210526 0 
+C 68.210526 36 22.736842 36 22.736842 72 
+" clip-path="url(#p73fb16c204)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_9">
+    <path d="M 22.736842 72 
+C 22.736842 108 68.210526 108 68.210526 144 
+" clip-path="url(#p73fb16c204)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_10">
+    <path d="M 68.210526 72 
+C 68.210526 108 22.736842 108 22.736842 144 
+" clip-path="url(#p73fb16c204)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_11">
+    <path d="M 159.157895 0 
+Q 159.157895 144 159.157895 144 
+" clip-path="url(#p73fb16c204)" style="fill: none; stroke: #ffffff; stroke-width: 3; stroke-linejoin: miter"/>
+    <path d="M 159.157895 0 
+Q 159.157895 144 159.157895 144 
+" clip-path="url(#p73fb16c204)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_12">
     <path d="M 204.631579 0 
 Q 204.631579 144 204.631579 144 
 " clip-path="url(#p73fb16c204)" style="fill: none; stroke: #ffffff; stroke-width: 3; stroke-linejoin: miter"/>
