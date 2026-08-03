@@ -185,6 +185,8 @@ def test_named_generic_category_factories():
 def test_symmetric_diagram_to_map_encodes_swap_as_wiring():
     from discopy import monoidal, symmetric
 
+    assert not hasattr(monoidal, "CMap")
+
     x, y = map(symmetric.Ty, "xy")
     cm = symmetric.Id(x @ y).permute(1, 0).to_map()
     assert cm.dom == x @ y
@@ -193,21 +195,15 @@ def test_symmetric_diagram_to_map_encodes_swap_as_wiring():
     assert cm.edges == (3, 2, 1, 0)
 
     x = symmetric.Ty("x")
-    with raises(AxiomError):
-        monoidal.CMap(x @ x, x @ x, (), (3, 2, 1, 0)).to_diagram()
     assert symmetric.CMap(x @ x, x @ x, (), (3, 2, 1, 0))\
         == symmetric.CMap.swap(x, x)
-
-    x, y, z = map(monoidal.Ty, "xyz")
-    f = monoidal.Box("f", x @ y, z)
-    with raises(AxiomError):
-        monoidal.CMap(y @ x, z, (f, ), (3, 2, 1, 0, 5, 4)).to_diagram()
 
 
 def test_diagram_to_map_structure_and_errors():
     from discopy import (
         balanced,
         braided,
+        cmap,
         closed,
         compact,
         frobenius,
@@ -219,12 +215,14 @@ def test_diagram_to_map_structure_and_errors():
     from discopy.cmap import Port, PortKind
 
     mx, my = map(monoidal.Ty, "xy")
+    monoidal_map = cmap.CMap[monoidal.Diagram]
     f = monoidal.Box("f", mx, my)
-    assert f.to_map() == monoidal.CMap.from_box(f)
+    assert monoidal.Diagram.map_factory is monoidal_map
+    assert f.to_map() == monoidal_map.from_box(f)
 
     bx, by = map(braided.Ty, "xy")
     braid = braided.Braid(bx, by)
-    assert monoidal.CMap.from_diagram(braid).boxes == (braid, )
+    assert monoidal_map.from_diagram(braid).boxes == (braid, )
 
     sx, sy = map(symmetric.Ty, "xy")
     assert symmetric.Swap(sx, sy).to_map() == symmetric.CMap.swap(sx, sy)
@@ -284,23 +282,23 @@ def test_diagram_to_map_structure_and_errors():
 
     x = monoidal.Ty("x")
     with raises(AxiomError):
-        monoidal.CMap.cups(x, x)
+        monoidal_map.cups(x, x)
     with raises(AxiomError):
-        monoidal.CMap.caps(x, x)
+        monoidal_map.caps(x, x)
     with raises(AxiomError):
-        monoidal.CMap(x @ x, monoidal.Ty(), (), (1, 0))
+        monoidal_map(x @ x, monoidal.Ty(), (), (1, 0))
     with raises(AxiomError):
-        monoidal.CMap(monoidal.Ty(), x @ x, (), (1, 0))
-    assert monoidal.CMap.id(x).edges == (1, 0)
+        monoidal_map(monoidal.Ty(), x @ x, (), (1, 0))
+    assert monoidal_map.id(x).edges == (1, 0)
     f = monoidal.Box("f", x, x)
     g = monoidal.Box("g", x, x)
-    circuit = monoidal.CMap(
+    circuit = monoidal_map(
         monoidal.Ty(), monoidal.Ty(), (f, g), (3, 2, 1, 0))
     with raises(AxiomError):
         circuit.to_diagram()
     s = monoidal.Box("s", monoidal.Ty(), monoidal.Ty())
     t = monoidal.Box("t", monoidal.Ty(), monoidal.Ty())
-    scalars = monoidal.CMap(monoidal.Ty(), monoidal.Ty(), (s, t), ())
+    scalars = monoidal_map(monoidal.Ty(), monoidal.Ty(), (s, t), ())
     assert scalars.to_diagram() == s >> t
     x = closed.Ty("x")
     f = closed.Box("f", x, x)
@@ -362,7 +360,14 @@ def test_to_diagram_introduces_cups_caps_and_traces():
 
 
 def test_make_monogamous_and_planar():
-    from discopy import compact, symmetric, traced
+    from discopy import compact, markov, symmetric
+
+    for module in (symmetric, compact, markov):
+        left, right = map(module.Ty, "xy")
+        planar = module.CMap.swap(left, right).make_planar()
+        assert planar.boxes == (
+            module.Diagram.permutation_factory(
+                left @ right, [1, 0]), )
 
     x, y = map(compact.Ty, "xy")
     nested = compact.CMap.cups(x @ y, (x @ y).r)
@@ -374,31 +379,23 @@ def test_make_monogamous_and_planar():
     f = symmetric.Box("f", sx @ sy, sy @ sx)
     cycle = (f.to_map() >> symmetric.CMap.swap(sy, sx)).trace()
     assert not cycle.is_planar and not cycle.is_acyclic
-    assert cycle.make_planar().is_planar
+    planar = cycle.make_planar()
+    assert planar.is_planar
     assert cycle.to_diagram().to_map() == cycle
-
-    tx = traced.Ty("x")
-    twisted = traced.CMap(tx @ tx, tx @ tx, (), (3, 2, 1, 0))
-    with raises(AxiomError):
-        twisted.make_planar()
 
 
 def test_to_diagram_validates_structure():
     from discopy import cmap, monoidal, pivotal
 
     x = monoidal.Ty("x")
+    monoidal_map = cmap.CMap[monoidal.Diagram]
     f = monoidal.Box("f", x, x)
-    swap = monoidal.CMap(x @ x, x @ x, (), (3, 2, 1, 0))
-    assert not swap.is_planar
-    with raises(AxiomError):
-        swap.to_diagram()
-    with raises(AxiomError):
-        str(swap)
-    feedback = monoidal.CMap(x, x, (f, ), (3, 2, 1, 0))
+    feedback = monoidal_map(x, x, (f, ), (3, 2, 1, 0))
     assert not feedback.is_acyclic
     with raises(AxiomError):
         feedback.to_diagram()
-    loop = monoidal.CMap(monoidal.Ty(), monoidal.Ty(), (), (), loops=(x, ))
+    loop = monoidal_map(
+        monoidal.Ty(), monoidal.Ty(), (), (), loops=(x, ))
     with raises(AxiomError):
         loop.to_diagram()
 

@@ -51,6 +51,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `CMap.curry` and `CMap.uncurry` accept an `exp` flag for selecting
   exponential or compact structure, defaulting to the strongest structure of
   the host category ([#391](https://github.com/discopy/discopy/issues/391)).
+- `monoidal.CMap` is removed while `Diagram.to_map` keeps its generic factory;
+  CMap planarity is now diagnostic rather than a downgrade constraint, and
+  `make_planar` materialises routing as host-category permutation boxes
+  ([#391](https://github.com/discopy/discopy/issues/391)).
 - `Arrow` is refactored onto a `FreeCategory` base class
   ([#350](https://github.com/discopy/discopy/pull/350)).
 - The `tensor` module is refactored to go through `CMap` for `einsum`

@@ -56,7 +56,6 @@ from discopy.abc import (
     NamedGeneric,
     Pregroup,
     RigidCategory,
-    SymmetricCategory,
     TracedCategory,
 )
 from discopy.python.finset import Permutation
@@ -165,12 +164,9 @@ class CMap[C0: Pregroup, C1: CMap](
 
     Following :class:`Hypergraph`, the map is parametrised by a category and
     any involution with compatible port types is accepted at initialisation.
-    The structure is only validated against the category when downgrading
-    with :meth:`to_diagram`:
+    Only structure needed for cups, caps and traces is validated against the
+    category when downgrading with :meth:`to_diagram`:
 
-    * swaps, i.e. non-planar wirings detected by the component-wise Euler
-      characteristic (see :attr:`is_planar`), require a symmetric category
-      and can be made explicit with :meth:`make_planar`;
     * cups and caps, i.e. same-polarity pairings :math:`e; m = m` (see
       :attr:`is_oriented`), require a category with cups and caps and can
       be made explicit with :meth:`make_monogamous`;
@@ -178,43 +174,9 @@ class CMap[C0: Pregroup, C1: CMap](
       and :attr:`is_topologically_ordered`), require a traced category and
       can be made explicit with :meth:`make_causal`.
 
-    We can therefore represent the categorical structures we can guarantee
-    by the following diagram:
-
-    .. tikz::
-        :align: center
-
-        \begin{tikzpicture}[
-          x={(2.6cm,0cm)}, y={(0cm,1.6cm)},
-          every node/.style={font=\scriptsize, align=center},
-          label/.style={font=\tiny, text=gray!35!black},
-          edge/.style={draw, -latex}
-        ]
-          \node[label] at (0,1.8) {causal};
-          \node[label] at (1,1.8) {non-causal};
-          \node[label] at (2,1.8) {non-oriented};
-          \node[label, anchor=east] at (-0.65,0) {monoidal};
-          \node[label, anchor=east] at (-0.65,1) {symmetric};
-
-          \node (S)  at (0,0) {spacial};
-          \node (Y)  at (0,1) {symmetric};
-          \node (T)  at (1,1) {traced};
-          \node (P)  at (2,0) {pivotal};
-          \node (C)  at (2,1) {compact};
-
-          \draw[edge] (S) -- (Y);
-          \draw[edge] (Y) -- (T);
-          \draw[edge] (T) -- (C);
-          \draw[edge] (S) -- (P);
-          \draw[edge] (P) -- (C);
-        \end{tikzpicture}
-
-    Note that combinatorial maps as such cannot faithfully represent free
-    monoidal diagrams as there is no way to account for the nesting of
-    connected components, hence the bottom-left corner rather corresponds
-    to the free `spacial` category, i.e. diagrams where entire isolated
-    components can go through wires at once without intermediate overlapping
-    (see :cite:`Selinger10`).
+    Planarity remains available as the diagnostic :attr:`is_planar` property.
+    :meth:`make_planar` makes non-planar routing explicit with permutation
+    boxes from the host category; it is not a validity constraint.
 
     Parameters:
         dom : The domain of the map.
@@ -702,7 +664,8 @@ class CMap[C0: Pregroup, C1: CMap](
         structure from the next level remains represented by boxes.
 
         >>> from discopy.braided import Ty, Braid
-        >>> from discopy.monoidal import CMap
+        >>> from discopy import cmap, monoidal
+        >>> CMap = cmap.CMap[monoidal.Diagram]
         >>> x, y = map(Ty, "xy")
         >>> CMap.from_diagram(Braid(x, y)).boxes == (Braid(x, y),)
         True
@@ -1249,44 +1212,39 @@ class CMap[C0: Pregroup, C1: CMap](
 
     def make_planar(self) -> CMap:
         """
-        Introduce explicit swap boxes to make self :attr:`is_planar`.
-
-        Raises:
-            AxiomError : If the category is not symmetric.
+        Introduce explicit permutation boxes to make self :attr:`is_planar`.
 
         Example
         -------
-        >>> from discopy.symmetric import Ty, Swap, CMap
+        >>> from discopy.symmetric import Ty, Permutation, CMap
         >>> x, y = map(Ty, "xy")
         >>> assert CMap.swap(x, y).make_planar()\\
-        ...     == CMap.from_box(Swap(x, y))
+        ...     == CMap.from_box(Permutation(x @ y, [1, 0]))
         """
         if self.is_planar:
             return self
-        if not issubclass(self.category, SymmetricCategory):
-            raise AxiomError(messages.NOT_PLANAR.format(repr(self)))
         if not self.is_causal:
             return self.make_monogamous().make_causal().make_planar()
         from discopy.monoidal import Functor
         return Functor(
             ob_map=lambda typ: typ, ar_map=type(self).from_box,
-            dom=self.category, cod=type(self))(self.to_diagram())
+            dom=self.category, cod=type(self))(
+                self._to_diagram(self.category.permutation_factory))
 
     def to_diagram(self) -> Diagram:
         """
         Downgrade to a diagram directly, preserving box orientation.
 
         The structure of the map is validated against :attr:`category`:
-        non-planar wirings require a symmetric category, cups and caps
-        require a category with cups and caps while backward wires and
-        loops require a traced category, otherwise we raise.
+        cups and caps require a category with cups and caps while backward
+        wires and loops require a traced category, otherwise we raise.
         Cups, caps and traces are introduced as explicit boxes by
         :meth:`make_monogamous` and :meth:`make_causal`.
 
         The construction scans the currently open wire labels from left to
-        right. For each box, it swaps boundary wires until the box domain wires
-        are adjacent at the requested offset, applies the box, and replaces
-        consumed domain labels by the box codomain labels.
+        right. For each box, it routes boundary wires until the box domain
+        wires are adjacent at the requested offset, applies the box, and
+        replaces consumed domain labels by the box codomain labels.
 
         >>> from discopy.compact import Ty, Box, CMap
         >>> x, y = map(Ty, "xy")
@@ -1306,9 +1264,10 @@ class CMap[C0: Pregroup, C1: CMap](
                 raise AxiomError(messages.NOT_TRACED.format(
                     factory_name(self.category)))
             return self.make_monogamous().make_causal().to_diagram()
-        if not issubclass(self.category, SymmetricCategory)\
-                and not self.is_planar:
-            raise AxiomError(messages.NOT_PLANAR.format(repr(self)))
+        return self._to_diagram()
+
+    def _to_diagram(self, permutation_factory=None) -> Diagram:
+        """ Run the boundary scan with structural or explicit routing. """
         edge_wire = {}
         for i, j in enumerate(self.edges):
             if i <= j:
@@ -1316,6 +1275,29 @@ class CMap[C0: Pregroup, C1: CMap](
 
         diagram = self.category.id(self.dom)
         scan = [edge_wire[i] for i in range(len(self.dom))]
+
+        def route(source, target):
+            nonlocal diagram, scan
+            target = min(target, len(scan) - 1)
+            perm = list(range(len(scan)))
+            if source > target:
+                perm[target:source + 1] = [
+                    source, *range(target, source)]
+                if permutation_factory is None:
+                    diagram >>= diagram.cod[:target] @ diagram.swap(
+                        diagram.cod[target:source], diagram.cod[source]
+                    ) @ diagram.cod[source + 1:]
+            else:
+                perm[source:target + 1] = [
+                    *range(source + 1, target + 1), source]
+                if permutation_factory is None:
+                    diagram >>= diagram.cod[:source] @ diagram.swap(
+                        diagram.cod[source], diagram.cod[source + 1:target + 1]
+                    ) @ diagram.cod[target + 1:]
+            if permutation_factory is not None:
+                diagram >>= permutation_factory(diagram.cod, perm)
+            scan = [scan[i] for i in perm]
+
         for depth, (box, offset) in enumerate(zip(self.boxes, self.offsets)):
             box_ports = self._box_port_indices[depth]
             dom_ports = box_ports[:len(box.dom)]
@@ -1328,17 +1310,9 @@ class CMap[C0: Pregroup, C1: CMap](
                 if i == 0 and offset is None:
                     offset = 0
                 if j > offset + i:
-                    diagram >>= diagram.cod[:offset + i] @ diagram.swap(
-                        diagram.cod[offset + i:j], diagram.cod[j]
-                    ) @ diagram.cod[j + 1:]
-                    scan = (scan[:offset + i] + scan[j:j + 1]) + (
-                        scan[offset + i:j] + scan[j + 1:])
+                    route(j, offset + i)
                 elif j < offset + i:
-                    diagram >>= diagram.cod[:j] @ diagram.swap(
-                        diagram.cod[j], diagram.cod[j + 1:offset + i]
-                    ) @ diagram.cod[offset + i:]
-                    scan = (scan[:j] + scan[j + 1:offset + i]) + (
-                        scan[j:j + 1] + scan[offset + i:])
+                    route(j, offset + i)
                     offset -= 1
 
             offset = 0 if offset is None else offset
@@ -1352,10 +1326,7 @@ class CMap[C0: Pregroup, C1: CMap](
         for i, wire_id in enumerate(cod_wires):
             j = scan.index(wire_id)
             if i < j:
-                diagram >>= diagram.cod[:i] @ diagram.swap(
-                    diagram.cod[i:j], diagram.cod[j:j + 1]
-                ) @ diagram.cod[j + 1:]
-                scan = scan[:i] + scan[j:j + 1] + scan[i:j] + scan[j + 1:]
+                route(j, i)
         return diagram
 
     def to_hypergraph(self):
