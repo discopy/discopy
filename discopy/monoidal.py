@@ -971,7 +971,7 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
         cod = Drawing
         return (functor_factory or Functor)(ob, ar, dom, cod)(self)
 
-    def to_map(self) -> cmap.CMap:
+    def to_map(self) -> CMap:
         """ Translate a diagram into a combinatorial map. """
         return self.map_factory.from_diagram(self)
 
@@ -1596,6 +1596,9 @@ class Match:
         return self.above >> self.left @ target @ self.right >> self.below
 
 
+CMap = cmap.CMap[Diagram]
+
+
 class Equation(cat.Equation, RichDisplay):
     """
     An :class:`.cat.Equation` of diagrams, i.e. with a :meth:`draw` method.
@@ -1644,7 +1647,7 @@ Diagram.to_gif = drawing.to_gif
 Diagram.sum_factory = Sum
 Diagram.bubble_factory = Bubble
 Diagram.functor_factory = Functor
-Diagram.map_factory = cmap.CMap[Diagram]
+Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Drawing.ob = Ty
 Id = Diagram.id

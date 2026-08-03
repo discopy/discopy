@@ -183,9 +183,7 @@ def test_named_generic_category_factories():
 
 
 def test_symmetric_diagram_to_map_encodes_swap_as_wiring():
-    from discopy import monoidal, symmetric
-
-    assert not hasattr(monoidal, "CMap")
+    from discopy import symmetric
 
     x, y = map(symmetric.Ty, "xy")
     cm = symmetric.Id(x @ y).permute(1, 0).to_map()
@@ -216,8 +214,9 @@ def test_diagram_to_map_structure_and_errors():
 
     mx, my = map(monoidal.Ty, "xy")
     monoidal_map = cmap.CMap[monoidal.Diagram]
+    assert monoidal.CMap is monoidal_map
     f = monoidal.Box("f", mx, my)
-    assert monoidal.Diagram.map_factory is monoidal_map
+    assert monoidal.Diagram.map_factory is monoidal.CMap
     assert f.to_map() == monoidal_map.from_box(f)
 
     bx, by = map(braided.Ty, "xy")
@@ -359,7 +358,7 @@ def test_to_diagram_introduces_cups_caps_and_traces():
     assert loop.to_diagram().to_map() == loop
 
 
-def test_make_monogamous_and_planar():
+def test_make_oriented_and_planar():
     from discopy import compact, markov, symmetric
 
     for module in (symmetric, compact, markov):
@@ -371,7 +370,7 @@ def test_make_monogamous_and_planar():
 
     x, y = map(compact.Ty, "xy")
     nested = compact.CMap.cups(x @ y, (x @ y).r)
-    assert nested.make_monogamous().is_oriented
+    assert nested.make_oriented().is_oriented
     assert nested.make_causal().is_causal
     assert nested.to_diagram().to_map() == nested
 

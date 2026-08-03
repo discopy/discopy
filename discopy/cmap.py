@@ -169,14 +169,10 @@ class CMap[C0: Pregroup, C1: CMap](
 
     * cups and caps, i.e. same-polarity pairings :math:`e; m = m` (see
       :attr:`is_oriented`), require a category with cups and caps and can
-      be made explicit with :meth:`make_monogamous`;
+      be made explicit with :meth:`make_oriented`;
     * traces, i.e. cycles, backward wires and loops (see :attr:`is_acyclic`
       and :attr:`is_topologically_ordered`), require a traced category and
       can be made explicit with :meth:`make_causal`.
-
-    Planarity remains available as the diagnostic :attr:`is_planar` property.
-    :meth:`make_planar` makes non-planar routing explicit with permutation
-    boxes from the host category; it is not a validity constraint.
 
     Parameters:
         dom : The domain of the map.
@@ -664,8 +660,7 @@ class CMap[C0: Pregroup, C1: CMap](
         structure from the next level remains represented by boxes.
 
         >>> from discopy.braided import Ty, Braid
-        >>> from discopy import cmap, monoidal
-        >>> CMap = cmap.CMap[monoidal.Diagram]
+        >>> from discopy.monoidal import CMap
         >>> x, y = map(Ty, "xy")
         >>> CMap.from_diagram(Braid(x, y)).boxes == (Braid(x, y),)
         True
@@ -1116,7 +1111,7 @@ class CMap[C0: Pregroup, C1: CMap](
             return self.from_box(factory(self.to_diagram(), left))
         return factory.__func__(type(self), self, left)
 
-    def make_monogamous(self) -> CMap:
+    def make_oriented(self) -> CMap:
         """
         Introduce cup and cap boxes to make self :attr:`is_oriented`,
         i.e. so that every wire connects a positive and a negative port.
@@ -1125,9 +1120,9 @@ class CMap[C0: Pregroup, C1: CMap](
         -------
         >>> from discopy.compact import Ty, Cup, Cap, CMap
         >>> x = Ty("x")
-        >>> assert CMap.cups(x, x.r).make_monogamous()\\
+        >>> assert CMap.cups(x, x.r).make_oriented()\\
         ...     == CMap.from_box(Cup(x, x.r))
-        >>> assert CMap.caps(x.r, x).make_monogamous()\\
+        >>> assert CMap.caps(x.r, x).make_oriented()\\
         ...     == CMap.from_box(Cap(x.r, x))
         """
         ports = self.ports
@@ -1155,7 +1150,7 @@ class CMap[C0: Pregroup, C1: CMap](
                 self.n_ports + 2)
             return type(self)(
                 self.dom, self.cod, boxes, edges, offsets=offsets,
-                loops=self.loops).make_monogamous()
+                loops=self.loops).make_oriented()
         assert self.is_oriented
         return self
 
@@ -1172,7 +1167,7 @@ class CMap[C0: Pregroup, C1: CMap](
         ...     == CMap.from_box(Trace(f))
         """
         if not self.is_oriented:
-            return self.make_monogamous().make_causal()
+            return self.make_oriented().make_causal()
 
         def cut(wire, typ, source_port=None, target_port=None):
             """ Route a wire via a fresh pair of boundary ports. """
@@ -1224,7 +1219,7 @@ class CMap[C0: Pregroup, C1: CMap](
         if self.is_planar:
             return self
         if not self.is_causal:
-            return self.make_monogamous().make_causal().make_planar()
+            return self.make_oriented().make_causal().make_planar()
         from discopy.monoidal import Functor
         return Functor(
             ob_map=lambda typ: typ, ar_map=type(self).from_box,
@@ -1239,7 +1234,7 @@ class CMap[C0: Pregroup, C1: CMap](
         cups and caps require a category with cups and caps while backward
         wires and loops require a traced category, otherwise we raise.
         Cups, caps and traces are introduced as explicit boxes by
-        :meth:`make_monogamous` and :meth:`make_causal`.
+        :meth:`make_oriented` and :meth:`make_causal`.
 
         The construction scans the currently open wire labels from left to
         right. For each box, it routes boundary wires until the box domain
@@ -1263,7 +1258,7 @@ class CMap[C0: Pregroup, C1: CMap](
                     and not issubclass(self.category, TracedCategory):
                 raise AxiomError(messages.NOT_TRACED.format(
                     factory_name(self.category)))
-            return self.make_monogamous().make_causal().to_diagram()
+            return self.make_oriented().make_causal().to_diagram()
         return self._to_diagram()
 
     def _to_diagram(self, permutation_factory=None) -> Diagram:
