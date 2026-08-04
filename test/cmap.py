@@ -52,11 +52,25 @@ def test_M_init():
 
 
 def test_repr_eq_and_hash():
+    from discopy import tensor
     from discopy.compact import Ty, Box, CMap as M
 
     x, y = map(Ty, "xy")
     cm = M.from_box(Box("f", x, y))
-    assert "ports=" in repr(cm)
+    with_metadata = M(
+        cm.dom, cm.cod, cm.boxes, cm.edges,
+        offsets=(0, ), loops=(x, ))
+    namespace = {}
+    exec("from discopy import *", namespace)
+    back = eval(repr(with_metadata), namespace)
+    assert back == with_metadata
+    assert back.offsets == with_metadata.offsets\
+        and back.loops == with_metadata.loops
+    vector = tensor.Box(
+        "v", tensor.Dim(1), tensor.Dim(2), data=[0, 1]).to_map()
+    back = eval(repr(vector), namespace)
+    assert (back.dom, back.cod, back.boxes, back.edges) == (
+        vector.dom, vector.cod, vector.boxes, vector.edges)
     assert cm == M.from_box(Box("f", x, y))
     assert cm != object()
     assert hash(cm) == hash(M.from_box(Box("f", x, y)))

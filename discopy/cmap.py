@@ -680,21 +680,37 @@ class CMap[C0: Pregroup, C1: CMap](
             and self.is_topologically_ordered
 
     def __repr__(self):
-        def port_repr(index, port):
-            port_depth = getattr(port, "depth", None)
-            depth = "" if port_depth is None else f"@{port_depth}"
-            return (
-                f"{port.kind}{depth}[{port.i}]:{port.obj}:"
-                f"{port.side}/{port.direction}"
-                f"->{self.edges[index]}")
-
-        ports = tuple(
-            port_repr(index, port)
-            for index, port in enumerate(self.ports))
-        return factory_name(type(self))\
+        factory = f"cmap.CMap[{factory_name(self.category)}]"
+        result = factory\
             + f"(dom={self.dom!r}, cod={self.cod!r}, " \
               f"boxes={self.boxes!r}, edges={self.edges!r}, " \
-              f"ports={ports!r}, scalars={self.loops!r})"
+              f"offsets={self.offsets!r}, loops={self.loops!r})"
+        if factory_name(self.category) != "tensor.Diagram":
+            return result
+
+        dtypes, seen = {}, set()
+
+        def collect_dtypes(value):
+            if id(value) in seen:
+                return
+            seen.add(id(value))
+            dtype = getattr(value, "dtype", None)
+            if dtype is not None and dtype.__module__ != "builtins":
+                dtypes[dtype.__name__] = dtype
+            for arg in getattr(value, "args", ()):
+                collect_dtypes(arg)
+            for box in getattr(value, "boxes", ()):
+                collect_dtypes(box)
+
+        for box in self.boxes:
+            collect_dtypes(box)
+        aliases = ["Dim=tensor.Dim"]
+        for name, dtype in sorted(dtypes.items()):
+            value = f"__import__({dtype.__module__!r}, fromlist=['*'])"
+            for attr in dtype.__qualname__.split("."):
+                value = f"getattr({value}, {attr!r})"
+            aliases.append(f"{name}={value}")
+        return f"(lambda {', '.join(aliases)}: {result})()"
 
     def __eq__(self, other: Any):
         return isinstance(other, CMap)\

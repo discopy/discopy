@@ -94,6 +94,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `CMap` representations are evaluable after `from discopy import *` and
+  preserve drawing offsets and scalar loops
+  ([#391](https://github.com/discopy/discopy/issues/391)).
 - Pivotal diagram-to-map conversion now encodes cups and caps as `CMap`
   wiring rather than keeping them as boxes
   ([#391](https://github.com/discopy/discopy/issues/391)).
