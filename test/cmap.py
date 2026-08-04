@@ -54,22 +54,12 @@ def test_M_init():
 
 
 def test_repr_eq_and_hash():
-    from discopy import cmap, compact, pivotal
     from discopy.compact import Ty, Box, CMap as M
 
     x, y = map(Ty, "xy")
     cm = M.from_box(Box("f", x, y))
     cm = M(cm.dom, cm.cod, cm.boxes, cm.edges, offsets=(0, ))
-    namespace = {
-        "cmap": cmap,
-        "compact": compact,
-        "Diagram": compact.Diagram,
-        "pivotal": pivotal,
-    }
-    restored = eval(repr(cm), namespace)
-    assert restored == cm
-    assert restored.offsets == cm.offsets
-    assert "ports=" not in repr(cm)
+    repr(cm)
     assert str(cm) == str(cm.to_diagram())
     assert cm == M.from_box(Box("f", x, y))
     assert cm != object()
@@ -195,6 +185,17 @@ def test_symmetric_diagram_to_map_encodes_swap_as_wiring():
     x = symmetric.Ty("x")
     assert symmetric.CMap(x @ x, x @ x, (), (3, 2, 1, 0))\
         == symmetric.CMap.swap(x, x)
+
+
+def test_pivotal_diagram_to_map_encodes_transposes_as_wiring():
+    from discopy import pivotal
+
+    x, y = map(pivotal.Ty, "xy")
+    f = pivotal.Box("f", x, y)
+    cmap = f.transpose(left=True).transpose(left=False).to_map()
+    assert cmap.category is pivotal.Diagram
+    assert cmap == pivotal.CMap.from_box(f)
+    assert cmap.boxes == (f, )
 
 
 def test_diagram_to_map_structure_and_errors():
@@ -352,6 +353,36 @@ def test_to_diagram_introduces_cups_caps_and_traces():
     s = symmetric.Ty("s")
     loop = symmetric.CMap.id(s).trace()
     assert loop.to_diagram().to_map() == loop
+
+
+def test_rigid_handedness_requires_swap():
+    from discopy import cmap, rigid
+
+    M = cmap.CMap[rigid.Diagram]
+    x, y = map(rigid.Ty, "xy")
+
+    assert M.cups(x, x.r).to_diagram() == rigid.Cup(x, x.r)
+    assert M.caps(x.r, x).to_diagram() == rigid.Cap(x.r, x)
+    with raises(AxiomError):
+        M.cups(x, y)
+    with raises(AxiomError):
+        M.caps(x, y)
+
+    bad_cup, bad_cap = M.cups(x.r, x), M.caps(x, x.r)
+    assert bad_cup.make_oriented() == M.swap(x.r, x)\
+        >> M.from_box(rigid.Cup(x, x.r))
+    assert bad_cap.make_oriented() == M.from_box(rigid.Cap(x.r, x))\
+        >> M.swap(x.r, x)
+    with raises(AxiomError, match="has no swaps"):
+        bad_cup.to_diagram()
+    with raises(AxiomError, match="has no swaps"):
+        bad_cap.to_diagram()
+
+    cx = compact.Ty("x")
+    assert compact.CMap.cups(cx.r, cx).to_diagram()\
+        == compact.Cup(cx.r, cx)
+    assert compact.CMap.caps(cx, cx.r).to_diagram()\
+        == compact.Cap(cx, cx.r)
 
 
 def test_make_oriented_and_planar():

@@ -697,10 +697,11 @@ class CMap[C0: Pregroup, C1: CMap](
 
     @classmethod
     def cups(cls, left: Ty, right: Ty) -> CMap:
-        """ A cup encoded as boundary wiring between adjoint types. """
-        adjoint = left.r if hasattr(left, "r") else left[::-1]
-        if adjoint != right:
-            raise AxiomError
+        """ A cup encoded as unoriented wiring between adjoint types. """
+        left_adjoint = left.r if hasattr(left, "r") else left[::-1]
+        right_adjoint = right.r if hasattr(right, "r") else right[::-1]
+        if left_adjoint != right and right_adjoint != left:
+            raise AxiomError(messages.NOT_ADJOINT.format(left, right))
         size = len(left)
         edge = Permutation.from_transpositions(
             ((i, size + size - 1 - i) for i in range(size)),
@@ -709,10 +710,11 @@ class CMap[C0: Pregroup, C1: CMap](
 
     @classmethod
     def caps(cls, left: Ty, right: Ty) -> CMap:
-        """ A cap encoded as boundary wiring between adjoint types. """
-        adjoint = left.r if hasattr(left, "r") else left[::-1]
-        if adjoint != right:
-            raise AxiomError
+        """ A cap encoded as unoriented wiring between adjoint types. """
+        left_adjoint = left.r if hasattr(left, "r") else left[::-1]
+        right_adjoint = right.r if hasattr(right, "r") else right[::-1]
+        if left_adjoint != right and right_adjoint != left:
+            raise AxiomError(messages.NOT_ADJOINT.format(left, right))
         size = len(left)
         edge = Permutation.from_transpositions(
             ((i, size + size - 1 - i) for i in range(size)),
@@ -1116,6 +1118,12 @@ class CMap[C0: Pregroup, C1: CMap](
         Introduce cup and cap boxes to make self :attr:`is_oriented`,
         i.e. so that every wire connects a positive and a negative port.
 
+        When adjoints are not pivotal, a bend may have the opposite handedness
+        from the cup or cap supplied by :attr:`category`. In that case, its
+        legal arguments are reversed and so are its wire attachments. The
+        resulting crossed wiring can only be downgraded by a category with
+        swaps.
+
         Example
         -------
         >>> from discopy.compact import Ty, Cup, Cap, CMap
@@ -1130,18 +1138,31 @@ class CMap[C0: Pregroup, C1: CMap](
             if i > j or ports[i].kind.is_positive\
                     != ports[j].kind.is_positive:
                 continue
+            source, target = ports[i].obj, ports[j].obj
+            attachments = i, j
+            rigid = issubclass(self.category, RigidCategory)
+            reverse = rigid and (
+                source.r != target if ports[i].kind.is_positive
+                else target.r != source)
+            if reverse:
+                source, target = target, source
+                attachments = j, i
             if ports[i].kind.is_positive:
-                box = self.category.cup_factory(ports[i].obj, ports[j].obj)
+                box = self.category.cup_factory(source, target)
                 boxes = self.boxes + (box, )
                 offsets = self.offsets + (None, )
                 insert = self.n_ports - len(self.cod)
-                box_wires = [(insert, i), (insert + 1, j)]
+                box_wires = [
+                    (insert, attachments[0]),
+                    (insert + 1, attachments[1])]
             else:
-                box = self.category.cap_factory(ports[i].obj, ports[j].obj)
+                box = self.category.cap_factory(source, target)
                 boxes = (box, ) + self.boxes
                 offsets = (None, ) + self.offsets
                 insert = len(self.dom)
-                box_wires = [(insert + 1, i), (insert, j)]
+                box_wires = [
+                    (insert + 1, attachments[0]),
+                    (insert, attachments[1])]
             shift = lambda p: p if p < insert else p + 2
             edges = Permutation.from_transpositions(
                 [(a, shift(b)) for a, b in box_wires]
@@ -1275,6 +1296,10 @@ class CMap[C0: Pregroup, C1: CMap](
             nonlocal diagram, scan
             target = min(target, len(scan) - 1)
             perm = list(range(len(scan)))
+            if permutation_factory is None\
+                    and getattr(diagram, "swap", None) is None:
+                raise AxiomError(messages.NOT_SYMMETRIC.format(
+                    factory_name(self.category)))
             if source > target:
                 perm[target:source + 1] = [
                     source, *range(target, source)]

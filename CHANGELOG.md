@@ -89,6 +89,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- Pivotal diagram-to-map conversion now encodes cups and caps as `CMap`
+  wiring rather than keeping them as boxes
+  ([#391](https://github.com/discopy/discopy/issues/391)).
+- Rigid `CMap` downgrade now distinguishes left and right adjoints, rejecting
+  bends whose crossed wiring would require an unavailable swap
+  ([#391](https://github.com/discopy/discopy/issues/391)).
 - `CMap` representations now expose only accepted constructor fields, preserve
   offsets and loops, and avoid recursive error formatting during conversion
   ([#391](https://github.com/discopy/discopy/issues/391)).

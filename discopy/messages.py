@@ -36,3 +36,4 @@ NO_STRUCTURE_TO_DOWNGRADE = \
     "{} has no spiders, cups or caps to draw this hypergraph."
 NOT_RIGID = "{} has no cups or caps to downgrade this map."
 NOT_TRACED = "{} has no traces to downgrade this map."
+NOT_SYMMETRIC = "{} has no swaps to downgrade this map."
