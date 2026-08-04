@@ -65,7 +65,7 @@ Without the extras installed, run `uv run pytest --skip-extra` to skip what need
 ## Run the benchmarks
 
 The composition benchmark (`benchmark/test_composition.py`) reproduces the scaling
-experiments of arXiv:2105.09257 for both `Diagram` and `Hypergraph`. It lives
+experiments of arXiv:2105.09257 for `Diagram`, `Hypergraph` and `CMap`. It lives
 outside `testpaths`, so the normal `pytest` run never collects it — run it
 explicitly. Each `(case, size)` is a declarative
 [`pytest-benchmark`](https://pytest-benchmark.readthedocs.io) test — the fixture

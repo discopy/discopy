@@ -2,8 +2,9 @@
 
 """
 Composition benchmark, reproducing the experiments of `arXiv:2105.09257
-<https://arxiv.org/pdf/2105.09257>`_ for both :class:`discopy.symmetric.Diagram`
-and :class:`discopy.symmetric.Hypergraph`.
+<https://arxiv.org/pdf/2105.09257>`_ for
+:class:`discopy.symmetric.Diagram`, :class:`discopy.symmetric.Hypergraph`
+and :class:`discopy.symmetric.CMap`.
 
 Each case is a declarative `pytest-benchmark` test: one ``(case, n)`` per data
 point, swept by ``@pytest.mark.parametrize`` over a size list that
@@ -98,7 +99,7 @@ def permutation(factory, xs, dom):
 
     Mirrors :meth:`symmetric.Diagram.permutation` using only ``id``, ``swap``,
     ``tensor`` and ``then``, so the same code builds a Diagram (``factory`` a
-    ``symmetric.Box``/``Diagram``) or a Hypergraph directly.
+    ``symmetric.Box``/``Diagram``), a Hypergraph or a CMap directly.
     """
     if len(dom) <= 1:
         return factory.id(dom)
@@ -114,8 +115,9 @@ def adder_step(full_adder, adder, k):
     """ One incremental ripple-carry step: adder(k) -> adder(k + 1).
 
     Parameterised by the addition box ``full_adder``: a ``symmetric.Box``
-    grows a Diagram-valued adder, a ``Hypergraph`` a hypergraph-valued one,
-    from one recipe -- everything else is taken from ``type(full_adder)``.
+    grows a Diagram-valued adder, a ``Hypergraph`` or ``CMap`` the equivalent
+    graph-valued one, from one recipe -- everything else is taken from
+    ``type(full_adder)``.
     """
     factory = type(full_adder)
     bit = full_adder.dom[:1]
@@ -217,6 +219,15 @@ def test_tensor_hypergraph(benchmark, n):
         rounds=ROUNDS, warmup_rounds=WARMUP)
 
 
+@case("k-fold tensor (CMap)")
+@pytest.mark.parametrize("n", sizes(10, 20, 50, full=(100, 200)))
+def test_tensor_cmap(benchmark, n):
+    mbox = _NOT().to_map()
+    benchmark.pedantic(
+        lambda: repeated(lambda a, b: a.tensor(b), mbox, n),
+        rounds=ROUNDS, warmup_rounds=WARMUP)
+
+
 # --- staircase / foliation -------------------------------------------------
 
 @case("staircase foliation (Diagram)")
@@ -233,6 +244,14 @@ def test_staircase_to_hypergraph(benchmark, n):
     st = staircase(_NOT(), n)
     benchmark.pedantic(
         lambda: st.to_hypergraph(), rounds=ROUNDS, warmup_rounds=WARMUP)
+
+
+@case("staircase to cmap (CMap)")
+@pytest.mark.parametrize("n", sizes(10, 20, full=(50,)))
+def test_staircase_to_cmap(benchmark, n):
+    st = staircase(_NOT(), n)
+    benchmark.pedantic(
+        lambda: st.to_map(), rounds=ROUNDS, warmup_rounds=WARMUP)
 
 
 # --- k-fold series ---------------------------------------------------------
@@ -255,6 +274,15 @@ def test_series_hypergraph(benchmark, n):
         rounds=ROUNDS, warmup_rounds=WARMUP)
 
 
+@case("k-fold series (CMap)")
+@pytest.mark.parametrize("n", sizes(10, 20, 50, full=(100, 200)))
+def test_series_cmap(benchmark, n):
+    mbox = _NOT().to_map()
+    benchmark.pedantic(
+        lambda: repeated(lambda a, b: a.then(b), mbox, n),
+        rounds=ROUNDS, warmup_rounds=WARMUP)
+
+
 # --- ripple-carry adder ----------------------------------------------------
 
 @case("adder step (Diagram)")
@@ -271,6 +299,16 @@ def test_adder_step_diagram(benchmark, n):
 @pytest.mark.parametrize("n", sizes(2, 5, 10, 20, full=(50,)))  # ~O(n^2)
 def test_adder_step_hypergraph(benchmark, n):
     full_adder = _full_adder().to_hypergraph()
+    adder = build_adder(full_adder, n)
+    benchmark.pedantic(
+        lambda: adder_step(full_adder, adder, n),
+        rounds=ROUNDS, warmup_rounds=WARMUP)
+
+
+@case("adder step (CMap)")
+@pytest.mark.parametrize("n", sizes(2, 5, 10, 20, full=(50,)))
+def test_adder_step_cmap(benchmark, n):
+    full_adder = _full_adder().to_map()
     adder = build_adder(full_adder, n)
     benchmark.pedantic(
         lambda: adder_step(full_adder, adder, n),
@@ -304,6 +342,14 @@ def test_spiral_build_hypergraph(benchmark, n):
         lambda: spiral.to_hypergraph(), rounds=ROUNDS, warmup_rounds=WARMUP)
 
 
+@case("spiral build (CMap)")
+@pytest.mark.parametrize("n", sizes(10, 20, full=(50,)))
+def test_spiral_build_cmap(benchmark, n):
+    spiral = make_spiral(n)[0]
+    benchmark.pedantic(
+        lambda: spiral.to_map(), rounds=ROUNDS, warmup_rounds=WARMUP)
+
+
 @case("spiral normal_form (Diagram)")
 @pytest.mark.parametrize("n", sizes(5, 10, full=(20,)))  # ~O(n^3): 20 ~ 8.4s
 def test_spiral_normal_form_diagram(benchmark, n):
@@ -320,6 +366,15 @@ def test_spiral_equality_hypergraph(benchmark, n):
     # monogamous: exercises the networkx VF2 fallback, not the fast path.
     left = make_spiral(n)[0].to_hypergraph()
     right = make_spiral(n)[0].to_hypergraph()
+    benchmark.pedantic(
+        lambda: left == right, rounds=ROUNDS, warmup_rounds=WARMUP)
+
+
+@case("spiral equality (CMap)")
+@pytest.mark.parametrize("n", sizes(5, 10, 20, full=(50,)))
+def test_spiral_equality_cmap(benchmark, n):
+    left = make_spiral(n)[0].to_map()
+    right = make_spiral(n)[0].to_map()
     benchmark.pedantic(
         lambda: left == right, rounds=ROUNDS, warmup_rounds=WARMUP)
 
@@ -349,6 +404,17 @@ def test_transpose_equality_hypergraph(benchmark, n):
         lambda: g.to_hypergraph() == bare, rounds=ROUNDS, warmup_rounds=WARMUP)
 
 
+@case("transpose equality (CMap)")
+@pytest.mark.parametrize("n", sizes(10, 20, 50, full=(100, 200)))
+def test_transpose_equality_cmap(benchmark, n):
+    x = compact.Ty('x')
+    f = compact.Box('f', x, x)
+    bare = f.to_map()
+    g = with_snakes(f, n)
+    benchmark.pedantic(
+        lambda: g.to_map() == bare, rounds=ROUNDS, warmup_rounds=WARMUP)
+
+
 # --- correctness (run once, not benchmarks) --------------------------------
 
 def test_adder_functor_correct():
@@ -375,7 +441,8 @@ def test_transpose_snake_is_identity():
 
 
 def test_transpose_equality_holds():
-    """ The compact snake-wrapped box equals the bare box as a hypergraph. """
+    """ Compact graph encodings remove snakes from the wrapped box. """
     x = compact.Ty('x')
     f = compact.Box('f', x, x)
     assert with_snakes(f, 3).to_hypergraph() == f.to_hypergraph()
+    assert with_snakes(f, 3).to_map() == f.to_map()

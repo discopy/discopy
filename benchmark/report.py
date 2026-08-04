@@ -59,18 +59,19 @@ def to_markdown(table: pl.DataFrame) -> str:
 
 
 def plot(df: pl.DataFrame, path: str) -> None:
-    """ Log-log scaling plot, Diagram and Hypergraph cases in two panels. """
+    """ Log-log scaling plot, grouped into one panel per representation. """
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    figure, axes = plt.subplots(1, 2, figsize=(13, 6), sharey=True)
+    figure, axes = plt.subplots(1, 3, figsize=(19, 6), sharey=True)
     for (name,), group in df.group_by("case", maintain_order=True):
-        axis = axes[1] if "Hypergraph" in name else axes[0]
+        axis = axes[
+            2 if "CMap" in name else 1 if "Hypergraph" in name else 0]
         ordered = group.sort("n")
         axis.plot(ordered["n"].to_list(), ordered["median"].to_list(),
                   marker="o", label=name)
-    for axis, title in zip(axes, ["Diagram", "Hypergraph"]):
+    for axis, title in zip(axes, ["Diagram", "Hypergraph", "CMap"]):
         axis.set(xscale="log", yscale="log", xlabel="size $n$", title=title)
         axis.grid(True, which="both", linestyle=":", linewidth=.5)
         axis.legend(fontsize="small")
