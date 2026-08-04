@@ -92,11 +92,22 @@ class Discard(SelfConjugate):
     """
     Discard n qubits. If :code:`dom == bit` then marginal distribution.
 
-    >>> (Ket(0, 0, 0) >> Discard(3)).draw(
+    A gate is causal, i.e. discarding all its outputs is the same as
+    discarding all its inputs.
+
+    >>> from discopy.monoidal import Equation
+    >>> Equation(CX >> Discard(2), Discard(2)).draw(
     ...     wire_labels=False, doctest="docs/_static/quantum/discard.svg")
 
     .. image:: /_static/quantum/discard.svg
         :align: center
+
+    >>> assert (CX >> Discard(2)).eval() == Discard(2).eval()
+
+    Post-selection is not causal: discarding the output of a bra is not the
+    discard of its input.
+
+    >>> assert Bra(0).eval(mixed=True) != Discard(1).eval()
     """
     draw_as_discards = True
 
