@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import numpy
+from pytest import raises
 
 from discopy.quantum import bit, qubit
 from discopy.quantum.gates import (
@@ -36,3 +37,7 @@ def test_Sqrt():
     assert Sqrt(-1).dagger() != Sqrt(-1)
     assert numpy.isclose(Sqrt(-1).dagger().array, Sqrt(-1).array.conjugate())
     assert repr(Sqrt(-1).dagger()).endswith("[::-1]")
+    root_two = Sqrt(2)
+    assert root_two.dagger() is root_two
+    with raises(ValueError):
+        Sqrt(2, is_dagger=True)

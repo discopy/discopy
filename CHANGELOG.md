@@ -76,8 +76,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   [#470](https://github.com/discopy/discopy/pull/470)).
 - The `test/` directory is reorganised to mirror `discopy/`
   ([#403](https://github.com/discopy/discopy/pull/403)).
-- `Sqrt` carries an `is_dagger` flag, so a square root and its dagger are
-  no longer equal ([#482](https://github.com/discopy/discopy/issues/482)).
+- `Sqrt` of a negative or complex number carries an `is_dagger` flag that
+  conjugates its array, so such a square root and its dagger are no longer
+  equal; a real square root stays self-adjoint and rejects the flag
+  ([#482](https://github.com/discopy/discopy/issues/482)).
 
 ### Fixed
 

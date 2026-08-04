@@ -752,6 +752,8 @@ class Sqrt(Scalar):
     """
     def __init__(self, data, is_dagger=False):
         super().__init__(data, name="sqrt")
+        if is_dagger and self.is_self_adjoint:
+            raise ValueError(messages.REAL_SQRT_IS_SELF_ADJOINT)
         self.is_dagger = is_dagger
         self.drawing_name = f"sqrt({format_number(data)})"
 
@@ -761,15 +763,19 @@ class Sqrt(Scalar):
             self.is_dagger = False
 
     @property
+    def is_self_adjoint(self):
+        """ Whether the root is real, i.e. the dagger is the identity. """
+        return not self.free_symbols and not complex(self.data ** .5).imag
+
+    @property
     def array(self):
         with backend() as np:
             root = np.array(self.data ** .5)
             return root.conjugate() if self.is_dagger else root
 
     def dagger(self):
-        if not self.free_symbols and not complex(self.data ** .5).imag:
-            return self
-        return Sqrt(self.data, is_dagger=not self.is_dagger)
+        return self if self.is_self_adjoint\
+            else Sqrt(self.data, is_dagger=not self.is_dagger)
 
     def setoid(self):
         """ A square root and its dagger differ only by ``is_dagger``. """
