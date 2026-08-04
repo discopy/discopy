@@ -45,7 +45,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 import re
 
-from discopy import biclosed, cmap, messages
+from discopy import biclosed, messages
+from discopy import cmap
 from discopy.cat import factory
 from discopy.grammar import thue
 from discopy.utils import (

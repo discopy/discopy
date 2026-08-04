@@ -52,7 +52,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, ClassVar
 
-from discopy import cat, monoidal, biclosed, cmap, markov, hypergraph
+from discopy import cat, monoidal, biclosed, markov, hypergraph
+from discopy import cmap
 from discopy.abc import ClosedCategory
 from discopy.cat import factory
 

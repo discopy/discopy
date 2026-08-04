@@ -46,12 +46,16 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 - `CMap` conversion now preserves concrete diagram categories, compares maps
   through their underlying hypergraphs, and separates acyclicity from box order
-  with `is_acyclic`, `is_topologically_ordered`, and `topological_order`
+  with `is_acyclic`, `is_topologically_ordered`, and `topological_order`;
+  `connected_components` always starts with the boundary component, using the
+  empty map when the boundary is empty
   ([#391](https://github.com/discopy/discopy/issues/391)).
 - `CMap.curry` and `CMap.uncurry` accept an `exp` flag for selecting
   exponential or compact structure, defaulting to the strongest structure of
   the host category ([#391](https://github.com/discopy/discopy/issues/391)).
-- CMap planarity is now diagnostic rather than a downgrade constraint, and
+- CMap planarity is now diagnostic rather than a downgrade constraint;
+  decoding computes box dependencies directly, foliates independent boxes,
+  preserves state offsets and minimises wire transpositions, while
   `make_planar` materialises routing as host-category permutation boxes
   ([#391](https://github.com/discopy/discopy/issues/391)).
 - `Arrow` is refactored onto a `FreeCategory` base class
@@ -96,9 +100,6 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - Rigid `CMap` downgrade now distinguishes left and right adjoints, rejecting
   bends whose crossed wiring would require an unavailable swap
   ([#391](https://github.com/discopy/discopy/issues/391)).
-- `CMap` representations now expose only accepted constructor fields, preserve
-  offsets and loops, and avoid recursive error formatting during conversion
-  ([#391](https://github.com/discopy/discopy/issues/391)).
 - Tensor networks are contracted with `opt_einsum` when the number of
   indices exceeds `numpy.einsum`'s 52-index limit
   ([#448](https://github.com/discopy/discopy/pull/448)).
@@ -109,8 +110,6 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Performance
 
-- Derived `CMap` port structures are cached
-  ([#391](https://github.com/discopy/discopy/issues/391)).
 - `Ty` construction is sped up with `assert_isinstance` and lazy naming
   ([#420](https://github.com/discopy/discopy/pull/420)).
 - `Hypergraph` equality, permutations and other micro-optimizations bring

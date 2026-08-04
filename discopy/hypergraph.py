@@ -1418,7 +1418,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
                 return self.make_causal().make_bijective().to_diagram()
             if not self.is_monogamous and getattr(
                     self.category, "cup_factory", None) is None:
-                raise AxiomError(messages.NO_STRUCTURE_TO_DOWNGRADE.format(
+                raise AxiomError(messages.NOT_FROBENIUS.format(
                     factory_name(self.category)))
             return self.make_monogamous().make_causal().to_diagram()
         foliate = self.is_boundary_connected

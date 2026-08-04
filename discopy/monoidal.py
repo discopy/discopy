@@ -973,7 +973,16 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
 
     def to_map(self) -> CMap:
         """ Translate a diagram into a combinatorial map. """
-        return cmap.CMap[type(self).ar].from_diagram(self)
+        result = cmap.CMap[type(self).ar].from_diagram(self)
+        staircase = len(self.boxes) == len(self.inside)
+        if staircase and len(result.boxes) == len(self.boxes):
+            offsets = tuple(
+                offset if not box.dom else None
+                for box, offset in zip(self.boxes, self.offsets))
+            result = type(result)(
+                result.dom, result.cod, result.boxes, result.edges,
+                offsets=offsets, loops=result.loops)
+        return result
 
     def to_staircases(self):
         """

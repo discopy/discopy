@@ -56,6 +56,26 @@ Axioms
 
 .. image:: /_static/biclosed/uncurry.svg
     :align: center
+
+Combinatorial maps
+------------------
+
+Currying and uncurrying are available directly on the :class:`CMap` alias.
+
+>>> from discopy.closed import Ty, Box
+>>> x, y, z = map(Ty, "xyz")
+>>> f = Box("f", x @ y, z).to_map()
+>>> f.curry().uncurry().draw(show=False,
+...     doctest="docs/_static/cmap/biclosed-curry-right.dot")
+
+.. graphviz:: /_static/cmap/biclosed-curry-right.dot
+    :align: center
+
+>>> f.curry(left=True).uncurry(left=True).draw(show=False,
+...     doctest="docs/_static/cmap/biclosed-curry-left.dot")
+
+.. graphviz:: /_static/cmap/biclosed-curry-left.dot
+    :align: center
 """
 
 from __future__ import annotations
@@ -64,7 +84,8 @@ from abc import abstractmethod
 from inspect import signature
 from typing import Callable, ClassVar
 
-from discopy import monoidal, cmap
+from discopy import monoidal
+from discopy import cmap
 from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
 from discopy.cat import factory

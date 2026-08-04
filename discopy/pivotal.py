@@ -54,7 +54,7 @@ We also have its dagger and its transpose:
 
 from __future__ import annotations
 
-from discopy import cat, cmap, rigid, traced
+from discopy import cat, rigid, traced
 from discopy.abc import PivotalCategory
 from discopy.cat import factory
 
@@ -249,9 +249,6 @@ class Functor(rigid.Functor):
         cod (Category) : The codomain of the functor.
     """
     dom = cod = Diagram
-
-
-CMap = cmap.CMap[Diagram]
 
 
 Diagram.functor_factory = Functor

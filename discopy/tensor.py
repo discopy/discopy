@@ -23,6 +23,22 @@ Summary
     Spider
     Sum
     Bubble
+
+Tensor combinatorial maps
+-------------------------
+
+A :class:`CMap` is a tensor network stored as a combinatorial map, whose
+boxes are tensors, edges are summed indices and boundary ports are free
+indices. Swaps, cups and caps become wiring while spiders stay as boxes.
+
+>>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
+>>> assert (vector >> vector[::-1]).to_map().eval().array == 1
+
+>>> with backend('jax'):  # doctest: +EXTRA
+...     import jax, jax.numpy as jnp
+...     b = lambda x: Box[float]('v', Dim(1), Dim(2), x * jnp.ones(2))
+...     f = lambda x: (b(x) >> b(x)[::-1]).to_map().eval().array
+...     assert jax.grad(f)(1.) == 4.
 """
 
 from __future__ import annotations

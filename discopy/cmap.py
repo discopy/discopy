@@ -40,7 +40,6 @@ from enum import StrEnum
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from functools import cached_property
 from inspect import isclass
 from io import BytesIO
 from math import lcm
@@ -166,8 +165,7 @@ class CMap[C0: Pregroup, C1: CMap](
     any involution with compatible port types is accepted at initialisation.
     The functor used by :meth:`from_diagram` is read from
     ``category.functor_factory``; :meth:`Diagram.to_map` parameterises
-    ``CMap`` with the concrete diagram category automatically, without a
-    dedicated ``map_factory`` attribute.
+    ``CMap`` with the concrete diagram category automatically.
     Only structure needed for cups, caps and traces is validated against the
     category when downgrading with :meth:`to_diagram`:
 
@@ -262,7 +260,7 @@ class CMap[C0: Pregroup, C1: CMap](
         self.edges = Permutation(edges, len(self.ports))
         self.validate()
 
-    @cached_property
+    @property
     def ports(self) -> list[Port]:
         """ The ports in canonical orientation order. """
         def port(kind, i, obj, depth):
@@ -292,7 +290,7 @@ class CMap[C0: Pregroup, C1: CMap](
         return len(self.dom) + sum(
             len(box.dom) + len(box.cod) for box in self.boxes) + len(self.cod)
 
-    @cached_property
+    @property
     def _box_port_indices(self) -> tuple[tuple[int, ...], ...]:
         """ The consecutive port indices belonging to each box. """
         result, start = [], len(self.dom)
@@ -343,10 +341,13 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> (Swap(y, x) >> f).to_map().euler_characteristic
         0
         """
-        if len(self.connected_components) != 1:
-            raise ValueError(messages.NOT_CONNECTED.format(repr(self)))
         if not self.n_ports and not self.boxes and not self.loops:
             return 2
+        components = self.connected_components
+        if not self.boundary_cycle:
+            components = components[1:]
+        if len(components) != 1:
+            raise ValueError(messages.NOT_CONNECTED.format(repr(self)))
         return self.n_vertices - self.n_edges + self.n_faces
 
     @property
@@ -420,28 +421,19 @@ class CMap[C0: Pregroup, C1: CMap](
 
     @property
     def connected_components(self) -> list[CMap]:
-        """ The connected components, with the boundary component first. """
-        if not self.n_ports:
-            # Avoid recursively rebuilding the same portless component.
-            if len(self.boxes) + len(self.loops) <= 1:
-                return [self]
-            components = [
-                type(self)(
-                    self.ob(), self.ob(), (box, ), (),
-                    offsets=(offset, ))
-                for box, offset in zip(self.boxes, self.offsets)]
-            components += [
-                type(self)(self.ob(), self.ob(), (), (), loops=(loop, ))
-                for loop in self.loops]
-            return components
+        """
+        The connected components, with the unique boundary component first.
 
+        When the boundary is empty, the first component is the empty map.
+        """
         component_of = self.edges.coequalizer(self.orientation)
         boundary = set(range(len(self.dom))) | set(range(
             self.n_ports - len(self.cod), self.n_ports))
         boundary_component = component_of[next(iter(boundary))]\
             if boundary else None
 
-        ports_by_component: dict[int, list[int]] = {}
+        ports_by_component: dict[int | None, list[int]] = {
+            boundary_component: []}
         for port, component in component_of.items():
             ports_by_component.setdefault(component, []).append(port)
 
@@ -463,7 +455,7 @@ class CMap[C0: Pregroup, C1: CMap](
                 and not self.loops:
             return [self]
 
-        def make_component(component: int) -> CMap:
+        def make_component(component: int | None) -> CMap:
             dom = self.dom if component == boundary_component else self.ob()
             cod = self.cod if component == boundary_component else self.ob()
             boxes = tuple(box for _, box in boxes_by_component.get(
@@ -490,7 +482,7 @@ class CMap[C0: Pregroup, C1: CMap](
             ports_by_component,
             key=lambda component: (
                 component != boundary_component,
-                min(ports_by_component[component])))
+                min(ports_by_component[component], default=-1)))
         components = [make_component(component)
                       for component in ordered_components]
         components += [
@@ -586,6 +578,48 @@ class CMap[C0: Pregroup, C1: CMap](
             ports[i].kind.is_positive != ports[j].kind.is_positive
             for i, j in enumerate(self.edges) if i < j)
 
+    def _box_dependencies(self) -> tuple[list[list[int]], list[int]]:
+        """ Return the box dependency graph and its indegrees. """
+        dependents = [[] for _ in self.boxes]
+        indegree = [0] * len(self.boxes)
+        ports = self.ports
+        for i, j in enumerate(self.edges):
+            if i > j or ports[i].kind.is_positive\
+                    == ports[j].kind.is_positive:
+                continue
+            source, target = (ports[i], ports[j])\
+                if ports[i].kind.is_positive else (ports[j], ports[i])
+            if source.kind != PortKind.COD or target.kind != PortKind.DOM:
+                continue
+            source_box = int(source.depth + 0.5)
+            target_box = int(target.depth - 0.5)
+            dependents[source_box].append(target_box)
+            indegree[target_box] += 1
+        return dependents, indegree
+
+    def _box_ranks(self) -> tuple[int, ...]:
+        """
+        Return the minimum topological rank of each box.
+
+        Raises:
+            ValueError : If the box dependency graph has a directed cycle.
+        """
+        dependents, indegree = self._box_dependencies()
+        indegree, ranks = list(indegree), [0] * len(self.boxes)
+        ready = [i for i, degree in enumerate(indegree) if degree == 0]
+        seen = 0
+        while ready:
+            source = ready.pop()
+            seen += 1
+            for target in dependents[source]:
+                ranks[target] = max(ranks[target], ranks[source] + 1)
+                indegree[target] -= 1
+                if indegree[target] == 0:
+                    ready.append(target)
+        if seen != len(self.boxes):
+            raise ValueError
+        return tuple(ranks)
+
     @property
     def is_acyclic(self) -> bool:
         """
@@ -597,16 +631,44 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> assert f.is_acyclic
         >>> assert not f.trace().is_acyclic
         """
-        return self.to_hypergraph().is_acyclic
+        if self.loops:
+            return False
+        try:
+            self._box_ranks()
+        except ValueError:
+            return False
+        return True
 
     @property
     def is_topologically_ordered(self) -> bool:
         """ Whether every directed wire points forward in the box order. """
-        return self.to_hypergraph().is_topologically_ordered
+        dependents, _ = self._box_dependencies()
+        return all(source < target
+                   for source, targets in enumerate(dependents)
+                   for target in targets)
 
     def topological_order(self) -> CMap:
         """ Reorder boxes so that every directed wire points forward. """
-        return self.to_hypergraph().topological_order().to_map()
+        ranks = self._box_ranks()
+        order = tuple(sorted(
+            range(len(self.boxes)), key=lambda i: (ranks[i], i)))
+        if order == tuple(range(len(self.boxes))):
+            return self
+
+        boxes = tuple(self.boxes[i] for i in order)
+        offsets = tuple(self.offsets[i] for i in order)
+        mapping = list(range(self.n_ports))
+        start = len(self.dom)
+        for old in order:
+            for source, target in zip(
+                    self._box_port_indices[old],
+                    range(start, start + len(self._box_port_indices[old]))):
+                mapping[source] = target
+            start += len(self._box_port_indices[old])
+        edges = self.edges.conjugate(Permutation(mapping))
+        return type(self)(
+            self.dom, self.cod, boxes, edges, offsets=offsets,
+            loops=self.loops)
 
     @property
     def is_causal(self) -> bool:
@@ -618,13 +680,21 @@ class CMap[C0: Pregroup, C1: CMap](
             and self.is_topologically_ordered
 
     def __repr__(self):
+        def port_repr(index, port):
+            port_depth = getattr(port, "depth", None)
+            depth = "" if port_depth is None else f"@{port_depth}"
+            return (
+                f"{port.kind}{depth}[{port.i}]:{port.obj}:"
+                f"{port.side}/{port.direction}"
+                f"->{self.edges[index]}")
+
+        ports = tuple(
+            port_repr(index, port)
+            for index, port in enumerate(self.ports))
         return factory_name(type(self))\
             + f"(dom={self.dom!r}, cod={self.cod!r}, " \
               f"boxes={self.boxes!r}, edges={self.edges!r}, " \
-              f"offsets={self.offsets!r}, loops={self.loops!r})"
-
-    def __str__(self):
-        return str(self.to_diagram())
+              f"ports={ports!r}, scalars={self.loops!r})"
 
     def __eq__(self, other: Any):
         return isinstance(other, CMap)\
@@ -1193,6 +1263,8 @@ class CMap[C0: Pregroup, C1: CMap](
         """
         if not self.is_oriented:
             return self.make_oriented().make_causal()
+        if self.is_acyclic and not self.is_topologically_ordered:
+            return self.topological_order()
 
         def cut(wire, typ, source_port=None, target_port=None):
             """ Route a wire via a fresh pair of boundary ports. """
@@ -1249,11 +1321,11 @@ class CMap[C0: Pregroup, C1: CMap](
         return Functor(
             ob_map=lambda typ: typ, ar_map=type(self).from_box,
             dom=self.category, cod=type(self))(
-                self._to_diagram(self.category.permutation_factory))
+                self.to_diagram())
 
     def to_diagram(self) -> Diagram:
         """
-        Downgrade to a diagram directly, preserving box orientation.
+        Downgrade to a foliated diagram preserving box orientation.
 
         The structure of the map is validated against :attr:`category`:
         cups and caps require a category with cups and caps while backward
@@ -1261,10 +1333,12 @@ class CMap[C0: Pregroup, C1: CMap](
         Cups, caps and traces are introduced as explicit boxes by
         :meth:`make_oriented` and :meth:`make_causal`.
 
-        The construction scans the currently open wire labels from left to
-        right. For each box, it routes boundary wires until the box domain
-        wires are adjacent at the requested offset, applies the box, and
-        replaces consumed domain labels by the box codomain labels.
+        Causal dependencies determine which boxes are available. The next box
+        is chosen to minimise the number of wire transpositions needed to make
+        its domain contiguous. Independent boxes are grouped into layers, so
+        planar diagrams round-trip without introducing swaps.
+        Because states have no input wires from which to infer their placement,
+        their stored offsets and original order are preserved.
 
         >>> from discopy.compact import Ty, Box, CMap
         >>> x, y = map(Ty, "xy")
@@ -1274,20 +1348,19 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> print(CMap.cups(x, x.r).to_diagram())
         Cup(x, x.r)
         """
-        if not self.is_causal:
-            if not self.is_oriented and getattr(
-                    self.category, "cup_factory", None) is None:
+        if not self.is_oriented:
+            if getattr(self.category, "cup_factory", None) is None:
                 raise AxiomError(messages.NOT_RIGID.format(
                     factory_name(self.category)))
-            if (not self.is_acyclic or not self.is_topologically_ordered)\
-                    and not issubclass(self.category, TracedCategory):
+            return self.make_oriented().to_diagram()
+        if not self.is_acyclic:
+            if not issubclass(self.category, TracedCategory):
                 raise AxiomError(messages.NOT_TRACED.format(
                     factory_name(self.category)))
-            return self.make_oriented().make_causal().to_diagram()
-        return self._to_diagram()
+            return self.make_causal().to_diagram()
 
-    def _to_diagram(self, permutation_factory=None) -> Diagram:
-        """ Run the boundary scan with structural or explicit routing. """
+        permutation_factory = getattr(
+            self.category, "permutation_factory", None)
         edge_wire = {}
         for i, j in enumerate(self.edges):
             if i <= j:
@@ -1295,62 +1368,136 @@ class CMap[C0: Pregroup, C1: CMap](
 
         diagram = self.category.id(self.dom)
         scan = [edge_wire[i] for i in range(len(self.dom))]
+        pending, layer_dom, layer_right, shift = [], self.dom, 0, 0
 
-        def route(source, target):
+        def flush():
+            nonlocal diagram, pending, layer_right, shift
+            if pending:
+                parts, cursor = [], 0
+                for box, offset in pending:
+                    parts += [layer_dom[cursor:offset], box]
+                    cursor = offset + len(box.dom)
+                parts.append(layer_dom[cursor:])
+                layer = diagram.layer_factory(*parts)
+                diagram >>= diagram.ar((layer,), layer.dom, layer.cod)
+            pending, layer_right, shift = [], 0, 0
+
+        def route(target):
             nonlocal diagram, scan
-            target = min(target, len(scan) - 1)
-            perm = list(range(len(scan)))
-            if permutation_factory is None\
-                    and getattr(diagram, "swap", None) is None:
+            if target == scan:
+                return
+            if permutation_factory is not None:
+                perm = [scan.index(wire) for wire in target]
+                diagram >>= permutation_factory(diagram.cod, perm)
+                scan = list(target)
+                return
+            if getattr(diagram, "swap", None) is None:
                 raise AxiomError(messages.NOT_SYMMETRIC.format(
                     factory_name(self.category)))
-            if source > target:
-                perm[target:source + 1] = [
-                    source, *range(target, source)]
-                if permutation_factory is None:
-                    diagram >>= diagram.cod[:target] @ diagram.swap(
-                        diagram.cod[target:source], diagram.cod[source]
-                    ) @ diagram.cod[source + 1:]
+            current = list(scan)
+            for i, wire in enumerate(target):
+                j = current.index(wire)
+                if i == j:
+                    continue
+                diagram >>= diagram.cod[:i] @ diagram.swap(
+                    diagram.cod[i:j], diagram.cod[j]
+                ) @ diagram.cod[j + 1:]
+                current.insert(i, current.pop(j))
+            scan = current
+
+        def arrange(wires, preferred_offset):
+            """ Find the minimum-transposition contiguous placement. """
+            if not wires:
+                offset = 0 if preferred_offset is None else preferred_offset
+                return 0, max(0, min(offset, len(scan))), list(scan)
+
+            positions = {wire: i for i, wire in enumerate(scan)}
+            wire_set = set(wires)
+            remaining = [wire for wire in scan if wire not in wire_set]
+            internal = sum(
+                positions[left] > positions[right]
+                for i, left in enumerate(wires)
+                for right in wires[i + 1:])
+            before, after = [], []
+            for wire in remaining:
+                n_before = sum(
+                    positions[item] < positions[wire] for item in wires)
+                before.append(n_before)
+                after.append(len(wires) - n_before)
+            costs = [internal + sum(after)]
+            for left, right in zip(before, after):
+                costs.append(costs[-1] + left - right)
+            if preferred_offset is None:
+                offset = min(range(len(costs)), key=costs.__getitem__)
             else:
-                perm[source:target + 1] = [
-                    *range(source + 1, target + 1), source]
-                if permutation_factory is None:
-                    diagram >>= diagram.cod[:source] @ diagram.swap(
-                        diagram.cod[source], diagram.cod[source + 1:target + 1]
-                    ) @ diagram.cod[target + 1:]
-            if permutation_factory is not None:
-                diagram >>= permutation_factory(diagram.cod, perm)
-            scan = [scan[i] for i in perm]
+                offset = max(0, min(preferred_offset, len(remaining)))
+            target = remaining[:offset] + list(wires) + remaining[offset:]
+            return costs[offset], offset, target
 
-        for depth, (box, offset) in enumerate(zip(self.boxes, self.offsets)):
-            box_ports = self._box_port_indices[depth]
-            dom_ports = box_ports[:len(box.dom)]
-            cod_ports = tuple(reversed(box_ports[len(box.dom):]))
-            dom_wires = [edge_wire[i] for i in dom_ports]
-            cod_wires = [edge_wire[i] for i in cod_ports]
+        box_wires = []
+        for depth, box in enumerate(self.boxes):
+            ports = self._box_port_indices[depth]
+            dom_ports = ports[:len(box.dom)]
+            cod_ports = tuple(reversed(ports[len(box.dom):]))
+            box_wires.append((
+                [edge_wire[i] for i in dom_ports],
+                [edge_wire[i] for i in cod_ports]))
 
-            for i, wire_id in enumerate(dom_wires):
-                j = scan.index(wire_id)
-                if i == 0 and offset is None:
-                    offset = 0
-                if j > offset + i:
-                    route(j, offset + i)
-                elif j < offset + i:
-                    route(j, offset + i)
-                    offset -= 1
+        dependents, indegree = self._box_dependencies()
+        remaining = set(range(len(self.boxes)))
+        ready = {i for i, degree in enumerate(indegree) if degree == 0}
+        preserve_order = any(not box.dom and box.cod for box in self.boxes)
+        while ready:
+            selected = []
+            while ready:
+                if selected and min(remaining) not in ready:
+                    break
+                choices = []
+                first = min(remaining)
+                if preserve_order:
+                    eligible = {min(ready)}
+                elif first in ready and not self.boxes[first].dom:
+                    eligible = {first}
+                else:
+                    eligible = {
+                        depth for depth in ready if self.boxes[depth].dom}
+                if not eligible:
+                    eligible = {min(ready)}
+                for depth in eligible:
+                    cost, offset, target = arrange(
+                        box_wires[depth][0], self.offsets[depth])
+                    choices.append((cost, offset, depth, target))
+                cost, offset, depth, target = min(
+                    choices, key=lambda choice: choice[:3])
+                if selected and (cost or offset < layer_right):
+                    break
+                box = self.boxes[depth]
+                dom_wires, cod_wires = box_wires[depth]
 
-            offset = 0 if offset is None else offset
-            scan = scan[:offset] + cod_wires + scan[offset + len(box.dom):]
-            diagram >>= diagram.cod[:offset] @ box @ diagram.cod[
-                offset + len(box.dom):]
+                if target != scan:
+                    route(target)
+                if not pending:
+                    layer_dom = diagram.cod
+                pending.append((box, offset - shift))
+                shift += len(box.cod) - len(box.dom)
+                layer_right = offset + len(box.cod)
+                scan = scan[:offset] + cod_wires + scan[
+                    offset + len(dom_wires):]
+                selected.append(depth)
+                ready.remove(depth)
+                remaining.remove(depth)
+            flush()
+            for source in selected:
+                for target in dependents[source]:
+                    indegree[target] -= 1
+                    if indegree[target] == 0:
+                        ready.add(target)
+        assert not remaining
 
         cod_wires = [
             edge_wire[self.n_ports - len(self.cod) + i]
             for i in range(len(self.cod))]
-        for i, wire_id in enumerate(cod_wires):
-            j = scan.index(wire_id)
-            if i < j:
-                route(j, i)
+        route(cod_wires)
         return diagram
 
     def to_hypergraph(self):
