@@ -184,7 +184,8 @@ class Channel(Tensor):
     def dagger(self) -> Channel:
         return type(self)(self.to_tensor().dagger().array, self.cod, self.dom)
 
-    def blocks(self) -> list[int]:
+    @property
+    def dims(self) -> list[int]:
         """
         The number of axes in each of the six blocks that make up the shape
         of a channel, i.e. the classical then twice the quantum dimension of
@@ -192,7 +193,7 @@ class Channel(Tensor):
 
         Example
         -------
-        >>> Channel.id(C(Dim(2, 2)) @ Q(Dim(2))).blocks()
+        >>> Channel.id(C(Dim(2, 2)) @ Q(Dim(2))).dims
         [2, 1, 1, 2, 1, 1]
         """
         return [len(dim) for cq in (self.dom, self.cod)
@@ -202,7 +203,7 @@ class Channel(Tensor):
         if other is None or others:
             return super().tensor(other, *others)
         assert_isinstance(other, type(self))
-        left, right = self.blocks(), other.blocks()
+        left, right = self.dims, other.dims
         offsets, index = [], 0
         for size in left + right:
             offsets.append(index)
