@@ -76,9 +76,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   [#470](https://github.com/discopy/discopy/pull/470)).
 - The `test/` directory is reorganised to mirror `discopy/`
   ([#403](https://github.com/discopy/discopy/pull/403)).
-- `Sqrt` rejects negative and complex numbers instead of silently picking
-  one of their two square roots, which made `Sqrt.dagger` unsound
-  ([#482](https://github.com/discopy/discopy/issues/482)).
+- `Sqrt` carries an `is_dagger` flag, so a square root and its dagger are
+  no longer equal ([#482](https://github.com/discopy/discopy/issues/482)).
 
 ### Fixed
 
@@ -94,9 +93,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   printed classical dimensions as quantum, `Measure(override_bits=True)`
   could not be evaluated, `Encode` ignored `constructive`/`reset_bits` in
   its types so daggers were not type-correct, `CRz`/`CRx`/`CU1` raised at
-  any `distance` other than one, and `Channel.cups`/`Channel.discard`
-  hard-coded `Channel` so `Channel[float]` silently gave a
-  `Channel[complex]`.
+  any `distance` other than one, `Sqrt.dagger` returned `self` so that
+  `Sqrt(-1) >> Sqrt(-1).dagger()` evaluated to `-1` instead of `1`, and
+  `Channel.cups`/`Channel.discard` hard-coded `Channel` so `Channel[float]`
+  silently gave a `Channel[complex]`.
 
 ### Performance
 

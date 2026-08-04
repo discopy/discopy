@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-from pytest import raises
+import numpy
 
 from discopy.quantum import bit, qubit
 from discopy.quantum.gates import (
-    CRx, CRz, CU1, Controlled, Encode, Measure, Rz, Sqrt, X)
+    CRx, CRz, CU1, Controlled, Encode, Measure, Sqrt, X)
 
 
 def test_Encode_types():
@@ -29,7 +29,10 @@ def test_Controlled_with_distance():
 def test_Sqrt():
     assert Sqrt(4).array == 2
     assert Sqrt(0).array == 0
-    for undefined in (-1, -2.5, 1j, 1 + 1j):
-        with raises(ValueError):
-            Sqrt(undefined)
-    assert Sqrt(2).dagger() == Sqrt(2)
+    for data in (4, 2, -1, -2.5, 1j, 1 + 1j):
+        assert numpy.isclose(
+            (Sqrt(data) >> Sqrt(data).dagger()).eval().array, abs(data))
+        assert Sqrt(data).dagger().dagger() == Sqrt(data)
+    assert Sqrt(-1).dagger() != Sqrt(-1)
+    assert numpy.isclose(Sqrt(-1).dagger().array, Sqrt(-1).array.conjugate())
+    assert repr(Sqrt(-1).dagger()).endswith("[::-1]")

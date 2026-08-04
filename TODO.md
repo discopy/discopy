@@ -6,8 +6,11 @@ only contested one (verbatim, [2026-07-27](https://github.com/discopy/discopy/is
 
 > The rest looks good but `Sqrt(-1)` should raise an error, as it's undefined which square root we mean.
 
-So items 1–4 and 6–9 land as reported; item 5 is resolved by rejecting the input rather than
-fixing the dagger.
+Superseded on review of this PR ([2026-08-04](https://github.com/discopy/discopy/pull/517#discussion_r3713214000)), verbatim:
+
+> ok I changed my mind let's do square roots of negative numbers, let's just fix the Sqrt.dagger method
+
+So all nine items land as reported, item 5 included.
 
 ## Correctness
 
@@ -15,7 +18,7 @@ fixing the dagger.
 - [x] 2. `Measure(override_bits=True)` cannot be evaluated — `channel.py:320` passes a `Dim` to `Channel.discard`, which expects a `CQ`
 - [x] 3. `Encode` ignores `constructive`/`reset_bits` in its types — `gates.py:193` hard-codes `bit ** n, qubit ** n`, so daggers are not type-correct
 - [x] 4. `CRz`/`CRx`/`CU1` with `distance != 1` raise — `gates.py:495` calls `type(self)(controlled)` on a sugar class that takes a phase
-- [x] 5. `Sqrt` of a negative or complex number raises, per @toumix's ruling above
+- [x] 5. `Sqrt.dagger()` returned `self`, so `(Sqrt(-1) >> Sqrt(-1).dagger()).eval().array` was `-1` — it now conjugates, per @toumix's second ruling above
 - [x] 6. `Channel.cups`/`Channel.discard` hard-code `Channel` instead of `cls`, so `Channel[float]` silently yields a `Channel[complex]`
 
 ## Performance

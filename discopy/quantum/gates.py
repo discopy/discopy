@@ -745,29 +745,10 @@ class MixedScalar(Scalar):
 
 
 class Sqrt(Scalar):
-    """
-    Square root of a non-negative real number.
-
-    Negative and complex numbers have two square roots and nothing here
-    picks one of them, so they are rejected rather than silently resolved.
-    Symbolic data is left alone, since it cannot be decided.
-
-    Example
-    -------
-    >>> assert Sqrt(4).array == 2
-    >>> Sqrt(-1)
-    Traceback (most recent call last):
-    ...
-    ValueError: Sqrt(-1) is undefined: -1 has two square roots.
-    """
-    def __init__(self, data):
+    """ Principal square root, i.e. the one with non-negative real part. """
+    def __init__(self, data, is_dagger=False):
         super().__init__(data, name="sqrt")
-        if not self.free_symbols:
-            value = complex(data)
-            if value.imag or value.real < 0:
-                raise ValueError(
-                    f"Sqrt({format_number(data)}) is undefined: "
-                    f"{format_number(data)} has two square roots.")
+        self.is_dagger = is_dagger
         self.drawing_name = f"sqrt({format_number(data)})"
 
     def __setstate__(self, state):
@@ -778,10 +759,18 @@ class Sqrt(Scalar):
     @property
     def array(self):
         with backend() as np:
-            return np.array(self.data ** .5)
+            root = np.array(self.data ** .5)
+            return root.conjugate() if self.is_dagger else root
 
     def dagger(self):
-        return self
+        return Sqrt(self.data, is_dagger=not self.is_dagger)
+
+    def setoid(self):
+        """ A square root and its dagger differ only by ``is_dagger``. """
+        return super().setoid() + (self.is_dagger, )
+
+    def __repr__(self):
+        return super().__repr__() + ("[::-1]" if self.is_dagger else "")
 
 
 def sqrt(expr):
