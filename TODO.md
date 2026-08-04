@@ -8,9 +8,9 @@
 
 - [x] File issue #523 on making quimb a tensor backend via `tensor.CMap`
 - [x] File issue #524 on `CMap.from_diagram` being quadratic
-- [WIP] @013791a6-2026-08-04 12:00 Make `CMap.from_diagram` a single pass: `CMap.from_glued` glues box images
+- [x] Make `CMap.from_diagram` a single pass: `CMap.from_glued` glues box images
       onto a scan of open wires, `validate` runs once on the finished map
-- [ ] Stop `CMap.__init__` materialising every `Port` just to count them
-- [ ] Tests: `from_glued` agrees with the fold, cups/caps/loops/multi-box layers
-- [ ] `CHANGELOG.md` entry under `[Unreleased]` / Performance
-- [ ] `pflake8 discopy` and `coverage run -m pytest` green
+- [x] Stop `CMap.__init__` materialising every `Port` just to count them
+- [x] Tests: `from_glued` agrees with the fold, cups/caps/loops/multi-box layers
+- [x] `CHANGELOG.md` entry under `[Unreleased]` / Performance
+- [x] `pflake8 discopy` and `coverage run -m pytest` green
