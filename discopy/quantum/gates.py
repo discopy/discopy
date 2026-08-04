@@ -429,6 +429,15 @@ class Controlled(QuantumGate):
     distance : int, optional
         Number of qubits from the control to the target, default is :code:`0`.
         If negative, the control is on the right of the target.
+
+    >>> circuit = (Controlled(CX.l, distance=3)
+    ...            >> Controlled(Controlled(CZ.l, distance=2), distance=-1))
+    >>> circuit.draw(
+    ...     wire_labels=False,
+    ...     doctest="docs/_static/quantum/long-controlled.svg")
+
+    .. image:: /_static/quantum/long-controlled.svg
+        :align: center
     """
     draw_as_controlled = True
 
