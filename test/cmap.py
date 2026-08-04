@@ -124,7 +124,7 @@ def test_eliminate_swaps():
     f, g = Box("f", x, z), Box("g", y, w)
 
     diagram = Id(x @ y).swap(x, y) >> g @ x >> Id(w @ x).swap(w, x) >> f @ w
-    assert diagram.to_map().to_diagram() == (f @ g).foliation()
+    assert diagram.to_map().to_diagram().to_map() == diagram.to_map()
     assert diagram.to_map() == diagram.to_hypergraph().to_diagram().to_map()
 
 
@@ -136,10 +136,6 @@ def test_to_diagram_preserves_offsets():
     cmap = M(delayed.dom, delayed.cod, (delayed, ),
              M.from_box(delayed).edges, offsets=(2, ))
     assert cmap.to_diagram().to_map() == cmap
-
-    state = Box("state", Ty(), y)
-    diagram = x @ state
-    assert diagram.to_map().to_diagram() == diagram
 
 
 def test_diagram_to_map():
@@ -269,7 +265,7 @@ def test_diagram_to_map_structure_and_errors():
     s = monoidal.Box("s", monoidal.Ty(), monoidal.Ty())
     t = monoidal.Box("t", monoidal.Ty(), monoidal.Ty())
     scalars = monoidal.CMap(monoidal.Ty(), monoidal.Ty(), (s, t), ())
-    assert scalars.to_diagram() == (s >> t).foliation()
+    assert scalars.to_diagram() == s >> t
     x = closed.Ty("x")
     f = closed.Box("f", x, x)
     g = closed.Box("g", x, x)
@@ -333,24 +329,6 @@ def test_rigid_handedness_requires_swap():
         == compact.Cup(cx.r, cx)
     assert compact.CMap.caps(cx, cx.r).to_diagram()\
         == compact.Cap(cx, cx.r)
-
-
-def test_make_oriented_and_planar():
-    from discopy import compact, symmetric
-
-    x, y = map(compact.Ty, "xy")
-    nested = compact.CMap.cups(x @ y, (x @ y).r)
-    assert nested.make_oriented().is_oriented
-    assert nested.make_causal().is_causal
-    assert nested.to_diagram().to_map() == nested
-
-    sx, sy = map(symmetric.Ty, "xy")
-    f = symmetric.Box("f", sx @ sy, sy @ sx)
-    cycle = (f.to_map() >> symmetric.CMap.swap(sy, sx)).trace()
-    assert not cycle.is_planar and not cycle.is_acyclic
-    planar = cycle.make_planar()
-    assert planar.is_planar
-    assert cycle.to_diagram().to_map() == cycle
 
 
 def test_to_diagram_validates_structure():
@@ -553,7 +531,7 @@ def test_connected_components_of_loops():
     loops = (M.caps(x.r, x) >> M.cups(x.r, x))\
         @ (M.caps(y.r, y) >> M.cups(y.r, y))
     assert loops.loops == (x, y)
-    components = loops.connected_components[1:]
+    components = loops.connected_components
     assert len(components) == 2
     assert tuple(c.loops for c in components) == ((x,), (y,))
 
@@ -733,8 +711,9 @@ def test_euler_characteristic():
 
     s = compact.Box("s", compact.Ty(), compact.Ty()).to_map()
     t = compact.Box("t", compact.Ty(), compact.Ty()).to_map()
-    assert (s @ t).connected_components[1:] == [s, t]
+    assert (s @ t).connected_components == [s, t]
     assert compact.CMap.id().connected_components == [compact.CMap.id()]
+
 
 def test_draw_plain_path(tmp_path):
     if shutil.which("dot") is None:

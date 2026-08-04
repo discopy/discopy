@@ -40,6 +40,7 @@ from enum import StrEnum
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from functools import cached_property
 from inspect import isclass
 from io import BytesIO
 from math import lcm
@@ -341,13 +342,10 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> (Swap(y, x) >> f).to_map().euler_characteristic
         0
         """
+        if len(self.connected_components) != 1:
+            raise ValueError(messages.NOT_CONNECTED.format(self))
         if not self.n_ports and not self.boxes and not self.loops:
             return 2
-        components = self.connected_components
-        if not self.boundary_cycle:
-            components = components[1:]
-        if len(components) != 1:
-            raise ValueError(messages.NOT_CONNECTED.format(repr(self)))
         return self.n_vertices - self.n_edges + self.n_faces
 
     @property
@@ -421,19 +419,28 @@ class CMap[C0: Pregroup, C1: CMap](
 
     @property
     def connected_components(self) -> list[CMap]:
-        """
-        The connected components, with the unique boundary component first.
+        """ The connected components, with the boundary component first. """
+        if not self.n_ports:
+            # Avoid recursively rebuilding the same portless component.
+            if len(self.boxes) + len(self.loops) <= 1:
+                return [self]
+            components = [
+                type(self)(
+                    self.ob(), self.ob(), (box, ), (),
+                    offsets=(offset, ))
+                for box, offset in zip(self.boxes, self.offsets)]
+            components += [
+                type(self)(self.ob(), self.ob(), (), (), loops=(loop, ))
+                for loop in self.loops]
+            return components
 
-        When the boundary is empty, the first component is the empty map.
-        """
         component_of = self.edges.coequalizer(self.orientation)
         boundary = set(range(len(self.dom))) | set(range(
             self.n_ports - len(self.cod), self.n_ports))
         boundary_component = component_of[next(iter(boundary))]\
             if boundary else None
 
-        ports_by_component: dict[int | None, list[int]] = {
-            boundary_component: []}
+        ports_by_component: dict[int, list[int]] = {}
         for port, component in component_of.items():
             ports_by_component.setdefault(component, []).append(port)
 
@@ -455,7 +462,7 @@ class CMap[C0: Pregroup, C1: CMap](
                 and not self.loops:
             return [self]
 
-        def make_component(component: int | None) -> CMap:
+        def make_component(component: int) -> CMap:
             dom = self.dom if component == boundary_component else self.ob()
             cod = self.cod if component == boundary_component else self.ob()
             boxes = tuple(box for _, box in boxes_by_component.get(
@@ -482,7 +489,7 @@ class CMap[C0: Pregroup, C1: CMap](
             ports_by_component,
             key=lambda component: (
                 component != boundary_component,
-                min(ports_by_component[component], default=-1)))
+                min(ports_by_component[component])))
         components = [make_component(component)
                       for component in ordered_components]
         components += [
@@ -578,7 +585,8 @@ class CMap[C0: Pregroup, C1: CMap](
             ports[i].kind.is_positive != ports[j].kind.is_positive
             for i, j in enumerate(self.edges) if i < j)
 
-    def _box_dependencies(self) -> tuple[list[list[int]], list[int]]:
+    @cached_property
+    def box_dependencies(self) -> tuple[list[list[int]], list[int]]:
         """ Return the box dependency graph and its indegrees. """
         dependents = [[] for _ in self.boxes]
         indegree = [0] * len(self.boxes)
@@ -604,7 +612,7 @@ class CMap[C0: Pregroup, C1: CMap](
         Raises:
             ValueError : If the box dependency graph has a directed cycle.
         """
-        dependents, indegree = self._box_dependencies()
+        dependents, indegree = self.box_dependencies
         indegree, ranks = list(indegree), [0] * len(self.boxes)
         ready = [i for i, degree in enumerate(indegree) if degree == 0]
         seen = 0
@@ -642,7 +650,7 @@ class CMap[C0: Pregroup, C1: CMap](
     @property
     def is_topologically_ordered(self) -> bool:
         """ Whether every directed wire points forward in the box order. """
-        dependents, _ = self._box_dependencies()
+        dependents, _ = self.box_dependencies
         return all(source < target
                    for source, targets in enumerate(dependents)
                    for target in targets)
@@ -1320,7 +1328,8 @@ class CMap[C0: Pregroup, C1: CMap](
 
     def make_planar(self) -> CMap:
         """
-        Introduce explicit permutation boxes to make self :attr:`is_planar`.
+        Introduce explicit permutation boxes to make self :attr:`is_planar`,
+        preserving the order and state offsets of existing boxes.
 
         Example
         -------
@@ -1329,19 +1338,65 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> assert CMap.swap(x, y).make_planar()\\
         ...     == CMap.from_box(Permutation(x @ y, [1, 0]))
         """
-        if self.is_planar:
-            return self
         if not self.is_causal:
             return self.make_oriented().make_causal().make_planar()
+
+        edge_wire = {}
+        for i, j in enumerate(self.edges):
+            if i <= j:
+                edge_wire[i] = edge_wire[j] = len(edge_wire) // 2
+
+        diagram = self.category.id(self.dom)
+        scan = [edge_wire[i] for i in range(len(self.dom))]
+
+        def route(target):
+            nonlocal diagram, scan
+            if target == scan:
+                return
+            if not hasattr(self.category, "from_permutation"):
+                raise AxiomError(messages.NOT_SYMMETRIC.format(
+                    factory_name(self.category)))
+            perm = [scan.index(wire) for wire in target]
+            diagram >>= self.category.from_permutation(perm, diagram.cod)
+            scan = list(target)
+
+        for depth, (box, offset) in enumerate(zip(
+                self.boxes, self.offsets)):
+            ports = self._box_port_indices[depth]
+            dom_ports = ports[:len(box.dom)]
+            cod_ports = tuple(reversed(ports[len(box.dom):]))
+            dom_wires = [edge_wire[i] for i in dom_ports]
+            cod_wires = [edge_wire[i] for i in cod_ports]
+            remaining = [wire for wire in scan if wire not in dom_wires]
+            if dom_wires:
+                offset = sum(
+                    scan.index(wire) < scan.index(dom_wires[0])
+                    for wire in remaining)
+            elif offset is None:
+                offset = 0
+            offset = max(0, min(offset, len(remaining)))
+            route(remaining[:offset] + dom_wires + remaining[offset:])
+            diagram >>= diagram.cod[:offset] @ box @ diagram.cod[
+                offset + len(box.dom):]
+            scan = scan[:offset] + cod_wires + scan[
+                offset + len(dom_wires):]
+
+        cod_wires = [
+            edge_wire[self.n_ports - len(self.cod) + i]
+            for i in range(len(self.cod))]
+        route(cod_wires)
+
         from discopy.monoidal import Functor
-        return Functor(
+        result = Functor(
             ob_map=lambda typ: typ, ar_map=type(self).from_box,
-            dom=self.category, cod=type(self))(
-                self.to_diagram())
+            dom=self.category, cod=type(self))(diagram)
+        return type(self)(
+            result.dom, result.cod, result.boxes, result.edges,
+            offsets=tuple(diagram.offsets), loops=result.loops)
 
     def to_diagram(self) -> Diagram:
         """
-        Downgrade to a foliated diagram preserving box orientation.
+        Downgrade to a diagram preserving box orientation.
 
         The structure of the map is validated against :attr:`category`:
         cups and caps require a category with cups and caps while backward
@@ -1349,12 +1404,8 @@ class CMap[C0: Pregroup, C1: CMap](
         Cups, caps and traces are introduced as explicit boxes by
         :meth:`make_oriented` and :meth:`make_causal`.
 
-        Causal dependencies determine which boxes are available. The next box
-        is chosen to minimise the number of wire transpositions needed to make
-        its domain contiguous. Independent boxes are grouped into layers, so
-        planar diagrams round-trip without introducing swaps.
-        Because states have no input wires from which to infer their placement,
-        their stored offsets and original order are preserved.
+        Routing is delegated to :meth:`make_planar`; decoding then applies a
+        monoidal functor to the resulting staircase.
 
         >>> from discopy.compact import Ty, Box, CMap
         >>> x, y = map(Ty, "xy")
@@ -1375,146 +1426,17 @@ class CMap[C0: Pregroup, C1: CMap](
                     factory_name(self.category)))
             return self.make_causal().to_diagram()
 
-        permutation_factory = getattr(
-            self.category, "permutation_factory", None)
-        edge_wire = {}
-        for i, j in enumerate(self.edges):
-            if i <= j:
-                edge_wire[i] = edge_wire[j] = len(edge_wire) // 2
-
-        diagram = self.category.id(self.dom)
-        scan = [edge_wire[i] for i in range(len(self.dom))]
-        pending, layer_dom, layer_right, shift = [], self.dom, 0, 0
-
-        def flush():
-            nonlocal diagram, pending, layer_right, shift
-            if pending:
-                parts, cursor = [], 0
-                for box, offset in pending:
-                    parts += [layer_dom[cursor:offset], box]
-                    cursor = offset + len(box.dom)
-                parts.append(layer_dom[cursor:])
-                layer = diagram.layer_factory(*parts)
-                diagram >>= diagram.ar((layer,), layer.dom, layer.cod)
-            pending, layer_right, shift = [], 0, 0
-
-        def route(target):
-            nonlocal diagram, scan
-            if target == scan:
-                return
-            if permutation_factory is not None:
-                perm = [scan.index(wire) for wire in target]
-                diagram >>= permutation_factory(diagram.cod, perm)
-                scan = list(target)
-                return
-            if getattr(diagram, "swap", None) is None:
-                raise AxiomError(messages.NOT_SYMMETRIC.format(
-                    factory_name(self.category)))
-            current = list(scan)
-            for i, wire in enumerate(target):
-                j = current.index(wire)
-                if i == j:
-                    continue
-                diagram >>= diagram.cod[:i] @ diagram.swap(
-                    diagram.cod[i:j], diagram.cod[j]
-                ) @ diagram.cod[j + 1:]
-                current.insert(i, current.pop(j))
-            scan = current
-
-        def arrange(wires, preferred_offset):
-            """ Find the minimum-transposition contiguous placement. """
-            if not wires:
-                offset = 0 if preferred_offset is None else preferred_offset
-                return 0, max(0, min(offset, len(scan))), list(scan)
-
-            positions = {wire: i for i, wire in enumerate(scan)}
-            wire_set = set(wires)
-            remaining = [wire for wire in scan if wire not in wire_set]
-            internal = sum(
-                positions[left] > positions[right]
-                for i, left in enumerate(wires)
-                for right in wires[i + 1:])
-            before, after = [], []
-            for wire in remaining:
-                n_before = sum(
-                    positions[item] < positions[wire] for item in wires)
-                before.append(n_before)
-                after.append(len(wires) - n_before)
-            costs = [internal + sum(after)]
-            for left, right in zip(before, after):
-                costs.append(costs[-1] + left - right)
-            if preferred_offset is None:
-                offset = min(range(len(costs)), key=costs.__getitem__)
-            else:
-                offset = max(0, min(preferred_offset, len(remaining)))
-            target = remaining[:offset] + list(wires) + remaining[offset:]
-            return costs[offset], offset, target
-
-        box_wires = []
-        for depth, box in enumerate(self.boxes):
-            ports = self._box_port_indices[depth]
-            dom_ports = ports[:len(box.dom)]
-            cod_ports = tuple(reversed(ports[len(box.dom):]))
-            box_wires.append((
-                [edge_wire[i] for i in dom_ports],
-                [edge_wire[i] for i in cod_ports]))
-
-        dependents, indegree = self._box_dependencies()
-        remaining = set(range(len(self.boxes)))
-        ready = {i for i, degree in enumerate(indegree) if degree == 0}
-        preserve_order = any(not box.dom and box.cod for box in self.boxes)
-        while ready:
-            selected = []
-            while ready:
-                if selected and min(remaining) not in ready:
-                    break
-                choices = []
-                first = min(remaining)
-                if preserve_order:
-                    eligible = {min(ready)}
-                elif first in ready and not self.boxes[first].dom:
-                    eligible = {first}
-                else:
-                    eligible = {
-                        depth for depth in ready if self.boxes[depth].dom}
-                if not eligible:
-                    eligible = {min(ready)}
-                for depth in eligible:
-                    cost, offset, target = arrange(
-                        box_wires[depth][0], self.offsets[depth])
-                    choices.append((cost, offset, depth, target))
-                cost, offset, depth, target = min(
-                    choices, key=lambda choice: choice[:3])
-                if selected and (cost or offset < layer_right):
-                    break
-                box = self.boxes[depth]
-                dom_wires, cod_wires = box_wires[depth]
-
-                if target != scan:
-                    route(target)
-                if not pending:
-                    layer_dom = diagram.cod
-                pending.append((box, offset - shift))
-                shift += len(box.cod) - len(box.dom)
-                layer_right = offset + len(box.cod)
-                scan = scan[:offset] + cod_wires + scan[
-                    offset + len(dom_wires):]
-                selected.append(depth)
-                ready.remove(depth)
-                remaining.remove(depth)
-            flush()
-            for source in selected:
-                for target in dependents[source]:
-                    indegree[target] -= 1
-                    if indegree[target] == 0:
-                        ready.add(target)
-        assert not remaining
-
-        cod_wires = [
-            edge_wire[self.n_ports - len(self.cod) + i]
-            for i in range(len(self.cod))]
-        route(cod_wires)
-        return diagram
+        from discopy import monoidal
+        planar = self.make_planar()
+        generators = [
+            monoidal.Box(str(depth), box.dom, box.cod)
+            for depth, box in enumerate(planar.boxes)]
+        staircase = monoidal.Diagram.decode(
+            planar.dom, zip(generators, planar.offsets), cod=planar.cod)
+        return monoidal.Functor(
+            ob_map=lambda typ: typ.inside[0],
+            ar_map=lambda box: planar.boxes[int(box.name)],
+            dom=monoidal.Diagram, cod=self.category)(staircase)
 
     def to_hypergraph(self):
         """

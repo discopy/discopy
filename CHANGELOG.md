@@ -54,9 +54,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   exponential or compact structure, defaulting to the strongest structure of
   the host category ([#391](https://github.com/discopy/discopy/issues/391)).
 - CMap planarity is now diagnostic rather than a downgrade constraint;
-  decoding computes box dependencies directly, foliates independent boxes,
-  preserves state offsets and minimises wire transpositions, while
-  `make_planar` materialises routing as host-category permutation boxes
+  `make_planar` preserves box order and state offsets while materialising
+  routing as host-category permutations, and `to_diagram` decodes the result
+  functorially
   ([#391](https://github.com/discopy/discopy/issues/391)).
 - `Arrow` is refactored onto a `FreeCategory` base class
   ([#350](https://github.com/discopy/discopy/pull/350)).
