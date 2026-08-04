@@ -21,3 +21,9 @@ make sure you find a trick to have the same image draw on both white and black, 
 - [x] coloured-bubble corners are funky: diagnose and fix
 - [x] ribbon dual_rail messed up: region-drawing bug introduced or made visible? diagnose and answer
 - [x] monoidal bubble-example looks weird even in the base branch: diagnose, file issue if pre-existing (filed [#520](https://github.com/discopy/discopy/issues/520))
+
+## Review feedback, third round (2026-08-04)
+
+- [WIP] @claude-2026-08-04 18:30 the frame is completely invisible in single-frame: draw the frame contour underneath the region fills, keeping the interior transparent
+- [WIP] @claude-2026-08-04 18:30 wire labels and bare text (equation symbols) unreadable on black: white halo, like subtitles
+- [ ] wires look doubled on black backgrounds; prefers-color-scheme CSS proposed as an alternative to outlines — design ruling for a human, answered on the thread
