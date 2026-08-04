@@ -139,11 +139,12 @@ def test_diagram_subclass_to_map_rebinds_category():
     from discopy import balanced, cmap as discopy_cmap, monoidal
     from discopy.cat import factory
 
-    twist = balanced.Twist(balanced.Ty("x"))
-    cmap = twist.to_map()
+    x = balanced.Ty("x")
+    box = balanced.Box("f", x, x)
+    cmap = box.to_map()
     assert cmap.category is balanced.Diagram
-    assert cmap.to_diagram() == twist
-    assert twist.to_hypergraph().to_map().category is balanced.Diagram
+    assert cmap.to_diagram() == box
+    assert box.to_hypergraph().to_map().category is balanced.Diagram
 
     @factory
     class Diagram(monoidal.Diagram):
@@ -165,11 +166,12 @@ def test_diagram_subclass_to_map_rebinds_category():
 
 
 def test_named_generic_category_factories():
-    from discopy import biclosed, closed, cmap
+    from discopy import biclosed, closed, cmap, tensor
     from discopy.grammar import categorial
 
-    for module in (biclosed, closed, categorial):
+    for module in (biclosed, closed, categorial, tensor):
         assert module.CMap is cmap.CMap[module.Diagram]
+    assert not hasattr(biclosed.Diagram, "map_factory")
 
 
 def test_symmetric_diagram_to_map_encodes_swap_as_wiring():
@@ -237,7 +239,7 @@ def test_diagram_to_map_structure_and_errors():
     bx = balanced.Ty("x")
     twist = balanced.Twist(bx)
     assert traced.CMap.from_diagram(twist).boxes == (twist, )
-    assert twist.to_map().boxes == (twist, )
+    assert twist.to_map() == balanced.Id(bx).to_map()
 
     cx, cy = map(closed.Ty, "xy")
     ev = closed.Eval(cy << cx)
@@ -329,7 +331,7 @@ def test_diagram_to_map_structure_and_errors():
     x = frobenius.Ty("x")
     assert frobenius.CMap.spiders(1, 2, x).boxes == (
         frobenius.Diagram.spiders(1, 2, x), )
-    assert frobenius.Diagram.map_factory is frobenius.CMap
+    assert not hasattr(frobenius.Diagram, "map_factory")
 
 
 def test_to_diagram_introduces_cups_caps_and_traces():

@@ -892,9 +892,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         """
         if not self.is_bijective:
             return self.make_bijective().to_map()
-        factory = getattr(self.category, "map_factory", None) or cmap.CMap
-        if factory.category is not self.category:
-            factory = factory[self.category]
+        factory = cmap.CMap[self.category]
         relabeling = Permutation(self._hypergraph_to_canonical())
         edges = Permutation(self.bijection).conjugate(relabeling)
         loops = tuple(self.spider_types[i] for i in self.scalar_spiders)

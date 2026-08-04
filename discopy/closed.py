@@ -177,7 +177,6 @@ CMap = cmap.CMap[Diagram]
 
 
 Diagram.functor_factory = Functor
-Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.copy_factory = Copy
 Diagram.braid_factory = Swap

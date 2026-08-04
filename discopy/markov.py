@@ -314,7 +314,6 @@ class Functor(symmetric.Functor):
 CMap = cmap.CMap[Diagram]
 
 Diagram.functor_factory = Functor
-Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.braid_factory = Swap

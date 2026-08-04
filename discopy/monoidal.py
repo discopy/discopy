@@ -973,7 +973,7 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
 
     def to_map(self) -> CMap:
         """ Translate a diagram into a combinatorial map. """
-        return self.map_factory.from_diagram(self)
+        return cmap.CMap[type(self).ar].from_diagram(self)
 
     def to_staircases(self):
         """
@@ -1647,7 +1647,6 @@ Diagram.to_gif = drawing.to_gif
 Diagram.sum_factory = Sum
 Diagram.bubble_factory = Bubble
 Diagram.functor_factory = Functor
-Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Drawing.ob = Ty
 Id = Diagram.id

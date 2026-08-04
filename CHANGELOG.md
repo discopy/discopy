@@ -59,9 +59,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - The `tensor` module is refactored to go through `CMap` for `einsum`
   ([#402](https://github.com/discopy/discopy/pull/402)).
 - Add a `functor_factory` attribute to each `Diagram` class and remove
-  `hypergraph_factory`: `Hypergraph` is now a `NamedGeneric["category"]`
-  instead of a `NamedGeneric["functor"]`
-  ([#379](https://github.com/discopy/discopy/pull/379)).
+  `hypergraph_factory` and `map_factory`: `Hypergraph` and `CMap` are
+  parameterised directly as `NamedGeneric["category"]`
+  ([#379](https://github.com/discopy/discopy/pull/379),
+  [#391](https://github.com/discopy/discopy/issues/391)).
 - Documentation notebooks are migrated from Jupyter (`.ipynb`) to marimo
   markdown, with docs (`nbsphinx` → embedded marimo HTML) and CI
   (`nbmake` → `marimo export`) updated to match

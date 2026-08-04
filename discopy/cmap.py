@@ -164,6 +164,10 @@ class CMap[C0: Pregroup, C1: CMap](
 
     Following :class:`Hypergraph`, the map is parametrised by a category and
     any involution with compatible port types is accepted at initialisation.
+    The functor used by :meth:`from_diagram` is read from
+    ``category.functor_factory``; :meth:`Diagram.to_map` parameterises
+    ``CMap`` with the concrete diagram category automatically, without a
+    dedicated ``map_factory`` attribute.
     Only structure needed for cups, caps and traces is validated against the
     category when downgrading with :meth:`to_diagram`:
 

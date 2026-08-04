@@ -161,7 +161,6 @@ Id = Diagram.id
 Diagram.braid_factory = Swap
 Diagram.functor_factory = Functor
 Diagram.permutation_factory = Permutation
-Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 

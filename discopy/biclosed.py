@@ -459,7 +459,6 @@ CMap = cmap.CMap[Diagram]
 
 
 Diagram.functor_factory = Functor
-Diagram.map_factory = CMap
 
 
 class TermBase(Box):

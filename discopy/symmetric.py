@@ -631,7 +631,6 @@ class Functor(balanced.Functor):
 CMap = cmap.CMap[Diagram]
 
 Diagram.functor_factory = Functor
-Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.braid_factory = Swap
 Diagram.permutation_factory = Permutation
