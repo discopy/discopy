@@ -369,10 +369,12 @@ class Backend(ABC):
         return "white" if luma < threshold else "black"
 
     def draw_wire(self, source, target, bend_out=False, bend_in=False,
-                  style=None, linewidth=None, colours=None):
+                  style=None, linewidth=None, colours=None, frame=False):
         """ Draws a wire from source to target, possibly with a Bezier.
         The optional ``colours`` are the names of the regions on either side
-        of the wire, so a backend can keep the wire readable on both. """
+        of the wire, so a backend can keep the wire readable on both.
+        A ``frame`` wire is the contour of a frame: it goes underneath the
+        region fills, so the frame colour decides how much of it shows. """
         self.max_width = max(self.max_width, source[0], target[0])
 
     def draw_bezier(self, points):
@@ -555,12 +557,11 @@ class Backend(ABC):
         fontsize = params.get('fontsize_types', params.get('fontsize', None))
         # The region to the right of this wire, coloured the same way as
         # in draw_regions, is what the label is drawn on top of.
-        background = getattr(x, "cod", None)
-        color = self.readable_foreground(
-            background.name if background is not None else "white")
+        background = "white" if getattr(x, "cod", None) is None else x.cod.name
         self.draw_text(
             label, i, j, verticalalignment='top', fontsize=fontsize,
-            color=color)
+            color=self.readable_foreground(background),
+            halo=background == "white")
 
     @staticmethod
     def has_boundary_sides(typ):
@@ -600,7 +601,6 @@ class Backend(ABC):
         for source, target in self.visible_edges(graph):
             source_position = graph.positions[source]
             target_position = graph.positions[target]
-            # The sides of a frame are drawn with zero width.
             is_frame_boundary = self.is_frame_boundary(source)\
                 or self.is_frame_boundary(target)
             if source.kind in ["dom", "box_cod"]:
@@ -618,8 +618,7 @@ class Backend(ABC):
                 if side is not None)
             self.draw_wire(
                 source_position, target_position, bend_out, bend_in,
-                linewidth=(0 if is_frame_boundary else None),
-                colours=colours or None)
+                frame=is_frame_boundary, colours=colours or None)
 
     def fill_fold(self, outer, inner, color):
         """
@@ -1082,7 +1081,7 @@ class TikZ(Backend):
         super().draw_regions(graph, **params)
 
     def draw_wire(self, source, target, bend_out=False, bend_in=False,
-                  style=None, linewidth=None, colours=None):
+                  style=None, linewidth=None, colours=None, frame=False):
         out = -90 if not bend_out or source[0] == target[0]\
             else (180 if source[0] > target[0] else 0)
         inp = 90 if not bend_in or source[0] == target[0]\
@@ -1204,7 +1203,13 @@ class Matplotlib(Backend):
             patheffects.Stroke(linewidth=linewidth + 2, foreground="white"),
             patheffects.Normal()]
 
-    def draw_stroke(self, path, linewidth, underneath=False):
+    @staticmethod
+    def text_effects():
+        """ The white halo that keeps a label readable on a dark page,
+        like the border of :meth:`wire_effects`, or subtitles. """
+        return [patheffects.withStroke(linewidth=2, foreground="white")]
+
+    def draw_stroke(self, path, linewidth, underneath=False, below=False):
         """
         Strokes a wire ``path`` in black with the thin white border that
         keeps it readable on a dark page. With ``underneath`` the border is
@@ -1212,9 +1217,12 @@ class Matplotlib(Backend):
         an opaque region hides its side of the border and a translucent one
         dims it by its own transparency; otherwise the border is drawn in
         place and cuts whatever was drawn before, e.g. the wire it crosses.
+        With ``below`` the black stroke itself also goes below the fills:
+        the contour of a frame shows through a transparent frame colour and
+        disappears behind an opaque one.
         """
         effects = None
-        if linewidth and underneath:
+        if linewidth and (underneath or below):
             self.axis.add_patch(PathPatch(
                 path, facecolor='none', edgecolor='white',
                 linewidth=linewidth + 2, zorder=.5))
@@ -1222,7 +1230,7 @@ class Matplotlib(Backend):
             effects = self.wire_effects(linewidth)
         self.axis.add_patch(PathPatch(
             path, facecolor='none', linewidth=linewidth,
-            path_effects=effects))
+            path_effects=effects, zorder=.75 if below else 1))
 
     def draw_boundary(self, graph, boundary_color="none", **params):
         """ Draw a transparent canvas with an optional boundary colour. """
@@ -1233,6 +1241,8 @@ class Matplotlib(Backend):
 
     def draw_text(self, text, i, j, **params):
         params['fontsize'] = params.get('fontsize', DEFAULT['fontsize'])
+        if params.pop('halo', False):
+            params['path_effects'] = self.text_effects()
         self.axis.text(i, j, text, **params)
         super().draw_text(text, i, j, **params)
 
@@ -1353,7 +1363,7 @@ class Matplotlib(Backend):
             fontsize=params.get("fontsize_types", params.get("fontsize")))
 
     def draw_wire(self, source, target, bend_out=False, bend_in=False,
-                  style=None, linewidth=None, colours=None):
+                  style=None, linewidth=None, colours=None, frame=False):
         linewidth = self.linewidth if linewidth is None else linewidth
         if style == '->':  # pragma: no cover
             arrow = self.axis.arrow(
@@ -1368,7 +1378,8 @@ class Matplotlib(Backend):
                         [Path.MOVETO, Path.CURVE3, Path.CURVE3])
             underneath = colours is not None and any(
                 colour != "white" for colour in colours)
-            self.draw_stroke(path, linewidth, underneath=underneath)
+            self.draw_stroke(
+                path, linewidth, underneath=underneath, below=frame)
         super().draw_wire(source, target, bend_out=bend_out, bend_in=bend_in)
 
     def draw_bezier(self, points):
@@ -1419,7 +1430,10 @@ class Matplotlib(Backend):
                 node_size=node_size)
             if draw_box_labels:
                 labels = {node: node.box.drawing_name for node in nodes}
-                nx.draw_networkx_labels(*graph.inside, labels)
+                texts = nx.draw_networkx_labels(*graph.inside, labels)
+                for node, text in texts.items():
+                    if node.box.color == "none":  # e.g. equation symbols
+                        text.set_path_effects(self.text_effects())
         super().draw_spiders(graph, draw_box_labels)
 
     def output(self, path=None, show=True, **params):
