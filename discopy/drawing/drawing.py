@@ -114,13 +114,7 @@ Bubbles, grammatical diagrams and quantum circuits use the same backend:
 >>> circuit.draw(
 ...     wire_labels=False, doctest="docs/_static/drawing/long-controlled.svg")
 
-A discard draws one ground symbol on each wire of its domain:
-
->>> from discopy.quantum import Discard, Ket
->>> (Ket(0, 0, 0) >> Discard(3)).draw(
-...     wire_labels=False, doctest="docs/_static/drawing/discards.svg")
-
-.. image:: /_static/drawing/discards.svg
+.. image:: /_static/drawing/long-controlled.svg
     :align: center
 
 Coloured regions are also checked as part of the gallery:

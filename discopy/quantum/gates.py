@@ -91,6 +91,12 @@ class AntiConjugate(Box):
 class Discard(SelfConjugate):
     """
     Discard n qubits. If :code:`dom == bit` then marginal distribution.
+
+    >>> (Ket(0, 0, 0) >> Discard(3)).draw(
+    ...     wire_labels=False, doctest="docs/_static/quantum/discard.svg")
+
+    .. image:: /_static/quantum/discard.svg
+        :align: center
     """
     draw_as_discards = True
 
