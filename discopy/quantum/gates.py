@@ -745,7 +745,11 @@ class MixedScalar(Scalar):
 
 
 class Sqrt(Scalar):
-    """ Principal square root, i.e. the one with non-negative real part. """
+    """
+    Principal square root, i.e. the one with non-negative real part. It is
+    self-adjoint when that root is real, and conjugated by its dagger
+    otherwise, e.g. for the square root of a negative number.
+    """
     def __init__(self, data, is_dagger=False):
         super().__init__(data, name="sqrt")
         self.is_dagger = is_dagger
@@ -763,6 +767,8 @@ class Sqrt(Scalar):
             return root.conjugate() if self.is_dagger else root
 
     def dagger(self):
+        if not self.free_symbols and not complex(self.data ** .5).imag:
+            return self
         return Sqrt(self.data, is_dagger=not self.is_dagger)
 
     def setoid(self):
