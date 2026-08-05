@@ -80,7 +80,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   white one, with a thin white border under black wires, spiders, frame
   contours and labels, so they read on both light and dark pages; a
   coloured region hides its side of the border and a translucent one
-  dims it ([#497](https://github.com/discopy/discopy/pull/497)).
+  dims it. A drawing whose regions erase a colour back to white keeps an
+  opaque white canvas until
+  [#521](https://github.com/discopy/discopy/issues/521) fills regions
+  between their two boundaries
+  ([#497](https://github.com/discopy/discopy/pull/497)).
 
 ### Fixed
 

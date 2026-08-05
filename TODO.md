@@ -27,4 +27,5 @@ make sure you find a trick to have the same image draw on both white and black, 
 - [x] the frame is completely invisible in single-frame: draw the frame contour underneath the region fills, keeping the interior transparent
 - [x] wire labels and bare text (equation symbols) unreadable on black: white halo, like subtitles
 - [x] wires look doubled on black backgrounds; prefers-color-scheme CSS proposed as an alternative to outlines — design ruling for a human, answered on the thread
-- [WIP] @claude-2026-08-04 21:20 ribbon right boundaries drawn white to the canvas edge (ribbon-colors thread): the painter's algorithm erases colour to white, not to transparent (#521) — paint the canvas white when that happens, so dual-rail images read as on main until #521 fills regions between their two boundaries
+- [x] ribbon right boundaries drawn white to the canvas edge (ribbon-colors thread): the painter's algorithm erases colour to white, not to transparent (#521) — paint the canvas white when that happens, so dual-rail images read as on main until #521 fills regions between their two boundaries
+- [x] branch docs still show white behind the SVGs: the theme backs every image with white in dark mode, overridden in custom.css

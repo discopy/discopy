@@ -33,7 +33,7 @@ import numpy as np
 
 from matplotlib.testing.compare import compare_images
 from matplotlib import patheffects
-from matplotlib.patches import PathPatch, Patch
+from matplotlib.patches import PathPatch, Patch, Rectangle
 from matplotlib.path import Path
 from PIL import Image, ImageSequence
 
@@ -1194,6 +1194,7 @@ class Matplotlib(Backend):
         self.linewidth = linewidth
         self.format = format
         self.region_paths = []
+        self.opaque_canvas = False
         super().__init__()
 
     @staticmethod
@@ -1231,6 +1232,21 @@ class Matplotlib(Backend):
         self.axis.add_patch(PathPatch(
             path, facecolor='none', linewidth=linewidth,
             path_effects=effects, zorder=.75 if below else 1))
+
+    def draw_opaque_canvas(self):
+        """
+        Paints the canvas white behind everything, called by :meth:`output`
+        when a white region has overpainted a coloured one: the painter's
+        algorithm of :meth:`draw_regions` erases to white rather than to
+        transparent, so the drawing only reads on the white page it erased
+        for, see https://github.com/discopy/discopy/issues/521
+        """
+        xlim, ylim = self.axis.get_xlim(), self.axis.get_ylim()
+        self.axis.add_patch(Rectangle(
+            (xlim[0], ylim[0]), xlim[1] - xlim[0], ylim[1] - ylim[0],
+            facecolor="white", edgecolor="none", zorder=0))
+        self.axis.set_xlim(xlim)
+        self.axis.set_ylim(ylim)
 
     def draw_boundary(self, graph, boundary_color="none", **params):
         """ Draw a transparent canvas with an optional boundary colour. """
@@ -1309,6 +1325,7 @@ class Matplotlib(Backend):
             self.region_paths.append(self.draw_curved_polygon(
                 *points, facecolor=facecolor, bend_out=bend_out).get_path())
         elif self.region_paths:
+            self.opaque_canvas = True
             self.draw_curved_polygon(
                 *points, facecolor=facecolor, bend_out=bend_out
             ).set_clip_path(
@@ -1448,6 +1465,8 @@ class Matplotlib(Backend):
             self.axis.set_xlim(*xlim)
         if ylim is not None:
             self.axis.set_ylim(*ylim)
+        if self.opaque_canvas:
+            self.draw_opaque_canvas()
         if path is not None:
             try:
                 savefig(
