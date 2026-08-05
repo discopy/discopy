@@ -46,18 +46,16 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 - `CMap` conversion now preserves concrete diagram categories, compares maps
   through their underlying hypergraphs, and separates acyclicity from box order
-  with `is_acyclic`, `is_topologically_ordered`, and `topological_order`;
-  `connected_components` always starts with the boundary component, using the
-  empty map when the boundary is empty
-  ([#391](https://github.com/discopy/discopy/issues/391)).
+  with `is_acyclic`, `is_topologically_ordered`, and `topological_order`
+  ([#532](https://github.com/discopy/discopy/pull/532)).
 - `CMap.curry` and `CMap.uncurry` accept an `exp` flag for selecting
   exponential or compact structure, defaulting to the strongest structure of
-  the host category ([#391](https://github.com/discopy/discopy/issues/391)).
+  the host category ([#532](https://github.com/discopy/discopy/pull/532)).
 - CMap planarity is now diagnostic rather than a downgrade constraint;
   `make_planar` preserves box order and state offsets while materialising
   routing as host-category permutations, and `to_diagram` decodes the result
   functorially
-  ([#391](https://github.com/discopy/discopy/issues/391)).
+  ([#532](https://github.com/discopy/discopy/pull/532)).
 - `Arrow` is refactored onto a `FreeCategory` base class
   ([#350](https://github.com/discopy/discopy/pull/350)).
 - The `tensor` module is refactored to go through `CMap` for `einsum`
@@ -66,7 +64,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `hypergraph_factory` and `map_factory`: `Hypergraph` and `CMap` are
   parameterised directly as `NamedGeneric["category"]`
   ([#379](https://github.com/discopy/discopy/pull/379),
-  [#391](https://github.com/discopy/discopy/issues/391)).
+  [#532](https://github.com/discopy/discopy/pull/532)).
 - Documentation notebooks are migrated from Jupyter (`.ipynb`) to marimo
   markdown, with docs (`nbsphinx` → embedded marimo HTML) and CI
   (`nbmake` → `marimo export`) updated to match
@@ -96,13 +94,13 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 - `CMap` representations are evaluable after `from discopy import *` and
   preserve drawing offsets and scalar loops
-  ([#391](https://github.com/discopy/discopy/issues/391)).
+  ([#532](https://github.com/discopy/discopy/pull/532)).
 - Pivotal diagram-to-map conversion now encodes cups and caps as `CMap`
   wiring rather than keeping them as boxes
-  ([#391](https://github.com/discopy/discopy/issues/391)).
+  ([#532](https://github.com/discopy/discopy/pull/532)).
 - Rigid `CMap` downgrade now distinguishes left and right adjoints, rejecting
   bends whose crossed wiring would require an unavailable swap
-  ([#391](https://github.com/discopy/discopy/issues/391)).
+  ([#532](https://github.com/discopy/discopy/pull/532)).
 - Tensor networks are contracted with `opt_einsum` when the number of
   indices exceeds `numpy.einsum`'s 52-index limit
   ([#448](https://github.com/discopy/discopy/pull/448)).

@@ -1195,16 +1195,6 @@ class CMap[C0: Pregroup, C1: CMap](
 
         Parameters:
             left : Whether to trace on the left or right.
-
-        Note
-        ----
-        When ``category.trace_factory`` is a subclass of ``category``,
-        e.g. for symmetric diagrams, then the result is just one big trace box
-        wrapped up as a map.
-
-        Otherwise, we assume that the trace factory is a class method, e.g.
-        for compact diagrams, in which case we use this method to introduce
-        cup and cap boxes.
         """
         factory = self.category.trace_factory
         if isclass(factory) and issubclass(factory, self.category):
