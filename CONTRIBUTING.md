@@ -64,11 +64,10 @@ Without the extras installed, run `uv run pytest --skip-extra` to skip what need
 
 ## Run the benchmarks
 
-`benchmark/test_composition.py` reproduces the scaling experiments of
-arXiv:2105.09257 for `Diagram` and `Hypergraph`, along with benchmarks for
-combinatorial maps and tensor contraction. It lives outside `testpaths`, so the
-normal `pytest` run never collects it — run it explicitly. Each `(case, size)` is
-a declarative
+The composition benchmark (`benchmark/test_composition.py`) reproduces the scaling
+experiments of arXiv:2105.09257 for `Diagram`, `Hypergraph` and `CMap`. It lives
+outside `testpaths`, so the normal `pytest` run never collects it — run it
+explicitly. Each `(case, size)` is a declarative
 [`pytest-benchmark`](https://pytest-benchmark.readthedocs.io) test — the fixture
 owns timing (CPU clock, GC disabled, median of a few rounds), so there is no
 hand-rolled timing code.

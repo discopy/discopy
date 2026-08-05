@@ -58,47 +58,25 @@ def to_markdown(table: pl.DataFrame) -> str:
     return "\n".join(lines)
 
 
-def benchmark_family(name: str) -> str:
-    """ Workload shared by analogous representation-specific cases. """
-    name = name.rsplit(" (", 1)[0]
-    return {
-        "adder evaluation": "adder functor",
-        "staircase foliation": "staircase",
-        "staircase to hypergraph": "staircase",
-        "staircase to cmap": "staircase",
-        "staircase evaluation": "staircase",
-        "spiral normal_form": "spiral equality",
-        "spiral evaluation": "spiral equality",
-        "transpose snake removal": "transpose equality",
-        "transpose evaluation": "transpose equality",
-    }.get(name, name)
-
-
 def plot(df: pl.DataFrame, path: str) -> None:
     """ Log-log scaling plot, grouped into one panel per representation. """
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    panels = ["Diagram", "Hypergraph", "CMap", "Tensor"]
-    figure, grid = plt.subplots(2, 2, figsize=(14, 11), sharey=True)
-    axes = grid.flatten()
-    families = sorted({benchmark_family(name) for name in df["case"]})
-    palette = plt.get_cmap("tab10")
-    colors = {name: palette(i % 10) for i, name in enumerate(families)}
+    figure, axes = plt.subplots(1, 3, figsize=(19, 6), sharey=True)
     for (name,), group in df.group_by("case", maintain_order=True):
-        panel = next(
-            i for i, title in enumerate(panels) if f"({title})" in name)
-        axis = axes[panel]
+        axis = axes[
+            2 if "CMap" in name else 1 if "Hypergraph" in name else 0]
         ordered = group.sort("n")
         axis.plot(ordered["n"].to_list(), ordered["median"].to_list(),
-                  marker="o", label=name, color=colors[benchmark_family(name)])
-    for axis, title in zip(axes, panels):
+                  marker="o", label=name)
+    for axis, title in zip(axes, ["Diagram", "Hypergraph", "CMap"]):
         axis.set(xscale="log", yscale="log", xlabel="size $n$", title=title)
         axis.grid(True, which="both", linestyle=":", linewidth=.5)
         axis.legend(fontsize="small")
     axes[0].set_ylabel("median CPU time (s)")
-    figure.suptitle("Composition and tensor evaluation benchmark scaling")
+    figure.suptitle("Composition benchmark scaling (arXiv:2105.09257)")
     figure.tight_layout()
     figure.savefig(path, dpi=120)
     plt.close(figure)
