@@ -80,7 +80,7 @@ def plot(df: pl.DataFrame, path: str) -> None:
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    panels = ["Diagram", "Hypergraph", "CMap", "Tensor"]
+    panels = ["Diagram", "Hypergraph", "CMap", "Tensor contraction"]
     figure, grid = plt.subplots(2, 2, figsize=(14, 11), sharey=True)
     axes = grid.flatten()
     families = sorted({benchmark_family(name) for name in df["case"]})
