@@ -28,17 +28,17 @@ open: the eleven ready PRs touch `symmetric.py`, `closed.py`, `quantum/`,
 
 ---
 
-- [WIP] @evening-2026-08-05T00:15 A fully parenthesized category unwraps instead of
+- [x] @evening-2026-08-05T00:15 A fully parenthesized category unwraps instead of
       becoming an atom
-- [WIP] @evening-2026-08-05T00:15 A feature is stripped wherever it occurs, not only on
+- [x] @evening-2026-08-05T00:15 A feature is stripped wherever it occurs, not only on
       an atom
-- [WIP] @evening-2026-08-05T00:15 Slashes associate to the left, as in Steedman's
+- [x] @evening-2026-08-05T00:15 Slashes associate to the left, as in Steedman's
       convention — a third bug in the same three lines, found while fixing the two
       above and not part of the issue, see the note below
-- [WIP] @evening-2026-08-05T00:15 Tests for all three, plus a doctest so the convention
+- [x] @evening-2026-08-05T00:15 Tests for all three, plus a doctest so the convention
       is documented where it is implemented
-- [WIP] @evening-2026-08-05T00:15 `CHANGELOG.md` entry under `[Unreleased]`
-- [WIP] @evening-2026-08-05T00:15 `pflake8 discopy` and `coverage run -m pytest`
+- [x] @evening-2026-08-05T00:15 `CHANGELOG.md` entry under `[Unreleased]`
+- [x] @evening-2026-08-05T00:15 `pflake8 discopy` and `coverage run -m pytest`
 
 ## Left associativity (🌙 evening, 2026-08-05)
 
@@ -52,3 +52,14 @@ the reader of the new `split` to re-derive why it scans forwards.
 Nothing in the repo pinned the old reading: `cat2ty` had no test and no doctest before
 this branch, and every category in `test/grammar/categorial.py`'s depccg fixture is
 fully bracketed, so it parses identically either way.
+
+## Verification (🌙 evening, 2026-08-05)
+
+`uv run pflake8 discopy` clean. `uv run coverage run -m pytest`: **592 passed, 83
+failed, 6 skipped** — the same 83 on this branch and on `main` `e80ea38`, compared as
+sorted `FAILED` lists and diffed to nothing, so none of them is this change. They are
+the container's missing optional stack (`nltk`, `tensornetwork`, `jax`, …) plus the
+version skew that ad-hoc extras give, exactly as recorded on
+[#499](https://github.com/discopy/discopy/issues/499); the extras that do install were
+installed targeted (`pennylane`, `pytket`, `pyzx`, `sympy`, `torch`) to get collection
+past `discopy/quantum/{tk,pennylane}.py`. Zero failures anywhere under `categorial`.
