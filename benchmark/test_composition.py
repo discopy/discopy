@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 
 """
-Composition benchmark, reproducing the experiments of `arXiv:2105.09257
-<https://arxiv.org/pdf/2105.09257>`_ for
-:class:`discopy.symmetric.Diagram`, :class:`discopy.symmetric.Hypergraph`
-and :class:`discopy.symmetric.CMap`.
+The Diagram and Hypergraph cases reproduce the composition experiments of
+`arXiv:2105.09257 <https://arxiv.org/pdf/2105.09257>`_. CMap and tensor
+contraction cases extend the original benchmark.
 
 Each case is a declarative `pytest-benchmark` test: one ``(case, n)`` per data
 point, swept by ``@pytest.mark.parametrize`` over a size list that
@@ -26,10 +25,11 @@ import os
 import random
 import time
 
+import numpy as np
 import pytest
 
-from discopy import compact, rigid
-from discopy.symmetric import Ty, Box, Id, Diagram, Functor
+from discopy import compact, rigid, tensor
+from discopy.symmetric import Ty, Box, Diagram, Functor
 from discopy.monoidal import Layer
 from discopy.python import Function
 
@@ -137,18 +137,24 @@ def build_adder(full_adder, n):
     return adder
 
 
-def make_spiral(n_cups):
-    """ The diagram of arXiv:1804.07832, built with symmetric boxes. """
-    x = Ty('x')
-    unit, counit = Box('unit', Ty(), x), Box('counit', x, Ty())
-    cup, cap = Box('cup', x @ x, Ty()), Box('cap', Ty(), x @ x)
+def make_spiral(n_cups, x=None, box=Box):
+    """ The diagram of arXiv:1804.07832 in the category of ``box``. """
+    x = x or Ty('x')
+    unit_type = x[:0]
+    unit = box('unit', unit_type, x)
+    counit = box('counit', x, unit_type)
+    cup = box('cup', x @ x, unit_type)
+    cap = box('cap', unit_type, x @ x)
+    identity = type(unit).id
     result = unit
     for i in range(n_cups):
-        result = result >> Id(x ** i) @ cap @ Id(x ** (i + 1))
-    result = result >> Id(x ** n_cups) @ counit @ Id(x ** n_cups)
+        result = result >> identity(x ** i) @ cap @ identity(x ** (i + 1))
+    result = result >>\
+        identity(x ** n_cups) @ counit @ identity(x ** n_cups)
     for i in range(n_cups):
         result = result >>\
-            Id(x ** (n_cups - i - 1)) @ cup @ Id(x ** (n_cups - i - 1))
+            identity(x ** (n_cups - i - 1)) @ cup\
+            @ identity(x ** (n_cups - i - 1))
     return result, unit, counit
 
 
@@ -190,6 +196,35 @@ def _adder_functor(full_adder):
         ar_map={full_adder: full_adder_function}, cod=Function)
 
 
+def dense_box(name, dom, cod):
+    """ A tensor box filled with ones, with every wire of dimension two. """
+    return tensor.Box(name, dom, cod, np.ones(2 ** len(dom @ cod)))
+
+
+def close_boundaries(diagram):
+    """ Compose atomic states and effects around an open tensor diagram. """
+    unit = diagram.dom[:0]
+    if diagram.dom:
+        state = dense_box('state', unit, diagram.dom[:1])
+        diagram = repeated(lambda a, b: a.tensor(b), state, len(diagram.dom))\
+            >> diagram
+    if diagram.cod:
+        effect = dense_box('effect', diagram.cod[:1], unit)
+        diagram >>= repeated(
+            lambda a, b: a.tensor(b), effect, len(diagram.cod))
+    return diagram
+
+
+def _tensor_NOT():
+    bit = tensor.Dim(2)
+    return dense_box('NOT', bit, bit)
+
+
+def _tensor_full_adder():
+    bit = tensor.Dim(2)
+    return dense_box('FA', bit ** 3, bit ** 2)
+
+
 # --- k-fold tensor ---------------------------------------------------------
 
 @case("k-fold tensor (Diagram)")
@@ -228,6 +263,17 @@ def test_tensor_cmap(benchmark, n):
         rounds=ROUNDS, warmup_rounds=WARMUP)
 
 
+# tensor.Diagram.eval
+
+@case("k-fold tensor (Tensor)")
+@pytest.mark.parametrize("n", sizes(5, 10, 15, full=(20,)))
+def test_tensor_evaluation(benchmark, n):
+    diagram = close_boundaries(repeated(
+        lambda a, b: a.tensor(b), _tensor_NOT(), n))
+    benchmark.pedantic(
+        lambda: diagram.eval(), rounds=ROUNDS, warmup_rounds=WARMUP)
+
+
 # --- staircase / foliation -------------------------------------------------
 
 @case("staircase foliation (Diagram)")
@@ -252,6 +298,16 @@ def test_staircase_to_cmap(benchmark, n):
     st = staircase(_NOT(), n)
     benchmark.pedantic(
         lambda: st.to_map(), rounds=ROUNDS, warmup_rounds=WARMUP)
+
+
+# tensor.Diagram.eval
+
+@case("staircase evaluation (Tensor)")
+@pytest.mark.parametrize("n", sizes(5, 10, 15, full=(20,)))
+def test_staircase_evaluation(benchmark, n):
+    diagram = close_boundaries(staircase(_tensor_NOT(), n))
+    benchmark.pedantic(
+        lambda: diagram.eval(), rounds=ROUNDS, warmup_rounds=WARMUP)
 
 
 # --- k-fold series ---------------------------------------------------------
@@ -281,6 +337,16 @@ def test_series_cmap(benchmark, n):
     benchmark.pedantic(
         lambda: repeated(lambda a, b: a.then(b), mbox, n),
         rounds=ROUNDS, warmup_rounds=WARMUP)
+
+
+# tensor.Diagram.eval
+
+@case("k-fold series (Tensor)")
+@pytest.mark.parametrize("n", sizes(5, 10, 20, full=(30, 40)))
+def test_series_evaluation(benchmark, n):
+    diagram = repeated(lambda a, b: a.then(b), _tensor_NOT(), n)
+    benchmark.pedantic(
+        lambda: diagram.eval(), rounds=ROUNDS, warmup_rounds=WARMUP)
 
 
 # --- ripple-carry adder ----------------------------------------------------
@@ -323,6 +389,16 @@ def test_adder_functor_diagram(benchmark, n):
     adder = build_adder(full_adder, n)
     benchmark.pedantic(
         lambda: functor(adder), rounds=ROUNDS, warmup_rounds=WARMUP)
+
+
+# tensor.Diagram.eval
+
+@case("adder evaluation (Tensor)")
+@pytest.mark.parametrize("n", sizes(2, 5, 10))
+def test_adder_evaluation(benchmark, n):
+    diagram = close_boundaries(build_adder(_tensor_full_adder(), n))
+    benchmark.pedantic(
+        lambda: diagram.eval(), rounds=ROUNDS, warmup_rounds=WARMUP)
 
 
 # --- spiral (arXiv:1804.07832) ---------------------------------------------
@@ -379,6 +455,14 @@ def test_spiral_equality_cmap(benchmark, n):
         lambda: left == right, rounds=ROUNDS, warmup_rounds=WARMUP)
 
 
+@case("spiral evaluation (Tensor)")
+@pytest.mark.parametrize("n", sizes(2, 5, 10))
+def test_spiral_evaluation(benchmark, n):
+    diagram = make_spiral(n, tensor.Dim(2), dense_box)[0]
+    benchmark.pedantic(
+        lambda: diagram.eval(), rounds=ROUNDS, warmup_rounds=WARMUP)
+
+
 # --- transpose snakes ------------------------------------------------------
 
 @case("transpose snake removal (Diagram)")
@@ -415,6 +499,15 @@ def test_transpose_equality_cmap(benchmark, n):
         lambda: g.to_map() == bare, rounds=ROUNDS, warmup_rounds=WARMUP)
 
 
+@case("transpose evaluation (Tensor)")
+@pytest.mark.parametrize("n", sizes(1, 3, 6))
+def test_transpose_evaluation(benchmark, n):
+    bit = tensor.Dim(2)
+    diagram = with_snakes(dense_box('f', bit, bit), n)
+    benchmark.pedantic(
+        lambda: diagram.eval(), rounds=ROUNDS, warmup_rounds=WARMUP)
+
+
 # --- correctness (run once, not benchmarks) --------------------------------
 
 def test_adder_functor_correct():
@@ -446,3 +539,9 @@ def test_transpose_equality_holds():
     f = compact.Box('f', x, x)
     assert with_snakes(f, 3).to_hypergraph() == f.to_hypergraph()
     assert with_snakes(f, 3).to_map() == f.to_map()
+
+
+def test_tensor_evaluation_holds():
+    """ Three closed all-one nodes evaluate to ``4 ** 3``. """
+    diagram = close_boundaries(staircase(_tensor_NOT(), 3))
+    assert diagram.eval().array == 4 ** 3
