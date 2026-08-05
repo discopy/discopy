@@ -435,7 +435,7 @@ type Term = (
 
 
 def cat2ty(string: str) -> Ty:
-    """
+    r"""
     Translate the string representation of a CCG category into DisCoPy.
 
     A category is either an atom, a bracketed category or two categories
@@ -449,10 +449,10 @@ def cat2ty(string: str) -> Ty:
 
     Example
     -------
-    >>> print(cat2ty(r"(S[dcl]\\NP)/NP"))
+    >>> print(cat2ty(r"(S[dcl]\NP)/NP"))
     ((NP >> S) << NP)
-    >>> assert cat2ty(r"S\\NP/NP") == cat2ty(r"(S\\NP)/NP")
-    >>> assert cat2ty(r"(S\\NP)\\(S\\NP)[conj]") == cat2ty(r"(S\\NP)\\(S\\NP)")
+    >>> assert cat2ty(r"S\NP/NP") == cat2ty(r"(S\NP)/NP")
+    >>> assert cat2ty(r"(S\NP)\(S\NP)[conj]") == cat2ty(r"(S\NP)\(S\NP)")
     """
     def split(string):
         par_count = 0

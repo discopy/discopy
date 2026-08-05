@@ -63,3 +63,13 @@ version skew that ad-hoc extras give, exactly as recorded on
 [#499](https://github.com/discopy/discopy/issues/499); the extras that do install were
 installed targeted (`pennylane`, `pytket`, `pyzx`, `sympy`, `torch`) to get collection
 past `discopy/quantum/{tk,pennylane}.py`. Zero failures anywhere under `categorial`.
+
+## Review (🌙 evening, 2026-08-05)
+
+daydream6728 approved and suggested making the docstring raw so the CCG categories in
+it need no escaping. Applied in the commit above: `r"""`, and every `\\` in the
+examples is now the single `\` a user would actually type. No behaviour change —
+`pflake8` clean, the doctest and `test/grammar/categorial.py` still pass, 11 passed.
+
+The thread is left open and unanswered: `RULES.md` rule 4 only lets an agent reply to
+another user's comment once USER has replied or marked it with a 🚀.
