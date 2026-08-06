@@ -2,7 +2,7 @@
 
 """ Morphism generators shared by the benchmark suites. """
 
-from discopy import compact
+from discopy.abc import CompactCategory, SymmetricCategory
 from discopy.monoidal import Layer
 from discopy.symmetric import Ty, Box, Id, Diagram
 
@@ -39,19 +39,21 @@ def staircase(box, k):
     return result
 
 
-def permutation(factory, xs, dom):
+def permutation[C0, C1](
+        category: SymmetricCategory[C0, C1], xs: list[int], dom: C0) -> C1:
     """ A permutation arrow built from swaps, generic over the category.
 
     Mirrors :meth:`symmetric.Diagram.permutation` using only ``id``, ``swap``,
-    ``tensor`` and ``then``, so the same code builds a Diagram (``factory`` a
+    ``tensor`` and ``then``, so the same code builds a Diagram (``category`` a
     ``symmetric.Box``/``Diagram``), a Hypergraph or a CMap directly.
     """
     if len(dom) <= 1:
-        return factory.id(dom)
+        return category.id(dom)
     i = xs[0]
-    head = factory.swap(dom[:i], dom[i:i + 1]).tensor(factory.id(dom[i + 1:]))
-    tail = factory.id(dom[i:i + 1]).tensor(permutation(
-        factory, [x - 1 if x > i else x for x in xs[1:]],
+    head = category.swap(dom[:i], dom[i:i + 1]).tensor(
+        category.id(dom[i + 1:]))
+    tail = category.id(dom[i:i + 1]).tensor(permutation(
+        category, [x - 1 if x > i else x for x in xs[1:]],
         dom[:i] + dom[i + 1:]))
     return head.then(tail)
 
@@ -122,42 +124,30 @@ def full_adder_box():
     return Box('FA', bit @ bit @ bit, bit @ bit)
 
 
-def source_box(representation):
-    """ An atomic endomorphism embedded in ``representation``. """
-    box = Box("f", Ty("x"), Ty("x"))
-    if representation == "Hypergraph":
-        return box.to_hypergraph()
-    if representation == "CMap":
-        return box.to_map()
-    return box
-
-
-def series(representation, n):
+def series[C0, C1](
+        category: SymmetricCategory[C0, C1], box: C1, n: int) -> C1:
     """ A depth-``n`` source morphism. """
-    box = source_box(representation)
-    return repeated(lambda f, g: f.then(g), box, n)
+    return repeated(category.then, box, n)
 
 
-def tensor(representation, n):
+def tensor[C0, C1](
+        category: SymmetricCategory[C0, C1], box: C1, n: int) -> C1:
     """ A width-``n`` source morphism. """
-    box = source_box(representation)
-    return repeated(lambda f, g: f.tensor(g), box, n)
+    return repeated(category.tensor, box, n)
 
 
-def reverse_permutation(representation, n):
+def reverse_permutation[C0, C1](
+        category: SymmetricCategory[C0, C1], n: int) -> C1:
     """ A routing-heavy reversal on ``n`` wires. """
-    box = source_box(representation)
-    return permutation(type(box), list(reversed(range(n))), box.dom ** n)
+    x = category.ob("x")
+    return category.permutation(list(reversed(range(n))), [x] * n)
 
 
-def snake(representation, n):
+def snake[C0, C1](category: CompactCategory[C0, C1], n: int) -> C1:
     """ A snake made of ``n`` zipping cups and caps. """
-    factory = {
-        "Diagram": compact.Diagram,
-        "Hypergraph": compact.Hypergraph,
-        "CMap": compact.CMap,
-    }[representation]
-    x = compact.Ty("x")
-    cups = repeated(lambda f, g: f.tensor(g), factory.cups(x, x.r), n)
-    caps = repeated(lambda f, g: f.tensor(g), factory.caps(x.r, x), n)
-    return factory.id(x).tensor(caps).then(cups.tensor(factory.id(x)))
+    x = category.ob("x")
+    cups = repeated(category.tensor, category.cups(x, x.r), n)
+    caps = repeated(category.tensor, category.caps(x.r, x), n)
+    return category.then(
+        category.tensor(category.id(x), caps),
+        category.tensor(cups, category.id(x)))
