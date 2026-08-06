@@ -26,6 +26,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - Rich display hooks (`_repr_svg_`/`_repr_html_`) for `Diagram` and `Drawing`
   in Jupyter/IPython
   ([#445](https://github.com/discopy/discopy/pull/445)).
+- A `contract` parameter on `tensor.Functor`, `tensor.Diagram.eval` and
+  `quantum.circuit.Circuit.eval` choosing the contraction engine between
+  `einsum` (the default, switching to `opt_einsum` past
+  `config.MAX_EINSUM_INDICES` indices) and `quimb`, which accepts `cotengra`
+  path optimizers via `optimize` and compressed contraction via `max_bond`,
+  with the Einstein notation exposed as `tensor.Functor.operands` and the
+  contraction dependencies declared in a new `tensor` extra
+  ([#523](https://github.com/discopy/discopy/issues/523)).
 - Composition benchmark suite for diagram operations, reproducing the
   scaling experiments of arXiv:2105.09257
   ([#346](https://github.com/discopy/discopy/pull/346)).
@@ -44,6 +52,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Changed
 
+- `to_quimb` is rebuilt on the combinatorial map, shared between
+  `tensor.Diagram` and `tensor.CMap`: swaps, cups and caps become wiring
+  instead of dense tensors, the network is deterministic and the `dtype`
+  parameter takes effect
+  ([#523](https://github.com/discopy/discopy/issues/523)).
 - `Arrow` is refactored onto a `FreeCategory` base class
   ([#350](https://github.com/discopy/discopy/pull/350)).
 - The `tensor` module is refactored to go through `CMap` for `einsum`
