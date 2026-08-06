@@ -83,3 +83,14 @@ Verification: merged `main` (`e80ea38`) append-only, no conflicts.
 `pflake8 discopy` clean; `pytest --skip-extra` gives 623 passed, 51 skipped.
 Every point above is `[x]`, so this is ready for sign-off as soon as a human
 deletes `TODO.md`.
+
+## Review follow-up (2026-08-06)
+
+Instruction from Alexis, verbatim:
+
+> Simplify layers https://github.com/discopy/discopy/pull/438
+> I added some comments
+
+- [ ] Address all five unresolved review comments: define plumbing in the
+  documentation, expose the layer normalisation steps, and reuse them during
+  deserialisation.
