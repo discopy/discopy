@@ -378,20 +378,23 @@ class Functor(frobenius.Functor):
     def __init__(
             self, ob_map: dict[cat.Ob, Dim], ar_map: dict[cat.Box, list],
             dom: type = None, dtype: type = float,
-            optimize="greedy", **params):
+            optimize="greedy", contract: str = None, **params):
         self.dtype, self.optimize, self.params = dtype, optimize, params
+        self.contraction = contract
         cod = type(self).cod[dtype]
         super().__init__(ob_map, ar_map, dom=dom or type(self).dom, cod=cod)
 
     def __repr__(self):
         optimize = "" if self.optimize == "greedy"\
             else f", optimize={self.optimize!r}"
+        contract = "" if self.contraction is None\
+            else f", contract={self.contraction!r}"
         params = "".join(
             f", {key}={value!r}" for key, value in self.params.items())
         return factory_name(type(self))\
             + f"(ob_map={self.ob_map}, ar_map={self.ar_map}, "\
             + f"dom={factory_name(self.dom)}, "\
-            + f"dtype={self.dtype.__name__}{optimize}{params})"
+            + f"dtype={self.dtype.__name__}{optimize}{contract}{params})"
 
     def __call__(self, other):
         if isinstance(other, Dim):
@@ -406,20 +409,33 @@ class Functor(frobenius.Functor):
         assert_isinstance(other, monoidal.Diagram)
         return self.contract(cmap.CMap.from_diagram(other))
 
-    def contract(self, other: "cmap.CMap") -> Tensor:
+    def operands(self, other: "cmap.CMap") -> tuple[list, list, list]:
         """
-        Contract the image of a combinatorial map in a single ``einsum``
-        call under the active :func:`backend`.
+        The Einstein notation for the image of a combinatorial map: a
+        list of arrays, their lists of integer indices and the output
+        indices, interleavable into an ``einsum`` call.
 
-        The map is Einstein notation: the 2-cycles of its ``edges``
-        involution are the summed indices, boxes are the tensors and the
-        boundary ports are the free indices, with integer labels. A wire
-        is one index of the size of its object's image. Networks with
-        more than ``config.MAX_EINSUM_INDICES`` indices are contracted
-        with the optional ``opt_einsum`` package instead.
+        The 2-cycles of the ``edges`` involution are the summed indices,
+        boxes are the tensors and the boundary ports are the free
+        indices, each carried by an identity so that every index appears
+        on an array. A wire is one index of the size of its object's
+        image, a loop is an identity with a repeated index, i.e. a trace.
 
         Parameters:
-            other : The combinatorial map to contract.
+            other : The combinatorial map to translate.
+
+        Example
+        -------
+        >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
+        >>> F = Functor(ob_map=lambda dim: dim,
+        ...             ar_map=lambda box: box.array, dtype=int)
+        >>> arrays, indices, output = F.operands(
+        ...     (vector >> vector[::-1]).to_map())
+        >>> for array, index in zip(arrays, indices):
+        ...     print(f"{array.tolist()}, {index}")
+        [0, 1], [0]
+        [0, 1], [0]
+        >>> assert output == []
         """
         dim = lambda typ: product(self(typ).inside)
         wires, fresh = {}, count()
@@ -454,21 +470,119 @@ class Functor(frobenius.Functor):
             for loop in other.loops:
                 arrays.append(eye(loop))
                 indices.append(2 * [next(fresh)])
-            if not arrays:
-                return self.cod([1], self(other.dom), self(other.cod))
-            operands = [
-                x for pair in zip(arrays, indices) for x in pair]
-            if next(fresh) > config.MAX_EINSUM_INDICES:
-                import opt_einsum
-                array = opt_einsum.contract(
-                    *operands, output,
-                    optimize=self.optimize, **self.params)
+        return arrays, indices, output
+
+    def to_quimb(self, other) -> "quimb.tensor.TensorNetwork":
+        """
+        Translate the image of a diagram or combinatorial map to a quimb
+        tensor network with free indices ``inp0, ..., out0, ...`` named
+        after the boundary ports and one tensor per box.
+
+        The identities of :meth:`operands` are dropped by naming the
+        boundary wires directly, except for a wire between two boundary
+        ports which keeps its identity so that its two free indices
+        appear on a tensor. An index repeated on one array, i.e. a loop
+        or a box traced with itself, is summed over beforehand.
+
+        Parameters:
+            other : The diagram or combinatorial map to translate.
+        """
+        import quimb.tensor as qtn
+        if not isinstance(other, cmap.CMap):
+            other = cmap.CMap.from_diagram(other)
+        arrays, indices, output = self.operands(other)
+        n_dom, n_boxes = len(other.dom), len(other.boxes)
+        names = {label: f"inp{i}" if i < n_dom else f"out{i - n_dom}"
+                 for i, label in enumerate(output)}
+        eyes = list(zip(
+            arrays[:n_dom] + arrays[n_dom + n_boxes:][:len(other.cod)],
+            indices[:n_dom] + indices[n_dom + n_boxes:][:len(other.cod)],
+            output))
+        tensors = []
+        for array, inds, label in eyes:
+            wire, = (j for j in inds if j != label)
+            if wire in names:
+                tensors.append(qtn.Tensor(
+                    array, inds=(names[label], names[wire])))
             else:
-                params = dict(self.params, optimize=self.optimize)\
-                    if isinstance(get_backend(), (NumPy, JAX))\
-                    else self.params
-                array = np.einsum(*operands, output, **params)
-        return self.cod(array, self(other.dom), self(other.cod))
+                names[wire] = names[label]
+        boxes_and_loops = list(zip(arrays, indices))[n_dom:][:n_boxes]\
+            + list(zip(arrays, indices))[n_dom + n_boxes + len(other.cod):]
+        with backend() as np:
+            for array, inds in boxes_and_loops:
+                kept = [j for j in inds if inds.count(j) == 1]
+                if kept != inds:
+                    array = np.einsum(array, inds, kept)
+                tensors.append(qtn.Tensor(
+                    array, inds=tuple(names.get(j, f"w{j}") for j in kept)))
+        return qtn.TensorNetwork(tensors)
+
+    def contract(self, other: "cmap.CMap") -> Tensor:
+        """
+        Contract the image of a combinatorial map, read as Einstein
+        notation by :meth:`operands`, under the active :func:`backend`.
+
+        The engine is chosen by the ``contract`` parameter of the
+        functor: ``"einsum"`` calls the backend ``einsum``,
+        ``"opt_einsum"`` the optional package of the same name and
+        ``"quimb"`` contracts the network of :meth:`to_quimb`, where
+        ``optimize`` may be a ``cotengra`` path optimizer and a
+        ``max_bond`` parameter or a compressed optimizer selects
+        approximate contraction. By default, ``einsum`` is used and
+        networks with more than ``config.MAX_EINSUM_INDICES`` indices
+        switch to ``opt_einsum``.
+
+        Parameters:
+            other : The combinatorial map to contract.
+        """
+        result = lambda array: self.cod(
+            array, self(other.dom), self(other.cod))
+        n_indices = other.n_edges + len(other.dom) + len(other.cod)
+        contraction = self.contraction or (
+            "einsum" if n_indices <= config.MAX_EINSUM_INDICES
+            else "opt_einsum")
+        if contraction == "quimb":
+            return result(self.contract_quimb(other))
+        if contraction not in ("einsum", "opt_einsum"):
+            raise ValueError(
+                f"Expected 'einsum', 'opt_einsum' or 'quimb', "
+                f"got {contraction!r}.")
+        arrays, indices, output = self.operands(other)
+        if not arrays:
+            return result([1])
+        operands = [x for pair in zip(arrays, indices) for x in pair]
+        if contraction == "opt_einsum":
+            import opt_einsum
+            return result(opt_einsum.contract(
+                *operands, output, optimize=self.optimize, **self.params))
+        with backend() as np:
+            params = dict(self.params, optimize=self.optimize)\
+                if isinstance(get_backend(), (NumPy, JAX))\
+                else self.params
+            return result(np.einsum(*operands, output, **params))
+
+    def contract_quimb(self, other: "cmap.CMap"):
+        """
+        Contract the network of :meth:`to_quimb` and return its array.
+
+        Parameters:
+            other : The combinatorial map to contract.
+        """
+        network = self.to_quimb(other)
+        if not network.tensors:
+            return [1]
+        compressed = "max_bond" in self.params\
+            or getattr(self.optimize, "compressed", False)
+        for tensor in network.tensors if compressed else ():
+            if getattr(tensor.data.dtype, "kind", "") in "?bui":
+                tensor.modify(data=tensor.data.astype("complex128"))
+        output_inds = [f"inp{i}" for i in range(len(other.dom))]\
+            + [f"out{i}" for i in range(len(other.cod))]
+        method = network.contract_compressed if compressed\
+            else network.contract
+        result = method(
+            output_inds=output_inds, optimize=self.optimize, **self.params)
+        return getattr(result, "data", result)
 
 
 @factory
@@ -486,7 +600,7 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
     ob = Dim
 
     def eval(self, dtype: type = None, optimize="greedy",
-             **params) -> Tensor:
+             contract: str = None, **params) -> Tensor:
         """
         Evaluate a tensor network as a :class:`Tensor`: call the
         :class:`Functor` that sends each box to its array.
@@ -495,9 +609,14 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
             dtype : The datatype for spiders and the result,
                 inferred from the boxes by default.
             optimize : The contraction path, passed verbatim to the
-                backend ``einsum``.
-            params : Any other optional parameter of the backend
-                ``einsum`` method, passed verbatim.
+                engine.
+            contract : The contraction engine, either ``"einsum"``,
+                ``"opt_einsum"`` or ``"quimb"``, see
+                :meth:`Functor.contract`. By default, ``einsum``
+                switching to ``opt_einsum`` for networks with more than
+                ``config.MAX_EINSUM_INDICES`` indices.
+            params : Any other optional parameter of the engine,
+                passed verbatim.
 
         Examples
         --------
@@ -505,19 +624,28 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
         >>> assert (vector >> vector[::-1]).eval().array == 1
         >>> assert (vector >> vector[::-1]).eval(
         ...     optimize="optimal").array == 1
+        >>> assert (vector >> vector[::-1]).eval(  # doctest: +EXTRA
+        ...     contract="quimb").array == 1
         """
         return Functor(
             ob_map=lambda x: Dim(*(
                 getattr(obj, "dim", obj) for obj in x.inside)),
             ar_map=lambda box: box.array,
-            dtype=dtype or self.dtype, optimize=optimize, **params)(self)
+            dtype=dtype or self.dtype, optimize=optimize,
+            contract=contract, **params)(self)
 
-    def to_quimb(self, dtype: type = None) -> "quimb.tensor.Tensor":
+    def to_quimb(self, dtype: type = None) -> "quimb.tensor.TensorNetwork":
         """
-        Convert a tensor diagram to a quimb tensor.
+        Convert a tensor diagram to a quimb tensor network: call the
+        :meth:`Functor.to_quimb` of the functor that sends each box to
+        its array.
+
+        The boundary ports are the free indices, named ``inp0, ...``
+        and ``out0, ...`` in boundary order.
 
         Parameters:
-            dtype : Used for spiders.
+            dtype : The datatype for spiders and boundary identities,
+                inferred from the boxes by default.
 
         Examples
         --------
@@ -525,45 +653,11 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
         >>> t_net = (vector >> vector[::-1]).to_quimb()  # doctest: +EXTRA
         >>> assert t_net.contract(preserve_tensor=True).data == 1
         """
-        import quimb.tensor as qtn
-        inputs = [
-                qtn.COPY_tensor(
-                    d=getattr(dim, 'dim', dim),
-                    inds=(f'inp{i}', f'inp{i}_end')
-                ) for i, dim in enumerate(self.dom.inside)]
-        tensors = inputs[:]
-        scan = [(t, 1) for t in inputs]
-
-        for i, (box, off) in enumerate(zip(self.boxes, self.offsets)):
-            if isinstance(box, Swap):
-                scan[off], scan[off + 1] = scan[off + 1], scan[off]
-                continue
-
-            in_inds = [f't{i}_i{j}' for j in range(len(box.dom))]
-            out_inds = [f't{i}_o{j}' for j in range(len(box.cod))]
-            t = qtn.Tensor(
-                data=box.eval().array,
-                inds=in_inds + out_inds,
-            )
-            tensors.append(t)
-            for j in range(len(box.dom)):
-                other_t, other_ind = scan[off + j]
-                qtn.connect(other_t, t, other_ind, j)
-
-            scan[off:off + len(box.dom)] = [
-                (t, len(box.dom) + ind) for ind in range(len(out_inds))
-            ]
-
-        for i, (t, j) in enumerate(scan):
-            output = qtn.COPY_tensor(
-                d=t.data.shape[j],
-                inds=(f'out{i}_start', f'out{i}')
-            )
-            qtn.connect(t, output, j, 0)
-            tensors.append(output)
-
-        tensor_net = qtn.TensorNetwork(tensors)
-        return tensor_net
+        return Functor(
+            ob_map=lambda x: Dim(*(
+                getattr(obj, "dim", obj) for obj in x.inside)),
+            ar_map=lambda box: box.array,
+            dtype=dtype or self.dtype).to_quimb(self)
 
     def to_tn(self, dtype: type = None) -> tuple[
             list["tensornetwork.Node"], list["tensornetwork.Edge"]]:
@@ -680,7 +774,7 @@ class CMap(frobenius.CMap):
     """
     category, dtype = Diagram, None
 
-    eval = Diagram.eval
+    eval, to_quimb = Diagram.eval, Diagram.to_quimb
 
 
 class Box(frobenius.Box, Diagram):
