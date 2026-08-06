@@ -69,6 +69,7 @@ tensor = [
     "opt_einsum",
     "quimb",
     "cotengra",
+    "autoray >= 0.9",
 ]
 quantum = [
     "pytket",

@@ -565,9 +565,14 @@ class Functor(frobenius.Functor):
         """
         Contract the network of :meth:`to_quimb` and return its array.
 
+        The array backend of :func:`backend` is passed to quimb, so that
+        e.g. pytorch arrays are contracted by pytorch and their gradients
+        survive the contraction.
+
         Parameters:
             other : The combinatorial map to contract.
         """
+        import quimb.tensor as qtn
         network = self.to_quimb(other)
         if not network.tensors:
             return [1]
@@ -578,11 +583,15 @@ class Functor(frobenius.Functor):
                 tensor.modify(data=tensor.data.astype("complex128"))
         output_inds = [f"inp{i}" for i in range(len(other.dom))]\
             + [f"out{i}" for i in range(len(other.cod))]
-        method = network.contract_compressed if compressed\
-            else network.contract
-        result = method(
-            output_inds=output_inds, optimize=self.optimize, **self.params)
-        return getattr(result, "data", result)
+        if compressed:
+            result = network.contract_compressed(
+                output_inds=output_inds, optimize=self.optimize,
+                **self.params)
+        else:
+            result = network.contract(
+                output_inds=output_inds, optimize=self.optimize,
+                cache_expression=False, **self.params)
+        return result.data if isinstance(result, qtn.Tensor) else result
 
 
 @factory

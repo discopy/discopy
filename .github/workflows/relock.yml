@@ -1,0 +1,22 @@
+name: relock
+on:
+  push:
+    branches:
+      - claude/contraction-standardization-discopy-optyx-f1h17k
+permissions:
+  contents: write
+jobs:
+  relock:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: astral-sh/setup-uv@v5
+    - run: uv lock
+    - run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add uv.lock
+        git diff --cached --quiet && echo "lockfile unchanged" || {
+          git commit -m "Update uv.lock for the autoray floor"
+          git push
+        }
