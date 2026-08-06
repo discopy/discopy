@@ -883,7 +883,7 @@ class Bubble(monoidal.Bubble, Box):
             @ self.arg.grad(var) >> Spider(2, 1, self.cod)
 
 
-Diagram.sum_factory, Diagram.braid_factory = Sum, Swap
+Diagram.sum_factory, Diagram.swap_factory = Sum, Swap
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Diagram.spider_factory, Diagram.bubble_factory = Spider, Bubble
 Diagram.map_factory = CMap
