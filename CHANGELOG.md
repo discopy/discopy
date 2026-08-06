@@ -26,6 +26,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - Rich display hooks (`_repr_svg_`/`_repr_html_`) for `Diagram` and `Drawing`
   in Jupyter/IPython
   ([#445](https://github.com/discopy/discopy/pull/445)).
+- A `notebooks` dependency group and optional extra gathering the
+  notebook-related packages, reused by `docs`
+  ([#466](https://github.com/discopy/discopy/pull/466)).
 - Composition benchmark suite for diagram operations, reproducing the
   scaling experiments of arXiv:2105.09257
   ([#346](https://github.com/discopy/discopy/pull/346)).
