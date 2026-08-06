@@ -106,7 +106,8 @@ class Diagram(frobenius.Diagram):
         seperately before combining them, so it can be drawn with :meth:`draw`.
         """
         words, is_pregroup = self.id(), True
-        for _, box, right in self.inside:
+        for layer in self.inside:
+            _, box, right = layer.boxes_and_types
             if isinstance(box, Word):
                 if right:  # word boxes should be tensored left to right.
                     is_pregroup = False
@@ -247,7 +248,7 @@ def brute_force(*vocab, target=Ty('s')):
             test.append(words + (word, ))
 
 
-Diagram.braid_factory, Diagram.spider_factory = Swap, Spider
+Diagram.swap_factory, Diagram.spider_factory = Swap, Spider
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 
 Id = Diagram.id

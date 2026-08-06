@@ -28,7 +28,7 @@ Summary
 from __future__ import annotations
 
 from itertools import count
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Sequence
 
 from discopy import (
     cat, monoidal, rigid, frobenius, cmap, config)
@@ -38,6 +38,7 @@ from discopy.matrix import (  # noqa: F401
     Matrix, backend, set_backend, get_backend,
     NumPy, JAX, PyTorch, TensorFlow)
 from discopy.abc import NamedGeneric
+from discopy.python import finset
 from discopy.utils import (
     factory_name, assert_isinstance, product, assert_isatomic)
 
@@ -180,6 +181,24 @@ class Tensor(Matrix):
                   else i - len(left) for i in source]
         with backend() as np:
             return cls(np.moveaxis(array, source, target), dom, cod)
+
+    @classmethod
+    def permutation(cls, xs: Sequence[int], doms: Sequence[Dim]) -> Tensor:
+        xs = finset.Permutation(xs, len(doms))
+        dom = cls.ob.unit().tensor(*doms)
+        if xs.is_identity:
+            return cls.id(dom)
+        offsets = [0]
+        for dim in doms:
+            offsets.append(offsets[-1] + len(dim))
+        axes = finset.Permutation([
+            axis for i in xs for axis in range(offsets[i], offsets[i + 1])])
+        source = list(range(len(dom), 2 * len(dom)))
+        target = [len(dom) + axis for axis in axes.dagger()]
+        cod = Dim().tensor(*(doms[i] for i in xs))
+        with backend() as np:
+            array = np.moveaxis(cls.id(dom).array, source, target)
+        return cls(array, dom, cod)
 
     @classmethod
     def spider_factory(cls, n_legs_in: int, n_legs_out: int,
@@ -600,7 +619,8 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
         """ Gradient with respect to :code:`var`. """
         if var not in self.free_symbols:
             return self.sum_factory((), self.dom, self.cod)
-        left, box, right, tail = tuple(self.inside[0]) + (self[1:], )
+        left, box, right = self.inside[0].boxes_and_types
+        tail = self[1:]
         t1 = self.id(left) @ box.grad(var, **params) @ self.id(right) >> tail
         t2 = self.id(left) @ box @ self.id(right) >> tail.grad(var, **params)
         return t1 + t2
@@ -863,7 +883,7 @@ class Bubble(monoidal.Bubble, Box):
             @ self.arg.grad(var) >> Spider(2, 1, self.cod)
 
 
-Diagram.sum_factory, Diagram.braid_factory = Sum, Swap
+Diagram.sum_factory, Diagram.swap_factory = Sum, Swap
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Diagram.spider_factory, Diagram.bubble_factory = Spider, Bubble
 Diagram.map_factory = CMap

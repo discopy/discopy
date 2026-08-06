@@ -45,11 +45,6 @@ class Diagram(tensor.Diagram[complex]):
         return tensor.Diagram.swap.__func__(Diagram, left, right)
 
     @staticmethod
-    def permutation(perm, dom=None):
-        dom = PRO(len(perm)) if dom is None else dom
-        return tensor.Diagram.permutation.__func__(Diagram, perm, dom)
-
-    @staticmethod
     def cup_factory(left, right):
         del left, right
         return Z(2, 0)
@@ -394,5 +389,5 @@ H.drawing_name, H.tikzstyle_name, = '', 'H'
 H.color, H.shape = "yellow", "rectangle"
 
 SWAP = Swap(PRO(1), PRO(1))
-Diagram.braid_factory, Diagram.sum_factory = Swap, Sum
+Diagram.swap_factory, Diagram.sum_factory = Swap, Sum
 Id = Diagram.id

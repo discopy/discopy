@@ -445,7 +445,7 @@ class Circuit(tensor.Diagram[complex]):
             if hasattr(box, '_decompose'):
                 decomp = box._decompose()
                 diag >>= self[last_i:i]
-                left, _, right = self.inside[i]
+                left, _, right = self.inside[i].boxes_and_types
                 diag >>= Id(left) @ decomp @ Id(right)
                 last_i = i + 1
         diag >>= self[last_i:]
@@ -463,7 +463,8 @@ class Circuit(tensor.Diagram[complex]):
         q_scan1 = [n[1] for n in q_nodes1]
         q_scan2 = [n[1] for n in q_nodes2]
         nodes = c_nodes + q_nodes1 + q_nodes2
-        for left, box, _ in self.inside:
+        for layer in self.inside:
+            left, box, _ = layer.boxes_and_types
             c_offset = left.count(bit)
             q_offset = left.count(qubit)
             if box == Circuit.swap(bit, bit):
@@ -738,10 +739,11 @@ class Circuit(tensor.Diagram[complex]):
         params = dict({'wire_labels': wire_labels}, **params)
         return super().draw(**params)
 
-    @staticmethod
-    def permutation(perm, dom=None):
-        dom = qubit ** len(perm) if dom is None else dom
-        return frobenius.Diagram.permutation.__func__(Circuit, perm, dom)
+    @classmethod
+    def permutation(cls, perm, doms=None):
+        doms = qubit ** len(perm) if doms is None\
+            else doms
+        return super().permutation(perm, doms)
 
     @staticmethod
     def cup_factory(left, right):
@@ -927,6 +929,6 @@ def bitstring2index(bitstring):
     return sum(value * 2 ** i for i, value in enumerate(bitstring[::-1]))
 
 
-Circuit.braid_factory, Circuit.sum_factory = Swap, Sum
+Circuit.swap_factory, Circuit.sum_factory = Swap, Sum
 bit, qubit = Ty(Digit(2)), Ty(Qudit(2))
 Id = Circuit.id
