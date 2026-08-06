@@ -459,6 +459,11 @@ def test_quimb_cotengra():
     result = diagram.eval(
         contract='quimb', optimize=compressed_optimizer, max_bond=4)
     assert np.allclose(np.asarray(result.array), exact)
+    reusable = cotengra.ReusableHyperCompressedOptimizer(
+        chi=4, methods=['greedy-compressed'], max_repeats=2,
+        parallel=False, progbar=False)
+    result = diagram.eval(contract='quimb', optimize=reusable)
+    assert np.allclose(np.asarray(result.array), exact)
 
 
 def test_quimb_pytorch_autodiff():

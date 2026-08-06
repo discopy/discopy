@@ -577,7 +577,8 @@ class Functor(frobenius.Functor):
         if not network.tensors:
             return [1]
         compressed = "max_bond" in self.params\
-            or getattr(self.optimize, "compressed", False)
+            or getattr(self.optimize, "compressed", False)\
+            or "Compressed" in type(self.optimize).__name__
         for tensor in network.tensors if compressed else ():
             if getattr(tensor.data.dtype, "kind", "") in "?bui":
                 tensor.modify(data=tensor.data.astype("complex128"))
