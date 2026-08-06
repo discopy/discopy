@@ -1,3 +1,5 @@
+from itertools import permutations
+
 import numpy as np
 
 from discopy import ribbon, tensor
@@ -387,3 +389,137 @@ def test_twist_in_diagram():
         F(twist).eval(dtype=complex).array, np.eye(2))
     assert np.allclose(
         F(twist.dagger()).eval(dtype=complex).array, np.eye(2))
+
+
+def double_and_four_anyons():
+    D = Double(Algebra.cyclic(2))
+    anyons = [Representation[D].anyon(f, c) for f in (0, 1) for c in (1, -1)]
+    return D, anyons, Representation[D].direct_sum(anyons)
+
+
+def test_chart_fusion_dimensions():
+    D, anyons, V = double_and_four_anyons()
+    assert Intertwiner[D].chart(V @ V, V).dom == Dim(16, 4, 4)
+    assert Intertwiner[D].chart(V, V).dom == Dim(4, 4)
+    assert Intertwiner[D].chart(anyons[1] @ anyons[2], anyons[3]).dom == Dim(1)
+    for anyon in anyons:
+        assert Intertwiner[D].chart(anyon, anyon).dom == Dim(1)
+
+
+def test_chart_slices_intertwine_and_span():
+    D, _, V = double_and_four_anyons()
+    Q = Intertwiner[D].chart(V @ V, V)
+    lhs = tensor.Id(D.ty) @ Q >> V.action
+    rhs = tensor.Diagram.swap(D.ty, Dim(16)) @ tensor.Id(Dim(4, 4)) \
+        >> tensor.Id(Dim(16)) @ (V @ V).action >> Q
+    assert lhs.eval(dtype=complex).is_close(rhs.eval(dtype=complex))
+    basis = Q.eval(dtype=complex).array.reshape(16, -1)
+    assert np.allclose(basis @ basis.conj().T, np.eye(16))
+    end = Intertwiner[D].chart(V, V).eval(dtype=complex).array.reshape(-1, 16)
+    identity = np.eye(4).reshape(-1)
+    assert np.allclose(end.T.conj() @ (end.conj() @ identity), identity)
+
+
+def test_chart_zero_and_no_algebra():
+    D, anyons, _ = double_and_four_anyons()
+    try:
+        Intertwiner[D].chart(anyons[1], anyons[2])
+        assert False
+    except ValueError:
+        pass
+    try:
+        Intertwiner.chart(anyons[1], anyons[2])
+        assert False
+    except ValueError:
+        pass
+
+
+def test_chart_needs_no_semisimplicity():
+    H = Algebra.sweedler()
+    W = Representation[H].regular()
+    Q = Intertwiner[H].chart(W, W)
+    assert Q.dom == Dim(4, 4)
+    lhs = tensor.Id(H.ty) @ Q >> W.action
+    rhs = tensor.Diagram.swap(H.ty, Dim(4)) @ tensor.Id(Dim(4)) \
+        >> tensor.Id(Dim(4)) @ W.action >> Q
+    assert lhs.eval(dtype=complex).is_close(rhs.eval(dtype=complex))
+
+
+def test_chart_braid_action():
+    D, _, V = double_and_four_anyons()
+    Q3 = Intertwiner[D].chart(V @ V @ V, V)
+    r = Q3.dom.inside[0]
+    basis = Q3.eval(dtype=complex).array.reshape(r, 64, 4)
+    braid = Intertwiner[D].braid(V, V).eval(dtype=complex).array
+    braid = braid.reshape(16, 16).T
+    action = [np.kron(braid, np.eye(4)), np.kron(np.eye(4), braid)]
+    b1, b2 = [
+        np.einsum('kva,vw,lwa->kl', basis.conj(), c, basis) for c in action]
+    assert np.allclose(b1 @ b1.conj().T, np.eye(r))
+    assert np.allclose(b1 @ b2 @ b1, b2 @ b1 @ b2)
+    assert not np.allclose(b1 @ b1, np.eye(r))
+
+
+def double_of_s3_and_anyons():
+    D = Double(Algebra.symmetric(3))
+    perms = sorted(permutations(range(3)))
+    matrices = {i: np.eye(3)[list(p)].T for i, p in enumerate(perms)}
+    omega = np.exp(2j * np.pi / 3)
+    dft = np.array([
+        [1, omega, omega ** 2], [1, omega ** 2, omega]]) / np.sqrt(3)
+    standard = {i: dft @ m @ dft.conj().T for i, m in matrices.items()}
+    sign = {i: float(np.linalg.det(m)) for i, m in matrices.items()}
+    R = Representation[D]
+    anyons = [
+        R.anyon(0, 1), R.anyon(0, sign), R.anyon(0, standard),
+        R.anyon(1, {0: 1, 1: 1}), R.anyon(1, {0: 1, 1: -1}),
+        R.anyon(3, {0: 1, 3: 1, 4: 1}),
+        R.anyon(3, {0: 1, 3: omega, 4: omega ** 2}),
+        R.anyon(3, {0: 1, 3: omega ** 2, 4: omega})]
+    return D, anyons
+
+
+def test_symmetric_group_algebra():
+    S3 = Algebra.symmetric(3)
+    assert S3.is_valid() and S3.dim == 6 and not S3.is_commutative()
+
+
+def test_anyons_of_double_s3():
+    D, anyons = double_of_s3_and_anyons()
+    dims = [int(np.prod(a.inside)) for a in anyons]
+    assert dims == [1, 1, 2, 3, 3, 2, 2, 2]
+    assert sum(d * d for d in dims) == D.dim
+    assert all(a.is_module() for a in anyons)
+    for a, d in zip(anyons, dims):
+        Q = Intertwiner[D].chart(a, a)
+        assert Q.eval(dtype=complex).array.size == d * d
+
+
+def test_fusion_rules_from_braiding():
+    D, anyons = double_of_s3_and_anyons()
+    dims = [int(np.prod(a.inside)) for a in anyons]
+    n = len(anyons)
+    S = np.zeros((n, n), dtype=complex)
+    for a in range(n):
+        for b in range(n):
+            forth = Intertwiner[D].braid(anyons[a], anyons[b])
+            back = Intertwiner[D].braid(anyons[b], anyons[a])
+            monodromy = forth.eval(dtype=complex).array.reshape(
+                dims[a] * dims[b], -1) @ back.eval(
+                dtype=complex).array.reshape(dims[b] * dims[a], -1)
+            S[a, b] = np.trace(monodromy) / D.base.dim
+    assert np.allclose(S @ S.conj().T, np.eye(n))
+    N = np.einsum('ax,bx,cx,x->abc', S, S, S.conj(), 1 / S[0])
+    assert np.allclose(N.imag, 0) and np.allclose(N, np.round(N.real))
+    N = np.round(N.real).astype(int)
+    assert (N >= 0).all()
+    assert list(N[2, 2]) == [1, 1, 1, 0, 0, 0, 0, 0]
+    for a, b in [(2, 2), (3, 4), (3, 3), (2, 6)]:
+        for c in range(n):
+            try:
+                Q = Intertwiner[D].chart(anyons[a] @ anyons[b], anyons[c])
+                r = Q.eval(dtype=complex).array.size \
+                    // (dims[a] * dims[b] * dims[c])
+            except ValueError:
+                r = 0
+            assert r == N[a, b, c]
