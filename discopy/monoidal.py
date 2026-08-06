@@ -566,31 +566,28 @@ class Dim(Ty):
 
 class Layer(cat.Box):
     """
-    A layer is a tensor product of boxes and non-empty types.
+    A layer is a tensor product of boxes and plumbing, i.e. non-empty types.
 
     Parameters:
-        inside : Boxes and types, with at least one box.
-        scan : Whether to remove empty types and tensor consecutive types.
+        inside : Boxes and plumbing, with at least one box.
+        scan : Whether to remove empty plumbing and tensor consecutive types.
     """
     ob = Ty
 
     def __setstate__(self, state):
-        if 'boxes_or_types' not in state:  # Backward compatibility
+        if 'boxes_or_types' not in state:
             state['boxes_or_types'] = tuple(
                 state[key] for key in ['_left', '_box', '_right'])
             del state['_left'], state['_box'], state['_right']
-        # Boxes may not have had their cyclic state restored yet, so only
-        # remove the empty type sentinels used by the old representation.
-        state['boxes_or_types'] = tuple(
-            value for value in state['boxes_or_types']
-            if not isinstance(value, Ty) or value)
+        state['boxes_or_types'] = type(self).normalise(
+            state['boxes_or_types'])
         super().__setstate__(state)
 
     def __init__(self, *inside: Ty | Box, scan: bool = True):
         inside = tuple(inside)
         if scan:
-            self._check_inside(inside)
-            inside = self._scan(inside)
+            type(self).check(inside)
+            inside = type(self).normalise(inside)
         self.boxes_or_types = inside
         dom_pieces, cod_pieces, names = [], [], []
         for box_or_typ in inside:
@@ -612,15 +609,12 @@ class Layer(cat.Box):
             empty.tensor(*dom_pieces), empty.tensor(*cod_pieces))
 
     @staticmethod
-    def is_routing(value) -> bool:
-        """ Whether a component is a type rather than a box. """
+    def is_plumbing(value) -> bool:
+        """ Whether a component is plumbing rather than a box. """
         return isinstance(value, Ty)
 
     @staticmethod
-    def _normalize_routing(value):
-        return value
-
-    def _check_inside(self, inside):
+    def check(inside):
         """ Type-check components and preserve coloured unit constraints. """
         dom_pieces, cod_pieces = [], []
         for value in inside:
@@ -632,15 +626,15 @@ class Layer(cat.Box):
             empty.tensor(*dom_pieces)
             empty.tensor(*cod_pieces)
 
-    def _scan(self, inside):
-        """ Return the canonical word of non-empty routing and boxes. """
+    @classmethod
+    def normalise(cls, inside):
+        """ Return the canonical word of non-empty plumbing and boxes. """
         result = []
         for value in inside:
-            value = self._normalize_routing(value)
-            if not self.is_routing(value):
+            if not cls.is_plumbing(value):
                 result.append(value)
-            elif value:
-                if result and self.is_routing(result[-1]):
+            elif not isinstance(value, Ty) or value:
+                if result and cls.is_plumbing(result[-1]):
                     result[-1] = result[-1] @ value
                 else:
                     result.append(value)
@@ -694,14 +688,14 @@ class Layer(cat.Box):
             + f"({', '.join(map(repr, self))})"
 
     def tensor(self, other: Layer = None, *others: Layer) -> Layer:
-        """ Tensor layers, merging routing at their common boundaries. """
+        """ Tensor layers, merging plumbing at their common boundaries. """
         if other is None:
             return self
         inside = list(self)
         for layer in (other, *others):
             assert_isinstance(layer, type(self))
-            if self.is_routing(inside[-1])\
-                    and self.is_routing(layer[0]):
+            if self.is_plumbing(inside[-1])\
+                    and self.is_plumbing(layer[0]):
                 inside[-1] = inside[-1] @ layer[0]
                 inside.extend(layer[1:])
             else:
@@ -715,7 +709,7 @@ class Layer(cat.Box):
         if not other:
             self.cod @ other
             return self
-        if self.is_routing(self[-1]):
+        if self.is_plumbing(self[-1]):
             inside = (*self[:-1], self[-1] @ other)
         else:
             inside = (*self, other)
@@ -726,7 +720,7 @@ class Layer(cat.Box):
         if not other:
             other @ self.dom
             return self
-        if self.is_routing(self[0]):
+        if self.is_plumbing(self[0]):
             inside = (other @ self[0], *self[1:])
         else:
             inside = (other, *self)
@@ -738,7 +732,7 @@ class Layer(cat.Box):
 
     def subs(self, *args) -> Layer:
         return type(self)(*(
-            x if self.is_routing(x) else x.subs(*args) for x in self),
+            x if self.is_plumbing(x) else x.subs(*args) for x in self),
             scan=False)
 
     @property
@@ -763,7 +757,7 @@ class Layer(cat.Box):
         >>> f = Box('f', Ty('x'), Ty('y'))
         >>> assert Layer.cast(f) == Layer(f)
         """
-        return cls(cls._normalize_routing(box), scan=False)
+        return cls(*cls.normalise((box, )), scan=False)
 
     def dagger(self) -> Layer:
         return type(self)(*(
@@ -826,7 +820,7 @@ class Layer(cat.Box):
 
     def lambdify(self, *symbols, **kwargs):
         return lambda *xs: type(self)(*(
-            x if self.is_routing(x)
+            x if self.is_plumbing(x)
             else x.lambdify(*symbols, **kwargs)(*xs) for x in self),
             scan=False)
 

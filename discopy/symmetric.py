@@ -97,11 +97,11 @@ from discopy.utils import (
 
 class Layer(monoidal.Layer):
     """
-    A tensor product of generators and non-empty routing, where routing is a
+    A tensor product of generators and non-empty plumbing, where plumbing is a
     type when it is the identity and a :class:`Permutation` otherwise.
     :class:`Swap` is a generator, distinct from ``[1, 0]``.
 
-    Routing components are coalesced, so a permutation given between two
+    Plumbing components are coalesced, so a permutation given between two
     types becomes one permutation. Generators can be consecutive. An
     identity permutation is stored as its type, hence a layer with a single
     permutation always permutes: the identity is the empty diagram, not a
@@ -111,7 +111,7 @@ class Layer(monoidal.Layer):
     :class:`discopy.monoidal.Layer`.
 
     Parameters:
-        inside : Generators and routing, with at least one generator or one
+        inside : Generators and plumbing, with at least one generator or one
                  non-identity permutation.
 
     Examples
@@ -123,7 +123,7 @@ class Layer(monoidal.Layer):
     >>> assert Layer(x, perm, y) == Layer(Permutation(x @ x @ y @ y,
     ...     [0, 2, 1, 3]))
 
-    Forgetting the distinction between routing and generators gives the
+    Forgetting the distinction between plumbing and generators gives the
     ordinary alternating view of a :class:`discopy.monoidal.Layer`, which is
     what :attr:`boxes`, :attr:`boxes_and_offsets` and the rewrites indexed by
     them are computed from.
@@ -133,28 +133,31 @@ class Layer(monoidal.Layer):
     >>> assert Layer(x, f, perm).boxes_and_offsets == [(f, 1), (perm, 2)]
     """
     @staticmethod
-    def is_routing(value) -> bool:
+    def is_plumbing(value) -> bool:
         """
-        Whether a component routes wires rather than generating them.
+        Whether a component is plumbing rather than a generator.
 
         >>> x = Ty('x')
-        >>> assert Layer.is_routing(x) and Layer.is_routing(
+        >>> assert Layer.is_plumbing(x) and Layer.is_plumbing(
         ...     Permutation(x @ x, [1, 0]))
-        >>> assert not Layer.is_routing(Box('f', x, x))
+        >>> assert not Layer.is_plumbing(Box('f', x, x))
         """
         return isinstance(value, (monoidal.Ty, Permutation))
 
-    @staticmethod
-    def _normalize_routing(value):
-        if isinstance(value, Permutation) and value.is_identity:
-            return value.dom
-        return value
+    @classmethod
+    def normalise(cls, inside):
+        """ Normalise identity permutations to their underlying types. """
+        return super().normalise(
+            value.dom
+            if isinstance(value, Permutation) and hasattr(value, 'perm')
+            and value.is_identity else value
+            for value in inside)
 
     @property
     def is_structural(self) -> bool:
         """
-        Whether the layer routes its wires non-trivially, i.e. one of its
-        routing components is a :class:`Permutation` rather than a type.
+        Whether the layer plumbs its wires non-trivially, i.e. one of its
+        plumbing components is a :class:`Permutation` rather than a type.
 
         >>> x, y = Ty('x'), Ty('y')
         >>> assert Layer(Permutation(x @ y, [1, 0])).is_structural
@@ -178,7 +181,7 @@ class Diagram(balanced.Diagram, SymmetricCategory):
     Equality and hashing of symmetric diagrams is always syntactic: two
     diagrams are equal if and only if they are built from the same layers.
     To compare diagrams up to hypergraph isomorphism (swaps, spider fusion,
-    trace routing) use ``from discopy.symmetric import Equation``, i.e. the
+    trace plumbing) use ``from discopy.symmetric import Equation``, i.e. the
     :class:`Equation` whose :attr:`~Equation.up_to` is :attr:`to_hypergraph`.
 
     >>> x, y = Ty("x"), Ty("y")
@@ -349,9 +352,9 @@ class Diagram(balanced.Diagram, SymmetricCategory):
 
     def foliation(self):
         """
-        Merge independent generators, keeping native routing compact.
+        Merge independent generators, keeping native plumbing compact.
 
-        A hypergraph forgets that routing is native, so a diagram with a
+        A hypergraph forgets that plumbing is native, so a diagram with a
         :class:`Permutation` is foliated by merging its layers instead.
 
         >>> x, y = Ty('x'), Ty('y')
@@ -397,7 +400,7 @@ class Permutation(Box):
     as attribute, with the convention that output wire ``i`` comes from input
     wire ``perm[i]``, i.e. ``cod[i] == dom[perm[i]]``.
 
-    A :class:`Layer` stores it as routing rather than as a generator, and the
+    A :class:`Layer` stores it as plumbing rather than as a generator, and the
     identity permutation is the identity diagram. It draws as a single band of
     crossing wires rather than a staircase of swaps.
 
@@ -618,7 +621,7 @@ Id = Diagram.id
 class Equation(monoidal.Equation):
     """
     The :class:`monoidal.Equation` of symmetric diagrams compared up to
-    hypergraph isomorphism, i.e. up to swaps, spider fusion and trace routing.
+    hypergraph isomorphism, i.e. up to swaps, spider fusion and trace plumbing.
 
     Example
     -------

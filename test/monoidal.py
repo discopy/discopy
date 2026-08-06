@@ -226,13 +226,15 @@ def test_Layer_tensor():
     assert (Layer(f) @ Layer(g)).boxes_or_types == (f, g)
     assert Layer(x, f).tensor(Layer(g), Layer(g, y)).boxes_or_types\
         == (x, f, g, g, y)
+    assert Layer.normalise((Ty(), x, f, y, z)) == (x, f, y @ z)
 
     class ScanLayer(Layer):
         scans = 0
 
-        def _scan(self, inside):
-            type(self).scans += 1
-            return super()._scan(inside)
+        @classmethod
+        def normalise(cls, inside):
+            cls.scans += 1
+            return super().normalise(inside)
 
     layers = [ScanLayer(f) for _ in range(4)]
     assert ScanLayer.scans == 4
