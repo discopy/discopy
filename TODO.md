@@ -1,0 +1,25 @@
+Refactor this neural net PR after Claude did a first version and I gave feedback then try to port this CatGPT benchmark to DisCoPy https://github.com/discopy/discopy/pull/399
+
+Mathematical design: a neural box is a bidirectional process on the direct
+sum of its boundary port spaces, optionally paired with a private memory
+space. One synchronous execution round first routes boundary messages along
+the combinatorial map's edge involution, then applies every box independently;
+private memory is threaded between rounds but is not part of the categorical
+wiring. Backend-specific tensor and module operations should be isolated from
+this geometry-of-interaction execution.
+
+- [x] @codex-pr399-2026-07-24 13:00 Refactor neural execution around an explicit backend boundary and make the geometry-of-interaction steps legible.
+- [x] @codex-memory-2026-07-24 13:15 Add optional per-network memory without representing private state as public wiring.
+- [x] @codex-catgpt-2026-07-24 13:00 Port the CatGPT benchmark to DisCoPy.
+- [x] @codex-validation-2026-07-24 14:10 Add concise tests and documentation, then run lint and the full test suite.
+
+## Backend split follow-up
+
+ok split the work in three abc / torch / jax: first refactor the existing torch into abc and torch then add jax on top
+you can push directly to this PR for abc+torch, open a fresh one for jax
+
+- [x] Merge current main into the PR branch and resolve conflicts.
+- [x] Turn `neural.Backend` into an explicit abstract interface and pass backend-owned modules into execution.
+- [x] Adapt and bind the existing PyTorch implementation to the abstract interface.
+- [x] Add concise backend contract and PyTorch regression tests, update the documentation, and run lint and tests.
+- [x] Remove the accidentally tracked generated execution-plan API stub.
