@@ -7,12 +7,12 @@ with an optional regression gate against a committed baseline.
     python benchmark/report.py RUN.json [--output DIR]
                                [--baseline BASE.json] [--fail-threshold 0.25]
 
-Reads the median CPU time of each ``(benchmark, family, case, size)`` from
-``RUN.json``. It produces a hierarchical table as ``results.{html,md,csv}``
-and one ``NAME-scaling.png`` per benchmark. With ``--baseline``, it joins the
-two runs on all four keys, prints the per-cell deltas and exits non-zero if any
-case regresses by more than ``--fail-threshold`` (a fraction, e.g. ``0.25`` =
-25%).
+Reads the median CPU time of each ``(suite, family, case, size)`` from
+``RUN.json``. For each suite ``NAME``, it produces a hierarchical table as
+``NAME-results.{html,md,csv}`` and a ``NAME-scaling.png`` plot. With
+``--baseline``, it joins the two runs on all four keys, prints the per-cell
+deltas and exits non-zero if any case regresses by more than
+``--fail-threshold`` (a fraction, e.g. ``0.25`` = 25%).
 """
 from __future__ import annotations
 
@@ -25,48 +25,39 @@ import os
 import polars as pl
 
 
-def case_parts(label: str) -> tuple[str, str]:
-    """Split a benchmark label into its case and canonical family."""
-    case, family = label.rsplit(" (", 1)
-    return case, family[:-1].lower().replace(" → ", "→")
-
-
 def load(path: str) -> pl.DataFrame:
-    """A tidy benchmark, family, case, size and median frame."""
+    """A tidy suite, family, case, size and median frame."""
     with open(path) as file:
         data = json.load(file)
     rows = []
     for bench in data["benchmarks"]:
-        case, family = case_parts(bench.get("group") or bench["name"])
+        suite, family, case = bench["group"]
         rows.append({
-            "benchmark": os.path.splitext(os.path.basename(bench[
-                "fullname"].split("::", 1)[0]))[0].removeprefix("test_"),
+            "suite": suite,
             "family": family,
             "case": case,
             "size": int(bench["params"]["n"]),
             "median": float(bench["stats"]["median"]),
         })
     return pl.DataFrame(
-        rows, schema={"benchmark": pl.String, "family": pl.String,
+        rows, schema={"suite": pl.String, "family": pl.String,
                       "case": pl.String, "size": pl.Int64,
                       "median": pl.Float64},
-    ).sort("benchmark", "family", "case", "size")
+    ).sort("suite", "family", "case", "size")
 
 
-def scaling_table(df: pl.DataFrame) -> pl.DataFrame:
-    """One row per benchmark/family/case and one column per size."""
+def scaling_table(df: pl.DataFrame, spec: Plot) -> pl.DataFrame:
+    """One row per family/case and one column per size."""
     ordered = pl.concat([
-        df.filter(
-            (pl.col("benchmark") == benchmark)
-            & (pl.col("family") == family),
-        ).sort("case", "size")
-        for benchmark, spec in PLOTS.items()
+        df.filter(pl.col("family") == family).sort("case", "size")
         for families in spec.panels
         for family in families
     ])
-    return ordered.pivot(
-        on="size", index=["benchmark", "family", "case"], values="median",
+    table = ordered.pivot(
+        on="size", index=["family", "case"], values="median",
     )
+    return table.select(
+        "family", "case", *sorted(table.columns[2:], key=int))
 
 
 def to_markdown(table: pl.DataFrame) -> str:
@@ -76,8 +67,8 @@ def to_markdown(table: pl.DataFrame) -> str:
         "| " + " | ".join("---" for _ in columns) + " |",
     ]
     for row in table.iter_rows():
-        cells = list(row[:3]) + [
-            "" if value is None else f"{value:.4f}" for value in row[3:]]
+        cells = list(row[:2]) + [
+            "" if value is None else f"{value:.4f}" for value in row[2:]]
         lines.append("| " + " | ".join(cells) + " |")
     return "\n".join(lines)
 
@@ -92,7 +83,7 @@ def _rowspan(rows: list[tuple], i: int, depth: int) -> int:
 
 
 def to_html(table: pl.DataFrame) -> str:
-    """Render benchmark and family as nested HTML row groups."""
+    """Render family as an HTML row group."""
     rows, columns = list(table.iter_rows()), table.columns
     lines = [
         "<!doctype html>",
@@ -109,23 +100,22 @@ def to_html(table: pl.DataFrame) -> str:
     ]
     for i, row in enumerate(rows):
         cells = []
-        for depth in (1, 2):
-            span = _rowspan(rows, i, depth)
-            if span:
-                cells.append(
-                    f'<th scope="rowgroup" rowspan="{span}">'
-                    f'{escape(str(row[depth - 1]))}</th>')
-        cells.append(f'<th scope="row">{escape(str(row[2]))}</th>')
+        span = _rowspan(rows, i, 1)
+        if span:
+            cells.append(
+                f'<th scope="rowgroup" rowspan="{span}">'
+                f'{escape(str(row[0]))}</th>')
+        cells.append(f'<th scope="row">{escape(str(row[1]))}</th>')
         cells += [
             f"<td>{'' if value is None else f'{value:.4f}'}</td>"
-            for value in row[3:]]
+            for value in row[2:]]
         lines.append("<tr>" + "".join(cells) + "</tr>")
     return "\n".join(lines + ["</tbody>", "</table>"])
 
 
 @dataclass(frozen=True)
 class Plot:
-    """Declarative panel layout for one benchmark."""
+    """Declarative panel layout for one suite."""
     panels: tuple[tuple[str, ...], ...]
     figsize: tuple[int, int]
     title: str
@@ -133,29 +123,17 @@ class Plot:
 
 PLOTS = {
     "composition": Plot(
-        (("diagram", "hypergraph", "cmap"),), (19, 6),
+        (("Diagram", "Hypergraph", "CMap"),), (19, 6),
         "Composition benchmark scaling (arXiv:2105.09257)"),
     "conversion": Plot((
-        ("diagram→hypergraph", "hypergraph→cmap", "cmap→diagram"),
-        ("hypergraph→diagram", "cmap→hypergraph", "diagram→cmap"),
+        ("Diagram → Hypergraph", "Hypergraph → CMap", "CMap → Diagram"),
+        ("Hypergraph → Diagram", "CMap → Hypergraph", "Diagram → CMap"),
     ), (19, 11), "Representation conversion benchmark scaling"),
 }
 
 
-REPRESENTATIONS = {
-    "diagram": "Diagram",
-    "hypergraph": "Hypergraph",
-    "cmap": "CMap",
-}
-
-
-def family_title(family: str) -> str:
-    """Human-readable title for a representation or conversion family."""
-    return " → ".join(REPRESENTATIONS[name] for name in family.split("→"))
-
-
 def case_colors(df: pl.DataFrame) -> dict[str, tuple]:
-    """Stable colors shared by each case across every family and benchmark."""
+    """Stable colors shared by each case across every family and suite."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -166,7 +144,7 @@ def case_colors(df: pl.DataFrame) -> dict[str, tuple]:
 
 
 def plot(df: pl.DataFrame, path: str, spec: Plot, colors: dict) -> None:
-    """Plot one benchmark according to its declarative panel layout."""
+    """Plot one suite according to its declarative panel layout."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -184,7 +162,7 @@ def plot(df: pl.DataFrame, path: str, spec: Plot, colors: dict) -> None:
                     ordered["size"].to_list(), ordered["median"].to_list(),
                     marker="o", label=case, color=colors[case])
             axis.set(xscale="log", yscale="log", xlabel="size $n$",
-                     title=family_title(family))
+                     title=family)
             axis.legend(fontsize="small")
     for axis in axes.flat:
         axis.grid(True, which="both", linestyle=":", linewidth=.5)
@@ -196,29 +174,35 @@ def plot(df: pl.DataFrame, path: str, spec: Plot, colors: dict) -> None:
     plt.close(figure)
 
 
-def write_report(df: pl.DataFrame, output: str) -> list[str]:
-    """Write the hierarchical tables and one scaling plot per benchmark."""
-    table = scaling_table(df)
-    with pl.Config(tbl_rows=-1, tbl_cols=-1, fmt_str_lengths=80):
-        print(table)
-    names = ["results.md", "results.csv", "results.html"]
-    with open(os.path.join(output, names[0]), "w") as file:
-        file.write(to_markdown(table) + "\n")
-    table.write_csv(os.path.join(output, names[1]))
-    with open(os.path.join(output, names[2]), "w") as file:
-        file.write(to_html(table) + "\n")
+def write_reports(df: pl.DataFrame, output: str) -> list[str]:
+    """Write one hierarchical table and scaling plot per suite."""
     colors = case_colors(df)
-    for (benchmark,), group in df.group_by("benchmark", maintain_order=True):
-        name = f"{benchmark}-scaling.png"
-        plot(group, os.path.join(output, name), PLOTS[benchmark], colors)
-        names.append(name)
+    names = []
+    for suite, spec in PLOTS.items():
+        group = df.filter(pl.col("suite") == suite)
+        if group.is_empty():
+            continue
+        table = scaling_table(group, spec)
+        with pl.Config(tbl_rows=-1, tbl_cols=-1, fmt_str_lengths=80):
+            print(table)
+        report_names = [
+            f"{suite}-results.{extension}"
+            for extension in ("md", "csv", "html")]
+        with open(os.path.join(output, report_names[0]), "w") as file:
+            file.write(to_markdown(table) + "\n")
+        table.write_csv(os.path.join(output, report_names[1]))
+        with open(os.path.join(output, report_names[2]), "w") as file:
+            file.write(to_html(table) + "\n")
+        plot_name = f"{suite}-scaling.png"
+        plot(group, os.path.join(output, plot_name), spec, colors)
+        names += report_names + [plot_name]
     return names
 
 
 def compare(current: pl.DataFrame, baseline: pl.DataFrame) -> pl.DataFrame:
     """ Per-cell relative change vs baseline, worst first (shared only). """
     return current.join(
-        baseline, on=["benchmark", "family", "case", "size"], suffix="_base",
+        baseline, on=["suite", "family", "case", "size"], suffix="_base",
     ).with_columns(
         ((pl.col("median") - pl.col("median_base")) / pl.col("median_base"))
         .alias("delta"),
@@ -239,7 +223,7 @@ def main() -> int:
 
     os.makedirs(args.output, exist_ok=True)
     df = load(args.run)
-    written = write_report(df, args.output)
+    written = write_reports(df, args.output)
     print(f"wrote {', '.join(written)} to {args.output}/")
 
     if not args.baseline:
@@ -251,13 +235,13 @@ def main() -> int:
     regressions = deltas.filter(pl.col("delta") > args.fail_threshold)
     with pl.Config(tbl_rows=-1):
         print(deltas.select(
-            "benchmark", "family", "case", "size", "median",
+            "suite", "family", "case", "size", "median",
             "median_base", "delta"))
     if len(regressions):
         print(f"REGRESSION: {len(regressions)} case(s) over "
               f"+{args.fail_threshold:.0%} vs baseline:")
         print(regressions.select(
-            "benchmark", "family", "case", "size", "delta"))
+            "suite", "family", "case", "size", "delta"))
         return 1
     print(f"no case regressed by more than +{args.fail_threshold:.0%}.")
     return 0

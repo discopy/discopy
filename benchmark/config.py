@@ -17,11 +17,17 @@ def sizes(*base, full=()):
     return list(base) + (list(full) if _FULL else [])
 
 
-def case(group):
-    """ Shared benchmark marker: CPU-time clock, garbage collector disabled
-    in the timed region, grouped by case name. """
-    return pytest.mark.benchmark(
-        group=group, timer=time.process_time, disable_gc=True)
+def case(family, case, sizes, *, suite):
+    """Benchmark metadata and shared measurement configuration."""
+    benchmark = pytest.mark.benchmark(
+        group=(suite, family, case),
+        timer=time.process_time, disable_gc=True)
+    parametrize = pytest.mark.parametrize("n", sizes)
+
+    def decorator(function):
+        return benchmark(parametrize(function))
+
+    return decorator
 
 
 # Median of ROUNDS timed calls after WARMUP untimed ones. Inputs are built

@@ -99,8 +99,8 @@ def make_spiral(n_cups):
     return result, unit, counit
 
 
-def with_snakes(morphism, n):
-    """ Wrap ``morphism`` in ``n`` transpose round-trips; equals it cluttered.
+def alternating_transpositions(morphism, n):
+    """ Apply ``n`` alternating transpose round-trips to ``morphism``.
 
     Transposing back and forth is a no-op on its boundary type, so the result
     stays the same constant width at every step, only growing snake-shaped
