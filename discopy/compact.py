@@ -167,9 +167,13 @@ Diagram.functor_factory = Functor
 Diagram.permutation_factory = Permutation
 Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
+Diagram.strategy_condition = None
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 
 
 class Equation(symmetric.Equation):
     """ The :class:`symmetric.Equation` of compact diagrams. """
     up_to = staticmethod(Diagram.to_hypergraph)
+
+
+Diagram.equation_factory = Equation

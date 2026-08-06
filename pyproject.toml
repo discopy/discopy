@@ -45,6 +45,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "coverage",
+    "hypothesis",
     "marimo",
     "pyproject-flake8",
     "pylint",
@@ -83,6 +84,7 @@ grammar = [
 test = [
     "discopy[grammar,quantum]",
     "coverage",
+    "hypothesis",
     "marimo",
     "pyproject-flake8",
     "pylint",
@@ -154,6 +156,7 @@ testpaths = [
     "test/*/*.py",
 ]
 norecursedirs = [
+    ".hypothesis",
     "test/fixtures",
 ]
 addopts = "--doctest-modules --ignore=test/fixtures -p plugin"
@@ -165,3 +168,7 @@ omit = ["test/plugin.py"]
 
 [tool.coverage.report]
 fail_under = 98
+exclude_also = [
+    "def strategy",
+    "if TYPE_CHECKING",
+]

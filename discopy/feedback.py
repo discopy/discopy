@@ -170,6 +170,14 @@ class Ob(braided.Ob):
         self.time_step, self.is_constant = time_step, is_constant
         super().__init__(name)
 
+    @classmethod
+    def strategy(cls, **params):
+        """Generate constant feedback objects at time zero."""
+        from hypothesis import strategies as st
+
+        del params
+        return st.sampled_from(tuple("abcde")).map(cls)
+
     def delay(self, n_steps=1):
         """ The delay of a feedback object. """
         return Ob(self.name, self.time_step + n_steps, self.is_constant)
@@ -408,6 +416,30 @@ class Box(markov.Box, Diagram):
     _time_step = 0
     time_step = property(lambda self: self._time_step)
 
+    @classmethod
+    def strategy(cls, **params):
+        """Add feedback boxes to the inherited distribution."""
+        from hypothesis import strategies as st
+
+        base = super().strategy(**params)
+        factory = cls.ar.feedback_factory
+        types = params.get("types")
+        types = cls.ob.strategy() if types is None else types
+
+        def feedbacks(factory):
+            def build(args):
+                memory, dom, cod = args
+                return cls.free_strategy(
+                    types=types,
+                    dom=dom @ memory.delay(), cod=cod @ memory).map(
+                        lambda arg: factory(arg, mem=memory))
+
+            return st.tuples(
+                cls.atomic_strategy(), types, types).flatmap(build)
+
+        return cls.extend_strategy(
+            base, factory, feedbacks, **params)
+
     def __init__(self, name, dom, cod, time_step: int = 0, **params):
         self._time_step, self._params = time_step, params
         markov.Box.__init__(self, name, dom, cod, **params)
@@ -456,6 +488,12 @@ class Swap(markov.Swap, Box):
         return type(self)(self.left.delay(n_steps), self.right.delay(n_steps))
 
 
+class Trace(markov.Trace, Box):
+    """ A trace in a feedback category. """
+
+    ob = Ty
+
+
 class Copy(markov.Copy, Box):
     """
     The copy of an atomic type :code:`x` some :code:`n` number of times.
@@ -470,6 +508,10 @@ class Copy(markov.Copy, Box):
 
     def delay(self, n_steps=1):
         return type(self)(self.dom.delay(n_steps), len(self.cod))
+
+
+class Discard(markov.Discard, Copy):
+    """ A discard in a feedback category. """
 
 
 class Merge(markov.Merge, Box):
@@ -662,6 +704,7 @@ class Functor(markov.Functor):
 Diagram.functor_factory = Functor
 Diagram.swap_factory = Swap
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
+Diagram.trace_factory, Diagram.discard_factory = Trace, Discard
 Diagram.feedback_factory, Diagram.followed_by = Feedback, FollowedBy
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Id = Diagram.id
@@ -670,3 +713,6 @@ Id = Diagram.id
 class Equation(markov.Equation):
     """ The :class:`markov.Equation` of feedback diagrams. """
     up_to = staticmethod(Diagram.to_hypergraph)
+
+
+Diagram.equation_factory = Equation

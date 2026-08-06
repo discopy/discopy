@@ -197,6 +197,20 @@ class Ob(monoidal.Wire):
         self.z = z
         super().__init__(name, dom, cod)
 
+    @classmethod
+    def strategy(
+            cls, *, dom=monoidal.white, cod=monoidal.white,
+            min_winding=-1, max_winding=1):
+        """Generate rigid objects with bounded winding number."""
+        from hypothesis import strategies as st
+
+        return st.tuples(
+            st.sampled_from(tuple("abcde")),
+            st.integers(
+                min_value=min_winding, max_value=max_winding)).map(
+                    lambda args: cls(
+                        args[0], args[1], dom=dom, cod=cod))
+
     def dagger(self) -> Ob:
         raise AxiomError("Rigid types have no dagger, use pivotal instead.")
 
@@ -660,6 +674,19 @@ class Box(biclosed.Box, Diagram):
     >>> assert f.l.l != f != f.r.r
     """
 
+    @classmethod
+    def strategy(cls, **params):
+        """Add cups and caps to the inherited box distribution."""
+        base = super().strategy(**params)
+        base = cls.extend_strategy(
+            base, cls.ar.cup_factory,
+            lambda factory: cls.atomic_strategy().map(
+                lambda obj: factory(obj, obj.r)), **params)
+        return cls.extend_strategy(
+            base, cls.ar.cap_factory,
+            lambda factory: cls.atomic_strategy().map(
+                lambda obj: factory(obj, obj.l)), **params)
+
     def __setstate__(self, state):
         if '_z' in state:  # Backward compatibility
             self.z = state['_z']
@@ -889,3 +916,6 @@ Id = Diagram.id
 
 class Equation(biclosed.Equation):
     """ The :class:`biclosed.Equation` of rigid diagrams. """
+
+
+Diagram.equation_factory = Equation

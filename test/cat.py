@@ -3,6 +3,7 @@
 import pytest
 from pytest import raises
 
+from discopy import abc, testing
 from discopy.cat import *
 from discopy.utils import AxiomError
 
@@ -16,6 +17,35 @@ def test_main():
     F = Functor(ob_map={x: y, y: z, z: x}, ar_map={f: g, g: h})
     assert F(Id(x)) == Id(F(x))
     assert F(f >> g) == F(f) >> F(g)
+
+
+def test_axiom_mro_discovery_order_and_shadowing():
+    class Parent(Arrow):
+        @testing.axiom
+        def parent_law(cls):
+            return cls.equation_factory(0, 0)
+
+    class Child(Parent):
+        @testing.axiom
+        def child_law(cls):
+            return cls.equation_factory(0, 0)
+
+    class Shadow(Child):
+        parent_law = None
+
+    names = tuple(axiom.name for axiom in Child.axioms)
+    assert names[-2:] == ("parent_law", "child_law")
+    assert len(names) == len(set(names))
+    assert "parent_law" not in {
+        axiom.name for axiom in Shadow.axioms}
+
+
+def test_default_equation_factory():
+    assert isinstance(
+        abc.Category.__dict__["equation_factory"], classmethod)
+    equation = abc.Category.equation_factory(0, 0)
+    assert isinstance(equation, abc.Equation)
+    assert isinstance(equation, Equation) and equation
 
 
 def test_Ob():

@@ -32,6 +32,14 @@ def test_default_compact_setting():
     assert cm.to_hypergraph().category == M.category
 
 
+def test_CMap_axioms_match_category():
+    from discopy import compact, monoidal, symmetric
+
+    for module in monoidal, symmetric, compact:
+        assert tuple(axiom.name for axiom in module.CMap.axioms) == tuple(
+            axiom.name for axiom in module.Diagram.axioms)
+
+
 def test_M_init():
     from discopy.compact import Ty, Box, CMap as M
     x, y, z = map(Ty, "xyz")
@@ -387,6 +395,12 @@ def test_trace():
     assert M.id(x).trace(left=True).loops == (x, )
     assert M.swap(x, x).trace() == M.id(x)
 
+    from discopy.traced import CMap as TracedMap, Ty as TracedTy
+    traced_x, traced_y = map(TracedTy, "xy")
+    traced = TracedMap.id(traced_x @ traced_y).trace()
+    assert traced.dom == traced.cod == traced_x
+    assert traced.loops == (traced_y, )
+
     f = M.from_box(Box("f", x @ y, x @ y))
     right_trace = f.trace()
     assert right_trace.dom == x
@@ -470,6 +484,33 @@ def test_connected_components_of_loops():
     components = loops.connected_components
     assert len(components) == 2
     assert tuple(c.loops for c in components) == ((x,), (y,))
+
+
+def test_loop_order_is_canonical():
+    from discopy.compact import Ty, CMap as M
+
+    x, y = map(Ty, "xy")
+    left = M(Ty(), Ty(), (), (), loops=(x, y))
+    right = M(Ty(), Ty(), (), (), loops=(y, x))
+    assert left == right and hash(left) == hash(right)
+
+
+def test_compact_evaluation_is_wiring():
+    from discopy.compact import Ty, Diagram, CMap
+
+    x, y = map(Ty, "xy")
+    for left in False, True:
+        evaluation = CMap.ev(x, y, left)
+        assert evaluation == Diagram.ev(x, y, left).to_map()
+        assert not evaluation.boxes
+
+
+def test_empty_structural_generators_are_wiring():
+    from discopy import frobenius, markov
+
+    assert markov.CMap.copy(markov.Ty(), 2) == markov.CMap.id()
+    assert frobenius.CMap.spiders(
+        1, 2, frobenius.Ty()) == frobenius.CMap.id()
 
 
 def test_hypergraph_to_map():

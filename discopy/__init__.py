@@ -6,6 +6,7 @@ import doctest
 
 from discopy import (
     abc,
+    testing,
     cat,
     monoidal,
     braided,

@@ -62,6 +62,20 @@ uv run coverage report -m
 
 Without the extras installed, run `uv run pytest --skip-extra` to skip what needs them.
 
+## Run the property tests
+
+The Hypothesis property matrix and its strategies live in `proptest/`, outside
+pytest's default `testpaths`. Run them explicitly:
+
+```shell
+uv sync --group dev
+uv run pflake8 proptest
+uv run pytest proptest/ -v
+```
+
+The `proptest` GitHub workflow runs this suite on `main`, on manual dispatch,
+and on pull requests labelled `proptest`.
+
 ## Run the benchmarks
 
 The composition benchmark (`benchmark/test_composition.py`) reproduces the scaling

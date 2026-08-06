@@ -25,10 +25,11 @@ from dataclasses import dataclass
 
 from discopy import messages
 from discopy.abc import MonoidalCategory, SymmetricCategory
+from discopy.testing import Natural, Strategy
 
 
 @dataclass
-class Function(MonoidalCategory, Sequence):
+class Function(MonoidalCategory, Sequence, Strategy["Function"]):
     """
     A function between finite sets encoded as a Python list.
 
@@ -53,9 +54,63 @@ class Function(MonoidalCategory, Sequence):
     dom: int
     cod: int
 
-    ob = int
+    ob = Natural
+
+    @classmethod
+    def generator_strategy(
+            cls, *, dom=None, cod=None, max_size=400):
+        """Generate finite functions with optional exact boundaries."""
+        from hypothesis import strategies as st
+
+        @st.composite
+        def functions(sample):
+            source = sample(st.integers(
+                min_value=0, max_value=max_size)) if dom is None else dom
+            target = sample(st.integers(
+                min_value=0,
+                max_value=0 if source == 0 else max_size))\
+                if cod is None else cod
+            if source == 0 and target:
+                return sample(st.nothing())
+            inside = sample(st.lists(
+                st.integers(min_value=0, max_value=max(0, source - 1)),
+                min_size=target, max_size=target)) if target else []
+            return cls(inside, source, target)
+
+        return functions()
+
+    @classmethod
+    def strategy(
+            cls, *, min_leaves=None, max_leaves=10, max_size=400,
+            dom=None, cod=None):
+        """Generate finite functions recursively under tensor and compose."""
+        from hypothesis import strategies as st
+
+        if dom is not None or cod is not None:
+            return cls.generator_strategy(
+                dom=dom, cod=cod, max_size=max_size)
+        objects = cls.ob.strategy(max_size=max_size)
+        atoms = st.one_of(
+            objects.map(cls.id),
+            cls.generator_strategy(max_size=max_size))
+
+        def extend(children):
+            compositions = children.flatmap(
+                lambda left: cls.generator_strategy(
+                    dom=left.cod, max_size=max_size).map(
+                        lambda right: left >> right))
+            tensors = st.tuples(children, children).map(
+                lambda pair: pair[0] @ pair[1])
+            return st.booleans().flatmap(
+                lambda take_tensor: tensors if take_tensor
+                else compositions)
+
+        return st.recursive(
+            atoms, extend,
+            min_leaves=min_leaves, max_leaves=max_leaves)
 
     def __post_init__(self):
+        self.dom, self.cod = map(self.ob, (self.dom, self.cod))
         if isinstance(self.inside, dict):
             self.inside = [self.inside[i] for i in range(self.cod)]
         else:
@@ -119,7 +174,22 @@ class Permutation(Function, SymmetricCategory):
     >>> Permutation((1, 0)).is_fixpoint_free_involution()
     True
     """
-    ob = int
+    ob = Natural
+
+    @classmethod
+    def strategy(
+            cls, *, max_size=10, dom=None, cod=None):
+        """Generate permutations with optional exact boundaries."""
+        from hypothesis import strategies as st
+
+        if dom is not None and cod is not None and dom != cod:
+            return st.nothing()
+        size = dom if dom is not None else cod
+        sizes = st.integers(min_value=0, max_value=max_size)\
+            if size is None else st.just(size)
+        return sizes.flatmap(lambda size: st.permutations(
+            tuple(range(size))).map(
+                lambda inside: cls(inside, size)))
 
     def __init__(self, inside=(), size: int | None = None):
         inside = tuple(inside)

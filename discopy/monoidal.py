@@ -61,6 +61,7 @@ from warnings import warn
 
 from discopy import cat, drawing, hypergraph, cmap, messages
 from discopy.abc import ColouredMonoid, MonoidalCategory
+from discopy.testing import Strategy
 from discopy.drawing import Drawing
 from discopy.config import (
     BOX_DRAWING_ATTRIBUTES, WIRE_DRAWING_ATTRIBUTES,
@@ -100,6 +101,14 @@ class Colour(cat.Ob):
         if self.label is not None:
             assert_isinstance(self.label, str)
 
+    @classmethod
+    def strategy(cls):
+        """Generate drawing colours."""
+        from hypothesis import strategies as st
+
+        return st.sampled_from(
+            ("white", "red", "green", "blue")).map(cls)
+
     @property
     def legend_label(self) -> str:
         """ The name shown for this colour in a drawing legend. """
@@ -133,6 +142,17 @@ class Wire(cat.Ob):
         self.is_dagger = is_dagger
         self.dom, self.cod = dom, cod
         super().__init__(name)
+
+    @classmethod
+    def strategy(cls, *, dom=white, cod=white):
+        """Generate named wires with optional exact colour boundaries."""
+        from hypothesis import strategies as st
+
+        return st.tuples(
+            st.sampled_from(tuple("abcde")),
+            st.just(dom), st.just(cod)).map(
+                lambda args: cls(
+                    args[0], dom=args[1], cod=args[2]))
 
     def __setstate__(self, state):
         state.setdefault('dom', white)
@@ -250,6 +270,33 @@ class Ty(cat.Ob, FreeMonoid):
     """
     ob = Colour
     generator_factory = Wire
+
+    @classmethod
+    def strategy(
+            cls, *, min_length=0, max_length=3,
+            dom=white, cod=white):
+        """Generate composable words of generating wires."""
+        from hypothesis import strategies as st
+
+        @st.composite
+        def words(sample):
+            source = white if dom is None else dom
+            target = white if cod is None else cod
+            minimum = max(min_length, int(source != target))
+            lengths = st.integers(
+                min_value=minimum, max_value=max_length)
+            if minimum <= 1 <= max_length:
+                lengths = st.one_of(st.just(1), lengths)
+            length = sample(lengths)
+            if not length:
+                return cls(dom=source, cod=target)
+            boundaries = [source] + [white] * (length - 1) + [target]
+            wires = [sample(cls.generator_factory.strategy(
+                dom=boundaries[i], cod=boundaries[i + 1]))
+                for i in range(length)]
+            return cls(*wires)
+
+        return words()
 
     def cast_wire(self, x: str | cat.Ob) -> cat.Ob:
         """
@@ -686,6 +733,50 @@ class Layer(cat.Box):
         """
         return cls(box.dom[:0], box, box.cod[len(box.cod):])
 
+    @classmethod
+    def strategy(
+            cls, *, factory, types=None, dom=None, cod=None,
+            label=None, exclude=()):
+        """Generate a one-box layer matching optional exact boundaries."""
+        from hypothesis import strategies as st
+
+        types = factory.ob.strategy() if types is None else types
+        boxes = factory.box_factory
+        del exclude
+        if dom is None and cod is None:
+            return boxes.strategy(
+                types=types, label=label).map(cls.cast)
+
+        def free_layer(placement):
+            left, box_dom, box_cod, right = placement
+            return boxes.free_strategy(
+                types=types, dom=box_dom, cod=box_cod,
+                label=label).map(
+                    lambda box: cls(left, box, right))
+
+        if dom is None or cod is None:
+            boundary, is_dom = (dom, True) if dom is not None else (cod, False)
+            placements = [(
+                boundary[:i], boundary[i:j] if is_dom else None,
+                None if is_dom else boundary[i:j], boundary[j:])
+                for i in range(len(boundary) + 1)
+                for j in range(i, len(boundary) + 1)]
+        else:
+            placements = [
+                (dom[:i], dom[i:len(dom) - right],
+                 cod[i:len(cod) - right], dom[len(dom) - right:])
+                for i in range(min(len(dom), len(cod)) + 1)
+                for right in range(
+                    min(len(dom) - i, len(cod) - i) + 1)
+                if dom[:i] == cod[:i]
+                and dom[len(dom) - right:] == cod[len(cod) - right:]]
+        if dom:
+            placements = [
+                placement for placement in placements if placement[1]]
+        guided = st.sampled_from(placements).flatmap(free_layer)\
+            if placements else st.nothing()
+        return guided
+
     def dagger(self) -> Layer:
         return type(self)(*(
             x if isinstance(x, Ty) else x.dagger() for x in self))
@@ -757,7 +848,8 @@ class Layer(cat.Box):
 
 
 @factory
-class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
+class Diagram(
+        cat.Arrow, MonoidalCategory, RichDisplay, Strategy["Diagram"]):
     """
     A diagram is a tuple of composable layers :code:`inside` with a pair of
     types :code:`dom` and :code:`cod` as domain and codomain.
@@ -781,6 +873,7 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
     """
     ob = Ty
     layer_factory = Layer
+    box_factory = None
 
     def __setstate__(self, state):
         if 'inside' not in state:  # Backward compatibility
@@ -794,6 +887,52 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
         for layer in inside:
             assert_isinstance(layer, Layer)
         super().__init__(inside, dom, cod, _scan=_scan)
+
+    @classmethod
+    def strategy(
+            cls, *, types=None,
+            min_leaves=None, max_leaves=3,
+            condition=None, dom=None, cod=None):
+        """Generate diagrams by composing boundary-guided layers."""
+        from hypothesis import strategies as st
+
+        condition = condition or getattr(cls, "strategy_condition", None)
+        types = cls.ob.strategy(
+            min_length=int(condition is not None))\
+            if types is None else types
+
+        @st.composite
+        def diagrams(draw):
+            minimum = 0 if min_leaves is None else min_leaves
+            if dom is not None and cod is not None and dom != cod:
+                minimum = max(1, minimum)
+            n_layers = draw(st.integers(
+                min_value=minimum, max_value=max_leaves))
+            layers, boxes = [], set()
+            if dom is None and cod is None and n_layers:
+                first = draw(cls.layer_factory.strategy(
+                    factory=cls, types=types,
+                    label=0, exclude=boxes))
+                layers.append(first)
+                boxes.update(first.boxes)
+                source, boundary, start = first.dom, first.cod, 1
+            else:
+                source = dom if dom is not None else (
+                    cod if not n_layers and cod is not None else draw(types))
+                boundary, start = source, 0
+            for i in range(start, n_layers):
+                layers_at_boundary = cls.layer_factory.strategy(
+                    factory=cls, types=types, dom=boundary,
+                    cod=cod if i == n_layers - 1 else None,
+                    label=i, exclude=boxes)
+                layer = draw(layers_at_boundary)
+                layers.append(layer)
+                boxes.update(layer.boxes)
+                boundary = layer.cod
+            return cls(tuple(layers), source, boundary, _scan=False)
+
+        return diagrams() if condition is None else diagrams().filter(
+            condition)
 
     @property
     def size(self):
@@ -1288,6 +1427,47 @@ class Box(cat.Box, Diagram):
         :align: center
     """
 
+    def __init_subclass__(cls, **params):
+        super().__init_subclass__(**params)
+        if cls.ar in cls.__bases__:
+            cls.ar.box_factory = cls
+
+    @classmethod
+    def strategy(cls, **params):
+        """Generate free boxes; subclasses add structural distributions."""
+        return cls.free_strategy(**params)
+
+    @classmethod
+    def free_strategy(
+            cls, *, types=None, dom=None, cod=None,
+            label=None):
+        """Generate a fresh free box with optional exact boundaries."""
+        from hypothesis import strategies as st
+
+        types = cls.ob.strategy() if types is None else types
+        doms = types if dom is None else st.just(dom)
+        cods = types if cod is None else st.just(cod)
+        names = st.uuids().map(
+            lambda name: f"{label}:{name}"
+            if label is not None else str(name))
+        return st.tuples(names, doms, cods).map(
+            lambda args: cls(*args))
+
+    @classmethod
+    def atomic_strategy(cls):
+        """Generate an atomic object of the box's object type."""
+        return cls.ob.strategy().filter(lambda obj: len(obj) == 1)
+
+    @classmethod
+    def extend_strategy(cls, base, factory, build, **params):
+        """Add a structural factory when it belongs to this box class."""
+        from hypothesis import strategies as st
+
+        return st.one_of(base, build(factory)) if not any(
+            params.get(boundary) is not None
+            for boundary in ("dom", "cod")) and (
+            isinstance(factory, type) and issubclass(factory, cls)) else base
+
     def __init__(self, name: str, dom: Ty, cod: Ty, **params):
         dom = dom if isinstance(dom, self.ob) else self.ob(dom)
         cod = cod if isinstance(cod, self.ob) else self.ob(cod)
@@ -1310,6 +1490,9 @@ class Box(cat.Box, Diagram):
 
     def to_drawing(self):
         return Drawing.from_box(self)
+
+
+Diagram.box_factory = Box
 
 
 class Sum(cat.Sum, Box):
@@ -1646,6 +1829,7 @@ class Equation(cat.Equation, RichDisplay):
         return self.to_drawing().draw(path=path, **params)
 
 
+Diagram.equation_factory = Equation
 Diagram.draw = drawing.draw
 Diagram.to_gif = drawing.to_gif
 
@@ -1654,5 +1838,7 @@ Diagram.bubble_factory = Bubble
 Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
+Diagram.strategy_condition = staticmethod(
+    lambda diagram: diagram.to_hypergraph().is_boundary_connected)
 Drawing.ob = Ty
 Id = Diagram.id

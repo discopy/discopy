@@ -54,8 +54,8 @@ We also have its dagger and its transpose:
 
 from __future__ import annotations
 
-from discopy import cat, rigid, traced
-from discopy.abc import PivotalCategory
+from discopy import cat, hypergraph, rigid, traced
+from discopy.abc import PivotalCategory, SymmetricCategory
 from discopy.cat import factory
 
 
@@ -69,6 +69,12 @@ class Ob(rigid.Ob):
     """
     l = r = property(lambda self: type(self)(
         self.name, (self.z + 1) % 2, dom=self.cod, cod=self.dom))
+
+    @classmethod
+    def strategy(cls, **params):
+        """Generate pivotal objects with parity-valued winding."""
+        return super().strategy(
+            min_winding=0, max_winding=1, **params)
 
     def dagger(self) -> Ob:
         """
@@ -156,6 +162,12 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
             :align: center
         """
         return self.rotate().dagger()
+
+    def to_hypergraph(self) -> Hypergraph:
+        """Translate a boundary-connected pivotal diagram to a hypergraph."""
+        if not isinstance(self, SymmetricCategory):
+            self.normal_form()
+        return super().to_hypergraph()
 
     @classmethod
     def trace_factory(cls, diagram: Diagram, left=False):
@@ -252,8 +264,16 @@ class Functor(rigid.Functor):
 
 
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
+Diagram.functor_factory = Functor
+Hypergraph = hypergraph.Hypergraph[Diagram]
+Diagram.strategy_condition = staticmethod(
+    lambda diagram: hypergraph.Hypergraph[
+        type(diagram)].from_diagram(diagram).is_boundary_connected)
 Id = Diagram.id
 
 
 class Equation(rigid.Equation):
     """ The :class:`rigid.Equation` of pivotal diagrams. """
+
+
+Diagram.equation_factory = Equation

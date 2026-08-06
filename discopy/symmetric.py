@@ -193,6 +193,51 @@ class Layer(monoidal.Layer):
             return cls(box)
         return cls(box.dom[:0], box, box.cod[len(box.cod):])
 
+    @classmethod
+    def strategy(
+            cls, *, factory, types=None, dom=None, cod=None,
+            label=None, exclude=()):
+        """Add a simultaneous native permutation to ordinary layers."""
+        from hypothesis import strategies as st
+
+        exclude = frozenset(exclude)
+        base = super().strategy(
+            factory=factory, types=types, dom=dom, cod=cod,
+            label=label)
+        types = factory.ob.strategy() if types is None else types
+        permutation_factory = factory.permutation_factory
+
+        def from_dom(source, target=None):
+            if len(source) < 2 or (
+                    target is not None and len(source) != len(target)):
+                return st.nothing()
+
+            def matches(perm):
+                return not perm.is_identity and (
+                    target is None or target == source[:0].tensor(*(
+                        source[i] for i in perm)))
+
+            return finset.Permutation.strategy(dom=len(source)).filter(
+                matches).map(lambda perm: cls.cast(
+                    permutation_factory(source, perm))).filter(
+                        lambda layer: not exclude.intersection(layer.boxes))
+
+        if dom is not None:
+            permutations = from_dom(dom, cod)
+        elif cod is not None:
+            def from_cod(perm):
+                inverse = perm.dagger()
+                source = cod[:0].tensor(*(cod[i] for i in inverse))
+                return cls.cast(permutation_factory(source, perm))
+
+            permutations = finset.Permutation.strategy(dom=len(cod)).filter(
+                lambda perm: not perm.is_identity).map(from_cod)\
+                .filter(lambda layer: not exclude.intersection(layer.boxes))\
+                if len(cod) >= 2 else st.nothing()
+        else:
+            permutations = types.flatmap(from_dom)
+        return st.one_of(base, permutations)
+
     def tensor(self, other: Layer) -> Layer:
         """ Tensor layers, coalescing their touching routing. """
         assert_isinstance(other, type(self))
@@ -644,6 +689,7 @@ class Functor(balanced.Functor):
 class CMap(traced.CMap):
     category = Diagram
     require_planar = False
+    require_causal = False
 
 
 Diagram.functor_factory = Functor
@@ -667,3 +713,6 @@ class Equation(monoidal.Equation):
     >>> assert Equation(Swap(x, y) >> Swap(y, x), Id(x @ y))
     """
     up_to = staticmethod(Diagram.to_hypergraph)
+
+
+Diagram.equation_factory = Equation
