@@ -463,6 +463,10 @@ def test_quimb_cotengra():
 
 def test_quimb_pytorch_autodiff():
     pytest.importorskip('quimb')
+    autoray = pytest.importorskip('autoray')
+    if tuple(map(int, autoray.__version__.split('.')[:2])) < (0, 9):
+        pytest.skip('autoray < 0.9 loses gradients on cached '
+                    'contraction trees')
     import torch
     x = frobenius.Ty('x')
     v = frobenius.Box('v', frobenius.Ty(), x)
