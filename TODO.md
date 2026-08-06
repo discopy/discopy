@@ -91,6 +91,6 @@ Instruction from Alexis, verbatim:
 > Simplify layers https://github.com/discopy/discopy/pull/438
 > I added some comments
 
-- [ ] Address all five unresolved review comments: define plumbing in the
+- [WIP] @codex-pr438-2026-08-06 20:07 Address all five unresolved review comments: define plumbing in the
   documentation, expose the layer normalisation steps, and reuse them during
   deserialisation.
