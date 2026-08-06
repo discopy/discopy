@@ -507,6 +507,47 @@ def test_tikz_long_controlled():
         Controlled(CZ.l, distance=2), distance=-1))
 
 
+def classical_controlled():
+    # A controlled gate over distinct wires, e.g. a classically-controlled
+    # gate, used to hit a KeyError looking up its nodes with the wrong type.
+    bit, qubit = monoidal.Ty("bit"), monoidal.Ty("qubit")
+    gate = monoidal.Box("F", qubit, qubit)
+    controlled = monoidal.Box(
+        "CF", bit @ qubit, bit @ qubit,
+        draw_as_controlled=True, controlled=gate, distance=1)
+    left_controlled = monoidal.Box(
+        "FC", qubit @ bit, qubit @ bit,
+        draw_as_controlled=True, controlled=gate, distance=-1)
+    return controlled @ left_controlled
+
+
+# The matplotlib rendering of classical_controlled() is exercised as a
+# doctest in the Gallery section of discopy/drawing/drawing.py, alongside
+# long-controlled; this only checks the TikZ backend, whose bending is
+# computed differently from Matplotlib.
+@tikz_and_compare('controlled-classical.tikz')
+def test_tikz_controlled_classical():
+    return classical_controlled()
+
+
+def test_tikz_controlled_node_ids():
+    # Nested controlled gates put several nodes at the same point, which used
+    # to make TikZ output duplicate node ids and misdirected control wires.
+    import re
+    from discopy.quantum import Controlled, X
+    path = os.path.join(TIKZ_FOLDER, '_ccx-node-ids.tikz')
+    Controlled(Controlled(X)).draw(path=path, to_tikz=True)
+    with open(path, "r") as file:
+        lines = file.read().splitlines()
+    os.remove(path)
+    node_ids = [re.search(r"\((\d+)\) at", line).group(1)
+                for line in lines if line.startswith("\\node ")]
+    assert len(node_ids) == len(set(node_ids))
+    wires = [re.findall(r"\((\d+)\.center\)", line)
+             for line in lines if "out=" in line]
+    assert all(source != target for source, target in wires)
+
+
 def test_rich_display():
     from io import StringIO
     import matplotlib.pyplot as plt
