@@ -54,8 +54,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 - `to_quimb` is rebuilt on the combinatorial map, shared between
   `tensor.Diagram` and `tensor.CMap`: swaps, cups and caps become wiring
-  instead of dense tensors, boundary identities are dropped, the network is
-  deterministic and the `dtype` parameter takes effect
+  instead of dense tensors, the network is deterministic and the `dtype`
+  parameter takes effect
   ([#523](https://github.com/discopy/discopy/issues/523)).
 - `Arrow` is refactored onto a `FreeCategory` base class
   ([#350](https://github.com/discopy/discopy/pull/350)).

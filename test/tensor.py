@@ -431,14 +431,12 @@ def test_to_quimb():
         assert np.allclose(
             np.asarray(result.data).flatten(),
             np.asarray(reference.array, dtype=complex).flatten())
-        assert len(network.tensors) <= len(diagram.to_map().boxes) + 1
 
 
 def test_to_quimb_dtype():
     pytest.importorskip('quimb')
     network = Id(Dim(2)).to_quimb(dtype=complex)
-    identity, = network.tensors
-    assert identity.data.dtype == complex
+    assert all(tensor.data.dtype == complex for tensor in network.tensors)
 
 
 def test_quimb_cotengra():

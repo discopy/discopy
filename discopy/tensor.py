@@ -475,14 +475,12 @@ class Functor(frobenius.Functor):
     def to_quimb(self, other) -> "quimb.tensor.TensorNetwork":
         """
         Translate the image of a diagram or combinatorial map to a quimb
-        tensor network with free indices ``inp0, ..., out0, ...`` named
-        after the boundary ports and one tensor per box.
-
-        The identities of :meth:`operands` are dropped by naming the
-        boundary wires directly, except for a wire between two boundary
-        ports which keeps its identity so that its two free indices
-        appear on a tensor. An index repeated on one array, i.e. a loop
-        or a box traced with itself, is summed over beforehand.
+        tensor network: one tensor per operand of :meth:`operands`, with
+        the free indices ``inp0, ..., out0, ...`` named after the
+        boundary ports and carried by identities in boundary order, the
+        order in which quimb contraction outputs them. An index repeated
+        on one array, i.e. a loop or a box traced with itself, is
+        summed over beforehand.
 
         Parameters:
             other : The diagram or combinatorial map to translate.
@@ -491,25 +489,12 @@ class Functor(frobenius.Functor):
         if not isinstance(other, cmap.CMap):
             other = cmap.CMap.from_diagram(other)
         arrays, indices, output = self.operands(other)
-        n_dom, n_boxes = len(other.dom), len(other.boxes)
+        n_dom = len(other.dom)
         names = {label: f"inp{i}" if i < n_dom else f"out{i - n_dom}"
                  for i, label in enumerate(output)}
-        eyes = list(zip(
-            arrays[:n_dom] + arrays[n_dom + n_boxes:][:len(other.cod)],
-            indices[:n_dom] + indices[n_dom + n_boxes:][:len(other.cod)],
-            output))
         tensors = []
-        for array, inds, label in eyes:
-            wire, = (j for j in inds if j != label)
-            if wire in names:
-                tensors.append(qtn.Tensor(
-                    array, inds=(names[label], names[wire])))
-            else:
-                names[wire] = names[label]
-        boxes_and_loops = list(zip(arrays, indices))[n_dom:][:n_boxes]\
-            + list(zip(arrays, indices))[n_dom + n_boxes + len(other.cod):]
         with backend() as np:
-            for array, inds in boxes_and_loops:
+            for array, inds in zip(arrays, indices):
                 kept = [j for j in inds if inds.count(j) == 1]
                 if kept != inds:
                     array = np.einsum(array, inds, kept)
