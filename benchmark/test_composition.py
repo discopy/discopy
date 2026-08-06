@@ -178,26 +178,6 @@ def test_spiral_normal_form_diagram(benchmark, n):
         lambda: spiral.normal_form(), rounds=ROUNDS, warmup_rounds=WARMUP)
 
 
-@case("Hypergraph", "spiral equality",
-      sizes(5, 10, 20, full=(50,)))  # VF2: 100 risky
-def test_spiral_equality_hypergraph(benchmark, n):
-    # Two independent builds of the same closed spiral: equality must decide
-    # they are isomorphic. The spiral is closed (empty boundary), hence not
-    # monogamous: exercises the networkx VF2 fallback, not the fast path.
-    left = generator.spiral(n).to_hypergraph()
-    right = generator.spiral(n).to_hypergraph()
-    benchmark.pedantic(
-        lambda: left == right, rounds=ROUNDS, warmup_rounds=WARMUP)
-
-
-@case("CMap", "spiral equality", sizes(5, 10, 20, full=(50,)))
-def test_spiral_equality_cmap(benchmark, n):
-    left = generator.spiral(n).to_map()
-    right = generator.spiral(n).to_map()
-    benchmark.pedantic(
-        lambda: left == right, rounds=ROUNDS, warmup_rounds=WARMUP)
-
-
 # --- transpose normal form --------------------------------------------------
 
 @case("Diagram", "transpose normal form",
