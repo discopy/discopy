@@ -320,17 +320,6 @@ class Diagram(monoidal.Diagram, BiclosedCategory):
         return cls.eval_factory(
             base << exponent if left else exponent >> base)
 
-    def uncurry(self: Diagram, left=False) -> Diagram:
-        """
-        Uncurry a biclosed diagram by composing it with :meth:`Diagram.ev`.
-
-        Parameters:
-            left : Whether to uncurry on the left or right.
-        """
-        base, exponent = self.cod.base, self.cod.exponent
-        return self @ exponent >> self.ev(base, exponent, True) if left\
-            else exponent @ self >> self.ev(base, exponent, False)
-
     def to_drawing(self):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
 

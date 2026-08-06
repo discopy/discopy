@@ -171,8 +171,8 @@ class CMap[C0: Pregroup, C1: CMap](
     category when downgrading with :meth:`to_diagram`:
 
     * cups and caps, i.e. same-polarity pairings :math:`e; m = m` (see
-      :attr:`is_oriented`), require a category with cups and caps and can
-      be made explicit with :meth:`make_oriented`;
+      :attr:`is_monogamous`), require a category with cups and caps and can
+      be made explicit with :meth:`make_monogamous`;
     * traces, i.e. cycles, backward wires and loops (see :attr:`is_acyclic`
       and :attr:`is_topologically_ordered`), require a traced category and
       can be made explicit with :meth:`make_causal`.
@@ -568,15 +568,17 @@ class CMap[C0: Pregroup, C1: CMap](
             cls.validate_adjoint_types(source, target)
 
     @property
-    def is_oriented(self) -> bool:
+    def is_monogamous(self) -> bool:
         """
-        Whether every wire connects a positive and a negative port,
-        i.e. the map has no cups or caps.
+        Checks monogamy, i.e. every wire connects a positive to a negative
+        port, so that the map has no cups or caps. This is the analogue of
+        :attr:`Hypergraph.is_monogamous`, in which case the map lives in a
+        traced category.
 
         >>> from discopy.compact import Ty, CMap
         >>> x = Ty("x")
-        >>> assert CMap.id(x).is_oriented
-        >>> assert not CMap.cups(x, x.r).is_oriented
+        >>> assert CMap.id(x).is_monogamous
+        >>> assert not CMap.cups(x, x.r).is_monogamous
         """
         ports = self.ports
         return all(
@@ -675,10 +677,26 @@ class CMap[C0: Pregroup, C1: CMap](
     @property
     def is_causal(self) -> bool:
         """
-        Whether the map is both oriented and progressive, i.e. it has no
-        cups, caps, traces or loops.
+        Checks causality, i.e. the map has no cups or caps, no directed cycle
+        and its wires point forward in the current box order. It is
+        equivalent to:
+
+        - :attr:`is_monogamous`
+        - :attr:`is_acyclic`
+        - :attr:`is_topologically_ordered`
+
+        A causal map lives in a symmetric monoidal category, i.e. it can be
+        drawn using only swaps.
+
+        >>> from discopy.compact import Ty, Box, CMap
+        >>> x = Ty("x")
+        >>> f = Box("f", x, x).to_map()
+        >>> assert (f >> f).is_causal
+        >>> assert not (f >> f).interchange(0, 1).is_causal
+        >>> assert not f.trace().is_causal
+        >>> assert not CMap.cups(x, x.r).is_causal
         """
-        return self.is_oriented and self.is_acyclic\
+        return self.is_monogamous and self.is_acyclic\
             and self.is_topologically_ordered
 
     def __repr__(self):
@@ -763,10 +781,16 @@ class CMap[C0: Pregroup, C1: CMap](
 
     @classmethod
     def cups(cls, left: Ty, right: Ty) -> CMap:
-        """ A cup encoded as unoriented wiring between adjoint types. """
-        left_adjoint = left.r if hasattr(left, "r") else left[::-1]
-        right_adjoint = right.r if hasattr(right, "r") else right[::-1]
-        if left_adjoint != right and right_adjoint != left:
+        """
+        A cup encoded as wiring between adjoint types.
+
+        The wiring of a map is compact, so ``right`` is accepted as either the
+        left or the right adjoint of ``left``. It is only when downgrading
+        with :meth:`make_monogamous` that the handedness matters.
+        """
+        assert_isinstance(left, Pregroup)
+        assert_isinstance(right, Pregroup)
+        if left.r != right and left.l != right:
             raise AxiomError(messages.NOT_ADJOINT.format(left, right))
         size = len(left)
         edge = Permutation.from_transpositions(
@@ -776,10 +800,10 @@ class CMap[C0: Pregroup, C1: CMap](
 
     @classmethod
     def caps(cls, left: Ty, right: Ty) -> CMap:
-        """ A cap encoded as unoriented wiring between adjoint types. """
-        left_adjoint = left.r if hasattr(left, "r") else left[::-1]
-        right_adjoint = right.r if hasattr(right, "r") else right[::-1]
-        if left_adjoint != right and right_adjoint != left:
+        """ A cap encoded as wiring between adjoints, see :meth:`cups`. """
+        assert_isinstance(left, Pregroup)
+        assert_isinstance(right, Pregroup)
+        if left.r != right and left.l != right:
             raise AxiomError(messages.NOT_ADJOINT.format(left, right))
         size = len(left)
         edge = Permutation.from_transpositions(
@@ -804,17 +828,18 @@ class CMap[C0: Pregroup, C1: CMap](
 
     @classmethod
     def ev(cls, base: Ty, exponent: Ty, left: bool = True) -> CMap:
-        """ Evaluation kept as a box. """
+        """
+        Evaluation is wiring when the host category is rigid, i.e. when it
+        comes from cups, otherwise it is kept as a box.
+        """
+        if issubclass(cls.category, RigidCategory):
+            return super().ev(base, exponent, left)
         return cls.from_box(cls.category.ev(base, exponent, left))
 
     def curry(self, n: int = 1, left: bool = False) -> CMap:
         """
-        Curry a combinatorial map using the structure of its host category.
-
-        Note:
-            Biclosed categories use their exponential and coevaluation
-            factories. Other categories use the free compact structure of the
-            map representation by introducing adjoint ports.
+        Curry a map with the cups and caps of its wiring when the host
+        category is rigid, otherwise keep the currying as an explicit box.
 
         Parameters:
             n : The number of objects to curry.
@@ -830,63 +855,29 @@ class CMap[C0: Pregroup, C1: CMap](
         .. graphviz:: /_static/cmap/compact-curry.dot
             :align: center
         """
+        if issubclass(self.category, RigidCategory):
+            return super().curry(n, left)
         if n < 0 or n > len(self.dom):
             raise ValueError
         if not n:
             return self
-        if issubclass(self.category, BiclosedCategory)\
-                and not issubclass(self.category, RigidCategory):
-            exponent = self.dom[len(self.dom) - n:] if left else self.dom[:n]
-            exponential = self.cod << exponent if left\
-                else exponent >> self.cod
-            coev = type(self).from_box(
-                self.category.coeval_factory(exponential, left=left))
-            return (self >> coev).trace(n, left=not left)
-        if left:
-            base, exponent = self.dom[:-n], self.dom[-n:]
-            return base @ self.caps(
-                exponent, exponent.l) >> self @ exponent.l
-        base, exponent = self.dom[n:], self.dom[:n]
-        return self.caps(exponent.r, exponent) @ base >> exponent.r @ self
+        return self.from_box(self.category.curry_factory(
+            self.to_diagram(), n, left))
 
     def uncurry(self, n: int = 1, left: bool = False) -> CMap:
         """
-        Uncurry a combinatorial map using the structure of its host category.
+        Uncurry a map with the cups of its wiring when the host category is
+        rigid, otherwise compose it with an explicit evaluation box.
+
+        This is inverse to :meth:`curry` when applied on the same side.
 
         Parameters:
             n : The number of objects to uncurry.
             left : Whether to uncurry on the left or right.
-
-        This is inverse to :meth:`curry` when applied on the same side.
         """
-        if n < 0:
-            raise ValueError
-        if not n:
-            return self
-        if issubclass(self.category, BiclosedCategory)\
-                and not issubclass(self.category, RigidCategory):
-            if not self.cod.is_exp:
-                raise ValueError
-            exponent = self.cod.exponent
-            if n < len(exponent):
-                raise ValueError
-            ev = type(self).from_box(
-                self.category.eval_factory(self.cod, left))
-            result = self @ type(self).id(exponent) >> ev if left\
-                else type(self).id(exponent) @ self >> ev
-            remaining = n - len(exponent)
-            return result if not remaining\
-                else result.uncurry(remaining, left)
-        if n > len(self.cod):
-            raise ValueError
-        if left:
-            base, exponent_l = self.cod[:-n], self.cod[-n:]
-            exponent = exponent_l.r
-            return self @ exponent >> base @ self.cups(
-                exponent.l, exponent)
-        exponent_r, base = self.cod[:n], self.cod[n:]
-        exponent = exponent_r.l
-        return exponent @ self >> self.cups(exponent, exponent.r) @ base
+        if issubclass(self.category, RigidCategory):
+            return super().uncurry(n, left)
+        return BiclosedCategory.uncurry(self, n, left)
 
     l = property(lambda self: self.transpose(left=True))
     r = property(lambda self: self.transpose(left=False))
@@ -1157,24 +1148,31 @@ class CMap[C0: Pregroup, C1: CMap](
             return self.from_box(factory(self.to_diagram(), left))
         return factory.__func__(type(self), self, left)
 
-    def make_oriented(self) -> CMap:
+    def make_monogamous(self) -> CMap:
         """
-        Introduce cup and cap boxes to make self :attr:`is_oriented`,
+        Introduce cup and cap boxes to make self :attr:`is_monogamous`,
         i.e. so that every wire connects a positive and a negative port.
 
-        When adjoints are not pivotal, a bend may have the opposite handedness
-        from the cup or cap supplied by :attr:`category`. In that case, its
-        legal arguments are reversed and so are its wire attachments. The
-        resulting crossed wiring can only be downgraded by a category with
-        swaps.
+        Note
+        ----
+        A bend, i.e. a wire between two ports of the same polarity, comes with
+        a handedness: in a rigid category a cup goes from ``x @ x.r`` while a
+        cap goes to ``x.r @ x``. When the bend has the opposite handedness,
+        e.g. a wire between two outputs typed ``x.r`` and ``x``, we reverse the
+        arguments of the cup or cap and cross its two attachments, which
+        requires the category to have swaps.
+
+        This does not lose any diagram: the reverse case happens only when the
+        category is rigid but not pivotal, i.e. when ``x.r.r != x``, in which
+        case such a map has no planar downgrade to begin with.
 
         Example
         -------
         >>> from discopy.compact import Ty, Cup, Cap, CMap
         >>> x = Ty("x")
-        >>> assert CMap.cups(x, x.r).make_oriented()\\
+        >>> assert CMap.cups(x, x.r).make_monogamous()\\
         ...     == CMap.from_box(Cup(x, x.r))
-        >>> assert CMap.caps(x.r, x).make_oriented()\\
+        >>> assert CMap.caps(x.r, x).make_monogamous()\\
         ...     == CMap.from_box(Cap(x.r, x))
         """
         ports = self.ports
@@ -1215,8 +1213,8 @@ class CMap[C0: Pregroup, C1: CMap](
                 self.n_ports + 2)
             return type(self)(
                 self.dom, self.cod, boxes, edges, offsets=offsets,
-                loops=self.loops).make_oriented()
-        assert self.is_oriented
+                loops=self.loops).make_monogamous()
+        assert self.is_monogamous
         return self
 
     def make_causal(self) -> CMap:
@@ -1231,8 +1229,8 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> assert f.to_map().trace().make_causal()\\
         ...     == CMap.from_box(Trace(f))
         """
-        if not self.is_oriented:
-            return self.make_oriented().make_causal()
+        if not self.is_monogamous:
+            return self.make_monogamous().make_causal()
         if self.is_acyclic and not self.is_topologically_ordered:
             return self.topological_order()
 
@@ -1272,113 +1270,6 @@ class CMap[C0: Pregroup, C1: CMap](
         assert self.is_causal
         return self
 
-    def make_planar(self) -> CMap:
-        """
-        Introduce explicit permutation boxes to make self :attr:`is_planar`,
-        preserving the order of existing boxes.
-
-        Example
-        -------
-        >>> from discopy.symmetric import Ty, Swap, CMap
-        >>> x, y = map(Ty, "xy")
-        >>> assert CMap.swap(x, y).make_planar()\\
-        ...     == CMap.from_box(Swap(x, y))
-        """
-        if not self.is_causal:
-            return self.make_oriented().make_causal().make_planar()
-
-        edge_wire = {}
-        for i, j in enumerate(self.edges):
-            if i <= j:
-                edge_wire[i] = edge_wire[j] = len(edge_wire) // 2
-
-        boxes, offsets, edge_pairs = [], [], []
-        scan = [edge_wire[i] for i in range(len(self.dom))]
-        sources = list(range(len(self.dom)))
-        current, port = self.dom, len(self.dom)
-
-        def add_box(box, offset, cod_wires):
-            nonlocal current, port, scan, sources
-            dom_ports = tuple(range(port, port + len(box.dom)))
-            port += len(box.dom)
-            cod_ports = tuple(reversed(range(port, port + len(box.cod))))
-            port += len(box.cod)
-            edge_pairs.extend(zip(
-                sources[offset:offset + len(box.dom)], dom_ports))
-            sources = sources[:offset] + list(cod_ports) + sources[
-                offset + len(box.dom):]
-            scan = scan[:offset] + list(cod_wires) + scan[
-                offset + len(box.dom):]
-            current = current[:offset] @ box.cod @ current[
-                offset + len(box.dom):]
-            boxes.append(box)
-            offsets.append(offset)
-
-        def route(target):
-            if target == scan:
-                return
-            left, right = 0, len(scan)
-            while scan[left] == target[left]:
-                left += 1
-            while scan[right - 1] == target[right - 1]:
-                right -= 1
-            source = scan[left:right]
-            position = {wire: i for i, wire in enumerate(source)}
-            perm = [position[wire] for wire in target[left:right]]
-            start, maximum = 0, -1
-            for stop, value in enumerate(perm, 1):
-                maximum = max(maximum, value)
-                if maximum != stop - 1:
-                    continue
-                size, offset = stop - start, left + start
-                if size > 1:
-                    local = [i - start for i in perm[start:stop]]
-                    typ = current[offset:offset + size]
-                    if size == 2:
-                        if not hasattr(self.category, "swap"):
-                            raise AxiomError(messages.NOT_SYMMETRIC.format(
-                                factory_name(self.category)))
-                        box = self.category.swap(typ[:1], typ[1:])
-                    else:
-                        factory = getattr(
-                            self.category, "permutation_factory", None)
-                        if factory is None:
-                            raise AxiomError(messages.NOT_SYMMETRIC.format(
-                                factory_name(self.category)))
-                        box = factory(typ, local)
-                    add_box(box, offset, target[offset:offset + size])
-                start = stop
-
-        for depth, (box, offset) in enumerate(zip(
-                self.boxes, self.offsets)):
-            ports = self._box_port_indices[depth]
-            dom_ports = ports[:len(box.dom)]
-            cod_ports = tuple(reversed(ports[len(box.dom):]))
-            dom_wires = [edge_wire[i] for i in dom_ports]
-            cod_wires = [edge_wire[i] for i in cod_ports]
-            remaining = [wire for wire in scan if wire not in dom_wires]
-            if dom_wires:
-                offset = sum(
-                    scan.index(wire) < scan.index(dom_wires[0])
-                    for wire in remaining)
-            elif offset is None:
-                offset = 0
-            offset = max(0, min(offset, len(remaining)))
-            route(remaining[:offset] + dom_wires + remaining[offset:])
-            add_box(box, offset, cod_wires)
-
-        cod_wires = [
-            edge_wire[self.n_ports - len(self.cod) + i]
-            for i in range(len(self.cod))]
-        route(cod_wires)
-        edge_pairs.extend(zip(
-            sources, range(port, port + len(self.cod))))
-        return type(self)(
-            self.dom, self.cod, tuple(boxes),
-            Permutation.from_transpositions(
-                edge_pairs, port + len(self.cod)),
-            offsets=tuple(offsets))
-
     def to_diagram(self) -> Diagram:
         """
         Downgrade to a diagram preserving box orientation.
@@ -1387,10 +1278,13 @@ class CMap[C0: Pregroup, C1: CMap](
         cups and caps require a category with cups and caps while backward
         wires and loops require a traced category, otherwise we raise.
         Cups, caps and traces are introduced as explicit boxes by
-        :meth:`make_oriented` and :meth:`make_causal`.
+        :meth:`make_monogamous` and :meth:`make_causal`.
 
-        Routing is delegated to :meth:`make_planar`; decoding the resulting
-        planar map then only tensors and composes its boxes.
+        What remains is decoded like in :meth:`Hypergraph.to_diagram`: we scan
+        the currently open wires from left to right, for each box we swap
+        boundary wires until its domain wires are adjacent at the requested
+        offset, apply the box, and replace consumed domain labels by the box
+        codomain labels.
 
         >>> from discopy.compact import Ty, Box, CMap
         >>> x, y = map(Ty, "xy")
@@ -1399,23 +1293,73 @@ class CMap[C0: Pregroup, C1: CMap](
         True
         >>> print(CMap.cups(x, x.r).to_diagram())
         Cup(x, x.r)
+        >>> print(CMap.swap(x, y).to_diagram())
+        Swap(x, y)
         """
-        if not self.is_oriented:
+        if not self.is_monogamous:
             if getattr(self.category, "cup_factory", None) is None:
                 raise AxiomError(messages.NOT_RIGID.format(
                     factory_name(self.category)))
-            return self.make_oriented().to_diagram()
+            return self.make_monogamous().to_diagram()
         if not self.is_acyclic:
             if not issubclass(self.category, TracedCategory):
                 raise AxiomError(messages.NOT_TRACED.format(
                     factory_name(self.category)))
             return self.make_causal().to_diagram()
 
-        planar = self.make_planar()
-        diagram = self.category.id(planar.dom)
-        for box, offset in zip(planar.boxes, planar.offsets):
+        edge_wire = {}
+        for i, j in enumerate(self.edges):
+            if i <= j:
+                edge_wire[i] = edge_wire[j] = len(edge_wire) // 2
+
+        def swap(left, right):
+            if not hasattr(self.category, "swap"):
+                raise AxiomError(messages.NOT_SYMMETRIC.format(
+                    factory_name(self.category)))
+            return self.category.swap(left, right)
+
+        diagram = self.category.id(self.dom)
+        scan = [edge_wire[i] for i in range(len(self.dom))]
+        for depth, (box, offset) in enumerate(zip(self.boxes, self.offsets)):
+            box_ports = self._box_port_indices[depth]
+            dom_ports = box_ports[:len(box.dom)]
+            cod_ports = tuple(reversed(box_ports[len(box.dom):]))
+            dom_wires = [edge_wire[i] for i in dom_ports]
+            cod_wires = [edge_wire[i] for i in cod_ports]
+
+            for i, wire_id in enumerate(dom_wires):
+                j = scan.index(wire_id)
+                if i == 0 and offset is None:
+                    offset = 0
+                if j > offset + i:
+                    diagram >>= diagram.cod[:offset + i] @ swap(
+                        diagram.cod[offset + i:j], diagram.cod[j]
+                    ) @ diagram.cod[j + 1:]
+                    scan = (scan[:offset + i] + scan[j:j + 1]) + (
+                        scan[offset + i:j] + scan[j + 1:])
+                elif j < offset + i:
+                    diagram >>= diagram.cod[:j] @ swap(
+                        diagram.cod[j], diagram.cod[j + 1:offset + i]
+                    ) @ diagram.cod[offset + i:]
+                    scan = (scan[:j] + scan[j + 1:offset + i]) + (
+                        scan[j:j + 1] + scan[offset + i:])
+                    offset -= 1
+
+            offset = 0 if offset is None else offset
+            scan = scan[:offset] + cod_wires + scan[offset + len(box.dom):]
             diagram >>= diagram.cod[:offset] @ box @ diagram.cod[
                 offset + len(box.dom):]
+
+        cod_wires = [
+            edge_wire[self.n_ports - len(self.cod) + i]
+            for i in range(len(self.cod))]
+        for i, wire_id in enumerate(cod_wires):
+            j = scan.index(wire_id)
+            if i < j:
+                diagram >>= diagram.cod[:i] @ swap(
+                    diagram.cod[i:j], diagram.cod[j:j + 1]
+                ) @ diagram.cod[j + 1:]
+                scan = scan[:i] + scan[j:j + 1] + scan[i:j] + scan[j + 1:]
         return diagram
 
     def to_hypergraph(self):

@@ -365,10 +365,11 @@ class Diagram(biclosed.Diagram, RigidCategory):
 
     to_drawing = monoidal.Diagram.to_drawing
 
-    @classmethod
-    def ev(cls, base: Ty, exponent: Ty, left=True) -> Diagram:
-        return base @ cls.cups(exponent.l, exponent) if left\
-            else cls.cups(exponent, exponent.r) @ base
+    # Evaluation and currying come from cups and caps rather than from the
+    # exponential boxes of :class:`biclosed.Diagram`, which comes first in the
+    # method resolution order.
+    ev = classmethod(RigidCategory.ev.__func__)
+    curry, uncurry = RigidCategory.curry, RigidCategory.uncurry
 
     @classmethod
     def cups(cls, left: Ty, right: Ty) -> Diagram:
@@ -409,25 +410,6 @@ class Diagram(biclosed.Diagram, RigidCategory):
             :align: center
         """
         return nesting(cls, cls.cap_factory)(left, right)
-
-    def curry(self, n=1, left=True) -> Diagram:
-        """
-        The curry of a rigid diagram is obtained using cups and caps.
-
-        >>> x = Ty('x')
-        >>> g = Box('g', x @ x, x)
-        >>> Equation(g.curry(left=False), g, g.curry(),
-        ...     symbols=("$\\\\mapsfrom$", "$\\\\mapsto$")).draw(
-        ...         doctest="docs/_static/rigid/curry.svg")
-
-        .. image:: /_static/rigid/curry.svg
-            :align: center
-        """
-        if left:
-            base, exponent = self.dom[:-n], self.dom[-n:]
-            return base @ self.caps(exponent, exponent.l) >> self @ exponent.l
-        base, exponent = self.dom[n:], self.dom[:n]
-        return self.caps(exponent.r, exponent) @ base >> exponent.r @ self
 
     def rotate(self, left=False):
         """

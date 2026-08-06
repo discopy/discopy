@@ -122,6 +122,18 @@ def test_eliminate_swaps():
     assert diagram.to_map() == diagram.to_hypergraph().to_diagram().to_map()
 
 
+def test_to_diagram_swaps_towards_the_requested_offset():
+    from discopy.symmetric import Ty, Box, Swap, CMap as M
+
+    x, y, z = map(Ty, "xyz")
+    f = Box("f", x, x)
+    cmap = M(x @ y @ z, x @ y @ z, (f, ),
+             (3, 6, 7, 0, 5, 4, 1, 2), offsets=(2, ))
+    assert cmap.to_diagram()\
+        == Swap(x, y) @ z >> y @ f @ z >> Swap(y, x) @ z
+    assert cmap.to_diagram().to_map() == cmap
+
+
 def test_diagram_to_map():
     from discopy.monoidal import Ty, Box
 
@@ -197,6 +209,8 @@ def test_diagram_to_map_structure_and_errors():
     ev = closed.Eval(cy << cx)
     assert ev.to_map() == closed.CMap.ev(cy, cx, left=False)
     assert ev.to_map().boxes == (ev, )
+    kx, ky = map(compact.Ty, "xy")
+    assert compact.CMap.ev(kx, ky) == compact.Diagram.ev(kx, ky).to_map()
     assert closed.Box("f", cx, cx).to_map().trace()
 
     mx = markov.Ty("x")
@@ -231,9 +245,9 @@ def test_diagram_to_map_structure_and_errors():
         f.trace(2)
 
     x = monoidal.Ty("x")
-    with raises(AxiomError):
+    with raises(TypeError):
         monoidal.CMap.cups(x, x)
-    with raises(AxiomError):
+    with raises(TypeError):
         monoidal.CMap.caps(x, x)
     with raises(AxiomError):
         monoidal.CMap(x @ x, monoidal.Ty(), (), (1, 0))
@@ -256,9 +270,9 @@ def test_diagram_to_map_structure_and_errors():
     assert closed.CMap(closed.Ty(), closed.Ty(), (f, g), (3, 2, 1, 0))
 
     x = traced.Ty("x")
-    with raises(AxiomError):
+    with raises(TypeError):
         traced.CMap.cups(x, x)
-    with raises(AxiomError):
+    with raises(TypeError):
         traced.CMap.caps(x, x)
     f = traced.Box("f", x, x)
     g = traced.Box("g", x, x)
@@ -299,9 +313,9 @@ def test_rigid_handedness_requires_swap():
         M.caps(x, y)
 
     bad_cup, bad_cap = M.cups(x.r, x), M.caps(x, x.r)
-    assert bad_cup.make_oriented() == M.swap(x.r, x)\
+    assert bad_cup.make_monogamous() == M.swap(x.r, x)\
         >> M.from_box(rigid.Cup(x, x.r))
-    assert bad_cap.make_oriented() == M.from_box(rigid.Cap(x.r, x))\
+    assert bad_cap.make_monogamous() == M.from_box(rigid.Cap(x.r, x))\
         >> M.swap(x.r, x)
     with raises(AxiomError, match="has no swaps"):
         bad_cup.to_diagram()
@@ -331,7 +345,7 @@ def test_to_diagram_validates_structure():
 
     p = pivotal.Ty("p")
     cup = cmap.CMap[PlanarPivotal](p @ p.r, pivotal.Ty(), (), (1, 0))
-    assert not cup.is_oriented
+    assert not cup.is_monogamous
     with raises(AxiomError):
         cup.to_diagram()
 
@@ -364,15 +378,13 @@ def test_curry_uncurry_roundtrip(module):
     right = cmap.curry()
     assert right.dom == y
     assert right.cod == x >> z
-    assert right.boxes == (
-        f, module.Diagram.coeval_factory(x >> z, left=False))
+    assert right.boxes == (module.Diagram.curry_factory(f, 1, False), )
     assert f.curry().to_map() == right
 
     left = cmap.curry(left=True)
     assert left.dom == x
     assert left.cod == z << y
-    assert left.boxes == (
-        f, module.Diagram.coeval_factory(z << y, left=True))
+    assert left.boxes == (module.Diagram.curry_factory(f, 1, True), )
     assert f.curry(left=True).to_map() == left
 
     h = module.Box("h", y, x >> z)
@@ -389,8 +401,7 @@ def test_curry_uncurry_roundtrip(module):
     assert right_two.dom == x @ y @ z
     assert right_two.cod == w
     assert right_two.boxes == (
-        k,
-        module.Diagram.coeval_factory(x @ y >> w, left=False),
+        module.Diagram.curry_factory(k, 2, False),
         module.Diagram.eval_factory(x @ y >> w, left=False))
 
     left_two = k.to_map().curry(n=2, left=True).uncurry(
@@ -398,8 +409,7 @@ def test_curry_uncurry_roundtrip(module):
     assert left_two.dom == x @ y @ z
     assert left_two.cod == w
     assert left_two.boxes == (
-        k,
-        module.Diagram.coeval_factory(w << y @ z, left=True),
+        module.Diagram.curry_factory(k, 2, True),
         module.Diagram.eval_factory(w << y @ z, left=True))
 
     right_nested = k.to_map().curry().curry().uncurry(n=2)

@@ -160,3 +160,16 @@ def test_sum_adjoint():
     two_boxes = two + boxes
     assert two_boxes.l == two.l + boxes.l
     assert two_boxes.l.r == two_boxes
+
+
+def test_curry_uncurry():
+    x, y, z = map(Ty, "xyz")
+    f = Box('f', x @ y, z)
+    assert f.curry(n=0) == f == f.uncurry(n=0)
+    assert f.curry().uncurry().normal_form() == f
+    assert f.curry(left=False).uncurry(left=False).normal_form() == f
+    assert f.curry(n=2).uncurry(n=2).normal_form() == f
+    with raises(ValueError):
+        f.curry(n=3)
+    with raises(ValueError):
+        f.uncurry(n=2)
