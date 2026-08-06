@@ -52,7 +52,6 @@ def test_M_init():
 
 
 def test_repr_eq_and_hash():
-    from discopy import tensor
     from discopy.compact import Ty, Box, CMap as M
 
     x, y = map(Ty, "xy")
@@ -66,11 +65,6 @@ def test_repr_eq_and_hash():
     assert back == with_metadata
     assert back.offsets == with_metadata.offsets\
         and back.loops == with_metadata.loops
-    vector = tensor.Box(
-        "v", tensor.Dim(1), tensor.Dim(2), data=[0, 1]).to_map()
-    back = eval(repr(vector), namespace)
-    assert (back.dom, back.cod, back.boxes, back.edges) == (
-        vector.dom, vector.cod, vector.boxes, vector.edges)
     assert cm == M.from_box(Box("f", x, y))
     assert cm != object()
     assert hash(cm) == hash(M.from_box(Box("f", x, y)))
@@ -126,16 +120,6 @@ def test_eliminate_swaps():
     diagram = Id(x @ y).swap(x, y) >> g @ x >> Id(w @ x).swap(w, x) >> f @ w
     assert diagram.to_map().to_diagram().to_map() == diagram.to_map()
     assert diagram.to_map() == diagram.to_hypergraph().to_diagram().to_map()
-
-
-def test_to_diagram_preserves_offsets():
-    from discopy.compact import Ty, Box, CMap as M
-
-    x, y, z = map(Ty, "xyz")
-    delayed = Box("h", x @ y, z)
-    cmap = M(delayed.dom, delayed.cod, (delayed, ),
-             M.from_box(delayed).edges, offsets=(2, ))
-    assert cmap.to_diagram().to_map() == cmap
 
 
 def test_diagram_to_map():
@@ -372,14 +356,12 @@ def test_curry_uncurry_roundtrip(module):
         cmap.uncurry(n=2)
 
     if module is compact:
-        assert cmap.curry() == cmap.curry(exp=False)
         assert cmap.curry().uncurry() == cmap
         assert cmap.curry(left=True).uncurry(left=True) == cmap
         assert cmap.curry(n=2, left=True).uncurry(n=2, left=True) == cmap
         return
 
     right = cmap.curry()
-    assert right == cmap.curry(exp=True)
     assert right.dom == y
     assert right.cod == x >> z
     assert right.boxes == (

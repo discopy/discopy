@@ -48,13 +48,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   through their underlying hypergraphs, and separates acyclicity from box order
   with `is_acyclic`, `is_topologically_ordered`, and `topological_order`
   ([#532](https://github.com/discopy/discopy/pull/532)).
-- `CMap.curry` and `CMap.uncurry` accept an `exp` flag for selecting
-  exponential or compact structure, defaulting to the strongest structure of
-  the host category ([#532](https://github.com/discopy/discopy/pull/532)).
+- `CMap.curry` and `CMap.uncurry` use the exponential or compact structure
+  supplied by their host category
+  ([#532](https://github.com/discopy/discopy/pull/532)).
 - CMap planarity is now diagnostic rather than a downgrade constraint;
-  `make_planar` preserves box order and state offsets while materialising
-  routing as host-category permutations, and `to_diagram` decodes the result
-  functorially
+  `make_planar` preserves box order while materialising routing as
+  host-category permutations, and `to_diagram` decodes the result directly
   ([#532](https://github.com/discopy/discopy/pull/532)).
 - `Arrow` is refactored onto a `FreeCategory` base class
   ([#350](https://github.com/discopy/discopy/pull/350)).
@@ -92,9 +91,6 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
-- `CMap` representations are evaluable after `from discopy import *` and
-  preserve drawing offsets and scalar loops
-  ([#532](https://github.com/discopy/discopy/pull/532)).
 - Pivotal diagram-to-map conversion now encodes cups and caps as `CMap`
   wiring rather than keeping them as boxes
   ([#532](https://github.com/discopy/discopy/pull/532)).
