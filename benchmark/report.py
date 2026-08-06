@@ -1,18 +1,18 @@
 # -*- coding: utf-8 -*-
 
 """
-Render a ``pytest-benchmark`` JSON run as a scaling table + log-log plot,
+Render a ``pytest-benchmark`` JSON run as scaling tables and log-log plots,
 with an optional regression gate against a committed baseline.
 
     python benchmark/report.py RUN.json [--output DIR]
                                [--baseline BASE.json] [--fail-threshold 0.25]
 
-Reads the median CPU time of each ``(case, size)`` from ``RUN.json`` and
-writes ``results.md``, ``results.csv`` and ``scaling.png`` into ``DIR``
-(default ``benchmark-results``). With ``--baseline``, joins the two runs on
-``(case, size)`` in polars, prints the per-cell deltas, and exits non-zero
-if any case regresses by more than ``--fail-threshold`` (a fraction, e.g.
-``0.25`` = 25%).
+Reads the median CPU time of each ``(benchmark, case, size)`` from
+``RUN.json``. Each ``test_NAME.py`` benchmark produces ``NAME-results.md``,
+``NAME-results.csv`` and ``NAME-scaling.png``. With ``--baseline``, joins the
+two runs on ``(benchmark, case, size)`` in polars, prints the per-cell deltas,
+and exits non-zero if any case regresses by more than ``--fail-threshold`` (a
+fraction, e.g. ``0.25`` = 25%).
 """
 from __future__ import annotations
 
@@ -24,11 +24,13 @@ import polars as pl
 
 
 def load(path: str) -> pl.DataFrame:
-    """ A tidy ``(case, n, median)`` frame from a pytest-benchmark run. """
+    """ A tidy benchmark, case, size and median frame from a JSON run. """
     with open(path) as file:
         data = json.load(file)
     rows = [
         {
+            "benchmark": os.path.splitext(os.path.basename(
+                bench["fullname"].split("::", 1)[0]))[0].removeprefix("test_"),
             "case": bench.get("group") or bench["name"],
             "n": int(bench["params"]["n"]),
             "median": float(bench["stats"]["median"]),
@@ -36,8 +38,9 @@ def load(path: str) -> pl.DataFrame:
         for bench in data["benchmarks"]
     ]
     return pl.DataFrame(
-        rows, schema={"case": pl.String, "n": pl.Int64, "median": pl.Float64},
-    ).sort("case", "n")
+        rows, schema={"benchmark": pl.String, "case": pl.String,
+                      "n": pl.Int64, "median": pl.Float64},
+    ).sort("benchmark", "case", "n")
 
 
 def scaling_table(df: pl.DataFrame) -> pl.DataFrame:
@@ -58,7 +61,7 @@ def to_markdown(table: pl.DataFrame) -> str:
     return "\n".join(lines)
 
 
-def plot(df: pl.DataFrame, path: str) -> None:
+def plot_composition(df: pl.DataFrame, path: str) -> None:
     """ Log-log scaling plot, grouped into one panel per representation. """
     import matplotlib
     matplotlib.use("Agg")
@@ -82,10 +85,75 @@ def plot(df: pl.DataFrame, path: str) -> None:
     plt.close(figure)
 
 
+def conversion_parts(name: str) -> tuple[str, str]:
+    """Return the workload and direction from a conversion case name."""
+    workload, direction = name.rsplit(" (", 1)
+    return workload, direction[:-1]
+
+
+def plot_conversions(df: pl.DataFrame, path: str) -> None:
+    """Log-log scaling plot, one panel per conversion direction."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    directions = [
+        "Diagram -> Hypergraph", "Hypergraph -> CMap", "CMap -> Diagram",
+        "Hypergraph -> Diagram", "CMap -> Hypergraph", "Diagram -> CMap",
+    ]
+    order = ["permutation", "series", "tensor", "snake"]
+    workloads = sorted(
+        {conversion_parts(name)[0] for name in df["case"]},
+        key=lambda name: (order.index(name) if name in order else len(order),
+                          name))
+    palette = plt.get_cmap("tab10")
+    colors = {name: palette(i) for i, name in enumerate(workloads)}
+    figure, grid = plt.subplots(2, 3, figsize=(19, 11), sharey=True)
+    axes = grid.flatten()
+    for (name,), group in df.group_by("case", maintain_order=True):
+        workload, direction = conversion_parts(name)
+        axis = axes[directions.index(direction)]
+        ordered = group.sort("n")
+        axis.plot(ordered["n"].to_list(), ordered["median"].to_list(),
+                  marker="o", label=workload, color=colors[workload])
+    for axis, title in zip(axes, directions):
+        axis.set(xscale="log", yscale="log", xlabel="size $n$", title=title)
+        axis.grid(True, which="both", linestyle=":", linewidth=.5)
+        axis.legend(fontsize="small")
+    axes[0].set_ylabel("median CPU time (s)")
+    axes[3].set_ylabel("median CPU time (s)")
+    figure.suptitle("Representation conversion benchmark scaling")
+    figure.tight_layout()
+    figure.savefig(path, dpi=120)
+    plt.close(figure)
+
+
+def write_report(
+        benchmark: str, df: pl.DataFrame, output: str, plotter) -> list[str]:
+    """Write one table and plot family, returning their filenames."""
+    print(f"\n{benchmark} benchmark")
+    table = scaling_table(df)
+    with pl.Config(tbl_rows=-1, tbl_cols=-1, fmt_str_lengths=80):
+        print(table)
+    names = [f"{benchmark}-results.md", f"{benchmark}-results.csv",
+             f"{benchmark}-scaling.png"]
+    with open(os.path.join(output, names[0]), "w") as file:
+        file.write(to_markdown(table) + "\n")
+    table.write_csv(os.path.join(output, names[1]))
+    plotter(df, os.path.join(output, names[2]))
+    return names
+
+
+PLOTTERS = {
+    "composition": plot_composition,
+    "conversion": plot_conversions,
+}
+
+
 def compare(current: pl.DataFrame, baseline: pl.DataFrame) -> pl.DataFrame:
     """ Per-cell relative change vs baseline, worst first (shared only). """
     return current.join(
-        baseline, on=["case", "n"], suffix="_base",
+        baseline, on=["benchmark", "case", "n"], suffix="_base",
     ).with_columns(
         ((pl.col("median") - pl.col("median_base")) / pl.col("median_base"))
         .alias("delta"),
@@ -106,14 +174,11 @@ def main() -> int:
 
     os.makedirs(args.output, exist_ok=True)
     df = load(args.run)
-    table = scaling_table(df)
-    with pl.Config(tbl_rows=-1, tbl_cols=-1, fmt_str_lengths=80):
-        print(table)
-    with open(os.path.join(args.output, "results.md"), "w") as file:
-        file.write(to_markdown(table) + "\n")
-    table.write_csv(os.path.join(args.output, "results.csv"))
-    plot(df, os.path.join(args.output, "scaling.png"))
-    print(f"wrote results.md, results.csv, scaling.png to {args.output}/")
+    written = []
+    for (benchmark,), group in df.group_by("benchmark", maintain_order=True):
+        written += write_report(
+            benchmark, group, args.output, PLOTTERS[benchmark])
+    print(f"wrote {', '.join(written)} to {args.output}/")
 
     if not args.baseline:
         return 0
@@ -123,11 +188,12 @@ def main() -> int:
     deltas = compare(df, load(args.baseline))
     regressions = deltas.filter(pl.col("delta") > args.fail_threshold)
     with pl.Config(tbl_rows=-1):
-        print(deltas.select("case", "n", "median", "median_base", "delta"))
+        print(deltas.select(
+            "benchmark", "case", "n", "median", "median_base", "delta"))
     if len(regressions):
         print(f"REGRESSION: {len(regressions)} case(s) over "
               f"+{args.fail_threshold:.0%} vs baseline:")
-        print(regressions.select("case", "n", "delta"))
+        print(regressions.select("benchmark", "case", "n", "delta"))
         return 1
     print(f"no case regressed by more than +{args.fail_threshold:.0%}.")
     return 0

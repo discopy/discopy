@@ -38,9 +38,11 @@ jobs:
       id: branch
       env:
         REF: ${{ github.head_ref || github.ref_name }}
-    - name: Run composition benchmark
+    - name: Run benchmarks
       # PRs run the small/medium sizes as a smoke; main / manual dispatch run the
       # full size tail (BENCH_FLAGS=bench:full).
+      env:
+        BENCH_FLAGS: ${{ github.event_name != 'pull_request' && 'bench:full' || 'bench:smoke' }}
       run: |
         mkdir -p benchmark-results
         uv run pytest benchmark/ -v --benchmark-json=benchmark-results/bench.json

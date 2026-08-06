@@ -64,10 +64,10 @@ Without the extras installed, run `uv run pytest --skip-extra` to skip what need
 
 ## Run the benchmarks
 
-The composition benchmark (`benchmark/test_composition.py`) reproduces the scaling
-experiments of arXiv:2105.09257 for `Diagram`, `Hypergraph` and `CMap`. It lives
-outside `testpaths`, so the normal `pytest` run never collects it — run it
-explicitly. Each `(case, size)` is a declarative
+`benchmark/test_composition.py` reproduces the scaling experiments of
+arXiv:2105.09257 for `Diagram` and `Hypergraph`, with analogous `CMap` cases;
+`benchmark/test_conversion.py` covers conversions between all three. They live
+outside `testpaths`, so run them explicitly. Each `(case, size)` is a declarative
 [`pytest-benchmark`](https://pytest-benchmark.readthedocs.io) test — the fixture
 owns timing (CPU clock, GC disabled, median of a few rounds), so there is no
 hand-rolled timing code.
@@ -80,8 +80,8 @@ uv run pytest benchmark/ -v --benchmark-json=benchmark-results/bench.json
 uv run python benchmark/report.py benchmark-results/bench.json
 ```
 
-`report.py` writes `results.md`, `results.csv` and `scaling.png` into
-`benchmark-results/`. To gate on a regression, pass a committed baseline:
+For each `benchmark/test_NAME.py`, `report.py` writes `NAME-results.{md,csv}`
+and `NAME-scaling.png`. To gate on a regression, pass a committed baseline:
 
 ```shell
 uv run python benchmark/report.py benchmark-results/bench.json \
