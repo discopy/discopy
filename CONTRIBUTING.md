@@ -80,8 +80,9 @@ uv run pytest benchmark/ -v --benchmark-json=benchmark-results/bench.json
 uv run python benchmark/report.py benchmark-results/bench.json
 ```
 
-For each `benchmark/test_NAME.py`, `report.py` writes `NAME-results.{md,csv}`
-and `NAME-scaling.png`. To gate on a regression, pass a committed baseline:
+`report.py` writes `results.{html,md,csv}` with benchmark/family row groups and
+one `NAME-scaling.png` per `benchmark/test_NAME.py`. To gate on a regression,
+pass a committed baseline:
 
 ```shell
 uv run python benchmark/report.py benchmark-results/bench.json \
