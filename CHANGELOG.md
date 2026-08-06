@@ -102,6 +102,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `Hypergraph` equality, permutations and other micro-optimizations bring
   equality checks down to `O(n)`
   ([#353](https://github.com/discopy/discopy/pull/353)).
+- `CMap.from_diagram` is linear rather than quadratic in the number of
+  boxes: `CMap.from_glued` glues the image of each box onto a scan of
+  open wires in a single pass, instead of folding the images with
+  `then` and re-validating the whole prefix at every step. This speeds
+  up `Diagram.eval` on every tensor backend
+  ([#525](https://github.com/discopy/discopy/pull/525)).
 
 ### Project
 
