@@ -23,7 +23,7 @@ emits:
 from functools import partial
 import random
 
-from discopy import compact, rigid
+from discopy import rigid
 from discopy.symmetric import Functor
 from discopy.python import Function
 from benchmark import generators as generator
@@ -62,7 +62,7 @@ def test_tensor_diagram(benchmark, n):
 
 @case("Diagram", "k-fold tensor, 1 layer",
       sizes(10, 20, 50, 100, full=(200, 500, 1000)))
-def test_tensor_single_layer_diagram(benchmark, n):
+def test_single_layer_tensor_diagram(benchmark, n):
     box = generator.not_box()
     benchmark.pedantic(
         lambda: generator.single_layer_tensor(box, n),
@@ -85,9 +85,9 @@ def test_tensor_cmap(benchmark, n):
         rounds=ROUNDS, warmup_rounds=WARMUP)
 
 
-# --- staircase / foliation -------------------------------------------------
+# --- foliation -------------------------------------------------------------
 
-@case("Diagram", "staircase",
+@case("Diagram", "foliation",
       sizes(10, 20, full=(50,)))  # ~O(n^3): 50 ~ 3.7s
 def test_foliation_diagram(benchmark, n):
     st = generator.staircase(generator.not_box(), n)
@@ -166,29 +166,14 @@ def test_adder_functor_diagram(benchmark, n):
 @case("Diagram", "spiral build", sizes(10, 20, 50, full=(100, 200)))
 def test_spiral_build_diagram(benchmark, n):
     benchmark.pedantic(
-        lambda: generator.make_spiral(n)[0],
+        lambda: generator.spiral(n),
         rounds=ROUNDS, warmup_rounds=WARMUP)
 
 
-@case("Hypergraph", "spiral build",
-      sizes(10, 20, full=(50,)))  # ~O(n^3): 50 ~ 10s
-def test_spiral_build_hypergraph(benchmark, n):
-    spiral = generator.make_spiral(n)[0]
-    benchmark.pedantic(
-        lambda: spiral.to_hypergraph(), rounds=ROUNDS, warmup_rounds=WARMUP)
-
-
-@case("CMap", "spiral build", sizes(10, 20, full=(50,)))
-def test_spiral_build_cmap(benchmark, n):
-    spiral = generator.make_spiral(n)[0]
-    benchmark.pedantic(
-        lambda: spiral.to_map(), rounds=ROUNDS, warmup_rounds=WARMUP)
-
-
-@case("Diagram", "spiral equality",
+@case("Diagram", "spiral normal form",
       sizes(5, 10, full=(20,)))  # ~O(n^3): 20 ~ 8.4s
 def test_spiral_normal_form_diagram(benchmark, n):
-    spiral = generator.make_spiral(n)[0]
+    spiral = generator.spiral(n)
     benchmark.pedantic(
         lambda: spiral.normal_form(), rounds=ROUNDS, warmup_rounds=WARMUP)
 
@@ -199,53 +184,30 @@ def test_spiral_equality_hypergraph(benchmark, n):
     # Two independent builds of the same closed spiral: equality must decide
     # they are isomorphic. The spiral is closed (empty boundary), hence not
     # monogamous: exercises the networkx VF2 fallback, not the fast path.
-    left = generator.make_spiral(n)[0].to_hypergraph()
-    right = generator.make_spiral(n)[0].to_hypergraph()
+    left = generator.spiral(n).to_hypergraph()
+    right = generator.spiral(n).to_hypergraph()
     benchmark.pedantic(
         lambda: left == right, rounds=ROUNDS, warmup_rounds=WARMUP)
 
 
 @case("CMap", "spiral equality", sizes(5, 10, 20, full=(50,)))
 def test_spiral_equality_cmap(benchmark, n):
-    left = generator.make_spiral(n)[0].to_map()
-    right = generator.make_spiral(n)[0].to_map()
+    left = generator.spiral(n).to_map()
+    right = generator.spiral(n).to_map()
     benchmark.pedantic(
         lambda: left == right, rounds=ROUNDS, warmup_rounds=WARMUP)
 
 
-# --- transpose snakes ------------------------------------------------------
+# --- transpose normal form --------------------------------------------------
 
-@case("Diagram", "transpose equality",
+@case("Diagram", "transpose normal form",
       sizes(5, 10, 20, full=(50, 100)))
-def test_transpose_snake_removal_diagram(benchmark, n):
+def test_transpose_normal_form_diagram(benchmark, n):
     # rigid.normal_form genuinely yanks the snakes back to f (super-linear).
     x = rigid.Ty('x')
-    g = generator.alternating_transpositions(rigid.Box('f', x, x), n)
+    g = generator.transpose_snakes(rigid.Box('f', x, x), n)
     benchmark.pedantic(
         lambda: g.normal_form(), rounds=ROUNDS, warmup_rounds=WARMUP)
-
-
-@case("Hypergraph", "transpose equality",
-      sizes(10, 20, 50, full=(100, 200)))
-def test_transpose_equality_hypergraph(benchmark, n):
-    # Timed call includes to_hypergraph (snake-absorbing construction) plus
-    # equality; the snaked diagram is monogamous, so the linear fast path.
-    x = compact.Ty('x')
-    f = compact.Box('f', x, x)
-    bare = f.to_hypergraph()
-    g = generator.alternating_transpositions(f, n)
-    benchmark.pedantic(
-        lambda: g.to_hypergraph() == bare, rounds=ROUNDS, warmup_rounds=WARMUP)
-
-
-@case("CMap", "transpose equality", sizes(10, 20, 50, full=(100, 200)))
-def test_transpose_equality_cmap(benchmark, n):
-    x = compact.Ty('x')
-    f = compact.Box('f', x, x)
-    bare = f.to_map()
-    g = generator.alternating_transpositions(f, n)
-    benchmark.pedantic(
-        lambda: g.to_map() == bare, rounds=ROUNDS, warmup_rounds=WARMUP)
 
 
 # --- correctness (run once, not benchmarks) --------------------------------
@@ -266,17 +228,8 @@ def test_adder_functor_correct():
         adder = generator.adder_step(full_adder, adder, k)
 
 
-def test_alternating_transposition_is_identity():
+def test_transpose_snakes_is_identity():
     """ The rigid snake-wrapped box normalises back to the bare box. """
     x = rigid.Ty('x')
     f = rigid.Box('f', x, x)
-    assert generator.alternating_transpositions(f, 1).normal_form() == f
-
-
-def test_transpose_equality_holds():
-    """ Compact graph encodings remove snakes from the wrapped box. """
-    x = compact.Ty('x')
-    f = compact.Box('f', x, x)
-    assert generator.alternating_transpositions(
-        f, 3).to_hypergraph() == f.to_hypergraph()
-    assert generator.alternating_transpositions(f, 3).to_map() == f.to_map()
+    assert generator.transpose_snakes(f, 1).normal_form() == f

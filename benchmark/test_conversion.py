@@ -25,7 +25,7 @@ case = partial(case, suite="conversion")
 
 @case("Diagram → CMap", "k-fold series",
       sizes(10, 20, 50, full=(100, 200)))
-def test_series_diagram_to_map(benchmark, n):
+def test_series_diagram_to_cmap(benchmark, n):
     morphism = generator.series(
         symmetric.Diagram, generator.not_box(), n)
     benchmark.pedantic(
@@ -52,7 +52,7 @@ def test_series_hypergraph_to_diagram(benchmark, n):
 
 @case("Hypergraph → CMap", "k-fold series",
       sizes(10, 20, 50, full=(100, 200)))
-def test_series_hypergraph_to_map(benchmark, n):
+def test_series_hypergraph_to_cmap(benchmark, n):
     morphism = generator.series(
         symmetric.Hypergraph, generator.not_box().to_hypergraph(), n)
     benchmark.pedantic(
@@ -61,7 +61,7 @@ def test_series_hypergraph_to_map(benchmark, n):
 
 @case("CMap → Diagram", "k-fold series",
       sizes(10, 20, 50, full=(100, 200)))
-def test_series_map_to_diagram(benchmark, n):
+def test_series_cmap_to_diagram(benchmark, n):
     morphism = generator.series(
         symmetric.CMap, generator.not_box().to_map(), n)
     benchmark.pedantic(
@@ -70,7 +70,7 @@ def test_series_map_to_diagram(benchmark, n):
 
 @case("CMap → Hypergraph", "k-fold series",
       sizes(10, 20, 50, full=(100, 200)))
-def test_series_map_to_hypergraph(benchmark, n):
+def test_series_cmap_to_hypergraph(benchmark, n):
     morphism = generator.series(
         symmetric.CMap, generator.not_box().to_map(), n)
     benchmark.pedantic(
@@ -81,9 +81,8 @@ def test_series_map_to_hypergraph(benchmark, n):
 
 @case("Diagram → CMap", "k-fold tensor",
       sizes(10, 20, 50, full=(100, 200)))
-def test_tensor_diagram_to_map(benchmark, n):
-    morphism = generator.tensor(
-        symmetric.Diagram, generator.not_box(), n)
+def test_tensor_diagram_to_cmap(benchmark, n):
+    morphism = generator.single_layer_tensor(generator.not_box(), n)
     benchmark.pedantic(
         morphism.to_map, rounds=ROUNDS, warmup_rounds=WARMUP)
 
@@ -91,8 +90,7 @@ def test_tensor_diagram_to_map(benchmark, n):
 @case("Diagram → Hypergraph", "k-fold tensor",
       sizes(10, 20, 50, full=(100, 200)))
 def test_tensor_diagram_to_hypergraph(benchmark, n):
-    morphism = generator.tensor(
-        symmetric.Diagram, generator.not_box(), n)
+    morphism = generator.single_layer_tensor(generator.not_box(), n)
     benchmark.pedantic(
         morphism.to_hypergraph, rounds=ROUNDS, warmup_rounds=WARMUP)
 
@@ -108,7 +106,7 @@ def test_tensor_hypergraph_to_diagram(benchmark, n):
 
 @case("Hypergraph → CMap", "k-fold tensor",
       sizes(10, 20, 50, full=(100, 200)))
-def test_tensor_hypergraph_to_map(benchmark, n):
+def test_tensor_hypergraph_to_cmap(benchmark, n):
     morphism = generator.tensor(
         symmetric.Hypergraph, generator.not_box().to_hypergraph(), n)
     benchmark.pedantic(
@@ -116,7 +114,7 @@ def test_tensor_hypergraph_to_map(benchmark, n):
 
 
 @case("CMap → Diagram", "k-fold tensor", sizes(10, 20, 50, full=(75,)))
-def test_tensor_map_to_diagram(benchmark, n):
+def test_tensor_cmap_to_diagram(benchmark, n):
     morphism = generator.tensor(
         symmetric.CMap, generator.not_box().to_map(), n)
     benchmark.pedantic(
@@ -125,7 +123,7 @@ def test_tensor_map_to_diagram(benchmark, n):
 
 @case("CMap → Hypergraph", "k-fold tensor",
       sizes(10, 20, 50, full=(100, 200)))
-def test_tensor_map_to_hypergraph(benchmark, n):
+def test_tensor_cmap_to_hypergraph(benchmark, n):
     morphism = generator.tensor(
         symmetric.CMap, generator.not_box().to_map(), n)
     benchmark.pedantic(
@@ -136,23 +134,23 @@ def test_tensor_map_to_hypergraph(benchmark, n):
 
 @case("Diagram → Hypergraph", "staircase",
       sizes(10, 20, full=(50,)))  # ~O(n^3): 50 ~ 4.2s
-def test_staircase_to_hypergraph(benchmark, n):
+def test_staircase_diagram_to_hypergraph(benchmark, n):
     morphism = generator.staircase(generator.not_box(), n)
     benchmark.pedantic(
         morphism.to_hypergraph, rounds=ROUNDS, warmup_rounds=WARMUP)
 
 
 @case("Diagram → CMap", "staircase", sizes(10, 20, full=(50,)))
-def test_staircase_to_cmap(benchmark, n):
+def test_staircase_diagram_to_cmap(benchmark, n):
     morphism = generator.staircase(generator.not_box(), n)
     benchmark.pedantic(
         morphism.to_map, rounds=ROUNDS, warmup_rounds=WARMUP)
 
 
-# --- reverse permutation --------------------------------------------------
+# --- permutation ------------------------------------------------------------
 
 @case("Diagram → CMap", "permutation", sizes(5, 10, 20, full=(50,)))
-def test_permutation_diagram_to_map(benchmark, n):
+def test_permutation_diagram_to_cmap(benchmark, n):
     morphism = generator.reverse_permutation(symmetric.Diagram, n)
     benchmark.pedantic(
         morphism.to_map, rounds=ROUNDS, warmup_rounds=WARMUP)
@@ -176,14 +174,14 @@ def test_permutation_hypergraph_to_diagram(benchmark, n):
 
 @case("Hypergraph → CMap", "permutation",
       sizes(5, 10, 20, full=(50,)))
-def test_permutation_hypergraph_to_map(benchmark, n):
+def test_permutation_hypergraph_to_cmap(benchmark, n):
     morphism = generator.reverse_permutation(symmetric.Hypergraph, n)
     benchmark.pedantic(
         morphism.to_map, rounds=ROUNDS, warmup_rounds=WARMUP)
 
 
 @case("CMap → Diagram", "permutation", sizes(5, 10, 20, full=(50,)))
-def test_permutation_map_to_diagram(benchmark, n):
+def test_permutation_cmap_to_diagram(benchmark, n):
     morphism = generator.reverse_permutation(symmetric.CMap, n)
     benchmark.pedantic(
         morphism.to_diagram, rounds=ROUNDS, warmup_rounds=WARMUP)
@@ -191,16 +189,16 @@ def test_permutation_map_to_diagram(benchmark, n):
 
 @case("CMap → Hypergraph", "permutation",
       sizes(5, 10, 20, full=(50,)))
-def test_permutation_map_to_hypergraph(benchmark, n):
+def test_permutation_cmap_to_hypergraph(benchmark, n):
     morphism = generator.reverse_permutation(symmetric.CMap, n)
     benchmark.pedantic(
         morphism.to_hypergraph, rounds=ROUNDS, warmup_rounds=WARMUP)
 
 
-# --- zipping cups and caps -------------------------------------------------
+# --- snake ------------------------------------------------------------------
 
 @case("Diagram → CMap", "snake", sizes(10, 20, 50, full=(100, 200)))
-def test_snake_diagram_to_map(benchmark, n):
+def test_snake_diagram_to_cmap(benchmark, n):
     morphism = generator.snake(compact.Diagram, n)
     benchmark.pedantic(
         morphism.to_map, rounds=ROUNDS, warmup_rounds=WARMUP)
@@ -214,32 +212,49 @@ def test_snake_diagram_to_hypergraph(benchmark, n):
         morphism.to_hypergraph, rounds=ROUNDS, warmup_rounds=WARMUP)
 
 
-@case("Hypergraph → Diagram", "snake",
-      sizes(10, 20, 50, full=(100, 200)))
-def test_snake_hypergraph_to_diagram(benchmark, n):
-    morphism = generator.snake(compact.Hypergraph, n)
+# --- spiral (arXiv:1804.07832) ---------------------------------------------
+
+@case("Diagram → Hypergraph", "spiral",
+      sizes(10, 20, full=(50,)))  # ~O(n^3): 50 ~ 10s
+def test_spiral_diagram_to_hypergraph(benchmark, n):
+    morphism = generator.spiral(n)
     benchmark.pedantic(
-        morphism.to_diagram, rounds=ROUNDS, warmup_rounds=WARMUP)
+        morphism.to_hypergraph, rounds=ROUNDS, warmup_rounds=WARMUP)
 
 
-@case("Hypergraph → CMap", "snake",
-      sizes(10, 20, 50, full=(100, 200)))
-def test_snake_hypergraph_to_map(benchmark, n):
-    morphism = generator.snake(compact.Hypergraph, n)
+@case("Diagram → CMap", "spiral", sizes(10, 20, full=(50,)))
+def test_spiral_diagram_to_cmap(benchmark, n):
+    morphism = generator.spiral(n)
     benchmark.pedantic(
         morphism.to_map, rounds=ROUNDS, warmup_rounds=WARMUP)
 
 
-@case("CMap → Diagram", "snake", sizes(10, 20, 50, full=(100, 200)))
-def test_snake_map_to_diagram(benchmark, n):
-    morphism = generator.snake(compact.CMap, n)
-    benchmark.pedantic(
-        morphism.to_diagram, rounds=ROUNDS, warmup_rounds=WARMUP)
+# --- transpose snakes ------------------------------------------------------
 
-
-@case("CMap → Hypergraph", "snake",
+@case("Diagram → Hypergraph", "transpose snakes",
       sizes(10, 20, 50, full=(100, 200)))
-def test_snake_map_to_hypergraph(benchmark, n):
-    morphism = generator.snake(compact.CMap, n)
+def test_transpose_diagram_to_hypergraph(benchmark, n):
+    morphism = generator.transpose_snakes(
+        compact.Box('f', compact.Ty('x'), compact.Ty('x')), n)
     benchmark.pedantic(
         morphism.to_hypergraph, rounds=ROUNDS, warmup_rounds=WARMUP)
+
+
+@case("Diagram → CMap", "transpose snakes",
+      sizes(10, 20, 50, full=(100, 200)))
+def test_transpose_diagram_to_cmap(benchmark, n):
+    morphism = generator.transpose_snakes(
+        compact.Box('f', compact.Ty('x'), compact.Ty('x')), n)
+    benchmark.pedantic(
+        morphism.to_map, rounds=ROUNDS, warmup_rounds=WARMUP)
+
+
+# --- correctness (run once, not benchmarks) --------------------------------
+
+def test_transpose_snakes_are_absorbed():
+    """ Compact graph encodings remove snakes from the wrapped box. """
+    x = compact.Ty('x')
+    f = compact.Box('f', x, x)
+    assert generator.transpose_snakes(
+        f, 3).to_hypergraph() == f.to_hypergraph()
+    assert generator.transpose_snakes(f, 3).to_map() == f.to_map()

@@ -39,25 +39,6 @@ def staircase(box, k):
     return result
 
 
-def permutation[C0, C1](
-        category: SymmetricCategory[C0, C1], xs: list[int], dom: C0) -> C1:
-    """ A permutation arrow built from swaps, generic over the category.
-
-    Mirrors :meth:`symmetric.Diagram.permutation` using only ``id``, ``swap``,
-    ``tensor`` and ``then``, so the same code builds a Diagram (``category`` a
-    ``symmetric.Box``/``Diagram``), a Hypergraph or a CMap directly.
-    """
-    if len(dom) <= 1:
-        return category.id(dom)
-    i = xs[0]
-    head = category.swap(dom[:i], dom[i:i + 1]).tensor(
-        category.id(dom[i + 1:]))
-    tail = category.id(dom[i:i + 1]).tensor(permutation(
-        category, [x - 1 if x > i else x for x in xs[1:]],
-        dom[:i] + dom[i + 1:]))
-    return head.then(tail)
-
-
 def adder_step(full_adder, adder, k):
     """ One incremental ripple-carry step: adder(k) -> adder(k + 1).
 
@@ -71,9 +52,9 @@ def adder_step(full_adder, adder, k):
     reorder1 = list(range(1, k + 1)) + [0, k + 1, k + 2]
     reorder2 = [k] + list(range(k)) + [k + 1]
     step = adder.tensor(factory.id(bit @ bit))
-    step = step.then(permutation(factory, reorder1, step.cod))
+    step = step.then(factory.permutation(reorder1, step.cod))
     step = step.then(factory.id(bit ** k).tensor(full_adder))
-    return step.then(permutation(factory, reorder2, step.cod))
+    return step.then(factory.permutation(reorder2, step.cod))
 
 
 def build_adder(full_adder, n):
@@ -84,7 +65,7 @@ def build_adder(full_adder, n):
     return adder
 
 
-def make_spiral(n_cups):
+def spiral(n_cups):
     """ The diagram of arXiv:1804.07832, built with symmetric boxes. """
     x = Ty('x')
     unit, counit = Box('unit', Ty(), x), Box('counit', x, Ty())
@@ -96,11 +77,11 @@ def make_spiral(n_cups):
     for i in range(n_cups):
         result = result >>\
             Id(x ** (n_cups - i - 1)) @ cup @ Id(x ** (n_cups - i - 1))
-    return result, unit, counit
+    return result
 
 
-def alternating_transpositions(morphism, n):
-    """ Apply ``n`` alternating transpose round-trips to ``morphism``.
+def transpose_snakes(morphism, n):
+    """ Wrap ``morphism`` in ``n`` snakes, by alternating transposes.
 
     Transposing back and forth is a no-op on its boundary type, so the result
     stays the same constant width at every step, only growing snake-shaped
