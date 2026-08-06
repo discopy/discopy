@@ -76,6 +76,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   [#470](https://github.com/discopy/discopy/pull/470)).
 - The `test/` directory is reorganised to mirror `discopy/`
   ([#403](https://github.com/discopy/discopy/pull/403)).
+- Symmetric categories generate their swaps with `swap_factory` rather than
+  `braid_factory`, which is now a `classproperty` reading it
+  ([#440](https://github.com/discopy/discopy/pull/440)).
 
 ### Fixed
 
