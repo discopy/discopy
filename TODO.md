@@ -48,6 +48,11 @@ other three cannot be tested end-to-end while it is broken.
   architecture call — teach `Drawing` the markov structure, or stop `to_drawing` inheriting the
   interception — so it wants a ruling rather than a guess.
 
+- **#549** — `closed.Context.dom` repeats #542's unbound `self.category.ob.tensor(...)`. Latent
+  rather than reachable: neither construction site can build an empty `Context`, so it survives the
+  same way #542 survived for terms with a free variable. One character to fix and it changes no
+  behaviour, which is why it is filed rather than swept in here.
+
 ## Not in scope
 
 The term-to-diagram roundtrip itself, which is #540 and waits on a naming ruling. This branch is
