@@ -33,11 +33,11 @@
 \node [plus] (30) at (1.5, 1.5) {};
 \node [] (31) at (0.5, 1.5) {};
 \node [circle, black] (32) at (0.5, 1.5) {};
-\node [] (32) at (0.25, 0.75) {};
-\node [] (33) at (0.75, 0.75) {};
-\node [] (34) at (0.5, 0.25) {};
-\node [style=none, fill=white] (35) at (0.5, 0.5) {0};
-\node [style=H, scale=0.447] (36) at (0.5, 2.5) {};
+\node [] (33) at (0.25, 0.75) {};
+\node [] (34) at (0.75, 0.75) {};
+\node [] (35) at (0.5, 0.25) {};
+\node [style=none, fill=white] (36) at (0.5, 0.5) {0};
+\node [style=H, scale=0.447] (37) at (0.5, 2.5) {};
 \end{pgfonlayer}
 \begin{pgfonlayer}{edgelayer}
 \draw [style=box] (1.center) to (2.center) to (3.center) to (4.center) to (1.center);
@@ -54,6 +54,6 @@
 \draw [in=90, out=-90] (8.center) to (14.center);
 \draw [in=90, out=-90] (11.center) to (12.center);
 \draw [in=180, out=0] (31.center) to (30.center);
-\draw [style=box] (32.center) to (33.center) to (34.center) to (32.center);
+\draw [style=box] (33.center) to (34.center) to (35.center) to (33.center);
 \end{pgfonlayer}
 \end{tikzpicture}

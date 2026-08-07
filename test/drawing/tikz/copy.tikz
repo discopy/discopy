@@ -32,7 +32,7 @@
 \node [style=none, fill=white, right] (29) at (1.5625, 0.1875) {$y$};
 \node [style=none, fill=white, right] (30) at (2.5625, 0.1875) {$x$};
 \node [style=COPY, scale=0.5] (31) at (1.0, 2.5) {};
-\node [style=COPY, scale=0.5] (31) at (3.0, 1.5) {};
+\node [style=COPY, scale=0.5] (32) at (3.0, 1.5) {};
 \end{pgfonlayer}
 \begin{pgfonlayer}{edgelayer}
 \draw [style=box] (1.center) to (2.center) to (3.center) to (4.center) to (1.center);
