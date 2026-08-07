@@ -34,6 +34,6 @@ WRONG_COD = "Expected inside.cod == {}, got {} instead."
 COMPLEX_TYPE_HAS_NO_ATTR = "{!r} object of length != 1 has no attribute {!r}"
 NOT_FROBENIUS = \
     "{} has no spiders, cups or caps to downgrade this hypergraph."
-NOT_RIGID = "{} has no cups or caps to downgrade this map."
-NOT_TRACED = "{} has no traces to downgrade this map."
+NOT_RIGID = "{} has no cups or caps for the wiring of this map."
+NOT_TRACED = "{} has no traces for the cycles of this map."
 NOT_SYMMETRIC = "{} has no swaps to downgrade this map."

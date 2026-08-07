@@ -340,17 +340,6 @@ class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
         Parameters:
             n : The number of objects to curry.
             left : Whether to curry on the left or right.
-
-        >>> from discopy.monoidal import Equation
-        >>> from discopy.rigid import Ty, Box
-        >>> x = Ty('x')
-        >>> g = Box('g', x @ x, x)
-        >>> Equation(g.curry(left=False), g, g.curry(),
-        ...     symbols=("$\\\\mapsfrom$", "$\\\\mapsto$")).draw(
-        ...         doctest="docs/_static/rigid/curry.svg")
-
-        .. image:: /_static/rigid/curry.svg
-            :align: center
         """
         if n < 0 or n > len(self.dom):
             raise ValueError
@@ -373,12 +362,6 @@ class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
         Parameters:
             n : The number of objects to uncurry.
             left : Whether to uncurry on the left or right.
-
-        >>> from discopy.rigid import Ty, Box
-        >>> x, y, z = map(Ty, "xyz")
-        >>> f = Box('f', x @ y, z)
-        >>> assert f.curry().uncurry().normal_form() == f
-        >>> assert f.curry(left=False).uncurry(left=False).normal_form() == f
         """
         if n < 0 or n > len(self.cod):
             raise ValueError

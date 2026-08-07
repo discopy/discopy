@@ -389,6 +389,12 @@ class Curry(monoidal.Bubble, Box):
         arg : The diagram to curry.
         n : The number of atomic types to curry.
         left : Whether to curry on the left or right.
+
+    Example
+    -------
+    >>> x, y, z = map(Ty, "xyz")
+    >>> print(Curry(Box('f', x @ y, z)))
+    Curry(f, 1, False)
     """
     def __init__(self, arg: Diagram, n=1, left=False):
         self.n, self.left = n, left
@@ -401,6 +407,9 @@ class Curry(monoidal.Bubble, Box):
         monoidal.Bubble.__init__(
             self, arg, dom=dom, cod=cod, drawing_name="$\\Lambda$")
         Box.__init__(self, name, dom, cod)
+
+    def __str__(self):
+        return self.name
 
     def to_drawing(self):
         if self.left:

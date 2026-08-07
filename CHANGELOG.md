@@ -44,23 +44,19 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Changed
 
-- `CMap` conversion now preserves concrete diagram categories, compares maps
-  through their underlying hypergraphs, and separates acyclicity from box order
-  with `is_acyclic`, `is_topologically_ordered`, and `topological_order`
-  ([#532](https://github.com/discopy/discopy/pull/532)).
-- `CMap` follows the `Hypergraph` terminology with `is_monogamous` and
-  `make_monogamous`, `is_causal` meaning monogamous, acyclic and topologically
-  ordered ([#532](https://github.com/discopy/discopy/pull/532)).
-- `ev`, `curry` and `uncurry` are defined once in `abc.RigidCategory` from cups
-  and caps, and `uncurry` once in `abc.BiclosedCategory` from evaluation, so
-  that rigid diagrams and `CMap` share the same definitions rather than
-  duplicating them. Rigid diagrams gain `uncurry` and `BiclosedCategory.uncurry`
-  gains an argument `n` for the number of objects to uncurry
-  ([#532](https://github.com/discopy/discopy/pull/532)).
-- `CMap.curry` and `CMap.uncurry` use the compact structure of the wiring when
-  the host category is rigid, otherwise the currying and evaluation stay
-  explicit boxes ([#532](https://github.com/discopy/discopy/pull/532)).
-- CMap planarity is now diagnostic rather than a downgrade constraint
+- `CMap` is aligned on `Hypergraph`. It is parameterised by a category as
+  `NamedGeneric["category"]` instead of carrying `require_*` flags, and it is
+  always compact whatever category hosts it, so every compact operation is
+  available when manipulating maps. Only `to_diagram` asks the host category
+  for structure, through `make_monogamous` (which needs cups and caps) and
+  `make_causal` (which needs traces); a wire pointing backward is cut into a
+  trace whether it closes a cycle or merely runs against the box order, and
+  `topological_order` reorders the boxes instead. Each box is placed where its
+  first domain wire already is, so the decoder no longer introduces swaps.
+  The predicates follow the `Hypergraph` names and are local conditions on
+  the edges, `__init__` takes a keyword `check`, and `curry`, `uncurry` and
+  `ev` come from the cups and caps of `abc.RigidCategory` when the host
+  category is rigid and stay explicit boxes otherwise
   ([#532](https://github.com/discopy/discopy/pull/532)).
 - `Arrow` is refactored onto a `FreeCategory` base class
   ([#350](https://github.com/discopy/discopy/pull/350)).
@@ -101,9 +97,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - Pivotal diagram-to-map conversion now encodes cups and caps as `CMap`
   wiring rather than keeping them as boxes
   ([#532](https://github.com/discopy/discopy/pull/532)).
-- Rigid `CMap` downgrade now distinguishes left and right adjoints, rejecting
-  bends whose crossed wiring would require an unavailable swap
+- `CMap.cups` and `CMap.caps` now require the handedness of the host category,
+  i.e. `cups(x, x.r)` and `caps(x.r, x)`, so that a rigid map can never hold
+  badly oriented cups and caps, rather than fixing the handedness at downgrade
+  time.
   ([#532](https://github.com/discopy/discopy/pull/532)).
+- `Hypergraph.explicit_trace` and `CMap.explicit_trace` no longer mistake the
+  inherited `trace_factory` of a user-defined subclass for a class method,
+  which used to raise `AttributeError: type object 'Trace' has no attribute
+  '__func__'` ([#532](https://github.com/discopy/discopy/pull/532)).
 - Tensor networks are contracted with `opt_einsum` when the number of
   indices exceeds `numpy.einsum`'s 52-index limit
   ([#448](https://github.com/discopy/discopy/pull/448)).

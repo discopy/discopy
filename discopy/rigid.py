@@ -358,6 +358,20 @@ class Diagram(biclosed.Diagram, RigidCategory):
 
     .. image:: /_static/rigid/diagram-example.svg
         :align: center
+
+    Currying and evaluation come from cups and caps:
+
+    >>> from discopy.monoidal import Equation
+    >>> x = Ty('x')
+    >>> g = Box('g', x @ x, x)
+    >>> assert g.curry().uncurry().normal_form() == g
+    >>> assert g.curry(left=False).uncurry(left=False).normal_form() == g
+    >>> Equation(g.curry(left=False), g, g.curry(),
+    ...     symbols=("$\\\\mapsfrom$", "$\\\\mapsto$")).draw(
+    ...         doctest="docs/_static/rigid/curry.svg")
+
+    .. image:: /_static/rigid/curry.svg
+        :align: center
     """
 
     ob = Ty
@@ -365,9 +379,6 @@ class Diagram(biclosed.Diagram, RigidCategory):
 
     to_drawing = monoidal.Diagram.to_drawing
 
-    # Evaluation and currying come from cups and caps rather than from the
-    # exponential boxes of :class:`biclosed.Diagram`, which comes first in the
-    # method resolution order.
     ev = classmethod(RigidCategory.ev.__func__)
     curry, uncurry = RigidCategory.curry, RigidCategory.uncurry
 

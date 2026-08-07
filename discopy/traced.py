@@ -191,6 +191,16 @@ class Trace(Box, monoidal.Bubble):
         arg : The diagram to trace.
         left : Whether to trace the wires on the left or right.
 
+    Example
+    -------
+    >>> from discopy.symmetric import Ty, Box, Trace
+    >>> x = Ty('x')
+    >>> f = Box('f', x @ x, x @ x)
+    >>> print(Trace(f))
+    Trace(f)
+    >>> print(Trace(f, left=True))
+    Trace(f, left=True)
+
     See also
     --------
     :meth:`Diagram.trace`
@@ -199,11 +209,14 @@ class Trace(Box, monoidal.Bubble):
         assert_isinstance(arg, self.ar)
         assert_istraceable(arg, n=1, left=left)
         self.left = left
-        name = f"Trace({arg}" + ", left=True)" if left else ")"
+        name = f"Trace({arg}, left=True)" if left else f"Trace({arg})"
         dom, cod = (arg.dom[1:], arg.cod[1:]) if left\
             else (arg.dom[:-1], arg.cod[:-1])
         monoidal.Bubble.__init__(self, arg, dom=dom, cod=cod)
         Box.__init__(self, name, dom, cod)
+
+    def __str__(self):
+        return self.name
 
     def __repr__(self):
         return factory_name(type(self)) + f"({self.arg}, left={self.left})"

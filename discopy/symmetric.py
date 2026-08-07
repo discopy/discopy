@@ -253,13 +253,15 @@ class Diagram(balanced.Diagram, SymmetricCategory):
 
     >>> with raises(AxiomError) as err:
     ...     Diagram.from_callable(x, x @ x)(lambda x: (x, x))
-    >>> str(err.value) == messages.NOT_FROBENIUS.format("symmetric.Diagram")
-    True
+    >>> print(err.value)
+    symmetric.Diagram has no spiders, cups or caps to downgrade this \
+hypergraph.
 
     >>> with raises(AxiomError) as err:
     ...     Diagram.from_callable(x, Ty())(lambda x: ())
-    >>> str(err.value) == messages.NOT_FROBENIUS.format("symmetric.Diagram")
-    True
+    >>> print(err.value)
+    symmetric.Diagram has no spiders, cups or caps to downgrade this \
+hypergraph.
 
     Note
     ----
