@@ -96,7 +96,7 @@ bug hit on the way gets filed, not fixed here.
 - [ ] 5. `biclosed.Diagram.to_term` as a `Functor` into that category, with `to_term(*names)`
       taking optional free-variable names.
 - [ ] 6. `closed.Diagram.to_term`: the same for the non-linear case, `Copy` for a repeated variable
-      and `Discard` for an unused one. Blocked on point 2.
+      and `Discard` for an unused one. Blocked on #541.
 - [ ] 7. Tests for T1, T2, T3, including the nested-binder and non-linear cases.
 - [ ] 8. `CHANGELOG.md` entry under `[Unreleased]`, and a docstring example on `to_term`.
 - [ ] 9. `uv run pflake8 discopy` and `uv run coverage run -m pytest` green.
