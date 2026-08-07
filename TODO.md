@@ -25,3 +25,17 @@ in #470. It is being renamed from the docs bot it used to be:
 - [x] Read the App id and private key from `DISCOPY_BOT_APP_ID` / `DISCOPY_BOT_PRIVATE_KEY`
 - [x] Alexis renames the App to `discopy-bot` in its settings, and re-creates the repository
       variable and secret under the new names — neither rename can be done from here
+
+## Daylight follow-up
+
+> for the draft gate I want the if and only if: make the PR ready automatically when the TODO is deleted
+
+> approve gate design
+
+> implement it and push to the existing branch
+
+> cut the workflow code down it looks way too bloated, you’re over engineering it: just check if there is a todo and it’s not draft make it draft, if the last commit deletes the todo make it ready
+
+- [x] Make TODO inspection fail closed and the gate bidirectional for gate-managed pull requests
+- [x] Reduce the gate to the two requested state transitions
+- [ ] Make `guard` a required status check on `main`
