@@ -89,21 +89,23 @@ def test_from_box_and_to_hypergraph():
 
 
 def test_eliminate_swaps():
-    from discopy.compact import Ty, Id, Box
+    from discopy.compact import Ty, Id, Box, Permutation
 
     x, y, w, z = map(Ty, "xyzw")
 
     diagram = Id(x @ y).swap(x, y).swap(y, x)
-    assert diagram == diagram.to_map().to_diagram().normal_form()
+    assert diagram.to_map().to_diagram() == Permutation(y @ x, [1, 0])
 
     diagram = Id(x @ y @ w @ z)\
         .swap(x @ y, w @ z).swap(w @ z, x @ y).normal_form()
-    assert diagram == diagram.to_map().to_diagram().normal_form()
+    assert diagram.to_map().to_diagram()\
+        == Permutation(w @ z @ x @ y, [2, 3, 0, 1])
 
     f, g = Box("f", x, z), Box("g", y, w)
 
     diagram = Id(x @ y).swap(x, y) >> g @ x >> Id(w @ x).swap(w, x) >> f @ w
-    assert diagram == diagram.to_map().to_diagram().normal_form()
+    assert diagram.to_map().to_diagram() == Permutation(x @ y, [1, 0])\
+        >> g @ x >> Permutation(w @ x, [1, 0]) >> f @ w
     assert diagram.to_map() == diagram.to_hypergraph().to_diagram().to_map()
 
 

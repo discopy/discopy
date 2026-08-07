@@ -79,6 +79,13 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - Symmetric categories generate their swaps with `swap_factory` rather than
   `braid_factory`, which is now a `classproperty` reading it
   ([#440](https://github.com/discopy/discopy/pull/440)).
+- `Hypergraph.to_diagram` and `CMap.to_diagram` route wires with one
+  permutation per routing episode instead of a chain of swaps, emitted with
+  `from_permutation`: categories with a native `Permutation` factory (e.g.
+  `symmetric`, `markov`, `compact`) get permutation boxes, the others keep
+  their swap decomposition. In particular `simplify` and `foliation` now
+  output `Permutation` boxes in these categories
+  ([#539](https://github.com/discopy/discopy/issues/539)).
 
 ### Fixed
 
