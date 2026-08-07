@@ -11,3 +11,9 @@ USER on [#535](https://github.com/discopy/discopy/issues/535#issuecomment-520713
 - [x] check the native method agrees with the inherited swap decomposition
 - [x] `pflake8 discopy` and `coverage run -m pytest`
 - [x] `CHANGELOG.md` entry
+
+USER on [r-538](https://github.com/discopy/discopy/pull/538) `discopy/matrix.py:308`, verbatim:
+
+> let's make doms optional, if it's not given or if it's equal to a sequence of ones then we can use a simpler formula for the permutation
+
+- [WIP] @9d0n47 make `doms` optional and take a simpler path when every block is a single dimension
