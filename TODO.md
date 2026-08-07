@@ -38,6 +38,16 @@ other three cannot be tested end-to-end while it is broken.
 - [x] 6. `CHANGELOG.md` entry under `[Unreleased]`.
 - [x] 7. `uv run pflake8 discopy` and `uv run coverage run -m pytest` green.
 
+## Filed, not fixed here
+
+- **#548** — no `closed.Diagram` containing `Copy` or `Merge` can be drawn.
+  `closed.Diagram.to_drawing` passes `functor_factory=Functor` to get `Curry`/`Eval` right, and
+  `closed.Functor` inherits `markov.Functor.__call__`, which intercepts `Copy` and calls
+  `self.cod.copy(...)`. `Drawing` has no `copy`. Pre-existing on `main`, independent of the four
+  above, and reproducible without any term: `(Copy(x) >> Box('f', x @ x, x)).draw()`. The fix is an
+  architecture call — teach `Drawing` the markov structure, or stop `to_drawing` inheriting the
+  interception — so it wants a ruling rather than a guess.
+
 ## Not in scope
 
 The term-to-diagram roundtrip itself, which is #540 and waits on a naming ruling. This branch is
