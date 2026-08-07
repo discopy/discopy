@@ -83,7 +83,7 @@ bug hit on the way gets filed, not fixed here.
 
 - [ ] 1. Confirm with USER the naming decision above (canonical vs. equality-invisible `varname`)
       before writing code — the whole shape of the branch depends on it.
-- [ ] 2. File the bugs found while measuring, as issues, and link them here:
+- [x] 2. File the bugs found while measuring, as issues, and link them here: #541,
       `closed.Abstraction.eval` crashes with `ValueError: ... is not in list` on a constant
       function such as `X(lambda x: (X >> Y)('h'))`. `__check_dom__` admits zero occurrences of the
       bound variable but `eval` calls `.index()` unconditionally, so the discard path is
