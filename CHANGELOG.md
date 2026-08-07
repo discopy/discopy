@@ -82,6 +82,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `Matrix` is a `MarkovCategory` rather than a `MonoidalCategory` and gets a
+  native `Matrix.permutation`, so a matrix-valued functor applied to a
+  diagram with an explicit `Permutation` layer no longer raises
+  `AttributeError`
+  ([#535](https://github.com/discopy/discopy/issues/535)).
 - Tensor networks are contracted with `opt_einsum` when the number of
   indices exceeds `numpy.einsum`'s 52-index limit
   ([#448](https://github.com/discopy/discopy/pull/448)).
