@@ -29,6 +29,7 @@ LAYERS_MUST_ALTERNATE = (
     "Layers must alternate routing and generators, starting and ending with "
     "routing.")
 ZERO_DISTANCE_CONTROLLED = "Zero-distance controlled gates are ill-defined."
+REAL_SQRT_IS_SELF_ADJOINT = "The dagger of a real square root is itself."
 HAS_NO_ATTRIBUTE = "{!r} object has no attribute {!r}"
 WRONG_DOM = "Expected inside.dom == {}, got {} instead."
 WRONG_COD = "Expected inside.cod == {}, got {} instead."

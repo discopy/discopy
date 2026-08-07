@@ -79,6 +79,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - Symmetric categories generate their swaps with `swap_factory` rather than
   `braid_factory`, which is now a `classproperty` reading it
   ([#440](https://github.com/discopy/discopy/pull/440)).
+- `Sqrt` of a negative or complex number carries an `is_dagger` flag that
+  conjugates its array, so such a square root and its dagger are no longer
+  equal; a real square root stays self-adjoint and rejects the flag
+  ([#482](https://github.com/discopy/discopy/issues/482)).
 
 ### Fixed
 
@@ -98,6 +102,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   input of the controlled box rather than its first one, so gates with a
   classical wire or a distance other than one are drawn on the right wires
   ([#439](https://github.com/discopy/discopy/pull/439)).
+- Bugs in `discopy.quantum` reported in
+  [#482](https://github.com/discopy/discopy/issues/482): `CQ.__str__`
+  printed classical dimensions as quantum, `Measure(override_bits=True)`
+  could not be evaluated, `Encode` ignored `constructive`/`reset_bits` in
+  its types so daggers were not type-correct, `CRz`/`CRx`/`CU1` raised at
+  any `distance` other than one, `Sqrt.dagger` returned `self` so that
+  `Sqrt(-1) >> Sqrt(-1).dagger()` evaluated to `-1` instead of `1`, and
+  `Channel.cups`/`Channel.discard` hard-coded `Channel` so `Channel[float]`
+  silently gave a `Channel[complex]`.
 
 ### Performance
 
@@ -106,6 +119,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `Hypergraph` equality, permutations and other micro-optimizations bring
   equality checks down to `O(n)`
   ([#353](https://github.com/discopy/discopy/pull/353)).
+- `Channel.tensor` contracts the two arrays directly and interleaves their
+  axes, instead of building four boxes, two swap diagrams and a fresh
+  `tensor.Functor` on every `@`: ~120x on one tensor and ~12x on
+  `eval(mixed=True)` for a four-qubit circuit. `Channel.measure` builds its
+  copy spider instead of a Python list comprehension, and
+  `Circuit.measure(mixed=False)` reads the Born rule off a single
+  contraction instead of running `2**n` of them: ~18x at ten qubits
+  ([#482](https://github.com/discopy/discopy/issues/482)).
 
 ### Project
 
