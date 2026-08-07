@@ -68,6 +68,32 @@ def test_draw_baseline(tmp_path, monkeypatch):
     assert path.read_text() != "<svg/>"
 
 
+def test_transparent_background_and_bordered_wires(tmp_path):
+    from matplotlib import pyplot as plt
+    from matplotlib.colors import to_rgba
+    from matplotlib import patheffects
+    from PIL import Image
+    path = tmp_path / "wire.png"
+
+    Id(Ty("x")).draw(path=path, show=False)
+
+    with Image.open(path) as image:
+        assert image.mode == "RGBA"
+        assert image.getpixel((5, 5))[3] == 0
+
+    drawing = Id(Ty("x")).to_drawing()
+    backend = Matplotlib(figsize=(2, 2))
+    backend.draw_wires(drawing)
+    effects = backend.axis.patches[-1].get_path_effects()
+    assert isinstance(effects[0], patheffects.Stroke)
+    assert isinstance(effects[1], patheffects.Normal)
+    backend.draw_boundary(drawing)
+    assert backend.axis.patches[-1].get_edgecolor() == to_rgba("none")
+    backend.draw_boundary(drawing, boundary_color="red")
+    assert backend.axis.patches[-1].get_edgecolor() == to_rgba(COLORS["red"])
+    plt.close(backend.axis.figure)
+
+
 def test_svg_equal(tmp_path):
     expected = tmp_path / "expected.svg"
     actual = tmp_path / "actual.svg"
@@ -109,6 +135,29 @@ def test_compare_drawing_raster_and_bytes(tmp_path):
     assert not actual.exists()
 
 
+def test_transparent_gif_frames_do_not_accumulate(tmp_path):
+    import numpy as np
+    from PIL import Image
+    x = monoidal.Ty("x")
+    first = monoidal.Box("f", x, x @ x @ x)
+    second = monoidal.Box("g", x @ x, x)
+    gif, expected = tmp_path / "animation.gif", tmp_path / "second.png"
+    params = dict(
+        figsize=(4, 4), wire_labels=False, draw_box_labels=False)
+
+    monoidal.Diagram.to_gif(first, second, path=gif, **params)
+    second.draw(path=expected, show=False, **params)
+
+    with Image.open(gif) as image:
+        image.seek(1)
+        actual_array = np.asarray(image.convert("RGBA"), dtype=float)
+        assert image.disposal_method == 2
+    with Image.open(expected) as image:
+        expected_array = np.asarray(image.convert("RGBA"), dtype=float)
+    rms = np.sqrt(np.mean((actual_array - expected_array) ** 2))
+    assert rms <= DRAWING_DEFAULT["plt_tol"]
+
+
 def test_draw_coloured_regions_and_frame():
     red, green, blue = map(
         monoidal.Colour, ("red", "green", "blue"))
@@ -120,10 +169,13 @@ def test_draw_coloured_regions_and_frame():
     # A box fills its three wire regions, with the names in
     # discopy.config.COLORS resolved to their hexcodes as for boxes.
     assert {'#e8a5a5', '#d8f8d8', '#776ff3'} <= region_hexes(box)
-    # A frame additionally fills its frame background (lightgrey).
+    # A frame leaves its default white background transparent.
     frame = box.bubble(dom=outer, cod=outer, draw_as_frame=True)
-    assert {'#e8a5a5', '#d8f8d8', '#776ff3', '#d3d3d3'}\
-        <= region_hexes(frame)
+    assert {'#e8a5a5', '#d8f8d8', '#776ff3'} <= region_hexes(frame)
+    assert '#d3d3d3' not in region_hexes(frame)
+    # An explicit frame colour is still filled.
+    drawing = box.to_drawing().frame(frame_colour="lightgrey")
+    assert '#d3d3d3' in region_hexes(drawing)
 
 
 def coloured_bubble():
@@ -179,8 +231,7 @@ def region_hexes(diagram, **params):
 
 
 def test_draw_regions_uncoloured_shapes():
-    # Region filling runs for cups, caps, swaps, spiders and many-legged
-    # boxes; with no colours every region is the default white.
+    # The default white region is the transparent drawing background.
     from discopy.frobenius import Spider, Ty as FTy
     x = Ty('x')
     shapes = [
@@ -188,7 +239,7 @@ def test_draw_regions_uncoloured_shapes():
         Box('f', x @ x, x @ x @ x), Spider(2, 1, FTy('x')),
         Cap(x.r, x) >> Swap(x.r, x) >> Cup(x, x.r)]
     for shape in shapes:
-        assert region_hexes(shape) == {'#ffffff'}
+        assert region_hexes(shape) == set()
 
 
 def test_draw_coloured_cups_and_caps():
@@ -221,8 +272,83 @@ def test_draw_coloured_equation():
     x = Ty(Ob("x", dom=red, cod=green))
     equation = Equation(Box("f", x, x), Box("g", x, x))
     colours = region_hexes(equation)
-    # Both term regions show, each in its own white-bordered slot.
-    assert {'#e8a5a5', '#d8f8d8', '#ffffff'} <= colours
+    # Both term regions show; white only overpaints the colours before it.
+    assert {'#e8a5a5', '#d8f8d8'} <= colours
+
+
+def test_white_region_overpaints_clipped():
+    from matplotlib import pyplot as plt
+    from matplotlib.colors import to_hex
+    red, white, blue = map(monoidal.Colour, ("red", "white", "blue"))
+    x = monoidal.Ty(monoidal.Wire("x", red, white))
+    y = monoidal.Ty(monoidal.Wire("y", white, blue))
+    drawing = monoidal.Box("f", x @ y, x @ y).to_drawing()
+    drawing.add_box_corners()
+    backend = Matplotlib(figsize=(2, 2))
+    backend.draw_regions(drawing)
+    whites = [patch for patch in backend.axis.patches
+              if to_hex(patch.get_facecolor()) == "#ffffff"]
+    # The white region between the colours overpaints them, clipped to the
+    # colours painted so far, so the canvas itself stays transparent.
+    assert whites
+    assert all(patch.get_clip_path() is not None for patch in whites)
+    coloured = [patch for patch in backend.axis.patches
+                if to_hex(patch.get_facecolor()) != "#ffffff"]
+    assert coloured
+    assert all(patch.get_clip_path() is None for patch in coloured)
+    plt.close(backend.axis.figure)
+
+
+def test_wire_outline_underneath_coloured_regions():
+    from matplotlib import pyplot as plt
+    backend = Matplotlib(figsize=(2, 2))
+    # A wire bordering a coloured region has its outline as a separate patch
+    # below the region fills, so the region hides its side of the outline.
+    backend.draw_wire((0, 0), (0, 1), colours=("red", "white"))
+    outline, wire = backend.axis.patches[-2:]
+    assert outline.get_zorder() < 1
+    assert not wire.get_path_effects()
+    # A wire between white regions keeps its outline in place.
+    before = len(backend.axis.patches)
+    backend.draw_wire((1, 0), (1, 1), colours=("white", "white"))
+    assert len(backend.axis.patches) == before + 1
+    assert backend.axis.patches[-1].get_path_effects()
+    # A zero-width wire, e.g. a frame boundary, gets no outline at all.
+    before = len(backend.axis.patches)
+    backend.draw_wire((2, 0), (2, 1), linewidth=0)
+    assert len(backend.axis.patches) == before + 1
+    assert not backend.axis.patches[-1].get_path_effects()
+    plt.close(backend.axis.figure)
+
+
+def test_spider_outline_underneath():
+    from matplotlib import pyplot as plt
+    from discopy.frobenius import Spider, Ty as FTy
+    drawing = Spider(2, 1, FTy('x')).to_drawing()
+    drawing.add_box_corners()
+    backend = Matplotlib(figsize=(2, 2))
+    backend.draw_spiders(drawing)
+    outline, spider = backend.axis.collections[-2:]
+    assert outline.get_zorder() < 1 < spider.get_zorder()
+    plt.close(backend.axis.figure)
+
+
+def test_equation_symbol_has_no_spider_background():
+    from matplotlib import pyplot as plt
+    equation = Equation(
+        Box("f", Ty("x"), Ty("x")), Box("g", Ty("x"), Ty("x")))
+    drawing = equation.to_drawing()
+    drawing.add_box_corners()
+    symbol, = [
+        node for node in drawing.box_nodes if node.box.drawing_name == "="]
+    assert symbol.box.color == "none"
+    backend = Matplotlib(figsize=(2, 2))
+    backend.draw_spiders(drawing)
+    assert backend.axis.collections[-1].get_facecolors()[0][-1] == 0
+    plt.close(backend.axis.figure)
+    tikz = TikZ(use_tikzstyles=True)
+    tikz.draw_spiders(drawing)
+    assert "fill=none" in tikz.node_styles[-1]
 
 
 def test_draw_region_non_colors_string():
@@ -375,7 +501,8 @@ def test_draw_permutation():
     assert len(tikz.edgelayer) == 2
     matplotlib = Matplotlib()
     matplotlib.draw_wires(swap)
-    assert len(matplotlib.axis.patches) == 2
+    # Each of the two strands is a white outline patch and a black one.
+    assert len(matplotlib.axis.patches) == 4
     plt.close(matplotlib.axis.figure)
 
     custom = Box(
