@@ -109,19 +109,25 @@ Instruction from Alexis, verbatim:
 The nine unresolved review comments from the 10:34–10:51 UTC round, plus the
 08:38 follow-up on the resolved thread asking to rename `scan`:
 
-- [WIP] @session_01Ccnp1AHjaZtji7KRef7xP4-2026-08-07 12:23 Rename `scan` to
+- [x] Rename `scan` to
   `normalise` and give `__init__` no pass over `inside` when it is `False`:
   `name`, `dom` and `cod` become lazy, the box-presence check moves to the
   `normalise=True` path, and the flag's docstring explains the type checking
   and the quadratic blowup that skipping it avoids
-- [WIP] @session_01Ccnp1AHjaZtji7KRef7xP4-2026-08-07 12:23 Make the type
+- [x] Make the type
   checking of `check` explicit in its loop instead of tensoring for the side
   effect, same for the empty-type cases of `__matmul__`/`__rmatmul__`
-- [WIP] @session_01Ccnp1AHjaZtji7KRef7xP4-2026-08-07 12:23 Flatten
+- [x] Flatten
   `normalise` to two cases: append or tensor with the last element
-- [WIP] @session_01Ccnp1AHjaZtji7KRef7xP4-2026-08-07 12:23 Drop
+- [x] Drop
   `Layer.tensor`, keeping only `__matmul__` and `__rmatmul__`, and update
   the tests that used it
-- [WIP] @session_01Ccnp1AHjaZtji7KRef7xP4-2026-08-07 12:23 Answer the
+- [x] Answer the
   `boxes_and_types` compatibility question with a measured estimate, filed
   as an issue
+
+Verification: `pflake8 discopy` is clean and `pytest --skip-extra` gives
+627 passed, 51 skipped. Chaining 4000 layers with `@` takes 0.47s against
+122s before this round (the old `@` re-tensored types and names at every
+step); the compatibility question is answered on the thread and filed as
+[#547](https://github.com/discopy/discopy/issues/547).
