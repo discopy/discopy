@@ -99,3 +99,29 @@ Verification: `pflake8 discopy` is clean and the 101 focused monoidal,
 symmetric, compact and Markov tests pass. GitHub build run `31132904791`
 passed docs, lint and the full test suite on Python 3.12, 3.13 and 3.14.
 The branch includes current `main` at `ed4c0b3d`.
+
+## Review follow-up (2026-08-07, second round)
+
+Instruction from Alexis, verbatim:
+
+> simplify layers https://github.com/discopy/discopy/pull/438
+
+The nine unresolved review comments from the 10:34–10:51 UTC round, plus the
+08:38 follow-up on the resolved thread asking to rename `scan`:
+
+- [WIP] @session_01Ccnp1AHjaZtji7KRef7xP4-2026-08-07 12:23 Rename `scan` to
+  `normalise` and give `__init__` no pass over `inside` when it is `False`:
+  `name`, `dom` and `cod` become lazy, the box-presence check moves to the
+  `normalise=True` path, and the flag's docstring explains the type checking
+  and the quadratic blowup that skipping it avoids
+- [WIP] @session_01Ccnp1AHjaZtji7KRef7xP4-2026-08-07 12:23 Make the type
+  checking of `check` explicit in its loop instead of tensoring for the side
+  effect, same for the empty-type cases of `__matmul__`/`__rmatmul__`
+- [WIP] @session_01Ccnp1AHjaZtji7KRef7xP4-2026-08-07 12:23 Flatten
+  `normalise` to two cases: append or tensor with the last element
+- [WIP] @session_01Ccnp1AHjaZtji7KRef7xP4-2026-08-07 12:23 Drop
+  `Layer.tensor`, keeping only `__matmul__` and `__rmatmul__`, and update
+  the tests that used it
+- [WIP] @session_01Ccnp1AHjaZtji7KRef7xP4-2026-08-07 12:23 Answer the
+  `boxes_and_types` compatibility question with a measured estimate, filed
+  as an issue
