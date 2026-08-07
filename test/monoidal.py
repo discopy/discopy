@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import pickle
+
 from pytest import raises
 
 from discopy.cat import *
@@ -166,21 +168,79 @@ def test_Dim_identity_and_slicing():
 
 
 def test_Layer_init():
-    with raises(ValueError):
+    with raises(TypeError):
         Layer(1, 2, 3, 4)
     x, y, z = Ty('x'), Ty('y'), Ty('z')
     f, g = Box('f', x, y), Box('g', y, z)
-    with raises(TypeError):
-        Layer(x, f, y, z, z)
+    assert Layer(x, f, y, z, z).boxes_or_types == (x, f, y @ z @ z)
     layer = Layer(x, f, y, g, z)
     assert layer.dagger() == Layer(x, f[::-1], y, g[::-1], z)
     assert layer.free_symbols == set()
+    assert Layer(Ty(), f, Ty(), g, Ty()).boxes_or_types == (f, g)
 
 
 def test_Layer_getitem():
     f = Box('f', 'x', 'x')
     layer = Layer(Ty(), f, Ty())
-    assert layer[1] == f and layer[0] == layer[2] == Ty()
+    assert layer[0] == f and layer.boxes_and_types == (Ty(), f, Ty())
+
+
+def test_Layer_legacy_serialisation():
+    f = Box('f', 'x', 'y')
+    factory = Layer(f).to_tree()['factory']
+    tree = dict(
+        factory=factory,
+        inside=[Ty().to_tree(), f.to_tree(), Ty().to_tree()])
+    assert from_tree(tree).boxes_or_types == (f, )
+
+    legacy = Layer(f)
+    legacy.boxes_or_types = (Ty(), f, Ty())
+    restored = pickle.loads(pickle.dumps(legacy))
+    assert restored == Layer(f)
+    assert restored.boxes_or_types == (f, )
+
+
+def test_Layer_coloured_units():
+    red, green = map(Colour, ("red", "green"))
+    x = Ty(Wire("x", red, green))
+    f = Box("f", x, x)
+    layer = Layer(x[:0], f, x[len(x):])
+
+    assert layer.boxes_or_types == (f, )
+    assert x[:0] @ layer == layer == layer @ x[len(x):]
+    with raises(AxiomError):
+        Ty.id(green) @ layer
+    with raises(AxiomError):
+        layer @ Ty.id(red)
+    with raises(AxiomError):
+        Layer(Ty.id(green), f)
+
+
+def test_Layer_tensor():
+    x, y, z = map(Ty, "xyz")
+    f, g = Box('f', x, y), Box('g', y, z)
+    left, right = Layer(f, y), Layer(z, g)
+
+    assert (left @ right).boxes_or_types == (f, y @ z, g)
+    assert len((left @ right).boxes_or_types)\
+        == len(left.boxes_or_types) + len(right.boxes_or_types) - 1
+    assert (Layer(f) @ Layer(g)).boxes_or_types == (f, g)
+    assert (Layer(x, f) @ Layer(g) @ Layer(g, y)).boxes_or_types\
+        == (x, f, g, g, y)
+    assert Layer.normalise((Ty(), x, f, y, z)) == (x, f, y @ z)
+
+    class ScanLayer(Layer):
+        scans = 0
+
+        @classmethod
+        def normalise(cls, inside):
+            cls.scans += 1
+            return super().normalise(inside)
+
+    layers = [ScanLayer(f) for _ in range(4)]
+    assert ScanLayer.scans == 4
+    assert (layers[0] @ layers[1] @ layers[2] @ layers[3]).boxes == 4 * [f]
+    assert ScanLayer.scans == 4
 
 
 def test_Diagram_init():
@@ -203,7 +263,10 @@ def test_Diagram_iter():
     g0 = Box('g', y @ y, x)
     g1 = g0.dagger()
     d = (f0 >> f1) @ Id(y @ x) >> g0 @ g1 >> f0 @ g0
-    assert Id(x @ y @ x).then(*(left @ box @ right for left, box, right in d))\
+    assert Id(x @ y @ x).then(*(
+        left @ box @ right
+        for left, box, right in (
+            layer.boxes_and_types for layer in d)))\
         == d
 
 
@@ -220,22 +283,28 @@ def test_Diagram_getitem():
     assert diagram[::-1] == diagram.dagger()
     with raises(TypeError):
         diagram["Alice"]
-    for depth, (left, box, right) in enumerate(diagram.inside):
+    for depth, layer_ in enumerate(diagram.inside):
+        left, box, right = layer_.boxes_and_types
         layer = Id(left) @ box @ Id(right)
         assert diagram[depth] == layer
         assert (diagram[-depth], ) == tuple(
             Id(left) @ box @ Id(right)
-            for left, box, right in (diagram.inside[-depth], ))
+            for left, box, right in (
+                diagram.inside[-depth].boxes_and_types, ))
         assert diagram[depth:depth] == Id(layer.dom)
         assert diagram[depth:] == Id(layer.dom).then(*(
             Id(left) @ box @ Id(right)
-            for left, box, right in diagram.inside[depth:]))
+            for left, box, right in (
+                layer.boxes_and_types for layer in diagram.inside[depth:])))
         assert diagram[:depth] == Id(diagram.dom).then(*(
             Id(left) @ box @ Id(right)
-            for left, box, right in diagram.inside[:depth]))
+            for left, box, right in (
+                layer.boxes_and_types for layer in diagram.inside[:depth])))
         assert diagram[depth: depth + 2] == Id(layer.dom).then(*(
             Id(left) @ box @ Id(right)
-            for left, box, right in diagram.inside[depth: depth + 2]))
+            for left, box, right in (
+                layer.boxes_and_types
+                for layer in diagram.inside[depth: depth + 2])))
 
 
 def test_Diagram_offsets():

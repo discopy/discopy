@@ -139,14 +139,14 @@ def test_Layer():
     assert (z @ layer).boxes_and_types == (z @ x, f, y)
     assert (layer @ z).boxes_and_types == (x, f, y @ z)
 
-    routed = Layer(x, f, permutation)
-    assert routed.is_structural
-    assert routed.boxes_or_types == (x, f, permutation)
-    assert routed.boxes_and_types == (x, f, Ty(), permutation, Ty())
-    assert routed.boxes == [f, permutation]
-    assert routed.dagger() == Layer(x, f.dagger(), permutation.dagger())
-    with raises(ValueError):
-        Layer(x, f)
+    plumbed = Layer(x, f, permutation)
+    assert plumbed.is_structural
+    assert plumbed.boxes_or_types == (x, f, permutation)
+    assert plumbed.boxes_and_types == (x, f, Ty(), permutation, Ty())
+    assert plumbed.boxes == [f, permutation]
+    assert plumbed.dagger() == Layer(x, f.dagger(), permutation.dagger())
+    assert Layer(x, f).boxes_or_types == (x, f)
+    assert Layer(x, f).boxes_and_types == (x, f, Ty())
     with raises(ValueError):
         Layer(x)
 
@@ -164,16 +164,18 @@ def test_Layer_serialisation():
     assert isinstance(loads(dumps(identity)), Permutation)
 
 
-def test_Layer_identity_routing():
+def test_Layer_identity_plumbing():
     x, y, z = Ty('x'), Ty('y'), Ty('z')
     f = Box('f', x, y)
     assert Layer(x, f, Permutation(y @ z, [0, 1])).boxes_or_types\
         == (x, f, y @ z)
     assert Layer(x, Permutation(y, [0]), f, z).boxes_or_types == (x @ y, f, z)
     assert Permutation(x @ y, [0, 1]).inside == ()
+    with raises(ValueError):
+        Layer(Permutation(x @ y, [0, 1]))
 
 
-def test_Layer_coalesces_routing():
+def test_Layer_coalesces_plumbing():
     x, y, z = Ty('x'), Ty('y'), Ty('z')
     f = Box('f', z, z)
     permutation = Permutation(x @ y, [1, 0])
@@ -210,6 +212,11 @@ def test_Layer_tensor():
     assert (left @ right).dagger() == left.dagger() @ right.dagger()
     permutation = Layer(Permutation(x @ y, [1, 0]))
     assert (left @ right) @ permutation == left @ (right @ permutation)
+    assert (Layer(f) @ Layer(g) @ permutation).boxes_or_types == (
+        f, g, permutation[0])
+    plumbed = Layer(f, z) @ permutation @ Layer(x, g)
+    assert plumbed.boxes_or_types == (f, z @ permutation[0] @ x, g)
+    assert isinstance(plumbed[1], Permutation)
 
 
 def test_noncommuting_Permutation_composition():
@@ -279,7 +286,7 @@ def test_Permutation_whiskering():
     assert isinstance(y @ identity, Permutation)
 
 
-def test_mixed_Layer_routing():
+def test_mixed_Layer_plumbing():
     x, y, z = Ty('x'), Ty('y'), Ty('z')
     permutation = Permutation(x @ y, [1, 0])
     f = Box('f', z, z)
