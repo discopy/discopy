@@ -91,11 +91,11 @@ Instruction from Alexis, verbatim:
 > Simplify layers https://github.com/discopy/discopy/pull/438
 > I added some comments
 
-- [WIP] @codex-pr438-2026-08-06 20:07 Address all five unresolved review comments: define plumbing in the
+- [x] Address all five unresolved review comments: define plumbing in the
   documentation, expose the layer normalisation steps, and reuse them during
   deserialisation.
 
-Verification so far: `pflake8 discopy` is clean; the 101 focused monoidal,
-symmetric, compact and Markov tests pass. The full coverage run reached 781
-passes before the long-lived process lost its macOS workspace grant; CI is the
-remaining full-suite verification.
+Verification: `pflake8 discopy` is clean and the 101 focused monoidal,
+symmetric, compact and Markov tests pass. GitHub build run `31132904791`
+passed docs, lint and the full test suite on Python 3.12, 3.13 and 3.14.
+The branch includes current `main` at `ed4c0b3d`.
