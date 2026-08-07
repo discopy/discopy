@@ -280,17 +280,36 @@ class Context:
 
 @dataclass
 class Substitution:
+    """
+    A map from variables to terms, applied to a term by recursion, see the
+    `nLab`_. A variable bound by an :class:`Abstraction` is left untouched
+    inside its body.
+
+    Example
+    -------
+    >>> X, Y = Ty("X"), Ty("Y")
+    >>> x, y = Variable("x", X), Variable("y", X)
+    >>> f = (X >> Y)("f")
+    >>> assert Substitution({x: y})(x) == y
+    >>> assert Substitution({x: y})(f) == f
+    >>> assert Substitution({x: y})(f(x)) == f(y)
+    >>> assert Substitution({x: y})(Abstraction(x, f(x)))\\
+    ...     == Abstraction(x, f(x))
+
+    .. _nLab: https://ncatlab.org/nlab/show/substitution
+    """
     inside: Dict[Variable, Term]
 
     def __call__(self, term: Term) -> Term:
         if isinstance(term, Variable):
             return self.inside.get(term, term)
-        elif isinstance(term, Application):
-            return self(term.func)(self(term.args))
-        elif isinstance(term, Abstraction):
-            other = Substitution(
+        if isinstance(term, Application):
+            return type(term)(self(term.func), self(term.args), term.left)
+        if isinstance(term, Abstraction):
+            other = type(self)(
                 {k: v for k, v in self.inside.items() if k != term.var})
-            return other(term)
+            return type(term)(term.var, other(term.body), term.left)
+        return term
 
 
 Ty.variable_factory = Variable

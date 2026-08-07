@@ -34,3 +34,12 @@ def test_additive_Function():
     T, D = Ty[tuple], Diagram[Function]
 
     assert eq(D.id(T(X, X)).transpose().inside, Id(X + X))
+
+
+def test_variadic_tensor():
+    """ https://github.com/discopy/discopy/issues/493 """
+    from discopy.python.additive import Function
+
+    f = Function(lambda x, tag=0: x + 1, (int, ), (int, ))
+    assert Function.tensor(f) == f
+    assert Function.tensor(f, f, f)(0, 2) == (1, 2)

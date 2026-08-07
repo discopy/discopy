@@ -29,7 +29,8 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from discopy.abc import ClosedCategory
-from discopy.utils import assert_isinstance, tuplify, untuplify, factory
+from discopy.utils import (
+    assert_isinstance, tuplify, untuplify, factory, unbiased)
 from discopy.python import function
 
 
@@ -90,12 +91,19 @@ class Function(function.Function, ClosedCategory):
                 callable(y) or assert_isinstance(y, t)
         return ys
 
+    @unbiased
     def tensor(self, other: Function) -> Function:
         """
-        The parallel composition of two functions, called with :code:`@`.
+        The parallel composition of functions, called with :code:`@`.
 
         Parameters:
-            other : The other function to compose in sequence.
+            other : The other functions to compose in parallel.
+
+        Example
+        -------
+        >>> f = Function(lambda x: x + 1, int, int)
+        >>> assert Function.tensor(f) == f
+        >>> assert Function.tensor(f, f, f)(0, 1, 2) == (1, 2, 3)
         """
         def inside(*xs):
             left, right = xs[:len(self.dom)], xs[len(self.dom):]

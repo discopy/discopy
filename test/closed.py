@@ -38,3 +38,15 @@ def test_discard():
     from discopy import cat, closed  # noqa: F401  (used by eval)
     assert eval(repr(Discard(x))) == Discard(x)
     assert Diagram.discard(x @ x) == Discard(x) @ Discard(x)
+
+
+def test_Substitution():
+    """ https://github.com/discopy/discopy/issues/492 """
+    X, Y = Ty("X"), Ty("Y")
+    x, y = Variable("x", X), Variable("y", X)
+    f, c = (X >> Y)("f"), Y("c")
+
+    assert Substitution({x: y})(c) == c
+    assert Substitution({x: y})(f(x)) == f(y)
+    assert Substitution({x: y})(Application(f, x, left=True)).left
+    assert Substitution({x: y})(Abstraction(x, f(x))) == Abstraction(x, f(x))
