@@ -30,9 +30,9 @@ jobs:
         NODE_ID: ${{ github.event.pull_request.node_id }}
       run: |
         todo_at() {
-          gh api "repos/$HEAD_REPO/git/trees/$1" --jq '
+          gh api "repos/$HEAD_REPO/git/trees/$1?recursive=1" --jq '
             if .truncated == false then
-              any(.tree[]; .path == "TODO.md" and .type == "blob")
+              any(.tree[]; .path | test("(^|/)todo(\\.[^/]*)?$"; "i"))
             else error("tree response truncated") end'
         }
         set_draft() {

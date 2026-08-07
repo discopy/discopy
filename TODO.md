@@ -39,4 +39,4 @@ in #470. It is being renamed from the docs bot it used to be:
 - [x] Make TODO inspection fail closed and the gate bidirectional for gate-managed pull requests
 - [x] Reduce the gate to the two requested state transitions
 - [ ] Make `guard` a required status check on `main`
-- [WIP] @daylight-2026-08-07 07:45 Match every TODO file, not just a root `TODO.md`
+- [x] Match every TODO file, not just a root `TODO.md`
