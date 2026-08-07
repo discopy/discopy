@@ -114,6 +114,20 @@ Bubbles, grammatical diagrams and quantum circuits use the same backend:
 >>> circuit.draw(
 ...     wire_labels=False, doctest="docs/_static/drawing/long-controlled.svg")
 
+A controlled gate over distinct wires, e.g. a classically-controlled gate,
+picks the x-coordinate of its control from the wire it sits on:
+
+>>> bit, qubit = Ty("bit"), Ty("qubit")
+>>> gate = Box("F", qubit, qubit)
+>>> controlled = Box(
+...     "CF", bit @ qubit, bit @ qubit,
+...     draw_as_controlled=True, controlled=gate, distance=1)
+>>> left_controlled = Box(
+...     "FC", qubit @ bit, qubit @ bit,
+...     draw_as_controlled=True, controlled=gate, distance=-1)
+>>> (controlled @ left_controlled).draw(
+...     doctest="docs/_static/drawing/controlled-classical.svg")
+
 Coloured regions are also checked as part of the gallery:
 
 >>> Colour, Wire = monoidal.Colour, monoidal.Wire

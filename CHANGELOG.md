@@ -82,16 +82,28 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   [#470](https://github.com/discopy/discopy/pull/470)).
 - The `test/` directory is reorganised to mirror `discopy/`
   ([#403](https://github.com/discopy/discopy/pull/403)).
+- Symmetric categories generate their swaps with `swap_factory` rather than
+  `braid_factory`, which is now a `classproperty` reading it
+  ([#440](https://github.com/discopy/discopy/pull/440)).
 
 ### Fixed
 
 - Tensor networks are contracted with `opt_einsum` when the number of
   indices exceeds `numpy.einsum`'s 52-index limit
   ([#448](https://github.com/discopy/discopy/pull/448)).
+- `grammar.categorial.cat2ty` reads a fully parenthesized category such as
+  `(S\NP)` as a category rather than an atom, strips CCGbank features
+  wherever they occur rather than on atoms only, and associates slashes to
+  the left as CCG does
+  ([#528](https://github.com/discopy/discopy/issues/528)).
 - Hypergraph hash
   ([#387](https://github.com/discopy/discopy/pull/387)).
 - Bubble drawing
   ([#431](https://github.com/discopy/discopy/pull/431)).
+- Controlled gate drawing: the control wire is anchored on the indexed
+  input of the controlled box rather than its first one, so gates with a
+  classical wire or a distance other than one are drawn on the right wires
+  ([#439](https://github.com/discopy/discopy/pull/439)).
 - TikZ wires combining a style with a computed looseness, e.g. the arrow of
   a measure, emitted `->looseness=...` without the separating comma
   ([#515](https://github.com/discopy/discopy/issues/515)).

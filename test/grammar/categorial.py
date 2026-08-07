@@ -271,6 +271,22 @@ def test_to_pregroup():
         Cup(y_, y_.r) @ Swap(x_.l, x_)
 
 
+def test_cat2ty():
+    s, n = Ty('S'), Ty('NP')
+    assert cat2ty('S') == s
+    assert cat2ty(r'S[dcl]\NP') == n >> s
+    assert cat2ty(r'(S[dcl]\NP)/NP') == (n >> s) << n
+
+    assert cat2ty(r'(S\NP)') == n >> s
+    assert cat2ty('((NP))') == n
+
+    assert cat2ty(r'(S\NP)\(S\NP)[conj]') == (n >> s) >> (n >> s)
+    assert cat2ty('NP[conj]') == n
+
+    assert cat2ty(r'S\NP/NP') == cat2ty(r'(S\NP)/NP')
+    assert cat2ty(r'S/NP\NP') == cat2ty(r'(S/NP)\NP')
+
+
 def test_tree2diagram():
     diagram = tree2diagram(tree)
     assert diagram.to_pregroup().normal_form()\
