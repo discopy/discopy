@@ -388,6 +388,32 @@ class Backend(ABC):
         self.max_width = max([self.max_width] + [x for x, _ in points])
 
     @staticmethod
+    def arrowhead_segment(source, target, length=None):
+        """
+        The short segment in the middle of the wire from ``source`` to
+        ``target`` on which :meth:`draw_arrowhead` draws its arrow, i.e. the
+        segment of length ``length`` centred on the middle of the wire.
+        """
+        length = DEFAULT["arrowhead_length"] if length is None else length
+        (x0, y0), (x1, y1) = source, target
+        dx, dy = x1 - x0, y1 - y0
+        norm = sqrt(dx * dx + dy * dy)
+        middle = ((x0 + x1) / 2, (y0 + y1) / 2)
+        if not norm:
+            return middle, middle
+        step = (length * dx / norm / 2, length * dy / norm / 2)
+        return ((middle[0] - step[0], middle[1] - step[1]),
+                (middle[0] + step[0], middle[1] + step[1]))
+
+    def draw_arrowhead(self, source, target, **params):
+        """
+        Draws an arrow in the middle of the wire from ``source`` to ``target``,
+        pointing towards ``target``, e.g. for the backward-pointing loop of a
+        feedback, see :meth:`draw_wires`.
+        """
+        self.max_width = max(self.max_width, source[0], target[0])
+
+    @staticmethod
     def braid_strand(source, target, middle):
         """
         The four control points of the cubic Bezier drawn by
@@ -525,6 +551,15 @@ class Backend(ABC):
         return colours
 
     @staticmethod
+    def feedback_layers(graph):
+        """
+        The indices of the layers of a graph holding the cup or the cap of a
+        feedback, i.e. the two ends of a loop drawn with a backward arrow.
+        """
+        return {node.j for node in graph.nodes
+                if node.kind == "box" and node.box.draw_as_feedback}
+
+    @staticmethod
     def visible_edges(graph):
         """ Yield the edges of a graph that are not inside a box. """
         def inside_a_box(node):
@@ -592,6 +627,7 @@ class Backend(ABC):
                 self.draw_permutation(graph.positions, node)
             elif node.box.is_crossing:
                 self.draw_braid(graph.positions, node)
+        feedback_layers = self.feedback_layers(graph)
         for source, target in self.visible_edges(graph):
             source_position = graph.positions[source]
             target_position = graph.positions[target]
@@ -609,6 +645,13 @@ class Backend(ABC):
             self.draw_wire(
                 source_position, target_position, bend_out, bend_in,
                 linewidth=(0 if is_frame_boundary else None))
+            # The wire from the cap of a feedback down to its cup goes against
+            # the flow of the diagram, i.e. the memory comes back one time
+            # step later, so it carries an arrow pointing backwards.
+            layers = {getattr(n, "j", None) for n in (source, target)}
+            if len(layers) == 2 and layers <= feedback_layers:
+                self.draw_arrowhead(
+                    target_position, source_position, **params)
 
     def fill_fold(self, outer, inner, color):
         """
@@ -1075,8 +1118,7 @@ class TikZ(Backend):
             distance = min(dx, dy)
             looseness = round(distance / length * 2.1, 4)
         if looseness != 1:
-            if style is None:
-                style = ''
+            style = '' if style is None else f'{style}, '
             style += f'looseness={looseness}'
 
         cmd = (
@@ -1091,6 +1133,16 @@ class TikZ(Backend):
             f", {style}" if style is not None else "",
             self.nodes[source], self.nodes[target]))
         super().draw_wire(source, target, bend_out=bend_out, bend_in=bend_in)
+
+    def draw_arrowhead(self, source, target, **params):
+        start, end = self.arrowhead_segment(source, target)
+        for point in (start, end):
+            if point not in self.nodes:
+                self.add_node(*point)
+        self.edgelayer.append(
+            f"\\draw [->] ({self.nodes[start]}.center)"
+            f" to ({self.nodes[end]}.center);\n")
+        super().draw_arrowhead(source, target, **params)
 
     def draw_bezier(self, points):
         for point in points:
@@ -1297,6 +1349,15 @@ class Matplotlib(Backend):
             self.axis.add_patch(PathPatch(
                 path, facecolor='none', linewidth=linewidth))
         super().draw_wire(source, target, bend_out=bend_out, bend_in=bend_in)
+
+    def draw_arrowhead(self, source, target, **params):
+        (x, y), (end_x, end_y) = self.arrowhead_segment(source, target)
+        self.axis.arrow(
+            x, y, end_x - x, end_y - y, length_includes_head=True,
+            head_length=DEFAULT["arrowhead_length"],
+            head_width=DEFAULT["arrowhead_width"],
+            linewidth=self.linewidth, color="black")
+        super().draw_arrowhead(source, target, **params)
 
     def draw_bezier(self, points):
         path = Path(

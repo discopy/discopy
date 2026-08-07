@@ -27,6 +27,9 @@ BOX_DRAWING_ATTRIBUTES = {
     "draw_as_braid": lambda _: False,
     "draw_as_cup": lambda _: False,
     "draw_as_cap": lambda _: False,
+    # The cup and cap of a feedback loop, i.e. the wires between them carry
+    # an arrow pointing backwards, see :meth:`drawing.Drawing.trace`.
+    "draw_as_feedback": lambda _: False,
     "draw_as_dual_rail_braid": lambda _: False,
     "draw_as_dual_rail_twist": lambda _: False,
     "draw_as_dual_rail_cup": lambda _: False,
@@ -98,6 +101,10 @@ DRAWING_DEFAULT = {
     # Gap in inches between the diagram and the legend.
     "legend_margin": 0.4,
     "ribbon_width": 0.25,
+    # Length and width of the arrowhead drawn in the middle of a directed
+    # wire, see :meth:`discopy.drawing.backend.Backend.draw_arrowhead`.
+    "arrowhead_length": 0.2,
+    "arrowhead_width": 0.15,
     "plt_tol": 20,
     "svg_tol": 1,
 }
