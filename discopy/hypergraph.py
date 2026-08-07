@@ -1403,6 +1403,14 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         second order and introduce copies. When the category has neither, a
         non-monogamous hypergraph cannot be downgraded and we raise an error.
 
+        Note
+        ----
+        Wire routing is emitted with
+        :meth:`discopy.symmetric.Diagram.from_permutation`: one permutation
+        layer per routing episode, a :class:`discopy.symmetric.Permutation`
+        box when the category has a native factory and a decomposition into
+        swaps otherwise.
+
         Examples
         --------
         >>> from discopy.frobenius import Ty, Box, Hypergraph as H
@@ -1412,6 +1420,12 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         v >> Swap(x, x) >> v[::-1]
         >>> print(x @ H.swap(x, x) >> v[::-1] @ x)
         x @ Swap(x, x) >> v[::-1] @ x
+
+        >>> from discopy import symmetric
+        >>> y, z, w = map(symmetric.Ty, "yzw")
+        >>> staircase = symmetric.Diagram.permutation([2, 0, 1], y @ z @ w)
+        >>> print(staircase.simplify())
+        Permutation(y @ z @ w, [2, 0, 1])
         """
         if self.scalar_spiders or not self.is_causal or not self.is_monogamous:
             if issubclass(self.category, HypergraphCategory):
@@ -1441,26 +1455,22 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
 
         for depth, (box, offset) in enumerate(zip(self.boxes, self.offsets)):
             dom_wires, cod_wires = self.box_wires[depth]
+            source, routed = scan, list(scan)
             for i, obj in enumerate(box.dom):
-                j = scan.index(dom_wires[i])
+                j = routed.index(dom_wires[i])
                 if i == 0 and offset is None:
                     offset = j
-                elif j != offset + i:
-                    flush()  # a swap is a layer of its own
-                    if j > offset + i:
-                        diagram >>= diagram.cod[:offset + i] @ diagram.swap(
-                            diagram.cod[offset + i:j], diagram.cod[j]
-                        ) @ diagram.cod[j + 1:]
-                        scan = (scan[:offset + i] + scan[j:j + 1]) + (
-                            scan[offset + i:j] + scan[j + 1:])
-                    else:
-                        diagram >>= diagram.cod[:j] @ diagram.swap(
-                            diagram.cod[j], diagram.cod[j + 1:offset + i]
-                        ) @ diagram.cod[offset + i:]
-                        scan = (scan[:j] + scan[j + 1:offset + i]) + (
-                            scan[j:j + 1] + scan[offset + i:])
-                        offset -= 1
-                    assert len(scan) == len(diagram.cod)
+                elif j > offset + i:
+                    routed.insert(offset + i, routed.pop(j))
+                elif j < offset + i:
+                    routed.insert(offset + i - 1, routed.pop(j))
+                    offset -= 1
+            scan = tuple(routed)
+            if scan != source:
+                flush()  # a permutation is a layer of its own
+                diagram >>= diagram.from_permutation(
+                    [source.index(spider) for spider in scan], diagram.cod)
+                assert len(scan) == len(diagram.cod)
             offset = 0 if offset is None else offset
             if pending and offset < layer_right:
                 flush()
@@ -1473,13 +1483,9 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
             if not foliate:
                 flush()
         flush()
-        for i, spider in enumerate(self.cod_wires):
-            j = scan.index(spider)
-            if i < j:
-                diagram >>= diagram.cod[:i] @ diagram.swap(
-                    diagram.cod[i:j], diagram.cod[j:j + 1]
-                ) @ diagram.cod[j + 1:]
-                scan = scan[:i] + scan[j:j + 1] + scan[i:j] + scan[j + 1:]
+        perm = [scan.index(spider) for spider in self.cod_wires]
+        if perm != sorted(perm):
+            diagram >>= diagram.from_permutation(perm, diagram.cod)
         return diagram
 
     @classmethod
