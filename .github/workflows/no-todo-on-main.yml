@@ -29,8 +29,21 @@ jobs:
         NODE_ID: ${{ github.event.pull_request.node_id }}
         REPO: ${{ github.repository }}
       run: |
-        todo="$(gh api "repos/$REPO/pulls/$PR/files" --paginate \
-          --jq '.[] | select(.status != "removed") | .filename' \
+        files="$(gh api "repos/$REPO/pulls/$PR/files" --paginate \
+          --jq '.[] | [.status, .filename] | @tsv')" || {
+          echo "::error::cannot list the files of this pull request"
+          exit 1
+        }
+        changed="$(gh api "repos/$REPO/pulls/$PR" --jq '.changed_files')" || {
+          echo "::error::cannot count the files of this pull request"
+          exit 1
+        }
+        listed="$(printf '%s\n' "$files" | grep -c . || true)"
+        if [ "$listed" -ne "$changed" ]; then
+          echo "::error::listed $listed of the $changed files this pull request changes, a TODO file could be hiding in the rest"
+          exit 1
+        fi
+        todo="$(printf '%s\n' "$files" | grep -v '^removed' | cut -f2 \
           | grep -iE '(^|/)todo(\.[^/]*)?$' || true)"
         [ -n "$todo" ] || exit 0
         drafted="$(gh api graphql -f id="$NODE_ID" -f query='
