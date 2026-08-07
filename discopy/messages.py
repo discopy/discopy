@@ -10,7 +10,6 @@ NOT_PARALLEL = "Expected parallel arrows, got {} and {} instead."
 NOT_GLOBULAR = "Expected a globular box, got boundaries {} -> {} and {} -> {}."
 NOT_ATOMIC = "Expected {} of length 1, got length {} instead."
 NOT_CONNECTED = "{} is not boundary-connected."
-NOT_PLANAR = "{} is not planar."
 NOT_TRACEABLE = "Cannot trace {} with {}."
 NOT_ADJOINT = "{} and {} are not adjoints."
 NOT_RIGID_ADJOINT = "{} is not the left adjoint of {}, maybe you meant to use"\
@@ -33,5 +32,8 @@ HAS_NO_ATTRIBUTE = "{!r} object has no attribute {!r}"
 WRONG_DOM = "Expected inside.dom == {}, got {} instead."
 WRONG_COD = "Expected inside.cod == {}, got {} instead."
 COMPLEX_TYPE_HAS_NO_ATTR = "{!r} object of length != 1 has no attribute {!r}"
-NO_STRUCTURE_TO_DOWNGRADE = \
-    "{} has no spiders, cups or caps to draw this hypergraph."
+NOT_FROBENIUS = \
+    "{} has no spiders, cups or caps to downgrade this hypergraph."
+NOT_RIGID = "{} has no cups or caps to downgrade this map."
+NOT_TRACED = "{} has no traces to downgrade this map."
+NOT_SYMMETRIC = "{} has no swaps to downgrade this map."

@@ -362,7 +362,6 @@ class DualRail(Functor):
 
 
 Diagram.functor_factory = Functor
-Diagram.map_factory = traced.CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.braid_factory = Braid
 Diagram.twist_factory = Twist

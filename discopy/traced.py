@@ -124,6 +124,7 @@ Dinaturality
 """
 
 from discopy import monoidal, hypergraph
+from discopy import cmap
 from discopy.abc import TracedCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty  # noqa: F401
@@ -257,13 +258,9 @@ class Functor(monoidal.Functor):
         return super().__call__(other)
 
 
-class CMap(monoidal.CMap):
-    category = Diagram
-    require_causal = False
-
+CMap = cmap.CMap[Diagram]
 
 Diagram.functor_factory = Functor
-Diagram.map_factory = CMap
 Diagram.trace_factory = Trace
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Id = Diagram.id

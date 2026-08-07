@@ -973,7 +973,16 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
 
     def to_map(self) -> CMap:
         """ Translate a diagram into a combinatorial map. """
-        return self.map_factory.from_diagram(self)
+        result = cmap.CMap[type(self).ar].from_diagram(self)
+        staircase = len(self.boxes) == len(self.inside)
+        if staircase and len(result.boxes) == len(self.boxes):
+            offsets = tuple(
+                offset if not box.dom else None
+                for box, offset in zip(self.boxes, self.offsets))
+            result = type(result)(
+                result.dom, result.cod, result.boxes, result.edges,
+                offsets=offsets, loops=result.loops)
+        return result
 
     def to_staircases(self):
         """
@@ -1596,12 +1605,7 @@ class Match:
         return self.above >> self.left @ target @ self.right >> self.below
 
 
-class CMap(cmap.CMap):
-    category = Diagram
-    require_planar = True
-    require_causal = True
-    require_oriented = True
-    require_connected = True
+CMap = cmap.CMap[Diagram]
 
 
 class Equation(cat.Equation, RichDisplay):
@@ -1652,7 +1656,6 @@ Diagram.to_gif = drawing.to_gif
 Diagram.sum_factory = Sum
 Diagram.bubble_factory = Bubble
 Diagram.functor_factory = Functor
-Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Drawing.ob = Ty
 Id = Diagram.id

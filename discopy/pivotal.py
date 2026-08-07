@@ -251,6 +251,7 @@ class Functor(rigid.Functor):
     dom = cod = Diagram
 
 
+Diagram.functor_factory = Functor
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Id = Diagram.id
 
