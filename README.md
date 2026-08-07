@@ -84,7 +84,7 @@ class CookingStep(Box, Recipe):
 class CookingSwap(Swap, CookingStep):
   "A cooking swap takes two ingredients `X @ Y` and gives `Y @ X`."
 
-Recipe.braid_factory = CookingSwap  # Recipes need to know how to swap.
+Recipe.swap_factory = CookingSwap  # Recipes need to know how to swap.
 
 egg, white, yolk = Ingredient("egg"), Ingredient("white"), Ingredient("yolk")
 crack = CookingStep("crack", egg, white @ yolk)
@@ -112,7 +112,8 @@ By default, DisCoPy diagrams are made of layers with exactly one box in between 
 We can get more general diagrams by specifying the list of layers `inside` manually:
 
 ```python
-from discopy.monoidal import Layer, Equation
+from discopy.monoidal import Equation
+from discopy.symmetric import Layer
 
 A, B, C, D = Ty(*"ABCD")
 f, g = Box("f", A, B), Box("g", C, D)

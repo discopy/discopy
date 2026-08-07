@@ -15,6 +15,7 @@ Summary
     Diagram
     Box
     Swap
+    Permutation
     Copy
     Functor
 
@@ -77,6 +78,9 @@ from discopy.abc import MarkovCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import assert_isatomic, factory_name
+
+
+Layer = symmetric.Layer
 
 
 @factory
@@ -172,6 +176,16 @@ class Swap(symmetric.Swap, Box):
     """
 
 
+class Permutation(symmetric.Permutation, Box):
+    """
+    A permutation in a Markov category.
+
+    Parameters:
+        dom (monoidal.Ty) : The domain, i.e. the wires to permute.
+        perm : The permutation as a :class:`finset.Permutation` or a list.
+    """
+
+
 class Trace(symmetric.Trace, Box):
     """
     A trace in a Markov category.
@@ -199,10 +213,6 @@ class Copy(Box):
         name = f"Copy({x}" + ("" if n == 2 else f", {n}") + ")"
         Box.__init__(self, name, dom=x, cod=x ** n,
                      draw_as_spider=True, color="black", drawing_name="")
-
-    def __new__(cls, x: monoidal.Ty, n: int = 2):
-        return super().__new__(cls) if n else\
-            cls.discard_factory.__new__(cls.discard_factory, x)
 
     def __new__(cls, x: monoidal.Ty, n: int = 2):
         return super().__new__(cls) if n else\
@@ -309,7 +319,8 @@ Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
-Diagram.braid_factory = Swap
+Diagram.swap_factory = Swap
+Diagram.permutation_factory = Permutation
 Diagram.trace_factory = Trace
 Diagram.discard_factory = Discard
 Diagram.sum_factory = Sum

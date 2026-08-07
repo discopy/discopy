@@ -60,6 +60,8 @@ uv run coverage run -m pytest
 uv run coverage report -m
 ```
 
+Without the extras installed, run `uv run pytest --skip-extra` to skip what needs them.
+
 ## Run the benchmarks
 
 The composition benchmark (`benchmark/test_composition.py`) reproduces the scaling
@@ -138,6 +140,9 @@ python -m build
 
 ## Release a version
 
+Before tagging, rename the `[Unreleased]` section of [CHANGELOG.md](CHANGELOG.md) to the new
+version and date, and commit it.
+
 New versions (tag with 'X.X.X') of the package are released on [PyPI](https://pypi.org/project/discopy/) using `uv publish`.
 You should run the following commands from a clean clone of the repo:
 
@@ -148,7 +153,8 @@ uv build
 uv publish
 ```
 
-Finally, [create a release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository#creating-a-release) for the newly created tag.
+Finally, [create a release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository#creating-a-release) for the newly created tag, using the
+matching section of [CHANGELOG.md](CHANGELOG.md) as its description.
 
 ## Report bugs
 

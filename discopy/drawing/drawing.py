@@ -114,6 +114,20 @@ Bubbles, grammatical diagrams and quantum circuits use the same backend:
 >>> circuit.draw(
 ...     wire_labels=False, doctest="docs/_static/drawing/long-controlled.svg")
 
+A controlled gate over distinct wires, e.g. a classically-controlled gate,
+picks the x-coordinate of its control from the wire it sits on:
+
+>>> bit, qubit = Ty("bit"), Ty("qubit")
+>>> gate = Box("F", qubit, qubit)
+>>> controlled = Box(
+...     "CF", bit @ qubit, bit @ qubit,
+...     draw_as_controlled=True, controlled=gate, distance=1)
+>>> left_controlled = Box(
+...     "FC", qubit @ bit, qubit @ bit,
+...     draw_as_controlled=True, controlled=gate, distance=-1)
+>>> (controlled @ left_controlled).draw(
+...     doctest="docs/_static/drawing/controlled-classical.svg")
+
 Coloured regions are also checked as part of the gallery:
 
 >>> Colour, Wire = monoidal.Colour, monoidal.Wire
@@ -138,7 +152,7 @@ Coloured regions are also checked as part of the gallery:
 
 from __future__ import annotations
 
-from typing import NamedTuple, TYPE_CHECKING
+from typing import NamedTuple, TYPE_CHECKING, Sequence
 from dataclasses import dataclass
 
 import networkx as nx
@@ -146,6 +160,7 @@ import networkx as nx
 from discopy.drawing import backend, Node, Point
 from discopy.config import BOX_DRAWING_ATTRIBUTES
 from discopy.abc import TracedCategory
+from discopy.python import finset
 from discopy.utils import (
     assert_isinstance, assert_iscomposable, unbiased, factory, RichDisplay)
 
@@ -518,6 +533,16 @@ class Drawing(TracedCategory, RichDisplay):
         target, = self.graph.successors(right_dom)
         return target.kind == "cod" and target.i == len(self.cod) - 1
 
+    @classmethod
+    def permutation(cls, xs: Sequence[int], doms) -> Drawing:
+        """ Draw a permutation of the wires in ``dom``. """
+        from discopy.symmetric import Permutation
+        xs = finset.Permutation(xs)
+        dom = cls.ob().tensor(*doms)
+        if xs.is_identity:
+            return Drawing.id(dom)
+        return Permutation(dom, xs).to_drawing()
+
     @staticmethod
     def from_box(box: "monoidal.Box") -> Drawing:
         """
@@ -541,9 +566,14 @@ class Drawing(TracedCategory, RichDisplay):
             :align: center
         """
         from discopy.monoidal import Box
+        from discopy.symmetric import Permutation
         box_dom, box_cod = box.dom.to_drawing(), box.cod.to_drawing()
-        old_box, box = box, Box(
-            box.name, box_dom, box_cod, is_dagger=box.is_dagger)
+        old_box = box
+        box = Permutation(box_dom, old_box.perm)\
+            if isinstance(old_box, Permutation)\
+            else Box(
+                old_box.name, box_dom, box_cod,
+                is_dagger=old_box.is_dagger)
 
         for attr, default in BOX_DRAWING_ATTRIBUTES.items():
             setattr(box, attr, getattr(old_box, attr, default(box)))
@@ -683,7 +713,7 @@ class Drawing(TracedCategory, RichDisplay):
         >>> v = Drawing.from_box(Box('v', x ** 7, Ty()))
 
         >>> top, bottom = u >> g @ f, g @ f @ f >> v
-        >>> Diagram.to_gif(
+        >>> Diagram.to_gif(  # doctest: +EXTRA
         ...     *top.then(bottom, draw_step_by_step=True), loop=True,
         ...     wire_labels=False, draw_box_labels=False,
         ...     doctest="docs/_static/drawing/composition.gif")
@@ -832,7 +862,8 @@ class Drawing(TracedCategory, RichDisplay):
         def box_dagger(box):
             result = box.dagger()
             for attr in BOX_DRAWING_ATTRIBUTES:
-                setattr(result, attr, getattr(box, attr))
+                if not hasattr(result, attr):
+                    setattr(result, attr, getattr(box, attr))
             return result
 
         if self.is_box:

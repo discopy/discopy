@@ -114,7 +114,7 @@ and cups/caps — never materialised. Here is its multiplication, the coadjoint
 product of :math:`D(H) = H \\otimes H^*`, drawn as a :class:`.tensor.CMap` (the
 tensor network that gets contracted):
 
->>> Double(Algebra.cyclic(2)).mult.to_map().draw(
+>>> Double(Algebra.cyclic(2)).mult.to_map().draw(  # doctest: +EXTRA
 ...     doctest='docs/_static/hopf/double-mult.dot')
 
 .. graphviz:: /_static/hopf/double-mult.dot
@@ -510,7 +510,7 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
     >>> assert V.algebra == D
     >>> assert V.is_module() and V == Dim(2)
     >>> ty = V.action.cod
-    >>> (D.mult @ ty >> V.action).to_map().draw(
+    >>> (D.mult @ ty >> V.action).to_map().draw(  # doctest: +EXTRA
     ...     doctest='docs/_static/hopf/module.dot')
 
     .. graphviz:: /_static/hopf/module.dot
@@ -720,7 +720,8 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
     >>> braid = Intertwiner[D].braid(V, V)
     >>> lhs, rhs = action >> braid, Id(D.ty) @ braid >> action
     >>> assert lhs.eval(dtype=complex).is_close(rhs.eval(dtype=complex))
-    >>> lhs.to_map().draw(doctest='docs/_static/hopf/intertwiner.dot')
+    >>> lhs.to_map().draw(  # doctest: +EXTRA
+    ...   doctest='docs/_static/hopf/intertwiner.dot')
 
     .. graphviz:: /_static/hopf/intertwiner.dot
         :align: center
@@ -823,7 +824,8 @@ class Functor(ribbon.Functor):
     >>> network = F(d)
     >>> assert network.eval(dtype=complex).is_close(
     ...     F(ribbon.Id(x)).eval(dtype=complex))
-    >>> network.to_map().draw(doctest='docs/_static/hopf/ribbon-functor.dot')
+    >>> network.to_map().draw(  # doctest: +EXTRA
+    ...     doctest='docs/_static/hopf/ribbon-functor.dot')
 
     .. graphviz:: /_static/hopf/ribbon-functor.dot
         :align: center

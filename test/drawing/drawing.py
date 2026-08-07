@@ -349,6 +349,42 @@ def test_draw_curved_polygon_tikz():
     assert "fill={red}" in line
 
 
+def test_draw_permutation():
+    from matplotlib import pyplot as plt
+    from discopy.monoidal import Box
+    from discopy.symmetric import Ty, Permutation
+
+    x, y, z = map(Ty, "xyz")
+    perm = Permutation(x @ y @ z, [2, 0, 1])
+    drawing = perm.to_drawing()
+    box_node = drawing.box_nodes[0]
+    assert len(list(drawing.graph.predecessors(box_node))) == len(perm.dom)
+    assert len(list(drawing.graph.successors(box_node))) == len(perm.cod)
+    assert drawing.box.draw_as_permutation is True
+    assert drawing.box.permutation_indices == tuple(perm.perm)
+    assert drawing.dagger().box.permutation_indices\
+        == tuple(perm.perm.dagger())
+    assert drawing.dagger() == perm.dagger().to_drawing()
+    assert drawing.dagger().box.drawing_name\
+        == perm.dagger().to_drawing().box.drawing_name
+
+    swap = Permutation(x @ y, [1, 0]).to_drawing()
+    swap.add_box_corners()
+    tikz = TikZ()
+    tikz.draw_wires(swap)
+    assert len(tikz.edgelayer) == 2
+    matplotlib = Matplotlib()
+    matplotlib.draw_wires(swap)
+    assert len(matplotlib.axis.patches) == 2
+    plt.close(matplotlib.axis.figure)
+
+    custom = Box(
+        'custom', x @ y, y @ x, draw_as_wires=True,
+        draw_as_permutation=True, permutation_indices=(1, 0)).to_drawing()
+    assert custom.dagger().dagger() == custom
+    assert custom.dagger().dagger().box.name == 'custom'
+
+
 def test_readable_foreground():
     # White and light colours get black text, dark colours get white text.
     assert Backend.readable_foreground("white") == "black"
@@ -374,8 +410,7 @@ def test_draw_box_foreground_on_dark_background():
 
 
 def test_crack_two_eggs_at_once():
-    from discopy.monoidal import Layer
-    from discopy.symmetric import Ty, Box, Diagram
+    from discopy.symmetric import Ty, Box, Diagram, Layer
 
     egg, white, yolk = Ty("egg"), Ty("white"), Ty("yolk")
     crack = Box("crack", egg, white @ yolk)
@@ -470,6 +505,47 @@ def test_tikz_long_controlled():
     from discopy.quantum import Controlled, CZ, CX
     return (Controlled(CX.l, distance=3) >> Controlled(
         Controlled(CZ.l, distance=2), distance=-1))
+
+
+def classical_controlled():
+    # A controlled gate over distinct wires, e.g. a classically-controlled
+    # gate, used to hit a KeyError looking up its nodes with the wrong type.
+    bit, qubit = monoidal.Ty("bit"), monoidal.Ty("qubit")
+    gate = monoidal.Box("F", qubit, qubit)
+    controlled = monoidal.Box(
+        "CF", bit @ qubit, bit @ qubit,
+        draw_as_controlled=True, controlled=gate, distance=1)
+    left_controlled = monoidal.Box(
+        "FC", qubit @ bit, qubit @ bit,
+        draw_as_controlled=True, controlled=gate, distance=-1)
+    return controlled @ left_controlled
+
+
+# The matplotlib rendering of classical_controlled() is exercised as a
+# doctest in the Gallery section of discopy/drawing/drawing.py, alongside
+# long-controlled; this only checks the TikZ backend, whose bending is
+# computed differently from Matplotlib.
+@tikz_and_compare('controlled-classical.tikz')
+def test_tikz_controlled_classical():
+    return classical_controlled()
+
+
+def test_tikz_controlled_node_ids():
+    # Nested controlled gates put several nodes at the same point, which used
+    # to make TikZ output duplicate node ids and misdirected control wires.
+    import re
+    from discopy.quantum import Controlled, X
+    path = os.path.join(TIKZ_FOLDER, '_ccx-node-ids.tikz')
+    Controlled(Controlled(X)).draw(path=path, to_tikz=True)
+    with open(path, "r") as file:
+        lines = file.read().splitlines()
+    os.remove(path)
+    node_ids = [re.search(r"\((\d+)\) at", line).group(1)
+                for line in lines if line.startswith("\\node ")]
+    assert len(node_ids) == len(set(node_ids))
+    wires = [re.findall(r"\((\d+)\.center\)", line)
+             for line in lines if "out=" in line]
+    assert all(source != target for source, target in wires)
 
 
 def test_rich_display():
