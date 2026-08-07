@@ -305,7 +305,9 @@ class Matrix(MarkovCategory, NamedGeneric['dtype']):
     braid = swap
 
     @classmethod
-    def permutation(cls, xs: Sequence[int], doms: Sequence[int]) -> Matrix:
+    def permutation(
+            cls, xs: Sequence[int],
+            doms: Sequence[int] | None = None) -> Matrix:
         """
         The matrix that permutes blocks of dimensions.
 
@@ -314,17 +316,30 @@ class Matrix(MarkovCategory, NamedGeneric['dtype']):
 
         Parameters:
             xs : The permutation, as a list of indices.
-            doms : The dimension of each block being permuted.
+            doms : The dimension of each block, one by default.
+
+        When every block is a single dimension, the matrix is the permutation
+        matrix itself, i.e. ``array[i][j]`` iff ``xs[j] == i``.
 
         Example
         -------
-        >>> assert Matrix.permutation([1, 0], [1, 1]) == Matrix.swap(1, 1)
-        >>> Matrix.permutation([1, 2, 0], [1, 1, 1])
+        >>> assert Matrix.permutation([1, 0]) == Matrix.swap(1, 1)
+        >>> Matrix.permutation([1, 2, 0])
         Matrix[int64]([0, 0, 1, 1, 0, 0, 0, 1, 0], dom=3, cod=3)
+        >>> ones = Matrix.permutation([1, 2, 0], [1, 1, 1])
+        >>> assert ones == Matrix.permutation([1, 2, 0])
+
+        Blocks of more than one dimension move as a whole.
+
+        >>> assert Matrix.permutation([1, 0], [1, 2]) == Matrix.swap(1, 2)
         """
-        xs, doms = list(xs), list(doms)
+        xs = list(xs)
+        doms = len(xs) * [1] if doms is None else list(doms)
         if list(range(len(doms))) != sorted(xs):
             raise ValueError
+        if all(x == 1 for x in doms):
+            array = [[int(i == x) for x in xs] for i in range(len(xs))]
+            return cls(array, len(xs), len(xs))
         offsets, dom = [], 0
         for x in doms:
             offsets.append(dom)

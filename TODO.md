@@ -16,4 +16,4 @@ USER on [r-538](https://github.com/discopy/discopy/pull/538) `discopy/matrix.py:
 
 > let's make doms optional, if it's not given or if it's equal to a sequence of ones then we can use a simpler formula for the permutation
 
-- [WIP] @9d0n47 make `doms` optional and take a simpler path when every block is a single dimension
+- [x] make `doms` optional and take a simpler path when every block is a single dimension

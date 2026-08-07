@@ -73,6 +73,17 @@ def test_permutation():
         Matrix.permutation([0, 0], [1, 1])
 
 
+def test_permutation_doms_optional():
+    """ One dimension per block is the default and takes the short path. """
+    for size in range(1, 6):
+        for xs in permutations(range(size)):
+            assert Matrix.permutation(xs) == Matrix.permutation(xs, size * [1])
+    assert Matrix.permutation([1, 0]) == Matrix.swap(1, 1)
+    assert Matrix.permutation([0, 1]) == Matrix.id(2)
+    with raises(ValueError):
+        Matrix.permutation([0, 2])
+
+
 def test_matrix_valued_functor_on_permutation():
     """ Matrix is a MarkovCategory, so it is a valid symmetric codomain. """
     x, y = Ty('x'), Ty('y')
