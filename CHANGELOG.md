@@ -49,9 +49,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   alternating type and box. Whiskering extends the list only when the type
   is non-empty and the outermost element is a box, otherwise it merges into
   the boundary type, and tensoring two layers merges a trailing type with a
-  leading one. The constructor rescans to restore the invariant unless it is
-  called with `scan=False`, which the internal call sites do, so tensoring
-  `n` layers is linear rather than quadratic. `symmetric.Layer` follows with
+  leading one. The constructor type checks and normalises to restore the
+  invariant unless it is called with `normalise=False`, which the internal
+  call sites do, so tensoring `n` layers is linear rather than quadratic.
+  Layers tensor with `@` only. `symmetric.Layer` follows with
   "permutation" in place of "type"
   ([#438](https://github.com/discopy/discopy/pull/438)).
 - `Arrow` is refactored onto a `FreeCategory` base class

@@ -222,9 +222,10 @@ def test_Layer_tensor():
     left, right = Layer(f, y), Layer(z, g)
 
     assert (left @ right).boxes_or_types == (f, y @ z, g)
-    assert len(left @ right) == len(left) + len(right) - 1
+    assert len((left @ right).boxes_or_types)\
+        == len(left.boxes_or_types) + len(right.boxes_or_types) - 1
     assert (Layer(f) @ Layer(g)).boxes_or_types == (f, g)
-    assert Layer(x, f).tensor(Layer(g), Layer(g, y)).boxes_or_types\
+    assert (Layer(x, f) @ Layer(g) @ Layer(g, y)).boxes_or_types\
         == (x, f, g, g, y)
     assert Layer.normalise((Ty(), x, f, y, z)) == (x, f, y @ z)
 
@@ -238,7 +239,7 @@ def test_Layer_tensor():
 
     layers = [ScanLayer(f) for _ in range(4)]
     assert ScanLayer.scans == 4
-    assert layers[0].tensor(*layers[1:]).boxes == 4 * [f]
+    assert (layers[0] @ layers[1] @ layers[2] @ layers[3]).boxes == 4 * [f]
     assert ScanLayer.scans == 4
 
 

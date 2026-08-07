@@ -56,6 +56,7 @@ from __future__ import annotations
 
 import itertools
 from dataclasses import dataclass, field
+from functools import cached_property
 from typing import Iterator, Callable, TYPE_CHECKING
 from warnings import warn
 
@@ -570,7 +571,11 @@ class Layer(cat.Box):
 
     Parameters:
         inside : Boxes and plumbing, with at least one box.
-        scan : Whether to remove empty plumbing and tensor consecutive types.
+        normalise : Whether to type check the components and normalise them,
+            i.e. remove empty plumbing and tensor consecutive types. The
+            methods below build layers that satisfy this by construction and
+            pass ``False``, which skips every pass over ``inside`` so that
+            tensoring ``n`` layers takes linear rather than quadratic time.
     """
     ob = Ty
 
@@ -583,30 +588,31 @@ class Layer(cat.Box):
             state['boxes_or_types'])
         super().__setstate__(state)
 
-    def __init__(self, *inside: Ty | Box, scan: bool = True):
-        inside = tuple(inside)
-        if scan:
+    def __init__(self, *inside: Ty | Box, normalise: bool = True):
+        if normalise:
             type(self).check(inside)
             inside = type(self).normalise(inside)
-        self.boxes_or_types = inside
-        dom_pieces, cod_pieces, names = [], [], []
-        for box_or_typ in inside:
-            assert_isinstance(box_or_typ, (Ty, Box))
-            if isinstance(box_or_typ, Ty):
-                dom_pieces.append(box_or_typ)
-                cod_pieces.append(box_or_typ)
-                names.append(str(box_or_typ))
-                continue
-            dom_pieces.append(box_or_typ.dom)
-            cod_pieces.append(box_or_typ.cod)
-            names.append(str(box_or_typ))
-        if not self.boxes:
+        self.boxes_or_types = tuple(inside)
+        if normalise and not self.boxes:
             raise ValueError(messages.LAYERS_MUST_HAVE_A_BOX)
-        first = dom_pieces[0]
-        empty = first[:0]
-        super().__init__(
-            " @ ".join(names),
-            empty.tensor(*dom_pieces), empty.tensor(*cod_pieces))
+        self.data, self.is_dagger = None, False
+        self.inside = (self, )
+
+    @cached_property
+    def name(self):
+        return " @ ".join(map(str, self.boxes_or_types))
+
+    @cached_property
+    def dom(self):
+        pieces = [x if isinstance(x, Ty) else x.dom
+                  for x in self.boxes_or_types]
+        return pieces[0][:0].tensor(*pieces)
+
+    @cached_property
+    def cod(self):
+        pieces = [x if isinstance(x, Ty) else x.cod
+                  for x in self.boxes_or_types]
+        return pieces[0][:0].tensor(*pieces)
 
     @staticmethod
     def is_plumbing(value) -> bool:
@@ -615,29 +621,32 @@ class Layer(cat.Box):
 
     @staticmethod
     def check(inside):
-        """ Type-check components and preserve coloured unit constraints. """
-        dom_pieces, cod_pieces = [], []
+        """
+        Check that the components are types and boxes whose domains and
+        codomains tensor, i.e. their colours compose pairwise.
+        """
+        previous = None
         for value in inside:
             assert_isinstance(value, (Ty, Box))
-            dom_pieces.append(value if isinstance(value, Ty) else value.dom)
-            cod_pieces.append(value if isinstance(value, Ty) else value.cod)
-        if dom_pieces:
-            empty = dom_pieces[0][:0]
-            empty.tensor(*dom_pieces)
-            empty.tensor(*cod_pieces)
+            pieces = (value, value) if isinstance(value, Ty)\
+                else (value.dom, value.cod)
+            for left, right in zip(previous or (), pieces):
+                if left.cod != right.dom:
+                    raise AxiomError(messages.NOT_COMPOSABLE.format(
+                        left, right, left.cod, right.dom))
+            previous = pieces
 
     @classmethod
     def normalise(cls, inside):
-        """ Return the canonical word of non-empty plumbing and boxes. """
+        """ The canonical word of boxes and non-empty plumbing: either we
+        append or we tensor with the last element. """
         result = []
-        for value in inside:
-            if not cls.is_plumbing(value):
+        for value in (x for x in inside if not isinstance(x, Ty) or x):
+            if not result or not cls.is_plumbing(value)\
+                    or not cls.is_plumbing(result[-1]):
                 result.append(value)
-            elif not isinstance(value, Ty) or value:
-                if result and cls.is_plumbing(result[-1]):
-                    result[-1] = result[-1] @ value
-                else:
-                    result.append(value)
+            else:
+                result[-1] = result[-1] @ value
         return tuple(result)
 
     def __iter__(self):
@@ -687,44 +696,39 @@ class Layer(cat.Box):
         return factory_name(type(self))\
             + f"({', '.join(map(repr, self))})"
 
-    def tensor(self, other: Layer = None, *others: Layer) -> Layer:
-        """ Tensor layers, merging plumbing at their common boundaries. """
-        if other is None:
-            return self
-        inside = list(self)
-        for layer in (other, *others):
-            assert_isinstance(layer, type(self))
-            if self.is_plumbing(inside[-1])\
-                    and self.is_plumbing(layer[0]):
-                inside[-1] = inside[-1] @ layer[0]
-                inside.extend(layer[1:])
-            else:
-                inside.extend(layer)
-        return type(self)(*inside, scan=False)
-
     def __matmul__(self, other: Ty | Layer) -> Layer:
+        """ Whisker with a type or tensor with another layer, merging the
+        plumbing at their common boundary. """
         if isinstance(other, type(self)):
-            return self.tensor(other)
+            if self.is_plumbing(self[-1]) and self.is_plumbing(other[0]):
+                inside = (*self[:-1], self[-1] @ other[0], *other[1:])
+            else:
+                inside = (*self, *other)
+            return type(self)(*inside, normalise=False)
         assert_isinstance(other, Ty)
         if not other:
-            self.cod @ other
+            if self.cod.cod != other.dom:
+                raise AxiomError(messages.NOT_COMPOSABLE.format(
+                    self.cod, other, self.cod.cod, other.dom))
             return self
         if self.is_plumbing(self[-1]):
             inside = (*self[:-1], self[-1] @ other)
         else:
             inside = (*self, other)
-        return type(self)(*inside, scan=False)
+        return type(self)(*inside, normalise=False)
 
     def __rmatmul__(self, other: Ty) -> Layer:
         assert_isinstance(other, Ty)
         if not other:
-            other @ self.dom
+            if other.cod != self.dom.dom:
+                raise AxiomError(messages.NOT_COMPOSABLE.format(
+                    other, self.dom, other.cod, self.dom.dom))
             return self
         if self.is_plumbing(self[0]):
             inside = (other @ self[0], *self[1:])
         else:
             inside = (other, *self)
-        return type(self)(*inside, scan=False)
+        return type(self)(*inside, normalise=False)
 
     @property
     def free_symbols(self) -> "set[sympy.Symbol]":
@@ -733,7 +737,7 @@ class Layer(cat.Box):
     def subs(self, *args) -> Layer:
         return type(self)(*(
             x if self.is_plumbing(x) else x.subs(*args) for x in self),
-            scan=False)
+            normalise=False)
 
     @property
     def is_generator(self):
@@ -757,12 +761,12 @@ class Layer(cat.Box):
         >>> f = Box('f', Ty('x'), Ty('y'))
         >>> assert Layer.cast(f) == Layer(f)
         """
-        return cls(*cls.normalise((box, )), scan=False)
+        return cls(*cls.normalise((box, )), normalise=False)
 
     def dagger(self) -> Layer:
         return type(self)(*(
             x if isinstance(x, Ty) else x.dagger() for x in self),
-            scan=False)
+            normalise=False)
 
     @property
     def boxes_and_offsets(self) -> list[tuple[Box, int]]:
@@ -822,7 +826,7 @@ class Layer(cat.Box):
         return lambda *xs: type(self)(*(
             x if self.is_plumbing(x)
             else x.lambdify(*symbols, **kwargs)(*xs) for x in self),
-            scan=False)
+            normalise=False)
 
     def to_tree(self) -> dict:
         return dict(factory=factory_name(type(self)),

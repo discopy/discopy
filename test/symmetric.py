@@ -212,9 +212,9 @@ def test_Layer_tensor():
     assert (left @ right).dagger() == left.dagger() @ right.dagger()
     permutation = Layer(Permutation(x @ y, [1, 0]))
     assert (left @ right) @ permutation == left @ (right @ permutation)
-    assert Layer(f).tensor(Layer(g), permutation).boxes_or_types == (
+    assert (Layer(f) @ Layer(g) @ permutation).boxes_or_types == (
         f, g, permutation[0])
-    plumbed = Layer(f, z).tensor(permutation, Layer(x, g))
+    plumbed = Layer(f, z) @ permutation @ Layer(x, g)
     assert plumbed.boxes_or_types == (f, z @ permutation[0] @ x, g)
     assert isinstance(plumbed[1], Permutation)
 

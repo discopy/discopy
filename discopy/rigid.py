@@ -332,7 +332,7 @@ class Layer(monoidal.Layer):
     """
     def rotate(self, left=False):
         return type(self)(
-            *(x.l if left else x.r for x in list(self)[::-1]), scan=False)
+            *(x.l if left else x.r for x in list(self)[::-1]), normalise=False)
 
     l = property(lambda self: self.rotate(left=True))
     r = property(lambda self: self.rotate(left=False))
