@@ -90,6 +90,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   wherever they occur rather than on atoms only, and associates slashes to
   the left as CCG does
   ([#528](https://github.com/discopy/discopy/issues/528)).
+- `biclosed.Application` lists its free variables in the same order as the
+  wires of its `dom`, so that `Abstraction` strips the right end of it and
+  `eval` preserves both `dom` and `cod`
+  ([#550](https://github.com/discopy/discopy/issues/550)).
 - Hypergraph hash
   ([#387](https://github.com/discopy/discopy/pull/387)).
 - Bubble drawing
