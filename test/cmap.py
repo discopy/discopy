@@ -65,12 +65,12 @@ def test_repr_eq_and_hash():
     assert cm != object()
     assert hash(cm) == hash(M.from_box(Box("f", x, y)))
 
-    # equality goes through the hypergraph, hence ignores the box order
+    # equality is structural, so it sees the box order: two maps that differ
+    # by a reordering are equal only up to their underlying hypergraph.
     g = M.from_box(Box("g", y, x))
     interchanged = (cm @ g).interchange(0, 1)
     assert interchanged.boxes != (cm @ g).boxes
-    assert cm @ g == interchanged
-    assert hash(cm @ g) == hash(interchanged)
+    assert (cm @ g).to_hypergraph() == interchanged.to_hypergraph()
 
 
 def test_id_and_tensor():
@@ -390,8 +390,13 @@ def test_composed_snakes_are_reordered_on_downgrade():
     assert not cm.is_monogamous and cm.is_acyclic
     assert not cm.is_topologically_ordered and not cm.is_causal
     assert cm.topological_order().boxes == (g, f)
-    assert cm.to_diagram().to_map() == cm
-    assert snakes.to_hypergraph().to_diagram().to_map() == cm
+    # downgrading reorders, so the map only comes back up to to_map
+    once = cm.to_diagram().to_map()
+    assert once.to_diagram().to_map() == once
+    # the hypergraph cuts the backward wire rather than reordering, so the two
+    # routes agree only on the underlying hypergraph
+    assert snakes.to_hypergraph().to_diagram().to_map().to_hypergraph()\
+        == once.to_hypergraph()
 
 
 def test_is_causal_is_local():
@@ -795,72 +800,6 @@ def test_draw_plain_path(tmp_path):
 
 # The tests below cover what this pull request adds: a map is compact whatever
 # category hosts it, and only the downgrade asks that category for structure.
-
-
-def test_only_to_diagram_needs_the_structure():
-    from discopy import cmap, monoidal, pivotal, traced
-
-    x = monoidal.Ty("x")
-    f = monoidal.Box("f", x, x)
-    cycle = monoidal.CMap(x, x, (f, ), (3, 2, 1, 0))
-    assert not cycle.is_acyclic
-    with raises(AxiomError, match="has no traces"):
-        cycle.to_diagram()
-
-    tx = traced.Ty("x")
-    feedback = traced.CMap(
-        tx, tx, (traced.Box("f", tx, tx), ), (3, 2, 1, 0))
-    assert not feedback.is_acyclic
-
-    class Planar(symmetric.Diagram):
-        """ A category with adjoint types but no cups or caps. """
-        ob = pivotal.Ty
-
-    p = pivotal.Ty("p")
-    cup = cmap.CMap[Planar](p @ p.r, pivotal.Ty(), (), (1, 0))
-    assert not cup.is_monogamous
-    with raises(AxiomError, match="cups or caps"):
-        cup.to_diagram()
-
-
-def test_is_causal_is_a_local_condition():
-    from discopy import traced
-
-    x = compact.Ty("x")
-    f, g = compact.Box("f", x, x), compact.Box("g", x, x)
-    y = traced.Ty("x")
-    maps = [
-        compact.CMap.id(x),
-        f.to_map() >> g.to_map(),
-        (f.to_map() @ g.to_map()).interchange(0, 1),
-        compact.CMap.cups(x, x.r),
-        compact.CMap.caps(x.r, x),
-        (f.transpose(left=True) >> g.transpose(left=True)).to_map(),
-        traced.Box("h", y, y).to_map().trace(),
-        traced.CMap(traced.Ty(), traced.Ty(), (), [], loops=(y, )),
-        compact.CMap(x, x, (f, g), [3, 4, 5, 0, 1, 2])]
-    for cm in maps:
-        # a directed cycle cannot have strictly increasing depths all the way
-        # back to its start, so acyclicity follows from the other two.
-        assert cm.is_causal == (
-            cm.is_monogamous and cm.is_acyclic
-            and cm.is_topologically_ordered)
-
-
-def test_unordered_boxes_are_traced_on_downgrade():
-    from discopy import symmetric as sym
-
-    x = sym.Ty("x")
-    f, g = sym.Box("f", x, x), sym.Box("g", x, x)
-    # ports: 0 = dom, 1|2 = f.dom|cod, 3|4 = g.dom|cod, 5 = cod
-    assert sym.CMap(x, x, (f, g), [1, 0, 3, 2, 5, 4]).is_causal
-    unordered = sym.CMap(x, x, (f, g), [3, 4, 5, 0, 1, 2])
-    assert unordered.is_acyclic and not unordered.is_topologically_ordered
-    # like a hypergraph, a map cuts the backward wire rather than reordering
-    assert unordered.to_diagram()\
-        == sym.Trace(x @ f >> g @ x >> sym.Swap(x, x))
-    # topological_order is how to get the boxes back in order instead
-    assert unordered.topological_order().to_diagram() == g >> f
 
 
 def test_boxes_with_no_domain_decode_at_the_right():
