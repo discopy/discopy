@@ -15,14 +15,14 @@ Prompt ([#374](https://github.com/discopy/discopy/issues/374), verbatim):
 
 - [x] `discopy.kleisli.monad`: monads as monoids over a new `python.function.EndoFunctor`, with maybe, powerset and subdistribution examples
 - [x] `discopy.kleisli.channel`: `Channel[M]` as a `NamedGeneric` over `M: Monad`
-- [ ] `discopy.kleisli.additive`: traced cocartesian Kleisli with the execution formula as trace; convergence tests for sub-additive monads — claimed and released by @evening-2026-07-25T02:25, see note below
+- [ ] `discopy.kleisli.additive`: traced cocartesian Kleisli with the execution formula as trace; convergence tests for sub-additive monads — claimed and released by @evening-2026-07-25T02:25, see note below. **Blocked on a USER ruling**, asked on the PR 2026-08-09 (see note below)
 - [x] @evening-2026-07-27T06:34-2026-07-27T07:20 `discopy.kleisli.multiplicative`: premonoidal copy-discard Kleisli with pointwise strength; test monoidal iff the monad is commutative
-- [ ] `Hypergraph` evaluation methods: token passing for `additive`, message passing for `multiplicative` — coordinate with #366 and #363
+- [ ] `Hypergraph` evaluation methods: token passing for `additive`, message passing for `multiplicative` — coordinate with #366 and #363. **Blocked**: both still draft and far behind `main`
 - [x] @evening-2026-07-27T15:11-2026-07-27T15:35 `multiplicative` stress test: compare results against tensor contraction on small enough models (per issue comment)
 - [x] @evening-2026-07-29T02:06-2026-07-29T02:45 Implement the state monad for seeded randomness; compare empirical distributions against the ones computed explicitly via sub-distribution dicts (value → nonzero weight)
-- [ ] `additive` worked example: Dal Lago–Hoshino's token machines (*Geometry of Bayesian Programming*) — the best source found so far for a non-trivial case
-- [ ] Write every example as a term in the effectful lambda calculus of #370, not as a diagram built with tensor/composition
-- [ ] Run `pflake8 discopy` and `coverage run -m pytest`
+- [ ] `additive` worked example: Dal Lago–Hoshino's token machines (*Geometry of Bayesian Programming*) — the best source found so far for a non-trivial case. **Blocked** on the `additive` point above: there is no module to write the example against
+- [ ] Write every example as a term in the effectful lambda calculus of #370, not as a diagram built with tensor/composition. **Blocked on [#489](https://github.com/discopy/discopy/pull/489)**: measured 2026-08-09, `let`/`Product`/`Projection` are not on `main`, #370 is open and #489 is the only branch implementing it — itself queued behind #511
+- [x] @evening-2026-08-09T00:05Z-2026-08-09T00:25Z Run `pflake8 discopy` and `coverage run -m pytest`
 
 ## Guidance (🐦 birdsong, 2026-07-22)
 
@@ -149,3 +149,43 @@ pytest`: **777 passed, 1 skipped, 4 failed** — all 4 failures are the
 pre-existing `RuntimeError: Graphviz executable 'dot' was not found` in
 `discopy/{biclosed,cmap}.py` doctests, this environment has no `dot` binary,
 unrelated to this change.
+
+## Merge-up + blocker audit (🌙 evening, 2026-08-09)
+
+Merged `main` (`ed4c0b3`) into this branch: clean, no conflicts. `pflake8 discopy`
+clean; `coverage run -m pytest --skip-extra` — **659 passed, 51 skipped, 0
+failed** (`--skip-extra` is CONTRIBUTING's documented path when the optional
+quantum/tensor deps are absent; without it `pytket`/`pennylane` break collection
+before any test runs, which is what the earlier notes above were seeing as
+"environment-only failures"). Last mechanical point ticked.
+
+Audited the four remaining points: **all four are blocked, none on work this
+branch can do.** Two blockers were not previously recorded — the Dal Lago–Hoshino
+example has no `additive` module to be written against, and the "#370 terms"
+point needs `let`/`Product`/`Projection`, which are not on `main`: #370 is open
+and #489 is the only branch implementing it, itself queued behind #511. So the
+branch is inert until either USER rules on the `additive` trace or #489 lands.
+
+### The `additive` question has a name in the literature
+
+Restating the 2026-07-25 gap above, since the shape of the answer matters for how
+much is actually being asked. A trace on a Kleisli category is an *iteration
+operator*
+
+```
+(-)† : (X → M(Y + X)) → (X → M(Y))
+```
+
+and a monad carrying one that satisfies the Conway/unfolding axioms is exactly an
+**Elgot monad** (Adámek–Milius–Velebil; Goncharov et al.). `Maybe`, `Powerset`
+and `Subdistribution` are all Elgot. The load-bearing point is that `(-)†` is
+genuinely *extra structure*: it does not follow from `(functor, unit, mult)`,
+which is precisely why `Monad` as it stands cannot express it — so option (a) in
+the note above is not a workaround, it is the standard formulation. Option (b),
+bounded unrolling, is the partially-additive/Σ-monoid route (Haghverdi's GoI),
+where "sub-additive" would cash out as convergence of the countable sum.
+
+Recommendation is (a): add the iteration operator to `Monad` as optional
+structure, so `additive.Channel.trace` is defined exactly when the monad supplies
+it, rather than defined for all monads and silently wrong for some. Not
+implementing it on a guess — asked on the PR for a ruling.
