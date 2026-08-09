@@ -114,19 +114,22 @@ def test_eliminate_swaps():
     f, g = Box("f", x, z), Box("g", y, w)
 
     diagram = Id(x @ y).swap(x, y) >> g @ x >> Id(w @ x).swap(w, x) >> f @ w
-    assert diagram == diagram.to_map().to_diagram().normal_form()
+    # each box is placed where its inputs already are, so the two swaps that
+    # only route f and g past each other are eliminated.
+    assert diagram.to_map().to_diagram() == x @ g >> f @ w
+    assert diagram.to_map() == diagram.to_map().to_diagram().to_map()
     assert diagram.to_map() == diagram.to_hypergraph().to_diagram().to_map()
 
 
-def test_states_decode_at_the_left():
-    from discopy.symmetric import Ty, Box, Swap
+def test_states_decode_where_they_were():
+    from discopy.symmetric import Ty, Box
 
     x, y = map(Ty, "xy")
     state = Box("s", Ty(), y)
     diagram = x @ state
-    # a map has no box offsets, so the decoder puts every box as far left as
-    # it can and swaps afterwards to recover the codomain.
-    assert diagram.to_map().to_diagram() == state @ x >> Swap(y, x)
+    # a box with no domain has no wire to follow, so it goes to the right of
+    # the scan, which is where a state tensored on the right came from.
+    assert diagram.to_map().to_diagram() == diagram
     assert diagram.to_map().to_diagram().to_map() == diagram.to_map()
 
 
@@ -171,6 +174,7 @@ def test_diagram_to_map_structure_and_errors():
         frobenius,
         markov,
         monoidal,
+        pivotal,
         symmetric,
         traced,
     )
