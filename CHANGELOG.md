@@ -82,6 +82,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `quantum.circuit`'s module-level `backend` (the array-backend context
+  manager imported from `discopy.matrix`) is renamed `array_backend`, so it
+  is no longer shadowed within the bodies of `Circuit.eval` and
+  `Circuit.get_counts`, which each declare their own pytket `backend=`
+  parameter of the same name
+  ([#534](https://github.com/discopy/discopy/issues/534)).
 - Tensor networks are contracted with `opt_einsum` when the number of
   indices exceeds `numpy.einsum`'s 52-index limit
   ([#448](https://github.com/discopy/discopy/pull/448)).
