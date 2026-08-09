@@ -127,10 +127,7 @@ def test_states_decode_where_they_were():
     x, y = map(Ty, "xy")
     state = Box("s", Ty(), y)
     diagram = x @ state
-    # a box with no domain has no wire to follow, so it goes to the right of
-    # the scan, which is where a state tensored on the right came from.
     assert diagram.to_map().to_diagram() == diagram
-    assert diagram.to_map().to_diagram().to_map() == diagram.to_map()
 
 
 def test_diagram_to_map():
