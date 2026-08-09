@@ -587,10 +587,10 @@ class CMap[C0: Pregroup, C1: CMap](
             for i, j in enumerate(self.edges) if i < j)
 
     @property
-    def box_edges(self) -> Iterable[tuple[int, Port, int, Port]]:
+    def box_edges(self) -> Iterable[tuple[int, int]]:
         """
         The directed wires from the codomain of a box to the domain of
-        another, as pairs of port index and port.
+        another, as pairs of source and target port indices.
         """
         ports = self.ports
         for i, j in enumerate(self.edges):
@@ -599,7 +599,7 @@ class CMap[C0: Pregroup, C1: CMap](
             source, target = (i, j) if ports[i].kind.is_positive else (j, i)
             if ports[source].kind == PortKind.COD\
                     and ports[target].kind == PortKind.DOM:
-                yield source, ports[source], target, ports[target]
+                yield source, target
 
     @cached_property
     def box_ranks(self) -> tuple[int, ...] | None:
@@ -607,6 +607,7 @@ class CMap[C0: Pregroup, C1: CMap](
         The rank of each box, i.e. the longest directed path of
         :attr:`box_edges` that reaches it, or ``None`` if there is a cycle.
         """
+        ports = self.ports
         dependents = [[] for _ in self.boxes]
         indegree = [0] * len(self.boxes)
         for source, target in self.box_edges:
@@ -1238,6 +1239,7 @@ class CMap[C0: Pregroup, C1: CMap](
         if self.is_acyclic:
             return self
 
+        ports = self.ports
         cuts = [
             (i, j, ports[i].obj) for i, j in self.box_edges
             if int(ports[i].depth + 0.5) >= int(ports[j].depth - 0.5)]
