@@ -159,7 +159,7 @@ CMap = cmap.CMap[Diagram]
 
 Id = Diagram.id
 
-Diagram.braid_factory = Swap
+Diagram.swap_factory = Swap
 Diagram.functor_factory = Functor
 Diagram.permutation_factory = Permutation
 Hypergraph = hypergraph.Hypergraph[Diagram]

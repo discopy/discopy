@@ -431,35 +431,45 @@ type Term = (
 
 
 def cat2ty(string: str) -> Ty:
-    """
+    r"""
     Translate the string representation of a CCG category into DisCoPy.
+
+    A category is either an atom, a bracketed category or two categories
+    around a slash, which associates to the left as in Steedman's
+    `The Syntactic Process (2000) <https://mitpress.mit.edu/9780262527446>`_.
+    The features that CCGbank writes in square brackets, e.g. the ``[dcl]`` of
+    ``S[dcl]``, are ignored: they refine an atom rather than change it.
 
     Parameters:
         string : The string with slashes representing a CCG category.
+
+    Example
+    -------
+    >>> print(cat2ty(r"(S[dcl]\NP)/NP"))
+    ((NP >> S) << NP)
+    >>> assert cat2ty(r"S\NP/NP") == cat2ty(r"(S\NP)/NP")
+    >>> assert cat2ty(r"(S\NP)\(S\NP)[conj]") == cat2ty(r"(S\NP)\(S\NP)")
     """
-    def unbracket(string):
-        return string[1:-1] if string[0] == '(' else string
-
-    def remove_modifier(string):
-        return re.sub(r'\[[^]]*\]', '', string)
-
     def split(string):
         par_count = 0
-        for i, char in enumerate(string):
-            if char == "(":
+        for i, char in reversed(list(enumerate(string))):
+            if char == ")":
                 par_count += 1
-            elif char == ")":
+            elif char == "(":
                 par_count -= 1
             elif char in ["\\", "/"] and par_count == 0:
-                return unbracket(string[:i]), char, unbracket(string[i + 1:])
-        return remove_modifier(string), None, None
+                return string[:i], char, string[i + 1:]
+        return string, None, None
 
+    string = re.sub(r'\[[^]]*\]', '', string)
     left, slash, right = split(string)
     if slash == '\\':
         return cat2ty(right) >> cat2ty(left)
     if slash == '/':
         return cat2ty(left) << cat2ty(right)
-    return Ty(left)
+    if string.startswith('(') and string.endswith(')'):
+        return cat2ty(string[1:-1])
+    return Ty(string)
 
 
 def tree2diagram(tree: dict, dom=Ty()) -> Diagram:
