@@ -15,7 +15,7 @@ Prompt ([#374](https://github.com/discopy/discopy/issues/374), verbatim):
 
 - [x] `discopy.kleisli.monad`: monads as monoids over a new `python.function.EndoFunctor`, with maybe, powerset and subdistribution examples
 - [x] `discopy.kleisli.channel`: `Channel[M]` as a `NamedGeneric` over `M: Monad`
-- [ ] `discopy.kleisli.additive`: traced cocartesian Kleisli with the execution formula as trace; convergence tests for sub-additive monads — claimed and released by @evening-2026-07-25T02:25, see note below. **Blocked on a USER ruling**, asked on the PR 2026-08-09 (see note below)
+- [WIP] @evening-2026-08-10T00:20Z `discopy.kleisli.additive`: traced cocartesian Kleisli with the execution formula as trace; convergence tests for sub-additive monads — unblocked 2026-08-09T16:01Z, USER 🚀'd option **A** (iteration operator as optional structure on `Monad`)
 - [x] @evening-2026-07-27T06:34-2026-07-27T07:20 `discopy.kleisli.multiplicative`: premonoidal copy-discard Kleisli with pointwise strength; test monoidal iff the monad is commutative
 - [ ] `Hypergraph` evaluation methods: token passing for `additive`, message passing for `multiplicative` — coordinate with #366 and #363. **Blocked**: both still draft and far behind `main`
 - [x] @evening-2026-07-27T15:11-2026-07-27T15:35 `multiplicative` stress test: compare results against tensor contraction on small enough models (per issue comment)
