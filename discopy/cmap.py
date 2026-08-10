@@ -1220,11 +1220,10 @@ class CMap[C0: Pregroup, C1: CMap](
 
     def make_causal(self) -> CMap:
         """
-        Introduce trace boxes to make self :attr:`is_causal`, i.e. so that
-        every wire points forward and there are no loops. Like
-        :meth:`Hypergraph.make_causal`, a wire that points backward is cut
-        whether it closes a cycle or merely runs against the box order; use
-        :meth:`topological_order` to reorder the boxes instead.
+        Make self :attr:`is_causal`, i.e. so that every wire points forward
+        and there are no loops. Boxes that are merely out of order are put
+        back in order with :meth:`topological_order`; only a wire that closes
+        a cycle is cut into a trace, which needs a traced category.
 
         Example
         -------
@@ -1233,11 +1232,13 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> assert f.to_map().trace().make_causal()\\
         ...     == CMap.from_box(Trace(f))
         """
-        type(self).assert_istraced()
+        if self.is_causal:
+            return self
         if not self.is_monogamous:
             return self.make_monogamous().make_causal()
         if self.is_acyclic:
-            return self
+            return self.topological_order()
+        type(self).assert_istraced()
 
         ports = self.ports
         cuts = [
@@ -1299,12 +1300,8 @@ cycles of this map.
         >>> cmap.to_diagram().to_map() == cmap
         True
         """
-        if not self.is_monogamous:
-            return self.make_monogamous().to_diagram()
-        if not self.is_acyclic:
+        if not self.is_causal:
             return self.make_causal().to_diagram()
-        if not self.is_topologically_ordered:
-            return self.topological_order().to_diagram()
 
         edge_wire = {}
         for i, j in enumerate(self.edges):
