@@ -19,6 +19,11 @@ satisfying the unit and associativity laws of a monoid, i.e. for every type
     \\qquad\\qquad
     \\mu_X \\circ \\mu_{M(X)} = \\mu_X \\circ M(\\mu_X)
 
+A monad may also come with an :attr:`Monad.iterate` operator, i.e. the
+extra structure of an `Elgot monad
+<https://ncatlab.org/nlab/show/Elgot+monad>`_ needed to trace the Kleisli
+category, see :mod:`discopy.kleisli.additive`.
+
 Summary
 -------
 
@@ -34,6 +39,9 @@ Summary
     Seed
     make_monad
     make_state
+    iterate_maybe
+    iterate_powerset
+    iterate_subdistribution
 """
 from __future__ import annotations
 
@@ -59,6 +67,7 @@ class Monad:
         unit : The natural transformation ``eta : Id -> functor``.
         mult : The natural transformation ``mu : functor >> functor
             -> functor``.
+        iterate : The optional iteration operator, see :attr:`iterate`.
 
     Example
     -------
@@ -79,14 +88,40 @@ class Monad:
     ...     frozenset({mx})))
     >>> assert lhs == rhs == frozenset({1, 2, 3})
     """
+    iterate: Callable = None
+    """
+    The iteration operator, i.e. the extra structure of an `Elgot monad
+    <https://ncatlab.org/nlab/show/Elgot+monad>`_, or ``None`` when the
+    monad does not come with one.
+
+    It takes a loop body ``step : Z -> M(Z)`` together with a predicate
+    ``exits`` telling whether an outcome has left the loop, and returns the
+    function sending a monadic value to the one where every looping outcome
+    has been fed back into ``step`` until it exits. Writing ``Z = Y + U``
+    with ``exits`` the characteristic function of ``Y``, this is the
+    iteration operator
+
+    .. math::
+        (-)^\\dagger : (U \\to M(Y + U)) \\to (U \\to M(Y))
+
+    which does not follow from ``(functor, unit, mult)``: a monadic value
+    holds both exiting and looping outcomes at once and the monoid
+    structure alone cannot tell them apart. This is what makes
+    :meth:`discopy.kleisli.additive.Channel.trace` defined exactly for the
+    monads that supply one, see :func:`iterate_maybe`,
+    :func:`iterate_powerset` and :func:`iterate_subdistribution`.
+    """
+
     def __init__(
             self, name: str, functor: EndoFunctor,
-            unit: Transformation, mult: Transformation):
+            unit: Transformation, mult: Transformation,
+            iterate: Callable = None):
         assert_isinstance(functor, EndoFunctor)
         assert_isinstance(unit, Transformation)
         assert_isinstance(mult, Transformation)
         self.__name__ = self.name = name
         self.functor, self.unit, self.mult = functor, unit, mult
+        self.iterate = iterate
 
     def __call__(self, X: type) -> tuple[type, ...]:
         """
@@ -100,7 +135,8 @@ class Monad:
 
     @classmethod
     def from_maps(
-            cls, name, ob_map, lift, unit_map, mult_map) -> Monad:
+            cls, name, ob_map, lift, unit_map, mult_map,
+            iterate: Callable = None) -> Monad:
         """
         Build a monad from mappings on types and functions.
 
@@ -113,6 +149,8 @@ class Monad:
                 -> M(X)``.
             mult_map : Mapping from a type ``X`` to the function
                 ``mu_X : M(M(X)) -> M(X)``.
+            iterate : The optional iteration operator, see
+                :attr:`Monad.iterate`.
         """
         unwrap = lambda X: untuplify(tuplify(X))
         functor = EndoFunctor(lambda X: (ob_map(untuplify(X)), ), lift)
@@ -120,7 +158,7 @@ class Monad:
             lambda X: unit_map(unwrap(X)), EndoFunctor.id(), functor)
         mult = Transformation(
             lambda X: mult_map(unwrap(X)), functor.then(functor), functor)
-        return cls(name, functor, unit, mult)
+        return cls(name, functor, unit, mult, iterate)
 
     def __repr__(self):
         return f"Monad({self.name!r})"
@@ -129,7 +167,9 @@ class Monad:
         return self.name
 
 
-def make_monad(name, ob_map, lift, unit_map, mult_map) -> Monad:
+def make_monad(
+        name, ob_map, lift, unit_map, mult_map,
+        iterate: Callable = None) -> Monad:
     """
     Alias for :meth:`Monad.from_maps`.
 
@@ -142,8 +182,75 @@ def make_monad(name, ob_map, lift, unit_map, mult_map) -> Monad:
             -> M(X)``.
         mult_map : Mapping from a type ``X`` to the function ``mu_X : M(M(X))
             -> M(X)``.
+        iterate : The optional iteration operator, see
+            :attr:`Monad.iterate`.
     """
-    return Monad.from_maps(name, ob_map, lift, unit_map, mult_map)
+    return Monad.from_maps(
+        name, ob_map, lift, unit_map, mult_map, iterate)
+
+
+def iterate_maybe(step: Callable, exits: Callable) -> Callable:
+    """
+    The iteration operator of the :attr:`Maybe` monad, i.e. a ``while``
+    loop: there is at most one outcome, so it either exits, fails or
+    diverges.
+
+    Parameters:
+        step : The loop body, from an outcome to a maybe-outcome.
+        exits : The predicate telling whether an outcome has left the loop.
+
+    Example
+    -------
+    >>> step, exits = lambda x: x + 1, lambda x: x >= 3
+    >>> assert iterate_maybe(step, exits)(0) == 3
+    >>> assert iterate_maybe(step, exits)(4) == 4
+    >>> assert iterate_maybe(lambda x: None, exits)(0) is None
+    """
+    def inside(m):
+        while m is not None and not exits(m):
+            m = step(m)
+        return m
+    return inside
+
+
+def iterate_powerset(step: Callable, exits: Callable) -> Callable:
+    """
+    The iteration operator of the :attr:`Powerset` monad, i.e. the set of
+    outcomes reachable in finitely many steps, computed breadth-first.
+
+    An outcome that has already been stepped is never stepped again, so a
+    loop that cycles back to a state it has visited contributes nothing
+    rather than diverging, i.e. this is the least fixed point.
+
+    Parameters:
+        step : The loop body, from an outcome to a set of outcomes.
+        exits : The predicate telling whether an outcome has left the loop.
+
+    Example
+    -------
+    A walk on the integers that exits as soon as it is out of ``range(3)``:
+
+    >>> step = lambda x: frozenset({x - 1, x + 1})
+    >>> exits = lambda x: x not in range(3)
+    >>> assert iterate_powerset(step, exits)(
+    ...     frozenset({1})) == frozenset({-1, 3})
+
+    A cycle never exits, so it contributes nothing:
+
+    >>> assert iterate_powerset(lambda x: frozenset({1 - x}), exits)(
+    ...     frozenset({0})) == frozenset()
+    """
+    def inside(m):
+        done = frozenset(x for x in m if exits(x))
+        pending = seen = frozenset(m) - done
+        while pending:
+            outcomes = frozenset().union(*map(step, pending))
+            done |= frozenset(x for x in outcomes if exits(x))
+            pending = frozenset(
+                x for x in outcomes if not exits(x)) - seen
+            seen |= pending
+        return done
+    return inside
 
 
 Maybe = Monad.from_maps(
@@ -153,7 +260,8 @@ Maybe = Monad.from_maps(
         lambda x: None if x is None else f(x),
         untuplify(f.dom) | None, untuplify(f.cod) | None),
     unit_map=lambda X: Function(lambda x: x, X, X | None),
-    mult_map=lambda X: Function(lambda x: x, (X | None) | None, X | None))
+    mult_map=lambda X: Function(lambda x: x, (X | None) | None, X | None),
+    iterate=iterate_maybe)
 """
 The maybe monad, sending a type ``X`` to ``X | None``: the unit and the
 multiplication are both the identity, since Python's native optional type
@@ -170,7 +278,8 @@ Powerset = Monad.from_maps(
         lambda x: frozenset({x}), X, frozenset[X]),
     mult_map=lambda X: Function(
         lambda xss: frozenset().union(*xss),
-        frozenset[frozenset[X]], frozenset[X]))
+        frozenset[frozenset[X]], frozenset[X]),
+    iterate=iterate_powerset)
 """
 The powerset monad, sending a type ``X`` to ``frozenset[X]``: the unit takes
 a singleton and the multiplication takes a union.
@@ -202,6 +311,58 @@ def dist(X: type) -> type:
     return frozenset[tuple[X, float]]
 
 
+def iterate_subdistribution(
+        step: Callable, exits: Callable,
+        tolerance: float = 1e-12) -> Callable:
+    """
+    The iteration operator of the :attr:`Subdistribution` monad, i.e. the
+    execution formula: push the mass that is still looping through ``step``
+    and accumulate the mass that exits, until what is left is below
+    ``tolerance``.
+
+    The looping mass goes to zero, and the iteration stops, exactly when
+    the loop halts almost surely or loses its mass: this is what it means
+    for the monad to be sub-additive, and the result is then within
+    ``tolerance`` of the limit. A loop that goes around forever with
+    positive probability keeps its mass and the iteration does not
+    terminate, just like the ``while`` loop it generalises.
+
+    Parameters:
+        step : The loop body, from an outcome to a subdistribution.
+        exits : The predicate telling whether an outcome has left the loop.
+        tolerance : The mass below which the iteration stops.
+
+    Example
+    -------
+    A fair coin flipped until it comes up heads, giving up after two flips:
+
+    >>> flip = lambda x: frozenset({
+    ...     (("heads", x[1]), .5), (("tails", x[1] + 1), .5)})
+    >>> exits = lambda x: x[0] == "heads" or x[1] > 1
+    >>> assert iterate_subdistribution(flip, exits)(
+    ...     frozenset({(("tails", 0), 1.)})) == frozenset({
+    ...         (("heads", 0), .5), (("heads", 1), .25), (("tails", 2), .25)})
+
+    A loop that never exits keeps none of the mass it loses:
+
+    >>> assert iterate_subdistribution(
+    ...     lambda x: frozenset({(x + 1, .5)}), lambda x: False)(
+    ...         frozenset({(0, 1.)})) == frozenset()
+    """
+    def inside(m):
+        done = merge((x, p) for x, p in m if exits(x))
+        pending = frozenset((x, p) for x, p in m if not exits(x))
+        while sum(p for _, p in pending) > tolerance:
+            outcomes = merge(
+                (y, p * q) for x, p in pending for y, q in step(x))
+            done = merge(tuple(done) + tuple(
+                (y, q) for y, q in outcomes if exits(y)))
+            pending = frozenset(
+                (y, q) for y, q in outcomes if not exits(y))
+        return done
+    return inside
+
+
 Subdistribution = Monad.from_maps(
     "Subdistribution",
     ob_map=dist,
@@ -213,7 +374,8 @@ Subdistribution = Monad.from_maps(
     mult_map=lambda X: Function(
         lambda dd: merge(
             (x, p_out * p_in) for d, p_out in dd for x, p_in in d),
-        dist(dist(X)), dist(X)))
+        dist(dist(X)), dist(X)),
+    iterate=iterate_subdistribution)
 """
 The subdistribution monad, sending a type ``X`` to finite subprobability
 distributions over ``X``: the unit is the Dirac distribution and the
@@ -264,7 +426,10 @@ def make_state(S: type) -> Monad:
     ----
     The state monad is not commutative: two channels tensored in its Kleisli
     category run their effects in a given order, so the two biased tensors
-    differ, see :mod:`discopy.kleisli.multiplicative`.
+    differ, see :mod:`discopy.kleisli.multiplicative`. It comes with no
+    :attr:`Monad.iterate`, so tracing one of its channels raises rather
+    than guessing at the semantics, see
+    :meth:`discopy.kleisli.additive.Channel.trace`.
 
     Example
     -------

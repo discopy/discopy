@@ -1,15 +1,17 @@
 # -*- coding: utf-8 -*-
 
-from pytest import raises
+from pytest import approx, raises
 
 from discopy.cat import Transformation
 from discopy.utils import AxiomError
 from discopy.python.function import Function, EndoFunctor
+from discopy.python.additive import Function as AdditiveFunction
 from discopy.kleisli.monad import (
     Monad, Maybe, Powerset, Subdistribution, Seed,
-    make_monad, make_state, sample)
+    make_monad, make_state, merge, sample)
 from discopy.kleisli.channel import Channel
-from discopy.kleisli import multiplicative
+from discopy.kleisli import additive, multiplicative
+from discopy.kleisli.additive import Tagged
 from discopy.kleisli.multiplicative import Row
 from discopy.tensor import Dim, Tensor
 
@@ -400,3 +402,161 @@ def test_sample_misses_the_missing_mass():
     assert_close(
         empirical(sample(half), 420, 10000),
         frozenset({(0, .25), (1, .25), (None, .5)}))
+
+
+def test_Tagged():
+    assert Tagged("x", 1) == eval(repr(Tagged("x", 1)))
+    assert Tagged("x", 1) != Tagged("x", 0) and Tagged("x", 1) != ("x", 1)
+    assert hash(Tagged("x", 1)) == hash(Tagged("x", 1))
+
+
+def test_additive_pack():
+    assert additive.pack(()) is Tagged
+    assert additive.pack((int, )) is int
+    assert additive.pack((int, str)) is Tagged
+    assert additive.pack_value("x", 0, (str, )) == "x"
+    assert additive.pack_value("x", 1, (int, str)) == Tagged("x", 1)
+    assert additive.unpack_value("x") == ("x", 0)
+    assert additive.unpack_value(Tagged("x", 1)) == ("x", 1)
+
+
+def test_additive_injection():
+    assert additive.injection(1, (str, ), (int, str))("x") == Tagged("x", 1)
+    assert additive.injection(0, (int, str), (int, ))(Tagged(42, 0)) == 42
+    assert additive.injection(2, (int, str), 2 * (int, str))(
+        Tagged("x", 1)) == Tagged("x", 3)
+
+
+def test_additive_Channel_identity_and_composition():
+    Safe = additive.Channel[Maybe]
+    half = Safe(lambda x: x // 2 if x % 2 == 0 else None, int, int)
+
+    identity = Safe.id((int, ))
+    assert identity(4) == 4
+    assert (identity >> half)(4) == half(4) == (half >> identity)(4)
+
+    with raises(AxiomError):
+        half >> Safe(lambda x: x, str, str)
+
+
+def test_additive_Channel_tensor():
+    Safe = additive.Channel[Maybe]
+    half = Safe(lambda x: x // 2 if x % 2 == 0 else None, int, int)
+    increment = Safe(lambda x: x + 1, int, int)
+
+    either = half @ increment
+    assert either.dom == (int, int) == either.cod
+    assert either(4) == Tagged(2, 0) and either(4, 1) == Tagged(5, 1)
+    assert either(3) is None and either(3, 1) == Tagged(4, 1)
+
+    with raises(TypeError):
+        half.tensor("not-a-channel")
+
+
+def test_additive_tensor_is_a_bifunctor():
+    """
+    Only one side of a disjoint union ever runs, so unlike the tuple tensor
+    of ``multiplicative`` this one is a bifunctor for every monad.
+    """
+    Nondet = additive.Channel[Powerset]
+    f, g, h, k = [
+        Nondet(lambda x, step=step: frozenset({x + step, x * step}), int, int)
+        for step in (1, 2, 3, 4)]
+
+    lhs, rhs = (f @ g) >> (h @ k), (f >> h) @ (g >> k)
+    for tag in (0, 1):
+        assert lhs(3, tag) == rhs(3, tag)
+
+
+def test_additive_Channel_swap_and_merge():
+    Nondet = additive.Channel[Powerset]
+
+    swap = Nondet.swap((int, ), (str, str))
+    assert swap.dom == (int, str, str) and swap.cod == (str, str, int)
+    assert swap(1, 0) == frozenset({Tagged(1, 2)})
+    assert swap("x", 1) == frozenset({Tagged("x", 0)})
+    assert swap("y", 2) == frozenset({Tagged("y", 1)})
+
+    codiagonal = Nondet.merge((int, str))
+    assert codiagonal.dom == 2 * (int, str) and codiagonal.cod == (int, str)
+    assert codiagonal(1, 0) == frozenset({Tagged(1, 0)}) == codiagonal(1, 2)
+    assert codiagonal("x", 1) == frozenset(
+        {Tagged("x", 1)}) == codiagonal("x", 3)
+
+
+def test_additive_trace_agrees_with_the_pure_trace():
+    """
+    A channel with no effect traces to the same thing as the plain Python
+    function it comes from, i.e. ``python.additive.Function.trace``.
+    """
+    halve = lambda x, tag=0: (x // 2, 1) if x % 2 == 0 else (x, 0)
+    pure = AdditiveFunction(halve, (int, int), (int, int))
+    channel = additive.Channel[Maybe](
+        lambda x, tag=0: Tagged(*halve(x, tag)), (int, int), (int, int))
+
+    assert all(channel.trace()(x) == pure.trace()(x) for x in range(1, 12))
+
+
+def test_additive_trace_converges_for_powerset():
+    """
+    A nondeterministic walk exiting as soon as it leaves ``range(3)``: the
+    trace converges although the loop cycles, since an outcome that has
+    already been stepped is never stepped again.
+    """
+    Nondet = additive.Channel[Powerset]
+    walk = Nondet(lambda x, tag=0: frozenset({
+        Tagged(y, 0) if y not in range(3) else Tagged(y, 1)
+        for y in (x - 1, x + 1)}), (int, int), (int, int))
+
+    assert walk.trace()(1) == frozenset({-1, 3})
+
+
+def test_additive_trace_converges_for_subdistribution():
+    """
+    Gambler's ruin: a fair random walk absorbed at ``0`` and ``3`` traces to
+    the exact ruin probabilities, i.e. ``2 / 3`` and ``1 / 3`` from a start
+    of ``1``, although it loops unboundedly often.
+    """
+    walk = lambda x, tag=0: merge((
+        Tagged("ruin" if y == 0 else "rich", 0) if y in (0, 3)
+        else Tagged(y, 1), .5) for y in (x - 1, x + 1))
+    chain = additive.Channel[Subdistribution](walk, (int, int), (str, int))
+
+    outcomes = dict(chain.trace()(1))
+    assert outcomes == {"ruin": approx(2 / 3), "rich": approx(1 / 3)}
+
+
+def test_additive_trace_loses_the_diverging_mass():
+    """
+    A loop that goes around with probability ``1 / 4`` and loses a quarter
+    of its mass on the way exits with probability ``.5 / (1 - .25)``, the
+    rest going missing as the subdistribution monad allows.
+    """
+    leaky = additive.Channel[Subdistribution](lambda x, tag=0: frozenset({
+        (Tagged(x, 0), .5), (Tagged(x + 1, 1), .25)}), (int, int), (int, int))
+
+    assert sum(p for _, p in leaky.trace()(0)) == approx(2 / 3)
+
+
+def test_additive_trace_needs_an_iteration_operator():
+    """
+    The trace is extra structure on the monad: a monad that does not supply
+    an iteration operator raises rather than guessing, see issue #374.
+    """
+    stateful = additive.Channel[Seed](
+        lambda x, tag=0: lambda s: (Tagged(x, 0), s),
+        (int, int), (int, int))
+    with raises(ValueError):
+        stateful.trace()
+
+    assert Seed.iterate is None and Maybe.iterate is not None
+    with raises(NotImplementedError):
+        additive.Channel[Maybe](
+            lambda x, tag=0: Tagged(x, 0), (int, int), (int, int)
+        ).trace(left=True)
+
+
+def test_additive_Channel_repr():
+    half = additive.Channel[Maybe](
+        lambda x: x // 2 if x % 2 == 0 else None, int, int)
+    assert repr(half).startswith("additive.Channel[Maybe](")

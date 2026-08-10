@@ -15,12 +15,12 @@ Prompt ([#374](https://github.com/discopy/discopy/issues/374), verbatim):
 
 - [x] `discopy.kleisli.monad`: monads as monoids over a new `python.function.EndoFunctor`, with maybe, powerset and subdistribution examples
 - [x] `discopy.kleisli.channel`: `Channel[M]` as a `NamedGeneric` over `M: Monad`
-- [WIP] @evening-2026-08-10T00:20Z `discopy.kleisli.additive`: traced cocartesian Kleisli with the execution formula as trace; convergence tests for sub-additive monads — unblocked 2026-08-09T16:01Z, USER 🚀'd option **A** (iteration operator as optional structure on `Monad`)
+- [x] @evening-2026-08-10T00:20Z-2026-08-10T01:05Z `discopy.kleisli.additive`: traced cocartesian Kleisli with the execution formula as trace; convergence tests for sub-additive monads — unblocked 2026-08-09T16:01Z, USER 🚀'd option **A** (iteration operator as optional structure on `Monad`), see the note below
 - [x] @evening-2026-07-27T06:34-2026-07-27T07:20 `discopy.kleisli.multiplicative`: premonoidal copy-discard Kleisli with pointwise strength; test monoidal iff the monad is commutative
 - [ ] `Hypergraph` evaluation methods: token passing for `additive`, message passing for `multiplicative` — coordinate with #366 and #363. **Blocked**: both still draft and far behind `main`
 - [x] @evening-2026-07-27T15:11-2026-07-27T15:35 `multiplicative` stress test: compare results against tensor contraction on small enough models (per issue comment)
 - [x] @evening-2026-07-29T02:06-2026-07-29T02:45 Implement the state monad for seeded randomness; compare empirical distributions against the ones computed explicitly via sub-distribution dicts (value → nonzero weight)
-- [ ] `additive` worked example: Dal Lago–Hoshino's token machines (*Geometry of Bayesian Programming*) — the best source found so far for a non-trivial case. **Blocked** on the `additive` point above: there is no module to write the example against
+- [ ] `additive` worked example: Dal Lago–Hoshino's token machines (*Geometry of Bayesian Programming*) — the best source found so far for a non-trivial case. **Unblocked 2026-08-10**: `discopy.kleisli.additive` now exists, so this point is the next one to pick up
 - [ ] Write every example as a term in the effectful lambda calculus of #370, not as a diagram built with tensor/composition. **Blocked on [#489](https://github.com/discopy/discopy/pull/489)**: measured 2026-08-09, `let`/`Product`/`Projection` are not on `main`, #370 is open and #489 is the only branch implementing it — itself queued behind #511
 - [x] @evening-2026-08-09T00:05Z-2026-08-09T00:25Z Run `pflake8 discopy` and `coverage run -m pytest`
 
@@ -189,3 +189,57 @@ Recommendation is (a): add the iteration operator to `Monad` as optional
 structure, so `additive.Channel.trace` is defined exactly when the monad supplies
 it, rather than defined for all monads and silently wrong for some. Not
 implementing it on a guess — asked on the PR for a ruling.
+
+## `discopy.kleisli.additive` (🌙 evening, 2026-08-10)
+
+USER 🚀'd option **A** on the PR comment above (2026-08-09T16:01:42Z), so the
+iteration operator is now optional structure on `Monad`:
+
+- `Monad.iterate` takes a loop body `step : Z -> M(Z)` and a predicate `exits`
+  on outcomes, and returns the function resolving a monadic value into the one
+  where every looping outcome has been fed back until it exits. It defaults to
+  `None`, i.e. the monad does not claim to be Elgot.
+- Three are shipped, one per monad the prompt names, none of them generic:
+  `iterate_maybe` is a plain `while` loop; `iterate_powerset` is a
+  breadth-first search that never steps an outcome twice, so a cycle
+  contributes nothing rather than diverging (the least fixed point);
+  `iterate_subdistribution` is the execution formula on the whole
+  distribution, accumulating exiting mass until the looping mass falls below
+  `tolerance`. `Seed` deliberately has none.
+- `additive.Channel.trace` raises `ValueError` naming the monad when
+  `iterate is None`, which is the whole point of option A: no answer rather
+  than a wrong one.
+
+Why the operator cannot be derived, restated once more now that the code
+exists: `bind` alone *can* dispatch per outcome, but the three implementations
+above differ in exactly what `(functor, unit, mult)` cannot see — whether an
+outcome has been visited (`Powerset`) and how much mass is still in the loop
+(`Subdistribution`). A generic bind-recursion would diverge on the gambler's
+ruin test, which is the flagship convergence case the prompt asks for.
+
+Tagged values follow `multiplicative`'s `Row` precedent: `Tagged(value, tag)`
+rather than the `(obj, tag)` pair of `python.additive`, since a payload inside
+`M` flows through composition as one value and a genuine tuple gets splat.
+
+Tests: identity/composition, the tensor as a bifunctor, swap and the
+codiagonal, the trace against `python.additive.Function.trace` on a pure
+channel, a `Powerset` walk that only terminates thanks to cycle detection,
+gambler's ruin converging to `2/3`–`1/3` under `Subdistribution`, the missing
+mass of a leaky loop, and both raising paths. `pflake8 discopy test/kleisli.py`
+clean, `discopy/kleisli/` at 100% coverage.
+
+### Bug found on the way: `python.additive.Function.trace`
+
+The pure trace feeds a looping *output* tag straight back as an *input* tag,
+which only agrees when `len(dom) == len(cod)`; otherwise it reads past the end
+of `dom`. Minimal repro, `IndexError: tuple index out of range`:
+
+```python
+f = Function(lambda obj, tag=0: (obj, 2 if tag == 0 else 1),
+             (int, int), (int, int, int))
+f.trace()(7)
+```
+
+Filed as an issue rather than fixed here, since `python.additive` is not this
+branch's subject. `additive.Channel.trace` translates the tag properly
+(`tag - len(cod) + len(dom)`), so it is correct for unequal arities.
