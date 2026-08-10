@@ -1,1 +1,7 @@
-*.ipynb linguist-language=Python
+# Don't count diffs in generated files.
+# Use `git diff --text -- <path>` to read their changes.
+
+uv.lock -diff
+benchmark/baseline.json -diff
+*.svg -diff
+*.dot -diff linguist-generated=true
