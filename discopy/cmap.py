@@ -116,8 +116,7 @@ class Port:
         kind : The kind of boundary or box port.
         i : The position within its boundary or box side.
         obj : The type carried by the port.
-        depth : The box index, with inputs at ``-inf`` and outputs at
-            ``+inf``.
+        depth : The box index, with inputs at ``-inf`` and outputs at ``+inf``.
         side : The vertical side on which the port is drawn.
     """
     kind: PortKind

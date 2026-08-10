@@ -191,16 +191,6 @@ class Trace(Box, monoidal.Bubble):
         arg : The diagram to trace.
         left : Whether to trace the wires on the left or right.
 
-    Example
-    -------
-    >>> from discopy.symmetric import Ty, Box, Trace
-    >>> x = Ty('x')
-    >>> f = Box('f', x @ x, x @ x)
-    >>> print(Trace(f))
-    Trace(f)
-    >>> print(Trace(f, left=True))
-    Trace(f, left=True)
-
     See also
     --------
     :meth:`Diagram.trace`

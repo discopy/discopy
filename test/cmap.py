@@ -65,8 +65,6 @@ def test_repr_eq_and_hash():
     assert cm != object()
     assert hash(cm) == hash(M.from_box(Box("f", x, y)))
 
-    # equality is structural, so it sees the box order: two maps that differ
-    # by a reordering are equal only up to their underlying hypergraph.
     g = M.from_box(Box("g", y, x))
     interchanged = (cm @ g).interchange(0, 1)
     assert interchanged.boxes != (cm @ g).boxes
@@ -114,8 +112,6 @@ def test_eliminate_swaps():
     f, g = Box("f", x, z), Box("g", y, w)
 
     diagram = Id(x @ y).swap(x, y) >> g @ x >> Id(w @ x).swap(w, x) >> f @ w
-    # each box is placed where its inputs already are, so the two swaps that
-    # only route f and g past each other are eliminated.
     assert diagram.to_map().to_diagram() == x @ g >> f @ w
     assert diagram.to_map() == diagram.to_map().to_diagram().to_map()
     assert diagram.to_map() == diagram.to_hypergraph().to_diagram().to_map()
@@ -150,8 +146,6 @@ def test_symmetric_diagram_to_map_encodes_swap_as_wiring():
     assert cm.edges == (3, 2, 1, 0)
 
     x = symmetric.Ty("x")
-    # a map is compact whatever hosts it, so the crossing is built without
-    # complaint and it is the downgrade that asks for swaps.
     with raises(AxiomError):
         monoidal.CMap(x @ x, x @ x, (), (3, 2, 1, 0)).to_diagram()
     assert symmetric.CMap(x @ x, x @ x, (), (3, 2, 1, 0))\
@@ -242,7 +236,6 @@ def test_diagram_to_map_structure_and_errors():
         f.trace(2)
 
     x = monoidal.Ty("x")
-    # cups and caps are typed by adjunction, so they need a Pregroup
     with raises(TypeError, match="Pregroup"):
         monoidal.CMap.cups(x, x)
     with raises(TypeError, match="Pregroup"):
@@ -323,8 +316,6 @@ def test_rigid_handedness():
 def test_only_to_diagram_needs_the_structure():
     from discopy import cmap, monoidal, pivotal, traced
 
-    # a map is compact whatever hosts it, so the cycle is built without
-    # complaint and it is the downgrade that asks for a traced category.
     x = monoidal.Ty("x")
     f = monoidal.Box("f", x, x)
     cycle = monoidal.CMap(x, x, (f, ), (3, 2, 1, 0))
@@ -366,22 +357,16 @@ def test_explicit_trace_on_a_subclass():
     x = sym.Ty("x")
     f = Step("f", x, x)
 
-    # ``Reduce`` is a class, so it is applied as one big box, and the same
-    # goes for the hypergraph of the same diagram.
     traced = cmap.CMap[Recipe].from_box(f).trace()
     assert traced.to_diagram() == Reduce(f, False)
     assert f.to_hypergraph().trace().to_diagram() == Reduce(f, False)
 
-    # Without its own trace box, a subclass gets told what is missing rather
-    # than an AttributeError on ``symmetric.Trace.__func__``.
     Recipe.trace_factory = sym.Trace
     with raises(TypeError, match="Expected .*Recipe, got symmetric.Trace"):
         cmap.CMap[Recipe].from_box(f).trace().to_diagram()
 
 
 def test_composed_snakes_are_reordered_on_downgrade():
-    # cups and caps can send a wire from the codomain of a box back into the
-    # domain of an earlier one, so non-monogamous maps are not ordered.
     x = compact.Ty("x")
     f, g = compact.Box("f", x, x), compact.Box("g", x, x)
     snakes = f.transpose(left=True) >> g.transpose(left=True)
@@ -390,11 +375,8 @@ def test_composed_snakes_are_reordered_on_downgrade():
     assert not cm.is_monogamous and cm.is_acyclic
     assert not cm.is_topologically_ordered and not cm.is_causal
     assert cm.topological_order().boxes == (g, f)
-    # downgrading reorders, so the map only comes back up to to_map
     once = cm.to_diagram().to_map()
     assert once.to_diagram().to_map() == once
-    # the hypergraph cuts the backward wire rather than reordering, so the two
-    # routes agree only on the underlying hypergraph
     assert snakes.to_hypergraph().to_diagram().to_map().to_hypergraph()\
         == once.to_hypergraph()
 
@@ -417,8 +399,6 @@ def test_is_causal_is_local():
         traced.CMap(traced.Ty(), traced.Ty(), (), [], loops=(y, )),
         compact.CMap(x, x, (f, g), [3, 4, 5, 0, 1, 2], check=False)]
     for cm in maps:
-        # dropping is_acyclic keeps the meaning: a directed cycle cannot have
-        # strictly increasing ranks all the way back to its start.
         assert cm.is_causal == (
             cm.is_monogamous and cm.is_acyclic
             and cm.is_topologically_ordered)
@@ -429,10 +409,8 @@ def test_unordered_boxes_are_reordered_on_downgrade():
 
     x = sym.Ty("x")
     f, g = sym.Box("f", x, x), sym.Box("g", x, x)
-    # ports: 0 = dom, 1|2 = f.dom|cod, 3|4 = g.dom|cod, 5 = cod
     assert (f >> g).to_map().edges == Permutation([1, 0, 3, 2, 5, 4], 6)
     assert sym.CMap(x, x, (f, g), [1, 0, 3, 2, 5, 4]).is_causal
-    # the same wiring with g applied before f, i.e. out of topological order
     unordered = sym.CMap(x, x, (f, g), [3, 4, 5, 0, 1, 2])
     assert unordered.is_acyclic and not unordered.is_topologically_ordered
     assert unordered.to_diagram() == g >> f
@@ -463,7 +441,6 @@ def test_curry_uncurry_roundtrip(module):
         assert cmap.curry(n=2, left=True).uncurry(n=2, left=True) == cmap
         return
 
-    # without cups and caps to bend a wire with, currying stays a box
     right = cmap.curry()
     assert right.dom == y
     assert right.cod == x >> z
@@ -685,8 +662,6 @@ def test_interchange(module):
     with raises(IndexError):
         cm.interchange(0, 3)
 
-    # sequentially composed boxes do not commute: interchanging them is
-    # allowed but leaves the map out of order, ready to be reordered.
     f, g = Box("f", x, y), Box("t", y, z)
     cm = M.from_box(f) >> M.from_box(g)
     assert cm.is_causal
@@ -798,16 +773,11 @@ def test_draw_plain_path(tmp_path):
         assert path.exists()
 
 
-# The tests below cover what this pull request adds: a map is compact whatever
-# category hosts it, and only the downgrade asks that category for structure.
 
 
 def test_boxes_with_no_domain_decode_at_the_right():
     x, y = map(compact.Ty, "xy")
     f = compact.Box("f", x, y)
-    # the cap introduced by make_monogamous has no domain wire to follow, so
-    # it goes to the right of the scan, which is where the cup expects it and
-    # is what makes the transposition come back without any swap.
     snake = f.transpose(left=True)
     assert snake.to_map().to_diagram() == snake
     assert "Swap" not in str(snake.to_map().to_diagram())
@@ -816,8 +786,6 @@ def test_boxes_with_no_domain_decode_at_the_right():
 def test_curry_is_wiring_only_when_the_category_is_rigid():
     from discopy import pivotal, rigid
 
-    # without cups and caps, currying stays an explicit box and the round trip
-    # keeps both it and the evaluation, since beta is not a structural rule.
     for module in (biclosed, closed):
         x, y, z = map(module.Ty, "xyz")
         f = module.Box("f", x @ y, z)
@@ -825,7 +793,6 @@ def test_curry_is_wiring_only_when_the_category_is_rigid():
         assert curried.boxes == (module.Diagram.curry_factory(f, 1, False), )
         assert curried.uncurry() != f.to_map()
 
-    # with cups and caps, currying is a cap in the wiring and cancels exactly.
     for module in (compact, rigid, pivotal):
         x, y, z = map(module.Ty, "xyz")
         f = module.Box("f", x @ y, z)
@@ -833,8 +800,6 @@ def test_curry_is_wiring_only_when_the_category_is_rigid():
         assert curried.boxes == (f, ) and not curried.is_monogamous
         assert curried.uncurry(left=True) == f.to_map()
 
-    # a strictly rigid category has one adjoint per type, so the cap can only
-    # be written Cap(y, y.l); pivotal accepts both orientations.
     x, y, z = map(rigid.Ty, "xyz")
     f = rigid.Box("f", x @ y, z)
     assert f.to_map().curry(left=True).make_monogamous().boxes == (
@@ -868,8 +833,6 @@ def test_map_and_hypergraph_normalise_the_same_way():
         frobenius.Diagram.spiders(2, 1, frobenius.Ty("x")).to_map(),
         traced.Box("f", traced.Ty("x"), traced.Ty("x")).to_map().trace()]
     for cm in maps:
-        # the two representations agree on every predicate and every step,
-        # they only differ in where to_diagram places the boxes.
         hyp = cm.to_hypergraph()
         assert cm.is_monogamous == hyp.is_monogamous
         assert cm.is_acyclic == hyp.is_acyclic

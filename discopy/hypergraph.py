@@ -509,9 +509,9 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
 
         Note
         ----
-        When ``category.trace_factory`` is a class, e.g. for symmetric
-        diagrams, then the result is just one big trace box wrapped up as a
-        hypergraph.
+        When ``category.trace_factory`` is a subclass of ``category``,
+        e.g. for symmetric diagrams, then the result is just one big trace box
+        wrapped up as a hypergraph.
 
         Otherwise, we assume that the trace factory is a class method, e.g.
         for compact diagrams, in which case we use this method to introduce
@@ -521,7 +521,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
             raise AxiomError(messages.NOT_TRACED.format(
                 factory_name(self.category)))
         factory = self.category.trace_factory
-        if isclass(factory):
+        if isclass(factory) and issubclass(factory, self.category):
             return self.from_box(factory(self.to_diagram(), left))
         return factory.__func__(type(self), self, left)
 
