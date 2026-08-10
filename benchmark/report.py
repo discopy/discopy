@@ -19,15 +19,16 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 from html import escape
+import gzip
 import json
 import os
 
 import polars as pl
 
 
-def load(path: str) -> pl.DataFrame:
+def load(path: str, opener=open) -> pl.DataFrame:
     """A tidy suite, family, case, size and median frame."""
-    with open(path) as file:
+    with opener(path, "rt") as file:
         data = json.load(file)
     rows = []
     for bench in data["benchmarks"]:
@@ -231,7 +232,7 @@ def main() -> int:
     if not os.path.exists(args.baseline):
         print(f"baseline {args.baseline} not found; skipping regression gate.")
         return 0
-    deltas = compare(df, load(args.baseline))
+    deltas = compare(df, load(args.baseline, gzip.open))
     regressions = deltas.filter(pl.col("delta") > args.fail_threshold)
     with pl.Config(tbl_rows=-1):
         print(deltas.select(

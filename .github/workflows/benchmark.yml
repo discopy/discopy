@@ -51,7 +51,7 @@ jobs:
       run:
         uv run python benchmark/report.py benchmark-results/bench.json
           --output benchmark-results
-          --baseline benchmark/baseline.json
+          --baseline benchmark/baseline.json.gz
     - name: Upload benchmark results
       if: always()
       uses: actions/upload-artifact@v4

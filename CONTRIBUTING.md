@@ -87,14 +87,15 @@ pass a committed baseline:
 
 ```shell
 uv run python benchmark/report.py benchmark-results/bench.json \
-    --baseline benchmark/baseline.json --fail-threshold 0.25
+    --baseline benchmark/baseline.json.gz --fail-threshold 0.25
 ```
 
 It joins the two runs on `(suite, family, case, size)` and exits non-zero if
 any case's median regressed by more than the threshold. The baseline is
 machine-dependent, so generate it once on the CI runner (`workflow_dispatch` on
-`main`, with `BENCH_FLAGS=bench:full`) and commit the resulting `bench.json` as
-`benchmark/baseline.json`. The `benchmark` GitHub workflow runs the suite on
+`main`, with `BENCH_FLAGS=bench:full`) and commit the resulting `bench.json`
+gzipped (`gzip -9n bench.json`) as `benchmark/baseline.json.gz`: stored
+compressed, GitHub shows it as a binary file rather than a 6k-line diff. The `benchmark` GitHub workflow runs the suite on
 pull requests (smoke sizes) and on `main` / manual dispatch (full sizes),
 uploading the report as an artifact.
 
