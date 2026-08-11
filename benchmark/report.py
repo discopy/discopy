@@ -201,13 +201,27 @@ def write_reports(df: pl.DataFrame, output: str) -> list[str]:
 
 
 def compare(current: pl.DataFrame, baseline: pl.DataFrame) -> pl.DataFrame:
-    """ Per-cell relative change vs baseline, worst first (shared only). """
+    """ Per-cell relative change vs baseline, worst first (shared only).
+
+    ``delta`` is the raw change in median and ``normalised`` divides it by the
+    run-wide median change, i.e. by the speed of the machine the run landed on.
+    GitHub hands out several CPU models for the same runner label, so a raw
+    delta mixes the machine in with the code. Writing a measurement as
+    ``t = machine * code * baseline``, the median over cases estimates the
+    machine -- most cases are unchanged, and the median ignores the few that
+    are not -- and dividing it out leaves the change due to the code alone.
+    Dividing rather than subtracting keeps the threshold meaning the same
+    thing on every machine: subtracting would scale it by the machine factor.
+    """
     return current.join(
         baseline, on=["suite", "family", "case", "size"], suffix="_base",
     ).with_columns(
         ((pl.col("median") - pl.col("median_base")) / pl.col("median_base"))
         .alias("delta"),
-    ).sort("delta", descending=True)
+    ).with_columns(
+        ((1 + pl.col("delta")) / (1 + pl.col("delta").median()) - 1)
+        .alias("normalised"),
+    ).sort("normalised", descending=True)
 
 
 def main() -> int:
@@ -219,7 +233,8 @@ def main() -> int:
         "--baseline", help="baseline --benchmark-json to gate against")
     parser.add_argument(
         "--fail-threshold", type=float, default=0.25,
-        help="fail if a case's median regresses by more than this fraction")
+        help="fail if a case regresses by more than this fraction relative to"
+             " the run-wide median change")
     args = parser.parse_args()
 
     os.makedirs(args.output, exist_ok=True)
@@ -233,16 +248,20 @@ def main() -> int:
         print(f"baseline {args.baseline} not found; skipping regression gate.")
         return 0
     deltas = compare(df, load(args.baseline, gzip.open))
-    regressions = deltas.filter(pl.col("delta") > args.fail_threshold)
+    machine = deltas["delta"].median()
+    regressions = deltas.filter(
+        pl.col("normalised") > args.fail_threshold)
     with pl.Config(tbl_rows=-1):
         print(deltas.select(
             "suite", "family", "case", "size", "median",
-            "median_base", "delta"))
+            "median_base", "delta", "normalised"))
+    print(f"the machine this run landed on is {machine:+.1%} "
+          "off the baseline's, measured as the run-wide median delta.")
     if len(regressions):
         print(f"REGRESSION: {len(regressions)} case(s) over "
-              f"+{args.fail_threshold:.0%} vs baseline:")
+              f"+{args.fail_threshold:.0%} normalised vs baseline:")
         print(regressions.select(
-            "suite", "family", "case", "size", "delta"))
+            "suite", "family", "case", "size", "delta", "normalised"))
         return 1
     print(f"no case regressed by more than +{args.fail_threshold:.0%}.")
     return 0

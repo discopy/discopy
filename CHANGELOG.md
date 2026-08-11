@@ -30,7 +30,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   scaling experiments of arXiv:2105.09257
   ([#346](https://github.com/discopy/discopy/pull/346)).
 - CMap cases for the composition benchmark suite, mirroring its Hypergraph
-  workloads and scaling report.
+  workloads. Benchmark reports now include per-suite HTML, Markdown and CSV
+  tables with scaling plots.
 - Conversion benchmarks between Diagram, Hypergraph and CMap representations.
 - The benchmark job runs only on `main` and on pull requests labelled
   `benchmark` ([#385](https://github.com/discopy/discopy/pull/385),
@@ -85,6 +86,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - The committed benchmark baseline is stored gzipped as
   `benchmark/baseline.json.gz`, which `benchmark/report.py` reads
   transparently.
+- The benchmark regression gate divides each case by the run-wide median
+  change rather than comparing raw medians, so that the CPU model a
+  GitHub-hosted runner happens to give out does not read as a regression. Its
+  default threshold is 25%.
 
 ### Fixed
 

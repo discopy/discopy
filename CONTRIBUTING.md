@@ -91,13 +91,24 @@ uv run python benchmark/report.py benchmark-results/bench.json \
 ```
 
 It joins the two runs on `(suite, family, case, size)` and exits non-zero if
-any case's median regressed by more than the threshold. The baseline is
-machine-dependent, so generate it once on the CI runner (`workflow_dispatch` on
-`main`, with `BENCH_FLAGS=bench:full`) and commit the resulting `bench.json`
-gzipped (`gzip -9n bench.json`) as `benchmark/baseline.json.gz`: stored
-compressed, GitHub shows it as a binary file rather than a 6k-line diff. The `benchmark` GitHub workflow runs the suite on
-pull requests (smoke sizes) and on `main` / manual dispatch (full sizes),
-uploading the report as an artifact.
+any case regresses by more than the threshold relative to the run-wide median
+change. GitHub hands out several CPU models for the same runner label, so the
+raw delta of a cell mixes the machine in with the code. Reading a measurement
+as `time = machine * code * baseline`, the median change over all cases
+estimates the machine -- most cases are unchanged, and a median ignores the few
+that are not -- so dividing it out leaves the change due to the code. It divides
+rather than subtracts, which keeps the threshold meaning the same thing
+whichever runner comes up; subtracting would scale it by the machine factor,
+making the gate stricter on slow machines and laxer on fast ones.
+
+The baseline is a `bench.json` from a CI run of this same workflow, gzipped
+(`gzip -9n bench.json`) and committed as `benchmark/baseline.json.gz`: stored
+compressed, GitHub shows it as a binary file rather than a 6k-line diff. Pick a
+run from the slower CPU class (`machine_info.cpu.brand_raw` in `bench.json`):
+the gate only fires on positive deltas, so a baseline anchored low leaves the
+raw backstop quiet when a faster runner comes up. The
+`benchmark` GitHub workflow runs the suite on pull requests (smoke sizes) and on
+`main` / manual dispatch (full sizes), uploading the report as an artifact.
 
 A benchmarking job is available in the CI pipeline. By default, it is running only
 on the main branch, but you can enable it on your pull requests by attaching the
