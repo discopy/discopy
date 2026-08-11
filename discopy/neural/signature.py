@@ -237,9 +237,15 @@ class Signature:
         """
         The traced pairs of ports, as positions in the logical port order.
 
-        A trace is a self-wired pair of ports, i.e. private memory that
-        survives a round, and a functor into :mod:`discopy.neural`
-        preserves it strictly: it is wiring, not a box.
+        Two readings of one pair, worth keeping apart.  *Structurally* a
+        self-wired pair is the categorical trace of the compact target --
+        :mod:`discopy.neural.skeleton` checks that equation as a doctest --
+        and a functor into :mod:`discopy.neural` preserves it strictly,
+        because it is wiring rather than a box.  *Dynamically* it is a
+        persistent state channel: what a box writes on one end it reads
+        back on the other one round later, so a value survives a round.
+        That is delayed feedback under finite iteration, not a fixed point;
+        see :mod:`discopy.neural.dynamics`.
         """
         result, cursor = [], 0
         for orbit in self.orbits:
@@ -306,7 +312,9 @@ class Signature:
         A permutation acts on the *legs* of one orbit and on every copy of
         each leg alike, so a traced orbit stays traced. The identity of
         the group generated is the equation the module at this site must
-        satisfy; :func:`check_equivariant` measures how far it is from it.
+        satisfy; :func:`check_equivariant` measures how far it is from it,
+        and :func:`discopy.neural.laws.symmetry` reads the same data as a
+        group action and an equivariance law.
 
         Example
         -------
@@ -319,7 +327,7 @@ class Signature:
         for orbit in self.orbits:
             span, legs = len(orbit.role), orbit.arity
             block = span * legs
-            for cycle in _generators(orbit.sym, legs):
+            for cycle in leg_generators(orbit.sym, legs):
                 mapping = list(range(len(self.roles)))
                 for copy in range(orbit.copies):
                     start = cursor + copy * block
@@ -332,8 +340,28 @@ class Signature:
         return result
 
 
-def _generators(sym: Sym, arity: int) -> list[tuple[int, ...]]:
-    """ The generators of a symmetry group, as permutations of legs. """
+def leg_generators(sym: Sym, arity: int) -> list[tuple[int, ...]]:
+    """
+    The generators of a symmetry group, as permutations of legs.
+
+    This is the group itself, before it acts on anything:
+    :meth:`Signature.generators` is the same group acting on ports and
+    :mod:`discopy.neural.laws` is where it is read as an action
+    :math:`\\rho : G \\to \\mathrm{Aut}(X)`.
+
+    Parameters:
+        sym : The symmetry the legs carry.
+        arity : The number of legs.
+
+    Example
+    -------
+    >>> leg_generators(Sym.PERM, 3)
+    [(1, 0, 2), (1, 2, 0)]
+    >>> leg_generators(Sym.CYCLIC, 3)
+    [(1, 2, 0)]
+    >>> leg_generators(Sym.NONE, 3), leg_generators(Sym.PERM, 1)
+    ([], [])
+    """
     if arity < 2 or sym == Sym.NONE:
         return []
     rotation = tuple(range(1, arity)) + (0, )
@@ -418,7 +446,7 @@ def _orbit_generators(signature: Signature):
     """ Each generator of :meth:`Signature.generators` with its orbit. """
     result, generators = [], iter(signature.generators())
     for orbit in signature.orbits:
-        for _ in _generators(orbit.sym, orbit.arity):
+        for _ in leg_generators(orbit.sym, orbit.arity):
             result.append((orbit, next(generators)))
     return result
 

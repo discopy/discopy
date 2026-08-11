@@ -52,6 +52,40 @@ tensor. Deliberate, and the reason the segmented loop can detach cleanly.
 reference oracle and is only ever run on small maps; `test_forward_reference`
 runs it on two puzzles and two rounds for that reason.
 
+## Noticed while adding the formal layer
+
+The semantics-first pass that added `discopy/neural/parametric.py`,
+`dynamics.py` and `laws.py` (see [ARCHITECTURE.md](ARCHITECTURE.md)) moved no
+number and touched no runtime class. It did turn up three things, recorded
+here rather than fixed in a change whose job was to change nothing.
+
+**`eval_noise_trm_act.py` reads `model.widths`, which no engine has.** Around
+line 191 the noise study asks the model for `model.widths.y_dim` and
+`model.widths.state_dim`. `Engine` has `ob`, `interpretation` and
+`router.widths`, but no `widths` attribute, so that helper raises
+`AttributeError`. The script is not run by CI and nothing else calls the
+helper, so it is left alone; the fix is to pass the `Widths` in, or to read
+`model.y_dim` and `model.state_width`, which `RecursionEngine._rebind` does
+set.
+
+**Resumption is a law of one transition, and `inject` is part of the
+transition.** `F^(a+b) = F^b . F^a` holds bitwise for `inject=False`, which
+is what the segmented schedules use. With `inject=True` the vector added
+back every round is whatever was passed as `init`, so resuming a run from
+its own carried state resumes a *different* map. No caller does that today —
+an `inject=True` schedule runs exactly one `advance` per forward pass — but
+nothing enforces it either. `test_formal.py::test_reinjection_belongs_to_
+the_transition` pins the behaviour down so a future refactor cannot quietly
+change which one it is.
+
+**Two goldens are a fingerprint of one interpreter, and it shows.** On torch
+2.2.2 the float64 `test_forward`/`test_backward` and every `test_trajectory`
+differ from `golden/` in the last bits, for all four models, while float32
+forward and backward match bitwise. That is the caveat the section below
+already states, now with a number on it: the goldens were recorded under
+torch 2.13. Re-recording them is a decision for whoever pins the version,
+not for a refactor.
+
 ## Things that are not bugs, but will surprise
 
 **A golden is a fingerprint of one interpreter.** torch 2.13 and torch 2.2

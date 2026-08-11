@@ -37,12 +37,24 @@ does.
 * :mod:`~discopy.neural.batch` : batching over variable structure as the
   monoidal product of maps.
 
+and three modules that say what the others *mean*, without computing
+anything:
+
+* :mod:`~discopy.neural.parametric` : a box as a parametric interaction
+  map :math:`\\Phi : P \\otimes (X^* \\otimes Y) \\to X^* \\otimes Y` on its
+  boundary, rather than as a feed-forward :math:`X \\to Y`.
+* :mod:`~discopy.neural.dynamics` : a map as a global transition
+  :math:`T_\\theta = \\sigma_D \\circ \\Phi_\\theta`, and running it as finite
+  iteration.
+* :mod:`~discopy.neural.laws` : a signature's symmetry as a group action,
+  and how strongly a learned module keeps it.
+
 Note
 ----
 ``import discopy.neural`` does not import ``torch``: networks can be
-built, composed and rewired without it, and so can signatures and
-skeletons.  The three modules that *are* torch -- ``cells``, ``engine``
-and ``batch`` -- are imported on first use.
+built, composed and rewired without it, and so can signatures, skeletons
+and the whole formal layer.  The three modules that *are* torch --
+``cells``, ``engine`` and ``batch`` -- are imported on first use.
 
 Example
 -------
@@ -68,8 +80,17 @@ from discopy.neural.core import (
     Swap,
 )
 from discopy.neural.core import Box
-from discopy.neural import core, functor, signature, skeleton
+from discopy.neural import (
+    core, dynamics, functor, laws, parametric, signature, skeleton)
+from discopy.neural.dynamics import Iteration, Transition
 from discopy.neural.functor import Interpretation, Router, Wiring, interpret
+from discopy.neural.laws import Action, Law, Strictness
+from discopy.neural.parametric import (
+    InteractionMap,
+    ParamMap,
+    Parametric,
+    interaction_spec,
+)
 from discopy.neural.signature import (
     Orbit,
     Signature,
@@ -83,10 +104,13 @@ from discopy.neural.skeleton import Skeleton
 LAZY = ("batch", "cells", "engine")
 
 __all__ = [
-    "Box", "CMap", "Cap", "Cup", "Diagram", "Dim", "Functor", "Hypergraph",
-    "Id", "Interpretation", "Network", "Orbit", "Router", "Signature",
-    "Skeleton", "Swap", "Sym", "Wiring", "batch", "cells", "check_equivariant",
-    "core", "engine", "functor", "interpret", "signature", "skeleton",
+    "Action", "Box", "CMap", "Cap", "Cup", "Diagram", "Dim", "Functor",
+    "Hypergraph", "Id", "InteractionMap", "Interpretation", "Iteration",
+    "Law", "Network", "Orbit", "ParamMap", "Parametric", "Router",
+    "Signature", "Skeleton", "Strictness", "Swap", "Sym", "Transition",
+    "Wiring", "batch", "cells", "check_equivariant", "core", "dynamics",
+    "engine", "functor", "interaction_spec", "interpret", "laws",
+    "parametric", "signature", "skeleton",
 ]
 
 

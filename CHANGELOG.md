@@ -41,6 +41,18 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   permutation operations and functorial semantics, while `symmetric.Layer`
   alternates permutations with generators without canonicalising diagram
   state ([#362](https://github.com/discopy/discopy/pull/362)).
+- A torch-free semantic layer for `discopy.neural`, which says what the
+  executable classes mean without computing anything:
+  `discopy.neural.parametric` distinguishes an ordinary parametric map
+  `f : P @ X -> Y` from the parametric interaction map
+  `Phi : P @ (X* @ Y) -> X* @ Y` on a box boundary that a `Network`
+  actually is, with `interaction_spec` reading one off a `Network`;
+  `discopy.neural.dynamics` records a map as the global transition
+  `T = sigma . Phi` and running it as finite iteration rather than a fixed
+  point; `discopy.neural.laws` reads a `Signature`'s symmetry as a group
+  action together with how strongly a learned module keeps it. The
+  executable `Network`, `CMap`, `Signature`, cells, batching, `Schedule`
+  and engines are unchanged.
 
 ### Changed
 

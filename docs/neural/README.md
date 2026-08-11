@@ -7,6 +7,11 @@ the width on its wires, the update cell and — for one model — the evaluation
 strategy differ, so a difference in the results is a difference between the
 architectures.
 
+[ARCHITECTURE.md](ARCHITECTURE.md) is the companion to this file: what each
+layer *is* — which parts are categorical, which are dynamical, which are the
+Torch realization and which are training policy — and where the boundaries
+between them fall. Read it before changing anything.
+
 ## What a model is here
 
 All three models are the same kind of object: a **closed combinatorial
@@ -126,6 +131,7 @@ engine.
       best/               the optuna-winner recipes, on core.recipes
     golden/               the frozen pre-refactor fingerprints + recorder
     migration.py          loading a checkpoint trained before the refactor
+    ARCHITECTURE.md       the layers, and which of them is which
     NOTES.md              what was left alone, and why
     artifacts/            checkpoints and cached results   (gitignored)
     sudoku_data/          the two benchmarks, fetched on first use (gitignored)

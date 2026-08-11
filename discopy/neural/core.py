@@ -32,9 +32,14 @@ its parameters live on, so ``cmap.to("cuda")`` followed by
 is the equivalent one-call-per-box implementation, kept for clarity and tests;
 :meth:`CMap.compile` wraps the per-round step in ``torch.compile`` for maps
 whose rounds are launch-bound rather than compute-bound.
-Cells need not be feedforward: a box can carry recurrent state between rounds
-along a self-wired pair of ports, i.e. a feedback loop in the sense of the
-trace.
+Cells need not be feedforward: a box can carry state between rounds along a
+self-wired pair of ports.  Structurally that pair *is* the categorical trace
+of the compact target -- it is wiring, which a functor preserves strictly --
+while what it computes over finitely many rounds is delayed feedback: what a
+box writes on one end it reads on the other one round later.  Repeated
+rounds are the finite iteration ``T ** n``, never a fixed-point solve; see
+:mod:`discopy.neural.dynamics` for the transition ``T`` and for the three
+notions kept apart there.
 
 Note that ``import discopy.neural`` does not import ``torch``: networks can
 be built, composed and rewired without it, only evaluating their modules
