@@ -159,7 +159,11 @@ norecursedirs = [
     ".hypothesis",
     "test/fixtures",
 ]
-addopts = "--doctest-modules --ignore=test/fixtures -p plugin"
+# The import mode is importlib so that test/abc.py does not clash with the
+# standard library module of the same name.
+addopts = """
+    --doctest-modules --ignore=test/fixtures -p plugin
+    --import-mode=importlib"""
 
 [tool.coverage.run]
 # The skip paths are unreachable unless --skip-extra is passed, and coverage

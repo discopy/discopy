@@ -14,6 +14,9 @@ the characteristic generator of its categorical structure as an
 Software dependencies between modules go top-to-bottom, left-to-right and
 forgetful functors between categories go the other way.
 
+Each class also declares its :func:`discopy.testing.axiom` equations, which
+every free category inherits along with the structure they axiomatise.
+
 Summary
 -------
 
