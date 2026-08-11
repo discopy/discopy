@@ -131,3 +131,45 @@ Verification: `pflake8 discopy` is clean and `pytest --skip-extra` gives
 122s before this round (the old `@` re-tensored types and names at every
 step); the compatibility question is answered on the thread and filed as
 [#547](https://github.com/discopy/discopy/issues/547).
+
+## Review follow-up (2026-08-07, third round — recorded 🐦 birdsong 2026-08-11)
+
+The 15:34–16:18 UTC round landed **after** the last work commit (`5615254`, 12:56 UTC) and no
+turn picked it up: four days, four trusted instructions, none applied. Recorded here unclaimed.
+
+Alexis, replying to daydream6728 on `Layer.cast`, verbatim:
+
+> ha yes good point!
+
+on daydream6728's *"If this is expected to be true for all subclasses of monoidal.Layer, then we
+can probably remove the cast method altogether"*.
+
+Alexis, on the `len(...) != 3` guard in `interchange`, verbatim:
+
+> yes that's a mistake indeed!
+
+on daydream6728's *"Can't we have less than 3 items if e.g. a box has no type to its left
+`Layer(Ty(), box, right)`? From what i understand, its normal form will be `Layer(box, right)`
+since the odd constraint disappeared."*
+
+Alexis, on deferring `boxes_and_types` to [#547](https://github.com/discopy/discopy/issues/547),
+verbatim:
+
+> not sure
+> let's get rid of it and simplify the 8 methods
+
+Alexis 🚀'd daydream6728's comment (2026-08-07T16:15:34Z), verbatim:
+
+> `Layer` could inherit `ColouredMonoid` and get that for free
+
+- [ ] Remove `Layer.cast`, since every subclass of `monoidal.Layer` satisfies what it casts for
+- [ ] Fix the `any(len(layer.boxes_and_types) != 3 ...)` guard in `Diagram.interchange`: a layer
+  whose box has empty plumbing on one side normalises to two components, so the check rejects
+  diagrams it should accept
+- [ ] Drop `Layer.boxes_and_types` and port the eight call sites in six modules to the new
+  representation, i.e. bring #547 into this pull request and close it with this one
+- [ ] Let `Layer` inherit `ColouredMonoid` rather than restate what it provides
+
+Note for whoever claims these: this roughly doubles the diff of the largest pull request in the
+queue, so the third point is worth splitting off if the review cost is judged too high — that is a
+question for Alexis, not a decision to take here.
