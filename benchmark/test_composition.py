@@ -169,8 +169,7 @@ def test_spiral_build_diagram(benchmark, n):
         rounds=ROUNDS, warmup_rounds=WARMUP)
 
 
-@case("Diagram", "spiral normal form",
-      sizes(5, 10, full=(20,)))  # ~O(n^3): 20 ~ 8.4s
+@case("Diagram", "spiral normal form", sizes(5, 10))
 def test_spiral_normal_form_diagram(benchmark, n):
     spiral = generator.spiral(symmetric.Box, n)
     benchmark.pedantic(
@@ -180,7 +179,7 @@ def test_spiral_normal_form_diagram(benchmark, n):
 # --- transpose normal form --------------------------------------------------
 
 @case("Diagram", "transpose normal form",
-      sizes(5, 10, 20, full=(50, 100)))
+      sizes(5, 10, 20, full=(50,)))
 def test_transpose_normal_form_diagram(benchmark, n):
     # rigid.normal_form genuinely yanks the snakes back to f (super-linear).
     x = rigid.Ty('x')

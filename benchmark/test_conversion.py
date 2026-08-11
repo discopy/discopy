@@ -236,7 +236,7 @@ def test_spiral_diagram_to_cmap(benchmark, n):
 # --- transpose snakes ------------------------------------------------------
 
 @case("Diagram → Hypergraph", "transpose snakes",
-      sizes(10, 20, 50, full=(100, 200)))
+      sizes(10, 20, 50, full=(100,)))
 def test_transpose_diagram_to_hypergraph(benchmark, n):
     morphism = generator.transpose_snakes(
         compact.Box('f', compact.Ty('x'), compact.Ty('x')), n)
@@ -245,7 +245,7 @@ def test_transpose_diagram_to_hypergraph(benchmark, n):
 
 
 @case("Diagram → CMap", "transpose snakes",
-      sizes(10, 20, 50, full=(100, 200)))
+      sizes(10, 20, 50, full=(100,)))
 def test_transpose_diagram_to_cmap(benchmark, n):
     morphism = generator.transpose_snakes(
         compact.Box('f', compact.Ty('x'), compact.Ty('x')), n)
