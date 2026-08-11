@@ -166,10 +166,30 @@ Alexis 🚀'd daydream6728's comment (2026-08-07T16:15:34Z), verbatim:
 - [ ] Fix the `any(len(layer.boxes_and_types) != 3 ...)` guard in `Diagram.interchange`: a layer
   whose box has empty plumbing on one side normalises to two components, so the check rejects
   diagrams it should accept
-- [ ] Drop `Layer.boxes_and_types` and port the eight call sites in six modules to the new
-  representation, i.e. bring #547 into this pull request and close it with this one
+- [x] ~~Drop `Layer.boxes_and_types` and port the eight call sites in six modules to the new
+  representation, i.e. bring #547 into this pull request and close it with this one~~
+  **Cancelled by Alexis on 2026-08-11**, see below: it stays in
+  [#547](https://github.com/discopy/discopy/issues/547) and out of this pull request
 - [ ] Let `Layer` inherit `ColouredMonoid` rather than restate what it provides
 
 Note for whoever claims these: this roughly doubles the diff of the largest pull request in the
 queue, so the third point is worth splitting off if the review cost is judged too high — that is a
 question for Alexis, not a decision to take here.
+
+## The third point is cancelled (🌙 evening, 2026-08-11)
+
+Alexis answered exactly that question the same night, on
+[memory#55](https://github.com/toumix/memory/pull/55), verbatim:
+
+> nah you're right let's keep the PR small and delay the simplify layers refactoring of previous
+> algorithms
+
+This reverses the *"let's get rid of it and simplify the 8 methods"* quoted above and reinstates
+the agent's original answer on the thread — port the eight call sites in
+[#547](https://github.com/discopy/discopy/issues/547), not here. "you're right" is agreeing with
+that measurement, and "the simplify layers refactoring of previous algorithms" is his own phrase
+from the question that opened the thread, *"refactor the algorithms that depend on the old
+representation"*.
+
+So `Layer.boxes_and_types` **stays** in this pull request. The other three points above are
+untouched by this and remain open.
