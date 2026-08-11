@@ -48,7 +48,7 @@ def count_parameters(module) -> int:
 
 
 def single_run(skeleton, ob, cell, n_classes: int, dim: int, state_dim: int,
-               rounds: int, clue: tuple, state: tuple, relation=None,
+               rounds: int, inputs: tuple, state: tuple, relation=None,
                sites=None) -> Engine:
     """
     A single-run solver: deep supervision on every round of one backward
@@ -62,7 +62,7 @@ def single_run(skeleton, ob, cell, n_classes: int, dim: int, state_dim: int,
         dim : The width of the input embedding.
         state_dim : The width the readout decodes.
         rounds : The message-passing rounds of the run.
-        clue : The ``(box name, role)`` of the input trace.
+        inputs : The ``(box name, role)`` of the input trace.
         state : The ``(box name, role)`` the readout decodes.
         relation : A zero-argument factory of the shared relation module,
                    or ``None`` on a pairwise skeleton.
@@ -79,12 +79,12 @@ def single_run(skeleton, ob, cell, n_classes: int, dim: int, state_dim: int,
         sites=sites or ({"cell": "cell", "unit": "factor"}
                         if relation is not None else {"cell": "cell"}),
         schedule=Schedule(rounds=rounds, **DEEP),
-        clue=clue, state=state, n_classes=n_classes)
+        inputs=inputs, state=state, n_classes=n_classes)
 
 
 def recursion(skeleton, ob, cell, relation, n_classes: int, dim: int,
               state_dim: int, y_dim: int, rounds: int, cycles: int,
-              n_sup: int, clue: tuple, state: tuple, answer: tuple,
+              n_sup: int, inputs: tuple, state: tuple, answer: tuple,
               sites=None, **kwargs):
     """
     A segmented-recursion solver, with a halt head when one is given.
@@ -101,7 +101,7 @@ def recursion(skeleton, ob, cell, relation, n_classes: int, dim: int,
         rounds : The rounds per cycle.
         cycles : The cycles per supervision step.
         n_sup : The supervision steps.
-        clue : The ``(box name, role)`` of the input trace.
+        inputs : The ``(box name, role)`` of the input trace.
         state : The ``(box name, role)`` of the latent state.
         answer : The ``(box name, role)`` of the answer trace.
         sites : The module attribute filling each box name.
@@ -122,5 +122,5 @@ def recursion(skeleton, ob, cell, relation, n_classes: int, dim: int,
         sites=sites or {"cell": "cell", "unit": "factor"},
         schedule=Schedule(rounds=rounds, cycles=cycles, steps=n_sup,
                           **SEGMENTED),
-        clue=clue, state=state, n_classes=n_classes, answer=answer,
+        inputs=inputs, state=state, n_classes=n_classes, answer=answer,
         **kwargs)

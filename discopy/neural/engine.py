@@ -43,7 +43,7 @@ Summary
     RecursionEngine
     HaltHead
     ACTEngine
-    PuzzleStream
+    ExampleStream
     ACTTrainer
 """
 
@@ -129,7 +129,7 @@ class Engine(torch.nn.Module):
                 attribute name to a zero-argument factory.
         sites : The attribute name of the module filling each box name.
         schedule : When a loss looks at the messages.
-        clue : The ``(box name, role)`` of the input trace.
+        inputs : The ``(box name, role)`` of the input trace.
         state : The ``(box name, role)`` the readout decodes.
         n_classes : The number of classes the readout emits.
         encoder : The attribute name of the module embedding the input.
@@ -146,7 +146,7 @@ class Engine(torch.nn.Module):
 
     def __init__(self, skeleton, ob: Mapping, parts: Mapping,
                  sites: Mapping, schedule: Schedule,
-                 clue: tuple, state: tuple, n_classes: int,
+                 inputs: tuple, state: tuple, n_classes: int,
                  encoder: str = "embedding", decoder: str = "readout"):
         super().__init__()
         for name, factory in parts.items():
@@ -154,7 +154,7 @@ class Engine(torch.nn.Module):
         self.schedule, self.n = schedule, n_classes
         self.encoder_name, self.decoder_name = encoder, decoder
         self.skeleton, self.ob = skeleton, dict(ob)
-        self.clue_key, self.state_key = clue, state
+        self.input_key, self.state_key = inputs, state
         self.interpretation = Interpretation(ob, {
             box: getattr(self, attribute)
             for box, attribute in sites.items()})
@@ -175,11 +175,11 @@ class Engine(torch.nn.Module):
         self.wiring = wiring
         self.grid = wiring.cmap
         self.router = wiring.router
-        self.clue_ports = wiring.ports[self.clue_key]
+        self.input_ports = wiring.ports[self.input_key]
         self.state_ports = wiring.heads[self.state_key]
-        self.clue_copies = len(self.clue_ports) // len(
-            wiring.heads[self.clue_key])
-        self.n_cells = len(wiring.heads[self.clue_key])
+        self.input_copies = len(self.input_ports) // len(
+            wiring.heads[self.input_key])
+        self.n_cells = len(wiring.heads[self.input_key])
         self.cells = self.grid.as_network().module
 
     def bind(self, parts, pad: bool = False):
@@ -210,7 +210,7 @@ class Engine(torch.nn.Module):
         from discopy.neural.batch import Batch
         batch = Batch(parts, self.interpretation, pad=pad)
         self.batch = batch
-        name, role = self.clue_key
+        name, role = self.input_key
         self.member_cells = tuple(
             sum(len(part.signature(index).heads(role))
                 for index in part.indices(name))
@@ -301,8 +301,8 @@ class Engine(torch.nn.Module):
         flat = torch.zeros(len(x), self.router.total,
                            dtype=embedded.dtype, device=embedded.device)
         return self.router.write(
-            flat, self.clue_ports,
-            embedded.repeat_interleave(self.clue_copies, dim=1))
+            flat, self.input_ports,
+            embedded.repeat_interleave(self.input_copies, dim=1))
 
     def advance(self, state, rounds: int, per_round: bool = False):
         """
@@ -504,9 +504,9 @@ class HaltHead(torch.nn.Linear):
     * ``"softmin"`` : one logit *per* site, trained against per-site
       correctness and aggregated by a soft minimum,
       ``q = -logsumexp(-q_i)``.  The transformer original reads a slot
-      that attention lets act as a soft minimum over the board; a map has
+      that attention lets act as a soft minimum over the sites; a map has
       no such slot, so the aggregation is explicit.  It matches the
-      target's conjunctive shape -- a solution is correct when *every*
+      target's conjunctive shape -- an answer is correct when *every*
       site is -- where a mean dilutes one wrong site by one over their
       number, and it is conservative by construction, since ``q`` lower
       bounds the least confident site.  The per-site targets also give the
@@ -575,7 +575,7 @@ class HaltHead(torch.nn.Linear):
         Parameters:
             halt : The output of :meth:`read`.
             logits : The class logits of the same step.
-            targets : The 0-indexed solutions, ``(batch, n_cells)``.
+            targets : The 0-indexed targets, ``(batch, n_cells)``.
         """
         with torch.no_grad():
             correct = logits.argmax(-1) == targets
@@ -653,7 +653,7 @@ class ACTEngine(RecursionEngine):
         return self.q_head.loss(halt, logits, targets)
 
 
-class PuzzleStream:
+class ExampleStream:
     """
     A device-resident stream of training examples for the slot refill.
 
@@ -666,21 +666,22 @@ class PuzzleStream:
     repeat once the whole set has been consumed.
 
     Parameters:
-        clues : The training inputs, on the device.
-        targets : The 0-indexed solutions, on the device.
+        inputs : The training inputs, on the device.
+        targets : The 0-indexed targets, on the device.
         rng : The ``numpy`` generator behind the shuffles.
     """
-    def __init__(self, clues, targets, rng):
-        assert len(clues) == len(targets), "clues and targets disagree"
-        self.clues, self.targets, self.rng = clues, targets, rng
+    def __init__(self, inputs, targets, rng):
+        assert len(inputs) == len(targets), "inputs and targets disagree"
+        self.inputs, self.targets, self.rng = inputs, targets, rng
         self.consumed_before = 0
         self._reshuffle()
 
     def _reshuffle(self) -> None:
         self.order = torch.as_tensor(
-            self.rng.permutation(len(self.clues)), device=self.clues.device)
+            self.rng.permutation(len(self.inputs)),
+            device=self.inputs.device)
         self.cursor = torch.zeros(
-            (), dtype=torch.long, device=self.clues.device)
+            (), dtype=torch.long, device=self.inputs.device)
 
     def total_consumed(self) -> int:
         """
@@ -715,7 +716,7 @@ class PuzzleStream:
         ranks = torch.cumsum(halted.long(), 0) - 1
         index = self.order[(self.cursor + ranks) % len(self.order)]
         self.cursor = self.cursor + halted.sum()
-        return self.clues[index], self.targets[index]
+        return self.inputs[index], self.targets[index]
 
 
 class ACTTrainer:
@@ -740,7 +741,7 @@ class ACTTrainer:
 
     Parameters:
         model : The :class:`ACTEngine` to train.
-        stream : The :class:`PuzzleStream` feeding the refill.
+        stream : The :class:`ExampleStream` feeding the refill.
         batch_size : The number of slots.
         grad_clip : The gradient-norm clip of every optimizer step.
         halt_weight : The weight of the halt loss in the total -- below 1
@@ -751,7 +752,7 @@ class ACTTrainer:
         halt_threshold : The margin the halt logit must clear to stop a
                          slot, ``0`` for the paper's ``q > 0``.
     """
-    def __init__(self, model: ACTEngine, stream: PuzzleStream,
+    def __init__(self, model: ACTEngine, stream: ExampleStream,
                  batch_size: int, grad_clip: float = GRAD_CLIP,
                  halt_weight: float = 1.0, halt_threshold: float = 0.0):
         assert model.cycles > 1, "one cycle would differentiate the refill"
@@ -759,11 +760,11 @@ class ACTTrainer:
         self.grad_clip = grad_clip
         self.halt_weight = halt_weight
         self.halt_threshold = halt_threshold
-        device = stream.clues.device
+        device = stream.inputs.device
         halted = torch.ones(batch_size, dtype=torch.bool, device=device)
-        self.clues, self.targets = stream.take(halted)
+        self.inputs, self.targets = stream.take(halted)
         with torch.no_grad():
-            self.state = model.initial(self.clues)
+            self.state = model.initial(self.inputs)
         self.steps = torch.zeros(batch_size, dtype=torch.long, device=device)
 
     def _run_raw(self, optimizer, scheduler, ema, iterations: int) -> dict:
@@ -777,7 +778,7 @@ class ACTTrainer:
         model, stream = self.model, self.stream
         ce = torch.nn.functional.cross_entropy
         model.train()
-        device = stream.clues.device
+        device = stream.inputs.device
         zeros = torch.zeros((), device=device)
         totals = {key: zeros.clone() for key in (
             "loss", "ce", "q", "halted", "solved", "depth", "capped")}
@@ -817,11 +818,11 @@ class ACTTrainer:
                 totals["depth"] += (steps * halted).sum()
                 totals["capped"] += (capped & ~wants_halt).sum()
 
-                new_clues, new_targets = stream.take(halted)
+                new_inputs, new_targets = stream.take(halted)
                 mask = halted.unsqueeze(-1)
-                self.clues = torch.where(mask, new_clues, self.clues)
+                self.inputs = torch.where(mask, new_inputs, self.inputs)
                 self.targets = torch.where(mask, new_targets, self.targets)
-                fresh = model.initial(self.clues)
+                fresh = model.initial(self.inputs)
                 # clone, not just detach: under reduce-overhead the state
                 # is a graph output whose buffer the next replay reuses.
                 self.state = torch.where(
@@ -903,8 +904,9 @@ class ACTTrainer:
         return result
 
 
-def evaluate_act(model: ACTEngine, split, decode, max_sup: int = None,
-                 batch_size: int = 2000, threshold: float = 0.0) -> dict:
+def evaluate_act(model: ACTEngine, inputs, targets, decode,
+                 max_sup: int = None, batch_size: int = 2000,
+                 threshold: float = 0.0) -> dict:
     """
     Inference with the paper's early stopping: every problem runs until its
     halt logit clears ``threshold`` or ``max_sup`` supervision steps are
@@ -914,16 +916,17 @@ def evaluate_act(model: ACTEngine, split, decode, max_sup: int = None,
 
     Parameters:
         model : The trained :class:`ACTEngine`.
-        split : The split to evaluate on, with ``puzzles`` and
-                ``solutions`` arrays.
-        decode : The task's decode rule, ``(logits, clues) -> classes``.
+        inputs : The inputs, an array of shape ``(n, n_cells)``.
+        targets : What :func:`decode` should return, ``(n, n_cells)``.
+        decode : The task's decode rule, ``(logits, inputs) -> classes``.
         max_sup : The cap on supervision steps, the schedule's by default.
         batch_size : The evaluation batch size.
         threshold : The margin the halt logit must clear.
 
     Returns:
-        ``cell`` and ``board`` accuracy, and ``depth``, the mean number of
-        supervision steps actually run per problem.
+        ``cell``, the per-cell accuracy, ``solved``, the fraction of
+        problems whose every cell is correct, and ``depth``, the mean
+        number of supervision steps actually run per problem.
     """
     import numpy as np
     model.eval()
@@ -931,19 +934,19 @@ def evaluate_act(model: ACTEngine, split, decode, max_sup: int = None,
     device = next(model.parameters()).device
     correct, solved, depths = [], [], []
     with torch.no_grad():
-        for start in range(0, len(split), batch_size):
+        for start in range(0, len(inputs), batch_size):
             stop = start + batch_size
-            clues = torch.as_tensor(
-                split.puzzles[start:stop], dtype=torch.long, device=device)
+            given = torch.as_tensor(
+                inputs[start:stop], dtype=torch.long, device=device)
             target = torch.as_tensor(
-                split.solutions[start:stop], dtype=torch.long, device=device)
+                targets[start:stop], dtype=torch.long, device=device)
             torch.compiler.cudagraph_mark_step_begin()
-            state = model.initial(clues)
+            state = model.initial(given)
             halted = torch.zeros(
-                len(clues), dtype=torch.bool, device=device)
+                len(given), dtype=torch.bool, device=device)
             final = torch.zeros(
-                len(clues), model.n_cells, model.n, device=device)
-            depth = torch.full((len(clues), ), max_sup,
+                len(given), model.n_cells, model.n, device=device)
+            depth = torch.full((len(given), ), max_sup,
                                dtype=torch.long, device=device)
             for t in range(1, max_sup + 1):
                 torch.compiler.cudagraph_mark_step_begin()
@@ -958,13 +961,13 @@ def evaluate_act(model: ACTEngine, split, decode, max_sup: int = None,
                 halted |= newly
                 if bool(halted.all()):
                     break
-            matches = decode(final, clues) == target
+            matches = decode(final, given) == target
             correct.append(matches.float().mean(1).cpu().numpy())
             solved.append(matches.all(1).cpu().numpy())
             depths.append(depth.cpu().numpy())
     correct = np.concatenate(correct)
     return {"cell": float(correct.mean()),
-            "board": float(np.concatenate(solved).mean()),
+            "solved": float(np.concatenate(solved).mean()),
             "depth": float(np.concatenate(depths).mean())}
 
 
@@ -994,10 +997,10 @@ def perturb_answer(model: RecursionEngine, state, sigma: float,
         (answer + noise).repeat_interleave(model.answer_copies, dim=1))
 
 
-def evaluate_selected(model: ACTEngine, split, decode, rollouts: int = 4,
-                      sigma: float = 0.1, max_sup: int = None,
-                      batch_size: int = 2000, threshold: float = 0.0,
-                      seed: int = 0) -> dict:
+def evaluate_selected(model: ACTEngine, inputs, targets, decode,
+                      rollouts: int = 4, sigma: float = 0.1,
+                      max_sup: int = None, batch_size: int = 2000,
+                      threshold: float = 0.0, seed: int = 0) -> dict:
     """
     Best-of-``rollouts`` inference selected by the halt head: the halt
     logit is a learned *verifier* of the answer it halts with, so it can
@@ -1014,9 +1017,9 @@ def evaluate_selected(model: ACTEngine, split, decode, rollouts: int = 4,
 
     Parameters:
         model : The trained :class:`ACTEngine`.
-        split : The split to evaluate on, with ``puzzles`` and
-                ``solutions`` arrays.
-        decode : The task's decode rule, ``(logits, clues) -> classes``.
+        inputs : The inputs, an array of shape ``(n, n_cells)``.
+        targets : What :func:`decode` should return, ``(n, n_cells)``.
+        decode : The task's decode rule, ``(logits, inputs) -> classes``.
         rollouts : The number of independent trajectories per problem.
         sigma : The noise level on the answer trace.
         max_sup : The cap on supervision steps, the schedule's by default.
@@ -1025,42 +1028,42 @@ def evaluate_selected(model: ACTEngine, split, decode, rollouts: int = 4,
         seed : The seed of the noise, one independent stream per rollout.
 
     Returns:
-        ``cell``, ``board`` and ``depth`` of the selected rollout --
-        comparable to :func:`evaluate_act` -- plus ``board_mean``, the
-        single-rollout average, and ``board_oracle``, the pass@k upper
+        ``cell``, ``solved`` and ``depth`` of the selected rollout --
+        comparable to :func:`evaluate_act` -- plus ``solved_mean``, the
+        single-rollout average, and ``solved_oracle``, the pass@k upper
         bound a perfect verifier would reach.
     """
     import numpy as np
     model.eval()
     max_sup = model.n_sup if max_sup is None else max_sup
     device = next(model.parameters()).device
-    cells, boards, means, oracles, depths = [], [], [], [], []
+    cells, chosen, means, oracles, depths = [], [], [], [], []
     with torch.no_grad():
-        for start in range(0, len(split), batch_size):
+        for start in range(0, len(inputs), batch_size):
             stop = start + batch_size
-            clues = torch.as_tensor(
-                split.puzzles[start:stop], dtype=torch.long, device=device)
+            given = torch.as_tensor(
+                inputs[start:stop], dtype=torch.long, device=device)
             target = torch.as_tensor(
-                split.solutions[start:stop], dtype=torch.long, device=device)
-            best_q = torch.full((len(clues), ), -torch.inf, device=device)
-            best = torch.zeros(len(clues), model.n_cells, model.n,
+                targets[start:stop], dtype=torch.long, device=device)
+            best_q = torch.full((len(given), ), -torch.inf, device=device)
+            best = torch.zeros(len(given), model.n_cells, model.n,
                                device=device)
             best_depth = torch.zeros(
-                len(clues), dtype=torch.long, device=device)
+                len(given), dtype=torch.long, device=device)
             solved_any = torch.zeros(
-                len(clues), dtype=torch.bool, device=device)
-            solved_mean = torch.zeros(len(clues), device=device)
+                len(given), dtype=torch.bool, device=device)
+            solved_mean = torch.zeros(len(given), device=device)
             for rollout in range(rollouts):
                 generator = torch.Generator(device=device)
                 generator.manual_seed(
                     1_000_003 * seed + 9_176 * start + rollout)
                 torch.compiler.cudagraph_mark_step_begin()
-                state = model.initial(clues)
+                state = model.initial(given)
                 halted = torch.zeros(
-                    len(clues), dtype=torch.bool, device=device)
+                    len(given), dtype=torch.bool, device=device)
                 final = torch.zeros_like(best)
                 q_final = torch.full_like(best_q, -torch.inf)
-                depth = torch.full((len(clues), ), max_sup,
+                depth = torch.full((len(given), ), max_sup,
                                    dtype=torch.long, device=device)
                 for t in range(1, max_sup + 1):
                     torch.compiler.cudagraph_mark_step_begin()
@@ -1077,21 +1080,21 @@ def evaluate_selected(model: ACTEngine, split, decode, rollouts: int = 4,
                     halted |= newly
                     if bool(halted.all()):
                         break
-                solved = (decode(final, clues) == target).all(1)
+                solved = (decode(final, given) == target).all(1)
                 solved_mean += solved.float() / rollouts
                 solved_any |= solved
                 better = q_final > best_q
                 best_q = torch.where(better, q_final, best_q)
                 best = torch.where(better[:, None, None], final, best)
                 best_depth = torch.where(better, depth, best_depth)
-            matches = decode(best, clues) == target
+            matches = decode(best, given) == target
             cells.append(matches.float().mean(1).cpu().numpy())
-            boards.append(matches.all(1).cpu().numpy())
+            chosen.append(matches.all(1).cpu().numpy())
             means.append(solved_mean.cpu().numpy())
             oracles.append(solved_any.cpu().numpy())
             depths.append(best_depth.cpu().numpy())
     return {"cell": float(np.concatenate(cells).mean()),
-            "board": float(np.concatenate(boards).mean()),
-            "board_mean": float(np.concatenate(means).mean()),
-            "board_oracle": float(np.concatenate(oracles).mean()),
+            "solved": float(np.concatenate(chosen).mean()),
+            "solved_mean": float(np.concatenate(means).mean()),
+            "solved_oracle": float(np.concatenate(oracles).mean()),
             "depth": float(np.concatenate(depths).mean())}

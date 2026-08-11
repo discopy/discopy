@@ -129,7 +129,9 @@ def structure(model, arrays: dict) -> dict:
             "parameters": zoo.count_parameters(model),
         },
         "families": {
-            "clue_ports": list(model.clue_ports),
+            # the key names are frozen with the goldens; the attributes
+            # were renamed task-agnostic (clue_ports -> input_ports).
+            "clue_ports": list(model.input_ports),
             "state_ports": list(model.state_ports),
             "answer_ports": list(model.answer_ports),
         },

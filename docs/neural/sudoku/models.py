@@ -51,7 +51,7 @@ def goi(widths: Widths = None, rounds: int = 16, n: int = N) -> Engine:
         relation=lambda: _relation(widths),
         n_classes=n, dim=widths.dim, state_dim=widths.state_dim,
         rounds=rounds,
-        clue=("cell", roles.CLUE), state=("cell", roles.STATE))
+        inputs=("cell", roles.CLUE), state=("cell", roles.STATE))
 
 
 def rrn(widths: Widths = None, rounds: int = 16, n: int = N) -> Engine:
@@ -76,7 +76,7 @@ def rrn(widths: Widths = None, rounds: int = 16, n: int = N) -> Engine:
             recurrent="lstm", emit=False),
         n_classes=n, dim=widths.dim, state_dim=widths.state_dim,
         rounds=rounds,
-        clue=("cell", roles.CLUE), state=("cell", roles.HIDDEN))
+        inputs=("cell", roles.CLUE), state=("cell", roles.HIDDEN))
 
 
 def trm(widths: Widths = None, rounds: int = 6, cycles: int = 3,
@@ -191,5 +191,5 @@ def _recursion(widths: Widths, rounds: int, cycles: int, n_sup: int,
         relation=lambda: _relation(widths),
         n_classes=n, dim=widths.dim, state_dim=widths.state_dim,
         y_dim=widths.y_dim, rounds=rounds, cycles=cycles, n_sup=n_sup,
-        clue=("cell", roles.CLUE), state=("cell", roles.STATE),
+        inputs=("cell", roles.CLUE), state=("cell", roles.STATE),
         answer=("cell", roles.ANSWER), **kwargs)

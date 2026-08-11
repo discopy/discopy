@@ -14,9 +14,9 @@ here alongside the rest so that existing callers keep resolving.
 from __future__ import annotations
 
 from core.act import (  # noqa: F401 -- re-exported
-    ACTEngine, ACTTrainer, HaltHead, PuzzleStream, evaluate_act,
-    evaluate_selected)
+    ACTEngine, ACTTrainer, ExampleStream, HaltHead, PuzzleStream,
+    evaluate_act, evaluate_selected)
 from sudoku.models import act  # noqa: F401 -- the builder, re-exported
 
-__all__ = ["ACTEngine", "ACTTrainer", "HaltHead", "PuzzleStream", "act",
-           "evaluate_act", "evaluate_selected"]
+__all__ = ["ACTEngine", "ACTTrainer", "ExampleStream", "HaltHead",
+           "PuzzleStream", "act", "evaluate_act", "evaluate_selected"]

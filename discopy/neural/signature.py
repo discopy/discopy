@@ -42,19 +42,19 @@ Example
 -------
 
 >>> from discopy.frobenius import Ty
->>> message, state, clue = Ty("message"), Ty("state"), Ty("clue")
+>>> message, state, given = Ty("message"), Ty("state"), Ty("given")
 >>> cell = Signature((
 ...     Orbit(message, 3, Sym.PERM), Orbit(state, traced=True),
-...     Orbit(clue, traced=True)))
+...     Orbit(given, traced=True)))
 >>> print(cell.cod)
-message @ message @ message @ state @ state @ clue @ clue
+message @ message @ message @ state @ state @ given @ given
 >>> cell.positions(state)
 (3, 4)
 >>> cell.loops()
 ((3, 4), (5, 6))
->>> places = cell.slices({message: 24, state: 96, clue: 24})
+>>> places = cell.slices({message: 24, state: 96, given: 24})
 >>> {str(role): (block.start, block.stop) for role, block in places.items()}
-{'message': (0, 72), 'state': (72, 168), 'clue': (264, 288)}
+{'message': (0, 72), 'state': (72, 168), 'given': (264, 288)}
 """
 
 from __future__ import annotations
@@ -155,7 +155,7 @@ class Signature:
     >>> peer, hidden, memory = Ty("peer"), Ty("hidden"), Ty("memory")
     >>> clique = Signature((
     ...     Orbit(peer, 4, Sym.PERM), Orbit(hidden @ memory, traced=True),
-    ...     Orbit(Ty("clue"), traced=True)))
+    ...     Orbit(Ty("given"), traced=True)))
     >>> clique.positions(hidden), clique.positions(memory)
     ((4, 6), (5, 7))
     >>> clique.loops()

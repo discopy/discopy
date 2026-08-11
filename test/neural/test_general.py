@@ -267,7 +267,7 @@ def small_engine(skeleton, n_classes: int = 4):
         sites={"cell": "cell"},
         schedule=Schedule(rounds=3, cycles=1, steps=1,
                           inject=True, supervise="round"),
-        clue=("cell", CLUE), state=("cell", STATE), n_classes=n_classes)
+        inputs=("cell", CLUE), state=("cell", STATE), n_classes=n_classes)
 
 
 def test_bind_matches_members():
@@ -341,16 +341,8 @@ def test_bind_shares_parameters():
 
 # --- P6: verifier-based selection -------------------------------------------
 
-class TinySplit:
-    def __init__(self, puzzles, solutions):
-        self.puzzles, self.solutions = puzzles, solutions
-
-    def __len__(self):
-        return len(self.puzzles)
-
-
 @pytest.fixture(scope="module")
-def act_model_and_split():
+def act_model_and_data():
     import sys
     from pathlib import Path
     neural = Path(__file__).resolve().parents[2] / "docs" / "neural"
@@ -363,40 +355,40 @@ def act_model_and_split():
     np.random.seed(0)
     model = zoo.act(rounds=1, cycles=2, n_sup=2, halt_head="softmin")
     arrays = np.load(neural / "golden" / "act.npz")
-    split = TinySplit(arrays["clues"][:8], arrays["target"][:8] + 1)
-    return model, split
+    return model, arrays["clues"][:8], arrays["target"][:8] + 1
 
 
-def decode_rule(logits, clues):
+def decode_rule(logits, given):
     predicted = logits.argmax(-1) + 1
-    return torch.where(clues > 0, clues, predicted)
+    return torch.where(given > 0, given, predicted)
 
 
-def test_selected_degenerates_to_act(act_model_and_split):
+def test_selected_degenerates_to_act(act_model_and_data):
     """With one rollout and no noise, the selected evaluation *is* the
     ACT evaluation, number for number."""
-    model, split = act_model_and_split
-    plain = evaluate_act(model, split, decode_rule, batch_size=4)
+    model, inputs, targets = act_model_and_data
+    plain = evaluate_act(model, inputs, targets, decode_rule, batch_size=4)
     selected = evaluate_selected(
-        model, split, decode_rule, rollouts=1, sigma=0.0, batch_size=4)
-    for key in ("cell", "board", "depth"):
+        model, inputs, targets, decode_rule,
+        rollouts=1, sigma=0.0, batch_size=4)
+    for key in ("cell", "solved", "depth"):
         assert selected[key] == plain[key], key
-    assert selected["board_mean"] == plain["board"]
-    assert selected["board_oracle"] == plain["board"]
+    assert selected["solved_mean"] == plain["solved"]
+    assert selected["solved_oracle"] == plain["solved"]
 
 
-def test_selected_is_bounded_and_deterministic(act_model_and_split):
-    model, split = act_model_and_split
-    one = evaluate_selected(model, split, decode_rule,
+def test_selected_is_bounded_and_deterministic(act_model_and_data):
+    model, inputs, targets = act_model_and_data
+    one = evaluate_selected(model, inputs, targets, decode_rule,
                             rollouts=3, sigma=0.5, batch_size=4, seed=7)
-    two = evaluate_selected(model, split, decode_rule,
+    two = evaluate_selected(model, inputs, targets, decode_rule,
                             rollouts=3, sigma=0.5, batch_size=4, seed=7)
     assert one == two
-    assert one["board_oracle"] >= one["board"] >= 0.0
-    assert one["board_oracle"] >= one["board_mean"]
+    assert one["solved_oracle"] >= one["solved"] >= 0.0
+    assert one["solved_oracle"] >= one["solved_mean"]
 
 
-def test_act_engine_refuses_bind(act_model_and_split):
-    model, _ = act_model_and_split
+def test_act_engine_refuses_bind(act_model_and_data):
+    model, _, _ = act_model_and_data
     with pytest.raises(NotImplementedError, match="halt head"):
         model.bind([model.skeleton])

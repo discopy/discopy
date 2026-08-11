@@ -296,9 +296,9 @@ def from_incidence(incidence: tuple, node: Signature, relation: Signature,
     -------
     >>> from discopy.frobenius import Ty
     >>> from discopy.neural.signature import Sym
-    >>> message, clue = Ty("message"), Ty("clue")
+    >>> message, given = Ty("message"), Ty("given")
     >>> node = Signature((Orbit(message, 2, Sym.PERM),
-    ...                   Orbit(clue, traced=True)))
+    ...                   Orbit(given, traced=True)))
     >>> unit = Signature((Orbit(message, 3, Sym.PERM), ))
     >>> square = from_incidence(
     ...     ((0, 1), (0, 1), (0, 1)), node, unit)

@@ -210,12 +210,12 @@ class Site(Cell):
     -------
     >>> from discopy.frobenius import Ty
     >>> from discopy.neural import Orbit, Signature, Sym
-    >>> message, state, clue = Ty("message"), Ty("state"), Ty("clue")
+    >>> message, state, given = Ty("message"), Ty("state"), Ty("given")
     >>> cell = Site(
     ...     Signature((Orbit(message, 3, Sym.PERM),
-    ...                Orbit(state, traced=True), Orbit(clue, traced=True))),
-    ...     {message: 4, state: 8, clue: 4},
-    ...     {state: Mode.STATE, clue: Mode.INPUT}, hidden=16)
+    ...                Orbit(state, traced=True), Orbit(given, traced=True))),
+    ...     {message: 4, state: 8, given: 4},
+    ...     {state: Mode.STATE, given: Mode.INPUT}, hidden=16)
     >>> cell(torch.zeros(2, 3 * 4 + 2 * 8 + 2 * 4)).shape
     torch.Size([2, 36])
     """
