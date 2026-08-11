@@ -42,6 +42,56 @@ i.e. when it is an `Elgot monad
 subdistribution monads all are; a monad without one raises rather than
 returning a wrong answer.
 
+Token machines
+--------------
+
+Dal Lago & Hoshino's `Geometry of Bayesian Programming
+<https://arxiv.org/abs/1904.11324>`_ (2019) reads a probabilistic program
+as a net and its execution as a token walking through it. A machine with
+entry wires ``dom``, exit wires ``cod`` and ``n`` internal wires is a
+channel over the subdistribution monad
+
+.. math::
+    \\text{net} : \\text{dom} + \\text{mem} \\to \\text{cod} + \\text{mem}
+
+sending the token at one port to the subdistribution of ports it may move
+to next, and the machine's whole behaviour is ``net.trace(n)``: the
+execution formula walks the token until it leaves through an exit.
+
+Take a coin drawn from a fair one and one biased ``4 / 5`` towards heads,
+then flipped, with a machine that exits when it comes up heads and sends
+the token back to the start when it comes up tails:
+
+>>> from discopy.kleisli.monad import Subdistribution
+>>> Machine, Hyp, Unit = Channel[Subdistribution], str, type(None)
+>>> draw = Machine(lambda _: frozenset({
+...     ("fair", .5), ("biased", .5)}), (Unit, ), (Hyp, ))
+>>> flip = Machine(lambda h: frozenset({
+...     (Tagged(h, 0), .5 if h == "fair" else .8),
+...     (Tagged(None, 1), .5 if h == "fair" else .2)}), (Hyp, ), (Hyp, Unit))
+>>> net = Machine.merge((Unit, ), 2) >> draw >> flip
+
+One step of the machine leaves the token spread over the exit and the
+internal wire. The mass that exits is the evidence, i.e. the probability
+of observing heads, and the mass that loops is what a subdistribution is
+allowed to lose:
+
+>>> token = (draw >> flip)(None)
+>>> round(sum(p for port, p in token if port.tag == 0), 3)
+0.65
+
+Tracing the internal wire feeds the tails back into the draw, i.e. it is
+rejection sampling written as a feedback loop. The execution formula
+resolves it exactly rather than sampling, and what comes out is the
+posterior of Bayes' rule, ``.25 / .65`` and ``.4 / .65``:
+
+>>> {h: round(p, 3) for h, p in sorted(net.trace()(None))}
+{'biased': 0.615, 'fair': 0.385}
+
+Losing mass and then recovering it is the whole point: conditioning is a
+trace, so a Bayesian program is a token machine whose net says nothing
+about probability beyond one step at a time.
+
 Summary
 -------
 

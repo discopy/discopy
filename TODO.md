@@ -20,7 +20,7 @@ Prompt ([#374](https://github.com/discopy/discopy/issues/374), verbatim):
 - [ ] `Hypergraph` evaluation methods: token passing for `additive`, message passing for `multiplicative` — coordinate with #366 and #363. **Blocked**: both still draft and far behind `main`
 - [x] @evening-2026-07-27T15:11-2026-07-27T15:35 `multiplicative` stress test: compare results against tensor contraction on small enough models (per issue comment)
 - [x] @evening-2026-07-29T02:06-2026-07-29T02:45 Implement the state monad for seeded randomness; compare empirical distributions against the ones computed explicitly via sub-distribution dicts (value → nonzero weight)
-- [WIP] @evening-2026-08-11T00:10Z `additive` worked example: Dal Lago–Hoshino's token machines (*Geometry of Bayesian Programming*) — the best source found so far for a non-trivial case. **Unblocked 2026-08-10**: `discopy.kleisli.additive` now exists, so this point is the next one to pick up
+- [x] @evening-2026-08-11T00:10Z-2026-08-11T00:40Z `additive` worked example: Dal Lago–Hoshino's token machines (*Geometry of Bayesian Programming*), see the note below
 - [ ] Write every example as a term in the effectful lambda calculus of #370, not as a diagram built with tensor/composition. **Blocked on [#489](https://github.com/discopy/discopy/pull/489)**: measured 2026-08-09, `let`/`Product`/`Projection` are not on `main`, #370 is open and #489 is the only branch implementing it — itself queued behind #511
 - [x] @evening-2026-08-09T00:05Z-2026-08-09T00:25Z Run `pflake8 discopy` and `coverage run -m pytest`
 
@@ -243,3 +243,30 @@ f.trace()(7)
 Filed as an issue rather than fixed here, since `python.additive` is not this
 branch's subject. `additive.Channel.trace` translates the tag properly
 (`tag - len(cod) + len(dom)`), so it is correct for unequal arities.
+
+## Token machines (🌙 evening, 2026-08-11)
+
+The worked example lives in the `discopy.kleisli.additive` module docstring
+(so it is doctested) with `test_additive_token_machine_computes_the_posterior`
+in `test/kleisli.py` checking it against Bayes' rule symbolically rather than
+against the rounded numbers the doctest prints.
+
+Dal Lago–Hoshino read a probabilistic program as a net walked by a token, and
+a net with `n` internal wires is exactly a channel `dom + mem -> cod + mem`
+here, its behaviour `net.trace(n)`. The example is a coin drawn from a prior
+over a fair and a `4/5`-biased hypothesis, flipped, exiting on heads and
+returning to the draw on tails, built compositionally out of `merge`, `>>`
+and `.trace()` rather than as one hand-written transition function.
+
+The point worth the example, and the reason this is the right source: **one
+step loses mass and the trace gives it back**. The un-traced net exits with
+total mass `.65`, which is the evidence `P(heads)`; that is precisely what the
+*sub*-distribution monad is for, and a plain distribution monad could not
+type it. Feeding the tails back is rejection sampling, and the execution
+formula resolves the loop exactly instead of sampling it, so the traced
+channel is the posterior of Bayes' rule on the nose — `.25/.65` and `.4/.65`,
+summing back to one. Conditioning is a trace.
+
+Deliberately *not* done: the full GoI translation of a λ-calculus into nets.
+That is #370/#376 territory and would need the `let`/`Product` terms of #489;
+this point asked for a worked example of `additive`, not a compiler.

@@ -556,6 +556,36 @@ def test_additive_trace_needs_an_iteration_operator():
         ).trace(left=True)
 
 
+def test_additive_token_machine_computes_the_posterior():
+    """
+    Dal Lago-Hoshino's token machine for a coin drawn from a prior and
+    flipped: one step loses the mass of the tails, i.e. the evidence is
+    what exits, and tracing the internal wire feeds the tails back into
+    the draw. That loop is rejection sampling, so the traced machine
+    computes Bayes' rule exactly, see the module docstring.
+    """
+    Machine, Hyp, Unit = additive.Channel[Subdistribution], str, type(None)
+    prior = {"fair": .5, "biased": .5}
+    likelihood = {"fair": .5, "biased": .8}
+
+    draw = Machine(
+        lambda _: frozenset(prior.items()), (Unit, ), (Hyp, ))
+    flip = Machine(lambda h: frozenset({
+        (Tagged(h, 0), likelihood[h]),
+        (Tagged(None, 1), 1 - likelihood[h])}), (Hyp, ), (Hyp, Unit))
+    net = Machine.merge((Unit, ), 2) >> draw >> flip
+
+    evidence = sum(prior[h] * likelihood[h] for h in prior)
+    assert sum(
+        p for port, p in (draw >> flip)(None) if port.tag == 0
+    ) == approx(evidence)
+
+    posterior = dict(net.trace()(None))
+    assert posterior == {
+        h: approx(prior[h] * likelihood[h] / evidence) for h in prior}
+    assert sum(posterior.values()) == approx(1)
+
+
 def test_additive_Channel_repr():
     half = additive.Channel[Maybe](
         lambda x: x // 2 if x % 2 == 0 else None, int, int)

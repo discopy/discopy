@@ -45,7 +45,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   multiplicative and additive instances. `Monad` carries an optional
   `iterate` operator, i.e. the structure of an Elgot monad, so that
   `kleisli.additive.Channel.trace` is defined exactly for the monads that
-  supply one ([#443](https://github.com/discopy/discopy/pull/443)).
+  supply one, with Dal Lago-Hoshino's token machines as a worked example
+  where conditioning is a trace
+  ([#443](https://github.com/discopy/discopy/pull/443)).
 
 ### Changed
 
