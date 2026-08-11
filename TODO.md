@@ -16,8 +16,9 @@ always produce a non-empty `inside`. The fix is still worth landing so the
 bug doesn't surface later, and it needs a regression test that directly
 constructs `Context([])` since no current code path reaches it.
 
-- [ ] Fix `Context.dom` to call `self.category.ob().tensor(...)` on an
-      instance, matching the `Abstraction.__check_dom__` pattern.
+- [WIP] @evening-2026-08-11 09:00 Fix `Context.dom` to call
+      `self.category.ob().tensor(...)` on an instance, matching the
+      `Abstraction.__check_dom__` pattern.
 - [ ] Add a regression test in `test/closed.py` constructing `Context([])`
       and asserting `.dom == Ty()`, plus a non-empty case confirming the
       existing (accidentally-correct) behaviour still holds.
