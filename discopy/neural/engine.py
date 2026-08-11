@@ -154,18 +154,88 @@ class Engine(torch.nn.Module):
         self.schedule, self.n = schedule, n_classes
         self.encoder_name, self.decoder_name = encoder, decoder
         self.skeleton, self.ob = skeleton, dict(ob)
-        self.wiring = interpret(Interpretation(ob, {
+        self.clue_key, self.state_key = clue, state
+        self.interpretation = Interpretation(ob, {
             box: getattr(self, attribute)
-            for box, attribute in sites.items()}), skeleton)
-        self.grid = self.wiring.cmap
-        self.router = self.wiring.router
-        self.clue_ports = self.wiring.ports[clue]
-        self.state_ports = self.wiring.heads[state]
+            for box, attribute in sites.items()})
         self.answer_ports: tuple = ()
+        self.batch = None
+        self.member_cells: tuple = ()
+        self._home = interpret(self.interpretation, skeleton)
+        self._rebind(self._home)
+
+    def _rebind(self, wiring) -> None:
+        """
+        Point the engine at a wiring: the interpreted skeleton at
+        construction, the interpreted product of a batch of instance
+        skeletons after :meth:`bind`.  The modules are untouched -- they
+        are the engine's parts, shared by every wiring -- so rebinding
+        changes which sites exist, never which weights.
+        """
+        self.wiring = wiring
+        self.grid = wiring.cmap
+        self.router = wiring.router
+        self.clue_ports = wiring.ports[self.clue_key]
+        self.state_ports = wiring.heads[self.state_key]
         self.clue_copies = len(self.clue_ports) // len(
-            self.wiring.heads[clue])
-        self.n_cells = len(self.wiring.heads[clue])
+            wiring.heads[self.clue_key])
+        self.n_cells = len(wiring.heads[self.clue_key])
         self.cells = self.grid.as_network().module
+
+    def bind(self, parts, pad: bool = False):
+        """
+        Run a batch of instance skeletons as one map: their monoidal
+        product, which is what a batch of independent problems *is*.
+
+        After ``bind`` the engine's ``forward`` takes inputs of shape
+        ``(rows, n_cells)`` where ``n_cells`` sums the members' cells in
+        order, and returns logits over the same axis; :meth:`split_cells`
+        cuts that axis back into one piece per member, dropping the
+        padding, which is where a loss masks the members ``bucket()``
+        duplicated.  Members of equal shape still share the tensor axis;
+        the structural axis is for the shapes that differ.
+
+        The interpreted product is cached per tuple of member instances
+        (see :class:`~discopy.neural.batch.Batch`), so intern the
+        per-shape skeletons -- build them once per shape, as the
+        ``lru_cache`` builders of a task do -- and a recurring mix of
+        shapes costs one interpretation ever.  ``compile_cells`` applies
+        per wiring, so recompile after binding if you compiled before.
+
+        Parameters:
+            parts : The skeletons to run together, one per problem.
+            pad : Whether to round the member count up to a bucket by
+                  repeating the last member.
+        """
+        from discopy.neural.batch import Batch
+        batch = Batch(parts, self.interpretation, pad=pad)
+        self.batch = batch
+        name, role = self.clue_key
+        self.member_cells = tuple(
+            sum(len(part.signature(index).heads(role))
+                for index in part.indices(name))
+            for part in batch.parts)
+        self._rebind(batch.wiring)
+        return batch
+
+    def unbind(self) -> None:
+        """ Back to the engine's own skeleton. """
+        self.batch, self.member_cells = None, ()
+        self._rebind(self._home)
+
+    def split_cells(self, values) -> list:
+        """
+        A tensor over the cell axis of a bound batch -- logits, targets,
+        a correctness mask -- split into one piece per *given* member,
+        the padding members dropped.
+
+        Parameters:
+            values : A tensor of shape ``(rows, n_cells, ...)``.
+        """
+        if self.batch is None:
+            raise ValueError("no batch of skeletons is bound")
+        return list(torch.split(
+            values, list(self.member_cells), dim=1))[:self.batch.given]
 
     @property
     def encoder(self) -> torch.nn.Module:
@@ -342,12 +412,16 @@ class RecursionEngine(Engine):
     def __init__(self, *args, answer: tuple, refresh: str = "answer",
                  answer_norm: str = "answer_norm", initial: str = "y0",
                  **kwargs):
+        self.answer_key = answer
         super().__init__(*args, **kwargs)
-        self.answer_ports = self.wiring.ports[answer]
-        self.answer_heads = self.wiring.heads[answer]
-        self.answer_copies = len(self.answer_ports) // len(self.answer_heads)
         self.refresh_name, self.answer_norm_name = refresh, answer_norm
         self.initial_name = initial
+
+    def _rebind(self, wiring) -> None:
+        super()._rebind(wiring)
+        self.answer_ports = wiring.ports[self.answer_key]
+        self.answer_heads = wiring.heads[self.answer_key]
+        self.answer_copies = len(self.answer_ports) // len(self.answer_heads)
         self.y_dim = self.router.widths[self.answer_heads[0]]
         self.state_width = self.router.widths[self.state_ports[0]]
 
@@ -534,6 +608,18 @@ class ACTEngine(RecursionEngine):
         # without plus two tensors, in that order.
         self.q_head = halt()
         self.halt_detach = halt_detach
+
+    def bind(self, parts, pad: bool = False):
+        """
+        Not supported: the halt head aggregates over every cell of a row
+        -- the mean or the soft minimum of the whole answer -- which on a
+        structural batch would silently mix the members into one halt
+        decision.  Bind the plain recursion and read a per-member halt
+        off :meth:`~Engine.split_cells` instead.
+        """
+        raise NotImplementedError(
+            "an ACT engine cannot bind a structural batch: its halt head "
+            "pools over the whole cell axis, mixing the members")
 
     def act_step(self, state, cycles: int = None, grad: bool = True):
         """
@@ -879,4 +965,133 @@ def evaluate_act(model: ACTEngine, split, decode, max_sup: int = None,
     correct = np.concatenate(correct)
     return {"cell": float(correct.mean()),
             "board": float(np.concatenate(solved).mean()),
+            "depth": float(np.concatenate(depths).mean())}
+
+
+def perturb_answer(model: RecursionEngine, state, sigma: float,
+                   generator=None):
+    """
+    Gaussian noise on the answer trace of a flat state: one draw per cell,
+    written to every copy of its loop, so the duplicated write of the
+    trace stays consistent.  With ``sigma == 0`` the state is returned
+    untouched.
+
+    Parameters:
+        model : The recursion engine whose answer trace to perturb.
+        state : The flat incoming messages.
+        sigma : The standard deviation of the noise.
+        generator : The ``torch.Generator`` behind the draw, the global
+                    one by default.
+    """
+    if not sigma:
+        return state
+    answer = model.router.read(state, model.answer_heads)
+    noise = sigma * torch.randn(
+        answer.shape, generator=generator,
+        device=answer.device, dtype=answer.dtype)
+    return model.router.write(
+        state, model.answer_ports,
+        (answer + noise).repeat_interleave(model.answer_copies, dim=1))
+
+
+def evaluate_selected(model: ACTEngine, split, decode, rollouts: int = 4,
+                      sigma: float = 0.1, max_sup: int = None,
+                      batch_size: int = 2000, threshold: float = 0.0,
+                      seed: int = 0) -> dict:
+    """
+    Best-of-``rollouts`` inference selected by the halt head: the halt
+    logit is a learned *verifier* of the answer it halts with, so it can
+    pick between independent stochastic rollouts at test time -- the only
+    confidence signal available there, and the selection rule of the
+    noise study this generalises.
+
+    Each problem runs ``rollouts`` independent trajectories, each with
+    :func:`perturb_answer` noise refreshed at the start of every
+    supervision step, each halting by the rule of :func:`evaluate_act`;
+    the answer kept is the one whose halt logit at its halting step is
+    largest.  With ``rollouts=1, sigma=0`` this is exactly
+    :func:`evaluate_act`.
+
+    Parameters:
+        model : The trained :class:`ACTEngine`.
+        split : The split to evaluate on, with ``puzzles`` and
+                ``solutions`` arrays.
+        decode : The task's decode rule, ``(logits, clues) -> classes``.
+        rollouts : The number of independent trajectories per problem.
+        sigma : The noise level on the answer trace.
+        max_sup : The cap on supervision steps, the schedule's by default.
+        batch_size : The evaluation batch size.
+        threshold : The margin the halt logit must clear.
+        seed : The seed of the noise, one independent stream per rollout.
+
+    Returns:
+        ``cell``, ``board`` and ``depth`` of the selected rollout --
+        comparable to :func:`evaluate_act` -- plus ``board_mean``, the
+        single-rollout average, and ``board_oracle``, the pass@k upper
+        bound a perfect verifier would reach.
+    """
+    import numpy as np
+    model.eval()
+    max_sup = model.n_sup if max_sup is None else max_sup
+    device = next(model.parameters()).device
+    cells, boards, means, oracles, depths = [], [], [], [], []
+    with torch.no_grad():
+        for start in range(0, len(split), batch_size):
+            stop = start + batch_size
+            clues = torch.as_tensor(
+                split.puzzles[start:stop], dtype=torch.long, device=device)
+            target = torch.as_tensor(
+                split.solutions[start:stop], dtype=torch.long, device=device)
+            best_q = torch.full((len(clues), ), -torch.inf, device=device)
+            best = torch.zeros(len(clues), model.n_cells, model.n,
+                               device=device)
+            best_depth = torch.zeros(
+                len(clues), dtype=torch.long, device=device)
+            solved_any = torch.zeros(
+                len(clues), dtype=torch.bool, device=device)
+            solved_mean = torch.zeros(len(clues), device=device)
+            for rollout in range(rollouts):
+                generator = torch.Generator(device=device)
+                generator.manual_seed(
+                    1_000_003 * seed + 9_176 * start + rollout)
+                torch.compiler.cudagraph_mark_step_begin()
+                state = model.initial(clues)
+                halted = torch.zeros(
+                    len(clues), dtype=torch.bool, device=device)
+                final = torch.zeros_like(best)
+                q_final = torch.full_like(best_q, -torch.inf)
+                depth = torch.full((len(clues), ), max_sup,
+                                   dtype=torch.long, device=device)
+                for t in range(1, max_sup + 1):
+                    torch.compiler.cudagraph_mark_step_begin()
+                    state = perturb_answer(model, state, sigma, generator)
+                    state, logits, halt = model.act_step(state, grad=False)
+                    state = state.detach().clone()
+                    q = model.halt_logit(halt)
+                    newly = ~halted & ((q > threshold) | (t == max_sup))
+                    final = torch.where(
+                        newly[:, None, None], logits.to(final.dtype), final)
+                    q_final = torch.where(newly, q.to(q_final.dtype), q_final)
+                    depth = torch.where(
+                        newly, torch.full_like(depth, t), depth)
+                    halted |= newly
+                    if bool(halted.all()):
+                        break
+                solved = (decode(final, clues) == target).all(1)
+                solved_mean += solved.float() / rollouts
+                solved_any |= solved
+                better = q_final > best_q
+                best_q = torch.where(better, q_final, best_q)
+                best = torch.where(better[:, None, None], final, best)
+                best_depth = torch.where(better, depth, best_depth)
+            matches = decode(best, clues) == target
+            cells.append(matches.float().mean(1).cpu().numpy())
+            boards.append(matches.all(1).cpu().numpy())
+            means.append(solved_mean.cpu().numpy())
+            oracles.append(solved_any.cpu().numpy())
+            depths.append(best_depth.cpu().numpy())
+    return {"cell": float(np.concatenate(cells).mean()),
+            "board": float(np.concatenate(boards).mean()),
+            "board_mean": float(np.concatenate(means).mean()),
+            "board_oracle": float(np.concatenate(oracles).mean()),
             "depth": float(np.concatenate(depths).mean())}

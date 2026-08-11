@@ -19,11 +19,13 @@ lays each member's ports out contiguously and in order, the flat state of
 the product *is* the concatenation of the members' flat states, so
 :meth:`Batch.join` and :meth:`Batch.split` are a concatenation and a split.
 
-Two caches keep this cheap.  The product map is built once per multiset of
-member shapes, since the same mix of shapes recurs constantly; and
-:func:`bucket` rounds the member count up to a coarse ladder by repeating
-the last member, so a run sees a handful of distinct shapes rather than one
-per batch and ``torch.compile`` does not recompile for each.
+Two caches keep this cheap.  The product map is built once per *sequence
+of member instances* -- so intern the skeletons, one instance per shape,
+as the ``lru_cache`` builders of a task naturally do, and the same mix of
+shapes in the same order hits the cache; and :func:`bucket` rounds the
+member count up to a coarse ladder by repeating the last member, so a run
+sees a handful of distinct shapes rather than one per batch and
+``torch.compile`` does not recompile for each.
 
 Summary
 -------
@@ -103,7 +105,9 @@ class Batch:
     ...     torch.zeros(1, 26), torch.ones(1, 52)]))[1].mean()
     tensor(1.)
     """
-    #: The interpreted products already built, by member shape.
+    #: The interpreted products already built, keyed by the identity of
+    #: the interpretation and of each member; the entry pins the members,
+    #: so a key can never be a recycled ``id``.
     cache: dict = {}
 
     def __init__(self, parts, interpretation: Interpretation,
@@ -118,9 +122,9 @@ class Batch:
         self.totals = tuple(self.width(part) for part in parts)
         key = (id(interpretation), tuple(id(part) for part in parts))
         if key not in Batch.cache:
-            Batch.cache[key] = interpret(
-                interpretation, reduce(matmul, parts))
-        self.wiring = Batch.cache[key]
+            Batch.cache[key] = (interpretation, parts, interpret(
+                interpretation, reduce(matmul, parts)))
+        self.wiring = Batch.cache[key][-1]
 
     def width(self, part) -> int:
         """

@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 
 """
-The two module shapes a site of a map can carry.
+The module shapes a site of a map can carry, one per symmetry a
+signature can declare.
 
 A box of a skeleton is a promise -- its :class:`Signature` says how many
 ports it has and which of them are one orbit under a group -- and a cell is
-a torch module that keeps the promise.  There are two shapes:
+a torch module that keeps the promise.  The two :attr:`Sym.PERM` shapes:
 
 * :class:`Site` : a stateful node.  It encodes every incoming message
   against its own state, pools the encodings over the orbit, runs a
@@ -19,6 +20,22 @@ a torch module that keeps the promise.  There are two shapes:
   equivariant emission rather than an invariant broadcast, which is what
   lets one box speak for a constraint over nine variables instead of the
   thirty-six wires a clique needs to say the same thing.
+
+and the two shapes for the other symmetries a signature can declare:
+
+* :class:`Gate` : the :attr:`Sym.NONE` cell, distinguishable ports.  One
+  MLP over the whole concatenated port block, no pooling and no weight
+  sharing across ports, hence no equation to keep.
+* :class:`Cyclic` : the :attr:`Sym.CYCLIC` cell, a planar node.  The
+  circular convolution of its legs -- one linear kernel per offset, i.e.
+  one linear map on the rotation-rolled block -- so rotating its inputs
+  rotates its outputs exactly, but an arbitrary permutation does not
+  commute with it.
+
+Pooling is what buys degree independence, so the symmetric cells serve
+sites of any degree while :class:`Gate` and :class:`Cyclic` are
+arity-fixed by construction: a module with one weight per port, or one
+kernel entry per offset, cannot pretend to a degree it was not built at.
 
 Both read and write through :meth:`Signature.slices`, so no port offset is
 ever written by hand and the cursor arithmetic of a module cannot drift
@@ -47,6 +64,8 @@ Summary
     Mode
     Site
     Relation
+    Gate
+    Cyclic
 """
 
 from __future__ import annotations
@@ -168,6 +187,15 @@ class Site(Cell):
         recurrent : The key in :data:`RECURRENT` of the update cell.
         emit : Whether to read the belief off the state through a learned
                linear map, or to broadcast the state itself.
+        per_leg : Whether the emission answers each leg separately,
+                  ``out_i = emit(state || m_i)``, rather than
+                  broadcasting one belief to every leg.  Still
+                  permutation-equivariant -- the state is pooled, each
+                  answer reads its own message -- and strictly more
+                  general than the broadcast, which a heavily
+                  over-constrained graph gets away with but a sparse
+                  pairwise one does not, having no relation boxes to
+                  carry the asymmetry.  Requires ``emit``.
         resumable : Whether to echo the :attr:`Mode.INPUT` roles rather
                     than emitting zeros.
 
@@ -194,9 +222,12 @@ class Site(Cell):
     def __init__(self, signature: Signature, widths: Mapping,
                  mode: Mapping, hidden: int, depth: int = 2,
                  pool: str = "mean", recurrent: str = "gru",
-                 emit: bool = True, resumable: bool = False):
+                 emit: bool = True, per_leg: bool = False,
+                 resumable: bool = False):
         super().__init__(signature, widths)
-        self.mode = dict(mode)
+        if per_leg and not emit:
+            raise ValueError("per-leg emission needs a learned emit map")
+        self.mode, self.per_leg = dict(mode), per_leg
         self.pooling, self.resumable = POOL[pool], resumable
         self.states = self.roles(Mode.STATE)
         self.inputs = tuple(role for role in self.roles()
@@ -213,7 +244,8 @@ class Site(Cell):
             hidden + sum(self.widths[role] for role in self.inputs),
             self.state_width)
         self.norm = torch.nn.LayerNorm(self.state_width)
-        self.emit = torch.nn.Linear(self.state_width, self.leg) \
+        self.emit = torch.nn.Linear(
+            self.state_width + (self.leg if per_leg else 0), self.leg) \
             if emit else None
 
     def forward(self, x):
@@ -233,9 +265,15 @@ class Site(Cell):
         assert updated[0].shape[-1] == self.state_width, \
             "the state changed width"
 
-        signal = updated[0] if self.emit is None else self.emit(updated[0])
-        belief = signal.unsqueeze(1).expand(-1, arity, -1).reshape(
-            -1, arity * self.leg)
+        if self.per_leg:
+            belief = self.emit(torch.cat([
+                updated[0].unsqueeze(1).expand(-1, arity, -1), message],
+                -1)).reshape(-1, arity * self.leg)
+        else:
+            signal = updated[0] if self.emit is None else \
+                self.emit(updated[0])
+            belief = signal.unsqueeze(1).expand(-1, arity, -1).reshape(
+                -1, arity * self.leg)
         emitted = dict(zip(self.states, updated))
         for role, value in given.items():
             emitted[role] = value if (
@@ -298,6 +336,112 @@ class Relation(Cell):
             -1, arity, -1)
         out = self.rho(torch.cat([message, pooled], -1))
         assert out.shape == message.shape, "the relation changed its widths"
+        return out.reshape(-1, arity * self.leg)
+
+
+class Gate(Cell):
+    """
+    A fixed-arity box with distinguishable ports: the :attr:`Sym.NONE`
+    cell.
+
+    One MLP over the whole concatenated port block, reading and writing
+    every port of the signature at once.  No pooling and no weight
+    sharing across ports means no equation to keep -- this is the least
+    symmetric cell, the one a :attr:`Sym.NONE` signature admits -- and no
+    cross-degree sharing either: a module with one weight per port is
+    arity-fixed by construction, which is the honest cost of dropping
+    the symmetry.
+
+    A two-port gate is how an operation lands *on a wire* rather than in
+    the engine -- a negation between a literal and its clause, say -- and
+    once it is a box, its equations become measurable properties of the
+    module: whether two gates in series are the identity is a number,
+    not a docstring.
+
+    Parameters:
+        signature : The signature of the site; every orbit should be
+                    :attr:`Sym.NONE`, since an MLP keeps no other promise.
+        widths : The width each atomic role carries.
+        hidden : The width of the hidden layers.
+        depth : The number of linear layers before the output one.
+
+    Example
+    -------
+    >>> from discopy.frobenius import Ty
+    >>> from discopy.neural import Orbit, Signature
+    >>> wire = Ty("wire")
+    >>> box = Gate(Signature((Orbit(wire, 2), )), {wire: 3}, hidden=8)
+    >>> box(torch.zeros(2, 6)).shape
+    torch.Size([2, 6])
+    """
+    def __init__(self, signature: Signature, widths: Mapping, hidden: int,
+                 depth: int = 2):
+        super().__init__(signature, widths)
+        self.width = signature.width(self.widths)
+        self.mlp = torch.nn.Sequential(
+            _mlp(self.width, hidden, depth), torch.nn.ReLU(),
+            torch.nn.Linear(hidden, self.width))
+
+    def forward(self, x):
+        if x.shape[-1] != self.width:
+            raise ValueError(
+                f"a Gate is arity-fixed: expected width {self.width}, "
+                f"got {x.shape[-1]}")
+        return self.mlp(x)
+
+
+class Cyclic(Cell):
+    """
+    A planar node: the :attr:`Sym.CYCLIC` cell, the circular convolution
+    of its legs with a kernel indexed by offset.
+
+    ``out[i] = rho(phi(m[i] || m[i+1] || ... || m[i+d-1]))`` with indices
+    mod ``d``: one linear kernel per offset is one linear map on the
+    rotation-rolled block, so rotating the inputs rotates the outputs
+    *exactly* -- the same arithmetic lands at the shifted position -- while
+    an arbitrary permutation scrambles the offsets and does not commute.
+    Like :class:`Gate` it is arity-fixed: the kernel has one entry per
+    offset, so there is nothing to share across degrees.
+
+    Parameters:
+        signature : The signature of the site, one cyclic orbit of legs.
+        widths : The width each atomic role carries.
+        hidden : The width of the hidden layer.
+
+    Example
+    -------
+    >>> from discopy.frobenius import Ty
+    >>> from discopy.neural import Orbit, Signature, Sym
+    >>> from discopy.neural import check_equivariant
+    >>> leg = Ty("leg")
+    >>> planar = Signature((Orbit(leg, 5, Sym.CYCLIC), ))
+    >>> box = Cyclic(planar, {leg: 3}, hidden=8).double()
+    >>> check_equivariant(box, planar, {leg: 3})[leg] == 0.0
+    True
+    """
+    def __init__(self, signature: Signature, widths: Mapping, hidden: int):
+        super().__init__(signature, widths)
+        if len(signature.orbits) != 1:
+            raise ValueError("a cyclic cell has a single orbit of legs")
+        self.arity = signature.orbits[0].arity
+        self.phi = torch.nn.Sequential(
+            torch.nn.Linear(self.arity * self.leg, hidden), torch.nn.ReLU())
+        self.rho = torch.nn.Linear(hidden, self.leg)
+        offsets = torch.arange(self.arity)
+        self.register_buffer(
+            "roll", (offsets.unsqueeze(1) + offsets) % self.arity,
+            persistent=False)
+
+    def forward(self, x):
+        arity, _ = self.places(x.shape[-1])
+        if arity != self.arity:
+            raise ValueError(
+                f"a Cyclic cell is arity-fixed: built at {self.arity}, "
+                f"read {arity}")
+        message = x.reshape(-1, arity, self.leg)
+        rolled = message[:, self.roll].reshape(-1, arity, arity * self.leg)
+        out = self.rho(self.phi(rolled))
+        assert out.shape == message.shape, "the cell changed its widths"
         return out.reshape(-1, arity * self.leg)
 
 

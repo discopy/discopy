@@ -102,20 +102,24 @@ a choice of skeleton, widths and schedule. A future task adds a sibling
 package with its own combinatorics and data, and configures the same
 engine.
 
-    core/                 the study harness (see core/__init__.py)
+    core/                 the benchmark kit (see core/__init__.py)
       study.py            the torch-free dataclasses: Widths, Budget, Split
       train.py            the harness: deep supervision, evaluation, batching
+      heads.py            the fill-in-the-blanks encoder and decoder
+      solvers.py          the three solver shapes, parts order written once
+      registry.py         checkpoints, cached training, lr grid, per TaskSpec
+      act.py              the ACT evaluations bound to the decode rule
       recipes.py          optimizer, schedule, EMA, segmented loop
     sudoku/               the sudoku task (see sudoku/__init__.py)
       config.py           grid constants, paths, budgets, matched widths
       signature.py        the roles a port can play + the box signatures
       skeleton.py         rows/columns/blocks/peers -> the two skeletons
-      heads.py            the encoder and the decoder
+      heads.py            historical import path over core.heads
       data.py             the Palm et al. (2018) benchmark + symmetry group
       sudoku_extreme.py   the sudoku-extreme benchmark, three variants
-      models.py           models A, B, C = skeleton + widths + schedule
-      act.py              model C with the halt head
-      train.py            the study protocol: checkpoints, registry, lr grid
+      models.py           models A, B, C on the core.solvers templates
+      act.py              historical import path over core.act
+      train.py            the TaskSpec + historical entry points
       train_a_goi.py      model A: recorded best configuration + protocol
       train_b_rrn.py      model B: likewise
       train_c_trm.py      model C: likewise

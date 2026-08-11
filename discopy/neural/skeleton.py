@@ -46,7 +46,7 @@ Summary
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Mapping
 
 from discopy import frobenius
@@ -90,11 +90,8 @@ class Skeleton:
     def __post_init__(self):
         if len(self.cmap.dom) or len(self.cmap.cod):
             raise ValueError("a skeleton is closed; trace its boundary first")
-        for box in self.cmap.boxes:
-            signature = self.signatures[box.name]
-            if tuple(box.dom) + tuple(box.cod) != signature.roles:
-                raise ValueError(
-                    f"{box.name} does not have the type of its signature")
+        for index in range(len(self.cmap.boxes)):
+            self.signature(index)
 
     @property
     def boxes(self) -> tuple:
@@ -108,12 +105,48 @@ class Skeleton:
 
     def signature(self, index: int) -> Signature:
         """
-        The signature of the box at an index.
+        The signature of the box at an index: the one declared for its
+        name, with the first orbit resized to the degree the box actually
+        has.
+
+        One name, one module, several degrees is how a heterogeneous
+        family of sites shares its weights -- the runtime already supports
+        it, since :meth:`discopy.neural.CMap._fused_routing` groups boxes
+        by module *and* port widths and a :class:`~discopy.neural.cells.
+        Cell` reads its arity off the width it is handed.  Only the first
+        orbit may vary; a box whose type is neither the declared signature
+        nor a resizing of its first orbit is rejected.
 
         Parameters:
             index : The index of the box.
+
+        Example
+        -------
+        >>> from discopy.frobenius import Ty
+        >>> from discopy.neural.signature import Sym
+        >>> node = Signature((Orbit(Ty("peer"), 2, Sym.PERM), ))
+        >>> path = from_relation(((1, ), (0, 2), (1, )), node)
+        >>> [path.signature(i).orbits[0].arity for i in range(3)]
+        [1, 2, 1]
         """
-        return self.signatures[self.cmap.boxes[index].name]
+        box = self.cmap.boxes[index]
+        declared = self.signatures[box.name]
+        roles = tuple(box.dom) + tuple(box.cod)
+        if roles == declared.roles:
+            return declared
+        first, rest = declared.orbits[0], declared.orbits[1:]
+        fixed = sum(orbit.n_ports for orbit in rest)
+        arity, remainder = divmod(
+            len(roles) - fixed, len(first.role) * first.copies)
+        if not remainder and arity >= 0:
+            try:
+                resized = Signature((replace(first, arity=arity), ) + rest)
+            except ValueError:
+                resized = None
+            if resized is not None and resized.roles == roles:
+                return resized
+        raise ValueError(
+            f"{box.name} does not have the type of its signature")
 
     def indices(self, name: str) -> tuple[int, ...]:
         """
@@ -170,6 +203,11 @@ class Skeleton:
         Parameters:
             other : The skeleton to put beside this one.
 
+        Two declarations of one name are compatible when they agree up to
+        the arity of their first orbit -- the orbit :meth:`signature`
+        resizes per box anyway -- so a batch can mix instances whose
+        canonical degrees differ, e.g. two grid sizes of one task.
+
         Example
         -------
         >>> from discopy.frobenius import Ty
@@ -181,10 +219,23 @@ class Skeleton:
         """
         shared = set(self.signatures) & set(other.signatures)
         for name in shared:
-            if self.signatures[name] != other.signatures[name]:
+            one, two = self.signatures[name], other.signatures[name]
+            if one != two and not _same_up_to_degree(one, two):
                 raise ValueError(f"{name} has two different signatures")
         return Skeleton(self.cmap @ other.cmap,
                         {**self.signatures, **other.signatures})
+
+
+def _same_up_to_degree(one: Signature, two: Signature) -> bool:
+    """ Whether two signatures differ only in their first orbit's arity. """
+    if len(one.orbits) != len(two.orbits) \
+            or one.orbits[1:] != two.orbits[1:]:
+        return False
+    try:
+        return replace(one.orbits[0], arity=two.orbits[0].arity) \
+            == two.orbits[0]
+    except ValueError:
+        return False
 
 
 def _wire_loops(wires: list, index: int, signature: Signature) -> None:
@@ -206,7 +257,7 @@ def _wire_loops(wires: list, index: int, signature: Signature) -> None:
 
 
 def from_incidence(incidence: tuple, node: Signature, relation: Signature,
-                   node_name: str = NODE, relation_name: str = RELATION,
+                   node_name: str = NODE, relation_name=RELATION,
                    category=frobenius) -> Skeleton:
     """
     The bipartite incidence graph of a family of nodes and the relations
@@ -215,19 +266,30 @@ def from_incidence(incidence: tuple, node: Signature, relation: Signature,
     relation with one port per member, and a wire from each node to each
     of its relations.
 
-    Every node must belong to the same number of relations and every
-    relation must have the same number of members, so that one shared
-    module fills every node site and one fills every relation site.
+    Neither the degrees nor the sizes need to be uniform: a node of degree
+    ``d`` gets the node signature with its first orbit resized to ``d``,
+    and likewise a relation of ``m`` members -- one shared module still
+    fills every site of a name, reading its arity off the width it is
+    handed, at the cost of one batched call per distinct degree.  A
+    module pooled with ``"mean"`` keeps its input scale independent of the
+    degree; declare that on any generator whose degree varies.
 
     Parameters:
         incidence : Per node, the indices of the relations it belongs to;
                     relations are numbered from ``0``.
         node : The signature of a node box, whose first orbit is the
-               incidence orbit.
+               incidence orbit; its declared arity is a default, resized
+               per node.
         relation : The signature of a relation box, whose first orbit is
-                   the membership orbit.
+                   the membership orbit, resized per relation; or a
+                   mapping from relation name to signature when the
+                   relations do not all share one.
         node_name : The name every node box carries.
-        relation_name : The name every relation box carries.
+        relation_name : The name every relation box carries, or one name
+                        per relation -- boxes of one name share one
+                        module, so a relation playing a different part,
+                        e.g. a graph-level readout wired to every node,
+                        is a relation with a name of its own.
         category : The source category the wiring is drawn in.
 
     Example
@@ -242,18 +304,36 @@ def from_incidence(incidence: tuple, node: Signature, relation: Signature,
     ...     ((0, 1), (0, 1), (0, 1)), node, unit)
     >>> len(square.cmap.boxes), square.cmap.n_ports // 2
     (5, 9)
+
+    A graph-level readout is one more relation every node belongs to,
+    under its own name -- a generator, not an engine feature:
+
+    >>> shape = from_incidence(
+    ...     ((0, 1), (0, 1), (1, )), node, unit,
+    ...     relation_name=("unit", "readout"))
+    >>> [box.name for box in shape.boxes]
+    ['cell', 'cell', 'cell', 'unit', 'readout']
+    >>> [len(shape.signature(i).cod) for i in range(5)]
+    [4, 4, 3, 2, 3]
     """
     n_nodes = len(incidence)
-    degree = node.orbits[0].arity
-    if any(len(relations) != degree for relations in incidence):
-        raise ValueError("nodes belong to different numbers of relations")
     n_relations = 1 + max(max(relations) for relations in incidence)
     size = [0] * n_relations
     for relations in incidence:
         for index in relations:
             size[index] += 1
-    if len(set(size)) != 1 or size[0] != relation.orbits[0].arity:
-        raise ValueError("relations have different numbers of members")
+    names = (relation_name, ) * n_relations \
+        if isinstance(relation_name, str) else tuple(relation_name)
+    if len(names) != n_relations:
+        raise ValueError(f"{len(names)} names for {n_relations} relations")
+    relations_of = dict.fromkeys(names, relation) \
+        if isinstance(relation, Signature) else dict(relation)
+
+    role = node.orbits[0].role
+    nodes = [node.resize(role, len(relations)) for relations in incidence]
+    units = [relations_of[names[index]].resize(
+        relations_of[names[index]].orbits[0].role, size[index])
+        for index in range(n_relations)]
 
     free = [0] * n_relations
     wires: list = []
@@ -262,14 +342,15 @@ def from_incidence(incidence: tuple, node: Signature, relation: Signature,
             wires.append(
                 ((index, position), (n_nodes + other, free[other])))
             free[other] += 1
-        _wire_loops(wires, index, node)
+        _wire_loops(wires, index, nodes[index])
     for other in range(n_relations):
-        _wire_loops(wires, n_nodes + other, relation)
+        _wire_loops(wires, n_nodes + other, units[other])
 
-    boxes = (node.box(node_name, category), ) * n_nodes \
-        + (relation.box(relation_name, category), ) * n_relations
+    boxes = tuple(sig.box(node_name, category) for sig in nodes) + tuple(
+        sig.box(names[index], category)
+        for index, sig in enumerate(units))
     return Skeleton(category.CMap.from_wiring(boxes, wires),
-                    {node_name: node, relation_name: relation})
+                    {node_name: node, **relations_of})
 
 
 def from_relation(relation: tuple, node: Signature, node_name: str = NODE,
@@ -279,13 +360,16 @@ def from_relation(relation: tuple, node: Signature, node_name: str = NODE,
     with one port per related node plus its traced loops, and a wire
     between each related pair.  No hyperedge boxes.
 
-    The relation must be symmetric and every node must be related to the
-    same number of others, so that one shared module fills every site.
+    The relation must be symmetric; the degrees need not be uniform, a
+    node related to ``d`` others gets the node signature with its first
+    orbit resized to ``d``, and the one shared module still fills every
+    site (see :func:`from_incidence`).
 
     Parameters:
         relation : Per node, the indices of the nodes it is related to.
         node : The signature of a node box, whose first orbit is the
-               relation orbit.
+               relation orbit; its declared arity is a default, resized
+               per node.
         node_name : The name every node box carries.
         category : The source category the wiring is drawn in.
 
@@ -298,11 +382,12 @@ def from_relation(relation: tuple, node: Signature, node_name: str = NODE,
     >>> triangle = from_relation(((1, 2), (0, 2), (0, 1)), node)
     >>> len(triangle.cmap.boxes), triangle.cmap.n_ports // 2
     (3, 6)
+    >>> path = from_relation(((1, ), (0, 2), (1, )), node)
+    >>> [path.signature(i).orbits[0].arity for i in range(3)]
+    [1, 2, 1]
     """
-    n_nodes = len(relation)
-    arity = node.orbits[0].arity
-    if any(len(others) != arity for others in relation):
-        raise ValueError("nodes are related to different numbers of nodes")
+    role = node.orbits[0].role
+    nodes = [node.resize(role, len(others)) for others in relation]
 
     wires: list = []
     for index, others in enumerate(relation):
@@ -312,9 +397,9 @@ def from_relation(relation: tuple, node: Signature, node_name: str = NODE,
             if index < other:
                 wires.append(((index, relation[index].index(other)),
                               (other, relation[other].index(index))))
-        _wire_loops(wires, index, node)
+        _wire_loops(wires, index, nodes[index])
 
-    boxes = (node.box(node_name, category), ) * n_nodes
+    boxes = tuple(sig.box(node_name, category) for sig in nodes)
     return Skeleton(category.CMap.from_wiring(boxes, wires),
                     {node_name: node})
 

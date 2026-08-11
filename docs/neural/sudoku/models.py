@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 
 """
-The three sudoku solvers, as configurations of one engine.
+The three sudoku solvers, as instantiations of the family templates.
 
-Nothing computational lives here.  A model is a skeleton, an assignment of
-widths to roles, a handful of modules built in a fixed order, and a
-:class:`~discopy.neural.engine.Schedule`; the wiring, the cells, the
-message passing and the supervision are all
-:mod:`discopy.neural`'s.  What this module records is *which* skeleton each
-model interprets, at which widths, with which schedule.
+Nothing computational lives here, and no longer any *shape* either: the
+parts of each solver, their order -- which is load-bearing, every
+constructor draws from the global generator -- and their schedules are
+:mod:`core.solvers`'s.  What this module records is only what is
+sudoku's: which skeleton each model interprets, at which widths, with
+which cell hyperparameters, reading which roles.
 
 * **A, :func:`goi`** -- the bipartite cell/unit factor graph: 81 shared
   cells, 27 shared units, 405 wires; a mean-pooled ``GRUCell`` site and a
@@ -20,40 +20,19 @@ model interprets, at which widths, with which schedule.
   supervision.
 * **C, :func:`trm`** -- model A's map plus an answer loop of width
   ``y_dim``, run by the segmented recursion of
-  :cite:t:`JolicoeurMartineau25`: gradients only through the last cycle of
-  each detached supervision step.
-
-Note
-----
-The ``parts`` mapping is ordered and the order is load-bearing: every
-module constructor draws from the global generator, so the embedding, the
-cells, the answer refresh, the readout and the initial answer must be
-built in exactly this order for a seed to mean the same model.
+  :cite:t:`JolicoeurMartineau25`; :func:`act` adds the halt head.
 """
 
 from __future__ import annotations
 
-import torch
-
 from discopy.neural.cells import Mode, Relation, Site
 from discopy.neural.engine import ACTEngine, Engine, HaltHead, RecursionEngine
-from discopy.neural.engine import Schedule
 from discopy.neural.functor import Interpretation
+from core.solvers import count_parameters  # noqa: F401 -- re-exported
+from core import solvers
 from sudoku import signature as roles
 from sudoku import skeleton
 from sudoku.config import N, WIDTHS, Widths
-from sudoku.heads import Decoder, Encoder
-
-#: Model A and B supervise every round of one differentiated run.
-DEEP = dict(cycles=1, steps=1, inject=True, supervise="round")
-
-#: Model C supervises every detached segment and carries its own clues.
-SEGMENTED = dict(inject=False, supervise="step")
-
-
-def count_parameters(module) -> int:
-    """ The number of trainable parameters of a module. """
-    return sum(p.numel() for p in module.parameters() if p.requires_grad)
 
 
 def goi(widths: Widths = None, rounds: int = 16, n: int = N) -> Engine:
@@ -66,18 +45,13 @@ def goi(widths: Widths = None, rounds: int = 16, n: int = N) -> Engine:
         n : The size of the grid.
     """
     widths = widths or WIDTHS["goi"]
-    grid = skeleton.factor_graph(n)
-    return Engine(
-        grid, roles.factor_widths(widths),
-        parts={
-            "embedding": lambda: Encoder(n, widths.dim),
-            "cell": lambda: _site(widths, answer_dim=0),
-            "factor": lambda: _relation(widths),
-            "readout": lambda: Decoder(widths.state_dim, n)},
-        sites={"cell": "cell", "unit": "factor"},
-        schedule=Schedule(rounds=rounds, **DEEP),
-        clue=("cell", roles.CLUE), state=("cell", roles.STATE),
-        n_classes=n)
+    return solvers.single_run(
+        skeleton.factor_graph(n), roles.factor_widths(widths),
+        cell=lambda: _site(widths, answer_dim=0),
+        relation=lambda: _relation(widths),
+        n_classes=n, dim=widths.dim, state_dim=widths.state_dim,
+        rounds=rounds,
+        clue=("cell", roles.CLUE), state=("cell", roles.STATE))
 
 
 def rrn(widths: Widths = None, rounds: int = 16, n: int = N) -> Engine:
@@ -90,24 +64,19 @@ def rrn(widths: Widths = None, rounds: int = 16, n: int = N) -> Engine:
         n : The size of the grid.
     """
     widths = widths or WIDTHS["rrn"]
-    grid = skeleton.clique(n)
     peers = len(skeleton.peers_of(n)[0])
-    return Engine(
-        grid, roles.clique_widths(widths),
-        parts={
-            "embedding": lambda: Encoder(n, widths.dim),
-            "cell": lambda: Site(
-                roles.peer_cell(peers),
-                Interpretation(roles.clique_widths(widths)).widths,
-                {roles.HIDDEN: Mode.STATE, roles.MEMORY: Mode.STATE,
-                 roles.CLUE: Mode.INPUT},
-                hidden=widths.hidden, depth=3, pool="sum",
-                recurrent="lstm", emit=False),
-            "readout": lambda: Decoder(widths.state_dim, n)},
-        sites={"cell": "cell"},
-        schedule=Schedule(rounds=rounds, **DEEP),
-        clue=("cell", roles.CLUE), state=("cell", roles.HIDDEN),
-        n_classes=n)
+    return solvers.single_run(
+        skeleton.clique(n), roles.clique_widths(widths),
+        cell=lambda: Site(
+            roles.peer_cell(peers),
+            Interpretation(roles.clique_widths(widths)).widths,
+            {roles.HIDDEN: Mode.STATE, roles.MEMORY: Mode.STATE,
+             roles.CLUE: Mode.INPUT},
+            hidden=widths.hidden, depth=3, pool="sum",
+            recurrent="lstm", emit=False),
+        n_classes=n, dim=widths.dim, state_dim=widths.state_dim,
+        rounds=rounds,
+        clue=("cell", roles.CLUE), state=("cell", roles.HIDDEN))
 
 
 def trm(widths: Widths = None, rounds: int = 6, cycles: int = 3,
@@ -122,8 +91,7 @@ def trm(widths: Widths = None, rounds: int = 6, cycles: int = 3,
         n_sup : The default number of supervision steps.
         n : The size of the grid.
     """
-    return _recursion(RecursionEngine, widths or WIDTHS["trm"], rounds,
-                      cycles, n_sup, n)
+    return _recursion(widths or WIDTHS["trm"], rounds, cycles, n_sup, n)
 
 
 def act(widths: Widths = None, rounds: int = 6, cycles: int = 3,
@@ -149,7 +117,7 @@ def act(widths: Widths = None, rounds: int = 6, cycles: int = 3,
     """
     widths = widths or WIDTHS["trm"]
     return _recursion(
-        ACTEngine, widths, rounds, cycles, n_sup, n,
+        widths, rounds, cycles, n_sup, n,
         halt=lambda: HaltHead(widths.y_dim, halt_head),
         halt_detach=halt_detach)
 
@@ -214,25 +182,14 @@ def _relation(widths: Widths) -> Relation:
                     hidden=widths.hidden)
 
 
-def _recursion(factory, widths: Widths, rounds: int, cycles: int,
-               n_sup: int, n: int, **kwargs):
-    """
-    Model C, with or without a halt head: the same parts in the same
-    order, and whatever ``kwargs`` the engine adds after them.
-    """
-    grid = skeleton.factor_graph(n)
-    parts = {
-        "embedding": lambda: Encoder(n, widths.dim),
-        "cell": lambda: _site(widths, widths.y_dim, resumable=True),
-        "factor": lambda: _relation(widths),
-        "answer": lambda: torch.nn.GRUCell(widths.state_dim, widths.y_dim),
-        "answer_norm": lambda: torch.nn.LayerNorm(widths.y_dim),
-        "readout": lambda: Decoder(widths.y_dim, n),
-        "y0": lambda: torch.nn.Parameter(torch.zeros(widths.y_dim))}
-    return factory(
-        grid, roles.factor_widths(widths, widths.y_dim),
-        parts=parts, sites={"cell": "cell", "unit": "factor"},
-        schedule=Schedule(rounds=rounds, cycles=cycles, steps=n_sup,
-                          **SEGMENTED),
+def _recursion(widths: Widths, rounds: int, cycles: int, n_sup: int,
+               n: int, **kwargs):
+    """ Model C, with or without a halt head, on the family template. """
+    return solvers.recursion(
+        skeleton.factor_graph(n), roles.factor_widths(widths, widths.y_dim),
+        cell=lambda: _site(widths, widths.y_dim, resumable=True),
+        relation=lambda: _relation(widths),
+        n_classes=n, dim=widths.dim, state_dim=widths.state_dim,
+        y_dim=widths.y_dim, rounds=rounds, cycles=cycles, n_sup=n_sup,
         clue=("cell", roles.CLUE), state=("cell", roles.STATE),
-        n_classes=n, answer=("cell", roles.ANSWER), **kwargs)
+        answer=("cell", roles.ANSWER), **kwargs)
