@@ -20,7 +20,7 @@ Prompt ([#374](https://github.com/discopy/discopy/issues/374), verbatim):
 - [ ] `Hypergraph` evaluation methods: token passing for `additive`, message passing for `multiplicative` — coordinate with #366 and #363. **Blocked**: both still draft and far behind `main`
 - [x] @evening-2026-07-27T15:11-2026-07-27T15:35 `multiplicative` stress test: compare results against tensor contraction on small enough models (per issue comment)
 - [x] @evening-2026-07-29T02:06-2026-07-29T02:45 Implement the state monad for seeded randomness; compare empirical distributions against the ones computed explicitly via sub-distribution dicts (value → nonzero weight)
-- [ ] `additive` worked example: Dal Lago–Hoshino's token machines (*Geometry of Bayesian Programming*) — the best source found so far for a non-trivial case. **Unblocked 2026-08-10**: `discopy.kleisli.additive` now exists, so this point is the next one to pick up
+- [WIP] @evening-2026-08-11T00:10Z `additive` worked example: Dal Lago–Hoshino's token machines (*Geometry of Bayesian Programming*) — the best source found so far for a non-trivial case. **Unblocked 2026-08-10**: `discopy.kleisli.additive` now exists, so this point is the next one to pick up
 - [ ] Write every example as a term in the effectful lambda calculus of #370, not as a diagram built with tensor/composition. **Blocked on [#489](https://github.com/discopy/discopy/pull/489)**: measured 2026-08-09, `let`/`Product`/`Projection` are not on `main`, #370 is open and #489 is the only branch implementing it — itself queued behind #511
 - [x] @evening-2026-08-09T00:05Z-2026-08-09T00:25Z Run `pflake8 discopy` and `coverage run -m pytest`
 
