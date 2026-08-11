@@ -104,12 +104,9 @@ making the gate stricter on slow machines and laxer on fast ones.
 
 The baseline is a `bench.json` from a CI run of this same workflow, gzipped
 (`gzip -9n bench.json`) and committed as `benchmark/baseline.json.gz`: stored
-compressed, GitHub shows it as a binary file rather than a 6k-line diff. Pick a
-run from the slower CPU class (`machine_info.cpu.brand_raw` in `bench.json`):
-the gate only fires on positive deltas, so a baseline anchored low leaves the
-raw backstop quiet when a faster runner comes up. The
-`benchmark` GitHub workflow runs the suite on pull requests (smoke sizes) and on
-`main` / manual dispatch (full sizes), uploading the report as an artifact.
+compressed, GitHub shows it as a binary file rather than a 6k-line diff. The
+`benchmark` GitHub workflow runs the suite on pull requests (smoke sizes) and
+on `main` / manual dispatch (full sizes), uploading the report as an artifact.
 
 A benchmarking job is available in the CI pipeline. By default, it is running only
 on the main branch, but you can enable it on your pull requests by attaching the
