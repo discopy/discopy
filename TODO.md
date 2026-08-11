@@ -270,3 +270,22 @@ summing back to one. Conditioning is a trace.
 Deliberately *not* done: the full GoI translation of a λ-calculus into nets.
 That is #370/#376 territory and would need the `let`/`Product` terms of #489;
 this point asked for a worked example of `additive`, not a compiler.
+
+## Review follow-up (🐦 birdsong, 2026-08-11)
+
+Alexis left a suggestion on `discopy/kleisli/channel.py` at 2026-08-10T15:49:51Z
+([discussion_r3751089574](https://github.com/discopy/discopy/pull/443#discussion_r3751089574)),
+verbatim:
+
+> ```suggestion
+> class Channel(TracedCategory, NamedGeneric['monad']):
+> ```
+
+It landed between the last two turns and is still unapplied — `Channel` is declared
+`Category` on this branch. It is the same claim the token-machine example above rests on:
+if a net's behaviour is `net.trace(n)`, then the category it lives in is traced, and the
+class should say so rather than leave it to the reader.
+
+- [ ] Declare `Channel` a `TracedCategory` and make the abstract base class hold, i.e. check
+  `trace` is defined for every monad the module ships and decide what the seed monad does,
+  where tracing raises rather than guesses
