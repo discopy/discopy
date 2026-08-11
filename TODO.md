@@ -184,6 +184,11 @@ Alexis answered exactly that question the same night, on
 > nah you're right let's keep the PR small and delay the simplify layers refactoring of previous
 > algorithms
 
+Confirmed by Alexis an hour later, unprompted and naming the issue, verbatim:
+
+> yes i meant you're right about this issue, we should postpone to a later PR
+> https://github.com/discopy/discopy/issues/547
+
 This reverses the *"let's get rid of it and simplify the 8 methods"* quoted above and reinstates
 the agent's original answer on the thread — port the eight call sites in
 [#547](https://github.com/discopy/discopy/issues/547), not here. "you're right" is agreeing with
