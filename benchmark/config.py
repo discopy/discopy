@@ -22,8 +22,8 @@ def sizes(*base, full=()):
 def case(family, case, sizes, *, suite):
     """Benchmark metadata and shared measurement configuration."""
     benchmark = pytest.mark.benchmark(
-        group=(suite, family, case),
-        timer=time.process_time, disable_gc=True, max_time=.1)
+        group=(suite, family, case), timer=time.process_time,
+        disable_gc=True, max_time=.1, min_rounds=3)
     parametrize = pytest.mark.parametrize("n", sizes)
 
     def decorator(function):
