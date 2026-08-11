@@ -5,27 +5,60 @@ on:
     branches: [main]
 permissions:
   contents: read
-  pull-requests: write
+  pull-requests: read
 jobs:
   guard:
-    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     steps:
-      - name: Draft the pull request while a TODO file is present
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR: ${{ github.event.pull_request.number }}
-          NODE_ID: ${{ github.event.pull_request.node_id }}
-          REPO: ${{ github.repository }}
-        run: |
-          todo="$(gh api "repos/$REPO/pulls/$PR/files" --paginate \
-            --jq '.[] | select(.status != "removed") | .filename' \
-            | grep -iE '(^|/)todo(\.[^/]*)?$' || true)"
-          [ -n "$todo" ] || exit 0
-          gh api graphql -f id="$NODE_ID" -f query='
-            mutation($id: ID!) {
-              convertPullRequestToDraft(input: {pullRequestId: $id}) {
+    - name: Generate a discopy-bot token
+      id: app-token
+      uses: actions/create-github-app-token@v1
+      with:
+        app-id: ${{ vars.DISCOPY_BOT_APP_ID }}
+        private-key: ${{ secrets.DISCOPY_BOT_PRIVATE_KEY }}
+        permission-pull-requests: write
+
+    - name: Enforce the TODO state
+      env:
+        ACTION: ${{ github.event.action }}
+        APP_TOKEN: ${{ steps.app-token.outputs.token }}
+        BEFORE_SHA: ${{ github.event.before }}
+        GH_TOKEN: ${{ github.token }}
+        HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        IS_DRAFT: ${{ github.event.pull_request.draft }}
+        NODE_ID: ${{ github.event.pull_request.node_id }}
+      run: |
+        todo_at() {
+          gh api "repos/$HEAD_REPO/git/trees/$1?recursive=1" --jq '
+            if .truncated == false then
+              any(.tree[]; .path | test("(^|/)todo(\\.[^/]*)?$"; "i"))
+            else error("tree response truncated") end'
+        }
+        set_draft() {
+          local mutation="$1" expected="$2" result
+          result="$(GH_TOKEN="$APP_TOKEN" gh api graphql -f id="$NODE_ID" -f query="
+            mutation(\$id: ID!) {
+              $mutation(input: {pullRequestId: \$id}) {
                 pullRequest { isDraft }
               }
-            }'
-          echo "::notice::$todo is still here — back to draft. A human deletes it to mark ready."
+            }" --jq ".data.$mutation.pullRequest.isDraft")" || return 1
+          [ "$result" = "$expected" ]
+        }
+
+        current="$(todo_at "$HEAD_SHA")" || exit 1
+        if [ "$current" = true ]; then
+          if [ "$IS_DRAFT" = false ]; then
+            set_draft convertPullRequestToDraft true || exit 1
+            echo "::notice::TODO.md is present — pull request is now draft."
+          fi
+          exit 0
+        fi
+
+        if [ "$ACTION" = synchronize ] && [ "$IS_DRAFT" = true ]; then
+          previous="$(todo_at "$BEFORE_SHA")" || exit 1
+          if [ "$previous" = true ]; then
+            set_draft markPullRequestReadyForReview false || exit 1
+            echo "::notice::TODO.md was deleted — pull request is now ready."
+          fi
+        fi
