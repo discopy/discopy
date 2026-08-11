@@ -100,12 +100,12 @@ class Interpretation:
             skeleton : The skeleton whose boxes to interpret.
         """
         source = type(skeleton.cmap).category.ar
-        types = Functor(ob=self.ob, dom=source)
+        types = Functor(ob_map=self.ob, dom=source)
         networks = {
             box: Network(box.name, types(box.dom), types(box.cod),
                          module=self.ar[box.name])
             for box in dict.fromkeys(skeleton.boxes)}
-        return Functor(ob=self.ob, ar=networks, dom=source)
+        return Functor(ob_map=self.ob, ar_map=networks, dom=source)
 
 
 @dataclass(frozen=True)

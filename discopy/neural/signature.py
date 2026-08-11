@@ -203,7 +203,7 @@ class Signature:
         >>> isinstance(unit.box("unit", category=symmetric), symmetric.Box)
         True
         """
-        typ = category.Ty(*[atom.name for atom in self.cod])
+        typ = category.Ty(*[atom.inside[0].name for atom in self.cod])
         return category.Box(name, category.Ty(), typ)
 
     def positions(self, role: frobenius.Ty) -> tuple[int, ...]:

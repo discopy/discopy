@@ -79,9 +79,9 @@ from typing import TYPE_CHECKING
 
 from functools import cached_property
 
-from discopy import compact, monoidal
-from discopy.cat import ar_factory, ob_factory
-from discopy.cmap import PortKind
+from discopy import cat, compact, monoidal
+from discopy.cat import factory
+from discopy.cmap import Permutation, PortKind
 from discopy.pivotal import Ty
 from discopy.utils import assert_isinstance
 
@@ -89,7 +89,7 @@ if TYPE_CHECKING:
     import torch
 
 
-@ob_factory
+@factory
 class Dim(monoidal.Dim, Ty):
     """
     A dimension is a tuple of positive integers seen as a self-dual type,
@@ -101,10 +101,32 @@ class Dim(monoidal.Dim, Ty):
     >>> assert Dim(2, 3).l == Dim(2, 3).r == Dim(3, 2)
     """
     unit = 0
-    l = r = property(lambda self: self.ob(*self.inside[::-1]))
+    l = r = property(lambda self: self.factory(*self.inside[::-1]))
+    z = property(lambda self: 0)
+
+    def __init__(self, *inside: int, dom=None, cod=None, _scan=True,
+                 **kwargs):
+        inside = kwargs.pop('inside', inside)
+        if kwargs:
+            raise TypeError(f"Unexpected keyword arguments: {list(kwargs)}.")
+        for dim in inside:
+            assert_isinstance(dim, int)
+            if dim < self.unit:
+                raise ValueError
+        inside = tuple(dim for dim in inside if dim != self.unit)
+        white = monoidal.white
+        cat.FreeCategory.__init__(
+            self, inside, white if dom is None else dom,
+            white if cod is None else cod, _scan=False)
+        cat.Ob.__init__(self, type(self).__name__)
+
+    def __repr__(self):
+        return f"Dim({', '.join(map(repr, self.inside)) or repr(self.unit)})"
+
+    __str__ = __repr__
 
 
-@ar_factory
+@factory
 class Diagram(compact.Diagram):
     """
     A neural diagram is a compact diagram with dimensions as objects.
@@ -222,6 +244,67 @@ class Hypergraph(compact.Hypergraph):
     functor = Functor
 
 
+def from_wiring(cls, boxes: tuple, wires) -> "CMap":
+    """
+    A closed map of class ``cls`` given by boxes and wires between pairs
+    ``(box_index, port_position)``, where the position counts the
+    domain ports of the box followed by its codomain ports.
+
+    Parameters:
+        cls : The :class:`~discopy.cmap.CMap` subclass to build.
+        boxes : The boxes of the map.
+        wires : Pairs of ``(box_index, port_position)`` pairs.
+
+    Raises:
+        ValueError : If a port is left unwired or wired twice.
+
+    Example
+    -------
+    >>> from discopy.symmetric import Ty, Box, CMap
+    >>> x = Ty('x')
+    >>> f, g = Box('f', x, x @ x), Box('g', x @ x, x)
+    >>> cm = from_wiring(CMap, (f, g), [
+    ...     ((0, 0), (1, 2)), ((0, 1), (1, 0)), ((0, 2), (1, 1))])
+    >>> assert cm.edges.is_fixpoint_free_involution()
+    >>> from_wiring(CMap, (f, ), [((0, 0), (0, 0))])
+    Traceback (most recent call last):
+        ...
+    ValueError: Port (0, 0) is wired to itself.
+    """
+    boxes = tuple(boxes)
+    starts, n_ports = [], 0
+    for box in boxes:
+        starts.append(n_ports)
+        n_ports += len(box.dom) + len(box.cod)
+
+    def global_index(box_index: int, position: int) -> int:
+        box = boxes[box_index]
+        arity, coarity = len(box.dom), len(box.cod)
+        if not 0 <= position < arity + coarity:
+            raise ValueError(
+                f"Box {box_index} has no port {position}.")
+        if position < arity:
+            return starts[box_index] + position
+        return starts[box_index] + arity\
+            + (coarity - 1 - (position - arity))
+
+    pairs, seen = [], set()
+    for (one, other) in wires:
+        i, j = global_index(*one), global_index(*other)
+        if i == j:
+            raise ValueError(f"Port {one} is wired to itself.")
+        for port, position in ((i, one), (j, other)):
+            if port in seen:
+                raise ValueError(f"Port {position} is wired twice.")
+        seen.update((i, j))
+        pairs.append((i, j))
+    if len(seen) != n_ports:
+        missing = sorted(set(range(n_ports)) - seen)
+        raise ValueError(f"Ports {missing} are left unwired.")
+    edges = Permutation.from_transpositions(pairs, n_ports)
+    return cls(cls.ob(), cls.ob(), boxes, edges)
+
+
 class CMap(compact.CMap):
     """
     A neural combinatorial map is a compact map with networks as boxes,
@@ -243,7 +326,10 @@ class CMap(compact.CMap):
     >>> fm.port_widths
     (2, 2, 2, 3, 3, 2)
     """
+    category = Diagram
     functor = Functor
+
+    from_wiring = classmethod(from_wiring)
 
     def box_ports(self, index: int) -> tuple[int, ...]:
         """
@@ -800,6 +886,7 @@ class CMap(compact.CMap):
 
 Id = Diagram.id
 
+Diagram.functor_factory = Functor
 Diagram.braid_factory = Swap
 Diagram.hypergraph_factory = Hypergraph
 Diagram.map_factory = CMap

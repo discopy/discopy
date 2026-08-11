@@ -21,6 +21,7 @@ from discopy.neural.cells import Cyclic, Gate, Mode, Relation, Site
 from discopy.neural.engine import (
     Engine, Schedule, evaluate_act, evaluate_selected)
 from discopy.neural.functor import Interpretation, interpret
+from discopy.neural.core import from_wiring
 from discopy.neural.skeleton import from_incidence, from_relation
 from discopy.utils import AxiomError
 
@@ -128,7 +129,7 @@ def test_wrong_type_still_rejected():
     bad = frobenius.Box("cell", frobenius.Ty(),
                         frobenius.Ty("peer", "peer"))
     with pytest.raises(ValueError, match="type of its signature"):
-        Skeleton(frobenius.CMap.from_wiring(
+        Skeleton(from_wiring(frobenius.CMap,
             (bad, ), [((0, 0), (0, 1))]), {"cell": node})
 
 

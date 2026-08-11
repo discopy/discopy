@@ -50,6 +50,7 @@ from dataclasses import dataclass, field, replace
 from typing import Mapping
 
 from discopy import frobenius
+from discopy.neural.core import from_wiring
 from discopy.neural.signature import Orbit, Signature
 
 #: The name the node boxes of a skeleton get by default.
@@ -179,7 +180,7 @@ class Skeleton:
     def wires(self) -> tuple:
         """
         The wires as pairs of ``(box index, port position)`` pairs, i.e.
-        the inverse of :meth:`~discopy.cmap.CMap.from_wiring`.
+        the inverse of :func:`~discopy.neural.core.from_wiring`.
 
         Example
         -------
@@ -248,7 +249,8 @@ def _wire_loops(wires: list, index: int, signature: Signature) -> None:
     >>> from discopy.frobenius import Box, CMap, Ty
     >>> x = Ty("x")
     >>> g = Box("g", x, x)
-    >>> CMap.from_box(g).trace() == CMap.from_wiring(
+    >>> from discopy.neural.core import from_wiring
+    >>> CMap.from_box(g).trace() == from_wiring(CMap,
     ...     (g, ), [((0, 0), (0, 1))])
     True
     """
@@ -349,7 +351,7 @@ def from_incidence(incidence: tuple, node: Signature, relation: Signature,
     boxes = tuple(sig.box(node_name, category) for sig in nodes) + tuple(
         sig.box(names[index], category)
         for index, sig in enumerate(units))
-    return Skeleton(category.CMap.from_wiring(boxes, wires),
+    return Skeleton(from_wiring(category.CMap, boxes, wires),
                     {node_name: node, **relations_of})
 
 
@@ -400,7 +402,7 @@ def from_relation(relation: tuple, node: Signature, node_name: str = NODE,
         _wire_loops(wires, index, nodes[index])
 
     boxes = tuple(sig.box(node_name, category) for sig in nodes)
-    return Skeleton(category.CMap.from_wiring(boxes, wires),
+    return Skeleton(from_wiring(category.CMap, boxes, wires),
                     {node_name: node})
 
 
