@@ -1,13 +1,48 @@
 # Notes from the refactor
 
-`discopy.neural` became a category-generic engine and the study kept only
-what is a study. The rule for that refactor was that **no number moves**,
-which is checked bitwise by `test/neural/test_equivalence.py` against the
-fingerprints frozen in `golden/`.
+`discopy.neural` was rebuilt around `MapNN`: a diagram plus shared
+learnable generator maps compiled into a global interaction, and a solver
+that says how to run it. The rule was that **no number moves**, which is
+checked bitwise by `test/neural/test_equivalence.py` against the
+fingerprints frozen in `golden/` — structure, parameters, logits, gradients
+and 20-step loss trajectories, in float32 and float64, for all four
+recorded models.
 
 This file records what was noticed along the way and deliberately *not*
-touched, so that it is written down somewhere rather than fixed in a
-commit whose job was to change nothing.
+fixed, so that it is written down somewhere rather than smuggled into a
+change whose job was to preserve behaviour.
+
+## What did change, and why it is not a number
+
+**The modules moved.** The generators now live under the `MapNN` that
+shares them (`map.ar.cell.*`) and the answer refresh under the solver that
+runs it (`map.solver.refresh.*`). A pre-refactor checkpoint therefore needs
+its keys renamed; `examples/sudoku/model.py` carries the map, as `rename`,
+`translate` and `load_checkpoint`, and `test_parameters` asserts that the
+translation is strict and total and that the weights are bitwise the
+golden's, taken in the golden's own order.
+
+**`Skeleton`, `Interpretation`, `Wiring`, `Router`, `Schedule` and the
+engines are gone.** They were five names for what is now two: a diagram and
+a `MapNN`. The port families a solver reads used to come from a declared
+`Signature` per box; they are now read off the *wiring* — a port is a head
+unless it is wired to an earlier port of the same box, which is exactly the
+second copy of a traced leg — so a diagram no longer has to carry its
+signatures to be compiled. `Signature` survives where it earns its keep:
+laying out one generator's ports for a cell, for a wiring builder and for
+`check_equivariant`.
+
+**`InteractionMap` no longer pretends to compose.** It used to record the
+boundary bookkeeping of `f >> g` while its own docstring explained that two
+interaction maps glued along a shared object do *not* compose by
+substitution. It now raises. The tensor is kept, because `Phi_theta` really
+is the parallel application of every local interaction.
+
+**`Transition` and `Iteration` dissolved into `Interaction`.** They were
+specifications of the object that now exists: the compiled interaction
+carries `local`, `routing`, `state` and `is_involution`, and the resumption
+law `T^(a+b) = T^b . T^a` is asserted on the forward pass rather than on a
+dataclass that could not fail it.
 
 ## Left alone, on purpose
 
@@ -19,79 +54,57 @@ emissions is dead in every round; the wire is there because a trace is a
 redundant write would change the flat state and hence the arithmetic, so it
 stays.
 
-**`inject=True` re-adds the clue to every port, not just the clue ports.**
-`CMap.forward` adds the whole `init` vector to the incoming messages each
-round. `init` is zero everywhere except the clue ports, so the effect is the
-intended one — but the addition is performed over the entire flat tensor
-each round, which is `total`-many adds where `len(clue_ports) * width` would
-do.
+**`inject=True` re-adds the initial vector to every port, not just the ones
+it was written on.** `CMap.forward` adds the whole `init` vector to the
+incoming messages each round. `init` is zero everywhere except the clue
+ports, so the effect is the intended one — but the addition is performed
+over the entire flat tensor each round, which is `total`-many adds where
+`sites * width` would do.
 
 **Model A pays for an answer role it does not have.** Models A and C share a
-skeleton, and A's interpretation erases the answer role. The erasure is
+diagram, and A's interpretation erases the answer role. The erasure is
 complete — no ports, no wires, no width — but the cell module still carries
 `Mode.CARRY` in its `mode` mapping for a role of width zero. Harmless, and
 it is what makes one signature serve both.
 
 **`train_epoch` reports the loss per supervised checkpoint for both
 supervision schemes, but the two schemes take a different number of
-optimizer steps per batch.** The single-run solvers take one, the recursion
-solver takes `n_sup`. This is documented in `core/train.py` as a residual
-asymmetry of the protocol, and it is still there.
+optimizer steps per batch.** The single-run models take one, the recursion
+takes `steps`. This is a residual asymmetry of the protocol, documented in
+`examples/sudoku/train.py` rather than hidden.
 
-**`evaluate` and `evaluate_act` decode with the clues written back over the
-predictions**, so a model is never scored on a cell it was given. That is
-the right rule for fill-in-the-blanks, but it means cell accuracy is not
-comparable across benchmarks with different numbers of givens.
+**`evaluate` decodes with the clues written back over the predictions**, so
+a model is never scored on a cell it was given. That is the right rule for
+fill-in-the-blanks, but it means cell accuracy is not comparable across
+benchmarks with different numbers of givens.
 
-**`Router.write` returns a copy.** `index_copy` (not `index_copy_`) is used
-so the state stays a graph output that autograd can differentiate through;
-every `initial` and every answer refresh therefore allocates a fresh flat
+**`Interaction.write` returns a copy.** `index_copy` (not `index_copy_`) is
+used so the state stays a graph output that autograd can differentiate
+through; every `initial` and every refresh therefore allocates a fresh flat
 tensor. Deliberate, and the reason the segmented loop can detach cleanly.
 
 **`forward_reference` is quadratic in the number of boxes.** It is the
-reference oracle and is only ever run on small maps; `test_forward_reference`
-runs it on two puzzles and two rounds for that reason.
+reference oracle and is only ever run on small maps.
 
-## Noticed while adding the formal layer
-
-The semantics-first pass that added `discopy/neural/parametric.py`,
-`dynamics.py` and `laws.py` (see [ARCHITECTURE.md](ARCHITECTURE.md)) moved no
-number and touched no runtime class. It did turn up three things, recorded
-here rather than fixed in a change whose job was to change nothing.
-
-**`eval_noise_trm_act.py` reads `model.widths`, which no engine has.** Around
-line 191 the noise study asks the model for `model.widths.y_dim` and
-`model.widths.state_dim`. `Engine` has `ob`, `interpretation` and
-`router.widths`, but no `widths` attribute, so that helper raises
-`AttributeError`. The script is not run by CI and nothing else calls the
-helper, so it is left alone; the fix is to pass the `Widths` in, or to read
-`model.y_dim` and `model.state_width`, which `RecursionEngine._rebind` does
-set.
-
-**Resumption is a law of one transition, and `inject` is part of the
-transition.** `F^(a+b) = F^b . F^a` holds bitwise for `inject=False`, which
-is what the segmented schedules use. With `inject=True` the vector added
-back every round is whatever was passed as `init`, so resuming a run from
-its own carried state resumes a *different* map. No caller does that today —
-an `inject=True` schedule runs exactly one `advance` per forward pass — but
-nothing enforces it either. `test_formal.py::test_reinjection_belongs_to_
-the_transition` pins the behaviour down so a future refactor cannot quietly
-change which one it is.
-
-**Two goldens are a fingerprint of one interpreter, and it shows.** On torch
-2.2.2 the float64 `test_forward`/`test_backward` and every `test_trajectory`
-differ from `golden/` in the last bits, for all four models, while float32
-forward and backward match bitwise. That is the caveat the section below
-already states, now with a number on it: the goldens were recorded under
-torch 2.13. Re-recording them is a decision for whoever pins the version,
-not for a refactor.
+**The noise study's plotting is not carried over.** `evaluate.py --noise`
+reproduces the depth-by-noise grid and writes the same JSON and `npz`
+artifacts, with the provenance of the run beside the numbers; the ~230
+lines of matplotlib that turned those artifacts into the committed figures
+under `figures/` were dropped rather than ported.
 
 ## Things that are not bugs, but will surprise
 
-**A golden is a fingerprint of one interpreter.** torch 2.13 and torch 2.2
-disagree in the last bits of `LSTMCell`, so the clique model's loss
-trajectory differs between them while every other model's is identical. The
-fingerprints in `golden/` were recorded under torch 2.13 on the CPU.
+**A golden is a fingerprint of one interpreter — run the gate in the locked
+environment.** On torch 2.2 the float64 forward and backward and every loss
+trajectory differ from `golden/` in the last bits, for all four models,
+while float32 forward and backward match bitwise. That is not something to
+re-record or to give a tolerance: the version *is* pinned. `uv.lock`
+resolves `torch==2.13.0+cpu`, which is what the goldens were recorded under
+and what CI installs with `uv sync --locked`. A run that shows those
+failures is a run against the wrong interpreter. The locked torch is the
+**CPU** build, so it runs the tests but cannot run the GPU studies; those
+want a CUDA build, which is not the environment any golden is recorded
+against.
 
 **Thread count is part of what "bitwise" means.** A multi-threaded CPU
 reduction splits its sum across threads and adds the partial sums back in a
@@ -100,7 +113,7 @@ different order. The goldens are recorded, and the tests run, with
 *faster*, since handing a cell to a thread pool costs far more than its
 arithmetic.
 
-**The GPU is not reproducible run to run.** Two `train_a_goi.py --seed 0
+**The GPU is not reproducible run to run.** Two `train.py goi --seed 0
 --quick` runs on the same GPU with the same code differ in the fourth
 decimal of the first epoch's loss. Any before/after comparison of training
 has to be done on the CPU; that is what the equivalence tests do.
@@ -109,10 +122,10 @@ has to be done on the CPU; that is what the equivalence tests do.
 maps as their monoidal product evaluates their shared sites in one batched
 module call rather than two, and a matmul over six rows is not the same
 kernel as one over two. The values agree to a few units in the last place.
-This is new capability (`discopy/neural/batch.py`), not a change to any
-existing run, and it is the same rounding freedom `CMap.compile` documents.
+This is capability (`discopy/neural/batch.py`), not a change to any existing
+run, and it is the same rounding freedom `CMap.compile` documents.
 
-## The one deliberate structural change
+## The one deliberate structural change to the wiring
 
 The clique cell used to keep the two states of its `LSTMCell` as one wide
 port that it sliced in half. It now keeps them as two named roles, `hidden`
@@ -135,10 +148,10 @@ there as half of a wide wire.
 
 ## Not attempted
 
-**Closing the loops with `CMap.trace` rather than with an explicit self-wire.**
-A loop *is* a trace, and `CMap.from_box(g).trace() == CMap.from_wiring((g,),
-[((0, 0), (0, 1))])` — asserted as a doctest in
-`discopy/neural/skeleton.py`. Building the 108-box skeletons that way would
+**Closing the loops with `CMap.trace` rather than with an explicit
+self-wire.** A loop *is* a trace, and `CMap.from_box(g).trace() ==
+from_wiring(CMap, (g,), [((0, 0), (0, 1))])` — asserted as a doctest in
+`discopy/neural/signature.py`. Building the 108-box wirings that way would
 mean constructing the open map's involution by hand first and then splicing
 it, which is strictly more index arithmetic than wiring the loops directly
 from `Signature.loops()`. The equation is documented and checked; the
@@ -148,6 +161,13 @@ construction stays direct.
 is compact closed either way — swaps, cups, caps and traces are all wiring
 in it — so mirroring the source hierarchy would duplicate the whole module
 per category and buy nothing. The source category is a *parameter* of
-`Signature.box` and of the skeleton builders instead, and its
+`Signature.box` and of the wiring builders instead, and its
 `require_planar` / `require_acyclic` / `require_oriented` /
 `require_connected` flags do the guarding.
+
+**Out of scope, and now stale.** `docs/optuna/*.py` and
+`docs/notebooks/neural-cells-lecture.ipynb` import the removed
+`sudoku`/`core` packages. The optuna scripts were *already* stale before
+this refactor — they call `zoo.RRNSolver` and `zoo.TRMSolver`, names that
+were removed earlier — so they need a pass of their own; the brief was
+`discopy/neural` and `docs/neural`.

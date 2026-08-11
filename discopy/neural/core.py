@@ -38,8 +38,14 @@ of the compact target -- it is wiring, which a functor preserves strictly --
 while what it computes over finitely many rounds is delayed feedback: what a
 box writes on one end it reads on the other one round later.  Repeated
 rounds are the finite iteration ``T ** n``, never a fixed-point solve; see
-:mod:`discopy.neural.dynamics` for the transition ``T`` and for the three
-notions kept apart there.
+:mod:`discopy.neural.map` for the transition ``T`` and for the four notions
+kept apart there.
+
+This module is the *category*.  Training a neural interpretation of a
+diagram goes through :class:`~discopy.neural.MapNN`, which compiles a
+diagram and a family of shared generator modules into an
+:class:`~discopy.neural.map.Interaction` and hands it to a
+:class:`~discopy.neural.Solver`.
 
 Note that ``import discopy.neural`` does not import ``torch``: networks can
 be built, composed and rewired without it, only evaluating their modules
@@ -249,6 +255,31 @@ class Hypergraph(compact.Hypergraph):
     functor = Functor
 
 
+def box_ports(cmap, index: int) -> tuple[int, ...]:
+    """
+    The global port indices of a box in logical order, i.e. its domain
+    ports followed by its codomain ports, undoing the clockwise order
+    which stores the codomain ports reversed.
+
+    Defined for a map in any compact category, so that the interpretation
+    of :mod:`discopy.neural.map` can read the source and the image the same
+    way.
+
+    Parameters:
+        cmap : The map to read.
+        index : The index of the box.
+
+    Example
+    -------
+    >>> f = Network('f', Dim(2, 3), Dim(4, 5, 6))
+    >>> box_ports(f.to_map(), 0)
+    (2, 3, 6, 5, 4)
+    """
+    ports = cmap._box_port_indices[index]
+    arity = len(cmap.boxes[index].dom)
+    return ports[:arity] + tuple(reversed(ports[arity:]))
+
+
 def from_wiring(cls, boxes: tuple, wires) -> "CMap":
     """
     A closed map of class ``cls`` given by boxes and wires between pairs
@@ -338,16 +369,13 @@ class CMap(compact.CMap):
 
     def box_ports(self, index: int) -> tuple[int, ...]:
         """
-        The global port indices of a box in logical order, i.e. its domain
-        ports followed by its codomain ports, undoing the clockwise order
-        which stores the codomain ports reversed.
+        The global port indices of a box in logical order; see
+        :func:`box_ports`.
 
         Parameters:
             index : The index of the box.
         """
-        ports = self._box_port_indices[index]
-        arity = len(self.boxes[index].dom)
-        return ports[:arity] + tuple(reversed(ports[arity:]))
+        return box_ports(self, index)
 
     @property
     def port_widths(self) -> tuple[int, ...]:

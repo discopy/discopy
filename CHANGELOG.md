@@ -41,18 +41,19 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   permutation operations and functorial semantics, while `symmetric.Layer`
   alternates permutations with generators without canonicalising diagram
   state ([#362](https://github.com/discopy/discopy/pull/362)).
-- A torch-free semantic layer for `discopy.neural`, which says what the
-  executable classes mean without computing anything:
-  `discopy.neural.parametric` distinguishes an ordinary parametric map
-  `f : P @ X -> Y` from the parametric interaction map
-  `Phi : P @ (X* @ Y) -> X* @ Y` on a box boundary that a `Network`
-  actually is, with `interaction_spec` reading one off a `Network`;
-  `discopy.neural.dynamics` records a map as the global transition
-  `T = sigma . Phi` and running it as finite iteration rather than a fixed
-  point; `discopy.neural.laws` reads a `Signature`'s symmetry as a group
-  action together with how strongly a learned module keeps it. The
-  executable `Network`, `CMap`, `Signature`, cells, batching, `Schedule`
-  and engines are unchanged.
+- `discopy.neural.MapNN`, the central abstraction of `discopy.neural`: an
+  ordinary `torch.nn.Module` holding the width of every atomic role, one
+  shared learnable module per generator name and a solver. It compiles a
+  DisCoPy diagram — or a `Batch` of diagrams whose shapes differ — into a
+  global interaction and hands it to the solver, so that a dataset of
+  `(diagram, inputs, target)` samples trains with an ordinary PyTorch loop.
+- `discopy.neural.solver`, the execution strategies as one hierarchy:
+  `Iterate` (finite iteration), `FixedPoint` (Picard iteration towards
+  `s = T(s)`, with either the Jacobian-free one-step gradient or unrolled
+  backpropagation), `Recursion` (segmented execution with a `Refresh` of a
+  trace between cycles) and `ACT` (a `HaltHead` on top). `FixedPoint` and
+  `Interaction.residual` are new; the others reproduce the previous
+  schedules bitwise.
 
 ### Changed
 
@@ -91,9 +92,50 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - Symmetric categories generate their swaps with `swap_factory` rather than
   `braid_factory`, which is now a `classproperty` reading it
   ([#440](https://github.com/discopy/discopy/pull/440)).
+- `discopy.neural` is reorganised around `MapNN`: `model.py` (`MapNN`),
+  `map.py` (the interpretation, the compiled `Interaction`, and the
+  specifications `ParamMap` / `InteractionMap`), `solver.py`, `batch.py`,
+  `cells.py`, `signature.py`, `laws.py` and the unchanged category in
+  `core.py`. `skeleton.py`, `functor.py`, `parametric.py`, `dynamics.py`
+  and `engine.py` are gone, and with them `Skeleton`, `Interpretation`,
+  `Wiring`, `Router`, `Schedule` and the four engines: a diagram plus a
+  `MapNN` is the whole pipeline, and the port families a solver reads are
+  now derived from the wiring rather than from a declared signature per
+  box. `InteractionMap` no longer offers `>>`, since two interactions
+  glued along a shared object compose by wiring and iteration rather than
+  by substitution; its tensor is kept. Training loops, adaptive-computation
+  -time policy and the evaluation protocols move out of the library into
+  `docs/neural/examples/sudoku`, which reproduces every recorded result in
+  six files. The arithmetic is unchanged, checked bitwise against
+  `docs/neural/golden/` for all four recorded models in float32 and
+  float64; pre-refactor checkpoints load through
+  `examples/sudoku/model.py`'s `rename` / `load_checkpoint`.
+
+### Added
+
+- `test/neural/test_sudoku_act_e2e.py`, an end-to-end check that trains model
+  C through the real ACT loop on the Palm et al. (2018) benchmark and then
+  reads it with the noise study's own `latent_stats` and `run_segment`: the
+  first test in which the model is good enough for "noise costs board
+  accuracy" to be falsifiable. It is marked `neural_e2e` and deselected by
+  default — three minutes, a GPU and a cached benchmark — so run it with
+  `pytest -m neural_e2e` when `discopy.neural` changes.
 
 ### Fixed
 
+- `pandas` is a `dev` dependency. `docs/neural`'s training harness used to
+  import it unconditionally, so without it `pytest.importorskip` silently
+  skipped the whole `discopy.neural` equivalence gate, the sudoku smoke test
+  and three tests of `test_general.py` — in CI as well as locally. The
+  example no longer uses `pandas` at all, so nothing is skipped either way.
+- The noise study records how a sweep was produced — the device and the
+  torch version — beside what was asked of it, since eager and compiled
+  agree only up to the rounding freedom `CMap.compile` documents. It also
+  reads the answer and latent widths off the compiled interaction rather
+  than off a `widths` attribute no model had, which made `latent_stats`
+  raise `AttributeError` on its main path. Both now live in
+  `docs/neural/examples/sudoku/evaluate.py` and are covered by
+  `test/neural/test_noise_eval.py`.
 - Tensor networks are contracted with `opt_einsum` when the number of
   indices exceeds `numpy.einsum`'s 52-index limit
   ([#448](https://github.com/discopy/discopy/pull/448)).

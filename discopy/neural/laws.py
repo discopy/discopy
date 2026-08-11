@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 
 """
-The equations a site promises, read as group actions.
+The equations a generator promises, and how strongly a learned module keeps
+them.
 
 :mod:`discopy.neural.signature` says *which* ports of a box are one orbit
-under which group; this module says what that **means**, and how strongly.
+under which group; this module says what that **means**, and measures it.
 A symmetry is a group action
 
 .. math:: \\rho_X : G \\to \\mathrm{Aut}(X)
@@ -17,14 +18,8 @@ equivariance:
 
 For a cell of :mod:`discopy.neural.cells` the domain and the codomain of
 :math:`F` are the *same* object -- the boundary of the box, see
-:mod:`discopy.neural.parametric` -- so :math:`\\rho_X = \\rho_Y` and the law
-reads :math:`F \\circ \\rho(g) = \\rho(g) \\circ F`.
-
-Nothing here computes: :meth:`~discopy.neural.signature.Signature.
-generators` is the same group acting on ports, and
-:func:`~discopy.neural.signature.check_equivariant` is the executable
-diagnostic that measures the residual of the law on an actual module.
-This module is where the residual gets a name.
+:class:`~discopy.neural.map.InteractionMap` -- so :math:`\\rho_X = \\rho_Y`
+and the law reads :math:`F \\circ \\rho(g) = \\rho(g) \\circ F`.
 
 How strongly a law holds is a :class:`Strictness`, and being honest about
 it is the point:
@@ -36,19 +31,17 @@ it is the point:
   That is what a pooled cell gives: :class:`~discopy.neural.cells.Relation`
   and :class:`~discopy.neural.cells.Site` are permutation-equivariant
   because they pool symmetrically, and the residual
-  :func:`~discopy.neural.signature.check_equivariant` reports is rounding
-  error, not error.
+  :func:`check_equivariant` reports is rounding error, not error.
 * **approximate** -- neither, only measured or regularised.
 
 Note
 ----
 Permutation equivariance is **not** Frobenius structure.  A learned
 :class:`~discopy.neural.cells.Relation` commutes with permutations of its
-members and still does not fuse:
-:func:`~discopy.neural.cells.fusion_residual` measures how far it is from
-the fusion law, and the answer is not zero.  Satisfying the symmetry a
-signature declares says nothing about the other equations of whatever
-algebraic theory one had in mind.
+members and still does not fuse: :func:`fusion_residual` measures how far
+it is from the fusion law, and the answer is not zero.  Satisfying the
+symmetry a signature declares says nothing about the other equations of
+whatever algebraic theory one had in mind.
 
 Summary
 -------
@@ -79,8 +72,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 from math import factorial
+from typing import Mapping
 
-from discopy.neural.signature import Orbit, Signature, Sym, leg_generators
+from discopy.neural.signature import (
+    Orbit, Signature, Sym, leg_generators)
+from discopy.utils import AxiomError
 
 
 class Strictness(StrEnum):
@@ -103,9 +99,9 @@ class Action:
     A group action :math:`\\rho : G \\to \\mathrm{Aut}(X)` on the legs of an
     orbit, given by the images of a set of generators of :math:`G`.
 
-    The group is named by a :class:`~discopy.neural.signature.Sym` and its
-    generators are :func:`~discopy.neural.signature.leg_generators`, so this
-    is a *reading* of the signature rather than a second definition of it.
+    The group is named by a :class:`~discopy.neural.Sym` and its generators
+    are :func:`~discopy.neural.signature.leg_generators`, so this is a
+    *reading* of the signature rather than a second definition of it.
 
     Parameters:
         group : The group acting.
@@ -215,8 +211,7 @@ def symmetry(signature: Signature,
     >>> from discopy.frobenius import Ty
     >>> from discopy.neural import Orbit, Signature, Sym
     >>> peer, state = Ty("peer"), Ty("state")
-    >>> plain = Signature((Orbit(peer, 2), Orbit(state, traced=True)))
-    >>> symmetry(plain)
+    >>> symmetry(Signature((Orbit(peer, 2), Orbit(state, traced=True))))
     ()
     >>> clique = Signature((Orbit(peer, 4, Sym.PERM),
     ...                     Orbit(state, traced=True)))
@@ -233,3 +228,159 @@ def symmetry(signature: Signature,
     return tuple(
         Law(tuple(orbit.role), action(orbit), strictness)
         for orbit in signature.orbits if not action(orbit).is_trivial)
+
+
+# --- the executable diagnostics --------------------------------------------
+
+def check_equivariant(module, signature: Signature, widths: Mapping,
+                      atol: float = 1e-5, batch: int = 4,
+                      seed: int = 0) -> dict:
+    """
+    Measure whether a module satisfies the equations its signature
+    declares, and refuse it when it does not.
+
+    For each generator of the symmetry group, the module is run on a
+    permuted input and compared against the permutation of its output on
+    the original one.  A learned module is only ever *approximately*
+    equivariant -- pooling reorders a floating-point reduction -- so the
+    residual is reported rather than claimed to be zero.
+
+    Parameters:
+        module : The torch module filling the site.
+        signature : The signature the site declares.
+        widths : The width carried by each atomic role.
+        atol : The residual above which the module is rejected.
+        batch : The number of random rows to test on.
+        seed : The seed of the random input, so the check is reproducible.
+
+    Returns:
+        The largest residual per role, over every generator of its orbit.
+
+    Raises:
+        AxiomError : If a residual exceeds ``atol``.
+
+    Example
+    -------
+    >>> import torch
+    >>> from discopy.frobenius import Ty
+    >>> from discopy.neural import Orbit, Signature, Sym
+    >>> message = Ty("message")
+    >>> unit = Signature((Orbit(message, 3, Sym.PERM), ))
+    >>> class Mean(torch.nn.Module):
+    ...     def forward(self, x):
+    ...         return x.reshape(-1, 3, 2).mean(1, keepdim=True).expand(
+    ...             -1, 3, -1).reshape(-1, 6)
+    >>> check_equivariant(Mean(), unit, {message: 2})[message] < 1e-6
+    True
+    >>> class Skew(torch.nn.Module):
+    ...     def forward(self, x):
+    ...         return x * torch.arange(1., 1 + x.shape[-1], dtype=x.dtype)
+    >>> try:
+    ...     check_equivariant(Skew(), unit, {message: 2})
+    ... except AxiomError as error:
+    ...     print(str(error).split(":")[0])
+    message is not perm-equivariant
+    """
+    import torch
+    total = signature.width(widths)
+    generator = torch.Generator().manual_seed(seed)
+    rows = torch.randn(batch, total, generator=generator, dtype=torch.double)
+    residuals: dict = {}
+    with torch.no_grad():
+        expected = module(rows)
+        for orbit, permutation in _orbit_generators(signature):
+            index = _flat_index(signature, widths, permutation)
+            residual = float(
+                (module(rows[:, index]) - expected[:, index]).abs().max())
+            for atom in orbit.role:
+                residuals[atom] = max(residuals.get(atom, 0.0), residual)
+    broken = {atom: value for atom, value in residuals.items()
+              if value > atol}
+    if broken:
+        raise AxiomError(", ".join(
+            f"{atom} is not {_sym_of(signature, atom)}-equivariant: "
+            f"residual {value:.3g} > {atol:g}"
+            for atom, value in broken.items()))
+    return residuals
+
+
+def fusion_residual(module, signature: Signature, widths: Mapping,
+                    arity: int = 4, rounds: int = 4, batch: int = 4,
+                    seed: int = 0) -> float:
+    """
+    How far a learned relation is from fusing, i.e. from being a spider.
+
+    The Frobenius fusion law says two spiders wired along a leg are one
+    spider over the remaining legs.  Here the two relations are glued
+    along their last leg and message passing is run on the composite until
+    the shared wire settles; the free legs are then compared against one
+    relation over all of them.  A learned module does **not** satisfy the
+    law -- it is lax, not strict -- so this is the number that says so,
+    reported rather than a docstring claiming a structure the weights do
+    not have.
+
+    Parameters:
+        module : The relation to measure.
+        signature : Its signature, one orbit of members.
+        widths : The width each atomic role carries.
+        arity : The number of free legs on each side of the gluing.
+        rounds : The exchanges along the shared wire.
+        batch : The number of random rows to measure on.
+        seed : The seed of the random input.
+
+    Example
+    -------
+    >>> from discopy.frobenius import Ty
+    >>> from discopy.neural import Orbit, Signature, Sym
+    >>> from discopy.neural.cells import Relation
+    >>> message = Ty("message")
+    >>> unit = Signature((Orbit(message, 4, Sym.PERM), ))
+    >>> box = Relation(unit, {message: 2}, hidden=4).double()
+    >>> fusion_residual(box, unit, {message: 2}) > 1e-3
+    True
+    """
+    import torch
+    leg = sum(widths[atom] for atom in signature.orbits[0].role)
+    generator = torch.Generator().manual_seed(seed)
+    rows = torch.randn(batch, 2 * arity * leg, generator=generator,
+                       dtype=torch.double)
+    left, right = rows[:, :arity * leg], rows[:, arity * leg:]
+    shared = torch.zeros(batch, 2 * leg, dtype=rows.dtype)
+    with torch.no_grad():
+        for _ in range(rounds):
+            one = module(torch.cat([left, shared[:, leg:]], -1))
+            other = module(torch.cat([right, shared[:, :leg]], -1))
+            shared = torch.cat([one[:, -leg:], other[:, -leg:]], -1)
+        glued = torch.cat([one[:, :-leg], other[:, :-leg]], -1)
+        return float((glued - module(rows)).abs().max())
+
+
+def _orbit_generators(signature: Signature):
+    """ Each generator of :meth:`Signature.generators` with its orbit. """
+    result, generators = [], iter(signature.generators())
+    for orbit in signature.orbits:
+        for _ in leg_generators(orbit.sym, orbit.arity):
+            result.append((orbit, next(generators)))
+    return result
+
+
+def _sym_of(signature: Signature, role) -> Sym:
+    """ The symmetry of the orbit an atomic role belongs to. """
+    for orbit in signature.orbits:
+        if role in tuple(orbit.role):
+            return orbit.sym
+    raise KeyError(role)
+
+
+def _flat_index(signature: Signature, widths: Mapping, permutation):
+    """ A port permutation as a permutation of the flat message vector. """
+    import torch
+    port_widths = [widths[role] for role in signature.roles]
+    offsets, total = [], 0
+    for width in port_widths:
+        offsets.append(total)
+        total += width
+    return torch.tensor([
+        k for port in permutation.inside
+        for k in range(offsets[port], offsets[port] + port_widths[port])],
+        dtype=torch.long)

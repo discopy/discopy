@@ -1,44 +1,40 @@
 # The architecture, layer by layer
 
-This document says what each layer of `discopy.neural` *is*, in the language
-of category theory where that language applies and in the language of
-numerical analysis where it does not. It is the map to read before changing
-anything: the boundaries below are the ones a later refactor should move,
-and the ones this one made explicit without moving.
+[README.md](README.md) explains the workflow. This document says what each
+layer *is*, in the language of category theory where that language applies
+and in the language of numerical analysis where it does not. It is the map
+to read before changing anything.
 
     source category / diagram
-            |                       Skeleton: combinatorics, no widths, no torch
+            |                    an ordinary DisCoPy diagram or CMap whose
+            v                    atomic types name roles
+    interpretation  F_theta
+            |                    roles -> Dim, generator names -> modules
+            v                    (MapNN.ob, MapNN.ar)
+    compiled global interaction
+            |                    T_{D,theta} = sigma_D . Phi_theta : S_D -> S_D
             v
-    parametric interaction interpretation
-            |                       Interpretation / Functor: roles -> Dim,
-            v                       names -> torch modules
-    CMap wiring and GoI execution
-            |                       one round = sigma . Phi
+    solver
+            |                    how many rounds, and which are differentiated
             v
-    global transition  T_theta : S -> S
-            |
-            v
-    Schedule / Engine / RecursionEngine / ACTEngine
-            |                       how many rounds, and which are differentiated
-            v
-    task-specific sudoku training
-                                    losses, optimizer, clipping, EMA, ACT refill
+    task: encoder, readout, loss, optimizer
+                                 outside the library, by design
 
-Three of these layers are **categorical** (syntax, interpretation, wiring),
-one is **dynamical** (the transition and its iteration), one is **Torch
-realization** (the modules and the forward pass), and the last two are
-**policy** (execution, differentiation, optimization). Confusing them is the
-failure mode this document exists to prevent.
+Two of these layers are **categorical** (the diagram and its
+interpretation), one is **dynamical** (the transition and its iteration),
+one is **policy** (execution and differentiation), and the last is the
+user's. Confusing them is the failure mode this document exists to
+prevent.
 
-## 1. Source category and diagram
+## 1. The diagram
 
-A model starts as a diagram `D` in some source category `C`. For the sudoku
-solvers `C` is `discopy.frobenius`, and the diagram is not drawn by hand: it
-is generated from the game's combinatorics by
-`discopy.neural.skeleton.from_incidence` (bipartite cell/unit factor graph)
-or `from_relation` (pairwise peer clique). `from_diagram` reads a skeleton
-off any diagram, so a source category's own combinators can draw the wiring
-instead.
+A model starts as a diagram `D` in some source category `C`, whose atomic
+types are *roles*: names for what a wire carries, not for how wide it is.
+`C` is `discopy.frobenius` for the sudoku example. The diagram need not be
+drawn by hand — `discopy.neural.signature.from_incidence` (a bipartite
+incidence graph) and `from_relation` (the graph of a binary relation) draw
+one out of a family's combinatorics — but it may be, and `MapNN.compile`
+reads a diagram through `CMap.from_diagram` either way.
 
 What survives from `C` and what does not is the whole point. Swaps, cups,
 caps and traces are **wiring** in the target category, so a functor into
@@ -46,37 +42,26 @@ caps and traces are **wiring** in the target category, so a functor into
 behind, only a different involution. What cannot be preserved for free is a
 box whose legs carry a symmetry: a constraint over nine variables, a spider,
 a planar node. Those stay boxes, and their equations become properties of a
-torch module, measured rather than assumed (§7).
+torch module, measured rather than assumed (§5).
 
-## 2. Skeleton: the combinatorics, on their own
+## 2. The interpretation
 
-A `Skeleton` is a **closed** `CMap` whose boxes carry no data and whose
-atomic types name the *role* a port plays rather than the width it will
-carry, together with the `Signature` of each box name. It is pure syntax:
-degrees, involution and loop positions can be built and checked on a machine
-with no torch at all.
-
-A `Signature` is the single source of truth for the port layout of a box.
-`Signature.cod` builds the abstract type, `Signature.loops` gives the traced
-pairs the skeleton wires, `Signature.slices` gives the flat offsets the
-module reads and writes. Because all three are derived from one declaration,
-the type of a box and the cursor arithmetic of its module cannot drift
-apart.
-
-## 3. Parametric interaction interpretation
-
-An `Interpretation` sends each role to the `Dim` it carries and each box
-name to the torch module computing it; `interpret` applies it port by port.
-Since `Dim(0)` is the monoidal unit, an interpretation can **erase** a role:
-its ports and the wires on them vanish. That is how one skeleton serves two
-models — model A sends the answer role to `Dim(0)`, model C to `Dim(48)`.
+`MapNN(ob, ar)` is the functor `F_theta`. `ob` sends each atomic role to the
+`Dim` it carries; `ar` sends each generator *name* to the torch module
+computing it, shared by every site of that name. `map.interpret` applies it
+port by port. Since `Dim(0)` is the monoidal unit, an interpretation can
+**erase** a role: its ports and the wires on them vanish. That is how one
+diagram serves two models — model A of the example sends the answer role to
+`Dim(0)`, model C to `Dim(48)`.
 
 ### Why a `Network` is not a layer
 
-This is the claim the formal layer exists to make precise.
+This is the claim the formal specifications exist to make precise.
 
 An ordinary parametric map `(P, f) : X -> Y` is a map `f : P (x) X -> Y`:
-parameters and an input in, an output out. That is a feed-forward layer.
+parameters and an input in, an output out. That is a feed-forward layer, and
+those are the morphisms of `Para`; `ParamMap` records them and they compose
+by substitution.
 
 A `Network` is not one. Its module maps `R**width -> R**width` for `width`
 the sum of the domain *and* codomain dimensions: it reads one incoming
@@ -87,49 +72,42 @@ Writing the boundary of a box as
 
 a `Network` is a **parametric interaction map**
 
-    Phi : P (x) d(f) -> d(f).
+    Phi_f : P_f (x) d(f) -> d(f).
 
-`discopy.neural.parametric` is where the two are written down and kept
-apart: `ParamMap` for the first, `InteractionMap` for the second, with
-`interaction_spec(network)` reading the second off a `Network` — read-only,
-owning nothing, taking no part in a forward pass.
+`InteractionMap` records these, `interaction_spec(network)` reads one off a
+`Network` — read-only, owning nothing, taking no part in a forward pass —
+and `InteractionMap.__rshift__` **raises**. That refusal is load-bearing:
+two interaction maps glued along a shared object do not compose by
+substitution, they talk to each other along the wires, which is symmetric
+feedback — the trace of the two boxes over the shared boundary — and what
+computes it is a finite number of rounds. Their *tensor* is kept, because
+`Phi_theta` is exactly the parallel application of every local interaction.
 
 Two consequences worth stating.
 
 * **A cell answers its inputs.** `cells.Site` broadcasts a fresh belief to
   every leg of its message orbit and re-emits its traced roles; nothing in
-  an `X -> Y` signature can say that, which is why the local semantics is
-  an interaction and not a layer.
+  an `X -> Y` signature can say that.
 * **`X*` is `X`, but not in the same order.** Every atomic `Dim` is
   self-dual, so `X*` is represented by the same data as `X`. A composite
   type is a different matter: `Dim(2, 3).r == Dim(3, 2)` reverses, whereas
   the module reads its domain ports in domain order — which is exactly what
-  `CMap.box_ports` restores when it un-reverses the clockwise storage. So
-  `InteractionMap.boundary` is `dom @ cod`: the object `X* (x) Y` up to the
-  symmetry putting the duals back in order, in the port order the executable
-  layout uses. The dagger of a network reuses its module for the same
-  reason: the same weights, read in the new port order.
+  `core.box_ports` restores when it un-reverses the clockwise storage. So
+  `InteractionMap.boundary` is `dom @ cod`. The dagger of a network reuses
+  its module for the same reason: the same weights, read in the new port
+  order.
 
-## 4. CMap wiring and GoI execution
+## 3. The compiled interaction
 
-An interpreted skeleton is a closed `CMap`: a finite family of boxes and a
-fixpoint-free involution `sigma` on their ports. `CMap.forward` runs
-synchronous message passing — every box interacts with the messages on its
-own ports, then the wires carry each emission to the other end — which is
-the execution formula of the geometry of interaction.
+`MapNN.compile(diagram)` returns an `Interaction`: a closed `CMap` — a
+finite family of boxes and a fixpoint-free involution `sigma` on their ports
+— together with the port index of every `(generator name, role)` family.
+`CMap.forward` runs synchronous message passing, which is the execution
+formula of the geometry of interaction; `Interaction.advance(state, n)` is
+the adapter that runs `n` rounds from a flat state back to a flat state.
 
-It is vectorized: all messages live in one flat tensor, one round of routing
-is a single permutation of its last axis, and every box sharing a module and
-a port signature is evaluated in one batched call. On a closed map the
-messages are held in *box order* (`CMap._fused_routing`) so that each module
-reads a contiguous view; they are permuted back to port order only where the
-caller sees them, element for element. `CMap.forward_reference` is the
-one-call-per-box oracle the fast path is tested against.
-
-## 5. The global transition
-
-Write `Phi_theta` for the parallel application of every local interaction and
-`sigma_D` for the routing permutation. One round is
+Write `Phi_theta` for the parallel application of every local interaction
+and `sigma_D` for the routing permutation. One round is
 
     T_{D,theta} = sigma_D . Phi_theta  :  S -> S
 
@@ -139,99 +117,94 @@ initial message vector `i` is re-injected (`inject=True`) the round is
     T_{D,theta,i}(s) = sigma_D(Phi_theta(s)) + i,
 
 an **affine** dependence on `i`: the vector is added back to the *whole*
-state after routing, every round. On an open map the boundary input ports
-are not owned by a box and re-emit the input `x` instead, so the round reads
-`T(s) = sigma_D(Phi_theta(s) (+) x) + i`.
+state after routing, every round.
 
-`discopy.neural.dynamics` records this as a `Transition`, and `from_map`
-builds one from an interpreted `CMap` without touching a tensor. It is a
-specification: `CMap.forward` remains the only implementation.
+The forward pass is vectorized: all messages live in one flat tensor, one
+round of routing is a single permutation of its last axis, and every box
+sharing a module and a port signature is evaluated in one batched call. On a
+closed map the messages are held in *box order* (`CMap._fused_routing`) so
+that each module reads a contiguous view; they are permuted back to port
+order only where the caller sees them, element for element.
+`CMap.forward_reference` is the one-call-per-box oracle the fast path is
+tested against.
 
-### Finite iteration, delayed state, trace, fixed point
+A state is addressed by family, never by offset: `Interaction.read(state,
+key)` gives `(rows, sites, width)` reading one port per traced pair, and
+`Interaction.write(state, key, values)` writes one value per site to *every*
+copy of its trace. A port is a **head** — one a module reads a value off —
+unless it is wired to an earlier port of the same box, which is exactly the
+second copy of a traced leg; the wiring says so, no declaration is
+consulted.
+
+### Trace, delayed state, finite iteration, fixed point
 
 Four notions, routinely conflated, kept apart here.
 
-* **Finite iteration.** Running `n` rounds computes `T^n(s_0)` and nothing
-  more. `Iteration` records it. What holds unconditionally is resumption,
-  `T^(a+b) = T^b . T^a`, which is why a segmented outer loop can stop and
-  carry on — and it holds for *one* transition, so a run resumed from its
-  own carried state only resumes when `inject` is off. That is why the
-  segmented schedules pass `inject=False` and carry their inputs on a state
-  channel instead, while an `inject=True` schedule runs exactly one
-  `advance` per forward pass.
-* **A persistent state channel.** A self-wired pair of ports is private
-  memory: what a box writes on one end it reads on the other one round
-  later. Operationally that is *delayed feedback*, in the sense of
+* **A categorical trace.** A self-wired pair of ports *is* the trace of the
+  compact target — `CMap.from_box(g).trace()` equals the explicitly
+  self-wired map, asserted as a doctest in `discopy/neural/signature.py` —
+  and a functor preserves it strictly, because it is wiring. The structural
+  statement is exact; it is a statement about the *diagram*, not about what
+  finitely many rounds converge to.
+* **A persistent state channel.** That same pair is private memory: what a
+  box writes on one end it reads on the other one round later.
+  Operationally that is *delayed feedback*, in the sense of
   `discopy.feedback`, not an equation to solve.
-* **A categorical trace.** Structurally, that same self-wired pair *is* the
-  trace of the compact target — `CMap.from_box(g).trace()` equals the
-  explicitly self-wired map, asserted as a doctest in
-  `discopy/neural/skeleton.py` — and a functor preserves it strictly,
-  because it is wiring. The structural statement is exact; it is a statement
-  about the *diagram*, not about what finitely many rounds converge to.
-* **A fixed point.** A third thing, and nothing in this package computes
-  one. No fixed-point solver is used anywhere. If some `T` happens to be a
-  contraction then `T^n` converges, but contractivity is an analytic
-  property of learned weights, to be measured — never something the category
-  supplies.
+* **Finite iteration.** Running `n` rounds computes `T^n(s_0)` and nothing
+  more. What holds unconditionally is resumption, `T^(a+b) = T^b . T^a`,
+  which is why a segmented solver can stop and carry on — and it holds for
+  *one* transition, so a run resumed from its own carried state only
+  resumes when `inject` is off. That is why the segmented solvers pass
+  `inject=False` and carry their inputs on a state channel instead, while
+  an `inject=True` solver runs exactly one `advance` per forward pass.
+* **A fixed point.** A fourth thing. `FixedPoint` is the solver that looks
+  for one and `Interaction.residual` is `||T(s) - s||_inf`, the number that
+  says whether it found one. If some `T` happens to be a contraction then
+  `T^n` converges, but contractivity is an analytic property of learned
+  weights, to be measured — never something the category supplies.
 
-## 6. Schedule, Engine, RecursionEngine, ACTEngine
+## 4. The solver
 
 The layers above are semantics. This one is **policy**, and it deliberately
-mixes two policies that are conceptually distinct:
+names two policies that are conceptually distinct:
 
 * **execution policy** — how many rounds, cycles and steps are evaluated;
 * **differentiation policy** — which of those evaluations are in the
   autograd graph.
 
-`Schedule(rounds, cycles, steps, inject, supervise)` names both, and
-`Engine.run` executes them with three nested loops:
+Every solver runs from a flat state to a list of *checkpoints*, the states a
+loss may look at; the caller decodes them.
 
-    for step in range(steps):            # detached from one another
-        for cycle in range(cycles):      # only the last one differentiated
-            state = rounds of message passing
+| solver | denotation | what is differentiated |
+|---|---|---|
+| `Iterate(r, inject=True)` | `T^r` | all `r` rounds, one backward graph; with `deep`, a checkpoint per round |
+| `FixedPoint(r, tol, backward="last")` | `T^k` for the first `k <= r` with residual under `tol` | one round from the detached limit — the Jacobian-free one-step gradient |
+| `FixedPoint(..., backward="full")` | same | every round actually run |
+| `Recursion(r, c, s)` | `(R . T^r)^(c*s)` | the last cycle of each of `s` detached segments |
+| `ACT(...)` | the same, plus a halt head | the same |
 
-Exactly:
+`Recursion.step` is the unit a training loop takes an optimizer step on:
 
-* `advance(state, rounds)` is the adapter for `T^rounds`: it calls
-  `CMap.forward(init=state, n_rounds=rounds, inject=schedule.inject,
-  return_flat=True)`, so the state in and the state out are flat port-order
-  vectors of `Router.total` numbers.
-* each cycle runs under `torch.set_grad_enabled(grad and cycle == cycles - 1
-  and torch.is_grad_enabled())`, so with `cycles > 1` the first `cycles - 1`
-  cycles are **undifferentiated** — that is what bounds activation memory to
-  one segment.
-* `refresh` runs at the end of *every* cycle, inside the same grad context.
-  For a plain `Engine` it is the identity; for a `RecursionEngine` it is one
-  update of the answer trace from the latent state.
-* between supervision steps the state is `detach()`ed when
-  `supervise == "step"`.
+    for cycle in range(cycles):        # only the last differentiated
+        state = interaction.advance(state, rounds)
+        state = refresh(state)
 
-So a **cycle** denotes
+so a **cycle** denotes `C_theta = R_theta . T_theta^rounds` with `R_theta`
+the `Refresh` — one update of a trace the generators read but never write —
+and a **supervision step** denotes `C_theta^cycles`. Denotationally a step
+is `C^cycles`; *differentiably* only the last `C` is in the graph, which is
+what bounds activation memory to one segment. With `cycles > 1` no gradient
+reaches the state the step started from, nor the encoder that built it —
+which is what lets an ACT training loop build refilled states under
+`no_grad`.
 
-    C_theta = R_theta . T_theta^rounds
+`ACT.step` returns `(state, answer, halt)`: the trace the step ended on and
+the halt output read off it. The *halting rule* — when to stop, what to do
+with a finished example, how to select between rollouts — is a training or
+evaluation policy and lives in the caller, which for the example is
+`examples/sudoku/train.py` and `evaluate.py`.
 
-with `R_theta` the refresh, and a **supervision step** denotes `C_theta^cycles`.
-Denotationally a step is `C^cycles`; *differentiably* only the last `C` is in
-the graph. With `cycles > 1` no gradient reaches the state the step started
-from — nor, therefore, the encoder that built it or the learned initial
-answer `y0`. That is not an accident: it is what lets the ACT trainer build
-refilled states under `no_grad`.
-
-Two supervision schemes are in use:
-
-| | schedule | denotation | what is differentiated |
-|---|---|---|---|
-| single run (models A, B) | `Schedule(r, 1, 1, inject=True, supervise="round")` | `T^r` | all `r` rounds, one backward graph, a loss on every round |
-| segmented recursion (model C) | `Schedule(r, c, s, inject=False, supervise="step")` | `(R . T^r)^(c*s)` | the last cycle of each of `s` detached segments |
-
-`RecursionEngine` adds the answer trace: a loop the sites read but never
-write, refreshed between cycles, which the readout decodes instead of the
-latent state. `ACTEngine` adds a halt head on top; its inherited `step` and
-`forward` are untouched, so fixed-compute evaluation of an ACT model is
-exactly fixed-compute evaluation of the recursion it was built from.
-
-## 7. Laws: what a learned cell actually promises
+## 5. Laws: what a learned cell actually promises
 
 `discopy.neural.laws` reads a signature's symmetry as a group action
 `rho_X : G -> Aut(X)` and the promise a module makes as equivariance,
@@ -256,59 +229,16 @@ Being honest about strength is the point, and `Strictness` names it:
 And the negative result, stated rather than glossed: **permutation
 equivariance is not Frobenius structure.** A learned `Relation` commutes
 with permutations of its members and still does not fuse.
-`cells.fusion_residual` measures how far it is from the fusion law and the
+`laws.fusion_residual` measures how far it is from the fusion law and the
 answer is not zero. Satisfying the symmetry a signature declares says
 nothing about the other equations of whatever algebraic theory one had in
 mind.
 
-## 8. Task-specific training
+## 6. Where the task lives
 
-Nothing above is sudoku's. What this folder adds is a *study*: `core/` holds
-the harness (`train_epoch`, `evaluate`, the solver templates and their
-RNG-load-bearing parts order, the registry, the recipes), and `sudoku/`
-brings only what is irreducibly sudoku — the grid combinatorics, the roles
-its wires carry, an encoder, a decoder, the benchmarks, the recorded
-configurations. See [README.md](README.md) for the models and the results.
-
-The ACT trainer is the one place where policy gets genuinely intricate, so
-its order is worth writing out. Per iteration of `ACTTrainer._run_raw`:
-
-1. `act_step` — `cycles - 1` cycles under `no_grad`, then one differentiated
-   cycle, then `answer = router.read(state, answer_heads)`,
-   `logits = decoder(answer)`, and `halt = q_head.read(answer.detach() if
-   halt_detach else answer)`. So `halt_detach` decides whether the head's
-   loss trains the head alone or also the trunk;
-2. `loss = cross_entropy(logits, targets) + halt_weight * halt_loss`, where
-   the halt loss is a binary cross-entropy of the head against *correctness*
-   computed under `no_grad`;
-3. `zero_grad(set_to_none=True)`, `backward()`,
-   `clip_grad_norm_(parameters, grad_clip)`, `optimizer.step()`,
-   `scheduler.step()`, then the EMA update — in that order;
-4. under `no_grad`: a slot halts when its halt logit clears the threshold or
-   it hits `n_sup`; halted slots are refilled from the `ExampleStream`
-   *within the same batch*, their state rebuilt by `initial` and their step
-   counter reset. The refill is computed on the device with a cumulative sum
-   over the halt mask, so the loop stays free of host round-trips.
-
-Evaluation comes in three flavours, and they are not interchangeable:
-fixed-compute (`Engine.forward`), adaptive with early stopping
-(`evaluate_act`), and best-of-k selected by the halt logit
-(`evaluate_selected`) — the halt head used as a learned verifier. Stopping
-early changes the predictions, which is the point, so both fixed and
-adaptive numbers are worth reporting.
-
-## What guards what
-
-| claim | guarded by |
-|---|---|
-| the recorded models compute what they always did | `test/neural/test_equivalence.py` against `golden/`, bitwise |
-| the fused forward equals the one-call-per-box oracle | `test_forward_reference`, `test_general.py` |
-| the formal layer is torch-free | `test_formal.py::test_formal_layer_does_not_import_torch` |
-| `interaction_spec` reads a `Network` without touching it | `test_formal.py::test_interaction_spec_changes_nothing` |
-| `from_map` agrees with the map's width and routing | `test_formal.py::test_transition_agrees_with_the_map` |
-| `T(s) = sigma(Phi(s)) + i` | `test_formal.py::test_reinjection_is_an_affine_shift` |
-| `T^(a+b) = T^b . T^a`, bitwise | `test_formal.py::test_iteration_is_resumption` |
-| the actions agree with `Sym` | `test_formal.py::test_actions_agree_with_sym` |
-| the detach boundary of a segment is where it says | `test_sudoku_smoke.py::test_only_the_last_cycle_is_differentiated` |
-| `halt_detach` cuts the trunk and nothing else | `test_sudoku_smoke.py::test_halt_detach_cuts_the_trunk` |
-| the whole training machinery runs end to end | `test_sudoku_smoke.py`, in a few seconds |
+Nothing above is sudoku's, and nothing above is training's. The library
+produces states; the caller encodes inputs into the initial state, decodes
+checkpoints into predictions, computes a loss and steps an optimizer. The
+example carries the four artefacts a task actually brings — combinatorics,
+signatures, encoder, readout — plus its protocol; see
+[`examples/sudoku`](examples/sudoku/).

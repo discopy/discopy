@@ -1,22 +1,21 @@
 # -*- coding: utf-8 -*-
 
 """
-End to end, small: the real sudoku training machinery on a tiny model.
+End to end, small: the real sudoku example on a tiny model.
 
 ``test_equivalence.py`` freezes the *numbers* of the four recorded models
-and ``test_general.py`` holds the capabilities added on top of them.  What
-neither does is run a training loop from end to end, so a change that
-breaks the way the pieces are wired together -- the segmented recursion,
-the refresh, the detach boundaries, the halt head, the slot refill --
-would only show up in a training script nobody runs in CI.
+and ``test_general.py`` holds the library's capabilities.  What neither
+does is run a training loop from end to end, so a change that breaks the
+way the pieces are wired together -- the segmented recursion, the refresh,
+the detach boundaries, the halt head, the slot refill, the three evaluation
+protocols -- would only show up in a script nobody runs in CI.
 
-This file closes that gap.  Everything is the production path: the models
-come from ``sudoku.models``, the epoch from ``core.train.train_epoch``, the
-ACT loop from ``discopy.neural.engine.ACTTrainer``, the evaluations from
-``core.act``.  Only the *size* is a test's: the same 9x9 factor graph and
-peer clique at widths small enough that a whole training loop is a second.
-The batch is the first eight puzzles of the committed golden fixture, so
-nothing is downloaded.
+This file closes that gap.  Everything is the production path:
+``docs/neural/examples/sudoku``'s own ``model``, ``train`` and ``evaluate``.
+Only the *size* is a test's: the same 9x9 factor graph and peer clique at
+widths small enough that a whole training loop is a second.  The batch is
+the first eight puzzles of the committed golden fixture, so nothing is
+downloaded.
 
 The assertions are deterministic on purpose -- shapes, finiteness, which
 parameters receive a gradient and which do not, a checkpoint round trip --
@@ -33,17 +32,16 @@ import pytest
 import torch
 
 NEURAL = Path(__file__).resolve().parents[2] / "docs" / "neural"
-if str(NEURAL) not in sys.path:
-    sys.path.insert(0, str(NEURAL))
+SUDOKU = NEURAL / "examples" / "sudoku"
+if str(SUDOKU) not in sys.path:
+    sys.path.insert(0, str(SUDOKU))
 
-pytest.importorskip("pandas")
-
-from core import act as act_evaluations                  # noqa: E402
-from core.heads import Decoder                           # noqa: E402
-from core.study import Budget, Split, Widths             # noqa: E402
-from core.train import evaluate, train_epoch             # noqa: E402
-from discopy.neural.engine import ACTTrainer, ExampleStream  # noqa: E402
-from sudoku import models as zoo                         # noqa: E402
+import evaluate as evaluations                          # noqa: E402
+import model as zoo                                     # noqa: E402
+import train as training                                # noqa: E402
+from config import Budget, Widths                       # noqa: E402
+from dataset import Split                               # noqa: E402
+from model import Decoder                               # noqa: E402
 
 #: Small enough that a whole training loop is a second, large enough that
 #: every module of every model is exercised at its real shape.
@@ -58,8 +56,8 @@ ROUNDS, CYCLES, N_SUP = 1, 2, 2
 BATCH = 8
 
 BUDGET = Budget(name="smoke", n_train=BATCH, n_valid=BATCH, n_test=BATCH,
-                epochs=1, batch_size=4, rounds=2,
-                trm_n=ROUNDS, trm_T=CYCLES, trm_n_sup=N_SUP)
+                epochs=1, batch_size=4, rounds=ROUNDS, cycles=CYCLES,
+                steps=N_SUP)
 
 
 @pytest.fixture(autouse=True)
@@ -101,8 +99,8 @@ def finite(model) -> bool:
 @pytest.mark.parametrize("name", ["goi", "rrn", "trm", "act"])
 def test_forward_of_every_model(name, puzzles):
     """
-    Fixed-compute execution of each principal configuration: the shared
-    interface ``model(clues)`` gives one logit per cell per class, at every
+    Fixed-compute execution of each configuration: the shared interface
+    ``model(clues)`` gives one logit per cell per class, at every
     supervised checkpoint under ``deep``.
     """
     model = build(name)
@@ -112,10 +110,20 @@ def test_forward_of_every_model(name, puzzles):
         every = model(clues, deep=True)
     assert logits.shape == (BATCH, 81, 9)
     assert torch.isfinite(logits).all()
-    checkpoints = model.n_sup if model.outer_loop else model.rounds
-    assert len(every) == checkpoints
+    assert len(every) == (model.n_sup if model.segmented else model.rounds)
     assert torch.equal(every[-1], logits)
-    assert evaluate(model, puzzles, batch_size=4)["cell"] >= 0.0
+    assert evaluations.evaluate(model, puzzles, batch_size=4)["cell"] >= 0.0
+    assert model.n_cells == 81
+
+
+def test_the_two_models_share_one_diagram():
+    """
+    Models A and C read the *same* diagram object; only the width of the
+    answer role differs, and ``Dim(0)`` erases it.
+    """
+    assert build("goi").diagram is build("trm").diagram
+    assert ("cell", zoo.ANSWER) not in build("goi").interaction.heads
+    assert ("cell", zoo.ANSWER) in build("trm").interaction.heads
 
 
 # --- the two supervision schemes, through the real epoch harness -----------
@@ -124,17 +132,18 @@ def test_forward_of_every_model(name, puzzles):
 def test_train_epoch(name, opt_steps, puzzles):
     """
     One epoch of the production harness: deep supervision on every round
-    for the single-run solver, one optimizer step per detached segment for
+    for the single-run model, one optimizer step per detached segment for
     the recursion -- eight puzzles in batches of four, so two batches.
     """
     model = build(name)
     before = [value.detach().clone() for value in model.parameters()]
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
-    stats = train_epoch(model, puzzles, BUDGET, optimizer,
-                        np.random.default_rng(0), torch.device("cpu"))
+    stats = training.train_epoch(model, puzzles, BUDGET, optimizer,
+                                 np.random.default_rng(0),
+                                 torch.device("cpu"))
     assert stats["opt_steps"] == opt_steps
     assert stats["checkpoints"] == 2 * (
-        model.n_sup if model.outer_loop else model.rounds)
+        model.n_sup if model.segmented else model.rounds)
     assert np.isfinite(stats["loss"])
     assert finite(model)
     assert any(not torch.equal(one, other) for one, other
@@ -175,40 +184,38 @@ def test_refresh_only_touches_the_answer(puzzles):
     the flat state exactly as it was.
     """
     model = build("trm")
+    found = model.interaction
     clues, _ = tensors(puzzles)
     with torch.no_grad():
         state = model.initial(clues)
-        refreshed = model.refresh(state)
-    assert refreshed.shape == state.shape == (BATCH, model.router.total)
+        refreshed = model.map.solver.refresh(found, state)
+    assert refreshed.shape == state.shape == (BATCH, found.total)
     assert torch.isfinite(refreshed).all()
-    assert not torch.equal(
-        model.router.read(refreshed, model.answer_heads),
-        model.router.read(state, model.answer_heads))
-    assert torch.equal(model.router.read(refreshed, model.state_ports),
-                       model.router.read(state, model.state_ports))
-    assert torch.equal(model.router.read(refreshed, model.input_ports),
-                       model.router.read(state, model.input_ports))
-    # every copy of the loop gets the same value written to it
-    answer = model.router.read(refreshed, model.answer_ports)
-    assert answer.shape[1] == model.answer_copies * model.n_cells
-    assert torch.equal(answer[:, 0::model.answer_copies],
-                       model.router.read(refreshed, model.answer_heads))
+    assert not torch.equal(found.read(refreshed, model.answer),
+                           found.read(state, model.answer))
+    for key in (("cell", zoo.STATE), ("cell", zoo.CLUE)):
+        assert torch.equal(found.read(refreshed, key),
+                           found.read(state, key))
+    every = found.read(refreshed, model.answer, every=True)
+    assert every.shape[1] == 2 * model.n_cells
+    assert torch.equal(every[:, 0::2], found.read(refreshed, model.answer))
 
 
 def test_state_shapes_survive_every_cycle(puzzles):
-    """ The state is a flat vector of the router's width, cycle after
+    """ The state is a flat vector of the interaction's width, cycle after
     cycle, and stays finite. """
     model = build("trm")
+    total = model.interaction.total
     clues, _ = tensors(puzzles)
     with torch.no_grad():
         state = model.initial(clues)
         for _ in range(4):
-            state = model.cycle(state)
-            assert state.shape == (BATCH, model.router.total)
+            state = model.map.solver.cycle(model.interaction, state)
+            assert state.shape == (BATCH, total)
             assert torch.isfinite(state).all()
         for _ in range(N_SUP):
             state, logits = model.step(state)
-            assert state.shape == (BATCH, model.router.total)
+            assert state.shape == (BATCH, total)
             assert logits.shape == (BATCH, 81, 9)
 
 
@@ -229,9 +236,9 @@ def test_only_the_last_cycle_is_differentiated(cycles, differentiated,
     torch.nn.functional.cross_entropy(
         logits.reshape(-1, model.n), target.reshape(-1)).backward()
     assert (state.grad is not None) == differentiated
-    # the cell of the differentiated cycle always gets one
-    assert model.cell.encode[0].weight.grad is not None
-    assert torch.isfinite(model.cell.encode[0].weight.grad).all()
+    cell = model.map.ar["cell"]
+    assert cell.encode[0].weight.grad is not None
+    assert torch.isfinite(cell.encode[0].weight.grad).all()
 
 
 def test_the_encoder_is_undifferentiated_under_act(puzzles):
@@ -286,13 +293,14 @@ def test_halt_detach_cuts_the_trunk(halt_detach, puzzles):
     model = build("act", halt_detach=halt_detach)
     clues, target = tensors(puzzles)
     with torch.no_grad():
-        model.q_head.weight.fill_(0.1)
+        model.map.solver.halt.weight.fill_(0.1)
     model.zero_grad(set_to_none=True)
     _, logits, halt = model.act_step(model.initial(clues))
     model.halt_loss(halt, logits, target).backward()
-    assert model.q_head.weight.grad is not None
-    assert torch.isfinite(model.q_head.weight.grad).all()
-    trunk = model.answer_norm.weight.grad
+    head = model.map.solver.halt
+    assert head.weight.grad is not None
+    assert torch.isfinite(head.weight.grad).all()
+    trunk = model.map.solver.refresh.norm.weight.grad
     assert (trunk is None) == halt_detach
     if not halt_detach:
         assert float(trunk.abs().sum()) > 0.0
@@ -309,10 +317,10 @@ def test_act_trainer_refills_its_slots(puzzles):
     """
     model = build("act")
     clues, target = tensors(puzzles)
-    stream = ExampleStream(clues, target, np.random.default_rng(0))
-    trainer = ACTTrainer(model, stream, batch_size=4)
+    stream = training.ExampleStream(clues, target, np.random.default_rng(0))
+    trainer = training.ACTTrainer(model, stream, batch_size=4)
     assert trainer.inputs.shape == (4, 81)
-    assert trainer.state.shape == (4, model.router.total)
+    assert trainer.state.shape == (4, model.interaction.total)
     assert stream.total_consumed() == 4
 
     before = [value.detach().clone() for value in model.parameters()]
@@ -325,7 +333,6 @@ def test_act_trainer_refills_its_slots(puzzles):
     assert stats["halted"] > 0
     assert 1.0 <= stats["depth"] <= N_SUP
     assert stream.total_consumed() > 4
-    assert trainer.state.shape == (4, model.router.total)
     assert torch.isfinite(trainer.state).all()
     assert bool((trainer.steps < model.n_sup).all())
     assert finite(model)
@@ -333,17 +340,63 @@ def test_act_trainer_refills_its_slots(puzzles):
                in zip(before, model.parameters()))
 
 
+# --- the three evaluation protocols ----------------------------------------
+
 def test_adaptive_evaluation_is_bounded(puzzles):
     """
-    Early stopping under the paper's rule, through the study's decode
-    rule: every puzzle halts within the cap, and the reported depth is
-    bounded by it.
+    Early stopping under the paper's rule: every puzzle halts within the
+    cap, and the reported depth is bounded by it.
     """
     model = build("act")
-    scores = act_evaluations.evaluate_act(
-        model, puzzles, max_sup=N_SUP, batch_size=4)
+    scores = evaluations.evaluate_act(
+        model, puzzles, max_steps=N_SUP, batch_size=4)
     assert 0.0 <= scores["cell"] <= 1.0 and 0.0 <= scores["board"] <= 1.0
     assert 1.0 <= scores["depth"] <= N_SUP
+
+
+def test_selection_degenerates_to_act(puzzles):
+    """
+    With one rollout and no noise, the selected evaluation *is* the ACT
+    evaluation, number for number -- which is what makes the difference at
+    more rollouts attributable to the selection.
+    """
+    model = build("act", halt_head="softmin")
+    plain = evaluations.evaluate_act(model, puzzles, max_steps=N_SUP,
+                                     batch_size=4)
+    selected = evaluations.evaluate_selected(
+        model, puzzles, rollouts=1, sigma=0.0, max_steps=N_SUP,
+        batch_size=4)
+    for key in ("cell", "board", "depth"):
+        assert selected[key] == plain[key], key
+    assert selected["board_mean"] == plain["board"]
+    assert selected["board_oracle"] == plain["board"]
+
+
+def test_selection_is_bounded_and_deterministic(puzzles):
+    model = build("act", halt_head="softmin")
+    scores = [evaluations.evaluate_selected(
+        model, puzzles, rollouts=3, sigma=0.5, max_steps=N_SUP,
+        batch_size=4, seed=7) for _ in range(2)]
+    assert scores[0] == scores[1]
+    assert scores[0]["board_oracle"] >= scores[0]["board"] >= 0.0
+    assert scores[0]["board_oracle"] >= scores[0]["board_mean"]
+
+
+def test_noise_is_written_to_both_ends_of_the_loop(puzzles):
+    """
+    The two ports of a cell's answer loop intentionally carry the same
+    ``y``, so one noise sample per cell is written to both ends rather
+    than breaking the loop's consistency.
+    """
+    model = build("act")
+    clues, _ = tensors(puzzles)
+    found = model.interaction
+    state = model.initial(clues)
+    generator = torch.Generator().manual_seed(0)
+    noisy = evaluations.perturb_answer(model, state, 0.5, generator)
+    every = found.read(noisy, model.answer, every=True)
+    assert torch.equal(every[:, 0::2], every[:, 1::2])
+    assert torch.equal(evaluations.perturb_answer(model, state, 0.0), state)
 
 
 # --- a checkpoint is the model ---------------------------------------------
@@ -356,8 +409,8 @@ def test_checkpoint_round_trip(puzzles):
     trained = build("act")
     clues, _ = tensors(puzzles)
     optimizer = torch.optim.Adam(trained.parameters(), lr=1e-2)
-    train_epoch(trained, puzzles, BUDGET, optimizer,
-                np.random.default_rng(0), torch.device("cpu"))
+    training.train_epoch(trained, puzzles, BUDGET, optimizer,
+                         np.random.default_rng(0), torch.device("cpu"))
     stored = {key: value.clone()
               for key, value in trained.state_dict().items()}
 
@@ -368,6 +421,5 @@ def test_checkpoint_round_trip(puzzles):
     assert not report.missing_keys and not report.unexpected_keys
     with torch.no_grad():
         assert torch.equal(fresh(clues), trained(clues))
-        assert torch.equal(
-            Decoder.decode(fresh(clues), clues),
-            Decoder.decode(trained(clues), clues))
+        assert torch.equal(Decoder.decode(fresh(clues), clues),
+                           Decoder.decode(trained(clues), clues))

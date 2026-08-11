@@ -54,12 +54,13 @@ import numpy as np
 import torch
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parent))
+sys.path.insert(0, str(HERE.parent / "examples" / "sudoku"))
 
-from core.train import CE, GRAD_CLIP                             # noqa: E402
-from sudoku import data as datasets                              # noqa: E402
-from sudoku import models as zoo                                 # noqa: E402
-from sudoku.config import WIDTHS                                 # noqa: E402
+import dataset as datasets                                       # noqa: E402
+import model as zoo                                              # noqa: E402
+from config import GRAD_CLIP, WIDTHS                             # noqa: E402
+
+CE = torch.nn.functional.cross_entropy
 
 #: The batch every fingerprint is taken on: the first 16 test puzzles.
 BATCH = 16
@@ -82,9 +83,9 @@ MODELS = {
     "goi": dict(kind="goi", widths=WIDTHS["goi"], rounds=4),
     "rrn": dict(kind="rrn", widths=WIDTHS["rrn"], rounds=4),
     "trm": dict(kind="trm", widths=WIDTHS["trm"], rounds=2, cycles=2,
-                n_sup=3),
+                steps=3),
     "act": dict(kind="act", widths=WIDTHS["trm"], rounds=2, cycles=2,
-                n_sup=3, halt_head="softmin"),
+                steps=3, halt_head="softmin"),
 }
 
 
@@ -106,7 +107,8 @@ def structure(model, arrays: dict) -> dict:
     order of magnitude and are unreadable anyway -- and the small, telling
     numbers stay in the JSON.
     """
-    grid = model.grid
+    interaction = model.interaction
+    grid = interaction.cmap
     routing, fused = grid._routing, grid._fused_routing
     metas = [[grid.boxes[indices[0]].name, list(indices), n_boxes, width]
              for _, indices, n_boxes, width in fused["metas"]]
@@ -123,17 +125,20 @@ def structure(model, arrays: dict) -> dict:
         "counts": {
             "n_boxes": len(grid.boxes),
             "n_ports": grid.n_ports,
-            "n_wires": model.n_wires,
+            "n_wires": interaction.n_wires,
             "n_cells": model.n_cells,
-            "router_total": model.router.total,
+            "router_total": interaction.total,
             "parameters": zoo.count_parameters(model),
         },
         "families": {
-            # the key names are frozen with the goldens; the attributes
-            # were renamed task-agnostic (clue_ports -> input_ports).
-            "clue_ports": list(model.input_ports),
-            "state_ports": list(model.state_ports),
-            "answer_ports": list(model.answer_ports),
+            # the key names are frozen with the goldens; the families are
+            # now addressed by (generator name, role).
+            "clue_ports": list(interaction.ports["cell", zoo.CLUE]),
+            "state_ports": list(interaction.heads.get(
+                ("cell", zoo.STATE),
+                interaction.heads.get(("cell", zoo.HIDDEN), ()))),
+            "answer_ports": list(interaction.ports.get(
+                ("cell", zoo.ANSWER), ())),
         },
     }
 
@@ -165,12 +170,12 @@ def loss_of(model, clues, target):
     The single-run solvers average the cross-entropy over every round of
     one backward graph; the recursion solvers are supervised once per
     detached segment, so the recorded gradient is the one of their first
-    supervision step -- the same call ``core.train.train_epoch`` makes.
+    supervision step -- the same call ``train.train_epoch`` makes.
     """
     flat = target.reshape(-1)
-    if model.outer_loop:
+    if model.segmented:
         state = model.initial(clues)
-        if hasattr(model, "act_step"):
+        if hasattr(model.map.solver, "halt"):
             _, logits, halt = model.act_step(state)
             return CE(logits.reshape(-1, model.n), flat) \
                 + model.halt_loss(halt, logits, target)
@@ -199,14 +204,14 @@ def trajectory(model, clues, target) -> list:
 
     One step means one optimizer step, so the recursion solvers walk
     through their supervision steps one at a time, carrying and detaching
-    their state exactly as ``core.train.train_epoch`` does.
+    their state exactly as ``train.train_epoch`` does.
     """
     model.train()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     flat = target.reshape(-1)
     losses, state, remaining = [], None, 0
     for _ in range(STEPS):
-        if model.outer_loop:
+        if model.segmented:
             if remaining == 0:
                 state, remaining = model.initial(clues), model.n_sup
             state, logits = model.step(state)
@@ -220,7 +225,7 @@ def trajectory(model, clues, target) -> list:
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), GRAD_CLIP)
         optimizer.step()
-        if model.outer_loop:
+        if model.segmented:
             state, remaining = state.detach(), remaining - 1
         losses.append(loss.item())
     return losses

@@ -1,78 +1,239 @@
 # -*- coding: utf-8 -*-
 
 """
-The sudoku-extreme benchmark of the Hierarchical Reasoning Model,
-preprocessed into the same arrays as :mod:`sudoku.data` so that either
-dataset can feed the three solvers unchanged.
+The two sudoku benchmarks, as arrays.
 
-The source is the dataset distributed by the authors,
-`sapientinc/sudoku-extreme
-<https://huggingface.co/datasets/sapientinc/sudoku-extreme>`_: ``train.csv``
-and ``test.csv``, each row a ``source, puzzle, solution, rating`` line with
-``.`` for a blank cell.  :func:`build` downloads the two files, draws a
-seeded subsample of :data:`N_BASE` training puzzles and pre-generates three
-augmented training sets from them, following the recipe of the authors'
-``build_sudoku_dataset.py``:
+A sample is a puzzle and its solution, both ``uint8`` arrays of shape
+``(81, )`` with ``0`` for a blank cell; a :class:`Split` is a named stack of
+them.  Nothing here knows about diagrams or about torch: a
+:class:`~discopy.neural.MapNN` reads the *same* diagram for every 9x9
+puzzle, so the dataset is only the inputs and the targets.
 
-* ``sudoku_extreme_standard`` -- every puzzle plus :data:`N_AUG` ``["standard"]
-  = 1000`` augmentations drawn from the full sudoku symmetry group:
-  relabeling the nine digits, permuting the three bands and the rows inside
-  each band, permuting the three stacks and the columns inside each stack,
-  and transposing the grid with probability one half.  ``1000 * 1001 =
-  1,001,000`` training examples.
+* :func:`load` -- the benchmark of :cite:t:`PalmEtAl18`, 180k/18k/18k
+  puzzles with 17-34 givens, the one behind the headline results.
+* :func:`load_extreme` -- the much harder `sudoku-extreme
+  <https://huggingface.co/datasets/sapientinc/sudoku-extreme>`_ benchmark of
+  the Hierarchical Reasoning Model, in three pre-augmented variants.
+* :func:`augment` -- one uniform element of the sudoku symmetry group per
+  sample, the label-preserving augmentation the budgets can switch on.
 
-* ``sudoku_extreme_special`` -- every puzzle plus ``N_AUG["special"] = 100``
-  augmentations, each the composition of exactly one transformation from
-  each of two generating sets: the transposition, which maps row-units to
-  column-units, and a non-identity digit relabeling.  ``1000 * 101 =
-  101,000`` training examples.
-
-* ``sudoku_extreme_special_large`` -- the special recipe at the standard
-  size: every puzzle plus ``N_AUG["special_large"] = 1000`` transposed,
-  relabeled boards.  ``1000 * 1001 = 1,001,000`` training examples.
-
-Every group keeps its untransformed original (augmentation index ``0``), and
-its augmented boards are pairwise distinct and distinct from the original --
-checked on cell contents, not just on the sampled transformations; on top
-of that, :func:`check_artifacts` asserts that each variant's whole training
-set is globally duplicate-free, across groups as well as within them.  The
-stored order is a seeded shuffle, so that a prefix -- which is what
-:meth:`sudoku.data.Split.subsample` takes -- is balanced across the
-base puzzles; ``puzzle_id`` and ``aug_id`` columns keep the provenance.
-
-The other two splits are shared by all the variants and are not augmented:
-``valid`` is a further :data:`N_VALID` held-out puzzles sampled from
-``train.csv`` disjointly from the base subsample, and ``test`` is the
-authors' complete test file, shuffled with its row indices recorded.
-:func:`load` returns the usual ``{"train", "valid", "test"}`` dictionary of
-:class:`sudoku.data.Split` objects::
-
-    from sudoku import sudoku_extreme
-    splits = sudoku_extreme.load("standard")    # or "special"
-
-in place of ``sudoku.data.load()``.  As everywhere else in this folder,
-boards are ``uint8`` arrays of shape ``(n, 81)`` with ``0`` for a blank;
-note that the authors' repository instead shifts digits by one to reserve
-``0`` for padding, so their checkpoints are *not* label-compatible.
+Both benchmarks are downloaded, verified and cached on first use under
+``docs/neural/sudoku_data``.
 """
 
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
-import sys
+import urllib.request
+import zipfile
+from dataclasses import dataclass
 from datetime import date
 
 import numpy as np
 
-from sudoku.config import N, N_CELLS, ROOT
-from sudoku.data import Split
+from config import DATA_DIR, EXTREME_DIR, N, N_CELLS
+
+
+@dataclass(frozen=True)
+class Split:
+    """
+    One split of a fill-in-the-blanks benchmark.
+
+    Parameters:
+        name : ``"train"``, ``"valid"`` or ``"test"``.
+        puzzles : The clues, of shape ``(n, 81)``, with ``0`` for a blank.
+        solutions : The solutions, of shape ``(n, 81)``, positive digits.
+        surrogate : Whether these puzzles were regenerated rather than
+                    downloaded, i.e. whether they deviate from the source.
+    """
+    name: str
+    puzzles: np.ndarray
+    solutions: np.ndarray
+    surrogate: bool = False
+
+    def __len__(self) -> int:
+        return len(self.puzzles)
+
+    @property
+    def givens(self) -> np.ndarray:
+        """ The number of givens of each puzzle. """
+        return (self.puzzles > 0).sum(1)
+
+    def subsample(self, n: int) -> Split:
+        """
+        The first ``n`` puzzles, or all of them when ``n`` is larger.
+
+        The benchmarks are stored in random order, so taking a prefix keeps
+        the distribution.
+        """
+        if n >= len(self):
+            return self
+        return Split(self.name, self.puzzles[:n], self.solutions[:n],
+                     self.surrogate)
+
+
+# --- the Palm et al. (2018) benchmark --------------------------------------
+
+#: The authors' download, as given by ``tasks/sudoku/data.py`` in their repo.
+URL = "https://www.dropbox.com/s/rp3hbjs91xiqdgc/sudoku-hard.zip?dl=1"
+
+#: A mirror, used only if the authors' link is dead.
+MIRROR = "https://data.dgl.ai/dataset/sudoku-hard.zip"
+
+#: The SHA-256 of the archive as downloaded from :data:`URL`.
+SHA256 = "99f5c1f3f9a7c26e2e52d087dba2b312a816c9a54c638811455db72b8d3aa30d"
+
+#: The row counts reported in the paper, checked on load.
+ROWS = {"train": 180000, "valid": 18000, "test": 18000}
+
+#: The range of givens, uniform over this range by construction.
+GIVENS = (17, 34)
+
+
+def fetch(force: bool = False) -> tuple[bool, str]:
+    """
+    Download and verify the archive, returning whether the authors' link was
+    reached and the SHA-256 of what was downloaded.
+
+    Parameters:
+        force : Whether to download again even if the archive is cached.
+    """
+    archive = DATA_DIR / "sudoku-hard.zip"
+    if force or not archive.exists():
+        errors = []
+        for url in (URL, MIRROR):
+            try:
+                with urllib.request.urlopen(url, timeout=300) as response:
+                    archive.write_bytes(response.read())
+                break
+            except Exception as error:                    # pragma: no cover
+                errors.append(f"{url}: {error}")
+        else:                                             # pragma: no cover
+            raise RuntimeError("could not download the benchmark:\n"
+                               + "\n".join(errors))
+    digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+    if not (DATA_DIR / "sudoku-hard" / "train.csv").exists():
+        with zipfile.ZipFile(archive) as zipped:
+            zipped.extractall(DATA_DIR)
+    return digest == SHA256, digest
+
+
+def _parse(name: str) -> tuple[np.ndarray, np.ndarray]:
+    """ Parse one ``puzzle,solution`` CSV into two ``(n, 81)`` arrays. """
+    cached = DATA_DIR / f"{name}.npz"
+    if cached.exists():
+        stored = np.load(cached)
+        return stored["puzzles"], stored["solutions"]
+    text = (DATA_DIR / "sudoku-hard" / f"{name}.csv").read_text()
+    rows = [line for line in text.split("\n") if line]
+    flat = np.frombuffer(
+        "".join(line.replace(",", "") for line in rows).encode(), np.uint8)
+    flat = (flat - ord("0")).reshape(len(rows), 2 * N_CELLS)
+    puzzles, solutions = flat[:, :N_CELLS].copy(), flat[:, N_CELLS:].copy()
+    np.savez_compressed(cached, puzzles=puzzles, solutions=solutions)
+    return puzzles, solutions
+
+
+def load(verify: bool = True) -> dict[str, Split]:
+    """
+    The three splits of the benchmark, downloading them on first use.
+
+    Parameters:
+        verify : Whether to check the row counts, the range of givens and
+                 that every solution is a valid completion of its puzzle.
+    """
+    fetch()
+    splits = {}
+    for name in ROWS:
+        puzzles, solutions = _parse(name)
+        split = Split(name, puzzles, solutions)
+        if verify:
+            check(split)
+        splits[name] = split
+    return splits
+
+
+def check(split: Split) -> None:
+    """ Validate row count, givens range and solution consistency. """
+    assert len(split) == ROWS[split.name] or split.surrogate, \
+        f"{split.name}: {len(split)} rows, expected {ROWS[split.name]}"
+    givens = split.givens
+    assert givens.min() >= GIVENS[0] and givens.max() <= GIVENS[1], \
+        f"{split.name}: givens in {givens.min()}-{givens.max()}"
+    sample = slice(0, min(len(split), 2000))
+    puzzles, solutions = split.puzzles[sample], split.solutions[sample]
+    assert ((puzzles == 0) | (puzzles == solutions)).all(), \
+        f"{split.name}: a given disagrees with its solution"
+    _assert_valid(solutions, split.name)
+
+
+# --- the sudoku symmetry group, for on-the-fly augmentation ----------------
+
+def symmetry(rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray]:
+    """
+    A uniform element of the sudoku symmetry group, as a cell permutation
+    and a digit relabeling.
+
+    The group is generated by relabeling the nine digits, permuting the rows
+    inside a band and the columns inside a stack, permuting the three bands
+    and the three stacks, and transposing the grid.  Every generator maps
+    valid grids to valid grids and preserves both the number of givens and
+    the uniqueness of the solution, so it is a label-preserving
+    augmentation.
+
+    Returns:
+        ``cells`` of shape ``(81, )`` with ``new[i] = old[cells[i]]`` and
+        ``digits`` of shape ``(10, )`` with ``digits[0] == 0``.
+    """
+    rows = np.concatenate([
+        3 * band + rng.permutation(3) for band in rng.permutation(3)])
+    cols = np.concatenate([
+        3 * stack + rng.permutation(3) for stack in rng.permutation(3)])
+    grid = rows[:, None] * N + cols[None, :]
+    if rng.random() < 0.5:
+        grid = grid.T
+    digits = np.concatenate([[0], 1 + rng.permutation(N)]).astype(np.uint8)
+    return grid.reshape(-1), digits
+
+
+def augment(puzzles: np.ndarray, solutions: np.ndarray,
+            rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Apply one independent symmetry to each puzzle-solution pair in a batch.
+
+    Parameters:
+        puzzles : Clues of shape ``(batch, 81)``.
+        solutions : Solutions of shape ``(batch, 81)``.
+        rng : The generator, so that augmentation is reproducible.
+    """
+    out_puzzles = np.empty_like(puzzles)
+    out_solutions = np.empty_like(solutions)
+    for i in range(len(puzzles)):
+        cells, digits = symmetry(rng)
+        out_puzzles[i] = digits[puzzles[i][cells]]
+        out_solutions[i] = digits[solutions[i][cells]]
+    return out_puzzles, out_solutions
+
+# --- the sudoku-extreme benchmark ------------------------------------------
+#
+# The source is the dataset distributed by the authors of the Hierarchical
+# Reasoning Model, `sapientinc/sudoku-extreme
+# <https://huggingface.co/datasets/sapientinc/sudoku-extreme>`_: ``train.csv``
+# and ``test.csv``, each row a ``source, puzzle, solution, rating`` line with
+# ``.`` for a blank cell.  :func:`build` draws a seeded subsample of
+# :data:`N_BASE` training puzzles and pre-generates three augmented training
+# sets from them, following the authors' ``build_sudoku_dataset.py``; see
+# :func:`load_extreme` for the variants and :func:`check_artifacts` for what
+# is asserted about them.
+
 
 #: The authors' dataset on the hugging face hub.
 REPO = "sapientinc/sudoku-extreme"
 
 #: Everything this module writes lives here, a sibling of the other data.
-DIR = ROOT / "sudoku_data" / "sudoku_extreme"
+DIR = EXTREME_DIR
 RAW = DIR / "raw"
 
 #: The single seed behind the subsample, the augmentations and the shuffles.
@@ -88,13 +249,14 @@ N_VALID = 18000
 #: variants hold ``N_BASE * (1 + N_AUG[name])`` training examples.
 N_AUG = {"standard": 1000, "special": 100, "special_large": 1000}
 
+
 FILES = {name: DIR / f"sudoku_extreme_{name}.npz" for name in N_AUG}
 COMMON = DIR / "common.npz"
 
 
 # --- fetching and parsing the source CSVs ---------------------------------
 
-def fetch(force: bool = False) -> dict:
+def fetch_extreme(force: bool = False) -> dict:
     """
     Download ``train.csv`` and ``test.csv`` into :data:`RAW`, returning
     their paths.
@@ -300,7 +462,7 @@ def build(force: bool = False, log=print) -> None:
                     "special_large": special_large_rng}
 
     if force or not COMMON.exists():
-        paths = fetch(force)
+        paths = fetch_extreme(force)
         log("counting train.csv ...")
         count = _count_rows(paths["train"])
         assert count >= N_BASE + N_VALID
@@ -494,7 +656,7 @@ def check_artifacts(log=print) -> None:
 
 # --- loading ---------------------------------------------------------------
 
-def load(variant: str = "standard", verify: bool = True) -> dict:
+def load_extreme(variant: str = "standard", verify: bool = True) -> dict:
     """
     The three splits, building the artifacts on first use.
 
@@ -504,7 +666,7 @@ def load(variant: str = "standard", verify: bool = True) -> dict:
                   also accepted).
         verify : Whether to check counts, group structure, consistency of
                  every example and validity of a sample, mirroring
-                 :func:`sudoku.data.load`.
+                 :func:`load`.
     """
     name = variant.replace("sudoku_extreme_", "")
     if name not in N_AUG:
@@ -530,6 +692,23 @@ def load(variant: str = "standard", verify: bool = True) -> dict:
 
 
 if __name__ == "__main__":
-    build(force="--force" in sys.argv)
-    if "--check" in sys.argv:
-        check_artifacts()
+    import argparse
+
+    _parser = argparse.ArgumentParser(description=__doc__)
+    _parser.add_argument("--extreme", action="store_true",
+                         help="build the sudoku-extreme variants")
+    _parser.add_argument("--force", action="store_true")
+    _parser.add_argument("--check", action="store_true",
+                         help="re-run every assertion on what is on disk")
+    _arguments = _parser.parse_args()
+    if _arguments.extreme:
+        build(force=_arguments.force)
+        if _arguments.check:
+            check_artifacts()
+    else:
+        _ok, _digest = fetch(force=_arguments.force)
+        print(f"palm-2018 archive sha256 {_digest} "
+              f"({'as published' if _ok else 'MISMATCH'})")
+        for _name, _split in load().items():
+            print(f"  {_name}: {len(_split):,} puzzles, "
+                  f"{_split.givens.mean():.1f} givens on average")

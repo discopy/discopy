@@ -1,12 +1,16 @@
 # -*- coding: utf-8 -*-
 
 """
-The module shapes a site of a map can carry, one per symmetry a
-signature can declare.
+The concrete neural interpretations a generator can carry, one per symmetry
+a signature can declare.
 
-A box of a skeleton is a promise -- its :class:`Signature` says how many
-ports it has and which of them are one orbit under a group -- and a cell is
-a torch module that keeps the promise.  The two :attr:`Sym.PERM` shapes:
+A generator of a diagram is a promise -- its
+:class:`~discopy.neural.Signature` says how many ports it has and which of
+them are one orbit under a group -- and a cell is a torch module that keeps
+the promise.  These are the modules a :class:`~discopy.neural.MapNN` is
+given as its ``ar``; one instance is shared by every site of its name,
+which is what makes the model size independent of the diagram size.  The
+two :attr:`Sym.PERM` shapes:
 
 * :class:`Site` : a stateful node.  It encodes every incoming message
   against its own state, pools the encodings over the orbit, runs a
@@ -48,11 +52,11 @@ Note
 ----
 A learned cell is only **laxly** structured.  Pool symmetrically and
 permutation-equivariance holds, up to the reordering of a floating-point
-reduction; :func:`~discopy.neural.signature.check_equivariant` measures
-that residual.  Nothing here makes a learned :class:`Relation` satisfy
-Frobenius fusion or speciality, and it generally does not:
-:func:`fusion_residual` measures how far it is from fusing, and the honest
-answer is "not zero".
+reduction; :func:`~discopy.neural.laws.check_equivariant` measures that
+residual.  Nothing here makes a learned :class:`Relation` satisfy Frobenius
+fusion or speciality, and it generally does not:
+:func:`~discopy.neural.laws.fusion_residual` measures how far it is from
+fusing, and the honest answer is "not zero".
 
 Summary
 -------
@@ -464,52 +468,3 @@ def _emissions(signature: Signature, widths: Mapping, values: Mapping) -> list:
             for orbit in signature.orbits[1:]
             for _ in range(orbit.copies * orbit.arity)
             for atom in orbit.role if widths[atom]]
-
-
-def fusion_residual(module, signature: Signature, widths: Mapping,
-                    arity: int = 4, rounds: int = 4, batch: int = 4,
-                    seed: int = 0) -> float:
-    """
-    How far a learned relation is from fusing, i.e. from being a spider.
-
-    The Frobenius fusion law says two spiders wired along a leg are one
-    spider over the remaining legs.  Here the two relations are glued
-    along their last leg and message passing is run on the composite until
-    the shared wire settles; the free legs are then compared against one
-    relation over all of them.  A learned module does **not** satisfy the
-    law -- it is lax, not strict -- so this is the number that says so,
-    reported rather than a docstring claiming a structure the weights do
-    not have.
-
-    Parameters:
-        module : The relation to measure.
-        signature : Its signature, one orbit of members.
-        widths : The width each atomic role carries.
-        arity : The number of free legs on each side of the gluing.
-        rounds : The exchanges along the shared wire.
-        batch : The number of random rows to measure on.
-        seed : The seed of the random input.
-
-    Example
-    -------
-    >>> from discopy.frobenius import Ty
-    >>> from discopy.neural import Orbit, Signature, Sym
-    >>> message = Ty("message")
-    >>> unit = Signature((Orbit(message, 4, Sym.PERM), ))
-    >>> box = Relation(unit, {message: 2}, hidden=4).double()
-    >>> fusion_residual(box, unit, {message: 2}) > 1e-3
-    True
-    """
-    leg = sum(widths[atom] for atom in signature.orbits[0].role)
-    generator = torch.Generator().manual_seed(seed)
-    rows = torch.randn(batch, 2 * arity * leg, generator=generator,
-                       dtype=torch.double)
-    left, right = rows[:, :arity * leg], rows[:, arity * leg:]
-    shared = torch.zeros(batch, 2 * leg, dtype=rows.dtype)
-    with torch.no_grad():
-        for _ in range(rounds):
-            one = module(torch.cat([left, shared[:, leg:]], -1))
-            other = module(torch.cat([right, shared[:, :leg]], -1))
-            shared = torch.cat([one[:, -leg:], other[:, -leg:]], -1)
-        glued = torch.cat([one[:, :-leg], other[:, :-leg]], -1)
-        return float((glued - module(rows)).abs().max())

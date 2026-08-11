@@ -1,60 +1,90 @@
 # -*- coding: utf-8 -*-
 
 """
-The compact closed category of bidirectional neural networks, and the
-category-generic engine that runs message passing over it.
+``discopy.neural`` trains neural interpretations of DisCoPy diagrams.
 
-:mod:`discopy.neural.core` is the category itself: :class:`Dim` objects,
-:class:`Network` boxes and the :class:`CMap` whose forward pass is the
-execution formula of the geometry of interaction.  It is re-exported here,
-so ``from discopy.neural import Dim, Network, CMap`` keeps working.
+:class:`~discopy.neural.model.MapNN` compiles diagram structure and shared
+learnable generator maps into a global interaction, while a
+:class:`~discopy.neural.solver.Solver` specifies how that interaction is
+executed.
 
-The target category never changes -- ``Dim`` is self-dual, routing is a
-permutation of a flat tensor, a trace is a self-wired pair of ports -- and
-that is what makes one engine enough.  Swaps, cups, caps and traces become
-wiring, which a functor preserves strictly and for free; a box whose legs
-carry a symmetry stays a box, and its equations hold iff its torch module
-satisfies them.  Supporting a new source category is therefore not new
-wiring code but a declaration: :mod:`discopy.neural.signature` says which
-equations a box must satisfy, :mod:`discopy.neural.cells` generates a
-module that satisfies them, and
-:func:`~discopy.neural.signature.check_equivariant` measures whether it
-does.
+The workflow
+------------
 
-* :mod:`~discopy.neural.core` : the category, moved verbatim.
-* :mod:`~discopy.neural.signature` : :class:`~signature.Sym`,
-  :class:`~signature.Orbit`, :class:`~signature.Signature` and
-  :func:`~signature.check_equivariant` -- the port layout of a box, stated
-  once.
-* :mod:`~discopy.neural.skeleton` : abstract wirings, built from a task's
-  combinatorics in any source category.
-* :mod:`~discopy.neural.functor` : the interpretation of a skeleton into a
-  runnable map, and the :class:`~functor.Router` that reads its ports.
-* :mod:`~discopy.neural.cells` : the two module shapes a site can carry --
-  a stateful node and a stateless hyperedge.
-* :mod:`~discopy.neural.engine` : the message-passing schedules, from one
-  supervised run to segmented recursion with adaptive computation time.
-* :mod:`~discopy.neural.batch` : batching over variable structure as the
-  monoidal product of maps.
+A dataset of ``(diagram, inputs, target)`` samples -- the diagrams may all
+differ, so long as they are built from the same generators -- a
+:class:`~discopy.neural.model.MapNN` interpreting them, a
+:class:`~discopy.neural.batch.Batch` for the samples whose shapes differ, a
+solver, and then an ordinary PyTorch training loop::
 
-and three modules that say what the others *mean*, without computing
-anything:
+    from discopy.neural import Dim, Iterate, MapNN, Mode, Site
 
-* :mod:`~discopy.neural.parametric` : a box as a parametric interaction
-  map :math:`\\Phi : P \\otimes (X^* \\otimes Y) \\to X^* \\otimes Y` on its
-  boundary, rather than as a feed-forward :math:`X \\to Y`.
-* :mod:`~discopy.neural.dynamics` : a map as a global transition
-  :math:`T_\\theta = \\sigma_D \\circ \\Phi_\\theta`, and running it as finite
-  iteration.
-* :mod:`~discopy.neural.laws` : a signature's symmetry as a group action,
-  and how strongly a learned module keeps it.
+    model = MapNN(
+        ob={message: Dim(24), state: Dim(96)},
+        ar={"cell": Site(cell, widths, {state: Mode.STATE}, hidden=192)},
+        solver=Iterate(rounds=16))
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    for diagram, x, target in loader:
+        state = model(diagram, {("cell", clue): encoder(x)})
+        loss = criterion(readout(model.read(diagram, state, answer)), target)
+        loss.backward(); optimizer.step(); optimizer.zero_grad()
+
+``docs/neural/examples/sudoku`` is that workflow at full size.
+
+The semantics
+-------------
+
+Underneath, a diagram :math:`D` in a source category :math:`C` is
+interpreted by a monoidal functor: each atomic role goes to the ``Dim`` it
+carries, and each generator :math:`f : X \\to Y` to a **parametric
+interaction map** on its boundary,
+
+.. math:: \\Phi_f : P_f \\otimes \\partial f \\to \\partial f, \\qquad
+          \\partial f = X^* \\otimes Y,
+
+rather than to an ordinary feed-forward map :math:`X \\to Y`.  Wiring the
+boundaries together compiles the diagram to a global transition
+
+.. math:: T_{D,\\theta} = \\sigma_D \\circ \\Phi_\\theta : S_D \\to S_D,
+
+the execution formula of the geometry of interaction, on the state object
+:math:`S_D` with one summand per port.  Swaps, cups, caps and traces are
+wiring in the target category, so a functor preserves them strictly and for
+free; what survives as a box is a generator whose legs carry a symmetry,
+and *that* is a promise about a torch module, measured rather than
+assumed.
+
+The modules
+-----------
+
+* :mod:`~discopy.neural.model` : :class:`MapNN`, the central abstraction.
+* :mod:`~discopy.neural.map` : the interpretation and the compiled
+  :class:`~discopy.neural.map.Interaction`, together with the formal
+  specifications :class:`~discopy.neural.map.ParamMap` and
+  :class:`~discopy.neural.map.InteractionMap` that say what a generator
+  means.
+* :mod:`~discopy.neural.solver` : :class:`~discopy.neural.solver.Iterate`,
+  :class:`~discopy.neural.solver.FixedPoint`,
+  :class:`~discopy.neural.solver.Recursion` and
+  :class:`~discopy.neural.solver.ACT`.
+* :mod:`~discopy.neural.batch` : batching over heterogeneous diagrams.
+* :mod:`~discopy.neural.cells` : the concrete neural interpretations a
+  generator can carry.
+* :mod:`~discopy.neural.signature` : the port layout of one generator, and
+  the wiring builders that draw a diagram out of a family's combinatorics.
+* :mod:`~discopy.neural.laws` : the equations a generator promises, and how
+  strongly a learned module keeps them.
+* :mod:`~discopy.neural.core` : the compact closed category itself --
+  :class:`Dim` objects, :class:`Network` boxes and the :class:`CMap` whose
+  forward pass is the execution formula.
 
 Note
 ----
-``import discopy.neural`` does not import ``torch``: networks can be
-built, composed and rewired without it, and so can signatures, skeletons
-and the whole formal layer.  The three modules that *are* torch --
-``cells``, ``engine`` and ``batch`` -- are imported on first use.
+``import discopy.neural`` does not import ``torch``: diagrams, signatures,
+laws and the whole compilation layer work without it.  The torch-dependent
+names -- :class:`MapNN`, the solvers and the cells -- are imported on first
+use.
 
 Example
 -------
@@ -68,6 +98,7 @@ from __future__ import annotations
 import importlib
 
 from discopy.neural.core import (
+    Box,
     CMap,
     Cap,
     Cup,
@@ -78,46 +109,73 @@ from discopy.neural.core import (
     Id,
     Network,
     Swap,
+    box_ports,
+    from_wiring,
 )
-from discopy.neural.core import Box
-from discopy.neural import (
-    core, dynamics, functor, laws, parametric, signature, skeleton)
-from discopy.neural.dynamics import Iteration, Transition
-from discopy.neural.functor import Interpretation, Router, Wiring, interpret
-from discopy.neural.laws import Action, Law, Strictness
-from discopy.neural.parametric import (
+from discopy.neural import batch, core, laws, signature
+from discopy.neural.batch import Batch, bucket
+from discopy.neural.laws import (
+    Action,
+    Law,
+    Strictness,
+    check_equivariant,
+    fusion_residual,
+    symmetry,
+)
+from discopy.neural.map import (
+    Interaction,
     InteractionMap,
     ParamMap,
-    Parametric,
     interaction_spec,
+    interpret,
 )
 from discopy.neural.signature import (
     Orbit,
     Signature,
     Sym,
-    check_equivariant,
+    from_incidence,
+    from_relation,
 )
-from discopy.neural.skeleton import Skeleton
 
 #: The submodules that import ``torch`` at module level, loaded lazily so
 #: that ``import discopy.neural`` stays torch-free.
-LAZY = ("batch", "cells", "engine")
+LAZY = ("cells", "model", "solver")
 
+#: The torch-dependent names, and the submodule each of them lives in.
+DEFERRED = {
+    "MapNN": "model",
+    "ACT": "solver", "FixedPoint": "solver", "HaltHead": "solver",
+    "Iterate": "solver", "Recursion": "solver", "Refresh": "solver",
+    "Solver": "solver",
+    "Cyclic": "cells", "Gate": "cells", "Mode": "cells",
+    "Relation": "cells", "Site": "cells",
+}
+
+#: ``discopy.neural.map`` is a submodule, reachable as an attribute, but it
+#: is deliberately kept out of ``__all__``: a star import must not shadow
+#: the builtin ``map``.
 __all__ = [
-    "Action", "Box", "CMap", "Cap", "Cup", "Diagram", "Dim", "Functor",
-    "Hypergraph", "Id", "InteractionMap", "Interpretation", "Iteration",
-    "Law", "Network", "Orbit", "ParamMap", "Parametric", "Router",
-    "Signature", "Skeleton", "Strictness", "Swap", "Sym", "Transition",
-    "Wiring", "batch", "cells", "check_equivariant", "core", "dynamics",
-    "engine", "functor", "interaction_spec", "interpret", "laws",
-    "parametric", "signature", "skeleton",
+    "ACT", "Action", "Batch", "Box", "CMap", "Cap", "Cup", "Cyclic",
+    "Diagram", "Dim", "FixedPoint", "Functor", "Gate", "HaltHead",
+    "Hypergraph", "Id", "Interaction", "InteractionMap", "Iterate", "Law",
+    "MapNN", "Mode", "Network", "Orbit", "ParamMap", "Recursion", "Refresh",
+    "Relation", "Signature", "Site", "Solver", "Strictness", "Swap", "Sym",
+    "batch", "box_ports", "bucket", "cells", "check_equivariant", "core",
+    "from_incidence", "from_relation", "from_wiring", "fusion_residual",
+    "interaction_spec", "interpret", "laws", "model", "signature", "solver",
+    "symmetry",
 ]
 
 
 def __getattr__(name: str):
-    """ Import a torch-dependent submodule on first use. """
+    """ Import a torch-dependent submodule or name on first use. """
     if name in LAZY:
         module = importlib.import_module(f"discopy.neural.{name}")
         globals()[name] = module
         return module
+    if name in DEFERRED:
+        module = importlib.import_module(f"discopy.neural.{DEFERRED[name]}")
+        value = getattr(module, name)
+        globals()[name] = value
+        return value
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

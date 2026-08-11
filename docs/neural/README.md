@@ -1,155 +1,157 @@
-# Neural networks as combinatorial maps
+# `discopy.neural`
 
-Three sudoku solvers built with [`discopy.neural`](../../discopy/neural/),
-compared under one protocol: same data, same embedding and readout, same
-optimizer, parameter counts matched within 10%. Only the *wiring* of the map,
-the width on its wires, the update cell and — for one model — the evaluation
-strategy differ, so a difference in the results is a difference between the
-architectures.
+> `discopy.neural` trains neural interpretations of DisCoPy diagrams.
+> `MapNN` compiles diagram structure and shared learnable generator maps
+> into a global interaction, while a solver specifies how that interaction
+> is executed.
 
-[ARCHITECTURE.md](ARCHITECTURE.md) is the companion to this file: what each
-layer *is* — which parts are categorical, which are dynamical, which are the
-Torch realization and which are training policy — and where the boundaries
-between them fall. Read it before changing anything.
+## The workflow
 
-## What a model is here
+A dataset of `(diagram, inputs, target)` samples, a `MapNN` interpreting
+them, a solver, and then an ordinary PyTorch training loop.
 
-All three models are the same kind of object: a **closed combinatorial
-map**. That means two things and nothing else.
+```python
+import torch
+from discopy.frobenius import Ty
+from discopy.neural import Dim, Iterate, MapNN, Mode, Orbit, Signature, Site, Sym
 
-1. A finite family of *boxes*. A box is a `Network(name, dom, cod, module)`:
-   a PyTorch module together with a list of typed ports, where a port
-   carries a `Dim(w)` — a wire of width `w`. Boxes are **shared**: the same
-   module instance appears at many sites of the map, which is what makes the
-   model size independent of the grid size.
+message, state, clue = Ty("message"), Ty("state"), Ty("clue")
+cell = Signature((Orbit(message, 3, Sym.PERM),
+                  Orbit(state, traced=True), Orbit(clue, traced=True)))
 
-2. A *fixpoint-free involution* on the set of all ports — an edge relation
-   pairing each port with exactly one other, never itself.
-   `CMap.from_wiring` takes the boxes and that pairing, given as
-   `(box_index, port_position)` endpoints.
+model = MapNN(
+    ob={message: Dim(24), state: Dim(96), clue: Dim(24)},
+    ar={"cell": Site(cell, {message: 24, state: 96, clue: 24},
+                     {state: Mode.STATE, clue: Mode.INPUT}, hidden=192)},
+    solver=Iterate(rounds=16))
 
-Running the map for one **round** is then completely determined: every box
-reads its in-ports, its module runs, it writes its out-ports, and the
-involution σ permutes those emissions into the next round's inputs. This is
-the execution formula of the geometry of interaction, `m ↦ σ ⊕ᵢ fᵢ(m)`.
-Repeated rounds compose, `F^(a+b) = F^b ∘ F^a`, which is the law model C
-exploits to run its recursion in resumable segments.
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+for diagram, x, target in loader:
+    final = model(diagram, {("cell", clue): encoder(x)})
+    loss = criterion(readout(model.read(diagram, final, ("cell", state))),
+                     target)
+    loss.backward(); optimizer.step(); optimizer.zero_grad()
+```
 
-A **trace** is a port wired to another port of the same box: private memory
-that survives a round. Every cell here has at least two, a *state loop* and
-a *clue loop*; model C adds an *answer loop*.
+Four things and no fifth:
 
-The maps themselves are built in two stages, syntax then semantics. A
-`Signature` (`sudoku/signature.py`) says what ports a box has — how many,
-grouped into orbits, which of them are traced, and which are one orbit
-under a permutation. From it, `discopy.neural.skeleton` builds an
-abstract, torch-free *skeleton* out of the grid's combinatorics
-(`sudoku/skeleton.py`): a closed map whose atomic types name the *role* of
-each port rather than its width. An `Interpretation`
-(`discopy.neural.functor`) then sends each role to the `Dim` it carries and
-each box name to the torch module computing it, and `interpret` applies it.
-Since `Dim(0)` is the monoidal unit, an interpretation can erase a role's
-ports altogether — which is how models A and C share one skeleton: A sends
-the answer role to `Dim(0)`, C to `Dim(48)`.
+* **`ob`** sends each atomic *role* — a name for what a wire carries, not
+  how wide it is — to the `Dim` it carries. `Dim(0)` **erases** a role: its
+  ports and the wires on them vanish, which is how one diagram serves two
+  models.
+* **`ar`** gives one shared learnable module per generator *name*. Every
+  site of that name in every diagram is the same module, so the model size
+  is independent of the diagram size and a dataset of differently shaped
+  diagrams trains one set of weights.
+* **the solver** says how the compiled diagram is run: `Iterate`,
+  `FixedPoint`, `Recursion` or `ACT`.
+* **the diagram** is an ordinary DisCoPy diagram (or combinatorial map) in
+  any compact or hypergraph source category. `from_incidence` and
+  `from_relation` draw one out of a family's combinatorics when it is more
+  natural to *generate* the wiring than to compose it.
 
-The signature is also the *only* place a port offset is written down. The
-abstract type of a box, the loop wiring the skeleton lays down and the flat
-slices a module reads and writes are all derived from it, so they cannot
-drift apart; and it is what a symmetry is declared on, which
-`check_equivariant` then measures numerically. A learned cell is only
-*laxly* structured — permutation-equivariance holds up to the reordering of
-a floating-point sum, Frobenius fusion does not hold at all, and
-`cells.fusion_residual` reports how far off it is rather than claiming
-otherwise.
+`MapNN` is a `torch.nn.Module`: `.parameters()`, `.to(device)`,
+`.state_dict()` and every optimizer work as usual. Training loops are
+deliberately **not** in the library.
 
-## The three models
+Diagrams whose shapes differ batch as their monoidal product:
 
-| | map | wires | update cell | supervision |
-|---|---|---|---|---|
-| **A · GoI** (`sudoku/train_a_goi.py`) | bipartite cell/unit factor graph | 405 | GRU site + Deep-Sets relation | every round, one backward graph |
-| **B · RRN** (`sudoku/train_b_rrn.py`) | pairwise peer clique (Palm et al. 2018) | 972 | LSTM site, summed pair messages | every round, one backward graph |
-| **C · TRM** (`sudoku/train_c_trm.py`) | A's map + traced answer loop | 486 | A's site, resumable | per detached segment (Jolicoeur-Martineau 2025) |
+```python
+from discopy.neural import Batch
 
-The wire counts are of the *messages*: model B's cell keeps the two states
-of its `LSTMCell` as two named roles, `hidden` and `memory`, on one traced
-loop, so its map has 81 more traced wires than the 972 above — the same
-bytes in the same places, named twice instead of sliced in two.
+batch = Batch([small, large, small], pad=True)   # a diagram, as far as MapNN
+state = model(batch, {("cell", clue): encoded})
+pieces = batch.split(model.read(batch, state, ("cell", state)), ("cell", state))
+```
 
-Best results on the held-out test split of the Palm et al. (2018) benchmark
-(18,000 puzzles; 50k training puzzles, 8 epochs, mean over seeds 0–1 —
-budget details and caveats in each script's docstring):
+Sites of the same degree sharing a module still cost one batched call
+between them, so a batch of mixed shapes is one map and a handful of calls,
+not one call per member.
 
-| | cell | boards | boards at more test-time compute |
-|---|---|---|---|
-| A · GoI | 0.9842 | 0.8872 | **0.9182** at 144 rounds |
-| B · RRN | 0.9456 | 0.7201 | 0.8293 at 288 rounds |
-| C · TRM | 0.9750 | 0.8737 | — (1.2 GiB activations vs B's 13.7 GiB) |
+## The semantics
 
-Beyond the matched-budget comparison, `sudoku/best/` records the strongest
-recipes found by the optuna searches in [`../optuna/`](../optuna/):
-`simple_sudoku_trm.py` reaches **0.9933** validation boards on the full
-benchmark, and `extreme_sudoku_trm.py` trains a 3×-width model on the much
-harder [sudoku-extreme](https://huggingface.co/datasets/sapientinc/sudoku-extreme)
-benchmark (0.4632 valid boards at trained depth, 0.4801 at 32 supervision
-steps).
+A diagram `D` in a source category `C` is interpreted by a monoidal functor
+`F_θ`. Each atomic role goes to the `Dim` it carries; each generator
+`f : X → Y` goes **not** to a feed-forward map `X → Y` but to a *parametric
+interaction map* on its boundary,
+
+    Φ_f : P_f ⊗ ∂f → ∂f,        ∂f = X* ⊗ Y,
+
+reading one incoming message on every port and emitting one outgoing
+message on every port. That is exactly what a `Network`'s torch module
+computes: `R**w → R**w` for `w` the sum of the domain and codomain widths.
+`discopy.neural.map` writes the two down and keeps them apart — `ParamMap`
+composes by substitution, `InteractionMap` **refuses** to, because gluing
+two interactions is wiring plus iteration, not substitution.
+
+Wiring the boundaries together compiles the diagram to a global transition
+
+    T_{D,θ} = σ_D ∘ Φ_θ  :  S_D → S_D
+
+on the state object `S_D = ⊕_p R**w_p`, one summand per port — the
+execution formula of the geometry of interaction. That compiled object is
+an `Interaction`, and `Interaction.advance(state, n)` is the one
+implementation of `T^n`. When the initial vector `i` is re-injected the
+round is `T(s) = σ_D(Φ_θ(s)) + i`, an affine dependence.
+
+Swaps, cups, caps and traces are wiring in the target category, so a functor
+preserves them strictly and for free — they leave no box behind, only a
+different involution. What survives as a box is a generator whose legs carry
+a symmetry, and *that* is a promise about a torch module:
+`discopy.neural.laws` names the group and `check_equivariant` measures the
+residual. Permutation equivariance is **not** Frobenius structure, and
+`fusion_residual` says by how much.
+
+Four notions that are easy to conflate are kept apart in
+[ARCHITECTURE.md](ARCHITECTURE.md): the categorical **trace**, the
+persistent **state channel** (delayed feedback), **finite iteration**, and a
+**fixed point**. Nothing in the category makes `T` contract;
+`FixedPoint` is a solver that *looks* for a fixed point and
+`Interaction.residual` is the number that says whether it found one.
 
 ## Layout
 
-The *method* is not here at all: the wiring, the cells, the interpretation
-and the message-passing schedules live in
-[`discopy.neural`](../../discopy/neural/), where they are generic in the
-task and in the source category. What is left in this folder is a *study*:
-`core/` holds the harness that trains and scores a model, and `sudoku/`
-brings only what is irreducibly sudoku — the grid combinatorics, the roles
-its wires carry, an encoder, a decoder, the two benchmarks and the recorded
-configurations. There is no cell class and no solver class here; a model is
-a choice of skeleton, widths and schedule. A future task adds a sibling
-package with its own combinatorics and data, and configures the same
-engine.
+    discopy/neural/
+      model.py       MapNN, the central abstraction
+      map.py         the interpretation, the compiled Interaction, and the
+                     formal ParamMap / InteractionMap specifications
+      solver.py      Iterate, FixedPoint, Recursion, Refresh, ACT, HaltHead
+      batch.py       batching over heterogeneous diagrams
+      cells.py       Site, Relation, Gate, Cyclic -- concrete interpretations
+      signature.py   the port layout of one generator, and wiring builders
+      laws.py        equivariance laws, check_equivariant, fusion_residual
+      core.py        the compact closed category: Dim, Network, CMap
 
-    core/                 the benchmark kit (see core/__init__.py)
-      study.py            the torch-free dataclasses: Widths, Budget, Split
-      train.py            the harness: deep supervision, evaluation, batching
-      heads.py            the fill-in-the-blanks encoder and decoder
-      solvers.py          the three solver shapes, parts order written once
-      registry.py         checkpoints, cached training, lr grid, per TaskSpec
-      act.py              the ACT evaluations bound to the decode rule
-      recipes.py          optimizer, schedule, EMA, segmented loop
-    sudoku/               the sudoku task (see sudoku/__init__.py)
-      config.py           grid constants, paths, budgets, matched widths
-      signature.py        the roles a port can play + the box signatures
-      skeleton.py         rows/columns/blocks/peers -> the two skeletons
-      heads.py            historical import path over core.heads
-      data.py             the Palm et al. (2018) benchmark + symmetry group
-      sudoku_extreme.py   the sudoku-extreme benchmark, three variants
-      models.py           models A, B, C on the core.solvers templates
-      act.py              historical import path over core.act
-      train.py            the TaskSpec + historical entry points
-      train_a_goi.py      model A: recorded best configuration + protocol
-      train_b_rrn.py      model B: likewise
-      train_c_trm.py      model C: likewise
-      best/               the optuna-winner recipes, on core.recipes
-    golden/               the frozen pre-refactor fingerprints + recorder
-    migration.py          loading a checkpoint trained before the refactor
-    ARCHITECTURE.md       the layers, and which of them is which
-    NOTES.md              what was left alone, and why
-    artifacts/            checkpoints and cached results   (gitignored)
-    sudoku_data/          the two benchmarks, fetched on first use (gitignored)
-    figures/              figures written by the notebooks  (gitignored)
+    docs/neural/
+      examples/sudoku/   three solvers, and everything to reproduce them
+      golden/            the frozen pre-refactor fingerprints + recorder
+      ARCHITECTURE.md    the layers, and which of them is which
+      NOTES.md           what was left alone, and why
 
-Every dataset is downloaded, verified and cached on first `load()`; every
-training run is checkpointed under `artifacts/`, and the `train_*.py`
-scripts re-load a finished run instead of re-training it. The notebooks in
-[`../notebooks/`](../notebooks/) — `neural-functors.ipynb` for the formalism,
-`neural-cells-lecture.ipynb` for a close-up of model C — import this
-folder's packages.
+`import discopy.neural` does not import `torch`: diagrams, signatures, laws
+and the whole compilation layer work without it; the torch-dependent names
+are imported on first use.
 
-## Running
+## The example
 
-    python sudoku/train_a_goi.py --seed 0          # full recorded budget
-    python sudoku/train_a_goi.py --seed 0 --quick  # few-minute miniature
-    python sudoku/best/simple_sudoku_trm.py        # the 0.9933-boards recipe
+[`examples/sudoku`](examples/sudoku/) is the workflow at full size: three
+architectures from the literature as three choices of diagram, widths and
+solver, compared under one protocol, plus the searched recipes and the
+adaptive-computation-time study. See its
+[README](examples/sudoku/README.md) for the results.
 
-One GPU suffices; the maps train through `CMap.forward` and speed up
-several-fold under `CMap.compile` (see `Engine.compile_cells`), which the
-`best/` recipes enable by default.
+## What guards what
+
+| claim | guarded by |
+|---|---|
+| the recorded models compute what they always did | `test/neural/test_equivalence.py` against `golden/`, bitwise |
+| the fused forward equals the one-call-per-box oracle | `test_general.py`, `test_equivalence.py::test_forward_reference` |
+| the compilation layer is torch-free | `test_formal.py::test_compiling_a_diagram_does_not_import_torch` |
+| `interaction_spec` reads a `Network` without touching it | `test_formal.py::test_interaction_spec_changes_nothing` |
+| an `InteractionMap` does not compose by substitution | `test_formal.py::test_interaction_maps_do_not_compose` |
+| `T(s) = σ(Φ(s)) + i` | `test_formal.py::test_reinjection_is_an_affine_shift` |
+| `T^(a+b) = T^b ∘ T^a`, bitwise | `test_formal.py::test_iteration_is_resumption` |
+| a batch is the monoidal product, member for member | `test_general.py::test_a_batch_is_the_product_of_its_members` |
+| the detach boundary of a segment is where it says | `test_general.py`, `test_sudoku_smoke.py` |
+| the whole training machinery runs end to end | `test_sudoku_smoke.py`, in a few seconds |
+| a trained model really solves sudoku | `test_sudoku_act_e2e.py`, `pytest -m neural_e2e` |

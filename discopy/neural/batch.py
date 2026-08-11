@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-Batching over variable structure, as the monoidal product of maps.
+Batching over heterogeneous diagrams, as the monoidal product of maps.
 
-A batch of problems with the *same* shape is a leading tensor axis and
-needs nothing from the formalism.  A batch of problems with *different*
-shapes -- grids of different sizes, graphs with different numbers of nodes
--- is a different question, and the formalism already answers it: the
-disjoint union of maps is their monoidal product, ``a @ b``, and running
-the product is running both at once.
+A batch of samples whose diagrams have the *same* shape is a leading tensor
+axis and needs nothing from the formalism.  A batch of samples with
+*different* shapes -- grids of different sizes, graphs with different
+numbers of nodes, sentences of different lengths -- is a different
+question, and the formalism already answers it: the disjoint union of maps
+is their monoidal product ``a @ b``, and running the product is running
+both at once.
 
 Nothing is lost by doing so.  :attr:`~discopy.neural.CMap._fused_routing`
 groups boxes by the module they share, so a site of ``a`` and a site of
@@ -17,15 +18,15 @@ cost one batched call between them; only sites of genuinely different
 degree cost a call of their own.  And because the product of closed maps
 lays each member's ports out contiguously and in order, the flat state of
 the product *is* the concatenation of the members' flat states, so
-:meth:`Batch.join` and :meth:`Batch.split` are a concatenation and a split.
+:meth:`Batch.join` and :meth:`Batch.split_state` are a concatenation and a
+split.
 
-Two caches keep this cheap.  The product map is built once per *sequence
-of member instances* -- so intern the skeletons, one instance per shape,
-as the ``lru_cache`` builders of a task naturally do, and the same mix of
-shapes in the same order hits the cache; and :func:`bucket` rounds the
-member count up to a coarse ladder by repeating the last member, so a run
-sees a handful of distinct shapes rather than one per batch and
-``torch.compile`` does not recompile for each.
+Two habits keep this cheap.  Intern the diagrams -- one instance per shape,
+as an ``lru_cache`` builder naturally gives -- so that
+:meth:`~discopy.neural.MapNN.compile` hits its cache; and pass ``pad=True``
+so that :func:`bucket` rounds the member count up to a coarse ladder by
+repeating the last member, and a run sees a handful of distinct shapes
+rather than one per batch.
 
 Summary
 -------
@@ -42,9 +43,7 @@ from __future__ import annotations
 from functools import reduce
 from operator import matmul
 
-import torch
-
-from discopy.neural.functor import Interpretation, interpret
+from discopy.neural.core import box_ports
 
 #: The member counts a batch is rounded up to, so that a run sees a few
 #: distinct shapes rather than one per batch.
@@ -70,96 +69,159 @@ def bucket(size: int, ladder=BUCKETS) -> int:
 
 class Batch:
     """
-    Several skeletons run as one map: their monoidal product.
+    Several diagrams run as one: their monoidal product.
+
+    A batch is itself a diagram as far as
+    :meth:`~discopy.neural.MapNN.compile` is concerned, so a model runs it
+    exactly as it runs a single sample; what a batch adds is the
+    bookkeeping to cut the result back into members.
 
     Parameters:
-        parts : The skeletons to run together, one per problem.
-        interpretation : The widths and the modules, shared by all of them
-                         -- sharing a module is what makes the batch one
-                         call per group rather than one call per member.
+        parts : The diagrams to run together, one per sample.
         pad : Whether to pad the member count up to a :func:`bucket` by
               repeating the last member, whose result :meth:`split` drops.
 
     Example
     -------
     >>> from discopy.frobenius import Ty
-    >>> from discopy.neural import Dim, Orbit, Signature
-    >>> from discopy.neural.skeleton import from_relation
+    >>> from discopy.neural import Orbit, Signature
+    >>> from discopy.neural.signature import from_relation
     >>> peer, state = Ty("peer"), Ty("state")
     >>> node = Signature((Orbit(peer, 1), Orbit(state, traced=True)))
-    >>> meaning = Interpretation(
-    ...     {peer: Dim(3), state: Dim(5)}, {"cell": torch.nn.Identity()})
     >>> pair = from_relation(((1, ), (0, )), node)
     >>> quad = from_relation(((1, ), (0, ), (3, ), (2, )), node)
-    >>> together = Batch((pair, quad), meaning)
-    >>> len(together.wiring.cmap.boxes), together.totals
-    (6, (26, 52))
-
-    One module call covers every site of every member, rather than one
-    call per member:
-
-    >>> [n_boxes for _, _, n_boxes, _
-    ...  in together.wiring.cmap._fused_routing["metas"]]
-    [6]
-    >>> together.split(together.join([
-    ...     torch.zeros(1, 26), torch.ones(1, 52)]))[1].mean()
-    tensor(1.)
+    >>> together = Batch((pair, quad))
+    >>> len(together.diagram.boxes), together.sizes(("cell", state))
+    (6, (2, 4))
+    >>> together.widths({peer: 3, state: 5})
+    (26, 52)
     """
-    #: The interpreted products already built, keyed by the identity of
-    #: the interpretation and of each member; the entry pins the members,
-    #: so a key can never be a recycled ``id``.
-    cache: dict = {}
-
-    def __init__(self, parts, interpretation: Interpretation,
-                 pad: bool = False):
+    def __init__(self, parts, pad: bool = False):
         parts = tuple(parts)
         if not parts:
             raise ValueError("a batch needs at least one member")
         self.given = len(parts)
         if pad:
             parts += (parts[-1], ) * (bucket(len(parts)) - len(parts))
-        self.parts, self.interpretation = parts, interpretation
-        self.totals = tuple(self.width(part) for part in parts)
-        key = (id(interpretation), tuple(id(part) for part in parts))
-        if key not in Batch.cache:
-            Batch.cache[key] = (interpretation, parts, interpret(
-                interpretation, reduce(matmul, parts)))
-        self.wiring = Batch.cache[key][-1]
+        self.parts = parts
+        self._diagram = None
 
-    def width(self, part) -> int:
+    def __len__(self) -> int:
+        return self.given
+
+    @property
+    def diagram(self):
+        """ The monoidal product of the members, built once. """
+        if self._diagram is None:
+            self._diagram = reduce(matmul, self.parts)
+        return self._diagram
+
+    def cache_key(self) -> tuple:
         """
-        The flat width of one member, without building its map: the sum
-        over its boxes of the widths of the roles that survive.
+        What :meth:`~discopy.neural.MapNN.compile` keys its cache on: the
+        identity of each member, so that a fresh batch of interned diagrams
+        hits the cache.
+        """
+        return ("batch", ) + tuple(id(part) for part in self.parts)
+
+    def sizes(self, key) -> tuple[int, ...]:
+        """
+        The number of sites of a family in each *given* member, i.e. the
+        split sizes of the axis a solver's output ranges over.
 
         Parameters:
-            part : The skeleton of the member.
+            key : A ``(generator name, role)`` pair, whose role must
+                  survive the interpretation.
         """
-        widths = self.interpretation.widths
-        return sum(widths[role] for index in range(len(part.boxes))
-                   for role in part.signature(index).roles)
+        return tuple(_sites(part, *key) for part in self.parts)[:self.given]
 
-    def join(self, states) -> "torch.Tensor":
+    def widths(self, ob) -> tuple[int, ...]:
         """
-        The flat state of the product, from one flat state per member.
-
-        The product of closed maps lays each member's ports out
-        contiguously and in order, so this is a concatenation.
+        The flat state width of each *given* member, without compiling it.
 
         Parameters:
-            states : One tensor per member, in member order.
+            ob : The width each atomic role carries, as an integer or a
+                 :class:`~discopy.neural.Dim`.
         """
+        def width(role):
+            found = ob[role]
+            return found if isinstance(found, int) else sum(found.inside)
+
+        return tuple(
+            sum(width(role) for box in part.boxes
+                for role in tuple(box.dom) + tuple(box.cod))
+            for part in self.parts)[:self.given]
+
+    def split(self, values, key) -> list:
+        """
+        A tensor over the site axis of the product -- logits, targets, a
+        correctness mask -- cut into one piece per given member, the
+        padding dropped.
+
+        Parameters:
+            values : A tensor of shape ``(rows, sites, ...)``.
+            key : The ``(generator name, role)`` the site axis ranges over.
+        """
+        import torch
+        return list(torch.split(
+            values, list(self._all_sizes(key)), dim=1))[:self.given]
+
+    def join(self, states):
+        """
+        The flat state of the product, from one flat state per given
+        member: a concatenation, because the product lays each member's
+        ports out contiguously and in order.
+
+        Parameters:
+            states : One tensor per given member, in member order.
+        """
+        import torch
         states = list(states)
         if len(states) != self.given:
             raise ValueError(f"expected {self.given} states")
         states += [states[-1]] * (len(self.parts) - self.given)
         return torch.cat(states, -1)
 
-    def split(self, flat) -> list:
+    def split_state(self, flat, ob) -> list:
         """
-        The flat state of each member, from the flat state of the product;
-        padding members are dropped.
+        The flat state of each given member, from that of the product.
 
         Parameters:
             flat : The flat state of the product.
+            ob : The width each atomic role carries.
         """
-        return list(torch.split(flat, list(self.totals), -1))[:self.given]
+        import torch
+        sizes = tuple(
+            sum(_width(ob, role) for box in part.boxes
+                for role in tuple(box.dom) + tuple(box.cod))
+            for part in self.parts)
+        return list(torch.split(flat, list(sizes), -1))[:self.given]
+
+    def _all_sizes(self, key) -> tuple[int, ...]:
+        """ :meth:`sizes` over every member, padding included. """
+        return tuple(_sites(part, *key) for part in self.parts)
+
+
+def _width(ob, role) -> int:
+    """ The integer width a role carries, given ints or ``Dim``s. """
+    found = ob[role]
+    return found if isinstance(found, int) else sum(found.inside)
+
+
+def _sites(cmap, name: str, role) -> int:
+    """
+    How many sites of a name carry a role in a map: one per leg, counting
+    a traced leg once, exactly as
+    :attr:`~discopy.neural.map.Interaction.heads` does.
+    """
+    count = 0
+    for index, box in enumerate(cmap.boxes):
+        if box.name != name:
+            continue
+        ports = box_ports(cmap, index)
+        place = {port: i for i, port in enumerate(ports)}
+        for position, found in enumerate(tuple(box.dom) + tuple(box.cod)):
+            if found == role and place.get(
+                    cmap.edges[ports[position]], position) >= position:
+                count += 1
+    return count
