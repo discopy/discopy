@@ -230,12 +230,16 @@ class QuantumGate(Box):
                 state["_z"] = GATES[state["_name"]].z
         super().__setstate__(state)
 
+    def setoid(self):
+        """ Avoid checking for equality of matrices when comparing gates. """
+        return (repr(self), )
+
 
 class ClassicalGate(SelfConjugate):
     """
     Classical gates, i.e. from digits to digits.
 
-    >>> from sympy import symbols
+    >>> from sympy import symbols  # doctest: +EXTRA
     >>> array = symbols("a b c d")
     >>> f = ClassicalGate('f', bit, bit, array)
     >>> f.data
@@ -537,7 +541,7 @@ class Parametrized(Box):
 
     Example
     -------
-    >>> from sympy.abc import phi
+    >>> from sympy.abc import phi  # doctest: +EXTRA
     >>> from sympy import pi, exp, I
     >>> assert Rz(phi).array[0,0] == exp(-1.0 * I * pi * phi)
     >>> c = Rz(phi) >> Rz(-phi)

@@ -14,7 +14,6 @@ Summary
     TermBase
     Constant
     Variable
-    Application
     Abstraction
     FA
     BA
@@ -47,17 +46,16 @@ from dataclasses import dataclass
 import re
 
 from discopy import biclosed, messages
+from discopy.cat import factory
 from discopy.grammar import thue
 from discopy.utils import (
-    ob_factory,
-    ar_factory,
     BinaryBoxConstructor,
     AxiomError,
     factory_name,
 )
 
 
-@ob_factory
+@factory
 class Ty(biclosed.Ty):
     "Base class for categorial grammar types."
 
@@ -74,7 +72,7 @@ class Under(biclosed.Under):
     ob = Ty
 
 
-@ar_factory
+@factory
 class Diagram(biclosed.Diagram):
     """
     A categorial diagram is a biclosed diagram with rules and words as boxes.
@@ -85,10 +83,10 @@ class Diagram(biclosed.Diagram):
         from discopy.grammar import pregroup
 
         return Functor(
-            ob=lambda x: pregroup.Ty(x.inside[0].name),
-            ar=lambda f: pregroup.Box(f.name,
-                                      Diagram.to_pregroup(f.dom),
-                                      Diagram.to_pregroup(f.cod)),
+            ob_map=lambda x: pregroup.Ty(x.inside[0].name),
+            ar_map=lambda f: pregroup.Box(f.name,
+                                          Diagram.to_pregroup(f.dom),
+                                          Diagram.to_pregroup(f.cod)),
             cod=pregroup.Diagram)(self)
 
     @staticmethod
@@ -190,9 +188,9 @@ class Functor(biclosed.Functor):
     for categorial rules.
 
     Parameters:
-        ob (Mapping[Ty, Ty]) :
+        ob_map (Mapping[Ty, Ty]) :
             Map from atomic :class:`Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
+        ar_map (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
     """
     dom = cod = Diagram
@@ -216,7 +214,7 @@ class CMap(biclosed.CMap):
     A combinatorial map for categorial diagrams.
     """
 
-    functor = Functor
+    category = Diagram
 
 
 class TermBase(Box, biclosed.TermBase):
@@ -437,35 +435,45 @@ type Term = (
 
 
 def cat2ty(string: str) -> Ty:
-    """
+    r"""
     Translate the string representation of a CCG category into DisCoPy.
+
+    A category is either an atom, a bracketed category or two categories
+    around a slash, which associates to the left as in Steedman's
+    `The Syntactic Process (2000) <https://mitpress.mit.edu/9780262527446>`_.
+    The features that CCGbank writes in square brackets, e.g. the ``[dcl]`` of
+    ``S[dcl]``, are ignored: they refine an atom rather than change it.
 
     Parameters:
         string : The string with slashes representing a CCG category.
+
+    Example
+    -------
+    >>> print(cat2ty(r"(S[dcl]\NP)/NP"))
+    ((NP >> S) << NP)
+    >>> assert cat2ty(r"S\NP/NP") == cat2ty(r"(S\NP)/NP")
+    >>> assert cat2ty(r"(S\NP)\(S\NP)[conj]") == cat2ty(r"(S\NP)\(S\NP)")
     """
-    def unbracket(string):
-        return string[1:-1] if string[0] == '(' else string
-
-    def remove_modifier(string):
-        return re.sub(r'\[[^]]*\]', '', string)
-
     def split(string):
         par_count = 0
-        for i, char in enumerate(string):
-            if char == "(":
+        for i, char in reversed(list(enumerate(string))):
+            if char == ")":
                 par_count += 1
-            elif char == ")":
+            elif char == "(":
                 par_count -= 1
             elif char in ["\\", "/"] and par_count == 0:
-                return unbracket(string[:i]), char, unbracket(string[i + 1:])
-        return remove_modifier(string), None, None
+                return string[:i], char, string[i + 1:]
+        return string, None, None
 
+    string = re.sub(r'\[[^]]*\]', '', string)
     left, slash, right = split(string)
     if slash == '\\':
         return cat2ty(right) >> cat2ty(left)
     if slash == '/':
         return cat2ty(left) << cat2ty(right)
-    return Ty(left)
+    if string.startswith('(') and string.endswith(')'):
+        return cat2ty(string[1:-1])
+    return Ty(string)
 
 
 def tree2diagram(tree: dict, dom=Ty()) -> Diagram:
@@ -496,6 +504,7 @@ def tree2diagram(tree: dict, dom=Ty()) -> Diagram:
 
 
 Id = Diagram.id
+Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
 Diagram.curry_factory = Curry
 Diagram.eval_factory = Eval

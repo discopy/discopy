@@ -24,7 +24,7 @@ Summary
 from math import pi
 
 from discopy import cat, rigid, tensor, quantum
-from discopy.cat import ar_factory
+from discopy.cat import factory
 from discopy.quantum.circuit import qubit, Circuit
 from discopy.quantum.gates import (
     Bra, Ket, Rz, Rx, CX, CZ, Controlled, format_number)
@@ -33,7 +33,7 @@ from discopy.rigid import Sum, PRO
 from discopy.utils import factory_name
 
 
-@ar_factory
+@factory
 class Diagram(tensor.Diagram[complex]):
     """ ZX Diagram. """
     ob = PRO
@@ -43,11 +43,6 @@ class Diagram(tensor.Diagram[complex]):
         left = left if isinstance(left, PRO) else PRO(left)
         right = right if isinstance(right, PRO) else PRO(right)
         return tensor.Diagram.swap.__func__(Diagram, left, right)
-
-    @staticmethod
-    def permutation(perm, dom=None):
-        dom = PRO(len(perm)) if dom is None else dom
-        return tensor.Diagram.permutation.__func__(Diagram, perm, dom)
 
     @staticmethod
     def cup_factory(left, right):
@@ -65,7 +60,7 @@ class Diagram(tensor.Diagram[complex]):
 
         Examples
         --------
-        >>> from sympy.abc import phi
+        >>> from sympy.abc import phi  # doctest: +EXTRA
         >>> assert Z(1, 1, phi).grad(phi) == scalar(pi) @ Z(1, 1, phi + .5)
         """
         return super().grad(var, **params)
@@ -76,7 +71,7 @@ class Diagram(tensor.Diagram[complex]):
 
         >>> bialgebra = Z(1, 2, .25) @ Z(1, 2, .75)\\
         ...     >> Id(1) @ SWAP @ Id(1) >> X(2, 1, .5) @ X(2, 1, .5)
-        >>> graph = bialgebra.to_pyzx()
+        >>> graph = bialgebra.to_pyzx()  # doctest: +EXTRA
         >>> assert len(graph.vertices()) == 8
         >>> assert (graph.inputs(), graph.outputs()) == ((0, 1), (6, 7))
         >>> from pyzx import VertexType
@@ -142,7 +137,7 @@ class Diagram(tensor.Diagram[complex]):
 
         >>> bialgebra = Z(1, 2, .25) @ Z(1, 2, .75)\\
         ...     >> Id(1) @ SWAP @ Id(1) >> X(2, 1, .5) @ X(2, 1, .5)
-        >>> graph = bialgebra.to_pyzx()
+        >>> graph = bialgebra.to_pyzx()  # doctest: +EXTRA
         >>> assert Diagram.from_pyzx(graph) == bialgebra
 
         Note
@@ -384,7 +379,7 @@ def gate2zx(box):
 
 
 circuit2zx = quantum.circuit.Functor(
-    ob={qubit: PRO(1)}, ar=gate2zx,
+    ob_map={qubit: PRO(1)}, ar_map=gate2zx,
     dom=Circuit, cod=Diagram)
 
 H = Box('H', PRO(1), PRO(1))
@@ -394,5 +389,5 @@ H.drawing_name, H.tikzstyle_name, = '', 'H'
 H.color, H.shape = "yellow", "rectangle"
 
 SWAP = Swap(PRO(1), PRO(1))
-Diagram.braid_factory, Diagram.sum_factory = Swap, Sum
+Diagram.swap_factory, Diagram.sum_factory = Swap, Sum
 Id = Diagram.id
