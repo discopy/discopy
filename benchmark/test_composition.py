@@ -8,9 +8,9 @@ and :class:`discopy.symmetric.CMap`.
 
 Each test is decorated with a suite, family, case and list of sizes. The
 small/medium sizes always run; ``BENCH_FLAGS=bench:full`` adds the heavy tail
-on ``main`` and manual dispatch. The ``benchmark`` fixture owns CPU-time,
-GC-disabled measurement and ``benchmark.pedantic`` takes the median of a few
-rounds. We only supply the workload.
+on ``main`` and manual dispatch. Each test builds a workload for a size and
+returns its callable operation; the decorator owns CPU-time, GC-disabled
+measurement and automatic calibration.
 
 This module lives outside ``test/*/*.py`` so the default ``pytest`` run never
 collects it. Run it explicitly and render the table/plot from the JSON it
@@ -26,7 +26,7 @@ import random
 from discopy import rigid, symmetric
 from discopy.python import Function
 from benchmark import generators as generator
-from benchmark.config import ROUNDS, WARMUP, case, sizes
+from benchmark.config import case, sizes
 
 
 case = partial(case, suite="composition")
@@ -52,140 +52,114 @@ def _adder_functor(full_adder):
 
 @case("Diagram", "k-fold tensor",
       sizes(10, 20, 50, full=(100, 200, 500)))
-def test_tensor_diagram(benchmark, n):
+def test_tensor_diagram(n):
     box = generator.not_box(symmetric.Box)
-    benchmark.pedantic(
-        lambda: generator.repeated(lambda a, b: a.tensor(b), box, n),
-        rounds=ROUNDS, warmup_rounds=WARMUP)
+    return lambda: generator.repeated(lambda a, b: a.tensor(b), box, n)
 
 
 @case("Diagram", "k-fold tensor, 1 layer",
       sizes(10, 20, 50, 100, full=(200, 500, 1000)))
-def test_single_layer_tensor_diagram(benchmark, n):
+def test_single_layer_tensor_diagram(n):
     box = generator.not_box(symmetric.Box)
-    benchmark.pedantic(
-        lambda: generator.single_layer_tensor(box, n),
-        rounds=ROUNDS, warmup_rounds=WARMUP)
+    return lambda: generator.single_layer_tensor(box, n)
 
 
 @case("Hypergraph", "k-fold tensor", sizes(10, 20, 50, full=(100, 200)))
-def test_tensor_hypergraph(benchmark, n):
+def test_tensor_hypergraph(n):
     hbox = generator.not_box(symmetric.Box).to_hypergraph()
-    benchmark.pedantic(
-        lambda: generator.repeated(lambda a, b: a.tensor(b), hbox, n),
-        rounds=ROUNDS, warmup_rounds=WARMUP)
+    return lambda: generator.repeated(lambda a, b: a.tensor(b), hbox, n)
 
 
 @case("CMap", "k-fold tensor", sizes(10, 20, 50, full=(100, 200)))
-def test_tensor_cmap(benchmark, n):
+def test_tensor_cmap(n):
     mbox = generator.not_box(symmetric.Box).to_map()
-    benchmark.pedantic(
-        lambda: generator.repeated(lambda a, b: a.tensor(b), mbox, n),
-        rounds=ROUNDS, warmup_rounds=WARMUP)
+    return lambda: generator.repeated(lambda a, b: a.tensor(b), mbox, n)
 
 
 # --- foliation -------------------------------------------------------------
 
 @case("Diagram", "foliation",
       sizes(10, 20, full=(50,)))  # ~O(n^3): 50 ~ 3.7s
-def test_foliation_diagram(benchmark, n):
+def test_foliation_diagram(n):
     st = generator.staircase(generator.not_box(symmetric.Box), n)
-    benchmark.pedantic(
-        lambda: st.foliation(), rounds=ROUNDS, warmup_rounds=WARMUP)
+    return st.foliation
 
 
 # --- k-fold series ---------------------------------------------------------
 
 @case("Diagram", "k-fold series",
       sizes(10, 20, 50, 100, full=(200, 500, 1000)))
-def test_series_diagram(benchmark, n):
+def test_series_diagram(n):
     box = generator.not_box(symmetric.Box)
-    benchmark.pedantic(
-        lambda: generator.repeated(lambda a, b: a.then(b), box, n),
-        rounds=ROUNDS, warmup_rounds=WARMUP)
+    return lambda: generator.repeated(lambda a, b: a.then(b), box, n)
 
 
 @case("Hypergraph", "k-fold series", sizes(10, 20, 50, full=(100, 200)))
-def test_series_hypergraph(benchmark, n):
+def test_series_hypergraph(n):
     hbox = generator.not_box(symmetric.Box).to_hypergraph()
-    benchmark.pedantic(
-        lambda: generator.repeated(lambda a, b: a.then(b), hbox, n),
-        rounds=ROUNDS, warmup_rounds=WARMUP)
+    return lambda: generator.repeated(lambda a, b: a.then(b), hbox, n)
 
 
 @case("CMap", "k-fold series", sizes(10, 20, 50, full=(100, 200)))
-def test_series_cmap(benchmark, n):
+def test_series_cmap(n):
     mbox = generator.not_box(symmetric.Box).to_map()
-    benchmark.pedantic(
-        lambda: generator.repeated(lambda a, b: a.then(b), mbox, n),
-        rounds=ROUNDS, warmup_rounds=WARMUP)
+    return lambda: generator.repeated(lambda a, b: a.then(b), mbox, n)
 
 
 # --- ripple-carry adder ----------------------------------------------------
 
 @case("Diagram", "adder step", sizes(2, 5, 10, 20, full=(50, 100)))
-def test_adder_step_diagram(benchmark, n):
+def test_adder_step_diagram(n):
     full_adder = generator.full_adder_box(symmetric.Box)
     adder = generator.build_adder(full_adder, n)
-    benchmark.pedantic(
-        lambda: generator.adder_step(full_adder, adder, n),
-        rounds=ROUNDS, warmup_rounds=WARMUP)
+    return lambda: generator.adder_step(full_adder, adder, n)
 
 
 @case("Hypergraph", "adder step",
       sizes(2, 5, 10, 20, full=(50,)))  # ~O(n^2)
-def test_adder_step_hypergraph(benchmark, n):
+def test_adder_step_hypergraph(n):
     full_adder = generator.full_adder_box(symmetric.Box).to_hypergraph()
     adder = generator.build_adder(full_adder, n)
-    benchmark.pedantic(
-        lambda: generator.adder_step(full_adder, adder, n),
-        rounds=ROUNDS, warmup_rounds=WARMUP)
+    return lambda: generator.adder_step(full_adder, adder, n)
 
 
 @case("CMap", "adder step", sizes(2, 5, 10, 20, full=(50,)))
-def test_adder_step_cmap(benchmark, n):
+def test_adder_step_cmap(n):
     full_adder = generator.full_adder_box(symmetric.Box).to_map()
     adder = generator.build_adder(full_adder, n)
-    benchmark.pedantic(
-        lambda: generator.adder_step(full_adder, adder, n),
-        rounds=ROUNDS, warmup_rounds=WARMUP)
+    return lambda: generator.adder_step(full_adder, adder, n)
 
 
 @case("Diagram", "adder functor", sizes(2, 5, 10, 20, full=(50, 100)))
-def test_adder_functor_diagram(benchmark, n):
+def test_adder_functor_diagram(n):
     full_adder = generator.full_adder_box(symmetric.Box)
     functor = _adder_functor(full_adder)
     adder = generator.build_adder(full_adder, n)
-    benchmark.pedantic(
-        lambda: functor(adder), rounds=ROUNDS, warmup_rounds=WARMUP)
+    return lambda: functor(adder)
 
 
 # --- spiral (arXiv:1804.07832) ---------------------------------------------
 
 @case("Diagram", "spiral build", sizes(10, 20, 50, full=(100, 200)))
-def test_spiral_build_diagram(benchmark, n):
-    benchmark.pedantic(
-        lambda: generator.spiral(symmetric.Box, n),
-        rounds=ROUNDS, warmup_rounds=WARMUP)
+def test_spiral_build_diagram(n):
+    return lambda: generator.spiral(symmetric.Box, n)
 
 
 @case("Diagram", "spiral normal form", sizes(5, 10))
-def test_spiral_normal_form_diagram(benchmark, n):
+def test_spiral_normal_form_diagram(n):
     spiral = generator.spiral(symmetric.Box, n)
-    benchmark.pedantic(
-        lambda: spiral.normal_form(), rounds=ROUNDS, warmup_rounds=WARMUP)
+    return spiral.normal_form
 
 
 # --- transpose normal form --------------------------------------------------
 
 @case("Diagram", "transpose normal form",
       sizes(5, 10, 20, full=(50,)))
-def test_transpose_normal_form_diagram(benchmark, n):
+def test_transpose_normal_form_diagram(n):
     # rigid.normal_form genuinely yanks the snakes back to f (super-linear).
     x = rigid.Ty('x')
     g = generator.transpose_snakes(rigid.Box('f', x, x), n)
-    benchmark.pedantic(
-        lambda: g.normal_form(), rounds=ROUNDS, warmup_rounds=WARMUP)
+    return g.normal_form
 
 
 # --- correctness (run once, not benchmarks) --------------------------------

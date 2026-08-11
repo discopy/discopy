@@ -71,7 +71,8 @@ outside `testpaths`, so run them explicitly. Results are keyed by suite
 (`composition` or `conversion`), family (representation or conversion), case
 (workload) and size `n`. Each data point is a declarative
 [`pytest-benchmark`](https://pytest-benchmark.readthedocs.io) test; the fixture
-owns timing (CPU clock, GC disabled, median of a few rounds).
+owns timing (CPU clock and GC disabled) and automatically calibrates rounds
+and iterations for each workload.
 
 ```shell
 uv sync --group dev

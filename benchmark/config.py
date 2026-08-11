@@ -4,6 +4,8 @@
 
 import os
 import time
+from functools import wraps
+from inspect import signature
 
 import pytest
 
@@ -25,11 +27,11 @@ def case(family, case, sizes, *, suite):
     parametrize = pytest.mark.parametrize("n", sizes)
 
     def decorator(function):
-        return benchmark(parametrize(function))
+        @wraps(function)
+        def wrapped(benchmark, n):
+            benchmark(function(n))
+
+        wrapped.__signature__ = signature(wrapped, follow_wrapped=False)
+        return benchmark(parametrize(wrapped))
 
     return decorator
-
-
-# Median of ROUNDS timed calls after WARMUP untimed ones. Inputs are built
-# once outside the timed thunk, so only the operation under test is measured.
-ROUNDS, WARMUP = 3, 1

@@ -90,6 +90,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   change rather than comparing raw medians, so that the CPU model a
   GitHub-hosted runner happens to give out does not read as a regression. Its
   default threshold is 25%.
+- Benchmark cases now use `pytest-benchmark`'s automatic calibration.
 
 ### Fixed
 
