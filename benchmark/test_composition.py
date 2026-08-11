@@ -108,7 +108,7 @@ def test_series_cmap(n):
 
 # --- ripple-carry adder ----------------------------------------------------
 
-@case("Diagram", "adder step", sizes(2, 5, 10, 20, full=(50, 100)))
+@case("Diagram", "adder step", sizes(2, 5, 10, 20, full=(50,)))
 def test_adder_step_diagram(n):
     full_adder = generator.full_adder_box(symmetric.Box)
     adder = generator.build_adder(full_adder, n)
@@ -130,7 +130,7 @@ def test_adder_step_cmap(n):
     return lambda: generator.adder_step(full_adder, adder, n)
 
 
-@case("Diagram", "adder functor", sizes(2, 5, 10, 20, full=(50, 100)))
+@case("Diagram", "adder functor", sizes(2, 5, 10, 20, full=(50,)))
 def test_adder_functor_diagram(n):
     full_adder = generator.full_adder_box(symmetric.Box)
     functor = _adder_functor(full_adder)
@@ -153,8 +153,7 @@ def test_spiral_normal_form_diagram(n):
 
 # --- transpose normal form --------------------------------------------------
 
-@case("Diagram", "transpose normal form",
-      sizes(5, 10, 20, full=(50,)))
+@case("Diagram", "transpose normal form", sizes(5, 10, 20))
 def test_transpose_normal_form_diagram(n):
     # rigid.normal_form genuinely yanks the snakes back to f (super-linear).
     x = rigid.Ty('x')

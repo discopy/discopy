@@ -105,7 +105,7 @@ def test_tensor_hypergraph_to_cmap(n):
     return morphism.to_map
 
 
-@case("CMap → Diagram", "k-fold tensor", sizes(10, 20, 50, full=(75,)))
+@case("CMap → Diagram", "k-fold tensor", sizes(10, 20, 50))
 def test_tensor_cmap_to_diagram(n):
     box = generator.not_box(symmetric.Box).to_map()
     morphism = generator.tensor(symmetric.CMap, box, n)
@@ -139,41 +139,37 @@ def test_staircase_diagram_to_cmap(n):
 
 # --- permutation ------------------------------------------------------------
 
-@case("Diagram → CMap", "permutation", sizes(5, 10, 20, full=(50,)))
+@case("Diagram → CMap", "permutation", sizes(5, 10, 20))
 def test_permutation_diagram_to_cmap(n):
     morphism = generator.reverse_permutation(symmetric.Diagram, n)
     return morphism.to_map
 
 
-@case("Diagram → Hypergraph", "permutation",
-      sizes(5, 10, 20, full=(50,)))
+@case("Diagram → Hypergraph", "permutation", sizes(5, 10, 20))
 def test_permutation_diagram_to_hypergraph(n):
     morphism = generator.reverse_permutation(symmetric.Diagram, n)
     return morphism.to_hypergraph
 
 
-@case("Hypergraph → Diagram", "permutation",
-      sizes(5, 10, 20, full=(50,)))
+@case("Hypergraph → Diagram", "permutation", sizes(5, 10, 20))
 def test_permutation_hypergraph_to_diagram(n):
     morphism = generator.reverse_permutation(symmetric.Hypergraph, n)
     return morphism.to_diagram
 
 
-@case("Hypergraph → CMap", "permutation",
-      sizes(5, 10, 20, full=(50,)))
+@case("Hypergraph → CMap", "permutation", sizes(5, 10, 20))
 def test_permutation_hypergraph_to_cmap(n):
     morphism = generator.reverse_permutation(symmetric.Hypergraph, n)
     return morphism.to_map
 
 
-@case("CMap → Diagram", "permutation", sizes(5, 10, 20, full=(50,)))
+@case("CMap → Diagram", "permutation", sizes(5, 10, 20))
 def test_permutation_cmap_to_diagram(n):
     morphism = generator.reverse_permutation(symmetric.CMap, n)
     return morphism.to_diagram
 
 
-@case("CMap → Hypergraph", "permutation",
-      sizes(5, 10, 20, full=(50,)))
+@case("CMap → Hypergraph", "permutation", sizes(5, 10, 20))
 def test_permutation_cmap_to_hypergraph(n):
     morphism = generator.reverse_permutation(symmetric.CMap, n)
     return morphism.to_hypergraph
@@ -181,14 +177,13 @@ def test_permutation_cmap_to_hypergraph(n):
 
 # --- snake ------------------------------------------------------------------
 
-@case("Diagram → CMap", "snake", sizes(10, 20, 50, full=(100, 200)))
+@case("Diagram → CMap", "snake", sizes(10, 20, 50))
 def test_snake_diagram_to_cmap(n):
     morphism = generator.snake(compact.Diagram, n)
     return morphism.to_map
 
 
-@case("Diagram → Hypergraph", "snake",
-      sizes(10, 20, 50, full=(100, 200)))
+@case("Diagram → Hypergraph", "snake", sizes(10, 20, 50))
 def test_snake_diagram_to_hypergraph(n):
     morphism = generator.snake(compact.Diagram, n)
     return morphism.to_hypergraph
@@ -211,16 +206,14 @@ def test_spiral_diagram_to_cmap(n):
 
 # --- transpose snakes ------------------------------------------------------
 
-@case("Diagram → Hypergraph", "transpose snakes",
-      sizes(10, 20, 50, full=(100,)))
+@case("Diagram → Hypergraph", "transpose snakes", sizes(10, 20, 50))
 def test_transpose_diagram_to_hypergraph(n):
     morphism = generator.transpose_snakes(
         compact.Box('f', compact.Ty('x'), compact.Ty('x')), n)
     return morphism.to_hypergraph
 
 
-@case("Diagram → CMap", "transpose snakes",
-      sizes(10, 20, 50, full=(100,)))
+@case("Diagram → CMap", "transpose snakes", sizes(10, 20, 50))
 def test_transpose_diagram_to_cmap(n):
     morphism = generator.transpose_snakes(
         compact.Box('f', compact.Ty('x'), compact.Ty('x')), n)
