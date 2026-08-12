@@ -45,3 +45,12 @@ in the hierarchy below symmetric"
 - [x] doctests and tests for each level, `CHANGELOG.md` extended
 - [x] file the confusing `left` defaults of `ev`/`curry` across `abc`,
   `biclosed`, `closed` and `rigid` as an issue
+
+Round 3 (USER, Daylight session, 2026-08-12, verbatim): "yes lift is the
+injection functor from a category into its para! i was thinking of adding a
+Para class in each module so the naming would be symmetric.Para, compact.Para
+etc. but maybe your approach is cleaner, it's just weird to have para.Compact
+but not para.Symmetric, let's rename para.Para to it"
+
+- [WIP] @eloquent-pasteur-2026-08-12 15:33 rename `para.Para` to `para.Symmetric` everywhere, note in `lift`'s
+  docstring that it is the injection functor
