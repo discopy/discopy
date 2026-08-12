@@ -19,6 +19,11 @@ Summary
     :toctree:
 
     Para
+    Markov
+    Closed
+    Feedback
+    Compact
+    Hypergraph
 
 Axioms
 ------
@@ -57,10 +62,29 @@ Reparametrisation precomposes the parameters, contravariantly:
 The identity, swap and trace of :class:`Para` are those of the underlying
 category, with the empty parameter space:
 
->>> assert Para.id(x).inside == Diagram.id(x)
->>> assert Para.swap(x, y).inside == Diagram.swap(x, y)
+>>> assert Para.id(x) == Para.lift(Diagram.id(x))
+>>> assert Para.swap(x, y) == Para.lift(Diagram.swap(x, y))
 >>> t = Para(x @ y, z @ y, p, Box('t', x @ y @ p, z @ y))
 >>> assert t.trace().dom == x and t.trace().param == p
+
+The construction preserves each level of the hierarchy below symmetric:
+:class:`Markov`, :class:`Closed`, :class:`Feedback`, :class:`Compact` and
+:class:`Hypergraph` lift the extra structure of their underlying category
+with the empty parameter space, e.g.
+
+>>> from discopy import frobenius
+>>> X = frobenius.Ty('x')
+>>> assert Hypergraph.spiders(1, 2, X)\\
+...     == Hypergraph.lift(frobenius.Diagram.spiders(1, 2, X))
+
+while the operations on morphisms swap the parameters out of the way,
+the same as :meth:`Para.trace`:
+
+>>> from discopy import closed
+>>> a, b, c, P = map(closed.Ty, "abcP")
+>>> k = Closed(a @ b, c, P, closed.Box('k', a @ b @ P, c))
+>>> assert k.curry(left=True).cod == c << b
+>>> assert k.curry(left=False).cod == a >> c
 
 Example
 -------
@@ -81,8 +105,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from discopy import symmetric
-from discopy.abc import NamedGeneric, SymmetricCategory
+from discopy import symmetric, markov, closed, feedback, compact, frobenius
+from discopy.abc import (
+    ClosedCategory, CompactCategory, FeedbackCategory, HypergraphCategory,
+    MarkovCategory, NamedGeneric, SymmetricCategory)
 from discopy.utils import (
     AxiomError, assert_isinstance, classproperty, unbiased)
 
@@ -103,6 +129,7 @@ class Para(SymmetricCategory, NamedGeneric['category']):
 
         .. autosummary::
 
+            lift
             id
             then
             tensor
@@ -127,6 +154,17 @@ class Para(SymmetricCategory, NamedGeneric['category']):
             raise AxiomError(f"{self.inside.cod} != {self.cod}")
 
     @classmethod
+    def lift(cls, inside: category) -> Para:
+        """
+        A morphism of the underlying category as a parametric map with the
+        empty parameter space.
+
+        Parameters:
+            inside : The morphism to lift.
+        """
+        return cls(inside.dom, inside.cod, cls.ob(), inside)
+
+    @classmethod
     def id(cls, dom: ob = None) -> Para:
         """
         The identity parametric map on `dom`, with empty parameter space.
@@ -134,8 +172,7 @@ class Para(SymmetricCategory, NamedGeneric['category']):
         Parameters:
             dom : The domain of the identity, also its codomain.
         """
-        dom = cls.ob() if dom is None else dom
-        return cls(dom, dom, cls.ob(), cls.category.id(dom))
+        return cls.lift(cls.category.id(cls.ob() if dom is None else dom))
 
     @unbiased
     def then(self, other: Para) -> Para:
@@ -176,8 +213,7 @@ class Para(SymmetricCategory, NamedGeneric['category']):
             left : The object on the left of the swap.
             right : The object on the right of the swap.
         """
-        return cls(left + right, right + left, cls.ob(),
-                   cls.category.swap(left, right))
+        return cls.lift(cls.category.swap(left, right))
 
     def trace(self, n: int = 1, left: bool = False) -> Para:
         """
@@ -211,3 +247,153 @@ class Para(SymmetricCategory, NamedGeneric['category']):
             raise AxiomError(f"{arrow.cod} != {self.param}")
         return type(self)(self.dom, self.cod, arrow.dom,
                           self.dom @ arrow >> self.inside)
+
+
+class Markov(Para, MarkovCategory):
+    """
+    Parametric maps over a Markov underlying `category` form a Markov
+    category, with the copy of the underlying category as :meth:`copy`.
+    """
+    category = markov.Diagram
+
+    @classmethod
+    def copy(cls, x: Para.ob, n: int = 2) -> Markov:
+        """
+        The copy of the underlying category, with empty parameter space.
+
+        Parameters:
+            x : The object to copy.
+            n : The number of copies.
+        """
+        return cls.lift(cls.category.copy(x, n))
+
+
+class Closed(Markov, ClosedCategory):
+    """
+    Parametric maps over a closed underlying `category` form a closed
+    category, currying with the parameters swapped out of the way.
+    """
+    category = closed.Diagram
+
+    @classmethod
+    def ev(cls, base: Para.ob, exponent: Para.ob, left: bool = True
+           ) -> Closed:
+        """
+        The evaluation of the underlying category, with empty parameters.
+
+        Parameters:
+            base : The base of the exponential type.
+            exponent : The exponent of the exponential type.
+            left : Whether to take the left or right evaluation.
+        """
+        return cls.lift(cls.category.ev(base, exponent, left))
+
+    def curry(self, n: int = 1, left: bool = False) -> Closed:
+        """
+        Curry the last `n` objects of the domain if `left` else the first,
+        i.e. everything but the parameters, which a left currying swaps out
+        of the way the same as :meth:`Para.trace`.
+
+        Parameters:
+            n : The number of objects to curry.
+            left : Whether to curry into a left or right exponential.
+        """
+        if not left:
+            inside = self.inside.curry(n, left=False)
+            return type(self)(self.dom[n:], inside.cod, self.param, inside)
+        inside = self.dom[:-n] @ self.category.swap(
+            self.param, self.dom[-n:]) >> self.inside
+        inside = inside.curry(n, left=True)
+        return type(self)(self.dom[:-n], inside.cod, self.param, inside)
+
+
+class Feedback(Markov, FeedbackCategory):
+    """
+    Parametric maps over a feedback underlying `category` form a feedback
+    category, with :meth:`delay` applied to all four components.
+    """
+    category = feedback.Diagram
+
+    def delay(self, n_steps: int = 1) -> Feedback:
+        """
+        Delay a parametric map by delaying its underlying morphism together
+        with its domain, codomain and parameter space.
+
+        Parameters:
+            n_steps : The number of time steps to delay.
+        """
+        return type(self)(*(x.delay(n_steps) for x in (
+            self.dom, self.cod, self.param, self.inside)))
+
+    def feedback(self, dom: Para.ob = None, cod: Para.ob = None,
+                 mem: Para.ob = None) -> Feedback:
+        """
+        The feedback of the underlying category, with the parameters
+        swapped out of the way the same as :meth:`Para.trace`.
+
+        Parameters:
+            dom : The domain of the feedback.
+            cod : The codomain of the feedback.
+            mem : The memory type to trace over.
+        """
+        mem = self.cod[-1:] if mem is None else mem
+        dom = self.dom[:len(self.dom) - len(mem)] if dom is None else dom
+        cod = self.cod[:len(self.cod) - len(mem)] if cod is None else cod
+        inside = dom @ self.category.swap(self.param, mem.delay())\
+            >> self.inside
+        return type(self)(dom, cod, self.param,
+                          inside.feedback(dom + self.param, cod, mem))
+
+
+class Compact(Para, CompactCategory):
+    """
+    Parametric maps over a compact underlying `category` form a compact
+    category, with the cups and caps of the underlying category.
+    """
+    category = compact.Diagram
+
+    @classmethod
+    def cups(cls, left: Para.ob, right: Para.ob) -> Compact:
+        """
+        The cups of the underlying category, with empty parameter space.
+
+        Parameters:
+            left : The left-hand side of the cups.
+            right : Its adjoint, i.e. the right-hand side of the cups.
+        """
+        return cls.lift(cls.category.cups(left, right))
+
+    @classmethod
+    def caps(cls, left: Para.ob, right: Para.ob) -> Compact:
+        """
+        The caps of the underlying category, with empty parameter space.
+
+        Parameters:
+            left : The left-hand side of the caps.
+            right : Its adjoint, i.e. the right-hand side of the caps.
+        """
+        return cls.lift(cls.category.caps(left, right))
+
+    ev = classmethod(Closed.ev.__func__)
+    curry = Closed.curry
+
+
+class Hypergraph(Compact, Markov, HypergraphCategory):
+    """
+    Parametric maps over a hypergraph underlying `category` form a
+    hypergraph category, with the spiders of the underlying category.
+    """
+    category = frobenius.Diagram
+
+    @classmethod
+    def spiders(cls, n_legs_in: int, n_legs_out: int, typ: Para.ob
+                ) -> Hypergraph:
+        """
+        The spiders of the underlying category, with empty parameters.
+
+        Parameters:
+            n_legs_in : The number of legs in for each spider.
+            n_legs_out : The number of legs out for each spider.
+            typ : The type of the spiders.
+        """
+        return cls.lift(cls.category.spiders(n_legs_in, n_legs_out, typ))

@@ -2,7 +2,8 @@
 
 from pytest import raises
 
-from discopy.para import Para
+from discopy import closed, compact, feedback, frobenius, markov
+from discopy.para import Closed, Compact, Feedback, Hypergraph, Markov, Para
 from discopy.python import Function
 from discopy.symmetric import Box, Diagram, Ty
 from discopy.utils import AxiomError
@@ -47,6 +48,47 @@ def test_reparam():
     assert f.reparam(r).param == q
     assert f.reparam(r).reparam(s) == f.reparam(s >> r)
     assert (f @ g).reparam(r @ s).param == q @ p
+
+
+def test_markov():
+    X = markov.Ty('x')
+    assert Markov.copy(X, 3) == Markov.lift(markov.Diagram.copy(X, 3))
+    assert Markov.copy(X).param == markov.Ty()
+
+
+def test_closed():
+    a, b, c, P = map(closed.Ty, "abcP")
+    k = Closed(a @ b, c, P, closed.Box('k', a @ b @ P, c))
+    assert Closed.ev(c, b).param == closed.Ty()
+    left, right = k.curry(left=True), k.curry(left=False)
+    assert (left.dom, left.cod, left.param) == (a, c << b, P)
+    assert (right.dom, right.cod, right.param) == (b, a >> c, P)
+    assert left.inside\
+        == (a @ closed.Diagram.swap(P, b) >> k.inside).curry(left=True)
+
+
+def test_feedback():
+    x, y, z, P = map(feedback.Ty, "xyzP")
+    f = Feedback(x @ y.delay(), z @ y, P,
+                 feedback.Box('f', x @ y.delay() @ P, z @ y))
+    fb = f.feedback()
+    assert (fb.dom, fb.cod, fb.param) == (x, z, P)
+    assert f.delay().param == P.delay()
+
+
+def test_compact():
+    x, y = map(compact.Ty, "xy")
+    assert Compact.cups(x, x.r) == Compact.lift(compact.Diagram.cups(x, x.r))
+    assert Compact.caps(x, x.l).param == compact.Ty()
+    k = Compact(x @ y, x, compact.Ty('P'),
+                compact.Box('k', x @ y @ compact.Ty('P'), x))
+    assert k.curry(left=True).cod == x << y
+
+
+def test_hypergraph():
+    X = frobenius.Ty('x')
+    assert Hypergraph.spiders(1, 2, X)\
+        == Hypergraph.lift(frobenius.Diagram.spiders(1, 2, X))
 
 
 def test_python():
