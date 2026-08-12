@@ -44,7 +44,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - The category of parametric maps, `discopy.para`, wrapping morphisms
   `dom @ param -> cod` of any symmetric underlying category, with
   reparametrisation as a method and a subclass lifting each level of the
-  hierarchy below symmetric: Markov, closed, feedback, compact and
+  hierarchy below symmetric: traced, Markov, closed, feedback, compact and
   hypergraph ([#558](https://github.com/discopy/discopy/issues/558),
   refactoring [#325](https://github.com/discopy/discopy/pull/325)).
 

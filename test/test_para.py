@@ -4,7 +4,7 @@ from pytest import raises
 
 from discopy import closed, compact, feedback, frobenius, markov
 from discopy.para import (
-    Closed, Compact, Feedback, Hypergraph, Markov, Symmetric)
+    Closed, Compact, Feedback, Hypergraph, Markov, Symmetric, Traced)
 from discopy.python import Function
 from discopy.symmetric import Box, Diagram, Ty
 from discopy.utils import AxiomError
@@ -38,12 +38,13 @@ def test_symmetric_axioms():
 
 
 def test_trace():
-    t = Symmetric(x @ y, z @ y, p, Box('t', x @ y @ p, z @ y))
+    assert not hasattr(Symmetric, "trace")
+    t = Traced(x @ y, z @ y, p, Box('t', x @ y @ p, z @ y))
     assert t.trace(0) == t
     inside = x @ Diagram.swap(p, y) >> t.inside
-    assert t.trace() == Symmetric(x, z, p, inside.trace())
-    u = Symmetric(y @ x, y @ z, p, Box('u', y @ x @ p, y @ z))
-    assert u.trace(left=True) == Symmetric(x, z, p, u.inside.trace(left=True))
+    assert t.trace() == Traced(x, z, p, inside.trace())
+    u = Traced(y @ x, y @ z, p, Box('u', y @ x @ p, y @ z))
+    assert u.trace(left=True) == Traced(x, z, p, u.inside.trace(left=True))
 
 
 def test_reparam():

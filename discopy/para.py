@@ -19,6 +19,7 @@ Summary
     :toctree:
 
     Symmetric
+    Traced
     Markov
     Closed
     Feedback
@@ -59,18 +60,18 @@ Reparametrisation precomposes the parameters, contravariantly:
 >>> assert f.reparam(r).param == p_
 >>> assert f.reparam(s >> r) == f.reparam(r).reparam(s)
 
-The identity, swap and trace of :class:`Symmetric` are those of the underlying
+The identity and swap of :class:`Symmetric` are those of the underlying
 category, with the empty parameter space:
 
 >>> assert Symmetric.id(x) == Symmetric.lift(Diagram.id(x))
 >>> assert Symmetric.swap(x, y) == Symmetric.lift(Diagram.swap(x, y))
->>> t = Symmetric(x @ y, z @ y, p, Box('t', x @ y @ p, z @ y))
+>>> t = Traced(x @ y, z @ y, p, Box('t', x @ y @ p, z @ y))
 >>> assert t.trace().dom == x and t.trace().param == p
 
 The construction preserves each level of the hierarchy below symmetric:
-:class:`Markov`, :class:`Closed`, :class:`Feedback`, :class:`Compact` and
-:class:`Hypergraph` lift the extra structure of their underlying category
-with the empty parameter space, e.g.
+:class:`Traced`, :class:`Markov`, :class:`Closed`, :class:`Feedback`,
+:class:`Compact` and :class:`Hypergraph` lift the extra structure of their
+underlying category with the empty parameter space, e.g.
 
 >>> from discopy import frobenius
 >>> X = frobenius.Ty('x')
@@ -78,7 +79,7 @@ with the empty parameter space, e.g.
 ...     == Hypergraph.lift(frobenius.Diagram.spiders(1, 2, X))
 
 while the operations on morphisms swap the parameters out of the way,
-the same as :meth:`Symmetric.trace`:
+the same as :meth:`Traced.trace`:
 
 >>> from discopy import closed
 >>> a, b, c, P = map(closed.Ty, "abcP")
@@ -108,13 +109,14 @@ from dataclasses import dataclass
 from discopy import symmetric, markov, closed, feedback, compact, frobenius
 from discopy.abc import (
     ClosedCategory, CompactCategory, FeedbackCategory, HypergraphCategory,
-    MarkovCategory, NamedGeneric, SymmetricCategory)
+    MarkovCategory, MonoidalCategory, NamedGeneric, SymmetricCategory,
+    TracedCategory)
 from discopy.utils import (
     AxiomError, assert_isinstance, classproperty, unbiased)
 
 
 @dataclass
-class Symmetric(SymmetricCategory, NamedGeneric['category']):
+class Symmetric(MonoidalCategory, NamedGeneric['category']):
     """
     A parametric map from `dom` to `cod` with parameter space `param` is a
     morphism `inside : dom @ param -> cod` in an underlying `category`.
@@ -134,7 +136,6 @@ class Symmetric(SymmetricCategory, NamedGeneric['category']):
             then
             tensor
             swap
-            trace
             reparam
     """
     category = symmetric.Diagram
@@ -216,7 +217,31 @@ class Symmetric(SymmetricCategory, NamedGeneric['category']):
         """
         return cls.lift(cls.category.swap(left, right))
 
-    def trace(self, n: int = 1, left: bool = False) -> Symmetric:
+    permutation = classmethod(SymmetricCategory.permutation.__func__)
+    twist = classmethod(SymmetricCategory.twist.__func__)
+    braid = classmethod(SymmetricCategory.braid.__func__)
+
+    def reparam(self, arrow: category) -> Symmetric:
+        """
+        Precompose the parameter space with `arrow : q -> param`, i.e. the
+        2-cells of :class:`Symmetric`, kept as a method of the 1-cells the same
+        way as :meth:`interchange <discopy.monoidal.Diagram.interchange>`.
+
+        Parameters:
+            arrow : The reparametrisation, a morphism into ``param``.
+        """
+        if arrow.cod != self.param:
+            raise AxiomError(f"{arrow.cod} != {self.param}")
+        return type(self)(self.dom, self.cod, arrow.dom,
+                          self.dom @ arrow >> self.inside)
+
+
+class Traced(Symmetric, TracedCategory):
+    """
+    Parametric maps over a traced symmetric underlying `category` form a
+    traced category, with the parameters swapped out of the way.
+    """
+    def trace(self, n: int = 1, left: bool = False) -> Traced:
         """
         The trace of a parametric map is the trace of the underlying
         morphism, with the parameters swapped out of the way.
@@ -235,22 +260,8 @@ class Symmetric(SymmetricCategory, NamedGeneric['category']):
         return type(self)(
             self.dom[:-n], self.cod[:-n], self.param, inside.trace(n))
 
-    def reparam(self, arrow: category) -> Symmetric:
-        """
-        Precompose the parameter space with `arrow : q -> param`, i.e. the
-        2-cells of :class:`Symmetric`, kept as a method of the 1-cells the same
-        way as :meth:`interchange <discopy.monoidal.Diagram.interchange>`.
 
-        Parameters:
-            arrow : The reparametrisation, a morphism into ``param``.
-        """
-        if arrow.cod != self.param:
-            raise AxiomError(f"{arrow.cod} != {self.param}")
-        return type(self)(self.dom, self.cod, arrow.dom,
-                          self.dom @ arrow >> self.inside)
-
-
-class Markov(Symmetric, MarkovCategory):
+class Markov(Traced, MarkovCategory):
     """
     Parametric maps over a Markov underlying `category` form a Markov
     category, with the copy of the underlying category as :meth:`copy`.
@@ -293,7 +304,7 @@ class Closed(Markov, ClosedCategory):
         """
         Curry the last `n` objects of the domain if `left` else the first,
         i.e. everything but the parameters, which a left currying swaps out
-        of the way the same as :meth:`Symmetric.trace`.
+        of the way the same as :meth:`Traced.trace`.
 
         Parameters:
             n : The number of objects to curry.
@@ -330,7 +341,7 @@ class Feedback(Markov, FeedbackCategory):
                  mem: Symmetric.ob = None) -> Feedback:
         """
         The feedback of the underlying category, with the parameters
-        swapped out of the way the same as :meth:`Symmetric.trace`.
+        swapped out of the way the same as :meth:`Traced.trace`.
 
         Parameters:
             dom : The domain of the feedback.
@@ -346,7 +357,7 @@ class Feedback(Markov, FeedbackCategory):
                           inside.feedback(dom + self.param, cod, mem))
 
 
-class Compact(Symmetric, CompactCategory):
+class Compact(Traced, CompactCategory):
     """
     Parametric maps over a compact underlying `category` form a compact
     category, with the cups and caps of the underlying category.
