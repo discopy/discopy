@@ -109,7 +109,7 @@ Summary
 """
 from __future__ import annotations
 
-from discopy.abc import Category, NamedGeneric
+from discopy.abc import NamedGeneric, TracedCategory
 from discopy.kleisli import channel
 from discopy.kleisli.monad import Monad
 from discopy.python import function
@@ -222,7 +222,7 @@ def injection(offset: int, source: Ty, target: Ty) -> function.Function:
 
 
 @factory
-class Channel(Category, NamedGeneric['monad']):
+class Channel(TracedCategory, NamedGeneric['monad']):
     """
     A channel is a morphism in the Kleisli category of a monad ``M`` with
     disjoint union as tensor, i.e. a Python function from a tagged value of
@@ -321,9 +321,6 @@ class Channel(Category, NamedGeneric['monad']):
             return left(self(obj, tag)) if tag < len(self.dom)\
                 else right(other(obj, tag - len(self.dom)))
         return type(self)(inside, dom, cod)
-
-    def __matmul__(self, other):
-        return self.tensor(other)
 
     @classmethod
     def swap(cls, x: Ty, y: Ty) -> Channel:

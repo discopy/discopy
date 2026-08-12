@@ -286,6 +286,28 @@ It landed between the last two turns and is still unapplied — `Channel` is dec
 if a net's behaviour is `net.trace(n)`, then the category it lives in is traced, and the
 class should say so rather than leave it to the reader.
 
-- [WIP] @74icg3-2026-08-12 00:30 Declare `Channel` a `TracedCategory` and make the abstract base class hold, i.e. check
+- [x] Declare `Channel` a `TracedCategory` and make the abstract base class hold, i.e. check
   `trace` is defined for every monad the module ships and decide what the seed monad does,
   where tracing raises rather than guesses
+
+### The `TracedCategory` declaration is applied (🌙 evening, 2026-08-12)
+
+`additive.Channel` is `TracedCategory` rather than `Category` as suggested. The abstract base
+class holds as it stands: `TracedCategory` extends `MonoidalCategory`, whose only abstract method
+is `tensor`, and the class already defined `tensor`, `id`, `then` and `trace`.
+
+The seed monad keeps the behaviour it already had, which is the one the point asked for: `trace`
+raises `ValueError` naming the monad when `Monad.iterate` is `None`, rather than guessing a
+fixpoint. `iterate` is supplied by maybe, powerset and subdistribution, so `trace` is defined
+exactly there.
+
+One thing came for free and is worth knowing: `MonoidalCategory` supplies `__matmul__` and
+`__rmatmul__` on top of `tensor`, so the hand-written `__matmul__` is dropped and whiskering an
+object now works on **both** sides — `(str, ) @ channel` and `channel @ (str, )` were previously
+a `TypeError`. Tested in `test_additive_Channel_tensor`.
+
+`channel.Channel`, the base Kleisli category, stays a plain `Category`: it has no `tensor` and no
+`trace`, and a Kleisli category is not traced unless its monad iterates.
+
+Verification: `pflake8 discopy` clean, `pytest --skip-extra` gives 684 passed, 51 skipped.
+

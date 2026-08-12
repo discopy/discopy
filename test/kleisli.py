@@ -452,6 +452,10 @@ def test_additive_Channel_tensor():
     with raises(TypeError):
         half.tensor("not-a-channel")
 
+    # Whiskering on either side comes from `MonoidalCategory`.
+    assert ((str, ) @ increment).dom == (str, int)
+    assert (increment @ (str, )).dom == (int, str)
+
 
 def test_additive_tensor_is_a_bifunctor():
     """
