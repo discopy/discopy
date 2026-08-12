@@ -41,6 +41,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   permutation operations and functorial semantics, while `symmetric.Layer`
   alternates permutations with generators without canonicalising diagram
   state ([#362](https://github.com/discopy/discopy/pull/362)).
+- The category of parametric maps, `discopy.para`, wrapping morphisms
+  `dom @ param -> cod` of any symmetric underlying category, with
+  reparametrisation as its 2-cells
+  ([#558](https://github.com/discopy/discopy/issues/558), refactoring
+  [#325](https://github.com/discopy/discopy/pull/325)).
 
 ### Changed
 
