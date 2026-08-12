@@ -77,6 +77,19 @@ class Diagram(symmetric.Diagram, ribbon.Diagram, CompactCategory):
     ob = Ty
     layer_factory = Layer
     trace_factory = ribbon.Diagram.trace_factory
+    axiom_status = {
+        "trace_superposing_left": "strict",
+        "trace_superposing_right": "strict",
+        "trace_naturality_left": "strict",
+        "trace_naturality_right": "strict",
+        "trace_dinaturality_left": "strict",
+        "trace_dinaturality_right": "strict",
+        "braid_naturality": "strict",
+        "currying_left": "strict",
+        "currying_right": "strict",
+        "transpose_axiom": "strict",
+        "twist_as_trace": "strict",
+    }
 
 
 class Box(symmetric.Box, ribbon.Box, Diagram):

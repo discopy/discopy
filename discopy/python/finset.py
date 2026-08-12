@@ -175,6 +175,15 @@ class Permutation(Function, SymmetricCategory):
     True
     """
     ob = Natural
+    axiom_status = {
+        "trace_vanishing": "wontfix",
+        "trace_superposing_left": "wontfix",
+        "trace_superposing_right": "wontfix",
+        "trace_naturality_left": "wontfix",
+        "trace_naturality_right": "wontfix",
+        "trace_dinaturality_left": "wontfix",
+        "trace_dinaturality_right": "wontfix",
+    }
 
     @classmethod
     def strategy(

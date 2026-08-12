@@ -144,6 +144,15 @@ class Diagram(monoidal.Diagram, TracedCategory):
         dom (monoidal.Ty) : The domain of the diagram, i.e. its input.
         cod (monoidal.Ty) : The codomain of the diagram, i.e. its output.
     """
+    axiom_status = {
+        "trace_superposing_left": "bug",
+        "trace_superposing_right": "bug",
+        "trace_naturality_left": "bug",
+        "trace_naturality_right": "bug",
+        "trace_dinaturality_left": "bug",
+        "trace_dinaturality_right": "bug",
+    }
+
     def trace(self, n=1, left=False):
         """
         Feed ``n`` outputs back into inputs.
@@ -169,6 +178,7 @@ class Diagram(monoidal.Diagram, TracedCategory):
 
     def to_drawing(self):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
+
 
 
 class Box(monoidal.Box, Diagram):

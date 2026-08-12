@@ -344,6 +344,15 @@ class Diagram(markov.Diagram, FeedbackCategory):
     """
     ob = Ty
     layer_factory = Layer
+    axiom_status = {
+        "trace_superposing_left": "strict",
+        "trace_superposing_right": "strict",
+        "trace_naturality_left": "strict",
+        "trace_naturality_right": "strict",
+        "trace_dinaturality_left": "strict",
+        "trace_dinaturality_right": "strict",
+        "braid_naturality": "strict",
+    }
 
     def delay(self, n_steps=1):
         """ The delay of a feedback diagram. """

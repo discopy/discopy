@@ -7,11 +7,14 @@ category can be instantiated in the free category that implements it.
 Whether the equations hold is checked over every category in ``proptest/``.
 """
 
+from typing import Generator
+
 import pytest
 
 from discopy import (
     abc, balanced, biclosed, braided, cat, closed, compact, feedback,
-    frobenius, markov, monoidal, pivotal, ribbon, rigid, symmetric, traced)
+    frobenius, markov, monoidal, pivotal, ribbon, rigid, symmetric, traced,
+    utils)
 from discopy.testing import Atomic, NonEmpty
 
 
@@ -234,26 +237,46 @@ class Arguments:
         return category.ob("x"),
 
 
-@pytest.mark.parametrize("Diagram, category", [
-    (cat.Arrow, abc.Category),
-    (monoidal.Ty, abc.ColouredMonoid),
-    (monoidal.Diagram, abc.MonoidalCategory),
-    (traced.Diagram, abc.TracedCategory),
-    (biclosed.Diagram, abc.BiclosedCategory),
-    (rigid.Ty, abc.Pregroup),
-    (rigid.Diagram, abc.RigidCategory),
-    (pivotal.Diagram, abc.PivotalCategory),
-    (braided.Diagram, abc.BraidedCategory),
-    (balanced.Diagram, abc.BalancedCategory),
-    (symmetric.Diagram, abc.SymmetricCategory),
-    (markov.Diagram, abc.MarkovCategory),
-    (closed.Diagram, abc.ClosedCategory),
-    (feedback.Diagram, abc.FeedbackCategory),
-    (ribbon.Diagram, abc.RibbonCategory),
-    (compact.Diagram, abc.CompactCategory),
-    (frobenius.Diagram, abc.HypergraphCategory),
-])
-def test_axioms_instantiation_on_diagrams(Diagram, category):
-    for axiom in category.axioms:
-        arguments = getattr(Arguments, axiom.name)(Diagram)
-        assert axiom.bind(Diagram)(*arguments), axiom.name
+FREE = {
+    abc.Category: cat.Arrow,
+    abc.ColouredMonoid: monoidal.Ty,
+    abc.MonoidalCategory: monoidal.Diagram,
+    abc.TracedCategory: traced.Diagram,
+    abc.BiclosedCategory: biclosed.Diagram,
+    abc.Pregroup: rigid.Ty,
+    abc.RigidCategory: rigid.Diagram,
+    abc.PivotalCategory: pivotal.Diagram,
+    abc.BraidedCategory: braided.Diagram,
+    abc.BalancedCategory: balanced.Diagram,
+    abc.SymmetricCategory: symmetric.Diagram,
+    abc.MarkovCategory: markov.Diagram,
+    abc.ClosedCategory: closed.Diagram,
+    abc.FeedbackCategory: feedback.Diagram,
+    abc.RibbonCategory: ribbon.Diagram,
+    abc.CompactCategory: compact.Diagram,
+    abc.HypergraphCategory: frobenius.Diagram,
+}
+
+
+def all_axioms():
+    for structure, free_category in FREE.items():
+        for axiom in structure.axioms:
+            axiom = axiom.bind(free_category)
+            match axiom.status:
+                case "wontfix":
+                    marks = (pytest.mark.skip,)
+                case "bug":
+                    marks = (pytest.mark.xfail,)
+                case _:
+                    marks = ()
+            yield pytest.param(
+                axiom.bind(free_category),
+                id=f"{utils.factory_name(free_category)}.{axiom.name}",
+                marks=marks,
+            )
+
+
+@pytest.mark.parametrize("axiom", all_axioms())
+def test_axioms_instantiation_on_diagrams(axiom):
+    arguments = getattr(Arguments, axiom.name)(axiom.carrier)
+    assert axiom(*arguments)

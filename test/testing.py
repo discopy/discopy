@@ -66,17 +66,16 @@ def test_Feedback():
 
 def test_Axiom():
     @axiom(strict=False)
-    def law(cls, f):
+    def law(cls, f, *, eq):
         """ Not an equation. """
-        return f
+        return eq(f)
 
     assert repr(law) == "Axiom(law)" and law.strict is False
     assert [parameter.name for parameter in law.parameters] == ['f']
     assert cat.Arrow.unitality.carrier is cat.Arrow
     with raises(TypeError):
         law(cat.Id(cat.Ob('x')))
-    with raises(TypeError):
-        law.bind(cat.Arrow)(cat.Id(cat.Ob('x')))
+    assert law.bind(cat.Arrow)(cat.Id(cat.Ob('x')))
 
 
 def test_extend_strategy():

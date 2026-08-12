@@ -279,7 +279,9 @@ class FeedbackJoining[C0, C1](
 class Axiom[T]:
     """ A carrier-parametrised equation with explicit arguments. """
 
-    def __init__(self, equation, *, strict=True, carrier=None):
+    def __init__(
+            self, equation, *, strict=True, carrier=None,
+            status="strict", equality=None):
         self.equation = equation if isinstance(equation, classmethod)\
             else classmethod(equation)
         function = self.equation.__func__
@@ -287,6 +289,7 @@ class Axiom[T]:
         self.carrier = carrier
         self.name = self.__name__ = function.__name__
         self.strict = strict
+        self.status, self.equality = status, equality
         self.__doc__ = function.__doc__
 
     def __repr__(self):
@@ -294,8 +297,13 @@ class Axiom[T]:
 
     def bind(self, carrier: type[T]) -> Axiom[T]:
         """ Bind the axiom to a concrete carrier. """
+        resolver = getattr(carrier, "axiom_equality", None)
+        if resolver is None:
+            resolver = carrier.category.axiom_equality
+        status, equality = resolver(self.name)
         return type(self)(
-            self.equation, strict=self.strict, carrier=carrier)
+            self.equation, strict=self.strict, carrier=carrier,
+            status=status, equality=equality)
 
     def __get__(self, instance, owner: type[T]) -> Axiom[T]:
         return self.bind(owner)
@@ -303,9 +311,11 @@ class Axiom[T]:
     @property
     def parameters(self) -> tuple[inspect.Parameter, ...]:
         """ The explicit parameters of the equation. """
-        return tuple(self.signature.parameters.values())[1:]
+        return tuple(parameter for parameter in
+                     tuple(self.signature.parameters.values())[1:]
+                     if parameter.name != "eq")
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args, eq=None, **kwargs):
         if self.carrier is None:
             raise TypeError(f"{self.name} is not bound to a class.")
         signature = self.signature.replace(parameters=self.parameters)
@@ -313,13 +323,9 @@ class Axiom[T]:
         bound.apply_defaults()
         arguments = {
             next(iter(self.signature.parameters)): self.carrier,
-            **bound.arguments}
+            **bound.arguments,
+            "eq": eq or self.equality}
         result = self.equation.__func__(**arguments)
-        equation_type = type(self.carrier.equation_factory())
-        if not isinstance(result, equation_type):
-            raise TypeError(
-                f"{self.name} returned {type(result).__name__}, "
-                f"expected an {equation_type}.")
         return result
 
 

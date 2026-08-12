@@ -24,42 +24,11 @@ from discopy import (
 from discopy.python import finset
 from proptest import strategies
 
-KNOWN_FAILURES = {
-    "biclosed.Diagram.currying_left",
-    "biclosed.Diagram.currying_right",
-    "biclosed.CMap.currying_left",
-    "biclosed.CMap.currying_right",
-    "braided.Diagram.braid_naturality",
-    "closed.Diagram.currying_left",
-    "closed.Diagram.currying_right",
-    "closed.CMap.currying_left",
-    "closed.CMap.currying_right",
-    "ribbon.Diagram.braid_naturality",
-    "ribbon.Diagram.twist_as_trace",
-    "rigid.Diagram.currying_left",
-    "rigid.Diagram.currying_right",
-    "rigid.Diagram.snake_equations",
-
-    # These ones are due to ``BalancedCategory`` inheriting
-    # from ``TracedCategory``.
-    "python.finset.Permutation.trace_vanishing",
-    "python.finset.Permutation.trace_superposing_left",
-    "python.finset.Permutation.trace_superposing_right",
-    "python.finset.Permutation.trace_naturality_left",
-    "python.finset.Permutation.trace_naturality_right",
-    "python.finset.Permutation.trace_dinaturality_left",
-    "python.finset.Permutation.trace_dinaturality_right",
-}
-
-
 def axiom_parameter(cls, axiom):
-    """Translate an axiom and known failures to a pytest parameter."""
-    identifier = ".".join((
-        cls.__module__.removeprefix("discopy."),
-        cls.__qualname__, axiom.name))
+    """Translate an axiom and its status to a pytest parameter."""
     marks = pytest.mark.xfail(
-        reason=f"{identifier} is a known failure")\
-        if identifier in KNOWN_FAILURES else ()
+        reason=f"{axiom.name} is marked {axiom.status}")\
+        if axiom.status in {"bug", "wontfix"} else ()
     return pytest.param(axiom, id=axiom.name, marks=marks)
 
 

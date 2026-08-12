@@ -88,6 +88,8 @@ class Diagram(monoidal.Diagram, BraidedCategory):
         cod (monoidal.Ty) : The codomain of the diagram, i.e. its output.
     """
 
+    axiom_status = {"braid_naturality": "bug"}
+
     @classmethod
     def braid(cls, left: monoidal.Ty, right: monoidal.Ty) -> Diagram:
         """

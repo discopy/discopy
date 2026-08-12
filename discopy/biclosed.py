@@ -275,6 +275,10 @@ class Diagram(monoidal.Diagram, BiclosedCategory):
     """
 
     ob = Ty
+    axiom_status = {
+        "currying_left": "bug",
+        "currying_right": "bug",
+    }
 
     def curry(self, n=1, left=False) -> Diagram:
         """

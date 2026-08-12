@@ -874,6 +874,7 @@ class Diagram(
     ob = Ty
     layer_factory = Layer
     box_factory = None
+    axiom_status = {"bifunctoriality": "setoid"}
 
     def __setstate__(self, state):
         if 'inside' not in state:  # Backward compatibility
