@@ -62,3 +62,15 @@ by default)"
 - [x] move `trace` from `para.Symmetric` to a dedicated `para.Traced`
   subclass, preserving the hierarchy even though the default free symmetric
   category happens to implement trace
+
+Round 5 (USER, Daylight session, 2026-08-12): asked the cost of doing the
+trace/symmetric split properly in the abc, pointing at the design USER
+endorsed on issue #349 (2026-06-26, verbatim): "What we can do is drop it in
+the abc (for balanced, symmetric and markov) and add it explicitly in the
+corresponding diagram classes i.e. balanced.Diagram is still a subclass of
+traced.Diagram."
+
+- [WIP] @eloquent-pasteur-2026-08-12 18:01 drop `TracedCategory` from `BalancedCategory` in `abc.py` (closes
+  #349); `para.Symmetric` declares `SymmetricCategory` again, `Markov` moves
+  back onto `Symmetric`, and `Traced`'s bases flip to `(TracedCategory,
+  Symmetric)` to keep the MRO consistent with `CompactCategory`
