@@ -54,3 +54,11 @@ but not para.Symmetric, let's rename para.Para to it"
 
 - [x] rename `para.Para` to `para.Symmetric` everywhere, note in `lift`'s
   docstring that it is the injection functor
+
+Round 4 (USER, review, 2026-08-12, verbatim): "this should go to its own
+Traced subclass (don't get tripped up by the fact symmetric.Diagram is traced
+by default)"
+
+- [ ] move `trace` from `para.Symmetric` to a dedicated `para.Traced`
+  subclass, preserving the hierarchy even though the default free symmetric
+  category happens to implement trace
