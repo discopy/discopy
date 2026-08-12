@@ -1,16 +1,14 @@
 # -*- coding: utf-8 -*-
 
 """
-The category of parametric maps over a symmetric underlying `category`,
-see :cite:t:`GavranovicEtAl24` and section 3.2.1 of :cite:t:`Gavranovic24`.
+The category of parametric maps over a symmetric underlying `category`.
 
 A parametric map from `x` to `y` with parameter space `p` is a morphism
 `x @ p -> y` in the underlying category. Composition tensors the parameters
-and tensor routes them to the right with a swap, so that :class:`Para` takes
-symmetric categories to symmetric categories, the same way :class:`Int
-<discopy.interaction.Diagram>` takes traced categories to compact ones and
-:class:`Stream <discopy.stream.Stream>` takes symmetric categories to
-feedback categories.
+and tensor routes them to the right with a swap. Parametric maps first
+appeared in the study of supervised learning :cite:p:`FongEtAl19`, the
+construction is defined in generality with actegories in
+:cite:p:`CapucciEtAl22`, see also section 3.2.1 of :cite:t:`Gavranovic24`.
 
 Summary
 -------
@@ -21,7 +19,6 @@ Summary
     :toctree:
 
     Para
-    Reparam
 
 Axioms
 ------
@@ -85,7 +82,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from discopy import symmetric
-from discopy.abc import Category, NamedGeneric, SymmetricCategory
+from discopy.abc import NamedGeneric, SymmetricCategory
 from discopy.utils import (
     AxiomError, assert_isinstance, classproperty, unbiased)
 
@@ -203,7 +200,9 @@ class Para(SymmetricCategory, NamedGeneric['category']):
 
     def reparam(self, arrow: category) -> Para:
         """
-        Precompose the parameter space with `arrow : q -> param`.
+        Precompose the parameter space with `arrow : q -> param`, i.e. the
+        2-cells of :class:`Para`, kept as a method of the 1-cells the same
+        way as :meth:`interchange <discopy.monoidal.Diagram.interchange>`.
 
         Parameters:
             arrow : The reparametrisation, a morphism into ``param``.
@@ -212,120 +211,3 @@ class Para(SymmetricCategory, NamedGeneric['category']):
             raise AxiomError(f"{arrow.cod} != {self.param}")
         return type(self)(self.dom, self.cod, arrow.dom,
                           self.dom @ arrow >> self.inside)
-
-    def __matmul__(self, other):
-        if isinstance(other, Reparam):
-            return type(other).id(self).tensor(other)
-        return super().__matmul__(other)
-
-
-@dataclass
-class Reparam(Category, NamedGeneric['category']):
-    """
-    A reparametrisation from a parametric map `source` to a parallel one
-    `target` is a morphism `inside : target.param -> source.param` such that
-    `target == source.reparam(inside)` up to the axioms of the underlying
-    category.
-
-    Reparametrisations are the 2-cells of :class:`Para`: they form a
-    :class:`Category <discopy.abc.Category>` with parametric maps as objects,
-    :meth:`then` as vertical composition and :meth:`tensor` as horizontal
-    composition.
-
-    Parameters:
-        source (Para) : The source parametric map, also called ``dom``.
-        target (Para) : The target parametric map, also called ``cod``.
-        inside (category) : The morphism ``target.param -> source.param``.
-
-    Example
-    -------
-    >>> from discopy.symmetric import Ty, Box
-    >>> x, y, p, q = map(Ty, "xypq")
-    >>> f = Para(x, y, p, Box('f', x @ p, y))
-    >>> r = Box('r', q, p)
-    >>> assert Reparam(f, f.reparam(r), r) >> Reparam.id(f.reparam(r))\\
-    ...     == Reparam(f, f.reparam(r), r)
-
-    .. admonition:: Summary
-
-        .. autosummary::
-
-            id
-            then
-            tensor
-    """
-    category = symmetric.Diagram
-    ob = classproperty(lambda cls: cls.category.ob)
-
-    source: Para
-    target: Para
-    inside: category
-
-    def __post_init__(self):
-        assert_isinstance(self.source, Para)
-        assert_isinstance(self.target, Para)
-        if not self.source.is_parallel(self.target):
-            raise AxiomError(f"{self.source} is not parallel {self.target}")
-        if self.inside.dom != self.target.param:
-            raise AxiomError(f"{self.inside.dom} != {self.target.param}")
-        if self.inside.cod != self.source.param:
-            raise AxiomError(f"{self.inside.cod} != {self.source.param}")
-
-    dom = property(lambda self: self.source)
-    cod = property(lambda self: self.target)
-
-    @classmethod
-    def id(cls, dom: Para) -> Reparam:
-        """
-        The identity reparametrisation on a parametric map `dom`.
-
-        Parameters:
-            dom : The parametric map, both source and target.
-        """
-        return cls(dom, dom, cls.category.id(dom.param))
-
-    @unbiased
-    def then(self, other: Reparam) -> Reparam:
-        """
-        Vertical composition of reparametrisations composes the underlying
-        morphisms contravariantly.
-
-        Parameters:
-            other : The reparametrisation from ``self.target`` onwards.
-        """
-        assert_isinstance(other, type(self))
-        if not self.is_composable(other):
-            raise AxiomError(f"{self.target} != {other.source}")
-        return type(self)(
-            self.source, other.target, other.inside >> self.inside)
-
-    @unbiased
-    def tensor(self, other: Reparam) -> Reparam:
-        """
-        Horizontal composition of reparametrisations tensors sources,
-        targets and underlying morphisms.
-
-        Parameters:
-            other : The reparametrisation to tensor with.
-        """
-        assert_isinstance(other, type(self))
-        return type(self)(self.source @ other.source,
-                          self.target @ other.target,
-                          self.inside @ other.inside)
-
-    @classmethod
-    def whisker(cls, other: Para | Reparam) -> Reparam:
-        """
-        Take the identity if ``other`` is a parametric map, i.e. whiskering
-        tensors with an identity 2-cell.
-
-        Parameters:
-            other : The parametric map or reparametrisation to be tensored.
-        """
-        return other if isinstance(other, cls) else cls.id(other)
-
-    def __matmul__(self, other):
-        return self.tensor(self.whisker(other))
-
-    def __rmatmul__(self, other):
-        return self.whisker(other).tensor(self)

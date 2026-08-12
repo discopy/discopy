@@ -2,7 +2,7 @@
 
 from pytest import raises
 
-from discopy.para import Para, Reparam
+from discopy.para import Para
 from discopy.python import Function
 from discopy.symmetric import Box, Diagram, Ty
 from discopy.utils import AxiomError
@@ -44,19 +44,9 @@ def test_trace():
 
 def test_reparam():
     r, s = Box('r', q, p), Box('s', p, q)
-    assert Reparam.id(f) >> Reparam(f, f.reparam(r), r)\
-        == Reparam(f, f.reparam(r), r)
-    with raises(AxiomError):
-        Reparam(f, g, Box('r', q, p))
-    with raises(AxiomError):
-        Reparam(f, f.reparam(r), Box('r', q, q))
-    with raises(AxiomError):
-        Reparam(f, f.reparam(r), r) >> Reparam.id(f)
-    alpha, beta = Reparam(f, f.reparam(r), r), Reparam(g, g.reparam(s), s)
-    assert (alpha @ beta).source == f @ g
-    assert (alpha @ beta).target == f.reparam(r) @ g.reparam(s)
-    assert (alpha @ beta).inside == r @ s
-    assert (alpha @ g).inside == r @ q and (f @ beta).inside == p @ s
+    assert f.reparam(r).param == q
+    assert f.reparam(r).reparam(s) == f.reparam(s >> r)
+    assert (f @ g).reparam(r @ s).param == q @ p
 
 
 def test_python():
