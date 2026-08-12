@@ -162,15 +162,15 @@ Alexis 🚀'd daydream6728's comment (2026-08-07T16:15:34Z), verbatim:
 
 > `Layer` could inherit `ColouredMonoid` and get that for free
 
-- [ ] Remove `Layer.cast`, since every subclass of `monoidal.Layer` satisfies what it casts for
-- [ ] Fix the `any(len(layer.boxes_and_types) != 3 ...)` guard in `Diagram.interchange`: a layer
+- [WIP] @74icg3-2026-08-12 00:10 Remove `Layer.cast`, since every subclass of `monoidal.Layer` satisfies what it casts for
+- [WIP] @74icg3-2026-08-12 00:10 Fix the `any(len(layer.boxes_and_types) != 3 ...)` guard in `Diagram.interchange`: a layer
   whose box has empty plumbing on one side normalises to two components, so the check rejects
   diagrams it should accept
 - [x] ~~Drop `Layer.boxes_and_types` and port the eight call sites in six modules to the new
   representation, i.e. bring #547 into this pull request and close it with this one~~
   **Cancelled by Alexis on 2026-08-11**, see below: it stays in
   [#547](https://github.com/discopy/discopy/issues/547) and out of this pull request
-- [ ] Let `Layer` inherit `ColouredMonoid` rather than restate what it provides
+- [WIP] @74icg3-2026-08-12 00:10 Let `Layer` inherit `ColouredMonoid` rather than restate what it provides
 
 Note for whoever claims these: this roughly doubles the diff of the largest pull request in the
 queue, so the third point is worth splitting off if the review cost is judged too high — that is a
