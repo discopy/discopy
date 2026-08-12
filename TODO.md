@@ -17,3 +17,15 @@ process and baking red spiders into unrelated committed SVG baselines.
 - [x] `uv run pflake8 discopy`: clean.
 - [x] `uv run python -m pytest --skip-extra`: 625 passed, 50 skipped.
 - [x] `CHANGELOG.md` entry added.
+
+Review feedback from @toumix on the PR: just remove `Spider.color = "red"`
+altogether instead of resetting it, and leave the `unfuse` doctest's picture
+with a default black spider.
+
+- [x] Remove both `Spider.color = "red"` and `Spider.color = "black"` lines
+      from the `unfuse` doctest in `discopy/frobenius.py`.
+- [x] Regenerate `docs/_static/hypergraph/unfuse.svg` with the default
+      (black) spider colour.
+- [x] Reworded the `CHANGELOG.md` entry to match.
+- [x] Re-ran `uv run pflake8 discopy` and
+      `uv run python -m pytest --skip-extra`.

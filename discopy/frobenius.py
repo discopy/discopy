@@ -155,10 +155,8 @@ class Diagram(compact.Diagram, markov.Diagram, HypergraphCategory):
         Example
         -------
         >>> spider = Spider(3, 5, Ty(''), "$\\\\phi$") @ Ty()
-        >>> Spider.color = "red"
         >>> Equation(spider, spider.unfuse(), symbol="$\\\\mapsto$").draw(
         ...     doctest='docs/_static/hypergraph/unfuse.svg')
-        >>> Spider.color = "black"
 
         .. image:: /_static/hypergraph/unfuse.svg
             :align: center
