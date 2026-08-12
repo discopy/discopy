@@ -33,3 +33,15 @@ scope", "do the work yourself don't wait for evening".
 - [x] wire into `discopy/__init__.py`, `docs/api/semantics.rst`,
   `docs/discopy.bib` and `CHANGELOG.md`
 - [x] `uv run pflake8 discopy` and `uv run pytest --skip-extra` green
+
+Round 2 (USER, Daylight session, 2026-08-12, verbatim): "it's nice you added
+the trace method but it made me realise we should have a Para for each class
+in the hierarchy below symmetric"
+
+- [WIP] @eloquent-pasteur-2026-08-12 14:23 `Para.lift` and a subclass per abc class below `SymmetricCategory`:
+  `Markov` (copy), `Closed` (ev, curry), `Feedback` (delay, feedback),
+  `Compact` (cups, caps) and `Hypergraph` (spiders), each defaulting to the
+  free category of its level
+- [WIP] @eloquent-pasteur-2026-08-12 14:23 doctests and tests for each level, `CHANGELOG.md` extended
+- [WIP] @eloquent-pasteur-2026-08-12 14:23 file the confusing `left` defaults of `ev`/`curry` across `abc`,
+  `biclosed`, `closed` and `rigid` as an issue
