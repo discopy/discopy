@@ -22,14 +22,14 @@ Prompt ([#558](https://github.com/discopy/discopy/issues/558), verbatim):
 USER rulings (Daylight session, 2026-08-12): "param not mem", "reparam in
 scope", "do the work yourself don't wait for evening".
 
-- [ ] `discopy/para.py`: `Para(SymmetricCategory, NamedGeneric['category'])`
+- [WIP] @eloquent-pasteur-2026-08-12 13:36 `discopy/para.py`: `Para(SymmetricCategory, NamedGeneric['category'])`
   with fields `dom, cod, param, inside`, methods `id`, `then`, `tensor`,
   `swap`, `trace` and `reparam`
-- [ ] `Reparam`, the 2-cells of reparametrization, with identity, vertical
+- [WIP] @eloquent-pasteur-2026-08-12 13:36 `Reparam`, the 2-cells of reparametrization, with identity, vertical
   (`>>`) and horizontal (`@`) composition
-- [ ] doctests: the axioms, drawings for `then` and `tensor`, an example over
+- [WIP] @eloquent-pasteur-2026-08-12 13:36 doctests: the axioms, drawings for `then` and `tensor`, an example over
   `python.Function`
-- [ ] `test/test_para.py`
-- [ ] wire into `discopy/__init__.py`, `docs/api/semantics.rst`,
+- [WIP] @eloquent-pasteur-2026-08-12 13:36 `test/test_para.py`
+- [WIP] @eloquent-pasteur-2026-08-12 13:36 wire into `discopy/__init__.py`, `docs/api/semantics.rst`,
   `docs/discopy.bib` and `CHANGELOG.md`
-- [ ] `uv run pflake8 discopy` and `uv run pytest --skip-extra` green
+- [WIP] @eloquent-pasteur-2026-08-12 13:36 `uv run pflake8 discopy` and `uv run pytest --skip-extra` green
