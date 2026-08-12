@@ -286,6 +286,6 @@ It landed between the last two turns and is still unapplied — `Channel` is dec
 if a net's behaviour is `net.trace(n)`, then the category it lives in is traced, and the
 class should say so rather than leave it to the reader.
 
-- [ ] Declare `Channel` a `TracedCategory` and make the abstract base class hold, i.e. check
+- [WIP] @74icg3-2026-08-12 00:30 Declare `Channel` a `TracedCategory` and make the abstract base class hold, i.e. check
   `trace` is defined for every monad the module ships and decide what the seed monad does,
   where tracing raises rather than guesses
