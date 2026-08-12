@@ -389,5 +389,5 @@ H.drawing_name, H.tikzstyle_name, = '', 'H'
 H.color, H.shape = "yellow", "rectangle"
 
 SWAP = Swap(PRO(1), PRO(1))
-Diagram.braid_factory, Diagram.sum_factory = Swap, Sum
+Diagram.swap_factory, Diagram.sum_factory = Swap, Sum
 Id = Diagram.id
