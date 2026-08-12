@@ -67,6 +67,15 @@ def draw(diagram, **params):
         Figure size.
     path : str, optional
         Where to save the image, if `None` we call :code:`plt.show()`.
+    format : str, optional
+        Format of the saved image, taken from the extension of :code:`path`
+        when it is a file name, required when it is an in-memory buffer.
+    doctest : str, optional
+        Path to a documentation image used as a drawing baseline: the
+        image is created if missing and compared against otherwise, see
+        :code:`config.OVERRIDE_DOCTEST_IMAGES`.
+    tol : float, optional
+        Comparison tolerance for raster images, default is :code:`20`.
     to_tikz : bool, optional
         Whether to output tikz code instead of matplotlib.
     format : str, optional
@@ -147,7 +156,8 @@ def to_gif(diagram, *diagrams, **params):  # pragma: no cover
     params : any, optional
         Passed to :meth:`Diagram.draw`.
     """
-    path = params.pop("path", None)
+    path, compare = backend.doctest_or_path(
+        params.pop("path", None), params.pop("doctest", None))
     timestep = params.get("timestep", 500)
     loop = params.get("loop", False)
     steps, frames = [d.to_drawing() for d in (diagram, ) + diagrams], []
@@ -164,9 +174,18 @@ def to_gif(diagram, *diagrams, **params):  # pragma: no cover
             frames.append(Image.open(tmp_path))
         if loop:
             frames = frames + frames[::-1]
-        frames[0].save(path, format='GIF', append_images=frames[1:],
-                       save_all=True, duration=timestep,
-                       **{'loop': 0} if loop else {})
+
+        def save(actual_path):
+            frames[0].save(
+                actual_path, format='GIF', append_images=frames[1:],
+                save_all=True, duration=timestep,
+                **{'loop': 0} if loop else {})
+
+        if compare:
+            backend.save_and_compare(
+                path, save, tol=params.get("tol", backend.DEFAULT['plt_tol']))
+        else:
+            save(path)
         try:
             from IPython.display import HTML
             return HTML(f'<img src="{path}">')

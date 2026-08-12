@@ -5,7 +5,7 @@ Example
 -------
 >>> from discopy.monoidal import Ty, Box
 >>> f = Box('f', Ty('x'), Ty('y'))
->>> widget = f.to_widget()
+>>> widget = f.to_widget()  # doctest: +EXTRA
 >>> widget  # doctest: +SKIP
 """
 

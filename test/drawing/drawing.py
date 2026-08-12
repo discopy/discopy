@@ -1,49 +1,15 @@
 
 import os
-import re
 
-from pytest import raises
+from pytest import importorskip, raises
 
 from discopy.utils import AxiomError
 from discopy.config import DRAWING_DEFAULT
 from discopy.compact import *
 from discopy.drawing import *
-from discopy import monoidal
+from discopy import config, monoidal
 
-IMG_FOLDER, TIKZ_FOLDER = 'test/drawing/imgs/', 'test/drawing/tikz/'
-
-
-def _normalize_svg(path):
-    """ Normalise SVG for cross-platform comparison: strip <metadata>
-    and replace every quoted attribute value with a placeholder so
-    only element structure and text content are compared.  This is
-    necessary because Matplotlib SVG output depends on local font
-    metrics (coordinates, canvas size) and the hash-salt (clip-path
-    ids), none of which are reproducible across environments. """
-    with open(path) as f:
-        text = f.read()
-    text = re.sub(
-        r'<[^>]*metadata[^>]*>.*?</[^>]*metadata\s*>',
-        '', text, flags=re.DOTALL)
-    text = re.sub(r'="[^"]*"', '="#"', text)
-    return text
-
-
-def draw_and_compare(file, folder=IMG_FOLDER, **params):
-    def decorator(func):
-        def wrapper():
-            diagram = func()
-            draw = params.get('draw', type(diagram).draw)
-            true_path = os.path.join(folder, file)
-            test_path = os.path.join(folder, '_' + file)
-            draw(diagram, path=test_path, show=False, **params)
-            if not os.path.exists(true_path):
-                os.replace(test_path, true_path)
-                return
-            assert _normalize_svg(true_path) == _normalize_svg(test_path)
-            os.remove(test_path)
-        return wrapper
-    return decorator
+TIKZ_FOLDER = 'test/drawing/tikz/'
 
 
 def tikz_and_compare(file, folder=TIKZ_FOLDER, **params):
@@ -71,16 +37,76 @@ def tikz_and_compare(file, folder=TIKZ_FOLDER, **params):
     return decorator
 
 
-@draw_and_compare('crack-eggs.svg')
-def test_draw_eggs():
-    def merge(x):
-        return Box('merge', x @ x, x)
+def test_draw_baseline(tmp_path, monkeypatch):
+    path = tmp_path / "box.svg"
+    actual_path = tmp_path / "_box.svg"
+    box = Box("f", Ty("x"), Ty("x"))
 
-    egg, white, yolk = Ty('egg'), Ty('white'), Ty('yolk')
-    crack = Box('crack', egg, white @ yolk)
-    return crack @ crack\
-        >> Id(white) @ Swap(yolk, white) @ Id(yolk)\
-        >> merge(white) @ merge(yolk)
+    box.draw(doctest=path, show=False)
+    box.draw(doctest=path, show=False)
+    assert not actual_path.exists()
+
+    path.write_text("<svg/>")
+    with raises(ValueError, match="Drawing differs"):
+        box.draw(doctest=path, show=False)
+    assert actual_path.exists()
+
+    # Deleting a failing baseline regenerates it on the next draw.
+    path.unlink()
+    box.draw(doctest=path, show=False)
+    assert path.exists()
+
+    monkeypatch.setattr(config, "OVERRIDE_DOCTEST_IMAGES", True)
+    path.write_text("<svg/>")
+    box.draw(doctest=path, show=False)
+    assert path.read_text() != "<svg/>"
+
+    # A plain path just saves the drawing, overwriting silently.
+    monkeypatch.setattr(config, "OVERRIDE_DOCTEST_IMAGES", False)
+    path.write_text("<svg/>")
+    box.draw(path=path, show=False)
+    assert path.read_text() != "<svg/>"
+
+
+def test_svg_equal(tmp_path):
+    expected = tmp_path / "expected.svg"
+    actual = tmp_path / "actual.svg"
+    template = """\
+<svg xmlns="http://www.w3.org/2000/svg" width="{width}">
+  <g id="{name}"><text x="1">f</text></g>
+</svg>"""
+    expected.write_text(template.format(width=1, name="one"))
+
+    # Rounding errors within the tolerance are forgiven.
+    actual.write_text(template.format(width=1.5, name="one"))
+    assert backend.svg_equal(expected, actual)
+
+    # A genuine difference in width, position or text content is preserved.
+    actual.write_text(template.format(width=9, name="one"))
+    assert not backend.svg_equal(expected, actual)
+
+    # A non-numeric difference, e.g. in an identifier, is also preserved.
+    actual.write_text(template.format(width=1, name="two"))
+    assert not backend.svg_equal(expected, actual)
+
+
+def test_compare_drawing_raster_and_bytes(tmp_path):
+    from PIL import Image
+    baseline, actual = tmp_path / "box.png", tmp_path / "_box.png"
+    Image.new("RGB", (8, 8), "white").save(baseline)
+    Image.new("RGB", (8, 8), "white").save(actual)
+    backend.compare_drawing(baseline, actual)
+    assert not actual.exists()
+
+    Image.new("RGB", (8, 8), "black").save(actual)
+    with raises(ValueError, match="Drawing differs"):
+        backend.compare_drawing(baseline, actual)
+
+    baseline, actual = tmp_path / "box.tikz", tmp_path / "_box.tikz"
+    baseline.write_text("tikz")
+    actual.write_text("tikz")
+    backend.compare_drawing(baseline, actual)
+    assert not actual.exists()
 
 
 def test_draw_coloured_regions_and_frame():
@@ -91,11 +117,13 @@ def test_draw_coloured_regions_and_frame():
     z = monoidal.Ty(monoidal.Wire("z", red, blue))
     box = monoidal.Box("f", x @ y, z)
     outer = monoidal.Ty(monoidal.Wire("u", blue, red))
-    # A box fills its three wire regions.
-    assert {'#ff0000', '#008000', '#0000ff'} <= region_hexes(box)
+    # A box fills its three wire regions, with the names in
+    # discopy.config.COLORS resolved to their hexcodes as for boxes.
+    assert {'#e8a5a5', '#d8f8d8', '#776ff3'} <= region_hexes(box)
     # A frame additionally fills its frame background (lightgrey).
     frame = box.bubble(dom=outer, cod=outer, draw_as_frame=True)
-    assert {'#ff0000', '#008000', '#0000ff', '#d3d3d3'} <= region_hexes(frame)
+    assert {'#e8a5a5', '#d8f8d8', '#776ff3', '#d3d3d3'}\
+        <= region_hexes(frame)
 
 
 def coloured_bubble():
@@ -118,11 +146,6 @@ def coloured_bubble():
         dom=outer_dom, cod=outer_cod, name="g")
 
 
-@draw_and_compare('coloured-bubble.svg', wire_labels=False)
-def test_draw_bubble():
-    return coloured_bubble()
-
-
 def test_bubble_regions_are_distinct():
     # All ten regions get their own colour only when the bubble's top and
     # bottom boundaries enclose the four inside regions, see issue #426.
@@ -140,15 +163,6 @@ def test_bubble_boundary_is_visible():
     frame_box_nodes = [n for n in slot.box_nodes if n.box.frame_boundary]
     assert frame_box_nodes
     assert all(map(Backend.is_frame_boundary, frame_box_nodes))
-
-
-@draw_and_compare('coloured-frame.svg', wire_labels=False)
-def test_draw_coloured_frame():
-    red, blue = map(monoidal.Colour, ("red", "blue"))
-    x = monoidal.Ty(monoidal.Wire("x", red, blue))
-    boundary = monoidal.Ty(monoidal.Wire("boundary", blue, red))
-    return monoidal.Box("f", x, x).bubble(
-        dom=boundary, cod=boundary, draw_as_frame=True)
 
 
 def region_hexes(diagram, **params):
@@ -180,9 +194,10 @@ def test_draw_regions_uncoloured_shapes():
 def test_draw_coloured_cups_and_caps():
     red, green = map(monoidal.Colour, ("red", "green"))
     x = Ty(Ob("x", dom=red, cod=green))
-    # A cup and a cap each separate the two boundary regions.
-    assert region_hexes(Cup(x, x.r)) == {'#ff0000', '#008000'}
-    assert region_hexes(Cap(x.r, x)) == {'#ff0000', '#008000'}
+    # A cup and a cap each separate the two boundary regions, with the
+    # names in discopy.config.COLORS resolved to their hexcodes.
+    assert region_hexes(Cup(x, x.r)) == {'#e8a5a5', '#d8f8d8'}
+    assert region_hexes(Cap(x.r, x)) == {'#e8a5a5', '#d8f8d8'}
 
 
 def test_draw_coloured_crossings_are_monochrome():
@@ -192,9 +207,9 @@ def test_draw_coloured_crossings_are_monochrome():
     # on both sides, so their regions are a single colour.
     assert region_hexes(Swap(
         Ty(Ob("x", dom=red, cod=red)), Ty(Ob("y", dom=red, cod=red)))
-    ) == {'#ff0000'}
+    ) == {'#e8a5a5'}
     assert region_hexes(Spider(2, 1, FTy(FOb("x", dom=red, cod=red)))) == {
-        '#ff0000'}
+        '#e8a5a5'}
     # A swap of wires separating different regions is not globular.
     green = monoidal.Colour("green")
     with raises(AxiomError):
@@ -207,7 +222,7 @@ def test_draw_coloured_equation():
     equation = Equation(Box("f", x, x), Box("g", x, x))
     colours = region_hexes(equation)
     # Both term regions show, each in its own white-bordered slot.
-    assert {'#ff0000', '#008000', '#ffffff'} <= colours
+    assert {'#e8a5a5', '#d8f8d8', '#ffffff'} <= colours
 
 
 def test_draw_region_non_colors_string():
@@ -238,7 +253,7 @@ def test_draw_legend():
     # Each swatch is filled with its own colour, white is left out.
     swatches = {to_hex(handle.get_facecolor())
                 for handle in legend.legend_handles}
-    assert swatches == {'#ff0000', '#008000', '#0000ff'}
+    assert swatches == {'#e8a5a5', '#d8f8d8', '#776ff3'}
     plt.close(backend.axis.figure)
 
 
@@ -334,6 +349,42 @@ def test_draw_curved_polygon_tikz():
     assert "fill={red}" in line
 
 
+def test_draw_permutation():
+    from matplotlib import pyplot as plt
+    from discopy.monoidal import Box
+    from discopy.symmetric import Ty, Permutation
+
+    x, y, z = map(Ty, "xyz")
+    perm = Permutation(x @ y @ z, [2, 0, 1])
+    drawing = perm.to_drawing()
+    box_node = drawing.box_nodes[0]
+    assert len(list(drawing.graph.predecessors(box_node))) == len(perm.dom)
+    assert len(list(drawing.graph.successors(box_node))) == len(perm.cod)
+    assert drawing.box.draw_as_permutation is True
+    assert drawing.box.permutation_indices == tuple(perm.perm)
+    assert drawing.dagger().box.permutation_indices\
+        == tuple(perm.perm.dagger())
+    assert drawing.dagger() == perm.dagger().to_drawing()
+    assert drawing.dagger().box.drawing_name\
+        == perm.dagger().to_drawing().box.drawing_name
+
+    swap = Permutation(x @ y, [1, 0]).to_drawing()
+    swap.add_box_corners()
+    tikz = TikZ()
+    tikz.draw_wires(swap)
+    assert len(tikz.edgelayer) == 2
+    matplotlib = Matplotlib()
+    matplotlib.draw_wires(swap)
+    assert len(matplotlib.axis.patches) == 2
+    plt.close(matplotlib.axis.figure)
+
+    custom = Box(
+        'custom', x @ y, y @ x, draw_as_wires=True,
+        draw_as_permutation=True, permutation_indices=(1, 0)).to_drawing()
+    assert custom.dagger().dagger() == custom
+    assert custom.dagger().dagger().box.name == 'custom'
+
+
 def test_readable_foreground():
     # White and light colours get black text, dark colours get white text.
     assert Backend.readable_foreground("white") == "black"
@@ -358,10 +409,8 @@ def test_draw_box_foreground_on_dark_background():
     plt.close(backend.axis.figure)
 
 
-@draw_and_compare('crack-two-eggs-at-once.svg')
 def test_crack_two_eggs_at_once():
-    from discopy.monoidal import Layer
-    from discopy.symmetric import Ty, Box, Diagram
+    from discopy.symmetric import Ty, Box, Diagram, Layer
 
     egg, white, yolk = Ty("egg"), Ty("white"), Ty("yolk")
     crack = Box("crack", egg, white @ yolk)
@@ -382,93 +431,11 @@ def test_crack_two_eggs_at_once():
         >> white @ Diagram.swap(yolk, white) @ yolk
         >> merge(white) @ merge(yolk)).foliation()
 
-    crack_two_eggs_at_once = crack_two_eggs.foliation()
-
-    assert crack_two_eggs_at_once == Diagram(
+    assert crack_two_eggs.foliation() == Diagram(
         dom=egg @ egg, cod=white @ yolk, inside=(
             Layer(Ty(), crack, Ty(), crack, Ty()),
             Layer(white, Diagram.swap(yolk, white), yolk),
             Layer(Ty(), merge(white), Ty(), merge(yolk), Ty())))
-
-    return crack_two_eggs_at_once
-
-
-@draw_and_compare("bubble-straight-wire.svg", wire_labels=False)
-def test_draw_bubble_wires():
-    return (Ty('x') @ Box('s', Ty(), Ty())).bubble()
-
-
-@draw_and_compare(
-    'spiral.svg', wire_labels=False,
-    draw_box_labels=False, aspect='equal')
-def test_draw_spiral():
-    return spiral(2)
-
-
-@draw_and_compare('who-ansatz.svg', aspect='equal')
-def test_draw_who():
-    n, s = Ty('n'), Ty('s')
-    copy, update = Box('copy', n, n @ n), Box('update', n @ s, s)
-    return Cap(n.r, n)\
-        >> Id(n.r) @ copy\
-        >> Id(n.r @ n) @ Cap(s, s.l) @ Id(n)\
-        >> Id(n.r) @ update @ Id(s.l @ n)
-
-
-@draw_and_compare('alice-loves-bob.svg')
-def test_draw_pregroup_sentence():
-    from discopy.grammar.pregroup import Ty, Cup, Word, Id
-    s, n = Ty('s'), Ty('n')
-    Alice, Bob = Word('Alice', n), Word('Bob', n)
-    loves = Word('loves', n.r @ s @ n.l)
-    sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
-    return sentence.foliation()
-
-
-@draw_and_compare('categorial-grammar.svg', aspect='equal')
-def test_draw_sentence():
-    from discopy.grammar.categorial import Eval, Ty, Word
-
-    s, n = map(Ty, 'sn')
-
-    Alice = Word('Alice', n)
-    loves = Word('loves', (n >> s) << n)
-    Bob = Word('Bob', n)
-
-    return Alice @ loves @ Bob >> n @ Eval((n >> s) << n) >> Eval(n >> s)
-
-
-@draw_and_compare('bialgebra.svg', aspect='equal')
-def test_draw_bialgebra():
-    from discopy.quantum.zx import Z, X, Id, SWAP
-    bialgebra = Z(1, 2) @ Z(1, 2) >> Id(1) @ SWAP @ Id(1) >> X(2, 1) @ X(2, 1)
-    return bialgebra + bialgebra
-
-
-@draw_and_compare("snake-equation.svg",
-                  aspect='auto', figsize=(5, 2), wire_labels=False)
-def test_snake_equation():
-    from discopy.rigid import Ty, Id
-    x = Ty('x')
-    return Equation(Id(x.r).transpose(left=True), Id(x), Id(x.l).transpose())
-
-
-@draw_and_compare('typed-snake-equation.svg', figsize=(4, 1))
-def test_draw_typed_snake():
-    from discopy.rigid import Ty, Id
-    x = Ty('x')
-    return Equation(Id(x.r).transpose(left=True), Id(x), Id(x.l).transpose())
-
-
-@draw_and_compare(
-    'coloured-snake-equation.svg', figsize=(3, 2), legend=True)
-def test_draw_coloured_snake_equation():
-    from discopy.rigid import Ty, Ob, Id, Cup, Cap
-    a = monoidal.Colour("cornflowerblue", label="Function")
-    b = monoidal.Colour("palegreen", label="Morphism")
-    F = Ty(Ob("F", dom=a, cod=b))
-    G = F.r
-    return Equation(Id(F) @ Cap(G, F) >> Cup(F, G) @ Id(F), Id(F))
 
 
 @tikz_and_compare("spiral.tikz", wire_labels=False, use_tikzstyles=True)
@@ -484,17 +451,6 @@ def test_copy_to_tikz():
     copy_x.drawing_name, copy_y.drawing_name = "", ""
     copy_x.color, copy_y.color = "black", "black"
     return copy_x @ copy_y >> Id(x) @ Swap(x, y) @ Id(y)
-
-
-@draw_and_compare('empty_diagram.svg')
-def test_empty_diagram():
-    return Id()
-
-
-@draw_and_compare('bell-state.svg', aspect='equal')
-def test_draw_bell_state():
-    from discopy.quantum import qubit, H, sqrt, Bra, Ket, CX
-    return sqrt(2) >> Ket(0, 0) >> H @ qubit >> CX >> Bra(0) @ qubit
 
 
 @tikz_and_compare("snake-equation.tikz", textpad=(.2, .2), textpad_words=(0, .25))
@@ -544,13 +500,6 @@ def test_tikz_eggs():
         >> merge(white) @ merge(yolk)
 
 
-@draw_and_compare('long-controlled.svg', wire_labels=False)
-def test_draw_long_controlled():
-    from discopy.quantum import Controlled, CZ, CX
-    return (Controlled(CX.l, distance=3) >> Controlled(
-        Controlled(CZ.l, distance=2), distance=-1))
-
-
 @tikz_and_compare('long-controlled.tikz', wire_labels=False)
 def test_tikz_long_controlled():
     from discopy.quantum import Controlled, CZ, CX
@@ -558,81 +507,49 @@ def test_tikz_long_controlled():
         Controlled(CZ.l, distance=2), distance=-1))
 
 
-@draw_and_compare('long-box-name.svg', aspect='equal')
-def test_draw_long_box_name():
-    # A box gets wider when its name is too long to fit between its wires,
-    # while boxes with short names keep their default size.
-    x = Ty('x')
-    return Box('f', x, x @ x)\
-        >> Box('a_box_with_a_very_long_name', x @ x, x)\
-        >> Box('g', x, x)
+def classical_controlled():
+    # A controlled gate over distinct wires, e.g. a classically-controlled
+    # gate, used to hit a KeyError looking up its nodes with the wrong type.
+    bit, qubit = monoidal.Ty("bit"), monoidal.Ty("qubit")
+    gate = monoidal.Box("F", qubit, qubit)
+    controlled = monoidal.Box(
+        "CF", bit @ qubit, bit @ qubit,
+        draw_as_controlled=True, controlled=gate, distance=1)
+    left_controlled = monoidal.Box(
+        "FC", qubit @ bit, qubit @ bit,
+        draw_as_controlled=True, controlled=gate, distance=-1)
+    return controlled @ left_controlled
 
 
-@draw_and_compare('box-min-width.svg', aspect='equal')
-def test_draw_box_min_width():
-    # The width of a box can be set by hand with `min_width`, e.g. for a
-    # LaTeX name whose rendered width cannot be guessed from its characters.
-    x = Ty('x')
-    return Box('$\\Lambda$', x, x, min_width=3) @ Box('f', x, x)
+# The matplotlib rendering of classical_controlled() is exercised as a
+# doctest in the Gallery section of discopy/drawing/drawing.py, alongside
+# long-controlled; this only checks the TikZ backend, whose bending is
+# computed differently from Matplotlib.
+@tikz_and_compare('controlled-classical.tikz')
+def test_tikz_controlled_classical():
+    return classical_controlled()
 
 
-@draw_and_compare('wire-min-right-margin.svg', aspect='equal')
-def test_draw_wire_min_right_margin():
-    # An object's `min_right_margin` adds space to the right of its wire,
-    # e.g. to fit a long label without colliding with the next wire.
-    x, long_type = Ty('x'), Ty('a_long_type_name')
-    long_type.inside[0].min_right_margin = 1.5
-    return Id(x @ long_type @ x)
-
-
-@draw_and_compare('wire-custom-margin.svg', aspect='equal')
-def test_draw_wire_custom_margin():
-    x, custom = Ty('x'), Ty('custom_margin_wire')
-    custom.inside[0].right_margin = 3
-    return Id(x @ custom @ x)
-
-
-@draw_and_compare('wire-auto-margin.svg', aspect='equal')
-def test_draw_wire_auto_margin():
-    # A long wire label reserves space to its right on its own, so it does
-    # not overflow even without setting min_right_margin by hand.
-    x = Ty('x')
-    return Box('f', x, x @ Ty('a_long_output_type'))
-
-
-@draw_and_compare('long-latex-name.svg', aspect='equal')
-def test_draw_long_latex_name():
-    x = Ty('x')
-    return Box('$\\int_a^b f(x)\\,dx = \\sqrt{2}$', x, x) @ Box('f', x, x)
-
-
-def test_to_gif():
-    from discopy.grammar.pregroup import (
-         Ty, Cup, Cap, Box, Word, Functor)
-
-    s, n = Ty('s'), Ty('n')
-    Alice, Bob = Word('Alice', n), Word('Bob', n)
-    loves = Word('loves', n.r @ s @ n.l)
-
-    sentence = Alice @ loves @ Bob\
-        >> Cup(n, n.r) @ s @ Cup(n.l, n)
-
-    def wiring(word):
-        if word.cod == n:  # word is a noun
-            return word
-        if word.cod == n.r @ s @ n.l:  # word is a transitive verb
-            box = Box(word.name, n @ n, s)
-            return Cap(n.r, n) @ Cap(n, n.l) >> n.r @ box @ n.l
-
-    W = Functor(ob_map={s: s, n: n}, ar_map=wiring)
-
-    rewrite_steps = W(sentence).normalize()
-    params = dict(
-        path=IMG_FOLDER + 'autonomisation.gif', timestep=1000, figsize=(4, 4))
-    sentence.to_gif(*rewrite_steps, **params)
+def test_tikz_controlled_node_ids():
+    # Nested controlled gates put several nodes at the same point, which used
+    # to make TikZ output duplicate node ids and misdirected control wires.
+    import re
+    from discopy.quantum import Controlled, X
+    path = os.path.join(TIKZ_FOLDER, '_ccx-node-ids.tikz')
+    Controlled(Controlled(X)).draw(path=path, to_tikz=True)
+    with open(path, "r") as file:
+        lines = file.read().splitlines()
+    os.remove(path)
+    node_ids = [re.search(r"\((\d+)\) at", line).group(1)
+                for line in lines if line.startswith("\\node ")]
+    assert len(node_ids) == len(set(node_ids))
+    wires = [re.findall(r"\((\d+)\.center\)", line)
+             for line in lines if "out=" in line]
+    assert all(source != target for source, target in wires)
 
 
 def test_rich_display():
+    importorskip("anywidget")
     from io import StringIO
     import matplotlib.pyplot as plt
     from discopy.monoidal import Ty, Box
@@ -664,5 +581,103 @@ def test_rich_display():
 
     # The format parameter of draw allows rendering to an in-memory buffer.
     buffer = StringIO()
-    diagram.draw(path=buffer, format='svg', show=False, metadata={'Date': None})
+    diagram.draw(path=buffer, format='svg', show=False)
     assert buffer.getvalue() == diagram.to_svg()
+
+    import subprocess
+    import sys
+    script = """
+from discopy.monoidal import Box, Ty
+x = Ty("x")
+boxes = [Box(str(i), x, x, draw_as_spider=True) for i in range(4)]
+for box, color, shape in zip(
+        boxes, ("red", "blue", "green", "yellow"),
+        ("circle", "rectangle", "circle", "rectangle")):
+    box.color, box.shape, box.drawing_name = color, shape, ""
+print((boxes[0] @ boxes[1] @ boxes[2] @ boxes[3]).to_svg())
+"""
+    outputs = [
+        subprocess.check_output(
+            [sys.executable, "-c", script],
+            env=dict(os.environ, PYTHONHASHSEED=str(seed)))
+        for seed in range(3)]
+    assert outputs[0] == outputs[1] == outputs[2]
+
+
+RIBBON_COLOURS = ("red", "green", "blue", "yellow")
+
+
+def auto_colour_ribbons(diagram):
+    """
+    A colour map for nice looking dual rail examples: cycles through
+    ``RIBBON_COLOURS`` assigning one colour per distinct object. An object
+    and its adjoint encode the same wire, hence share the same colour.
+    """
+    obs = list(diagram.dom.inside)
+    for box in diagram.boxes:
+        obs += list(box.dom.inside) + list(box.cod.inside)
+    palette = {name: RIBBON_COLOURS[i % len(RIBBON_COLOURS)]
+               for i, name in enumerate(sorted({ob.name for ob in obs}))}
+    return lambda ob: palette[ob.name]
+
+
+def test_draw_ribbon_colors():
+    # The inside of each ribbon is filled with a colour in the dual rail
+    # drawing of a ribbon diagram, covering the straight rails, the cups, caps
+    # and braids, with the colour and width preserved across the adjoint.
+    from discopy.ribbon import Ty, Braid
+    x = Ty('x')
+    diagram = Braid(x, x).trace(left=False)
+    diagram.to_ribbons(colour=auto_colour_ribbons(diagram)).draw(
+        wire_labels=False, aspect='equal', show=False,
+        doctest="docs/_static/ribbon/ribbon-colors.svg")
+
+
+@tikz_and_compare('ribbon-colors.tikz', wire_labels=False)
+def test_tikz_ribbon_colors():
+    from discopy.ribbon import Ty, Braid
+    x = Ty('x')
+    diagram = Braid(x, x).trace(left=False)
+    return diagram.to_ribbons(colour=auto_colour_ribbons(diagram))
+
+
+def test_draw_twist_colors():
+    # The back of a twisting ribbon, where it turns over, is filled with a
+    # darker shade of the colour filling its front.
+    from discopy.ribbon import Ty, Diagram
+    x = Ty('x')
+    Diagram.twist(x).to_ribbons().draw(
+        wire_labels=False, aspect='equal', show=False,
+        doctest="docs/_static/ribbon/twist-colors.svg")
+
+
+@tikz_and_compare('twist-colors.tikz', wire_labels=False)
+def test_tikz_twist_colors():
+    from discopy.ribbon import Ty, Diagram
+    x = Ty('x')
+    return Diagram.twist(x).to_ribbons()
+
+
+def test_darken():
+    # A darker shade of a colour keeps each RGB channel smaller, and the
+    # darker shades filling the back of a twisting ribbon are precomputed
+    # for every named colour, see discopy.config.COLORS.
+    from discopy.config import COLORS, darken
+    for name in ["red", "green", "blue", "yellow", "gray"]:
+        hexcode, dark_hexcode = COLORS[name], COLORS[f"dark_{name}"]
+        assert darken(hexcode) == dark_hexcode
+        channels = [int(hexcode[i:i + 2], 16) for i in (1, 3, 5)]
+        dark_channels = [int(dark_hexcode[i:i + 2], 16) for i in (1, 3, 5)]
+        assert all(d <= c for d, c in zip(dark_channels, channels))
+        assert any(d < c for d, c in zip(dark_channels, channels))
+
+
+def test_draw_nested_ribbons():
+    # Nested cups and caps stay folds of constant (ribbon) width, i.e. the
+    # inner ribbon is squeezed just like the outer one.
+    from discopy.ribbon import Ty, Diagram
+    x, y = Ty('x'), Ty('y')
+    (Diagram.caps(x @ y, (x @ y).r)
+        >> Diagram.cups(x @ y, (x @ y).r)).to_ribbons().draw(
+        wire_labels=False, aspect='equal', show=False,
+        doctest="docs/_static/ribbon/nested-ribbons.svg")

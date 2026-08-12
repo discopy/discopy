@@ -44,6 +44,7 @@ Different dependency groups are available (switch with `uv sync --group <group-n
 - `dev`: testing and linting tools.
 - `quantum`: includes quantum computating dependencies
 - `grammar`: natural language processing libraries
+- `notebooks`: for running the notebooks in Jupyter or marimo
 - `docs`: for generating the documentation
 Since dependency groups are not standard, we also provide equivalents via optional dependencies.
 
@@ -59,6 +60,8 @@ uv run pflake8 discopy
 uv run coverage run -m pytest
 uv run coverage report -m
 ```
+
+Without the extras installed, run `uv run pytest --skip-extra` to skip what needs them.
 
 ## Run the benchmarks
 
@@ -118,7 +121,7 @@ python -m venv .venv
 . .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -e '.[test]'
-python -m pip install coverage pyproject-flake8 pytest nbmake
+python -m pip install coverage pyproject-flake8 pytest marimo
 ```
 
 Then run:
@@ -138,6 +141,9 @@ python -m build
 
 ## Release a version
 
+Before tagging, rename the `[Unreleased]` section of [CHANGELOG.md](CHANGELOG.md) to the new
+version and date, and commit it.
+
 New versions (tag with 'X.X.X') of the package are released on [PyPI](https://pypi.org/project/discopy/) using `uv publish`.
 You should run the following commands from a clean clone of the repo:
 
@@ -148,7 +154,8 @@ uv build
 uv publish
 ```
 
-Finally, [create a release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository#creating-a-release) for the newly created tag.
+Finally, [create a release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository#creating-a-release) for the newly created tag, using the
+matching section of [CHANGELOG.md](CHANGELOG.md) as its description.
 
 ## Report bugs
 
@@ -160,24 +167,27 @@ If you happen to find one, please [open an issue](https://github.com/discopy/dis
 We would be thrilled to welcome contributions in the form of examples, tests, notebooks, etc.
 We are also keen to hear if you spot any part of the documentation that you suspect is broken, outdated or plain wrong.
 
-We use the following convention so that documentation images are generated automatically when running doctests:
+We use the following convention so that documentation images are generated and compared against a baseline when running doctests:
 
 ```
 Example
 -------
 >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
 >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
->>> (f0 @ f1).draw(path='docs/_static/monoidal/tensor-example.svg')
+>>> (f0 @ f1).draw(doctest='docs/_static/monoidal/tensor-example.svg')
 
 .. image:: /_static/monoidal/tensor-example.svg
     :align: center
 ```
 
-You do not need to commit these images yourself: on every pull request the
-`docs-static` job in the [build workflow](.github/workflows/build.yml) reuses
-the images drawn by the test run and, whenever one actually changed, commits the
-regenerated `docs/_static` back to your branch. If you do commit images by hand,
-avoid pushing changes that are only due to minor glitches e.g. font aliasing.
+If the image already exists, drawing the example checks it against the
+committed baseline and raises an error when they differ. To update an image,
+delete its baseline so the next run regenerates it, or set
+`discopy.config.OVERRIDE_DOCTEST_IMAGES = True` before running the tests, in
+which case `doctest=` behaves like `path=` and just overrides the images.
+Commit the regenerated images just like any other test change, otherwise
+the CI won't pass. A plain `draw(path=...)` just saves the drawing,
+overwriting any existing file.
 
 ## Request features
 
@@ -195,7 +205,7 @@ That is, we do our best to make sure that critical parts of the reasoning / impl
 ## LLM guidelines
 
 We accept contributions from large language models so long as they are explicitly indicated as such.
-The [RULES.md](RULES.md) bind every agent writing code in this repo, it implements a mutex protocol that aims to prevent conflicts and duplicate work.
+The [RULES.md](RULES.md) bind every agent working on a branch or pull request in this repo; they define the checkbox mutex and append-only shared-branch protocol.
 Use our [AGENTS.md](AGENTS.md) in your prompts so that the model has enough context to give quality results.
 
 LLMs have shifted the bottleneck of software development from writing code to reviewing it, please ensure that your AI assistants save more human time than they require to supervise them.
