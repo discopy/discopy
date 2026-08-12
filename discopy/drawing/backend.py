@@ -1266,7 +1266,8 @@ class Typst(Backend):
             f"{self._color_expr(self._format_color(color))} + {lw:g}pt")
 
     def draw_text(self, text, i, j, **params):
-        from discopy.drawing.typst_ast import Call, ContentExpr, Float, Ident, Str
+        from discopy.drawing.typst_ast import (
+            Call, ContentExpr, Float, Ident, Str)
 
         colour = params.get("color", None)
         extra = {}
@@ -1282,16 +1283,17 @@ class Typst(Backend):
         fs = params.get("fontsize", None)
         if fs is not None and fs != DEFAULT["fontsize"]:
             text_call = Call(
-                Ident("text"), [content], {"size": Float(fs / DEFAULT["fontsize"])}
-            )
+                Ident("text"), [content],
+                {"size": Float(fs / DEFAULT["fontsize"])})
         else:
             text_call = content
-        self.body.append(Call(Ident("content"), [self._coord(i, j), text_call], extra))
+        self.body.append(Call(
+            Ident("content"), [self._coord(i, j), text_call], extra))
         super().draw_text(text, i, j, **params)
 
-    def draw_polygon(
-        self, *points, facecolor=DEFAULT["facecolor"], edgecolor=DEFAULT["edgecolor"]
-    ):
+    def draw_polygon(self, *points,
+                     facecolor=DEFAULT["facecolor"],
+                     edgecolor=DEFAULT["edgecolor"]):
         from discopy.drawing.typst_ast import Bool, Call, Ident
 
         coords = [self._coord(*p) for p in points]
@@ -1299,7 +1301,8 @@ class Typst(Backend):
         if facecolor is None or facecolor == "none":
             kwargs["fill"] = Ident("none")
         else:
-            kwargs["fill"] = Ident(self._color_expr(self._format_color(facecolor)))
+            kwargs["fill"] = Ident(
+                self._color_expr(self._format_color(facecolor)))
         if edgecolor is None or edgecolor == "none":
             kwargs["stroke"] = Ident("none")
         else:
@@ -1307,9 +1310,8 @@ class Typst(Backend):
         self.body.append(Call(Ident("line"), coords, kwargs))
         super().draw_polygon(*points)
 
-    def draw_wire(
-        self, source, target, bend_out=False, bend_in=False, style=None, linewidth=None
-    ):
+    def draw_wire(self, source, target, bend_out=False, bend_in=False,
+                  style=None, linewidth=None):
         from discopy.drawing.typst_ast import Call, Ident
 
         cps = _wire_bezier_points(source, target, bend_out, bend_in)
@@ -1345,7 +1347,8 @@ class Typst(Backend):
         self.body.append(
             Call(
                 Ident("bezier"),
-                [self._coord(*s), self._coord(*e), self._coord(*c1), self._coord(*c2)],
+                [self._coord(*s), self._coord(*e),
+                 self._coord(*c1), self._coord(*c2)],
                 {"stroke": self._stroke()},
             )
         )
@@ -1367,7 +1370,8 @@ class Typst(Backend):
                 call = Call(
                     Ident("rect"),
                     [self._coord(i - sz, j - sz), self._coord(i + sz, j + sz)],
-                    {"fill": Ident(colour), "stroke": self._stroke(linewidth=0.5)},
+                    {"fill": Ident(colour),
+                     "stroke": self._stroke(linewidth=0.5)},
                 )
             else:
                 call = Call(
@@ -1383,18 +1387,22 @@ class Typst(Backend):
             if draw_box_labels and node.box.drawing_name:
                 label = node.box.drawing_name
                 inner, math = self._math_label(label)
-                fc = 'rgb("#ffffff")' if hexcolour == "#000000" else 'rgb("#000000")'
+                fc = 'rgb("#ffffff")' if hexcolour == "#000000"\
+                    else 'rgb("#000000")'
                 lbl = Call(
-                    Ident("text"), [ContentExpr(inner, math=math)], {"fill": Ident(fc)}
+                    Ident("text"), [ContentExpr(inner, math=math)],
+                    {"fill": Ident(fc)}
                 )
-                self.body.append(Call(Ident("content"), [self._coord(i, j), lbl]))
+                self.body.append(Call(
+                    Ident("content"), [self._coord(i, j), lbl]))
         super().draw_spiders(graph, draw_box_labels)
 
     def draw_regions(self, graph, **params):
         super().draw_regions(graph, **params)
 
     def to_document(self, **params):
-        from discopy.drawing.typst_ast import Canvas, Document, Ident, Import, RawText
+        from discopy.drawing.typst_ast import (
+            Canvas, Document, Ident, Import, RawText)
 
         # Auto-crop the page so SVG viewBox hugs the diagram instead of
         # shipping an empty A4 sheet (which shrinks wires to invisibility).
@@ -1405,7 +1413,8 @@ class Typst(Backend):
                 Import("@preview/fletcher:0.5.8", alias="fletcher"),
             ],
             preamble=[
-                RawText(f"#set page(width: auto, height: auto, margin: {margin})")
+                RawText("#set page("
+                        f"width: auto, height: auto, margin: {margin})")
             ],
         )
         unit_len = params.get("unit_length", "1in")

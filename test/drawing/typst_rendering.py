@@ -85,7 +85,8 @@ def test_cap_to_typst():
 @typst_and_compare("spider.typ")
 def test_spider_to_typst():
     x = FTy("x")
-    return Spider(2, 1, x)
+    # Explicit colour: the `unfuse` doctest sets `Spider.color` globally.
+    return Spider(2, 1, x, color="black")
 
 
 @typst_and_compare("snake_equation.typ")

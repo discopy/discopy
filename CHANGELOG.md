@@ -29,6 +29,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - A `notebooks` dependency group and optional extra gathering the
   notebook-related packages, reused by `docs`
   ([#466](https://github.com/discopy/discopy/pull/466)).
+- A Typst rendering backend, `drawing.backend.Typst`, drawing diagrams as
+  a CeTZ canvas: `Diagram.to_typst` and `Drawing.to_typst` return a
+  `drawing.typst_ast.Document` which renders to Typst source and compiles
+  to SVG with the optional `typst` extra, also exposed as the
+  `text/x-typst` mimetype of `RichDisplay`
+  ([#467](https://github.com/discopy/discopy/pull/467)).
 - Composition benchmark suite for diagram operations, reproducing the
   scaling experiments of arXiv:2105.09257
   ([#346](https://github.com/discopy/discopy/pull/346)).
