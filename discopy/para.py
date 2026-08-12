@@ -109,14 +109,13 @@ from dataclasses import dataclass
 from discopy import symmetric, markov, closed, feedback, compact, frobenius
 from discopy.abc import (
     ClosedCategory, CompactCategory, FeedbackCategory, HypergraphCategory,
-    MarkovCategory, MonoidalCategory, NamedGeneric, SymmetricCategory,
-    TracedCategory)
+    MarkovCategory, NamedGeneric, SymmetricCategory, TracedCategory)
 from discopy.utils import (
     AxiomError, assert_isinstance, classproperty, unbiased)
 
 
 @dataclass
-class Symmetric(MonoidalCategory, NamedGeneric['category']):
+class Symmetric(SymmetricCategory, NamedGeneric['category']):
     """
     A parametric map from `dom` to `cod` with parameter space `param` is a
     morphism `inside : dom @ param -> cod` in an underlying `category`.
@@ -217,10 +216,6 @@ class Symmetric(MonoidalCategory, NamedGeneric['category']):
         """
         return cls.lift(cls.category.swap(left, right))
 
-    permutation = classmethod(SymmetricCategory.permutation.__func__)
-    twist = classmethod(SymmetricCategory.twist.__func__)
-    braid = classmethod(SymmetricCategory.braid.__func__)
-
     def reparam(self, arrow: category) -> Symmetric:
         """
         Precompose the parameter space with `arrow : q -> param`, i.e. the
@@ -236,7 +231,7 @@ class Symmetric(MonoidalCategory, NamedGeneric['category']):
                           self.dom @ arrow >> self.inside)
 
 
-class Traced(Symmetric, TracedCategory):
+class Traced(TracedCategory, Symmetric):
     """
     Parametric maps over a traced symmetric underlying `category` form a
     traced category, with the parameters swapped out of the way.
@@ -261,7 +256,7 @@ class Traced(Symmetric, TracedCategory):
             self.dom[:-n], self.cod[:-n], self.param, inside.trace(n))
 
 
-class Markov(Traced, MarkovCategory):
+class Markov(Symmetric, MarkovCategory):
     """
     Parametric maps over a Markov underlying `category` form a Markov
     category, with the copy of the underlying category as :meth:`copy`.

@@ -349,12 +349,10 @@ class BraidedCategory[C0, C1](MonoidalCategory[C0, C1]):
         """
 
 
-class BalancedCategory[C0, C1](
-        BraidedCategory[C0, C1], TracedCategory[C0, C1]):
+class BalancedCategory[C0, C1](BraidedCategory[C0, C1]):
     """
-    A balanced category is a :class:`BraidedCategory` and a
-    :class:`TracedCategory` with a method :code:`twist` for the natural
-    automorphism :code:`x -> x`.
+    A balanced category is a :class:`BraidedCategory` with a method
+    :code:`twist` for the natural automorphism :code:`x -> x`.
     """
     @classmethod
     @abstractmethod

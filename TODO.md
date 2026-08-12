@@ -70,7 +70,7 @@ the abc (for balanced, symmetric and markov) and add it explicitly in the
 corresponding diagram classes i.e. balanced.Diagram is still a subclass of
 traced.Diagram."
 
-- [WIP] @eloquent-pasteur-2026-08-12 18:01 drop `TracedCategory` from `BalancedCategory` in `abc.py` (closes
+- [x] drop `TracedCategory` from `BalancedCategory` in `abc.py` (closes
   #349); `para.Symmetric` declares `SymmetricCategory` again, `Markov` moves
   back onto `Symmetric`, and `Traced`'s bases flip to `(TracedCategory,
   Symmetric)` to keep the MRO consistent with `CompactCategory`
