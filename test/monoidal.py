@@ -222,6 +222,8 @@ def test_Layer_tensor():
     left, right = Layer(f, y), Layer(z, g)
 
     assert (left @ right).boxes_or_types == (f, y @ z, g)
+    assert left.tensor(right) == left @ right
+    assert Layer(f).tensor(y) == Layer(f) @ y == Layer(f, y)
     assert len((left @ right).boxes_or_types)\
         == len(left.boxes_or_types) + len(right.boxes_or_types) - 1
     assert (Layer(f) @ Layer(g)).boxes_or_types == (f, g)
@@ -325,7 +327,7 @@ def test_Diagram_str():
     x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
     assert str(Diagram((), x, x)) == "Id(x)"
     f0, f1 = Box('f0', x, y), Box('f1', z, w)
-    assert str(Diagram((Layer.cast(f0), ), x, y)) == "f0"
+    assert str(Diagram((Layer(f0), ), x, y)) == "f0"
     assert str(f0 @ Id(z) >> Id(y) @ f1) == "f0 @ z >> y @ f1"
     assert str(f0 @ Id(z) >> Id(y) @ f1) == "f0 @ z >> y @ f1"
 
@@ -341,6 +343,10 @@ def test_Diagram_interchange():
     d = f @ f.dagger()
     with raises(NotImplementedError):
         d.foliation().interchange(0, 1)
+    # Interchange needs one box per layer, not three components: a layer with
+    # plumbing on one side only holds two, and still interchanges.
+    assert [len(layer.boxes_or_types) for layer in d.inside] == [2, 2]
+    assert [len(layer.boxes) for layer in d.inside] == [1, 1]
     assert d.interchange(0, 0) == f @ Id(y) >> Id(y) @ f.dagger()
     assert d.interchange(0, 1) == Id(x) @ f.dagger() >> f @ Id(x)
     assert (d >> d.dagger()).interchange(0, 2) ==\
@@ -412,7 +418,7 @@ def test_Diagram_normal_form():
 
 
 def test_AxiomError():
-    inside = (Layer.cast(Box('f', Ty('x'), Ty('y'))), )
+    inside = (Layer(Box('f', Ty('x'), Ty('y'))), )
     with raises(AxiomError) as err:
         Diagram(inside, Ty('x'), Ty('x'))
     with raises(AxiomError) as err:
@@ -459,7 +465,7 @@ def test_Box_hash():
 
 def test_Box_eq():
     f = Box('f', Ty('x', 'y'), Ty('z'), data=42)
-    assert f == Diagram((Layer.cast(f), ), Ty('x', 'y'), Ty('z')) and f != 'f'
+    assert f == Diagram((Layer(f), ), Ty('x', 'y'), Ty('z')) and f != 'f'
 
 
 def test_Functor_init():
@@ -605,7 +611,7 @@ def test_Sum():
 
 def test_Layer_merge_cup_cap():
     unit, counit = Box("unit", Ty(), 'x'), Box("counit", 'x', Ty())
-    layer0, layer1 = Layer.cast(unit), Layer.cast(counit)
+    layer0, layer1 = Layer(unit), Layer(counit)
     with raises(AxiomError):
         layer0.merge(layer1)
     assert layer1.merge(layer0) == Layer(Ty(), unit, Ty(), counit, Ty())
@@ -613,7 +619,7 @@ def test_Layer_merge_cup_cap():
 
 def test_Layer_scalars():
     a, b = Box("a", Ty(), Ty()), Box("b", Ty(), Ty())
-    assert Layer.cast(a).merge(Layer.cast(b)) == Layer(Ty(), a, Ty(), b, Ty())
+    assert Layer(a).merge(Layer(b)) == Layer(Ty(), a, Ty(), b, Ty())
 
 
 def test_Diagram_from_callable():

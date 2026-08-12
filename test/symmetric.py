@@ -131,8 +131,8 @@ def test_Layer():
     assert layer.boxes_or_types == (x, f, y) == layer.boxes_and_types
     assert not layer.is_structural
     assert layer.boxes == [f]
-    assert Layer.cast(f) == Layer(Ty(), f, Ty())
-    assert Layer.cast(permutation) == Layer(permutation)
+    assert Layer(f) == Layer(Ty(), f, Ty())
+    assert Layer(permutation).boxes_or_types == (permutation, )
     assert Layer(x, swap, z).boxes == [swap]
     assert permutation != swap
     assert layer.dagger().dagger() == layer
@@ -394,6 +394,6 @@ def test_coloured_Layer_boxes_and_types():
     x = Ty(Wire('x', dom=red, cod=green))
     f = Box('f', x, x)
     empty_red, empty_green = x[:0], x[len(x):]
-    assert Layer.cast(f).boxes_and_types == (empty_red, f, empty_green)
+    assert Layer(f).boxes_and_types == (empty_red, f, empty_green)
     assert Layer(empty_red, f, empty_green).boxes_and_types\
         == (empty_red, f, empty_green)

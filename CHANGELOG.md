@@ -52,9 +52,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   leading one. The constructor type checks and normalises to restore the
   invariant unless it is called with `normalise=False`, which the internal
   call sites do, so tensoring `n` layers is linear rather than quadratic.
-  Layers tensor with `@` only. `symmetric.Layer` follows with
-  "permutation" in place of "type"
-  ([#438](https://github.com/discopy/discopy/pull/438)).
+  `Layer` is a `ColouredMonoid`, i.e. it defines `tensor` and inherits `@`
+  from it, and `Layer.cast` is removed since `Layer(box)` already builds the
+  singleton layer. `symmetric.Layer` follows with "permutation" in place of
+  "type" ([#438](https://github.com/discopy/discopy/pull/438)).
 - `Arrow` is refactored onto a `FreeCategory` base class
   ([#350](https://github.com/discopy/discopy/pull/350)).
 - The `tensor` module is refactored to go through `CMap` for `einsum`

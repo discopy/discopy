@@ -565,7 +565,7 @@ class Dim(Ty):
     __str__ = __repr__
 
 
-class Layer(cat.Box):
+class Layer(cat.Box, ColouredMonoid):
     """
     A layer is a tensor product of boxes and plumbing, i.e. non-empty types.
 
@@ -696,9 +696,10 @@ class Layer(cat.Box):
         return factory_name(type(self))\
             + f"({', '.join(map(repr, self))})"
 
-    def __matmul__(self, other: Ty | Layer) -> Layer:
+    def tensor(self, other: Ty | Layer) -> Layer:
         """ Whisker with a type or tensor with another layer, merging the
-        plumbing at their common boundary. """
+        plumbing at their common boundary. ``@`` is inherited from
+        :class:`discopy.abc.ColouredMonoid`. """
         if isinstance(other, type(self)):
             if self.is_plumbing(self[-1]) and self.is_plumbing(other[0]):
                 inside = (*self[:-1], self[-1] @ other[0], *other[1:])
@@ -747,21 +748,6 @@ class Layer(cat.Box):
     @property
     def generator(self):
         return self.boxes_or_types[0] if self.is_generator else None
-
-    @classmethod
-    def cast(cls, box: Box) -> Layer:
-        """
-        Turns a box into a singleton layer.
-
-        Parameters:
-            box : The box in the singleton layer.
-
-        Example
-        -------
-        >>> f = Box('f', Ty('x'), Ty('y'))
-        >>> assert Layer.cast(f) == Layer(f)
-        """
-        return cls(*cls.normalise((box, )), normalise=False)
 
     def dagger(self) -> Layer:
         return type(self)(*(
@@ -1203,7 +1189,7 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
             if not 0 <= i < len(self):
                 raise IndexError
             return self
-        if any(len(layer.boxes_and_types) != 3 for layer in self.inside):
+        if any(len(layer.boxes) != 1 for layer in self.inside):
             raise NotImplementedError
         if not 0 <= i < len(self) or not 0 <= j < len(self):
             raise IndexError
@@ -1382,7 +1368,7 @@ class Box(cat.Box, Diagram):
                 setattr(self, attr, params.pop(attr))
         cat.Box.__init__(self, name, dom, cod, **params)
         inside = () if self.is_identity\
-            else (self.layer_factory.cast(self), )
+            else (self.layer_factory(self, normalise=False), )
         Diagram.__init__(self, inside, dom, cod)
 
     is_identity = False

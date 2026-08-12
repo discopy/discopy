@@ -162,15 +162,15 @@ Alexis 🚀'd daydream6728's comment (2026-08-07T16:15:34Z), verbatim:
 
 > `Layer` could inherit `ColouredMonoid` and get that for free
 
-- [WIP] @74icg3-2026-08-12 00:10 Remove `Layer.cast`, since every subclass of `monoidal.Layer` satisfies what it casts for
-- [WIP] @74icg3-2026-08-12 00:10 Fix the `any(len(layer.boxes_and_types) != 3 ...)` guard in `Diagram.interchange`: a layer
+- [x] Remove `Layer.cast`, since every subclass of `monoidal.Layer` satisfies what it casts for
+- [x] Fix the `any(len(layer.boxes_and_types) != 3 ...)` guard in `Diagram.interchange`: a layer
   whose box has empty plumbing on one side normalises to two components, so the check rejects
   diagrams it should accept
 - [x] ~~Drop `Layer.boxes_and_types` and port the eight call sites in six modules to the new
   representation, i.e. bring #547 into this pull request and close it with this one~~
   **Cancelled by Alexis on 2026-08-11**, see below: it stays in
   [#547](https://github.com/discopy/discopy/issues/547) and out of this pull request
-- [WIP] @74icg3-2026-08-12 00:10 Let `Layer` inherit `ColouredMonoid` rather than restate what it provides
+- [x] Let `Layer` inherit `ColouredMonoid` rather than restate what it provides
 
 Note for whoever claims these: this roughly doubles the diff of the largest pull request in the
 queue, so the third point is worth splitting off if the review cost is judged too high — that is a
@@ -198,3 +198,42 @@ representation"*.
 
 So `Layer.boxes_and_types` **stays** in this pull request. The other three points above are
 untouched by this and remain open.
+
+## The other three points are done (🌙 evening, 2026-08-12)
+
+- **`Layer.cast` is removed.** It was `cls(*cls.normalise((box, )), normalise=False)`, and
+  `normalise` is the identity on a single box, so it only ever meant `cls(box, normalise=False)`.
+  That is now written at its one call site in `Box.__init__`; the tests that used it construct the
+  layer directly. Constructing a box no longer scans a one-element tuple.
+- **`Layer` inherits `ColouredMonoid`**, `__matmul__` renamed to `tensor` and `@` inherited from
+  it, as `Ty` already does through `FreeMonoid`. `then` still resolves to `Arrow`, so composing
+  layers is unaffected.
+- **The `interchange` guard is rewritten as `any(len(layer.boxes) != 1 ...)`**, but see below: the
+  bug it was reported as does not exist.
+
+### The `!= 3` guard was not rejecting anything it should accept
+
+daydream6728's premise was that `Layer(Ty(), box, right)` normalises to two components and so
+trips `len(...) != 3`. It does normalise to two components, but the guard reads
+`boxes_and_types`, which is the *expanded* alternating view: it re-inserts the empty types it
+dropped, so a one-box layer always measures 3 whatever its plumbing. Checked on every shape —
+`Layer(f)`, `Layer(x, f)`, `Layer(f, y)`, a scalar `Layer(s)`, and the symmetric layers carrying a
+`Permutation` — `len(boxes_and_types) != 3` and `len(boxes) != 1` agree in every case, and
+`f @ f.dagger()` (whose two layers each have plumbing on one side only) interchanges on `main`
+today. The expansion is `2 * len(boxes) + 1`, so the two predicates are equal by construction.
+
+So this was not a correctness fix and no behaviour changed. What was worth changing is that the
+guard asked its question through the compatibility shim: it now asks `len(layer.boxes) != 1`,
+which is the same question on the new representation and does not build a tuple per layer on
+every recursive `interchange` call. `test_Diagram_interchange` pins the two-component case so the
+premise cannot be re-litigated.
+
+**Wants a ruling, not blocking:** `ColouredMonoid` gives `Layer` a `unit()`, and a layer must have
+at least one box, so `Layer.unit()` raises `ValueError` — a layer is a coloured *semigroup*. The
+inheritance is still the right call for `@`, and `Ty` shows the idiom, but if that bothers you the
+honest fix is a `ColouredSemigroup` base that `ColouredMonoid` extends with `unit`.
+
+Verification: `pflake8 discopy` clean, `pytest --skip-extra` gives 626 passed, 51 skipped — one
+fewer than the 627 above because the removed `Layer.cast` docstring carried a doctest. Chaining
+4000 layers with `@` still takes 0.44s, and `eval(repr(layer)) == layer` still holds for monoidal
+and symmetric layers including permutation plumbing.
