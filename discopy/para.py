@@ -18,7 +18,7 @@ Summary
     :nosignatures:
     :toctree:
 
-    Para
+    Symmetric
     Markov
     Closed
     Feedback
@@ -32,8 +32,8 @@ Composition tensors the parameter spaces:
 
 >>> from discopy.symmetric import Ty, Box, Diagram
 >>> x, y, z, w, p, q = map(Ty, "xyzwpq")
->>> f = Para(x, y, p, Box('f', x @ p, y))
->>> g = Para(y, z, q, Box('g', y @ q, z))
+>>> f = Symmetric(x, y, p, Box('f', x @ p, y))
+>>> g = Symmetric(y, z, q, Box('g', y @ q, z))
 >>> assert (f >> g).param == p @ q
 >>> assert (f >> g).inside == f.inside @ q >> g.inside
 >>> (f >> g).inside.draw(doctest="docs/_static/para/then.svg")
@@ -43,7 +43,7 @@ Composition tensors the parameter spaces:
 
 So does the tensor, with a swap routing the parameters to the right:
 
->>> h = Para(z, w, q, Box('h', z @ q, w))
+>>> h = Symmetric(z, w, q, Box('h', z @ q, w))
 >>> assert (f @ h).param == p @ q
 >>> assert (f @ h).inside\\
 ...     == x @ Diagram.swap(z, p) @ q >> f.inside @ h.inside
@@ -59,12 +59,12 @@ Reparametrisation precomposes the parameters, contravariantly:
 >>> assert f.reparam(r).param == p_
 >>> assert f.reparam(s >> r) == f.reparam(r).reparam(s)
 
-The identity, swap and trace of :class:`Para` are those of the underlying
+The identity, swap and trace of :class:`Symmetric` are those of the underlying
 category, with the empty parameter space:
 
->>> assert Para.id(x) == Para.lift(Diagram.id(x))
->>> assert Para.swap(x, y) == Para.lift(Diagram.swap(x, y))
->>> t = Para(x @ y, z @ y, p, Box('t', x @ y @ p, z @ y))
+>>> assert Symmetric.id(x) == Symmetric.lift(Diagram.id(x))
+>>> assert Symmetric.swap(x, y) == Symmetric.lift(Diagram.swap(x, y))
+>>> t = Symmetric(x @ y, z @ y, p, Box('t', x @ y @ p, z @ y))
 >>> assert t.trace().dom == x and t.trace().param == p
 
 The construction preserves each level of the hierarchy below symmetric:
@@ -78,7 +78,7 @@ with the empty parameter space, e.g.
 ...     == Hypergraph.lift(frobenius.Diagram.spiders(1, 2, X))
 
 while the operations on morphisms swap the parameters out of the way,
-the same as :meth:`Para.trace`:
+the same as :meth:`Symmetric.trace`:
 
 >>> from discopy import closed
 >>> a, b, c, P = map(closed.Ty, "abcP")
@@ -93,7 +93,7 @@ Parametric maps compose like layers of a neural network, e.g. over
 :class:`Function <discopy.python.Function>` with weight and bias parameters:
 
 >>> from discopy.python import Function
->>> layer = Para[Function]((float, ), (float, ), (float, float),
+>>> layer = Symmetric[Function]((float, ), (float, ), (float, float),
 ...     Function(lambda x, w, b: w * x + b, (float, ) * 3, (float, )))
 >>> network = layer >> layer
 >>> assert network.param == (float, ) * 4
@@ -114,7 +114,7 @@ from discopy.utils import (
 
 
 @dataclass
-class Para(SymmetricCategory, NamedGeneric['category']):
+class Symmetric(SymmetricCategory, NamedGeneric['category']):
     """
     A parametric map from `dom` to `cod` with parameter space `param` is a
     morphism `inside : dom @ param -> cod` in an underlying `category`.
@@ -154,10 +154,11 @@ class Para(SymmetricCategory, NamedGeneric['category']):
             raise AxiomError(f"{self.inside.cod} != {self.cod}")
 
     @classmethod
-    def lift(cls, inside: category) -> Para:
+    def lift(cls, inside: category) -> Symmetric:
         """
         A morphism of the underlying category as a parametric map with the
-        empty parameter space.
+        empty parameter space, i.e. the injection functor from a category
+        into its category of parametric maps.
 
         Parameters:
             inside : The morphism to lift.
@@ -165,7 +166,7 @@ class Para(SymmetricCategory, NamedGeneric['category']):
         return cls(inside.dom, inside.cod, cls.ob(), inside)
 
     @classmethod
-    def id(cls, dom: ob = None) -> Para:
+    def id(cls, dom: ob = None) -> Symmetric:
         """
         The identity parametric map on `dom`, with empty parameter space.
 
@@ -175,7 +176,7 @@ class Para(SymmetricCategory, NamedGeneric['category']):
         return cls.lift(cls.category.id(cls.ob() if dom is None else dom))
 
     @unbiased
-    def then(self, other: Para) -> Para:
+    def then(self, other: Symmetric) -> Symmetric:
         """
         Sequential composition tensors the parameter spaces, i.e.
         `(p, f) >> (q, g) == (p @ q, f @ q >> g)`.
@@ -190,7 +191,7 @@ class Para(SymmetricCategory, NamedGeneric['category']):
                           self.inside @ other.param >> other.inside)
 
     @unbiased
-    def tensor(self, other: Para) -> Para:
+    def tensor(self, other: Symmetric) -> Symmetric:
         """
         Parallel composition tensors the parameter spaces, with a swap
         routing them to the right of the domains.
@@ -205,7 +206,7 @@ class Para(SymmetricCategory, NamedGeneric['category']):
                           self.param + other.param, inside)
 
     @classmethod
-    def swap(cls, left: ob, right: ob) -> Para:
+    def swap(cls, left: ob, right: ob) -> Symmetric:
         """
         The swap of the underlying category, with empty parameter space.
 
@@ -215,7 +216,7 @@ class Para(SymmetricCategory, NamedGeneric['category']):
         """
         return cls.lift(cls.category.swap(left, right))
 
-    def trace(self, n: int = 1, left: bool = False) -> Para:
+    def trace(self, n: int = 1, left: bool = False) -> Symmetric:
         """
         The trace of a parametric map is the trace of the underlying
         morphism, with the parameters swapped out of the way.
@@ -234,10 +235,10 @@ class Para(SymmetricCategory, NamedGeneric['category']):
         return type(self)(
             self.dom[:-n], self.cod[:-n], self.param, inside.trace(n))
 
-    def reparam(self, arrow: category) -> Para:
+    def reparam(self, arrow: category) -> Symmetric:
         """
         Precompose the parameter space with `arrow : q -> param`, i.e. the
-        2-cells of :class:`Para`, kept as a method of the 1-cells the same
+        2-cells of :class:`Symmetric`, kept as a method of the 1-cells the same
         way as :meth:`interchange <discopy.monoidal.Diagram.interchange>`.
 
         Parameters:
@@ -249,7 +250,7 @@ class Para(SymmetricCategory, NamedGeneric['category']):
                           self.dom @ arrow >> self.inside)
 
 
-class Markov(Para, MarkovCategory):
+class Markov(Symmetric, MarkovCategory):
     """
     Parametric maps over a Markov underlying `category` form a Markov
     category, with the copy of the underlying category as :meth:`copy`.
@@ -257,7 +258,7 @@ class Markov(Para, MarkovCategory):
     category = markov.Diagram
 
     @classmethod
-    def copy(cls, x: Para.ob, n: int = 2) -> Markov:
+    def copy(cls, x: Symmetric.ob, n: int = 2) -> Markov:
         """
         The copy of the underlying category, with empty parameter space.
 
@@ -276,7 +277,7 @@ class Closed(Markov, ClosedCategory):
     category = closed.Diagram
 
     @classmethod
-    def ev(cls, base: Para.ob, exponent: Para.ob, left: bool = True
+    def ev(cls, base: Symmetric.ob, exponent: Symmetric.ob, left: bool = True
            ) -> Closed:
         """
         The evaluation of the underlying category, with empty parameters.
@@ -292,7 +293,7 @@ class Closed(Markov, ClosedCategory):
         """
         Curry the last `n` objects of the domain if `left` else the first,
         i.e. everything but the parameters, which a left currying swaps out
-        of the way the same as :meth:`Para.trace`.
+        of the way the same as :meth:`Symmetric.trace`.
 
         Parameters:
             n : The number of objects to curry.
@@ -325,11 +326,11 @@ class Feedback(Markov, FeedbackCategory):
         return type(self)(*(x.delay(n_steps) for x in (
             self.dom, self.cod, self.param, self.inside)))
 
-    def feedback(self, dom: Para.ob = None, cod: Para.ob = None,
-                 mem: Para.ob = None) -> Feedback:
+    def feedback(self, dom: Symmetric.ob = None, cod: Symmetric.ob = None,
+                 mem: Symmetric.ob = None) -> Feedback:
         """
         The feedback of the underlying category, with the parameters
-        swapped out of the way the same as :meth:`Para.trace`.
+        swapped out of the way the same as :meth:`Symmetric.trace`.
 
         Parameters:
             dom : The domain of the feedback.
@@ -345,7 +346,7 @@ class Feedback(Markov, FeedbackCategory):
                           inside.feedback(dom + self.param, cod, mem))
 
 
-class Compact(Para, CompactCategory):
+class Compact(Symmetric, CompactCategory):
     """
     Parametric maps over a compact underlying `category` form a compact
     category, with the cups and caps of the underlying category.
@@ -353,7 +354,7 @@ class Compact(Para, CompactCategory):
     category = compact.Diagram
 
     @classmethod
-    def cups(cls, left: Para.ob, right: Para.ob) -> Compact:
+    def cups(cls, left: Symmetric.ob, right: Symmetric.ob) -> Compact:
         """
         The cups of the underlying category, with empty parameter space.
 
@@ -364,7 +365,7 @@ class Compact(Para, CompactCategory):
         return cls.lift(cls.category.cups(left, right))
 
     @classmethod
-    def caps(cls, left: Para.ob, right: Para.ob) -> Compact:
+    def caps(cls, left: Symmetric.ob, right: Symmetric.ob) -> Compact:
         """
         The caps of the underlying category, with empty parameter space.
 
@@ -386,7 +387,7 @@ class Hypergraph(Compact, Markov, HypergraphCategory):
     category = frobenius.Diagram
 
     @classmethod
-    def spiders(cls, n_legs_in: int, n_legs_out: int, typ: Para.ob
+    def spiders(cls, n_legs_in: int, n_legs_out: int, typ: Symmetric.ob
                 ) -> Hypergraph:
         """
         The spiders of the underlying category, with empty parameters.

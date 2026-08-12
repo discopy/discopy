@@ -52,5 +52,5 @@ Para class in each module so the naming would be symmetric.Para, compact.Para
 etc. but maybe your approach is cleaner, it's just weird to have para.Compact
 but not para.Symmetric, let's rename para.Para to it"
 
-- [WIP] @eloquent-pasteur-2026-08-12 15:33 rename `para.Para` to `para.Symmetric` everywhere, note in `lift`'s
+- [x] rename `para.Para` to `para.Symmetric` everywhere, note in `lift`'s
   docstring that it is the injection functor

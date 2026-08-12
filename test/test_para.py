@@ -3,21 +3,22 @@
 from pytest import raises
 
 from discopy import closed, compact, feedback, frobenius, markov
-from discopy.para import Closed, Compact, Feedback, Hypergraph, Markov, Para
+from discopy.para import (
+    Closed, Compact, Feedback, Hypergraph, Markov, Symmetric)
 from discopy.python import Function
 from discopy.symmetric import Box, Diagram, Ty
 from discopy.utils import AxiomError
 
 x, y, z, p, q = map(Ty, "xyzpq")
-f = Para(x, y, p, Box('f', x @ p, y))
-g = Para(y, z, q, Box('g', y @ q, z))
+f = Symmetric(x, y, p, Box('f', x @ p, y))
+g = Symmetric(y, z, q, Box('g', y @ q, z))
 
 
 def test_errors():
     with raises(AxiomError):
-        Para(x, y, q, Box('f', x @ p, y))
+        Symmetric(x, y, q, Box('f', x @ p, y))
     with raises(AxiomError):
-        Para(x, z, p, Box('f', x @ p, y))
+        Symmetric(x, z, p, Box('f', x @ p, y))
     with raises(AxiomError):
         g >> f
     with raises(AxiomError):
@@ -25,22 +26,24 @@ def test_errors():
 
 
 def test_symmetric_axioms():
-    assert f >> Para.id(y) == f == Para.id(x) >> f
+    assert f >> Symmetric.id(y) == f == Symmetric.id(x) >> f
     assert (f @ g.dom >> f.cod @ g).is_parallel(f @ g)
-    swap = Para.swap(x, y)
-    assert (swap >> Para.swap(y, x)).inside.simplify() == Diagram.id(x @ y)
-    assert Para.permutation((1, 0), (x, y)).inside.simplify()\
+    swap = Symmetric.swap(x, y)
+    assert (swap >> Symmetric.swap(y, x)).inside.simplify()\
+        == Diagram.id(x @ y)
+    assert Symmetric.permutation((1, 0), (x, y)).inside.simplify()\
         == swap.inside
-    assert Para.braid(x, y) == swap and Para.twist(x) == Para.id(x)
+    assert Symmetric.braid(x, y) == swap
+    assert Symmetric.twist(x) == Symmetric.id(x)
 
 
 def test_trace():
-    t = Para(x @ y, z @ y, p, Box('t', x @ y @ p, z @ y))
+    t = Symmetric(x @ y, z @ y, p, Box('t', x @ y @ p, z @ y))
     assert t.trace(0) == t
     inside = x @ Diagram.swap(p, y) >> t.inside
-    assert t.trace() == Para(x, z, p, inside.trace())
-    u = Para(y @ x, y @ z, p, Box('u', y @ x @ p, y @ z))
-    assert u.trace(left=True) == Para(x, z, p, u.inside.trace(left=True))
+    assert t.trace() == Symmetric(x, z, p, inside.trace())
+    u = Symmetric(y @ x, y @ z, p, Box('u', y @ x @ p, y @ z))
+    assert u.trace(left=True) == Symmetric(x, z, p, u.inside.trace(left=True))
 
 
 def test_reparam():
@@ -93,7 +96,7 @@ def test_hypergraph():
 
 def test_python():
     inside = Function(lambda a, w, b: w * a + b, (float, ) * 3, (float, ))
-    layer = Para[Function]((float, ), (float, ), (float, float), inside)
+    layer = Symmetric[Function]((float, ), (float, ), (float, float), inside)
     network = layer >> layer
     assert network.dom == network.cod == (float, )
     assert network.param == (float, ) * 4
