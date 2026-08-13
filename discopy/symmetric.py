@@ -196,14 +196,14 @@ class Layer(monoidal.Layer):
     @classmethod
     def strategy(
             cls, *, factory, types=None, dom=None, cod=None,
-            label=None, exclude=()):
+            label=None, exclude=(), boundary_connected=True):
         """Add a simultaneous native permutation to ordinary layers."""
         from hypothesis import strategies as st
 
         exclude = frozenset(exclude)
         base = super().strategy(
             factory=factory, types=types, dom=dom, cod=cod,
-            label=label)
+            label=label, boundary_connected=boundary_connected)
         types = factory.ob.strategy() if types is None else types
         permutation_factory = factory.permutation_factory
 

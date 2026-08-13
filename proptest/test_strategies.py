@@ -96,6 +96,20 @@ def test_diagrams_are_generated_layer_by_layer():
         isinstance(box, monoidal.Box) for box in composition.boxes)
 
 
+@pytest.mark.parametrize("Diagram", (
+    monoidal.Diagram, symmetric.Diagram, compact.Diagram,
+))
+def test_diagrams_are_boundary_connected_by_default(Diagram):
+    diagram = find(Diagram.strategy(), lambda value: True)
+    assert diagram.to_hypergraph().is_boundary_connected
+
+
+def test_diagrams_can_generate_closed_components():
+    diagram = find(monoidal.Diagram.strategy(boundary_connected=False),
+                   lambda value: not value.to_hypergraph().is_boundary_connected)
+    assert not diagram.to_hypergraph().is_boundary_connected
+
+
 def test_layers_own_boundary_guided_generation():
     x = monoidal.Ty("x")
     layer = find(monoidal.Layer.strategy(
@@ -140,13 +154,10 @@ def test_every_diagram_level_inherits_its_box_factory(module):
     compact.Swap,
     compact.Cup,
     compact.Cap,
-))
+    ))
 def test_compact_diagrams_generate_structural_morphisms(structure):
-    diagram = find(
-        strategies.strategy(compact.Diagram),
-        lambda value: any(
-            isinstance(box, structure) for box in value.boxes))
-    assert isinstance(diagram, compact.Diagram)
+    box = find(compact.Box.strategy(), lambda value: isinstance(value, structure))
+    assert isinstance(box, compact.Diagram)
 
 
 @pytest.mark.parametrize(

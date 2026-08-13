@@ -271,9 +271,6 @@ class Functor(rigid.Functor):
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Diagram.functor_factory = Functor
 Hypergraph = hypergraph.Hypergraph[Diagram]
-Diagram.strategy_condition = staticmethod(
-    lambda diagram: hypergraph.Hypergraph[
-        type(diagram)].from_diagram(diagram).is_boundary_connected)
 Id = Diagram.id
 
 

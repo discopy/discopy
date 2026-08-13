@@ -736,7 +736,7 @@ class Layer(cat.Box):
     @classmethod
     def strategy(
             cls, *, factory, types=None, dom=None, cod=None,
-            label=None, exclude=()):
+            label=None, exclude=(), boundary_connected=True):
         """Generate a one-box layer matching optional exact boundaries."""
         from hypothesis import strategies as st
 
@@ -770,6 +770,10 @@ class Layer(cat.Box):
                     min(len(dom) - i, len(cod) - i) + 1)
                 if dom[:i] == cod[:i]
                 and dom[len(dom) - right:] == cod[len(cod) - right:]]
+        if boundary_connected and dom is not None and cod is not None:
+            placements = [
+                placement for placement in placements
+                if placement[1] or placement[2]]
         if dom:
             placements = [
                 placement for placement in placements if placement[1]]
@@ -893,47 +897,53 @@ class Diagram(
     def strategy(
             cls, *, types=None,
             min_leaves=None, max_leaves=3,
-            condition=None, dom=None, cod=None):
+            boundary_connected=True, dom=None, cod=None):
         """Generate diagrams by composing boundary-guided layers."""
         from hypothesis import strategies as st
 
-        condition = condition or getattr(cls, "strategy_condition", None)
         types = cls.ob.strategy(
-            min_length=int(condition is not None))\
-            if types is None else types
+            min_length=int(boundary_connected)) if types is None else types
 
         @st.composite
-        def diagrams(draw):
+        def diagrams(draw, dom=dom, cod=cod, boundary_connected=True):
             minimum = 0 if min_leaves is None else min_leaves
             if dom is not None and cod is not None and dom != cod:
                 minimum = max(1, minimum)
             n_layers = draw(st.integers(
                 min_value=minimum, max_value=max_leaves))
+            source = dom if dom is not None else (
+                cod if not n_layers and cod is not None else draw(types))
+            if not n_layers:
+                return cls((), source, source, _scan=False)
+            boundaries = [source] + [draw(types) for _ in range(n_layers - 1)]
+            boundaries += [cod if cod is not None else draw(types)]
             layers, boxes = [], set()
-            if dom is None and cod is None and n_layers:
-                first = draw(cls.layer_factory.strategy(
-                    factory=cls, types=types,
-                    label=0, exclude=boxes))
-                layers.append(first)
-                boxes.update(first.boxes)
-                source, boundary, start = first.dom, first.cod, 1
-            else:
-                source = dom if dom is not None else (
-                    cod if not n_layers and cod is not None else draw(types))
-                boundary, start = source, 0
-            for i in range(start, n_layers):
+            for i, (source, target) in enumerate(zip(
+                    boundaries, boundaries[1:])):
                 layers_at_boundary = cls.layer_factory.strategy(
-                    factory=cls, types=types, dom=boundary,
-                    cod=cod if i == n_layers - 1 else None,
-                    label=i, exclude=boxes)
+                    factory=cls, types=types, dom=source, cod=target,
+                    label=i, exclude=boxes,
+                    boundary_connected=boundary_connected)
                 layer = draw(layers_at_boundary)
                 layers.append(layer)
                 boxes.update(layer.boxes)
-                boundary = layer.cod
-            return cls(tuple(layers), source, boundary, _scan=False)
+            return cls(tuple(layers), boundaries[0], boundaries[-1], _scan=False)
 
-        return diagrams() if condition is None else diagrams().filter(
-            condition)
+        connected = diagrams()
+        if boundary_connected:
+            return connected
+
+        @st.composite
+        def with_closed_components(draw):
+            result = draw(connected)
+            empty = cls.ob()
+            for _ in range(draw(st.integers(min_value=0, max_value=2))):
+                component = draw(diagrams(
+                    dom=empty, cod=empty, boundary_connected=False))
+                result @= component
+            return result
+
+        return with_closed_components()
 
     @property
     def size(self):
@@ -1839,7 +1849,5 @@ Diagram.bubble_factory = Bubble
 Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
-Diagram.strategy_condition = staticmethod(
-    lambda diagram: diagram.to_hypergraph().is_boundary_connected)
 Drawing.ob = Ty
 Id = Diagram.id
