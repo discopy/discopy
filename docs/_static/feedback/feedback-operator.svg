@@ -197,15 +197,13 @@ Q 396 144 396 144
 " clip-path="url(#p970dbbc4f6)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
    <g id="patch_28">
-    <path d="M 396 100.8 
-L 401.4 115.2 
-L 396.036 115.2 
-L 396.036 115.2 
-L 395.964 115.2 
-L 395.964 115.2 
-L 390.6 115.2 
+    <path d="M 381.6 122.4 
+L 410.4 122.4 
+L 410.4 108 
+C 410.4 100.04688 403.95312 93.6 396 93.6 
+C 388.04688 93.6 381.6 100.04688 381.6 108 
 z
-" clip-path="url(#p970dbbc4f6)" style="stroke: #000000; stroke-linejoin: miter"/>
+" clip-path="url(#p970dbbc4f6)" style="fill: #ffffff; stroke: #000000; stroke-linejoin: miter"/>
    </g>
    <g id="patch_29">
     <path d="M 252 126 
@@ -411,18 +409,40 @@ z
     </g>
    </g>
    <g id="text_8">
+    <!-- 1 -->
+    <g transform="translate(392.81875 110.759375) scale(0.1 -0.1)">
+     <defs>
+      <path id="DejaVuSans-31" d="M 794 531 
+L 1825 531 
+L 1825 4091 
+L 703 3866 
+L 703 4441 
+L 1819 4666 
+L 2450 4666 
+L 2450 531 
+L 3481 531 
+L 3481 0 
+L 794 0 
+L 794 531 
+z
+" transform="scale(0.015625)"/>
+     </defs>
+     <use xlink:href="#DejaVuSans-31"/>
+    </g>
+   </g>
+   <g id="text_9">
     <!-- y -->
     <g transform="translate(256.5 138.098437) scale(0.1 -0.1)">
      <use xlink:href="#DejaVuSans-79"/>
     </g>
    </g>
-   <g id="text_9">
+   <g id="text_10">
     <!-- m -->
     <g transform="translate(328.5 138.098437) scale(0.1 -0.1)">
      <use xlink:href="#DejaVuSans-6d"/>
     </g>
    </g>
-   <g id="text_10">
+   <g id="text_11">
     <!-- f -->
     <g transform="translate(70.239844 110.759375) scale(0.1 -0.1)">
      <defs>
@@ -451,13 +471,13 @@ z
      <use xlink:href="#DejaVuSans-66"/>
     </g>
    </g>
-   <g id="text_11">
+   <g id="text_12">
     <!-- f -->
     <g transform="translate(286.239844 110.759375) scale(0.1 -0.1)">
      <use xlink:href="#DejaVuSans-66"/>
     </g>
    </g>
-   <g id="text_12">
+   <g id="text_13">
     <g clip-path="url(#p970dbbc4f6)">
      <!-- $\mapsto$ -->
      <g transform="translate(172.62 111.31125) scale(0.12 -0.12)">

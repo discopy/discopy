@@ -844,13 +844,15 @@ class Drawing(TracedCategory, RichDisplay):
         Draw a loop around the last ``n`` wires, or the first ``n`` if
         ``left``.
 
-        When ``feedback``, the loop is drawn with an arrow pointing backwards
-        along it, i.e. from the codomain up to the domain. This is what tells
-        apart the feedback operator of a
-        :class:`discopy.abc.FeedbackCategory`, where the memory comes back one
-        time step later, from the trace of a
+        When ``feedback``, the loop carries a delay box in its middle: a
+        white box, round on the upward side, labelled by the number of
+        delays between the type fed back and the type it comes from. This is
+        what tells apart the feedback operator of a
+        :class:`discopy.abc.FeedbackCategory`, where the memory comes back
+        ``feedback`` time steps later, from the trace of a
         :class:`discopy.abc.TracedCategory`, where the two ends of the loop
-        are the same wire.
+        are the same wire. When ``feedback is True``, the delay is read off
+        the :meth:`discopy.feedback.Ob.time_step` of the traced types.
 
         Example
         -------
@@ -872,6 +874,10 @@ class Drawing(TracedCategory, RichDisplay):
         cod = self.cod[1:] if left else self.cod[:-1]
         traced_dom = self.dom[:1] if left else self.dom[-1:]
         traced_cod = self.cod[:1] if left else self.cod[-1:]
+        if feedback is True:
+            feedback = sum(
+                getattr(x, "time_step", 0) for x in traced_dom.inside) - sum(
+                getattr(x, "time_step", 0) for x in traced_cod.inside) or 1
         cap_cod, cup_dom = traced_dom ** 2, (
             traced_dom @ traced_cod if left else traced_cod @ traced_dom)
         cup = Box('cup', cup_dom, Ty(), draw_as_wires=True,

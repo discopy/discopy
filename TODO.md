@@ -43,4 +43,4 @@
 
 > Let's add a special box to feedback loops, white, round on the upward side, drawn in the middle of the feedback loop, with a natural number label. When a type x is fed back into a type x.d.d...d (n times), the box has label n. So the box denotes the _delay_ of the delayed trace.
 
-- [WIP] @07455c9b-2026-08-13 09:50 Replace the backward arrow with the delay box read off the types
+- [x] Replace the backward arrow with the delay box read off the types

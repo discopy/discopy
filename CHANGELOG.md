@@ -37,11 +37,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   or colliding with neighbouring wires
   ([#364](https://github.com/discopy/discopy/pull/364),
   [#365](https://github.com/discopy/discopy/pull/365)).
-- Directed wires: `Backend.draw_arrowhead` draws an arrow in the middle of
-  a wire in all three backends. `Drawing.trace` takes a `feedback` argument
-  which marks its cup and cap with the new `draw_as_feedback` attribute, so
-  that a `feedback.Feedback` loop is drawn with an arrow pointing backwards
-  along it and no longer looks like a compact-closed trace
+- Feedback loops are drawn with a delay box: a white box, round on the
+  upward side, in the middle of the loop, labelled by the number of time
+  steps between the type fed back and the type it comes from.
+  `Drawing.trace` takes a `feedback` argument carrying that delay (`True`
+  reads it off the types) so that a `feedback.Feedback` loop no longer
+  looks like a compact-closed trace
   ([#515](https://github.com/discopy/discopy/issues/515)).
 - Explicit permutations in symmetric layers: `symmetric.P` supports the
   permutation operations and functorial semantics, while `symmetric.Layer`

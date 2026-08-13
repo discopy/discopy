@@ -387,31 +387,13 @@ class Backend(ABC):
         points = [start] + [step[-1] for step in steps]
         self.max_width = max([self.max_width] + [x for x, _ in points])
 
-    @staticmethod
-    def arrowhead_segment(source, target, length=None):
+    def draw_feedback_box(self, middle, delay, **params):
         """
-        The short segment in the middle of the wire from ``source`` to
-        ``target`` on which :meth:`draw_arrowhead` draws its arrow, i.e. the
-        segment of length ``length`` centred on the middle of the wire.
+        Draws the delay box of a feedback loop: a white box, round on the
+        upward side, centred on ``middle`` and labelled by ``delay``, see
+        :meth:`draw_wires` and :meth:`discopy.drawing.Drawing.trace`.
         """
-        length = DEFAULT["arrowhead_length"] if length is None else length
-        (x0, y0), (x1, y1) = source, target
-        dx, dy = x1 - x0, y1 - y0
-        norm = sqrt(dx * dx + dy * dy)
-        middle = ((x0 + x1) / 2, (y0 + y1) / 2)
-        if not norm:
-            return middle, middle
-        step = (length * dx / norm / 2, length * dy / norm / 2)
-        return ((middle[0] - step[0], middle[1] - step[1]),
-                (middle[0] + step[0], middle[1] + step[1]))
-
-    def draw_arrowhead(self, source, target, **params):
-        """
-        Draws an arrow in the middle of the wire from ``source`` to ``target``,
-        pointing towards ``target``, e.g. for the backward-pointing loop of a
-        feedback, see :meth:`draw_wires`.
-        """
-        self.max_width = max(self.max_width, source[0], target[0])
+        self.max_width = max(self.max_width, middle[0])
 
     @staticmethod
     def braid_strand(source, target, middle):
@@ -553,10 +535,10 @@ class Backend(ABC):
     @staticmethod
     def feedback_layers(graph):
         """
-        The indices of the layers of a graph holding the cup or the cap of a
-        feedback, i.e. the two ends of a loop drawn with a backward arrow.
+        The delay of each layer of a graph holding the cup or the cap of a
+        feedback, i.e. the two ends of a loop drawn with a delay box.
         """
-        return {node.j for node in graph.nodes
+        return {node.j: int(node.box.draw_as_feedback) for node in graph.nodes
                 if node.kind == "box" and node.box.draw_as_feedback}
 
     @staticmethod
@@ -646,12 +628,15 @@ class Backend(ABC):
                 source_position, target_position, bend_out, bend_in,
                 linewidth=(0 if is_frame_boundary else None))
             # The wire from the cap of a feedback down to its cup goes against
-            # the flow of the diagram, i.e. the memory comes back one time
-            # step later, so it carries an arrow pointing backwards.
+            # the flow of the diagram, i.e. the memory comes back some time
+            # steps later, so it carries a delay box in its middle.
             layers = {getattr(n, "j", None) for n in (source, target)}
-            if len(layers) == 2 and layers <= feedback_layers:
-                self.draw_arrowhead(
-                    target_position, source_position, **params)
+            if len(layers) == 2 and layers <= feedback_layers.keys():
+                middle = tuple(
+                    (s + t) / 2
+                    for s, t in zip(source_position, target_position))
+                self.draw_feedback_box(
+                    middle, feedback_layers[layers.pop()], **params)
 
     def fill_fold(self, outer, inner, color):
         """
@@ -1134,15 +1119,16 @@ class TikZ(Backend):
             self.nodes[source], self.nodes[target]))
         super().draw_wire(source, target, bend_out=bend_out, bend_in=bend_in)
 
-    def draw_arrowhead(self, source, target, **params):
-        start, end = self.arrowhead_segment(source, target)
-        for point in (start, end):
-            if point not in self.nodes:
-                self.add_node(*point)
+    def draw_feedback_box(self, middle, delay, **params):
+        (x, y), r = middle, DEFAULT["feedback_box_size"]
+        corners = [self.add_node(x - r, y - r), self.add_node(x + r, y - r),
+                   self.add_node(x + r, y)]
         self.edgelayer.append(
-            f"\\draw [->] ({self.nodes[start]}.center)"
-            f" to ({self.nodes[end]}.center);\n")
-        super().draw_arrowhead(source, target, **params)
+            f"\\draw [-, fill=white] ({corners[0]}.center)"
+            f" to ({corners[1]}.center) to ({corners[2]}.center)"
+            f" arc (0:180:{r}) to ({corners[0]}.center);\n")
+        self.draw_text(str(delay), x, y, **params)
+        super().draw_feedback_box(middle, delay, **params)
 
     def draw_bezier(self, points):
         for point in points:
@@ -1350,14 +1336,25 @@ class Matplotlib(Backend):
                 path, facecolor='none', linewidth=linewidth))
         super().draw_wire(source, target, bend_out=bend_out, bend_in=bend_in)
 
-    def draw_arrowhead(self, source, target, **params):
-        (x, y), (end_x, end_y) = self.arrowhead_segment(source, target)
-        self.axis.arrow(
-            x, y, end_x - x, end_y - y, length_includes_head=True,
-            head_length=DEFAULT["arrowhead_length"],
-            head_width=DEFAULT["arrowhead_width"],
-            linewidth=self.linewidth, color="black")
-        super().draw_arrowhead(source, target, **params)
+    def draw_feedback_box(self, middle, delay, **params):
+        (x, y), r = middle, DEFAULT["feedback_box_size"]
+        k = 0.5523 * r
+        path = Path(
+            [(x - r, y - r), (x + r, y - r), (x + r, y),
+             (x + r, y + k), (x + k, y + r), (x, y + r),
+             (x - k, y + r), (x - r, y + k), (x - r, y),
+             (x - r, y - r)],
+            [Path.MOVETO, Path.LINETO, Path.LINETO,
+             Path.CURVE4, Path.CURVE4, Path.CURVE4,
+             Path.CURVE4, Path.CURVE4, Path.CURVE4,
+             Path.CLOSEPOLY])
+        self.axis.add_patch(PathPatch(
+            path, linewidth=self.linewidth,
+            facecolor=COLORS["white"], edgecolor="black"))
+        self.draw_text(
+            str(delay), x, y, ha='center', va='center',
+            fontsize=params.get('fontsize', None))
+        super().draw_feedback_box(middle, delay, **params)
 
     def draw_bezier(self, points):
         path = Path(
