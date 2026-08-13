@@ -7,103 +7,130 @@
 Closes #372. Supersedes #375, which is abandoned: this branch starts from `main` and shares
 no commits with it.
 
+## The naming decision is ruled: B
+
+Asked on this PR as A (canonical naming, no `varname`) or B (`varname` excluded from equality).
+USER, [2026-08-13](https://github.com/discopy/discopy/pull/540#issuecomment-5277710609), verbatim:
+
+> B
+
+So: **`varname` goes on the wire, and is excluded from `__eq__`/`__hash__`.** The roundtrip is
+faithful on the nose in both directions. The cost, accepted with the ruling, is a field equality
+ignores — two `==` diagrams can produce two different terms. That has to be documented and pinned by
+a test rather than left to be discovered.
+
+The global counter of #372 is out regardless: `STYLE.md`'s determinism clause rules it out, and
+`to_term` called twice would give different names. Fresh names are derived from binder position
+instead (point 4), which is what plan A would have used everywhere and is now the fallback for
+unannotated wires.
+
 ## What is actually true today
 
-Measured on `ed4c0b3`, not assumed:
+Measured, not assumed:
 
-- There is no `to_term` anywhere in `discopy/`. The only occurrence of `varname` is a local
-  variable in `biclosed.Ty.__call__`.
-- `eval` quotients by alpha. `X(lambda y, left=True: y(f, left=True)).eval()` and the same term
-  with `y` renamed to `z` are `==`, while the two terms are not. Renaming a *free* variable does
-  change the diagram, but only because the term itself changed; the diagram holds types, never
-  names.
+- There is no `to_term` anywhere in `discopy/`. The only occurrence of `varname` is a local variable
+  in `biclosed.Ty.__call__`.
+- `eval` quotients by alpha: alpha-equivalent terms give `==` diagrams. This is what B preserves and
+  the discarded third reading would have broken.
 
-So a term's variable names are not recoverable from its diagram, and no amount of care in
-`to_term` changes that. #372's proposal is to put them there.
+### Where `varname` has to live, measured
 
-## The design decision this branch takes
+This is the part that decides the size of the change, so it was measured rather than guessed:
 
-#372 asks for a `varname` attribute on the `Ob` of a variable wire and on the curried wire, with
-a global counter for fresh names. Taken literally that mechanism has two problems:
+- `biclosed.Ty('X').inside` holds a **`monoidal.Wire`**, not a `biclosed.Ob`. Only exponents are
+  `biclosed.Ob` (`Over`/`Under`). So the annotation site is `Wire`, the atom of every `Ty` in the
+  library — not a biclosed-local class.
+- **Subclassing is not viable.** `Wire.__eq__` is `type(self) is type(other) and (name, dom, cod) ==
+  ...` and `__hash__` includes `type(self)`, so an annotated subclass compares unequal to a plain
+  atom *in both directions*, with a different hash. A subclass would silently split every type.
+- A plain field on `Wire` itself does work, because `__eq__`/`__hash__` never mention it:
 
-1. If `varname` enters `__eq__`, then `⟦λx.t⟧ != ⟦λy.t[y/x]⟧` and the free biclosed category is
-   no longer alpha-quotiented. Currying stops being a function on morphisms.
-2. A global counter makes `to_term` impure and order-dependent: calling it twice gives different
-   names. STYLE.md rules that out ("data structures should not depend on sources of
-   non-determinism").
+  ```
+  a, b = Wire('X'), Wire('X'); b.varname = 'x'
+  a == b            # True
+  hash(a) == hash(b)  # True
+  Ty(a) == Ty(b)    # True
+  ```
 
-This branch keeps #372's *intent* — a roundtrip that is faithful on the nose — and drops its
-mechanism. Names stay out of the diagram; `to_term` picks the canonical alpha-representative
-deterministically, from binder position rather than a counter. `Ty` and `Ob` are untouched.
-
-**This reverses the letter of #372 and is USER's call to confirm.** The alternative, kept on the
-table, is to store `varname` but exclude it from `__eq__`/`__hash__`, which buys an on-the-nose
-roundtrip in both directions at the cost of a field equality ignores.
+So B is a root-level change to `monoidal.Wire`, kept invisible to equality. Two places already drop
+the field and need to carry it: `Wire.dagger()` rebuilds via `type(self)(name, cod, dom, ...)`, and
+`Wire.__repr__` returns `cat.Ob('X')` for a white/white wire.
 
 ### The statements to be tested
 
-With `to_term` partial, total on the image of `eval`:
+`to_term` is partial, total on the image of `eval`:
 
-- **T1** — for every term `t`: `t.eval().to_term().eval() == t.eval()`. Total, no naming caveat.
-  This is the honest "faithful on the nose".
-- **T2** — for every term `t`: `t.eval().to_term() == t` when `t` is already alpha-canonical, and
-  equal up to alpha otherwise.
-- **T3** — `to_term` raises a clear error off the image of `eval`, rather than returning nonsense.
+- **T1** — `t.eval().to_term().eval() == t.eval()`, for every term. Total.
+- **T2** — `t.eval().to_term() == t`, for every term, **on the nose**. This is what B buys and what
+  A could not give.
+- **T3** — `to_term` raises a clear error off the image of `eval`.
+- **T4** — annotations are invisible to equality: two diagrams differing only in `varname` are `==`
+  with equal hashes, yet `to_term` gives different terms. Pins the accepted cost.
+- **T5** — a diagram with no annotations still round-trips, with position-derived names.
 
 ### Terms are already a category, so `to_term` should be a functor
 
 `TermBase` subclasses `Box` and already carries `dom` (the tensor of its free-variable types) and
-`cod` (its type). That is exactly the shape of a morphism `context -> type`. Making that structure
-explicit gives `to_term` for free through the existing `Functor` machinery:
+`cod` (its type) — the shape of a morphism `context -> type`. Making that explicit gives `to_term`
+through the existing `Functor`:
 
 | categorical structure | term |
 |---|---|
-| `id(A)` | `Variable` of type `A`, canonically named |
+| `id(A)` | `Variable`, named from `varname` if present |
 | `f >> g` | substitution |
 | `f @ g` | context concatenation, renaming apart |
 | `ev` | `Application` |
 | `curry` | `Abstraction` |
 
-`to_term` is then `Functor(ob_map=id, ar_map=Constant, cod=TermCategory)(diagram)`. `Functor` already
-walks layers, so the layer-decomposition that made #375 sprawl is not written by hand at all. This
-is the same move as `discopy.drawing`, where the layout algorithm is itself a functor.
-
-**Dependency:** composition is substitution, and `closed.Substitution` is broken on `main` (it
-recurses forever under abstractions and returns `None` on constants). #442 fixes it, with
-capture-avoidance. Either #442 lands first or this branch needs its own substitution — decide
-before starting point 4.
-
-## Scope
-
-Roundtrip only. #375 bundled five unrelated fixes; two of them are already on `main`
-(`discard_factory` is a `Discard` class, not a lambda) or belong to #442 (`Substitution`). Every
-bug hit on the way gets filed, not fixed here.
+`Functor` already walks layers, so the layer decomposition that made #375 sprawl is never written by
+hand. Same move as `discopy.drawing`, where the layout algorithm is itself a functor.
 
 ## Points
 
-- [ ] 1. Confirm with USER the naming decision above (canonical vs. equality-invisible `varname`)
-      before writing code — the whole shape of the branch depends on it.
-- [x] 2. File the bugs found while measuring, as issues, and link them here: #541,
-      `closed.Abstraction.eval` crashes with `ValueError: ... is not in list` on a constant
-      function such as `X(lambda x: (X >> Y)('h'))`. `__check_dom__` admits zero occurrences of the
-      bound variable but `eval` calls `.index()` unconditionally, so the discard path is
-      unreachable and that case cannot be round-tripped.
-- [ ] 3. Define the canonical naming scheme (de Bruijn level: free variables numbered by their
-      index in `dom`, binders continuing the numbering) and test that it is a pure function of the
-      diagram.
-- [ ] 4. Make terms-in-context a `BiclosedCategory` instance: `id`, `then`, `tensor`, `ev`, `curry`
-      per the table above.
-- [ ] 5. `biclosed.Diagram.to_term` as a `Functor` into that category, with `to_term(*names)`
-      taking optional free-variable names.
-- [ ] 6. `closed.Diagram.to_term`: the same for the non-linear case, `Copy` for a repeated variable
-      and `Discard` for an unused one. Blocked on #541.
-- [ ] 7. Tests for T1, T2, T3, including the nested-binder and non-linear cases.
-- [ ] 8. `CHANGELOG.md` entry under `[Unreleased]`, and a docstring example on `to_term`.
-- [ ] 9. `uv run pflake8 discopy` and `uv run coverage run -m pytest` green.
+- [x] 1. Get the naming decision ruled. B, quoted above.
+- [x] 2. File the bugs found while measuring: #541, #542, #543, #544 — all four fixed in #545.
+      #548 (no closed diagram containing `Copy` can be drawn) and #549 (`Context.dom` repeated
+      #542's unbound call) also filed; #549 is fixed on `main` via #556.
+- [ ] 3. `varname` on `monoidal.Wire`: an `__init__` keyword defaulting to `None`, left out of
+      `__eq__`/`__hash__`, carried through `dagger()` and `to_tree`/`from_tree`.
+- [ ] 4. Deterministic fresh names from binder position (de Bruijn level: free variables numbered by
+      their index in `dom`, binders continuing the numbering), used wherever `varname` is absent.
+      Test that it is a pure function of the diagram.
+- [ ] 5. Annotate at the two sites #372 names: the identity wire built by `Variable.eval`, and the
+      abstracted wire of the `Curry` built by `Abstraction.eval`.
+- [ ] 6. Make terms-in-context a `BiclosedCategory` instance: `id`, `then`, `tensor`, `ev`, `curry`.
+- [ ] 7. `biclosed.Diagram.to_term` as a `Functor` into it, reading `varname` when present, with
+      `to_term(*names)` overriding the free-variable names.
+- [ ] 8. `closed.Diagram.to_term`: the non-linear case, `Copy` for a repeated variable and `Discard`
+      for an unused one.
+- [ ] 9. Tests for T1–T5, including nested-binder and non-linear cases.
+- [ ] 10. `CHANGELOG.md` entry under `[Unreleased]`, and a docstring example on `to_term`.
+- [ ] 11. `uv run pflake8 discopy` and `uv run coverage run -m pytest` green.
+
+## Open sub-decision, for whoever takes point 3
+
+Whether `varname` belongs in `Wire.__repr__`. In it, `eval(repr(x)) == x` still holds — equality
+ignores the field — and a diagram round-trips through `repr` with its names. Out of it, `repr` stays
+quiet for the whole library and names are lost through `repr`. Recommendation: **in**, printed only
+when not `None`, and out of `__str__`. Not blocking; flagged because it is the visible half of
+USER's "`eval(repr(x)) == x` starts hiding a difference `==` does not see".
+
+## Dependencies
+
+- **#545 before this.** #541 blocks the discard case; #544 makes the roundtrip unstatable, since
+  `t.eval().to_term().eval() == t.eval()` means nothing while `eval` does not preserve `cod`.
+- **#442 before point 6**, or this branch writes its own substitution: composition in the term
+  category is substitution, and `closed.Substitution` is broken on `main`. #442 fixes it with
+  capture-avoidance.
+
+## Scope
+
+Roundtrip only. #375 bundled five unrelated fixes; `discard_factory` was already a `Discard` class
+on `main` and `Substitution` belongs to #442. Bugs hit on the way get filed, not fixed here.
 
 ## Knock-on
 
-#376 is stacked on #375 and names its extracted terms "from the `varname` port annotations, with
-fresh names generated from a global counter". It inherits both problems above. Once the naming
-decision is settled it needs re-targeting onto `main` and its naming redone to match — not this
-branch's work, but it should not be merged before the decision.
+#376 is stacked on the abandoned #375 and names its terms "from the `varname` port annotations, with
+fresh names generated from a global counter". Under B the annotations survive but the counter does
+not. It needs re-targeting onto `main` and its naming redone against point 4 — not this branch's
+work, and it should not merge before that.
