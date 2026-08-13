@@ -271,3 +271,26 @@ the compatibility shim. Lifting them changes behaviour in two places, both of th
 
 Verification: `pflake8 discopy` clean, `pytest --skip-extra` gives 627 passed, 51 skipped, with
 `main` at `bd76446` merged in.
+
+## Review follow-up (2026-08-13, fifth round)
+
+Instruction from Alexis, verbatim:
+
+> added some comments
+
+The seven unresolved review comments from the 08:18–08:23 UTC round:
+
+- [WIP] @session_01Ccnp1AHjaZtji7KRef7xP4-2026-08-13 15:36 Hoist the
+  composability check to the top of `tensor` so a non-composable tensor
+  raises, reusing `check` on the boundary pair
+- [WIP] @session_01Ccnp1AHjaZtji7KRef7xP4-2026-08-13 15:36 Drop
+  `__rmatmul__`: give `ColouredMonoid` the `whisker`/`__rmatmul__` pair that
+  `MonoidalCategory` already has, with `Layer.id` embedding a type as
+  plumbing, so both whiskerings go through the one `tensor`
+- [WIP] @session_01Ccnp1AHjaZtji7KRef7xP4-2026-08-13 15:36 Flatten `check`
+  to one comparison loop and make its linearity obvious
+- [WIP] @session_01Ccnp1AHjaZtji7KRef7xP4-2026-08-13 15:36 Replace the
+  manual superclass state in `__init__` by class-level declarations
+- [WIP] @session_01Ccnp1AHjaZtji7KRef7xP4-2026-08-13 15:36 Answer where the
+  singleton-identity-permutation check lives and say it in the
+  `symmetric.Layer.normalise` docstring
