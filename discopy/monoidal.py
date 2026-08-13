@@ -978,7 +978,7 @@ class Diagram(
             layers, boxes = [], set()
             for i, (source, target) in enumerate(zip(
                     boundaries, boundaries[1:])):
-                layers_at_boundary = cls.layer_factory.strategy(
+                layers_at_boundary = cls.layer_factory.strategy(  # noqa: E501
                     factory=cls, types=types, dom=source, cod=target,
                     label=i, exclude=boxes,
                     boundary_connected=boundary_connected)

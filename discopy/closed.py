@@ -185,6 +185,11 @@ class Functor(biclosed.Functor, markov.Functor):
 class CMap(biclosed.CMap):
     category = Diagram
     require_planar = False
+    axiom_status = {
+        "copy_counitality": "wontfix",
+        "copy_coassociativity": "wontfix",
+        "copy_cocommutativity": "wontfix",
+    }
 
 
 Diagram.functor_factory = Functor

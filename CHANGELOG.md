@@ -9,6 +9,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- Axiom statuses now record the representation-level equality available to
+  combinatorial maps, and diagram/map strategies can generate closed
+  components on request.
 - Declarative categorical axioms, validating argument shapes, and canonical
   Hypothesis strategies following the categorical class hierarchy. A dedicated
   workflow runs the property tests on `main`, manually, and on labelled PRs.

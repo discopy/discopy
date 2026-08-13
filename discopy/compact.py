@@ -171,6 +171,12 @@ class CMap(symmetric.CMap):
     category = Diagram
     require_oriented = False
     require_connected = False
+    axiom_status = {
+        "trace_naturality_left": "strict",
+        "trace_naturality_right": "strict",
+        "currying_left": "strict",
+        "currying_right": "strict",
+    }
 
 
 Id = Diagram.id

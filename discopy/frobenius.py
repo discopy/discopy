@@ -415,6 +415,17 @@ def coherence(cls: type, factory: Callable
 
 class CMap(compact.CMap):
     category = Diagram
+    axiom_status = {
+        "trace_naturality_left": "strict",
+        "trace_naturality_right": "strict",
+        "currying_left": "strict",
+        "currying_right": "strict",
+        "copy_counitality": "wontfix",
+        "copy_coassociativity": "wontfix",
+        "copy_cocommutativity": "wontfix",
+        "frobenius": "wontfix",
+        "speciality": "wontfix",
+    }
 
 
 Diagram.functor_factory = Functor

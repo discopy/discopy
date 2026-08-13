@@ -337,6 +337,11 @@ class Functor(symmetric.Functor):
 
 class CMap(symmetric.CMap):
     category = Diagram
+    axiom_status = {
+        "copy_counitality": "wontfix",
+        "copy_coassociativity": "wontfix",
+        "copy_cocommutativity": "wontfix",
+    }
 
 
 Diagram.functor_factory = Functor

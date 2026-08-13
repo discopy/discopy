@@ -265,11 +265,25 @@ class CMap[C0: Pregroup, C1: CMap](
     require_connected: ClassVar[bool] = False
     functor = classproperty(lambda cls: cls.category.functor_factory)
     ob = classproperty(lambda cls: cls.category.ob)
+    axiom_status = {
+        "trace_naturality_left": "wontfix",
+        "trace_naturality_right": "wontfix",
+        "trace_dinaturality_left": "wontfix",
+        "trace_dinaturality_right": "wontfix",
+        "braid_naturality": lambda *terms: type(terms[0]).category
+        .equation_factory(*(term.to_diagram() for term in terms)),
+        "currying_left": "wontfix",
+        "currying_right": "wontfix",
+    }
 
     @classmethod
-    def strategy(cls, **params):
-        """Generate maps through their associated diagram category."""
-        return cls.category.strategy(**params).map(
+    def strategy(cls, *, boundary_connected=True, **params):
+        """Generate maps through diagrams with optional closed components."""
+        if not boundary_connected and cls.require_connected:
+            from hypothesis import strategies as st
+            return st.nothing()
+        return cls.category.strategy(
+            boundary_connected=boundary_connected, **params).map(
             lambda diagram: diagram.to_map())
 
     @classproperty
