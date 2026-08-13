@@ -59,12 +59,12 @@
 \node [style=none, fill=white, right] (56) at (6.0625, 0.1875) {1};
 \node [] (57) at (6.0, 0) {};
 \node [style=X, scale=0.378] (58) at (1.0, 3.0) {};
-\node [style=Z, scale=0.378] (58) at (1.0, 2.0) {};
-\node [style=symbol, scale=0.378] (58) at (2.5, 2.5) {=};
-\node [style=Z, scale=0.378] (59) at (4.0, 4.5) {};
-\node [style=Z, scale=0.378] (59) at (6.0, 3.5) {};
-\node [style=X, scale=0.378] (59) at (4.0, 1.5) {};
-\node [style=X, scale=0.378] (59) at (6.0, 0.5) {};
+\node [style=Z, scale=0.378] (59) at (1.0, 2.0) {};
+\node [style=symbol, scale=0.378] (60) at (2.5, 2.5) {=};
+\node [style=Z, scale=0.378] (61) at (4.0, 4.5) {};
+\node [style=Z, scale=0.378] (62) at (6.0, 3.5) {};
+\node [style=X, scale=0.378] (63) at (4.0, 1.5) {};
+\node [style=X, scale=0.378] (64) at (6.0, 0.5) {};
 \end{pgfonlayer}
 \begin{pgfonlayer}{edgelayer}
 \draw [style=box] (1.center) to (2.center) to (3.center) to (4.center) to (1.center);
