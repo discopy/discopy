@@ -86,6 +86,15 @@ def test_nonlinear_eval():
 
     discarded, = Y(lambda y: X(lambda x: g(x)(x))).eval().boxes
     assert any(isinstance(box, Discard) for box in discarded.arg.boxes)
+def test_context_dom():
+    """
+    `Context.dom` instantiates `category.ob` before calling `.tensor`, so
+    it works both for an empty context (regression test for #549) and for
+    a non-empty one.
+    """
+    X = Ty('X')
+    assert Context([]).dom == Ty()
+    assert Context([Variable('x', X)]).dom == X
 
 
 def test_discard():

@@ -277,7 +277,7 @@ class Context:
 
     @property
     def dom(self):
-        return self.category.ob.tensor(*[x.cod for x in self.inside])
+        return self.category.ob().tensor(*[x.cod for x in self.inside])
 
 
 @dataclass
