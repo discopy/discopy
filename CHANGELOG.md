@@ -88,6 +88,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `frobenius.Diagram.unfuse`'s doctest no longer sets `Spider.color = "red"`
+  to draw its example, which was leaking into every later doctest in the
+  same pytest process
+  ([#522](https://github.com/discopy/discopy/issues/522)).
 - Tensor networks are contracted with `opt_einsum` when the number of
   indices exceeds `numpy.einsum`'s 52-index limit
   ([#448](https://github.com/discopy/discopy/pull/448)).
@@ -107,6 +111,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - TikZ wires combining a style with a computed looseness, e.g. the arrow of
   a measure, emitted `->looseness=...` without the separating comma
   ([#515](https://github.com/discopy/discopy/issues/515)).
+- `closed.Context.dom` called `category.ob.tensor` unbound, which raised
+  `TypeError` for an empty context instead of returning `Ty()`
+  ([#549](https://github.com/discopy/discopy/issues/549)).
 
 ### Performance
 

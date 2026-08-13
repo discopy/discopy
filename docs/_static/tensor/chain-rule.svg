@@ -2,19 +2,6 @@
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
   "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 <svg xmlns:xlink="http://www.w3.org/1999/xlink" width="540pt" height="576pt" viewBox="0 0 540 576" xmlns="http://www.w3.org/2000/svg" version="1.1">
- <metadata>
-  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
-   <cc:Work>
-    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
-    <dc:format>image/svg+xml</dc:format>
-    <dc:creator>
-     <cc:Agent>
-      <dc:title>Matplotlib v3.10.9, https://matplotlib.org/</dc:title>
-     </cc:Agent>
-    </dc:creator>
-   </cc:Work>
-  </rdf:RDF>
- </metadata>
  <defs>
   <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
  </defs>
@@ -786,10 +773,10 @@ z
      <use xlink:href="#C0_0_8c61628325" x="252" y="288" style="fill: #ffffff; stroke: #ffffff"/>
     </g>
     <g clip-path="url(#p92beea22b9)">
-     <use xlink:href="#C0_0_8c61628325" x="396" y="36" style="fill: #e8a5a5; stroke: #e8a5a5"/>
+     <use xlink:href="#C0_0_8c61628325" x="396" y="36" style="stroke: #000000"/>
     </g>
     <g clip-path="url(#p92beea22b9)">
-     <use xlink:href="#C0_0_8c61628325" x="414" y="540" style="fill: #e8a5a5; stroke: #e8a5a5"/>
+     <use xlink:href="#C0_0_8c61628325" x="414" y="540" style="stroke: #000000"/>
     </g>
    </g>
    <g id="text_1">
