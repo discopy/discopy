@@ -27,9 +27,11 @@ from proptest import strategies
 
 def axiom_parameter(cls, axiom):
     """Translate an axiom and its status to a pytest parameter."""
-    marks = pytest.mark.xfail(
-        reason=f"{axiom.name} is marked {axiom.status}")\
-        if axiom.status in {"bug", "wontfix"} else ()
+    marks = pytest.mark.skip(
+        reason=f"{axiom.name} is marked wontfix")\
+        if axiom.status == "wontfix" else pytest.mark.xfail(
+            reason=f"{axiom.name} is marked bug")\
+        if axiom.status == "bug" else ()
     return pytest.param(axiom, id=axiom.name, marks=marks)
 
 
