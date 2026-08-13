@@ -303,7 +303,9 @@ def test_mixed_Layer_plumbing():
     assert diagram.boxes == [permutation, f]
     assert diagram.offsets == [0, 2]
     assert list(diagram.normalize()) == []
-    assert diagram.interchange(0, 0) == diagram
+    # A permutation is a box, so this layer holds two and cannot interchange.
+    with raises(NotImplementedError):
+        diagram.interchange(0, 0)
     g = Box('g', z, z)
     staircase = permutation @ z >> y @ x @ f
     assert staircase.substitute(1, g) == permutation @ z >> y @ x @ g

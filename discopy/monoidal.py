@@ -1173,6 +1173,10 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
             j : Index of the new position for the box.
             left : Whether to apply left interchangers.
 
+        Raises:
+            IndexError : If ``i`` or ``j`` is not the index of a layer.
+            NotImplementedError : If some layer has more than one box.
+
         Note
         ----
         By default, we apply right interchangers::
@@ -1185,14 +1189,12 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
             top >> left @ box1     @ mid @ box0.dom @ right\\
                 >> left @ box1.cod @ mid @ box0     @ right >> bottom
         """
-        if i == j:
-            if not 0 <= i < len(self):
-                raise IndexError
-            return self
-        if any(len(layer.boxes) != 1 for layer in self.inside):
-            raise NotImplementedError
         if not 0 <= i < len(self) or not 0 <= j < len(self):
             raise IndexError
+        if any(len(layer.boxes) != 1 for layer in self.inside):
+            raise NotImplementedError
+        if i == j:
+            return self
         if j < i - 1:
             result = self
             for k in range(i - j):

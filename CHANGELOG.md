@@ -55,7 +55,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `Layer` is a `ColouredMonoid`, i.e. it defines `tensor` and inherits `@`
   from it, and `Layer.cast` is removed since `Layer(box)` already builds the
   singleton layer. `symmetric.Layer` follows with "permutation" in place of
-  "type" ([#438](https://github.com/discopy/discopy/pull/438)).
+  "type". `Diagram.interchange` checks its preconditions up front, so an
+  out-of-range index raises `IndexError` and a diagram with more than one box
+  in a layer raises `NotImplementedError` even when `i == j`
+  ([#438](https://github.com/discopy/discopy/pull/438)).
 - `Arrow` is refactored onto a `FreeCategory` base class
   ([#350](https://github.com/discopy/discopy/pull/350)).
 - The `tensor` module is refactored to go through `CMap` for `einsum`

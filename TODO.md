@@ -254,5 +254,20 @@ Alexis 🚀'd daydream6728's `interchange` precondition suggestion (2026-08-12T0
 >             return self
 > ```
 
-- [WIP] @nkvu7p-2026-08-13 00:15 Lift `Diagram.interchange`'s preconditions to the top of the
-  function in the suggested order, keeping the `len(layer.boxes) != 1` spelling of the guard
+- [x] Lift `Diagram.interchange`'s preconditions to the top of the function in the suggested
+  order, keeping the `len(layer.boxes) != 1` spelling of the guard
+
+The two predicates are equal by construction (`len(boxes_and_types) == 2 * len(boxes) + 1`, see
+the third round above), so the suggestion is applied on the new representation rather than through
+the compatibility shim. Lifting them changes behaviour in two places, both of them the point:
+
+- `interchange(i, j)` with `j` out of range now raises `IndexError` rather than
+  `NotImplementedError`, since the indices are checked before the layers.
+- `interchange(i, i)` on a diagram with more than one box in some layer now raises
+  `NotImplementedError` rather than returning `self`. The precondition is that the diagram can be
+  interchanged at all; the identity case is no longer an exception to it. Two tests asserted the
+  old shortcut and now assert the precondition, including `test_mixed_Layer_plumbing` where a
+  `symmetric.Permutation` is a second box in the layer.
+
+Verification: `pflake8 discopy` clean, `pytest --skip-extra` gives 627 passed, 51 skipped, with
+`main` at `bd76446` merged in.

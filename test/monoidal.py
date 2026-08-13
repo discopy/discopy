@@ -341,8 +341,13 @@ def test_Diagram_interchange():
     x, y = Ty('x'), Ty('y')
     f = Box('f', x, y)
     d = f @ f.dagger()
-    with raises(NotImplementedError):
-        d.foliation().interchange(0, 1)
+    # The preconditions come first, in order: the indices then the layers.
+    folded = (d >> d.dagger()).foliation()
+    with raises(IndexError):
+        folded.interchange(0, 2)
+    for i, j in [(0, 1), (0, 0)]:
+        with raises(NotImplementedError):
+            folded.interchange(i, j)
     # Interchange needs one box per layer, not three components: a layer with
     # plumbing on one side only holds two, and still interchanges.
     assert [len(layer.boxes_or_types) for layer in d.inside] == [2, 2]
