@@ -74,3 +74,18 @@ traced.Diagram."
   #349); `para.Symmetric` declares `SymmetricCategory` again, `Markov` moves
   back onto `Symmetric`, and `Traced`'s bases flip to `(TracedCategory,
   Symmetric)` to keep the MRO consistent with `CompactCategory`
+
+Round 6 (USER, review, 2026-08-13, verbatim on abc.py): "No this makes no
+sense whatsoever just revert. The original definition was correct here." and
+"This is what you were supposed to do: class SymmetricCategory[C0, C1](
+BraidedCategory[C0, C1]):" — the split lives at symmetric, not balanced;
+"move Balanced further down, just before RibbonCategory"; the twist "will
+move further down when symmetric and balanced meet again, i.e. in compact".
+
+- [WIP] @eloquent-pasteur-2026-08-13 07:33 revert `BalancedCategory(BraidedCategory, TracedCategory)`; make
+  `SymmetricCategory` extend `BraidedCategory` directly; move `Balanced` just
+  before `RibbonCategory`; `twist = id` moves to `CompactCategory`
+- [WIP] @eloquent-pasteur-2026-08-13 07:33 keep only `FongEtAl19` in the bib, drop `Gavranovic24` and
+  `CapucciEtAl22`, trim the docstring citation
+- [WIP] @eloquent-pasteur-2026-08-13 07:33 drop the `not hasattr(Symmetric, "trace")` assert and the doctest-
+  repeating half of `test_python`
