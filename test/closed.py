@@ -202,6 +202,15 @@ def test_substitution():
     term = X(lambda y: f(y))
     assert Substitution({f: h(y)(y_)})(term)\
         == Abstraction(y__, h(y)(y_)(y__))
+def test_context_dom():
+    """
+    `Context.dom` instantiates `category.ob` before calling `.tensor`, so
+    it works both for an empty context (regression test for #549) and for
+    a non-empty one.
+    """
+    X = Ty('X')
+    assert Context([]).dom == Ty()
+    assert Context([Variable('x', X)]).dom == X
 
 
 def test_discard():
