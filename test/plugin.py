@@ -18,6 +18,8 @@ def pytest_addoption(parser):
     parser.addoption("--skip-extra", action="store_true", help=(
         "Skip what needs a dependency outside `uv sync --dev`, rather than "
         "fail. Nothing is skipped once the extras are installed."))
+    parser.addoption("--bugs", choices=("xfail", "skip"), default="xfail",
+                     help="Whether axioms marked bug are xfailed or skipped.")
 
 
 def pytest_ignore_collect(collection_path, config):
@@ -28,9 +30,13 @@ def pytest_ignore_collect(collection_path, config):
 
 def pytest_collection_modifyitems(config, items):
     """ A doctest marked ``+EXTRA`` is skipped. """
-    if not config.getoption("--skip-extra"):
-        return
     for item in items:
-        if isinstance(item, DoctestItem) and item.dtest is not None and any(
+        if config.getoption("--skip-extra") and isinstance(
+                item, DoctestItem) and item.dtest is not None and any(
                 "+EXTRA" in e.source for e in item.dtest.examples):
             item.add_marker(pytest.mark.skip(reason="needs an extra"))
+        axiom = getattr(getattr(item, "callspec", None), "params", {}).get(
+            "axiom")
+        if config.getoption("--bugs") == "skip" and getattr(
+                axiom, "status", None) == "bug":
+            item.add_marker(pytest.mark.skip(reason=f"{axiom.name} is a bug"))
