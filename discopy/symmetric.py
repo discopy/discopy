@@ -146,7 +146,11 @@ class Layer(monoidal.Layer):
 
     @classmethod
     def normalise(cls, inside):
-        """ Normalise identity permutations to their underlying types. """
+        """
+        Normalise identity permutations to their underlying types, so a
+        layer whose only component is an identity permutation raises the
+        same :class:`ValueError` as a layer without a box.
+        """
         return super().normalise(
             value.dom
             if isinstance(value, Permutation) and hasattr(value, 'perm')

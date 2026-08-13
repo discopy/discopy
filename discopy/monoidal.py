@@ -595,8 +595,24 @@ class Layer(cat.Box, ColouredMonoid):
         self.boxes_or_types = tuple(inside)
         if normalise and not self.boxes:
             raise ValueError(messages.LAYERS_MUST_HAVE_A_BOX)
-        self.data, self.is_dagger = None, False
-        self.inside = (self, )
+
+    data, is_dagger = None, False
+
+    @classmethod
+    def id(cls, dom: Ty = None) -> Layer:
+        """
+        The identity layer on a type, i.e. plumbing and no box, used by
+        :meth:`discopy.abc.ColouredMonoid.whisker` as argument of
+        :meth:`tensor`.
+
+        Parameters:
+            dom : The type to embed as plumbing.
+        """
+        return cls(cls.ob() if dom is None else dom, normalise=False)
+
+    @cached_property
+    def inside(self):
+        return (self, )
 
     @cached_property
     def name(self):
@@ -623,18 +639,20 @@ class Layer(cat.Box, ColouredMonoid):
     def check(inside):
         """
         Check that the components are types and boxes whose domains and
-        codomains tensor, i.e. their colours compose pairwise.
+        codomains tensor, i.e. one linear pass comparing the colours of
+        each adjacent pair on both rows.
         """
-        previous = None
         for value in inside:
             assert_isinstance(value, (Ty, Box))
-            pieces = (value, value) if isinstance(value, Ty)\
-                else (value.dom, value.cod)
-            for left, right in zip(previous or (), pieces):
-                if left.cod != right.dom:
-                    raise AxiomError(messages.NOT_COMPOSABLE.format(
-                        left, right, left.cod, right.dom))
-            previous = pieces
+        rows = [(x, x) if isinstance(x, Ty) else (x.dom, x.cod)
+                for x in inside]
+        for (dom, cod), (dom_, cod_) in zip(rows, rows[1:]):
+            if dom.cod != dom_.dom:
+                raise AxiomError(messages.NOT_COMPOSABLE.format(
+                    dom, dom_, dom.cod, dom_.dom))
+            if cod.cod != cod_.dom:
+                raise AxiomError(messages.NOT_COMPOSABLE.format(
+                    cod, cod_, cod.cod, cod_.dom))
 
     @classmethod
     def normalise(cls, inside):
@@ -696,40 +714,15 @@ class Layer(cat.Box, ColouredMonoid):
         return factory_name(type(self))\
             + f"({', '.join(map(repr, self))})"
 
-    def tensor(self, other: Ty | Layer) -> Layer:
-        """ Whisker with a type or tensor with another layer, merging the
-        plumbing at their common boundary. ``@`` is inherited from
-        :class:`discopy.abc.ColouredMonoid`. """
-        if isinstance(other, type(self)):
-            if self.is_plumbing(self[-1]) and self.is_plumbing(other[0]):
-                inside = (*self[:-1], self[-1] @ other[0], *other[1:])
-            else:
-                inside = (*self, *other)
-            return type(self)(*inside, normalise=False)
-        assert_isinstance(other, Ty)
-        if not other:
-            if self.cod.cod != other.dom:
-                raise AxiomError(messages.NOT_COMPOSABLE.format(
-                    self.cod, other, self.cod.cod, other.dom))
-            return self
-        if self.is_plumbing(self[-1]):
-            inside = (*self[:-1], self[-1] @ other)
-        else:
-            inside = (*self, other)
-        return type(self)(*inside, normalise=False)
-
-    def __rmatmul__(self, other: Ty) -> Layer:
-        assert_isinstance(other, Ty)
-        if not other:
-            if other.cod != self.dom.dom:
-                raise AxiomError(messages.NOT_COMPOSABLE.format(
-                    other, self.dom, other.cod, self.dom.dom))
-            return self
-        if self.is_plumbing(self[0]):
-            inside = (other @ self[0], *self[1:])
-        else:
-            inside = (other, *self)
-        return type(self)(*inside, normalise=False)
+    def tensor(self, other: Ty | Box | Layer) -> Layer:
+        """ Tensor another layer, normalising the common boundary; types and
+        boxes are embedded as layers first, so ``@`` and its mirror image
+        both come from :class:`discopy.abc.ColouredMonoid`. """
+        other = type(self).whisker(other)
+        type(self).check((self[-1], other[0]))
+        return type(self)(
+            *self[:-1], *type(self).normalise((self[-1], other[0])),
+            *other[1:], normalise=False)
 
     @property
     def free_symbols(self) -> "set[sympy.Symbol]":

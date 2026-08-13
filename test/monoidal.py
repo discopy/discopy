@@ -229,20 +229,27 @@ def test_Layer_tensor():
     assert (Layer(f) @ Layer(g)).boxes_or_types == (f, g)
     assert (Layer(x, f) @ Layer(g) @ Layer(g, y)).boxes_or_types\
         == (x, f, g, g, y)
+    assert Layer(x, f) @ g == Layer(x, f, g)
+    assert x @ Layer(f) == Layer(x, f)
+    red, green = map(Colour, ("red", "green"))
+    coloured = Box('c', Ty(Wire('w', red, green)), Ty(Wire('w', red, green)))
+    with raises(AxiomError):
+        Layer(coloured) @ Layer(coloured)
     assert Layer.normalise((Ty(), x, f, y, z)) == (x, f, y @ z)
 
     class ScanLayer(Layer):
-        scans = 0
+        scans = []
 
         @classmethod
         def normalise(cls, inside):
-            cls.scans += 1
+            inside = tuple(inside)
+            cls.scans.append(len(inside))
             return super().normalise(inside)
 
     layers = [ScanLayer(f) for _ in range(4)]
-    assert ScanLayer.scans == 4
+    assert ScanLayer.scans == 4 * [1]
     assert (layers[0] @ layers[1] @ layers[2] @ layers[3]).boxes == 4 * [f]
-    assert ScanLayer.scans == 4
+    assert ScanLayer.scans == 4 * [1] + 3 * [2]
 
 
 def test_Diagram_init():

@@ -53,7 +53,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   invariant unless it is called with `normalise=False`, which the internal
   call sites do, so tensoring `n` layers is linear rather than quadratic.
   `Layer` is a `ColouredMonoid`, i.e. it defines `tensor` and inherits `@`
-  from it, and `Layer.cast` is removed since `Layer(box)` already builds the
+  and its right-whiskering mirror from it, embedding types and boxes as
+  layers, and `Layer.cast` is removed since `Layer(box)` already builds the
   singleton layer. `symmetric.Layer` follows with "permutation" in place of
   "type". `Diagram.interchange` checks its preconditions up front, so an
   out-of-range index raises `IndexError` and a diagram with more than one box
