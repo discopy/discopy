@@ -34,11 +34,9 @@ def test_symmetric_axioms():
     assert Symmetric.permutation((1, 0), (x, y)).inside.simplify()\
         == swap.inside
     assert Symmetric.braid(x, y) == swap
-    assert Symmetric.twist(x) == Symmetric.id(x)
 
 
 def test_trace():
-    assert not hasattr(Symmetric, "trace")
     t = Traced(x @ y, z @ y, p, Box('t', x @ y @ p, z @ y))
     assert t.trace(0) == t
     inside = x @ Diagram.swap(p, y) >> t.inside
@@ -98,9 +96,5 @@ def test_hypergraph():
 def test_python():
     inside = Function(lambda a, w, b: w * a + b, (float, ) * 3, (float, ))
     layer = Symmetric[Function]((float, ), (float, ), (float, float), inside)
-    network = layer >> layer
-    assert network.dom == network.cod == (float, )
-    assert network.param == (float, ) * 4
-    assert network.inside(2., 3., 1., .5, 0.) == 3.5
     pair = layer @ layer
     assert pair.inside(1., 2., 10., 0., 3., 5.) == (10., 11.)

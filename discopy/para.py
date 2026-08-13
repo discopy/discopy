@@ -6,9 +6,7 @@ The category of parametric maps over a symmetric underlying `category`.
 A parametric map from `x` to `y` with parameter space `p` is a morphism
 `x @ p -> y` in the underlying category. Composition tensors the parameters
 and tensor routes them to the right with a swap. Parametric maps first
-appeared in the study of supervised learning :cite:p:`FongEtAl19`, the
-construction is defined in generality with actegories in
-:cite:p:`CapucciEtAl22`, see also section 3.2.1 of :cite:t:`Gavranovic24`.
+appeared in the study of supervised learning :cite:p:`FongEtAl19`.
 
 Summary
 -------
@@ -231,7 +229,7 @@ class Symmetric(SymmetricCategory, NamedGeneric['category']):
                           self.dom @ arrow >> self.inside)
 
 
-class Traced(TracedCategory, Symmetric):
+class Traced(Symmetric, TracedCategory):
     """
     Parametric maps over a traced symmetric underlying `category` form a
     traced category, with the parameters swapped out of the way.

@@ -85,11 +85,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - Symmetric categories generate their swaps with `swap_factory` rather than
   `braid_factory`, which is now a `classproperty` reading it
   ([#440](https://github.com/discopy/discopy/pull/440)).
-- `abc.BalancedCategory` no longer inherits from `abc.TracedCategory`, so
-  balanced, symmetric and Markov categories are not required to implement
-  `trace`; the free diagram classes keep their freely interpreted traces by
-  subclassing `traced.Diagram`
-  ([#349](https://github.com/discopy/discopy/issues/349)).
+- `abc.SymmetricCategory` extends `abc.BraidedCategory` directly, so
+  symmetric and Markov categories are not required to implement `twist` and
+  `trace`; balanced categories stay traced, and the two branches meet again
+  in `abc.CompactCategory` where the twist is the identity. The free diagram
+  classes keep their freely interpreted traces by subclassing
+  `traced.Diagram` ([#349](https://github.com/discopy/discopy/issues/349)).
 
 ### Fixed
 
