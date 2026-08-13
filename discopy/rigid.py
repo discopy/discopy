@@ -379,7 +379,7 @@ class Diagram(biclosed.Diagram, RigidCategory):
     axiom_status = {
         "currying_left": "bug",
         "currying_right": "bug",
-        "snake_equations": "setoid",
+        "snake_equations": "normal",
     }
 
     to_drawing = monoidal.Diagram.to_drawing

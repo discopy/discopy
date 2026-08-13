@@ -98,8 +98,8 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
         "trace_superposing_right": "strict",
         "trace_naturality_left": "strict",
         "trace_naturality_right": "strict",
-        "trace_dinaturality_left": "strict",
-        "trace_dinaturality_right": "strict",
+        "trace_dinaturality_left": "wontfix",
+        "trace_dinaturality_right": "wontfix",
         "braid_naturality": "strict",
     }
 

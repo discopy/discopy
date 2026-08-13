@@ -65,7 +65,7 @@ class Equation[T](ABC):
 
 
 type AxiomStatus[T] = Literal[
-    "strict", "setoid", "bug", "wontfix"] | Callable[[T, T], object]
+    "strict", "setoid", "normal", "bug", "wontfix"] | Callable[[T, T], object]
 
 
 class Category[C0, C1: Category](ABC):
@@ -113,6 +113,8 @@ class Category[C0, C1: Category](ABC):
         if callable(status):
             return status, status
         if status == "setoid":
+            return status, cls.equation_factory
+        if status == "normal":
             return status, lambda *terms: cls.equation_factory(
                 *terms, up_to=cls.normal_form)
         return status, cls.equation_factory

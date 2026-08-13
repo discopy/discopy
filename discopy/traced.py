@@ -145,12 +145,12 @@ class Diagram(monoidal.Diagram, TracedCategory):
         cod (monoidal.Ty) : The codomain of the diagram, i.e. its output.
     """
     axiom_status = {
-        "trace_superposing_left": "bug",
-        "trace_superposing_right": "bug",
-        "trace_naturality_left": "bug",
-        "trace_naturality_right": "bug",
-        "trace_dinaturality_left": "bug",
-        "trace_dinaturality_right": "bug",
+        "trace_superposing_left": "wontfix",
+        "trace_superposing_right": "wontfix",
+        "trace_naturality_left": "wontfix",
+        "trace_naturality_right": "wontfix",
+        "trace_dinaturality_left": "wontfix",
+        "trace_dinaturality_right": "wontfix",
     }
 
     def trace(self, n=1, left=False):
