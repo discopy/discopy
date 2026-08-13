@@ -49,7 +49,8 @@ from typing import Callable, ClassVar, Generic, Literal, TypeVar
 from discopy.testing import (
     Axiom, Atomic, Bifunctor, ComposablePair, ComposableTriple,
     FeedbackJoining, FeedbackVanishing, HorizontalPair, LeftCurrying,
-    NonEmpty, RightCurrying, TraceSliding, TraceSuperposing, axiom)
+    NonEmpty, RightCurrying, TraceDinaturalityLeft, TraceDinaturalityRight,
+    TraceNaturalityLeft, TraceNaturalityRight, TraceSuperposing, axiom)
 from discopy.utils import classproperty, get_origin
 
 
@@ -366,38 +367,39 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
 
     @axiom
     def trace_naturality_left(
-            cls, sliding: TraceSliding[C0, C1], *, eq) -> Equation[C1]:
+            cls, sliding: TraceNaturalityLeft[C0, C1], *, eq) -> Equation[C1]:
         """ Left-oriented trace naturality. """
         f, x, g = sliding
         return eq(
-            (x @ g).then(f).then(x @ g).trace(left=True),
-            g.then(f.trace(left=True)).then(g))
+            (x @ g).then(f).then(x @ g).trace(len(x), left=True),
+            g.then(f.trace(len(x), left=True)).then(g))
 
     @axiom
     def trace_naturality_right(
-            cls, sliding: TraceSliding[C0, C1], *, eq) -> Equation[C1]:
+            cls, sliding: TraceNaturalityRight[C0, C1], *, eq) -> Equation[C1]:
         """ Right-oriented trace naturality. """
         f, x, g = sliding
         return eq(
-            (g @ x).then(f).then(g @ x).trace(),
-            g.then(f.trace()).then(g))
+            (g @ x).then(f).then(g @ x).trace(len(x)),
+            g.then(f.trace(len(x))).then(g))
 
     @axiom
     def trace_dinaturality_left(
-            cls, sliding: TraceSliding[C0, C1], *, eq) -> Equation[C1]:
+            cls, sliding: TraceDinaturalityLeft[C0, C1], *, eq) -> Equation[C1]:
         """ Left-oriented trace dinaturality. """
         f, x, g = sliding
         return eq(
-            f.then(g @ x).trace(left=True),
-            (g @ x).then(f).trace(left=True))
+            f.then(g @ x).trace(len(x), left=True),
+            (g @ x).then(f).trace(len(x), left=True))
 
     @axiom
     def trace_dinaturality_right(
-            cls, sliding: TraceSliding[C0, C1], *, eq) -> Equation[C1]:
+            cls, sliding: TraceDinaturalityRight[C0, C1], *, eq) -> Equation[C1]:
         """ Right-oriented trace dinaturality. """
         f, x, g = sliding
         return eq(
-            f.then(x @ g).trace(), (x @ g).then(f).trace())
+            f.then(x @ g).trace(len(x)),
+            (x @ g).then(f).trace(len(x)))
 
 
 class ResiduatedMonoid[C0, C1: ResiduatedMonoid](ColouredMonoid[C0, C1]):

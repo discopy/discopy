@@ -14,7 +14,13 @@ if TYPE_CHECKING:
 
 
 class Strategy[T](ABC):
-    """A type with a canonical property-test strategy."""
+    """
+    A type with a canonical property-test strategy.
+    Using ``hypothesis``, we can get the default search strategy dispatch
+    through any object that defines a method called ``draw``, but this
+    would conflict with our existing ``draw`` methods, so we do it manually
+    with this custom trait.
+    """
 
     @classmethod
     @abstractmethod
@@ -183,22 +189,56 @@ class TraceSuperposing[C0, C1](
 
 class TraceSliding[C0, C1](
         Strategy[tuple[C1, C0, C1]], tuple[C1, C0, C1]):
-    """ Arguments satisfying the trace sliding boundaries. """
+    """ Arguments for trace sliding over an arbitrary traced type. """
+
+    left: ClassVar[bool]
 
     def __new__(cls, traced: C1, obj: C0, sliding: C1):
-        if sliding.dom != obj or sliding.cod != obj:
-            raise ValueError("Expected an endomorphism on the sliding object.")
-        if traced.dom != obj @ obj or traced.cod != obj @ obj:
-            raise ValueError("Expected an endomorphism on two copies.")
+        traced_dom = obj @ sliding.cod if cls.left else sliding.cod @ obj
+        traced_cod = obj @ sliding.dom if cls.left else sliding.dom @ obj
+        if (traced.dom, traced.cod) != (traced_dom, traced_cod):
+            raise ValueError("Expected compatible trace sliding boundaries.")
         return super().__new__(cls, (traced, obj, sliding))
 
     @classmethod
     def strategy(cls, *, factory: type[C1]):
-        """Generate identities satisfying the trace sliding boundaries."""
-        object_type, arrow_type = factory.ob, factory
-        return object_type.strategy().filter(lambda obj: len(obj) == 1).map(
-            lambda obj: cls(
-                arrow_type.id(obj @ obj), obj, arrow_type.id(obj)))
+        """Generate non-trivial morphisms with compatible trace boundaries."""
+        from hypothesis import strategies as st
+
+        objects = factory.ob.strategy()
+        traced = factory.ob.strategy(min_length=1)
+
+        def morphisms(args):
+            obj, dom, cod = args
+            traced_dom = obj @ cod if cls.left else cod @ obj
+            traced_cod = obj @ dom if cls.left else dom @ obj
+            return st.tuples(
+                factory.strategy(
+                    dom=traced_dom, cod=traced_cod, min_leaves=1),
+                factory.strategy(dom=dom, cod=cod, min_leaves=1)).map(
+                    lambda pair: cls(pair[0], obj, pair[1]))
+
+        return st.tuples(traced, objects, objects).flatmap(morphisms)
+
+
+class TraceNaturalityLeft[C0, C1](TraceSliding[C0, C1]):
+    """ Arguments for left-oriented trace naturality. """
+
+    left = True
+
+
+class TraceNaturalityRight[C0, C1](TraceSliding[C0, C1]):
+    """ Arguments for right-oriented trace naturality. """
+
+    left = False
+
+
+class TraceDinaturalityLeft[C0, C1](TraceNaturalityRight[C0, C1]):
+    """ Arguments for left-oriented trace dinaturality. """
+
+
+class TraceDinaturalityRight[C0, C1](TraceNaturalityLeft[C0, C1]):
+    """ Arguments for right-oriented trace dinaturality. """
 
 
 class LeftCurrying[C0, C1](

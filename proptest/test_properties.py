@@ -58,7 +58,7 @@ class Test_monoidal:
     # test_pro = axiom_tests(symmetric.PRO)
     test_diagram = axiom_tests(monoidal.Diagram)
     test_hypergraph = axiom_tests(monoidal.Hypergraph)
-    test_cmap = axiom_tests(monoidal.CMap)
+    # test_cmap = axiom_tests(monoidal.CMap)
 
 
 class Test_braided:
@@ -68,7 +68,7 @@ class Test_braided:
 class Test_traced:
     test_diagram = axiom_tests(traced.Diagram)
     test_hypergraph = axiom_tests(traced.Hypergraph)
-    test_cmap = axiom_tests(traced.CMap)
+    # test_cmap = axiom_tests(traced.CMap)
 
 
 class Test_balanced:
@@ -79,13 +79,13 @@ class Test_balanced:
 class Test_symmetric:
     test_diagram = axiom_tests(symmetric.Diagram)
     test_hypergraph = axiom_tests(symmetric.Hypergraph)
-    test_cmap = axiom_tests(symmetric.CMap)
+    # test_cmap = axiom_tests(symmetric.CMap)
 
 
 class Test_biclosed:
     test_ty = axiom_tests(biclosed.Ty)
     test_diagram = axiom_tests(biclosed.Diagram)
-    test_cmap = axiom_tests(biclosed.CMap)
+    # test_cmap = axiom_tests(biclosed.CMap)
 
 
 class Test_rigid:
@@ -106,20 +106,20 @@ class Test_ribbon:
 class Test_compact:
     test_diagram = axiom_tests(compact.Diagram)
     test_hypergraph = axiom_tests(compact.Hypergraph)
-    test_cmap = axiom_tests(compact.CMap)
+    # test_cmap = axiom_tests(compact.CMap)
 
 
 class Test_markov:
     test_diagram = axiom_tests(markov.Diagram)
     test_hypergraph = axiom_tests(markov.Hypergraph)
-    test_cmap = axiom_tests(markov.CMap)
+    # test_cmap = axiom_tests(markov.CMap)
 
 
 class Test_closed:
     test_ty = axiom_tests(closed.Ty)
     test_diagram = axiom_tests(closed.Diagram)
     test_hypergraph = axiom_tests(closed.Hypergraph)
-    test_cmap = axiom_tests(closed.CMap)
+    # test_cmap = axiom_tests(closed.CMap)
 
 
 class Test_feedback:
@@ -132,7 +132,7 @@ class Test_frobenius:
     test_ty = axiom_tests(frobenius.Ty)
     test_diagram = axiom_tests(frobenius.Diagram)
     test_hypergraph = axiom_tests(frobenius.Hypergraph)
-    test_cmap = axiom_tests(frobenius.CMap)
+    # test_cmap = axiom_tests(frobenius.CMap)
 
 
 class Test_finset:

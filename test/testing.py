@@ -14,7 +14,7 @@ from discopy import balanced, cat, feedback, monoidal, traced
 from discopy.python import finset
 from discopy.testing import (
     Atomic, ComposablePair, FeedbackJoining, FeedbackVanishing, Natural,
-    NonEmpty, TraceSliding, axiom)
+    NonEmpty, TraceNaturalityLeft, axiom)
 from discopy.utils import AxiomError
 
 
@@ -48,11 +48,11 @@ def test_PastingDiagram():
 
 
 def test_TraceSliding():
-    x = traced.Ty('x')
+    x, y = map(traced.Ty, "xy")
     with raises(ValueError):
-        TraceSliding(traced.Id(x @ x), x, traced.Id(x @ x))
+        TraceNaturalityLeft(traced.Id(x @ y), x, traced.Id(x))
     with raises(ValueError):
-        TraceSliding(traced.Id(x), x, traced.Id(x))
+        TraceNaturalityLeft(traced.Id(y @ x), x, traced.Id(y))
 
 
 def test_Feedback():
