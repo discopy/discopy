@@ -237,3 +237,22 @@ Verification: `pflake8 discopy` clean, `pytest --skip-extra` gives 626 passed, 5
 fewer than the 627 above because the removed `Layer.cast` docstring carried a doctest. Chaining
 4000 layers with `@` still takes 0.44s, and `eval(repr(layer)) == layer` still holds for monoidal
 and symmetric layers including permutation plumbing.
+
+## Review follow-up (2026-08-12, fourth round — the last open thread)
+
+Alexis 🚀'd daydream6728's `interchange` precondition suggestion (2026-08-12T06:47:01Z), verbatim:
+
+> lifting checks at the beginning of the function would avoid duplication, make it more clear what
+> are the preconditions and catch more bugs.
+>
+> ```suggestion
+>         if not 0 <= i < len(self) or not 0 <= j < len(self):
+>             raise IndexError
+>         if any(len(layer.boxes_and_types) != 3 for layer in self.inside):
+>             raise NotImplementedError
+>         if i == j:
+>             return self
+> ```
+
+- [WIP] @nkvu7p-2026-08-13 00:15 Lift `Diagram.interchange`'s preconditions to the top of the
+  function in the suggested order, keeping the `len(layer.boxes) != 1` spelling of the guard
