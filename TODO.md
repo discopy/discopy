@@ -280,17 +280,23 @@ Instruction from Alexis, verbatim:
 
 The seven unresolved review comments from the 08:18–08:23 UTC round:
 
-- [WIP] @session_01Ccnp1AHjaZtji7KRef7xP4-2026-08-13 15:36 Hoist the
+- [x] Hoist the
   composability check to the top of `tensor` so a non-composable tensor
   raises, reusing `check` on the boundary pair
-- [WIP] @session_01Ccnp1AHjaZtji7KRef7xP4-2026-08-13 15:36 Drop
+- [x] Drop
   `__rmatmul__`: give `ColouredMonoid` the `whisker`/`__rmatmul__` pair that
   `MonoidalCategory` already has, with `Layer.id` embedding a type as
   plumbing, so both whiskerings go through the one `tensor`
-- [WIP] @session_01Ccnp1AHjaZtji7KRef7xP4-2026-08-13 15:36 Flatten `check`
+- [x] Flatten `check`
   to one comparison loop and make its linearity obvious
-- [WIP] @session_01Ccnp1AHjaZtji7KRef7xP4-2026-08-13 15:36 Replace the
+- [x] Replace the
   manual superclass state in `__init__` by class-level declarations
-- [WIP] @session_01Ccnp1AHjaZtji7KRef7xP4-2026-08-13 15:36 Answer where the
+- [x] Answer where the
   singleton-identity-permutation check lives and say it in the
   `symmetric.Layer.normalise` docstring
+
+Verification: `pflake8 discopy` clean, `pytest --skip-extra` gives 627
+passed, 51 skipped. Chaining 4000 layers with `@` takes 0.24s, and each
+tensor normalises exactly the two boundary components, pinned by the
+`ScanLayer` test. Non-composable tensors now raise `AxiomError` eagerly,
+pinned with coloured wires in `test_Layer_tensor`.
