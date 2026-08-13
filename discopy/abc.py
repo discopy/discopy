@@ -378,7 +378,8 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
 
     @axiom
     def trace_naturality_right(
-            cls, sliding: TraceNaturalityRight[C0, C1], *, eq) -> Equation[C1]:
+            cls, sliding: TraceNaturalityRight[C0, C1],
+            *, eq) -> Equation[C1]:
         """ Right-oriented trace naturality. """
         f, x, g = sliding
         return eq(
@@ -387,7 +388,8 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
 
     @axiom
     def trace_dinaturality_left(
-            cls, sliding: TraceDinaturalityLeft[C0, C1], *, eq) -> Equation[C1]:
+            cls, sliding: TraceDinaturalityLeft[C0, C1],
+            *, eq) -> Equation[C1]:
         """ Left-oriented trace dinaturality. """
         f, x, g = sliding
         return eq(
@@ -396,7 +398,8 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
 
     @axiom
     def trace_dinaturality_right(
-            cls, sliding: TraceDinaturalityRight[C0, C1], *, eq) -> Equation[C1]:
+            cls, sliding: TraceDinaturalityRight[C0, C1],
+            *, eq) -> Equation[C1]:
         """ Right-oriented trace dinaturality. """
         f, x, g = sliding
         return eq(

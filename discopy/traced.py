@@ -180,7 +180,6 @@ class Diagram(monoidal.Diagram, TracedCategory):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
 
 
-
 class Box(monoidal.Box, Diagram):
     """
     A traced box is a monoidal box in a traced diagram.

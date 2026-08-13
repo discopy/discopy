@@ -123,6 +123,7 @@ class Diagram(symmetric.Diagram, MarkovCategory):
         "trace_dinaturality_right": "wontfix",
         "braid_naturality": "strict",
     }
+
     @classmethod
     def spider_factory(cls, n_legs_in, n_legs_out, typ, phase=None):
         if phase is not None or 1 not in (n_legs_in, n_legs_out):
