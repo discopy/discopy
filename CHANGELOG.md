@@ -94,6 +94,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `frobenius.Diagram.unfuse`'s doctest no longer sets `Spider.color = "red"`
+  to draw its example, which was leaking into every later doctest in the
+  same pytest process
+  ([#522](https://github.com/discopy/discopy/issues/522)).
 - Tensor networks are contracted with `opt_einsum` when the number of
   indices exceeds `numpy.einsum`'s 52-index limit
   ([#448](https://github.com/discopy/discopy/pull/448)).
@@ -110,6 +114,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   input of the controlled box rather than its first one, so gates with a
   classical wire or a distance other than one are drawn on the right wires
   ([#439](https://github.com/discopy/discopy/pull/439)).
+- `closed.Context.dom` called `category.ob.tensor` unbound, which raised
+  `TypeError` for an empty context instead of returning `Ty()`
+  ([#549](https://github.com/discopy/discopy/issues/549)).
 
 ### Performance
 
