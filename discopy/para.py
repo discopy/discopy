@@ -109,7 +109,8 @@ from discopy.abc import (
     ClosedCategory, CompactCategory, FeedbackCategory, HypergraphCategory,
     MarkovCategory, NamedGeneric, SymmetricCategory, TracedCategory)
 from discopy.utils import (
-    AxiomError, assert_isinstance, classproperty, unbiased)
+    AxiomError, assert_iscomposable, assert_isinstance, classproperty,
+    unbiased)
 
 
 @dataclass
@@ -183,8 +184,7 @@ class Symmetric(SymmetricCategory, NamedGeneric['category']):
             other : The parametric map to compose with.
         """
         assert_isinstance(other, type(self))
-        if not self.is_composable(other):
-            raise AxiomError(f"{self.cod} != {other.dom}")
+        assert_iscomposable(self, other)
         return type(self)(self.dom, other.cod, self.param + other.param,
                           self.inside @ other.param >> other.inside)
 
@@ -234,8 +234,7 @@ class Symmetric(SymmetricCategory, NamedGeneric['category']):
         .. image:: /_static/para/reparam.svg
             :align: center
         """
-        if other.cod != self.param:
-            raise AxiomError(f"{other.cod} != {self.param}")
+        assert_iscomposable(self.dom @ other, self.inside)
         return type(self)(self.dom, self.cod, other.dom,
                           self.dom @ other >> self.inside)
 
