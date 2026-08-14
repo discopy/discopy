@@ -42,7 +42,7 @@ Frobenius
 >>> frobenius = Equation(
 ...     split @ x >> x @ merge, merge >> split, x @ split >> merge @ x)
 >>> assert frobenius
->>> frobenius.draw(path="docs/_static/frobenius/frobenius.svg")
+>>> frobenius.draw(doctest="docs/_static/frobenius/frobenius.svg")
 
 .. image:: /_static/frobenius/frobenius.svg
     :align: center
@@ -52,7 +52,7 @@ Speciality
 
 >>> special = Equation(split >> merge, Spider(1, 1, x), Id(x))
 >>> assert special
->>> special.draw(path="docs/_static/frobenius/special.svg")
+>>> special.draw(doctest="docs/_static/frobenius/special.svg")
 
 .. image:: /_static/frobenius/special.svg
     :align: center
@@ -155,9 +155,8 @@ class Diagram(compact.Diagram, markov.Diagram, HypergraphCategory):
         Example
         -------
         >>> spider = Spider(3, 5, Ty(''), "$\\\\phi$") @ Ty()
-        >>> Spider.color = "red"
         >>> Equation(spider, spider.unfuse(), symbol="$\\\\mapsto$").draw(
-        ...     path='docs/_static/hypergraph/unfuse.svg')
+        ...     doctest='docs/_static/hypergraph/unfuse.svg')
 
         .. image:: /_static/hypergraph/unfuse.svg
             :align: center
@@ -387,7 +386,7 @@ class CMap(compact.CMap):
 Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
-Diagram.braid_factory, Diagram.spider_factory = Swap, Spider
+Diagram.swap_factory, Diagram.spider_factory = Swap, Spider
 Diagram.bubble_factory = Bubble
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Id = Diagram.id

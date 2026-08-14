@@ -66,6 +66,8 @@ def _rounded_repr(obj):
 @pytest.mark.parametrize('version', ['0.6', '1.2'])
 @pytest.mark.parametrize('fn', listdir('test/fixtures/pickles/1.3/'))
 def test_pickle_version_compatibility(fn, version):
+    if fn == 'quantum.Circuit.pickle':
+        pytest.importorskip("pytket")
     with open(f"test/fixtures/pickles/1.3/{fn}", 'rb') as f:
         new = pickle.load(f)
     with open(f"test/fixtures/pickles/{version}/{fn}", 'rb') as f:

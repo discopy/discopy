@@ -60,39 +60,53 @@ uv run coverage run -m pytest
 uv run coverage report -m
 ```
 
+Without the extras installed, run `uv run pytest --skip-extra` to skip what needs them.
+
 ## Run the benchmarks
 
-The composition benchmark (`benchmark/test_composition.py`) reproduces the scaling
-experiments of arXiv:2105.09257 for both `Diagram` and `Hypergraph`. It lives
-outside `testpaths`, so the normal `pytest` run never collects it — run it
-explicitly. Each `(case, size)` is a declarative
-[`pytest-benchmark`](https://pytest-benchmark.readthedocs.io) test — the fixture
-owns timing (CPU clock, GC disabled, median of a few rounds), so there is no
-hand-rolled timing code.
+`benchmark/test_composition.py` reproduces the scaling experiments of
+arXiv:2105.09257 for `Diagram` and `Hypergraph`, with analogous `CMap` cases;
+`benchmark/test_conversion.py` covers conversions between all three. They live
+outside `testpaths`, so run them explicitly. Results are keyed by suite
+(`composition` or `conversion`), family (representation or conversion), case
+(workload) and size `n`. Each data point is a declarative
+[`pytest-benchmark`](https://pytest-benchmark.readthedocs.io) test; the fixture
+owns timing (CPU clock and GC disabled) and automatically calibrates rounds
+and iterations for each workload.
 
 ```shell
 uv sync --group dev
 # small/medium sizes (the default); add BENCH_FLAGS=bench:full for the heavy tail
 uv run pytest benchmark/ -v --benchmark-json=benchmark-results/bench.json
-# render the scaling table + log-log plot (polars + matplotlib)
+# render the scaling tables + log-log plots (polars + matplotlib)
 uv run python benchmark/report.py benchmark-results/bench.json
 ```
 
-`report.py` writes `results.md`, `results.csv` and `scaling.png` into
-`benchmark-results/`. To gate on a regression, pass a committed baseline:
+`report.py` writes `NAME-results.{html,md,csv}` with family row groups and
+`NAME-scaling.png` for each `benchmark/test_NAME.py`. To gate on a regression,
+pass a committed baseline:
 
 ```shell
 uv run python benchmark/report.py benchmark-results/bench.json \
-    --baseline benchmark/baseline.json --fail-threshold 0.25
+    --baseline benchmark/baseline.json.gz --fail-threshold 0.25
 ```
 
-It joins the two runs on `(case, size)` and exits non-zero if any case's median
-regressed by more than the threshold. The baseline is machine-dependent, so
-generate it once on the CI runner (`workflow_dispatch` on `main`, with
-`BENCH_FLAGS=bench:full`) and commit the resulting `bench.json` as
-`benchmark/baseline.json`. The `benchmark` GitHub workflow runs the suite on pull
-requests (smoke sizes) and on `main` / manual dispatch (full sizes), uploading the
-report as an artifact.
+It joins the two runs on `(suite, family, case, size)` and exits non-zero if
+any case regresses by more than the threshold relative to the run-wide median
+change. GitHub hands out several CPU models for the same runner label, so the
+raw delta of a cell mixes the machine in with the code. Reading a measurement
+as `time = machine * code * baseline`, the median change over all cases
+estimates the machine -- most cases are unchanged, and a median ignores the few
+that are not -- so dividing it out leaves the change due to the code. It divides
+rather than subtracts, which keeps the threshold meaning the same thing
+whichever runner comes up; subtracting would scale it by the machine factor,
+making the gate stricter on slow machines and laxer on fast ones.
+
+The baseline is a `bench.json` from a CI run of this same workflow, gzipped
+(`gzip -9n bench.json`) and committed as `benchmark/baseline.json.gz`: stored
+compressed, GitHub shows it as a binary file rather than a 6k-line diff. The
+`benchmark` GitHub workflow runs the suite on pull requests (small sizes) and
+on `main` / manual dispatch (full sizes), uploading the report as an artifact.
 
 A benchmarking job is available in the CI pipeline. By default, it is running only
 on the main branch, but you can enable it on your pull requests by attaching the
@@ -118,7 +132,7 @@ python -m venv .venv
 . .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -e '.[test]'
-python -m pip install coverage pyproject-flake8 pytest nbmake
+python -m pip install coverage pyproject-flake8 pytest marimo
 ```
 
 Then run:
@@ -138,6 +152,9 @@ python -m build
 
 ## Release a version
 
+Before tagging, rename the `[Unreleased]` section of [CHANGELOG.md](CHANGELOG.md) to the new
+version and date, and commit it.
+
 New versions (tag with 'X.X.X') of the package are released on [PyPI](https://pypi.org/project/discopy/) using `uv publish`.
 You should run the following commands from a clean clone of the repo:
 
@@ -148,7 +165,8 @@ uv build
 uv publish
 ```
 
-Finally, [create a release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository#creating-a-release) for the newly created tag.
+Finally, [create a release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository#creating-a-release) for the newly created tag, using the
+matching section of [CHANGELOG.md](CHANGELOG.md) as its description.
 
 ## Report bugs
 
@@ -160,24 +178,27 @@ If you happen to find one, please [open an issue](https://github.com/discopy/dis
 We would be thrilled to welcome contributions in the form of examples, tests, notebooks, etc.
 We are also keen to hear if you spot any part of the documentation that you suspect is broken, outdated or plain wrong.
 
-We use the following convention so that documentation images are generated automatically when running doctests:
+We use the following convention so that documentation images are generated and compared against a baseline when running doctests:
 
 ```
 Example
 -------
 >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
 >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
->>> (f0 @ f1).draw(path='docs/_static/monoidal/tensor-example.svg')
+>>> (f0 @ f1).draw(doctest='docs/_static/monoidal/tensor-example.svg')
 
 .. image:: /_static/monoidal/tensor-example.svg
     :align: center
 ```
 
-You do not need to commit these images yourself: on every pull request the
-`docs-static` job in the [build workflow](.github/workflows/build.yml) reuses
-the images drawn by the test run and, whenever one actually changed, commits the
-regenerated `docs/_static` back to your branch. If you do commit images by hand,
-avoid pushing changes that are only due to minor glitches e.g. font aliasing.
+If the image already exists, drawing the example checks it against the
+committed baseline and raises an error when they differ. To update an image,
+delete its baseline so the next run regenerates it, or set
+`discopy.config.OVERRIDE_DOCTEST_IMAGES = True` before running the tests, in
+which case `doctest=` behaves like `path=` and just overrides the images.
+Commit the regenerated images just like any other test change, otherwise
+the CI won't pass. A plain `draw(path=...)` just saves the drawing,
+overwriting any existing file.
 
 ## Request features
 
