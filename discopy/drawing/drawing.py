@@ -87,6 +87,16 @@ Bubbles, grammatical diagrams and quantum circuits use the same backend:
 >>> (x @ Box('s', Ty(), Ty())).bubble().draw(
 ...     wire_labels=False,
 ...     doctest="docs/_static/drawing/bubble-straight-wire.svg")
+
+A bubble whose inside and outside have a different number of wires keeps its
+boundary, see issue #520:
+
+>>> Box('f', x, x ** 3).bubble(dom=x ** 3, cod=x).draw(
+...     doctest="docs/_static/drawing/bubble-uneven-wires.svg")
+
+.. image:: /_static/drawing/bubble-uneven-wires.svg
+    :align: center
+
 >>> from discopy.compact import (
 ...     Cap, Ty as RTy, Box as RBox, Id as RId)
 >>> n, s = map(RTy, 'ns')
@@ -1007,11 +1017,14 @@ class Drawing(TracedCategory, RichDisplay):
         left = Ty(Wire(name or "", dom.dom, arg_dom.dom))
         right = Ty(Wire("", arg_dom.cod, dom.cod))
         left[0].always_draw_label = True
+        wires_can_go_straight = (
+            len(dom), len(cod)) == (len(arg_dom), len(arg_cod))
         if draw_as_square:
             # The left and right sides of a square frame, e.g. the slots of an
             # Equation between coloured terms, are drawn with zero width.
             left.inside[0].frame_boundary = right.inside[0].frame_boundary \
                 = True
+        if draw_as_square or not wires_can_go_straight:
             top = Drawing.frame_opening(dom, arg_dom, left, right)
             bot = Drawing.frame_closing(arg_cod, cod, left, right)
         else:
