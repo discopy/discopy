@@ -132,18 +132,6 @@ class Layer(monoidal.Layer):
     ...     x, f, Ty(), perm, Ty())
     >>> assert Layer(x, f, perm).boxes_and_offsets == [(f, 1), (perm, 2)]
     """
-    @staticmethod
-    def is_plumbing(value) -> bool:
-        """
-        Whether a component is plumbing rather than a generator.
-
-        >>> x = Ty('x')
-        >>> assert Layer.is_plumbing(x) and Layer.is_plumbing(
-        ...     Permutation(x @ x, [1, 0]))
-        >>> assert not Layer.is_plumbing(Box('f', x, x))
-        """
-        return isinstance(value, (monoidal.Ty, Permutation))
-
     @classmethod
     def normalise(cls, inside):
         """
@@ -158,14 +146,14 @@ class Layer(monoidal.Layer):
             for value in inside)
 
     @property
-    def is_structural(self) -> bool:
+    def is_plumbing(self) -> bool:
         """
         Whether the layer plumbs its wires non-trivially, i.e. one of its
         plumbing components is a :class:`Permutation` rather than a type.
 
         >>> x, y = Ty('x'), Ty('y')
-        >>> assert Layer(Permutation(x @ y, [1, 0])).is_structural
-        >>> assert not Layer(x, Box('f', x, y), y).is_structural
+        >>> assert Layer(Permutation(x @ y, [1, 0])).is_plumbing
+        >>> assert not Layer(x, Box('f', x, y), y).is_plumbing
         """
         return any(isinstance(value, Permutation) for value in self)
 
@@ -249,9 +237,9 @@ class Diagram(balanced.Diagram, SymmetricCategory):
     twist_factory = classmethod(lambda cls, dom: cls.id(dom))
 
     @property
-    def is_structural(self) -> bool:
-        """ Whether one of the layers routes its wires non-trivially. """
-        return any(layer.is_structural for layer in self.inside)
+    def is_plumbing(self) -> bool:
+        """ Whether one of the layers plumbs its wires non-trivially. """
+        return any(layer.is_plumbing for layer in self.inside)
 
     @classmethod
     def swap(cls, left: monoidal.Ty, right: monoidal.Ty) -> Diagram:
@@ -365,7 +353,7 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         >>> perm = Permutation(x @ y, [1, 0])
         >>> assert perm.foliation() == perm
         """
-        if self.is_structural:
+        if self.is_plumbing:
             return self.merge_layers()
         return super().foliation()
 
@@ -533,6 +521,9 @@ class Permutation(Box):
 
     def __str__(self):
         return f"Permutation({self.dom}, {list(self.perm)})"
+
+
+Layer.plumbing = (monoidal.Ty, Permutation)
 
 
 class Swap(balanced.Braid, Box):

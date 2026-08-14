@@ -630,10 +630,7 @@ class Layer(cat.Box, ColouredMonoid):
                   for x in self.boxes_or_types]
         return pieces[0][:0].tensor(*pieces)
 
-    @staticmethod
-    def is_plumbing(value) -> bool:
-        """ Whether a component is plumbing rather than a box. """
-        return isinstance(value, Ty)
+    plumbing = Ty
 
     @staticmethod
     def check(inside):
@@ -660,8 +657,8 @@ class Layer(cat.Box, ColouredMonoid):
         append or we tensor with the last element. """
         result = []
         for value in (x for x in inside if not isinstance(x, Ty) or x):
-            if not result or not cls.is_plumbing(value)\
-                    or not cls.is_plumbing(result[-1]):
+            if not result or not isinstance(value, cls.plumbing)\
+                    or not isinstance(result[-1], cls.plumbing):
                 result.append(value)
             else:
                 result[-1] = result[-1] @ value
@@ -730,7 +727,8 @@ class Layer(cat.Box, ColouredMonoid):
 
     def subs(self, *args) -> Layer:
         return type(self)(*(
-            x if self.is_plumbing(x) else x.subs(*args) for x in self),
+            x if isinstance(x, self.plumbing) else x.subs(*args)
+            for x in self),
             normalise=False)
 
     @property
@@ -803,7 +801,7 @@ class Layer(cat.Box, ColouredMonoid):
 
     def lambdify(self, *symbols, **kwargs):
         return lambda *xs: type(self)(*(
-            x if self.is_plumbing(x)
+            x if isinstance(x, self.plumbing)
             else x.lambdify(*symbols, **kwargs)(*xs) for x in self),
             normalise=False)
 

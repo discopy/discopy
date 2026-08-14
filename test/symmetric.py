@@ -129,7 +129,7 @@ def test_Layer():
     swap, permutation = Swap(x, y), Permutation(x @ y, [1, 0])
     layer = Layer(x, f, y)
     assert layer.boxes_or_types == (x, f, y) == layer.boxes_and_types
-    assert not layer.is_structural
+    assert not layer.is_plumbing
     assert layer.boxes == [f]
     assert Layer(f) == Layer(Ty(), f, Ty())
     assert Layer(permutation).boxes_or_types == (permutation, )
@@ -140,7 +140,7 @@ def test_Layer():
     assert (layer @ z).boxes_and_types == (x, f, y @ z)
 
     plumbed = Layer(x, f, permutation)
-    assert plumbed.is_structural
+    assert plumbed.is_plumbing
     assert plumbed.boxes_or_types == (x, f, permutation)
     assert plumbed.boxes_and_types == (x, f, Ty(), permutation, Ty())
     assert plumbed.boxes == [f, permutation]

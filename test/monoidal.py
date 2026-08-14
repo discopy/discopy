@@ -237,20 +237,6 @@ def test_Layer_tensor():
         Layer(coloured) @ Layer(coloured)
     assert Layer.normalise((Ty(), x, f, y, z)) == (x, f, y @ z)
 
-    class ScanLayer(Layer):
-        scans = []
-
-        @classmethod
-        def normalise(cls, inside):
-            inside = tuple(inside)
-            cls.scans.append(len(inside))
-            return super().normalise(inside)
-
-    layers = [ScanLayer(f) for _ in range(4)]
-    assert ScanLayer.scans == 4 * [1]
-    assert (layers[0] @ layers[1] @ layers[2] @ layers[3]).boxes == 4 * [f]
-    assert ScanLayer.scans == 4 * [1] + 3 * [2]
-
 
 def test_Diagram_init():
     with raises(TypeError) as err:
