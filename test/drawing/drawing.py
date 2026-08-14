@@ -152,6 +152,20 @@ def test_bubble_regions_are_distinct():
     assert len(region_hexes(coloured_bubble())) == 10
 
 
+def test_bubble_with_uneven_wires_stays_a_bubble():
+    # A bubble whose inside and outside have different numbers of wires used
+    # to be forced into a square, so it could not be drawn as a bubble at
+    # all, see issue #520.
+    x, y = monoidal.Ty('x'), monoidal.Ty('y')
+    bubble = monoidal.Box('f', x, y ** 3).bubble(dom=x ** 3, cod=y)
+    assert not bubble.draw_as_square and not bubble.draw_as_frame
+    top, _, bot = bubble.to_drawing().boxes
+    assert top.bubble_opening and bot.bubble_closing
+    assert not top.frame_boundary and not bot.frame_boundary
+    assert monoidal.Box('f', x, y ** 3).bubble(
+        dom=x ** 3, cod=y, draw_as_square=True).draw_as_square
+
+
 def test_bubble_boundary_is_visible():
     # A plain bubble opening keeps its horizontal boundary, i.e. its box
     # node is not a frame side, while the frame sides of a square slot are.

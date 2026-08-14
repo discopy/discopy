@@ -1007,14 +1007,11 @@ class Drawing(TracedCategory, RichDisplay):
         left = Ty(Wire(name or "", dom.dom, arg_dom.dom))
         right = Ty(Wire("", arg_dom.cod, dom.cod))
         left[0].always_draw_label = True
-        wires_can_go_straight = (
-            len(dom), len(cod)) == (len(arg_dom), len(arg_cod))
         if draw_as_square:
             # The left and right sides of a square frame, e.g. the slots of an
             # Equation between coloured terms, are drawn with zero width.
             left.inside[0].frame_boundary = right.inside[0].frame_boundary \
                 = True
-        if draw_as_square or not wires_can_go_straight:
             top = Drawing.frame_opening(dom, arg_dom, left, right)
             bot = Drawing.frame_closing(arg_cod, cod, left, right)
         else:
