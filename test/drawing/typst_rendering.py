@@ -154,3 +154,76 @@ def test_typst_compilation():
     svg = f.draw(format="typst", show=False)
     assert isinstance(svg, bytes)
     assert svg.startswith(b"<svg") or svg.startswith(b"<?xml")
+
+
+def test_typst_output_to_file(tmp_path):
+    """``output`` writes Typst source for ``.typ`` and SVG bytes otherwise."""
+    x, y = Ty("x"), Ty("y")
+    f = Box("f", x, y)
+    source = f.draw(format="typst", path=tmp_path / "f.typ", show=False)
+    assert (tmp_path / "f.typ").read_text() == source
+    assert 'import "@preview/cetz' in source
+    svg = f.draw(format="typst", path=tmp_path / "f.svg", show=False)
+    assert (tmp_path / "f.svg").read_bytes() == svg
+
+
+def test_typst_colors_and_labels():
+    """Colours, transparent fills and spider labels reach the CeTZ source."""
+    x = FTy("x")
+    # A phase gives the spider a label, drawn white on black, black on red.
+    dark = Spider(2, 1, x, 0.5, color="black").to_typst().render()
+    assert 'fill: rgb("#ffffff")' in dark
+    light = Spider(2, 1, x, 0.5, color="red").to_typst().render()
+    assert 'rgb("#e8a5a5")' in light
+    assert 'fill: rgb("#000000")' in light
+    transparent = Box("f", x, x, color="none").to_typst().render()
+    assert "fill: none" in transparent
+
+
+def test_typst_color_helpers():
+    """``format_color`` and ``color_expr`` handle names, hexcodes and none."""
+    from discopy.drawing.backend import Typst
+    assert Typst.format_color(None) == "none"
+    assert Typst.format_color("#123456") == "#123456"
+    assert Typst.format_color("red") == "#e8a5a5"
+    assert Typst.color_expr("none") == "none"
+    assert Typst.color_expr("#123456") == 'rgb("#123456")'
+    assert Typst.color_expr("white") == "white"
+
+
+def test_wire_bezier_points():
+    """A wire only bends when it is neither horizontal nor vertical."""
+    from discopy.drawing.backend import wire_bezier_points
+    assert wire_bezier_points((0, 0), (0, 1), True, True) is None
+    assert wire_bezier_points((0, 0), (1, 0), True, True) is None
+    assert wire_bezier_points((0, 0), (1, 1), False, False) is None
+    both = wire_bezier_points((0, 0), (3, 3), True, True)
+    assert both == wire_bezier_points((0, 0), (3, 3), True, False)
+    assert both == ((2, 0), (3, 1))
+    assert wire_bezier_points((0, 0), (3, 3), False, True) == ((0, 2), (1, 3))
+
+
+def test_typst_fontsize_and_text_colour():
+    """A non-default fontsize and a coloured box name are honoured."""
+    x, y = Ty("x"), Ty("y")
+    source = Box("f", x, y).to_typst(fontsize=24).render()
+    assert "text(" in source and "size:" in source
+
+
+def test_typst_ast_nodes():
+    """The AST nodes render the Typst syntax they stand for."""
+    from discopy.drawing.typst_ast import Import, TypstNode
+    assert Import("cetz", members=["canvas"]).render() \
+        == '#import "cetz": canvas'
+    assert Import("fletcher", alias="f").render() == '#import "fletcher" as f'
+    assert Import("cetz").render() == '#import "cetz"'
+    with pytest.raises(NotImplementedError):
+        TypstNode().render()
+
+
+def test_typst_show_returns_ipython_svg():
+    """With no path and ``show``, ``output`` hands IPython an SVG to display."""
+    pytest.importorskip("IPython")
+    x, y = Ty("x"), Ty("y")
+    svg = Box("f", x, y).draw(format="typst", show=True)
+    assert type(svg).__name__ == "SVG"

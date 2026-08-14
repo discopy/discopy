@@ -1167,7 +1167,7 @@ class TikZ(Backend):
             print(''.join(begin + nodes + edges + end))
 
 
-def _wire_bezier_points(source, target, bend_out, bend_in):
+def wire_bezier_points(source, target, bend_out, bend_in):
     """
     Compute cubic bezier control points for a wire from ``source`` to
     ``target`` bending out and/or in, matching the quadratic-bezier
@@ -1216,7 +1216,7 @@ class Typst(Backend):
         return self.output(path=path, show=show, **params)
 
     @staticmethod
-    def _format_color(color):
+    def format_color(color):
         """Format a colour name or hexcode to a Typst-friendly string."""
         if color is None:
             return "none"
@@ -1227,14 +1227,14 @@ class Typst(Backend):
         return COLORS.get(color, color)
 
     @staticmethod
-    def _color_expr(hexcode):
+    def color_expr(hexcode):
         """Build a Typst ``rgb(\"#hex\")`` expression string."""
         if hexcode == "none":
             return "none"
         return f'rgb("{hexcode}")' if hexcode.startswith("#") else hexcode
 
     @staticmethod
-    def _math_label(text):
+    def math_label(text):
         """
         Return ``(inner, math)`` for a diagram label.
 
@@ -1246,24 +1246,17 @@ class Typst(Backend):
             return text[1:-1], True
         return text, False
 
-    def _coord(self, x, y):
+    def coord(self, x, y):
         from discopy.drawing.typst_ast import Coord
 
         return Coord(x, y)
 
-    def _call(self, func, *args, **kwargs):
-        from discopy.drawing.typst_ast import Call, Ident
-
-        if isinstance(func, str):
-            func = Ident(func)
-        return Call(func, list(args), kwargs)
-
-    def _stroke(self, color="black", linewidth=None):
+    def stroke(self, color="black", linewidth=None):
         from discopy.drawing.typst_ast import Ident
 
         lw = self.linewidth if linewidth is None else linewidth
         return Ident(
-            f"{self._color_expr(self._format_color(color))} + {lw:g}pt")
+            f"{self.color_expr(self.format_color(color))} + {lw:g}pt")
 
     def draw_text(self, text, i, j, **params):
         from discopy.drawing.typst_ast import (
@@ -1272,13 +1265,13 @@ class Typst(Backend):
         colour = params.get("color", None)
         extra = {}
         if colour and colour != "black":
-            extra["fill"] = Ident(self._color_expr(self._format_color(colour)))
+            extra["fill"] = Ident(self.color_expr(self.format_color(colour)))
         # Wire labels use va='top' (see draw_wire_label); park them to the
         # right of the wire like TikZ's ``anchor=west``, so the stroke does
         # not strike through the glyph.
         if params.get("verticalalignment", "center") == "top":
             extra["anchor"] = Str("west")
-        inner, math = self._math_label(text)
+        inner, math = self.math_label(text)
         content = ContentExpr(inner, math=math)
         fs = params.get("fontsize", None)
         if fs is not None and fs != DEFAULT["fontsize"]:
@@ -1288,7 +1281,7 @@ class Typst(Backend):
         else:
             text_call = content
         self.body.append(Call(
-            Ident("content"), [self._coord(i, j), text_call], extra))
+            Ident("content"), [self.coord(i, j), text_call], extra))
         super().draw_text(text, i, j, **params)
 
     def draw_polygon(self, *points,
@@ -1296,17 +1289,17 @@ class Typst(Backend):
                      edgecolor=DEFAULT["edgecolor"]):
         from discopy.drawing.typst_ast import Bool, Call, Ident
 
-        coords = [self._coord(*p) for p in points]
+        coords = [self.coord(*p) for p in points]
         kwargs = {"close": Bool(True)}
         if facecolor is None or facecolor == "none":
             kwargs["fill"] = Ident("none")
         else:
             kwargs["fill"] = Ident(
-                self._color_expr(self._format_color(facecolor)))
+                self.color_expr(self.format_color(facecolor)))
         if edgecolor is None or edgecolor == "none":
             kwargs["stroke"] = Ident("none")
         else:
-            kwargs["stroke"] = self._stroke(edgecolor)
+            kwargs["stroke"] = self.stroke(edgecolor)
         self.body.append(Call(Ident("line"), coords, kwargs))
         super().draw_polygon(*points)
 
@@ -1314,18 +1307,18 @@ class Typst(Backend):
                   style=None, linewidth=None):
         from discopy.drawing.typst_ast import Call, Ident
 
-        cps = _wire_bezier_points(source, target, bend_out, bend_in)
-        stroke = self._stroke("black", linewidth)
+        cps = wire_bezier_points(source, target, bend_out, bend_in)
+        stroke = self.stroke("black", linewidth)
         if cps is not None:
             c1, c2 = cps
             self.body.append(
                 Call(
                     Ident("bezier"),
                     [
-                        self._coord(*source),
-                        self._coord(*target),
-                        self._coord(*c1),
-                        self._coord(*c2),
+                        self.coord(*source),
+                        self.coord(*target),
+                        self.coord(*c1),
+                        self.coord(*c2),
                     ],
                     {"stroke": stroke},
                 )
@@ -1334,7 +1327,7 @@ class Typst(Backend):
             self.body.append(
                 Call(
                     Ident("line"),
-                    [self._coord(*source), self._coord(*target)],
+                    [self.coord(*source), self.coord(*target)],
                     {"stroke": stroke},
                 )
             )
@@ -1347,9 +1340,9 @@ class Typst(Backend):
         self.body.append(
             Call(
                 Ident("bezier"),
-                [self._coord(*s), self._coord(*e),
-                 self._coord(*c1), self._coord(*c2)],
-                {"stroke": self._stroke()},
+                [self.coord(*s), self.coord(*e),
+                 self.coord(*c1), self.coord(*c2)],
+                {"stroke": self.stroke()},
             )
         )
         super().draw_bezier(points)
@@ -1361,32 +1354,32 @@ class Typst(Backend):
             if node.kind != "box" or not node.box.draw_as_spider:
                 continue
             i, j = graph.positions[node]
-            hexcolour = self._format_color(node.box.color)
-            colour = self._color_expr(hexcolour)
+            hexcolour = self.format_color(node.box.color)
+            colour = self.color_expr(hexcolour)
             radius = self.nodesize * 0.12
             shape = node.box.shape or "circle"
             if shape == "rectangle":
                 sz = self.nodesize * 0.15
                 call = Call(
                     Ident("rect"),
-                    [self._coord(i - sz, j - sz), self._coord(i + sz, j + sz)],
+                    [self.coord(i - sz, j - sz), self.coord(i + sz, j + sz)],
                     {"fill": Ident(colour),
-                     "stroke": self._stroke(linewidth=0.5)},
+                     "stroke": self.stroke(linewidth=0.5)},
                 )
             else:
                 call = Call(
                     Ident("circle"),
-                    [self._coord(i, j)],
+                    [self.coord(i, j)],
                     {
                         "radius": Float(radius),
                         "fill": Ident(colour),
-                        "stroke": self._stroke(linewidth=0.5),
+                        "stroke": self.stroke(linewidth=0.5),
                     },
                 )
             self.body.append(call)
             if draw_box_labels and node.box.drawing_name:
                 label = node.box.drawing_name
-                inner, math = self._math_label(label)
+                inner, math = self.math_label(label)
                 fc = 'rgb("#ffffff")' if hexcolour == "#000000"\
                     else 'rgb("#000000")'
                 lbl = Call(
@@ -1394,7 +1387,7 @@ class Typst(Backend):
                     {"fill": Ident(fc)}
                 )
                 self.body.append(Call(
-                    Ident("content"), [self._coord(i, j), lbl]))
+                    Ident("content"), [self.coord(i, j), lbl]))
         super().draw_spiders(graph, draw_box_labels)
 
     def draw_regions(self, graph, **params):
@@ -1425,9 +1418,6 @@ class Typst(Backend):
         doc.content = canvas
         return doc
 
-    def render_typst(self, **params):
-        return self.to_document(**params).render()
-
     def output(self, path=None, show=True, **params):
         doc = self.to_document(**params)
         source = doc.render()
@@ -1442,11 +1432,10 @@ class Typst(Backend):
             svg = typst.compile(
                 {"main.typ": source.encode()}, format="svg", pretty=True
             )
-        except ImportError:
+        except ImportError:  # pragma: no cover
             raise ImportError(
                 "Typst rendering requires the 'typst' package. "
-                "Install it with: pip install typst"
-            )
+                "Install it with: pip install typst")
         if path is not None:
             from pathlib import Path as P
 

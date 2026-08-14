@@ -24,12 +24,10 @@ Summary
 
     TypstNode
     Str
-    Int
     Float
     Coord
     Call
     ContentExpr
-    Block
     Canvas
     Document
 """
@@ -54,15 +52,6 @@ class Str(TypstNode):
 
 
 @dataclass
-class Int(TypstNode):
-    """An integer literal."""
-    value: int
-
-    def render(self, indent=0):
-        return str(self.value)
-
-
-@dataclass
 class Float(TypstNode):
     """A floating-point literal, rendered with 4 decimal places."""
     value: float
@@ -74,50 +63,12 @@ class Float(TypstNode):
 
 
 @dataclass
-class Angle(TypstNode):
-    """An angle literal, e.g. ``45deg``."""
-    degrees: float
-
-    def render(self, indent=0):
-        return f"{Float(self.degrees).render()}deg"
-
-
-@dataclass
-class Pct(TypstNode):
-    """A percentage literal, e.g. ``50%``."""
-    value: float
-
-    def render(self, indent=0):
-        return f"{Float(self.value).render()}%"
-
-
-@dataclass
 class Bool(TypstNode):
     """A boolean literal: ``true`` or ``false``."""
     value: bool
 
     def render(self, indent=0):
         return "true" if self.value else "false"
-
-
-@dataclass
-class NoneVal(TypstNode):
-    """The ``none`` literal."""
-
-    def render(self, indent=0):
-        return "none"
-
-
-@dataclass
-class Dict(TypstNode):
-    """A Typst dictionary literal, e.g. ``(fill: white, stroke: black)``."""
-    items: dict[str, TypstNode] = field(default_factory=dict)
-
-    def render(self, indent=0):
-        if not self.items:
-            return "(:)"
-        parts = [f"{k}: {v.render(indent)}" for k, v in self.items.items()]
-        return f"({', '.join(parts)})"
 
 
 @dataclass
@@ -137,16 +88,6 @@ class Ident(TypstNode):
 
     def render(self, indent=0):
         return self.name
-
-
-@dataclass
-class Attr(TypstNode):
-    """An attribute access, e.g. ``draw.bezier``."""
-    obj: TypstNode
-    attr: str
-
-    def render(self, indent=0):
-        return f"{self.obj.render(indent)}.{self.attr}"
 
 
 @dataclass
@@ -190,61 +131,13 @@ class ContentExpr(TypstNode):
 
 
 @dataclass
-class LetBinding(TypstNode):
-    """A let binding: ``let name = value``."""
-    name: str
-    value: TypstNode
-
-    def render(self, indent=0):
-        pre = " " * (indent * 4)
-        return f"{pre}let {self.name} = {self.value.render(indent)}\n"
-
-
-@dataclass
-class Block(TypstNode):
-    """A code block: ``{ stmt1; stmt2; ... }``."""
-    body: list[TypstNode] = field(default_factory=list)
-    semi: bool = False
-
-    def render(self, indent=0):
-        pre = " " * (indent * 4)
-        if not self.body:
-            return f"{pre}{{}}"
-        lines = []
-        for stmt in self.body:
-            rendered = stmt.render(indent)
-            if self.semi and not rendered.rstrip().endswith(";"):
-                rendered = rendered.rstrip() + ";"
-            if not rendered.endswith("\n"):
-                rendered += "\n"
-            lines.append(rendered)
-        inner = "".join(lines)
-        return f"{pre}{{\n{inner}{pre}}}"
-
-
-@dataclass
-class OnLayer(TypstNode):
-    """An ``on-layer(N, { ... })`` call."""
-    layer: int
-    body: Block
-
-    def render(self, indent=0):
-        pre = " " * (indent * 4)
-        body_str = self.body.render(indent + 1).rstrip()
-        return f"{pre}on-layer({self.layer}, {body_str})\n"
-
-
-@dataclass
 class Import(TypstNode):
     """A ``#import`` statement."""
     path: str
     members: list[str] = field(default_factory=list)
     alias: str | None = None
-    all_members: bool = False
 
     def render(self, indent=0):
-        if self.all_members:
-            return f'#import "{self.path}": *'
         if self.members:
             return f'#import "{self.path}": {", ".join(self.members)}'
         if self.alias:
