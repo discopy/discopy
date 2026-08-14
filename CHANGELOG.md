@@ -46,6 +46,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   alternates permutations with generators without canonicalising diagram
   state ([#362](https://github.com/discopy/discopy/pull/362)).
 
+- Hypergraphs of Python functions: `Hypergraph[python.Function]` type checks
+  tuple-based types, `Hypergraph.__call__` evaluates a left-monogamous causal
+  hypergraph by dispatching to the functions inside, and the new
+  `hypergraph.Functor` maps spider types and boxes while keeping the wiring
+  untouched ([#363](https://github.com/discopy/discopy/pull/363)).
+
 ### Changed
 
 - `monoidal.Layer` holds a list of boxes and non-empty types with at least

@@ -6,7 +6,7 @@ Alexis's live directive, verbatim:
 
 ## Checklist
 
-- [WIP] @session_011Jk8KSTZk1eQoGgJAiEvEg-2026-08-14 17:10 Address the review on
+- [x] Address the review on
   [PR #363](https://github.com/discopy/discopy/pull/363): specialize
   `hypergraph.Hypergraph[Function]`, translate source hypergraphs with a
   `hypergraph.Functor`, retain carry-save-adder coverage with public helpers,
