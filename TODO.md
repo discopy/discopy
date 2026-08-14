@@ -3,6 +3,6 @@ actually the wire labels are a deal breaker: if they become invisible on dark ba
 @toumix-agents let's go back for another round!
 [#497 review comments by toumix, 2026-08-14]
 
-- [WIP] @claude-2026-08-14 16:45 wire labels readable on dark for real: inject a `prefers-color-scheme: dark` style block into saved SVGs that turns the tagged black strokes and labels white in dark-mode browsers, keeping the white halos as the static fallback
-- [WIP] @claude-2026-08-14 16:45 answer why ribbon_twist is not transparent: the white-erase fallback of #521 — explain on the thread, revisit once regions are filled between their boundaries
-- [ ] regenerate all baselines, run lint and the full test suite, merge main in (done a4a45b9)
+- [x] wire labels readable on dark for real: inject a `prefers-color-scheme: dark` style block into saved SVGs that turns the tagged black strokes and labels white in dark-mode browsers, keeping the white halos as the static fallback
+- [x] answer why ribbon_twist is not transparent: the white-erase fallback of #521 — explain on the thread, revisit once regions are filled between their boundaries
+- [x] regenerate all baselines, run lint and the full test suite, merge main in (a4a45b9)

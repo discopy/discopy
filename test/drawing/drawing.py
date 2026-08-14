@@ -68,6 +68,16 @@ def test_draw_baseline(tmp_path, monkeypatch):
     assert path.read_text() != "<svg/>"
 
 
+def test_dark_mode_style(tmp_path):
+    from discopy.drawing.backend import DARK_MODE_STYLE
+    path = tmp_path / "box.svg"
+    x, y = monoidal.Ty('x'), monoidal.Ty('y')
+    monoidal.Box('f', x, y).draw(path=path, show=False)
+    text = path.read_text()
+    assert DARK_MODE_STYLE in text
+    assert 'id="dark-stroke-' in text and 'id="dark-fill-' in text
+
+
 def test_transparent_background_and_bordered_wires(tmp_path):
     from matplotlib import pyplot as plt
     from matplotlib.colors import to_rgba

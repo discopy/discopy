@@ -294,8 +294,35 @@ def savefig(path, format=None, compare=False, tol=DEFAULT['plt_tol']):
     def save(actual_path):
         with matplotlib_context():
             plt.savefig(actual_path, format=format, metadata=metadata)
+        if is_svg and isinstance(actual_path, (str, os.PathLike)):
+            inject_dark_mode_style(actual_path)
 
     save_and_compare(path, save, tol) if compare else save(path)
+
+
+DARK_MODE_STYLE = (
+    "<style>@media (prefers-color-scheme: dark) { "
+    '[id^="dark-stroke"], [id^="dark-stroke"] * '
+    "{ stroke: #ffffff !important; } "
+    '[id^="dark-fill"], [id^="dark-fill"] * '
+    "{ fill: #ffffff !important; } }</style>")
+
+
+def inject_dark_mode_style(path):
+    """
+    Insert :const:`DARK_MODE_STYLE` at the top of a saved SVG that tags
+    elements with :meth:`Matplotlib.adaptive_gid`, so that a dark-mode
+    browser shows the tagged black strokes and labels in white while every
+    other renderer keeps the white halos as the static fallback.
+    """
+    with open(path) as file:
+        text = file.read()
+    if 'id="dark-' not in text:
+        return
+    opening = re.search(r"<svg\b[^>]*>", text)
+    with open(path, "w") as file:
+        file.write(text[:opening.end()] + DARK_MODE_STYLE
+                   + text[opening.end():])
 
 
 def _bezier_subcurve(points, t0, t1):
@@ -1193,7 +1220,21 @@ class Matplotlib(Backend):
         self.format = format
         self.region_paths = []
         self.opaque_canvas = False
+        self.adaptive_count = 0
         super().__init__()
+
+    def adaptive_gid(self, kind):
+        """
+        The ``id`` of the next SVG element that adapts to a dark page:
+        :func:`inject_dark_mode_style` turns the stroke of ``"stroke"``
+        elements and the fill of ``"fill"`` elements white under
+        ``prefers-color-scheme: dark``. On the opaque white canvas of
+        :meth:`draw_opaque_canvas` nothing adapts, so this is ``None``.
+        """
+        if self.opaque_canvas:
+            return None
+        self.adaptive_count += 1
+        return f"dark-{kind}-{self.adaptive_count}"
 
     @staticmethod
     def wire_effects(linewidth):
@@ -1208,7 +1249,8 @@ class Matplotlib(Backend):
         like the border of :meth:`wire_effects`, or subtitles. """
         return [patheffects.withStroke(linewidth=2, foreground="white")]
 
-    def draw_stroke(self, path, linewidth, underneath=False, below=False):
+    def draw_stroke(self, path, linewidth, underneath=False, below=False,
+                    adaptive=True):
         """
         Strokes a wire ``path`` in black with the thin white border that
         keeps it readable on a dark page. With ``underneath`` the border is
@@ -1218,7 +1260,9 @@ class Matplotlib(Backend):
         place and cuts whatever was drawn before, e.g. the wire it crosses.
         With ``below`` the black stroke itself also goes below the fills:
         the contour of a frame shows through a transparent frame colour and
-        disappears behind an opaque one.
+        disappears behind an opaque one. An ``adaptive`` stroke turns white
+        on a dark page in the browser, see :meth:`adaptive_gid`; a wire
+        beside a coloured region keeps its black over the colour instead.
         """
         effects = None
         if linewidth and (underneath or below):
@@ -1229,7 +1273,8 @@ class Matplotlib(Backend):
             effects = self.wire_effects(linewidth)
         self.axis.add_patch(PathPatch(
             path, facecolor='none', linewidth=linewidth,
-            path_effects=effects, zorder=.75 if below else 1))
+            path_effects=effects, zorder=.75 if below else 1,
+            gid=self.adaptive_gid("stroke") if adaptive else None))
 
     def draw_opaque_canvas(self):
         """
@@ -1257,6 +1302,7 @@ class Matplotlib(Backend):
         params['fontsize'] = params.get('fontsize', DEFAULT['fontsize'])
         if params.pop('halo', False):
             params['path_effects'] = self.text_effects()
+            params['gid'] = self.adaptive_gid("fill")
         self.axis.text(i, j, text, **params)
         super().draw_text(text, i, j, **params)
 
@@ -1384,6 +1430,7 @@ class Matplotlib(Backend):
             arrow = self.axis.arrow(
                 *(source + (target[0] - source[0], target[1] - source[1])),
                 head_width=.02, color="black")
+            arrow.set_gid(self.adaptive_gid("fill"))
             if linewidth:
                 arrow.set_path_effects(self.wire_effects(linewidth))
         else:
@@ -1394,7 +1441,8 @@ class Matplotlib(Backend):
             underneath = colours is not None and any(
                 colour != "white" for colour in colours)
             self.draw_stroke(
-                path, linewidth, underneath=underneath, below=frame)
+                path, linewidth, underneath=underneath, below=frame,
+                adaptive=not underneath)
         super().draw_wire(source, target, bend_out=bend_out, bend_in=bend_in)
 
     def draw_bezier(self, points):
@@ -1438,17 +1486,20 @@ class Matplotlib(Backend):
                     node_shape=SHAPES[shape], ax=self.axis,
                     node_size=pi * (sqrt(node_size / pi) + 1) ** 2
                 ).set_zorder(.5)
-            nx.draw_networkx_nodes(
+            spiders = nx.draw_networkx_nodes(
                 *graph.inside, nodelist=nodes,
                 node_color=[COLORS.get(color, color) for color in colors],
                 node_shape=SHAPES[shape], ax=self.axis,
                 node_size=node_size)
+            if all(color == "black" for color in colors):
+                spiders.set_gid(self.adaptive_gid("fill"))
             if draw_box_labels:
                 labels = {node: node.box.drawing_name for node in nodes}
                 texts = nx.draw_networkx_labels(*graph.inside, labels)
                 for node, text in texts.items():
                     if node.box.color == "none":  # e.g. equation symbols
                         text.set_path_effects(self.text_effects())
+                        text.set_gid(self.adaptive_gid("fill"))
         super().draw_spiders(graph, draw_box_labels)
 
     def output(self, path=None, show=True, **params):

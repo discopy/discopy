@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
   "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="216pt" height="216pt" viewBox="0 0 216 216" xmlns="http://www.w3.org/2000/svg" version="1.1">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="216pt" height="216pt" viewBox="0 0 216 216" xmlns="http://www.w3.org/2000/svg" version="1.1"><style>@media (prefers-color-scheme: dark) { [id^="dark-stroke"], [id^="dark-stroke"] * { stroke: #ffffff !important; } [id^="dark-fill"], [id^="dark-fill"] * { fill: #ffffff !important; } }</style>
  <defs>
   <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
  </defs>
@@ -35,17 +35,17 @@ L 0 216
 z
 " clip-path="url(#pafddef305a)" style="fill: none"/>
    </g>
-   <g id="patch_5">
+   <g id="dark-stroke-1">
     <path d="M 36 72 
 C 36 108 108 108 108 144 
 " clip-path="url(#pafddef305a)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_6">
+   <g id="dark-stroke-2">
     <path d="M 108 72 
 C 108 108 36 108 36 144 
 " clip-path="url(#pafddef305a)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_7">
+   <g id="dark-stroke-4">
     <path d="M 36 0 
 Q 36 72 36 72 
 " clip-path="url(#pafddef305a)" style="fill: none; stroke: #ffffff; stroke-width: 3; stroke-linejoin: miter"/>
@@ -53,7 +53,7 @@ Q 36 72 36 72
 Q 36 72 36 72 
 " clip-path="url(#pafddef305a)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_8">
+   <g id="dark-stroke-5">
     <path d="M 144 36 
 Q 108 36 108 72 
 " clip-path="url(#pafddef305a)" style="fill: none; stroke: #ffffff; stroke-width: 3; stroke-linejoin: miter"/>
@@ -61,7 +61,7 @@ Q 108 36 108 72
 Q 108 36 108 72 
 " clip-path="url(#pafddef305a)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_9">
+   <g id="dark-stroke-6">
     <path d="M 144 36 
 Q 180 36 180 72 
 " clip-path="url(#pafddef305a)" style="fill: none; stroke: #ffffff; stroke-width: 3; stroke-linejoin: miter"/>
@@ -69,7 +69,7 @@ Q 180 36 180 72
 Q 180 36 180 72 
 " clip-path="url(#pafddef305a)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_10">
+   <g id="dark-stroke-9">
     <path d="M 180 72 
 Q 180 144 180 144 
 " clip-path="url(#pafddef305a)" style="fill: none; stroke: #ffffff; stroke-width: 3; stroke-linejoin: miter"/>
@@ -77,7 +77,7 @@ Q 180 144 180 144
 Q 180 144 180 144 
 " clip-path="url(#pafddef305a)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_11">
+   <g id="dark-stroke-11">
     <path d="M 36 144 
 Q 36 216 36 216 
 " clip-path="url(#pafddef305a)" style="fill: none; stroke: #ffffff; stroke-width: 3; stroke-linejoin: miter"/>
@@ -85,7 +85,7 @@ Q 36 216 36 216
 Q 36 216 36 216 
 " clip-path="url(#pafddef305a)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_12">
+   <g id="dark-stroke-13">
     <path d="M 108 144 
 Q 108 180 144 180 
 " clip-path="url(#pafddef305a)" style="fill: none; stroke: #ffffff; stroke-width: 3; stroke-linejoin: miter"/>
@@ -93,7 +93,7 @@ Q 108 180 144 180
 Q 108 180 144 180 
 " clip-path="url(#pafddef305a)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_13">
+   <g id="dark-stroke-14">
     <path d="M 180 144 
 Q 180 180 144 180 
 " clip-path="url(#pafddef305a)" style="fill: none; stroke: #ffffff; stroke-width: 3; stroke-linejoin: miter"/>
@@ -101,7 +101,7 @@ Q 180 180 144 180
 Q 180 180 144 180 
 " clip-path="url(#pafddef305a)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="text_1">
+   <g id="dark-fill-3">
     <path d="M 45.989063 6.629687 
 L 44.010937 9.290625 
 L 46.090625 12.098437 
@@ -133,7 +133,7 @@ L 45.989063 6.629687
 z
 "/>
    </g>
-   <g id="text_2">
+   <g id="dark-fill-7">
     <path d="M 117.989063 60.629687 
 L 116.010937 63.290625 
 L 118.090625 66.098437 
@@ -227,7 +227,7 @@ Q 123.076367 62.378125 123.076367 63.36875
 z
 "/>
    </g>
-   <g id="text_3">
+   <g id="dark-fill-8">
     <path d="M 189.989062 60.629687 
 L 188.010938 63.290625 
 L 190.090625 66.098437 
@@ -321,7 +321,7 @@ Q 195.076367 62.378125 195.076367 63.36875
 z
 "/>
    </g>
-   <g id="text_4">
+   <g id="dark-fill-10">
     <path d="M 45.989063 132.629687 
 L 44.010937 135.290625 
 L 46.090625 138.098437 
@@ -415,7 +415,7 @@ Q 51.076367 134.378125 51.076367 135.36875
 z
 "/>
    </g>
-   <g id="text_5">
+   <g id="dark-fill-12">
     <path d="M 117.989063 132.629687 
 L 116.010937 135.290625 
 L 118.090625 138.098437 
