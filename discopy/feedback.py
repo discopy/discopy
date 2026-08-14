@@ -307,7 +307,7 @@ class Layer(markov.Layer):
         return type(self)(*(type(x)(x.dom.delay(n_steps), x.perm)
                             if isinstance(x, markov.Permutation)
                             else x.delay(n_steps)
-                            for x in self.boxes_or_types))
+                            for x in self.boxes_or_types), normalise=False)
 
 
 @factory
