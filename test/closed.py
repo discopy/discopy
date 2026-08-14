@@ -49,3 +49,23 @@ def test_discard():
     from discopy import cat, closed  # noqa: F401  (used by eval)
     assert eval(repr(Discard(x))) == Discard(x)
     assert Diagram.discard(x @ x) == Discard(x) @ Discard(x)
+
+
+def test_draw_copy_and_swap():
+    """
+    `closed.Diagram.to_drawing` routes through `closed.Functor` to get
+    `Curry` and `Eval` right, which used to drag in the markov, symmetric
+    and balanced branches calling `copy`, `merge`, `swap`, `braid` and
+    `twist` on a `Drawing` that has none of them, see issues #491 and #548.
+    """
+    x = Ty('x')
+    for diagram in [
+            Copy(x) >> Box('f', x @ x, x),
+            Swap(x, x) >> Box('g', x @ x, x),
+            Copy(x) >> Swap(x, x) >> Box('h', x @ x, x),
+            Diagram.discard(x)]:
+        assert diagram.to_drawing()
+
+    # A non-linear term evaluates to such a diagram, so it draws too.
+    X = Ty('X')
+    assert X(lambda x: (X >> X)(lambda f: f(x))).eval().to_drawing()

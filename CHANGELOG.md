@@ -105,6 +105,13 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `closed.Context.dom` called `category.ob.tensor` unbound, which raised
   `TypeError` for an empty context instead of returning `Ty()`
   ([#549](https://github.com/discopy/discopy/issues/549)).
+- Closed and biclosed diagrams containing a `Copy`, `Merge`, `Swap`,
+  `Permutation`, `Braid` or `Twist` can be drawn: the `markov`, `symmetric`,
+  `braided` and `balanced` functor branches now check that the codomain has
+  the structure before using it, the way `biclosed.Functor` already did for
+  `ev`, `exp` and `curry`
+  ([#491](https://github.com/discopy/discopy/issues/491),
+  [#548](https://github.com/discopy/discopy/issues/548)).
 
 ### Performance
 
