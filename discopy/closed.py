@@ -22,6 +22,7 @@ Summary
     Eval
     Coeval
     Curry
+    Discard
     Sum
     Functor
     CMap
@@ -137,6 +138,10 @@ class Copy(markov.Copy, Box):
     is_linear = False
 
 
+class Discard(markov.Discard, Copy):
+    "A markov discard in a closed category."
+
+
 class Sum(markov.Sum, biclosed.Sum, Box):
     """
     A markov sum is a symmetric sum and a markov box.
@@ -177,12 +182,12 @@ Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.copy_factory = Copy
-Diagram.braid_factory = Swap
+Diagram.swap_factory = Swap
 Diagram.curry_factory = Curry
 Diagram.eval_factory = Eval
 Diagram.coeval_factory = Coeval
 Diagram.trace_factory = Trace
-Diagram.discard_factory = lambda X: Copy(X, 0)
+Diagram.discard_factory = Discard
 Diagram.sum_factory = Sum
 Ty.exp_factory = Ty.under_factory = Ty.over_factory = staticmethod(Exp)
 
@@ -259,7 +264,8 @@ class Abstraction(TermBase, biclosed.Abstraction):
         i, n = self.body.freevars.index(self.var), len(self.body.freevars)
         body = self.body.eval(functor=functor)
         p = [0] + [j + 1 if j < i else j for j in range(n) if j != i]
-        return (body.permutation(p, body.dom).dagger() >> body).curry()
+        doms = [self.ob(wire) for wire in body.dom.inside]
+        return (body.permutation(p, doms).dagger() >> body).curry()
 
 
 @dataclass
@@ -269,7 +275,7 @@ class Context:
 
     @property
     def dom(self):
-        return self.category.ob.tensor(*[x.cod for x in self.inside])
+        return self.category.ob().tensor(*[x.cod for x in self.inside])
 
 
 @dataclass

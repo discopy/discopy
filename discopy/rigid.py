@@ -328,14 +328,11 @@ class Layer(monoidal.Layer):
     A rigid layer is a monoidal layer that can be rotated.
 
     Parameters:
-        left : The type on the left of the layer.
-        box : The box in the middle of the layer.
-        right : The type on the right of the layer.
-        more : More boxes and types to the right,
-               used by :meth:`Diagram.foliation`.
+        inside : Boxes and non-empty types, with at least one box.
     """
     def rotate(self, left=False):
-        return type(self)(*(x.l if left else x.r for x in list(self)[::-1]))
+        return type(self)(
+            *(x.l if left else x.r for x in list(self)[::-1]), normalise=False)
 
     l = property(lambda self: self.rotate(left=True))
     r = property(lambda self: self.rotate(left=False))
@@ -483,11 +480,12 @@ class Diagram(biclosed.Diagram, RigidCategory):
 
         .. image:: /_static/rigid/transpose_box.svg
         """
-        box = list(self.inside[i])[2 * j + 1]
+        box = self.inside[i].boxes_and_types[2 * j + 1]
         transposed_box = (box.r if left else box.l).transpose(left)
         top, bottom = self[:i], self[i + 1:]
-        left_boxes_and_types = list(self.inside[i])[:2 * j + 1]
-        right_boxes_and_types = list(self.inside[i])[2 * j + 2:]
+        boxes_and_types = list(self.inside[i].boxes_and_types)
+        left_boxes_and_types = boxes_and_types[:2 * j + 1]
+        right_boxes_and_types = boxes_and_types[2 * j + 2:]
         left_layer, right_layer = [
             self.id().tensor(
                 *(x if k % 2 else self.id(x) for k, x in enumerate(xs)))
@@ -515,6 +513,9 @@ class Diagram(biclosed.Diagram, RigidCategory):
         """
         from discopy import monoidal
         from discopy.rigid import Cup, Cap
+
+        if getattr(self, "has_nonidentity_permutation", False):
+            raise NotImplementedError(messages.PERMUTATION_HAS_NO_OFFSET)
 
         def follow_wire(diagram, i, j):
             """
@@ -747,7 +748,7 @@ class Cup(BinaryBoxConstructor, Box):
         name = f"Cup({left}, {right})"
         dom, cod = left @ right, self.ob(dom=left.dom, cod=left.dom)
         BinaryBoxConstructor.__init__(self, left, right)
-        Box.__init__(self, name, dom, cod, draw_as_wires=True)
+        Box.__init__(self, name, dom, cod, draw_as_cup=True)
 
     def rotate(self, left=False):
         return self.cap_factory(self.right.l, self.left.l) if left\
@@ -785,7 +786,7 @@ class Cap(BinaryBoxConstructor, Box):
         name = f"Cap({left}, {right})"
         dom, cod = self.ob(dom=left.dom, cod=left.dom), left @ right
         BinaryBoxConstructor.__init__(self, left, right)
-        Box.__init__(self, name, dom, cod, draw_as_wires=True)
+        Box.__init__(self, name, dom, cod, draw_as_cap=True)
 
     def rotate(self, left=False):
         return self.cup_factory(self.right.l, self.left.l) if left\

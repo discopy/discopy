@@ -36,7 +36,7 @@ from inspect import isclass
 from itertools import chain
 
 import random
-from typing import Any, Iterable, Union, TYPE_CHECKING
+from typing import Any, Iterable, Union, TYPE_CHECKING, Sequence
 
 import matplotlib.pyplot as plt
 
@@ -419,7 +419,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
     braid = swap
 
     @classmethod
-    def permutation(cls, xs: list[int], dom) -> Hypergraph:
+    def permutation(cls, xs: Sequence[int], doms: Sequence) -> Hypergraph:
         """
         The hypergraph that encodes a given permutation, with the same
         semantics as :meth:`discopy.symmetric.Diagram.permutation` but
@@ -428,11 +428,15 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
 
         Parameters:
             xs : A list of integers representing a permutation.
-            dom : A type of the same length as ``xs``.
+            dom : A list of types of the same length as ``xs``.
         """
-        if list(range(len(dom))) != sorted(xs):
-            raise ValueError(messages.WRONG_PERMUTATION.format(len(dom), xs))
-        cod, boxes = dom.ob(*(dom.inside[i] for i in xs)), ()
+        xs = Permutation(xs, len(doms))
+        dom = cls.ob.tensor(*doms) if doms else\
+            doms if isinstance(doms, cls.ob) else cls.ob.unit()
+        if xs.is_identity:
+            return cls.id(dom)
+        cod = cls.ob.tensor(*(doms[i] for i in xs)) if dom else cls.ob.unit()
+        boxes = ()
         dom_wires, cod_wires = tuple(range(len(dom))), tuple(xs)
         return cls(dom, cod, boxes, (dom_wires, (), cod_wires))
 
@@ -1641,6 +1645,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         pos = spring_layout(graph, pos=pos, fixed=fixed, k=k, seed=seed)
         return graph, pos
 
+    @backend.matplotlib_context()
     def draw(self, seed=None, k=.25, path=None, doctest=None):
         """
         Draw a hypegraph using a force-based layout algorithm.

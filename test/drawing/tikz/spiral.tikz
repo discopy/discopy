@@ -22,11 +22,11 @@
 \node [] (19) at (2.5, 1.5) {};
 \node [] (20) at (2.5, 0.5) {};
 \node [style=unit, scale=0.408] (21) at (4.5, 5.5) {};
-\node [style=cap, scale=0.408] (21) at (2.0, 4.5) {};
-\node [style=cap, scale=0.408] (21) at (2.0, 3.5) {};
-\node [style=counit, scale=0.408] (21) at (2.5, 2.5) {};
-\node [style=cup, scale=0.408] (21) at (2.5, 1.5) {};
-\node [style=cup, scale=0.408] (21) at (2.5, 0.5) {};
+\node [style=cap, scale=0.408] (22) at (2.0, 4.5) {};
+\node [style=cap, scale=0.408] (23) at (2.0, 3.5) {};
+\node [style=counit, scale=0.408] (24) at (2.5, 2.5) {};
+\node [style=cup, scale=0.408] (25) at (2.5, 1.5) {};
+\node [style=cup, scale=0.408] (26) at (2.5, 0.5) {};
 \end{pgfonlayer}
 \begin{pgfonlayer}{edgelayer}
 \draw [style=box] (1.center) to (2.center) to (3.center) to (4.center) to (1.center);

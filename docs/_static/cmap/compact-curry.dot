@@ -1,0 +1,13 @@
+graph cmap {
+  graph [bgcolor="white", fontname="DejaVu Sans", layout="dot", margin="0.04", outputorder="edgesfirst", overlap="false", rankdir="TB", splines="true"];
+  node [color="black", fontname="DejaVu Sans", fontsize="12", margin="0", shape="plain"];
+  edge [color="black", fontname="DejaVu Sans", fontsize="9", headclip="true", penwidth="1.4", tailclip="true"];
+  v0 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0"><TR><TD PORT="p1" TOOLTIP="dom 0: x (up, up)" BORDER="0" CELLPADDING="0" COLSPAN="1" WIDTH="18" HEIGHT="0"></TD><TD PORT="p2" TOOLTIP="dom 1: y (up, up)" BORDER="0" CELLPADDING="0" COLSPAN="1" WIDTH="18" HEIGHT="0"></TD></TR><TR><TD BORDER="1" CELLPADDING="6" COLSPAN="2" WIDTH="36">f</TD></TR><TR><TD PORT="p3" TOOLTIP="cod 0: z (down, down)" BORDER="0" CELLPADDING="0" COLSPAN="2" WIDTH="36" HEIGHT="0"></TD></TR></TABLE>>];
+  input [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0"><TR><TD PORT="p0" TOOLTIP="input 0: y" BORDER="0" CELLPADDING="4"></TD></TR></TABLE>>];
+  output [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0"><TR><TD PORT="p4" TOOLTIP="output 0: x.r" BORDER="0" CELLPADDING="4"></TD><TD PORT="p5" TOOLTIP="output 1: z" BORDER="0" CELLPADDING="4"></TD></TR></TABLE>>];
+  { rank=min; input; }
+  { rank=max; output; }
+  input:p0:s -- v0:p2:n [label="y", labeldistance="1.6", len="0.85"];
+  v0:p1:n -- output:p4:n [headlabel="x.r", labeldistance="1.6", len="0.85", taillabel="x"];
+  v0:p3:s -- output:p5:n [label="z", labeldistance="1.6", len="0.85"];
+}
