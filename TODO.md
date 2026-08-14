@@ -31,12 +31,32 @@ Roughly 58 bare `Ob` occurrences inside those seven modules, plus 12 qualified r
 (`rigid.Ob` 4, `frobenius.Ob` 6, `braided.Ob` 1, `pivotal.Ob` 1) and hits in `test/rigid.py`,
 `test/tensor.py`, `test/hypergraph.py`, `test/utils.py`.
 
-## No compatibility alias
+## Deprecate `Ob`, do not just drop it
 
-The previous rename, `monoidal.Ob` to `monoidal.Wire`, left no `Ob = Wire` alias behind. This one
-follows that precedent: a clean break, nothing deprecated.
+USER, [2026-08-14](https://github.com/discopy/discopy/pull/566#discussion_r3785260040), verbatim:
 
-## Serialization changes, deliberately
+> also add a DeprecationWarning when the user tries to construct an Ob like we did for
+> `drawing.Equation`
+
+This replaces the earlier plan of a clean break. The `drawing.Equation` precedent is a module-level
+`__getattr__` in `discopy/drawing/__init__.py`, which fires only when the name is not found normally
+— exactly the case once `Ob` is gone:
+
+```python
+def __getattr__(name):
+    if name == "Ob":
+        import warnings
+        warnings.warn(
+            "discopy.rigid.Ob is deprecated, use discopy.rigid.Wire instead.",
+            DeprecationWarning, stacklevel=2)
+        return Wire
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+```
+
+One per renamed module. It covers construction, `from ... import Ob`, and `isinstance` alike, since
+all three go through attribute access.
+
+## The shim also keeps old serialisations loading
 
 Class names are baked into both `repr` and `to_tree`:
 
@@ -45,21 +65,33 @@ Class names are baked into both `repr` and `to_tree`:
 {'factory': 'rigid.Ob', 'name': 'x'}
 ```
 
-After the rename that becomes `'rigid.Wire'`, so any tree serialized before it will not load. This
-is the same cost the `monoidal.Ob` rename already paid, and it is why the `to_tree`/`from_tree`
-round-trip tests are on the checklist rather than assumed.
+The earlier draft of this plan said trees serialized before the rename would stop loading. **That was
+wrong, given the shim.** `utils.from_tree` resolves a factory string with
+
+```python
+return getattr(module, factory).from_tree(tree)
+```
+
+and `getattr` consults the module `__getattr__`, so `'rigid.Ob'` resolves to `Wire` with a
+`DeprecationWarning`. The class's own `from_tree` ignores the `factory` field — checked:
+`Wire.from_tree({'factory': 'rigid.Ob', 'name': 'x'})` gives `cat.Ob('x')`. So old and new trees both
+load, and the deprecation is a real deprecation rather than a rename with a warning bolted on.
 
 ## Points
 
 - [ ] 1. Rename the seven classes and every in-module reference: `ob = Ob` factory assignments, type
       hints, `__all__`/autosummary entries, docstrings.
 - [ ] 2. Update the 12 qualified references outside those modules, and the four test files.
-- [ ] 3. Check the `from_tree` registry resolves the new `factory` strings, and that
-      `to_tree`/`from_tree` round-trips still pass for each renamed class.
-- [ ] 4. Check `eval(repr(x)) == x` still holds for each renamed class — `repr` goes through
+- [ ] 3. A module-level `__getattr__` in each of the seven modules, warning and returning `Wire`,
+      following `discopy/drawing/__init__.py`. Check none of them already defines `__getattr__`.
+- [ ] 4. Test the deprecation: `Ob` still constructs, warns once with `DeprecationWarning`, and is
+      the same class as `Wire`; and `from ... import Ob` warns too.
+- [ ] 5. Check `to_tree`/`from_tree` round-trips for each renamed class, **and** that a tree
+      serialized with the old `'<module>.Ob'` factory string still loads through the shim.
+- [ ] 6. Check `eval(repr(x)) == x` still holds for each renamed class — `repr` goes through
       `factory_name`, so it should follow automatically, but it is the invariant `STYLE.md` names.
-- [ ] 5. Grep the docs for `.Ob` references that are now stale, including `docs/_api` autosummary
+- [ ] 7. Grep the docs for `.Ob` references that are now stale, including `docs/_api` autosummary
       stubs.
-- [ ] 6. `CHANGELOG.md` entry under `[Unreleased]`, in `### Changed`, noting the missing half of the
-      earlier rename.
-- [ ] 7. `uv run pflake8 discopy` and `uv run coverage run -m pytest` green.
+- [ ] 8. `CHANGELOG.md` entry under `[Unreleased]`, in `### Changed`, noting the missing half of the
+      earlier rename and the deprecation.
+- [ ] 9. `uv run pflake8 discopy` and `uv run coverage run -m pytest` green.
