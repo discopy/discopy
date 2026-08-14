@@ -134,6 +134,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `closed.Context.dom` called `category.ob.tensor` unbound, which raised
   `TypeError` for an empty context instead of returning `Ty()`
   ([#549](https://github.com/discopy/discopy/issues/549)).
+- Both branches of `closed.Abstraction.eval` curry on the right: the
+  context branch curried out the wrong end of its domain, so an abstraction
+  applied to an argument sharing a free variable did not compose, and a
+  left abstraction evaluates through its right counterpart
+  ([#562](https://github.com/discopy/discopy/issues/562)).
 
 ### Performance
 

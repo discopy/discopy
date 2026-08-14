@@ -20,7 +20,8 @@ i.e. option **B** of the two offered on that issue:
 - [x] `pflake8 discopy` clean and the suite green
 - [x] `CHANGELOG.md` entry — this changes a public default
 - [x] Report the review cost and the closed-lane collisions on the PR
-- [WIP] @evening-bptwxh-2026-08-14 18:20 — USER's ruling on #562: both branches of `closed.Abstraction.eval` curry right, `self.left` falls back to the right case WLOG
+- [x] USER's ruling on #562: both branches of `closed.Abstraction.eval` curry
+      right, `self.left` falls back to the right case WLOG
 
 ## What B turned out to mean
 
@@ -46,8 +47,16 @@ right/`Under` case and each has a sibling that already passes `left=True`:
   which already passed `left=True`.
 - the `CMap.curry` right-hand doctest, named `biclosed-curry-right`.
 
-## Filed, not fixed here
+## Fixed here after USER's ruling
 
 - [#562](https://github.com/discopy/discopy/issues/562) — the two branches of
   `closed.Abstraction.eval` curry on opposite sides, which is why the default was
-  load-bearing above.
+  load-bearing above. USER ruled on the issue: both branches curry on the right,
+  and `self.left` falls back to the right case WLOG. In `closed` the pre/post
+  permutation of that fallback is the identity, since left and right exponentials
+  coincide and the domain keeps the free-variable order either way. The context
+  branch turned out not just inconsistent but broken: `curry(left=True)` curried
+  the last wire of `[self.var] + context`, i.e. the context's, not the
+  abstraction's own variable sitting first. The non-context permutation being
+  wrong for a bound variable at index `i > 0` is #544's separate bug, fixed by
+  #545, not here.
