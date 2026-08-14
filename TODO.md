@@ -20,6 +20,7 @@ i.e. option **B** of the two offered on that issue:
 - [x] `pflake8 discopy` clean and the suite green
 - [x] `CHANGELOG.md` entry — this changes a public default
 - [x] Report the review cost and the closed-lane collisions on the PR
+- [WIP] @evening-bptwxh-2026-08-14 18:20 — USER's ruling on #562: both branches of `closed.Abstraction.eval` curry right, `self.left` falls back to the right case WLOG
 
 ## What B turned out to mean
 
