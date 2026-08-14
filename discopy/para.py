@@ -214,19 +214,30 @@ class Symmetric(SymmetricCategory, NamedGeneric['category']):
         """
         return cls.lift(cls.category.swap(left, right))
 
-    def reparam(self, arrow: category) -> Symmetric:
+    def reparam(self, other: category) -> Symmetric:
         """
-        Precompose the parameter space with `arrow : q -> param`, i.e. the
+        Precompose the parameter space with `other : q -> param`, i.e. the
         2-cells of :class:`Symmetric`, kept as a method of the 1-cells the same
         way as :meth:`interchange <discopy.monoidal.Diagram.interchange>`.
 
         Parameters:
-            arrow : The reparametrisation, a morphism into ``param``.
+            other : The reparametrisation, a morphism into ``param``.
+
+        Example
+        -------
+        >>> from discopy.symmetric import Ty, Box
+        >>> x, y, p, q = map(Ty, "xypq")
+        >>> f = Symmetric(x, y, p, Box('f', x @ p, y))
+        >>> r = Box('r', q, p)
+        >>> f.reparam(r).inside.draw(doctest="docs/_static/para/reparam.svg")
+
+        .. image:: /_static/para/reparam.svg
+            :align: center
         """
-        if arrow.cod != self.param:
-            raise AxiomError(f"{arrow.cod} != {self.param}")
-        return type(self)(self.dom, self.cod, arrow.dom,
-                          self.dom @ arrow >> self.inside)
+        if other.cod != self.param:
+            raise AxiomError(f"{other.cod} != {self.param}")
+        return type(self)(self.dom, self.cod, other.dom,
+                          self.dom @ other >> self.inside)
 
 
 class Traced(Symmetric, TracedCategory):
