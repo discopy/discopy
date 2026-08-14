@@ -21,9 +21,9 @@ f, g, h = Box('f', x, y @ z), Box('g', y, z), Box('h', z, z)
 
 assert f >> g @ h == Diagram(
     dom=x, cod=z @ z, inside=(
-        Layer(Ty(), f, Ty()),
-        Layer(Ty(), g, z),
-        Layer(z,    h, Ty())))
+        Layer(f),
+        Layer(g, z),
+        Layer(z, h)))
 
 f >> g @ h
 ```
