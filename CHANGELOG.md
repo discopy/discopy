@@ -79,6 +79,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - Symmetric categories generate their swaps with `swap_factory` rather than
   `braid_factory`, which is now a `classproperty` reading it
   ([#440](https://github.com/discopy/discopy/pull/440)).
+- `biclosed` defaults `left` to `True` in `Diagram.curry`, `Diagram.ev`,
+  `Diagram.uncurry`, `CMap.curry` and `CMap.uncurry`, so that `abc`,
+  `biclosed`, `closed` and `rigid` all agree on one convention: the default
+  exponential is `Over`, i.e. `<<`. Previously `closed` inherited
+  `curry` defaulting to the right from `biclosed` while overriding `ev` to
+  the left, so the default currying was never evaluated by the default
+  `ev`. Code relying on the old right-handed default should pass
+  `left=False` explicitly
+  ([#560](https://github.com/discopy/discopy/issues/560)).
 
 ### Fixed
 

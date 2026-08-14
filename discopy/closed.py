@@ -265,7 +265,7 @@ class Abstraction(TermBase, biclosed.Abstraction):
         body = self.body.eval(functor=functor)
         p = [0] + [j + 1 if j < i else j for j in range(n) if j != i]
         doms = [self.ob(wire) for wire in body.dom.inside]
-        return (body.permutation(p, doms).dagger() >> body).curry()
+        return (body.permutation(p, doms).dagger() >> body).curry(left=False)
 
 
 @dataclass

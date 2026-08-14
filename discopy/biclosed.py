@@ -44,14 +44,15 @@ Axioms
 .. image:: /_static/biclosed/curry-left.svg
     :align: center
 
->>> Equation(h.uncurry().curry(), h).draw(
+>>> Equation(h.uncurry(left=False).curry(left=False), h).draw(
 ...     doctest='docs/_static/biclosed/curry-right.svg', margins=(0.1, 0.05))
 
 .. image:: /_static/biclosed/curry-right.svg
     :align: center
 
 >>> Equation(
-...     g.curry(left=True).uncurry(left=True), g, g.curry().uncurry()).draw(
+...     g.curry(left=True).uncurry(left=True), g,
+...     g.curry(left=False).uncurry(left=False)).draw(
 ...         doctest='docs/_static/biclosed/uncurry.svg')
 
 .. image:: /_static/biclosed/uncurry.svg
@@ -276,35 +277,38 @@ class Diagram(monoidal.Diagram, BiclosedCategory):
 
     ob = Ty
 
-    def curry(self, n=1, left=False) -> Diagram:
+    def curry(self, n=1, left=True) -> Diagram:
         """
         Wrapper around :class:`Curry` called by :class:`Functor`.
 
         Parameters:
             n : The number of atomic types to curry.
-            left : Whether to curry on the left or right.
+            left : Whether to curry on the left, i.e. into :class:`Over`,
+                or on the right, i.e. into :class:`Under`.
         """
         return self.curry_factory(self, n, left)
 
     @classmethod
-    def ev(cls, base: Ty, exponent: Ty, left=False) -> Eval:
+    def ev(cls, base: Ty, exponent: Ty, left=True) -> Eval:
         """
         Wrapper around :class:`Eval` called by :class:`Functor`.
 
         Parameters:
             base : The base of the exponential type to evaluate.
             exponent : The exponent of the exponential type to evaluate.
-            left : Whether to evaluate on the left or right.
+            left : Whether to evaluate on the left, i.e. from :class:`Over`,
+                or on the right, i.e. from :class:`Under`.
         """
         return cls.eval_factory(
             base << exponent if left else exponent >> base)
 
-    def uncurry(self: Diagram, left=False) -> Diagram:
+    def uncurry(self: Diagram, left=True) -> Diagram:
         """
         Uncurry a biclosed diagram by composing it with :meth:`Diagram.ev`.
 
         Parameters:
-            left : Whether to uncurry on the left or right.
+            left : Whether to uncurry on the left, i.e. from :class:`Over`,
+                or on the right, i.e. from :class:`Under`.
         """
         base, exponent = self.cod.base, self.cod.exponent
         return self @ exponent >> self.ev(base, exponent, True) if left\
@@ -460,19 +464,20 @@ class CMap(monoidal.CMap):
 
     require_causal = False
 
-    def curry(self, n=1, left=False) -> Self:
+    def curry(self, n=1, left=True) -> Self:
         """
         Curry a combinatorial map using the closed structure of the host
         category.
 
         Parameters:
             n : The number of objects to curry.
-            left : Whether to curry on the left or right.
+            left : Whether to curry on the left, i.e. into :class:`Over`,
+                or on the right, i.e. into :class:`Under`.
 
         >>> from discopy.closed import Ty, Box
         >>> x, y, z = map(Ty, "xyz")
         >>> f = Box("f", x @ y, z).to_map()
-        >>> f.curry().uncurry().draw(show=False,
+        >>> f.curry(left=False).uncurry(left=False).draw(show=False,
         ...     doctest="docs/_static/cmap/biclosed-curry-right.dot")
 
         .. graphviz:: /_static/cmap/biclosed-curry-right.dot
@@ -503,14 +508,15 @@ class CMap(monoidal.CMap):
             self.category.coeval_factory(exp, left=False))
         return (self >> coev).trace(n, left=True)
 
-    def uncurry(self, n=1, left=False) -> Self:
+    def uncurry(self, n=1, left=True) -> Self:
         """
         Uncurry a combinatorial map using the evaluation box of the host
         category.
 
         Parameters:
             n : The number of objects to uncurry.
-            left : Whether to uncurry on the left or right.
+            left : Whether to uncurry on the left, i.e. from :class:`Over`,
+                or on the right, i.e. from :class:`Under`.
         """
         if n < 0:
             raise ValueError
