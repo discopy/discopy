@@ -79,19 +79,19 @@ load, and the deprecation is a real deprecation rather than a rename with a warn
 
 ## Points
 
-- [WIP] @evening-bptwxh-2026-08-14 20:05 1. Rename the seven classes and every in-module reference: `ob = Ob` factory assignments, type
+- [x] 1. Rename the seven classes and every in-module reference: `ob = Ob` factory assignments, type
       hints, `__all__`/autosummary entries, docstrings.
-- [WIP] @evening-bptwxh-2026-08-14 20:05 2. Update the 12 qualified references outside those modules, and the four test files.
-- [WIP] @evening-bptwxh-2026-08-14 20:05 3. A module-level `__getattr__` in each of the seven modules, warning and returning `Wire`,
+- [x] 2. Update the 12 qualified references outside those modules, and the four test files.
+- [x] 3. A module-level `__getattr__` in each of the seven modules, warning and returning `Wire`,
       following `discopy/drawing/__init__.py`. Check none of them already defines `__getattr__`.
-- [WIP] @evening-bptwxh-2026-08-14 20:05 4. Test the deprecation: `Ob` still constructs, warns once with `DeprecationWarning`, and is
+- [x] 4. Test the deprecation: `Ob` still constructs, warns once with `DeprecationWarning`, and is
       the same class as `Wire`; and `from ... import Ob` warns too.
-- [WIP] @evening-bptwxh-2026-08-14 20:05 5. Check `to_tree`/`from_tree` round-trips for each renamed class, **and** that a tree
+- [x] 5. Check `to_tree`/`from_tree` round-trips for each renamed class, **and** that a tree
       serialized with the old `'<module>.Ob'` factory string still loads through the shim.
-- [WIP] @evening-bptwxh-2026-08-14 20:05 6. Check `eval(repr(x)) == x` still holds for each renamed class — `repr` goes through
+- [x] 6. Check `eval(repr(x)) == x` still holds for each renamed class — `repr` goes through
       `factory_name`, so it should follow automatically, but it is the invariant `STYLE.md` names.
-- [WIP] @evening-bptwxh-2026-08-14 20:05 7. Grep the docs for `.Ob` references that are now stale, including `docs/_api` autosummary
+- [x] 7. Grep the docs for `.Ob` references that are now stale, including `docs/_api` autosummary
       stubs.
-- [WIP] @evening-bptwxh-2026-08-14 20:05 8. `CHANGELOG.md` entry under `[Unreleased]`, in `### Changed`, noting the missing half of the
+- [x] 8. `CHANGELOG.md` entry under `[Unreleased]`, in `### Changed`, noting the missing half of the
       earlier rename and the deprecation.
-- [WIP] @evening-bptwxh-2026-08-14 20:05 9. `uv run pflake8 discopy` and `uv run coverage run -m pytest` green.
+- [x] 9. `uv run pflake8 discopy` and `uv run coverage run -m pytest` green.
