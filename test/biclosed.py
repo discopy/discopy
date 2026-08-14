@@ -73,10 +73,42 @@ def test_Term_linear_planar():
         h(var)(var)
     with raises(ValueError):
         z(lambda u, left=True: f(var))
+
+    eta_over = Abstraction(var, fvar(var))
+    eta_under = Abstraction(var, var(gvar, left=True), left=True)
+    assert (eta_over.dom, eta_over.cod) == (x << y, x << y)
+    assert (eta_under.dom, eta_under.cod) == (y >> x, y >> x)
+
+
+def test_Application_freevars_order():
+    """The free variables of a term are ordered like the wires of its dom."""
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
+    a, b = Variable('a', y), Variable('b', x)
+    func = a((y >> (z << x))("h"), left=True)
+
+    under = b((x >> (y >> z))("k"), left=True)
+    for term in [func(b), a(under, left=True)]:
+        assert term.dom == Ty().tensor(*[var.cod for var in term.freevars])
+        assert term.freevars == [a, b]
+
+
+def test_Abstraction_well_typed():
+    """Abstraction agrees with eval on both dom and cod, nesting included."""
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
+    a, b = Variable('a', y), Variable('b', x)
+    term = a((y >> (z << x))("h"), left=True)(b)
+
+    inner = Abstraction(b, term)
+    assert (inner.dom, inner.cod) == (y, z << x)
+    outer = Abstraction(a, inner, left=True)
+    assert (outer.dom, outer.cod) == (Ty(), y >> (z << x))
+    for abstraction in [inner, outer]:
+        evaluated = abstraction.eval()
+        assert (evaluated.dom, evaluated.cod) == (abstraction.dom,
+                                                  abstraction.cod)
+
     with raises(ValueError):
-        Abstraction(var, fvar(var))
-    with raises(ValueError):
-        Abstraction(var, var(gvar, left=True), left=True)
+        Abstraction(a, term)
 
 
 def test_to_rigid():

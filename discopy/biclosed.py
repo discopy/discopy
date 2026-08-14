@@ -683,8 +683,8 @@ class Application(TermBase):
         assert_isinstance(func.cod.inside[0], Under if left else Over)
         if set(func.freevars).intersection(args.freevars):
             raise ValueError("Expected disjoint free variables.")
-        self.freevars = func.freevars + args.freevars if self.left\
-            else args.freevars + func.freevars
+        self.freevars = args.freevars + func.freevars if self.left\
+            else func.freevars + args.freevars
         return args.dom @ func.dom if left else func.dom @ args.dom
 
     def eval(self, functor=None):
