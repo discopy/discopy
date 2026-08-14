@@ -461,8 +461,11 @@ Furthermore, we can always write it so that every tensor expression contains exa
 
 $$f \otimes f' = (f 1_y) \otimes (1_{x'} f') = (f \otimes 1_{x'}) (1_y \otimes f')$$
 
-Such a tensor expression is called a **layer**, it takes the form $1_a \otimes f \otimes 1_b$ for some box $f$ in the middle and a pair of (possibly empty) types $a$ and $b$ on the left and right.
-This is implemented by `Layer`, a subclass of `cat.Box` with three attributes `left: Ty`, `box: monoidal.Box` and `right: Ty`.
+Such a tensor expression is called a **layer**.
+DisCoPy can also fuse independent boxes into one layer, for example $f \otimes g$.
+This is implemented by `Layer`, a subclass of `cat.Box` whose `boxes_or_types` attribute is a compact tensor word of boxes and non-empty types.
+It contains at least one box, drops empty types, and tensors adjacent types together.
+The compatibility view `boxes_and_types` inserts empty types again to recover the traditional alternating representation.
 
 ```python {.marimo}
 from discopy.monoidal import Layer
@@ -490,7 +493,7 @@ This is implemented in terms of whiskering using the previous formula:
 from discopy.monoidal import Diagram
 x_2, y_2, x_, y_ = (Ty('x'), Ty('y'), Ty('x_'), Ty('y_'))
 f_1, f__1 = (monoidal.Box('f', x_2, y_2), monoidal.Box('f_', x_, y_))
-assert f_1 @ f__1 == f_1 @ x_ >> y_2 @ f__1 == Diagram(inside=(Layer(Ty(), f_1, x_), Layer(y_2, f__1, Ty())), dom=x_2 @ x_, cod=y_2 @ y_)
+assert f_1 @ f__1 == f_1 @ x_ >> y_2 @ f__1 == Diagram(inside=(Layer(f_1, x_), Layer(y_2, f__1)), dom=x_2 @ x_, cod=y_2 @ y_)
 f_1 @ f__1
 ```
 
@@ -500,8 +503,8 @@ The bijection between these two encodings is implemented by the methods `encode`
 
 ```python {.marimo}
 d = f_1 @ f__1
-assert d.boxes == [box for _, box, _ in d.inside]
-assert d.offsets == [len(left) for left, _, _ in d.inside]
+assert d.boxes == [f_1, f__1]
+assert d.offsets == [0, 1]
 assert d.encode() == (d.dom, list(zip(d.boxes, d.offsets))) == (x_2 @ x_, [(f_1, 0), (f__1, 1)])
 assert Diagram.decode(x_2 @ x_, [(f_1, 0), (f__1, 1)]) == d
 ```
