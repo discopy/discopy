@@ -91,8 +91,9 @@ hand. Same move as `discopy.drawing`, where the layout algorithm is itself a fun
 - [x] 2. File the bugs found while measuring: #541, #542, #543, #544 — all four fixed in #545.
       #548 (no closed diagram containing `Copy` can be drawn) and #549 (`Context.dom` repeated
       #542's unbound call) also filed; #549 is fixed on `main` via #556.
-- [ ] 3. `varname` on `monoidal.Wire`: an `__init__` keyword defaulting to `None`, left out of
-      `__eq__`/`__hash__`, carried through `dagger()` and `to_tree`/`from_tree`.
+- [ ] 3. `varname` on `monoidal.Wire`, per USER's ruling quoted below: an optional argument of
+      `Wire.__init__`, in `__repr__` but not `__str__`, not in `__eq__`. Also carried through
+      `dagger()` and `to_tree`/`from_tree`, which drop it today.
 - [ ] 4. Deterministic fresh names from binder position (de Bruijn level: free variables numbered by
       their index in `dom`, binders continuing the numbering), used wherever `varname` is absent.
       Test that it is a pure function of the diagram.
@@ -107,13 +108,18 @@ hand. Same move as `discopy.drawing`, where the layout algorithm is itself a fun
 - [ ] 10. `CHANGELOG.md` entry under `[Unreleased]`, and a docstring example on `to_term`.
 - [ ] 11. `uv run pflake8 discopy` and `uv run coverage run -m pytest` green.
 
-## Open sub-decision, for whoever takes point 3
+## The `repr` sub-decision is ruled
 
-Whether `varname` belongs in `Wire.__repr__`. In it, `eval(repr(x)) == x` still holds — equality
-ignores the field — and a diagram round-trips through `repr` with its names. Out of it, `repr` stays
-quiet for the whole library and names are lost through `repr`. Recommendation: **in**, printed only
-when not `None`, and out of `__str__`. Not blocking; flagged because it is the visible half of
-USER's "`eval(repr(x)) == x` starts hiding a difference `==` does not see".
+USER, [2026-08-14](https://github.com/discopy/discopy/pull/540#issuecomment-5291450910), verbatim:
+
+> - `varname` should be an optional argument of `Wire.__init__`, it should appear in the `__repr__`
+>   but not the `__str__`, it should not be included in the `__eq__`
+
+So a diagram round-trips through `repr` carrying its names, `str` stays as a mathematician would
+write it, and equality stays blind to the annotation. `__hash__` follows `__eq__` — it currently
+hashes `(type, name, dom, cod)` and must keep doing exactly that, or `==` objects would hash apart.
+
+The same comment asks for a rename that is **not** part of this branch, see below.
 
 ## Dependencies
 
@@ -127,6 +133,14 @@ USER's "`eval(repr(x)) == x` starts hiding a difference `==` does not see".
 
 Roundtrip only. #375 bundled five unrelated fixes; `discard_factory` was already a `Discard` class
 on `main` and `Substitution` belongs to #442. Bugs hit on the way get filed, not fixed here.
+
+## Split out, not done here
+
+The other half of USER's 2026-08-14 comment — renaming every `monoidal.Wire` subclass from `Ob` to
+`Wire` — is a library-wide mechanical rename with nothing to do with the roundtrip. It is its own
+branch and PR. The two do not collide: the rename touches `rigid`, `braided`, `biclosed`, `pivotal`,
+`frobenius`, `feedback` and `quantum.circuit`, while `varname` touches only `monoidal.Wire`, which is
+already named `Wire`.
 
 ## Knock-on
 
