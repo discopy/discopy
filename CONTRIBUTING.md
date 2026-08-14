@@ -105,7 +105,7 @@ making the gate stricter on slow machines and laxer on fast ones.
 The baseline is a `bench.json` from a CI run of this same workflow, gzipped
 (`gzip -9n bench.json`) and committed as `benchmark/baseline.json.gz`: stored
 compressed, GitHub shows it as a binary file rather than a 6k-line diff. The
-`benchmark` GitHub workflow runs the suite on pull requests (smoke sizes) and
+`benchmark` GitHub workflow runs the suite on pull requests (small sizes) and
 on `main` / manual dispatch (full sizes), uploading the report as an artifact.
 
 A benchmarking job is available in the CI pipeline. By default, it is running only

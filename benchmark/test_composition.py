@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 
 """
-Composition benchmark, reproducing the experiments of `arXiv:2105.09257
-<https://arxiv.org/pdf/2105.09257>`_ for
-:class:`discopy.symmetric.Diagram`, :class:`discopy.symmetric.Hypergraph`
-and :class:`discopy.symmetric.CMap`.
+Composition benchmark, reproducing the experiments of :cite:`WilsonZanasi2022`
+(https://arxiv.org/abs/2105.09257) for :class:`discopy.symmetric.Diagram`,
+:class:`discopy.symmetric.Hypergraph` and :class:`discopy.symmetric.CMap`.
 
 Each test is decorated with a suite, family, case and list of sizes. The
 small/medium sizes always run; ``BENCH_FLAGS=bench:full`` adds the heavy tail

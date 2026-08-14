@@ -125,7 +125,7 @@ class Plot:
 PLOTS = {
     "composition": Plot(
         (("Diagram", "Hypergraph", "CMap"),), (19, 6),
-        "Composition benchmark scaling (arXiv:2105.09257)"),
+        "Composition benchmark scaling"),
     "conversion": Plot((
         ("Diagram → Hypergraph", "Hypergraph → CMap", "CMap → Diagram"),
         ("Hypergraph → Diagram", "CMap → Hypergraph", "Diagram → CMap"),
