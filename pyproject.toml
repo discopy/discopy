@@ -39,7 +39,7 @@ dependencies = [
   "numpy",
   "networkx",
   "matplotlib",
-  "pillow"
+  "pillow",
 ]
 
 [dependency-groups]
@@ -56,12 +56,14 @@ docs = ["discopy[docs]"]
 notebooks = ["discopy[notebooks]"]
 quantum = ["discopy[quantum]"]
 grammar = ["discopy[grammar]"]
+typst = ["discopy[typst]"]
 all = [
     { include-group = "dev" },
     { include-group = "docs" },
     { include-group = "notebooks" },
     { include-group = "quantum" },
     { include-group = "grammar" },
+    { include-group = "typst" },
 ]
 
 [project.optional-dependencies]
@@ -108,6 +110,9 @@ docs  = [
     "sphinxcontrib-bibtex == 2.5.*",
     "sphinxcontrib-tikz == 0.4.*",
     "sphinxcontrib-youtube == 1.4.*",
+]
+typst = [
+    "typst >= 0.15.0",
 ]
 
 [tool.setuptools_scm]

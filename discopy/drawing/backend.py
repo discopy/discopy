@@ -1167,6 +1167,290 @@ class TikZ(Backend):
             print(''.join(begin + nodes + edges + end))
 
 
+def wire_bezier_points(source, target, bend_out, bend_in):
+    """
+    Compute cubic bezier control points for a wire from ``source`` to
+    ``target`` bending out and/or in, matching the quadratic-bezier
+    wiring used by the Matplotlib backend.
+    """
+    if source[0] == target[0] or source[1] == target[1]:
+        return None
+    if bend_out and bend_in:
+        mid = (target[0], source[1])
+    elif bend_in:
+        mid = (source[0], target[1])
+    elif bend_out:
+        mid = (target[0], source[1])
+    else:
+        return None
+    c1 = ((source[0] + 2 * mid[0]) / 3, (source[1] + 2 * mid[1]) / 3)
+    c2 = ((2 * mid[0] + target[0]) / 3, (2 * mid[1] + target[1]) / 3)
+    return c1, c2
+
+
+class Typst(Backend):
+    """Typst/CeTZ drawing backend."""
+
+    def __init__(self, **params):
+        self.body: list = []
+        self.nodesize = params.get("nodesize", 1)
+        self.fontsize = params.get("fontsize", DEFAULT["fontsize"])
+        # Match Matplotlib's default stroke weight so wires/boxes read at
+        # paper scale once the page is auto-cropped (see ``to_document``).
+        self.linewidth = params.get("linewidth", 1.0)
+        super().__init__()
+
+    def draw(self, graph, **params):
+        """Orchestrate drawing, mirroring the module-level ``draw()``."""
+        from math import sqrt
+
+        max_v = max(graph.height, graph.width, 0.01)
+        self.nodesize = round(params.get("nodesize", 1.0) / sqrt(max_v), 3)
+        self.draw_boundary(graph, **params)
+        self.draw_regions(graph, **params)
+        self.draw_wires(graph, **params)
+        self.draw_boxes(graph, **params)
+        self.draw_spiders(graph, **params)
+        path = params.pop("path", None)
+        show = params.pop("show", True)
+        return self.output(path=path, show=show, **params)
+
+    @staticmethod
+    def format_color(color):
+        """Format a colour name or hexcode to a Typst-friendly string."""
+        if color is None:
+            return "none"
+        if isinstance(color, str) and color.startswith("#"):
+            return color
+        from discopy.config import COLORS
+
+        return COLORS.get(color, color)
+
+    @staticmethod
+    def color_expr(hexcode):
+        """Build a Typst ``rgb(\"#hex\")`` expression string."""
+        if hexcode == "none":
+            return "none"
+        return f'rgb("{hexcode}")' if hexcode.startswith("#") else hexcode
+
+    @staticmethod
+    def math_label(text):
+        """
+        Return ``(inner, math)`` for a diagram label.
+
+        Only explicit ``$...$`` wrappers enter Typst math mode. Bare words
+        like ``Alice`` stay as plain text — Typst would otherwise treat them
+        as undefined variables (``unknown variable: Alice``).
+        """
+        if text.startswith("$") and text.endswith("$") and len(text) >= 2:
+            return text[1:-1], True
+        return text, False
+
+    def coord(self, x, y):
+        from discopy.drawing.typst_ast import Coord
+
+        return Coord(x, y)
+
+    def stroke(self, color="black", linewidth=None):
+        from discopy.drawing.typst_ast import Ident
+
+        lw = self.linewidth if linewidth is None else linewidth
+        return Ident(
+            f"{self.color_expr(self.format_color(color))} + {lw:g}pt")
+
+    def draw_text(self, text, i, j, **params):
+        from discopy.drawing.typst_ast import (
+            Call, ContentExpr, Float, Ident, Str)
+
+        colour = params.get("color", None)
+        extra = {}
+        if colour and colour != "black":
+            extra["fill"] = Ident(self.color_expr(self.format_color(colour)))
+        # Wire labels use va='top' (see draw_wire_label); park them to the
+        # right of the wire like TikZ's ``anchor=west``, so the stroke does
+        # not strike through the glyph.
+        if params.get("verticalalignment", "center") == "top":
+            extra["anchor"] = Str("west")
+        inner, math = self.math_label(text)
+        content = ContentExpr(inner, math=math)
+        fs = params.get("fontsize", None)
+        if fs is not None and fs != DEFAULT["fontsize"]:
+            text_call = Call(
+                Ident("text"), [content],
+                {"size": Float(fs / DEFAULT["fontsize"])})
+        else:
+            text_call = content
+        self.body.append(Call(
+            Ident("content"), [self.coord(i, j), text_call], extra))
+        super().draw_text(text, i, j, **params)
+
+    def draw_polygon(self, *points,
+                     facecolor=DEFAULT["facecolor"],
+                     edgecolor=DEFAULT["edgecolor"]):
+        from discopy.drawing.typst_ast import Bool, Call, Ident
+
+        coords = [self.coord(*p) for p in points]
+        kwargs = {"close": Bool(True)}
+        if facecolor is None or facecolor == "none":
+            kwargs["fill"] = Ident("none")
+        else:
+            kwargs["fill"] = Ident(
+                self.color_expr(self.format_color(facecolor)))
+        if edgecolor is None or edgecolor == "none":
+            kwargs["stroke"] = Ident("none")
+        else:
+            kwargs["stroke"] = self.stroke(edgecolor)
+        self.body.append(Call(Ident("line"), coords, kwargs))
+        super().draw_polygon(*points)
+
+    def draw_wire(self, source, target, bend_out=False, bend_in=False,
+                  style=None, linewidth=None):
+        from discopy.drawing.typst_ast import Call, Ident
+
+        cps = wire_bezier_points(source, target, bend_out, bend_in)
+        stroke = self.stroke("black", linewidth)
+        if cps is not None:
+            c1, c2 = cps
+            self.body.append(
+                Call(
+                    Ident("bezier"),
+                    [
+                        self.coord(*source),
+                        self.coord(*target),
+                        self.coord(*c1),
+                        self.coord(*c2),
+                    ],
+                    {"stroke": stroke},
+                )
+            )
+        else:
+            self.body.append(
+                Call(
+                    Ident("line"),
+                    [self.coord(*source), self.coord(*target)],
+                    {"stroke": stroke},
+                )
+            )
+        super().draw_wire(source, target, bend_out=bend_out, bend_in=bend_in)
+
+    def draw_bezier(self, points):
+        from discopy.drawing.typst_ast import Call, Ident
+
+        s, e, c1, c2 = points
+        self.body.append(
+            Call(
+                Ident("bezier"),
+                [self.coord(*s), self.coord(*e),
+                 self.coord(*c1), self.coord(*c2)],
+                {"stroke": self.stroke()},
+            )
+        )
+        super().draw_bezier(points)
+
+    def draw_spiders(self, graph, draw_box_labels=True, **params):
+        from discopy.drawing.typst_ast import Call, ContentExpr, Float, Ident
+
+        for node in graph.nodes:
+            if node.kind != "box" or not node.box.draw_as_spider:
+                continue
+            i, j = graph.positions[node]
+            hexcolour = self.format_color(node.box.color)
+            colour = self.color_expr(hexcolour)
+            radius = self.nodesize * 0.12
+            shape = node.box.shape or "circle"
+            if shape == "rectangle":
+                sz = self.nodesize * 0.15
+                call = Call(
+                    Ident("rect"),
+                    [self.coord(i - sz, j - sz), self.coord(i + sz, j + sz)],
+                    {"fill": Ident(colour),
+                     "stroke": self.stroke(linewidth=0.5)},
+                )
+            else:
+                call = Call(
+                    Ident("circle"),
+                    [self.coord(i, j)],
+                    {
+                        "radius": Float(radius),
+                        "fill": Ident(colour),
+                        "stroke": self.stroke(linewidth=0.5),
+                    },
+                )
+            self.body.append(call)
+            if draw_box_labels and node.box.drawing_name:
+                label = node.box.drawing_name
+                inner, math = self.math_label(label)
+                fc = 'rgb("#ffffff")' if hexcolour == "#000000"\
+                    else 'rgb("#000000")'
+                lbl = Call(
+                    Ident("text"), [ContentExpr(inner, math=math)],
+                    {"fill": Ident(fc)}
+                )
+                self.body.append(Call(
+                    Ident("content"), [self.coord(i, j), lbl]))
+        super().draw_spiders(graph, draw_box_labels)
+
+    def draw_regions(self, graph, **params):
+        super().draw_regions(graph, **params)
+
+    def to_document(self, **params):
+        from discopy.drawing.typst_ast import (
+            Canvas, Document, Ident, Import, RawText)
+
+        # Auto-crop the page so SVG viewBox hugs the diagram instead of
+        # shipping an empty A4 sheet (which shrinks wires to invisibility).
+        margin = params.get("page_margin", "0.2cm")
+        doc = Document(
+            imports=[
+                Import("@preview/cetz:0.5.2", members=["canvas", "draw"]),
+                Import("@preview/fletcher:0.5.8", alias="fletcher"),
+            ],
+            preamble=[
+                RawText("#set page("
+                        f"width: auto, height: auto, margin: {margin})")
+            ],
+        )
+        unit_len = params.get("unit_length", "1in")
+        canvas = Canvas(
+            canvas_kwargs={"length": Ident(unit_len)},
+            body=[RawText("import draw: *")] + self.body,
+        )
+        doc.content = canvas
+        return doc
+
+    def output(self, path=None, show=True, **params):
+        doc = self.to_document(**params)
+        source = doc.render()
+        if path is not None and str(path).endswith(".typ"):
+            from pathlib import Path as P
+
+            P(path).write_text(source)
+            return source
+        try:
+            import typst
+
+            svg = typst.compile(
+                {"main.typ": source.encode()}, format="svg", pretty=True
+            )
+        except ImportError:  # pragma: no cover
+            raise ImportError(
+                "Typst rendering requires the 'typst' package. "
+                "Install it with: pip install typst")
+        if path is not None:
+            from pathlib import Path as P
+
+            P(path).write_bytes(svg)
+            return svg
+        if show:
+            try:
+                from IPython.display import SVG
+
+                return SVG(svg)
+            except ImportError:
+                pass
+        return svg
+
+
 class Matplotlib(Backend):
     """ Matplotlib drawing backend. """
     def __init__(self, axis=None, figsize=None, linewidth=1, format=None):

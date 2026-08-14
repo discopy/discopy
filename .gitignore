@@ -34,3 +34,4 @@ docs/notebooks/*.rst
 docs/_static/notebooks/
 benchmark-results/
 plans/
+wip/
