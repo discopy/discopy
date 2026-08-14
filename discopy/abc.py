@@ -143,8 +143,21 @@ class ColouredMonoid[C0, C1: ColouredMonoid](Category[C0, C1]):
         """Sequential composition, given by the monoid product."""
         return self.tensor(*others)
 
+    @classmethod
+    def whisker(cls, other: C0 | C1) -> C1:
+        """
+        Do nothing if ``other`` is already a morphism else apply :meth:`id`.
+
+        Parameters:
+            other : The object or morphism to be tensored on the left or right.
+        """
+        return other if isinstance(other, cls) else cls.id(other)
+
     def __matmul__(self, other):
         return self.tensor(other)
+
+    def __rmatmul__(self, other):
+        return self.whisker(other).tensor(self)
 
 
 # A monoid is a coloured monoid with a single, trivial colour.
