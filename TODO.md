@@ -23,3 +23,23 @@ you can push directly to this PR for abc+torch, open a fresh one for jax
 - [x] Adapt and bind the existing PyTorch implementation to the abstract interface.
 - [x] Add concise backend contract and PyTorch regression tests, update the documentation, and run lint and tests.
 - [x] Remove the accidentally tracked generated execution-plan API stub.
+
+## Review feedback outstanding (toumix, 07-28 and 08-14)
+
+Each point quotes USER's review comment verbatim; the thread links are on
+[#399](https://github.com/discopy/discopy/pull/399).
+
+- [ ] "let's make neural into a folder, name this file neural/network.py and
+      move the backend to neural/torch.py" — and "goes to
+      discopy/neural/backend.py" for the backend interface
+- [ ] "This category doesn't really exist because neural networks aren't
+      really a traced category: the fixed points are not guaranteed to be
+      reached we only do a fixed number of iterations." — fix the module
+      docstring's claim
+- [ ] "nobody says 'combinatorial maps of a category', just 'morphism'"
+- [ ] "this looks like pure boiler plate we shouldn't need it" — the
+      factory-wiring block at neural.py:126
+- [ ] "This looks like extra bureaucracy on top of the CMap, not sure we need
+      it" — the wrapper at neural.py:376
+- [ ] "It should be clear whether this is a map neural network or just a
+      plain feedforward one" — neural.py:237
