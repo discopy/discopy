@@ -12,70 +12,58 @@ on the issue *Broken bubble drawing*:
 ## Points
 
 - [x] Reproduce both examples and find where the bubble is lost
-- [x] Stop `monoidal.Bubble` forcing `draw_as_square` when the wire counts differ
-- [x] Pin the picture with a doctest in `discopy/drawing`, per USER's review
-- [x] `pflake8 discopy` clean and the suite green
-- [x] `CHANGELOG.md` entry
 - [x] Ask USER about the first example, which this does not change — answered,
       it was never broken
 - [x] Second review round: revert the `Drawing.bubble` half, restore
       `bubble-drawing.svg`, move the test to a doctest
+- [x] Third review round: keep `monoidal.Bubble`'s logic, fix the zero width
+      issue in the drawing instead
+- [x] Pin the picture with a doctest in `discopy/drawing`
+- [x] `pflake8 discopy` clean and the suite green
+- [x] `CHANGELOG.md` entry
 
 ## The bug
 
-`monoidal.Bubble.__init__` read:
+`monoidal.Bubble` draws a bubble as a square whenever its inside and outside
+have different numbers of wires. `Drawing.bubble` then gave *every* square its
+sides with `frame_boundary`, which the backend draws with **zero width**, and
+hid the horizontal boundary along with them. Nothing was left to see: the
+picture in the issue is an inner box and four dangling stubs.
 
-```python
-self.draw_as_square = draw_as_square or not can_draw_as_bubble
-```
+Zero-width sides exist for `Equation` slots, where the colours of the regions
+either side draw the edge in their place — which is why a *coloured* square
+looks fine and only an uncoloured one looks broken. So the flag belongs to
+`slot` and `frame`, which have those colours, not to every square bubble, which
+has none. `Drawing.bubble` takes `frame_sides` for it and the two of them pass
+it; `monoidal.Bubble` is untouched.
 
-so a bubble whose inside and outside have different numbers of wires was
-**forced** into a square that `draw_as_square=False` could not turn off. That
-mode draws the frame sides with zero width, so an uncoloured bubble came out
-with no visible outline at all — the picture in the issue. It is now decided by
-`draw_as_square` alone, which is what the parameter is for.
+USER, verbatim, across three rounds:
 
-`can_draw_as_bubble` was also computed twice, the first result immediately
-overwritten, and `draw_as_frame`'s second disjunct was unreachable because
-`draw_as_square` had just been forced `True` on exactly that branch. Both gone.
+> there shouldn't be any diff here
 
-## What the second review round removed
+> this logic should stay here only the drawing should be fixed!
 
-USER, on the two baselines: *"there shouldn't be any diff here"* and *"same here
-this shouldn't have to change it looked correct before"*.
+> it should do the opposite: keep the logic fix the zero width issue
 
-He was right about `Drawing.bubble`. The first version of this branch also
-dropped its `wires_can_go_straight` fallback, which changed
-`bubble-drawing.svg` from a rectangle to an ellipse and was not needed to fix
-#520 — `monoidal.Bubble` alone does it. That hunk is reverted and
-`bubble-drawing.svg` is byte-identical to `main` again.
+## What each round removed
 
-`coloured-bubble.svg` **does** still move, and cannot not: it is a
-`monoidal.Box.bubble` with three outer wires against two inner ones, i.e. the
-exact path being fixed. The ten colour regions are unchanged and
-`test_bubble_regions_are_distinct` still passes; what appears is the black
-outline around the inner frame, which is the boundary the issue is about. Raised
-on the thread for confirmation.
+The first version fixed `monoidal.Bubble` instead, and also dropped
+`wires_can_go_straight` in `Drawing.bubble`. Both are gone: `monoidal.py` is
+untouched, and `bubble-drawing.svg` is byte-identical to `main`.
 
-The regression test moved out of `test/drawing/drawing.py` into a gallery
-doctest, per USER: *"this shouldn't be in test it should just be a doctest in
-discopy/drawing"*. It pins the picture rather than the flags, which is the
-right check here — nothing in #520 ever raised.
+## Baselines
 
-## Filed, not fixed here
+- `bubble-drawing.svg` — **unchanged**, as asked.
+- `coloured-bubble.svg` — gains the boundary. USER on this round: *"ha good now
+  the only diff is the boundary width, before it was drawn as a bubble with all
+  the wires merged into a spider"*.
+- `bubble-example.svg` — same, an explicit `draw_as_square=True` bubble.
+- `bubble-uneven-wires.svg` — new, the regression doctest.
 
-- [#569](https://github.com/discopy/discopy/issues/569) — `draw_as_square=True`
-  on mismatched wire counts still draws no outline. Out of scope: this PR stops
-  that mode being forced on people, it does not repair the mode itself.
+Every `Equation` and frame baseline is untouched, since slots keep their
+zero-width sides; `test_bubble_boundary_is_visible` still passes unmodified.
 
-## Scope, settled by USER
+## Closed by this PR
 
-The issue's **first** example, `Box('f', x, y ** 3).bubble()`, has equal wire
-counts inside and out, so it took the bubble path before this change and takes
-it after: it is not affected. USER confirmed on the PR, verbatim:
-
-> Yes sorry if it wasn't clear: first example works good (same number of wires in
-> and out) second examples was the broken one.
-
-So the second example was the whole bug, and nothing further is owed here. No
-issue is opened for the box width.
+[#569](https://github.com/discopy/discopy/issues/569) — the zero-width frame
+sides were the cause, so fixing them here closes it rather than leaving it open.

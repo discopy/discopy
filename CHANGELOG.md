@@ -131,9 +131,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - Bubble drawing
   ([#431](https://github.com/discopy/discopy/pull/431)).
 - A bubble whose inside and outside have a different number of wires keeps
-  its boundary: `monoidal.Bubble` no longer forces `draw_as_square`, which
-  `draw_as_square=False` could not turn off and which drew the frame sides
-  with zero width, i.e. no visible outline at all
+  its boundary. Drawing the sides of a square frame with zero width is now
+  the business of `Drawing.slot` and `Drawing.frame`, which have the colours
+  of the regions they separate to show the edge in their place, rather than
+  of every bubble drawn as a square, which has none and so came out with no
+  visible outline at all
   ([#520](https://github.com/discopy/discopy/issues/520)).
 - Controlled gate drawing: the control wire is anchored on the indexed
   input of the controlled box rather than its first one, so gates with a

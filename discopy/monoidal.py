@@ -1474,9 +1474,16 @@ class Bubble(cat.Bubble, Box):
         self.drawing_name = "" if drawing_name is None else drawing_name
         self.draw_vertically = draw_vertically
         self.frame_colour = BOX_DRAWING_ATTRIBUTES['frame_colour'](self)
+        can_draw_as_square = len(args) == 1
+        can_draw_as_bubble = (can_draw_as_square
+                              and len(self.dom) == len(self.arg.dom)
+                              and len(self.cod) == len(self.arg.cod))
         if len(args) == 1:
-            self.draw_as_square = bool(draw_as_square)
-            self.draw_as_frame = bool(draw_as_frame)
+            can_draw_as_bubble = (len(self.dom), len(self.cod)) == (
+                len(self.arg.dom), len(self.arg.cod))
+            self.draw_as_square = draw_as_square or not can_draw_as_bubble
+            self.draw_as_frame = draw_as_frame or (
+                not can_draw_as_bubble and not self.draw_as_square)
         else:
             self.draw_as_frame = True
             self.draw_as_square = False

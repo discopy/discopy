@@ -990,8 +990,8 @@ class Drawing(TracedCategory, RichDisplay):
             (u, v) for u in result.box_nodes for v in box_cod_nodes])
         return result
 
-    def bubble(self, dom=None, cod=None, name=None,
-               width=None, height=None, draw_as_square=False) -> Drawing:
+    def bubble(self, dom=None, cod=None, name=None, width=None, height=None,
+               draw_as_square=False, frame_sides=False) -> Drawing:
         """
         Draw a closed line around a drawing, with some wires coming in and out.
 
@@ -1019,9 +1019,10 @@ class Drawing(TracedCategory, RichDisplay):
         left[0].always_draw_label = True
         wires_can_go_straight = (
             len(dom), len(cod)) == (len(arg_dom), len(arg_cod))
-        if draw_as_square:
-            # The left and right sides of a square frame, e.g. the slots of an
-            # Equation between coloured terms, are drawn with zero width.
+        if frame_sides:
+            # The sides of a slot are drawn with zero width, the colours of
+            # the regions they separate showing the edge in their place. A
+            # bubble drawn as a square has no such colours, so it keeps them.
             left.inside[0].frame_boundary = right.inside[0].frame_boundary \
                 = True
         if draw_as_square or not wires_can_go_straight:
@@ -1078,7 +1079,8 @@ class Drawing(TracedCategory, RichDisplay):
         from discopy.monoidal import Ty
         frame_type = Ty.id(colour)
         return self.bubble(
-            frame_type, frame_type, draw_as_square=True, **params)
+            frame_type, frame_type,
+            draw_as_square=True, frame_sides=True, **params)
 
     def frame(self, *others: Drawing,
               dom=None, cod=None, name=None, draw_vertically=False,
@@ -1117,7 +1119,7 @@ class Drawing(TracedCategory, RichDisplay):
                 height=max([arg.height for arg in args] + [0]))
         slots = tuple(arg.slot(colour, **params) for arg in args)
         result = getattr(slots[0], method)(*slots[1:]).bubble(
-            dom, cod, name, draw_as_square=True)
+            dom, cod, name, draw_as_square=True, frame_sides=True)
         result.reposition_box_dom()
         result.reposition_box_cod()
         return result
