@@ -55,11 +55,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `inside : dom @ param -> cod @ copar` with `copar` empty by default, so
   parametric maps read as before, coparametric maps are the empty-`param`
   case and the diagonal `param == copar` is the free category with feedback
-  — the type of one time step of a `Stream`. Composition and tensor
-  accumulate the hidden objects on both sides, `trace` and `feedback` route
-  the coparameters out of the way and `coreparam` post-composes them,
-  covariantly where `reparam` is contravariant
-  ([#572](https://github.com/discopy/discopy/issues/572)).
+  — the type of one time step of a `Stream`. The constructor reads
+  `(dom, cod, inside, param, copar)` with both hidden spaces optional.
+  Composition and tensor accumulate the hidden objects on both sides,
+  `trace` and `feedback` route the coparameters out of the way and
+  `recopar` post-composes them, covariantly where `reparam` is
+  contravariant ([#572](https://github.com/discopy/discopy/issues/572)).
 
 ### Changed
 

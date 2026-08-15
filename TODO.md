@@ -27,6 +27,15 @@ feedback of Katis, Sabadini & Walters.
       generalised to route it and `coreparam` as the covariant 2-cell. The
       general composition degenerates syntactically to the old one when
       `copar` is empty, so every existing test and baseline is unchanged.
+- [x] USER's review round of 2026-08-15: fields reordered to
+      `(dom, cod, inside, param, copar)` with both hidden spaces optional,
+      `coreparam` renamed to `recopar`, the axiom checks in `__post_init__`
+      use `assert_iscomposable` against identities, and the coparametric
+      composition doctest draws its picture instead of asserting the
+      structure.
 - [ ] Refactor `neural.rdiff.ReverseRule.then`/`tensor` onto `Copara` —
       lives on #399's branch where `neural` exists, not here; follow-up on
       [#571](https://github.com/discopy/discopy/pull/571) once this merges.
+      The field reorder also means #571's `neural.Para` call sites move
+      from `(dom, cod, param, inside)` to `(dom, cod, inside, param)` when
+      the branches meet.

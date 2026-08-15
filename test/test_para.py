@@ -10,15 +10,15 @@ from discopy.symmetric import Box, Diagram, Ty
 from discopy.utils import AxiomError
 
 x, y, z, p, q = map(Ty, "xyzpq")
-f = Symmetric(x, y, p, Box('f', x @ p, y))
-g = Symmetric(y, z, q, Box('g', y @ q, z))
+f = Symmetric(x, y, Box('f', x @ p, y), p)
+g = Symmetric(y, z, Box('g', y @ q, z), q)
 
 
 def test_errors():
     with raises(AxiomError):
-        Symmetric(x, y, q, Box('f', x @ p, y))
+        Symmetric(x, y, Box('f', x @ p, y), q)
     with raises(AxiomError):
-        Symmetric(x, z, p, Box('f', x @ p, y))
+        Symmetric(x, z, Box('f', x @ p, y), p)
     with raises(AxiomError):
         g >> f
     with raises(AxiomError):
@@ -37,12 +37,12 @@ def test_symmetric_axioms():
 
 
 def test_trace():
-    t = Traced(x @ y, z @ y, p, Box('t', x @ y @ p, z @ y))
+    t = Traced(x @ y, z @ y, Box('t', x @ y @ p, z @ y), p)
     assert t.trace(0) == t
     inside = x @ Diagram.swap(p, y) >> t.inside
-    assert t.trace() == Traced(x, z, p, inside.trace())
-    u = Traced(y @ x, y @ z, p, Box('u', y @ x @ p, y @ z))
-    assert u.trace(left=True) == Traced(x, z, p, u.inside.trace(left=True))
+    assert t.trace() == Traced(x, z, inside.trace(), p)
+    u = Traced(y @ x, y @ z, Box('u', y @ x @ p, y @ z), p)
+    assert u.trace(left=True) == Traced(x, z, u.inside.trace(left=True), p)
 
 
 def test_reparam():
@@ -60,7 +60,7 @@ def test_markov():
 
 def test_closed():
     a, b, c, P = map(closed.Ty, "abcP")
-    k = Closed(a @ b, c, P, closed.Box('k', a @ b @ P, c))
+    k = Closed(a @ b, c, closed.Box('k', a @ b @ P, c), P)
     assert Closed.ev(c, b).param == closed.Ty()
     left, right = k.curry(left=True), k.curry(left=False)
     assert (left.dom, left.cod, left.param) == (a, c << b, P)
@@ -71,8 +71,8 @@ def test_closed():
 
 def test_feedback():
     x, y, z, P = map(feedback.Ty, "xyzP")
-    f = Feedback(x @ y.delay(), z @ y, P,
-                 feedback.Box('f', x @ y.delay() @ P, z @ y))
+    f = Feedback(x @ y.delay(), z @ y,
+                 feedback.Box('f', x @ y.delay() @ P, z @ y), P)
     fb = f.feedback()
     assert (fb.dom, fb.cod, fb.param) == (x, z, P)
     assert f.delay().param == P.delay()
@@ -82,8 +82,9 @@ def test_compact():
     x, y = map(compact.Ty, "xy")
     assert Compact.cups(x, x.r) == Compact.lift(compact.Diagram.cups(x, x.r))
     assert Compact.caps(x, x.l).param == compact.Ty()
-    k = Compact(x @ y, x, compact.Ty('P'),
-                compact.Box('k', x @ y @ compact.Ty('P'), x))
+    k = Compact(x @ y, x,
+                compact.Box('k', x @ y @ compact.Ty('P'), x),
+                compact.Ty('P'))
     assert k.curry(left=True).cod == x << y
 
 
@@ -95,39 +96,40 @@ def test_hypergraph():
 
 def test_python():
     inside = Function(lambda a, w, b: w * a + b, (float, ) * 3, (float, ))
-    layer = Symmetric[Function]((float, ), (float, ), (float, float), inside)
+    layer = Symmetric[Function](
+        (float, ), (float, ), inside, (float, float))
     pair = layer @ layer
     assert pair.inside(1., 2., 10., 0., 3., 5.) == (10., 11.)
 
 
 def test_copar():
     m, n = Ty('m'), Ty('n')
-    t = Symmetric(x, y, p, Box('t', x @ p, y @ m), m)
+    t = Symmetric(x, y, Box('t', x @ p, y @ m), p, m)
     with raises(AxiomError):
-        Symmetric(x, y, p, Box('t', x @ p, y @ m), n)
+        Symmetric(x, y, Box('t', x @ p, y @ m), p, n)
     with raises(AxiomError):
-        Symmetric(x, y, p, Box('t', x @ p, y @ m))
+        Symmetric(x, y, Box('t', x @ p, y @ m), p)
     with raises(AxiomError):
-        t.coreparam(Box('c', n, n))
+        t.recopar(Box('c', n, n))
     assert t >> Symmetric.id(y) == t == Symmetric.id(x) >> t
     assert t.reparam(Box('r', q, p)).copar == m
-    assert t.coreparam(Box('c', m, n)).param == p
+    assert t.recopar(Box('c', m, n)).param == p
     assert (t @ t).param == p @ p and (t @ t).copar == m @ m
 
 
 def test_copar_trace():
     m = Ty('m')
-    t = Traced(x @ y, z @ y, p, Box('t', x @ y @ p, z @ y @ m), m)
+    t = Traced(x @ y, z @ y, Box('t', x @ y @ p, z @ y @ m), p, m)
     trace = t.trace()
     assert (trace.dom, trace.cod, trace.param, trace.copar) == (x, z, p, m)
-    u = Traced(y @ x, y @ z, p, Box('u', y @ x @ p, y @ z @ m), m)
+    u = Traced(y @ x, y @ z, Box('u', y @ x @ p, y @ z @ m), p, m)
     assert u.trace(left=True).copar == m
 
 
 def test_copar_feedback():
     x, y, z, m, P = map(feedback.Ty, "xyzmP")
-    f = Feedback(x @ y.delay(), z @ y, P,
-                 feedback.Box('f', x @ y.delay() @ P, z @ y @ m), m)
+    f = Feedback(x @ y.delay(), z @ y,
+                 feedback.Box('f', x @ y.delay() @ P, z @ y @ m), P, m)
     fb = f.feedback()
     assert (fb.dom, fb.cod, fb.param, fb.copar) == (x, z, P, m)
     assert f.delay().copar == m.delay()
@@ -136,7 +138,7 @@ def test_copar_feedback():
 def test_copar_python():
     add = Function(lambda a, s: (a + s, a), (float, ) * 2, (float, ) * 2)
     cell = Symmetric[Function](
-        (float, ), (float, ), (float, ), add, (float, ))
+        (float, ), (float, ), add, (float, ), (float, ))
     network = cell >> cell
     assert network.param == network.copar == (float, float)
     assert network.inside(2., 1., 10.) == (13., 2., 3.)
