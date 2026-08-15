@@ -4,8 +4,7 @@ from pytest import raises
 
 from discopy import closed, compact, feedback, frobenius, markov
 from discopy.para import (
-    Closed, Compact, Copara, Feedback, Hypergraph, Markov, Stateful,
-    Symmetric, Traced)
+    Closed, Compact, Feedback, Hypergraph, Markov, Symmetric, Traced)
 from discopy.python import Function
 from discopy.symmetric import Box, Diagram, Ty
 from discopy.utils import AxiomError
@@ -101,39 +100,43 @@ def test_python():
     assert pair.inside(1., 2., 10., 0., 3., 5.) == (10., 11.)
 
 
-def test_copara():
+def test_copar():
     m, n = Ty('m'), Ty('n')
-    f_ = Copara(x, y, m, Box("f'", x, y @ m))
+    t = Symmetric(x, y, p, Box('t', x @ p, y @ m), m)
     with raises(AxiomError):
-        Copara(x, y, n, Box("f'", x, y @ m))
+        Symmetric(x, y, p, Box('t', x @ p, y @ m), n)
     with raises(AxiomError):
-        Copara(y, y, m, Box("f'", x, y @ m))
+        Symmetric(x, y, p, Box('t', x @ p, y @ m))
     with raises(AxiomError):
-        f_.coreparam(Box('r', n, n))
-    assert f_ >> Copara.id(y) == f_ == Copara.id(x) >> f_
-    assert Copara.swap(x, y) == Copara.lift(Diagram.swap(x, y))
-    r = Box('r', m, n)
-    assert f_.coreparam(r).copar == n
-
-
-def test_stateful():
-    m, n = Ty('m'), Ty('n')
-    t = Stateful(x, y, p, m, Box('t', x @ p, y @ m))
-    with raises(AxiomError):
-        Stateful(x, y, q, m, Box('t', x @ p, y @ m))
-    with raises(AxiomError):
-        Stateful(x, y, p, n, Box('t', x @ p, y @ m))
-    assert t >> Stateful.id(y) == t == Stateful.id(x) >> t
-    assert Stateful.swap(x, y) == Stateful.lift(Diagram.swap(x, y))
-    assert t.reparam(Box('r', q, p)).param == q
-    assert t.coreparam(Box('s', m, n)).copar == n
+        t.coreparam(Box('c', n, n))
+    assert t >> Symmetric.id(y) == t == Symmetric.id(x) >> t
+    assert t.reparam(Box('r', q, p)).copar == m
+    assert t.coreparam(Box('c', m, n)).param == p
     assert (t @ t).param == p @ p and (t @ t).copar == m @ m
 
 
-def test_stateful_python():
+def test_copar_trace():
+    m = Ty('m')
+    t = Traced(x @ y, z @ y, p, Box('t', x @ y @ p, z @ y @ m), m)
+    trace = t.trace()
+    assert (trace.dom, trace.cod, trace.param, trace.copar) == (x, z, p, m)
+    u = Traced(y @ x, y @ z, p, Box('u', y @ x @ p, y @ z @ m), m)
+    assert u.trace(left=True).copar == m
+
+
+def test_copar_feedback():
+    x, y, z, m, P = map(feedback.Ty, "xyzmP")
+    f = Feedback(x @ y.delay(), z @ y, P,
+                 feedback.Box('f', x @ y.delay() @ P, z @ y @ m), m)
+    fb = f.feedback()
+    assert (fb.dom, fb.cod, fb.param, fb.copar) == (x, z, P, m)
+    assert f.delay().copar == m.delay()
+
+
+def test_copar_python():
     add = Function(lambda a, s: (a + s, a), (float, ) * 2, (float, ) * 2)
-    cell = Stateful[Function](
-        (float, ), (float, ), (float, ), (float, ), add)
+    cell = Symmetric[Function](
+        (float, ), (float, ), (float, ), add, (float, ))
     network = cell >> cell
     assert network.param == network.copar == (float, float)
     assert network.inside(2., 1., 10.) == (13., 2., 3.)

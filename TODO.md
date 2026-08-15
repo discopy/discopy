@@ -20,6 +20,13 @@ feedback of Katis, Sabadini & Walters.
       covariant 2-cell, doctests for the axioms and the embeddings, tests,
       bibliography and `CHANGELOG.md`. The class name `Stateful` is a
       placeholder for USER to rule on.
+- [x] USER on the PR, verbatim: "no don't create a new class just add a new
+      attribute to the existing one" — both classes removed, `Symmetric`
+      carries an optional `copar` field defaulting to the empty type, with
+      `then`, `tensor`, `reparam`, `trace`, `delay` and `feedback`
+      generalised to route it and `coreparam` as the covariant 2-cell. The
+      general composition degenerates syntactically to the old one when
+      `copar` is empty, so every existing test and baseline is unchanged.
 - [ ] Refactor `neural.rdiff.ReverseRule.then`/`tensor` onto `Copara` —
       lives on #399's branch where `neural` exists, not here; follow-up on
       [#571](https://github.com/discopy/discopy/pull/571) once this merges.

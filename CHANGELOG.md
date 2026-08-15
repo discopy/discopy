@@ -51,11 +51,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   hierarchy below symmetric: traced, Markov, closed, feedback, compact and
   hypergraph ([#558](https://github.com/discopy/discopy/issues/558),
   refactoring [#325](https://github.com/discopy/discopy/pull/325)).
-- `para.Copara` and `para.Stateful` folded into the same module: the
-  coparametric maps `dom -> cod @ copar` dual to `para.Symmetric`, and the
-  stateful maps `dom @ param -> cod @ copar` carrying a hidden object on
-  each side — the type of one time step of a `Stream`, whose diagonal
-  `param == copar` is the free category with feedback
+- `para.Symmetric` carries an optional coparameter space: a map is
+  `inside : dom @ param -> cod @ copar` with `copar` empty by default, so
+  parametric maps read as before, coparametric maps are the empty-`param`
+  case and the diagonal `param == copar` is the free category with feedback
+  — the type of one time step of a `Stream`. Composition and tensor
+  accumulate the hidden objects on both sides, `trace` and `feedback` route
+  the coparameters out of the way and `coreparam` post-composes them,
+  covariantly where `reparam` is contravariant
   ([#572](https://github.com/discopy/discopy/issues/572)).
 
 ### Changed
