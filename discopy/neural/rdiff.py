@@ -173,11 +173,11 @@ def differentiate(graph: neural.Hypergraph, rules) -> ReverseRule:
         raise ValueError("Reverse differentiation requires causality.")
     rules = MappingOrCallable(rules)
     result = ReverseRule.id(graph.dom)
-    for left, box, right in graph.to_diagram().to_staircases():
-        layer = ReverseRule.id(left)\
+    for layer in graph.to_diagram().to_staircases().inside:
+        left, box, right = layer.boxes_and_types
+        result >>= ReverseRule.id(left)\
             @ _generator_rule(box, rules)\
             @ ReverseRule.id(right)
-        result >>= layer
     return result
 
 

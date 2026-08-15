@@ -10,6 +10,7 @@ from pytest import importorskip, raises
 from discopy import compact
 from discopy.neural import *
 from discopy.neural import CMap, Diagram, Functor, Id
+
 from discopy.python.finset import Permutation
 from discopy.utils import dumps, loads
 
@@ -33,8 +34,11 @@ def test_backend_contract():
         "zeros", "split", "concatenate", "activate",
         "prototype", "wrap", "zeros_module"}
     assert Backend.__abstractmethods__ == methods
+    assert BACKENDS == {'pytorch': 'discopy.neural.torch.PyTorch'}
     with raises(TypeError):
         Backend()
+    importorskip("torch")
+    from discopy.neural.torch import PyTorch
     pytorch = PyTorch()
     assert get_backend(pytorch) is pytorch
 
@@ -62,7 +66,7 @@ def test_network_as_box():
     g = Network('g', Dim(3), Dim(2))
     assert (f >> g).dom == Dim(2) and (f @ g).cod == Dim(3, 2)
     assert f.dagger().dom == Dim(3) and f.rotate().cod == Dim(2)
-    assert repr(f) == "neural.Network('f', Dim(2), Dim(3))"
+    assert repr(f) == "neural.network.Network('f', Dim(2), Dim(3))"
     assert Network('f', Dim(2), Dim(3)) == Network('f', Dim(2), Dim(3))
     one, other = (
         Network('f', Dim(2), Dim(3), module=object()) for _ in range(2))
@@ -125,8 +129,9 @@ def test_weight_sharing():
         == sum(p.numel() for p in cell.module.parameters())
 
 
-def test_execution_plan_and_runtime_modules():
+def test_runtime_modules():
     torch = importorskip("torch")
+    from discopy.neural.torch import PyTorch
 
     class Scale(torch.nn.Module):
         def __init__(self, scalar):
@@ -142,21 +147,17 @@ def test_execution_plan_and_runtime_modules():
     original, replacement = Scale(2), Scale(3)
     cell = Network('cell', Dim(1), Dim(1), module=original)
     cmap = (cell >> cell).to_map()
-    plan = cmap.execution_plan
     value = torch.tensor([[5.]])
 
-    assert plan.module_indices == (0, 0)
-    assert plan.n_modules == 1 and hash(plan)
+    assert cmap.module_indices == (0, 0) and cmap.modules == (original, )
     assert torch.equal(
         cmap(value, modules=(replacement, ), causal=True), 9 * value)
     assert torch.equal(
         Execution(
-            plan, value, backend=PyTorch(), modules=(replacement, )
+            cmap, value, backend=PyTorch(), modules=(replacement, )
         ).forward_causal(), 9 * value)
     with raises(ValueError, match="Expected 1 modules, got 0"):
-        Execution(plan, value, modules=())
-    with raises(ValueError, match="Runtime modules are required"):
-        Execution(plan, value)
+        Execution(cmap, value, modules=())
 
 
 def test_forward_rerouting():
@@ -359,6 +360,8 @@ def test_torch_wrapper():
 
 def test_torch_wrapper_binds_backend():
     torch = importorskip("torch")
+
+    from discopy.neural.torch import PyTorch
 
     class Exploding(PyTorch):
         def activate(self, module, value):

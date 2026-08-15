@@ -17,7 +17,7 @@ No code or artifacts from the upstream repository are included.
 Weights are explicit boundary values rather than hidden module parameters.
 For a model input ``X`` and parameter tuple ``P``, the diagram has type
 ``X @ P -> Y``.  Every primitive carries an explicit local reverse rule, so
-:func:`discopy.neural_rdiff.rdiff` builds the model VJP compositionally.
+:func:`discopy.neural.rdiff.rdiff` builds the model VJP compositionally.
 
 The full six-block shape is useful for checking parameter counts.  Execution
 and derivative conformance normally use :meth:`CatGPTConfig.tiny`; set
@@ -37,7 +37,7 @@ from math import e, prod, sqrt
 import torch
 
 from discopy import neural
-from discopy.neural_rdiff import ReverseRule, rdiff
+from discopy.neural.rdiff import ReverseRule, rdiff
 
 
 @dataclass(frozen=True)

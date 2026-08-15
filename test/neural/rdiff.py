@@ -6,7 +6,7 @@ import sys
 from pytest import importorskip, raises
 
 from discopy.neural import Diagram, Dim, Hypergraph, Network
-from discopy.neural_rdiff import (
+from discopy.neural.rdiff import (
     ReverseRule, differentiate, discard, rdiff)
 
 
@@ -24,7 +24,7 @@ def structural_discard(typ):
 def test_lazy_torch_import():
     subprocess.run([
         sys.executable, "-c",
-        "import sys; import discopy.neural_rdiff; "
+        "import sys; import discopy.neural.rdiff; "
         "assert 'torch' not in sys.modules"], check=True)
 
 

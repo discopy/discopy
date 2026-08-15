@@ -28,7 +28,6 @@ from discopy import (
     matrix,
     tensor,
     neural,
-    neural_rdiff,
     hopf,
     quantum,
     grammar,
