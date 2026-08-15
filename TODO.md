@@ -29,17 +29,17 @@ you can push directly to this PR for abc+torch, open a fresh one for jax
 Each point quotes USER's review comment verbatim; the thread links are on
 [#399](https://github.com/discopy/discopy/pull/399).
 
-- [ ] "let's make neural into a folder, name this file neural/network.py and
+- [WIP] @evening-bk8zei-2026-08-15 00:20 "let's make neural into a folder, name this file neural/network.py and
       move the backend to neural/torch.py" — and "goes to
       discopy/neural/backend.py" for the backend interface
-- [ ] "This category doesn't really exist because neural networks aren't
+- [WIP] @evening-bk8zei-2026-08-15 00:20 "This category doesn't really exist because neural networks aren't
       really a traced category: the fixed points are not guaranteed to be
       reached we only do a fixed number of iterations." — fix the module
       docstring's claim
-- [ ] "nobody says 'combinatorial maps of a category', just 'morphism'"
-- [ ] "this looks like pure boiler plate we shouldn't need it" — the
+- [WIP] @evening-bk8zei-2026-08-15 00:20 "nobody says 'combinatorial maps of a category', just 'morphism'"
+- [WIP] @evening-bk8zei-2026-08-15 00:20 "this looks like pure boiler plate we shouldn't need it" — the
       factory-wiring block at neural.py:126
-- [ ] "This looks like extra bureaucracy on top of the CMap, not sure we need
+- [WIP] @evening-bk8zei-2026-08-15 00:20 "This looks like extra bureaucracy on top of the CMap, not sure we need
       it" — the wrapper at neural.py:376
-- [ ] "It should be clear whether this is a map neural network or just a
+- [WIP] @evening-bk8zei-2026-08-15 00:20 "It should be clear whether this is a map neural network or just a
       plain feedforward one" — neural.py:237
