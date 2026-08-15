@@ -43,6 +43,7 @@ Summary
     Swap
     Functor
     Hypergraph
+    Para
     CMap
     Execution
 
@@ -64,7 +65,7 @@ from __future__ import annotations
 
 from functools import cached_property
 
-from discopy import compact, hypergraph, monoidal
+from discopy import compact, hypergraph, monoidal, para
 from discopy.cat import factory
 from discopy.cmap import PortKind
 from discopy.neural.backend import Backend, get_backend
@@ -257,6 +258,31 @@ class Functor(compact.Functor):
 
 
 Hypergraph = hypergraph.Hypergraph[Diagram]
+
+
+class Para(para.Compact):
+    """
+    A parametric network is a network whose weights are boundary values
+    rather than hidden inside its modules, i.e. a parametric map
+    ``inside : dom @ param -> cod`` over :class:`Diagram`, with ``param``
+    the dimension of the weights, see :mod:`discopy.para`.
+
+    Composition and tensor accumulate the parameter spaces of the layers and
+    route them to the right, so that assembling a model does not whisker
+    each layer with the weights of all the others.
+
+    Example
+    -------
+    >>> linear = lambda n: Para(Dim(n), Dim(n), Dim(n * n), Network(
+    ...     f"linear{n}", Dim(n, n * n), Dim(n)))
+    >>> network = linear(2) >> linear(2)
+    >>> network.dom, network.cod, network.param
+    (Dim(2), Dim(2), Dim(4, 4))
+    >>> assert network.inside\\
+    ...     == linear(2).inside @ Dim(4) >> linear(2).inside
+    >>> assert Para.lift(Diagram.id(Dim(2))) == Para.id(Dim(2))
+    """
+    category = Diagram
 
 
 class CMap(compact.CMap):

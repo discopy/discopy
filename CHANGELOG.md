@@ -56,6 +56,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   hierarchy below symmetric: traced, Markov, closed, feedback, compact and
   hypergraph ([#558](https://github.com/discopy/discopy/issues/558),
   refactoring [#325](https://github.com/discopy/discopy/pull/325)).
+- `neural.Para`, the parametric networks, i.e. `para.Compact` over
+  `neural.Diagram`: a network whose weights are boundary values rather than
+  hidden inside its modules is a morphism `dom @ param -> cod`, so that
+  composing layers accumulates their parameter spaces instead of whiskering
+  each layer with the weights of all the others. The CatGPT benchmark model
+  is assembled this way
+  ([#399](https://github.com/discopy/discopy/pull/399),
+  [#559](https://github.com/discopy/discopy/pull/559)).
 
 ### Changed
 
