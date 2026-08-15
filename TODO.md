@@ -14,7 +14,7 @@ coparametric maps embed by trivialising one side; the diagonal
 `param == copar` is closed under composition, the free category with
 feedback of Katis, Sabadini & Walters.
 
-- [WIP] @daylight-j11voy-2026-08-15 12:48 Add `Copara` and `Stateful` to
+- [x] Add `Copara` and `Stateful` to
       `para.py` at the symmetric level, with composition and tensor
       accumulating the hidden objects in forward order, `coreparam` as the
       covariant 2-cell, doctests for the axioms and the embeddings, tests,

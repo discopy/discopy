@@ -4,7 +4,8 @@ from pytest import raises
 
 from discopy import closed, compact, feedback, frobenius, markov
 from discopy.para import (
-    Closed, Compact, Feedback, Hypergraph, Markov, Symmetric, Traced)
+    Closed, Compact, Copara, Feedback, Hypergraph, Markov, Stateful,
+    Symmetric, Traced)
 from discopy.python import Function
 from discopy.symmetric import Box, Diagram, Ty
 from discopy.utils import AxiomError
@@ -98,3 +99,41 @@ def test_python():
     layer = Symmetric[Function]((float, ), (float, ), (float, float), inside)
     pair = layer @ layer
     assert pair.inside(1., 2., 10., 0., 3., 5.) == (10., 11.)
+
+
+def test_copara():
+    m, n = Ty('m'), Ty('n')
+    f_ = Copara(x, y, m, Box("f'", x, y @ m))
+    with raises(AxiomError):
+        Copara(x, y, n, Box("f'", x, y @ m))
+    with raises(AxiomError):
+        Copara(y, y, m, Box("f'", x, y @ m))
+    with raises(AxiomError):
+        f_.coreparam(Box('r', n, n))
+    assert f_ >> Copara.id(y) == f_ == Copara.id(x) >> f_
+    assert Copara.swap(x, y) == Copara.lift(Diagram.swap(x, y))
+    r = Box('r', m, n)
+    assert f_.coreparam(r).copar == n
+
+
+def test_stateful():
+    m, n = Ty('m'), Ty('n')
+    t = Stateful(x, y, p, m, Box('t', x @ p, y @ m))
+    with raises(AxiomError):
+        Stateful(x, y, q, m, Box('t', x @ p, y @ m))
+    with raises(AxiomError):
+        Stateful(x, y, p, n, Box('t', x @ p, y @ m))
+    assert t >> Stateful.id(y) == t == Stateful.id(x) >> t
+    assert Stateful.swap(x, y) == Stateful.lift(Diagram.swap(x, y))
+    assert t.reparam(Box('r', q, p)).param == q
+    assert t.coreparam(Box('s', m, n)).copar == n
+    assert (t @ t).param == p @ p and (t @ t).copar == m @ m
+
+
+def test_stateful_python():
+    add = Function(lambda a, s: (a + s, a), (float, ) * 2, (float, ) * 2)
+    cell = Stateful[Function](
+        (float, ), (float, ), (float, ), (float, ), add)
+    network = cell >> cell
+    assert network.param == network.copar == (float, float)
+    assert network.inside(2., 1., 10.) == (13., 2., 3.)

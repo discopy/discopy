@@ -23,6 +23,8 @@ Summary
     Feedback
     Compact
     Hypergraph
+    Copara
+    Stateful
 
 Axioms
 ------
@@ -84,6 +86,41 @@ the same as :meth:`Traced.trace`:
 >>> k = Closed(a @ b, c, P, closed.Box('k', a @ b @ P, c))
 >>> assert k.curry(left=True).cod == c << b
 >>> assert k.curry(left=False).cod == a >> c
+
+Coparametric maps place their hidden object on the codomain instead, and
+compose by accumulating the coparameters in forward order:
+
+>>> m, n = Ty('m'), Ty('n')
+>>> f_ = Copara(x, y, m, Box("f'", x, y @ m))
+>>> g_ = Copara(y, z, n, Box("g'", y, z @ n))
+>>> assert (f_ >> g_).copar == m @ n
+>>> assert (f_ >> g_).inside\\
+...     == f_.inside >> g_.inside @ m >> z @ Diagram.swap(n, m)
+
+Stateful maps carry a hidden object on each side, i.e. the type of one time
+step of a :class:`Stream <discopy.stream.Stream>`, with the same composition:
+
+>>> t = Stateful(x, y, p, m, Box('t', x @ p, y @ m))
+>>> u = Stateful(y, z, q, n, Box('u', y @ q, z @ n))
+>>> assert (t >> u).param == p @ q and (t >> u).copar == m @ n
+>>> (t >> u).inside.draw(doctest="docs/_static/para/stateful-then.svg")
+
+.. image:: /_static/para/stateful-then.svg
+    :align: center
+
+Parametric and coparametric maps embed by trivialising one side:
+
+>>> lift = lambda f: Stateful(f.dom, f.cod, f.param, Ty(), f.inside)
+>>> colift = lambda f: Stateful(f.dom, f.cod, Ty(), f.copar, f.inside)
+>>> assert lift(f >> g) == lift(f) >> lift(g)
+>>> assert colift(f_ >> g_) == colift(f_) >> colift(g_)
+
+and the diagonal `param == copar` is closed under composition:
+
+>>> s = Ty('s')
+>>> v = Stateful(x, y, s, s, Box('v', x @ s, y @ s))
+>>> w = Stateful(y, z, s, s, Box('w', y @ s, z @ s))
+>>> assert (v >> w).param == (v >> w).copar == s @ s
 
 Example
 -------
@@ -412,3 +449,266 @@ class Hypergraph(Compact, Markov, HypergraphCategory):
             typ : The type of the spiders.
         """
         return cls.lift(cls.category.spiders(n_legs_in, n_legs_out, typ))
+
+
+@dataclass
+class Copara(SymmetricCategory, NamedGeneric['category']):
+    """
+    A coparametric map from `dom` to `cod` with coparameter space `copar` is
+    a morphism `inside : dom -> cod @ copar` in an underlying `category`, the
+    dual of :class:`Symmetric` studied in categorical cybernetics
+    :cite:p:`CapucciEtAl21`.
+
+    Parameters:
+        dom (category.ob) : The domain of the coparametric map.
+        cod (category.ob) : The codomain of the coparametric map.
+        copar (category.ob) : The coparameter space of the map.
+        inside (category) : The underlying morphism ``dom -> cod @ copar``.
+
+    .. admonition:: Summary
+
+        .. autosummary::
+
+            lift
+            id
+            then
+            tensor
+            swap
+            coreparam
+    """
+    category = symmetric.Diagram
+    ob = classproperty(lambda cls: cls.category.ob)
+
+    dom: ob
+    cod: ob
+    copar: ob
+    inside: category
+
+    def __post_init__(self):
+        assert_isinstance(self.inside, self.category)
+        if self.inside.dom != self.dom:
+            raise AxiomError(f"{self.inside.dom} != {self.dom}")
+        if self.inside.cod != self.cod + self.copar:
+            raise AxiomError(
+                f"{self.inside.cod} != {self.cod + self.copar}")
+
+    @classmethod
+    def lift(cls, inside: category) -> Copara:
+        """
+        A morphism of the underlying category as a coparametric map with the
+        empty coparameter space, i.e. the injection functor from a category
+        into its category of coparametric maps.
+
+        Parameters:
+            inside : The morphism to lift.
+        """
+        return cls(inside.dom, inside.cod, cls.ob(), inside)
+
+    @classmethod
+    def id(cls, dom: ob = None) -> Copara:
+        """
+        The identity coparametric map on `dom`, with empty coparameters.
+
+        Parameters:
+            dom : The domain of the identity, also its codomain.
+        """
+        return cls.lift(cls.category.id(cls.ob() if dom is None else dom))
+
+    @unbiased
+    def then(self, other: Copara) -> Copara:
+        """
+        Sequential composition tensors the coparameter spaces in forward
+        order, i.e. `(f, m) >> (g, n) == (f >> g @ m >> cod @ swap, m @ n)`.
+
+        Parameters:
+            other : The coparametric map to compose with.
+        """
+        assert_isinstance(other, type(self))
+        assert_iscomposable(self, other)
+        inside = self.inside >> other.inside @ self.copar\
+            >> other.cod @ self.category.swap(other.copar, self.copar)
+        return type(self)(
+            self.dom, other.cod, self.copar + other.copar, inside)
+
+    @unbiased
+    def tensor(self, other: Copara) -> Copara:
+        """
+        Parallel composition tensors the coparameter spaces, with a swap
+        routing them to the right of the codomains.
+
+        Parameters:
+            other : The coparametric map to tensor with.
+        """
+        assert_isinstance(other, type(self))
+        inside = self.inside @ other.inside >> self.cod\
+            @ self.category.swap(self.copar, other.cod) @ other.copar
+        return type(self)(self.dom + other.dom, self.cod + other.cod,
+                          self.copar + other.copar, inside)
+
+    @classmethod
+    def swap(cls, left: ob, right: ob) -> Copara:
+        """
+        The swap of the underlying category, with empty coparameter space.
+
+        Parameters:
+            left : The object on the left of the swap.
+            right : The object on the right of the swap.
+        """
+        return cls.lift(cls.category.swap(left, right))
+
+    def coreparam(self, other: category) -> Copara:
+        """
+        Post-compose the coparameter space with `other : copar -> q`, i.e.
+        the 2-cells of :class:`Copara`, covariant where
+        :meth:`Symmetric.reparam` is contravariant.
+
+        Parameters:
+            other : The coreparametrisation, a morphism out of ``copar``.
+        """
+        assert_iscomposable(self.inside, self.cod @ other)
+        return type(self)(self.dom, self.cod, other.cod,
+                          self.inside >> self.cod @ other)
+
+
+@dataclass
+class Stateful(SymmetricCategory, NamedGeneric['category']):
+    """
+    A stateful map from `dom` to `cod` with state spaces `param` and `copar`
+    is a morphism `inside : dom @ param -> cod @ copar` in an underlying
+    `category`, i.e. a parametric and a coparametric map at once, with both
+    :meth:`Symmetric.reparam` and :meth:`Copara.coreparam` as 2-cells.
+
+    This is the type of one time step of a stateful morphism sequence
+    :cite:p:`DiLavoreEtAl22`, i.e. of a :class:`Stream
+    <discopy.stream.Stream>` with the delay forgotten; its diagonal
+    `param == copar` is the free category with feedback of
+    :cite:t:`KatisEtAl02`.
+
+    Parameters:
+        dom (category.ob) : The domain of the stateful map.
+        cod (category.ob) : The codomain of the stateful map.
+        param (category.ob) : The state space read after the domain.
+        copar (category.ob) : The state space written after the codomain.
+        inside (category) : The morphism ``dom @ param -> cod @ copar``.
+
+    .. admonition:: Summary
+
+        .. autosummary::
+
+            lift
+            id
+            then
+            tensor
+            swap
+            reparam
+            coreparam
+    """
+    category = symmetric.Diagram
+    ob = classproperty(lambda cls: cls.category.ob)
+
+    dom: ob
+    cod: ob
+    param: ob
+    copar: ob
+    inside: category
+
+    def __post_init__(self):
+        assert_isinstance(self.inside, self.category)
+        if self.inside.dom != self.dom + self.param:
+            raise AxiomError(
+                f"{self.inside.dom} != {self.dom + self.param}")
+        if self.inside.cod != self.cod + self.copar:
+            raise AxiomError(
+                f"{self.inside.cod} != {self.cod + self.copar}")
+
+    @classmethod
+    def lift(cls, inside: category) -> Stateful:
+        """
+        A morphism of the underlying category as a stateful map with empty
+        state spaces on both sides.
+
+        Parameters:
+            inside : The morphism to lift.
+        """
+        return cls(inside.dom, inside.cod, cls.ob(), cls.ob(), inside)
+
+    @classmethod
+    def id(cls, dom: ob = None) -> Stateful:
+        """
+        The identity stateful map on `dom`, with empty state spaces.
+
+        Parameters:
+            dom : The domain of the identity, also its codomain.
+        """
+        return cls.lift(cls.category.id(cls.ob() if dom is None else dom))
+
+    @unbiased
+    def then(self, other: Stateful) -> Stateful:
+        """
+        Sequential composition tensors the state spaces on both sides, with
+        the same routing as :meth:`Stream.then <discopy.stream.Stream.then>`.
+
+        Parameters:
+            other : The stateful map to compose with.
+        """
+        assert_isinstance(other, type(self))
+        assert_iscomposable(self, other)
+        inside = self.inside @ other.param\
+            >> self.cod @ self.category.swap(self.copar, other.param)\
+            >> other.inside @ self.copar\
+            >> other.cod @ self.category.swap(other.copar, self.copar)
+        return type(self)(self.dom, other.cod, self.param + other.param,
+                          self.copar + other.copar, inside)
+
+    @unbiased
+    def tensor(self, other: Stateful) -> Stateful:
+        """
+        Parallel composition tensors the state spaces on both sides, with
+        the swap of :meth:`Symmetric.tensor` before and the one of
+        :meth:`Copara.tensor` after.
+
+        Parameters:
+            other : The stateful map to tensor with.
+        """
+        assert_isinstance(other, type(self))
+        inside = self.dom @ self.category.swap(other.dom, self.param)\
+            @ other.param >> self.inside @ other.inside >> self.cod\
+            @ self.category.swap(self.copar, other.cod) @ other.copar
+        return type(self)(self.dom + other.dom, self.cod + other.cod,
+                          self.param + other.param,
+                          self.copar + other.copar, inside)
+
+    @classmethod
+    def swap(cls, left: ob, right: ob) -> Stateful:
+        """
+        The swap of the underlying category, with empty state spaces.
+
+        Parameters:
+            left : The object on the left of the swap.
+            right : The object on the right of the swap.
+        """
+        return cls.lift(cls.category.swap(left, right))
+
+    def reparam(self, other: category) -> Stateful:
+        """
+        Precompose the input state space with `other : q -> param`, the same
+        as :meth:`Symmetric.reparam`.
+
+        Parameters:
+            other : The reparametrisation, a morphism into ``param``.
+        """
+        assert_iscomposable(self.dom @ other, self.inside)
+        return type(self)(self.dom, self.cod, other.dom, self.copar,
+                          self.dom @ other >> self.inside)
+
+    def coreparam(self, other: category) -> Stateful:
+        """
+        Post-compose the output state space with `other : copar -> q`, the
+        same as :meth:`Copara.coreparam`.
+
+        Parameters:
+            other : The coreparametrisation, a morphism out of ``copar``.
+        """
+        assert_iscomposable(self.inside, self.cod @ other)
+        return type(self)(self.dom, self.cod, self.param, other.cod,
+                          self.inside >> self.cod @ other)
