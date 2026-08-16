@@ -297,21 +297,31 @@ def savefig(path, format=None, compare=False, tol=DEFAULT['plt_tol']):
     save_and_compare(path, save, tol) if compare else save(path)
 
 
-def _quadratic_subcurve(points, t0, t1):
+def blossom(points, u, v):
     """
-    Restrict a quadratic Bezier (3 control points) to the range [t0, t1],
-    i.e. evaluate its blossom on the pairs (t0, t0), (t0, t1) and (t1, t1).
+    Evaluate the `blossom`_ of a quadratic Bezier (3 control points) on a
+    pair of parameters, i.e. the symmetric multi-affine map that gives back
+    the curve on the diagonal: ``blossom(points, t, t)`` is the point of
+    the curve at ``t``.
+
+    .. _blossom: https://en.wikipedia.org/wiki/Blossom_(functional)
     """
     (x0, y0), (xc, yc), (x1, y1) = points
+    return Point(
+        (1 - u) * (1 - v) * x0 + ((1 - u) * v + u * (1 - v)) * xc
+        + u * v * x1,
+        (1 - u) * (1 - v) * y0 + ((1 - u) * v + u * (1 - v)) * yc
+        + u * v * y1)
 
-    def blossom(u, v):
-        return Point(
-            (1 - u) * (1 - v) * x0 + ((1 - u) * v + u * (1 - v)) * xc
-            + u * v * x1,
-            (1 - u) * (1 - v) * y0 + ((1 - u) * v + u * (1 - v)) * yc
-            + u * v * y1)
 
-    return blossom(t0, t0), blossom(t0, t1), blossom(t1, t1)
+def quadratic_subcurve(points, t0, t1):
+    """
+    Restrict a quadratic Bezier (3 control points) to the range [t0, t1],
+    i.e. evaluate its :func:`blossom` on the pairs (t0, t0), (t0, t1) and
+    (t1, t1).
+    """
+    return (blossom(points, t0, t0), blossom(points, t0, t1),
+            blossom(points, t1, t1))
 
 
 def _bezier_subcurve(points, t0, t1):
@@ -587,10 +597,10 @@ class Backend(ABC):
             first, last = (
                 Backend.separator_param(curve, y) for y in (top, bottom))
             middle = Backend.separator_param(curve, (top + bottom) / 2)
-            (x0, _), control, (x1, _) = _quadratic_subcurve(
+            (x0, _), control, (x1, _) = quadratic_subcurve(
                 curve, first, last)
             band.append((
-                _quadratic_subcurve(curve, middle, middle)[0].x,
+                quadratic_subcurve(curve, middle, middle)[0].x,
                 (Point(x0, top), control, Point(x1, bottom)), colour))
         return [(curve, colour)
                 for _, curve, colour in sorted(band, key=lambda x: x[0])]
