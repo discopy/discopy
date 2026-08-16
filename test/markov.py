@@ -81,6 +81,7 @@ def test_Function():
     assert Equation(fun.to_copies(), fun)
     assert Function(x @ y, [0, 1]).is_identity
     assert loads(dumps(fun)) == fun
+    assert Function(x @ y, iter([1, 0, 0])) == fun
     with raises(ValueError):
         Function(x, [1])
 

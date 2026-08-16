@@ -304,10 +304,11 @@ class Ty(monoidal.Ty):
 class Layer(markov.Layer):
     """ A feedback layer is a monoidal layer with a `delay` method. """
     def delay(self, n_steps=1):
-        return type(self)(*(type(x)(x.dom.delay(n_steps), x.fun)
-                            if isinstance(x, markov.Function)
-                            else x.delay(n_steps)
-                            for x in self.boxes_or_types))
+        return type(self)(*(
+            type(x)(x.dom.delay(n_steps),
+                    x.fun if isinstance(x, markov.Function) else x.perm)
+            if isinstance(x, self.structures) else x.delay(n_steps)
+            for x in self.boxes_or_types))
 
 
 @factory

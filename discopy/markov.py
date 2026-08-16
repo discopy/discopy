@@ -254,7 +254,8 @@ class Function(Box):
     >>> assert Equation(fun, x @ Copy(y))
     """
     def __init__(self, dom: monoidal.Ty, fun: Sequence[int]):
-        self.fun = finset.Function(list(fun), len(dom), len(list(fun)))
+        fun = list(fun)
+        self.fun = finset.Function(fun, len(dom), len(fun))
         cod = dom[:0].tensor(*(dom[i] for i in self.fun))
         params = dict(
             draw_as_wires=True, drawing_permutation=tuple(self.fun)

@@ -93,3 +93,12 @@ def test_fibonacci():
 def test_Copy_Merge_dagger():
     x = Ty('x')
     assert Copy(x).dagger() == Merge(x) and Merge(x).dagger() == Copy(x)
+
+
+def test_Layer_delay_permutation():
+    from discopy import markov
+    x, y = Ty('x'), Ty('y')
+    perm = markov.Permutation(x @ y, [1, 0])
+    layer = Diagram.layer_factory(perm).delay()
+    assert layer.boxes_or_types[0]\
+        == markov.Permutation((x @ y).delay(), [1, 0])
