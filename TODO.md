@@ -13,6 +13,7 @@ on the issue *Closed diagrams containing Copy or Swap cannot be drawn*.
       with `hasattr`, the pattern `biclosed.Functor` already uses
 - [x] Check the drawings are right, not merely non-crashing
 - [x] Regression test, verified to fail without the fix
+- [x] Strengthen it past a truthiness check, per cubic's review
 - [x] `pflake8 discopy` clean and the suite green
 - [x] `CHANGELOG.md` entry
 - [x] Confirm whether this also closes [#548](https://github.com/discopy/discopy/issues/548)
@@ -41,6 +42,18 @@ same codomain requirement, and would have been the next `AttributeError`.
 the other end, with the same repro and a fuller diagnosis of why
 `closed.Diagram.to_drawing`'s override is what drags in the markov assumption.
 Both are closed by this PR.
+
+## The test asserts the drawing, not that it exists
+
+cubic's review made a fair point: `assert diagram.to_drawing()` catches the
+`AttributeError` but would pass on a wrong-but-non-raising drawing, and the
+claim being made is that the guarded path gives the *same* picture as the
+unguarded one.
+
+It now compares against that picture directly — a closed `Copy`, `Swap`,
+`Copy >> Swap` and `discard` each draw equal to the markov or symmetric diagram
+built independently from the same boxes. Still verified to fail without the
+source fix (`AttributeError` at `markov.py:308`).
 
 ## Not changed
 

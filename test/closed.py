@@ -57,14 +57,24 @@ def test_draw_copy_and_swap():
     `Curry` and `Eval` right, which used to drag in the markov, symmetric
     and balanced branches calling `copy`, `merge`, `swap`, `braid` and
     `twist` on a `Drawing` that has none of them, see issues #491 and #548.
+
+    Falling through draws them the way markov and symmetric diagrams are
+    drawn today, so the closed drawing is the *same* drawing, not merely
+    one that does not raise.
     """
-    x = Ty('x')
-    for diagram in [
-            Copy(x) >> Box('f', x @ x, x),
-            Swap(x, x) >> Box('g', x @ x, x),
-            Copy(x) >> Swap(x, x) >> Box('h', x @ x, x),
-            Diagram.discard(x)]:
-        assert diagram.to_drawing()
+    from discopy import markov, symmetric
+    x, mx, sx = Ty('x'), markov.Ty('x'), symmetric.Ty('x')
+
+    assert (Copy(x) >> Box('f', x @ x, x)).to_drawing()\
+        == (markov.Copy(mx) >> markov.Box('f', mx @ mx, mx)).to_drawing()
+    assert (Swap(x, x) >> Box('g', x @ x, x)).to_drawing()\
+        == (symmetric.Swap(sx, sx)
+            >> symmetric.Box('g', sx @ sx, sx)).to_drawing()
+    assert (Copy(x) >> Swap(x, x) >> Box('h', x @ x, x)).to_drawing()\
+        == (markov.Copy(mx) >> markov.Swap(mx, mx)
+            >> markov.Box('h', mx @ mx, mx)).to_drawing()
+    assert Diagram.discard(x).to_drawing()\
+        == markov.Diagram.discard(mx).to_drawing()
 
     # A non-linear term evaluates to such a diagram, so it draws too.
     X = Ty('X')
