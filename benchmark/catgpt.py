@@ -88,6 +88,14 @@ class CatGPTConfig:
         """Number of scalar weights."""
         return sum(prod(shape) for _, shape in self.parameter_shapes)
 
+    @property
+    def parameter_boxes(self) -> tuple[str, ...]:
+        """Names of the boxes consuming each parameter, in layout order."""
+        return (
+            "Token",
+            *(f"QKV[{i}]" for i in range(self.blocks)),
+            "Output")
+
 
 CATGPT = CatGPTConfig()
 assert (
@@ -416,6 +424,13 @@ class CatGPT:
                 f"The model has parameter space {self.model.param}, "
                 f"expected {expected}.")
         self.diagram = self.model.inside
+        consumers = tuple(
+            box.name for box in self.diagram.boxes
+            if box.name in config.parameter_boxes)
+        if consumers != config.parameter_boxes:
+            raise ValueError(
+                f"The parameters are consumed by {consumers}, "
+                f"expected {config.parameter_boxes}.")
         self.graph = self.diagram.to_hypergraph()
         if not self.graph.is_causal or not self.graph.is_monogamous:
             raise ValueError("The CatGPT graph must be causal and monogamous.")

@@ -36,6 +36,8 @@ def test_original_shape_and_parameter_count():
     ) == (65, 64, 32, 384, 6, 6)
     assert len(CATGPT.parameter_shapes) == 8
     assert CATGPT.parameter_count == 2_704_128
+    assert CATGPT.parameter_boxes == (
+        "Token", *(f"QKV[{i}]" for i in range(6)), "Output")
     assert catgpt.attention_scale(CATGPT.width) == 19.595918655395508
 
 
