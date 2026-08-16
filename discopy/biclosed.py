@@ -473,15 +473,15 @@ class CMap(monoidal.CMap):
         >>> x, y, z = map(Ty, "xyz")
         >>> f = Box("f", x @ y, z).to_map()
         >>> f.curry().uncurry().draw(show=False,
-        ...     doctest="docs/_static/cmap/biclosed-curry-right.svg")
+        ...     doctest="docs/_static/cmap/biclosed-curry-right.dot")
 
-        .. image:: /_static/cmap/biclosed-curry-right.svg
+        .. graphviz:: /_static/cmap/biclosed-curry-right.dot
             :align: center
 
         >>> f.curry(left=True).uncurry(left=True).draw(show=False,
-        ...     doctest="docs/_static/cmap/biclosed-curry-left.svg")
+        ...     doctest="docs/_static/cmap/biclosed-curry-left.dot")
 
-        .. image:: /_static/cmap/biclosed-curry-left.svg
+        .. graphviz:: /_static/cmap/biclosed-curry-left.dot
             :align: center
         """
         if n < 0 or n > len(self.dom):
@@ -675,8 +675,8 @@ class Application(TermBase):
         assert_isinstance(func.cod.inside[0], Under if left else Over)
         if set(func.freevars).intersection(args.freevars):
             raise ValueError("Expected disjoint free variables.")
-        self.freevars = func.freevars + args.freevars if self.left\
-            else args.freevars + func.freevars
+        self.freevars = args.freevars + func.freevars if self.left\
+            else func.freevars + args.freevars
         return args.dom @ func.dom if left else func.dom @ args.dom
 
     def eval(self, functor=None):

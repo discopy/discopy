@@ -29,7 +29,6 @@ Summary
     Curry
     Pack
     Unpack
-    Copy
     Discard
     Sum
     Functor
@@ -393,7 +392,7 @@ Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.copy_factory = Copy
-Diagram.braid_factory = Swap
+Diagram.swap_factory = Swap
 Diagram.curry_factory = Curry
 Diagram.eval_factory = Eval
 Diagram.coeval_factory = Coeval
@@ -504,7 +503,8 @@ class Abstraction(TermBase, biclosed.Abstraction):
         i, n = self.body.freevars.index(self.var), len(self.body.freevars)
         body = self.body.eval(functor=functor)
         p = [0] + [j + 1 if j < i else j for j in range(n) if j != i]
-        return (body.permutation(p, body.dom).dagger() >> body).curry()
+        doms = [self.ob(wire) for wire in body.dom.inside]
+        return (body.permutation(p, doms).dagger() >> body).curry()
 
 
 class Tuple(TermBase):
@@ -737,7 +737,7 @@ class Context:
 
     @property
     def dom(self):
-        return self.category.ob.tensor(*[x.cod for x in self.inside])
+        return self.category.ob().tensor(*[x.cod for x in self.inside])
 
 
 @dataclass

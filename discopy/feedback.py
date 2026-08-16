@@ -301,10 +301,13 @@ class Ty(monoidal.Ty):
     d = Ob.d
 
 
-class Layer(monoidal.Layer):
+class Layer(markov.Layer):
     """ A feedback layer is a monoidal layer with a `delay` method. """
     def delay(self, n_steps=1):
-        return type(self)(*[x.delay(n_steps) for x in self.boxes_or_types])
+        return type(self)(*(type(x)(x.dom.delay(n_steps), x.perm)
+                            if isinstance(x, markov.Permutation)
+                            else x.delay(n_steps)
+                            for x in self.boxes_or_types), normalise=False)
 
 
 @factory
@@ -657,7 +660,7 @@ class Functor(markov.Functor):
 
 
 Diagram.functor_factory = Functor
-Diagram.braid_factory = Swap
+Diagram.swap_factory = Swap
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.feedback_factory, Diagram.followed_by = Feedback, FollowedBy
 Hypergraph = hypergraph.Hypergraph[Diagram]

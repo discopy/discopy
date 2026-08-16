@@ -178,3 +178,24 @@ def test_python_Functor():
 
     assert F(f.uncurry().curry())(True)(1j) == F(f)(True)(1j)
     assert F(g.curry().uncurry())(1j, True) == F(g)(1j, True)
+
+
+def test_context_dom():
+    """
+    `Context.dom` instantiates `category.ob` before calling `.tensor`, so
+    it works both for an empty context (regression test for #549) and for
+    a non-empty one.
+    """
+    X = Ty('X')
+    assert Context([]).dom == Ty()
+    assert Context([Variable('x', X)]).dom == X
+
+
+def test_discard():
+    """ A discard in a closed diagram is a Discard, not a Copy with n=0. """
+    x = Ty('x')
+    assert Diagram.discard(x) == Copy(x, 0) == Discard(x)
+    assert isinstance(Diagram.discard(x), Discard)
+    from discopy import cat, closed  # noqa: F401  (used by eval)
+    assert eval(repr(Discard(x))) == Discard(x)
+    assert Diagram.discard(x @ x) == Discard(x) @ Discard(x)

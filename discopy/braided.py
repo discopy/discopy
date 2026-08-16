@@ -105,8 +105,9 @@ class Diagram(monoidal.Diagram, BraidedCategory):
 
     def simplify(self) -> Diagram:
         """ Remove braids followed by their dagger. """
+        layers = [layer.boxes_and_types for layer in self.inside]
         for i, ((x, f, _), (y, g, _)) in enumerate(
-                zip(self.inside, self.inside[1:])):
+                zip(layers, layers[1:])):
             if x == y and isinstance(f, Braid) and f == g[::-1]:
                 inside = self.inside[:i] + self.inside[i + 2:]
                 return self.ar(
@@ -137,7 +138,7 @@ class Diagram(monoidal.Diagram, BraidedCategory):
         >>> assert bot_left.naturality(1, left=False, down=False) == top_right
         """
         braid = braid or self.braid
-        left_wires, box, right_wires = self.inside[i]
+        left_wires, box, right_wires = self.inside[i].boxes_and_types
         if left and down:
             source = left_wires[-1] @ box >> braid(left_wires[-1], box.cod)
             target = braid(left_wires[-1], box.dom) >> box @ left_wires[-1]
