@@ -315,12 +315,12 @@ def inject_dark_mode_style(path):
     browser shows the tagged black strokes and labels in white while every
     other renderer keeps the white halos as the static fallback.
     """
-    with open(path) as file:
+    with open(path, encoding="utf-8") as file:
         text = file.read()
     if 'id="dark-' not in text:
         return
     opening = re.search(r"<svg\b[^>]*>", text)
-    with open(path, "w") as file:
+    with open(path, "w", encoding="utf-8") as file:
         file.write(text[:opening.end()] + DARK_MODE_STYLE
                    + text[opening.end():])
 
