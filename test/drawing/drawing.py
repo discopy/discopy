@@ -180,7 +180,8 @@ def region_hexes(diagram, **params):
 
 def test_draw_regions_uncoloured_shapes():
     # Region filling runs for cups, caps, swaps, spiders and many-legged
-    # boxes; with no colours every region is the default white.
+    # boxes; with no colours every region is white, i.e. the neutral
+    # background, so nothing is painted at all, see issue #521.
     from discopy.frobenius import Spider, Ty as FTy
     x = Ty('x')
     shapes = [
@@ -188,7 +189,7 @@ def test_draw_regions_uncoloured_shapes():
         Box('f', x @ x, x @ x @ x), Spider(2, 1, FTy('x')),
         Cap(x.r, x) >> Swap(x.r, x) >> Cup(x, x.r)]
     for shape in shapes:
-        assert region_hexes(shape) == {'#ffffff'}
+        assert region_hexes(shape) == set()
 
 
 def test_draw_coloured_cups_and_caps():
@@ -221,8 +222,9 @@ def test_draw_coloured_equation():
     x = Ty(Ob("x", dom=red, cod=green))
     equation = Equation(Box("f", x, x), Box("g", x, x))
     colours = region_hexes(equation)
-    # Both term regions show, each in its own white-bordered slot.
-    assert {'#e8a5a5', '#d8f8d8', '#ffffff'} <= colours
+    # Both term regions show; the white around the slots is not painted.
+    assert {'#e8a5a5', '#d8f8d8'} <= colours
+    assert '#ffffff' not in colours
 
 
 def test_draw_region_non_colors_string():
@@ -306,47 +308,59 @@ def test_draw_legend_figsize_and_space():
     Box("g", Ty("a"), Ty("a")).draw(show=False, legend=True)
 
 
-def test_draw_right_region_example():
+def test_region_cells_example():
     """
-    Concrete example clarifying ``Matplotlib._draw_right_region`` and the
-    ``Backend.draw_curved_polygon`` primitive it is built on: the curved
-    polygon filling the region to the right of a wire, up to the diagram's
-    right-hand edge.
-
-    Consider a wire leaving a box at its top-right corner (0, 1) and
-    bending down to (1, 0) (``bend_out=True``), inside a diagram of
-    ``width=2``. The region to its right is the curved quadrilateral:
-        * (0, 1) -- ``source``, where the wire leaves the box;
-        * (1, 1) -- the Bezier control point, level with the source and
-          plumb with the target, so the curve hugs the bend;
-        * (1, 0) -- ``target``, where the wire is drawn to next;
-        * (2, 0) -- straight across to the diagram's right-hand edge;
-        * (2, 1) -- straight up along the right-hand edge;
-        * back to (0, 1), closing the polygon.
+    Concrete example clarifying ``Backend.region_cells``: a coloured cup
+    ``Cup(x, x.r)`` with ``x`` separating red from green, of width 2 and
+    height 1, decomposes into two height bands:
+        * below the cup, from 0 to 0.5: a single red cell spanning the
+          full width, since no separator crosses the band;
+        * above, from 0.5 to 1: red left of the left leg, green inside
+          the cup between the legs, red right of the right leg.
+    Each cell is bounded by quadratic Beziers ``(top, control, bottom)``
+    hugging the wires on *both* sides, restricted to the band, with the
+    sides of the canvas as straight outermost boundaries, see issue #521.
     """
-    from matplotlib import pyplot as plt
-    from matplotlib.path import Path
-    backend = Matplotlib(figsize=(2, 2))
-    backend._draw_right_region(
-        (0, 1), (1, 0), width=2, facecolor="red", bend_out=True)
-    path = backend.axis.patches[-1].get_path()
-    assert [tuple(vertex) for vertex in path.vertices] == [
-        (0, 1), (1, 1), (1, 0), (2, 0), (2, 1), (0, 1)]
-    assert list(path.codes) == [
-        Path.MOVETO, Path.CURVE3, Path.CURVE3,
-        Path.LINETO, Path.LINETO, Path.CLOSEPOLY]
-    plt.close(backend.axis.figure)
+    red, green = map(monoidal.Colour, ("red", "green"))
+    x = Ty(Ob("x", dom=red, cod=green))
+    drawing = Cup(x, x.r).to_drawing()
+    drawing.add_box_corners()
+    left_leg = ((0.5, 1), (0.5, 0.5), (1, 0.5))
+    right_leg = ((1.5, 1), (1.5, 0.5), (1, 0.5))
+    assert Backend.region_cells(drawing) == [
+        (((0, 0.5), (0, 0), (0, 0)), ((2, 0.5), (2, 0), (2, 0)), "red"),
+        (((0, 1), (0, 0.5), (0, 0.5)), left_leg, "red"),
+        (left_leg, right_leg, "green"),
+        (right_leg, ((2, 1), (2, 0.5), (2, 0.5)), "red")]
 
 
-def test_draw_curved_polygon_tikz():
-    # TikZ implements the same generic draw_curved_polygon primitive as
-    # Matplotlib, e.g. so that region drawing could be wired up for it too.
-    backend = TikZ()
-    backend.draw_curved_polygon(
-        (0, 1), (1, 0), (2, 0), (2, 1), facecolor="red", bend_out=True)
-    line = backend.edgelayer[-1]
-    assert "controls" in line
-    assert "fill={red}" in line
+def test_region_cells_do_not_overlap():
+    # Each point of the canvas is covered by at most one region cell, so
+    # translucent colours are not painted twice where two regions of the
+    # same colour are adjacent, see issue #521. With every separator a
+    # straight vertical line, the cells are rectangles whose areas add up
+    # to the area of the canvas.
+    translucent = monoidal.Colour("#3a86ff80")
+    x = monoidal.Ty(monoidal.Wire("x", translucent, translucent))
+    y = monoidal.Ty(monoidal.Wire("y", translucent, translucent))
+    drawing = monoidal.Box("f", x @ y, x @ y).to_drawing()
+    drawing.add_box_corners()
+    cells = Backend.region_cells(drawing)
+    assert all(colour == "#3a86ff80" for _, _, colour in cells)
+    area = sum(
+        (right[0].x - left[0].x) * (left[0].y - left[-1].y)
+        for left, right, _ in cells)
+    assert area == drawing.width * drawing.height
+
+
+def test_region_white_cells_erase_to_the_background():
+    # A white region enclosed by coloured ones is not painted at all
+    # rather than overpainted in opaque white, see issue #521.
+    white = monoidal.Colour("white")
+    u = monoidal.Ty(monoidal.Wire("u", white, white))
+    frame = monoidal.Box("f", u, u).bubble(dom=u, cod=u, draw_as_frame=True)
+    colours = region_hexes(frame)
+    assert '#d3d3d3' in colours and '#ffffff' not in colours
 
 
 def test_draw_permutation():
