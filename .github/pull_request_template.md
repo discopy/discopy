@@ -1,5 +1,7 @@
 <!--
-Thank you for contributing to DisCoPy! See CONTRIBUTING.md for our philosophy, code style guide and LLM guidelines.
+Thank you for contributing to DisCoPy!
+Make sure to either link to an issue or quote a human prompt verbatim.
+See CONTRIBUTING.md for our philosophy, code style guide and LLM guidelines.
 -->
 
 ## Why

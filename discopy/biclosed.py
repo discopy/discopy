@@ -38,24 +38,23 @@ Axioms
 >>> x, y, z = map(Ty, "xyz")
 >>> f, g, h = Box('f', x, z << y), Box('g', x @ y, z), Box('h', y, x >> z)
 
->>> from discopy.drawing import Equation
 >>> Equation(f.uncurry(left=True).curry(left=True), f).draw(
-...     path='docs/_static/biclosed/curry-left.png', margins=(0.1, 0.05))
+...     doctest='docs/_static/biclosed/curry-left.svg', margins=(0.1, 0.05))
 
-.. image:: /_static/biclosed/curry-left.png
+.. image:: /_static/biclosed/curry-left.svg
     :align: center
 
 >>> Equation(h.uncurry().curry(), h).draw(
-...     path='docs/_static/biclosed/curry-right.png', margins=(0.1, 0.05))
+...     doctest='docs/_static/biclosed/curry-right.svg', margins=(0.1, 0.05))
 
-.. image:: /_static/biclosed/curry-right.png
+.. image:: /_static/biclosed/curry-right.svg
     :align: center
 
 >>> Equation(
 ...     g.curry(left=True).uncurry(left=True), g, g.curry().uncurry()).draw(
-...         path='docs/_static/biclosed/uncurry.png')
+...         doctest='docs/_static/biclosed/uncurry.svg')
 
-.. image:: /_static/biclosed/uncurry.png
+.. image:: /_static/biclosed/uncurry.svg
     :align: center
 """
 
@@ -471,19 +470,18 @@ class CMap(monoidal.CMap):
             left : Whether to curry on the left or right.
 
         >>> from discopy.closed import Ty, Box
-        >>> from discopy.drawing import Equation
         >>> x, y, z = map(Ty, "xyz")
         >>> f = Box("f", x @ y, z).to_map()
-        >>> f.curry().uncurry().draw(
-        ...     path="docs/_static/cmap/biclosed-curry-right.png", show=False)
+        >>> f.curry().uncurry().draw(show=False,
+        ...     doctest="docs/_static/cmap/biclosed-curry-right.dot")
 
-        .. image:: /_static/cmap/biclosed-curry-right.png
+        .. graphviz:: /_static/cmap/biclosed-curry-right.dot
             :align: center
 
-        >>> f.curry(left=True).uncurry(left=True).draw(
-        ...     path="docs/_static/cmap/biclosed-curry-left.png", show=False)
+        >>> f.curry(left=True).uncurry(left=True).draw(show=False,
+        ...     doctest="docs/_static/cmap/biclosed-curry-left.dot")
 
-        .. image:: /_static/cmap/biclosed-curry-left.png
+        .. graphviz:: /_static/cmap/biclosed-curry-left.dot
             :align: center
         """
         if n < 0 or n > len(self.dom):
@@ -571,7 +569,7 @@ class TermBase(Box):
     >>> N, S = Ty("N"), Ty("S")
     >>> Alice, loves, Bob = N("Alice"), ((N >> S) << N)("loves"), N("Bob")
     >>> Alice(loves(Bob), left=True).draw(
-    ...     path='docs/_static/biclosed/alice-loves-bob.png',
+    ...     doctest='docs/_static/biclosed/alice-loves-bob.svg',
     ...     margins=(.3, 0), figsize=(5, 4))
     """
     dom: Ty
@@ -677,8 +675,8 @@ class Application(TermBase):
         assert_isinstance(func.cod.inside[0], Under if left else Over)
         if set(func.freevars).intersection(args.freevars):
             raise ValueError("Expected disjoint free variables.")
-        self.freevars = func.freevars + args.freevars if self.left\
-            else args.freevars + func.freevars
+        self.freevars = args.freevars + func.freevars if self.left\
+            else func.freevars + args.freevars
         return args.dom @ func.dom if left else func.dom @ args.dom
 
     def eval(self, functor=None):
@@ -746,3 +744,7 @@ Ty.constant_factory = Constant
 Ty.application_factory = Application
 Ty.abstraction_factory = Abstraction
 Ty.over_factory, Ty.under_factory, Ty.exp_factory = Over, Under, Exp
+
+
+class Equation(monoidal.Equation):
+    """ The :class:`monoidal.Equation` of biclosed diagrams. """

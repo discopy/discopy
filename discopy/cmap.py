@@ -136,6 +136,7 @@ class CMap[C0: Pregroup, C1: CMap](
     :math:`m` and coarity :math:`n` maps to a :math:`(m+n)`-cycle in the
     generated permutation, consisting of contiguous port indices.
     Additionally, we allow two kinds of scalars:
+
     * `scalar loops` arising from composing cups and caps, parametrized by an
       atomic type;
     * `scalar boxes`, i.e. boxes with empty domain and codomain
@@ -231,12 +232,12 @@ class CMap[C0: Pregroup, C1: CMap](
     ...     (2, 1, 0, 10, 11), (3, 4, 5, 6), (7, 8, 9)], 12)
     True
     >>> cm.draw(
-    ...     path="docs/_static/cmap/simple-cmap.png",
+    ...     doctest="docs/_static/cmap/simple-cmap.dot",
     ...     port_indices=True,
     ...     show=False,
     ... )
 
-    .. image:: /_static/cmap/simple-cmap.png
+    .. graphviz:: /_static/cmap/simple-cmap.dot
         :align: center
 
     Swaps affect the edge permutation but leave the vertex permutation
@@ -248,17 +249,17 @@ class CMap[C0: Pregroup, C1: CMap](
     ... ])
     >>> cm = (f >> CMap.swap(z, x)) @ z >> x @ g
     >>> cm.draw(
-    ...     path="docs/_static/cmap/swapped-cmap.png",
+    ...     doctest="docs/_static/cmap/swapped-cmap.dot",
     ...     port_indices=True,
     ...     show=False,
     ... )
 
-    .. image:: /_static/cmap/swapped-cmap.png
+    .. graphviz:: /_static/cmap/swapped-cmap.dot
         :align: center
     """
 
     category: ClassVar[Diagram] = None
-    require_planar: ClassVar[bool] = True
+    require_planar: ClassVar[bool] = False
     require_causal: ClassVar[bool] = False
     require_oriented: ClassVar[bool] = False
     require_connected: ClassVar[bool] = False
@@ -469,8 +470,8 @@ class CMap[C0: Pregroup, C1: CMap](
                     offsets=(offset, ))
                 for box, offset in zip(self.boxes, self.offsets)]
             components += [
-                type(self)(self.ob(), self.ob(), (), (), scalars=(scalar, ))
-                for scalar in self.loops]
+                type(self)(self.ob(), self.ob(), (), (), loops=(loop, ))
+                for loop in self.loops]
             return components
 
         component_of = self.edges.coequalizer(self.orientation)
@@ -615,15 +616,15 @@ class CMap[C0: Pregroup, C1: CMap](
         graph = {i: set() for i in range(len(self.boxes))}
 
         def has_path(source: int, target: int) -> bool:
-            todo, seen = [source], set()
-            while todo:
-                node = todo.pop()
+            unseen, seen = [source], set()
+            while unseen:
+                node = unseen.pop()
                 if node == target:
                     return True
                 if node in seen:
                     continue
                 seen.add(node)
-                todo.extend(graph[node])
+                unseen.extend(graph[node])
             return False
 
         for i, j in enumerate(self.edges):
@@ -796,9 +797,9 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> f = Box("f", x @ y, z).to_map()
         >>> assert f.curry().uncurry() == f
         >>> f.curry().draw(
-        ...     path="docs/_static/cmap/compact-curry.png", show=False)
+        ...     doctest="docs/_static/cmap/compact-curry.dot", show=False)
 
-        .. image:: /_static/cmap/compact-curry.png
+        .. graphviz:: /_static/cmap/compact-curry.dot
             :align: center
         """
         if n < 0 or n > len(self.dom):
@@ -835,11 +836,53 @@ class CMap[C0: Pregroup, C1: CMap](
         exponent = exponent_r.l
         return exponent @ self >> self.cups(exponent, exponent.r) @ base
 
+    l = property(lambda self: self.transpose(left=True))
+    r = property(lambda self: self.transpose(left=False))
+
+    def dagger(self) -> CMap:
+        """
+        Reverse a combinatorial map: swap the boundary, dagger each box in
+        reverse order and conjugate the edges by the port relabeling.
+
+        Boundary ports keep their order while each box block is reversed:
+        the clockwise port order of a daggered box is the reversed clockwise
+        order of the original.
+
+        >>> from discopy.compact import Ty, Box
+        >>> x, y = map(Ty, "xy")
+        >>> f, g = Box('f', x, y @ y), Box('g', y @ y, x)
+        >>> assert (f >> g).dagger().to_map() == (f >> g).to_map().dagger()
+        >>> assert (f >> g).to_map().dagger().dagger() == (f >> g).to_map()
+        """
+        n, n_dom, n_cod = self.n_ports, len(self.dom), len(self.cod)
+        boxes = tuple(box.dagger() for box in reversed(self.boxes))
+        offsets = tuple(reversed(self.offsets))
+        sizes = [len(box.dom) + len(box.cod) for box in self.boxes]
+        starts = [n_cod + sum(sizes[i + 1:]) for i in range(len(sizes))]
+        dom_mapping = list(range(n - n_dom, n))
+        box_mapping = sum([
+            list(reversed(range(start, start + size)))
+            for start, size in zip(starts, sizes)], [])
+        cod_mapping = list(range(n_cod))
+        mapping = dom_mapping + box_mapping + cod_mapping
+        edges = self.edges.conjugate(Permutation(mapping))
+        return type(self)(
+            self.cod, self.dom, boxes, edges, offsets=offsets,
+            loops=self.loops)
+
     @classmethod
     def spiders(
             cls, n_legs_in: int, n_legs_out: int,
             typ: Ty, phases=None) -> CMap:
-        """ Spiders are kept as boxes, including their phase data. """
+        """
+        Spiders are kept as boxes, including their phase data.
+
+        Example
+        -------
+        >>> from discopy.tensor import CMap, Dim, Tensor
+        >>> assert CMap.spiders(1, 2, Dim(2, 3)).eval().is_close(
+        ...     Tensor.spiders(1, 2, Dim(2, 3)))
+        """
         return cls.from_box(cls.category.spiders(
             n_legs_in, n_legs_out, typ, phases))
 
@@ -1149,6 +1192,7 @@ class CMap[C0: Pregroup, C1: CMap](
             "splines": "true",
             "outputorder": "edgesfirst",
             "bgcolor": "white",
+            "fontname": "DejaVu Sans",
             "margin": "0.04",
         } | (graph_attr or {})
         if seed is not None:
@@ -1170,7 +1214,7 @@ class CMap[C0: Pregroup, C1: CMap](
             return ", ".join(
                 f'{key}=<{value.value}>' if isinstance(value, Html)
                 else f'{key}="{escape(value)}"'
-                for key, value in attributes.items())
+                for key, value in sorted(attributes.items()))
 
         def boundary_label(port_index):
             return f"{port_index}" if port_indices else ""
@@ -1233,13 +1277,17 @@ class CMap[C0: Pregroup, C1: CMap](
                 '<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">'
                 + "".join(rows) + "</TABLE>")
 
+        node_attrs = dict(
+            color="black", fontname="DejaVu Sans", fontsize="12",
+            margin="0", shape="plain")
+        edge_attrs = dict(
+            color="black", fontname="DejaVu Sans", fontsize="9",
+            headclip="true", penwidth="1.4", tailclip="true")
         lines = [
             "graph cmap {",
             f"  graph [{attr_string(attrs)}];",
-            '  node [shape=plain, color=black, fontname="Helvetica", '
-            'fontsize="12", margin="0"];',
-            '  edge [color=black, penwidth="1.4", fontsize="9", '
-            'headclip="true", tailclip="true"];',
+            f"  node [{attr_string(node_attrs)}];",
+            f"  edge [{attr_string(edge_attrs)}];",
         ]
 
         port_nodes = {}
@@ -1311,8 +1359,9 @@ class CMap[C0: Pregroup, C1: CMap](
         return "\n".join(lines) + "\n"
 
     def draw(
-            self, path=None, engine="dot", format=None, seed=None,
-            show=None, graph_attr=None, port_indices=False, block=True):
+            self, path=None, doctest=None, engine="dot", format=None,
+            seed=None, show=None, graph_attr=None, port_indices=False,
+            block=True, tol=20):
         """
         Draw as a combinatorial map using Graphviz.
 
@@ -1339,22 +1388,32 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> from discopy.compact import Ty, CMap
         >>> x, y, z = map(Ty, "xyz")
         >>> (CMap.caps((x @ y).r, x @ y) >> CMap.cups((x @ y).l, x @ y)).draw(
-        ...     path="docs/_static/cmap/scalar-loop.png", show=False)
+        ...     doctest="docs/_static/cmap/scalar-loop.dot", show=False)
 
-        .. image:: /_static/cmap/scalar-loop.png
+        .. graphviz:: /_static/cmap/scalar-loop.dot
             :align: center
         """
         dot = self.to_dot(
             engine=engine, seed=seed, graph_attr=graph_attr,
             port_indices=port_indices)
 
+        from discopy.drawing import backend
+        path, compare = backend.doctest_or_path(path, doctest)
         show = show if show is not None else path is None
         if path is not None:
-            suffix = "" if path is None else (
-                path.rsplit(".", 1)[-1].lower() if "." in path else "")
+            path_str = str(path)
+            suffix = path_str.rsplit(".", 1)[-1].lower()\
+                if "." in path_str else ""
             if suffix in ["dot", "gv"]:
-                with open(path, "w", encoding="utf-8") as stream:
-                    stream.write(dot)
+                def save(actual_path):
+                    with open(
+                            actual_path, "w", encoding="utf-8",
+                            newline="\n") as stream:
+                        stream.write(dot)
+                if compare:
+                    backend.save_and_compare(path, save, tol=tol)
+                else:
+                    save(path)
                 return None
 
         executable = shutil.which(engine) or shutil.which("dot")
@@ -1364,9 +1423,15 @@ class CMap[C0: Pregroup, C1: CMap](
 
         if path is not None:
             output_format = format or suffix or "svg"
-            subprocess.run(
-                [executable, f"-T{output_format}", "-o", path],
-                input=dot.encode(), check=True)
+
+            def save(actual_path):
+                subprocess.run(
+                    [executable, f"-T{output_format}", "-o", actual_path],
+                    input=dot.encode(), check=True)
+            if compare:
+                backend.save_and_compare(path, save, tol=tol)
+            else:
+                save(path)
         if not show:
             return None
 

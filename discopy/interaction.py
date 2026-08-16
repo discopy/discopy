@@ -54,15 +54,16 @@ Example
 >>> image = F(noun_phrase).inside.to_hypergraph().interchange(1, 3)\\
 ...     .to_diagram().interchange(1, 2).naturality(2, left=False)
 
->>> from discopy.drawing import Equation
+>>> from discopy.monoidal import Equation
 >>> Equation(noun_phrase, image, symbol="$\\\\mapsto$").draw(
-...     path="docs/_static/int/alice-loves-interaction.png")
+...     doctest="docs/_static/int/alice-loves-interaction.svg")
 
-.. image:: /_static/int/alice-loves-interaction.png
+.. image:: /_static/int/alice-loves-interaction.svg
     :align: center
 """
 
 from __future__ import annotations
+from typing import Sequence
 from dataclasses import dataclass
 from functools import wraps
 
@@ -76,6 +77,7 @@ from discopy import (
 )
 from discopy.abc import RibbonCategory, TracedCategory, NamedGeneric
 from discopy.cat import assert_iscomposable
+from discopy.python import finset
 from discopy.utils import (
     factory, classproperty, unbiased, assert_isinstance, factory_name)
 
@@ -129,6 +131,10 @@ class Ty(NamedGeneric['natural']):
         except TypeError:  # e.g. when Ty.natural == int
             return repr(self)
 
+    @classmethod
+    def unit(cls) -> Ty:
+        return cls(cls.natural.unit(), cls.natural.unit())
+
     def tensor(self, *others: Ty):
         if any(not isinstance(other, Ty) for other in others):
             return NotImplemented
@@ -171,6 +177,7 @@ class Diagram(RibbonCategory, NamedGeneric['natural']):
     ...     == D.id(T(2, 2))\\
     ...     == D.id(T(2, 2)).transpose(left=True)
     """
+    ar = classproperty(lambda cls: cls)
     natural = ribbon.Diagram
 
     ob = classproperty(lambda cls: Ty[cls.natural.ob])
@@ -206,9 +213,9 @@ class Diagram(RibbonCategory, NamedGeneric['natural']):
         >>> X, Y, Z = Ty[T](x0, x1), Ty[T](y0, y1), Ty[T](z0, z1)
         >>> f = Diagram[D](B('f', x0 @ y1, y0 @ x1), X, Y)
         >>> g = Diagram[D](B('g', y0 @ z1, z0 @ y1), Y, Z)
-        >>> (f >> g).draw(path='docs/_static/int/composition.png')
+        >>> (f >> g).draw(doctest='docs/_static/int/composition.svg')
 
-        .. image:: /_static/int/composition.png
+        .. image:: /_static/int/composition.svg
             :align: center
 
         Note
@@ -224,9 +231,9 @@ class Diagram(RibbonCategory, NamedGeneric['natural']):
         >>> symmetric_feedback =\\
         ...     caps >> (f_ @ Swap(y1.r, y0.r) @ g_).foliation() >> cups
         >>> symmetric_feedback.draw(
-        ...     path='docs/_static/int/symmetric-feedback.png')
+        ...     doctest='docs/_static/int/symmetric-feedback.svg')
 
-        .. image:: /_static/int/symmetric-feedback.png
+        .. image:: /_static/int/symmetric-feedback.svg
             :align: center
         """
         assert_iscomposable(self, other)
@@ -257,14 +264,16 @@ class Diagram(RibbonCategory, NamedGeneric['natural']):
         >>> from discopy.ribbon import Ty as T, Diagram as D, Box as B
         >>> x, y, u, v = map(Ty[T], "xyuv")
         >>> f = Diagram[D](B('f', T('x', 'v'), T('y', 'u')), x @ -u, y @ -v)
-        >>> (Diagram[D].id(x @ -u) >> f).draw(path='docs/_static/int/idl.png')
+        >>> (Diagram[D].id(x @ -u) >> f).draw(
+        ...     doctest='docs/_static/int/idl.svg')
 
-        .. image:: /_static/int/idl.png
+        .. image:: /_static/int/idl.svg
             :align: center
 
-        >>> (f >> Diagram[D].id(y @ -v)).draw(path='docs/_static/int/idr.png')
+        >>> (f >> Diagram[D].id(y @ -v)).draw(
+        ...     doctest='docs/_static/int/idr.svg')
 
-        .. image:: /_static/int/idr.png
+        .. image:: /_static/int/idr.svg
             :align: center
         """
         dom = Ty[cls.natural.ob]() if dom is None else dom
@@ -289,9 +298,9 @@ class Diagram(RibbonCategory, NamedGeneric['natural']):
         >>> f = Diagram[D](B('f', T('x', 'v'), T('y', 'u')), x @ -u, y @ -v)
         >>> f_ = Diagram[D](
         ...     B('f_', T('x_', 'v_'), T('y_', 'u_')), x_ @ -u_, y_ @ -v_)
-        >>> (f @ f_).draw(path='docs/_static/int/tensor.png')
+        >>> (f @ f_).draw(doctest='docs/_static/int/tensor.svg')
 
-        .. image:: /_static/int/tensor.png
+        .. image:: /_static/int/tensor.svg
             :align: center
         """
         x, u, y, v = tuple(self.dom) + tuple(self.cod)
@@ -311,9 +320,9 @@ class Diagram(RibbonCategory, NamedGeneric['natural']):
         >>> from discopy.ribbon import Ty as T, Diagram as D, Box as B
         >>> x, u, y, v = map(Ty[T], "xuyv")
         >>> Diagram.braid(x @ -u, y @ -v).draw(
-        ...     path="docs/_static/int/braid.png")
+        ...     doctest="docs/_static/int/braid.svg")
 
-        .. image:: /_static/int/braid.png
+        .. image:: /_static/int/braid.svg
             :align: center
 
         Parameters:
@@ -329,6 +338,23 @@ class Diagram(RibbonCategory, NamedGeneric['natural']):
         return cls(braids >> twists, left @ right, right @ left)
 
     @classmethod
+    def permutation(cls, xs: Sequence[int], doms: Sequence[Ty]) -> Diagram:
+        xs = finset.Permutation(xs, len(doms))
+        dom = cls.ob.tensor(*doms) if doms else cls.ob.unit()
+        if xs.is_identity:
+            return cls.id(dom)
+
+        base = cls.natural
+        positive = [ob.positive for ob in doms]
+        negative = [doms[i].negative for i in reversed(xs)]
+        inside = (
+            base.permutation(xs, positive) @
+            base.permutation(xs.rotate(), negative)
+        )
+        cod = cls.ob.tensor(*(doms[i] for i in xs)) if doms else cls.ob.unit()
+        return cls(inside, dom, cod)
+
+    @classmethod
     def cups(cls, left: Ty, right: Ty) -> Diagram:
         """
         The integer cups are given by natural identities.
@@ -342,15 +368,15 @@ class Diagram(RibbonCategory, NamedGeneric['natural']):
 
         This is what the snake equations look like:
 
-        >>> from discopy.drawing import Equation
+        >>> from discopy.monoidal import Equation
         >>> x = Ty('x')
         >>> Equation(
         ...     Diagram.caps(x, -x) @ x >> x @ Diagram.cups(-x, x),
         ...     Diagram.id(x),
         ...     x @ Diagram.caps(-x, x) >> Diagram.cups(x, -x) @ x).draw(
-        ...         path="docs/_static/int/int-snake-equations.png")
+        ...         doctest="docs/_static/int/int-snake-equations.svg")
 
-        .. image:: /_static/int/int-snake-equations.png
+        .. image:: /_static/int/int-snake-equations.svg
             :align: center
         """
         rigid.Ty.assert_isadjoint(left, right)
@@ -377,11 +403,11 @@ class Diagram(RibbonCategory, NamedGeneric['natural']):
         >>> from discopy.ribbon import Ty as T, Diagram as D, Box as B
         >>> x, y, u, v = map(Ty[T], "xyuv")
         >>> f = Diagram[D](B('f', T('x', 'v'), T('y', 'u')), x @ -u, y @ -v)
-        >>> from discopy.drawing import Equation
+        >>> from discopy.monoidal import Equation
         >>> Equation(f, f[::-1], symbol="$\\\\mapsto$").draw(
-        ...     path="docs/_static/int/dagger.png")
+        ...     doctest="docs/_static/int/dagger.svg")
 
-        .. image:: /_static/int/dagger.png
+        .. image:: /_static/int/dagger.svg
             :align: center
         """
         return type(self)(self.inside.dagger(), self.cod, self.dom)
@@ -408,13 +434,13 @@ class Diagram(RibbonCategory, NamedGeneric['natural']):
         >>> right_snake = D.id(-x).transpose(left=False)
         >>> assert left_snake.simplify() == D.id(x) == right_snake.simplify()
 
-        >>> from discopy.drawing import Equation
+        >>> from discopy.monoidal import Equation
         >>> Equation(left_snake, Equation(
         ...     D.id(x), right_snake, symbol="$\\\\leftarrow$"),
         ...         symbol="$\\\\rightarrow$").draw(
-        ...             path="docs/_static/int/simplify.png")
+        ...             doctest="docs/_static/int/simplify.svg")
 
-        .. image:: /_static/int/simplify.png
+        .. image:: /_static/int/simplify.svg
             :align: center
         """
         return type(self)(self.inside.simplify(), self.dom, self.cod)

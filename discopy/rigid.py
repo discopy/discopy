@@ -31,11 +31,10 @@ Axioms
 >>> left_snake, right_snake = Id(n.r).transpose(left=True), Id(n.l).transpose()
 >>> assert left_snake.normal_form() == Id(n) == right_snake.normal_form()
 
->>> from discopy.drawing import Equation
 >>> Equation(left_snake, Id(n), right_snake).draw(
-...     figsize=(4, 1), path='docs/_static/rigid/typed-snake-equation.png')
+...     figsize=(4, 1), doctest='docs/_static/rigid/typed-snake-equation.svg')
 
-.. image:: /_static/rigid/typed-snake-equation.png
+.. image:: /_static/rigid/typed-snake-equation.svg
     :align: center
 
 Objects may be coloured on both sides, i.e. an object ``F : a -> b`` is a
@@ -57,18 +56,18 @@ colours ``a`` and ``b``:
 >>> assert left_snake.normal_form() == Id(F)
 >>> assert right_snake.normal_form() == Id(G)
 
->>> from discopy.drawing import Equation
+>>> from discopy.monoidal import Equation
 >>> Equation(left_snake, Id(F)).draw(
 ...     figsize=(3, 2), legend=True,
-...     path='docs/_static/rigid/coloured-snake-equation.png')
+...     doctest='docs/_static/rigid/coloured-snake-equation.svg')
 >>> Equation(right_snake, Id(G)).draw(
 ...     figsize=(3, 2), legend=True,
-...     path='docs/_static/rigid/coloured-snake-equation-G.png')
+...     doctest='docs/_static/rigid/coloured-snake-equation-G.svg')
 
-.. image:: /_static/rigid/coloured-snake-equation.png
+.. image:: /_static/rigid/coloured-snake-equation.svg
     :align: center
 
-.. image:: /_static/rigid/coloured-snake-equation-G.png
+.. image:: /_static/rigid/coloured-snake-equation-G.svg
     :align: center
 
 This is an instance of the free-forgetful adjunction between sets and
@@ -330,14 +329,11 @@ class Layer(monoidal.Layer):
     A rigid layer is a monoidal layer that can be rotated.
 
     Parameters:
-        left : The type on the left of the layer.
-        box : The box in the middle of the layer.
-        right : The type on the right of the layer.
-        more : More boxes and types to the right,
-               used by :meth:`Diagram.foliation`.
+        inside : Boxes and non-empty types, with at least one box.
     """
     def rotate(self, left=False):
-        return type(self)(*(x.l if left else x.r for x in list(self)[::-1]))
+        return type(self)(
+            *(x.l if left else x.r for x in list(self)[::-1]), normalise=False)
 
     l = property(lambda self: self.rotate(left=True))
     r = property(lambda self: self.rotate(left=False))
@@ -360,9 +356,9 @@ class Diagram(biclosed.Diagram, RigidCategory):
     >>> Alice, jokes = Box('Alice', I, n), Box('jokes', I, n.r @ s)
     >>> d = Alice >> Id(n) @ jokes >> Cup(n, n.r) @ Id(s)
     >>> d.draw(figsize=(3, 2),
-    ...        path='docs/_static/rigid/diagram-example.png')
+    ...        doctest='docs/_static/rigid/diagram-example.svg')
 
-    .. image:: /_static/rigid/diagram-example.png
+    .. image:: /_static/rigid/diagram-example.svg
         :align: center
     """
 
@@ -389,9 +385,9 @@ class Diagram(biclosed.Diagram, RigidCategory):
         -------
         >>> a, b = Ty('a'), Ty('b')
         >>> Diagram.cups(a.l @ b, b.r @ a).draw(figsize=(3, 1),\\
-        ... margins=(0.3, 0.05), path='docs/_static/rigid/cups.png')
+        ... margins=(0.3, 0.05), doctest='docs/_static/rigid/cups.svg')
 
-        .. image:: /_static/rigid/cups.png
+        .. image:: /_static/rigid/cups.svg
             :align: center
         """
         return nesting(cls, cls.cup_factory)(left, right)
@@ -409,9 +405,9 @@ class Diagram(biclosed.Diagram, RigidCategory):
         -------
         >>> a, b = Ty('a'), Ty('b')
         >>> Diagram.caps(a.r @ b, b.l @ a).draw(figsize=(3, 1),\\
-        ... margins=(0.3, 0.05), path='docs/_static/rigid/caps.png')
+        ... margins=(0.3, 0.05), doctest='docs/_static/rigid/caps.svg')
 
-        .. image:: /_static/rigid/caps.png
+        .. image:: /_static/rigid/caps.svg
             :align: center
         """
         return nesting(cls, cls.cap_factory)(left, right)
@@ -420,14 +416,13 @@ class Diagram(biclosed.Diagram, RigidCategory):
         """
         The curry of a rigid diagram is obtained using cups and caps.
 
-        >>> from discopy.drawing import Equation as Eq
         >>> x = Ty('x')
         >>> g = Box('g', x @ x, x)
-        >>> Eq(Eq(g.curry(left=False), g, symbol="$\\\\mapsfrom$"),
-        ...     g.curry(), symbol="$\\\\mapsto$").draw(
-        ...         path="docs/_static/rigid/curry.png")
+        >>> Equation(g.curry(left=False), g, g.curry(),
+        ...     symbols=("$\\\\mapsfrom$", "$\\\\mapsto$")).draw(
+        ...         doctest="docs/_static/rigid/curry.svg")
 
-        .. image:: /_static/rigid/curry.png
+        .. image:: /_static/rigid/curry.svg
             :align: center
         """
         if left:
@@ -442,16 +437,15 @@ class Diagram(biclosed.Diagram, RigidCategory):
 
         Example
         -------
-        >>> from discopy import drawing
         >>> x, y = map(Ty, "xy")
         >>> f = Box('f', Ty(), x)
         >>> g = Box('g', Ty(), x.r @ y)
         >>> diagram = f @ g >> Cup(x, x.r) @ y
-        >>> LHS = drawing.Equation(diagram.l, diagram, symbol="$\\\\mapsfrom$")
-        >>> RHS = drawing.Equation(LHS, diagram.r, symbol="$\\\\mapsto$")
-        >>> RHS.draw(figsize=(8, 3), path='docs/_static/rigid/rotate.png')
+        >>> Equation(diagram.l, diagram, diagram.r,
+        ...     symbols=("$\\\\mapsfrom$", "$\\\\mapsto$")).draw(
+        ...         figsize=(8, 3), doctest='docs/_static/rigid/rotate.svg')
 
-        .. image:: /_static/rigid/rotate.png
+        .. image:: /_static/rigid/rotate.svg
             :align: center
         """
         dom, cod = (x.l if left else x.r for x in (self.cod, self.dom))
@@ -461,32 +455,6 @@ class Diagram(biclosed.Diagram, RigidCategory):
 
     l = property(lambda self: self.rotate(left=True))
     r = property(lambda self: self.rotate(left=False))
-
-    def transpose(self, left=False):
-        """
-        The transpose of a diagram, i.e. its composition with cups and caps.
-
-        Parameters:
-            left : Whether to transpose left or right.
-
-        Example
-        -------
-        >>> from discopy.drawing import Equation
-        >>> x, y = map(Ty, "xy")
-        >>> f = Box('f', x, y)
-        >>> LHS = Equation(f.transpose(left=True), f, symbol="$\\\\mapsfrom$")
-        >>> RHS = Equation(LHS, f.transpose(), symbol="$\\\\mapsto$")
-        >>> RHS.draw(figsize=(8, 3), path="docs/_static/rigid/transpose.png")
-
-        .. image:: /_static/rigid/transpose.png
-        """
-        if left:
-            return self.cod.l @ self.caps(self.dom, self.dom.l)\
-                >> self.cod.l @ self @ self.dom.l\
-                >> self.cups(self.cod.l, self.cod) @ self.dom.l
-        return self.caps(self.dom.r, self.dom) @ self.cod.r\
-            >> self.dom.r @ self @ self.cod.r\
-            >> self.dom.r @ self.cups(self.cod, self.cod.r)
 
     def transpose_box(self, i, j=0, left=False):
         """
@@ -500,24 +468,25 @@ class Diagram(biclosed.Diagram, RigidCategory):
 
         Example
         -------
-        >>> from discopy.drawing import Equation
         >>> x, y, z = Ty(*"xyz")
         >>> f, g = Box('f', x, y), Box('g', y, z)
         >>> d = (f @ g).foliation()
         >>> transpose_l = d.transpose_box(0, 0, left=True)
         >>> transpose_r = d.transpose_box(0, 1, left=False)
-        >>> LHS = Equation(transpose_l, d, symbol="$\\\\mapsfrom$")
-        >>> RHS = Equation(LHS, transpose_r, symbol="$\\\\mapsto$")
-        >>> RHS.draw(
-        ...     figsize=(8, 3), path="docs/_static/rigid/transpose_box.png")
+        >>> Equation(
+        ...     transpose_l, d, transpose_r,
+        ...     symbols=("$\\\\mapsfrom$", "$\\\\mapsto$")).draw(
+        ...         figsize=(8, 3),
+        ...         doctest="docs/_static/rigid/transpose_box.svg")
 
-        .. image:: /_static/rigid/transpose_box.png
+        .. image:: /_static/rigid/transpose_box.svg
         """
-        box = list(self.inside[i])[2 * j + 1]
+        box = self.inside[i].boxes_and_types[2 * j + 1]
         transposed_box = (box.r if left else box.l).transpose(left)
         top, bottom = self[:i], self[i + 1:]
-        left_boxes_and_types = list(self.inside[i])[:2 * j + 1]
-        right_boxes_and_types = list(self.inside[i])[2 * j + 2:]
+        boxes_and_types = list(self.inside[i].boxes_and_types)
+        left_boxes_and_types = boxes_and_types[:2 * j + 1]
+        right_boxes_and_types = boxes_and_types[2 * j + 2:]
         left_layer, right_layer = [
             self.id().tensor(
                 *(x if k % 2 else self.id(x) for k, x in enumerate(xs)))
@@ -545,6 +514,9 @@ class Diagram(biclosed.Diagram, RigidCategory):
         """
         from discopy import monoidal
         from discopy.rigid import Cup, Cap
+
+        if getattr(self, "has_nonidentity_permutation", False):
+            raise NotImplementedError(messages.PERMUTATION_HAS_NO_OFFSET)
 
         def follow_wire(diagram, i, j):
             """
@@ -765,9 +737,9 @@ class Cup(BinaryBoxConstructor, Box):
     -------
     >>> n = Ty('n')
     >>> Cup(n, n.r).draw(figsize=(2,1), margins=(0.5, 0.05),\\
-    ... path='docs/_static/rigid/cup.png')
+    ... doctest='docs/_static/rigid/cup.svg')
 
-    .. image:: /_static/rigid/cup.png
+    .. image:: /_static/rigid/cup.svg
         :align: center
     """
     def __init__(self, left: Ty, right: Ty):
@@ -777,7 +749,7 @@ class Cup(BinaryBoxConstructor, Box):
         name = f"Cup({left}, {right})"
         dom, cod = left @ right, self.ob(dom=left.dom, cod=left.dom)
         BinaryBoxConstructor.__init__(self, left, right)
-        Box.__init__(self, name, dom, cod, draw_as_wires=True)
+        Box.__init__(self, name, dom, cod, draw_as_cup=True)
 
     def rotate(self, left=False):
         return self.cap_factory(self.right.l, self.left.l) if left\
@@ -803,9 +775,9 @@ class Cap(BinaryBoxConstructor, Box):
     -------
     >>> n = Ty('n')
     >>> Cap(n, n.l).draw(figsize=(2,1), margins=(0.5, 0.05),\\
-    ... path='docs/_static/rigid/cap.png')
+    ... doctest='docs/_static/rigid/cap.svg')
 
-    .. image:: /_static/rigid/cap.png
+    .. image:: /_static/rigid/cap.svg
         :align: center
     """
     def __init__(self, left: Ty, right: Ty):
@@ -815,7 +787,7 @@ class Cap(BinaryBoxConstructor, Box):
         name = f"Cap({left}, {right})"
         dom, cod = self.ob(dom=left.dom, cod=left.dom), left @ right
         BinaryBoxConstructor.__init__(self, left, right)
-        Box.__init__(self, name, dom, cod, draw_as_wires=True)
+        Box.__init__(self, name, dom, cod, draw_as_cap=True)
 
     def rotate(self, left=False):
         return self.cup_factory(self.right.l, self.left.l) if left\
@@ -852,11 +824,10 @@ class Functor(biclosed.Functor):
     >>> sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ s @ Cup(n.l, n)
     >>> assert F(sentence).normal_form() == Alice >> Id(n) @ Bob >> love_box
 
-    >>> from discopy.drawing import Equation
     >>> Equation(sentence, F(sentence), symbol='$\\\\mapsto$').draw(
-    ...     figsize=(5, 2), path='docs/_static/rigid/functor-example.png')
+    ...     figsize=(5, 2), doctest='docs/_static/rigid/functor-example.svg')
 
-    .. image:: /_static/rigid/functor-example.png
+    .. image:: /_static/rigid/functor-example.svg
         :align: center
     """
     dom = cod = Diagram
@@ -916,3 +887,7 @@ biclosed.Diagram.to_rigid = to_rigid
 Diagram.cup_factory, Diagram.cap_factory, Diagram.sum_factory = Cup, Cap, Sum
 
 Id = Diagram.id
+
+
+class Equation(biclosed.Equation):
+    """ The :class:`biclosed.Equation` of rigid diagrams. """

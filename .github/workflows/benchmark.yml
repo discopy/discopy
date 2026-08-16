@@ -2,13 +2,17 @@ name: benchmark
 
 on:
   pull_request:
-    types: [opened, reopened, ready_for_review, synchronize]
+    types: [opened, reopened, ready_for_review, synchronize, labeled]
   push:
     branches: [main]
   workflow_dispatch:
 
 jobs:
   benchmark:
+    # Only run on main / manual dispatch, or on pull requests tagged "benchmark".
+    if: >-
+      github.event_name != 'pull_request'
+      || contains(github.event.pull_request.labels.*.name, 'benchmark')
     runs-on: ubuntu-latest
     timeout-minutes: 15   # backstop: BENCH_FLAGS=bench:full has no in-process cap (~3-4 min observed)
     strategy:
@@ -34,9 +38,11 @@ jobs:
       id: branch
       env:
         REF: ${{ github.head_ref || github.ref_name }}
-    - name: Run composition benchmark
+    - name: Run benchmarks
       # PRs run the small/medium sizes as a smoke; main / manual dispatch run the
       # full size tail (BENCH_FLAGS=bench:full).
+      env:
+        BENCH_FLAGS: ${{ github.event_name != 'pull_request' && 'bench:full' || 'bench:smoke' }}
       run: |
         mkdir -p benchmark-results
         uv run pytest benchmark/ -v --benchmark-json=benchmark-results/bench.json
@@ -45,7 +51,7 @@ jobs:
       run:
         uv run python benchmark/report.py benchmark-results/bench.json
           --output benchmark-results
-          --baseline benchmark/baseline.json
+          --baseline benchmark/baseline.json.gz
     - name: Upload benchmark results
       if: always()
       uses: actions/upload-artifact@v4
