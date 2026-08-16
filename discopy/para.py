@@ -399,14 +399,14 @@ class Closed(Markov, ClosedCategory):
 class Feedback(Markov, FeedbackCategory):
     """
     Parametric maps over a feedback underlying `category` form a feedback
-    category, with :meth:`delay` applied to all four components.
+    category, with :meth:`delay` applied to all five components.
     """
     category = feedback.Diagram
 
     def delay(self, n_steps: int = 1) -> Feedback:
         """
         Delay a parametric map by delaying its underlying morphism together
-        with its domain, codomain and parameter space.
+        with its domain, codomain, parameter and coparameter spaces.
 
         Parameters:
             n_steps : The number of time steps to delay.
