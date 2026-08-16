@@ -324,7 +324,7 @@ def quadratic_subcurve(points, t0, t1):
             blossom(points, t1, t1))
 
 
-def _bezier_subcurve(points, t0, t1):
+def bezier_subcurve(points, t0, t1):
     """ Restrict a cubic Bezier (4 control points) to the range [t0, t1]. """
     def lerp(a, b, t):
         return (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
@@ -462,7 +462,7 @@ class Backend(ABC):
         spans = [(0, 1)] if not gap else [(0, 0.5 - gap), (0.5 + gap, 1)]
         for t0, t1 in spans:
             a_sub, b_sub = (
-                _bezier_subcurve(a, t0, t1), _bezier_subcurve(b, t0, t1))
+                bezier_subcurve(a, t0, t1), bezier_subcurve(b, t0, t1))
             self.draw_filled_shape(a_sub[0], [
                 ("curve", a_sub[1], a_sub[2], a_sub[3]), ("line", b_sub[3]),
                 ("curve", b_sub[2], b_sub[1], b_sub[0])], color)
@@ -478,8 +478,8 @@ class Backend(ABC):
         control = self.braid_strand(source, target, middle)
         if not gap:
             return self.draw_bezier(control)
-        self.draw_bezier(_bezier_subcurve(control, 0, 0.5 - gap))
-        self.draw_bezier(_bezier_subcurve(control, 0.5 + gap, 1))
+        self.draw_bezier(bezier_subcurve(control, 0, 0.5 - gap))
+        self.draw_bezier(bezier_subcurve(control, 0.5 + gap, 1))
 
     def draw_spiders(self, graph, draw_box_labels=True, **params):
         """ Draws a list of boxes depicted as spiders. """
@@ -943,15 +943,15 @@ class Backend(ABC):
             # ribbon has turned over: fill it with a darker shade of the
             # front colour, for a nicer visual of the twist.
             front_top0, back_top0 = (
-                _bezier_subcurve(top0, 0, .5), _bezier_subcurve(top0, .5, 1))
+                bezier_subcurve(top0, 0, .5), bezier_subcurve(top0, .5, 1))
             back_bottom0, front_bottom0 = (
-                _bezier_subcurve(bottom0, 0, .5),
-                _bezier_subcurve(bottom0, .5, 1))
+                bezier_subcurve(bottom0, 0, .5),
+                bezier_subcurve(bottom0, .5, 1))
             front_top1, back_top1 = (
-                _bezier_subcurve(top1, 0, .5), _bezier_subcurve(top1, .5, 1))
+                bezier_subcurve(top1, 0, .5), bezier_subcurve(top1, .5, 1))
             back_bottom1, front_bottom1 = (
-                _bezier_subcurve(bottom1, 0, .5),
-                _bezier_subcurve(bottom1, .5, 1))
+                bezier_subcurve(bottom1, 0, .5),
+                bezier_subcurve(bottom1, .5, 1))
             self.draw_filled_shape(front_top0[0], [
                 ("curve", *front_top0[1:]), ("line", front_top1[3]),
                 ("curve", front_top1[2], front_top1[1], front_top1[0])],
