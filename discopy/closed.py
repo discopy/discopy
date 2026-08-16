@@ -263,7 +263,7 @@ class Abstraction(TermBase, biclosed.Abstraction):
         body = self.body.eval(functor=functor)
         if self.var not in self.body.freevars:
             discard = functor.cod.discard(functor(self.var.cod))
-            return (discard @ body.dom >> body).curry()
+            return (discard @ body.dom >> body).curry(left=False)
         i, n = self.body.freevars.index(self.var), len(self.body.freevars)
         p = [i] + [j for j in range(n) if j != i]
         doms = [self.ob(wire) for wire in body.dom.inside]
