@@ -37,6 +37,8 @@ other three cannot be tested end-to-end while it is broken.
       appearing in the evaluated diagram.
 - [x] 6. `CHANGELOG.md` entry under `[Unreleased]`.
 - [x] 7. `uv run pflake8 discopy` and `uv run coverage run -m pytest` green.
+- [x] 8. Pin the discard branch's `curry` to `left=False` so it does not read the default #563
+      flips. A no-op here, load-bearing on the merge with #563.
 
 ## Filed, not fixed here
 
