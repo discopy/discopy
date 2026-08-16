@@ -105,8 +105,9 @@ def test_diagrams_are_boundary_connected_by_default(Diagram):
 
 
 def test_diagrams_can_generate_closed_components():
-    diagram = find(monoidal.Diagram.strategy(boundary_connected=False),
-                   lambda value: not value.to_hypergraph().is_boundary_connected)
+    diagram = find(
+        monoidal.Diagram.strategy(boundary_connected=False),
+        lambda value: not value.to_hypergraph().is_boundary_connected)
     assert not diagram.to_hypergraph().is_boundary_connected
 
 
@@ -121,7 +122,7 @@ def test_symmetric_layers_generate_simultaneous_permutations():
     dom = symmetric.Ty(*"xyz")
     layer = find(symmetric.Layer.strategy(
         factory=symmetric.Diagram, dom=dom),
-        lambda value: value.is_structural)
+        lambda value: value.is_plumbing)
     permutation, = layer.boxes
     assert isinstance(permutation, symmetric.Permutation)
     assert layer.dom == dom
@@ -156,7 +157,8 @@ def test_every_diagram_level_inherits_its_box_factory(module):
     compact.Cap,
     ))
 def test_compact_diagrams_generate_structural_morphisms(structure):
-    box = find(compact.Box.strategy(), lambda value: isinstance(value, structure))
+    box = find(
+        compact.Box.strategy(), lambda value: isinstance(value, structure))
     assert isinstance(box, compact.Diagram)
 
 

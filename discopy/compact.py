@@ -61,7 +61,7 @@ from discopy.pivotal import Ob, Ty  # noqa: F401
 
 
 class Layer(symmetric.Layer, rigid.Layer):
-    """ A compact layer with permutation routing and rigid rotation. """
+    """ A compact layer with permutation plumbing and rigid rotation. """
 
 
 @factory

@@ -342,10 +342,11 @@ class Layer(monoidal.Layer):
     A rigid layer is a monoidal layer that can be rotated.
 
     Parameters:
-        inside : An odd number of alternating types and boxes.
+        inside : Boxes and non-empty types, with at least one box.
     """
     def rotate(self, left=False):
-        return type(self)(*(x.l if left else x.r for x in list(self)[::-1]))
+        return type(self)(
+            *(x.l if left else x.r for x in list(self)[::-1]), normalise=False)
 
     l = property(lambda self: self.rotate(left=True))
     r = property(lambda self: self.rotate(left=False))

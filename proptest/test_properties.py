@@ -24,6 +24,7 @@ from discopy import (
 from discopy.python import finset
 from proptest import strategies
 
+
 def axiom_parameter(cls, axiom):
     """Translate an axiom and its status to a pytest parameter."""
     marks = pytest.mark.xfail(
