@@ -147,6 +147,8 @@ out the two objects needed below as ``cat.Ob`` instances so that
 
 from __future__ import annotations
 
+import copy
+
 from collections.abc import Callable
 
 from typing import Iterator
@@ -212,7 +214,9 @@ class Ob(monoidal.Wire):
 
     def unwind(self) -> Ob:
         """ The object with winding number zero and the same colours. """
-        return type(self)(self.name, dom=self.dom, cod=self.cod)
+        result = copy.copy(self)
+        result.z = 0
+        return result
 
     def __eq__(self, other):
         return monoidal.Wire.__eq__(self, other)\
