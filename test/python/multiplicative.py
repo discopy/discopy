@@ -55,8 +55,17 @@ def test_Hypergraph_call():
         boxes=(), wires=((0, 1), (), (0, )))
     assert g(2, 3) == 2
 
-    with raises(ValueError):
+    with raises(ValueError, match="Expected 2 wires for"):
         g(2)
+
+    # A box that returns the wrong number of values is caught by evaluation.
+    wrong = Function(lambda x: (x, x, x), (int, ), (int, int))
+    h = Hypergraph[Function](
+        dom=(int, ), cod=(int, int), boxes=(wrong, ),
+        wires=((0, ), (((0, ), (1, 2)), ), (1, 2)))
+    with Function.no_type_checking:
+        with raises(ValueError, match="Expected 2 wires for"):
+            h(1)
 
 
 def test_Hypergraph_axioms():
@@ -66,13 +75,13 @@ def test_Hypergraph_axioms():
     # Not causal: the swap reads wires that only its own output produces.
     not_causal = Hypergraph[Function](
         (int, ), (int, ), (swap, ), ((0, ), (((0, 1), (1, 2)), ), (2, )))
-    with raises(AxiomError):
+    with raises(AxiomError, match="is not causal"):
         not_causal(5)
 
     # Not left-monogamous: wire 0 is produced by the input and the box.
     not_left_monogamous = Hypergraph[Function](
         (int, ), (int, ), (add, ), ((0, ), (((0, 0), (0, )), ), (0, )))
-    with raises(AxiomError):
+    with raises(AxiomError, match="is not left-monogamous"):
         not_left_monogamous(5)
 
 

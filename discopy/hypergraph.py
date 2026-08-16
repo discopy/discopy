@@ -1174,6 +1174,9 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         values = dict(zip(self.dom_wires, xs))
         for box, (box_dom, box_cod) in zip(self.boxes, self.box_wires):
             ys = tuplify(box(*(values[spider] for spider in box_dom)))
+            if len(ys) != len(box_cod):
+                raise ValueError(messages.WRONG_NUMBER_OF_WIRES.format(
+                    len(box_cod), box.cod, len(ys)))
             values.update(zip(box_cod, ys))
         return untuplify(tuple(values[spider] for spider in self.cod_wires))
 
