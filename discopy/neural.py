@@ -32,6 +32,7 @@ Summary
     :toctree:
 
     Dim
+    Seq
     Diagram
     Box
     Network
@@ -72,11 +73,38 @@ if TYPE_CHECKING:
     import torch
 
 
+class Seq(int):
+    """
+    The free monoid on vectors of a fixed dimension: an atomic dimension
+    whose wires carry variable-length sequences of vectors rather than
+    single vectors, see :meth:`CMap.pass_messages`.
+
+    Example
+    -------
+    >>> assert Dim(Seq(2), 3).r == Dim(3, Seq(2))
+    >>> assert Seq(2) != 2 and 2 != Seq(2) and Seq(2) == Seq(2)
+    """
+    def __eq__(self, other):
+        return isinstance(other, Seq) and int(self) == int(other)
+
+    def __ne__(self, other):
+        return not self == other
+
+    def __hash__(self):
+        return hash((Seq, int(self)))
+
+    def __repr__(self):
+        return f"Seq({int(self)})"
+
+    __str__ = __repr__
+
+
 @ob_factory
 class Dim(monoidal.Dim, Ty):
     """
     A dimension is a tuple of positive integers seen as a self-dual type,
-    with addition as tensor and the zero-dimensional space as unit.
+    with addition as tensor and the zero-dimensional space as unit; the
+    atoms can also be free monoids on a fixed dimension, see :class:`Seq`.
 
     Example
     -------
@@ -237,11 +265,16 @@ class CMap(compact.CMap):
         Parameters:
             index : The index of the box.
         """
-        ports = self._box_port_indices[index]
-        arity = len(self.boxes[index].dom)
-        return ports[:arity] + tuple(reversed(ports[arity:]))
+        return self._logical_box_ports[index]
 
-    @property
+    @cached_property
+    def _logical_box_ports(self) -> tuple[tuple[int, ...], ...]:
+        """ The ports of each box in logical order, see :meth:`box_ports`. """
+        return tuple(
+            ports[:len(box.dom)] + tuple(reversed(ports[len(box.dom):]))
+            for ports, box in zip(self._box_port_indices, self.boxes))
+
+    @cached_property
     def port_widths(self) -> tuple[int, ...]:
         """ The dimension carried by each port of the map. """
         return tuple(
@@ -402,6 +435,61 @@ class CMap(compact.CMap):
         return tuple(box_outputs)
 
     __call__ = forward
+
+    def pass_messages(self, init: dict = None, n_rounds: int = None,
+                      inject: bool = True) -> list:
+        """
+        Synchronous message passing with one opaque message per port.
+
+        Each round, the module of every network is called with one incoming
+        message per port in logical order, ``None`` for the empty message,
+        and must return one outgoing message per port; then the messages
+        travel along the wires. Messages can be of any type, e.g. pairs of
+        token sequences for the geometry of interaction, so the messages in
+        ``init`` overwrite the incoming ones rather than being added.
+
+        Parameters:
+            init : A mapping from port indices to the messages delivered as
+                   incoming at these ports.
+            n_rounds : The number of rounds, the number of boxes by default.
+            inject : Whether to re-deliver ``init`` after every round rather
+                     than just before the first.
+
+        Returns:
+            The final incoming messages, one per port.
+
+        Example
+        -------
+        A network whose module reflects its domain port onto its codomain
+        port, receiving a token and bouncing it back out to the root:
+
+        >>> bounce = Network('bounce', Dim(Seq(1)), Dim(Seq(1)),
+        ...                  module=lambda left, right: (right, left))
+        >>> bm = bounce.to_map()
+        >>> bm.pass_messages(init={bm.edges[0]: "token"}, n_rounds=1)[-1]
+        'token'
+        """
+        n_rounds = len(self.boxes) if n_rounds is None else n_rounds
+        n_ports, edges = self.n_ports, [self.edges[i]
+                                        for i in range(self.n_ports)]
+        for box in self.boxes:
+            assert_isinstance(box, Network)
+        modules = [(box.module, self.box_ports(box_index))
+                   for box_index, box in enumerate(self.boxes)]
+        incoming = [None] * n_ports
+        for port, message in (init or {}).items():
+            incoming[port] = message
+        for _ in range(n_rounds):
+            outgoing = [None] * n_ports
+            for module, box_ports in modules:
+                outputs = module(*[incoming[i] for i in box_ports])
+                for i, message in zip(box_ports, outputs):
+                    outgoing[i] = message
+            incoming = [outgoing[i] for i in edges]
+            if inject and init:
+                for port, message in init.items():
+                    incoming[port] = message
+        return incoming
 
 
 Id = Diagram.id
