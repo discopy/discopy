@@ -339,7 +339,8 @@ def test_region_cells_do_not_overlap():
     # translucent colours are not painted twice where two regions of the
     # same colour are adjacent, see issue #521. With every separator a
     # straight vertical line, the cells are rectangles whose areas add up
-    # to the area of the canvas.
+    # to the area of the canvas minus the box, which is a 2-cell rather
+    # than a region, i.e. a hole with nothing painted underneath.
     translucent = monoidal.Colour("#3a86ff80")
     x = monoidal.Ty(monoidal.Wire("x", translucent, translucent))
     y = monoidal.Ty(monoidal.Wire("y", translucent, translucent))
@@ -350,7 +351,8 @@ def test_region_cells_do_not_overlap():
     area = sum(
         (right[0].x - left[0].x) * (left[0].y - left[-1].y)
         for left, right, _ in cells)
-    assert area == drawing.width * drawing.height
+    box_area = 1.5 * 0.5  # the box spans (0.25, 1.75) x (0.25, 0.75)
+    assert area == drawing.width * drawing.height - box_area
 
 
 def test_region_white_cells_erase_to_the_background():

@@ -529,11 +529,12 @@ class Backend(ABC):
         """
         The boundaries between the regions of a drawing: a quadratic Bezier
         ``(top, control, bottom)`` for each non-horizontal visible edge and
-        for the right side of each box, paired with the name of the colour
-        of the region to its right. The Bezier control point is the one of
+        for both sides of each box, paired with the name of the colour of
+        the region to its right. The Bezier control point is the one of
         :meth:`draw_wire`, so a separator hugs the wire drawn over it.
         Horizontal edges bound no region on either side, so they are left
-        out.
+        out, and the left side of a box carries ``None`` since a box is a
+        2-cell, i.e. there is no region underneath it.
         """
         separators = []
         for source, target in Backend.visible_edges(graph):
@@ -549,11 +550,11 @@ class Backend(ABC):
         for node in graph.box_nodes:
             if node.box.draw_as_wires or node.box.draw_as_spider:
                 continue
-            top = graph.positions[Node("box-corner-11", j=node.j)]
-            bottom = graph.positions[Node("box-corner-10", j=node.j)]
-            separators.append(
-                ((top, Point(top.x, bottom.y), bottom),
-                 node.box.dom.cod.name))
+            for side, colour in [(0, None), (1, node.box.dom.cod.name)]:
+                top = graph.positions[Node(f"box-corner-{side}1", j=node.j)]
+                bottom = graph.positions[Node(f"box-corner-{side}0", j=node.j)]
+                separators.append(
+                    ((top, Point(top.x, bottom.y), bottom), colour))
         return separators
 
     @staticmethod
@@ -591,7 +592,8 @@ class Backend(ABC):
             band.append((
                 _quadratic_subcurve(curve, middle, middle)[0].x,
                 (Point(x0, top), control, Point(x1, bottom)), colour))
-        return [(curve, colour) for _, curve, colour in sorted(band)]
+        return [(curve, colour)
+                for _, curve, colour in sorted(band, key=lambda x: x[0])]
 
     @staticmethod
     def region_cells(graph):
@@ -603,7 +605,8 @@ class Backend(ABC):
         with the colour that its left boundary carries -- ``graph.dom.dom``
         for the leftmost cell, with the sides of the canvas as outermost
         boundaries. White cells are left out as they are the neutral
-        background, see :meth:`region_colours`.
+        background, see :meth:`region_colours`, and so are the cells
+        underneath a box, whose left side carries no colour at all.
 
         Returns the list of cells ``(left, right, colour)`` where ``left``
         and ``right`` are quadratic Beziers ``(top, control, bottom)``
@@ -626,7 +629,7 @@ class Backend(ABC):
             cells.append((left, (
                 Point(graph.width, top), Point(graph.width, bottom),
                 Point(graph.width, bottom)), colour))
-        return [cell for cell in cells if cell[-1] != "white"]
+        return [cell for cell in cells if cell[-1] not in (None, "white")]
 
     def draw_region_cell(self, left, right, facecolor):
         """

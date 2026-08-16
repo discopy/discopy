@@ -114,8 +114,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   polygons bounded by the wires on both sides, subdivided per height band —
   instead of overpainting everything to the right of each wire up to the
   full canvas width: translucent colours are no longer painted twice where
-  two regions of the same colour are adjacent, and white regions are not
-  painted at all, so they erase to the background
+  two regions of the same colour are adjacent, white regions are not
+  painted at all, so they erase to the background, and neither is the
+  inside of a box, which is a 2-cell rather than a region, so no colour
+  can bleed out around its border
   ([#521](https://github.com/discopy/discopy/issues/521)).
 - `frobenius.Diagram.unfuse`'s doctest no longer sets `Spider.color = "red"`
   to draw its example, which was leaking into every later doctest in the
