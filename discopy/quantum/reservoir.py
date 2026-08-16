@@ -157,6 +157,12 @@ class Reservoir:
             targets : One number, or tuple of numbers, for each step.
             regularisation : The Tikhonov regularisation parameter.
         """
+        if len(targets) != len(sequence):
+            raise ValueError(
+                f"Expected {len(sequence)} targets, got {len(targets)}.")
+        if regularisation < 0:
+            raise ValueError(
+                f"Expected regularisation >= 0, got {regularisation}.")
         np = get_backend()
         features = np.stack(self.run(sequence))
         n_features = np.shape(features)[1]

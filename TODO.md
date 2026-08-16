@@ -8,6 +8,6 @@
   as the Born probabilities of the memory qubits, ridge-regression readout
 - [x] tests in `test/quantum/reservoir.py`
 - [x] docs: list the module in `docs/api/quantum.rst`, add a `CHANGELOG.md` entry
-- [x] `uv run pflake8 discopy` and `uv run coverage run -m pytest` green
-  (626 passed, 51 skipped with `--skip-extra`)
-- [WIP] @pqbqgo-2026-08-16 10:48 address the cubic review: validate `fit` inputs, exact test command in `TODO.md`
+- [x] `uv run pflake8 discopy` and `uv run coverage run -m pytest --skip-extra` green
+  (626 passed, 51 skipped)
+- [x] address the cubic review: validate `fit` inputs, exact test command in `TODO.md`

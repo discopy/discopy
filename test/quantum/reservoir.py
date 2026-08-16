@@ -15,6 +15,10 @@ def test_Reservoir_errors():
         Reservoir(1, 1, Ket(0, 0))
     with raises(ValueError):
         Reservoir.random(1).encode(0.1, 0.2)
+    with raises(ValueError):
+        Reservoir.random(1).fit([0.1, 0.2], [0.1, 0.2, 0.3])
+    with raises(ValueError):
+        Reservoir.random(1).fit([0.1], [0.1], regularisation=-1)
 
 
 def test_Reservoir_repr():
