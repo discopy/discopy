@@ -9,6 +9,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- Products and let statements in the term language of `discopy.closed`:
+  a not-strictly-associative `Product` type constructor called with `*`,
+  `Pack`/`Unpack` boxes witnessing the isomorphism with the strict tensor,
+  the `Tuple`, `Projection` and `Let` terms with a `let` introspection
+  helper, and `Diagram.to_term` printing any causal diagram as a compact
+  term in fine-grain call-by-value style via `Hypergraph`
+  ([#370](https://github.com/discopy/discopy/issues/370),
+  [#458](https://github.com/discopy/discopy/issues/458),
+  [#489](https://github.com/discopy/discopy/pull/489)).
 - Combinatorial map representation, `discopy.cmap`, encoding diagrams in
   compact categories as a permutation on the ports of each box
   ([#338](https://github.com/discopy/discopy/pull/338)).
@@ -110,6 +119,22 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- Closed diagrams containing `Copy` or `Swap` can be drawn: the functor
+  chain only calls `cod.copy`, `cod.swap`, `cod.braid` and `cod.twist`
+  when the codomain has them
+  ([#491](https://github.com/discopy/discopy/issues/491),
+  [#489](https://github.com/discopy/discopy/pull/489)).
+- `closed.Substitution` no longer drops constants, loses the `left` flag
+  on applications or recurses forever on abstractions, and it covers the
+  new term formers
+  ([#492](https://github.com/discopy/discopy/issues/492),
+  [#489](https://github.com/discopy/discopy/pull/489)).
+- `closed.Application` deduplicates free variables deterministically
+  ([#450](https://github.com/discopy/discopy/issues/450),
+  [#489](https://github.com/discopy/discopy/pull/489)).
+- `python.Function.tensor` is variadic like `monoidal.Diagram.tensor`
+  ([#493](https://github.com/discopy/discopy/issues/493),
+  [#489](https://github.com/discopy/discopy/pull/489)).
 - `frobenius.Diagram.unfuse`'s doctest no longer sets `Spider.color = "red"`
   to draw its example, which was leaking into every later doctest in the
   same pytest process

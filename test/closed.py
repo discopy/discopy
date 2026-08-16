@@ -44,6 +44,7 @@ def test_tuple():
     assert Tuple(x, Tuple(y, x)).cod == X * (Y * X)
     assert Tuple(x, y).eval() == Pack(X * Y)
     assert Tuple(x, x).eval() == Copy(X) >> Pack(X * X)
+    assert Tuple().cod == Ty() and Tuple().eval() == Id(Ty())
 
 
 def test_projection():
@@ -124,6 +125,9 @@ def test_to_term():
 
     assert Copy(X).to_term() == Tuple(x0, x0)
     assert Box("h", X, Y).to_term() == (X >> Y)("h")(x0)
+    effect = Box("effect", X, Ty())
+    assert effect.to_term() == (X >> Ty())("effect")(x0)
+    assert effect.to_term().cod == Ty()
 
 
 def test_to_term_round_trip():

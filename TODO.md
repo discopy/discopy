@@ -25,3 +25,8 @@
 
 - [x] Avoid producing `Pack` then `Unpack` when a let statement binds a literal tuple: `TermBase.eval_unpacked` overridden by `Tuple`, no rewriting involved.
 - [x] Open issues for the bugs reported in the PR description and link them: #490, #491, #492, #493, #494; the non-deterministic ordering was already filed as #450. (The quantum extras cannot be installed in this sandbox — torch download is blocked — so `test/tensor.py`, `test/quantum` and the jax/sympy/graphviz doctests were compared against `main` instead: the failure lists are byte-for-byte identical, everything else passes.)
+
+The cubic review of 2026-08-16 (requested on the PR thread):
+
+- [x] Type the empty `Tuple()` as the tensor unit `Ty()` instead of `Ty(Product())`, so that terms of unit type stay type-preserving; `to_term` collapses a trailing empty tuple into its expression. Valid finding.
+- [x] `python.Function.tensor` receiving `other=None` with more operands: wontfix, the `None`-first order mirrors `monoidal.Diagram.tensor` verbatim and the case cannot arise from the `tensor(*terms)` splat; diverging from the interface it implements (#493) would be worse than the defensive guard.

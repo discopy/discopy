@@ -232,7 +232,9 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
             expression = self.__box_to_term__(
                 box, [variables[i] for i in dom_wires])
             bound = [variables[i] for i in cod_wires]
-            result = expression if bound == [result]\
+            trivial = bound == [result] or not bound\
+                and isinstance(result, Tuple) and not result.terms
+            result = expression if trivial\
                 else Let(expression, tuple(bound), result)
         return result
 
@@ -510,6 +512,8 @@ class Abstraction(TermBase, biclosed.Abstraction):
 class Tuple(TermBase):
     """
     The tupling of terms, its codomain is the :class:`Product` of theirs.
+    The empty tuple has the empty type as codomain, i.e. the nullary
+    product is strict, so that terms of unit type stay type-preserving.
 
     Parameters:
         terms : The terms inside the tuple.
@@ -520,6 +524,7 @@ class Tuple(TermBase):
     >>> x, y = Variable("x", X), Variable("y", Y)
     >>> assert Tuple(x, y).cod == X * Y
     >>> assert Tuple(x, Tuple(y, x)).cod == X * (Y * X)
+    >>> assert Tuple().cod == Ty()
     """
     def __init__(self, *terms: Term):
         for term in terms:
@@ -529,7 +534,8 @@ class Tuple(TermBase):
         self.freevars = list(dict.fromkeys(freevars))
         self.overlap = len(freevars) != len(self.freevars)
         dom = self.ob().tensor(*[x.cod for x in self.freevars])
-        cod = self.ob(self.ob.product_factory(*[t.cod for t in terms]))
+        cod = self.ob(self.ob.product_factory(*[t.cod for t in terms]))\
+            if terms else self.ob()
         name = f"Tuple({', '.join(map(str, terms))})"
         super().__init__(name, dom, cod)
 
@@ -547,7 +553,8 @@ class Tuple(TermBase):
                      for t in self.terms]
             result = functor.cod.copy(functor(context.dom), len(terms))\
                 >> identity.tensor(*terms)
-        return result >> functor(Pack(self.cod)) if pack else result
+        return result >> functor(Pack(self.cod))\
+            if pack and self.terms else result
 
     def eval_unpacked(self, functor=None, context=None):
         return self.eval(functor=functor, context=context, pack=False)
