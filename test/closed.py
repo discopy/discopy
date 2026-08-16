@@ -59,5 +59,6 @@ def test_Substitution():
 
     assert Substitution({x: y})(c) == c
     assert Substitution({x: y})(f(x)) == f(y)
-    assert Substitution({x: y})(Application(f, x, left=True)).left
+    assert Substitution({x: y})(Application(f, x, left=True))\
+        == Application(f, y, left=True)
     assert Substitution({x: y})(Abstraction(x, f(x))) == Abstraction(x, f(x))

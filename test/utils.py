@@ -78,3 +78,12 @@ def test_pickle_version_compatibility(fn, version):
 def test_parameterised_box_pickle():
     box = Box("A", 2, 3)
     assert pickle.loads(pickle.dumps(box)) == box
+
+
+def test_unbiased_keyword():
+    """ The first argument of a biased method may be given by keyword. """
+    from discopy.python.finset import Function
+
+    f, g = Function([1, 0], 2, 2), Function([0, 1], 2, 2)
+    assert f.then(other=g) == f.then(g) and f.tensor(other=g) == f.tensor(g)
+    assert f.then() == f == f.tensor()

@@ -116,6 +116,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `python.Function.then` and `python.Function.tensor` are variadic like the
   rest of the categorical interface, in `multiplicative`, `additive` and
   `finset` ([#493](https://github.com/discopy/discopy/issues/493)).
+- `unbiased` folds its first argument when it is given by keyword, instead
+  of collecting it into the keyword parameters forwarded to the biased
+  method and returning `self` unchanged
+  ([#493](https://github.com/discopy/discopy/issues/493)).
 - `biclosed.Constant` documents the attributes it has, rather than an
   `inside` diagram it never carried
   ([#494](https://github.com/discopy/discopy/issues/494)).
