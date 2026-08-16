@@ -10,3 +10,4 @@
 - [x] docs: list the module in `docs/api/quantum.rst`, add a `CHANGELOG.md` entry
 - [x] `uv run pflake8 discopy` and `uv run coverage run -m pytest` green
   (626 passed, 51 skipped with `--skip-extra`)
+- [WIP] @pqbqgo-2026-08-16 10:48 address the cubic review: validate `fit` inputs, exact test command in `TODO.md`
