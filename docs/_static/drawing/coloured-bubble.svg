@@ -106,8 +106,8 @@ z
    <g id="patch_13">
     <path d="M 18 54 
 Q 18 75.088312 18 90 
-L 162 90 
-Q 162 90 162 54 
+L 54 90 
+Q 54 90 54 54 
 z
 " clip-path="url(#p73fb16c204)" style="fill: #00ffff"/>
    </g>
