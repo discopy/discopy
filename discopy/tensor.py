@@ -229,7 +229,7 @@ class Tensor(Matrix):
             cls, n_legs_in, n_legs_out, typ, phase)
 
     @classmethod
-    def copy(cls, x: Dim, n: int) -> Tensor:
+    def copy(cls, x: Dim, n: int = 2) -> Tensor:
         """
         Constructs spiders of dimension `x` with one leg in and `n` legs out.
 

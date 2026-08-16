@@ -6,6 +6,7 @@ from pytest import raises
 
 from discopy.matrix import Matrix, backend
 from discopy.symmetric import Ty, Permutation, Functor
+from discopy.tensor import Tensor, Dim
 from discopy.utils import AxiomError
 
 
@@ -71,6 +72,12 @@ def test_permutation():
         assert Matrix.permutation(xs, doms) == swaps(xs, doms)
     with raises(ValueError):
         Matrix.permutation([0, 0], [1, 1])
+
+
+def test_copy_defaults_to_two():
+    """ Matrix is a MarkovCategory, whose copy has n=2 by default. """
+    assert Matrix.copy(2) == Matrix.copy(2, 2)
+    assert Tensor.copy(Dim(2)) == Tensor.copy(Dim(2), 2)
 
 
 def test_permutation_doms_optional():

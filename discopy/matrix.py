@@ -371,7 +371,7 @@ class Matrix(MarkovCategory, NamedGeneric['dtype']):
         return type(self)(array, self.dom, self.cod)
 
     @classmethod
-    def copy(cls, x: int, n: int) -> Matrix:
+    def copy(cls, x: int, n: int = 2) -> Matrix:
         array = [[i + int(j % n * x) == j
                   for j in range(n * x)] for i in range(x)]
         return cls(array, x, n * x)
