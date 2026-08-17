@@ -321,15 +321,6 @@ class Arrow(FreeCategory, Strategy["Arrow"]):
             return cls.generator_factory.strategy(
                 types=types, dom=dom, cod=cod)
 
-        if dom is not None or cod is not None:
-            @st.composite
-            def bounded(draw):
-                source = draw(types) if dom is None else dom
-                target = draw(types) if cod is None else cod
-                return draw(generators(dom=source, cod=target))
-
-            return bounded()
-
         atoms = st.one_of(types.map(cls.id), generators())
 
         def extend(children):
@@ -340,9 +331,28 @@ class Arrow(FreeCategory, Strategy["Arrow"]):
 
             return st.tuples(children, children).flatmap(bridge)
 
-        return st.recursive(
+        arrows = st.recursive(
             atoms, extend,
-            min_leaves=min_leaves, max_leaves=max_leaves).filter(
+            min_leaves=min_leaves, max_leaves=max_leaves)
+
+        if dom is not None or cod is not None:
+            def set_boundaries(arrow):
+                source = arrow.dom if dom is None else dom
+                target = arrow.cod if cod is None else cod
+                if not arrow.inside:
+                    return st.just(cls.id(source)) if source == target\
+                        else generators(dom=source, cod=target)
+                boundaries = (source, ) + tuple(
+                    box.cod for box in arrow.inside[:-1]) + (target, )
+                return st.tuples(*(generators(left, right)
+                                   for left, right in zip(
+                                       boundaries, boundaries[1:])))\
+                    .map(lambda inside: cls(
+                        inside, source, target, _scan=False))
+
+            arrows = arrows.flatmap(set_boundaries)
+
+        return arrows.filter(
                 lambda arrow: len(set(arrow.inside))
                 == len(arrow.inside))
 

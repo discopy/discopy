@@ -167,7 +167,8 @@ class Layer(monoidal.Layer):
         exclude = frozenset(exclude)
         base = super().strategy(
             factory=factory, types=types, dom=dom, cod=cod,
-            label=label, boundary_connected=boundary_connected)
+            label=label, exclude=exclude,
+            boundary_connected=boundary_connected)
         types = factory.ob.strategy() if types is None else types
         permutation_factory = factory.permutation_factory
 

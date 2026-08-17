@@ -116,6 +116,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- Boundary-constrained arrow strategies can generate composite paths, layer
+  strategies honour box exclusions, and combinatorial-map strategies preserve
+  subclasses. The abstract feedback signature now matches its inferred-argument
+  implementations.
 - `frobenius.Diagram.unfuse`'s doctest no longer sets `Spider.color = "red"`
   to draw its example, which was leaking into every later doctest in the
   same pytest process

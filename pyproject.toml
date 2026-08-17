@@ -173,6 +173,5 @@ omit = ["test/plugin.py"]
 [tool.coverage.report]
 fail_under = 98
 exclude_also = [
-    "def strategy",
     "if TYPE_CHECKING",
 ]

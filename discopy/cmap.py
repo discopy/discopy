@@ -284,7 +284,7 @@ class CMap[C0: Pregroup, C1: CMap](
             return st.nothing()
         return cls.category.strategy(
             boundary_connected=boundary_connected, **params).map(
-            lambda diagram: diagram.to_map())
+            cls.from_diagram)
 
     @classproperty
     def axioms(cls):

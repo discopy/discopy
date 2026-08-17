@@ -7,14 +7,20 @@ The strategies themselves are checked against every category in ``proptest/``,
 here we check the validation of arguments and the binding of axioms.
 """
 
-from hypothesis import given, settings
+from hypothesis import find, given, settings
+from hypothesis import strategies as st
+import pytest
 from pytest import raises
 
-from discopy import balanced, cat, feedback, monoidal, traced
+from discopy import (
+    balanced, biclosed, braided, cat, feedback, frobenius, markov, monoidal,
+    rigid, symmetric, traced)
 from discopy.python import finset
 from discopy.testing import (
-    Atomic, ComposablePair, FeedbackJoining, FeedbackVanishing, Natural,
-    NonEmpty, TraceNaturalityLeft, axiom)
+    Atomic, Bifunctor, ComposablePair, ComposableTriple, FeedbackJoining,
+    FeedbackVanishing, HorizontalPair, LeftCurrying, Natural, NonEmpty,
+    RightCurrying, TraceNaturalityLeft, TraceNaturalityRight,
+    TraceSuperposing, axiom)
 from discopy.utils import AxiomError
 
 
@@ -84,6 +90,90 @@ def test_extend_strategy():
     assert balanced.Box.extend_strategy(
         base, balanced.Diagram.twist_factory, build,
         dom=balanced.Ty('x')) is base
+    extended = balanced.Box.extend_strategy(
+        base, balanced.Diagram.twist_factory, build)
+    assert type(find(extended, lambda box: type(box) is balanced.Box))\
+        is balanced.Box
+    assert isinstance(find(
+        extended, lambda box: isinstance(box, balanced.Twist)),
+        balanced.Twist)
+
+
+def test_arrow_strategy_with_boundaries_is_recursive():
+    x, y = map(cat.Ob, "xy")
+    arrow = find(cat.Arrow.strategy(
+        dom=x, cod=y, min_leaves=2, max_leaves=2),
+        lambda value: len(value.inside) > 1)
+    assert arrow.dom == x and arrow.cod == y
+
+
+def test_layer_strategy_excludes_boxes():
+    x = monoidal.Ty("x")
+    params = dict(
+        factory=monoidal.Diagram, types=st.just(x), dom=x, cod=x,
+        label=0)
+    first = find(monoidal.Layer.strategy(**params), lambda _: True)
+    second = find(monoidal.Layer.strategy(
+        **params, exclude=first.boxes), lambda _: True)
+    assert not set(first.boxes).intersection(second.boxes)
+
+
+def test_unconstrained_layer_strategy():
+    layer = find(monoidal.Layer.strategy(
+        factory=monoidal.Diagram), lambda _: True)
+    assert isinstance(layer, monoidal.Layer)
+
+
+@pytest.mark.parametrize(("shape", "factory"), (
+    (Atomic, monoidal.Ty),
+    (NonEmpty, monoidal.Ty),
+    (ComposablePair, cat.Arrow),
+    (ComposableTriple, cat.Arrow),
+    (HorizontalPair, monoidal.Diagram),
+    (Bifunctor, monoidal.Diagram),
+    (TraceSuperposing, traced.Diagram),
+    (TraceNaturalityLeft, traced.Diagram),
+    (TraceNaturalityRight, traced.Diagram),
+    (LeftCurrying, biclosed.Diagram),
+    (RightCurrying, biclosed.Diagram),
+    (FeedbackVanishing, feedback.Diagram),
+    (FeedbackJoining, feedback.Diagram),
+))
+def test_argument_strategy(shape, factory):
+    assert find(shape.strategy(factory=factory), lambda _: True) is not None
+
+
+@pytest.mark.parametrize(("factory", "structure"), (
+    (braided.Box, braided.Braid),
+    (traced.Box, traced.Trace),
+    (biclosed.Box, biclosed.Eval),
+    (rigid.Box, rigid.Cup),
+    (markov.Box, markov.Copy),
+    (feedback.Box, feedback.Feedback),
+    (frobenius.Box, frobenius.Spider),
+))
+def test_box_strategy_generates_structure(factory, structure):
+    value = find(factory.strategy(), lambda box: isinstance(box, structure))
+    assert isinstance(value, structure)
+
+
+def test_diagram_strategy_generates_closed_components():
+    diagram = find(monoidal.Diagram.strategy(boundary_connected=False),
+                   lambda value: not value.to_hypergraph()
+                   .is_boundary_connected)
+    assert not diagram.to_hypergraph().is_boundary_connected
+
+
+def test_symmetric_layer_strategy_from_codomain_and_types():
+    cod = symmetric.Ty(*"xyz")
+    from_cod = find(symmetric.Layer.strategy(
+        factory=symmetric.Diagram, cod=cod),
+        lambda layer: layer.is_plumbing)
+    assert from_cod.cod == cod
+    unconstrained = find(symmetric.Layer.strategy(
+        factory=symmetric.Diagram, types=st.just(cod)),
+        lambda layer: layer.is_plumbing)
+    assert unconstrained.is_plumbing
 
 
 @given(box=balanced.Box.strategy(label="f"))

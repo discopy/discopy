@@ -796,16 +796,20 @@ class Layer(cat.Box, ColouredMonoid):
 
         types = factory.ob.strategy() if types is None else types
         boxes = factory.box_factory
-        del exclude
+        exclude = frozenset(exclude)
+
+        def fresh(strategy):
+            return strategy.filter(lambda box: box not in exclude)
+
         if dom is None and cod is None:
-            return boxes.strategy(
-                types=types, label=label).map(cls.cast)
+            return fresh(boxes.strategy(
+                types=types, label=label)).map(cls)
 
         def free_layer(placement):
             left, box_dom, box_cod, right = placement
-            return boxes.free_strategy(
+            return fresh(boxes.free_strategy(
                 types=types, dom=box_dom, cod=box_cod,
-                label=label).map(
+                label=label)).map(
                     lambda box: cls(left, box, right))
 
         if dom is None or cod is None:

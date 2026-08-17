@@ -821,7 +821,8 @@ class FeedbackCategory[C0, C1](MarkovCategory[C0, C1]):
         """
 
     @abstractmethod
-    def feedback(self, dom: C0, cod: C0, mem: C0) -> C1:
+    def feedback(
+            self, dom: C0 = None, cod: C0 = None, mem: C0 = None) -> C1:
         """
         The feedback operator on a morphism.
 

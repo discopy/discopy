@@ -19,8 +19,8 @@ label.
 
 ## Points
 
-Cubic reviewed the branch on 2026-08-16 and raised ten findings. Two are settled below; the other
-eight are the remaining work, none of them blocking.
+Cubic reviewed the branch on 2026-08-16 and raised ten findings. All are now settled below: eight
+were fixed and two were false positives.
 
 - [x] **The P1 is a false positive.** Cubic reads `Arguments.bifunctoriality` and friends as
       returning an unpacked N-tuple that `axiom(*arguments)` would splat onto a single structured
@@ -34,34 +34,31 @@ eight are the remaining work, none of them blocking.
       (1, 4)
       ```
 
-      `test/abc.py` is 272 passed, 32 skipped, 16 xfailed on this head. Had the claim been right
-      the suite would have been red for eight weeks.
-- [x] `all_axioms` binding each axiom twice is cosmetic and true; folded in with the next edit to
-      that generator rather than as a commit of its own.
-- [ ] `pivotal.Diagram.to_hypergraph` calls `self.normal_form()` and **throws the result away**,
-      then converts the original `self`. Diagram methods are pure by `STYLE.md`, so the line is
-      dead. Either rebind to the normal form or drop the call — deciding which is the point, since
-      the two differ for a non-normal input.
-- [ ] `FeedbackCategory.feedback(self, dom, cod, mem)` declares all three required, but
-      `feedback_joining` calls `f.feedback(mem=mem)` and then `f.feedback()` with no arguments at
-      all. Cubic flagged `feedback_joining`; `feedback_vanishing` on the line above has the same
-      shape and was missed. Either the abstract signature gives `dom`/`cod` defaults or both axioms
-      pass them.
-- [ ] `Arrow.strategy` returns a single generator and skips recursive composition whenever `dom` or
-      `cod` is given, so every boundary-constrained property test runs on generators only. Build
-      that branch recursively, respecting `min_leaves`/`max_leaves`.
-- [ ] `Layer.strategy` drops the `exclude` set that `Diagram.strategy` threads into it, so the
-      no-reuse contract is inert. Apply it when building candidate boxes, or delete the parameter.
-- [ ] `CMap.strategy` converts via `diagram.to_map()`, which yields the category's default map type
-      rather than `cls`, so a subclass is never actually exercised. Use `cls.from_diagram`.
-- [ ] `pyproject.toml` excludes `"def strategy"` from coverage globally. The strategies are runtime
-      code and this is the PR that adds them, so the exclusion hides the new surface from the gate
-      it has to pass. Drop it and mark individual non-runtime helpers `# pragma: no cover`.
-- [ ] `test/cmap.py:39` asserts `module.CMap.axioms` and `module.Diagram.axioms` enumerate the same
-      names, which holds by construction — `CMap.axioms` is built from `cls.category.axioms`. It
-      cannot fail. Assert axiom *satisfaction* through the new property checks instead.
-- [ ] `test/testing.py:84` passes `dom=`, which makes `extend_strategy` return `base` unchanged, so
-      the extension it exists for is never run. Add a case without `dom`/`cod`.
+      `test/abc.py` passes on this head. Had the claim been right the suite would have been red for
+      eight weeks.
+- [x] `all_axioms` binding each axiom twice was cosmetic and true; the generator now yields the
+      already-bound axiom.
+- [x] **The pivotal finding is a false positive.** `normal_form()` is called for its exception: it
+      rejects planar diagrams that are not boundary-connected, while conversion intentionally
+      preserves the original presentation. Two differently nested disconnected circles convert
+      directly to the same hypergraph, and a regression test now documents that the public method
+      rejects this unfaithful conversion.
+- [x] `FeedbackCategory.feedback(self, dom, cod, mem)` declared all three arguments required even
+      though both implementations and axioms infer them. The abstract signature now gives all three
+      `None` defaults, matching `feedback.Diagram` and `stream.Stream`.
+- [x] `Arrow.strategy` now applies exact boundaries to recursively generated paths, preserving
+      `min_leaves` and `max_leaves`; a regression test finds a constrained composite.
+- [x] `Layer.strategy` now filters candidate boxes through `exclude`, and `symmetric.Layer` forwards
+      the set to its base distribution. Testing this also exposed and fixed its stale `Layer.cast`
+      call, which broke unconstrained generation after `Layer.cast` was removed.
+- [x] `CMap.strategy` now converts with `cls.from_diagram`, and a custom-subclass regression test
+      checks the sampled value's exact type.
+- [x] The global `"def strategy"` coverage exclusion is gone. Concrete strategy smoke tests keep the
+      default suite at 98%; only the abstract `Strategy.strategy` declaration has a local pragma.
+- [x] The tautological CMap axiom-name comparison now evaluates unitality and associativity on
+      concrete maps; the property matrix continues to check every declared map axiom.
+- [x] `test_extend_strategy` now finds both a free box and a twist from the extended distribution,
+      while retaining its boundary-guard assertion.
 
 ## Open question for USER, not blocking
 

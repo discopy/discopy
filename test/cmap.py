@@ -1,9 +1,11 @@
 import shutil
 
+from hypothesis import find
+from hypothesis.errors import Unsatisfiable
 import pytest
 from pytest import raises
 
-from discopy import closed, biclosed, compact, symmetric
+from discopy import closed, biclosed, compact, monoidal, symmetric
 from discopy.python.finset import Permutation
 from discopy.utils import AxiomError
 
@@ -32,12 +34,30 @@ def test_default_compact_setting():
     assert cm.to_hypergraph().category == M.category
 
 
-def test_CMap_axioms_match_category():
-    from discopy import compact, monoidal, symmetric
+@pytest.mark.parametrize("module", (monoidal, symmetric, compact))
+def test_CMap_satisfies_category_axioms(module):
+    x, y, z, w = map(module.Ty, "xyzw")
+    f, g, h = map(module.CMap.from_box, (
+        module.Box("f", x, y),
+        module.Box("g", y, z),
+        module.Box("h", z, w),
+    ))
+    assert module.CMap.unitality(f)
+    assert module.CMap.associativity((f, g, h))
 
-    for module in monoidal, symmetric, compact:
-        assert tuple(axiom.name for axiom in module.CMap.axioms) == tuple(
-            axiom.name for axiom in module.Diagram.axioms)
+
+def test_CMap_strategy_preserves_subclass():
+    class CustomCMap(compact.CMap):
+        pass
+
+    cmap = find(CustomCMap.strategy(max_leaves=1), lambda _: True)
+    assert type(cmap) is CustomCMap
+
+
+def test_connected_CMap_strategy_rejects_closed_components():
+    with raises(Unsatisfiable):
+        find(monoidal.CMap.strategy(
+            boundary_connected=False), lambda _: True)
 
 
 def test_M_init():

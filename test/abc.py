@@ -7,7 +7,7 @@ category can be instantiated in the free category that implements it.
 Whether the equations hold is checked over every category in ``proptest/``.
 """
 
-from typing import Generator
+from inspect import signature
 
 import pytest
 
@@ -270,7 +270,7 @@ def all_axioms():
                 case _:
                     marks = ()
             yield pytest.param(
-                axiom.bind(free_category),
+                axiom,
                 id=f"{utils.factory_name(free_category)}.{axiom.name}",
                 marks=marks,
             )
@@ -280,3 +280,9 @@ def all_axioms():
 def test_axioms_instantiation_on_diagrams(axiom):
     arguments = getattr(Arguments, axiom.name)(axiom.carrier)
     assert axiom(*arguments)
+
+
+def test_feedback_signature_allows_inferred_boundaries():
+    parameters = signature(abc.FeedbackCategory.feedback).parameters
+    assert all(parameters[name].default is None
+               for name in ("dom", "cod", "mem"))
