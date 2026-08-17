@@ -26,6 +26,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - Rich display hooks (`_repr_svg_`/`_repr_html_`) for `Diagram` and `Drawing`
   in Jupyter/IPython
   ([#445](https://github.com/discopy/discopy/pull/445)).
+- Quantum reservoir computing, `discopy.quantum.reservoir`: a `Reservoir`
+  is a fixed unitary on memory and input qubits, each input value induces
+  a channel from memory to memory, the features of a time series are the
+  Born probabilities of the memory qubits and only a ridge-regression
+  linear readout is trained.
 - Composition benchmark suite for diagram operations, reproducing the
   scaling experiments of arXiv:2105.09257
   ([#346](https://github.com/discopy/discopy/pull/346)).
