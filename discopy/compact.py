@@ -57,7 +57,8 @@ Coherence
 from discopy import symmetric, ribbon, rigid, hypergraph
 from discopy.abc import CompactCategory
 from discopy.cat import factory
-from discopy.pivotal import Ob, Ty  # noqa: F401
+from discopy.utils import deprecated_ob
+from discopy.pivotal import Wire, Ty  # noqa: F401
 
 
 class Layer(symmetric.Layer, rigid.Layer):
@@ -195,3 +196,4 @@ class Equation(symmetric.Equation):
 
 
 Diagram.equation_factory = Equation
+__getattr__ = deprecated_ob(__name__)

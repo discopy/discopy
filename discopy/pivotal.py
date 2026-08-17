@@ -12,7 +12,7 @@ Summary
     :nosignatures:
     :toctree:
 
-    Ob
+    Wire
     Ty
     Diagram
     Box
@@ -57,9 +57,10 @@ from __future__ import annotations
 from discopy import cat, hypergraph, rigid, traced
 from discopy.abc import PivotalCategory, SymmetricCategory
 from discopy.cat import factory
+from discopy.utils import deprecated_ob
 
 
-class Ob(rigid.Ob):
+class Wire(rigid.Wire):
     """
     A pivotal object is a rigid object where left and right adjoints coincide.
 
@@ -76,7 +77,7 @@ class Ob(rigid.Ob):
         return super().strategy(
             min_winding=0, max_winding=1, **params)
 
-    def dagger(self) -> Ob:
+    def dagger(self) -> Wire:
         """
         The dagger of a pivotal object coincides with its left and right
         adjoints, i.e. it flips the parity of the winding number ``z`` and
@@ -91,9 +92,9 @@ class Ty(rigid.Ty):
     A pivotal type is a rigid type with pivotal objects inside.
 
     Parameters:
-        inside (Ob) : The objects inside the type.
+        inside (Wire) : The objects inside the type.
     """
-    generator_factory = Ob
+    generator_factory = Wire
 
 
 @factory
@@ -279,3 +280,4 @@ class Equation(rigid.Equation):
 
 
 Diagram.equation_factory = Equation
+__getattr__ = deprecated_ob(__name__)
