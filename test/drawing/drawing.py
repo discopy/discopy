@@ -109,6 +109,12 @@ def test_compare_drawing_raster_and_bytes(tmp_path):
     assert not actual.exists()
 
 
+def test_draw_multiwire_discard(tmp_path):
+    from discopy.quantum import qubit, Ket, Discard
+    (Ket(0, 0, 0) >> Discard(qubit ** 3)).draw(
+        path=str(tmp_path / "discard.png"))
+
+
 def test_draw_coloured_regions_and_frame():
     red, green, blue = map(
         monoidal.Colour, ("red", "green", "blue"))
