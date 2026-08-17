@@ -121,6 +121,7 @@ class MapNN(torch.nn.Module):
         self.ar = torch.nn.ModuleDict(ar)
         self.solver = Iterate() if solver is None else solver
         self.cache = cache
+        self.hits, self.misses = 0, 0
         self._compiled: OrderedDict = OrderedDict()
         self._rounds: dict = None
 
@@ -130,6 +131,12 @@ class MapNN(torch.nn.Module):
         """
         The global interaction a diagram means under this interpretation,
         cached by the identity of the diagram.
+
+        Every call is counted in :attr:`hits` or :attr:`misses`, since
+        compiling is the expensive half of running a diagram once and free
+        every time after: a model whose diagrams do not fit its
+        :attr:`cache` recompiles them every epoch, which is a wall clock a
+        loss curve cannot show.  See :meth:`cache_stats`.
 
         Parameters:
             diagram : A closed diagram or map in the source category, a
@@ -142,8 +149,10 @@ class MapNN(torch.nn.Module):
         key = diagram.cache_key() if hasattr(diagram, "cache_key") \
             else id(diagram)
         if key in self._compiled:
+            self.hits += 1
             self._compiled.move_to_end(key)
             return self._compiled[key][1]
+        self.misses += 1
         source = getattr(diagram, "diagram", diagram)
         compiled = interpret(source, self.ob, dict(self.ar))
         if self._rounds is not None:
@@ -154,6 +163,29 @@ class MapNN(torch.nn.Module):
         while len(self._compiled) > self.cache:
             self._compiled.popitem(last=False)
         return compiled
+
+    def cache_stats(self, reset: bool = False) -> dict:
+        """
+        What :meth:`compile` has done so far: ``hits``, ``misses``, how
+        many interactions are ``held`` and the ``capacity`` they are held
+        in.  A ``held`` equal to ``capacity`` with ``misses`` still rising
+        is an evicting cache, i.e. a recompilation per epoch.
+
+        Parameters:
+            reset : Whether to zero the counters, so that a caller can
+                    measure one epoch rather than a whole run.
+
+        Example
+        -------
+        >>> model = MapNN({}, {}, cache=1)
+        >>> model.cache_stats()
+        {'hits': 0, 'misses': 0, 'held': 0, 'capacity': 1}
+        """
+        found = {"hits": self.hits, "misses": self.misses,
+                 "held": len(self._compiled), "capacity": self.cache}
+        if reset:
+            self.hits, self.misses = 0, 0
+        return found
 
     def compile_rounds(self, **kwargs) -> MapNN:
         """

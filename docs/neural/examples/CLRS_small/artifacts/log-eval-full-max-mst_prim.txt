@@ -1,0 +1,50 @@
+  mst_prim/seed0: loaded full-max-mst_prim-seed0.pt
+  mst_prim/seed0:  id 0.9551  ood 0.0166  ood(128) 0.0134 +- 0.0027
+  mst_prim/seed1: loaded full-max-mst_prim-seed1.pt
+  mst_prim/seed1:  id 0.9531  ood 0.0288  ood(128) 0.0231 +- 0.0040
+  mst_prim/seed2: loaded full-max-mst_prim-seed2.pt
+  mst_prim/seed2:  id 0.9512  ood 0.0601  ood(128) 0.0596 +- 0.0039
+  mst_prim: -> full-max-mst_prim-report.json
+| algorithm | seeds | ID `n = 16` | OOD `n = 64` (32) | OOD (128) ± s.e.m. | ± 95% CI (traj.) | floor (MPNN) | ceiling (Triplet-GMPNN) |
+|---|---|---|---|---|---|---|---|
+| `mst_prim` | 3 | 0.9531 | 0.0352 | 0.0320 ± 0.0141 | ± 0.0035 | 0.6908 ± 0.0756 | 0.8639 ± 0.0133 |
+
+`± s.e.m.` is the standard error over seeds, the anchors' own convention (theirs: 3 seeds for the floor, 10 for the ceiling). `± 95% CI` is 1.96 standard errors over the 128 trajectories within a run, averaged over the seeds.
+{
+  "mst_prim": {
+    "in_distribution": {
+      "mean": 0.953125,
+      "std": 0.001953125,
+      "sem": 0.001127637244510988,
+      "seeds": 3
+    },
+    "ood": {
+      "mean": 0.03515625,
+      "std": 0.022413119956110353,
+      "sem": 0.012940220840039686,
+      "seeds": 3
+    },
+    "ood_wide": {
+      "mean": 0.032023111979166664,
+      "std": 0.024338975515702195,
+      "sem": 0.014052114065790374,
+      "seeds": 3
+    },
+    "ood_wide_interval": {
+      "mean": 0.032023111979166664,
+      "half_width": 0.003543461013998468,
+      "trajectories": 128
+    },
+    "sweep_ood": {
+      "x1": {
+        "mean": 0.03515625
+      },
+      "x1.5": {
+        "mean": 0.0234375
+      },
+      "x3": {
+        "mean": 0.02783203125
+      }
+    }
+  }
+}

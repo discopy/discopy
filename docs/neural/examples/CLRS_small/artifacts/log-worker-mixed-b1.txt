@@ -1,0 +1,2 @@
+Terminated
+17:00:03 done dag_shortest_paths on cuda:1

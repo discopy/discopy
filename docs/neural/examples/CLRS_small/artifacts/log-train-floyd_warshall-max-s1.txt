@@ -1,0 +1,67 @@
+  floyd_warshall/seed1 epoch   10: loss 2.9275 (out 0.1635, hint 2.7641) val 0.1925
+       probes: Pi_h 1.6784  D 0.2229  msk 0.3204  k 0.5423  Pi 0.1635
+  floyd_warshall/seed1 epoch   20: loss 1.4565 (out 0.1297, hint 1.3269) val 0.3962
+       probes: Pi_h 1.0939  D 0.1189  msk 0.0958  k 0.0183  Pi 0.1297
+  floyd_warshall/seed1 epoch   30: loss 1.8618 (out 0.1132, hint 1.7486) val 0.4969
+       probes: Pi_h 0.9424  D 0.1112  msk 0.0850  k 0.6100  Pi 0.1132
+  floyd_warshall/seed1 epoch   40: loss 0.8797 (out 0.0908, hint 0.7889) val 0.5720
+       probes: Pi_h 0.6788  D 0.0630  msk 0.0337  k 0.0133  Pi 0.0908
+  floyd_warshall/seed1 epoch   50: loss 0.6433 (out 0.0749, hint 0.5684) val 0.6523
+       probes: Pi_h 0.5188  D 0.0332  msk 0.0157  k 0.0007  Pi 0.0749
+  floyd_warshall/seed1 epoch   60: loss 0.4682 (out 0.0586, hint 0.4096) val 0.7201
+       probes: Pi_h 0.3785  D 0.0191  msk 0.0117  k 0.0003  Pi 0.0586
+  floyd_warshall/seed1 epoch   70: loss 0.3656 (out 0.0487, hint 0.3169) val 0.7555
+       probes: Pi_h 0.2864  D 0.0186  msk 0.0116  k 0.0003  Pi 0.0487
+  floyd_warshall/seed1 epoch   80: loss 0.2858 (out 0.0406, hint 0.2452) val 0.7848
+       probes: Pi_h 0.2196  D 0.0146  msk 0.0109  k 0.0001  Pi 0.0406
+  floyd_warshall/seed1 epoch   90: loss 0.2550 (out 0.0370, hint 0.2179) val 0.7975
+       probes: Pi_h 0.1929  D 0.0140  msk 0.0110  k 0.0001  Pi 0.0370
+  floyd_warshall/seed1 epoch  100: loss 0.2151 (out 0.0319, hint 0.1832) val 0.8281
+       probes: Pi_h 0.1595  D 0.0131  msk 0.0106  k 0.0001  Pi 0.0319
+  floyd_warshall/seed1 epoch  110: loss 0.1903 (out 0.0283, hint 0.1620) val 0.8252
+       probes: Pi_h 0.1392  D 0.0121  msk 0.0106  k 0.0001  Pi 0.0283
+  floyd_warshall/seed1 epoch  120: loss 0.1696 (out 0.0252, hint 0.1444) val 0.8429
+       probes: Pi_h 0.1225  D 0.0114  msk 0.0106  k 0.0000  Pi 0.0252
+  floyd_warshall/seed1 epoch  130: loss 0.1884 (out 0.0271, hint 0.1613) val 0.8157
+       probes: Pi_h 0.1341  D 0.0138  msk 0.0107  k 0.0026  Pi 0.0271
+  floyd_warshall/seed1 epoch  140: loss 0.1481 (out 0.0215, hint 0.1267) val 0.8616
+       probes: Pi_h 0.1042  D 0.0119  msk 0.0105  k 0.0001  Pi 0.0215
+  floyd_warshall/seed1 epoch  150: loss 0.1371 (out 0.0193, hint 0.1177) val 0.8678
+       probes: Pi_h 0.0966  D 0.0108  msk 0.0104  k 0.0000  Pi 0.0193
+  floyd_warshall/seed1 epoch  160: loss 0.1264 (out 0.0177, hint 0.1087) val 0.8706
+       probes: Pi_h 0.0881  D 0.0103  msk 0.0103  k 0.0000  Pi 0.0177
+  floyd_warshall/seed1 epoch  170: loss 0.1210 (out 0.0167, hint 0.1043) val 0.8699
+       probes: Pi_h 0.0834  D 0.0106  msk 0.0103  k 0.0000  Pi 0.0167
+  floyd_warshall/seed1 epoch  180: loss 0.1107 (out 0.0150, hint 0.0957) val 0.8759
+       probes: Pi_h 0.0750  D 0.0105  msk 0.0103  k 0.0000  Pi 0.0150
+  floyd_warshall/seed1 epoch  190: loss 0.1348 (out 0.0184, hint 0.1164) val 0.8705
+       probes: Pi_h 0.0937  D 0.0118  msk 0.0104  k 0.0005  Pi 0.0184
+  floyd_warshall/seed1 epoch  200: loss 0.1008 (out 0.0133, hint 0.0875) val 0.8790
+       probes: Pi_h 0.0675  D 0.0098  msk 0.0103  k 0.0000  Pi 0.0133
+  floyd_warshall/seed1 epoch  210: loss 0.0951 (out 0.0123, hint 0.0828) val 0.8829
+       probes: Pi_h 0.0627  D 0.0099  msk 0.0102  k 0.0000  Pi 0.0123
+  floyd_warshall/seed1 epoch  220: loss 0.1001 (out 0.0129, hint 0.0873) val 0.8824
+       probes: Pi_h 0.0668  D 0.0102  msk 0.0103  k 0.0001  Pi 0.0129
+  floyd_warshall/seed1 epoch  230: loss 0.1136 (out 0.0145, hint 0.0991) val 0.8743
+       probes: Pi_h 0.0752  D 0.0114  msk 0.0109  k 0.0017  Pi 0.0145
+  floyd_warshall/seed1 epoch  240: loss 0.0919 (out 0.0115, hint 0.0804) val 0.8827
+       probes: Pi_h 0.0600  D 0.0101  msk 0.0103  k 0.0000  Pi 0.0115
+  floyd_warshall/seed1 epoch  250: loss 0.0823 (out 0.0098, hint 0.0724) val 0.8895
+       probes: Pi_h 0.0523  D 0.0098  msk 0.0103  k 0.0000  Pi 0.0098
+  floyd_warshall/seed1 epoch  260: loss 0.1300 (out 0.0155, hint 0.1145) val 0.8850
+       probes: Pi_h 0.0867  D 0.0120  msk 0.0135  k 0.0023  Pi 0.0155
+  floyd_warshall/seed1 epoch  270: loss 0.0724 (out 0.0081, hint 0.0643) val 0.8934
+       probes: Pi_h 0.0445  D 0.0096  msk 0.0102  k 0.0000  Pi 0.0081
+  floyd_warshall/seed1 epoch  280: loss 0.0898 (out 0.0109, hint 0.0789) val 0.8905
+       probes: Pi_h 0.0581  D 0.0105  msk 0.0103  k 0.0000  Pi 0.0109
+  floyd_warshall/seed1 epoch  290: loss 0.0808 (out 0.0097, hint 0.0711) val 0.8871
+       probes: Pi_h 0.0509  D 0.0099  msk 0.0102  k 0.0000  Pi 0.0097
+  floyd_warshall/seed1 epoch  300: loss 0.0633 (out 0.0066, hint 0.0567) val 0.8926
+       probes: Pi_h 0.0374  D 0.0092  msk 0.0101  k 0.0000  Pi 0.0066
+  floyd_warshall/seed1: best val 0.8934 at epoch 270, 36.39s/epoch, 3 calls/round, 32 rounds (trajectory), compile cache 1088/1088 hit on a warm epoch -> full-max-floyd_warshall-seed1.pt
+{
+  "floyd_warshall/seed1": {
+    "score": 0.8934326171875,
+    "epoch": 270
+  }
+}

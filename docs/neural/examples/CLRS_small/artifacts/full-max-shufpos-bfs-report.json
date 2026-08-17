@@ -1,0 +1,587 @@
+{
+  "algorithm": "bfs",
+  "types": {
+    "pi": "node/pointer",
+    "reach_h": "node/mask",
+    "pi_h": "node/pointer"
+  },
+  "protocol": {
+    "train": "n <= 16, CLRS-30 seeds",
+    "val": "n = 16",
+    "ood": "n = 64, 32 trajectories (canonical)",
+    "ood_wide": "n = 64, 128 trajectories",
+    "depth": "trajectory",
+    "hops_per_step": 2
+  },
+  "anchors": {
+    "floor": {
+      "mean": 0.9989,
+      "sem": 0.0005
+    },
+    "ceiling": {
+      "mean": 0.9973,
+      "sem": 0.0004
+    }
+  },
+  "anchor_source": {
+    "paper": "Ibarz et al. (2022), A Generalist Neural Algorithmic Learner, arXiv:2209.11142",
+    "table": "Table 2 -- Single-task OOD average micro-F1 score of previous SOTA Memnet, MPNN and PGN [5] and our best model Triplet-GMPNN with all the improvements described in Section 3",
+    "columns": "Alg. Type | Memnet | MPNN | PGN | Triplet-GMPNN (ours)",
+    "floor": "the MPNN column, which that table attributes to [5], i.e. Velickovic et al. (2022), the CLRS-30 benchmark paper",
+    "ceiling": "the Triplet-GMPNN column of the *same* table and the same row; the paper's multi-task generalist has its own per -algorithm numbers, in Figures 3 and 5, and none of them is used here",
+    "single_task": "one model per algorithm, which is what this study trains; the caption reads 'Single-task OOD micro-F1 score of previous SOTA Memnet, MPNN and PGN [5] and our best model Triplet-GMPNN'",
+    "sizes": "trained on n <= 16, evaluated out of distribution at n = 64, which is the protocol of SPLITS",
+    "read": "the ar5iv HTML rendering, 2026-08-12, three times under different prompts with identical digits, and cross-checked against the table's own overall average (MPNN 51.02, Triplet-GMPNN 75.98) and the abstract's 'over 20% improvement'",
+    "caveat": "means under the paper's own training improvements, which this study does not reproduce"
+  },
+  "settles": {
+    "val": {
+      "rounds": [
+        6,
+        8,
+        8,
+        8,
+        8,
+        6,
+        6,
+        12,
+        8,
+        8,
+        8,
+        6,
+        8,
+        6,
+        8,
+        6,
+        6,
+        4,
+        10,
+        8,
+        6,
+        8,
+        6,
+        8,
+        6,
+        8,
+        6,
+        6,
+        6,
+        6,
+        6,
+        6
+      ],
+      "mean": 7.0625,
+      "median": 6.0,
+      "low": 6.0,
+      "high": 8.0,
+      "steps": [
+        3,
+        4,
+        4,
+        4,
+        4,
+        3,
+        3,
+        6,
+        4,
+        4,
+        4,
+        3,
+        4,
+        3,
+        4,
+        3,
+        3,
+        2,
+        5,
+        4,
+        3,
+        4,
+        3,
+        4,
+        3,
+        4,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "per_probe": {
+        "reach_h": {
+          "rounds": [
+            6,
+            8,
+            8,
+            8,
+            8,
+            6,
+            6,
+            12,
+            8,
+            8,
+            8,
+            6,
+            8,
+            6,
+            8,
+            6,
+            6,
+            4,
+            10,
+            8,
+            6,
+            8,
+            6,
+            8,
+            6,
+            8,
+            6,
+            6,
+            6,
+            6,
+            6,
+            6
+          ],
+          "mean": 7.0625,
+          "median": 6.0,
+          "low": 6.0,
+          "high": 8.0
+        },
+        "pi_h": {
+          "rounds": [
+            6,
+            8,
+            8,
+            8,
+            8,
+            6,
+            6,
+            12,
+            8,
+            8,
+            8,
+            6,
+            8,
+            6,
+            8,
+            6,
+            6,
+            4,
+            10,
+            8,
+            6,
+            8,
+            6,
+            8,
+            6,
+            8,
+            6,
+            6,
+            6,
+            6,
+            6,
+            6
+          ],
+          "mean": 7.0625,
+          "median": 6.0,
+          "low": 6.0,
+          "high": 8.0
+        }
+      }
+    },
+    "ood": {
+      "rounds": [
+        4,
+        6,
+        6,
+        4,
+        6,
+        6,
+        6,
+        6,
+        4,
+        4,
+        4,
+        4,
+        6,
+        4,
+        4,
+        6,
+        4,
+        4,
+        4,
+        6,
+        6,
+        6,
+        4,
+        4,
+        6,
+        6,
+        6,
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "mean": 4.875,
+      "median": 4.0,
+      "low": 4.0,
+      "high": 6.0,
+      "steps": [
+        2,
+        3,
+        3,
+        2,
+        3,
+        3,
+        3,
+        3,
+        2,
+        2,
+        2,
+        2,
+        3,
+        2,
+        2,
+        3,
+        2,
+        2,
+        2,
+        3,
+        3,
+        3,
+        2,
+        2,
+        3,
+        3,
+        3,
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "per_probe": {
+        "reach_h": {
+          "rounds": [
+            4,
+            6,
+            6,
+            4,
+            6,
+            6,
+            6,
+            6,
+            4,
+            4,
+            4,
+            4,
+            6,
+            4,
+            4,
+            6,
+            4,
+            4,
+            4,
+            6,
+            6,
+            6,
+            4,
+            4,
+            6,
+            6,
+            6,
+            4,
+            4,
+            4,
+            4,
+            4
+          ],
+          "mean": 4.875,
+          "median": 4.0,
+          "low": 4.0,
+          "high": 6.0
+        },
+        "pi_h": {
+          "rounds": [
+            4,
+            6,
+            6,
+            4,
+            6,
+            6,
+            6,
+            6,
+            4,
+            4,
+            4,
+            4,
+            6,
+            4,
+            4,
+            6,
+            4,
+            4,
+            4,
+            6,
+            6,
+            6,
+            4,
+            4,
+            6,
+            6,
+            6,
+            4,
+            4,
+            4,
+            4,
+            4
+          ],
+          "mean": 4.875,
+          "median": 4.0,
+          "low": 4.0,
+          "high": 6.0
+        }
+      }
+    }
+  },
+  "budget": {
+    "name": "full",
+    "epochs": 300,
+    "batch_size": 32,
+    "lr": 0.001,
+    "widths": "mpnn",
+    "pool": "max",
+    "edge_state": true,
+    "hint_weight": 1.0
+  },
+  "provenance": {
+    "device": "cuda:1",
+    "torch": "2.13.0+cu130",
+    "python": "3.12.13"
+  },
+  "seeds": [
+    {
+      "seed": 0,
+      "parameters": 409969,
+      "calls_per_round": 13,
+      "seconds_per_epoch": 7.3335290311339,
+      "rounds": [
+        10,
+        14,
+        12,
+        14,
+        14,
+        12,
+        12,
+        14,
+        14,
+        10,
+        12,
+        14,
+        12,
+        14,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12,
+        14,
+        12,
+        12,
+        12,
+        12,
+        12,
+        14,
+        14,
+        10,
+        14,
+        12
+      ],
+      "in_distribution": {
+        "pi": 0.87109375,
+        "score": 0.87109375
+      },
+      "ood": {
+        "pi": 0.46875,
+        "score": 0.46875
+      },
+      "ood_wide": {
+        "pi": 0.460693359375,
+        "score": 0.460693359375
+      },
+      "ood_wide_interval": {
+        "mean": 0.460693359375,
+        "std_error": 0.005586408460092135,
+        "half_width": 0.010949360581780584,
+        "trajectories": 128
+      },
+      "sweep_ood": {
+        "x1": {
+          "pi": 0.46875,
+          "score": 0.46875
+        },
+        "x1.5": {
+          "pi": 0.42041015625,
+          "score": 0.42041015625
+        },
+        "x3": {
+          "pi": 0.09619140625,
+          "score": 0.09619140625
+        }
+      },
+      "equivariance": {
+        "node": {
+          "msg": 0.0
+        },
+        "readout": {
+          "msg": 0.0
+        },
+        "edge": {
+          "msg": 0.0
+        }
+      },
+      "residual": {
+        "max": 4.035154342651367,
+        "mean": 3.1106296479701996
+      },
+      "residual_curve": {
+        "factor": 3.0,
+        "trained_at": "trajectory",
+        "val": [
+          8.07256019115448,
+          7.183665096759796,
+          7.91807359457016,
+          8.632744431495667,
+          7.260808289051056,
+          8.379676282405853,
+          6.045647203922272,
+          6.116735011339188,
+          3.974404662847519,
+          3.153718590736389,
+          2.66926209628582,
+          2.316585958003998,
+          1.970285952091217,
+          2.0415312200784683,
+          2.0534908175468445,
+          1.8614281713962555,
+          2.02081161737442,
+          1.8017956465482712,
+          1.7563724964857101,
+          1.901340827345848,
+          1.9474050998687744,
+          2.063422814011574,
+          2.425271898508072,
+          2.756642669439316
+        ],
+        "ood": [
+          8.072733640670776,
+          7.638040125370026,
+          8.513814210891724,
+          9.245347499847412,
+          6.705303132534027,
+          6.4613898396492,
+          4.17082941532135,
+          2.693785309791565,
+          2.3706242740154266,
+          1.7575565725564957,
+          1.682674154639244,
+          1.287329986691475,
+          1.710557535290718,
+          2.390030413866043,
+          2.330821692943573,
+          2.044688493013382,
+          2.107711762189865,
+          1.9734108000993729
+        ]
+      },
+      "hints": {
+        "val": {
+          "reach_h": [
+            0.3720930232558139,
+            0.7977044476327116,
+            0.9588744588744589,
+            0.9783549783549783,
+            0.9508196721311475,
+            1.0
+          ],
+          "pi_h": [
+            0.7890625,
+            0.712890625,
+            0.7842741935483871,
+            0.775,
+            0.8125,
+            0.8125
+          ]
+        },
+        "ood": {
+          "reach_h": [
+            0.1094017094017094,
+            0.9928694369313991,
+            1.0
+          ],
+          "pi_h": [
+            0.69677734375,
+            0.28271484375,
+            0.40848214285714285
+          ]
+        }
+      },
+      "compile_cache": {
+        "training": {
+          "hits": 464,
+          "misses": 0,
+          "held": 32,
+          "capacity": 66
+        },
+        "scoring": {
+          "hits": 584,
+          "misses": 48,
+          "held": 48,
+          "capacity": 66
+        }
+      }
+    }
+  ],
+  "summary": {
+    "in_distribution": {
+      "mean": 0.87109375,
+      "std": 0.0,
+      "sem": 0.0,
+      "seeds": 1
+    },
+    "ood": {
+      "mean": 0.46875,
+      "std": 0.0,
+      "sem": 0.0,
+      "seeds": 1
+    },
+    "ood_wide": {
+      "mean": 0.460693359375,
+      "std": 0.0,
+      "sem": 0.0,
+      "seeds": 1
+    },
+    "ood_wide_interval": {
+      "mean": 0.460693359375,
+      "half_width": 0.010949360581780584,
+      "trajectories": 128
+    },
+    "sweep_ood": {
+      "x1": {
+        "mean": 0.46875
+      },
+      "x1.5": {
+        "mean": 0.42041015625
+      },
+      "x3": {
+        "mean": 0.09619140625
+      }
+    }
+  }
+}

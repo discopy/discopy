@@ -1,0 +1,67 @@
+  matrix_chain_order/seed1 epoch   10: loss 0.5578 (out 0.1437, hint 0.4141) val 0.9044
+       probes: pred_h 0.0050  m 0.0355  s_h 0.3127  msk 0.0609  s 0.1437
+  matrix_chain_order/seed1 epoch   20: loss 0.3188 (out 0.0799, hint 0.2388) val 0.9319
+       probes: pred_h 0.0051  m 0.0263  s_h 0.1812  msk 0.0263  s 0.0799
+  matrix_chain_order/seed1 epoch   30: loss 0.2346 (out 0.0609, hint 0.1737) val 0.9401
+       probes: pred_h 0.0018  m 0.0191  s_h 0.1380  msk 0.0147  s 0.0609
+  matrix_chain_order/seed1 epoch   40: loss 0.1502 (out 0.0363, hint 0.1139) val 0.9691
+       probes: pred_h 0.0005  m 0.0166  s_h 0.0868  msk 0.0099  s 0.0363
+  matrix_chain_order/seed1 epoch   50: loss 0.1048 (out 0.0215, hint 0.0834) val 0.9764
+       probes: pred_h 0.0002  m 0.0146  s_h 0.0621  msk 0.0066  s 0.0215
+  matrix_chain_order/seed1 epoch   60: loss 0.0905 (out 0.0187, hint 0.0718) val 0.9790
+       probes: pred_h 0.0001  m 0.0131  s_h 0.0538  msk 0.0048  s 0.0187
+  matrix_chain_order/seed1 epoch   70: loss 0.0856 (out 0.0161, hint 0.0694) val 0.9824
+       probes: pred_h 0.0009  m 0.0131  s_h 0.0515  msk 0.0040  s 0.0161
+  matrix_chain_order/seed1 epoch   80: loss 0.0643 (out 0.0102, hint 0.0541) val 0.9828
+       probes: pred_h 0.0001  m 0.0114  s_h 0.0399  msk 0.0027  s 0.0102
+  matrix_chain_order/seed1 epoch   90: loss 0.0647 (out 0.0101, hint 0.0546) val 0.9824
+       probes: pred_h 0.0002  m 0.0111  s_h 0.0407  msk 0.0027  s 0.0101
+  matrix_chain_order/seed1 epoch  100: loss 0.6331 (out 0.1230, hint 0.5101) val 0.9828
+       probes: pred_h 0.1085  m 0.0180  s_h 0.2231  msk 0.1606  s 0.1230
+  matrix_chain_order/seed1 epoch  110: loss 0.0498 (out 0.0065, hint 0.0433) val 0.9867
+       probes: pred_h 0.0001  m 0.0108  s_h 0.0310  msk 0.0015  s 0.0065
+  matrix_chain_order/seed1 epoch  120: loss 0.0470 (out 0.0053, hint 0.0417) val 0.9849
+       probes: pred_h 0.0006  m 0.0100  s_h 0.0296  msk 0.0015  s 0.0053
+  matrix_chain_order/seed1 epoch  130: loss 0.0573 (out 0.0088, hint 0.0485) val 0.9865
+       probes: pred_h 0.0016  m 0.0109  s_h 0.0346  msk 0.0014  s 0.0088
+  matrix_chain_order/seed1 epoch  140: loss 0.0394 (out 0.0041, hint 0.0353) val 0.9883
+       probes: pred_h 0.0000  m 0.0097  s_h 0.0247  msk 0.0009  s 0.0041
+  matrix_chain_order/seed1 epoch  150: loss 0.0401 (out 0.0035, hint 0.0365) val 0.9866
+       probes: pred_h 0.0026  m 0.0097  s_h 0.0234  msk 0.0008  s 0.0035
+  matrix_chain_order/seed1 epoch  160: loss 0.0358 (out 0.0032, hint 0.0326) val 0.9875
+       probes: pred_h 0.0000  m 0.0093  s_h 0.0227  msk 0.0006  s 0.0032
+  matrix_chain_order/seed1 epoch  170: loss 0.0363 (out 0.0036, hint 0.0328) val 0.9819
+       probes: pred_h 0.0000  m 0.0095  s_h 0.0227  msk 0.0006  s 0.0036
+  matrix_chain_order/seed1 epoch  180: loss 0.0378 (out 0.0043, hint 0.0335) val 0.9857
+       probes: pred_h 0.0000  m 0.0095  s_h 0.0234  msk 0.0006  s 0.0043
+  matrix_chain_order/seed1 epoch  190: loss 0.0257 (out 0.0009, hint 0.0248) val 0.9883
+       probes: pred_h 0.0000  m 0.0087  s_h 0.0156  msk 0.0004  s 0.0009
+  matrix_chain_order/seed1 epoch  200: loss 0.0332 (out 0.0029, hint 0.0303) val 0.9854
+       probes: pred_h 0.0000  m 0.0092  s_h 0.0206  msk 0.0004  s 0.0029
+  matrix_chain_order/seed1 epoch  210: loss 0.0325 (out 0.0021, hint 0.0304) val 0.8236
+       probes: pred_h 0.0002  m 0.0089  s_h 0.0191  msk 0.0022  s 0.0021
+  matrix_chain_order/seed1 epoch  220: loss 0.0334 (out 0.0031, hint 0.0303) val 0.9874
+       probes: pred_h 0.0000  m 0.0091  s_h 0.0209  msk 0.0004  s 0.0031
+  matrix_chain_order/seed1 epoch  230: loss 0.0239 (out 0.0008, hint 0.0230) val 0.9865
+       probes: pred_h 0.0000  m 0.0086  s_h 0.0141  msk 0.0003  s 0.0008
+  matrix_chain_order/seed1 epoch  240: loss 0.0279 (out 0.0017, hint 0.0262) val 0.9865
+       probes: pred_h 0.0000  m 0.0090  s_h 0.0169  msk 0.0003  s 0.0017
+  matrix_chain_order/seed1 epoch  250: loss 0.0204 (out 0.0004, hint 0.0200) val 0.9884
+       probes: pred_h 0.0000  m 0.0084  s_h 0.0114  msk 0.0002  s 0.0004
+  matrix_chain_order/seed1 epoch  260: loss 0.0490 (out 0.0081, hint 0.0409) val 0.9835
+       probes: pred_h 0.0002  m 0.0102  s_h 0.0300  msk 0.0005  s 0.0081
+  matrix_chain_order/seed1 epoch  270: loss 0.0210 (out 0.0005, hint 0.0205) val 0.9873
+       probes: pred_h 0.0000  m 0.0085  s_h 0.0119  msk 0.0002  s 0.0005
+  matrix_chain_order/seed1 epoch  280: loss 0.0182 (out 0.0003, hint 0.0179) val 0.9872
+       probes: pred_h 0.0000  m 0.0082  s_h 0.0096  msk 0.0002  s 0.0003
+  matrix_chain_order/seed1 epoch  290: loss 0.0461 (out 0.0076, hint 0.0385) val 0.9878
+       probes: pred_h 0.0001  m 0.0104  s_h 0.0276  msk 0.0004  s 0.0076
+  matrix_chain_order/seed1 epoch  300: loss 0.0208 (out 0.0007, hint 0.0201) val 0.9884
+       probes: pred_h 0.0000  m 0.0084  s_h 0.0116  msk 0.0002  s 0.0007
+  matrix_chain_order/seed1: best val 0.9884 at epoch 250, 37.84s/epoch, 3 calls/round, 30 rounds (trajectory), compile cache 1024/1024 hit on a warm epoch -> full-max-matrix_chain_order-seed1.pt
+{
+  "matrix_chain_order/seed1": {
+    "score": 0.9884033203125,
+    "epoch": 250
+  }
+}

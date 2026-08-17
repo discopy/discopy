@@ -1,0 +1,67 @@
+  bellman_ford/seed0 epoch   10: loss 1.6966 (out 0.6397, hint 1.0569) val 0.6738
+       probes: pi_h 0.8539  d 0.0600  msk 0.1430  pi 0.6397
+  bellman_ford/seed0 epoch   20: loss 1.0390 (out 0.2912, hint 0.7478) val 0.8555
+       probes: pi_h 0.5611  d 0.0517  msk 0.1350  pi 0.2912
+  bellman_ford/seed0 epoch   30: loss 0.8291 (out 0.1867, hint 0.6425) val 0.9160
+       probes: pi_h 0.4638  d 0.0485  msk 0.1301  pi 0.1867
+  bellman_ford/seed0 epoch   40: loss 0.7492 (out 0.1500, hint 0.5992) val 0.9355
+       probes: pi_h 0.4230  d 0.0475  msk 0.1286  pi 0.1500
+  bellman_ford/seed0 epoch   50: loss 0.6689 (out 0.1108, hint 0.5581) val 0.9297
+       probes: pi_h 0.3855  d 0.0448  msk 0.1278  pi 0.1108
+  bellman_ford/seed0 epoch   60: loss 0.5962 (out 0.0761, hint 0.5202) val 0.9375
+       probes: pi 0.0761  pi_h 0.3527  d 0.0427  msk 0.1247
+  bellman_ford/seed0 epoch   70: loss 0.5619 (out 0.0644, hint 0.4975) val 0.9199
+       probes: pi 0.0644  pi_h 0.3334  d 0.0413  msk 0.1227
+  bellman_ford/seed0 epoch   80: loss 0.5317 (out 0.0554, hint 0.4763) val 0.9355
+       probes: pi_h 0.3145  d 0.0402  msk 0.1216  pi 0.0554
+  bellman_ford/seed0 epoch   90: loss 0.4938 (out 0.0367, hint 0.4571) val 0.9395
+       probes: pi_h 0.2964  d 0.0397  msk 0.1210  pi 0.0367
+  bellman_ford/seed0 epoch  100: loss 0.4770 (out 0.0333, hint 0.4437) val 0.9609
+       probes: pi_h 0.2836  d 0.0394  msk 0.1206  pi 0.0333
+  bellman_ford/seed0 epoch  110: loss 0.4550 (out 0.0243, hint 0.4307) val 0.9590
+       probes: pi 0.0243  pi_h 0.2719  d 0.0389  msk 0.1198
+  bellman_ford/seed0 epoch  120: loss 0.4338 (out 0.0203, hint 0.4136) val 0.9551
+       probes: pi_h 0.2571  d 0.0376  msk 0.1188  pi 0.0203
+  bellman_ford/seed0 epoch  130: loss 0.4203 (out 0.0177, hint 0.4026) val 0.9453
+       probes: pi_h 0.2475  d 0.0372  msk 0.1179  pi 0.0177
+  bellman_ford/seed0 epoch  140: loss 0.4121 (out 0.0195, hint 0.3926) val 0.9414
+       probes: pi_h 0.2390  d 0.0368  msk 0.1168  pi 0.0195
+  bellman_ford/seed0 epoch  150: loss 0.4014 (out 0.0189, hint 0.3824) val 0.9492
+       probes: pi 0.0189  pi_h 0.2290  d 0.0371  msk 0.1163
+  bellman_ford/seed0 epoch  160: loss 0.3823 (out 0.0125, hint 0.3698) val 0.9453
+       probes: pi_h 0.2169  d 0.0373  msk 0.1156  pi 0.0125
+  bellman_ford/seed0 epoch  170: loss 0.3751 (out 0.0124, hint 0.3627) val 0.9453
+       probes: pi 0.0124  pi_h 0.2120  d 0.0356  msk 0.1151
+  bellman_ford/seed0 epoch  180: loss 0.3488 (out 0.0065, hint 0.3422) val 0.9570
+       probes: pi_h 0.1943  d 0.0345  msk 0.1135  pi 0.0065
+  bellman_ford/seed0 epoch  190: loss 0.3375 (out 0.0066, hint 0.3310) val 0.9453
+       probes: pi_h 0.1839  d 0.0341  msk 0.1130  pi 0.0066
+  bellman_ford/seed0 epoch  200: loss 0.3185 (out 0.0028, hint 0.3157) val 0.9375
+       probes: pi_h 0.1709  d 0.0330  msk 0.1118  pi 0.0028
+  bellman_ford/seed0 epoch  210: loss 0.3266 (out 0.0076, hint 0.3191) val 0.9473
+       probes: pi_h 0.1739  d 0.0337  msk 0.1115  pi 0.0076
+  bellman_ford/seed0 epoch  220: loss 0.3033 (out 0.0033, hint 0.3000) val 0.9492
+       probes: pi_h 0.1569  d 0.0329  msk 0.1101  pi 0.0033
+  bellman_ford/seed0 epoch  230: loss 0.2974 (out 0.0034, hint 0.2940) val 0.9316
+       probes: pi_h 0.1517  d 0.0329  msk 0.1095  pi 0.0034
+  bellman_ford/seed0 epoch  240: loss 0.2893 (out 0.0052, hint 0.2841) val 0.9375
+       probes: pi 0.0052  pi_h 0.1441  d 0.0323  msk 0.1077
+  bellman_ford/seed0 epoch  250: loss 0.2898 (out 0.0065, hint 0.2832) val 0.9355
+       probes: pi 0.0065  pi_h 0.1439  d 0.0322  msk 0.1072
+  bellman_ford/seed0 epoch  260: loss 0.2849 (out 0.0040, hint 0.2809) val 0.9199
+       probes: pi 0.0040  pi_h 0.1420  d 0.0320  msk 0.1069
+  bellman_ford/seed0 epoch  270: loss 0.2510 (out 0.0012, hint 0.2498) val 0.9375
+       probes: pi_h 0.1165  d 0.0299  msk 0.1033  pi 0.0012
+  bellman_ford/seed0 epoch  280: loss 0.2627 (out 0.0031, hint 0.2596) val 0.9277
+       probes: pi_h 0.1249  d 0.0308  msk 0.1040  pi 0.0031
+  bellman_ford/seed0 epoch  290: loss 0.2524 (out 0.0025, hint 0.2499) val 0.9355
+       probes: pi_h 0.1157  d 0.0308  msk 0.1034  pi 0.0025
+  bellman_ford/seed0 epoch  300: loss 0.2456 (out 0.0041, hint 0.2415) val 0.9395
+       probes: pi_h 0.1114  d 0.0291  msk 0.1010  pi 0.0041
+  bellman_ford/seed0: best val 0.9609 at epoch 100, 9.39s/epoch, 12 calls/round, compile cache 320/320 hit on a warm epoch -> full-bellman_ford-seed0.pt
+{
+  "bellman_ford/seed0": {
+    "score": 0.9609375,
+    "epoch": 100
+  }
+}

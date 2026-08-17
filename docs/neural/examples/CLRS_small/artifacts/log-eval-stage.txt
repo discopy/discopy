@@ -1,0 +1,20 @@
+23:31 waiting for stage C
+07:20 stage C done, evaluating
+07:20 evaluated R/mst_prim
+07:20 evaluated R/dijkstra
+07:20 evaluated R/floyd_warshall
+07:20 evaluated R/bellman_ford
+07:20 evaluated S/dijkstra
+07:20 evaluated S/bellman_ford
+07:20 evaluated S/mst_prim
+07:20 evaluated S/floyd_warshall
+07:20 evaluated O/bellman_ford
+07:20 evaluated O/floyd_warshall
+07:20 evaluated O/mst_prim
+07:20 evaluated O/dijkstra
+07:20 evaluated F/dijkstra
+07:20 evaluated F/bellman_ford
+07:20 evaluated F/floyd_warshall
+07:20 evaluated F/mst_prim
+07:20 tables for the four rows
+07:21 written to artifacts/h2-four-rows.md

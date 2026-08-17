@@ -1,0 +1,2 @@
+09:50:09 start --algorithms dag_shortest_paths --seeds 0 --arm R --regime mixed on cuda:1
+12:36:08 done  --algorithms dag_shortest_paths --seeds 0 --arm R --regime mixed on cuda:1 (exit 0)

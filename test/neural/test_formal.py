@@ -213,6 +213,42 @@ def test_the_interaction_agrees_with_the_map():
     assert "3 boxes" in repr(found)
 
 
+def test_a_map_keeps_the_shape_it_was_built_with():
+    """
+    :attr:`CMap.port_widths` is a ``cached_property``, which is sound
+    exactly as long as a map's boxes are what its constructor fixed.  A
+    map mutated afterwards would go on reading the table it built the
+    first time it was asked, and that is the one way the cache can be
+    wrong: silently, with an arithmetic answer of the right shape.
+
+    So the assertion is not that the cache is fast, it is that the
+    premise holds -- the boxes, the ports, the wiring and the widths
+    recomputed from scratch are identical after a map has been advanced,
+    asked for a residual, and advanced again.
+    """
+    _, found = compiled()
+    cmap = found.cmap
+
+    def widths():
+        """ :attr:`CMap.port_widths` again, from the ports as they are. """
+        return tuple(sum(getattr(port.obj, "inside", (port.obj, )))
+                     for port in cmap.ports)
+
+    def shape():
+        return widths(), tuple(cmap.boxes), tuple(cmap.ports), \
+            tuple(cmap.edges)
+
+    before = shape()
+    assert cmap.port_widths == before[0]
+    state = torch.rand(2, sum(cmap.port_widths)).double()
+    with torch.no_grad():
+        for _ in range(3):
+            state = found.advance(state, 1)
+            found.residual(state)
+    assert shape() == before
+    assert cmap.port_widths == widths()
+
+
 def test_only_a_closed_diagram_compiles():
     f = Network("f", Dim(2), Dim(3), module=torch.nn.Linear(5, 5))
     with pytest.raises(ValueError, match="closed"):

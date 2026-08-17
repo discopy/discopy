@@ -1,0 +1,37 @@
+  bfs/seed0 epoch   10: loss 1.0552 (out 0.3708, hint 0.6844) val 0.7715
+  bfs/seed0 epoch   20: loss 0.7590 (out 0.1991, hint 0.5598) val 0.8828
+  bfs/seed0 epoch   30: loss 0.6032 (out 0.1155, hint 0.4877) val 0.9199
+  bfs/seed0 epoch   40: loss 0.5382 (out 0.0835, hint 0.4547) val 0.9297
+  bfs/seed0 epoch   50: loss 0.4683 (out 0.0581, hint 0.4103) val 0.9492
+  bfs/seed0 epoch   60: loss 0.4131 (out 0.0375, hint 0.3756) val 0.9336
+  bfs/seed0 epoch   70: loss 0.4004 (out 0.0420, hint 0.3584) val 0.9570
+  bfs/seed0 epoch   80: loss 0.3713 (out 0.0291, hint 0.3422) val 0.9609
+  bfs/seed0 epoch   90: loss 0.3377 (out 0.0147, hint 0.3230) val 0.9570
+  bfs/seed0 epoch  100: loss 0.3227 (out 0.0124, hint 0.3102) val 0.9668
+  bfs/seed0 epoch  110: loss 0.3233 (out 0.0166, hint 0.3067) val 0.9727
+  bfs/seed0 epoch  120: loss 0.3068 (out 0.0123, hint 0.2945) val 0.9746
+  bfs/seed0 epoch  130: loss 0.2894 (out 0.0084, hint 0.2810) val 0.9629
+  bfs/seed0 epoch  140: loss 0.3000 (out 0.0160, hint 0.2840) val 0.9688
+  bfs/seed0 epoch  150: loss 0.2811 (out 0.0086, hint 0.2726) val 0.9668
+  bfs/seed0 epoch  160: loss 0.2635 (out 0.0032, hint 0.2603) val 0.9785
+  bfs/seed0 epoch  170: loss 0.2624 (out 0.0043, hint 0.2581) val 0.9727
+  bfs/seed0 epoch  180: loss 0.2494 (out 0.0017, hint 0.2477) val 0.9668
+  bfs/seed0 epoch  190: loss 0.2593 (out 0.0063, hint 0.2530) val 0.9766
+  bfs/seed0 epoch  200: loss 0.2432 (out 0.0023, hint 0.2410) val 0.9785
+  bfs/seed0 epoch  210: loss 0.2455 (out 0.0045, hint 0.2409) val 0.9766
+  bfs/seed0 epoch  220: loss 0.2378 (out 0.0032, hint 0.2346) val 0.9707
+  bfs/seed0 epoch  230: loss 0.2228 (out 0.0002, hint 0.2226) val 0.9668
+  bfs/seed0 epoch  240: loss 0.2497 (out 0.0097, hint 0.2400) val 0.9727
+  bfs/seed0 epoch  250: loss 0.2165 (out 0.0004, hint 0.2161) val 0.9688
+  bfs/seed0 epoch  260: loss 0.2105 (out 0.0002, hint 0.2102) val 0.9688
+  bfs/seed0 epoch  270: loss 0.2322 (out 0.0040, hint 0.2283) val 0.9668
+  bfs/seed0 epoch  280: loss 0.2072 (out 0.0008, hint 0.2065) val 0.9785
+  bfs/seed0 epoch  290: loss 0.2565 (out 0.0109, hint 0.2456) val 0.9707
+  bfs/seed0 epoch  300: loss 0.2052 (out 0.0005, hint 0.2047) val 0.9648
+  bfs/seed0: best val 0.9785 at epoch 160, 8.87s/epoch, 13 calls/round -> full-bfs-seed0.pt
+{
+  "bfs/seed0": {
+    "score": 0.978515625,
+    "epoch": 160
+  }
+}

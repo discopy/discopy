@@ -1,0 +1,149 @@
+{
+  "algorithm": "bellman_ford",
+  "split": "test (32 traj., n = 64)",
+  "what": "output read at each sample's own termination checkpoint (the reference's is_not_done freeze, nets.py) vs at the batch's final checkpoint (our protocol); same weights, same split",
+  "device": "cpu",
+  "arms": {
+    "R": {
+      "seeds": [
+        {
+          "seed": 0,
+          "snapshot": {
+            "pi": 0.6630859375,
+            "score": 0.6630859375
+          },
+          "final_checkpoint": {
+            "pi": 0.677734375,
+            "score": 0.677734375
+          }
+        },
+        {
+          "seed": 1,
+          "snapshot": {
+            "pi": 0.66943359375,
+            "score": 0.66943359375
+          },
+          "final_checkpoint": {
+            "pi": 0.66748046875,
+            "score": 0.66748046875
+          }
+        },
+        {
+          "seed": 2,
+          "snapshot": {
+            "pi": 0.67236328125,
+            "score": 0.67236328125
+          },
+          "final_checkpoint": {
+            "pi": 0.68505859375,
+            "score": 0.68505859375
+          }
+        }
+      ],
+      "summary": {
+        "snapshot": {
+          "mean": 0.6682942708333334,
+          "sem": 0.0027380540106218625
+        },
+        "final_checkpoint": {
+          "mean": 0.6767578125,
+          "sem": 0.00509780591255398
+        }
+      }
+    },
+    "S": {
+      "seeds": [
+        {
+          "seed": 0,
+          "snapshot": {
+            "pi": 0.72119140625,
+            "score": 0.72119140625
+          },
+          "final_checkpoint": {
+            "pi": 0.73291015625,
+            "score": 0.73291015625
+          }
+        },
+        {
+          "seed": 1,
+          "snapshot": {
+            "pi": 0.71923828125,
+            "score": 0.71923828125
+          },
+          "final_checkpoint": {
+            "pi": 0.73828125,
+            "score": 0.73828125
+          }
+        },
+        {
+          "seed": 2,
+          "snapshot": {
+            "pi": 0.67138671875,
+            "score": 0.67138671875
+          },
+          "final_checkpoint": {
+            "pi": 0.6708984375,
+            "score": 0.6708984375
+          }
+        }
+      ],
+      "summary": {
+        "snapshot": {
+          "mean": 0.7039388020833334,
+          "sem": 0.01628580436373566
+        },
+        "final_checkpoint": {
+          "mean": 0.7140299479166666,
+          "sem": 0.02162142113071426
+        }
+      }
+    },
+    "O": {
+      "seeds": [
+        {
+          "seed": 0,
+          "snapshot": {
+            "pi": 0.7001953125,
+            "score": 0.7001953125
+          },
+          "final_checkpoint": {
+            "pi": 0.71533203125,
+            "score": 0.71533203125
+          }
+        },
+        {
+          "seed": 1,
+          "snapshot": {
+            "pi": 0.7197265625,
+            "score": 0.7197265625
+          },
+          "final_checkpoint": {
+            "pi": 0.7294921875,
+            "score": 0.7294921875
+          }
+        },
+        {
+          "seed": 2,
+          "snapshot": {
+            "pi": 0.70263671875,
+            "score": 0.70263671875
+          },
+          "final_checkpoint": {
+            "pi": 0.72607421875,
+            "score": 0.72607421875
+          }
+        }
+      ],
+      "summary": {
+        "snapshot": {
+          "mean": 0.70751953125,
+          "sem": 0.006144070992245077
+        },
+        "final_checkpoint": {
+          "mean": 0.7236328125,
+          "sem": 0.004266061986354544
+        }
+      }
+    }
+  }
+}

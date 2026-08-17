@@ -1,0 +1,67 @@
+  minimum/seed2 epoch   10: loss 1.2138 (out 0.0337, hint 1.1801) val 0.9375
+       probes: pred_h 0.2823  min_h 0.3647  i 0.5331  min 0.0337
+  minimum/seed2 epoch   20: loss 0.4365 (out 0.0175, hint 0.4190) val 0.9688
+       probes: pred_h 0.0552  min_h 0.2588  i 0.1050  min 0.0175
+  minimum/seed2 epoch   30: loss 0.3302 (out 0.0059, hint 0.3243) val 0.9375
+       probes: pred_h 0.0130  min_h 0.1057  i 0.2056  min 0.0059
+  minimum/seed2 epoch   40: loss 0.3535 (out 0.0059, hint 0.3476) val 1.0000
+       probes: pred_h 0.0075  min_h 0.1057  i 0.2343  min 0.0059
+  minimum/seed2 epoch   50: loss 0.3264 (out 0.0057, hint 0.3207) val 0.9688
+       probes: pred_h 0.0062  min_h 0.0934  i 0.2210  min 0.0057
+  minimum/seed2 epoch   60: loss 0.1371 (out 0.0082, hint 0.1290) val 1.0000
+       probes: pred_h 0.0016  min_h 0.0940  i 0.0334  min 0.0082
+  minimum/seed2 epoch   70: loss 0.1084 (out 0.0051, hint 0.1033) val 0.9688
+       probes: pred_h 0.0039  min_h 0.0566  i 0.0427  min 0.0051
+  minimum/seed2 epoch   80: loss 0.2556 (out 0.0029, hint 0.2527) val 0.9688
+       probes: pred_h 0.0048  min_h 0.0589  i 0.1891  min 0.0029
+  minimum/seed2 epoch   90: loss 0.5318 (out 0.0037, hint 0.5281) val 1.0000
+       probes: pred_h 0.0028  min_h 0.0824  i 0.4429  min 0.0037
+  minimum/seed2 epoch  100: loss 0.0777 (out 0.0035, hint 0.0742) val 0.9688
+       probes: pred_h 0.0039  min_h 0.0416  i 0.0287  min 0.0035
+  minimum/seed2 epoch  110: loss 0.2455 (out 0.0026, hint 0.2429) val 0.9688
+       probes: pred_h 0.0009  min_h 0.0629  i 0.1791  min 0.0026
+  minimum/seed2 epoch  120: loss 0.0342 (out 0.0025, hint 0.0317) val 1.0000
+       probes: pred_h 0.0009  min_h 0.0297  i 0.0011  min 0.0025
+  minimum/seed2 epoch  130: loss 0.1379 (out 0.0067, hint 0.1313) val 1.0000
+       probes: pred_h 0.0010  min_h 0.0768  i 0.0534  min 0.0067
+  minimum/seed2 epoch  140: loss 0.0342 (out 0.0012, hint 0.0330) val 1.0000
+       probes: pred_h 0.0005  min_h 0.0257  i 0.0068  min 0.0012
+  minimum/seed2 epoch  150: loss 0.0384 (out 0.0030, hint 0.0354) val 1.0000
+       probes: pred_h 0.0008  min_h 0.0317  i 0.0029  min 0.0030
+  minimum/seed2 epoch  160: loss 0.0436 (out 0.0019, hint 0.0417) val 1.0000
+       probes: pred_h 0.0004  min_h 0.0303  i 0.0110  min 0.0019
+  minimum/seed2 epoch  170: loss 0.0213 (out 0.0018, hint 0.0195) val 1.0000
+       probes: pred_h 0.0001  min_h 0.0188  i 0.0006  min 0.0018
+  minimum/seed2 epoch  180: loss 0.0181 (out 0.0018, hint 0.0163) val 1.0000
+       probes: pred_h 0.0003  min_h 0.0154  i 0.0006  min 0.0018
+  minimum/seed2 epoch  190: loss 0.0176 (out 0.0017, hint 0.0159) val 0.9688
+       probes: pred_h 0.0007  min_h 0.0151  i 0.0000  min 0.0017
+  minimum/seed2 epoch  200: loss 0.0155 (out 0.0011, hint 0.0144) val 1.0000
+       probes: pred_h 0.0003  min_h 0.0135  i 0.0006  min 0.0011
+  minimum/seed2 epoch  210: loss 0.0162 (out 0.0015, hint 0.0147) val 1.0000
+       probes: pred_h 0.0001  min_h 0.0146  i 0.0000  min 0.0015
+  minimum/seed2 epoch  220: loss 0.0308 (out 0.0022, hint 0.0287) val 0.9375
+       probes: pred_h 0.0002  min_h 0.0258  i 0.0027  min 0.0022
+  minimum/seed2 epoch  230: loss 0.0680 (out 0.0042, hint 0.0638) val 1.0000
+       probes: pred_h 0.0012  min_h 0.0339  i 0.0287  min 0.0042
+  minimum/seed2 epoch  240: loss 0.0075 (out 0.0004, hint 0.0070) val 0.9688
+       probes: pred_h 0.0001  min_h 0.0069  i 0.0001  min 0.0004
+  minimum/seed2 epoch  250: loss 0.0246 (out 0.0022, hint 0.0224) val 1.0000
+       probes: pred_h 0.0003  min_h 0.0220  i 0.0000  min 0.0022
+  minimum/seed2 epoch  260: loss 0.0379 (out 0.0011, hint 0.0368) val 1.0000
+       probes: pred_h 0.0026  min_h 0.0171  i 0.0170  min 0.0011
+  minimum/seed2 epoch  270: loss 0.0321 (out 0.0008, hint 0.0313) val 1.0000
+       probes: pred_h 0.0019  min_h 0.0188  i 0.0106  min 0.0008
+  minimum/seed2 epoch  280: loss 0.0162 (out 0.0015, hint 0.0148) val 1.0000
+       probes: pred_h 0.0001  min_h 0.0136  i 0.0011  min 0.0015
+  minimum/seed2 epoch  290: loss 0.0189 (out 0.0021, hint 0.0167) val 0.9688
+       probes: pred_h 0.0001  min_h 0.0163  i 0.0004  min 0.0021
+  minimum/seed2 epoch  300: loss 0.0091 (out 0.0005, hint 0.0086) val 0.9688
+       probes: pred_h 0.0001  min_h 0.0067  i 0.0018  min 0.0005
+  minimum/seed2: best val 1.0000 at epoch 40, 6.22s/epoch, 2 calls/round, 32 rounds (trajectory), compile cache 1088/1088 hit on a warm epoch -> full-max-minimum-seed2.pt
+{
+  "minimum/seed2": {
+    "score": 1.0,
+    "epoch": 40
+  }
+}

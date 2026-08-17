@@ -1,0 +1,100 @@
+{
+  "rows": {
+    "bellman_ford": {
+      "regime": "fixed",
+      "gain": -0.1465,
+      "margin": 0.0213,
+      "order_free_ood": {
+        "fixed": 0.9253,
+        "mixed": 0.9246
+      },
+      "order_free_kept": false,
+      "ood": {
+        "fixed": 0.6823,
+        "mixed": 0.5358
+      },
+      "in_distribution": {
+        "fixed": 0.9629,
+        "mixed": 0.9473
+      },
+      "why": "mixed loses by more than 1.0 seed s.e.m. (0.0213) and costs the order-free heads"
+    },
+    "dijkstra": {
+      "regime": "fixed",
+      "gain": 0.0188,
+      "margin": 0.0218,
+      "order_free_ood": {
+        "fixed": 0.4495,
+        "mixed": 0.469
+      },
+      "order_free_kept": true,
+      "ood": {
+        "fixed": 0.1144,
+        "mixed": 0.1332
+      },
+      "in_distribution": {
+        "fixed": 0.9863,
+        "mixed": 0.9512
+      },
+      "why": "mixed loses by more than 1.0 seed s.e.m. (0.0218) and keeps the order-free heads"
+    },
+    "mst_prim": {
+      "regime": "fixed",
+      "gain": 0.0039,
+      "margin": 0.0141,
+      "order_free_ood": {
+        "fixed": 0.4448,
+        "mixed": 0.5029
+      },
+      "order_free_kept": true,
+      "ood": {
+        "fixed": 0.0535,
+        "mixed": 0.0574
+      },
+      "in_distribution": {
+        "fixed": 0.9688,
+        "mixed": 0.9453
+      },
+      "why": "mixed loses by more than 1.0 seed s.e.m. (0.0141) and keeps the order-free heads"
+    },
+    "floyd_warshall": {
+      "regime": "fixed",
+      "gain": -0.0097,
+      "margin": 0.0141,
+      "order_free_ood": {
+        "fixed": 0.9634,
+        "mixed": 0.968
+      },
+      "order_free_kept": true,
+      "ood": {
+        "fixed": 0.0587,
+        "mixed": 0.049
+      },
+      "in_distribution": {
+        "fixed": 0.8794,
+        "mixed": 0.8085
+      },
+      "why": "mixed loses by more than 1.0 seed s.e.m. (0.0141) and keeps the order-free heads"
+    },
+    "dag_shortest_paths": {
+      "regime": "mixed",
+      "gain": 0.1281,
+      "margin": 0.0929,
+      "order_free_ood": {
+        "fixed": 0.7119,
+        "mixed": 0.9673
+      },
+      "order_free_kept": true,
+      "ood": {
+        "fixed": 0.6244,
+        "mixed": 0.7524
+      },
+      "in_distribution": {
+        "fixed": 0.9902,
+        "mixed": 0.9824
+      },
+      "why": "mixed beats by more than 1.0 seed s.e.m. (0.0929) and keeps the order-free heads"
+    }
+  },
+  "rule": "fixed unless mixed beats it on the wide out-of-distribution score by more than 1.0 x the row's Part 2 seed s.e.m., and never when it costs the order-free heads; pre-registered in config.REGIME before any probe was scored"
+}

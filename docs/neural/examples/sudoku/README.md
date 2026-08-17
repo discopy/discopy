@@ -111,6 +111,7 @@ reproduces the whole depth-by-noise grid.
     model.py      roles, signatures, combinatorics, encoder/readout, the models
     train.py      the two supervision schemes, the registry, the recipes, ACT
     evaluate.py   fixed / adaptive / best-of-k / noise-sweep protocols
+    optuna_act.py the ACT search on sudoku-extreme that selected the above
 
 Everything else is `discopy.neural`'s and generic in the task. Datasets are
 downloaded, verified and cached on first use under `../../sudoku_data/`; every
@@ -131,6 +132,17 @@ finished run instead of re-training it.
 
     python dataset.py                     # fetch and verify Palm et al. (2018)
     python dataset.py --extreme --check   # build and verify sudoku-extreme
+
+    python optuna_act.py --gpus 2 --timeout 259200 \
+        --seed-from <earlier.db> --seed-study trm-extreme-act-8k
+
+The last is the search itself, three days of it across two GPUs sharing one
+study. `--seed-from` copies the completed trials of an earlier study —
+their hyperparameters, their values and their whole intermediate curves —
+so the median pruner has something to compare against from the first trial
+and the sampler starts from a posterior; the best imported configuration is
+re-measured first. Every trial draws a fresh random seed, recorded in its
+user attributes, so the search ranks configurations rather than seeds.
 
 Run them from this directory. One GPU suffices; the maps train through
 `CMap.forward` and speed up several-fold under `MapNN.compile_rounds`, which the

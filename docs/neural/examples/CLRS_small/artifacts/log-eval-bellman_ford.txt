@@ -1,0 +1,46 @@
+  bellman_ford/seed0: loaded full-bellman_ford-seed0.pt
+  bellman_ford/seed0:  id 0.9414  ood 0.3760  ood(128) 0.3960 +- 0.0101
+  bellman_ford: -> full-bellman_ford-report.json
+| algorithm | seeds | ID `n = 16` | OOD `n = 64` (32) | OOD (128) ± s.e.m. | ± 95% CI (traj.) | floor (MPNN) | ceiling (Triplet-GMPNN) |
+|---|---|---|---|---|---|---|---|
+| `bellman_ford` | 1 | 0.9414 | 0.3760 | 0.3960 ± 0.0000 | ± 0.0101 | 0.9201 ± 0.0028 | 0.9739 ± 0.0019 |
+
+`± s.e.m.` is the standard error over seeds, the anchors' own convention (theirs: 3 seeds for the floor, 10 for the ceiling). `± 95% CI` is 1.96 standard errors over the 128 trajectories within a run, averaged over the seeds.
+{
+  "bellman_ford": {
+    "in_distribution": {
+      "mean": 0.94140625,
+      "std": 0.0,
+      "sem": 0.0,
+      "seeds": 1
+    },
+    "ood": {
+      "mean": 0.3759765625,
+      "std": 0.0,
+      "sem": 0.0,
+      "seeds": 1
+    },
+    "ood_wide": {
+      "mean": 0.39599609375,
+      "std": 0.0,
+      "sem": 0.0,
+      "seeds": 1
+    },
+    "ood_wide_interval": {
+      "mean": 0.39599609375,
+      "half_width": 0.010142142300608729,
+      "trajectories": 128
+    },
+    "sweep_ood": {
+      "x1": {
+        "mean": 0.3759765625
+      },
+      "x1.5": {
+        "mean": 0.32666015625
+      },
+      "x3": {
+        "mean": 0.07275390625
+      }
+    }
+  }
+}

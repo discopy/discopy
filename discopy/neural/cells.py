@@ -83,11 +83,15 @@ from discopy.neural.signature import Signature
 
 #: The order-invariant reductions a cell can pool an orbit with.  Which one
 #: is a real architectural choice -- a mean keeps a cell's input scale
-#: independent of its degree, a sum keeps it additive over members -- so it
-#: is named rather than hidden.
+#: independent of its degree, a sum keeps it additive over members, a max
+#: keeps an *extremum* of them and so is the only one of the three whose
+#: value stays inside their range however many there are: a sum grows with
+#: the members and a mean divides by them, while adding a member a max
+#: dominates changes nothing at all.  So it is named rather than hidden.
 POOL = {
     "mean": lambda encoded: encoded.mean(1),
     "sum": lambda encoded: encoded.sum(1),
+    "max": lambda encoded: encoded.amax(1),
 }
 
 #: The recurrent cells a :class:`Site` can carry, by name.  A cell with one

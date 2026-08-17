@@ -1,0 +1,67 @@
+  bfs/seed0 epoch   10: loss 1.2080 (out 0.3397, hint 0.8683) val 0.7715
+       probes: reach_h 0.1975  pi_h 0.6708  pi 0.3397
+  bfs/seed0 epoch   20: loss 0.8742 (out 0.1560, hint 0.7182) val 0.8848
+       probes: pi 0.1560  reach_h 0.1889  pi_h 0.5293
+  bfs/seed0 epoch   30: loss 0.7237 (out 0.0982, hint 0.6255) val 0.9414
+       probes: reach_h 0.1861  pi_h 0.4393  pi 0.0982
+  bfs/seed0 epoch   40: loss 0.6345 (out 0.0655, hint 0.5690) val 0.9414
+       probes: reach_h 0.1844  pi_h 0.3846  pi 0.0655
+  bfs/seed0 epoch   50: loss 0.5400 (out 0.0398, hint 0.5002) val 0.9492
+       probes: reach_h 0.1784  pi_h 0.3218  pi 0.0398
+  bfs/seed0 epoch   60: loss 0.5092 (out 0.0328, hint 0.4764) val 0.9648
+       probes: reach_h 0.1735  pi_h 0.3029  pi 0.0328
+  bfs/seed0 epoch   70: loss 0.4724 (out 0.0246, hint 0.4477) val 0.9551
+       probes: reach_h 0.1661  pi_h 0.2817  pi 0.0246
+  bfs/seed0 epoch   80: loss 0.4558 (out 0.0250, hint 0.4308) val 0.9512
+       probes: reach_h 0.1656  pi_h 0.2651  pi 0.0250
+  bfs/seed0 epoch   90: loss 0.4258 (out 0.0167, hint 0.4091) val 0.9727
+       probes: reach_h 0.1629  pi_h 0.2462  pi 0.0167
+  bfs/seed0 epoch  100: loss 0.4006 (out 0.0124, hint 0.3883) val 0.9668
+       probes: reach_h 0.1600  pi_h 0.2282  pi 0.0124
+  bfs/seed0 epoch  110: loss 0.3824 (out 0.0059, hint 0.3765) val 0.9824
+       probes: reach_h 0.1588  pi_h 0.2178  pi 0.0059
+  bfs/seed0 epoch  120: loss 0.3798 (out 0.0096, hint 0.3702) val 0.9785
+       probes: pi 0.0096  reach_h 0.1576  pi_h 0.2126
+  bfs/seed0 epoch  130: loss 0.3663 (out 0.0072, hint 0.3590) val 0.9883
+       probes: reach_h 0.1578  pi_h 0.2012  pi 0.0072
+  bfs/seed0 epoch  140: loss 0.3775 (out 0.0133, hint 0.3642) val 0.9707
+       probes: reach_h 0.1557  pi_h 0.2085  pi 0.0133
+  bfs/seed0 epoch  150: loss 0.3487 (out 0.0024, hint 0.3463) val 0.9824
+       probes: reach_h 0.1560  pi_h 0.1903  pi 0.0024
+  bfs/seed0 epoch  160: loss 0.3420 (out 0.0060, hint 0.3360) val 0.9766
+       probes: pi 0.0060  reach_h 0.1529  pi_h 0.1831
+  bfs/seed0 epoch  170: loss 0.3552 (out 0.0147, hint 0.3406) val 0.9766
+       probes: reach_h 0.1534  pi_h 0.1872  pi 0.0147
+  bfs/seed0 epoch  180: loss 0.3206 (out 0.0015, hint 0.3190) val 0.9805
+       probes: pi 0.0015  reach_h 0.1499  pi_h 0.1691
+  bfs/seed0 epoch  190: loss 0.3230 (out 0.0040, hint 0.3190) val 0.9785
+       probes: reach_h 0.1493  pi_h 0.1697  pi 0.0040
+  bfs/seed0 epoch  200: loss 0.3241 (out 0.0042, hint 0.3198) val 0.9746
+       probes: reach_h 0.1511  pi_h 0.1687  pi 0.0042
+  bfs/seed0 epoch  210: loss 0.3415 (out 0.0136, hint 0.3279) val 0.9707
+       probes: pi 0.0136  reach_h 0.1501  pi_h 0.1778
+  bfs/seed0 epoch  220: loss 0.3002 (out 0.0022, hint 0.2980) val 0.9785
+       probes: pi 0.0022  reach_h 0.1463  pi_h 0.1516
+  bfs/seed0 epoch  230: loss 0.2878 (out 0.0004, hint 0.2873) val 0.9785
+       probes: pi 0.0004  reach_h 0.1435  pi_h 0.1438
+  bfs/seed0 epoch  240: loss 0.3113 (out 0.0063, hint 0.3050) val 0.9785
+       probes: reach_h 0.1479  pi_h 0.1571  pi 0.0063
+  bfs/seed0 epoch  250: loss 0.3025 (out 0.0071, hint 0.2954) val 0.9785
+       probes: reach_h 0.1453  pi_h 0.1501  pi 0.0071
+  bfs/seed0 epoch  260: loss 0.2728 (out 0.0002, hint 0.2726) val 0.9746
+       probes: reach_h 0.1410  pi_h 0.1315  pi 0.0002
+  bfs/seed0 epoch  270: loss 0.2693 (out 0.0007, hint 0.2685) val 0.9727
+       probes: reach_h 0.1398  pi_h 0.1287  pi 0.0007
+  bfs/seed0 epoch  280: loss 0.3151 (out 0.0295, hint 0.2855) val 0.9805
+       probes: reach_h 0.1439  pi_h 0.1417  pi 0.0295
+  bfs/seed0 epoch  290: loss 0.2833 (out 0.0052, hint 0.2782) val 0.9766
+       probes: pi 0.0052  reach_h 0.1407  pi_h 0.1375
+  bfs/seed0 epoch  300: loss 0.2659 (out 0.0006, hint 0.2653) val 0.9727
+       probes: reach_h 0.1392  pi_h 0.1261  pi 0.0006
+  bfs/seed0: best val 0.9883 at epoch 130, 7.48s/epoch, 13 calls/round, 14 rounds (trajectory), compile cache 464/464 hit on a warm epoch -> full-bfs-seed0.pt
+{
+  "bfs/seed0": {
+    "score": 0.98828125,
+    "epoch": 130
+  }
+}

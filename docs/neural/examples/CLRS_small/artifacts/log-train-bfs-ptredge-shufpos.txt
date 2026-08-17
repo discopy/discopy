@@ -1,0 +1,75 @@
+  bfs/seed0 epoch   10: loss 1.7730 (out 0.7043, hint 1.0688) val 0.8223
+       probes: reach_h 0.2047  pi_h 0.8641  pi 0.7043
+  bfs/seed0 epoch   20: loss 1.2817 (out 0.4507, hint 0.8310) val 0.8320
+       probes: pi 0.4507  reach_h 0.1977  pi_h 0.6333
+  bfs/seed0 epoch   30: loss 1.1355 (out 0.3882, hint 0.7473) val 0.8535
+       probes: reach_h 0.1935  pi_h 0.5538  pi 0.3882
+  bfs/seed0 epoch   40: loss 0.9849 (out 0.3089, hint 0.6761) val 0.8398
+       probes: reach_h 0.1916  pi_h 0.4844  pi 0.3089
+  bfs/seed0 epoch   50: loss 0.9023 (out 0.2706, hint 0.6317) val 0.8164
+       probes: reach_h 0.1902  pi_h 0.4415  pi 0.2706
+  bfs/seed0 epoch   60: loss 0.8115 (out 0.2336, hint 0.5779) val 0.7852
+       probes: reach_h 0.1856  pi_h 0.3923  pi 0.2336
+  bfs/seed0 epoch   70: loss 0.7613 (out 0.2215, hint 0.5398) val 0.7930
+       probes: reach_h 0.1812  pi_h 0.3585  pi 0.2215
+  bfs/seed0 epoch   80: loss 0.7058 (out 0.1931, hint 0.5127) val 0.8184
+       probes: reach_h 0.1809  pi_h 0.3318  pi 0.1931
+  bfs/seed0 epoch   90: loss 0.6536 (out 0.1703, hint 0.4833) val 0.8164
+       probes: reach_h 0.1788  pi_h 0.3045  pi 0.1703
+  bfs/seed0 epoch  100: loss 0.6065 (out 0.1437, hint 0.4628) val 0.8340
+       probes: reach_h 0.1767  pi_h 0.2860  pi 0.1437
+  bfs/seed0 epoch  110: loss 0.5645 (out 0.1197, hint 0.4448) val 0.7734
+       probes: reach_h 0.1770  pi_h 0.2677  pi 0.1197
+  bfs/seed0 epoch  120: loss 0.5373 (out 0.1020, hint 0.4352) val 0.7988
+       probes: pi 0.1020  reach_h 0.1755  pi_h 0.2597
+  bfs/seed0 epoch  130: loss 0.4798 (out 0.0691, hint 0.4107) val 0.7891
+       probes: reach_h 0.1736  pi_h 0.2371  pi 0.0691
+  bfs/seed0 epoch  140: loss 0.4635 (out 0.0604, hint 0.4031) val 0.8281
+       probes: reach_h 0.1724  pi_h 0.2307  pi 0.0604
+  bfs/seed0 epoch  150: loss 0.4356 (out 0.0438, hint 0.3918) val 0.8066
+       probes: reach_h 0.1722  pi_h 0.2196  pi 0.0438
+  bfs/seed0 epoch  160: loss 0.4157 (out 0.0346, hint 0.3811) val 0.7812
+       probes: pi 0.0346  reach_h 0.1705  pi_h 0.2106
+  bfs/seed0 epoch  170: loss 0.4056 (out 0.0311, hint 0.3745) val 0.7988
+       probes: reach_h 0.1697  pi_h 0.2049  pi 0.0311
+  bfs/seed0 epoch  180: loss 0.4019 (out 0.0289, hint 0.3730) val 0.7832
+       probes: pi 0.0289  reach_h 0.1700  pi_h 0.2030
+  bfs/seed0 epoch  190: loss 0.3975 (out 0.0310, hint 0.3665) val 0.7969
+       probes: reach_h 0.1689  pi_h 0.1976  pi 0.0310
+  bfs/seed0 epoch  200: loss 0.3923 (out 0.0265, hint 0.3658) val 0.7969
+       probes: reach_h 0.1684  pi_h 0.1973  pi 0.0265
+  bfs/seed0 epoch  210: loss 0.3843 (out 0.0209, hint 0.3634) val 0.8066
+       probes: pi 0.0209  reach_h 0.1685  pi_h 0.1949
+  bfs/seed0 epoch  220: loss 0.3670 (out 0.0165, hint 0.3504) val 0.7891
+       probes: pi 0.0165  reach_h 0.1668  pi_h 0.1837
+  bfs/seed0 epoch  230: loss 0.3767 (out 0.0220, hint 0.3546) val 0.7949
+       probes: pi 0.0220  reach_h 0.1670  pi_h 0.1876
+  bfs/seed0 epoch  240: loss 0.3770 (out 0.0196, hint 0.3574) val 0.7891
+       probes: reach_h 0.1688  pi_h 0.1886  pi 0.0196
+  bfs/seed0 epoch  250: loss 0.3567 (out 0.0163, hint 0.3404) val 0.7871
+       probes: reach_h 0.1651  pi_h 0.1753  pi 0.0163
+  bfs/seed0 epoch  260: loss 0.3442 (out 0.0097, hint 0.3346) val 0.7852
+       probes: reach_h 0.1643  pi_h 0.1703  pi 0.0097
+  bfs/seed0 epoch  270: loss 0.3551 (out 0.0178, hint 0.3374) val 0.8164
+       probes: reach_h 0.1638  pi_h 0.1736  pi 0.0178
+  bfs/seed0 epoch  280: loss 0.3632 (out 0.0170, hint 0.3462) val 0.7988
+       probes: reach_h 0.1664  pi_h 0.1797  pi 0.0170
+  bfs/seed0 epoch  290: loss 0.3355 (out 0.0095, hint 0.3259) val 0.7930
+       probes: pi 0.0095  reach_h 0.1627  pi_h 0.1632
+  bfs/seed0 epoch  300: loss 0.3362 (out 0.0099, hint 0.3263) val 0.7871
+       probes: reach_h 0.1624  pi_h 0.1639  pi 0.0099
+  bfs/seed0: best val 0.8535 at epoch 30, 5.77s/epoch, 13 calls/round, 14 rounds (trajectory), compile cache 464/464 hit on a warm epoch -> full-max-ptredge-shufpos-bfs-seed0.pt
+{
+  "bfs/seed0": {
+    "score": 0.853515625,
+    "epoch": 30
+  }
+}
+usage: evaluate.py [-h] [--algorithms [ALGORITHMS ...]] [--seeds [SEEDS ...]]
+                   [--quick] [--epochs EPOCHS] [--rounds ROUNDS]
+                   [--pool {max,mean,sum}] [--widths {mpnn,paired,small}]
+                   [--hint-weight HINT_WEIGHT] [--node-only] [--h1] [--table]
+                   [--ladder] [--tracking] [--pointer {bilinear,edge}]
+                   [--pos {sampler,shuffled,uniform}] [--mixed] [--settle]
+                   [--device DEVICE]
+evaluate.py: error: unrecognized arguments: --shuffle-pos

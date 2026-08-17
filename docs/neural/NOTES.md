@@ -146,6 +146,66 @@ Model B's map therefore reports 1053 wires where it used to report 972: the
 81 extra are the second half of each cell's state loop, which was always
 there as half of a wide wire.
 
+## Noticed by `examples/CLRS_small`, and left alone
+
+**Compiling a map is superlinear in its boxes.** `CMap._box_port_indices` is
+a `property` that rebuilds the port slice of *every* box; `neural.core.
+box_ports` asks it for one box's slice, so reading them all -- which
+`map.interpret` and `map._families` both do -- is quadratic in the boxes.
+`CMap.ports` builds its port list with `sum(list_of_lists, [])`, which is
+quadratic again, and `CMap.__init__` calls `assert_isinstance` per box. The
+sudoku grid has 108 boxes and never noticed; a CLRS batch has a box per
+graph edge, and at `n = 64` one Erdos-Renyi sample is ~1000 of them.
+
+Making `_box_port_indices` a `cached_property` -- it is a pure function of
+`dom` and `boxes`, both set once in `__init__` and never again -- was tried,
+measured and **reverted**. What it buys, on this machine, single-threaded,
+over a whole run:
+
+| setup | stock | cached | |
+|---|---|---|---|
+| 32 training diagrams, `n = 16` | 106.5 s | 35.5 s | -71 s |
+| 8 out-of-distribution diagrams, `n = 64` | 62.9 s | 16.9 s | -46 s |
+
+A diagram is compiled **once** and reused for the whole run, so this is a
+one-off cost per process and not a per-epoch one: about two minutes against
+a fifty-minute training run. That is a convenience, not a blocker, and a
+study is the wrong place to edit the core library -- the fix belongs in a
+performance pull request of its own, with a benchmark, judged on its own
+merits. The example lives with the cost instead, by keeping its evaluation
+batches small (`Budget.eval_batch_size`) rather than compiling a whole split
+as one map, since the cost is superlinear *inside* a map and linear across
+maps.
+
+Where this would stop being a convenience is Part 3's `n = 128` stretch and
+Part 2's complete-graph diagrams for `floyd_warshall`, both of which are
+thousands of boxes per sample. If those turn out to be setup-bound, that is
+the evidence the performance pull request wants.
+
+**Part 2 ran that experiment, and the answer is still "a convenience".**
+`floyd_warshall`'s diagram is the complete graph: 4384 boxes for a batch of
+32 at `n = 16` and 4162 for a batch of 4 at `n = 64`, against the ~1150 of
+an Erdos-Renyi batch. Drawing and compiling one costs 32 s and 50 s
+respectively — superlinear, as predicted. It is nevertheless **80 seconds
+against a four-hour training run**, because the wiring of a complete graph
+depends on the size alone, so every batch of a size is the *same* diagram
+and a whole split compiles once (`examples/CLRS_small`'s `dense_graph`).
+The prediction that the complete graph would be setup-bound was wrong for
+the reason the prediction could not see: interning by shape is available
+exactly where the boxes are many.
+
+**A second candidate change was argued and declined.** Sending `ESTATE` to
+`Dim(0)` erases an edge's state ports — which is what Part 2's H1 ablation
+asks for — and then `Site.__init__` raises `"a site needs a state to
+carry"`. Eight lines would let a `Site` tolerate an empty `states` and emit
+from its pooled encoding instead. It was not written: a recurrent cell
+without a recurrence is a *different cell*, not a `Site` with a flag, and
+the example writes its own (`examples/CLRS_small/model.py`'s `Link`, which
+also carries the direction the study needs). The rule the two verdicts
+share: the library gets a change when it is missing a capability
+(`"max"` pooling), not when a study wants a convenience (a `cached_property`)
+or a variant of an existing cell.
+
 ## Not attempted
 
 **Closing the loops with `CMap.trace` rather than with an explicit

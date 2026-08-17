@@ -568,9 +568,28 @@ def rename(key: str) -> str:
     return key
 
 
+#: Prefixes of pre-refactor keys that are *duplicates* rather than
+#: weights.  The old model held its generators twice: once as attributes
+#: (``cell``, ``factor``) and once in a ``ModuleList`` the solver iterated,
+#: so its ``state_dict`` recorded the same tensors under two names.  A
+#: ``MapNN`` holds one shared module per generator name and nothing else,
+#: so the second copy has nowhere to go; every recorded checkpoint of the
+#: searches carries eighteen such keys, bitwise equal to the ones they
+#: alias, and a strict load fails on them unless they are dropped.
+ALIASES = ("cells.networks.", )
+
+
 def translate(state_dict: dict) -> dict:
-    """ A whole pre-refactor ``state_dict``, renamed. """
-    return {rename(key): value for key, value in state_dict.items()}
+    """
+    A whole pre-refactor ``state_dict``, renamed and de-aliased.
+
+    Example
+    -------
+    >>> sorted(translate({"readout.bias": 0, "cells.networks.0.emit.bias": 0}))
+    ['readout.bias']
+    """
+    return {rename(key): value for key, value in state_dict.items()
+            if not key.startswith(ALIASES)}
 
 
 def load_checkpoint(module, path, strict: bool = True):

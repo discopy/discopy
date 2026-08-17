@@ -1,0 +1,50 @@
+  dijkstra/seed0: loaded p3-max-ptredge-probe-dijkstra-seed0.pt
+  dijkstra/seed0:  id 1.0000  ood 0.2080  ood(128) 0.1605 +- 0.0356
+  dijkstra/seed1: loaded p3-max-ptredge-probe-dijkstra-seed1.pt
+  dijkstra/seed1:  id 0.9863  ood 0.7803  ood(128) 0.7694 +- 0.0113
+  dijkstra/seed2: loaded p3-max-ptredge-probe-dijkstra-seed2.pt
+  dijkstra/seed2:  id 0.9863  ood 0.5361  ood(128) 0.5018 +- 0.0208
+  dijkstra: -> p3-max-ptredge-probe-dijkstra-report.json
+| algorithm | seeds | ID `n = 16` | OOD `n = 64` (32 traj.) | OOD `n = 64` (128 traj.) ± s.e.m. | ± 95% CI (traj.) | at trained depth | floor (MPNN) | ceiling (Triplet-GMPNN) |
+|---|---|---|---|---|---|---|---|---|
+| `dijkstra` | 3 | 0.9909 | 0.5081 | 0.4773 ± 0.1762 | ± 0.0226 | — | 0.9150 ± 0.0050 | 0.9605 ± 0.0060 |
+
+Every column is at `n = 64` out of distribution; a parenthesis in a header counts **trajectories**, not nodes. `± s.e.m.` is the standard error over seeds, the anchors' own convention (theirs: 3 seeds for the floor, 10 for the ceiling). `± 95% CI` is 1.96 standard errors over the 128 trajectories within a run, averaged over the seeds. `at trained depth` is the same models on the same split run for the number of rounds they trained at rather than the number the sample's trajectory asks for.
+{
+  "dijkstra": {
+    "in_distribution": {
+      "mean": 0.9908854166666666,
+      "std": 0.007893460711576915,
+      "sem": 0.004557291666666667,
+      "seeds": 3
+    },
+    "ood": {
+      "mean": 0.5081380208333334,
+      "std": 0.2871580882710867,
+      "sem": 0.16579079956329024,
+      "seeds": 3
+    },
+    "ood_wide": {
+      "mean": 0.4772542317708333,
+      "std": 0.3051864581465621,
+      "sem": 0.1761994837639461,
+      "seeds": 3
+    },
+    "ood_wide_interval": {
+      "mean": 0.4772542317708333,
+      "half_width": 0.022562766552757352,
+      "trajectories": 128
+    },
+    "sweep_ood": {
+      "x1": {
+        "mean": 0.5081380208333334
+      },
+      "x1.5": {
+        "mean": 0.48681640625
+      },
+      "x3": {
+        "mean": 0.4982096354166667
+      }
+    }
+  }
+}

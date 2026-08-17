@@ -1,0 +1,50 @@
+  matrix_chain_order/seed0: loaded full-max-matrix_chain_order-seed0.pt
+  matrix_chain_order/seed0:  id 0.9883  ood 0.4727  ood(128) 0.4529 +- 0.0263
+  matrix_chain_order/seed1: loaded full-max-matrix_chain_order-seed1.pt
+  matrix_chain_order/seed1:  id 0.9884  ood 0.4390  ood(128) 0.4173 +- 0.0408
+  matrix_chain_order/seed2: loaded full-max-matrix_chain_order-seed2.pt
+  matrix_chain_order/seed2:  id 0.9895  ood 0.2384  ood(128) 0.1674 +- 0.0196
+  matrix_chain_order: -> full-max-matrix_chain_order-report.json
+| algorithm | seeds | ID `n = 16` | OOD `n = 64` (32) | OOD (128) ± s.e.m. | ± 95% CI (traj.) | floor (MPNN) | ceiling (Triplet-GMPNN) |
+|---|---|---|---|---|---|---|---|
+| `matrix_chain_order` | 3 | 0.9887 | 0.3834 | 0.3459 ± 0.0898 | ± 0.0289 | 0.7984 ± 0.0140 | 0.9168 ± 0.0059 |
+
+`± s.e.m.` is the standard error over seeds, the anchors' own convention (theirs: 3 seeds for the floor, 10 for the ceiling). `± 95% CI` is 1.96 standard errors over the 128 trajectories within a run, averaged over the seeds.
+{
+  "matrix_chain_order": {
+    "in_distribution": {
+      "mean": 0.9887288411458334,
+      "std": 0.0006723108578230105,
+      "sem": 0.00038815885474322335,
+      "seeds": 3
+    },
+    "ood": {
+      "mean": 0.3833821614583333,
+      "std": 0.12669147808157033,
+      "sem": 0.0731453589744262,
+      "seeds": 3
+    },
+    "ood_wide": {
+      "mean": 0.34589068094889325,
+      "std": 0.1556026166020379,
+      "sem": 0.08983721258179671,
+      "seeds": 3
+    },
+    "ood_wide_interval": {
+      "mean": 0.34589068094889325,
+      "half_width": 0.028890984455959473,
+      "trajectories": 128
+    },
+    "sweep_ood": {
+      "x1": {
+        "mean": 0.3833821614583333
+      },
+      "x1.5": {
+        "mean": 0.2179285685221354
+      },
+      "x3": {
+        "mean": 0.14665985107421875
+      }
+    }
+  }
+}

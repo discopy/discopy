@@ -1,0 +1,37 @@
+  minimum/seed0 epoch   10: loss 0.5778 (out 0.0740, hint 0.5038) val 0.8750
+  minimum/seed0 epoch   20: loss 0.1327 (out 0.0277, hint 0.1050) val 0.9688
+  minimum/seed0 epoch   30: loss 0.0893 (out 0.0176, hint 0.0717) val 0.9688
+  minimum/seed0 epoch   40: loss 0.0768 (out 0.0176, hint 0.0592) val 0.9688
+  minimum/seed0 epoch   50: loss 0.0867 (out 0.0148, hint 0.0719) val 0.9688
+  minimum/seed0 epoch   60: loss 0.0408 (out 0.0116, hint 0.0292) val 0.9688
+  minimum/seed0 epoch   70: loss 0.0449 (out 0.0105, hint 0.0344) val 1.0000
+  minimum/seed0 epoch   80: loss 0.0231 (out 0.0056, hint 0.0175) val 1.0000
+  minimum/seed0 epoch   90: loss 0.0224 (out 0.0067, hint 0.0157) val 0.9688
+  minimum/seed0 epoch  100: loss 0.0235 (out 0.0053, hint 0.0182) val 1.0000
+  minimum/seed0 epoch  110: loss 0.0398 (out 0.0047, hint 0.0351) val 0.9688
+  minimum/seed0 epoch  120: loss 0.0262 (out 0.0066, hint 0.0196) val 1.0000
+  minimum/seed0 epoch  130: loss 0.0117 (out 0.0030, hint 0.0087) val 0.9688
+  minimum/seed0 epoch  140: loss 0.0086 (out 0.0027, hint 0.0059) val 1.0000
+  minimum/seed0 epoch  150: loss 0.0088 (out 0.0027, hint 0.0061) val 0.9688
+  minimum/seed0 epoch  160: loss 0.0170 (out 0.0040, hint 0.0130) val 1.0000
+  minimum/seed0 epoch  170: loss 0.0100 (out 0.0030, hint 0.0070) val 0.9688
+  minimum/seed0 epoch  180: loss 0.0117 (out 0.0049, hint 0.0068) val 0.9688
+  minimum/seed0 epoch  190: loss 0.0212 (out 0.0044, hint 0.0168) val 0.9688
+  minimum/seed0 epoch  200: loss 0.0080 (out 0.0035, hint 0.0045) val 0.9688
+  minimum/seed0 epoch  210: loss 0.0118 (out 0.0026, hint 0.0092) val 0.9688
+  minimum/seed0 epoch  220: loss 0.0050 (out 0.0007, hint 0.0043) val 0.9688
+  minimum/seed0 epoch  230: loss 0.0149 (out 0.0049, hint 0.0100) val 0.9688
+  minimum/seed0 epoch  240: loss 0.0163 (out 0.0061, hint 0.0102) val 0.9688
+  minimum/seed0 epoch  250: loss 0.0160 (out 0.0029, hint 0.0130) val 0.9375
+  minimum/seed0 epoch  260: loss 0.0042 (out 0.0008, hint 0.0033) val 0.9688
+  minimum/seed0 epoch  270: loss 0.0072 (out 0.0011, hint 0.0061) val 0.9688
+  minimum/seed0 epoch  280: loss 0.0084 (out 0.0042, hint 0.0042) val 0.9688
+  minimum/seed0 epoch  290: loss 0.0189 (out 0.0030, hint 0.0159) val 0.9688
+  minimum/seed0 epoch  300: loss 0.0112 (out 0.0012, hint 0.0100) val 0.9688
+  minimum/seed0: best val 1.0000 at epoch 70, 1.89s/epoch, 2 calls/round -> full-max-minimum-seed0.pt
+{
+  "minimum/seed0": {
+    "score": 1.0,
+    "epoch": 70
+  }
+}

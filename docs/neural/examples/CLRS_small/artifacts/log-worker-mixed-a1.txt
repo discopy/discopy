@@ -1,0 +1,2 @@
+artifacts/worker-mixed.sh: line 21: 3714948 Killed                  $PY train.py --algorithms $ALG --seeds 0 --pool max --mixed --settle --device $DEVICE > artifacts/log-train-mixed-$ALG.txt 2>&1
+17:00:46 done matrix_chain_order on cuda:0

@@ -1,0 +1,35 @@
+  bfs/seed0: loaded full-max-bfs-seed0.pt
+  bfs/seed0: x0.50 (2 steps) 0.2700  x1.00 (4 steps) 0.8872  x1.75 (7 steps) 0.8857
+  bfs/seed1: loaded full-max-bfs-seed1.pt
+  bfs/seed1: x0.50 (2 steps) 0.2700  x1.00 (4 steps) 0.8462  x1.75 (7 steps) 0.8115
+  bfs/seed2: loaded full-max-bfs-seed2.pt
+  bfs/seed2: x0.50 (2 steps) 0.2422  x1.00 (4 steps) 0.8442  x1.75 (7 steps) 0.8530
+  bfs: -> full-max-bfs-ladder.json
+  bellman_ford/seed0: loaded full-max-bellman_ford-seed0.pt
+  bellman_ford/seed0: x0.50 (4 steps) 0.4678  x0.88 (7 steps) 0.5728  x1.00 (8 steps) 0.5664
+  bellman_ford/seed1: loaded full-max-bellman_ford-seed1.pt
+  bellman_ford/seed1: x0.50 (4 steps) 0.4648  x0.88 (7 steps) 0.6025  x1.00 (8 steps) 0.6030
+  bellman_ford/seed2: loaded full-max-bellman_ford-seed2.pt
+  bellman_ford/seed2: x0.50 (4 steps) 0.4531  x0.88 (7 steps) 0.5356  x1.00 (8 steps) 0.5278
+  bellman_ford: -> full-max-bellman_ford-ladder.json
+  minimum/seed0: loaded full-max-minimum-seed0.pt
+  minimum/seed0: x0.25 (16 steps) 0.9375  x0.50 (32 steps) 0.8750  x1.00 (64 steps) 0.8125
+  minimum/seed1: loaded full-max-minimum-seed1.pt
+  minimum/seed1: x0.25 (16 steps) 0.9688  x0.50 (32 steps) 0.8750  x1.00 (64 steps) 0.3750
+  minimum/seed2: loaded full-max-minimum-seed2.pt
+  minimum/seed2: x0.25 (16 steps) 0.9375  x0.50 (32 steps) 0.8125  x1.00 (64 steps) 0.8125
+  minimum: -> full-max-minimum-ladder.json
+  dijkstra/seed0: loaded full-max-dijkstra-seed0.pt
+  dijkstra/seed0: x0.26 (17 steps) 0.6782  x0.50 (32 steps) 0.2021  x1.00 (65 steps) 0.0620
+  dijkstra/seed1: loaded full-max-dijkstra-seed1.pt
+  dijkstra/seed1: x0.26 (17 steps) 0.5640  x0.50 (32 steps) 0.2466  x1.00 (65 steps) 0.0762
+  dijkstra/seed2: loaded full-max-dijkstra-seed2.pt
+  dijkstra/seed2: x0.26 (17 steps) 0.6353  x0.50 (32 steps) 0.2300  x1.00 (65 steps) 0.0112
+  dijkstra: -> full-max-dijkstra-ladder.json
+  mst_prim/seed0: loaded full-max-mst_prim-seed0.pt
+  mst_prim/seed0: x0.26 (17 steps) 0.1523  x0.50 (32 steps) 0.1260  x1.00 (65 steps) 0.0166
+  mst_prim/seed1: loaded full-max-mst_prim-seed1.pt
+  mst_prim/seed1: x0.26 (17 steps) 0.2202  x0.50 (32 steps) 0.1733  x1.00 (65 steps) 0.0288
+  mst_prim/seed2: loaded full-max-mst_prim-seed2.pt
+  mst_prim/seed2: x0.26 (17 steps) 0.2725  x0.50 (32 steps) 0.1621  x1.00 (65 steps) 0.0601
+  mst_prim: -> full-max-mst_prim-ladder.json

@@ -1,0 +1,67 @@
+  mst_prim/seed2 epoch   10: loss 4.0331 (out 0.4497, hint 3.5835) val 0.6016
+       probes: pi_h 1.3707  key 0.0264  mark 0.2210  in_queue 0.3303  u 1.6351  pi 0.4497
+  mst_prim/seed2 epoch   20: loss 2.7338 (out 0.1834, hint 2.5504) val 0.7305
+       probes: pi_h 0.8916  key 0.0219  mark 0.1328  in_queue 0.2461  u 1.2580  pi 0.1834
+  mst_prim/seed2 epoch   30: loss 2.1487 (out 0.1121, hint 2.0366) val 0.8379
+       probes: pi_h 0.6606  key 0.0194  mark 0.1018  in_queue 0.2135  u 1.0414  pi 0.1121
+  mst_prim/seed2 epoch   40: loss 1.8432 (out 0.0690, hint 1.7741) val 0.8965
+       probes: pi_h 0.5386  key 0.0185  mark 0.0866  in_queue 0.1968  u 0.9336  pi 0.0690
+  mst_prim/seed2 epoch   50: loss 1.7981 (out 0.0656, hint 1.7324) val 0.9141
+       probes: pi_h 0.5166  key 0.0179  mark 0.0862  in_queue 0.1938  u 0.9181  pi 0.0656
+  mst_prim/seed2 epoch   60: loss 1.5829 (out 0.0517, hint 1.5312) val 0.9062
+       probes: pi_h 0.4736  key 0.0175  mark 0.0749  in_queue 0.1833  u 0.7818  pi 0.0517
+  mst_prim/seed2 epoch   70: loss 1.5872 (out 0.0415, hint 1.5457) val 0.8691
+       probes: pi_h 0.4373  key 0.0166  mark 0.0776  in_queue 0.1831  u 0.8310  pi 0.0415
+  mst_prim/seed2 epoch   80: loss 1.4451 (out 0.0698, hint 1.3753) val 0.9141
+       probes: pi_h 0.4240  key 0.0164  mark 0.0708  in_queue 0.1741  u 0.6898  pi 0.0698
+  mst_prim/seed2 epoch   90: loss 1.0456 (out 0.0232, hint 1.0224) val 0.9219
+       probes: pi_h 0.3303  key 0.0153  mark 0.0486  in_queue 0.1526  u 0.4756  pi 0.0232
+  mst_prim/seed2 epoch  100: loss 1.3898 (out 0.0582, hint 1.3315) val 0.9258
+       probes: pi_h 0.3970  key 0.0161  mark 0.0682  in_queue 0.1698  u 0.6804  pi 0.0582
+  mst_prim/seed2 epoch  110: loss 1.5022 (out 0.0279, hint 1.4743) val 0.9453
+       probes: pi_h 0.3698  key 0.0160  mark 0.0724  in_queue 0.1756  u 0.8405  pi 0.0279
+  mst_prim/seed2 epoch  120: loss 1.0791 (out 0.0219, hint 1.0571) val 0.9297
+       probes: pi_h 0.3186  key 0.0154  mark 0.0516  in_queue 0.1541  u 0.5174  pi 0.0219
+  mst_prim/seed2 epoch  130: loss 1.3017 (out 0.0214, hint 1.2804) val 0.9102
+       probes: pi_h 0.3388  key 0.0161  mark 0.0622  in_queue 0.1654  u 0.6979  pi 0.0214
+  mst_prim/seed2 epoch  140: loss 1.2603 (out 0.0611, hint 1.1992) val 0.9316
+       probes: pi_h 0.3519  key 0.0160  mark 0.0645  in_queue 0.1655  u 0.6014  pi 0.0611
+  mst_prim/seed2 epoch  150: loss 1.0967 (out 0.0220, hint 1.0748) val 0.9297
+       probes: pi_h 0.3206  key 0.0170  mark 0.0549  in_queue 0.1570  u 0.5253  pi 0.0220
+  mst_prim/seed2 epoch  160: loss 0.9725 (out 0.0187, hint 0.9538) val 0.9453
+       probes: pi_h 0.3145  key 0.0159  mark 0.0476  in_queue 0.1485  u 0.4273  pi 0.0187
+  mst_prim/seed2 epoch  170: loss 0.7635 (out 0.0141, hint 0.7494) val 0.9121
+       probes: pi_h 0.2725  key 0.0143  mark 0.0381  in_queue 0.1378  u 0.2868  pi 0.0141
+  mst_prim/seed2 epoch  180: loss 1.0248 (out 0.0926, hint 0.9322) val 0.9414
+       probes: pi_h 0.3217  key 0.0154  mark 0.0540  in_queue 0.1484  u 0.3926  pi 0.0926
+  mst_prim/seed2 epoch  190: loss 0.7718 (out 0.0136, hint 0.7582) val 0.9336
+       probes: pi_h 0.2715  key 0.0147  mark 0.0385  in_queue 0.1376  u 0.2959  pi 0.0136
+  mst_prim/seed2 epoch  200: loss 0.6680 (out 0.0123, hint 0.6557) val 0.9258
+       probes: pi_h 0.2581  key 0.0148  mark 0.0328  in_queue 0.1321  u 0.2180  pi 0.0123
+  mst_prim/seed2 epoch  210: loss 0.9615 (out 0.0174, hint 0.9440) val 0.9336
+       probes: pi_h 0.2849  key 0.0148  mark 0.0472  in_queue 0.1443  u 0.4528  pi 0.0174
+  mst_prim/seed2 epoch  220: loss 0.6478 (out 0.0114, hint 0.6365) val 0.9629
+       probes: pi_h 0.2460  key 0.0142  mark 0.0310  in_queue 0.1284  u 0.2168  pi 0.0114
+  mst_prim/seed2 epoch  230: loss 0.6914 (out 0.0105, hint 0.6809) val 0.9453
+       probes: pi_h 0.2481  key 0.0142  mark 0.0338  in_queue 0.1305  u 0.2544  pi 0.0105
+  mst_prim/seed2 epoch  240: loss 0.7171 (out 0.0104, hint 0.7068) val 0.9570
+       probes: pi_h 0.2456  key 0.0143  mark 0.0379  in_queue 0.1325  u 0.2765  pi 0.0104
+  mst_prim/seed2 epoch  250: loss 0.6535 (out 0.0074, hint 0.6461) val 0.9434
+       probes: pi_h 0.2183  key 0.0135  mark 0.0309  in_queue 0.1249  u 0.2586  pi 0.0074
+  mst_prim/seed2 epoch  260: loss 0.5474 (out 0.0066, hint 0.5408) val 0.9668
+       probes: pi_h 0.2066  key 0.0136  mark 0.0263  in_queue 0.1207  u 0.1736  pi 0.0066
+  mst_prim/seed2 epoch  270: loss 0.5527 (out 0.0088, hint 0.5439) val 0.9512
+       probes: pi_h 0.2182  key 0.0140  mark 0.0263  in_queue 0.1201  u 0.1652  pi 0.0088
+  mst_prim/seed2 epoch  280: loss 0.7216 (out 0.0084, hint 0.7132) val 0.9473
+       probes: pi_h 0.2311  key 0.0140  mark 0.0343  in_queue 0.1288  u 0.3050  pi 0.0084
+  mst_prim/seed2 epoch  290: loss 0.5943 (out 0.0075, hint 0.5868) val 0.9473
+       probes: pi_h 0.2093  key 0.0136  mark 0.0273  in_queue 0.1203  u 0.2163  pi 0.0075
+  mst_prim/seed2 epoch  300: loss 0.5405 (out 0.0070, hint 0.5335) val 0.9570
+       probes: pi_h 0.2065  key 0.0142  mark 0.0257  in_queue 0.1171  u 0.1700  pi 0.0070
+  mst_prim/seed2: best val 0.9668 at epoch 260, 33.12s/epoch, 12 calls/round, 34 rounds (trajectory), compile cache 1610/1610 hit on a warm epoch -> p3-max-ptredge-settle-term-mst_prim-seed2.pt
+{
+  "mst_prim/seed2": {
+    "score": 0.966796875,
+    "epoch": 260
+  }
+}

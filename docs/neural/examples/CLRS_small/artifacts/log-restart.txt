@@ -1,0 +1,23 @@
+09:50 stage D: the dag probe, one slot per device
+09:50 stage D': the four rows' depth ladders, six slots
+09:54 ladder R/bellman_ford on cuda:0 (exit 0)
+09:54 ladder S/bellman_ford on cuda:0 (exit 0)
+09:54 ladder R/dijkstra on cuda:0 (exit 0)
+09:54 ladder R/mst_prim on cuda:1 (exit 0)
+09:54 ladder S/dijkstra on cuda:1 (exit 0)
+09:56 ladder R/floyd_warshall on cuda:1 (exit 0)
+09:58 ladder O/bellman_ford on cuda:0 (exit 0)
+09:58 ladder S/mst_prim on cuda:0 (exit 0)
+09:58 ladder O/mst_prim on cuda:1 (exit 0)
+09:58 ladder O/dijkstra on cuda:1 (exit 0)
+10:00 ladder S/floyd_warshall on cuda:0 (exit 0)
+10:02 ladder F/bellman_ford on cuda:0 (exit 0)
+10:02 ladder F/mst_prim on cuda:1 (exit 0)
+10:02 ladder F/dijkstra on cuda:0 (exit 0)
+10:03 ladder O/floyd_warshall on cuda:1 (exit 0)
+10:05 ladder F/floyd_warshall on cuda:1 (exit 0)
+13:53 probe done
+13:53 stage E: freezing the dag regime
+dag_shortest_paths     mixed  mixed beats by more than 1.0 seed s.e.m. (0.0929) and keeps the order-free heads
+
+frozen into regime.json: {'bellman_ford': 'fixed', 'dijkstra': 'fixed', 'mst_prim': 'fixed', 'floyd_warshall': 'fixed', 'dag_shortest_paths': 'mixed'}

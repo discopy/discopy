@@ -1,0 +1,50 @@
+  floyd_warshall/seed0: loaded full-max-floyd_warshall-seed0.pt
+  floyd_warshall/seed0:  id 0.8794  ood 0.0562  ood(128) 0.0587 +- 0.0016
+  floyd_warshall/seed1: loaded full-max-floyd_warshall-seed1.pt
+  floyd_warshall/seed1:  id 0.8934  ood 0.1056  ood(128) 0.1011 +- 0.0024
+  floyd_warshall/seed2: loaded full-max-floyd_warshall-seed2.pt
+  floyd_warshall/seed2:  id 0.8934  ood 0.0605  ood(128) 0.0587 +- 0.0021
+  floyd_warshall: -> full-max-floyd_warshall-report.json
+| algorithm | seeds | ID `n = 16` | OOD `n = 64` (32) | OOD (128) ± s.e.m. | ± 95% CI (traj.) | floor (MPNN) | ceiling (Triplet-GMPNN) |
+|---|---|---|---|---|---|---|---|
+| `floyd_warshall` | 3 | 0.8888 | 0.0741 | 0.0728 ± 0.0141 | ± 0.0020 | 0.2674 ± 0.0177 | 0.4852 ± 0.0104 |
+
+`± s.e.m.` is the standard error over seeds, the anchors' own convention (theirs: 3 seeds for the floor, 10 for the ceiling). `± 95% CI` is 1.96 standard errors over the 128 trajectories within a run, averaged over the seeds.
+{
+  "floyd_warshall": {
+    "in_distribution": {
+      "mean": 0.8887532552083334,
+      "std": 0.008104892694922726,
+      "sem": 0.004679361979166668,
+      "seeds": 3
+    },
+    "ood": {
+      "mean": 0.07408905029296875,
+      "std": 0.027392685264405078,
+      "sem": 0.015815174211230968,
+      "seeds": 3
+    },
+    "ood_wide": {
+      "mean": 0.072845458984375,
+      "std": 0.024476555994279624,
+      "sem": 0.01413154619213229,
+      "seeds": 3
+    },
+    "ood_wide_interval": {
+      "mean": 0.072845458984375,
+      "half_width": 0.0020439918177409563,
+      "trajectories": 128
+    },
+    "sweep_ood": {
+      "x1": {
+        "mean": 0.07408905029296875
+      },
+      "x1.5": {
+        "mean": 0.05850982666015625
+      },
+      "x3": {
+        "mean": 0.054395039876302086
+      }
+    }
+  }
+}

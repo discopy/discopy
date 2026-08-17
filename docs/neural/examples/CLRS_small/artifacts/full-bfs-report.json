@@ -1,0 +1,265 @@
+{
+  "algorithm": "bfs",
+  "types": {
+    "pi": "node/pointer"
+  },
+  "protocol": {
+    "train": "n <= 16, CLRS-30 seeds",
+    "val": "n = 16",
+    "ood": "n = 64, 32 trajectories (canonical)",
+    "ood_wide": "n = 64, 128 trajectories",
+    "depth": "trajectory",
+    "hops_per_step": 2
+  },
+  "anchors": {
+    "floor": {
+      "mean": 0.9989,
+      "std": 0.0005
+    },
+    "ceiling": {
+      "mean": 0.9973,
+      "std": 0.0004
+    }
+  },
+  "anchor_source": {
+    "paper": "Ibarz et al. (2022), A Generalist Neural Algorithmic Learner, arXiv:2209.11142",
+    "table": "Table 2 -- Single-task OOD average micro-F1 score of previous SOTA Memnet, MPNN and PGN [5] and our best model Triplet-GMPNN with all the improvements described in Section 3",
+    "floor": "the MPNN column, which that table attributes to [5], i.e. Velickovic et al. (2022), the CLRS-30 benchmark paper",
+    "ceiling": "the Triplet-GMPNN column",
+    "read": "the ar5iv HTML rendering, 2026-08-12, twice under different prompts with identical digits, and cross-checked against the table's own overall average (MPNN 51.02, Triplet-GMPNN 75.98) and the abstract's 'over 20% improvement'",
+    "caveat": "means over the paper's seeds, under the paper's own training improvements; this study reports one seed and does not reproduce those improvements"
+  },
+  "budget": {
+    "name": "full",
+    "epochs": 300,
+    "batch_size": 32,
+    "lr": 0.001,
+    "widths": "mpnn",
+    "pool": "mean",
+    "edge_state": true,
+    "hint_weight": 1.0
+  },
+  "provenance": {
+    "device": "cuda:1",
+    "torch": "2.13.0+cu130",
+    "python": "3.12.13"
+  },
+  "seeds": [
+    {
+      "seed": 0,
+      "parameters": 409969,
+      "calls_per_round": 13,
+      "seconds_per_epoch": 7.4775279666033265,
+      "rounds": [
+        10,
+        14,
+        12,
+        14,
+        14,
+        12,
+        12,
+        14,
+        14,
+        10,
+        12,
+        14,
+        12,
+        14,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12,
+        14,
+        12,
+        12,
+        12,
+        12,
+        12,
+        14,
+        14,
+        10,
+        14,
+        12
+      ],
+      "in_distribution": {
+        "pi": 0.98828125,
+        "score": 0.98828125
+      },
+      "ood": {
+        "pi": 0.48291015625,
+        "score": 0.48291015625
+      },
+      "ood_wide": {
+        "pi": 0.471923828125,
+        "score": 0.471923828125
+      },
+      "ood_wide_interval": {
+        "mean": 0.471923828125,
+        "std_error": 0.008712878917556564,
+        "half_width": 0.017077242678410865,
+        "trajectories": 128
+      },
+      "sweep_ood": {
+        "x1": {
+          "pi": 0.48291015625,
+          "score": 0.48291015625
+        },
+        "x1.5": {
+          "pi": 0.5146484375,
+          "score": 0.5146484375
+        },
+        "x3": {
+          "pi": 0.5068359375,
+          "score": 0.5068359375
+        }
+      },
+      "equivariance": {
+        "node": {
+          "msg": 8.881784197001252e-16
+        },
+        "readout": {
+          "msg": 1.7763568394002505e-15
+        },
+        "edge": {
+          "msg": 0.0
+        }
+      },
+      "residual": {
+        "max": 4.280618667602539,
+        "mean": 2.526680961251259
+      },
+      "residual_curve": {
+        "factor": 3.0,
+        "trained_at": "trajectory",
+        "val": [
+          7.830809831619263,
+          5.999939680099487,
+          7.501361548900604,
+          5.447770059108734,
+          6.3566959500312805,
+          5.892672061920166,
+          4.3642737865448,
+          4.606794089078903,
+          3.1478881537914276,
+          2.63507941365242,
+          2.1082296073436737,
+          1.8661491572856903,
+          1.709324672818184,
+          1.3386045470833778,
+          1.2797237783670425,
+          0.9834964349865913,
+          1.1072525009512901,
+          0.7769144177436829,
+          0.998645968735218,
+          0.8605387657880783,
+          1.0801138579845428,
+          1.043735384941101,
+          0.9456453174352646,
+          0.7321320921182632
+        ],
+        "ood": [
+          7.914213061332703,
+          5.646783232688904,
+          6.13920933008194,
+          5.421955645084381,
+          4.429219901561737,
+          5.062009811401367,
+          3.368990182876587,
+          2.000287488102913,
+          1.5706302970647812,
+          1.1156258285045624,
+          0.9006885960698128,
+          0.633618451654911,
+          0.5541793555021286,
+          0.5256802961230278,
+          0.4935549981892109,
+          0.48379747569561005,
+          0.5050455629825592,
+          0.5560118854045868
+        ]
+      },
+      "hints": {
+        "val": {
+          "reach_h": [
+            0.3908045977011494,
+            0.8405365126676602,
+            0.9746974697469747,
+            0.9843400447427293,
+            1.0,
+            1.0
+          ],
+          "pi_h": [
+            0.78125,
+            0.76953125,
+            0.8870967741935484,
+            0.925,
+            0.875,
+            0.9375
+          ]
+        },
+        "ood": {
+          "reach_h": [
+            0.4249462365591398,
+            0.9928694369313991,
+            1.0
+          ],
+          "pi_h": [
+            0.27001953125,
+            0.43505859375,
+            0.48549107142857145
+          ]
+        }
+      },
+      "compile_cache": {
+        "training": {
+          "hits": 464,
+          "misses": 0,
+          "held": 32,
+          "capacity": 66
+        },
+        "scoring": {
+          "hits": 584,
+          "misses": 48,
+          "held": 48,
+          "capacity": 66
+        }
+      }
+    }
+  ],
+  "summary": {
+    "in_distribution": {
+      "mean": 0.98828125,
+      "std": 0.0,
+      "seeds": 1
+    },
+    "ood": {
+      "mean": 0.48291015625,
+      "std": 0.0,
+      "seeds": 1
+    },
+    "ood_wide": {
+      "mean": 0.471923828125,
+      "std": 0.0,
+      "seeds": 1
+    },
+    "ood_wide_interval": {
+      "mean": 0.471923828125,
+      "half_width": 0.017077242678410865,
+      "trajectories": 128
+    },
+    "sweep_ood": {
+      "x1": {
+        "mean": 0.48291015625
+      },
+      "x1.5": {
+        "mean": 0.5146484375
+      },
+      "x3": {
+        "mean": 0.5068359375
+      }
+    }
+  }
+}

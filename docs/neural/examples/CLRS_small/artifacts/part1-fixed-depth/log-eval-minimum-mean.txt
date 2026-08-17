@@ -1,0 +1,33 @@
+  minimum/seed0: loaded full-minimum-seed0.pt
+  minimum/seed0:  id 1.0000  ood 0.9375  ood(128) 0.9297
+  minimum: -> full-minimum-report.json
+{
+  "minimum": {
+    "in_distribution": {
+      "mean": 1.0,
+      "std": 0.0,
+      "seeds": 1
+    },
+    "ood": {
+      "mean": 0.9375,
+      "std": 0.0,
+      "seeds": 1
+    },
+    "ood_wide": {
+      "mean": 0.9296875,
+      "std": 0.0,
+      "seeds": 1
+    },
+    "sweep_ood": {
+      "16": {
+        "mean": 0.9375
+      },
+      "24": {
+        "mean": 0.84375
+      },
+      "48": {
+        "mean": 0.78125
+      }
+    }
+  }
+}

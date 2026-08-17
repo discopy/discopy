@@ -1,0 +1,50 @@
+  bellman_ford/seed0: loaded p3-max-ptredge-bellman_ford-seed0.pt
+  bellman_ford/seed0:  id 0.9629  ood 0.6777  ood(128) 0.6823 +- 0.0134
+  bellman_ford/seed1: loaded p3-max-ptredge-bellman_ford-seed1.pt
+  bellman_ford/seed1:  id 0.9707  ood 0.6675  ood(128) 0.6740 +- 0.0106
+  bellman_ford/seed2: loaded p3-max-ptredge-bellman_ford-seed2.pt
+  bellman_ford/seed2:  id 0.9727  ood 0.6851  ood(128) 0.6786 +- 0.0110
+  bellman_ford: -> p3-max-ptredge-bellman_ford-report.json
+| algorithm | seeds | ID `n = 16` | OOD `n = 64` (32 traj.) | OOD `n = 64` (128 traj.) ± s.e.m. | ± 95% CI (traj.) | at trained depth | floor (MPNN) | ceiling (Triplet-GMPNN) |
+|---|---|---|---|---|---|---|---|---|
+| `bellman_ford` | 3 | 0.9688 | 0.6768 | 0.6783 ± 0.0024 | ± 0.0117 | — | 0.9201 ± 0.0028 | 0.9739 ± 0.0019 |
+
+Every column is at `n = 64` out of distribution; a parenthesis in a header counts **trajectories**, not nodes. `± s.e.m.` is the standard error over seeds, the anchors' own convention (theirs: 3 seeds for the floor, 10 for the ceiling). `± 95% CI` is 1.96 standard errors over the 128 trajectories within a run, averaged over the seeds. `at trained depth` is the same models on the same split run for the number of rounds they trained at rather than the number the sample's trajectory asks for.
+{
+  "bellman_ford": {
+    "in_distribution": {
+      "mean": 0.96875,
+      "std": 0.005167483029423029,
+      "sem": 0.0029834477180702085,
+      "seeds": 3
+    },
+    "ood": {
+      "mean": 0.6767578125,
+      "std": 0.008829658847668518,
+      "sem": 0.00509780591255398,
+      "seeds": 3
+    },
+    "ood_wide": {
+      "mean": 0.6782633463541666,
+      "std": 0.004159953749717466,
+      "sem": 0.002401750417215772,
+      "seeds": 3
+    },
+    "ood_wide_interval": {
+      "mean": 0.6782633463541666,
+      "half_width": 0.011656098685810657,
+      "trajectories": 128
+    },
+    "sweep_ood": {
+      "x1": {
+        "mean": 0.6767578125
+      },
+      "x1.5": {
+        "mean": 0.6170247395833334
+      },
+      "x3": {
+        "mean": 0.2613932291666667
+      }
+    }
+  }
+}

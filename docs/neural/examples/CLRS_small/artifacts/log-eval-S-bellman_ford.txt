@@ -1,0 +1,50 @@
+  bellman_ford/seed0: loaded p3-max-ptredge-settle-term-bellman_ford-seed0.pt
+  bellman_ford/seed0:  id 0.9707  ood 0.7329  ood(128) 0.7466 +- 0.0134
+  bellman_ford/seed1: loaded p3-max-ptredge-settle-term-bellman_ford-seed1.pt
+  bellman_ford/seed1:  id 0.9707  ood 0.7383  ood(128) 0.7500 +- 0.0121
+  bellman_ford/seed2: loaded p3-max-ptredge-settle-term-bellman_ford-seed2.pt
+  bellman_ford/seed2:  id 0.9746  ood 0.6709  ood(128) 0.6941 +- 0.0112
+  bellman_ford: -> p3-max-ptredge-settle-term-bellman_ford-report.json
+| algorithm | seeds | ID `n = 16` | OOD `n = 64` (32 traj.) | OOD `n = 64` (128 traj.) ± s.e.m. | ± 95% CI (traj.) | at trained depth | floor (MPNN) | ceiling (Triplet-GMPNN) |
+|---|---|---|---|---|---|---|---|---|
+| `bellman_ford` | 3 | 0.9720 | 0.7140 | 0.7302 ± 0.0181 | ± 0.0122 | — | 0.9201 ± 0.0028 | 0.9739 ± 0.0019 |
+
+Every column is at `n = 64` out of distribution; a parenthesis in a header counts **trajectories**, not nodes. `± s.e.m.` is the standard error over seeds, the anchors' own convention (theirs: 3 seeds for the floor, 10 for the ceiling). `± 95% CI` is 1.96 standard errors over the 128 trajectories within a run, averaged over the seeds. `at trained depth` is the same models on the same split run for the number of rounds they trained at rather than the number the sample's trajectory asks for.
+{
+  "bellman_ford": {
+    "in_distribution": {
+      "mean": 0.9720052083333334,
+      "std": 0.002255274489021976,
+      "sem": 0.0013020833333333335,
+      "seeds": 3
+    },
+    "ood": {
+      "mean": 0.7140299479166666,
+      "std": 0.03744939993024042,
+      "sem": 0.02162142113071426,
+      "seeds": 3
+    },
+    "ood_wide": {
+      "mean": 0.730224609375,
+      "std": 0.031338566207855,
+      "sem": 0.018093329636121997,
+      "seeds": 3
+    },
+    "ood_wide_interval": {
+      "mean": 0.730224609375,
+      "half_width": 0.012211251057631642,
+      "trajectories": 128
+    },
+    "sweep_ood": {
+      "x1": {
+        "mean": 0.7140299479166666
+      },
+      "x1.5": {
+        "mean": 0.7347005208333334
+      },
+      "x3": {
+        "mean": 0.3395182291666667
+      }
+    }
+  }
+}

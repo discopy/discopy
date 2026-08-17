@@ -1,0 +1,41 @@
+  minimum/seed0: loaded full-minimum-seed0.pt
+  minimum/seed0:  id 1.0000  ood 0.8438  ood(128) 0.7969 +- 0.0700
+  minimum: -> full-minimum-report.json
+| algorithm | ID `n = 16` | OOD `n = 64` (32) | OOD (128, 95% CI) | floor (MPNN) | ceiling (Triplet-GMPNN) |
+|---|---|---|---|---|---|
+| `minimum` | 1.0000 | 0.8438 | 0.7969 ± 0.0700 | 0.8534 ± 0.0088 | 0.9778 ± 0.0055 |
+{
+  "minimum": {
+    "in_distribution": {
+      "mean": 1.0,
+      "std": 0.0,
+      "seeds": 1
+    },
+    "ood": {
+      "mean": 0.84375,
+      "std": 0.0,
+      "seeds": 1
+    },
+    "ood_wide": {
+      "mean": 0.796875,
+      "std": 0.0,
+      "seeds": 1
+    },
+    "ood_wide_interval": {
+      "mean": 0.796875,
+      "half_width": 0.0699730816845526,
+      "trajectories": 128
+    },
+    "sweep_ood": {
+      "x1": {
+        "mean": 0.84375
+      },
+      "x1.5": {
+        "mean": 0.65625
+      },
+      "x3": {
+        "mean": 0.5625
+      }
+    }
+  }
+}

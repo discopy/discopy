@@ -1,0 +1,49 @@
+  minimum/seed0: loaded full-max-mixed-settle-minimum-seed0.pt
+  minimum/seed0:  id 0.9688  ood 0.1562  ood(128) 0.1719 +- 0.0656
+  minimum: -> full-max-mixed-settle-minimum-report.json
+| algorithm | seeds | ID `n = 16` | OOD `n = 64` (32 traj.) | OOD `n = 64` (128 traj.) ± s.e.m. | ± 95% CI (traj.) | at trained depth | floor (MPNN) | ceiling (Triplet-GMPNN) |
+|---|---|---|---|---|---|---|---|---|
+| `minimum` | 1 | 0.9688 | 0.1562 | 0.1719 ± 0.0000 | ± 0.0656 | — | 0.8534 ± 0.0088 | 0.9778 ± 0.0055 |
+
+Every column is at `n = 64` out of distribution; a parenthesis in a header counts **trajectories**, not nodes. `± s.e.m.` is the standard error over seeds, the anchors' own convention (theirs: 3 seeds for the floor, 10 for the ceiling). `± 95% CI` is 1.96 standard errors over the 128 trajectories within a run, averaged over the seeds. `at trained depth` is the same models on the same split run for the number of rounds they trained at rather than the number the sample's trajectory asks for.
+{
+  "minimum": {
+    "in_distribution": {
+      "mean": 0.96875,
+      "std": 0.0,
+      "sem": 0.0,
+      "seeds": 1
+    },
+    "ood": {
+      "mean": 0.15625,
+      "std": 0.0,
+      "sem": 0.0,
+      "seeds": 1
+    },
+    "ood_wide": {
+      "mean": 0.171875,
+      "std": 0.0,
+      "sem": 0.0,
+      "seeds": 1
+    },
+    "ood_wide_interval": {
+      "mean": 0.171875,
+      "half_width": 0.06561581300523969,
+      "trajectories": 128
+    },
+    "sweep_ood": {
+      "x1": {
+        "mean": 0.15625
+      },
+      "x1.5": {
+        "mean": 0.1875
+      },
+      "x3": {
+        "mean": 0.1875
+      }
+    }
+  }
+}
+  minimum/seed0: loaded full-max-mixed-settle-minimum-seed0.pt
+  minimum/seed0: x0.25 (16 steps) 0.8125  x0.50 (32 steps) 0.9688  x1.00 (64 steps) 0.1562
+  minimum: -> full-max-mixed-settle-minimum-ladder.json

@@ -1,0 +1,22 @@
+Traceback (most recent call last):
+  File "/home/tommaso.salvatori/pc_new/discopy/docs/neural/examples/CLRS_small/evaluate.py", line 438, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/tommaso.salvatori/pc_new/discopy/docs/neural/examples/CLRS_small/evaluate.py", line 430, in main
+    found[algorithm] = report(algorithm, budget, arguments.seeds, device)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/tommaso.salvatori/pc_new/discopy/docs/neural/examples/CLRS_small/evaluate.py", line 251, in report
+    model, record = training.train_model(
+                    ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/tommaso.salvatori/pc_new/discopy/docs/neural/examples/CLRS_small/train.py", line 182, in train_model
+    stored = zoo.load_checkpoint(model, path)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/tommaso.salvatori/pc_new/discopy/docs/neural/examples/CLRS_small/model.py", line 1659, in load_checkpoint
+    module.load_state_dict(weights, strict=strict)
+  File "/home/tommaso.salvatori/miniconda3/envs/disc/lib/python3.12/site-packages/torch/nn/modules/module.py", line 2638, in load_state_dict
+    raise RuntimeError(
+RuntimeError: Error(s) in loading state_dict for Model:
+	Missing key(s) in state_dict: "decoders.reach_h.head.weight", "decoders.reach_h.head.bias". 
+	Unexpected key(s) in state_dict: "decoders.reach_h.weight", "decoders.reach_h.bias". 
+	size mismatch for map.ar.edge.encode.0.weight: copying a param with shape torch.Size([192, 64]) from checkpoint, the shape in current model is torch.Size([192, 32]).
+	size mismatch for map.ar.edge.update.weight_ih: copying a param with shape torch.Size([144, 208]) from checkpoint, the shape in current model is torch.Size([144, 192]).

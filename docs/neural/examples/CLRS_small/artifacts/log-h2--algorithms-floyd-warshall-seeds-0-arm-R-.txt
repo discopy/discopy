@@ -1,0 +1,7 @@
+  floyd_warshall/seed0: loaded p3-max-ptredge-floyd_warshall-seed0.pt
+{
+  "floyd_warshall/seed0": {
+    "score": 0.87939453125,
+    "epoch": 260
+  }
+}

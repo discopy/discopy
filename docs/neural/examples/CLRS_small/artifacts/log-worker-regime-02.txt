@@ -1,0 +1,3 @@
+23:20:49 start --algorithms dag_shortest_paths --seeds 0 --arm R --regime mixed on cuda:0
+Terminated
+23:25:34 done  --algorithms dag_shortest_paths --seeds 0 --arm R --regime mixed on cuda:0 (exit 0)

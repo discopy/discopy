@@ -1,0 +1,36 @@
+  dag_shortest_paths/seed2 epoch   10: loss 4.5855 (out 0.2514, hint 4.3341) val 0.8125
+       probes: pi_h 0.4284  d 0.0447  mark 0.1302  topo_h 0.5926  topo_head_h 0.9332  color 0.1444  s_prev 0.3560  u 0.4840  v 0.5388  s_last 0.4971  phase 0.1847  pi 0.2514
+  dag_shortest_paths/seed2 epoch   20: loss 2.6150 (out 0.0970, hint 2.5180) val 0.8809
+       probes: pi_h 0.2057  d 0.0313  mark 0.0686  topo_h 0.2844  topo_head_h 0.6550  color 0.0752  s_prev 0.1509  u 0.2895  v 0.3336  s_last 0.3371  phase 0.0868  pi 0.0970
+  dag_shortest_paths/seed2 epoch   30: loss 1.6894 (out 0.0613, hint 1.6282) val 0.8965
+       probes: pi_h 0.1332  d 0.0240  mark 0.0362  topo_h 0.1687  topo_head_h 0.4579  color 0.0500  s_prev 0.0975  u 0.1698  v 0.2207  s_last 0.2284  phase 0.0418  pi 0.0613
+  dag_shortest_paths/seed2 epoch   40: loss 1.5828 (out 0.0474, hint 1.5354) val 0.8848
+       probes: pi_h 0.1061  d 0.0184  mark 0.0322  topo_h 0.1458  topo_head_h 0.4290  color 0.0502  s_prev 0.0864  u 0.1741  v 0.2245  s_last 0.2240  phase 0.0447  pi 0.0474
+  dag_shortest_paths/seed2 epoch   50: loss 1.1368 (out 0.0348, hint 1.1020) val 0.9160
+       probes: pi_h 0.0976  d 0.0205  mark 0.0278  topo_h 0.0950  topo_head_h 0.3431  color 0.0331  s_prev 0.0518  u 0.1100  v 0.1412  s_last 0.1567  phase 0.0253  pi 0.0348
+  dag_shortest_paths/seed2 epoch   60: loss 0.5417 (out 0.0303, hint 0.5113) val 0.9434
+       probes: pi_h 0.0607  d 0.0183  mark 0.0106  topo_h 0.0419  topo_head_h 0.1516  color 0.0172  s_prev 0.0273  u 0.0434  v 0.0655  s_last 0.0654  phase 0.0093  pi 0.0303
+  dag_shortest_paths/seed2 epoch   70: loss 0.5052 (out 0.0242, hint 0.4809) val 0.9219
+       probes: pi_h 0.0580  d 0.0102  mark 0.0109  topo_h 0.0362  topo_head_h 0.1999  color 0.0136  s_prev 0.0206  u 0.0302  v 0.0476  s_last 0.0461  phase 0.0076  pi 0.0242
+  dag_shortest_paths/seed2 epoch   80: loss 0.3160 (out 0.0174, hint 0.2986) val 0.9492
+       probes: pi_h 0.0392  d 0.0065  mark 0.0052  topo_h 0.0236  topo_head_h 0.0902  color 0.0114  s_prev 0.0161  u 0.0220  v 0.0442  s_last 0.0362  phase 0.0040  pi 0.0174
+  dag_shortest_paths/seed2 epoch   90: loss 0.2608 (out 0.0147, hint 0.2461) val 0.9375
+       probes: pi_h 0.0339  d 0.0064  mark 0.0045  topo_h 0.0162  topo_head_h 0.0717  color 0.0109  s_prev 0.0136  u 0.0203  v 0.0312  s_last 0.0330  phase 0.0044  pi 0.0147
+  dag_shortest_paths/seed2 epoch  100: loss 0.1309 (out 0.0100, hint 0.1208) val 0.9551
+       probes: pi_h 0.0228  d 0.0048  mark 0.0017  topo_h 0.0052  topo_head_h 0.0407  color 0.0070  s_prev 0.0066  u 0.0075  v 0.0105  s_last 0.0128  phase 0.0012  pi 0.0100
+  dag_shortest_paths/seed2 epoch  110: loss 0.0521 (out 0.0095, hint 0.0426) val 0.9531
+       probes: pi_h 0.0193  d 0.0037  mark 0.0006  topo_h 0.0018  topo_head_h 0.0106  color 0.0032  s_prev 0.0018  u 0.0001  v 0.0009  s_last 0.0005  phase 0.0001  pi 0.0095
+  dag_shortest_paths/seed2 epoch  120: loss 0.3734 (out 0.0065, hint 0.3669) val 0.9551
+       probes: pi_h 0.0250  d 0.0040  mark 0.0066  topo_h 0.0291  topo_head_h 0.1140  color 0.0145  s_prev 0.0191  u 0.0378  v 0.0541  s_last 0.0541  phase 0.0086  pi 0.0065
+  dag_shortest_paths/seed2 epoch  130: loss 1.3866 (out 0.0105, hint 1.3761) val 0.9668
+       probes: pi_h 0.0720  d 0.0092  mark 0.0387  topo_h 0.0965  topo_head_h 0.4272  color 0.0497  s_prev 0.0589  u 0.1621  v 0.1786  s_last 0.2397  phase 0.0435  pi 0.0105
+  dag_shortest_paths/seed2 epoch  140: loss 0.3981 (out 0.0078, hint 0.3902) val 0.9668
+       probes: pi_h 0.0278  d 0.0048  mark 0.0073  topo_h 0.0261  topo_head_h 0.1366  color 0.0143  s_prev 0.0173  u 0.0377  v 0.0502  s_last 0.0599  phase 0.0083  pi 0.0078
+  dag_shortest_paths/seed2 epoch  150: loss 0.3502 (out 0.0056, hint 0.3446) val 0.9707
+       probes: pi_h 0.0234  d 0.0047  mark 0.0065  topo_h 0.0207  topo_head_h 0.1251  color 0.0127  s_prev 0.0148  u 0.0351  v 0.0450  s_last 0.0489  phase 0.0076  pi 0.0056
+  dag_shortest_paths/seed2 epoch  160: loss 0.1504 (out 0.0065, hint 0.1439) val 0.9629
+       probes: pi_h 0.0171  d 0.0032  mark 0.0021  topo_h 0.0093  topo_head_h 0.0461  color 0.0081  s_prev 0.0077  u 0.0126  v 0.0172  s_last 0.0181  phase 0.0022  pi 0.0065
+  dag_shortest_paths/seed2 epoch  170: loss 0.1171 (out 0.0057, hint 0.1114) val 0.9688
+       probes: pi_h 0.0152  d 0.0027  mark 0.0017  topo_h 0.0073  topo_head_h 0.0365  color 0.0069  s_prev 0.0057  u 0.0087  v 0.0118  s_last 0.0132  phase 0.0017  pi 0.0057
+  dag_shortest_paths/seed2 epoch  180: loss 0.1719 (out 0.0022, hint 0.1697) val 0.9609
+       probes: pi_h 0.0123  d 0.0025  mark 0.0030  topo_h 0.0098  topo_head_h 0.0687  color 0.0080  s_prev 0.0071  u 0.0138  v 0.0197  s_last 0.0216  phase 0.0031  pi 0.0022

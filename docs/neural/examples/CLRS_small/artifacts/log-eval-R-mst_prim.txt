@@ -1,0 +1,50 @@
+  mst_prim/seed0: loaded p3-max-ptredge-mst_prim-seed0.pt
+  mst_prim/seed0:  id 0.9688  ood 0.0562  ood(128) 0.0535 +- 0.0033
+  mst_prim/seed1: loaded p3-max-ptredge-mst_prim-seed1.pt
+  mst_prim/seed1:  id 0.9551  ood 0.0435  ood(128) 0.0459 +- 0.0037
+  mst_prim/seed2: loaded p3-max-ptredge-mst_prim-seed2.pt
+  mst_prim/seed2:  id 0.9609  ood 0.0308  ood(128) 0.0258 +- 0.0035
+  mst_prim: -> p3-max-ptredge-mst_prim-report.json
+| algorithm | seeds | ID `n = 16` | OOD `n = 64` (32 traj.) | OOD `n = 64` (128 traj.) ± s.e.m. | ± 95% CI (traj.) | at trained depth | floor (MPNN) | ceiling (Triplet-GMPNN) |
+|---|---|---|---|---|---|---|---|---|
+| `mst_prim` | 3 | 0.9616 | 0.0435 | 0.0417 ± 0.0083 | ± 0.0035 | — | 0.6908 ± 0.0756 | 0.8639 ± 0.0133 |
+
+Every column is at `n = 64` out of distribution; a parenthesis in a header counts **trajectories**, not nodes. `± s.e.m.` is the standard error over seeds, the anchors' own convention (theirs: 3 seeds for the floor, 10 for the ceiling). `± 95% CI` is 1.96 standard errors over the 128 trajectories within a run, averaged over the seeds. `at trained depth` is the same models on the same split run for the number of rounds they trained at rather than the number the sample's trajectory asks for.
+{
+  "mst_prim": {
+    "in_distribution": {
+      "mean": 0.9615885416666666,
+      "std": 0.006859149578680169,
+      "sem": 0.003960131855662904,
+      "seeds": 3
+    },
+    "ood": {
+      "mean": 0.04345703125,
+      "std": 0.0126953125,
+      "sem": 0.007329642089321421,
+      "seeds": 3
+    },
+    "ood_wide": {
+      "mean": 0.041707356770833336,
+      "std": 0.014322512071848224,
+      "sem": 0.008269106200153238,
+      "seeds": 3
+    },
+    "ood_wide_interval": {
+      "mean": 0.041707356770833336,
+      "half_width": 0.0034817124188242583,
+      "trajectories": 128
+    },
+    "sweep_ood": {
+      "x1": {
+        "mean": 0.04345703125
+      },
+      "x1.5": {
+        "mean": 0.047037760416666664
+      },
+      "x3": {
+        "mean": 0.041178385416666664
+      }
+    }
+  }
+}

@@ -1,0 +1,50 @@
+  mst_prim/seed0: loaded p3-max-ptredge-probe-grounded-mst_prim-seed0.pt
+  mst_prim/seed0:  id 0.3516  ood 0.0469  ood(128) 0.0449 +- 0.0027
+  mst_prim/seed1: loaded p3-max-ptredge-probe-grounded-mst_prim-seed1.pt
+  mst_prim/seed1:  id 0.3770  ood 0.0459  ood(128) 0.0444 +- 0.0026
+  mst_prim/seed2: loaded p3-max-ptredge-probe-grounded-mst_prim-seed2.pt
+  mst_prim/seed2:  id 0.3145  ood 0.0459  ood(128) 0.0444 +- 0.0026
+  mst_prim: -> p3-max-ptredge-probe-grounded-mst_prim-report.json
+| algorithm | seeds | ID `n = 16` | OOD `n = 64` (32 traj.) | OOD `n = 64` (128 traj.) ± s.e.m. | ± 95% CI (traj.) | at trained depth | floor (MPNN) | ceiling (Triplet-GMPNN) |
+|---|---|---|---|---|---|---|---|---|
+| `mst_prim` | 3 | 0.3477 | 0.0462 | 0.0446 ± 0.0002 | ± 0.0026 | — | 0.6908 ± 0.0756 | 0.8639 ± 0.0133 |
+
+Every column is at `n = 64` out of distribution; a parenthesis in a header counts **trajectories**, not nodes. `± s.e.m.` is the standard error over seeds, the anchors' own convention (theirs: 3 seeds for the floor, 10 for the ceiling). `± 95% CI` is 1.96 standard errors over the 128 trajectories within a run, averaged over the seeds. `at trained depth` is the same models on the same split run for the number of rounds they trained at rather than the number the sample's trajectory asks for.
+{
+  "mst_prim": {
+    "in_distribution": {
+      "mean": 0.34765625,
+      "std": 0.03143257214732633,
+      "sem": 0.01814760399058119,
+      "seeds": 3
+    },
+    "ood": {
+      "mean": 0.046223958333333336,
+      "std": 0.000563818622255494,
+      "sem": 0.00032552083333333337,
+      "seeds": 3
+    },
+    "ood_wide": {
+      "mean": 0.044596354166666664,
+      "std": 0.00028190931112774694,
+      "sem": 0.00016276041666666666,
+      "seeds": 3
+    },
+    "ood_wide_interval": {
+      "mean": 0.044596354166666664,
+      "half_width": 0.0026446539921807836,
+      "trajectories": 128
+    },
+    "sweep_ood": {
+      "x1": {
+        "mean": 0.046223958333333336
+      },
+      "x1.5": {
+        "mean": 0.0400390625
+      },
+      "x3": {
+        "mean": 0.036295572916666664
+      }
+    }
+  }
+}

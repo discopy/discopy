@@ -1,0 +1,2 @@
+23:20:49 start --algorithms mst_prim --seeds 0 --arm R --regime fixed on cuda:0
+01:09:24 done  --algorithms mst_prim --seeds 0 --arm R --regime fixed on cuda:0 (exit 0)

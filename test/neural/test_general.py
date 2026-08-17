@@ -20,7 +20,7 @@ from discopy.neural import (
     ACT, Batch, Dim, FixedPoint, HaltHead, Interaction, Iterate, MapNN, Mode,
     Orbit, Recursion, Refresh, Relation, Signature, Site, Sym, bucket,
     check_equivariant, from_incidence, from_relation, interpret)
-from discopy.neural.cells import Cyclic, Gate
+from discopy.neural.cells import POOL, Cyclic, Gate
 from discopy.utils import AxiomError
 
 MESSAGE, PEER = Ty("message"), Ty("peer")
@@ -188,6 +188,27 @@ def test_per_leg_needs_emit():
     with pytest.raises(ValueError, match="per-leg"):
         make_site(node_signature(2), {PEER: 3, STATE: 4, CLUE: 2},
                   per_leg=True, emit=False)
+
+
+def test_max_pooling_keeps_an_extremum_exactly():
+    """
+    A max pool is the reduction a change of degree leaves alone: adding a
+    member it dominates changes nothing, whereas a mean divides by the
+    members and a sum grows with them.  It also reduces without reordering
+    a floating-point sum, so a site pooling with it is equivariant
+    *exactly* rather than up to rounding.
+    """
+    node = node_signature(3)
+    widths = {PEER: 3, STATE: 4, CLUE: 2}
+    torch.manual_seed(0)
+    site = make_site(node, widths, pool="max").double()
+    assert check_equivariant(site, node, widths)[PEER] == 0.0
+
+    orbit = torch.tensor([[[1., 5.], [3., 2.]]])
+    grown = torch.cat([orbit, torch.tensor([[[0., -1.]]])], dim=1)
+    assert torch.equal(POOL["max"](orbit), POOL["max"](grown))
+    assert not torch.equal(POOL["mean"](orbit), POOL["mean"](grown))
+    assert not torch.equal(POOL["sum"](orbit), POOL["sum"](grown))
 
 
 # --- the model --------------------------------------------------------------

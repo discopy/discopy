@@ -1,0 +1,50 @@
+  bfs/seed0: loaded full-max-bfs-seed0.pt
+  bfs/seed0:  id 0.9941  ood 0.8872  ood(128) 0.8958 +- 0.0103
+  bfs/seed1: loaded full-max-bfs-seed1.pt
+  bfs/seed1:  id 0.9902  ood 0.8462  ood(128) 0.8339 +- 0.0138
+  bfs/seed2: loaded full-max-bfs-seed2.pt
+  bfs/seed2:  id 0.9941  ood 0.8442  ood(128) 0.8372 +- 0.0123
+  bfs: -> full-max-bfs-report.json
+| algorithm | seeds | ID `n = 16` | OOD `n = 64` (32) | OOD (128) ± s.e.m. | ± 95% CI (traj.) | floor (MPNN) | ceiling (Triplet-GMPNN) |
+|---|---|---|---|---|---|---|---|
+| `bfs` | 3 | 0.9928 | 0.8592 | 0.8556 ± 0.0201 | ± 0.0121 | 0.9989 ± 0.0005 | 0.9973 ± 0.0004 |
+
+`± s.e.m.` is the standard error over seeds, the anchors' own convention (theirs: 3 seeds for the floor, 10 for the ceiling). `± 95% CI` is 1.96 standard errors over the 128 trajectories within a run, averaged over the seeds.
+{
+  "bfs": {
+    "in_distribution": {
+      "mean": 0.9928385416666666,
+      "std": 0.002255274489021976,
+      "sem": 0.0013020833333333335,
+      "seeds": 3
+    },
+    "ood": {
+      "mean": 0.8592122395833334,
+      "std": 0.02426386087706279,
+      "sem": 0.01400874660895183,
+      "seeds": 3
+    },
+    "ood_wide": {
+      "mean": 0.8555908203125,
+      "std": 0.034819580385395614,
+      "sem": 0.02010309410857797,
+      "seeds": 3
+    },
+    "ood_wide_interval": {
+      "mean": 0.8555908203125,
+      "half_width": 0.01213020871144109,
+      "trajectories": 128
+    },
+    "sweep_ood": {
+      "x1": {
+        "mean": 0.8592122395833334
+      },
+      "x1.5": {
+        "mean": 0.8538411458333334
+      },
+      "x3": {
+        "mean": 0.5553385416666666
+      }
+    }
+  }
+}

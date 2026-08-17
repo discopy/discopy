@@ -377,9 +377,18 @@ class CMap(compact.CMap):
         """
         return box_ports(self, index)
 
-    @property
+    @cached_property
     def port_widths(self) -> tuple[int, ...]:
-        """ The dimension carried by each port of the map. """
+        """
+        The dimension carried by each port of the map.
+
+        Cached like :attr:`module_list` beside it, and for the same
+        reason: it is a function of the boxes, which a map fixes in its
+        constructor, and :meth:`forward` reads it on every call.  One
+        round of a fixed-point iteration is one call, so a residual curve
+        over a diagram with a box per pair rebuilt every port of it per
+        round.
+        """
         return tuple(
             sum(getattr(port.obj, "inside", (port.obj, )))
             for port in self.ports)

@@ -1,0 +1,3 @@
+--algorithms dag_shortest_paths --seeds 0 --arm F
+--algorithms dag_shortest_paths --seeds 1 --arm F
+--algorithms dag_shortest_paths --seeds 2 --arm F

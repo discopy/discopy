@@ -1,0 +1,67 @@
+  dijkstra/seed0 epoch   10: loss 6.5549 (out 0.9800, hint 5.5749) val 0.3516
+       probes: pi_h 2.0465  d 0.2011  mark 0.4186  in_queue 0.5184  u 2.3902  pi 0.9800
+  dijkstra/seed0 epoch   20: loss 6.4962 (out 0.9287, hint 5.5675) val 0.3828
+       probes: pi_h 2.0471  d 0.1924  mark 0.4075  in_queue 0.5214  u 2.3991  pi 0.9287
+  dijkstra/seed0 epoch   30: loss 6.2860 (out 0.9327, hint 5.3533) val 0.3574
+       probes: pi_h 1.9107  d 0.1458  mark 0.4362  in_queue 0.5351  u 2.3255  pi 0.9327
+  dijkstra/seed0 epoch   40: loss 6.5717 (out 0.9424, hint 5.6293) val 0.3691
+       probes: pi_h 2.0960  d 0.1431  mark 0.4201  in_queue 0.5076  u 2.4625  pi 0.9424
+  dijkstra/seed0 epoch   50: loss 6.1766 (out 0.9200, hint 5.2566) val 0.3633
+       probes: pi_h 1.9165  d 0.1278  mark 0.3904  in_queue 0.4923  u 2.3295  pi 0.9200
+  dijkstra/seed0 epoch   60: loss 6.4721 (out 0.9830, hint 5.4891) val 0.1777
+       probes: pi_h 2.0971  d 0.1390  mark 0.4217  in_queue 0.4979  u 2.3335  pi 0.9830
+  dijkstra/seed0 epoch   70: loss 6.2294 (out 0.9131, hint 5.3163) val 0.3887
+       probes: pi_h 1.9433  d 0.1331  mark 0.3995  in_queue 0.4967  u 2.3437  pi 0.9131
+  dijkstra/seed0 epoch   80: loss 6.1563 (out 0.9385, hint 5.2178) val 0.3691
+       probes: pi_h 1.9112  d 0.1338  mark 0.3951  in_queue 0.4972  u 2.2804  pi 0.9385
+  dijkstra/seed0 epoch   90: loss 6.7385 (out 0.9749, hint 5.7636) val 0.3105
+       probes: pi_h 2.1732  d 0.1597  mark 0.4448  in_queue 0.5199  u 2.4659  pi 0.9749
+  dijkstra/seed0 epoch  100: loss 6.5291 (out 0.9378, hint 5.5913) val 0.3594
+       probes: pi_h 2.1201  d 0.1429  mark 0.4537  in_queue 0.5128  u 2.3619  pi 0.9378
+  dijkstra/seed0 epoch  110: loss 6.6953 (out 0.9216, hint 5.7737) val 0.3887
+       probes: pi_h 2.1720  d 0.1660  mark 0.4388  in_queue 0.5236  u 2.4733  pi 0.9216
+  dijkstra/seed0 epoch  120: loss 6.3368 (out 0.9271, hint 5.4097) val 0.3613
+       probes: pi_h 2.0254  d 0.1279  mark 0.3993  in_queue 0.4872  u 2.3699  pi 0.9271
+  dijkstra/seed0 epoch  130: loss 6.2857 (out 0.9246, hint 5.3610) val 0.3613
+       probes: pi_h 1.9604  d 0.1360  mark 0.4227  in_queue 0.5059  u 2.3361  pi 0.9246
+  dijkstra/seed0 epoch  140: loss 6.1517 (out 0.9228, hint 5.2289) val 0.3809
+       probes: pi_h 1.9175  d 0.1189  mark 0.3872  in_queue 0.4883  u 2.3170  pi 0.9228
+  dijkstra/seed0 epoch  150: loss 6.1781 (out 0.9355, hint 5.2426) val 0.3086
+       probes: pi_h 1.8928  d 0.1318  mark 0.3792  in_queue 0.4822  u 2.3566  pi 0.9355
+  dijkstra/seed0 epoch  160: loss 6.4530 (out 0.9145, hint 5.5385) val 0.3809
+       probes: pi_h 2.0999  d 0.1304  mark 0.4098  in_queue 0.5015  u 2.3969  pi 0.9145
+  dijkstra/seed0 epoch  170: loss 6.7274 (out 0.9879, hint 5.7395) val 0.3086
+       probes: pi_h 2.1383  d 0.1709  mark 0.4397  in_queue 0.5354  u 2.4552  pi 0.9879
+  dijkstra/seed0 epoch  180: loss 6.3278 (out 0.9312, hint 5.3967) val 0.4121
+       probes: pi_h 2.0299  d 0.1299  mark 0.4222  in_queue 0.5016  u 2.3131  pi 0.9312
+  dijkstra/seed0 epoch  190: loss 6.1168 (out 0.8610, hint 5.2558) val 0.4121
+       probes: pi_h 1.9269  d 0.1256  mark 0.3959  in_queue 0.4886  u 2.3188  pi 0.8610
+  dijkstra/seed0 epoch  200: loss 6.0807 (out 0.8793, hint 5.2014) val 0.3809
+       probes: pi_h 1.8749  d 0.1246  mark 0.4030  in_queue 0.5028  u 2.2962  pi 0.8793
+  dijkstra/seed0 epoch  210: loss 6.1313 (out 0.9019, hint 5.2294) val 0.3711
+       probes: pi_h 1.9317  d 0.1266  mark 0.3785  in_queue 0.4854  u 2.3073  pi 0.9019
+  dijkstra/seed0 epoch  220: loss 6.2656 (out 0.9197, hint 5.3459) val 0.3691
+       probes: pi_h 1.9561  d 0.1296  mark 0.4177  in_queue 0.5164  u 2.3262  pi 0.9197
+  dijkstra/seed0 epoch  230: loss 6.3369 (out 0.9096, hint 5.4273) val 0.2734
+       probes: pi_h 1.9961  d 0.1361  mark 0.4406  in_queue 0.5191  u 2.3354  pi 0.9096
+  dijkstra/seed0 epoch  240: loss 5.8954 (out 0.8132, hint 5.0822) val 0.4004
+       probes: pi_h 1.8342  d 0.1184  mark 0.3597  in_queue 0.4745  u 2.2954  pi 0.8132
+  dijkstra/seed0 epoch  250: loss 6.7347 (out 0.9373, hint 5.7974) val 0.3965
+       probes: pi_h 2.0458  d 0.1439  mark 0.5156  in_queue 0.6169  u 2.4753  pi 0.9373
+  dijkstra/seed0 epoch  260: loss 6.0885 (out 0.8991, hint 5.1894) val 0.3516
+       probes: pi_h 1.8961  d 0.1196  mark 0.3869  in_queue 0.4932  u 2.2936  pi 0.8991
+  dijkstra/seed0 epoch  270: loss 5.9167 (out 0.7738, hint 5.1429) val 0.3652
+       probes: pi_h 1.8642  d 0.1227  mark 0.3752  in_queue 0.4822  u 2.2986  pi 0.7738
+  dijkstra/seed0 epoch  280: loss 6.2339 (out 0.7964, hint 5.4376) val 0.3555
+       probes: pi_h 2.0119  d 0.1364  mark 0.4293  in_queue 0.5107  u 2.3493  pi 0.7964
+  dijkstra/seed0 epoch  290: loss 5.9630 (out 0.7834, hint 5.1795) val 0.3535
+       probes: pi_h 1.8713  d 0.1255  mark 0.3963  in_queue 0.4904  u 2.2960  pi 0.7834
+  dijkstra/seed0 epoch  300: loss 5.8788 (out 0.7100, hint 5.1688) val 0.3438
+       probes: pi_h 1.8616  d 0.1236  mark 0.3921  in_queue 0.4989  u 2.2925  pi 0.7100
+  dijkstra/seed0: best val 0.4121 at epoch 180, 17.30s/epoch, 12 calls/round, 34 rounds (trajectory), compile cache 1546/1546 hit on a warm epoch -> p3-max-ptredge-probe-grounded-dijkstra-seed0.pt
+{
+  "dijkstra/seed0": {
+    "score": 0.412109375,
+    "epoch": 180
+  }
+}
