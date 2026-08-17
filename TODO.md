@@ -13,4 +13,4 @@ two bugs here, reported as issues and fixed on this branch.
       array of `Tensor.spider_factory` on the active backend, with a
       regression test evaluating spiders under the PyTorch backend.
 - [x] Changelog entries for both fixes.
-- [ ] One green CI run.
+- [x] One green CI run.
