@@ -30,7 +30,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   is a fixed unitary on memory and input qubits, each input value induces
   a channel from memory to memory, the features of a time series are the
   Born probabilities of the memory qubits and only a ridge-regression
-  linear readout is trained.
+  linear readout is trained, with a `Rydberg` reservoir as example
+  ([#519](https://github.com/discopy/discopy/pull/519),
+  [#586](https://github.com/discopy/discopy/pull/586)).
 - Composition benchmark suite for diagram operations, reproducing the
   scaling experiments of arXiv:2105.09257
   ([#346](https://github.com/discopy/discopy/pull/346)).
@@ -154,6 +156,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `closed.Context.dom` called `category.ob.tensor` unbound, which raised
   `TypeError` for an empty context instead of returning `Ty()`
   ([#549](https://github.com/discopy/discopy/issues/549)).
+- `Controlled._decompose` rebuilt controlled rotations at a distance by
+  passing the inner gate as a phase, so `CU1`, `CRz` and `CRx` raised
+  `TypeError` on `eval` whenever the distance was not one
+  ([#587](https://github.com/discopy/discopy/issues/587)).
 
 ### Performance
 

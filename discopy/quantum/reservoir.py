@@ -63,6 +63,18 @@ class Reservoir:
     >>> predictions = reservoir.predict(sequence, weights)[:, 0]
     >>> errors = [(p - t) ** 2 for p, t in zip(predictions, targets)]
     >>> assert sum(errors) / len(errors) < 1 / 12
+
+    The unitary can be any circuit, e.g. an array of neutral atoms evolving
+    under the Rydberg Hamiltonian of Pasqal's QPU between the steps, as
+    proposed by Araiza Bravo, Najafi, Gao and Yelin :cite:`BravoEtAl22`:
+
+    >>> from discopy.quantum.ansatze import Rydberg
+    >>> rydberg = Reservoir(memory=2, inputs=1, unitary=Rydberg(
+    ...     [(0, 0), (0, 8), (8, 0)], duration=0.5, omega=4, delta=2))
+    >>> weights = rydberg.fit(sequence, targets)
+    >>> predictions = rydberg.predict(sequence, weights)[:, 0]
+    >>> errors = [(p - t) ** 2 for p, t in zip(predictions, targets)]
+    >>> assert sum(errors) / len(errors) < 1 / 12
     """
     def __init__(self, memory: int, inputs: int, unitary: Circuit):
         assert_isinstance(unitary, Circuit)

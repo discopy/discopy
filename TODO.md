@@ -26,7 +26,11 @@
 
 > merge the quantum reservoir PR into this one, add a Rydberg reservoir as example
 
-- [WIP] @t9pcwe-2026-08-17 15:30 merge #519's branch `claude/quantum-reservoir-discopy-pqbqgo`
+- [x] merge #519's branch `claude/quantum-reservoir-discopy-pqbqgo`
   into this one, keeping both `TODO.md` sections
-- [WIP] @t9pcwe-2026-08-17 15:30 a Rydberg reservoir as example: the `unitary` of a `Reservoir`
-  built by the `Rydberg` ansatz
+- [x] a Rydberg reservoir as example: a doctest where the `unitary` of a
+  `Reservoir` is built by the `Rydberg` ansatz, with the
+  :cite:`BravoEtAl22` entry in `docs/discopy.bib`
+- [x] fix #587, found on the way: `Controlled._decompose` broke `eval` for
+  `CU1`, `CRz` and `CRx` at any distance other than one — one line, with a
+  regression test in `test/quantum/circuit.py`
