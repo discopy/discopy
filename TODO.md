@@ -11,3 +11,10 @@
 - [x] docs: Hamiltonian in the docstring with a link to Pasqal's page,
   autosummary entry, `CHANGELOG.md`
 - [x] `pflake8` and the quantum test suite green
+
+> merge the quantum reservoir PR into this one, add a Rydberg reservoir as example
+
+- [WIP] @t9pcwe-2026-08-17 15:30 merge #519's branch `claude/quantum-reservoir-discopy-pqbqgo`
+  into this one, keeping both `TODO.md` sections
+- [WIP] @t9pcwe-2026-08-17 15:30 a Rydberg reservoir as example: the `unitary` of a `Reservoir`
+  built by the `Rydberg` ansatz
