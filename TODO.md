@@ -29,4 +29,4 @@
 The cubic review of 2026-08-16 (requested on the PR thread):
 
 - [x] Type the empty `Tuple()` as the tensor unit `Ty()` instead of `Ty(Product())`, so that terms of unit type stay type-preserving; `to_term` collapses a trailing empty tuple into its expression. Valid finding.
-- [x] `python.Function.tensor` receiving `other=None` with more operands: wontfix, the `None`-first order mirrors `monoidal.Diagram.tensor` verbatim and the case cannot arise from the `tensor(*terms)` splat; diverging from the interface it implements (#493) would be worse than the defensive guard.
+- [x] `python.Function.tensor` receiving `other=None` with more operands: first recorded here as wontfix by mirror-of-`monoidal` reasoning, then fixed in `0faafbf` the better way — `None` is the unit of the tensor, so checking `others` first makes `f.tensor(None, g) == f @ g` instead of dropping `g`. `monoidal.Diagram.tensor` still has the `None`-first order, so the same one-line swap may be worth a follow-up there.
