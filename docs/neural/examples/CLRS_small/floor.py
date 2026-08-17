@@ -148,9 +148,11 @@ def collect_and_eval(model, algorithm: str, split: str, rng_key,
 
 
 def train_one(algorithm: str, arm: str, seed: int, steps: int,
-              log=print) -> dict:
+              eval_every: int = None, log=print) -> dict:
     """One seed of one arm: train, keep best-val, restore, score OOD."""
     recipe = dict(RECIPE, **ARMS[arm])
+    if eval_every is not None:
+        recipe["eval_every"] = eval_every
     train_iter, _, spec = batches_of(
         algorithm, "train", recipe["batch_size"])
     dummy_iter, _, _ = batches_of(algorithm, "train", recipe["batch_size"])
@@ -184,7 +186,7 @@ def train_one(algorithm: str, arm: str, seed: int, steps: int,
         feedback = next(train_iter)
         rng_key, key = jax.random.split(rng_key)
         loss = model.feedback(key, feedback)
-        if (step + 1) % RECIPE["eval_every"] == 0 or step + 1 == steps:
+        if (step + 1) % recipe["eval_every"] == 0 or step + 1 == steps:
             rng_key, key = jax.random.split(rng_key)
             val = collect_and_eval(model, algorithm, "val", key)["score"]
             curve.append({"step": step + 1, "loss": float(loss),
@@ -212,19 +214,22 @@ def train_one(algorithm: str, arm: str, seed: int, steps: int,
             "seconds": time.time() - started}
 
 
-def report(algorithm: str, arm: str, seeds, steps: int, log=print) -> dict:
+def report(algorithm: str, arm: str, seeds, steps: int,
+           eval_every: int = None, suffix: str = "", log=print) -> dict:
     """All seeds of one arm, summarised, written after every seed."""
-    path = ARTIFACTS / f"floor-{arm}-{algorithm}-report.json"
+    path = ARTIFACTS / f"floor-{arm}{suffix}-{algorithm}-report.json"
     rows = []
     for seed in seeds:
-        rows.append(train_one(algorithm, arm, seed, steps, log=log))
+        rows.append(train_one(algorithm, arm, seed, steps,
+                              eval_every=eval_every, log=log))
         scores = [row["ood"]["score"] for row in rows]
         found = {
             "algorithm": algorithm, "arm": arm,
             "what": ("the 2022 floor recipe in the reference "
                      "implementation" if arm == "R" else
                      "the same recipe with hints off entirely"),
-            "recipe": {key: value for key, value in RECIPE.items()},
+            "recipe": dict(RECIPE, **({"eval_every": eval_every}
+                                      if eval_every is not None else {})),
             "arm_flags": ARMS[arm],
             "dataset": "the published CLRS30 tfds splits, "
                        f"downloaded to {DATASET}",
@@ -256,6 +261,12 @@ def main(argv=None) -> int:
     parser.add_argument("--seeds", nargs="+", type=int, default=list(SEEDS))
     parser.add_argument("--steps", type=int,
                         default=RECIPE["train_steps"])
+    parser.add_argument("--eval-every", type=int, default=None,
+                        help="validation cadence in steps; v1.0.0's "
+                             "default was 10 (320 items), ours is 100")
+    parser.add_argument("--suffix", default="",
+                        help="artefact-name suffix, so a variant arm "
+                             "never overwrites the recorded one")
     parser.add_argument("--smoke", action="store_true",
                         help="60 steps, one seed: exercises every code "
                              "path in minutes")
@@ -264,7 +275,8 @@ def main(argv=None) -> int:
     steps = 60 if arguments.smoke else arguments.steps
     for algorithm in arguments.algorithms:
         for arm in arguments.arm:
-            report(algorithm, arm, seeds, steps)
+            report(algorithm, arm, seeds, steps,
+                   eval_every=arguments.eval_every, suffix=arguments.suffix)
     return 0
 
 

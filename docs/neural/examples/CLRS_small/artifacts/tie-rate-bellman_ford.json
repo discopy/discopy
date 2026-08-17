@@ -1,0 +1,27 @@
+{
+  "train": {
+    "n": 16,
+    "assignments": 16000,
+    "tied_share": 0.0,
+    "mean_k": 1.0,
+    "max_k": 1,
+    "order_blind_ceiling": 1.0
+  },
+  "test": {
+    "n": 64,
+    "assignments": 2048,
+    "tied_share": 0.0,
+    "mean_k": 1.0,
+    "max_k": 1,
+    "order_blind_ceiling": 1.0
+  },
+  "wide": {
+    "n": 64,
+    "assignments": 8192,
+    "tied_share": 0.0,
+    "mean_k": 1.0,
+    "max_k": 1,
+    "order_blind_ceiling": 1.0
+  },
+  "method": "candidates = reached in-neighbours u with d[u]+A[u,v] == d[v] (rtol 1e-9) at convergence; source and unreached nodes are forced self-pointers, k = 1; ceiling = mean over assignments of 1/k"
+}
