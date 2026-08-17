@@ -138,7 +138,10 @@ def Rydberg(positions, duration, omega, delta, phase=0, steps=1,
             - \\delta(t) \\, n_i \\right)
         + \\sum_{i < j} \\frac{C_6}{|\\vec{r}_i - \\vec{r}_j|^6} \\, n_i n_j
 
-    where :math:`n = \\ket{r}\\bra{r}` counts the Rydberg state. The evolution
+    where :math:`n = \\ket{r}\\bra{r}` counts the Rydberg state and the pulse
+    parameters follow the conventions of `Pulser
+    <https://pulser.readthedocs.io>`_, whose :math:`\\Omega / 2` is the
+    :math:`\\Omega` of the page above, which also has no phase. The evolution
     is cut into :code:`steps` slices of length :code:`dt = duration / steps`
     on which the waveforms are constant, each approximated to first order by
     a layer of drives :math:`R_z(\\varphi) R_x(\\Omega dt) R_z(-\\varphi)`,
