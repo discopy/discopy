@@ -215,8 +215,9 @@ class Channel(Tensor):
                 (offsets[len(left) + block], right[block])]
             for axis in range(start, start + size)]
         with backend() as np:
-            array = np.transpose(
-                np.tensordot(self.array, other.array, 0), permutation)
+            array = np.moveaxis(
+                np.tensordot(self.array, other.array, 0),
+                permutation, range(len(permutation)))
         return type(self)(array, self.dom @ other.dom, self.cod @ other.cod)
 
     @classmethod
