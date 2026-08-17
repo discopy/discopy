@@ -98,10 +98,10 @@ class Function(function.Function, ClosedCategory):
             other : The other function to compose in sequence.
             others : Any further functions to compose in sequence.
         """
-        if other is None:
-            return self
         if others:
             return self.tensor(other).tensor(*others)
+        if other is None:
+            return self
 
         def inside(*xs):
             left, right = xs[:len(self.dom)], xs[len(self.dom):]
