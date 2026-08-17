@@ -7,6 +7,14 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+# Keep an older run from replacing the comment for a newer head commit.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   benchmark:
     # Only run on main / manual dispatch, or on pull requests tagged "benchmark".
@@ -14,12 +22,27 @@ jobs:
       github.event_name != 'pull_request'
       || contains(github.event.pull_request.labels.*.name, 'benchmark')
     runs-on: ubuntu-latest
-    timeout-minutes: 15   # backstop: BENCH_FLAGS=bench:full has no in-process cap (~3-4 min observed)
+    timeout-minutes: 20   # PRs run the suite twice; full runs take ~3-4 min
     strategy:
       matrix:
         python-version: [ "3.14" ]
     steps:
+    - name: Prepare PR metadata
+      if: github.event_name == 'pull_request'
+      env:
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        RUN_ID: ${{ github.run_id }}
+      run: |
+        mkdir -p "$RUNNER_TEMP/benchmark-comment"
+        printf '{"pull_request":%s,"base":"%s","head":"%s","run_id":%s}\n' \
+          "$PR_NUMBER" "$BASE_SHA" "$HEAD_SHA" "$RUN_ID" \
+          > "$RUNNER_TEMP/benchmark-comment/metadata.json"
     - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.sha }}
+        persist-credentials: false
     - name: Setup uv
       uses: astral-sh/setup-uv@v5
       with:
@@ -32,26 +55,64 @@ jobs:
     - name: Install
       run:
         uv sync --locked --group dev
+    - name: Benchmark the base commit
+      if: github.event_name == 'pull_request'
+      env:
+        BENCH_FLAGS: bench:smoke
+      run:
+        uv run pytest benchmark/ -v
+          --benchmark-json="$RUNNER_TEMP/benchmark-comment/base.json"
+    - name: Checkout the head commit
+      if: github.event_name == 'pull_request'
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+        persist-credentials: false
+    - name: Install the head commit
+      if: github.event_name == 'pull_request'
+      run:
+        uv sync --locked --group dev
     - name: Name the artifact after the branch
       if: always()
       run: echo "slug=${REF//\//-}" >> "$GITHUB_OUTPUT"
       id: branch
       env:
         REF: ${{ github.head_ref || github.ref_name }}
-    - name: Run benchmarks
+    - name: Benchmark the head commit
       # PRs run the small/medium sizes as a smoke; main / manual dispatch run the
       # full size tail (BENCH_FLAGS=bench:full).
       env:
         BENCH_FLAGS: ${{ github.event_name != 'pull_request' && 'bench:full' || 'bench:smoke' }}
       run: |
         mkdir -p benchmark-results
-        uv run pytest benchmark/ -v --benchmark-json=benchmark-results/bench.json
-    - name: Render report (and gate on the committed baseline, if present)
-      if: always()
+        if [ "${{ github.event_name }}" = pull_request ]; then
+          uv run pytest benchmark/ -v \
+            --benchmark-json="$RUNNER_TEMP/benchmark-comment/head.json"
+          cp "$RUNNER_TEMP/benchmark-comment/head.json" \
+            benchmark-results/bench.json
+        else
+          uv run pytest benchmark/ -v \
+            --benchmark-json=benchmark-results/bench.json
+        fi
+    - name: Render comparison
+      if: github.event_name == 'pull_request'
+      run:
+        uv run python benchmark/report.py
+          "$RUNNER_TEMP/benchmark-comment/head.json"
+          --output benchmark-results
+          --base "$RUNNER_TEMP/benchmark-comment/base.json"
+    - name: Render report
+      if: github.event_name != 'pull_request'
       run:
         uv run python benchmark/report.py benchmark-results/bench.json
           --output benchmark-results
-          --baseline benchmark/baseline.json.gz
+    - name: Upload PR comment data
+      if: always() && github.event_name == 'pull_request'
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-comment
+        path: ${{ runner.temp }}/benchmark-comment/
+        retention-days: 1
     - name: Upload benchmark results
       if: always()
       uses: actions/upload-artifact@v4

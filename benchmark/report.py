@@ -2,33 +2,36 @@
 
 """
 Render a ``pytest-benchmark`` JSON run as scaling tables and log-log plots,
-with an optional regression gate against a committed baseline.
+with an optional same-runner comparison against a base run.
 
     python benchmark/report.py RUN.json [--output DIR]
-                               [--baseline BASE.json] [--fail-threshold 0.25]
+                               [--base BASE.json] [--fail-threshold 0.25]
 
 Reads the median CPU time of each ``(suite, family, case, size)`` from
 ``RUN.json``. For each suite ``NAME``, it produces a hierarchical table as
 ``NAME-results.{html,md,csv}`` and a ``NAME-scaling.png`` plot. With
-``--baseline``, it joins the two runs on all four keys, prints the per-cell
-deltas and exits non-zero if any case regresses by more than
-``--fail-threshold`` (a fraction, e.g. ``0.25`` = 25%).
+``--base``, it joins head and base runs on all four keys, writes the important
+regressions and speedups to ``comparison.md``, and exits non-zero if any
+measurement regresses by more than ``--fail-threshold`` (a fraction, e.g.
+``0.25`` = 25%).
 """
 from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
 from html import escape
-import gzip
 import json
 import os
 
 import polars as pl
 
 
-def load(path: str, opener=open) -> pl.DataFrame:
+KEYS = ["suite", "family", "case", "size"]
+
+
+def load(path: str) -> pl.DataFrame:
     """A tidy suite, family, case, size and median frame."""
-    with opener(path, "rt") as file:
+    with open(path) as file:
         data = json.load(file)
     rows = []
     for bench in data["benchmarks"]:
@@ -200,70 +203,121 @@ def write_reports(df: pl.DataFrame, output: str) -> list[str]:
     return names
 
 
-def compare(current: pl.DataFrame, baseline: pl.DataFrame) -> pl.DataFrame:
-    """ Per-cell relative change vs baseline, worst first (shared only).
-
-    ``delta`` is the raw change in median and ``normalised`` divides it by the
-    run-wide median change, i.e. by the speed of the machine the run landed on.
-    GitHub hands out several CPU models for the same runner label, so a raw
-    delta mixes the machine in with the code. Writing a measurement as
-    ``t = machine * code * baseline``, the median over cases estimates the
-    machine -- most cases are unchanged, and the median ignores the few that
-    are not -- and dividing it out leaves the change due to the code alone.
-    Dividing rather than subtracting keeps the threshold meaning the same
-    thing on every machine: subtracting would scale it by the machine factor.
-    """
-    return current.join(
-        baseline, on=["suite", "family", "case", "size"], suffix="_base",
+def compare(head: pl.DataFrame, base: pl.DataFrame) -> pl.DataFrame:
+    """Raw head-relative-to-base changes, worst first (shared only)."""
+    return head.rename({"median": "head"}).join(
+        base.rename({"median": "base"}), on=KEYS,
     ).with_columns(
-        ((pl.col("median") - pl.col("median_base")) / pl.col("median_base"))
-        .alias("delta"),
-    ).with_columns(
-        ((1 + pl.col("delta")) / (1 + pl.col("delta").median()) - 1)
-        .alias("normalised"),
-    ).sort("normalised", descending=True)
+        (pl.col("head") / pl.col("base") - 1).alias("change"),
+    ).sort(
+        ["change", *KEYS], descending=[True, False, False, False, False])
 
 
-def main() -> int:
+def _comparison_table(rows: pl.DataFrame) -> str:
+    """Render comparison rows as a Markdown table."""
+    lines = [
+        "| suite | family | case | n | base (s) | head (s) | change |",
+        "| --- | --- | --- | ---: | ---: | ---: | ---: |",
+    ]
+    for suite, family, case, size, base, head, change in rows.select(
+            *KEYS, "base", "head", "change").iter_rows():
+        labels = [
+            str(value).replace("|", "\\|").replace("\n", " ")
+            for value in (suite, family, case)]
+        lines.append(
+            f"| {' | '.join(labels)} | {size} | {base:.3g} | {head:.3g} "
+            f"| {change:+.1%} |")
+    return "\n".join(lines)
+
+
+def comparison_markdown(
+        head: pl.DataFrame, base: pl.DataFrame, threshold: float) -> str:
+    """Summarise important raw regressions and speedups in Markdown."""
+    changes = compare(head, base)
+    regressions = changes.filter(pl.col("change") > threshold)
+    speedups = changes.filter(pl.col("change") < -threshold).sort(
+        ["change", *KEYS], descending=[False, False, False, False, False])
+    head_only = head.join(base.select(KEYS), on=KEYS, how="anti")
+    base_only = base.join(head.select(KEYS), on=KEYS, how="anti")
+
+    if changes.is_empty():
+        status = "**ERROR:** No shared benchmark measurements were found."
+    elif regressions.is_empty():
+        status = "**PASS:** No important regressions were found."
+    else:
+        suffix = "" if len(regressions) == 1 else "s"
+        status = (
+            f"**FAIL:** {len(regressions)} important regression{suffix} "
+            "found.")
+    speedup_suffix = "" if len(speedups) == 1 else "s"
+    lines = [
+        "## Benchmark comparison",
+        "",
+        status,
+        "",
+        f"Important changes exceed {threshold:.0%} in either direction. "
+        f"Found {len(speedups)} important speedup{speedup_suffix} among "
+        f"{len(changes)} shared measurements.",
+        f"Head-only measurements: {len(head_only)}. "
+        f"Base-only measurements: {len(base_only)}.",
+        "",
+        f"### Regressions (more than {threshold:.0%} slower)",
+        "",
+        (_comparison_table(regressions) if len(regressions)
+         else "_No important regressions._"),
+        "",
+        f"### Speedups (more than {threshold:.0%} faster)",
+        "",
+        (_comparison_table(speedups) if len(speedups)
+         else "_No important speedups._"),
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Render a pytest-benchmark run; optionally gate.")
     parser.add_argument("run", help="pytest-benchmark --benchmark-json file")
     parser.add_argument("--output", default="benchmark-results")
     parser.add_argument(
-        "--baseline", help="baseline --benchmark-json to gate against")
+        "--base", help="same-runner base --benchmark-json to compare against")
     parser.add_argument(
         "--fail-threshold", type=float, default=0.25,
-        help="fail if a case regresses by more than this fraction relative to"
-             " the run-wide median change")
-    args = parser.parse_args()
+        help="fail if a measurement regresses by more than this fraction")
+    args = parser.parse_args(argv)
 
     os.makedirs(args.output, exist_ok=True)
     df = load(args.run)
     written = write_reports(df, args.output)
     print(f"wrote {', '.join(written)} to {args.output}/")
 
-    if not args.baseline:
+    if not args.base:
         return 0
-    if not os.path.exists(args.baseline):
-        print(f"baseline {args.baseline} not found; skipping regression gate.")
-        return 0
-    deltas = compare(df, load(args.baseline, gzip.open))
-    machine = deltas["delta"].median()
-    regressions = deltas.filter(
-        pl.col("normalised") > args.fail_threshold)
-    with pl.Config(tbl_rows=-1):
-        print(deltas.select(
-            "suite", "family", "case", "size", "median",
-            "median_base", "delta", "normalised"))
-    print(f"the machine this run landed on is {machine:+.1%} "
-          "off the baseline's, measured as the run-wide median delta.")
-    if len(regressions):
-        print(f"REGRESSION: {len(regressions)} case(s) over "
-              f"+{args.fail_threshold:.0%} normalised vs baseline:")
-        print(regressions.select(
-            "suite", "family", "case", "size", "delta", "normalised"))
+    if not os.path.exists(args.base):
+        print(f"base run {args.base} not found.")
+        return 2
+
+    base = load(args.base)
+    changes = compare(df, base)
+    comparison = comparison_markdown(df, base, args.fail_threshold)
+    comparison_path = os.path.join(args.output, "comparison.md")
+    with open(comparison_path, "w") as file:
+        file.write(comparison)
+    print(comparison)
+    print(f"wrote comparison.md to {args.output}/")
+
+    if changes.is_empty():
         return 1
-    print(f"no case regressed by more than +{args.fail_threshold:.0%}.")
+    regressions = changes.filter(pl.col("change") > args.fail_threshold)
+    with pl.Config(tbl_rows=-1):
+        print(changes)
+    if len(regressions):
+        print(f"REGRESSION: {len(regressions)} measurement(s) over "
+              f"+{args.fail_threshold:.0%} vs base:")
+        print(regressions)
+        return 1
+    print(f"no measurement regressed by more than "
+          f"+{args.fail_threshold:.0%}.")
     return 0
 
 

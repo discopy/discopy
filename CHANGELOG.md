@@ -118,6 +118,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   change rather than comparing raw medians, so that the CPU model a
   GitHub-hosted runner happens to give out does not read as a regression. Its
   default threshold is 25%.
+- Pull request benchmarks compare the base and head commits on the same runner
+  instead of using a normalised committed baseline. The job posts or updates a
+  pull request comment listing regressions and speedups over 25%.
 - Benchmark cases now use `pytest-benchmark`'s automatic calibration.
 - Every `monoidal.Wire` subclass named `Ob` is renamed to `Wire`: `rigid`,
   `braided`, `biclosed`, `pivotal`, `frobenius`, `feedback` and

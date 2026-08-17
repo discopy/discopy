@@ -1,0 +1,261 @@
+name: benchmark-comment
+
+on:
+  workflow_run:
+    workflows: [benchmark]
+    types: [completed]
+
+permissions:
+  actions: read
+  pull-requests: write
+
+jobs:
+  comment:
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: >-
+        benchmark-comment-${{ github.event.workflow_run.head_repository.id }}-${{ github.event.workflow_run.head_branch }}
+      cancel-in-progress: true
+    steps:
+    - name: Find the comparison
+      id: artifact
+      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+      with:
+        script: |
+          const artifacts = await github.paginate(
+            github.rest.actions.listWorkflowRunArtifacts,
+            {
+              ...context.repo,
+              run_id: context.payload.workflow_run.id,
+              per_page: 100,
+            },
+          );
+          return artifacts.some(({ name }) => name === "benchmark-comment");
+    - name: Download the comparison
+      if: steps.artifact.outputs.result == 'true'
+      uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      with:
+        name: benchmark-comment
+        path: benchmark-comment
+        run-id: ${{ github.event.workflow_run.id }}
+        github-token: ${{ github.token }}
+    - name: Post or update the comparison
+      if: steps.artifact.outputs.result == 'true'
+      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+      with:
+        script: |
+          const fs = require("fs");
+          const path = require("path");
+          const run = context.payload.workflow_run;
+          const directory = path.join(
+            process.env.GITHUB_WORKSPACE, "benchmark-comment");
+          const metadata = JSON.parse(fs.readFileSync(
+            path.join(directory, "metadata.json"), "utf8"));
+          if (!Number.isInteger(metadata.pull_request)
+              || metadata.run_id !== run.id
+              || !/^[0-9a-f]{40}$/.test(metadata.base)
+              || !/^[0-9a-f]{40}$/.test(metadata.head)
+              || metadata.head !== run.head_sha) {
+            core.setFailed("Invalid benchmark metadata.");
+            return;
+          }
+
+          const { data: pull } = await github.rest.pulls.get({
+            ...context.repo,
+            pull_number: metadata.pull_request,
+          });
+          if (pull.head.sha !== metadata.head) {
+            core.info("Skipping a comparison for a superseded head commit.");
+            return;
+          }
+
+          const source = run.head_repository?.full_name;
+          if (pull.base.repo.full_name !== `${context.repo.owner}/${context.repo.repo}`
+              || pull.head.repo.full_name !== source
+              || pull.head.ref !== run.head_branch) {
+            core.setFailed("Benchmark metadata does not match its source PR.");
+            return;
+          }
+          if (run.pull_requests.length) {
+            const sourcePull = run.pull_requests.find(
+              ({ number }) => number === metadata.pull_request);
+            if (!sourcePull || sourcePull.head.sha !== metadata.head
+                || sourcePull.base.sha !== metadata.base) {
+              core.setFailed("Benchmark run does not belong to this PR.");
+              return;
+            }
+          }
+
+          const escape = value => String(value)
+            .replaceAll("&", "&amp;")
+            .replaceAll("|", "\\|")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replace(/[\\`*_[\]{}()#+.!]/g,
+              character => `&#${character.charCodeAt(0)};`)
+            .replaceAll("@", "&#64;")
+            .replaceAll("\n", " ")
+            .replaceAll("\r", " ");
+          const load = name => {
+            const filename = path.join(directory, name);
+            if (!fs.existsSync(filename)) return null;
+            const data = JSON.parse(fs.readFileSync(filename, "utf8"));
+            if (!Array.isArray(data.benchmarks)) {
+              throw new Error(`${name} has no benchmark list`);
+            }
+            const rows = new Map();
+            for (const benchmark of data.benchmarks) {
+              const group = benchmark.group;
+              const size = Number(benchmark.params?.n);
+              const median = Number(benchmark.stats?.median);
+              if (!Array.isArray(group) || group.length !== 3
+                  || !group.every(value => typeof value === "string")
+                  || !Number.isInteger(size)
+                  || !Number.isFinite(median) || median <= 0) {
+                throw new Error(`${name} has an invalid measurement`);
+              }
+              const [suite, family, caseName] = group;
+              const key = JSON.stringify([suite, family, caseName, size]);
+              if (rows.has(key)) {
+                throw new Error(`${name} has duplicate measurements`);
+              }
+              rows.set(key, { suite, family, case: caseName, size, median });
+            }
+            return rows;
+          };
+          const keyOrder = (left, right) =>
+            left.suite.localeCompare(right.suite)
+            || left.family.localeCompare(right.family)
+            || left.case.localeCompare(right.case)
+            || left.size - right.size;
+          const table = rows => {
+            const lines = [
+              "| suite | family | case | n | base (s) | head (s) | change |",
+              "| --- | --- | --- | ---: | ---: | ---: | ---: |",
+            ];
+            for (const row of rows) {
+              const base = Number(row.base.toPrecision(3));
+              const head = Number(row.head.toPrecision(3));
+              const sign = row.change >= 0 ? "+" : "";
+              lines.push(
+                `| ${escape(row.suite)} | ${escape(row.family)} | `
+                + `${escape(row.case)} | ${row.size} | ${base} | ${head} | `
+                + `${sign}${(100 * row.change).toFixed(1)}% |`,
+              );
+            }
+            return lines.join("\n");
+          };
+          const render = (head, base) => {
+            const changes = [];
+            let headOnly = 0;
+            for (const [key, headRow] of head) {
+              const baseRow = base.get(key);
+              if (!baseRow) {
+                headOnly += 1;
+                continue;
+              }
+              changes.push({
+                ...headRow,
+                base: baseRow.median,
+                head: headRow.median,
+                change: headRow.median / baseRow.median - 1,
+              });
+            }
+            const baseOnly = [...base.keys()].filter(key => !head.has(key)).length;
+            changes.sort((left, right) =>
+              right.change - left.change || keyOrder(left, right));
+            const threshold = .25;
+            const regressions = changes.filter(
+              ({ change }) => change > threshold);
+            const speedups = changes.filter(
+              ({ change }) => change < -threshold).sort((left, right) =>
+                left.change - right.change || keyOrder(left, right));
+
+            let status;
+            if (!changes.length) {
+              status = "**ERROR:** No shared benchmark measurements were found.";
+            } else if (!regressions.length) {
+              status = "**PASS:** No important regressions were found.";
+            } else {
+              const suffix = regressions.length === 1 ? "" : "s";
+              status = `**FAIL:** ${regressions.length} important `
+                + `regression${suffix} found.`;
+            }
+            const speedupSuffix = speedups.length === 1 ? "" : "s";
+            return [
+              status,
+              "",
+              "Important changes exceed 25% in either direction. "
+                + `Found ${speedups.length} important speedup${speedupSuffix} `
+                + `among ${changes.length} shared measurements.`,
+              `Head-only measurements: ${headOnly}. Base-only measurements: `
+                + `${baseOnly}.`,
+              "",
+              "### Regressions (more than 25% slower)",
+              "",
+              regressions.length ? table(regressions)
+                : "_No important regressions._",
+              "",
+              "### Speedups (more than 25% faster)",
+              "",
+              speedups.length ? table(speedups) : "_No important speedups._",
+            ].join("\n");
+          };
+
+          const marker = "<!-- discopy-benchmark -->";
+          const baseLink = `${pull.base.repo.html_url}/commit/${metadata.base}`;
+          const headLink = `${pull.head.repo.html_url}/commit/${metadata.head}`;
+          let report;
+          try {
+            const base = load("base.json");
+            const head = load("head.json");
+            report = base && head ? render(head, base)
+              : "**ERROR:** The benchmark run did not produce both result files.";
+          } catch (error) {
+            report = `**ERROR:** ${escape(error.message)}.`;
+          }
+          const contextLine = `Comparing head [\`${metadata.head.slice(0, 7)}\`](`
+            + `${headLink}) with base [\`${metadata.base.slice(0, 7)}\`](`
+            + `${baseLink}) on the same runner. [Workflow run](${run.html_url}).`;
+          const warnings = [];
+          if (pull.base.sha !== metadata.base) {
+            warnings.push(
+              "The pull request base has changed since this run; rerun the "
+              + "benchmark for a current comparison.");
+          }
+          if (run.conclusion !== "success" && !report.startsWith("**FAIL:**")) {
+            warnings.push(`The benchmark workflow concluded \`${run.conclusion}\`.`);
+          }
+          const warning = warnings.length
+            ? `\n\n> [!WARNING]\n> ${warnings.join(" ")}` : "";
+          const body = `${marker}\n## Benchmark comparison\n\n${contextLine}\n\n`
+            + `${report}${warning}`;
+          if (body.length > 65536) {
+            core.setFailed("Benchmark comparison exceeds GitHub's comment limit.");
+            return;
+          }
+
+          const comments = await github.paginate(
+            github.rest.issues.listComments,
+            {
+              ...context.repo,
+              issue_number: metadata.pull_request,
+              per_page: 100,
+            },
+          );
+          const previous = comments.find(({ body, user }) =>
+            user?.login === "github-actions[bot]" && body?.startsWith(marker));
+          if (previous) {
+            await github.rest.issues.updateComment({
+              ...context.repo,
+              comment_id: previous.id,
+              body,
+            });
+          } else {
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: metadata.pull_request,
+              body,
+            });
+          }

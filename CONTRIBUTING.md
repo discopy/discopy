@@ -83,34 +83,26 @@ uv run python benchmark/report.py benchmark-results/bench.json
 ```
 
 `report.py` writes `NAME-results.{html,md,csv}` with family row groups and
-`NAME-scaling.png` for each `benchmark/test_NAME.py`. To gate on a regression,
-pass a committed baseline:
+`NAME-scaling.png` for each `benchmark/test_NAME.py`. To compare two runs made
+sequentially on the same machine, pass the base run when rendering the head:
 
 ```shell
-uv run python benchmark/report.py benchmark-results/bench.json \
-    --baseline benchmark/baseline.json.gz --fail-threshold 0.25
+uv run python benchmark/report.py benchmark-results/head.json \
+    --base benchmark-results/base.json --fail-threshold 0.25
 ```
 
-It joins the two runs on `(suite, family, case, size)` and exits non-zero if
-any case regresses by more than the threshold relative to the run-wide median
-change. GitHub hands out several CPU models for the same runner label, so the
-raw delta of a cell mixes the machine in with the code. Reading a measurement
-as `time = machine * code * baseline`, the median change over all cases
-estimates the machine -- most cases are unchanged, and a median ignores the few
-that are not -- so dividing it out leaves the change due to the code. It divides
-rather than subtracts, which keeps the threshold meaning the same thing
-whichever runner comes up; subtracting would scale it by the machine factor,
-making the gate stricter on slow machines and laxer on fast ones.
+It joins the runs on `(suite, family, case, size)` and computes the raw change
+`head / base - 1`. It writes `comparison.md`, listing regressions and speedups
+larger than the threshold, and exits non-zero when an important regression is
+present. Both runs must use the same benchmark sizes and machine; there is no
+cross-machine normalisation. Only shared measurements are gated; the report
+counts measurements present in only one of the two runs.
 
-The baseline is a `bench.json` from a CI run of this same workflow, gzipped
-(`gzip -9n bench.json`) and committed as `benchmark/baseline.json.gz`: stored
-compressed, GitHub shows it as a binary file rather than a 6k-line diff. The
-`benchmark` GitHub workflow runs the suite on pull requests (small sizes) and
-on `main` / manual dispatch (full sizes), uploading the report as an artifact.
-
-A benchmarking job is available in the CI pipeline. By default, it is running only
-on the main branch, but you can enable it on your pull requests by attaching the
-tag `benchmark`.
+The `benchmark` GitHub workflow runs the full suite on `main` and manual
+dispatches. On a pull request labelled `benchmark`, one job checks out and
+benchmarks the exact base commit, then the exact head commit on the same runner.
+It uploads the full report and posts or updates a pull request comment with the
+important regressions and speedups.
 
 ## Build the docs
 
