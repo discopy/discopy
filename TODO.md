@@ -11,6 +11,9 @@
 - [x] docs: Hamiltonian in the docstring with a link to Pasqal's page,
   autosummary entry, `CHANGELOG.md`
 - [x] `pflake8` and the quantum test suite green
+- [x] pin the laser-phase sign to Pulser's convention: the same formula read
+  in Pulser's (r, g) basis ordering flips the sign of `phase`, caught by the
+  emulator-agreement tests of rel-int/quantum-reservoir#4
 
 > implement a quantum reservoir model with discopy
 

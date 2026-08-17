@@ -26,7 +26,7 @@ def rydberg_hamiltonian(positions, omega, delta, phase, coupling):
     sigma_x = np.array([[0, 1], [1, 0]])
     sigma_y = np.array([[0, -1j], [1j, 0]])
     number = np.array([[0, 0], [0, 1]])
-    drive = omega / 2 * (np.cos(phase) * sigma_x - np.sin(phase) * sigma_y)\
+    drive = omega / 2 * (np.cos(phase) * sigma_x + np.sin(phase) * sigma_y)\
         - delta * number
     place = lambda op, i: np.kron(np.kron(
         np.eye(2 ** i), op), np.eye(2 ** (len(positions) - i - 1)))

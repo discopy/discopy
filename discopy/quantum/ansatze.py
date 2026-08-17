@@ -134,7 +134,7 @@ def Rydberg(positions, duration, omega, delta, phase=0, steps=1,
     .. math::
         H(t) = \\sum_i \\left( \\frac{\\Omega(t)}{2} \\left(
             \\cos\\varphi(t) \\, \\sigma_x^i
-            - \\sin\\varphi(t) \\, \\sigma_y^i \\right)
+            + \\sin\\varphi(t) \\, \\sigma_y^i \\right)
             - \\delta(t) \\, n_i \\right)
         + \\sum_{i < j} \\frac{C_6}{|\\vec{r}_i - \\vec{r}_j|^6} \\, n_i n_j
 
@@ -144,7 +144,7 @@ def Rydberg(positions, duration, omega, delta, phase=0, steps=1,
     :math:`\\Omega` of the page above, which also has no phase. The evolution
     is cut into :code:`steps` slices of length :code:`dt = duration / steps`
     on which the waveforms are constant, each approximated to first order by
-    a layer of drives :math:`R_z(\\varphi) R_x(\\Omega dt) R_z(-\\varphi)`,
+    a layer of drives :math:`R_z(-\\varphi) R_x(\\Omega dt) R_z(\\varphi)`,
     a layer of detunings :math:`U_1(\\delta dt)` and one interaction
     :math:`CU_1(-C_6 dt / r_{ij}^6)` for each pair of atoms, all exact so
     that a single step is the exact evolution whenever the terms commute.
@@ -180,9 +180,9 @@ def Rydberg(positions, duration, omega, delta, phase=0, steps=1,
     ...                phase=[0, pi], steps=2))
     Rx(0.5)
       >> U1(0)
-      >> Rz(0.5)
-      >> Rx(0.5)
       >> Rz(-0.5)
+      >> Rx(0.5)
+      >> Rz(0.5)
       >> U1(0)
     """
     from discopy.quantum.gates import Rx, Rz, U1, CU1
@@ -212,7 +212,7 @@ def Rydberg(positions, duration, omega, delta, phase=0, steps=1,
     def drive(omega, phase):
         pulse = Rx(omega * dt / (2 * pi))
         return pulse if phase == 0\
-            else Rz(phase / (2 * pi)) >> pulse >> Rz(-phase / (2 * pi))
+            else Rz(-phase / (2 * pi)) >> pulse >> Rz(phase / (2 * pi))
 
     def step(omega, delta, phase):
         result = Id().tensor(*n_atoms * [drive(omega, phase)])
