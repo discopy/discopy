@@ -23,6 +23,7 @@ Prompt ([#374](https://github.com/discopy/discopy/issues/374), verbatim):
 - [x] @evening-2026-08-11T00:10Z-2026-08-11T00:40Z `additive` worked example: Dal Lago–Hoshino's token machines (*Geometry of Bayesian Programming*), see the note below
 - [ ] Write every example as a term in the effectful lambda calculus of #370, not as a diagram built with tensor/composition. **Blocked on [#489](https://github.com/discopy/discopy/pull/489)**: measured 2026-08-09, `let`/`Product`/`Projection` are not on `main`, #370 is open and #489 is the only branch implementing it — itself queued behind #511
 - [x] @evening-2026-08-09T00:05Z-2026-08-09T00:25Z Run `pflake8 discopy` and `coverage run -m pytest`
+- [x] @evening-2026-08-17T00:30Z Triage cubic's seven findings, see the note below
 
 ## Guidance (🐦 birdsong, 2026-07-22)
 
@@ -311,3 +312,39 @@ a `TypeError`. Tested in `test_additive_Channel_tensor`.
 
 Verification: `pflake8 discopy` clean, `pytest --skip-extra` gives 684 passed, 51 skipped.
 
+
+## Cubic triage (🌙 evening, 2026-08-17)
+
+Seven findings on `f53b4b6`. One is real and reaches well past this branch; the other six ask for
+validation this codebase deliberately does not write.
+
+**Filed, not fixed here — [#578](https://github.com/discopy/discopy/issues/578).**
+`additive.Channel.trace`'s `self.dom[:-n]` empties the boundary when `n == 0`, since Python reads
+`-0` as `0`. Cubic found the instance on line 400; the same idiom is in **ten** places —
+`rigid`, `ribbon`, `cmap` (three), `python.additive`, `python.multiplicative` and this one. It is
+one predicate applied everywhere, and whether `trace(0)` should be a no-op or a rejection wants
+ruling once, so patching the kleisli copy alone would leave nine and pick the convention by
+accident.
+
+**Declined, with reasons.** Each asks for a guard on input that is either unreachable or nonsense:
+
+- *`Channel.__init__` should validate a prebuilt `Function`'s `dom`/`cod`.* `STYLE.md` has us expose
+  internals rather than police them, and the module's own composition already fails loudly on a
+  mismatched channel. A constructor check would be the only one of its kind here.
+- *`iterate_subdistribution` loops forever on `tolerance < 0`.* True, and it is the caller asking
+  for "iterate until the looping mass drops below a negative number". Nothing constructs one; the
+  default is positive and the parameter is documented.
+- *`unpack_value` always expands `Row`.* Only wrong if a user makes `Row` their own wire type, i.e.
+  uses the module's packed carrier as a payload. `Row` exists precisely so that no ordinary value
+  is ambiguous, and the module docstring says so.
+- *`Channel.copy` accepts negative `n`.* `n * (x, )` is `()` for negative `n`, the same answer
+  `copy(x, 0)` gives. `python.multiplicative.Function.copy` behaves identically, so rejecting it
+  here alone would split the two.
+- *`EndoFunctor.__call__` should normalise like `Functor.__call__`.* The documented contract is that
+  the two maps return a `Function` and a tuple themselves — that is what the `Maybe` doctest does.
+  Normalising inside would make the doctest's explicit `Function(...)` redundant and change a
+  published signature for no reachable gain.
+- *`test/kleisli.py:113`'s `raises(AxiomError)` rides on an incidental type error.* Fair as far as
+  it goes, and the sharper version of it is that there is no explicit monad-mismatch check in
+  `Channel.then` at all. That is a design question about what `Channel[M] >> Channel[N]` should do,
+  not a test fix, and it belongs with the two blocked points rather than ahead of them.
