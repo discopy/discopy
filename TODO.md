@@ -39,6 +39,9 @@ other three cannot be tested end-to-end while it is broken.
 - [x] 7. `uv run pflake8 discopy` and `uv run coverage run -m pytest` green.
 - [x] 8. Pin the discard branch's `curry` to `left=False` so it does not read the default #563
       flips. A no-op here, load-bearing on the merge with #563.
+- [x] 9. Guard the #544 fix against a mis-curry between binders of the *same* type, which point 5
+      cannot see: `dom` and `cod` are equal whichever wire is curried, so the two readings of
+      `A(lambda a: A(lambda b: g(a)(b)))` are told apart by the diagram alone. Raised by cubic.
 
 ## Filed, not fixed here
 

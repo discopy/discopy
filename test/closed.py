@@ -76,6 +76,19 @@ def test_Abstraction_eval_preserves_dom_and_cod():
         assert (t.dom, t.cod) == (t.eval().dom, t.eval().cod)
 
 
+def test_Abstraction_eval_curries_the_right_wire():
+    """
+    Binders of the same type have the same `dom` and `cod` whichever wire
+    is curried, so only the diagram tells them apart, see #544.
+    """
+    A, Z = Ty('A'), Ty('Z')
+    g = (A >> (A >> Z))('g')
+    swapped, straight = (A(lambda a: A(lambda b: g(a)(b))),
+                         A(lambda a: A(lambda b: g(b)(a))))
+    assert (swapped.dom, swapped.cod) == (straight.dom, straight.cod)
+    assert swapped.eval() != straight.eval()
+
+
 def test_nonlinear_eval():
     """ A repeated variable is copied, an unused one is discarded. """
     X, Y = Ty('X'), Ty('Y')
