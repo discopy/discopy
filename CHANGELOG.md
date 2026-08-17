@@ -45,6 +45,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   permutation operations and functorial semantics, while `symmetric.Layer`
   alternates permutations with generators without canonicalising diagram
   state ([#362](https://github.com/discopy/discopy/pull/362)).
+- `Rydberg` in `discopy.quantum.ansatze`, the Trotterized time evolution
+  under the Rydberg Hamiltonian of Pasqal's neutral-atom QPU
+  ([#586](https://github.com/discopy/discopy/pull/586)).
 
 ### Changed
 
