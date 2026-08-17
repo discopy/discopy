@@ -86,3 +86,7 @@ def test_Rydberg_errors():
         Rydberg([(0, 0)], 1, [0.1, 0.2, 0.3], 0, steps=2)
     with raises(ValueError):
         Rydberg([(0, 0), (0, 0)], 1, 0, 0)
+    with raises(ValueError):
+        Rydberg([(0, 0)], 1, 0, 0, steps=0)
+    with raises(ValueError):
+        Rydberg([(0, 0), (0, 1, 2)], 1, 0, 0)

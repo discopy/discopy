@@ -184,6 +184,8 @@ def Rydberg(positions, duration, omega, delta, phase=0, steps=1,
     """
     from discopy.quantum.gates import Rx, Rz, U1, CU1
 
+    if not isinstance(steps, int) or steps <= 0:
+        raise ValueError(f"Expected a positive number of steps, got {steps}")
     n_atoms, dt = len(positions), duration / steps
 
     def samples(waveform):
@@ -195,7 +197,8 @@ def Rydberg(positions, duration, omega, delta, phase=0, steps=1,
         return result
 
     def strength(source, target):
-        squared_distance = sum((x - y) ** 2 for x, y in zip(source, target))
+        squared_distance = sum(
+            (x - y) ** 2 for x, y in zip(source, target, strict=True))
         if not squared_distance:
             raise ValueError(f"Atoms at {source} and {target} coincide")
         return coupling / squared_distance ** 3
