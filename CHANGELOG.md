@@ -29,6 +29,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - Composition benchmark suite for diagram operations, reproducing the
   scaling experiments of arXiv:2105.09257
   ([#346](https://github.com/discopy/discopy/pull/346)).
+- CMap cases for the composition benchmark suite, mirroring its Hypergraph
+  workloads. Benchmark reports now include per-suite HTML, Markdown and CSV
+  tables with scaling plots.
+- Conversion benchmarks between Diagram, Hypergraph and CMap representations.
 - The benchmark job runs only on `main` and on pull requests labelled
   `benchmark` ([#385](https://github.com/discopy/discopy/pull/385),
   [#459](https://github.com/discopy/discopy/pull/459)).
@@ -57,6 +61,22 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Changed
 
+- `monoidal.Layer` holds a list of boxes and non-empty types with at least
+  one box and no two consecutive types, instead of an odd-length list
+  alternating type and box. Whiskering extends the list only when the type
+  is non-empty and the outermost element is a box, otherwise it merges into
+  the boundary type, and tensoring two layers merges a trailing type with a
+  leading one. The constructor type checks and normalises to restore the
+  invariant unless it is called with `normalise=False`, which the internal
+  call sites do, so tensoring `n` layers is linear rather than quadratic.
+  `Layer` is a `ColouredMonoid`, i.e. it defines `tensor` and inherits `@`
+  and its right-whiskering mirror from it, embedding types and boxes as
+  layers, and `Layer.cast` is removed since `Layer(box)` already builds the
+  singleton layer. `symmetric.Layer` follows with "permutation" in place of
+  "type". `Diagram.interchange` checks its preconditions up front, so an
+  out-of-range index raises `IndexError` and a diagram with more than one box
+  in a layer raises `NotImplementedError` even when `i == j`
+  ([#438](https://github.com/discopy/discopy/pull/438)).
 - `Arrow` is refactored onto a `FreeCategory` base class
   ([#350](https://github.com/discopy/discopy/pull/350)).
 - The `tensor` module is refactored to go through `CMap` for `einsum`
@@ -92,6 +112,23 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - Symmetric categories generate their swaps with `swap_factory` rather than
   `braid_factory`, which is now a `classproperty` reading it
   ([#440](https://github.com/discopy/discopy/pull/440)).
+- The committed benchmark baseline is stored gzipped as
+  `benchmark/baseline.json.gz`, which `benchmark/report.py` reads
+  transparently.
+- The benchmark regression gate divides each case by the run-wide median
+  change rather than comparing raw medians, so that the CPU model a
+  GitHub-hosted runner happens to give out does not read as a regression. Its
+  default threshold is 25%.
+- Benchmark cases now use `pytest-benchmark`'s automatic calibration.
+- Every `monoidal.Wire` subclass named `Ob` is renamed to `Wire`: `rigid`,
+  `braided`, `biclosed`, `pivotal`, `frobenius`, `feedback` and
+  `quantum.circuit`, completing the rename that introduced `monoidal.Wire`;
+  `cat.Ob` keeps its name. Accessing the old name still works, returning the
+  new class with a `DeprecationWarning` through a module-level `__getattr__`
+  (`utils.deprecated_ob`), on those seven modules and on `compact` and
+  `grammar.pregroup` which re-exported it; trees serialised with an `Ob`
+  factory string load the same way
+  ([#566](https://github.com/discopy/discopy/pull/566)).
 - `discopy.neural` is reorganised around `MapNN`: `model.py` (`MapNN`),
   `map.py` (the interpretation, the compiled `Interaction`, and the
   specifications `ParamMap` / `InteractionMap`), `solver.py`, `batch.py`,
@@ -314,6 +351,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   raise `AttributeError` on its main path. Both now live in
   `docs/neural/examples/sudoku/evaluate.py` and are covered by
   `test/neural/test_noise_eval.py`.
+- `frobenius.Diagram.unfuse`'s doctest no longer sets `Spider.color = "red"`
+  to draw its example, which was leaking into every later doctest in the
+  same pytest process
+  ([#522](https://github.com/discopy/discopy/issues/522)).
 - Tensor networks are contracted with `opt_einsum` when the number of
   indices exceeds `numpy.einsum`'s 52-index limit
   ([#448](https://github.com/discopy/discopy/pull/448)).
@@ -322,6 +363,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   wherever they occur rather than on atoms only, and associates slashes to
   the left as CCG does
   ([#528](https://github.com/discopy/discopy/issues/528)).
+- `biclosed.Application` lists its free variables in the same order as the
+  wires of its `dom`, so that `Abstraction` strips the right end of it and
+  `eval` preserves both `dom` and `cod`
+  ([#550](https://github.com/discopy/discopy/issues/550)).
 - Hypergraph hash
   ([#387](https://github.com/discopy/discopy/pull/387)).
 - Bubble drawing
@@ -330,6 +375,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   input of the controlled box rather than its first one, so gates with a
   classical wire or a distance other than one are drawn on the right wires
   ([#439](https://github.com/discopy/discopy/pull/439)).
+- `closed.Context.dom` called `category.ob.tensor` unbound, which raised
+  `TypeError` for an empty context instead of returning `Ty()`
+  ([#549](https://github.com/discopy/discopy/issues/549)).
 
 ### Performance
 

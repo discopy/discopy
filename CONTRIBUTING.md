@@ -64,37 +64,49 @@ Without the extras installed, run `uv run pytest --skip-extra` to skip what need
 
 ## Run the benchmarks
 
-The composition benchmark (`benchmark/test_composition.py`) reproduces the scaling
-experiments of arXiv:2105.09257 for both `Diagram` and `Hypergraph`. It lives
-outside `testpaths`, so the normal `pytest` run never collects it — run it
-explicitly. Each `(case, size)` is a declarative
-[`pytest-benchmark`](https://pytest-benchmark.readthedocs.io) test — the fixture
-owns timing (CPU clock, GC disabled, median of a few rounds), so there is no
-hand-rolled timing code.
+`benchmark/test_composition.py` reproduces the scaling experiments of
+arXiv:2105.09257 for `Diagram` and `Hypergraph`, with analogous `CMap` cases;
+`benchmark/test_conversion.py` covers conversions between all three. They live
+outside `testpaths`, so run them explicitly. Results are keyed by suite
+(`composition` or `conversion`), family (representation or conversion), case
+(workload) and size `n`. Each data point is a declarative
+[`pytest-benchmark`](https://pytest-benchmark.readthedocs.io) test; the fixture
+owns timing (CPU clock and GC disabled) and automatically calibrates rounds
+and iterations for each workload.
 
 ```shell
 uv sync --group dev
 # small/medium sizes (the default); add BENCH_FLAGS=bench:full for the heavy tail
 uv run pytest benchmark/ -v --benchmark-json=benchmark-results/bench.json
-# render the scaling table + log-log plot (polars + matplotlib)
+# render the scaling tables + log-log plots (polars + matplotlib)
 uv run python benchmark/report.py benchmark-results/bench.json
 ```
 
-`report.py` writes `results.md`, `results.csv` and `scaling.png` into
-`benchmark-results/`. To gate on a regression, pass a committed baseline:
+`report.py` writes `NAME-results.{html,md,csv}` with family row groups and
+`NAME-scaling.png` for each `benchmark/test_NAME.py`. To gate on a regression,
+pass a committed baseline:
 
 ```shell
 uv run python benchmark/report.py benchmark-results/bench.json \
-    --baseline benchmark/baseline.json --fail-threshold 0.25
+    --baseline benchmark/baseline.json.gz --fail-threshold 0.25
 ```
 
-It joins the two runs on `(case, size)` and exits non-zero if any case's median
-regressed by more than the threshold. The baseline is machine-dependent, so
-generate it once on the CI runner (`workflow_dispatch` on `main`, with
-`BENCH_FLAGS=bench:full`) and commit the resulting `bench.json` as
-`benchmark/baseline.json`. The `benchmark` GitHub workflow runs the suite on pull
-requests (smoke sizes) and on `main` / manual dispatch (full sizes), uploading the
-report as an artifact.
+It joins the two runs on `(suite, family, case, size)` and exits non-zero if
+any case regresses by more than the threshold relative to the run-wide median
+change. GitHub hands out several CPU models for the same runner label, so the
+raw delta of a cell mixes the machine in with the code. Reading a measurement
+as `time = machine * code * baseline`, the median change over all cases
+estimates the machine -- most cases are unchanged, and a median ignores the few
+that are not -- so dividing it out leaves the change due to the code. It divides
+rather than subtracts, which keeps the threshold meaning the same thing
+whichever runner comes up; subtracting would scale it by the machine factor,
+making the gate stricter on slow machines and laxer on fast ones.
+
+The baseline is a `bench.json` from a CI run of this same workflow, gzipped
+(`gzip -9n bench.json`) and committed as `benchmark/baseline.json.gz`: stored
+compressed, GitHub shows it as a binary file rather than a 6k-line diff. The
+`benchmark` GitHub workflow runs the suite on pull requests (small sizes) and
+on `main` / manual dispatch (full sizes), uploading the report as an artifact.
 
 A benchmarking job is available in the CI pipeline. By default, it is running only
 on the main branch, but you can enable it on your pull requests by attaching the

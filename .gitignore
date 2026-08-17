@@ -7,6 +7,7 @@
 *.blg
 *.pag
 *.gz
+!benchmark/baseline.json.gz
 .coverage
 .pylintrc
 .pytest_cache

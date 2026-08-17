@@ -301,7 +301,7 @@ class Arrow(FreeCategory):
     ob = Ob
 
     def __setstate__(self, state):
-        if 'inside' not in state:  # Backward compatibility
+        if '_dom' in state:  # Backward compatibility
             self.dom, self.cod, self.inside = (
                 state['_dom'], state['_cod'], tuple(state['_boxes']))
             del state['_dom'], state['_cod'], state['_boxes']
@@ -532,7 +532,7 @@ class Box(Arrow):
     >>> assert f.inside == (f, )
     """
     def __setstate__(self, state):
-        if 'inside' not in state:  # Backward compatibility
+        if '_name' in state:  # Backward compatibility
             self.name, self.data, self.is_dagger = (
                 state['_name'], state['_data'], state['_dagger'])
             del state['_name'], state['_data'], state['_dagger']
