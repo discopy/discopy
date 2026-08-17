@@ -1,8 +1,0 @@
-01:45:50 start --algorithms mst_prim --seeds 2 --arm R on cuda:1
-04:32:29 done  --algorithms mst_prim --seeds 2 --arm R on cuda:1 (exit 0)
-04:32:29 start --algorithms bellman_ford --seeds 1 --arm O on cuda:1
-05:31:59 done  --algorithms bellman_ford --seeds 1 --arm O on cuda:1 (exit 0)
-05:31:59 start --algorithms floyd_warshall --seeds 2 --arm O on cuda:1
-06:37:47 done  --algorithms floyd_warshall --seeds 2 --arm O on cuda:1 (exit 0)
-06:37:47 start --algorithms mst_prim --seeds 1 --arm F on cuda:1
-07:48:55 done  --algorithms mst_prim --seeds 1 --arm F on cuda:1 (exit 0)

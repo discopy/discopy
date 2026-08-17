@@ -1,2 +1,0 @@
-23:20:49 start --algorithms dijkstra --seeds 0 --arm R --regime mixed on cuda:1
-00:30:50 done  --algorithms dijkstra --seeds 0 --arm R --regime mixed on cuda:1 (exit 0)

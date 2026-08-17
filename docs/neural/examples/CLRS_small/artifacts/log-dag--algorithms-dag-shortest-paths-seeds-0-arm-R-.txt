@@ -1,7 +1,0 @@
-  dag_shortest_paths/seed0: loaded p3-max-ptredge-mixed-dag_shortest_paths-seed0.pt
-{
-  "dag_shortest_paths/seed0": {
-    "score": 0.982421875,
-    "epoch": 290
-  }
-}

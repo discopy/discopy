@@ -1,9 +1,0 @@
-bellman_ford           fixed  mixed loses by more than 1.0 seed s.e.m. (0.0213) and costs the order-free heads
-dijkstra               fixed  mixed loses by more than 1.0 seed s.e.m. (0.0218) and keeps the order-free heads
-mst_prim               fixed  mixed loses by more than 1.0 seed s.e.m. (0.0141) and keeps the order-free heads
-floyd_warshall         fixed  mixed loses by more than 1.0 seed s.e.m. (0.0141) and keeps the order-free heads
-
-frozen into regime.json: {'bellman_ford': 'fixed', 'dijkstra': 'fixed', 'mst_prim': 'fixed', 'floyd_warshall': 'fixed'}
-dag_shortest_paths     mixed  mixed beats by more than 1.0 seed s.e.m. (0.0929) and keeps the order-free heads
-
-frozen into regime.json: {'bellman_ford': 'fixed', 'dijkstra': 'fixed', 'mst_prim': 'fixed', 'floyd_warshall': 'fixed', 'dag_shortest_paths': 'mixed'}

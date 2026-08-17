@@ -1,2 +1,0 @@
-23:20:49 start --algorithms mst_prim --seeds 0 --arm R --regime mixed on cuda:1
-00:31:12 done  --algorithms mst_prim --seeds 0 --arm R --regime mixed on cuda:1 (exit 0)

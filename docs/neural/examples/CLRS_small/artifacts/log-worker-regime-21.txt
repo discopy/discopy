@@ -1,2 +1,0 @@
-23:20:49 start --algorithms bellman_ford --seeds 0 --arm R --regime mixed on cuda:2
-00:05:21 done  --algorithms bellman_ford --seeds 0 --arm R --regime mixed on cuda:2 (exit 0)

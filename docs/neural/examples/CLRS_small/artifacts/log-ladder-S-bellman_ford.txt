@@ -1,7 +1,0 @@
-  bellman_ford/seed0: loaded p3-max-ptredge-settle-term-bellman_ford-seed0.pt
-  bellman_ford/seed0: x0.50 (4 steps) 0.4810  x0.88 (7 steps) 0.7124  x1.00 (8 steps) 0.7329
-  bellman_ford/seed1: loaded p3-max-ptredge-settle-term-bellman_ford-seed1.pt
-  bellman_ford/seed1: x0.50 (4 steps) 0.5225  x0.88 (7 steps) 0.7090  x1.00 (8 steps) 0.7383
-  bellman_ford/seed2: loaded p3-max-ptredge-settle-term-bellman_ford-seed2.pt
-  bellman_ford/seed2: x0.50 (4 steps) 0.4966  x0.88 (7 steps) 0.6660  x1.00 (8 steps) 0.6709
-  bellman_ford: -> p3-max-ptredge-settle-term-bellman_ford-ladder.json

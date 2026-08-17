@@ -1,7 +1,0 @@
-  dijkstra/seed0: loaded p3-max-ptredge-probe-dijkstra-seed0.pt
-  dijkstra/seed0: x0.26 (17 steps) 0.8833  x0.50 (32 steps) 0.6509  x1.00 (65 steps) 0.2080
-  dijkstra/seed1: loaded p3-max-ptredge-probe-dijkstra-seed1.pt
-  dijkstra/seed1: x0.26 (17 steps) 0.7114  x0.50 (32 steps) 0.7729  x1.00 (65 steps) 0.7803
-  dijkstra/seed2: loaded p3-max-ptredge-probe-dijkstra-seed2.pt
-  dijkstra/seed2: x0.26 (17 steps) 0.8584  x0.50 (32 steps) 0.7305  x1.00 (65 steps) 0.5361
-  dijkstra: -> p3-max-ptredge-probe-dijkstra-ladder.json

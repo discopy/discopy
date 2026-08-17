@@ -1,7 +1,0 @@
-  dijkstra/seed0: loaded p3-max-ptredge-dijkstra-seed0.pt
-{
-  "dijkstra/seed0": {
-    "score": 0.986328125,
-    "epoch": 300
-  }
-}

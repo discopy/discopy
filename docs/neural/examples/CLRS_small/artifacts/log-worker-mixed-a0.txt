@@ -1,2 +1,0 @@
-artifacts/worker-mixed.sh: line 21: 3714956 Killed                  $PY train.py --algorithms $ALG --seeds 0 --pool max --mixed --settle --device $DEVICE > artifacts/log-train-mixed-$ALG.txt 2>&1
-17:00:47 done mst_prim on cuda:0

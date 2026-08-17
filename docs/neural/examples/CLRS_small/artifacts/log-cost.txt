@@ -1,9 +1,0 @@
-algorithm              steps rounds  edges calls draw+compile s/4batches    GiB
-minimum                   16     32      0     2         1.0s       2.6s  0.26
-bfs                        5     10   1002    13         4.5s      14.1s  0.33
-bellman_ford               8     16    957    12         4.6s      13.6s  0.35
-dijkstra                  17     34    957    12         4.6s      14.5s  0.64
-mst_prim                  17     34    957    12         4.7s      14.3s  0.64
-dag_shortest_paths        40     80   1947    13        12.1s      38.4s  2.32
-floyd_warshall            16     32   3840     3        31.6s      11.8s  1.75
-matrix_chain_order        15     30   3840     3        29.5s      11.9s  1.65

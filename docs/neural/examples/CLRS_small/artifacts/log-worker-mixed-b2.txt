@@ -1,3 +1,0 @@
-16:43:32 done minimum on cuda:1
-artifacts/worker-mixed.sh: line 21: 3813341 Killed                  $PY train.py --algorithms $ALG --seeds 0 --pool max --mixed --settle --device $DEVICE > artifacts/log-train-mixed-$ALG.txt 2>&1
-17:00:46 done bellman_ford on cuda:1

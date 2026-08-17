@@ -1,7 +1,0 @@
-  floyd_warshall/seed0: loaded p3-max-ptredge-floyd_warshall-seed0.pt
-  floyd_warshall/seed0: x0.25 (16 steps) 0.2517  x0.50 (32 steps) 0.0908  x1.00 (64 steps) 0.0562
-  floyd_warshall/seed1: loaded p3-max-ptredge-floyd_warshall-seed1.pt
-  floyd_warshall/seed1: x0.25 (16 steps) 0.2118  x0.50 (32 steps) 0.1330  x1.00 (64 steps) 0.1056
-  floyd_warshall/seed2: loaded p3-max-ptredge-floyd_warshall-seed2.pt
-  floyd_warshall/seed2: x0.25 (16 steps) 0.2503  x0.50 (32 steps) 0.0779  x1.00 (64 steps) 0.0605
-  floyd_warshall: -> p3-max-ptredge-floyd_warshall-ladder.json

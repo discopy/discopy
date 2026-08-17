@@ -1,6 +1,0 @@
-01:45:50 start --algorithms bellman_ford --seeds 1 --arm R on cuda:2
-02:42:39 done  --algorithms bellman_ford --seeds 1 --arm R on cuda:2 (exit 0)
-02:42:39 start --algorithms dijkstra --seeds 1 --arm S on cuda:2
-05:23:50 done  --algorithms dijkstra --seeds 1 --arm S on cuda:2 (exit 0)
-05:23:50 start --algorithms mst_prim --seeds 0 --arm O on cuda:2
-07:50:52 done  --algorithms mst_prim --seeds 0 --arm O on cuda:2 (exit 0)

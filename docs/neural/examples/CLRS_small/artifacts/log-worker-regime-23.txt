@@ -1,2 +1,0 @@
-23:20:49 start --algorithms floyd_warshall --seeds 0 --arm R --regime fixed on cuda:2
-00:14:25 done  --algorithms floyd_warshall --seeds 0 --arm R --regime fixed on cuda:2 (exit 0)

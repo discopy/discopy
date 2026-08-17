@@ -1,8 +1,0 @@
-01:45:50 start --algorithms floyd_warshall --seeds 1 --arm R on cuda:2
-03:12:25 done  --algorithms floyd_warshall --seeds 1 --arm R on cuda:2 (exit 0)
-03:12:25 start --algorithms floyd_warshall --seeds 1 --arm S on cuda:2
-04:42:46 done  --algorithms floyd_warshall --seeds 1 --arm S on cuda:2 (exit 0)
-04:42:46 start --algorithms dijkstra --seeds 1 --arm O on cuda:2
-07:19:43 done  --algorithms dijkstra --seeds 1 --arm O on cuda:2 (exit 0)
-07:19:43 start --algorithms floyd_warshall --seeds 1 --arm F on cuda:2
-08:05:41 done  --algorithms floyd_warshall --seeds 1 --arm F on cuda:2 (exit 0)

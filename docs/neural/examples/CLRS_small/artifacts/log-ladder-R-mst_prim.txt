@@ -1,7 +1,0 @@
-  mst_prim/seed0: loaded p3-max-ptredge-mst_prim-seed0.pt
-  mst_prim/seed0: x0.26 (17 steps) 0.4707  x0.50 (32 steps) 0.0806  x1.00 (65 steps) 0.0562
-  mst_prim/seed1: loaded p3-max-ptredge-mst_prim-seed1.pt
-  mst_prim/seed1: x0.26 (17 steps) 0.4263  x0.50 (32 steps) 0.1792  x1.00 (65 steps) 0.0435
-  mst_prim/seed2: loaded p3-max-ptredge-mst_prim-seed2.pt
-  mst_prim/seed2: x0.26 (17 steps) 0.3130  x0.50 (32 steps) 0.1431  x1.00 (65 steps) 0.0308
-  mst_prim: -> p3-max-ptredge-mst_prim-ladder.json

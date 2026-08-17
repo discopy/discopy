@@ -1,7 +1,0 @@
-  bfs/seed0: loaded full-max-bfs-seed0.pt
-{
-  "bfs/seed0": {
-    "score": 0.994140625,
-    "epoch": 80
-  }
-}

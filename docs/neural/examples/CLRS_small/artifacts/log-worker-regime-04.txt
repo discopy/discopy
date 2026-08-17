@@ -1,2 +1,0 @@
-23:20:49 start --algorithms dijkstra --seeds 0 --arm R --regime fixed on cuda:0
-01:09:25 done  --algorithms dijkstra --seeds 0 --arm R --regime fixed on cuda:0 (exit 0)

@@ -1,7 +1,0 @@
-  bellman_ford/seed0: loaded p3-max-ptredge-probe-bellman_ford-seed0.pt
-  bellman_ford/seed0: x0.50 (4 steps) 0.4951  x0.88 (7 steps) 0.6870  x1.00 (8 steps) 0.7153
-  bellman_ford/seed1: loaded p3-max-ptredge-probe-bellman_ford-seed1.pt
-  bellman_ford/seed1: x0.50 (4 steps) 0.4990  x0.88 (7 steps) 0.7065  x1.00 (8 steps) 0.7295
-  bellman_ford/seed2: loaded p3-max-ptredge-probe-bellman_ford-seed2.pt
-  bellman_ford/seed2: x0.50 (4 steps) 0.4839  x0.88 (7 steps) 0.6909  x1.00 (8 steps) 0.7261
-  bellman_ford: -> p3-max-ptredge-probe-bellman_ford-ladder.json

@@ -1,7 +1,0 @@
-  bellman_ford/seed0: loaded p3-max-ptredge-bellman_ford-seed0.pt
-{
-  "bellman_ford/seed0": {
-    "score": 0.962890625,
-    "epoch": 140
-  }
-}
