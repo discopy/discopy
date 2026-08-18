@@ -11,7 +11,7 @@ Summary
     :nosignatures:
     :toctree:
 
-    Ob
+    Wire
     Ty
     Exp
     Over
@@ -70,6 +70,7 @@ from discopy.drawing import Drawing
 from discopy.cat import factory
 from discopy.utils import (
     assert_isinstance,
+    deprecated_ob,
     factory_name,
     from_tree,
 )
@@ -179,17 +180,17 @@ class Ty(monoidal.Ty):
         return self.inside[0].exponent
 
 
-class Ob(monoidal.Wire):
+class Wire(monoidal.Wire):
     """
     A biclosed object is a self-dagger :class:`monoidal.Wire`, i.e. its left
     and right colours always match. Exponentials do not interact meaningfully
     with colours, so for now we assume everything is white.
     """
-    def dagger(self) -> Ob:
+    def dagger(self) -> Wire:
         return self
 
 
-class Exp(Ob):
+class Exp(Wire):
     """
     A :code:`base` type to an :code:`exponent` type, called with :code:`**`.
 
@@ -748,3 +749,6 @@ Ty.over_factory, Ty.under_factory, Ty.exp_factory = Over, Under, Exp
 
 class Equation(monoidal.Equation):
     """ The :class:`monoidal.Equation` of biclosed diagrams. """
+
+
+__getattr__ = deprecated_ob(__name__)

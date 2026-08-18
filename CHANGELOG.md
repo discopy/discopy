@@ -107,6 +107,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   GitHub-hosted runner happens to give out does not read as a regression. Its
   default threshold is 25%.
 - Benchmark cases now use `pytest-benchmark`'s automatic calibration.
+- Every `monoidal.Wire` subclass named `Ob` is renamed to `Wire`: `rigid`,
+  `braided`, `biclosed`, `pivotal`, `frobenius`, `feedback` and
+  `quantum.circuit`, completing the rename that introduced `monoidal.Wire`;
+  `cat.Ob` keeps its name. Accessing the old name still works, returning the
+  new class with a `DeprecationWarning` through a module-level `__getattr__`
+  (`utils.deprecated_ob`), on those seven modules and on `compact` and
+  `grammar.pregroup` which re-exported it; trees serialised with an `Ob`
+  factory string load the same way
+  ([#566](https://github.com/discopy/discopy/pull/566)).
 
 ### Fixed
 
