@@ -175,6 +175,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Performance
 
+- The elements of a Hopf algebra (`drinfeld_element`, `pivotal_element`,
+  `ribbon_element`) contract each structural generator once through the
+  cached `Algebra.arrays` and solve for the pivot with a thin SVD, so that
+  `Double(taft(3)).ribbon_element` takes under a second instead of twenty
+  ([#484](https://github.com/discopy/discopy/pull/484)).
 - `Ty` construction is sped up with `assert_isinstance` and lazy naming
   ([#420](https://github.com/discopy/discopy/pull/420)).
 - `Hypergraph` equality, permutations and other micro-optimizations bring

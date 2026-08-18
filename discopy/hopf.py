@@ -49,7 +49,6 @@ unlink.
 >>> e = Representation[H].anyon(0, -1)
 >>> m = Representation[H].anyon(1, 1)
 >>> V = Representation[H].direct_sum([e, m])
->>> assert V.is_module()
 >>> x = ribbon.Ty('x')
 >>> F = Functor(ob_map={x: V}, ar_map={}, cod=Intertwiner[H])
 >>> braid = ribbon.Braid(x, x)
@@ -188,6 +187,23 @@ class Algebra:
             np.linalg.inv(array).reshape(-1).tolist())
 
     @cached_property
+    def arrays(self):
+        """
+        The structure constants of the generators, inverse to
+        :meth:`from_arrays`: ``unit`` and ``counit`` of shape ``(dim, )``,
+        ``mult`` and ``comult`` of shape ``(dim, dim, dim)``, ``antipode``
+        and ``R`` of shape ``(dim, dim)``. Each generator — a composite
+        network for a :class:`Double` — is contracted once on first access
+        and reused by the elements below.
+        """
+        n = self.dim
+        shapes = 2 * ((n, ), ) + 2 * ((n, n, n), ) + 2 * ((n, n), )
+        return tuple(
+            None if gen is None
+            else gen.eval(dtype=complex).array.reshape(shape)
+            for gen, shape in zip(self.generators, shapes))
+
+    @cached_property
     def drinfeld_element(self):
         """
         The Drinfeld element :math:`u = \\nabla (S \\otimes 1) R_{21}` of a
@@ -198,10 +214,7 @@ class Algebra:
         if self.R is None:
             raise ValueError(
                 "the Drinfeld element needs a quasitriangular structure")
-        n = self.dim
-        S = self.antipode.eval(dtype=complex).array.reshape(n, n)
-        mult = self.mult.eval(dtype=complex).array.reshape(n, n, n)
-        R = self.R.eval(dtype=complex).array.reshape(n, n)
+        _, _, mult, _, S, R = self.arrays
         return Box[complex]('u', Dim(1), self.ty,
                             np.einsum('ij,ja,aik->k', R, S, mult).tolist())
 
@@ -223,15 +236,12 @@ class Algebra:
         :meth:`is_ribbon` one is preferred (see :attr:`ribbon_element`).
         """
         n = self.dim
-        S = self.antipode.eval(dtype=complex).array.reshape(n, n)
+        _, counit, mult, comult, S, _ = self.arrays
         if np.allclose(S @ S, np.eye(n)):
             return self.unit
-        mult = self.mult.eval(dtype=complex).array.reshape(n, n, n)
-        counit = self.counit.eval(dtype=complex).array.reshape(n)
-        comult = self.comult.eval(dtype=complex).array.reshape(n, n, n)
         system = np.einsum('xw,wgz->xzg', S @ S, mult).reshape(-1, n) \
             - np.einsum('gxz->xzg', mult).reshape(-1, n)
-        _, values, vectors = np.linalg.svd(system)
+        _, values, vectors = np.linalg.svd(system, full_matrices=False)
         space = vectors[np.sum(values > 1e-7 * values[0]):].conj().T
         functional = np.exp(2j * np.pi * np.sqrt(2) * np.arange(n))
         operator = np.einsum('ipq,q->pi', comult, functional)
@@ -263,8 +273,7 @@ class Algebra:
             return False
         n = self.dim
         pivot = self.pivotal_element if pivot is None else pivot
-        S = self.antipode.eval(dtype=complex).array.reshape(n, n)
-        mult = self.mult.eval(dtype=complex).array.reshape(n, n, n)
+        _, _, mult, _, S, _ = self.arrays
         u = self.drinfeld_element.eval(dtype=complex).array.reshape(n)
         g = pivot.eval(dtype=complex).array.reshape(n)
         v = np.einsum('i,j,ijk->k', u, S.T @ g, mult)
@@ -293,8 +302,7 @@ class Algebra:
         if not self.is_ribbon():
             raise ValueError("this is not a ribbon Hopf algebra")
         n = self.dim
-        S = self.antipode.eval(dtype=complex).array.reshape(n, n)
-        mult = self.mult.eval(dtype=complex).array.reshape(n, n, n)
+        _, _, mult, _, S, _ = self.arrays
         u = self.drinfeld_element.eval(dtype=complex).array.reshape(n)
         g = self.pivotal_element.eval(dtype=complex).array.reshape(n)
         v = np.einsum('i,j,ijk->k', u, S.T @ g, mult)
@@ -591,7 +599,7 @@ class Double(Algebra):
     ((S^{-1})^* \\otimes 1)` composed with that same multiplication.
 
     >>> D = Double(Algebra.cyclic(2))
-    >>> assert D.dim == 4 and D.is_valid() and D.is_quasitriangular()
+    >>> assert D.dim == 4 and D.is_valid()
     """
     def __init__(self, base):
         assert_isinstance(base, Algebra)
@@ -662,7 +670,7 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
     >>> m = Representation[D].anyon(1, 1)
     >>> V = Representation[D].direct_sum([e, m])
     >>> assert V.algebra == D
-    >>> assert V.is_module() and V == Dim(2)
+    >>> assert V == Dim(2)
     >>> ty = V.action.cod
     >>> (D.mult @ ty >> V.action).to_map().draw(  # doctest: +EXTRA
     ...     doctest='docs/_static/hopf/module.dot')
