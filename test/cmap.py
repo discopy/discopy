@@ -325,12 +325,12 @@ def test_curry_uncurry_roundtrip(module):
         assert cmap.curry(n=2, left=True).uncurry(n=2, left=True) == cmap
         return
 
-    right = cmap.curry()
+    right = cmap.curry(left=False)
     assert right.dom == y
     assert right.cod == x >> z
     assert right.boxes == (
         f, module.Diagram.coeval_factory(x >> z, left=False))
-    assert f.curry().to_map() == right
+    assert f.curry(left=False).to_map() == right
 
     left = cmap.curry(left=True)
     assert left.dom == x
@@ -338,18 +338,19 @@ def test_curry_uncurry_roundtrip(module):
     assert left.boxes == (
         f, module.Diagram.coeval_factory(z << y, left=True))
     assert f.curry(left=True).to_map() == left
+    assert cmap.curry() == left, "curry defaults to the left, see #560"
 
     h = module.Box("h", y, x >> z)
-    uncurried = h.to_map().uncurry()
+    uncurried = h.to_map().uncurry(left=False)
     assert uncurried.dom == x @ y
     assert uncurried.cod == z
     assert uncurried.boxes == (
         h, module.Diagram.eval_factory(x >> z, left=False))
-    assert h.uncurry().to_map() == uncurried
+    assert h.uncurry(left=False).to_map() == uncurried
 
     w = module.Ty("w")
     k = module.Box("k", x @ y @ z, w)
-    right_two = k.to_map().curry(n=2).uncurry(n=2)
+    right_two = k.to_map().curry(n=2, left=False).uncurry(n=2, left=False)
     assert right_two.dom == x @ y @ z
     assert right_two.cod == w
     assert right_two.boxes == (
@@ -366,7 +367,8 @@ def test_curry_uncurry_roundtrip(module):
         module.Diagram.coeval_factory(w << y @ z, left=True),
         module.Diagram.eval_factory(w << y @ z, left=True))
 
-    right_nested = k.to_map().curry().curry().uncurry(n=2)
+    right_nested = k.to_map().curry(left=False).curry(
+        left=False).uncurry(n=2, left=False)
     assert right_nested.dom == x @ y @ z
     assert right_nested.cod == w
 
@@ -376,7 +378,7 @@ def test_curry_uncurry_roundtrip(module):
     assert left_nested.cod == w
 
     with raises(ValueError):
-        k.to_map().curry(n=2).uncurry()
+        k.to_map().curry(n=2, left=False).uncurry(left=False)
 
 
 def test_trace():
