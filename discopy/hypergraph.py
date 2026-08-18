@@ -530,7 +530,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
             n : The number of wires to trace.
             left : Whether to trace on the left or right.
         """
-        if not n:
+        if n == 0:
             return self
         assert_istraceable(self, n, left)
         dom, cod = (self.dom[n:], self.cod[n:]) if left\

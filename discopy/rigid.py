@@ -425,7 +425,7 @@ class Diagram(biclosed.Diagram, RigidCategory):
         .. image:: /_static/rigid/curry.svg
             :align: center
         """
-        if not n:
+        if n == 0:
             return self
         if left:
             base, exponent = self.dom[:-n], self.dom[-n:]

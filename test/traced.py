@@ -37,7 +37,7 @@ def test_trace_vanishing():
         == matrix.Matrix[bool].swap(1, 1)
 
     h = additive.Function(lambda i, tag=0: (i, tag), (int, int), (int, int))
-    assert h.trace(0).dom == h.dom and h.trace(0).cod == h.cod
+    assert h.trace(0) == h
 
     k = multiplicative.Function(lambda i, j: (i, j), (int, int), (int, int))
-    assert k.trace(0).dom == k.dom and k.trace(0).cod == k.cod
+    assert k.trace(0) == k

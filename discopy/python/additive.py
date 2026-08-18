@@ -113,7 +113,7 @@ class Function(function.Function, SymmetricCategory):
         Parameters:
             n : The number of types to trace over.
         """
-        if not n:
+        if n == 0:
             return self
         if left:
             raise NotImplementedError
