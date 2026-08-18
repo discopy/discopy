@@ -4,9 +4,13 @@
 
 — USER on [#578](https://github.com/discopy/discopy/issues/578), 2026-08-17
 
-- [ ] guard `n == 0` in every `trace` that slices with `[:-n]`: `hypergraph`,
+- [x] guard `n == 0` in every `trace` that slices with `[:-n]`: `hypergraph`,
       `python.additive`, `python.multiplicative`
-- [ ] `rigid.Diagram.curry(0, left=True)` curries the whole domain, same slice
-- [ ] state the vanishing axiom on `abc.TracedCategory.trace`
-- [ ] test the vanishing axiom against every implementation of `trace`
-- [ ] CHANGELOG entry, `pflake8 discopy` and `coverage run -m pytest`
+- [x] `rigid.Diagram.curry(0, left=True)` curries the whole domain, same slice
+- [x] state the vanishing axiom on `abc.TracedCategory.trace`
+- [x] test the vanishing axiom against every implementation of `trace`
+- [x] CHANGELOG entry, `pflake8 discopy` and `coverage run -m pytest`
+
+`kleisli.additive.Function.trace` has the same slice but lives on
+[#443](https://github.com/discopy/discopy/pull/443), so it is fixed there
+rather than here.

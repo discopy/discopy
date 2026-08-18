@@ -146,6 +146,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `closed.Context.dom` called `category.ob.tensor` unbound, which raised
   `TypeError` for an empty context instead of returning `Ty()`
   ([#549](https://github.com/discopy/discopy/issues/549)).
+- `trace(0)` is the identity, i.e. the vanishing axiom, rather than a
+  morphism with empty `dom` and `cod`: `x[:-n]` is the empty prefix at
+  `n == 0`, which emptied the boundary of `Hypergraph.trace` and of both
+  `python.Function.trace`, and made `rigid.Diagram.curry(0, left=True)`
+  curry the whole domain
+  ([#578](https://github.com/discopy/discopy/issues/578)).
 
 ### Performance
 

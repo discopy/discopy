@@ -16,3 +16,28 @@ def test_trace_error():
 def test_trace_dagger():
     f = Box('f', 'x', 'x')
     assert f.trace().dagger() == f.dagger().trace()
+
+
+def test_trace_vanishing():
+    from discopy import compact, matrix, ribbon
+    from discopy.python import additive, multiplicative
+
+    x = compact.Ty('x')
+    f = compact.Box('f', x @ x, x @ x)
+    assert f.trace(0) == f
+    assert f.to_hypergraph().trace(0) == f.to_hypergraph()
+    assert f.to_map().trace(0) == f.to_map()
+    assert f.to_drawing().trace(0) == f.to_drawing()
+
+    y = ribbon.Ty('y')
+    g = ribbon.Box('g', y @ y, y @ y)
+    assert g.trace(0) == g
+
+    assert matrix.Matrix[bool].swap(1, 1).trace(0)\
+        == matrix.Matrix[bool].swap(1, 1)
+
+    h = additive.Function(lambda i, tag=0: (i, tag), (int, int), (int, int))
+    assert h.trace(0).dom == h.dom and h.trace(0).cod == h.cod
+
+    k = multiplicative.Function(lambda i, j: (i, j), (int, int), (int, int))
+    assert k.trace(0).dom == k.dom and k.trace(0).cod == k.cod
