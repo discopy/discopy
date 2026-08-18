@@ -168,8 +168,20 @@ markers = [
 
 [tool.coverage.run]
 # The skip paths are unreachable unless --skip-extra is passed, and coverage
-# runs the full suite with every extra installed.
-omit = ["test/plugin.py"]
+# runs the full suite with every extra installed.  The neural example
+# scripts and the tests that need a GPU or a built dataset cache
+# (`neural_e2e`, the CLRS-30 smoke tests) cannot run on CI, so they are
+# not measured either.
+omit = [
+    "test/plugin.py",
+    "docs/neural/*",
+    "test/neural/test_clrs_smoke.py",
+    "test/neural/test_sudoku_act_e2e.py",
+]
 
 [tool.coverage.report]
 fail_under = 98
+exclude_also = [
+    # golden bitwise tests only run on the build that recorded them
+    "@recorded_build",
+]
