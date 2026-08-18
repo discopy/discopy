@@ -51,30 +51,35 @@ Measured on the branch: `test/hopf.py` runs 37 tests in 47.2s; the six new
 tests add ~15s of which 13.7s is `test_ribbon_element_criterion` alone, the
 other five are each under 0.6s.
 
-- [WIP] @ho2wrz-2026-08-18 11:27 `test_ribbon_element_criterion` (13.7s): the cost is not the test but
+- [x] `test_ribbon_element_criterion` (13.7s): the cost is not the test but
   the elements' implementation — `drinfeld_element`, `pivotal_element` and
   `is_ribbon` each call `self.mult.eval` / `self.antipode.eval` again, so
   the same composite structure maps of `Double(taft(3))` are contracted
   several times at dimension 81 within one property access. Evaluate each
   structure map once and reuse the arrays in `hopf.py` (a #484 code tweak);
-  keep the test as is.
-- [WIP] @ho2wrz-2026-08-18 11:27 Share one module-level `Double(sweedler())` between
+  keep the test as is. Done as the cached `Algebra.arrays`, though profiling
+  showed the dominant cost (22s of 24s) was elsewhere: the pivotal-element
+  SVD materialised the discarded `6561^2` factor `U`, fixed by
+  `full_matrices=False`. 19.9s down to 0.8s.
+- [x] Share one module-level `Double(sweedler())` between
   `test_pivotal_element` and `test_ribbon_element_criterion` and the
   `taft(3)` / regular representation / `Functor` setup between
   `test_pivotal_pairings_are_intertwiners` and
   `test_snake_equations_with_pivot`, so `cached_property` reuse kicks in
   (~1s combined).
-- [WIP] @ho2wrz-2026-08-18 11:27 Keep the Kauffman–Radford pair itself unchanged: `Double(taft(3))`
+- [x] Keep the Kauffman–Radford pair itself unchanged: `Double(taft(3))`
   ribbon and `Double(sweedler())` not ribbon is the smallest instance of the
   odd/even criterion, it cannot be exercised below dimensions 81/16.
 
 ## C. Observations to file as issues (not test changes)
 
-- [WIP] @ho2wrz-2026-08-18 11:27 The `has_antipode` blow-up is a contraction-path pathology, not an
+- [x] The `has_antipode` blow-up is a contraction-path pathology, not an
   inherent cost: `np.einsum(..., optimize="greedy")` in
   `tensor.Diagram.eval` picks an `n^14`-scaling path on the 53-box antipode
   network (`optimize="optimal"` or `opt_einsum` finds a cheap one). Fixing
   the path selection would make `Double(sweedler()).is_valid()` fast and
   section A's first point unnecessary — decide which of the two to do.
-- [WIP] @ho2wrz-2026-08-18 11:27 Latent failure path: networks beyond `config.MAX_EINSUM_INDICES = 52`
+  Filed as [#595](https://github.com/discopy/discopy/issues/595).
+- [x] Latent failure path: networks beyond `config.MAX_EINSUM_INDICES = 52`
   fall back to `opt_einsum`, which is not a required dependency.
+  Filed as [#596](https://github.com/discopy/discopy/issues/596).
