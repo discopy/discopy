@@ -158,10 +158,6 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `closed.Context.dom` called `category.ob.tensor` unbound, which raised
   `TypeError` for an empty context instead of returning `Ty()`
   ([#549](https://github.com/discopy/discopy/issues/549)).
-- `draw_discard` shadowed the layer index with its hatching loop variable,
-  raising `KeyError` when drawing a `Discard` on two or more wires outside
-  the layer it happened to work in
-  ([#581](https://github.com/discopy/discopy/issues/581)).
 - `Tensor.spider_factory` returns its array on the active backend instead
   of always on NumPy, so diagrams with spiders evaluate — and
   differentiate — under the PyTorch backend
