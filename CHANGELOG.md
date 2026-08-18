@@ -51,6 +51,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   hierarchy below symmetric: traced, Markov, closed, feedback, compact and
   hypergraph ([#558](https://github.com/discopy/discopy/issues/558),
   refactoring [#325](https://github.com/discopy/discopy/pull/325)).
+- `abc.ColouredSemigroup`, a category whose composition is an associative
+  `tensor` with no unit, which `abc.ColouredMonoid` extends with `unit`.
+  `monoidal.Layer` is a semigroup: a layer has at least one box, so there is
+  no empty layer and `Layer.unit()` used to raise
+  ([#568](https://github.com/discopy/discopy/issues/568)).
 
 ### Changed
 
@@ -62,7 +67,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   leading one. The constructor type checks and normalises to restore the
   invariant unless it is called with `normalise=False`, which the internal
   call sites do, so tensoring `n` layers is linear rather than quadratic.
-  `Layer` is a `ColouredMonoid`, i.e. it defines `tensor` and inherits `@`
+  `Layer` is a `ColouredSemigroup`, i.e. it defines `tensor` and inherits `@`
   and its right-whiskering mirror from it, embedding types and boxes as
   layers, and `Layer.cast` is removed since `Layer(box)` already builds the
   singleton layer. `symmetric.Layer` follows with "permutation" in place of

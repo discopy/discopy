@@ -61,7 +61,8 @@ from typing import Iterator, Callable, TYPE_CHECKING
 from warnings import warn
 
 from discopy import cat, drawing, hypergraph, cmap, messages
-from discopy.abc import ColouredMonoid, MonoidalCategory
+from discopy.abc import (
+    ColouredMonoid, ColouredSemigroup, MonoidalCategory)
 from discopy.drawing import Drawing
 from discopy.config import (
     BOX_DRAWING_ATTRIBUTES, WIRE_DRAWING_ATTRIBUTES,
@@ -565,9 +566,15 @@ class Dim(Ty):
     __str__ = __repr__
 
 
-class Layer(cat.Box, ColouredMonoid):
+class Layer(cat.Box, ColouredSemigroup):
     """
     A layer is a tensor product of boxes and plumbing, i.e. non-empty types.
+
+    Layers form a :class:`discopy.abc.ColouredSemigroup` rather than a monoid:
+    they are closed under ``tensor`` but a layer has at least one box, so
+    there is no empty layer to be its unit. :meth:`Layer.id` adjoins one, the
+    plumbing on a type, which :meth:`whisker` tensors on either side and which
+    never appears inside a :class:`Diagram`.
 
     Parameters:
         inside : Boxes and plumbing, with at least one box.
@@ -602,7 +609,7 @@ class Layer(cat.Box, ColouredMonoid):
     def id(cls, dom: Ty = None) -> Layer:
         """
         The identity layer on a type, i.e. plumbing and no box, used by
-        :meth:`discopy.abc.ColouredMonoid.whisker` as argument of
+        :meth:`discopy.abc.ColouredSemigroup.whisker` as argument of
         :meth:`tensor`.
 
         Parameters:
@@ -714,7 +721,7 @@ class Layer(cat.Box, ColouredMonoid):
     def tensor(self, other: Ty | Box | Layer) -> Layer:
         """ Tensor another layer, normalising the common boundary; types and
         boxes are embedded as layers first, so ``@`` and its mirror image
-        both come from :class:`discopy.abc.ColouredMonoid`. """
+        both come from :class:`discopy.abc.ColouredSemigroup`. """
         other = type(self).whisker(other)
         type(self).check((self[-1], other[0]))
         return type(self)(

@@ -115,32 +115,21 @@ class Category[C0, C1: Category](ABC):
     __lshift__ = __lrshift__ = lambda self, other: other.then(self)
 
 
-class ColouredMonoid[C0, C1: ColouredMonoid](Category[C0, C1]):
+class ColouredSemigroup[C0, C1: ColouredSemigroup](Category[C0, C1]):
     """
-    A coloured monoid is a category whose sequential composition ``then`` is
-    given by a monoidal ``tensor``, with the objects ``C0`` (its colours) as
-    the boundaries of its morphisms.
+    A coloured semigroup is a category whose sequential composition ``then`` is
+    given by an associative ``tensor``, with the objects ``C0`` (its colours)
+    as the boundaries of its morphisms.
 
-    An ordinary :obj:`Monoid` is the special case with a single, trivial
-    colour, i.e. :class:`type(None)`. We do not enforce this so
-    that e.g. :class:`monoidal.Ty` can take colours as objects.
+    There is no unit: :meth:`Category.id` stays abstract, so a subclass says
+    what whiskering a colour gives without claiming an empty tensor exists.
     """
-    @classmethod
-    def unit(cls) -> C1:
-        """The monoidal unit, i.e. the empty tensor ``cls()``."""
-        return cls()
-
-    @classmethod
-    def id(cls, dom: C0 = None) -> C1:
-        """The monoidal unit, seen as an identity morphism."""
-        return cls.unit()
-
     @abstractmethod
     def tensor(self, *objects: C1) -> C1:
-        """ The n-ary product of a monoid for ``n > 0``. """
+        """ The n-ary product of a semigroup for ``n > 0``. """
 
     def then(self, *others: C1) -> C1:
-        """Sequential composition, given by the monoid product."""
+        """Sequential composition, given by the semigroup product."""
         return self.tensor(*others)
 
     @classmethod
@@ -159,6 +148,29 @@ class ColouredMonoid[C0, C1: ColouredMonoid](Category[C0, C1]):
     def __rmatmul__(self, other):
         return self.whisker(other).tensor(self)
 
+
+class ColouredMonoid[C0, C1: ColouredMonoid](ColouredSemigroup[C0, C1]):
+    """
+    A coloured monoid is a :class:`ColouredSemigroup` with a unit, i.e. the
+    empty tensor ``cls()``.
+
+    An ordinary :obj:`Monoid` is the special case with a single, trivial
+    colour, i.e. :class:`type(None)`. We do not enforce this so
+    that e.g. :class:`monoidal.Ty` can take colours as objects.
+    """
+    @classmethod
+    def unit(cls) -> C1:
+        """The monoidal unit, i.e. the empty tensor ``cls()``."""
+        return cls()
+
+    @classmethod
+    def id(cls, dom: C0 = None) -> C1:
+        """The monoidal unit, seen as an identity morphism."""
+        return cls.unit()
+
+
+# A semigroup is a coloured semigroup with a single, trivial colour.
+type Semigroup[C1: ColouredSemigroup] = ColouredSemigroup[type(None), C1]
 
 # A monoid is a coloured monoid with a single, trivial colour.
 type Monoid[C1: ColouredMonoid] = ColouredMonoid[type(None), C1]

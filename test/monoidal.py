@@ -216,6 +216,18 @@ def test_Layer_coloured_units():
         Layer(Ty.id(green), f)
 
 
+def test_Layer_has_no_unit():
+    x = Ty('x')
+    f = Box('f', x, x)
+
+    assert not hasattr(Layer, "unit")
+    assert Ty.unit() == Ty()
+    assert Layer.id() @ Layer(f) == Layer(f) == Layer(f) @ Layer.id()
+    assert not Layer.id().boxes
+    with raises(ValueError):
+        Layer()
+
+
 def test_Layer_tensor():
     x, y, z = map(Ty, "xyz")
     f, g = Box('f', x, y), Box('g', y, z)
