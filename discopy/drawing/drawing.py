@@ -999,7 +999,15 @@ class Drawing(TracedCategory, RichDisplay):
             dom (monoidal.Ty) : The wires coming into the bubble.
             cod (monoidal.Ty) : The wires coming out of the bubble.
             name (str) : The label of the bubble, drawn on the top left.
-            width
+            width : The width of the bubble, its natural width by default.
+            height : The height of the bubble, its natural height by default.
+            draw_as_square : Whether to draw the closed line as a square
+                rather than a bubble.
+            frame_sides : Whether to draw the left and right sides with zero
+                width, as :meth:`slot` and :meth:`frame` do: the colours of
+                the regions they separate show the edge in their place. A
+                bubble drawn as a square has no such colours, so it keeps its
+                sides.
 
         >>> from discopy.symmetric import *
         >>> a, b, c, d = map(Ty, "abcd")
@@ -1020,9 +1028,6 @@ class Drawing(TracedCategory, RichDisplay):
         wires_can_go_straight = (
             len(dom), len(cod)) == (len(arg_dom), len(arg_cod))
         if frame_sides:
-            # The sides of a slot are drawn with zero width, the colours of
-            # the regions they separate showing the edge in their place. A
-            # bubble drawn as a square has no such colours, so it keeps them.
             left.inside[0].frame_boundary = right.inside[0].frame_boundary \
                 = True
         if draw_as_square or not wires_can_go_straight:
