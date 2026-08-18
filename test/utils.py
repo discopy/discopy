@@ -87,3 +87,28 @@ def test_unbiased_keyword():
     f, g = Function([1, 0], 2, 2), Function([0, 1], 2, 2)
     assert f.then(other=g) == f.then(g) and f.tensor(other=g) == f.tensor(g)
     assert f.then() == f == f.tensor()
+
+
+def test_deprecated_ob():
+    from discopy import (
+        biclosed, braided, compact, feedback, frobenius, pivotal, rigid)
+    from discopy.grammar import pregroup
+    from discopy.quantum import circuit
+    for module in (rigid, braided, biclosed, pivotal, frobenius, feedback,
+                   circuit, pregroup, compact):
+        with warns(DeprecationWarning):
+            assert module.Ob is module.Wire
+        with pytest.raises(AttributeError):
+            module.not_an_attribute
+
+
+def test_wire_tree_roundtrip():
+    from discopy import biclosed, braided, feedback, frobenius, pivotal, rigid
+    from discopy.quantum import circuit
+    for x in (rigid.Wire('x'), braided.Wire('x'), biclosed.Wire('x'),
+              pivotal.Wire('x'), frobenius.Wire('x'), feedback.Wire('x'),
+              circuit.Digit(2)):
+        assert from_tree(x.to_tree()) == x
+    with warns(DeprecationWarning):
+        assert from_tree({'factory': 'discopy.frobenius.Ob', 'name': 'x'})\
+            == frobenius.Wire('x')
