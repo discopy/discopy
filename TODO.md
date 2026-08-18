@@ -38,3 +38,8 @@ USER (interactive session, 2026-08-18, verbatim):
 - [x] USER on `drawing/drawing.py:547`:
   remove `Drawing.swap` unless something needs it, or explain why on the
   thread.
+- [ ] USER review on `symmetric.py:568` (2026-08-18): a `Swap` should count
+  as plumbing, breaking a bunch of stuff; the swap-box representation, if
+  wanted, is a downcast to a monoidal diagram. Blocked on the ruling asked
+  on the thread: this reverses the morning's no-regenerated-SVGs order —
+  27 baselines redraw as permutation bands and ~26 tests adapt.
