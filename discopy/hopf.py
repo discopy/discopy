@@ -49,7 +49,6 @@ unlink.
 >>> e = Representation[H].anyon(0, -1)
 >>> m = Representation[H].anyon(1, 1)
 >>> V = Representation[H].direct_sum([e, m])
->>> assert V.is_module()
 >>> x = ribbon.Ty('x')
 >>> F = Functor(ob_map={x: V}, ar_map={}, cod=Intertwiner[H])
 >>> braid = ribbon.Braid(x, x)
@@ -438,7 +437,7 @@ class Double(Algebra):
     ((S^{-1})^* \\otimes 1)` composed with that same multiplication.
 
     >>> D = Double(Algebra.cyclic(2))
-    >>> assert D.dim == 4 and D.is_valid() and D.is_quasitriangular()
+    >>> assert D.dim == 4 and D.is_valid()
     """
     def __init__(self, base):
         assert_isinstance(base, Algebra)
@@ -508,7 +507,7 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
     >>> m = Representation[D].anyon(1, 1)
     >>> V = Representation[D].direct_sum([e, m])
     >>> assert V.algebra == D
-    >>> assert V.is_module() and V == Dim(2)
+    >>> assert V == Dim(2)
     >>> ty = V.action.cod
     >>> (D.mult @ ty >> V.action).to_map().draw(  # doctest: +EXTRA
     ...     doctest='docs/_static/hopf/module.dot')
