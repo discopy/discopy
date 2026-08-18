@@ -45,6 +45,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   permutation operations and functorial semantics, while `symmetric.Layer`
   alternates permutations with generators without canonicalising diagram
   state ([#362](https://github.com/discopy/discopy/pull/362)).
+- The category of parametric maps, `discopy.para`, wrapping morphisms
+  `dom @ param -> cod` of any symmetric underlying category, with
+  reparametrisation as a method and a subclass lifting each level of the
+  hierarchy below symmetric: traced, Markov, closed, feedback, compact and
+  hypergraph ([#558](https://github.com/discopy/discopy/issues/558),
+  refactoring [#325](https://github.com/discopy/discopy/pull/325)).
 
 ### Changed
 
@@ -99,6 +105,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - Symmetric categories generate their swaps with `swap_factory` rather than
   `braid_factory`, which is now a `classproperty` reading it
   ([#440](https://github.com/discopy/discopy/pull/440)).
+- `abc.SymmetricCategory` extends `abc.BraidedCategory` directly, so
+  symmetric and Markov categories are not required to implement `twist` and
+  `trace`; balanced categories stay traced, and the two branches meet again
+  in `abc.CompactCategory` where the twist is the identity. The free diagram
+  classes keep their freely interpreted traces by subclassing
+  `traced.Diagram` ([#349](https://github.com/discopy/discopy/issues/349)).
 - The committed benchmark baseline is stored gzipped as
   `benchmark/baseline.json.gz`, which `benchmark/report.py` reads
   transparently.
