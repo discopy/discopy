@@ -53,8 +53,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   refactoring [#325](https://github.com/discopy/discopy/pull/325)).
 - `abc.ColouredSemigroup`, a category whose composition is an associative
   `tensor` with no unit, which `abc.ColouredMonoid` extends with `unit`.
-  `monoidal.Layer` is a semigroup: a layer has at least one box, so there is
-  no empty layer and `Layer.unit()` used to raise
+  `monoidal.Layer` is a semigroup: the constructor normalises away an empty
+  tensor and then rejects it for having no box, so `Layer.unit()` used to
+  raise. `Layer.id` still builds the boxless layer that `whisker` tensors on
+  either side, which never appears inside a `Diagram`
   ([#568](https://github.com/discopy/discopy/issues/568)).
 
 ### Changed
