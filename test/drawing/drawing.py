@@ -322,7 +322,7 @@ def test_region_cells_example():
     sides of the canvas as straight outermost boundaries, see issue #521.
     """
     red, green = map(monoidal.Colour, ("red", "green"))
-    x = Ty(Ob("x", dom=red, cod=green))
+    x = Ty(Wire("x", dom=red, cod=green))
     drawing = Cup(x, x.r).to_drawing()
     drawing.add_box_corners()
     left_leg = ((0.5, 1), (0.5, 0.5), (1, 0.5))
