@@ -59,7 +59,7 @@ from discopy.utils import (
 )
 
 if TYPE_CHECKING:
-    from discopy.monoidal import Ob, Ty, Diagram, Box
+    from discopy.monoidal import Ty, Diagram, Box
 
 
 class PortKind(StrEnum):
