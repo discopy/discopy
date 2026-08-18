@@ -51,6 +51,9 @@ dev = [
     "pytest",
     "pytest-benchmark",
     "polars",
+    # docs/neural's training harness imports it, so without it the neural
+    # equivalence gate and smoke tests skip themselves instead of running.
+    "pandas",
 ]
 docs = ["discopy[docs]"]
 quantum = ["discopy[quantum]"]
@@ -156,7 +159,12 @@ testpaths = [
 norecursedirs = [
     "test/fixtures",
 ]
-addopts = "--doctest-modules --ignore=test/fixtures -p plugin"
+addopts = "--doctest-modules --ignore=test/fixtures -p plugin -m 'not neural_e2e'"
+markers = [
+    # minutes, a GPU and a cached benchmark: run it when discopy.neural
+    # changes, with `pytest -m neural_e2e`, not on every commit.
+    "neural_e2e: end-to-end sudoku training and noise evaluation",
+]
 
 [tool.coverage.run]
 # The skip paths are unreachable unless --skip-extra is passed, and coverage

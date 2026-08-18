@@ -1,0 +1,10 @@
+# The example is the five files that demonstrate the library: a config, the
+# data, the model, the training loop and the evaluation. Everything else here
+# is run state or a research artefact that those five regenerate.
+*
+!.gitignore
+!config.py
+!dataset.py
+!evaluate.py
+!model.py
+!train.py
