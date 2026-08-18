@@ -115,30 +115,27 @@ class Category[C0, C1: Category](ABC):
     __lshift__ = __lrshift__ = lambda self, other: other.then(self)
 
 
-class ColouredSemigroup[C0, C1: ColouredSemigroup](Category[C0, C1]):
+class ColouredSemigroup[C0, C1: ColouredSemigroup](ABC):
     """
-    A coloured semigroup is a category whose sequential composition ``then`` is
-    given by an associative ``tensor``, with the objects ``C0`` (its colours)
-    as the boundaries of its morphisms.
+    A coloured semigroup has an associative product ``tensor`` and no unit,
+    with the objects ``C0`` as the colours of its elements.
 
-    There is no unit: :meth:`Category.id` stays abstract, so a subclass says
-    what whiskering a colour gives without claiming an empty tensor exists.
+    It is not a :class:`Category`: a category has an identity on every object
+    and a semigroup has nothing to send them to. Subclasses get their
+    :meth:`Category.id` elsewhere, e.g. :class:`monoidal.Layer` is a
+    :class:`cat.Box` whose identity is plumbing rather than an empty tensor.
     """
     @abstractmethod
-    def tensor(self, *objects: C1) -> C1:
+    def tensor(self, *others: C1) -> C1:
         """ The n-ary product of a semigroup for ``n > 0``. """
-
-    def then(self, *others: C1) -> C1:
-        """Sequential composition, given by the semigroup product."""
-        return self.tensor(*others)
 
     @classmethod
     def whisker(cls, other: C0 | C1) -> C1:
         """
-        Do nothing if ``other`` is already a morphism else apply :meth:`id`.
+        Do nothing if ``other`` is already an element else apply :meth:`id`.
 
         Parameters:
-            other : The object or morphism to be tensored on the left or right.
+            other : The object or element to be tensored on the left or right.
         """
         return other if isinstance(other, cls) else cls.id(other)
 
@@ -149,10 +146,12 @@ class ColouredSemigroup[C0, C1: ColouredSemigroup](Category[C0, C1]):
         return self.whisker(other).tensor(self)
 
 
-class ColouredMonoid[C0, C1: ColouredMonoid](ColouredSemigroup[C0, C1]):
+class ColouredMonoid[C0, C1: ColouredMonoid](
+        ColouredSemigroup[C0, C1], Category[C0, C1]):
     """
-    A coloured monoid is a :class:`ColouredSemigroup` with a unit, i.e. the
-    empty tensor ``cls()``.
+    A coloured monoid is a :class:`ColouredSemigroup` which is also a
+    :class:`Category`: its unit is the empty tensor ``cls()``, its identity is
+    that unit and its composition ``then`` is the product.
 
     An ordinary :obj:`Monoid` is the special case with a single, trivial
     colour, i.e. :class:`type(None)`. We do not enforce this so
@@ -167,6 +166,10 @@ class ColouredMonoid[C0, C1: ColouredMonoid](ColouredSemigroup[C0, C1]):
     def id(cls, dom: C0 = None) -> C1:
         """The monoidal unit, seen as an identity morphism."""
         return cls.unit()
+
+    def then(self, *others: C1) -> C1:
+        """Sequential composition, given by the monoid product."""
+        return self.tensor(*others)
 
 
 # A semigroup is a coloured semigroup with a single, trivial colour.

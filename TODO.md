@@ -12,9 +12,10 @@ USER's 🚀 on the body of
 
 - [x] Split `abc.ColouredMonoid` into `ColouredSemigroup` (the product, `then`,
       `whisker`, `@` and its mirror) and `ColouredMonoid` (`unit` and `id`).
-- [x] Keep `id` and `whisker` in the semigroup: `Category.id` stays abstract
-      there, so a subclass says what whiskering a colour gives without
-      claiming an empty tensor exists.
+- [x] Keep `whisker` in the semigroup, and do **not** inherit `Category`
+      there: a category has an identity on every object and a semigroup has
+      nothing to send them to, so inheriting it would make `Category.id`
+      abstract on a class that has no unit (daydream6728's review).
 - [x] `monoidal.Layer` inherits `ColouredSemigroup`, so `Layer.unit()` is gone
       rather than raising.
 - [x] Say in `Layer`'s docstring that `Layer.id()` adjoins a unit which never

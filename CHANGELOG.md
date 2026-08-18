@@ -51,8 +51,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   hierarchy below symmetric: traced, Markov, closed, feedback, compact and
   hypergraph ([#558](https://github.com/discopy/discopy/issues/558),
   refactoring [#325](https://github.com/discopy/discopy/pull/325)).
-- `abc.ColouredSemigroup`, a category whose composition is an associative
-  `tensor` with no unit, which `abc.ColouredMonoid` extends with `unit`.
+- `abc.ColouredSemigroup`, an associative `tensor` with no unit, which
+  `abc.ColouredMonoid` extends into a `Category` with `unit`, `id` and `then`.
+  A semigroup is not a category, since a category has an identity on every
+  object, so it inherits `ABC` rather than `Category`.
   `monoidal.Layer` is a semigroup: the constructor normalises away an empty
   tensor and then rejects it for having no box, so `Layer.unit()` used to
   raise. `Layer.id` still builds the boxless layer that `whisker` tensors on
