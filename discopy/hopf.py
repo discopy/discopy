@@ -124,6 +124,7 @@ tensor network that gets contracted):
 from __future__ import annotations
 
 from functools import cached_property
+from itertools import permutations
 
 import numpy as np
 
@@ -379,6 +380,24 @@ class Algebra:
         >>> assert Algebra.cyclic(3).is_valid()
         """
         table = [[(i + j) % n for j in range(n)] for i in range(n)]
+        return cls.group_algebra(table)
+
+    @classmethod
+    def symmetric(cls, n):
+        """
+        The group algebra of the symmetric group :math:`S_n`, with elements
+        the permutations of ``range(n)`` in lexicographic order — so that
+        ``g_0`` is the identity — and :math:`g_i g_j` the permutation
+        applying :math:`g_j` first.
+
+        >>> S3 = Algebra.symmetric(3)
+        >>> assert S3.is_valid() and S3.dim == 6
+        >>> assert not S3.is_commutative()
+        """
+        perms = sorted(permutations(range(n)))
+        index = {p: i for i, p in enumerate(perms)}
+        table = [[index[tuple(p[x] for x in q)] for q in perms]
+                 for p in perms]
         return cls.group_algebra(table)
 
     @classmethod
@@ -643,19 +662,47 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
     @classmethod
     def anyon(cls, flux, charge):
         """
-        A one-dimensional anyon module of the quantum double of a cyclic group
-        algebra: the group element ``e_a`` acts by ``charge ** a`` in the flux
-        sector ``flux``.
+        An irreducible anyon module of the quantum double of a group algebra,
+        labelled by the conjugacy class of the group element ``flux`` and an
+        irrep of its centraliser ``charge``: a mapping from the indices of the
+        centraliser elements to unitary matrices, or a scalar ``q`` for the
+        cyclic character ``e_a -> q ** a``. The basis is one copy of the
+        charge space per element of the class: :math:`\\delta_f \\otimes h`
+        sends the flux :math:`c` to :math:`h c h^{-1}` when it equals
+        :math:`f` and acts on the charge by :math:`\\pi(q_{h c h^{-1}}^{-1}
+        h q_c)`, for :math:`q_c` a transversal conjugating ``flux`` to
+        :math:`c`.
+
+        >>> D = Double(Algebra.symmetric(3))
+        >>> sigma = Representation[D].anyon(1, {0: 1, 1: -1})
+        >>> assert sigma == Dim(3) and sigma.is_module()
         """
         if not isinstance(cls.algebra, Double):
             raise ValueError(f"an anyon needs a Double, got {cls.algebra}")
         double, n = cls.algebra, cls.algebra.base.dim
-        array = np.zeros((n, n), dtype=complex)
-        for a in range(n):
-            array[flux, a] = charge ** a
+        mult = double.base.mult.eval(dtype=complex).array.reshape(n, n, n)
+        table = np.argmax(mult.real, axis=2)
+        inverse = np.argmax(mult.real[:, :, 0], axis=1)
+        conjugate = table[table, inverse[:, None]]
+        orbit = sorted({int(c) for c in conjugate[:, flux]})
+        transversal = {
+            c: int(np.argmax(conjugate[:, flux] == c)) for c in orbit}
+        if not isinstance(charge, dict):
+            charge = {a: charge ** a for a in range(n)}
+        pi = {z: np.atleast_2d(v) for z, v in charge.items()}
+        d = len(next(iter(pi.values())))
+        dim = len(orbit) * d
+        array = np.zeros((n, n, dim, dim), dtype=complex)
+        for h in range(n):
+            for i, c in enumerate(orbit):
+                new = int(conjugate[h, c])
+                j = orbit.index(new)
+                z = int(table[
+                    table[inverse[transversal[new]], h], transversal[c]])
+                array[new, h, i * d:(i + 1) * d, j * d:(j + 1) * d] = pi[z].T
         action = Box[complex](
-            'ρ', double.ty @ Dim(1), Dim(1), array.reshape(-1).tolist())
-        return cls(Dim(1), action)
+            'ρ', double.ty @ Dim(dim), Dim(dim), array.reshape(-1).tolist())
+        return cls(Dim(dim), action)
 
     @classmethod
     def direct_sum(cls, reps):
@@ -783,6 +830,67 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
             raise ValueError("the twist needs a quasitriangular structure")
         body = cls.algebra.twist @ Id(Dim(*dom.inside)) >> dom.action
         return cls(body.inside, body.dom, body.cod)
+
+    @classmethod
+    def chart(cls, dom, cod):
+        """
+        The parametrised intertwiner ``Dim(r) @ dom -> cod`` whose slices
+        form an orthonormal basis of the space of intertwiners
+        :math:`\\mathrm{Hom}_H(V, W) = \\{T : \\rho_W(h) \\circ T
+        = T \\circ \\rho_V(h)\\}`, so that every value of the ``r``
+        parameters gives an intertwiner and every intertwiner arises this
+        way. Each action is contracted once, the commutant constraints are
+        stacked over a basis of the algebra and solved by one SVD — no
+        semisimplicity is needed. Raises a :class:`ValueError` when the
+        space of intertwiners is zero.
+
+        Parameters:
+            dom : The domain :class:`Representation`.
+            cod : The codomain :class:`Representation`.
+
+        Example
+        -------
+        The fusion spaces of the toric code: for ``V`` the sum of the four
+        anyons of :math:`D(k[\\mathbb{Z}/2])`, each ordered pair of anyons
+        fuses to a unique third, so :math:`\\mathrm{Hom}(V \\otimes V, V)`
+        has dimension :math:`16`.
+
+        >>> D = Double(Algebra.cyclic(2))
+        >>> V = Representation[D].direct_sum(
+        ...     [Representation[D].anyon(f, c) for f in (0, 1)
+        ...      for c in (1, -1)])
+        >>> Q = Intertwiner[D].chart(V @ V, V)
+        >>> assert Q.dom == Dim(16, 4, 4) and Q.cod == Dim(4)
+
+        The parameters spectate in the intertwiner axiom, which holds for
+        every value at once, :math:`\\rho_W \\circ (1_H \\otimes Q)
+        = Q \\circ (1_r \\otimes \\rho_{V \\otimes V})`:
+
+        >>> lhs = Id(D.ty) @ Q >> V.action
+        >>> rhs = Diagram.swap(D.ty, Dim(16)) @ Id(Dim(4, 4)) \\
+        ...     >> Id(Dim(16)) @ (V @ V).action >> Q
+        >>> assert lhs.eval(dtype=complex).is_close(rhs.eval(dtype=complex))
+        >>> lhs.to_map().draw(  # doctest: +EXTRA
+        ...   doctest='docs/_static/hopf/chart.dot')
+
+        .. graphviz:: /_static/hopf/chart.dot
+            :align: center
+        """
+        H = cls.algebra
+        if H is None:
+            raise ValueError("the chart needs an algebra, use Intertwiner[H]")
+        n, d, c = H.dim, product(dom.inside), product(cod.inside)
+        rho = dom.action.eval(dtype=complex).array.reshape(n, d, d)
+        sigma = cod.action.eval(dtype=complex).array.reshape(n, c, c)
+        stack = np.concatenate([
+            np.kron(np.eye(d), sigma[i].T) - np.kron(rho[i], np.eye(c))
+            for i in range(n)])
+        _, sv, vh = np.linalg.svd(stack)
+        basis = vh[np.sum(~np.isclose(sv, 0)):].conj()
+        if not basis.size:
+            raise ValueError("the space of intertwiners is zero")
+        return cls(basis.reshape((len(basis), ) + dom.inside + cod.inside),
+                   Dim(len(basis)) @ dom, cod)
 
 
 class Functor(ribbon.Functor):
