@@ -186,6 +186,7 @@ recorded_build = pytest.mark.skipif(
     reason="golden files are bitwise recordings of the torch build "
            "for Python 3.12")
 
+
 @recorded_build
 @pytest.mark.parametrize("name", MODELS)
 @pytest.mark.parametrize("dtype,tag", [(torch.float32, "f32"),
