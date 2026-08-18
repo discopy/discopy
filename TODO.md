@@ -17,10 +17,10 @@ USER (interactive session, 2026-08-18, verbatim):
 
 - [x] Make `Swap` a subclass of `Permutation`, with a `__new__` on
   `Permutation` catching the two-wire transposition (opening commit).
-- [x] No regenerated drawing baselines: a `Swap` stays a generator rather
-  than plumbing — no coalescing into wider permutations on whiskering,
-  `from_box` keeps the swap drawing — and every `docs/_static` and
-  `test/drawing/tikz` baseline reverts to `main`.
+- [x] No regenerated drawing baselines — superseded the same day by the
+  plumbing ruling below: the baselines were first reverted to `main` by
+  keeping `Swap` a generator, then USER ruled a `Swap` is plumbing and
+  they were redrawn, visually identical.
 - [x] cubic P2 on `feedback.py`:
   `Permutation` inherits `Box.delay` which crashes with `TypeError`;
   override `delay` on `feedback.Permutation` and drop the special case in
