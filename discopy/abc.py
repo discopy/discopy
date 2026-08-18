@@ -366,27 +366,9 @@ class BraidedCategory[C0, C1](MonoidalCategory[C0, C1]):
         """
 
 
-class BalancedCategory[C0, C1](
-        BraidedCategory[C0, C1], TracedCategory[C0, C1]):
+class SymmetricCategory[C0, C1](BraidedCategory[C0, C1]):
     """
-    A balanced category is a :class:`BraidedCategory` and a
-    :class:`TracedCategory` with a method :code:`twist` for the natural
-    automorphism :code:`x -> x`.
-    """
-    @classmethod
-    @abstractmethod
-    def twist(cls, dom: C0) -> C1:
-        """
-        The twist on an object, to be instantiated.
-
-        Parameters:
-            dom : The object on which to take the twist.
-        """
-
-
-class SymmetricCategory[C0, C1](BalancedCategory[C0, C1]):
-    """
-    A symmetric category is a :class:`BalancedCategory` where the braid is its
+    A symmetric category is a :class:`BraidedCategory` where the braid is its
     own inverse called :code:`swap` for the symmetry :code:`x @ y -> y @ x`.
     """
     @classmethod
@@ -415,10 +397,6 @@ class SymmetricCategory[C0, C1](BalancedCategory[C0, C1]):
             done, doms = done @ head, doms[:i] + doms[i + 1:]
             xs = [x - 1 if x > i else x for x in xs[1:]]
         return result
-
-    @classmethod
-    def twist(cls, dom: C0) -> C1:
-        return cls.id(dom)
 
     @classmethod
     def braid(cls, left: C0, right: C0) -> C1:
@@ -475,6 +453,24 @@ class FeedbackCategory[C0, C1](MarkovCategory[C0, C1]):
         """
 
 
+class BalancedCategory[C0, C1](
+        BraidedCategory[C0, C1], TracedCategory[C0, C1]):
+    """
+    A balanced category is a :class:`BraidedCategory` and a
+    :class:`TracedCategory` with a method :code:`twist` for the natural
+    automorphism :code:`x -> x`.
+    """
+    @classmethod
+    @abstractmethod
+    def twist(cls, dom: C0) -> C1:
+        """
+        The twist on an object, to be instantiated.
+
+        Parameters:
+            dom : The object on which to take the twist.
+        """
+
+
 class RibbonCategory[C0, C1](
         PivotalCategory[C0, C1], BalancedCategory[C0, C1]):
     """
@@ -487,8 +483,12 @@ class CompactCategory[C0, C1](
         RibbonCategory[C0, C1], SymmetricCategory[C0, C1]):
     """
     A compact category is a :class:`RibbonCategory` which is also a
-    :class:`SymmetricCategory`, i.e. with cups, caps and swaps.
+    :class:`SymmetricCategory`, i.e. with cups, caps and swaps and where
+    the twist is the identity.
     """
+    @classmethod
+    def twist(cls, dom: C0) -> C1:
+        return cls.id(dom)
 
 
 class HypergraphCategory[C0, C1](
