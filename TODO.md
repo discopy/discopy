@@ -21,14 +21,20 @@ USER (interactive session, 2026-08-18, verbatim):
   than plumbing — no coalescing into wider permutations on whiskering,
   `from_box` keeps the swap drawing — and every `docs/_static` and
   `test/drawing/tikz` baseline reverts to `main`.
-- [ ] cubic P2 on `feedback.py`: `Permutation` inherits `Box.delay` which
-  crashes with `TypeError`; override `delay` on `feedback.Permutation` and
-  drop the special case in `feedback.Layer.delay`. `reset` crashes the same
-  way but predates this PR (`feedback.Swap.reset()` fails on `main`) and is
-  out of scope here — USER, 2026-08-18.
-- [ ] cubic P2 on `quantum/tk.py`: `current.index(source, i)` makes `to_tk`
-  quadratic in the width of a permutation box; keep an inverse position
-  table so each lookup is constant-time.
-- [ ] cubic P3 on `quantum/circuit.py`: the two swap fast paths in `to_tn`
-  are unreachable behind the new `isinstance(box, Permutation)` branch;
-  reorder so the equality checks come first.
+- [WIP] @claude-r6h92m-2026-08-18 14:25 cubic P2 on `feedback.py`:
+  `Permutation` inherits `Box.delay` which crashes with `TypeError`;
+  override `delay` on `feedback.Permutation` and drop the special case in
+  `feedback.Layer.delay`. `reset` crashes the same way but predates this PR
+  (`feedback.Swap.reset()` fails on `main`) and is out of scope here —
+  USER, 2026-08-18.
+- [WIP] @claude-r6h92m-2026-08-18 14:25 cubic P2 on `quantum/tk.py`:
+  `current.index(source, i)` makes `to_tk` quadratic in the width of a
+  permutation box; keep an inverse position table so each lookup is
+  constant-time.
+- [WIP] @claude-r6h92m-2026-08-18 14:25 cubic P3 on `quantum/circuit.py`:
+  the two swap fast paths in `to_tn` are unreachable behind the new
+  `isinstance(box, Permutation)` branch; reorder so the equality checks
+  come first.
+- [WIP] @claude-r6h92m-2026-08-18 14:25 USER on `drawing/drawing.py:547`:
+  remove `Drawing.swap` unless something needs it, or explain why on the
+  thread.
