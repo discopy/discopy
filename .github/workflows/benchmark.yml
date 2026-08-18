@@ -70,8 +70,9 @@ jobs:
         persist-credentials: false
     - name: Install the head commit
       if: github.event_name == 'pull_request'
+      # Checkout deletes the generated version module, so rebuild the project.
       run:
-        uv sync --locked --group dev
+        uv sync --locked --group dev --reinstall-package discopy
     - name: Name the artifact after the branch
       if: always()
       run: echo "slug=${REF//\//-}" >> "$GITHUB_OUTPUT"
