@@ -38,10 +38,13 @@ USER (interactive session, 2026-08-18, verbatim):
 - [x] USER on `drawing/drawing.py:547`:
   remove `Drawing.swap` unless something needs it, or explain why on the
   thread.
-- [WIP] @claude-r6h92m-2026-08-18 15:10 USER review on `symmetric.py:568`
-  (2026-08-18): a `Swap` should count as plumbing, breaking a bunch of
-  stuff; the swap-box representation, if wanted, is a downcast to a
-  monoidal diagram. 🚀 with "remove unnecessary labels": swaps coalesce
-  like any permutation, `from_box` stops aliasing a permutation's cod with
-  its dom so labels stay put, a wire at a fixed point of a band is not
-  re-labelled, and the baselines are re-committed pixel-identical.
+- [x] USER review on `symmetric.py:568` (2026-08-18): a `Swap` should count
+  as plumbing, breaking a bunch of stuff; the swap-box representation, if
+  wanted, is a downcast to a monoidal diagram. 🚀 with "remove unnecessary
+  labels": swaps coalesce like any permutation, `from_box` stops aliasing a
+  permutation's cod with its dom so labels stay put, a wire at a fixed
+  point of a band is not re-labelled, and 20 baselines are re-committed
+  visually identical — except `symmetric/foliation.svg`, whose input
+  labels come back on canvas, and `int/symmetric-feedback.svg`, one row
+  taller because `merge_layers` does not yet merge a pure-permutation
+  layer into its neighbours.

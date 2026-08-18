@@ -570,10 +570,18 @@ class Drawing(TracedCategory, RichDisplay):
         box_dom, box_cod = box.dom.to_drawing(), box.cod.to_drawing()
         old_box = box
         box = Permutation(box_dom, old_box.perm)\
-            if isinstance(old_box, Permutation) and old_box.is_plumbing\
+            if isinstance(old_box, Permutation)\
             else Box(
                 old_box.name, box_dom, box_cod,
                 is_dagger=old_box.is_dagger)
+        if isinstance(old_box, Permutation):
+            # A permutation reindexes its dom as its cod: give the drawing a
+            # separate copy so label attributes on one side stay on that side,
+            # and do not re-label a wire the permutation keeps in place.
+            box.cod = box_cod
+            for i, obj in enumerate(box.cod.inside):
+                if old_box.perm[i] == i:
+                    obj.skip_label = True
 
         for attr, default in BOX_DRAWING_ATTRIBUTES.items():
             setattr(box, attr, getattr(old_box, attr, default(box)))

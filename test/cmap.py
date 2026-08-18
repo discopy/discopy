@@ -94,11 +94,13 @@ def test_eliminate_swaps():
     x, y, w, z = map(Ty, "xyzw")
 
     diagram = Id(x @ y).swap(x, y).swap(y, x)
-    assert diagram == diagram.to_map().to_diagram().normal_form()
+    assert diagram.to_map()\
+        == diagram.to_map().to_diagram().normal_form().to_map()
 
     diagram = Id(x @ y @ w @ z)\
         .swap(x @ y, w @ z).swap(w @ z, x @ y).normal_form()
-    assert diagram == diagram.to_map().to_diagram().normal_form()
+    assert diagram.to_map()\
+        == diagram.to_map().to_diagram().normal_form().to_map()
 
     f, g = Box("f", x, z), Box("g", y, w)
 

@@ -251,7 +251,6 @@ class Ty(cat.Ob, FreeMonoid):
     """
     ob = Colour
     generator_factory = Wire
-    is_plumbing = True
 
     def cast_wire(self, x: str | cat.Ob) -> cat.Ob:
         """
@@ -658,8 +657,8 @@ class Layer(cat.Box, ColouredMonoid):
         append or we tensor with the last element. """
         result = []
         for value in (x for x in inside if not isinstance(x, Ty) or x):
-            if not result or not value.is_plumbing\
-                    or not result[-1].is_plumbing:
+            if not result or not isinstance(value, cls.plumbing)\
+                    or not isinstance(result[-1], cls.plumbing):
                 result.append(value)
             else:
                 result[-1] = result[-1] @ value
@@ -1366,7 +1365,6 @@ class Box(cat.Box, Diagram):
         Diagram.__init__(self, inside, dom, cod)
 
     is_identity = False
-    is_plumbing = False
 
     @property
     def size(self):

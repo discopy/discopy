@@ -55,10 +55,13 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 ### Changed
 
 - `Swap` is now the two-wire transposition subclass of `Permutation`, and
-  constructing `Permutation(x @ y, [1, 0])` returns a `Swap`. A swap stays a
-  generator rather than plumbing: it does not coalesce with its neighbours in
-  a `symmetric.Layer`, so diagrams and drawings built from swaps are
-  unchanged ([#444](https://github.com/discopy/discopy/issues/444)).
+  constructing `Permutation(x @ y, [1, 0])` returns a `Swap`. A swap is
+  plumbing like any other permutation: it coalesces with its neighbours in
+  a `symmetric.Layer`, so a whiskered swap is stored and drawn as one wider
+  permutation. The pictures stay the same: a permutation no longer
+  re-labels a wire it keeps in place, nor pushes its input labels off the
+  canvas, so the redrawn baselines only differ by their serialisation
+  ([#444](https://github.com/discopy/discopy/issues/444)).
 
 - `monoidal.Layer` holds a list of boxes and non-empty types with at least
   one box and no two consecutive types, instead of an odd-length list

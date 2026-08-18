@@ -664,15 +664,18 @@ class Circuit(tensor.Diagram[complex]):
           >> qubit @ qubit @ Ket(0)
           >> qubit @ H @ qubit
           >> qubit @ CX
-          >> SWAP @ qubit
+          >> Permutation(qubit @ qubit @ qubit, [1, 0, 2])
           >> CX @ qubit
-          >> SWAP @ qubit
+          >> Permutation(qubit @ qubit @ qubit, [1, 0, 2])
           >> Discard(qubit) @ qubit @ qubit
           >> Discard(qubit) @ qubit
           >> Discard(qubit)
         >>> circuit = Ket(1, 0) >> CX >> qubit @ Ket(0) @ qubit
-        >>> print(Circuit.from_tk(circuit.to_tk())[3:-3])
-        X @ qubit @ qubit >> qubit @ SWAP >> CX @ qubit >> qubit @ SWAP
+        >>> assert str(Circuit.from_tk(circuit.to_tk())[3:-3]) == (
+        ...     "X @ qubit @ qubit "
+        ...     ">> Permutation(qubit @ qubit @ qubit, [0, 2, 1]) "
+        ...     ">> CX @ qubit "
+        ...     ">> Permutation(qubit @ qubit @ qubit, [0, 2, 1])")
 
         >>> bell_state = Circuit.caps(qubit, qubit)
         >>> bell_effect = bell_state[::-1]
