@@ -14,3 +14,5 @@
 `kleisli.additive.Function.trace` has the same slice but lives on
 [#443](https://github.com/discopy/discopy/pull/443), so it is fixed there
 rather than here.
+- [x] cubic's five P2s: `n == 0` rather than falsy `n` in the four guards, and
+      assert the identity itself for both `python.Function`
