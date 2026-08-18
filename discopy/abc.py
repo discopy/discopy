@@ -134,6 +134,11 @@ class ColouredSemigroup[C0, C1: ColouredSemigroup](ABC):
         """
         Do nothing if ``other`` is already an element else apply :meth:`id`.
 
+        Embedding a colour is what an identity does, so only a subclass with
+        one can whisker: :class:`ColouredMonoid` takes it from the unit and
+        :class:`monoidal.Layer` from its plumbing. A semigroup with no
+        identity has a product and nothing else.
+
         Parameters:
             other : The object or element to be tensored on the left or right.
         """
