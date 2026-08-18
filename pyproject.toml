@@ -181,7 +181,3 @@ omit = [
 
 [tool.coverage.report]
 fail_under = 98
-exclude_also = [
-    # golden bitwise tests only run on the build that recorded them
-    "@recorded_build",
-]
