@@ -23,8 +23,9 @@ USER (interactive session, 2026-08-18, verbatim):
   `test/drawing/tikz` baseline reverts to `main`.
 - [ ] cubic P2 on `feedback.py`: `Permutation` inherits `Box.delay` which
   crashes with `TypeError`; override `delay` on `feedback.Permutation` and
-  drop the special case in `feedback.Layer.delay`. Also override `reset`,
-  which crashes the same way — including for `Swap` on `main` already.
+  drop the special case in `feedback.Layer.delay`. `reset` crashes the same
+  way but predates this PR (`feedback.Swap.reset()` fails on `main`) and is
+  out of scope here — USER, 2026-08-18.
 - [ ] cubic P2 on `quantum/tk.py`: `current.index(source, i)` makes `to_tk`
   quadratic in the width of a permutation box; keep an inverse position
   table so each lookup is constant-time.
