@@ -112,7 +112,7 @@ def test_Permutation():
     assert (a >> b) >> c == a >> (b >> c)
     assert Id(x @ y @ z) >> a == a == a >> Id(a.cod)
     assert (a >> b).dagger() == b.dagger() >> a.dagger()
-    q = Permutation(z @ y, [1, 0])
+    q = Permutation(z @ y @ z, [2, 0, 1])
     assert (perm @ q).dagger() == perm.dagger() @ q.dagger()
     assert (perm @ q).dom == perm.dom @ q.dom
     swap = Swap(x, y)
@@ -128,16 +128,15 @@ def test_Permutation():
 def test_Layer():
     x, y, z = Ty('x'), Ty('y'), Ty('z')
     f = Box('f', x, y)
-    swap, permutation = Swap(x, y), Permutation(x @ y, [1, 0])
+    swap, permutation = Swap(x, y), Permutation(x @ y @ z, [2, 0, 1])
     layer = Layer(x, f, y)
     assert layer.boxes_or_types == (x, f, y) == layer.boxes_and_types
     assert not layer.is_plumbing
     assert layer.boxes == [f]
     assert Layer(f) == Layer(Ty(), f, Ty())
     assert Layer(permutation).boxes_or_types == (permutation, )
-    assert Layer(x, swap, z).boxes == [Permutation(
-        x @ x @ y @ z, [0, 2, 1, 3])]
-    assert permutation == swap
+    assert Layer(x, swap, z).boxes == [swap]
+    assert Permutation(x @ y, [1, 0]) == swap
     assert layer.dagger().dagger() == layer
     assert (z @ layer).boxes_and_types == (z @ x, f, y)
     assert (layer @ z).boxes_and_types == (x, f, y @ z)
@@ -181,13 +180,15 @@ def test_Layer_identity_plumbing():
 def test_Layer_coalesces_plumbing():
     x, y, z = Ty('x'), Ty('y'), Ty('z')
     f = Box('f', z, z)
-    permutation = Permutation(x @ y, [1, 0])
+    permutation = Permutation(x @ y @ y, [2, 0, 1])
     assert Layer(x, permutation, y) == Layer(
-        Permutation(x @ x @ y @ y, [0, 2, 1, 3]))
+        Permutation(x @ x @ y @ y @ y, [0, 3, 1, 2, 4]))
     assert Layer(permutation, f, permutation).boxes_or_types == (
         permutation, f, permutation)
     assert Layer(x, f, y, permutation, z).boxes_or_types == (
-        x, f, Permutation(y @ x @ y @ z, [0, 2, 1, 3]))
+        x, f, Permutation(y @ x @ y @ y @ z, [0, 3, 1, 2, 4]))
+    swap = Swap(x, y)
+    assert Layer(x, swap, y).boxes_or_types == (x, swap, y)
 
 
 def test_Layer_factory_ownership():
@@ -196,10 +197,11 @@ def test_Layer_factory_ownership():
     for module in (compact, markov):
         assert module.Diagram.permutation_factory is module.Permutation
         x, y = module.Ty('x'), module.Ty('y')
-        permutation = module.Permutation(x @ y, [1, 0])
+        permutation = module.Permutation(x @ y @ y, [2, 0, 1])
         layer = module.Layer(permutation)
-        assert type(layer.boxes_and_types[1]) is module.Swap
+        assert type(layer.boxes_and_types[1]) is module.Permutation
         assert issubclass(module.Swap, module.Permutation)
+        assert type(module.Permutation(x @ y, [1, 0])) is module.Swap
         assert type(x @ permutation) is module.Permutation
     assert markov.Layer is symmetric.Layer
     assert not hasattr(symmetric.Layer, 'permutation_factory')
@@ -214,7 +216,7 @@ def test_Layer_tensor():
     assert result.boxes == [f, g]
     assert result.boxes_or_types == (x, f, y @ z, g, x)
     assert (left @ right).dagger() == left.dagger() @ right.dagger()
-    permutation = Layer(Permutation(x @ y, [1, 0]))
+    permutation = Layer(Permutation(x @ y @ x, [2, 0, 1]))
     assert (left @ right) @ permutation == left @ (right @ permutation)
     assert (Layer(f) @ Layer(g) @ permutation).boxes_or_types == (
         f, g, permutation[0])
@@ -276,9 +278,9 @@ def test_inherited_permutation_factory():
 
 def test_Permutation_whiskering():
     x, y, z = Ty('x'), Ty('y'), Ty('z')
-    perm = Permutation(x @ y, [1, 0])
-    assert perm @ z == Permutation(x @ y @ z, [1, 0, 2])
-    assert z @ perm == Permutation(z @ x @ y, [0, 2, 1])
+    perm = Permutation(x @ y @ z, [1, 2, 0])
+    assert perm @ z == Permutation(x @ y @ z @ z, [1, 2, 0, 3])
+    assert z @ perm == Permutation(z @ x @ y @ z, [0, 2, 3, 1])
     assert isinstance(perm @ z, Permutation)
     assert isinstance(z @ perm, Permutation)
     assert perm @ z == perm @ Id(z)
@@ -287,11 +289,14 @@ def test_Permutation_whiskering():
     identity = Permutation(x, [0])
     assert isinstance(identity @ y, Permutation)
     assert isinstance(y @ identity, Permutation)
+    swap = Swap(x, y)
+    assert (swap @ z).inside == (Layer(swap, z), )
+    assert (z @ swap).inside == (Layer(z, swap), )
 
 
 def test_mixed_Layer_plumbing():
     x, y, z = Ty('x'), Ty('y'), Ty('z')
-    permutation = Permutation(x @ y, [1, 0])
+    permutation = Permutation(x @ y @ y, [2, 0, 1])
     f = Box('f', z, z)
     layer = Layer(permutation, f, Ty())
     diagram = Diagram((layer,), layer.dom, layer.cod)
@@ -302,18 +307,18 @@ def test_mixed_Layer_plumbing():
     assert pickle.loads(pickle.dumps(diagram)) == diagram
     assert layer.boxes_and_types == (
         Ty(), permutation, Ty(), f, Ty())
-    assert layer.boxes_and_offsets == [(permutation, 0), (f, 2)]
+    assert layer.boxes_and_offsets == [(permutation, 0), (f, 3)]
     assert diagram.boxes == [permutation, f]
-    assert diagram.offsets == [0, 2]
+    assert diagram.offsets == [0, 3]
     assert list(diagram.normalize()) == []
     # A permutation is a box, so this layer holds two and cannot interchange.
     with raises(NotImplementedError):
         diagram.interchange(0, 0)
     g = Box('g', z, z)
-    staircase = permutation @ z >> y @ x @ f
-    assert staircase.substitute(1, g) == permutation @ z >> y @ x @ g
+    staircase = permutation @ z >> y @ x @ y @ f
+    assert staircase.substitute(1, g) == permutation @ z >> y @ x @ y @ g
     assert staircase.substitute(
-        0, Permutation(x @ y @ z, [1, 0, 2])) == staircase
+        0, Permutation(x @ y @ y @ z, [2, 0, 1, 3])) == staircase
     assert Diagram.decode(*staircase.encode()) == staircase
 
 

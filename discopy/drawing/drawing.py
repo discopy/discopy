@@ -575,7 +575,7 @@ class Drawing(TracedCategory, RichDisplay):
         box_dom, box_cod = box.dom.to_drawing(), box.cod.to_drawing()
         old_box = box
         box = Permutation(box_dom, old_box.perm)\
-            if isinstance(old_box, Permutation)\
+            if isinstance(old_box, Permutation) and old_box.is_plumbing\
             else Box(
                 old_box.name, box_dom, box_cod,
                 is_dagger=old_box.is_dagger)
