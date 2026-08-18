@@ -41,6 +41,13 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   or colliding with neighbouring wires
   ([#364](https://github.com/discopy/discopy/pull/364),
   [#365](https://github.com/discopy/discopy/pull/365)).
+- Feedback loops are drawn with a delay box: a white box, round on the
+  upward side, in the middle of the loop, labelled by the number of time
+  steps between the type fed back and the type it comes from.
+  `Drawing.trace` takes a `feedback` argument carrying that delay (`True`
+  reads it off the types) so that a `feedback.Feedback` loop no longer
+  looks like a compact-closed trace
+  ([#515](https://github.com/discopy/discopy/issues/515)).
 - Explicit permutations in symmetric layers: `symmetric.P` supports the
   permutation operations and functorial semantics, while `symmetric.Layer`
   alternates permutations with generators without canonicalising diagram
@@ -164,6 +171,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   input of the controlled box rather than its first one, so gates with a
   classical wire or a distance other than one are drawn on the right wires
   ([#439](https://github.com/discopy/discopy/pull/439)).
+- TikZ wires combining a style with a computed looseness, e.g. the arrow of
+  a measure, emitted `->looseness=...` without the separating comma
+  ([#515](https://github.com/discopy/discopy/issues/515)).
 - `closed.Context.dom` called `category.ob.tensor` unbound, which raised
   `TypeError` for an empty context instead of returning `Ty()`
   ([#549](https://github.com/discopy/discopy/issues/549)).

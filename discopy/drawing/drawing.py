@@ -839,20 +839,51 @@ class Drawing(TracedCategory, RichDisplay):
         result.width = x_shift + other.width
         return result
 
-    def trace(self, n=1, left=False) -> Drawing:
+    def trace(self, n=1, left=False, feedback=False) -> Drawing:
+        """
+        Draw a loop around the last ``n`` wires, or the first ``n`` if
+        ``left``.
+
+        When ``feedback``, the loop carries a delay box in its middle: a
+        white box, round on the upward side, labelled by the number of
+        delays between the type fed back and the type it comes from. This is
+        what tells apart the feedback operator of a
+        :class:`discopy.abc.FeedbackCategory`, where the memory comes back
+        ``feedback`` time steps later, from the trace of a
+        :class:`discopy.abc.TracedCategory`, where the two ends of the loop
+        are the same wire. When ``feedback is True``, the delay is read off
+        the :meth:`discopy.feedback.Ob.time_step` of the traced types.
+
+        Example
+        -------
+        >>> from discopy.monoidal import Box, Equation
+        >>> f = Drawing.from_box(Box('f', 'x @ x', 'x @ x'))
+        >>> Equation(f.trace(), f.trace(feedback=True), symbol="vs.").draw(
+        ...     doctest="docs/_static/drawing/trace-vs-feedback.svg")
+
+        .. image:: /_static/drawing/trace-vs-feedback.svg
+            :align: center
+        """
         from discopy.monoidal import Box, Ty
         if n == 0:
             return self
         if n > 1:
-            return self.trace(left=left).trace(n=n - 1, left=left)
+            return self.trace(left=left, feedback=feedback).trace(
+                n=n - 1, left=left, feedback=feedback)
         dom = self.dom[1:] if left else self.dom[:-1]
         cod = self.cod[1:] if left else self.cod[:-1]
         traced_dom = self.dom[:1] if left else self.dom[-1:]
         traced_cod = self.cod[:1] if left else self.cod[-1:]
+        if feedback is True:
+            feedback = sum(
+                getattr(x, "time_step", 0) for x in traced_dom.inside) - sum(
+                getattr(x, "time_step", 0) for x in traced_cod.inside) or 1
         cap_cod, cup_dom = traced_dom ** 2, (
             traced_dom @ traced_cod if left else traced_cod @ traced_dom)
-        cup = Box('cup', cup_dom, Ty(), draw_as_wires=True).to_drawing()
-        cap = Box('cap', Ty(), cap_cod, draw_as_wires=True).to_drawing()
+        cup = Box('cup', cup_dom, Ty(), draw_as_wires=True,
+                  draw_as_feedback=feedback).to_drawing()
+        cap = Box('cap', Ty(), cap_cod, draw_as_wires=True,
+                  draw_as_feedback=feedback).to_drawing()
         return (
             cap @ dom >> traced_dom @ self >> cup @ cod if left
             else dom @ cap >> self @ traced_dom >> cod @ cup)

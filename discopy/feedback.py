@@ -559,7 +559,7 @@ class Feedback(monoidal.Bubble, Box):
         return factory_name(type(self)) + f"({arg}, mem={mem})"
 
     def to_drawing(self):
-        return self.arg.to_drawing().trace()
+        return self.arg.to_drawing().trace(feedback=True)
 
 
 class FollowedBy(Box):

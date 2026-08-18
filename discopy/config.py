@@ -27,6 +27,9 @@ BOX_DRAWING_ATTRIBUTES = {
     "draw_as_braid": lambda _: False,
     "draw_as_cup": lambda _: False,
     "draw_as_cap": lambda _: False,
+    # The delay of the feedback loop closed by this cup or cap, drawn as a
+    # box labelling the loop, see :meth:`drawing.Drawing.trace`.
+    "draw_as_feedback": lambda _: False,
     "draw_as_dual_rail_braid": lambda _: False,
     "draw_as_dual_rail_twist": lambda _: False,
     "draw_as_dual_rail_cup": lambda _: False,
@@ -98,6 +101,9 @@ DRAWING_DEFAULT = {
     # Gap in inches between the diagram and the legend.
     "legend_margin": 0.4,
     "ribbon_width": 0.25,
+    # Half-width of the delay box drawn in the middle of a feedback loop,
+    # see :meth:`discopy.drawing.backend.Backend.draw_feedback_box`.
+    "feedback_box_size": 0.2,
     "plt_tol": 20,
     "svg_tol": 1,
 }

@@ -387,6 +387,14 @@ class Backend(ABC):
         points = [start] + [step[-1] for step in steps]
         self.max_width = max([self.max_width] + [x for x, _ in points])
 
+    def draw_feedback_box(self, middle, delay, **params):
+        """
+        Draws the delay box of a feedback loop: a white box, round on the
+        upward side, centred on ``middle`` and labelled by ``delay``, see
+        :meth:`draw_wires` and :meth:`discopy.drawing.Drawing.trace`.
+        """
+        self.max_width = max(self.max_width, middle[0])
+
     @staticmethod
     def braid_strand(source, target, middle):
         """
@@ -525,6 +533,15 @@ class Backend(ABC):
         return colours
 
     @staticmethod
+    def feedback_layers(graph):
+        """
+        The delay of each layer of a graph holding the cup or the cap of a
+        feedback, i.e. the two ends of a loop drawn with a delay box.
+        """
+        return {node.j: int(node.box.draw_as_feedback) for node in graph.nodes
+                if node.kind == "box" and node.box.draw_as_feedback}
+
+    @staticmethod
     def visible_edges(graph):
         """ Yield the edges of a graph that are not inside a box. """
         def inside_a_box(node):
@@ -592,6 +609,7 @@ class Backend(ABC):
                 self.draw_permutation(graph.positions, node)
             elif node.box.is_crossing:
                 self.draw_braid(graph.positions, node)
+        feedback_layers = self.feedback_layers(graph)
         for source, target in self.visible_edges(graph):
             source_position = graph.positions[source]
             target_position = graph.positions[target]
@@ -609,6 +627,16 @@ class Backend(ABC):
             self.draw_wire(
                 source_position, target_position, bend_out, bend_in,
                 linewidth=(0 if is_frame_boundary else None))
+            # The wire from the cap of a feedback down to its cup goes against
+            # the flow of the diagram, i.e. the memory comes back some time
+            # steps later, so it carries a delay box in its middle.
+            layers = {getattr(n, "j", None) for n in (source, target)}
+            if len(layers) == 2 and layers <= feedback_layers.keys():
+                middle = tuple(
+                    (s + t) / 2
+                    for s, t in zip(source_position, target_position))
+                self.draw_feedback_box(
+                    middle, feedback_layers[layers.pop()], **params)
 
     def fill_fold(self, outer, inner, color):
         """
@@ -1075,8 +1103,7 @@ class TikZ(Backend):
             distance = min(dx, dy)
             looseness = round(distance / length * 2.1, 4)
         if looseness != 1:
-            if style is None:
-                style = ''
+            style = '' if style is None else f'{style}, '
             style += f'looseness={looseness}'
 
         cmd = (
@@ -1091,6 +1118,17 @@ class TikZ(Backend):
             f", {style}" if style is not None else "",
             self.nodes[source], self.nodes[target]))
         super().draw_wire(source, target, bend_out=bend_out, bend_in=bend_in)
+
+    def draw_feedback_box(self, middle, delay, **params):
+        (x, y), r = middle, DEFAULT["feedback_box_size"]
+        corners = [self.add_node(x - r, y - r), self.add_node(x + r, y - r),
+                   self.add_node(x + r, y)]
+        self.edgelayer.append(
+            f"\\draw [-, fill=white] ({corners[0]}.center)"
+            f" to ({corners[1]}.center) to ({corners[2]}.center)"
+            f" arc (0:180:{r}) to ({corners[0]}.center);\n")
+        self.draw_text(str(delay), x, y, **params)
+        super().draw_feedback_box(middle, delay, **params)
 
     def draw_bezier(self, points):
         for point in points:
@@ -1297,6 +1335,26 @@ class Matplotlib(Backend):
             self.axis.add_patch(PathPatch(
                 path, facecolor='none', linewidth=linewidth))
         super().draw_wire(source, target, bend_out=bend_out, bend_in=bend_in)
+
+    def draw_feedback_box(self, middle, delay, **params):
+        (x, y), r = middle, DEFAULT["feedback_box_size"]
+        k = 0.5523 * r
+        path = Path(
+            [(x - r, y - r), (x + r, y - r), (x + r, y),
+             (x + r, y + k), (x + k, y + r), (x, y + r),
+             (x - k, y + r), (x - r, y + k), (x - r, y),
+             (x - r, y - r)],
+            [Path.MOVETO, Path.LINETO, Path.LINETO,
+             Path.CURVE4, Path.CURVE4, Path.CURVE4,
+             Path.CURVE4, Path.CURVE4, Path.CURVE4,
+             Path.CLOSEPOLY])
+        self.axis.add_patch(PathPatch(
+            path, linewidth=self.linewidth,
+            facecolor=COLORS["white"], edgecolor="black"))
+        self.draw_text(
+            str(delay), x, y, ha='center', va='center',
+            fontsize=params.get('fontsize', None))
+        super().draw_feedback_box(middle, delay, **params)
 
     def draw_bezier(self, points):
         path = Path(
