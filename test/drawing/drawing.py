@@ -254,7 +254,7 @@ def test_draw_regions_uncoloured_shapes():
 
 def test_draw_coloured_cups_and_caps():
     red, green = map(monoidal.Colour, ("red", "green"))
-    x = Ty(Ob("x", dom=red, cod=green))
+    x = Ty(Wire("x", dom=red, cod=green))
     # A cup and a cap each separate the two boundary regions, with the
     # names in discopy.config.COLORS resolved to their hexcodes.
     assert region_hexes(Cup(x, x.r)) == {'#e8a5a5', '#d8f8d8'}
@@ -262,24 +262,24 @@ def test_draw_coloured_cups_and_caps():
 
 
 def test_draw_coloured_crossings_are_monochrome():
-    from discopy.frobenius import Spider, Ty as FTy, Ob as FOb
+    from discopy.frobenius import Spider, Ty as FTy, Wire as FOb
     red = monoidal.Colour("red")
     # Wires that cross or merge must be globular, i.e. carry the same colour
     # on both sides, so their regions are a single colour.
     assert region_hexes(Swap(
-        Ty(Ob("x", dom=red, cod=red)), Ty(Ob("y", dom=red, cod=red)))
+        Ty(Wire("x", dom=red, cod=red)), Ty(Wire("y", dom=red, cod=red)))
     ) == {'#e8a5a5'}
     assert region_hexes(Spider(2, 1, FTy(FOb("x", dom=red, cod=red)))) == {
         '#e8a5a5'}
     # A swap of wires separating different regions is not globular.
     green = monoidal.Colour("green")
     with raises(AxiomError):
-        Swap(Ty(Ob("x", dom=red, cod=green)), Ty(Ob("y", dom=green, cod=red)))
+        Swap(Ty(Wire("x", dom=red, cod=green)), Ty(Wire("y", dom=green, cod=red)))
 
 
 def test_draw_coloured_equation():
     red, green = map(monoidal.Colour, ("red", "green"))
-    x = Ty(Ob("x", dom=red, cod=green))
+    x = Ty(Wire("x", dom=red, cod=green))
     equation = Equation(Box("f", x, x), Box("g", x, x))
     colours = region_hexes(equation)
     # Both term regions show; white only overpaints the colours before it.
