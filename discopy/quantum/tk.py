@@ -30,10 +30,11 @@ import pytket as tk
 from pytket.circuit import Bit, Op, OpType, Qubit
 from pytket.utils import probs_from_counts
 
-from discopy.quantum.circuit import Functor, Id, bit, qubit, Circuit as Diagram
+from discopy.quantum.circuit import (
+    Functor, Id, Permutation, bit, qubit, Circuit as Diagram)
 from discopy.quantum.gates import (
     ClassicalGate, Controlled, QuantumGate, Bits, Bra, Digits, Ket,
-    Swap, Scalar, MixedScalar, GATES, X, Rx, Ry, Rz, CRx,
+    Scalar, MixedScalar, GATES, X, Rx, Ry, Rz, CRx,
     CRz, format_number, Discard, Measure)
 from discopy.utils import assert_isinstance
 
@@ -299,20 +300,27 @@ def to_tk(circuit):
                 + bits[left.count(bit) + box.dom.count(bit):]
             qubits = qubits[:left.count(qubit)]\
                 + qubits[left.count(qubit) + box.dom.count(qubit):]
-        elif isinstance(box, Swap):
-            if box == Swap(qubit, qubit):
-                off = left.count(qubit)
-                swap(qubits[off], qubits[off + 1])
-            elif box == Swap(bit, bit):
-                off = left.count(bit)
+        elif isinstance(box, Permutation):
+            if all(typ == qubit for typ in box.dom):
+                units, offset, unit_factory = qubits, left.count(qubit), Qubit
+            elif all(typ == bit for typ in box.dom):
+                offset = left.count(bit)
                 if tk_circ.post_processing:
-                    right = Id(tk_circ.post_processing.cod[off + 2:])
+                    right = Id(tk_circ.post_processing.cod[
+                        offset + len(box.dom):])
                     tk_circ.post_process(
-                        Id(bit ** off) @ Swap(bit, bit) @ right)
-                else:
-                    swap(bits[off], bits[off + 1], unit_factory=Bit)
+                        Id(bit ** offset) @ box @ right)
+                    continue
+                units, unit_factory = bits, Bit
             else:  # pragma: no cover
                 continue  # bits and qubits live in different registers.
+            current = list(range(len(box.dom)))
+            for i, source in enumerate(box.perm):
+                j = current.index(source, i)
+                if i != j:
+                    swap(units[offset + i], units[offset + j],
+                         unit_factory=unit_factory)
+                    current[i], current[j] = current[j], current[i]
         elif isinstance(box, Scalar):
             tk_circ.scale(
                 box.array if box.is_mixed else abs(box.array) ** 2)

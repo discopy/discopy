@@ -464,10 +464,30 @@ class Circuit(tensor.Diagram[complex]):
         q_scan2 = [n[1] for n in q_nodes2]
         nodes = c_nodes + q_nodes1 + q_nodes2
         for layer in self.inside:
-            left, box, _ = layer.boxes_and_types
+            left, box, right = layer.boxes_and_types
             c_offset = left.count(bit)
             q_offset = left.count(qubit)
-            if box == Circuit.swap(bit, bit):
+            if isinstance(box, Permutation):
+                scan, c_index, q_index = [], 0, 0
+                for typ in left @ box.dom @ right:
+                    if typ == bit:
+                        scan.append((c_scan[c_index], ))
+                        c_index += 1
+                    else:
+                        scan.append((q_scan1[q_index], q_scan2[q_index]))
+                        q_index += 1
+                start = len(left)
+                segment = scan[start:start + len(box.dom)]
+                scan[start:start + len(box.dom)] = [
+                    segment[i] for i in box.perm]
+                cod = left @ box.cod @ right
+                c_scan = [edges[0] for typ, edges in zip(cod, scan)
+                          if typ == bit]
+                q_scan1 = [edges[0] for typ, edges in zip(cod, scan)
+                           if typ == qubit]
+                q_scan2 = [edges[1] for typ, edges in zip(cod, scan)
+                           if typ == qubit]
+            elif box == Circuit.swap(bit, bit):
                 off = left.count(bit)
                 c_scan[off], c_scan[off + 1] = c_scan[off + 1], c_scan[off]
             elif box == SWAP:
@@ -644,15 +664,18 @@ class Circuit(tensor.Diagram[complex]):
           >> qubit @ qubit @ Ket(0)
           >> qubit @ H @ qubit
           >> qubit @ CX
-          >> SWAP @ qubit
+          >> Permutation(qubit @ qubit @ qubit, [1, 0, 2])
           >> CX @ qubit
-          >> SWAP @ qubit
+          >> Permutation(qubit @ qubit @ qubit, [1, 0, 2])
           >> Discard(qubit) @ qubit @ qubit
           >> Discard(qubit) @ qubit
           >> Discard(qubit)
         >>> circuit = Ket(1, 0) >> CX >> qubit @ Ket(0) @ qubit
-        >>> print(Circuit.from_tk(circuit.to_tk())[3:-3])
-        X @ qubit @ qubit >> qubit @ SWAP >> CX @ qubit >> qubit @ SWAP
+        >>> assert str(Circuit.from_tk(circuit.to_tk())[3:-3]) == (
+        ...     "X @ qubit @ qubit "
+        ...     ">> Permutation(qubit @ qubit @ qubit, [0, 2, 1]) "
+        ...     ">> CX @ qubit "
+        ...     ">> Permutation(qubit @ qubit @ qubit, [0, 2, 1])")
 
         >>> bell_state = Circuit.caps(qubit, qubit)
         >>> bell_effect = bell_state[::-1]
@@ -884,16 +907,22 @@ class Sum(tensor.Sum[complex], Box):
         return [circuit.to_tk() for circuit in self.terms]
 
 
-class Swap(tensor.Swap, Box):
-    """ Implements swaps of circuit wires. """
+class Permutation(tensor.Permutation[complex], Box):
+    "A permutation in a quantum circuit."
+
     @property
     def is_mixed(self):
-        return not isinstance(self.left.inside[0], type(self.right.inside[0]))
+        return any(type(left.inside[0]) is not type(right.inside[0])
+                   for left, right in zip(self.dom, self.cod))
 
     @property
     def is_classical(self):
-        return not self.is_mixed and isinstance(self.left.inside[0], Digit)
+        return not self.is_mixed\
+            and all(isinstance(x.inside[0], Digit) for x in self.dom)
 
+
+class Swap(Permutation, tensor.Swap, Box):
+    """ Implements swaps of circuit wires. """
     def __str__(self):
         return "SWAP" if self.dom == qubit ** 2 else super().__str__()
 
@@ -930,6 +959,7 @@ def bitstring2index(bitstring):
 
 
 Circuit.swap_factory, Circuit.sum_factory = Swap, Sum
+Circuit.permutation_factory = Permutation
 bit, qubit = Ty(Digit(2)), Ty(Qudit(2))
 Id = Circuit.id
 

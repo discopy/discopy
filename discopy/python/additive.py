@@ -21,7 +21,7 @@ from functools import cache
 
 from discopy.abc import SymmetricCategory
 from discopy.utils import assert_isinstance, tuplify
-from discopy.python import function
+from discopy.python import finset, function
 
 
 """ Lists of types interpreted as disjoint union. """
@@ -100,6 +100,26 @@ class Function(function.Function, SymmetricCategory):
                 return obj
             return (obj, new_tag)
         return Function(inside, dom=x + y, cod=y + x, is_swap_of=(x, y))
+
+    @classmethod
+    def permutation(cls, xs, doms) -> Function:
+        """ Permute the tags of a disjoint union. """
+        doms, xs = list(doms), finset.Permutation(xs, len(doms))
+        offsets = [0]
+        for dom in doms:
+            offsets.append(offsets[-1] + len(dom))
+        inverse = xs.dagger()
+
+        def inside(obj, tag=0):
+            block = next(i for i in range(len(doms))
+                         if tag < offsets[i + 1])
+            new_tag = sum(len(doms[i]) for i in xs[:inverse[block]])\
+                + tag - offsets[block]
+            return obj if offsets[-1] == 1 else (obj, new_tag)
+
+        dom = sum(doms, ())
+        cod = sum((doms[i] for i in xs), ())
+        return cls(inside, dom, cod)
 
     def dagger(self):
         if self.is_swap_of is None:

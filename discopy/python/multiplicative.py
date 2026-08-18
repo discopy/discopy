@@ -30,7 +30,7 @@ from collections.abc import Callable
 
 from discopy.abc import ClosedCategory
 from discopy.utils import assert_isinstance, tuplify, untuplify, factory
-from discopy.python import function
+from discopy.python import finset, function
 
 
 """ Functions have lists of types as input and output. """
@@ -114,6 +114,23 @@ class Function(function.Function, ClosedCategory):
         def inside(*xs):
             return untuplify(tuplify(xs)[len(x):] + tuplify(xs)[:len(x)])
         return Function(inside, dom=x + y, cod=y + x)
+
+    @classmethod
+    def permutation(cls, xs, doms) -> Function:
+        """ Permute blocks of arguments. """
+        doms, xs = list(doms), finset.Permutation(xs, len(doms))
+        offsets = [0]
+        for dom in doms:
+            offsets.append(offsets[-1] + len(dom))
+
+        def inside(*args):
+            blocks = [args[offsets[i]:offsets[i + 1]]
+                      for i in range(len(doms))]
+            return untuplify(sum((blocks[i] for i in xs), ()))
+
+        dom = sum(doms, ())
+        cod = sum((doms[i] for i in xs), ())
+        return cls(inside, dom, cod)
 
     braid = swap
 

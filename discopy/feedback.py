@@ -442,7 +442,11 @@ class Box(markov.Box, Diagram):
         return markov.Box.setoid(self) + (self.time_step, )
 
 
-class Swap(markov.Swap, Box):
+class Permutation(markov.Permutation, Box):
+    "A permutation in a feedback diagram."
+
+
+class Swap(Permutation, markov.Swap, Box):
     """
     The swap of feedback types :code:`left` and :code:`right`.
 
@@ -663,6 +667,7 @@ class Functor(markov.Functor):
 
 Diagram.functor_factory = Functor
 Diagram.swap_factory = Swap
+Diagram.permutation_factory = Permutation
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.feedback_factory, Diagram.followed_by = Feedback, FollowedBy
 Hypergraph = hypergraph.Hypergraph[Diagram]

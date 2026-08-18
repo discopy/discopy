@@ -124,7 +124,11 @@ class Curry(biclosed.Curry, Box):
     "The currying of a closed diagram."
 
 
-class Swap(markov.Swap, Box):
+class Permutation(markov.Permutation, Box):
+    "A permutation in a closed diagram."
+
+
+class Swap(Permutation, markov.Swap, Box):
     "Symmetric swap in a closed diagram."
 
 
@@ -183,6 +187,7 @@ Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.copy_factory = Copy
 Diagram.swap_factory = Swap
+Diagram.permutation_factory = Permutation
 Diagram.curry_factory = Curry
 Diagram.eval_factory = Eval
 Diagram.coeval_factory = Coeval

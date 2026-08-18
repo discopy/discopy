@@ -54,6 +54,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Changed
 
+- `Swap` is now the two-wire transposition subclass of `Permutation`
+  ([#444](https://github.com/discopy/discopy/issues/444)).
+
 - `monoidal.Layer` holds a list of boxes and non-empty types with at least
   one box and no two consecutive types, instead of an odd-length list
   alternating type and box. Whiskering extends the list only when the type

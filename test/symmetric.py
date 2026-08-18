@@ -115,8 +115,10 @@ def test_Permutation():
     q = Permutation(z @ y, [1, 0])
     assert (perm @ q).dagger() == perm.dagger() @ q.dagger()
     assert (perm @ q).dom == perm.dom @ q.dom
-    assert Permutation(x @ y, [1, 0]) != Swap(x, y)
-    assert Equation(Permutation(x @ y, [1, 0]), Swap(x, y))
+    swap = Swap(x, y)
+    assert Permutation(x @ y, [1, 0]) == swap
+    assert isinstance(Swap(x, y), Permutation)
+    assert swap.to_swaps() is swap
     with raises(ValueError):
         Permutation(x @ y @ z, [2, 0])
     with raises(ValueError):
@@ -133,8 +135,9 @@ def test_Layer():
     assert layer.boxes == [f]
     assert Layer(f) == Layer(Ty(), f, Ty())
     assert Layer(permutation).boxes_or_types == (permutation, )
-    assert Layer(x, swap, z).boxes == [swap]
-    assert permutation != swap
+    assert Layer(x, swap, z).boxes == [Permutation(
+        x @ x @ y @ z, [0, 2, 1, 3])]
+    assert permutation == swap
     assert layer.dagger().dagger() == layer
     assert (z @ layer).boxes_and_types == (z @ x, f, y)
     assert (layer @ z).boxes_and_types == (x, f, y @ z)
@@ -195,7 +198,8 @@ def test_Layer_factory_ownership():
         x, y = module.Ty('x'), module.Ty('y')
         permutation = module.Permutation(x @ y, [1, 0])
         layer = module.Layer(permutation)
-        assert type(layer.boxes_and_types[1]) is module.Permutation
+        assert type(layer.boxes_and_types[1]) is module.Swap
+        assert issubclass(module.Swap, module.Permutation)
         assert type(x @ permutation) is module.Permutation
     assert markov.Layer is symmetric.Layer
     assert not hasattr(symmetric.Layer, 'permutation_factory')
@@ -267,8 +271,7 @@ def test_inherited_permutation_factory():
         perm = module.Diagram.from_permutation([1, 0], x @ y)
         assert isinstance(perm, module.Diagram)
         assert perm.ar is module.Diagram
-        assert not any(
-            isinstance(box, Permutation) for box in perm.boxes)
+        assert all(isinstance(box, module.Swap) for box in perm.boxes)
 
 
 def test_Permutation_whiskering():

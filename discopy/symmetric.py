@@ -99,7 +99,7 @@ class Layer(monoidal.Layer):
     """
     A tensor product of generators and non-empty plumbing, where plumbing is a
     type when it is the identity and a :class:`Permutation` otherwise.
-    :class:`Swap` is a generator, distinct from ``[1, 0]``.
+    :class:`Swap` is the permutation ``[1, 0]`` on two atomic wires.
 
     Plumbing components are coalesced, so a permutation given between two
     types becomes one permutation. Generators can be consecutive. An
@@ -393,8 +393,9 @@ class Permutation(Box):
     wire ``perm[i]``, i.e. ``cod[i] == dom[perm[i]]``.
 
     A :class:`Layer` stores it as plumbing rather than as a generator, and the
-    identity permutation is the identity diagram. It draws as a single band of
-    crossing wires rather than a staircase of swaps.
+    identity permutation is the identity diagram. The transposition ``[1, 0]``
+    on two atomic wires constructs a :class:`Swap`. Other permutations draw as
+    a single band of crossing wires rather than a staircase of swaps.
 
     Parameters:
         dom : The domain, i.e. the wires to permute.
@@ -408,8 +409,7 @@ class Permutation(Box):
     >>> assert perm.dagger() == Permutation(y @ z @ x, [2, 0, 1])
     >>> assert Equation(perm >> perm.dagger(), Id(x @ y @ z))
     >>> assert perm @ Id(w) == Permutation(x @ y @ z @ w, [1, 2, 0, 3])
-    >>> assert Permutation(x @ y, [1, 0]) != Swap(x, y)
-    >>> assert Equation(Permutation(x @ y, [1, 0]), Swap(x, y))
+    >>> assert Permutation(x @ y, [1, 0]) == Swap(x, y)
     >>> assert Permutation(x @ y, [0, 1]) == Id(x @ y)
 
     Writing permutations by hand keeps swap-heavy diagrams compact: a whole
@@ -429,6 +429,15 @@ class Permutation(Box):
     .. image:: /_static/symmetric/foliation.svg
         :align: center
     """
+
+    def __new__(cls, dom: monoidal.Ty = None,
+                perm: Sequence[int] = None):
+        if dom is None or cls is cls.ar.swap_factory:
+            return super().__new__(cls)
+        factory = cls.ar.swap_factory\
+            if isinstance(perm, Sequence)\
+            and finset.Permutation.is_swap(perm) else cls
+        return super(Permutation, factory).__new__(factory)
 
     def __init__(self, dom: monoidal.Ty, perm: Sequence[int]):
         self.perm = finset.Permutation(perm, len(dom))
@@ -499,12 +508,12 @@ class Permutation(Box):
         if other is None:
             return self
         if isinstance(other, Permutation):
-            result = type(self)(
+            result = self.permutation_factory(
                 self.dom @ other.dom, self.perm.tensor(other.perm))
         elif isinstance(other, monoidal.Ty)\
                 or isinstance(other, Diagram) and not other.inside:
             typ = other if isinstance(other, monoidal.Ty) else other.dom
-            result = type(self)(self.dom @ typ, self.perm.tensor(
+            result = self.permutation_factory(self.dom @ typ, self.perm.tensor(
                 finset.Permutation.id(len(typ))))
         else:
             result = super().tensor(other)
@@ -514,7 +523,7 @@ class Permutation(Box):
         if not isinstance(other, monoidal.Ty):
             return super().__rmatmul__(other)
         perm = finset.Permutation.id(len(other)).tensor(self.perm)
-        return type(self)(other @ self.dom, perm)
+        return self.permutation_factory(other @ self.dom, perm)
 
     def __repr__(self):
         return f"{factory_name(type(self))}({self.dom!r}, {list(self.perm)})"
@@ -526,9 +535,9 @@ class Permutation(Box):
 Layer.plumbing = (monoidal.Ty, Permutation)
 
 
-class Swap(balanced.Braid, Box):
+class Swap(Permutation, balanced.Braid, Box):
     """
-    The swap of atomic types :code:`left` and :code:`right`.
+    The permutation ``[1, 0]`` of two atomic types.
 
     Parameters:
         left : The type on the top left and bottom right.
@@ -539,13 +548,35 @@ class Swap(balanced.Braid, Box):
     :class:`Swap` is only defined for atomic types (i.e. of length 1).
     For complex types, use :meth:`Diagram.swap` instead.
     """
+    def __setstate__(self, state):
+        state.setdefault('perm', finset.Permutation([1, 0], 2))
+        super().__setstate__(state)
+
     def __init__(self, left, right):
+        if len(left) == 2:
+            perm = finset.Permutation(right, len(left))
+            if not perm.is_swap():
+                raise ValueError
+            left, right = left[:1], left[1:]
+        self.perm = finset.Permutation([1, 0], 2)
         balanced.Braid.__init__(self, left, right)
         Box.__init__(self, self.name, self.dom, self.cod,
                      draw_as_wires=True, draw_as_braid=False)
 
     def dagger(self):
         return type(self)(self.right, self.left)
+
+    def to_swaps(self):
+        return self
+
+    def to_drawing(self):
+        return Box.to_drawing(self)
+
+    def __repr__(self):
+        return balanced.Braid.__repr__(self)
+
+    def __str__(self):
+        return self.name
 
 
 class Trace(balanced.Trace, Box):
@@ -590,10 +621,8 @@ class Functor(balanced.Functor):
         if isinstance(other, Swap):
             return self.cod.ar.swap(self(other.dom[0]), self(other.dom[1]))
         if isinstance(other, Permutation):
-            if isinstance(other.dom, PRO):
-                doms = self(other.dom)
-            else:
-                doms = list(map(self, other.dom))
+            doms = self(other.dom) if isinstance(other.dom, PRO)\
+                else list(map(self, other.dom))
             return self.cod.ar.permutation(other.perm, doms)
         return super().__call__(other)
 

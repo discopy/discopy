@@ -166,16 +166,6 @@ class Box(symmetric.Box, Diagram):
     """
 
 
-class Swap(symmetric.Swap, Box):
-    """
-    Symmetric swap in a Markov diagram.
-
-    Parameters:
-        left (monoidal.Ty) : The type on the top left and bottom right.
-        right (monoidal.Ty) : The type on the top right and bottom left.
-    """
-
-
 class Permutation(symmetric.Permutation, Box):
     """
     A permutation in a Markov category.
@@ -183,6 +173,16 @@ class Permutation(symmetric.Permutation, Box):
     Parameters:
         dom (monoidal.Ty) : The domain, i.e. the wires to permute.
         perm : The permutation as a :class:`finset.Permutation` or a list.
+    """
+
+
+class Swap(Permutation, symmetric.Swap, Box):
+    """
+    Symmetric swap in a Markov diagram.
+
+    Parameters:
+        left (monoidal.Ty) : The type on the top left and bottom right.
+        right (monoidal.Ty) : The type on the top right and bottom left.
     """
 
 

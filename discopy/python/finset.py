@@ -170,6 +170,10 @@ class Permutation(Function, SymmetricCategory):
         """ Whether this is the identity permutation. """
         return list(self) == list(range(len(self)))
 
+    def is_swap(self) -> bool:
+        """ Whether this is the permutation ``(1, 0)``. """
+        return len(self) == 2 and self[0] == 1 and self[1] == 0
+
     @classmethod
     def from_cycles(cls, cycles: Cycles, size: int) -> Self:
         """ Build a permutation from cycles. """

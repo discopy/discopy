@@ -543,6 +543,11 @@ class Drawing(TracedCategory, RichDisplay):
             return Drawing.id(dom)
         return Permutation(dom, xs).to_drawing()
 
+    @classmethod
+    def swap(cls, left, right) -> Drawing:
+        """ Draw a swap of two atomic wires. """
+        return cls.permutation([1, 0], [left, right])
+
     @staticmethod
     def from_box(box: "monoidal.Box") -> Drawing:
         """
