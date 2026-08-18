@@ -315,12 +315,14 @@ def to_tk(circuit):
             else:  # pragma: no cover
                 continue  # bits and qubits live in different registers.
             current = list(range(len(box.dom)))
+            position = list(range(len(box.dom)))
             for i, source in enumerate(box.perm):
-                j = current.index(source, i)
+                j = position[source]
                 if i != j:
                     swap(units[offset + i], units[offset + j],
                          unit_factory=unit_factory)
                     current[i], current[j] = current[j], current[i]
+                    position[current[j]], position[source] = j, i
         elif isinstance(box, Scalar):
             tk_circ.scale(
                 box.array if box.is_mixed else abs(box.array) ** 2)

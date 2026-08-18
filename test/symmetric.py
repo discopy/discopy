@@ -374,12 +374,12 @@ def test_Permutation_to_drawing():
     from discopy.drawing import Drawing
 
     x, y, z = map(Ty, 'xyz')
-    perm = Permutation(x @ y, [1, 0])
+    perm = Permutation(x @ y @ z, [1, 0, 2])
     functor = Functor(
-        ob_map={x: z, y: x}, ar_map={}, cod=Drawing)
+        ob_map={x: z, y: x, z: y}, ar_map={}, cod=Drawing)
     drawing = functor(perm)
-    assert drawing.dom == (z @ x).to_drawing()
-    assert drawing.cod == (x @ z).to_drawing()
+    assert drawing.dom == (z @ x @ y).to_drawing()
+    assert drawing.cod == (x @ z @ y).to_drawing()
 
 
 def test_abc_permutation():

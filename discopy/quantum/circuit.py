@@ -467,7 +467,14 @@ class Circuit(tensor.Diagram[complex]):
             left, box, right = layer.boxes_and_types
             c_offset = left.count(bit)
             q_offset = left.count(qubit)
-            if isinstance(box, Permutation):
+            if box == Circuit.swap(bit, bit):
+                off = left.count(bit)
+                c_scan[off], c_scan[off + 1] = c_scan[off + 1], c_scan[off]
+            elif box == SWAP:
+                off = left.count(qubit)
+                for scan in (q_scan1, q_scan2):
+                    scan[off], scan[off + 1] = scan[off + 1], scan[off]
+            elif isinstance(box, Permutation):
                 scan, c_index, q_index = [], 0, 0
                 for typ in left @ box.dom @ right:
                     if typ == bit:
@@ -487,13 +494,6 @@ class Circuit(tensor.Diagram[complex]):
                            if typ == qubit]
                 q_scan2 = [edges[1] for typ, edges in zip(cod, scan)
                            if typ == qubit]
-            elif box == Circuit.swap(bit, bit):
-                off = left.count(bit)
-                c_scan[off], c_scan[off + 1] = c_scan[off + 1], c_scan[off]
-            elif box == SWAP:
-                off = left.count(qubit)
-                for scan in (q_scan1, q_scan2):
-                    scan[off], scan[off + 1] = scan[off + 1], scan[off]
             elif isinstance(box, Discard):
                 assert box.n_qubits == 1
                 tn.connect(q_scan1[q_offset], q_scan2[q_offset])
