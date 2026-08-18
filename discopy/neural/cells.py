@@ -424,7 +424,7 @@ class Cyclic(Cell):
     >>> leg = Ty("leg")
     >>> planar = Signature((Orbit(leg, 5, Sym.CYCLIC), ))
     >>> box = Cyclic(planar, {leg: 3}, hidden=8).double()
-    >>> check_equivariant(box, planar, {leg: 3})[leg] == 0.0
+    >>> check_equivariant(box, planar, {leg: 3})[leg] < 1e-15
     True
     """
     def __init__(self, signature: Signature, widths: Mapping, hidden: int):

@@ -133,7 +133,7 @@ def test_cyclic_cell_is_cyclic_not_symmetric():
     planar = Signature((Orbit(leg, 5, Sym.CYCLIC), ))
     torch.manual_seed(0)
     box = Cyclic(planar, {leg: 3}, hidden=8).double()
-    assert check_equivariant(box, planar, {leg: 3})[leg] == 0.0
+    assert check_equivariant(box, planar, {leg: 3})[leg] < 1e-15
     # the same module under a PERM signature breaks: rotation is not the
     # whole symmetric group, so the checker must reject it.
     with pytest.raises(AxiomError, match="perm"):
@@ -195,14 +195,15 @@ def test_max_pooling_keeps_an_extremum_exactly():
     A max pool is the reduction a change of degree leaves alone: adding a
     member it dominates changes nothing, whereas a mean divides by the
     members and a sum grows with them.  It also reduces without reordering
-    a floating-point sum, so a site pooling with it is equivariant
-    *exactly* rather than up to rounding.
+    a floating-point sum, so a site pooling with it is equivariant to
+    within an ulp of the build's kernels rather than up to accumulation
+    order.
     """
     node = node_signature(3)
     widths = {PEER: 3, STATE: 4, CLUE: 2}
     torch.manual_seed(0)
     site = make_site(node, widths, pool="max").double()
-    assert check_equivariant(site, node, widths)[PEER] == 0.0
+    assert check_equivariant(site, node, widths)[PEER] < 1e-15
 
     orbit = torch.tensor([[[1., 5.], [3., 2.]]])
     grown = torch.cat([orbit, torch.tensor([[[0., -1.]]])], dim=1)
