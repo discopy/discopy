@@ -224,27 +224,27 @@ def test_to_tree():
 
 def pregroup_diagram():
     from discopy.grammar.pregroup import Ty, Box, Cup, Diagram
-    from discopy.rigid import Ob
+    from discopy.rigid import Wire
 
     boxes = [
         Box('that', Ty(), Ty('NP')),
-        Box("'s", Ty(), Ty(Ob('NP', z=1), 'S', Ob('NP', z=-1))),
-        Box('exactly', Ty(), Ty(Ob('S', z=1), Ob('NP', z=2), Ob('NP', z=1), 'S')),
-        Box('bx', Ty(Ob('NP', z=1), 'S', Ob('NP', z=-1), Ob('S', z=1), Ob('NP', z=2), Ob('NP', z=1), 'S'), Ty(Ob('NP', z=1), 'S', Ob('NP', z=-1))),
-        Box('what', Ty(), Ty('NP', Ob('NP', z=-2), Ob('S', z=-1))),
+        Box("'s", Ty(), Ty(Wire('NP', z=1), 'S', Wire('NP', z=-1))),
+        Box('exactly', Ty(), Ty(Wire('S', z=1), Wire('NP', z=2), Wire('NP', z=1), 'S')),
+        Box('bx', Ty(Wire('NP', z=1), 'S', Wire('NP', z=-1), Wire('S', z=1), Wire('NP', z=2), Wire('NP', z=1), 'S'), Ty(Wire('NP', z=1), 'S', Wire('NP', z=-1))),
+        Box('what', Ty(), Ty('NP', Wire('NP', z=-2), Wire('S', z=-1))),
         Box('i', Ty(), Ty('NP')),
-        Box('tr', Ty('NP'), Ty('S', Ob('S', z=-1), 'NP')),
-        Box('showed', Ty(), Ty(Ob('NP', z=1), 'S', Ob('NP', z=-1))),
-        Box('to', Ty(), Ty(Ob('S', z=1), Ob('NP', z=2), Ob('NP', z=1), 'S', Ob('NP', z=-1))),
+        Box('tr', Ty('NP'), Ty('S', Wire('S', z=-1), 'NP')),
+        Box('showed', Ty(), Ty(Wire('NP', z=1), 'S', Wire('NP', z=-1))),
+        Box('to', Ty(), Ty(Wire('S', z=1), Wire('NP', z=2), Wire('NP', z=1), 'S', Wire('NP', z=-1))),
         Box('her', Ty(), Ty('NP')),
-        Cup(Ty(Ob('NP', z=-1)), Ty('NP')),
-        Box('bx', Ty(Ob('NP', z=1), 'S', Ob('NP', z=-1), Ob('S', z=1), Ob('NP', z=2), Ob('NP', z=1), 'S'), Ty(Ob('NP', z=1), 'S', Ob('NP', z=-1))),
-        Cup(Ty('NP'), Ty(Ob('NP', z=1))),
-        Cup(Ty(Ob('S', z=-1)), Ty('S')),
-        Cup(Ty(Ob('S', z=-1)), Ty('S')),
-        Cup(Ty(Ob('NP', z=-2)), Ty(Ob('NP', z=-1))),
-        Cup(Ty(Ob('NP', z=-1)), Ty('NP')),
-        Cup(Ty('NP'), Ty(Ob('NP', z=1))),
+        Cup(Ty(Wire('NP', z=-1)), Ty('NP')),
+        Box('bx', Ty(Wire('NP', z=1), 'S', Wire('NP', z=-1), Wire('S', z=1), Wire('NP', z=2), Wire('NP', z=1), 'S'), Ty(Wire('NP', z=1), 'S', Wire('NP', z=-1))),
+        Cup(Ty('NP'), Ty(Wire('NP', z=1))),
+        Cup(Ty(Wire('S', z=-1)), Ty('S')),
+        Cup(Ty(Wire('S', z=-1)), Ty('S')),
+        Cup(Ty(Wire('NP', z=-2)), Ty(Wire('NP', z=-1))),
+        Cup(Ty(Wire('NP', z=-1)), Ty('NP')),
+        Cup(Ty('NP'), Ty(Wire('NP', z=1))),
     ]
     offsets = [0, 1, 4, 1, 4, 7, 7, 10, 13, 18, 17, 10, 9, 8, 6, 5, 3, 0]
     return Diagram.decode(Ty(), zip(boxes, offsets))
