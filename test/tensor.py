@@ -146,7 +146,7 @@ def test_Functor_repr():
     x = frobenius.Ty('x')
     F = Functor({x: 2}, {}, dom=frobenius.Diagram, dtype=bool)
     assert repr(F) ==\
-        "tensor.Functor(ob_map={frobenius.Ty(frobenius.Ob('x')): 2}, "\
+        "tensor.Functor(ob_map={frobenius.Ty(frobenius.Wire('x')): 2}, "\
         "ar_map={}, dom=frobenius.Diagram, dtype=bool)"
 
 
@@ -372,9 +372,9 @@ def test_eval_params():
     assert Functor({x: 2}, {v: [1., 2.]}, order='C')(v >> v.dagger()) \
         == F(v >> v.dagger())
     assert repr(F) == \
-        "tensor.Functor(ob_map={frobenius.Ty(frobenius.Ob('x')): 2}, " \
+        "tensor.Functor(ob_map={frobenius.Ty(frobenius.Wire('x')): 2}, " \
         "ar_map={frobenius.Box('v', frobenius.Ty(), " \
-        "frobenius.Ty(frobenius.Ob('x'))): [1.0, 2.0]}, " \
+        "frobenius.Ty(frobenius.Wire('x'))): [1.0, 2.0]}, " \
         "dom=frobenius.Diagram, dtype=float, optimize='optimal')"
 
 
