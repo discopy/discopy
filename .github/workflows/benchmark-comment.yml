@@ -13,10 +13,6 @@ jobs:
   comment:
     if: github.event.workflow_run.event == 'pull_request'
     runs-on: ubuntu-latest
-    concurrency:
-      group: >-
-        benchmark-comment-${{ github.event.workflow_run.head_repository.id }}-${{ github.event.workflow_run.head_branch }}
-      cancel-in-progress: true
     steps:
     - name: Find the comparison
       id: artifact
@@ -89,11 +85,11 @@ jobs:
 
           const escape = value => String(value)
             .replaceAll("&", "&amp;")
-            .replaceAll("|", "\\|")
             .replaceAll("<", "&lt;")
             .replaceAll(">", "&gt;")
             .replace(/[\\`*_[\]{}()#+.!]/g,
               character => `&#${character.charCodeAt(0)};`)
+            .replaceAll("|", "\\|")
             .replaceAll("@", "&#64;")
             .replaceAll("\n", " ")
             .replaceAll("\r", " ");
