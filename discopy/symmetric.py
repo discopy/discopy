@@ -280,10 +280,10 @@ class Diagram(balanced.Diagram, SymmetricCategory):
     """
     axiom_status = {
         "bifunctoriality": "setoid",
-        "trace_superposing_left": "strict",
-        "trace_superposing_right": "strict",
-        "trace_naturality_left": "strict",
-        "trace_naturality_right": "strict",
+        "trace_superposing_left": "setoid",
+        "trace_superposing_right": "setoid",
+        "trace_naturality_left": "setoid",
+        "trace_naturality_right": "setoid",
         "braid_naturality": "setoid",
         "swap_inverse": "setoid",
     }

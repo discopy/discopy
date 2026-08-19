@@ -115,6 +115,7 @@ class Diagram(symmetric.Diagram, MarkovCategory):
     .. image:: /_static/markov/copy_and_apply.svg
     """
     axiom_status = {
+        "copy_monoidal_coherence": "setoid",
         "copy_counitality": "setoid",
         "copy_coassociativity": "setoid",
         "copy_cocommutativity": "setoid",

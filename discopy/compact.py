@@ -79,8 +79,6 @@ class Diagram(symmetric.Diagram, ribbon.Diagram, CompactCategory):
     layer_factory = Layer
     trace_factory = ribbon.Diagram.trace_factory
     axiom_status = {
-        "trace_naturality_left": "setoid",
-        "trace_naturality_right": "setoid",
         "currying_left": "setoid",
         "currying_right": "setoid",
         "transpose_axiom": "setoid",
