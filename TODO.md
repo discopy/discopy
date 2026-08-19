@@ -7,7 +7,7 @@
 
 > make the cuts, one per commt
 
-- [ ] Render the pull request comparison once, in `report.py`, and let the
+- [x] Render the pull request comparison once, in `report.py`, and let the
       comment workflow post it instead of reimplementing it in JavaScript
 - [ ] Drop the HTML and CSV renderings of the scaling table
 - [ ] Derive the plot panels from the data instead of the hardcoded `PLOTS`

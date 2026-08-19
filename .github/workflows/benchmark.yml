@@ -61,7 +61,7 @@ jobs:
         BENCH_FLAGS: bench:smoke
       run:
         uv run pytest benchmark/ -v
-          --benchmark-json="$RUNNER_TEMP/benchmark-comment/base.json"
+          --benchmark-json="$RUNNER_TEMP/base.json"
     - name: Checkout the head commit
       if: github.event_name == 'pull_request'
       uses: actions/checkout@v4
@@ -86,22 +86,19 @@ jobs:
         BENCH_FLAGS: ${{ github.event_name != 'pull_request' && 'bench:full' || 'bench:smoke' }}
       run: |
         mkdir -p benchmark-results
-        if [ "${{ github.event_name }}" = pull_request ]; then
-          uv run pytest benchmark/ -v \
-            --benchmark-json="$RUNNER_TEMP/benchmark-comment/head.json"
-          cp "$RUNNER_TEMP/benchmark-comment/head.json" \
-            benchmark-results/bench.json
-        else
-          uv run pytest benchmark/ -v \
-            --benchmark-json=benchmark-results/bench.json
-        fi
+        uv run pytest benchmark/ -v \
+          --benchmark-json=benchmark-results/bench.json
     - name: Render comparison
       if: github.event_name == 'pull_request'
       run:
-        uv run python benchmark/report.py
-          "$RUNNER_TEMP/benchmark-comment/head.json"
+        uv run python benchmark/report.py benchmark-results/bench.json
           --output benchmark-results
-          --base "$RUNNER_TEMP/benchmark-comment/base.json"
+          --base "$RUNNER_TEMP/base.json"
+    - name: Stage the comparison for the comment
+      if: always() && github.event_name == 'pull_request'
+      run:
+        cp benchmark-results/comparison.md "$RUNNER_TEMP/benchmark-comment/"
+        || true
     - name: Render report
       if: github.event_name != 'pull_request'
       run:
