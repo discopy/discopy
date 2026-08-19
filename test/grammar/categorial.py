@@ -83,7 +83,7 @@ def test_Diagram():
     assert Diagram.bc(x, y, z)\
         == (Id(x) @ Id(x >> y) @ Id(y >> z)
             >> Eval(x >> y) @ Id(y >> z)
-            >> Eval(y >> z)).curry()
+            >> Eval(y >> z)).curry(left=False)
     assert Diagram.fx(x, y, z) == ForwardCrossedComposition(x << y, z >> y)
     assert Diagram.bx(x, y, z) == BackwardCrossedComposition(y << x, y >> z)
 
@@ -257,7 +257,7 @@ def test_to_pregroup():
     x_, y_ = pregroup.Ty('x'), pregroup.Ty('y')
     assert Diagram.ba(x, y).curry(left=True).to_pregroup().normal_form()\
         == Cap(y_, y_.l) @ Id(x_)
-    assert Diagram.fa(x, y).curry().to_pregroup().normal_form()\
+    assert Diagram.fa(x, y).curry(left=False).to_pregroup().normal_form()\
         == Id(y_) @ Cap(x_.r, x_)
     assert Diagram.to_pregroup(Diagram.fc(x, y, x)).normal_form()\
         == Id(x_) @ Cup(y_.l, y_) @ Id(x_.l)
