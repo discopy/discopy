@@ -7,7 +7,6 @@ from pytest import raises
 from discopy.cat import *
 from discopy.monoidal import *
 from discopy.drawing import spiral
-from discopy.abc import Category, ColouredSemigroup
 from discopy.utils import AxiomError, from_tree
 
 
@@ -227,18 +226,6 @@ def test_Layer_has_no_unit():
     assert not Layer.id().boxes
     with raises(ValueError):
         Layer()
-
-
-def test_ColouredSemigroup_is_not_a_Category():
-    class Word(ColouredSemigroup):
-        def __init__(self, name):
-            self.name = name
-
-        def tensor(self, *others):
-            return Word(self.name + "".join(o.name for o in others))
-
-    assert not issubclass(ColouredSemigroup, Category)
-    assert (Word("a") @ Word("b")).name == "ab"
 
 
 def test_Layer_tensor():

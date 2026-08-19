@@ -21,7 +21,9 @@ USER's 🚀 on the body of
 - [x] Say in `Layer`'s docstring that `Layer.id()` adjoins a unit which never
       appears inside a `Diagram`.
 - [x] `test_Layer_has_no_unit`, checking that `Ty.unit()` still works and that
-      `Layer.id()` is still neutral for `tensor`.
+      `Layer.id()` is still neutral for `tensor`. A second test pinning that the
+      semigroup is not a `Category` was added and then removed on review: it
+      asserted `issubclass`, i.e. Python rather than DisCoPy (daydream6728).
 - [x] `CHANGELOG.md`: the new entry, and #438's line corrected — it claimed
       `Layer` is a `ColouredMonoid`.
 - [x] `uv run pflake8 discopy` and `uv run pytest --skip-extra`.
