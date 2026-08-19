@@ -32,8 +32,8 @@ def axiom_parameter(cls, axiom):
         if axiom.status == "wontfix" else pytest.mark.xfail(
             reason=f"{axiom.name} is marked bug")\
         if axiom.status == "bug" else ()
-    status = "callable" if callable(axiom.status) else axiom.status
-    return pytest.param(axiom, id=f"{axiom.name}-{status}", marks=marks)
+    status = axiom.status.__name__ if callable(axiom.status) else axiom.status
+    return pytest.param(axiom, id=f"{axiom.name} ({status})", marks=marks)
 
 
 def axiom_list(cls):
