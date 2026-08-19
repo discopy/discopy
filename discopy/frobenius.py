@@ -129,6 +129,10 @@ class Diagram(compact.Diagram, markov.Diagram, HypergraphCategory):
     """
 
     ob = Ty
+    axiom_status = {
+        "frobenius": "setoid",
+        "speciality": "setoid",
+    }
 
     @classmethod
     def caps(cls, left, right):

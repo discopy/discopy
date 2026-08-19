@@ -114,6 +114,11 @@ class Diagram(symmetric.Diagram, MarkovCategory):
 
     .. image:: /_static/markov/copy_and_apply.svg
     """
+    axiom_status = {
+        "copy_counitality": "setoid",
+        "copy_coassociativity": "setoid",
+        "copy_cocommutativity": "setoid",
+    }
 
     @classmethod
     def spider_factory(cls, n_legs_in, n_legs_out, typ, phase=None):

@@ -84,6 +84,16 @@ def test_Axiom():
     assert law.bind(cat.Arrow)(cat.Id(cat.Ob('x')))
 
 
+def test_strict_equality_is_on_the_nose():
+    x, y = map(symmetric.Ty, "xy")
+    f, g = symmetric.Box('f', x, x), symmetric.Box('g', y, y)
+    left, right = f @ y >> x @ g, x @ g >> f @ y
+    assert left != right
+    strict = symmetric.Diagram.axiom_equality("trace_vanishing")[1]
+    setoid = symmetric.Diagram.axiom_equality("braid_naturality")[1]
+    assert not strict(left, right) and setoid(left, right)
+
+
 def test_extend_strategy():
     base = balanced.Box.free_strategy()
     build = lambda factory: balanced.Box.atomic_strategy().map(factory)

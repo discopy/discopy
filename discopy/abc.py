@@ -66,6 +66,12 @@ class Equation[T](ABC):
 
 type AxiomStatus[T] = Literal[
     "strict", "setoid", "normal", "bug", "wontfix"] | Callable[[T, T], object]
+"""
+How an axiom is checked: ``"strict"`` compares its terms on the nose,
+``"setoid"`` up to :meth:`Category.equation_factory`, ``"normal"`` up to
+normal form, and a callable is itself the equality. ``"bug"`` marks an axiom
+that fails and should not, ``"wontfix"`` one that fails by design.
+"""
 
 
 class Category[C0, C1: Category](ABC):
@@ -117,7 +123,7 @@ class Category[C0, C1: Category](ABC):
         if status == "normal":
             return status, lambda *terms: cls.equation_factory(
                 *terms, up_to=cls.normal_form)
-        return status, cls.equation_factory
+        return status, Category.equation_factory
 
     @classproperty
     def axioms(cls) -> tuple[Axiom, ...]:
