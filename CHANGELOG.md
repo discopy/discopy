@@ -26,6 +26,13 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - Rich display hooks (`_repr_svg_`/`_repr_html_`) for `Diagram` and `Drawing`
   in Jupyter/IPython
   ([#445](https://github.com/discopy/discopy/pull/445)).
+- Quantum reservoir computing, `discopy.quantum.reservoir`: a `Reservoir`
+  is a fixed unitary on memory and input qubits, each input value induces
+  a channel from memory to memory, the features of a time series are the
+  Born probabilities of the memory qubits and only a ridge-regression
+  linear readout is trained, with a `Rydberg` reservoir as example
+  ([#519](https://github.com/discopy/discopy/pull/519),
+  [#586](https://github.com/discopy/discopy/pull/586)).
 - Composition benchmark suite for diagram operations, reproducing the
   scaling experiments of arXiv:2105.09257
   ([#346](https://github.com/discopy/discopy/pull/346)).
@@ -51,6 +58,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   hierarchy below symmetric: traced, Markov, closed, feedback, compact and
   hypergraph ([#558](https://github.com/discopy/discopy/issues/558),
   refactoring [#325](https://github.com/discopy/discopy/pull/325)).
+- `Rydberg` in `discopy.quantum.ansatze`, the Trotterized time evolution
+  under the Rydberg Hamiltonian of Pasqal's neutral-atom QPU
+  ([#586](https://github.com/discopy/discopy/pull/586)).
 
 ### Changed
 
@@ -175,6 +185,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   applied to an argument sharing a free variable did not compose, and a
   left abstraction evaluates through its right counterpart
   ([#562](https://github.com/discopy/discopy/issues/562)).
+- `Controlled._decompose` rebuilt controlled rotations at a distance by
+  passing the inner gate as a phase, so `CU1`, `CRz` and `CRx` raised
+  `TypeError` on `eval` whenever the distance was not one
+  ([#587](https://github.com/discopy/discopy/issues/587)).
 
 ### Performance
 

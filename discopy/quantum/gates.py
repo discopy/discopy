@@ -518,7 +518,7 @@ class Controlled(QuantumGate):
 
         perm = Circuit.permutation(pattern)
         diagram = (perm
-                   >> type(self)(controlled) @ Id(skipped_qbs)
+                   >> Controlled(controlled) @ Id(skipped_qbs)
                    >> perm[::-1])
 
         return diagram
