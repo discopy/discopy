@@ -47,3 +47,27 @@ Each point quotes USER's review comment verbatim; the thread links are on
       representation of [#438](https://github.com/discopy/discopy/pull/438),
       which the last merge of `main` broke: `to_staircases` no longer yields
       unpackable layers, so read `Layer.boxes_and_types` instead.
+
+## JAX backend follow-up
+
+ok split the work in three abc / torch / jax: first refactor the existing torch into abc and torch then add jax on top
+you can push directly to this PR for abc+torch, open a fresh one for jax
+
+- [x] Add a lazy JAX implementation of the neural backend primitives.
+- [x] Wrap compiled execution plans as callable JAX PyTrees with explicit runtime modules.
+- [x] Cover eager execution, JIT, gradients, sharing, nesting, and private memory.
+- [x] Document the JAX module protocol and run lint and tests.
+- [x] @evening-2026-08-19T01:20Z Port the JAX backend onto the package layout
+      of #399, which landed the abc/torch split this PR's prompt asked for:
+      `discopy/neural_jax.py` becomes `discopy/neural/jax.py` with one
+      `JAX(Backend)` class in place of a class plus a module of free
+      functions, mirroring `discopy/neural/torch.py`; `BACKENDS` registers it
+      by qualified name so it stays lazy; the PyTree holds the `CMap` rather
+      than the `ExecutionPlan` that #399 removed. The tests are
+      `test/neural/jax_backend.py`, since neither name the convention would
+      pick is available: pytest puts a test module's own directory on
+      `sys.path`, so `test/neural/jax.py` shadows the library it is testing —
+      which is why there is no `test/neural/torch.py` either — and
+      `test/neural/backend.py` collides on basename with
+      `test/drawing/backend.py`, as test directories carry no `__init__.py`. `discopy/neural/jax.py` joins
+      `test/plugin.py`'s `UNIMPORTABLE`, so `--skip-extra` skips it.

@@ -26,7 +26,8 @@ def test_lazy_torch_import():
     subprocess.run([
         sys.executable, "-c",
         "import sys; import discopy.neural; "
-        "assert 'torch' not in sys.modules"], check=True)
+        "assert 'torch' not in sys.modules; "
+        "assert 'jax' not in sys.modules"], check=True)
 
 
 def test_backend_contract():
@@ -34,7 +35,9 @@ def test_backend_contract():
         "zeros", "split", "concatenate", "activate",
         "prototype", "wrap", "zeros_module"}
     assert Backend.__abstractmethods__ == methods
-    assert BACKENDS == {'pytorch': 'discopy.neural.torch.PyTorch'}
+    assert BACKENDS == {
+        'jax': 'discopy.neural.jax.JAX',
+        'pytorch': 'discopy.neural.torch.PyTorch'}
     with raises(TypeError):
         Backend()
     importorskip("torch")
