@@ -149,13 +149,16 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 - Every job of `build.yml` gets `timeout-minutes: 15`, so a job wedged on
   its first network step turns into a fast red instead of holding a
-  runner for hours. The Graphviz install goes through
-  `awalsh128/cache-apt-pkgs-action`, since every occurrence traced back to
-  `apt-get update` refreshing six unrelated repos (azure-cli, chrome,
-  microsoft, three Ubuntu components) to install one stable core package:
-  a cache hit installs the `.deb` directly with no `apt-get update` at
-  all, and the step keeps its own six-minute timeout as a backstop for a
-  cold cache, which still runs plain `apt-get update && install`
+  runner for hours. The Graphviz install tries `apt-get install` directly
+  before `update` — every hang traced back to `update` refreshing six
+  unrelated repos (azure-cli, chrome, microsoft, three Ubuntu components)
+  to install one stable core package, and the runner image already ships
+  usable apt lists — falling back to a bounded, retried `update` only if
+  that cache is stale, and asserts `dot -Tsvg` actually renders rather
+  than just checking `-V`. (`awalsh128/cache-apt-pkgs-action` was tried
+  and reverted: its apt-fast-based install skipped the dpkg trigger that
+  builds graphviz's plugin config, so `dot -Tsvg` failed with "Format:
+  svg not recognized" despite the package reporting installed.)
   ([#591](https://github.com/discopy/discopy/issues/591)).
 - `frobenius.Diagram.unfuse`'s doctest no longer sets `Spider.color = "red"`
   to draw its example, which was leaking into every later doctest in the
