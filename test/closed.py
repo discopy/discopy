@@ -221,3 +221,30 @@ def test_discard():
     from discopy import cat, closed  # noqa: F401  (used by eval)
     assert eval(repr(Discard(x))) == Discard(x)
     assert Diagram.discard(x @ x) == Discard(x) @ Discard(x)
+
+
+def test_abstraction_eval_context():
+    """
+    Both branches of `Abstraction.eval` curry on the right, so an
+    abstraction applied to an argument sharing a free variable evaluates
+    to a diagram with the type of the term (regression test for #562).
+    """
+    X, Y = Ty("X"), Ty("Y")
+    x, f = Variable('x', X), Variable('f', X >> Y)
+    g = Constant('g', X >> (X >> Y))
+    t = Abstraction(x, Abstraction(f, f(x))(g(x)))
+    assert t.eval().dom == t.dom and t.eval().cod == t.cod
+
+    from discopy.python import Function
+    F = Functor(ob_map={X: int, Y: str}, ar_map={}, cod=Function)
+    F.ar_map[g] = Function(
+        lambda: lambda n: lambda m: f"{n}|{m}", (), F(g.cod))
+    assert F(t.eval())()(7) == "7|7"
+
+
+def test_abstraction_eval_left():
+    """ A left abstraction evaluates as its right counterpart WLOG. """
+    X, Y = Ty("X"), Ty("Y")
+    x, f = Variable('x', X), Variable('f', X >> Y)
+    assert Abstraction(x, f(x), left=True).eval()\
+        == Abstraction(x, f(x)).eval()
