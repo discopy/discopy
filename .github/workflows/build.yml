@@ -63,10 +63,12 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install Graphviz
-      timeout-minutes: 3
+      # A stalled mirror sends nothing for apt's default 120s read timeout,
+      # so bound each request to 10s and let apt fail over to the next mirror.
+      timeout-minutes: 5
       run: |
-        sudo apt-get -o Acquire::Retries=3 update
-        sudo apt-get -o Acquire::Retries=3 install -y graphviz
+        sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=10 update
+        sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=10 install -y graphviz
     - name: Install
       run:
         uv sync --locked --group dev --group all
@@ -98,10 +100,12 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install Graphviz
-      timeout-minutes: 3
+      # A stalled mirror sends nothing for apt's default 120s read timeout,
+      # so bound each request to 10s and let apt fail over to the next mirror.
+      timeout-minutes: 5
       run: |
-        sudo apt-get -o Acquire::Retries=3 update
-        sudo apt-get -o Acquire::Retries=3 install -y graphviz
+        sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=10 update
+        sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=10 install -y graphviz
     - name: Install
       run:
         uv sync --locked --group docs
