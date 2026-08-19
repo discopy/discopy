@@ -63,19 +63,6 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install Graphviz
-      # #591: every hang traced back to `apt-get update` refreshing six
-      # unrelated repos (azure-cli, chrome, microsoft, three Ubuntu
-      # components) to install one stable core package. Caching the .deb
-      # via awalsh128/cache-apt-pkgs-action was tried and reverted: it
-      # installs through apt-fast rather than apt-get, which skipped the
-      # dpkg trigger that builds graphviz's plugin config, so `dot -Tsvg`
-      # failed with "Format: svg not recognized" even though the package
-      # was "installed" — a correctness break, not a speed one, since SVG
-      # rendering is what most of the test suite exercises through
-      # `.draw()`. Installing directly first (the runner image ships
-      # pre-populated apt lists) sidesteps most of that six-repo refresh
-      # without touching how the package itself gets installed; `update`
-      # only runs, bounded and retried, if that cache turns out stale.
       timeout-minutes: 6
       run: |
         APT="sudo timeout 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=10"
@@ -112,7 +99,6 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install Graphviz
-      # See the identical step in `test` above.
       timeout-minutes: 6
       run: |
         APT="sudo timeout 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=10"
