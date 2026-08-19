@@ -208,14 +208,12 @@ class Diagram(balanced.Diagram, SymmetricCategory):
     >>> with raises(AxiomError) as err:
     ...     Diagram.from_callable(x, x @ x)(lambda x: (x, x))
     >>> print(err.value)
-    symmetric.Diagram has no spiders, cups or caps to downgrade this \
-hypergraph.
+    symmetric.Diagram has no cups or caps for the wiring of this map.
 
     >>> with raises(AxiomError) as err:
     ...     Diagram.from_callable(x, Ty())(lambda x: ())
     >>> print(err.value)
-    symmetric.Diagram has no spiders, cups or caps to downgrade this \
-hypergraph.
+    symmetric.Diagram has no cups or caps for the wiring of this map.
 
     Note
     ----
