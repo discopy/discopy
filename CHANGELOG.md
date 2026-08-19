@@ -52,11 +52,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `NamedGeneric["category"]` instead of carrying `require_*` flags, and it is
   always compact whatever category hosts it, so every compact operation is
   available when manipulating maps. Only `to_diagram` asks the host category
-  for structure, through `make_monogamous` (which needs cups and caps) and
-  `make_causal` (which needs traces); a wire pointing backward is cut into a
-  trace whether it closes a cycle or merely runs against the box order, and
-  `topological_order` reorders the boxes instead. Each box is placed where its
-  first domain wire already is, so the decoder no longer introduces swaps.
+  for structure: `make_monogamous` needs cups and caps, while `make_causal`
+  reorders acyclic maps without traces and only asks for traces when cycles or
+  scalar loops remain, cutting every backward wire and loop at once. Each box
+  is placed where its first domain wire already is, so the decoder no longer
+  introduces swaps.
   The predicates follow the `Hypergraph` names and are local conditions on
   the edges, `__init__` takes a keyword `check`, and `curry`, `uncurry` and
   `ev` come from the cups and caps of `abc.RigidCategory` when the host

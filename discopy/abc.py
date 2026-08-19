@@ -382,9 +382,9 @@ class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
             return self
         if left:
             base, exponent = self.cod[:-n], self.cod[-n:].r
-            return self @ exponent >> base @ self.cups(exponent.l, exponent)
+            return self @ exponent >> self.ev(base, exponent, True)
         base, exponent = self.cod[n:], self.cod[:n].l
-        return exponent @ self >> self.cups(exponent, exponent.r) @ base
+        return exponent @ self >> self.ev(base, exponent, False)
 
     def transpose(self, left: bool = False) -> C1:
         """

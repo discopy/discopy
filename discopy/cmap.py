@@ -123,7 +123,7 @@ class Port:
     i: int
     obj: Ob
     depth: float
-    side: Literal["up"] | Literal["down"]
+    side: Literal["up", "down"]
 
 
 class CMap[C0: Pregroup, C1: CMap](
@@ -660,6 +660,23 @@ class CMap[C0: Pregroup, C1: CMap](
             int(ports[i].depth + 0.5) < int(ports[j].depth - 0.5)
             for i, j in self.box_edges)
 
+    def reorder(self, order: Iterable[int]) -> CMap:
+        """ Relabel ports to put boxes in the given order. """
+        order = tuple(order)
+        boxes = tuple(self.boxes[i] for i in order)
+        mapping = list(range(self.n_ports))
+        start = len(self.dom)
+        for old in order:
+            old_ports = self._box_port_indices[old]
+            for source, target in zip(
+                    old_ports, range(start, start + len(old_ports))):
+                mapping[source] = target
+            start += len(old_ports)
+        edges = self.edges.conjugate(Permutation(mapping))
+        return type(self)(
+            self.dom, self.cod, boxes, edges,
+            loops=self.loops, check=False)
+
     def topological_order(self) -> CMap:
         """
         Reorder the boxes so that every directed wire points forward.
@@ -679,20 +696,7 @@ class CMap[C0: Pregroup, C1: CMap](
             range(len(self.boxes)), key=lambda i: (ranks[i], i)))
         if order == tuple(range(len(self.boxes))):
             return self
-
-        boxes = tuple(self.boxes[i] for i in order)
-        mapping = list(range(self.n_ports))
-        start = len(self.dom)
-        for old in order:
-            for source, target in zip(
-                    self._box_port_indices[old],
-                    range(start, start + len(self._box_port_indices[old]))):
-                mapping[source] = target
-            start += len(self._box_port_indices[old])
-        edges = self.edges.conjugate(Permutation(mapping))
-        return type(self)(
-            self.dom, self.cod, boxes, edges,
-            loops=self.loops, check=False)
+        return self.reorder(order)
 
     @property
     def is_causal(self) -> bool:
@@ -916,12 +920,8 @@ class CMap[C0: Pregroup, C1: CMap](
         """
         n, n_dom, n_cod = self.n_ports, len(self.dom), len(self.cod)
         boxes = tuple(box.dagger() for box in reversed(self.boxes))
-        sizes = [len(box.dom) + len(box.cod) for box in self.boxes]
-        starts = [n_cod + sum(sizes[i + 1:]) for i in range(len(sizes))]
         dom_mapping = list(range(n - n_dom, n))
-        box_mapping = sum([
-            list(reversed(range(start, start + size)))
-            for start, size in zip(starts, sizes)], [])
+        box_mapping = list(reversed(range(n_cod, n - n_dom)))
         cod_mapping = list(range(n_cod))
         mapping = dom_mapping + box_mapping + cod_mapping
         edges = self.edges.conjugate(Permutation(mapping))
@@ -1033,8 +1033,8 @@ class CMap[C0: Pregroup, C1: CMap](
         self_map += tuple(range(cod_start, cod_start + self_cod))
         other_map += tuple(range(cod_start + self_cod, n_ports))
 
-        edge = self.edges.embed(self_map, n_ports).then(
-            other.edges.embed(other_map, n_ports))
+        edge = self.edges.tensor(other.edges).conjugate(
+            Permutation(self_map + other_map))
         return type(self)(
             dom, cod, boxes, edge,
             loops=self.loops + other.loops, check=False)
@@ -1058,29 +1058,9 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> assert not (f.to_map() >> f.to_map()).interchange(
         ...     0, 1).is_topologically_ordered
         """
-        boxes = list(self.boxes)
-        boxes[i], boxes[j] = boxes[j], boxes[i]
-        boxes = tuple(boxes)
-
-        old_ports = self._box_port_indices
-        start = len(self.dom)
-        new_ports = {}
-        for box_index, box in enumerate(boxes):
-            stop = start + len(box.dom @ box.cod)
-            old_index = j if box_index == i else i if box_index == j\
-                else box_index
-            new_ports[old_index] = tuple(range(start, stop))
-            start = stop
-
-        mapping = list(range(self.n_ports))
-        for old_index, ports in enumerate(old_ports):
-            for old, new in zip(ports, new_ports[old_index]):
-                mapping[old] = new
-
-        edge = self.edges.conjugate(Permutation(mapping))
-        return type(self)(
-            self.dom, self.cod, boxes, edge,
-            loops=self.loops, check=False)
+        order = list(range(len(self.boxes)))
+        order[i], order[j] = order[j], order[i]
+        return self.reorder(order)
 
     def plug_input(
             self, input_index: int, box: Box,
@@ -1231,8 +1211,6 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> assert f.to_map().trace().make_causal()\\
         ...     == CMap.from_box(Trace(f))
         """
-        if self.is_causal:
-            return self
         if not self.is_monogamous:
             return self.make_monogamous().make_causal()
         if self.is_acyclic:

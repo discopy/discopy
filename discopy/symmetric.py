@@ -86,7 +86,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from discopy import monoidal, balanced, traced, messages, hypergraph, cmap
+from discopy import monoidal, balanced, hypergraph, cmap
 from discopy.abc import SymmetricCategory
 from discopy.cat import factory
 from discopy.monoidal import Wire, Ty, PRO  # noqa: F401

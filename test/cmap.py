@@ -34,10 +34,8 @@ def test_default_compact_setting():
 
 
 def test_M_init():
-    from discopy.compact import Ty, Box, CMap as M
-    x, y, z = map(Ty, "xyz")
-    f = Box("f", x @ y, z)
-    valid = M.from_box(f)
+    from discopy.compact import Ty, CMap as M
+    x, y = map(Ty, "xy")
     with raises(ValueError):
         M(x, x, (), ())
     with raises(ValueError):
@@ -256,25 +254,19 @@ def test_diagram_to_map_structure_and_errors():
     t = monoidal.Box("t", monoidal.Ty(), monoidal.Ty())
     assert monoidal.CMap(
         monoidal.Ty(), monoidal.Ty(), (s, t), ()).to_diagram() == s >> t
-    x = closed.Ty("x")
-    f = closed.Box("f", x, x)
-    g = closed.Box("g", x, x)
-    assert closed.CMap(closed.Ty(), closed.Ty(), (f, g), (3, 2, 1, 0))
+    for module in [closed, traced, symmetric]:
+        x = module.Ty("x")
+        f = module.Box("f", x, x)
+        g = module.Box("g", x, x)
+        cycle = module.CMap(
+            module.Ty(), module.Ty(), (f, g), (3, 2, 1, 0))
+        assert not cycle.is_acyclic
 
     x = traced.Ty("x")
     with raises(TypeError, match="Pregroup"):
         traced.CMap.cups(x, x)
     with raises(TypeError, match="Pregroup"):
         traced.CMap.caps(x, x)
-    f = traced.Box("f", x, x)
-    g = traced.Box("g", x, x)
-    assert traced.CMap(traced.Ty(), traced.Ty(), (f, g), (3, 2, 1, 0))
-    x = symmetric.Ty("x")
-    f = symmetric.Box("f", x, x)
-    g = symmetric.Box("g", x, x)
-    assert symmetric.CMap(symmetric.Ty(), symmetric.Ty(), (f, g), (
-        3, 2, 1, 0))
-
     x, y = map(closed.Ty, "xy")
     assert closed.CMap.ev(y, x).boxes == (
         closed.CMap.category.ev(y, x), )
@@ -771,8 +763,6 @@ def test_draw_plain_path(tmp_path):
         for _ in range(2):  # A plain path saves, overwriting silently.
             f.draw(path=path, show=False)
         assert path.exists()
-
-
 
 
 def test_boxes_with_no_domain_decode_at_the_right():
