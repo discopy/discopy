@@ -82,7 +82,7 @@ uv run pytest benchmark/ -v --benchmark-json=benchmark-results/bench.json
 uv run python benchmark/report.py benchmark-results/bench.json
 ```
 
-`report.py` writes `NAME-results.md` and `NAME-scaling.png` for each
+`report.py` writes `NAME-results.md` and `NAME-scaling.svg` for each
 `benchmark/test_NAME.py`. To compare two runs made sequentially on the same
 machine, pass the base run when rendering the head:
 

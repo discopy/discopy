@@ -9,7 +9,7 @@ with an optional same-runner comparison against a base run.
 
 Reads the median CPU time of each ``(suite, family, case, size)`` from
 ``RUN.json``. For each suite ``NAME``, it produces a scaling table as
-``NAME-results.md`` and a ``NAME-scaling.png`` plot. With
+``NAME-results.md`` and a ``NAME-scaling.svg`` plot. With
 ``--base``, it joins head and base runs on all four keys, writes the important
 regressions and speedups to ``comparison.md``, and exits non-zero if any
 measurement regresses by more than ``--fail-threshold`` (a fraction, e.g.
@@ -109,7 +109,7 @@ def plot(
         axis.set_ylabel("median CPU time (s)")
     figure.suptitle(f"{suite.capitalize()} benchmark scaling")
     figure.tight_layout()
-    figure.savefig(path, dpi=120)
+    figure.savefig(path)
     plt.close(figure)
 
 
@@ -125,7 +125,7 @@ def write_reports(df: pl.DataFrame, output: str) -> list[str]:
         table_name = f"{suite}-results.md"
         with open(os.path.join(output, table_name), "w") as file:
             file.write(to_markdown(table) + "\n")
-        plot_name = f"{suite}-scaling.png"
+        plot_name = f"{suite}-scaling.svg"
         plot(group, os.path.join(output, plot_name), suite, colors)
         names += [table_name, plot_name]
     return names
