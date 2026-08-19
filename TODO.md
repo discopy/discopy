@@ -15,23 +15,26 @@ Filed as [#597](https://github.com/discopy/discopy/issues/597).
 ---
 
 - [x] File the issue with the measurement and the cause
-- [x] ~~Give the frame boundary the bubble's full height~~ — superseded by
-  USER's review below, which is what the branch does now
-- [x] USER on [#598](https://github.com/discopy/discopy/pull/598#discussion_r3810719395),
-  verbatim: *"We don't want to double the height of each bubble opening, would
-  it help to introduce a box_height attribute the same way we have box_width?"*
-  Introduced `box_height`, and split the boundary's layer asymmetrically —
-  half a unit outside the frame, a quarter inside — so only the outer wires
-  grow and the interior of every frame is left exactly as on `main`
-- [x] cubic P2: `add_box_corners` drew every rectangle 0.5 tall whatever the
-  wires did, so a non-default `box_height` would have split the box from its
-  own wires. It now reads `box_height / 2`, exactly as it already read
-  `min_width` for the horizontal extent. No baseline moves
-- [x] Regenerate the baselines that move, and only those: 13 files, checked one
-  by one against the failure list rather than with `OVERRIDE_DOCTEST_IMAGES`,
-  which rewrites 40 images for their serialisation alone
-- [x] A regression test measuring the half unit on a frame and on a bubble,
-  checked to fail on `main` with a quarter
-- [x] Eyeball `single-frame.svg` before and after
-- [x] `uv run pflake8 discopy` and `uv run coverage run -m pytest --skip-extra`
-- [x] `CHANGELOG.md` entry
+- [x] ~~Build it~~ — **reverted, the branch is back to zero diff.** Three
+  attempts, all wrong for the same measured reason: the space they added came
+  out of the frame's own border, which on `main` is a uniform **0.5 all
+  round**, so the top and bottom bands grew to **0.747** while the sides
+  stayed **0.5** — USER on [#598](https://github.com/discopy/discopy/pull/598#discussion_r3811580106),
+  verbatim: *"there should not be a diff here. it breaks the frame drawing
+  which doesn't have the same width on top and sides anymore"*
+- [x] Measure `main` rather than argue about it: a frame there is **0.25 of
+  wire outside on every side and a 0.5 band on every side**, i.e. already
+  uniform. #597 compared the top wire against a *bubble's* half unit, which is
+  half an opening curve and not a wire stub at all. The premise was wrong
+- [x] USER on [#598](https://github.com/discopy/discopy/pull/598#discussion_r3811589380),
+  verbatim: *"you've been fiddling with margins but you haven't fixed the
+  actual problem: the bubble is broken here"* — reproduced on
+  `bubble-example.svg`: the inner square bubble draws no outline at all. That
+  is [#520](https://github.com/discopy/discopy/issues/520), and
+  [#564](https://github.com/discopy/discopy/pull/564) fixes it. Rendered on
+  #564's branch the same picture comes out with its outline
+- [ ] **Blocked on a ruling.** Recommendation: close #597 as fixed by #564 and
+  close this PR. If instead the outside wire should still grow, it has to be
+  added by `Drawing.bubble` outside the frame rather than inside its boundary
+  layer, so that the band stays 0.5 — and it will then be 0.5 on top and
+  bottom against 0.25 on the sides, which is the same complaint one level out

@@ -34,9 +34,6 @@ BOX_DRAWING_ATTRIBUTES = {
     "draw_as_wires": lambda box: any(getattr(box, a) for a in [
         "bubble_opening", "bubble_closing", "draw_as_braid",
         "draw_as_cup", "draw_as_cap"]),
-    # The height of the box itself, as ``min_width`` is its width: the layer
-    # is ``height`` tall and the wires take up what the box leaves.
-    "box_height": lambda box: 0 if box.draw_as_wires else box.height - 0.5,
     # A box whose wires cross over each other, drawn as its own smooth curves.
     "is_crossing": lambda box: box.draw_as_permutation
     or box.draw_as_braid or (

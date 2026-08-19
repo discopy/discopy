@@ -165,19 +165,6 @@ def test_bubble_boundary_is_visible():
     assert all(map(Backend.is_frame_boundary, frame_box_nodes))
 
 
-def test_frame_wires_are_not_squeezed():
-    # The outer wires of a square frame get the same half unit as those of a
-    # bubble, rather than a quarter of one, see issue #597.
-    x = monoidal.Ty('x')
-    frame = monoidal.Box('f', x, x ** 3).bubble(
-        dom=x ** 3, cod=x, draw_as_square=True).to_drawing()
-    bubble = monoidal.Box('g', x, x).bubble().to_drawing()
-    for drawing in (frame, bubble):
-        opening, = [n for n in drawing.box_nodes if n.box.bubble_opening]
-        top = max(p.y for p in drawing.positions.values())
-        assert top - drawing.positions[opening].y == 0.5
-
-
 def region_hexes(diagram, **params):
     """The set of region facecolours (as hex) drawn for a diagram."""
     from matplotlib.colors import to_hex
