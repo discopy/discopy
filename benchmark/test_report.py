@@ -61,7 +61,7 @@ def test_comparison_lists_only_important_changes():
 
     markdown = report.comparison_markdown(head, base, .25)
 
-    assert "**FAIL:** 1 important regression found." in markdown
+    assert "**WARNING:** 1 important regression found." in markdown
     assert "Found 1 important speedup among 4 shared measurements." in markdown
     assert "Head-only measurements: 1. Base-only measurements: 1." in markdown
     assert "| suite | family | regressed | 1 | 1 | 1.5 | +50.0% |" in markdown
@@ -70,7 +70,7 @@ def test_comparison_lists_only_important_changes():
     assert "fast-boundary" not in markdown
 
 
-def test_main_writes_comparison_before_failing(tmp_path, monkeypatch):
+def test_main_reports_a_regression_without_failing(tmp_path, monkeypatch):
     base, head = tmp_path / "base.json", tmp_path / "head.json"
     output = tmp_path / "output"
     write_run(base, ("suite", "family", "case", 1, 1.))
@@ -80,7 +80,7 @@ def test_main_writes_comparison_before_failing(tmp_path, monkeypatch):
     status = report.main([
         str(head), "--base", str(base), "--output", str(output)])
 
-    assert status == 1
+    assert status == 0
     assert "| suite | family | case | 1 | 1 | 2 | +100.0% |" in (
         output / "comparison.md").read_text()
 

@@ -1,0 +1,1 @@
+- [x] Report a benchmark regression as a warning, never a job failure

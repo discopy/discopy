@@ -104,7 +104,7 @@ jobs:
               "The pull request base has changed since this run; rerun the "
               + "benchmark for a current comparison.");
           }
-          if (run.conclusion !== "success" && !report.includes("**FAIL:**")) {
+          if (run.conclusion !== "success") {
             warnings.push(`The benchmark workflow concluded \`${run.conclusion}\`.`);
           }
           const warning = warnings.length

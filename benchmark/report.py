@@ -5,15 +5,15 @@ Render a ``pytest-benchmark`` JSON run as scaling tables and log-log plots,
 with an optional same-runner comparison against a base run.
 
     python benchmark/report.py RUN.json [--output DIR]
-                               [--base BASE.json] [--fail-threshold 0.25]
+                               [--base BASE.json] [--threshold 0.25]
 
 Reads the median CPU time of each ``(suite, family, case, size)`` from
 ``RUN.json``. For each suite ``NAME``, it produces a scaling table as
 ``NAME-results.md`` and a ``NAME-scaling.svg`` plot. With
-``--base``, it joins head and base runs on all four keys, writes the important
-regressions and speedups to ``comparison.md``, and exits non-zero if any
-measurement regresses by more than ``--fail-threshold`` (a fraction, e.g.
-``0.25`` = 25%).
+``--base``, it joins head and base runs on all four keys and writes the
+changes larger than ``--threshold`` (a fraction, e.g. ``0.25`` = 25%) to
+``comparison.md`` as regressions and speedups. A regression is reported, never
+fatal: the exit code is non-zero only when the comparison itself fails.
 """
 from __future__ import annotations
 
@@ -175,7 +175,7 @@ def comparison_markdown(
     else:
         suffix = "" if len(regressions) == 1 else "s"
         status = (
-            f"**FAIL:** {len(regressions)} important regression{suffix} "
+            f"**WARNING:** {len(regressions)} important regression{suffix} "
             "found.")
     speedup_suffix = "" if len(speedups) == 1 else "s"
     lines = [
@@ -204,14 +204,14 @@ def comparison_markdown(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Render a pytest-benchmark run; optionally gate.")
+        description="Render a pytest-benchmark run; optionally compare.")
     parser.add_argument("run", help="pytest-benchmark --benchmark-json file")
     parser.add_argument("--output", default="benchmark-results")
     parser.add_argument(
         "--base", help="same-runner base --benchmark-json to compare against")
     parser.add_argument(
-        "--fail-threshold", type=float, default=0.25,
-        help="fail if a measurement regresses by more than this fraction")
+        "--threshold", type=float, default=0.25,
+        help="report a change larger than this fraction as important")
     args = parser.parse_args(argv)
 
     os.makedirs(args.output, exist_ok=True)
@@ -227,7 +227,7 @@ def main(argv: list[str] | None = None) -> int:
 
     base = load(args.base)
     changes = compare(df, base)
-    comparison = comparison_markdown(df, base, args.fail_threshold)
+    comparison = comparison_markdown(df, base, args.threshold)
     comparison_path = os.path.join(args.output, "comparison.md")
     with open(comparison_path, "w") as file:
         file.write(comparison)
@@ -236,16 +236,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if changes.is_empty():
         return 1
-    regressions = changes.filter(pl.col("change") > args.fail_threshold)
     with pl.Config(tbl_rows=-1):
         print(changes)
-    if len(regressions):
-        print(f"REGRESSION: {len(regressions)} measurement(s) over "
-              f"+{args.fail_threshold:.0%} vs base:")
-        print(regressions)
-        return 1
-    print(f"no measurement regressed by more than "
-          f"+{args.fail_threshold:.0%}.")
     return 0
 
 
