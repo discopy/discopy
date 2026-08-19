@@ -63,8 +63,6 @@ Combinatorial maps
 
 Currying and uncurrying are available directly on the :class:`CMap` alias.
 
->>> from discopy.closed import Ty, Box
->>> x, y, z = map(Ty, "xyz")
 >>> f = Box("f", x @ y, z).to_map()
 >>> f.curry(left=False).uncurry(left=False).draw(show=False,
 ...     doctest="docs/_static/cmap/biclosed-curry-right.dot")

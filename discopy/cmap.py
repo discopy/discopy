@@ -684,14 +684,24 @@ class CMap[C0: Pregroup, C1: CMap](
         This relabels the box order without touching the wiring. It is the
         identity on :attr:`is_causal` maps.
 
+        Raises:
+            AxiomError : If the map has a directed cycle, i.e. it is not
+                :attr:`is_acyclic`, so that no such order exists.
+
         >>> from discopy.compact import Ty, Box
         >>> x = Ty("x")
         >>> f, g = Box("f", x, x), Box("g", x, x)
         >>> snakes = (f.transpose(left=True) >> g.transpose(left=True))
         >>> assert not snakes.to_map().is_topologically_ordered
         >>> assert snakes.to_map().topological_order().boxes == (g, f)
+        >>> f.to_map().trace().topological_order()
+        Traceback (most recent call last):
+        ...
+        discopy.utils.AxiomError: ... has a directed cycle, ...
         """
         ranks = self.box_ranks
+        if ranks is None:
+            raise AxiomError(messages.NOT_ACYCLIC.format(self))
         order = tuple(sorted(
             range(len(self.boxes)), key=lambda i: (ranks[i], i)))
         if order == tuple(range(len(self.boxes))):

@@ -57,12 +57,13 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `CMap` is aligned on `Hypergraph`. It is parameterised by a category as
   `NamedGeneric["category"]` instead of carrying `require_*` flags, and it is
   always compact whatever category hosts it, so every compact operation is
-  available when manipulating maps. Only `to_diagram` asks the host category
-  for structure: `make_monogamous` needs cups and caps, while `make_causal`
-  reorders acyclic maps without traces and only asks for traces when cycles or
-  scalar loops remain, cutting every backward wire and loop at once. Each box
-  is placed where its first domain wire already is, so the decoder no longer
-  introduces swaps.
+  available when manipulating maps. The host category is asked for structure
+  only on the `to_diagram` downgrade path, i.e. in `make_monogamous`, which
+  needs cups and caps, and in `make_causal`, which reorders acyclic maps
+  without traces and only asks for traces when cycles or scalar loops remain,
+  cutting every backward wire and loop at once. Each box is placed where its
+  first domain wire already is, so the decoder no longer swaps that wire to
+  the front.
   The predicates follow the `Hypergraph` names and are local conditions on
   the edges, `__init__` takes a keyword `check`, and `curry`, `uncurry` and
   `ev` come from the cups and caps of `abc.RigidCategory` when the host
@@ -161,14 +162,16 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   wiring rather than keeping them as boxes
   ([#532](https://github.com/discopy/discopy/pull/532)).
 - `CMap.cups` and `CMap.caps` now require the handedness of the host category,
-  i.e. `cups(x, x.r)` and `caps(x.r, x)`, so that a rigid map can never hold
-  badly oriented cups and caps, rather than fixing the handedness at downgrade
-  time.
+  i.e. `cups(x, x.r)` and `caps(x.r, x)`, so that these factories reject badly
+  oriented cups and caps, rather than fixing the handedness at downgrade time.
   ([#532](https://github.com/discopy/discopy/pull/532)).
 - `Hypergraph.explicit_trace` and `CMap.explicit_trace` no longer mistake the
   inherited `trace_factory` of a user-defined subclass for a class method,
   which used to raise `AttributeError: type object 'Trace' has no attribute
   '__func__'` ([#532](https://github.com/discopy/discopy/pull/532)).
+- `CMap.topological_order` raises `AxiomError` on a map with a directed
+  cycle, where it used to crash with `TypeError` on the `None` returned by
+  `box_ranks` ([#532](https://github.com/discopy/discopy/pull/532)).
 - `frobenius.Diagram.unfuse`'s doctest no longer sets `Spider.color = "red"`
   to draw its example, which was leaking into every later doctest in the
   same pytest process
