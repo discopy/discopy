@@ -154,8 +154,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   unrelated repos (azure-cli, chrome, microsoft, three Ubuntu components)
   to install one stable core package, and the runner image already ships
   usable apt lists — falling back to a bounded, retried `update` only if
-  that cache is stale, and asserts `dot -Tsvg` actually renders rather
-  than just checking `-V`. (`awalsh128/cache-apt-pkgs-action` was tried
+  that direct install fails, and asserts `dot -Tsvg` actually renders
+  rather than just checking `-V`. (`awalsh128/cache-apt-pkgs-action` was tried
   and reverted: its apt-fast-based install skipped the dpkg trigger that
   builds graphviz's plugin config, so `dot -Tsvg` failed with "Format:
   svg not recognized" despite the package reporting installed.)
