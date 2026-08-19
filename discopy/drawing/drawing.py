@@ -681,13 +681,14 @@ class Drawing(TracedCategory, RichDisplay):
             span_dom = offsets_dom[-1] if offsets_dom else -1
             span_cod = offsets_cod[-1] if offsets_cod else -1
 
+        margin = (height - box.box_height) / 2
         result.add_nodes({
             x: Point((content - span - 1) / 2 + 0.5 + offsets[i], y)
             for xs, y, offsets, span in [
                 (dom, height, offsets_dom, span_dom),
-                (box_dom, height if box.draw_as_wires else height - 0.25,
+                (box_dom, height if box.draw_as_wires else height - margin,
                  offsets_dom, span_dom),
-                (box_cod, 0 if box.draw_as_wires else 0.25,
+                (box_cod, 0 if box.draw_as_wires else margin,
                  offsets_cod, span_cod),
                 (cod, 0, offsets_cod, span_cod)]
             for i, x in enumerate(xs)})
@@ -941,7 +942,8 @@ class Drawing(TracedCategory, RichDisplay):
         from discopy.monoidal import Box
         return Box(
             "top", dom, left @ arg_dom @ right,
-            bubble_opening=True, frame_boundary=frame_boundary).to_drawing()
+            bubble_opening=True, frame_boundary=frame_boundary,
+            height=(0.75 if frame_boundary else 1)).to_drawing()
 
     @staticmethod
     def bubble_closing(arg_cod, cod, left, right, frame_boundary=False):
@@ -959,13 +961,18 @@ class Drawing(TracedCategory, RichDisplay):
         from discopy.monoidal import Box
         return Box(
             "bot", left @ arg_cod @ right, cod,
-            bubble_closing=True, frame_boundary=frame_boundary).to_drawing()
+            bubble_closing=True, frame_boundary=frame_boundary,
+            height=(0.75 if frame_boundary else 1)).to_drawing()
 
     @staticmethod
     def frame_opening(dom, arg_dom, left, right):
         """
         Construct the opening of a frame as the opening of a bubble squashed to
         zero height so that it looks like the upper half of a rectangle.
+
+        Its ``box_height`` being zero, the layer is all margin: half a unit
+        outside the frame, so that its wires read like a bubble's rather than
+        as two thin stripes, and a quarter inside, the same as any box.
 
         >>> from discopy.monoidal import Ty
         >>> x, y, z = map(Ty, "xyz")
@@ -982,7 +989,9 @@ class Drawing(TracedCategory, RichDisplay):
         result.relabel_nodes(copy=False, positions={
             n: result.positions[n].shift(y=-0.5) for n in box_dom_nodes})
         result.relabel_nodes(copy=False, positions={
-            n: result.positions[n].shift(y=0.5) for n in box_cod_nodes})
+            n: result.positions[n].shift(y=0.25) for n in box_cod_nodes})
+        result.relabel_nodes(copy=False, positions={
+            n: Point(result.positions[n].x, 0.25) for n in result.box_nodes})
         result.graph.remove_edges_from([
             (u, v) for u in box_dom_nodes for v in result.box_nodes] + [
             (u, v) for u in result.box_nodes for v in box_cod_nodes[1:-1]])
@@ -992,7 +1001,8 @@ class Drawing(TracedCategory, RichDisplay):
     def frame_closing(arg_cod, cod, left, right):
         """
         Construct the closing of a frame as the closing of a bubble squashed to
-        zero height so that it looks like the lower half of a rectangle.
+        zero height so that it looks like the lower half of a rectangle, with
+        the margins of :meth:`frame_opening` mirrored.
 
         >>> from discopy.monoidal import Ty
         >>> x, y, z = map(Ty, "xyz")
@@ -1007,9 +1017,11 @@ class Drawing(TracedCategory, RichDisplay):
         box_dom_nodes = result.box_dom_nodes
         box_cod_nodes = result.box_cod_nodes
         result.relabel_nodes(copy=False, positions={
-            n: result.positions[n].shift(y=-0.5) for n in box_dom_nodes})
+            n: result.positions[n].shift(y=-0.25) for n in box_dom_nodes})
         result.relabel_nodes(copy=False, positions={
             n: result.positions[n].shift(y=0.5) for n in box_cod_nodes})
+        result.relabel_nodes(copy=False, positions={
+            n: Point(result.positions[n].x, 0.5) for n in result.box_nodes})
         result.graph.remove_edges_from([
             (u, v) for u in box_dom_nodes[1:-1] for v in result.box_nodes] + [
             (u, v) for u in result.box_nodes for v in box_cod_nodes])

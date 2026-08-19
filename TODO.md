@@ -15,8 +15,14 @@ Filed as [#597](https://github.com/discopy/discopy/issues/597).
 ---
 
 - [x] File the issue with the measurement and the cause
-- [x] Give the frame boundary the bubble's full height, so its outer wires get
-  half a unit instead of a quarter
+- [x] ~~Give the frame boundary the bubble's full height~~ — superseded by
+  USER's review below, which is what the branch does now
+- [x] USER on [#598](https://github.com/discopy/discopy/pull/598#discussion_r3810719395),
+  verbatim: *"We don't want to double the height of each bubble opening, would
+  it help to introduce a box_height attribute the same way we have box_width?"*
+  Introduced `box_height`, and split the boundary's layer asymmetrically —
+  half a unit outside the frame, a quarter inside — so only the outer wires
+  grow and the interior of every frame is left exactly as on `main`
 - [x] Regenerate the baselines that move, and only those: 13 files, checked one
   by one against the failure list rather than with `OVERRIDE_DOCTEST_IMAGES`,
   which rewrites 40 images for their serialisation alone
