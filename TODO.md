@@ -24,3 +24,19 @@ with option 2 being their own earlier suggestion, also verbatim:
 - [x] `CHANGELOG.md`: the semigroup entry dropped, #438's line put back, and a
       `Changed` entry for the widened signature.
 - [x] `uv run pflake8 discopy` and `uv run pytest --skip-extra`.
+
+USER again on #590, once the empty-layer bug came out of @daydream6728's
+question, verbatim:
+
+> let's make this PR fix it instead of adding a Semigroup abstract class:
+> Layer.id should raise and there should never be empty plumbing created when
+> whispering layers
+
+- [x] `Layer.id` raises: there is no identity layer.
+- [x] `Layer.whisker` leaves a type as a type, and `tensor` and `__rmatmul__`
+      merge it into the boundary, so whiskering builds no empty plumbing.
+- [x] `test_Layer_has_no_identity` covers both, and that whiskering leaves no
+      empty type behind.
+- [ ] **Not fixed, and reported on the PR**: `Layer(Ty(), normalise=False)`
+      still builds the boxless layer, so [#599](https://github.com/discopy/discopy/issues/599)
+      stays open for whether `Diagram.__init__` should reject it.

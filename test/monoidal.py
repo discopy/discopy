@@ -216,6 +216,22 @@ def test_Layer_coloured_units():
         Layer(Ty.id(green), f)
 
 
+def test_Layer_has_no_identity():
+    x = Ty('x')
+    f = Box('f', x, x)
+
+    with raises(ValueError):
+        Layer.id()
+    with raises(ValueError):
+        Layer.id(x)
+    with raises(ValueError):
+        Layer(Ty())
+
+    assert Ty() @ Layer(f) == Layer(f) == Layer(f) @ Ty()
+    assert not [t for t in (x @ Layer(f)).boxes_or_types
+                if isinstance(t, Ty) and not t]
+
+
 def test_Layer_unit():
     x = Ty('x')
     f = Box('f', x, x)
