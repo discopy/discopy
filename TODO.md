@@ -23,6 +23,10 @@ Filed as [#597](https://github.com/discopy/discopy/issues/597).
   Introduced `box_height`, and split the boundary's layer asymmetrically —
   half a unit outside the frame, a quarter inside — so only the outer wires
   grow and the interior of every frame is left exactly as on `main`
+- [x] cubic P2: `add_box_corners` drew every rectangle 0.5 tall whatever the
+  wires did, so a non-default `box_height` would have split the box from its
+  own wires. It now reads `box_height / 2`, exactly as it already read
+  `min_width` for the horizontal extent. No baseline moves
 - [x] Regenerate the baselines that move, and only those: 13 files, checked one
   by one against the failure list rather than with `OVERRIDE_DOCTEST_IMAGES`,
   which rewrites 40 images for their serialisation alone

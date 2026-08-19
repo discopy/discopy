@@ -402,10 +402,11 @@ class Drawing(TracedCategory, RichDisplay):
                 center = (left + right) / 2
                 left = center - box.min_width / 2
                 right = center + box.min_width / 2
+            half = box.box_height / 2
             self.add_nodes({
                 Node(f"box-corner-{a}{b}", j=j): Point(x, box_y + y)
                 for a, x in enumerate([left, right])
-                for b, y in enumerate([-0.25, 0.25])})
+                for b, y in enumerate([-half, half])})
             if box.draw_as_wires or box.draw_as_spider:
                 if len(box.dom) == 1 or len(box.cod) == 1:
                     continue
