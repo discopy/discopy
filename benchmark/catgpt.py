@@ -14,10 +14,12 @@ c06c7e752b8c5fbca638b60caf79ed6dc878d90e>`_, motivated by
 `DisCoPy issue #458 <https://github.com/discopy/discopy/issues/458>`_.
 No code or artifacts from the upstream repository are included.
 
-Weights are explicit boundary values rather than hidden module parameters.
-For a model input ``X`` and parameter tuple ``P``, the diagram has type
-``X @ P -> Y``.  Every primitive carries an explicit local reverse rule, so
-:func:`discopy.neural.rdiff.rdiff` builds the model VJP compositionally.
+Weights are explicit boundary values rather than hidden module parameters,
+i.e. the model is a :class:`discopy.neural.Para` from tokens ``X`` to
+logits ``Y`` whose parameter space ``P`` is the concatenation of its
+matrices, with ``inside : X @ P -> Y``.  Every primitive carries an explicit
+local reverse rule, so :func:`discopy.neural.rdiff.rdiff` builds the model
+VJP compositionally.
 
 The full six-block shape is useful for checking parameter counts.  Execution
 and derivative conformance normally use :meth:`CatGPTConfig.tiny`; set
@@ -86,6 +88,14 @@ class CatGPTConfig:
         """Number of scalar weights."""
         return sum(prod(shape) for _, shape in self.parameter_shapes)
 
+    @property
+    def parameter_boxes(self) -> tuple[str, ...]:
+        """Names of the boxes consuming each parameter, in layout order."""
+        return (
+            "Token",
+            *(f"QKV[{i}]" for i in range(self.blocks)),
+            "Output")
+
 
 CATGPT = CatGPTConfig()
 assert (
@@ -114,7 +124,12 @@ def stable_softmax(value: torch.Tensor, dim: int = -1) -> torch.Tensor:
 class Operation:
     """
     A differentiable primitive with a closed-form vector-Jacobian product.
+
+    Its ``dom_dims`` end with ``param_dims``, the weights read after the
+    input, which is empty for every operation but :class:`Linear`.
     """
+
+    param_dims: tuple[int, ...] = ()
 
     def forward(self, value: torch.Tensor) -> torch.Tensor:
         """Evaluate the primitive."""
@@ -135,8 +150,8 @@ class Linear(Operation):
         self.input_width = input_width
         self.output_width = output_width
         self.weight_width = input_width * output_width
-        self.dom_dims = (
-            items * input_width, self.weight_width)
+        self.param_dims = (self.weight_width, )
+        self.dom_dims = (items * input_width, ) + self.param_dims
         self.cod_dims = (items * output_width, )
 
     @property
@@ -366,9 +381,9 @@ class Arrow(torch.nn.Module):
 
 @dataclass
 class Primitive:
-    """A neural generator paired with its explicit local reverse rule."""
+    """A parametric generator paired with its explicit local reverse rule."""
 
-    box: neural.Network
+    network: neural.Para
     rule: ReverseRule
 
 
@@ -376,6 +391,7 @@ def primitive(name: str, operation: Operation) -> Primitive:
     """Turn an operation and its closed-form VJP into neural generators."""
     dom, cod = (
         neural.Dim(*operation.dom_dims), neural.Dim(*operation.cod_dims))
+    param = neural.Dim(*operation.param_dims)
     box = neural.Network(
         name, dom, cod,
         module=Arrow(operation, operation.dom_width, operation.cod_width))
@@ -389,40 +405,51 @@ def primitive(name: str, operation: Operation) -> Primitive:
         module=Arrow(
             operation, operation.dom_width + operation.cod_width,
             operation.dom_width, reverse=True))
-    return Primitive(box, ReverseRule(forward, reverse, cod=cod))
+    return Primitive(
+        neural.Para(dom[:len(dom) - len(param)], cod, param, box),
+        ReverseRule(forward, reverse, cod=cod))
 
 
 class CatGPT:
-    """A CatGPT-shaped neural hypergraph and its local reverse rules."""
+    """A CatGPT-shaped parametric network and its local reverse rules."""
 
     def __init__(self, config: CatGPTConfig = CATGPT, softmax: bool = False):
         self.config, self.softmax = config, softmax
         self.rules = {}
-        self.diagram = self._build()
+        self.model = self._build()
+        expected = neural.Dim(*(
+            prod(shape) for _, shape in config.parameter_shapes))
+        if self.model.param != expected:
+            raise ValueError(
+                f"The model has parameter space {self.model.param}, "
+                f"expected {expected}.")
+        self.diagram = self.model.inside
+        consumers = tuple(
+            box.name for box in self.diagram.boxes
+            if box.name in config.parameter_boxes)
+        if consumers != config.parameter_boxes:
+            raise ValueError(
+                f"The parameters are consumed by {consumers}, "
+                f"expected {config.parameter_boxes}.")
         self.graph = self.diagram.to_hypergraph()
         if not self.graph.is_causal or not self.graph.is_monogamous:
             raise ValueError("The CatGPT graph must be causal and monogamous.")
 
     def add(self, name, operation):
-        """Register a primitive and return its generator."""
+        """Register a primitive and return its parametric generator."""
         result = primitive(name, operation)
-        self.rules[result.box] = result.rule
-        return result.box
+        self.rules[result.network.inside] = result.rule
+        return result.network
 
     def _build(self):
         config = self.config
         context, width = config.context, config.width
         items = config.batch * context
-        shapes = config.parameter_shapes
-        parameters = tuple(neural.Dim(prod(shape)) for _, shape in shapes)
+        state = neural.Para.id(neural.Dim(items * width))
 
-        token = self.add(
-            "Token", Linear(items, config.vocab, width))
-        diagram = token @ neural.Id(neural.Dim().tensor(*parameters[1:]))
-        state = neural.Dim(items * width)
+        model = self.add("Token", Linear(items, config.vocab, width))
 
         for i in range(config.blocks):
-            remaining = neural.Dim().tensor(*parameters[i + 2:])
             copy = self.add(f"Copy[{i}]", Copy(items * width))
             norm = self.add(
                 f"LayerNorm[{i}]",
@@ -434,25 +461,15 @@ class CatGPT:
                 CausalSelfAttention(
                     config.batch, context, width, config.heads))
             add = self.add(f"Add[{i}]", Add(items * width))
-            diagram >>= copy @ neural.Id(
-                parameters[i + 1] @ remaining)
-            diagram >>= neural.Id(state) @ norm @ neural.Id(
-                parameters[i + 1] @ remaining)
-            diagram >>= neural.Id(state) @ qkv @ neural.Id(remaining)
-            diagram >>= neural.Id(state) @ attention @ neural.Id(remaining)
-            diagram >>= add @ neural.Id(remaining)
+            model >>= copy >> state @ norm >> state @ qkv\
+                >> state @ attention >> add
 
-        output_norm = self.add(
-            "LayerNorm[output]",
-            LayerNorm(items, width, config.eps))
-        output = self.add(
-            "Output", Linear(items, width, config.vocab))
-        diagram >>= output_norm @ neural.Id(parameters[-1])
-        diagram >>= output
+        model >>= self.add(
+            "LayerNorm[output]", LayerNorm(items, width, config.eps))
+        model >>= self.add("Output", Linear(items, width, config.vocab))
         if self.softmax:
-            diagram >>= self.add(
-                "Softmax", Softmax(items, config.vocab))
-        return diagram
+            model >>= self.add("Softmax", Softmax(items, config.vocab))
+        return model
 
     @cached_property
     def cmap(self):

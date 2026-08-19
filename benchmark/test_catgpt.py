@@ -9,10 +9,13 @@ training run is intentionally not part of the ordinary test suite.
 """
 
 from dataclasses import replace
+from math import prod
 import os
 import time
 
 import pytest
+
+from discopy import neural
 
 torch = pytest.importorskip("torch")
 catgpt = pytest.importorskip("benchmark.catgpt")
@@ -33,7 +36,23 @@ def test_original_shape_and_parameter_count():
     ) == (65, 64, 32, 384, 6, 6)
     assert len(CATGPT.parameter_shapes) == 8
     assert CATGPT.parameter_count == 2_704_128
+    assert CATGPT.parameter_boxes == (
+        "Token", *(f"QKV[{i}]" for i in range(6)), "Output")
     assert catgpt.attention_scale(CATGPT.width) == 19.595918655395508
+
+
+def test_model_is_parametric():
+    """The model is a parametric map from tokens to logits."""
+    config = CatGPTConfig.tiny()
+    model = CatGPT(config).model
+    items = config.batch * config.context
+
+    assert isinstance(model, neural.Para)
+    assert model.dom == neural.Dim(items * config.vocab)
+    assert model.cod == neural.Dim(items * config.vocab)
+    assert model.param == neural.Dim(*(
+        prod(shape) for _, shape in config.parameter_shapes))
+    assert model.inside.dom == model.dom @ model.param
 
 
 def test_forward_conformance():

@@ -47,3 +47,35 @@ Each point quotes USER's review comment verbatim; the thread links are on
       representation of [#438](https://github.com/discopy/discopy/pull/438),
       which the last merge of `main` broke: `to_staircases` no longer yields
       unpackable layers, so read `Layer.boxes_and_types` instead.
+
+## Refactor with `discopy.para`
+
+Stacked on this branch, from a Daylight session — USER, verbatim:
+
+> refactor discopy.neural https://github.com/discopy/discopy/pull/399
+> with the new para https://github.com/discopy/discopy/pull/559
+>
+> make sure that downstream branches are still working
+
+Mathematical design: a neural network whose weights are boundary values
+rather than hidden module parameters is a parametric map, i.e. a morphism
+`dom @ param -> cod` of `discopy.neural` in the sense of
+[#559](https://github.com/discopy/discopy/pull/559). Its composition and
+tensor are those of `para.Compact` over `neural.Diagram`: they accumulate
+the parameter spaces and route them to the right of the domains, which is
+exactly the whiskering that `benchmark/catgpt.py` spells out by hand.
+
+- [x] Merge #559 into this branch and add `neural.Para`, the parametric
+      neural networks, with docs and tests.
+- [x] Rewrite the CatGPT model as a composition of parametric maps, dropping
+      the hand-rolled parameter whiskering. The refactored `_build` returns
+      the same diagram and the same reverse derivative as before, checked
+      against the previous code for zero, one and three blocks.
+- [x] Check the downstream branches #495, #416, #401 and #406 against this
+      refactor and report what breaks and why. All four are broken by the
+      restructuring of `discopy/neural.py` into a package, `e7e92db` on this
+      branch, and none of them by the parametric refactor: `git merge-tree`
+      gives the same conflict set for this branch as for its base, and no
+      name that any of them imports is removed here. `neural.Para` is
+      purely additive.
+- [x] Run `pflake8 discopy` and the test suite, update `CHANGELOG.md`.
