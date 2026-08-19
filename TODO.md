@@ -59,6 +59,11 @@ were fixed and two were false positives.
       concrete maps; the property matrix continues to check every declared map axiom.
 - [x] `test_extend_strategy` now finds both a free box and a twist from the extended distribution,
       while retaining its boundary-guard assertion.
+- [x] Merged `main` (`5fa95f6e`), keeping both `CMap.from_generator` and the new
+      `CMap.from_glued`, then took the simplifications the merged changes allow: the
+      `axiom_status` entries that `Category.axiom_equality` already resolves through the MRO
+      are gone, and `benchmark.generators.single_layer_tensor` builds its layer from boxes
+      alone now that `monoidal.Layer` normalises its own plumbing.
 
 ## Open question for USER, not blocking
 
