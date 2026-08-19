@@ -378,11 +378,7 @@ class Diagram(biclosed.Diagram, RigidCategory):
 
     ob = Ty
     layer_factory = Layer
-    axiom_status = {
-        "currying_left": "bug",
-        "currying_right": "bug",
-        "snake_equations": "normal",
-    }
+    axiom_status = {"snake_equations": "normal"}
 
     to_drawing = monoidal.Diagram.to_drawing
 

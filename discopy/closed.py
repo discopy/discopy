@@ -93,15 +93,6 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
     A diagram applied to another post-composes their tensor with an `Eval`.
     """
     ob = Ty
-    axiom_status = {
-        "trace_superposing_left": "strict",
-        "trace_superposing_right": "strict",
-        "trace_naturality_left": "strict",
-        "trace_naturality_right": "strict",
-        "trace_dinaturality_left": "wontfix",
-        "trace_dinaturality_right": "wontfix",
-        "braid_naturality": "strict",
-    }
 
     @property
     def is_linear(self):

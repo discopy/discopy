@@ -284,8 +284,6 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         "trace_superposing_right": "strict",
         "trace_naturality_left": "strict",
         "trace_naturality_right": "strict",
-        "trace_dinaturality_left": "wontfix",
-        "trace_dinaturality_right": "wontfix",
         "braid_naturality": "strict",
     }
     braid_factory = classproperty(lambda cls: cls.swap_factory)
