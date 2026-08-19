@@ -140,6 +140,13 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `Matrix` is a `MarkovCategory` rather than a `MonoidalCategory` and gets a
+  native `Matrix.permutation`, so a matrix-valued functor applied to a
+  diagram with an explicit `Permutation` layer no longer raises
+  `AttributeError`. `Matrix.copy` and `Tensor.copy` default to `n=2` like
+  every other `copy` in the hierarchy, so single-argument calls such as
+  `closed.Application.eval` no longer raise `TypeError`
+  ([#535](https://github.com/discopy/discopy/issues/535)).
 - `frobenius.Diagram.unfuse`'s doctest no longer sets `Spider.color = "red"`
   to draw its example, which was leaking into every later doctest in the
   same pytest process
