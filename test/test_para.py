@@ -32,7 +32,7 @@ def test_symmetric_axioms():
     assert (swap >> Symmetric.swap(y, x)).inside.simplify()\
         == Diagram.id(x @ y)
     assert Symmetric.permutation((1, 0), (x, y)).inside.simplify()\
-        == swap.inside
+        == swap.inside.simplify()
     assert Symmetric.braid(x, y) == swap
 
 
