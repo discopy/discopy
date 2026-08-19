@@ -71,6 +71,18 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `left` to `True` like the rest of the hierarchy
   ([#532](https://github.com/discopy/discopy/pull/532),
   [#560](https://github.com/discopy/discopy/issues/560)).
+- `uncurry` is defined once in `abc.BiclosedCategory`, in terms of a new
+  method `base_and_exponent` for the two objects that `ev` evaluates.
+  `abc.RigidCategory` and `cmap.CMap` override that method instead of
+  duplicating the composition with `ev`: a pregroup has no exponential
+  object, so its exponent is the `n` objects at the end resp. the start of
+  the codomain, dualised, and a map reads it off its wiring when the host
+  category is rigid ([#532](https://github.com/discopy/discopy/pull/532)).
+- `balanced` and `pivotal` export a `CMap` alias like the other levels of
+  the hierarchy ([#532](https://github.com/discopy/discopy/pull/532)).
+- `messages.NOT_FROBENIUS` is renamed `NOT_FROBENIUS_NOR_RIGID`, which is
+  what `Hypergraph.to_diagram` checks before raising it
+  ([#532](https://github.com/discopy/discopy/pull/532)).
 - `monoidal.Layer` holds a list of boxes and non-empty types with at least
   one box and no two consecutive types, instead of an odd-length list
   alternating type and box. Whiskering extends the list only when the type
@@ -172,6 +184,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `CMap.topological_order` raises `AxiomError` on a map with a directed
   cycle, where it used to crash with `TypeError` on the `None` returned by
   `box_ranks` ([#532](https://github.com/discopy/discopy/pull/532)).
+- `Hypergraph.to_diagram` no longer asks for swaps when one of their two
+  sides is empty, where the identity does
+  ([#532](https://github.com/discopy/discopy/pull/532)).
 - `frobenius.Diagram.unfuse`'s doctest no longer sets `Spider.color = "red"`
   to draw its example, which was leaking into every later doctest in the
   same pytest process

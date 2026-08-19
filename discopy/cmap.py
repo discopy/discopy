@@ -984,20 +984,19 @@ class CMap[C0: Pregroup, C1: CMap](
         return self.from_box(self.category.curry_factory(
             self.to_diagram(), n, left))
 
-    def uncurry(self, n: int = 1, left: bool = True) -> CMap:
+    def base_and_exponent(self, n: int, left: bool) -> tuple[Ty, Ty]:
         """
-        Uncurry a map with the cups of its wiring when the host category is
-        rigid, otherwise compose it with an explicit evaluation box.
-
-        This is inverse to :meth:`curry` when applied on the same side.
+        The exponent that :meth:`uncurry` evaluates is read off the wiring
+        when the host category is rigid, i.e. it is the ``n`` objects at the
+        end of the codomain, otherwise off its exponential object.
 
         Parameters:
             n : The number of objects to uncurry.
             left : Whether to uncurry on the left or right.
         """
         if issubclass(self.category, RigidCategory):
-            return super().uncurry(n, left)
-        return BiclosedCategory.uncurry(self, n, left)
+            return super().base_and_exponent(n, left)
+        return BiclosedCategory.base_and_exponent(self, n, left)
 
     l = property(lambda self: self.transpose(left=True))
     r = property(lambda self: self.transpose(left=False))

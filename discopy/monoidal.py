@@ -1031,7 +1031,7 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
 
     def to_map(self) -> CMap:
         """ Translate a diagram into a combinatorial map. """
-        return cmap.CMap[type(self).ar].from_diagram(self)
+        return cmap.CMap[self.ar].from_diagram(self)
 
     def to_staircases(self):
         """

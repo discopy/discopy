@@ -267,6 +267,22 @@ class BiclosedCategory[
             left : Whether to curry on the left or right.
         """
 
+    def base_and_exponent(self, n: int, left: bool) -> tuple[C0, C0]:
+        """
+        The base and exponent that :meth:`uncurry` evaluates, read off the
+        exponential object in the codomain.
+
+        Parameters:
+            n : The number of objects to uncurry.
+            left : Whether to uncurry on the left or right.
+        """
+        if not self.cod.is_exp:
+            raise ValueError
+        base, exponent = self.cod.base, self.cod.exponent
+        if n < len(exponent):
+            raise ValueError
+        return base, exponent
+
     def uncurry(self, n: int = 1, left: bool = True) -> C1:
         """
         Uncurry a morphism by composing it with :meth:`ev`, assuming its
@@ -281,11 +297,7 @@ class BiclosedCategory[
             raise ValueError
         if not n:
             return self
-        if not self.cod.is_exp:
-            raise ValueError
-        base, exponent = self.cod.base, self.cod.exponent
-        if n < len(exponent):
-            raise ValueError
+        base, exponent = self.base_and_exponent(n, left)
         result = self @ exponent >> self.ev(base, exponent, True) if left\
             else exponent @ self >> self.ev(base, exponent, False)
         return result.uncurry(n - len(exponent), left)
@@ -364,27 +376,20 @@ class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
         base, exponent = self.dom[n:], self.dom[:n]
         return self.caps(exponent.r, exponent) @ base >> exponent.r @ self
 
-    def uncurry(self, n: int = 1, left: bool = True) -> C1:
+    def base_and_exponent(self, n: int, left: bool) -> tuple[C0, C0]:
         """
-        The uncurry of a rigid morphism is obtained using cups, it is inverse
-        to :meth:`curry` when applied on the same side.
-
-        Contrary to :meth:`BiclosedCategory.uncurry`, the exponent is not
-        determined by the codomain, hence the number of objects to uncurry.
+        Contrary to :meth:`BiclosedCategory.base_and_exponent`, a pregroup has
+        no exponential object to read the exponent off the codomain: it is the
+        ``n`` objects at the end resp. the start of the codomain, dualised.
 
         Parameters:
             n : The number of objects to uncurry.
             left : Whether to uncurry on the left or right.
         """
-        if n < 0 or n > len(self.cod):
+        if n > len(self.cod):
             raise ValueError
-        if not n:
-            return self
-        if left:
-            base, exponent = self.cod[:-n], self.cod[-n:].r
-            return self @ exponent >> self.ev(base, exponent, True)
-        base, exponent = self.cod[n:], self.cod[:n].l
-        return exponent @ self >> self.ev(base, exponent, False)
+        return (self.cod[:-n], self.cod[-n:].r) if left\
+            else (self.cod[n:], self.cod[:n].l)
 
     def transpose(self, left: bool = False) -> C1:
         """

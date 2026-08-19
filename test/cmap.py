@@ -157,6 +157,7 @@ def test_symmetric_diagram_to_map_encodes_swap_as_wiring():
 
 def test_diagram_to_map_structure_and_errors():
     from discopy import (
+        balanced,
         braided,
         closed,
         compact,
@@ -195,6 +196,11 @@ def test_diagram_to_map_structure_and_errors():
     pbox = pivotal.Box("f", px, py)
     assert pbox.transpose(left=True).transpose(left=False).to_map().boxes\
         == (pbox, )
+    assert pbox.to_map() == pivotal.CMap.from_box(pbox)
+
+    bx, by = map(balanced.Ty, "xy")
+    bbox = balanced.Box("f", bx, by)
+    assert bbox.to_map() == balanced.CMap.from_box(bbox)
 
     cx, cy = map(closed.Ty, "xy")
     ev = closed.Eval(cy << cx)

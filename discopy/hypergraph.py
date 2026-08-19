@@ -1420,7 +1420,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
                 return self.make_causal().make_bijective().to_diagram()
             if not self.is_monogamous and not issubclass(
                     self.category, RigidCategory):
-                raise AxiomError(messages.NOT_FROBENIUS.format(
+                raise AxiomError(messages.NOT_FROBENIUS_NOR_RIGID.format(
                     factory_name(self.category)))
             return self.make_monogamous().make_causal().to_diagram()
         foliate = self.is_boundary_connected
@@ -1428,6 +1428,8 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         pending, layer_dom, layer_right, shift = [], self.dom, 0, 0
 
         def swap(left, right):
+            if not left or not right:  # A swap with nothing is the identity.
+                return self.category.id(left @ right)
             if not issubclass(self.category, SymmetricCategory):
                 raise AxiomError(messages.NOT_SYMMETRIC.format(
                     factory_name(self.category)))
