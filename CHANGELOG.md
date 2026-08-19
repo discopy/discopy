@@ -147,15 +147,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
-- Every job of `build.yml` gets `timeout-minutes: 15` and the Graphviz
-  install a five-minute step timeout with `apt-get` retries and a
-  ten-second network timeout, so a stalled mirror fails over instead of
-  wedging the job and a job stuck on its first network step turns into a
-  fast red instead of holding a runner for hours. The install also skips
-  `apt-get update` on the fast path — the runner image ships pre-populated
-  lists, and `update` refreshes six unrelated repos to install one stable
-  package — and pays for a bounded, retried `update` only as a fallback
-  when the cached index turns out to be stale
+- Every job of `build.yml` gets `timeout-minutes: 15`, so a job wedged on
+  its first network step turns into a fast red instead of holding a
+  runner for hours. The Graphviz install goes through
+  `awalsh128/cache-apt-pkgs-action`, since every occurrence traced back to
+  `apt-get update` refreshing six unrelated repos (azure-cli, chrome,
+  microsoft, three Ubuntu components) to install one stable core package:
+  a cache hit installs the `.deb` directly with no `apt-get update` at
+  all, and the step keeps its own six-minute timeout as a backstop for a
+  cold cache, which still runs plain `apt-get update && install`
   ([#591](https://github.com/discopy/discopy/issues/591)).
 - `frobenius.Diagram.unfuse`'s doctest no longer sets `Spider.color = "red"`
   to draw its example, which was leaking into every later doctest in the

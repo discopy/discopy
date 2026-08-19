@@ -63,19 +63,19 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install Graphviz
-      # #591: `apt-get update` refreshes six unrelated repos (azure-cli,
-      # chrome, microsoft, three Ubuntu components) to install one stable
-      # core package, and its index downloads were the actual site of every
-      # hang — bounded to 120s each, they still legitimately took ~120s
-      # against archive.ubuntu.com once azure failed over, so retrying
-      # `update` itself just paid that cost twice. The runner image ships
-      # pre-populated apt lists, so install directly first and only pay for
-      # `update` as a bounded, retried fallback if that cache is stale.
+      # #591: every hang traced back to `apt-get update` refreshing six
+      # unrelated repos (azure-cli, chrome, microsoft, three Ubuntu
+      # components) to install one stable core package. Caching the .deb
+      # skips apt (and the network) on every run after the first: cache hits
+      # install straight from the cached package with no `apt-get update`
+      # at all. `timeout-minutes` is the backstop for a cold cache, where
+      # this still runs plain `apt-get update && install`.
+      uses: awalsh128/cache-apt-pkgs-action@v1
       timeout-minutes: 6
-      run: |
-        APT="sudo timeout 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=10"
-        $APT install -y graphviz || { $APT update && $APT install -y graphviz; }
-        dot -V
+      with:
+        packages: graphviz
+        version: '1.0'
+        execute_install_scripts: true
     - name: Install
       run:
         uv sync --locked --group dev --group all
@@ -107,12 +107,13 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install Graphviz
-      # See the identical step in `test` above for why this skips `update`.
+      # See the identical step in `test` above for why this is cached.
+      uses: awalsh128/cache-apt-pkgs-action@v1
       timeout-minutes: 6
-      run: |
-        APT="sudo timeout 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=10"
-        $APT install -y graphviz || { $APT update && $APT install -y graphviz; }
-        dot -V
+      with:
+        packages: graphviz
+        version: '1.0'
+        execute_install_scripts: true
     - name: Install
       run:
         uv sync --locked --group docs
