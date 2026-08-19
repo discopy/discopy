@@ -8,8 +8,8 @@ with an optional same-runner comparison against a base run.
                                [--base BASE.json] [--fail-threshold 0.25]
 
 Reads the median CPU time of each ``(suite, family, case, size)`` from
-``RUN.json``. For each suite ``NAME``, it produces a hierarchical table as
-``NAME-results.{html,md,csv}`` and a ``NAME-scaling.png`` plot. With
+``RUN.json``. For each suite ``NAME``, it produces a scaling table as
+``NAME-results.md`` and a ``NAME-scaling.png`` plot. With
 ``--base``, it joins head and base runs on all four keys, writes the important
 regressions and speedups to ``comparison.md``, and exits non-zero if any
 measurement regresses by more than ``--fail-threshold`` (a fraction, e.g.
@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
-from html import escape
 import json
 import os
 
@@ -75,46 +74,6 @@ def to_markdown(table: pl.DataFrame) -> str:
             "" if value is None else f"{value:.4f}" for value in row[2:]]
         lines.append("| " + " | ".join(cells) + " |")
     return "\n".join(lines)
-
-
-def _rowspan(rows: list[tuple], i: int, depth: int) -> int:
-    """Length of a row group, or zero when ``i`` is not its first row."""
-    key = rows[i][:depth]
-    if i and rows[i - 1][:depth] == key:
-        return 0
-    return next((j - i for j in range(i + 1, len(rows))
-                 if rows[j][:depth] != key), len(rows) - i)
-
-
-def to_html(table: pl.DataFrame) -> str:
-    """Render family as an HTML row group."""
-    rows, columns = list(table.iter_rows()), table.columns
-    lines = [
-        "<!doctype html>",
-        '<meta charset="utf-8">',
-        "<title>Benchmark scaling</title>",
-        "<style>table{border-collapse:collapse}th,td{border:1px solid #bbb;"
-        "padding:.3rem .5rem;text-align:right}th[scope=rowgroup],"
-        "th[scope=row]{text-align:left;vertical-align:top}</style>",
-        "<table>",
-        "<thead><tr>" + "".join(
-            f'<th scope="col">{escape(column)}</th>' for column in columns)
-        + "</tr></thead>",
-        "<tbody>",
-    ]
-    for i, row in enumerate(rows):
-        cells = []
-        span = _rowspan(rows, i, 1)
-        if span:
-            cells.append(
-                f'<th scope="rowgroup" rowspan="{span}">'
-                f'{escape(str(row[0]))}</th>')
-        cells.append(f'<th scope="row">{escape(str(row[1]))}</th>')
-        cells += [
-            f"<td>{'' if value is None else f'{value:.4f}'}</td>"
-            for value in row[2:]]
-        lines.append("<tr>" + "".join(cells) + "</tr>")
-    return "\n".join(lines + ["</tbody>", "</table>"])
 
 
 @dataclass(frozen=True)
@@ -179,7 +138,7 @@ def plot(df: pl.DataFrame, path: str, spec: Plot, colors: dict) -> None:
 
 
 def write_reports(df: pl.DataFrame, output: str) -> list[str]:
-    """Write one hierarchical table and scaling plot per suite."""
+    """Write one scaling table and plot per suite."""
     colors = case_colors(df)
     names = []
     for suite, spec in PLOTS.items():
@@ -189,17 +148,12 @@ def write_reports(df: pl.DataFrame, output: str) -> list[str]:
         table = scaling_table(group, spec)
         with pl.Config(tbl_rows=-1, tbl_cols=-1, fmt_str_lengths=80):
             print(table)
-        report_names = [
-            f"{suite}-results.{extension}"
-            for extension in ("md", "csv", "html")]
-        with open(os.path.join(output, report_names[0]), "w") as file:
+        table_name = f"{suite}-results.md"
+        with open(os.path.join(output, table_name), "w") as file:
             file.write(to_markdown(table) + "\n")
-        table.write_csv(os.path.join(output, report_names[1]))
-        with open(os.path.join(output, report_names[2]), "w") as file:
-            file.write(to_html(table) + "\n")
         plot_name = f"{suite}-scaling.png"
         plot(group, os.path.join(output, plot_name), spec, colors)
-        names += report_names + [plot_name]
+        names += [table_name, plot_name]
     return names
 
 

@@ -30,8 +30,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   scaling experiments of arXiv:2105.09257
   ([#346](https://github.com/discopy/discopy/pull/346)).
 - CMap cases for the composition benchmark suite, mirroring its Hypergraph
-  workloads. Benchmark reports now include per-suite HTML, Markdown and CSV
-  tables with scaling plots.
+  workloads. Benchmark reports now include a per-suite Markdown table with
+  a scaling plot.
 - Conversion benchmarks between Diagram, Hypergraph and CMap representations.
 - The benchmark job runs only on `main` and on pull requests labelled
   `benchmark` ([#385](https://github.com/discopy/discopy/pull/385),
