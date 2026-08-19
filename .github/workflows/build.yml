@@ -63,13 +63,18 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install Graphviz
-      # A stalled mirror can trickle bytes past any apt read timeout (#591),
-      # so bound each call by wall clock and retry once on a fresh connection.
-      timeout-minutes: 10
+      # #591: `apt-get update` refreshes six unrelated repos (azure-cli,
+      # chrome, microsoft, three Ubuntu components) to install one stable
+      # core package, and its index downloads were the actual site of every
+      # hang — bounded to 120s each, they still legitimately took ~120s
+      # against archive.ubuntu.com once azure failed over, so retrying
+      # `update` itself just paid that cost twice. The runner image ships
+      # pre-populated apt lists, so install directly first and only pay for
+      # `update` as a bounded, retried fallback if that cache is stale.
+      timeout-minutes: 6
       run: |
         APT="sudo timeout 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=10"
-        $APT update && $APT install -y graphviz \
-          || { $APT update && $APT install -y graphviz; }
+        $APT install -y graphviz || { $APT update && $APT install -y graphviz; }
         dot -V
     - name: Install
       run:
@@ -102,13 +107,11 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install Graphviz
-      # A stalled mirror can trickle bytes past any apt read timeout (#591),
-      # so bound each call by wall clock and retry once on a fresh connection.
-      timeout-minutes: 10
+      # See the identical step in `test` above for why this skips `update`.
+      timeout-minutes: 6
       run: |
         APT="sudo timeout 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=10"
-        $APT update && $APT install -y graphviz \
-          || { $APT update && $APT install -y graphviz; }
+        $APT install -y graphviz || { $APT update && $APT install -y graphviz; }
         dot -V
     - name: Install
       run:

@@ -148,11 +148,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 ### Fixed
 
 - Every job of `build.yml` gets `timeout-minutes: 15` and the Graphviz
-  install bounds each `apt-get` call to two minutes of wall clock with
-  retries and a ten-second network timeout, then retries the whole
-  install once, so a stalled mirror fails over instead of wedging the
-  job and a job stuck on its first network step turns into a fast red
-  instead of holding a runner for hours
+  install a five-minute step timeout with `apt-get` retries and a
+  ten-second network timeout, so a stalled mirror fails over instead of
+  wedging the job and a job stuck on its first network step turns into a
+  fast red instead of holding a runner for hours. The install also skips
+  `apt-get update` on the fast path — the runner image ships pre-populated
+  lists, and `update` refreshes six unrelated repos to install one stable
+  package — and pays for a bounded, retried `update` only as a fallback
+  when the cached index turns out to be stale
   ([#591](https://github.com/discopy/discopy/issues/591)).
 - `frobenius.Diagram.unfuse`'s doctest no longer sets `Spider.color = "red"`
   to draw its example, which was leaking into every later doctest in the
