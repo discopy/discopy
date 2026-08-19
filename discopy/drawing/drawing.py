@@ -972,8 +972,10 @@ class Drawing(TracedCategory, RichDisplay):
         zero height so that it looks like the upper half of a rectangle.
 
         Its ``box_height`` being zero, the layer is all margin: half a unit
-        outside the frame, so that its wires read like a bubble's rather than
-        as two thin stripes, and a quarter inside, the same as any box.
+        above the boundary, which is outside the frame, so that its wires read
+        like a bubble's rather than as two thin stripes, and a quarter below
+        it, inside the frame, the same as any box. Drawn on its own it is
+        lopsided for that reason; a whole frame gets half a unit at each end.
 
         >>> from discopy.monoidal import Ty
         >>> x, y, z = map(Ty, "xyz")
@@ -1002,8 +1004,11 @@ class Drawing(TracedCategory, RichDisplay):
     def frame_closing(arg_cod, cod, left, right):
         """
         Construct the closing of a frame as the closing of a bubble squashed to
-        zero height so that it looks like the lower half of a rectangle, with
-        the margins of :meth:`frame_opening` mirrored.
+        zero height so that it looks like the lower half of a rectangle. Its
+        margins mirror :meth:`frame_opening`: a quarter of a unit above the
+        boundary, which is inside the frame, and half a unit below it, which
+        is outside. Drawn on its own it is lopsided for that reason; a whole
+        frame gets half a unit at each of its two ends.
 
         >>> from discopy.monoidal import Ty
         >>> x, y, z = map(Ty, "xyz")
