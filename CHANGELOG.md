@@ -167,6 +167,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - Drawing a discard on more than one wire: `draw_discard` was shadowing the
   layer index with its inner loop counter
   ([#513](https://github.com/discopy/discopy/issues/513)).
+- A frame drawn as a square squeezed its outer wires into a quarter of a
+  unit, where a bubble gives them half: `Drawing.frame_opening` and
+  `Drawing.frame_closing` collapsed a half-height boundary rather than a
+  full-height one, so a square frame is now exactly as tall as the bubble it
+  is drawn from ([#597](https://github.com/discopy/discopy/issues/597)).
 - `closed.Context.dom` called `category.ob.tensor` unbound, which raised
   `TypeError` for an empty context instead of returning `Ty()`
   ([#549](https://github.com/discopy/discopy/issues/549)).

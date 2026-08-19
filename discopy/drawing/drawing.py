@@ -941,8 +941,7 @@ class Drawing(TracedCategory, RichDisplay):
         from discopy.monoidal import Box
         return Box(
             "top", dom, left @ arg_dom @ right,
-            bubble_opening=True, frame_boundary=frame_boundary,
-            height=(0.5 if frame_boundary else 1)).to_drawing()
+            bubble_opening=True, frame_boundary=frame_boundary).to_drawing()
 
     @staticmethod
     def bubble_closing(arg_cod, cod, left, right, frame_boundary=False):
@@ -960,8 +959,7 @@ class Drawing(TracedCategory, RichDisplay):
         from discopy.monoidal import Box
         return Box(
             "bot", left @ arg_cod @ right, cod,
-            bubble_closing=True, frame_boundary=frame_boundary,
-            height=(0.5 if frame_boundary else 1)).to_drawing()
+            bubble_closing=True, frame_boundary=frame_boundary).to_drawing()
 
     @staticmethod
     def frame_opening(dom, arg_dom, left, right):
@@ -982,9 +980,9 @@ class Drawing(TracedCategory, RichDisplay):
         box_dom_nodes = result.box_dom_nodes
         box_cod_nodes = result.box_cod_nodes
         result.relabel_nodes(copy=False, positions={
-            n: result.positions[n].shift(y=-0.25) for n in box_dom_nodes})
+            n: result.positions[n].shift(y=-0.5) for n in box_dom_nodes})
         result.relabel_nodes(copy=False, positions={
-            n: result.positions[n].shift(y=0.25) for n in box_cod_nodes})
+            n: result.positions[n].shift(y=0.5) for n in box_cod_nodes})
         result.graph.remove_edges_from([
             (u, v) for u in box_dom_nodes for v in result.box_nodes] + [
             (u, v) for u in result.box_nodes for v in box_cod_nodes[1:-1]])
@@ -1009,9 +1007,9 @@ class Drawing(TracedCategory, RichDisplay):
         box_dom_nodes = result.box_dom_nodes
         box_cod_nodes = result.box_cod_nodes
         result.relabel_nodes(copy=False, positions={
-            n: result.positions[n].shift(y=-0.25) for n in box_dom_nodes})
+            n: result.positions[n].shift(y=-0.5) for n in box_dom_nodes})
         result.relabel_nodes(copy=False, positions={
-            n: result.positions[n].shift(y=0.25) for n in box_cod_nodes})
+            n: result.positions[n].shift(y=0.5) for n in box_cod_nodes})
         result.graph.remove_edges_from([
             (u, v) for u in box_dom_nodes[1:-1] for v in result.box_nodes] + [
             (u, v) for u in result.box_nodes for v in box_cod_nodes])
