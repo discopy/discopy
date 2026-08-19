@@ -20,6 +20,7 @@ env:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 15   # backstop: green runs take ~6 min; a job wedged on its first network step reports nothing for hours (#591)
     strategy:
       matrix:
         python-version: [ "3.14" ]
@@ -46,6 +47,7 @@ jobs:
         uv run pylint discopy
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       matrix:
         python-version: [ "3.12", "3.13", "3.14" ]
@@ -61,9 +63,10 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install Graphviz
+      timeout-minutes: 3
       run: |
-        sudo apt-get update
-        sudo apt-get install -y graphviz
+        sudo apt-get -o Acquire::Retries=3 update
+        sudo apt-get -o Acquire::Retries=3 install -y graphviz
     - name: Install
       run:
         uv sync --locked --group dev --group all
@@ -79,6 +82,7 @@ jobs:
         uv run python docs/export_notebooks.py --check
   docs:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       matrix:
         python-version: [ "3.14" ]
@@ -93,10 +97,13 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Install
+    - name: Install Graphviz
+      timeout-minutes: 3
       run: |
-        sudo apt-get update
-        sudo apt-get install -y graphviz
+        sudo apt-get -o Acquire::Retries=3 update
+        sudo apt-get -o Acquire::Retries=3 install -y graphviz
+    - name: Install
+      run:
         uv sync --locked --group docs
     - name: Build
       run: |

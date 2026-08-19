@@ -147,6 +147,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- Every job of `build.yml` gets `timeout-minutes: 15` and the Graphviz
+  install a three-minute step timeout with `apt-get` retries, so a job
+  wedged on its first network step turns into a fast red instead of
+  holding a runner for hours
+  ([#591](https://github.com/discopy/discopy/issues/591)).
 - `frobenius.Diagram.unfuse`'s doctest no longer sets `Spider.color = "red"`
   to draw its example, which was leaking into every later doctest in the
   same pytest process
