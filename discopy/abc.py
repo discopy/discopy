@@ -115,32 +115,47 @@ class Category[C0, C1: Category](ABC):
     __lshift__ = __lrshift__ = lambda self, other: other.then(self)
 
 
-class ColouredSemigroup[C0, C1: ColouredSemigroup](ABC):
+class ColouredMonoid[C0, C1: ColouredMonoid](Category[C0, C1]):
     """
-    A coloured semigroup has an associative product ``tensor`` and no unit,
-    with the objects ``C0`` as the colours of its elements.
+    A coloured monoid is a category whose sequential composition ``then`` is
+    given by a monoidal ``tensor``, with the objects ``C0`` (its colours) as
+    the boundaries of its morphisms.
 
-    It is not a :class:`Category`: a category has an identity on every object
-    and a semigroup has nothing to send them to. Subclasses get their
-    :meth:`Category.id` elsewhere, e.g. :class:`monoidal.Layer` is a
-    :class:`cat.Box` whose identity is plumbing rather than an empty tensor.
+    An ordinary :obj:`Monoid` is the special case with a single, trivial
+    colour, i.e. :class:`type(None)`. We do not enforce this so
+    that e.g. :class:`monoidal.Ty` can take colours as objects.
     """
+    @classmethod
+    def id(cls, dom: C0 = None) -> C1:
+        """The monoidal unit, i.e. the empty tensor ``cls()``."""
+        return cls()
+
+    @classmethod
+    def unit(cls, colour: C0 = None) -> C0 | C1:
+        """
+        The unit at a colour, i.e. the identity on it.
+
+        It need not be an element of the monoid, which is why it may land in
+        ``C0``: the layers of :class:`monoidal.Layer` are closed under
+        ``tensor`` but the empty one is a type rather than a layer.
+        """
+        return cls.id(colour)
+
     @abstractmethod
-    def tensor(self, *others: C1) -> C1:
-        """ The n-ary product of a semigroup for ``n > 0``. """
+    def tensor(self, *objects: C1) -> C1:
+        """ The n-ary product of a monoid for ``n > 0``. """
+
+    def then(self, *others: C1) -> C1:
+        """Sequential composition, given by the monoid product."""
+        return self.tensor(*others)
 
     @classmethod
     def whisker(cls, other: C0 | C1) -> C1:
         """
-        Do nothing if ``other`` is already an element else apply :meth:`id`.
-
-        Embedding a colour is what an identity does, so only a subclass with
-        one can whisker: :class:`ColouredMonoid` takes it from the unit and
-        :class:`monoidal.Layer` from its plumbing. A semigroup with no
-        identity has a product and nothing else.
+        Do nothing if ``other`` is already a morphism else apply :meth:`id`.
 
         Parameters:
-            other : The object or element to be tensored on the left or right.
+            other : The object or morphism to be tensored on the left or right.
         """
         return other if isinstance(other, cls) else cls.id(other)
 
@@ -150,35 +165,6 @@ class ColouredSemigroup[C0, C1: ColouredSemigroup](ABC):
     def __rmatmul__(self, other):
         return self.whisker(other).tensor(self)
 
-
-class ColouredMonoid[C0, C1: ColouredMonoid](
-        ColouredSemigroup[C0, C1], Category[C0, C1]):
-    """
-    A coloured monoid is a :class:`ColouredSemigroup` which is also a
-    :class:`Category`: its unit is the empty tensor ``cls()``, its identity is
-    that unit and its composition ``then`` is the product.
-
-    An ordinary :obj:`Monoid` is the special case with a single, trivial
-    colour, i.e. :class:`type(None)`. We do not enforce this so
-    that e.g. :class:`monoidal.Ty` can take colours as objects.
-    """
-    @classmethod
-    def unit(cls) -> C1:
-        """The monoidal unit, i.e. the empty tensor ``cls()``."""
-        return cls()
-
-    @classmethod
-    def id(cls, dom: C0 = None) -> C1:
-        """The monoidal unit, seen as an identity morphism."""
-        return cls.unit()
-
-    def then(self, *others: C1) -> C1:
-        """Sequential composition, given by the monoid product."""
-        return self.tensor(*others)
-
-
-# A semigroup is a coloured semigroup with a single, trivial colour.
-type Semigroup[C1: ColouredSemigroup] = ColouredSemigroup[type(None), C1]
 
 # A monoid is a coloured monoid with a single, trivial colour.
 type Monoid[C1: ColouredMonoid] = ColouredMonoid[type(None), C1]

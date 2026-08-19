@@ -51,15 +51,6 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   hierarchy below symmetric: traced, Markov, closed, feedback, compact and
   hypergraph ([#558](https://github.com/discopy/discopy/issues/558),
   refactoring [#325](https://github.com/discopy/discopy/pull/325)).
-- `abc.ColouredSemigroup`, an associative `tensor` with no unit, which
-  `abc.ColouredMonoid` extends into a `Category` with `unit`, `id` and `then`.
-  A semigroup is not a category, since a category has an identity on every
-  object, so it inherits `ABC` rather than `Category`.
-  `monoidal.Layer` is a semigroup: the constructor normalises away an empty
-  tensor and then rejects it for having no box, so `Layer.unit()` used to
-  raise. `Layer.id` still builds the boxless layer that `whisker` tensors on
-  either side, which never appears inside a `Diagram`
-  ([#568](https://github.com/discopy/discopy/issues/568)).
 
 ### Changed
 
@@ -71,7 +62,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   leading one. The constructor type checks and normalises to restore the
   invariant unless it is called with `normalise=False`, which the internal
   call sites do, so tensoring `n` layers is linear rather than quadratic.
-  `Layer` is a `ColouredSemigroup`, i.e. it defines `tensor` and inherits `@`
+  `Layer` is a `ColouredMonoid`, i.e. it defines `tensor` and inherits `@`
   and its right-whiskering mirror from it, embedding types and boxes as
   layers, and `Layer.cast` is removed since `Layer(box)` already builds the
   singleton layer. `symmetric.Layer` follows with "permutation" in place of
@@ -120,6 +111,13 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   in `abc.CompactCategory` where the twist is the identity. The free diagram
   classes keep their freely interpreted traces by subclassing
   `traced.Diagram` ([#349](https://github.com/discopy/discopy/issues/349)).
+- `abc.ColouredMonoid.unit` takes a colour and may return an object of `C0`
+  rather than an element of `C1`, since the unit of a coloured monoid is the
+  identity on a colour and need not belong to the monoid. `monoidal.Layer`
+  overrides it to give the empty type: a layer has at least one box, so
+  `Layer()` raises and `Layer.unit()` used to raise with it, while
+  `Layer.unit(colour)` is now the empty type that `tensor` accepts on either
+  side ([#568](https://github.com/discopy/discopy/issues/568)).
 - `biclosed` defaults `left` to `True` in `Diagram.curry`, `Diagram.ev`,
   `Diagram.uncurry`, `CMap.curry` and `CMap.uncurry`, so that `abc`,
   `biclosed`, `closed` and `rigid` all agree on one convention: the default

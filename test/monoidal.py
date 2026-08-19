@@ -216,14 +216,18 @@ def test_Layer_coloured_units():
         Layer(Ty.id(green), f)
 
 
-def test_Layer_has_no_unit():
+def test_Layer_unit():
     x = Ty('x')
     f = Box('f', x, x)
+    red, green = map(Colour, ("red", "green"))
+    coloured = Ty(Wire('w', red, green))
+    layer = Layer(coloured[:0], Box('c', coloured, coloured), coloured[1:])
 
-    assert not hasattr(Layer, "unit")
-    assert Ty.unit() == Ty()
-    assert Layer.id() @ Layer(f) == Layer(f) == Layer(f) @ Layer.id()
-    assert not Layer.id().boxes
+    assert Layer.unit() == Ty() == Ty.unit()
+    assert Layer.unit() @ Layer(f) == Layer(f) == Layer(f) @ Layer.unit()
+    assert Layer.unit(red) @ layer == layer == layer @ Layer.unit(green)
+    with raises(AxiomError):
+        Layer.unit(green) @ layer
     with raises(ValueError):
         Layer()
 

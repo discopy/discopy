@@ -1,29 +1,26 @@
 # TODO
 
-USER's 🚀 on the body of
-[#568](https://github.com/discopy/discopy/issues/568), which reads verbatim:
+USER on [#590](https://github.com/discopy/discopy/pull/590), choosing between
+the three ways out of the `ColouredSemigroup` design, verbatim:
 
-> A layer is a coloured **semigroup**: it has an associative product and no unit.
-> `Ty` is the genuine monoid — and there `then` *is* `tensor`, which is not the case
-> for `Layer`.
->
-> The honest fix is a `ColouredSemigroup` base carrying the product, with
-> `ColouredMonoid` extending it with `unit`. `Layer` would inherit the former.
+> 2. but we would need either to make the type signature more general or just
+> stop respecting it for layers in particular
 
-- [x] Split `abc.ColouredMonoid` into `ColouredSemigroup` (the product, `then`,
-      `whisker`, `@` and its mirror) and `ColouredMonoid` (`unit` and `id`).
-- [x] Keep `whisker` in the semigroup, and do **not** inherit `Category`
-      there: a category has an identity on every object and a semigroup has
-      nothing to send them to, so inheriting it would make `Category.id`
-      abstract on a class that has no unit (daydream6728's review).
-- [x] `monoidal.Layer` inherits `ColouredSemigroup`, so `Layer.unit()` is gone
-      rather than raising.
-- [x] Say in `Layer`'s docstring that `Layer.id()` adjoins a unit which never
-      appears inside a `Diagram`.
-- [x] `test_Layer_has_no_unit`, checking that `Ty.unit()` still works and that
-      `Layer.id()` is still neutral for `tensor`. A second test pinning that the
-      semigroup is not a `Category` was added and then removed on review: it
-      asserted `issubclass`, i.e. Python rather than DisCoPy (daydream6728).
-- [x] `CHANGELOG.md`: the new entry, and #438's line corrected — it claimed
-      `Layer` is a `ColouredMonoid`.
+with option 2 being their own earlier suggestion, also verbatim:
+
+> another option would be to relax the type signature for the unit so that it
+> can return something outside the class, i.e. `Layer.unit(colour)` could
+> return `Ty.unit(colour)`
+
+- [x] `ColouredMonoid.unit(colour)` returns the identity on a colour, typed
+      `C0 | C1` — the general signature rather than an unrespected one.
+- [x] `ColouredMonoid.id` becomes the primitive, `unit` delegates to it, so a
+      class that already has coloured identities (`Ty`) needs no override.
+- [x] `Layer.unit(colour)` returns the empty type, which `tensor` accepts on
+      either side. `Layer.unit()` no longer raises, which is what #568 reported.
+- [x] `ColouredSemigroup` is gone: `Layer` is a `ColouredMonoid` again.
+- [x] `test_Layer_unit` replaces `test_Layer_has_no_unit`, covering the
+      coloured units on both sides and the wrong colour raising.
+- [x] `CHANGELOG.md`: the semigroup entry dropped, #438's line put back, and a
+      `Changed` entry for the widened signature.
 - [x] `uv run pflake8 discopy` and `uv run pytest --skip-extra`.
