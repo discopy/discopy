@@ -15,7 +15,7 @@ Summary
     :nosignatures:
     :toctree:
 
-    Ob
+    Wire
     Ty
     Dim
     Diagram
@@ -66,10 +66,10 @@ from discopy import monoidal, rigid, markov, compact, pivotal, hypergraph
 from discopy import cmap
 from discopy.abc import HypergraphCategory
 from discopy.cat import factory
-from discopy.utils import factory_name, assert_isatomic
+from discopy.utils import assert_isatomic, deprecated_ob, factory_name
 
 
-class Ob(pivotal.Ob):
+class Wire(pivotal.Wire):
     """
     A frobenius object is a self-dual pivotal object.
 
@@ -85,9 +85,9 @@ class Ty(pivotal.Ty):
     A frobenius type is a pivotal type with frobenius objects inside.
 
     Parameters:
-        inside (frobenius.Ob) : The objects inside the type.
+        inside (frobenius.Wire) : The objects inside the type.
     """
-    generator_factory = Ob
+    generator_factory = Wire
 
 
 @factory
@@ -393,3 +393,6 @@ Id = Diagram.id
 class Equation(compact.Equation):
     """ The :class:`compact.Equation` of Frobenius diagrams. """
     up_to = staticmethod(Diagram.to_hypergraph)
+
+
+__getattr__ = deprecated_ob(__name__)

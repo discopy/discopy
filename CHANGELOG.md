@@ -45,6 +45,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   permutation operations and functorial semantics, while `symmetric.Layer`
   alternates permutations with generators without canonicalising diagram
   state ([#362](https://github.com/discopy/discopy/pull/362)).
+- The category of parametric maps, `discopy.para`, wrapping morphisms
+  `dom @ param -> cod` of any symmetric underlying category, with
+  reparametrisation as a method and a subclass lifting each level of the
+  hierarchy below symmetric: traced, Markov, closed, feedback, compact and
+  hypergraph ([#558](https://github.com/discopy/discopy/issues/558),
+  refactoring [#325](https://github.com/discopy/discopy/pull/325)).
 
 ### Changed
 
@@ -60,8 +66,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   The predicates follow the `Hypergraph` names and are local conditions on
   the edges, `__init__` takes a keyword `check`, and `curry`, `uncurry` and
   `ev` come from the cups and caps of `abc.RigidCategory` when the host
-  category is rigid and stay explicit boxes otherwise
-  ([#532](https://github.com/discopy/discopy/pull/532)).
+  category is rigid and stay explicit boxes otherwise, all three defaulting
+  `left` to `True` like the rest of the hierarchy
+  ([#532](https://github.com/discopy/discopy/pull/532),
+  [#560](https://github.com/discopy/discopy/issues/560)).
 - `monoidal.Layer` holds a list of boxes and non-empty types with at least
   one box and no two consecutive types, instead of an odd-length list
   alternating type and box. Whiskering extends the list only when the type
@@ -114,6 +122,21 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - Symmetric categories generate their swaps with `swap_factory` rather than
   `braid_factory`, which is now a `classproperty` reading it
   ([#440](https://github.com/discopy/discopy/pull/440)).
+- `abc.SymmetricCategory` extends `abc.BraidedCategory` directly, so
+  symmetric and Markov categories are not required to implement `twist` and
+  `trace`; balanced categories stay traced, and the two branches meet again
+  in `abc.CompactCategory` where the twist is the identity. The free diagram
+  classes keep their freely interpreted traces by subclassing
+  `traced.Diagram` ([#349](https://github.com/discopy/discopy/issues/349)).
+- `biclosed` defaults `left` to `True` in `Diagram.curry`, `Diagram.ev`,
+  `Diagram.uncurry`, `CMap.curry` and `CMap.uncurry`, so that `abc`,
+  `biclosed`, `closed` and `rigid` all agree on one convention: the default
+  exponential is `Over`, i.e. `<<`. Previously `closed` inherited
+  `curry` defaulting to the right from `biclosed` while overriding `ev` to
+  the left, so the default currying was never evaluated by the default
+  `ev`. Code relying on the old right-handed default should pass
+  `left=False` explicitly
+  ([#560](https://github.com/discopy/discopy/issues/560)).
 - The committed benchmark baseline is stored gzipped as
   `benchmark/baseline.json.gz`, which `benchmark/report.py` reads
   transparently.
@@ -122,6 +145,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   GitHub-hosted runner happens to give out does not read as a regression. Its
   default threshold is 25%.
 - Benchmark cases now use `pytest-benchmark`'s automatic calibration.
+- Every `monoidal.Wire` subclass named `Ob` is renamed to `Wire`: `rigid`,
+  `braided`, `biclosed`, `pivotal`, `frobenius`, `feedback` and
+  `quantum.circuit`, completing the rename that introduced `monoidal.Wire`;
+  `cat.Ob` keeps its name. Accessing the old name still works, returning the
+  new class with a `DeprecationWarning` through a module-level `__getattr__`
+  (`utils.deprecated_ob`), on those seven modules and on `compact` and
+  `grammar.pregroup` which re-exported it; trees serialised with an `Ob`
+  factory string load the same way
+  ([#566](https://github.com/discopy/discopy/pull/566)).
 
 ### Fixed
 
@@ -161,9 +193,17 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   input of the controlled box rather than its first one, so gates with a
   classical wire or a distance other than one are drawn on the right wires
   ([#439](https://github.com/discopy/discopy/pull/439)).
+- Drawing a discard on more than one wire: `draw_discard` was shadowing the
+  layer index with its inner loop counter
+  ([#513](https://github.com/discopy/discopy/issues/513)).
 - `closed.Context.dom` called `category.ob.tensor` unbound, which raised
   `TypeError` for an empty context instead of returning `Ty()`
   ([#549](https://github.com/discopy/discopy/issues/549)).
+- Both branches of `closed.Abstraction.eval` curry on the right: the
+  context branch curried out the wrong end of its domain, so an abstraction
+  applied to an argument sharing a free variable did not compose, and a
+  left abstraction evaluates through its right counterpart
+  ([#562](https://github.com/discopy/discopy/issues/562)).
 
 ### Performance
 
@@ -172,6 +212,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `Hypergraph` equality, permutations and other micro-optimizations bring
   equality checks down to `O(n)`
   ([#353](https://github.com/discopy/discopy/pull/353)).
+- `CMap.from_diagram` is linear rather than quadratic in the number of
+  boxes: `CMap.from_glued` glues the image of each box onto a scan of
+  open wires in a single pass, instead of folding the images with
+  `then` and re-validating the whole prefix at every step. This speeds
+  up `Diagram.eval` on every tensor backend
+  ([#525](https://github.com/discopy/discopy/pull/525)).
 
 ### Project
 

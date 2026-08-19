@@ -70,7 +70,7 @@ from discopy.utils import (
 )
 
 if TYPE_CHECKING:
-    from discopy.monoidal import Ob, Ty, Diagram, Box
+    from discopy.monoidal import Ty, Diagram, Box
 
 
 class PortKind(StrEnum):
@@ -765,12 +765,98 @@ class CMap[C0: Pregroup, C1: CMap](
         return cls(box.dom, box.cod, (box, ), edge, check=False)
 
     @classmethod
+    def from_glued(cls, dom: Ty, cod: Ty,
+                   images: Iterable[tuple[CMap, int]]) -> CMap:
+        """
+        Glue a sequence of maps onto a scan of open wires, in one pass.
+
+        Each wire of the result is a connected component of the wires of the
+        ``images``, computed by union-find as they are glued. This is the
+        colimit of the diagram of gluings, i.e. the same map as the iterated
+        :meth:`then` of the ``images`` whiskered at their offsets, but built
+        once rather than rebuilt at every step.
+
+        Parameters:
+            dom : The domain of the result.
+            cod : The codomain of the result.
+            images : Each map to glue, together with the offset at which its
+                domain meets the scan.
+
+        >>> from discopy.compact import Ty, Box, CMap
+        >>> x = Ty("x")
+        >>> f, g = map(CMap.from_box, [Box("f", x, x), Box("g", x, x)])
+        >>> CMap.from_glued(x, x, [(f, 0), (g, 0)]) == f >> g
+        True
+        >>> CMap.from_glued(Ty(), Ty(), [
+        ...     (CMap.caps(x.r, x), 0), (CMap.cups(x.r, x), 0)]).loops == (x, )
+        True
+        """
+        wires, ends, objects = [], [], []
+
+        def fresh(obj):
+            wires.append(len(wires))
+            ends.append([])
+            objects.append(obj)
+            return len(wires) - 1
+
+        def find(wire):
+            while wires[wire] != wire:
+                wires[wire] = wires[wires[wire]]
+                wire = wires[wire]
+            return wire
+
+        def union(source, target):
+            source, target = sorted([find(source), find(target)])
+            if source != target:
+                ends[source] += ends[target]
+                wires[target] = source
+
+        scan = []
+        for i, obj in enumerate(dom):
+            scan.append(fresh(obj))
+            ends[scan[i]].append(i)
+        boxes, loops, start = (), (), len(dom)
+        for image, offset in images:
+            arity, coarity = len(image.dom), len(image.cod)
+            local, image_ports = {}, image.ports
+            for source, target in enumerate(image.edges):
+                if source <= target:
+                    local[source] = local[target] = fresh(
+                        image_ports[source].obj)
+            for port in range(arity, image.n_ports - coarity):
+                ends[find(local[port])].append(start + port - arity)
+            for i in range(arity):
+                union(scan[offset + i], local[i])
+            scan[offset:offset + arity] = [
+                local[image.n_ports - coarity + i] for i in range(coarity)]
+            boxes, loops = boxes + image.boxes, loops + image.loops
+            start += image.n_ports - arity - coarity
+        for i, wire in enumerate(scan):
+            ends[find(wire)].append(start + i)
+
+        edges = list(range(start + len(cod)))
+        for wire in {find(wire) for wire in range(len(wires))}:
+            if not ends[wire]:
+                loop = objects[wire]
+                loop = loop if isinstance(loop, cls.category.ob)\
+                    else cls.ob(loop)
+                loops = loops + (
+                    loop.r if getattr(loop, "z", 0) % 2 else loop, )
+            else:
+                source, target = ends[wire]
+                edges[source], edges[target] = target, source
+        return cls(dom, cod, boxes, edges, loops=loops)
+
+    @classmethod
     def from_diagram(cls, old: Diagram) -> CMap:
         """
         Turn a :class:`Diagram` into a :class:`CMap`.
 
         Structure available at the map's categorical level becomes wiring;
         structure from the next level remains represented by boxes.
+
+        The image of each box is computed by the functor into ``cls``, then
+        the images are glued in a single pass with :meth:`from_glued`.
 
         >>> from discopy.braided import Ty, Braid
         >>> from discopy.monoidal import CMap
@@ -784,10 +870,13 @@ class CMap[C0: Pregroup, C1: CMap](
         """
         category = type(old).ar
         factory = cls if cls.category is category else cls[category]
-        functor = factory.functor if cls.category is None else cls.functor
-        return functor(
+        functor = (factory.functor if cls.category is None else cls.functor)(
             ob_map=lambda typ: typ, ar_map=factory.from_box,
-            dom=category, cod=factory)(old)
+            dom=category, cod=factory)
+        return factory.from_glued(old.dom, old.cod, [
+            (functor(box), offset)
+            for layer in old.inside
+            for box, offset in layer.boxes_and_offsets])
 
     @classmethod
     def swap(cls, left: Ty, right: Ty) -> CMap:
@@ -857,7 +946,7 @@ class CMap[C0: Pregroup, C1: CMap](
             return super().ev(base, exponent, left)
         return cls.from_box(cls.category.ev(base, exponent, left))
 
-    def curry(self, n: int = 1, left: bool = False) -> CMap:
+    def curry(self, n: int = 1, left: bool = True) -> CMap:
         """
         Curry a map with the cups and caps of its wiring when the host
         category is rigid, otherwise keep the currying as an explicit box.
@@ -869,8 +958,8 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> from discopy.compact import Ty, Box
         >>> x, y, z = map(Ty, "xyz")
         >>> f = Box("f", x @ y, z).to_map()
-        >>> assert f.curry().uncurry() == f
-        >>> f.curry().draw(
+        >>> assert f.curry(left=False).uncurry(left=False) == f
+        >>> f.curry(left=False).draw(
         ...     doctest="docs/_static/cmap/compact-curry.dot", show=False)
 
         .. graphviz:: /_static/cmap/compact-curry.dot
@@ -885,7 +974,7 @@ class CMap[C0: Pregroup, C1: CMap](
         return self.from_box(self.category.curry_factory(
             self.to_diagram(), n, left))
 
-    def uncurry(self, n: int = 1, left: bool = False) -> CMap:
+    def uncurry(self, n: int = 1, left: bool = True) -> CMap:
         """
         Uncurry a map with the cups of its wiring when the host category is
         rigid, otherwise compose it with an explicit evaluation box.

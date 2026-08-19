@@ -255,15 +255,17 @@ class Abstraction(TermBase, biclosed.Abstraction):
 
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
+        if self.left:
+            return type(self)(self.var, self.body).eval(functor, context)
         if context:
             new_context = Context([self.var] + context.inside)
             body = self.body.eval(functor=functor, context=new_context)
-            return body.curry(left=True)
+            return body.curry(left=False)
         i, n = self.body.freevars.index(self.var), len(self.body.freevars)
         body = self.body.eval(functor=functor)
         p = [0] + [j + 1 if j < i else j for j in range(n) if j != i]
         doms = [self.ob(wire) for wire in body.dom.inside]
-        return (body.permutation(p, doms).dagger() >> body).curry()
+        return (body.permutation(p, doms).dagger() >> body).curry(left=False)
 
 
 @dataclass

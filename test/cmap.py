@@ -433,29 +433,30 @@ def test_curry_uncurry_roundtrip(module):
         assert cmap.curry(n=2, left=True).uncurry(n=2, left=True) == cmap
         return
 
-    right = cmap.curry()
+    right = cmap.curry(left=False)
     assert right.dom == y
     assert right.cod == x >> z
     assert right.boxes == (module.Diagram.curry_factory(f, 1, False), )
-    assert f.curry().to_map() == right
+    assert f.curry(left=False).to_map() == right
 
     left = cmap.curry(left=True)
     assert left.dom == x
     assert left.cod == z << y
     assert left.boxes == (module.Diagram.curry_factory(f, 1, True), )
     assert f.curry(left=True).to_map() == left
+    assert cmap.curry() == left, "curry defaults to the left, see #560"
 
     h = module.Box("h", y, x >> z)
-    uncurried = h.to_map().uncurry()
+    uncurried = h.to_map().uncurry(left=False)
     assert uncurried.dom == x @ y
     assert uncurried.cod == z
     assert uncurried.boxes == (
         h, module.Diagram.eval_factory(x >> z, left=False))
-    assert h.uncurry().to_map() == uncurried
+    assert h.uncurry(left=False).to_map() == uncurried
 
     w = module.Ty("w")
     k = module.Box("k", x @ y @ z, w)
-    right_two = k.to_map().curry(n=2).uncurry(n=2)
+    right_two = k.to_map().curry(n=2, left=False).uncurry(n=2, left=False)
     assert right_two.dom == x @ y @ z
     assert right_two.cod == w
     assert right_two.boxes == (
@@ -470,7 +471,8 @@ def test_curry_uncurry_roundtrip(module):
         module.Diagram.curry_factory(k, 2, True),
         module.Diagram.eval_factory(w << y @ z, left=True))
 
-    right_nested = k.to_map().curry().curry().uncurry(n=2)
+    right_nested = k.to_map().curry(left=False).curry(
+        left=False).uncurry(n=2, left=False)
     assert right_nested.dom == x @ y @ z
     assert right_nested.cod == w
 
@@ -480,7 +482,7 @@ def test_curry_uncurry_roundtrip(module):
     assert left_nested.cod == w
 
     with raises(ValueError):
-        k.to_map().curry(n=2).uncurry()
+        k.to_map().curry(n=2, left=False).uncurry(left=False)
 
 
 def test_trace():
@@ -779,9 +781,9 @@ def test_curry_is_wiring_only_when_the_category_is_rigid():
     for module in (biclosed, closed):
         x, y, z = map(module.Ty, "xyz")
         f = module.Box("f", x @ y, z)
-        curried = f.to_map().curry()
+        curried = f.to_map().curry(left=False)
         assert curried.boxes == (module.Diagram.curry_factory(f, 1, False), )
-        assert curried.uncurry() != f.to_map()
+        assert curried.uncurry(left=False) != f.to_map()
 
     for module in (compact, rigid, pivotal):
         x, y, z = map(module.Ty, "xyz")
@@ -830,3 +832,47 @@ def test_map_and_hypergraph_normalise_the_same_way():
         if cm.is_monogamous:
             continue
         assert cm.make_monogamous().boxes == hyp.make_monogamous().boxes
+
+
+def test_from_glued_agrees_with_folding():
+    from discopy.compact import Ty, Box, Cup, Cap, Swap, Diagram, CMap as M
+    x, y = map(Ty, "xy")
+    f, g, h = Box("f", x, y), Box("g", y @ y, x), Box("h", x, y @ y)
+    diagrams = [
+        Diagram.id(x),
+        f,
+        f >> f.dagger(),
+        h >> g,
+        f @ Diagram.id(x),
+        Diagram.id(x) @ f,
+        h >> Swap(y, y) >> g,
+        Diagram.id(x) @ Cap(x.r, x) >> Cup(x, x.r) @ Diagram.id(x),
+        Cap(x.r, x) >> Cup(x.r, x),
+        h >> Cup(y, y.r) if y.r == y else h >> g,
+    ]
+    for diagram in diagrams:
+        folded = M.functor(
+            ob_map=lambda typ: typ, ar_map=M.from_box,
+            dom=Diagram, cod=M)(diagram)
+        assert diagram.to_map() == folded
+
+
+def test_from_glued_multi_box_layer():
+    from discopy.symmetric import Ty, Box, Layer, Diagram, CMap as M
+    x, y = map(Ty, "xy")
+    f, g = Box("f", x, y @ y), Box("g", y, x)
+    layered = Diagram(
+        inside=(Layer(Ty(), f, Ty(), g, Ty()), ), dom=x @ y, cod=y @ y @ x)
+    assert layered.to_map() == (f @ y >> y @ y @ g).to_map()
+
+
+def test_from_glued_loops():
+    from discopy.compact import Ty, CMap as M
+    x, y = map(Ty, "xy")
+    scalar = M.from_glued(Ty(), Ty(), [
+        (M.caps(x.r, x), 0), (M.cups(x.r, x), 0)])
+    assert scalar.loops == (x, ) and scalar.boxes == ()
+    two = M.from_glued(Ty(), Ty(), [
+        (M.caps(x.r, x), 0), (M.caps(y.r, y), 2),
+        (M.cups(y.r, y), 2), (M.cups(x.r, x), 0)])
+    assert two.loops == (x, y)

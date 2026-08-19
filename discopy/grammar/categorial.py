@@ -112,7 +112,7 @@ class Diagram(biclosed.Diagram):
         """ Backward composition. """
         return (
             Eval(left >> middle) @ (middle >> right) >> Eval(middle >> right)
-        ).curry()
+        ).curry(left=False)
 
     @staticmethod
     def fx(left, middle, right):

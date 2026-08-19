@@ -11,7 +11,7 @@ Summary
     :nosignatures:
     :toctree:
 
-    Ob
+    Wire
     Ty
     Exp
     Over
@@ -44,14 +44,15 @@ Axioms
 .. image:: /_static/biclosed/curry-left.svg
     :align: center
 
->>> Equation(h.uncurry().curry(), h).draw(
+>>> Equation(h.uncurry(left=False).curry(left=False), h).draw(
 ...     doctest='docs/_static/biclosed/curry-right.svg', margins=(0.1, 0.05))
 
 .. image:: /_static/biclosed/curry-right.svg
     :align: center
 
 >>> Equation(
-...     g.curry(left=True).uncurry(left=True), g, g.curry().uncurry()).draw(
+...     g.curry(left=True).uncurry(left=True), g,
+...     g.curry(left=False).uncurry(left=False)).draw(
 ...         doctest='docs/_static/biclosed/uncurry.svg')
 
 .. image:: /_static/biclosed/uncurry.svg
@@ -65,7 +66,7 @@ Currying and uncurrying are available directly on the :class:`CMap` alias.
 >>> from discopy.closed import Ty, Box
 >>> x, y, z = map(Ty, "xyz")
 >>> f = Box("f", x @ y, z).to_map()
->>> f.curry().uncurry().draw(show=False,
+>>> f.curry(left=False).uncurry(left=False).draw(show=False,
 ...     doctest="docs/_static/cmap/biclosed-curry-right.dot")
 
 .. graphviz:: /_static/cmap/biclosed-curry-right.dot
@@ -91,6 +92,7 @@ from discopy.drawing import Drawing
 from discopy.cat import factory
 from discopy.utils import (
     assert_isinstance,
+    deprecated_ob,
     factory_name,
     from_tree,
 )
@@ -200,17 +202,17 @@ class Ty(monoidal.Ty):
         return self.inside[0].exponent
 
 
-class Ob(monoidal.Wire):
+class Wire(monoidal.Wire):
     """
     A biclosed object is a self-dagger :class:`monoidal.Wire`, i.e. its left
     and right colours always match. Exponentials do not interact meaningfully
     with colours, so for now we assume everything is white.
     """
-    def dagger(self) -> Ob:
+    def dagger(self) -> Wire:
         return self
 
 
-class Exp(Ob):
+class Exp(Wire):
     """
     A :code:`base` type to an :code:`exponent` type, called with :code:`**`.
 
@@ -297,25 +299,27 @@ class Diagram(monoidal.Diagram, BiclosedCategory):
 
     ob = Ty
 
-    def curry(self, n=1, left=False) -> Diagram:
+    def curry(self, n=1, left=True) -> Diagram:
         """
         Wrapper around :class:`Curry` called by :class:`Functor`.
 
         Parameters:
             n : The number of atomic types to curry.
-            left : Whether to curry on the left or right.
+            left : Whether to curry on the left, i.e. into :class:`Over`,
+                or on the right, i.e. into :class:`Under`.
         """
         return self.curry_factory(self, n, left)
 
     @classmethod
-    def ev(cls, base: Ty, exponent: Ty, left=False) -> Eval:
+    def ev(cls, base: Ty, exponent: Ty, left=True) -> Eval:
         """
         Wrapper around :class:`Eval` called by :class:`Functor`.
 
         Parameters:
             base : The base of the exponential type to evaluate.
             exponent : The exponent of the exponential type to evaluate.
-            left : Whether to evaluate on the left or right.
+            left : Whether to evaluate on the left, i.e. from :class:`Over`,
+                or on the right, i.e. from :class:`Under`.
         """
         return cls.eval_factory(
             base << exponent if left else exponent >> base)
@@ -694,3 +698,6 @@ Ty.over_factory, Ty.under_factory, Ty.exp_factory = Over, Under, Exp
 
 class Equation(monoidal.Equation):
     """ The :class:`monoidal.Equation` of biclosed diagrams. """
+
+
+__getattr__ = deprecated_ob(__name__)

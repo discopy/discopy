@@ -58,7 +58,8 @@ from discopy import symmetric, ribbon, rigid, hypergraph
 from discopy import cmap
 from discopy.abc import CompactCategory
 from discopy.cat import factory
-from discopy.pivotal import Ob, Ty  # noqa: F401
+from discopy.utils import deprecated_ob
+from discopy.pivotal import Wire, Ty  # noqa: F401
 
 
 class Layer(symmetric.Layer, rigid.Layer):
@@ -169,3 +170,6 @@ Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 class Equation(symmetric.Equation):
     """ The :class:`symmetric.Equation` of compact diagrams. """
     up_to = staticmethod(Diagram.to_hypergraph)
+
+
+__getattr__ = deprecated_ob(__name__)
