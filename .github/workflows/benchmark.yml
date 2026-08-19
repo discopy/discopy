@@ -57,8 +57,6 @@ jobs:
         uv sync --locked --group dev
     - name: Benchmark the base commit
       if: github.event_name == 'pull_request'
-      env:
-        BENCH_FLAGS: bench:smoke
       run:
         uv run pytest benchmark/ -v
           --benchmark-json="$RUNNER_TEMP/base.json"
@@ -80,10 +78,10 @@ jobs:
       env:
         REF: ${{ github.head_ref || github.ref_name }}
     - name: Benchmark the head commit
-      # PRs run the small/medium sizes as a smoke; main / manual dispatch run the
-      # full size tail (BENCH_FLAGS=bench:full).
+      # PRs run the small/medium default sizes; main / manual dispatch add the
+      # full size tail.
       env:
-        BENCH_FLAGS: ${{ github.event_name != 'pull_request' && 'bench:full' || 'bench:smoke' }}
+        BENCH_FLAGS: ${{ github.event_name != 'pull_request' && 'bench:full' || '' }}
       run: |
         mkdir -p benchmark-results
         uv run pytest benchmark/ -v \

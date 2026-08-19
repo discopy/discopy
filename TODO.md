@@ -12,4 +12,4 @@
 - [x] Drop the HTML and CSV renderings of the scaling table
 - [x] Derive the plot panels from the data instead of the hardcoded `PLOTS`
 - [x] Drop the `series` and `tensor` aliases for `repeated`
-- [ ] Drop the `BENCH_FLAGS=bench:smoke` no-op
+- [x] Drop the `BENCH_FLAGS=bench:smoke` no-op
