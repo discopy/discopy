@@ -1,0 +1,9 @@
+graph cmap {
+  graph [bgcolor="white", fontname="DejaVu Sans", layout="dot", margin="0.04", outputorder="edgesfirst", overlap="false", rankdir="TB", splines="true"];
+  node [color="black", fontname="DejaVu Sans", fontsize="12", margin="0", shape="plain"];
+  edge [color="black", fontname="DejaVu Sans", fontsize="9", headclip="true", penwidth="1.4", tailclip="true"];
+  loop0 [height="0.08", label="", shape="point", tooltip="loop 0: y", width="0.08"];
+  loop0 -- loop0 [label="y", len="0.85"];
+  loop1 [height="0.08", label="", shape="point", tooltip="loop 1: x", width="0.08"];
+  loop1 -- loop1 [label="x", len="0.85"];
+}

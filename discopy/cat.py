@@ -114,18 +114,7 @@ class Ob:
     -------
     >>> x, x_, y = Ob('x'), Ob('x'), Ob('y')
     >>> assert x == x_ and x != y
-
-    Note
-    ----
-    The drawing attribute :code:`min_right_margin` sets how much extra
-    horizontal space (in drawing units) is added to the right of a wire
-    labelled by this object, e.g. to make room for a long label.
-
-    >>> x.min_right_margin = 1.5
     """
-    #: Extra space drawn to the right of a wire labelled by this object.
-    min_right_margin = 0
-
     def __setstate__(self, state):
         if "name" not in state and "_name" in state:
             state["name"] = state["_name"]
@@ -312,7 +301,7 @@ class Arrow(FreeCategory):
     ob = Ob
 
     def __setstate__(self, state):
-        if 'inside' not in state:  # Backward compatibility
+        if '_dom' in state:  # Backward compatibility
             self.dom, self.cod, self.inside = (
                 state['_dom'], state['_cod'], tuple(state['_boxes']))
             del state['_dom'], state['_cod'], state['_boxes']
@@ -420,7 +409,7 @@ class Arrow(FreeCategory):
         Example
         -------
 
-        >>> from sympy.abc import phi, psi
+        >>> from sympy.abc import phi, psi  # doctest: +EXTRA
         >>> x, y = Ob('x'), Ob('y')
         >>> f = Box('f', x, y, data={"Alice": [phi + 1]})
         >>> g = Box('g', y, x, data={"Bob": [psi / 2]})
@@ -443,7 +432,7 @@ class Arrow(FreeCategory):
 
         Example
         -------
-        >>> from sympy.abc import phi, psi
+        >>> from sympy.abc import phi, psi  # doctest: +EXTRA
         >>> x, y = Ob('x'), Ob('y')
         >>> f = Box('f', x, y, data={"Alice": [phi + 1]})
         >>> g = Box('g', y, x, data={"Bob": [psi / 2]})
@@ -464,7 +453,7 @@ class Arrow(FreeCategory):
 
         Example
         -------
-        >>> from sympy.abc import phi, psi
+        >>> from sympy.abc import phi, psi  # doctest: +EXTRA
         >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
         >>> f, g = Box('f', x, y, data=phi), Box('g', y, z, data=psi)
         >>> assert f.lambdify(psi)(42) == f
@@ -543,7 +532,7 @@ class Box(Arrow):
     >>> assert f.inside == (f, )
     """
     def __setstate__(self, state):
-        if 'inside' not in state:  # Backward compatibility
+        if '_name' in state:  # Backward compatibility
             self.name, self.data, self.is_dagger = (
                 state['_name'], state['_data'], state['_dagger'])
             del state['_name'], state['_data'], state['_dagger']

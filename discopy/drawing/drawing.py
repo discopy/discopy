@@ -66,27 +66,54 @@ Boxes and wires reserve enough horizontal space for their labels:
 ...  >> Box('a_box_with_a_very_long_name', x @ x, x)
 ...  >> Box('g', x, x)).draw(
 ...      aspect='equal', doctest="docs/_static/drawing/long-box-name.svg")
+
+.. image:: /_static/drawing/long-box-name.svg
+    :align: center
+
 >>> (Box('$\\\\Lambda$', x, x, min_width=3) @ Box('f', x, x)).draw(
 ...     aspect='equal', doctest="docs/_static/drawing/box-min-width.svg")
+
+.. image:: /_static/drawing/box-min-width.svg
+    :align: center
+
 >>> long_type = Ty('a_long_type_name')
 >>> long_type.inside[0].min_right_margin = 1.5
 >>> Id(x @ long_type @ x).draw(aspect='equal',
 ...     doctest="docs/_static/drawing/wire-min-right-margin.svg")
+
+.. image:: /_static/drawing/wire-min-right-margin.svg
+    :align: center
+
 >>> custom = Ty('custom_margin_wire')
 >>> custom.inside[0].right_margin = 3
 >>> Id(x @ custom @ x).draw(
 ...     aspect='equal', doctest="docs/_static/drawing/wire-custom-margin.svg")
+
+.. image:: /_static/drawing/wire-custom-margin.svg
+    :align: center
+
 >>> Box('f', x, x @ Ty('a_long_output_type')).draw(
 ...     aspect='equal', doctest="docs/_static/drawing/wire-auto-margin.svg")
+
+.. image:: /_static/drawing/wire-auto-margin.svg
+    :align: center
+
 >>> (Box('$\\\\int_a^b f(x)\\\\,dx = \\\\sqrt{2}$', x, x)
 ...  @ Box('f', x, x)).draw(
 ...      aspect='equal', doctest="docs/_static/drawing/long-latex-name.svg")
+
+.. image:: /_static/drawing/long-latex-name.svg
+    :align: center
 
 Bubbles, grammatical diagrams and quantum circuits use the same backend:
 
 >>> (x @ Box('s', Ty(), Ty())).bubble().draw(
 ...     wire_labels=False,
 ...     doctest="docs/_static/drawing/bubble-straight-wire.svg")
+
+.. image:: /_static/drawing/bubble-straight-wire.svg
+    :align: center
+
 >>> from discopy.compact import (
 ...     Cap, Ty as RTy, Box as RBox, Id as RId)
 >>> n, s = map(RTy, 'ns')
@@ -94,25 +121,49 @@ Bubbles, grammatical diagrams and quantum circuits use the same backend:
 ...        >> RId(n.r @ n) @ Cap(s, s.l) @ RId(n)
 ...        >> RId(n.r) @ RBox('update', n @ s, s) @ RId(s.l @ n))
 >>> who.draw(aspect='equal', doctest="docs/_static/drawing/who-ansatz.svg")
+
+.. image:: /_static/drawing/who-ansatz.svg
+    :align: center
+
 >>> from discopy.grammar.categorial import Eval, Ty as CTy, Word
 >>> s, n = map(CTy, 'sn')
 >>> sentence = (Word('Alice', n) @ Word('loves', (n >> s) << n)
 ...             @ Word('Bob', n) >> n @ Eval((n >> s) << n) >> Eval(n >> s))
 >>> sentence.draw(
 ...     aspect='equal', doctest="docs/_static/drawing/categorial-grammar.svg")
+
+.. image:: /_static/drawing/categorial-grammar.svg
+    :align: center
+
 >>> from discopy.quantum.zx import Z, X, Id as ZId, SWAP
 >>> bialgebra = (Z(1, 2) @ Z(1, 2) >> ZId(1) @ SWAP @ ZId(1)
 ...              >> X(2, 1) @ X(2, 1))
 >>> (bialgebra + bialgebra).draw(
 ...     aspect='equal', doctest="docs/_static/drawing/bialgebra.svg")
+
+.. image:: /_static/drawing/bialgebra.svg
+    :align: center
+
 >>> from discopy.quantum import qubit, H, sqrt, Bra, Ket, CX
 >>> bell = sqrt(2) >> Ket(0, 0) >> H @ qubit >> CX >> Bra(0) @ qubit
 >>> bell.draw(aspect='equal', doctest="docs/_static/drawing/bell-state.svg")
->>> from discopy.quantum import Controlled, CZ
->>> circuit = (Controlled(CX.l, distance=3)
-...            >> Controlled(Controlled(CZ.l, distance=2), distance=-1))
->>> circuit.draw(
-...     wire_labels=False, doctest="docs/_static/drawing/long-controlled.svg")
+
+.. image:: /_static/drawing/bell-state.svg
+    :align: center
+
+A controlled gate over distinct wires, e.g. a classically-controlled gate,
+picks the x-coordinate of its control from the wire it sits on:
+
+>>> bit, qubit = Ty("bit"), Ty("qubit")
+>>> gate = Box("F", qubit, qubit)
+>>> controlled = Box(
+...     "CF", bit @ qubit, bit @ qubit,
+...     draw_as_controlled=True, controlled=gate, distance=1)
+>>> left_controlled = Box(
+...     "FC", qubit @ bit, qubit @ bit,
+...     draw_as_controlled=True, controlled=gate, distance=-1)
+>>> (controlled @ left_controlled).draw(
+...     doctest="docs/_static/drawing/controlled-classical.svg")
 
 Coloured regions are also checked as part of the gallery:
 
@@ -138,7 +189,7 @@ Coloured regions are also checked as part of the gallery:
 
 from __future__ import annotations
 
-from typing import NamedTuple, TYPE_CHECKING
+from typing import NamedTuple, TYPE_CHECKING, Sequence
 from dataclasses import dataclass
 
 import networkx as nx
@@ -146,6 +197,7 @@ import networkx as nx
 from discopy.drawing import backend, Node, Point
 from discopy.config import BOX_DRAWING_ATTRIBUTES
 from discopy.abc import TracedCategory
+from discopy.python import finset
 from discopy.utils import (
     assert_isinstance, assert_iscomposable, unbiased, factory, RichDisplay)
 
@@ -280,6 +332,7 @@ class Drawing(TracedCategory, RichDisplay):
             return False
         return self.is_parallel(other) and self.positions == other.positions
 
+    @backend.matplotlib_context()
     def draw(self, **params):
         """ Call :meth:`add_box_corners` then :func:`backend.draw`. """
         asymmetry = params.pop("asymmetry", 0.125 * any(
@@ -287,7 +340,53 @@ class Drawing(TracedCategory, RichDisplay):
                 box.is_dagger and not box.draw_as_braid)
             for box in self.boxes))
         self.add_box_corners()
+        self.frame_dual_rail()
         return backend.draw(self, asymmetry=asymmetry, **params)
+
+    def frame_dual_rail(self, margin=0.5):
+        """
+        Reframe a dual rail drawing so its boundary box contains the cup and
+        cap arcs, which fold past the layout, with a uniform ``margin`` on each
+        side. The input and output (identity) wires still run all the way to
+        the top and bottom borders, only the folds are held a ``margin`` away.
+        Drawings without dual rail cups or caps (found by the
+        ``draw_as_dual_rail_cup`` and ``draw_as_dual_rail_cap`` attributes)
+        are left unchanged.
+        """
+        from discopy.config import RIBBON_FOLD_DEPTH
+        folds = [node for node in self.box_nodes
+                 if getattr(node.box, "draw_as_dual_rail_cup", False)
+                 or getattr(node.box, "draw_as_dual_rail_cap", False)]
+        if not folds:
+            return self
+        xs = [p.x for p in self.positions.values()]
+        # The folds may bulge below the bottom (cups) or above the top (caps).
+        left, right = min(xs), max(xs)
+        bottom, top = 0.0, self.height
+        for node in folds:
+            box = node.box
+            kind, wires = ("box_dom", box.dom) if box.dom\
+                else ("box_cod", box.cod)
+            ends = [self.positions[Node(kind, i=i, j=node.j, x=wires[i])]
+                    for i in (0, 3)]
+            radius, wire_y = abs(ends[1].x - ends[0].x) / 2, ends[0].y
+            depth = min(radius, RIBBON_FOLD_DEPTH)  # The fold is capped.
+            if box.dom:  # A cup folds downwards.
+                bottom = min(bottom, wire_y - depth)
+            else:  # A cap folds upwards.
+                top = max(top, wire_y + depth)
+        self.relabel_nodes(copy=False, positions={
+            n: p.shift(x=margin - left, y=margin - bottom)
+            for n, p in self.positions.items()})
+        self.width = right - left + 2 * margin
+        self.height = top - bottom + 2 * margin
+        # The identity wires run to the borders rather than stopping a margin
+        # short, so that the diagram still composes along its inputs/outputs.
+        for node in self.dom_nodes:
+            self.positions[node] = Point(self.positions[node].x, self.height)
+        for node in self.cod_nodes:
+            self.positions[node] = Point(self.positions[node].x, 0)
+        return self
 
     def add_box_corners(self):
         """ Recenter boxes w.r.t their wires then draw the corners. """
@@ -381,11 +480,12 @@ class Drawing(TracedCategory, RichDisplay):
               if n.kind == "box_cod" and n.j == j]
         box_x = self.positions[self.box_nodes[j]].x
         left, right = min(xs + [box_x]), max(xs + [box_x])
+        offsets = box_dom.wire_offsets()
         for i, x in enumerate(box_dom):
             target = Node("box_dom", i=i, j=j, x=x)
             source, = self.graph.predecessors(target)
             for n in (source, target):
-                x = (right + left - len(box_dom) + 1) / 2 + i
+                x = (right + left - offsets[-1]) / 2 + offsets[i]
                 self.positions[n] = Point(x, self.positions[n].y)
 
     def reposition_box_cod(self, j=-1):
@@ -398,13 +498,14 @@ class Drawing(TracedCategory, RichDisplay):
               if n.kind == "box_dom" and n.j == j]
         box_x = self.positions[self.box_nodes[j]].x
         left, right = min(xs + [box_x]), max(xs + [box_x])
+        offsets = box.cod.wire_offsets()
         for i, x in enumerate(box.cod):
             source = Node("box_cod", i=i, j=j, x=x)
             target, = self.graph.successors(source)
             if target.kind != "cod":
                 return  # Otherwise we would have to reposition everything.
             for n in (source, target):
-                x = (right + left - len(box.cod) + 1) / 2 + i
+                x = (right + left - offsets[-1]) / 2 + offsets[i]
                 self.positions[n] = Point(x, self.positions[n].y)
             if box.draw_as_spider and len(box.cod) == 1:
                 box_node = Node("box", box=box, j=j)
@@ -469,6 +570,16 @@ class Drawing(TracedCategory, RichDisplay):
         target, = self.graph.successors(right_dom)
         return target.kind == "cod" and target.i == len(self.cod) - 1
 
+    @classmethod
+    def permutation(cls, xs: Sequence[int], doms) -> Drawing:
+        """ Draw a permutation of the wires in ``dom``. """
+        from discopy.symmetric import Permutation
+        xs = finset.Permutation(xs)
+        dom = cls.ob().tensor(*doms)
+        if xs.is_identity:
+            return Drawing.id(dom)
+        return Permutation(dom, xs).to_drawing()
+
     @staticmethod
     def from_box(box: "monoidal.Box") -> Drawing:
         """
@@ -492,9 +603,14 @@ class Drawing(TracedCategory, RichDisplay):
             :align: center
         """
         from discopy.monoidal import Box
+        from discopy.symmetric import Permutation
         box_dom, box_cod = box.dom.to_drawing(), box.cod.to_drawing()
-        old_box, box = box, Box(
-            box.name, box_dom, box_cod, is_dagger=box.is_dagger)
+        old_box = box
+        box = Permutation(box_dom, old_box.perm)\
+            if isinstance(old_box, Permutation)\
+            else Box(
+                old_box.name, box_dom, box_cod,
+                is_dagger=old_box.is_dagger)
 
         for attr, default in BOX_DRAWING_ATTRIBUTES.items():
             setattr(box, attr, getattr(old_box, attr, default(box)))
@@ -634,7 +750,7 @@ class Drawing(TracedCategory, RichDisplay):
         >>> v = Drawing.from_box(Box('v', x ** 7, Ty()))
 
         >>> top, bottom = u >> g @ f, g @ f @ f >> v
-        >>> Diagram.to_gif(
+        >>> Diagram.to_gif(  # doctest: +EXTRA
         ...     *top.then(bottom, draw_step_by_step=True), loop=True,
         ...     wire_labels=False, draw_box_labels=False,
         ...     doctest="docs/_static/drawing/composition.gif")
@@ -783,7 +899,8 @@ class Drawing(TracedCategory, RichDisplay):
         def box_dagger(box):
             result = box.dagger()
             for attr in BOX_DRAWING_ATTRIBUTES:
-                setattr(result, attr, getattr(box, attr))
+                if not hasattr(result, attr):
+                    setattr(result, attr, getattr(box, attr))
             return result
 
         if self.is_box:

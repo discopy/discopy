@@ -11,7 +11,7 @@ Summary
     :nosignatures:
     :toctree:
 
-    Ob
+    Wire
     Ty
     Exp
     Over
@@ -44,14 +44,15 @@ Axioms
 .. image:: /_static/biclosed/curry-left.svg
     :align: center
 
->>> Equation(h.uncurry().curry(), h).draw(
+>>> Equation(h.uncurry(left=False).curry(left=False), h).draw(
 ...     doctest='docs/_static/biclosed/curry-right.svg', margins=(0.1, 0.05))
 
 .. image:: /_static/biclosed/curry-right.svg
     :align: center
 
 >>> Equation(
-...     g.curry(left=True).uncurry(left=True), g, g.curry().uncurry()).draw(
+...     g.curry(left=True).uncurry(left=True), g,
+...     g.curry(left=False).uncurry(left=False)).draw(
 ...         doctest='docs/_static/biclosed/uncurry.svg')
 
 .. image:: /_static/biclosed/uncurry.svg
@@ -70,6 +71,7 @@ from discopy.drawing import Drawing
 from discopy.cat import factory
 from discopy.utils import (
     assert_isinstance,
+    deprecated_ob,
     factory_name,
     from_tree,
 )
@@ -179,17 +181,17 @@ class Ty(monoidal.Ty):
         return self.inside[0].exponent
 
 
-class Ob(monoidal.Wire):
+class Wire(monoidal.Wire):
     """
     A biclosed object is a self-dagger :class:`monoidal.Wire`, i.e. its left
     and right colours always match. Exponentials do not interact meaningfully
     with colours, so for now we assume everything is white.
     """
-    def dagger(self) -> Ob:
+    def dagger(self) -> Wire:
         return self
 
 
-class Exp(Ob):
+class Exp(Wire):
     """
     A :code:`base` type to an :code:`exponent` type, called with :code:`**`.
 
@@ -276,35 +278,38 @@ class Diagram(monoidal.Diagram, BiclosedCategory):
 
     ob = Ty
 
-    def curry(self, n=1, left=False) -> Diagram:
+    def curry(self, n=1, left=True) -> Diagram:
         """
         Wrapper around :class:`Curry` called by :class:`Functor`.
 
         Parameters:
             n : The number of atomic types to curry.
-            left : Whether to curry on the left or right.
+            left : Whether to curry on the left, i.e. into :class:`Over`,
+                or on the right, i.e. into :class:`Under`.
         """
         return self.curry_factory(self, n, left)
 
     @classmethod
-    def ev(cls, base: Ty, exponent: Ty, left=False) -> Eval:
+    def ev(cls, base: Ty, exponent: Ty, left=True) -> Eval:
         """
         Wrapper around :class:`Eval` called by :class:`Functor`.
 
         Parameters:
             base : The base of the exponential type to evaluate.
             exponent : The exponent of the exponential type to evaluate.
-            left : Whether to evaluate on the left or right.
+            left : Whether to evaluate on the left, i.e. from :class:`Over`,
+                or on the right, i.e. from :class:`Under`.
         """
         return cls.eval_factory(
             base << exponent if left else exponent >> base)
 
-    def uncurry(self: Diagram, left=False) -> Diagram:
+    def uncurry(self: Diagram, left=True) -> Diagram:
         """
         Uncurry a biclosed diagram by composing it with :meth:`Diagram.ev`.
 
         Parameters:
-            left : Whether to uncurry on the left or right.
+            left : Whether to uncurry on the left, i.e. from :class:`Over`,
+                or on the right, i.e. from :class:`Under`.
         """
         base, exponent = self.cod.base, self.cod.exponent
         return self @ exponent >> self.ev(base, exponent, True) if left\
@@ -460,28 +465,29 @@ class CMap(monoidal.CMap):
 
     require_causal = False
 
-    def curry(self, n=1, left=False) -> Self:
+    def curry(self, n=1, left=True) -> Self:
         """
         Curry a combinatorial map using the closed structure of the host
         category.
 
         Parameters:
             n : The number of objects to curry.
-            left : Whether to curry on the left or right.
+            left : Whether to curry on the left, i.e. into :class:`Over`,
+                or on the right, i.e. into :class:`Under`.
 
         >>> from discopy.closed import Ty, Box
         >>> x, y, z = map(Ty, "xyz")
         >>> f = Box("f", x @ y, z).to_map()
-        >>> f.curry().uncurry().draw(show=False,
-        ...     doctest="docs/_static/cmap/biclosed-curry-right.svg")
+        >>> f.curry(left=False).uncurry(left=False).draw(show=False,
+        ...     doctest="docs/_static/cmap/biclosed-curry-right.dot")
 
-        .. image:: /_static/cmap/biclosed-curry-right.svg
+        .. graphviz:: /_static/cmap/biclosed-curry-right.dot
             :align: center
 
         >>> f.curry(left=True).uncurry(left=True).draw(show=False,
-        ...     doctest="docs/_static/cmap/biclosed-curry-left.svg")
+        ...     doctest="docs/_static/cmap/biclosed-curry-left.dot")
 
-        .. image:: /_static/cmap/biclosed-curry-left.svg
+        .. graphviz:: /_static/cmap/biclosed-curry-left.dot
             :align: center
         """
         if n < 0 or n > len(self.dom):
@@ -503,14 +509,15 @@ class CMap(monoidal.CMap):
             self.category.coeval_factory(exp, left=False))
         return (self >> coev).trace(n, left=True)
 
-    def uncurry(self, n=1, left=False) -> Self:
+    def uncurry(self, n=1, left=True) -> Self:
         """
         Uncurry a combinatorial map using the evaluation box of the host
         category.
 
         Parameters:
             n : The number of objects to uncurry.
-            left : Whether to uncurry on the left or right.
+            left : Whether to uncurry on the left, i.e. from :class:`Over`,
+                or on the right, i.e. from :class:`Under`.
         """
         if n < 0:
             raise ValueError
@@ -675,8 +682,8 @@ class Application(TermBase):
         assert_isinstance(func.cod.inside[0], Under if left else Over)
         if set(func.freevars).intersection(args.freevars):
             raise ValueError("Expected disjoint free variables.")
-        self.freevars = func.freevars + args.freevars if self.left\
-            else args.freevars + func.freevars
+        self.freevars = args.freevars + func.freevars if self.left\
+            else func.freevars + args.freevars
         return args.dom @ func.dom if left else func.dom @ args.dom
 
     def eval(self, functor=None):
@@ -748,3 +755,6 @@ Ty.over_factory, Ty.under_factory, Ty.exp_factory = Over, Under, Exp
 
 class Equation(monoidal.Equation):
     """ The :class:`monoidal.Equation` of biclosed diagrams. """
+
+
+__getattr__ = deprecated_ob(__name__)

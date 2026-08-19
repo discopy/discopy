@@ -11,7 +11,7 @@ Summary
     :nosignatures:
     :toctree:
 
-    Ob
+    Wire
     Diagram
     Box
     Braid
@@ -64,16 +64,17 @@ from discopy import monoidal
 from discopy.abc import BraidedCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty, Match
-from discopy.utils import factory_name, BinaryBoxConstructor, assert_isatomic
+from discopy.utils import (
+    assert_isatomic, BinaryBoxConstructor, deprecated_ob, factory_name)
 
 
-class Ob(monoidal.Wire):
+class Wire(monoidal.Wire):
     """
     A braided object is a self-dagger :class:`monoidal.Wire`. From braided
     categories onwards colours stop making sense, i.e. we cannot add colours to
     braids or swaps in any meaningful way, so its colours are always white.
     """
-    def dagger(self) -> Ob:
+    def dagger(self) -> Wire:
         return self
 
 
@@ -105,8 +106,9 @@ class Diagram(monoidal.Diagram, BraidedCategory):
 
     def simplify(self) -> Diagram:
         """ Remove braids followed by their dagger. """
+        layers = [layer.boxes_and_types for layer in self.inside]
         for i, ((x, f, _), (y, g, _)) in enumerate(
-                zip(self.inside, self.inside[1:])):
+                zip(layers, layers[1:])):
             if x == y and isinstance(f, Braid) and f == g[::-1]:
                 inside = self.inside[:i] + self.inside[i + 2:]
                 return self.ar(
@@ -137,7 +139,7 @@ class Diagram(monoidal.Diagram, BraidedCategory):
         >>> assert bot_left.naturality(1, left=False, down=False) == top_right
         """
         braid = braid or self.braid
-        left_wires, box, right_wires = self.inside[i]
+        left_wires, box, right_wires = self.inside[i].boxes_and_types
         if left and down:
             source = left_wires[-1] @ box >> braid(left_wires[-1], box.cod)
             target = braid(left_wires[-1], box.dom) >> box @ left_wires[-1]
@@ -262,3 +264,6 @@ Id = Diagram.id
 
 class Equation(monoidal.Equation):
     """ The :class:`monoidal.Equation` of braided diagrams. """
+
+
+__getattr__ = deprecated_ob(__name__)

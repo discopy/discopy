@@ -24,6 +24,30 @@ you can push directly to this PR for abc+torch, open a fresh one for jax
 - [x] Add concise backend contract and PyTorch regression tests, update the documentation, and run lint and tests.
 - [x] Remove the accidentally tracked generated execution-plan API stub.
 
+## Review feedback outstanding (toumix, 07-28 and 08-14)
+
+Each point quotes USER's review comment verbatim; the thread links are on
+[#399](https://github.com/discopy/discopy/pull/399).
+
+- [x] "let's make neural into a folder, name this file neural/network.py and
+      move the backend to neural/torch.py" — and "goes to
+      discopy/neural/backend.py" for the backend interface
+- [x] "This category doesn't really exist because neural networks aren't
+      really a traced category: the fixed points are not guaranteed to be
+      reached we only do a fixed number of iterations." — fix the module
+      docstring's claim
+- [x] "nobody says 'combinatorial maps of a category', just 'morphism'"
+- [x] "this looks like pure boiler plate we shouldn't need it" — the
+      factory-wiring block at neural.py:126
+- [x] "This looks like extra bureaucracy on top of the CMap, not sure we need
+      it" — the wrapper at neural.py:376
+- [x] "It should be clear whether this is a map neural network or just a
+      plain feedforward one" — neural.py:237
+- [x] @evening-bk8zei-2026-08-15 01:05 Fix `neural.rdiff` for the layer
+      representation of [#438](https://github.com/discopy/discopy/pull/438),
+      which the last merge of `main` broke: `to_staircases` no longer yields
+      unpackable layers, so read `Layer.boxes_and_types` instead.
+
 ## JAX backend follow-up
 
 ok split the work in three abc / torch / jax: first refactor the existing torch into abc and torch then add jax on top
@@ -33,3 +57,17 @@ you can push directly to this PR for abc+torch, open a fresh one for jax
 - [x] Wrap compiled execution plans as callable JAX PyTrees with explicit runtime modules.
 - [x] Cover eager execution, JIT, gradients, sharing, nesting, and private memory.
 - [x] Document the JAX module protocol and run lint and tests.
+- [x] @evening-2026-08-19T01:20Z Port the JAX backend onto the package layout
+      of #399, which landed the abc/torch split this PR's prompt asked for:
+      `discopy/neural_jax.py` becomes `discopy/neural/jax.py` with one
+      `JAX(Backend)` class in place of a class plus a module of free
+      functions, mirroring `discopy/neural/torch.py`; `BACKENDS` registers it
+      by qualified name so it stays lazy; the PyTree holds the `CMap` rather
+      than the `ExecutionPlan` that #399 removed. The tests are
+      `test/neural/jax_backend.py`, since neither name the convention would
+      pick is available: pytest puts a test module's own directory on
+      `sys.path`, so `test/neural/jax.py` shadows the library it is testing —
+      which is why there is no `test/neural/torch.py` either — and
+      `test/neural/backend.py` collides on basename with
+      `test/drawing/backend.py`, as test directories carry no `__init__.py`. `discopy/neural/jax.py` joins
+      `test/plugin.py`'s `UNIMPORTABLE`, so `--skip-extra` skips it.
