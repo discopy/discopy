@@ -17,6 +17,10 @@ def double_and_module():
     return D, Representation[D].direct_sum([e, m])
 
 
+taft = Algebra.taft(3)
+sweedler_double = Double(Algebra.sweedler())
+
+
 def test_group_algebra_is_valid():
     for n in [1, 2, 3, 5]:
         assert Algebra.cyclic(n).is_valid()
@@ -91,6 +95,7 @@ def test_no_r_matrix_paths():
         Z2.unit, Z2.counit, Z2.mult, Z2.comult, Z2.antipode)
     assert noR.R is None
     assert noR.is_quasitriangular() is False
+    assert noR.is_ribbon() is False
     assert noR.is_valid()
     W = Representation[noR].regular()
     try:
@@ -359,3 +364,114 @@ def test_twist_in_diagram():
         F(twist).eval(dtype=complex).array, np.eye(2))
     assert np.allclose(
         F(twist.dagger()).eval(dtype=complex).array, np.eye(2))
+
+
+def test_taft_algebra():
+    for n, T in [(2, Algebra.taft(2)), (3, taft)]:
+        assert T.is_valid() and T.dim == n * n
+    S = taft.antipode.eval(dtype=complex).array
+    assert not np.allclose(S @ S, np.eye(9))
+
+
+def test_drinfeld_element():
+    """u = m(S (x) 1)R_21 conjugates the square of the antipode."""
+    D = Double(Algebra.cyclic(2))
+    n = D.dim
+    u = D.drinfeld_element.eval(dtype=complex).array.reshape(n)
+    S = D.antipode.eval(dtype=complex).array.reshape(n, n)
+    mult = D.mult.eval(dtype=complex).array.reshape(n, n, n)
+    assert np.allclose(np.einsum('xw,g,wgz->xz', S @ S, u, mult),
+                       np.einsum('g,gxz->xz', u, mult), atol=1e-6)
+    Z2 = Algebra.cyclic(2)
+    noR = Algebra(Z2.unit, Z2.counit, Z2.mult, Z2.comult, Z2.antipode)
+    try:
+        noR.drinfeld_element
+        assert False
+    except ValueError:
+        pass
+
+
+def test_pivotal_element():
+    """The pivot is grouplike and conjugates the square of the antipode;
+    it is the unit exactly when S^2 = 1."""
+    Z2 = Algebra.cyclic(2)
+    assert Z2.pivotal_element == Z2.unit
+    assert Double(Z2).pivotal_element == Double(Z2).unit
+    for H in [Algebra.sweedler(), taft, sweedler_double]:
+        assert H.pivotal_element != H.unit
+        n = H.dim
+        g = H.pivotal_element.eval(dtype=complex).array.reshape(n)
+        S = H.antipode.eval(dtype=complex).array.reshape(n, n)
+        mult = H.mult.eval(dtype=complex).array.reshape(n, n, n)
+        counit = H.counit.eval(dtype=complex).array.reshape(n)
+        comult = H.comult.eval(dtype=complex).array.reshape(n, n, n)
+        assert np.allclose(np.einsum('xw,g,wgz->xz', S @ S, g, mult),
+                           np.einsum('g,gxz->xz', g, mult), atol=1e-6)
+        assert np.allclose(np.einsum('i,ipq->pq', g, comult),
+                           np.outer(g, g), atol=1e-6)
+        assert np.isclose(counit @ g, 1)
+    Z2 = Algebra.cyclic(2)
+    scale = Box('S', Z2.ty, Z2.ty, np.diag([1, 2]))
+    doctored = Algebra(Z2.unit, Z2.counit, Z2.mult, Z2.comult, scale)
+    try:
+        doctored.pivotal_element
+        assert False
+    except ValueError:
+        pass
+
+
+def test_ribbon_element_criterion():
+    """The double of an odd Taft algebra is ribbon, of an even one is not,
+    by Kauffman-Radford: accessing the ribbon element validates centrality,
+    S(v) = v and v^2 = uS(u), raising when they fail."""
+    assert Double(taft).ribbon_element is not None
+    try:
+        sweedler_double.ribbon_element
+        assert False
+    except ValueError:
+        pass
+
+
+def test_pivotal_pairings_are_intertwiners():
+    """The functor images of all four cup and cap orientations commute with
+    the actions over the Taft algebra, whose pivot is non-trivial."""
+    T = taft
+    V = Representation[T].regular()
+    x = ribbon.Ty('x')
+    F = Functor(ob_map={x: V}, ar_map={}, cod=Intertwiner[T])
+    n, d = T.dim, 9
+    counit = T.counit.eval(dtype=complex).array.reshape(n)
+    comult = T.comult.eval(dtype=complex).array.reshape(n, n, n)
+
+    def rho(rep):
+        return rep.action.eval(dtype=complex).array.reshape(n, d, d)
+
+    for box, first, second in [
+            (ribbon.Cup(x, x.r), V, V.r), (ribbon.Cup(x.l, x), V.r, V),
+            (ribbon.Cap(x, x.r), V, V.r), (ribbon.Cap(x.l, x), V.r, V)]:
+        image = F(box).eval(dtype=complex).array.reshape(d, d)
+        if isinstance(box, ribbon.Cup):
+            lhs = np.einsum('hpq,pio,qjw,ow->hij',
+                            comult, rho(first), rho(second), image)
+            rhs = np.einsum('h,ij->hij', counit, image)
+        else:
+            lhs = np.einsum('hpq,pio,qjw,ij->how',
+                            comult, rho(first), rho(second), image)
+            rhs = np.einsum('h,ow->how', counit, image)
+        assert np.allclose(lhs, rhs, atol=1e-6)
+
+
+def test_snake_equations_with_pivot():
+    """The pivotal pairings satisfy the snake equations over the Taft
+    algebra, where the plain ones would not be intertwiners."""
+    T = taft
+    V = Representation[T].regular()
+    x = ribbon.Ty('x')
+    F = Functor(ob_map={x: V}, ar_map={}, cod=Intertwiner[T])
+    left = ribbon.Id(x.l).transpose(left=True)
+    right = ribbon.Id(x.r).transpose(left=False)
+    identity = F(ribbon.Id(x)).eval(dtype=complex).array
+    assert np.allclose(F(left).eval(dtype=complex).array, identity,
+                       atol=1e-6)
+    assert np.allclose(F(right).eval(dtype=complex).array, identity,
+                       atol=1e-6)
