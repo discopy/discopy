@@ -99,3 +99,12 @@ def test_tied_speedups_are_sorted_by_key():
 
     assert markdown.index("| suite | family | first |") < markdown.index(
         "| suite | family | second |")
+
+
+def test_scaling_table_keeps_every_family():
+    table = report.scaling_table(frame(
+        ("suite", "known", "case", 1, 1.),
+        ("suite", "new", "case", 1, 2.),
+    ))
+
+    assert table["family"].to_list() == ["known", "new"]

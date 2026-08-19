@@ -18,7 +18,6 @@ measurement regresses by more than ``--fail-threshold`` (a fraction, e.g.
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
 import json
 import os
 
@@ -49,16 +48,10 @@ def load(path: str) -> pl.DataFrame:
     ).sort("suite", "family", "case", "size")
 
 
-def scaling_table(df: pl.DataFrame, spec: Plot) -> pl.DataFrame:
+def scaling_table(df: pl.DataFrame) -> pl.DataFrame:
     """One row per family/case and one column per size."""
-    ordered = pl.concat([
-        df.filter(pl.col("family") == family).sort("case", "size")
-        for families in spec.panels
-        for family in families
-    ])
-    table = ordered.pivot(
-        on="size", index=["family", "case"], values="median",
-    )
+    table = df.sort("family", "case", "size").pivot(
+        on="size", index=["family", "case"], values="median")
     return table.select(
         "family", "case", *sorted(table.columns[2:], key=int))
 
@@ -76,25 +69,6 @@ def to_markdown(table: pl.DataFrame) -> str:
     return "\n".join(lines)
 
 
-@dataclass(frozen=True)
-class Plot:
-    """Declarative panel layout for one suite."""
-    panels: tuple[tuple[str, ...], ...]
-    figsize: tuple[int, int]
-    title: str
-
-
-PLOTS = {
-    "composition": Plot(
-        (("Diagram", "Hypergraph", "CMap"),), (19, 6),
-        "Composition benchmark scaling"),
-    "conversion": Plot((
-        ("Diagram → Hypergraph", "Hypergraph → CMap", "CMap → Diagram"),
-        ("Hypergraph → Diagram", "CMap → Hypergraph", "Diagram → CMap"),
-    ), (19, 11), "Representation conversion benchmark scaling"),
-}
-
-
 def case_colors(df: pl.DataFrame) -> dict[str, tuple]:
     """Stable colors shared by each case across every family and suite."""
     import matplotlib
@@ -106,32 +80,34 @@ def case_colors(df: pl.DataFrame) -> dict[str, tuple]:
     return {case: palette(i % palette.N) for i, case in enumerate(cases)}
 
 
-def plot(df: pl.DataFrame, path: str, spec: Plot, colors: dict) -> None:
-    """Plot one suite according to its declarative panel layout."""
+def plot(
+        df: pl.DataFrame, path: str, suite: str, colors: dict) -> None:
+    """Plot one panel per family, three panels to a row."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
+    panels = sorted(df["family"].unique())
+    columns = min(3, len(panels))
+    rows = -(-len(panels) // columns)
     figure, axes = plt.subplots(
-        len(spec.panels), len(spec.panels[0]), figsize=spec.figsize,
+        rows, columns, figsize=(6.5 * columns, 5.5 * rows),
         sharey=True, squeeze=False)
-    for row, families in enumerate(spec.panels):
-        for column, family in enumerate(families):
-            axis = axes[row, column]
-            panel = df.filter(pl.col("family") == family)
-            for (case,), group in panel.group_by("case", maintain_order=True):
-                ordered = group.sort("size")
-                axis.plot(
-                    ordered["size"].to_list(), ordered["median"].to_list(),
-                    marker="o", label=case, color=colors[case])
-            axis.set(xscale="log", yscale="log", xlabel="size $n$",
-                     title=family)
-            axis.legend(fontsize="small")
-    for axis in axes.flat:
+    for axis, family in zip(axes.flat, panels):
+        panel = df.filter(pl.col("family") == family)
+        for (case,), group in panel.group_by("case", maintain_order=True):
+            ordered = group.sort("size")
+            axis.plot(
+                ordered["size"].to_list(), ordered["median"].to_list(),
+                marker="o", label=case, color=colors[case])
+        axis.set(xscale="log", yscale="log", xlabel="size $n$", title=family)
+        axis.legend(fontsize="small")
         axis.grid(True, which="both", linestyle=":", linewidth=.5)
+    for axis in axes.flat[len(panels):]:
+        axis.set_axis_off()
     for axis in axes[:, 0]:
         axis.set_ylabel("median CPU time (s)")
-    figure.suptitle(spec.title)
+    figure.suptitle(f"{suite.capitalize()} benchmark scaling")
     figure.tight_layout()
     figure.savefig(path, dpi=120)
     plt.close(figure)
@@ -141,18 +117,16 @@ def write_reports(df: pl.DataFrame, output: str) -> list[str]:
     """Write one scaling table and plot per suite."""
     colors = case_colors(df)
     names = []
-    for suite, spec in PLOTS.items():
+    for suite in sorted(df["suite"].unique()):
         group = df.filter(pl.col("suite") == suite)
-        if group.is_empty():
-            continue
-        table = scaling_table(group, spec)
+        table = scaling_table(group)
         with pl.Config(tbl_rows=-1, tbl_cols=-1, fmt_str_lengths=80):
             print(table)
         table_name = f"{suite}-results.md"
         with open(os.path.join(output, table_name), "w") as file:
             file.write(to_markdown(table) + "\n")
         plot_name = f"{suite}-scaling.png"
-        plot(group, os.path.join(output, plot_name), spec, colors)
+        plot(group, os.path.join(output, plot_name), suite, colors)
         names += [table_name, plot_name]
     return names
 
