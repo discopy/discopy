@@ -205,7 +205,7 @@ if TYPE_CHECKING:
     from discopy import monoidal
 
 
-def _trailing_margin(ob) -> float:
+def trailing_margin(ob) -> float:
     """ The extra width needed to the right of the last wire of a type. """
     return max(
         0, getattr(ob, "right_margin", 0) - 0.5,
@@ -637,7 +637,7 @@ class Drawing(TracedCategory, RichDisplay):
             if box.min_width else content
 
         trailing = 0 if is_bubble else max(
-            (_trailing_margin(row.inside[-1])
+            (trailing_margin(row.inside[-1])
              for row in (box.dom, box.cod) if row.inside), default=0)
         width, height = content + trailing, box.height
 
@@ -720,7 +720,7 @@ class Drawing(TracedCategory, RichDisplay):
         inside = PlaneGraph(nx.DiGraph(), dict())
         offsets = dom.wire_offsets()
         height = 0.5
-        width = 0.5 + offsets[-1] + _trailing_margin(
+        width = 0.5 + offsets[-1] + trailing_margin(
             dom.inside[-1]) if dom else 0.5
         result = Drawing(inside, dom, dom, (), width, height, _check=False)
         dom_nodes = [Node("dom", i=i, x=x) for i, x in enumerate(dom)]
