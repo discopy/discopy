@@ -120,6 +120,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   in `abc.CompactCategory` where the twist is the identity. The free diagram
   classes keep their freely interpreted traces by subclassing
   `traced.Diagram` ([#349](https://github.com/discopy/discopy/issues/349)).
+- `biclosed` defaults `left` to `True` in `Diagram.curry`, `Diagram.ev`,
+  `Diagram.uncurry`, `CMap.curry` and `CMap.uncurry`, so that `abc`,
+  `biclosed`, `closed` and `rigid` all agree on one convention: the default
+  exponential is `Over`, i.e. `<<`. Previously `closed` inherited
+  `curry` defaulting to the right from `biclosed` while overriding `ev` to
+  the left, so the default currying was never evaluated by the default
+  `ev`. Code relying on the old right-handed default should pass
+  `left=False` explicitly
+  ([#560](https://github.com/discopy/discopy/issues/560)).
 - The committed benchmark baseline is stored gzipped as
   `benchmark/baseline.json.gz`, which `benchmark/report.py` reads
   transparently.
@@ -180,9 +189,17 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   input of the controlled box rather than its first one, so gates with a
   classical wire or a distance other than one are drawn on the right wires
   ([#439](https://github.com/discopy/discopy/pull/439)).
+- Drawing a discard on more than one wire: `draw_discard` was shadowing the
+  layer index with its inner loop counter
+  ([#513](https://github.com/discopy/discopy/issues/513)).
 - `closed.Context.dom` called `category.ob.tensor` unbound, which raised
   `TypeError` for an empty context instead of returning `Ty()`
   ([#549](https://github.com/discopy/discopy/issues/549)).
+- Both branches of `closed.Abstraction.eval` curry on the right: the
+  context branch curried out the wrong end of its domain, so an abstraction
+  applied to an argument sharing a free variable did not compose, and a
+  left abstraction evaluates through its right counterpart
+  ([#562](https://github.com/discopy/discopy/issues/562)).
 
 ### Performance
 
