@@ -51,6 +51,13 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   hierarchy below symmetric: traced, Markov, closed, feedback, compact and
   hypergraph ([#558](https://github.com/discopy/discopy/issues/558),
   refactoring [#325](https://github.com/discopy/discopy/pull/325)).
+- The pivotal structure of `Rep(H)`: `HopfAlgebra.drinfeld_element`,
+  `pivotal_element` and `ribbon_element`, cached single tensors named after
+  the literature (Reshetikhin–Turaev; Kassel; Radford), with pivotal cups
+  and caps twisting the dual leg so all four orientations are intertwiners.
+  `taft(n)`, the smallest algebras with a pivot of order `n` (Sweedler's
+  algebra is `n = 2`), realise the Kauffman–Radford ribbon criterion
+  ([#484](https://github.com/discopy/discopy/pull/484)).
 
 ### Changed
 
@@ -222,9 +229,18 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   applied to an argument sharing a free variable did not compose, and a
   left abstraction evaluates through its right counterpart
   ([#562](https://github.com/discopy/discopy/issues/562)).
+- `Double`'s `H*` structure is built by transposition instead of the dagger,
+  which wrongly conjugated complex structure constants — invisible on the
+  real examples of #405, wrong for `taft(3)`
+  ([#484](https://github.com/discopy/discopy/pull/484)).
 
 ### Performance
 
+- The elements of a Hopf algebra (`drinfeld_element`, `pivotal_element`,
+  `ribbon_element`) contract each structural generator once through the
+  cached `Algebra.arrays` and solve for the pivot with a thin SVD, so that
+  `Double(taft(3)).ribbon_element` takes under a second instead of twenty
+  ([#484](https://github.com/discopy/discopy/pull/484)).
 - `Ty` construction is sped up with `assert_isinstance` and lazy naming
   ([#420](https://github.com/discopy/discopy/pull/420)).
 - `Hypergraph` equality, permutations and other micro-optimizations bring
