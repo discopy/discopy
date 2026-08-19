@@ -101,8 +101,9 @@ counts measurements present in only one of the two runs.
 The `benchmark` GitHub workflow runs the full suite on `main` and manual
 dispatches. On a pull request labelled `benchmark`, one job checks out and
 benchmarks the exact base commit, then the exact head commit on the same runner.
-It uploads the full report and posts or updates a pull request comment with the
-important regressions and speedups.
+Every run uploads the report of its head commit -- the raw `bench.json`, the
+Markdown tables and the SVG plots -- and a pull request run also posts or
+updates a comment with the important regressions and speedups.
 
 ## Build the docs
 

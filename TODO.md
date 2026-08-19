@@ -19,4 +19,4 @@
 - [x] Drop the `series` and `tensor` aliases for `repeated`
 - [x] Drop the `BENCH_FLAGS=bench:smoke` no-op
 - [x] Render the scaling plot as SVG rather than PNG
-- [ ] Render the report for the head commit on every run
+- [x] Render the report for the head commit on every run

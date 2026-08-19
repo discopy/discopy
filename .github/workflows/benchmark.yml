@@ -86,22 +86,18 @@ jobs:
         mkdir -p benchmark-results
         uv run pytest benchmark/ -v \
           --benchmark-json=benchmark-results/bench.json
-    - name: Render comparison
-      if: github.event_name == 'pull_request'
+    - name: Render the report for the head commit
+      # A pull request also has a base run to compare against.
+      env:
+        BASE: ${{ github.event_name == 'pull_request' && format('{0}/base.json', runner.temp) || '' }}
       run:
         uv run python benchmark/report.py benchmark-results/bench.json
-          --output benchmark-results
-          --base "$RUNNER_TEMP/base.json"
+          --output benchmark-results ${BASE:+--base "$BASE"}
     - name: Stage the comparison for the comment
       if: always() && github.event_name == 'pull_request'
       run:
         cp benchmark-results/comparison.md "$RUNNER_TEMP/benchmark-comment/"
         || true
-    - name: Render report
-      if: github.event_name != 'pull_request'
-      run:
-        uv run python benchmark/report.py benchmark-results/bench.json
-          --output benchmark-results
     - name: Upload PR comment data
       if: always() && github.event_name == 'pull_request'
       uses: actions/upload-artifact@v4
