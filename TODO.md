@@ -37,6 +37,10 @@ question, verbatim:
       merge it into the boundary, so whiskering builds no empty plumbing.
 - [x] `test_Layer_has_no_identity` covers both, and that whiskering leaves no
       empty type behind.
-- [ ] **Not fixed, and reported on the PR**: `Layer(Ty(), normalise=False)`
-      still builds the boxless layer, so [#599](https://github.com/discopy/discopy/issues/599)
-      stays open for whether `Diagram.__init__` should reject it.
+- [x] `Layer(Ty(), normalise=False)` still builds the boxless layer. Reported
+      on the PR and ruled by USER, verbatim:
+
+      > Yes it's fine if the user explicitly wants to be stupid we should let
+      > them
+
+      So `Diagram.__init__` is left alone and #599 closes with this PR.

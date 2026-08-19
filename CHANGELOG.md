@@ -130,7 +130,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   layers: inside a `Diagram` it survived `normal_form`, compared unequal to
   `Diagram.id` and made `foliation` and `draw` raise. `Layer.whisker` leaves a
   type as a type and `tensor` merges it into the boundary, so whiskering never
-  builds one ([#599](https://github.com/discopy/discopy/issues/599)).
+  builds one. Passing `normalise=False` still does, which is left as an
+  explicit opt-out of the invariant
+  ([#599](https://github.com/discopy/discopy/issues/599)).
 - `biclosed` defaults `left` to `True` in `Diagram.curry`, `Diagram.ev`,
   `Diagram.uncurry`, `CMap.curry` and `CMap.uncurry`, so that `abc`,
   `biclosed`, `closed` and `rigid` all agree on one convention: the default
