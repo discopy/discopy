@@ -1,1 +1,2 @@
 - [x] Report a benchmark regression as a warning, never a job failure
+- [x] Compare every benchmark run against the previous commit

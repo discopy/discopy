@@ -88,22 +88,27 @@ machine, pass the base run when rendering the head:
 
 ```shell
 uv run python benchmark/report.py benchmark-results/head.json \
-    --base benchmark-results/base.json --fail-threshold 0.25
+    --base benchmark-results/base.json --threshold 0.25
 ```
 
 It joins the runs on `(suite, family, case, size)` and computes the raw change
-`head / base - 1`. It writes `comparison.md`, listing regressions and speedups
-larger than the threshold, and exits non-zero when an important regression is
-present. Both runs must use the same benchmark sizes and machine; there is no
-cross-machine normalisation. Only shared measurements are gated; the report
-counts measurements present in only one of the two runs.
+`head / base - 1`. It writes `comparison.md`, listing the regressions and
+speedups larger than the threshold. A regression is reported, never fatal: the
+exit code is non-zero only when the comparison itself fails, e.g. when the two
+runs share no measurement. Both runs must use the same benchmark sizes and
+machine; there is no cross-machine normalisation. The report counts the
+measurements present in only one of the two runs.
 
-The `benchmark` GitHub workflow runs the full suite on `main` and manual
-dispatches. On a pull request labelled `benchmark`, one job checks out and
-benchmarks the exact base commit, then the exact head commit on the same runner.
-Every run uploads the report of its head commit -- the raw `bench.json`, the
-Markdown tables and the SVG plots -- and a pull request run also posts or
-updates a comment with the important regressions and speedups.
+The `benchmark` GitHub workflow benchmarks two commits on the same runner and
+compares them: on `main` the commit pushed against the branch as it was before
+the push, on a pull request labelled `benchmark` the head commit against the
+base. `main` runs the full size tail, a pull request the default sizes; a
+manual dispatch has nothing to compare against and only measures its own
+commit. Every run uploads the report of its head commit -- the raw
+`bench.json`, the Markdown tables and the SVG plots -- writes the comparison to
+the job summary, and raises a warning annotation, never a failure, when a
+measurement regresses. A pull request run also posts or updates a comment with
+the important regressions and speedups.
 
 ## Build the docs
 

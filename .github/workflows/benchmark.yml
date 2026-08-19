@@ -22,7 +22,18 @@ jobs:
       github.event_name != 'pull_request'
       || contains(github.event.pull_request.labels.*.name, 'benchmark')
     runs-on: ubuntu-latest
-    timeout-minutes: 20   # PRs run the suite twice; full runs take ~3-4 min
+    timeout-minutes: 30   # every run benchmarks two commits, ~4 min each
+    env:
+      # What the head commit is compared against, on the same runner: the base
+      # of a pull request, or the branch before a push. A manual dispatch and a
+      # newly created branch have neither, and only render the head commit.
+      PREV_SHA: >-
+        ${{ github.event.pull_request.base.sha
+        || (!github.event.created && github.event.before)
+        || '' }}
+      # Pull requests run the small/medium default sizes, main and manual
+      # dispatch the full tail. Both runs need the same sizes to compare.
+      BENCH_FLAGS: ${{ github.event_name != 'pull_request' && 'bench:full' || '' }}
     strategy:
       matrix:
         python-version: [ "3.14" ]
@@ -41,7 +52,7 @@ jobs:
           > "$RUNNER_TEMP/benchmark-comment/metadata.json"
     - uses: actions/checkout@v4
       with:
-        ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.sha }}
+        ref: ${{ env.PREV_SHA || github.sha }}
         persist-credentials: false
     - name: Setup uv
       uses: astral-sh/setup-uv@v5
@@ -55,19 +66,19 @@ jobs:
     - name: Install
       run:
         uv sync --locked --group dev
-    - name: Benchmark the base commit
-      if: github.event_name == 'pull_request'
+    - name: Benchmark the previous commit
+      if: env.PREV_SHA != ''
       run:
         uv run pytest benchmark/ -v
-          --benchmark-json="$RUNNER_TEMP/base.json"
+          --benchmark-json="$RUNNER_TEMP/previous.json"
     - name: Checkout the head commit
-      if: github.event_name == 'pull_request'
+      if: env.PREV_SHA != ''
       uses: actions/checkout@v4
       with:
-        ref: ${{ github.event.pull_request.head.sha }}
+        ref: ${{ github.event.pull_request.head.sha || github.sha }}
         persist-credentials: false
     - name: Install the head commit
-      if: github.event_name == 'pull_request'
+      if: env.PREV_SHA != ''
       # Checkout deletes the generated version module, so rebuild the project.
       run:
         uv sync --locked --group dev --reinstall-package discopy
@@ -78,23 +89,26 @@ jobs:
       env:
         REF: ${{ github.head_ref || github.ref_name }}
     - name: Benchmark the head commit
-      # PRs run the small/medium default sizes; main / manual dispatch add the
-      # full size tail.
-      env:
-        BENCH_FLAGS: ${{ github.event_name != 'pull_request' && 'bench:full' || '' }}
       run: |
         mkdir -p benchmark-results
         uv run pytest benchmark/ -v \
           --benchmark-json=benchmark-results/bench.json
     - name: Render the report for the head commit
-      # A pull request also has a base run to compare against.
-      env:
-        BASE: ${{ github.event_name == 'pull_request' && format('{0}/base.json', runner.temp) || '' }}
       run:
         uv run python benchmark/report.py benchmark-results/bench.json
-          --output benchmark-results ${BASE:+--base "$BASE"}
+          --output benchmark-results
+          ${PREV_SHA:+--base "$RUNNER_TEMP/previous.json"}
+    - name: Summarise the comparison
+      # A regression is a warning, never a failure: the runner is shared, so
+      # an unrelated case can cross the threshold on noise alone.
+      if: env.PREV_SHA != ''
+      run: |
+        cat benchmark-results/comparison.md >> "$GITHUB_STEP_SUMMARY"
+        grep -q '^\*\*WARNING:' benchmark-results/comparison.md \
+          && echo "::warning::Important benchmark regressions, see the summary." \
+          || true
     - name: Stage the comparison for the comment
-      if: always() && github.event_name == 'pull_request'
+      if: github.event_name == 'pull_request'
       run:
         cp benchmark-results/comparison.md "$RUNNER_TEMP/benchmark-comment/"
         || true
