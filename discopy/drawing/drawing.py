@@ -585,6 +585,12 @@ class Drawing(TracedCategory, RichDisplay):
         """
         Draw a diagram with just one box.
 
+        A :class:`Permutation <discopy.symmetric.Permutation>` reindexes its
+        domain as its codomain, so its drawing gets a copy of the codomain
+        rather than the domain itself: the label attributes of one side stay
+        on that side, and a wire the permutation keeps in place is drawn with
+        one label rather than two.
+
         >>> from discopy.monoidal import Ty, Box
         >>> x, y, z = map(Ty, "xyz")
         >>> f = Box('f', x, y @ z)
@@ -612,9 +618,6 @@ class Drawing(TracedCategory, RichDisplay):
                 old_box.name, box_dom, box_cod,
                 is_dagger=old_box.is_dagger)
         if isinstance(old_box, Permutation):
-            # A permutation reindexes its dom as its cod: give the drawing a
-            # separate copy so label attributes on one side stay on that side,
-            # and do not re-label a wire the permutation keeps in place.
             box.cod = box_cod
             for i, obj in enumerate(box.cod.inside):
                 if old_box.perm[i] == i:
