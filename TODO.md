@@ -19,7 +19,7 @@ On `test/cmap.py`:
 >
 > let's scan through this test file and make sure we fix it
 
-- [WIP] @claude-r6h92m-2026-08-20 10:05 Fix `test_eliminate_swaps` and scan
+- [x] Fix `test_eliminate_swaps` and scan
   `test/cmap.py` for classmethods called on an instance: `Id(x @ y).swap(x, y)`
   discards its receiver, so the test composed no swaps at all and eliminating
   them was vacuous. Use `permute` and assert the swaps really are eliminated.
