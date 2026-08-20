@@ -555,7 +555,9 @@ class Circuit(tensor.Diagram[complex]):
         Note
         ----
         * No measurements are performed.
-        * SWAP gates are treated as logical swaps.
+        * Logical swaps, i.e. :meth:`Circuit.swap`, are compiled away by
+          applying the gates to other qubits; the physical :data:`SWAP`
+          gate is emitted as :code:`OpType.SWAP`.
         * If the circuit contains scalars or a :class:`Bra`,
           then :code:`tk_circuit` will hold attributes
           :code:`post_selection` and :code:`scalar`.
