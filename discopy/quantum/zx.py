@@ -372,6 +372,8 @@ def gate2zx(box):
     if isinstance(box, Controlled) and box.distance != 1:
         return circuit2zx(box._decompose())
     standard_gates = {
+        # A physical swap is wire crossing in the ZX calculus.
+        quantum.SWAP: SWAP,
         quantum.H: H,
         quantum.Z: Z(1, 1, .5),
         quantum.X: X(1, 1, .5),
