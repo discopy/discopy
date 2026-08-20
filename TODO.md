@@ -18,5 +18,8 @@ rejected. This branch fixes the issue instead.
       one, as the unit of `Layer.tensor`, which `Layer.normalise` merges into
       the box it whiskers. Full suite green with the check enforced.
 - [x] Regression test in `test/monoidal.py` and a `CHANGELOG.md` entry.
+- [x] Test that `then`, `tensor`, `normal_form`, `foliation` and `interchange`
+      never emit a boxless layer, since they construct with `_scan=False` and
+      so are not covered by the constructor check (@daydream6728 on #603).
 - [ ] Confirm the choice of fix with @toumix: option 2 here, versus option 1
       (drop empty layers on composition) as @daydream6728 proposed on #601.

@@ -89,6 +89,26 @@ def test_Diagram_rejects_boxless_layer():
     assert (x @ Box('f', x, x)).inside[0].boxes
 
 
+def test_composition_never_emits_a_boxless_layer():
+    """ ``then``, ``tensor`` and ``normal_form`` build their layers with
+    ``_scan=False``, so the constructor cannot catch a boxless one: these are
+    the paths that have to be checked by hand. """
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
+    f, g, h = Box('f', x, y), Box('g', y, z), Box('h', z, x)
+    interchanger = f @ Id(z) >> Id(y) @ h
+    diagrams = [
+        f >> g, f >> g >> h, f >> f.dagger(), (f >> g).dagger(),
+        f @ g, g @ f, f @ g @ h, f.tensor(), f.tensor(g, h),
+        x @ f, f @ x, Ty() @ f, f @ Ty(), Id(Ty()) @ f, f @ Id(Ty()),
+        Id(x) @ f, f @ Id(y), Id(Ty()) >> Id(Ty()),
+        interchanger, interchanger.normal_form(), interchanger.foliation(),
+        interchanger.interchange(0, 1),
+        (f @ Id(z) >> Id(y) @ h).normal_form().dagger(),
+    ]
+    for diagram in diagrams:
+        assert all(layer.boxes for layer in diagram.inside), repr(diagram)
+
+
 def test_Ty_init():
     assert list(Ty('x', 'y', 'z')) == [Ty('x'), Ty('y'), Ty('z')]
 
