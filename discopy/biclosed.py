@@ -57,31 +57,13 @@ Axioms
 
 .. image:: /_static/biclosed/uncurry.svg
     :align: center
-
-Combinatorial maps
-------------------
-
-Currying and uncurrying are available directly on the :class:`CMap` alias.
-
->>> f = Box("f", x @ y, z).to_map()
->>> f.curry(left=False).uncurry(left=False).draw(show=False,
-...     doctest="docs/_static/cmap/biclosed-curry-right.dot")
-
-.. graphviz:: /_static/cmap/biclosed-curry-right.dot
-    :align: center
-
->>> f.curry(left=True).uncurry(left=True).draw(show=False,
-...     doctest="docs/_static/cmap/biclosed-curry-left.dot")
-
-.. graphviz:: /_static/cmap/biclosed-curry-left.dot
-    :align: center
 """
 
 from __future__ import annotations
 
 from abc import abstractmethod
 from inspect import signature
-from typing import Callable, ClassVar
+from typing import Callable, ClassVar, Self
 
 from discopy import monoidal
 from discopy import cmap
@@ -476,7 +458,49 @@ class Functor(monoidal.Functor):
         return super().__call__(other)
 
 
-CMap = cmap.CMap[Diagram]
+class CMap(cmap.CMap[Diagram]):
+    def curry(self, n=1, left=True) -> Self:
+        """
+        Curry a combinatorial map using the closed structure of the host
+        category.
+
+        Parameters:
+            n : The number of objects to curry.
+            left : Whether to curry on the left, i.e. into :class:`Over`,
+                or on the right, i.e. into :class:`Under`.
+
+        >>> x, y, z = map(Ty, "xyz")
+        >>> f = CMap.from_diagram(Box("f", x @ y, z))
+        >>> f.curry(left=False).uncurry(left=False).draw(show=False,
+        ...     doctest="docs/_static/cmap/biclosed-curry-right.dot")
+
+        .. graphviz:: /_static/cmap/biclosed-curry-right.dot
+            :align: center
+
+        >>> f.curry(left=True).uncurry(left=True).draw(show=False,
+        ...     doctest="docs/_static/cmap/biclosed-curry-left.dot")
+
+        .. graphviz:: /_static/cmap/biclosed-curry-left.dot
+            :align: center
+        """
+        if n < 0 or n > len(self.dom):
+            raise ValueError
+        if not n:
+            return self
+
+        base = self.cod
+        if left:
+            exponent = self.dom[len(self.dom) - n:]
+            exp = base << exponent
+            coev = type(self).from_box(
+                self.category.coeval_factory(exp, left=True))
+            return (self >> coev).trace(n, left=False)
+
+        exponent = self.dom[:n]
+        exp = exponent >> base
+        coev = type(self).from_box(
+            self.category.coeval_factory(exp, left=False))
+        return (self >> coev).trace(n, left=True)
 
 
 Diagram.functor_factory = Functor
