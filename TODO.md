@@ -1,18 +1,22 @@
 # TODO
 
-> this should go to the docs not the changelog! also we should be 100% sure that none of our internal methods produce this junk
+> no this PR is garbage let's close it and focus on https://github.com/discopy/discopy/issues/599
 
-— @toumix on [#599](https://github.com/discopy/discopy/issues/599), 2026-08-19
+— @toumix closing [#601](https://github.com/discopy/discopy/pull/601), 2026-08-20
 
-Document the boxless-`Layer` contract raised in #599 in the docs, not the
-changelog, having first verified no internal method produces one.
+The docs-only answer to [#599](https://github.com/discopy/discopy/issues/599) is
+rejected. This branch fixes the issue instead.
 
-- [x] Audit every internal method for boxless-`Layer` production inside a
-  `Diagram`: none found. Only `Layer.id` builds a boxless layer, a transient
-  in `Layer.tensor` that `Layer.normalise` merges into the box it whiskers;
-  every other `normalise=False` site maps one-to-one over an existing layer
-  (`subs`, `dagger`, `lambdify`, `rigid.rotate`, `feedback.delay`), preserving
-  its boxes. Confirmed empirically across `monoidal`, `symmetric`, `rigid`,
-  `braided`, `markov`, `compact`, `frobenius`.
-- [x] Document the contract on `Layer.id` (docstring only, no changelog entry).
-- [x] Report the audit on #599 (comment 5349620334); PR opened as #601.
+- [x] Revert the `Layer.id` docstring note of #601.
+- [x] Reject a boxless layer in `Diagram.__init__` (`ValueError`), so the junk
+      of #599 is unrepresentable rather than documented. This is option 2 of the
+      issue, the one it calls "closest to the stated invariant, and it would
+      have caught this at construction".
+- [x] Gate the check on `_scan`, the flag that already separates user input
+      from internal construction, so no hot path pays for it.
+- [x] Confirm nothing internal produces a boxless layer: only `Layer.id` builds
+      one, as the unit of `Layer.tensor`, which `Layer.normalise` merges into
+      the box it whiskers. Full suite green with the check enforced.
+- [x] Regression test in `test/monoidal.py` and a `CHANGELOG.md` entry.
+- [ ] Confirm the choice of fix with @toumix: option 2 here, versus option 1
+      (drop empty layers on composition) as @daydream6728 proposed on #601.

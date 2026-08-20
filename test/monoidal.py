@@ -76,6 +76,19 @@ def test_coloured_Ty_tree_and_legacy_tree():
     assert from_tree(legacy) == Ty('x')
 
 
+def test_Diagram_rejects_boxless_layer():
+    """ A layer with no box is an internal transient of :meth:`Layer.tensor`,
+    never a layer of a diagram: the identity is the empty sequence. """
+    x = Ty('x')
+    with raises(ValueError):
+        Diagram(inside=(Layer.id(), ), dom=Ty(), cod=Ty())
+    with raises(ValueError):
+        Diagram(inside=(Layer.id(x), ), dom=x, cod=x)
+    assert Diagram.id(Ty()).inside == () == Id(x).inside[:0]
+    assert Layer.id(x).boxes == []
+    assert (x @ Box('f', x, x)).inside[0].boxes
+
+
 def test_Ty_init():
     assert list(Ty('x', 'y', 'z')) == [Ty('x'), Ty('y'), Ty('z')]
 

@@ -607,15 +607,6 @@ class Layer(cat.Box, ColouredMonoid):
 
         Parameters:
             dom : The type to embed as plumbing.
-
-        Note
-        ----
-        A boxless layer is an internal transient, the unit for
-        :meth:`tensor`: :meth:`normalise` merges it into the box it whiskers,
-        so no method of :class:`Diagram` leaves one in its ``inside``. It must
-        not be placed inside a :class:`Diagram` by hand, whose layers each hold
-        at least one box; the identity diagram is :meth:`Diagram.id`, the empty
-        sequence of layers, rather than a diagram holding a boxless layer.
         """
         return cls(cls.ob() if dom is None else dom, normalise=False)
 
@@ -860,6 +851,8 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
             self, inside: tuple[Layer, ...], dom: Ty, cod: Ty, _scan=True):
         for layer in inside:
             assert_isinstance(layer, Layer)
+            if _scan and not layer.boxes:
+                raise ValueError(messages.LAYERS_MUST_HAVE_A_BOX)
         super().__init__(inside, dom, cod, _scan=_scan)
 
     @property
