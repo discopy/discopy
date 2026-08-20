@@ -15,4 +15,4 @@ changelog, having first verified no internal method produces one.
   its boxes. Confirmed empirically across `monoidal`, `symmetric`, `rigid`,
   `braided`, `markov`, `compact`, `frobenius`.
 - [x] Document the contract on `Layer.id` (docstring only, no changelog entry).
-- [ ] Report the audit on #599 and resolve the thread.
+- [x] Report the audit on #599 (comment 5349620334); PR opened as #601.
