@@ -790,8 +790,8 @@ class Layer(cat.Box, ColouredMonoid):
     @classmethod
     def strategy(
             cls, *, factory, types=None, dom=None, cod=None,
-            label=None, exclude=(), boundary_connected=True):
-        """Generate a one-box layer matching optional exact boundaries."""
+            label=None, exclude=(), boundary_connected=True, max_boxes=2):
+        """Generate a layer of boxes matching optional exact boundaries."""
         from hypothesis import strategies as st
 
         types = factory.ob.strategy() if types is None else types
@@ -806,35 +806,51 @@ class Layer(cat.Box, ColouredMonoid):
                 types=types, label=label)).map(cls)
 
         def free_layer(placement):
-            left, box_dom, box_cod, right = placement
-            return fresh(boxes.free_strategy(
-                types=types, dom=box_dom, cod=box_cod,
-                label=label)).map(
-                    lambda box: cls(left, box, right))
+            plumbing, boundaries = placement
+            return st.tuples(*(
+                fresh(boxes.free_strategy(
+                    types=types, dom=box_dom, cod=box_cod, label=label))
+                for box_dom, box_cod in boundaries)).map(
+                    lambda drawn: cls(*(
+                        part
+                        for typ, box in zip(plumbing, drawn)
+                        for part in (typ, box)), plumbing[-1]))
+
+        def decompositions(source, target, n_boxes):
+            """ Alternate shared types with the boundaries of each box. """
+            if not n_boxes:
+                if source == target:
+                    yield (source, ), ()
+                return
+            for i in range(min(len(source), len(target)) + 1):
+                if source[:i] != target[:i]:
+                    break
+                for j in range(len(source) - i + 1):
+                    for k in range(len(target) - i + 1):
+                        if not j and not k:
+                            continue
+                        for rest, pairs in decompositions(
+                                source[i + j:], target[i + k:], n_boxes - 1):
+                            yield (source[:i], ) + rest, (
+                                (source[i:i + j], target[i:i + k]), ) + pairs
 
         if dom is None or cod is None:
             boundary, is_dom = (dom, True) if dom is not None else (cod, False)
-            placements = [(
-                boundary[:i], boundary[i:j] if is_dom else None,
-                None if is_dom else boundary[i:j], boundary[j:])
+            placements = [
+                ((boundary[:i], boundary[j:]),
+                 ((boundary[i:j], None) if is_dom
+                  else (None, boundary[i:j]), ))
                 for i in range(len(boundary) + 1)
                 for j in range(i, len(boundary) + 1)]
         else:
             placements = [
-                (dom[:i], dom[i:len(dom) - right],
-                 cod[i:len(cod) - right], dom[len(dom) - right:])
-                for i in range(min(len(dom), len(cod)) + 1)
-                for right in range(
-                    min(len(dom) - i, len(cod) - i) + 1)
-                if dom[:i] == cod[:i]
-                and dom[len(dom) - right:] == cod[len(cod) - right:]]
-        if boundary_connected and dom is not None and cod is not None:
-            placements = [
-                placement for placement in placements
-                if placement[1] or placement[2]]
+                placement
+                for n_boxes in range(1, max_boxes + 1)
+                for placement in decompositions(dom, cod, n_boxes)]
         if dom:
             placements = [
-                placement for placement in placements if placement[1]]
+                placement for placement in placements
+                if all(box_dom for box_dom, _ in placement[1])]
         guided = st.sampled_from(placements).flatmap(free_layer)\
             if placements else st.nothing()
         return guided
