@@ -67,7 +67,6 @@ jobs:
       run: |
         APT="sudo timeout 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=10"
         $APT install -y graphviz || { $APT update && $APT install -y graphviz; }
-        dot -Tsvg -o /dev/null <<< 'digraph { a -> b }'
     - name: Install
       run:
         uv sync --locked --group dev --group all
@@ -103,7 +102,6 @@ jobs:
       run: |
         APT="sudo timeout 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=10"
         $APT install -y graphviz || { $APT update && $APT install -y graphviz; }
-        dot -Tsvg -o /dev/null <<< 'digraph { a -> b }'
     - name: Install
       run:
         uv sync --locked --group docs
