@@ -194,6 +194,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `Hypergraph.to_diagram` no longer asks for swaps when one of their two
   sides is empty, where the identity does
   ([#532](https://github.com/discopy/discopy/pull/532)).
+- `build.yml` timeouts and a bounded, retried Graphviz install
+  ([#591](https://github.com/discopy/discopy/issues/591)).
 - `frobenius.Diagram.unfuse`'s doctest no longer sets `Spider.color = "red"`
   to draw its example, which was leaking into every later doctest in the
   same pytest process
