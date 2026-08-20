@@ -23,5 +23,5 @@ On `test/cmap.py`:
   `test/cmap.py` for classmethods called on an instance: `Id(x @ y).swap(x, y)`
   discards its receiver, so the test composed no swaps at all and eliminating
   them was vacuous. Use `permute` and assert the swaps really are eliminated.
-- [ ] Make the physical `SWAP` gate a box rather than the categorical swap, so
+- [x] Make the physical `SWAP` gate a box rather than the categorical swap, so
   that logical and physical swaps are distinguishable.

@@ -62,6 +62,13 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   re-labels a wire it keeps in place, nor pushes its input labels off the
   canvas, so the redrawn baselines only differ by their serialisation
   ([#444](https://github.com/discopy/discopy/issues/444)).
+- The quantum `SWAP` is a gate rather than the symmetry of the category, so
+  that a physical swap is distinguishable from a logical one. It is a
+  `QuantumGate` drawn as a crossing, while `Circuit.swap` still gives the
+  plumbing `quantum.circuit.Swap`: the two evaluate to the same array but
+  only the gate survives compilation, `to_tk` emitting `OpType.SWAP` for it
+  where it applies a logical swap by moving the gate to other qubits.
+  `discopy.quantum` exports both, `discopy.quantum.gates` only the gate.
 
 - `monoidal.Layer` holds a list of boxes and non-empty types with at least
   one box and no two consecutive types, instead of an odd-length list

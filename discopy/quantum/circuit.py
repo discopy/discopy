@@ -576,10 +576,21 @@ class Circuit(tensor.Diagram[complex]):
         >>> circuit1.to_tk()
         tk.Circuit(3).X(0).CX(0, 2)
 
+        A logical swap is plumbing: it is compiled away by applying the gate
+        to non-adjacent qubits instead.
+
+        >>> logical = Circuit.swap(qubit, qubit)
+        >>> circuit2 = X @ qubit ** 2\\
+        ...     >> qubit @ logical >> CX @ qubit >> qubit @ logical
+        >>> circuit2.to_tk()
+        tk.Circuit(3).X(0).CX(0, 2)
+
+        The ``SWAP`` gate is physical, so it is emitted as it is written.
+
         >>> circuit2 = X @ qubit ** 2\\
         ...     >> qubit @ SWAP >> CX @ qubit >> qubit @ SWAP
         >>> circuit2.to_tk()
-        tk.Circuit(3).X(0).CX(0, 2)
+        tk.Circuit(3).X(0).SWAP(1, 2).CX(0, 1).SWAP(1, 2)
 
         >>> circuit3 = Ket(0, 0)\\
         ...     >> H @ qubit\\
@@ -670,12 +681,18 @@ class Circuit(tensor.Diagram[complex]):
           >> Discard(qubit) @ qubit @ qubit
           >> Discard(qubit) @ qubit
           >> Discard(qubit)
+
+        The swaps introduced here are logical, i.e. plumbing rather than
+        ``SWAP`` gates: they only record that the gate applies to qubits
+        that are not adjacent in the diagram.
+
         >>> circuit = Ket(1, 0) >> CX >> qubit @ Ket(0) @ qubit
-        >>> assert str(Circuit.from_tk(circuit.to_tk())[3:-3]) == (
-        ...     "X @ qubit @ qubit "
-        ...     ">> Permutation(qubit @ qubit @ qubit, [0, 2, 1]) "
-        ...     ">> CX @ qubit "
-        ...     ">> Permutation(qubit @ qubit @ qubit, [0, 2, 1])")
+        >>> logical = Circuit.swap(qubit, qubit)
+        >>> assert Circuit.from_tk(circuit.to_tk())[3:-3] == (
+        ...     X @ qubit @ qubit
+        ...     >> qubit @ logical
+        ...     >> CX @ qubit
+        ...     >> qubit @ logical)
 
         >>> bell_state = Circuit.caps(qubit, qubit)
         >>> bell_effect = bell_state[::-1]
@@ -922,9 +939,13 @@ class Permutation(tensor.Permutation[complex], Box):
 
 
 class Swap(Permutation, tensor.Swap, Box):
-    """ Implements swaps of circuit wires. """
-    def __str__(self):
-        return "SWAP" if self.dom == qubit ** 2 else super().__str__()
+    """
+    The logical swap of two circuit wires, i.e. plumbing.
+
+    This is the symmetry of the category, not the physical ``SWAP`` gate:
+    a compiler is free to implement it by relabelling qubits rather than by
+    applying a two-qubit unitary.
+    """
 
     @property
     def array(self):

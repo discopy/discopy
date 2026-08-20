@@ -51,7 +51,7 @@ OPTYPE_MAP = {"H": OpType.H,
               "CZ": OpType.CZ,
               "CRx": OpType.CRx,
               "CRz": OpType.CRz,
-              "Swap": OpType.SWAP,
+              "SWAP": OpType.SWAP,
               }
 
 
