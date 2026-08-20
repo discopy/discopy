@@ -91,7 +91,7 @@ hand. Same move as `discopy.drawing`, where the layout algorithm is itself a fun
 - [x] 2. File the bugs found while measuring: #541, #542, #543, #544 — all four fixed in #545.
       #548 (no closed diagram containing `Copy` can be drawn) and #549 (`Context.dom` repeated
       #542's unbound call) also filed; #549 is fixed on `main` via #556.
-- [WIP] @evening-5508f9d0-2026-08-20 06:45 3. `varname` on `monoidal.Wire`, per USER's ruling quoted below: an optional argument of
+- [x] 3. `varname` on `monoidal.Wire`, per USER's ruling quoted below: an optional argument of
       `Wire.__init__`, in `__repr__` but not `__str__`, not in `__eq__`. Also carried through
       `dagger()` and `to_tree`/`from_tree`, which drop it today.
 - [ ] 4. Deterministic fresh names from binder position (de Bruijn level: free variables numbered by

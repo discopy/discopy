@@ -76,6 +76,42 @@ def test_coloured_Ty_tree_and_legacy_tree():
     assert from_tree(legacy) == Ty('x')
 
 
+def test_Wire_varname():
+    """ ``varname`` annotates a wire without splitting its type. """
+    plain, annotated = Wire('X'), Wire('X', varname='x')
+    assert plain == annotated and hash(plain) == hash(annotated)
+    assert Ty(plain) == Ty(annotated)
+    assert Wire('X', varname='x') == Wire('X', varname='y')
+    assert annotated.varname == 'x' and plain.varname is None
+    with raises(TypeError):
+        Wire('X', varname=42)
+
+
+def test_Wire_varname_repr_str_and_tree():
+    """ ``varname`` is faithful in ``repr`` and in trees, absent from ``str``.
+    """
+    annotated = Wire('X', varname='x')
+    assert repr(annotated) == "monoidal.Wire('X', varname='x')"
+    assert repr(Wire('X')) == "cat.Ob('X')"
+    assert str(annotated) == 'X'
+    assert annotated.to_tree()['varname'] == 'x'
+    assert 'varname' not in Wire('X').to_tree()
+    assert from_tree(annotated.to_tree()).varname == 'x'
+    assert pickle.loads(pickle.dumps(annotated)).varname == 'x'
+    coloured = Wire('X', Colour('red'), Colour('blue'), varname='x')
+    assert from_tree(coloured.to_tree()) == coloured
+    assert from_tree(coloured.to_tree()).varname == 'x'
+
+
+def test_Wire_varname_dagger():
+    """ ``dagger`` carries the annotation, swapping the colours. """
+    red, blue = Colour('red'), Colour('blue')
+    annotated = Wire('X', red, blue, varname='x')
+    assert annotated.dagger().varname == 'x'
+    assert (annotated.dagger().dom, annotated.dagger().cod) == (blue, red)
+    assert annotated.dagger().dagger() == annotated
+
+
 def test_Ty_init():
     assert list(Ty('x', 'y', 'z')) == [Ty('x'), Ty('y'), Ty('z')]
 
