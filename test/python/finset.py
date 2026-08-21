@@ -21,6 +21,7 @@ def test_FinSet():
     assert finset.Permutation((1, 0)).is_fixpoint_free_involution()
     assert finset.Permutation.is_swap([1, 0])
     assert not finset.Permutation.is_swap([0, 1])
+    assert not finset.Function([1, 0], 3, 2).is_swap()
     assert not finset.Permutation((0,)).is_fixpoint_free_involution()
     assert finset.Permutation.identity(2) == (0, 1)
     assert finset.Permutation((1, 0)).then((1, 0)) == (0, 1)

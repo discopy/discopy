@@ -66,16 +66,20 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   plumbing like any other permutation: it coalesces with its neighbours in
   a `symmetric.Layer`, so a whiskered swap is stored and drawn as one wider
   permutation, and `foliation` composes consecutive layers of pure plumbing
-  into one. The pictures stay the same: a permutation no longer
-  re-labels a wire it keeps in place, nor pushes its input labels off the
-  canvas, so the redrawn baselines only differ by their serialisation
+  into one, unless they compose to the identity. The pictures stay the same:
+  a permutation no longer re-labels a wire it keeps in place, nor pushes its
+  input labels off the canvas, so the redrawn baselines only differ by their
+  serialisation, except `symmetric/foliation.svg` (input labels come back on
+  canvas), `int/symmetric-feedback.svg` (one row taller) and
+  `symmetric/yang-baxter.svg` (gains its foliated middle)
   ([#444](https://github.com/discopy/discopy/issues/444)).
 - The quantum `SWAP` is a gate rather than the symmetry of the category, so
   that a physical swap is distinguishable from a logical one. It is a
   `QuantumGate` drawn as a crossing, while `Circuit.swap` still gives the
   plumbing `quantum.circuit.Swap`: the two evaluate to the same array but
-  only the gate survives compilation, `to_tk` emitting `OpType.SWAP` for it
-  where it applies a logical swap by moving the gate to other qubits.
+  only the gate survives compilation, `to_tk` emitting `OpType.SWAP` for
+  the gate while compiling a logical swap away by applying later gates to
+  the permuted qubits.
   `discopy.quantum` exports both, `discopy.quantum.gates` only the gate.
 
 - `monoidal.Layer` holds a list of boxes and non-empty types with at least

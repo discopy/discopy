@@ -89,8 +89,12 @@ class Function(MonoidalCategory, Sequence):
         return Function(inside, x + y, x + y)
 
     def is_swap(self) -> bool:
-        """ Whether this is the permutation ``(1, 0)``. """
-        return len(self) == 2 and self[0] == 1 and self[1] == 0
+        """
+        Whether this is the permutation ``(1, 0)``, callable on a raw
+        sequence as well as on a :class:`Function` with a two-wire domain.
+        """
+        return getattr(self, "dom", 2) == 2\
+            and len(self) == 2 and self[0] == 1 and self[1] == 0
 
     @classmethod
     def permutation(cls, xs: Sequence[int], doms: Sequence[int]) -> Function:
