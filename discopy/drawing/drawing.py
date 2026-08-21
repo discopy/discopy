@@ -66,27 +66,54 @@ Boxes and wires reserve enough horizontal space for their labels:
 ...  >> Box('a_box_with_a_very_long_name', x @ x, x)
 ...  >> Box('g', x, x)).draw(
 ...      aspect='equal', doctest="docs/_static/drawing/long-box-name.svg")
+
+.. image:: /_static/drawing/long-box-name.svg
+    :align: center
+
 >>> (Box('$\\\\Lambda$', x, x, min_width=3) @ Box('f', x, x)).draw(
 ...     aspect='equal', doctest="docs/_static/drawing/box-min-width.svg")
+
+.. image:: /_static/drawing/box-min-width.svg
+    :align: center
+
 >>> long_type = Ty('a_long_type_name')
 >>> long_type.inside[0].min_right_margin = 1.5
 >>> Id(x @ long_type @ x).draw(aspect='equal',
 ...     doctest="docs/_static/drawing/wire-min-right-margin.svg")
+
+.. image:: /_static/drawing/wire-min-right-margin.svg
+    :align: center
+
 >>> custom = Ty('custom_margin_wire')
 >>> custom.inside[0].right_margin = 3
 >>> Id(x @ custom @ x).draw(
 ...     aspect='equal', doctest="docs/_static/drawing/wire-custom-margin.svg")
+
+.. image:: /_static/drawing/wire-custom-margin.svg
+    :align: center
+
 >>> Box('f', x, x @ Ty('a_long_output_type')).draw(
 ...     aspect='equal', doctest="docs/_static/drawing/wire-auto-margin.svg")
+
+.. image:: /_static/drawing/wire-auto-margin.svg
+    :align: center
+
 >>> (Box('$\\\\int_a^b f(x)\\\\,dx = \\\\sqrt{2}$', x, x)
 ...  @ Box('f', x, x)).draw(
 ...      aspect='equal', doctest="docs/_static/drawing/long-latex-name.svg")
+
+.. image:: /_static/drawing/long-latex-name.svg
+    :align: center
 
 Bubbles, grammatical diagrams and quantum circuits use the same backend:
 
 >>> (x @ Box('s', Ty(), Ty())).bubble().draw(
 ...     wire_labels=False,
 ...     doctest="docs/_static/drawing/bubble-straight-wire.svg")
+
+.. image:: /_static/drawing/bubble-straight-wire.svg
+    :align: center
+
 >>> from discopy.compact import (
 ...     Cap, Ty as RTy, Box as RBox, Id as RId)
 >>> n, s = map(RTy, 'ns')
@@ -94,25 +121,49 @@ Bubbles, grammatical diagrams and quantum circuits use the same backend:
 ...        >> RId(n.r @ n) @ Cap(s, s.l) @ RId(n)
 ...        >> RId(n.r) @ RBox('update', n @ s, s) @ RId(s.l @ n))
 >>> who.draw(aspect='equal', doctest="docs/_static/drawing/who-ansatz.svg")
+
+.. image:: /_static/drawing/who-ansatz.svg
+    :align: center
+
 >>> from discopy.grammar.categorial import Eval, Ty as CTy, Word
 >>> s, n = map(CTy, 'sn')
 >>> sentence = (Word('Alice', n) @ Word('loves', (n >> s) << n)
 ...             @ Word('Bob', n) >> n @ Eval((n >> s) << n) >> Eval(n >> s))
 >>> sentence.draw(
 ...     aspect='equal', doctest="docs/_static/drawing/categorial-grammar.svg")
+
+.. image:: /_static/drawing/categorial-grammar.svg
+    :align: center
+
 >>> from discopy.quantum.zx import Z, X, Id as ZId, SWAP
 >>> bialgebra = (Z(1, 2) @ Z(1, 2) >> ZId(1) @ SWAP @ ZId(1)
 ...              >> X(2, 1) @ X(2, 1))
 >>> (bialgebra + bialgebra).draw(
 ...     aspect='equal', doctest="docs/_static/drawing/bialgebra.svg")
+
+.. image:: /_static/drawing/bialgebra.svg
+    :align: center
+
 >>> from discopy.quantum import qubit, H, sqrt, Bra, Ket, CX
 >>> bell = sqrt(2) >> Ket(0, 0) >> H @ qubit >> CX >> Bra(0) @ qubit
 >>> bell.draw(aspect='equal', doctest="docs/_static/drawing/bell-state.svg")
->>> from discopy.quantum import Controlled, CZ
->>> circuit = (Controlled(CX.l, distance=3)
-...            >> Controlled(Controlled(CZ.l, distance=2), distance=-1))
->>> circuit.draw(
-...     wire_labels=False, doctest="docs/_static/drawing/long-controlled.svg")
+
+.. image:: /_static/drawing/bell-state.svg
+    :align: center
+
+A controlled gate over distinct wires, e.g. a classically-controlled gate,
+picks the x-coordinate of its control from the wire it sits on:
+
+>>> bit, qubit = Ty("bit"), Ty("qubit")
+>>> gate = Box("F", qubit, qubit)
+>>> controlled = Box(
+...     "CF", bit @ qubit, bit @ qubit,
+...     draw_as_controlled=True, controlled=gate, distance=1)
+>>> left_controlled = Box(
+...     "FC", qubit @ bit, qubit @ bit,
+...     draw_as_controlled=True, controlled=gate, distance=-1)
+>>> (controlled @ left_controlled).draw(
+...     doctest="docs/_static/drawing/controlled-classical.svg")
 
 Coloured regions are also checked as part of the gallery:
 

@@ -193,7 +193,7 @@ def test_draw_regions_uncoloured_shapes():
 
 def test_draw_coloured_cups_and_caps():
     red, green = map(monoidal.Colour, ("red", "green"))
-    x = Ty(Ob("x", dom=red, cod=green))
+    x = Ty(Wire("x", dom=red, cod=green))
     # A cup and a cap each separate the two boundary regions, with the
     # names in discopy.config.COLORS resolved to their hexcodes.
     assert region_hexes(Cup(x, x.r)) == {'#e8a5a5', '#d8f8d8'}
@@ -201,24 +201,24 @@ def test_draw_coloured_cups_and_caps():
 
 
 def test_draw_coloured_crossings_are_monochrome():
-    from discopy.frobenius import Spider, Ty as FTy, Ob as FOb
+    from discopy.frobenius import Spider, Ty as FTy, Wire as FOb
     red = monoidal.Colour("red")
     # Wires that cross or merge must be globular, i.e. carry the same colour
     # on both sides, so their regions are a single colour.
     assert region_hexes(Swap(
-        Ty(Ob("x", dom=red, cod=red)), Ty(Ob("y", dom=red, cod=red)))
+        Ty(Wire("x", dom=red, cod=red)), Ty(Wire("y", dom=red, cod=red)))
     ) == {'#e8a5a5'}
     assert region_hexes(Spider(2, 1, FTy(FOb("x", dom=red, cod=red)))) == {
         '#e8a5a5'}
     # A swap of wires separating different regions is not globular.
     green = monoidal.Colour("green")
     with raises(AxiomError):
-        Swap(Ty(Ob("x", dom=red, cod=green)), Ty(Ob("y", dom=green, cod=red)))
+        Swap(Ty(Wire("x", dom=red, cod=green)), Ty(Wire("y", dom=green, cod=red)))
 
 
 def test_draw_coloured_equation():
     red, green = map(monoidal.Colour, ("red", "green"))
-    x = Ty(Ob("x", dom=red, cod=green))
+    x = Ty(Wire("x", dom=red, cod=green))
     equation = Equation(Box("f", x, x), Box("g", x, x))
     colours = region_hexes(equation)
     # Both term regions show, each in its own white-bordered slot.
@@ -505,6 +505,47 @@ def test_tikz_long_controlled():
     from discopy.quantum import Controlled, CZ, CX
     return (Controlled(CX.l, distance=3) >> Controlled(
         Controlled(CZ.l, distance=2), distance=-1))
+
+
+def classical_controlled():
+    # A controlled gate over distinct wires, e.g. a classically-controlled
+    # gate, used to hit a KeyError looking up its nodes with the wrong type.
+    bit, qubit = monoidal.Ty("bit"), monoidal.Ty("qubit")
+    gate = monoidal.Box("F", qubit, qubit)
+    controlled = monoidal.Box(
+        "CF", bit @ qubit, bit @ qubit,
+        draw_as_controlled=True, controlled=gate, distance=1)
+    left_controlled = monoidal.Box(
+        "FC", qubit @ bit, qubit @ bit,
+        draw_as_controlled=True, controlled=gate, distance=-1)
+    return controlled @ left_controlled
+
+
+# The matplotlib rendering of classical_controlled() is exercised as a
+# doctest in the Gallery section of discopy/drawing/drawing.py, alongside
+# long-controlled; this only checks the TikZ backend, whose bending is
+# computed differently from Matplotlib.
+@tikz_and_compare('controlled-classical.tikz')
+def test_tikz_controlled_classical():
+    return classical_controlled()
+
+
+def test_tikz_controlled_node_ids():
+    # Nested controlled gates put several nodes at the same point, which used
+    # to make TikZ output duplicate node ids and misdirected control wires.
+    import re
+    from discopy.quantum import Controlled, X
+    path = os.path.join(TIKZ_FOLDER, '_ccx-node-ids.tikz')
+    Controlled(Controlled(X)).draw(path=path, to_tikz=True)
+    with open(path, "r") as file:
+        lines = file.read().splitlines()
+    os.remove(path)
+    node_ids = [re.search(r"\((\d+)\) at", line).group(1)
+                for line in lines if line.startswith("\\node ")]
+    assert len(node_ids) == len(set(node_ids))
+    wires = [re.findall(r"\((\d+)\.center\)", line)
+             for line in lines if "out=" in line]
+    assert all(source != target for source, target in wires)
 
 
 def test_rich_display():
