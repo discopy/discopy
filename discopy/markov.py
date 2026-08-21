@@ -305,9 +305,9 @@ class Functor(symmetric.Functor):
     dom = cod = Diagram
 
     def __call__(self, other):
-        if isinstance(other, Copy):
+        if isinstance(other, Copy) and hasattr(self.cod, "copy"):
             return self.cod.copy(self(other.dom), len(other.cod))
-        if isinstance(other, Merge):
+        if isinstance(other, Merge) and hasattr(self.cod, "merge"):
             return self.cod.merge(self(other.cod), len(other.dom))
         return super().__call__(other)
 

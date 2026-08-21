@@ -587,9 +587,10 @@ class Functor(balanced.Functor):
     dom = cod = Diagram
 
     def __call__(self, other):
-        if isinstance(other, Swap):
+        if isinstance(other, Swap) and hasattr(self.cod.ar, "swap"):
             return self.cod.ar.swap(self(other.dom[0]), self(other.dom[1]))
-        if isinstance(other, Permutation):
+        if isinstance(other, Permutation) and hasattr(
+                self.cod.ar, "permutation"):
             if isinstance(other.dom, PRO):
                 doms = self(other.dom)
             else:
