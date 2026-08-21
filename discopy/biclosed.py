@@ -57,15 +57,34 @@ Axioms
 
 .. image:: /_static/biclosed/uncurry.svg
     :align: center
+
+Combinatorial maps
+------------------
+
+Currying and uncurrying are available directly on the :class:`CMap` alias.
+
+>>> f = Box("f", x @ y, z).to_map()
+>>> f.curry(left=False).uncurry(left=False).draw(show=False,
+...     doctest="docs/_static/cmap/biclosed-curry-right.dot")
+
+.. graphviz:: /_static/cmap/biclosed-curry-right.dot
+    :align: center
+
+>>> f.curry(left=True).uncurry(left=True).draw(show=False,
+...     doctest="docs/_static/cmap/biclosed-curry-left.dot")
+
+.. graphviz:: /_static/cmap/biclosed-curry-left.dot
+    :align: center
 """
 
 from __future__ import annotations
 
 from abc import abstractmethod
 from inspect import signature
-from typing import Callable, ClassVar, Self
+from typing import Callable, ClassVar
 
 from discopy import monoidal
+from discopy import cmap
 from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
 from discopy.cat import factory
@@ -303,18 +322,6 @@ class Diagram(monoidal.Diagram, BiclosedCategory):
         return cls.eval_factory(
             base << exponent if left else exponent >> base)
 
-    def uncurry(self: Diagram, left=True) -> Diagram:
-        """
-        Uncurry a biclosed diagram by composing it with :meth:`Diagram.ev`.
-
-        Parameters:
-            left : Whether to uncurry on the left, i.e. from :class:`Over`,
-                or on the right, i.e. from :class:`Under`.
-        """
-        base, exponent = self.cod.base, self.cod.exponent
-        return self @ exponent >> self.ev(base, exponent, True) if left\
-            else exponent @ self >> self.ev(base, exponent, False)
-
     def to_drawing(self):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
 
@@ -384,6 +391,12 @@ class Curry(monoidal.Bubble, Box):
         arg : The diagram to curry.
         n : The number of atomic types to curry.
         left : Whether to curry on the left or right.
+
+    Example
+    -------
+    >>> x, y, z = map(Ty, "xyz")
+    >>> print(Curry(Box('f', x @ y, z)))
+    Curry(f, 1, False)
     """
     def __init__(self, arg: Diagram, n=1, left=False):
         self.n, self.left = n, left
@@ -396,6 +409,9 @@ class Curry(monoidal.Bubble, Box):
         monoidal.Bubble.__init__(
             self, arg, dom=dom, cod=cod, drawing_name="$\\Lambda$")
         Box.__init__(self, name, dom, cod)
+
+    def __str__(self):
+        return self.name
 
     def to_drawing(self):
         if self.left:
@@ -460,85 +476,10 @@ class Functor(monoidal.Functor):
         return super().__call__(other)
 
 
-class CMap(monoidal.CMap):
-    category = Diagram
-
-    require_causal = False
-
-    def curry(self, n=1, left=True) -> Self:
-        """
-        Curry a combinatorial map using the closed structure of the host
-        category.
-
-        Parameters:
-            n : The number of objects to curry.
-            left : Whether to curry on the left, i.e. into :class:`Over`,
-                or on the right, i.e. into :class:`Under`.
-
-        >>> from discopy.closed import Ty, Box
-        >>> x, y, z = map(Ty, "xyz")
-        >>> f = Box("f", x @ y, z).to_map()
-        >>> f.curry(left=False).uncurry(left=False).draw(show=False,
-        ...     doctest="docs/_static/cmap/biclosed-curry-right.dot")
-
-        .. graphviz:: /_static/cmap/biclosed-curry-right.dot
-            :align: center
-
-        >>> f.curry(left=True).uncurry(left=True).draw(show=False,
-        ...     doctest="docs/_static/cmap/biclosed-curry-left.dot")
-
-        .. graphviz:: /_static/cmap/biclosed-curry-left.dot
-            :align: center
-        """
-        if n < 0 or n > len(self.dom):
-            raise ValueError
-        if not n:
-            return self
-
-        base = self.cod
-        if left:
-            exponent = self.dom[len(self.dom) - n:]
-            exp = base << exponent
-            coev = type(self).from_box(
-                self.category.coeval_factory(exp, left=True))
-            return (self >> coev).trace(n, left=False)
-
-        exponent = self.dom[:n]
-        exp = exponent >> base
-        coev = type(self).from_box(
-            self.category.coeval_factory(exp, left=False))
-        return (self >> coev).trace(n, left=True)
-
-    def uncurry(self, n=1, left=True) -> Self:
-        """
-        Uncurry a combinatorial map using the evaluation box of the host
-        category.
-
-        Parameters:
-            n : The number of objects to uncurry.
-            left : Whether to uncurry on the left, i.e. from :class:`Over`,
-                or on the right, i.e. from :class:`Under`.
-        """
-        if n < 0:
-            raise ValueError
-        if not n:
-            return self
-        if not self.cod.is_exp:
-            raise ValueError
-
-        exponent = self.cod.exponent
-        if n < len(exponent):
-            raise ValueError
-
-        ev = type(self).from_box(self.category.eval_factory(self.cod, left))
-        result = self @ type(self).id(exponent) >> ev if left\
-            else type(self).id(exponent) @ self >> ev
-        remaining = n - len(exponent)
-        return result if not remaining else result.uncurry(remaining, left)
+CMap = cmap.CMap[Diagram]
 
 
 Diagram.functor_factory = Functor
-Diagram.map_factory = CMap
 
 
 class TermBase(Box):

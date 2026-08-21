@@ -61,6 +61,35 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Changed
 
+- `CMap` is aligned on `Hypergraph`. It is parameterised by a category as
+  `NamedGeneric["category"]` instead of carrying `require_*` flags, and it is
+  always compact whatever category hosts it, so every compact operation is
+  available when manipulating maps. The host category is asked for structure
+  only on the `to_diagram` downgrade path, i.e. in `make_monogamous`, which
+  needs cups and caps, and in `make_causal`, which reorders acyclic maps
+  without traces and only asks for traces when cycles or scalar loops remain,
+  cutting every backward wire and loop at once. Each box is placed where its
+  first domain wire already is, so the decoder no longer swaps that wire to
+  the front.
+  The predicates follow the `Hypergraph` names and are local conditions on
+  the edges, `__init__` takes a keyword `check`, and `curry`, `uncurry` and
+  `ev` come from the cups and caps of `abc.RigidCategory` when the host
+  category is rigid and stay explicit boxes otherwise, all three defaulting
+  `left` to `True` like the rest of the hierarchy
+  ([#532](https://github.com/discopy/discopy/pull/532),
+  [#560](https://github.com/discopy/discopy/issues/560)).
+- `uncurry` is defined once in `abc.BiclosedCategory`, in terms of a new
+  method `base_and_exponent` for the two objects that `ev` evaluates.
+  `abc.RigidCategory` and `cmap.CMap` override that method instead of
+  duplicating the composition with `ev`: a pregroup has no exponential
+  object, so its exponent is the `n` objects at the end resp. the start of
+  the codomain, dualised, and a map reads it off its wiring when the host
+  category is rigid ([#532](https://github.com/discopy/discopy/pull/532)).
+- `balanced` and `pivotal` export a `CMap` alias like the other levels of
+  the hierarchy ([#532](https://github.com/discopy/discopy/pull/532)).
+- `Hypergraph.to_diagram` raises `messages.NOT_RIGID/FROBENIUS/TRACED/...`
+  where it checks that the category has the available wirig structure.
+  ([#532](https://github.com/discopy/discopy/pull/532)).
 - `monoidal.Layer` holds a list of boxes and non-empty types with at least
   one box and no two consecutive types, instead of an odd-length list
   alternating type and box. Whiskering extends the list only when the type
@@ -82,9 +111,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - The `tensor` module is refactored to go through `CMap` for `einsum`
   ([#402](https://github.com/discopy/discopy/pull/402)).
 - Add a `functor_factory` attribute to each `Diagram` class and remove
-  `hypergraph_factory`: `Hypergraph` is now a `NamedGeneric["category"]`
-  instead of a `NamedGeneric["functor"]`
-  ([#379](https://github.com/discopy/discopy/pull/379)).
+  `hypergraph_factory` and `map_factory`: `Hypergraph` and `CMap` are
+  parameterised directly as `NamedGeneric["category"]`
+  ([#379](https://github.com/discopy/discopy/pull/379),
+  [#532](https://github.com/discopy/discopy/pull/532)).
 - Documentation notebooks are migrated from Jupyter (`.ipynb`) to marimo
   markdown, with docs (`nbsphinx` → embedded marimo HTML) and CI
   (`nbmake` → `marimo export`) updated to match
@@ -147,6 +177,23 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- Pivotal diagram-to-map conversion now encodes cups and caps as `CMap`
+  wiring rather than keeping them as boxes
+  ([#532](https://github.com/discopy/discopy/pull/532)).
+- `CMap.cups` and `CMap.caps` now require the handedness of the host category,
+  i.e. `cups(x, x.r)` and `caps(x.r, x)`, so that these factories reject badly
+  oriented cups and caps, rather than fixing the handedness at downgrade time.
+  ([#532](https://github.com/discopy/discopy/pull/532)).
+- `Hypergraph.explicit_trace` and `CMap.explicit_trace` no longer mistake the
+  inherited `trace_factory` of a user-defined subclass for a class method,
+  which used to raise `AttributeError: type object 'Trace' has no attribute
+  '__func__'` ([#532](https://github.com/discopy/discopy/pull/532)).
+- `CMap.topological_order` raises `AxiomError` on a map with a directed
+  cycle, where it used to crash with `TypeError` on the `None` returned by
+  `box_ranks` ([#532](https://github.com/discopy/discopy/pull/532)).
+- `Hypergraph.to_diagram` no longer asks for swaps when one of their two
+  sides is empty, where the identity does
+  ([#532](https://github.com/discopy/discopy/pull/532)).
 - `build.yml` timeouts and a bounded, retried Graphviz install
   ([#591](https://github.com/discopy/discopy/issues/591)).
 - `frobenius.Diagram.unfuse`'s doctest no longer sets `Spider.color = "red"`

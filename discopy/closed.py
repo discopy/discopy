@@ -53,6 +53,7 @@ from dataclasses import dataclass
 from typing import Dict, ClassVar
 
 from discopy import cat, monoidal, biclosed, markov, hypergraph
+from discopy import cmap
 from discopy.abc import ClosedCategory
 from discopy.cat import factory
 
@@ -173,13 +174,10 @@ class Functor(biclosed.Functor, markov.Functor):
         return super().__call__(other)
 
 
-class CMap(biclosed.CMap):
-    category = Diagram
-    require_planar = False
+CMap = cmap.CMap[Diagram]
 
 
 Diagram.functor_factory = Functor
-Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.copy_factory = Copy
 Diagram.swap_factory = Swap
