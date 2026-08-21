@@ -25,3 +25,13 @@ On `test/cmap.py`:
   them was vacuous. Use `permute` and assert the swaps really are eliminated.
 - [x] Make the physical `SWAP` gate a box rather than the categorical swap, so
   that logical and physical swaps are distinguishable.
+
+USER 🚀 on daydream6728's three review comments, reacted 2026-08-19 onwards:
+
+- [WIP] @session_01CxwLYQPPYJ4pgsJ77UEVWG-2026-08-21 13:25 Annotate
+  `python/additive.py`'s `permutation` with `-> Self`.
+- [WIP] @session_01CxwLYQPPYJ4pgsJ77UEVWG-2026-08-21 13:25 Define `permutation`
+  once on `finset.Function` so `python.additive` inherits it.
+- [WIP] @session_01CxwLYQPPYJ4pgsJ77UEVWG-2026-08-21 13:25 Show the foliation of
+  either side in the middle of the yang-baxter equation drawing: a single
+  `Permutation` box `[2, 1, 0]`.
