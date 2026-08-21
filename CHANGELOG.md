@@ -51,6 +51,13 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   hierarchy below symmetric: traced, Markov, closed, feedback, compact and
   hypergraph ([#558](https://github.com/discopy/discopy/issues/558),
   refactoring [#325](https://github.com/discopy/discopy/pull/325)).
+- The pivotal structure of `Rep(H)`: `HopfAlgebra.drinfeld_element`,
+  `pivotal_element` and `ribbon_element`, cached single tensors named after
+  the literature (Reshetikhin–Turaev; Kassel; Radford), with pivotal cups
+  and caps twisting the dual leg so all four orientations are intertwiners.
+  `taft(n)`, the smallest algebras with a pivot of order `n` (Sweedler's
+  algebra is `n = 2`), realise the Kauffman–Radford ribbon criterion
+  ([#484](https://github.com/discopy/discopy/pull/484)).
 
 ### Changed
 
@@ -140,6 +147,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `build.yml` timeouts and a bounded, retried Graphviz install
+  ([#591](https://github.com/discopy/discopy/issues/591)).
 - `frobenius.Diagram.unfuse`'s doctest no longer sets `Spider.color = "red"`
   to draw its example, which was leaking into every later doctest in the
   same pytest process
@@ -152,6 +161,16 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   wherever they occur rather than on atoms only, and associates slashes to
   the left as CCG does
   ([#528](https://github.com/discopy/discopy/issues/528)).
+- Non-linear terms in `discopy.closed`: an `Application` with no free variables
+  builds instead of raising, and its free variables keep first-occurrence order
+  rather than going through a set whose iteration order depends on hashing
+  ([#542](https://github.com/discopy/discopy/issues/542),
+  [#543](https://github.com/discopy/discopy/issues/543)).
+- `closed.Abstraction` discards a variable that does not occur in the body
+  instead of raising, and nested abstractions curry the abstracted wire rather
+  than the first one, so `eval` preserves `dom` and `cod`
+  ([#541](https://github.com/discopy/discopy/issues/541),
+  [#544](https://github.com/discopy/discopy/issues/544)).
 - `biclosed.Application` lists its free variables in the same order as the
   wires of its `dom`, so that `Abstraction` strips the right end of it and
   `eval` preserves both `dom` and `cod`
@@ -164,6 +183,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   input of the controlled box rather than its first one, so gates with a
   classical wire or a distance other than one are drawn on the right wires
   ([#439](https://github.com/discopy/discopy/pull/439)).
+- Drawing a discard on more than one wire: `draw_discard` was shadowing the
+  layer index with its inner loop counter
+  ([#513](https://github.com/discopy/discopy/issues/513)).
 - `closed.Context.dom` called `category.ob.tensor` unbound, which raised
   `TypeError` for an empty context instead of returning `Ty()`
   ([#549](https://github.com/discopy/discopy/issues/549)).
@@ -176,14 +198,36 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   of always on NumPy, so diagrams with spiders evaluate — and
   differentiate — under the PyTorch backend
   ([#582](https://github.com/discopy/discopy/issues/582)).
+- Closed and biclosed diagrams containing a `Copy`, `Merge`, `Swap`,
+  `Permutation`, `Braid` or `Twist` can be drawn: the `markov`, `symmetric`,
+  `braided` and `balanced` functor branches now check that the codomain has
+  the structure before using it, the way `biclosed.Functor` already did for
+  `ev`, `exp` and `curry`
+  ([#491](https://github.com/discopy/discopy/issues/491),
+  [#548](https://github.com/discopy/discopy/issues/548)).
+- `Double`'s `H*` structure is built by transposition instead of the dagger,
+  which wrongly conjugated complex structure constants — invisible on the
+  real examples of #405, wrong for `taft(3)`
+  ([#484](https://github.com/discopy/discopy/pull/484)).
 
 ### Performance
 
+- The elements of a Hopf algebra (`drinfeld_element`, `pivotal_element`,
+  `ribbon_element`) contract each structural generator once through the
+  cached `Algebra.arrays` and solve for the pivot with a thin SVD, so that
+  `Double(taft(3)).ribbon_element` takes under a second instead of twenty
+  ([#484](https://github.com/discopy/discopy/pull/484)).
 - `Ty` construction is sped up with `assert_isinstance` and lazy naming
   ([#420](https://github.com/discopy/discopy/pull/420)).
 - `Hypergraph` equality, permutations and other micro-optimizations bring
   equality checks down to `O(n)`
   ([#353](https://github.com/discopy/discopy/pull/353)).
+- `CMap.from_diagram` is linear rather than quadratic in the number of
+  boxes: `CMap.from_glued` glues the image of each box onto a scan of
+  open wires in a single pass, instead of folding the images with
+  `then` and re-validating the whole prefix at every step. This speeds
+  up `Diagram.eval` on every tensor backend
+  ([#525](https://github.com/discopy/discopy/pull/525)).
 
 ### Project
 
