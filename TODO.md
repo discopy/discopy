@@ -144,7 +144,11 @@ already named `Wire`.
 
 ## Knock-on
 
-#376 is stacked on the abandoned #375 and names its terms "from the `varname` port annotations, with
-fresh names generated from a global counter". Under B the annotations survive but the counter does
-not. It needs re-targeting onto `main` and its naming redone against point 4 — not this branch's
-work, and it should not merge before that.
+#376 was **closed unmerged on 2026-08-14**, silently and with no comment — it was stacked on the
+abandoned #375 and went with it. So there is nothing to re-target, and the earlier note here saying
+otherwise is withdrawn.
+
+What survives it is the issue: [#371 — naive linear lambda term extraction](https://github.com/discopy/discopy/issues/371)
+is open, USER's own, and now has no PR. Whoever builds it needs point 4's naming rather than #376's
+global counter, which `STYLE.md`'s determinism clause rules out anyway. That makes point 4 a
+dependency of real unbuilt work, not only of point 7.
