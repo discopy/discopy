@@ -18,6 +18,7 @@ Summary
 from __future__ import annotations
 
 from functools import cache
+from typing import Self
 
 from discopy.abc import SymmetricCategory
 from discopy.utils import assert_isinstance, tuplify
@@ -102,7 +103,7 @@ class Function(function.Function, SymmetricCategory):
         return Function(inside, dom=x + y, cod=y + x, is_swap_of=(x, y))
 
     @classmethod
-    def permutation(cls, xs, doms) -> Function:
+    def permutation(cls, xs, doms) -> Self:
         """ Permute the tags of a disjoint union. """
         doms, xs = list(doms), finset.Permutation(xs, len(doms))
         offsets = [0]

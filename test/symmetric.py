@@ -347,6 +347,10 @@ def test_Permutation_foliation():
     assert foliated.boxes == [reverse, f0, f1, g0, g1]
     with raises(AxiomError):
         foliated.inside[0].merge(foliated.inside[1])
+    inverse = reverse.dagger() >> reverse
+    assert inverse.foliation() == inverse
+    with raises(AxiomError):
+        inverse.inside[0].merge(inverse.inside[1])
 
 
 def test_large_Permutation_to_hypergraph():

@@ -47,6 +47,7 @@ class Function(MonoidalCategory, Sequence):
             then
             tensor
             swap
+            is_swap
             copy
     """
     inside: list[int]
@@ -86,6 +87,10 @@ class Function(MonoidalCategory, Sequence):
     def swap(x: int, y: int) -> Function:
         inside = list(Permutation.swap(x, y))
         return Function(inside, x + y, x + y)
+
+    def is_swap(self) -> bool:
+        """ Whether this is the permutation ``(1, 0)``. """
+        return len(self) == 2 and self[0] == 1 and self[1] == 0
 
     @classmethod
     def permutation(cls, xs: Sequence[int], doms: Sequence[int]) -> Function:
@@ -169,10 +174,6 @@ class Permutation(Function, SymmetricCategory):
     def is_identity(self) -> bool:
         """ Whether this is the identity permutation. """
         return list(self) == list(range(len(self)))
-
-    def is_swap(self) -> bool:
-        """ Whether this is the permutation ``(1, 0)``. """
-        return len(self) == 2 and self[0] == 1 and self[1] == 0
 
     @classmethod
     def from_cycles(cls, cycles: Cycles, size: int) -> Self:

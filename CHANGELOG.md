@@ -65,7 +65,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   constructing `Permutation(x @ y, [1, 0])` returns a `Swap`. A swap is
   plumbing like any other permutation: it coalesces with its neighbours in
   a `symmetric.Layer`, so a whiskered swap is stored and drawn as one wider
-  permutation. The pictures stay the same: a permutation no longer
+  permutation, and `foliation` composes consecutive layers of pure plumbing
+  into one. The pictures stay the same: a permutation no longer
   re-labels a wire it keeps in place, nor pushes its input labels off the
   canvas, so the redrawn baselines only differ by their serialisation
   ([#444](https://github.com/discopy/discopy/issues/444)).

@@ -27,6 +27,7 @@ Summary
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Self
 
 from discopy.abc import ClosedCategory
 from discopy.utils import assert_isinstance, tuplify, untuplify, factory
@@ -116,7 +117,7 @@ class Function(function.Function, ClosedCategory):
         return Function(inside, dom=x + y, cod=y + x)
 
     @classmethod
-    def permutation(cls, xs, doms) -> Function:
+    def permutation(cls, xs, doms) -> Self:
         """ Permute blocks of arguments. """
         doms, xs = list(doms), finset.Permutation(xs, len(doms))
         offsets = [0]

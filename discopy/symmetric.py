@@ -74,8 +74,14 @@ This is a special case of naturality.
 >>> yang_baxter_left = Swap(x, y) @ z >> y @ Swap(x, z) >> Swap(y, z) @ x
 >>> yang_baxter_right = x @ Swap(y, z) >> Swap(x, z) @ y >> z @ Swap(x, y)
 >>> assert Equation(yang_baxter_left, yang_baxter_right)
->>> Equation(yang_baxter_left, yang_baxter_right).draw(
-...     doctest='docs/_static/symmetric/yang-baxter.svg', figsize=(3, 2))
+
+Both sides foliate to the same single permutation.
+
+>>> yang_baxter_middle = yang_baxter_left.foliation()
+>>> assert yang_baxter_middle == yang_baxter_right.foliation()
+>>> assert yang_baxter_middle == Permutation(x @ y @ z, [2, 1, 0])
+>>> Equation(yang_baxter_left, yang_baxter_middle, yang_baxter_right).draw(
+...     doctest='docs/_static/symmetric/yang-baxter.svg', figsize=(5, 2))
 
 .. image:: /_static/symmetric/yang-baxter.svg
     :align: center
@@ -86,13 +92,13 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from discopy import monoidal, balanced, traced, hypergraph
+from discopy import monoidal, balanced, traced, hypergraph, messages
 from discopy.abc import SymmetricCategory
 from discopy.cat import factory
 from discopy.monoidal import Wire, Ty, PRO  # noqa: F401
 from discopy.python import finset
 from discopy.utils import (
-    classproperty, factory_name, from_tree)
+    AxiomError, assert_iscomposable, classproperty, factory_name, from_tree)
 
 
 class Layer(monoidal.Layer):
@@ -156,6 +162,32 @@ class Layer(monoidal.Layer):
         >>> assert not Layer(x, Box('f', x, y), y).is_plumbing
         """
         return any(isinstance(value, Permutation) for value in self)
+
+    def merge(self, other: Layer) -> Layer:
+        """
+        Merge two layers of pure plumbing by composing their permutations,
+        otherwise fall back to :meth:`discopy.monoidal.Layer.merge`.
+
+        Parameters:
+            other : The other layer with which to merge.
+
+        Example
+        -------
+        >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
+        >>> layer0 = Layer(Permutation(x @ y @ z, [1, 0, 2]))
+        >>> layer1 = Layer(Permutation(y @ x @ z, [0, 2, 1]))
+        >>> assert layer0.merge(layer1) == Layer(
+        ...     Permutation(x @ y @ z, [1, 2, 0]))
+        """
+        if len(self.boxes_or_types) == 1 == len(other.boxes_or_types)\
+                and self.is_plumbing and other.is_plumbing:
+            assert_iscomposable(self, other)
+            first, second = self.boxes_or_types[0], other.boxes_or_types[0]
+            perm = [first.perm[i] for i in second.perm]
+            if perm == sorted(perm):
+                raise AxiomError(messages.NOT_MERGEABLE.format(self, other))
+            return type(self)(first.permutation_factory(self.dom, perm))
+        return super().merge(other)
 
 
 @factory
