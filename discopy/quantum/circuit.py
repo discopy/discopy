@@ -72,7 +72,7 @@ from collections.abc import Mapping
 
 from discopy import messages, tensor, frobenius
 from discopy.cat import factory
-from discopy.matrix import backend
+from discopy.matrix import backend as array_backend
 from discopy.tensor import Dim, Tensor
 from discopy.utils import assert_isinstance, deprecated_ob, factory_name
 
@@ -402,7 +402,7 @@ class Circuit(tensor.Diagram[complex]):
         state = (Ket(*(len(self.dom) * [0])) >> self).eval()
         effects = [Bra(*index2bitstring(j, len(self.cod))).eval()
                    for j in range(2 ** len(self.cod))]
-        with backend() as np:
+        with array_backend() as np:
             array = np.zeros(len(self.cod) * (2, )) + 0j
             for effect in effects:
                 array +=\
@@ -508,7 +508,7 @@ class Circuit(tensor.Diagram[complex]):
                 q_offset = left.count(qubit)
                 utensor = box.array
                 node1 = tn.Node(utensor + 0j, 'q1_' + str(box))
-                with backend() as np:
+                with array_backend() as np:
                     node2 = tn.Node(np.conj(utensor) + 0j, 'q2_' + str(box))
 
                 for i in range(len(box.dom)):
@@ -830,7 +830,7 @@ class Box(tensor.Box[complex], Circuit):
     def array(self):
         """ The array of a quantum box. """
         if self.data is not None:
-            with backend() as np:
+            with array_backend() as np:
                 return np.array(self.data, dtype=complex).reshape(tuple(
                     obj.dim for obj in self.dom.inside + self.cod.inside))
 

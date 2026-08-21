@@ -147,6 +147,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `quantum.circuit`'s module-level `backend` (the array-backend context
+  manager imported from `discopy.matrix`) is renamed `array_backend`, so it
+  is no longer shadowed within the bodies of `Circuit.eval` and
+  `Circuit.get_counts`, which each declare their own pytket `backend=`
+  parameter of the same name
+  ([#534](https://github.com/discopy/discopy/issues/534)).
 - `build.yml` timeouts and a bounded, retried Graphviz install
   ([#591](https://github.com/discopy/discopy/issues/591)).
 - `frobenius.Diagram.unfuse`'s doctest no longer sets `Spider.color = "red"`
