@@ -194,6 +194,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   applied to an argument sharing a free variable did not compose, and a
   left abstraction evaluates through its right counterpart
   ([#562](https://github.com/discopy/discopy/issues/562)).
+- `Tensor.spider_factory` returns its array on the active backend instead
+  of always on NumPy, so diagrams with spiders evaluate — and
+  differentiate — under the PyTorch backend
+  ([#582](https://github.com/discopy/discopy/issues/582)).
 - Closed and biclosed diagrams containing a `Copy`, `Merge`, `Swap`,
   `Permutation`, `Braid` or `Twist` can be drawn: the `markov`, `symmetric`,
   `braided` and `balanced` functor branches now check that the codomain has

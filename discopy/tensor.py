@@ -212,7 +212,10 @@ class Tensor(Matrix):
             result = cls.zero(dom, cod)
             for i in range(n):
                 result.array[len(dom @ cod) * (i, )] = 1
+        if isinstance(get_backend(), NumPy):
             return result
+        with backend() as np:
+            return cls(np.array(result.array), dom, cod)
 
     @classmethod
     def spiders(cls, n_legs_in: int, n_legs_out: int, typ: Dim, phase=None
