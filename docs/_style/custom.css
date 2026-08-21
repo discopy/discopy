@@ -8,6 +8,13 @@
 
 .diagram-frame { width: 100%; border: none; }
 
+/* The theme puts a white box and a brightness filter behind every image in
+   dark mode; our SVGs are transparent and read on both themes by design. */
+html[data-theme="dark"] .bd-content img:not(.only-dark) {
+    background: transparent;
+    filter: none;
+}
+
 #architecture-diagram .api-title { font-size: smaller; font-style: italic; vertical-align: bottom; }
 #architecture-diagram .syntax { background-color: rgba(250,250,250); }
 #architecture-diagram .semantics { background-color: rgba(250,250,250); }

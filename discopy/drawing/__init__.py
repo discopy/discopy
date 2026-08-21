@@ -55,6 +55,8 @@ def draw(diagram, **params):
         Aspect ratio, one of :code:`['auto', 'equal']`.
     margins : tuple, optional
         Margins, default is :code:`(0.05, 0.05)`.
+    boundary_color : str, optional
+        Colour of the drawing boundary, transparent by default.
     nodesize : float, optional
         Node size for spiders and controlled gates.
     fontsize : int, optional
@@ -122,7 +124,7 @@ def to_gif(diagram, *diagrams, **params):  # pragma: no cover
         def save(actual_path):
             frames[0].save(
                 actual_path, format='GIF', append_images=frames[1:],
-                save_all=True, duration=timestep,
+                save_all=True, duration=timestep, disposal=2,
                 **{'loop': 0} if loop else {})
 
         if compare:
