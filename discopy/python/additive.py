@@ -120,6 +120,8 @@ class Function(function.Function, SymmetricCategory):
         def inside(obj, tag=0):
             run_at_least_once = True
             while run_at_least_once or tag >= len(cod):
+                if not run_at_least_once:
+                    tag = tag - len(cod) + len(dom)
                 run_at_least_once = False
                 result = self(obj, tag)
                 obj, tag = (result, 0) if len(self.cod) == 1 else result
