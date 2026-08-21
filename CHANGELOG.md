@@ -158,11 +158,6 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 - `build.yml` timeouts and a bounded, retried Graphviz install
   ([#591](https://github.com/discopy/discopy/issues/591)).
-- Closed diagrams containing `Copy` or `Swap` can be drawn: the functor
-  chain only calls `cod.copy`, `cod.swap`, `cod.braid` and `cod.twist`
-  when the codomain has them
-  ([#491](https://github.com/discopy/discopy/issues/491),
-  [#489](https://github.com/discopy/discopy/pull/489)).
 - `closed.Substitution` no longer drops constants, loses the `left` flag
   on applications or recurses forever on abstractions, and it covers the
   new term formers
