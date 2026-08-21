@@ -166,6 +166,16 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   wherever they occur rather than on atoms only, and associates slashes to
   the left as CCG does
   ([#528](https://github.com/discopy/discopy/issues/528)).
+- Non-linear terms in `discopy.closed`: an `Application` with no free variables
+  builds instead of raising, and its free variables keep first-occurrence order
+  rather than going through a set whose iteration order depends on hashing
+  ([#542](https://github.com/discopy/discopy/issues/542),
+  [#543](https://github.com/discopy/discopy/issues/543)).
+- `closed.Abstraction` discards a variable that does not occur in the body
+  instead of raising, and nested abstractions curry the abstracted wire rather
+  than the first one, so `eval` preserves `dom` and `cod`
+  ([#541](https://github.com/discopy/discopy/issues/541),
+  [#544](https://github.com/discopy/discopy/issues/544)).
 - `biclosed.Application` lists its free variables in the same order as the
   wires of its `dom`, so that `Abstraction` strips the right end of it and
   `eval` preserves both `dom` and `cod`
@@ -189,6 +199,13 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   applied to an argument sharing a free variable did not compose, and a
   left abstraction evaluates through its right counterpart
   ([#562](https://github.com/discopy/discopy/issues/562)).
+- Closed and biclosed diagrams containing a `Copy`, `Merge`, `Swap`,
+  `Permutation`, `Braid` or `Twist` can be drawn: the `markov`, `symmetric`,
+  `braided` and `balanced` functor branches now check that the codomain has
+  the structure before using it, the way `biclosed.Functor` already did for
+  `ev`, `exp` and `curry`
+  ([#491](https://github.com/discopy/discopy/issues/491),
+  [#548](https://github.com/discopy/discopy/issues/548)).
 - `Double`'s `H*` structure is built by transposition instead of the dagger,
   which wrongly conjugated complex structure constants — invisible on the
   real examples of #405, wrong for `taft(3)`
