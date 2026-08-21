@@ -749,9 +749,9 @@ class Backend(ABC):
             middle = positions[wire]
             left, right = middle[0] - .25, middle[0] + .25
             height = positions[node][1] + .25
-            for j in range(3):
-                source = (left + .1 * j, height - .1 * j)
-                target = (right - .1 * j, height - .1 * j)
+            for k in range(3):
+                source = (left + .1 * k, height - .1 * k)
+                target = (right - .1 * k, height - .1 * k)
                 self.draw_wire(source, target)
 
     def draw_measure(self, positions, node, **params):

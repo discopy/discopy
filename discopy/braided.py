@@ -11,7 +11,7 @@ Summary
     :nosignatures:
     :toctree:
 
-    Ob
+    Wire
     Diagram
     Box
     Braid
@@ -64,16 +64,17 @@ from discopy import monoidal
 from discopy.abc import BraidedCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty, Match
-from discopy.utils import factory_name, BinaryBoxConstructor, assert_isatomic
+from discopy.utils import (
+    assert_isatomic, BinaryBoxConstructor, deprecated_ob, factory_name)
 
 
-class Ob(monoidal.Wire):
+class Wire(monoidal.Wire):
     """
     A braided object is a self-dagger :class:`monoidal.Wire`. From braided
     categories onwards colours stop making sense, i.e. we cannot add colours to
     braids or swaps in any meaningful way, so its colours are always white.
     """
-    def dagger(self) -> Ob:
+    def dagger(self) -> Wire:
         return self
 
 
@@ -251,7 +252,8 @@ class Functor(monoidal.Functor):
     dom = cod = Diagram
 
     def __call__(self, other):
-        if isinstance(other, Braid) and not other.is_dagger:
+        if isinstance(other, Braid) and not other.is_dagger\
+                and hasattr(self.cod, "braid"):
             return self.cod.braid(self(other.dom[0]), self(other.dom[1]))
         return super().__call__(other)
 
@@ -263,3 +265,6 @@ Id = Diagram.id
 
 class Equation(monoidal.Equation):
     """ The :class:`monoidal.Equation` of braided diagrams. """
+
+
+__getattr__ = deprecated_ob(__name__)
