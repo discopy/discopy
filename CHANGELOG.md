@@ -147,6 +147,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- A boxless `monoidal.Layer` can no longer be placed inside a `Diagram`:
+  `Diagram.__init__` raises `ValueError` for a layer with no box, restoring
+  the invariant that every layer holds at least one box and that the identity
+  diagram is the empty sequence of layers. Such a layer is the internal unit
+  of `Layer.tensor`, built by `Layer.id` and merged away by `Layer.normalise`;
+  put inside a diagram by hand it survived `normal_form` and made `foliation`
+  and `draw` raise. The check is gated on `_scan`, so the internal fast paths
+  that build layers by construction are unaffected
+  ([#599](https://github.com/discopy/discopy/issues/599)).
 - `build.yml` timeouts and a bounded, retried Graphviz install
   ([#591](https://github.com/discopy/discopy/issues/591)).
 - `frobenius.Diagram.unfuse`'s doctest no longer sets `Spider.color = "red"`
