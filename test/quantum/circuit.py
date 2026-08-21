@@ -733,3 +733,13 @@ def test_quimb_pure_eval(c):
     t = t.data.transpose(*np.argsort(t.inds))
 
     assert np.allclose(t, c.eval().array), f"{t} != {c.eval().array}"
+
+
+@pytest.mark.parametrize('c', pure_circuits + mixed_circuits)
+def test_contract_quimb_eval(c):
+    assert c.eval(contract="quimb").is_close(c.eval())
+
+
+def test_contractor_and_contract():
+    with raises(ValueError):
+        H.eval(contractor=contractor, contract="quimb")

@@ -293,23 +293,29 @@ def test_Tensor_array():
     assert box.array is None
 
 
-def test_CMap_eval():
+def cmap_diagrams():
     vector = Box('vector', Dim(1), Dim(2), [0., 1.])
     f = Box('f', Dim(2), Dim(2), [0., 1., 1., 0.])
     a = Box('a', Dim(1), Dim(2), [1., 2.])
     b = Box('b', Dim(1), Dim(2), [3., 4.])
     u = Box('u', Dim(1), Dim(2, 3), list(map(float, range(6))))
+    g = Box('g', Dim(2, 2), Dim(2, 2), list(map(float, range(16))))
     spider = Spider(1, 1, Dim(2)) >> Spider(1, 2, Dim(2)) \
         >> Spider(2, 0, Dim(2))
-    for diagram in [
-            vector >> vector[::-1],
-            spider,
-            f >> f,
-            a @ b >> Swap(Dim(2), Dim(2)),
-            u >> u[::-1],
-            Id(Dim(2)),
-            Cup(Dim(2), Dim(2)),
-            Cap(Dim(2), Dim(2)) >> Cup(Dim(2), Dim(2))]:
+    return [
+        vector >> vector[::-1],
+        spider,
+        f >> f,
+        a @ b >> Swap(Dim(2), Dim(2)),
+        u >> u[::-1],
+        g.trace(),
+        Id(Dim(2)),
+        Cup(Dim(2), Dim(2)),
+        Cap(Dim(2), Dim(2)) >> Cup(Dim(2), Dim(2))]
+
+
+def test_CMap_eval():
+    for diagram in cmap_diagrams():
         tensor, reference = diagram.to_map().eval(), diagram.eval()
         assert (tensor.dom, tensor.cod) == (reference.dom, reference.cod)
         assert np.allclose(
@@ -376,6 +382,104 @@ def test_eval_params():
         "ar_map={frobenius.Box('v', frobenius.Ty(), " \
         "frobenius.Ty(frobenius.Wire('x'))): [1.0, 2.0]}, " \
         "dom=frobenius.Diagram, dtype=float, optimize='optimal')"
+
+
+@pytest.mark.parametrize('contract', ['einsum', 'opt_einsum', 'quimb'])
+def test_contract_engines(contract):
+    if contract != 'einsum':
+        pytest.importorskip(contract)
+    for diagram in cmap_diagrams():
+        result, reference = diagram.eval(contract=contract), diagram.eval()
+        assert (result.dom, result.cod) == (reference.dom, reference.cod)
+        assert np.allclose(
+            np.asarray(result.array, dtype=float),
+            np.asarray(reference.array, dtype=float))
+
+
+def test_contract_empty_and_unknown():
+    assert Id(Dim()).eval(contract='einsum').array == [1]
+    vector = Box('vector', Dim(1), Dim(2), [0., 1.])
+    with raises(ValueError):
+        (vector >> vector[::-1]).eval(contract='python')
+
+
+def test_contract_sum():
+    pytest.importorskip('quimb')
+    vector = Box('vector', Dim(1), Dim(2), [1., 2.])
+    diagram = vector >> vector[::-1]
+    result = (diagram + diagram).eval(contract='quimb')
+    assert np.allclose(np.asarray(result.array), 2 * diagram.eval().array)
+
+
+def test_contract_repr():
+    from discopy import tensor
+    F = Functor({}, {}, contract='quimb')
+    assert repr(F) == "tensor.Functor(ob_map={}, ar_map={}, " \
+        "dom=frobenius.Diagram, dtype=float, contract='quimb')"
+    assert repr(eval(repr(F))) == repr(F)
+
+
+def test_to_quimb():
+    pytest.importorskip('quimb')
+    for diagram in cmap_diagrams():
+        network, reference = diagram.to_quimb(), diagram.eval()
+        output_inds = [f'inp{i}' for i in range(len(diagram.dom))] \
+            + [f'out{i}' for i in range(len(diagram.cod))]
+        assert sorted(network.outer_inds()) == sorted(output_inds)
+        result = network.contract(
+            output_inds=output_inds, preserve_tensor=True)
+        assert np.allclose(
+            np.asarray(result.data).flatten(),
+            np.asarray(reference.array, dtype=complex).flatten())
+
+
+def test_to_quimb_dtype():
+    pytest.importorskip('quimb')
+    network = Id(Dim(2)).to_quimb(dtype=complex)
+    assert all(tensor.data.dtype == complex for tensor in network.tensors)
+
+
+def test_quimb_cotengra():
+    pytest.importorskip('quimb')
+    cotengra = pytest.importorskip('cotengra')
+    u = Box('u', Dim(2), Dim(2, 2), list(range(1, 9)))
+    diagram = u >> u[::-1]
+    exact = diagram.eval().array
+    result = diagram.eval(contract='quimb', max_bond=4)
+    assert np.allclose(np.asarray(result.array), exact)
+    exact_optimizer = cotengra.HyperOptimizer(
+        max_repeats=2, parallel=False, progbar=False)
+    result = diagram.eval(contract='quimb', optimize=exact_optimizer)
+    assert np.allclose(np.asarray(result.array), exact)
+    compressed_optimizer = cotengra.HyperCompressedOptimizer(
+        chi=4, methods=['greedy-compressed'], max_repeats=2,
+        parallel=False, progbar=False)
+    result = diagram.eval(
+        contract='quimb', optimize=compressed_optimizer, max_bond=4)
+    assert np.allclose(np.asarray(result.array), exact)
+    reusable = cotengra.ReusableHyperCompressedOptimizer(
+        chi=4, methods=['greedy-compressed'], max_repeats=2,
+        parallel=False, progbar=False)
+    result = diagram.eval(contract='quimb', optimize=reusable)
+    assert np.allclose(np.asarray(result.array), exact)
+
+
+def test_quimb_pytorch_autodiff():
+    pytest.importorskip('quimb')
+    autoray = pytest.importorskip('autoray')
+    if tuple(map(int, autoray.__version__.split('.')[:2])) < (0, 9):
+        pytest.skip('autoray < 0.9 loses gradients on cached '
+                    'contraction trees')
+    import torch
+    x = frobenius.Ty('x')
+    v = frobenius.Box('v', frobenius.Ty(), x)
+    t = torch.tensor(3.0, dtype=torch.float64, requires_grad=True)
+    F = Functor({x: 2}, {v: torch.stack([t, t])},
+                dtype=torch.float64, contract='quimb')
+    with backend('pytorch'):
+        result = F(v >> v.dagger()).array
+    result.backward()
+    assert result.item() == 18. and t.grad.item() == 12.
 
 
 def test_Functor_bubble():
