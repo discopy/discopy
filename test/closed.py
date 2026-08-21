@@ -230,3 +230,33 @@ def test_abstraction_eval_left():
     x, f = Variable('x', X), Variable('f', X >> Y)
     assert Abstraction(x, f(x), left=True).eval()\
         == Abstraction(x, f(x)).eval()
+
+
+def test_draw_copy_and_swap():
+    """
+    `closed.Diagram.to_drawing` routes through `closed.Functor` to get
+    `Curry` and `Eval` right, which used to drag in the markov, symmetric
+    and balanced branches calling `copy`, `merge`, `swap`, `braid` and
+    `twist` on a `Drawing` that has none of them, see issues #491 and #548.
+
+    Falling through draws them the way markov and symmetric diagrams are
+    drawn today, so the closed drawing is the *same* drawing, not merely
+    one that does not raise.
+    """
+    from discopy import markov, symmetric
+    x, mx, sx = Ty('x'), markov.Ty('x'), symmetric.Ty('x')
+
+    assert (Copy(x) >> Box('f', x @ x, x)).to_drawing()\
+        == (markov.Copy(mx) >> markov.Box('f', mx @ mx, mx)).to_drawing()
+    assert (Swap(x, x) >> Box('g', x @ x, x)).to_drawing()\
+        == (symmetric.Swap(sx, sx)
+            >> symmetric.Box('g', sx @ sx, sx)).to_drawing()
+    assert (Copy(x) >> Swap(x, x) >> Box('h', x @ x, x)).to_drawing()\
+        == (markov.Copy(mx) >> markov.Swap(mx, mx)
+            >> markov.Box('h', mx @ mx, mx)).to_drawing()
+    assert Diagram.discard(x).to_drawing()\
+        == markov.Diagram.discard(mx).to_drawing()
+
+    # A non-linear term evaluates to such a diagram, so it draws too.
+    X = Ty('X')
+    assert X(lambda x: (X >> X)(lambda f: f(x))).eval().to_drawing()
