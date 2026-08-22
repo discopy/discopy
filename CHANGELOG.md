@@ -118,6 +118,21 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   in `abc.CompactCategory` where the twist is the identity. The free diagram
   classes keep their freely interpreted traces by subclassing
   `traced.Diagram` ([#349](https://github.com/discopy/discopy/issues/349)).
+- `abc.ColouredMonoid.unit` takes a colour and may return an object of `C0`
+  rather than an element of `C1`, since the unit of a coloured monoid is the
+  identity on a colour and need not belong to the monoid. `monoidal.Layer`
+  overrides it to give the empty type: a layer has at least one box, so
+  `Layer()` raises and `Layer.unit()` used to raise with it, while
+  `Layer.unit(colour)` is now the empty type that `tensor` accepts on either
+  side ([#568](https://github.com/discopy/discopy/issues/568)).
+- `monoidal.Layer.id` raises instead of building a layer of empty plumbing,
+  which denoted the identity diagram while not being the empty sequence of
+  layers: inside a `Diagram` it survived `normal_form`, compared unequal to
+  `Diagram.id` and made `foliation` and `draw` raise. `Layer.whisker` leaves a
+  type as a type and `tensor` merges it into the boundary, so whiskering never
+  builds one. Passing `normalise=False` still does, which is left as an
+  explicit opt-out of the invariant
+  ([#599](https://github.com/discopy/discopy/issues/599)).
 - `biclosed` defaults `left` to `True` in `Diagram.curry`, `Diagram.ev`,
   `Diagram.uncurry`, `CMap.curry` and `CMap.uncurry`, so that `abc`,
   `biclosed`, `closed` and `rigid` all agree on one convention: the default
