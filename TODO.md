@@ -19,7 +19,7 @@ starting from the todo as usual”
 - [x] `.github/style-review/post.py`: validate the findings and post one
   discopy-bot review, inline where the diff allows and in the body
   otherwise, posting nothing when the diff is clean
-- [WIP] @session_01JFJANWnm5ZdrfujFQmgrff-2026-08-22 09:16 `CHANGELOG.md` entry
+- [x] `CHANGELOG.md` entry
 - [ ] USER: create the `OPENMODEL_API_KEY` secret and the
   `STYLE_REVIEW_BASE_URL` / `STYLE_REVIEW_MODEL` repository variables from
   the OpenModel console
