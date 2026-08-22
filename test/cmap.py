@@ -657,3 +657,47 @@ def test_draw_plain_path(tmp_path):
         for _ in range(2):  # A plain path saves, overwriting silently.
             f.draw(path=path, show=False)
         assert path.exists()
+
+
+def test_from_glued_agrees_with_folding():
+    from discopy.compact import Ty, Box, Cup, Cap, Swap, Diagram, CMap as M
+    x, y = map(Ty, "xy")
+    f, g, h = Box("f", x, y), Box("g", y @ y, x), Box("h", x, y @ y)
+    diagrams = [
+        Diagram.id(x),
+        f,
+        f >> f.dagger(),
+        h >> g,
+        f @ Diagram.id(x),
+        Diagram.id(x) @ f,
+        h >> Swap(y, y) >> g,
+        Diagram.id(x) @ Cap(x.r, x) >> Cup(x, x.r) @ Diagram.id(x),
+        Cap(x.r, x) >> Cup(x.r, x),
+        h >> Cup(y, y.r) if y.r == y else h >> g,
+    ]
+    for diagram in diagrams:
+        folded = M.functor(
+            ob_map=lambda typ: typ, ar_map=M.from_box,
+            dom=Diagram, cod=M)(diagram)
+        assert diagram.to_map() == folded
+
+
+def test_from_glued_multi_box_layer():
+    from discopy.symmetric import Ty, Box, Layer, Diagram, CMap as M
+    x, y = map(Ty, "xy")
+    f, g = Box("f", x, y @ y), Box("g", y, x)
+    layered = Diagram(
+        inside=(Layer(Ty(), f, Ty(), g, Ty()), ), dom=x @ y, cod=y @ y @ x)
+    assert layered.to_map() == (f @ y >> y @ y @ g).to_map()
+
+
+def test_from_glued_loops():
+    from discopy.compact import Ty, CMap as M
+    x, y = map(Ty, "xy")
+    scalar = M.from_glued(Ty(), Ty(), [
+        (M.caps(x.r, x), 0), (M.cups(x.r, x), 0)])
+    assert scalar.loops == (x, ) and scalar.boxes == ()
+    two = M.from_glued(Ty(), Ty(), [
+        (M.caps(x.r, x), 0), (M.caps(y.r, y), 2),
+        (M.cups(y.r, y), 2), (M.cups(x.r, x), 0)])
+    assert two.loops == (x, y)
