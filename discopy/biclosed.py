@@ -603,15 +603,23 @@ class TermBase(Box):
 
 class Constant(TermBase):
     """
-    A constant term of defined by a :class:`Diagram` with ``dom=X, cod=Y``.
-    The constant has type ``Y`` if ``X`` is empty else it has type either
-    ``Y << X`` if ``left=True`` else ``X >> Y``.
+    A constant term with a string as name and a :class:`Ty`, i.e. a term with
+    no free variable. It is interpreted by the ``ar_map`` of a
+    :class:`Functor`, a function type such as ``Y << X`` or ``X >> Y`` giving
+    a morphism which takes its argument from the right or from the left.
 
     Attributes:
-        inside (Diagram): The diagram which defines the constant.
-        left (Optional[bool]): Whether the domain comes from the left or right.
+        name (str): The name of the constant.
+        cod (Ty): The type of the constant.
+
+    Example
+    -------
+    >>> X, Y = Ty("X"), Ty("Y")
+    >>> f = (X >> Y)("f")
+    >>> assert Functor(ob_map={X: X, Y: Y}, ar_map={f: Box("f", X, Y)})(f)\\
+    ...     == Box("f", X, Y)
     """
-    def __init__(self, name: Ty, cod: Ty, **kwargs):
+    def __init__(self, name: str, cod: Ty, **kwargs):
         super().__init__(name, dom=self.ob(), cod=cod, **kwargs)
         self.freevars = []
 

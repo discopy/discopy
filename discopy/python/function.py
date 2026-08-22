@@ -22,7 +22,7 @@ from contextlib import contextmanager
 from discopy.abc import Category
 from discopy.utils import (
     assert_iscomposable, assert_isinstance,
-    tuplify, untuplify, classproperty, factory)
+    tuplify, untuplify, classproperty, factory, unbiased)
 
 
 @factory
@@ -64,12 +64,13 @@ class Function(Category):
         """
         return cls(lambda *xs: untuplify(xs), tuplify(dom), tuplify(dom))
 
+    @unbiased
     def then(self, other: Function) -> Function:
         """
-        The sequential composition of two functions, called with :code:`>>`.
+        The sequential composition of functions, called with :code:`>>`.
 
         Parameters:
-            other : The other function to compose in sequence.
+            other : The other functions to compose in sequence.
         """
         assert_isinstance(other, type(self))
         assert_iscomposable(self, other)

@@ -175,3 +175,16 @@ def test_draw_copy_and_swap():
     # A non-linear term evaluates to such a diagram, so it draws too.
     X = Ty('X')
     assert X(lambda x: (X >> X)(lambda f: f(x))).eval().to_drawing()
+
+
+def test_Substitution():
+    """ https://github.com/discopy/discopy/issues/492 """
+    X, Y = Ty("X"), Ty("Y")
+    x, y = Variable("x", X), Variable("y", X)
+    f, c = (X >> Y)("f"), Y("c")
+
+    assert Substitution({x: y})(c) == c
+    assert Substitution({x: y})(f(x)) == f(y)
+    assert Substitution({x: y})(Application(f, x, left=True))\
+        == Application(f, y, left=True)
+    assert Substitution({x: y})(Abstraction(x, f(x))) == Abstraction(x, f(x))

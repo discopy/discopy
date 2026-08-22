@@ -149,6 +149,19 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 - `build.yml` timeouts and a bounded, retried Graphviz install
   ([#591](https://github.com/discopy/discopy/issues/591)).
+- `closed.Substitution` returns constants unchanged, keeps the `left` flag
+  of an application and recurses into the body of an abstraction instead of
+  looping forever ([#492](https://github.com/discopy/discopy/issues/492)).
+- `python.Function.then` and `python.Function.tensor` are variadic like the
+  rest of the categorical interface, in `multiplicative`, `additive` and
+  `finset` ([#493](https://github.com/discopy/discopy/issues/493)).
+- `unbiased` folds its first argument when it is given by keyword, instead
+  of collecting it into the keyword parameters forwarded to the biased
+  method and returning `self` unchanged
+  ([#493](https://github.com/discopy/discopy/issues/493)).
+- `biclosed.Constant` documents the attributes it has, rather than an
+  `inside` diagram it never carried
+  ([#494](https://github.com/discopy/discopy/issues/494)).
 - `frobenius.Diagram.unfuse`'s doctest no longer sets `Spider.color = "red"`
   to draw its example, which was leaking into every later doctest in the
   same pytest process
