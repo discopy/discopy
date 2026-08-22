@@ -244,9 +244,8 @@ class Variable(TermBase, biclosed.Variable):
 class Application(TermBase, biclosed.Application):
     def __check_dom__(self, func, args, left):
         self.overlap = set(func.freevars).intersection(args.freevars)
-        self.freevars = list(set(func.freevars + args.freevars))\
-            if self.overlap else func.freevars + args.freevars
-        return self.ob.tensor(*[x.cod for x in self.freevars])
+        self.freevars = list(dict.fromkeys(func.freevars + args.freevars))
+        return self.ob().tensor(*[x.cod for x in self.freevars])
 
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
@@ -277,9 +276,12 @@ class Abstraction(TermBase, biclosed.Abstraction):
             new_context = Context([self.var] + context.inside)
             body = self.body.eval(functor=functor, context=new_context)
             return body.curry(left=False)
-        i, n = self.body.freevars.index(self.var), len(self.body.freevars)
         body = self.body.eval(functor=functor)
-        p = [0] + [j + 1 if j < i else j for j in range(n) if j != i]
+        if self.var not in self.body.freevars:
+            discard = functor.cod.discard(functor(self.var.cod))
+            return (discard @ body.dom >> body).curry(left=False)
+        i, n = self.body.freevars.index(self.var), len(self.body.freevars)
+        p = [i] + [j for j in range(n) if j != i]
         doms = [self.ob(wire) for wire in body.dom.inside]
         return (body.permutation(p, doms).dagger() >> body).curry(left=False)
 
