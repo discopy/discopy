@@ -51,6 +51,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   hierarchy below symmetric: traced, Markov, closed, feedback, compact and
   hypergraph ([#558](https://github.com/discopy/discopy/issues/558),
   refactoring [#325](https://github.com/discopy/discopy/pull/325)).
+- `varname` on `monoidal.Wire`, an optional annotation naming the variable
+  a wire carries, so a diagram can be read back as a term with the names it
+  was written with. It appears in `repr` and in `to_tree`/`from_tree` and is
+  carried through `dagger`, but not in `str` and not in `__eq__`/`__hash__`,
+  so annotating a wire never splits a type and alpha-equivalent terms still
+  evaluate to equal diagrams. `biclosed.Ty.varnames` reads that annotation
+  off each wire of a type, falling back to the name of its de Bruijn level,
+  so that names for unannotated wires come from position rather than from a
+  counter ([#372](https://github.com/discopy/discopy/issues/372)).
 - The pivotal structure of `Rep(H)`: `HopfAlgebra.drinfeld_element`,
   `pivotal_element` and `ribbon_element`, cached single tensors named after
   the literature (Reshetikhin–Turaev; Kassel; Radford), with pivotal cups
