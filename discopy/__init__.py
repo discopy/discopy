@@ -28,6 +28,7 @@ from discopy import (
     python,
     matrix,
     tensor,
+    neural,
     hopf,
     quantum,
     grammar,
