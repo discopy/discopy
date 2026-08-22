@@ -10,16 +10,16 @@ through USER's OpenModel gateway with the model pinned by a repository
 variable (“I’d rather use an open weights model”). “build the whole thing,
 starting from the todo as usual”
 
-- [ ] `.github/workflows/style-review.yml`: runs when a pull request leaves
+- [WIP] @session_01JFJANWnm5ZdrfujFQmgrff-2026-08-22 09:16 `.github/workflows/style-review.yml`: runs when a pull request leaves
   draft or gets the `style-review` label, same-repo pull requests only,
   with concurrency, timeouts and a graceful skip while unconfigured
-- [ ] `.github/style-review/prompt.md`: read every changed file whole, check
+- [WIP] @session_01JFJANWnm5ZdrfujFQmgrff-2026-08-22 09:16 `.github/style-review/prompt.md`: read every changed file whole, check
   the diff against the file's own conventions and `STYLE.md`, leave
   correctness to cubic and linting to pflake8, findings as JSON
-- [ ] `.github/style-review/post.py`: validate the findings and post one
+- [WIP] @session_01JFJANWnm5ZdrfujFQmgrff-2026-08-22 09:16 `.github/style-review/post.py`: validate the findings and post one
   discopy-bot review, inline where the diff allows and in the body
   otherwise, posting nothing when the diff is clean
-- [ ] `CHANGELOG.md` entry
+- [WIP] @session_01JFJANWnm5ZdrfujFQmgrff-2026-08-22 09:16 `CHANGELOG.md` entry
 - [ ] USER: create the `OPENMODEL_API_KEY` secret and the
   `STYLE_REVIEW_BASE_URL` / `STYLE_REVIEW_MODEL` repository variables from
   the OpenModel console
