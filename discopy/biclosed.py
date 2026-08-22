@@ -110,6 +110,42 @@ class Ty(monoidal.Ty):
     def __rshift__(self, other):
         return other.under(self)
 
+    def varnames(self, level: int = 0) -> list[str]:
+        """
+        The name of the variable carried by each wire of the type: its
+        :attr:`monoidal.Wire.varname` when it has one, else the name of its
+        `de Bruijn level <https://en.wikipedia.org/wiki/De_Bruijn_index>`_,
+        i.e. its index in the type shifted by ``level``.
+
+        Parameters:
+            level : The de Bruijn level of the first wire, i.e. the number of
+                variables already in scope.
+
+        Note
+        ----
+        Levels count binders from the outside in, so a binder names the wire
+        it binds by continuing the numbering of its context: the name of a
+        variable does not change when another binder is added inside it.
+
+        >>> x = Ty('x')
+        >>> assert (x @ x).varnames() == ['x0', 'x1']
+        >>> assert (x @ x).varnames(level=2) == ['x2', 'x3']
+
+        Names are derived from position rather than drawn from a counter, so
+        that reading a diagram back as a term is a pure function of the
+        diagram, see ``STYLE.md``. Annotated wires keep their name.
+
+        >>> annotated = Ty(monoidal.Wire('x', varname='a'), 'x')
+        >>> assert annotated == x @ x and annotated.varnames() == ['a', 'x1']
+
+        A derived name can clash with an annotation, as ``x1`` would with
+        ``Ty('x', monoidal.Wire('x', varname='x1'))``. Renaming apart is
+        the job of whoever assembles a context out of several types, since
+        it is the only one that sees all the names at once.
+        """
+        return [wire.varname if wire.varname is not None else f"x{level + i}"
+                for i, wire in enumerate(self.inside)]
+
     def __call__(self, arg):
         if isinstance(arg, str):
             return self.constant_factory(arg, self)
@@ -121,10 +157,10 @@ class Ty(monoidal.Ty):
                 left = left_param.default
                 if not isinstance(left, bool):
                     raise NotImplementedError
-            varnames = list(parameters.keys())
-            if len(varnames) != 1:
+            names = list(parameters.keys())
+            if len(names) != 1:
                 raise NotImplementedError
-            var = self.variable_factory(varnames[0], self)
+            var = self.variable_factory(names[0], self)
             return self.abstraction_factory(var, arg(var), left)
         raise ValueError
 

@@ -94,9 +94,13 @@ hand. Same move as `discopy.drawing`, where the layout algorithm is itself a fun
 - [x] 3. `varname` on `monoidal.Wire`, per USER's ruling quoted below: an optional argument of
       `Wire.__init__`, in `__repr__` but not `__str__`, not in `__eq__`. Also carried through
       `dagger()` and `to_tree`/`from_tree`, which drop it today.
-- [WIP] @j0mncc-2026-08-22 00:50 4. Deterministic fresh names from binder position (de Bruijn level: free variables numbered by
+- [x] 4. Deterministic fresh names from binder position (de Bruijn level: free variables numbered by
       their index in `dom`, binders continuing the numbering), used wherever `varname` is absent.
-      Test that it is a pure function of the diagram.
+      Test that it is a pure function of the diagram. Landed as `biclosed.Ty.varnames(level=0)`:
+      the caller advances `level` by `len(typ)` when it goes under a binder, which is what makes a
+      variable's name independent of what is bound inside it. Renaming apart is left to point 7,
+      the only place that sees a whole context at once — a derived `x1` can still collide with an
+      annotation spelled `x1`, which the docstring says.
 - [ ] 5. Annotate at the two sites #372 names: the identity wire built by `Variable.eval`, and the
       abstracted wire of the `Curry` built by `Abstraction.eval`.
 - [ ] 6. Make terms-in-context a `BiclosedCategory` instance: `id`, `then`, `tensor`, `ev`, `curry`.
