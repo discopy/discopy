@@ -181,6 +181,16 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   wherever they occur rather than on atoms only, and associates slashes to
   the left as CCG does
   ([#528](https://github.com/discopy/discopy/issues/528)).
+- Non-linear terms in `discopy.closed`: an `Application` with no free variables
+  builds instead of raising, and its free variables keep first-occurrence order
+  rather than going through a set whose iteration order depends on hashing
+  ([#542](https://github.com/discopy/discopy/issues/542),
+  [#543](https://github.com/discopy/discopy/issues/543)).
+- `closed.Abstraction` discards a variable that does not occur in the body
+  instead of raising, and nested abstractions curry the abstracted wire rather
+  than the first one, so `eval` preserves `dom` and `cod`
+  ([#541](https://github.com/discopy/discopy/issues/541),
+  [#544](https://github.com/discopy/discopy/issues/544)).
 - `biclosed.Application` lists its free variables in the same order as the
   wires of its `dom`, so that `Abstraction` strips the right end of it and
   `eval` preserves both `dom` and `cod`
