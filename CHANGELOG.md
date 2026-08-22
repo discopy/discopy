@@ -163,9 +163,6 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   new term formers
   ([#492](https://github.com/discopy/discopy/issues/492),
   [#489](https://github.com/discopy/discopy/pull/489)).
-- `closed.Application` deduplicates free variables deterministically
-  ([#450](https://github.com/discopy/discopy/issues/450),
-  [#489](https://github.com/discopy/discopy/pull/489)).
 - `python.Function.tensor` is variadic like `monoidal.Diagram.tensor`
   ([#493](https://github.com/discopy/discopy/issues/493),
   [#489](https://github.com/discopy/discopy/pull/489)).
