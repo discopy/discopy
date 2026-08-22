@@ -156,7 +156,7 @@ def markov_diagram(a, b):  # Take two wires as inputs
     return mf(a, b)  # Apply f again and return the result.
 
 assert markov_diagram == (markov.Copy(mx) @ markov.Copy(mx)\
-    >> mx @ (markov.Swap(mx, mx) >> mf >> markov.Discard(my)) @ mx >> mf).foliation()
+    >> mx @ (markov.Permutation(mx @ mx, [1, 0]) >> mf >> markov.Discard(my)) @ mx >> mf).foliation()
 
 markov_diagram
 ```

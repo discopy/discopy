@@ -1189,9 +1189,13 @@ class CMap[C0: Pregroup, C1: CMap](
         Downgrade to a diagram directly, preserving box orientation.
 
         The construction scans the currently open wire labels from left to
-        right. For each box, it swaps boundary wires until the box domain wires
-        are adjacent at the requested offset, applies the box, and replaces
-        consumed domain labels by the box codomain labels.
+        right. For each box, it routes boundary wires with a single
+        permutation until the box domain wires are adjacent at the requested
+        offset, applies the box, and replaces consumed domain labels by the
+        box codomain labels. Permutations are emitted with
+        :meth:`discopy.symmetric.Diagram.from_permutation`, i.e. as
+        :class:`discopy.symmetric.Permutation` boxes when the category has a
+        native factory and as swaps otherwise.
 
         >>> from discopy.compact import Ty, Box
         >>> x, y = map(Ty, "xy")
@@ -1213,25 +1217,18 @@ class CMap[C0: Pregroup, C1: CMap](
             dom_wires = [edge_wire[i] for i in dom_ports]
             cod_wires = [edge_wire[i] for i in cod_ports]
 
+            offset, source = 0 if offset is None else offset, list(scan)
             for i, wire_id in enumerate(dom_wires):
                 j = scan.index(wire_id)
-                if i == 0 and offset is None:
-                    offset = 0
                 if j > offset + i:
-                    diagram >>= diagram.cod[:offset + i] @ diagram.swap(
-                        diagram.cod[offset + i:j], diagram.cod[j]
-                    ) @ diagram.cod[j + 1:]
-                    scan = (scan[:offset + i] + scan[j:j + 1]) + (
-                        scan[offset + i:j] + scan[j + 1:])
+                    scan.insert(offset + i, scan.pop(j))
                 elif j < offset + i:
-                    diagram >>= diagram.cod[:j] @ diagram.swap(
-                        diagram.cod[j], diagram.cod[j + 1:offset + i]
-                    ) @ diagram.cod[offset + i:]
-                    scan = (scan[:j] + scan[j + 1:offset + i]) + (
-                        scan[j:j + 1] + scan[offset + i:])
+                    scan.insert(offset + i - 1, scan.pop(j))
                     offset -= 1
+            if scan != source:
+                diagram >>= diagram.from_permutation(
+                    [source.index(wire_id) for wire_id in scan], diagram.cod)
 
-            offset = 0 if offset is None else offset
             scan = scan[:offset] + cod_wires + scan[offset + len(box.dom):]
             diagram >>= diagram.cod[:offset] @ box @ diagram.cod[
                 offset + len(box.dom):]
@@ -1239,13 +1236,9 @@ class CMap[C0: Pregroup, C1: CMap](
         cod_wires = [
             edge_wire[self.n_ports - len(self.cod) + i]
             for i in range(len(self.cod))]
-        for i, wire_id in enumerate(cod_wires):
-            j = scan.index(wire_id)
-            if i < j:
-                diagram >>= diagram.cod[:i] @ diagram.swap(
-                    diagram.cod[i:j], diagram.cod[j:j + 1]
-                ) @ diagram.cod[j + 1:]
-                scan = scan[:i] + scan[j:j + 1] + scan[i:j] + scan[j + 1:]
+        perm = [scan.index(wire_id) for wire_id in cod_wires]
+        if perm != sorted(perm):
+            diagram >>= diagram.from_permutation(perm, diagram.cod)
         return diagram
 
     def to_hypergraph(self):

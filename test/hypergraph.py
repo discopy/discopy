@@ -186,7 +186,8 @@ def test_Hypergraph_eq_fallback_scalars_and_empty_boundary():
 
 
 def test_simplify():
-    from discopy.markov import Box, Ty, Copy, Swap, Trace, Equation
+    from discopy.markov import (
+        Box, Ty, Copy, Swap, Trace, Equation, Permutation)
     C, T, P = map(Ty, "CTP")
     linear, param_linear, add, placeholder = (
         Box('linear', T @ P, T),
@@ -195,7 +196,7 @@ def test_simplify():
         Box('placeholder', C, T),
     )
     residual_block = Trace(Trace(Copy(C) @ T @ P >> C @ C @ linear >> param_linear @ C @ T >> P @ placeholder @ T >> P @ Copy(T) @ T >> P @ T @ Swap(T, T) >> P @ add @ T >> Swap(P, T) @ T >> T @ Swap(P, T)))
-    ref = Copy(C) >> param_linear @ C >> P @ placeholder >> P @ Copy(T) >> Swap(P, T) @ T >> linear @ T >> Swap(T, T) >> add
+    ref = Copy(C) >> param_linear @ C >> P @ placeholder >> P @ Copy(T) >> Permutation(P @ T, [1, 0]) @ T >> linear @ T >> Permutation(T @ T, [1, 0]) >> add
     simpl = residual_block.to_hypergraph().simplify().to_diagram()
 
     assert Equation(residual_block, ref) and Equation(ref, simpl)

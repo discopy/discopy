@@ -410,7 +410,7 @@ def test_draw_box_foreground_on_dark_background():
 
 
 def test_crack_two_eggs_at_once():
-    from discopy.symmetric import Ty, Box, Diagram, Layer
+    from discopy.symmetric import Ty, Box, Diagram, Layer, Permutation
 
     egg, white, yolk = Ty("egg"), Ty("white"), Ty("yolk")
     crack = Box("crack", egg, white @ yolk)
@@ -434,7 +434,8 @@ def test_crack_two_eggs_at_once():
     assert crack_two_eggs.foliation() == Diagram(
         dom=egg @ egg, cod=white @ yolk, inside=(
             Layer(Ty(), crack, Ty(), crack, Ty()),
-            Layer(white, Diagram.swap(yolk, white), yolk),
+            Layer(Permutation(
+                white @ yolk @ white @ yolk, [0, 2, 1, 3])),
             Layer(Ty(), merge(white), Ty(), merge(yolk), Ty())))
 
 
