@@ -1,0 +1,89 @@
+name: style-review
+on:
+  pull_request:
+    types: [ready_for_review, labeled]
+permissions:
+  contents: read
+concurrency:
+  group: style-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  review:
+    if: >
+      github.event.pull_request.head.repo.full_name == github.repository
+      && (github.event.action == 'ready_for_review'
+          || github.event.label.name == 'style-review')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+        fetch-depth: 0
+
+    - name: Check the gateway configuration
+      id: config
+      env:
+        BASE_URL: ${{ vars.STYLE_REVIEW_BASE_URL }}
+        MODEL: ${{ vars.STYLE_REVIEW_MODEL }}
+        KEY: ${{ secrets.OPENMODEL_API_KEY }}
+      run: |
+        if [ -n "$BASE_URL" ] && [ -n "$MODEL" ] && [ -n "$KEY" ]; then
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "::notice::style-review is not configured — set the \
+        STYLE_REVIEW_BASE_URL and STYLE_REVIEW_MODEL variables and the \
+        OPENMODEL_API_KEY secret."
+          echo "configured=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Diff the Python files against the merge base
+      id: diff
+      env:
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      run: |
+        mkdir .style-review
+        git diff --merge-base "$BASE_SHA" -- '*.py' > .style-review/diff.patch
+        git diff --merge-base "$BASE_SHA" --name-only -- '*.py' \
+          > .style-review/files.txt
+        echo "changed=$(test -s .style-review/diff.patch \
+          && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+    - name: Review the diff
+      if: >
+        steps.config.outputs.configured == 'true'
+        && steps.diff.outputs.changed == 'true'
+      env:
+        ANTHROPIC_BASE_URL: ${{ vars.STYLE_REVIEW_BASE_URL }}
+        ANTHROPIC_AUTH_TOKEN: ${{ secrets.OPENMODEL_API_KEY }}
+        ANTHROPIC_MODEL: ${{ vars.STYLE_REVIEW_MODEL }}
+        CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: 1
+      run: |
+        npm install --global @anthropic-ai/claude-code
+        claude -p "$(cat .github/style-review/prompt.md)" \
+          --model "$ANTHROPIC_MODEL" \
+          --allowedTools "Read,Glob,Grep,Write" \
+          --max-turns 50
+
+    - name: Generate a discopy-bot token
+      id: app-token
+      if: >
+        steps.config.outputs.configured == 'true'
+        && steps.diff.outputs.changed == 'true'
+      uses: actions/create-github-app-token@v1
+      with:
+        app-id: ${{ vars.DISCOPY_BOT_APP_ID }}
+        private-key: ${{ secrets.DISCOPY_BOT_PRIVATE_KEY }}
+        permission-pull-requests: write
+
+    - name: Post the review
+      if: >
+        steps.config.outputs.configured == 'true'
+        && steps.diff.outputs.changed == 'true'
+      env:
+        APP_TOKEN: ${{ steps.app-token.outputs.token }}
+        REPO: ${{ github.repository }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        MODEL: ${{ vars.STYLE_REVIEW_MODEL }}
+      run: python3 .github/style-review/post.py
