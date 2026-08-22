@@ -78,6 +78,19 @@ class Diagram(symmetric.Diagram, ribbon.Diagram, CompactCategory):
     ob = Ty
     layer_factory = Layer
     trace_factory = ribbon.Diagram.trace_factory
+    axiom_status = {
+        "trace_superposing_left": "strict",
+        "trace_superposing_right": "strict",
+        "trace_naturality_left": "strict",
+        "trace_naturality_right": "strict",
+        "trace_dinaturality_left": "wontfix",
+        "trace_dinaturality_right": "wontfix",
+        "braid_naturality": "strict",
+        "currying_left": "strict",
+        "currying_right": "strict",
+        "transpose_axiom": "strict",
+        "twist_as_trace": "strict",
+    }
 
 
 class Box(symmetric.Box, ribbon.Box, Diagram):
@@ -159,6 +172,12 @@ class CMap(symmetric.CMap):
     category = Diagram
     require_oriented = False
     require_connected = False
+    axiom_status = {
+        "trace_naturality_left": "strict",
+        "trace_naturality_right": "strict",
+        "currying_left": "strict",
+        "currying_right": "strict",
+    }
 
 
 Id = Diagram.id
@@ -176,4 +195,5 @@ class Equation(symmetric.Equation):
     up_to = staticmethod(Diagram.to_hypergraph)
 
 
+Diagram.equation_factory = Equation
 __getattr__ = deprecated_ob(__name__)

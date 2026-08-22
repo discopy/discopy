@@ -1,9 +1,11 @@
 import shutil
 
+from hypothesis import find
+from hypothesis.errors import Unsatisfiable
 import pytest
 from pytest import raises
 
-from discopy import closed, biclosed, compact, symmetric
+from discopy import closed, biclosed, compact, monoidal, symmetric
 from discopy.python.finset import Permutation
 from discopy.utils import AxiomError
 
@@ -30,6 +32,32 @@ def test_default_compact_setting():
     cm = M.from_box(f)
     assert isinstance(f, M.category)
     assert cm.to_hypergraph().category == M.category
+
+
+@pytest.mark.parametrize("module", (monoidal, symmetric, compact))
+def test_CMap_satisfies_category_axioms(module):
+    x, y, z, w = map(module.Ty, "xyzw")
+    f, g, h = map(module.CMap.from_box, (
+        module.Box("f", x, y),
+        module.Box("g", y, z),
+        module.Box("h", z, w),
+    ))
+    assert module.CMap.unitality(f)
+    assert module.CMap.associativity((f, g, h))
+
+
+def test_CMap_strategy_preserves_subclass():
+    class CustomCMap(compact.CMap):
+        pass
+
+    cmap = find(CustomCMap.strategy(max_leaves=1), lambda _: True)
+    assert type(cmap) is CustomCMap
+
+
+def test_connected_CMap_strategy_rejects_closed_components():
+    with raises(Unsatisfiable):
+        find(monoidal.CMap.strategy(
+            boundary_connected=False), lambda _: True)
 
 
 def test_M_init():
@@ -389,6 +417,12 @@ def test_trace():
     assert M.id(x).trace(left=True).loops == (x, )
     assert M.swap(x, x).trace() == M.id(x)
 
+    from discopy.traced import CMap as TracedMap, Ty as TracedTy
+    traced_x, traced_y = map(TracedTy, "xy")
+    traced = TracedMap.id(traced_x @ traced_y).trace()
+    assert traced.dom == traced.cod == traced_x
+    assert traced.loops == (traced_y, )
+
     f = M.from_box(Box("f", x @ y, x @ y))
     right_trace = f.trace()
     assert right_trace.dom == x
@@ -472,6 +506,33 @@ def test_connected_components_of_loops():
     components = loops.connected_components
     assert len(components) == 2
     assert tuple(c.loops for c in components) == ((x,), (y,))
+
+
+def test_loop_order_is_canonical():
+    from discopy.compact import Ty, CMap as M
+
+    x, y = map(Ty, "xy")
+    left = M(Ty(), Ty(), (), (), loops=(x, y))
+    right = M(Ty(), Ty(), (), (), loops=(y, x))
+    assert left == right and hash(left) == hash(right)
+
+
+def test_compact_evaluation_is_wiring():
+    from discopy.compact import Ty, Diagram, CMap
+
+    x, y = map(Ty, "xy")
+    for left in False, True:
+        evaluation = CMap.ev(x, y, left)
+        assert evaluation == Diagram.ev(x, y, left).to_map()
+        assert not evaluation.boxes
+
+
+def test_empty_structural_generators_are_wiring():
+    from discopy import frobenius, markov
+
+    assert markov.CMap.copy(markov.Ty(), 2) == markov.CMap.id()
+    assert frobenius.CMap.spiders(
+        1, 2, frobenius.Ty()) == frobenius.CMap.id()
 
 
 def test_hypergraph_to_map():

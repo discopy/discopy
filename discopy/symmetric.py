@@ -157,6 +157,52 @@ class Layer(monoidal.Layer):
         """
         return any(isinstance(value, Permutation) for value in self)
 
+    @classmethod
+    def strategy(
+            cls, *, factory, types=None, dom=None, cod=None,
+            label=None, exclude=(), boundary_connected=True):
+        """Add a simultaneous native permutation to ordinary layers."""
+        from hypothesis import strategies as st
+
+        exclude = frozenset(exclude)
+        base = super().strategy(
+            factory=factory, types=types, dom=dom, cod=cod,
+            label=label, exclude=exclude,
+            boundary_connected=boundary_connected)
+        types = factory.ob.strategy() if types is None else types
+        permutation_factory = factory.permutation_factory
+
+        def from_dom(source, target=None):
+            if len(source) < 2 or (
+                    target is not None and len(source) != len(target)):
+                return st.nothing()
+
+            def matches(perm):
+                return not perm.is_identity and (
+                    target is None or target == source[:0].tensor(*(
+                        source[i] for i in perm)))
+
+            return finset.Permutation.strategy(dom=len(source)).filter(
+                matches).map(lambda perm: cls(
+                    permutation_factory(source, perm))).filter(
+                        lambda layer: not exclude.intersection(layer.boxes))
+
+        if dom is not None:
+            permutations = from_dom(dom, cod)
+        elif cod is not None:
+            def from_cod(perm):
+                inverse = perm.dagger()
+                source = cod[:0].tensor(*(cod[i] for i in inverse))
+                return cls(permutation_factory(source, perm))
+
+            permutations = finset.Permutation.strategy(dom=len(cod)).filter(
+                lambda perm: not perm.is_identity).map(from_cod)\
+                .filter(lambda layer: not exclude.intersection(layer.boxes))\
+                if len(cod) >= 2 else st.nothing()
+        else:
+            permutations = types.flatmap(from_dom)
+        return st.one_of(base, permutations)
+
 
 @factory
 class Diagram(balanced.Diagram, SymmetricCategory):
@@ -232,6 +278,16 @@ class Diagram(balanced.Diagram, SymmetricCategory):
     >>> Permutation.swap_factory = Transposition
     >>> assert Permutation.braid_factory is Transposition
     """
+    axiom_status = {
+        "bifunctoriality": "setoid",
+        "trace_superposing_left": "strict",
+        "trace_superposing_right": "strict",
+        "trace_naturality_left": "strict",
+        "trace_naturality_right": "strict",
+        "trace_dinaturality_left": "wontfix",
+        "trace_dinaturality_right": "wontfix",
+        "braid_naturality": "strict",
+    }
     braid_factory = classproperty(lambda cls: cls.swap_factory)
     layer_factory = Layer
     twist_factory = classmethod(lambda cls, dom: cls.id(dom))
@@ -602,6 +658,7 @@ class Functor(balanced.Functor):
 class CMap(traced.CMap):
     category = Diagram
     require_planar = False
+    require_causal = False
 
 
 Diagram.functor_factory = Functor
@@ -625,3 +682,6 @@ class Equation(monoidal.Equation):
     >>> assert Equation(Swap(x, y) >> Swap(y, x), Id(x @ y))
     """
     up_to = staticmethod(Diagram.to_hypergraph)
+
+
+Diagram.equation_factory = Equation

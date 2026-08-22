@@ -92,6 +92,12 @@ class Diagram(pivotal.Diagram, balanced.Diagram, RibbonCategory):
         dom (pivotal.Ty) : The domain of the diagram, i.e. its input.
         cod (pivotal.Ty) : The codomain of the diagram, i.e. its output.
     """
+    axiom_status = {
+        "trace_superposing_left": "strict",
+        "trace_superposing_right": "strict",
+        "twist_as_trace": "bug",
+    }
+
     def trace(self, n=1, left=False):
         """
         The trace of a ribbon diagram.
@@ -367,3 +373,6 @@ Id = Diagram.id
 
 class Equation(pivotal.Equation):
     """ The :class:`pivotal.Equation` of ribbon diagrams. """
+
+
+Diagram.equation_factory = Equation

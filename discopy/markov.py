@@ -114,6 +114,16 @@ class Diagram(symmetric.Diagram, MarkovCategory):
 
     .. image:: /_static/markov/copy_and_apply.svg
     """
+    axiom_status = {
+        "trace_superposing_left": "strict",
+        "trace_superposing_right": "strict",
+        "trace_naturality_left": "strict",
+        "trace_naturality_right": "strict",
+        "trace_dinaturality_left": "wontfix",
+        "trace_dinaturality_right": "wontfix",
+        "braid_naturality": "strict",
+    }
+
     @classmethod
     def spider_factory(cls, n_legs_in, n_legs_out, typ, phase=None):
         if phase is not None or 1 not in (n_legs_in, n_legs_out):
@@ -164,6 +174,20 @@ class Box(symmetric.Box, Diagram):
         dom (monoidal.Ty) : The domain of the box, i.e. its input.
         cod (monoidal.Ty) : The codomain of the box, i.e. its output.
     """
+
+    @classmethod
+    def strategy(cls, **params):
+        """Add copying and discarding to the inherited distribution."""
+        from hypothesis import strategies as st
+
+        base = super().strategy(**params)
+        factory = cls.ar.copy_factory
+        return cls.extend_strategy(
+            base, factory,
+            lambda factory: st.tuples(
+                cls.atomic_strategy(),
+                st.sampled_from((0, 2, 3))).map(
+                    lambda args: factory(*args)), **params)
 
 
 class Swap(symmetric.Swap, Box):
@@ -313,6 +337,11 @@ class Functor(symmetric.Functor):
 
 class CMap(symmetric.CMap):
     category = Diagram
+    axiom_status = {
+        "copy_counitality": "wontfix",
+        "copy_coassociativity": "wontfix",
+        "copy_cocommutativity": "wontfix",
+    }
 
 
 Diagram.functor_factory = Functor
@@ -330,3 +359,6 @@ Id = Diagram.id
 class Equation(symmetric.Equation):
     """ The :class:`symmetric.Equation` of Markov diagrams. """
     up_to = staticmethod(Diagram.to_hypergraph)
+
+
+Diagram.equation_factory = Equation

@@ -47,9 +47,10 @@ import subprocess
 from typing import Any, TYPE_CHECKING, ClassVar, Literal
 
 from discopy import messages, hypergraph
-from discopy.cat import Ob
+from discopy.cat import Box as CatBox, Ob
 from discopy.abc import CompactCategory, NamedGeneric, Pregroup
 from discopy.python.finset import Permutation
+from discopy.testing import Strategy
 from discopy.utils import (
     AxiomError,
     assert_isinstance,
@@ -124,8 +125,7 @@ class Port:
 
 
 class CMap[C0: Pregroup, C1: CMap](
-    CompactCategory[C0, C1], NamedGeneric['category']
-):
+        CompactCategory[C0, C1], NamedGeneric['category'], Strategy[C1]):
     r"""
     An open combinatorial map, i.e. a diagram represented as a bijection
     between its ports.
@@ -265,6 +265,32 @@ class CMap[C0: Pregroup, C1: CMap](
     require_connected: ClassVar[bool] = False
     functor = classproperty(lambda cls: cls.category.functor_factory)
     ob = classproperty(lambda cls: cls.category.ob)
+    axiom_status = {
+        "trace_naturality_left": "wontfix",
+        "trace_naturality_right": "wontfix",
+        "trace_dinaturality_left": "wontfix",
+        "trace_dinaturality_right": "wontfix",
+        "braid_naturality": lambda *terms: type(terms[0]).category
+        .equation_factory(*(term.to_diagram() for term in terms)),
+        "currying_left": "wontfix",
+        "currying_right": "wontfix",
+    }
+
+    @classmethod
+    def strategy(cls, *, boundary_connected=True, **params):
+        """Generate maps through diagrams with optional closed components."""
+        if not boundary_connected and cls.require_connected:
+            from hypothesis import strategies as st
+            return st.nothing()
+        return cls.category.strategy(
+            boundary_connected=boundary_connected, **params).map(
+            cls.from_diagram)
+
+    @classproperty
+    def axioms(cls):
+        """ The axioms of the diagram category represented by the map. """
+        return () if cls.category is None else tuple(
+            axiom.bind(cls) for axiom in cls.category.axioms)
 
     dom: C0
     cod: C0
@@ -287,7 +313,8 @@ class CMap[C0: Pregroup, C1: CMap](
         self.offsets = offsets or tuple(len(boxes) * [None])
         if len(self.offsets) != len(self.boxes):
             raise ValueError
-        self.loops = tuple(loops)
+        self.loops = tuple(sorted(
+            loops, key=lambda loop: (factory_name(type(loop)), repr(loop))))
 
         self.edges = Permutation(edges, self.n_ports)
         self.validate()
@@ -454,8 +481,12 @@ class CMap[C0: Pregroup, C1: CMap](
         if self.require_planar and not self.is_planar:
             raise AxiomError(messages.NOT_PLANAR.format(self))
 
-        if self.require_connected and len(self.connected_components) != 1:
-            raise AxiomError(messages.NOT_CONNECTED.format(self))
+        if self.require_connected:
+            spatial_components = [
+                component for component in self.connected_components
+                if component.n_ports or component.boxes]
+            if len(spatial_components) > 1:
+                raise AxiomError(messages.NOT_CONNECTED.format(self))
 
     @property
     def connected_components(self) -> list[CMap]:
@@ -698,6 +729,13 @@ class CMap[C0: Pregroup, C1: CMap](
         return cls(box.dom, box.cod, (box, ), edge)
 
     @classmethod
+    def from_generator(cls, generator: Diagram) -> CMap:
+        """ Encode a primitive generator as a box and structure as wiring. """
+        return cls.from_box(generator)\
+            if isinstance(generator, CatBox)\
+            else cls.from_diagram(generator)
+
+    @classmethod
     def from_glued(cls, dom: Ty, cod: Ty,
                    images: Iterable[tuple[CMap, int]]) -> CMap:
         """
@@ -853,12 +891,12 @@ class CMap[C0: Pregroup, C1: CMap](
     @classmethod
     def copy(cls, typ: Ty, n: int = 2) -> CMap:
         """ Copy is kept as a box: one input cannot wire to many outputs. """
-        return cls.from_box(cls.category.copy(typ, n))
+        return cls.from_generator(cls.category.copy(typ, n))
 
     @classmethod
     def merge(cls, typ: Ty, n: int = 2) -> CMap:
         """ Merge is kept as a box: many inputs cannot wire to one output. """
-        return cls.from_box(cls.category.merge(typ, n))
+        return cls.from_generator(cls.category.merge(typ, n))
 
     @classmethod
     def discard(cls, typ: Ty) -> CMap:
@@ -867,8 +905,8 @@ class CMap[C0: Pregroup, C1: CMap](
 
     @classmethod
     def ev(cls, base: Ty, exponent: Ty, left: bool = True) -> CMap:
-        """ Evaluation kept as a box. """
-        return cls.from_box(cls.category.ev(base, exponent, left))
+        """ Encode structural evaluation as wiring, otherwise as a box. """
+        return cls.from_generator(cls.category.ev(base, exponent, left))
 
     def curry(self, n: int = 1, left: bool = False) -> CMap:
         """
@@ -974,7 +1012,7 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> assert CMap.spiders(1, 2, Dim(2, 3)).eval().is_close(
         ...     Tensor.spiders(1, 2, Dim(2, 3)))
         """
-        return cls.from_box(cls.category.spiders(
+        return cls.from_generator(cls.category.spiders(
             n_legs_in, n_legs_out, typ, phases))
 
     @unbiased

@@ -82,7 +82,8 @@ from typing import (
     Callable, Mapping, Iterable, TYPE_CHECKING)
 
 from discopy import messages, utils
-from discopy.abc import Category
+from discopy.abc import Category, Equation as AbstractEquation
+from discopy.testing import Strategy
 from discopy.utils import (  # noqa: F401
     factory,
     factory_name,
@@ -103,7 +104,7 @@ dumps, loads = utils.dumps, utils.loads
 
 
 @total_ordering
-class Ob:
+class Ob(Strategy["Ob"]):
     """
     An object with a string as :code:`name`.
 
@@ -139,6 +140,13 @@ class Ob:
 
     def __lt__(self, other):
         return self.name < other.name
+
+    @classmethod
+    def strategy(cls):
+        """Generate named objects."""
+        from hypothesis import strategies as st
+
+        return st.sampled_from(tuple("abcde")).map(cls)
 
     def to_tree(self) -> dict:
         """
@@ -252,7 +260,7 @@ class FreeCategory(Category):
 
 
 @factory
-class Arrow(FreeCategory):
+class Arrow(FreeCategory, Strategy["Arrow"]):
     """
     An arrow is a tuple of composable boxes :code:`inside` with a pair of
     objects :code:`dom` and :code:`cod` as domain and codomain.
@@ -299,6 +307,54 @@ class Arrow(FreeCategory):
     see :class:`monoidal.PRO`.
     """
     ob = Ob
+
+    @classmethod
+    def strategy(
+            cls, *, types=None, dom=None, cod=None,
+            min_leaves=None, max_leaves=10):
+        """Generate typed paths recursively from identities and boxes."""
+        from hypothesis import strategies as st
+
+        types = cls.ob.strategy() if types is None else types
+
+        def generators(dom=None, cod=None):
+            return cls.generator_factory.strategy(
+                types=types, dom=dom, cod=cod)
+
+        atoms = st.one_of(types.map(cls.id), generators())
+
+        def extend(children):
+            def bridge(pair):
+                left, right = pair
+                return generators(dom=left.cod, cod=right.dom).map(
+                    lambda middle: left >> middle >> right)
+
+            return st.tuples(children, children).flatmap(bridge)
+
+        arrows = st.recursive(
+            atoms, extend,
+            min_leaves=min_leaves, max_leaves=max_leaves)
+
+        if dom is not None or cod is not None:
+            def set_boundaries(arrow):
+                source = arrow.dom if dom is None else dom
+                target = arrow.cod if cod is None else cod
+                if not arrow.inside:
+                    return st.just(cls.id(source)) if source == target\
+                        else generators(dom=source, cod=target)
+                boundaries = (source, ) + tuple(
+                    box.cod for box in arrow.inside[:-1]) + (target, )
+                return st.tuples(*(generators(left, right)
+                                   for left, right in zip(
+                                       boundaries, boundaries[1:])))\
+                    .map(lambda inside: cls(
+                        inside, source, target, _scan=False))
+
+            arrows = arrows.flatmap(set_boundaries)
+
+        return arrows.filter(
+                lambda arrow: len(set(arrow.inside))
+                == len(arrow.inside))
 
     def __setstate__(self, state):
         if '_dom' in state:  # Backward compatibility
@@ -531,6 +587,19 @@ class Box(Arrow):
     >>> f = Box('f', x, y, data=[42])
     >>> assert f.inside == (f, )
     """
+
+    @classmethod
+    def strategy(
+            cls, *, types=None, dom=None, cod=None):
+        """Generate fresh free boxes with optional exact boundaries."""
+        from hypothesis import strategies as st
+
+        types = cls.ob.strategy() if types is None else types
+        doms = types if dom is None else st.just(dom)
+        cods = types if cod is None else st.just(cod)
+        return st.tuples(st.uuids(), doms, cods).map(
+            lambda args: cls(str(args[0]), args[1], args[2]))
+
     def __setstate__(self, state):
         if '_name' in state:  # Backward compatibility
             self.name, self.data, self.is_dagger = (
@@ -1054,7 +1123,7 @@ class Transformation(Category):
             f"dom={self.dom!r}, cod={self.cod!r})")
 
 
-class Equation:
+class Equation(AbstractEquation[Arrow]):
     """
     An equation is a list of ``terms`` to be compared up to a function
     ``up_to``, the identity by default.  Casting it to ``bool`` checks whether
@@ -1101,6 +1170,7 @@ class Equation:
         return all(term == terms[0] for term in terms)
 
 
+Arrow.equation_factory = Equation
 Arrow.sum_factory = Sum
 Arrow.bubble_factory = Bubble
 Id = Arrow.id

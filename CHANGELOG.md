@@ -9,6 +9,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- Axiom statuses now record the representation-level equality available to
+  combinatorial maps, and diagram/map strategies can generate closed
+  components on request.
+- Declarative categorical axioms, validating argument shapes, and canonical
+  Hypothesis strategies following the categorical class hierarchy. A dedicated
+  workflow runs the property tests on `main`, manually, and on labelled PRs.
 - Combinatorial map representation, `discopy.cmap`, encoding diagrams in
   compact categories as a permutation on the ports of each box
   ([#338](https://github.com/discopy/discopy/pull/338)).
@@ -149,6 +155,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 - `build.yml` timeouts and a bounded, retried Graphviz install
   ([#591](https://github.com/discopy/discopy/issues/591)).
+- Boundary-constrained arrow strategies can generate composite paths, layer
+  strategies honour box exclusions, and combinatorial-map strategies preserve
+  subclasses. The abstract feedback signature now matches its inferred-argument
+  implementations.
 - `frobenius.Diagram.unfuse`'s doctest no longer sets `Spider.color = "red"`
   to draw its example, which was leaking into every later doctest in the
   same pytest process

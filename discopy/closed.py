@@ -93,6 +93,15 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
     A diagram applied to another post-composes their tensor with an `Eval`.
     """
     ob = Ty
+    axiom_status = {
+        "trace_superposing_left": "strict",
+        "trace_superposing_right": "strict",
+        "trace_naturality_left": "strict",
+        "trace_naturality_right": "strict",
+        "trace_dinaturality_left": "wontfix",
+        "trace_dinaturality_right": "wontfix",
+        "braid_naturality": "strict",
+    }
 
     @property
     def is_linear(self):
@@ -176,6 +185,11 @@ class Functor(biclosed.Functor, markov.Functor):
 class CMap(biclosed.CMap):
     category = Diagram
     require_planar = False
+    axiom_status = {
+        "copy_counitality": "wontfix",
+        "copy_coassociativity": "wontfix",
+        "copy_cocommutativity": "wontfix",
+    }
 
 
 Diagram.functor_factory = Functor
@@ -305,3 +319,6 @@ Ty.abstraction_factory = Abstraction
 
 class Equation(markov.Equation):
     """ The :class:`markov.Equation` of closed diagrams. """
+
+
+Diagram.equation_factory = Equation

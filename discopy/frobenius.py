@@ -77,6 +77,12 @@ class Wire(pivotal.Wire):
     """
     l = r = property(lambda self: self)
 
+    @classmethod
+    def strategy(cls, **params):
+        """Generate self-dual objects at winding zero."""
+        return rigid.Wire.strategy.__func__(
+            cls, min_winding=0, max_winding=0, **params)
+
 
 @factory
 class Ty(pivotal.Ty):
@@ -123,6 +129,19 @@ class Diagram(compact.Diagram, markov.Diagram, HypergraphCategory):
     """
 
     ob = Ty
+    axiom_status = {
+        "trace_superposing_left": "strict",
+        "trace_superposing_right": "strict",
+        "trace_naturality_left": "strict",
+        "trace_naturality_right": "strict",
+        "trace_dinaturality_left": "wontfix",
+        "trace_dinaturality_right": "wontfix",
+        "braid_naturality": "strict",
+        "currying_left": "strict",
+        "currying_right": "strict",
+        "transpose_axiom": "strict",
+        "twist_as_trace": "strict",
+    }
 
     @classmethod
     def caps(cls, left, right):
@@ -177,6 +196,21 @@ class Box(compact.Box, markov.Box, Diagram):
         dom (Ty) : The domain of the box, i.e. its input.
         cod (Ty) : The codomain of the box, i.e. its output.
     """
+
+    @classmethod
+    def strategy(cls, **params):
+        """Add spiders to the inherited box distribution."""
+        from hypothesis import strategies as st
+
+        base = super().strategy(**params)
+        factory = cls.ar.spider_factory
+        return cls.extend_strategy(
+            base, factory,
+            lambda factory: st.tuples(
+                st.sampled_from(
+                    ((0, 1), (1, 0), (1, 2), (2, 1), (2, 2))),
+                cls.atomic_strategy()).map(
+                    lambda args: factory(*args[0], args[1])), **params)
 
 
 class Cup(compact.Cup, Box):
@@ -381,6 +415,17 @@ def coherence(cls: type, factory: Callable
 
 class CMap(compact.CMap):
     category = Diagram
+    axiom_status = {
+        "trace_naturality_left": "strict",
+        "trace_naturality_right": "strict",
+        "currying_left": "strict",
+        "currying_right": "strict",
+        "copy_counitality": "wontfix",
+        "copy_coassociativity": "wontfix",
+        "copy_cocommutativity": "wontfix",
+        "frobenius": "wontfix",
+        "speciality": "wontfix",
+    }
 
 
 Diagram.functor_factory = Functor
@@ -397,4 +442,5 @@ class Equation(compact.Equation):
     up_to = staticmethod(Diagram.to_hypergraph)
 
 
+Diagram.equation_factory = Equation
 __getattr__ = deprecated_ob(__name__)
