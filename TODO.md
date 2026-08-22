@@ -94,7 +94,7 @@ hand. Same move as `discopy.drawing`, where the layout algorithm is itself a fun
 - [x] 3. `varname` on `monoidal.Wire`, per USER's ruling quoted below: an optional argument of
       `Wire.__init__`, in `__repr__` but not `__str__`, not in `__eq__`. Also carried through
       `dagger()` and `to_tree`/`from_tree`, which drop it today.
-- [ ] 4. Deterministic fresh names from binder position (de Bruijn level: free variables numbered by
+- [WIP] @j0mncc-2026-08-22 00:50 4. Deterministic fresh names from binder position (de Bruijn level: free variables numbered by
       their index in `dom`, binders continuing the numbering), used wherever `varname` is absent.
       Test that it is a pure function of the diagram.
 - [ ] 5. Annotate at the two sites #372 names: the identity wire built by `Variable.eval`, and the
