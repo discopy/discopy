@@ -26,6 +26,8 @@ starting from the todo as usual”
 - [x] edit `RULES.md`
   point 1 per USER's ruling: “agent deletes todo when it's done”, now that
   the style reviewer gives every PR leaving draft a first pass
+- [WIP] @session_01JFJANWnm5ZdrfujFQmgrff-2026-08-22 09:53 extend the rule: a round of review feedback — bot or human — starts a fresh
+  `TODO.md`, per USER: “it doesn't need to be human feedback”
 - [ ] USER: create the `STYLE_REVIEW_API_KEY` secret and the
   `STYLE_REVIEW_BASE_URL` / `STYLE_REVIEW_MODEL` repository variables for
   the OpenRouter gateway
