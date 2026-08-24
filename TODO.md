@@ -101,8 +101,28 @@ hand. Same move as `discopy.drawing`, where the layout algorithm is itself a fun
       variable's name independent of what is bound inside it. Renaming apart is left to point 7,
       the only place that sees a whole context at once — a derived `x1` can still collide with an
       annotation spelled `x1`, which the docstring says.
-- [WIP] @evening-2026-08-24-2026-08-24 00:10 5. Annotate at the two sites #372 names: the identity wire built by `Variable.eval`, and the
-      abstracted wire of the `Curry` built by `Abstraction.eval`.
+- [x] 5. Annotate at the two sites #372 names: the identity wire built by `Variable.eval`, and the
+      abstracted wire of the `Curry` built by `Abstraction.eval`. Both go through
+      `monoidal.Ty.annotate`, the converse of point 4's `varnames`, applied to the term's own type
+      *before* the functor rather than to its image: an annotated type is `==` to the plain one, so
+      a functor into a category without the structure drops the name by looking its image up in
+      `ob_map`, and no call site needs a guard for the codomain. A variable names every wire of its
+      type, since a non-atomic variable already breaks `Abstraction.eval` (unrelated, see below) and
+      point 5 must not narrow `Variable.eval` further.
+
+      Three things this turned up, all fixed here because point 5 creates the cases that expose
+      them, none of them reachable on `main`:
+
+      - **`monoidal.Ty.__hash__` hashed `repr`, which `varname` is in.** So point 3 made two `==`
+        types hash apart, and `ob_map[annotated]` raised `KeyError`. It now hashes what `__eq__`
+        compares, minus the type, which is also what `hopf.Representation` needs: its `__eq__` is
+        cross-type against `frobenius.Dim` and its own `__hash__` existed only to paper over the
+        repr-hash, so it is now the inherited one.
+      - **`biclosed.Exp` dropped `varname`** from `__init__`, `__repr__`, `to_tree` and `from_tree`,
+        so a variable of function type lost its name and `eval(repr(x))` raised. Point 3 carried it
+        on `Wire` and stopped there because nothing annotated an exponent yet.
+      - **`biclosed.Functor` rebuilds an exponent** rather than looking it up, so it lost the
+        annotation the atom path keeps for free. It now carries it when the image can take one.
 - [ ] 6. Make terms-in-context a `BiclosedCategory` instance: `id`, `then`, `tensor`, `ev`, `curry`.
 - [ ] 7. `biclosed.Diagram.to_term` as a `Functor` into it, reading `varname` when present, with
       `to_term(*names)` overriding the free-variable names.

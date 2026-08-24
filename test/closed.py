@@ -175,3 +175,32 @@ def test_draw_copy_and_swap():
     # A non-linear term evaluates to such a diagram, so it draws too.
     X = Ty('X')
     assert X(lambda x: (X >> X)(lambda f: f(x))).eval().to_drawing()
+
+
+def test_Variable_eval_annotates_the_context():
+    """
+    Evaluated in a context, a variable keeps the identity on its own wire and
+    discards the others: every wire carries the name of the variable it holds.
+    """
+    x, y = Ty('x'), Ty('y')
+    v, w = Variable('v', x), Variable('w', y)
+    diagram = v.eval(context=Context([v, w]))
+    assert diagram.dom.varnames() == ['v', 'w']
+    assert diagram.cod == x and diagram == Diagram.id(x) @ Diagram.discard(y)
+
+
+def test_Abstraction_eval_annotates_the_discarded_wire():
+    """ A variable that does not occur in the body still names its wire. """
+    x, y = Ty('x'), Ty('y')
+    term = Abstraction(Variable('v', x), Constant('c', y))
+    curry, = term.eval().boxes
+    assert curry.arg.dom.varnames() == ['v']
+
+
+def test_Abstraction_eval_annotates_every_free_variable():
+    """ The permuted context keeps one name per wire. """
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
+    v, w = Variable('v', x), Variable('w', y)
+    body = Constant('f', (z << y) << x)(v)(w)
+    curry, = Abstraction(v, body).eval().boxes
+    assert sorted(curry.arg.dom.varnames()) == ['v', 'w']

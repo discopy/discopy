@@ -59,7 +59,18 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   evaluate to equal diagrams. `biclosed.Ty.varnames` reads that annotation
   off each wire of a type, falling back to the name of its de Bruijn level,
   so that names for unannotated wires come from position rather than from a
-  counter ([#372](https://github.com/discopy/discopy/issues/372)).
+  counter. `monoidal.Ty.annotate` is its converse, naming every wire of a
+  type, and `Variable.eval` and `Abstraction.eval` use it to name the wire
+  each variable enters the diagram on: the identity a variable evaluates to,
+  the wires of a context, and the wire an abstraction binds even when its
+  variable does not occur in the body. Annotations survive a functor into a
+  category that has the structure and are dropped by one that does not.
+  `biclosed.Exp` takes a `varname` like any other wire, keeping it in `repr`
+  and in `to_tree`/`from_tree`, so that a variable of function type is
+  faithful too. `monoidal.Ty.__hash__` and `biclosed.Exp.__hash__` now hash
+  what their `__eq__` compares instead of their `repr`, which would have made
+  an annotated type miss its own image in a functor's `ob_map`
+  ([#372](https://github.com/discopy/discopy/issues/372)).
 - The pivotal structure of `Rep(H)`: `HopfAlgebra.drinfeld_element`,
   `pivotal_element` and `ribbon_element`, cached single tensors named after
   the literature (Reshetikhin–Turaev; Kassel; Radford), with pivotal cups

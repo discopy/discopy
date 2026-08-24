@@ -220,10 +220,10 @@ class Variable(TermBase, biclosed.Variable):
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
         if not context:
-            return functor.cod.id(functor(self.cod))
+            return functor.cod.id(functor(self.annotated_cod))
         return functor.cod.tensor(*[
-            functor.cod.id(functor(x.cod)) if x == self
-            else functor.cod.discard(functor(x.cod))
+            functor.cod.id(functor(x.annotated_cod)) if x == self
+            else functor.cod.discard(functor(x.annotated_cod))
             for x in context.inside])
 
 
@@ -264,7 +264,7 @@ class Abstraction(TermBase, biclosed.Abstraction):
             return body.curry(left=False)
         body = self.body.eval(functor=functor)
         if self.var not in self.body.freevars:
-            discard = functor.cod.discard(functor(self.var.cod))
+            discard = functor.cod.discard(functor(self.var.annotated_cod))
             return (discard @ body.dom >> body).curry(left=False)
         i, n = self.body.freevars.index(self.var), len(self.body.freevars)
         p = [i] + [j for j in range(n) if j != i]

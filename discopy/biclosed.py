@@ -234,38 +234,46 @@ class Exp(Wire):
     Parameters:
         base : The base type.
         exponent : The exponent type.
+        varname : The name of the variable this wire carries, if any.
     """
 
     ob = Ty
 
-    def __init__(self, base: Ty, exponent: Ty):
+    def __init__(self, base: Ty, exponent: Ty, varname: "str | None" = None):
         assert_isinstance(base, self.ob)
         assert_isinstance(exponent, self.ob)
         self.base, self.exponent = base, exponent
-        super().__init__(str(self))
+        super().__init__(str(self), varname=varname)
 
     def __eq__(self, other):
         return isinstance(other, type(self))\
             and (self.base, self.exponent) == (other.base, other.exponent)
 
     def __hash__(self):
-        return hash(repr(self))
+        return hash((type(self), self.base, self.exponent))
 
     def __str__(self):
         return f"({self.base} ** {self.exponent})"
 
     def __repr__(self):
-        return factory_name(type(self)) + f"({self.base!r}, {self.exponent!r})"
+        varname = "" if self.varname is None else (
+            f", varname={self.varname!r}")
+        return factory_name(type(self))\
+            + f"({self.base!r}, {self.exponent!r}{varname})"
 
     def to_tree(self):
-        return {
+        tree = {
             'factory': factory_name(type(self)),
             'base': self.base.to_tree(),
             'exponent': self.exponent.to_tree()}
+        if self.varname is not None:
+            tree['varname'] = self.varname
+        return tree
 
     @classmethod
     def from_tree(cls, tree):
-        return cls(*map(from_tree, (tree['base'], tree['exponent'])))
+        return cls(*map(from_tree, (tree['base'], tree['exponent'])),
+                   varname=tree.get('varname'))
 
     @property
     def left(self):
@@ -476,12 +484,18 @@ class Functor(monoidal.Functor):
         if isinstance(other, TermBase):
             return other.eval(self)
         for cls, attr in [(Over, "over"), (Under, "under"), (Exp, "exp")]:
-            if isinstance(other, cls):
-                base, exponent = self(other.base), self(other.exponent)
-                if hasattr(base, attr):
-                    return getattr(base, attr)(exponent)
-                if hasattr(self.cod, attr):
-                    return getattr(self.cod, attr)(base, exponent)
+            if not isinstance(other, cls):
+                continue
+            base, exponent = self(other.base), self(other.exponent)
+            if hasattr(base, attr):
+                image = getattr(base, attr)(exponent)
+            elif hasattr(self.cod, attr):
+                image = getattr(self.cod, attr)(base, exponent)
+            else:
+                continue
+            if other.varname is None or not hasattr(image, "annotate"):
+                return image
+            return image.annotate(other.varname)
         if isinstance(other, Curry) and hasattr(self.cod, "curry"):
             return self.cod.curry(
                 self(other.arg), len(self(other.cod.exponent)), other.left)
@@ -678,9 +692,21 @@ class Variable(TermBase):
         super().__init__(name, dom=cod, cod=cod)
         self.freevars = [self]
 
+    @property
+    def annotated_cod(self) -> Ty:
+        """
+        The type of the variable with its name on each of its wires, so that
+        a diagram it evaluates into can be read back as the term it came
+        from, see :meth:`monoidal.Ty.annotate`.
+
+        >>> x = Ty('x')
+        >>> assert Variable('v', x).annotated_cod.varnames() == ['v']
+        """
+        return self.cod.annotate(*len(self.cod) * [self.name])
+
     def eval(self, functor=None):
         functor = functor or self.functor
-        return functor.cod.id(functor(self.cod))
+        return functor.cod.id(functor(self.annotated_cod))
 
     @property
     def constants(self):

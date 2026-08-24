@@ -112,6 +112,37 @@ def test_Wire_varname_dagger():
     assert annotated.dagger().dagger() == annotated
 
 
+def test_Ty_annotate():
+    """ ``annotate`` names every wire of a type without splitting it. """
+    x = Ty('x', 'y')
+    annotated = x.annotate('a', 'b')
+    assert annotated == x
+    assert [wire.varname for wire in annotated.inside] == ['a', 'b']
+    assert [wire.varname for wire in x.inside] == [None, None]
+    assert Ty().annotate() == Ty()
+    with raises(ValueError):
+        x.annotate('a')
+
+
+def test_Ty_annotate_keeps_the_colours():
+    red, blue = Colour('red'), Colour('blue')
+    x = Ty(Wire('x', red, blue))
+    assert x.annotate('a') == x
+    assert (x.annotate('a').dom, x.annotate('a').cod) == (red, blue)
+
+
+def test_Ty_hash_ignores_varname():
+    """
+    ``Wire.__hash__`` ignores ``varname`` and so must ``Ty.__hash__``, else
+    an annotated type would miss its own image in a functor's ``ob_map``.
+    """
+    x = Ty('x')
+    annotated = x.annotate('a')
+    assert annotated == x and hash(annotated) == hash(x)
+    assert {x: 42}[annotated] == 42
+    assert len({x, annotated}) == 1
+
+
 def test_Ty_init():
     assert list(Ty('x', 'y', 'z')) == [Ty('x'), Ty('y'), Ty('z')]
 

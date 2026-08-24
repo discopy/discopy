@@ -55,6 +55,7 @@ We can check the Eckmann-Hilton argument, up to interchanger.
 from __future__ import annotations
 
 import itertools
+from copy import copy
 from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Iterator, Callable, TYPE_CHECKING
@@ -338,6 +339,33 @@ class Ty(cat.Ob, FreeMonoid):
         obj, = obj.inside if isinstance(obj, Ty) else (obj, )
         return self.inside.count(obj)
 
+    def annotate(self, *names: str) -> Ty:
+        """
+        The same type with each of its wires carrying the name of the
+        variable bound to it, see :attr:`Wire.varname`.
+
+        Parameters:
+            names : One name per wire of the type.
+
+        Annotations are invisible to equality, so annotating a type never
+        splits it. :meth:`biclosed.Ty.varnames` reads them back, falling
+        back on de Bruijn levels for the wires that carry none.
+
+        >>> x = Ty('x', 'y')
+        >>> assert x.annotate('a', 'b') == x
+        >>> x.annotate('a', 'b').inside[0]
+        monoidal.Wire('x', varname='a')
+        """
+        if len(names) != len(self):
+            raise ValueError(
+                f"Expected {len(self)} names, got {len(names)} instead.")
+        inside = []
+        for wire, name in zip(self.inside, names):
+            wire = copy(wire)
+            wire.varname = name
+            inside.append(wire)
+        return type(self)(inside=tuple(inside), dom=self.dom, cod=self.cod)
+
     def unwind(self) -> Ty:
         """
         Rotate an atomic type to winding number zero.
@@ -358,7 +386,7 @@ class Ty(cat.Ob, FreeMonoid):
             and (self.dom, self.cod) == (other.dom, other.cod)
 
     def __hash__(self):
-        return hash(repr(self))
+        return hash((self.inside, self.dom, self.cod))
 
     def __repr__(self):
         if not self.inside and self.dom != white:
