@@ -1,5 +1,13 @@
 # Property-based testing
 
+## Current prompt
+
+> don't push on the cmap branch, focus on proptesting. implement your changes not in fable bug investigation branch, moving bug reproductions from the test/fable/*.py files to test/test_properties.py, then once every relevant bug was classified and implemented as part of the general test suite, upstream the changes in the principal development branch for property testing
+
+> feel free to implement new axioms in the missing categories
+
+- [ ] Fix the property suite and integrate the classified general properties on this branch.
+
 No verbatim prompt: this PR was opened 2026-06-22, before `RULES.md` rule 1 existed, and its
 description is a generated summary rather than anything a human typed. It gets a `TODO.md` now
 because USER ruled on [desire#76](https://github.com/toumix/desire/issues/76), verbatim:
