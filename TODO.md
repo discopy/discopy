@@ -16,9 +16,8 @@ requires reasoning, but `ask()` unconditionally sends
 needed for the previous model to keep it from burning the `max_tokens=8192`
 budget on reasoning tokens instead of the JSON answer.
 
-- [WIP] @claude-issue611-2026-08-24 16:25 `ask()` retries once without the
-  `reasoning` field when the gateway's 400 says reasoning can't be
-  disabled, instead of crashing the job — keeps the disable-by-default
-  behavior for models that support it
+- [x] `ask()` retries once without the `reasoning` field when the
+  gateway's 400 says reasoning can't be disabled, instead of crashing the
+  job — keeps the disable-by-default behavior for models that support it
 - [ ] confirm on this PR's own `style-review` run that it now succeeds
   against `stealth/ox-alpha`

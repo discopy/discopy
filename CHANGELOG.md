@@ -166,7 +166,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   per-file headers, `prompt.md` and `STYLE.md` were all added on top,
   uncounted, so the assembled prompt could exceed `BUDGET` on a PR
   touching a large module even when its diff was small; every part is now
-  budgeted as assembled
+  budgeted as assembled. `ask` also used to unconditionally send
+  `"reasoning": {"enabled": False, "exclude": True}`, which some models
+  (e.g. `stealth/ox-alpha`) 400 on with "Reasoning is mandatory for this
+  endpoint and cannot be disabled"; it now retries once without the
+  `reasoning` field when the gateway's error says so
   ([#611](https://github.com/discopy/discopy/issues/611)).
 - `build.yml` timeouts and a bounded, retried Graphviz install
   ([#591](https://github.com/discopy/discopy/issues/591)).

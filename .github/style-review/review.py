@@ -93,12 +93,13 @@ def assemble(files, diff):
     return "\n\n".join(parts)
 
 
-def ask(prompt):
+def ask(prompt, disable_reasoning=True):
     url = os.environ["BASE_URL"].rstrip("/") + "/v1/chat/completions"
     payload = {
         "model": os.environ["MODEL"], "temperature": 0, "max_tokens": 8192,
-        "reasoning": {"enabled": False, "exclude": True},
         "messages": [{"role": "user", "content": prompt}]}
+    if disable_reasoning:
+        payload["reasoning"] = {"enabled": False, "exclude": True}
     request = urllib.request.Request(url, json.dumps(payload).encode(), {
         "Authorization": f"Bearer {os.environ['API_KEY']}",
         "Content-Type": "application/json"})
@@ -108,6 +109,8 @@ def ask(prompt):
     except urllib.error.HTTPError as error:
         body = error.read().decode(errors="replace")
         print(f"gateway error {error.code}: {body}")
+        if disable_reasoning and "reasoning" in body.lower():
+            return ask(prompt, disable_reasoning=False)
         raise
     answer = message.get("content") or message.get("reasoning") or ""
     if "{" not in answer or "}" not in answer:
