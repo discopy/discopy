@@ -28,6 +28,8 @@ starting from the todo as usual”
   the style reviewer gives every PR leaving draft a first pass
 - [x] extend the rule: a round of review feedback — bot or human — starts a fresh
   `TODO.md`, per USER: “it doesn't need to be human feedback”
+- [WIP] @session_01JFJANWnm5ZdrfujFQmgrff-2026-08-24 07:52 remove rule 4 per USER: “now that bots can talk to each other it makes no sense
+  anymore”
 - [ ] USER: create the `STYLE_REVIEW_API_KEY` secret and the
   `STYLE_REVIEW_BASE_URL` / `STYLE_REVIEW_MODEL` repository variables for
   the OpenRouter gateway
