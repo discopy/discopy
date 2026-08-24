@@ -56,12 +56,15 @@ def post_review(body, inline):
         "Authorization": f"Bearer {os.environ['APP_TOKEN']}",
         "Accept": "application/vnd.github+json",
         "Content-Type": "application/json"})
-    urllib.request.urlopen(request).close()
+    urllib.request.urlopen(request, timeout=60).close()
 
 
 def main():
     with open(os.path.join(DIRECTORY, "findings.json")) as file:
-        findings = [f for f in json.load(file)["findings"] if valid(f)]
+        findings = json.load(file)["findings"]
+    if not isinstance(findings, list):
+        raise ValueError(f"findings should be a list: {findings!r}")
+    findings = [f for f in findings if valid(f)]
     if not findings:
         print("The diff is clean, posting nothing.")
         return

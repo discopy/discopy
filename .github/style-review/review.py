@@ -32,7 +32,8 @@ def imports(path):
             names.add(node.module)
             names.update(
                 f"{node.module}.{alias.name}" for alias in node.names)
-    paths = (name.replace(".", "/") + ".py" for name in sorted(names))
+    paths = (name.replace(".", "/") + suffix for name in sorted(names)
+             for suffix in (".py", "/__init__.py"))
     return [path for path in paths if os.path.exists(path)]
 
 
@@ -59,8 +60,9 @@ def assemble(files, diff):
     """The one prompt: instructions, style guide, context, changes, diff."""
     deps = sorted(
         {dep for path in files for dep in imports(path)} - set(files))
-    changed, budget, _ = contents(files, BUDGET - len(diff))
+    changed, budget, missing = contents(files, BUDGET - len(diff))
     context, _, dropped = contents(deps, budget)
+    dropped = missing + dropped
     with open(".github/style-review/prompt.md") as file:
         parts = [file.read()]
     with open("STYLE.md") as file:
@@ -69,7 +71,7 @@ def assemble(files, diff):
         f"# Context (not under review): {path}\n\n```python\n{text}```"
         for path, text in context]
     if dropped:
-        parts.append(f"# Context dropped for size: {', '.join(dropped)}")
+        parts.append(f"# Dropped for size: {', '.join(dropped)}")
     parts += [
         f"# Changed: {path}\n\n```python\n{numbered(text)}\n```"
         for path, text in changed]
@@ -89,6 +91,8 @@ def ask(prompt):
     with urllib.request.urlopen(request, timeout=600) as response:
         message = json.load(response)["choices"][0]["message"]
     answer = message.get("content") or message.get("reasoning") or ""
+    if "{" not in answer or "}" not in answer:
+        raise ValueError(f"no JSON in the gateway answer: {answer[:200]!r}")
     return json.loads(answer[answer.index("{"):answer.rindex("}") + 1])
 
 
