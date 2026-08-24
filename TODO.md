@@ -56,4 +56,4 @@ In non-rigid categories, currying is represented as an explicit box instead of w
    - @toumix - Maybe we can make that previous behaviour into a method `closed.Diagram.to_compact`? then we would get the bubbles with `closed.Diagram.to_map` and the wiring with `closed.Diagram.to_compact >> to_map`
    - @daydream6728 - yes i think that's a good way to do it, although it will likely break existing term-related PRs, implementing this as a functor then i think we're good to merge. 
 
-- [ ] Address the five local review comments and verify the existing threads remain satisfied.
+- [WIP] @opencode-2026-08-24 16:39 Address the five local review comments and verify the existing threads remain satisfied.
