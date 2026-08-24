@@ -93,6 +93,12 @@ jobs:
       env:
         GH_TOKEN: ${{ steps.app-token.outputs.token }}
         PR_NUMBER: ${{ github.event.pull_request.number }}
+        CLEAN: ${{ steps.post.outputs.clean }}
       run: |
+        if [ "$CLEAN" = "true" ]; then
+          body="No style remarks. @cubic-dev-ai review"
+        else
+          body="@cubic-dev-ai review"
+        fi
         gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
-          -f body="@cubic-dev-ai review"
+          -f body="$body"
