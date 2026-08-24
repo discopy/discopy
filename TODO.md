@@ -2,12 +2,21 @@ in a new side-branch based on property testing (current branch), analyze the bug
 
 have a look at https://github.com/discopy/discopy/tree/claude/discopy-codebase-review-nx03n1/test/fable, it contains self-contained bug reproductions. rebase on this branch and augment them with a property test reproducing the bug. don't reproduct these tests yourself
 
+implement it
+
 # Current Work
 
-- [WIP] @opencode606-2026-08-24 10:25 Analyze the concrete bugs referenced by issue #606.
-- [ ] Classify each failure under a general property or defer it to the unit test suite.
-- [ ] Augment eligible fable repros with Hypothesis properties without duplicating them.
-- [ ] Record the resulting non-axiom property list and verify the suite.
+- [x] Analyze the concrete bugs referenced by issue #606.
+- [x] Classify each failure under a general property or defer it to the unit test suite.
+- [x] Augment eligible fable repros with Hypothesis properties without duplicating them.
+- [x] Record the resulting non-axiom property list and verify the suite.
+
+# Semantic Property Tests
+
+- [ ] Add constructive semantic carrier and morphism strategies.
+- [ ] Bind declared semantic capabilities to the axiom matrix.
+- [ ] Add boundary, equality, closure and bug-coverage tests.
+- [ ] Run property-test lint and verification.
 
 # Imported Harness
 
