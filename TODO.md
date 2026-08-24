@@ -19,5 +19,6 @@ budget on reasoning tokens instead of the JSON answer.
 - [x] `ask()` retries once without the `reasoning` field when the
   gateway's 400 says reasoning can't be disabled, instead of crashing the
   job — keeps the disable-by-default behavior for models that support it
-- [ ] confirm on this PR's own `style-review` run that it now succeeds
-  against `stealth/ox-alpha`
+- [x] confirm on this PR's own `style-review` run that it now succeeds
+  against `stealth/ox-alpha` — run 32750841320 passed with 3 findings,
+  which the bot posted as inline review comments
