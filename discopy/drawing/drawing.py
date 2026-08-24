@@ -1166,7 +1166,7 @@ class Drawing(TracedCategory, RichDisplay):
         self = self.stretch(height - self.height)
         other = other.stretch(height - other.height)
         scalar = Box(
-            symbol, Ty(), Ty(), draw_as_spider=True, color="white"
+            symbol, Ty(), Ty(), draw_as_spider=True, color="none"
         ).to_drawing()
         white = Colour("white")
         if self.cod.cod != white or other.dom.dom != white:

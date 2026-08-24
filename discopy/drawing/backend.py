@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from math import sqrt
+from math import pi, sqrt
 import os
 import re
 from xml.etree import ElementTree
@@ -32,7 +32,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from matplotlib.testing.compare import compare_images
-from matplotlib.patches import PathPatch, Patch
+from matplotlib import patheffects
+from matplotlib.patches import PathPatch, Patch, Rectangle
 from matplotlib.path import Path
 from PIL import Image, ImageSequence
 
@@ -59,7 +60,7 @@ MATPLOTLIB_RC = {
     "savefig.bbox": None,
     "savefig.dpi": "figure",
     "savefig.pad_inches": 0.1,
-    "savefig.transparent": False,
+    "savefig.transparent": True,
     "svg.fonttype": "path",
     "svg.hashsalt": "discopy",
     "svg.image_inline": True,
@@ -293,8 +294,58 @@ def savefig(path, format=None, compare=False, tol=DEFAULT['plt_tol']):
     def save(actual_path):
         with matplotlib_context():
             plt.savefig(actual_path, format=format, metadata=metadata)
+        if is_svg:
+            if isinstance(actual_path, (str, os.PathLike)):
+                inject_dark_mode_style(actual_path)
+            else:
+                inject_dark_mode_style_buffer(actual_path)
 
     save_and_compare(path, save, tol) if compare else save(path)
+
+
+DARK_MODE_STYLE = (
+    "<style>@media (prefers-color-scheme: dark) { "
+    '[id^="dark-stroke"], [id^="dark-stroke"] * '
+    "{ stroke: #ffffff !important; } "
+    '[id^="dark-fill"], [id^="dark-fill"] * '
+    "{ fill: #ffffff !important; } }</style>")
+
+
+def _with_dark_mode_style(text):
+    """ :const:`DARK_MODE_STYLE` inserted after the opening ``<svg>`` tag
+    of ``text``, or ``None`` if it tags no element with a dark- id. """
+    if 'id="dark-' not in text:
+        return None
+    opening = re.search(r"<svg\b[^>]*>", text)
+    return text[:opening.end()] + DARK_MODE_STYLE + text[opening.end():]
+
+
+def inject_dark_mode_style(path):
+    """
+    Insert :const:`DARK_MODE_STYLE` at the top of a saved SVG that tags
+    elements with :meth:`Matplotlib.adaptive_gid`, so that a dark-mode
+    browser shows the tagged black strokes and labels in white while every
+    other renderer keeps the white halos as the static fallback.
+    """
+    with open(path, encoding="utf-8") as file:
+        text = file.read()
+    patched = _with_dark_mode_style(text)
+    if patched is None:
+        return
+    with open(path, "w", encoding="utf-8") as file:
+        file.write(patched)
+
+
+def inject_dark_mode_style_buffer(buffer):
+    """ Same as :func:`inject_dark_mode_style` for the in-memory buffer of
+    :meth:`RichDisplay.to_svg`, so Jupyter and marimo cells get the same
+    dark-mode behaviour as a saved file. """
+    patched = _with_dark_mode_style(buffer.getvalue())
+    if patched is None:
+        return
+    buffer.seek(0)
+    buffer.truncate()
+    buffer.write(patched)
 
 
 def _bezier_subcurve(points, t0, t1):
@@ -367,9 +418,13 @@ class Backend(ABC):
         luma = 0.299 * red + 0.587 * green + 0.114 * blue
         return "white" if luma < threshold else "black"
 
-    def draw_wire(self, source, target,
-                  bend_out=False, bend_in=False, style=None, linewidth=None):
-        """ Draws a wire from source to target, possibly with a Bezier. """
+    def draw_wire(self, source, target, bend_out=False, bend_in=False,
+                  style=None, linewidth=None, colours=None, frame=False):
+        """ Draws a wire from source to target, possibly with a Bezier.
+        The optional ``colours`` are the names of the regions on either side
+        of the wire, so a backend can keep the wire readable on both.
+        A ``frame`` wire is the contour of a frame: it goes underneath the
+        region fills, so the frame colour decides how much of it shows. """
         self.max_width = max(self.max_width, source[0], target[0])
 
     def draw_bezier(self, points):
@@ -413,16 +468,18 @@ class Backend(ABC):
                 [(middle, apex), (middle + kx, apex),
                  (right, centre + sign * ky), (right, centre)])
 
-    def draw_half_circle(self, left, right, end, centre, sign, depth=None):
+    def draw_half_circle(self, left, right, end, centre, sign, depth=None,
+                         colours=None):
         """
         Draws a half circle (or ellipse if ``depth`` differs from the radius)
         from ``(left, centre)`` to ``(right, centre)`` with vertical sides up
         to ``end``, e.g. the fold of a :class:`discopy.ribbon.DualRailCup`,
-        see :meth:`half_circle_beziers`.
+        see :meth:`half_circle_beziers`. The optional ``colours`` are the
+        regions adjacent to the sides, as in :meth:`draw_wire`.
         """
         if end != centre:
-            self.draw_wire((left, end), (left, centre))
-            self.draw_wire((right, centre), (right, end))
+            self.draw_wire((left, end), (left, centre), colours=colours)
+            self.draw_wire((right, centre), (right, end), colours=colours)
         for points in self.half_circle_beziers(
                 left, right, centre, sign, depth):
             self.draw_bezier(points)
@@ -550,12 +607,11 @@ class Backend(ABC):
         fontsize = params.get('fontsize_types', params.get('fontsize', None))
         # The region to the right of this wire, coloured the same way as
         # in draw_regions, is what the label is drawn on top of.
-        background = getattr(x, "cod", None)
-        color = self.readable_foreground(
-            background.name if background is not None else "white")
+        background = "white" if getattr(x, "cod", None) is None else x.cod.name
         self.draw_text(
             label, i, j, verticalalignment='top', fontsize=fontsize,
-            color=color)
+            color=self.readable_foreground(background),
+            halo=background == "white")
 
     @staticmethod
     def has_boundary_sides(typ):
@@ -595,7 +651,6 @@ class Backend(ABC):
         for source, target in self.visible_edges(graph):
             source_position = graph.positions[source]
             target_position = graph.positions[target]
-            # The sides of a frame are drawn with zero width.
             is_frame_boundary = self.is_frame_boundary(source)\
                 or self.is_frame_boundary(target)
             if source.kind in ["dom", "box_cod"]:
@@ -606,9 +661,14 @@ class Backend(ABC):
                    for n in (source, target)):
                 continue  # crossings are drawn on their own
             bend_out, bend_in = source.kind == "box", target.kind == "box"
+            typ = getattr(source, 'x', None) or getattr(target, 'x', None)
+            colours = tuple(
+                side.name for side in
+                (getattr(typ, "dom", None), getattr(typ, "cod", None))
+                if side is not None)
             self.draw_wire(
                 source_position, target_position, bend_out, bend_in,
-                linewidth=(0 if is_frame_boundary else None))
+                frame=is_frame_boundary, colours=colours or None)
 
     def fill_fold(self, outer, inner, color):
         """
@@ -641,8 +701,10 @@ class Backend(ABC):
                 self.half_circle_beziers(
                     xs[1][0], xs[2][0], end, -1, inner_depth),
                 ribbon.name)
+        colours = None if ribbon is None else (ribbon.name,)
         for (a, b), depth in [((0, 3), outer_depth), ((1, 2), inner_depth)]:
-            self.draw_half_circle(xs[a][0], xs[b][0], end, end, -1, depth)
+            self.draw_half_circle(
+                xs[a][0], xs[b][0], end, end, -1, depth, colours=colours)
 
     def draw_dual_rail_cap(self, positions, node, **params):
         """
@@ -663,8 +725,10 @@ class Backend(ABC):
                 self.half_circle_beziers(
                     xs[1][0], xs[2][0], end, 1, inner_depth),
                 ribbon.name)
+        colours = None if ribbon is None else (ribbon.name,)
         for (a, b), depth in [((0, 3), outer_depth), ((1, 2), inner_depth)]:
-            self.draw_half_circle(xs[a][0], xs[b][0], end, end, 1, depth)
+            self.draw_half_circle(
+                xs[a][0], xs[b][0], end, end, 1, depth, colours=colours)
 
     def draw_braid(self, positions, node):
         """
@@ -973,6 +1037,8 @@ class TikZ(Backend):
     @staticmethod
     def format_color(color):
         """ Formats a color. """
+        if color == "none":
+            return color
         hexcode = COLORS[color]
         rgb = [
             int(hex, 16) for hex in [hexcode[1:3], hexcode[3:5], hexcode[5:]]]
@@ -1062,8 +1128,8 @@ class TikZ(Backend):
         """
         super().draw_regions(graph, **params)
 
-    def draw_wire(self, source, target,
-                  bend_out=False, bend_in=False, style=None, linewidth=None):
+    def draw_wire(self, source, target, bend_out=False, bend_in=False,
+                  style=None, linewidth=None, colours=None, frame=False):
         out = -90 if not bend_out or source[0] == target[0]\
             else (180 if source[0] > target[0] else 0)
         inp = 90 if not bend_in or source[0] == target[0]\
@@ -1170,13 +1236,96 @@ class TikZ(Backend):
 class Matplotlib(Backend):
     """ Matplotlib drawing backend. """
     def __init__(self, axis=None, figsize=None, linewidth=1, format=None):
-        self.axis = axis or plt.subplots(figsize=figsize, facecolor='white')[1]
+        self.axis = axis or plt.subplots(figsize=figsize)[1]
+        if axis is None:
+            self.axis.set_facecolor("none")
         self.linewidth = linewidth
         self.format = format
+        self.region_paths = []
+        self.opaque_canvas = False
+        self.adaptive_count = 0
         super().__init__()
+
+    def adaptive_gid(self, kind):
+        """
+        The ``id`` of the next SVG element that adapts to a dark page:
+        :func:`inject_dark_mode_style` turns the stroke of ``"stroke"``
+        elements and the fill of ``"fill"`` elements white under
+        ``prefers-color-scheme: dark``. On the opaque white canvas of
+        :meth:`draw_opaque_canvas` nothing adapts, so this is ``None``.
+        """
+        if self.opaque_canvas:
+            return None
+        self.adaptive_count += 1
+        return f"dark-{kind}-{self.adaptive_count}"
+
+    @staticmethod
+    def wire_effects(linewidth):
+        """ Draw a thin white border underneath a black wire. """
+        return [
+            patheffects.Stroke(linewidth=linewidth + 2, foreground="white"),
+            patheffects.Normal()]
+
+    @staticmethod
+    def text_effects():
+        """ The white halo that keeps a label readable on a dark page,
+        like the border of :meth:`wire_effects`, or subtitles. """
+        return [patheffects.withStroke(linewidth=2, foreground="white")]
+
+    def draw_stroke(self, path, linewidth, underneath=False, below=False,
+                    adaptive=True):
+        """
+        Strokes a wire ``path`` in black with the thin white border that
+        keeps it readable on a dark page. With ``underneath`` the border is
+        a separate patch below the region fills of :meth:`draw_regions`, so
+        an opaque region hides its side of the border and a translucent one
+        dims it by its own transparency; otherwise the border is drawn in
+        place and cuts whatever was drawn before, e.g. the wire it crosses.
+        With ``below`` the black stroke itself also goes below the fills:
+        the contour of a frame shows through a transparent frame colour and
+        disappears behind an opaque one. An ``adaptive`` stroke turns white
+        on a dark page in the browser, see :meth:`adaptive_gid`; a wire
+        beside a coloured region keeps its black over the colour instead.
+        """
+        effects = None
+        if linewidth and (underneath or below):
+            self.axis.add_patch(PathPatch(
+                path, facecolor='none', edgecolor='white',
+                linewidth=linewidth + 2, zorder=.5))
+        elif linewidth:
+            effects = self.wire_effects(linewidth)
+        self.axis.add_patch(PathPatch(
+            path, facecolor='none', linewidth=linewidth,
+            path_effects=effects, zorder=.75 if below else 1,
+            gid=self.adaptive_gid("stroke") if adaptive else None))
+
+    def draw_opaque_canvas(self):
+        """
+        Paints the canvas white behind everything, called by :meth:`output`
+        when a white region has overpainted a coloured one: the painter's
+        algorithm of :meth:`draw_regions` erases to white rather than to
+        transparent, so the drawing only reads on the white page it erased
+        for, see https://github.com/discopy/discopy/issues/521
+        """
+        xlim, ylim = self.axis.get_xlim(), self.axis.get_ylim()
+        self.axis.add_patch(Rectangle(
+            (xlim[0], ylim[0]), xlim[1] - xlim[0], ylim[1] - ylim[0],
+            facecolor="white", edgecolor="none", zorder=0))
+        self.axis.set_xlim(xlim)
+        self.axis.set_ylim(ylim)
+
+    def draw_boundary(self, graph, boundary_color="none", **params):
+        """ Draw a transparent canvas with an optional boundary colour. """
+        x, y = graph.width, graph.height
+        self.draw_polygon(
+            (0, 0), (x, 0), (x, y), (0, y),
+            facecolor="none", edgecolor=boundary_color)
 
     def draw_text(self, text, i, j, **params):
         params['fontsize'] = params.get('fontsize', DEFAULT['fontsize'])
+        if params.pop('halo', False):
+            params['path_effects'] = self.text_effects()
+            params['gid'] = self.adaptive_gid("fill")
         self.axis.text(i, j, text, **params)
         super().draw_text(text, i, j, **params)
 
@@ -1216,12 +1365,14 @@ class Matplotlib(Backend):
             + len(rest) * [Path.LINETO] + [Path.CLOSEPOLY]
         # Disable antialiasing so that abutting same-colour regions do not
         # leave a hairline seam where the background shows through.
-        self.axis.add_patch(PathPatch(
+        patch = PathPatch(
             Path(vertices, codes), linewidth=0, antialiased=False,
-            facecolor=COLORS.get(facecolor, facecolor), edgecolor='none'))
+            facecolor=COLORS.get(facecolor, facecolor), edgecolor='none')
+        self.axis.add_patch(patch)
         super().draw_curved_polygon(
             *points, facecolor=facecolor, edgecolor=edgecolor,
             bend_out=bend_out)
+        return patch
 
     def _draw_right_region(self, source, target, width, facecolor,
                            bend_out=False):
@@ -1230,10 +1381,23 @@ class Matplotlib(Backend):
         ``target``, up to the diagram's right-hand ``width``, with a
         curved polygon, see :meth:`draw_curved_polygon` and the example
         in ``test_draw_right_region_example`` for a concrete case.
+
+        Regions are painted left to right by overpainting everything to the
+        right of each wire, so a white region must overpaint the colours
+        before it; it is clipped to them so that the rest of the canvas
+        stays transparent.
         """
-        self.draw_curved_polygon(
-            source, target, (width, target[1]), (width, source[1]),
-            facecolor=facecolor, bend_out=bend_out)
+        points = (source, target, (width, target[1]), (width, source[1]))
+        if facecolor != "white":
+            self.region_paths.append(self.draw_curved_polygon(
+                *points, facecolor=facecolor, bend_out=bend_out).get_path())
+        elif self.region_paths:
+            self.opaque_canvas = True
+            self.draw_curved_polygon(
+                *points, facecolor=facecolor, bend_out=bend_out
+            ).set_clip_path(
+                Path.make_compound_path(*self.region_paths),
+                self.axis.transData)
 
     def draw_regions(self, graph, **params):
         """ Fill the coloured 0-cell regions of the diagram. """
@@ -1282,28 +1446,33 @@ class Matplotlib(Backend):
             handles=handles, loc=params.get("legend_loc", "upper right"),
             fontsize=params.get("fontsize_types", params.get("fontsize")))
 
-    def draw_wire(self, source, target,
-                  bend_out=False, bend_in=False, style=None, linewidth=None):
+    def draw_wire(self, source, target, bend_out=False, bend_in=False,
+                  style=None, linewidth=None, colours=None, frame=False):
         linewidth = self.linewidth if linewidth is None else linewidth
         if style == '->':  # pragma: no cover
-            self.axis.arrow(
+            arrow = self.axis.arrow(
                 *(source + (target[0] - source[0], target[1] - source[1])),
                 head_width=.02, color="black")
+            arrow.set_gid(self.adaptive_gid("fill"))
+            if linewidth:
+                arrow.set_path_effects(self.wire_effects(linewidth))
         else:
             mid = (target[0], source[1])\
                 if bend_out else (source[0], target[1])
             path = Path([source, mid, target],
                         [Path.MOVETO, Path.CURVE3, Path.CURVE3])
-            self.axis.add_patch(PathPatch(
-                path, facecolor='none', linewidth=linewidth))
+            underneath = colours is not None and any(
+                colour != "white" for colour in colours)
+            self.draw_stroke(
+                path, linewidth, underneath=underneath, below=frame,
+                adaptive=not underneath)
         super().draw_wire(source, target, bend_out=bend_out, bend_in=bend_in)
 
     def draw_bezier(self, points):
         path = Path(
             list(points),
             [Path.MOVETO, Path.CURVE4, Path.CURVE4, Path.CURVE4])
-        self.axis.add_patch(PathPatch(
-            path, facecolor='none', linewidth=self.linewidth))
+        self.draw_stroke(path, self.linewidth, underneath=True)
         super().draw_bezier(points)
 
     def draw_filled_shape(self, start, steps, color):
@@ -1330,14 +1499,30 @@ class Matplotlib(Backend):
         for shape in dict.fromkeys(shapes.values()):
             colors = {n: n.box.color for n, s in shapes.items() if s == shape}
             nodes, colors = zip(*colors.items())
-            nx.draw_networkx_nodes(
+            node_size = 300 * params.get("nodesize", 1)
+            visible = [n for n, c in zip(nodes, colors) if c != "none"]
+            if visible:
+                # The same white border as around the wires, drawn underneath
+                # the region fills like the border of :meth:`draw_stroke`.
+                nx.draw_networkx_nodes(
+                    *graph.inside, nodelist=visible, node_color="white",
+                    node_shape=SHAPES[shape], ax=self.axis,
+                    node_size=pi * (sqrt(node_size / pi) + 1) ** 2
+                ).set_zorder(.5)
+            spiders = nx.draw_networkx_nodes(
                 *graph.inside, nodelist=nodes,
-                node_color=[COLORS[color] for color in colors],
+                node_color=[COLORS.get(color, color) for color in colors],
                 node_shape=SHAPES[shape], ax=self.axis,
-                node_size=300 * params.get("nodesize", 1))
+                node_size=node_size)
+            if all(color == "black" for color in colors):
+                spiders.set_gid(self.adaptive_gid("fill"))
             if draw_box_labels:
                 labels = {node: node.box.drawing_name for node in nodes}
-                nx.draw_networkx_labels(*graph.inside, labels)
+                texts = nx.draw_networkx_labels(*graph.inside, labels)
+                for node, text in texts.items():
+                    if node.box.color == "none":  # e.g. equation symbols
+                        text.set_path_effects(self.text_effects())
+                        text.set_gid(self.adaptive_gid("fill"))
         super().draw_spiders(graph, draw_box_labels)
 
     def output(self, path=None, show=True, **params):
@@ -1352,6 +1537,8 @@ class Matplotlib(Backend):
             self.axis.set_xlim(*xlim)
         if ylim is not None:
             self.axis.set_ylim(*ylim)
+        if self.opaque_canvas:
+            self.draw_opaque_canvas()
         if path is not None:
             try:
                 savefig(

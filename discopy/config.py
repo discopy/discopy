@@ -21,7 +21,7 @@ BOX_DRAWING_ATTRIBUTES = {
     "bubble_opening": lambda _: False,
     "bubble_closing": lambda _: False,
     "frame_boundary": lambda _: False,
-    "frame_colour": lambda _: "lightgrey",
+    "frame_colour": lambda _: "white",
     "draw_as_permutation": lambda _: False,
     "permutation_indices": lambda _: None,  # Used for drawing permutations.
     "draw_as_braid": lambda _: False,
