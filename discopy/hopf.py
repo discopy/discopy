@@ -705,8 +705,7 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
             and self.inside == other.inside \
             and (self.dom, self.cod) == (other.dom, other.cod)
 
-    def __hash__(self):
-        return hash(repr(frobenius.Dim(*self.inside)))
+    __hash__ = frobenius.Dim.__hash__
 
     def tensor(self, *others):
         """

@@ -76,6 +76,73 @@ def test_coloured_Ty_tree_and_legacy_tree():
     assert from_tree(legacy) == Ty('x')
 
 
+def test_Wire_varname():
+    """ ``varname`` annotates a wire without splitting its type. """
+    plain, annotated = Wire('X'), Wire('X', varname='x')
+    assert plain == annotated and hash(plain) == hash(annotated)
+    assert Ty(plain) == Ty(annotated)
+    assert Wire('X', varname='x') == Wire('X', varname='y')
+    assert annotated.varname == 'x' and plain.varname is None
+    with raises(TypeError):
+        Wire('X', varname=42)
+
+
+def test_Wire_varname_repr_str_and_tree():
+    """ ``varname`` is faithful in ``repr`` and in trees, absent from ``str``.
+    """
+    annotated = Wire('X', varname='x')
+    assert repr(annotated) == "monoidal.Wire('X', varname='x')"
+    assert repr(Wire('X')) == "cat.Ob('X')"
+    assert str(annotated) == 'X'
+    assert annotated.to_tree()['varname'] == 'x'
+    assert 'varname' not in Wire('X').to_tree()
+    assert from_tree(annotated.to_tree()).varname == 'x'
+    assert pickle.loads(pickle.dumps(annotated)).varname == 'x'
+    coloured = Wire('X', Colour('red'), Colour('blue'), varname='x')
+    assert from_tree(coloured.to_tree()) == coloured
+    assert from_tree(coloured.to_tree()).varname == 'x'
+
+
+def test_Wire_varname_dagger():
+    """ ``dagger`` carries the annotation, swapping the colours. """
+    red, blue = Colour('red'), Colour('blue')
+    annotated = Wire('X', red, blue, varname='x')
+    assert annotated.dagger().varname == 'x'
+    assert (annotated.dagger().dom, annotated.dagger().cod) == (blue, red)
+    assert annotated.dagger().dagger() == annotated
+
+
+def test_Ty_annotate():
+    """ ``annotate`` names every wire of a type without splitting it. """
+    x = Ty('x', 'y')
+    annotated = x.annotate('a', 'b')
+    assert annotated == x
+    assert [wire.varname for wire in annotated.inside] == ['a', 'b']
+    assert [wire.varname for wire in x.inside] == [None, None]
+    assert Ty().annotate() == Ty()
+    with raises(ValueError):
+        x.annotate('a')
+
+
+def test_Ty_annotate_keeps_the_colours():
+    red, blue = Colour('red'), Colour('blue')
+    x = Ty(Wire('x', red, blue))
+    assert x.annotate('a') == x
+    assert (x.annotate('a').dom, x.annotate('a').cod) == (red, blue)
+
+
+def test_Ty_hash_ignores_varname():
+    """
+    ``Wire.__hash__`` ignores ``varname`` and so must ``Ty.__hash__``, else
+    an annotated type would miss its own image in a functor's ``ob_map``.
+    """
+    x = Ty('x')
+    annotated = x.annotate('a')
+    assert annotated == x and hash(annotated) == hash(x)
+    assert {x: 42}[annotated] == 42
+    assert len({x, annotated}) == 1
+
+
 def test_Ty_init():
     assert list(Ty('x', 'y', 'z')) == [Ty('x'), Ty('y'), Ty('z')]
 

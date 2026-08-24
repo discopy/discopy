@@ -1,5 +1,5 @@
 from discopy.biclosed import *
-from discopy import cat
+from discopy import cat, monoidal
 from pytest import raises
 
 
@@ -122,3 +122,69 @@ def test_to_rigid():
     f_ = rigid.Box('f', x_, y_)
     assert Diagram.to_rigid(diagram)\
         == rigid.Id(x_ @ y_.l) @ f_ >> rigid.Id(x_) @ rigid.Cup(y_.l, y_)
+
+
+def test_varnames_is_a_pure_function_of_the_type():
+    """
+    Names come from the position of a wire, not from a counter, so the same
+    type always gives the same names and `to_term` stays deterministic.
+    """
+    x, y = Ty('x'), Ty('y')
+    term = x(lambda z: (y << x)('f')(z))
+    assert term.eval().dom.varnames() == term.eval().dom.varnames() == []
+    assert (x @ y @ x).varnames() == ['x0', 'x1', 'x2']
+    assert (x @ y).varnames(level=7) == ['x7', 'x8']
+    assert Ty().varnames() == Ty().varnames(level=3) == []
+
+
+def test_varnames_reads_the_annotation():
+    x = Ty('x')
+    annotated = Ty(monoidal.Wire('x', varname='a'), 'x')
+    assert annotated == x @ x and annotated.varnames() == ['a', 'x1']
+    assert (x << x).varnames() == ['x0']
+    assert Ty(monoidal.Wire('x', varname='a')).varnames(level=5) == ['a']
+
+
+def test_Variable_eval_annotates_its_wire():
+    """
+    A variable evaluates to the identity on its type, carrying its name so
+    that the diagram can be read back as the term it came from.
+    """
+    x = Ty('x')
+    identity = Variable('v', x).eval()
+    assert identity == Diagram.id(x)
+    assert identity.dom.varnames() == identity.cod.varnames() == ['v']
+
+
+def test_Abstraction_eval_annotates_the_abstracted_wire():
+    """ The wire the ``Curry`` abstracts carries the name it was bound to. """
+    x, y = Ty('x'), Ty('y')
+    term = x(lambda v: (y << x)('f')(v))
+    curry, = term.eval().boxes
+    assert curry.arg.dom.varnames() == ['v']
+
+
+def test_Variable_eval_annotates_a_function_type():
+    """ A variable of function type annotates its exponent. """
+    x, y = Ty('x'), Ty('y')
+    identity = Variable('f', y << x).eval()
+    assert identity == Diagram.id(y << x)
+    assert identity.dom.varnames() == ['f']
+
+
+def test_Exp_varname_repr_and_tree():
+    """ An annotated exponent is faithful in ``repr`` and in trees. """
+    annotated = (Ty('y') << Ty('x')).annotate('f').inside[0]
+    assert repr(annotated) == "biclosed.Over("\
+        "biclosed.Ty(cat.Ob('y')), biclosed.Ty(cat.Ob('x')), varname='f')"
+    assert str(annotated) == str(Over(Ty('y'), Ty('x')))
+    assert annotated.to_tree()['varname'] == 'f'
+    assert 'varname' not in Over(Ty('y'), Ty('x')).to_tree()
+    assert from_tree(annotated.to_tree()).varname == 'f'
+
+
+def test_Exp_hash_ignores_varname():
+    plain = Over(Ty('y'), Ty('x'))
+    annotated = Over(Ty('y'), Ty('x'), varname='f')
+    assert plain == annotated and hash(plain) == hash(annotated)
+    assert hash(plain) != hash(Under(Ty('y'), Ty('x')))

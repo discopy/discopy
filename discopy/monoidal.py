@@ -55,6 +55,7 @@ We can check the Eckmann-Hilton argument, up to interchanger.
 from __future__ import annotations
 
 import itertools
+from copy import copy
 from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Iterator, Callable, TYPE_CHECKING
@@ -125,13 +126,44 @@ white = Colour("white")
 
 
 class Wire(cat.Ob):
-    """A generating 1-cell with a colour on either side."""
+    """
+    A generating 1-cell with a colour on either side.
+
+    Parameters:
+        name : The name of the wire.
+        dom : The domain colour.
+        cod : The codomain colour.
+        is_dagger : Whether the wire is the dagger of its adjoint.
+        varname : The name of the variable this wire carries, if any.
+
+    Note
+    ----
+    ``varname`` annotates a wire with the name of the variable bound to it,
+    so that a diagram can be read back as a term with the names it was
+    written with. It is ignored by :meth:`__eq__` and :meth:`__hash__`, so
+    annotating a wire never splits a type: alpha-equivalent terms still
+    evaluate to equal diagrams.
+
+    >>> a, b = Wire('X'), Wire('X', varname='x')
+    >>> assert a == b and hash(a) == hash(b) and Ty(a) == Ty(b)
+
+    It appears in :meth:`__repr__`, which stays faithful, but not in
+    ``str``, which stays what a mathematician would write.
+
+    >>> b
+    monoidal.Wire('X', varname='x')
+    >>> print(b)
+    X
+    """
 
     def __init__(self, name: str, dom: Colour = white,
-                 cod: Colour = white, is_dagger: bool = False):
+                 cod: Colour = white, is_dagger: bool = False,
+                 varname: "str | None" = None):
         assert_isinstance(dom, Colour)
         assert_isinstance(cod, Colour)
-        self.is_dagger = is_dagger
+        if varname is not None:
+            assert_isinstance(varname, str)
+        self.is_dagger, self.varname = is_dagger, varname
         self.dom, self.cod = dom, cod
         super().__init__(name)
 
@@ -139,11 +171,13 @@ class Wire(cat.Ob):
         state.setdefault('dom', white)
         state.setdefault('cod', white)
         state.setdefault('is_dagger', False)
+        state.setdefault('varname', None)
         super().__setstate__(state)
 
     def dagger(self):
         return type(self)(
-            self.name, self.cod, self.dom, is_dagger=not self.is_dagger)
+            self.name, self.cod, self.dom, is_dagger=not self.is_dagger,
+            varname=self.varname)
 
     def __eq__(self, other):
         return type(self) is type(other) and (
@@ -154,10 +188,13 @@ class Wire(cat.Ob):
         return hash((type(self), self.name, self.dom, self.cod))
 
     def __repr__(self):
-        if self.dom == self.cod == white:
+        if self.dom == self.cod == white and self.varname is None:
             return repr(cat.Ob(self.name))
-        return (f"{factory_name(type(self))}({self.name!r}, "
-                f"dom={self.dom!r}, cod={self.cod!r})")
+        colours = "" if self.dom == self.cod == white else (
+            f", dom={self.dom!r}, cod={self.cod!r}")
+        varname = "" if self.varname is None else (
+            f", varname={self.varname!r}")
+        return f"{factory_name(type(self))}({self.name!r}{colours}{varname})"
 
     def to_tree(self):
         tree = super().to_tree()
@@ -168,13 +205,16 @@ class Wire(cat.Ob):
             tree['cod'] = self.cod.to_tree()
         if self.is_dagger:
             tree['is_dagger'] = True
+        if self.varname is not None:
+            tree['varname'] = self.varname
         return tree
 
     @classmethod
     def from_tree(cls, tree):
         dom = from_tree(tree['dom']) if 'dom' in tree else white
         cod = from_tree(tree['cod']) if 'cod' in tree else white
-        return cls(tree['name'], dom, cod, is_dagger='is_dagger' in tree)
+        return cls(tree['name'], dom, cod, is_dagger='is_dagger' in tree,
+                   varname=tree.get('varname'))
 
 
 class FreeMonoid(cat.FreeCategory, ColouredMonoid):
@@ -299,6 +339,33 @@ class Ty(cat.Ob, FreeMonoid):
         obj, = obj.inside if isinstance(obj, Ty) else (obj, )
         return self.inside.count(obj)
 
+    def annotate(self, *names: str) -> Ty:
+        """
+        The same type with each of its wires carrying the name of the
+        variable bound to it, see :attr:`Wire.varname`.
+
+        Parameters:
+            names : One name per wire of the type.
+
+        Annotations are invisible to equality, so annotating a type never
+        splits it. :meth:`biclosed.Ty.varnames` reads them back, falling
+        back on de Bruijn levels for the wires that carry none.
+
+        >>> x = Ty('x', 'y')
+        >>> assert x.annotate('a', 'b') == x
+        >>> x.annotate('a', 'b').inside[0]
+        monoidal.Wire('x', varname='a')
+        """
+        if len(names) != len(self):
+            raise ValueError(
+                f"Expected {len(self)} names, got {len(names)} instead.")
+        inside = []
+        for wire, name in zip(self.inside, names):
+            wire = copy(wire)
+            wire.varname = name
+            inside.append(wire)
+        return type(self)(inside=tuple(inside), dom=self.dom, cod=self.cod)
+
     def unwind(self) -> Ty:
         """
         Rotate an atomic type to winding number zero.
@@ -319,7 +386,7 @@ class Ty(cat.Ob, FreeMonoid):
             and (self.dom, self.cod) == (other.dom, other.cod)
 
     def __hash__(self):
-        return hash(repr(self))
+        return hash((self.inside, self.dom, self.cod))
 
     def __repr__(self):
         if not self.inside and self.dom != white:

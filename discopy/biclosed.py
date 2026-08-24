@@ -110,6 +110,42 @@ class Ty(monoidal.Ty):
     def __rshift__(self, other):
         return other.under(self)
 
+    def varnames(self, level: int = 0) -> list[str]:
+        """
+        The name of the variable carried by each wire of the type: its
+        :attr:`monoidal.Wire.varname` when it has one, else the name of its
+        `de Bruijn level <https://en.wikipedia.org/wiki/De_Bruijn_index>`_,
+        i.e. its index in the type shifted by ``level``.
+
+        Parameters:
+            level : The de Bruijn level of the first wire, i.e. the number of
+                variables already in scope.
+
+        Note
+        ----
+        Levels count binders from the outside in, so a binder names the wire
+        it binds by continuing the numbering of its context: the name of a
+        variable does not change when another binder is added inside it.
+
+        >>> x = Ty('x')
+        >>> assert (x @ x).varnames() == ['x0', 'x1']
+        >>> assert (x @ x).varnames(level=2) == ['x2', 'x3']
+
+        Names are derived from position rather than drawn from a counter, so
+        that reading a diagram back as a term is a pure function of the
+        diagram, see ``STYLE.md``. Annotated wires keep their name.
+
+        >>> annotated = Ty(monoidal.Wire('x', varname='a'), 'x')
+        >>> assert annotated == x @ x and annotated.varnames() == ['a', 'x1']
+
+        A derived name can clash with an annotation, as ``x1`` would with
+        ``Ty('x', monoidal.Wire('x', varname='x1'))``. Renaming apart is
+        the job of whoever assembles a context out of several types, since
+        it is the only one that sees all the names at once.
+        """
+        return [wire.varname if wire.varname is not None else f"x{level + i}"
+                for i, wire in enumerate(self.inside)]
+
     def __call__(self, arg):
         if isinstance(arg, str):
             return self.constant_factory(arg, self)
@@ -121,10 +157,10 @@ class Ty(monoidal.Ty):
                 left = left_param.default
                 if not isinstance(left, bool):
                     raise NotImplementedError
-            varnames = list(parameters.keys())
-            if len(varnames) != 1:
+            names = list(parameters.keys())
+            if len(names) != 1:
                 raise NotImplementedError
-            var = self.variable_factory(varnames[0], self)
+            var = self.variable_factory(names[0], self)
             return self.abstraction_factory(var, arg(var), left)
         raise ValueError
 
@@ -198,38 +234,46 @@ class Exp(Wire):
     Parameters:
         base : The base type.
         exponent : The exponent type.
+        varname : The name of the variable this wire carries, if any.
     """
 
     ob = Ty
 
-    def __init__(self, base: Ty, exponent: Ty):
+    def __init__(self, base: Ty, exponent: Ty, varname: "str | None" = None):
         assert_isinstance(base, self.ob)
         assert_isinstance(exponent, self.ob)
         self.base, self.exponent = base, exponent
-        super().__init__(str(self))
+        super().__init__(str(self), varname=varname)
 
     def __eq__(self, other):
         return isinstance(other, type(self))\
             and (self.base, self.exponent) == (other.base, other.exponent)
 
     def __hash__(self):
-        return hash(repr(self))
+        return hash((type(self), self.base, self.exponent))
 
     def __str__(self):
         return f"({self.base} ** {self.exponent})"
 
     def __repr__(self):
-        return factory_name(type(self)) + f"({self.base!r}, {self.exponent!r})"
+        varname = "" if self.varname is None else (
+            f", varname={self.varname!r}")
+        return factory_name(type(self))\
+            + f"({self.base!r}, {self.exponent!r}{varname})"
 
     def to_tree(self):
-        return {
+        tree = {
             'factory': factory_name(type(self)),
             'base': self.base.to_tree(),
             'exponent': self.exponent.to_tree()}
+        if self.varname is not None:
+            tree['varname'] = self.varname
+        return tree
 
     @classmethod
     def from_tree(cls, tree):
-        return cls(*map(from_tree, (tree['base'], tree['exponent'])))
+        return cls(*map(from_tree, (tree['base'], tree['exponent'])),
+                   varname=tree.get('varname'))
 
     @property
     def left(self):
@@ -440,12 +484,18 @@ class Functor(monoidal.Functor):
         if isinstance(other, TermBase):
             return other.eval(self)
         for cls, attr in [(Over, "over"), (Under, "under"), (Exp, "exp")]:
-            if isinstance(other, cls):
-                base, exponent = self(other.base), self(other.exponent)
-                if hasattr(base, attr):
-                    return getattr(base, attr)(exponent)
-                if hasattr(self.cod, attr):
-                    return getattr(self.cod, attr)(base, exponent)
+            if not isinstance(other, cls):
+                continue
+            base, exponent = self(other.base), self(other.exponent)
+            if hasattr(base, attr):
+                image = getattr(base, attr)(exponent)
+            elif hasattr(self.cod, attr):
+                image = getattr(self.cod, attr)(base, exponent)
+            else:
+                continue
+            if other.varname is None or not hasattr(image, "annotate"):
+                return image
+            return image.annotate(other.varname)
         if isinstance(other, Curry) and hasattr(self.cod, "curry"):
             return self.cod.curry(
                 self(other.arg), len(self(other.cod.exponent)), other.left)
@@ -642,9 +692,21 @@ class Variable(TermBase):
         super().__init__(name, dom=cod, cod=cod)
         self.freevars = [self]
 
+    @property
+    def annotated_cod(self) -> Ty:
+        """
+        The type of the variable with its name on each of its wires, so that
+        a diagram it evaluates into can be read back as the term it came
+        from, see :meth:`monoidal.Ty.annotate`.
+
+        >>> x = Ty('x')
+        >>> assert Variable('v', x).annotated_cod.varnames() == ['v']
+        """
+        return self.cod.annotate(*len(self.cod) * [self.name])
+
     def eval(self, functor=None):
         functor = functor or self.functor
-        return functor.cod.id(functor(self.cod))
+        return functor.cod.id(functor(self.annotated_cod))
 
     @property
     def constants(self):
