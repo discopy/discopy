@@ -252,7 +252,8 @@ class Functor(monoidal.Functor):
     dom = cod = Diagram
 
     def __call__(self, other):
-        if isinstance(other, Braid) and not other.is_dagger:
+        if isinstance(other, Braid) and not other.is_dagger\
+                and hasattr(self.cod, "braid"):
             return self.cod.braid(self(other.dom[0]), self(other.dom[1]))
         return super().__call__(other)
 
