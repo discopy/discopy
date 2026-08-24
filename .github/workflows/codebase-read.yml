@@ -57,7 +57,7 @@ jobs:
         github_token: ${{ github.token }}
         prompt: Follow the instructions in .github/codebase-read/prompt.md.
         claude_args: >-
-          --allowedTools "Bash,Read,Write,Glob,Grep"
+          --allowedTools "Bash(uv sync:*),Bash(uv run:*),Bash(gh issue list:*),Bash(gh issue view:*),Bash(gh search:*),Bash(git log:*),Bash(git diff:*),Read,Write,Glob,Grep"
           --max-turns 400
           ${{ inputs.model && format('--model {0}', inputs.model) || '' }}
 

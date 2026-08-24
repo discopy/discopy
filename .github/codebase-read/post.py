@@ -4,7 +4,8 @@ Reads ``.codebase-read/report.md`` and ``.codebase-read/bugs.md``, opens a
 ``codebase-read``-labelled issue with the report as its body — as the GitHub
 App authenticated by ``APP_TOKEN`` — and posts the bugs as its first
 comment. A missing or empty report fails the run rather than post an empty
-read; a missing bugs file posts no comment.
+read; a missing bugs file posts no comment. A rerun on the same day updates
+the day's open issue instead of opening a twin.
 """
 
 import datetime
@@ -17,11 +18,12 @@ DIRECTORY = ".codebase-read"
 LABEL = "codebase-read"
 
 
-def request(url, payload):
-    req = urllib.request.Request(url, json.dumps(payload).encode(), {
+def request(url, payload=None, method=None):
+    data = None if payload is None else json.dumps(payload).encode()
+    req = urllib.request.Request(url, data, {
         "Authorization": f"Bearer {os.environ['APP_TOKEN']}",
         "Accept": "application/vnd.github+json",
-        "Content-Type": "application/json"})
+        "Content-Type": "application/json"}, method=method)
     with urllib.request.urlopen(req, timeout=60) as response:
         return json.load(response)
 
@@ -51,11 +53,16 @@ def main():
     api = f"https://api.github.com/repos/{os.environ['REPO']}"
     ensure_label(api)
     date = datetime.datetime.now(datetime.timezone.utc).date()
-    issue = request(f"{api}/issues", {
-        "title": f"Findings from a full read of the codebase ({date})",
-        "labels": [LABEL], "body": (
-            f"{report}\n\n*Posted by the"
-            f" [codebase-read run]({os.environ['RUN_URL']}).*")})
+    title = f"Findings from a full read of the codebase ({date})"
+    body = (f"{report}\n\n*Posted by the"
+            f" [codebase-read run]({os.environ['RUN_URL']}).*")
+    issues = request(f"{api}/issues?labels={LABEL}&state=open&per_page=100")
+    if matching := [i for i in issues if i["title"] == title]:
+        issue = matching[0]
+        request(issue["url"], {"body": body}, method="PATCH")
+    else:
+        issue = request(f"{api}/issues", {
+            "title": title, "labels": [LABEL], "body": body})
     if bugs:
         request(f"{api}/issues/{issue['number']}/comments", {"body": bugs})
     print(f"Opened {issue['html_url']}")
