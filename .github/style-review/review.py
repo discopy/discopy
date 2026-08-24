@@ -10,6 +10,7 @@ to the OpenAI-compatible gateway at ``BASE_URL`` and writes the findings to
 import ast
 import json
 import os
+import sys
 import urllib.error
 import urllib.request
 
@@ -63,6 +64,14 @@ def numbered(text):
         f"{n} {line}" for n, line in enumerate(text.splitlines(), 1))
 
 
+def changed_block(path, text):
+    return f"# Changed: {path}\n\n```python\n{numbered(text)}\n```"
+
+
+def context_block(path, text):
+    return f"# Context (not under review): {path}\n\n```python\n{text}```"
+
+
 def assemble(files, diff):
     """The one prompt: instructions, style guide, context, changes, diff.
     Every part is budgeted as assembled, not as raw file text, so the
@@ -77,14 +86,10 @@ def assemble(files, diff):
     with open("STYLE.md") as file:
         style = f"# STYLE.md\n\n{file.read()}"
     budget = BUDGET - len(instructions) - len(style) - len(diff_part)
-    changed, budget, missing = contents(
-        files, budget, lambda path, text:
-        f"# Changed: {path}\n\n```python\n{numbered(text)}\n```")
+    changed, budget, missing = contents(files, budget, changed_block)
     if missing:
         raise ValueError(f"changed files past the budget: {missing}")
-    context, _, dropped = contents(
-        deps, budget, lambda path, text:
-        f"# Context (not under review): {path}\n\n```python\n{text}```")
+    context, _, dropped = contents(deps, budget, context_block)
     parts = [instructions, style] + [block for _, block in context]
     if dropped:
         parts.append(f"# Context dropped for size: {', '.join(dropped)}")
@@ -94,6 +99,8 @@ def assemble(files, diff):
 
 
 def ask(prompt, disable_reasoning=True):
+    """One chat completion. Retries once without ``reasoning`` when the
+    gateway rejects it as disabled, for models that mandate it."""
     url = os.environ["BASE_URL"].rstrip("/") + "/v1/chat/completions"
     payload = {
         "model": os.environ["MODEL"], "temperature": 0, "max_tokens": 8192,
@@ -108,7 +115,7 @@ def ask(prompt, disable_reasoning=True):
             message = json.load(response)["choices"][0]["message"]
     except urllib.error.HTTPError as error:
         body = error.read().decode(errors="replace")
-        print(f"gateway error {error.code}: {body}")
+        print(f"gateway error {error.code}: {body}", file=sys.stderr)
         if disable_reasoning and "reasoning" in body.lower():
             return ask(prompt, disable_reasoning=False)
         raise
