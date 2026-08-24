@@ -69,8 +69,9 @@ def assemble(files, diff):
     if len(diff) > BUDGET // 2:
         diff = diff[:BUDGET // 2] + "\n[diff truncated for size]"
     changed, budget, missing = contents(files, BUDGET - len(diff))
+    if missing:
+        raise ValueError(f"changed files past the budget: {missing}")
     context, _, dropped = contents(deps, budget)
-    dropped = missing + dropped
     with open(".github/style-review/prompt.md") as file:
         parts = [file.read()]
     with open("STYLE.md") as file:
@@ -79,7 +80,7 @@ def assemble(files, diff):
         f"# Context (not under review): {path}\n\n```python\n{text}```"
         for path, text in context]
     if dropped:
-        parts.append(f"# Dropped for size: {', '.join(dropped)}")
+        parts.append(f"# Context dropped for size: {', '.join(dropped)}")
     parts += [
         f"# Changed: {path}\n\n```python\n{numbered(text)}\n```"
         for path, text in changed]

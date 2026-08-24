@@ -80,9 +80,10 @@ def main():
         reported = json.load(file)["findings"]
     if not isinstance(reported, list):
         raise ValueError(f"findings should be a list: {reported!r}")
-    findings = [f for f in map(normalised, reported) if f is not None]
-    if reported and not findings:
-        raise ValueError(f"no readable finding in: {reported!r}")
+    findings = [normalised(f) for f in reported]
+    if None in findings:
+        unreadable = [f for f, n in zip(reported, findings) if n is None]
+        raise ValueError(f"unreadable findings: {unreadable!r}")
     withheld, findings = len(findings[10:]), findings[:10]
     record(clean=not findings)
     if not findings:
