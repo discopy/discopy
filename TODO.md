@@ -9,13 +9,12 @@ enabling it when the gateway 400'd demanding it — which for
 first, and the reviews people actually saw ran with reasoning off, hence
 "dumb". The direction is to flip the default: always let the model reason.
 
-- [WIP] @claude-issue611-2026-08-24 16:52 `ask()` always requests with
-  reasoning enabled (no `reasoning` field sent at all, so every model
-  uses its own default), dropping the `disable_reasoning` parameter and
-  the retry-on-mandatory-reasoning path entirely — always use the 32,768
-  `max_tokens` budget rounds 2-3 added for the reasoning-enabled case,
-  since that's now the only case
+- [x] `ask()` always requests with reasoning enabled (no `reasoning`
+  field sent at all, so every model uses its own default), dropping the
+  `disable_reasoning` parameter and the retry-on-mandatory-reasoning path
+  entirely — always use the 32,768 `max_tokens` budget rounds 2-3 added
+  for the reasoning-enabled case, since that's now the only case
 - [ ] confirm on this PR's own `style-review` run that findings look
   substantive, not empty
-- [ ] update the `CHANGELOG.md` entry for #611 to match the final
+- [x] update the `CHANGELOG.md` entry for #611 to match the final
   behavior instead of the abandoned disable-by-default/retry design

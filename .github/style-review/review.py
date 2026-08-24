@@ -102,18 +102,14 @@ def assemble(files, diff):
     return "\n\n".join(parts)
 
 
-def ask(prompt, disable_reasoning=True):
-    """One chat completion. Retries once without ``reasoning`` when the
-    gateway rejects it as disabled, for models that mandate it — with a
-    much larger token budget, since reasoning tokens share it with the
-    answer and would otherwise starve it."""
+def ask(prompt):
+    """One chat completion. Reasoning is left to the model's own default
+    (some gateways mandate it, and quality suffers when it's forced off),
+    with enough budget for both reasoning and the answer."""
     url = os.environ["BASE_URL"].rstrip("/") + "/v1/chat/completions"
     payload = {
-        "model": os.environ["MODEL"], "temperature": 0,
-        "max_tokens": 8192 if disable_reasoning else 32_768,
+        "model": os.environ["MODEL"], "temperature": 0, "max_tokens": 32_768,
         "messages": [{"role": "user", "content": prompt}]}
-    if disable_reasoning:
-        payload["reasoning"] = {"enabled": False, "exclude": True}
     request = urllib.request.Request(url, json.dumps(payload).encode(), {
         "Authorization": f"Bearer {os.environ['API_KEY']}",
         "Content-Type": "application/json"})
@@ -123,8 +119,6 @@ def ask(prompt, disable_reasoning=True):
     except urllib.error.HTTPError as error:
         text = error.read().decode(errors="replace")
         print(f"gateway error {error.code}: {text}", file=sys.stderr)
-        if disable_reasoning and "reasoning" in text.lower():
-            return ask(prompt, disable_reasoning=False)
         raise
     choice = body["choices"][0]
     if choice.get("finish_reason") != "stop":

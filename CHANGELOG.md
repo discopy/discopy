@@ -167,10 +167,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   uncounted, so the assembled prompt could exceed `BUDGET` on a PR
   touching a large module even when its diff was small; every part is now
   budgeted as assembled. `ask` also used to unconditionally send
-  `"reasoning": {"enabled": False, "exclude": True}`, which some models
-  (e.g. `stealth/ox-alpha`) 400 on with "Reasoning is mandatory for this
-  endpoint and cannot be disabled"; it now retries once without the
-  `reasoning` field when the gateway's error says so
+  `"reasoning": {"enabled": False, "exclude": True}`, which not only 400s
+  on models that mandate reasoning (e.g. `stealth/ox-alpha`, with
+  "Reasoning is mandatory for this endpoint and cannot be disabled") but
+  measurably hurt review quality by forcing it off; `ask` no longer sends
+  the `reasoning` field at all, leaving it to each model's own default,
+  with `max_tokens` raised from 8,192 to 32,768 so reasoning tokens don't
+  starve the answer, and it now logs `finish_reason`/`usage` on every
+  response and the raw answer on a JSON-parse failure, so a truncated or
+  malformed answer is diagnosable instead of a bare traceback
   ([#611](https://github.com/discopy/discopy/issues/611)).
 - `build.yml` timeouts and a bounded, retried Graphviz install
   ([#591](https://github.com/discopy/discopy/issues/591)).
