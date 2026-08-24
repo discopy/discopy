@@ -37,4 +37,5 @@ docs/_static/notebooks/
 docs/_static/*/_*.svg
 benchmark-results/
 plans/
+.style-review/
 .codebase-read/
