@@ -16,8 +16,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   opens a `codebase-review`-labelled issue with the strains ranked by
   leverage as its body and the verified bugs as its first comment, the
   shape of [#606](https://github.com/discopy/discopy/issues/606).
-  Configured by the `ANTHROPIC_API_KEY` secret next to the discopy-bot app
-  of #608, skipping with a notice until it is set
+  A `dry_run` input writes the report to the run summary and posts nothing.
+  Claude Code runs against an Anthropic-compatible gateway configured by
+  the `CODEBASE_REVIEW_BASE_URL` and `CODEBASE_REVIEW_MODEL` repository
+  variables and the `CODEBASE_REVIEW_API_KEY` secret, next to the
+  discopy-bot app of #608, skipping with a notice until they are set
   ([#610](https://github.com/discopy/discopy/pull/610)).
 - A style review workflow: when a same-repo pull request leaves draft or
   gets the `style-review` label, one model request reads every changed

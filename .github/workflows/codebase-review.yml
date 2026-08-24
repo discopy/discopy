@@ -3,9 +3,14 @@ on:
   workflow_dispatch:
     inputs:
       model:
-        description: Model for the read, empty for the Claude Code default
+        description: Model override, empty for CODEBASE_REVIEW_MODEL
         required: false
         default: ""
+      dry_run:
+        description: Write the report to the run summary, post nothing
+        required: false
+        default: false
+        type: boolean
 permissions:
   contents: read
   issues: read
@@ -19,15 +24,16 @@ jobs:
     - name: Check the configuration
       id: config
       env:
-        KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        APP_ID: ${{ vars.DISCOPY_BOT_APP_ID }}
-        PRIVATE_KEY: ${{ secrets.DISCOPY_BOT_PRIVATE_KEY }}
+        BASE_URL: ${{ vars.CODEBASE_REVIEW_BASE_URL }}
+        MODEL: ${{ vars.CODEBASE_REVIEW_MODEL }}
+        KEY: ${{ secrets.CODEBASE_REVIEW_API_KEY }}
       run: |
-        if [ -n "$KEY" ] && [ -n "$APP_ID" ] && [ -n "$PRIVATE_KEY" ]; then
+        if [ -n "$BASE_URL" ] && [ -n "$MODEL" ] && [ -n "$KEY" ]; then
           echo "configured=true" >> "$GITHUB_OUTPUT"
         else
           echo "::notice::codebase-review is not configured — set the \
-        ANTHROPIC_API_KEY secret next to the discopy-bot app variables."
+        CODEBASE_REVIEW_BASE_URL and CODEBASE_REVIEW_MODEL variables and \
+        the CODEBASE_REVIEW_API_KEY secret."
           echo "configured=false" >> "$GITHUB_OUTPUT"
         fi
 
@@ -52,18 +58,30 @@ jobs:
       uses: anthropics/claude-code-action@v1
       env:
         GH_TOKEN: ${{ github.token }}
+        ANTHROPIC_BASE_URL: ${{ vars.CODEBASE_REVIEW_BASE_URL }}
       with:
-        anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+        anthropic_api_key: ${{ secrets.CODEBASE_REVIEW_API_KEY }}
         github_token: ${{ github.token }}
         prompt: Follow the instructions in .github/codebase-review/prompt.md.
         claude_args: >-
           --allowedTools "Bash(uv sync:*),Bash(uv run:*),Bash(gh issue list:*),Bash(gh issue view:*),Bash(gh search:*),Bash(git log:*),Bash(git diff:*),Read,Write,Glob,Grep"
           --max-turns 400
-          ${{ inputs.model && format('--model {0}', inputs.model) || '' }}
+          --model ${{ inputs.model || vars.CODEBASE_REVIEW_MODEL }}
+
+    - name: Summarise the dry run
+      if: steps.config.outputs.configured == 'true' && inputs.dry_run
+      run: |
+        {
+          echo "## Dry run — nothing posted"
+          echo
+          cat .codebase-review/report.md
+          echo
+          cat .codebase-review/bugs.md 2>/dev/null || true
+        } >> "$GITHUB_STEP_SUMMARY"
 
     - name: Generate a discopy-bot token
       id: app-token
-      if: steps.config.outputs.configured == 'true'
+      if: steps.config.outputs.configured == 'true' && !inputs.dry_run
       uses: actions/create-github-app-token@v1
       with:
         app-id: ${{ vars.DISCOPY_BOT_APP_ID }}
@@ -71,7 +89,7 @@ jobs:
         permission-issues: write
 
     - name: Post the findings
-      if: steps.config.outputs.configured == 'true'
+      if: steps.config.outputs.configured == 'true' && !inputs.dry_run
       env:
         APP_TOKEN: ${{ steps.app-token.outputs.token }}
         REPO: ${{ github.repository }}
