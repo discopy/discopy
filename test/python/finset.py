@@ -66,3 +66,13 @@ def test_FinSet():
     assert F(copy >> discard @ x) == F(Diagram.id(x)) == F(copy >> x @ discard)
     assert F(copy >> copy @ x) == F(Diagram.copy(x, 3)) == F(copy >> x @ copy)
     assert F(copy >> swap) == F(copy)
+
+
+def test_variadic_tensor():
+    """ https://github.com/discopy/discopy/issues/493 """
+    from discopy.python.finset import Function
+
+    f = Function([1, 0], 2, 2)
+    assert Function.tensor(f) == f == Function.then(f)
+    assert Function.tensor(f, f) == f @ f
+    assert Function.then(f, f) == f >> f

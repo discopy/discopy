@@ -122,3 +122,15 @@ def test_to_rigid():
     f_ = rigid.Box('f', x_, y_)
     assert Diagram.to_rigid(diagram)\
         == rigid.Id(x_ @ y_.l) @ f_ >> rigid.Id(x_) @ rigid.Cup(y_.l, y_)
+
+
+def test_Constant():
+    """ https://github.com/discopy/discopy/issues/494 """
+    X, Y = Ty("X"), Ty("Y")
+    f = (X >> Y)("f")
+
+    from discopy import biclosed  # noqa: F401  (used by eval)
+    assert f.freevars == [] and f.constants == [f]
+    assert eval(repr(f)) == f
+    assert Functor(ob_map={X: X, Y: Y}, ar_map={f: Box("f", X, Y)})(f)\
+        == Box("f", X, Y)

@@ -20,7 +20,7 @@ from __future__ import annotations
 from functools import cache
 
 from discopy.abc import SymmetricCategory
-from discopy.utils import assert_isinstance, tuplify
+from discopy.utils import assert_isinstance, tuplify, unbiased
 from discopy.python import function
 
 
@@ -61,12 +61,13 @@ class Function(function.Function, SymmetricCategory):
             assert_isinstance(obj, self.cod[tag])
         return result
 
+    @unbiased
     def tensor(self, other: Function) -> Function:
         """
-        The disjoint union of two functions, called with :code:`@`.
+        The disjoint union of functions, called with :code:`@`.
 
         Parameters:
-            other : The other function to compose in sequence.
+            other : The other functions to compose in parallel.
         """
         dom, cod = self.dom + other.dom, self.cod + other.cod
 
