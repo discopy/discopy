@@ -9,6 +9,17 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- A style review workflow: when a same-repo pull request leaves draft or
+  gets the `style-review` label, one model request reads every changed
+  Python file whole — with the package-local files they import as context —
+  checks the diff against the file's own conventions and `STYLE.md`, and
+  discopy-bot posts the findings as one review — style only, correctness
+  stays with the correctness reviewer, whom discopy-bot calls once the
+  style review has nothing to say. Inference runs on an open-weights
+  model behind an OpenAI-compatible gateway, configured by the
+  `STYLE_REVIEW_BASE_URL` and `STYLE_REVIEW_MODEL` repository variables and
+  the `STYLE_REVIEW_API_KEY` secret
+  ([#608](https://github.com/discopy/discopy/pull/608)).
 - Combinatorial map representation, `discopy.cmap`, encoding diagrams in
   compact categories as a permutation on the ports of each box
   ([#338](https://github.com/discopy/discopy/pull/338)).
@@ -170,6 +181,16 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   wherever they occur rather than on atoms only, and associates slashes to
   the left as CCG does
   ([#528](https://github.com/discopy/discopy/issues/528)).
+- Non-linear terms in `discopy.closed`: an `Application` with no free variables
+  builds instead of raising, and its free variables keep first-occurrence order
+  rather than going through a set whose iteration order depends on hashing
+  ([#542](https://github.com/discopy/discopy/issues/542),
+  [#543](https://github.com/discopy/discopy/issues/543)).
+- `closed.Abstraction` discards a variable that does not occur in the body
+  instead of raising, and nested abstractions curry the abstracted wire rather
+  than the first one, so `eval` preserves `dom` and `cod`
+  ([#541](https://github.com/discopy/discopy/issues/541),
+  [#544](https://github.com/discopy/discopy/issues/544)).
 - `biclosed.Application` lists its free variables in the same order as the
   wires of its `dom`, so that `Abstraction` strips the right end of it and
   `eval` preserves both `dom` and `cod`
@@ -193,6 +214,13 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   applied to an argument sharing a free variable did not compose, and a
   left abstraction evaluates through its right counterpart
   ([#562](https://github.com/discopy/discopy/issues/562)).
+- Closed and biclosed diagrams containing a `Copy`, `Merge`, `Swap`,
+  `Permutation`, `Braid` or `Twist` can be drawn: the `markov`, `symmetric`,
+  `braided` and `balanced` functor branches now check that the codomain has
+  the structure before using it, the way `biclosed.Functor` already did for
+  `ev`, `exp` and `curry`
+  ([#491](https://github.com/discopy/discopy/issues/491),
+  [#548](https://github.com/discopy/discopy/issues/548)).
 - `Double`'s `H*` structure is built by transposition instead of the dagger,
   which wrongly conjugated complex structure constants — invisible on the
   real examples of #405, wrong for `taft(3)`
@@ -219,6 +247,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Project
 
+- The `TODO.md` rule of `RULES.md` is split in two: creation stays point 1,
+  and a new point 2 has the agent delete its own `TODO.md` once every
+  point is `[x]` or filed as an issue, taking the pull request out of draft:
+  the style reviewer gives it a first pass before a human deep-reads it.
+  A round of review feedback — bot or human — starts a fresh `TODO.md`,
+  deleted again when the round is done; nitpicks are just fixed and
+  resolved. Rule 4, only talk when prompted, is removed
+  ([#608](https://github.com/discopy/discopy/pull/608)).
 - `AGENTS.md`/`CLAUDE.md`/`RULES.md`/`STYLE.md` introduced and iterated on,
   and `CONTRIBUTING.md`/`README.md` updated to match, to describe the
   collaboration and coding protocol for AI agents working on the repo
