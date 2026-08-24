@@ -238,7 +238,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 - `RULES.md` point 1 now has the agent delete its own `TODO.md` once every
   point is `[x]` or filed as an issue, taking the pull request out of draft:
-  the style reviewer gives it a first pass before a human deep-reads it
+  the style reviewer gives it a first pass before a human deep-reads it.
+  A round of review feedback — bot or human — starts a fresh `TODO.md`,
+  deleted again when the round is done
   ([#608](https://github.com/discopy/discopy/pull/608)).
 - `AGENTS.md`/`CLAUDE.md`/`RULES.md`/`STYLE.md` introduced and iterated on,
   and `CONTRIBUTING.md`/`README.md` updated to match, to describe the
