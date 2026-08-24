@@ -14,7 +14,7 @@ implement it
 # Semantic Property Tests
 
 - [x] Add constructive semantic carrier and morphism strategies.
-- [ ] Bind declared semantic capabilities to the axiom matrix.
+- [WIP] @opencode-semantic-2026-08-24 15:59 Bind declared semantic capabilities to the axiom matrix.
 - [ ] Add boundary, equality, closure and bug-coverage tests.
 - [ ] Run property-test lint and verification.
 
