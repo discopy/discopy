@@ -12,8 +12,8 @@ whether the reasoning-enabled answer got truncated by `max_tokens=8192`,
 contains an example JSON object ahead of the real one, or something else —
 `answer` itself is never logged, so there's nothing to diagnose from yet.
 
-- [ ] log (truncated) `answer` when JSON extraction fails, the same way
-  `ask` already logs the gateway's error body, so the next run's failure
-  is diagnosable
+- [WIP] @claude-issue611-2026-08-24 16:40 log (truncated) `answer` when
+  JSON extraction fails, the same way `ask` already logs the gateway's
+  error body, so the next run's failure is diagnosable
 - [ ] once a run has revealed the actual shape of `answer`, fix the
   extraction for real rather than guessing now
