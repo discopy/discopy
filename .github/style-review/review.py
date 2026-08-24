@@ -104,8 +104,9 @@ def assemble(files, diff):
 
 def ask(prompt):
     """One chat completion. Reasoning is left to the model's own default
-    (some gateways mandate it, and quality suffers when it's forced off),
-    with enough budget for both reasoning and the answer."""
+    (some gateways mandate it, and quality suffers when it's forced off).
+    ``max_tokens`` is 32,768 rather than the previous 8,192 so reasoning
+    tokens, which share the same limit, don't crowd out the answer."""
     url = os.environ["BASE_URL"].rstrip("/") + "/v1/chat/completions"
     payload = {
         "model": os.environ["MODEL"], "temperature": 0, "max_tokens": 32_768,
