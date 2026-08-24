@@ -72,6 +72,7 @@ jobs:
         permission-pull-requests: write
 
     - name: Post the review
+      id: post
       if: >
         steps.config.outputs.configured == 'true'
         && steps.diff.outputs.changed == 'true'
@@ -84,7 +85,9 @@ jobs:
       run: python3 .github/style-review/post.py
 
     - name: Call the correctness reviewer
-      if: github.event.action == 'ready_for_review'
+      if: >
+        github.event.action == 'ready_for_review'
+        && steps.post.outputs.clean != 'false'
       env:
         GH_TOKEN: ${{ steps.app-token.outputs.token }}
         PR_NUMBER: ${{ github.event.pull_request.number }}

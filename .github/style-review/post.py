@@ -44,6 +44,14 @@ def describe(findings):
             for f in findings])
 
 
+def record(clean):
+    """Tell the workflow whether the diff was clean, when it asks."""
+    path = os.environ.get("GITHUB_OUTPUT")
+    if path:
+        with open(path, "a") as file:
+            file.write(f"clean={str(clean).lower()}\n")
+
+
 def post_review(body, inline):
     url = (f"https://api.github.com/repos/{os.environ['REPO']}"
            f"/pulls/{os.environ['PR_NUMBER']}/reviews")
@@ -65,6 +73,7 @@ def main():
     if not isinstance(findings, list):
         raise ValueError(f"findings should be a list: {findings!r}")
     findings = [f for f in findings if valid(f)]
+    record(clean=not findings)
     if not findings:
         print("The diff is clean, posting nothing.")
         return
