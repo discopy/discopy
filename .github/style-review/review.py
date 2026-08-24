@@ -10,6 +10,7 @@ to the OpenAI-compatible gateway at ``BASE_URL`` and writes the findings to
 import ast
 import json
 import os
+import urllib.error
 import urllib.request
 
 DIRECTORY = ".style-review"
@@ -43,13 +44,13 @@ def imports(path):
     return [path for path in paths if os.path.exists(path)]
 
 
-def contents(paths, budget):
-    """Pair each path with its text while it fits the budget, also
-    returning the leftover budget and the paths dropped."""
+def contents(paths, budget, block):
+    """Pair each path with its rendered ``block`` while it fits the
+    budget, also returning the leftover budget and the paths dropped."""
     kept, dropped = [], []
     for path in paths:
         with open(path) as file:
-            text = file.read()
+            text = block(path, file.read())
         if len(text) <= budget:
             kept, budget = kept + [(path, text)], budget - len(text)
         else:
@@ -63,28 +64,32 @@ def numbered(text):
 
 
 def assemble(files, diff):
-    """The one prompt: instructions, style guide, context, changes, diff."""
+    """The one prompt: instructions, style guide, context, changes, diff.
+    Every part is budgeted as assembled, not as raw file text, so the
+    request sent to the gateway never exceeds ``BUDGET``."""
     deps = sorted(
         {dep for path in files for dep in imports(path)} - set(files))
     if len(diff) > BUDGET // 2:
         diff = diff[:BUDGET // 2] + "\n[diff truncated for size]"
-    changed, budget, missing = contents(files, BUDGET - len(diff))
+    diff_part = f"# Diff\n\n```diff\n{diff}```"
+    with open(".github/style-review/prompt.md") as file:
+        instructions = file.read()
+    with open("STYLE.md") as file:
+        style = f"# STYLE.md\n\n{file.read()}"
+    budget = BUDGET - len(instructions) - len(style) - len(diff_part)
+    changed, budget, missing = contents(
+        files, budget, lambda path, text:
+        f"# Changed: {path}\n\n```python\n{numbered(text)}\n```")
     if missing:
         raise ValueError(f"changed files past the budget: {missing}")
-    context, _, dropped = contents(deps, budget)
-    with open(".github/style-review/prompt.md") as file:
-        parts = [file.read()]
-    with open("STYLE.md") as file:
-        parts.append(f"# STYLE.md\n\n{file.read()}")
-    parts += [
-        f"# Context (not under review): {path}\n\n```python\n{text}```"
-        for path, text in context]
+    context, _, dropped = contents(
+        deps, budget, lambda path, text:
+        f"# Context (not under review): {path}\n\n```python\n{text}```")
+    parts = [instructions, style] + [block for _, block in context]
     if dropped:
         parts.append(f"# Context dropped for size: {', '.join(dropped)}")
-    parts += [
-        f"# Changed: {path}\n\n```python\n{numbered(text)}\n```"
-        for path, text in changed]
-    parts.append(f"# Diff\n\n```diff\n{diff}```")
+    parts += [block for _, block in changed]
+    parts.append(diff_part)
     return "\n\n".join(parts)
 
 
@@ -97,8 +102,13 @@ def ask(prompt):
     request = urllib.request.Request(url, json.dumps(payload).encode(), {
         "Authorization": f"Bearer {os.environ['API_KEY']}",
         "Content-Type": "application/json"})
-    with urllib.request.urlopen(request, timeout=600) as response:
-        message = json.load(response)["choices"][0]["message"]
+    try:
+        with urllib.request.urlopen(request, timeout=600) as response:
+            message = json.load(response)["choices"][0]["message"]
+    except urllib.error.HTTPError as error:
+        body = error.read().decode(errors="replace")
+        print(f"gateway error {error.code}: {body}")
+        raise
     answer = message.get("content") or message.get("reasoning") or ""
     if "{" not in answer or "}" not in answer:
         raise ValueError(f"no JSON in the gateway answer: {answer[:200]!r}")

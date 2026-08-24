@@ -158,6 +158,16 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `review.py`'s style-review request: `ask` used to let a gateway
+  `HTTPError` propagate without reading its body, so a 400 gave no clue
+  whether it meant a dead model slug or an oversized prompt; it now prints
+  the response body before re-raising. `assemble` used to budget the raw
+  file texts against `BUDGET`, but `numbered`'s line-number prefixes, the
+  per-file headers, `prompt.md` and `STYLE.md` were all added on top,
+  uncounted, so the assembled prompt could exceed `BUDGET` on a PR
+  touching a large module even when its diff was small; every part is now
+  budgeted as assembled
+  ([#611](https://github.com/discopy/discopy/issues/611)).
 - `build.yml` timeouts and a bounded, retried Graphviz install
   ([#591](https://github.com/discopy/discopy/issues/591)).
 - `frobenius.Diagram.unfuse`'s doctest no longer sets `Spider.color = "red"`
