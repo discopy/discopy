@@ -989,23 +989,22 @@ class Diagram(
                 minimum = max(1, minimum)
             n_layers = draw(st.integers(
                 min_value=minimum, max_value=max_leaves))
-            source = dom if dom is not None else (
-                cod if not n_layers and cod is not None else draw(types))
             if not n_layers:
+                source = dom if dom is not None else (
+                    cod if cod is not None else draw(types))
                 return cls((), source, source, _scan=False)
-            boundaries = [source] + [draw(types) for _ in range(n_layers - 1)]
-            boundaries += [cod if cod is not None else draw(types)]
-            layers, boxes = [], set()
-            for i, (source, target) in enumerate(zip(
-                    boundaries, boundaries[1:])):
+            layers, boxes, source = [], set(), dom
+            for i in range(n_layers):
                 layers_at_boundary = cls.layer_factory.strategy(  # noqa: E501
-                    factory=cls, types=types, dom=source, cod=target,
+                    factory=cls, types=types, dom=source,
+                    cod=cod if i == n_layers - 1 else None,
                     label=i, exclude=boxes,
                     boundary_connected=boundary_connected)
                 layer = draw(layers_at_boundary)
                 layers.append(layer)
                 boxes.update(layer.boxes)
-            return cls(tuple(layers), boundaries[0], boundaries[-1],
+                source = layer.cod
+            return cls(tuple(layers), layers[0].dom, layers[-1].cod,
                        _scan=False)
 
         connected = diagrams()

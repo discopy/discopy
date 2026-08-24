@@ -49,8 +49,9 @@ from typing import Callable, ClassVar, Generic, Literal, TypeVar
 from discopy.testing import (
     Axiom, Atomic, Bifunctor, ComposablePair, ComposableTriple,
     FeedbackJoining, FeedbackVanishing, HorizontalPair, LeftCurrying,
-    NonEmpty, RightCurrying, TraceDinaturalityLeft, TraceDinaturalityRight,
-    TraceNaturalityLeft, TraceNaturalityRight, TraceSuperposing, axiom)
+    Natural, NonEmpty, RightCurrying, TraceDinaturalityLeft,
+    TraceDinaturalityRight, TraceNaturalityLeft, TraceNaturalityRight,
+    TraceSuperposing, axiom)
 from discopy.utils import classproperty, get_origin
 
 
@@ -410,20 +411,24 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
             cls, sliding: TraceDinaturalityLeft[C0, C1],
             *, eq) -> Equation[C1]:
         """ Left-oriented trace dinaturality. """
-        f, x, g = sliding
+        f, g = sliding
+        source, target = g.cod, g.dom
+        base, cobase = f.dom[len(source):], f.cod[len(target):]
         return eq(
-            f.then(g @ x).trace(len(x), left=True),
-            (g @ x).then(f).trace(len(x), left=True))
+            f.then(g @ cobase).trace(len(source), left=True),
+            (g @ base).then(f).trace(len(target), left=True))
 
     @axiom
     def trace_dinaturality_right(
             cls, sliding: TraceDinaturalityRight[C0, C1],
             *, eq) -> Equation[C1]:
         """ Right-oriented trace dinaturality. """
-        f, x, g = sliding
+        f, g = sliding
+        source, target = g.cod, g.dom
+        base, cobase = f.dom[:-len(source)], f.cod[:-len(target)]
         return eq(
-            f.then(x @ g).trace(len(x)),
-            (x @ g).then(f).trace(len(x)))
+            f.then(cobase @ g).trace(len(source)),
+            (base @ g).then(f).trace(len(target)))
 
 
 class ResiduatedMonoid[C0, C1: ResiduatedMonoid](ColouredMonoid[C0, C1]):
@@ -569,6 +574,14 @@ class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
         return eq(
             cls.caps(x @ y, (x @ y).l),
             cls.caps(x, x.l).then(x @ cls.caps(y, y.l) @ x.l))
+
+    @axiom
+    def rotate_contravariance(
+            cls, pair: ComposablePair[C1], *, eq) -> Equation[C1]:
+        """ Rotation reverses composition. """
+        f, g = pair
+        return eq(
+            f.then(g).rotate(), g.rotate().then(f.rotate()))
 
     def transpose(self, left: bool = False) -> C1:
         """
@@ -931,6 +944,14 @@ class HypergraphCategory[C0, C1](
         split, merge = cls.spiders(1, 2, x), cls.spiders(2, 1, x)
         return eq(
             split.then(merge), cls.spiders(1, 1, x), cls.id(x))
+
+    @axiom
+    def spider_fusion(
+            cls, x: C0, m: Natural, n: Natural, *, eq) -> Equation[C1]:
+        """ Fusion of two spiders connected by one leg. """
+        return eq(
+            cls.spiders(m, 1, x).then(cls.spiders(1, n, x)),
+            cls.spiders(m, n, x))
 
 
 class NamedGeneric(Generic[TypeVar('T')]):

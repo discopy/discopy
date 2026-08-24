@@ -24,12 +24,12 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from discopy import messages
-from discopy.abc import MonoidalCategory, SymmetricCategory
+from discopy.abc import SymmetricCategory
 from discopy.testing import Natural, Strategy
 
 
 @dataclass
-class Function(MonoidalCategory, Sequence, Strategy["Function"]):
+class Function(SymmetricCategory, Sequence, Strategy["Function"]):
     """
     A function between finite sets encoded as a Python list.
 
@@ -55,6 +55,11 @@ class Function(MonoidalCategory, Sequence, Strategy["Function"]):
     cod: int
 
     ob = Natural
+    axiom_status = {
+        "hexagon_left": "bug",
+        "hexagon_right": "bug",
+        "braid_naturality": "bug",
+    }
 
     @classmethod
     def generator_strategy(
@@ -159,7 +164,7 @@ type Cycle = Iterable[int]
 type Cycles = Iterable[Cycle]
 
 
-class Permutation(Function, SymmetricCategory):
+class Permutation(Function):
     """
     A permutation of a finite set, seen as a bijective finite-set function.
 
@@ -176,6 +181,9 @@ class Permutation(Function, SymmetricCategory):
     """
     ob = Natural
     axiom_status = {
+        "hexagon_left": "strict",
+        "hexagon_right": "strict",
+        "braid_naturality": "strict",
         "trace_vanishing": "wontfix",
         "trace_superposing_left": "wontfix",
         "trace_superposing_right": "wontfix",

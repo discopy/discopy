@@ -181,8 +181,10 @@ class Box(monoidal.Box, Diagram):
         return cls.extend_strategy(
             base, factory,
             lambda factory: st.tuples(
-                cls.atomic_strategy(), cls.atomic_strategy()).map(
-                    lambda pair: factory(*pair)), **params)
+                cls.atomic_strategy(), cls.atomic_strategy(),
+                st.booleans()).map(
+                    lambda args: factory(*args[:2]).dagger() if args[2]
+                    else factory(*args[:2])), **params)
 
 
 class Braid(BinaryBoxConstructor, Box):

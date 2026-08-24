@@ -14,6 +14,7 @@ from discopy import (
     feedback,
     frobenius,
     markov,
+    matrix,
     monoidal,
     pivotal,
     ribbon,
@@ -167,6 +168,52 @@ def test_compact_diagrams_generate_structural_morphisms(structure):
     box = find(compact.Box.strategy(),
                lambda value: isinstance(value, structure))
     assert isinstance(box, compact.Diagram)
+
+
+@pytest.mark.parametrize("structure", (
+    compact.Swap,
+    compact.Cup,
+    compact.Cap,
+    ))
+def test_diagrams_generate_structural_morphisms(structure):
+    diagram = find(compact.Diagram.strategy(),
+                   lambda value: any(isinstance(box, structure)
+                                     for box in value.boxes))
+    assert any(isinstance(box, structure) for box in diagram.boxes)
+
+
+def test_braids_are_generated_in_both_orientations():
+    for is_dagger in (False, True):
+        box = find(braided.Box.strategy(),
+                   lambda value: isinstance(value, braided.Braid)
+                   and value.is_dagger == is_dagger)
+        assert box.is_dagger == is_dagger
+
+
+def test_matrices_are_generated_with_exact_boundaries():
+    generated = find(matrix.Matrix.strategy(dom=2, cod=3),
+                     lambda value: bool(value.array.any()))
+    assert (generated.dom, generated.cod) == (2, 3)
+    assert generated.array.shape == (2, 3)
+
+
+def test_trace_dinaturality_slides_between_distinct_objects():
+    shape = find(
+        strategies.strategy(
+            testing.TraceDinaturalityRight[compact.Diagram]),
+        lambda value: value[1].dom != value[1].cod)
+    traced, sliding = shape
+    assert traced.dom[-len(sliding.cod):] == sliding.cod
+    assert traced.cod[-len(sliding.dom):] == sliding.dom
+
+
+def test_feedback_joining_generates_heterogeneous_memory():
+    shape = find(
+        strategies.strategy(testing.FeedbackJoining[feedback.Diagram]),
+        lambda value: value[1][:1] != value[1][1:])
+    arrow, memory = shape
+    assert len(memory) == 2
+    assert arrow.cod[-2:] == memory
 
 
 @pytest.mark.parametrize(

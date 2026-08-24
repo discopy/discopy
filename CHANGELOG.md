@@ -9,6 +9,16 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- Concrete semantic carriers in the property matrix: `Matrix[int]` is a
+  Markov category and `python.finset.Function` a symmetric one, both with
+  their own Hypothesis strategy, so the copy comonoid and the symmetry are
+  checked against a semantics rather than against free diagrams only. The
+  laws they break are declared `"bug"`: `Function.swap` returns the inverse
+  permutation, and `Matrix.copy(x, n)` is wrong for `x, n >= 2`
+  ([#606](https://github.com/discopy/discopy/issues/606)).
+- Two axioms: `RigidCategory.rotate_contravariance`, i.e. rotation reverses
+  composition, and `HypergraphCategory.spider_fusion`, i.e. two spiders
+  connected by one leg fuse into one.
 - Axiom statuses now record the representation-level equality available to
   combinatorial maps, and diagram/map strategies can generate closed
   components on request. A `"strict"` axiom is checked on the nose, while a
@@ -166,6 +176,23 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `Diagram.strategy` chains its layers instead of drawing every boundary up
+  front, so the first layer is generated without boundary constraints and
+  the property matrix reaches the structural boxes of each category:
+  swaps, permutations, braids, twists, cups, caps and traces never appeared
+  inside a generated diagram before. This immediately shows that
+  `CMap.to_diagram` cannot convert back a map with a traced box, which
+  makes `braid_naturality` a `"bug"` for symmetric and closed maps.
+- `TracedCategory.trace_dinaturality_left` and `trace_dinaturality_right`
+  state sliding between two distinct traced objects, as
+  `Tr^x(f ; b @ g) == Tr^y(a @ g ; f)` for `g: y -> x`, instead of tracing
+  the wrong wires of a single object. Symmetric diagrams and everything
+  below them now check them up to hypergraph rather than skipping them.
+- `FeedbackJoining` generates two units of memory drawn independently and
+  validates the boundaries of its arrow rather than calling the very
+  `feedback` it is testing, so the property matrix reaches heterogeneous
+  memory and records that `feedback.Diagram.feedback` unrolls it in the
+  wrong order ([#606](https://github.com/discopy/discopy/issues/606)).
 - `Diagram.normal_form` expands multi-box layers into staircases before
   normalization, so connected foliated diagrams normalize without raising.
 - `build.yml` timeouts and a bounded, retried Graphviz install

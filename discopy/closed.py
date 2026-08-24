@@ -177,6 +177,7 @@ class CMap(biclosed.CMap):
     category = Diagram
     require_planar = False
     axiom_status = {
+        "braid_naturality": "bug",
         "copy_counitality": "wontfix",
         "copy_coassociativity": "wontfix",
         "copy_cocommutativity": "wontfix",

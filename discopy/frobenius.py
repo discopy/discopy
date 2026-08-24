@@ -132,6 +132,7 @@ class Diagram(compact.Diagram, markov.Diagram, HypergraphCategory):
     axiom_status = {
         "frobenius": "setoid",
         "speciality": "setoid",
+        "spider_fusion": "setoid",
     }
 
     @classmethod

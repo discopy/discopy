@@ -274,6 +274,7 @@ class CMap[C0: Pregroup, C1: CMap](
         .equation_factory(*(term.to_diagram() for term in terms)),
         "currying_left": "wontfix",
         "currying_right": "wontfix",
+        "rotate_contravariance": "wontfix",
     }
 
     @classmethod

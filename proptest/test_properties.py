@@ -21,6 +21,7 @@ from discopy import (
     symmetric,
     traced,
 )
+from discopy.matrix import Matrix
 from discopy.python import finset
 from proptest import strategies
 
@@ -137,6 +138,10 @@ class Test_frobenius:
     test_diagram = axiom_tests(frobenius.Diagram)
     test_hypergraph = axiom_tests(frobenius.Hypergraph)
     # test_cmap = axiom_tests(frobenius.CMap)
+
+
+class Test_matrix:
+    test_matrix = axiom_tests(Matrix[int])
 
 
 class Test_finset:

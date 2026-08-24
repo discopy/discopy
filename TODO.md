@@ -8,7 +8,12 @@
 
 > the new property tests for this round should be test_properties.py, later we will investigate more complete test suite that does not only test categorical axioms but more general properties like roundtrips between different representations, string and pickle serialization, etc...
 
-- [WIP] @opencode-proptest-2026-08-24 17:30 Fix the property suite and integrate the classified categorical axioms on this branch.
+- [x] Fix the property suite: multi-box layers reached `Diagram.normal_form()` while
+      `interchange()` only handles singleton-box layers, so `normal_form` now expands
+      them into staircases first.
+- [x] Integrate the categorical subset of [#606](https://github.com/discopy/discopy/issues/606)
+      into `proptest/test_properties.py`. See **Classification** below for what landed,
+      what became an axiom, and what does not fit the axiom matrix.
 
 No verbatim prompt: this PR was opened 2026-06-22, before `RULES.md` rule 1 existed, and its
 description is a generated summary rather than anything a human typed. It gets a `TODO.md` now
@@ -74,6 +79,38 @@ were fixed and two were false positives.
       `axiom_status` entries that `Category.axiom_equality` already resolves through the MRO
       are gone, and `benchmark.generators.single_layer_tensor` builds its layer from boxes
       alone now that `monoidal.Layer` normalises its own plumbing.
+
+## Classification of issue #606
+
+The fable repros that state a categorical equation are now generated checks. The rest
+either need a semantic carrier that does not exist yet, or are not equations at all.
+
+| Finding | Where it landed |
+|---|---|
+| B1 `finset.Function.swap` inverse | `finset.Function` is a `SymmetricCategory` with a strategy; `hexagon_left`, `hexagon_right` and `braid_naturality` are `"bug"`. `Permutation` declares them `"strict"`, since its own composition convention is self-consistent — the bug is `Function.swap` reusing a permutation built for the opposite convention. |
+| B5 `Matrix.copy` wrong for `x, n >= 2` | `Matrix` is a `MarkovCategory` with `ob = Natural` and a strategy; `Matrix[int]` joins the matrix and `copy_counitality`, `copy_cocommutativity` and `copy_monoidal_coherence` are `"bug"`. |
+| B7 `Tensor.spiders(0, 0, Dim(n))` | New `HypergraphCategory.spider_fusion` axiom, `"setoid"` on `frobenius.Diagram`. The carrier that would go red is `Tensor`, see the blocked point below. |
+| B25 heterogeneous-memory feedback | `FeedbackJoining` draws its two memory units independently and no longer pre-validates with the operation under test; `feedback_joining` is `"bug"` on `feedback.Diagram`. |
+| B17 `ribbon.Braid.rotate` on daggers | **Not an equation.** `Diagram.rotate` builds with `_scan=False`, so a wrongly typed `Box.rotate` never reaches a boundary: both sides of any equation carry the same broken layers and compare equal. The new `rotate_contravariance` axiom holds regardless. B17 is a well-formedness property — `Diagram(d.inside, d.dom, d.cod)` raises — and belongs to the round that adds one. |
+| B10, B11, B16, B18, B21, B29, B30 | Still need dagger, functor-law or operad abstractions that the matrix does not have. |
+
+## Found on the way, not from #606
+
+- `CMap.to_diagram` cannot convert back a map holding a traced box:
+  `CMap.from_diagram(f.trace()).to_diagram()` raises `ValueError: 1 is not in list`
+  for `f = symmetric.Box('f', a @ a, a @ a)`. `braid_naturality` is `"bug"` on
+  `symmetric.CMap` and `closed.CMap`, whose equality goes through `to_diagram`.
+  Worth its own issue.
+- `ribbon.Twist(x).rotate()` has domain `x` where it should have `x.r`, the same
+  shape of bug as B17 and reachable from the same fix.
+
+## Blocked, worth its own pull request
+
+`Tensor` is not declared as any abstract category, so B7 has no carrier that exhibits
+it and B15's ZX evaluation has nowhere to land. Making it a `HypergraphCategory`
+means a `Dim` strategy, a default `n` on `copy`, `ev`/`curry`/`rotate`, and integer
+`swap` boundaries — 39 inherited axioms of which none pass today. That is a change to
+`discopy.tensor`, not to the property matrix, and it should not ride on this branch.
 
 ## Open question for USER, not blocking
 

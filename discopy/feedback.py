@@ -346,6 +346,7 @@ class Diagram(markov.Diagram, FeedbackCategory):
     """
     ob = Ty
     layer_factory = Layer
+    axiom_status = {"feedback_joining": "bug"}
 
     def delay(self, n_steps=1):
         """ The delay of a feedback diagram. """

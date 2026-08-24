@@ -233,12 +233,53 @@ class TraceNaturalityRight[C0, C1](TraceSliding[C0, C1]):
     left = False
 
 
-class TraceDinaturalityLeft[C0, C1](TraceNaturalityRight[C0, C1]):
+class TraceDinaturality[C0, C1](
+        Strategy[tuple[C1, C1]], tuple[C1, C1]):
+    """ A traceable arrow and an arrow to slide around its trace. """
+
+    left: ClassVar[bool]
+
+    def __new__(cls, traced: C1, sliding: C1):
+        traced_in, traced_out = (
+            (traced.dom[:len(sliding.cod)], traced.cod[:len(sliding.dom)])
+            if cls.left else
+            (traced.dom[-len(sliding.cod):], traced.cod[-len(sliding.dom):]))
+        if (traced_in, traced_out) != (sliding.cod, sliding.dom):
+            raise ValueError("Expected compatible trace sliding boundaries.")
+        return super().__new__(cls, (traced, sliding))
+
+    @classmethod
+    def strategy(cls, *, factory: type[C1]):
+        """Generate an arrow sliding between two traced objects."""
+        from hypothesis import strategies as st
+
+        objects = factory.ob.strategy()
+        traced = factory.ob.strategy(min_length=1)
+
+        def arrows(args):
+            base, cobase, source, target = args
+            traced_dom = source @ base if cls.left else base @ source
+            traced_cod = target @ cobase if cls.left else cobase @ target
+            return st.tuples(
+                factory.strategy(
+                    dom=traced_dom, cod=traced_cod, min_leaves=1),
+                factory.strategy(
+                    dom=target, cod=source, min_leaves=1)).map(
+                        lambda pair: cls(*pair))
+
+        return st.tuples(objects, objects, traced, traced).flatmap(arrows)
+
+
+class TraceDinaturalityLeft[C0, C1](TraceDinaturality[C0, C1]):
     """ Arguments for left-oriented trace dinaturality. """
 
+    left = True
 
-class TraceDinaturalityRight[C0, C1](TraceNaturalityLeft[C0, C1]):
+
+class TraceDinaturalityRight[C0, C1](TraceDinaturality[C0, C1]):
     """ Arguments for right-oriented trace dinaturality. """
+
+    left = False
 
 
 class LeftCurrying[C0, C1](
@@ -288,13 +329,15 @@ class FeedbackVanishing[C0, C1](
 
 class FeedbackJoining[C0, C1](
         Strategy[tuple[C1, C0]], tuple[C1, C0]):
-    """ A feedback arrow with a non-empty memory object. """
+    """ A feedback arrow with at least two units of memory. """
 
     def __new__(cls, arrow: C1, memory: C0):
-        if not len(memory):
-            raise ValueError("Expected a non-empty memory object.")
-        arrow.feedback(mem=memory)
-        arrow.feedback().feedback()
+        if len(memory) < 2:
+            raise ValueError("Expected at least two units of memory.")
+        if arrow.dom[-len(memory):] != memory.delay():
+            raise ValueError("Expected the delayed memory in the domain.")
+        if arrow.cod[-len(memory):] != memory:
+            raise ValueError("Expected the memory in the codomain.")
         return super().__new__(cls, (arrow, memory))
 
     @classmethod
@@ -307,13 +350,13 @@ class FeedbackJoining[C0, C1](
         atomic = object_type.strategy().filter(lambda obj: len(obj) == 1)
 
         def arrows(args):
-            obj, atom = args
-            memory = atom @ atom
+            obj, first, second = args
+            memory = first @ second
             return arrow_type.strategy(
                 dom=obj @ memory.delay(), cod=obj @ memory).map(
                     lambda arrow: cls(arrow, memory))
 
-        return st.tuples(objects, atomic).flatmap(arrows)
+        return st.tuples(objects, atomic, atomic).flatmap(arrows)
 
 
 class Axiom[T]:

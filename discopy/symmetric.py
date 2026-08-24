@@ -284,6 +284,8 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         "trace_superposing_right": "setoid",
         "trace_naturality_left": "setoid",
         "trace_naturality_right": "setoid",
+        "trace_dinaturality_left": "setoid",
+        "trace_dinaturality_right": "setoid",
         "braid_naturality": "setoid",
         "swap_inverse": "setoid",
     }
@@ -658,6 +660,7 @@ class CMap(traced.CMap):
     category = Diagram
     require_planar = False
     require_causal = False
+    axiom_status = {"braid_naturality": "bug"}
 
 
 Diagram.functor_factory = Functor

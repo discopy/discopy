@@ -117,15 +117,15 @@ class Arguments:
 
     @staticmethod
     def trace_dinaturality_left(category):
-        x, y = map(category.ob, "xy")
-        return (box(category, "f", y @ x, x @ x), x,
-                box(category, "g", x, y)),
+        x, y, z = map(category.ob, "xyz")
+        return (box(category, "f", x @ z, y @ z),
+                box(category, "g", y, x)),
 
     @staticmethod
     def trace_dinaturality_right(category):
-        x, y = map(category.ob, "xy")
-        return (box(category, "f", x @ y, x @ x), x,
-                box(category, "g", x, y)),
+        x, y, z = map(category.ob, "xyz")
+        return (box(category, "f", z @ x, z @ y),
+                box(category, "g", y, x)),
 
     @staticmethod
     def currying_left(category):
@@ -158,6 +158,11 @@ class Arguments:
     def transpose_axiom(category):
         x, y = map(category.ob, "xy")
         return box(category, "f", x, y),
+
+    @staticmethod
+    def rotate_contravariance(category):
+        x, y, z = map(category.ob, "xyz")
+        return (box(category, "f", x, y), box(category, "g", y, z)),
 
     @staticmethod
     def hexagon_left(category):
@@ -235,6 +240,10 @@ class Arguments:
     @staticmethod
     def speciality(category):
         return category.ob("x"),
+
+    @staticmethod
+    def spider_fusion(category):
+        return category.ob("x"), 1, 2
 
 
 FREE = {
