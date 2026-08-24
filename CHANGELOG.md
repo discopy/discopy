@@ -236,7 +236,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Project
 
-- `RULES.md` point 1 now has the agent delete its own `TODO.md` once every
+- The `TODO.md` rule of `RULES.md` is split in two: creation stays point 1,
+  and a new point 2 has the agent delete its own `TODO.md` once every
   point is `[x]` or filed as an issue, taking the pull request out of draft:
   the style reviewer gives it a first pass before a human deep-reads it.
   A round of review feedback — bot or human — starts a fresh `TODO.md`,
