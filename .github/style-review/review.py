@@ -64,12 +64,16 @@ def numbered(text):
         f"{n} {line}" for n, line in enumerate(text.splitlines(), 1))
 
 
+def section(title, path, body):
+    return f"# {title}: {path}\n\n```python\n{body}```"
+
+
 def changed_block(path, text):
-    return f"# Changed: {path}\n\n```python\n{numbered(text)}\n```"
+    return section("Changed", path, numbered(text) + "\n")
 
 
 def context_block(path, text):
-    return f"# Context (not under review): {path}\n\n```python\n{text}```"
+    return section("Context (not under review)", path, text)
 
 
 def assemble(files, diff):
