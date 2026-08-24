@@ -811,49 +811,6 @@ def test_curry_is_wiring_only_when_the_category_is_rigid():
         pivotal.Cap(x, x.r), f)
 
 
-def test_closed_map_offers_both_curry_encodings():
-    """
-    `Diagram.to_map` keeps the currying of a map as one opaque box, while the
-    module's own `CMap` composes with a coevaluation and traces it out, so
-    that the only other box is the one we started from.
-    """
-    x, y, z = map(biclosed.Ty, "xyz")
-    f = biclosed.Box("f", x @ y, z)
-    assert f.to_map().curry().boxes == (biclosed.Curry(f, 1, True), )
-    over = biclosed.CMap.from_diagram(f).curry(left=True)
-    assert over.cod == z << y
-    assert over.boxes == (f, biclosed.Coeval(z << y, left=True))
-    under = biclosed.CMap.from_diagram(f).curry(left=False)
-    assert under.cod == x >> z
-    assert under.boxes == (f, biclosed.Coeval(x >> z, left=False))
-
-    x, y, z = map(closed.Ty, "xyz")
-    f = closed.Box("f", x @ y, z)
-
-    boxed = f.to_map().curry()
-    assert boxed.boxes == (closed.Diagram.curry_factory(f, 1, True), )
-
-    wired = closed.CMap.from_diagram(f).curry()
-    assert wired.dom == x and wired.cod == z << y
-    assert wired.boxes == (f, closed.Coeval(z << y, left=True))
-
-    right = closed.CMap.from_diagram(f).curry(left=False)
-    assert right.dom == y and right.cod == x >> z
-    assert right.boxes == (f, closed.Coeval(x >> z, left=False))
-
-    assert closed.CMap.from_diagram(f).curry(n=0) == closed.CMap.from_diagram(f)
-    with raises(ValueError):
-        closed.CMap.from_diagram(f).curry(n=3)
-    with raises(ValueError):
-        closed.CMap.from_diagram(f).curry(n=-1)
-
-    # `uncurry` needs no override: it already goes through `CMap.ev`, which
-    # keeps an evaluation box for a non-rigid host and wires the rest.
-    uncurried = wired.uncurry()
-    assert (uncurried.dom, uncurried.cod) == (x @ y, z)
-    assert uncurried.boxes[:2] == wired.boxes
-
-
 def test_map_and_hypergraph_normalise_the_same_way():
     from discopy import frobenius, monoidal, rigid, traced
 

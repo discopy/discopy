@@ -78,12 +78,6 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `left` to `True` like the rest of the hierarchy
   ([#532](https://github.com/discopy/discopy/pull/532),
   [#560](https://github.com/discopy/discopy/issues/560)).
-- `biclosed.CMap` and `closed.CMap` keep encoding currying as wiring, i.e.
-  as a coevaluation box whose output is traced back into its input, but they
-  are no longer what `Diagram.to_map` returns now that `map_factory` is
-  gone: it gives the generic `cmap.CMap[Diagram]`, which keeps the currying
-  as one opaque `curry_factory` box. Call `CMap.from_diagram` for the wiring
-  encoding ([#532](https://github.com/discopy/discopy/pull/532)).
 - `uncurry` is defined once in `abc.BiclosedCategory`, in terms of a new
   method `base_and_exponent` for the two objects that `ev` evaluates.
   `abc.RigidCategory` and `cmap.CMap` override that method instead of
