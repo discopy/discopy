@@ -14,7 +14,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   Python file whole — with the package-local files they import as context —
   checks the diff against the file's own conventions and `STYLE.md`, and
   discopy-bot posts the findings as one review — style only, correctness
-  stays with the correctness reviewer. Inference runs on an open-weights
+  stays with the correctness reviewer, whom discopy-bot calls on the same
+  event. Inference runs on an open-weights
   model behind an OpenAI-compatible gateway, configured by the
   `STYLE_REVIEW_BASE_URL` and `STYLE_REVIEW_MODEL` repository variables and
   the `STYLE_REVIEW_API_KEY` secret

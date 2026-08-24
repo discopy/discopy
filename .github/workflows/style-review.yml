@@ -62,8 +62,9 @@ jobs:
     - name: Generate a discopy-bot token
       id: app-token
       if: >
-        steps.config.outputs.configured == 'true'
-        && steps.diff.outputs.changed == 'true'
+        github.event.action == 'ready_for_review'
+        || (steps.config.outputs.configured == 'true'
+            && steps.diff.outputs.changed == 'true')
       uses: actions/create-github-app-token@v1
       with:
         app-id: ${{ vars.DISCOPY_BOT_APP_ID }}
@@ -81,3 +82,12 @@ jobs:
         HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         MODEL: ${{ vars.STYLE_REVIEW_MODEL }}
       run: python3 .github/style-review/post.py
+
+    - name: Call the correctness reviewer
+      if: github.event.action == 'ready_for_review'
+      env:
+        GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+      run: |
+        gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+          -f body="@cubic-dev-ai review"
