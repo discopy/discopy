@@ -29,19 +29,25 @@ def commentable_lines(diff):
     return lines
 
 
-def valid(finding):
-    return (isinstance(finding, dict)
-            and isinstance(finding.get("path"), str)
-            and isinstance(finding.get("line"), int)
-            and isinstance(finding.get("comment"), str)
-            and finding["comment"].strip() != "")
+def normalised(finding):
+    """The finding with an integer line, `None` when it is unreadable."""
+    try:
+        path, line, comment = (
+            finding["path"], int(finding["line"]),
+            finding["comment"].strip())
+    except (AttributeError, KeyError, TypeError, ValueError):
+        return None
+    if not isinstance(path, str) or not comment:
+        return None
+    return {"path": path, "line": line, "comment": comment}
 
 
-def describe(findings):
-    return "\n".join(
-        [f"Style review by `{os.environ['MODEL']}`."] + [
-            f"- `{f['path']}:{f['line']}` — {f['comment']}"
-            for f in findings])
+def describe(findings, withheld):
+    lines = [f"Style review by `{os.environ['MODEL']}`."] + [
+        f"- `{f['path']}:{f['line']}` — {f['comment']}" for f in findings]
+    if withheld:
+        lines.append(f"…and {withheld} more past the ten-finding cap.")
+    return "\n".join(lines)
 
 
 def record(clean):
@@ -69,10 +75,13 @@ def post_review(body, inline):
 
 def main():
     with open(os.path.join(DIRECTORY, "findings.json")) as file:
-        findings = json.load(file)["findings"]
-    if not isinstance(findings, list):
-        raise ValueError(f"findings should be a list: {findings!r}")
-    findings = [f for f in findings if valid(f)]
+        reported = json.load(file)["findings"]
+    if not isinstance(reported, list):
+        raise ValueError(f"findings should be a list: {reported!r}")
+    findings = [f for f in map(normalised, reported) if f is not None]
+    if reported and not findings:
+        raise ValueError(f"no readable finding in: {reported!r}")
+    withheld, findings = len(findings[10:]), findings[:10]
     record(clean=not findings)
     if not findings:
         print("The diff is clean, posting nothing.")
@@ -84,11 +93,11 @@ def main():
     outline = [
         f for f in findings if f["line"] not in lines.get(f["path"], set())]
     try:
-        post_review(describe(outline), inline)
+        post_review(describe(outline, withheld), inline)
     except urllib.error.HTTPError as error:
         print(f"Inline comments rejected ({error.code}), "
               "posting all in the body.")
-        post_review(describe(findings), inline=[])
+        post_review(describe(findings, withheld), inline=[])
 
 
 if __name__ == "__main__":

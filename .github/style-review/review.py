@@ -98,8 +98,8 @@ def ask(prompt):
 
 def main():
     with open(os.path.join(DIRECTORY, "files.txt")) as file:
-        files = [path for path in file.read().split()
-                 if os.path.exists(path)]
+        files = [path for path in file.read().splitlines()
+                 if path and os.path.exists(path)]
     with open(os.path.join(DIRECTORY, "diff.patch")) as file:
         diff = file.read()
     findings = ask(assemble(files, diff))
