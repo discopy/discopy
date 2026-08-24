@@ -6,7 +6,7 @@
 
 > feel free to implement new axioms in the missing categories
 
-- [ ] Fix the property suite and integrate the classified general properties on this branch.
+- [WIP] @opencode-proptest-2026-08-24 17:30 Fix the property suite and integrate the classified general properties on this branch.
 
 No verbatim prompt: this PR was opened 2026-06-22, before `RULES.md` rule 1 existed, and its
 description is a generated summary rather than anything a human typed. It gets a `TODO.md` now
