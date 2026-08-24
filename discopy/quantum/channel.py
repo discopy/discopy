@@ -45,7 +45,7 @@ from __future__ import annotations
 
 from discopy import frobenius, tensor
 from discopy.cat import factory
-from discopy.frobenius import Ty, Diagram, Box
+from discopy.frobenius import Box
 from discopy.matrix import backend
 from discopy.quantum.circuit import (
     Digit, Qudit)
@@ -96,7 +96,7 @@ class CQ:
     def __str__(self):
         return "CQ()" if not self.classical and not self.quantum\
             else f"Q({self.quantum})" if not self.classical\
-            else f"Q({self.classical})" if not self.quantum\
+            else f"C({self.classical})" if not self.quantum\
             else f"C({self.classical}) @ Q({self.quantum})"
 
     @classmethod
@@ -184,27 +184,40 @@ class Channel(Tensor):
     def dagger(self) -> Channel:
         return type(self)(self.to_tensor().dagger().array, self.cod, self.dom)
 
+    @property
+    def dims(self) -> list[int]:
+        """
+        The number of axes in each of the six blocks that make up the shape
+        of a channel, i.e. the classical then twice the quantum dimension of
+        its domain, then the same for its codomain.
+
+        Example
+        -------
+        >>> Channel.id(C(Dim(2, 2)) @ Q(Dim(2))).dims
+        [2, 1, 1, 2, 1, 1]
+        """
+        return [len(dim) for cq in (self.dom, self.cod)
+                for dim in (cq.classical, cq.quantum, cq.quantum)]
+
     def tensor(self, other: Channel = None, *others: Channel) -> Channel:
         if other is None or others:
             return super().tensor(other, *others)
         assert_isinstance(other, type(self))
-        f = Box('f', Ty('c00', 'q00', 'q00'), Ty('c10', 'q10', 'q10'))
-        g = Box('g', Ty('c01', 'q01', 'q01'), Ty('c11', 'q11', 'q11'))
-        above = f.dom[:1] @ g.dom[:1] @ f.dom[1:2]\
-            @ Diagram.swap(g.dom[1:2], f.dom[2:]) @ g.dom[2:]\
-            >> f.dom[:1] @ Diagram.swap(g.dom[:1], f.dom[1:]) @ g.dom[1:]
-        below = f.cod[:1] @ Diagram.swap(f.cod[1:], g.cod[:1]) @ g.cod[1:]\
-            >> f.cod[:1] @ g.cod[:1] @ f.cod[1:2]\
-            @ Diagram.swap(f.cod[2:], g.cod[1:2]) @ g.cod[2:]
-        array = tensor.Functor(
-            ob_map={
-                Ty(f"{a}{b}{c}"): getattr(getattr(z, y), x)
-                for a, x in zip(['c', 'q'], ['classical', 'quantum'])
-                for b, y in zip([0, 1], ['dom', 'cod'])
-                for c, z in zip([0, 1], [self, other])},
-            ar_map={f: self.to_tensor(), g: other.to_tensor()},
-            dtype=self.dtype
-        )(above >> f @ g >> below).array
+        left, right = self.dims, other.dims
+        offsets, index = [], 0
+        for size in left + right:
+            offsets.append(index)
+            index += size
+        permutation = [
+            axis for block in range(len(left))
+            for start, size in [
+                (offsets[block], left[block]),
+                (offsets[len(left) + block], right[block])]
+            for axis in range(start, start + size)]
+        with backend() as np:
+            array = np.moveaxis(
+                np.tensordot(self.array, other.array, 0),
+                permutation, range(len(permutation)))
         return type(self)(array, self.dom @ other.dom, self.cod @ other.cod)
 
     @classmethod
@@ -214,10 +227,10 @@ class Channel(Tensor):
                  @ Tensor.swap(left.quantum, right.quantum)).array
         return cls(array, left @ right, right @ left)
 
-    @staticmethod
-    def cups(left, right):
-        return Channel.single(Tensor.cups(left.classical, right.classical))\
-            @ Channel.double(Tensor.cups(left.quantum, right.quantum))
+    @classmethod
+    def cups(cls, left, right):
+        return cls.single(Tensor.cups(left.classical, right.classical))\
+            @ cls.double(Tensor.cups(left.quantum, right.quantum))
 
     @classmethod
     def measure(cls, dim: Dim, destructive=True) -> Channel:
@@ -227,28 +240,22 @@ class Channel(Tensor):
         Parameters:
             dim : The dimension of the quantum system to measure.
             destructive : Whether the measurement discards the qubits.
+
+        Note
+        ----
+        Measuring in the computational basis is the copy spider of the
+        classical structure it induces, with the two legs in given by the
+        double wire of ``Q(dim)``.
         """
         if not dim:
             return cls.id()
         if len(dim) > 1:
             return cls.measure(dim[:1], destructive)\
                 @ cls.measure(dim[1:], destructive)
-        n, = dim.inside
-        if destructive:
-            array = [
-                int(i == j == k)
-                for i in range(n)
-                for j in range(n)
-                for k in range(n)]
-            return cls(array, Q(dim), C(dim))
-        array = [
-            int(i == j == k == l == m)
-            for i in range(n)
-            for j in range(n)
-            for k in range(n)
-            for l in range(n)
-            for m in range(n)]
-        return cls(array, Q(dim), C(dim) @ Q(dim))
+        n_legs_out = 2 if destructive else 4
+        array = Tensor[cls.dtype].copy(dim, n_legs_out).array
+        cod = C(dim) if destructive else C(dim) @ Q(dim)
+        return cls(array, Q(dim), cod)
 
     @classmethod
     def encode(cls, dim: Dim, constructive=True) -> Channel:
@@ -294,7 +301,7 @@ class Channel(Tensor):
         with backend() as np:
             array = np.tensordot(
                 np.ones(dom.classical.inside), Tensor.id(dom.quantum).array, 0)
-        return Channel(array, dom, CQ())
+        return cls(array, dom, CQ())
 
 
 class Functor(tensor.Functor):
@@ -321,7 +328,7 @@ class Functor(tensor.Functor):
         if isinstance(other, Measure):
             measure = self.cod.measure(
                 self(other.dom).quantum, destructive=other.destructive)
-            measure = measure @ self.cod.discard(self(other.dom).classical)\
+            measure = measure @ self.cod.discard(C(self(other.dom).classical))\
                 if other.override_bits else measure
             return measure
         if isinstance(other, (MixedState, Encode)):
