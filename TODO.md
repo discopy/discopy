@@ -16,7 +16,7 @@ implement it
 - [x] Add constructive semantic carrier and morphism strategies.
 - [x] Bind declared semantic capabilities to the axiom matrix.
 - [x] Add boundary, equality, closure and bug-coverage tests.
-- [ ] Run property-test lint and verification.
+- [WIP] @opencode-semantic-2026-08-24 16:12 Run property-test lint and verification.
 
 # Imported Harness
 
