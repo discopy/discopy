@@ -126,7 +126,13 @@ def ask(prompt, disable_reasoning=True):
     answer = message.get("content") or message.get("reasoning") or ""
     if "{" not in answer or "}" not in answer:
         raise ValueError(f"no JSON in the gateway answer: {answer[:200]!r}")
-    return json.loads(answer[answer.index("{"):answer.rindex("}") + 1])
+    span = answer[answer.index("{"):answer.rindex("}") + 1]
+    try:
+        return json.loads(span)
+    except json.JSONDecodeError:
+        print(f"gateway answer isn't valid JSON: {answer[:3000]!r}",
+              file=sys.stderr)
+        raise
 
 
 def main():
