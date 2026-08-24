@@ -294,8 +294,11 @@ def savefig(path, format=None, compare=False, tol=DEFAULT['plt_tol']):
     def save(actual_path):
         with matplotlib_context():
             plt.savefig(actual_path, format=format, metadata=metadata)
-        if is_svg and isinstance(actual_path, (str, os.PathLike)):
-            inject_dark_mode_style(actual_path)
+        if is_svg:
+            if isinstance(actual_path, (str, os.PathLike)):
+                inject_dark_mode_style(actual_path)
+            else:
+                inject_dark_mode_style_buffer(actual_path)
 
     save_and_compare(path, save, tol) if compare else save(path)
 
@@ -308,6 +311,15 @@ DARK_MODE_STYLE = (
     "{ fill: #ffffff !important; } }</style>")
 
 
+def _with_dark_mode_style(text):
+    """ :const:`DARK_MODE_STYLE` inserted after the opening ``<svg>`` tag
+    of ``text``, or ``None`` if it tags no element with a dark- id. """
+    if 'id="dark-' not in text:
+        return None
+    opening = re.search(r"<svg\b[^>]*>", text)
+    return text[:opening.end()] + DARK_MODE_STYLE + text[opening.end():]
+
+
 def inject_dark_mode_style(path):
     """
     Insert :const:`DARK_MODE_STYLE` at the top of a saved SVG that tags
@@ -317,12 +329,23 @@ def inject_dark_mode_style(path):
     """
     with open(path, encoding="utf-8") as file:
         text = file.read()
-    if 'id="dark-' not in text:
+    patched = _with_dark_mode_style(text)
+    if patched is None:
         return
-    opening = re.search(r"<svg\b[^>]*>", text)
     with open(path, "w", encoding="utf-8") as file:
-        file.write(text[:opening.end()] + DARK_MODE_STYLE
-                   + text[opening.end():])
+        file.write(patched)
+
+
+def inject_dark_mode_style_buffer(buffer):
+    """ Same as :func:`inject_dark_mode_style` for the in-memory buffer of
+    :meth:`RichDisplay.to_svg`, so Jupyter and marimo cells get the same
+    dark-mode behaviour as a saved file. """
+    patched = _with_dark_mode_style(buffer.getvalue())
+    if patched is None:
+        return
+    buffer.seek(0)
+    buffer.truncate()
+    buffer.write(patched)
 
 
 def _bezier_subcurve(points, t0, t1):
