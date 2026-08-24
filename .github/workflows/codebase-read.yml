@@ -1,0 +1,80 @@
+name: codebase-read
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: Model for the read, empty for the Claude Code default
+        required: false
+        default: ""
+permissions:
+  contents: read
+  issues: read
+concurrency:
+  group: codebase-read
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+    - name: Check the configuration
+      id: config
+      env:
+        KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        APP_ID: ${{ vars.DISCOPY_BOT_APP_ID }}
+        PRIVATE_KEY: ${{ secrets.DISCOPY_BOT_PRIVATE_KEY }}
+      run: |
+        if [ -n "$KEY" ] && [ -n "$APP_ID" ] && [ -n "$PRIVATE_KEY" ]; then
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "::notice::codebase-read is not configured — set the \
+        ANTHROPIC_API_KEY secret next to the discopy-bot app variables."
+          echo "configured=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - uses: actions/checkout@v4
+      if: steps.config.outputs.configured == 'true'
+      with:
+        fetch-depth: 0
+
+    - name: Setup uv
+      if: steps.config.outputs.configured == 'true'
+      uses: astral-sh/setup-uv@v5
+      with:
+        enable-cache: true
+        cache-dependency-glob: uv.lock
+
+    - name: Install the package
+      if: steps.config.outputs.configured == 'true'
+      run: uv sync --locked --dev --group all
+
+    - name: Read the codebase
+      if: steps.config.outputs.configured == 'true'
+      uses: anthropics/claude-code-action@v1
+      env:
+        GH_TOKEN: ${{ github.token }}
+      with:
+        anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+        github_token: ${{ github.token }}
+        prompt: Follow the instructions in .github/codebase-read/prompt.md.
+        claude_args: >-
+          --allowedTools "Bash,Read,Write,Glob,Grep"
+          --max-turns 400
+          ${{ inputs.model && format('--model {0}', inputs.model) || '' }}
+
+    - name: Generate a discopy-bot token
+      id: app-token
+      if: steps.config.outputs.configured == 'true'
+      uses: actions/create-github-app-token@v1
+      with:
+        app-id: ${{ vars.DISCOPY_BOT_APP_ID }}
+        private-key: ${{ secrets.DISCOPY_BOT_PRIVATE_KEY }}
+        permission-issues: write
+
+    - name: Post the findings
+      if: steps.config.outputs.configured == 'true'
+      env:
+        APP_TOKEN: ${{ steps.app-token.outputs.token }}
+        REPO: ${{ github.repository }}
+        RUN_URL: ${{ github.server_url }}/${{
+          github.repository }}/actions/runs/${{ github.run_id }}
+      run: python3 .github/codebase-read/post.py
