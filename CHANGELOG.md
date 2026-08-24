@@ -240,7 +240,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   point is `[x]` or filed as an issue, taking the pull request out of draft:
   the style reviewer gives it a first pass before a human deep-reads it.
   A round of review feedback — bot or human — starts a fresh `TODO.md`,
-  deleted again when the round is done
+  deleted again when the round is done; nitpicks are just fixed and
+  resolved. Rule 4, only talk when prompted, is removed
   ([#608](https://github.com/discopy/discopy/pull/608)).
 - `AGENTS.md`/`CLAUDE.md`/`RULES.md`/`STYLE.md` introduced and iterated on,
   and `CONTRIBUTING.md`/`README.md` updated to match, to describe the
