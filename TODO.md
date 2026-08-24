@@ -26,8 +26,9 @@ still happens to be syntactically valid JSON — same root cause as the
 `JSONDecodeError`, just landing on the lucky side of the coin flip instead
 of the unlucky one.
 
-- [ ] log `finish_reason`/`usage` on every response (not just on failure)
-  to confirm whether `length` truncation is actually happening
+- [WIP] @claude-issue611-2026-08-24 16:50 log `finish_reason`/`usage` on
+  every response (not just on failure) to confirm whether `length`
+  truncation is actually happening
 - [ ] once confirmed, give the reasoning-enabled retry its own, much
   larger `max_tokens` (the model supports up to 131,072 completion
   tokens) so reasoning no longer starves the answer
