@@ -4,4 +4,4 @@ implement the to_compact proposal suggested by toumix on the PR thread. make a c
 
 implement to_compact on cmap as well and recover the curry diagram shapes in the doctest as they were on the main branch
 
-- [WIP] @opencode-2026-08-24 11:10 Implement `CMap.to_compact` and restore the curry doctest shapes.
+- [x] Implement `CMap.to_compact` and restore the curry doctest shapes.

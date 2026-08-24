@@ -58,19 +58,22 @@ Axioms
 .. image:: /_static/biclosed/uncurry.svg
     :align: center
 
-Combinatorial maps
-------------------
+Compact currying
+----------------
 
-Currying and uncurrying are available directly on the :class:`CMap` alias.
+Closed maps can open curry bubbles into coevaluation wiring with
+``to_compact``.
 
+>>> from discopy.closed import Ty, Box
+>>> x, y, z = map(Ty, "xyz")
 >>> f = Box("f", x @ y, z).to_map()
->>> f.curry(left=False).uncurry(left=False).draw(show=False,
+>>> f.curry(left=False).uncurry(left=False).to_compact().draw(show=False,
 ...     doctest="docs/_static/cmap/biclosed-curry-right.dot")
 
 .. graphviz:: /_static/cmap/biclosed-curry-right.dot
     :align: center
 
->>> f.curry(left=True).uncurry(left=True).draw(show=False,
+>>> f.curry(left=True).uncurry(left=True).to_compact().draw(show=False,
 ...     doctest="docs/_static/cmap/biclosed-curry-left.dot")
 
 .. graphviz:: /_static/cmap/biclosed-curry-left.dot

@@ -811,6 +811,22 @@ def test_curry_is_wiring_only_when_the_category_is_rigid():
         pivotal.Cap(x, x.r), f)
 
 
+def test_closed_to_compact():
+    x, y, z = map(closed.Ty, "xyz")
+    f = closed.Box("f", x @ y, z)
+
+    for left in (True, False):
+        source = f.to_map().curry(left=left).uncurry(left=left)
+        result = source.to_compact()
+        exp = z << y if left else x >> z
+        assert result == f.curry(left=left).uncurry(left=left)\
+            .to_compact().to_map()
+        assert result.boxes == (
+            f,
+            closed.Coeval(exp, left=left),
+            closed.Eval(exp, left=left))
+
+
 def test_map_and_hypergraph_normalise_the_same_way():
     from discopy import frobenius, monoidal, rigid, traced
 

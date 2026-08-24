@@ -25,6 +25,7 @@ Summary
     Discard
     Sum
     Functor
+    CompactFunctor
     CMap
 
 Axioms
@@ -103,6 +104,22 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
     def ev(cls, base: Ty, exponent: Ty, left: bool = True):
         return cls.eval_factory(exponent >> base, left=left)
 
+    def to_compact(self):
+        """
+        Open curry bubbles into coevaluations and traces.
+
+        This applies the endofunctor which is the identity on objects and
+        generators, and sends currying to compact-style wiring.
+
+        Example
+        -------
+        >>> x, y, z = map(Ty, "xyz")
+        >>> f = Box("f", x @ y, z)
+        >>> assert f.curry().to_compact() == (
+        ...     f >> Coeval(z << y, left=True)).trace()
+        """
+        return CompactFunctor()(self)
+
     def to_drawing(self):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
 
@@ -174,7 +191,57 @@ class Functor(biclosed.Functor, markov.Functor):
         return super().__call__(other)
 
 
+class CompactFunctor(Functor):
+    """
+    The endofunctor opening curry bubbles into compact-style wiring.
+
+    A curry is sent to its argument followed by coevaluation, then traced over
+    the curried wires. Objects and other generators are left unchanged.
+    """
+    def __init__(
+            self, ob_map=None, ar_map=None,
+            dom=None, cod=None, colour_map=None):
+        ob_map = (lambda x: x) if ob_map is None else ob_map
+        ar_map = (lambda f: f) if ar_map is None else ar_map
+        super().__init__(
+            ob_map, ar_map, dom=dom, cod=cod, colour_map=colour_map)
+
+    @classmethod
+    def id(cls, dom=None):
+        return Functor.id(dom)
+
+    def __rrshift__(self, other):
+        result = other.then(self)
+        return type(self)(
+            result.ob_map, result.ar_map,
+            dom=result.dom, cod=result.cod,
+            colour_map=result.colour_map)
+
+    def __call__(self, other):
+        if isinstance(other, (Application, Abstraction)):
+            return self(other.eval(Functor.id(Diagram)))
+        if isinstance(other, biclosed.Curry):
+            cod = self(other.cod)
+            coev = self.cod.coeval_factory(cod, left=other.left)
+            return (self(other.arg) >> coev).trace(
+                len(cod.exponent), left=not other.left)
+        return super().__call__(other)
+
+
 CMap = cmap.CMap[Diagram]
+
+
+def cmap_to_compact(self):
+    """
+    Open curry bubbles into coevaluation wiring.
+
+    This decodes the map, applies :meth:`Diagram.to_compact`, then encodes the
+    result back into a map.
+    """
+    return self.to_diagram().to_compact().to_map()
+
+
+CMap.to_compact = cmap_to_compact
 
 
 Diagram.functor_factory = Functor

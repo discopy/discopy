@@ -9,6 +9,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `closed.Diagram.to_compact` and `closed.CMap.to_compact`, the functorial
+  interpretation of curry bubbles as coevaluation and trace wiring
+  ([#532](https://github.com/discopy/discopy/pull/532)).
 - Combinatorial map representation, `discopy.cmap`, encoding diagrams in
   compact categories as a permutation on the ports of each box
   ([#338](https://github.com/discopy/discopy/pull/338)).
