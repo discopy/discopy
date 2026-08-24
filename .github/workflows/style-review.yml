@@ -26,14 +26,14 @@ jobs:
       env:
         BASE_URL: ${{ vars.STYLE_REVIEW_BASE_URL }}
         MODEL: ${{ vars.STYLE_REVIEW_MODEL }}
-        KEY: ${{ secrets.OPENMODEL_API_KEY }}
+        KEY: ${{ secrets.STYLE_REVIEW_API_KEY }}
       run: |
         if [ -n "$BASE_URL" ] && [ -n "$MODEL" ] && [ -n "$KEY" ]; then
           echo "configured=true" >> "$GITHUB_OUTPUT"
         else
           echo "::notice::style-review is not configured — set the \
         STYLE_REVIEW_BASE_URL and STYLE_REVIEW_MODEL variables and the \
-        OPENMODEL_API_KEY secret."
+        STYLE_REVIEW_API_KEY secret."
           echo "configured=false" >> "$GITHUB_OUTPUT"
         fi
 
@@ -55,7 +55,7 @@ jobs:
         && steps.diff.outputs.changed == 'true'
       env:
         ANTHROPIC_BASE_URL: ${{ vars.STYLE_REVIEW_BASE_URL }}
-        ANTHROPIC_AUTH_TOKEN: ${{ secrets.OPENMODEL_API_KEY }}
+        ANTHROPIC_AUTH_TOKEN: ${{ secrets.STYLE_REVIEW_API_KEY }}
         ANTHROPIC_MODEL: ${{ vars.STYLE_REVIEW_MODEL }}
         CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: 1
       run: |

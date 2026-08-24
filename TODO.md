@@ -20,10 +20,10 @@ starting from the todo as usual”
   discopy-bot review, inline where the diff allows and in the body
   otherwise, posting nothing when the diff is clean
 - [x] `CHANGELOG.md` entry
-- [WIP] @session_01JFJANWnm5ZdrfujFQmgrff-2026-08-22 09:31 rename the secret
+- [x] rename the secret
   to the gateway-neutral `STYLE_REVIEW_API_KEY`: USER has OpenRouter, not
   OpenModel
-- [WIP] @session_01JFJANWnm5ZdrfujFQmgrff-2026-08-22 09:31 edit `RULES.md`
+- [x] edit `RULES.md`
   point 1 per USER's ruling: “agent deletes todo when it's done”, now that
   the style reviewer gives every PR leaving draft a first pass
 - [ ] USER: create the `STYLE_REVIEW_API_KEY` secret and the

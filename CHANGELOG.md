@@ -16,7 +16,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   only, correctness stays with the correctness reviewer. Inference runs on
   an open-weights model behind an Anthropic-compatible gateway, configured
   by the `STYLE_REVIEW_BASE_URL` and `STYLE_REVIEW_MODEL` repository
-  variables and the `OPENMODEL_API_KEY` secret
+  variables and the `STYLE_REVIEW_API_KEY` secret
   ([#608](https://github.com/discopy/discopy/pull/608)).
 - Combinatorial map representation, `discopy.cmap`, encoding diagrams in
   compact categories as a permutation on the ports of each box
@@ -236,6 +236,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Project
 
+- `RULES.md` point 1 now has the agent delete its own `TODO.md` once every
+  point is `[x]` or filed as an issue, taking the pull request out of draft:
+  the style reviewer gives it a first pass before a human deep-reads it
+  ([#608](https://github.com/discopy/discopy/pull/608)).
 - `AGENTS.md`/`CLAUDE.md`/`RULES.md`/`STYLE.md` introduced and iterated on,
   and `CONTRIBUTING.md`/`README.md` updated to match, to describe the
   collaboration and coding protocol for AI agents working on the repo
