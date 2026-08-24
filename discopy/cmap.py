@@ -1345,6 +1345,10 @@ class CMap[C0: Pregroup, C1: CMap](
             result = result.explicit_trace()
         return result
 
+    def to_compact(self):
+        """ Apply the host category's compactification functor. """
+        return self.category.compact_factory()(self)
+
     def to_diagram(self) -> Diagram:
         """
         Downgrade to a diagram directly, preserving box orientation.

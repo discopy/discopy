@@ -812,6 +812,9 @@ def test_curry_is_wiring_only_when_the_category_is_rigid():
 
 
 def test_closed_to_compact():
+    from discopy import cmap
+
+    assert closed.CMap.to_compact is cmap.CMap.to_compact
     x, y, z = map(closed.Ty, "xyz")
     f = closed.Box("f", x @ y, z)
 
@@ -819,6 +822,7 @@ def test_closed_to_compact():
         source = f.to_map().curry(left=left).uncurry(left=left)
         result = source.to_compact()
         exp = z << y if left else x >> z
+        assert closed.CompactFunctor()(source) == result
         assert result == f.curry(left=left).uncurry(left=left)\
             .to_compact().to_map()
         assert result.boxes == (

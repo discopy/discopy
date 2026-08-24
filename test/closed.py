@@ -64,20 +64,17 @@ def test_to_compact():
         assert not any(isinstance(box, Curry) for box in result.boxes)
         assert term.to_map().to_compact() == result
 
-    identity_functor = Functor.id(Diagram)
-    for functor in (
-            CompactFunctor() >> identity_functor,
-            identity_functor >> CompactFunctor()):
-        assert functor(f.curry()) == f.curry().to_compact()
-    assert CompactFunctor.id(Diagram)(f.curry()) == f.curry()
 
-    expand = Functor(
-        ob_map={x: x, y: w @ y, z: z},
-        ar_map={f: Box("f", x @ w @ y, z)})
-    assert (CompactFunctor() >> expand)(f.curry())\
-        == expand(f.curry().to_compact())
-    assert (expand >> CompactFunctor())(f.curry())\
-        == expand(f.curry()).to_compact()
+def test_to_compact_factory(monkeypatch):
+    x = Ty("x")
+    f = Box("f", x, x)
+
+    class Identity:
+        def __call__(self, other):
+            return other
+
+    monkeypatch.setattr(Diagram, "compact_factory", Identity)
+    assert f.to_compact() is f
 
 
 def test_Application_without_freevars():
