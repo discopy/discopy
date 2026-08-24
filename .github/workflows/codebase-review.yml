@@ -62,6 +62,7 @@ jobs:
       with:
         anthropic_api_key: ${{ secrets.CODEBASE_REVIEW_API_KEY }}
         github_token: ${{ github.token }}
+        show_full_output: true
         prompt: Follow the instructions in .github/codebase-review/prompt.md.
         claude_args: >-
           --allowedTools "Bash(uv sync:*),Bash(uv run:*),Bash(gh issue list:*),Bash(gh issue view:*),Bash(gh search:*),Bash(git log:*),Bash(git diff:*),Read,Write,Glob,Grep"
