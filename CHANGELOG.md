@@ -138,6 +138,13 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `ev`. Code relying on the old right-handed default should pass
   `left=False` explicitly
   ([#560](https://github.com/discopy/discopy/issues/560)).
+- `Hypergraph.to_diagram` and `CMap.to_diagram` route wires with one
+  permutation per routing episode instead of a chain of swaps, emitted with
+  `from_permutation`: categories with a native `Permutation` factory (e.g.
+  `symmetric`, `markov`, `compact`) get permutation boxes, the others keep
+  their swap decomposition. In particular `simplify` and `foliation` now
+  output `Permutation` boxes in these categories
+  ([#539](https://github.com/discopy/discopy/issues/539)).
 - The committed benchmark baseline is stored gzipped as
   `benchmark/baseline.json.gz`, which `benchmark/report.py` reads
   transparently.
