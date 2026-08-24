@@ -316,7 +316,7 @@ class Functor(braided.Functor, traced.Functor):
     dom = cod = Diagram
 
     def __call__(self, other):
-        if isinstance(other, Twist):
+        if isinstance(other, Twist) and hasattr(self.cod, "twist"):
             return self.cod.twist(self(other.dom))
         if isinstance(other, Trace):
             return traced.Functor.__call__(self, other)
