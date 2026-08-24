@@ -44,11 +44,13 @@ def normalised(finding):
     return {"path": path, "line": line, "comment": comment}
 
 
-def describe(findings, withheld):
+def describe(findings, withheld, unreadable):
     lines = [f"Style review by `{os.environ['MODEL']}`."] + [
         f"- `{f['path']}:{f['line']}` — {f['comment']}" for f in findings]
     if withheld:
         lines.append(f"…and {withheld} more past the ten-finding cap.")
+    if unreadable:
+        lines.append(f"…and {unreadable} unreadable findings dropped.")
     return "\n".join(lines)
 
 
@@ -80,10 +82,10 @@ def main():
         reported = json.load(file)["findings"]
     if not isinstance(reported, list):
         raise ValueError(f"findings should be a list: {reported!r}")
-    findings = [normalised(f) for f in reported]
-    if None in findings:
-        unreadable = [f for f, n in zip(reported, findings) if n is None]
-        raise ValueError(f"unreadable findings: {unreadable!r}")
+    findings = [f for f in map(normalised, reported) if f is not None]
+    unreadable = len(reported) - len(findings)
+    if reported and not findings:
+        raise ValueError(f"no readable finding in: {reported!r}")
     withheld, findings = len(findings[10:]), findings[:10]
     record(clean=not findings)
     if not findings:
@@ -96,11 +98,11 @@ def main():
     outline = [
         f for f in findings if f["line"] not in lines.get(f["path"], set())]
     try:
-        post_review(describe(outline, withheld), inline)
+        post_review(describe(outline, withheld, unreadable), inline)
     except urllib.error.HTTPError as error:
         print(f"Inline comments rejected ({error.code}), "
               "posting all in the body.")
-        post_review(describe(findings, withheld), inline=[])
+        post_review(describe(findings, withheld, unreadable), inline=[])
 
 
 if __name__ == "__main__":
