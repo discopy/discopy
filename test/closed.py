@@ -78,6 +78,10 @@ def test_let():
         Let(f(x), (Variable("y", Z), ), x)
     with raises(ValueError):
         let(f(x), lambda y, z: y)
+    with raises(ValueError):
+        let(f(x), lambda *ys: ys[0])
+    with raises(ValueError):
+        let(f(x), lambda **ys: x)
 
 
 def test_let_shared():

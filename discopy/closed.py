@@ -730,7 +730,12 @@ def let(expression: Term, body: Callable) -> Let:
     .. image:: /_static/closed/catgpt-block.svg
         :align: center
     """
-    varnames = list(signature(body).parameters)
+    parameters = signature(body).parameters.values()
+    if any(x.kind not in (x.POSITIONAL_ONLY, x.POSITIONAL_OR_KEYWORD)
+           for x in parameters):
+        raise ValueError(
+            f"Expected positional parameters, got {signature(body)}")
+    varnames = [x.name for x in parameters]
     cod = expression.cod
     factors = list(cod.factors) if cod.is_product\
         else [cod[i:i + 1] for i in range(len(cod))]
