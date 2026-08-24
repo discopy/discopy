@@ -1,7 +1,5 @@
 name: codebase-review
 on:
-  pull_request:
-    types: [synchronize]
   workflow_dispatch:
     inputs:
       model:
@@ -71,9 +69,7 @@ jobs:
           --model ${{ inputs.model || vars.CODEBASE_REVIEW_MODEL }}
 
     - name: Summarise the dry run
-      if: >
-        steps.config.outputs.configured == 'true'
-        && (inputs.dry_run || github.event_name == 'pull_request')
+      if: steps.config.outputs.configured == 'true' && inputs.dry_run
       run: |
         {
           echo "## Dry run — nothing posted"
@@ -85,9 +81,7 @@ jobs:
 
     - name: Generate a discopy-bot token
       id: app-token
-      if: >
-        steps.config.outputs.configured == 'true'
-        && github.event_name == 'workflow_dispatch' && !inputs.dry_run
+      if: steps.config.outputs.configured == 'true' && !inputs.dry_run
       uses: actions/create-github-app-token@v1
       with:
         app-id: ${{ vars.DISCOPY_BOT_APP_ID }}
@@ -95,9 +89,7 @@ jobs:
         permission-issues: write
 
     - name: Post the findings
-      if: >
-        steps.config.outputs.configured == 'true'
-        && github.event_name == 'workflow_dispatch' && !inputs.dry_run
+      if: steps.config.outputs.configured == 'true' && !inputs.dry_run
       env:
         APP_TOKEN: ${{ steps.app-token.outputs.token }}
         REPO: ${{ github.repository }}
