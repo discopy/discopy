@@ -7,4 +7,4 @@
 - [x] `.github/workflows/codebase-read.yml`: a `workflow_dispatch` workflow running the read with `anthropics/claude-code-action`, skipping with a notice until the `ANTHROPIC_API_KEY` secret is set next to the discopy-bot app of #608
 - [x] `.github/codebase-read/prompt.md`: the read instructions — previous `codebase-read` issues first as baseline, every module whole in one sitting, strains ranked by leverage, a bug reported only with an executed repro
 - [x] `.github/codebase-read/post.py`: open the report as a new `codebase-read`-labelled issue and the verified bugs as its first comment, as discopy-bot
-- [ ] `CHANGELOG.md` entry and `.codebase-read/` in `.gitignore`
+- [x] `CHANGELOG.md` entry and `.codebase-read/` in `.gitignore`
