@@ -6,7 +6,9 @@
 
 > feel free to implement new axioms in the missing categories
 
-- [WIP] @opencode-proptest-2026-08-24 17:30 Fix the property suite and integrate the classified general properties on this branch.
+> the new property tests for this round should be test_properties.py, later we will investigate more complete test suite that does not only test categorical axioms but more general properties like roundtrips between different representations, string and pickle serialization, etc...
+
+- [WIP] @opencode-proptest-2026-08-24 17:30 Fix the property suite and integrate the classified categorical axioms on this branch.
 
 No verbatim prompt: this PR was opened 2026-06-22, before `RULES.md` rule 1 existed, and its
 description is a generated summary rather than anything a human typed. It gets a `TODO.md` now

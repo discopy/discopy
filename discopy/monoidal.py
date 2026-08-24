@@ -1450,8 +1450,10 @@ class Diagram(
             Whenever ``normalize`` yields the same rewrite steps twice, e.g.
             the diagram is not boundary-connected.
         """
+        diagram = self.to_staircases() if any(
+            len(layer.boxes) != 1 for layer in self.inside) else self
         cache = set()
-        for diagram in itertools.chain([self], self.normalize(**params)):
+        for diagram in itertools.chain([diagram], diagram.normalize(**params)):
             if str(diagram) in cache:
                 exception = NotImplementedError(
                     messages.NOT_CONNECTED.format(self))

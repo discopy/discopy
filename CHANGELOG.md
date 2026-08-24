@@ -155,6 +155,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `Diagram.normal_form` expands multi-box layers into staircases before
+  normalization, so connected foliated diagrams normalize without raising.
 - `build.yml` timeouts and a bounded, retried Graphviz install
   ([#591](https://github.com/discopy/discopy/issues/591)).
 - Boundary-constrained arrow strategies can generate composite paths, layer

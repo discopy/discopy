@@ -414,6 +414,12 @@ def test_Diagram_normal_form():
     assert (Id(x) @ f1 >> f0 @ Id(x)).normal_form() == f0 @ f1
     assert (f0 @ f1).normal_form(left=True) == Id(x) @ f1 >> f0 @ Id(x)
 
+    f, g, h = (Box(name, x, x) for name in "fgh")
+    diagram = Diagram(
+        (Layer(x, f), Layer(g, h)), x @ x, x @ x)
+    expected = g @ x >> x @ f >> x @ h
+    assert diagram.normal_form() == expected
+
 
 def test_AxiomError():
     inside = (Layer(Box('f', Ty('x'), Ty('y'))), )
