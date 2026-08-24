@@ -6,7 +6,7 @@ Design settled in the same session: reviews are posted by the existing
 discopy-bot GitHub App, the harness is Claude Code running on the GitHub
 runner as one replaceable workflow step (“DeepSeek harness is probably too
 unstable atm but it shouldn’t be hard to switch later?”), and inference goes
-through USER's OpenModel gateway with the model pinned by a repository
+through USER's OpenRouter gateway with the model pinned by a repository
 variable (“I’d rather use an open weights model”). “build the whole thing,
 starting from the todo as usual”
 
@@ -20,7 +20,13 @@ starting from the todo as usual”
   discopy-bot review, inline where the diff allows and in the body
   otherwise, posting nothing when the diff is clean
 - [x] `CHANGELOG.md` entry
-- [ ] USER: create the `OPENMODEL_API_KEY` secret and the
-  `STYLE_REVIEW_BASE_URL` / `STYLE_REVIEW_MODEL` repository variables from
-  the OpenModel console
+- [WIP] @session_01JFJANWnm5ZdrfujFQmgrff-2026-08-22 09:31 rename the secret
+  to the gateway-neutral `STYLE_REVIEW_API_KEY`: USER has OpenRouter, not
+  OpenModel
+- [WIP] @session_01JFJANWnm5ZdrfujFQmgrff-2026-08-22 09:31 edit `RULES.md`
+  point 1 per USER's ruling: “agent deletes todo when it's done”, now that
+  the style reviewer gives every PR leaving draft a first pass
+- [ ] USER: create the `STYLE_REVIEW_API_KEY` secret and the
+  `STYLE_REVIEW_BASE_URL` / `STYLE_REVIEW_MODEL` repository variables for
+  the OpenRouter gateway
 - [ ] run the reviewer on a real pull request and read its first review
