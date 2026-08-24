@@ -395,7 +395,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
     @unbiased
     def tensor(self, other: Hypergraph):
         """ Tensor of two hypergraph diagrams, i.e. their disjoint union. """
-        dom, cod = self.dom @ other.dom, self.cod @ other.cod
+        dom, cod = self.dom + other.dom, self.cod + other.cod
         boxes, offsets = self.boxes + other.boxes, self.offsets + other.offsets
         shift = lambda w: tuple(self.n_spiders + i for i in w)
         dom_wires = self.dom_wires + shift(other.dom_wires)

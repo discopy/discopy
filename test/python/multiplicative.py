@@ -55,6 +55,9 @@ def test_Hypergraph_call():
         boxes=(), wires=((0, 1), (), (0, )))
     assert g(2, 3) == 2
 
+    # Tensoring hypergraphs of Python functions concatenates their types.
+    assert (f @ g)(1, 2, 3, 4) == (3, 1, 3)
+
     with raises(ValueError, match="Expected 2 wires for"):
         g(2)
 
