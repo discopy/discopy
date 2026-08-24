@@ -39,21 +39,21 @@ def valid(finding):
 
 def describe(findings):
     return "\n".join(
-        ["Style review by `{}`.".format(os.environ["MODEL"])] + [
-            "- `{}:{}` — {}".format(f["path"], f["line"], f["comment"])
+        [f"Style review by `{os.environ['MODEL']}`."] + [
+            f"- `{f['path']}:{f['line']}` — {f['comment']}"
             for f in findings])
 
 
 def post_review(body, inline):
-    url = "https://api.github.com/repos/{}/pulls/{}/reviews".format(
-        os.environ["REPO"], os.environ["PR_NUMBER"])
+    url = (f"https://api.github.com/repos/{os.environ['REPO']}"
+           f"/pulls/{os.environ['PR_NUMBER']}/reviews")
     payload = {
         "commit_id": os.environ["HEAD_SHA"], "event": "COMMENT",
         "body": body, "comments": [
             {"path": f["path"], "line": f["line"], "side": "RIGHT",
              "body": f["comment"]} for f in inline]}
     request = urllib.request.Request(url, json.dumps(payload).encode(), {
-        "Authorization": "Bearer {}".format(os.environ["APP_TOKEN"]),
+        "Authorization": f"Bearer {os.environ['APP_TOKEN']}",
         "Accept": "application/vnd.github+json",
         "Content-Type": "application/json"})
     urllib.request.urlopen(request).close()
@@ -74,8 +74,8 @@ def main():
     try:
         post_review(describe(outline), inline)
     except urllib.error.HTTPError as error:
-        print("Inline comments rejected ({}), posting all in the body."
-              .format(error.code))
+        print(f"Inline comments rejected ({error.code}), "
+              "posting all in the body.")
         post_review(describe(findings), inline=[])
 
 
