@@ -43,7 +43,7 @@ jobs:
       env:
         BASE_SHA: ${{ github.event.pull_request.base.sha }}
       run: |
-        mkdir .style-review
+        mkdir -p .style-review
         git diff --merge-base "$BASE_SHA" -- '*.py' > .style-review/diff.patch
         git diff --merge-base "$BASE_SHA" --name-only -- '*.py' \
           > .style-review/files.txt

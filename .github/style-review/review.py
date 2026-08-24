@@ -24,14 +24,20 @@ def imports(path):
             tree = ast.parse(file.read())
     except SyntaxError:
         return []
-    names = set()
+    package, names = os.path.dirname(path).split(os.sep), set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             names.update(alias.name for alias in node.names)
-        elif isinstance(node, ast.ImportFrom) and node.module:
-            names.add(node.module)
-            names.update(
-                f"{node.module}.{alias.name}" for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            prefix = (
+                package[:len(package) + 1 - node.level]
+                if node.level else [])
+            module = ".".join(
+                prefix + ([node.module] if node.module else []))
+            if module:
+                names.add(module)
+                names.update(
+                    f"{module}.{alias.name}" for alias in node.names)
     paths = (name.replace(".", "/") + suffix for name in sorted(names)
              for suffix in (".py", "/__init__.py"))
     return [path for path in paths if os.path.exists(path)]
@@ -60,6 +66,8 @@ def assemble(files, diff):
     """The one prompt: instructions, style guide, context, changes, diff."""
     deps = sorted(
         {dep for path in files for dep in imports(path)} - set(files))
+    if len(diff) > BUDGET // 2:
+        diff = diff[:BUDGET // 2] + "\n[diff truncated for size]"
     changed, budget, missing = contents(files, BUDGET - len(diff))
     context, _, dropped = contents(deps, budget)
     dropped = missing + dropped

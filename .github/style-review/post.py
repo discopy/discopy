@@ -32,6 +32,8 @@ def commentable_lines(diff):
 def normalised(finding):
     """The finding with an integer line, `None` when it is unreadable."""
     try:
+        if isinstance(finding["line"], bool):
+            return None
         path, line, comment = (
             finding["path"], int(finding["line"]),
             finding["comment"].strip())
