@@ -80,13 +80,15 @@ def assemble(files, diff):
 def ask(prompt):
     url = os.environ["BASE_URL"].rstrip("/") + "/v1/chat/completions"
     payload = {
-        "model": os.environ["MODEL"], "temperature": 0, "max_tokens": 2048,
+        "model": os.environ["MODEL"], "temperature": 0, "max_tokens": 8192,
+        "reasoning": {"enabled": False, "exclude": True},
         "messages": [{"role": "user", "content": prompt}]}
     request = urllib.request.Request(url, json.dumps(payload).encode(), {
         "Authorization": f"Bearer {os.environ['API_KEY']}",
         "Content-Type": "application/json"})
     with urllib.request.urlopen(request, timeout=600) as response:
-        answer = json.load(response)["choices"][0]["message"]["content"]
+        message = json.load(response)["choices"][0]["message"]
+    answer = message.get("content") or message.get("reasoning") or ""
     return json.loads(answer[answer.index("{"):answer.rindex("}") + 1])
 
 
