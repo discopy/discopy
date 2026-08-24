@@ -16,8 +16,11 @@ issue and its own investigation comments:
    uncounted, so the assembled prompt can exceed `BUDGET` (425,159 chars on
    #546 against a 400,000 budget).
 
-- [ ] catch `HTTPError` in `ask()`, print the response body (`error.read()`)
-  before re-raising, so the next 400 is diagnosable from the job log
-- [ ] budget the actually-assembled blocks (numbered text, per-file headers,
-  `prompt.md`, `STYLE.md`) against `BUDGET`, not the raw file text
-- [ ] add a `CHANGELOG.md` entry under `Fixed`
+- [WIP] @claude-issue611-2026-08-24 18:06 catch `HTTPError` in `ask()`, print
+  the response body (`error.read()`) before re-raising, so the next 400 is
+  diagnosable from the job log
+- [WIP] @claude-issue611-2026-08-24 18:06 budget the actually-assembled
+  blocks (numbered text, per-file headers, `prompt.md`, `STYLE.md`) against
+  `BUDGET`, not the raw file text
+- [WIP] @claude-issue611-2026-08-24 18:06 add a `CHANGELOG.md` entry under
+  `Fixed`
