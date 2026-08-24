@@ -26,8 +26,7 @@ def single_layer_tensor[D: monoidal.Diagram](box: D, k: int) -> D:
     sidestepping that overhead -- the residual cost is only the type
     concatenation in ``Layer``.
     """
-    empty = box.dom[:0]
-    layer = box.layer_factory(empty, box, empty, *([box, empty] * (k - 1)))
+    layer = box.layer_factory(*(k * [box]))
     return box.factory((layer,), layer.dom, layer.cod)
 
 

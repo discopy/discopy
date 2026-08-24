@@ -1,5 +1,13 @@
 # Property-based testing
 
+## Current prompt
+
+> don't push on the cmap branch, focus on proptesting. implement your changes not in fable bug investigation branch, moving bug reproductions from the test/fable/*.py files to test/test_properties.py, then once every relevant bug was classified and implemented as part of the general test suite, upstream the changes in the principal development branch for property testing
+
+> feel free to implement new axioms in the missing categories
+
+- [WIP] @opencode-proptest-2026-08-24 17:30 Fix the property suite and integrate the classified general properties on this branch.
+
 No verbatim prompt: this PR was opened 2026-06-22, before `RULES.md` rule 1 existed, and its
 description is a generated summary rather than anything a human typed. It gets a `TODO.md` now
 because USER ruled on [desire#76](https://github.com/toumix/desire/issues/76), verbatim:
@@ -59,6 +67,11 @@ were fixed and two were false positives.
       concrete maps; the property matrix continues to check every declared map axiom.
 - [x] `test_extend_strategy` now finds both a free box and a twist from the extended distribution,
       while retaining its boundary-guard assertion.
+- [x] Merged `main` (`5fa95f6e`), keeping both `CMap.from_generator` and the new
+      `CMap.from_glued`, then took the simplifications the merged changes allow: the
+      `axiom_status` entries that `Category.axiom_equality` already resolves through the MRO
+      are gone, and `benchmark.generators.single_layer_tensor` builds its layer from boxes
+      alone now that `monoidal.Layer` normalises its own plumbing.
 
 ## Open question for USER, not blocking
 

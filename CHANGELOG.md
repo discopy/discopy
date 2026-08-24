@@ -11,7 +11,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 - Axiom statuses now record the representation-level equality available to
   combinatorial maps, and diagram/map strategies can generate closed
-  components on request.
+  components on request. A `"strict"` axiom is checked on the nose, while a
+  `"setoid"` one is checked up to the category's `equation_factory`, i.e. up
+  to hypergraph from symmetric categories on.
 - Declarative categorical axioms, validating argument shapes, and canonical
   Hypothesis strategies following the categorical class hierarchy. A dedicated
   workflow runs the property tests on `main`, manually, and on labelled PRs.
