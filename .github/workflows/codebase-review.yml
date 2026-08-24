@@ -1,7 +1,7 @@
 name: codebase-review
 on:
-  push:
-    branches: [claude/codebase-read-workflow-761y16]
+  pull_request:
+    types: [synchronize]
   workflow_dispatch:
     inputs:
       model:
@@ -73,7 +73,7 @@ jobs:
     - name: Summarise the dry run
       if: >
         steps.config.outputs.configured == 'true'
-        && (inputs.dry_run || github.event_name == 'push')
+        && (inputs.dry_run || github.event_name == 'pull_request')
       run: |
         {
           echo "## Dry run — nothing posted"
