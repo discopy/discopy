@@ -102,6 +102,18 @@ def test_substitution():
     assert s(let(f(x), lambda y: y)) == let(f(z), lambda y: y)
 
 
+def test_substitution_capture():
+    X = Ty("X")
+    x, y, z = (Variable(name, X) for name in "xyz")
+    g = (X >> X)("g")
+    t = let(g(z), lambda y: Tuple(y, x))
+    assert Substitution({x: z})(t) == let(g(z), lambda y: Tuple(y, z))
+    with raises(ValueError):
+        Substitution({x: y})(t)
+    with raises(ValueError):
+        Substitution({x: y})(Abstraction(y, Tuple(y, x)))
+
+
 def test_compact_str():
     E = Ty("E")
     query, feed_forward = (E >> E)("query"), (E >> E)("feed_forward")

@@ -171,7 +171,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   ([#591](https://github.com/discopy/discopy/issues/591)).
 - `closed.Substitution` no longer drops constants, loses the `left` flag
   on applications or recurses forever on abstractions, and it covers the
-  new term formers
+  new term formers; substituting under a binder raises rather than
+  capturing a free variable of a replacement
   ([#492](https://github.com/discopy/discopy/issues/492),
   [#489](https://github.com/discopy/discopy/pull/489)).
 - `python.Function.tensor` is variadic like `monoidal.Diagram.tensor`

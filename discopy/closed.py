@@ -761,6 +761,21 @@ class Substitution:
         return type(self)({k: v for k, v in self.inside.items()
                            if k not in variables})
 
+    def bind(self, *variables: Variable) -> Substitution:
+        """
+        The restriction of a substitution under binding ``variables``,
+        which raises when a replacement has one of them as a free variable:
+        substituting it would capture the variable and change the term.
+        """
+        result = self.without(*variables)
+        captured = [x for term in result.inside.values()
+                    for x in term.freevars if x in variables]
+        if captured:
+            raise ValueError(
+                f"Expected replacements free from the bound {captured}, "
+                "rename the variables first.")
+        return result
+
     def __call__(self, term: Term) -> Term:
         if isinstance(term, Variable):
             return self.inside.get(term, term)
@@ -768,14 +783,14 @@ class Substitution:
             return type(term)(self(term.func), self(term.args), term.left)
         if isinstance(term, Abstraction):
             return type(term)(
-                term.var, self.without(term.var)(term.body), term.left)
+                term.var, self.bind(term.var)(term.body), term.left)
         if isinstance(term, Tuple):
             return type(term)(*map(self, term.terms))
         if isinstance(term, Projection):
             return type(term)(self(term.arg), term.index)
         if isinstance(term, Let):
             return type(term)(self(term.expression), term.variables,
-                              self.without(*term.variables)(term.body))
+                              self.bind(*term.variables)(term.body))
         return term
 
 
