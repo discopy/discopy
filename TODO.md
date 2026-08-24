@@ -101,7 +101,7 @@ hand. Same move as `discopy.drawing`, where the layout algorithm is itself a fun
       variable's name independent of what is bound inside it. Renaming apart is left to point 7,
       the only place that sees a whole context at once — a derived `x1` can still collide with an
       annotation spelled `x1`, which the docstring says.
-- [ ] 5. Annotate at the two sites #372 names: the identity wire built by `Variable.eval`, and the
+- [WIP] @evening-2026-08-24-2026-08-24 00:10 5. Annotate at the two sites #372 names: the identity wire built by `Variable.eval`, and the
       abstracted wire of the `Curry` built by `Abstraction.eval`.
 - [ ] 6. Make terms-in-context a `BiclosedCategory` instance: `id`, `then`, `tensor`, `ev`, `curry`.
 - [ ] 7. `biclosed.Diagram.to_term` as a `Functor` into it, reading `varname` when present, with
