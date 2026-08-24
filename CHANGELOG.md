@@ -9,11 +9,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
-- A codebase read workflow, dispatched by hand from the Actions tab: Claude
+- A codebase review workflow, dispatched by hand from the Actions tab: Claude
   Code reads every module of `discopy/` whole in one sitting — taking the
-  most recent issue labelled `codebase-read` as its baseline — verifies
+  most recent issue labelled `codebase-review` as its baseline — verifies
   each bug it suspects by running a repro in the checkout, and discopy-bot
-  opens a `codebase-read`-labelled issue with the strains ranked by
+  opens a `codebase-review`-labelled issue with the strains ranked by
   leverage as its body and the verified bugs as its first comment, the
   shape of [#606](https://github.com/discopy/discopy/issues/606).
   Configured by the `ANTHROPIC_API_KEY` secret next to the discopy-bot app

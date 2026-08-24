@@ -1,7 +1,7 @@
-"""Open the codebase-read issue from the files the read wrote.
+"""Open the codebase-review issue from the files the read wrote.
 
-Reads ``.codebase-read/report.md`` and ``.codebase-read/bugs.md``, opens a
-``codebase-read``-labelled issue with the report as its body — as the GitHub
+Reads ``.codebase-review/report.md`` and ``.codebase-review/bugs.md``, opens a
+``codebase-review``-labelled issue with the report as its body — as the GitHub
 App authenticated by ``APP_TOKEN`` — and posts the bugs as its first
 comment. A missing or empty report fails the run rather than post an empty
 read; a missing bugs file posts no comment. A rerun on the same day updates
@@ -14,8 +14,8 @@ import os
 import urllib.error
 import urllib.request
 
-DIRECTORY = ".codebase-read"
-LABEL = "codebase-read"
+DIRECTORY = ".codebase-review"
+LABEL = "codebase-review"
 
 
 def request(url, payload=None, method=None):
@@ -55,7 +55,7 @@ def main():
     date = datetime.datetime.now(datetime.timezone.utc).date()
     title = f"Findings from a full read of the codebase ({date})"
     body = (f"{report}\n\n*Posted by the"
-            f" [codebase-read run]({os.environ['RUN_URL']}).*")
+            f" [codebase-review run]({os.environ['RUN_URL']}).*")
     issues = request(f"{api}/issues?labels={LABEL}&state=open&per_page=100")
     if matching := [i for i in issues if i["title"] == title]:
         issue = matching[0]

@@ -1,4 +1,4 @@
-name: codebase-read
+name: codebase-review
 on:
   workflow_dispatch:
     inputs:
@@ -10,7 +10,7 @@ permissions:
   contents: read
   issues: read
 concurrency:
-  group: codebase-read
+  group: codebase-review
 jobs:
   read:
     runs-on: ubuntu-latest
@@ -26,7 +26,7 @@ jobs:
         if [ -n "$KEY" ] && [ -n "$APP_ID" ] && [ -n "$PRIVATE_KEY" ]; then
           echo "configured=true" >> "$GITHUB_OUTPUT"
         else
-          echo "::notice::codebase-read is not configured — set the \
+          echo "::notice::codebase-review is not configured — set the \
         ANTHROPIC_API_KEY secret next to the discopy-bot app variables."
           echo "configured=false" >> "$GITHUB_OUTPUT"
         fi
@@ -55,7 +55,7 @@ jobs:
       with:
         anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
         github_token: ${{ github.token }}
-        prompt: Follow the instructions in .github/codebase-read/prompt.md.
+        prompt: Follow the instructions in .github/codebase-review/prompt.md.
         claude_args: >-
           --allowedTools "Bash(uv sync:*),Bash(uv run:*),Bash(gh issue list:*),Bash(gh issue view:*),Bash(gh search:*),Bash(git log:*),Bash(git diff:*),Read,Write,Glob,Grep"
           --max-turns 400
@@ -77,4 +77,4 @@ jobs:
         REPO: ${{ github.repository }}
         RUN_URL: ${{ github.server_url }}/${{
           github.repository }}/actions/runs/${{ github.run_id }}
-      run: python3 .github/codebase-read/post.py
+      run: python3 .github/codebase-review/post.py
