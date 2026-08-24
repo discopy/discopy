@@ -54,16 +54,10 @@ jobs:
         steps.config.outputs.configured == 'true'
         && steps.diff.outputs.changed == 'true'
       env:
-        ANTHROPIC_BASE_URL: ${{ vars.STYLE_REVIEW_BASE_URL }}
-        ANTHROPIC_AUTH_TOKEN: ${{ secrets.STYLE_REVIEW_API_KEY }}
-        ANTHROPIC_MODEL: ${{ vars.STYLE_REVIEW_MODEL }}
-        CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: 1
-      run: |
-        npm install --global @anthropic-ai/claude-code
-        claude -p "$(cat .github/style-review/prompt.md)" \
-          --model "$ANTHROPIC_MODEL" \
-          --allowedTools "Read,Glob,Grep,Write" \
-          --max-turns 50
+        BASE_URL: ${{ vars.STYLE_REVIEW_BASE_URL }}
+        API_KEY: ${{ secrets.STYLE_REVIEW_API_KEY }}
+        MODEL: ${{ vars.STYLE_REVIEW_MODEL }}
+      run: python3 .github/style-review/review.py
 
     - name: Generate a discopy-bot token
       id: app-token

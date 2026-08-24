@@ -10,13 +10,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 ### Added
 
 - A style review workflow: when a same-repo pull request leaves draft or
-  gets the `style-review` label, an agent on the runner reads every changed
-  Python file whole, checks the diff against the file's own conventions and
-  `STYLE.md`, and discopy-bot posts the findings as one review — style
-  only, correctness stays with the correctness reviewer. Inference runs on
-  an open-weights model behind an Anthropic-compatible gateway, configured
-  by the `STYLE_REVIEW_BASE_URL` and `STYLE_REVIEW_MODEL` repository
-  variables and the `STYLE_REVIEW_API_KEY` secret
+  gets the `style-review` label, one model request reads every changed
+  Python file whole — with the package-local files they import as context —
+  checks the diff against the file's own conventions and `STYLE.md`, and
+  discopy-bot posts the findings as one review — style only, correctness
+  stays with the correctness reviewer. Inference runs on an open-weights
+  model behind an OpenAI-compatible gateway, configured by the
+  `STYLE_REVIEW_BASE_URL` and `STYLE_REVIEW_MODEL` repository variables and
+  the `STYLE_REVIEW_API_KEY` secret
   ([#608](https://github.com/discopy/discopy/pull/608)).
 - Combinatorial map representation, `discopy.cmap`, encoding diagrams in
   compact categories as a permutation on the ports of each box
