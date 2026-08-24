@@ -1,0 +1,104 @@
+name: style-review
+on:
+  pull_request:
+    types: [ready_for_review, labeled]
+permissions:
+  contents: read
+concurrency:
+  group: style-review-${{ github.event.pull_request.number
+    }}-${{ github.event.label.name || github.event.action }}
+  cancel-in-progress: true
+jobs:
+  review:
+    if: >
+      github.event.pull_request.head.repo.full_name == github.repository
+      && (github.event.action == 'ready_for_review'
+          || github.event.label.name == 'style-review')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+        fetch-depth: 0
+
+    - name: Check the gateway configuration
+      id: config
+      env:
+        BASE_URL: ${{ vars.STYLE_REVIEW_BASE_URL }}
+        MODEL: ${{ vars.STYLE_REVIEW_MODEL }}
+        KEY: ${{ secrets.STYLE_REVIEW_API_KEY }}
+      run: |
+        if [ -n "$BASE_URL" ] && [ -n "$MODEL" ] && [ -n "$KEY" ]; then
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "::notice::style-review is not configured — set the \
+        STYLE_REVIEW_BASE_URL and STYLE_REVIEW_MODEL variables and the \
+        STYLE_REVIEW_API_KEY secret."
+          echo "configured=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Diff the Python files against the merge base
+      id: diff
+      env:
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      run: |
+        mkdir -p .style-review
+        git diff --merge-base "$BASE_SHA" -- '*.py' > .style-review/diff.patch
+        git diff --merge-base "$BASE_SHA" --name-only -- '*.py' \
+          > .style-review/files.txt
+        echo "changed=$(test -s .style-review/diff.patch \
+          && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+    - name: Review the diff
+      if: >
+        steps.config.outputs.configured == 'true'
+        && steps.diff.outputs.changed == 'true'
+      env:
+        BASE_URL: ${{ vars.STYLE_REVIEW_BASE_URL }}
+        API_KEY: ${{ secrets.STYLE_REVIEW_API_KEY }}
+        MODEL: ${{ vars.STYLE_REVIEW_MODEL }}
+      run: python3 .github/style-review/review.py
+
+    - name: Generate a discopy-bot token
+      id: app-token
+      if: >
+        ${{ !cancelled()
+            && (github.event.action == 'ready_for_review'
+                || (steps.config.outputs.configured == 'true'
+                    && steps.diff.outputs.changed == 'true')) }}
+      uses: actions/create-github-app-token@v1
+      with:
+        app-id: ${{ vars.DISCOPY_BOT_APP_ID }}
+        private-key: ${{ secrets.DISCOPY_BOT_PRIVATE_KEY }}
+        permission-pull-requests: write
+
+    - name: Post the review
+      id: post
+      if: >
+        steps.config.outputs.configured == 'true'
+        && steps.diff.outputs.changed == 'true'
+      env:
+        APP_TOKEN: ${{ steps.app-token.outputs.token }}
+        REPO: ${{ github.repository }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        MODEL: ${{ vars.STYLE_REVIEW_MODEL }}
+      run: python3 .github/style-review/post.py
+
+    - name: Call the correctness reviewer
+      if: >
+        ${{ !cancelled() && github.event.action == 'ready_for_review'
+            && steps.post.outputs.clean != 'false' }}
+      env:
+        GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        CLEAN: ${{ steps.post.outputs.clean }}
+      run: |
+        if [ "$CLEAN" = "true" ]; then
+          body="No style remarks. @cubic-dev-ai review"
+        else
+          body="@cubic-dev-ai review"
+        fi
+        gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+          -f body="$body"
