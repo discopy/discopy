@@ -104,10 +104,13 @@ def assemble(files, diff):
 
 def ask(prompt, disable_reasoning=True):
     """One chat completion. Retries once without ``reasoning`` when the
-    gateway rejects it as disabled, for models that mandate it."""
+    gateway rejects it as disabled, for models that mandate it — with a
+    much larger token budget, since reasoning tokens share it with the
+    answer and would otherwise starve it."""
     url = os.environ["BASE_URL"].rstrip("/") + "/v1/chat/completions"
     payload = {
-        "model": os.environ["MODEL"], "temperature": 0, "max_tokens": 8192,
+        "model": os.environ["MODEL"], "temperature": 0,
+        "max_tokens": 8192 if disable_reasoning else 32_768,
         "messages": [{"role": "user", "content": prompt}]}
     if disable_reasoning:
         payload["reasoning"] = {"enabled": False, "exclude": True}
@@ -116,13 +119,18 @@ def ask(prompt, disable_reasoning=True):
         "Content-Type": "application/json"})
     try:
         with urllib.request.urlopen(request, timeout=600) as response:
-            message = json.load(response)["choices"][0]["message"]
+            body = json.load(response)
     except urllib.error.HTTPError as error:
-        body = error.read().decode(errors="replace")
-        print(f"gateway error {error.code}: {body}", file=sys.stderr)
-        if disable_reasoning and "reasoning" in body.lower():
+        text = error.read().decode(errors="replace")
+        print(f"gateway error {error.code}: {text}", file=sys.stderr)
+        if disable_reasoning and "reasoning" in text.lower():
             return ask(prompt, disable_reasoning=False)
         raise
+    choice = body["choices"][0]
+    if choice.get("finish_reason") != "stop":
+        print(f"gateway finish_reason={choice.get('finish_reason')!r} "
+              f"usage={body.get('usage')}", file=sys.stderr)
+    message = choice["message"]
     answer = message.get("content") or message.get("reasoning") or ""
     if "{" not in answer or "}" not in answer:
         raise ValueError(f"no JSON in the gateway answer: {answer[:200]!r}")
