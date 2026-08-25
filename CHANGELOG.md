@@ -285,6 +285,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   applied to an argument sharing a free variable did not compose, and a
   left abstraction evaluates through its right counterpart
   ([#562](https://github.com/discopy/discopy/issues/562)).
+- `Tensor.spider_factory` returns its array on the active backend instead
+  of always on NumPy, so diagrams with spiders evaluate — and
+  differentiate — under the PyTorch backend
+  ([#582](https://github.com/discopy/discopy/issues/582)).
 - `trace(0)` is the identity, i.e. the vanishing axiom, rather than a
   morphism with empty `dom` and `cod`: `x[:-n]` is the empty prefix at
   `n == 0`, which emptied the boundary of `Hypergraph.trace` and of both
