@@ -10,5 +10,5 @@ Quoted verbatim from the two unresolved review threads on #586:
 > positive numerical test, so valid time-dependent behavior could regress
 > undetected; add coverage for a correctly sized list waveform.
 
-- [ ] Validate `memory`/`inputs` as non-negative in `Reservoir.__init__`
+- [WIP] @claude-2026-08-25 00:31 Validate `memory`/`inputs` as non-negative in `Reservoir.__init__`
 - [ ] Add a positive numerical test for the Rydberg list-waveform path
