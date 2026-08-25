@@ -967,8 +967,11 @@ class Diagram(
 
     def __init__(
             self, inside: tuple[Layer, ...], dom: Ty, cod: Ty, _scan=True):
-        for layer in inside:
-            assert_isinstance(layer, Layer)
+        if _scan:
+            for layer in inside:
+                assert_isinstance(layer, Layer)
+                if not layer.boxes:
+                    raise ValueError(messages.LAYERS_MUST_HAVE_A_BOX)
         super().__init__(inside, dom, cod, _scan=_scan)
 
     @classmethod

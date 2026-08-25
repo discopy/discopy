@@ -80,6 +80,16 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   hierarchy below symmetric: traced, Markov, closed, feedback, compact and
   hypergraph ([#558](https://github.com/discopy/discopy/issues/558),
   refactoring [#325](https://github.com/discopy/discopy/pull/325)).
+- `para.Symmetric` carries an optional coparameter space: a map is
+  `inside : dom @ param -> cod @ copar` with `copar` empty by default, so
+  parametric maps read as before, coparametric maps are the empty-`param`
+  case and the diagonal `param == copar` is the free category with feedback
+  — the type of one time step of a `Stream`. The constructor reads
+  `(dom, cod, inside, param, copar)` with both hidden spaces optional.
+  Composition and tensor accumulate the hidden objects on both sides,
+  `trace` and `feedback` route the coparameters out of the way and
+  `recopar` post-composes them, covariantly where `reparam` is
+  contravariant ([#572](https://github.com/discopy/discopy/issues/572)).
 - The pivotal structure of `Rep(H)`: `HopfAlgebra.drinfeld_element`,
   `pivotal_element` and `ribbon_element`, cached single tensors named after
   the literature (Reshetikhin–Turaev; Kassel; Radford), with pivotal cups
@@ -195,6 +205,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   wrong order ([#606](https://github.com/discopy/discopy/issues/606)).
 - `Diagram.normal_form` expands multi-box layers into staircases before
   normalization, so connected foliated diagrams normalize without raising.
+- A boxless `monoidal.Layer` can no longer be placed inside a `Diagram`:
+  `Diagram.__init__` raises `ValueError` for a layer with no box, restoring
+  the invariant that every layer holds at least one box and that the identity
+  diagram is the empty sequence of layers. Such a layer is the internal unit
+  of `Layer.tensor`, built by `Layer.id` and merged away by `Layer.normalise`;
+  put inside a diagram by hand it survived `normal_form` and made `foliation`
+  and `draw` raise. The check is gated on `_scan`, so the internal fast paths
+  that build layers by construction are unaffected
+  ([#599](https://github.com/discopy/discopy/issues/599)).
 - `build.yml` timeouts and a bounded, retried Graphviz install
   ([#591](https://github.com/discopy/discopy/issues/591)).
 - Boundary-constrained arrow strategies can generate composite paths, layer

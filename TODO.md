@@ -112,11 +112,21 @@ means a `Dim` strategy, a default `n` on `copy`, `ev`/`curry`/`rotate`, and inte
 `swap` boundaries — 39 inherited axioms of which none pass today. That is a change to
 `discopy.tensor`, not to the property matrix, and it should not ride on this branch.
 
-## Open question for USER, not blocking
+## Answered question
 
-The `check_*` methods land in `discopy/abc.py`, so every category class in the library gains ~15
-test-only methods on its public surface. Defensible under `STYLE.md`'s "we expose the interface of
-every subprocedure as methods that can be tested and reused", and it is the one place where test
-scaffolding becomes API — raised on the PR 2026-07-25 and never answered. The alternative is
-Hypothesis strategies living in `proptest/` only. Worth a yes or no before this merges, since it is
-much cheaper to move now than after release.
+> The `check_*` methods land in `discopy/abc.py`, so every category class in the library gains ~15
+> test-only methods on its public surface. Defensible under `STYLE.md`'s "we expose the interface of
+> every subprocedure as methods that can be tested and reused", and it is the one place where test
+> scaffolding becomes API — raised on the PR 2026-07-25 and never answered. The alternative is
+> Hypothesis strategies living in `proptest/` only. Worth a yes or no before this merges, since it is
+> much cheaper to move now than after release.
+
+USER answered **keep**, 2026-08-25.
+
+The question was also stale as phrased: there are no `check_*` methods, `grep -rn 'def check_'
+discopy/` finds only the unrelated `stream.py::check_later`. What the hierarchy actually carries is
+the `Axiom` descriptors, a `strategy()` classmethod per class and the `axiom_status` dicts. Keeping
+them is the right call for the same reason: the axioms are the specification of each category rather
+than test scaffolding, and `axiom_status` is where the library records which laws each implementation
+really satisfies. Moving them to `proptest/` would re-derive per-class dispatch outside the
+hierarchy, which `STYLE.md` calls working at the wrong level of abstraction.
