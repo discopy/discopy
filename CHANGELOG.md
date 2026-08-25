@@ -25,7 +25,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   by `thread.py` — so a re-review references a resolved flag instead of
   re-raising it, and weighs an author's reply as context about the
   discussion rather than authority on the style itself
-  ([#619](https://github.com/discopy/discopy/issues/619) tracks the
+  ([#620](https://github.com/discopy/discopy/pull/620);
+  [#619](https://github.com/discopy/discopy/issues/619) tracks the
   long-term memory this is a prerequisite for).
 - Combinatorial map representation, `discopy.cmap`, encoding diagrams in
   compact categories as a permutation on the ports of each box
