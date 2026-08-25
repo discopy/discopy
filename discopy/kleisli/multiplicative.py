@@ -75,7 +75,7 @@ from discopy.kleisli.monad import Monad
 from discopy.python import function
 from discopy.python.multiplicative import Ty
 from discopy.utils import (
-    assert_isinstance, assert_iscomposable, factory, tuplify)
+    assert_isinstance, assert_iscomposable, factory, factory_name, tuplify)
 
 
 class Row:
@@ -201,12 +201,12 @@ class Channel(Category, NamedGeneric['monad']):
         dom = tuplify(dom)
         return cls(channel.Channel[cls.monad].id(pack(dom)), dom, dom)
 
-    def _raw(self, *xs):
+    def raw(self, *xs):
         """ Call ``self``, keeping the packed monadic type as is. """
         return self.inside(pack_value(xs))
 
     def __call__(self, *xs):
-        monad, raw = type(self).monad, self._raw(*xs)
+        monad, raw = type(self).monad, self.raw(*xs)
         if len(self.cod) == 1:
             return raw
         unpacking = function.Function(unpack_value, pack(self.cod), tuple)
@@ -238,7 +238,7 @@ class Channel(Category, NamedGeneric['monad']):
             pairing = function.Function(
                 lambda b: pack_value(unpack_value(b) + y),
                 pack(self.cod), pack(self.cod + Y))
-            return monad.functor(pairing)(self._raw(*values))
+            return monad.functor(pairing)(self.raw(*values))
         return type(self)(inside, self.dom + Y, self.cod + Y)
 
     def left_whisker(self, X: Ty) -> Channel:
@@ -255,7 +255,7 @@ class Channel(Category, NamedGeneric['monad']):
             pairing = function.Function(
                 lambda d: pack_value(x + unpack_value(d)),
                 pack(self.cod), pack(X + self.cod))
-            return monad.functor(pairing)(self._raw(*values))
+            return monad.functor(pairing)(self.raw(*values))
         return type(self)(inside, X + self.dom, X + self.cod)
 
     def tensor(self, other: Channel) -> Channel:
@@ -303,5 +303,5 @@ class Channel(Category, NamedGeneric['monad']):
         return cls.copy(dom, 0)
 
     def __repr__(self):
-        return f"multiplicative.Channel[{type(self).monad}]("\
-            f"{self.inside!r}, dom={self.dom!r}, cod={self.cod!r})"
+        return factory_name(type(self))\
+            + f"({self.inside!r}, dom={self.dom!r}, cod={self.cod!r})"

@@ -115,7 +115,7 @@ from discopy.kleisli.monad import Monad
 from discopy.python import function
 from discopy.python.additive import Ty
 from discopy.utils import (
-    assert_isinstance, assert_iscomposable, factory, tuplify)
+    assert_isinstance, assert_iscomposable, factory, factory_name, tuplify)
 
 
 class Tagged:
@@ -411,5 +411,5 @@ class Channel(TracedCategory, NamedGeneric['monad']):
             lambda obj, tag=0: exit_(resolve(self(obj, tag))), dom, cod)
 
     def __repr__(self):
-        return f"additive.Channel[{type(self).monad}]("\
-            f"{self.inside!r}, dom={self.dom!r}, cod={self.cod!r})"
+        return factory_name(type(self))\
+            + f"({self.inside!r}, dom={self.dom!r}, cod={self.cod!r})"

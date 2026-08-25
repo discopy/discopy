@@ -32,7 +32,8 @@ from __future__ import annotations
 from discopy.abc import Category, NamedGeneric
 from discopy.kleisli.monad import Monad
 from discopy.python.function import Function
-from discopy.utils import assert_iscomposable, assert_isinstance, factory
+from discopy.utils import (
+    assert_iscomposable, assert_isinstance, factory, factory_name)
 
 
 @factory
@@ -100,5 +101,5 @@ class Channel(Category, NamedGeneric['monad']):
         return self.inside(x)
 
     def __repr__(self):
-        return f"Channel[{self.monad}]"\
-            f"({self.inside!r}, dom={self.dom!r}, cod={self.cod!r})"
+        return factory_name(type(self))\
+            + f"({self.inside!r}, dom={self.dom!r}, cod={self.cod!r})"

@@ -131,7 +131,7 @@ def test_Channel_powerset():
 def test_Channel_repr():
     Safe = Channel[Maybe]
     increment = Safe(lambda x: x + 1, int, int)
-    assert repr(increment) == f"Channel[Maybe]("\
+    assert repr(increment) == f"kleisli.channel.Channel[Maybe]("\
         f"{increment.inside!r}, dom={int!r}, cod={int!r})"
 
 
@@ -205,7 +205,7 @@ def test_multiplicative_Channel_copy_discard():
 def test_multiplicative_Channel_repr():
     Safe = multiplicative.Channel[Maybe]
     half = Safe(lambda x: x // 2 if x % 2 == 0 else None, int, int)
-    assert repr(half) == f"multiplicative.Channel[Maybe]("\
+    assert repr(half) == f"kleisli.multiplicative.Channel[Maybe]("\
         f"{half.inside!r}, dom={half.dom!r}, cod={half.cod!r})"
 
 
@@ -609,4 +609,4 @@ def test_additive_token_machine_computes_the_posterior():
 def test_additive_Channel_repr():
     half = additive.Channel[Maybe](
         lambda x: x // 2 if x % 2 == 0 else None, int, int)
-    assert repr(half).startswith("additive.Channel[Maybe](")
+    assert repr(half).startswith("kleisli.additive.Channel[Maybe](")
