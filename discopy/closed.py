@@ -55,6 +55,7 @@ from typing import Dict, ClassVar
 from discopy import cat, monoidal, biclosed, markov, hypergraph
 from discopy.abc import ClosedCategory
 from discopy.cat import factory
+from discopy.drawing import Drawing
 
 
 @factory
@@ -74,6 +75,24 @@ class Ty(biclosed.Ty):
     .. image:: /_static/closed/diagram.svg
         :align: center
     """
+    @classmethod
+    def from_biclosed(cls, old: biclosed.Ty) -> Ty:
+        """
+        Translate a biclosed type into a closed type, collapsing left and
+        right exponentials into a single exponential.
+
+        Parameters:
+            old : The biclosed type to translate.
+
+        Example
+        -------
+        >>> x, y = biclosed.Ty("x"), biclosed.Ty("y")
+        >>> assert Ty.from_biclosed(x << y) == Ty.from_biclosed(y >> x)
+        """
+        return cls().tensor(*[
+            cls.from_biclosed(ob.base) ** cls.from_biclosed(ob.exponent)
+            if isinstance(ob, biclosed.Exp) else cls(ob.name)
+            for ob in old.inside])
 
 
 class Exp(biclosed.Exp):
@@ -101,6 +120,61 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
     @classmethod
     def ev(cls, base: Ty, exponent: Ty, left: bool = True):
         return cls.eval_factory(exponent >> base, left=left)
+
+    @classmethod
+    def fa(cls, left, right):
+        """
+        Forward application.
+
+        Parameters:
+            left : The base of the exponential, i.e. the result type.
+            right : The exponent, i.e. the type of the argument.
+        """
+        return cls.ev(left, right, left=True)
+
+    @classmethod
+    def ba(cls, left, right):
+        """
+        Backward application.
+
+        Parameters:
+            left : The exponent, i.e. the type of the argument.
+            right : The base of the exponential, i.e. the result type.
+        """
+        return cls.ev(right, left, left=False)
+
+    @classmethod
+    def fc(cls, left, middle, right):
+        """
+        Forward composition.
+
+        Parameters:
+            left : The base of the outer exponential.
+            middle : The shared type composed away.
+            right : The exponent of the result.
+        """
+        return (cls.id(left ** middle) @ cls.fa(middle, right)
+                >> cls.fa(left, middle)).curry(
+                    n=len(right), left=True)
+
+    @classmethod
+    def bc(cls, left, middle, right):
+        """
+        Backward composition.
+
+        Parameters:
+            left : The exponent of the result.
+            middle : The shared type composed away.
+            right : The base of the outer exponential.
+        """
+        return (cls.ba(left, middle) @ cls.id(middle >> right)
+                >> cls.ba(middle, right)).curry(n=len(left), left=False)
+
+    # Crossed composition coincides with harmonic composition here: a closed
+    # category does not distinguish the left and right exponentials that
+    # `fx`/`bx` cross in a categorial grammar, see `grammar.categorial`.
+    fx = fc
+    bx = bc
 
     def to_drawing(self):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
@@ -171,8 +245,11 @@ class Functor(biclosed.Functor, markov.Functor):
     dom = cod = Diagram
 
     def __call__(self, other):
+        if self.cod is Drawing and isinstance(other, markov.Swap):
+            return other.to_drawing()
         if isinstance(other, (
-                cat.Ob, biclosed.Eval, biclosed.Coeval, biclosed.Curry)):
+                cat.Ob, biclosed.Eval, biclosed.Coeval, biclosed.Curry,
+                biclosed.TermBase)):
             return biclosed.Functor.__call__(self, other)
         return super().__call__(other)
 
@@ -205,8 +282,87 @@ class TermBase(Box, biclosed.TermBase):
     """
     functor = Functor.id(Diagram)
 
-    def __call__(self, other):
-        return Application(self, other, left=False)
+    def __call__(self, other, left=False):
+        args = (other, self, left) if left else (self, other, left)
+        return self.cod.application_factory(*args)
+
+    def occurrences(self, variable: Variable) -> int:
+        """Count the free occurrences of ``variable`` in the term."""
+        if isinstance(self, Variable):
+            return int(self == variable)
+        if isinstance(self, Application):
+            return self.func.occurrences(variable)\
+                + self.args.occurrences(variable)
+        if isinstance(self, Abstraction):
+            return 0 if self.var == variable\
+                else self.body.occurrences(variable)
+        return 0
+
+    @classmethod
+    def from_biclosed(cls, term: biclosed.Term) -> Term:
+        """
+        Translate a biclosed term into a closed term, dropping planarity by
+        collapsing left and right exponentials and applications.
+
+        Parameters:
+            term : The biclosed term to translate.
+
+        Note
+        ----
+        This method is inherited by :class:`Constant`, :class:`Variable`,
+        :class:`Application` and :class:`Abstraction`, i.e. every closed
+        :class:`Term`.
+
+        Example
+        -------
+        >>> X, Y = biclosed.Ty("X"), biclosed.Ty("Y")
+        >>> g, x = (Y << X)("g"), X("x")
+        >>> print(TermBase.from_biclosed(g(x)))
+        (X >> Y)('g')(X('x'))
+        """
+        functor = biclosed.Functor(
+            ob_map=lambda x: cls.ob(x.inside[0].name),
+            ar_map=lambda c: cls.ob.constant_factory(c.name, functor(c.cod)),
+            dom=biclosed.Diagram, cod=cls.functor.cod)
+        return functor(term)
+
+    def normal_form(self) -> Term:
+        """
+        The beta-normal form of a term, obtained by normal-order reduction.
+
+        Raises
+        ------
+        ValueError
+            If reduction changes the ordered free-variable context or would
+            duplicate an argument in a non-cartesian category.
+
+        Example
+        -------
+        >>> X, Y = Ty("X"), Ty("Y")
+        >>> f, x = (X >> Y)("f"), X("x")
+        >>> assert X(lambda y: f(y))(x).normal_form() == f(x)
+        """
+        def normalize(term):
+            if isinstance(term, Application):
+                func = normalize(term.func)
+                if isinstance(func, Abstraction):
+                    if func.body.occurrences(func.var) > 1:
+                        raise ValueError(
+                            "Beta reduction would duplicate an argument.")
+                    return normalize(
+                        Substitution({func.var: term.args})(func.body))
+                return type(term)(
+                    func, normalize(term.args), term.left)
+            if isinstance(term, Abstraction):
+                return type(term)(
+                    term.var, normalize(term.body), term.left)
+            return term
+
+        result = normalize(self)
+        if result.freevars != self.freevars:
+            raise ValueError(
+                "Beta reduction changed the free-variable context.")
+        return result
 
 
 type Term = Constant | Variable | Application | Abstraction
@@ -233,25 +389,35 @@ class Variable(TermBase, biclosed.Variable):
 
 
 class Application(TermBase, biclosed.Application):
+    """
+    The application of a term to another.
+
+    Attributes:
+        overlap : Whether ``func`` and ``args`` share a free variable, in
+            which case ``eval`` copies it rather than tensoring the two.
+    """
     def __check_dom__(self, func, args, left):
         self.overlap = set(func.freevars).intersection(args.freevars)
-        self.freevars = list(dict.fromkeys(func.freevars + args.freevars))
+        freevars = args.freevars + func.freevars if left\
+            else func.freevars + args.freevars
+        self.freevars = list(dict.fromkeys(freevars))
         return self.ob().tensor(*[x.cod for x in self.freevars])
 
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
         base, exponent = self.func.cod.base, self.func.cod.exponent
-        evaluate = functor.cod.ev(functor(base), functor(exponent))
+        evaluate = functor.cod.ev(
+            functor(base), functor(exponent), left=not self.left)
         if context is None:
             if not self.overlap:
                 func = self.func.eval(functor=functor)
                 args = self.args.eval(functor=functor)
-                return func @ args >> evaluate
+                return (args @ func if self.left else func @ args) >> evaluate
             context = Context(self.freevars)
         func = self.func.eval(functor=functor, context=context)
         args = self.args.eval(functor=functor, context=context)
         return functor.cod.copy(functor(context.dom))\
-            >> func @ args >> evaluate
+            >> (args @ func if self.left else func @ args) >> evaluate
 
 
 class Abstraction(TermBase, biclosed.Abstraction):
@@ -263,18 +429,24 @@ class Abstraction(TermBase, biclosed.Abstraction):
         functor = functor or self.functor
         if self.left:
             return type(self)(self.var, self.body).eval(functor, context)
+        n = len(functor(self.var.cod))
         if context:
             new_context = Context([self.var] + context.inside)
             body = self.body.eval(functor=functor, context=new_context)
-            return body.curry(left=False)
+            return body.curry(n, left=False)
         body = self.body.eval(functor=functor)
         if self.var not in self.body.freevars:
             discard = functor.cod.discard(functor(self.var.cod))
-            return (discard @ body.dom >> body).curry(left=False)
-        i, n = self.body.freevars.index(self.var), len(self.body.freevars)
-        p = [i] + [j for j in range(n) if j != i]
+            return (discard @ body.dom >> body).curry(n, left=False)
+        i = self.body.freevars.index(self.var)
+        widths = [len(functor(x.cod)) for x in self.body.freevars]
+        start = sum(widths[:i])
+        stop = start + widths[i]
+        p = (list(range(start, stop))
+             + list(range(start)) + list(range(stop, len(body.dom))))
         doms = [self.ob(wire) for wire in body.dom.inside]
-        return (body.permutation(p, doms).dagger() >> body).curry(left=False)
+        permute = body.permutation(p, doms).dagger()
+        return (permute >> body).curry(n, left=False)
 
 
 @dataclass
@@ -289,17 +461,44 @@ class Context:
 
 @dataclass
 class Substitution:
+    """
+    The simultaneous substitution of terms for free variables.
+
+    Attributes:
+        inside : The mapping from variables to the terms substituted for them.
+
+    Substitution is simultaneous and capture-avoiding.
+    """
     inside: Dict[Variable, Term]
+
+    def __post_init__(self):
+        for variable, term in self.inside.items():
+            if not isinstance(variable, Variable)\
+                    or not isinstance(term, TermBase):
+                raise TypeError
+            if variable.cod != term.cod:
+                raise ValueError(
+                    f"Expected {variable.cod}, got {term.cod}")
 
     def __call__(self, term: Term) -> Term:
         if isinstance(term, Variable):
             return self.inside.get(term, term)
-        elif isinstance(term, Application):
-            return self(term.func)(self(term.args))
-        elif isinstance(term, Abstraction):
+        if isinstance(term, Application):
+            return type(term)(self(term.func), self(term.args), term.left)
+        if isinstance(term, Abstraction):
             other = Substitution(
                 {k: v for k, v in self.inside.items() if k != term.var})
-            return other(term)
+            capture = any(
+                key in term.body.freevars and term.var in value.freevars
+                for key, value in other.inside.items())
+            if not capture:
+                return type(term)(term.var, other(term.body), term.left)
+            var = type(term.var).fresh(
+                term.var.name, term.var.cod, term.body,
+                *other.inside, *other.inside.values())
+            body = Substitution({term.var: var})(term.body)
+            return type(term)(var, other(body), term.left)
+        return term
 
 
 Ty.variable_factory = Variable
