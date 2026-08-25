@@ -25,32 +25,8 @@ def box(category, name, dom, cod):
     return factory(name, dom, cod)
 
 
-def endofunctor(category):
-    """ The identity endofunctor on a category, and two composable boxes. """
-    x, y, z = map(category.ob, "xyz")
-    return Endofunctor(
-        category.functor_factory(lambda typ: typ, lambda box: box),
-        box(category, "f", x, y), box(category, "g", y, z))
-
-
 class Arguments:
     """Canonical well-typed arguments for each categorical axiom."""
-
-    @staticmethod
-    def functor_identity(category):
-        return endofunctor(category),
-
-    @staticmethod
-    def functor_composition(category):
-        return endofunctor(category),
-
-    @staticmethod
-    def functor_tensor(category):
-        return endofunctor(category),
-
-    @staticmethod
-    def functor_spiders(category):
-        return endofunctor(category),
 
     @staticmethod
     def unitality(category):
@@ -343,6 +319,38 @@ def test_abstract_axioms_are_well_typed(axiom):
         assert isinstance(axiom(*arguments), abc.Equation)
     except AxiomError:
         assert declared_axioms(axiom.carrier)[axiom.name].broken
+
+
+FUNCTORS = [
+    cat.Functor, monoidal.Functor, braided.Functor, traced.Functor,
+    balanced.Functor, symmetric.Functor, biclosed.Functor, rigid.Functor,
+    pivotal.Functor, ribbon.Functor, compact.Functor, markov.Functor,
+    closed.Functor, feedback.Functor, frobenius.Functor,
+]
+
+
+def functor_axioms():
+    """ Every axiom each level of Functor adds, on its own free category. """
+    for functor in FUNCTORS:
+        for axiom in functor.axioms:
+            marks = (pytest.mark.skip,) if (
+                not axiom.parameters and axiom() is NotImplemented) else ()
+            yield pytest.param(
+                axiom, id=f"{utils.factory_name(functor)}.{axiom.name}",
+                marks=marks)
+
+
+@pytest.mark.parametrize("axiom", functor_axioms())
+def test_functor_axioms_hold_for_the_identity(axiom):
+    """ Each functoriality axiom, on the identity endofunctor. """
+    category = axiom.carrier.dom
+    x, y, z = map(category.ob, "xyz")
+    generator = getattr(category, "box_factory", None)\
+        or category.generator_factory
+    arguments = Endofunctor(
+        axiom.carrier(lambda typ: typ, lambda box: box),
+        generator("f", x, y), generator("g", y, z)),
+    assert_verdict(axiom, axiom(*arguments))
 
 
 @pytest.mark.parametrize("carrier", CARRIERS)

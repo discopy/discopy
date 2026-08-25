@@ -162,7 +162,7 @@ from discopy.utils import (
     deprecated_ob,
     factory_name,
 )
-from discopy.testing import C0, axiom
+from discopy.testing import C0, C1, Endofunctor, axiom
 
 
 class Wire(monoidal.Wire):
@@ -840,6 +840,7 @@ class Cap(BinaryBoxConstructor, Box):
         raise AxiomError("Rigid caps have no dagger, use pivotal instead.")
 
 
+@factory
 class Functor(biclosed.Functor):
     """
     A rigid functor is a biclosed functor that preserves cups and caps.
@@ -891,6 +892,24 @@ class Functor(biclosed.Functor):
                 result = result.l if z < 0 else result.r
             return result
         return super().__call__(other)
+
+    @axiom
+    def functor_cups(cls, arguments: Endofunctor[C1]):
+        """ A rigid functor preserves the cups. """
+        functor, f, _ = arguments
+        x = f.dom
+        return functor.cod.equation_factory(
+            functor(functor.dom.cups(x, x.r)),
+            functor.cod.cups(functor(x), functor(x.r)))
+
+    @axiom
+    def functor_caps(cls, arguments: Endofunctor[C1]):
+        """ A rigid functor preserves the caps. """
+        functor, f, _ = arguments
+        x = f.dom
+        return functor.cod.equation_factory(
+            functor(functor.dom.caps(x.r, x)),
+            functor.cod.caps(functor(x.r), functor(x)))
 
 
 def nesting(cls: type, factory: Callable) -> Callable[[Ty, Ty], Diagram]:

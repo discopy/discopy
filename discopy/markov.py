@@ -78,7 +78,7 @@ from discopy.abc import MarkovCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import assert_isatomic, factory_name
-from discopy.testing import axiom
+from discopy.testing import C1, Endofunctor, axiom
 
 Layer = symmetric.Layer
 
@@ -285,6 +285,7 @@ class Sum(symmetric.Sum, Box):
     """
 
 
+@factory
 class Functor(symmetric.Functor):
     """
     A Markov functor is a symmetric functor that preserves copies.
@@ -324,6 +325,14 @@ class Functor(symmetric.Functor):
         if isinstance(other, Merge) and hasattr(self.cod, "merge"):
             return self.cod.merge(self(other.cod), len(other.dom))
         return super().__call__(other)
+
+    @axiom
+    def functor_copy(cls, arguments: Endofunctor[C1]):
+        """ A Markov functor preserves the copy. """
+        functor, f, _ = arguments
+        x = f.dom
+        return functor.cod.equation_factory(
+            functor(functor.dom.copy(x)), functor.cod.copy(functor(x)))
 
 
 class CMap(symmetric.CMap):

@@ -268,6 +268,7 @@ class Cap(rigid.Cap, Box):
         return self.cup_factory(self.left, self.right)
 
 
+@factory
 class Functor(rigid.Functor):
     """
     A pivotal functor is a rigid functor on a pivotal category.

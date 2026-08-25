@@ -64,6 +64,7 @@ def axiom_tests(cls):
 
 class Test_cat:
     test_arrow = axiom_tests(cat.Arrow)
+    test_functor = axiom_tests(cat.Functor)
 
 
 class Test_monoidal:
@@ -73,60 +74,71 @@ class Test_monoidal:
     test_diagram = axiom_tests(monoidal.Diagram)
     test_hypergraph = axiom_tests(monoidal.Hypergraph)
     test_cmap = axiom_tests(monoidal.CMap)
+    test_functor = axiom_tests(monoidal.Functor)
 
 
 class Test_braided:
     test_diagram = axiom_tests(braided.Diagram)
+    test_functor = axiom_tests(braided.Functor)
 
 
 class Test_traced:
     test_diagram = axiom_tests(traced.Diagram)
     test_hypergraph = axiom_tests(traced.Hypergraph)
     test_cmap = axiom_tests(traced.CMap)
+    test_functor = axiom_tests(traced.Functor)
 
 
 class Test_balanced:
     test_diagram = axiom_tests(balanced.Diagram)
     test_hypergraph = axiom_tests(balanced.Hypergraph)
+    test_functor = axiom_tests(balanced.Functor)
 
 
 class Test_symmetric:
     test_diagram = axiom_tests(symmetric.Diagram)
     test_hypergraph = axiom_tests(symmetric.Hypergraph)
     test_cmap = axiom_tests(symmetric.CMap)
+    test_functor = axiom_tests(symmetric.Functor)
 
 
 class Test_biclosed:
     test_ty = axiom_tests(biclosed.Ty)
     test_diagram = axiom_tests(biclosed.Diagram)
     test_cmap = axiom_tests(biclosed.CMap)
+    test_functor = axiom_tests(biclosed.Functor)
 
 
 class Test_rigid:
     test_ty = axiom_tests(rigid.Ty)
     test_diagram = axiom_tests(rigid.Diagram)
+    test_functor = axiom_tests(rigid.Functor)
 
 
 class Test_pivotal:
     test_ty = axiom_tests(pivotal.Ty)
     test_diagram = axiom_tests(pivotal.Diagram)
     test_hypergraph = axiom_tests(pivotal.Hypergraph)
+    test_functor = axiom_tests(pivotal.Functor)
 
 
 class Test_ribbon:
     test_diagram = axiom_tests(ribbon.Diagram)
+    test_functor = axiom_tests(ribbon.Functor)
 
 
 class Test_compact:
     test_diagram = axiom_tests(compact.Diagram)
     test_hypergraph = axiom_tests(compact.Hypergraph)
     test_cmap = axiom_tests(compact.CMap)
+    test_functor = axiom_tests(compact.Functor)
 
 
 class Test_markov:
     test_diagram = axiom_tests(markov.Diagram)
     test_hypergraph = axiom_tests(markov.Hypergraph)
     # test_cmap = axiom_tests(markov.CMap)
+    test_functor = axiom_tests(markov.Functor)
 
 
 class Test_closed:
@@ -134,12 +146,14 @@ class Test_closed:
     test_diagram = axiom_tests(closed.Diagram)
     test_hypergraph = axiom_tests(closed.Hypergraph)
     test_cmap = axiom_tests(closed.CMap)
+    test_functor = axiom_tests(closed.Functor)
 
 
 class Test_feedback:
     test_ty = axiom_tests(feedback.Ty)
     test_diagram = axiom_tests(feedback.Diagram)
     test_hypergraph = axiom_tests(feedback.Hypergraph)
+    test_functor = axiom_tests(feedback.Functor)
 
 
 class Test_frobenius:
@@ -147,6 +161,7 @@ class Test_frobenius:
     test_diagram = axiom_tests(frobenius.Diagram)
     test_hypergraph = axiom_tests(frobenius.Hypergraph)
     # test_cmap = axiom_tests(frobenius.CMap)
+    test_functor = axiom_tests(frobenius.Functor)
 
 
 class Test_matrix:

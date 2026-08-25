@@ -451,6 +451,7 @@ Diagram.coeval_factory = Coeval
 Diagram.sum_factory = Sum
 
 
+@factory
 class Functor(monoidal.Functor):
     """
     A biclosed functor is a monoidal functor

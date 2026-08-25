@@ -380,10 +380,10 @@ class FeedbackJoining[C0, C1](
         return st.tuples(objects, atomic, atomic).flatmap(arrows)
 
 
-class Endofunctor[C1](Strategy[tuple[object, C1, C1]], tuple):
+class Endofunctor[C1](Strategy[tuple[C1, object, object]], tuple):
     """ A functor from a free category to itself, and two arrows to send. """
 
-    def __new__(cls, functor, *arrows: C1):
+    def __new__(cls, functor, *arrows):
         for arrow in arrows:
             functor(arrow)
         return super().__new__(cls, (functor, *arrows))
@@ -391,7 +391,13 @@ class Endofunctor[C1](Strategy[tuple[object, C1, C1]], tuple):
     @classmethod
     def strategy(cls, *, factory: type[C1]):
         """
-        Generate an endofunctor together with two composable generators.
+        Generate an endofunctor of ``factory.dom`` and two composable
+        generators to send through it.
+
+        Objects go to atomic objects, so that the functor respects whatever
+        duality its category has: a wider image would send ``x.r`` and
+        ``F(x).r`` to types that reverse differently, which is no longer a
+        rigid functor.
 
         The arrows are free boxes rather than arbitrary diagrams, so that the
         same shape works at every level of the hierarchy: the structural
@@ -405,34 +411,43 @@ class Endofunctor[C1](Strategy[tuple[object, C1, C1]], tuple):
         """
         from hypothesis import strategies as st
 
+        category = factory.dom
+        generator = getattr(category, "box_factory", None)\
+            or category.generator_factory
+        atoms = lambda typ: [typ[i:i + 1] for i in range(len(typ))]\
+            if hasattr(typ, "inside") else [typ]
+        key = lambda atom: atom.inside[0].name\
+            if hasattr(atom, "inside") else atom.name
+        turns = lambda atom: getattr(
+            atom.inside[0] if hasattr(atom, "inside") else atom, "z", 0)
+
         @st.composite
         def endofunctors(draw):
-            objects = factory.ob.strategy(min_length=1)
+            objects = category.ob.strategy()
             source, middle, target = (draw(objects) for _ in range(3))
             names = st.uuids().map(str)
-            arrows = (
-                factory.box_factory(draw(names), source, middle),
-                factory.box_factory(draw(names), middle, target))
-            generators = {
-                wire.name for typ in (source, middle, target)
-                for wire in typ.inside}
-            images = {name: draw(objects) for name in generators}
+            arrows = (generator(draw(names), source, middle),
+                      generator(draw(names), middle, target))
+            atomic = objects.filter(
+                lambda obj: not hasattr(obj, "__len__") or len(obj) == 1)
+            images = {
+                key(atom): draw(atomic)
+                for typ in (source, middle, target) for atom in atoms(typ)}
 
-            def image(wire):
-                """ The image of a generator, rotated as the wire is. """
-                rotated, turns = images[wire.name], getattr(wire, "z", 0)
-                for _ in range(abs(turns)):
-                    rotated = rotated.l if turns < 0 else rotated.r
+            def image(atom):
+                """ The image of a generator, rotated as the atom is. """
+                rotated = images[key(atom)]
+                for _ in range(abs(turns(atom))):
+                    rotated = rotated.l if turns(atom) < 0 else rotated.r
                 return rotated
 
-            send = lambda typ: factory.ob().tensor(*map(image, typ.inside))
+            send = factory(image, lambda box: box)
             arrow_map = {
-                box.name: factory.box_factory(
+                box.name: generator(
                     f"F({box.name})", send(box.dom), send(box.cod))
                 for box in arrows}
-            return cls(factory.functor_factory(
-                lambda typ: image(typ.inside[0]),
-                lambda box: arrow_map[box.name]), *arrows)
+            return cls(factory(
+                image, lambda box: arrow_map[box.name]), *arrows)
 
         return endofunctors()
 

@@ -66,7 +66,7 @@ from discopy import monoidal, rigid, markov, compact, pivotal, hypergraph
 from discopy.abc import HypergraphCategory
 from discopy.cat import factory
 from discopy.utils import assert_isatomic, deprecated_ob, factory_name
-from discopy.testing import axiom
+from discopy.testing import C1, Endofunctor, axiom
 
 
 class Wire(pivotal.Wire):
@@ -305,6 +305,7 @@ class Bubble(monoidal.Bubble, Box):
     """
 
 
+@factory
 class Functor(compact.Functor, markov.Functor):
     """
     A hypergraph functor is a compact functor that preserves spiders.
@@ -325,6 +326,15 @@ class Functor(compact.Functor, markov.Functor):
         if isinstance(other, (markov.Copy, markov.Merge)):
             return markov.Functor.__call__(self, other)
         return compact.Functor.__call__(self, other)
+
+    @axiom
+    def functor_spiders(cls, arguments: Endofunctor[C1]):
+        """ A hypergraph functor preserves the spiders. """
+        functor, f, _ = arguments
+        x = f.dom
+        return functor.cod.equation_factory(
+            functor(functor.dom.spiders(1, 2, x)),
+            functor.cod.spiders(1, 2, functor(x)))
 
 
 def interleaving(cls: type, factory: Callable

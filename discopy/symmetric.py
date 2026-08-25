@@ -92,7 +92,7 @@ from discopy.cat import factory
 from discopy.monoidal import Wire, Ty, PRO  # noqa: F401
 from discopy.python import finset
 from discopy.utils import AxiomError, classproperty, factory_name, from_tree
-from discopy.testing import C1, axiom
+from discopy.testing import C1, Endofunctor, axiom
 
 
 class Layer(monoidal.Layer):
@@ -635,6 +635,7 @@ class Sum(balanced.Sum, Box):
     """
 
 
+@factory
 class Functor(balanced.Functor):
     """
     A symmetric functor is a monoidal functor that preserves swaps.
@@ -659,6 +660,15 @@ class Functor(balanced.Functor):
                 doms = list(map(self, other.dom))
             return self.cod.ar.permutation(other.perm, doms)
         return super().__call__(other)
+
+    @axiom
+    def functor_swap(cls, arguments: Endofunctor[C1]):
+        """ A symmetric functor preserves the swap. """
+        functor, f, g = arguments
+        x, y = f.dom, g.cod
+        return functor.cod.equation_factory(
+            functor(functor.dom.swap(x, y)),
+            functor.cod.swap(functor(x), functor(y)))
 
 
 class CMap(traced.CMap):

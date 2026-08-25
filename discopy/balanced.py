@@ -39,6 +39,7 @@ from discopy import config, monoidal, braided, traced, hypergraph
 from discopy.abc import BalancedCategory
 from discopy.cat import factory
 from discopy.monoidal import Colour, Ty  # noqa: F401
+from discopy.testing import axiom
 from discopy.utils import factory_name, assert_isatomic
 
 
@@ -311,6 +312,7 @@ class Sum(braided.Sum, Box):
     """
 
 
+@factory
 class Functor(braided.Functor, traced.Functor):
     """
     A balanced functor is a braided functor that twists.
@@ -330,6 +332,16 @@ class Functor(braided.Functor, traced.Functor):
         if isinstance(other, Trace):
             return traced.Functor.__call__(self, other)
         return braided.Functor.__call__(self, other)
+
+    @axiom
+    def functor_twist(cls):
+        """
+        A balanced functor preserves the twist, but the twist of a composite
+        type is a chosen sequence of crossings, so like
+        :meth:`discopy.braided.Functor.functor_braid` it holds only up to the
+        braid relations that free diagrams do not quotient by.
+        """
+        return NotImplemented
 
 
 class DualRail(Functor):

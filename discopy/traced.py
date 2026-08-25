@@ -274,6 +274,7 @@ class Trace(Box, monoidal.Bubble):
         return self.ar.to_drawing(self)
 
 
+@factory
 class Functor(monoidal.Functor):
     """
     A traced functor is a monoidal functor that preserves traces.

@@ -266,6 +266,7 @@ class Sum(monoidal.Sum, Box):
     """
 
 
+@factory
 class Functor(monoidal.Functor):
     """
     A braided functor is a monoidal functor that preserves braids.
@@ -284,6 +285,18 @@ class Functor(monoidal.Functor):
                 and hasattr(self.cod, "braid"):
             return self.cod.braid(self(other.dom[0]), self(other.dom[1]))
         return super().__call__(other)
+
+    @axiom
+    def functor_braid(cls):
+        """
+        A braided functor preserves the braid, but only up to the braid
+        relations: the braid of a composite type is a chosen sequence of
+        crossings and a functor rebrackets it. Free braided diagrams compare
+        presentations, so the law is checkable from
+        :class:`discopy.symmetric.Functor` on, where :meth:`functor_swap`
+        states it up to hypergraph.
+        """
+        return NotImplemented
 
 
 Diagram.functor_factory = Functor

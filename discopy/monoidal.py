@@ -62,11 +62,12 @@ from warnings import warn
 
 from discopy import cat, drawing, hypergraph, cmap, messages
 from discopy.abc import ColouredMonoid, MonoidalCategory
-from discopy.testing import Bifunctor, C1, Strategy, axiom
+from discopy.testing import Bifunctor, C1, Endofunctor, Strategy, axiom
 from discopy.drawing import Drawing
 from discopy.config import (
     BOX_DRAWING_ATTRIBUTES, WIRE_DRAWING_ATTRIBUTES,
     COLOUR_DRAWING_ATTRIBUTES)
+from discopy.cat import factory
 from discopy.utils import (
     factory,
     factory_name,
@@ -1734,6 +1735,7 @@ class Bubble(cat.Bubble, Box):
         return getattr(Drawing, method)(*args, **kwargs)
 
 
+@factory
 class Functor(cat.Functor):
     """
     A monoidal functor is a functor that preserves the tensor product.
@@ -1856,6 +1858,13 @@ class Functor(cat.Functor):
         if isinstance(other, Bubble) and self.cod is Drawing:
             return other.to_drawing()
         return super().__call__(other)
+
+    @axiom
+    def functor_tensor(cls, arguments: Endofunctor[C1]):
+        """ A monoidal functor preserves the tensor. """
+        functor, f, g = arguments
+        return functor.cod.equation_factory(
+            functor(f @ g), functor(f) @ functor(g))
 
 
 @dataclass

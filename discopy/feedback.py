@@ -148,6 +148,7 @@ from __future__ import annotations
 
 from discopy import monoidal, braided, markov, hypergraph
 from discopy.abc import FeedbackCategory
+from discopy.cat import factory
 from discopy.utils import (
     deprecated_ob,
     factory, factory_name, assert_isinstance, AxiomError,
@@ -669,6 +670,7 @@ class FollowedBy(Box):
         return type(self)(self.arg, self.is_dagger)
 
 
+@factory
 class Functor(markov.Functor):
     """
     A feedback functor is a markov one that preserves delay and feedback.

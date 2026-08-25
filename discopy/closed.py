@@ -155,6 +155,7 @@ class Sum(markov.Sum, biclosed.Sum, Box):
     """
 
 
+@factory
 class Functor(biclosed.Functor, markov.Functor):
     """
     A closed functor is a markov functor

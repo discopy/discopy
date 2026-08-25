@@ -326,6 +326,7 @@ class Tensor(Matrix):
         return result
 
 
+@factory
 class Functor(frobenius.Functor):
     """
     A tensor functor is a frobenius functor with a domain category ``dom``

@@ -1619,18 +1619,3 @@ class CMap[C0: Pregroup, C1: CMap](
     def trace_naturality_right(cls):
         """ A free trace is a box, not a rewrite. """
         return NotImplemented
-
-    @axiom
-    def functor_identity(cls):
-        """ Combinatorial maps have no generating boxes to send. """
-        return NotImplemented
-
-    @axiom
-    def functor_composition(cls):
-        """ Combinatorial maps have no generating boxes to send. """
-        return NotImplemented
-
-    @axiom
-    def functor_tensor(cls):
-        """ Combinatorial maps have no generating boxes to send. """
-        return NotImplemented

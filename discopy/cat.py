@@ -83,7 +83,7 @@ from typing import (
 
 from discopy import messages, utils
 from discopy.abc import Category, Equation as AbstractEquation
-from discopy.testing import Strategy
+from discopy.testing import C1, Endofunctor, Strategy, axiom
 from discopy.utils import (  # noqa: F401
     factory,
     factory_name,
@@ -1009,6 +1009,23 @@ class Functor(Category):
         for box in other.inside:
             result = result >> self(box)
         return result
+
+    unitality = associativity = None
+    identity_typing = composition_dom_typing = composition_cod_typing = None
+
+    @axiom
+    def functor_identity(cls, arguments: Endofunctor[C1]):
+        """ A functor preserves identities. """
+        functor, f, _ = arguments
+        return functor.cod.equation_factory(
+            functor(functor.dom.id(f.dom)), functor.cod.id(functor(f.dom)))
+
+    @axiom
+    def functor_composition(cls, arguments: Endofunctor[C1]):
+        """ A functor preserves composition. """
+        functor, f, g = arguments
+        return functor.cod.equation_factory(
+            functor(f.then(g)), functor(f).then(functor(g)))
 
 
 Arrow.generator_factory = Box

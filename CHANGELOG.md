@@ -9,14 +9,21 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
-- Functoriality is checked by the property matrix: `functor_identity`,
-  `functor_composition` and `functor_tensor` on `MonoidalCategory` and
-  `functor_spiders` on `HypergraphCategory`, with an `Endofunctor` argument
-  shape generating a functor from a free category to itself. The equation
-  lives in the functor's codomain rather than in the carrier, which is what
-  the old `eq` parameter could not express. `frobenius.Functor` dropping the
-  phase of a spider is recorded as a bug
-  ([#606](https://github.com/discopy/discopy/issues/606)).
+- Functors are carriers in the property matrix, each level adding the clause
+  it is responsible for: `cat.Functor` states `functor_identity` and
+  `functor_composition`, `monoidal.Functor` adds `functor_tensor`,
+  `braided.Functor` the braid, `balanced.Functor` the twist,
+  `symmetric.Functor` the swap, `rigid.Functor` the cups and caps,
+  `markov.Functor` the copy and `frobenius.Functor` the spiders, so
+  `frobenius.Functor` inherits all ten. An `Endofunctor` argument shape
+  generates a functor from a free category to itself. The equation lives in
+  the functor's codomain rather than in the carrier, which is what the old
+  `eq` parameter could not express. `functor_braid` and `functor_twist` are
+  declared unchecked: the braid of a composite type is a chosen sequence of
+  crossings that a functor rebrackets, so they hold only up to the braid
+  relations that free diagrams do not quotient by.
+- Every `Functor` subclass is its own `factory`, which only `cat.Functor`
+  declared, so `Functor.ar` resolved to `cat.Functor` at every level.
 - Concrete semantic carriers in the property matrix: `Matrix[int]` is a
   Markov category and `python.finset.Function` a symmetric one, both with
   their own Hypothesis strategy, so the copy comonoid and the symmetry are

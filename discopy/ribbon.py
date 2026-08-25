@@ -323,6 +323,7 @@ class Sum(rigid.Sum, Box):
     """
 
 
+@factory
 class Functor(pivotal.Functor, balanced.Functor):
     """
     A ribbon functor is both a pivotal functor and a balanced functor.

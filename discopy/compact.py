@@ -156,6 +156,7 @@ class Permutation(symmetric.Permutation, Box):
     r = property(lambda self: self.rotate(left=False))
 
 
+@factory
 class Functor(symmetric.Functor, ribbon.Functor):
     """
     A compact functor is both a symmetric functor and a ribbon functor.

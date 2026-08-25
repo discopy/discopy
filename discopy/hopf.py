@@ -129,6 +129,7 @@ import numpy as np
 from discopy import monoidal, ribbon, tensor, frobenius
 from discopy.tensor import Dim, Box, Id
 from discopy.abc import RibbonCategory, NamedGeneric
+from discopy.cat import factory
 from discopy.utils import (
     assert_isinstance, classproperty, factory_name, get_origin, product)
 
@@ -992,6 +993,7 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
         return cls(body.inside, body.dom, body.cod)
 
 
+@factory
 class Functor(ribbon.Functor):
     """
     A ribbon functor from :mod:`.ribbon` diagrams to :class:`Intertwiner`, i.e.

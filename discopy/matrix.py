@@ -448,21 +448,6 @@ class Matrix(MarkovCategory, Strategy["Matrix"], NamedGeneric['dtype']):
             (cls.copy(x) @ cls.copy(x)).then(
                 x @ cls.swap(x, x) @ x)))
 
-    @axiom
-    def functor_identity(cls):
-        """ There is no functor from a free category into matrices yet. """
-        return NotImplemented
-
-    @axiom
-    def functor_composition(cls):
-        """ There is no functor from a free category into matrices yet. """
-        return NotImplemented
-
-    @axiom
-    def functor_tensor(cls):
-        """ There is no functor from a free category into matrices yet. """
-        return NotImplemented
-
 
 def array2string(array, **params):
     """ Numpy array pretty print. """
