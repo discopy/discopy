@@ -191,6 +191,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- Region painting computes the exact extents of each coloured region —
+  polygons bounded by the wires on both sides, subdivided per height band —
+  instead of overpainting everything to the right of each wire up to the
+  full canvas width: translucent colours are no longer painted twice where
+  two regions of the same colour are adjacent, white regions are not
+  painted at all, so they erase to the background, and neither is the
+  inside of a box, which is a 2-cell rather than a region, so no colour
+  can bleed out around its border
+  ([#521](https://github.com/discopy/discopy/issues/521)).
 - A boxless `monoidal.Layer` can no longer be placed inside a `Diagram`:
   `Diagram.__init__` raises `ValueError` for a layer with no box, restoring
   the invariant that every layer holds at least one box and that the identity
