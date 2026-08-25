@@ -25,7 +25,6 @@ BOX_DRAWING_ATTRIBUTES = {
     "draw_as_permutation": lambda _: False,
     "permutation_indices": lambda _: None,  # Used for drawing permutations.
     "draw_as_braid": lambda _: False,
-    "drawing_permutation": lambda _: None,
     "draw_as_cup": lambda _: False,
     "draw_as_cap": lambda _: False,
     "draw_as_dual_rail_braid": lambda _: False,
