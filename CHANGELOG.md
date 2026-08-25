@@ -213,7 +213,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `frobenius.Functor` sends only a phaseless spider to the spiders of its
   codomain; a spider with a phase, e.g. a ZX `Z` or `X` box, is a generator
   sent through `ar_map`, so `to_hypergraph` keeps its colour and phase and
-  `tensor.Equation` no longer identifies `Z(1, 1, 0)` with `X(1, 1, 0)`.
+  `tensor.Equation` no longer identifies `Z(1, 1, 0)` with `X(1, 1, 0)`
+  ([#622](https://github.com/discopy/discopy/pull/622)).
 - A boxless `monoidal.Layer` can no longer be placed inside a `Diagram`:
   `Diagram.__init__` raises `ValueError` for a layer with no box, restoring
   the invariant that every layer holds at least one box and that the identity
