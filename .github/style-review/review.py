@@ -1,9 +1,10 @@
 """Ask the model for a style review of the diff in one request.
 
-Assembles ``prompt.md``, ``STYLE.md``, the package-local files that the
-changed files import (as context), the full text of every changed file with
-line numbers and the diff from ``.style-review``, sends one chat completion
-to the OpenAI-compatible gateway at ``BASE_URL`` and writes the findings to
+Assembles ``prompt.md``, ``STYLE.md``, the PR discussion so far from
+``thread.py``, the package-local files that the changed files import (as
+context), the full text of every changed file with line numbers and the
+diff from ``.style-review``, sends one chat completion to the
+OpenAI-compatible gateway at ``BASE_URL`` and writes the findings to
 ``.style-review/findings.json`` for ``post.py`` to post.
 """
 
@@ -78,11 +79,11 @@ def context_block(path, text):
     return section("Context (not under review)", path, text)
 
 
-def assemble(files, diff):
-    """The one prompt: instructions, style guide, context, changes, diff.
-    Every part is budgeted as assembled, including the ``"\\n\\n"``
-    separators the join below adds between them, so the request sent to
-    the gateway never exceeds ``BUDGET``."""
+def assemble(files, diff, thread=""):
+    """The one prompt: instructions, style guide, discussion so far,
+    context, changes, diff. Every part is budgeted as assembled, including
+    the ``"\\n\\n"`` separators the join below adds between them, so the
+    request sent to the gateway never exceeds ``BUDGET``."""
     deps = sorted(
         {dep for path in files for dep in imports(path)} - set(files))
     if len(diff) > BUDGET // 2:
@@ -92,13 +93,16 @@ def assemble(files, diff):
         instructions = file.read()
     with open("STYLE.md") as file:
         style = f"# STYLE.md\n\n{file.read()}"
+    head = [instructions, style]
+    if thread.strip():
+        head.append(f"# Discussion so far\n\n{thread}")
     budget = BUDGET + 2 - sum(
-        len(part) + 2 for part in (instructions, style, diff_part))
+        len(part) + 2 for part in head + [diff_part])
     changed, budget, missing = contents(files, budget, changed_block)
     if missing:
         raise ValueError(f"changed files past the budget: {missing}")
     context, budget, dropped = contents(deps, budget, context_block)
-    parts = [instructions, style] + [block for _, block in context]
+    parts = head + [block for _, block in context]
     if dropped:
         note = f"# Context dropped for size: {', '.join(dropped)}"
         if len(note) + 2 <= budget:
@@ -150,7 +154,12 @@ def main():
                  if path and os.path.exists(path)]
     with open(os.path.join(DIRECTORY, "diff.patch")) as file:
         diff = file.read()
-    findings = ask(assemble(files, diff))
+    thread_path = os.path.join(DIRECTORY, "thread.md")
+    thread = ""
+    if os.path.exists(thread_path):
+        with open(thread_path) as file:
+            thread = file.read()
+    findings = ask(assemble(files, diff, thread))
     with open(os.path.join(DIRECTORY, "findings.json"), "w") as file:
         json.dump(findings, file)
     print(f"{len(findings.get('findings', []))} findings.")

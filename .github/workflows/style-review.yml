@@ -4,6 +4,8 @@ on:
     types: [ready_for_review, labeled]
 permissions:
   contents: read
+  issues: read
+  pull-requests: read
 concurrency:
   group: style-review-${{ github.event.pull_request.number
     }}-${{ github.event.label.name || github.event.action }}
@@ -49,6 +51,16 @@ jobs:
           > .style-review/files.txt
         echo "changed=$(test -s .style-review/diff.patch \
           && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+    - name: Fetch the PR discussion
+      if: >
+        steps.config.outputs.configured == 'true'
+        && steps.diff.outputs.changed == 'true'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        REPO: ${{ github.repository }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+      run: python3 .github/style-review/thread.py
 
     - name: Review the diff
       if: >

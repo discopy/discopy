@@ -19,7 +19,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   model behind an OpenAI-compatible gateway, configured by the
   `STYLE_REVIEW_BASE_URL` and `STYLE_REVIEW_MODEL` repository variables and
   the `STYLE_REVIEW_API_KEY` secret
-  ([#608](https://github.com/discopy/discopy/pull/608)).
+  ([#608](https://github.com/discopy/discopy/pull/608)). The review prompt
+  now also carries the PR discussion so far — conversation comments,
+  diff comments and review summaries, fetched and merged chronologically
+  by `thread.py` — so a re-review references a resolved flag instead of
+  re-raising it, and weighs an author's reply as context about the
+  discussion rather than authority on the style itself
+  ([#619](https://github.com/discopy/discopy/issues/619) tracks the
+  long-term memory this is a prerequisite for).
 - Combinatorial map representation, `discopy.cmap`, encoding diagrams in
   compact categories as a permutation on the ports of each box
   ([#338](https://github.com/discopy/discopy/pull/338)).
