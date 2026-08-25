@@ -284,6 +284,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `closed.Context.dom` called `category.ob.tensor` unbound, which raised
   `TypeError` for an empty context instead of returning `Ty()`
   ([#549](https://github.com/discopy/discopy/issues/549)).
+- `python.additive.Function.trace` fed a looping output tag straight back
+  in as an input tag, reading the wrong traced summand (or raising
+  `IndexError`) whenever `dom` and `cod` have different lengths
+  ([#554](https://github.com/discopy/discopy/issues/554)).
 - Both branches of `closed.Abstraction.eval` curry on the right: the
   context branch curried out the wrong end of its domain, so an abstraction
   applied to an argument sharing a free variable did not compose, and a
