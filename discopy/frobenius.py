@@ -199,7 +199,11 @@ class Cap(compact.Cap, Box):
     """
 
 
-class Swap(compact.Swap, markov.Swap, Box):
+class Permutation(compact.Permutation, markov.Permutation, Box):
+    "A permutation in a Frobenius diagram."
+
+
+class Swap(Permutation, compact.Swap, markov.Swap, Box):
     """
     A frobenius swap is a compact and Markov swap in a frobenius diagram.
 
@@ -387,6 +391,7 @@ Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Diagram.swap_factory, Diagram.spider_factory = Swap, Spider
+Diagram.permutation_factory = Permutation
 Diagram.bubble_factory = Bubble
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Id = Diagram.id
