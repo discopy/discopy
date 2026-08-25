@@ -23,24 +23,27 @@ is a port, not a merge.
       asserts `monoidal.Diagram.function([0, 1], x @ y) == Id(x @ y)`.
       Keeping one without the other leaves the base class asymmetric —
       it wants a ruling before an implementation
-- [ ] Restore or replace `symmetric.Layer.permutations`, dropped by merged
-      #362 and still asserted by `test/markov.py::test_Layer`
-- [ ] Give `symmetric.Layer` an extension point for what counts as routing.
-      Merged #362 hard-codes `Permutation` in `is_routing`, `__init__`,
-      `is_structural`, `boxes_and_types` and `cast`; this branch needs
-      `Function` to count too. A `routing_factory` class attribute (a class
-      or a tuple, read by all five) is the smallest change that keeps #362's
-      vocabulary: `Layer.routing_factory = Permutation` and
-      `markov.Layer.routing_factory = (Function, symmetric.Permutation)`
-- [ ] Rewrite `markov.Layer` and the `markov` module docstring for the merged
-      representation: identity routing is stored as a `Ty`, so
-      `all(isinstance(g, Function) for g in layer[::2])` no longer holds
-- [ ] Take `main`'s side wholesale for the renames it settled:
-      `drawing_permutation` → `draw_as_permutation`, `_is_crossing` →
-      `config.is_crossing`, and `PERMUTATION_AT_ODD_INDEX` /
+- [WIP] @evening-2026-08-25T01:01Z Restore or replace
+      `symmetric.Layer.permutations`, dropped by merged #362 and still
+      asserted by `test/markov.py::test_Layer`
+- [WIP] @evening-2026-08-25T01:01Z Give `symmetric.Layer` an extension point
+      for what counts as routing. Merged #362 hard-codes `Permutation` in
+      `is_routing`, `__init__`, `is_structural`, `boxes_and_types` and
+      `cast`; this branch needs `Function` to count too. A `routing_factory`
+      class attribute (a class or a tuple, read by all five) is the smallest
+      change that keeps #362's vocabulary: `Layer.routing_factory =
+      Permutation` and `markov.Layer.routing_factory = (Function,
+      symmetric.Permutation)`
+- [WIP] @evening-2026-08-25T01:01Z Rewrite `markov.Layer` and the `markov`
+      module docstring for the merged representation: identity routing is
+      stored as a `Ty`, so `all(isinstance(g, Function) for g in
+      layer[::2])` no longer holds
+- [WIP] @evening-2026-08-25T01:01Z Take `main`'s side wholesale for the
+      renames it settled: `drawing_permutation` → `draw_as_permutation`,
+      `_is_crossing` → `config.is_crossing`, and `PERMUTATION_AT_ODD_INDEX` /
       `LAYERS_MUST_BE_ODD` → `LAYERS_MUST_ALTERNATE`
-- [ ] Drop `77eb4eb`: `main` already names `compact` in the `test/hopf.py`
-      eval imports
+- [WIP] @evening-2026-08-25T01:01Z Drop `77eb4eb`: `main` already names
+      `compact` in the `test/hopf.py` eval imports
 
 ---
 
