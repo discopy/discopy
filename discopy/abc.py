@@ -166,27 +166,24 @@ class Category[C0, C1: Category](ABC):
 
     @axiom
     def identity_typing(
-            cls, dom: C0) -> Equation[C1]:
+            cls, dom: C0) -> Equation[C0]:
         """ Typing of identity morphisms. """
         identity = cls.id(dom)
-        return Category.equation_factory(
-            cls.id(identity.dom), cls.id(dom), cls.id(identity.cod))
+        return Category.equation_factory(identity.dom, dom, identity.cod)
 
     @axiom
     def composition_dom_typing(
-            cls, pair: ComposablePair[C1]) -> Equation[C1]:
+            cls, pair: ComposablePair[C1]) -> Equation[C0]:
         """ Domain typing of composition. """
         f, g = pair
-        return Category.equation_factory(
-            cls.id(f.then(g).dom), cls.id(f.dom))
+        return Category.equation_factory(f.then(g).dom, f.dom)
 
     @axiom
     def composition_cod_typing(
-            cls, pair: ComposablePair[C1]) -> Equation[C1]:
+            cls, pair: ComposablePair[C1]) -> Equation[C0]:
         """ Codomain typing of composition. """
         f, g = pair
-        return Category.equation_factory(
-            cls.id(f.then(g).cod), cls.id(g.cod))
+        return Category.equation_factory(f.then(g).cod, g.cod)
 
     __rshift__ = __llshift__ = lambda self, other: self.then(other)
     __lshift__ = __lrshift__ = lambda self, other: other.then(self)
@@ -308,19 +305,17 @@ class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](
 
     @axiom
     def tensor_dom_typing(
-            cls, pair: HorizontalPair[C1]) -> Equation[C1]:
+            cls, pair: HorizontalPair[C1]) -> Equation[C0]:
         """ Domain typing of tensor. """
         f, g = pair
-        return Category.equation_factory(
-            cls.id((f @ g).dom), cls.id(f.dom) @ cls.id(g.dom))
+        return Category.equation_factory((f @ g).dom, f.dom @ g.dom)
 
     @axiom
     def tensor_cod_typing(
-            cls, pair: HorizontalPair[C1]) -> Equation[C1]:
+            cls, pair: HorizontalPair[C1]) -> Equation[C0]:
         """ Codomain typing of tensor. """
         f, g = pair
-        return Category.equation_factory(
-            cls.id((f @ g).cod), cls.id(f.cod) @ cls.id(g.cod))
+        return Category.equation_factory((f @ g).cod, f.cod @ g.cod)
 
 
 class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
@@ -589,9 +584,9 @@ class PivotalCategory[C0, C1](RigidCategory[C0, C1], TracedCategory[C0, C1]):
     """
     @axiom
     def self_dual(
-            cls, x: C0) -> Equation[C1]:
+            cls, x: C0) -> Equation[C0]:
         """ Equality of left and right adjoints. """
-        return Category.equation_factory(cls.id(x.r), cls.id(x.l))
+        return Category.equation_factory(x.r, x.l)
 
     @axiom
     def transpose_axiom(
