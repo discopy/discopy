@@ -158,6 +158,23 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `abc.SymmetricCategory.permutation` and `abc.MarkovCategory.function`, the
+  generic fallbacks used by categories with no native permutation (e.g.
+  `python.Function` and `discopy.stream.Stream`), tensored objects with `@`
+  in one spot instead of the `+` their own `tensor` helper already uses
+  elsewhere in the same method, which raised on any object type that
+  supports only one of the two operators
+  ([#478](https://github.com/discopy/discopy/pull/478)).
+- `para.Hypergraph` and `para.Feedback` could not be instantiated:
+  `abc.HypergraphCategory` and `abc.FeedbackCategory` require both `copy`
+  and `merge` now that `markov` and `comarkov` are split, and `discopy.para`
+  only supplied `copy`. A new `para.Comarkov` mixin supplies `merge` the
+  same way `para.Markov` supplies `copy`
+  ([#478](https://github.com/discopy/discopy/pull/478)).
+- `drawing.Drawing.permutation` was defined twice; the second, dead
+  definition shadowed the first and broke every symmetric functor drawn
+  into `Drawing`
+  ([#478](https://github.com/discopy/discopy/pull/478)).
 - `build.yml` timeouts and a bounded, retried Graphviz install
   ([#591](https://github.com/discopy/discopy/issues/591)).
 - `frobenius.Diagram.unfuse`'s doctest no longer sets `Spider.color = "red"`

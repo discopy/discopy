@@ -406,7 +406,7 @@ class SymmetricCategory[C0, C1](BraidedCategory[C0, C1]):
             i = xs[0]
             left, head = tensor(doms[:i]), tensor(doms[i:i + 1])
             result >>= done @ cls.swap(left, head) @ tensor(doms[i + 1:])
-            done, doms = done @ head, doms[:i] + doms[i + 1:]
+            done, doms = done + head, doms[:i] + doms[i + 1:]
             xs = [x - 1 if x > i else x for x in xs[1:]]
         return result
 
@@ -456,7 +456,9 @@ class MarkovCategory[C0, C1](SymmetricCategory[C0, C1]):
         for i in fun:
             xs.append(offsets[i])
             offsets[i] += 1
-        return copies >> cls.permutation(xs, copies.cod)
+        doms = [dom[i:i + 1]
+                for i in range(len(dom)) for _ in range(fun.count(i))]
+        return copies >> cls.permutation(xs, doms)
 
 
 class ComarkovCategory[C0, C1](SymmetricCategory[C0, C1]):
