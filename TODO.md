@@ -13,6 +13,6 @@ Feedback quoted verbatim from the two unresolved review comments on
 > induced by a unitary or CPTP map. Reject mixed circuits with
 > `unitary.is_mixed`. (line 69)
 
-- [ ] `Reservoir.__init__` rejects negative `memory`/`inputs`
-- [ ] `Reservoir.__init__` rejects a mixed `unitary`
+- [WIP] @web-2026-08-25 15:00 `Reservoir.__init__` rejects negative `memory`/`inputs`
+- [WIP] @web-2026-08-25 15:00 `Reservoir.__init__` rejects a mixed `unitary`
 - [ ] tests for both
