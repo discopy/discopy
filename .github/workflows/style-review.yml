@@ -51,6 +51,7 @@ jobs:
           && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
     - name: Review the diff
+      id: review
       if: >
         steps.config.outputs.configured == 'true'
         && steps.diff.outputs.changed == 'true'
@@ -89,6 +90,7 @@ jobs:
     - name: Call the correctness reviewer
       if: >
         ${{ !cancelled() && github.event.action == 'ready_for_review'
+            && steps.review.outcome != 'failure'
             && steps.post.outputs.clean != 'false' }}
       env:
         GH_TOKEN: ${{ steps.app-token.outputs.token }}

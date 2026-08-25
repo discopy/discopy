@@ -82,7 +82,10 @@ def assemble(files, diff):
     """The one prompt: instructions, style guide, context, changes, diff.
     Every part is budgeted as assembled, including the ``"\\n\\n"``
     separators the join below adds between them, so the request sent to
-    the gateway never exceeds ``BUDGET``."""
+    the gateway never exceeds ``BUDGET``. A changed file too big to fit
+    its full text falls back to the diff alone, same as a context file
+    dropped for size — the diff already covers every changed file, so
+    neither case loses the change itself, only the surrounding file."""
     deps = sorted(
         {dep for path in files for dep in imports(path)} - set(files))
     if len(diff) > BUDGET // 2:
@@ -95,14 +98,19 @@ def assemble(files, diff):
     budget = BUDGET + 2 - sum(
         len(part) + 2 for part in (instructions, style, diff_part))
     changed, budget, missing = contents(files, budget, changed_block)
-    if missing:
-        raise ValueError(f"changed files past the budget: {missing}")
     context, budget, dropped = contents(deps, budget, context_block)
     parts = [instructions, style] + [block for _, block in context]
+    notes = []
     if dropped:
-        note = f"# Context dropped for size: {', '.join(dropped)}"
+        notes.append(f"# Context dropped for size: {', '.join(dropped)}")
+    if missing:
+        notes.append(
+            "# Changed files past the budget, reviewed from the diff "
+            f"only: {', '.join(missing)}")
+    for note in notes:
         if len(note) + 2 <= budget:
             parts.append(note)
+            budget -= len(note) + 2
     parts += [block for _, block in changed]
     parts.append(diff_part)
     return "\n\n".join(parts)

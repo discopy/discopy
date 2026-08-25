@@ -20,11 +20,11 @@ USER: "1"
 
 # Work
 
-- [ ] `assemble()` in `.github/style-review/review.py`: stop raising on changed files
+- [x] `assemble()` in `.github/style-review/review.py`: stop raising on changed files
       past budget — drop their full-text `Changed` block (like the existing
       context-deps `dropped` path) and note it, keeping their diff hunks (already in
       `diff_part`) as the review's only signal for those files
-- [ ] `.github/style-review/style-review.yml`: stop "Call the correctness reviewer"
+- [x] `.github/style-review/style-review.yml`: stop "Call the correctness reviewer"
       from treating a failed "Review the diff" step as clean
 - [ ] `CHANGELOG.md` `[Unreleased]` entry
-- [ ] `uv run pflake8 discopy` and `uv run coverage run -m pytest` still clean
+- [x] `uv run pflake8 discopy` and `uv run coverage run -m pytest` still clean
