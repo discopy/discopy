@@ -46,14 +46,16 @@ def imports(path):
 
 
 def contents(paths, budget, block):
-    """Pair each path with its rendered ``block`` while it fits the
-    budget, also returning the leftover budget and the paths dropped."""
+    """Pair each path with its rendered ``block`` while it and the
+    ``"\\n\\n"`` separator joining it to its neighbour fit the budget,
+    also returning the leftover budget and the paths dropped."""
     kept, dropped = [], []
     for path in paths:
         with open(path) as file:
             text = block(path, file.read())
-        if len(text) <= budget:
-            kept, budget = kept + [(path, text)], budget - len(text)
+        cost = len(text) + 2
+        if cost <= budget:
+            kept, budget = kept + [(path, text)], budget - cost
         else:
             dropped.append(path)
     return kept, budget, dropped
@@ -78,8 +80,9 @@ def context_block(path, text):
 
 def assemble(files, diff):
     """The one prompt: instructions, style guide, context, changes, diff.
-    Every part is budgeted as assembled, not as raw file text, so the
-    request sent to the gateway never exceeds ``BUDGET``."""
+    Every part is budgeted as assembled, including the ``"\\n\\n"``
+    separators the join below adds between them, so the request sent to
+    the gateway never exceeds ``BUDGET``."""
     deps = sorted(
         {dep for path in files for dep in imports(path)} - set(files))
     if len(diff) > BUDGET // 2:
@@ -89,14 +92,17 @@ def assemble(files, diff):
         instructions = file.read()
     with open("STYLE.md") as file:
         style = f"# STYLE.md\n\n{file.read()}"
-    budget = BUDGET - len(instructions) - len(style) - len(diff_part)
+    budget = BUDGET + 2 - sum(
+        len(part) + 2 for part in (instructions, style, diff_part))
     changed, budget, missing = contents(files, budget, changed_block)
     if missing:
         raise ValueError(f"changed files past the budget: {missing}")
-    context, _, dropped = contents(deps, budget, context_block)
+    context, budget, dropped = contents(deps, budget, context_block)
     parts = [instructions, style] + [block for _, block in context]
     if dropped:
-        parts.append(f"# Context dropped for size: {', '.join(dropped)}")
+        note = f"# Context dropped for size: {', '.join(dropped)}"
+        if len(note) + 2 <= budget:
+            parts.append(note)
     parts += [block for _, block in changed]
     parts.append(diff_part)
     return "\n\n".join(parts)
