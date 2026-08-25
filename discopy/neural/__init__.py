@@ -31,6 +31,7 @@ from discopy.neural.network import (
     Hypergraph,
     Id,
     Network,
+    Para,
     Swap,
 )
 from discopy.neural import rdiff

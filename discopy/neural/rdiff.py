@@ -15,6 +15,18 @@ residual ``M`` and ``g`` has residual ``N``, then ``f >> g`` has residual
 derivative has type ``A @ B -> A`` and discards the primal output before
 applying ``reverse``.
 
+The forward leg is a coparametric map in the sense of :mod:`discopy.para`
+(a :class:`Symmetric <discopy.para.Symmetric>` with empty ``param`` and
+``copar`` the residual), so :meth:`ReverseRule.then` and
+:meth:`ReverseRule.tensor` build it by composing and tensoring
+:class:`neural.Para <discopy.neural.Para>` instances rather than routing
+the residual by hand. The reverse leg is not: its domain is
+``residual @ cod``, the mirror of :class:`Symmetric`'s ``dom @ param``, and
+that mirroring is what lets :meth:`ReverseRule.__init__` infer ``cod`` from
+``forward`` and ``reverse`` alone — the unmirrored order would make every
+split of ``forward.cod`` look the same. Matching it to :class:`Symmetric`
+would cost that inference, so it stays hand-rolled.
+
 Only causal monogamous hypergraphs are accepted. Identity wires and swaps
 have structural rules; every other generator needs an explicit rule. This
 keeps residuals in the diagram rather than in an autograd tape or a module
@@ -117,6 +129,11 @@ class ReverseRule:
         assert_isinstance(box, neural.Swap)
         return cls(box, box[::-1], cod=box.cod)
 
+    def as_copara(self) -> neural.Para:
+        """ The forward leg as a coparametric map, ``copar`` the residual. """
+        return neural.Para(
+            self.dom, self.cod, self.forward, copar=self.residual)
+
     def then(self, other: ReverseRule) -> ReverseRule:
         """ Compose reverse rules while retaining both residuals. """
         assert_isinstance(other, ReverseRule)
@@ -124,18 +141,14 @@ class ReverseRule:
             raise ValueError(
                 f"Cannot compose rules of type {self.dom} -> {self.cod} "
                 f"and {other.dom} -> {other.cod}.")
-        forward = self.forward >> other.forward @ self.residual\
-            >> other.cod @ neural.Diagram.swap(
-                other.residual, self.residual)
+        forward = (self.as_copara() >> other.as_copara()).inside
         reverse = self.residual @ other.reverse >> self.reverse
         return type(self)(forward, reverse, cod=other.cod)
 
     def tensor(self, other: ReverseRule) -> ReverseRule:
         """ Tensor reverse rules while retaining both residuals. """
         assert_isinstance(other, ReverseRule)
-        forward = self.forward @ other.forward\
-            >> self.cod @ neural.Diagram.swap(
-                self.residual, other.cod) @ other.residual
+        forward = (self.as_copara() @ other.as_copara()).inside
         reverse = self.residual @ neural.Diagram.swap(
             other.residual, self.cod) @ other.cod\
             >> self.reverse @ other.reverse

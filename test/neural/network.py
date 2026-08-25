@@ -12,7 +12,7 @@ from discopy.neural import *
 from discopy.neural import CMap, Diagram, Functor, Id
 
 from discopy.python.finset import Permutation
-from discopy.utils import dumps, loads
+from discopy.utils import AxiomError, dumps, loads
 
 
 def mlp(width):
@@ -94,6 +94,30 @@ def test_to_hypergraph():
     round_trip = hypergraph.to_diagram()
     assert round_trip.to_hypergraph() == hypergraph
     assert tuple(round_trip.boxes) == (f, )
+
+
+def test_para():
+    torch = importorskip("torch")
+
+    class Multiply(torch.nn.Module):
+        """ Read an input and a weight, emit their product. """
+        def forward(self, messages):
+            value = messages[:, :2]
+            product = value[:, :1] * value[:, 1:]
+            return torch.cat((torch.zeros_like(value), product), dim=-1)
+
+    scale = Para(Dim(1), Dim(1), Network(
+        "scale", Dim(1, 1), Dim(1), module=Multiply()), Dim(1))
+    network = scale >> scale
+    assert (network.dom, network.cod, network.param)\
+        == (Dim(1), Dim(1), Dim(1, 1))
+    assert network.inside.dom == Dim(1, 1, 1)
+    weights = torch.tensor([[2., 3., 5.]])
+    assert network.inside.to_map()(weights, causal=True)\
+        == torch.tensor([[30.]])
+    assert (scale @ scale).param == Dim(1, 1)
+    with raises(AxiomError):
+        Para(Dim(1), Dim(1), scale.inside, Dim(2))
 
 
 def test_network_module():

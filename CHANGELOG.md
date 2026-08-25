@@ -67,6 +67,24 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   hierarchy below symmetric: traced, Markov, closed, feedback, compact and
   hypergraph ([#558](https://github.com/discopy/discopy/issues/558),
   refactoring [#325](https://github.com/discopy/discopy/pull/325)).
+- `neural.Para`, the parametric networks, i.e. `para.Compact` over
+  `neural.Diagram`: a network whose weights are boundary values rather than
+  hidden inside its modules is a morphism `dom @ param -> cod`, so that
+  composing layers accumulates their parameter spaces instead of whiskering
+  each layer with the weights of all the others. The CatGPT benchmark model
+  is assembled this way
+  ([#399](https://github.com/discopy/discopy/pull/399),
+  [#559](https://github.com/discopy/discopy/pull/559)).
+- `para.Symmetric` carries an optional coparameter space: a map is
+  `inside : dom @ param -> cod @ copar` with `copar` empty by default, so
+  parametric maps read as before, coparametric maps are the empty-`param`
+  case and the diagonal `param == copar` is the free category with feedback
+  — the type of one time step of a `Stream`. The constructor reads
+  `(dom, cod, inside, param, copar)` with both hidden spaces optional.
+  Composition and tensor accumulate the hidden objects on both sides,
+  `trace` and `feedback` route the coparameters out of the way and
+  `recopar` post-composes them, covariantly where `reparam` is
+  contravariant ([#572](https://github.com/discopy/discopy/issues/572)).
 - The pivotal structure of `Rep(H)`: `HopfAlgebra.drinfeld_element`,
   `pivotal_element` and `ribbon_element`, cached single tensors named after
   the literature (Reshetikhin–Turaev; Kassel; Radford), with pivotal cups
@@ -77,6 +95,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Changed
 
+- `neural.rdiff.ReverseRule.then`/`tensor` build their forward leg by
+  composing and tensoring `neural.Para` instances (a coparametric map, in
+  the sense of `discopy.para`, with `copar` the residual) instead of
+  hand-rolled swap arithmetic, via the new method `ReverseRule.as_copara`.
+  The reverse leg is left as is: its `residual @ cod` domain is the mirror
+  of `Symmetric`'s `dom @ param`, and that mirroring is what lets
+  `ReverseRule.__init__` infer `cod` from `forward`/`reverse` alone
+  ([#571](https://github.com/discopy/discopy/pull/571)).
 - `monoidal.Layer` holds a list of boxes and non-empty types with at least
   one box and no two consecutive types, instead of an odd-length list
   alternating type and box. Whiskering extends the list only when the type
