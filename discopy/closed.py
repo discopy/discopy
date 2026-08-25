@@ -123,27 +123,56 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
 
     @classmethod
     def fa(cls, left, right):
-        """Forward application."""
+        """
+        Forward application.
+
+        Parameters:
+            left : The base of the exponential, i.e. the result type.
+            right : The exponent, i.e. the type of the argument.
+        """
         return cls.ev(left, right, left=True)
 
     @classmethod
     def ba(cls, left, right):
-        """Backward application."""
+        """
+        Backward application.
+
+        Parameters:
+            left : The exponent, i.e. the type of the argument.
+            right : The base of the exponential, i.e. the result type.
+        """
         return cls.ev(right, left, left=False)
 
     @classmethod
     def fc(cls, left, middle, right):
-        """Forward composition."""
+        """
+        Forward composition.
+
+        Parameters:
+            left : The base of the outer exponential.
+            middle : The shared type composed away.
+            right : The exponent of the result.
+        """
         return (cls.id(left ** middle) @ cls.fa(middle, right)
                 >> cls.fa(left, middle)).curry(
                     n=len(right), left=True)
 
     @classmethod
     def bc(cls, left, middle, right):
-        """Backward composition."""
+        """
+        Backward composition.
+
+        Parameters:
+            left : The exponent of the result.
+            middle : The shared type composed away.
+            right : The base of the outer exponential.
+        """
         return (cls.ba(left, middle) @ cls.id(middle >> right)
                 >> cls.ba(middle, right)).curry(n=len(left), left=False)
 
+    # Crossed composition coincides with harmonic composition here: a closed
+    # category does not distinguish the left and right exponentials that
+    # `fx`/`bx` cross in a categorial grammar, see `grammar.categorial`.
     fx = fc
     bx = bc
 
@@ -360,6 +389,13 @@ class Variable(TermBase, biclosed.Variable):
 
 
 class Application(TermBase, biclosed.Application):
+    """
+    The application of a term to another.
+
+    Attributes:
+        overlap : Whether ``func`` and ``args`` share a free variable, in
+            which case ``eval`` copies it rather than tensoring the two.
+    """
     def __check_dom__(self, func, args, left):
         self.overlap = set(func.freevars).intersection(args.freevars)
         freevars = args.freevars + func.freevars if left\

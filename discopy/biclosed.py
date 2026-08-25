@@ -384,7 +384,7 @@ class Curry(monoidal.Bubble, Box):
     Parameters:
         arg : The diagram to curry.
         n : The number of atomic types to curry.
-        left : Whether to curry on the left or right.
+        left : Whether to curry on the left or right, default is ``True``.
     """
     def __init__(self, arg: Diagram, n=1, left=True):
         self.n, self.left = n, left

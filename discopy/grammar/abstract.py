@@ -211,6 +211,8 @@ class Constant(TermBase, closed.Constant):
     "A constant term in an abstract categorial grammar."
 
 
+# A plain alias rather than a subclass, unlike categorial.Word: a word is
+# already exactly a Constant here, with nothing of its own to add.
 Word = Constant
 
 

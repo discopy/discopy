@@ -132,7 +132,12 @@ def test_crossed_composition_requires_symmetry():
 
 
 def test_Lexicon_Montague_semantics():
-    # Syntax: two sentences with the same grammatical structure.
+    """
+    Syntax: two sentences with the same grammatical structure.
+
+    Semantics: logical formulas as lambda terms with higher-order constants
+    for the quantifiers and connectives.
+    """
     n, np, s = map(categorial.Ty, ("n", "np", "s"))
     every, a = (np << n)("every"), (np << n)("a")
     woman, man, child, song = (n(w) for w in ("woman", "man", "child", "song"))
@@ -145,8 +150,6 @@ def test_Lexicon_Montague_semantics():
     every_child_learnt_a_song = sentence(every, child, learnt, a, song)
     assert every_woman_married_a_man.cod == every_child_learnt_a_song.cod == s
 
-    # Semantics: logical formulas as lambda terms with higher-order
-    # constants for the quantifiers and connectives.
     e, t = Ty("e"), Ty("t")
     ET, NP = e >> t, (e >> t) >> t
     forall, exists = (ET >> t)("forall"), (ET >> t)("exists")
