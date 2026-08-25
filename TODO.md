@@ -21,6 +21,7 @@ Quoted verbatim from the two unresolved review threads on #442.
 > dict). Base __hash__ on the same structural fields __eq__ uses, so that
 > types equal under __eq__ are guaranteed the same hash.
 
-- [ ] Reproduce (a `Functor.ob_map` keyed on `Unitype()` misses a lookup by
-      a structurally-equal `Exp(U, U)`), then fix `Unitype.__hash__` to
+- [WIP] @session_018brmB6AEz1RbKcyXjU3dXU-2026-08-25 09:05 Reproduce (a
+      `Functor.ob_map` keyed on `Unitype()` misses a lookup by a
+      structurally-equal `Exp(U, U)`), then fix `Unitype.__hash__` to
       match what `Exp.__hash__` would give the same `(base, exponent)`.
