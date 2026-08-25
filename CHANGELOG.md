@@ -234,6 +234,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   response and the raw answer on a JSON-parse failure, so a truncated or
   malformed answer is diagnosable instead of a bare traceback
   ([#611](https://github.com/discopy/discopy/issues/611)).
+- `review.py`'s `assemble` used to raise when the changed files alone
+  didn't fit `BUDGET`, crashing the whole style-review step on a large
+  diff; a changed file too big for its full text now falls back to its
+  diff hunk only, the same degrade already applied to imported context
+  files. `style-review.yml`'s "Call the correctness reviewer" step used
+  to fire whenever the review step never ran, including when it
+  crashed, making a crashed review look clean to the gate; it now also
+  checks the review step's own outcome
+  ([#617](https://github.com/discopy/discopy/pull/617)).
 - `build.yml` timeouts and a bounded, retried Graphviz install
   ([#591](https://github.com/discopy/discopy/issues/591)).
 - `frobenius.Diagram.unfuse`'s doctest no longer sets `Spider.color = "red"`
