@@ -580,7 +580,7 @@ class Strategy:
 
     def spend(self) -> bool:
         "Take one beta redex from the budget, or return ``False``."
-        if self.budget == 0:
+        if self.budget is not None and self.budget <= 0:
             return False
         self.budget = None if self.budget is None else self.budget - 1
         return True

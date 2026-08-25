@@ -125,6 +125,12 @@ def test_reduce_budget():
     with raises(ValueError):
         tree0.to_term()
 
+    tree_negative = term.reduce(budget=-1)
+    assert (tree_negative.cod, tree_negative.variables, tree_negative.head)\
+        == (X, scope, 0)
+    with raises(ValueError):
+        tree_negative[0]
+
     tree1 = term.reduce(budget=1)
     assert tree1[0].to_term(len(scope)) == c
     with raises(ValueError):

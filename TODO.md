@@ -8,9 +8,8 @@ Quoted verbatim from the two unresolved review threads on #442.
 > beta redexes because the budget never equals zero. Stop when the finite
 > budget is non-positive, or reject negative budgets before reduction.
 
-- [WIP] @session_018brmB6AEz1RbKcyXjU3dXU-2026-08-25 09:00 Reproduce with a
-      negative `budget`, fix `Strategy.spend` to stop on any non-positive
-      finite budget.
+- [x] Reproduce with a negative `budget`, fix `Strategy.spend` to stop on
+      any non-positive finite budget.
 
 ## test/closed.py:19 (P3)
 
