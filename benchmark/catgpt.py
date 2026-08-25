@@ -406,7 +406,7 @@ def primitive(name: str, operation: Operation) -> Primitive:
             operation, operation.dom_width + operation.cod_width,
             operation.dom_width, reverse=True))
     return Primitive(
-        neural.Para(dom[:len(dom) - len(param)], cod, param, box),
+        neural.Para(dom[:len(dom) - len(param)], cod, box, param),
         ReverseRule(forward, reverse, cod=cod))
 
 

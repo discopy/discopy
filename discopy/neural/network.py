@@ -273,8 +273,8 @@ class Para(para.Compact):
 
     Example
     -------
-    >>> linear = lambda n: Para(Dim(n), Dim(n), Dim(n * n), Network(
-    ...     f"linear{n}", Dim(n, n * n), Dim(n)))
+    >>> linear = lambda n: Para(Dim(n), Dim(n), Network(
+    ...     f"linear{n}", Dim(n, n * n), Dim(n)), Dim(n * n))
     >>> network = linear(2) >> linear(2)
     >>> network.dom, network.cod, network.param
     (Dim(2), Dim(2), Dim(4, 4))
