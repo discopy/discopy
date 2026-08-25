@@ -222,6 +222,8 @@ class Function(function.Function, ClosedCategory):
         Parameters:
             n : The number of types to trace over.
         """
+        if n == 0:
+            return self
         if left:
             raise NotImplementedError
         dom, cod, traced = self.dom[:-n], self.cod[:-n], self.dom[-n:]
