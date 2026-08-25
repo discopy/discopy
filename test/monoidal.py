@@ -81,11 +81,11 @@ def test_Diagram_rejects_boxless_layer():
     never a layer of a diagram: the identity is the empty sequence. """
     x = Ty('x')
     with raises(ValueError):
-        Diagram(inside=(Layer.id(), ), dom=Ty(), cod=Ty())
+        Diagram(inside=(Layer(Ty(), normalise=False), ), dom=Ty(), cod=Ty())
     with raises(ValueError):
-        Diagram(inside=(Layer.id(x), ), dom=x, cod=x)
+        Diagram(inside=(Layer(x, normalise=False), ), dom=x, cod=x)
     assert Diagram.id(Ty()).inside == () == Id(x).inside[:0]
-    assert Layer.id(x).boxes == []
+    assert Layer(x, normalise=False).boxes == []
     assert (x @ Box('f', x, x)).inside[0].boxes
 
 
@@ -247,6 +247,38 @@ def test_Layer_coloured_units():
         layer @ Ty.id(red)
     with raises(AxiomError):
         Layer(Ty.id(green), f)
+
+
+def test_Layer_has_no_identity():
+    x = Ty('x')
+    f = Box('f', x, x)
+
+    with raises(ValueError):
+        Layer.id()
+    with raises(ValueError):
+        Layer.id(x)
+    with raises(ValueError):
+        Layer(Ty())
+
+    assert Ty() @ Layer(f) == Layer(f) == Layer(f) @ Ty()
+    assert not [t for t in (x @ Layer(f)).boxes_or_types
+                if isinstance(t, Ty) and not t]
+
+
+def test_Layer_unit():
+    x = Ty('x')
+    f = Box('f', x, x)
+    red, green = map(Colour, ("red", "green"))
+    coloured = Ty(Wire('w', red, green))
+    layer = Layer(coloured[:0], Box('c', coloured, coloured), coloured[1:])
+
+    assert Layer.unit() == Ty() == Ty.unit()
+    assert Layer.unit() @ Layer(f) == Layer(f) == Layer(f) @ Layer.unit()
+    assert Layer.unit(red) @ layer == layer == layer @ Layer.unit(green)
+    with raises(AxiomError):
+        Layer.unit(green) @ layer
+    with raises(ValueError):
+        Layer()
 
 
 def test_Layer_tensor():
