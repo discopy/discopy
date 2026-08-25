@@ -55,7 +55,7 @@ from discopy import messages
 from discopy.cat import rsubs
 from discopy.matrix import get_backend
 from discopy.quantum.circuit import (
-    Circuit, Digit, Ty, bit, qubit, Box, Swap, Sum, Id)
+    Circuit, Digit, Ty, bit, qubit, Box, Sum, Id)
 from discopy.tensor import backend
 from discopy.utils import factory_name, assert_isinstance
 
@@ -91,6 +91,23 @@ class AntiConjugate(Box):
 class Discard(SelfConjugate):
     """
     Discard n qubits. If :code:`dom == bit` then marginal distribution.
+
+    A gate is causal, i.e. discarding all its outputs is the same as
+    discarding all its inputs.
+
+    >>> from discopy.monoidal import Equation
+    >>> Equation(CX >> Discard(2), Discard(2)).draw(
+    ...     wire_labels=False, doctest="docs/_static/quantum/discard.svg")
+
+    .. image:: /_static/quantum/discard.svg
+        :align: center
+
+    >>> assert (CX >> Discard(2)).eval() == Discard(2).eval()
+
+    Post-selection is not causal: discarding the output of a bra is not the
+    discard of its input.
+
+    >>> assert Bra(0).eval(mixed=True) != Discard(1).eval()
     """
     draw_as_discards = True
 
@@ -239,7 +256,7 @@ class ClassicalGate(SelfConjugate):
     """
     Classical gates, i.e. from digits to digits.
 
-    >>> from sympy import symbols
+    >>> from sympy import symbols  # doctest: +EXTRA
     >>> array = symbols("a b c d")
     >>> f = ClassicalGate('f', bit, bit, array)
     >>> f.data
@@ -412,6 +429,15 @@ class Controlled(QuantumGate):
     distance : int, optional
         Number of qubits from the control to the target, default is :code:`0`.
         If negative, the control is on the right of the target.
+
+    >>> circuit = (Controlled(CX.l, distance=3)
+    ...            >> Controlled(Controlled(CZ.l, distance=2), distance=-1))
+    >>> circuit.draw(
+    ...     wire_labels=False,
+    ...     doctest="docs/_static/quantum/long-controlled.svg")
+
+    .. image:: /_static/quantum/long-controlled.svg
+        :align: center
     """
     draw_as_controlled = True
 
@@ -541,7 +567,7 @@ class Parametrized(Box):
 
     Example
     -------
-    >>> from sympy.abc import phi
+    >>> from sympy.abc import phi  # doctest: +EXTRA
     >>> from sympy import pi, exp, I
     >>> assert Rz(phi).array[0,0] == exp(-1.0 * I * pi * phi)
     >>> c = Rz(phi) >> Rz(-phi)
@@ -757,7 +783,9 @@ def scalar(expr, is_mixed=False):
     return Scalar(expr, is_mixed=is_mixed)
 
 
-SWAP = Swap(qubit, qubit)
+SWAP = QuantumGate(
+    'SWAP', qubit ** 2, qubit ** 2, draw_as_wires=True, is_dagger=None,
+    z=None, data=[1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1])
 H = QuantumGate(
     'H', qubit, qubit,
     data=[2 ** -0.5 * x for x in [1, 1, 1, -1]], is_dagger=None, z=None)

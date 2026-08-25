@@ -11,7 +11,7 @@ Summary
     :nosignatures:
     :toctree:
 
-    Ob
+    Wire
     Digit
     Qudit
     Ty
@@ -38,7 +38,7 @@ Examples
 >>> circuit = Ket(0, 0) >> CX >> Controlled(Rz(0.25)) >> Measure() @ Discard()
 >>> circuit.draw(
 ...     figsize=(3, 6),
-...     path='docs/_static/quantum/circuit-example.svg')
+...     doctest='docs/_static/quantum/circuit-example.svg')
 
 .. image:: /_static/quantum/circuit-example.svg
     :align: center
@@ -60,7 +60,7 @@ Examples
 >>> from discopy.monoidal import Equation
 >>> Equation(
 ...     sentence, F(sentence).foliation(), symbol='$\\\\mapsto$').draw(
-...         path='docs/_static/quantum/functor-example.svg')
+...         doctest='docs/_static/quantum/functor-example.svg')
 
 .. image:: /_static/quantum/functor-example.svg
     :align: center
@@ -74,10 +74,10 @@ from discopy import messages, tensor, frobenius
 from discopy.cat import factory
 from discopy.matrix import backend
 from discopy.tensor import Dim, Tensor
-from discopy.utils import factory_name, assert_isinstance
+from discopy.utils import assert_isinstance, deprecated_ob, factory_name
 
 
-class Ob(frobenius.Ob):
+class Wire(frobenius.Wire):
     """
     A circuit object is an information unit with some dimension ``dim > 1``.
 
@@ -103,7 +103,7 @@ class Ob(frobenius.Ob):
         return f"{factory_name(type(self))}({self.dim})"
 
     @classmethod
-    def from_tree(cls, tree: dict) -> Ob:
+    def from_tree(cls, tree: dict) -> Wire:
         dim, z = tree['dim'], tree.get('z', 0)
         return cls(dim=dim, z=z)
 
@@ -111,7 +111,7 @@ class Ob(frobenius.Ob):
         return dict(dim=self.dim, **super().to_tree())
 
 
-class Digit(Ob):
+class Digit(Wire):
     """
     A digit is a classical unit of information.
 
@@ -133,7 +133,7 @@ class Digit(Ob):
         super(type(self), self).__setstate__(state)
 
 
-class Qudit(Ob):
+class Qudit(Wire):
     """
     A qudit is a quantum unit of information, i.e. a quantum digit.
 
@@ -171,7 +171,7 @@ class Ty(frobenius.Ty):
     >>> print(bit ** 2 @ qubit ** 3)
     bit @ bit @ qubit @ qubit @ qubit
     """
-    generator_factory = Ob
+    generator_factory = Wire
 
 
 @factory
@@ -282,7 +282,7 @@ class Circuit(tensor.Diagram[complex]):
         :class:`discopy.tensor.Tensor` of real-valued probabilities.
 
         >>> circuit = Ket(0, 0) >> sqrt(2) @ H @ X >> CX >> Measure() @ Bra(0)
-        >>> from discopy.quantum.tk import mockBackend
+        >>> from discopy.quantum.tk import mockBackend  # doctest: +EXTRA
         >>> backend = mockBackend({(0, 1): 512, (1, 0): 512})
         >>> assert circuit.eval(backend=backend, n_shots=2**10).round()\\
         ...     == Tensor[float](dom=Dim(1), cod=Dim(2), array=[0., 1.])
@@ -364,7 +364,7 @@ class Circuit(tensor.Diagram[complex]):
         --------
         >>> from discopy.quantum import *
         >>> circuit = H @ X >> CX >> Measure(2)
-        >>> from discopy.quantum.tk import mockBackend
+        >>> from discopy.quantum.tk import mockBackend  # doctest: +EXTRA
         >>> backend = mockBackend({(0, 1): 512, (1, 0): 512})
         >>> circuit.get_counts(backend=backend, n_shots=2**10)
         {(0, 1): 0.5, (1, 0): 0.5}
@@ -445,7 +445,7 @@ class Circuit(tensor.Diagram[complex]):
             if hasattr(box, '_decompose'):
                 decomp = box._decompose()
                 diag >>= self[last_i:i]
-                left, _, right = self.inside[i]
+                left, _, right = self.inside[i].boxes_and_types
                 diag >>= Id(left) @ decomp @ Id(right)
                 last_i = i + 1
         diag >>= self[last_i:]
@@ -463,7 +463,8 @@ class Circuit(tensor.Diagram[complex]):
         q_scan1 = [n[1] for n in q_nodes1]
         q_scan2 = [n[1] for n in q_nodes2]
         nodes = c_nodes + q_nodes1 + q_nodes2
-        for left, box, _ in self.inside:
+        for layer in self.inside:
+            left, box, right = layer.boxes_and_types
             c_offset = left.count(bit)
             q_offset = left.count(qubit)
             if box == Circuit.swap(bit, bit):
@@ -473,6 +474,26 @@ class Circuit(tensor.Diagram[complex]):
                 off = left.count(qubit)
                 for scan in (q_scan1, q_scan2):
                     scan[off], scan[off + 1] = scan[off + 1], scan[off]
+            elif isinstance(box, Permutation):
+                scan, c_index, q_index = [], 0, 0
+                for typ in left @ box.dom @ right:
+                    if typ == bit:
+                        scan.append((c_scan[c_index], ))
+                        c_index += 1
+                    else:
+                        scan.append((q_scan1[q_index], q_scan2[q_index]))
+                        q_index += 1
+                start = len(left)
+                segment = scan[start:start + len(box.dom)]
+                scan[start:start + len(box.dom)] = [
+                    segment[i] for i in box.perm]
+                cod = left @ box.cod @ right
+                c_scan = [edges[0] for typ, edges in zip(cod, scan)
+                          if typ == bit]
+                q_scan1 = [edges[0] for typ, edges in zip(cod, scan)
+                           if typ == qubit]
+                q_scan2 = [edges[1] for typ, edges in zip(cod, scan)
+                           if typ == qubit]
             elif isinstance(box, Discard):
                 assert box.n_qubits == 1
                 tn.connect(q_scan1[q_offset], q_scan2[q_offset])
@@ -534,7 +555,9 @@ class Circuit(tensor.Diagram[complex]):
         Note
         ----
         * No measurements are performed.
-        * SWAP gates are treated as logical swaps.
+        * Logical swaps, i.e. :meth:`Circuit.swap`, are compiled away by
+          applying the gates to other qubits; the physical :data:`SWAP`
+          gate is emitted as :code:`OpType.SWAP`.
         * If the circuit contains scalars or a :class:`Bra`,
           then :code:`tk_circuit` will hold attributes
           :code:`post_selection` and :code:`scalar`.
@@ -544,7 +567,7 @@ class Circuit(tensor.Diagram[complex]):
         >>> from discopy.quantum import *
 
         >>> bell_test = H @ qubit >> CX >> Measure() @ Measure()
-        >>> bell_test.to_tk()
+        >>> bell_test.to_tk()  # doctest: +EXTRA
         tk.Circuit(2, 2).H(0).CX(0, 1).Measure(0, 0).Measure(1, 1)
 
         >>> circuit0 = sqrt(2) @ H @ Rx(0.5) >> CX >> Measure() @ Discard()
@@ -555,10 +578,21 @@ class Circuit(tensor.Diagram[complex]):
         >>> circuit1.to_tk()
         tk.Circuit(3).X(0).CX(0, 2)
 
+        A logical swap is plumbing: it is compiled away by applying the gate
+        to non-adjacent qubits instead.
+
+        >>> logical = Circuit.swap(qubit, qubit)
+        >>> circuit2 = X @ qubit ** 2\\
+        ...     >> qubit @ logical >> CX @ qubit >> qubit @ logical
+        >>> circuit2.to_tk()
+        tk.Circuit(3).X(0).CX(0, 2)
+
+        The ``SWAP`` gate is physical, so it is emitted as it is written.
+
         >>> circuit2 = X @ qubit ** 2\\
         ...     >> qubit @ SWAP >> CX @ qubit >> qubit @ SWAP
         >>> circuit2.to_tk()
-        tk.Circuit(3).X(0).CX(0, 2)
+        tk.Circuit(3).X(0).SWAP(1, 2).CX(0, 1).SWAP(1, 2)
 
         >>> circuit3 = Ket(0, 0)\\
         ...     >> H @ qubit\\
@@ -630,7 +664,7 @@ class Circuit(tensor.Diagram[complex]):
         Examples
         --------
         >>> from discopy.quantum import *
-        >>> import pytket as tk
+        >>> import pytket as tk  # doctest: +EXTRA
 
         >>> c = Rz(0.5) @ qubit >> qubit @ Rx(0.25) >> CX
         >>> assert Circuit.from_tk(c.to_tk()) == c.init_and_discard()
@@ -643,15 +677,24 @@ class Circuit(tensor.Diagram[complex]):
           >> qubit @ qubit @ Ket(0)
           >> qubit @ H @ qubit
           >> qubit @ CX
-          >> SWAP @ qubit
+          >> Permutation(qubit @ qubit @ qubit, [1, 0, 2])
           >> CX @ qubit
-          >> SWAP @ qubit
+          >> Permutation(qubit @ qubit @ qubit, [1, 0, 2])
           >> Discard(qubit) @ qubit @ qubit
           >> Discard(qubit) @ qubit
           >> Discard(qubit)
+
+        The swaps introduced here are logical, i.e. plumbing rather than
+        ``SWAP`` gates: they only record that the gate applies to qubits
+        that are not adjacent in the diagram.
+
         >>> circuit = Ket(1, 0) >> CX >> qubit @ Ket(0) @ qubit
-        >>> print(Circuit.from_tk(circuit.to_tk())[3:-3])
-        X @ qubit @ qubit >> qubit @ SWAP >> CX @ qubit >> qubit @ SWAP
+        >>> logical = Circuit.swap(qubit, qubit)
+        >>> assert Circuit.from_tk(circuit.to_tk())[3:-3] == (
+        ...     X @ qubit @ qubit
+        ...     >> qubit @ logical
+        ...     >> CX @ qubit
+        ...     >> qubit @ logical)
 
         >>> bell_state = Circuit.caps(qubit, qubit)
         >>> bell_effect = bell_state[::-1]
@@ -690,7 +733,7 @@ class Circuit(tensor.Diagram[complex]):
         Examples
         --------
         >>> from math import pi
-        >>> from sympy.abc import phi
+        >>> from sympy.abc import phi  # doctest: +EXTRA
         >>> from discopy.quantum import *
         >>> circuit = Rz(phi / 2) @ Rz(phi + 1) >> CX
         >>> assert circuit.grad(phi, mixed=False)\\
@@ -716,7 +759,7 @@ class Circuit(tensor.Diagram[complex]):
 
         Examples
         --------
-        >>> from sympy.abc import x, y
+        >>> from sympy.abc import x, y  # doctest: +EXTRA
         >>> from discopy.quantum.gates import Bits, Ket, Rx, Rz
         >>> circuit = Ket(0) >> Rx(x) >> Rz(y)
         >>> assert circuit.jacobian([x, y])\\
@@ -738,10 +781,11 @@ class Circuit(tensor.Diagram[complex]):
         params = dict({'wire_labels': wire_labels}, **params)
         return super().draw(**params)
 
-    @staticmethod
-    def permutation(perm, dom=None):
-        dom = qubit ** len(perm) if dom is None else dom
-        return frobenius.Diagram.permutation.__func__(Circuit, perm, dom)
+    @classmethod
+    def permutation(cls, perm, doms=None):
+        doms = qubit ** len(perm) if doms is None\
+            else doms
+        return super().permutation(perm, doms)
 
     @staticmethod
     def cup_factory(left, right):
@@ -882,18 +926,28 @@ class Sum(tensor.Sum[complex], Box):
         return [circuit.to_tk() for circuit in self.terms]
 
 
-class Swap(tensor.Swap, Box):
-    """ Implements swaps of circuit wires. """
+class Permutation(tensor.Permutation[complex], Box):
+    "A permutation in a quantum circuit."
+
     @property
     def is_mixed(self):
-        return not isinstance(self.left.inside[0], type(self.right.inside[0]))
+        return any(type(left.inside[0]) is not type(right.inside[0])
+                   for left, right in zip(self.dom, self.cod))
 
     @property
     def is_classical(self):
-        return not self.is_mixed and isinstance(self.left.inside[0], Digit)
+        return not self.is_mixed\
+            and all(isinstance(x.inside[0], Digit) for x in self.dom)
 
-    def __str__(self):
-        return "SWAP" if self.dom == qubit ** 2 else super().__str__()
+
+class Swap(Permutation, tensor.Swap, Box):
+    """
+    The logical swap of two circuit wires, i.e. plumbing.
+
+    This is the symmetry of the category, not the physical ``SWAP`` gate:
+    a compiler is free to implement it by relabelling qubits rather than by
+    applying a two-qubit unitary.
+    """
 
     @property
     def array(self):
@@ -927,6 +981,10 @@ def bitstring2index(bitstring):
     return sum(value * 2 ** i for i, value in enumerate(bitstring[::-1]))
 
 
-Circuit.braid_factory, Circuit.sum_factory = Swap, Sum
+Circuit.swap_factory, Circuit.sum_factory = Swap, Sum
+Circuit.permutation_factory = Permutation
 bit, qubit = Ty(Digit(2)), Ty(Qudit(2))
 Id = Circuit.id
+
+
+__getattr__ = deprecated_ob(__name__)

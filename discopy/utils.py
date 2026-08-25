@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import json
 from functools import lru_cache, wraps
+from math import ceil
+from pathlib import Path
 from typing import (
     Callable,
     Mapping,
@@ -17,6 +19,8 @@ from typing import (
     TYPE_CHECKING,
 )
 
+import matplotlib
+from matplotlib.font_manager import FontProperties
 from matplotlib.textpath import TextPath
 from networkx import Graph, connected_components
 
@@ -29,6 +33,10 @@ if TYPE_CHECKING:
 KT = TypeVar('KT')
 VT = TypeVar('VT')
 V2T = TypeVar('V2T')
+
+_DEFAULT_FONT_PATH = (
+    Path(matplotlib.get_data_path()) / "fonts" / "ttf" / "DejaVuSans.ttf")
+_DEFAULT_FONT = FontProperties(fname=_DEFAULT_FONT_PATH)
 
 
 class MappingOrCallable(Mapping[KT, VT]):
@@ -121,6 +129,39 @@ def product(xs: list, unit=1):
     >>> assert product([1, 2, 3], unit=[42]) == 6 * [42]
     """
     return unit if not xs else product(xs[1:], unit * xs[0])
+
+
+def deprecated_ob(module_name: str):
+    """
+    The module-level ``__getattr__`` of the modules whose ``Ob`` class was
+    renamed to ``Wire``, returning the new class with a
+    :class:`DeprecationWarning`.
+
+    Parameters:
+        module_name : The ``__name__`` of the module deprecating its ``Ob``.
+
+    Example
+    -------
+    >>> import warnings
+    >>> from discopy import rigid
+    >>> with warnings.catch_warnings(record=True) as w:
+    ...     warnings.simplefilter("always")
+    ...     assert rigid.Ob is rigid.Wire
+    >>> print(w[-1].message)
+    discopy.rigid.Ob is deprecated, use discopy.rigid.Wire instead.
+    """
+    def __getattr__(name):
+        if name == "Ob":
+            import sys
+            import warnings
+            warnings.warn(
+                f"{module_name}.Ob is deprecated, "
+                f"use {module_name}.Wire instead.",
+                DeprecationWarning, stacklevel=2)
+            return sys.modules[module_name].Wire
+        raise AttributeError(
+            f"module {module_name!r} has no attribute {name!r}")
+    return __getattr__
 
 
 def factory_name(cls: type) -> str:
@@ -400,16 +441,22 @@ class BinaryBoxConstructor:
 
 
 @lru_cache(maxsize=1024)
-def text_width(text: str, rounded=3, fontsize=12, points_per_inch=72.):
+def text_width(text: str, fontsize=12, points_per_inch=72., grid=16):
     """ The width of a text label in drawing units, i.e. inches.
 
-    Measured from the actual glyph outlines with matplotlib's text layout up to
-    `rounded` decimals at a given `fontsize` and `points_per_inch` conversion.
+    Measured from the actual glyph outlines with matplotlib's text layout,
+    using the fixed font bundled with matplotlib so that different systems
+    agree, at a given `fontsize` and `points_per_inch` conversion, then
+    rounded up to the next `1 / grid` of an inch so that any remaining
+    sub-pixel differences in font metrics across environments cannot change
+    the layout of a diagram.
     """
     if not text:
         return 0
-    width = TextPath((0, 0), text, size=fontsize).get_extents().width
-    return round(width / points_per_inch, rounded)
+    width = TextPath(
+        (0, 0), text, prop=_DEFAULT_FONT, size=fontsize,
+        usetex=False).get_extents().width
+    return ceil(width / points_per_inch * grid) / grid
 
 
 def tuplify(stuff: any) -> tuple:
@@ -574,3 +621,55 @@ class Point(NamedTuple):
 
     def shift(self, x=0, y=0):
         return Point(self.x + x, self.y + y)
+
+
+class RichDisplay:
+    """
+    Mixin implementing IPython's rich display protocol, see
+    https://ipython.readthedocs.io/en/stable/config/integrating.html
+
+    Any DisCoPy object with a :meth:`to_drawing` method, e.g. a
+    :class:`discopy.monoidal.Diagram`, a :class:`discopy.drawing.Drawing`
+    or an :class:`discopy.drawing.Equation`, is displayed as an SVG image
+    (with a PNG fallback in the mimebundle) when it is the output of a cell
+    in Jupyter, marimo and other frontends that support the protocol.
+
+    Example
+    -------
+    >>> from discopy.monoidal import Ty, Box
+    >>> f = Box('f', Ty('x'), Ty('y'))
+    >>> svg, png = f._repr_svg_(), f.to_png()
+    >>> assert svg.startswith('<?xml') and '</svg>\\n' in svg
+    >>> assert png.startswith(b'\\x89PNG')
+    >>> assert f._repr_mimebundle_() == {
+    ...     'image/svg+xml': svg, 'image/png': png}
+    >>> assert f._repr_mimebundle_(include=['image/svg+xml']) == {
+    ...     'image/svg+xml': svg}
+    >>> assert f._repr_mimebundle_(exclude=['image/svg+xml']) == {
+    ...     'image/png': png}
+    >>> assert f._repr_mimebundle_(include=['text/html']) == {}
+    """
+    def to_svg(self, **params) -> str:
+        """ Draw as a standalone SVG string. """
+        from io import StringIO
+        buffer = StringIO()
+        self.to_drawing().draw(
+            path=buffer, format="svg", show=False, **params)
+        return buffer.getvalue()
+
+    def to_png(self, **params) -> bytes:
+        """ Draw as PNG bytes. """
+        from io import BytesIO
+        buffer = BytesIO()
+        self.to_drawing().draw(
+            path=buffer, format="png", show=False, **params)
+        return buffer.getvalue()
+
+    def _repr_svg_(self) -> str:
+        return self.to_svg()
+
+    def _repr_mimebundle_(self, include=None, exclude=None) -> dict:
+        data = {"image/svg+xml": self.to_svg, "image/png": self.to_png}
+        return {mimetype: draw() for mimetype, draw in data.items()
+                if (include is None or mimetype in include)
+                and (exclude is None or mimetype not in exclude)}

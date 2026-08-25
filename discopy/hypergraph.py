@@ -36,7 +36,7 @@ from inspect import isclass
 from itertools import chain
 
 import random
-from typing import Any, Iterable, Union, TYPE_CHECKING
+from typing import Any, Iterable, Union, TYPE_CHECKING, Sequence
 
 import matplotlib.pyplot as plt
 
@@ -54,7 +54,7 @@ from networkx.algorithms.isomorphism import is_isomorphic
 from discopy import cmap, messages
 from discopy.abc import (
     HypergraphCategory, MarkovCategory, MonoidalCategory, NamedGeneric)
-from discopy.drawing import Node
+from discopy.drawing import Node, backend
 from discopy.python.finset import Permutation
 from discopy.utils import (
     factory_name,
@@ -419,7 +419,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
     braid = swap
 
     @classmethod
-    def permutation(cls, xs: list[int], dom) -> Hypergraph:
+    def permutation(cls, xs: Sequence[int], doms: Sequence) -> Hypergraph:
         """
         The hypergraph that encodes a given permutation, with the same
         semantics as :meth:`discopy.symmetric.Diagram.permutation` but
@@ -428,11 +428,15 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
 
         Parameters:
             xs : A list of integers representing a permutation.
-            dom : A type of the same length as ``xs``.
+            dom : A list of types of the same length as ``xs``.
         """
-        if list(range(len(dom))) != sorted(xs):
-            raise ValueError(messages.WRONG_PERMUTATION.format(len(dom), xs))
-        cod, boxes = dom.ob(*(dom.inside[i] for i in xs)), ()
+        xs = Permutation(xs, len(doms))
+        dom = cls.ob.tensor(*doms) if doms else\
+            doms if isinstance(doms, cls.ob) else cls.ob.unit()
+        if xs.is_identity:
+            return cls.id(dom)
+        cod = cls.ob.tensor(*(doms[i] for i in xs)) if dom else cls.ob.unit()
+        boxes = ()
         dom_wires, cod_wires = tuple(range(len(dom))), tuple(xs)
         return cls(dom, cod, boxes, (dom_wires, (), cod_wires))
 
@@ -526,6 +530,8 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
             n : The number of wires to trace.
             left : Whether to trace on the left or right.
         """
+        if n == 0:
+            return self
         assert_istraceable(self, n, left)
         dom, cod = (self.dom[n:], self.cod[n:]) if left\
             else (self.dom[:-n], self.cod[:-n])
@@ -1407,7 +1413,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         >>> print(v >> H.swap(x, x) >> v[::-1])
         v >> Swap(x, x) >> v[::-1]
         >>> print(x @ H.swap(x, x) >> v[::-1] @ x)
-        x @ Swap(x, x) >> v[::-1] @ x
+        Permutation(x @ x @ x, [0, 2, 1]) >> v[::-1] @ x
         """
         if self.scalar_spiders or not self.is_causal or not self.is_monogamous:
             if issubclass(self.category, HypergraphCategory):
@@ -1616,8 +1622,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
 
     def spring_layout(self, seed=None, k=None):
         """ Computes a layout using a force-directed algorithm. """
-        if seed is not None:
-            random.seed(seed)
+        rng = random.Random(seed)
         graph, pos = self.to_graph().to_undirected(), {}
         height = len(self.boxes) + self.n_spiders
         width = max(len(self.dom), len(self.cod))
@@ -1626,15 +1631,15 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         for i, (dom_wires, cod_wires) in enumerate(self.box_wires):
             box_node = Node("box", i=i, box=self.boxes[i])
             pos[box_node] = (
-                random.uniform(-width / 2, width / 2),
-                random.uniform(0, height))
+                rng.uniform(-width / 2, width / 2),
+                rng.uniform(0, height))
             for kind, wires in [("dom", dom_wires), ("cod", cod_wires)]:
                 for j, spider in enumerate(wires):
                     pos[Node(kind, i=i, j=j)] = pos[box_node]
         for i, obj in enumerate(self.spider_types):
             pos[Node("spider", i=i, obj=obj)] = (
-                random.uniform(-width / 2, width / 2),
-                random.uniform(0, height))
+                rng.uniform(-width / 2, width / 2),
+                rng.uniform(0, height))
         for i, obj in enumerate(self.cod):
             pos[Node("output", i=i, obj=obj)] = (i, 0)
         fixed = self.ports[:len(self.dom)] + self.ports[
@@ -1642,7 +1647,8 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         pos = spring_layout(graph, pos=pos, fixed=fixed, k=k, seed=seed)
         return graph, pos
 
-    def draw(self, seed=None, k=.25, path=None):
+    @backend.matplotlib_context()
+    def draw(self, seed=None, k=.25, path=None, doctest=None):
         """
         Draw a hypegraph using a force-based layout algorithm.
 
@@ -1652,13 +1658,13 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         >>> x, y, z = map(Ty, "xyz")
         >>> f = Box('f', x, y @ z).to_hypergraph()
         >>> f.draw(
-        ...     path='docs/_static/hypergraph/box.svg', seed=42)
+        ...     doctest='docs/_static/hypergraph/box.svg', seed=42)
 
         .. image:: /_static/hypergraph/box.svg
             :align: center
 
         >>> (H.spiders(2, 2, x) >> f @ x).draw(
-        ...     path='docs/_static/hypergraph/diagram.svg', seed=42)
+        ...     doctest='docs/_static/hypergraph/diagram.svg', seed=42)
 
         .. image:: /_static/hypergraph/diagram.svg
             :align: center
@@ -1686,7 +1692,10 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
             graph, pos=pos, labels=labels,
             nodelist=nodelist, node_size=node_size,
             node_color="white", edgecolors="black")
+        path, compare = backend.doctest_or_path(path, doctest)
         if path is not None:
-            plt.savefig(path)
-            plt.close()
+            try:
+                backend.savefig(path, compare=compare)
+            finally:
+                plt.close()
         plt.show()

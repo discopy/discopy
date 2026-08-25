@@ -7,6 +7,14 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+# Keep an older run from replacing the comment for a newer head commit.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   benchmark:
     # Only run on main / manual dispatch, or on pull requests tagged "benchmark".
@@ -14,12 +22,38 @@ jobs:
       github.event_name != 'pull_request'
       || contains(github.event.pull_request.labels.*.name, 'benchmark')
     runs-on: ubuntu-latest
-    timeout-minutes: 15   # backstop: BENCH_FLAGS=bench:full has no in-process cap (~3-4 min observed)
+    timeout-minutes: 30   # every run benchmarks two commits, ~4 min each
+    env:
+      # What the head commit is compared against, on the same runner: the base
+      # of a pull request, or the branch before a push. A manual dispatch and a
+      # newly created branch have neither, and only render the head commit.
+      PREV_SHA: >-
+        ${{ github.event.pull_request.base.sha
+        || (!github.event.created && github.event.before)
+        || '' }}
+      # Pull requests run the small/medium default sizes, main and manual
+      # dispatch the full tail. Both runs need the same sizes to compare.
+      BENCH_FLAGS: ${{ github.event_name != 'pull_request' && 'bench:full' || '' }}
     strategy:
       matrix:
         python-version: [ "3.14" ]
     steps:
+    - name: Prepare PR metadata
+      if: github.event_name == 'pull_request'
+      env:
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        RUN_ID: ${{ github.run_id }}
+      run: |
+        mkdir -p "$RUNNER_TEMP/benchmark-comment"
+        printf '{"pull_request":%s,"base":"%s","head":"%s","run_id":%s}\n' \
+          "$PR_NUMBER" "$BASE_SHA" "$HEAD_SHA" "$RUN_ID" \
+          > "$RUNNER_TEMP/benchmark-comment/metadata.json"
     - uses: actions/checkout@v4
+      with:
+        ref: ${{ env.PREV_SHA || github.sha }}
+        persist-credentials: false
     - name: Setup uv
       uses: astral-sh/setup-uv@v5
       with:
@@ -32,24 +66,59 @@ jobs:
     - name: Install
       run:
         uv sync --locked --group dev
+    - name: Benchmark the previous commit
+      if: env.PREV_SHA != ''
+      run:
+        uv run pytest benchmark/ -v
+          --benchmark-json="$RUNNER_TEMP/previous.json"
+    - name: Checkout the head commit
+      if: env.PREV_SHA != ''
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha || github.sha }}
+        persist-credentials: false
+    - name: Install the head commit
+      if: env.PREV_SHA != ''
+      # Checkout deletes the generated version module, so rebuild the project.
+      run:
+        uv sync --locked --group dev --reinstall-package discopy
     - name: Name the artifact after the branch
       if: always()
       run: echo "slug=${REF//\//-}" >> "$GITHUB_OUTPUT"
       id: branch
       env:
         REF: ${{ github.head_ref || github.ref_name }}
-    - name: Run composition benchmark
-      # PRs run the small/medium sizes as a smoke; main / manual dispatch run the
-      # full size tail (BENCH_FLAGS=bench:full).
+    - name: Benchmark the head commit
       run: |
         mkdir -p benchmark-results
-        uv run pytest benchmark/ -v --benchmark-json=benchmark-results/bench.json
-    - name: Render report (and gate on the committed baseline, if present)
-      if: always()
+        uv run pytest benchmark/ -v \
+          --benchmark-json=benchmark-results/bench.json
+    - name: Render the report for the head commit
       run:
         uv run python benchmark/report.py benchmark-results/bench.json
           --output benchmark-results
-          --baseline benchmark/baseline.json
+          ${PREV_SHA:+--base "$RUNNER_TEMP/previous.json"}
+    - name: Summarise the comparison
+      # A regression is a warning, never a failure: the runner is shared, so
+      # an unrelated case can cross the threshold on noise alone.
+      if: env.PREV_SHA != ''
+      run: |
+        cat benchmark-results/comparison.md >> "$GITHUB_STEP_SUMMARY"
+        grep -q '^\*\*WARNING:' benchmark-results/comparison.md \
+          && echo "::warning::Important benchmark regressions, see the summary." \
+          || true
+    - name: Stage the comparison for the comment
+      if: github.event_name == 'pull_request'
+      run:
+        cp benchmark-results/comparison.md "$RUNNER_TEMP/benchmark-comment/"
+        || true
+    - name: Upload PR comment data
+      if: always() && github.event_name == 'pull_request'
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-comment
+        path: ${{ runner.temp }}/benchmark-comment/
+        retention-days: 1
     - name: Upload benchmark results
       if: always()
       uses: actions/upload-artifact@v4

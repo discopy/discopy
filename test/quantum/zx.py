@@ -1,5 +1,7 @@
 import random
 
+import pytest
+
 import numpy as np
 from pytest import raises, fixture
 
@@ -31,7 +33,7 @@ def random_had_cnot_diagram():
 def test_Diagram():
     bialgebra = Z(1, 2) @ Z(1, 2) >> PRO(1) @ SWAP @ PRO(1) >> X(2, 1) @ X(2, 1)
     assert str(bialgebra) == "Z(1, 2) @ PRO(1) >> PRO(2) @ Z(1, 2) " \
-                             ">> PRO(1) @ SWAP @ PRO(1) " \
+                             ">> Permutation(PRO(4), [0, 2, 1, 3]) " \
                              ">> X(2, 1) @ PRO(2) >> PRO(1) @ X(2, 1)"
 
 
@@ -72,12 +74,14 @@ def test_Functor():
 
 
 def test_subs():
+    pytest.importorskip("pyzx")
     from sympy.abc import phi, psi
     assert Z(3, 2, phi).subs(phi, 1) == Z(3, 2, 1)
     assert scalar(phi).subs(phi, psi) == scalar(psi)
 
 
 def test_grad():
+    pytest.importorskip("pyzx")
     from sympy.abc import phi, psi
     from math import pi
     assert not scalar(phi).grad(psi) and scalar(phi).grad(phi) == scalar(1)
@@ -89,15 +93,18 @@ def test_grad():
 
 
 def test_to_pyzx_errors():
+    pytest.importorskip("pyzx")
     with raises(NotImplementedError):
         Diagram.to_pyzx(quantum.H)
 
 
 def test_to_pyzx():
+    pytest.importorskip("pyzx")
     assert Diagram.from_pyzx(Z(0, 2).to_pyzx()) == Z(0, 2) >> SWAP
 
 
 def test_to_pyzx_scalar():
+    pytest.importorskip("pyzx")
     # Test that a scalar is translated to the corresponding pyzx object.
     k = np.exp(np.pi / 4 * 1j)
     m = (scalar(k) @ scalar(k) @ PRO(1)).to_pyzx().to_matrix()
@@ -106,6 +113,7 @@ def test_to_pyzx_scalar():
 
 
 def test_from_pyzx_errors():
+    pytest.importorskip("pyzx")
     bialgebra = Z(1, 2) @ Z(1, 2) >> PRO(1) @ SWAP @ PRO(1) >> X(2, 1) @ X(2, 1)
     graph = bialgebra.to_pyzx()
     graph.set_inputs(())
@@ -119,8 +127,9 @@ def test_from_pyzx_errors():
 
 
 def test_backnforth_pyzx_1():
+    pytest.importorskip("pyzx")
     from pyzx import Graph
-    path = 'test/utils/zx-graph.json'
+    path = 'test/fixtures/zx-graph.json'
     graph = Graph.from_json(open(path).read())
     diagram = Diagram.from_pyzx(graph)
     backnforth = lambda diagram: Diagram.from_pyzx(diagram.to_pyzx())
@@ -128,6 +137,7 @@ def test_backnforth_pyzx_1():
 
 
 def test_backnforth_pyzx_2(random_had_cnot_diagram):
+    pytest.importorskip("pyzx")
     from pyzx import compare_tensors
     backnforth = lambda diagram: Diagram.from_pyzx(diagram.to_pyzx())
     c = random_had_cnot_diagram(3, 25)
@@ -145,6 +155,7 @@ def _std_basis_v(*c):
 
 
 def test_circuit2zx():
+    pytest.importorskip("pyzx")
     circuit = Ket(0, 0) >> quantum.H @ Rx(0) >> CRz(0) >> CRx(0) >> CU1(0)
     assert circuit2zx(circuit) == Diagram.decode(
         dom=PRO(0), boxes_and_offsets=zip([

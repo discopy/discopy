@@ -83,7 +83,7 @@ def test_Diagram():
     assert Diagram.bc(x, y, z)\
         == (Id(x) @ Id(x >> y) @ Id(y >> z)
             >> Eval(x >> y) @ Id(y >> z)
-            >> Eval(y >> z)).curry()
+            >> Eval(y >> z)).curry(left=False)
     assert Diagram.fx(x, y, z) == ForwardCrossedComposition(x << y, z >> y)
     assert Diagram.bx(x, y, z) == BackwardCrossedComposition(y << x, y >> z)
 
@@ -230,27 +230,27 @@ def test_to_tree():
 
 def pregroup_diagram():
     from discopy.grammar.pregroup import Ty, Box, Cup, Diagram
-    from discopy.rigid import Ob
+    from discopy.rigid import Wire
 
     boxes = [
         Box('that', Ty(), Ty('NP')),
-        Box("'s", Ty(), Ty(Ob('NP', z=1), 'S', Ob('NP', z=-1))),
-        Box('exactly', Ty(), Ty(Ob('S', z=1), Ob('NP', z=2), Ob('NP', z=1), 'S')),
-        Box('bx', Ty(Ob('NP', z=1), 'S', Ob('NP', z=-1), Ob('S', z=1), Ob('NP', z=2), Ob('NP', z=1), 'S'), Ty(Ob('NP', z=1), 'S', Ob('NP', z=-1))),
-        Box('what', Ty(), Ty('NP', Ob('NP', z=-2), Ob('S', z=-1))),
+        Box("'s", Ty(), Ty(Wire('NP', z=1), 'S', Wire('NP', z=-1))),
+        Box('exactly', Ty(), Ty(Wire('S', z=1), Wire('NP', z=2), Wire('NP', z=1), 'S')),
+        Box('bx', Ty(Wire('NP', z=1), 'S', Wire('NP', z=-1), Wire('S', z=1), Wire('NP', z=2), Wire('NP', z=1), 'S'), Ty(Wire('NP', z=1), 'S', Wire('NP', z=-1))),
+        Box('what', Ty(), Ty('NP', Wire('NP', z=-2), Wire('S', z=-1))),
         Box('i', Ty(), Ty('NP')),
-        Box('tr', Ty('NP'), Ty('S', Ob('S', z=-1), 'NP')),
-        Box('showed', Ty(), Ty(Ob('NP', z=1), 'S', Ob('NP', z=-1))),
-        Box('to', Ty(), Ty(Ob('S', z=1), Ob('NP', z=2), Ob('NP', z=1), 'S', Ob('NP', z=-1))),
+        Box('tr', Ty('NP'), Ty('S', Wire('S', z=-1), 'NP')),
+        Box('showed', Ty(), Ty(Wire('NP', z=1), 'S', Wire('NP', z=-1))),
+        Box('to', Ty(), Ty(Wire('S', z=1), Wire('NP', z=2), Wire('NP', z=1), 'S', Wire('NP', z=-1))),
         Box('her', Ty(), Ty('NP')),
-        Cup(Ty(Ob('NP', z=-1)), Ty('NP')),
-        Box('bx', Ty(Ob('NP', z=1), 'S', Ob('NP', z=-1), Ob('S', z=1), Ob('NP', z=2), Ob('NP', z=1), 'S'), Ty(Ob('NP', z=1), 'S', Ob('NP', z=-1))),
-        Cup(Ty('NP'), Ty(Ob('NP', z=1))),
-        Cup(Ty(Ob('S', z=-1)), Ty('S')),
-        Cup(Ty(Ob('S', z=-1)), Ty('S')),
-        Cup(Ty(Ob('NP', z=-2)), Ty(Ob('NP', z=-1))),
-        Cup(Ty(Ob('NP', z=-1)), Ty('NP')),
-        Cup(Ty('NP'), Ty(Ob('NP', z=1))),
+        Cup(Ty(Wire('NP', z=-1)), Ty('NP')),
+        Box('bx', Ty(Wire('NP', z=1), 'S', Wire('NP', z=-1), Wire('S', z=1), Wire('NP', z=2), Wire('NP', z=1), 'S'), Ty(Wire('NP', z=1), 'S', Wire('NP', z=-1))),
+        Cup(Ty('NP'), Ty(Wire('NP', z=1))),
+        Cup(Ty(Wire('S', z=-1)), Ty('S')),
+        Cup(Ty(Wire('S', z=-1)), Ty('S')),
+        Cup(Ty(Wire('NP', z=-2)), Ty(Wire('NP', z=-1))),
+        Cup(Ty(Wire('NP', z=-1)), Ty('NP')),
+        Cup(Ty('NP'), Ty(Wire('NP', z=1))),
     ]
     offsets = [0, 1, 4, 1, 4, 7, 7, 10, 13, 18, 17, 10, 9, 8, 6, 5, 3, 0]
     return Diagram.decode(Ty(), zip(boxes, offsets))
@@ -263,7 +263,7 @@ def test_to_pregroup():
     x_, y_ = pregroup.Ty('x'), pregroup.Ty('y')
     assert Diagram.ba(x, y).curry(left=True).to_pregroup().normal_form()\
         == Cap(y_, y_.l) @ Id(x_)
-    assert Diagram.fa(x, y).curry().to_pregroup().normal_form()\
+    assert Diagram.fa(x, y).curry(left=False).to_pregroup().normal_form()\
         == Id(y_) @ Cap(x_.r, x_)
     assert Diagram.to_pregroup(Diagram.fc(x, y, x)).normal_form()\
         == Id(x_) @ Cup(y_.l, y_) @ Id(x_.l)
@@ -275,6 +275,22 @@ def test_to_pregroup():
     assert Diagram.to_pregroup(BackwardCrossedComposition(y << x, y >> x))\
         == Id(y_) @ Swap(x_.l, y_.r) @ Id(x_) >>\
         Cup(y_, y_.r) @ Swap(x_.l, x_)
+
+
+def test_cat2ty():
+    s, n = Ty('S'), Ty('NP')
+    assert cat2ty('S') == s
+    assert cat2ty(r'S[dcl]\NP') == n >> s
+    assert cat2ty(r'(S[dcl]\NP)/NP') == (n >> s) << n
+
+    assert cat2ty(r'(S\NP)') == n >> s
+    assert cat2ty('((NP))') == n
+
+    assert cat2ty(r'(S\NP)\(S\NP)[conj]') == (n >> s) >> (n >> s)
+    assert cat2ty('NP[conj]') == n
+
+    assert cat2ty(r'S\NP/NP') == cat2ty(r'(S\NP)/NP')
+    assert cat2ty(r'S/NP\NP') == cat2ty(r'(S/NP)\NP')
 
 
 def test_tree2diagram():

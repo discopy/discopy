@@ -22,9 +22,6 @@ Summary
     Eval
     Coeval
     Curry
-    Swap
-    Trace
-    Copy
     Discard
     Sum
     Functor
@@ -39,13 +36,13 @@ Axioms
 >>> f, g = Box('f', x, z << y), Box('g', x @ y, z)
 
 >>> Equation(f.uncurry().curry(), f).draw(
-...     path='docs/_static/closed/curry-left.svg', margins=(0.1, 0.05))
+...     doctest='docs/_static/closed/curry-left.svg', margins=(0.1, 0.05))
 
 .. image:: /_static/closed/curry-left.svg
     :align: center
 
 >>> Equation(g.curry().uncurry(), g).draw(
-...     path='docs/_static/closed/uncurry.svg')
+...     doctest='docs/_static/closed/uncurry.svg')
 
 .. image:: /_static/closed/uncurry.svg
     :align: center
@@ -72,7 +69,7 @@ class Ty(biclosed.Ty):
     >>> X, Y = Ty("X"), Ty("Y")
     >>> t = X(lambda x: (X >> Y)(lambda f: f(x)))
     >>> t.draw(
-    ...     path='docs/_static/closed/diagram.svg',
+    ...     doctest='docs/_static/closed/diagram.svg',
     ...     aspect="auto", figsize=(8, 8), margins=(0.2, 0))
 
     .. image:: /_static/closed/diagram.svg
@@ -172,7 +169,11 @@ class Curry(biclosed.Curry, Box):
     "The currying of a closed diagram."
 
 
-class Swap(markov.Swap, Box):
+class Permutation(markov.Permutation, Box):
+    "A permutation in a closed diagram."
+
+
+class Swap(Permutation, markov.Swap, Box):
     "Symmetric swap in a closed diagram."
 
 
@@ -187,7 +188,7 @@ class Copy(markov.Copy, Box):
 
 
 class Discard(markov.Discard, Copy):
-    "The discard of a closed type, i.e. a copy with zero legs."
+    "A markov discard in a closed category."
 
 
 class Sum(markov.Sum, biclosed.Sum, Box):
@@ -233,7 +234,8 @@ Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.copy_factory = Copy
-Diagram.braid_factory = Swap
+Diagram.swap_factory = Swap
+Diagram.permutation_factory = Permutation
 Diagram.curry_factory = Curry
 Diagram.eval_factory = Eval
 Diagram.coeval_factory = Coeval
@@ -359,28 +361,24 @@ class Variable(TermBase, biclosed.Variable):
 
 class Application(TermBase, biclosed.Application):
     def __check_dom__(self, func, args, left):
-        self.overlap = any(
-            variable in args.freevars for variable in func.freevars)
-        freevars = args.freevars + func.freevars if left\
-            else func.freevars + args.freevars
-        self.freevars = list(dict.fromkeys(freevars))
+        self.overlap = set(func.freevars).intersection(args.freevars)
+        self.freevars = list(dict.fromkeys(func.freevars + args.freevars))
         return self.ob().tensor(*[x.cod for x in self.freevars])
 
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
         base, exponent = self.func.cod.base, self.func.cod.exponent
-        evaluate = functor.cod.ev(
-            functor(base), functor(exponent), left=not self.left)
+        evaluate = functor.cod.ev(functor(base), functor(exponent))
         if context is None:
             if not self.overlap:
                 func = self.func.eval(functor=functor)
                 args = self.args.eval(functor=functor)
-                return (args @ func if self.left else func @ args) >> evaluate
+                return func @ args >> evaluate
             context = Context(self.freevars)
         func = self.func.eval(functor=functor, context=context)
         args = self.args.eval(functor=functor, context=context)
         return functor.cod.copy(functor(context.dom))\
-            >> (args @ func if self.left else func @ args) >> evaluate
+            >> func @ args >> evaluate
 
 
 class Abstraction(TermBase, biclosed.Abstraction):
@@ -390,35 +388,20 @@ class Abstraction(TermBase, biclosed.Abstraction):
 
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
-        mapped_var = functor(self.var.cod)
-        n = len(mapped_var)
-        if context is not None:
-            inside = [self.var] + context.inside if self.left\
-                else context.inside + [self.var]
-            new_context = Context(inside)
+        if self.left:
+            return type(self)(self.var, self.body).eval(functor, context)
+        if context:
+            new_context = Context([self.var] + context.inside)
             body = self.body.eval(functor=functor, context=new_context)
-            return functor.cod.curry(body, n, not self.left)
-
+            return body.curry(left=False)
         body = self.body.eval(functor=functor)
         if self.var not in self.body.freevars:
-            discard = functor.cod.discard(mapped_var)
-            body = discard @ body if self.left else body @ discard
-            return functor.cod.curry(body, n, not self.left)
-
-        i = self.body.freevars.index(self.var)
-        start = sum(
-            len(functor(variable.cod))
-            for variable in self.body.freevars[:i])
-        stop = start + n
-        before, bound, after = (
-            list(range(start)), list(range(start, stop)),
-            list(range(stop, len(body.dom))))
-        permutation = bound + before + after if self.left\
-            else before + after + bound
-        if permutation != list(range(len(body.dom))):
-            permute = functor.cod.permutation(permutation, body.dom).dagger()
-            body = permute >> body
-        return functor.cod.curry(body, n, not self.left)
+            discard = functor.cod.discard(functor(self.var.cod))
+            return (discard @ body.dom >> body).curry(left=False)
+        i, n = self.body.freevars.index(self.var), len(self.body.freevars)
+        p = [i] + [j for j in range(n) if j != i]
+        doms = [self.ob(wire) for wire in body.dom.inside]
+        return (body.permutation(p, doms).dagger() >> body).curry(left=False)
 
 
 @dataclass
@@ -428,7 +411,7 @@ class Context:
 
     @property
     def dom(self):
-        return self.category.ob.tensor(*[x.cod for x in self.inside])
+        return self.category.ob().tensor(*[x.cod for x in self.inside])
 
 
 @dataclass

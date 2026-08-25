@@ -1,0 +1,24 @@
+graph cmap {
+  graph [bgcolor="white", fontname="DejaVu Sans", layout="dot", margin="0.04", outputorder="edgesfirst", overlap="false", rankdir="TB", splines="true"];
+  node [color="black", fontname="DejaVu Sans", fontsize="12", margin="0", shape="plain"];
+  edge [color="black", fontname="DejaVu Sans", fontsize="9", headclip="true", penwidth="1.4", tailclip="true"];
+  v0 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0"><TR><TD BORDER="1" CELLPADDING="6" COLSPAN="2" WIDTH="36">v</TD></TR><TR><TD PORT="p2" TOOLTIP="cod 0: Dim(2) (down, down)" BORDER="0" CELLPADDING="0" COLSPAN="1" WIDTH="18" HEIGHT="0"></TD><TD PORT="p1" TOOLTIP="cod 1: Dim(2) (down, down)" BORDER="0" CELLPADDING="0" COLSPAN="1" WIDTH="18" HEIGHT="0"></TD></TR></TABLE>>];
+  v1 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0"><TR><TD PORT="p3" TOOLTIP="dom 0: Dim(2) (up, up)" BORDER="0" CELLPADDING="0" COLSPAN="1" WIDTH="18" HEIGHT="0"></TD><TD PORT="p4" TOOLTIP="dom 1: Dim(2) (up, up)" BORDER="0" CELLPADDING="0" COLSPAN="1" WIDTH="18" HEIGHT="0"></TD><TD PORT="p5" TOOLTIP="dom 2: Dim(2) (up, up)" BORDER="0" CELLPADDING="0" COLSPAN="1" WIDTH="18" HEIGHT="0"></TD></TR><TR><TD BORDER="1" CELLPADDING="6" COLSPAN="3" WIDTH="54">ρ</TD></TR><TR><TD PORT="p6" TOOLTIP="cod 0: Dim(2) (down, down)" BORDER="0" CELLPADDING="0" COLSPAN="3" WIDTH="54" HEIGHT="0"></TD></TR></TABLE>>];
+  v2 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0"><TR><TD PORT="p7" TOOLTIP="dom 0: Dim(2) (up, up)" BORDER="0" CELLPADDING="0" COLSPAN="1" WIDTH="18" HEIGHT="0"></TD></TR><TR><TD BORDER="1" CELLPADDING="6" COLSPAN="1" WIDTH="18">ε</TD></TR></TABLE>>];
+  v3 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0"><TR><TD BORDER="1" CELLPADDING="6" COLSPAN="1" WIDTH="18">η</TD></TR><TR><TD PORT="p8" TOOLTIP="cod 0: Dim(2) (down, down)" BORDER="0" CELLPADDING="0" COLSPAN="1" WIDTH="18" HEIGHT="0"></TD></TR></TABLE>>];
+  v4 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0"><TR><TD PORT="p9" TOOLTIP="dom 0: Dim(2) (up, up)" BORDER="0" CELLPADDING="0" COLSPAN="1" WIDTH="18" HEIGHT="0"></TD><TD PORT="p10" TOOLTIP="dom 1: Dim(2) (up, up)" BORDER="0" CELLPADDING="0" COLSPAN="1" WIDTH="18" HEIGHT="0"></TD><TD PORT="p11" TOOLTIP="dom 2: Dim(2) (up, up)" BORDER="0" CELLPADDING="0" COLSPAN="1" WIDTH="18" HEIGHT="0"></TD></TR><TR><TD BORDER="1" CELLPADDING="6" COLSPAN="3" WIDTH="54">ρ</TD></TR><TR><TD PORT="p12" TOOLTIP="cod 0: Dim(2) (down, down)" BORDER="0" CELLPADDING="0" COLSPAN="3" WIDTH="54" HEIGHT="0"></TD></TR></TABLE>>];
+  v5 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0"><TR><TD PORT="p13" TOOLTIP="dom 0: Dim(2) (up, up)" BORDER="0" CELLPADDING="0" COLSPAN="1" WIDTH="18" HEIGHT="0"></TD><TD PORT="p14" TOOLTIP="dom 1: Dim(2) (up, up)" BORDER="0" CELLPADDING="0" COLSPAN="1" WIDTH="18" HEIGHT="0"></TD><TD PORT="p15" TOOLTIP="dom 2: Dim(2) (up, up)" BORDER="0" CELLPADDING="0" COLSPAN="1" WIDTH="18" HEIGHT="0"></TD></TR><TR><TD BORDER="1" CELLPADDING="6" COLSPAN="3" WIDTH="54">ρ</TD></TR><TR><TD PORT="p16" TOOLTIP="cod 0: Dim(2) (down, down)" BORDER="0" CELLPADDING="0" COLSPAN="3" WIDTH="54" HEIGHT="0"></TD></TR></TABLE>>];
+  input [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0"><TR><TD PORT="p0" TOOLTIP="input 0: Dim(2)" BORDER="0" CELLPADDING="4"></TD></TR></TABLE>>];
+  output [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0"><TR><TD PORT="p17" TOOLTIP="output 0: Dim(2)" BORDER="0" CELLPADDING="4"></TD></TR></TABLE>>];
+  { rank=min; input; }
+  { rank=max; output; }
+  input:p0:s -- v1:p5:n [label="Dim(2)", labeldistance="1.6", len="0.85"];
+  v0:p1:s -- v1:p4:n [label="Dim(2)", labeldistance="1.6", len="0.85"];
+  v0:p2:s -- v1:p3:n [label="Dim(2)", labeldistance="1.6", len="0.85"];
+  v1:p6:s -- v5:p15:n [label="Dim(2)", labeldistance="1.6", len="0.85"];
+  v2:p7:n -- v4:p9:n [label="Dim(2)", labeldistance="1.6", len="0.85"];
+  v3:p8:s -- v5:p14:n [label="Dim(2)", labeldistance="1.6", len="0.85"];
+  v4:p10:n -- v5:p13:n [label="Dim(2)", labeldistance="1.6", len="0.85"];
+  v4:p11:n -- v5:p16:s [label="Dim(2)", labeldistance="1.6", len="0.85"];
+  v4:p12:s -- output:p17:n [label="Dim(2)", labeldistance="1.6", len="0.85"];
+}

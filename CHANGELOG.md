@@ -1,0 +1,333 @@
+# Changelog
+
+All notable changes to DisCoPy are documented here. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+## [Unreleased]
+
+Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
+
+### Added
+
+- A style review workflow: when a same-repo pull request leaves draft or
+  gets the `style-review` label, one model request reads every changed
+  Python file whole — with the package-local files they import as context —
+  checks the diff against the file's own conventions and `STYLE.md`, and
+  discopy-bot posts the findings as one review — style only, correctness
+  stays with the correctness reviewer, whom discopy-bot calls once the
+  style review has nothing to say. Inference runs on an open-weights
+  model behind an OpenAI-compatible gateway, configured by the
+  `STYLE_REVIEW_BASE_URL` and `STYLE_REVIEW_MODEL` repository variables and
+  the `STYLE_REVIEW_API_KEY` secret
+  ([#608](https://github.com/discopy/discopy/pull/608)).
+- Combinatorial map representation, `discopy.cmap`, encoding diagrams in
+  compact categories as a permutation on the ports of each box
+  ([#338](https://github.com/discopy/discopy/pull/338)).
+- Syntax and drawing for 2-categories
+  ([#354](https://github.com/discopy/discopy/pull/354),
+  [#355](https://github.com/discopy/discopy/pull/355)).
+- `Transformation` in `discopy.cat`, the natural transformations between
+  functors ([#351](https://github.com/discopy/discopy/pull/351)).
+- `cat.Equation` with an argument `up_to` for computing quotients
+  ([#415](https://github.com/discopy/discopy/pull/415)).
+- Ribbon diagram support with configurable wire spacing
+  ([#358](https://github.com/discopy/discopy/pull/358)).
+- Opt-in colour legend for drawings
+  ([#357](https://github.com/discopy/discopy/pull/357)).
+- Rich display hooks (`_repr_svg_`/`_repr_html_`) for `Diagram` and `Drawing`
+  in Jupyter/IPython
+  ([#445](https://github.com/discopy/discopy/pull/445)).
+- Composition benchmark suite for diagram operations, reproducing the
+  scaling experiments of arXiv:2105.09257
+  ([#346](https://github.com/discopy/discopy/pull/346)).
+- CMap cases for the composition benchmark suite, mirroring its Hypergraph
+  workloads. Benchmark reports now include a per-suite Markdown table with
+  a scaling plot.
+- Conversion benchmarks between Diagram, Hypergraph and CMap representations.
+- The benchmark job runs only on `main` and on pull requests labelled
+  `benchmark` ([#385](https://github.com/discopy/discopy/pull/385),
+  [#459](https://github.com/discopy/discopy/pull/459)).
+- Diagram spacing is now automatically computed from exact font-dependent
+  text width, for both box names and wire labels, instead of overflowing
+  or colliding with neighbouring wires
+  ([#364](https://github.com/discopy/discopy/pull/364),
+  [#365](https://github.com/discopy/discopy/pull/365)).
+- Explicit permutations in symmetric layers: `symmetric.P` supports the
+  permutation operations and functorial semantics, while `symmetric.Layer`
+  alternates permutations with generators without canonicalising diagram
+  state ([#362](https://github.com/discopy/discopy/pull/362)).
+- The category of parametric maps, `discopy.para`, wrapping morphisms
+  `dom @ param -> cod` of any symmetric underlying category, with
+  reparametrisation as a method and a subclass lifting each level of the
+  hierarchy below symmetric: traced, Markov, closed, feedback, compact and
+  hypergraph ([#558](https://github.com/discopy/discopy/issues/558),
+  refactoring [#325](https://github.com/discopy/discopy/pull/325)).
+- `para.Symmetric` carries an optional coparameter space: a map is
+  `inside : dom @ param -> cod @ copar` with `copar` empty by default, so
+  parametric maps read as before, coparametric maps are the empty-`param`
+  case and the diagonal `param == copar` is the free category with feedback
+  — the type of one time step of a `Stream`. The constructor reads
+  `(dom, cod, inside, param, copar)` with both hidden spaces optional.
+  Composition and tensor accumulate the hidden objects on both sides,
+  `trace` and `feedback` route the coparameters out of the way and
+  `recopar` post-composes them, covariantly where `reparam` is
+  contravariant ([#572](https://github.com/discopy/discopy/issues/572)).
+- The pivotal structure of `Rep(H)`: `HopfAlgebra.drinfeld_element`,
+  `pivotal_element` and `ribbon_element`, cached single tensors named after
+  the literature (Reshetikhin–Turaev; Kassel; Radford), with pivotal cups
+  and caps twisting the dual leg so all four orientations are intertwiners.
+  `taft(n)`, the smallest algebras with a pivot of order `n` (Sweedler's
+  algebra is `n = 2`), realise the Kauffman–Radford ribbon criterion
+  ([#484](https://github.com/discopy/discopy/pull/484)).
+
+### Changed
+
+- `Swap` is now the two-wire transposition subclass of `Permutation`, and
+  constructing `Permutation(x @ y, [1, 0])` returns a `Swap`. A swap is
+  plumbing like any other permutation: it coalesces with its neighbours in
+  a `symmetric.Layer`, so a whiskered swap is stored and drawn as one wider
+  permutation, and `foliation` composes consecutive layers of pure plumbing
+  into one, unless they compose to the identity. The pictures stay the same:
+  a permutation no longer re-labels a wire it keeps in place, nor pushes its
+  input labels off the canvas, so the redrawn baselines only differ by their
+  serialisation, except `symmetric/foliation.svg` (input labels come back on
+  canvas), `int/symmetric-feedback.svg` (one row taller) and
+  `symmetric/yang-baxter.svg` (gains its foliated middle)
+  ([#444](https://github.com/discopy/discopy/issues/444)).
+- The quantum `SWAP` is a gate rather than the symmetry of the category, so
+  that a physical swap is distinguishable from a logical one. It is a
+  `QuantumGate` drawn as a crossing, while `Circuit.swap` still gives the
+  plumbing `quantum.circuit.Swap`: the two evaluate to the same array but
+  only the gate survives compilation, `to_tk` emitting `OpType.SWAP` for
+  the gate while compiling a logical swap away by applying later gates to
+  the permuted qubits.
+  `discopy.quantum` exports both, `discopy.quantum.gates` only the gate.
+
+- `monoidal.Layer` holds a list of boxes and non-empty types with at least
+  one box and no two consecutive types, instead of an odd-length list
+  alternating type and box. Whiskering extends the list only when the type
+  is non-empty and the outermost element is a box, otherwise it merges into
+  the boundary type, and tensoring two layers merges a trailing type with a
+  leading one. The constructor type checks and normalises to restore the
+  invariant unless it is called with `normalise=False`, which the internal
+  call sites do, so tensoring `n` layers is linear rather than quadratic.
+  `Layer` is a `ColouredMonoid`, i.e. it defines `tensor` and inherits `@`
+  and its right-whiskering mirror from it, embedding types and boxes as
+  layers, and `Layer.cast` is removed since `Layer(box)` already builds the
+  singleton layer. `symmetric.Layer` follows with "permutation" in place of
+  "type". `Diagram.interchange` checks its preconditions up front, so an
+  out-of-range index raises `IndexError` and a diagram with more than one box
+  in a layer raises `NotImplementedError` even when `i == j`
+  ([#438](https://github.com/discopy/discopy/pull/438)).
+- `Arrow` is refactored onto a `FreeCategory` base class
+  ([#350](https://github.com/discopy/discopy/pull/350)).
+- The `tensor` module is refactored to go through `CMap` for `einsum`
+  ([#402](https://github.com/discopy/discopy/pull/402)).
+- Add a `functor_factory` attribute to each `Diagram` class and remove
+  `hypergraph_factory`: `Hypergraph` is now a `NamedGeneric["category"]`
+  instead of a `NamedGeneric["functor"]`
+  ([#379](https://github.com/discopy/discopy/pull/379)).
+- Documentation notebooks are migrated from Jupyter (`.ipynb`) to marimo
+  markdown, with docs (`nbsphinx` → embedded marimo HTML) and CI
+  (`nbmake` → `marimo export`) updated to match
+  ([#404](https://github.com/discopy/discopy/pull/404)).
+- The `Functor` keyword arguments `ob`/`ar` are renamed to
+  `ob_map`/`ar_map` throughout the codebase, docs and benchmarks
+  ([#369](https://github.com/discopy/discopy/pull/369),
+  [#411](https://github.com/discopy/discopy/pull/411),
+  [#417](https://github.com/discopy/discopy/pull/417)).
+- `Ty.name` is a cached property computed from its `inside`
+  ([#421](https://github.com/discopy/discopy/pull/421)).
+- SVG drawings are made deterministic by ordering spiders and boxes
+  reproducibly
+  ([#457](https://github.com/discopy/discopy/pull/457),
+  [#469](https://github.com/discopy/discopy/pull/469)).
+- Documentation images are converted from PNG to SVG and checked in as
+  drawing-test baselines: there are no separate test images anymore,
+  every image in the docs doubles as a drawing test
+  ([#419](https://github.com/discopy/discopy/pull/419),
+  [#435](https://github.com/discopy/discopy/pull/435),
+  [#463](https://github.com/discopy/discopy/pull/463),
+  [#470](https://github.com/discopy/discopy/pull/470)).
+- The `test/` directory is reorganised to mirror `discopy/`
+  ([#403](https://github.com/discopy/discopy/pull/403)).
+- Symmetric categories generate their swaps with `swap_factory` rather than
+  `braid_factory`, which is now a `classproperty` reading it
+  ([#440](https://github.com/discopy/discopy/pull/440)).
+- `abc.SymmetricCategory` extends `abc.BraidedCategory` directly, so
+  symmetric and Markov categories are not required to implement `twist` and
+  `trace`; balanced categories stay traced, and the two branches meet again
+  in `abc.CompactCategory` where the twist is the identity. The free diagram
+  classes keep their freely interpreted traces by subclassing
+  `traced.Diagram` ([#349](https://github.com/discopy/discopy/issues/349)).
+- `biclosed` defaults `left` to `True` in `Diagram.curry`, `Diagram.ev`,
+  `Diagram.uncurry`, `CMap.curry` and `CMap.uncurry`, so that `abc`,
+  `biclosed`, `closed` and `rigid` all agree on one convention: the default
+  exponential is `Over`, i.e. `<<`. Previously `closed` inherited
+  `curry` defaulting to the right from `biclosed` while overriding `ev` to
+  the left, so the default currying was never evaluated by the default
+  `ev`. Code relying on the old right-handed default should pass
+  `left=False` explicitly
+  ([#560](https://github.com/discopy/discopy/issues/560)).
+- Benchmarks compare two commits measured on the same runner rather than a
+  committed baseline, so no baseline is stored in the repository and no
+  normalisation is needed to account for the CPU model a GitHub-hosted runner
+  happens to give out. A pull request compares its head against its base, a
+  push to `main` against the branch before the push. The comparison goes to
+  the job summary and, on a pull request, to a comment listing the regressions
+  and speedups over 25%; a regression raises a warning annotation and never
+  fails the job, since a shared runner can push an unrelated case over the
+  threshold on noise alone.
+- Benchmark cases now use `pytest-benchmark`'s automatic calibration.
+- Every `monoidal.Wire` subclass named `Ob` is renamed to `Wire`: `rigid`,
+  `braided`, `biclosed`, `pivotal`, `frobenius`, `feedback` and
+  `quantum.circuit`, completing the rename that introduced `monoidal.Wire`;
+  `cat.Ob` keeps its name. Accessing the old name still works, returning the
+  new class with a `DeprecationWarning` through a module-level `__getattr__`
+  (`utils.deprecated_ob`), on those seven modules and on `compact` and
+  `grammar.pregroup` which re-exported it; trees serialised with an `Ob`
+  factory string load the same way
+  ([#566](https://github.com/discopy/discopy/pull/566)).
+
+### Fixed
+
+- A boxless `monoidal.Layer` can no longer be placed inside a `Diagram`:
+  `Diagram.__init__` raises `ValueError` for a layer with no box, restoring
+  the invariant that every layer holds at least one box and that the identity
+  diagram is the empty sequence of layers. Such a layer is the internal unit
+  of `Layer.tensor`, built by `Layer.id` and merged away by `Layer.normalise`;
+  put inside a diagram by hand it survived `normal_form` and made `foliation`
+  and `draw` raise. The check is gated on `_scan`, so the internal fast paths
+  that build layers by construction are unaffected
+  ([#599](https://github.com/discopy/discopy/issues/599)).
+- `review.py`'s style-review request: `ask` used to let a gateway
+  `HTTPError` propagate without reading its body, so a 400 gave no clue
+  whether it meant a dead model slug or an oversized prompt; it now prints
+  the response body before re-raising. `assemble` used to budget the raw
+  file texts against `BUDGET`, but `numbered`'s line-number prefixes, the
+  per-file headers, `prompt.md` and `STYLE.md` were all added on top,
+  uncounted, so the assembled prompt could exceed `BUDGET` on a PR
+  touching a large module even when its diff was small; every part is now
+  budgeted as assembled. `ask` also used to unconditionally send
+  `"reasoning": {"enabled": False, "exclude": True}`, which not only 400s
+  on models that mandate reasoning (e.g. `stealth/ox-alpha`, with
+  "Reasoning is mandatory for this endpoint and cannot be disabled") but
+  measurably hurt review quality by forcing it off; `ask` no longer sends
+  the `reasoning` field at all, leaving it to each model's own default,
+  with `max_tokens` raised from 8,192 to 32,768 so reasoning tokens don't
+  starve the answer, and it now logs `finish_reason`/`usage` on every
+  response and the raw answer on a JSON-parse failure, so a truncated or
+  malformed answer is diagnosable instead of a bare traceback
+  ([#611](https://github.com/discopy/discopy/issues/611)).
+- `build.yml` timeouts and a bounded, retried Graphviz install
+  ([#591](https://github.com/discopy/discopy/issues/591)).
+- `frobenius.Diagram.unfuse`'s doctest no longer sets `Spider.color = "red"`
+  to draw its example, which was leaking into every later doctest in the
+  same pytest process
+  ([#522](https://github.com/discopy/discopy/issues/522)).
+- Tensor networks are contracted with `opt_einsum` when the number of
+  indices exceeds `numpy.einsum`'s 52-index limit
+  ([#448](https://github.com/discopy/discopy/pull/448)).
+- `grammar.categorial.cat2ty` reads a fully parenthesized category such as
+  `(S\NP)` as a category rather than an atom, strips CCGbank features
+  wherever they occur rather than on atoms only, and associates slashes to
+  the left as CCG does
+  ([#528](https://github.com/discopy/discopy/issues/528)).
+- Non-linear terms in `discopy.closed`: an `Application` with no free variables
+  builds instead of raising, and its free variables keep first-occurrence order
+  rather than going through a set whose iteration order depends on hashing
+  ([#542](https://github.com/discopy/discopy/issues/542),
+  [#543](https://github.com/discopy/discopy/issues/543)).
+- `closed.Abstraction` discards a variable that does not occur in the body
+  instead of raising, and nested abstractions curry the abstracted wire rather
+  than the first one, so `eval` preserves `dom` and `cod`
+  ([#541](https://github.com/discopy/discopy/issues/541),
+  [#544](https://github.com/discopy/discopy/issues/544)).
+- `biclosed.Application` lists its free variables in the same order as the
+  wires of its `dom`, so that `Abstraction` strips the right end of it and
+  `eval` preserves both `dom` and `cod`
+  ([#550](https://github.com/discopy/discopy/issues/550)).
+- Hypergraph hash
+  ([#387](https://github.com/discopy/discopy/pull/387)).
+- Bubble drawing
+  ([#431](https://github.com/discopy/discopy/pull/431)).
+- Controlled gate drawing: the control wire is anchored on the indexed
+  input of the controlled box rather than its first one, so gates with a
+  classical wire or a distance other than one are drawn on the right wires
+  ([#439](https://github.com/discopy/discopy/pull/439)).
+- Drawing a discard on more than one wire: `draw_discard` was shadowing the
+  layer index with its inner loop counter
+  ([#513](https://github.com/discopy/discopy/issues/513)).
+- `closed.Context.dom` called `category.ob.tensor` unbound, which raised
+  `TypeError` for an empty context instead of returning `Ty()`
+  ([#549](https://github.com/discopy/discopy/issues/549)).
+- Both branches of `closed.Abstraction.eval` curry on the right: the
+  context branch curried out the wrong end of its domain, so an abstraction
+  applied to an argument sharing a free variable did not compose, and a
+  left abstraction evaluates through its right counterpart
+  ([#562](https://github.com/discopy/discopy/issues/562)).
+- `trace(0)` is the identity, i.e. the vanishing axiom, rather than a
+  morphism with empty `dom` and `cod`: `x[:-n]` is the empty prefix at
+  `n == 0`, which emptied the boundary of `Hypergraph.trace` and of both
+  `python.Function.trace`, and made `rigid.Diagram.curry(0, left=True)`
+  curry the whole domain
+  ([#578](https://github.com/discopy/discopy/issues/578)).
+- Closed and biclosed diagrams containing a `Copy`, `Merge`, `Swap`,
+  `Permutation`, `Braid` or `Twist` can be drawn: the `markov`, `symmetric`,
+  `braided` and `balanced` functor branches now check that the codomain has
+  the structure before using it, the way `biclosed.Functor` already did for
+  `ev`, `exp` and `curry`
+  ([#491](https://github.com/discopy/discopy/issues/491),
+  [#548](https://github.com/discopy/discopy/issues/548)).
+- `Double`'s `H*` structure is built by transposition instead of the dagger,
+  which wrongly conjugated complex structure constants — invisible on the
+  real examples of #405, wrong for `taft(3)`
+  ([#484](https://github.com/discopy/discopy/pull/484)).
+
+### Performance
+
+- The elements of a Hopf algebra (`drinfeld_element`, `pivotal_element`,
+  `ribbon_element`) contract each structural generator once through the
+  cached `Algebra.arrays` and solve for the pivot with a thin SVD, so that
+  `Double(taft(3)).ribbon_element` takes under a second instead of twenty
+  ([#484](https://github.com/discopy/discopy/pull/484)).
+- `Ty` construction is sped up with `assert_isinstance` and lazy naming
+  ([#420](https://github.com/discopy/discopy/pull/420)).
+- `Hypergraph` equality, permutations and other micro-optimizations bring
+  equality checks down to `O(n)`
+  ([#353](https://github.com/discopy/discopy/pull/353)).
+- `CMap.from_diagram` is linear rather than quadratic in the number of
+  boxes: `CMap.from_glued` glues the image of each box onto a scan of
+  open wires in a single pass, instead of folding the images with
+  `then` and re-validating the whole prefix at every step. This speeds
+  up `Diagram.eval` on every tensor backend
+  ([#525](https://github.com/discopy/discopy/pull/525)).
+
+### Project
+
+- The `TODO.md` rule of `RULES.md` is split in two: creation stays point 1,
+  and a new point 2 has the agent delete its own `TODO.md` once every
+  point is `[x]` or filed as an issue, taking the pull request out of draft:
+  the style reviewer gives it a first pass before a human deep-reads it.
+  A round of review feedback — bot or human — starts a fresh `TODO.md`,
+  deleted again when the round is done; nitpicks are just fixed and
+  resolved. Rule 4, only talk when prompted, is removed
+  ([#608](https://github.com/discopy/discopy/pull/608)).
+- `AGENTS.md`/`CLAUDE.md`/`RULES.md`/`STYLE.md` introduced and iterated on,
+  and `CONTRIBUTING.md`/`README.md` updated to match, to describe the
+  collaboration and coding protocol for AI agents working on the repo
+  ([#378](https://github.com/discopy/discopy/pull/378),
+  [#422](https://github.com/discopy/discopy/pull/422),
+  [#428](https://github.com/discopy/discopy/pull/428),
+  [#471](https://github.com/discopy/discopy/pull/471),
+  [#477](https://github.com/discopy/discopy/pull/477),
+  [#481](https://github.com/discopy/discopy/pull/481)).
+
+## [1.2.2] - 2025-12-19
+
+See the [GitHub release](https://github.com/discopy/discopy/releases/tag/1.2.2).
+
+## Older releases
+
+See the [GitHub releases page](https://github.com/discopy/discopy/releases)
+for the changelog of `1.2.1` and earlier.

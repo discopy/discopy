@@ -25,7 +25,7 @@ The axiom for the twist holds on the nose.
 >>> x, y = Ty('x'), Ty('y')
 >>> assert Diagram.twist(x @ y) == (Braid(x, y)
 ...     >> Twist(y) @ Twist(x) >> Braid(y, x))
->>> Diagram.twist(x @ y).draw(path="docs/_static/balanced/twist.svg")
+>>> Diagram.twist(x @ y).draw(doctest="docs/_static/balanced/twist.svg")
 
 .. image:: /_static/balanced/twist.svg
 """
@@ -33,44 +33,81 @@ The axiom for the twist holds on the nose.
 from __future__ import annotations
 
 from copy import copy
+from dataclasses import dataclass
 
 from discopy import config, monoidal, braided, traced, hypergraph
 from discopy.abc import BalancedCategory
 from discopy.cat import factory
-from discopy.monoidal import Ty  # noqa: F401
+from discopy.monoidal import Colour, Ty  # noqa: F401
 from discopy.utils import factory_name, assert_isatomic
 
 
-def set_rail_margins(typ: monoidal.Ty, width: float = None) -> monoidal.Ty:
+@dataclass(frozen=True)
+class Ribbon(Colour):
     """
-    Sets the :attr:`min_right_margin` of each object of an already-doubled type
-    by position, so that the two rails of every ribbon are drawn ``width``
-    apart. This is re-applied after rotation, which reverses the rails and
-    drops the margin (a per-object attribute that cannot know its pair-mate).
+    The coloured region between the two rails of a ribbon in the dual rail
+    drawing of a balanced or ribbon diagram, see :func:`double_rail`. Like
+    any :class:`discopy.monoidal.Colour` it fills the region between the two
+    wires on either side of it; it also carries the ``width`` of the ribbon,
+    i.e. how far apart its two rails are drawn. Taking the adjoint of a
+    doubled type swaps the sides of each object, so the two rails stay one
+    colour region when their order is reversed.
 
     Parameters:
-        typ : An already-doubled type, i.e. with an even number of objects.
-        width : The gap between the two rails, defaults to the ``ribbon_width``
-            in :data:`discopy.config.DRAWING_DEFAULT`.
+        name : The colour filling the inside of the ribbon, ``"gray"`` by
+            default with the back of a twisting ribbon filled dark gray.
+        label : An optional label for the drawing legend.
+        width : The gap between the two rails, defaults to the
+            ``ribbon_width`` in :data:`discopy.config.DRAWING_DEFAULT`.
+
+    Example
+    -------
+    >>> assert Ribbon() == Ribbon("gray", width=0.25)
     """
-    width = config.DRAWING_DEFAULT["ribbon_width"] if width is None else width
-    for i, ob in enumerate(typ.inside):
-        ob.min_right_margin = width - 1 if i % 2 == 0 else 0
-    return typ
+    name: str = "gray"
+    width: float = None
+
+    def __post_init__(self):
+        super().__post_init__()
+        if self.width is None:
+            object.__setattr__(
+                self, "width", config.DRAWING_DEFAULT["ribbon_width"])
+
+    def __repr__(self):
+        label = "" if self.label is None else f", label={self.label!r}"
+        return factory_name(type(self))\
+            + f"({self.name!r}{label}, width={self.width})"
+
+    def to_tree(self):
+        return dict(super().to_tree(), width=self.width)
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(tree['name'], label=tree.get('label'),
+                   width=tree['width'])
 
 
-def double_rail(typ: monoidal.Ty, width: float = None) -> monoidal.Ty:
+def double_rail(
+        typ: monoidal.Ty, width: float = None, colour="gray") -> monoidal.Ty:
     """
-    Doubles every object of a type into the two rails of a ribbon ``width``
-    apart, copying each object so the two rails hold independent margins.
+    Doubles every object of a type into the two rails of a ribbon, i.e. two
+    copies of the object with a shared :class:`Ribbon` as the colour region
+    between them, carrying the colour and the width of the ribbon.
 
     Parameters:
         typ : The type to double.
         width : The gap between the two rails, defaults to the ``ribbon_width``
             in :data:`discopy.config.DRAWING_DEFAULT`.
+        colour : The name of the colour filling the inside of each ribbon,
+            or a function from object to colour name.
     """
-    return set_rail_margins(
-        type(typ)(*[copy(ob) for ob in typ.inside for _ in range(2)]), width)
+    rails = []
+    for ob in typ.inside:
+        left, right = copy(ob), copy(ob)
+        left.cod = right.dom = Ribbon(
+            colour(ob) if callable(colour) else colour, width=width)
+        rails += [left, right]
+    return type(typ)(*rails)
 
 
 @factory
@@ -111,7 +148,7 @@ class Diagram(braided.Diagram, traced.Diagram, BalancedCategory):
             >> cls.twist(dom[1:]) @ cls.twist_factory(dom[0])\
             >> cls.braid(dom[1:], dom[0])
 
-    def to_braided(self, width: float = None):
+    def to_braided(self, width: float = None, colour="gray"):
         """
         Doubles every object and sends the twist to the braid.
 
@@ -120,6 +157,9 @@ class Diagram(braided.Diagram, traced.Diagram, BalancedCategory):
                 encoding each object, defaults to the ``ribbon_width`` in
                 :data:`discopy.config.DRAWING_DEFAULT`. Set to ``0`` to return
                 the diagram as is, i.e. without doubling it into dual rails.
+            colour : The name of the colour filling the inside of each ribbon
+                (or a function from object to colour name), passed on to
+                :func:`double_rail`.
 
         Example
         -------
@@ -129,13 +169,14 @@ class Diagram(braided.Diagram, traced.Diagram, BalancedCategory):
 
         >>> Equation(Twist(x), braided_twist, symbol='$\\\\mapsto$').draw(
         ...     wire_labels=False,
-        ...     path="docs/_static/balanced/twist_dual_rail.svg")
+        ...     doctest="docs/_static/balanced/twist_dual_rail.svg")
 
         .. image:: /_static/balanced/twist_dual_rail.svg
         """
         width = config.DRAWING_DEFAULT["ribbon_width"]\
             if width is None else width
-        return self if not width else self.dual_rail_factory(width)(self)
+        return self if not width\
+            else self.dual_rail_factory(width, colour)(self)
 
 
 class Box(braided.Box, traced.Box, Diagram):
@@ -275,7 +316,7 @@ class Functor(braided.Functor, traced.Functor):
     dom = cod = Diagram
 
     def __call__(self, other):
-        if isinstance(other, Twist):
+        if isinstance(other, Twist) and hasattr(self.cod, "twist"):
             return self.cod.twist(self(other.dom))
         if isinstance(other, Trace):
             return traced.Functor.__call__(self, other)
@@ -292,6 +333,8 @@ class DualRail(Functor):
     Parameters:
         width : The gap between the two rails of each ribbon, defaults to the
             ``ribbon_width`` in :data:`discopy.config.DRAWING_DEFAULT`.
+        colour : The name of the colour filling the inside of each ribbon (or
+            a function from object to colour name), see :func:`double_rail`.
 
     See also
     --------
@@ -301,16 +344,15 @@ class DualRail(Functor):
     dual_rail_twist_factory = DualRailTwist
     dual_rail_braid_factory = DualRailBraid
 
-    def __init__(self, width: float = None):
+    def __init__(self, width: float = None, colour="gray"):
         self.width = config.DRAWING_DEFAULT["ribbon_width"]\
             if width is None else width
+        self.colour = colour
         super().__init__(
-            ob_map=lambda x: double_rail(x, self.width),
+            ob_map=lambda x: double_rail(x, self.width, self.colour),
             ar_map=lambda f: f.name)
 
     def __call__(self, other):
-        if isinstance(other, monoidal.Ty):
-            return set_rail_margins(super().__call__(other), self.width)
         if isinstance(other, Twist):
             return self.dual_rail_twist_factory(self(other.dom))
         if isinstance(other, Braid):

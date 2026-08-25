@@ -12,7 +12,7 @@ Summary
     :nosignatures:
     :toctree:
 
-    Ob
+    Wire
     Ty
     Diagram
     Box
@@ -29,7 +29,7 @@ A pivotal category is a rigid category where left and right transpose coincide.
 >>> f = Box('f', x, y)
 
 >>> Equation(f.transpose(left=True), f.r, f.transpose(left=False)).draw(
-...     path="docs/_static/pivotal/axiom.svg")
+...     doctest="docs/_static/pivotal/axiom.svg")
 
 .. image:: /_static/pivotal/axiom.svg
     :align: center
@@ -38,7 +38,7 @@ For each diagram, we have its conjugate:
 
 >>> d = Box('g', x @ y, z).curry()
 >>> Equation(d, d.conjugate(), symbol="").draw(
-...     space=2, path="docs/_static/pivotal/box-conjugate.svg")
+...     space=2, doctest="docs/_static/pivotal/box-conjugate.svg")
 
 .. image:: /_static/pivotal/box-conjugate.svg
     :align: center
@@ -46,7 +46,7 @@ For each diagram, we have its conjugate:
 We also have its dagger and its transpose:
 
 >>> Equation(d.dagger(), d.rotate(), symbol="").draw(
-...     space=2, path="docs/_static/pivotal/dagger-transpose.svg")
+...     space=2, doctest="docs/_static/pivotal/dagger-transpose.svg")
 
 .. image:: /_static/pivotal/dagger-transpose.svg
     :align: center
@@ -57,9 +57,10 @@ from __future__ import annotations
 from discopy import cat, rigid, traced
 from discopy.abc import PivotalCategory
 from discopy.cat import factory
+from discopy.utils import deprecated_ob
 
 
-class Ob(rigid.Ob):
+class Wire(rigid.Wire):
     """
     A pivotal object is a rigid object where left and right adjoints coincide.
 
@@ -70,7 +71,7 @@ class Ob(rigid.Ob):
     l = r = property(lambda self: type(self)(
         self.name, (self.z + 1) % 2, dom=self.cod, cod=self.dom))
 
-    def dagger(self) -> Ob:
+    def dagger(self) -> Wire:
         """
         The dagger of a pivotal object coincides with its left and right
         adjoints, i.e. it flips the parity of the winding number ``z`` and
@@ -85,9 +86,9 @@ class Ty(rigid.Ty):
     A pivotal type is a rigid type with pivotal objects inside.
 
     Parameters:
-        inside (Ob) : The objects inside the type.
+        inside (Wire) : The objects inside the type.
     """
-    generator_factory = Ob
+    generator_factory = Wire
 
 
 @factory
@@ -128,7 +129,7 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
 
         >>> Equation(f, f.dagger(), symbol="$\\\\mapsto$").draw(
         ...     asymmetry=.1,
-        ...     path="docs/_static/pivotal/dagger.svg")
+        ...     doctest="docs/_static/pivotal/dagger.svg")
 
         .. image:: /_static/pivotal/dagger.svg
             :align: center
@@ -150,7 +151,7 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
         >>> assert f.conjugate() == f[::-1].rotate() == f.rotate()[::-1]
 
         >>> Equation(f, f.conjugate(), symbol="$\\\\mapsto$").draw(
-        ...     path="docs/_static/pivotal/conjugate.svg")
+        ...     doctest="docs/_static/pivotal/conjugate.svg")
 
         .. image:: /_static/pivotal/conjugate.svg
             :align: center
@@ -257,3 +258,6 @@ Id = Diagram.id
 
 class Equation(rigid.Equation):
     """ The :class:`rigid.Equation` of pivotal diagrams. """
+
+
+__getattr__ = deprecated_ob(__name__)

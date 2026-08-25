@@ -1,0 +1,678 @@
+# -*- coding: utf-8 -*-
+
+import pickle
+
+from pytest import raises
+
+from discopy.cat import *
+from discopy.monoidal import *
+from discopy.drawing import spiral
+from discopy.utils import AxiomError, from_tree
+
+
+def test_Ty():
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
+    assert Ty.ob is Colour and Ty.ar is Ty
+    assert isinstance(white, cat.Ob)
+    assert isinstance(x, cat.FreeCategory)
+    assert isinstance(x, cat.Ob) and not isinstance(x, Wire)
+    assert x @ y != y @ x
+    assert x.then(y) == x @ y  # >> is overridden by closed exponentials.
+    assert x @ Ty() == x == Ty() @ x
+    assert (x @ y) @ z == x @ y @ z == x @ (y @ z)
+
+
+def test_coloured_Ty():
+    red, green, blue = map(Colour, ("red", "green", "blue"))
+    x = Ty(Wire("x", red, green))
+    y = Ty(Wire("y", green, blue))
+    path = x @ y
+
+    assert Ty() == Ty.id(white)
+    assert path.dom == red and path.cod == blue
+    assert Ty.id(red) >> path == path == path >> Ty.id(blue)
+    assert path[:0] == Ty.id(red)
+    assert path[1:1] == Ty.id(green)
+    assert path[len(path):] == Ty.id(blue)
+    assert path[::-1].dom == blue and path[::-1].cod == red
+    assert path[::-1][::-1] == path
+
+    with raises(AxiomError):
+        y @ x
+    with raises(AxiomError):
+        Ty(Wire("x", red, green), Wire("z", blue, red))
+
+
+def test_Colour_label():
+    plain = Colour("cornflowerblue")
+    labelled = Colour("cornflowerblue", label="Function")
+    # The label names the region for the legend but is ignored for identity,
+    # so regions with the same fill colour still merge.
+    assert labelled.legend_label == "Function" and plain.legend_label == \
+        "cornflowerblue"
+    assert labelled == plain and hash(labelled) == hash(plain)
+    assert from_tree(labelled.to_tree()) == labelled
+    assert repr(labelled) == "monoidal.Colour('cornflowerblue', label='Function')"
+
+
+def test_coloured_Ty_power_and_steps():
+    red, green = map(Colour, ("red", "green"))
+    loop = Ty(Wire("x", red, red))
+    assert loop ** 0 == Ty.id(red)
+    assert loop ** 2 == loop @ loop
+    assert (loop @ loop @ loop)[::2] == loop @ loop
+    with raises(AxiomError):
+        Ty(Wire("y", red, green)) ** 2
+
+
+def test_coloured_Ty_tree_and_legacy_tree():
+    red, green = map(Colour, ("red", "green"))
+    typ = Ty(Wire("x", red, green))
+    assert from_tree(typ.to_tree()) == typ
+    assert from_tree(Ty.id(red).to_tree()) == Ty.id(red)
+    legacy = {
+        'factory': 'monoidal.Ty',
+        'inside': [{'factory': 'cat.Ob', 'name': 'x'}]}
+    assert from_tree(legacy) == Ty('x')
+
+
+def test_Diagram_rejects_boxless_layer():
+    """ A layer with no box is an internal transient of :meth:`Layer.tensor`,
+    never a layer of a diagram: the identity is the empty sequence. """
+    x = Ty('x')
+    with raises(ValueError):
+        Diagram(inside=(Layer.id(), ), dom=Ty(), cod=Ty())
+    with raises(ValueError):
+        Diagram(inside=(Layer.id(x), ), dom=x, cod=x)
+    assert Diagram.id(Ty()).inside == () == Id(x).inside[:0]
+    assert Layer.id(x).boxes == []
+    assert (x @ Box('f', x, x)).inside[0].boxes
+
+
+def test_composition_never_emits_a_boxless_layer():
+    """ ``then``, ``tensor`` and ``normal_form`` build their layers with
+    ``_scan=False``, so the constructor cannot catch a boxless one: these are
+    the paths that have to be checked by hand. """
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
+    f, g, h = Box('f', x, y), Box('g', y, z), Box('h', z, x)
+    interchanger = f @ Id(z) >> Id(y) @ h
+    diagrams = [
+        f >> g, f >> g >> h, f >> f.dagger(), (f >> g).dagger(),
+        f @ g, g @ f, f @ g @ h, f.tensor(), f.tensor(g, h),
+        x @ f, f @ x, Ty() @ f, f @ Ty(), Id(Ty()) @ f, f @ Id(Ty()),
+        Id(x) @ f, f @ Id(y), Id(Ty()) >> Id(Ty()),
+        interchanger, interchanger.normal_form(), interchanger.foliation(),
+        interchanger.interchange(0, 1),
+        (f @ Id(z) >> Id(y) @ h).normal_form().dagger(),
+    ]
+    for diagram in diagrams:
+        assert all(layer.boxes for layer in diagram.inside), repr(diagram)
+
+
+def test_Ty_init():
+    assert list(Ty('x', 'y', 'z')) == [Ty('x'), Ty('y'), Ty('z')]
+
+
+def test_Ty_eq():
+    assert Ty('x') != 'x'
+
+
+def test_Ty_repr():
+    assert repr(Ty('x', 'y')) == "monoidal.Ty(cat.Ob('x'), cat.Ob('y'))"
+
+
+def test_Ty_str():
+    assert str(Ty('x')) == 'x'
+    assert str(Ty()) == 'Ty()'
+    assert str(Ty("")) == 'Ty("")'
+    assert str(Ty()) != str(Ty(""))
+    assert str(Ty("x", "")) == 'x @ Ty("")'
+
+
+def test_Ty_getitem():
+    assert Ty('x', 'y', 'z')[:1] == Ty('x')
+
+
+def test_Ty_generator():
+    x = Ty('x')
+    assert x.is_generator and x.generator == Wire('x')
+    assert not (x @ x).is_generator and (x @ x).generator is None
+    assert not Ty().is_generator and Ty().generator is None
+
+
+def test_Ty_pow():
+    assert Ty('x') ** 42 == Ty('x') ** 21 @ Ty('x') ** 21
+    with raises(TypeError) as err:
+        Ty('x') ** Ty('y')
+
+
+def test_PRO_init():
+    assert list(PRO(0)) == []
+    assert all(len(PRO(n)) == n for n in range(5))
+
+
+def test_PRO_tensor():
+    assert PRO(2) @ PRO(3) @ PRO(7) == PRO(12) == PRO(2).tensor(PRO(3), PRO(7))
+    with raises(TypeError) as err:
+        PRO(2) @ Ty('x')
+
+
+def test_PRO_repr():
+    assert repr((PRO(0), PRO(1))) == "(monoidal.PRO(0), monoidal.PRO(1))"
+
+
+def test_PRO_hash():
+    assert hash(PRO(0)) == hash(PRO(0)) != hash(PRO(1))
+
+
+def test_PRO_to_tree():
+    assert PRO(0).to_tree() == {'factory': 'monoidal.PRO', 'n': 0}
+    assert PRO.from_tree(PRO(0).to_tree()) == PRO(0)
+
+
+def test_PRO_str():
+    assert str(PRO(2 * 3 * 7)) == "PRO(42)"
+
+
+def test_PRO_getitem():
+    assert PRO(42)[2: 4] == PRO(2)
+    assert all(PRO(42)[i] == PRO(1) for i in range(42))
+
+
+def test_PRO_identity_and_dagger():
+    # PRO(0) is the monoidal unit and identity.
+    assert PRO(0) @ PRO(3) == PRO(3) == PRO(3) @ PRO(0)
+    assert PRO.id() == PRO(0) == PRO.id(PRO(0))
+    # Reversing a PRO is a no-op: all wires are interchangeable.
+    assert PRO(3)[::-1] == PRO(3)
+    assert PRO(3).dagger() == PRO(3)
+
+
+def test_Dim_identity_and_slicing():
+    # Dim(1) is the monoidal unit, dropped on tensor.
+    assert Dim(1) @ Dim(2, 3) == Dim(2, 3) == Dim(2, 3) @ Dim(1)
+    assert Dim(2) @ Dim(3, 4) == Dim(2, 3, 4)
+    # Slicing and indexing return Dim.
+    assert Dim(2, 3, 4)[:2] == Dim(2, 3)
+    assert Dim(2, 3, 4)[1] == Dim(3)
+    assert Dim(2, 3, 4)[1:] == Dim(3, 4)
+    # Reversing reverses the factors.
+    assert Dim(2, 3, 4)[::-1] == Dim(4, 3, 2)
+
+
+def test_Layer_init():
+    with raises(TypeError):
+        Layer(1, 2, 3, 4)
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
+    f, g = Box('f', x, y), Box('g', y, z)
+    assert Layer(x, f, y, z, z).boxes_or_types == (x, f, y @ z @ z)
+    layer = Layer(x, f, y, g, z)
+    assert layer.dagger() == Layer(x, f[::-1], y, g[::-1], z)
+    assert layer.free_symbols == set()
+    assert Layer(Ty(), f, Ty(), g, Ty()).boxes_or_types == (f, g)
+
+
+def test_Layer_getitem():
+    f = Box('f', 'x', 'x')
+    layer = Layer(Ty(), f, Ty())
+    assert layer[0] == f and layer.boxes_and_types == (Ty(), f, Ty())
+
+
+def test_Layer_legacy_serialisation():
+    f = Box('f', 'x', 'y')
+    factory = Layer(f).to_tree()['factory']
+    tree = dict(
+        factory=factory,
+        inside=[Ty().to_tree(), f.to_tree(), Ty().to_tree()])
+    assert from_tree(tree).boxes_or_types == (f, )
+
+    legacy = Layer(f)
+    legacy.boxes_or_types = (Ty(), f, Ty())
+    restored = pickle.loads(pickle.dumps(legacy))
+    assert restored == Layer(f)
+    assert restored.boxes_or_types == (f, )
+
+
+def test_Layer_coloured_units():
+    red, green = map(Colour, ("red", "green"))
+    x = Ty(Wire("x", red, green))
+    f = Box("f", x, x)
+    layer = Layer(x[:0], f, x[len(x):])
+
+    assert layer.boxes_or_types == (f, )
+    assert x[:0] @ layer == layer == layer @ x[len(x):]
+    with raises(AxiomError):
+        Ty.id(green) @ layer
+    with raises(AxiomError):
+        layer @ Ty.id(red)
+    with raises(AxiomError):
+        Layer(Ty.id(green), f)
+
+
+def test_Layer_tensor():
+    x, y, z = map(Ty, "xyz")
+    f, g = Box('f', x, y), Box('g', y, z)
+    left, right = Layer(f, y), Layer(z, g)
+
+    assert (left @ right).boxes_or_types == (f, y @ z, g)
+    assert left.tensor(right) == left @ right
+    assert Layer(f).tensor(y) == Layer(f) @ y == Layer(f, y)
+    assert len((left @ right).boxes_or_types)\
+        == len(left.boxes_or_types) + len(right.boxes_or_types) - 1
+    assert (Layer(f) @ Layer(g)).boxes_or_types == (f, g)
+    assert (Layer(x, f) @ Layer(g) @ Layer(g, y)).boxes_or_types\
+        == (x, f, g, g, y)
+    assert Layer(x, f) @ g == Layer(x, f, g)
+    assert x @ Layer(f) == Layer(x, f)
+    red, green = map(Colour, ("red", "green"))
+    coloured = Box('c', Ty(Wire('w', red, green)), Ty(Wire('w', red, green)))
+    with raises(AxiomError):
+        Layer(coloured) @ Layer(coloured)
+    assert Layer.normalise((Ty(), x, f, y, z)) == (x, f, y @ z)
+
+
+def test_Diagram_init():
+    with raises(TypeError) as err:
+        Diagram((), 1, Ty('x'))
+    with raises(TypeError) as err:
+        Diagram((), Ty('x'), 1)
+    with raises(TypeError) as err:
+        Diagram((1, ), Ty('x'), Ty('x'))
+
+
+def test_Diagram_eq():
+    assert Diagram((), Ty('x'), Ty('x')) != Ty('x')
+    assert Diagram((), Ty('x'), Ty('x')) == Id(Ty('x'))
+
+
+def test_Diagram_iter():
+    x, y = Ty('x'), Ty('y')
+    f0, f1 = Box('f0', x, y), Box('f1', y, y)
+    g0 = Box('g', y @ y, x)
+    g1 = g0.dagger()
+    d = (f0 >> f1) @ Id(y @ x) >> g0 @ g1 >> f0 @ g0
+    assert Id(x @ y @ x).then(*(
+        left @ box @ right
+        for left, box, right in (
+            layer.boxes_and_types for layer in d)))\
+        == d
+
+
+def test_Diagram_getitem():
+    x, y = Ty('x'), Ty('y')
+    f0, f1, g = Box('f0', x, y), Box('f1', y, y), Box('g', y @ y, x)
+    diagram = f0 @ Id(y @ x)\
+        >> f1 @ Id(y @ x)\
+        >> g @ Id(x)\
+        >> Id(x) @ g.dagger()\
+        >> f0 @ Id(y @ y)\
+        >> Id(y) @ g
+    assert diagram[:] == diagram
+    assert diagram[::-1] == diagram.dagger()
+    with raises(TypeError):
+        diagram["Alice"]
+    for depth, layer_ in enumerate(diagram.inside):
+        left, box, right = layer_.boxes_and_types
+        layer = Id(left) @ box @ Id(right)
+        assert diagram[depth] == layer
+        assert (diagram[-depth], ) == tuple(
+            Id(left) @ box @ Id(right)
+            for left, box, right in (
+                diagram.inside[-depth].boxes_and_types, ))
+        assert diagram[depth:depth] == Id(layer.dom)
+        assert diagram[depth:] == Id(layer.dom).then(*(
+            Id(left) @ box @ Id(right)
+            for left, box, right in (
+                layer.boxes_and_types for layer in diagram.inside[depth:])))
+        assert diagram[:depth] == Id(diagram.dom).then(*(
+            Id(left) @ box @ Id(right)
+            for left, box, right in (
+                layer.boxes_and_types for layer in diagram.inside[:depth])))
+        assert diagram[depth: depth + 2] == Id(layer.dom).then(*(
+            Id(left) @ box @ Id(right)
+            for left, box, right in (
+                layer.boxes_and_types
+                for layer in diagram.inside[depth: depth + 2])))
+
+
+def test_Diagram_offsets():
+    assert Diagram((), Ty('x'), Ty('x')).offsets == []
+    x = Ty('x')
+    f, g = Box('f', x, x @ x), Box('g', x, x)
+    layer = Layer(Ty(), f, Ty(), g, Ty())
+    diagram = Diagram((layer,), layer.dom, layer.cod)
+    assert layer.boxes_and_offsets == [(f, 0), (g, 2)]
+    assert diagram.offsets == [0, 2]
+
+
+def test_Diagram_hash():
+    assert {Id(Ty('x')): 42}[Id(Ty('x'))] == 42
+
+
+def test_Diagram_str():
+    x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+    assert str(Diagram((), x, x)) == "Id(x)"
+    f0, f1 = Box('f0', x, y), Box('f1', z, w)
+    assert str(Diagram((Layer(f0), ), x, y)) == "f0"
+    assert str(f0 @ Id(z) >> Id(y) @ f1) == "f0 @ z >> y @ f1"
+    assert str(f0 @ Id(z) >> Id(y) @ f1) == "f0 @ z >> y @ f1"
+
+
+def test_Diagram_matmul():
+    assert Id(Ty('x')) @ Id(Ty('y')) == Id(Ty('x', 'y'))
+    assert Id(Ty('x')) @ Id(Ty('y')) == Id(Ty('x')).tensor(Id(Ty('y')))
+
+
+def test_Diagram_interchange():
+    x, y = Ty('x'), Ty('y')
+    f = Box('f', x, y)
+    d = f @ f.dagger()
+    # The preconditions come first, in order: the indices then the layers.
+    folded = (d >> d.dagger()).foliation()
+    with raises(IndexError):
+        folded.interchange(0, 2)
+    for i, j in [(0, 1), (0, 0)]:
+        with raises(NotImplementedError):
+            folded.interchange(i, j)
+    # Interchange needs one box per layer, not three components: a layer with
+    # plumbing on one side only holds two, and still interchanges.
+    assert [len(layer.boxes_or_types) for layer in d.inside] == [2, 2]
+    assert [len(layer.boxes) for layer in d.inside] == [1, 1]
+    assert d.interchange(0, 0) == f @ Id(y) >> Id(y) @ f.dagger()
+    assert d.interchange(0, 1) == Id(x) @ f.dagger() >> f @ Id(x)
+    assert (d >> d.dagger()).interchange(0, 2) ==\
+        Id(x) @ f.dagger() >> Id(x) @ f >> f @ Id(y) >> f.dagger() @ Id(y)
+    cup, cap = Box('cup', x @ x, Ty()), Box('cap', Ty(), x @ x)
+    assert (cup >> cap).interchange(0, 1) == cap @ Id(x @ x) >> Id(x @ x) @ cup
+    assert (cup >> cap).interchange(0, 1, left=True) ==\
+        Id(x @ x) @ cap >> cup @ Id(x @ x)
+    f0, f1 = Box('f0', x, y), Box('f1', y, x)
+    d = f0 @ Id(y) >> f1 @ f1 >> Id(x) @ f0
+    with raises(IndexError):
+        d.interchange(42, 43)
+    with raises(AxiomError) as err:
+        d.interchange(0, 2)
+    assert str(err.value) == messages.INTERCHANGER_ERROR.format(f0, f1)
+    assert d.interchange(2, 0) == Id(x) @ f1 >> f0 @ Id(x) >> f1 @ f0
+
+
+def test_Diagram_size():
+    x, y, z = map(Wire, "xyz")
+    f, g = Box('f', x, y), Box('g', y, z)
+    assert Id(x).size == 0
+    assert f.size == 1
+    assert (f >> g).size == 2
+    assert (f >> g).bubble().size == 3
+
+    a, b, c, d = map(Ty, "abcd")
+    diagram = (
+        Box('f', a, b) @ Box('g', c, d)).foliation()
+    assert len(diagram) == 1 and diagram.size == 2
+
+
+def test_Box_globularity():
+    red, green, blue = map(Colour, ("red", "green", "blue"))
+    x, y = Ty(Wire("x", red, green)), Ty(Wire("y", red, green))
+    assert Box("f", x, y)[::-1][::-1] == Box("f", x, y)
+    with raises(AxiomError):
+        Box("f", x, Ty(Wire("z", red, blue)))
+
+
+def test_Diagram_substitute():
+    x = Ty("x")
+    f, g, h = Box("f", x @ x @ x, x @ x), Box("g", x, x), Box("h", x @ x, x)
+    inside, outside = f >> g @ g, f @ x >> x @ h
+    index_of_the_box = 0
+    result = outside.substitute(index_of_the_box, inside)
+    assert result == inside @ x >> x @ h
+
+
+def test_Diagram_normalize():
+    x, y = Ty('x'), Ty('y')
+    f0, f1 = Box('f0', x, y), Box('f1', y, x)
+    assert list((f0 >> f1).normalize()) == []
+
+
+def test_Diagram_normal_form():
+    assert Id(Ty()).normal_form() == Id(Ty())
+    assert Id(Ty('x', 'y')).normal_form() == Id(Ty('x', 'y'))
+    s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
+    with raises(NotImplementedError) as err:
+        (s0 >> s1).normal_form()
+    assert str(err.value) == messages.NOT_CONNECTED.format(s0 >> s1)
+    x, y = Ty('x'), Ty('y')
+    f0, f1 = Box('f0', x, y), Box('f1', y, x)
+    assert f0.normal_form() == f0
+    assert (f0 >> f1).normal_form() == f0 >> f1
+    assert (Id(x) @ f1 >> f0 @ Id(x)).normal_form() == f0 @ f1
+    assert (f0 @ f1).normal_form(left=True) == Id(x) @ f1 >> f0 @ Id(x)
+
+
+def test_AxiomError():
+    inside = (Layer(Box('f', Ty('x'), Ty('y'))), )
+    with raises(AxiomError) as err:
+        Diagram(inside, Ty('x'), Ty('x'))
+    with raises(AxiomError) as err:
+        Diagram(inside, Ty('y'), Ty('y'))
+
+
+def test_InterchangerError():
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
+    f, g = Box('f', x, y), Box('g', y, z)
+    with raises(AxiomError) as err:
+        (f >> g).interchange(0, 1)
+    assert str(err.value) == messages.INTERCHANGER_ERROR.format(f, g)
+
+
+def test_spiral(n_cups=2):
+    diagram = spiral(n_cups)
+    unit, counit = diagram.boxes[0], diagram.boxes[n_cups + 1]
+    spiral_nf = diagram.normal_form()
+    assert spiral_nf.boxes[-1] == counit and spiral_nf.boxes[n_cups] == unit
+
+
+def test_Id_init():
+    assert Id(Ty('x')) == Diagram.id(Ty('x'))
+
+
+def test_Id_repr():
+    assert repr(Id(Ty('x')))\
+        == "monoidal.Diagram.id(monoidal.Ty(cat.Ob('x')))"
+
+
+def test_Id_str():
+    assert str(Id(Ty('x'))) == "Id(x)"
+
+
+def test_Box_init():
+    f = Box('f', Ty('x', 'y'), Ty('z'), data=42)
+    assert (f.name, f.dom, f.cod, f.data) == ('f', Ty('x', 'y'), Ty('z'), 42)
+
+
+def test_Box_hash():
+    f = Box('f', Ty('x', 'y'), Ty('z'), data=42)
+    assert {f: 42}[f] == 42
+
+
+def test_Box_eq():
+    f = Box('f', Ty('x', 'y'), Ty('z'), data=42)
+    assert f == Diagram((Layer(f), ), Ty('x', 'y'), Ty('z')) and f != 'f'
+
+
+def test_Functor_init():
+    F = Functor({Ty('x'): Ty('y')}, {})
+    assert F(Id(Ty('x'))) == Id(Ty('y'))
+
+
+def test_Functor_repr():
+    assert repr(Functor({Ty('x'): Ty('y')}, {})) ==\
+        "monoidal.Functor("\
+        "ob_map={monoidal.Ty(cat.Ob('x')): monoidal.Ty(cat.Ob('y'))}, ar_map={})"
+
+
+def test_Functor_call():
+    x, y = Ty('x'), Ty('y')
+    f = Box('f', x, y)
+    F = Functor({x: y, y: x}, {f: f.dagger()})
+    assert F(x) == y
+    assert F(f) == f.dagger()
+    assert F(F(f)) == f
+    assert F(f >> f.dagger()) == f.dagger() >> f
+    assert F(f @ f.dagger()) == f.dagger() @ Id(x) >> Id(x) @ f
+    with raises(TypeError) as err:
+        F(F)
+
+
+def test_PRO_Functor():
+    class PRODiagram(Diagram):
+        ob = PRO
+
+    G = Functor(lambda x: x @ x, lambda f: f, cod=PRODiagram)
+    assert G(PRO(2)) == PRO(4)
+    assert Functor(lambda x: x, lambda f: f)(PRO(2)) == PRO(2)
+
+
+def test_Functor_sum():
+    x, y = Ty('x'), Ty('y')
+    f, g = Box('f', x, y), Box('g', x, y)
+    F = Functor(ob_map={x: y, y: x}, ar_map={f: g[::-1], g: f[::-1]})
+    assert F(f + g) == F(f) + F(g)
+
+
+def test_coloured_Functor():
+    red, green, blue = map(Colour, ("red", "green", "blue"))
+    pink, lime, cyan = map(Colour, ("pink", "lime", "cyan"))
+    x = Ty(Wire("x", red, green))
+    y = Ty(Wire("y", green, blue))
+    X = Ty(Wire("X", pink, lime))
+    Y = Ty(Wire("Y", lime, cyan))
+    F = Functor(
+        {x: X, y: Y}, {},
+        colour_map={red: pink, green: lime, blue: cyan})
+
+    assert F(red) == pink
+    assert F(x @ y) == X @ Y
+    assert F(Ty.id(green)) == Ty.id(lime)
+    assert Functor.id()(x @ y) == x @ y
+    # Composing the identity with a coloured functor keeps its colours.
+    assert (Functor.id() >> F)(red) == pink == (F >> Functor.id())(red)
+
+    red2, purple, blue2 = map(
+        Colour, ("salmon", "purple", "navy"))
+    U = Ty(Wire("U", red2, purple))
+    V = Ty(Wire("V", purple, blue2))
+    G = Functor(
+        {X: U, Y: V}, {},
+        colour_map={pink: red2, lime: purple, cyan: blue2})
+    assert (F >> G)(x @ y) == U @ V
+    assert (F >> G)(red) == red2
+
+    bad = Functor({x: Y}, {}, colour_map={red: pink, green: lime})
+    with raises(AxiomError):
+        bad(x)
+
+
+def test_coloured_Functor_repr():
+    red, green = Colour("red"), Colour("green")
+    x = Ty(Wire("x", red, green))
+    F = Functor({x: x}, {}, colour_map={red: green, green: red})
+    assert "colour_map=" in repr(F)
+
+
+def test_coloured_Functor_empty_identity():
+    green, lime = Colour("green"), Colour("lime")
+    # Colour maps preserve the (mapped) colour of an empty identity.
+    F = Functor({}, {}, colour_map={green: lime})
+    assert F(Ty.id(green)) == Ty.id(lime) != Ty.id(green)
+
+
+def test_coloured_Ob_dagger():
+    red, green = Colour("red"), Colour("green")
+    x = Wire("x", red, green)
+    # Dagger swaps the boundary colours and toggles is_dagger.
+    assert x.dagger() == Wire("x", green, red)
+    assert x.is_dagger is False and x.dagger().is_dagger is True
+    assert x.dagger().dagger() == x and x.dagger().dagger().is_dagger is False
+    # Equality and hashing ignore is_dagger.
+    assert x.dagger() == Wire("x", green, red, is_dagger=True)
+    assert hash(x.dagger()) == hash(Wire("x", green, red))
+
+
+def test_coloured_Functor_dagger():
+    red, green, blue = map(Colour, ("red", "green", "blue"))
+    pink, lime, cyan = map(Colour, ("pink", "lime", "cyan"))
+    x = Ty(Wire("x", red, green))
+    y = Ty(Wire("y", green, blue))
+    X = Ty(Wire("X", pink, lime))
+    Y = Ty(Wire("Y", lime, cyan))
+    F = Functor(
+        {x: X, y: Y}, {}, colour_map={red: pink, green: lime, blue: cyan})
+    # Functors send daggered (reversed) coloured types to daggered images.
+    assert F(x[::-1]) == F(x)[::-1]
+    assert F((x @ y)[::-1]) == F(x @ y)[::-1]
+    assert F(x[::-1][::-1]) == F(x)
+
+
+def test_coloured_serialization():
+    red, green, blue = map(Colour, ("red", "green", "blue"))
+    x = Ty(Wire("x", red, green))
+    y = Ty(Wire("y", green, blue))
+    for typ in [x, x[::-1], x @ y, Ty.id(green), Ty()]:
+        assert from_tree(typ.to_tree()) == typ
+    # Daggered generators round-trip, keeping is_dagger.
+    obj = Wire("x", red, green).dagger()
+    restored = from_tree(obj.to_tree())
+    assert restored == obj and restored.is_dagger is True
+
+
+def test_Sum():
+    x = Ty('x')
+    f = Box('f', x, x)
+    with raises(ValueError):
+        Sum(())
+    with raises(AxiomError):
+        Sum((f, ), dom=Ty())
+    with raises(AxiomError):
+        f + Box('g', Ty(), x)
+    assert Sum([f]) == f
+    assert {Sum([f]): 42}[Sum([f])] == 42
+    assert Id(x).then(*(3 * (f + f, ))) == sum(8 * [f >> f >> f])
+    assert Id(Ty()).tensor(*(3 * (f + f, ))) == sum(8 * [f @ f @ f])
+
+
+def test_Layer_merge_cup_cap():
+    unit, counit = Box("unit", Ty(), 'x'), Box("counit", 'x', Ty())
+    layer0, layer1 = Layer(unit), Layer(counit)
+    with raises(AxiomError):
+        layer0.merge(layer1)
+    assert layer1.merge(layer0) == Layer(Ty(), unit, Ty(), counit, Ty())
+
+
+def test_Layer_scalars():
+    a, b = Box("a", Ty(), Ty()), Box("b", Ty(), Ty())
+    assert Layer(a).merge(Layer(b)) == Layer(Ty(), a, Ty(), b, Ty())
+
+
+def test_Diagram_from_callable():
+    x, y = Ty('x'), Ty('y')
+    f = Box('f', x, y)
+    with raises(AxiomError):
+        @Diagram.from_callable(y, x)
+        def diagram(wire):
+            return f(wire)
+    with raises(AxiomError):
+        @Diagram.from_callable(x, x)
+        def diagram(wire):
+            return f(wire)
+    with raises(AxiomError):
+        @Diagram.from_callable(x @ x, x)
+        def diagram(left, right):
+            return f(left, right)
+    with raises(AxiomError):
+        @Diagram.from_callable(x, x @ y)
+        def diagram(wire):
+            return wire, f(offset=0)
+    with raises(TypeError):
+        @Diagram.from_callable(x, y)
+        def diagram(wire):
+            return f(x)
