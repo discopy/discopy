@@ -53,8 +53,10 @@ from dataclasses import dataclass
 from typing import Dict, ClassVar
 
 from discopy import cat, monoidal, biclosed, markov, hypergraph
-from discopy.abc import ClosedCategory
+from discopy.abc import Category, ClosedCategory
 from discopy.cat import factory
+from discopy.testing import C1, axiom
+from discopy.utils import AxiomError
 
 
 @factory
@@ -176,12 +178,30 @@ class Functor(biclosed.Functor, markov.Functor):
 class CMap(biclosed.CMap):
     category = Diagram
     require_planar = False
-    axiom_status = {
-        "braid_naturality": "bug",
-        "copy_counitality": "wontfix",
-        "copy_coassociativity": "wontfix",
-        "copy_cocommutativity": "wontfix",
-    }
+
+    @axiom
+    def braid_naturality(
+            cls, f: C1, g: C1):
+        """ ``CMap.to_diagram`` fails on a traced box, see #606. """
+        return AxiomError(Category.equation_factory(
+            f @ g >> cls.braid(f.cod, g.cod),
+            cls.braid(f.dom, g.dom) >> g @ f,
+        ))
+
+    @axiom
+    def copy_coassociativity(cls):
+        """ Combinatorial maps have no supply of comonoids. """
+        return NotImplemented
+
+    @axiom
+    def copy_cocommutativity(cls):
+        """ Combinatorial maps have no supply of comonoids. """
+        return NotImplemented
+
+    @axiom
+    def copy_counitality(cls):
+        """ Combinatorial maps have no supply of comonoids. """
+        return NotImplemented
 
 
 Diagram.functor_factory = Functor

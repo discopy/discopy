@@ -13,6 +13,7 @@ import pytest
 from pytest import raises
 
 from discopy import (
+    abc,
     balanced, biclosed, braided, cat, feedback, frobenius, markov, monoidal,
     rigid, symmetric, traced)
 from discopy.python import finset
@@ -71,12 +72,12 @@ def test_Feedback():
 
 
 def test_Axiom():
-    @axiom(strict=False)
-    def law(cls, f, *, eq):
+    @axiom
+    def law(cls, f):
         """ Not an equation. """
-        return eq(f)
+        return cls.equation_factory(f)
 
-    assert repr(law) == "Axiom(law)" and law.strict is False
+    assert repr(law) == "Axiom(law)"
     assert [parameter.name for parameter in law.parameters] == ['f']
     assert cat.Arrow.unitality.carrier is cat.Arrow
     with raises(TypeError):
@@ -89,9 +90,8 @@ def test_strict_equality_is_on_the_nose():
     f, g = symmetric.Box('f', x, x), symmetric.Box('g', y, y)
     left, right = f @ y >> x @ g, x @ g >> f @ y
     assert left != right
-    strict = symmetric.Diagram.axiom_equality("trace_vanishing")[1]
-    setoid = symmetric.Diagram.axiom_equality("braid_naturality")[1]
-    assert not strict(left, right) and setoid(left, right)
+    assert not abc.Category.equation_factory(left, right)
+    assert symmetric.Diagram.equation_factory(left, right)
 
 
 def test_extend_strategy():

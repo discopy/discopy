@@ -66,6 +66,7 @@ from discopy import monoidal, rigid, markov, compact, pivotal, hypergraph
 from discopy.abc import HypergraphCategory
 from discopy.cat import factory
 from discopy.utils import assert_isatomic, deprecated_ob, factory_name
+from discopy.testing import C0, Natural, axiom
 
 
 class Wire(pivotal.Wire):
@@ -129,11 +130,6 @@ class Diagram(compact.Diagram, markov.Diagram, HypergraphCategory):
     """
 
     ob = Ty
-    axiom_status = {
-        "frobenius": "setoid",
-        "speciality": "setoid",
-        "spider_fusion": "setoid",
-    }
 
     @classmethod
     def caps(cls, left, right):
@@ -177,6 +173,32 @@ class Diagram(compact.Diagram, markov.Diagram, HypergraphCategory):
                 f.unfuse() if isinstance(f, Spider) else f,
             dom=Diagram, cod=Diagram)
         return F(self)
+
+    @axiom
+    def frobenius(
+            cls, x: C0):
+        """ The Frobenius equation. """
+        split, merge = cls.spiders(1, 2, x), cls.spiders(2, 1, x)
+        return cls.equation_factory(
+            split @ x >> x @ merge,
+            merge >> split,
+            x @ split >> merge @ x)
+
+    @axiom
+    def speciality(
+            cls, x: C0):
+        """ Speciality of the Frobenius structure. """
+        split, merge = cls.spiders(1, 2, x), cls.spiders(2, 1, x)
+        return cls.equation_factory(
+            split.then(merge), cls.spiders(1, 1, x), cls.id(x))
+
+    @axiom
+    def spider_fusion(
+            cls, x: C0, m: Natural, n: Natural):
+        """ Fusion of two spiders connected by one leg. """
+        return cls.equation_factory(
+            cls.spiders(m, 1, x).then(cls.spiders(1, n, x)),
+            cls.spiders(m, n, x))
 
 
 class Box(compact.Box, markov.Box, Diagram):
@@ -407,13 +429,31 @@ def coherence(cls: type, factory: Callable
 
 class CMap(compact.CMap):
     category = Diagram
-    axiom_status = {
-        "copy_counitality": "wontfix",
-        "copy_coassociativity": "wontfix",
-        "copy_cocommutativity": "wontfix",
-        "frobenius": "wontfix",
-        "speciality": "wontfix",
-    }
+
+    @axiom
+    def copy_coassociativity(cls):
+        """ Combinatorial maps have no supply of comonoids. """
+        return NotImplemented
+
+    @axiom
+    def copy_cocommutativity(cls):
+        """ Combinatorial maps have no supply of comonoids. """
+        return NotImplemented
+
+    @axiom
+    def copy_counitality(cls):
+        """ Combinatorial maps have no supply of comonoids. """
+        return NotImplemented
+
+    @axiom
+    def frobenius(cls):
+        """ Combinatorial maps have no supply of spiders. """
+        return NotImplemented
+
+    @axiom
+    def speciality(cls):
+        """ Combinatorial maps have no supply of spiders. """
+        return NotImplemented
 
 
 Diagram.functor_factory = Functor

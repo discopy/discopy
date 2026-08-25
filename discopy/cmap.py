@@ -50,7 +50,7 @@ from discopy import messages, hypergraph
 from discopy.cat import Box as CatBox, Ob
 from discopy.abc import CompactCategory, NamedGeneric, Pregroup
 from discopy.python.finset import Permutation
-from discopy.testing import Strategy
+from discopy.testing import Strategy, axiom, declared_axioms
 from discopy.utils import (
     AxiomError,
     assert_isinstance,
@@ -265,17 +265,6 @@ class CMap[C0: Pregroup, C1: CMap](
     require_connected: ClassVar[bool] = False
     functor = classproperty(lambda cls: cls.category.functor_factory)
     ob = classproperty(lambda cls: cls.category.ob)
-    axiom_status = {
-        "trace_naturality_left": "wontfix",
-        "trace_naturality_right": "wontfix",
-        "trace_dinaturality_left": "wontfix",
-        "trace_dinaturality_right": "wontfix",
-        "braid_naturality": lambda *terms: type(terms[0]).category
-        .equation_factory(*(term.to_diagram() for term in terms)),
-        "currying_left": "wontfix",
-        "currying_right": "wontfix",
-        "rotate_contravariance": "wontfix",
-    }
 
     @classmethod
     def strategy(cls, *, boundary_connected=True, **params):
@@ -289,9 +278,24 @@ class CMap[C0: Pregroup, C1: CMap](
 
     @classproperty
     def axioms(cls):
-        """ The axioms of the diagram category represented by the map. """
-        return () if cls.category is None else tuple(
-            axiom.bind(cls) for axiom in cls.category.axioms)
+        """
+        The axioms of the diagram category represented by the map, with the
+        ones the map restates for itself taking precedence.
+        """
+        if cls.category is None:
+            return ()
+        restated = declared_axioms(cls)
+        return tuple(
+            restated.get(axiom.name, axiom).bind(cls)
+            for axiom in cls.category.axioms)
+
+    @axiom
+    def braid_naturality(cls, f: C1, g: C1):
+        """ Naturality of the braid, up to the diagrams the maps encode. """
+        return cls.category.equation_factory(*(
+            term.to_diagram() for term in (
+                f @ g >> cls.braid(f.cod, g.cod),
+                cls.braid(f.dom, g.dom) >> g @ f)))
 
     dom: C0
     cod: C0
@@ -1580,3 +1584,38 @@ class CMap[C0: Pregroup, C1: CMap](
             top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
         plt.show(block=block)
         return None
+
+    @axiom
+    def currying_left(cls):
+        """ Combinatorial maps have no exponential objects. """
+        return NotImplemented
+
+    @axiom
+    def currying_right(cls):
+        """ Combinatorial maps have no exponential objects. """
+        return NotImplemented
+
+    @axiom
+    def rotate_contravariance(cls):
+        """ Combinatorial maps do not implement rotation. """
+        return NotImplemented
+
+    @axiom
+    def trace_dinaturality_left(cls):
+        """ A free trace is a box, not a rewrite. """
+        return NotImplemented
+
+    @axiom
+    def trace_dinaturality_right(cls):
+        """ A free trace is a box, not a rewrite. """
+        return NotImplemented
+
+    @axiom
+    def trace_naturality_left(cls):
+        """ A free trace is a box, not a rewrite. """
+        return NotImplemented
+
+    @axiom
+    def trace_naturality_right(cls):
+        """ A free trace is a box, not a rewrite. """
+        return NotImplemented

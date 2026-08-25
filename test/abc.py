@@ -12,10 +12,13 @@ from inspect import signature
 import pytest
 
 from discopy import (
-    abc, balanced, biclosed, braided, cat, closed, compact, feedback,
+    abc, balanced, biclosed, braided, cat, closed, cmap, compact, feedback,
     frobenius, markov, monoidal, pivotal, ribbon, rigid, symmetric, traced,
     utils)
-from discopy.testing import Atomic, NonEmpty
+from discopy.python import finset
+from discopy.utils import AxiomError
+from discopy.testing import (
+    Atomic, NonEmpty, assert_verdict, declared_axioms)
 
 
 def box(category, name, dom, cod):
@@ -215,8 +218,8 @@ class Arguments:
 
     @staticmethod
     def feedback_joining(category):
-        x, y = map(category.ob, "xy")
-        memory = y @ y
+        x, y, z = map(category.ob, "xyz")
+        memory = y @ z
         f = category.id(x @ memory.delay()) >> box(
             category, "f", x @ memory.delay(), x @ memory)
         return (f, memory),
@@ -267,17 +270,20 @@ FREE = {
 }
 
 
+CARRIERS = [
+    symmetric.CMap, compact.CMap, closed.CMap, markov.CMap, frobenius.CMap,
+    traced.Diagram,
+]
+
+
 def all_axioms():
     for structure, free_category in FREE.items():
         for axiom in structure.axioms:
+            axiom = declared_axioms(free_category).get(axiom.name, axiom)
             axiom = axiom.bind(free_category)
-            match axiom.status:
-                case "wontfix":
-                    marks = (pytest.mark.skip,)
-                case "bug":
-                    marks = (pytest.mark.xfail,)
-                case _:
-                    marks = ()
+            marks = (pytest.mark.skip,) if (
+                not axiom.parameters and axiom() is NotImplemented)\
+                else (pytest.mark.xfail,) if axiom.broken else ()
             yield pytest.param(
                 axiom,
                 id=f"{utils.factory_name(free_category)}.{axiom.name}",
@@ -288,7 +294,40 @@ def all_axioms():
 @pytest.mark.parametrize("axiom", all_axioms())
 def test_axioms_instantiation_on_diagrams(axiom):
     arguments = getattr(Arguments, axiom.name)(axiom.carrier)
-    assert axiom(*arguments)
+    assert_verdict(axiom, axiom(*arguments))
+
+
+def abstract_axioms():
+    """ Every abstract statement, on the free category of its structure. """
+    for structure, free_category in FREE.items():
+        for axiom in structure.axioms:
+            yield pytest.param(
+                axiom.bind(free_category),
+                id=f"{utils.factory_name(free_category)}.{axiom.name}")
+
+
+@pytest.mark.parametrize("axiom", abstract_axioms())
+def test_abstract_axioms_are_well_typed(axiom):
+    """
+    Every statement as :mod:`discopy.abc` makes it builds on each free
+    category, even where the category restates it to say it does not hold.
+
+    An implementation broken enough to refuse the terms altogether is the one
+    exception, and only where the category declares the axiom broken.
+    """
+    arguments = getattr(Arguments, axiom.name)(axiom.carrier)
+    try:
+        assert isinstance(axiom(*arguments), abc.Equation)
+    except AxiomError:
+        assert declared_axioms(axiom.carrier)[axiom.name].broken
+
+
+@pytest.mark.parametrize("carrier", CARRIERS)
+def test_inapplicable_axioms_declare_themselves(carrier):
+    """ Every axiom taking no argument answers that it does not apply. """
+    declared = [axiom for axiom in carrier.axioms if not axiom.parameters]
+    assert declared
+    assert all(axiom() is NotImplemented for axiom in declared)
 
 
 def test_feedback_signature_allows_inferred_boundaries():

@@ -61,11 +61,14 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from discopy import monoidal
-from discopy.abc import BraidedCategory
+from discopy.abc import BraidedCategory, Category
 from discopy.cat import factory
 from discopy.monoidal import Ty, Match
 from discopy.utils import (
-    assert_isatomic, BinaryBoxConstructor, deprecated_ob, factory_name)
+    AxiomError, BinaryBoxConstructor, assert_isatomic, deprecated_ob,
+    factory_name
+)
+from discopy.testing import C1, axiom
 
 
 class Wire(monoidal.Wire):
@@ -88,8 +91,6 @@ class Diagram(monoidal.Diagram, BraidedCategory):
         dom (monoidal.Ty) : The domain of the diagram, i.e. its input.
         cod (monoidal.Ty) : The codomain of the diagram, i.e. its output.
     """
-
-    axiom_status = {"braid_naturality": "bug"}
 
     @classmethod
     def braid(cls, left: monoidal.Ty, right: monoidal.Ty) -> Diagram:
@@ -159,6 +160,15 @@ class Diagram(monoidal.Diagram, BraidedCategory):
                       left=left_wires[:-1] if left else left_wires,
                       right=right_wires if left else right_wires[1:])
         return match.substitute(target)
+
+    @axiom
+    def braid_naturality(
+            cls, f: C1, g: C1):
+        """ A free braid does not commute past a box. """
+        return AxiomError(Category.equation_factory(
+            f @ g >> cls.braid(f.cod, g.cod),
+            cls.braid(f.dom, g.dom) >> g @ f,
+        ))
 
 
 class Box(monoidal.Box, Diagram):

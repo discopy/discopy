@@ -55,9 +55,10 @@ We also have its dagger and its transpose:
 from __future__ import annotations
 
 from discopy import cat, hypergraph, rigid, traced
-from discopy.abc import PivotalCategory, SymmetricCategory
+from discopy.abc import Category, PivotalCategory, SymmetricCategory
 from discopy.cat import factory
-from discopy.utils import deprecated_ob
+from discopy.utils import AxiomError, deprecated_ob
+from discopy.testing import C0, C1, TraceSuperposing, axiom
 
 
 class Wire(rigid.Wire):
@@ -123,11 +124,6 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
         cod (Ty) : The codomain of the diagram, i.e. its output.
     """
     ob = Ty
-    axiom_status = {
-        "trace_superposing_left": "strict",
-        "trace_superposing_right": "strict",
-        "transpose_axiom": "bug",
-    }
 
     def dagger(self):
         """
@@ -194,6 +190,34 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
             else dom @ cls.cap_factory(traced_wire, traced_wire.r)\
             >> diagram @ traced_wire.r\
             >> cod @ cls.cup_factory(traced_wire, traced_wire.r)
+
+    @axiom
+    def trace_superposing_left(
+            cls, pair: TraceSuperposing[C0, C1]):
+        """ Left-oriented superposing. """
+        f, obj = pair
+        return Category.equation_factory(
+            (f @ obj).trace(left=True), f.trace(left=True) @ obj)
+
+    @axiom
+    def trace_superposing_right(
+            cls, pair: TraceSuperposing[C0, C1]):
+        """ Right-oriented superposing. """
+        f, obj = pair
+        return Category.equation_factory(
+            (obj @ f).trace(), obj @ f.trace())
+
+    @axiom
+    def transpose_axiom(
+            cls, f: C1):
+        """ The two transposes differ by a snake. """
+        dom, cod = f.dom, f.cod
+        left_transpose = (cod.l @ cls.caps(dom, dom.l)).then(
+            cod.l @ f @ dom.l).then(cls.cups(cod.l, cod) @ dom.l)
+        right_transpose = (cls.caps(dom.r, dom) @ cod.r).then(
+            dom.r @ f @ cod.r).then(dom.r @ cls.cups(cod, cod.r))
+        return AxiomError(Category.equation_factory(
+            left_transpose, right_transpose))
 
 
 class Box(rigid.Box, Diagram):

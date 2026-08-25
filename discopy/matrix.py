@@ -41,14 +41,14 @@ from types import ModuleType
 from typing import Union, Literal as L, Callable, TYPE_CHECKING
 
 from discopy import monoidal, config, messages
-from discopy.abc import MarkovCategory, NamedGeneric
+from discopy.abc import Category, MarkovCategory, NamedGeneric
 from discopy.cat import (
     factory,
     assert_iscomposable,
     assert_isparallel,
 )
-from discopy.testing import Natural, Strategy
-from discopy.utils import assert_isinstance, unbiased
+from discopy.testing import C0, Natural, Strategy, axiom
+from discopy.utils import AxiomError, assert_isinstance, unbiased
 
 if TYPE_CHECKING:
     import sympy
@@ -129,11 +129,6 @@ class Matrix(MarkovCategory, Strategy["Matrix"], NamedGeneric['dtype']):
            [0, 4]])
     """
     ob = Natural
-    axiom_status = {
-        "copy_counitality": "bug",
-        "copy_cocommutativity": "bug",
-        "copy_monoidal_coherence": "bug",
-    }
 
     @classmethod
     def strategy(cls, *, dom=None, cod=None, max_size=3, max_entry=3):
@@ -426,6 +421,32 @@ class Matrix(MarkovCategory, Strategy["Matrix"], NamedGeneric['dtype']):
         """ Gradient with respect to variables. """
         return self.map(lambda x:
                         getattr(x, "diff", lambda _: 0)(var, **params))
+
+    @axiom
+    def copy_cocommutativity(
+            cls, x: C0):
+        """ ``Matrix.copy(x, n)`` is wrong for ``x, n >= 2``, see #606. """
+        copy = cls.copy(x)
+        return AxiomError(Category.equation_factory(
+            copy.then(cls.swap(x, x)), copy))
+
+    @axiom
+    def copy_counitality(
+            cls, x: C0):
+        """ ``Matrix.copy(x, n)`` is wrong for ``x, n >= 2``, see #606. """
+        copy, discard = cls.copy(x), cls.copy(x, n=0)
+        return AxiomError(Category.equation_factory(
+            copy.then(discard @ x), cls.id(x),
+            copy.then(x @ discard)))
+
+    @axiom
+    def copy_monoidal_coherence(
+            cls, x: C0):
+        """ ``Matrix.copy(x, n)`` is wrong for ``x, n >= 2``, see #606. """
+        return AxiomError(Category.equation_factory(
+            cls.copy(x @ x),
+            (cls.copy(x) @ cls.copy(x)).then(
+                x @ cls.swap(x, x) @ x)))
 
 
 def array2string(array, **params):

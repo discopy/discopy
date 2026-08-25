@@ -66,15 +66,13 @@ from inspect import signature
 from typing import Callable, ClassVar, Self
 
 from discopy import monoidal
-from discopy.abc import BiclosedCategory
+from discopy.abc import BiclosedCategory, Category
 from discopy.drawing import Drawing
 from discopy.cat import factory
 from discopy.utils import (
-    assert_isinstance,
-    deprecated_ob,
-    factory_name,
-    from_tree,
+    AxiomError, assert_isinstance, deprecated_ob, factory_name, from_tree
 )
+from discopy.testing import C0, C1, LeftCurrying, RightCurrying, axiom
 
 
 @factory
@@ -277,10 +275,6 @@ class Diagram(monoidal.Diagram, BiclosedCategory):
     """
 
     ob = Ty
-    axiom_status = {
-        "currying_left": "bug",
-        "currying_right": "bug",
-    }
 
     def curry(self, n=1, left=True) -> Diagram:
         """
@@ -321,6 +315,22 @@ class Diagram(monoidal.Diagram, BiclosedCategory):
 
     def to_drawing(self):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
+
+    @axiom
+    def currying_left(
+            cls, arguments: LeftCurrying[C0, C1]):
+        """ Currying does not evaluate back, see #562. """
+        f, base, exponent = arguments
+        return AxiomError(Category.equation_factory(
+            cls._uncurry(f, base, exponent, left=True), f))
+
+    @axiom
+    def currying_right(
+            cls, arguments: RightCurrying[C0, C1]):
+        """ Currying does not evaluate back, see #562. """
+        f, base, exponent = arguments
+        return AxiomError(Category.equation_factory(
+            cls._uncurry(f, base, exponent, left=False), f))
 
 
 class Box(monoidal.Box, Diagram):

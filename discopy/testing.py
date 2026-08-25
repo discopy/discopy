@@ -5,12 +5,26 @@ from __future__ import annotations
 import inspect
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import ClassVar, TYPE_CHECKING
+from typing import ClassVar, TypeVar, TYPE_CHECKING
 
 from discopy.utils import assert_iscomposable
 
 if TYPE_CHECKING:
     from hypothesis import strategies as st
+
+
+C0 = TypeVar("C0")
+C1 = TypeVar("C1")
+"""
+The object and arrow types of the carrier an axiom is bound to.
+
+An axiom annotates its arguments with these rather than with the concrete
+types of the module it is written in, so that a subclass inherits the
+override with its own types: :func:`proptest.strategies.arguments` rebinds
+both names to ``carrier.ob`` and ``carrier.ar`` when it evaluates the
+annotations. This is also why every module stating an axiom needs
+``from __future__ import annotations``, which keeps them unevaluated.
+"""
 
 
 class Strategy[T](ABC):
@@ -360,19 +374,28 @@ class FeedbackJoining[C0, C1](
 
 
 class Axiom[T]:
-    """ A carrier-parametrised equation with explicit arguments. """
+    """
+    A carrier-parametrised equation with explicit arguments.
 
-    def __init__(
-            self, equation, *, strict=True, carrier=None,
-            status="strict", equality=None):
+    Calling a bound axiom returns its own verdict: :obj:`NotImplemented` when
+    the structure does not apply to the carrier, an
+    :class:`discopy.utils.AxiomError` wrapping the equation when the law is
+    known to be broken, and the equation itself otherwise.
+
+    A law is broken when *some* argument is a counterexample, not every one,
+    so :attr:`broken` reads the verdict off the body before any argument is
+    generated — the property matrix marks such an axiom as an expected
+    failure and lets the search find the counterexample.
+    """
+
+    def __init__(self, equation, *, carrier=None):
         self.equation = equation if isinstance(equation, classmethod)\
             else classmethod(equation)
         function = self.equation.__func__
         self.signature = inspect.signature(function)
         self.carrier = carrier
         self.name = self.__name__ = function.__name__
-        self.strict = strict
-        self.status, self.equality = status, equality
+        self.broken = "AxiomError" in function.__code__.co_names
         self.__doc__ = function.__doc__
 
     def __repr__(self):
@@ -380,40 +403,64 @@ class Axiom[T]:
 
     def bind(self, carrier: type[T]) -> Axiom[T]:
         """ Bind the axiom to a concrete carrier. """
-        resolver = getattr(carrier, "axiom_equality", None)
-        if resolver is None:
-            resolver = carrier.category.axiom_equality
-        status, equality = resolver(self.name)
-        return type(self)(
-            self.equation, strict=self.strict, carrier=carrier,
-            status=status, equality=equality)
+        return type(self)(self.equation, carrier=carrier)
 
     def __get__(self, instance, owner: type[T]) -> Axiom[T]:
         return self.bind(owner)
 
     @property
     def parameters(self) -> tuple[inspect.Parameter, ...]:
-        """ The explicit parameters of the equation. """
-        return tuple(parameter for parameter in
-                     tuple(self.signature.parameters.values())[1:]
-                     if parameter.name != "eq")
+        """
+        The explicit parameters of the equation.
 
-    def __call__(self, *args, eq=None, **kwargs):
+        An axiom that takes none states its verdict without any argument, so
+        the property matrix can call it before generating anything.
+        """
+        return tuple(self.signature.parameters.values())[1:]
+
+    def __call__(self, *args, **kwargs):
         if self.carrier is None:
             raise TypeError(f"{self.name} is not bound to a class.")
         signature = self.signature.replace(parameters=self.parameters)
         bound = signature.bind(*args, **kwargs)
         bound.apply_defaults()
-        arguments = {
+        return self.equation.__func__(**{
             next(iter(self.signature.parameters)): self.carrier,
-            **bound.arguments,
-            "eq": eq or self.equality}
-        result = self.equation.__func__(**arguments)
-        return result
+            **bound.arguments})
 
 
-def axiom(equation=None, *, strict=True):
+def axiom(equation) -> Axiom:
     """ Decorate an equation as an inherited categorical axiom. """
-    if equation is None:
-        return lambda function: Axiom(function, strict=strict)
-    return Axiom(equation, strict=strict)
+    return Axiom(equation)
+
+
+def assert_verdict(axiom: Axiom, verdict) -> None:
+    """
+    Assert the verdict a bound axiom returned for some arguments.
+
+    An :class:`discopy.utils.AxiomError` wraps the equation of a law that is
+    known to be broken, and carries none at all when the implementation
+    refused to build its terms. Either way the equation is asserted: it is
+    :attr:`Axiom.broken` that tells the runner to expect the failure.
+    """
+    from discopy.utils import AxiomError
+
+    if isinstance(verdict, AxiomError):
+        verdict = verdict.args[0] if verdict.args else False
+    assert verdict
+
+
+def declared_axioms(cls) -> dict[str, Axiom]:
+    """
+    The axioms a class declares, by name, subclasses overriding bases.
+
+    Names are collected before they are filtered, so that assigning anything
+    that is not an axiom over an inherited one drops it altogether, rather
+    than restating it.
+    """
+    visible = {
+        name: value
+        for base in reversed(cls.__mro__)
+        for name, value in base.__dict__.items()}
+    return {name: value for name, value in visible.items()
+            if isinstance(value, Axiom) and name == value.name}

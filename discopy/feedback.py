@@ -147,11 +147,12 @@ In the category of streams, this is just the identity.
 from __future__ import annotations
 
 from discopy import monoidal, braided, markov, hypergraph
-from discopy.abc import FeedbackCategory
+from discopy.abc import Category, FeedbackCategory
 from discopy.utils import (
     deprecated_ob,
     factory, factory_name, assert_isinstance, AxiomError,
 )
+from discopy.testing import C0, C1, FeedbackJoining, axiom
 
 
 def str_delayed(time_step: int):
@@ -346,7 +347,6 @@ class Diagram(markov.Diagram, FeedbackCategory):
     """
     ob = Ty
     layer_factory = Layer
-    axiom_status = {"feedback_joining": "bug"}
 
     def delay(self, n_steps=1):
         """ The delay of a feedback diagram. """
@@ -403,6 +403,21 @@ class Diagram(markov.Diagram, FeedbackCategory):
         return Tail(self)
 
     d = Wire.d
+
+    @axiom
+    def feedback_joining(
+            cls, arguments: FeedbackJoining[C0, C1]):
+        """
+        ``feedback`` unrolls heterogeneous memory in the wrong order, so it
+        refuses to build the joined loop at all, see #606.
+        """
+        f, mem = arguments
+        try:
+            joined = f.feedback(mem=mem)
+        except AxiomError as error:
+            return error
+        return AxiomError(Category.equation_factory(
+            joined, f.feedback().feedback()))
 
 
 class Box(markov.Box, Diagram):

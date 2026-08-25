@@ -54,11 +54,16 @@ Coherence
 ...     Cap(x, x.r) @ Cap(y, y.r) >> x @ Diagram.swap(x.r, y @ y.r))
 """
 
+from __future__ import annotations
+
 from discopy import symmetric, ribbon, rigid, hypergraph
-from discopy.abc import CompactCategory
+from discopy.abc import Category, CompactCategory
 from discopy.cat import factory
 from discopy.utils import deprecated_ob
 from discopy.pivotal import Wire, Ty  # noqa: F401
+from discopy.testing import (
+    Atomic, C0, C1, LeftCurrying, RightCurrying, TraceNaturalityLeft,
+    TraceNaturalityRight, axiom)
 
 
 class Layer(symmetric.Layer, rigid.Layer):
@@ -78,14 +83,58 @@ class Diagram(symmetric.Diagram, ribbon.Diagram, CompactCategory):
     ob = Ty
     layer_factory = Layer
     trace_factory = ribbon.Diagram.trace_factory
-    axiom_status = {
-        "currying_left": "setoid",
-        "currying_right": "setoid",
-        "transpose_axiom": "setoid",
-        "twist_as_trace": "setoid",
-        "reidemeister_1_cap": "setoid",
-        "reidemeister_1_cup": "setoid",
-    }
+
+    @axiom
+    def currying_left(
+            cls, arguments: LeftCurrying[C0, C1]):
+        """ Left currying followed by evaluation. """
+        f, base, exponent = arguments
+        return cls.equation_factory(
+            cls._uncurry(f, base, exponent, left=True), f)
+
+    @axiom
+    def currying_right(
+            cls, arguments: RightCurrying[C0, C1]):
+        """ Right currying followed by evaluation. """
+        f, base, exponent = arguments
+        return cls.equation_factory(
+            cls._uncurry(f, base, exponent, left=False), f)
+
+    @axiom
+    def reidemeister_1_cap(
+            cls, x: C0):
+        """ Reidemeister move 1 for caps. """
+        return cls.equation_factory(
+            cls.caps(x, x.r).then(cls.swap(x, x.r)),
+            cls.caps(x.r, x))
+
+    @axiom
+    def reidemeister_1_cup(
+            cls, x: C0):
+        """ Reidemeister move 1 for cups. """
+        return cls.equation_factory(
+            cls.swap(x, x.r).then(cls.cups(x.r, x)),
+            cls.cups(x, x.r))
+
+    @axiom
+    def transpose_axiom(
+            cls, f: C1):
+        """ Equality of left and right transposes. """
+        dom, cod = f.dom, f.cod
+        left_transpose = (cod.l @ cls.caps(dom, dom.l)).then(
+            cod.l @ f @ dom.l).then(cls.cups(cod.l, cod) @ dom.l)
+        right_transpose = (cls.caps(dom.r, dom) @ cod.r).then(
+            dom.r @ f @ cod.r).then(dom.r @ cls.cups(cod, cod.r))
+        return cls.equation_factory(left_transpose, right_transpose)
+
+    @axiom
+    def twist_as_trace(
+            cls, x: Atomic[C0]):
+        """ The twist as both orientations of a traced braid. """
+        x = x.value
+        braid = cls.braid(x, x)
+        return cls.equation_factory(
+            braid.trace(left=True), cls.twist(x), braid.trace())
 
 
 class Box(symmetric.Box, ribbon.Box, Diagram):
@@ -167,12 +216,40 @@ class CMap(symmetric.CMap):
     category = Diagram
     require_oriented = False
     require_connected = False
-    axiom_status = {
-        "trace_naturality_left": "strict",
-        "trace_naturality_right": "strict",
-        "currying_left": "strict",
-        "currying_right": "strict",
-    }
+
+    @axiom
+    def currying_left(
+            cls, arguments: LeftCurrying[C0, C1]):
+        """ Left currying followed by evaluation. """
+        f, base, exponent = arguments
+        return Category.equation_factory(
+            cls._uncurry(f, base, exponent, left=True), f)
+
+    @axiom
+    def currying_right(
+            cls, arguments: RightCurrying[C0, C1]):
+        """ Right currying followed by evaluation. """
+        f, base, exponent = arguments
+        return Category.equation_factory(
+            cls._uncurry(f, base, exponent, left=False), f)
+
+    @axiom
+    def trace_naturality_left(
+            cls, sliding: TraceNaturalityLeft[C0, C1]):
+        """ Left-oriented trace naturality. """
+        f, x, g = sliding
+        return Category.equation_factory(
+            (x @ g).then(f).then(x @ g).trace(len(x), left=True),
+            g.then(f.trace(len(x), left=True)).then(g))
+
+    @axiom
+    def trace_naturality_right(
+            cls, sliding: TraceNaturalityRight[C0, C1]):
+        """ Right-oriented trace naturality. """
+        f, x, g = sliding
+        return Category.equation_factory(
+            (g @ x).then(f).then(g @ x).trace(len(x)),
+            g.then(f.trace(len(x))).then(g))
 
 
 Id = Diagram.id

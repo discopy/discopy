@@ -62,7 +62,7 @@ from warnings import warn
 
 from discopy import cat, drawing, hypergraph, cmap, messages
 from discopy.abc import ColouredMonoid, MonoidalCategory
-from discopy.testing import Strategy
+from discopy.testing import Bifunctor, C1, Strategy, axiom
 from discopy.drawing import Drawing
 from discopy.config import (
     BOX_DRAWING_ATTRIBUTES, WIRE_DRAWING_ATTRIBUTES,
@@ -956,7 +956,6 @@ class Diagram(
     ob = Ty
     layer_factory = Layer
     box_factory = None
-    axiom_status = {"bifunctoriality": "normal"}
 
     def __setstate__(self, state):
         if 'inside' not in state:  # Backward compatibility
@@ -1471,6 +1470,14 @@ class Diagram(
             boxes, offsets = map(from_tree, tree['boxes']), tree['offsets']
             return cls.decode(from_tree(tree['dom']), zip(boxes, offsets))
         return super().from_tree(tree)
+
+    @axiom
+    def bifunctoriality(
+            cls, square: Bifunctor[C1]):
+        """ Bifunctoriality of the tensor. """
+        f, g, h, k = square
+        return cls.equation_factory(
+            f @ g >> h @ k, (f >> h) @ (g >> k), up_to=cls.normal_form)
 
 
 class Box(cat.Box, Diagram):

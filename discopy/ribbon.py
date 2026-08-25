@@ -76,10 +76,14 @@ cap becomes a ribbon folding back.
     :align: center
 """
 
+from __future__ import annotations
+
 from discopy import rigid, pivotal, balanced
-from discopy.abc import RibbonCategory
+from discopy.abc import Category, RibbonCategory
 from discopy.cat import factory
 from discopy.pivotal import Ty, PRO  # noqa: F401
+from discopy.utils import AxiomError
+from discopy.testing import Atomic, C0, axiom
 
 
 @factory
@@ -92,7 +96,6 @@ class Diagram(pivotal.Diagram, balanced.Diagram, RibbonCategory):
         dom (pivotal.Ty) : The domain of the diagram, i.e. its input.
         cod (pivotal.Ty) : The codomain of the diagram, i.e. its output.
     """
-    axiom_status = {"twist_as_trace": "bug"}
 
     def trace(self, n=1, left=False):
         """
@@ -152,6 +155,15 @@ class Diagram(pivotal.Diagram, balanced.Diagram, RibbonCategory):
         .. image:: /_static/balanced/twist_dual_rail.svg
         """
         return self.to_braided(width, colour)
+
+    @axiom
+    def twist_as_trace(
+            cls, x: Atomic[C0]):
+        """ The traced braid does not reduce to the twist. """
+        x = x.value
+        braid = cls.braid(x, x)
+        return AxiomError(Category.equation_factory(
+            braid.trace(left=True), cls.twist(x), braid.trace()))
 
 
 class Box(pivotal.Box, balanced.Box, Diagram):

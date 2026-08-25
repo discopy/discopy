@@ -162,6 +162,7 @@ from discopy.utils import (
     deprecated_ob,
     factory_name,
 )
+from discopy.testing import C0, axiom
 
 
 class Wire(monoidal.Wire):
@@ -378,7 +379,6 @@ class Diagram(biclosed.Diagram, RigidCategory):
 
     ob = Ty
     layer_factory = Layer
-    axiom_status = {"snake_equations": "normal"}
 
     to_drawing = monoidal.Diagram.to_drawing
 
@@ -655,6 +655,17 @@ class Diagram(biclosed.Diagram, RigidCategory):
         >>> assert double_snake == two_snakes_nf
         """
         return super().normal_form(**params)
+
+    @axiom
+    def snake_equations(
+            cls, x: C0):
+        """ The two snake equations. """
+        snake_r = (cls.id(x) @ cls.caps(x.r, x)).then(
+            cls.cups(x, x.r) @ cls.id(x))
+        snake_l = (cls.caps(x, x.l) @ cls.id(x)).then(
+            cls.id(x) @ cls.cups(x.l, x))
+        return cls.equation_factory(
+            snake_r, cls.id(x), snake_l, up_to=cls.normal_form)
 
 
 class Box(biclosed.Box, Diagram):

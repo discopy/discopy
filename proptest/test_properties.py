@@ -22,25 +22,34 @@ from discopy import (
     traced,
 )
 from discopy.matrix import Matrix
+from discopy.testing import assert_verdict
 from discopy.python import finset
 from proptest import strategies
 
 
-def axiom_parameter(cls, axiom):
-    """Translate an axiom and its status to a pytest parameter."""
-    marks = pytest.mark.skip(
-        reason=f"{axiom.name} is marked wontfix")\
-        if axiom.status == "wontfix" else pytest.mark.xfail(
-            reason=f"{axiom.name} is marked bug")\
-        if axiom.status == "bug" else ()
-    status = axiom.status.__name__ if callable(axiom.status) else axiom.status
-    return pytest.param(axiom, id=f"{axiom.name} ({status})", marks=marks)
+def axiom_parameter(axiom):
+    """
+    Translate an axiom to a pytest parameter.
+
+    An axiom taking no argument states its verdict without one, so we ask it
+    here: :obj:`NotImplemented` means the structure does not apply and the
+    test is skipped rather than generating arguments it could not satisfy.
+    """
+    if not axiom.parameters and axiom() is NotImplemented:
+        return pytest.param(
+            axiom, id=f"{axiom.name} (wontfix)",
+            marks=pytest.mark.skip(reason=axiom.__doc__.strip()))
+    if axiom.broken:
+        return pytest.param(
+            axiom, id=f"{axiom.name} (bug)",
+            marks=pytest.mark.xfail(reason=axiom.__doc__.strip()))
+    return pytest.param(axiom, id=axiom.name)
 
 
 def axiom_list(cls):
     """ Bind the axioms implemented by ``category``. """
     for axiom in getattr(cls, "axioms", ()):
-        yield axiom_parameter(cls, axiom)
+        yield axiom_parameter(axiom)
 
 
 def axiom_tests(cls):
@@ -49,7 +58,7 @@ def axiom_tests(cls):
     @settings(max_examples=25, deadline=None)
     def test(self, axiom, data):
         args = data.draw(strategies.arguments(axiom), label=axiom.name)
-        assert axiom(*args)
+        assert_verdict(axiom, axiom(*args))
     return test
 
 

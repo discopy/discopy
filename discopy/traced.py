@@ -123,6 +123,8 @@ Dinaturality
 >>> assert sliding_left and sliding_right
 """
 
+from __future__ import annotations
+
 from discopy import monoidal, hypergraph
 from discopy.abc import TracedCategory
 from discopy.cat import factory
@@ -132,6 +134,7 @@ from discopy.utils import (
     assert_isinstance,
     assert_istraceable,
 )
+from discopy.testing import axiom
 
 
 @factory
@@ -144,14 +147,6 @@ class Diagram(monoidal.Diagram, TracedCategory):
         dom (monoidal.Ty) : The domain of the diagram, i.e. its input.
         cod (monoidal.Ty) : The codomain of the diagram, i.e. its output.
     """
-    axiom_status = {
-        "trace_superposing_left": "wontfix",
-        "trace_superposing_right": "wontfix",
-        "trace_naturality_left": "wontfix",
-        "trace_naturality_right": "wontfix",
-        "trace_dinaturality_left": "wontfix",
-        "trace_dinaturality_right": "wontfix",
-    }
 
     def trace(self, n=1, left=False):
         """
@@ -178,6 +173,36 @@ class Diagram(monoidal.Diagram, TracedCategory):
 
     def to_drawing(self):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
+
+    @axiom
+    def trace_dinaturality_left(cls):
+        """ A free trace is a box, not a rewrite. """
+        return NotImplemented
+
+    @axiom
+    def trace_dinaturality_right(cls):
+        """ A free trace is a box, not a rewrite. """
+        return NotImplemented
+
+    @axiom
+    def trace_naturality_left(cls):
+        """ A free trace is a box, not a rewrite. """
+        return NotImplemented
+
+    @axiom
+    def trace_naturality_right(cls):
+        """ A free trace is a box, not a rewrite. """
+        return NotImplemented
+
+    @axiom
+    def trace_superposing_left(cls):
+        """ A free trace is a box, not a rewrite. """
+        return NotImplemented
+
+    @axiom
+    def trace_superposing_right(cls):
+        """ A free trace is a box, not a rewrite. """
+        return NotImplemented
 
 
 class Box(monoidal.Box, Diagram):
