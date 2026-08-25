@@ -18,6 +18,14 @@ def test_Functor_call():
         F(F)
 
 
+def test_Functor_phased_spider():
+    x = Ty('x')
+    spider = Spider(1, 2, x, .5)
+    with raises(KeyError):
+        Functor(lambda x: x, {})(spider)
+    assert spider.to_hypergraph().boxes == (spider, )
+
+
 def test_Box_hash():
     x, y = Ty('x'), Ty('y')
     f = Box('f', x, y)

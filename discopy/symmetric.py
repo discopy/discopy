@@ -686,5 +686,11 @@ class Equation(monoidal.Equation):
     -------
     >>> x, y = Ty('x'), Ty('y')
     >>> assert Equation(Swap(x, y) >> Swap(y, x), Id(x @ y))
+
+    A closed loop is a scalar, as in a compact closed category, so tracing an
+    identity wire is not the identity up to hypergraph isomorphism.
+
+    >>> f = Box('f', x, x)
+    >>> assert Equation(f.trace(0), f) and not Equation((f @ x).trace(), f)
     """
     up_to = staticmethod(Diagram.to_hypergraph)

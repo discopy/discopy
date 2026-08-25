@@ -7,7 +7,7 @@ from pytest import raises, fixture
 
 from discopy.quantum.gates import CRz, CRx, CU1
 from discopy.quantum.zx import *
-from discopy import frobenius
+from discopy import frobenius, tensor
 
 
 @fixture
@@ -71,6 +71,14 @@ def test_Functor():
     assert F(frobenius.Cup(x.l, x)) == Z(2, 0)
     assert F(frobenius.Cap(x.r, x)) == Z(0, 2)
     assert F(f + f) == Z(1, 1) + Z(1, 1)
+
+
+def test_to_hypergraph():
+    assert Z(1, 1, 0).to_hypergraph() != X(1, 1, 0).to_hypergraph()
+    assert Z(1, 1, 0).to_hypergraph() != Z(1, 1, .5).to_hypergraph()
+    assert Z(1, 2, .5).to_hypergraph().to_diagram() == Z(1, 2, .5)
+    assert tensor.Equation(
+        Z(1, 1, .25) @ X(1, 1, .5) >> SWAP, SWAP >> X(1, 1, .5) @ Z(1, 1, .25))
 
 
 def test_subs():

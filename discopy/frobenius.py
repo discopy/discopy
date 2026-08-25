@@ -301,7 +301,7 @@ class Functor(compact.Functor, markov.Functor):
     dom = cod = Diagram
 
     def __call__(self, other):
-        if isinstance(other, Spider):
+        if isinstance(other, Spider) and other.phase is None:
             return self.cod.spiders(
                 len(other.dom), len(other.cod), self(other.typ))
         if isinstance(other, (markov.Copy, markov.Merge)):
