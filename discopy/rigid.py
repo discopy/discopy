@@ -147,6 +147,8 @@ out the two objects needed below as ``cat.Ob`` instances so that
 
 from __future__ import annotations
 
+import copy
+
 from collections.abc import Callable
 
 from typing import Iterator
@@ -211,6 +213,12 @@ class Wire(monoidal.Wire):
         """ The right adjoint of the object. """
         return type(self)(self.name, self.z + 1, dom=self.cod, cod=self.dom)
 
+    def unwind(self) -> Wire:
+        """ The object with winding number zero and the same colours. """
+        result = copy.copy(self)
+        result.z = 0
+        return result
+
     def __eq__(self, other):
         return monoidal.Wire.__eq__(self, other)\
             and isinstance(other, Wire) and self.z == other.z
@@ -256,6 +264,8 @@ class Ty(Pregroup, biclosed.Ty):
     >>> assert n.l.r == n == n.r.l
     >>> assert (s @ n).l == n.l @ s.l and (s @ n).r == n.r @ s.r
     """
+    generator_factory = Wire
+
     def __setstate__(self, state):
         if '_z' in state:  # Backward compatibility
             del state['_z']
@@ -291,7 +301,8 @@ class Ty(Pregroup, biclosed.Ty):
 
     def unwind(self) -> Ty:
         """
-        Rotate an atomic type until its winding number is zero.
+        The atomic type with winding number zero, see :meth:`Wire.unwind`.
+        This method is only defined for atomic types.
 
         The previous normalisation applied ``.r`` once, which is only an
         involution for pivotal types: it sent rigid ``n.r`` to ``n.r.r``.
@@ -301,14 +312,8 @@ class Ty(Pregroup, biclosed.Ty):
         >>> n = Ty('n')
         >>> assert n.r.r.unwind() == n.l.unwind() == n
         """
-        typ = self
-        while typ.z > 0:
-            typ = typ.l
-        while typ.z < 0:
-            typ = typ.r
-        return typ
-
-    generator_factory = Wire
+        assert_isatomic(self)
+        return self.ar(self.inside[0].unwind())
 
 
 @factory
@@ -425,6 +430,8 @@ class Diagram(biclosed.Diagram, RigidCategory):
         .. image:: /_static/rigid/curry.svg
             :align: center
         """
+        if n == 0:
+            return self
         if left:
             base, exponent = self.dom[:-n], self.dom[-n:]
             return base @ self.caps(exponent, exponent.l) >> self @ exponent.l
