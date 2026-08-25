@@ -11,4 +11,4 @@ Quoted verbatim from the two unresolved review threads on #586:
 > undetected; add coverage for a correctly sized list waveform.
 
 - [x] Validate `memory`/`inputs` as non-negative in `Reservoir.__init__`
-- [WIP] @claude-2026-08-25 00:31 Add a positive numerical test for the Rydberg list-waveform path
+- [x] Add a positive numerical test for the Rydberg list-waveform path

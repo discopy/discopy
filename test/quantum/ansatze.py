@@ -66,6 +66,16 @@ def test_Rydberg_drive():
         positions, duration, omega, 0, phase, 1))
 
 
+def test_Rydberg_list_waveform():
+    positions, duration = [(0, 0)], 0.7
+    omega, phase = [1.5, 2.5], [0.3, 1.2]
+    steps, dt = len(omega), duration / len(omega)
+    circuit = Rydberg(positions, duration, omega, 0, phase=phase, steps=steps)
+    exact = rydberg_exact(positions, dt, omega[1], 0, phase[1], 1)\
+        @ rydberg_exact(positions, dt, omega[0], 0, phase[0], 1)
+    assert np.allclose(circuit_matrix(circuit), exact)
+
+
 def test_Rydberg_trotter():
     from discopy.quantum.circuit import Id, qubit
     positions, duration = [(0, 0), (0, 7)], 0.1
