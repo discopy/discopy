@@ -23,27 +23,57 @@ is a port, not a merge.
       asserts `monoidal.Diagram.function([0, 1], x @ y) == Id(x @ y)`.
       Keeping one without the other leaves the base class asymmetric —
       it wants a ruling before an implementation
-- [WIP] @evening-2026-08-25T01:01Z Restore or replace
-      `symmetric.Layer.permutations`, dropped by merged #362 and still
-      asserted by `test/markov.py::test_Layer`
-- [WIP] @evening-2026-08-25T01:01Z Give `symmetric.Layer` an extension point
-      for what counts as routing. Merged #362 hard-codes `Permutation` in
-      `is_routing`, `__init__`, `is_structural`, `boxes_and_types` and
-      `cast`; this branch needs `Function` to count too. A `routing_factory`
-      class attribute (a class or a tuple, read by all five) is the smallest
-      change that keeps #362's vocabulary: `Layer.routing_factory =
-      Permutation` and `markov.Layer.routing_factory = (Function,
-      symmetric.Permutation)`
-- [WIP] @evening-2026-08-25T01:01Z Rewrite `markov.Layer` and the `markov`
-      module docstring for the merged representation: identity routing is
-      stored as a `Ty`, so `all(isinstance(g, Function) for g in
-      layer[::2])` no longer holds
-- [WIP] @evening-2026-08-25T01:01Z Take `main`'s side wholesale for the
-      renames it settled: `drawing_permutation` → `draw_as_permutation`,
-      `_is_crossing` → `config.is_crossing`, and `PERMUTATION_AT_ODD_INDEX` /
-      `LAYERS_MUST_BE_ODD` → `LAYERS_MUST_ALTERNATE`
-- [WIP] @evening-2026-08-25T01:01Z Drop `77eb4eb`: `main` already names
-      `compact` in the `test/hopf.py` eval imports
+- [x] @evening-2026-08-25T01:01Z `symmetric.Layer.permutations` is not
+      restored: the merged representation no longer alternates strictly (a
+      generator layer can hold consecutive boxes with no plumbing between
+      them), so an even-index view is not meaningful any more. Adapted
+      `test/markov.py::test_Layer` and `test/symmetric.py`'s
+      `test_Layer_factory_ownership` to main's own idiom instead —
+      `layer.boxes_or_types` and `layer.is_plumbing` — which already carry
+      the same information.
+- [x] @evening-2026-08-25T01:01Z `symmetric.Layer.plumbing` (main's actual
+      name for the old `routing_factory` idea, from `Permutation` alone to
+      `(monoidal.Ty, Permutation)`) is already exactly this extension point;
+      only `Layer.normalise` and `Layer.is_plumbing` still hard-coded
+      `Permutation`, generalised to read `cls.plumbing` / `self.plumbing`.
+      `markov.Layer.plumbing = (monoidal.Ty, Function, symmetric.Permutation)`.
+      The generalised `normalise` keeps main's `hasattr` guard (needed so
+      unpickling a cyclic `box.inside == (Layer(box),)` does not crash on a
+      structural box whose own state is not set yet).
+- [x] @evening-2026-08-25T01:01Z `markov.Layer` and the module docstring
+      rewritten: identity routing is a bare `Ty`, not a boxed identity
+      `Function`; the doctest now checks `boxes_or_types`/`is_plumbing`
+      instead of `layer[::2]`.
+- [x] @evening-2026-08-25T01:01Z Took `main`'s current names, not this
+      TODO's stale memory of them: `drawing_permutation` is gone (dropped
+      from `config.py` and `drawing/drawing.py`'s `dagger`, replaced by
+      `draw_as_permutation` + `permutation_indices`); `_is_crossing` is
+      `config.is_crossing`; main never settled on `LAYERS_MUST_ALTERNATE` —
+      it replaced the whole alternating invariant with
+      `LAYERS_MUST_HAVE_A_BOX`, so `PERMUTATION_AT_ODD_INDEX` and
+      `LAYERS_MUST_BE_ODD` are just dropped as dead.
+- [x] @evening-2026-08-25T01:01Z Dropped `77eb4eb`: both `test/hopf.py`
+      spots now read `from discopy import hopf, compact, tensor`, matching
+      `main` (one dropped the extra `rigid` this branch had added, the
+      other dropped the redundant `compact` this branch had added a second
+      time); full suite passes with the imports as `main` has them.
+
+## Port verification (2026-08-25, @evening)
+
+- `uv run pflake8 discopy` is clean.
+- `uv run coverage run -m pytest --skip-extra`: 693 passed, 51 skipped (the
+  quantum/tensor extras this environment cannot install), 0 failed.
+- Three latent bugs in already-merged, unreleased `main` code surfaced only
+  once the port actually exercised them, and are fixed rather than routed
+  around — logged in `CHANGELOG.md`'s `[Unreleased]` → `Fixed`:
+  `abc.SymmetricCategory.permutation` tensoring objects with `@` where its
+  own `tensor` helper uses `+`; `para.Hypergraph`/`para.Feedback` unable to
+  instantiate because `abc.HypergraphCategory`/`FeedbackCategory` now also
+  require `merge` (added `para.Comarkov`, mirroring `para.Markov`); and
+  `drawing.Drawing.permutation` defined twice, the second (dead) copy
+  shadowing the first.
+- Not touched: the routing-stubs ruling point above, `frobenius.Cospan`
+  (already deferred to #472).
 
 ---
 
