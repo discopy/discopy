@@ -386,7 +386,7 @@ class Curry(monoidal.Bubble, Box):
         n : The number of atomic types to curry.
         left : Whether to curry on the left or right.
     """
-    def __init__(self, arg: Diagram, n=1, left=False):
+    def __init__(self, arg: Diagram, n=1, left=True):
         self.n, self.left = n, left
         name = f"Curry({arg}, {n}, {left})"
         if left:

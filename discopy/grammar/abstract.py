@@ -22,6 +22,7 @@ Summary
     Curry
     Copy
     Discard
+    Permutation
     Swap
     Trace
     Sum
@@ -112,7 +113,11 @@ class Discard(closed.Discard, Copy):
     "The discard of an abstract type, i.e. a copy with zero legs."
 
 
-class Swap(closed.Swap, Box):
+class Permutation(closed.Permutation, Box):
+    "A permutation of abstract types."
+
+
+class Swap(Permutation, closed.Swap, Box):
     "The symmetric swap of two abstract types."
 
 
@@ -227,7 +232,8 @@ Id = Diagram.id
 Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
 Diagram.copy_factory = Copy
-Diagram.braid_factory = Swap
+Diagram.permutation_factory = Permutation
+Diagram.swap_factory = Swap
 Diagram.curry_factory = Curry
 Diagram.eval_factory = Eval
 Diagram.coeval_factory = Coeval

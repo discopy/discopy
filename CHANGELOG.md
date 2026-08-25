@@ -9,6 +9,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- Abstract categorial grammars, `discopy.grammar.abstract`, where derivations
+  are (almost) linear lambda terms with words as constants and lexicons are
+  functors between free biclosed categories: `closed.TermBase.from_biclosed`
+  and `closed.Ty.from_biclosed` drop planarity by collapsing left and right
+  exponentials, `abstract.Lexicon` subclasses `categorial.Functor` and
+  `closed.Functor` so that crossed compositions and type raising translate
+  into lambda terms, and `closed.TermBase.normal_form` beta-reduces a term
+  ([#398](https://github.com/discopy/discopy/issues/398)).
 - A style review workflow: when a same-repo pull request leaves draft or
   gets the `style-review` label, one model request reads every changed
   Python file whole — with the package-local files they import as context —
@@ -191,6 +199,19 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `biclosed.Curry`'s own constructor defaulted to `left=False`, disagreeing
+  with `Diagram.curry`'s `left=True` default since #560 unified the two: a
+  bare `Curry(box)` curried the opposite side of `box.curry()`. `closed.
+  Diagram.bc` and `grammar.categorial.Diagram.bc` passed `n` without `left`,
+  so backward composition curried on the wrong side by the same drift.
+  `closed.Application.__check_dom__` and `closed.Abstraction.eval` order
+  free variables and permute wires by variable count rather than by wire
+  width, so an abstracted or applied term with a multi-wire free variable
+  built the wrong domain or crashed `Diagram.permutation`; both now account
+  for each variable's width. `grammar.abstract` set `braid_factory` instead
+  of `swap_factory` (renamed by #440) and defined no `Permutation` class of
+  its own, so any swap or non-trivial permutation of abstract diagrams
+  silently built a `closed.Diagram` instead of a `grammar.abstract.Diagram`.
 - A boxless `monoidal.Layer` can no longer be placed inside a `Diagram`:
   `Diagram.__init__` raises `ValueError` for a layer with no box, restoring
   the invariant that every layer holds at least one box and that the identity

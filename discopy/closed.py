@@ -142,7 +142,7 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
     def bc(cls, left, middle, right):
         """Backward composition."""
         return (cls.ba(left, middle) @ cls.id(middle >> right)
-                >> cls.ba(middle, right)).curry(n=len(left))
+                >> cls.ba(middle, right)).curry(n=len(left), left=False)
 
     fx = fc
     bx = bc
@@ -362,23 +362,26 @@ class Variable(TermBase, biclosed.Variable):
 class Application(TermBase, biclosed.Application):
     def __check_dom__(self, func, args, left):
         self.overlap = set(func.freevars).intersection(args.freevars)
-        self.freevars = list(dict.fromkeys(func.freevars + args.freevars))
+        freevars = args.freevars + func.freevars if left\
+            else func.freevars + args.freevars
+        self.freevars = list(dict.fromkeys(freevars))
         return self.ob().tensor(*[x.cod for x in self.freevars])
 
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
         base, exponent = self.func.cod.base, self.func.cod.exponent
-        evaluate = functor.cod.ev(functor(base), functor(exponent))
+        evaluate = functor.cod.ev(
+            functor(base), functor(exponent), left=not self.left)
         if context is None:
             if not self.overlap:
                 func = self.func.eval(functor=functor)
                 args = self.args.eval(functor=functor)
-                return func @ args >> evaluate
+                return (args @ func if self.left else func @ args) >> evaluate
             context = Context(self.freevars)
         func = self.func.eval(functor=functor, context=context)
         args = self.args.eval(functor=functor, context=context)
         return functor.cod.copy(functor(context.dom))\
-            >> func @ args >> evaluate
+            >> (args @ func if self.left else func @ args) >> evaluate
 
 
 class Abstraction(TermBase, biclosed.Abstraction):
@@ -390,18 +393,24 @@ class Abstraction(TermBase, biclosed.Abstraction):
         functor = functor or self.functor
         if self.left:
             return type(self)(self.var, self.body).eval(functor, context)
+        n = len(functor(self.var.cod))
         if context:
             new_context = Context([self.var] + context.inside)
             body = self.body.eval(functor=functor, context=new_context)
-            return body.curry(left=False)
+            return body.curry(n, left=False)
         body = self.body.eval(functor=functor)
         if self.var not in self.body.freevars:
             discard = functor.cod.discard(functor(self.var.cod))
-            return (discard @ body.dom >> body).curry(left=False)
-        i, n = self.body.freevars.index(self.var), len(self.body.freevars)
-        p = [i] + [j for j in range(n) if j != i]
+            return (discard @ body.dom >> body).curry(n, left=False)
+        i = self.body.freevars.index(self.var)
+        widths = [len(functor(x.cod)) for x in self.body.freevars]
+        start = sum(widths[:i])
+        stop = start + widths[i]
+        p = (list(range(start, stop))
+             + list(range(start)) + list(range(stop, len(body.dom))))
         doms = [self.ob(wire) for wire in body.dom.inside]
-        return (body.permutation(p, doms).dagger() >> body).curry(left=False)
+        permute = body.permutation(p, doms).dagger()
+        return (permute >> body).curry(n, left=False)
 
 
 @dataclass
