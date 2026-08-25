@@ -18,7 +18,7 @@ Cubic's third review round on #610 (run 7edf5232), verbatim:
 > `DISCOPY_BOT_PRIVATE_KEY` for non-dry runs, or fail early with the
 > existing configuration notice.
 
-- [ ] comment pagination: request the single newest comment directly
+- [x] comment pagination: request the single newest comment directly
       (`per_page=1&sort=created&direction=desc`) instead of the first page
-- [ ] config check: `MODEL: ${{ inputs.model || vars.CODEBASE_REVIEW_MODEL }}`
-- [ ] config check: also require the bot credentials, unless it's a dry run
+- [x] config check: `MODEL: ${{ inputs.model || vars.CODEBASE_REVIEW_MODEL }}`
+- [x] config check: also require the bot credentials, unless it's a dry run

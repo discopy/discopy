@@ -25,15 +25,21 @@ jobs:
       id: config
       env:
         BASE_URL: ${{ vars.CODEBASE_REVIEW_BASE_URL }}
-        MODEL: ${{ vars.CODEBASE_REVIEW_MODEL }}
+        MODEL: ${{ inputs.model || vars.CODEBASE_REVIEW_MODEL }}
         KEY: ${{ secrets.CODEBASE_REVIEW_API_KEY }}
+        DRY_RUN: ${{ inputs.dry_run }}
+        APP_ID: ${{ vars.DISCOPY_BOT_APP_ID }}
+        PRIVATE_KEY: ${{ secrets.DISCOPY_BOT_PRIVATE_KEY }}
       run: |
-        if [ -n "$BASE_URL" ] && [ -n "$MODEL" ] && [ -n "$KEY" ]; then
+        if [ -n "$BASE_URL" ] && [ -n "$MODEL" ] && [ -n "$KEY" ] \
+            && { [ "$DRY_RUN" = "true" ] \
+                 || { [ -n "$APP_ID" ] && [ -n "$PRIVATE_KEY" ]; }; }; then
           echo "configured=true" >> "$GITHUB_OUTPUT"
         else
           echo "::notice::codebase-review is not configured — set the \
         CODEBASE_REVIEW_BASE_URL and CODEBASE_REVIEW_MODEL variables and \
-        the CODEBASE_REVIEW_API_KEY secret."
+        the CODEBASE_REVIEW_API_KEY secret, and (for a real, non-dry run) \
+        the DISCOPY_BOT_APP_ID variable and DISCOPY_BOT_PRIVATE_KEY secret."
           echo "configured=false" >> "$GITHUB_OUTPUT"
         fi
 

@@ -66,10 +66,11 @@ def main():
         issue = request(f"{api}/issues", {
             "title": title, "labels": [LABEL], "body": body})
     if bugs:
-        comments = (request(f"{api}/issues/{issue['number']}/comments")
-                    if reused else [])
-        if comments:
-            request(comments[-1]["url"], {"body": bugs}, method="PATCH")
+        newest = (request(
+            f"{api}/issues/{issue['number']}/comments"
+            "?per_page=1&sort=created&direction=desc") if reused else [])
+        if newest:
+            request(newest[0]["url"], {"body": bugs}, method="PATCH")
         else:
             request(
                 f"{api}/issues/{issue['number']}/comments", {"body": bugs})
