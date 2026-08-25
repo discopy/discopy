@@ -84,8 +84,10 @@ def assemble(files, diff):
     separators the join below adds between them, so the request sent to
     the gateway never exceeds ``BUDGET``. A changed file too big to fit
     its full text falls back to the diff alone, same as a context file
-    dropped for size — the diff already covers every changed file, so
-    neither case loses the change itself, only the surrounding file."""
+    dropped for size — except the diff itself may also be truncated for
+    size, in which case a file whose hunk falls in the truncated tail
+    gets no representation at all, and is reported as such rather than
+    as reviewed from a diff it isn't in."""
     deps = sorted(
         {dep for path in files for dep in imports(path)} - set(files))
     if len(diff) > BUDGET // 2:
@@ -103,10 +105,17 @@ def assemble(files, diff):
     notes = []
     if dropped:
         notes.append(f"# Context dropped for size: {', '.join(dropped)}")
-    if missing:
+    unreviewed = [
+        path for path in missing if f"diff --git a/{path} " not in diff]
+    diff_only = [path for path in missing if path not in unreviewed]
+    if diff_only:
         notes.append(
             "# Changed files past the budget, reviewed from the diff "
-            f"only: {', '.join(missing)}")
+            f"only: {', '.join(diff_only)}")
+    if unreviewed:
+        notes.append(
+            "# Changed files past the budget with no diff left after "
+            f"truncation, not reviewed at all: {', '.join(unreviewed)}")
     for note in notes:
         if len(note) + 2 <= budget:
             parts.append(note)

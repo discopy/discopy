@@ -90,14 +90,17 @@ jobs:
     - name: Call the correctness reviewer
       if: >
         ${{ !cancelled() && github.event.action == 'ready_for_review'
-            && steps.review.outcome != 'failure'
             && steps.post.outputs.clean != 'false' }}
       env:
         GH_TOKEN: ${{ steps.app-token.outputs.token }}
         PR_NUMBER: ${{ github.event.pull_request.number }}
         CLEAN: ${{ steps.post.outputs.clean }}
+        REVIEW_OUTCOME: ${{ steps.review.outcome }}
       run: |
-        if [ "$CLEAN" = "true" ]; then
+        if [ "$REVIEW_OUTCOME" = "failure" ]; then
+          body="Style review crashed, see the \"Review the diff\" step's \
+        log. @cubic-dev-ai review"
+        elif [ "$CLEAN" = "true" ]; then
           body="No style remarks. @cubic-dev-ai review"
         else
           body="@cubic-dev-ai review"

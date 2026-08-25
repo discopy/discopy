@@ -238,11 +238,13 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   didn't fit `BUDGET`, crashing the whole style-review step on a large
   diff; a changed file too big for its full text now falls back to its
   diff hunk only, the same degrade already applied to imported context
-  files. `style-review.yml`'s "Call the correctness reviewer" step used
-  to fire whenever the review step never ran, including when it
-  crashed, making a crashed review look clean to the gate; it now also
-  checks the review step's own outcome
-  ([#617](https://github.com/discopy/discopy/pull/617)).
+  files — and since the diff itself can also be truncated for size, a
+  file whose hunk falls in the truncated tail is reported as entirely
+  unreviewed rather than as reviewed from a diff it isn't in.
+  `style-review.yml`'s "Call the correctness reviewer" step still runs
+  after a crashed review step, same as before, but its comment now says
+  the style review crashed instead of reading like a clean or completed
+  one ([#617](https://github.com/discopy/discopy/pull/617)).
 - `build.yml` timeouts and a bounded, retried Graphviz install
   ([#591](https://github.com/discopy/discopy/issues/591)).
 - `frobenius.Diagram.unfuse`'s doctest no longer sets `Spider.color = "red"`
