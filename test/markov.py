@@ -68,7 +68,8 @@ def test_Permutation():
     assert perm.fun == perm.perm
     assert Equation(perm >> perm.dagger(), Id(x @ y @ z))
     assert isinstance(perm.inside[0], Layer)
-    assert all(isinstance(f, Function) for f in Box('f', x, y).inside[0][::2])
+    assert Box('f', x, y).inside[0].boxes_or_types == (Box('f', x, y), )
+    assert type(perm.inside[0].boxes_and_types[1]) is Permutation
     assert Permutation(x @ y, [1, 0]) != Swap(x, y)
     assert Equation(perm, perm.to_swaps())
 
@@ -109,10 +110,11 @@ def test_Layer():
     x, y = Ty('x'), Ty('y')
     f = Box('f', x, y)
     layer = Layer(x, f, y)
-    assert layer.functions == layer.permutations
-    assert all(isinstance(g, Function) for g in layer[::2])
+    assert layer.boxes_or_types == (x, f, y)
+    assert not layer.is_plumbing
     fun = Function(x @ y, [1, 0, 0])
-    assert Layer(fun).is_permutation and Layer(fun).permutation == fun
+    assert Layer(fun).boxes_or_types == (fun, )
+    assert Layer(fun).is_plumbing
     with raises(AxiomError):
         Layer(fun).dagger()
 

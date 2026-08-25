@@ -57,7 +57,12 @@ Coherence
 from discopy import symmetric, ribbon, rigid, hypergraph
 from discopy.abc import CompactCategory
 from discopy.cat import factory
-from discopy.pivotal import Ob, Ty  # noqa: F401
+from discopy.utils import deprecated_ob
+from discopy.pivotal import Wire, Ty  # noqa: F401
+
+
+class Layer(symmetric.Layer, rigid.Layer):
+    """ A compact layer with permutation plumbing and rigid rotation. """
 
 
 class Layer(symmetric.Layer, rigid.Layer):
@@ -162,7 +167,7 @@ class CMap(symmetric.CMap):
 
 Id = Diagram.id
 
-Diagram.braid_factory = Swap
+Diagram.swap_factory = Swap
 Diagram.functor_factory = Functor
 Diagram.permutation_factory = Permutation
 Diagram.map_factory = CMap
@@ -173,3 +178,6 @@ Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 class Equation(symmetric.Equation):
     """ The :class:`symmetric.Equation` of compact diagrams. """
     up_to = staticmethod(Diagram.to_hypergraph)
+
+
+__getattr__ = deprecated_ob(__name__)

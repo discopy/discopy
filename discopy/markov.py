@@ -63,12 +63,17 @@ from its input ``fun[i]``, i.e. ``cod[i] == dom[fun[i]]``.
 Layers
 ======
 
-A Markov :class:`Layer` alternates functions and generators, the same way a
-:class:`discopy.symmetric.Layer` alternates permutations and generators.
+A Markov :class:`Layer` alternates :class:`Function` boxes and generators,
+the same way a :class:`discopy.symmetric.Layer` alternates permutations and
+generators: it extends :attr:`discopy.symmetric.Layer.plumbing` with
+:class:`Function`, so identity routing is stored as its type rather than a
+boxed identity function, exactly as for :class:`discopy.symmetric.Layer`.
 
 >>> f = Box('f', x, x @ x)
 >>> layer = Layer(x, f, x)
->>> assert all(isinstance(g, Function) for g in layer[::2])
+>>> assert layer.boxes_or_types == (x, f, x)
+>>> assert not layer.is_plumbing
+>>> assert Layer(Function(x, [0, 0])).is_plumbing
 
 Note
 ----
@@ -93,30 +98,22 @@ from discopy.utils import (
 
 class Layer(symmetric.Layer):
     """
-    A Markov layer alternates :class:`Function` boxes and generators, the
-    same way a :class:`discopy.symmetric.Layer` alternates permutations and
-    generators.
+    A Markov layer, i.e. a :class:`discopy.symmetric.Layer` whose
+    :attr:`plumbing` also accepts :class:`Function`.
 
     Parameters:
-        inside : An odd number of alternating functions and generators.
+        inside : Generators and plumbing, with at least one generator or one
+                 non-identity function or permutation.
 
     Examples
     --------
     >>> x, y = Ty('x'), Ty('y')
     >>> f = Box('f', x, y)
     >>> layer = Layer(x, f, y)
-    >>> assert all(isinstance(g, Function) for g in layer[::2])
+    >>> assert layer.boxes_or_types == (x, f, y)
     >>> assert layer.boxes == [f]
     >>> assert Layer(Function(x, [0, 0])).boxes == []
     """
-    @classmethod
-    def structure_factory(cls, generator: monoidal.Box) -> type:
-        return generator.ar.function_factory
-
-    @property
-    def functions(self) -> list[Function]:
-        """ The structural routing components at even positions. """
-        return self.permutations
 
 
 @factory
@@ -242,6 +239,10 @@ class Function(Box):
     are permutations, non-injective ones copy their inputs and
     non-surjective ones delete them.
 
+    A :class:`Layer` stores it as plumbing rather than as a generator, the
+    same way :class:`discopy.symmetric.Permutation` is stored, and the
+    identity function is the identity diagram.
+
     Parameters:
         dom : The domain, i.e. the wires to copy, delete and reorder.
         fun : The function as a :class:`finset.Function` or a list.
@@ -252,27 +253,23 @@ class Function(Box):
     >>> fun = Function(x @ y, [0, 1, 1])
     >>> assert fun.cod == x @ y @ y
     >>> assert Equation(fun, x @ Copy(y))
+    >>> assert Function(x @ y, [0, 1]) == Id(x @ y)
     """
     def __init__(self, dom: monoidal.Ty, fun: Sequence[int]):
         fun = list(fun)
         self.fun = finset.Function(fun, len(dom), len(fun))
         cod = dom[:0].tensor(*(dom[i] for i in self.fun))
+        name = f"Function({list(self.fun)})"
         params = dict(
-            draw_as_wires=True, drawing_permutation=tuple(self.fun)
+            drawing_name=name, draw_as_wires=True, draw_as_permutation=True,
+            permutation_indices=tuple(self.fun)
         ) if self.fun.is_bijective else {}
-        super().__init__(f"Function({list(self.fun)})", dom, cod, **params)
-        if self.fun.is_identity:
-            self.inside = ()
-
-    def __setstate__(self, state):
-        super().__setstate__(state)
-        if self.is_identity:
-            self.inside = ()
+        super().__init__(name, dom, cod, **params)
 
     @classmethod
     def cast(cls, box) -> Function:
         """
-        Rewrap a structural box into this class, used by :class:`Layer`.
+        Rewrap a structural box into this class, used by :meth:`tensor`.
 
         >>> x, y = Ty('x'), Ty('y')
         >>> from discopy.symmetric import Permutation
@@ -485,7 +482,7 @@ class Functor(symmetric.Functor):
     dom = cod = Diagram
 
     def __call__(self, other):
-        if isinstance(other, Copy):
+        if isinstance(other, Copy) and hasattr(self.cod, "copy"):
             return self.cod.copy(self(other.dom), len(other.cod))
         if isinstance(other, Function)\
                 and not isinstance(other, symmetric.Permutation):
@@ -503,13 +500,13 @@ Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.copy_factory = Copy
-Diagram.braid_factory = Swap
+Diagram.swap_factory = Swap
 Diagram.permutation_factory = Permutation
 Diagram.function_factory = Function
 Diagram.trace_factory = Trace
 Diagram.discard_factory = Discard
 Diagram.sum_factory = Sum
-Layer.structures = (Function, symmetric.Permutation)
+Layer.plumbing = (monoidal.Ty, Function, symmetric.Permutation)
 Id = Diagram.id
 
 

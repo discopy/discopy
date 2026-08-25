@@ -11,7 +11,7 @@ Summary
     :nosignatures:
     :toctree:
 
-    Ob
+    Wire
     Ty
     PRO
     Diagram
@@ -48,7 +48,7 @@ colours ``a`` and ``b``:
 >>> from discopy.monoidal import Colour
 >>> a = Colour('cornflowerblue', label='Function')
 >>> b = Colour('palegreen', label='Morphism')
->>> F = Ty(Ob('F', dom=a, cod=b))
+>>> F = Ty(Wire('F', dom=a, cod=b))
 >>> G = F.r
 >>> eta, epsilon = Cap(G, F), Cup(F, G)
 >>> left_snake = Id(F) @ eta >> epsilon @ Id(F)
@@ -155,17 +155,18 @@ from discopy import cat, monoidal, biclosed, messages
 from discopy.abc import Pregroup, RigidCategory
 from discopy.cat import factory
 from discopy.utils import (
+    assert_isatomic,
     assert_isinstance,
-    factory_name,
-    BinaryBoxConstructor,
     AxiomError,
-    assert_isatomic
+    BinaryBoxConstructor,
+    deprecated_ob,
+    factory_name,
 )
 
 
-class Ob(monoidal.Wire):
+class Wire(monoidal.Wire):
     """
-    A rigid object has adjoints :meth:`Ob.l` and :meth:`Ob.r`.
+    A rigid object has adjoints :meth:`Wire.l` and :meth:`Wire.r`.
 
     Parameters:
         name : The name of the object.
@@ -180,7 +181,7 @@ class Ob(monoidal.Wire):
 
     Example
     -------
-    >>> a = Ob('a')
+    >>> a = Wire('a')
     >>> assert a.l.r == a.r.l == a and a != a.l.l != a.r.r
     """
 
@@ -197,22 +198,22 @@ class Ob(monoidal.Wire):
         self.z = z
         super().__init__(name, dom, cod)
 
-    def dagger(self) -> Ob:
+    def dagger(self) -> Wire:
         raise AxiomError("Rigid types have no dagger, use pivotal instead.")
 
     @property
-    def l(self) -> Ob:
+    def l(self) -> Wire:
         """ The left adjoint of the object. """
         return type(self)(self.name, self.z - 1, dom=self.cod, cod=self.dom)
 
     @property
-    def r(self) -> Ob:
+    def r(self) -> Wire:
         """ The right adjoint of the object. """
         return type(self)(self.name, self.z + 1, dom=self.cod, cod=self.dom)
 
     def __eq__(self, other):
         return monoidal.Wire.__eq__(self, other)\
-            and isinstance(other, Ob) and self.z == other.z
+            and isinstance(other, Wire) and self.z == other.z
 
     def __hash__(self):
         return hash(repr(self))
@@ -247,7 +248,7 @@ class Ty(Pregroup, biclosed.Ty):
     A rigid type is a biclosed type with rigid objects inside.
 
     Parameters:
-        inside (tuple[Ob, ...]) : The objects inside the type.
+        inside (tuple[Wire, ...]) : The objects inside the type.
 
     Example
     -------
@@ -307,7 +308,7 @@ class Ty(Pregroup, biclosed.Ty):
             typ = typ.r
         return typ
 
-    generator_factory = Ob
+    generator_factory = Wire
 
 
 @factory
@@ -328,14 +329,11 @@ class Layer(monoidal.Layer):
     A rigid layer is a monoidal layer that can be rotated.
 
     Parameters:
-        left : The type on the left of the layer.
-        box : The box in the middle of the layer.
-        right : The type on the right of the layer.
-        more : More boxes and types to the right,
-               used by :meth:`Diagram.foliation`.
+        inside : Boxes and non-empty types, with at least one box.
     """
     def rotate(self, left=False):
-        return type(self)(*(x.l if left else x.r for x in list(self)[::-1]))
+        return type(self)(
+            *(x.l if left else x.r for x in list(self)[::-1]), normalise=False)
 
     l = property(lambda self: self.rotate(left=True))
     r = property(lambda self: self.rotate(left=False))
@@ -483,7 +481,7 @@ class Diagram(biclosed.Diagram, RigidCategory):
 
         .. image:: /_static/rigid/transpose_box.svg
         """
-        box = list(self.inside[i])[2 * j + 1]
+        box = self.inside[i].boxes_and_types[2 * j + 1]
         transposed_box = (box.r if left else box.l).transpose(left)
         top, bottom = self[:i], self[i + 1:]
         boxes_and_types = list(self.inside[i].boxes_and_types)
@@ -835,9 +833,9 @@ class Functor(biclosed.Functor):
     dom = cod = Diagram
 
     def __call__(self, other):
-        if isinstance(other, Ty) or isinstance(other, Ob) and other.z == 0:
+        if isinstance(other, Ty) or isinstance(other, Wire) and other.z == 0:
             return super().__call__(other)
-        if isinstance(other, Ob):
+        if isinstance(other, Wire):
             return self(other.r).l if other.z < 0 else self(other.l).r
         if isinstance(other, Cup):
             return self.cod.cups(self(other.dom[:1]), self(other.dom[1:]))
@@ -893,3 +891,6 @@ Id = Diagram.id
 
 class Equation(biclosed.Equation):
     """ The :class:`biclosed.Equation` of rigid diagrams. """
+
+
+__getattr__ = deprecated_ob(__name__)

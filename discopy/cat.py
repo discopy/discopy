@@ -301,7 +301,7 @@ class Arrow(FreeCategory):
     ob = Ob
 
     def __setstate__(self, state):
-        if 'inside' not in state:  # Backward compatibility
+        if '_dom' in state:  # Backward compatibility
             self.dom, self.cod, self.inside = (
                 state['_dom'], state['_cod'], tuple(state['_boxes']))
             del state['_dom'], state['_cod'], state['_boxes']
@@ -409,7 +409,7 @@ class Arrow(FreeCategory):
         Example
         -------
 
-        >>> from sympy.abc import phi, psi
+        >>> from sympy.abc import phi, psi  # doctest: +EXTRA
         >>> x, y = Ob('x'), Ob('y')
         >>> f = Box('f', x, y, data={"Alice": [phi + 1]})
         >>> g = Box('g', y, x, data={"Bob": [psi / 2]})
@@ -432,7 +432,7 @@ class Arrow(FreeCategory):
 
         Example
         -------
-        >>> from sympy.abc import phi, psi
+        >>> from sympy.abc import phi, psi  # doctest: +EXTRA
         >>> x, y = Ob('x'), Ob('y')
         >>> f = Box('f', x, y, data={"Alice": [phi + 1]})
         >>> g = Box('g', y, x, data={"Bob": [psi / 2]})
@@ -453,7 +453,7 @@ class Arrow(FreeCategory):
 
         Example
         -------
-        >>> from sympy.abc import phi, psi
+        >>> from sympy.abc import phi, psi  # doctest: +EXTRA
         >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
         >>> f, g = Box('f', x, y, data=phi), Box('g', y, z, data=psi)
         >>> assert f.lambdify(psi)(42) == f
@@ -532,7 +532,7 @@ class Box(Arrow):
     >>> assert f.inside == (f, )
     """
     def __setstate__(self, state):
-        if 'inside' not in state:  # Backward compatibility
+        if '_name' in state:  # Backward compatibility
             self.name, self.data, self.is_dagger = (
                 state['_name'], state['_data'], state['_dagger'])
             del state['_name'], state['_data'], state['_dagger']

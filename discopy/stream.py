@@ -161,11 +161,13 @@ See :mod:`discopy.feedback` for the other axioms for feedback categories.
 """
 from __future__ import annotations
 
-from typing import Callable, Optional
+from typing import Optional
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from discopy import symmetric
 from discopy.abc import MonoidalCategory, NamedGeneric
+from discopy.python import finset
 from discopy.utils import (
     AxiomError, get_origin, is_tuple,
     assert_isinstance, unbiased, inductive, classproperty, factory_name)
@@ -532,17 +534,18 @@ class Stream(MonoidalCategory, NamedGeneric['category']):
         return cls(now, dom, cod, _later=_later)
 
     @classmethod
-    def permutation(cls, xs, dom: Ty) -> Stream:
+    def permutation(cls, xs: Sequence[int], doms: Sequence[Ty]) -> Stream:
         """ Construct a stream of permutations. """
-        xs = list(xs)
-        if xs == list(range(len(xs))):
+        xs = finset.Permutation(xs, len(doms))
+        if xs.is_identity:
+            dom = cls.ob().tensor(*doms)
             return cls.id(dom)
-        now = cls.category.ar.permutation(xs, dom.now)
-        _later = None if dom.is_constant else (
-            lambda: cls.permutation(xs, dom.later))
-        cod = type(dom)(now.cod, None if _later is None
-                        else lambda: _later().cod)
-        return cls(now, dom, cod, _later=_later)
+        now = cls.category.ar.permutation(xs, doms.now)
+        _later = None if doms.is_constant else (
+            lambda: cls.permutation(xs, doms.later))
+        cod = type(doms)(now.cod, None if _later is None
+                         else lambda: _later().cod)
+        return cls(now, doms, cod, _later=_later)
 
     @classmethod
     def function(cls, fun, dom: Ty) -> Stream:

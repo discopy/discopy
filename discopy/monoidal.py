@@ -56,6 +56,7 @@ from __future__ import annotations
 
 import itertools
 from dataclasses import dataclass, field
+from functools import cached_property
 from typing import Iterator, Callable, TYPE_CHECKING
 from warnings import warn
 
@@ -564,48 +565,104 @@ class Dim(Ty):
     __str__ = __repr__
 
 
-class Layer(cat.Box):
+class Layer(cat.Box, ColouredMonoid):
     """
-    A layer is a :code:`box` in the middle of a pair of types
-    :code:`left` and :code:`right`.
+    A layer is a tensor product of boxes and plumbing, i.e. non-empty types.
 
     Parameters:
-        left : The type on the left of the layer.
-        box : The box in the middle of the layer.
-        right : The type on the right of the layer.
-        more : More boxes and types to the right,
-               used by :meth:`Diagram.foliation`.
+        inside : Boxes and plumbing, with at least one box.
+        normalise : Whether to type check the components and normalise them,
+            i.e. remove empty plumbing and tensor consecutive types. The
+            methods below build layers that satisfy this by construction and
+            pass ``False``, which skips every pass over ``inside`` so that
+            tensoring ``n`` layers takes linear rather than quadratic time.
     """
     ob = Ty
 
     def __setstate__(self, state):
-        if 'boxes_or_types' not in state:  # Backward compatibility
-            self.boxes_or_types = tuple(
+        if 'boxes_or_types' not in state:
+            state['boxes_or_types'] = tuple(
                 state[key] for key in ['_left', '_box', '_right'])
             del state['_left'], state['_box'], state['_right']
+        state['boxes_or_types'] = type(self).normalise(
+            state['boxes_or_types'])
         super().__setstate__(state)
 
-    def __init__(self, left: Ty, box: Box, right: Ty, *more):
-        if len(more) % 2:
-            raise ValueError(messages.LAYERS_MUST_BE_ODD)
-        self.boxes_or_types = (left, box, right) + more
-        dom_pieces, cod_pieces, names = [], [], []
-        for i, box_or_typ in enumerate(self.boxes_or_types):
-            if i % 2:
-                assert_isinstance(box_or_typ, Box)
-                dom_pieces.append(box_or_typ.dom)
-                cod_pieces.append(box_or_typ.cod)
-                names.append(str(box_or_typ))
+    def __init__(self, *inside: Ty | Box, normalise: bool = True):
+        if normalise:
+            type(self).check(inside)
+            inside = type(self).normalise(inside)
+        self.boxes_or_types = tuple(inside)
+        if normalise and not self.boxes:
+            raise ValueError(messages.LAYERS_MUST_HAVE_A_BOX)
+
+    data, is_dagger = None, False
+
+    @classmethod
+    def id(cls, dom: Ty = None) -> Layer:
+        """
+        The identity layer on a type, i.e. plumbing and no box, used by
+        :meth:`discopy.abc.ColouredMonoid.whisker` as argument of
+        :meth:`tensor`.
+
+        Parameters:
+            dom : The type to embed as plumbing.
+        """
+        return cls(cls.ob() if dom is None else dom, normalise=False)
+
+    @cached_property
+    def inside(self):
+        return (self, )
+
+    @cached_property
+    def name(self):
+        return " @ ".join(map(str, self.boxes_or_types))
+
+    @cached_property
+    def dom(self):
+        pieces = [x if isinstance(x, Ty) else x.dom
+                  for x in self.boxes_or_types]
+        return pieces[0][:0].tensor(*pieces)
+
+    @cached_property
+    def cod(self):
+        pieces = [x if isinstance(x, Ty) else x.cod
+                  for x in self.boxes_or_types]
+        return pieces[0][:0].tensor(*pieces)
+
+    plumbing = Ty
+
+    @staticmethod
+    def check(inside):
+        """
+        Check that the components are types and boxes whose domains and
+        codomains tensor, i.e. one linear pass comparing the colours of
+        each adjacent pair on both rows.
+        """
+        for value in inside:
+            assert_isinstance(value, (Ty, Box))
+        rows = [(x, x) if isinstance(x, Ty) else (x.dom, x.cod)
+                for x in inside]
+        for (dom, cod), (dom_, cod_) in zip(rows, rows[1:]):
+            if dom.cod != dom_.dom:
+                raise AxiomError(messages.NOT_COMPOSABLE.format(
+                    dom, dom_, dom.cod, dom_.dom))
+            if cod.cod != cod_.dom:
+                raise AxiomError(messages.NOT_COMPOSABLE.format(
+                    cod, cod_, cod.cod, cod_.dom))
+
+    @classmethod
+    def normalise(cls, inside):
+        """ The canonical word of boxes and non-empty plumbing: either we
+        append or we tensor with the last element. """
+        result = []
+        for value in (x for x in inside if not isinstance(x, Ty) or x):
+            if not result or not isinstance(value, cls.plumbing)\
+                    or not isinstance(result[-1], cls.plumbing):
+                result.append(value)
             else:
-                assert_isinstance(box_or_typ, Ty)
-                dom_pieces.append(box_or_typ)
-                cod_pieces.append(box_or_typ)
-                if box_or_typ:
-                    names.append(str(box_or_typ))
-        empty = left[:0]
-        super().__init__(
-            " @ ".join(names),
-            empty.tensor(*dom_pieces), empty.tensor(*cod_pieces))
+                result[-1] = result[-1] @ value
+        return tuple(result)
 
     def __iter__(self):
         for box_or_typ in self.boxes_or_types:
@@ -614,17 +671,28 @@ class Layer(cat.Box):
     @property
     def boxes_and_types(self):
         """
-        The alternating boxes and types represented by the layer.
+        The layer expanded to alternating types and boxes.
 
-        This is the same as :attr:`boxes_or_types` for monoidal layers.
-        Subclasses can store richer structural data while exposing the
-        underlying types to generic layer algorithms.
+        Empty types are inserted around consecutive boxes for compatibility
+        with algorithms defined on the old layer representation.
         """
-        return self.boxes_or_types
+        result = []
+        for value in self.boxes_or_types:
+            if isinstance(value, Ty):
+                result.append(value)
+            else:
+                if not result or not isinstance(result[-1], Ty):
+                    result.append(value.dom[:0])
+                result.append(value)
+        if not isinstance(result[-1], Ty):
+            result.append(result[-1].cod[len(result[-1].cod):])
+        return tuple(result)
 
     @property
     def boxes(self):
-        return list(self.boxes_or_types[1::2])
+        return [
+            box_or_typ for box_or_typ in self.boxes_or_types
+            if isinstance(box_or_typ, Box)]
 
     @property
     def size(self):
@@ -643,13 +711,15 @@ class Layer(cat.Box):
         return factory_name(type(self))\
             + f"({', '.join(map(repr, self))})"
 
-    def __matmul__(self, other: Ty) -> Layer:
-        *tail, head = self
-        return type(self)(*tail + [head @ other])
-
-    def __rmatmul__(self, other: Ty) -> Layer:
-        head, *tail = self
-        return type(self)(other @ head, *tail)
+    def tensor(self, other: Ty | Box | Layer) -> Layer:
+        """ Tensor another layer, normalising the common boundary; types and
+        boxes are embedded as layers first, so ``@`` and its mirror image
+        both come from :class:`discopy.abc.ColouredMonoid`. """
+        other = type(self).whisker(other)
+        type(self).check((self[-1], other[0]))
+        return type(self)(
+            *self[:-1], *type(self).normalise((self[-1], other[0])),
+            *other[1:], normalise=False)
 
     @property
     def free_symbols(self) -> "set[sympy.Symbol]":
@@ -657,37 +727,23 @@ class Layer(cat.Box):
 
     def subs(self, *args) -> Layer:
         return type(self)(*(
-            x.subs(*args) if i % 2 else x for i, x in enumerate(self)))
+            x if isinstance(x, self.plumbing) else x.subs(*args)
+            for x in self),
+            normalise=False)
 
     @property
     def is_generator(self):
-        if len(self.boxes_or_types) != 3:
-            return False
-        left, box, right = self.boxes_or_types
-        return not left.inside and not right.inside
+        return len(self.boxes_or_types) == 1\
+            and isinstance(self.boxes_or_types[0], Box)
 
     @property
     def generator(self):
-        return self.boxes_or_types[1] if self.is_generator else None
-
-    @classmethod
-    def cast(cls, box: Box) -> Layer:
-        """
-        Turns a box into a layer with empty types on the left and right.
-
-        Parameters:
-            box : The box in the middle of empty types.
-
-        Example
-        -------
-        >>> f = Box('f', Ty('x'), Ty('y'))
-        >>> assert Layer.cast(f) == Layer(Ty(), f, Ty())
-        """
-        return cls(box.dom[:0], box, box.cod[len(box.cod):])
+        return self.boxes_or_types[0] if self.is_generator else None
 
     def dagger(self) -> Layer:
         return type(self)(*(
-            x.dagger() if i % 2 else x for i, x in enumerate(self)))
+            x if isinstance(x, Ty) else x.dagger() for x in self),
+            normalise=False)
 
     @property
     def boxes_and_offsets(self) -> list[tuple[Box, int]]:
@@ -700,12 +756,14 @@ class Layer(cat.Box):
         >>> f, g = Box('f', a, b), Box('g', c, d)
         >>> assert Layer(e, f, e, g, e).boxes_and_offsets == [(f, 1), (g, 3)]
         """
-        left, box, *tail = self.boxes_and_types
-        boxes, offsets = [box], [len(left)]
-        for typ, box in zip(tail[::2], tail[1::2]):
-            offsets.append(offsets[-1] + len(boxes[-1].cod) + len(typ))
-            boxes.append(box)
-        return list(zip(boxes, offsets))
+        result, offset = [], 0
+        for box_or_typ in self.boxes_or_types:
+            if isinstance(box_or_typ, Ty):
+                offset += len(box_or_typ)
+            else:
+                result.append((box_or_typ, offset))
+                offset += len(box_or_typ.cod)
+        return result
 
     def merge(self, other: Layer) -> Layer:
         """
@@ -725,7 +783,7 @@ class Layer(cat.Box):
         """
         assert_iscomposable(self, other)
         try:
-            diagram = Diagram.normal_form(self.boxes_or_types[1].ar(
+            diagram = Diagram.normal_form(self.boxes_and_types[1].ar(
                 (self, other), self.dom, other.cod).to_staircases())
         except NotImplementedError as exception:  # Eckmann-Hilton argument.
             diagram = exception.last_step
@@ -743,8 +801,9 @@ class Layer(cat.Box):
 
     def lambdify(self, *symbols, **kwargs):
         return lambda *xs: type(self)(*(
-            x if not i % 2 else x.lambdify(*symbols, **kwargs)(*xs)
-            for i, x in enumerate(self)))
+            x if isinstance(x, self.plumbing)
+            else x.lambdify(*symbols, **kwargs)(*xs) for x in self),
+            normalise=False)
 
     def to_tree(self) -> dict:
         return dict(factory=factory_name(type(self)),
@@ -1056,9 +1115,9 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
                     getattr(obj, "l", obj) == getattr(obj, "r", obj)
                     for obj in graph.spider_types):
             return graph.to_diagram()
-        return self._merge_layers()
+        return self.merge_layers()
 
-    def _merge_layers(self):
+    def merge_layers(self):
         diagram = self
         while len(diagram) > 1:
             keep_on_going = False
@@ -1105,6 +1164,10 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
             j : Index of the new position for the box.
             left : Whether to apply left interchangers.
 
+        Raises:
+            IndexError : If ``i`` or ``j`` is not the index of a layer.
+            NotImplementedError : If some layer has more than one box.
+
         Note
         ----
         By default, we apply right interchangers::
@@ -1117,10 +1180,10 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
             top >> left @ box1     @ mid @ box0.dom @ right\\
                 >> left @ box1.cod @ mid @ box0     @ right >> bottom
         """
-        if any(len(list(layer)) != 3 for layer in self.inside):
-            raise NotImplementedError
         if not 0 <= i < len(self) or not 0 <= j < len(self):
             raise IndexError
+        if any(len(layer.boxes) != 1 for layer in self.inside):
+            raise NotImplementedError
         if i == j:
             return self
         if j < i - 1:
@@ -1297,8 +1360,11 @@ class Box(cat.Box, Diagram):
             if attr in params:
                 setattr(self, attr, params.pop(attr))
         cat.Box.__init__(self, name, dom, cod, **params)
-        inside = (self.layer_factory.cast(self), )
+        inside = () if self.is_identity\
+            else (self.layer_factory(self, normalise=False), )
         Diagram.__init__(self, inside, dom, cod)
+
+    is_identity = False
 
     @property
     def size(self):
@@ -1396,8 +1462,6 @@ class Bubble(cat.Bubble, Box):
         :align: center
 
     """
-
-    ob = Ty
 
     def __init__(
             self, *args: Diagram,
