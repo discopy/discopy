@@ -29,10 +29,10 @@ actual code, fix if real, decline with a reason otherwise.
 
 Checkboxes:
 
-- [ ] backend.py:78 thread-unsafe `_stack`
-- [ ] catgpt.py:589 randint off-by-one
-- [ ] network.py:683 negative n_rounds
-- [ ] test_catgpt.py:133 vacuous wraparound test
-- [ ] test_catgpt.py:36 float `==` comparison
-- [ ] rdiff.py:154 overly-broad except
-- [ ] catgpt.py:583 off-by-one length guard
+- [WIP] @agent-a4c984f94804460c5-2026-08-25 00:00 backend.py:78 thread-unsafe `_stack`
+- [WIP] @agent-a4c984f94804460c5-2026-08-25 00:00 catgpt.py:589 randint off-by-one
+- [WIP] @agent-a4c984f94804460c5-2026-08-25 00:00 network.py:683 negative n_rounds
+- [WIP] @agent-a4c984f94804460c5-2026-08-25 00:00 test_catgpt.py:133 vacuous wraparound test
+- [WIP] @agent-a4c984f94804460c5-2026-08-25 00:00 test_catgpt.py:36 float `==` comparison
+- [WIP] @agent-a4c984f94804460c5-2026-08-25 00:00 rdiff.py:154 overly-broad except
+- [WIP] @agent-a4c984f94804460c5-2026-08-25 00:00 catgpt.py:583 off-by-one length guard
