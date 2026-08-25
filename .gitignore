@@ -7,7 +7,6 @@
 *.blg
 *.pag
 *.gz
-!benchmark/baseline.json.gz
 .coverage
 .pylintrc
 .pytest_cache
@@ -37,3 +36,4 @@ docs/_static/notebooks/
 docs/_static/*/_*.svg
 benchmark-results/
 plans/
+.style-review/
