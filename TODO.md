@@ -12,8 +12,9 @@ then hard-failed on `cat .codebase-review/report.md`
 (`No such file or directory`), so the workflow's own smoke test went red
 with no diagnosis of what the agent did instead.
 
-- [ ] Make the dry-run summary step degrade gracefully instead of
-      hard-failing when the read produces no `report.md`.
+- [WIP] @claude-2026-08-25 00:30 Make the dry-run summary step degrade
+      gracefully instead of hard-failing when the read produces no
+      `report.md`.
 - [ ] Make the prompt write a real `report.md` from early in the read and
       keep it current with further `Write` calls, rather than only once at
       the very end, and have the agent's last action be a `Read` of its own
