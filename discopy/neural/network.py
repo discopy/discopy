@@ -681,6 +681,8 @@ class Execution:
         """ Execute synchronous activation and routing rounds. """
         self.initialize()
         n_rounds = len(self.inside.boxes) if n_rounds is None else n_rounds
+        if n_rounds < 0:
+            raise ValueError("n_rounds cannot be negative.")
         for _ in range(n_rounds):
             self.activate()
             self.route()

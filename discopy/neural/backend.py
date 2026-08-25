@@ -34,6 +34,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
+from contextvars import ContextVar
 from importlib import import_module
 
 
@@ -73,28 +74,33 @@ BACKENDS = {
     'pytorch': 'discopy.neural.torch.PyTorch',
 }
 
+_current = ContextVar('discopy.neural.backend', default='pytorch')
+_cache = {}
+
 
 @contextmanager
-def backend(name: str = None, _stack=['pytorch'], _cache=dict()):
+def backend(name: str = None):
     """
     Context manager for neural execution backends.
 
     The backend classes of :data:`BACKENDS` are given by qualified name and
     imported when they are first used, so that building and rewiring networks
-    needs no tensor framework.
+    needs no tensor framework. The current backend is stored in a
+    :class:`~contextvars.ContextVar` so that concurrent threads or tasks do
+    not share each other's selection.
 
     Parameters:
         name : The backend name, ``"pytorch"`` by default.
     """
-    name = name or _stack[-1]
-    _stack.append(name)
+    name = name or _current.get()
+    token = _current.set(name)
     try:
         if name not in _cache:
             module, _, cls = BACKENDS[name].rpartition('.')
             _cache[name] = getattr(import_module(module), cls)()
         yield _cache[name]
     finally:
-        _stack.pop()
+        _current.reset(token)
 
 
 def get_backend(name: str | Backend = None) -> Backend:
