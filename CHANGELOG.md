@@ -9,6 +9,19 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- A notebook reproducing Stoltz & Vilmart, *Minimality of the Pure Qubit ZX
+  Calculus* (arXiv:2608.14872): the rulesets of Figures 2 and 3 as pairs of
+  `zx.Diagram`, their three interpretations — standard, dual-number and
+  relational — as functors into `tensor.Diagram`, the soundness checks of
+  Appendix B down to the witness coefficient breaking the bialgebra rule,
+  and the lemmas of Appendices A and C behind the derivability of the red
+  identity. The dual-number model is evaluated as the first-order jet of a
+  family of models, i.e. forward-mode differentiation by diagram surgery.
+  The notebook then generalises the construction: the admissible
+  perturbations are spanned by three-cycles inside a Hamming weight
+  subspace, the bialgebra defect vanishes exactly on the perturbations
+  commuting with the Hadamard, and modulo those the paper's countermodel
+  is the unique one on three qubits, the least possible size.
 - A style review workflow: when a same-repo pull request leaves draft or
   gets the `style-review` label, one model request reads every changed
   Python file whole — with the package-local files they import as context —
