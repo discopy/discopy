@@ -593,18 +593,28 @@ mo.md("""A weight subspace supports a three-cycle only if its dimension is
     four. ✓""")
 ```
 
-Two facts, both verified below:
+Two facts, both verified below. The key observation making the
+verification exhaustive rather than a spot check: for any rule, the
+$\varepsilon$-part of $[\![\mathrm{lhs}]\!] - [\![\mathrm{rhs}]\!]$ in the
+jet interpretation is a sum over occurrences of $H$ of unperturbed
+evaluations with that occurrence replaced by $[H_0, N]$ — **a linear
+function of $N$**. A linear function vanishes on a whole space if and only
+if it vanishes on a basis, so checking each rule on every basis
+three-cycle proves it for *every* admissible $N$ at once. Concretely:
 
-1. **Every admissible $N$ gives a model of everything but $(B)$**: the jet
-   interpretation of $a N_1 + b N_2$ satisfies both rulesets minus $(B)$,
-   and $(I_r)$, for random coefficients — on three and on four qubits.
-2. **The bialgebra defect is linear in $N$ and vanishes exactly on the
-   perturbations that do nothing.** The $\varepsilon$-part of
-   $[\![(B)_{\mathrm{lhs}}]\!] - [\![(B)_{\mathrm{rhs}}]\!]$ is a linear
-   function of $N$, and its kernel on the admissible space is precisely
-   the $N$ that commute with $H_0$ — for those, $H' = H_0$ on the nose and
-   the perturbation is invisible, so *every* rule holds and no
-   countermodel arises.
+1. **Every admissible $N$ gives a model of everything but $(B)$, and $(B)$
+   fails exactly when the perturbation does something.** For each basis
+   cycle we check both rulesets and $(I_r)$: every rule but $(B)$ holds,
+   and $(B)$ holds if and only if $N$ commutes with $H_0$ — for such $N$,
+   $H' = H_0$ on the nose, the model is the unperturbed one and no
+   countermodel arises. On four qubits we run each rule schema on its
+   smaller instances to keep the notebook fast; on three qubits, the full
+   instance family above.
+2. **The kernel of the bialgebra defect is exactly the space of trivial
+   perturbations.** Stacking the defects of the basis cycles gives the
+   defect as a matrix on the admissible space; its rank equals the rank of
+   $N \mapsto [H_0, N]$ and it vanishes on that map's kernel, so the two
+   kernels coincide.
 
 ```python {.marimo}
 def bialgebra_defect(N, k):
@@ -614,16 +624,29 @@ def bialgebra_defect(N, k):
     return lhs_e - rhs_e
 
 
+small_instances = [
+    ("S", instances(fusion, fusion_cases[:1] + fusion_cases[2:3]
+                    + fusion_cases[4:5])),
+    ("Ig", [Ig_rule]), ("E", [E_rule]), ("CP", [CP_rule]), ("B", [B_rule]),
+    ("EU", instances(eu, eu_cases[:1] + eu_cases[2:3])), ("HD", [HD_rule]),
+    ("H", instances(colour_change, [
+        (1, 1, .1), (1, 2, -.4), (1, 1, 0.), (2, 0, 0.), (0, 2, 0.)])),
+    ("IV", [iv(.3)]),
+    ("EU'", instances(eu_prime, eu_prime_cases[:1] + eu_prime_cases[4:])),
+    ("Ir", [Ir_rule])]
+
 generalisation_report = []
 for _k in (3, 4):
     _basis = admissible_basis(_k)
-    _rng = np.random.default_rng(_k)
-    _N = sum(c * b for c, b in zip(
-        _rng.standard_normal(len(_basis)), _basis))
-    _jet = jet_model(_N, _k)
-    for _name, _cases in ZX_opt + [("Ir", [Ir_rule])] + ZX_opt_prime:
-        assert all(_jet.sound(_rule) for _rule in _cases)\
-            == (_name != "B"), (_k, _name)
+    _suite = small_instances if _k == 4\
+        else ZX_opt + [("Ir", [Ir_rule])] + ZX_opt_prime
+    for _N in _basis:
+        _jet = jet_model(_N, _k)
+        _trivial_N = np.allclose(
+            qubit_hadamard(_k) @ _N - _N @ qubit_hadamard(_k), 0)
+        for _name, _cases in _suite:
+            assert all(_jet.sound(_rule) for _rule in _cases)\
+                == (_name != "B" or _trivial_N), (_k, _name)
     _defects = np.stack([bialgebra_defect(b, _k).ravel() for b in _basis])
     _commutators = np.stack([
         (qubit_hadamard(_k) @ b - b @ qubit_hadamard(_k)).ravel()
