@@ -164,7 +164,7 @@ def _generator_rule(box, rules) -> ReverseRule:
         return ReverseRule.swap(box)
     try:
         rule = rules[box]
-    except (KeyError, TypeError) as exception:
+    except KeyError as exception:
         raise ValueError(
             f"Missing reverse rule for generator {box!r}.") from exception
     assert_isinstance(rule, ReverseRule)

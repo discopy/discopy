@@ -597,13 +597,13 @@ def random_batch(
     stream = torch.as_tensor(stream, dtype=torch.long)
     if len(stream.shape) != 1:
         raise ValueError("The token stream must be one-dimensional.")
-    if len(stream) <= config.context + 1:
+    if len(stream) <= config.context:
         raise ValueError(
-            "The token stream must be longer than context + 1.")
+            "The token stream must be longer than context.")
     if stream.min() < 0 or stream.max() >= config.vocab:
         raise ValueError("The token stream contains an invalid token.")
     starts = torch.randint(
-        0, len(stream) - (config.context + 1),
+        0, len(stream) - config.context,
         (config.batch,), generator=generator)
     offsets = starts[:, None] + torch.arange(config.context)
     inputs, targets = stream[offsets], stream[offsets + 1]

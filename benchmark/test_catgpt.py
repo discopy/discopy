@@ -38,7 +38,8 @@ def test_original_shape_and_parameter_count():
     assert CATGPT.parameter_count == 2_704_128
     assert CATGPT.parameter_boxes == (
         "Token", *(f"QKV[{i}]" for i in range(6)), "Output")
-    assert catgpt.attention_scale(CATGPT.width) == 19.595918655395508
+    assert catgpt.attention_scale(CATGPT.width) == pytest.approx(
+        19.595918655395508)
 
 
 def test_model_is_parametric():
@@ -149,17 +150,26 @@ def test_tiny_training_smoke():
 def test_random_batch_uses_true_shifted_windows():
     """Synthetic minibatches use fresh, non-wrapping next-token targets."""
     config = CatGPTConfig.tiny()
-    stream = torch.arange(100).remainder(config.vocab)
+    stream = torch.randint(
+        0, config.vocab, (100,), generator=torch.Generator().manual_seed(1))
     generator = torch.Generator().manual_seed(0)
     first = catgpt.random_batch(stream, config, generator)
     second = catgpt.random_batch(stream, config, generator)
 
+    max_start = len(stream) - config.context
     for tokens, targets in (first, second):
         inputs = tokens.argmax(dim=-1)
-        assert torch.equal(
-            targets[:, :-1], (inputs[:, :-1] + 1) % config.vocab)
-        assert torch.equal(
-            targets[:, -1], (inputs[:, -1] + 1) % config.vocab)
+        for row_inputs, row_targets in zip(inputs, targets):
+            starts = [
+                start for start in range(max_start)
+                if torch.equal(
+                    stream[start:start + config.context], row_inputs)]
+            assert starts
+            assert all(
+                torch.equal(
+                    stream[start + 1:start + 1 + config.context],
+                    row_targets)
+                for start in starts)
     assert not torch.equal(first[0], second[0])
 
 
