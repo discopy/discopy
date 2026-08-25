@@ -57,14 +57,22 @@ def main():
     body = (f"{report}\n\n*Posted by the"
             f" [codebase-review run]({os.environ['RUN_URL']}).*")
     issues = request(f"{api}/issues?labels={LABEL}&state=open&per_page=100")
-    if matching := [i for i in issues if i["title"] == title]:
-        issue = matching[0]
+    reused = [i for i in issues
+              if "pull_request" not in i and i["title"] == title]
+    if reused:
+        issue = reused[0]
         request(issue["url"], {"body": body}, method="PATCH")
     else:
         issue = request(f"{api}/issues", {
             "title": title, "labels": [LABEL], "body": body})
     if bugs:
-        request(f"{api}/issues/{issue['number']}/comments", {"body": bugs})
+        comments = (request(f"{api}/issues/{issue['number']}/comments")
+                    if reused else [])
+        if comments:
+            request(comments[-1]["url"], {"body": bugs}, method="PATCH")
+        else:
+            request(
+                f"{api}/issues/{issue['number']}/comments", {"body": bugs})
     print(f"Opened {issue['html_url']}")
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:

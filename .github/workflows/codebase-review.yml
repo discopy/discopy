@@ -84,6 +84,7 @@ jobs:
           echo
           cat .codebase-review/bugs.md 2>/dev/null || true
         } >> "$GITHUB_STEP_SUMMARY"
+        [ -s .codebase-review/report.md ]
 
     - name: Generate a discopy-bot token
       id: app-token
@@ -101,4 +102,4 @@ jobs:
         REPO: ${{ github.repository }}
         RUN_URL: ${{ github.server_url }}/${{
           github.repository }}/actions/runs/${{ github.run_id }}
-      run: python3 .github/codebase-review/post.py
+      run: git show HEAD:.github/codebase-review/post.py | python3 -
