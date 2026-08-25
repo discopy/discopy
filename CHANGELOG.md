@@ -257,7 +257,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   of the regions they separate to show the edge in their place, rather than
   of every bubble drawn as a square, which has none and so came out with no
   visible outline at all
-  ([#520](https://github.com/discopy/discopy/issues/520)).
+  ([#520](https://github.com/discopy/discopy/issues/520),
+  [#569](https://github.com/discopy/discopy/issues/569)).
 - Controlled gate drawing: the control wire is anchored on the indexed
   input of the controlled box rather than its first one, so gates with a
   classical wire or a distance other than one are drawn on the right wires
