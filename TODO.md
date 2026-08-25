@@ -14,10 +14,9 @@ with no diagnosis of what the agent did instead.
 
 - [x] Make the dry-run summary step degrade gracefully instead of
       hard-failing when the read produces no `report.md`.
-- [WIP] @claude-2026-08-25 00:45 Make the prompt write a real `report.md`
-      from early in the read and keep it current with further `Write`
-      calls, rather than only once at the very end, and have the agent's
-      last action be a `Read` of its own `report.md` to confirm it landed
-      before the session ends — so running out of turns, or a relapse into
-      the old Bash-heredoc habit deep in a long session, leaves a real file
-      on disk instead of nothing.
+- [x] Make the prompt write a real `report.md` from early in the read and
+      keep it current with further `Write` calls, rather than only once at
+      the very end, and have the agent's last action be a `Read` of its own
+      `report.md` to confirm it landed before the session ends — so running
+      out of turns, or a relapse into the old Bash-heredoc habit deep in a
+      long session, leaves a real file on disk instead of nothing.
