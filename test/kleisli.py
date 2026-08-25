@@ -542,6 +542,22 @@ def test_additive_trace_loses_the_diverging_mass():
     assert sum(p for _, p in leaky.trace()(0)) == approx(2 / 3)
 
 
+def test_additive_trace_zero_is_the_identity():
+    """
+    Tracing no summand at all is the vanishing axiom, ``f.trace(0) == f``,
+    even for a monad with no iteration operator: see issue #578, the tenth
+    ``self.dom[:-n]`` site left to this branch.
+    """
+    channel = additive.Channel[Maybe](
+        lambda x, tag=0: Tagged(x, tag), (int, int), (int, int))
+    assert channel.trace(0) == channel
+
+    stateful = additive.Channel[Seed](
+        lambda x, tag=0: lambda s: (Tagged(x, tag), s),
+        (int, int), (int, int))
+    assert stateful.trace(0) == stateful
+
+
 def test_additive_trace_needs_an_iteration_operator():
     """
     The trace is extra structure on the monad: a monad that does not supply

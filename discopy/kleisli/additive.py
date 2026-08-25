@@ -390,6 +390,8 @@ class Channel(TracedCategory, NamedGeneric['monad']):
         ...     Tagged(x, 1)}), (int, int), (int, int))
         >>> assert loop.trace()(0) == frozenset()
         """
+        if n == 0:
+            return self
         if left:
             raise NotImplementedError
         monad = type(self).monad
