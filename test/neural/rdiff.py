@@ -59,6 +59,8 @@ def test_reverse_rule_composition():
     with raises(ValueError, match="Cannot compose"):
         first >> make_rule("h", z, x, Dim(13))
 
+    assert result.forward == (first.as_copara() >> second.as_copara()).inside
+
 
 def test_reverse_rule_tensor():
     a, b, c, d = Dim(2), Dim(3), Dim(5), Dim(7)
@@ -70,6 +72,7 @@ def test_reverse_rule_tensor():
     assert result.residual == Dim(11, 13)
     assert result.forward.cod == b @ d @ Dim(11, 13)
     assert result.reverse.dom == Dim(11, 13) @ b @ d
+    assert result.forward == (left.as_copara() @ right.as_copara()).inside
 
 
 def test_identity_and_swap_are_structural():

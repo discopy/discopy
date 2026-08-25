@@ -95,6 +95,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Changed
 
+- `neural.rdiff.ReverseRule.then`/`tensor` build their forward leg by
+  composing and tensoring `neural.Para` instances (a coparametric map, in
+  the sense of `discopy.para`, with `copar` the residual) instead of
+  hand-rolled swap arithmetic, via the new method `ReverseRule.as_copara`.
+  The reverse leg is left as is: its `residual @ cod` domain is the mirror
+  of `Symmetric`'s `dom @ param`, and that mirroring is what lets
+  `ReverseRule.__init__` infer `cod` from `forward`/`reverse` alone
+  ([#571](https://github.com/discopy/discopy/pull/571)).
 - `monoidal.Layer` holds a list of boxes and non-empty types with at least
   one box and no two consecutive types, instead of an odd-length list
   alternating type and box. Whiskering extends the list only when the type
