@@ -17,6 +17,7 @@ BUDGET = 40_000
 
 
 def get(url, token):
+    """Every item of a paginated GitHub API endpoint."""
     items, page = [], 1
     while True:
         request = urllib.request.Request(
