@@ -56,7 +56,7 @@ from discopy.abc import (
     HypergraphCategory, MarkovCategory, MonoidalCategory, NamedGeneric)
 from discopy.drawing import Node, backend
 from discopy.python.finset import Permutation
-from discopy.testing import Strategy
+from discopy.testing import Strategy, axiom
 from discopy.utils import (
     factory_name,
     assert_isinstance,
@@ -1705,3 +1705,18 @@ class Hypergraph(
             finally:
                 plt.close()
         plt.show()
+
+    @axiom
+    def functor_identity(cls):
+        """ Hypergraphs are the image of a functor, not its domain. """
+        return NotImplemented
+
+    @axiom
+    def functor_composition(cls):
+        """ Hypergraphs are the image of a functor, not its domain. """
+        return NotImplemented
+
+    @axiom
+    def functor_tensor(cls):
+        """ Hypergraphs are the image of a functor, not its domain. """
+        return NotImplemented

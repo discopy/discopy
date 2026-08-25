@@ -12,13 +12,12 @@ from inspect import signature
 import pytest
 
 from discopy import (
-    abc, balanced, biclosed, braided, cat, closed, cmap, compact, feedback,
+    abc, balanced, biclosed, braided, cat, closed, compact, feedback,
     frobenius, markov, monoidal, pivotal, ribbon, rigid, symmetric, traced,
     utils)
-from discopy.python import finset
 from discopy.utils import AxiomError
 from discopy.testing import (
-    Atomic, NonEmpty, assert_verdict, declared_axioms)
+    Atomic, Endofunctor, NonEmpty, assert_verdict, declared_axioms)
 
 
 def box(category, name, dom, cod):
@@ -26,8 +25,32 @@ def box(category, name, dom, cod):
     return factory(name, dom, cod)
 
 
+def endofunctor(category):
+    """ The identity endofunctor on a category, and two composable boxes. """
+    x, y, z = map(category.ob, "xyz")
+    return Endofunctor(
+        category.functor_factory(lambda typ: typ, lambda box: box),
+        box(category, "f", x, y), box(category, "g", y, z))
+
+
 class Arguments:
     """Canonical well-typed arguments for each categorical axiom."""
+
+    @staticmethod
+    def functor_identity(category):
+        return endofunctor(category),
+
+    @staticmethod
+    def functor_composition(category):
+        return endofunctor(category),
+
+    @staticmethod
+    def functor_tensor(category):
+        return endofunctor(category),
+
+    @staticmethod
+    def functor_spiders(category):
+        return endofunctor(category),
 
     @staticmethod
     def unitality(category):

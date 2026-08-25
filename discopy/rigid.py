@@ -923,6 +923,7 @@ def to_rigid(self):
 
 biclosed.Diagram.to_rigid = to_rigid
 
+Diagram.functor_factory = Functor
 Diagram.cup_factory, Diagram.cap_factory, Diagram.sum_factory = Cup, Cap, Sum
 
 Id = Diagram.id

@@ -9,6 +9,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- Functoriality is checked by the property matrix: `functor_identity`,
+  `functor_composition` and `functor_tensor` on `MonoidalCategory` and
+  `functor_spiders` on `HypergraphCategory`, with an `Endofunctor` argument
+  shape generating a functor from a free category to itself. The equation
+  lives in the functor's codomain rather than in the carrier, which is what
+  the old `eq` parameter could not express. `frobenius.Functor` dropping the
+  phase of a spider is recorded as a bug
+  ([#606](https://github.com/discopy/discopy/issues/606)).
 - Concrete semantic carriers in the property matrix: `Matrix[int]` is a
   Markov category and `python.finset.Function` a symmetric one, both with
   their own Hypothesis strategy, so the copy comonoid and the symmetry are
@@ -100,6 +108,20 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Changed
 
+- An axiom states its own verdict instead of deferring to a status table.
+  A body returns `NotImplemented` when the structure does not apply, an
+  `AxiomError` wrapping the equation when the law is known to be broken, and
+  the equation itself otherwise, built with `Category.equation_factory` for
+  equality on the nose or `cls.equation_factory` for the class's own
+  quotient. The 79 `axiom_status` entries become overrides that say what they
+  mean where they mean it, and `AxiomStatus`, `Category.axiom_status`,
+  `Category.axiom_equality`, the `eq` parameter of every axiom and the unused
+  `strict` flag of `Axiom` are removed. An axiom that does not apply takes no
+  argument, so its verdict is read before anything is generated.
+- The five `*_typing` axioms and `self_dual` state equations between objects
+  rather than lifting their types through `cls.id`, now that a body chooses
+  its own equation factory rather than being handed one built from the arrow
+  carrier.
 - `monoidal.Layer` holds a list of boxes and non-empty types with at least
   one box and no two consecutive types, instead of an odd-length list
   alternating type and box. Whiskering extends the list only when the type
@@ -186,6 +208,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `braided.Diagram`, `rigid.Diagram` and `ribbon.Diagram` register their own
+  `functor_factory`, which they defined but never assigned, so a functor out
+  of them builds diagrams of their own class instead of their base's.
 - `Diagram.strategy` chains its layers instead of drawing every boundary up
   front, so the first layer is generated without boundary constraints and
   the property matrix reaches the structural boxes of each category:

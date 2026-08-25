@@ -48,8 +48,8 @@ from typing import ClassVar, Generic, TypeVar
 
 from discopy.testing import (
     Axiom, Atomic, Bifunctor, ComposablePair, ComposableTriple,
-    FeedbackJoining, FeedbackVanishing, HorizontalPair, LeftCurrying,
-    Natural, NonEmpty, RightCurrying, TraceDinaturalityLeft,
+    Endofunctor, FeedbackJoining, FeedbackVanishing, HorizontalPair,
+    LeftCurrying, Natural, NonEmpty, RightCurrying, TraceDinaturalityLeft,
     TraceDinaturalityRight, TraceNaturalityLeft, TraceNaturalityRight,
     TraceSuperposing, axiom, declared_axioms)
 from discopy.utils import classproperty, get_origin
@@ -316,6 +316,30 @@ class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](
         """ Codomain typing of tensor. """
         f, g = pair
         return Category.equation_factory((f @ g).cod, f.cod @ g.cod)
+
+    @axiom
+    def functor_identity(
+            cls, arguments: Endofunctor[C1]) -> Equation[C1]:
+        """ A monoidal functor preserves identities. """
+        functor, f, _ = arguments
+        return Category.equation_factory(
+            functor(cls.id(f.dom)), functor.cod.ar.id(functor(f.dom)))
+
+    @axiom
+    def functor_composition(
+            cls, arguments: Endofunctor[C1]) -> Equation[C1]:
+        """ A monoidal functor preserves composition. """
+        functor, f, g = arguments
+        return Category.equation_factory(
+            functor(f.then(g)), functor(f).then(functor(g)))
+
+    @axiom
+    def functor_tensor(
+            cls, arguments: Endofunctor[C1]) -> Equation[C1]:
+        """ A monoidal functor preserves the tensor. """
+        functor, f, g = arguments
+        return Category.equation_factory(
+            functor(f @ g), functor(f) @ functor(g))
 
 
 class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
@@ -910,6 +934,15 @@ class HypergraphCategory[C0, C1](
         split, merge = cls.spiders(1, 2, x), cls.spiders(2, 1, x)
         return Category.equation_factory(
             split.then(merge), cls.spiders(1, 1, x), cls.id(x))
+
+    @axiom
+    def functor_spiders(
+            cls, arguments: Endofunctor[C1]) -> Equation[C1]:
+        """ A hypergraph functor preserves spiders. """
+        functor, f, _ = arguments
+        return Category.equation_factory(
+            functor(cls.spiders(1, 2, f.dom)),
+            functor.cod.ar.spiders(1, 2, functor(f.dom)))
 
     @axiom
     def spider_fusion(

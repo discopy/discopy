@@ -80,6 +80,48 @@ were fixed and two were false positives.
       are gone, and `benchmark.generators.single_layer_tensor` builds its layer from boxes
       alone now that `monoidal.Layer` normalises its own plumbing.
 
+## Round two: axioms carry their own verdict
+
+> - `_typing` axioms are equating types, not diagrams, so they currently lift the types by constructing the identity. this is bad, axioms should work for any kind of returned equations.
+> - i believe we should return to the original explicit call cls.equation_factory (or cls.ob.equation_factory, or ==), and remove the eq parameter.
+> - remove `axiom_status`. instead, override the axiom and restate it to either return NotImplemented (wontfix), return AxiomError (bug), return an equation (over any carrier type, not necessarily Self, normal, setoid or strict)
+> - using the above, integrate axioms into functors as well. axiom functors would test functoriality on arbitrary diagrams. equations would be not on Self, so the trailing eq parameter on axioms was not a good solution.
+
+- [x] Bodies return their own verdict; `AxiomStatus`, `axiom_status`, `axiom_equality`,
+      the `eq` parameter and the unused `strict` flag are gone.
+- [x] The 79 status entries became overrides. `declared_axioms` is factored out so
+      `CMap.axioms` honours what a map restates.
+- [x] The `_typing` axioms and `self_dual` equate objects.
+- [x] Functoriality axioms with an `Endofunctor` shape; `functor_spiders` catches #606's
+      B16, the identity functor dropping a spider phase.
+
+### Two things the design forced, worth a look
+
+**A broken law is one with *some* counterexample, not every one.** `assert not
+equation` per example was wrong: most draws satisfy a law that fails only for
+particular inputs, e.g. `Matrix.copy` only for `x, n >= 2`. So `Axiom.broken` reads
+the verdict off the body — `"AxiomError" in function.__code__.co_names` — before any
+argument exists, and the matrix marks the test as an expected failure while the
+search finds the counterexample. A fix shows up as XPASS rather than a hard failure;
+making it loud means `strict=True`, at the cost of flaking whenever 25 draws miss
+the counterexample.
+
+**Restating an axiom duplicates its body**, which `STYLE.md` warns about, and it
+leaves the `abc` statement dead where a class restates it. That is why the suite
+dropped below the coverage gate until `test/abc.py` grew
+`test_abstract_axioms_are_well_typed`. The 9 strict restatements are verbatim copies
+of the abstract body; they only exist to undo a base class's `NotImplemented`, and a
+way to say "the inherited statement, unchanged" would remove them.
+
+### Deferred: functoriality on arbitrary diagrams
+
+`Endofunctor` generates two free boxes, not arbitrary diagrams. Sending an arbitrary
+diagram needs per-level knowledge the shape does not have: cups and caps need adjoint
+types, feedback needs delayed ones, and the boundary-constrained image of a random
+box is often unsatisfiable, which hung generation on symmetric and markov. Free boxes
+exercise identity, composition and tensor at every level; structural preservation
+(`F(swap) == swap`, `F(cup) == cup`) wants its own round.
+
 ## Classification of issue #606
 
 The fable repros that state a categorical equation are now generated checks. The rest

@@ -373,6 +373,63 @@ class FeedbackJoining[C0, C1](
         return st.tuples(objects, atomic, atomic).flatmap(arrows)
 
 
+class Endofunctor[C1](Strategy[tuple[object, C1, C1]], tuple):
+    """ A functor from a free category to itself, and two arrows to send. """
+
+    def __new__(cls, functor, *arrows: C1):
+        for arrow in arrows:
+            functor(arrow)
+        return super().__new__(cls, (functor, *arrows))
+
+    @classmethod
+    def strategy(cls, *, factory: type[C1]):
+        """
+        Generate an endofunctor together with two composable generators.
+
+        The arrows are free boxes rather than arbitrary diagrams, so that the
+        same shape works at every level of the hierarchy: the structural
+        boxes of a category come with their own constraints, e.g. cups need
+        adjoint types and feedback needs delayed ones, and a functor
+        preserves them by construction rather than through its ``ar_map``.
+
+        Both maps are callables keyed by the name of a generator rather than
+        dictionaries, because a functor looks its objects up by slicing a
+        type and the class that slicing returns differs across the hierarchy.
+        """
+        from hypothesis import strategies as st
+
+        @st.composite
+        def endofunctors(draw):
+            objects = factory.ob.strategy(min_length=1)
+            source, middle, target = (draw(objects) for _ in range(3))
+            names = st.uuids().map(str)
+            arrows = (
+                factory.box_factory(draw(names), source, middle),
+                factory.box_factory(draw(names), middle, target))
+            generators = {
+                wire.name for typ in (source, middle, target)
+                for wire in typ.inside}
+            images = {name: draw(objects) for name in generators}
+
+            def image(wire):
+                """ The image of a generator, rotated as the wire is. """
+                rotated, turns = images[wire.name], getattr(wire, "z", 0)
+                for _ in range(abs(turns)):
+                    rotated = rotated.l if turns < 0 else rotated.r
+                return rotated
+
+            send = lambda typ: factory.ob().tensor(*map(image, typ.inside))
+            arrow_map = {
+                box.name: factory.box_factory(
+                    f"F({box.name})", send(box.dom), send(box.cod))
+                for box in arrows}
+            return cls(factory.functor_factory(
+                lambda typ: image(typ.inside[0]),
+                lambda box: arrow_map[box.name]), *arrows)
+
+        return endofunctors()
+
+
 class Axiom[T]:
     """
     A carrier-parametrised equation with explicit arguments.

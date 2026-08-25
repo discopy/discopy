@@ -185,6 +185,21 @@ class Function(SymmetricCategory, Sequence, Strategy["Function"]):
             cls.braid(x @ y, z),
             (x @ cls.braid(y, z)).then(cls.braid(x, z) @ y)))
 
+    @axiom
+    def functor_identity(cls):
+        """ There is no functor from a free category into finite sets yet. """
+        return NotImplemented
+
+    @axiom
+    def functor_composition(cls):
+        """ There is no functor from a free category into finite sets yet. """
+        return NotImplemented
+
+    @axiom
+    def functor_tensor(cls):
+        """ There is no functor from a free category into finite sets yet. """
+        return NotImplemented
+
 
 type Cycle = Iterable[int]
 type Cycles = Iterable[Cycle]
