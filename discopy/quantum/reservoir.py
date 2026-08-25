@@ -41,8 +41,7 @@ from discopy.utils import assert_isinstance
 
 class Reservoir:
     """
-    A quantum reservoir is a fixed ``unitary`` circuit on ``memory`` qubits
-    followed by ``inputs`` qubits driven by a time series.
+    A quantum reservoir is a fixed unitary on memory and input qubits.
 
     Parameters:
         memory : The number of qubits kept between time steps.
@@ -89,8 +88,9 @@ class Reservoir:
     def random(cls, memory: int, inputs: int = 1,
                depth: int = 2, seed: int = 0) -> Reservoir:
         """
-        A reservoir with a :func:`discopy.quantum.ansatze.Sim15ansatz`
-        unitary with phases drawn uniformly from a given ``seed``.
+        A reservoir with a random Sim15ansatz unitary.
+
+        Its phases are drawn uniformly from a given ``seed``.
 
         Parameters:
             memory : The number of qubits kept between time steps.
@@ -105,8 +105,7 @@ class Reservoir:
 
     def encode(self, *values: float) -> Circuit:
         """
-        Prepare the input qubits, one X rotation for each of ``values``
-        given in half-turns.
+        Prepare the input qubits, one X rotation per value in half-turns.
 
         Parameters:
             values : As many numbers as there are input qubits.
@@ -117,8 +116,9 @@ class Reservoir:
 
     def step(self, *values: float) -> Circuit:
         """
-        The channel from memory to memory induced by input ``values``:
-        encode them, apply the unitary, then discard the input qubits.
+        The channel from memory to memory induced by input ``values``.
+
+        Encode them, apply the unitary, then discard the input qubits.
 
         Parameters:
             values : As many numbers as there are input qubits.
@@ -129,8 +129,9 @@ class Reservoir:
 
     def run(self, sequence: list) -> list:
         """
-        The Born probabilities of the memory qubits after each step,
-        starting from the all-zero state.
+        The Born probabilities of the memory qubits after each step.
+
+        Starts from the all-zero state on the memory qubits.
 
         Parameters:
             sequence : A list of numbers, or tuples of numbers.
@@ -151,9 +152,10 @@ class Reservoir:
     def fit(self, sequence: list, targets: list,
             regularisation: float = 1e-6):
         """
-        The weights of the linear readout minimising the squared error
-        between the features of ``sequence`` and ``targets``, with Tikhonov
-        ``regularisation``.
+        The weights of the linear readout, fit by ridge regression.
+
+        Minimises the squared error between the features of ``sequence``
+        and ``targets``, with Tikhonov ``regularisation``.
 
         Parameters:
             sequence : A list of numbers, or tuples of numbers.
@@ -179,8 +181,7 @@ class Reservoir:
 
     def predict(self, sequence: list, weights):
         """
-        The linear readout ``weights`` applied to the features of
-        ``sequence``.
+        The linear readout applied to the features of ``sequence``.
 
         Parameters:
             sequence : A list of numbers, or tuples of numbers.
