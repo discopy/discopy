@@ -17,7 +17,7 @@ class Unitype(Exp):
             and (other.base, other.exponent) == (self.base, self.exponent)
 
     def __hash__(self):
-        return hash("U")
+        return hash(repr(Exp(self.base, self.exponent)))
 
     def __str__(self):
         return "U"
@@ -44,6 +44,13 @@ def test_exp():
     X, Y = Ty('X'), Ty('Y')
     assert X >> Y == Y ** X == Y << X
     assert X @ Ty() == X == Ty() @ X
+
+
+def test_unitype_hash():
+    exp = Exp(U, U)
+    assert Unitype() == exp and hash(Unitype()) == hash(exp)
+    ob_map = {Unitype(): "unitype"}
+    assert ob_map[exp] == "unitype"
 
 
 def test_str():
