@@ -153,6 +153,7 @@ def test_diagram_to_map_structure_and_errors():
         balanced,
         braided,
         closed,
+        comarkov,
         compact,
         frobenius,
         markov,
@@ -290,9 +291,11 @@ def test_diagram_to_map_structure_and_errors():
     x = markov.Ty("x")
     assert markov.CMap.copy(x, 2).boxes == (
         markov.CMap.category.copy(x, 2), )
-    assert markov.CMap.merge(x, 2).boxes == (
-        markov.CMap.category.merge(x, 2), )
     assert markov.CMap.discard(x).boxes == (markov.CMap.category.copy(x, 0), )
+
+    x = comarkov.Ty("x")
+    assert comarkov.CMap.merge(x, 2).boxes == (
+        comarkov.CMap.category.merge(x, 2), )
 
     x = frobenius.Ty("x")
     assert frobenius.CMap.spiders(1, 2, x).boxes == (

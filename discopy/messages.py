@@ -24,6 +24,9 @@ LAYERS_MUST_HAVE_A_BOX = "Layers must have at least one box."
 NOT_MERGEABLE = "Layers {} and {} cannot be merged."
 INTERCHANGER_ERROR = "Boxes {} and {} do not commute."
 WRONG_PERMUTATION = "Expected a permutation of length {}, got {}."
+NOT_A_DAGGER = "The dagger of {} does not live in the same category."
+PERMUTATION_HAS_NO_OFFSET = (
+    "Box offsets are undefined for a layer with a non-identity permutation.")
 ZERO_DISTANCE_CONTROLLED = "Zero-distance controlled gates are ill-defined."
 HAS_NO_ATTRIBUTE = "{!r} object has no attribute {!r}"
 WRONG_DOM = "Expected inside.dom == {}, got {} instead."

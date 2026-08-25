@@ -580,6 +580,13 @@ def test_coloured_Functor_dagger():
     assert F(x[::-1][::-1]) == F(x)
 
 
+def test_identity_function():
+    x, y = Ty('x'), Ty('y')
+    assert Diagram.function([0, 1], x @ y) == Id(x @ y)
+    with raises(NotImplementedError):
+        Diagram.function([0, 0], x)
+
+
 def test_coloured_serialization():
     red, green, blue = map(Colour, ("red", "green", "blue"))
     x = Ty(Wire("x", red, green))

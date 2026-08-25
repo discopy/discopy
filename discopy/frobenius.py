@@ -62,7 +62,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from discopy import monoidal, rigid, markov, compact, pivotal, hypergraph
+from discopy import (
+    monoidal, rigid, markov, comarkov, compact, pivotal, hypergraph)
 from discopy.abc import HypergraphCategory
 from discopy.cat import factory
 from discopy.utils import assert_isatomic, deprecated_ob, factory_name
@@ -112,9 +113,11 @@ class Dim(monoidal.Dim, Ty):
 
 
 @factory
-class Diagram(compact.Diagram, markov.Diagram, HypergraphCategory):
+class Diagram(
+        compact.Diagram, markov.Diagram, comarkov.Diagram,
+        HypergraphCategory):
     """
-    A frobenius diagram is a compact diagram and a Markov diagram.
+    A frobenius diagram is a compact, Markov and comarkov diagram.
 
     Parameters:
         inside(Layer) : The layers of the diagram.
@@ -283,7 +286,7 @@ class Bubble(monoidal.Bubble, Box):
     """
 
 
-class Functor(compact.Functor, markov.Functor):
+class Functor(compact.Functor, markov.Functor, comarkov.Functor):
     """
     A hypergraph functor is a compact functor that preserves spiders.
 
@@ -300,7 +303,7 @@ class Functor(compact.Functor, markov.Functor):
         if isinstance(other, Spider):
             return self.cod.spiders(
                 len(other.dom), len(other.cod), self(other.typ))
-        if isinstance(other, (markov.Copy, markov.Merge)):
+        if isinstance(other, (markov.Copy, markov.Function, comarkov.Merge)):
             return markov.Functor.__call__(self, other)
         return compact.Functor.__call__(self, other)
 

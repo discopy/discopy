@@ -62,6 +62,8 @@ class Function(MonoidalCategory, Sequence):
             self.inside = list(self.inside)
         if len(self.inside) != self.cod:
             raise ValueError
+        if any(i not in range(self.dom) for i in self.inside):
+            raise ValueError
 
     def __getitem__(self, key):
         return self.inside[key]
@@ -72,6 +74,16 @@ class Function(MonoidalCategory, Sequence):
     @staticmethod
     def id(x: int = 0):
         return Function(list(range(x)), x, x)
+
+    @property
+    def is_identity(self) -> bool:
+        """ Whether this is the identity function. """
+        return self.inside == list(range(self.dom))
+
+    @property
+    def is_bijective(self) -> bool:
+        """ Whether this is a bijection, i.e. a :class:`Permutation`. """
+        return sorted(self.inside) == list(range(self.dom))
 
     def then(self, other: Function) -> Function:
         inside = [self[other[i]] for i in range(other.cod)]
@@ -94,6 +106,18 @@ class Function(MonoidalCategory, Sequence):
         if xs.is_identity:
             return Function.id(dom)
         return Function(list(Permutation(xs, dom)), dom, dom)
+
+    @staticmethod
+    def permutation(xs, dom: int) -> Function:
+        xs = list(xs)
+        if xs == list(range(len(xs))):
+            return Function.id(dom)
+        return Function(list(Permutation(xs, dom)), dom, dom)
+
+    @staticmethod
+    def function(fun, dom: int) -> Function:
+        fun = list(fun)
+        return Function(fun, dom, len(fun))
 
     @staticmethod
     def copy(x: int, n=2) -> Function:

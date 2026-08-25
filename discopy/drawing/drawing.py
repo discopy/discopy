@@ -572,13 +572,22 @@ class Drawing(TracedCategory, RichDisplay):
 
     @classmethod
     def permutation(cls, xs: Sequence[int], doms) -> Drawing:
-        """ Draw a permutation of the wires in ``dom``. """
+        """ Draw a permutation of the wires in ``doms``. """
         from discopy.symmetric import Permutation
-        xs = finset.Permutation(xs)
         dom = cls.ob().tensor(*doms)
+        xs = finset.Permutation(xs, len(dom))
         if xs.is_identity:
             return Drawing.id(dom)
         return Permutation(dom, xs).to_drawing()
+
+    @staticmethod
+    def function(fun, dom) -> Drawing:
+        """ Draw the opposite of a function on the wires in ``dom``. """
+        from discopy.markov import Function
+        fun = list(fun)
+        if fun == list(range(len(dom))):
+            return Drawing.id(dom)
+        return Function(dom, fun).to_drawing()
 
     @staticmethod
     def from_box(box: "monoidal.Box") -> Drawing:

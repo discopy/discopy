@@ -65,6 +65,10 @@ class Layer(symmetric.Layer, rigid.Layer):
     """ A compact layer with permutation plumbing and rigid rotation. """
 
 
+class Layer(symmetric.Layer, rigid.Layer):
+    """ A compact layer with permutation routing and rigid rotation. """
+
+
 @factory
 class Diagram(symmetric.Diagram, ribbon.Diagram, CompactCategory):
     """

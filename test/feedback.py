@@ -88,3 +88,17 @@ def test_fibonacci():
         cod=stream.Stream[python.Function])
 
     assert F(fib).unroll(9).now()[:10] == (0, 1, 1, 2, 3, 5, 8, 13, 21, 34)
+
+
+def test_Copy_Merge_dagger():
+    x = Ty('x')
+    assert Copy(x).dagger() == Merge(x) and Merge(x).dagger() == Copy(x)
+
+
+def test_Layer_delay_permutation():
+    from discopy import markov
+    x, y = Ty('x'), Ty('y')
+    perm = markov.Permutation(x @ y, [1, 0])
+    layer = Diagram.layer_factory(perm).delay()
+    assert layer.boxes_or_types[0]\
+        == markov.Permutation((x @ y).delay(), [1, 0])

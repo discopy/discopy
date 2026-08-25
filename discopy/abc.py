@@ -184,6 +184,22 @@ class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](
         """
 
     @classmethod
+    def permutation(cls, xs, dom: C0) -> C1:
+        """ Map an identity permutation to the identity morphism. """
+        xs = list(xs)
+        if xs != list(range(len(xs))):
+            raise NotImplementedError
+        return cls.id(dom)
+
+    @classmethod
+    def function(cls, fun, dom: C0) -> C1:
+        """ Map an identity function to the identity morphism. """
+        fun = list(fun)
+        if len(fun) != len(dom) or fun != list(range(len(dom))):
+            raise NotImplementedError
+        return cls.id(dom)
+
+    @classmethod
     def whisker(cls, other: C0 | C1) -> C1:
         """
         Do nothing if ``other`` is already a morphism else apply :meth:`id`.
@@ -390,7 +406,7 @@ class SymmetricCategory[C0, C1](BraidedCategory[C0, C1]):
             i = xs[0]
             left, head = tensor(doms[:i]), tensor(doms[i:i + 1])
             result >>= done @ cls.swap(left, head) @ tensor(doms[i + 1:])
-            done, doms = done @ head, doms[:i] + doms[i + 1:]
+            done, doms = done + head, doms[:i] + doms[i + 1:]
             xs = [x - 1 if x > i else x for x in xs[1:]]
         return result
 
@@ -401,8 +417,8 @@ class SymmetricCategory[C0, C1](BraidedCategory[C0, C1]):
 
 class MarkovCategory[C0, C1](SymmetricCategory[C0, C1]):
     """
-    A Markov category is a :class:`SymmetricCategory` with methods
-    :code:`copy` and :code:`merge` for the supply of commutative comonoids.
+    A Markov category is a :class:`SymmetricCategory` with a method
+    :code:`copy` for the supply of commutative comonoids.
     """
     @classmethod
     @abstractmethod
@@ -415,6 +431,53 @@ class MarkovCategory[C0, C1](SymmetricCategory[C0, C1]):
             n : The number of copies.
         """
 
+    @classmethod
+    def function(cls, fun, dom: C0) -> C1:
+        """
+        The opposite of a function between finite sets, decomposed as one
+        copy of each atomic object followed by a permutation, so that output
+        ``i`` comes from input ``fun[i]``.
+
+        Parameters:
+            fun : A list of integers in ``range(len(dom))``.
+            dom : An object of the same length as the codomain of ``fun``.
+        """
+        fun = list(fun)
+        if fun == list(range(len(dom))):
+            return cls.id(dom)
+        if any(i not in range(len(dom)) for i in fun):
+            raise ValueError
+        copies = cls.id(dom[:0])
+        for i in range(len(dom)):
+            copies = copies @ cls.copy(dom[i:i + 1], fun.count(i))
+        offsets, xs = [0] * len(dom), []
+        for j in range(1, len(dom)):
+            offsets[j] = offsets[j - 1] + fun.count(j - 1)
+        for i in fun:
+            xs.append(offsets[i])
+            offsets[i] += 1
+        doms = [dom[i:i + 1]
+                for i in range(len(dom)) for _ in range(fun.count(i))]
+        return copies >> cls.permutation(xs, doms)
+
+
+class ComarkovCategory[C0, C1](SymmetricCategory[C0, C1]):
+    """
+    A comarkov category is a :class:`SymmetricCategory` with a method
+    :code:`merge` for the supply of commutative monoids, i.e. the dual of
+    a :class:`MarkovCategory`.
+    """
+    @classmethod
+    @abstractmethod
+    def merge(cls, x: C0, n: int = 2) -> C1:
+        """
+        Merge :code:`n` copies of a given object :code:`x`.
+
+        Parameters:
+            x : The object to merge.
+            n : The number of copies.
+        """
+
 
 class ClosedCategory[C0, C1](BiclosedCategory[C0, C1], MarkovCategory[C0, C1]):
     """
@@ -423,10 +486,12 @@ class ClosedCategory[C0, C1](BiclosedCategory[C0, C1], MarkovCategory[C0, C1]):
     """
 
 
-class FeedbackCategory[C0, C1](MarkovCategory[C0, C1]):
+class FeedbackCategory[C0, C1](
+        MarkovCategory[C0, C1], ComarkovCategory[C0, C1]):
     """
-    A feedback category is a :class:`MarkovCategory` with a :code:`delay`
-    endofunctor and a :code:`feedback` operator.
+    A feedback category is a :class:`MarkovCategory` and a
+    :class:`ComarkovCategory` with a :code:`delay` endofunctor and a
+    :code:`feedback` operator.
     """
     @abstractmethod
     def delay(self, n_steps: int = 1) -> C1:
@@ -488,12 +553,14 @@ class CompactCategory[C0, C1](
 
 
 class HypergraphCategory[C0, C1](
-        CompactCategory[C0, C1], MarkovCategory[C0, C1]):
+        CompactCategory[C0, C1],
+        MarkovCategory[C0, C1], ComarkovCategory[C0, C1]):
     """
     A hypergraph category is a symmetric category with a supply of spiders,
     i.e. special commutative Frobenius algebras on each objects.
 
-    This makes it both a :class:`CompactCategory` and a :class:`MarkovCategory`
+    This makes it a :class:`CompactCategory`, a :class:`MarkovCategory`
+    and a :class:`ComarkovCategory`.
     """
     @classmethod
     @abstractmethod

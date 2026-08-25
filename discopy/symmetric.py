@@ -135,27 +135,39 @@ class Layer(monoidal.Layer):
     @classmethod
     def normalise(cls, inside):
         """
-        Normalise identity permutations to their underlying types, so a
-        layer whose only component is an identity permutation raises the
-        same :class:`ValueError` as a layer without a box.
+        Normalise identity plumbing to its underlying type, so a layer
+        whose only component is identity plumbing raises the same
+        :class:`ValueError` as a layer without a box.
+
+        Generic over :attr:`plumbing`, so a subclass that extends it with
+        more structural classes (e.g. :class:`discopy.markov.Function`)
+        gets the same identity-collapsing behaviour for free. The
+        ``hasattr`` guard also protects deserialisation: a non-identity
+        structural box has itself as a descendant of its own ``inside``
+        (the usual :class:`Box` cycle), so unpickling can call this with a
+        box whose own state is not set yet, and ``hasattr`` reports that as
+        `not identity` rather than raising.
         """
         return super().normalise(
             value.dom
-            if isinstance(value, Permutation) and hasattr(value, 'perm')
-            and value.is_identity else value
+            if isinstance(value, cls.plumbing) and not isinstance(value, Ty)
+            and hasattr(value, 'is_identity') and value.is_identity
+            else value
             for value in inside)
 
     @property
     def is_plumbing(self) -> bool:
         """
         Whether the layer plumbs its wires non-trivially, i.e. one of its
-        plumbing components is a :class:`Permutation` rather than a type.
+        plumbing components is a structural box rather than a type.
 
         >>> x, y = Ty('x'), Ty('y')
         >>> assert Layer(Permutation(x @ y, [1, 0])).is_plumbing
         >>> assert not Layer(x, Box('f', x, y), y).is_plumbing
         """
-        return any(isinstance(value, Permutation) for value in self)
+        return any(
+            isinstance(value, self.plumbing) and not isinstance(value, Ty)
+            for value in self)
 
 
 @factory
