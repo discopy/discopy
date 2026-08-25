@@ -134,6 +134,8 @@ class Function(function.Function, SymmetricCategory):
         Parameters:
             n : The number of types to trace over.
         """
+        if n == 0:
+            return self
         if left:
             raise NotImplementedError
         dom, cod = self.dom[:-n], self.cod[:-n]

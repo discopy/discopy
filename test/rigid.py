@@ -167,3 +167,9 @@ def test_sum_adjoint():
     two_boxes = two + boxes
     assert two_boxes.l == two.l + boxes.l
     assert two_boxes.l.r == two_boxes
+
+
+def test_curry_zero():
+    x = Ty('x')
+    f = Box('f', x @ x, x)
+    assert f.curry(0) == f == f.curry(0, left=False)

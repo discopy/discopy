@@ -430,6 +430,8 @@ class Diagram(biclosed.Diagram, RigidCategory):
         .. image:: /_static/rigid/curry.svg
             :align: center
         """
+        if n == 0:
+            return self
         if left:
             base, exponent = self.dom[:-n], self.dom[-n:]
             return base @ self.caps(exponent, exponent.l) >> self @ exponent.l
