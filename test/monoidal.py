@@ -577,6 +577,7 @@ def test_coloured_Functor_dagger():
     # Functors send daggered (reversed) coloured types to daggered images.
     assert F(x[::-1]) == F(x)[::-1]
     assert F((x @ y)[::-1]) == F(x @ y)[::-1]
+    assert F(x[::-1][::-1]) == F(x)
 
 
 def test_identity_function():
@@ -584,7 +585,6 @@ def test_identity_function():
     assert Diagram.function([0, 1], x @ y) == Id(x @ y)
     with raises(NotImplementedError):
         Diagram.function([0, 0], x)
-    assert F(x[::-1][::-1]) == F(x)
 
 
 def test_coloured_serialization():

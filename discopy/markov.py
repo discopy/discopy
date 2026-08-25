@@ -112,7 +112,9 @@ class Layer(symmetric.Layer):
     >>> layer = Layer(x, f, y)
     >>> assert layer.boxes_or_types == (x, f, y)
     >>> assert layer.boxes == [f]
-    >>> assert Layer(Function(x, [0, 0])).boxes == []
+    >>> fun = Function(x, [0, 0])
+    >>> assert Layer(fun).boxes_or_types == (fun, )
+    >>> assert Layer(fun).is_plumbing
     """
 
 
