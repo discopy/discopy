@@ -41,7 +41,7 @@ from types import ModuleType
 from typing import Union, Literal as L, Callable, TYPE_CHECKING
 
 from discopy import monoidal, config, messages
-from discopy.abc import Category, MarkovCategory, NamedGeneric
+from discopy.abc import MarkovCategory, NamedGeneric
 from discopy.cat import (
     factory,
     assert_iscomposable,
@@ -427,7 +427,7 @@ class Matrix(MarkovCategory, Strategy["Matrix"], NamedGeneric['dtype']):
             cls, x: C0):
         """ ``Matrix.copy(x, n)`` is wrong for ``x, n >= 2``, see #606. """
         copy = cls.copy(x)
-        return AxiomError(Category.equation_factory(
+        return AxiomError(cls.equation_factory(
             copy.then(cls.swap(x, x)), copy))
 
     @axiom
@@ -435,7 +435,7 @@ class Matrix(MarkovCategory, Strategy["Matrix"], NamedGeneric['dtype']):
             cls, x: C0):
         """ ``Matrix.copy(x, n)`` is wrong for ``x, n >= 2``, see #606. """
         copy, discard = cls.copy(x), cls.copy(x, n=0)
-        return AxiomError(Category.equation_factory(
+        return AxiomError(cls.equation_factory(
             copy.then(discard @ x), cls.id(x),
             copy.then(x @ discard)))
 
@@ -443,7 +443,7 @@ class Matrix(MarkovCategory, Strategy["Matrix"], NamedGeneric['dtype']):
     def copy_monoidal_coherence(
             cls, x: C0):
         """ ``Matrix.copy(x, n)`` is wrong for ``x, n >= 2``, see #606. """
-        return AxiomError(Category.equation_factory(
+        return AxiomError(cls.equation_factory(
             cls.copy(x @ x),
             (cls.copy(x) @ cls.copy(x)).then(
                 x @ cls.swap(x, x) @ x)))

@@ -86,15 +86,13 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from discopy import monoidal, balanced, traced, hypergraph
-from discopy.abc import Category, SymmetricCategory
+from discopy import abc, balanced, hypergraph, monoidal, traced
+from discopy.abc import SymmetricCategory
 from discopy.cat import factory
 from discopy.monoidal import Wire, Ty, PRO  # noqa: F401
 from discopy.python import finset
 from discopy.utils import AxiomError, classproperty, factory_name, from_tree
-from discopy.testing import (
-    Bifunctor, C0, C1, TraceDinaturalityLeft, TraceDinaturalityRight,
-    TraceNaturalityLeft, TraceNaturalityRight, TraceSuperposing, axiom)
+from discopy.testing import C1, axiom
 
 
 class Layer(monoidal.Layer):
@@ -420,85 +418,21 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         """
         return self.to_hypergraph().depth()
 
-    @axiom
-    def bifunctoriality(
-            cls, square: Bifunctor[C1]):
-        """ Bifunctoriality of the tensor. """
-        f, g, h, k = square
-        return cls.equation_factory(
-            f @ g >> h @ k, (f >> h) @ (g >> k))
+    bifunctoriality = abc.MonoidalCategory.bifunctoriality
 
-    @axiom
-    def braid_naturality(
-            cls, f: C1, g: C1):
-        """ Naturality of the braid. """
-        return cls.equation_factory(
-            f @ g >> cls.braid(f.cod, g.cod),
-            cls.braid(f.dom, g.dom) >> g @ f,
-        )
+    braid_naturality = abc.BraidedCategory.braid_naturality
 
-    @axiom
-    def swap_inverse(
-            cls, x: C0, y: C0):
-        """ Involutivity of the swap. """
-        return cls.equation_factory(
-            cls.swap(x, y).then(cls.swap(y, x)), cls.id(x @ y))
+    trace_dinaturality_left = abc.TracedCategory.trace_dinaturality_left
 
-    @axiom
-    def trace_dinaturality_left(
-            cls, sliding: TraceDinaturalityLeft[C0, C1]):
-        """ Left-oriented trace dinaturality. """
-        f, g = sliding
-        source, target = g.cod, g.dom
-        base, cobase = f.dom[len(source):], f.cod[len(target):]
-        return cls.equation_factory(
-            f.then(g @ cobase).trace(len(source), left=True),
-            (g @ base).then(f).trace(len(target), left=True))
+    trace_dinaturality_right = abc.TracedCategory.trace_dinaturality_right
 
-    @axiom
-    def trace_dinaturality_right(
-            cls, sliding: TraceDinaturalityRight[C0, C1]):
-        """ Right-oriented trace dinaturality. """
-        f, g = sliding
-        source, target = g.cod, g.dom
-        base, cobase = f.dom[:-len(source)], f.cod[:-len(target)]
-        return cls.equation_factory(
-            f.then(cobase @ g).trace(len(source)),
-            (base @ g).then(f).trace(len(target)))
+    trace_naturality_left = abc.TracedCategory.trace_naturality_left
 
-    @axiom
-    def trace_naturality_left(
-            cls, sliding: TraceNaturalityLeft[C0, C1]):
-        """ Left-oriented trace naturality. """
-        f, x, g = sliding
-        return cls.equation_factory(
-            (x @ g).then(f).then(x @ g).trace(len(x), left=True),
-            g.then(f.trace(len(x), left=True)).then(g))
+    trace_naturality_right = abc.TracedCategory.trace_naturality_right
 
-    @axiom
-    def trace_naturality_right(
-            cls, sliding: TraceNaturalityRight[C0, C1]):
-        """ Right-oriented trace naturality. """
-        f, x, g = sliding
-        return cls.equation_factory(
-            (g @ x).then(f).then(g @ x).trace(len(x)),
-            g.then(f.trace(len(x))).then(g))
+    trace_superposing_left = abc.TracedCategory.trace_superposing_left
 
-    @axiom
-    def trace_superposing_left(
-            cls, pair: TraceSuperposing[C0, C1]):
-        """ Left-oriented superposing. """
-        f, obj = pair
-        return cls.equation_factory(
-            (f @ obj).trace(left=True), f.trace(left=True) @ obj)
-
-    @axiom
-    def trace_superposing_right(
-            cls, pair: TraceSuperposing[C0, C1]):
-        """ Right-oriented superposing. """
-        f, obj = pair
-        return cls.equation_factory(
-            (obj @ f).trace(), obj @ f.trace())
+    trace_superposing_right = abc.TracedCategory.trace_superposing_right
 
 
 class Box(balanced.Box, Diagram):
@@ -736,7 +670,7 @@ class CMap(traced.CMap):
     def braid_naturality(
             cls, f: C1, g: C1):
         """ ``CMap.to_diagram`` fails on a traced box, see #606. """
-        return AxiomError(Category.equation_factory(
+        return AxiomError(cls.equation_factory(
             f @ g >> cls.braid(f.cod, g.cod),
             cls.braid(f.dom, g.dom) >> g @ f,
         ))

@@ -97,7 +97,7 @@ class Category[C0, C1: Category](ABC):
         Construct an equation, using strict equality by default.
 
         An axiom states which equality it means by choosing between
-        :meth:`Category.equation_factory`, i.e. on the nose, and
+        :meth:`cls.equation_factory`, i.e. on the nose, and
         ``cls.equation_factory``, i.e. up to whatever quotient the class
         defines, e.g. hypergraph isomorphism from symmetric categories on.
         """
@@ -153,7 +153,7 @@ class Category[C0, C1: Category](ABC):
     def unitality(
             cls, f: C1) -> Equation[C1]:
         """ Left and right unitality of composition. """
-        return Category.equation_factory(
+        return cls.equation_factory(
             cls.id(f.dom).then(f), f, f.then(cls.id(f.cod)))
 
     @axiom
@@ -161,7 +161,7 @@ class Category[C0, C1: Category](ABC):
             cls, triple: ComposableTriple[C1]) -> Equation[C1]:
         """ Associativity of composition. """
         f, g, h = triple
-        return Category.equation_factory(
+        return cls.equation_factory(
             f.then(g).then(h), f.then(g.then(h)))
 
     @axiom
@@ -169,21 +169,21 @@ class Category[C0, C1: Category](ABC):
             cls, dom: C0) -> Equation[C0]:
         """ Typing of identity morphisms. """
         identity = cls.id(dom)
-        return Category.equation_factory(identity.dom, dom, identity.cod)
+        return cls.ob.equation_factory(identity.dom, dom, identity.cod)
 
     @axiom
     def composition_dom_typing(
             cls, pair: ComposablePair[C1]) -> Equation[C0]:
         """ Domain typing of composition. """
         f, g = pair
-        return Category.equation_factory(f.then(g).dom, f.dom)
+        return cls.ob.equation_factory(f.then(g).dom, f.dom)
 
     @axiom
     def composition_cod_typing(
             cls, pair: ComposablePair[C1]) -> Equation[C0]:
         """ Codomain typing of composition. """
         f, g = pair
-        return Category.equation_factory(f.then(g).cod, g.cod)
+        return cls.ob.equation_factory(f.then(g).cod, g.cod)
 
     __rshift__ = __llshift__ = lambda self, other: self.then(other)
     __lshift__ = __lrshift__ = lambda self, other: other.then(self)
@@ -218,14 +218,14 @@ class ColouredMonoid[C0, C1: ColouredMonoid](Category[C0, C1]):
     def monoid_unitality(
             cls, x: C1) -> Equation[C1]:
         """ Unitality of a monoid. """
-        return Category.equation_factory(cls.unit() @ x, x, x @ cls.unit())
+        return cls.equation_factory(cls.unit() @ x, x, x @ cls.unit())
 
     @axiom
     def monoid_associativity(
             cls, triple: ComposableTriple[C1]) -> Equation[C1]:
         """ Associativity of a monoid. """
         x, y, z = triple
-        return Category.equation_factory(x @ (y @ z), (x @ y) @ z)
+        return cls.equation_factory(x @ (y @ z), (x @ y) @ z)
 
     def then(self, *others: C1) -> C1:
         """Sequential composition, given by the monoid product."""
@@ -292,7 +292,7 @@ class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](
             cls, square: Bifunctor[C1]) -> Equation[C1]:
         """ Bifunctoriality of the tensor. """
         f, g, h, k = square
-        return Category.equation_factory(
+        return cls.equation_factory(
             f @ g >> h @ k, (f >> h) @ (g >> k))
 
     @axiom
@@ -300,7 +300,7 @@ class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](
             cls, pair: HorizontalPair[C1]) -> Equation[C1]:
         """ Preservation of identities by tensor. """
         x, y = (cell.dom for cell in pair)
-        return Category.equation_factory(
+        return cls.equation_factory(
             cls.id(x) @ cls.id(y), cls.id(x @ y))
 
     @axiom
@@ -308,21 +308,21 @@ class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](
             cls, pair: HorizontalPair[C1]) -> Equation[C0]:
         """ Domain typing of tensor. """
         f, g = pair
-        return Category.equation_factory((f @ g).dom, f.dom @ g.dom)
+        return cls.ob.equation_factory((f @ g).dom, f.dom @ g.dom)
 
     @axiom
     def tensor_cod_typing(
             cls, pair: HorizontalPair[C1]) -> Equation[C0]:
         """ Codomain typing of tensor. """
         f, g = pair
-        return Category.equation_factory((f @ g).cod, f.cod @ g.cod)
+        return cls.ob.equation_factory((f @ g).cod, f.cod @ g.cod)
 
     @axiom
     def functor_identity(
             cls, arguments: Endofunctor[C1]) -> Equation[C1]:
         """ A monoidal functor preserves identities. """
         functor, f, _ = arguments
-        return Category.equation_factory(
+        return cls.equation_factory(
             functor(cls.id(f.dom)), functor.cod.ar.id(functor(f.dom)))
 
     @axiom
@@ -330,7 +330,7 @@ class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](
             cls, arguments: Endofunctor[C1]) -> Equation[C1]:
         """ A monoidal functor preserves composition. """
         functor, f, g = arguments
-        return Category.equation_factory(
+        return cls.equation_factory(
             functor(f.then(g)), functor(f).then(functor(g)))
 
     @axiom
@@ -338,7 +338,7 @@ class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](
             cls, arguments: Endofunctor[C1]) -> Equation[C1]:
         """ A monoidal functor preserves the tensor. """
         functor, f, g = arguments
-        return Category.equation_factory(
+        return cls.equation_factory(
             functor(f @ g), functor(f) @ functor(g))
 
 
@@ -361,7 +361,7 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
     def trace_vanishing(
             cls, f: C1) -> Equation[C1]:
         """ Vanishing of a trace over the unit. """
-        return Category.equation_factory(
+        return cls.equation_factory(
             f.trace(0), f, f.trace(0, left=True))
 
     @axiom
@@ -369,7 +369,7 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
             cls, pair: TraceSuperposing[C0, C1]) -> Equation[C1]:
         """ Left-oriented superposing. """
         f, obj = pair
-        return Category.equation_factory(
+        return cls.equation_factory(
             (f @ obj).trace(left=True), f.trace(left=True) @ obj)
 
     @axiom
@@ -377,7 +377,7 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
             cls, pair: TraceSuperposing[C0, C1]) -> Equation[C1]:
         """ Right-oriented superposing. """
         f, obj = pair
-        return Category.equation_factory(
+        return cls.equation_factory(
             (obj @ f).trace(), obj @ f.trace())
 
     @axiom
@@ -385,7 +385,7 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
             cls, sliding: TraceNaturalityLeft[C0, C1]) -> Equation[C1]:
         """ Left-oriented trace naturality. """
         f, x, g = sliding
-        return Category.equation_factory(
+        return cls.equation_factory(
             (x @ g).then(f).then(x @ g).trace(len(x), left=True),
             g.then(f.trace(len(x), left=True)).then(g))
 
@@ -394,7 +394,7 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
             cls, sliding: TraceNaturalityRight[C0, C1]) -> Equation[C1]:
         """ Right-oriented trace naturality. """
         f, x, g = sliding
-        return Category.equation_factory(
+        return cls.equation_factory(
             (g @ x).then(f).then(g @ x).trace(len(x)),
             g.then(f.trace(len(x))).then(g))
 
@@ -405,7 +405,7 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
         f, g = sliding
         source, target = g.cod, g.dom
         base, cobase = f.dom[len(source):], f.cod[len(target):]
-        return Category.equation_factory(
+        return cls.equation_factory(
             f.then(g @ cobase).trace(len(source), left=True),
             (g @ base).then(f).trace(len(target), left=True))
 
@@ -416,7 +416,7 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
         f, g = sliding
         source, target = g.cod, g.dom
         base, cobase = f.dom[:-len(source)], f.cod[:-len(target)]
-        return Category.equation_factory(
+        return cls.equation_factory(
             f.then(cobase @ g).trace(len(source)),
             (base @ g).then(f).trace(len(target)))
 
@@ -477,7 +477,7 @@ class BiclosedCategory[
             cls, arguments: LeftCurrying[C0, C1]) -> Equation[C1]:
         """ Left currying followed by evaluation. """
         f, base, exponent = arguments
-        return Category.equation_factory(
+        return cls.equation_factory(
             cls._uncurry(f, base, exponent, left=True), f)
 
     @axiom
@@ -485,7 +485,7 @@ class BiclosedCategory[
             cls, arguments: RightCurrying[C0, C1]) -> Equation[C1]:
         """ Right currying followed by evaluation. """
         f, base, exponent = arguments
-        return Category.equation_factory(
+        return cls.equation_factory(
             cls._uncurry(f, base, exponent, left=False), f)
 
     @classmethod
@@ -515,7 +515,7 @@ class Pregroup[C0, C1: Pregroup](ResiduatedMonoid[C0, C1]):
     def adjunction(
             cls, x: C1) -> Equation[C1]:
         """ The left and right adjoints are mutually inverse. """
-        return Category.equation_factory(x.l.r, x, x.r.l)
+        return cls.equation_factory(x.l.r, x, x.r.l)
 
 
 class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
@@ -553,7 +553,7 @@ class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
             cls.cups(x, x.r) @ cls.id(x))
         snake_l = (cls.caps(x, x.l) @ cls.id(x)).then(
             cls.id(x) @ cls.cups(x.l, x))
-        return Category.equation_factory(snake_r, cls.id(x), snake_l)
+        return cls.equation_factory(snake_r, cls.id(x), snake_l)
 
     @axiom
     def caps_coherence(
@@ -561,7 +561,7 @@ class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
             y: NonEmpty[C0]) -> Equation[C1]:
         """ Monoidal coherence of caps. """
         x, y = x.value, y.value
-        return Category.equation_factory(
+        return cls.equation_factory(
             cls.caps(x @ y, (x @ y).l),
             cls.caps(x, x.l).then(x @ cls.caps(y, y.l) @ x.l))
 
@@ -570,7 +570,7 @@ class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
             cls, pair: ComposablePair[C1]) -> Equation[C1]:
         """ Rotation reverses composition. """
         f, g = pair
-        return Category.equation_factory(
+        return cls.equation_factory(
             f.then(g).rotate(), g.rotate().then(f.rotate()))
 
     def transpose(self, left: bool = False) -> C1:
@@ -610,7 +610,7 @@ class PivotalCategory[C0, C1](RigidCategory[C0, C1], TracedCategory[C0, C1]):
     def self_dual(
             cls, x: C0) -> Equation[C0]:
         """ Equality of left and right adjoints. """
-        return Category.equation_factory(x.r, x.l)
+        return cls.ob.equation_factory(x.r, x.l)
 
     @axiom
     def transpose_axiom(
@@ -621,7 +621,7 @@ class PivotalCategory[C0, C1](RigidCategory[C0, C1], TracedCategory[C0, C1]):
             cod.l @ f @ dom.l).then(cls.cups(cod.l, cod) @ dom.l)
         right_transpose = (cls.caps(dom.r, dom) @ cod.r).then(
             dom.r @ f @ cod.r).then(dom.r @ cls.cups(cod, cod.r))
-        return Category.equation_factory(left_transpose, right_transpose)
+        return cls.equation_factory(left_transpose, right_transpose)
 
 
 class BraidedCategory[C0, C1](MonoidalCategory[C0, C1]):
@@ -647,7 +647,7 @@ class BraidedCategory[C0, C1](MonoidalCategory[C0, C1]):
             z: Atomic[C0]) -> Equation[C1]:
         """ The left hexagon equation. """
         x, y, z = x.value, y.value, z.value
-        return Category.equation_factory(
+        return cls.equation_factory(
             cls.braid(x, y @ z),
             (cls.braid(x, y) @ z).then(y @ cls.braid(x, z)))
 
@@ -658,7 +658,7 @@ class BraidedCategory[C0, C1](MonoidalCategory[C0, C1]):
             z: Atomic[C0]) -> Equation[C1]:
         """ The right hexagon equation. """
         x, y, z = x.value, y.value, z.value
-        return Category.equation_factory(
+        return cls.equation_factory(
             cls.braid(x @ y, z),
             (x @ cls.braid(y, z)).then(cls.braid(x, z) @ y))
 
@@ -666,7 +666,7 @@ class BraidedCategory[C0, C1](MonoidalCategory[C0, C1]):
     def braid_naturality(
             cls, f: C1, g: C1) -> Equation[C1]:
         """ Naturality of the braid. """
-        return Category.equation_factory(
+        return cls.equation_factory(
             f @ g >> cls.braid(f.cod, g.cod),
             cls.braid(f.dom, g.dom) >> g @ f,
         )
@@ -712,7 +712,7 @@ class SymmetricCategory[C0, C1](BraidedCategory[C0, C1]):
     def swap_inverse(
             cls, x: C0, y: C0) -> Equation[C1]:
         """ Involutivity of the swap. """
-        return Category.equation_factory(
+        return cls.equation_factory(
             cls.swap(x, y).then(cls.swap(y, x)), cls.id(x @ y))
 
 
@@ -737,7 +737,7 @@ class MarkovCategory[C0, C1](SymmetricCategory[C0, C1]):
             cls, x: C0) -> Equation[C1]:
         """ Counitality of copying. """
         copy, discard = cls.copy(x), cls.copy(x, n=0)
-        return Category.equation_factory(
+        return cls.equation_factory(
             copy.then(discard @ x), cls.id(x),
             copy.then(x @ discard))
 
@@ -746,7 +746,7 @@ class MarkovCategory[C0, C1](SymmetricCategory[C0, C1]):
             cls, x: C0) -> Equation[C1]:
         """ Coassociativity of copying. """
         copy = cls.copy(x)
-        return Category.equation_factory(
+        return cls.equation_factory(
             copy.then(copy @ x), copy.then(x @ copy))
 
     @axiom
@@ -754,13 +754,13 @@ class MarkovCategory[C0, C1](SymmetricCategory[C0, C1]):
             cls, x: C0) -> Equation[C1]:
         """ Cocommutativity of copying. """
         copy = cls.copy(x)
-        return Category.equation_factory(copy.then(cls.swap(x, x)), copy)
+        return cls.equation_factory(copy.then(cls.swap(x, x)), copy)
 
     @axiom
     def discard_coherence(
             cls, x: C0) -> Equation[C1]:
         """ Monoidal coherence of discarding. """
-        return Category.equation_factory(
+        return cls.equation_factory(
             cls.copy(x @ x, n=0),
             cls.copy(x, n=0) @ cls.copy(x, n=0))
 
@@ -768,7 +768,7 @@ class MarkovCategory[C0, C1](SymmetricCategory[C0, C1]):
     def copy_monoidal_coherence(
             cls, x: C0) -> Equation[C1]:
         """ Monoidal coherence of copying. """
-        return Category.equation_factory(
+        return cls.equation_factory(
             cls.copy(x @ x),
             (cls.copy(x) @ cls.copy(x)).then(
                 x @ cls.swap(x, x) @ x))
@@ -812,14 +812,14 @@ class FeedbackCategory[C0, C1](MarkovCategory[C0, C1]):
             cls, arguments: FeedbackVanishing[C0, C1]) -> Equation[C1]:
         """ Vanishing of feedback over the unit. """
         f, unit = arguments
-        return Category.equation_factory(f.feedback(mem=unit), f)
+        return cls.equation_factory(f.feedback(mem=unit), f)
 
     @axiom
     def feedback_joining(
             cls, arguments: FeedbackJoining[C0, C1]) -> Equation[C1]:
         """ Joining nested feedback loops. """
         f, mem = arguments
-        return Category.equation_factory(
+        return cls.equation_factory(
             f.feedback(mem=mem), f.feedback().feedback())
 
 
@@ -846,7 +846,7 @@ class BalancedCategory[C0, C1](
             y: Atomic[C0]) -> Equation[C1]:
         """ Compatibility of the twist and braid. """
         x, y = x.value, y.value
-        return Category.equation_factory(
+        return cls.equation_factory(
             cls.twist(x @ y),
             cls.braid(x, y).then(
                 cls.twist(y) @ cls.twist(x)).then(
@@ -865,7 +865,7 @@ class RibbonCategory[C0, C1](
         """ The twist as both orientations of a traced braid. """
         x = x.value
         braid = cls.braid(x, x)
-        return Category.equation_factory(
+        return cls.equation_factory(
             braid.trace(left=True), cls.twist(x), braid.trace())
 
 
@@ -884,7 +884,7 @@ class CompactCategory[C0, C1](
     def reidemeister_1_cap(
             cls, x: C0) -> Equation[C1]:
         """ Reidemeister move 1 for caps. """
-        return Category.equation_factory(
+        return cls.equation_factory(
             cls.caps(x, x.r).then(cls.swap(x, x.r)),
             cls.caps(x.r, x))
 
@@ -892,7 +892,7 @@ class CompactCategory[C0, C1](
     def reidemeister_1_cup(
             cls, x: C0) -> Equation[C1]:
         """ Reidemeister move 1 for cups. """
-        return Category.equation_factory(
+        return cls.equation_factory(
             cls.swap(x, x.r).then(cls.cups(x.r, x)),
             cls.cups(x, x.r))
 
@@ -922,7 +922,7 @@ class HypergraphCategory[C0, C1](
             cls, x: C0) -> Equation[C1]:
         """ The Frobenius equation. """
         split, merge = cls.spiders(1, 2, x), cls.spiders(2, 1, x)
-        return Category.equation_factory(
+        return cls.equation_factory(
             split @ x >> x @ merge,
             merge >> split,
             x @ split >> merge @ x)
@@ -932,7 +932,7 @@ class HypergraphCategory[C0, C1](
             cls, x: C0) -> Equation[C1]:
         """ Speciality of the Frobenius structure. """
         split, merge = cls.spiders(1, 2, x), cls.spiders(2, 1, x)
-        return Category.equation_factory(
+        return cls.equation_factory(
             split.then(merge), cls.spiders(1, 1, x), cls.id(x))
 
     @axiom
@@ -940,7 +940,7 @@ class HypergraphCategory[C0, C1](
             cls, arguments: Endofunctor[C1]) -> Equation[C1]:
         """ A hypergraph functor preserves spiders. """
         functor, f, _ = arguments
-        return Category.equation_factory(
+        return cls.equation_factory(
             functor(cls.spiders(1, 2, f.dom)),
             functor.cod.ar.spiders(1, 2, functor(f.dom)))
 
@@ -948,7 +948,7 @@ class HypergraphCategory[C0, C1](
     def spider_fusion(
             cls, x: C0, m: Natural, n: Natural) -> Equation[C1]:
         """ Fusion of two spiders connected by one leg. """
-        return Category.equation_factory(
+        return cls.equation_factory(
             cls.spiders(m, 1, x).then(cls.spiders(1, n, x)),
             cls.spiders(m, n, x))
 

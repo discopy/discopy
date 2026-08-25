@@ -58,6 +58,13 @@ class Natural(int, Strategy["Natural"]):
     __len__ = lambda self: int(self)
 
     @classmethod
+    def equation_factory(cls, *terms):
+        """ Construct an equation between natural numbers. """
+        from discopy.cat import Equation
+
+        return Equation(*terms)
+
+    @classmethod
     def strategy(cls, *, max_size=3):
         """Generate non-negative integers."""
         from hypothesis import strategies as st

@@ -23,8 +23,8 @@ from collections.abc import Sequence
 
 from dataclasses import dataclass
 
-from discopy import messages
-from discopy.abc import Category, SymmetricCategory
+from discopy import abc, messages
+from discopy.abc import SymmetricCategory
 from discopy.testing import Atomic, C0, C1, Natural, Strategy, axiom
 
 
@@ -158,7 +158,7 @@ class Function(SymmetricCategory, Sequence, Strategy["Function"]):
     def braid_naturality(
             cls, f: C1, g: C1):
         """ ``Function.swap`` returns the inverse permutation, see #606. """
-        return AxiomError(Category.equation_factory(
+        return AxiomError(cls.equation_factory(
             f @ g >> cls.braid(f.cod, g.cod),
             cls.braid(f.dom, g.dom) >> g @ f,
         ))
@@ -170,7 +170,7 @@ class Function(SymmetricCategory, Sequence, Strategy["Function"]):
             z: Atomic[C0]):
         """ ``Function.swap`` returns the inverse permutation, see #606. """
         x, y, z = x.value, y.value, z.value
-        return AxiomError(Category.equation_factory(
+        return AxiomError(cls.equation_factory(
             cls.braid(x, y @ z),
             (cls.braid(x, y) @ z).then(y @ cls.braid(x, z))))
 
@@ -181,7 +181,7 @@ class Function(SymmetricCategory, Sequence, Strategy["Function"]):
             z: Atomic[C0]):
         """ ``Function.swap`` returns the inverse permutation, see #606. """
         x, y, z = x.value, y.value, z.value
-        return AxiomError(Category.equation_factory(
+        return AxiomError(cls.equation_factory(
             cls.braid(x @ y, z),
             (x @ cls.braid(y, z)).then(cls.braid(x, z) @ y)))
 
@@ -434,33 +434,8 @@ class Permutation(Function):
         return all(self[i] != i and self[self[i]] == i
                    for i in range(len(self)))
 
-    @axiom
-    def braid_naturality(
-            cls, f: C1, g: C1):
-        """ Naturality of the braid. """
-        return Category.equation_factory(
-            f @ g >> cls.braid(f.cod, g.cod),
-            cls.braid(f.dom, g.dom) >> g @ f,
-        )
+    braid_naturality = abc.BraidedCategory.braid_naturality
 
-    @axiom
-    def hexagon_left(
-            cls, x: Atomic[C0],
-            y: Atomic[C0],
-            z: Atomic[C0]):
-        """ The left hexagon equation. """
-        x, y, z = x.value, y.value, z.value
-        return Category.equation_factory(
-            cls.braid(x, y @ z),
-            (cls.braid(x, y) @ z).then(y @ cls.braid(x, z)))
+    hexagon_left = abc.BraidedCategory.hexagon_left
 
-    @axiom
-    def hexagon_right(
-            cls, x: Atomic[C0],
-            y: Atomic[C0],
-            z: Atomic[C0]):
-        """ The right hexagon equation. """
-        x, y, z = x.value, y.value, z.value
-        return Category.equation_factory(
-            cls.braid(x @ y, z),
-            (x @ cls.braid(y, z)).then(cls.braid(x, z) @ y))
+    hexagon_right = abc.BraidedCategory.hexagon_right

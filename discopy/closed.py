@@ -53,7 +53,7 @@ from dataclasses import dataclass
 from typing import Dict, ClassVar
 
 from discopy import cat, monoidal, biclosed, markov, hypergraph
-from discopy.abc import Category, ClosedCategory
+from discopy.abc import ClosedCategory
 from discopy.cat import factory
 from discopy.testing import C1, axiom
 from discopy.utils import AxiomError
@@ -183,7 +183,7 @@ class CMap(biclosed.CMap):
     def braid_naturality(
             cls, f: C1, g: C1):
         """ ``CMap.to_diagram`` fails on a traced box, see #606. """
-        return AxiomError(Category.equation_factory(
+        return AxiomError(cls.equation_factory(
             f @ g >> cls.braid(f.cod, g.cod),
             cls.braid(f.dom, g.dom) >> g @ f,
         ))

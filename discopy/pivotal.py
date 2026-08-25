@@ -54,11 +54,11 @@ We also have its dagger and its transpose:
 
 from __future__ import annotations
 
-from discopy import cat, hypergraph, rigid, traced
-from discopy.abc import Category, PivotalCategory, SymmetricCategory
+from discopy import abc, cat, hypergraph, rigid, traced
+from discopy.abc import PivotalCategory, SymmetricCategory
 from discopy.cat import factory
 from discopy.utils import AxiomError, deprecated_ob
-from discopy.testing import C0, C1, TraceSuperposing, axiom
+from discopy.testing import C1, axiom
 
 
 class Wire(rigid.Wire):
@@ -191,21 +191,9 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
             >> diagram @ traced_wire.r\
             >> cod @ cls.cup_factory(traced_wire, traced_wire.r)
 
-    @axiom
-    def trace_superposing_left(
-            cls, pair: TraceSuperposing[C0, C1]):
-        """ Left-oriented superposing. """
-        f, obj = pair
-        return Category.equation_factory(
-            (f @ obj).trace(left=True), f.trace(left=True) @ obj)
+    trace_superposing_left = abc.TracedCategory.trace_superposing_left
 
-    @axiom
-    def trace_superposing_right(
-            cls, pair: TraceSuperposing[C0, C1]):
-        """ Right-oriented superposing. """
-        f, obj = pair
-        return Category.equation_factory(
-            (obj @ f).trace(), obj @ f.trace())
+    trace_superposing_right = abc.TracedCategory.trace_superposing_right
 
     @axiom
     def transpose_axiom(
@@ -216,7 +204,7 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
             cod.l @ f @ dom.l).then(cls.cups(cod.l, cod) @ dom.l)
         right_transpose = (cls.caps(dom.r, dom) @ cod.r).then(
             dom.r @ f @ cod.r).then(dom.r @ cls.cups(cod, cod.r))
-        return AxiomError(Category.equation_factory(
+        return AxiomError(cls.equation_factory(
             left_transpose, right_transpose))
 
 

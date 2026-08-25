@@ -61,7 +61,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from discopy import monoidal
-from discopy.abc import BraidedCategory, Category
+from discopy.abc import BraidedCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty, Match
 from discopy.utils import (
@@ -165,7 +165,7 @@ class Diagram(monoidal.Diagram, BraidedCategory):
     def braid_naturality(
             cls, f: C1, g: C1):
         """ A free braid does not commute past a box. """
-        return AxiomError(Category.equation_factory(
+        return AxiomError(cls.equation_factory(
             f @ g >> cls.braid(f.cod, g.cod),
             cls.braid(f.dom, g.dom) >> g @ f,
         ))

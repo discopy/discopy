@@ -1170,7 +1170,7 @@ class Equation(AbstractEquation[Arrow]):
         return all(term == terms[0] for term in terms)
 
 
-Arrow.equation_factory = Equation
+Ob.equation_factory = Arrow.equation_factory = Equation
 Arrow.sum_factory = Sum
 Arrow.bubble_factory = Bubble
 Id = Arrow.id

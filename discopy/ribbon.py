@@ -79,7 +79,7 @@ cap becomes a ribbon folding back.
 from __future__ import annotations
 
 from discopy import rigid, pivotal, balanced
-from discopy.abc import Category, RibbonCategory
+from discopy.abc import RibbonCategory
 from discopy.cat import factory
 from discopy.pivotal import Ty, PRO  # noqa: F401
 from discopy.utils import AxiomError
@@ -162,7 +162,7 @@ class Diagram(pivotal.Diagram, balanced.Diagram, RibbonCategory):
         """ The traced braid does not reduce to the twist. """
         x = x.value
         braid = cls.braid(x, x)
-        return AxiomError(Category.equation_factory(
+        return AxiomError(cls.equation_factory(
             braid.trace(left=True), cls.twist(x), braid.trace()))
 
 

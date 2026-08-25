@@ -78,7 +78,7 @@ from discopy.abc import MarkovCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import assert_isatomic, factory_name
-from discopy.testing import C0, axiom
+from discopy.testing import axiom
 
 Layer = symmetric.Layer
 
@@ -154,39 +154,6 @@ class Diagram(symmetric.Diagram, MarkovCategory):
             x : The type to discard.
         """
         return cls.copy(x, 0)
-
-    @axiom
-    def copy_coassociativity(
-            cls, x: C0):
-        """ Coassociativity of copying. """
-        copy = cls.copy(x)
-        return cls.equation_factory(
-            copy.then(copy @ x), copy.then(x @ copy))
-
-    @axiom
-    def copy_cocommutativity(
-            cls, x: C0):
-        """ Cocommutativity of copying. """
-        copy = cls.copy(x)
-        return cls.equation_factory(copy.then(cls.swap(x, x)), copy)
-
-    @axiom
-    def copy_counitality(
-            cls, x: C0):
-        """ Counitality of copying. """
-        copy, discard = cls.copy(x), cls.copy(x, n=0)
-        return cls.equation_factory(
-            copy.then(discard @ x), cls.id(x),
-            copy.then(x @ discard))
-
-    @axiom
-    def copy_monoidal_coherence(
-            cls, x: C0):
-        """ Monoidal coherence of copying. """
-        return cls.equation_factory(
-            cls.copy(x @ x),
-            (cls.copy(x) @ cls.copy(x)).then(
-                x @ cls.swap(x, x) @ x))
 
 
 class Box(symmetric.Box, Diagram):

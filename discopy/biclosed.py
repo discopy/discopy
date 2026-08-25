@@ -66,7 +66,7 @@ from inspect import signature
 from typing import Callable, ClassVar, Self
 
 from discopy import monoidal
-from discopy.abc import BiclosedCategory, Category
+from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
 from discopy.cat import factory
 from discopy.utils import (
@@ -321,7 +321,7 @@ class Diagram(monoidal.Diagram, BiclosedCategory):
             cls, arguments: LeftCurrying[C0, C1]):
         """ Currying does not evaluate back, see #562. """
         f, base, exponent = arguments
-        return AxiomError(Category.equation_factory(
+        return AxiomError(cls.equation_factory(
             cls._uncurry(f, base, exponent, left=True), f))
 
     @axiom
@@ -329,7 +329,7 @@ class Diagram(monoidal.Diagram, BiclosedCategory):
             cls, arguments: RightCurrying[C0, C1]):
         """ Currying does not evaluate back, see #562. """
         f, base, exponent = arguments
-        return AxiomError(Category.equation_factory(
+        return AxiomError(cls.equation_factory(
             cls._uncurry(f, base, exponent, left=False), f))
 
 

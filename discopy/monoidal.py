@@ -1934,6 +1934,7 @@ class Equation(cat.Equation, RichDisplay):
         return self.to_drawing().draw(path=path, **params)
 
 
+Colour.equation_factory = cat.Equation
 Diagram.equation_factory = Equation
 Diagram.draw = drawing.draw
 Diagram.to_gif = drawing.to_gif

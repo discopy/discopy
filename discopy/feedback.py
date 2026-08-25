@@ -147,7 +147,7 @@ In the category of streams, this is just the identity.
 from __future__ import annotations
 
 from discopy import monoidal, braided, markov, hypergraph
-from discopy.abc import Category, FeedbackCategory
+from discopy.abc import FeedbackCategory
 from discopy.utils import (
     deprecated_ob,
     factory, factory_name, assert_isinstance, AxiomError,
@@ -416,7 +416,7 @@ class Diagram(markov.Diagram, FeedbackCategory):
             joined = f.feedback(mem=mem)
         except AxiomError as error:
             return error
-        return AxiomError(Category.equation_factory(
+        return AxiomError(cls.equation_factory(
             joined, f.feedback().feedback()))
 
 

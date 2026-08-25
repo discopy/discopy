@@ -66,9 +66,7 @@ from discopy import monoidal, rigid, markov, compact, pivotal, hypergraph
 from discopy.abc import HypergraphCategory
 from discopy.cat import factory
 from discopy.utils import assert_isatomic, deprecated_ob, factory_name
-from discopy.abc import Category
-from discopy.testing import C0, C1, Endofunctor, Natural, axiom
-from discopy.utils import AxiomError
+from discopy.testing import axiom
 
 
 class Wire(pivotal.Wire):
@@ -175,41 +173,6 @@ class Diagram(compact.Diagram, markov.Diagram, HypergraphCategory):
                 f.unfuse() if isinstance(f, Spider) else f,
             dom=Diagram, cod=Diagram)
         return F(self)
-
-    @axiom
-    def frobenius(
-            cls, x: C0):
-        """ The Frobenius equation. """
-        split, merge = cls.spiders(1, 2, x), cls.spiders(2, 1, x)
-        return cls.equation_factory(
-            split @ x >> x @ merge,
-            merge >> split,
-            x @ split >> merge @ x)
-
-    @axiom
-    def speciality(
-            cls, x: C0):
-        """ Speciality of the Frobenius structure. """
-        split, merge = cls.spiders(1, 2, x), cls.spiders(2, 1, x)
-        return cls.equation_factory(
-            split.then(merge), cls.spiders(1, 1, x), cls.id(x))
-
-    @axiom
-    def functor_spiders(cls, arguments: Endofunctor[C1]):
-        """ ``Functor`` drops the phase of a spider, see #606. """
-        functor, f, _ = arguments
-        phases = len(f.dom) * [0.25]
-        return AxiomError(Category.equation_factory(
-            functor(cls.spiders(1, 2, f.dom, phases)),
-            functor.cod.ar.spiders(1, 2, functor(f.dom), phases)))
-
-    @axiom
-    def spider_fusion(
-            cls, x: C0, m: Natural, n: Natural):
-        """ Fusion of two spiders connected by one leg. """
-        return cls.equation_factory(
-            cls.spiders(m, 1, x).then(cls.spiders(1, n, x)),
-            cls.spiders(m, n, x))
 
 
 class Box(compact.Box, markov.Box, Diagram):
