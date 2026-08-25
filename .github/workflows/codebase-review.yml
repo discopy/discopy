@@ -74,7 +74,13 @@ jobs:
         {
           echo "## Dry run — nothing posted"
           echo
-          cat .codebase-review/report.md
+          if [ -s .codebase-review/report.md ]; then
+            cat .codebase-review/report.md
+          else
+            echo "*The read left no \`.codebase-review/report.md\` — see the"
+            echo "\"Read the codebase\" step above for what the agent did"
+            echo "instead.*"
+          fi
           echo
           cat .codebase-review/bugs.md 2>/dev/null || true
         } >> "$GITHUB_STEP_SUMMARY"
