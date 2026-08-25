@@ -66,7 +66,10 @@ class Reservoir:
     """
     def __init__(self, memory: int, inputs: int, unitary: Circuit):
         assert_isinstance(unitary, Circuit)
-        if unitary.dom != unitary.cod\
+        if memory < 0 or inputs < 0:
+            raise ValueError(
+                f"Expected memory, inputs >= 0, got {memory}, {inputs}.")
+        if unitary.is_mixed or unitary.dom != unitary.cod\
                 or unitary.dom != qubit ** (memory + inputs):
             raise ValueError(
                 f"Expected a unitary on {memory + inputs} qubits, "

@@ -4,7 +4,7 @@ import numpy as np
 from pytest import raises
 
 from discopy import compact, quantum
-from discopy.quantum import Id, Ket, Measure
+from discopy.quantum import Discard, Id, Ket, Measure
 from discopy.quantum.reservoir import Reservoir
 
 
@@ -13,6 +13,12 @@ def test_Reservoir_errors():
         Reservoir(2, 1, Id(2))
     with raises(ValueError):
         Reservoir(1, 1, Ket(0, 0))
+    with raises(ValueError):
+        Reservoir(-1, 2, Id(1))
+    with raises(ValueError):
+        Reservoir(2, -1, Id(1))
+    with raises(ValueError):
+        Reservoir(1, 0, Discard(1) @ Ket(0))
     with raises(ValueError):
         Reservoir.random(1).encode(0.1, 0.2)
     with raises(ValueError):
