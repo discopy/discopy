@@ -41,8 +41,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   scaling experiments of arXiv:2105.09257
   ([#346](https://github.com/discopy/discopy/pull/346)).
 - CMap cases for the composition benchmark suite, mirroring its Hypergraph
-  workloads. Benchmark reports now include per-suite HTML, Markdown and CSV
-  tables with scaling plots.
+  workloads. Benchmark reports now include a per-suite Markdown table with
+  a scaling plot.
 - Conversion benchmarks between Diagram, Hypergraph and CMap representations.
 - The benchmark job runs only on `main` and on pull requests labelled
   `benchmark` ([#385](https://github.com/discopy/discopy/pull/385),
@@ -62,6 +62,16 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   hierarchy below symmetric: traced, Markov, closed, feedback, compact and
   hypergraph ([#558](https://github.com/discopy/discopy/issues/558),
   refactoring [#325](https://github.com/discopy/discopy/pull/325)).
+- `para.Symmetric` carries an optional coparameter space: a map is
+  `inside : dom @ param -> cod @ copar` with `copar` empty by default, so
+  parametric maps read as before, coparametric maps are the empty-`param`
+  case and the diagonal `param == copar` is the free category with feedback
+  — the type of one time step of a `Stream`. The constructor reads
+  `(dom, cod, inside, param, copar)` with both hidden spaces optional.
+  Composition and tensor accumulate the hidden objects on both sides,
+  `trace` and `feedback` route the coparameters out of the way and
+  `recopar` post-composes them, covariantly where `reparam` is
+  contravariant ([#572](https://github.com/discopy/discopy/issues/572)).
 - The pivotal structure of `Rep(H)`: `HopfAlgebra.drinfeld_element`,
   `pivotal_element` and `ribbon_element`, cached single tensors named after
   the literature (Reshetikhin–Turaev; Kassel; Radford), with pivotal cups
@@ -71,6 +81,27 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   ([#484](https://github.com/discopy/discopy/pull/484)).
 
 ### Changed
+
+- `Swap` is now the two-wire transposition subclass of `Permutation`, and
+  constructing `Permutation(x @ y, [1, 0])` returns a `Swap`. A swap is
+  plumbing like any other permutation: it coalesces with its neighbours in
+  a `symmetric.Layer`, so a whiskered swap is stored and drawn as one wider
+  permutation, and `foliation` composes consecutive layers of pure plumbing
+  into one, unless they compose to the identity. The pictures stay the same:
+  a permutation no longer re-labels a wire it keeps in place, nor pushes its
+  input labels off the canvas, so the redrawn baselines only differ by their
+  serialisation, except `symmetric/foliation.svg` (input labels come back on
+  canvas), `int/symmetric-feedback.svg` (one row taller) and
+  `symmetric/yang-baxter.svg` (gains its foliated middle)
+  ([#444](https://github.com/discopy/discopy/issues/444)).
+- The quantum `SWAP` is a gate rather than the symmetry of the category, so
+  that a physical swap is distinguishable from a logical one. It is a
+  `QuantumGate` drawn as a crossing, while `Circuit.swap` still gives the
+  plumbing `quantum.circuit.Swap`: the two evaluate to the same array but
+  only the gate survives compilation, `to_tk` emitting `OpType.SWAP` for
+  the gate while compiling a logical swap away by applying later gates to
+  the permuted qubits.
+  `discopy.quantum` exports both, `discopy.quantum.gates` only the gate.
 
 - `monoidal.Layer` holds a list of boxes and non-empty types with at least
   one box and no two consecutive types, instead of an odd-length list
@@ -138,13 +169,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `ev`. Code relying on the old right-handed default should pass
   `left=False` explicitly
   ([#560](https://github.com/discopy/discopy/issues/560)).
-- The committed benchmark baseline is stored gzipped as
-  `benchmark/baseline.json.gz`, which `benchmark/report.py` reads
-  transparently.
-- The benchmark regression gate divides each case by the run-wide median
-  change rather than comparing raw medians, so that the CPU model a
-  GitHub-hosted runner happens to give out does not read as a regression. Its
-  default threshold is 25%.
+- Benchmarks compare two commits measured on the same runner rather than a
+  committed baseline, so no baseline is stored in the repository and no
+  normalisation is needed to account for the CPU model a GitHub-hosted runner
+  happens to give out. A pull request compares its head against its base, a
+  push to `main` against the branch before the push. The comparison goes to
+  the job summary and, on a pull request, to a comment listing the regressions
+  and speedups over 25%; a regression raises a warning annotation and never
+  fails the job, since a shared runner can push an unrelated case over the
+  threshold on noise alone.
 - Benchmark cases now use `pytest-benchmark`'s automatic calibration.
 - Every `monoidal.Wire` subclass named `Ob` is renamed to `Wire`: `rigid`,
   `braided`, `biclosed`, `pivotal`, `frobenius`, `feedback` and
@@ -158,6 +191,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- A boxless `monoidal.Layer` can no longer be placed inside a `Diagram`:
+  `Diagram.__init__` raises `ValueError` for a layer with no box, restoring
+  the invariant that every layer holds at least one box and that the identity
+  diagram is the empty sequence of layers. Such a layer is the internal unit
+  of `Layer.tensor`, built by `Layer.id` and merged away by `Layer.normalise`;
+  put inside a diagram by hand it survived `normal_form` and made `foliation`
+  and `draw` raise. The check is gated on `_scan`, so the internal fast paths
+  that build layers by construction are unaffected
+  ([#599](https://github.com/discopy/discopy/issues/599)).
 - `review.py`'s style-review request: `ask` used to let a gateway
   `HTTPError` propagate without reading its body, so a 400 gave no clue
   whether it meant a dead model slug or an oversized prompt; it now prints
