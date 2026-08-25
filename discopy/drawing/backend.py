@@ -667,6 +667,8 @@ class Backend(ABC):
             x, "always_draw_label", False)
         if not params.get('wire_labels', True) and not draw_label_anyway:
             return
+        if getattr(x.inside[0], "skip_label", False):
+            return  # A wire at a fixed point of a permutation.
         if hasattr(x.inside[0], "reposition_label"):
             j += 0.25  # The label of e.g. cups, caps and swaps.
         label = str(x.inside[0])

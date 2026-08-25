@@ -530,6 +530,8 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
             n : The number of wires to trace.
             left : Whether to trace on the left or right.
         """
+        if n == 0:
+            return self
         assert_istraceable(self, n, left)
         dom, cod = (self.dom[n:], self.cod[n:]) if left\
             else (self.dom[:-n], self.cod[:-n])
@@ -1411,7 +1413,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         >>> print(v >> H.swap(x, x) >> v[::-1])
         v >> Swap(x, x) >> v[::-1]
         >>> print(x @ H.swap(x, x) >> v[::-1] @ x)
-        x @ Swap(x, x) >> v[::-1] @ x
+        Permutation(x @ x @ x, [0, 2, 1]) >> v[::-1] @ x
         """
         if self.scalar_spiders or not self.is_causal or not self.is_monogamous:
             if issubclass(self.category, HypergraphCategory):
