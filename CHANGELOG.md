@@ -281,6 +281,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   applied to an argument sharing a free variable did not compose, and a
   left abstraction evaluates through its right counterpart
   ([#562](https://github.com/discopy/discopy/issues/562)).
+- `trace(0)` is the identity, i.e. the vanishing axiom, rather than a
+  morphism with empty `dom` and `cod`: `x[:-n]` is the empty prefix at
+  `n == 0`, which emptied the boundary of `Hypergraph.trace` and of both
+  `python.Function.trace`, and made `rigid.Diagram.curry(0, left=True)`
+  curry the whole domain
+  ([#578](https://github.com/discopy/discopy/issues/578)).
 - Closed and biclosed diagrams containing a `Copy`, `Merge`, `Swap`,
   `Permutation`, `Braid` or `Twist` can be drawn: the `markov`, `symmetric`,
   `braided` and `balanced` functor branches now check that the codomain has

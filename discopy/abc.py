@@ -216,6 +216,10 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
         """
         The trace of a morphism, to be instantiated.
 
+        Tracing no object at all is the identity, i.e. the vanishing axiom
+        ``f.trace(0) == f``, see `nLab
+        <https://ncatlab.org/nlab/show/traced+monoidal+category>`_.
+
         Parameters:
             n : The number of objects to trace over.
             left : Whether to trace the wires on the left or right.
