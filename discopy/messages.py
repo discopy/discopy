@@ -31,3 +31,8 @@ WRONG_COD = "Expected inside.cod == {}, got {} instead."
 COMPLEX_TYPE_HAS_NO_ATTR = "{!r} object of length != 1 has no attribute {!r}"
 NO_STRUCTURE_TO_DOWNGRADE = \
     "{} has no spiders, cups or caps to draw this hypergraph."
+NOT_LEFT_MONOGAMOUS = "{} is not left-monogamous."
+NOT_CAUSAL = "{} is not causal."
+WRONG_NUMBER_OF_WIRES = "Expected {} wires for {}, got {} instead."
+WRONG_NUMBER_OF_BOUNDARIES = \
+    "Expected one boundary of wires for each of {} boxes, got {} instead."
