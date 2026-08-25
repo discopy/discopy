@@ -81,11 +81,11 @@ def test_Diagram_rejects_boxless_layer():
     never a layer of a diagram: the identity is the empty sequence. """
     x = Ty('x')
     with raises(ValueError):
-        Diagram(inside=(Layer.id(), ), dom=Ty(), cod=Ty())
+        Diagram(inside=(Layer(Ty(), normalise=False), ), dom=Ty(), cod=Ty())
     with raises(ValueError):
-        Diagram(inside=(Layer.id(x), ), dom=x, cod=x)
+        Diagram(inside=(Layer(x, normalise=False), ), dom=x, cod=x)
     assert Diagram.id(Ty()).inside == () == Id(x).inside[:0]
-    assert Layer.id(x).boxes == []
+    assert Layer(x, normalise=False).boxes == []
     assert (x @ Box('f', x, x)).inside[0].boxes
 
 
