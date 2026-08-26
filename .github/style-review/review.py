@@ -114,7 +114,8 @@ def assemble(files, diff):
         {dep for path in files for dep in imports(path)} - set(files))
     if len(diff) > BUDGET // 2:
         diff = diff[:BUDGET // 2] + "\n[diff truncated for size]"
-    diff_part = f"# Diff\n\n```diff\n{diff}```"
+    diff_ticks = fence(diff)
+    diff_part = f"# Diff\n\n{diff_ticks}diff\n{diff}{diff_ticks}"
     with open(".github/style-review/prompt.md") as file:
         instructions = file.read()
     with open("STYLE.md") as file:
