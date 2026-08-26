@@ -601,14 +601,43 @@ class Layer(cat.Box, ColouredMonoid):
     @classmethod
     def id(cls, dom: Ty = None) -> Layer:
         """
-        The identity layer on a type, i.e. plumbing and no box, used by
-        :meth:`discopy.abc.ColouredMonoid.whisker` as argument of
-        :meth:`tensor`.
+        There is no identity layer: a layer has at least one box, and a
+        layer of empty plumbing would denote the identity diagram, which is
+        the empty sequence of layers rather than a one-element one.
+
+        Whiskering merges a type into the boundary instead, see
+        :meth:`whisker` and :meth:`tensor`.
+        """
+        raise ValueError(messages.LAYERS_MUST_HAVE_A_BOX)
+
+    @classmethod
+    def whisker(cls, other: Ty | Box | Layer) -> Ty | Layer:
+        """
+        A type stays a type, which :meth:`tensor` merges into the boundary;
+        anything else is embedded as a layer.
 
         Parameters:
-            dom : The type to embed as plumbing.
+            other : The type, box or layer to be tensored on either side.
         """
-        return cls(cls.ob() if dom is None else dom, normalise=False)
+        return other if isinstance(other, (cls, cls.ob))\
+            else cls(other, normalise=False)
+
+    @classmethod
+    def unit(cls, colour: Colour = None) -> Ty:
+        """
+        The unit of the layer product, i.e. the empty type on a colour.
+
+        A layer has at least one box, so the unit is not one: it lands in the
+        types rather than in the layers, which :meth:`tensor` accepts.
+
+        Example
+        -------
+        >>> x = Ty('x')
+        >>> f = Box('f', x, x)
+        >>> unit, layer = Layer.unit(), Layer(f)
+        >>> assert unit @ layer == layer == layer @ unit
+        """
+        return cls.ob.unit(colour)
 
     @cached_property
     def inside(self):
@@ -712,14 +741,31 @@ class Layer(cat.Box, ColouredMonoid):
             + f"({', '.join(map(repr, self))})"
 
     def tensor(self, other: Ty | Box | Layer) -> Layer:
-        """ Tensor another layer, normalising the common boundary; types and
-        boxes are embedded as layers first, so ``@`` and its mirror image
-        both come from :class:`discopy.abc.ColouredMonoid`. """
+        """
+        Tensor another layer on the right, normalising the common boundary.
+
+        A type is merged into the boundary rather than embedded as a layer,
+        so that whiskering never builds one out of empty plumbing.
+        """
         other = type(self).whisker(other)
+        if isinstance(other, self.ob):
+            type(self).check((self[-1], other))
+            return type(self)(
+                *self[:-1], *type(self).normalise((self[-1], other)),
+                normalise=False)
         type(self).check((self[-1], other[0]))
         return type(self)(
             *self[:-1], *type(self).normalise((self[-1], other[0])),
             *other[1:], normalise=False)
+
+    def __rmatmul__(self, other):
+        other = type(self).whisker(other)
+        if isinstance(other, self.ob):
+            type(self).check((other, self[0]))
+            return type(self)(
+                *type(self).normalise((other, self[0])), *self[1:],
+                normalise=False)
+        return other.tensor(self)
 
     @property
     def free_symbols(self) -> "set[sympy.Symbol]":
@@ -849,8 +895,11 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
 
     def __init__(
             self, inside: tuple[Layer, ...], dom: Ty, cod: Ty, _scan=True):
-        for layer in inside:
-            assert_isinstance(layer, Layer)
+        if _scan:
+            for layer in inside:
+                assert_isinstance(layer, Layer)
+                if not layer.boxes:
+                    raise ValueError(messages.LAYERS_MUST_HAVE_A_BOX)
         super().__init__(inside, dom, cod, _scan=_scan)
 
     @property

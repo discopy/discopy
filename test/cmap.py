@@ -100,16 +100,18 @@ def test_eliminate_swaps():
 
     x, y, w, z = map(Ty, "xyzw")
 
-    diagram = Id(x @ y).swap(x, y).swap(y, x)
-    assert diagram == diagram.to_map().to_diagram().normal_form()
+    diagram = Id(x @ y).permute(1, 0).permute(1, 0)
+    assert diagram != Id(x @ y)  # there are swaps to eliminate
+    assert diagram.to_map().to_diagram().normal_form() == Id(x @ y)
 
-    diagram = Id(x @ y @ w @ z)\
-        .swap(x @ y, w @ z).swap(w @ z, x @ y).normal_form()
-    assert diagram == diagram.to_map().to_diagram().normal_form()
+    diagram = Id(x @ y @ w @ z).permute(2, 3, 0, 1).permute(2, 3, 0, 1)
+    assert diagram != Id(x @ y @ w @ z)
+    assert diagram.to_map().to_diagram().normal_form() == Id(x @ y @ w @ z)
 
     f, g = Box("f", x, z), Box("g", y, w)
 
-    diagram = Id(x @ y).swap(x, y) >> g @ x >> Id(w @ x).swap(w, x) >> f @ w
+    diagram = Id(x @ y).permute(1, 0) >> g @ x\
+        >> Id(w @ x).permute(1, 0) >> f @ w
     assert diagram.to_map().to_diagram() == x @ g >> f @ w
     assert diagram.to_map() == diagram.to_map().to_diagram().to_map()
     assert diagram.to_map() == diagram.to_hypergraph().to_diagram().to_map()
@@ -745,7 +747,7 @@ def test_euler_characteristic():
 
     cx, cy = map(compact.Ty, "xy")
     cbox = compact.Box("f", cx, cy).to_map()
-    scalar = cbox.caps(cx.r, cx) >> cbox.cups(cx.r, cx)
+    scalar = compact.CMap.caps(cx.r, cx) >> compact.CMap.cups(cx.r, cx)
     assert scalar.euler_characteristic == 0
     assert scalar.is_scalar
     assert scalar.is_planar

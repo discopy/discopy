@@ -126,14 +126,20 @@ class ColouredMonoid[C0, C1: ColouredMonoid](Category[C0, C1]):
     that e.g. :class:`monoidal.Ty` can take colours as objects.
     """
     @classmethod
-    def unit(cls) -> C1:
+    def id(cls, dom: C0 = None) -> C1:
         """The monoidal unit, i.e. the empty tensor ``cls()``."""
         return cls()
 
     @classmethod
-    def id(cls, dom: C0 = None) -> C1:
-        """The monoidal unit, seen as an identity morphism."""
-        return cls.unit()
+    def unit(cls, colour: C0 = None) -> C0 | C1:
+        """
+        The unit at a colour, i.e. the identity on it.
+
+        It need not be an element of the monoid, which is why it may land in
+        ``C0``: the layers of :class:`monoidal.Layer` are closed under
+        ``tensor`` but the empty one is a type rather than a layer.
+        """
+        return cls.id(colour)
 
     @abstractmethod
     def tensor(self, *objects: C1) -> C1:
@@ -209,6 +215,10 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
     def trace(self, n: int = 1, left: bool = False) -> C1:
         """
         The trace of a morphism, to be instantiated.
+
+        Tracing no object at all is the identity, i.e. the vanishing axiom
+        ``f.trace(0) == f``, see `nLab
+        <https://ncatlab.org/nlab/show/traced+monoidal+category>`_.
 
         Parameters:
             n : The number of objects to trace over.
