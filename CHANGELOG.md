@@ -162,11 +162,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   declared once on `cmap.CMap` rather than on each of `markov`, `closed`
   and `frobenius`.
 - The property matrix is one parametrized test: every axiom of every
-  carrier in `proptest.test_properties.CARRIERS`, marked skip or xfail by
+  carrier in `proptest.test_axioms.CARRIERS`, marked skip or xfail by
   its own verdict. Argument generation is dynamic dispatch on the axiom
   itself — `Axiom.strategy()` resolves the annotations of its parameters to
   the carrier's objects and arrows — so `proptest/strategies.py` and the
-  per-module test classes disappear.
+  per-module test classes disappear. The `--axioms` pytest flag selects
+  matrix cells by glob, e.g. `--axioms 'compact.CMap.*'` or
+  `--axioms '*.Diagram.unitality'`, with `*` as the only wildcard so that
+  brackets match themselves.
 - A `NamedGeneric` subscripted by a DisCoPy class takes its qualified name,
   e.g. `Hypergraph[monoidal.Diagram]` rather than `Hypergraph[Diagram]`,
   which every level's hypergraph printed alike — the property matrix ids
@@ -179,7 +182,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `test/testing.py` — valid arguments accepted, invalid ones rejected, the
   interesting shapes found — with `LeftCurrying` validating its evaluation
   boundary like every other generator. `proptest/` keeps the strict minimum
-  for the property matrix, `strategies.py` and `test_properties.py`, so
+  for the property matrix, one file `test_axioms.py`, so
   `proptest/test_strategies.py` is removed along with the dead `--bugs`
   pytest option that read the removed axiom statuses. `markov.CMap` and
   `frobenius.CMap` join the matrix — `spider_fusion` declared inapplicable

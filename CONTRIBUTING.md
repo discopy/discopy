@@ -73,6 +73,15 @@ uv run pflake8 proptest
 uv run pytest proptest/ -v
 ```
 
+The `--axioms` flag selects cells of the matrix by glob, where `*` is the
+only wildcard so that brackets match themselves:
+
+```shell
+uv run pytest proptest/ --axioms 'compact.CMap.*'
+uv run pytest proptest/ --axioms '*.Diagram.unitality'
+uv run pytest proptest/ --axioms 'hypergraph.Hypergraph[compact.Diagram].*'
+```
+
 The `proptest` GitHub workflow runs this suite on `main`, on manual dispatch,
 and on pull requests labelled `proptest`.
 
