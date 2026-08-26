@@ -7,7 +7,7 @@ Review round, [cubic on #641](https://github.com/discopy/discopy/pull/641), P1:
 > and leaves the PR draft. Make deletion detection recover skipped synchronize events instead
 > of relying on every event being retained.
 
-- [ ] drop the concurrency group, which cannot keep a pending run alive
-- [ ] skip the draft branch on an event the head has already moved past, so ordering stops mattering
-- [ ] extend the harness with the superseded cases
-- [ ] CHANGELOG
+- [x] drop the concurrency group, which cannot keep a pending run alive
+- [x] skip the draft branch on an event the head has already moved past, so ordering stops mattering
+- [x] extend the harness with the superseded cases
+- [x] CHANGELOG

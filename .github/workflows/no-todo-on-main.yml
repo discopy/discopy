@@ -3,9 +3,6 @@ on:
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
-concurrency:
-  group: no-todo-on-main-${{ github.event.pull_request.number }}
-  cancel-in-progress: false
 permissions:
   contents: read
   pull-requests: read
@@ -38,8 +35,8 @@ jobs:
               any(.tree[]; .path | test("(^|/)todo(\\.[^/]*)?$"; "i"))
             else error("tree response truncated") end'
         }
-        is_draft() {
-          gh api "$PR_URL" --jq .draft
+        pull_request() {
+          gh api "$PR_URL" --jq '"\(.draft) \(.head.sha)"'
         }
         set_draft() {
           local mutation="$1" expected="$2" result
@@ -53,9 +50,11 @@ jobs:
         }
 
         current="$(todo_at "$HEAD_SHA")" || exit 1
-        draft="$(is_draft)" || exit 1
+        state="$(pull_request)" || exit 1
+        draft="${state% *}"
+        head_now="${state#* }"
         if [ "$current" = true ]; then
-          if [ "$draft" = false ]; then
+          if [ "$draft" = false ] && [ "$head_now" = "$HEAD_SHA" ]; then
             set_draft convertPullRequestToDraft true || exit 1
             echo "::notice::TODO.md is present — pull request is now draft."
           fi

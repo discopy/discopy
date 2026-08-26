@@ -299,9 +299,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   guard's own previous run had drafted the pull request fifty seconds
   earlier; the "make ready" branch is gated on that state, so neither
   branch fired and the pull request stayed draft with no `TODO.md` and
-  nothing to correct it. The guard also takes one concurrency group per
-  pull request, so its runs queue rather than overlap and a live read
-  cannot race another run's mutation
+  nothing to correct it. The guard also leaves the decision to the newer
+  run when the branch has already moved past the event it is handling,
+  rather than drafting a head that no longer exists behind its back
   ([#640](https://github.com/discopy/discopy/issues/640)).
 - `build.yml` timeouts and a bounded, retried Graphviz install
   ([#591](https://github.com/discopy/discopy/issues/591)).
