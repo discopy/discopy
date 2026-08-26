@@ -368,7 +368,7 @@ class Stream(MonoidalCategory, NamedGeneric['category']):
         if now.dom != dom.now + mem.now:
             raise AxiomError(f"{dom.now + mem.now} != {now.dom}")
         if now.cod != cod.now + mem.later.now:
-            raise AxiomError(f"{dom.now + mem.later.now} != {now.dom}")
+            raise AxiomError(f"{cod.now + mem.later.now} != {now.cod}")
         if _later is None:
             if not all(x.is_constant for x in [dom, cod, mem]):
                 raise ValueError(
