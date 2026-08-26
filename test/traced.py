@@ -9,7 +9,6 @@ def test_trace_repr():
 
 
 def test_trace_name():
-    from discopy.monoidal import Ty
     x = Ty('x')
     f = Box('f', x @ x, x @ x)
     assert f.trace().inside[0].generator.name == "Trace(f)"
