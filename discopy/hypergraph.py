@@ -1430,7 +1430,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         pending, layer_dom, layer_right, shift = [], self.dom, 0, 0
 
         def swap(left, right):
-            if not left or not right:  # A swap with nothing is the identity.
+            if not left or not right:
                 return self.category.id(left @ right)
             if not issubclass(self.category, SymmetricCategory):
                 raise AxiomError(messages.NOT_SYMMETRIC.format(

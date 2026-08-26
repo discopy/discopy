@@ -25,7 +25,6 @@ Summary
     Discard
     Sum
     Functor
-    Compactify
     CMap
 
 Axioms
@@ -103,6 +102,36 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
     def ev(cls, base: Ty, exponent: Ty, left: bool = True):
         return cls.eval_factory(exponent >> base, left=left)
 
+    def to_compact(self) -> Diagram:
+        """
+        Open the curry bubbles into coevaluation and feedback, which stays
+        a :class:`Diagram` as a closed category is traced: each curry
+        becomes its argument followed by :class:`Coeval`, traced over the
+        curried wires, and each term is evaluated first.
+
+        Example
+        -------
+        >>> x, y, z = map(Ty, "xyz")
+        >>> f = Box("f", x @ y, z)
+        >>> assert f.curry().to_compact() == (
+        ...     f >> Coeval(z << y, left=True)).trace()
+        """
+        def image(box):
+            if isinstance(box, Curry):
+                return (box.arg.to_compact() >> Coeval(
+                    box.cod, left=box.left)).trace(
+                        len(box.cod.exponent), left=not box.left)
+            if isinstance(box, (Application, Abstraction)):
+                return box.eval(Functor.id(Diagram)).to_compact()
+            return box
+        result = self.id(self.dom)
+        for layer in self.inside:
+            for box, offset in layer.boxes_and_offsets:
+                cod = result.cod
+                result >>= cod[:offset] @ image(box)\
+                    @ cod[offset + len(box.dom):]
+        return result
+
     def to_drawing(self):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
 
@@ -178,33 +207,6 @@ class Functor(biclosed.Functor, markov.Functor):
         return super().__call__(other)
 
 
-class Compactify(biclosed.Compactify, Functor):
-    """
-    The endofunctor opening curry bubbles into compact-style wiring.
-
-    Unlike :class:`biclosed.Compactify`, a closed category is traced so the
-    feedback stays a :class:`Diagram`, maps are bent by roundtrip.
-
-    Example
-    -------
-    >>> x, y, z = map(Ty, "xyz")
-    >>> f = Box("f", x @ y, z)
-    >>> assert f.curry().to_compact() == (
-    ...     f >> Coeval(z << y, left=True)).trace()
-    """
-    cod = Diagram
-
-    def __init__(self):
-        Functor.__init__(self, ob_map=lambda x: x, ar_map=lambda f: f)
-
-    def __call__(self, other):
-        if isinstance(other, cmap.CMap):
-            return type(other).from_diagram(self(other.to_diagram()))
-        if isinstance(other, (Application, Abstraction)):
-            return self(other.eval(Functor.id(Diagram)))
-        return super().__call__(other)
-
-
 CMap = cmap.CMap[Diagram]
 
 
@@ -219,7 +221,6 @@ Diagram.coeval_factory = Coeval
 Diagram.trace_factory = Trace
 Diagram.discard_factory = Discard
 Diagram.sum_factory = Sum
-Diagram.compactify_factory = Compactify
 Ty.exp_factory = Ty.under_factory = Ty.over_factory = staticmethod(Exp)
 
 Id = Diagram.id

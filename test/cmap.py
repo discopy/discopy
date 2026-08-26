@@ -790,7 +790,6 @@ def test_closed_to_compact():
         source = f.to_map().curry(left=left).uncurry(left=left)
         result = source.to_compact()
         exp = z << y if left else x >> z
-        assert closed.Compactify()(source) == result
         assert result == f.curry(left=left).uncurry(left=left)\
             .to_compact().to_map()
         assert result.boxes == (

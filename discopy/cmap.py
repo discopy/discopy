@@ -51,7 +51,6 @@ from typing import Any, TYPE_CHECKING, ClassVar, Literal
 from discopy import messages, hypergraph
 from discopy.cat import Ob
 from discopy.abc import (
-    BiclosedCategory,
     CompactCategory,
     NamedGeneric,
     Pregroup,
@@ -711,19 +710,10 @@ class CMap[C0: Pregroup, C1: CMap](
     @property
     def is_causal(self) -> bool:
         """
-        Checks causality, i.e. the map has no cups or caps, no directed cycle
-        and its wires point forward in the current box order. It is
-        equivalent to:
-
-        - :attr:`is_monogamous`
-        - :attr:`is_acyclic`
-        - :attr:`is_topologically_ordered`
-
-        A causal map lives in a symmetric monoidal category, i.e. it can be
-        drawn using only swaps.
-
-        Acyclicity is implied: a directed cycle would need a strictly
-        increasing sequence of ranks coming back to its start.
+        Checks causality, i.e. the map is :attr:`is_monogamous` with no
+        loops and :attr:`is_topologically_ordered`, which implies
+        :attr:`is_acyclic`. A causal map lives in a symmetric category,
+        i.e. it can be drawn using only swaps.
 
         >>> from discopy.compact import Ty, Box, CMap
         >>> x = Ty("x")
@@ -949,8 +939,8 @@ class CMap[C0: Pregroup, C1: CMap](
     @classmethod
     def ev(cls, base: Ty, exponent: Ty, left: bool = True) -> CMap:
         """
-        Evaluation is wiring when the host category is rigid, i.e. when it
-        comes from cups, otherwise it is kept as a box.
+        Evaluation is kept as an explicit box by default, or comes from the
+        wiring of cups when the host category is rigid.
         """
         if issubclass(cls.category, RigidCategory):
             return super().ev(base, exponent, left)
@@ -958,8 +948,9 @@ class CMap[C0: Pregroup, C1: CMap](
 
     def curry(self, n: int = 1, left: bool = True) -> CMap:
         """
-        Curry a map with the cups and caps of its wiring when the host
-        category is rigid, otherwise keep the currying as an explicit box.
+        Currying is kept as an explicit curry box by default, the more
+        rigorous representation, or comes from the wiring of caps when the
+        host category is rigid.
 
         Parameters:
             n : The number of objects to curry.
@@ -986,17 +977,14 @@ class CMap[C0: Pregroup, C1: CMap](
 
     def base_and_exponent(self, n: int, left: bool) -> tuple[Ty, Ty]:
         """
-        The exponent that :meth:`uncurry` evaluates is read off the wiring
-        when the host category is rigid, i.e. it is the ``n`` objects at the
-        end of the codomain, otherwise off its exponential object.
+        The base and exponent that :meth:`uncurry` evaluates, read off the
+        codomain as in the host category.
 
         Parameters:
             n : The number of objects to uncurry.
             left : Whether to uncurry on the left or right.
         """
-        if issubclass(self.category, RigidCategory):
-            return super().base_and_exponent(n, left)
-        return BiclosedCategory.base_and_exponent(self, n, left)
+        return self.category.base_and_exponent(self, n, left)
 
     l = property(lambda self: self.transpose(left=True))
     r = property(lambda self: self.transpose(left=False))
@@ -1345,9 +1333,40 @@ class CMap[C0: Pregroup, C1: CMap](
             result = result.explicit_trace()
         return result
 
-    def to_compact(self):
-        """ Apply the host category's compactification functor. """
-        return self.category.compactify_factory()(self)
+    def to_compact(self) -> CMap:
+        """
+        Open every curry bubble into its argument followed by the dagger of
+        :meth:`ev`, traced over the curried wires: the map is decoded and
+        the image of each box is glued back, like :meth:`from_diagram`.
+
+        Example
+        -------
+        >>> from discopy.closed import Ty, Box, CMap
+        >>> x, y, z = map(Ty, "xyz")
+        >>> f = Box("f", x @ y, z)
+        >>> assert f.to_map().curry().to_compact()\\
+        ...     == (f.to_map() >> CMap.ev(z, y).dagger()).trace()
+        """
+        curry_factory = self.category.curry_factory
+        if not any(isinstance(box, curry_factory) for box in self.boxes):
+            return self
+        functor = self.functor(
+            ob_map=lambda typ: typ, ar_map=type(self).from_box,
+            dom=self.category, cod=type(self))
+
+        def image(box):
+            if not isinstance(box, curry_factory):
+                return functor(box)
+            exponent = box.cod.exponent
+            return (type(self).from_diagram(box.arg).to_compact()
+                    >> self.ev(box.cod.base, exponent, box.left).dagger()
+                    ).trace(len(exponent), left=not box.left)
+
+        diagram = self.to_diagram()
+        return type(self).from_glued(diagram.dom, diagram.cod, [
+            (image(box), offset)
+            for layer in diagram.inside
+            for box, offset in layer.boxes_and_offsets])
 
     def eval(self, *args, **params):
         """
