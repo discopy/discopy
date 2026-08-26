@@ -206,21 +206,28 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
-- The style review is triggered by a pull request opened outside draft, not
-  only by the draft-to-ready transition: `ready_for_review` fires on a
-  transition, so a pull request whose `TODO.md` is deleted before it is ever
-  opened skips the event entirely and the review silently never ran.
-  `style-review.yml` now also triggers on `opened`, and on the `synchronize`
-  that deletes a `TODO` file, which is the only transition a pull request
-  based on anything but `main` ever gets — `no-todo-on-main.yml` guards
-  `main` alone, so such a pull request is never drafted and never marked
-  ready. Every automatic trigger waits while a `TODO` file is still in the
-  tree, so the review reads a finished pull request and does not race the
-  draft guard: on a `main`-based pull request the deleting push lands while
-  the guard holds it draft, so the review comes from the `ready_for_review`
-  that follows rather than twice. The `style-review` label stays the manual
-  override and ignores that wait
-  ([#615](https://github.com/discopy/discopy/issues/615)).
+- The style review no longer depends on a transition that may never
+  happen. `ready_for_review` fires on the draft-to-ready edge alone, so a
+  pull request whose `TODO.md` was deleted before it was ever opened went
+  unreviewed, silently — no run, no notice, nothing in the Actions tab —
+  and a pull request the review did find something on was never reviewed
+  again, since fixing a nitpick is a plain push, leaving the correctness
+  reviewer, called only on a clean review, never called at all.
+  `style-review.yml` now triggers on `opened` and `synchronize` as well: a
+  pull request that is not draft and carries no `TODO` file is in the
+  review phase by construction, since `no-todo-on-main.yml` forces draft
+  while a `TODO` is there, so every revision of it is reviewed. Every
+  automatic trigger waits while a `TODO` file is in the tree, which also
+  keeps the review from racing that guard — on a `main`-based pull request
+  the deleting push lands while the guard still holds it draft, so the
+  review comes from the `ready_for_review` that follows rather than twice,
+  while a pull request based on anything else, which the guard watching
+  `main` alone never drafts and never marks ready, is reviewed on the push
+  itself. The hand-over to the correctness reviewer happens once per pull
+  request rather than on every clean run, since it re-reviews each push on
+  its own. The `style-review` label stays the manual override and ignores
+  the wait ([#615](https://github.com/discopy/discopy/issues/615),
+  [#636](https://github.com/discopy/discopy/issues/636)).
 - A boxless `monoidal.Layer` can no longer be placed inside a `Diagram`:
   `Diagram.__init__` raises `ValueError` for a layer with no box, restoring
   the invariant that every layer holds at least one box and that the identity

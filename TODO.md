@@ -8,8 +8,8 @@ Review round: USER, in session.
 
 Filed as #636.
 
-- [ ] review every push to a pull request that is ready and carries no `TODO`
+- [x] review every push to a pull request that is ready and carries no `TODO`
       file, not only the push that deletes one
-- [ ] call the correctness reviewer once per pull request, so that reviewing
+- [x] call the correctness reviewer once per pull request, so that reviewing
       every revision does not repost `@cubic-dev-ai review`
-- [ ] update the `CHANGELOG.md` entry
+- [x] update the `CHANGELOG.md` entry

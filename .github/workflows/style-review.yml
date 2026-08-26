@@ -26,29 +26,16 @@ jobs:
     - name: Look for a TODO file
       id: todo
       env:
-        ACTION: ${{ github.event.action }}
-        BEFORE_SHA: ${{ github.event.before }}
         LABELLED: ${{ github.event.label.name == 'style-review' }}
       run: |
-        todo_at() {
-          git ls-tree -r --name-only "$1" \
-            | grep -Eiq '(^|/)todo(\.[^/]*)?$'
-        }
-        wait=false
-        if [ "$LABELLED" != true ]; then
-          if todo_at HEAD; then
-            echo "::notice::TODO is still there — the style review waits for \
+        if [ "$LABELLED" != true ] && git ls-files \
+          | grep -Eiq '(^|/)todo(\.[^/]*)?$'; then
+          echo "::notice::TODO is still there — the style review waits for \
         the push that deletes it."
-            wait=true
-          elif [ "$ACTION" = synchronize ] && ! { \
-              git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null \
-              && todo_at "$BEFORE_SHA"; }; then
-            echo "::notice::This push did not delete a TODO file — the style \
-        review only reads the one that does."
-            wait=true
-          fi
+          echo "wait=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "wait=false" >> "$GITHUB_OUTPUT"
         fi
-        echo "wait=$wait" >> "$GITHUB_OUTPUT"
 
     - name: Check the gateway configuration
       id: config
@@ -126,6 +113,16 @@ jobs:
         PR_NUMBER: ${{ github.event.pull_request.number }}
         CLEAN: ${{ steps.post.outputs.clean }}
       run: |
+        called="$(gh api --paginate \
+          "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" --jq '
+            .[] | select(.body | startswith("@cubic-dev-ai review")
+              or startswith("No style remarks. @cubic-dev-ai review"))
+            | .id' | wc -l)"
+        if [ "$called" -gt 0 ]; then
+          echo "::notice::The correctness reviewer was already called on \
+        this pull request."
+          exit 0
+        fi
         if [ "$CLEAN" = "true" ]; then
           body="No style remarks. @cubic-dev-ai review"
         else
