@@ -6,5 +6,5 @@ Review round: USER, on #634.
 
 The `style-review` label was the one trigger left that reviewed a draft.
 
-- [ ] never review a draft, whatever the trigger
-- [ ] update the `CHANGELOG.md` entry and the pull request description
+- [x] never review a draft, whatever the trigger
+- [x] update the `CHANGELOG.md` entry and the pull request description

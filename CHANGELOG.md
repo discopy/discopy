@@ -225,8 +225,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `main` alone never drafts and never marks ready, is reviewed on the push
   itself. The hand-over to the correctness reviewer happens once per pull
   request rather than on every clean run, since it re-reviews each push on
-  its own. The `style-review` label stays the manual override and ignores
-  the wait ([#615](https://github.com/discopy/discopy/issues/615),
+  its own. A draft is never reviewed, whatever the trigger: the
+  `style-review` label stays the manual override, on a pull request that is
+  ready, and is the one trigger that ignores the wait
+  ([#615](https://github.com/discopy/discopy/issues/615),
   [#636](https://github.com/discopy/discopy/issues/636)).
 - A boxless `monoidal.Layer` can no longer be placed inside a `Diagram`:
   `Diagram.__init__` raises `ValueError` for a layer with no box, restoring
