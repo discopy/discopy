@@ -171,8 +171,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `--axioms '*.Diagram.unitality'`, with `*` as the only wildcard so that
   brackets match themselves. For quick debugging outside pytest,
   `Axiom.falsify()` searches for a shrunk counterexample to a bound axiom —
-  arguments for which the verdict fails — returning `None` when it finds
-  none.
+  arguments for which the verdict fails — raising `NoSuchExample` when it
+  finds none.
 - Every module's test file gets one `test_axioms` calling
   `testing.assert_axioms` on its carriers: each axiom is checked on a
   single example drawn from its own strategy, a dry run of the property

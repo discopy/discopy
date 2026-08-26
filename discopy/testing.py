@@ -589,21 +589,23 @@ class Axiom[T]:
         return st.tuples(*(
             resolve(annotations[parameter.name]) for parameter in required))
 
-    def falsify(self, **params) -> tuple | None:
+    def falsify(self, **params) -> tuple:
         """
         Search for a shrunk counterexample to the bound axiom: arguments for
         which the verdict fails — the equation is false, or the
-        implementation refuses to build its terms — or :obj:`None` when no
-        counterexample is found. Keyword arguments are passed to
-        :func:`hypothesis.find`.
+        implementation refuses to build its terms — raising
+        :class:`hypothesis.errors.NoSuchExample` when no counterexample is
+        found. Keyword arguments are passed to :func:`hypothesis.find`.
 
         >>> from discopy.matrix import Matrix
         >>> Matrix[int].copy_cocommutativity.falsify()
         (2,)
-        >>> assert Matrix[int].unitality.falsify() is None
+        >>> Matrix[int].unitality.falsify()  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+         ...
+        hypothesis.errors.NoSuchExample: No examples found of condition ...
         """
         from hypothesis import find
-        from hypothesis.errors import NoSuchExample
 
         if self.carrier is None:
             raise TypeError(f"{self.name} is not bound to a class.")
@@ -615,10 +617,7 @@ class Axiom[T]:
                 return True
             return verdict is not NotImplemented and not holds(verdict)
 
-        try:
-            return find(self.strategy(), refutes, **params)
-        except NoSuchExample:
-            return None
+        return find(self.strategy(), refutes, **params)
 
     @property
     def parameters(self) -> tuple[inspect.Parameter, ...]:
