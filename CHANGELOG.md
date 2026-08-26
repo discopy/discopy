@@ -167,6 +167,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   itself — `Axiom.strategy()` resolves the annotations of its parameters to
   the carrier's objects and arrows — so `proptest/strategies.py` and the
   per-module test classes disappear.
+- A `NamedGeneric` subscripted by a DisCoPy class takes its qualified name,
+  e.g. `Hypergraph[monoidal.Diagram]` rather than `Hypergraph[Diagram]`,
+  which every level's hypergraph printed alike — the property matrix ids
+  are unique again. Foreign parameters keep their bare name: `Tensor[int64]`
+  is what a user writes, and no two of them clash.
 - The strategy tests live with what they test: every syntax module's test
   file gets a single `test_strategy` checking its strategy reaches each of
   its structural boxes through `testing.assert_strategy_finds`, and every

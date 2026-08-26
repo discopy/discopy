@@ -52,7 +52,7 @@ from discopy.testing import (
     LeftCurrying, Natural, NonEmpty, RightCurrying, TraceDinaturalityLeft,
     TraceDinaturalityRight, TraceNaturalityLeft, TraceNaturalityRight,
     TraceSuperposing, axiom, declared_axioms)
-from discopy.utils import classproperty, get_origin
+from discopy.utils import classproperty, factory_name, get_origin
 
 
 class Equation[T](ABC):
@@ -994,7 +994,11 @@ class NamedGeneric(Generic[TypeVar('T')]):
                             return func, args, data
 
                     C.__module__ = origin.__module__
-                    names = [getattr(v, "__name__", str(v)) for v in values]
+                    names = [
+                        factory_name(v)
+                        if isinstance(v, type)
+                        and v.__module__.startswith("discopy")
+                        else getattr(v, "__name__", str(v)) for v in values]
                     C.__name__ = C.__qualname__ = origin.__name__\
                         + f"[{', '.join(names)}]"
                     C.__origin__ = cls
