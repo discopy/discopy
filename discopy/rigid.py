@@ -328,6 +328,14 @@ class PRO(monoidal.PRO, Ty):
     """
     l = r = property(lambda self: self)
 
+    def unwind(self) -> PRO:
+        """
+        A PRO is self-dual, so it is its own unwinding.
+
+        >>> assert PRO(1).unwind() == PRO(1)
+        """
+        return self
+
 
 class Layer(monoidal.Layer):
     """

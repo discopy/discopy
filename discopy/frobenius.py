@@ -110,6 +110,14 @@ class Dim(monoidal.Dim, Ty):
 
     l = r = property(lambda self: self.ar(*self.inside[::-1]))
 
+    def unwind(self) -> Dim:
+        """
+        A dimension is self-dual, so it is its own unwinding.
+
+        >>> assert Dim(2).unwind() == Dim(2)
+        """
+        return self
+
 
 @factory
 class Diagram(compact.Diagram, markov.Diagram, HypergraphCategory):
@@ -301,7 +309,7 @@ class Functor(compact.Functor, markov.Functor):
     dom = cod = Diagram
 
     def __call__(self, other):
-        if isinstance(other, Spider):
+        if isinstance(other, Spider) and other.phase is None:
             return self.cod.spiders(
                 len(other.dom), len(other.cod), self(other.typ))
         if isinstance(other, (markov.Copy, markov.Merge)):
