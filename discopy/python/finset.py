@@ -113,6 +113,13 @@ class Function(SymmetricCategory, Sequence, Strategy["Function"]):
             atoms, extend,
             min_leaves=min_leaves, max_leaves=max_leaves)
 
+    @classmethod
+    def canonical(cls, name=None, dom=None, cod=None):
+        """The canonical function between two canonical finite sets."""
+        dom = 1 if dom is None else dom
+        cod = 1 if cod is None else cod
+        return cls([i % dom for i in range(cod)], dom, cod)
+
     def __post_init__(self):
         self.dom, self.cod = map(self.ob, (self.dom, self.cod))
         if isinstance(self.inside, dict):
@@ -209,6 +216,12 @@ class Permutation(Function):
         return sizes.flatmap(lambda size: st.permutations(
             tuple(range(size))).map(
                 lambda inside: cls(inside, size)))
+
+    @classmethod
+    def canonical(cls, name=None, dom=None, cod=None):
+        """The identity permutation on the canonical finite set."""
+        size = 1 if dom is None else dom
+        return cls(tuple(range(size)), size)
 
     def __init__(self, inside=(), size: int | None = None):
         inside = tuple(inside)

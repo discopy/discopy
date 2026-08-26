@@ -84,7 +84,7 @@ from typing import (
 from discopy import messages, utils
 from discopy.abc import Category, Equation as AbstractEquation
 from discopy.testing import (
-    C1, GENERATORS, Relabelled, Relabelling, Strategy, axiom)
+    GENERATORS, Relabelled, Relabelling, Strategy, axiom)
 from discopy.utils import (  # noqa: F401
     factory,
     factory_name,
@@ -148,6 +148,14 @@ class Ob(Strategy["Ob"]):
         from hypothesis import strategies as st
 
         return st.sampled_from(GENERATORS).map(cls)
+
+    @classmethod
+    def canonical(cls, name="x", dom=None, cod=None):
+        """
+        The generator object with this name. The boundaries are ignored so
+        that the elements of a monoid fit anywhere in a pasting diagram.
+        """
+        return cls(name)
 
     def to_tree(self) -> dict:
         """
@@ -308,6 +316,14 @@ class Arrow(FreeCategory, Strategy["Arrow"]):
     see :class:`monoidal.PRO`.
     """
     ob = Ob
+
+    @classmethod
+    def canonical(cls, name="f", dom=None, cod=None):
+        """ A generator named for drawing, with free boundaries default. """
+        box = getattr(cls, "box_factory", None) or cls.generator_factory
+        dom = cls.ob.canonical("x") if dom is None else dom
+        cod = cls.ob.canonical("y") if cod is None else cod
+        return box(name, dom, cod)
 
     @classmethod
     def strategy(
@@ -1025,17 +1041,17 @@ class Functor(Category, Strategy["Functor"]):
         return st.tuples(
             *(st.sampled_from(atoms) for _ in atoms)).map(relabel)
 
-    @axiom
-    def unitality(cls, f: C1):
-        """
-        Composition is unital only on the left.
+    @classmethod
+    def canonical(cls, name=None, dom=None, cod=None):
+        """ The identity relabelling, the canonical functor. """
+        labelling = Relabelling()
+        return cls(labelling, Relabelled(labelling))
 
-        ``MappingOrCallable.then`` composes by iterating the keys of the
-        left-hand map, and the identity functor enumerates none, so ``id >> f``
-        forgets everything ``f`` does instead of being ``f``.
-        """
-        return utils.AxiomError(cls.equation_factory(
-            cls.id(f.dom).then(f), f, f.then(cls.id(f.cod))))
+    unitality = Category.unitality.failing(
+        "Composition is unital only on the left: "
+        "``MappingOrCallable.then`` composes by iterating the keys of the "
+        "left-hand map, and the identity functor enumerates none, so "
+        "``id >> f`` forgets everything ``f`` does instead of being ``f``.")
 
     @axiom
     def identity_typing(cls):

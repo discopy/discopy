@@ -96,3 +96,9 @@ def test_strategy():
         base, Diagram.twist_factory,
         lambda factory: Box.atomic_strategy().map(factory),
         dom=Ty('x')) is base
+
+
+def test_axioms():
+    from discopy import testing
+
+    testing.assert_canonical_axioms(Diagram, Hypergraph, Functor)

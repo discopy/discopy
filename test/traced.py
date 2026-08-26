@@ -47,3 +47,9 @@ def test_strategy():
     from discopy import testing
 
     testing.assert_strategy_finds(Diagram, Trace)
+
+
+def test_axioms():
+    from discopy import testing
+
+    testing.assert_canonical_axioms(Diagram, Hypergraph, CMap, Functor)

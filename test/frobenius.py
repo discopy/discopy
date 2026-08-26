@@ -69,3 +69,9 @@ def test_strategy():
     from discopy import testing
 
     testing.assert_strategy_finds(Diagram, Spider)
+
+
+def test_axioms():
+    from discopy import testing
+
+    testing.assert_canonical_axioms(Ty, Diagram, Hypergraph, CMap, Functor)

@@ -55,3 +55,9 @@ def test_strategy():
                      lambda value: bool(value.array.any()))
     assert (generated.dom, generated.cod) == (2, 3)
     assert generated.array.shape == (2, 3)
+
+
+def test_axioms():
+    from discopy import testing
+
+    testing.assert_canonical_axioms(Matrix[int])

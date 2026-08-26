@@ -85,3 +85,10 @@ def test_strategy():
     permutation = find(finset.Permutation.strategy(dom=3),
                        lambda value: not value.is_identity)
     assert permutation.dom == 3 == permutation.cod
+
+
+def test_axioms():
+    from discopy import testing
+    from discopy.python import finset
+
+    testing.assert_canonical_axioms(finset.Function, finset.Permutation)

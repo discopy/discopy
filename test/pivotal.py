@@ -36,3 +36,9 @@ def test_strategy():
     winding = find(Ty.strategy(min_length=1),
                    lambda value: value.inside[0].z)
     assert winding.inside[0].z == 1
+
+
+def test_axioms():
+    from discopy import testing
+
+    testing.assert_canonical_axioms(Ty, Diagram, Hypergraph, Functor)

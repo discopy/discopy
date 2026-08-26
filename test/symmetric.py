@@ -420,3 +420,9 @@ def test_strategy():
     assert layer.cod == cod
     permutation, = layer.boxes
     assert isinstance(permutation, Permutation)
+
+
+def test_axioms():
+    from discopy import testing
+
+    testing.assert_canonical_axioms(Diagram, Hypergraph, CMap, Functor)

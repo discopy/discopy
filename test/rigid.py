@@ -179,3 +179,9 @@ def test_strategy():
     from discopy import testing
 
     testing.assert_strategy_finds(Diagram, Cup, Cap)
+
+
+def test_axioms():
+    from discopy import testing
+
+    testing.assert_canonical_axioms(Ty, Diagram, Functor)

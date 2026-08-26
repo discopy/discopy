@@ -166,10 +166,10 @@ class Category[C0, C1: Category](ABC):
 
     @axiom
     def identity_typing(
-            cls, dom: C0) -> Equation[C0]:
+            cls, x: C0) -> Equation[C0]:
         """ Typing of identity morphisms. """
-        identity = cls.id(dom)
-        return cls.ob.equation_factory(identity.dom, dom, identity.cod)
+        identity = cls.id(x)
+        return cls.ob.equation_factory(identity.dom, x, identity.cod)
 
     @axiom
     def composition_dom_typing(

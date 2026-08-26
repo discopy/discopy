@@ -742,3 +742,9 @@ def test_strategy():
         Diagram.strategy(boundary_connected=False),
         lambda value: not value.to_hypergraph().is_boundary_connected)
     assert not closed.to_hypergraph().is_boundary_connected
+
+
+def test_axioms():
+    from discopy import testing
+
+    testing.assert_canonical_axioms(Ty, Diagram, Hypergraph, CMap, Functor)

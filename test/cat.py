@@ -420,3 +420,7 @@ def test_strategy():
     assert (arrow.dom, arrow.cod) == (a, b)
     functor = find(Functor.strategy(), lambda value: value(a) != a)
     assert functor(arrow).dom == functor(a)
+
+
+def test_axioms():
+    testing.assert_canonical_axioms(Arrow, Functor)

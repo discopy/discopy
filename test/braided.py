@@ -26,3 +26,9 @@ def test_strategy():
         box = find(Box.strategy(), lambda value: isinstance(value, Braid)
                    and value.is_dagger == is_dagger)
         assert box.is_dagger == is_dagger
+
+
+def test_axioms():
+    from discopy import testing
+
+    testing.assert_canonical_axioms(Diagram, Functor)

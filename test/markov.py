@@ -81,3 +81,9 @@ def test_strategy():
     discard = find(Box.strategy(), lambda value:
                    isinstance(value, Copy) and not value.cod)
     assert not discard.cod
+
+
+def test_axioms():
+    from discopy import testing
+
+    testing.assert_canonical_axioms(Diagram, Hypergraph, CMap, Functor)

@@ -283,6 +283,11 @@ class CMap[C0: Pregroup, C1: CMap](
             boundary_connected=boundary_connected, **params).map(
             cls.from_diagram)
 
+    @classmethod
+    def canonical(cls, name="f", dom=None, cod=None):
+        """The image of the diagram category's canonical generator."""
+        return cls.from_diagram(cls.category.canonical(name, dom, cod))
+
     @classproperty
     def axioms(cls):
         """
