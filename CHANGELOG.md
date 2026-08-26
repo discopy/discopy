@@ -291,6 +291,18 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   response and the raw answer on a JSON-parse failure, so a truncated or
   malformed answer is diagnosable instead of a bare traceback
   ([#611](https://github.com/discopy/discopy/issues/611)).
+- `no-todo-on-main.yml`'s guard reads the pull request's live `draft`
+  field rather than `github.event.pull_request.draft`, a snapshot taken
+  when the event fires and stale by however long the event then waited
+  for delivery. On [#633](https://github.com/discopy/discopy/pull/633) a
+  `synchronize` delivered thirteen minutes late read `false` although the
+  guard's own previous run had drafted the pull request fifty seconds
+  earlier; the "make ready" branch is gated on that state, so neither
+  branch fired and the pull request stayed draft with no `TODO.md` and
+  nothing to correct it. The guard also takes one concurrency group per
+  pull request, so its runs queue rather than overlap and a live read
+  cannot race another run's mutation
+  ([#640](https://github.com/discopy/discopy/issues/640)).
 - `build.yml` timeouts and a bounded, retried Graphviz install
   ([#591](https://github.com/discopy/discopy/issues/591)).
 - `frobenius.Diagram.unfuse`'s doctest no longer sets `Spider.color = "red"`
