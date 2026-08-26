@@ -45,7 +45,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import re
 
-from discopy import biclosed, messages
+from discopy import biclosed, cmap, messages
 from discopy.cat import factory
 from discopy.grammar import thue
 from discopy.utils import (
@@ -209,12 +209,7 @@ class Functor(biclosed.Functor):
         return super().__call__(other)
 
 
-class CMap(biclosed.CMap):
-    """
-    A combinatorial map for categorial diagrams.
-    """
-
-    category = Diagram
+CMap = cmap.CMap[Diagram]
 
 
 class TermBase(Box, biclosed.TermBase):
@@ -505,7 +500,6 @@ def tree2diagram(tree: dict, dom=Ty()) -> Diagram:
 
 Id = Diagram.id
 Diagram.functor_factory = Functor
-Diagram.map_factory = CMap
 Diagram.curry_factory = Curry
 Diagram.eval_factory = Eval
 
