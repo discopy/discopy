@@ -30,7 +30,7 @@ Keep a research log explaining:
 
 Use DisCoPy to make the final claims executable/checkable wherever possible.
 
-- [ ] Recover the exact 2019 axiom schemas and fix the pre-2020 source boundary.
+- [WIP] @root-2026-08-26 09:19 Recover the exact 2019 axiom schemas and fix the pre-2020 source boundary.
 - [ ] Formalise every rule as typed DisCoPy diagrams and executable equation checks.
 - [ ] Search systematically for derivations and countermodels, recording failed approaches.
 - [ ] Turn each computational witness into a general proof and classify minimal examples.
