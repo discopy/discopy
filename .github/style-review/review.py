@@ -5,17 +5,19 @@ notebook (a ``docs/notebooks/*.md`` file, its code cells fenced as
 ``python {.marimo}``), or plain prose, config or workflow. Excluded are
 generated artefacts nobody hand-writes, filtered out of the diff before
 this module runs. Assembles ``prompt.md``, ``STYLE.md``, the package-local
-files that the changed Python files import (as context), the full text of
-every changed file with line numbers and the diff from ``.style-review``,
-sends one chat completion to the OpenAI-compatible gateway at ``BASE_URL``
-and writes the findings to ``.style-review/findings.json`` for ``post.py``
-to post.
+files that the changed Python files import (as context), and one listing
+per changed file: the whole new file, unified-diff style, every line
+numbered by its position in the new file with a leading ``+``/``-`` for
+one added/removed since the merge base. Sends one chat completion to the
+OpenAI-compatible gateway at ``BASE_URL`` and writes the findings to
+``.style-review/findings.json`` for ``post.py`` to post.
 """
 
 import ast
 import json
 import os
 import re
+import subprocess
 import sys
 import urllib.error
 import urllib.request
@@ -62,8 +64,7 @@ def contents(paths, budget, block):
     also returning the leftover budget and the paths dropped."""
     kept, dropped = [], []
     for path in paths:
-        with open(path) as file:
-            text = block(path, file.read())
+        text = block(path)
         cost = len(text) + 2
         if cost <= budget:
             kept, budget = kept + [(path, text)], budget - cost
@@ -72,9 +73,28 @@ def contents(paths, budget, block):
     return kept, budget, dropped
 
 
-def numbered(text):
-    return "\n".join(
-        f"{n} {line}" for n, line in enumerate(text.splitlines(), 1))
+def annotated(path, base_sha):
+    """The whole new-file content of ``path``, unified-diff style: every
+    line prefixed by its new-file line number, with a leading ``+`` for
+    one added or ``-`` (unnumbered, since it has no new-file line) for
+    one removed since ``base_sha``. Gets git's own diff with enough
+    context to cover the whole file in one hunk, rather than
+    reimplementing the diff itself."""
+    diff = subprocess.run(
+        ['git', 'diff', '--merge-base', base_sha, '-U100000', '--', path],
+        capture_output=True, text=True, check=True).stdout
+    body = diff.split("\n@@", 1)[-1].split("\n", 1)[-1]
+    lines, number = [], 0
+    for row in body.splitlines():
+        if row.startswith("\\"):
+            continue
+        marker, content = row[:1] or ' ', row[1:]
+        if marker == '-':
+            lines.append(f"  -{content}")
+        else:
+            number += 1
+            lines.append(f"{number} {'+' if marker == '+' else ' '}{content}")
+    return "\n".join(lines)
 
 
 def language(path):
@@ -97,32 +117,29 @@ def section(title, path, body):
     return f"# {title}: {path}\n\n{ticks}{language(path)}\n{body}{ticks}"
 
 
-def changed_block(path, text):
-    return section("Changed", path, numbered(text) + "\n")
+def changed_block(path, base_sha):
+    return section("Changed", path, annotated(path, base_sha) + "\n")
 
 
-def context_block(path, text):
-    return section("Context (not under review)", path, text)
+def context_block(path):
+    with open(path) as file:
+        return section("Context (not under review)", path, file.read())
 
 
-def assemble(files, diff):
-    """The one prompt: instructions, style guide, context, changes, diff.
-    Every part is budgeted as assembled, including the ``"\\n\\n"``
-    separators the join below adds between them, so the request sent to
-    the gateway never exceeds ``BUDGET``."""
+def assemble(files, base_sha):
+    """The one prompt: instructions, style guide, context, changes. Every
+    part is budgeted as assembled, including the ``"\\n\\n"`` separators
+    the join below adds between them, so the request sent to the gateway
+    never exceeds ``BUDGET``."""
     deps = sorted(
         {dep for path in files for dep in imports(path)} - set(files))
-    if len(diff) > BUDGET // 2:
-        diff = diff[:BUDGET // 2] + "\n[diff truncated for size]"
-    diff_ticks = fence(diff)
-    diff_part = f"# Diff\n\n{diff_ticks}diff\n{diff}{diff_ticks}"
     with open(".github/style-review/prompt.md") as file:
         instructions = file.read()
     with open("STYLE.md") as file:
         style = f"# STYLE.md\n\n{file.read()}"
-    budget = BUDGET + 2 - sum(
-        len(part) + 2 for part in (instructions, style, diff_part))
-    changed, budget, missing = contents(files, budget, changed_block)
+    budget = BUDGET + 2 - sum(len(part) + 2 for part in (instructions, style))
+    changed, budget, missing = contents(
+        files, budget, lambda path: changed_block(path, base_sha))
     if missing:
         raise ValueError(f"changed files past the budget: {missing}")
     context, budget, dropped = contents(deps, budget, context_block)
@@ -132,7 +149,6 @@ def assemble(files, diff):
         if len(note) + 2 <= budget:
             parts.append(note)
     parts += [block for _, block in changed]
-    parts.append(diff_part)
     return "\n\n".join(parts)
 
 
@@ -176,9 +192,7 @@ def main():
     with open(os.path.join(DIRECTORY, "files.txt")) as file:
         files = [path for path in file.read().splitlines()
                  if path and os.path.exists(path)]
-    with open(os.path.join(DIRECTORY, "diff.patch")) as file:
-        diff = file.read()
-    findings = ask(assemble(files, diff))
+    findings = ask(assemble(files, os.environ["BASE_SHA"]))
     with open(os.path.join(DIRECTORY, "findings.json"), "w") as file:
         json.dump(findings, file)
     print(f"{len(findings.get('findings', []))} findings.")

@@ -11,17 +11,22 @@ file, unified-diff style — every line numbered by its new-file position,
 a leading `+` for an added line, `-` (unnumbered, since it has no
 new-file line) for a removed one.
 
-- [ ] `review.py`: a function that gets git's own `-U100000` (full
+- [x] `review.py`: a function that gets git's own `-U100000` (full
       context) diff for one file and turns it into that numbered,
       inline-annotated listing — reuse git's diff algorithm rather than
       reimplementing it
-- [ ] `changed_block`/`contents`/`assemble`: one block per changed file
+- [x] `changed_block`/`contents`/`assemble`: one block per changed file
       instead of two passes; drop `numbered()` (dead once `changed_block`
       stops needing it) and the `diff` parameter/`# Diff` section
-- [ ] `style-review.yml`: pass `BASE_SHA` to the "Review the diff" step
+- [x] `style-review.yml`: pass `BASE_SHA` to the "Review the diff" step
       (already computed there for the `git diff` that builds `files.txt`)
-- [ ] `prompt.md`: describe the new single-listing format
-- [ ] `CHANGELOG.md` entry
-- [ ] Smoke-test against a real modified file, a real added file, and the
+- [x] `prompt.md`: describe the new single-listing format
+- [x] `CHANGELOG.md` entry
+- [x] Smoke-test against a real modified file, a real added file, and the
       notebook (whose own cell fences are exactly the case this format
-      needs to survive)
+      needs to survive) — all three verified end to end: line numbers
+      match the real file exactly (202/202 on `review.py` itself), an
+      added file numbers every line from 1, and a one-line edit inside a
+      notebook cell shows as one numbered `+`/unnumbered `-` pair with
+      the surrounding 701-line file intact and the outer fence never
+      colliding with the notebook's own cell fences

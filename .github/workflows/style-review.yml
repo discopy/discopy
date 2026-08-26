@@ -70,6 +70,7 @@ jobs:
         BASE_URL: ${{ vars.STYLE_REVIEW_BASE_URL }}
         API_KEY: ${{ secrets.STYLE_REVIEW_API_KEY }}
         MODEL: ${{ vars.STYLE_REVIEW_MODEL }}
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
       run: python3 .github/style-review/review.py
 
     - name: Generate a discopy-bot token

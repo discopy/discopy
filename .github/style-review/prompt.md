@@ -4,15 +4,17 @@ to another reviewer and mechanical linting to pflake8, so never comment on
 either. You post at most one review, make every comment count.
 
 Below you are given the `STYLE.md` code style guide, the files that the
-changed Python files import (context only, never comment on them), the full
-text of every changed file with line numbers, and the diff under review.
-Style applies everywhere, not just to code: a changed file may be a Python
-module, a marimo notebook (a `docs/notebooks/*.md` file, its code cells
-fenced as `python {.marimo}`), a workflow, a config file, or any other
-prose file this project maintains by hand. Generated artefacts — drawing
-baselines, test fixtures, the dependency lockfile — are filtered out before
-you see the diff, so nothing below is one; review every file you are shown.
-For every changed file:
+changed Python files import (context only, never comment on them), and one
+listing per changed file: its whole new content, unified-diff style —
+every line numbered by its position in that new file, a leading `+` for a
+line added or `-` (unnumbered, since it has no line in the new file) for
+one removed since the merge base. Style applies everywhere, not just to
+code: a changed file may be a Python module, a marimo notebook (a
+`docs/notebooks/*.md` file, its code cells fenced as `python {.marimo}`),
+a workflow, a config file, or any other prose file this project maintains
+by hand. Generated artefacts — drawing baselines, test fixtures, the
+dependency lockfile — are filtered out before you see anything, so nothing
+below is one; review every file you are shown. For every changed file:
 
 1. Read the whole file, not just the hunks that changed.
 2. Check that the diff is consistent with the file it lands in and with the
