@@ -589,6 +589,37 @@ class Axiom[T]:
         return st.tuples(*(
             resolve(annotations[parameter.name]) for parameter in required))
 
+    def falsify(self, **params) -> tuple | None:
+        """
+        Search for a shrunk counterexample to the bound axiom: arguments for
+        which the verdict fails — the equation is false, or the
+        implementation refuses to build its terms — or :obj:`None` when no
+        counterexample is found. Keyword arguments are passed to
+        :func:`hypothesis.find`.
+
+        >>> from discopy.matrix import Matrix
+        >>> Matrix[int].copy_cocommutativity.falsify()
+        (2,)
+        >>> assert Matrix[int].unitality.falsify() is None
+        """
+        from hypothesis import find
+        from hypothesis.errors import NoSuchExample
+
+        if self.carrier is None:
+            raise TypeError(f"{self.name} is not bound to a class.")
+
+        def refutes(args):
+            try:
+                verdict = self(*args)
+            except Exception:
+                return True
+            return verdict is not NotImplemented and not holds(verdict)
+
+        try:
+            return find(self.strategy(), refutes, **params)
+        except NoSuchExample:
+            return None
+
     @property
     def parameters(self) -> tuple[inspect.Parameter, ...]:
         """
@@ -656,9 +687,17 @@ def assert_verdict(axiom: Axiom, verdict) -> None:
     terms. Either way the equation is asserted: it is :attr:`Axiom.broken`
     that tells the runner to expect the failure.
     """
+    assert holds(verdict)
+
+
+def holds(verdict) -> bool:
+    """
+    Whether a verdict asserts, unwrapping the equation a broken law carries
+    as the last argument of its :class:`discopy.utils.AxiomError`.
+    """
     if isinstance(verdict, AxiomError):
         verdict = verdict.args[-1] if verdict.args else False
-    assert verdict
+    return bool(verdict)
 
 
 def declared_axioms(cls) -> dict[str, Axiom]:

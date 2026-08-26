@@ -169,7 +169,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   per-module test classes disappear. The `--axioms` pytest flag selects
   matrix cells by glob, e.g. `--axioms 'compact.CMap.*'` or
   `--axioms '*.Diagram.unitality'`, with `*` as the only wildcard so that
-  brackets match themselves.
+  brackets match themselves. For quick debugging outside pytest,
+  `Axiom.falsify()` searches for a shrunk counterexample to a bound axiom —
+  arguments for which the verdict fails — returning `None` when it finds
+  none.
 - A `NamedGeneric` subscripted by a DisCoPy class takes its qualified name,
   e.g. `Hypergraph[monoidal.Diagram]` rather than `Hypergraph[Diagram]`,
   which every level's hypergraph printed alike — the property matrix ids
