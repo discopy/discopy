@@ -198,7 +198,7 @@ class Trace(Box, monoidal.Bubble):
         assert_isinstance(arg, self.ar)
         assert_istraceable(arg, n=1, left=left)
         self.left = left
-        name = f"Trace({arg}" + ", left=True)" if left else ")"
+        name = f"Trace({arg}, left=True)" if left else f"Trace({arg})"
         dom, cod = (arg.dom[1:], arg.cod[1:]) if left\
             else (arg.dom[:-1], arg.cod[:-1])
         monoidal.Bubble.__init__(self, arg, dom=dom, cod=cod)

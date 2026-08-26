@@ -206,6 +206,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `traced.Trace.__init__`'s `name` ternary had `+` binding tighter than the
+  conditional, so every right trace (`left=False`) was named `")"` instead of
+  `"Trace(f)"`, breaking `STYLE.md`'s transparency rule for its internal
+  generator representation
+  ([#604](https://github.com/discopy/discopy/issues/604)).
 - A boxless `monoidal.Layer` can no longer be placed inside a `Diagram`:
   `Diagram.__init__` raises `ValueError` for a layer with no box, restoring
   the invariant that every layer holds at least one box and that the identity

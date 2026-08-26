@@ -8,6 +8,14 @@ def test_trace_repr():
     assert repr(Box('f', 'x', 'x').trace()) == "traced.Trace(f, left=False)"
 
 
+def test_trace_name():
+    from discopy.monoidal import Ty
+    x = Ty('x')
+    f = Box('f', x @ x, x @ x)
+    assert f.trace().inside[0].generator.name == "Trace(f)"
+    assert f.trace(left=True).inside[0].generator.name == "Trace(f, left=True)"
+
+
 def test_trace_error():
     with raises(AxiomError):
         Box('f', 'x', 'y').trace()
