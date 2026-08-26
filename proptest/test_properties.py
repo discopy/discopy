@@ -22,146 +22,58 @@ from discopy import (
     traced,
 )
 from discopy.matrix import Matrix
-from discopy.testing import assert_verdict
 from discopy.python import finset
-from proptest import strategies
+from discopy.testing import assert_verdict
+from discopy.utils import factory_name
+
+CARRIERS = (
+    cat.Arrow, cat.Functor,
+    monoidal.Wire, monoidal.Ty, monoidal.Diagram, monoidal.Hypergraph,
+    monoidal.CMap, monoidal.Functor,
+    braided.Diagram, braided.Functor,
+    traced.Diagram, traced.Hypergraph, traced.CMap, traced.Functor,
+    balanced.Diagram, balanced.Hypergraph, balanced.Functor,
+    symmetric.Diagram, symmetric.Hypergraph, symmetric.CMap,
+    symmetric.Functor,
+    biclosed.Ty, biclosed.Diagram, biclosed.CMap, biclosed.Functor,
+    rigid.Ty, rigid.Diagram, rigid.Functor,
+    pivotal.Ty, pivotal.Diagram, pivotal.Hypergraph, pivotal.Functor,
+    ribbon.Diagram, ribbon.Functor,
+    compact.Diagram, compact.Hypergraph, compact.CMap, compact.Functor,
+    markov.Diagram, markov.Hypergraph, markov.CMap, markov.Functor,
+    closed.Ty, closed.Diagram, closed.Hypergraph, closed.CMap,
+    closed.Functor,
+    feedback.Ty, feedback.Diagram, feedback.Hypergraph, feedback.Functor,
+    frobenius.Ty, frobenius.Diagram, frobenius.Hypergraph, frobenius.CMap,
+    frobenius.Functor,
+    Matrix[int], finset.Function, finset.Permutation)
 
 
-def axiom_parameter(axiom):
+def axiom_parameters():
     """
-    Translate an axiom to a pytest parameter.
+    Translate every axiom of every carrier to a pytest parameter.
 
     An axiom taking no argument states its verdict without one, so we ask it
     here: :obj:`NotImplemented` means the structure does not apply and the
     test is skipped rather than generating arguments it could not satisfy.
     """
-    if not axiom.parameters and axiom() is NotImplemented:
-        marks = pytest.mark.skip(reason=axiom.__doc__.strip())
-    elif axiom.broken:
-        marks = pytest.mark.xfail(reason=axiom.__doc__.strip())
-    else:
-        marks = ()
-    return pytest.param(axiom, id=axiom.name, marks=marks)
+    for carrier in CARRIERS:
+        for axiom in getattr(carrier, "axioms", ()):
+            if not axiom.parameters and axiom() is NotImplemented:
+                marks = pytest.mark.skip(reason=axiom.__doc__.strip())
+            elif axiom.broken:
+                marks = pytest.mark.xfail(reason=axiom.__doc__.strip())
+            else:
+                marks = ()
+            yield pytest.param(
+                axiom, marks=marks,
+                id=f"{factory_name(carrier)}.{axiom.name}")
 
 
-def axiom_tests(cls):
-    """ Check every axiom of a carrier against generated arguments. """
-    axioms = getattr(cls, "axioms", ())
-
-    @pytest.mark.parametrize("axiom", map(axiom_parameter, axioms))
-    @given(data=st.data())
-    @settings(max_examples=25, deadline=None)
-    def test(self, axiom, data):
-        args = data.draw(strategies.arguments(axiom), label=axiom.name)
-        assert_verdict(axiom, axiom(*args))
-    return test
-
-
-class Test_cat:
-    test_arrow = axiom_tests(cat.Arrow)
-    test_functor = axiom_tests(cat.Functor)
-
-
-class Test_monoidal:
-    test_wire = axiom_tests(monoidal.Wire)
-    test_ty = axiom_tests(monoidal.Ty)
-    test_diagram = axiom_tests(monoidal.Diagram)
-    test_hypergraph = axiom_tests(monoidal.Hypergraph)
-    test_cmap = axiom_tests(monoidal.CMap)
-    test_functor = axiom_tests(monoidal.Functor)
-
-
-class Test_braided:
-    test_diagram = axiom_tests(braided.Diagram)
-    test_functor = axiom_tests(braided.Functor)
-
-
-class Test_traced:
-    test_diagram = axiom_tests(traced.Diagram)
-    test_hypergraph = axiom_tests(traced.Hypergraph)
-    test_cmap = axiom_tests(traced.CMap)
-    test_functor = axiom_tests(traced.Functor)
-
-
-class Test_balanced:
-    test_diagram = axiom_tests(balanced.Diagram)
-    test_hypergraph = axiom_tests(balanced.Hypergraph)
-    test_functor = axiom_tests(balanced.Functor)
-
-
-class Test_symmetric:
-    test_diagram = axiom_tests(symmetric.Diagram)
-    test_hypergraph = axiom_tests(symmetric.Hypergraph)
-    test_cmap = axiom_tests(symmetric.CMap)
-    test_functor = axiom_tests(symmetric.Functor)
-
-
-class Test_biclosed:
-    test_ty = axiom_tests(biclosed.Ty)
-    test_diagram = axiom_tests(biclosed.Diagram)
-    test_cmap = axiom_tests(biclosed.CMap)
-    test_functor = axiom_tests(biclosed.Functor)
-
-
-class Test_rigid:
-    test_ty = axiom_tests(rigid.Ty)
-    test_diagram = axiom_tests(rigid.Diagram)
-    test_functor = axiom_tests(rigid.Functor)
-
-
-class Test_pivotal:
-    test_ty = axiom_tests(pivotal.Ty)
-    test_diagram = axiom_tests(pivotal.Diagram)
-    test_hypergraph = axiom_tests(pivotal.Hypergraph)
-    test_functor = axiom_tests(pivotal.Functor)
-
-
-class Test_ribbon:
-    test_diagram = axiom_tests(ribbon.Diagram)
-    test_functor = axiom_tests(ribbon.Functor)
-
-
-class Test_compact:
-    test_diagram = axiom_tests(compact.Diagram)
-    test_hypergraph = axiom_tests(compact.Hypergraph)
-    test_cmap = axiom_tests(compact.CMap)
-    test_functor = axiom_tests(compact.Functor)
-
-
-class Test_markov:
-    test_diagram = axiom_tests(markov.Diagram)
-    test_hypergraph = axiom_tests(markov.Hypergraph)
-    test_cmap = axiom_tests(markov.CMap)
-    test_functor = axiom_tests(markov.Functor)
-
-
-class Test_closed:
-    test_ty = axiom_tests(closed.Ty)
-    test_diagram = axiom_tests(closed.Diagram)
-    test_hypergraph = axiom_tests(closed.Hypergraph)
-    test_cmap = axiom_tests(closed.CMap)
-    test_functor = axiom_tests(closed.Functor)
-
-
-class Test_feedback:
-    test_ty = axiom_tests(feedback.Ty)
-    test_diagram = axiom_tests(feedback.Diagram)
-    test_hypergraph = axiom_tests(feedback.Hypergraph)
-    test_functor = axiom_tests(feedback.Functor)
-
-
-class Test_frobenius:
-    test_ty = axiom_tests(frobenius.Ty)
-    test_diagram = axiom_tests(frobenius.Diagram)
-    test_hypergraph = axiom_tests(frobenius.Hypergraph)
-    test_cmap = axiom_tests(frobenius.CMap)
-    test_functor = axiom_tests(frobenius.Functor)
-
-
-class Test_matrix:
-    test_matrix = axiom_tests(Matrix[int])
-
-
-class Test_finset:
-    test_function = axiom_tests(finset.Function)
-    test_permutation = axiom_tests(finset.Permutation)
+@pytest.mark.parametrize("axiom", axiom_parameters())
+@given(data=st.data())
+@settings(max_examples=25, deadline=None)
+def test_axiom(axiom, data):
+    """ Check an axiom of a carrier against generated arguments. """
+    args = data.draw(axiom.strategy(), label=axiom.name)
+    assert_verdict(axiom, axiom(*args))

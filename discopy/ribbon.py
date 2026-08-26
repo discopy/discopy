@@ -82,8 +82,6 @@ from discopy import rigid, pivotal, balanced
 from discopy.abc import RibbonCategory
 from discopy.cat import factory
 from discopy.pivotal import Ty, PRO  # noqa: F401
-from discopy.utils import AxiomError
-from discopy.testing import Atomic, C0, axiom
 
 
 @factory
@@ -156,11 +154,8 @@ class Diagram(pivotal.Diagram, balanced.Diagram, RibbonCategory):
         """
         return self.to_braided(width, colour)
 
-    @axiom
-    def twist_as_trace(
-            cls, x: Atomic[C0]):
-        """ The traced braid does not reduce to the twist. """
-        return AxiomError(super().twist_as_trace(x))
+    twist_as_trace = RibbonCategory.twist_as_trace.failing(
+        "The traced braid does not reduce to the twist.")
 
 
 class Box(pivotal.Box, balanced.Box, Diagram):

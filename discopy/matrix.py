@@ -47,11 +47,13 @@ from discopy.cat import (
     assert_iscomposable,
     assert_isparallel,
 )
-from discopy.testing import C0, Natural, Strategy, axiom
-from discopy.utils import AxiomError, assert_isinstance, unbiased
+from discopy.testing import Natural, Strategy
+from discopy.utils import assert_isinstance, unbiased
 
 if TYPE_CHECKING:
     import sympy
+
+WRONG_COPY = "``Matrix.copy(x, n)`` is wrong for ``x, n >= 2``, see #606."
 
 
 @factory
@@ -422,23 +424,13 @@ class Matrix(MarkovCategory, Strategy["Matrix"], NamedGeneric['dtype']):
         return self.map(lambda x:
                         getattr(x, "diff", lambda _: 0)(var, **params))
 
-    @axiom
-    def copy_cocommutativity(
-            cls, x: C0):
-        """ ``Matrix.copy(x, n)`` is wrong for ``x, n >= 2``, see #606. """
-        return AxiomError(super().copy_cocommutativity(x))
+    copy_cocommutativity = MarkovCategory.copy_cocommutativity.failing(
+        WRONG_COPY)
 
-    @axiom
-    def copy_counitality(
-            cls, x: C0):
-        """ ``Matrix.copy(x, n)`` is wrong for ``x, n >= 2``, see #606. """
-        return AxiomError(super().copy_counitality(x))
+    copy_counitality = MarkovCategory.copy_counitality.failing(WRONG_COPY)
 
-    @axiom
-    def copy_monoidal_coherence(
-            cls, x: C0):
-        """ ``Matrix.copy(x, n)`` is wrong for ``x, n >= 2``, see #606. """
-        return AxiomError(super().copy_monoidal_coherence(x))
+    copy_monoidal_coherence = \
+        MarkovCategory.copy_monoidal_coherence.failing(WRONG_COPY)
 
 
 def array2string(array, **params):

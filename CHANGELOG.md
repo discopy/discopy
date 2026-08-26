@@ -16,18 +16,22 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `Functor.strategy` as relabellings of the generators — total, so they
   apply to any diagram, and comparable, so the axioms of `Cat` itself can be
   checked on them, which a closure would not be. Each level of `Functor`
-  adds the structure it preserves as a method on itself:
-  `monoidal.Functor.tensor`, `braided.Functor.braid`,
-  `balanced.Functor.twist`, `symmetric.Functor.swap`, `rigid.Functor.cups`
-  and `caps`,
-  `markov.Functor.copy` and `frobenius.Functor.spiders`, so
-  `frobenius.Functor` inherits all eight. Preservation of identities and of
-  composition is not stated separately: a functor is an arrow of `Cat`, so
-  those are `Category`'s own axioms, inherited. The equation lives in
-  `self.cod` rather than in the carrier, which is what the `eq` parameter
-  could not express. `braid` and `twist` are declared unchecked:
-  the braid of a composite type is a chosen sequence of crossings that a
-  functor rebrackets, so they hold only up to the braid relations that free
+  states the preservation of its structure as a law named after the level:
+  `monoidal.Functor.monoidal` for the tensor, `braided` for the braid,
+  `balanced` for the twist, `symmetric` for the swap, `rigid_cups` and
+  `rigid_caps` for the two rigid laws, `markov` for the copy and
+  `frobenius` for the spiders, so `frobenius.Functor` inherits all eight.
+  Naming a law after the level rather than the operation keeps it from
+  shadowing the operation itself, the way every axiom of a diagram carrier
+  is named after the law — `PivotalCategory.pivotality` states the equality
+  of the two transposes without taking the name of
+  `RigidCategory.transpose`. Preservation of identities and of composition
+  is not stated separately: a functor is an arrow of `Cat`, so those are
+  `Category`'s own axioms, inherited. The equation lives in `self.cod`
+  rather than in the carrier, which is what the `eq` parameter could not
+  express. `braided` and `balanced` are declared unchecked: the braid of a
+  composite type is a chosen sequence of crossings that a functor
+  rebrackets, so they hold only up to the braid relations that free
   diagrams do not quotient by.
 - Every `Functor` subclass is its own `factory`, which only `cat.Functor`
   declared, so `Functor.ar` resolved to `cat.Functor` at every level.
@@ -145,6 +149,37 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `Category.axiom_equality`, the `eq` parameter of every axiom and the unused
   `strict` flag of `Axiom` are removed. An axiom that does not apply takes no
   argument, so its verdict is read before anything is generated.
+- An axiom override never restates its equation, it is one assignment
+  dispatching on the inherited law: `Axiom.modulo(up_to)` weakens it, as in
+  `bifunctoriality = MonoidalCategory.bifunctoriality.modulo(normal_form)`;
+  `Axiom.failing(reason)` declares it broken, wrapping the equation in an
+  `AxiomError` carrying the reason; and `Axiom.inapplicable(reason)`
+  declares it does not apply. Each returns a fresh `Axiom` that takes its
+  name from the attribute through `__set_name__` and its arguments from the
+  original signature. `Equation.modulo(up_to)` is the equation-level
+  counterpart, named `modulo` since `up_to` is the attribute it rebinds.
+  The comonoid and spider laws that no combinatorial map supplies are
+  declared once on `cmap.CMap` rather than on each of `markov`, `closed`
+  and `frobenius`.
+- The property matrix is one parametrized test: every axiom of every
+  carrier in `proptest.test_properties.CARRIERS`, marked skip or xfail by
+  its own verdict. Argument generation is dynamic dispatch on the axiom
+  itself — `Axiom.strategy()` resolves the annotations of its parameters to
+  the carrier's objects and arrows — so `proptest/strategies.py` and the
+  per-module test classes disappear.
+- The strategy tests live with what they test: every syntax module's test
+  file gets a single `test_strategy` checking its strategy reaches each of
+  its structural boxes through `testing.assert_strategy_finds`, and every
+  argument generator of `discopy.testing` gets exactly one test in
+  `test/testing.py` — valid arguments accepted, invalid ones rejected, the
+  interesting shapes found — with `LeftCurrying` validating its evaluation
+  boundary like every other generator. `proptest/` keeps the strict minimum
+  for the property matrix, `strategies.py` and `test_properties.py`, so
+  `proptest/test_strategies.py` is removed along with the dead `--bugs`
+  pytest option that read the removed axiom statuses. `markov.CMap` and
+  `frobenius.CMap` join the matrix — `spider_fusion` declared inapplicable
+  with the other spider laws that no combinatorial map supplies — while
+  `PRO`, which has no strategy, leaves it.
 - The five `*_typing` axioms and `self_dual` state equations between objects
   rather than lifting their types through `cls.id`, now that a body chooses
   its own equation factory rather than being handed one built from the arrow

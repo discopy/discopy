@@ -99,7 +99,7 @@ from discopy.monoidal import Wire, Ty, PRO  # noqa: F401
 from discopy.python import finset
 from discopy.utils import (
     AxiomError, assert_iscomposable, classproperty, factory_name, from_tree)
-from discopy.testing import Atomic, C0, C1, axiom
+from discopy.testing import Atomic, C0, axiom
 
 
 class Layer(monoidal.Layer):
@@ -726,7 +726,7 @@ class Functor(balanced.Functor):
         return super().__call__(other)
 
     @axiom
-    def preserves_swap(self, x: Atomic[C0], y: Atomic[C0]):
+    def symmetric(self, x: Atomic[C0], y: Atomic[C0]):
         """ A symmetric functor preserves the swap. """
         x, y = x.value, y.value
         return self.cod.equation_factory(
@@ -738,11 +738,8 @@ class CMap(traced.CMap):
     require_planar = False
     require_causal = False
 
-    @axiom
-    def braid_naturality(
-            cls, f: C1, g: C1):
-        """ ``CMap.to_diagram`` fails on a traced box, see #606. """
-        return AxiomError(super().braid_naturality(f, g))
+    braid_naturality = traced.CMap.braid_naturality.failing(
+        "``CMap.to_diagram`` fails on a traced box, see #606.")
 
 
 Diagram.functor_factory = Functor

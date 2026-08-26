@@ -6,9 +6,10 @@ import inspect
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import ClassVar, TypeVar, TYPE_CHECKING
+from functools import wraps
+from typing import ClassVar, TypeVar, TYPE_CHECKING, get_args, get_origin
 
-from discopy.utils import assert_iscomposable
+from discopy.utils import AxiomError, assert_iscomposable
 
 if TYPE_CHECKING:
     from hypothesis import strategies as st
@@ -509,8 +510,9 @@ class Axiom[T]:
 
     def __set_name__(self, owner, name):
         """
-        Take the name of the attribute the axiom is assigned to, so that
-        :func:`inapplicable` needs no name of its own.
+        Take the name of the attribute the axiom is assigned to, so that an
+        override built with :meth:`modulo`, :meth:`failing` or
+        :meth:`inapplicable` needs no name of its own.
         """
         self.name = self.__name__ = name
 
@@ -525,6 +527,67 @@ class Axiom[T]:
 
     def __get__(self, instance, owner: type[T]) -> Axiom[T]:
         return self.bind(owner)
+
+    def modulo(self, up_to) -> Axiom[T]:
+        """
+        The same law with its equation compared up to a function, so that a
+        carrier weakens an inherited axiom in one statement, e.g.
+        ``bifunctoriality = MonoidalCategory.bifunctoriality.modulo(
+        normal_form)``.
+        """
+        @wraps(self.equation)
+        def equation(*args, **kwargs):
+            return self.equation(*args, **kwargs).modulo(up_to)
+        return type(self)(equation)
+
+    def failing(self, reason: str) -> Axiom[T]:
+        """
+        The same law declared broken, its equation wrapped in an
+        :class:`discopy.utils.AxiomError` with the reason as message and
+        documentation, e.g. ``braid_naturality =
+        BraidedCategory.braid_naturality.failing("A free braid is a box.")``.
+        """
+        @wraps(self.equation)
+        def equation(*args, **kwargs):
+            return AxiomError(reason, self.equation(*args, **kwargs))
+        equation.__doc__ = reason
+        return type(self)(equation)
+
+    def inapplicable(self, reason: str) -> Axiom[T]:
+        """
+        The same law declared not to apply to the carrier: it takes no
+        argument and returns :obj:`NotImplemented`, with the reason as its
+        documentation, e.g. ``trace_vanishing =
+        TracedCategory.trace_vanishing.inapplicable("No trace.")``.
+        """
+        def law(cls):
+            return NotImplemented
+        law.__name__, law.__doc__ = self.name, reason
+        return type(self)(law)
+
+    def strategy(self) -> "st.SearchStrategy":
+        """
+        Generate the arguments the bound axiom expects.
+
+        ``C0`` and ``C1`` resolve to the objects and arrows of the carrier,
+        or of the carrier's domain for a law of an element: the arguments a
+        functor is applied to live in the category it maps from, and its
+        codomain is reachable as ``self.cod`` from the body.
+        """
+        from hypothesis import strategies as st
+
+        function = inspect.unwrap(self.equation)
+        source = self.carrier.dom if self.is_method else self.carrier
+        scope = {"C0": source.ob, "C1": source.ar}
+        annotations = inspect.get_annotations(
+            function, globals=function.__globals__, locals=scope,
+            eval_str=True)
+        annotations[self.receiver] = self.carrier
+        required = (
+            parameter for parameter in self.parameters
+            if parameter.default is inspect.Parameter.empty)
+        return st.tuples(*(
+            resolve(annotations[parameter.name]) for parameter in required))
 
     @property
     def parameters(self) -> tuple[inspect.Parameter, ...]:
@@ -559,18 +622,15 @@ def axiom(equation) -> Axiom:
     return Axiom(equation)
 
 
-def inapplicable(reason: str) -> Axiom:
-    """
-    Declare that an inherited law does not apply to the carrier.
-
-    The axiom takes no argument and returns :obj:`NotImplemented`, with the
-    reason as its documentation; it takes its name from the attribute it is
-    assigned to, e.g. ``unitality = inapplicable("No identities.")``.
-    """
-    def law(cls):
-        return NotImplemented
-    law.__doc__ = reason
-    return Axiom(law)
+def resolve(annotation, **params) -> "st.SearchStrategy":
+    """ Resolve the strategy implemented by an annotated type. """
+    origin = get_origin(annotation) or annotation
+    if not isinstance(origin, type) or not issubclass(origin, Strategy):
+        raise TypeError(
+            f"Expected a Strategy annotation, got {annotation!r}.")
+    if args := get_args(annotation):
+        params["factory"] = args[-1]
+    return origin.strategy(**params)
 
 
 def assert_strategy_finds(carrier, *structures) -> None:
@@ -591,14 +651,13 @@ def assert_verdict(axiom: Axiom, verdict) -> None:
     Assert the verdict a bound axiom returned for some arguments.
 
     An :class:`discopy.utils.AxiomError` wraps the equation of a law that is
-    known to be broken, and carries none at all when the implementation
-    refused to build its terms. Either way the equation is asserted: it is
-    :attr:`Axiom.broken` that tells the runner to expect the failure.
+    known to be broken — as its last argument, after an optional reason —
+    and carries none at all when the implementation refused to build its
+    terms. Either way the equation is asserted: it is :attr:`Axiom.broken`
+    that tells the runner to expect the failure.
     """
-    from discopy.utils import AxiomError
-
     if isinstance(verdict, AxiomError):
-        verdict = verdict.args[0] if verdict.args else False
+        verdict = verdict.args[-1] if verdict.args else False
     assert verdict
 
 

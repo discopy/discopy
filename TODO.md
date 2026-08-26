@@ -31,12 +31,28 @@
 > abstrtactions in this fashion.
 > work locally and finalize this PR.
 
-- [WIP] Merge main into the branch, resolve conflicts, report the resolution.
-- [WIP] Factor axiom overrides through inheritance: `Equation.modulo`,
-  `AxiomError(super().axiom(...))`, `inapplicable(reason)`.
-- [WIP] Consistent nomenclature: functor laws `preserves_*`,
+> - rename preserves_tensor to monoidal, preserves_swap as symmetric,
+>   preserves_copy as markov, etc...
+> - define modulo on axioms too, allowing
+>   bifunctoriality = BaseClass.bifunctoriality.modulo(normal_form)
+> - define failing(self, reason: str) -> Self which wraps the inner function
+>   to make it return an axiom error with the error message and the
+>   constructed equation
+> - similarly, define inapplicable as a method of Axiom and do every
+>   override in one statement.
+> - avoid all boilerplate related to parametrized classes in the property
+>   test suite and discopy.testing. move all the axiom logic to dynamic
+>   dispatch in the relevant classes
+
+- [x] Merge main into the branch, resolve conflicts, report the resolution.
+- [x] Factor axiom overrides through inheritance: `Axiom.modulo`,
+  `Axiom.failing`, `Axiom.inapplicable`, every override one statement.
+- [x] Consistent nomenclature: functor laws named after their level
+  (`monoidal`, `braided`, ..., `rigid_cups`/`rigid_caps`),
   `transpose_axiom` -> `pivotality`; report remaining clashes.
-- [WIP] One `test_strategy` per syntax module, one test per generator in
+- [x] One `test_strategy` per syntax module, one test per generator in
   `discopy.testing`; delete `proptest/test_strategies.py`.
-- [WIP] Green: pflake8, unit suite with coverage, proptest.
-- [WIP] Update CHANGELOG, write the refactoring plan, delete this file.
+- [x] Flatten the property matrix to one parametrized test over `CARRIERS`,
+  argument generation on `Axiom.strategy()`; delete `proptest/strategies.py`.
+- [x] Green: pflake8, unit suite with coverage, proptest.
+- [x] Update CHANGELOG, write the refactoring report, delete this file.

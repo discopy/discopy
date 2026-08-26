@@ -327,7 +327,7 @@ class Functor(symmetric.Functor):
         return super().__call__(other)
 
     @axiom
-    def preserves_copy(self, x: Atomic[C0]):
+    def markov(self, x: Atomic[C0]):
         """ A Markov functor preserves the copy. """
         x = x.value
         return self.cod.equation_factory(

@@ -55,8 +55,6 @@ from typing import Dict, ClassVar
 from discopy import cat, monoidal, biclosed, markov, hypergraph
 from discopy.abc import ClosedCategory
 from discopy.cat import factory
-from discopy.testing import C1, axiom
-from discopy.utils import AxiomError
 
 
 @factory
@@ -184,11 +182,8 @@ class CMap(biclosed.CMap):
     category = Diagram
     require_planar = False
 
-    @axiom
-    def braid_naturality(
-            cls, f: C1, g: C1):
-        """ ``CMap.to_diagram`` fails on a traced box, see #606. """
-        return AxiomError(super().braid_naturality(f, g))
+    braid_naturality = biclosed.CMap.braid_naturality.failing(
+        "``CMap.to_diagram`` fails on a traced box, see #606.")
 
 
 Diagram.functor_factory = Functor

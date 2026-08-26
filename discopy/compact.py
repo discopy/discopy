@@ -59,8 +59,7 @@ from __future__ import annotations
 from discopy import abc, hypergraph, ribbon, rigid, symmetric
 from discopy.abc import CompactCategory
 from discopy.cat import factory
-from discopy.testing import C1, ComposablePair, axiom
-from discopy.utils import AxiomError, deprecated_ob
+from discopy.utils import deprecated_ob
 from discopy.pivotal import Wire, Ty  # noqa: F401
 
 
@@ -90,11 +89,9 @@ class Diagram(symmetric.Diagram, ribbon.Diagram, CompactCategory):
 
     twist_as_trace = abc.RibbonCategory.twist_as_trace
 
-    @axiom
-    def rotate_contravariance(cls, pair: ComposablePair[C1]):
-        """ ``to_hypergraph`` drops the rotation of a box, so the equation
-        holds but cannot be checked up to hypergraph. """
-        return AxiomError(super().rotate_contravariance(pair))
+    rotate_contravariance = abc.RigidCategory.rotate_contravariance.failing(
+        "``to_hypergraph`` drops the rotation of a box, so the equation "
+        "holds but cannot be checked up to hypergraph.")
 
 
 class Box(symmetric.Box, ribbon.Box, Diagram):

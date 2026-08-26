@@ -323,10 +323,10 @@ def functor_arguments(axiom, identity):
         return ()
     category = axiom.carrier.dom
     x, y = map(category.ob, "xy")
-    if axiom.name == "preserves_tensor":
+    if axiom.name == "monoidal":
         return identity, HorizontalPair(
             box(category, "f", x, y), box(category, "g", y, x))
-    if axiom.name == "preserves_swap":
+    if axiom.name == "symmetric":
         return identity, Atomic(x), Atomic(y)
     return identity, Atomic(x)
 

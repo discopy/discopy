@@ -39,7 +39,7 @@ from discopy import config, monoidal, braided, traced, hypergraph
 from discopy.abc import BalancedCategory
 from discopy.cat import factory
 from discopy.monoidal import Colour, Ty  # noqa: F401
-from discopy.testing import inapplicable
+from discopy.testing import axiom
 from discopy.utils import factory_name, assert_isatomic
 
 
@@ -333,13 +333,15 @@ class Functor(braided.Functor, traced.Functor):
             return traced.Functor.__call__(self, other)
         return braided.Functor.__call__(self, other)
 
-    preserves_twist = inapplicable(
+    @axiom
+    def balanced(cls):
         """
         A balanced functor preserves the twist, but the twist of a composite
         type is a chosen sequence of crossings, so like
-        :attr:`discopy.braided.Functor.preserves_braid` it holds only up to
-        the braid relations that free diagrams do not quotient by.
-        """)
+        :attr:`discopy.braided.Functor.braided` it holds only up to the
+        braid relations that free diagrams do not quotient by.
+        """
+        return NotImplemented
 
 
 class DualRail(Functor):

@@ -63,7 +63,7 @@ from warnings import warn
 from discopy import cat, drawing, hypergraph, cmap, messages
 from discopy.abc import ColouredMonoid, MonoidalCategory
 from discopy.testing import (
-    Bifunctor, C1, GENERATORS, HorizontalPair, Strategy, axiom)
+    C1, GENERATORS, HorizontalPair, Strategy, axiom)
 from discopy.drawing import Drawing
 from discopy.config import (
     BOX_DRAWING_ATTRIBUTES, WIRE_DRAWING_ATTRIBUTES,
@@ -1518,11 +1518,7 @@ class Diagram(
             return cls.decode(from_tree(tree['dom']), zip(boxes, offsets))
         return super().from_tree(tree)
 
-    @axiom
-    def bifunctoriality(
-            cls, square: Bifunctor[C1]):
-        """ Bifunctoriality of the tensor, up to the interchanger. """
-        return super().bifunctoriality(square).modulo(cls.normal_form)
+    bifunctoriality = MonoidalCategory.bifunctoriality.modulo(normal_form)
 
 
 class Box(cat.Box, Diagram):
@@ -1904,7 +1900,7 @@ class Functor(cat.Functor):
         return super().__call__(other)
 
     @axiom
-    def preserves_tensor(self, pair: HorizontalPair[C1]):
+    def monoidal(self, pair: HorizontalPair[C1]):
         """ A monoidal functor preserves the tensor. """
         f, g = pair
         return self.cod.equation_factory(self(f @ g), self(f) @ self(g))

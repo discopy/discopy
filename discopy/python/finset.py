@@ -17,7 +17,7 @@ Summary
 """
 
 from __future__ import annotations
-from discopy.utils import AxiomError, assert_isinstance
+from discopy.utils import assert_isinstance
 from typing import Iterable, Self, Any
 from collections.abc import Sequence
 
@@ -25,7 +25,10 @@ from dataclasses import dataclass
 
 from discopy import abc, messages
 from discopy.abc import SymmetricCategory
-from discopy.testing import Atomic, C0, C1, Natural, Strategy, axiom
+from discopy.testing import Natural, Strategy
+
+WRONG_SWAP = \
+    "``Function.swap`` returns the inverse permutation, see #606."
 
 
 @dataclass
@@ -163,27 +166,12 @@ class Function(SymmetricCategory, Sequence, Strategy["Function"]):
     def copy(x: int, n=2) -> Function:
         return Function([i % x for i in range(n * x)], x, n * x)
 
-    @axiom
-    def braid_naturality(
-            cls, f: C1, g: C1):
-        """ ``Function.swap`` returns the inverse permutation, see #606. """
-        return AxiomError(super().braid_naturality(f, g))
+    braid_naturality = abc.BraidedCategory.braid_naturality.failing(
+        WRONG_SWAP)
 
-    @axiom
-    def hexagon_left(
-            cls, x: Atomic[C0],
-            y: Atomic[C0],
-            z: Atomic[C0]):
-        """ ``Function.swap`` returns the inverse permutation, see #606. """
-        return AxiomError(super().hexagon_left(x, y, z))
+    hexagon_left = abc.BraidedCategory.hexagon_left.failing(WRONG_SWAP)
 
-    @axiom
-    def hexagon_right(
-            cls, x: Atomic[C0],
-            y: Atomic[C0],
-            z: Atomic[C0]):
-        """ ``Function.swap`` returns the inverse permutation, see #606. """
-        return AxiomError(super().hexagon_right(x, y, z))
+    hexagon_right = abc.BraidedCategory.hexagon_right.failing(WRONG_SWAP)
 
 
 type Cycle = Iterable[int]

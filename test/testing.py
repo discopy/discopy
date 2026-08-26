@@ -15,8 +15,7 @@ from discopy.testing import (
     Atomic, Bifunctor, ComposablePair, ComposableTriple, FeedbackJoining,
     FeedbackVanishing, HorizontalPair, LeftCurrying, Natural, NonEmpty,
     RightCurrying, TraceDinaturalityLeft, TraceDinaturalityRight,
-    TraceNaturalityLeft, TraceNaturalityRight, TraceSuperposing, axiom,
-    inapplicable)
+    TraceNaturalityLeft, TraceNaturalityRight, TraceSuperposing, axiom)
 from discopy.utils import AxiomError
 
 
@@ -206,7 +205,7 @@ def test_Axiom():
 
 def test_inapplicable():
     class Carrier(cat.Arrow):
-        unitality = inapplicable("No identities.")
+        unitality = cat.Arrow.unitality.inapplicable("No identities.")
 
     unitality, = (a for a in Carrier.axioms if a.name == "unitality")
     assert unitality() is NotImplemented

@@ -332,7 +332,7 @@ class Functor(compact.Functor, markov.Functor):
         return compact.Functor.__call__(self, other)
 
     @axiom
-    def preserves_spiders(self, x: Atomic[C0]):
+    def frobenius(self, x: Atomic[C0]):
         """ A hypergraph functor preserves the spiders. """
         x = x.value
         return self.cod.equation_factory(

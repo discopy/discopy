@@ -64,7 +64,7 @@ Without the extras installed, run `uv run pytest --skip-extra` to skip what need
 
 ## Run the property tests
 
-The Hypothesis property matrix and its strategies live in `proptest/`, outside
+The Hypothesis property matrix lives in `proptest/`, outside
 pytest's default `testpaths`. Run them explicitly:
 
 ```shell

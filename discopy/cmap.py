@@ -48,9 +48,11 @@ from typing import Any, TYPE_CHECKING, ClassVar, Literal
 
 from discopy import messages, hypergraph
 from discopy.cat import Box as CatBox, Ob
-from discopy.abc import CompactCategory, NamedGeneric, Pregroup
+from discopy.abc import (
+    BiclosedCategory, CompactCategory, HypergraphCategory, MarkovCategory,
+    NamedGeneric, Pregroup, RigidCategory, TracedCategory)
 from discopy.python.finset import Permutation
-from discopy.testing import Strategy, axiom, declared_axioms, inapplicable
+from discopy.testing import Strategy, axiom, declared_axioms
 from discopy.utils import (
     AxiomError,
     assert_isinstance,
@@ -1590,29 +1592,38 @@ class CMap[C0: Pregroup, C1: CMap](
         plt.show(block=block)
         return None
 
-    currying_left = inapplicable(NO_EXPONENTIALS)
+    currying_left = \
+        BiclosedCategory.currying_left.inapplicable(NO_EXPONENTIALS)
 
-    currying_right = inapplicable(NO_EXPONENTIALS)
+    currying_right = \
+        BiclosedCategory.currying_right.inapplicable(NO_EXPONENTIALS)
 
-    rotate_contravariance = inapplicable(
+    rotate_contravariance = RigidCategory.rotate_contravariance.inapplicable(
         "Combinatorial maps do not implement rotation.")
 
-    trace_dinaturality_left = inapplicable(FREE_TRACE)
+    trace_dinaturality_left = \
+        TracedCategory.trace_dinaturality_left.inapplicable(FREE_TRACE)
 
-    trace_dinaturality_right = inapplicable(FREE_TRACE)
+    trace_dinaturality_right = \
+        TracedCategory.trace_dinaturality_right.inapplicable(FREE_TRACE)
 
-    trace_naturality_left = inapplicable(FREE_TRACE)
+    trace_naturality_left = \
+        TracedCategory.trace_naturality_left.inapplicable(FREE_TRACE)
 
-    trace_naturality_right = inapplicable(FREE_TRACE)
+    trace_naturality_right = \
+        TracedCategory.trace_naturality_right.inapplicable(FREE_TRACE)
 
-    copy_coassociativity = inapplicable(NO_COMONOIDS)
+    copy_coassociativity = \
+        MarkovCategory.copy_coassociativity.inapplicable(NO_COMONOIDS)
 
-    copy_cocommutativity = inapplicable(NO_COMONOIDS)
+    copy_cocommutativity = \
+        MarkovCategory.copy_cocommutativity.inapplicable(NO_COMONOIDS)
 
-    copy_counitality = inapplicable(NO_COMONOIDS)
+    copy_counitality = \
+        MarkovCategory.copy_counitality.inapplicable(NO_COMONOIDS)
 
-    frobenius = inapplicable(NO_SPIDERS)
+    frobenius = HypergraphCategory.frobenius.inapplicable(NO_SPIDERS)
 
-    speciality = inapplicable(NO_SPIDERS)
+    speciality = HypergraphCategory.speciality.inapplicable(NO_SPIDERS)
 
-    spider_fusion = inapplicable(NO_SPIDERS)
+    spider_fusion = HypergraphCategory.spider_fusion.inapplicable(NO_SPIDERS)

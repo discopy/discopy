@@ -153,7 +153,7 @@ from discopy.utils import (
     deprecated_ob,
     factory, factory_name, assert_isinstance, AxiomError,
 )
-from discopy.testing import C0, C1, FeedbackJoining, GENERATORS, axiom
+from discopy.testing import GENERATORS
 
 
 def str_delayed(time_step: int):
@@ -403,17 +403,9 @@ class Diagram(markov.Diagram, FeedbackCategory):
 
     d = Wire.d
 
-    @axiom
-    def feedback_joining(
-            cls, arguments: FeedbackJoining[C0, C1]):
-        """
-        ``feedback`` unrolls heterogeneous memory in the wrong order, so it
-        refuses to build the joined loop at all, see #606.
-        """
-        try:
-            return AxiomError(super().feedback_joining(arguments))
-        except AxiomError as error:
-            return error
+    feedback_joining = FeedbackCategory.feedback_joining.failing(
+        "``feedback`` unrolls heterogeneous memory in the wrong order, so "
+        "it refuses to build the joined loop at all, see #606.")
 
 
 class Box(markov.Box, Diagram):

@@ -57,8 +57,7 @@ from __future__ import annotations
 from discopy import abc, cat, hypergraph, rigid, traced
 from discopy.abc import PivotalCategory, SymmetricCategory
 from discopy.cat import factory
-from discopy.utils import AxiomError, deprecated_ob
-from discopy.testing import C1, axiom
+from discopy.utils import deprecated_ob
 
 
 class Wire(rigid.Wire):
@@ -195,11 +194,8 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
 
     trace_superposing_right = abc.TracedCategory.trace_superposing_right
 
-    @axiom
-    def pivotality(
-            cls, f: C1):
-        """ The two transposes differ by a snake. """
-        return AxiomError(super().pivotality(f))
+    pivotality = abc.PivotalCategory.pivotality.failing(
+        "The two transposes differ by a snake.")
 
 
 class Box(rigid.Box, Diagram):

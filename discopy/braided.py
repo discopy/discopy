@@ -65,10 +65,9 @@ from discopy.abc import BraidedCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty, Match
 from discopy.utils import (
-    AxiomError, BinaryBoxConstructor, assert_isatomic, deprecated_ob,
-    factory_name
+    BinaryBoxConstructor, assert_isatomic, deprecated_ob, factory_name
 )
-from discopy.testing import C1, axiom, inapplicable
+from discopy.testing import axiom
 
 
 class Wire(monoidal.Wire):
@@ -161,11 +160,8 @@ class Diagram(monoidal.Diagram, BraidedCategory):
                       right=right_wires if left else right_wires[1:])
         return match.substitute(target)
 
-    @axiom
-    def braid_naturality(
-            cls, f: C1, g: C1):
-        """ A free braid does not commute past a box. """
-        return AxiomError(super().braid_naturality(f, g))
+    braid_naturality = BraidedCategory.braid_naturality.failing(
+        "A free braid does not commute past a box.")
 
 
 class Box(monoidal.Box, Diagram):
@@ -283,15 +279,17 @@ class Functor(monoidal.Functor):
             return self.cod.braid(self(other.dom[0]), self(other.dom[1]))
         return super().__call__(other)
 
-    preserves_braid = inapplicable(
+    @axiom
+    def braided(cls):
         """
         A braided functor preserves the braid, but only up to the braid
         relations: the braid of a composite type is a chosen sequence of
         crossings and a functor rebrackets it. Free braided diagrams compare
         presentations, so the law is checkable from
-        :class:`discopy.symmetric.Functor` on, where :attr:`preserves_swap`
+        :class:`discopy.symmetric.Functor` on, where :attr:`symmetric`
         states it up to hypergraph.
-        """)
+        """
+        return NotImplemented
 
 
 Diagram.functor_factory = Functor

@@ -70,9 +70,8 @@ from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
 from discopy.cat import factory
 from discopy.utils import (
-    AxiomError, assert_isinstance, deprecated_ob, factory_name, from_tree
+    assert_isinstance, deprecated_ob, factory_name, from_tree
 )
-from discopy.testing import C0, C1, LeftCurrying, RightCurrying, axiom
 
 
 @factory
@@ -316,17 +315,11 @@ class Diagram(monoidal.Diagram, BiclosedCategory):
     def to_drawing(self):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
 
-    @axiom
-    def currying_left(
-            cls, arguments: LeftCurrying[C0, C1]):
-        """ Currying does not evaluate back, see #562. """
-        return AxiomError(super().currying_left(arguments))
+    currying_left = BiclosedCategory.currying_left.failing(
+        "Currying does not evaluate back, see #562.")
 
-    @axiom
-    def currying_right(
-            cls, arguments: RightCurrying[C0, C1]):
-        """ Currying does not evaluate back, see #562. """
-        return AxiomError(super().currying_right(arguments))
+    currying_right = BiclosedCategory.currying_right.failing(
+        "Currying does not evaluate back, see #562.")
 
 
 class Box(monoidal.Box, Diagram):
