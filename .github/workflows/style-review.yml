@@ -6,7 +6,6 @@ on:
     types: [created]
 permissions:
   contents: read
-  issues: read
   pull-requests: read
 concurrency:
   group: style-review-${{ github.event.pull_request.number
@@ -38,7 +37,8 @@ jobs:
       run: |
         gh api "repos/$GITHUB_REPOSITORY/pulls/$NUMBER" --jq '
           "number=\(.number)", "head=\(.head.sha)", "base=\(.base.sha)",
-          "repo=\(.head.repo.full_name)", "draft=\(.draft)"' \
+          "repo=\(.head.repo.full_name)", "draft=\(.draft)",
+          "no_review=\(.labels | any(.name == "no-style-review"))"' \
           >> "$GITHUB_OUTPUT"
 
     - uses: actions/checkout@v4
@@ -49,12 +49,11 @@ jobs:
     - name: Decide whether to review
       id: todo
       env:
-        GH_TOKEN: ${{ github.token }}
         ASKED: ${{ github.event_name == 'issue_comment'
           || github.event.label.name == 'style-review' }}
         DRAFT: ${{ steps.pr.outputs.draft }}
         HEAD_REPO: ${{ steps.pr.outputs.repo }}
-        NUMBER: ${{ steps.pr.outputs.number }}
+        NO_REVIEW: ${{ steps.pr.outputs.no_review }}
       run: |
         stop() {
           echo "::notice::$1"
@@ -65,14 +64,8 @@ jobs:
           || stop "A pull request from a fork is not reviewed."
         [ "$DRAFT" = false ] || stop "A draft is not reviewed."
         if [ "$ASKED" != true ]; then
-          off="$(gh api --paginate \
-            "repos/$GITHUB_REPOSITORY/issues/$NUMBER/comments" --jq '
-              .[] | select(.author_association | . == "OWNER"
-                or . == "MEMBER" or . == "COLLABORATOR")
-              | select(.body | test("@discopy don.t review this PR"; "i"))
-              | .id' | wc -l)"
-          [ "$off" -eq 0 ] || stop "Someone with write access asked for no \
-        review on this pull request."
+          [ "$NO_REVIEW" = false ] \
+            || stop "This pull request is labelled no-style-review."
           if git ls-files | grep -Eiq '(^|/)todo(\.[^/]*)?$'; then
             stop "TODO is still there — the style review waits for the push \
         that deletes it."

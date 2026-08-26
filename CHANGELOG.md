@@ -10,14 +10,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 ### Added
 
 - The style review can be asked for, and turned off, from the pull request
-  itself: `@discopy review this` in a comment reviews it now, and
-  `@discopy don't review this PR` stops the automatic reviews on it, while
-  the comment and the `style-review` label go on working — it is "stop
-  reviewing this on its own", not "never review this". Both are read from
-  people with write access only, so that no one who can merely comment can
-  silence the reviewer or spend the gateway budget. A pull request that is
-  already open and not about to change had no trigger at all otherwise,
-  since only a push or a label reaches one
+  itself: `@discopy review this` in a comment reviews it now, and the
+  `no-style-review` label stops the automatic reviews on it, while the
+  comment and the `style-review` label go on working — it is "stop
+  reviewing this on its own", not "never review this". The comment is read
+  from people with write access only, and labelling already is, so nobody
+  who can merely comment can silence the reviewer or spend the gateway
+  budget. A pull request that is already open and not about to change had
+  no trigger at all otherwise, since only a push or a label reaches one
   ([#638](https://github.com/discopy/discopy/issues/638)).
 - A style review workflow: when a same-repo pull request leaves draft or
   gets the `style-review` label, one model request reads every changed
