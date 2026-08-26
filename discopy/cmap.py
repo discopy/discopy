@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 """
 An implementation of open `combinatorial maps
@@ -36,20 +35,20 @@ Summary
 """
 
 from __future__ import annotations
-from enum import StrEnum
 
+import operator
+import shutil
+import subprocess
 from collections.abc import Iterable
 from dataclasses import dataclass
-from functools import cached_property
+from enum import StrEnum
+from functools import cached_property, reduce
 from inspect import isclass
 from io import BytesIO
 from math import inf, lcm
-import shutil
-import subprocess
-from typing import Any, TYPE_CHECKING, ClassVar, Literal
+from typing import TYPE_CHECKING, ClassVar, Literal
 
-from discopy import messages, hypergraph
-from discopy.cat import Ob
+from discopy import hypergraph, messages
 from discopy.abc import (
     CompactCategory,
     NamedGeneric,
@@ -58,6 +57,7 @@ from discopy.abc import (
     SymmetricCategory,
     TracedCategory,
 )
+from discopy.cat import Ob
 from discopy.python.finset import Permutation
 from discopy.utils import (
     AxiomError,
@@ -69,7 +69,7 @@ from discopy.utils import (
 )
 
 if TYPE_CHECKING:
-    from discopy.monoidal import Ty, Diagram, Box
+    from discopy.monoidal import Box, Diagram, Ty
 
 
 class PortKind(StrEnum):
@@ -260,14 +260,17 @@ class CMap[C0: Pregroup, C1: CMap](
 
         inputs = [port(PortKind.INPUT, i=i, obj=obj, depth=-inf)
                   for i, obj in enumerate(self.dom)]
-        box_ports = sum([[
-            port(kind, i=i, obj=obj, depth=depth)
-            for i, obj in indexed_typ]
+        box_ports = reduce(operator.iadd, [
+            [
+              port(kind, i=i, obj=obj, depth=depth)
+              for i, obj in indexed_typ
+            ]
             for depth, box in enumerate(self.boxes)
             for kind, indexed_typ in [
                 (PortKind.DOM, tuple(enumerate(box.dom))),
-                (PortKind.COD, tuple(reversed(tuple(enumerate(box.cod)))))]],
-            [])
+                (PortKind.COD, tuple(reversed(tuple(enumerate(box.cod)))))
+            ]
+        ], [])
         outputs = [port(PortKind.OUTPUT, i=i, obj=obj, depth=inf)
                    for i, obj in enumerate(self.cod)]
         return inputs + box_ports + outputs
@@ -732,7 +735,7 @@ class CMap[C0: Pregroup, C1: CMap](
               f"boxes={self.boxes!r}, edges={self.edges!r}, " \
               f"loops={self.loops!r})"
 
-    def __eq__(self, other: Any):
+    def __eq__(self, other: object):
         return isinstance(other, CMap) and (
             self.dom, self.cod, self.boxes, self.edges, self.loops
         ) == (
@@ -1585,12 +1588,12 @@ cycles of this map.
                 '<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">'
                 + "".join(rows) + "</TABLE>")
 
-        node_attrs = dict(
-            color="black", fontname="DejaVu Sans", fontsize="12",
-            margin="0", shape="plain")
-        edge_attrs = dict(
-            color="black", fontname="DejaVu Sans", fontsize="9",
-            headclip="true", penwidth="1.4", tailclip="true")
+        node_attrs = {
+            "color": "black", "fontname": "DejaVu Sans", "fontsize": "12",
+            "margin": "0", "shape": "plain"}
+        edge_attrs = {
+            "color": "black", "fontname": "DejaVu Sans", "fontsize": "9",
+            "headclip": "true", "penwidth": "1.4", "tailclip": "true"}
         lines = [
             "graph cmap {",
             f"  graph [{attr_string(attrs)}];",
@@ -1601,7 +1604,7 @@ cycles of this map.
         port_nodes = {}
         for vertex in range(len(self.boxes)):
             box = self.boxes[vertex]
-            attributes = dict(label=Html(box_table(vertex, box)))
+            attributes = {"label": Html(box_table(vertex, box))}
             lines.append(
                 f"  v{vertex} [{attr_string(attributes)}];")
             for port_index in self._box_port_indices[vertex]:
@@ -1620,7 +1623,7 @@ cycles of this map.
                 (PortKind.OUTPUT, output_ports, "n")]:
             if not ports:
                 continue
-            attributes = dict(label=Html(boundary_table(ports)))
+            attributes = {"label": Html(boundary_table(ports))}
             lines.append(f"  {name} [{attr_string(attributes)}];")
             for port_index in ports:
                 port_nodes[port_index] = f"{name}:p{port_index}:{compass}"
@@ -1632,14 +1635,14 @@ cycles of this map.
                 lines.append(f"  {{ rank={rank}; {name}; }}")
 
         for i, loop in enumerate(self.loops):
-            attributes = dict(
-                label="",
-                width="0.08",
-                height="0.08",
-                shape="point",
-                tooltip=f"loop {i}: {loop}")
+            attributes = {
+                "label": "",
+                "width": "0.08",
+                "height": "0.08",
+                "shape": "point",
+                "tooltip": f"loop {i}: {loop}"}
             lines.append(f"  loop{i} [{attr_string(attributes)}];")
-            attributes = dict(len="0.85", label=loop)
+            attributes = {"len": "0.85", "label": loop}
             lines.append(
                 f"  loop{i} -- loop{i} "
                 f"[{attr_string(attributes)}];")
@@ -1653,13 +1656,13 @@ cycles of this map.
         def edge_labels(left, right):
             left_label, right_label = port_label(left), port_label(right)
             if left_label == right_label:
-                return dict(label=left_label)
-            return dict(taillabel=left_label, headlabel=right_label)
+                return {"label": left_label}
+            return {"taillabel": left_label, "headlabel": right_label}
 
         for i, j in enumerate(self.edges):
             if i < j:
-                attributes = dict(
-                    len="0.85", labeldistance="1.6") | edge_labels(i, j)
+                attributes = {
+                    "len": "0.85", "labeldistance": "1.6"} | edge_labels(i, j)
                 lines.append(
                     f'  {node_name(i)} -- {node_name(j)} '
                     f'[{attr_string(attributes)}];')
@@ -1722,7 +1725,7 @@ cycles of this map.
                     backend.save_and_compare(path, save, tol=tol)
                 else:
                     save(path)
-                return None
+                return
 
         executable = shutil.which(engine) or shutil.which("dot")
         if executable is None:
@@ -1741,7 +1744,7 @@ cycles of this map.
             else:
                 save(path)
         if not show:
-            return None
+            return
 
         png = subprocess.run(
             [executable, "-Tpng"], input=dot.encode(),
@@ -1757,4 +1760,4 @@ cycles of this map.
         figure.subplots_adjust(
             top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
         plt.show(block=block)
-        return None
+        return
