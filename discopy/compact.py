@@ -143,8 +143,8 @@ class Sum(symmetric.Sum, ribbon.Sum, Box):
 
     Parameters:
         terms (tuple[Diagram, ...]) : The terms of the formal sum.
-        dom (pivotal.Ty) : The domain of the formal sum.
-        cod (pivotal.Ty) : The codomain of the formal sum.
+        dom (Ty) : The domain of the formal sum.
+        cod (Ty) : The codomain of the formal sum.
     """
 
 
