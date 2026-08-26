@@ -322,6 +322,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- A `Cat`-valued functor applies to objects again: with `Functor.ob` now
+  `abc.Category` rather than `type[Category]`, the image of an object may
+  be a class implementing it, which `Functor.__call__` returns as is
+  instead of trying to instantiate `Category`. This was breaking the
+  `diagrams` notebook.
 - `braided.Diagram`, `rigid.Diagram` and `ribbon.Diagram` register their own
   `functor_factory`, which they defined but never assigned, so a functor out
   of them builds diagrams of their own class instead of their base's.

@@ -424,3 +424,11 @@ def test_strategy():
 
 def test_axioms():
     testing.assert_axioms(Arrow, Functor)
+
+
+def test_cat_valued_functor():
+    x, y = Ob('x'), Ob('y')
+    f = Box('f', x, y)
+    F = Functor(ob_map={x: x, y: y}, ar_map={f: f})
+    H = Functor(ob_map={x: Arrow, y: Arrow}, ar_map={f: F}, cod=Functor)
+    assert H(x) is Arrow and H(f) == F
