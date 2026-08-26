@@ -332,7 +332,7 @@ class Functor(compact.Functor, markov.Functor):
         return compact.Functor.__call__(self, other)
 
     @axiom
-    def spiders(self, x: Atomic[C0]):
+    def preserves_spiders(self, x: Atomic[C0]):
         """ A hypergraph functor preserves the spiders. """
         x = x.value
         return self.cod.equation_factory(
@@ -415,31 +415,6 @@ def coherence(cls: type, factory: Callable
 
 class CMap(compact.CMap):
     category = Diagram
-
-    @axiom
-    def copy_coassociativity(cls):
-        """ Combinatorial maps have no supply of comonoids. """
-        return NotImplemented
-
-    @axiom
-    def copy_cocommutativity(cls):
-        """ Combinatorial maps have no supply of comonoids. """
-        return NotImplemented
-
-    @axiom
-    def copy_counitality(cls):
-        """ Combinatorial maps have no supply of comonoids. """
-        return NotImplemented
-
-    @axiom
-    def frobenius(cls):
-        """ Combinatorial maps have no supply of spiders. """
-        return NotImplemented
-
-    @axiom
-    def speciality(cls):
-        """ Combinatorial maps have no supply of spiders. """
-        return NotImplemented
 
 
 Diagram.functor_factory = Functor

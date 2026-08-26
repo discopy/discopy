@@ -320,17 +320,13 @@ class Diagram(monoidal.Diagram, BiclosedCategory):
     def currying_left(
             cls, arguments: LeftCurrying[C0, C1]):
         """ Currying does not evaluate back, see #562. """
-        f, base, exponent = arguments
-        return AxiomError(cls.equation_factory(
-            cls._uncurry(f, base, exponent, left=True), f))
+        return AxiomError(super().currying_left(arguments))
 
     @axiom
     def currying_right(
             cls, arguments: RightCurrying[C0, C1]):
         """ Currying does not evaluate back, see #562. """
-        f, base, exponent = arguments
-        return AxiomError(cls.equation_factory(
-            cls._uncurry(f, base, exponent, left=False), f))
+        return AxiomError(super().currying_right(arguments))
 
 
 class Box(monoidal.Box, Diagram):

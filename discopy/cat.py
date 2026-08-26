@@ -1195,6 +1195,17 @@ class Equation(AbstractEquation[Arrow]):
         if up_to is not None:
             self.up_to = up_to
 
+    def modulo(self, up_to: Callable) -> Equation:
+        """
+        The same equation compared up to the given function, rebinding
+        :attr:`up_to`, whose name the attribute already takes.
+
+        >>> x = Ob('x')
+        >>> f, g = Box('f', x, x), Box('g', x, x)
+        >>> assert Equation(f >> g, g >> f).modulo(lambda _: True)
+        """
+        return type(self)(*self.terms, symbols=self.symbols, up_to=up_to)
+
     def __repr__(self):
         return factory_name(type(self))\
             + f"({', '.join(map(repr, self.terms))})"

@@ -327,7 +327,7 @@ class Functor(symmetric.Functor):
         return super().__call__(other)
 
     @axiom
-    def copy(self, x: Atomic[C0]):
+    def preserves_copy(self, x: Atomic[C0]):
         """ A Markov functor preserves the copy. """
         x = x.value
         return self.cod.equation_factory(
@@ -336,21 +336,6 @@ class Functor(symmetric.Functor):
 
 class CMap(symmetric.CMap):
     category = Diagram
-
-    @axiom
-    def copy_coassociativity(cls):
-        """ Combinatorial maps have no supply of comonoids. """
-        return NotImplemented
-
-    @axiom
-    def copy_cocommutativity(cls):
-        """ Combinatorial maps have no supply of comonoids. """
-        return NotImplemented
-
-    @axiom
-    def copy_counitality(cls):
-        """ Combinatorial maps have no supply of comonoids. """
-        return NotImplemented
 
 
 Diagram.functor_factory = Functor

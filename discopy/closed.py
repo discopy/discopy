@@ -188,25 +188,7 @@ class CMap(biclosed.CMap):
     def braid_naturality(
             cls, f: C1, g: C1):
         """ ``CMap.to_diagram`` fails on a traced box, see #606. """
-        return AxiomError(cls.equation_factory(
-            f @ g >> cls.braid(f.cod, g.cod),
-            cls.braid(f.dom, g.dom) >> g @ f,
-        ))
-
-    @axiom
-    def copy_coassociativity(cls):
-        """ Combinatorial maps have no supply of comonoids. """
-        return NotImplemented
-
-    @axiom
-    def copy_cocommutativity(cls):
-        """ Combinatorial maps have no supply of comonoids. """
-        return NotImplemented
-
-    @axiom
-    def copy_counitality(cls):
-        """ Combinatorial maps have no supply of comonoids. """
-        return NotImplemented
+        return AxiomError(super().braid_naturality(f, g))
 
 
 Diagram.functor_factory = Functor

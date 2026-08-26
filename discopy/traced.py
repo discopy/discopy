@@ -134,7 +134,9 @@ from discopy.utils import (
     assert_isinstance,
     assert_istraceable,
 )
-from discopy.testing import axiom
+from discopy.testing import inapplicable
+
+FREE_TRACE = "A free trace is a box, not a rewrite."
 
 
 @factory
@@ -174,35 +176,17 @@ class Diagram(monoidal.Diagram, TracedCategory):
     def to_drawing(self):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
 
-    @axiom
-    def trace_dinaturality_left(cls):
-        """ A free trace is a box, not a rewrite. """
-        return NotImplemented
+    trace_dinaturality_left = inapplicable(FREE_TRACE)
 
-    @axiom
-    def trace_dinaturality_right(cls):
-        """ A free trace is a box, not a rewrite. """
-        return NotImplemented
+    trace_dinaturality_right = inapplicable(FREE_TRACE)
 
-    @axiom
-    def trace_naturality_left(cls):
-        """ A free trace is a box, not a rewrite. """
-        return NotImplemented
+    trace_naturality_left = inapplicable(FREE_TRACE)
 
-    @axiom
-    def trace_naturality_right(cls):
-        """ A free trace is a box, not a rewrite. """
-        return NotImplemented
+    trace_naturality_right = inapplicable(FREE_TRACE)
 
-    @axiom
-    def trace_superposing_left(cls):
-        """ A free trace is a box, not a rewrite. """
-        return NotImplemented
+    trace_superposing_left = inapplicable(FREE_TRACE)
 
-    @axiom
-    def trace_superposing_right(cls):
-        """ A free trace is a box, not a rewrite. """
-        return NotImplemented
+    trace_superposing_right = inapplicable(FREE_TRACE)
 
 
 class Box(monoidal.Box, Diagram):

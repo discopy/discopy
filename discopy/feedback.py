@@ -410,13 +410,10 @@ class Diagram(markov.Diagram, FeedbackCategory):
         ``feedback`` unrolls heterogeneous memory in the wrong order, so it
         refuses to build the joined loop at all, see #606.
         """
-        f, mem = arguments
         try:
-            joined = f.feedback(mem=mem)
+            return AxiomError(super().feedback_joining(arguments))
         except AxiomError as error:
             return error
-        return AxiomError(cls.equation_factory(
-            joined, f.feedback().feedback()))
 
 
 class Box(markov.Box, Diagram):

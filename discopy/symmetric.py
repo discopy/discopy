@@ -726,7 +726,7 @@ class Functor(balanced.Functor):
         return super().__call__(other)
 
     @axiom
-    def swap(self, x: Atomic[C0], y: Atomic[C0]):
+    def preserves_swap(self, x: Atomic[C0], y: Atomic[C0]):
         """ A symmetric functor preserves the swap. """
         x, y = x.value, y.value
         return self.cod.equation_factory(
@@ -742,10 +742,7 @@ class CMap(traced.CMap):
     def braid_naturality(
             cls, f: C1, g: C1):
         """ ``CMap.to_diagram`` fails on a traced box, see #606. """
-        return AxiomError(cls.equation_factory(
-            f @ g >> cls.braid(f.cod, g.cod),
-            cls.braid(f.dom, g.dom) >> g @ f,
-        ))
+        return AxiomError(super().braid_naturality(f, g))
 
 
 Diagram.functor_factory = Functor

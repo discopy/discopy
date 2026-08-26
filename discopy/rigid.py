@@ -666,13 +666,8 @@ class Diagram(biclosed.Diagram, RigidCategory):
     @axiom
     def snake_equations(
             cls, x: C0):
-        """ The two snake equations. """
-        snake_r = (cls.id(x) @ cls.caps(x.r, x)).then(
-            cls.cups(x, x.r) @ cls.id(x))
-        snake_l = (cls.caps(x, x.l) @ cls.id(x)).then(
-            cls.id(x) @ cls.cups(x.l, x))
-        return cls.equation_factory(
-            snake_r, cls.id(x), snake_l, up_to=cls.normal_form)
+        """ The two snake equations, up to snake removal. """
+        return super().snake_equations(x).modulo(cls.normal_form)
 
 
 class Box(biclosed.Box, Diagram):
@@ -901,14 +896,14 @@ class Functor(biclosed.Functor):
         return super().__call__(other)
 
     @axiom
-    def cups(self, x: Atomic[C0]):
+    def preserves_cups(self, x: Atomic[C0]):
         """ A rigid functor preserves the cups. """
         x = x.value
         return self.cod.equation_factory(
             self(self.dom.cups(x, x.r)), self.cod.cups(self(x), self(x.r)))
 
     @axiom
-    def caps(self, x: Atomic[C0]):
+    def preserves_caps(self, x: Atomic[C0]):
         """ A rigid functor preserves the caps. """
         x = x.value
         return self.cod.equation_factory(

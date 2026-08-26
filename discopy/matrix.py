@@ -426,27 +426,19 @@ class Matrix(MarkovCategory, Strategy["Matrix"], NamedGeneric['dtype']):
     def copy_cocommutativity(
             cls, x: C0):
         """ ``Matrix.copy(x, n)`` is wrong for ``x, n >= 2``, see #606. """
-        copy = cls.copy(x)
-        return AxiomError(cls.equation_factory(
-            copy.then(cls.swap(x, x)), copy))
+        return AxiomError(super().copy_cocommutativity(x))
 
     @axiom
     def copy_counitality(
             cls, x: C0):
         """ ``Matrix.copy(x, n)`` is wrong for ``x, n >= 2``, see #606. """
-        copy, discard = cls.copy(x), cls.copy(x, n=0)
-        return AxiomError(cls.equation_factory(
-            copy.then(discard @ x), cls.id(x),
-            copy.then(x @ discard)))
+        return AxiomError(super().copy_counitality(x))
 
     @axiom
     def copy_monoidal_coherence(
             cls, x: C0):
         """ ``Matrix.copy(x, n)`` is wrong for ``x, n >= 2``, see #606. """
-        return AxiomError(cls.equation_factory(
-            cls.copy(x @ x),
-            (cls.copy(x) @ cls.copy(x)).then(
-                x @ cls.swap(x, x) @ x)))
+        return AxiomError(super().copy_monoidal_coherence(x))
 
 
 def array2string(array, **params):

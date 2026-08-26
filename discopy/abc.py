@@ -599,7 +599,7 @@ class PivotalCategory[C0, C1](RigidCategory[C0, C1], TracedCategory[C0, C1]):
         return cls.ob.equation_factory(x.r, x.l)
 
     @axiom
-    def transpose_axiom(
+    def pivotality(
             cls, f: C1) -> Equation[C1]:
         """ Equality of left and right transposes. """
         dom, cod = f.dom, f.cod

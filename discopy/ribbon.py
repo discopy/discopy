@@ -160,10 +160,7 @@ class Diagram(pivotal.Diagram, balanced.Diagram, RibbonCategory):
     def twist_as_trace(
             cls, x: Atomic[C0]):
         """ The traced braid does not reduce to the twist. """
-        x = x.value
-        braid = cls.braid(x, x)
-        return AxiomError(cls.equation_factory(
-            braid.trace(left=True), cls.twist(x), braid.trace()))
+        return AxiomError(super().twist_as_trace(x))
 
 
 class Box(pivotal.Box, balanced.Box, Diagram):

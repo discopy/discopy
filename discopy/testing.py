@@ -321,7 +321,11 @@ class LeftCurrying[C0, C1](
     left = True
 
     def __new__(cls, arrow: C1, base: C0, exponent: C0):
-        arrow.curry(left=cls.left)
+        exponential = base << exponent if cls.left else exponent >> base
+        arrow_dom = exponential @ exponent if cls.left\
+            else exponent @ exponential
+        if (arrow.dom, arrow.cod) != (arrow_dom, base):
+            raise ValueError("Expected an evaluation morphism.")
         return super().__new__(cls, (arrow, base, exponent))
 
     @classmethod
@@ -489,19 +493,26 @@ class Axiom[T]:
     failure and lets the search find the counterexample.
     """
 
-    def __init__(self, equation, *, carrier=None):
+    def __init__(self, equation, *, carrier=None, name=None):
         function = equation.__func__ if isinstance(equation, classmethod)\
             else equation
         self.equation = function
         self.signature = inspect.signature(function)
         self.receiver = next(iter(self.signature.parameters), None)
         self.carrier = carrier
-        self.name = self.__name__ = function.__name__
+        self.name = self.__name__ = name or function.__name__
         self.broken = "AxiomError" in function.__code__.co_names
         self.__doc__ = function.__doc__
 
     def __repr__(self):
         return f"Axiom({self.name})"
+
+    def __set_name__(self, owner, name):
+        """
+        Take the name of the attribute the axiom is assigned to, so that
+        :func:`inapplicable` needs no name of its own.
+        """
+        self.name = self.__name__ = name
 
     @property
     def is_method(self) -> bool:
@@ -510,7 +521,7 @@ class Axiom[T]:
 
     def bind(self, carrier: type[T]) -> Axiom[T]:
         """ Bind the axiom to a concrete carrier. """
-        return type(self)(self.equation, carrier=carrier)
+        return type(self)(self.equation, carrier=carrier, name=self.name)
 
     def __get__(self, instance, owner: type[T]) -> Axiom[T]:
         return self.bind(owner)
@@ -548,6 +559,33 @@ def axiom(equation) -> Axiom:
     return Axiom(equation)
 
 
+def inapplicable(reason: str) -> Axiom:
+    """
+    Declare that an inherited law does not apply to the carrier.
+
+    The axiom takes no argument and returns :obj:`NotImplemented`, with the
+    reason as its documentation; it takes its name from the attribute it is
+    assigned to, e.g. ``unitality = inapplicable("No identities.")``.
+    """
+    def law(cls):
+        return NotImplemented
+    law.__doc__ = reason
+    return Axiom(law)
+
+
+def assert_strategy_finds(carrier, *structures) -> None:
+    """
+    Check that the strategy of an arrow carrier generates a term containing
+    a box of each of the given structural classes.
+    """
+    from hypothesis import find
+
+    for structure in structures:
+        find(carrier.strategy(), lambda term: any(
+            isinstance(box, structure)
+            for box in getattr(term, "boxes", term.inside)))
+
+
 def assert_verdict(axiom: Axiom, verdict) -> None:
     """
     Assert the verdict a bound axiom returned for some arguments.
@@ -577,4 +615,4 @@ def declared_axioms(cls) -> dict[str, Axiom]:
         for base in reversed(cls.__mro__)
         for name, value in base.__dict__.items()}
     return {name: value for name, value in visible.items()
-            if isinstance(value, Axiom) and name == value.name}
+            if isinstance(value, Axiom)}

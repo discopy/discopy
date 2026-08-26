@@ -68,7 +68,6 @@ from discopy.drawing import Drawing
 from discopy.config import (
     BOX_DRAWING_ATTRIBUTES, WIRE_DRAWING_ATTRIBUTES,
     COLOUR_DRAWING_ATTRIBUTES)
-from discopy.cat import factory
 from discopy.utils import (
     factory,
     factory_name,
@@ -1522,10 +1521,8 @@ class Diagram(
     @axiom
     def bifunctoriality(
             cls, square: Bifunctor[C1]):
-        """ Bifunctoriality of the tensor. """
-        f, g, h, k = square
-        return cls.equation_factory(
-            f @ g >> h @ k, (f >> h) @ (g >> k), up_to=cls.normal_form)
+        """ Bifunctoriality of the tensor, up to the interchanger. """
+        return super().bifunctoriality(square).modulo(cls.normal_form)
 
 
 class Box(cat.Box, Diagram):
@@ -1907,7 +1904,7 @@ class Functor(cat.Functor):
         return super().__call__(other)
 
     @axiom
-    def tensor(self, pair: HorizontalPair[C1]):
+    def preserves_tensor(self, pair: HorizontalPair[C1]):
         """ A monoidal functor preserves the tensor. """
         f, g = pair
         return self.cod.equation_factory(self(f @ g), self(f) @ self(g))

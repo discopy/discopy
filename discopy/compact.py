@@ -86,7 +86,7 @@ class Diagram(symmetric.Diagram, ribbon.Diagram, CompactCategory):
 
     currying_right = abc.BiclosedCategory.currying_right
 
-    transpose_axiom = abc.PivotalCategory.transpose_axiom
+    pivotality = abc.PivotalCategory.pivotality
 
     twist_as_trace = abc.RibbonCategory.twist_as_trace
 
@@ -94,9 +94,7 @@ class Diagram(symmetric.Diagram, ribbon.Diagram, CompactCategory):
     def rotate_contravariance(cls, pair: ComposablePair[C1]):
         """ ``to_hypergraph`` drops the rotation of a box, so the equation
         holds but cannot be checked up to hypergraph. """
-        f, g = pair
-        return AxiomError(cls.equation_factory(
-            f.then(g).rotate(), g.rotate().then(f.rotate())))
+        return AxiomError(super().rotate_contravariance(pair))
 
 
 class Box(symmetric.Box, ribbon.Box, Diagram):

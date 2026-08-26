@@ -196,16 +196,10 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
     trace_superposing_right = abc.TracedCategory.trace_superposing_right
 
     @axiom
-    def transpose_axiom(
+    def pivotality(
             cls, f: C1):
         """ The two transposes differ by a snake. """
-        dom, cod = f.dom, f.cod
-        left_transpose = (cod.l @ cls.caps(dom, dom.l)).then(
-            cod.l @ f @ dom.l).then(cls.cups(cod.l, cod) @ dom.l)
-        right_transpose = (cls.caps(dom.r, dom) @ cod.r).then(
-            dom.r @ f @ cod.r).then(dom.r @ cls.cups(cod, cod.r))
-        return AxiomError(cls.equation_factory(
-            left_transpose, right_transpose))
+        return AxiomError(super().pivotality(f))
 
 
 class Box(rigid.Box, Diagram):

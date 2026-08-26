@@ -50,7 +50,7 @@ from discopy import messages, hypergraph
 from discopy.cat import Box as CatBox, Ob
 from discopy.abc import CompactCategory, NamedGeneric, Pregroup
 from discopy.python.finset import Permutation
-from discopy.testing import Strategy, axiom, declared_axioms
+from discopy.testing import Strategy, axiom, declared_axioms, inapplicable
 from discopy.utils import (
     AxiomError,
     assert_isinstance,
@@ -61,6 +61,11 @@ from discopy.utils import (
 
 if TYPE_CHECKING:
     from discopy.monoidal import Ty, Diagram, Box
+
+FREE_TRACE = "A free trace is a box, not a rewrite."
+NO_COMONOIDS = "Combinatorial maps have no supply of comonoids."
+NO_EXPONENTIALS = "Combinatorial maps have no exponential objects."
+NO_SPIDERS = "Combinatorial maps have no supply of spiders."
 
 
 class PortKind(StrEnum):
@@ -1585,37 +1590,29 @@ class CMap[C0: Pregroup, C1: CMap](
         plt.show(block=block)
         return None
 
-    @axiom
-    def currying_left(cls):
-        """ Combinatorial maps have no exponential objects. """
-        return NotImplemented
+    currying_left = inapplicable(NO_EXPONENTIALS)
 
-    @axiom
-    def currying_right(cls):
-        """ Combinatorial maps have no exponential objects. """
-        return NotImplemented
+    currying_right = inapplicable(NO_EXPONENTIALS)
 
-    @axiom
-    def rotate_contravariance(cls):
-        """ Combinatorial maps do not implement rotation. """
-        return NotImplemented
+    rotate_contravariance = inapplicable(
+        "Combinatorial maps do not implement rotation.")
 
-    @axiom
-    def trace_dinaturality_left(cls):
-        """ A free trace is a box, not a rewrite. """
-        return NotImplemented
+    trace_dinaturality_left = inapplicable(FREE_TRACE)
 
-    @axiom
-    def trace_dinaturality_right(cls):
-        """ A free trace is a box, not a rewrite. """
-        return NotImplemented
+    trace_dinaturality_right = inapplicable(FREE_TRACE)
 
-    @axiom
-    def trace_naturality_left(cls):
-        """ A free trace is a box, not a rewrite. """
-        return NotImplemented
+    trace_naturality_left = inapplicable(FREE_TRACE)
 
-    @axiom
-    def trace_naturality_right(cls):
-        """ A free trace is a box, not a rewrite. """
-        return NotImplemented
+    trace_naturality_right = inapplicable(FREE_TRACE)
+
+    copy_coassociativity = inapplicable(NO_COMONOIDS)
+
+    copy_cocommutativity = inapplicable(NO_COMONOIDS)
+
+    copy_counitality = inapplicable(NO_COMONOIDS)
+
+    frobenius = inapplicable(NO_SPIDERS)
+
+    speciality = inapplicable(NO_SPIDERS)
+
+    spider_fusion = inapplicable(NO_SPIDERS)

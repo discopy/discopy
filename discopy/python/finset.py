@@ -167,10 +167,7 @@ class Function(SymmetricCategory, Sequence, Strategy["Function"]):
     def braid_naturality(
             cls, f: C1, g: C1):
         """ ``Function.swap`` returns the inverse permutation, see #606. """
-        return AxiomError(cls.equation_factory(
-            f @ g >> cls.braid(f.cod, g.cod),
-            cls.braid(f.dom, g.dom) >> g @ f,
-        ))
+        return AxiomError(super().braid_naturality(f, g))
 
     @axiom
     def hexagon_left(
@@ -178,10 +175,7 @@ class Function(SymmetricCategory, Sequence, Strategy["Function"]):
             y: Atomic[C0],
             z: Atomic[C0]):
         """ ``Function.swap`` returns the inverse permutation, see #606. """
-        x, y, z = x.value, y.value, z.value
-        return AxiomError(cls.equation_factory(
-            cls.braid(x, y @ z),
-            (cls.braid(x, y) @ z).then(y @ cls.braid(x, z))))
+        return AxiomError(super().hexagon_left(x, y, z))
 
     @axiom
     def hexagon_right(
@@ -189,10 +183,7 @@ class Function(SymmetricCategory, Sequence, Strategy["Function"]):
             y: Atomic[C0],
             z: Atomic[C0]):
         """ ``Function.swap`` returns the inverse permutation, see #606. """
-        x, y, z = x.value, y.value, z.value
-        return AxiomError(cls.equation_factory(
-            cls.braid(x @ y, z),
-            (x @ cls.braid(y, z)).then(cls.braid(x, z) @ y)))
+        return AxiomError(super().hexagon_right(x, y, z))
 
 
 type Cycle = Iterable[int]
