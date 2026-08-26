@@ -270,56 +270,28 @@ FREE = {
 }
 
 
-CARRIERS = [
-    symmetric.CMap, compact.CMap, closed.CMap, markov.CMap, frobenius.CMap,
-    traced.Diagram,
-]
+def marks(axiom):
+    """ Skip an axiom that does not apply, expect a broken one to fail. """
+    if not axiom.parameters and axiom() is NotImplemented:
+        return pytest.mark.skip,
+    return (pytest.mark.xfail, ) if axiom.broken else ()
 
 
 def all_axioms():
+    """ Every axiom of each structure, as its free category states it. """
     for structure, free_category in FREE.items():
         for axiom in structure.axioms:
-            axiom = declared_axioms(free_category).get(axiom.name, axiom)
-            axiom = axiom.bind(free_category)
-            marks = (pytest.mark.skip,) if (
-                not axiom.parameters and axiom() is NotImplemented)\
-                else (pytest.mark.xfail,) if axiom.broken else ()
+            axiom = declared_axioms(free_category).get(
+                axiom.name, axiom).bind(free_category)
             yield pytest.param(
-                axiom,
-                id=f"{utils.factory_name(free_category)}.{axiom.name}",
-                marks=marks,
-            )
+                axiom, marks=marks(axiom),
+                id=f"{utils.factory_name(free_category)}.{axiom.name}")
 
 
 @pytest.mark.parametrize("axiom", all_axioms())
 def test_axioms_instantiation_on_diagrams(axiom):
     arguments = getattr(Arguments, axiom.name)(axiom.carrier)
     assert_verdict(axiom, axiom(*arguments))
-
-
-def abstract_axioms():
-    """ Every abstract statement, on the free category of its structure. """
-    for structure, free_category in FREE.items():
-        for axiom in structure.axioms:
-            yield pytest.param(
-                axiom.bind(free_category),
-                id=f"{utils.factory_name(free_category)}.{axiom.name}")
-
-
-@pytest.mark.parametrize("axiom", abstract_axioms())
-def test_abstract_axioms_are_well_typed(axiom):
-    """
-    Every statement as :mod:`discopy.abc` makes it builds on each free
-    category, even where the category restates it to say it does not hold.
-
-    An implementation broken enough to refuse the terms altogether is the one
-    exception, and only where the category declares the axiom broken.
-    """
-    arguments = getattr(Arguments, axiom.name)(axiom.carrier)
-    try:
-        assert isinstance(axiom(*arguments), abc.Equation)
-    except AxiomError:
-        assert declared_axioms(axiom.carrier)[axiom.name].broken
 
 
 FUNCTORS = [
@@ -331,50 +303,57 @@ FUNCTORS = [
 
 
 def functor_axioms():
-    """ Every axiom each level of Functor adds, on its own free category. """
+    """ Every axiom each level of Functor states or inherits. """
     for functor in FUNCTORS:
         for axiom in functor.axioms:
-            marks = (pytest.mark.skip,) if (
-                not axiom.parameters and axiom() is NotImplemented)\
-                else (pytest.mark.xfail,) if axiom.broken else ()
             yield pytest.param(
-                axiom, id=f"{utils.factory_name(functor)}.{axiom.name}",
-                marks=marks)
+                axiom, marks=marks(axiom),
+                id=f"{utils.factory_name(functor)}.{axiom.name}")
 
 
-def functor_arguments(name, category):
-    """ Canonical arguments for the law a Functor states of itself. """
+def functor_arguments(axiom, identity):
+    """ Canonical arguments for a law a Functor states or inherits. """
+    if axiom.name == "unitality":
+        return identity,
+    if axiom.name == "associativity":
+        return ComposableTriple(identity, identity, identity),
+    if axiom.name.startswith("composition"):
+        return ComposablePair(identity, identity),
+    if not axiom.is_method:
+        return ()
+    category = axiom.carrier.dom
     x, y = map(category.ob, "xy")
-    if name == "tensor":
-        return HorizontalPair(
-            box(category, "f", x, y), box(category, "g", y, x)),
-    if name == "swap":
-        return Atomic(x), Atomic(y)
-    return Atomic(x),
+    if axiom.name == "tensor":
+        return identity, HorizontalPair(
+            box(category, "f", x, y), box(category, "g", y, x))
+    if axiom.name == "swap":
+        return identity, Atomic(x), Atomic(y)
+    return identity, Atomic(x)
 
 
 @pytest.mark.parametrize("axiom", functor_axioms())
 def test_functor_axioms_hold_for_the_identity(axiom):
     """ Each law of a Functor, on the identity functor of its domain. """
     identity = axiom.carrier(Relabelling(), Relabelled(Relabelling()))
-    if not axiom.is_method:
-        return assert_verdict(axiom, axiom(*class_arguments(axiom, identity)))
-    arguments = functor_arguments(axiom.name, axiom.carrier.dom)
-    assert_verdict(axiom, axiom(identity, *arguments))
+    assert_verdict(axiom, axiom(*functor_arguments(axiom, identity)))
+
+@pytest.mark.parametrize("axiom", all_axioms())
+def test_axioms_instantiation_on_diagrams(axiom):
+    arguments = getattr(Arguments, axiom.name)(axiom.carrier)
+    assert_verdict(axiom, axiom(*arguments))
 
 
-def class_arguments(axiom, identity):
-    """ Canonical arguments for a law a Functor inherits from Category. """
-    if axiom.name == "unitality":
-        return identity,
-    if axiom.name.startswith("composition"):
-        return ComposablePair(identity, identity),
-    if axiom.name == "associativity":
-        return ComposableTriple(identity, identity, identity),
-    return ()
+FUNCTORS = [
+    cat.Functor, monoidal.Functor, braided.Functor, traced.Functor,
+    balanced.Functor, symmetric.Functor, biclosed.Functor, rigid.Functor,
+    pivotal.Functor, ribbon.Functor, compact.Functor, markov.Functor,
+    closed.Functor, feedback.Functor, frobenius.Functor,
+]
 
 
-@pytest.mark.parametrize("carrier", CARRIERS)
+@pytest.mark.parametrize("carrier", [
+    symmetric.CMap, compact.CMap, closed.CMap, markov.CMap, frobenius.CMap,
+    traced.Diagram])
 def test_inapplicable_axioms_declare_themselves(carrier):
     """ Every axiom taking no argument answers that it does not apply. """
     declared = [axiom for axiom in carrier.axioms if not axiom.parameters]

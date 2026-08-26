@@ -36,24 +36,19 @@ def axiom_parameter(axiom):
     test is skipped rather than generating arguments it could not satisfy.
     """
     if not axiom.parameters and axiom() is NotImplemented:
-        return pytest.param(
-            axiom, id=f"{axiom.name} (wontfix)",
-            marks=pytest.mark.skip(reason=axiom.__doc__.strip()))
-    if axiom.broken:
-        return pytest.param(
-            axiom, id=f"{axiom.name} (bug)",
-            marks=pytest.mark.xfail(reason=axiom.__doc__.strip()))
-    return pytest.param(axiom, id=axiom.name)
-
-
-def axiom_list(cls):
-    """ Bind the axioms implemented by ``category``. """
-    for axiom in getattr(cls, "axioms", ()):
-        yield axiom_parameter(axiom)
+        marks = pytest.mark.skip(reason=axiom.__doc__.strip())
+    elif axiom.broken:
+        marks = pytest.mark.xfail(reason=axiom.__doc__.strip())
+    else:
+        marks = ()
+    return pytest.param(axiom, id=axiom.name, marks=marks)
 
 
 def axiom_tests(cls):
-    @pytest.mark.parametrize("axiom", axiom_list(cls))
+    """ Check every axiom of a carrier against generated arguments. """
+    axioms = getattr(cls, "axioms", ())
+
+    @pytest.mark.parametrize("axiom", map(axiom_parameter, axioms))
     @given(data=st.data())
     @settings(max_examples=25, deadline=None)
     def test(self, axiom, data):
