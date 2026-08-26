@@ -465,6 +465,8 @@ class Functor(frobenius.Functor):
                 try:
                     import opt_einsum
                 except ImportError as error:
+                    if error.name != "opt_einsum":
+                        raise
                     raise ImportError(
                         "Contracting more than "
                         f"{config.MAX_EINSUM_INDICES} indices requires "
