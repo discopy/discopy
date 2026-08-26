@@ -2,28 +2,7 @@ from __future__ import annotations
 
 from pytest import raises
 
-from discopy import monoidal
 from discopy.closed import *
-
-
-class Unitype(Exp):
-    "The unitype is its own exponential, i.e. ``U == U >> U``."
-    def __init__(self):
-        monoidal.Wire.__init__(self, "U")
-        self.base = self.exponent = Ty(self)
-
-    def __eq__(self, other):
-        return isinstance(other, Unitype) or isinstance(other, Exp)\
-            and (other.base, other.exponent) == (self.base, self.exponent)
-
-    def __hash__(self):
-        return hash(repr(Exp(self.base, self.exponent)))
-
-    def __str__(self):
-        return "U"
-
-    def __repr__(self):
-        return "Unitype()"
 
 
 U = Ty(Unitype())
@@ -107,7 +86,7 @@ def test_normal_form_idempotent():
     exp = two.cod(lambda m: two.cod(lambda n: n(m)))
     result = exp(two)(three).normal_form()
     assert result == result.normal_form()
-    x, y = Variable('x', U), Variable("x'", U)
+    x, y = Variable('x', U), Variable("x1", U)
     body = y
     for _ in range(8):
         body = x(body)
@@ -123,7 +102,7 @@ def test_reduce_budget():
     scope = (h, c, d)
 
     tree0 = term.reduce(budget=0)
-    assert (tree0.cod, tree0.variables, tree0.head) == (X, scope, 0)
+    assert (tree0.head_cod, tree0.variables, tree0.head) == (X, scope, 0)
     assert tree0.spine == (identity(c), identity(d))
     with raises(ValueError):
         tree0[0]
@@ -133,8 +112,8 @@ def test_reduce_budget():
         tree0.to_term()
 
     tree_negative = term.reduce(budget=-1)
-    assert (tree_negative.cod, tree_negative.variables, tree_negative.head)\
-        == (X, scope, 0)
+    assert (tree_negative.head_cod, tree_negative.variables,
+            tree_negative.head) == (X, scope, 0)
     with raises(ValueError):
         tree_negative[0]
 
@@ -162,10 +141,6 @@ def test_reduce_strategy():
     term = h(X(lambda x: x)(c))(X(lambda x: x)(d))
     scope = (h, c, d)
 
-    class RightmostFirst(LeftmostOutermost):
-        def order(self, terms):
-            return tuple(reversed(range(len(terms))))
-
     tree = term.reduce(budget=1, strategy=RightmostFirst)
     assert tree.strategy.order(tree.spine) == (1, 0)
     with raises(ValueError):
@@ -180,11 +155,11 @@ def test_reduce_strategy():
         Constant('e', X).reduce()
 
 
-def test_bohm_tree_ty():
+def test_bohm_tree_cod():
     X = Ty('X')
     two = church(2, X)
     tree = two.reduce()
-    assert tree.ty() == two.cod
+    assert tree.cod() == two.cod
     assert tree.to_term() == two
 
 
@@ -211,10 +186,10 @@ def test_substitution():
     assert Substitution({x: c})(g(c)) == g(c)
     h = Variable('h', X >> (X >> (X >> X)))
     f, y = Variable('f', X >> X), Variable('y', X)
-    y_, y__ = Variable("y'", X), Variable("y''", X)
+    y_, y1 = Variable("y'", X), Variable("y1", X)
     term = X(lambda y: f(y))
     assert Substitution({f: h(y)(y_)})(term)\
-        == Abstraction(y__, h(y)(y_)(y__))
+        == Abstraction(y1, h(y)(y_)(y1))
 
 
 def test_Application_without_freevars():

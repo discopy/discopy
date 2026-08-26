@@ -12,6 +12,7 @@ Summary
 
     Ty
     Exp
+    Unitype
     TermBase
     Constant
     Variable
@@ -21,6 +22,7 @@ Summary
     BohmTree
     Strategy
     LeftmostOutermost
+    RightmostFirst
     Diagram
     Box
     Eval
@@ -88,6 +90,34 @@ class Exp(biclosed.Exp):
 
     def __str__(self):
         return f"({self.exponent} >> {self.base})"
+
+
+class Unitype(Exp):
+    """
+    The unitype is its own exponential, i.e. ``U == U >> U``: embedding the
+    untyped lambda calculus, where every term can be applied to every other.
+
+    Example
+    -------
+    >>> U = Ty(Unitype())
+    >>> assert U == U >> U and U.base == U == U.exponent
+    """
+    def __init__(self):
+        monoidal.Wire.__init__(self, "U")
+        self.base = self.exponent = Ty(self)
+
+    def __eq__(self, other):
+        return isinstance(other, Unitype) or isinstance(other, Exp)\
+            and (other.base, other.exponent) == (self.base, self.exponent)
+
+    def __hash__(self):
+        return hash(repr(Exp(self.base, self.exponent)))
+
+    def __str__(self):
+        return "U"
+
+    def __repr__(self):
+        return "Unitype()"
 
 
 @factory
@@ -354,8 +384,11 @@ class Substitution:
     Parameters:
         inside : The mapping from variables to terms of the same type.
 
-    A bound variable is renamed, appending primes to its name, only when a
-    free variable of a substituted term would be captured.
+    A bound variable is renamed, appending the smallest positive index that
+    avoids a clash, only when a free variable of a substituted term would be
+    captured: ``STYLE.md``'s transparency clause asks for
+    ``eval(str(term)) == term``, which an appended index keeps a valid
+    identifier while an appended quote would break.
 
     Example
     -------
@@ -366,7 +399,7 @@ class Substitution:
     X(lambda x: X(lambda y: y)(x))
     >>> g = Variable('g', X >> (X >> X))
     >>> print(Substitution({f: g(y)})(X(lambda y: f(y))))
-    X(lambda y': g(y)(y'))
+    X(lambda y1: g(y)(y1))
     """
     inside: dict[Variable, Term]
 
@@ -400,16 +433,16 @@ class Substitution:
 
     def fresh(self, var: Variable, avoid: list[Variable]) -> Variable:
         """
-        Rename a variable, appending primes until it avoids a list of
-        variables.
+        Rename a variable, appending the smallest positive index that avoids
+        a list of variables, e.g. ``x -> x1 -> x2 -> ...``.
 
         Parameters:
             var : The variable to rename.
             avoid : The variables whose names to avoid.
         """
-        names, name = {x.name for x in avoid}, var.name
+        names, name, i = {x.name for x in avoid}, var.name, 1
         while name in names:
-            name += "'"
+            name, i = f"{var.name}{i}", i + 1
         return type(var)(name, var.cod)
 
 
@@ -424,7 +457,9 @@ class BohmTree:
     raises :class:`ValueError` if its budget has run out.
 
     Parameters:
-        cod : The type of the head variable applied to the arguments.
+        head_cod : The type of the head variable applied to the arguments,
+            i.e. of the tree without abstracting its own bound variables.
+            Use :meth:`cod` for the type of the term it represents.
         variables : The variables in scope, those of the parent followed by
             the ones bound at this node.
         head : The index in ``variables`` of the head variable.
@@ -445,7 +480,7 @@ class BohmTree:
     >>> print(tree.to_term())
     (X >> X)(lambda f: X(lambda x: f(x)))
     """
-    cod: Ty
+    head_cod: Ty
     variables: tuple[Variable, ...]
     head: int
     strategy: Strategy = field(compare=False)
@@ -454,28 +489,30 @@ class BohmTree:
         default_factory=dict, compare=False, repr=False, init=False)
 
     def __post_init__(self):
-        assert_isinstance(self.cod, Ty)
+        assert_isinstance(self.head_cod, Ty)
         assert_isinstance(self.head, int)
         assert_isinstance(self.strategy, Strategy)
         if not 0 <= self.head < len(self.variables):
             raise AxiomError(
                 f"Expected 0 <= head < {len(self.variables)}, "
                 f"got {self.head} instead.")
-        cod = self.variables[self.head].cod
+        head_cod = self.variables[self.head].cod
         for term in self.spine:
             assert_isinstance(term, TermBase)
-            if not cod.is_exp:
-                raise AxiomError(f"Expected an exponential type, got {cod}.")
-            if term.cod != cod.exponent:
+            if not head_cod.is_exp:
                 raise AxiomError(
-                    f"Expected argument.cod == {cod.exponent}, "
+                    f"Expected an exponential type, got {head_cod}.")
+            if term.cod != head_cod.exponent:
+                raise AxiomError(
+                    f"Expected argument.cod == {head_cod.exponent}, "
                     f"got {term.cod} instead.")
-            cod = cod.base
-        if cod != self.cod:
+            head_cod = head_cod.base
+        if head_cod != self.head_cod:
             raise AxiomError(
-                f"Expected result type {cod}, got {self.cod} instead.")
+                f"Expected result type {head_cod}, "
+                f"got {self.head_cod} instead.")
 
-    def ty(self, n: int = 0) -> Ty:
+    def cod(self, n: int = 0) -> Ty:
         """
         The type of the term of the tree, abstracting over ``variables[n:]``
         for ``n`` the number of variables of the parent.
@@ -483,7 +520,7 @@ class BohmTree:
         Parameters:
             n : The number of variables bound by the parent.
         """
-        result = self.cod
+        result = self.head_cod
         for var in reversed(self.variables[n:]):
             result = var.cod >> result
         return result
@@ -524,7 +561,7 @@ class BohmTree:
 
     def __repr__(self):
         return factory_name(type(self)) + (
-            f"({self.cod!r}, {self.variables!r}, {self.head}, "
+            f"({self.head_cod!r}, {self.variables!r}, {self.head}, "
             f"{self.strategy!r}, {self.spine!r})")
 
 
@@ -620,6 +657,26 @@ class LeftmostOutermost(Strategy):
     """
     def order(self, terms):
         return tuple(range(len(terms)))
+
+
+class RightmostFirst(LeftmostOutermost):
+    """
+    A :class:`Strategy` that contracts the head redex, then forces the
+    arguments of the head variable from right to left, e.g. to reduce the
+    last argument first within a fixed budget.
+
+    Example
+    -------
+    >>> X = Ty('X')
+    >>> c, d = Variable('c', X), Variable('d', X)
+    >>> h = Variable('h', X >> (X >> X))
+    >>> term = h(X(lambda x: x)(c))(X(lambda x: x)(d))
+    >>> tree = term.reduce(budget=1, strategy=RightmostFirst)
+    >>> assert tree.strategy.order(tree.spine) == (1, 0)
+    >>> assert tree[1].to_term(len(tree.variables)) == d
+    """
+    def order(self, terms):
+        return tuple(reversed(range(len(terms))))
 
 
 Ty.variable_factory = Variable
