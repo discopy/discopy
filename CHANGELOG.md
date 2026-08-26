@@ -12,13 +12,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - The style review can be asked for, and turned off, from the pull request
   itself: `@discopy review this` in a comment reviews it now, and the
   `no-style-review` label stops the automatic reviews on it, while the
-  comment and the `style-review` label go on working — it is "stop
-  reviewing this on its own", not "never review this". The comment is read
-  from people with write access only, and labelling already is, so nobody
-  who can merely comment can silence the reviewer or spend the gateway
-  budget. A pull request that is already open and not about to change had
-  no trigger at all otherwise, since only a push or a label reaches one
-  ([#638](https://github.com/discopy/discopy/issues/638)).
+  comment goes on working — it is "stop reviewing this on its own", not
+  "never review this". The comment is read from people with write access
+  only, and labelling already is, so nobody who can merely comment can
+  silence the reviewer or spend the gateway budget. It replaces the
+  `style-review` label, which did the same on demand except that it never
+  handed over to the correctness reviewer. A pull request already open and
+  not about to change had no trigger at all otherwise, since only a push
+  reaches one ([#638](https://github.com/discopy/discopy/issues/638)).
 - `Diagram.to_compact` and `CMap.to_compact`, bending curry bubbles into
   coevaluation and feedback. Since a biclosed category has no trace, the
   `biclosed` method lands in `CMap`, which is compact whatever hosts it,
@@ -27,10 +28,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   with `biclosed.Coeval`, the transpose of `Eval`, which a biclosed
   category only has when its exponential is read at a reflexive object
   ([#532](https://github.com/discopy/discopy/pull/532)).
-- A style review workflow: when a same-repo pull request leaves draft or
-  gets the `style-review` label, one model request reads every changed
-  Python file whole — with the package-local files they import as context —
-  checks the diff against the file's own conventions and `STYLE.md`, and
+- A style review workflow: on a revision of a same-repo pull request, one
+  model request reads every changed Python file whole — with the
+  package-local files they import as context — checks the diff against the
+  file's own conventions and `STYLE.md`, and
   discopy-bot posts the findings as one review — style only, correctness
   stays with the correctness reviewer, whom discopy-bot calls once the
   style review has nothing to say. Inference runs on an open-weights
@@ -275,9 +276,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `main` alone never drafts and never marks ready, is reviewed on the push
   itself. The hand-over to the correctness reviewer happens once per pull
   request rather than on every clean run, since it re-reviews each push on
-  its own. A draft is never reviewed, whatever the trigger: the
-  `style-review` label stays the manual override, on a pull request that is
-  ready, and is the one trigger that ignores the wait
+  its own. A draft is never reviewed, whatever the trigger, and asking for
+  one by comment is what ignores the wait
   ([#615](https://github.com/discopy/discopy/issues/615),
   [#636](https://github.com/discopy/discopy/issues/636)).
 - Pivotal diagram-to-map conversion now encodes cups and caps as `CMap`
