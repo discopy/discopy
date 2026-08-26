@@ -380,81 +380,59 @@ class FeedbackJoining[C0, C1](
         return st.tuples(objects, atomic, atomic).flatmap(arrows)
 
 
-class Endofunctor[C1](Strategy[tuple[C1, object, object]], tuple):
-    """ A functor from a free category to itself, and two arrows to send. """
+@dataclass(frozen=True)
+class Relabelling:
+    """
+    A total map on the generators of a free category, sending the ones it
+    names to a chosen object and every other one to itself.
 
-    def __new__(cls, functor, *arrows):
-        for arrow in arrows:
-            functor(arrow)
-        return super().__new__(cls, (functor, *arrows))
+    A functor built from a relabelling compares equal to another when their
+    labellings do, which a closure would not, so the axioms of ``Cat`` itself
+    can be checked on generated functors.
+    """
+    images: tuple[tuple[str, object], ...] = ()
 
-    @classmethod
-    def strategy(cls, *, factory: type[C1]):
+    def __call__(self, atom):
         """
-        Generate an endofunctor of ``factory.dom`` and two composable
-        generators to send through it.
-
-        Objects go to atomic objects, so that the functor respects whatever
-        duality its category has: a wider image would send ``x.r`` and
-        ``F(x).r`` to types that reverse differently, which is no longer a
-        rigid functor.
-
-        The arrows are free boxes rather than arbitrary diagrams, so that the
-        same shape works at every level of the hierarchy: the structural
-        boxes of a category come with their own constraints, e.g. cups need
-        adjoint types and feedback needs delayed ones, and a functor
-        preserves them by construction rather than through its ``ar_map``.
-
-        Both maps are callables keyed by the name of a generator rather than
-        dictionaries, because a functor looks its objects up by slicing a
-        type and the class that slicing returns differs across the hierarchy.
+        The image of an atomic object, carrying over whatever the atom does:
+        a rotation in a rigid category, a delay in a feedback one.
         """
-        from hypothesis import strategies as st
+        wire, = getattr(atom, "inside", (atom, ))
+        image = dict(self.images).get(wire.name)
+        if image is None:
+            return atom
+        turns = getattr(wire, "z", 0)
+        for _ in range(abs(turns)):
+            image = image.l if turns < 0 else image.r
+        steps = getattr(wire, "time_step", 0)
+        return image.delay(steps) if steps else image
 
-        category = factory.dom
-        generator = getattr(category, "box_factory", None)\
-            or category.generator_factory
-        atoms = lambda typ: [typ[i:i + 1] for i in range(len(typ))]\
-            if hasattr(typ, "inside") else [typ]
-        key = lambda atom: atom.inside[0].name\
-            if hasattr(atom, "inside") else atom.name
-        turns = lambda atom: getattr(
-            atom.inside[0] if hasattr(atom, "inside") else atom, "z", 0)
+    def send(self, typ):
+        """ The image of an object, atom by atom. """
+        if not hasattr(typ, "inside"):
+            return self(typ)
+        return type(typ)().tensor(*(
+            self(typ[i:i + 1]) for i in range(len(typ))))
 
-        @st.composite
-        def endofunctors(draw):
-            objects = category.ob.strategy()
-            source, middle, target = (draw(objects) for _ in range(3))
-            names = st.uuids().map(str)
-            arrows = (generator(draw(names), source, middle),
-                      generator(draw(names), middle, target))
-            atomic = objects.filter(
-                lambda obj: not hasattr(obj, "__len__") or len(obj) == 1)
-            images = {
-                key(atom): draw(atomic)
-                for typ in (source, middle, target) for atom in atoms(typ)}
 
-            def image(atom):
-                """ The image of a generator, rotated as the atom is. """
-                rotated = images[key(atom)]
-                for _ in range(abs(turns(atom))):
-                    rotated = rotated.l if turns(atom) < 0 else rotated.r
-                return rotated
+@dataclass(frozen=True)
+class Relabelled:
+    """ Send each box to one of the same name on the relabelled boundary. """
+    objects: Relabelling
 
-            send = factory(image, lambda box: box)
-            arrow_map = {
-                box.name: generator(
-                    f"F({box.name})", send(box.dom), send(box.cod))
-                for box in arrows}
-            return cls(factory(
-                image, lambda box: arrow_map[box.name]), *arrows)
-
-        return endofunctors()
+    def __call__(self, box):
+        return type(box)(
+            box.name, self.objects.send(box.dom), self.objects.send(box.cod))
 
 
 class Axiom[T]:
     """
-    A carrier-parametrised equation with explicit arguments.
+    A categorical law, stated either of a carrier or of one of its elements.
+
+    An axiom whose first parameter is ``cls`` is a law of the category: it is
+    bound to the carrier and its remaining arguments are generated. One whose
+    first parameter is ``self`` is a law of an element, e.g. a functor, so the
+    element is generated too and the law reads as a method on it.
 
     Calling a bound axiom returns its own verdict: :obj:`NotImplemented` when
     the structure does not apply to the carrier, an
@@ -468,10 +446,11 @@ class Axiom[T]:
     """
 
     def __init__(self, equation, *, carrier=None):
-        self.equation = equation if isinstance(equation, classmethod)\
-            else classmethod(equation)
-        function = self.equation.__func__
+        function = equation.__func__ if isinstance(equation, classmethod)\
+            else equation
+        self.equation = function
         self.signature = inspect.signature(function)
+        self.receiver = next(iter(self.signature.parameters), None)
         self.carrier = carrier
         self.name = self.__name__ = function.__name__
         self.broken = "AxiomError" in function.__code__.co_names
@@ -479,6 +458,11 @@ class Axiom[T]:
 
     def __repr__(self):
         return f"Axiom({self.name})"
+
+    @property
+    def is_method(self) -> bool:
+        """ Whether the law is stated of an element rather than a carrier. """
+        return self.receiver == "self"
 
     def bind(self, carrier: type[T]) -> Axiom[T]:
         """ Bind the axiom to a concrete carrier. """
@@ -490,12 +474,18 @@ class Axiom[T]:
     @property
     def parameters(self) -> tuple[inspect.Parameter, ...]:
         """
-        The explicit parameters of the equation.
+        The parameters whose arguments the property matrix generates.
 
-        An axiom that takes none states its verdict without any argument, so
-        the property matrix can call it before generating anything.
+        For a law of an element that includes the element itself, so an axiom
+        that takes none states its verdict before anything is generated.
         """
-        return tuple(self.signature.parameters.values())[1:]
+        explicit = tuple(self.signature.parameters.values())[1:]
+        if not self.is_method:
+            return explicit
+        receiver = inspect.Parameter(
+            self.receiver, inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            annotation=self.carrier)
+        return (receiver, ) + explicit
 
     def __call__(self, *args, **kwargs):
         if self.carrier is None:
@@ -503,9 +493,10 @@ class Axiom[T]:
         signature = self.signature.replace(parameters=self.parameters)
         bound = signature.bind(*args, **kwargs)
         bound.apply_defaults()
-        return self.equation.__func__(**{
-            next(iter(self.signature.parameters)): self.carrier,
-            **bound.arguments})
+        if self.is_method:
+            return self.equation(**bound.arguments)
+        return self.equation(
+            **{self.receiver: self.carrier, **bound.arguments})
 
 
 def axiom(equation) -> Axiom:

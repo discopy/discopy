@@ -287,14 +287,14 @@ class Functor(monoidal.Functor):
         return super().__call__(other)
 
     @axiom
-    def functor_braid(cls):
+    def braid(cls):
         """
         A braided functor preserves the braid, but only up to the braid
         relations: the braid of a composite type is a chosen sequence of
         crossings and a functor rebrackets it. Free braided diagrams compare
         presentations, so the law is checkable from
-        :class:`discopy.symmetric.Functor` on, where :meth:`functor_swap`
-        states it up to hypergraph.
+        :class:`discopy.symmetric.Functor` on, where :meth:`swap` states it
+        up to hypergraph.
         """
         return NotImplemented
 

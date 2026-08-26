@@ -83,7 +83,8 @@ from typing import (
 
 from discopy import messages, utils
 from discopy.abc import Category, Equation as AbstractEquation
-from discopy.testing import C1, Endofunctor, Strategy, axiom
+from discopy.testing import (
+    Relabelled, Relabelling, Strategy, axiom)
 from discopy.utils import (  # noqa: F401
     factory,
     factory_name,
@@ -879,7 +880,7 @@ class Bubble(Box):
 
 
 @factory
-class Functor(Category):
+class Functor(Category, Strategy["Functor"]):
     """
     A functor is a pair of maps :code:`ob_map` and :code:`ar_map` and an
     optional codomain category :code:`cod`.
@@ -1010,22 +1011,54 @@ class Functor(Category):
             result = result >> self(box)
         return result
 
-    unitality = associativity = None
-    identity_typing = composition_dom_typing = composition_cod_typing = None
+    @classmethod
+    def strategy(cls, *, dom=None, cod=None, max_labels=3):
+        """Generate an endofunctor relabelling some of the generators."""
+        from hypothesis import strategies as st
+
+        @st.composite
+        def functors(draw):
+            objects = cls.dom.ob.strategy().filter(
+                lambda obj: not hasattr(obj, "__len__") or len(obj) == 1)
+            names = draw(st.lists(
+                st.sampled_from("abcde"), unique=True, max_size=max_labels))
+            labelling = Relabelling(tuple(
+                (name, draw(objects)) for name in names))
+            return cls(labelling, Relabelled(labelling))
+
+        return functors()
 
     @axiom
-    def functor_identity(cls, arguments: Endofunctor[C1]):
-        """ A functor preserves identities. """
-        functor, f, _ = arguments
-        return functor.cod.equation_factory(
-            functor(functor.dom.id(f.dom)), functor.cod.id(functor(f.dom)))
+    def unitality(cls):
+        """
+        Composing a functor wraps its maps in a closure, which does not
+        compare equal to the map it came from even when it acts the same, so
+        composition here is unital only on the left.
+        """
+        return NotImplemented
 
     @axiom
-    def functor_composition(cls, arguments: Endofunctor[C1]):
-        """ A functor preserves composition. """
-        functor, f, g = arguments
-        return functor.cod.equation_factory(
-            functor(f.then(g)), functor(f).then(functor(g)))
+    def associativity(cls):
+        """
+        Composing a functor wraps its maps in a closure, so two ways of
+        bracketing the same composite act alike without comparing equal.
+        """
+        return NotImplemented
+
+    @axiom
+    def identity_typing(cls):
+        """ The objects of Cat are categories, which we do not generate. """
+        return NotImplemented
+
+    @axiom
+    def composition_dom_typing(cls):
+        """ The objects of Cat are categories, which we do not generate. """
+        return NotImplemented
+
+    @axiom
+    def composition_cod_typing(cls):
+        """ The objects of Cat are categories, which we do not generate. """
+        return NotImplemented
 
 
 Arrow.generator_factory = Box

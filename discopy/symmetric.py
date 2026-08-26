@@ -92,7 +92,7 @@ from discopy.cat import factory
 from discopy.monoidal import Wire, Ty, PRO  # noqa: F401
 from discopy.python import finset
 from discopy.utils import AxiomError, classproperty, factory_name, from_tree
-from discopy.testing import C1, Endofunctor, axiom
+from discopy.testing import Atomic, C0, C1, axiom
 
 
 class Layer(monoidal.Layer):
@@ -662,13 +662,11 @@ class Functor(balanced.Functor):
         return super().__call__(other)
 
     @axiom
-    def functor_swap(cls, arguments: Endofunctor[C1]):
+    def swap(self, x: Atomic[C0], y: Atomic[C0]):
         """ A symmetric functor preserves the swap. """
-        functor, f, g = arguments
-        x, y = f.dom, g.cod
-        return functor.cod.equation_factory(
-            functor(functor.dom.swap(x, y)),
-            functor.cod.swap(functor(x), functor(y)))
+        x, y = x.value, y.value
+        return self.cod.equation_factory(
+            self(self.dom.swap(x, y)), self.cod.swap(self(x), self(y)))
 
 
 class CMap(traced.CMap):

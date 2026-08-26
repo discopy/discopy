@@ -20,12 +20,20 @@ def strategy(annotation, **params):
 
 
 def arguments(axiom):
-    """Generate the explicit arguments expected by a bound axiom."""
-    function = axiom.equation.__func__
+    """
+    Generate the arguments expected by a bound axiom.
+
+    Both resolve ``C0`` and ``C1`` to objects and arrows, of the carrier for a
+    law of a category and of the carrier's domain for a law of an element:
+    the arguments a functor is applied to live in the category it maps from,
+    and its codomain is reachable as ``self.cod`` from the body.
+    """
+    function = axiom.equation
+    source = axiom.carrier.dom if axiom.is_method else axiom.carrier
+    scope = {"C0": source.ob, "C1": source.ar}
     annotations = inspect.get_annotations(
-        function, globals=function.__globals__,
-        locals={"C0": axiom.carrier.ob, "C1": axiom.carrier.ar},
-        eval_str=True)
+        function, globals=function.__globals__, locals=scope, eval_str=True)
+    annotations[axiom.receiver] = axiom.carrier
     required = (
         parameter for parameter in axiom.parameters
         if parameter.default is inspect.Parameter.empty)

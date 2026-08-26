@@ -66,7 +66,7 @@ from discopy import monoidal, rigid, markov, compact, pivotal, hypergraph
 from discopy.abc import HypergraphCategory
 from discopy.cat import factory
 from discopy.utils import assert_isatomic, deprecated_ob, factory_name
-from discopy.testing import C1, Endofunctor, axiom
+from discopy.testing import Atomic, C0, axiom
 
 
 class Wire(pivotal.Wire):
@@ -328,13 +328,11 @@ class Functor(compact.Functor, markov.Functor):
         return compact.Functor.__call__(self, other)
 
     @axiom
-    def functor_spiders(cls, arguments: Endofunctor[C1]):
+    def spiders(self, x: Atomic[C0]):
         """ A hypergraph functor preserves the spiders. """
-        functor, f, _ = arguments
-        x = f.dom
-        return functor.cod.equation_factory(
-            functor(functor.dom.spiders(1, 2, x)),
-            functor.cod.spiders(1, 2, functor(x)))
+        x = x.value
+        return self.cod.equation_factory(
+            self(self.dom.spiders(1, 2, x)), self.cod.spiders(1, 2, self(x)))
 
 
 def interleaving(cls: type, factory: Callable

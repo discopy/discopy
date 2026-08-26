@@ -334,12 +334,12 @@ class Functor(braided.Functor, traced.Functor):
         return braided.Functor.__call__(self, other)
 
     @axiom
-    def functor_twist(cls):
+    def twist(cls):
         """
         A balanced functor preserves the twist, but the twist of a composite
         type is a chosen sequence of crossings, so like
-        :meth:`discopy.braided.Functor.functor_braid` it holds only up to the
-        braid relations that free diagrams do not quotient by.
+        :meth:`discopy.braided.Functor.braid` it holds only up to the braid
+        relations that free diagrams do not quotient by.
         """
         return NotImplemented
 

@@ -9,21 +9,34 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
-- Functors are carriers in the property matrix, each level adding the clause
-  it is responsible for: `cat.Functor` states `functor_identity` and
-  `functor_composition`, `monoidal.Functor` adds `functor_tensor`,
-  `braided.Functor` the braid, `balanced.Functor` the twist,
-  `symmetric.Functor` the swap, `rigid.Functor` the cups and caps,
-  `markov.Functor` the copy and `frobenius.Functor` the spiders, so
-  `frobenius.Functor` inherits all ten. An `Endofunctor` argument shape
-  generates a functor from a free category to itself. The equation lives in
-  the functor's codomain rather than in the carrier, which is what the old
-  `eq` parameter could not express. `functor_braid` and `functor_twist` are
-  declared unchecked: the braid of a composite type is a chosen sequence of
-  crossings that a functor rebrackets, so they hold only up to the braid
-  relations that free diagrams do not quotient by.
+- An axiom is stated either of a carrier or of one of its elements: a body
+  taking `cls` is a law of the category, one taking `self` a law of an
+  element, whose receiver the property matrix generates like any other
+  argument. Functors are the first such elements, with `Functor.strategy`
+  generating relabellings of the generators — total, so they apply to any
+  diagram, and comparable, so the axioms of `Cat` itself can be checked on
+  them, which a closure would not be.
+- Functors are carriers in the property matrix, each level adding the
+  structure it preserves as a method on itself: `monoidal.Functor.tensor`,
+  `braided.Functor.braid`, `balanced.Functor.twist`,
+  `symmetric.Functor.swap`, `rigid.Functor.cups` and `caps`,
+  `markov.Functor.copy` and `frobenius.Functor.spiders`, so
+  `frobenius.Functor` inherits all eight. Preservation of identities and of
+  composition is not stated separately: a functor is an arrow of `Cat`, so
+  those are `Category`'s own axioms, inherited. The equation lives in
+  `self.cod` rather than in the carrier, which is what the old `eq`
+  parameter could not express. `braid` and `twist` are declared unchecked:
+  the braid of a composite type is a chosen sequence of crossings that a
+  functor rebrackets, so they hold only up to the braid relations that free
+  diagrams do not quotient by.
 - Every `Functor` subclass is its own `factory`, which only `cat.Functor`
   declared, so `Functor.ar` resolved to `cat.Functor` at every level.
+- `Category`'s own axioms are inherited by `Functor` but declared unchecked
+  there: composing functors wraps their maps in a closure that does not
+  compare equal to the map it came from even when it acts the same, so
+  composition is unital only on the left and two bracketings of a composite
+  never compare equal; and the objects of `Cat` are categories, which the
+  matrix does not generate.
 - Concrete semantic carriers in the property matrix: `Matrix[int]` is a
   Markov category and `python.finset.Function` a symmetric one, both with
   their own Hypothesis strategy, so the copy comonoid and the symmetry are

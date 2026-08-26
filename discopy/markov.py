@@ -78,7 +78,7 @@ from discopy.abc import MarkovCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import assert_isatomic, factory_name
-from discopy.testing import C1, Endofunctor, axiom
+from discopy.testing import Atomic, C0, axiom
 
 Layer = symmetric.Layer
 
@@ -327,12 +327,11 @@ class Functor(symmetric.Functor):
         return super().__call__(other)
 
     @axiom
-    def functor_copy(cls, arguments: Endofunctor[C1]):
+    def copy(self, x: Atomic[C0]):
         """ A Markov functor preserves the copy. """
-        functor, f, _ = arguments
-        x = f.dom
-        return functor.cod.equation_factory(
-            functor(functor.dom.copy(x)), functor.cod.copy(functor(x)))
+        x = x.value
+        return self.cod.equation_factory(
+            self(self.dom.copy(x)), self.cod.copy(self(x)))
 
 
 class CMap(symmetric.CMap):

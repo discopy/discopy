@@ -162,7 +162,7 @@ from discopy.utils import (
     deprecated_ob,
     factory_name,
 )
-from discopy.testing import C0, C1, Endofunctor, axiom
+from discopy.testing import Atomic, C0, axiom
 
 
 class Wire(monoidal.Wire):
@@ -894,22 +894,18 @@ class Functor(biclosed.Functor):
         return super().__call__(other)
 
     @axiom
-    def functor_cups(cls, arguments: Endofunctor[C1]):
+    def cups(self, x: Atomic[C0]):
         """ A rigid functor preserves the cups. """
-        functor, f, _ = arguments
-        x = f.dom
-        return functor.cod.equation_factory(
-            functor(functor.dom.cups(x, x.r)),
-            functor.cod.cups(functor(x), functor(x.r)))
+        x = x.value
+        return self.cod.equation_factory(
+            self(self.dom.cups(x, x.r)), self.cod.cups(self(x), self(x.r)))
 
     @axiom
-    def functor_caps(cls, arguments: Endofunctor[C1]):
+    def caps(self, x: Atomic[C0]):
         """ A rigid functor preserves the caps. """
-        functor, f, _ = arguments
-        x = f.dom
-        return functor.cod.equation_factory(
-            functor(functor.dom.caps(x.r, x)),
-            functor.cod.caps(functor(x.r), functor(x)))
+        x = x.value
+        return self.cod.equation_factory(
+            self(self.dom.caps(x.r, x)), self.cod.caps(self(x.r), self(x)))
 
 
 def nesting(cls: type, factory: Callable) -> Callable[[Ty, Ty], Diagram]:

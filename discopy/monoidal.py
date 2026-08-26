@@ -62,7 +62,8 @@ from warnings import warn
 
 from discopy import cat, drawing, hypergraph, cmap, messages
 from discopy.abc import ColouredMonoid, MonoidalCategory
-from discopy.testing import Bifunctor, C1, Endofunctor, Strategy, axiom
+from discopy.testing import (
+    Bifunctor, C1, HorizontalPair, Strategy, axiom)
 from discopy.drawing import Drawing
 from discopy.config import (
     BOX_DRAWING_ATTRIBUTES, WIRE_DRAWING_ATTRIBUTES,
@@ -1860,11 +1861,10 @@ class Functor(cat.Functor):
         return super().__call__(other)
 
     @axiom
-    def functor_tensor(cls, arguments: Endofunctor[C1]):
+    def tensor(self, pair: HorizontalPair[C1]):
         """ A monoidal functor preserves the tensor. """
-        functor, f, g = arguments
-        return functor.cod.equation_factory(
-            functor(f @ g), functor(f) @ functor(g))
+        f, g = pair
+        return self.cod.equation_factory(self(f @ g), self(f) @ self(g))
 
 
 @dataclass

@@ -17,7 +17,7 @@ from discopy import (
     utils)
 from discopy.utils import AxiomError
 from discopy.testing import (
-    Atomic, Endofunctor, NonEmpty, assert_verdict, declared_axioms)
+    Atomic, HorizontalPair, NonEmpty, assert_verdict, declared_axioms)
 
 
 def box(category, name, dom, cod):
@@ -340,17 +340,23 @@ def functor_axioms():
                 marks=marks)
 
 
+def functor_arguments(name, category):
+    """ Canonical arguments for the law a Functor states of itself. """
+    x, y = map(category.ob, "xy")
+    if name == "tensor":
+        return HorizontalPair(
+            box(category, "f", x, y), box(category, "g", y, x)),
+    if name == "swap":
+        return Atomic(x), Atomic(y)
+    return Atomic(x),
+
+
 @pytest.mark.parametrize("axiom", functor_axioms())
 def test_functor_axioms_hold_for_the_identity(axiom):
-    """ Each functoriality axiom, on the identity endofunctor. """
-    category = axiom.carrier.dom
-    x, y, z = map(category.ob, "xyz")
-    generator = getattr(category, "box_factory", None)\
-        or category.generator_factory
-    arguments = Endofunctor(
-        axiom.carrier(lambda typ: typ, lambda box: box),
-        generator("f", x, y), generator("g", y, z)),
-    assert_verdict(axiom, axiom(*arguments))
+    """ Each law a Functor states of itself, on the identity functor. """
+    identity = axiom.carrier(lambda typ: typ, lambda box: box)
+    arguments = functor_arguments(axiom.name, axiom.carrier.dom)
+    assert_verdict(axiom, axiom(identity, *arguments))
 
 
 @pytest.mark.parametrize("carrier", CARRIERS)
