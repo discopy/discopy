@@ -210,10 +210,16 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   only by the draft-to-ready transition: `ready_for_review` fires on a
   transition, so a pull request whose `TODO.md` is deleted before it is ever
   opened skips the event entirely and the review silently never ran.
-  `style-review.yml` now also triggers on `opened`, and both automatic
-  triggers wait while a `TODO` file is still in the tree so that the new one
-  does not race `no-todo-on-main.yml`'s draft guard. The `style-review` label
-  stays the manual override and ignores that wait
+  `style-review.yml` now also triggers on `opened`, and on the `synchronize`
+  that deletes a `TODO` file, which is the only transition a pull request
+  based on anything but `main` ever gets — `no-todo-on-main.yml` guards
+  `main` alone, so such a pull request is never drafted and never marked
+  ready. Every automatic trigger waits while a `TODO` file is still in the
+  tree, so the review reads a finished pull request and does not race the
+  draft guard: on a `main`-based pull request the deleting push lands while
+  the guard holds it draft, so the review comes from the `ready_for_review`
+  that follows rather than twice. The `style-review` label stays the manual
+  override and ignores that wait
   ([#615](https://github.com/discopy/discopy/issues/615)).
 - A boxless `monoidal.Layer` can no longer be placed inside a `Diagram`:
   `Diagram.__init__` raises `ValueError` for a layer with no box, restoring

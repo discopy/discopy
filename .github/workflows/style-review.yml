@@ -1,7 +1,7 @@
 name: style-review
 on:
   pull_request:
-    types: [opened, ready_for_review, labeled]
+    types: [opened, ready_for_review, synchronize, labeled]
 permissions:
   contents: read
 concurrency:
@@ -26,16 +26,29 @@ jobs:
     - name: Look for a TODO file
       id: todo
       env:
+        ACTION: ${{ github.event.action }}
+        BEFORE_SHA: ${{ github.event.before }}
         LABELLED: ${{ github.event.label.name == 'style-review' }}
       run: |
-        if [ "$LABELLED" != true ] && git ls-files \
-          | grep -Eiq '(^|/)todo(\.[^/]*)?$'; then
-          echo "::notice::TODO is still there — the style review waits for \
+        todo_at() {
+          git ls-tree -r --name-only "$1" \
+            | grep -Eiq '(^|/)todo(\.[^/]*)?$'
+        }
+        wait=false
+        if [ "$LABELLED" != true ]; then
+          if todo_at HEAD; then
+            echo "::notice::TODO is still there — the style review waits for \
         the push that deletes it."
-          echo "wait=true" >> "$GITHUB_OUTPUT"
-        else
-          echo "wait=false" >> "$GITHUB_OUTPUT"
+            wait=true
+          elif [ "$ACTION" = synchronize ] && ! { \
+              git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null \
+              && todo_at "$BEFORE_SHA"; }; then
+            echo "::notice::This push did not delete a TODO file — the style \
+        review only reads the one that does."
+            wait=true
+          fi
         fi
+        echo "wait=$wait" >> "$GITHUB_OUTPUT"
 
     - name: Check the gateway configuration
       id: config
