@@ -74,4 +74,4 @@ def test_strategy():
 def test_axioms():
     from discopy import testing
 
-    testing.assert_canonical_axioms(Ty, Diagram, Hypergraph, CMap, Functor)
+    testing.assert_axioms(Ty, Diagram, Hypergraph, CMap, Functor)

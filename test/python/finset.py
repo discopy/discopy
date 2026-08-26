@@ -91,4 +91,4 @@ def test_axioms():
     from discopy import testing
     from discopy.python import finset
 
-    testing.assert_canonical_axioms(finset.Function, finset.Permutation)
+    testing.assert_axioms(finset.Function, finset.Permutation)

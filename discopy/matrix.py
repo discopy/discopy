@@ -148,14 +148,6 @@ class Matrix(MarkovCategory, Strategy["Matrix"], NamedGeneric['dtype']):
                     max_size=shape[0] * shape[1]).map(
                         lambda array: factory(array, *shape)))
 
-    @classmethod
-    def canonical(cls, name=None, dom=None, cod=None):
-        """The identity-shaped canonical matrix."""
-        dom = 1 if dom is None else dom
-        cod = 1 if cod is None else cod
-        return cls[cls.dtype or int](
-            [int(i == j) for i in range(dom) for j in range(cod)], dom, cod)
-
     def cast(self, dtype: type) -> Matrix:
         """
         Cast a matrix to a given ``dtype``.

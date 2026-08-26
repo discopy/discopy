@@ -423,4 +423,4 @@ def test_strategy():
 
 
 def test_axioms():
-    testing.assert_canonical_axioms(Arrow, Functor)
+    testing.assert_axioms(Arrow, Functor)

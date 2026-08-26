@@ -149,14 +149,6 @@ class Ob(Strategy["Ob"]):
 
         return st.sampled_from(GENERATORS).map(cls)
 
-    @classmethod
-    def canonical(cls, name="x", dom=None, cod=None):
-        """
-        The generator object with this name. The boundaries are ignored so
-        that the elements of a monoid fit anywhere in a pasting diagram.
-        """
-        return cls(name)
-
     def to_tree(self) -> dict:
         """
         Serialise a DisCoPy object, see :func:`dumps`.
@@ -316,14 +308,6 @@ class Arrow(FreeCategory, Strategy["Arrow"]):
     see :class:`monoidal.PRO`.
     """
     ob = Ob
-
-    @classmethod
-    def canonical(cls, name="f", dom=None, cod=None):
-        """ A generator named for drawing, with free boundaries default. """
-        box = getattr(cls, "box_factory", None) or cls.generator_factory
-        dom = cls.ob.canonical("x") if dom is None else dom
-        cod = cls.ob.canonical("y") if cod is None else cod
-        return box(name, dom, cod)
 
     @classmethod
     def strategy(
@@ -1040,12 +1024,6 @@ class Functor(Category, Strategy["Functor"]):
 
         return st.tuples(
             *(st.sampled_from(atoms) for _ in atoms)).map(relabel)
-
-    @classmethod
-    def canonical(cls, name=None, dom=None, cod=None):
-        """ The identity relabelling, the canonical functor. """
-        labelling = Relabelling()
-        return cls(labelling, Relabelled(labelling))
 
     unitality = Category.unitality.failing(
         "Composition is unital only on the left: "

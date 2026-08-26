@@ -2,9 +2,9 @@
 
 """
 Tests for :mod:`discopy.abc`, i.e. the properties every level of the
-hierarchy shares. Each module's own axioms are instantiated with canonical
-arguments by the ``test_axioms`` in its test file, and whether the equations
-hold is checked over every category in ``proptest/``.
+hierarchy shares. Each module's own axioms are checked on one generated
+example by the ``test_axioms`` in its test file, and the search over many
+is run by every category in ``proptest/``.
 """
 
 from inspect import signature

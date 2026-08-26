@@ -173,15 +173,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `Axiom.falsify()` searches for a shrunk counterexample to a bound axiom —
   arguments for which the verdict fails — returning `None` when it finds
   none.
-- Every axiom can be instantiated with canonical arguments: each argument
-  generator and carrier gets a `canonical` classmethod next to its
-  `strategy` — the generator object with the parameter's name, a grid of
-  generators over chained objects, the identity relabelling functor — and
-  `Axiom.canonical()` resolves the annotations of the bound axiom's
-  parameters to them, so the instantiated equation is drawable for human
-  review. Each module's test file gets one `test_axioms` calling
-  `testing.assert_canonical_axioms` on its carriers, which replaces the
-  `Arguments` table of `test/abc.py`.
+- Every module's test file gets one `test_axioms` calling
+  `testing.assert_axioms` on its carriers: each axiom is checked on a
+  single example drawn from its own strategy, a dry run of the property
+  tests, which replaces the `Arguments` table of `test/abc.py`.
 - A `NamedGeneric` subscripted by a DisCoPy class takes its qualified name,
   e.g. `Hypergraph[monoidal.Diagram]` rather than `Hypergraph[Diagram]`,
   which every level's hypergraph printed alike — the property matrix ids

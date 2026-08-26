@@ -31,4 +31,4 @@ def test_strategy():
 def test_axioms():
     from discopy import testing
 
-    testing.assert_canonical_axioms(Diagram, Functor)
+    testing.assert_axioms(Diagram, Functor)

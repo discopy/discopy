@@ -85,11 +85,6 @@ class Natural(int, Strategy["Natural"]):
             st.just(1),
             st.integers(min_value=0, max_value=max_size)).map(cls)
 
-    @classmethod
-    def canonical(cls, name=None):
-        """The unit, atomic among naturals."""
-        return cls(1)
-
 
 @dataclass(frozen=True)
 class Atomic[T](Strategy[T]):
@@ -107,11 +102,6 @@ class Atomic[T](Strategy[T]):
         return factory.strategy().filter(
             lambda value: len(value) == 1).map(cls)
 
-    @classmethod
-    def canonical(cls, *, factory: type[T], name="x"):
-        """One canonically named generator object."""
-        return cls(factory.canonical(name))
-
 
 @dataclass(frozen=True)
 class NonEmpty[T](Strategy[T]):
@@ -127,11 +117,6 @@ class NonEmpty[T](Strategy[T]):
     def strategy(cls, *, factory: type[T], **params):
         """Generate a non-empty object."""
         return factory.strategy(**params).filter(bool).map(cls)
-
-    @classmethod
-    def canonical(cls, *, factory: type[T], name="x"):
-        """One canonically named generator object."""
-        return cls(factory.canonical(name))
 
 
 class PastingDiagram[T](Strategy[tuple[T, ...]], tuple[T, ...]):
@@ -188,33 +173,6 @@ class PastingDiagram[T](Strategy[tuple[T, ...]], tuple[T, ...]):
 
         return pasting_diagram()
 
-    @classmethod
-    def canonical(cls, *, factory, name=None):
-        """
-        A grid of generators over chained objects, named for drawing, with
-        identities below the active rows like the generated grids.
-
-        A factory whose objects have no canonical instance, e.g. a functor
-        whose objects are categories, gets cells with free boundaries.
-        """
-        names, objects = iter("fghk"), iter("xyzwabc")
-        boundary = getattr(factory.ob, "canonical", lambda name: None)
-        cells = {}
-        for column in range(cls.n_columns):
-            top = boundary(next(objects))
-            for row in range(cls.n_rows):
-                if row < cls.n_active_rows:
-                    bottom = boundary(next(objects))
-                    cells[row, column] = factory.canonical(
-                        next(names), dom=top, cod=bottom)
-                    top = cells[row, column].cod
-                else:
-                    cells[row, column] = factory.id(top)
-        return cls(*(
-            cells[row, column]
-            for row in range(cls.n_rows)
-            for column in range(cls.n_columns)))
-
 
 class ComposablePair[T](PastingDiagram[T], tuple[T, T]):
     """ Two morphisms composable from left to right. """
@@ -261,12 +219,6 @@ class TraceSuperposing[C0, C1](
         return st.tuples(atomic, objects).map(
             lambda pair: cls(arrow_type.id(pair[0]), pair[1]))
 
-    @classmethod
-    def canonical(cls, *, factory, name=None):
-        """The identity on one object superposed with another."""
-        x, y = (factory.ob.canonical(n) for n in "xy")
-        return cls(factory.id(x), y)
-
 
 class TraceSliding[C0, C1](
         Strategy[tuple[C1, C0, C1]], tuple[C1, C0, C1]):
@@ -300,15 +252,6 @@ class TraceSliding[C0, C1](
                     lambda pair: cls(pair[0], obj, pair[1]))
 
         return st.tuples(traced, objects, objects).flatmap(morphisms)
-
-    @classmethod
-    def canonical(cls, *, factory, name=None):
-        """A generator sliding around the trace of another."""
-        x, y = (factory.ob.canonical(n) for n in "xy")
-        traced_dom = x @ y if cls.left else y @ x
-        return cls(
-            factory.canonical("f", dom=traced_dom, cod=x @ x),
-            x, factory.canonical("g", dom=x, cod=y))
 
 
 class TraceNaturalityLeft[C0, C1](TraceSliding[C0, C1]):
@@ -359,16 +302,6 @@ class TraceDinaturality[C0, C1](
 
         return st.tuples(objects, objects, traced, traced).flatmap(arrows)
 
-    @classmethod
-    def canonical(cls, *, factory, name=None):
-        """A generator sliding between two traced objects."""
-        x, y, z = (factory.ob.canonical(n) for n in "xyz")
-        traced_dom = x @ z if cls.left else z @ x
-        traced_cod = y @ z if cls.left else z @ y
-        return cls(
-            factory.canonical("f", dom=traced_dom, cod=traced_cod),
-            factory.canonical("g", dom=y, cod=x))
-
 
 class TraceDinaturalityLeft[C0, C1](TraceDinaturality[C0, C1]):
     """ Arguments for left-oriented trace dinaturality. """
@@ -406,12 +339,6 @@ class LeftCurrying[C0, C1](
         return st.tuples(objects, objects).map(lambda pair: cls(
             arrow_type.ev(*pair, left=cls.left), *pair))
 
-    @classmethod
-    def canonical(cls, *, factory, name=None):
-        """The evaluation of one atomic object by another."""
-        x, y = (factory.ob.canonical(n) for n in "xy")
-        return cls(factory.ev(x, y, left=cls.left), x, y)
-
 
 class RightCurrying[C0, C1](LeftCurrying[C0, C1]):
     """ Arguments for right currying followed by evaluation. """
@@ -435,11 +362,6 @@ class FeedbackVanishing[C0, C1](
         object_type, arrow_type = factory.ob, factory
         return arrow_type.strategy(**params).map(
             lambda arrow: cls(arrow, object_type()))
-
-    @classmethod
-    def canonical(cls, *, factory, name=None):
-        """A generator together with the monoidal unit."""
-        return cls(factory.canonical("f"), factory.ob())
 
 
 class FeedbackJoining[C0, C1](
@@ -472,14 +394,6 @@ class FeedbackJoining[C0, C1](
                     lambda arrow: cls(arrow, memory))
 
         return st.tuples(objects, atomic, atomic).flatmap(arrows)
-
-    @classmethod
-    def canonical(cls, *, factory, name=None):
-        """A generator with two distinct units of memory."""
-        x, y, z = (factory.ob.canonical(n) for n in "xyz")
-        memory = y @ z
-        return cls(factory.canonical(
-            "f", dom=x @ memory.delay(), cod=x @ memory), memory)
 
 
 @dataclass(frozen=True, eq=False)
@@ -651,15 +565,17 @@ class Axiom[T]:
         law.__name__, law.__doc__ = self.name, reason
         return type(self)(law)
 
-    def annotations(self) -> dict:
+    def strategy(self) -> "st.SearchStrategy":
         """
-        The evaluated annotations of the bound axiom's parameters.
+        Generate the arguments the bound axiom expects.
 
         ``C0`` and ``C1`` resolve to the objects and arrows of the carrier,
         or of the carrier's domain for a law of an element: the arguments a
         functor is applied to live in the category it maps from, and its
         codomain is reachable as ``self.cod`` from the body.
         """
+        from hypothesis import strategies as st
+
         function = inspect.unwrap(self.equation)
         source = self.carrier.dom if self.is_method else self.carrier
         scope = {"C0": source.ob, "C1": source.ar}
@@ -667,37 +583,11 @@ class Axiom[T]:
             function, globals=function.__globals__, locals=scope,
             eval_str=True)
         annotations[self.receiver] = self.carrier
-        return annotations
-
-    @property
-    def required(self) -> tuple[inspect.Parameter, ...]:
-        """ The parameters without a default, whose arguments are built. """
-        return tuple(
+        required = (
             parameter for parameter in self.parameters
             if parameter.default is inspect.Parameter.empty)
-
-    def strategy(self) -> "st.SearchStrategy":
-        """ Generate the arguments the bound axiom expects. """
-        from hypothesis import strategies as st
-
-        annotations = self.annotations()
         return st.tuples(*(
-            resolve(annotations[parameter.name])
-            for parameter in self.required))
-
-    def canonical(self) -> tuple:
-        """
-        Canonical arguments for the bound axiom, named after its parameters
-        so that the instantiated equation is drawable for human review.
-
-        >>> from discopy.cat import Arrow
-        >>> Arrow.unitality.canonical()
-        (cat.Box('f', cat.Ob('x'), cat.Ob('y')),)
-        """
-        annotations = self.annotations()
-        return tuple(
-            canonical(annotations[parameter.name], name=parameter.name)
-            for parameter in self.required)
+            resolve(annotations[parameter.name]) for parameter in required))
 
     def falsify(self, **params) -> tuple | None:
         """
@@ -763,43 +653,38 @@ def axiom(equation) -> Axiom:
     return Axiom(equation)
 
 
-def destructure(annotation, params) -> tuple[type, dict]:
-    """ Split an annotation into its origin and the factory it binds. """
+def resolve(annotation, **params) -> "st.SearchStrategy":
+    """ Resolve the strategy implemented by an annotated type. """
     origin = get_origin(annotation) or annotation
     if not isinstance(origin, type) or not issubclass(origin, Strategy):
         raise TypeError(
             f"Expected a Strategy annotation, got {annotation!r}.")
     if args := get_args(annotation):
-        params = params | {"factory": args[-1]}
-    return origin, params
-
-
-def resolve(annotation, **params) -> "st.SearchStrategy":
-    """ Resolve the strategy implemented by an annotated type. """
-    origin, params = destructure(annotation, params)
+        params["factory"] = args[-1]
     return origin.strategy(**params)
 
 
-def canonical(annotation, **params):
-    """ The canonical instance of an annotated type, named for drawing. """
-    origin, params = destructure(annotation, params)
-    return origin.canonical(**params)
-
-
-def assert_canonical_axioms(*carriers) -> None:
+def assert_axioms(*carriers) -> None:
     """
-    Instantiate every axiom of each carrier with its canonical arguments.
+    Check every axiom of each carrier on a single generated example, a dry
+    run of the property tests in ``proptest/``.
 
     An axiom that does not apply is skipped, a broken one is only required
-    to state its :class:`discopy.utils.AxiomError` — canonical arguments
-    need not be a counterexample — and any other law must hold.
+    to state its :class:`discopy.utils.AxiomError` — one example need not
+    be a counterexample — and any other law must hold.
     """
+    from hypothesis import Phase, find, settings
+
+    single_shot = settings(
+        max_examples=1, phases=(Phase.generate, ), database=None)
     for carrier in carriers:
         for axiom in carrier.axioms:
             if not axiom.parameters and axiom() is NotImplemented:
                 continue
+            args = find(
+                axiom.strategy(), lambda value: True, settings=single_shot)
             try:
-                verdict = axiom(*axiom.canonical())
+                verdict = axiom(*args)
             except AxiomError:
                 assert axiom.broken, axiom
                 continue

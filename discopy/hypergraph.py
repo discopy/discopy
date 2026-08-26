@@ -195,11 +195,6 @@ class Hypergraph(
         """Generate hypergraphs through their associated diagram category."""
         return cls.category.strategy(**params).map(cls.from_diagram)
 
-    @classmethod
-    def canonical(cls, name="f", dom=None, cod=None):
-        """The image of the diagram category's canonical generator."""
-        return cls.from_diagram(cls.category.canonical(name, dom, cod))
-
     def __init__(
             self, dom: Ty, cod: Ty, boxes: tuple[Box, ...],
             wires: Wiring, spider_types: SpiderTypes = None,
