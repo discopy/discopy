@@ -10,6 +10,7 @@ from discopy.kleisli.monad import (
     Monad, Maybe, Powerset, Subdistribution, Seed,
     make_monad, make_state, merge, sample)
 from discopy.kleisli.channel import Channel
+from discopy import kleisli
 from discopy.kleisli import additive, multiplicative, token
 from discopy.kleisli.additive import Tagged
 from discopy.kleisli.multiplicative import Row
@@ -747,3 +748,10 @@ def test_token_machine_is_nondeterministic_over_the_powerset_monad():
     term = B(lambda x: (B >> B)("twice")(x))(flip)
 
     assert machine(term) == frozenset({"headsheads", "tailstails"})
+
+
+def test_token_Machine_repr():
+    machine = token.Machine[Maybe]({"boom": None})
+    assert repr(machine) == "kleisli.token.Machine[Maybe]({'boom': None})"
+    assert eval(repr(machine), {
+        "kleisli": kleisli, "Maybe": Maybe}).constants == machine.constants

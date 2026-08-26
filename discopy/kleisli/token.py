@@ -121,6 +121,7 @@ from discopy.closed import (
 from discopy.kleisli.additive import Channel, Tagged
 from discopy.kleisli.monad import Monad
 from discopy.python.function import Function
+from discopy.utils import factory_name
 
 
 Value = object
@@ -323,8 +324,8 @@ class Machine(NamedGeneric['monad']):
     """
     monad: Monad = None
 
-    def __init__(self, constants: Mapping = ()):
-        self.constants = dict(constants)
+    def __init__(self, constants: Mapping | None = None):
+        self.constants = dict(constants or {})
 
     def inject(self, state: Value | Down | Up):
         """
@@ -455,3 +456,6 @@ class Machine(NamedGeneric['monad']):
             term : The term to evaluate.
         """
         return self.channel.trace(len(directions))(Down(term))
+
+    def __repr__(self):
+        return factory_name(type(self)) + f"({self.constants!r})"
