@@ -365,6 +365,20 @@ class Diagram(biclosed.Diagram, RigidCategory):
 
     .. image:: /_static/rigid/diagram-example.svg
         :align: center
+
+    Currying and evaluation come from cups and caps:
+
+    >>> from discopy.monoidal import Equation
+    >>> x = Ty('x')
+    >>> g = Box('g', x @ x, x)
+    >>> assert g.curry().uncurry().normal_form() == g
+    >>> assert g.curry(left=False).uncurry(left=False).normal_form() == g
+    >>> Equation(g.curry(left=False), g, g.curry(),
+    ...     symbols=("$\\\\mapsfrom$", "$\\\\mapsto$")).draw(
+    ...         doctest="docs/_static/rigid/curry.svg")
+
+    .. image:: /_static/rigid/curry.svg
+        :align: center
     """
 
     ob = Ty
@@ -372,10 +386,8 @@ class Diagram(biclosed.Diagram, RigidCategory):
 
     to_drawing = monoidal.Diagram.to_drawing
 
-    @classmethod
-    def ev(cls, base: Ty, exponent: Ty, left=True) -> Diagram:
-        return base @ cls.cups(exponent.l, exponent) if left\
-            else cls.cups(exponent, exponent.r) @ base
+    ev = classmethod(RigidCategory.ev.__func__)
+    curry = RigidCategory.curry
 
     @classmethod
     def cups(cls, left: Ty, right: Ty) -> Diagram:
@@ -416,27 +428,6 @@ class Diagram(biclosed.Diagram, RigidCategory):
             :align: center
         """
         return nesting(cls, cls.cap_factory)(left, right)
-
-    def curry(self, n=1, left=True) -> Diagram:
-        """
-        The curry of a rigid diagram is obtained using cups and caps.
-
-        >>> x = Ty('x')
-        >>> g = Box('g', x @ x, x)
-        >>> Equation(g.curry(left=False), g, g.curry(),
-        ...     symbols=("$\\\\mapsfrom$", "$\\\\mapsto$")).draw(
-        ...         doctest="docs/_static/rigid/curry.svg")
-
-        .. image:: /_static/rigid/curry.svg
-            :align: center
-        """
-        if n == 0:
-            return self
-        if left:
-            base, exponent = self.dom[:-n], self.dom[-n:]
-            return base @ self.caps(exponent, exponent.l) >> self @ exponent.l
-        base, exponent = self.dom[n:], self.dom[:n]
-        return self.caps(exponent.r, exponent) @ base >> exponent.r @ self
 
     def rotate(self, left=False):
         """

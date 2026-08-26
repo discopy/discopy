@@ -123,7 +123,7 @@ Dinaturality
 >>> assert sliding_left and sliding_right
 """
 
-from discopy import monoidal, hypergraph
+from discopy import monoidal, cmap, hypergraph
 from discopy.abc import TracedCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty  # noqa: F401
@@ -198,11 +198,14 @@ class Trace(Box, monoidal.Bubble):
         assert_isinstance(arg, self.ar)
         assert_istraceable(arg, n=1, left=left)
         self.left = left
-        name = f"Trace({arg}" + ", left=True)" if left else ")"
+        name = f"Trace({arg}, left=True)" if left else f"Trace({arg})"
         dom, cod = (arg.dom[1:], arg.cod[1:]) if left\
             else (arg.dom[:-1], arg.cod[:-1])
         monoidal.Bubble.__init__(self, arg, dom=dom, cod=cod)
         Box.__init__(self, name, dom, cod)
+
+    def __str__(self):
+        return self.name
 
     def __repr__(self):
         return factory_name(type(self)) + f"({self.arg}, left={self.left})"
@@ -257,13 +260,9 @@ class Functor(monoidal.Functor):
         return super().__call__(other)
 
 
-class CMap(monoidal.CMap):
-    category = Diagram
-    require_causal = False
-
+CMap = cmap.CMap[Diagram]
 
 Diagram.functor_factory = Functor
-Diagram.map_factory = CMap
 Diagram.trace_factory = Trace
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Id = Diagram.id
