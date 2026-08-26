@@ -328,6 +328,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Project
 
+- `CONTRIBUTING.md` tells a sandboxed contributor to diff its test-suite
+  failure set against the same run on the merge base, rather than treating
+  every environment-only failure (a blocked wheel, a missing binary) as
+  indistinguishable from a real regression, and to claim green only for
+  what CI actually ran ([#499](https://github.com/discopy/discopy/issues/499)).
 - The `TODO.md` rule of `RULES.md` is split in two: creation stays point 1,
   and a new point 2 has the agent delete its own `TODO.md` once every
   point is `[x]` or filed as an issue, taking the pull request out of draft:
