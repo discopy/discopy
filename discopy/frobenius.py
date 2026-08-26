@@ -110,6 +110,14 @@ class Dim(monoidal.Dim, Ty):
 
     l = r = property(lambda self: self.ar(*self.inside[::-1]))
 
+    def unwind(self) -> Dim:
+        """
+        A dimension is self-dual, so it is its own unwinding.
+
+        >>> assert Dim(2).unwind() == Dim(2)
+        """
+        return self
+
 
 @factory
 class Diagram(compact.Diagram, markov.Diagram, HypergraphCategory):
