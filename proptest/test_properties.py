@@ -65,7 +65,6 @@ class Test_cat:
 class Test_monoidal:
     test_wire = axiom_tests(monoidal.Wire)
     test_ty = axiom_tests(monoidal.Ty)
-    # test_pro = axiom_tests(symmetric.PRO)
     test_diagram = axiom_tests(monoidal.Diagram)
     test_hypergraph = axiom_tests(monoidal.Hypergraph)
     test_cmap = axiom_tests(monoidal.CMap)
@@ -132,7 +131,7 @@ class Test_compact:
 class Test_markov:
     test_diagram = axiom_tests(markov.Diagram)
     test_hypergraph = axiom_tests(markov.Hypergraph)
-    # test_cmap = axiom_tests(markov.CMap)
+    test_cmap = axiom_tests(markov.CMap)
     test_functor = axiom_tests(markov.Functor)
 
 
@@ -155,7 +154,7 @@ class Test_frobenius:
     test_ty = axiom_tests(frobenius.Ty)
     test_diagram = axiom_tests(frobenius.Diagram)
     test_hypergraph = axiom_tests(frobenius.Hypergraph)
-    # test_cmap = axiom_tests(frobenius.CMap)
+    test_cmap = axiom_tests(frobenius.CMap)
     test_functor = axiom_tests(frobenius.Functor)
 
 

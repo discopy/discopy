@@ -85,3 +85,14 @@ def test_to_braided_default_and_zero_width():
 
     # width=0 returns the diagram as is, i.e. without dual rails.
     assert twist.to_braided(width=0) == twist
+
+
+def test_strategy():
+    from discopy import testing
+
+    testing.assert_strategy_finds(Diagram, Twist)
+    base = Box.free_strategy()
+    assert Box.extend_strategy(
+        base, Diagram.twist_factory,
+        lambda factory: Box.atomic_strategy().map(factory),
+        dom=Ty('x')) is base

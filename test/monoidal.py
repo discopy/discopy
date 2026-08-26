@@ -714,3 +714,31 @@ def test_Diagram_from_callable():
         @Diagram.from_callable(x, y)
         def diagram(wire):
             return f(x)
+
+
+def test_strategy():
+    from hypothesis import find
+    from hypothesis import strategies as st
+
+    from discopy import testing
+
+    testing.assert_strategy_finds(Diagram, Box)
+    x = Ty('x')
+    composition = find(
+        Diagram.strategy(types=st.just(x), min_leaves=2, max_leaves=2),
+        lambda value: True)
+    assert len(composition.boxes) == 2 == len(composition.inside)
+    assert len(set(composition.boxes)) == len(composition.boxes)
+    assert isinstance(
+        find(Layer.strategy(factory=Diagram), lambda value: True), Layer)
+    params = dict(factory=Diagram, types=st.just(x), dom=x, cod=x, label=0)
+    first = find(Layer.strategy(**params), lambda value: True)
+    second = find(
+        Layer.strategy(**params, exclude=first.boxes), lambda value: True)
+    assert not set(first.boxes).intersection(second.boxes)
+    connected = find(Diagram.strategy(), lambda value: True)
+    assert connected.to_hypergraph().is_boundary_connected
+    closed = find(
+        Diagram.strategy(boundary_connected=False),
+        lambda value: not value.to_hypergraph().is_boundary_connected)
+    assert not closed.to_hypergraph().is_boundary_connected

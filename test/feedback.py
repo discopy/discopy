@@ -105,3 +105,9 @@ def test_Permutation_delay():
     assert perm.delay(2) == perm.delay().delay()
     assert (perm >> Swap(z, x) @ y).delay()\
         == perm.delay() >> Swap(z, x).delay() @ y.delay()
+
+
+def test_strategy():
+    from discopy import testing
+
+    testing.assert_strategy_finds(Diagram, Feedback)

@@ -92,3 +92,9 @@ def test_Kauffman():
 def test_rotate():
     x = Ty('x')
     assert Twist(x).r == Twist(x)
+
+
+def test_strategy():
+    from discopy import testing
+
+    testing.assert_strategy_finds(Diagram, Twist, Cup, Cap)

@@ -25,3 +25,14 @@ def test_to_hypergraph_rejects_non_boundary_connected_diagrams():
         side_by_side)
     with raises(NotImplementedError):
         side_by_side.to_hypergraph()
+
+
+def test_strategy():
+    from hypothesis import find
+
+    from discopy import testing
+
+    testing.assert_strategy_finds(Diagram, Cup, Cap)
+    winding = find(Ty.strategy(min_length=1),
+                   lambda value: value.inside[0].z)
+    assert winding.inside[0].z == 1

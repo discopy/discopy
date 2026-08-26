@@ -158,7 +158,7 @@ class Arguments:
         return category.ob("x"),
 
     @staticmethod
-    def transpose_axiom(category):
+    def pivotality(category):
         x, y = map(category.ob, "xy")
         return box(category, "f", x, y),
 
@@ -323,10 +323,10 @@ def functor_arguments(axiom, identity):
         return ()
     category = axiom.carrier.dom
     x, y = map(category.ob, "xy")
-    if axiom.name == "tensor":
+    if axiom.name == "preserves_tensor":
         return identity, HorizontalPair(
             box(category, "f", x, y), box(category, "g", y, x))
-    if axiom.name == "swap":
+    if axiom.name == "preserves_swap":
         return identity, Atomic(x), Atomic(y)
     return identity, Atomic(x)
 
@@ -336,19 +336,6 @@ def test_functor_axioms_hold_for_the_identity(axiom):
     """ Each law of a Functor, on the identity functor of its domain. """
     identity = axiom.carrier(Relabelling(), Relabelled(Relabelling()))
     assert_verdict(axiom, axiom(*functor_arguments(axiom, identity)))
-
-@pytest.mark.parametrize("axiom", all_axioms())
-def test_axioms_instantiation_on_diagrams(axiom):
-    arguments = getattr(Arguments, axiom.name)(axiom.carrier)
-    assert_verdict(axiom, axiom(*arguments))
-
-
-FUNCTORS = [
-    cat.Functor, monoidal.Functor, braided.Functor, traced.Functor,
-    balanced.Functor, symmetric.Functor, biclosed.Functor, rigid.Functor,
-    pivotal.Functor, ribbon.Functor, compact.Functor, markov.Functor,
-    closed.Functor, feedback.Functor, frobenius.Functor,
-]
 
 
 @pytest.mark.parametrize("carrier", [
@@ -365,3 +352,19 @@ def test_feedback_signature_allows_inferred_boundaries():
     parameters = signature(abc.FeedbackCategory.feedback).parameters
     assert all(parameters[name].default is None
                for name in ("dom", "cod", "mem"))
+
+
+def test_strict_equality_is_on_the_nose():
+    x, y = map(symmetric.Ty, "xy")
+    f, g = symmetric.Box('f', x, x), symmetric.Box('g', y, y)
+    left, right = f @ y >> x @ g, x @ g >> f @ y
+    assert left != right
+    assert not abc.Category.equation_factory(left, right)
+    assert symmetric.Diagram.equation_factory(left, right)
+
+
+@pytest.mark.parametrize("module", [
+    monoidal, braided, traced, balanced, symmetric, markov, biclosed,
+    closed, rigid, pivotal, ribbon, compact, feedback, frobenius])
+def test_every_diagram_level_inherits_its_box_factory(module):
+    assert module.Diagram.box_factory is module.Box

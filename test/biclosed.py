@@ -122,3 +122,9 @@ def test_to_rigid():
     f_ = rigid.Box('f', x_, y_)
     assert Diagram.to_rigid(diagram)\
         == rigid.Id(x_ @ y_.l) @ f_ >> rigid.Id(x_) @ rigid.Cup(y_.l, y_)
+
+
+def test_strategy():
+    from discopy import testing
+
+    testing.assert_strategy_finds(Diagram, Eval)

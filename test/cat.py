@@ -407,3 +407,16 @@ def test_Sum():
     assert len(Sum((), x, y)) == 0
     assert Sum((), x, x).then(f, g) == Sum((), x, z)
     assert Sum((), x, y).dagger() == Sum((), y, x)
+
+
+def test_strategy():
+    from hypothesis import find
+
+    testing.assert_strategy_finds(Arrow, Box)
+    a, b = Ob('a'), Ob('b')
+    arrow = find(
+        Arrow.strategy(dom=a, cod=b, min_leaves=2, max_leaves=2),
+        lambda value: len(value.inside) > 1)
+    assert (arrow.dom, arrow.cod) == (a, b)
+    functor = find(Functor.strategy(), lambda value: value(a) != a)
+    assert functor(arrow).dom == functor(a)

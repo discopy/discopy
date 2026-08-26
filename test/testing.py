@@ -1,34 +1,32 @@
 # -*- coding: utf-8 -*-
 
 """
-Tests for the property-test data structures of :mod:`discopy.testing`.
-
-The strategies themselves are checked against every category in ``proptest/``,
-here we check the validation of arguments and the binding of axioms.
+One test for each argument generator of :mod:`discopy.testing`: it accepts
+valid arguments, rejects invalid ones, and its search strategy reaches every
+shape of argument the axioms expect. Whether the axioms hold is checked over
+every category in ``proptest/``.
 """
 
-from hypothesis import find, given, settings
-from hypothesis import strategies as st
-import pytest
+from hypothesis import find
 from pytest import raises
 
-from discopy import (
-    abc,
-    balanced, biclosed, braided, cat, feedback, frobenius, markov, monoidal,
-    rigid, symmetric, traced)
-from discopy.python import finset
+from discopy import biclosed, cat, feedback, monoidal, traced
 from discopy.testing import (
     Atomic, Bifunctor, ComposablePair, ComposableTriple, FeedbackJoining,
     FeedbackVanishing, HorizontalPair, LeftCurrying, Natural, NonEmpty,
-    RightCurrying, TraceNaturalityLeft, TraceNaturalityRight,
-    TraceSuperposing, axiom)
+    RightCurrying, TraceDinaturalityLeft, TraceDinaturalityRight,
+    TraceNaturalityLeft, TraceNaturalityRight, TraceSuperposing, axiom,
+    inapplicable)
 from discopy.utils import AxiomError
 
 
 def test_Natural():
     assert Natural(2) @ Natural(3) == 5 == len(Natural(5))
+    assert Natural.equation_factory(Natural(1), Natural(1))
     with raises(ValueError):
         Natural(-1)
+    find(Natural.strategy(), lambda value: value == 0)
+    find(Natural.strategy(), lambda value: value > 1)
 
 
 def test_Atomic():
@@ -36,6 +34,8 @@ def test_Atomic():
     assert Atomic(x).value == x
     with raises(ValueError):
         Atomic(x @ y)
+    find(Atomic.strategy(factory=monoidal.Ty),
+         lambda value: len(value.value) == 1)
 
 
 def test_NonEmpty():
@@ -43,32 +43,151 @@ def test_NonEmpty():
     assert NonEmpty(x).value == x
     with raises(ValueError):
         NonEmpty(monoidal.Ty())
+    find(NonEmpty.strategy(factory=monoidal.Ty),
+         lambda value: len(value.value) > 1)
 
 
-def test_PastingDiagram():
-    x, y = map(monoidal.Ty, "xy")
-    f = monoidal.Box('f', x, y)
+def test_ComposablePair():
+    x, y = map(cat.Ob, "xy")
+    f, g = cat.Box('f', x, y), cat.Box('g', y, x)
+    assert ComposablePair(f, g) == (f, g)
     with raises(ValueError):
         ComposablePair(f)
     with raises(AxiomError):
         ComposablePair(f, f)
+    find(ComposablePair.strategy(factory=cat.Arrow),
+         lambda value: all(term.inside for term in value))
 
 
-def test_TraceSliding():
+def test_ComposableTriple():
+    x, y = map(cat.Ob, "xy")
+    f, g = cat.Box('f', x, y), cat.Box('g', y, x)
+    assert ComposableTriple(f, g, f) == (f, g, f)
+    with raises(AxiomError):
+        ComposableTriple(f, f, f)
+    find(ComposableTriple.strategy(factory=cat.Arrow),
+         lambda value: all(term.inside for term in value))
+
+
+def test_HorizontalPair():
+    x, y = map(monoidal.Ty, "xy")
+    f, g = monoidal.Box('f', x, y), monoidal.Box('g', y, x)
+    assert HorizontalPair(f, g) == (f, g)
+    with raises(ValueError):
+        HorizontalPair(f)
+    find(HorizontalPair.strategy(factory=monoidal.Diagram),
+         lambda value: all(term.boxes for term in value))
+
+
+def test_Bifunctor():
+    x, y = map(monoidal.Ty, "xy")
+    f, g = monoidal.Box('f', x, y), monoidal.Box('g', y, x)
+    assert Bifunctor(f, f, g, g) == (f, f, g, g)
+    with raises(AxiomError):
+        Bifunctor(f, f, f, f)
+    find(Bifunctor.strategy(factory=monoidal.Diagram),
+         lambda value: all(
+             value[column].boxes or value[column + 2].boxes
+             for column in range(2)))
+
+
+def test_TraceSuperposing():
+    x, y, z = map(traced.Ty, "xyz")
+    assert TraceSuperposing(traced.Id(x), y) == (traced.Id(x), y)
+    with raises(AxiomError):
+        TraceSuperposing(traced.Box('f', x, y), z)
+    find(TraceSuperposing.strategy(factory=traced.Diagram),
+         lambda value: len(value[1]) > 1)
+
+
+def test_TraceNaturalityLeft():
     x, y = map(traced.Ty, "xy")
+    f, g = traced.Box('f', x @ y, x @ x), traced.Box('g', x, y)
+    assert TraceNaturalityLeft(f, x, g) == (f, x, g)
     with raises(ValueError):
         TraceNaturalityLeft(traced.Id(x @ y), x, traced.Id(x))
+    find(TraceNaturalityLeft.strategy(factory=traced.Diagram),
+         lambda value: value[2].dom != value[2].cod)
+
+
+def test_TraceNaturalityRight():
+    x, y = map(traced.Ty, "xy")
+    f, g = traced.Box('f', y @ x, x @ x), traced.Box('g', x, y)
+    assert TraceNaturalityRight(f, x, g) == (f, x, g)
     with raises(ValueError):
-        TraceNaturalityLeft(traced.Id(y @ x), x, traced.Id(y))
+        TraceNaturalityRight(traced.Id(x @ y), x, traced.Id(y))
+    find(TraceNaturalityRight.strategy(factory=traced.Diagram),
+         lambda value: value[2].dom != value[2].cod)
 
 
-def test_Feedback():
+def test_TraceDinaturalityLeft():
+    x, y, z = map(traced.Ty, "xyz")
+    f, g = traced.Box('f', x @ z, y @ z), traced.Box('g', y, x)
+    assert TraceDinaturalityLeft(f, g) == (f, g)
+    with raises(ValueError):
+        TraceDinaturalityLeft(g, f)
+    find(TraceDinaturalityLeft.strategy(factory=traced.Diagram),
+         lambda value: value[1].dom != value[1].cod)
+
+
+def test_TraceDinaturalityRight():
+    x, y, z = map(traced.Ty, "xyz")
+    f, g = traced.Box('f', z @ x, z @ y), traced.Box('g', y, x)
+    assert TraceDinaturalityRight(f, g) == (f, g)
+    with raises(ValueError):
+        TraceDinaturalityRight(g, f)
+    shape = find(TraceDinaturalityRight.strategy(factory=traced.Diagram),
+                 lambda value: value[1].dom != value[1].cod)
+    sliding = shape[1]
+    assert shape[0].dom[-len(sliding.cod):] == sliding.cod
+    assert shape[0].cod[-len(sliding.dom):] == sliding.dom
+
+
+def test_LeftCurrying():
+    x, y = map(biclosed.Ty, "xy")
+    evaluation = biclosed.Diagram.ev(x, y, left=True)
+    assert LeftCurrying(evaluation, x, y) == (evaluation, x, y)
+    with raises(ValueError):
+        LeftCurrying(evaluation, y, x)
+    find(LeftCurrying.strategy(factory=biclosed.Diagram),
+         lambda value: value[1] != value[2])
+
+
+def test_RightCurrying():
+    x, y = map(biclosed.Ty, "xy")
+    evaluation = biclosed.Diagram.ev(x, y, left=False)
+    assert RightCurrying(evaluation, x, y) == (evaluation, x, y)
+    with raises(ValueError):
+        RightCurrying(evaluation, y, x)
+    find(RightCurrying.strategy(factory=biclosed.Diagram),
+         lambda value: value[1] != value[2])
+
+
+def test_FeedbackVanishing():
     x = feedback.Ty('x')
-    f = feedback.Box('f', x, x)
+    f, unit = feedback.Box('f', x, x), feedback.Ty()
+    assert FeedbackVanishing(f, unit) == (f, unit)
     with raises(ValueError):
         FeedbackVanishing(f, x)
+    find(FeedbackVanishing.strategy(factory=feedback.Diagram),
+         lambda value: value[0].boxes)
+
+
+def test_FeedbackJoining():
+    x, y, z = map(feedback.Ty, "xyz")
+    memory = y @ z
+    f = feedback.Box('f', x @ memory.delay(), x @ memory)
+    assert FeedbackJoining(f, memory) == (f, memory)
     with raises(ValueError):
         FeedbackJoining(f, feedback.Ty())
+    with raises(ValueError):
+        FeedbackJoining(feedback.Box('g', x @ memory, x @ memory), memory)
+    with raises(ValueError):
+        FeedbackJoining(
+            feedback.Box('g', x @ memory.delay(), x @ memory.delay()), memory)
+    shape = find(FeedbackJoining.strategy(factory=feedback.Diagram),
+                 lambda value: value[1][:1] != value[1][1:])
+    assert shape[0].cod[-2:] == shape[1]
 
 
 def test_Axiom():
@@ -85,121 +204,11 @@ def test_Axiom():
     assert law.bind(cat.Arrow)(cat.Id(cat.Ob('x')))
 
 
-def test_strict_equality_is_on_the_nose():
-    x, y = map(symmetric.Ty, "xy")
-    f, g = symmetric.Box('f', x, x), symmetric.Box('g', y, y)
-    left, right = f @ y >> x @ g, x @ g >> f @ y
-    assert left != right
-    assert not abc.Category.equation_factory(left, right)
-    assert symmetric.Diagram.equation_factory(left, right)
+def test_inapplicable():
+    class Carrier(cat.Arrow):
+        unitality = inapplicable("No identities.")
 
-
-def test_extend_strategy():
-    base = balanced.Box.free_strategy()
-    build = lambda factory: balanced.Box.atomic_strategy().map(factory)
-    assert balanced.Box.extend_strategy(
-        base, balanced.Diagram.twist_factory, build,
-        dom=balanced.Ty('x')) is base
-    extended = balanced.Box.extend_strategy(
-        base, balanced.Diagram.twist_factory, build)
-    assert type(find(extended, lambda box: type(box) is balanced.Box))\
-        is balanced.Box
-    assert isinstance(find(
-        extended, lambda box: isinstance(box, balanced.Twist)),
-        balanced.Twist)
-
-
-def test_arrow_strategy_with_boundaries_is_recursive():
-    x, y = map(cat.Ob, "xy")
-    arrow = find(cat.Arrow.strategy(
-        dom=x, cod=y, min_leaves=2, max_leaves=2),
-        lambda value: len(value.inside) > 1)
-    assert arrow.dom == x and arrow.cod == y
-
-
-def test_layer_strategy_excludes_boxes():
-    x = monoidal.Ty("x")
-    params = dict(
-        factory=monoidal.Diagram, types=st.just(x), dom=x, cod=x,
-        label=0)
-    first = find(monoidal.Layer.strategy(**params), lambda _: True)
-    second = find(monoidal.Layer.strategy(
-        **params, exclude=first.boxes), lambda _: True)
-    assert not set(first.boxes).intersection(second.boxes)
-
-
-def test_unconstrained_layer_strategy():
-    layer = find(monoidal.Layer.strategy(
-        factory=monoidal.Diagram), lambda _: True)
-    assert isinstance(layer, monoidal.Layer)
-
-
-@pytest.mark.parametrize(("shape", "factory"), (
-    (Atomic, monoidal.Ty),
-    (NonEmpty, monoidal.Ty),
-    (ComposablePair, cat.Arrow),
-    (ComposableTriple, cat.Arrow),
-    (HorizontalPair, monoidal.Diagram),
-    (Bifunctor, monoidal.Diagram),
-    (TraceSuperposing, traced.Diagram),
-    (TraceNaturalityLeft, traced.Diagram),
-    (TraceNaturalityRight, traced.Diagram),
-    (LeftCurrying, biclosed.Diagram),
-    (RightCurrying, biclosed.Diagram),
-    (FeedbackVanishing, feedback.Diagram),
-    (FeedbackJoining, feedback.Diagram),
-))
-def test_argument_strategy(shape, factory):
-    assert find(shape.strategy(factory=factory), lambda _: True) is not None
-
-
-@pytest.mark.parametrize(("factory", "structure"), (
-    (braided.Box, braided.Braid),
-    (traced.Box, traced.Trace),
-    (biclosed.Box, biclosed.Eval),
-    (rigid.Box, rigid.Cup),
-    (markov.Box, markov.Copy),
-    (feedback.Box, feedback.Feedback),
-    (frobenius.Box, frobenius.Spider),
-))
-def test_box_strategy_generates_structure(factory, structure):
-    value = find(factory.strategy(), lambda box: isinstance(box, structure))
-    assert isinstance(value, structure)
-
-
-def test_diagram_strategy_generates_closed_components():
-    diagram = find(monoidal.Diagram.strategy(boundary_connected=False),
-                   lambda value: not value.to_hypergraph()
-                   .is_boundary_connected)
-    assert not diagram.to_hypergraph().is_boundary_connected
-
-
-def test_symmetric_layer_strategy_from_codomain_and_types():
-    cod = symmetric.Ty(*"xyz")
-    from_cod = find(symmetric.Layer.strategy(
-        factory=symmetric.Diagram, cod=cod),
-        lambda layer: layer.is_plumbing)
-    assert from_cod.cod == cod
-    unconstrained = find(symmetric.Layer.strategy(
-        factory=symmetric.Diagram, types=st.just(cod)),
-        lambda layer: layer.is_plumbing)
-    assert unconstrained.is_plumbing
-
-
-@given(box=balanced.Box.strategy(label="f"))
-@settings(max_examples=5, deadline=None)
-def test_box_strategy(box):
-    assert balanced.Id(box.dom) >> box == box >> balanced.Id(box.cod)
-
-
-@given(function=finset.Function.strategy())
-@settings(max_examples=5, deadline=None)
-def test_finset_strategy(function):
-    assert function.then(finset.Function.id(function.cod)) == function
-
-
-@given(function=finset.Function.generator_strategy(cod=1, max_size=1))
-@settings(max_examples=20, deadline=None)
-def test_finset_generator_strategy(function):
-    """ There is no function from the empty set to a non-empty one. """
-    assert function.cod == 1 and function.dom == 1
+    unitality, = (a for a in Carrier.axioms if a.name == "unitality")
+    assert unitality() is NotImplemented
+    assert unitality.__doc__ == "No identities."
+    assert not unitality.parameters and not unitality.broken

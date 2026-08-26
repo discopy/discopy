@@ -257,3 +257,10 @@ def test_subclass_to_hypergraph():
     f, g = Gate('f', x, x), Gate('g', x, x)
     assert (f >> g).to_hypergraph().category == Circuit
     assert isinstance((f >> g).to_hypergraph().to_diagram(), Circuit)
+
+
+def test_strategy():
+    from hypothesis import find
+
+    hypergraph = find(H.strategy(max_leaves=1), lambda value: value.boxes)
+    assert isinstance(hypergraph, H)
