@@ -10,10 +10,11 @@ from discopy.kleisli.monad import (
     Monad, Maybe, Powerset, Subdistribution, Seed,
     make_monad, make_state, merge, sample)
 from discopy.kleisli.channel import Channel
-from discopy.kleisli import additive, multiplicative
+from discopy.kleisli import additive, multiplicative, token
 from discopy.kleisli.additive import Tagged
 from discopy.kleisli.multiplicative import Row
 from discopy.tensor import Dim, Tensor
+from discopy.closed import Box as ClosedBox, Ty, Variable
 
 
 def test_EndoFunctor():
@@ -610,3 +611,139 @@ def test_additive_Channel_repr():
     half = additive.Channel[Maybe](
         lambda x: x // 2 if x % 2 == 0 else None, int, int)
     assert repr(half).startswith("kleisli.additive.Channel[Maybe](")
+
+
+def token_machine(**constants):
+    """
+    A probabilistic token machine, i.e. the one of the module docstring of
+    :mod:`discopy.kleisli.token` with the constants given as keywords.
+    """
+    return token.Machine[Subdistribution](constants)
+
+
+def test_token_lookup_reads_the_innermost_binder():
+    x, y = Variable("x", Ty("X")), Variable("y", Ty("Y"))
+    assert token.lookup(((x, "inner"), (x, "outer")), x) == "inner"
+    assert token.lookup(((x, 0), (y, 1)), y) == 1
+    with raises(ValueError):
+        token.lookup(((x, 0), ), y)
+
+
+def test_token_evidence_and_posterior():
+    values = frozenset({("heads", .1), ("tails", .3)})
+    assert token.evidence(values) == approx(.4)
+    assert dict(token.posterior(values)) == {
+        "heads": approx(.25), "tails": approx(.75)}
+    with raises(ValueError):
+        token.posterior(frozenset())
+
+
+def test_token_machine_evaluates_pure_terms():
+    """
+    Beta reduction with no effect at all: the machine walks a closed term
+    of the simply-typed lambda calculus to its value, which is the constant
+    itself for a base type and a closure for a function type.
+    """
+    X = Ty("X")
+    identity, c = X(lambda x: x), X("c")
+    machine = token.Machine[Maybe]()
+
+    assert machine(identity(c)) == c
+    assert machine(identity) == token.Closure(identity, ())
+    assert machine((X >> X)(lambda f: f(f(c)))(identity)) == c
+    assert machine(X(lambda x: X(lambda y: x))(c)(X("d"))) == c
+    assert machine(X(lambda x: X(lambda x: x)(X("d")))(c)) == X("d")
+
+
+def test_token_machine_needs_a_closed_term_of_the_calculus():
+    X = Ty("X")
+    machine = token.Machine[Maybe]()
+    with raises(ValueError):
+        machine(Variable("z", X))
+    with raises(ValueError):
+        machine((X >> X)("f")(X("c")))
+    with raises(ValueError):
+        machine.apply(42, 0, ())
+    with raises(NotImplementedError):
+        machine.step(token.Down(ClosedBox("f", X, X)))
+
+
+def test_token_machine_needs_an_iteration_operator():
+    """
+    The machine is a trace, so it is defined exactly for the monads that
+    are Elgot, see :mod:`discopy.kleisli.additive`.
+    """
+    with raises(ValueError):
+        token.Machine[Seed]()(Ty("X")("c"))
+
+
+def test_token_machine_is_a_traced_channel():
+    """
+    One transition is a channel from an entry plus the two directions of
+    the token to an exit plus the two directions, and the machine is its
+    trace over the two directions.
+    """
+    X = Ty("X")
+    machine = token.Machine[Maybe]()
+    channel = machine.channel
+
+    assert channel.dom == (token.Down, token.Down, token.Up)
+    assert channel.cod == (token.Value, token.Down, token.Up)
+    assert channel.trace(2)(token.Down(X("c"))) == machine(X("c"))
+    assert channel(token.Down(X("c"))) == Tagged(token.Up(X("c")), 2)
+    assert channel(token.Up(X("c")), 2) == Tagged(X("c"), 0)
+
+
+def test_token_machine_samples_and_scores():
+    """
+    Dal Lago-Hoshino's two constants over the subdistribution monad: the
+    mass of a draw whose outcome is discarded merges back into the branch
+    it came from, and scoring multiplies the weight of the branch it runs
+    in, so that the machine returns the unnormalised posterior of Bayes.
+    """
+    B, U = Ty("B"), Ty("U")
+    flip, star = B("flip"), U("*")
+    score = (B >> U)("score")
+    machine = token_machine(
+        flip=frozenset({(True, .5), (False, .5)}),
+        score=lambda weight: frozenset({(star, .5 if weight else 1.)}))
+
+    discarded = B(lambda x: B(lambda y: x)(flip))(flip)
+    assert dict(machine(discarded)) == {
+        True: approx(.5), False: approx(.5)}
+
+    conditioned = B(lambda x: U(lambda _: x)(score(x)))(flip)
+    assert dict(machine(conditioned)) == {
+        True: approx(.25), False: approx(.5)}
+    assert token.evidence(machine(conditioned)) == approx(.75)
+    assert dict(token.posterior(machine(conditioned))) == {
+        True: approx(1 / 3), False: approx(2 / 3)}
+
+
+def test_token_machine_loses_all_its_mass_on_an_impossible_observation():
+    B, U = Ty("B"), Ty("U")
+    flip, star = B("flip"), U("*")
+    machine = token_machine(
+        flip=frozenset({(True, .5), (False, .5)}),
+        score=lambda weight: frozenset({(star, 0.)}))
+    term = B(lambda x: U(lambda _: x)((B >> U)("score")(x)))(flip)
+
+    assert machine(term) == frozenset()
+    assert token.evidence(machine(term)) == 0
+    with raises(ValueError):
+        token.posterior(machine(term))
+
+
+def test_token_machine_is_nondeterministic_over_the_powerset_monad():
+    """
+    The same machine over another Elgot monad: the powerset monad forgets
+    the weights, so a coin comes back as the set of its outcomes.
+    """
+    B = Ty("B")
+    flip = B("flip")
+    machine = token.Machine[Powerset]({
+        "flip": frozenset({"heads", "tails"}),
+        "twice": lambda x: frozenset({x + x})})
+    term = B(lambda x: (B >> B)("twice")(x))(flip)
+
+    assert machine(term) == frozenset({"headsheads", "tailstails"})

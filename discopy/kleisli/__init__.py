@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
 """
-DisCoPy's Kleisli modules: monad, channel, additive and multiplicative.
+DisCoPy's Kleisli modules: monad, channel, additive, multiplicative and
+token.
 
 .. autosummary::
     :template: module.rst
@@ -11,9 +12,12 @@ DisCoPy's Kleisli modules: monad, channel, additive and multiplicative.
     discopy.kleisli.channel
     discopy.kleisli.additive
     discopy.kleisli.multiplicative
+    discopy.kleisli.token
 """
 
-from discopy.kleisli import monad, channel, additive, multiplicative
+from discopy.kleisli import (
+    monad, channel, additive, multiplicative, token)
 from discopy.kleisli.monad import (
     Monad, Maybe, Powerset, Subdistribution, Seed)
 from discopy.kleisli.channel import Channel
+from discopy.kleisli.token import Machine
