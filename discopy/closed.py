@@ -25,7 +25,7 @@ Summary
     Discard
     Sum
     Functor
-    CompactFunctor
+    Compactify
     CMap
 
 Axioms
@@ -48,24 +48,6 @@ Axioms
 .. image:: /_static/closed/uncurry.svg
     :align: center
 
-Compact currying
-----------------
-
-Closed maps can open curry bubbles into coevaluation wiring with
-``to_compact``.
-
->>> f = Box("f", x @ y, z).to_map()
->>> f.curry(left=False).uncurry(left=False).to_compact().draw(show=False,
-...     doctest="docs/_static/cmap/biclosed-curry-right.dot")
-
-.. graphviz:: /_static/cmap/biclosed-curry-right.dot
-    :align: center
-
->>> f.curry(left=True).uncurry(left=True).to_compact().draw(show=False,
-...     doctest="docs/_static/cmap/biclosed-curry-left.dot")
-
-.. graphviz:: /_static/cmap/biclosed-curry-left.dot
-    :align: center
 """
 
 from __future__ import annotations
@@ -122,22 +104,6 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
     @classmethod
     def ev(cls, base: Ty, exponent: Ty, left: bool = True):
         return cls.eval_factory(exponent >> base, left=left)
-
-    def to_compact(self):
-        """
-        Open curry bubbles into coevaluations and traces.
-
-        This applies the endofunctor which is the identity on objects and
-        generators, and sends currying to compact-style wiring.
-
-        Example
-        -------
-        >>> x, y, z = map(Ty, "xyz")
-        >>> f = Box("f", x @ y, z)
-        >>> assert f.curry().to_compact() == (
-        ...     f >> Coeval(z << y, left=True)).trace()
-        """
-        return self.compact_factory()(self)
 
     def to_drawing(self):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
@@ -210,26 +176,30 @@ class Functor(biclosed.Functor, markov.Functor):
         return super().__call__(other)
 
 
-class CompactFunctor(Functor):
+class Compactify(biclosed.Compactify, Functor):
     """
     The endofunctor opening curry bubbles into compact-style wiring.
 
-    A curry is sent to its argument followed by coevaluation, then traced over
-    the curried wires. Objects and other generators are left unchanged.
+    Unlike :class:`biclosed.Compactify`, a closed category is traced so the
+    feedback stays a :class:`Diagram`, maps are bent by roundtrip.
+
+    Example
+    -------
+    >>> x, y, z = map(Ty, "xyz")
+    >>> f = Box("f", x @ y, z)
+    >>> assert f.curry().to_compact() == (
+    ...     f >> Coeval(z << y, left=True)).trace()
     """
+    cod = Diagram
+
     def __init__(self):
-        super().__init__(ob_map=lambda x: x, ar_map=lambda f: f)
+        Functor.__init__(self, ob_map=lambda x: x, ar_map=lambda f: f)
 
     def __call__(self, other):
-        if isinstance(other, CMap):
+        if isinstance(other, cmap.CMap):
             return type(other).from_diagram(self(other.to_diagram()))
         if isinstance(other, (Application, Abstraction)):
             return self(other.eval(Functor.id(Diagram)))
-        if isinstance(other, biclosed.Curry):
-            cod = self(other.cod)
-            coev = self.cod.coeval_factory(cod, left=other.left)
-            return (self(other.arg) >> coev).trace(
-                len(cod.exponent), left=not other.left)
         return super().__call__(other)
 
 
@@ -246,7 +216,7 @@ Diagram.coeval_factory = Coeval
 Diagram.trace_factory = Trace
 Diagram.discard_factory = Discard
 Diagram.sum_factory = Sum
-Diagram.compact_factory = CompactFunctor
+Diagram.compactify_factory = Compactify
 Ty.exp_factory = Ty.under_factory = Ty.over_factory = staticmethod(Exp)
 
 Id = Diagram.id

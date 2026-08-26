@@ -23,6 +23,7 @@ Summary
     Curry
     Sum
     Functor
+    Compactify
     CMap
     TermBase
     Constant
@@ -56,6 +57,24 @@ Axioms
 ...         doctest='docs/_static/biclosed/uncurry.svg')
 
 .. image:: /_static/biclosed/uncurry.svg
+    :align: center
+
+Compact currying
+----------------
+
+:meth:`Diagram.to_compact` bends curry bubbles into coevaluation and feedback,
+which lands in :class:`CMap` as a biclosed category has no trace.
+
+>>> g.curry(left=True).uncurry(left=True).to_compact().draw(show=False,
+...     doctest="docs/_static/cmap/biclosed-curry-left.dot")
+
+.. graphviz:: /_static/cmap/biclosed-curry-left.dot
+    :align: center
+
+>>> g.curry(left=False).uncurry(left=False).to_compact().draw(show=False,
+...     doctest="docs/_static/cmap/biclosed-curry-right.dot")
+
+.. graphviz:: /_static/cmap/biclosed-curry-right.dot
     :align: center
 
 """
@@ -305,6 +324,20 @@ class Diagram(monoidal.Diagram, BiclosedCategory):
         return cls.eval_factory(
             base << exponent if left else exponent >> base)
 
+    def to_compact(self):
+        """
+        Bend curry bubbles into coevaluation and feedback,
+        see :class:`Compactify`.
+
+        Example
+        -------
+        >>> x, y, z = map(Ty, "xyz")
+        >>> f = Box("f", x @ y, z)
+        >>> assert f.curry().to_compact() == (
+        ...     f.to_map() >> CMap.ev(z, y).dagger()).trace()
+        """
+        return self.compactify_factory()(self)
+
     def to_drawing(self):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
 
@@ -350,6 +383,15 @@ class Coeval(Box):
 
     Parameters:
         x : The exponential type to coevaluate.
+
+    Note
+    ----
+    This is not the unit of the adjunction, which sends ``z`` to
+    ``(z @ x) << x``, but the transpose of :class:`Eval`, which needs the
+    exponent to be dualisable: a biclosed category has no such morphism
+    unless its exponential is read at a reflexive object, see `Zeilberger
+    (2016) <https://arxiv.org/abs/1512.06751>`_. It is used by
+    :meth:`Curry.to_drawing` and :class:`Compactify`.
     """
     drawing_name = "lambda"
 
@@ -462,7 +504,41 @@ class Functor(monoidal.Functor):
 CMap = cmap.CMap[Diagram]
 
 
+class Compactify(Functor):
+    """
+    The functor bending curry bubbles into coevaluation and feedback, i.e.
+    sending a curry to its argument followed by :class:`Coeval`, traced over
+    the curried wires. Objects and other generators are left unchanged, so
+    the codomain is :class:`CMap`, which is compact whatever hosts it, while
+    the free biclosed category has no trace.
+
+    Note
+    ----
+    This is a shortcut rather than an honest compactification: those are
+    :meth:`discopy.rigid.to_rigid`, which reads ``x << y`` as the dual
+    ``x @ y.l`` so that evaluation really is a cup, and
+    :class:`discopy.interaction.Int`, the free compact category on a traced
+    one. Here the exponential stays atomic and the wire is bent with
+    :class:`Coeval`, which a biclosed category has no reason to have.
+    """
+    cod = CMap
+
+    def __init__(self):
+        super().__init__(ob_map=lambda x: x, ar_map=CMap.from_box)
+
+    def __call__(self, other):
+        if isinstance(other, cmap.CMap):
+            return self(other.to_diagram())
+        if isinstance(other, Curry):
+            cod = self(other.cod)
+            coev = self.cod.ev(cod.base, cod.exponent, other.left).dagger()
+            return (self(other.arg) >> coev).trace(
+                len(cod.exponent), left=not other.left)
+        return super().__call__(other)
+
+
 Diagram.functor_factory = Functor
+Diagram.compactify_factory = Compactify
 
 
 class TermBase(Box):

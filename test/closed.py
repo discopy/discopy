@@ -65,7 +65,7 @@ def test_to_compact():
         assert term.to_map().to_compact() == result
 
 
-def test_to_compact_factory(monkeypatch):
+def test_to_compactify_factory(monkeypatch):
     x = Ty("x")
     f = Box("f", x, x)
 
@@ -73,7 +73,7 @@ def test_to_compact_factory(monkeypatch):
         def __call__(self, other):
             return other
 
-    monkeypatch.setattr(Diagram, "compact_factory", Identity)
+    monkeypatch.setattr(Diagram, "compactify_factory", Identity)
     assert f.to_compact() is f
 
 

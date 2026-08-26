@@ -9,8 +9,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
-- `closed.Diagram.to_compact` and `closed.CMap.to_compact`, the functorial
-  interpretation of curry bubbles as coevaluation and trace wiring
+- `Diagram.to_compact` and `CMap.to_compact`, the functor bending curry
+  bubbles into coevaluation and feedback, defined in `biclosed` with
+  `Diagram.compactify_factory` as the functor. Since a biclosed category has
+  no trace, `biclosed.Compactify` lands in `CMap`, which is compact whatever
+  hosts it, while `closed.Compactify` stays in diagrams. Unlike
+  `rigid.to_rigid` and `interaction.Int`, this keeps the exponential atomic
+  and bends the wire with `biclosed.Coeval`, the transpose of `Eval`, which
+  a biclosed category only has when its exponential is read at a reflexive
+  object
   ([#532](https://github.com/discopy/discopy/pull/532)).
 - A style review workflow: when a same-repo pull request leaves draft or
   gets the `style-review` label, one model request reads every changed
