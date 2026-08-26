@@ -65,7 +65,7 @@ def test_to_compact():
         assert term.to_map().to_compact() == result
 
 
-def test_to_compactify_factory(monkeypatch):
+def test_compactify_factory(monkeypatch):
     x = Ty("x")
     f = Box("f", x, x)
 

@@ -85,8 +85,7 @@ from abc import abstractmethod
 from inspect import signature
 from typing import Callable, ClassVar
 
-from discopy import monoidal
-from discopy import cmap
+from discopy import monoidal, cmap
 from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
 from discopy.cat import factory

@@ -62,8 +62,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from discopy import monoidal, rigid, markov, compact, pivotal, hypergraph
-from discopy import cmap
+from discopy import (
+    monoidal, rigid, markov, compact, pivotal, cmap, hypergraph)
 from discopy.abc import HypergraphCategory
 from discopy.cat import factory
 from discopy.utils import assert_isatomic, deprecated_ob, factory_name

@@ -123,8 +123,7 @@ Dinaturality
 >>> assert sliding_left and sliding_right
 """
 
-from discopy import monoidal, hypergraph
-from discopy import cmap
+from discopy import monoidal, cmap, hypergraph
 from discopy.abc import TracedCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty  # noqa: F401

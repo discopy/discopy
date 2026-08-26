@@ -119,7 +119,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `balanced` and `pivotal` export a `CMap` alias like the other levels of
   the hierarchy ([#532](https://github.com/discopy/discopy/pull/532)).
 - `Hypergraph.to_diagram` raises `messages.NOT_RIGID/FROBENIUS/TRACED/...`
-  where it checks that the category has the available wirig structure.
+  where it checks that the category has the wiring structure
   ([#532](https://github.com/discopy/discopy/pull/532)).
 - `Swap` is now the two-wire transposition subclass of `Permutation`, and
   constructing `Permutation(x @ y, [1, 0])` returns a `Swap`. A swap is

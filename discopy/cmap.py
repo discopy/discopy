@@ -267,8 +267,7 @@ class CMap[C0: Pregroup, C1: CMap](
             for depth, box in enumerate(self.boxes)
             for kind, indexed_typ in [
                 (PortKind.DOM, tuple(enumerate(box.dom))),
-                (PortKind.COD,
-                 tuple(reversed(tuple(enumerate(box.cod)))))]],
+                (PortKind.COD, tuple(reversed(tuple(enumerate(box.cod)))))]],
             [])
         outputs = [port(PortKind.OUTPUT, i=i, obj=obj, depth=inf)
                    for i, obj in enumerate(self.cod)]
@@ -694,6 +693,8 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> snakes = (f.transpose(left=True) >> g.transpose(left=True))
         >>> assert not snakes.to_map().is_topologically_ordered
         >>> assert snakes.to_map().topological_order().boxes == (g, f)
+        >>> ordered = (f.to_map() >> g.to_map()) @ f.to_map()
+        >>> assert ordered.topological_order() is ordered
         >>> f.to_map().trace().topological_order()
         Traceback (most recent call last):
         ...
@@ -702,11 +703,10 @@ class CMap[C0: Pregroup, C1: CMap](
         ranks = self.box_ranks
         if ranks is None:
             raise AxiomError(messages.NOT_ACYCLIC.format(self))
-        order = tuple(sorted(
-            range(len(self.boxes)), key=lambda i: (ranks[i], i)))
-        if order == tuple(range(len(self.boxes))):
+        if self.is_topologically_ordered:
             return self
-        return self.reorder(order)
+        return self.reorder(tuple(sorted(
+            range(len(self.boxes)), key=lambda i: (ranks[i], i))))
 
     @property
     def is_causal(self) -> bool:
