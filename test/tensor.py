@@ -163,6 +163,21 @@ def test_Functor_call():
     assert Functor(ob_map={x: Dim(2, 3)}, ar_map=None)(x) == Dim(2, 3)
 
 
+def test_Functor_call_opt_einsum_missing(monkeypatch):
+    """ opt_einsum is not a declared dependency: contracting past
+    ``MAX_EINSUM_INDICES`` without it installed should raise a helpful
+    ``ImportError`` rather than crash with no explanation. """
+    import sys
+    import discopy.config
+    monkeypatch.setattr(discopy.config, "MAX_EINSUM_INDICES", 0)
+    monkeypatch.setitem(sys.modules, "opt_einsum", None)
+    x, y = frobenius.Ty('x'), frobenius.Ty('y')
+    f, g = frobenius.Box('f', x @ x, y), frobenius.Box('g', y, frobenius.Ty())
+    F = Functor({x: 2, y: 3}, {f: list(range(2 * 2 * 3)), g: list(range(3))})
+    with raises(ImportError, match="opt_einsum"):
+        F(f >> g)
+
+
 def test_Functor_swap():
     x, y = frobenius.Ty('x'), frobenius.Ty('y')
     f, g = frobenius.Box('f', x, x), frobenius.Box('g', y, y)
