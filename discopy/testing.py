@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import inspect
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import ClassVar, TypeVar, TYPE_CHECKING
 
@@ -24,6 +25,16 @@ override with its own types: :func:`proptest.strategies.arguments` rebinds
 both names to ``carrier.ob`` and ``carrier.ar`` when it evaluates the
 annotations. This is also why every module stating an axiom needs
 ``from __future__ import annotations``, which keeps them unevaluated.
+"""
+
+
+GENERATORS = tuple("abcde")
+"""
+The names the generators of a free category are drawn from.
+
+They are finitely many and shared, so a generated functor can name every one
+of them: composing two functors keeps only the keys of the left-hand map, so
+a functor that named just a few would compose to one defined nowhere else.
 """
 
 
@@ -380,26 +391,33 @@ class FeedbackJoining[C0, C1](
         return st.tuples(objects, atomic, atomic).flatmap(arrows)
 
 
-@dataclass(frozen=True)
-class Relabelling:
+@dataclass(frozen=True, eq=False)
+class Relabelling(Mapping):
     """
-    A total map on the generators of a free category, sending the ones it
-    names to a chosen object and every other one to itself.
+    A map on the generators of a free category, sending the atoms it names to
+    a chosen object and every other one to itself.
 
-    A functor built from a relabelling compares equal to another when their
-    labellings do, which a closure would not, so the axioms of ``Cat`` itself
-    can be checked on generated functors.
+    It is a :class:`Mapping` rather than a closure so that functors built
+    from it can be composed and compared, which is what makes the axioms of
+    ``Cat`` itself checkable: :meth:`discopy.utils.MappingOrCallable.then`
+    composes by iterating the keys of the left-hand map, and equality
+    compares the wrapped maps. Iterating yields only the atoms it renames,
+    while looking one up is total, so a functor built from it applies to any
+    diagram and still composes to something comparable.
     """
-    images: tuple[tuple[str, object], ...] = ()
+    images: tuple[tuple[object, object], ...] = ()
 
-    def __call__(self, atom):
+    def __getitem__(self, atom):
         """
         The image of an atomic object, carrying over whatever the atom does:
         a rotation in a rigid category, a delay in a feedback one.
         """
         wire, = getattr(atom, "inside", (atom, ))
-        image = dict(self.images).get(wire.name)
-        if image is None:
+        for key, image in self.images:
+            other, = getattr(key, "inside", (key, ))
+            if other.name == wire.name:
+                break
+        else:
             return atom
         turns = getattr(wire, "z", 0)
         for _ in range(abs(turns)):
@@ -407,22 +425,48 @@ class Relabelling:
         steps = getattr(wire, "time_step", 0)
         return image.delay(steps) if steps else image
 
+    def __iter__(self):
+        return iter([key for key, _ in self.images])
+
+    def __len__(self):
+        return len(self.images)
+
+    def __bool__(self):
+        """ A relabelling is total, even when it renames nothing. """
+        return True
+
     def send(self, typ):
         """ The image of an object, atom by atom. """
         if not hasattr(typ, "inside"):
-            return self(typ)
+            return self[typ]
         return type(typ)().tensor(*(
-            self(typ[i:i + 1]) for i in range(len(typ))))
+            self[typ[i:i + 1]] for i in range(len(typ))))
 
 
-@dataclass(frozen=True)
-class Relabelled:
-    """ Send each box to one of the same name on the relabelled boundary. """
+@dataclass(frozen=True, eq=False)
+class Relabelled(Mapping):
+    """
+    Send each box to one of the same name on the relabelled boundary.
+
+    Boxes cannot be enumerated, so this iterates empty and two of them
+    compare equal as mappings do. That is what lets a functor built from a
+    :class:`Relabelling` be the unit of its own composition on the right.
+    """
     objects: Relabelling
 
-    def __call__(self, box):
+    def __getitem__(self, box):
         return type(box)(
             box.name, self.objects.send(box.dom), self.objects.send(box.cod))
+
+    def __iter__(self):
+        return iter([])
+
+    def __len__(self):
+        return 0
+
+    def __bool__(self):
+        """ A relabelling is total, even though it enumerates nothing. """
+        return True
 
 
 class Axiom[T]:

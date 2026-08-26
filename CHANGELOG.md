@@ -31,12 +31,17 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   diagrams do not quotient by.
 - Every `Functor` subclass is its own `factory`, which only `cat.Functor`
   declared, so `Functor.ar` resolved to `cat.Functor` at every level.
-- `Category`'s own axioms are inherited by `Functor` but declared unchecked
-  there: composing functors wraps their maps in a closure that does not
-  compare equal to the map it came from even when it acts the same, so
-  composition is unital only on the left and two bracketings of a composite
-  never compare equal; and the objects of `Cat` are categories, which the
-  matrix does not generate.
+- `Category`'s own axioms are checked on `Functor`, which is how a functor
+  preserving identities and composition is stated: `Functor.ob` is
+  `abc.Category` rather than `type[Category]`, so the objects of `Cat` have
+  an equation factory, and `identity_typing` is restated of the one category
+  a carrier maps, since the matrix does not generate categories. `unitality`
+  is declared broken: `MappingOrCallable.then` composes by iterating the keys
+  of the left-hand map and the identity functor enumerates none, so `id >> f`
+  forgets everything `f` does instead of being `f`.
+- The names a free category draws its generators from are one shared
+  `testing.GENERATORS` rather than a `tuple("abcde")` repeated in `cat`,
+  `monoidal`, `feedback` and `rigid`.
 - Concrete semantic carriers in the property matrix: `Matrix[int]` is a
   Markov category and `python.finset.Function` a symmetric one, both with
   their own Hypothesis strategy, so the copy comonoid and the symmetry are

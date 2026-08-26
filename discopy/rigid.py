@@ -162,7 +162,7 @@ from discopy.utils import (
     deprecated_ob,
     factory_name,
 )
-from discopy.testing import Atomic, C0, axiom
+from discopy.testing import Atomic, C0, GENERATORS, axiom
 
 
 class Wire(monoidal.Wire):
@@ -207,7 +207,7 @@ class Wire(monoidal.Wire):
         from hypothesis import strategies as st
 
         return st.tuples(
-            st.sampled_from(tuple("abcde")),
+            st.sampled_from(GENERATORS),
             st.integers(
                 min_value=min_winding, max_value=max_winding)).map(
                     lambda args: cls(

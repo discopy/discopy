@@ -84,7 +84,7 @@ from typing import (
 from discopy import messages, utils
 from discopy.abc import Category, Equation as AbstractEquation
 from discopy.testing import (
-    Relabelled, Relabelling, Strategy, axiom)
+    C1, GENERATORS, Relabelled, Relabelling, Strategy, axiom)
 from discopy.utils import (  # noqa: F401
     factory,
     factory_name,
@@ -147,7 +147,7 @@ class Ob(Strategy["Ob"]):
         """Generate named objects."""
         from hypothesis import strategies as st
 
-        return st.sampled_from(tuple("abcde")).map(cls)
+        return st.sampled_from(GENERATORS).map(cls)
 
     def to_tree(self) -> dict:
         """
@@ -921,7 +921,7 @@ class Functor(Category, Strategy["Functor"]):
     >>> m.data.append(False)
     >>> assert F(m) == m[::-1]
     """
-    ob = type[Category]
+    ob = Category
     dom = cod = Arrow
 
     @classmethod
@@ -1012,53 +1012,41 @@ class Functor(Category, Strategy["Functor"]):
         return result
 
     @classmethod
-    def strategy(cls, *, dom=None, cod=None, max_labels=3):
-        """Generate an endofunctor relabelling some of the generators."""
+    def strategy(cls, *, dom=None, cod=None):
+        """Generate an endofunctor relabelling every generator."""
         from hypothesis import strategies as st
 
-        @st.composite
-        def functors(draw):
-            objects = cls.dom.ob.strategy().filter(
-                lambda obj: not hasattr(obj, "__len__") or len(obj) == 1)
-            names = draw(st.lists(
-                st.sampled_from("abcde"), unique=True, max_size=max_labels))
-            labelling = Relabelling(tuple(
-                (name, draw(objects)) for name in names))
+        atoms = [cls.dom.ob(name) for name in GENERATORS]
+
+        def relabel(images):
+            labelling = Relabelling(tuple(zip(atoms, images)))
             return cls(labelling, Relabelled(labelling))
 
-        return functors()
+        return st.tuples(
+            *(st.sampled_from(atoms) for _ in atoms)).map(relabel)
 
     @axiom
-    def unitality(cls):
+    def unitality(cls, f: C1):
         """
-        Composing a functor wraps its maps in a closure, which does not
-        compare equal to the map it came from even when it acts the same, so
-        composition here is unital only on the left.
-        """
-        return NotImplemented
+        Composition is unital only on the left.
 
-    @axiom
-    def associativity(cls):
+        ``MappingOrCallable.then`` composes by iterating the keys of the
+        left-hand map, and the identity functor enumerates none, so ``id >> f``
+        forgets everything ``f`` does instead of being ``f``.
         """
-        Composing a functor wraps its maps in a closure, so two ways of
-        bracketing the same composite act alike without comparing equal.
-        """
-        return NotImplemented
+        return utils.AxiomError(cls.equation_factory(
+            cls.id(f.dom).then(f), f, f.then(cls.id(f.cod))))
 
     @axiom
     def identity_typing(cls):
-        """ The objects of Cat are categories, which we do not generate. """
-        return NotImplemented
+        """
+        Typing of the identity functor.
 
-    @axiom
-    def composition_dom_typing(cls):
-        """ The objects of Cat are categories, which we do not generate. """
-        return NotImplemented
-
-    @axiom
-    def composition_cod_typing(cls):
-        """ The objects of Cat are categories, which we do not generate. """
-        return NotImplemented
+        The objects of ``Cat`` are categories, which the property matrix does
+        not generate, so this is stated of the one the carrier maps.
+        """
+        identity = cls.id(cls.dom)
+        return cls.ob.equation_factory(identity.dom, cls.dom, identity.cod)
 
 
 Arrow.generator_factory = Box

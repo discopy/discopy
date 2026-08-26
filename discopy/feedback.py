@@ -153,7 +153,7 @@ from discopy.utils import (
     deprecated_ob,
     factory, factory_name, assert_isinstance, AxiomError,
 )
-from discopy.testing import C0, C1, FeedbackJoining, axiom
+from discopy.testing import C0, C1, FeedbackJoining, GENERATORS, axiom
 
 
 def str_delayed(time_step: int):
@@ -180,7 +180,7 @@ class Wire(braided.Wire):
         from hypothesis import strategies as st
 
         del params
-        return st.sampled_from(tuple("abcde")).map(cls)
+        return st.sampled_from(GENERATORS).map(cls)
 
     def delay(self, n_steps=1):
         """ The delay of a feedback object. """

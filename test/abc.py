@@ -17,7 +17,8 @@ from discopy import (
     utils)
 from discopy.utils import AxiomError
 from discopy.testing import (
-    Atomic, HorizontalPair, NonEmpty, assert_verdict, declared_axioms)
+    Atomic, ComposablePair, ComposableTriple, HorizontalPair, NonEmpty,
+    Relabelled, Relabelling, assert_verdict, declared_axioms)
 
 
 def box(category, name, dom, cod):
@@ -334,7 +335,8 @@ def functor_axioms():
     for functor in FUNCTORS:
         for axiom in functor.axioms:
             marks = (pytest.mark.skip,) if (
-                not axiom.parameters and axiom() is NotImplemented) else ()
+                not axiom.parameters and axiom() is NotImplemented)\
+                else (pytest.mark.xfail,) if axiom.broken else ()
             yield pytest.param(
                 axiom, id=f"{utils.factory_name(functor)}.{axiom.name}",
                 marks=marks)
@@ -353,10 +355,23 @@ def functor_arguments(name, category):
 
 @pytest.mark.parametrize("axiom", functor_axioms())
 def test_functor_axioms_hold_for_the_identity(axiom):
-    """ Each law a Functor states of itself, on the identity functor. """
-    identity = axiom.carrier(lambda typ: typ, lambda box: box)
+    """ Each law of a Functor, on the identity functor of its domain. """
+    identity = axiom.carrier(Relabelling(), Relabelled(Relabelling()))
+    if not axiom.is_method:
+        return assert_verdict(axiom, axiom(*class_arguments(axiom, identity)))
     arguments = functor_arguments(axiom.name, axiom.carrier.dom)
     assert_verdict(axiom, axiom(identity, *arguments))
+
+
+def class_arguments(axiom, identity):
+    """ Canonical arguments for a law a Functor inherits from Category. """
+    if axiom.name == "unitality":
+        return identity,
+    if axiom.name.startswith("composition"):
+        return ComposablePair(identity, identity),
+    if axiom.name == "associativity":
+        return ComposableTriple(identity, identity, identity),
+    return ()
 
 
 @pytest.mark.parametrize("carrier", CARRIERS)

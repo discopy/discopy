@@ -63,7 +63,7 @@ from warnings import warn
 from discopy import cat, drawing, hypergraph, cmap, messages
 from discopy.abc import ColouredMonoid, MonoidalCategory
 from discopy.testing import (
-    Bifunctor, C1, HorizontalPair, Strategy, axiom)
+    Bifunctor, C1, GENERATORS, HorizontalPair, Strategy, axiom)
 from discopy.drawing import Drawing
 from discopy.config import (
     BOX_DRAWING_ATTRIBUTES, WIRE_DRAWING_ATTRIBUTES,
@@ -152,7 +152,7 @@ class Wire(cat.Ob):
         from hypothesis import strategies as st
 
         return st.tuples(
-            st.sampled_from(tuple("abcde")),
+            st.sampled_from(GENERATORS),
             st.just(dom), st.just(cod)).map(
                 lambda args: cls(
                     args[0], dom=args[1], cod=args[2]))
