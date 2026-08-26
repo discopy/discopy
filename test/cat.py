@@ -179,6 +179,13 @@ def test_Box_dagger():
     assert f == f.dagger().dagger()
 
 
+def test_Bubble_dagger():
+    f = Box('f', Ob('x'), Ob('y'))
+    b = f.bubble(data=42)
+    assert b.dagger().data == 42 and b.dagger().is_dagger
+    assert b.dagger().dagger() == b
+
+
 def test_Box_repr():
     f = Box('f', Ob('x'), Ob('y'), data=42)
     assert repr(f) == "cat.Box('f', cat.Ob('x'), cat.Ob('y'), data=42)"

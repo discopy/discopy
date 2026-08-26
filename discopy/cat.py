@@ -798,7 +798,8 @@ class Bubble(Box):
     def dagger(self) -> Bubble:
         return type(self)(
             *(arg.dagger() for arg in self.args),
-            dom=self.cod, cod=self.dom, name=self.name, method=self.method)
+            dom=self.cod, cod=self.dom, name=self.name, method=self.method,
+            data=self.data, is_dagger=not self.is_dagger)
 
     def to_tree(self):
         return {
