@@ -44,7 +44,17 @@ jobs:
         BASE_SHA: ${{ github.event.pull_request.base.sha }}
       run: |
         mkdir -p .style-review
-        paths=('*.py' 'docs/notebooks/*.md')
+        # Style applies to every authored file, not just Python: docs,
+        # notebooks, workflows, config. Excluded are generated artefacts
+        # nobody hand-writes: drawing baselines and the dependency lockfile.
+        paths=(
+          '.'
+          ':(exclude)docs/_static/**'
+          ':(exclude)discopy/*.gif'
+          ':(exclude)test/drawing/tikz/**'
+          ':(exclude)test/fixtures/**'
+          ':(exclude)uv.lock'
+        )
         git diff --merge-base "$BASE_SHA" -- "${paths[@]}" \
           > .style-review/diff.patch
         git diff --merge-base "$BASE_SHA" --name-only -- "${paths[@]}" \

@@ -1,13 +1,15 @@
 """Ask the model for a style review of the diff in one request.
 
-A changed file is either a Python module or a marimo notebook (a
-``docs/notebooks/*.md`` file, its code cells fenced as
-``python {.marimo}``). Assembles ``prompt.md``, ``STYLE.md``, the
-package-local files that the changed Python files import (as context), the
-full text of every changed file with line numbers and the diff from
-``.style-review``, sends one chat completion to the OpenAI-compatible
-gateway at ``BASE_URL`` and writes the findings to
-``.style-review/findings.json`` for ``post.py`` to post.
+A changed file is any tracked, authored file: a Python module, a marimo
+notebook (a ``docs/notebooks/*.md`` file, its code cells fenced as
+``python {.marimo}``), or plain prose, config or workflow. Excluded are
+generated artefacts nobody hand-writes, filtered out of the diff before
+this module runs. Assembles ``prompt.md``, ``STYLE.md``, the package-local
+files that the changed Python files import (as context), the full text of
+every changed file with line numbers and the diff from ``.style-review``,
+sends one chat completion to the OpenAI-compatible gateway at ``BASE_URL``
+and writes the findings to ``.style-review/findings.json`` for ``post.py``
+to post.
 """
 
 import ast
@@ -20,6 +22,11 @@ import urllib.request
 
 DIRECTORY = ".style-review"
 BUDGET = 400_000
+LANGUAGES = {
+    ".py": "python", ".md": "markdown", ".rst": "rst", ".yml": "yaml",
+    ".yaml": "yaml", ".toml": "toml", ".json": "json", ".css": "css",
+    ".html": "html",
+}
 
 
 def imports(path):
@@ -71,15 +78,18 @@ def numbered(text):
 
 
 def language(path):
-    """The Markdown fence language for a path's own file type."""
-    return "python" if path.endswith(".py") else "markdown"
+    """The Markdown fence language for a path's own file type, ``text``
+    for anything unrecognised."""
+    return LANGUAGES.get(os.path.splitext(path)[1], "text")
 
 
 def fence(body):
-    """A backtick fence one longer than any run already in ``body``, so a
-    notebook's own cell fences can never close it early."""
+    """A backtick fence at least three long, and one longer than any run
+    already in ``body`` — an inline code span is no threat, but a
+    notebook's own triple-backtick cell fences must never close it
+    early."""
     runs = re.findall("`+", body)
-    return "`" * (max((len(run) for run in runs), default=2) + 1)
+    return "`" * max(3, max((len(run) for run in runs), default=0) + 1)
 
 
 def section(title, path, body):

@@ -15,14 +15,17 @@ fixtures (`.pickle`/`.json`), and `uv.lock` is machine-generated (4179
 lines). Everything else tracked (`.py`, `.md`, `.rst`, `.yml`/`.yaml`,
 `.toml`, `.css`, `.html`, `.bib`, …) is authored.
 
-- [ ] Widen `style-review.yml`'s diff to the whole repo, excluding the
+- [x] Widen `style-review.yml`'s diff to the whole repo, excluding the
       generated-artefact paths above
-- [ ] Generalise `review.py`'s `language()` from a Python/notebook binary
+- [x] Generalise `review.py`'s `language()` from a Python/notebook binary
       choice to a real extension → fence-language mapping, since the diff
       can now include `.yml`, `.rst`, `.toml`, etc.
-- [ ] Update `prompt.md`'s framing of "changed file" to match
-- [ ] Update the `CHANGELOG.md` entry for this PR to describe the final
+- [x] Update `prompt.md`'s framing of "changed file" to match
+- [x] Update the `CHANGELOG.md` entry for this PR to describe the final
       (widened) scope rather than the notebook-only first cut
-- [ ] Smoke-test `assemble()` against a diff that mixes a `.py`, a `.md`
+- [x] Smoke-test `assemble()` against a diff that mixes a `.py`, a `.md`
       and a `.yml` file, and confirm the exclude patterns actually drop a
-      historical SVG/gif/pickle/tikz/uv.lock change
+      historical SVG/gif/pickle/tikz/uv.lock change — caught and fixed a
+      real bug in `fence()` along the way: it used the file's longest
+      backtick run with no 3-backtick floor, so a file with only inline
+      code spans (single backticks) got a 2-backtick fence

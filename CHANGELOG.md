@@ -237,9 +237,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `style-review.yml` diffed `-- '*.py'` only, so a pull request touching
   only a `docs/notebooks/*.md` marimo notebook always diffed empty: the
   review step was skipped silently and the correctness reviewer was called
-  with no style pass at all. The diff now also covers `docs/notebooks/*.md`,
-  and `review.py` fences each changed file by its own type (`python` or
-  `markdown`) instead of assuming every changed file is Python
+  with no style pass at all. The diff now covers every authored file —
+  Python, notebooks, docs, workflows, config — excluding generated
+  artefacts (`docs/_static/**`, `discopy/*.gif`, `test/drawing/tikz/**`,
+  `test/fixtures/**`, `uv.lock`). `review.py` fences each changed file by
+  its own type (`python`, `markdown`, `yaml`, …) instead of assuming
+  everything is Python, and picks a fence at least one backtick longer
+  than any run already inside the file, so a notebook's own cell fences
+  or an inline code span can never close it early
   ([#633](https://github.com/discopy/discopy/pull/633)).
 - `build.yml` timeouts and a bounded, retried Graphviz install
   ([#591](https://github.com/discopy/discopy/issues/591)).
