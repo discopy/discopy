@@ -1349,6 +1349,14 @@ class CMap[C0: Pregroup, C1: CMap](
         """ Apply the host category's compactification functor. """
         return self.category.compactify_factory()(self)
 
+    def eval(self, *args, **params):
+        """
+        Evaluate the map directly with the ``eval`` of the host category,
+        e.g. contract a tensor map in a single ``einsum`` call, see
+        :meth:`discopy.tensor.Diagram.eval`.
+        """
+        return self.category.eval(self, *args, **params)
+
     def to_diagram(self) -> Diagram:
         """
         Downgrade to a diagram directly, preserving box orientation.

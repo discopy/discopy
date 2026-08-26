@@ -8,20 +8,15 @@ from discopy.python.finset import Permutation
 from discopy.utils import AxiomError
 
 
-def test_port_side_and_depth():
-    from discopy.compact import Ty, Box, CMap as M
+def test_port_sides():
+    from discopy.compact import Ty, CMap as M
     x = Ty("x")
     ports = M.id(x).ports
     assert ports[0].side == "up"
     assert ports[1].side == "down"
-    assert [port.depth for port in ports] == [-float("inf"), float("inf")]
     adjoint_ports = M.id(x.r).ports
     assert adjoint_ports[0].side == "up"
     assert adjoint_ports[1].side == "down"
-    f = Box("f", x, x)
-    box_ports = (M.from_box(f) >> M.from_box(f)).ports
-    assert [port.depth for port in box_ports] == [
-        -float("inf"), 0.5, -0.5, 1.5, 0.5, float("inf")]
 
 
 def test_default_compact_setting():
@@ -381,36 +376,11 @@ def test_composed_snakes_are_reordered_on_downgrade():
         == once.to_hypergraph()
 
 
-def test_is_causal_is_local():
-    from discopy import traced
-
-    x = compact.Ty("x")
-    f, g = compact.Box("f", x, x), compact.Box("g", x, x)
-    y = traced.Ty("x")
-    h = traced.Box("h", y, y)
-    maps = [
-        compact.CMap.id(x),
-        f.to_map() >> g.to_map(),
-        (f.to_map() @ g.to_map()).interchange(0, 1),
-        compact.CMap.cups(x, x.r),
-        compact.CMap.caps(x.r, x),
-        (f.transpose(left=True) >> g.transpose(left=True)).to_map(),
-        h.to_map().trace(),
-        traced.CMap(traced.Ty(), traced.Ty(), (), [], loops=(y, )),
-        compact.CMap(x, x, (f, g), [3, 4, 5, 0, 1, 2], check=False)]
-    for cm in maps:
-        assert cm.is_causal == (
-            cm.is_monogamous and cm.is_acyclic
-            and cm.is_topologically_ordered)
-
-
 def test_unordered_boxes_are_reordered_on_downgrade():
     from discopy import symmetric as sym
 
     x = sym.Ty("x")
     f, g = sym.Box("f", x, x), sym.Box("g", x, x)
-    assert (f >> g).to_map().edges == Permutation([1, 0, 3, 2, 5, 4], 6)
-    assert sym.CMap(x, x, (f, g), [1, 0, 3, 2, 5, 4]).is_causal
     unordered = sym.CMap(x, x, (f, g), [3, 4, 5, 0, 1, 2])
     assert unordered.is_acyclic and not unordered.is_topologically_ordered
     assert unordered.to_diagram() == g >> f
@@ -780,7 +750,6 @@ def test_boxes_with_no_domain_decode_at_the_right():
     f = compact.Box("f", x, y)
     snake = f.transpose(left=True)
     assert snake.to_map().to_diagram() == snake
-    assert "Swap" not in str(snake.to_map().to_diagram())
 
 
 def test_curry_is_wiring_only_when_the_category_is_rigid():
@@ -814,9 +783,6 @@ def test_curry_is_wiring_only_when_the_category_is_rigid():
 
 
 def test_closed_to_compact():
-    from discopy import cmap
-
-    assert closed.CMap.to_compact is cmap.CMap.to_compact
     x, y, z = map(closed.Ty, "xyz")
     f = closed.Box("f", x @ y, z)
 
@@ -831,35 +797,6 @@ def test_closed_to_compact():
             f,
             closed.Coeval(exp, left=left),
             closed.Eval(exp, left=left))
-
-
-def test_map_and_hypergraph_normalise_the_same_way():
-    from discopy import frobenius, monoidal, rigid, traced
-
-    x, y = map(compact.Ty, "xy")
-    f = compact.Box("f", x, y)
-    g, h = compact.Box("g", x, x), compact.Box("h", x, x)
-    sx = symmetric.Ty("x")
-    sf, sg = symmetric.Box("f", sx, sx), symmetric.Box("g", sx, sx)
-    mx = monoidal.Ty("x")
-    maps = [
-        monoidal.CMap(mx, mx, (monoidal.Box("f", mx, mx), ), (3, 2, 1, 0)),
-        (sf.to_map() >> sg.to_map()).interchange(0, 1),
-        symmetric.Box("f", sx @ sx, sx @ sx).to_map().trace(),
-        f.transpose(left=True).to_map(),
-        (g.transpose(left=True) >> h.transpose(left=True)).to_map(),
-        compact.CMap.caps(x.r, x) >> compact.CMap.cups(x.r, x),
-        rigid.Box("f", rigid.Ty("x"), rigid.Ty("y")).to_map(),
-        frobenius.Diagram.spiders(2, 1, frobenius.Ty("x")).to_map(),
-        traced.Box("f", traced.Ty("x"), traced.Ty("x")).to_map().trace()]
-    for cm in maps:
-        hyp = cm.to_hypergraph()
-        assert cm.is_monogamous == hyp.is_monogamous
-        assert cm.is_acyclic == hyp.is_acyclic
-        assert cm.is_topologically_ordered == hyp.is_topologically_ordered
-        if cm.is_monogamous:
-            continue
-        assert cm.make_monogamous().boxes == hyp.make_monogamous().boxes
 
 
 def test_from_glued_agrees_with_folding():

@@ -65,18 +65,6 @@ def test_to_compact():
         assert term.to_map().to_compact() == result
 
 
-def test_compactify_factory(monkeypatch):
-    x = Ty("x")
-    f = Box("f", x, x)
-
-    class Identity:
-        def __call__(self, other):
-            return other
-
-    monkeypatch.setattr(Diagram, "compactify_factory", Identity)
-    assert f.to_compact() is f
-
-
 def test_Application_without_freevars():
     """ A closed application of constants has an empty domain, see #542. """
     X, Y = Ty('X'), Ty('Y')

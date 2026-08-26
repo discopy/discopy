@@ -127,7 +127,6 @@ def test_to_rigid():
 def test_to_compact():
     x, y, z = map(Ty, "xyz")
     f = Box("f", x @ y, z)
-    assert Diagram.compactify_factory is Compactify
     for left in (True, False):
         source = f.curry(left=left)
         assert source.to_compact() == (

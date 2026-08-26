@@ -529,7 +529,8 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
             ob_map=lambda x: Dim(*(
                 getattr(obj, "dim", obj) for obj in x.inside)),
             ar_map=lambda box: box.array,
-            dtype=dtype or self.dtype, optimize=optimize, **params)(self)
+            dtype=dtype or getattr(self, "dtype", None),
+            optimize=optimize, **params)(self)
 
     def to_quimb(self, dtype: type = None) -> "quimb.tensor.Tensor":
         """
@@ -680,8 +681,6 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
 
 
 CMap = cmap.CMap[Diagram]
-CMap.dtype = None
-CMap.eval = Diagram.eval
 
 
 class Box(frobenius.Box, Diagram):

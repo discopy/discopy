@@ -106,7 +106,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   the edges, `__init__` takes a keyword `check`, and `curry`, `uncurry` and
   `ev` come from the cups and caps of `abc.RigidCategory` when the host
   category is rigid and stay explicit boxes otherwise, all three defaulting
-  `left` to `True` like the rest of the hierarchy
+  `left` to `True` like the rest of the hierarchy. `CMap.eval` delegates to
+  the `eval` of the host category, e.g. contracting a tensor map in a
+  single `einsum`, instead of `tensor` grafting it onto its `CMap` alias
   ([#532](https://github.com/discopy/discopy/pull/532),
   [#560](https://github.com/discopy/discopy/issues/560)).
 - `uncurry` is defined once in `abc.BiclosedCategory`, in terms of a new
