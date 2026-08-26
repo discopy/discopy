@@ -72,9 +72,9 @@ square of the bias and scoring by a weight puts that much mass on the unit
 value, i.e. it multiplies the weight of the branch it runs in:
 
 >>> machine = Machine[Subdistribution]({
-...     "sample": frozenset({(p, 1 / 3) for p in (.25, .5, .75)}),
-...     "likelihood": lambda p: frozenset({(p * p, 1.)}),
-...     "score": lambda weight: frozenset({(star, weight)})})
+...     sample: frozenset({(p, 1 / 3) for p in (.25, .5, .75)}),
+...     likelihood: lambda p: frozenset({(p * p, 1.)}),
+...     score: lambda weight: frozenset({(star, weight)})})
 
 The token comes out of the term with the unnormalised posterior, i.e. each
 bias weighted by the probability of drawing it and then seeing two heads:
@@ -290,8 +290,11 @@ class Machine(NamedGeneric['monad']):
     Parameters:
         constants : What each constant of the term means, either a callable
             for a primitive waiting for its argument, or the monadic value
-            a constant of base type evaluates to. A constant with no
-            interpretation is its own value, so applying one raises.
+            a constant of base type evaluates to. The keys are the
+            constants themselves rather than their names, so that two
+            constants sharing a name but not their type do not alias. A
+            constant with no interpretation is its own value, so applying
+            one raises.
 
     Note
     ----
@@ -318,7 +321,7 @@ class Machine(NamedGeneric['monad']):
     >>> from discopy.kleisli.monad import Powerset
     >>> B = Ty("B")
     >>> flip = B("flip")
-    >>> machine = Machine[Powerset]({"flip": frozenset({"heads", "tails"})})
+    >>> machine = Machine[Powerset]({flip: frozenset({"heads", "tails"})})
     >>> assert machine(B(lambda x: x)(flip))\\
     ...     == frozenset({"heads", "tails"})
     """
@@ -327,17 +330,32 @@ class Machine(NamedGeneric['monad']):
     def __init__(self, constants: Mapping | None = None):
         self.constants = dict(constants or {})
 
-    def inject(self, state: Value | Down | Up):
+    def inject(self, token: Down | Up):
         """
-        A state tagged by the summand it belongs to, i.e. the exit for a
-        value and the direction it travels in for a token, then sent into
-        the monad by its unit.
+        A token tagged by the direction it travels in, then sent into the
+        monad by its unit.
 
         Parameters:
-            state : The state to inject.
+            token : The token, going either down or up.
         """
-        tag = directions.get(type(state), 0)
-        return type(self).monad.unit(Tagged)(Tagged(state, tag))
+        unit = type(self).monad.unit(Tagged)
+        return unit(Tagged(token, directions[type(token)]))
+
+    def leave(self, value: Value):
+        """
+        A value tagged by the exit, then sent into the monad by its unit,
+        i.e. the token leaves the term with it.
+
+        Parameters:
+            value : The value the token carries out.
+
+        Note
+        ----
+        The exit is a summand of its own rather than the absence of a
+        direction, so that a value which happens to be a token, e.g. the
+        interpretation of a constant, cannot re-enter the trace.
+        """
+        return type(self).monad.unit(Tagged)(Tagged(value, 0))
 
     def bind(self, values, resume: Callable):
         """
@@ -377,7 +395,7 @@ class Machine(NamedGeneric['monad']):
         if not isinstance(term, Constant):
             raise NotImplementedError(
                 f"The token machine cannot walk through {term}.")
-        effect = self.constants.get(term.name, term)
+        effect = self.constants.get(term, term)
         if callable(effect):
             return self.inject(Up(term, stack))
         return self.bind(effect, lambda value: self.inject(Up(value, stack)))
@@ -393,7 +411,7 @@ class Machine(NamedGeneric['monad']):
         """
         value, stack = token.value, token.stack
         if not stack:
-            return self.inject(value)
+            return self.leave(value)
         frame, stack = stack[0], stack[1:]
         if isinstance(frame, Arg):
             return self.inject(
@@ -418,7 +436,7 @@ class Machine(NamedGeneric['monad']):
         if isinstance(func, Closure):
             env = ((func.abstraction.var, arg), ) + func.env
             return self.inject(Down(func.abstraction.body, env, stack))
-        effect = self.constants.get(func.name)\
+        effect = self.constants.get(func)\
             if isinstance(func, Constant) else None
         if not callable(effect):
             raise ValueError(f"The value {func} is not a function.")

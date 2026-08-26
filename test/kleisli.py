@@ -15,6 +15,7 @@ from discopy.kleisli import additive, multiplicative, token
 from discopy.kleisli.additive import Tagged
 from discopy.kleisli.multiplicative import Row
 from discopy.tensor import Dim, Tensor
+from discopy import cat, closed
 from discopy.closed import Box as ClosedBox, Ty, Variable
 
 
@@ -614,10 +615,10 @@ def test_additive_Channel_repr():
     assert repr(half).startswith("kleisli.additive.Channel[Maybe](")
 
 
-def token_machine(**constants):
+def token_machine(constants):
     """
     A probabilistic token machine, i.e. the one of the module docstring of
-    :mod:`discopy.kleisli.token` with the constants given as keywords.
+    :mod:`discopy.kleisli.token`.
     """
     return token.Machine[Subdistribution](constants)
 
@@ -705,9 +706,9 @@ def test_token_machine_samples_and_scores():
     B, U = Ty("B"), Ty("U")
     flip, star = B("flip"), U("*")
     score = (B >> U)("score")
-    machine = token_machine(
-        flip=frozenset({(True, .5), (False, .5)}),
-        score=lambda weight: frozenset({(star, .5 if weight else 1.)}))
+    machine = token_machine({
+        flip: frozenset({(True, .5), (False, .5)}),
+        score: lambda weight: frozenset({(star, .5 if weight else 1.)})})
 
     discarded = B(lambda x: B(lambda y: x)(flip))(flip)
     assert dict(machine(discarded)) == {
@@ -724,10 +725,11 @@ def test_token_machine_samples_and_scores():
 def test_token_machine_loses_all_its_mass_on_an_impossible_observation():
     B, U = Ty("B"), Ty("U")
     flip, star = B("flip"), U("*")
-    machine = token_machine(
-        flip=frozenset({(True, .5), (False, .5)}),
-        score=lambda weight: frozenset({(star, 0.)}))
-    term = B(lambda x: U(lambda _: x)((B >> U)("score")(x)))(flip)
+    score = (B >> U)("score")
+    machine = token_machine({
+        flip: frozenset({(True, .5), (False, .5)}),
+        score: lambda weight: frozenset({(star, 0.)})})
+    term = B(lambda x: U(lambda _: x)(score(x)))(flip)
 
     assert machine(term) == frozenset()
     assert token.evidence(machine(term)) == 0
@@ -741,17 +743,47 @@ def test_token_machine_is_nondeterministic_over_the_powerset_monad():
     the weights, so a coin comes back as the set of its outcomes.
     """
     B = Ty("B")
-    flip = B("flip")
+    flip, twice = B("flip"), (B >> B)("twice")
     machine = token.Machine[Powerset]({
-        "flip": frozenset({"heads", "tails"}),
-        "twice": lambda x: frozenset({x + x})})
-    term = B(lambda x: (B >> B)("twice")(x))(flip)
+        flip: frozenset({"heads", "tails"}),
+        twice: lambda x: frozenset({x + x})})
+    term = B(lambda x: twice(x))(flip)
 
     assert machine(term) == frozenset({"headsheads", "tailstails"})
 
 
 def test_token_Machine_repr():
-    machine = token.Machine[Maybe]({"boom": None})
-    assert repr(machine) == "kleisli.token.Machine[Maybe]({'boom': None})"
+    machine = token.Machine[Maybe]({Ty("X")("boom"): None})
+    assert repr(machine).startswith("kleisli.token.Machine[Maybe](")
     assert eval(repr(machine), {
-        "kleisli": kleisli, "Maybe": Maybe}).constants == machine.constants
+        "kleisli": kleisli, "Maybe": Maybe, "closed": closed, "cat": cat
+    }).constants == machine.constants
+
+
+def test_token_Machine_exits_with_a_value_that_is_a_token():
+    """
+    The exit is a summand of its own rather than the absence of a
+    direction, so a value that happens to be a token does not re-enter the
+    trace, see cubic's review of #639.
+    """
+    X = Ty("X")
+    payload = token.Down(X("d"))
+    constant = X("c")
+    machine = token.Machine[Powerset]({constant: frozenset({payload})})
+
+    assert machine(X(lambda x: x)(constant)) == frozenset({payload})
+
+
+def test_token_Machine_constants_do_not_alias_across_types():
+    """
+    Two constants sharing a name but not their type are different
+    constants, so they get different interpretations, see cubic's review of
+    #639.
+    """
+    X, Y = Ty("X"), Ty("Y")
+    x, y = X("c"), Y("c")
+    assert x != y
+    machine = token.Machine[Maybe]({x: "an X"})
+
+    assert machine(X(lambda z: z)(x)) == "an X"
+    assert machine(Y(lambda z: z)(y)) == y
