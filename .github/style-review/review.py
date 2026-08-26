@@ -13,6 +13,7 @@ gateway at ``BASE_URL`` and writes the findings to
 import ast
 import json
 import os
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -69,13 +70,21 @@ def numbered(text):
         f"{n} {line}" for n, line in enumerate(text.splitlines(), 1))
 
 
-def fence(path):
+def language(path):
     """The Markdown fence language for a path's own file type."""
     return "python" if path.endswith(".py") else "markdown"
 
 
+def fence(body):
+    """A backtick fence one longer than any run already in ``body``, so a
+    notebook's own cell fences can never close it early."""
+    runs = re.findall("`+", body)
+    return "`" * (max((len(run) for run in runs), default=2) + 1)
+
+
 def section(title, path, body):
-    return f"# {title}: {path}\n\n```{fence(path)}\n{body}```"
+    ticks = fence(body)
+    return f"# {title}: {path}\n\n{ticks}{language(path)}\n{body}{ticks}"
 
 
 def changed_block(path, text):
