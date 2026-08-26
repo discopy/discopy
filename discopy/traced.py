@@ -214,6 +214,17 @@ class Trace(Box, monoidal.Bubble):
         return self.ar.to_drawing(self)
 
 
+class Sum(monoidal.Sum, Box):
+    """
+    A traced sum is a sum of traced diagrams.
+
+    Parameters:
+        terms (tuple[Diagram, ...]) : The terms of the formal sum.
+        dom (Ty) : The domain of the formal sum.
+        cod (Ty) : The codomain of the formal sum.
+    """
+
+
 class Functor(monoidal.Functor):
     """
     A traced functor is a monoidal functor that preserves traces.
@@ -265,5 +276,6 @@ class CMap(monoidal.CMap):
 Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
 Diagram.trace_factory = Trace
+Diagram.sum_factory = Sum
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Id = Diagram.id

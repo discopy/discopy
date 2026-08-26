@@ -239,6 +239,17 @@ class Cap(rigid.Cap, Box):
         return self.cup_factory(self.left, self.right)
 
 
+class Sum(rigid.Sum, traced.Sum, Box):
+    """
+    A pivotal sum is a sum of pivotal diagrams.
+
+    Parameters:
+        terms (tuple[Diagram, ...]) : The terms of the formal sum.
+        dom (Ty) : The domain of the formal sum.
+        cod (Ty) : The codomain of the formal sum.
+    """
+
+
 class Functor(rigid.Functor):
     """
     A pivotal functor is a rigid functor on a pivotal category.
@@ -253,6 +264,7 @@ class Functor(rigid.Functor):
 
 
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
+Diagram.sum_factory = Sum
 Id = Diagram.id
 
 
