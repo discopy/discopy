@@ -123,7 +123,8 @@ def changed_block(path, base_sha):
 
 def context_block(path):
     with open(path) as file:
-        return section("Context (not under review)", path, file.read())
+        body = file.read().rstrip("\n") + "\n"
+    return section("Context (not under review)", path, body)
 
 
 def assemble(files, base_sha):

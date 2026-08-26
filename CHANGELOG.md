@@ -305,9 +305,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   now sent once, not twice: rather than the full new file followed by a
   separate global diff, `review.py` asks git for the full-context
   (`-U100000`) diff of each file and turns it into one listing — every
-  line numbered by its new-file position, a leading `+`/`-` for one
-  added/removed since the merge base — reusing git's own diff algorithm
-  instead of reimplementing it
+  added or context line numbered by its position in the new file, with a
+  leading `+` for one added; a removed line carries a `-` instead and no
+  number, since it has none in the new file — reusing git's own diff
+  algorithm instead of reimplementing it
   ([#633](https://github.com/discopy/discopy/pull/633)).
 - `build.yml` timeouts and a bounded, retried Graphviz install
   ([#591](https://github.com/discopy/discopy/issues/591)).
