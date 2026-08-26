@@ -206,6 +206,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- The style review is triggered by a pull request opened outside draft, not
+  only by the draft-to-ready transition: `ready_for_review` fires on a
+  transition, so a pull request whose `TODO.md` is deleted before it is ever
+  opened skips the event entirely and the review silently never ran.
+  `style-review.yml` now also triggers on `opened`, and both automatic
+  triggers wait while a `TODO` file is still in the tree so that the new one
+  does not race `no-todo-on-main.yml`'s draft guard. The `style-review` label
+  stays the manual override and ignores that wait
+  ([#615](https://github.com/discopy/discopy/issues/615)).
 - A boxless `monoidal.Layer` can no longer be placed inside a `Diagram`:
   `Diagram.__init__` raises `ValueError` for a layer with no box, restoring
   the invariant that every layer holds at least one box and that the identity

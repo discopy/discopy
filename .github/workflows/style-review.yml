@@ -1,7 +1,7 @@
 name: style-review
 on:
   pull_request:
-    types: [ready_for_review, labeled]
+    types: [opened, ready_for_review, labeled]
 permissions:
   contents: read
 concurrency:
@@ -12,8 +12,9 @@ jobs:
   review:
     if: >
       github.event.pull_request.head.repo.full_name == github.repository
-      && (github.event.action == 'ready_for_review'
-          || github.event.label.name == 'style-review')
+      && (github.event.label.name == 'style-review'
+          || (github.event.action != 'labeled'
+              && github.event.pull_request.draft == false))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -22,8 +23,23 @@ jobs:
         ref: ${{ github.event.pull_request.head.sha }}
         fetch-depth: 0
 
+    - name: Look for a TODO file
+      id: todo
+      env:
+        LABELLED: ${{ github.event.label.name == 'style-review' }}
+      run: |
+        if [ "$LABELLED" != true ] && git ls-files \
+          | grep -Eiq '(^|/)todo(\.[^/]*)?$'; then
+          echo "::notice::TODO is still there — the style review waits for \
+        the push that deletes it."
+          echo "wait=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "wait=false" >> "$GITHUB_OUTPUT"
+        fi
+
     - name: Check the gateway configuration
       id: config
+      if: steps.todo.outputs.wait == 'false'
       env:
         BASE_URL: ${{ vars.STYLE_REVIEW_BASE_URL }}
         MODEL: ${{ vars.STYLE_REVIEW_MODEL }}
@@ -40,6 +56,7 @@ jobs:
 
     - name: Diff the Python files against the merge base
       id: diff
+      if: steps.todo.outputs.wait == 'false'
       env:
         BASE_SHA: ${{ github.event.pull_request.base.sha }}
       run: |
@@ -63,8 +80,8 @@ jobs:
     - name: Generate a discopy-bot token
       id: app-token
       if: >
-        ${{ !cancelled()
-            && (github.event.action == 'ready_for_review'
+        ${{ !cancelled() && steps.todo.outputs.wait == 'false'
+            && (github.event.action != 'labeled'
                 || (steps.config.outputs.configured == 'true'
                     && steps.diff.outputs.changed == 'true')) }}
       uses: actions/create-github-app-token@v1
@@ -88,7 +105,8 @@ jobs:
 
     - name: Call the correctness reviewer
       if: >
-        ${{ !cancelled() && github.event.action == 'ready_for_review'
+        ${{ !cancelled() && steps.todo.outputs.wait == 'false'
+            && github.event.action != 'labeled'
             && steps.post.outputs.clean != 'false' }}
       env:
         GH_TOKEN: ${{ steps.app-token.outputs.token }}
