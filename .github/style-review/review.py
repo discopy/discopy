@@ -1,9 +1,12 @@
 """Ask the model for a style review of the diff in one request.
 
-Assembles ``prompt.md``, ``STYLE.md``, the package-local files that the
-changed files import (as context), the full text of every changed file with
-line numbers and the diff from ``.style-review``, sends one chat completion
-to the OpenAI-compatible gateway at ``BASE_URL`` and writes the findings to
+A changed file is either a Python module or a marimo notebook (a
+``docs/notebooks/*.md`` file, its code cells fenced as
+``python {.marimo}``). Assembles ``prompt.md``, ``STYLE.md``, the
+package-local files that the changed Python files import (as context), the
+full text of every changed file with line numbers and the diff from
+``.style-review``, sends one chat completion to the OpenAI-compatible
+gateway at ``BASE_URL`` and writes the findings to
 ``.style-review/findings.json`` for ``post.py`` to post.
 """
 
@@ -20,7 +23,7 @@ BUDGET = 400_000
 
 def imports(path):
     """The package-local paths imported by a Python file, an empty list
-    when this Python cannot parse it."""
+    when this Python cannot parse it, e.g. a marimo notebook."""
     try:
         with open(path) as file:
             tree = ast.parse(file.read())
@@ -66,8 +69,13 @@ def numbered(text):
         f"{n} {line}" for n, line in enumerate(text.splitlines(), 1))
 
 
+def fence(path):
+    """The Markdown fence language for a path's own file type."""
+    return "python" if path.endswith(".py") else "markdown"
+
+
 def section(title, path, body):
-    return f"# {title}: {path}\n\n```python\n{body}```"
+    return f"# {title}: {path}\n\n```{fence(path)}\n{body}```"
 
 
 def changed_block(path, text):
