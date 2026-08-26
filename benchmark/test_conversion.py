@@ -27,7 +27,7 @@ case = partial(case, suite="conversion")
       sizes(10, 20, 50, full=(100, 200)))
 def test_series_diagram_to_cmap(n):
     box = generator.not_box(symmetric.Box)
-    morphism = generator.series(symmetric.Diagram, box, n)
+    morphism = generator.repeated(symmetric.Diagram.then, box, n)
     return morphism.to_map
 
 
@@ -35,7 +35,7 @@ def test_series_diagram_to_cmap(n):
       sizes(10, 20, 50, full=(100, 200)))
 def test_series_diagram_to_hypergraph(n):
     box = generator.not_box(symmetric.Box)
-    morphism = generator.series(symmetric.Diagram, box, n)
+    morphism = generator.repeated(symmetric.Diagram.then, box, n)
     return morphism.to_hypergraph
 
 
@@ -43,7 +43,7 @@ def test_series_diagram_to_hypergraph(n):
       sizes(10, 20, 50, full=(100, 200)))
 def test_series_hypergraph_to_diagram(n):
     box = generator.not_box(symmetric.Box).to_hypergraph()
-    morphism = generator.series(symmetric.Hypergraph, box, n)
+    morphism = generator.repeated(symmetric.Hypergraph.then, box, n)
     return morphism.to_diagram
 
 
@@ -51,7 +51,7 @@ def test_series_hypergraph_to_diagram(n):
       sizes(10, 20, 50, full=(100, 200)))
 def test_series_hypergraph_to_cmap(n):
     box = generator.not_box(symmetric.Box).to_hypergraph()
-    morphism = generator.series(symmetric.Hypergraph, box, n)
+    morphism = generator.repeated(symmetric.Hypergraph.then, box, n)
     return morphism.to_map
 
 
@@ -59,7 +59,7 @@ def test_series_hypergraph_to_cmap(n):
       sizes(10, 20, 50, full=(100, 200)))
 def test_series_cmap_to_diagram(n):
     box = generator.not_box(symmetric.Box).to_map()
-    morphism = generator.series(symmetric.CMap, box, n)
+    morphism = generator.repeated(symmetric.CMap.then, box, n)
     return morphism.to_diagram
 
 
@@ -67,7 +67,7 @@ def test_series_cmap_to_diagram(n):
       sizes(10, 20, 50, full=(100, 200)))
 def test_series_cmap_to_hypergraph(n):
     box = generator.not_box(symmetric.Box).to_map()
-    morphism = generator.series(symmetric.CMap, box, n)
+    morphism = generator.repeated(symmetric.CMap.then, box, n)
     return morphism.to_hypergraph
 
 
@@ -93,7 +93,7 @@ def test_tensor_diagram_to_hypergraph(n):
       sizes(10, 20, 50, full=(100, 200)))
 def test_tensor_hypergraph_to_diagram(n):
     box = generator.not_box(symmetric.Box).to_hypergraph()
-    morphism = generator.tensor(symmetric.Hypergraph, box, n)
+    morphism = generator.repeated(symmetric.Hypergraph.tensor, box, n)
     return morphism.to_diagram
 
 
@@ -101,14 +101,14 @@ def test_tensor_hypergraph_to_diagram(n):
       sizes(10, 20, 50, full=(100, 200)))
 def test_tensor_hypergraph_to_cmap(n):
     box = generator.not_box(symmetric.Box).to_hypergraph()
-    morphism = generator.tensor(symmetric.Hypergraph, box, n)
+    morphism = generator.repeated(symmetric.Hypergraph.tensor, box, n)
     return morphism.to_map
 
 
 @case("CMap → Diagram", "k-fold tensor", sizes(10, 20, 50))
 def test_tensor_cmap_to_diagram(n):
     box = generator.not_box(symmetric.Box).to_map()
-    morphism = generator.tensor(symmetric.CMap, box, n)
+    morphism = generator.repeated(symmetric.CMap.tensor, box, n)
     return morphism.to_diagram
 
 
@@ -116,7 +116,7 @@ def test_tensor_cmap_to_diagram(n):
       sizes(10, 20, 50, full=(100, 200)))
 def test_tensor_cmap_to_hypergraph(n):
     box = generator.not_box(symmetric.Box).to_map()
-    morphism = generator.tensor(symmetric.CMap, box, n)
+    morphism = generator.repeated(symmetric.CMap.tensor, box, n)
     return morphism.to_hypergraph
 
 
