@@ -106,18 +106,6 @@ def full_adder_box[B: monoidal.Box](factory: type[B]) -> B:
     return factory('FA', bit @ bit @ bit, bit @ bit)
 
 
-def series[C0, C1](
-        category: SymmetricCategory[C0, C1], box: C1, n: int) -> C1:
-    """ A depth-``n`` source morphism. """
-    return repeated(category.then, box, n)
-
-
-def tensor[C0, C1](
-        category: SymmetricCategory[C0, C1], box: C1, n: int) -> C1:
-    """ A width-``n`` source morphism. """
-    return repeated(category.tensor, box, n)
-
-
 def reverse_permutation[C0, C1](
         category: SymmetricCategory[C0, C1], n: int) -> C1:
     """ A routing-heavy reversal on ``n`` wires. """

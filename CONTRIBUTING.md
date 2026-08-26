@@ -96,35 +96,33 @@ uv run pytest benchmark/ -v --benchmark-json=benchmark-results/bench.json
 uv run python benchmark/report.py benchmark-results/bench.json
 ```
 
-`report.py` writes `NAME-results.{html,md,csv}` with family row groups and
-`NAME-scaling.png` for each `benchmark/test_NAME.py`. To gate on a regression,
-pass a committed baseline:
+`report.py` writes `NAME-results.md` and `NAME-scaling.svg` for each
+`benchmark/test_NAME.py`. To compare two runs made sequentially on the same
+machine, pass the base run when rendering the head:
 
 ```shell
-uv run python benchmark/report.py benchmark-results/bench.json \
-    --baseline benchmark/baseline.json.gz --fail-threshold 0.25
+uv run python benchmark/report.py benchmark-results/head.json \
+    --base benchmark-results/base.json --threshold 0.25
 ```
 
-It joins the two runs on `(suite, family, case, size)` and exits non-zero if
-any case regresses by more than the threshold relative to the run-wide median
-change. GitHub hands out several CPU models for the same runner label, so the
-raw delta of a cell mixes the machine in with the code. Reading a measurement
-as `time = machine * code * baseline`, the median change over all cases
-estimates the machine -- most cases are unchanged, and a median ignores the few
-that are not -- so dividing it out leaves the change due to the code. It divides
-rather than subtracts, which keeps the threshold meaning the same thing
-whichever runner comes up; subtracting would scale it by the machine factor,
-making the gate stricter on slow machines and laxer on fast ones.
+It joins the runs on `(suite, family, case, size)` and computes the raw change
+`head / base - 1`. It writes `comparison.md`, listing the regressions and
+speedups larger than the threshold. A regression is reported, never fatal: the
+exit code is non-zero only when the comparison itself fails, e.g. when the two
+runs share no measurement. Both runs must use the same benchmark sizes and
+machine; there is no cross-machine normalisation. The report counts the
+measurements present in only one of the two runs.
 
-The baseline is a `bench.json` from a CI run of this same workflow, gzipped
-(`gzip -9n bench.json`) and committed as `benchmark/baseline.json.gz`: stored
-compressed, GitHub shows it as a binary file rather than a 6k-line diff. The
-`benchmark` GitHub workflow runs the suite on pull requests (small sizes) and
-on `main` / manual dispatch (full sizes), uploading the report as an artifact.
-
-A benchmarking job is available in the CI pipeline. By default, it is running only
-on the main branch, but you can enable it on your pull requests by attaching the
-tag `benchmark`.
+The `benchmark` GitHub workflow benchmarks two commits on the same runner and
+compares them: on `main` the commit pushed against the branch as it was before
+the push, on a pull request labelled `benchmark` the head commit against the
+base. `main` runs the full size tail, a pull request the default sizes; a
+manual dispatch has nothing to compare against and only measures its own
+commit. Every run uploads the report of its head commit -- the raw
+`bench.json`, the Markdown tables and the SVG plots -- writes the comparison to
+the job summary, and raises a warning annotation, never a failure, when a
+measurement regresses. A pull request run also posts or updates a comment with
+the important regressions and speedups.
 
 ## Build the docs
 

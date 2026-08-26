@@ -214,6 +214,15 @@ class Channel(Tensor):
                  @ Tensor.swap(left.quantum, right.quantum)).array
         return cls(array, left @ right, right @ left)
 
+    @classmethod
+    def permutation(cls, xs, doms) -> Channel:
+        dom = cls.ob.unit().tensor(*doms)
+        cod = cls.ob.unit().tensor(*(doms[i] for i in xs))
+        array = (Tensor.permutation(xs, [x.classical for x in doms])
+                 @ Tensor.permutation(xs, [x.quantum for x in doms])
+                 @ Tensor.permutation(xs, [x.quantum for x in doms])).array
+        return cls(array, dom, cod)
+
     @staticmethod
     def cups(left, right):
         return Channel.single(Tensor.cups(left.classical, right.classical))\
@@ -315,6 +324,9 @@ class Functor(tensor.Functor):
             return C(Dim(other.dim))
         if isinstance(other, Qudit):
             return Q(Dim(other.dim))
+        if isinstance(other, tensor.Permutation):
+            doms = list(map(self, other.dom))
+            return self.cod.permutation(other.perm, doms)
         if not isinstance(other, Box):
             return frobenius.Functor.__call__(self, other)
         if isinstance(other, Discard):

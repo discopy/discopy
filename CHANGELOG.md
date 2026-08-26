@@ -92,8 +92,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   scaling experiments of arXiv:2105.09257
   ([#346](https://github.com/discopy/discopy/pull/346)).
 - CMap cases for the composition benchmark suite, mirroring its Hypergraph
-  workloads. Benchmark reports now include per-suite HTML, Markdown and CSV
-  tables with scaling plots.
+  workloads. Benchmark reports now include a per-suite Markdown table with
+  a scaling plot.
 - Conversion benchmarks between Diagram, Hypergraph and CMap representations.
 - The benchmark job runs only on `main` and on pull requests labelled
   `benchmark` ([#385](https://github.com/discopy/discopy/pull/385),
@@ -149,6 +149,26 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   rather than lifting their types through `cls.id`, now that a body chooses
   its own equation factory rather than being handed one built from the arrow
   carrier.
+- `Swap` is now the two-wire transposition subclass of `Permutation`, and
+  constructing `Permutation(x @ y, [1, 0])` returns a `Swap`. A swap is
+  plumbing like any other permutation: it coalesces with its neighbours in
+  a `symmetric.Layer`, so a whiskered swap is stored and drawn as one wider
+  permutation, and `foliation` composes consecutive layers of pure plumbing
+  into one, unless they compose to the identity. The pictures stay the same:
+  a permutation no longer re-labels a wire it keeps in place, nor pushes its
+  input labels off the canvas, so the redrawn baselines only differ by their
+  serialisation, except `symmetric/foliation.svg` (input labels come back on
+  canvas), `int/symmetric-feedback.svg` (one row taller) and
+  `symmetric/yang-baxter.svg` (gains its foliated middle)
+  ([#444](https://github.com/discopy/discopy/issues/444)).
+- The quantum `SWAP` is a gate rather than the symmetry of the category, so
+  that a physical swap is distinguishable from a logical one. It is a
+  `QuantumGate` drawn as a crossing, while `Circuit.swap` still gives the
+  plumbing `quantum.circuit.Swap`: the two evaluate to the same array but
+  only the gate survives compilation, `to_tk` emitting `OpType.SWAP` for
+  the gate while compiling a logical swap away by applying later gates to
+  the permuted qubits.
+  `discopy.quantum` exports both, `discopy.quantum.gates` only the gate.
 - `monoidal.Layer` holds a list of boxes and non-empty types with at least
   one box and no two consecutive types, instead of an odd-length list
   alternating type and box. Whiskering extends the list only when the type
@@ -206,6 +226,21 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   in `abc.CompactCategory` where the twist is the identity. The free diagram
   classes keep their freely interpreted traces by subclassing
   `traced.Diagram` ([#349](https://github.com/discopy/discopy/issues/349)).
+- `abc.ColouredMonoid.unit` takes a colour and may return an object of `C0`
+  rather than an element of `C1`, since the unit of a coloured monoid is the
+  identity on a colour and need not belong to the monoid. `monoidal.Layer`
+  overrides it to give the empty type: a layer has at least one box, so
+  `Layer()` raises and `Layer.unit()` used to raise with it, while
+  `Layer.unit(colour)` is now the empty type that `tensor` accepts on either
+  side ([#568](https://github.com/discopy/discopy/issues/568)).
+- `monoidal.Layer.id` raises instead of building a layer of empty plumbing,
+  which denoted the identity diagram while not being the empty sequence of
+  layers: inside a `Diagram` it survived `normal_form`, compared unequal to
+  `Diagram.id` and made `foliation` and `draw` raise. `Layer.whisker` leaves a
+  type as a type and `tensor` merges it into the boundary, so whiskering never
+  builds one. Passing `normalise=False` still does, which is left as an
+  explicit opt-out of the invariant
+  ([#599](https://github.com/discopy/discopy/issues/599)).
 - `biclosed` defaults `left` to `True` in `Diagram.curry`, `Diagram.ev`,
   `Diagram.uncurry`, `CMap.curry` and `CMap.uncurry`, so that `abc`,
   `biclosed`, `closed` and `rigid` all agree on one convention: the default
@@ -215,13 +250,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `ev`. Code relying on the old right-handed default should pass
   `left=False` explicitly
   ([#560](https://github.com/discopy/discopy/issues/560)).
-- The committed benchmark baseline is stored gzipped as
-  `benchmark/baseline.json.gz`, which `benchmark/report.py` reads
-  transparently.
-- The benchmark regression gate divides each case by the run-wide median
-  change rather than comparing raw medians, so that the CPU model a
-  GitHub-hosted runner happens to give out does not read as a regression. Its
-  default threshold is 25%.
+- Benchmarks compare two commits measured on the same runner rather than a
+  committed baseline, so no baseline is stored in the repository and no
+  normalisation is needed to account for the CPU model a GitHub-hosted runner
+  happens to give out. A pull request compares its head against its base, a
+  push to `main` against the branch before the push. The comparison goes to
+  the job summary and, on a pull request, to a comment listing the regressions
+  and speedups over 25%; a regression raises a warning annotation and never
+  fails the job, since a shared runner can push an unrelated case over the
+  threshold on noise alone.
 - Benchmark cases now use `pytest-benchmark`'s automatic calibration.
 - Every `monoidal.Wire` subclass named `Ob` is renamed to `Wire`: `rigid`,
   `braided`, `biclosed`, `pivotal`, `frobenius`, `feedback` and
@@ -266,6 +303,25 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   and `draw` raise. The check is gated on `_scan`, so the internal fast paths
   that build layers by construction are unaffected
   ([#599](https://github.com/discopy/discopy/issues/599)).
+- `review.py`'s style-review request: `ask` used to let a gateway
+  `HTTPError` propagate without reading its body, so a 400 gave no clue
+  whether it meant a dead model slug or an oversized prompt; it now prints
+  the response body before re-raising. `assemble` used to budget the raw
+  file texts against `BUDGET`, but `numbered`'s line-number prefixes, the
+  per-file headers, `prompt.md` and `STYLE.md` were all added on top,
+  uncounted, so the assembled prompt could exceed `BUDGET` on a PR
+  touching a large module even when its diff was small; every part is now
+  budgeted as assembled. `ask` also used to unconditionally send
+  `"reasoning": {"enabled": False, "exclude": True}`, which not only 400s
+  on models that mandate reasoning (e.g. `stealth/ox-alpha`, with
+  "Reasoning is mandatory for this endpoint and cannot be disabled") but
+  measurably hurt review quality by forcing it off; `ask` no longer sends
+  the `reasoning` field at all, leaving it to each model's own default,
+  with `max_tokens` raised from 8,192 to 32,768 so reasoning tokens don't
+  starve the answer, and it now logs `finish_reason`/`usage` on every
+  response and the raw answer on a JSON-parse failure, so a truncated or
+  malformed answer is diagnosable instead of a bare traceback
+  ([#611](https://github.com/discopy/discopy/issues/611)).
 - `build.yml` timeouts and a bounded, retried Graphviz install
   ([#591](https://github.com/discopy/discopy/issues/591)).
 - Boundary-constrained arrow strategies can generate composite paths, layer
@@ -312,11 +368,25 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `closed.Context.dom` called `category.ob.tensor` unbound, which raised
   `TypeError` for an empty context instead of returning `Ty()`
   ([#549](https://github.com/discopy/discopy/issues/549)).
+- `python.additive.Function.trace` fed a looping output tag straight back
+  in as an input tag, reading the wrong traced summand (or raising
+  `IndexError`) whenever `dom` and `cod` have different lengths
+  ([#554](https://github.com/discopy/discopy/issues/554)).
 - Both branches of `closed.Abstraction.eval` curry on the right: the
   context branch curried out the wrong end of its domain, so an abstraction
   applied to an argument sharing a free variable did not compose, and a
   left abstraction evaluates through its right counterpart
   ([#562](https://github.com/discopy/discopy/issues/562)).
+- `Tensor.spider_factory` returns its array on the active backend instead
+  of always on NumPy, so diagrams with spiders evaluate — and
+  differentiate — under the PyTorch backend
+  ([#582](https://github.com/discopy/discopy/issues/582)).
+- `trace(0)` is the identity, i.e. the vanishing axiom, rather than a
+  morphism with empty `dom` and `cod`: `x[:-n]` is the empty prefix at
+  `n == 0`, which emptied the boundary of `Hypergraph.trace` and of both
+  `python.Function.trace`, and made `rigid.Diagram.curry(0, left=True)`
+  curry the whole domain
+  ([#578](https://github.com/discopy/discopy/issues/578)).
 - Closed and biclosed diagrams containing a `Copy`, `Merge`, `Swap`,
   `Permutation`, `Braid` or `Twist` can be drawn: the `markov`, `symmetric`,
   `braided` and `balanced` functor branches now check that the codomain has

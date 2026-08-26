@@ -174,7 +174,11 @@ class Cap(frobenius.Cap, Box):
     """
 
 
-class Swap(frobenius.Swap, Box):
+class Permutation(frobenius.Permutation, Box):
+    "A permutation in a pregroup diagram."
+
+
+class Swap(Permutation, frobenius.Swap, Box):
     """
     A pregroup swap is a frobenius swap in a pregroup diagram.
     """
@@ -250,6 +254,7 @@ def brute_force(*vocab, target=Ty('s')):
 
 
 Diagram.swap_factory, Diagram.spider_factory = Swap, Spider
+Diagram.permutation_factory = Permutation
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 
 Id = Diagram.id

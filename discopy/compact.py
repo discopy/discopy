@@ -130,16 +130,6 @@ class Cap(ribbon.Cap, Box):
     """
 
 
-class Swap(symmetric.Swap, ribbon.Braid, Box):
-    """
-    A compact swap is a symmetric swap and a ribbon braid.
-
-    Parameters:
-        left (pivotal.Ty) : The type on the top left and bottom right.
-        right (pivotal.Ty) : The type on the top right and bottom left.
-    """
-
-
 class Permutation(symmetric.Permutation, Box):
     """
     A compact permutation is a symmetric permutation in a compact category.
@@ -154,6 +144,16 @@ class Permutation(symmetric.Permutation, Box):
 
     l = property(lambda self: self.rotate(left=True))
     r = property(lambda self: self.rotate(left=False))
+
+
+class Swap(Permutation, symmetric.Swap, ribbon.Braid, Box):
+    """
+    A compact swap is a symmetric swap and a ribbon braid.
+
+    Parameters:
+        left (pivotal.Ty) : The type on the top left and bottom right.
+        right (pivotal.Ty) : The type on the top right and bottom left.
+    """
 
 
 @factory

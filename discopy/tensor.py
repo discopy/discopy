@@ -212,7 +212,10 @@ class Tensor(Matrix):
             result = cls.zero(dom, cod)
             for i in range(n):
                 result.array[len(dom @ cod) * (i, )] = 1
+        if isinstance(get_backend(), NumPy):
             return result
+        with backend() as np:
+            return cls(np.array(result.array), dom, cod)
 
     @classmethod
     def spiders(cls, n_legs_in: int, n_legs_out: int, typ: Dim, phase=None
@@ -536,8 +539,10 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
         scan = [(t, 1) for t in inputs]
 
         for i, (box, off) in enumerate(zip(self.boxes, self.offsets)):
-            if isinstance(box, Swap):
-                scan[off], scan[off + 1] = scan[off + 1], scan[off]
+            if isinstance(box, Permutation):
+                segment = scan[off:off + len(box.dom)]
+                scan[off:off + len(box.dom)] = [
+                    segment[i] for i in box.perm]
                 continue
 
             in_inds = [f't{i}_i{j}' for j in range(len(box.dom))]
@@ -592,9 +597,10 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
             for i, dim in enumerate(self.dom.inside)]
         inputs, outputs = [n[0] for n in nodes], [n[1] for n in nodes]
         for box, offset in zip(self.boxes, self.offsets):
-            if isinstance(box, Swap):
-                outputs[offset], outputs[offset + 1]\
-                    = outputs[offset + 1], outputs[offset]
+            if isinstance(box, Permutation):
+                segment = outputs[offset:offset + len(box.dom)]
+                outputs[offset:offset + len(box.dom)] = [
+                    segment[i] for i in box.perm]
                 continue
             if isinstance(box, (Cup, Spider)):
                 dims = (len(box.dom), len(box.cod))
@@ -768,7 +774,17 @@ class Cap(frobenius.Cap, Box):
     """
 
 
-class Swap(frobenius.Swap, Box):
+class Permutation(frobenius.Permutation, Box):
+    "A permutation in a tensor diagram."
+
+    @property
+    def array(self):
+        doms = [Dim(getattr(dim.inside[0], 'dim', dim.inside[0]))
+                for dim in self.dom]
+        return Tensor.permutation(self.perm, doms).array
+
+
+class Swap(Permutation, frobenius.Swap, Box):
     """
     A tensor swap is a frobenius swap in a tensor diagram.
 
@@ -885,6 +901,7 @@ class Bubble(monoidal.Bubble, Box):
 
 
 Diagram.sum_factory, Diagram.swap_factory = Sum, Swap
+Diagram.permutation_factory = Permutation
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Diagram.spider_factory, Diagram.bubble_factory = Spider, Bubble
 Diagram.map_factory = CMap
