@@ -12,6 +12,7 @@ from _pytest.doctest import DoctestItem
 
 
 UNIMPORTABLE = (
+    "discopy/neural/jax.py",
     "discopy/neural/torch.py",
     "discopy/quantum/pennylane.py",
     "discopy/quantum/tk.py")

@@ -54,8 +54,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   [#365](https://github.com/discopy/discopy/pull/365)).
 - `discopy.neural`, the free compact closed category of bidirectional neural
   networks, as a package: `neural.network` for the category itself,
-  `neural.backend` for the abstract execution backend, `neural.torch` for the
-  PyTorch one and `neural.rdiff` for reverse differentiation
+  `neural.backend` for the abstract execution backend, `neural.torch` and
+  `neural.jax` for the PyTorch and JAX ones, and `neural.rdiff` for reverse
+  differentiation
   ([#399](https://github.com/discopy/discopy/pull/399)).
 - Explicit permutations in symmetric layers: `symmetric.P` supports the
   permutation operations and functorial semantics, while `symmetric.Layer`

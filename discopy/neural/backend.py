@@ -71,6 +71,7 @@ class Backend(ABC):
 
 
 BACKENDS = {
+    'jax': 'discopy.neural.jax.JAX',
     'pytorch': 'discopy.neural.torch.PyTorch',
 }
 
