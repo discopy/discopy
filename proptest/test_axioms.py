@@ -19,10 +19,9 @@ from discopy import (
     ribbon,
     rigid,
     symmetric,
+    tensor,
     traced,
 )
-from discopy import tensor
-from discopy.frobenius import Dim
 from discopy.matrix import Matrix
 from discopy.testing import assert_verdict
 from discopy.utils import factory_name
@@ -50,7 +49,7 @@ CARRIERS = (
     frobenius.Ty, frobenius.Diagram, frobenius.Hypergraph, frobenius.CMap,
     frobenius.Functor,
     Matrix[int],
-    Dim, tensor.Diagram, tensor.Tensor[int],
+    frobenius.Dim, tensor.Diagram, tensor.Tensor[int],
 )
 
 
