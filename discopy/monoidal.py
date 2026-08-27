@@ -837,7 +837,7 @@ class Layer(cat.Box, ColouredMonoid):
     @classmethod
     def strategy(
             cls, *, factory, types=None, dom=None, cod=None,
-            label=None, exclude=(), boundary_connected=True, max_boxes=2):
+            label=None, exclude=(), max_boxes=2):
         """Generate a layer of boxes matching optional exact boundaries."""
         from hypothesis import strategies as st
 
@@ -1032,7 +1032,7 @@ class Diagram(
             min_length=int(boundary_connected)) if types is None else types
 
         @st.composite
-        def diagrams(draw, dom=dom, cod=cod, boundary_connected=True):
+        def diagrams(draw, dom=dom, cod=cod):
             minimum = 0 if min_leaves is None else min_leaves
             if dom is not None and cod is not None and dom != cod:
                 minimum = max(1, minimum)
@@ -1044,11 +1044,10 @@ class Diagram(
                 return cls((), source, source, _scan=False)
             layers, boxes, source = [], set(), dom
             for i in range(n_layers):
-                layers_at_boundary = cls.layer_factory.strategy(  # noqa: E501
+                layers_at_boundary = cls.layer_factory.strategy(
                     factory=cls, types=types, dom=source,
                     cod=cod if i == n_layers - 1 else None,
-                    label=i, exclude=boxes,
-                    boundary_connected=boundary_connected)
+                    label=i, exclude=boxes)
                 layer = draw(layers_at_boundary)
                 layers.append(layer)
                 boxes.update(layer.boxes)
@@ -1065,8 +1064,7 @@ class Diagram(
             result = draw(connected)
             empty = cls.ob()
             for _ in range(draw(st.integers(min_value=0, max_value=2))):
-                component = draw(diagrams(
-                    dom=empty, cod=empty, boundary_connected=False))
+                component = draw(diagrams(dom=empty, cod=empty))
                 result @= component
             return result
 

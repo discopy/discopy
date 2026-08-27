@@ -489,9 +489,9 @@ class Axiom[T]:
     known to be broken, and the equation itself otherwise.
 
     A law is broken when *some* argument is a counterexample, not every one,
-    so :attr:`broken` reads the verdict off the body before any argument is
-    generated — the property matrix marks such an axiom as an expected
-    failure and lets the search find the counterexample.
+    so :attr:`broken` is the flag :meth:`failing` stamps on the body rather
+    than a verdict read for particular arguments — the property matrix reads
+    it before generating anything and searches for the counterexample.
     """
 
     def __init__(self, equation, *, carrier=None, name=None):
@@ -502,7 +502,7 @@ class Axiom[T]:
         self.receiver = next(iter(self.signature.parameters), None)
         self.carrier = carrier
         self.name = self.__name__ = name or function.__name__
-        self.broken = "AxiomError" in function.__code__.co_names
+        self.broken = getattr(function, "broken", False)
         self.__doc__ = function.__doc__
 
     def __repr__(self):
@@ -550,7 +550,7 @@ class Axiom[T]:
         @wraps(self.equation)
         def equation(*args, **kwargs):
             return AxiomError(reason, self.equation(*args, **kwargs))
-        equation.__doc__ = reason
+        equation.__doc__, equation.broken = reason, True
         return type(self)(equation)
 
     def inapplicable(self, reason: str) -> Axiom[T]:

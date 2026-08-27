@@ -92,7 +92,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from discopy import abc, balanced, hypergraph, messages, monoidal, traced
+from discopy import abc, balanced, cmap, hypergraph, messages, monoidal
 from discopy.abc import SymmetricCategory
 from discopy.cat import factory
 from discopy.monoidal import Wire, Ty, PRO  # noqa: F401
@@ -167,15 +167,14 @@ class Layer(monoidal.Layer):
     @classmethod
     def strategy(
             cls, *, factory, types=None, dom=None, cod=None,
-            label=None, exclude=(), boundary_connected=True):
+            label=None, exclude=()):
         """Add a simultaneous native permutation to ordinary layers."""
         from hypothesis import strategies as st
 
         exclude = frozenset(exclude)
         base = super().strategy(
             factory=factory, types=types, dom=dom, cod=cod,
-            label=label, exclude=exclude,
-            boundary_connected=boundary_connected)
+            label=label, exclude=exclude)
         types = factory.ob.strategy() if types is None else types
         permutation_factory = factory.permutation_factory
 
@@ -733,11 +732,7 @@ class Functor(balanced.Functor):
             self(self.dom.swap(x, y)), self.cod.swap(self(x), self(y)))
 
 
-class CMap(traced.CMap):
-    category = Diagram
-
-    braid_naturality = traced.CMap.braid_naturality.failing(
-        "``CMap.to_diagram`` fails on a traced box, see #606.")
+CMap = cmap.CMap[Diagram]
 
 
 Diagram.functor_factory = Functor

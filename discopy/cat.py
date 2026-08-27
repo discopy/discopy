@@ -1014,9 +1014,16 @@ class Functor(Category, Strategy["Functor"]):
 
     @classmethod
     def strategy(cls, *, dom=None, cod=None):
-        """Generate an endofunctor relabelling every generator."""
+        """
+        Generate an endofunctor relabelling every generator.
+
+        Every generated functor is an endofunctor of ``cls.dom``, so asking
+        for any other boundary is unsatisfiable rather than silently ignored.
+        """
         from hypothesis import strategies as st
 
+        if dom not in (None, cls.dom) or cod not in (None, cls.cod):
+            return st.nothing()
         atoms = [cls.dom.ob(name) for name in GENERATORS]
 
         def relabel(images):

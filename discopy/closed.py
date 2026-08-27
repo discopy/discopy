@@ -52,7 +52,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, ClassVar
 
-from discopy import cat, monoidal, biclosed, markov, hypergraph
+from discopy import cat, monoidal, biclosed, markov, cmap, hypergraph
 from discopy.abc import ClosedCategory
 from discopy.cat import factory
 
@@ -208,11 +208,7 @@ class Functor(biclosed.Functor, markov.Functor):
         return super().__call__(other)
 
 
-class CMap(biclosed.CMap):
-    category = Diagram
-
-    braid_naturality = biclosed.CMap.braid_naturality.failing(
-        "``CMap.to_diagram`` fails on a traced box, see #606.")
+CMap = cmap.CMap[Diagram]
 
 
 Diagram.functor_factory = Functor

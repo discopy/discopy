@@ -49,9 +49,10 @@ CARRIERS = (
     Matrix[int], finset.Function, finset.Permutation)
 
 
-def axiom_parameters():
+def axiom_parameters(broken: bool):
     """
-    Translate every axiom of every carrier to a pytest parameter.
+    Translate every axiom of every carrier to a pytest parameter, splitting
+    the laws that must hold from the ones declared broken.
 
     An axiom taking no argument states its verdict without one, so we ask it
     here: :obj:`NotImplemented` means the structure does not apply and the
@@ -59,10 +60,10 @@ def axiom_parameters():
     """
     for carrier in CARRIERS:
         for axiom in getattr(carrier, "axioms", ()):
+            if axiom.broken != broken:
+                continue
             if not axiom.parameters and axiom() is NotImplemented:
                 marks = pytest.mark.skip(reason=axiom.__doc__.strip())
-            elif axiom.broken:
-                marks = pytest.mark.xfail(reason=axiom.__doc__.strip())
             else:
                 marks = ()
             yield pytest.param(
@@ -70,10 +71,21 @@ def axiom_parameters():
                 id=f"{factory_name(carrier)}.{axiom.name}")
 
 
-@pytest.mark.parametrize("axiom", axiom_parameters())
+@pytest.mark.parametrize("axiom", axiom_parameters(broken=False))
 @given(data=st.data())
 @settings(max_examples=25, deadline=None)
 def test_axiom(axiom, data):
     """ Check an axiom of a carrier against generated arguments. """
     args = data.draw(axiom.strategy(), label=axiom.name)
     assert_verdict(axiom, axiom(*args))
+
+
+@pytest.mark.parametrize("axiom", axiom_parameters(broken=True))
+def test_broken_axiom(axiom):
+    """
+    A law declared broken must have a findable counterexample: random
+    sampling may miss it and read as an unexplained pass, so we search with
+    :meth:`Axiom.falsify`, which raises ``NoSuchExample`` on a declaration
+    gone stale.
+    """
+    axiom.falsify()

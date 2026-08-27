@@ -103,6 +103,11 @@ def test_Hypergraph_simplify_bubble_size():
 def test_Hypergraph_rotate():
     assert H.id() == \
            H.id().rotate(left=False).rotate(left=True)
+    x, y = Ty('x'), Ty('y')
+    box = Box('box', x, y @ y).to_hypergraph()
+    assert box.r.l == box and box.r == Box('box', x, y @ y).r.to_hypergraph()
+    cap = Cap(x, x.r).to_hypergraph()
+    assert cap.r.l == cap and cap.r == Cap(x, x.r).r.to_hypergraph()
 
 
 def test_Box():

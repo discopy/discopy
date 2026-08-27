@@ -134,12 +134,20 @@ class Matrix(MarkovCategory, Strategy["Matrix"], NamedGeneric['dtype']):
 
     @classmethod
     def strategy(cls, *, dom=None, cod=None, max_size=3, max_entry=3):
-        """Generate matrices with entries in ``range(max_entry + 1)``."""
+        """Generate matrices with entries drawn from :attr:`dtype`."""
         from hypothesis import strategies as st
 
         factory = cls[cls.dtype or int]
         sizes = st.integers(min_value=0, max_value=max_size)
-        entries = st.integers(min_value=0, max_value=max_entry)
+        entries = {
+            bool: st.booleans(),
+            float: st.floats(
+                min_value=-max_entry, max_value=max_entry,
+                allow_nan=False, allow_infinity=False),
+            complex: st.complex_numbers(
+                max_magnitude=float(max_entry),
+                allow_nan=False, allow_infinity=False),
+        }.get(factory.dtype, st.integers(min_value=0, max_value=max_entry))
         return st.tuples(
             sizes if dom is None else st.just(dom),
             sizes if cod is None else st.just(cod)).flatmap(

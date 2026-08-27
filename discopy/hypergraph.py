@@ -499,11 +499,13 @@ class Hypergraph(
         dom, cod = (x.l if left else x.r for x in (self.cod, self.dom))
         boxes = tuple(box.l if left else box.r for box in self.boxes[::-1])
         dom_wires = self.cod_wires[::-1]
-        box_wires = tuple((x[::-1], y[::-1]) for x, y in self.box_wires[::-1])
+        box_wires = tuple((y[::-1], x[::-1]) for x, y in self.box_wires[::-1])
         cod_wires = self.dom_wires[::-1]
+        spider_types = tuple(
+            x.l if left else x.r for x in self.spider_types)
         wires = dom_wires, box_wires, cod_wires
         return type(self)(
-            dom, cod, boxes, wires, self.spider_types, self.offsets[::-1])
+            dom, cod, boxes, wires, spider_types, self.offsets[::-1])
 
     l = property(lambda self: self.rotate(left=True))
     r = property(lambda self: self.rotate(left=False))

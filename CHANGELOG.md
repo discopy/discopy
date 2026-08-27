@@ -56,11 +56,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - Two axioms: `RigidCategory.rotate_contravariance`, i.e. rotation reverses
   composition, and `HypergraphCategory.spider_fusion`, i.e. two spiders
   connected by one leg fuse into one.
-- Axiom statuses now record the representation-level equality available to
-  combinatorial maps, and diagram/map strategies can generate closed
-  components on request. A `"strict"` axiom is checked on the nose, while a
-  `"setoid"` one is checked up to the category's `equation_factory`, i.e. up
-  to hypergraph from symmetric categories on.
+- Diagram and map strategies can generate closed components on request.
 - Declarative categorical axioms, validating argument shapes, and canonical
   Hypothesis strategies following the categorical class hierarchy. A dedicated
   workflow runs the property tests on `main`, manually, and on labelled PRs.
@@ -192,6 +188,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `Axiom.falsify()` searches for a shrunk counterexample to a bound axiom —
   arguments for which the verdict fails — raising `NoSuchExample` when it
   finds none.
+- The matrix checks a broken axiom by searching for its counterexample with
+  `Axiom.falsify`, instead of a non-strict expected failure that read as
+  passing whenever 25 random samples missed it, and `Axiom.broken` is
+  a flag `failing` stamps on the body rather than a scan of its bytecode
+  for the name `AxiomError`. The search retired two declarations that had
+  quietly gone stale: `braid_naturality` holds on combinatorial maps now
+  that `to_diagram` converts traced boxes, and `rotate_contravariance`
+  holds on compact diagrams now that `Hypergraph.rotate` rotates.
 - Every module's test file gets one `test_axioms` calling
   `testing.assert_axioms` on its carriers: each axiom is checked on a
   single example drawn from its own strategy, a dry run of the property
@@ -385,9 +389,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   front, so the first layer is generated without boundary constraints and
   the property matrix reaches the structural boxes of each category:
   swaps, permutations, braids, twists, cups, caps and traces never appeared
-  inside a generated diagram before. This immediately shows that
-  `CMap.to_diagram` cannot convert back a map with a traced box, which
-  makes `braid_naturality` a `"bug"` for symmetric and closed maps.
+  inside a generated diagram before. This immediately showed that
+  `CMap.to_diagram` could not convert back a map with a traced box, since
+  fixed by [#532](https://github.com/discopy/discopy/pull/532)'s
+  `make_causal`, so `braid_naturality` holds on maps from traced
+  categories on.
 - `TracedCategory.trace_dinaturality_left` and `trace_dinaturality_right`
   state sliding between two distinct traced objects, as
   `Tr^x(f ; b @ g) == Tr^y(a @ g ; f)` for `g: y -> x`, instead of tracing
@@ -400,6 +406,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   wrong order ([#606](https://github.com/discopy/discopy/issues/606)).
 - `Diagram.normal_form` expands multi-box layers into staircases before
   normalization, so connected foliated diagrams normalize without raising.
+- `Hypergraph.rotate` swaps the wires of each box along with its boundary
+  and dualises the spider types with the rest, where it used to keep both
+  fixed and raise on any box with different arities, cup or cap. Checking
+  `rotate_contravariance` up to hypergraph is what surfaced it.
 - The style review no longer depends on a transition that may never
   happen. `ready_for_review` fires on the draft-to-ready edge alone, so a
   pull request whose `TODO.md` was deleted before it was ever opened went
