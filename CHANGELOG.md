@@ -291,6 +291,25 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   response and the raw answer on a JSON-parse failure, so a truncated or
   malformed answer is diagnosable instead of a bare traceback
   ([#611](https://github.com/discopy/discopy/issues/611)).
+- `style-review.yml` diffed `-- '*.py'` only, so a pull request touching
+  only a `docs/notebooks/*.md` marimo notebook always diffed empty: the
+  review step was skipped silently and the correctness reviewer was called
+  with no style pass at all. The diff now covers every authored file —
+  Python, notebooks, docs, workflows, config — excluding generated
+  artefacts (`docs/_static/**`, `discopy/*.gif`, `test/drawing/tikz/**`,
+  `test/fixtures/**`, `uv.lock`). `review.py` fences each changed file by
+  its own type (`python`, `markdown`, `yaml`, …) instead of assuming
+  everything is Python, and picks a fence at least one backtick longer
+  than any run already inside the file, so a notebook's own cell fences
+  or an inline code span can never close it early. Each changed file is
+  now sent once, not twice: rather than the full new file followed by a
+  separate global diff, `review.py` asks git for the full-context
+  (`-U100000`) diff of each file and turns it into one listing — every
+  added or context line numbered by its position in the new file, with a
+  leading `+` for one added; a removed line carries a `-` instead and no
+  number, since it has none in the new file — reusing git's own diff
+  algorithm instead of reimplementing it
+  ([#633](https://github.com/discopy/discopy/pull/633)).
 - `no-todo-on-main.yml`'s guard reads the pull request's live `draft`
   field rather than `github.event.pull_request.draft`, a snapshot taken
   when the event fires and stale by however long the event then waited
