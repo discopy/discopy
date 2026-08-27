@@ -7,9 +7,11 @@ A clean run posts nothing.
 
 Every remark is an inline comment on the line it is about: a finding that
 sits on no line of the diff is dropped rather than moved to the body,
-which carries the round and what it could not say, never a list of
+which carries the round and what it could not say rather than a list of
 findings. A review of the file at large is not what the diff asked for
-([#673](https://github.com/discopy/discopy/issues/673)).
+([#673](https://github.com/discopy/discopy/issues/673)). The one body
+that does list them is the one GitHub leaves when it refuses the inline
+comments, where the choice is that shape or no remarks at all.
 
 One review per round, and the round records the remarks it made so that the
 next one can read them back. Whatever the model made of those past remarks
