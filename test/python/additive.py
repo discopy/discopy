@@ -47,3 +47,17 @@ def test_trace_unequal_arity():
 
     f = Function(inside, (int, int), (int, int, int))
     assert f.trace()(7) == (7, 1)
+
+
+def test_strategy():
+    from hypothesis import find
+    from discopy.python.additive import Function
+
+    find(Function.strategy(), lambda f: len(f.dom) > len(f.cod) >= 1)
+
+
+def test_axioms():
+    from discopy import testing
+    from discopy.python.additive import Function
+
+    testing.assert_axioms(Function)

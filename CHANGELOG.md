@@ -9,6 +9,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `discopy.python.additive.Function` joins the property matrix, with a
+  `strategy` generating tag relabellings compared extensionally (probing
+  both sides on a canonical tagged element rather than structurally). See
+  BUGS.md.
 - `discopy.cmap.CMap` and `discopy.hypergraph.Hypergraph` grow a
   `strategy` classmethod, drawing through their associated diagram
   category and adding closed components (loops, isolated spiders) beyond
