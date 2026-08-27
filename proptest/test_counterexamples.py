@@ -8,7 +8,8 @@ from typing import NamedTuple
 import pytest
 
 from discopy import biclosed, braided, cat, compact, feedback, pivotal, ribbon
-from discopy.testing import Atomic, Axiom, Relabelled, Relabelling, assert_verdict
+from discopy.testing import (
+    Atomic, Axiom, Relabelled, Relabelling, assert_verdict)
 from discopy.utils import factory_name
 
 

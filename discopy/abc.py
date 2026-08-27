@@ -423,7 +423,8 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
         """ Right-oriented trace dinaturality. """
         f, g = sliding
         source, target = g.cod, g.dom
-        base, cobase = f.dom[:-len(source)], f.cod[:-len(target)]
+        base = f.dom[:-len(source)] if len(source) else f.dom
+        cobase = f.cod[:-len(target)] if len(target) else f.cod
         return cls.equation_factory(
             f.then(cobase @ g).trace(len(source)),
             (base @ g).then(f).trace(len(target)))
