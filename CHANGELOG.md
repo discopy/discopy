@@ -16,15 +16,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   drew, alongside the revision it is reviewing, and says what became of
   each — `accepted` when the file now does what the remark asked,
   `declined` when someone answered that they would not do it, and neither
-  while nobody has answered and nothing has moved. The **first** review of
-  newest review of the pull request then carries the tally, `6 style
-  remarks: 3 accepted / 2 declined / 1 still open`, where the thread is
-  being read rather than behind however many rounds came after it: a round
-  with something to say carries it in the review it posts, a round with
-  nothing to say edits the newest review already there, and any older one
-  still carrying a tally is stripped of it, so there is only ever the one.
-  A round is one review and says which round it is, so the reader sees how
-  the review is landing without counting them. The prompt is ordered from what never moves to
+  while nobody has answered and nothing has moved. The **newest** review
+  of the pull request then carries the tally, `6 style remarks: 3 accepted
+  / 2 declined / 1 still open`, where the thread is being read rather than
+  behind however many rounds came after it: a round with something to say
+  carries it in the review it posts, a round with nothing to say edits the
+  newest review already there, and any older one still carrying a tally is
+  stripped of it, so there is only ever the one. A round is one review and
+  says which round it is, so the reader sees how the review is landing
+  without counting them. The prompt is ordered from what never moves to
   what moves every round — instructions, `STYLE.md`, context files, the
   past remarks as a list that only grows at its end, and last the revision
   under review — so that two rounds of one pull request share a prefix the
