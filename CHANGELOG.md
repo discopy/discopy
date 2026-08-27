@@ -30,6 +30,20 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   under review — so that two rounds of one pull request share a prefix the
   gateway can serve from its cache rather than reading again
   ([#672](https://github.com/discopy/discopy/pull/672)).
+- The style review never posts a review of a revision that is gone. Its
+  concurrency group keyed on the event's action as well as the pull
+  request, so a push cancelled the round another push had started but not
+  one started by `ready_for_review` or by asking for it in a comment:
+  those ran on, and posted a review of the head they had read minutes
+  earlier, with line numbers belonging to a revision nobody could see any
+  more. The group is now the pull request alone, so a newer trigger
+  cancels the round in flight whatever started either of them, and
+  `post.py` re-reads the head before posting and stands down when it has
+  moved, leaving the review to the round that push starts. The base
+  branch advancing is not this and never was: a merge base does not move
+  when its target gains commits, so the diff both we and GitHub compute —
+  and every line number in it — is the same before and after
+  ([#672](https://github.com/discopy/discopy/pull/672)).
 - The style review comments on the diff and nowhere else. Whole files are
   what it reads to judge a change against the conventions around it, not
   an invitation to review code the change does not touch, and a finding

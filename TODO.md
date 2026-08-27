@@ -11,7 +11,7 @@ diff GitHub shows — and the one we compute — is the same before and after.
 What does go stale is the head moving under a running round, and that push
 already has a round of its own.
 
-- [ ] The concurrency group drops `github.event.action`, so a newer trigger
+- [x] The concurrency group drops `github.event.action`, so a newer trigger
       cancels an in-flight round whatever started either of them
-- [ ] A round that finds the head has moved posts nothing, leaving the review
+- [x] A round that finds the head has moved posts nothing, leaving the review
       to the round that push starts

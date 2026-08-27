@@ -8,8 +8,10 @@ permissions:
   contents: read
   pull-requests: read
 concurrency:
+  # One round at a time per pull request, whatever triggered either of them:
+  # a push cancels the round that was reviewing the head it replaces.
   group: style-review-${{ github.event.pull_request.number
-    || github.event.issue.number }}-${{ github.event.action }}
+    || github.event.issue.number }}
   cancel-in-progress: true
 jobs:
   review:
@@ -149,6 +151,7 @@ jobs:
         && steps.diff.outputs.changed == 'true'
       env:
         APP_TOKEN: ${{ steps.app-token.outputs.token }}
+        GITHUB_TOKEN: ${{ github.token }}
         REPO: ${{ github.repository }}
         PR_NUMBER: ${{ steps.pr.outputs.number }}
         HEAD_SHA: ${{ steps.pr.outputs.head }}

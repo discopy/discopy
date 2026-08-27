@@ -20,6 +20,10 @@ them all, where the thread is being read: a round that posts carries the
 tally in the body it posts, a round with nothing to say edits the newest
 review already there, and any older one still carrying a tally is stripped
 of it, so there is only ever the one.
+
+A round whose head has moved posts nothing: its findings are about lines
+somebody has already replaced, and the push that replaced them starts a
+round of its own.
 """
 
 import json
@@ -60,6 +64,17 @@ def normalised(finding):
     if not isinstance(path, str) or not comment:
         return None
     return {"path": path, "line": line, "comment": comment}
+
+
+def moved():
+    """The revision the pull request is on now, when it is not the one
+    this round reviewed, and `None` while it still is. The base branch
+    advancing is not this: a merge base does not move when its target
+    gains commits, so the diff — and every line number in it — is the
+    same before and after."""
+    head = api(f"/repos/{os.environ['REPO']}/pulls/{os.environ['PR_NUMBER']}",
+               os.environ["GITHUB_TOKEN"])["head"]["sha"]
+    return None if head == os.environ["HEAD_SHA"] else head
 
 
 def counted(number, thing):
@@ -156,6 +171,11 @@ def post_review(body, findings, inline=True):
 
 
 def main():
+    ahead = moved()
+    if ahead:
+        print(f"The pull request moved to {ahead[:8]} while this round ran, "
+              "leaving the review to the round that push starts.")
+        return
     with open(os.path.join(DIRECTORY, "findings.json")) as file:
         answer = json.load(file)
     reported = answer["findings"]
