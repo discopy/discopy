@@ -31,7 +31,17 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `.github/dependabot.yml`, grouping the monthly GitHub Actions updates
   into one pull request, now that every action is pinned by commit
   ([#645](https://github.com/discopy/discopy/pull/645)).
-
+- The style review can be asked for, and turned off, from the pull request
+  itself: `@discopy review this` in a comment reviews it now, and the
+  `no-style-review` label stops the automatic reviews on it, while the
+  comment goes on working — it is "stop reviewing this on its own", not
+  "never review this". The comment is read from people with write access
+  only, and labelling already is, so nobody who can merely comment can
+  silence the reviewer or spend the gateway budget. It replaces the
+  `style-review` label, which did the same on demand except that it never
+  handed over to the correctness reviewer. A pull request already open and
+  not about to change had no trigger at all otherwise, since only a push
+  reaches one ([#638](https://github.com/discopy/discopy/issues/638)).
 - `Diagram.to_compact` and `CMap.to_compact`, bending curry bubbles into
   coevaluation and feedback. Since a biclosed category has no trace, the
   `biclosed` method lands in `CMap`, which is compact whatever hosts it,
@@ -40,10 +50,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   with `biclosed.Coeval`, the transpose of `Eval`, which a biclosed
   category only has when its exponential is read at a reflexive object
   ([#532](https://github.com/discopy/discopy/pull/532)).
-- A style review workflow: when a same-repo pull request leaves draft or
-  gets the `style-review` label, one model request reads every changed
-  Python file whole — with the package-local files they import as context —
-  checks the diff against the file's own conventions and `STYLE.md`, and
+- A style review workflow: on a revision of a same-repo pull request, one
+  model request reads every changed Python file whole — with the
+  package-local files they import as context — checks the diff against the
+  file's own conventions and `STYLE.md`, and
   discopy-bot posts the findings as one review — style only, correctness
   stays with the correctness reviewer, whom discopy-bot calls once the
   style review has nothing to say. Inference runs on an open-weights
@@ -307,11 +317,35 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `${{ ... }}` into a string with a trailing newline: with characters
   around it the expression is no longer the whole value, so GitHub read a
   non-empty string and took it as true. `@cubic-dev-ai review` was
-  therefore posted whatever the style review found and whatever the
-  trigger, where it is meant to wait for a clean review on
-  `ready_for_review`. Written bare, as the file's other conditions are
+  therefore posted whatever the style review found, where it is meant to
+  wait for a clean one. [#634](https://github.com/discopy/discopy/pull/634)
+  rewrote both conditions and the shape survived, so the fix is applied to
+  its versions: written bare, as the file's other five conditions are
   ([#645](https://github.com/discopy/discopy/pull/645)).
 
+- The style review no longer depends on a transition that may never
+  happen. `ready_for_review` fires on the draft-to-ready edge alone, so a
+  pull request whose `TODO.md` was deleted before it was ever opened went
+  unreviewed, silently — no run, no notice, nothing in the Actions tab —
+  and a pull request the review did find something on was never reviewed
+  again, since fixing a nitpick is a plain push, leaving the correctness
+  reviewer, called only on a clean review, never called at all.
+  `style-review.yml` now triggers on `opened` and `synchronize` as well: a
+  pull request that is not draft and carries no `TODO` file is in the
+  review phase by construction, since `no-todo-on-main.yml` forces draft
+  while a `TODO` is there, so every revision of it is reviewed. Every
+  automatic trigger waits while a `TODO` file is in the tree, which also
+  keeps the review from racing that guard — on a `main`-based pull request
+  the deleting push lands while the guard still holds it draft, so the
+  review comes from the `ready_for_review` that follows rather than twice,
+  while a pull request based on anything else, which the guard watching
+  `main` alone never drafts and never marks ready, is reviewed on the push
+  itself. The hand-over to the correctness reviewer happens once per pull
+  request rather than on every clean run, since it re-reviews each push on
+  its own. A draft is never reviewed, whatever the trigger, and asking for
+  one by comment is what ignores the wait
+  ([#615](https://github.com/discopy/discopy/issues/615),
+  [#636](https://github.com/discopy/discopy/issues/636)).
 - Pivotal diagram-to-map conversion now encodes cups and caps as `CMap`
   wiring rather than keeping them as boxes
   ([#532](https://github.com/discopy/discopy/pull/532)).
