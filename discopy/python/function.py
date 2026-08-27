@@ -26,7 +26,7 @@ from discopy.utils import (
     tuplify, untuplify, classproperty, factory)
 
 
-class Types(tuple, Strategy):
+class Types(tuple, Strategy["Types"]):
     """
     A tuple of Python types seen as an object, with a strategy drawing
     tuples of :class:`int` — the one-type universe the property matrix

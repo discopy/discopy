@@ -32,7 +32,7 @@ Ty = tuple[type, ...]
 
 
 @factory
-class Function(function.Function, SymmetricCategory, Strategy):
+class Function(function.Function, SymmetricCategory, Strategy["Function"]):
     """
     Python functions with disjoint union as tensor.
 
