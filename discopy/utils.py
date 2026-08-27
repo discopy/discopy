@@ -320,7 +320,8 @@ def is_tuple(typ: type) -> bool:
     Parameters:
         typ : The type to check for equality with tuple.
     """
-    return get_origin(typ) is tuple
+    origin = get_origin(typ)
+    return isinstance(origin, type) and issubclass(origin, tuple)
 
 
 def assert_isinstance(object_, cls: type | tuple[type, ...]):

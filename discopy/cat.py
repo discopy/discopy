@@ -82,7 +82,9 @@ from typing import (
     Callable, Mapping, Iterable, TYPE_CHECKING)
 
 from discopy import messages, utils
-from discopy.abc import Category
+from discopy.abc import Category, Equation as AbstractEquation
+from discopy.testing import (
+    GENERATORS, Relabelled, Relabelling, Strategy, axiom)
 from discopy.utils import (  # noqa: F401
     factory,
     factory_name,
@@ -103,7 +105,7 @@ dumps, loads = utils.dumps, utils.loads
 
 
 @total_ordering
-class Ob:
+class Ob(Strategy["Ob"]):
     """
     An object with a string as :code:`name`.
 
@@ -139,6 +141,13 @@ class Ob:
 
     def __lt__(self, other):
         return self.name < other.name
+
+    @classmethod
+    def strategy(cls):
+        """Generate named objects."""
+        from hypothesis import strategies as st
+
+        return st.sampled_from(GENERATORS).map(cls)
 
     def to_tree(self) -> dict:
         """
@@ -252,7 +261,7 @@ class FreeCategory(Category):
 
 
 @factory
-class Arrow(FreeCategory):
+class Arrow(FreeCategory, Strategy["Arrow"]):
     """
     An arrow is a tuple of composable boxes :code:`inside` with a pair of
     objects :code:`dom` and :code:`cod` as domain and codomain.
@@ -299,6 +308,35 @@ class Arrow(FreeCategory):
     see :class:`monoidal.PRO`.
     """
     ob = Ob
+
+    @classmethod
+    def strategy(
+            cls, *, types=None, dom=None, cod=None,
+            min_leaves=None, max_leaves=10):
+        """
+        Generate the canonical instantiation: a single identity or a single
+        generator box with the requested (or an arbitrary) boundary.
+
+        No search here: this is the one-shot, non-recursive stand-in that
+        stage 2 replaces with a real ``st.recursive`` search over composite
+        paths — ``min_leaves``/``max_leaves`` are accepted for interface
+        compatibility with that later strategy but otherwise ignored.
+        """
+        from hypothesis import strategies as st
+
+        types = cls.ob.strategy() if types is None else types
+
+        def generators(dom=None, cod=None):
+            return cls.generator_factory.strategy(
+                types=types, dom=dom, cod=cod)
+
+        if dom is not None and cod is not None:
+            if dom == cod:
+                return st.just(cls.id(dom))
+            return generators(dom=dom, cod=cod)
+        if dom is not None or cod is not None:
+            return generators(dom=dom, cod=cod)
+        return st.one_of(types.map(cls.id), generators())
 
     def __setstate__(self, state):
         if '_dom' in state:  # Backward compatibility
@@ -531,6 +569,19 @@ class Box(Arrow):
     >>> f = Box('f', x, y, data=[42])
     >>> assert f.inside == (f, )
     """
+
+    @classmethod
+    def strategy(
+            cls, *, types=None, dom=None, cod=None):
+        """Generate fresh free boxes with optional exact boundaries."""
+        from hypothesis import strategies as st
+
+        types = cls.ob.strategy() if types is None else types
+        doms = types if dom is None else st.just(dom)
+        cods = types if cod is None else st.just(cod)
+        return st.tuples(st.uuids(), doms, cods).map(
+            lambda args: cls(str(args[0]), args[1], args[2]))
+
     def __setstate__(self, state):
         if '_name' in state:  # Backward compatibility
             self.name, self.data, self.is_dagger = (
@@ -810,7 +861,7 @@ class Bubble(Box):
 
 
 @factory
-class Functor(Category):
+class Functor(Category, Strategy["Functor"]):
     """
     A functor is a pair of maps :code:`ob_map` and :code:`ar_map` and an
     optional codomain category :code:`cod`.
@@ -851,7 +902,7 @@ class Functor(Category):
     >>> m.data.append(False)
     >>> assert F(m) == m[::-1]
     """
-    ob = type[Category]
+    ob = Category
     dom = cod = Arrow
 
     @classmethod
@@ -917,7 +968,8 @@ class Functor(Category):
         if isinstance(other, Ob):
             result = self.ob_map[other]
             origin = get_origin(self.cod.ob)
-            if isinstance(result, origin):
+            if isinstance(result, origin) or isinstance(result, type)\
+                    and issubclass(result, origin):
                 return result
             return (result, ) if origin == tuple\
                 else self.cod.ob(result)
@@ -940,6 +992,45 @@ class Functor(Category):
         for box in other.inside:
             result = result >> self(box)
         return result
+
+    @classmethod
+    def strategy(cls, *, dom=None, cod=None):
+        """Generate an endofunctor relabelling every generator."""
+        from hypothesis import strategies as st
+
+        atoms = [cls.dom.ob(name) for name in GENERATORS]
+
+        def relabel(images):
+            labelling = Relabelling(tuple(zip(atoms, images)))
+            return cls(labelling, Relabelled(labelling))
+
+        return st.tuples(
+            *(st.sampled_from(atoms) for _ in atoms)).map(relabel).filter(
+                lambda functor: dom in (None, functor.dom)
+                and cod in (None, functor.cod))
+
+    unitality = Category.unitality.failing(
+        "Composition is unital only on the left: "
+        "``MappingOrCallable.then`` composes by iterating the keys of the "
+        "left-hand map, and the identity functor enumerates none, so "
+        "``id >> f`` forgets everything ``f`` does instead of being ``f``.")
+
+    dagger_involution = Category.dagger_involution.inapplicable(
+        "A functor has no dagger.")
+
+    dagger_contravariance = Category.dagger_contravariance.inapplicable(
+        "A functor has no dagger.")
+
+    @axiom
+    def identity_typing(cls):
+        """
+        Typing of the identity functor.
+
+        The objects of ``Cat`` are categories, which the property matrix does
+        not generate, so this is stated of the one the carrier maps.
+        """
+        identity = cls.id(cls.dom)
+        return cls.ob.equation_factory(identity.dom, cls.dom, identity.cod)
 
 
 Arrow.generator_factory = Box
@@ -1054,7 +1145,7 @@ class Transformation(Category):
             f"dom={self.dom!r}, cod={self.cod!r})")
 
 
-class Equation:
+class Equation(AbstractEquation[Arrow]):
     """
     An equation is a list of ``terms`` to be compared up to a function
     ``up_to``, the identity by default.  Casting it to ``bool`` checks whether
@@ -1088,6 +1179,17 @@ class Equation:
         if up_to is not None:
             self.up_to = up_to
 
+    def modulo(self, up_to: Callable) -> Equation:
+        """
+        The same equation compared up to the given function, rebinding
+        :attr:`up_to`, whose name the attribute already takes.
+
+        >>> x = Ob('x')
+        >>> f, g = Box('f', x, x), Box('g', x, x)
+        >>> assert Equation(f >> g, g >> f).modulo(lambda _: True)
+        """
+        return type(self)(*self.terms, symbols=self.symbols, up_to=up_to)
+
     def __repr__(self):
         return factory_name(type(self))\
             + f"({', '.join(map(repr, self.terms))})"
@@ -1101,6 +1203,7 @@ class Equation:
         return all(term == terms[0] for term in terms)
 
 
+Ob.equation_factory = Arrow.equation_factory = Equation
 Arrow.sum_factory = Sum
 Arrow.bubble_factory = Bubble
 Id = Arrow.id

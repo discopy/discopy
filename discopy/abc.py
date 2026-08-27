@@ -14,6 +14,11 @@ the characteristic generator of its categorical structure as an
 Software dependencies between modules go top-to-bottom, left-to-right and
 forgetful functors between categories go the other way.
 
+Each class also declares its :func:`discopy.testing.axiom` equations, which
+every free category inherits along with the structure they axiomatise —
+this branch states them on :class:`Category` and :class:`ColouredMonoid`
+only, the rest of the hierarchy is axiomatised on later branches.
+
 Summary
 -------
 
@@ -43,7 +48,19 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from typing import ClassVar, Generic, TypeVar
 
+from discopy.testing import (
+    Axiom, ComposablePair, ComposableTriple, axiom, declared_axioms)
 from discopy.utils import classproperty, get_origin
+
+
+class Equation[T](ABC):
+    """ The abstract interface for an equation between terms of type ``T``. """
+
+    terms: tuple[T, ...]
+
+    @abstractmethod
+    def __bool__(self) -> bool:
+        """ Whether all terms in the equation are equal. """
 
 
 class Category[C0, C1: Category](ABC):
@@ -71,6 +88,26 @@ class Category[C0, C1: Category](ABC):
     #: Backward-compatible alias for :attr:`factory`, since types are
     #: themselves the objects of diagrams.
     ar = classproperty(lambda cls: getattr(cls, "factory", cls))
+
+    @classmethod
+    def equation_factory(cls, *terms):
+        """
+        Construct an equation, using strict equality by default.
+
+        A class that quotients its equations overrides this, e.g. by
+        hypergraph isomorphism from symmetric categories on, so an axiom
+        built with it is checked up to whatever quotient the carrier
+        defines — and :meth:`discopy.testing.Axiom.modulo` weakens it
+        further.
+        """
+        from discopy.cat import Equation as CatEquation
+        return CatEquation(*terms)
+
+    @classproperty
+    def axioms(cls) -> tuple[Axiom, ...]:
+        """ The ordered axioms inherited by ``cls``. """
+        return tuple(
+            value.bind(cls) for value in declared_axioms(cls).values())
 
     @classmethod
     @abstractmethod
@@ -111,6 +148,56 @@ class Category[C0, C1: Category](ABC):
         """
         return (self.dom, self.cod) == (other.dom, other.cod)
 
+    @axiom
+    def unitality(
+            cls, f: C1) -> Equation[C1]:
+        """ Left and right unitality of composition. """
+        return cls.equation_factory(
+            cls.id(f.dom).then(f), f, f.then(cls.id(f.cod)))
+
+    @axiom
+    def associativity(
+            cls, triple: ComposableTriple[C1]) -> Equation[C1]:
+        """ Associativity of composition. """
+        f, g, h = triple
+        return cls.equation_factory(
+            f.then(g).then(h), f.then(g.then(h)))
+
+    @axiom
+    def identity_typing(
+            cls, x: C0) -> Equation[C0]:
+        """ Typing of identity morphisms. """
+        identity = cls.id(x)
+        return cls.ob.equation_factory(identity.dom, x, identity.cod)
+
+    @axiom
+    def composition_dom_typing(
+            cls, pair: ComposablePair[C1]) -> Equation[C0]:
+        """ Domain typing of composition. """
+        f, g = pair
+        return cls.ob.equation_factory(f.then(g).dom, f.dom)
+
+    @axiom
+    def composition_cod_typing(
+            cls, pair: ComposablePair[C1]) -> Equation[C0]:
+        """ Codomain typing of composition. """
+        f, g = pair
+        return cls.ob.equation_factory(f.then(g).cod, g.cod)
+
+    @axiom
+    def dagger_involution(
+            cls, f: C1) -> Equation[C1]:
+        """ The dagger is involutive. """
+        return cls.equation_factory(f.dagger().dagger(), f)
+
+    @axiom
+    def dagger_contravariance(
+            cls, pair: ComposablePair[C1]) -> Equation[C1]:
+        """ The dagger reverses composition. """
+        f, g = pair
+        return cls.equation_factory(
+            f.then(g).dagger(), g.dagger().then(f.dagger()))
+
     __rshift__ = __llshift__ = lambda self, other: self.then(other)
     __lshift__ = __lrshift__ = lambda self, other: other.then(self)
 
@@ -144,6 +231,19 @@ class ColouredMonoid[C0, C1: ColouredMonoid](Category[C0, C1]):
     @abstractmethod
     def tensor(self, *objects: C1) -> C1:
         """ The n-ary product of a monoid for ``n > 0``. """
+
+    @axiom
+    def monoid_unitality(
+            cls, x: C1) -> Equation[C1]:
+        """ Unitality of a monoid. """
+        return cls.equation_factory(cls.unit() @ x, x, x @ cls.unit())
+
+    @axiom
+    def monoid_associativity(
+            cls, triple: ComposableTriple[C1]) -> Equation[C1]:
+        """ Associativity of a monoid. """
+        x, y, z = triple
+        return cls.equation_factory(x @ (y @ z), (x @ y) @ z)
 
     def then(self, *others: C1) -> C1:
         """Sequential composition, given by the monoid product."""

@@ -9,6 +9,18 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `discopy/testing.py`, a Hypothesis-based property-testing module:
+  `Axiom`, decorated with `@discopy.testing.axiom`, states a categorical
+  law once on `discopy.abc.Category`/`ColouredMonoid` and every subclass
+  inherits it; `.failing`/`.inapplicable` classify a law as broken or not
+  applicable to a carrier, and `.modulo`/`.weaken` are defined (compare up
+  to a function, quantify over a named subspace) but not used yet. The
+  search itself is the canonical instantiation only — one atomic object or
+  one free/generator box per parameter, no recursive or compound
+  generation — wired up in `proptest/test_axioms.py`, enrolled so far for
+  `cat.Arrow` and `cat.Functor`, and run by the new `proptest` GitHub
+  workflow on `main`, manual dispatch and PRs labelled `proptest`. See
+  [PROPTEST.md](PROPTEST.md) and [BUGS.md](BUGS.md).
 - The style review can be asked for, and turned off, from the pull request
   itself: `@discopy review this` in a comment reviews it now, and the
   `no-style-review` label stops the automatic reviews on it, while the

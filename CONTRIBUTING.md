@@ -47,7 +47,7 @@ Different dependency groups are available (switch with `uv sync --group <group-n
 - `docs`: for generating the documentation
 Since dependency groups are not standard, we also provide equivalents via optional dependencies.
 
-## Run the tests
+## Run the unit tests
 
 After cloning the repository, you should check you haven't broken anything by running the test suite.
 Use `uv sync --dev` before running any part of the test suite, and `uv sync --dev --group all`
@@ -61,6 +61,47 @@ uv run coverage report -m
 ```
 
 Without the extras installed, run `uv run pytest --skip-extra` to skip what needs them.
+
+## Run the property tests
+
+The Hypothesis property matrix lives in `proptest/`, outside
+pytest's default `testpaths`. Run them explicitly:
+
+```shell
+uv sync --group dev
+uv run pytest proptest/ -n auto -p no:benchmark -v
+```
+
+The cells of the matrix are independent, so `-n auto`
+([pytest-xdist](https://pytest-xdist.readthedocs.io)) runs them on all
+cores, with `-p no:benchmark` unloading the benchmark plugin that is
+incompatible with it; drop both to run serially, e.g. when debugging a
+single cell.
+
+Every cell of the matrix is one axiom of one carrier, and the `--axioms`
+flag selects cells by glob, which can be used for shorter, targeted tests.
+
+```shell
+uv run pytest proptest/ --axioms '*.unitality' -v
+uv run pytest proptest/ --axioms 'cat.Functor.*'
+```
+
+A cell is skipped when its axiom declares that the structure does not
+apply, and xfailed when the law is declared broken, each carrying its
+reason: pass `-rsxX` to list the skips, xfails and unexpected passes with
+their reasons, and `-x` to stop at the first genuine failure.
+
+`proptest/test_counterexamples.py` replays every recorded counterexample —
+the bound axiom and the arguments a search once shrunk a failure to — so
+known bugs reproduce deterministically on every run. [PROPTEST.md](PROPTEST.md)
+describes the whole workflow: stating laws before implementing, debugging a
+failing cell, recording its counterexample and auditing a strategy that
+missed a bug. `Axiom.falsify`, which searches afresh for a shrunk
+counterexample and raises `NoSuchExample` when it finds none, remains for
+interactive exploration when no failure is in hand.
+
+The `proptest` GitHub workflow runs this suite on `main`, on manual dispatch,
+and on pull requests labelled `proptest`.
 
 ## Run the benchmarks
 

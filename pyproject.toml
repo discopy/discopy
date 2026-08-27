@@ -45,12 +45,14 @@ dependencies = [
 [dependency-groups]
 dev = [
     "coverage",
+    "hypothesis",
     "marimo",
     "pyproject-flake8",
     "pylint",
     "pytest",
     "pytest-benchmark",
     "polars",
+    "pytest-xdist>=3.8.0",
 ]
 docs = ["discopy[docs]"]
 quantum = ["discopy[quantum]"]
@@ -83,10 +85,12 @@ grammar = [
 test = [
     "discopy[grammar,quantum]",
     "coverage",
+    "hypothesis",
     "marimo",
     "pyproject-flake8",
     "pylint",
     "pytest",
+    "pytest-xdist",
 ]
 docs  = [
     "IPython",
@@ -154,9 +158,14 @@ testpaths = [
     "test/*/*.py",
 ]
 norecursedirs = [
+    ".hypothesis",
     "test/fixtures",
 ]
-addopts = "--doctest-modules --ignore=test/fixtures -p plugin"
+# The import mode is importlib so that test/abc.py does not clash with the
+# standard library module of the same name.
+addopts = """
+    --doctest-modules --ignore=test/fixtures -p plugin
+    --import-mode=importlib"""
 
 [tool.coverage.run]
 # The skip paths are unreachable unless --skip-extra is passed, and coverage
@@ -165,3 +174,6 @@ omit = ["test/plugin.py"]
 
 [tool.coverage.report]
 fail_under = 98
+exclude_also = [
+    "if TYPE_CHECKING",
+]
