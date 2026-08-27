@@ -967,8 +967,8 @@ class Functor(Category, Strategy["Functor"]):
         if isinstance(other, Ob):
             result = self.ob_map[other]
             origin = get_origin(self.cod.ob)
-            if isinstance(result, origin) or isinstance(result, type)\
-                    and issubclass(result, origin):
+            if isinstance(result, origin) or (
+                    isinstance(result, type) and issubclass(result, origin)):
                 return result
             return (result, ) if origin == tuple\
                 else self.cod.ob(result)

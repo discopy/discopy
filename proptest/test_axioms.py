@@ -13,6 +13,16 @@ CARRIERS = (
 )
 
 
+def carrier_parameters(classify=lambda carrier: ()):
+    """
+    One pytest parameter per carrier, marked by the given classification,
+    a function from a carrier to its marks, e.g. an expected failure.
+    """
+    for carrier in CARRIERS:
+        yield pytest.param(
+            carrier, marks=classify(carrier), id=factory_name(carrier))
+
+
 def axiom_parameters():
     """
     Translate every axiom of every carrier to a pytest parameter.
