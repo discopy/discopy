@@ -20,38 +20,9 @@ from dataclasses import dataclass
 from contextlib import contextmanager
 
 from discopy.abc import Category
-from discopy.testing import Strategy
 from discopy.utils import (
     assert_iscomposable, assert_isinstance,
     tuplify, untuplify, classproperty, factory)
-
-
-class Types(tuple, Strategy):
-    """
-    A tuple of Python types seen as an object, with a strategy drawing
-    tuples of :class:`int` — the one-type universe the property matrix
-    generates its functions over.
-    """
-    def __matmul__(self, other):
-        if not isinstance(other, tuple):
-            return NotImplemented
-        return type(self)(tuple(self) + tuple(other))
-
-    @classmethod
-    def strategy(cls, *, min_length=0, max_length=3, **_):
-        """Generate tuples of the integer type."""
-        from hypothesis import strategies as st
-
-        return st.integers(
-            min_value=min_length, max_value=max_length).map(
-                lambda length: cls(length * (int, )))
-
-    @classmethod
-    def equation_factory(cls, *terms):
-        """ Tuples of types are compared on the nose. """
-        from discopy.cat import Equation
-
-        return Equation(*terms)
 
 
 @factory

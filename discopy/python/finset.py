@@ -145,8 +145,8 @@ class Function(SymmetricCategory, Sequence, Strategy["Function"]):
             self.dom + other[i] for i in range(other.cod)]
         return Function(inside, self.dom + other.dom, self.cod + other.cod)
 
-    @staticmethod
-    def swap(x: int, y: int) -> Function:
+    @classmethod
+    def swap(cls, x: int, y: int) -> Function:
         inside = list(Permutation.swap(x, y))
         return Function(inside, x + y, x + y)
 
