@@ -520,7 +520,10 @@ class Functor(frobenius.Functor):
             for array, inds in zip(arrays, indices):
                 kept = [j for j in inds if inds.count(j) == 1]
                 if kept != inds:
-                    array = np.einsum(array, inds, kept)
+                    local = {j: i for i, j in enumerate(dict.fromkeys(inds))}
+                    array = np.einsum(
+                        array, [local[j] for j in inds],
+                        [local[j] for j in kept])
                 tensors.append(qtn.Tensor(
                     array, inds=tuple(names.get(j, f"w{j}") for j in kept)))
         return qtn.TensorNetwork(tensors)
