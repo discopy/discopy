@@ -131,6 +131,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Changed
 
+- `discopy.grammar.categorial.Functor` and `discopy.grammar.pregroup.Functor`
+  now carry `@factory`, so `ar` resolves to the grammar-level class
+  instead of the base `biclosed`/`frobenius` one. See BUGS.md.
 - `CMap` is aligned on `Hypergraph`. It is parameterised by a category as
   `NamedGeneric["category"]` instead of carrying `require_*` flags, and it is
   always compact whatever category hosts it, so every compact operation is

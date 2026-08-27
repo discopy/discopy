@@ -5,32 +5,16 @@ most failures were one design flaw repeating across classes, so each group
 names the flaw once and lists where it struck. Fixed means fixed on this
 branch; open bugs carry their declaration in the matrix.
 
-This slice adds the bugs found while building the cmap/hypergraph strategy
-and enrolling `Hypergraph`/`CMap` at every monoidal-derived level that has
-one. See the previous branches' BUGS.md for the axiom-infrastructure and
-monoidal-strategy slices.
+This slice covers `discopy.grammar.categorial.Functor` and
+`discopy.grammar.pregroup.Functor`, stacked directly on
+`split/3-cmap-hypergraph-strategy`. See the earlier branches' BUGS.md for
+the rest of the property suite's history.
 
-## Equality sensitive to representation noise
-
-- `Hypergraph.to_graph` keyed spider nodes by the boundary's object rather
-  than the spider's own type, creating a phantom attributeless node
-  whenever a boundary wire reads an adjoint of its spider type — `hash`
-  crashed with `KeyError: 'box'`. Fixed by keying on `spider_types`.
-
-## Open, declared and recorded in the matrix
-
-- `CMap.to_diagram` and `Hypergraph.to_diagram` need swaps to decode a
-  trace, cup or cap at `traced`, `balanced` and `pivotal`, and
-  `Hypergraph.cups`/`caps` accept only the right-adjoint orientation, so
-  `to_hypergraph` is partial on rigid's left-handed cups and caps.
-
-## Naming carried over from the previous branch
-
-`NamedGeneric`'s subscript naming (in `discopy.abc`) now reads a
-subscript's own `factory_name` instead of its bare `__name__`, so
-`Hypergraph[frobenius.Diagram]` reprs and hashes with its full dotted
-name instead of the collapsed `Hypergraph[Diagram]` the previous branch
-still expects in `test/hypergraph.py::test_Hypergraph_repr` — hence this
-one hunk of `discopy.abc` lands here rather than with the axiom
-infrastructure, alongside the `cmap`/`hypergraph` modules whose own tests
-already expect it.
+No bugs were found and neither functor is enrolled in the property
+matrix — grammar diagrams have no generic strategy of their own, being
+built from a lexicon rather than generated. Each functor was simply
+missing its `@factory` decorator (the same static-binding bug as
+`python.additive.Function` on an earlier branch: without it, `ar`
+resolves to the base `biclosed.Functor`/`frobenius.Functor` instead of
+the grammar-level subclass), fixed here as a one-line change to each
+file with no test or matrix impact.
