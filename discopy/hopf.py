@@ -1160,8 +1160,8 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
                 result = result >> (
                     power(position) @ piece
                     @ power(n_atoms - arity - position))
-            if cod is not None and tuple(cod.inside)\
-                    != tuple(result.cod.inside):
+            if cod is not None and (tuple(cod.inside), cod.action)\
+                    != (tuple(result.cod.inside), result.cod.action):
                 result = result >> zero(result.cod, cod)
             return result
 
