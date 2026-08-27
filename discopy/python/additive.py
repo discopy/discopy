@@ -27,8 +27,8 @@ from discopy.python import finset, function
 from discopy.python.function import Types
 
 
-""" Lists of types interpreted as disjoint union. """
-Ty = tuple[type, ...]
+# Lists of types interpreted as disjoint union.
+Ty = Types
 
 
 @factory
