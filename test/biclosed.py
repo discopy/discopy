@@ -134,3 +134,16 @@ def test_axioms():
     from discopy import testing
 
     testing.assert_axioms(Ty, Diagram, CMap, Functor)
+
+
+def test_to_compact():
+    x, y, z = map(Ty, "xyz")
+    f = Box("f", x @ y, z)
+    for left in (True, False):
+        source = f.curry(left=left)
+        assert source.to_compact() == (
+            f.to_map() >> CMap.ev(z, y if left else x, left).dagger()).trace(
+                left=not left)
+        assert source.to_map().to_compact() == source.to_compact()
+        assert not any(isinstance(box, Curry)
+                       for box in source.to_compact().boxes)

@@ -53,7 +53,8 @@ from networkx.algorithms.isomorphism import is_isomorphic
 
 from discopy import cmap, messages
 from discopy.abc import (
-    HypergraphCategory, MarkovCategory, MonoidalCategory, NamedGeneric)
+    HypergraphCategory, MarkovCategory, MonoidalCategory, NamedGeneric,
+    RigidCategory, SymmetricCategory, TracedCategory)
 from discopy.drawing import Node, backend
 from discopy.python.finset import Permutation
 from discopy.testing import Strategy
@@ -524,6 +525,9 @@ class Hypergraph(
         for compact diagrams, in which case we use this method to introduce
         cup and cap boxes.
         """
+        if not issubclass(self.category, TracedCategory):
+            raise AxiomError(messages.NOT_TRACED.format(
+                factory_name(self.category)))
         factory = self.category.trace_factory
         if isclass(factory) and issubclass(factory, self.category):
             return self.from_box(factory(self.to_diagram(), left))
@@ -893,8 +897,7 @@ class Hypergraph(
             None, flat_wires, dom=old.dom, boxes=old.boxes)
         factory = cls[old.category]
         return factory(
-            old.dom, old.cod, old.boxes, wires,
-            tuple(spider_types), old.offsets)
+            old.dom, old.cod, old.boxes, wires, tuple(spider_types))
 
     def to_map(self):
         """
@@ -902,15 +905,12 @@ class Hypergraph(
         """
         if not self.is_bijective:
             return self.make_bijective().to_map()
-        factory = getattr(self.category, "map_factory", None)
-        if factory is None:
-            factory = cmap.CMap[type(self).category]
+        factory = cmap.CMap[self.category]
         relabeling = Permutation(self._hypergraph_to_canonical())
         edges = Permutation(self.bijection).conjugate(relabeling)
         loops = tuple(self.spider_types[i] for i in self.scalar_spiders)
         return factory(
-            self.dom, self.cod, self.boxes, edges, offsets=self.offsets,
-            loops=loops)
+            self.dom, self.cod, self.boxes, edges, loops=loops)
 
     @property
     def is_bijective(self) -> bool:
@@ -1428,14 +1428,22 @@ class Hypergraph(
                 return self.make_monogamous().make_causal().to_diagram()
             if issubclass(self.category, MarkovCategory):
                 return self.make_causal().make_bijective().to_diagram()
-            if not self.is_monogamous and getattr(
-                    self.category, "cup_factory", None) is None:
-                raise AxiomError(messages.NO_STRUCTURE_TO_DOWNGRADE.format(
+            if not self.is_monogamous and not issubclass(
+                    self.category, RigidCategory):
+                raise AxiomError(messages.NOT_RIGID.format(
                     factory_name(self.category)))
             return self.make_monogamous().make_causal().to_diagram()
         foliate = self.is_boundary_connected
         diagram, scan = self.category.id(self.dom), self.dom_wires
         pending, layer_dom, layer_right, shift = [], self.dom, 0, 0
+
+        def swap(left, right):
+            if not left or not right:
+                return self.category.id(left @ right)
+            if not issubclass(self.category, SymmetricCategory):
+                raise AxiomError(messages.NOT_SYMMETRIC.format(
+                    factory_name(self.category)))
+            return self.category.swap(left, right)
 
         def flush():
             nonlocal diagram, pending, layer_right, shift
@@ -1458,13 +1466,13 @@ class Hypergraph(
                 elif j != offset + i:
                     flush()  # a swap is a layer of its own
                     if j > offset + i:
-                        diagram >>= diagram.cod[:offset + i] @ diagram.swap(
+                        diagram >>= diagram.cod[:offset + i] @ swap(
                             diagram.cod[offset + i:j], diagram.cod[j]
                         ) @ diagram.cod[j + 1:]
                         scan = (scan[:offset + i] + scan[j:j + 1]) + (
                             scan[offset + i:j] + scan[j + 1:])
                     else:
-                        diagram >>= diagram.cod[:j] @ diagram.swap(
+                        diagram >>= diagram.cod[:j] @ swap(
                             diagram.cod[j], diagram.cod[j + 1:offset + i]
                         ) @ diagram.cod[offset + i:]
                         scan = (scan[:j] + scan[j + 1:offset + i]) + (
@@ -1486,7 +1494,7 @@ class Hypergraph(
         for i, spider in enumerate(self.cod_wires):
             j = scan.index(spider)
             if i < j:
-                diagram >>= diagram.cod[:i] @ diagram.swap(
+                diagram >>= diagram.cod[:i] @ swap(
                     diagram.cod[i:j], diagram.cod[j:j + 1]
                 ) @ diagram.cod[j + 1:]
                 scan = scan[:i] + scan[j:j + 1] + scan[i:j] + scan[j + 1:]

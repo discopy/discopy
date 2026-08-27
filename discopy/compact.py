@@ -172,8 +172,6 @@ class Functor(symmetric.Functor, ribbon.Functor):
 
 class CMap(symmetric.CMap):
     category = Diagram
-    require_oriented = False
-    require_connected = False
 
     currying_left = abc.BiclosedCategory.currying_left
 
@@ -189,7 +187,6 @@ Id = Diagram.id
 Diagram.swap_factory = Swap
 Diagram.functor_factory = Functor
 Diagram.permutation_factory = Permutation
-Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 

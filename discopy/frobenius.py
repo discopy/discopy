@@ -62,7 +62,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from discopy import monoidal, rigid, markov, compact, pivotal, hypergraph
+from discopy import (
+    monoidal, rigid, markov, compact, pivotal, hypergraph)
 from discopy.abc import HypergraphCategory
 from discopy.cat import factory
 from discopy.utils import assert_isatomic, deprecated_ob, factory_name
@@ -418,7 +419,6 @@ class CMap(compact.CMap):
 
 
 Diagram.functor_factory = Functor
-Diagram.map_factory = CMap
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Diagram.swap_factory, Diagram.spider_factory = Swap, Spider
 Diagram.permutation_factory = Permutation

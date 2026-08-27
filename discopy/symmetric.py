@@ -287,12 +287,12 @@ class Diagram(balanced.Diagram, SymmetricCategory):
     >>> with raises(AxiomError) as err:
     ...     Diagram.from_callable(x, x @ x)(lambda x: (x, x))
     >>> print(err.value)
-    symmetric.Diagram has no spiders, cups or caps to draw this hypergraph.
+    symmetric.Diagram has no cups or caps for the wiring of this map.
 
     >>> with raises(AxiomError) as err:
     ...     Diagram.from_callable(x, Ty())(lambda x: ())
     >>> print(err.value)
-    symmetric.Diagram has no spiders, cups or caps to draw this hypergraph.
+    symmetric.Diagram has no cups or caps for the wiring of this map.
 
     Note
     ----
@@ -735,15 +735,12 @@ class Functor(balanced.Functor):
 
 class CMap(traced.CMap):
     category = Diagram
-    require_planar = False
-    require_causal = False
 
     braid_naturality = traced.CMap.braid_naturality.failing(
         "``CMap.to_diagram`` fails on a traced box, see #606.")
 
 
 Diagram.functor_factory = Functor
-Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.swap_factory = Swap
 Diagram.permutation_factory = Permutation
