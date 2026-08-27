@@ -53,7 +53,7 @@ from discopy.frobenius import Dim, Cup
 from discopy.matrix import (  # noqa: F401
     Matrix, backend, set_backend, get_backend,
     NumPy, JAX, PyTorch, TensorFlow)
-from discopy.abc import NamedGeneric
+from discopy.abc import MarkovCategory, NamedGeneric
 from discopy.python import finset
 from discopy.utils import (
     factory_name, assert_isinstance, product, assert_isatomic)
@@ -188,6 +188,33 @@ class Tensor(Matrix):
     def caps(cls, left: Dim, right: Dim) -> Tensor:
         return cls.cups(left, right).dagger()
 
+    #: The copy of a tensor is a correct spider, where the matrix one is
+    #: wrong for ``x, n >= 2`` (#606), so the plain laws are restored.
+    copy_counitality = MarkovCategory.copy_counitality
+
+    copy_cocommutativity = MarkovCategory.copy_cocommutativity
+
+    copy_monoidal_coherence = MarkovCategory.copy_monoidal_coherence
+
+    @classmethod
+    def strategy(cls, *, dom=None, cod=None, max_dim=3, max_entry=3):
+        """Generate tensors with integer entries and small dimensions."""
+        from hypothesis import strategies as st
+
+        factory = cls[cls.dtype or int]
+        dims = Dim.strategy(max_dim=max_dim)
+        entries = st.integers(min_value=0, max_value=max_entry)
+        return st.tuples(
+            dims if dom is None else st.just(dom),
+            dims if cod is None else st.just(cod)).flatmap(
+                lambda shape: st.lists(
+                    entries,
+                    min_size=product(shape[0].inside)
+                    * product(shape[1].inside),
+                    max_size=product(shape[0].inside)
+                    * product(shape[1].inside)).map(
+                        lambda array: factory(array, *shape)))
+
     @classmethod
     def swap(cls, left: Dim, right: Dim) -> Tensor:
         dom, cod = left @ right, right @ left
@@ -248,7 +275,7 @@ class Tensor(Matrix):
             cls, n_legs_in, n_legs_out, typ, phase)
 
     @classmethod
-    def copy(cls, x: Dim, n: int) -> Tensor:
+    def copy(cls, x: Dim, n: int = 2) -> Tensor:
         """
         Constructs spiders of dimension `x` with one leg in and `n` legs out.
 
@@ -345,6 +372,7 @@ class Tensor(Matrix):
         return result
 
 
+@factory
 class Functor(frobenius.Functor):
     """
     A tensor functor is a frobenius functor with a domain category ``dom``
@@ -701,7 +729,6 @@ class Box(frobenius.Box, Diagram):
     """
 
     def __setstate__(self, state):
-        NamedGeneric.__setstate__(self, state)
         if "data" not in state and state.get("_array", None) is not None:
             state['data'] = state['_array']
             del state["_array"]
@@ -902,3 +929,6 @@ Id = Diagram.id
 
 class Equation(frobenius.Equation):
     """ The :class:`frobenius.Equation` of tensor diagrams. """
+
+
+Diagram.equation_factory = Equation

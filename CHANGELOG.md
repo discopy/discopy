@@ -9,6 +9,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `discopy.tensor.Tensor` and `Diagram` join the property matrix, with a
+  `strategy` generating small integer-entried tensors over small
+  dimensions; unlike `Matrix`'s, its `copy` is a correct spider, so the
+  Markov-category copy laws are restored rather than declared broken. See
+  BUGS.md.
 - `discopy.matrix.Matrix` joins the property matrix, with a `strategy`
   classmethod generating small integer-valued matrices and its first use
   of `Axiom.weaken` to state `Matrix.copy`'s cocommutativity and
