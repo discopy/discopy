@@ -70,7 +70,7 @@ class Function(function.Function, SymmetricCategory, Strategy["Function"]):
         The disjoint union of two functions, called with :code:`@`.
 
         Parameters:
-            other : The other function to compose in sequence.
+            other : The other function to take the disjoint union with.
         """
         dom, cod = self.dom + other.dom, self.cod + other.cod
 
