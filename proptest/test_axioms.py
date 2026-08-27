@@ -21,7 +21,7 @@ from discopy import (
     symmetric,
     traced,
 )
-from discopy import tensor
+from discopy import hopf, tensor
 from discopy.frobenius import Dim
 from discopy.matrix import Matrix
 from discopy.testing import assert_verdict
@@ -51,6 +51,7 @@ CARRIERS = (
     frobenius.Functor,
     Matrix[int],
     Dim, tensor.Diagram, tensor.Tensor[int],
+    hopf.Intertwiner[hopf.Double(hopf.Algebra.cyclic(2))],
 )
 
 

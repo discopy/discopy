@@ -475,3 +475,16 @@ def test_snake_equations_with_pivot():
                        atol=1e-6)
     assert np.allclose(F(right).eval(dtype=complex).array, identity,
                        atol=1e-6)
+
+
+def test_strategy():
+    from hypothesis import find
+
+    carrier = Intertwiner[Double(Algebra.cyclic(2))]
+    find(carrier.strategy(), lambda diagram: len(diagram.boxes) >= 2)
+
+
+def test_axioms():
+    from discopy import testing
+
+    testing.assert_axioms(Intertwiner[Double(Algebra.cyclic(2))])

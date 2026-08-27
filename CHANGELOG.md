@@ -9,6 +9,13 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `discopy.hopf.Intertwiner` (the ribbon category of representations of a
+  finite-dimensional Hopf algebra) joins the property matrix, evaluated
+  at the Drinfeld double of the cyclic group algebra. Its `frobenius`,
+  `speciality` and `spider_fusion` axioms (inherited from
+  `HypergraphCategory` via `tensor.Diagram`) are declared inapplicable —
+  representations have no supply of spiders. See BUGS.md for the module/
+  dimension discipline bugs this carrier surfaced.
 - `discopy.tensor.Tensor` and `Diagram` join the property matrix, with a
   `strategy` generating small integer-entried tensors over small
   dimensions; unlike `Matrix`'s, its `copy` is a correct spider, so the

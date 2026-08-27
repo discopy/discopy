@@ -5,25 +5,41 @@ most failures were one design flaw repeating across classes, so each group
 names the flaw once and lists where it struck. Fixed means fixed on this
 branch; open bugs carry their declaration in the matrix.
 
-This slice covers `discopy.tensor.Tensor`/`Diagram`, stacked on
-`split/4-matrix` since `Tensor` subclasses `Matrix`. See the earlier
-branches' BUGS.md for the axiom infrastructure, monoidal strategy,
-cmap/hypergraph and matrix slices.
+This slice covers `discopy.hopf.Intertwiner`, the ribbon category of
+representations of a finite-dimensional Hopf algebra. It stacks on
+`split/4-tensor` (not directly on `split/3-cmap-hypergraph-strategy`
+like the other stage-4 branches) because `Intertwiner` subclasses
+`tensor.Diagram` and declares the `HypergraphCategory` axioms
+inapplicable, so it needs both `discopy.tensor` and
+`HypergraphCategory`'s axioms to exist first — see the deferral note on
+`split/2-monoidal-strategy`'s BUGS.md. See the earlier branches' BUGS.md
+for the rest of the property suite's history.
 
-## Pickling that loses or demands state
+## An object discipline torn between modules and dimensions
 
-- `NamedGeneric.__setstate__` (in `discopy.abc`) was defined on the class
-  its subscripts never inherit from, so a subscripted instance —
-  `Matrix[int]`, `Tensor[...]`, `Hypergraph[...]`, `CMap[...]` — unpickled
-  as its bare origin class. Fixed by moving the restore into the
-  dynamically-built subscript class itself. This lands here rather than
-  with the axiom infrastructure because the only call site depending on
-  the previous (buggy) signature is `discopy.tensor.Box.__setstate__`,
-  which called `NamedGeneric.__setstate__(self, state)` explicitly; both
-  sides of the fix are in this commit.
+`hopf.Representation` is a `Dim` carrying an action, and the code mixes
+the two freely: generic diagram operations slice modules down to bare
+dimensions by design, while the module structure is needed wherever an
+action is read.
+
+- Fixed: the ribbon classmethods `Intertwiner.braid`, `twist`, `cups`
+  and `caps` returned plain dimension boundaries, dropping the module
+  structure their callers read the action from.
+- Open: `Intertwiner` is not its own factory — its `ar` resolves to the
+  plain tensor category, and making it one cascades into every generic
+  operation that builds dimension-boundaried composites — so the
+  arrow-quantified laws are declared inapplicable.
+- Open: the hypergraph functor rebuilds a representation-typed cup or
+  cap whose adjoint is its dimension reversal, not the dual module, so
+  `normal_form` and `foliation` cannot be checked up to hypergraph.
+- Open: a class subscripted by an algebra instance has no importable
+  factory name, so its trees cannot be decoded.
 
 ## Open, declared and recorded in the matrix
 
-- A `Tensor` with more than `config.NUMPY_THRESHOLD` entries elides its
-  repr as a literal ellipsis, breaking transparency
-  (`eval(repr(x)) == x`).
+- Reidemeister 1 fails semantically on a composite module of
+  `Rep(D(Z/2))`, recorded in the ledger on `V @ V`: the swap is the
+  braiding, and the pivotal correction of cups and caps fires on a
+  *structural* comparison of the pivotal element with the unit —
+  semantically equal but structurally distinct composites — flakily,
+  since the rebuilt dual actions compare structurally unstably.

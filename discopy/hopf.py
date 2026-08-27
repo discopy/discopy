@@ -129,6 +129,7 @@ import numpy as np
 from discopy import monoidal, ribbon, tensor, frobenius
 from discopy.tensor import Dim, Box, Id
 from discopy.abc import RibbonCategory, NamedGeneric
+from discopy.cat import factory
 from discopy.utils import (
     assert_isinstance, classproperty, factory_name, get_origin, product)
 
@@ -708,6 +709,16 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
     def __hash__(self):
         return hash(repr(frobenius.Dim(*self.inside)))
 
+    @classmethod
+    def strategy(cls, *, min_length=0, max_length=2, **_):
+        """Generate tensor powers of the two-anyon module."""
+        from hypothesis import strategies as st
+
+        atom = cls.direct_sum([cls.anyon(0, -1), cls.anyon(1, 1)])
+        return st.integers(
+            min_value=min_length, max_value=max_length).map(
+                lambda power: cls().tensor(*power * [atom]))
+
     def tensor(self, *others):
         """
         The product of representations: the underlying spaces concatenate as
@@ -846,6 +857,33 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
         return cls(Dim(d), action)
 
 
+NO_SPIDERS = "A representation category has no chosen spiders."
+
+BRAIDED_NOT_SYMMETRIC = (
+    "Rep(H) is braided, not symmetric: its swap is the braiding, "
+    "whose square is the monodromy.")
+
+WRONG_ON_COMPOSITES = (
+    "Reidemeister 1 fails on a composite module such as V @ V, where "
+    "the swap is the braiding and the pivotal correction of cups and "
+    "caps fires on a structural comparison of the pivotal element "
+    "with the unit.")
+
+NOT_ITS_OWN_FACTORY = (
+    "Intertwiner is not its own factory: its ``ar`` resolves to the "
+    "plain tensor category, so an arrow-quantified argument strategy "
+    "draws tensor diagrams without actions or data.")
+
+
+def semantics(term) -> tensor.Tensor:
+    """
+    The tensor a diagram of intertwiners contracts to, rounded against
+    float noise: the quotient the ribbon laws of :class:`Intertwiner`
+    are checked up to.
+    """
+    return term.eval(dtype=complex).round(6)
+
+
 class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
     """
     The ribbon category :math:`\\mathrm{Rep}(H)` of representations of the
@@ -898,6 +936,76 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
         lambda cls: frobenius.Dim if cls.algebra is None
         else Representation[cls.algebra])
 
+    copy_counitality = tensor.Diagram.copy_counitality.inapplicable(
+        NO_SPIDERS)
+
+    copy_coassociativity = tensor.Diagram.copy_coassociativity.inapplicable(
+        NO_SPIDERS)
+
+    copy_cocommutativity = tensor.Diagram.copy_cocommutativity.inapplicable(
+        NO_SPIDERS)
+
+    copy_monoidal_coherence = tensor.Diagram.copy_monoidal_coherence\
+        .inapplicable(NO_SPIDERS)
+
+    discard_coherence = tensor.Diagram.discard_coherence.inapplicable(
+        NO_SPIDERS)
+
+    frobenius = tensor.Diagram.frobenius.inapplicable(NO_SPIDERS)
+
+    speciality = tensor.Diagram.speciality.inapplicable(NO_SPIDERS)
+
+    spider_fusion = tensor.Diagram.spider_fusion.inapplicable(NO_SPIDERS)
+
+    swap_inverse = tensor.Diagram.swap_inverse.inapplicable(
+        BRAIDED_NOT_SYMMETRIC)
+
+    hexagon_left = tensor.Diagram.hexagon_left.modulo(semantics)
+
+    hexagon_right = tensor.Diagram.hexagon_right.modulo(semantics)
+
+    braid_naturality = tensor.Diagram.braid_naturality.inapplicable(
+        NOT_ITS_OWN_FACTORY)
+
+    balanced_twist = tensor.Diagram.balanced_twist.modulo(semantics)
+
+    twist_as_trace = tensor.Diagram.twist_as_trace.modulo(semantics)
+
+    reidemeister_1_cup = tensor.Diagram.reidemeister_1_cup.failing(
+        WRONG_ON_COMPOSITES)
+
+    reidemeister_1_cap = tensor.Diagram.reidemeister_1_cap.failing(
+        WRONG_ON_COMPOSITES)
+
+    snake_equations = tensor.Diagram.snake_equations.modulo(semantics)
+
+    pivotality = tensor.Diagram.pivotality.inapplicable(
+        NOT_ITS_OWN_FACTORY)
+
+    caps_coherence = tensor.Diagram.caps_coherence.modulo(semantics)
+
+    currying_left = tensor.Diagram.currying_left.modulo(semantics)
+
+    currying_right = tensor.Diagram.currying_right.modulo(semantics)
+
+    trace_superposing_left = tensor.Diagram.trace_superposing_left\
+        .inapplicable(NOT_ITS_OWN_FACTORY)
+
+    trace_superposing_right = tensor.Diagram.trace_superposing_right\
+        .inapplicable(NOT_ITS_OWN_FACTORY)
+
+    trace_naturality_left = tensor.Diagram.trace_naturality_left\
+        .inapplicable(NOT_ITS_OWN_FACTORY)
+
+    trace_naturality_right = tensor.Diagram.trace_naturality_right\
+        .inapplicable(NOT_ITS_OWN_FACTORY)
+
+    trace_dinaturality_left = tensor.Diagram.trace_dinaturality_left\
+        .inapplicable(NOT_ITS_OWN_FACTORY)
+
+    trace_dinaturality_right = tensor.Diagram.trace_dinaturality_right\
+        .inapplicable(NOT_ITS_OWN_FACTORY)
+
     def __init__(self, inside, dom, cod, _scan=True):
         if not isinstance(inside, tuple):
             inside = Box('', dom, cod, inside).inside
@@ -932,6 +1040,9 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
             body = swap >> r_action(right, left, H.R >> H.antipode @ Id(H.ty))
         else:
             body = r_action(left, right, H.R) >> swap
+        if isinstance(left, Representation)\
+                and isinstance(right, Representation):
+            return cls(body.inside, left @ right, right @ left)
         return cls(body.inside, body.dom, body.cod)
 
     @classmethod
@@ -944,6 +1055,8 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
             raise ValueError("the twist needs a quasitriangular structure")
         body = cls.algebra.ribbon_element @ Id(Dim(*dom.inside)) \
             >> dom.action
+        if isinstance(dom, Representation):
+            return cls(body.inside, dom, dom)
         return cls(body.inside, body.dom, body.cod)
 
     @classmethod
@@ -967,6 +1080,9 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
             g_inv = H.pivotal_element >> H.antipode
             body = Id(Dim(*left.inside)) \
                 @ (g_inv @ Id(Dim(*right.inside)) >> right.action) >> body
+        if isinstance(left, Representation)\
+                and isinstance(right, Representation):
+            return cls(body.inside, left @ right, cls.ob())
         return cls(body.inside, body.dom, body.cod)
 
     @classmethod
@@ -989,9 +1105,70 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
             g_inv = H.pivotal_element >> H.antipode
             body = body >> Id(Dim(*left.inside)) \
                 @ (g_inv @ Id(Dim(*right.inside)) >> right.action)
+        if isinstance(left, Representation)\
+                and isinstance(right, Representation):
+            return cls(body.inside, cls.ob(), left @ right)
         return cls(body.inside, body.dom, body.cod)
 
+    @classmethod
+    def strategy(cls, *, dom=None, cod=None,
+                 min_leaves=None, max_leaves=3, **_):
+        """
+        Generate layered braids, twists and genuine intertwiner boxes —
+        diagonal anyon projections, scaled identities and zero maps — so
+        that every generated diagram evaluates and commutes with the
+        action.
+        """
+        from hypothesis import strategies as st
 
+        atom = cls.ob.direct_sum(
+            [cls.ob.anyon(0, -1), cls.ob.anyon(1, 1)])
+
+        def power(n_atoms):
+            return cls.ob().tensor(*n_atoms * [atom])
+
+        def zero(source, target):
+            size = product(source.inside) * product(target.inside)
+            return cls(size * [0j], source, target)
+
+        diagonals = st.sampled_from(
+            ((1., 0.), (0., 1.), (1., 1.), (2., 1.)))
+
+        @st.composite
+        def diagrams(draw):
+            source = power(draw(st.integers(0, 2))) if dom is None else dom
+            n_atoms = len(source)
+            minimum = 0 if min_leaves is None else min_leaves
+            result = cls.id(source)
+            for _ in range(draw(st.integers(minimum, max_leaves))):
+                if not n_atoms:
+                    break
+                kinds = ('twist', 'box')\
+                    + (('braid', ) if n_atoms >= 2 else ())
+                kind = draw(st.sampled_from(kinds))
+                arity = 2 if kind == 'braid' else 1
+                position = draw(st.integers(0, n_atoms - arity))
+                if kind == 'braid':
+                    piece = cls.braid(atom, atom)
+                elif kind == 'twist':
+                    piece = cls.twist(atom)
+                else:
+                    piece = cls(
+                        [complex(v) for v in
+                         np.diag(draw(diagonals)).reshape(-1)],
+                        atom, atom)
+                result = result >> (
+                    power(position) @ piece
+                    @ power(n_atoms - arity - position))
+            if cod is not None and tuple(cod.inside)\
+                    != tuple(result.cod.inside):
+                result = result >> zero(result.cod, cod)
+            return result
+
+        return diagrams()
+
+
+@factory
 class Functor(ribbon.Functor):
     """
     A ribbon functor from :mod:`.ribbon` diagrams to :class:`Intertwiner`, i.e.
