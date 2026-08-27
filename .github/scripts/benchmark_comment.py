@@ -132,6 +132,8 @@ def sanitised(report):
 
 
 def caveats(data, run, pull):
+    """What the comparison should be read with: a base branch that moved
+    since the run, and a benchmark that did not finish."""
     if pull["base"]["sha"] != data["base"]:
         yield ("The pull request base has changed since this run; rerun the "
                "benchmark for a current comparison.")
@@ -166,6 +168,8 @@ def ours(comments):
 
 
 def comparison():
+    """The rendered comparison, or the error standing in for one when the
+    run did not get as far as producing it."""
     path = os.path.join(DIRECTORY, "comparison.md")
     if not os.path.exists(path):
         return ("## Benchmark comparison\n\n**ERROR:** The benchmark run did "
@@ -175,6 +179,13 @@ def comparison():
 
 
 def main():
+    """Post the comparison, having established that the artifact really
+    describes this run and this pull request. The job is privileged and
+    the artifact is written by a run that is not, so `previous` -- the
+    merge base the comment links -- is checked against one computed here
+    from two commits already tied to the run, rather than believed. A
+    compare of two fixed commits does not move, so that is the merge base
+    the benchmark measured against."""
     with open(os.environ["GITHUB_EVENT_PATH"]) as file:
         run = json.load(file)["workflow_run"]
     repository = os.environ["GITHUB_REPOSITORY"]
@@ -198,10 +209,6 @@ def main():
     if pull["head"]["sha"] != data["head"]:
         print("::notice::Skipping a comparison for a superseded head commit.")
         return
-    # `previous` is what the comment links as the merge base, and it comes
-    # from an artifact the pull request can write. Both ends of the compare
-    # are trusted by here, and a compare of two commits does not move, so
-    # the answer is the merge base the benchmark measured against.
     if merge_base(repository, data["base"], data["head"]) != data["previous"]:
         fail("Benchmark metadata does not match its merge base.")
     text = body(data, run, pull, comparison())

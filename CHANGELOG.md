@@ -123,7 +123,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Changed
 
-- The benchmark measures a pull request against its **merge base** rather
+- The benchmark measures a pull request against its merge base rather
   than the tip of its base branch. The head does not contain what landed
   on `main` since it forked, so measuring against the tip charged the pull
   request for everyone else's commits. `benchmark.yml` resolves it with one
