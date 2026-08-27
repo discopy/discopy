@@ -79,6 +79,7 @@ if TYPE_CHECKING:
 FREE_TRACE = "A free trace is a box, not a rewrite."
 NO_COMONOIDS = "Combinatorial maps have no supply of comonoids."
 NO_EXPONENTIALS = "Combinatorial maps have no exponential objects."
+NO_ROTATION = "Combinatorial maps do not implement rotation."
 NO_SPIDERS = "Combinatorial maps have no supply of spiders."
 
 
@@ -1836,8 +1837,8 @@ cycles of this map.
     currying_right = \
         BiclosedCategory.currying_right.inapplicable(NO_EXPONENTIALS)
 
-    rotate_contravariance = RigidCategory.rotate_contravariance.inapplicable(
-        "Combinatorial maps do not implement rotation.")
+    rotate_contravariance = \
+        RigidCategory.rotate_contravariance.inapplicable(NO_ROTATION)
 
     trace_dinaturality_left = \
         TracedCategory.trace_dinaturality_left.inapplicable(FREE_TRACE)

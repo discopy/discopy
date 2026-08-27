@@ -16,7 +16,6 @@ forgetful functors between categories go the other way.
 
 Each class also declares its :func:`discopy.testing.axiom` equations, which
 every free category inherits along with the structure they axiomatise.
-:class:`HypergraphCategory` is axiomatised on the next branch.
 
 Summary
 -------
