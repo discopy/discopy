@@ -26,7 +26,7 @@ from discopy.utils import (
     tuplify, untuplify, classproperty, factory)
 
 
-class Types(tuple, Strategy):
+class Types(tuple, Strategy["Types"]):
     """
     A tuple of Python types seen as an object, with a strategy drawing
     tuples of :class:`int` — the one-type universe the property matrix
@@ -36,6 +36,11 @@ class Types(tuple, Strategy):
         if not isinstance(other, tuple):
             return NotImplemented
         return type(self)(tuple(self) + tuple(other))
+
+    def __rmatmul__(self, other):
+        if not isinstance(other, tuple):
+            return NotImplemented
+        return type(self)(tuple(other) + tuple(self))
 
     @classmethod
     def strategy(cls, *, min_length=0, max_length=3, **_):
