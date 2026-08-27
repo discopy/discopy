@@ -8,6 +8,7 @@ from typing import NamedTuple
 import pytest
 
 from discopy import biclosed, braided, cat, compact, feedback, pivotal, ribbon
+from discopy.matrix import Matrix
 from discopy.testing import Atomic, Axiom, Relabelled, Relabelling, assert_verdict
 from discopy.utils import factory_name
 
@@ -28,6 +29,19 @@ COLLAPSE = Relabelling(tuple(
 MEMORY = feedback.Ty("a") @ feedback.Ty("b")
 
 COUNTEREXAMPLES = (
+    Counterexample(
+        axiom=Matrix[int].copy_cocommutativity,
+        args=(2, ),
+        reason="Matrix.copy(x, n) is wrong for x, n >= 2 (#606)"),
+    Counterexample(
+        axiom=Matrix[int].copy_counitality,
+        args=(2, ),
+        reason="Matrix.copy(x, n) is wrong for x, n >= 2 (#606)"),
+    Counterexample(
+        axiom=Matrix[int].copy_monoidal_coherence,
+        args=(1, ),
+        reason="Matrix.copy(x, n) is wrong for x, n >= 2, reachable "
+               "from atomic arguments through the coherence (#606)"),
     Counterexample(
         axiom=cat.Functor.unitality,
         args=(cat.Functor(ob_map=COLLAPSE, ar_map=Relabelled(COLLAPSE)), ),

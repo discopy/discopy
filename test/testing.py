@@ -246,5 +246,12 @@ def test_HomogeneousMemory():
          lambda value: True)
 
 
-# test_weaken lands on split/4-matrix: Matrix[int] is the first carrier
-# whose axioms actually call Axiom.weaken.
+def test_weaken():
+    from discopy.matrix import Matrix
+
+    weakened, = (axiom for axiom in Matrix[int].axioms
+                 if axiom.name == "copy_cocommutativity_small")
+    assert weakened.subspaces
+    assert not weakened.broken
+    small = find(weakened.strategy(), lambda args: True)
+    assert isinstance(small[0], Small) and weakened(*small)

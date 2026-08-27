@@ -9,6 +9,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `discopy.matrix.Matrix` joins the property matrix, with a `strategy`
+  classmethod generating small integer-valued matrices and its first use
+  of `Axiom.weaken` to state `Matrix.copy`'s cocommutativity and
+  counitality on the subspace where they hold. See BUGS.md.
 - `discopy.cmap.CMap` and `discopy.hypergraph.Hypergraph` grow a
   `strategy` classmethod, drawing through their associated diagram
   category and adding closed components (loops, isolated spiders) beyond
