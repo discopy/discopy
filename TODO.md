@@ -25,9 +25,9 @@ Review round: cubic on `d2d51c0`, 5 findings.
 > Graphviz install as a plain step, but the action retries with `apt-get
 > update` after any failed install.
 
-- [ ] 1. Distinguish "no artifact staged" from "the download failed"
-- [ ] 2. Validate `previous` against a merge base the privileged job computes
-- [ ] 3. Require an unambiguous pull request when the run lists none
-- [ ] 4. `ours` takes the newest marked comment
-- [ ] 5. P3: reply — the entry does not describe the install mechanics
-- [ ] 6. Tests for each, CHANGELOG, green CI
+- [x] 1. Distinguish "no artifact staged" from "the download failed"
+- [x] 2. Validate `previous` against a merge base the privileged job computes
+- [x] 3. Require an unambiguous pull request when the run lists none
+- [x] 4. `ours` takes the newest marked comment
+- [x] 5. P3: reply — the entry does not describe the install mechanics
+- [x] 6. Tests for each, CHANGELOG, green CI

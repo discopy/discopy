@@ -37,6 +37,7 @@ def pull():
 
 def test_the_honest_metadata_passes(benchmark_comment, data, run, pull):
     assert benchmark_comment.unreadable(data, run) is None
+    assert benchmark_comment.unattested(data, run, []) is None
     assert benchmark_comment.mismatch(
         data, run, pull, "discopy/discopy") is None
 
@@ -65,21 +66,31 @@ def test_mismatch_rejects_another_branch(
         "Benchmark metadata does not match its source PR.")
 
 
-def test_mismatch_rejects_a_run_belonging_elsewhere(
-        benchmark_comment, data, run, pull):
+def test_unattested_rejects_a_run_belonging_elsewhere(
+        benchmark_comment, data, run):
     run["pull_requests"] = [
         {"number": 8, "head": {"sha": HEAD}, "base": {"sha": BASE}}]
-    assert benchmark_comment.mismatch(data, run, pull, "discopy/discopy") == (
+    assert benchmark_comment.unattested(data, run, []) == (
         "Benchmark run does not belong to this PR.")
 
 
-def test_mismatch_accepts_a_run_listing_no_pull_request(
-        benchmark_comment, data, run, pull):
-    """A run from a fork lists none, and the checks above already tie it
-    to this pull request."""
+def test_unattested_rejects_a_run_on_another_base(
+        benchmark_comment, data, run):
+    run["pull_requests"][0]["base"] = {"sha": "f" * 40}
+    assert benchmark_comment.unattested(data, run, []) == (
+        "Benchmark run does not belong to this PR.")
+
+
+def test_unattested_names_the_one_open_pull_request_of_a_fork(
+        benchmark_comment, data, run):
+    """A run from a fork lists no pull request, so the metadata is held to
+    the one open pull request for its head; a head carrying two of them
+    names neither."""
     run["pull_requests"] = []
-    assert benchmark_comment.mismatch(
-        data, run, pull, "discopy/discopy") is None
+    assert benchmark_comment.unattested(data, run, [{"number": 7}]) is None
+    for open_pulls in ([], [{"number": 8}], [{"number": 7}, {"number": 8}]):
+        assert benchmark_comment.unattested(data, run, open_pulls) == (
+            "Benchmark run does not name the one pull request for its head.")
 
 
 def test_sanitised_neutralises_html_and_mentions(benchmark_comment):
@@ -113,3 +124,14 @@ def test_ours_is_the_marked_comment(benchmark_comment):
          "body": f"{marker}\nthe comparison"}]
     assert benchmark_comment.ours(comments)["id"] == 3
     assert benchmark_comment.ours(comments[:2]) is None
+
+
+def test_ours_takes_the_newest_of_several(benchmark_comment):
+    """A duplicate must leave the stale comment behind, not the live one."""
+    marker = benchmark_comment.MARKER
+    bot = {"login": "github-actions[bot]"}
+    comments = [
+        {"id": 1, "user": bot, "body": marker, "created_at": "2026-08-01"},
+        {"id": 9, "user": bot, "body": marker, "created_at": "2026-08-27"},
+        {"id": 5, "user": bot, "body": marker, "created_at": "2026-08-10"}]
+    assert benchmark_comment.ours(comments)["id"] == 9

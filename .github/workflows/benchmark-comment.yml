@@ -7,6 +7,7 @@ on:
 
 permissions:
   actions: read
+  contents: read
   pull-requests: write
 
 jobs:
@@ -18,8 +19,9 @@ jobs:
       with:
         persist-credentials: false
     - name: Download the comparison
-      # A run cancelled before it staged anything leaves no artifact, which
-      # the script reads as nothing to post.
+      # A run cancelled before staging anything leaves no artifact, which is
+      # nothing to post; the script tells that from a download that failed,
+      # by asking whether the artifact is there at all.
       continue-on-error: true
       uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
       with:

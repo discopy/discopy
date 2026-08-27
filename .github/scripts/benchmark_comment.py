@@ -14,6 +14,7 @@ import json
 import os
 import re
 import sys
+import urllib.parse
 import urllib.request
 
 API = "https://api.github.com"
@@ -51,6 +52,31 @@ def paginate(url):
         page += 1
 
 
+def staged(repository, run_id):
+    """Whether the run uploaded the artifact at all. What tells a run that
+    staged nothing -- cancelled before its first step -- from one whose
+    artifact failed to download, which must not pass for silence."""
+    artifacts = call(
+        f"{API}/repos/{repository}/actions/runs/{run_id}/artifacts"
+        "?per_page=100")["artifacts"]
+    return any(artifact["name"] == DIRECTORY for artifact in artifacts)
+
+
+def merge_base(repository, base, head):
+    """The merge base of two commits, as the API computes it."""
+    return call(f"{API}/repos/{repository}/compare/{base}...{head}"
+                )["merge_base_commit"]["sha"]
+
+
+def candidates(repository, run):
+    """The open pull requests for the run's head, when the run itself
+    lists none: a run from a fork does not carry its pull requests."""
+    source = (run.get("head_repository") or {}).get("full_name") or ""
+    owner, branch = source.split("/")[0], run.get("head_branch") or ""
+    query = urllib.parse.quote(f"{owner}:{branch}", safe=":")
+    return call(f"{API}/repos/{repository}/pulls?head={query}&state=open")
+
+
 def unreadable(data, run):
     """Why the metadata is not a description of this run, ``None`` when it
     is. Checked before the pull request number reaches a URL. The artifact
@@ -74,15 +100,28 @@ def mismatch(data, run, pull, repository):
             or pull["head"]["repo"]["full_name"] != source
             or pull["head"]["ref"] != run["head_branch"]):
         return "Benchmark metadata does not match its source PR."
-    for candidate in run.get("pull_requests") or []:
-        if candidate["number"] != data["pull_request"]:
-            continue
-        if (candidate["head"]["sha"] != data["head"]
-                or candidate["base"]["sha"] != data["base"]):
-            return "Benchmark run does not belong to this PR."
-        return None
-    if run.get("pull_requests"):
+    return None
+
+
+def unattested(data, run, open_pulls):
+    """Why the pull request the metadata names is not the one this run
+    belongs to, ``None`` when it is. A run from this repository lists its
+    pull requests and the named one must be among them, on the same two
+    commits. A run from a fork lists none, and ``open_pulls`` -- the open
+    pull requests for its head -- must then be exactly the one named,
+    since a head with two of them names neither."""
+    listed = run.get("pull_requests") or []
+    if listed:
+        for candidate in listed:
+            if candidate["number"] != data["pull_request"]:
+                continue
+            if (candidate["head"]["sha"] != data["head"]
+                    or candidate["base"]["sha"] != data["base"]):
+                return "Benchmark run does not belong to this PR."
+            return None
         return "Benchmark run does not belong to this PR."
+    if [pull["number"] for pull in open_pulls] != [data["pull_request"]]:
+        return "Benchmark run does not name the one pull request for its head."
     return None
 
 
@@ -115,12 +154,15 @@ def body(data, run, pull, report):
 
 
 def ours(comments):
-    """The comment this workflow posted last time, ``None`` on the first."""
-    for comment in comments:
-        if ((comment.get("user") or {}).get("login") == "github-actions[bot]"
-                and (comment.get("body") or "").startswith(MARKER)):
-            return comment
-    return None
+    """The comment this workflow posted last time, ``None`` on the first.
+    The newest of them when there are several, so that duplicates leave
+    the stale ones behind rather than the live one."""
+    marked = [
+        comment for comment in comments
+        if (comment.get("user") or {}).get("login") == "github-actions[bot]"
+        and (comment.get("body") or "").startswith(MARKER)]
+    return max(marked, default=None, key=lambda comment: (
+        comment.get("created_at", ""), comment.get("id", 0)))
 
 
 def comparison():
@@ -133,16 +175,22 @@ def comparison():
 
 
 def main():
+    with open(os.environ["GITHUB_EVENT_PATH"]) as file:
+        run = json.load(file)["workflow_run"]
+    repository = os.environ["GITHUB_REPOSITORY"]
     path = os.path.join(DIRECTORY, "metadata.json")
     if not os.path.exists(path):
+        if staged(repository, run["id"]):
+            fail("The benchmark artifact was staged but not downloaded.")
         print("::notice::The benchmark run staged no comparison.")
         return
     with open(path) as file:
         data = json.load(file)
-    with open(os.environ["GITHUB_EVENT_PATH"]) as file:
-        run = json.load(file)["workflow_run"]
-    repository = os.environ["GITHUB_REPOSITORY"]
     if reason := unreadable(data, run):
+        fail(reason)
+    open_pulls = [] if run.get("pull_requests") else candidates(
+        repository, run)
+    if reason := unattested(data, run, open_pulls):
         fail(reason)
     pull = call(f"{API}/repos/{repository}/pulls/{data['pull_request']}")
     if reason := mismatch(data, run, pull, repository):
@@ -150,6 +198,12 @@ def main():
     if pull["head"]["sha"] != data["head"]:
         print("::notice::Skipping a comparison for a superseded head commit.")
         return
+    # `previous` is what the comment links as the merge base, and it comes
+    # from an artifact the pull request can write. Both ends of the compare
+    # are trusted by here, and a compare of two commits does not move, so
+    # the answer is the merge base the benchmark measured against.
+    if merge_base(repository, data["base"], data["head"]) != data["previous"]:
+        fail("Benchmark metadata does not match its merge base.")
     text = body(data, run, pull, comparison())
     if len(text) > LIMIT:
         fail("Benchmark comparison exceeds GitHub's comment limit.")

@@ -136,10 +136,18 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   event payload is a JSON file named by `GITHUB_EVENT_PATH` and the REST
   API is `urllib`, which `.github/style-review/post.py` already talks to.
   In Python it is lintable, testable and in the one language this
-  repository is written in; its validation is `unreadable` and `mismatch`,
-  two pure functions the tests state the refusals of. The pull request
-  number is checked to be an integer before it reaches a URL rather than
-  after ([#645](https://github.com/discopy/discopy/pull/645)).
+  repository is written in; its validation is `unreadable`, `unattested`
+  and `mismatch`, three pure functions the tests state the refusals of.
+  The job also stopped taking the artifact's word for three things, since
+  the pull request can write it: the pull request number is checked to be
+  an integer before it reaches a URL rather than after, the merge base the
+  comment links is checked against one the job computes itself from two
+  commits it already trusts, and a run that lists no pull request of its
+  own -- one from a fork -- must name the single open pull request for its
+  head rather than any that shares its branch. A download that fails is no
+  longer silence: the job asks whether the artifact was staged at all, and
+  only then posts nothing
+  ([#645](https://github.com/discopy/discopy/pull/645)).
 - `build.yml` and `benchmark.yml` cancel a pull request's superseded runs
   but let every commit on `main` finish, `cancel-in-progress` reading
   `github.event_name == 'pull_request'`. Cancelling on `main` left commits
