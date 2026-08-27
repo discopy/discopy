@@ -5,8 +5,9 @@ remarks it made, so a later round can read them back whole rather than
 parsing its own prose. This module collects them in the order the rounds
 posted them, each with the replies it received, and writes them to
 ``.style-review/history.json``: ``review.py`` shows them to the model,
-which judges whether each was taken into account, and ``post.py`` edits
-the first review with the tally of its verdicts.
+which judges whether each was taken into account, and ``post.py`` writes
+the tally of its verdicts onto the newest review of them all, where the
+thread is being read.
 """
 
 import json
@@ -68,7 +69,7 @@ def replies(comments, remark, review):
 
 def empty():
     """The history of a pull request no round has been posted on yet."""
-    return {"rounds": 0, "first": None, "remarks": [], "comments": []}
+    return {"rounds": 0, "reviews": [], "remarks": [], "comments": []}
 
 
 def load():
@@ -96,11 +97,11 @@ def history(repo, number, token):
             remark["number"] = len(remarks) + 1
             remark["replies"] = replies(comments, remark, review["id"])
             remarks.append(remark)
-    first = rounds[0][0]
-    since = first["submitted_at"]
+    since = rounds[0][0]["submitted_at"]
     return {
         "rounds": len(rounds), "remarks": remarks,
-        "first": {"id": first["id"], "body": first["body"]},
+        "reviews": [{"id": review["id"], "body": review["body"]}
+                    for review, _ in rounds],
         "comments": [
             spoken(comment) for comment in listing(
                 f"/repos/{repo}/issues/{number}/comments", token)

@@ -15,9 +15,11 @@ comments, where the choice is that shape or no remarks at all.
 
 One review per round, and the round records the remarks it made so that the
 next one can read them back. Whatever the model made of those past remarks
-— accepted, declined or still open — is tallied onto the body of the first
-review, so the top of the thread says how the review is landing rather than
-the reader counting the rounds.
+— accepted, declined or still open — is tallied onto the newest review of
+them all, where the thread is being read: a round that posts carries the
+tally in the body it posts, a round with nothing to say edits the newest
+review already there, and any older one still carrying a tally is stripped
+of it, so there is only ever the one.
 """
 
 import json
@@ -108,23 +110,27 @@ def summary(given):
     return line if not waiting else f"{line} / {waiting} still open"
 
 
-def retally(past, given):
-    """Edit the tally onto the first review, below whatever it said when
-    it was posted: its own remarks are history, only the tally moves."""
-    line = summary(verdicts(past, given))
-    if past["first"] is None or line is None:
+def tallied(body, line):
+    """A review body carrying the tally at its foot, in place of whatever
+    tally it carried before, or none at all when there is no line: what a
+    review said when it was posted is history, only the tally moves."""
+    kept = body.rsplit(f"\n\n{history.TALLY}\n", 1)[0].rstrip()
+    return kept if line is None else f"{kept}\n\n{history.TALLY}\n{line}"
+
+
+def rewrite(review, body):
+    """Edit a review already posted, doing nothing when it already reads
+    that way. A refusal is logged rather than raised: the tally is worth
+    less than the round it would take down with it."""
+    if body == review["body"]:
         return
-    body = past["first"]["body"].rsplit(
-        f"\n\n{history.TALLY}\n", 1)[0].rstrip()
     try:
         api(f"/repos/{os.environ['REPO']}/pulls/{os.environ['PR_NUMBER']}"
-            f"/reviews/{past['first']['id']}", os.environ["APP_TOKEN"],
-            {"body": f"{body}\n\n{history.TALLY}\n{line}"}, method="PUT")
+            f"/reviews/{review['id']}", os.environ["APP_TOKEN"],
+            {"body": body}, method="PUT")
     except urllib.error.HTTPError as error:
-        print(f"The tally was refused ({error.code}), leaving the first "
-              "review as it stands.")
-        return
-    print(line)
+        print(f"Review {review['id']} could not be edited ({error.code}), "
+              "leaving it as it stands.")
 
 
 def record(clean):
@@ -166,25 +172,36 @@ def main():
     off_diff = [f"{f['path']}:{f['line']}"
                 for f in findings if f not in on_diff]
     if off_diff:
-        print(f"{len(off_diff)} findings sat on no line of the diff, "
-              f"dropped: {', '.join(off_diff)}")
+        print(f"{counted(len(off_diff), 'finding')} sat on no line of the "
+              f"diff, dropped: {', '.join(off_diff)}")
     withheld, findings = len(on_diff[10:]), on_diff[:10]
     past = history.load()
-    retally(past, answer.get("verdicts", []))
+    line = summary(verdicts(past, answer.get("verdicts", [])))
     record(clean=not findings)
-    if not findings:
+    carried = past["reviews"]
+    if findings:
+        body = describe(
+            past["rounds"] + 1, len(off_diff), withheld, unreadable)
+        try:
+            post_review(tallied(body, line), findings)
+        except urllib.error.HTTPError as error:
+            print(f"Inline comments rejected ({error.code}), "
+                  "posting the remarks in the body.")
+            post_review(tallied("\n".join(
+                [body, "", "GitHub refused these as inline comments:"] + [
+                    f"- `{f['path']}:{f['line']}` — {f['comment']}"
+                    for f in findings]), line), findings, inline=False)
+    elif carried:
         print("Nothing to say on the diff, posting nothing.")
-        return
-    body = describe(past["rounds"] + 1, len(off_diff), withheld, unreadable)
-    try:
-        post_review(body, findings)
-    except urllib.error.HTTPError as error:
-        print(f"Inline comments rejected ({error.code}), "
-              "posting the remarks in the body.")
-        post_review("\n".join([body, "", "GitHub refused these as inline "
-                               "comments:"] + [
-            f"- `{f['path']}:{f['line']}` — {f['comment']}"
-            for f in findings]), findings, inline=False)
+        newest = carried[-1]
+        rewrite(newest, tallied(newest["body"], line))
+        carried = carried[:-1]
+    else:
+        print("Nothing to say on the diff, posting nothing.")
+    for review in carried:
+        rewrite(review, tallied(review["body"], None))
+    if line:
+        print(line)
 
 
 if __name__ == "__main__":
