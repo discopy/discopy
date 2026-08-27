@@ -3,7 +3,8 @@ import random
 from pytest import raises
 
 from discopy.hypergraph import *
-from discopy.frobenius import Ty, Box, Cap, Cup, Diagram, Hypergraph as H
+from discopy.frobenius import (
+    Ty, Box, Cap, Cup, Diagram, Spider, Hypergraph as H)
 
 def test_pushout():
     with raises(ValueError):
@@ -295,6 +296,22 @@ def test_Hypergraph_from_diagram_matches_naive_composition():
     ]
     for diagram in diagrams:
         assert diagram.to_hypergraph() == _naive_from_diagram(diagram)
+
+
+def test_Hypergraph_from_diagram_pinned_category():
+    """ Calling :meth:`from_diagram` on a :class:`Hypergraph` pinned to a
+    category other than the diagram's own must still pick the functor of
+    the diagram's own category, i.e. ``factory.functor`` rather than
+    ``cls.functor``: a :class:`symmetric.Hypergraph` has no ``Functor``
+    that expands a :class:`Spider`, so using its functor would flatten the
+    spider into an opaque box instead of pure wiring, per the cubic-dev-ai
+    review of #644. """
+    from discopy import symmetric
+    x = Ty('x')
+    spider = Spider(1, 2, x)
+    result = symmetric.Hypergraph.from_diagram(spider)
+    assert result.boxes == () and result == _naive_from_diagram(spider)
+    assert result == spider.to_hypergraph()
 
 
 def test_subclass_to_hypergraph():

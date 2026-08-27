@@ -1463,7 +1463,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         """
         category = type(old).ar
         factory = cls if cls.category is category else cls[category]
-        functor = (factory.functor if cls.category is None else cls.functor)(
+        functor = factory.functor(
             ob_map=lambda typ: typ, ar_map=factory.from_box,
             dom=category, cod=factory)
         return factory.from_glued(old.dom, old.cod, [
