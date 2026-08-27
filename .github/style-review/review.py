@@ -152,6 +152,7 @@ def assemble(files, base_sha):
         note = f"# Changed files dropped for size: {', '.join(missing)}"
         if len(note) + 2 <= budget:
             parts.append(note)
+            budget -= len(note) + 2
     parts += [block for _, block in changed]
     return "\n\n".join(parts)
 
