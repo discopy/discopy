@@ -53,6 +53,8 @@ def normalised(finding):
 
 
 def describe(nth, findings, withheld, unreadable):
+    """The body of one round's review: which round it is, then the
+    findings that sit on no line of the diff, the others going inline."""
     lines = [f"Style review by `{os.environ['MODEL']}`, round {nth}."] + [
         f"- `{f['path']}:{f['line']}` — {f['comment']}" for f in findings]
     if withheld:
