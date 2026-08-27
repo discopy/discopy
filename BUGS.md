@@ -17,4 +17,5 @@ missing its `@factory` decorator (the same static-binding bug as
 `python.additive.Function` on an earlier branch: without it, `ar`
 resolves to the base `biclosed.Functor`/`frobenius.Functor` instead of
 the grammar-level subclass), fixed here as a one-line change to each
-file with no test or matrix impact.
+file with no matrix impact, pinned by a one-assertion regression test
+in each module's `test/` file.
