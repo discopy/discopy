@@ -17,16 +17,27 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   each — `accepted` when the file now does what the remark asked,
   `declined` when someone answered that they would not do it, and neither
   while nobody has answered and nothing has moved. The **first** review of
-  the pull request then carries the tally, `6 style remarks taken into
-  account: 3 accepted / 2 declined / 1 still open`, edited in place at the
-  top of the thread instead of posted again. A round is one review and
-  says which round it is, so the reader sees how the review is landing
-  without counting them. The prompt is ordered from what never moves to
+  the pull request then carries the tally, `6 style remarks: 3 accepted /
+  2 declined / 1 still open`, edited in place at the top of the thread
+  instead of posted again. A round is one review and says which round it
+  is, so the reader sees how the review is landing without counting them. The prompt is ordered from what never moves to
   what moves every round — instructions, `STYLE.md`, context files, the
   past remarks as a list that only grows at its end, and last the revision
   under review — so that two rounds of one pull request share a prefix the
   gateway can serve from its cache rather than reading again
   ([#672](https://github.com/discopy/discopy/pull/672)).
+- The style review comments on the diff and nowhere else. Whole files are
+  what it reads to judge a change against the conventions around it, not
+  an invitation to review code the change does not touch, and a finding
+  that sits on no line of the diff is now dropped rather than moved to
+  the review body — the prompt says so, and `post.py` enforces it, saying
+  how many it dropped. Every remark it does post is a comment on the line
+  it is about: the body carries the round and what it could not say,
+  never a list of findings. Left as it was, a review of the file at large
+  spent the ten-finding cap on code nobody was changing, and under the
+  tally above those remarks stayed open forever, since fixing them was
+  out of the pull request's scope
+  ([#673](https://github.com/discopy/discopy/issues/673)).
 - The style review can be asked for, and turned off, from the pull request
   itself: `@discopy review this` in a comment reviews it now, and the
   `no-style-review` label stops the automatic reviews on it, while the
