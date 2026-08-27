@@ -151,7 +151,7 @@ from discopy.abc import FeedbackCategory
 from discopy.cat import factory
 from discopy.utils import (
     deprecated_ob,
-    factory, factory_name, assert_isinstance, AxiomError,
+    factory_name, assert_isinstance, AxiomError,
 )
 from discopy.testing import GENERATORS
 
