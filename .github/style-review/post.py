@@ -211,13 +211,12 @@ def main():
                 [body, "", "GitHub refused these as inline comments:"] + [
                     f"- `{f['path']}:{f['line']}` — {f['comment']}"
                     for f in findings]), line), findings, inline=False)
-    elif carried:
-        print("Nothing to say on the diff, posting nothing.")
-        newest = carried[-1]
-        rewrite(newest, tallied(newest["body"], line))
-        carried = carried[:-1]
     else:
         print("Nothing to say on the diff, posting nothing.")
+        if carried:
+            newest = carried[-1]
+            rewrite(newest, tallied(newest["body"], line))
+            carried = carried[:-1]
     for review in carried:
         rewrite(review, tallied(review["body"], None))
     if line:
