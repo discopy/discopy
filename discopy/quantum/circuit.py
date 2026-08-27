@@ -111,7 +111,7 @@ class Wire(frobenius.Wire):
         return dict(dim=self.dim, **super().to_tree())
 
     @classmethod
-    def strategy(cls, **_):
+    def strategy(cls, **params):
         """Generate bits, qubits and small qudits."""
         from hypothesis import strategies as st
 
@@ -951,13 +951,11 @@ class Box(tensor.Box[complex], Circuit):
         from discopy.quantum import gates
 
         base = super().strategy(**params)
-        if any(params.get(boundary) is not None
-               for boundary in ("dom", "cod")):
-            return base
-        return st.one_of(base, st.sampled_from((
-            gates.H, gates.X, gates.Y, gates.Z, gates.S, gates.T,
-            gates.CX, gates.Rz(0.5), gates.Rx(0.25),
-            gates.Ket(0), gates.Bra(1), gates.scalar(0.5))))
+        return cls.extend_strategy(
+            base, cls, lambda factory: st.sampled_from((
+                gates.H, gates.X, gates.Y, gates.Z, gates.S, gates.T,
+                gates.CX, gates.Rz(0.5), gates.Rx(0.25),
+                gates.Ket(0), gates.Bra(1), gates.scalar(0.5))), **params)
 
     @property
     def array(self):
