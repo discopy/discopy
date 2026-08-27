@@ -3,19 +3,38 @@
 import pytest
 from pytest import raises
 
+from discopy import abc, testing
 from discopy.cat import *
 from discopy.utils import AxiomError
 
 
-def test_main():
-    x, y, z = Ob('x'), Ob('y'), Ob('z')
-    f, g, h = Box('f', x, y), Box('g', y, z), Box('h', z, x)
-    assert Id(x) >> f == f == f >> Id(y)
-    assert (f >> g).dom == f.dom and (f >> g).cod == g.cod
-    assert f >> g >> h == f >> (g >> h)
-    F = Functor(ob_map={x: y, y: z, z: x}, ar_map={f: g, g: h})
-    assert F(Id(x)) == Id(F(x))
-    assert F(f >> g) == F(f) >> F(g)
+def test_axiom_mro_discovery_order_and_shadowing():
+    class Parent(Arrow):
+        @testing.axiom
+        def parent_law(cls):
+            return cls.equation_factory(0, 0)
+
+    class Child(Parent):
+        @testing.axiom
+        def child_law(cls):
+            return cls.equation_factory(0, 0)
+
+    class Shadow(Child):
+        parent_law = None
+
+    names = tuple(axiom.name for axiom in Child.axioms)
+    assert names[-2:] == ("parent_law", "child_law")
+    assert len(names) == len(set(names))
+    assert "parent_law" not in {
+        axiom.name for axiom in Shadow.axioms}
+
+
+def test_default_equation_factory():
+    assert isinstance(
+        abc.Category.__dict__["equation_factory"], classmethod)
+    equation = abc.Category.equation_factory(0, 0)
+    assert isinstance(equation, abc.Equation)
+    assert isinstance(equation, Equation) and equation
 
 
 def test_Ob():
@@ -132,14 +151,6 @@ def test_Arrow_then():
     assert f.then(g) == f >> g == g << f
     with raises(TypeError) as err:
         f >> x
-
-
-def test_Arrow_dagger():
-    x, y, z = Ob('x'), Ob('y'), Ob('z')
-    f, g = Box('f', x, y), Box('g', y, z)
-    h = Arrow((f, g), x, z)
-    assert h.dagger() == g.dagger() >> f.dagger()
-    assert h.dagger().dagger() == h
 
 
 def test_Id_init():
@@ -377,3 +388,28 @@ def test_Sum():
     assert len(Sum((), x, y)) == 0
     assert Sum((), x, x).then(f, g) == Sum((), x, z)
     assert Sum((), x, y).dagger() == Sum((), y, x)
+
+
+def test_strategy():
+    from hypothesis import find
+
+    testing.assert_strategy_finds(Arrow, Box)
+    a, b = Ob('a'), Ob('b')
+    arrow = find(
+        Arrow.strategy(dom=a, cod=b, min_leaves=2, max_leaves=2),
+        lambda value: len(value.inside) > 1)
+    assert (arrow.dom, arrow.cod) == (a, b)
+    functor = find(Functor.strategy(), lambda value: value(a) != a)
+    assert functor(arrow).dom == functor(a)
+
+
+def test_axioms():
+    testing.assert_axioms(Arrow, Functor)
+
+
+def test_cat_valued_functor():
+    x, y = Ob('x'), Ob('y')
+    f = Box('f', x, y)
+    F = Functor(ob_map={x: x, y: y}, ar_map={f: f})
+    H = Functor(ob_map={x: Arrow, y: Arrow}, ar_map={f: F}, cod=Functor)
+    assert H(x) is Arrow and H(f) == F

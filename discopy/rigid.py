@@ -154,7 +154,7 @@ from collections.abc import Callable
 from typing import Iterator
 
 from discopy import cat, monoidal, biclosed, messages
-from discopy.abc import Pregroup, RigidCategory
+from discopy.abc import Category, Pregroup, RigidCategory
 from discopy.cat import factory
 from discopy.utils import (
     assert_isatomic,
@@ -164,6 +164,7 @@ from discopy.utils import (
     deprecated_ob,
     factory_name,
 )
+from discopy.testing import Atomic, C0, GENERATORS, axiom
 
 
 class Wire(monoidal.Wire):
@@ -199,6 +200,20 @@ class Wire(monoidal.Wire):
         assert_isinstance(z, int)
         self.z = z
         super().__init__(name, dom, cod)
+
+    @classmethod
+    def strategy(
+            cls, *, dom=monoidal.white, cod=monoidal.white,
+            min_winding=-1, max_winding=1):
+        """Generate rigid objects with bounded winding number."""
+        from hypothesis import strategies as st
+
+        return st.tuples(
+            st.sampled_from(GENERATORS),
+            st.integers(
+                min_value=min_winding, max_value=max_winding)).map(
+                    lambda args: cls(
+                        args[0], args[1], dom=dom, cod=cod))
 
     def dagger(self) -> Wire:
         raise AxiomError("Rigid types have no dagger, use pivotal instead.")
@@ -265,6 +280,12 @@ class Ty(Pregroup, biclosed.Ty):
     >>> assert (s @ n).l == n.l @ s.l and (s @ n).r == n.r @ s.r
     """
     generator_factory = Wire
+
+    dagger_involution = Category.dagger_involution.inapplicable(
+        "Rigid types have no dagger, use pivotal instead.")
+
+    dagger_contravariance = Category.dagger_contravariance.inapplicable(
+        "Rigid types have no dagger, use pivotal instead.")
 
     def __setstate__(self, state):
         if '_z' in state:  # Backward compatibility
@@ -349,6 +370,9 @@ class Diagram(biclosed.Diagram, RigidCategory):
     """
     A rigid diagram is a biclosed diagram
     with :class:`Cup` and :class:`Cap` boxes.
+
+    Rigid cups and caps have no dagger, so the dagger laws do not apply
+    and :class:`pivotal.Diagram` restores them.
 
     Parameters:
         inside (tuple[Layer, ...]) : The layers of the diagram.
@@ -639,6 +663,17 @@ class Diagram(biclosed.Diagram, RigidCategory):
         """
         return super().normal_form(**params)
 
+    snake_equations = RigidCategory.snake_equations.modulo(normal_form)
+
+    dagger_involution = Category.dagger_involution.inapplicable(
+        "Rigid cups and caps have no dagger, use pivotal instead.")
+
+    dagger_contravariance = Category.dagger_contravariance.inapplicable(
+        "Rigid cups and caps have no dagger, use pivotal instead.")
+
+    dagger_monoidality = RigidCategory.dagger_monoidality.inapplicable(
+        "Rigid cups and caps have no dagger, use pivotal instead.")
+
 
 class Box(biclosed.Box, Diagram):
     """
@@ -659,6 +694,19 @@ class Box(biclosed.Box, Diagram):
     >>> assert f.r.l == f == f.l.r
     >>> assert f.l.l != f != f.r.r
     """
+
+    @classmethod
+    def strategy(cls, **params):
+        """Add cups and caps to the inherited box distribution."""
+        base = super().strategy(**params)
+        base = cls.extend_strategy(
+            base, cls.ar.cup_factory,
+            lambda factory: cls.atomic_strategy().map(
+                lambda obj: factory(obj, obj.r)), **params)
+        return cls.extend_strategy(
+            base, cls.ar.cap_factory,
+            lambda factory: cls.atomic_strategy().map(
+                lambda obj: factory(obj, obj.l)), **params)
 
     def __setstate__(self, state):
         if '_z' in state:  # Backward compatibility
@@ -799,6 +847,7 @@ class Cap(BinaryBoxConstructor, Box):
         raise AxiomError("Rigid caps have no dagger, use pivotal instead.")
 
 
+@factory
 class Functor(biclosed.Functor):
     """
     A rigid functor is a biclosed functor that preserves cups and caps.
@@ -851,6 +900,20 @@ class Functor(biclosed.Functor):
             return result
         return super().__call__(other)
 
+    @axiom
+    def rigid_cups(self, x: Atomic[C0]):
+        """ A rigid functor preserves the cups. """
+        x = x.value
+        return self.cod.equation_factory(
+            self(self.dom.cups(x, x.r)), self.cod.cups(self(x), self(x.r)))
+
+    @axiom
+    def rigid_caps(self, x: Atomic[C0]):
+        """ A rigid functor preserves the caps. """
+        x = x.value
+        return self.cod.equation_factory(
+            self(self.dom.caps(x.r, x)), self.cod.caps(self(x.r), self(x)))
+
 
 def nesting(cls: type, factory: Callable) -> Callable[[Ty, Ty], Diagram]:
     """
@@ -882,6 +945,7 @@ def to_rigid(self):
 
 biclosed.Diagram.to_rigid = to_rigid
 
+Diagram.functor_factory = Functor
 Diagram.cup_factory, Diagram.cap_factory, Diagram.sum_factory = Cup, Cap, Sum
 
 Id = Diagram.id
@@ -891,4 +955,5 @@ class Equation(biclosed.Equation):
     """ The :class:`biclosed.Equation` of rigid diagrams. """
 
 
+Diagram.equation_factory = Equation
 __getattr__ = deprecated_ob(__name__)

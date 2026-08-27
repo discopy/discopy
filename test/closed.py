@@ -210,3 +210,15 @@ def test_draw_copy_and_swap():
     # A non-linear term evaluates to such a diagram, so it draws too.
     X = Ty('X')
     assert X(lambda x: (X >> X)(lambda f: f(x))).eval().to_drawing()
+
+
+def test_strategy():
+    from discopy import testing
+
+    testing.assert_strategy_finds(Diagram, Eval, Copy)
+
+
+def test_axioms():
+    from discopy import testing
+
+    testing.assert_axioms(Ty, Diagram, Functor)

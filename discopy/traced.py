@@ -123,15 +123,19 @@ Dinaturality
 >>> assert sliding_left and sliding_right
 """
 
-from discopy import monoidal, cmap, hypergraph
+from __future__ import annotations
+
+from discopy import cmap, hypergraph, monoidal
 from discopy.abc import TracedCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import (
     factory_name,
+    from_tree,
     assert_isinstance,
     assert_istraceable,
 )
+FREE_TRACE = "A free trace is a box, not a rewrite."
 
 
 @factory
@@ -144,6 +148,7 @@ class Diagram(monoidal.Diagram, TracedCategory):
         dom (monoidal.Ty) : The domain of the diagram, i.e. its input.
         cod (monoidal.Ty) : The codomain of the diagram, i.e. its output.
     """
+
     def trace(self, n=1, left=False):
         """
         Feed ``n`` outputs back into inputs.
@@ -170,6 +175,24 @@ class Diagram(monoidal.Diagram, TracedCategory):
     def to_drawing(self):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
 
+    trace_dinaturality_left = \
+        TracedCategory.trace_dinaturality_left.inapplicable(FREE_TRACE)
+
+    trace_dinaturality_right = \
+        TracedCategory.trace_dinaturality_right.inapplicable(FREE_TRACE)
+
+    trace_naturality_left = \
+        TracedCategory.trace_naturality_left.inapplicable(FREE_TRACE)
+
+    trace_naturality_right = \
+        TracedCategory.trace_naturality_right.inapplicable(FREE_TRACE)
+
+    trace_superposing_left = \
+        TracedCategory.trace_superposing_left.inapplicable(FREE_TRACE)
+
+    trace_superposing_right = \
+        TracedCategory.trace_superposing_right.inapplicable(FREE_TRACE)
+
 
 class Box(monoidal.Box, Diagram):
     """
@@ -180,6 +203,32 @@ class Box(monoidal.Box, Diagram):
         dom (monoidal.Ty) : The domain of the box, i.e. its input.
         cod (monoidal.Ty) : The codomain of the box, i.e. its output.
     """
+
+    @classmethod
+    def strategy(cls, **params):
+        """Add traces to the inherited box distribution."""
+        from hypothesis import strategies as st
+
+        base = super().strategy(**params)
+        factory = cls.ar.trace_factory
+        types = params.get("types")
+        types = cls.ob.strategy() if types is None else types
+
+        def traces(factory):
+            def build(args):
+                memory, dom, cod, left = args
+                arg_dom = memory @ dom if left else dom @ memory
+                arg_cod = memory @ cod if left else cod @ memory
+                return cls.free_strategy(
+                    types=types, dom=arg_dom, cod=arg_cod).map(
+                        lambda arg: factory(arg, left))
+
+            return st.tuples(
+                cls.atomic_strategy(), types, types,
+                st.booleans()).flatmap(build)
+
+        return cls.extend_strategy(
+            base, factory, traces, **params)
 
 
 class Trace(Box, monoidal.Bubble):
@@ -208,7 +257,15 @@ class Trace(Box, monoidal.Bubble):
         return self.name
 
     def __repr__(self):
-        return factory_name(type(self)) + f"({self.arg}, left={self.left})"
+        return factory_name(type(self)) + f"({self.arg!r}, left={self.left})"
+
+    def to_tree(self):
+        return {'factory': factory_name(type(self)),
+                'arg': self.arg.to_tree(), 'left': self.left}
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(from_tree(tree['arg']), left=tree['left'])
 
     def dagger(self):
         return self.arg.dagger().trace(left=self.left)
@@ -217,6 +274,7 @@ class Trace(Box, monoidal.Bubble):
         return self.ar.to_drawing(self)
 
 
+@factory
 class Functor(monoidal.Functor):
     """
     A traced functor is a monoidal functor that preserves traces.

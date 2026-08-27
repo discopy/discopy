@@ -313,15 +313,7 @@ class Arrow(FreeCategory, Strategy["Arrow"]):
     def strategy(
             cls, *, types=None, dom=None, cod=None,
             min_leaves=None, max_leaves=10):
-        """
-        Generate the canonical instantiation: a single identity or a single
-        generator box with the requested (or an arbitrary) boundary.
-
-        No search here: this is the one-shot, non-recursive stand-in that
-        stage 2 replaces with a real ``st.recursive`` search over composite
-        paths — ``min_leaves``/``max_leaves`` are accepted for interface
-        compatibility with that later strategy but otherwise ignored.
-        """
+        """Generate typed paths recursively from identities and boxes."""
         from hypothesis import strategies as st
 
         types = cls.ob.strategy() if types is None else types
@@ -330,13 +322,40 @@ class Arrow(FreeCategory, Strategy["Arrow"]):
             return cls.generator_factory.strategy(
                 types=types, dom=dom, cod=cod)
 
-        if dom is not None and cod is not None:
-            if dom == cod:
-                return st.just(cls.id(dom))
-            return generators(dom=dom, cod=cod)
+        atoms = st.one_of(types.map(cls.id), generators())
+
+        def extend(children):
+            def bridge(pair):
+                left, right = pair
+                return generators(dom=left.cod, cod=right.dom).map(
+                    lambda middle: left >> middle >> right)
+
+            return st.tuples(children, children).flatmap(bridge)
+
+        arrows = st.recursive(
+            atoms, extend,
+            min_leaves=min_leaves, max_leaves=max_leaves)
+
         if dom is not None or cod is not None:
-            return generators(dom=dom, cod=cod)
-        return st.one_of(types.map(cls.id), generators())
+            def set_boundaries(arrow):
+                source = arrow.dom if dom is None else dom
+                target = arrow.cod if cod is None else cod
+                if not arrow.inside:
+                    return st.just(cls.id(source)) if source == target\
+                        else generators(dom=source, cod=target)
+                boundaries = (source, ) + tuple(
+                    box.cod for box in arrow.inside[:-1]) + (target, )
+                return st.tuples(*(generators(left, right)
+                                   for left, right in zip(
+                                       boundaries, boundaries[1:])))\
+                    .map(lambda inside: cls(
+                        inside, source, target, _scan=False))
+
+            arrows = arrows.flatmap(set_boundaries)
+
+        return arrows.filter(
+                lambda arrow: len(set(arrow.inside))
+                == len(arrow.inside))
 
     def __setstate__(self, state):
         if '_dom' in state:  # Backward compatibility

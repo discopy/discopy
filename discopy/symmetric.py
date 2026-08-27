@@ -92,13 +92,14 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from discopy import monoidal, balanced, hypergraph, cmap, messages
+from discopy import abc, balanced, cmap, hypergraph, messages, monoidal
 from discopy.abc import SymmetricCategory
 from discopy.cat import factory
 from discopy.monoidal import Wire, Ty, PRO  # noqa: F401
 from discopy.python import finset
 from discopy.utils import (
     AxiomError, assert_iscomposable, classproperty, factory_name, from_tree)
+from discopy.testing import Atomic, C0, axiom
 
 
 class Layer(monoidal.Layer):
@@ -162,6 +163,51 @@ class Layer(monoidal.Layer):
         >>> assert not Layer(x, Box('f', x, y), y).is_plumbing
         """
         return any(isinstance(value, Permutation) for value in self)
+
+    @classmethod
+    def strategy(
+            cls, *, factory, types=None, dom=None, cod=None,
+            label=None, exclude=()):
+        """Add a simultaneous native permutation to ordinary layers."""
+        from hypothesis import strategies as st
+
+        exclude = frozenset(exclude)
+        base = super().strategy(
+            factory=factory, types=types, dom=dom, cod=cod,
+            label=label, exclude=exclude)
+        types = factory.ob.strategy() if types is None else types
+        permutation_factory = factory.permutation_factory
+
+        def from_dom(source, target=None):
+            if len(source) < 2 or (
+                    target is not None and len(source) != len(target)):
+                return st.nothing()
+
+            def matches(perm):
+                return not perm.is_identity and (
+                    target is None or target == source[:0].tensor(*(
+                        source[i] for i in perm)))
+
+            return finset.Permutation.strategy(dom=len(source)).filter(
+                matches).map(lambda perm: cls(
+                    permutation_factory(source, perm))).filter(
+                        lambda layer: not exclude.intersection(layer.boxes))
+
+        if dom is not None:
+            permutations = from_dom(dom, cod)
+        elif cod is not None:
+            def from_cod(perm):
+                inverse = perm.dagger()
+                source = cod[:0].tensor(*(cod[i] for i in inverse))
+                return cls(permutation_factory(source, perm))
+
+            permutations = finset.Permutation.strategy(dom=len(cod)).filter(
+                lambda perm: not perm.is_identity).map(from_cod)\
+                .filter(lambda layer: not exclude.intersection(layer.boxes))\
+                if len(cod) >= 2 else st.nothing()
+        else:
+            permutations = types.flatmap(from_dom)
+        return st.one_of(base, permutations)
 
     def merge(self, other: Layer) -> Layer:
         """
@@ -267,6 +313,8 @@ class Diagram(balanced.Diagram, SymmetricCategory):
     braid_factory = classproperty(lambda cls: cls.swap_factory)
     layer_factory = Layer
     twist_factory = classmethod(lambda cls, dom: cls.id(dom))
+
+    dagger_monoidality = abc.MonoidalCategory.dagger_monoidality
 
     @property
     def is_plumbing(self) -> bool:
@@ -403,6 +451,22 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         >>> assert (f >> f).depth() == 2 and (f >> f >> f).depth() == 3
         """
         return self.to_hypergraph().depth()
+
+    bifunctoriality = abc.MonoidalCategory.bifunctoriality
+
+    braid_naturality = abc.BraidedCategory.braid_naturality
+
+    trace_dinaturality_left = abc.TracedCategory.trace_dinaturality_left
+
+    trace_dinaturality_right = abc.TracedCategory.trace_dinaturality_right
+
+    trace_naturality_left = abc.TracedCategory.trace_naturality_left
+
+    trace_naturality_right = abc.TracedCategory.trace_naturality_right
+
+    trace_superposing_left = abc.TracedCategory.trace_superposing_left
+
+    trace_superposing_right = abc.TracedCategory.trace_superposing_right
 
 
 class Box(balanced.Box, Diagram):
@@ -636,6 +700,7 @@ class Sum(balanced.Sum, Box):
     """
 
 
+@factory
 class Functor(balanced.Functor):
     """
     A symmetric functor is a monoidal functor that preserves swaps.
@@ -661,8 +726,16 @@ class Functor(balanced.Functor):
             return self.cod.ar.permutation(other.perm, doms)
         return super().__call__(other)
 
+    @axiom
+    def symmetric(self, x: Atomic[C0], y: Atomic[C0]):
+        """ A symmetric functor preserves the swap. """
+        x, y = x.value, y.value
+        return self.cod.equation_factory(
+            self(self.dom.swap(x, y)), self.cod.swap(self(x), self(y)))
+
 
 CMap = cmap.CMap[Diagram]
+
 
 Diagram.functor_factory = Functor
 Hypergraph = hypergraph.Hypergraph[Diagram]
@@ -684,3 +757,6 @@ class Equation(monoidal.Equation):
     >>> assert Equation(Swap(x, y) >> Swap(y, x), Id(x @ y))
     """
     up_to = staticmethod(Diagram.to_hypergraph)
+
+
+Diagram.equation_factory = Equation

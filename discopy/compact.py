@@ -54,7 +54,9 @@ Coherence
 ...     Cap(x, x.r) @ Cap(y, y.r) >> x @ Diagram.swap(x.r, y @ y.r))
 """
 
-from discopy import symmetric, ribbon, rigid, cmap, hypergraph
+from __future__ import annotations
+
+from discopy import abc, cmap, hypergraph, ribbon, rigid, symmetric
 from discopy.abc import CompactCategory
 from discopy.cat import factory
 from discopy.utils import deprecated_ob
@@ -78,6 +80,18 @@ class Diagram(symmetric.Diagram, ribbon.Diagram, CompactCategory):
     ob = Ty
     layer_factory = Layer
     trace_factory = ribbon.Diagram.trace_factory
+
+    currying_left = abc.BiclosedCategory.currying_left
+
+    currying_right = abc.BiclosedCategory.currying_right
+
+    pivotality = abc.PivotalCategory.pivotality
+
+    twist_as_trace = abc.RibbonCategory.twist_as_trace
+
+    rotate_contravariance = abc.RigidCategory.rotate_contravariance.failing(
+        "``to_hypergraph`` drops the rotation of a box, so the equation "
+        "holds but cannot be checked up to hypergraph.")
 
 
 class Box(symmetric.Box, ribbon.Box, Diagram):
@@ -137,6 +151,7 @@ class Swap(Permutation, symmetric.Swap, ribbon.Braid, Box):
     """
 
 
+@factory
 class Functor(symmetric.Functor, ribbon.Functor):
     """
     A compact functor is both a symmetric functor and a ribbon functor.
@@ -156,6 +171,10 @@ class Functor(symmetric.Functor, ribbon.Functor):
 
 
 CMap = cmap.CMap[Diagram]
+CMap.currying_left = abc.BiclosedCategory.currying_left
+CMap.currying_right = abc.BiclosedCategory.currying_right
+CMap.trace_naturality_left = abc.TracedCategory.trace_naturality_left
+CMap.trace_naturality_right = abc.TracedCategory.trace_naturality_right
 
 Id = Diagram.id
 
@@ -171,4 +190,5 @@ class Equation(symmetric.Equation):
     up_to = staticmethod(Diagram.to_hypergraph)
 
 
+Diagram.equation_factory = Equation
 __getattr__ = deprecated_ob(__name__)

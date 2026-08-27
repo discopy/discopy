@@ -77,8 +77,8 @@ from discopy import symmetric, monoidal, cmap, hypergraph
 from discopy.abc import MarkovCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty  # noqa: F401
-from discopy.utils import assert_isatomic, factory_name
-
+from discopy.utils import assert_isatomic, factory_name, from_tree
+from discopy.testing import Atomic, C0, axiom
 
 Layer = symmetric.Layer
 
@@ -114,6 +114,7 @@ class Diagram(symmetric.Diagram, MarkovCategory):
 
     .. image:: /_static/markov/copy_and_apply.svg
     """
+
     @classmethod
     def spider_factory(cls, n_legs_in, n_legs_out, typ, phase=None):
         if phase is not None or 1 not in (n_legs_in, n_legs_out):
@@ -165,6 +166,20 @@ class Box(symmetric.Box, Diagram):
         cod (monoidal.Ty) : The codomain of the box, i.e. its output.
     """
 
+    @classmethod
+    def strategy(cls, **params):
+        """Add copying and discarding to the inherited distribution."""
+        from hypothesis import strategies as st
+
+        base = super().strategy(**params)
+        factory = cls.ar.copy_factory
+        return cls.extend_strategy(
+            base, factory,
+            lambda factory: st.tuples(
+                cls.atomic_strategy(),
+                st.sampled_from((0, 2, 3))).map(
+                    lambda args: factory(*args)), **params)
+
 
 class Permutation(symmetric.Permutation, Box):
     """
@@ -214,16 +229,24 @@ class Copy(Box):
         Box.__init__(self, name, dom=x, cod=x ** n,
                      draw_as_spider=True, color="black", drawing_name="")
 
-    def __new__(cls, x: monoidal.Ty, n: int = 2):
+    def __new__(cls, x: monoidal.Ty = None, n: int = 2):
         return super().__new__(cls) if n else\
             cls.discard_factory.__new__(cls.discard_factory, x)
 
     def dagger(self) -> Merge:
-        return Merge(self.dom, len(self.cod))
+        return self.ar.merge_factory(self.dom, len(self.cod))
 
     def __repr__(self):
         return (
             factory_name(type(self)) + f"({repr(self.dom)}, {len(self.cod)})")
+
+    def to_tree(self):
+        return {'factory': factory_name(type(self)),
+                'x': self.dom.to_tree(), 'n': len(self.cod)}
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(from_tree(tree['x']), tree['n'])
 
 
 class Merge(Box):
@@ -241,11 +264,19 @@ class Merge(Box):
                      draw_as_spider=True, color="black", drawing_name="")
 
     def dagger(self) -> Merge:
-        return Copy(self.cod, len(self.dom))
+        return self.ar.copy_factory(self.cod, len(self.dom))
 
     def __repr__(self):
         return (
             factory_name(type(self)) + f"({repr(self.cod)}, {len(self.dom)})")
+
+    def to_tree(self):
+        return {'factory': factory_name(type(self)),
+                'x': self.cod.to_tree(), 'n': len(self.dom)}
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(from_tree(tree['x']), tree['n'])
 
 
 class Discard(Copy):
@@ -270,6 +301,7 @@ class Sum(symmetric.Sum, Box):
     """
 
 
+@factory
 class Functor(symmetric.Functor):
     """
     A Markov functor is a symmetric functor that preserves copies.
@@ -310,6 +342,13 @@ class Functor(symmetric.Functor):
             return self.cod.merge(self(other.cod), len(other.dom))
         return super().__call__(other)
 
+    @axiom
+    def markov(self, x: Atomic[C0]):
+        """ A Markov functor preserves the copy. """
+        x = x.value
+        return self.cod.equation_factory(
+            self(self.dom.copy(x)), self.cod.copy(self(x)))
+
 
 CMap = cmap.CMap[Diagram]
 
@@ -327,3 +366,6 @@ Id = Diagram.id
 class Equation(symmetric.Equation):
     """ The :class:`symmetric.Equation` of Markov diagrams. """
     up_to = staticmethod(Diagram.to_hypergraph)
+
+
+Diagram.equation_factory = Equation

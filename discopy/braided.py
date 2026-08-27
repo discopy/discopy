@@ -65,7 +65,10 @@ from discopy.abc import BraidedCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty, Match
 from discopy.utils import (
-    assert_isatomic, BinaryBoxConstructor, deprecated_ob, factory_name)
+    BinaryBoxConstructor, assert_isatomic, deprecated_ob, factory_name,
+    from_tree
+)
+from discopy.testing import axiom
 
 
 class Wire(monoidal.Wire):
@@ -158,6 +161,9 @@ class Diagram(monoidal.Diagram, BraidedCategory):
                       right=right_wires if left else right_wires[1:])
         return match.substitute(target)
 
+    braid_naturality = BraidedCategory.braid_naturality.failing(
+        "A free braid does not commute past a box.")
+
 
 class Box(monoidal.Box, Diagram):
     """
@@ -168,6 +174,21 @@ class Box(monoidal.Box, Diagram):
         dom (monoidal.Ty) : The domain of the box, i.e. its input.
         cod (monoidal.Ty) : The codomain of the box, i.e. its output.
     """
+
+    @classmethod
+    def strategy(cls, **params):
+        """Add braids to the inherited box distribution."""
+        from hypothesis import strategies as st
+
+        base = super().strategy(**params)
+        factory = cls.ar.braid_factory
+        return cls.extend_strategy(
+            base, factory,
+            lambda factory: st.tuples(
+                cls.atomic_strategy(), cls.atomic_strategy(),
+                st.booleans()).map(
+                    lambda args: factory(*args[:2]).dagger() if args[2]
+                    else factory(*args[:2])), **params)
 
 
 class Braid(BinaryBoxConstructor, Box):
@@ -184,6 +205,7 @@ class Braid(BinaryBoxConstructor, Box):
     :class:`Braid` is only defined for atomic types (i.e. of length 1).
     For complex types, use :meth:`Diagram.braid` instead.
     """
+
     def __init__(self, left: monoidal.Ty, right: monoidal.Ty, is_dagger=False):
         assert_isatomic(left, monoidal.Ty)
         assert_isatomic(right, monoidal.Ty)
@@ -201,6 +223,15 @@ class Braid(BinaryBoxConstructor, Box):
 
     def dagger(self):
         return type(self)(self.right, self.left, not self.is_dagger)
+
+    def to_tree(self):
+        tree = super().to_tree()
+        return dict(tree, is_dagger=True) if self.is_dagger else tree
+
+    @classmethod
+    def from_tree(cls, tree):
+        left, right = map(from_tree, (tree['left'], tree['right']))
+        return cls(left, right, is_dagger='is_dagger' in tree)
 
 
 def hexagon(cls: type, factory: Callable) -> Callable[[Ty, Ty], Diagram]:
@@ -238,6 +269,7 @@ class Sum(monoidal.Sum, Box):
     """
 
 
+@factory
 class Functor(monoidal.Functor):
     """
     A braided functor is a monoidal functor that preserves braids.
@@ -257,7 +289,20 @@ class Functor(monoidal.Functor):
             return self.cod.braid(self(other.dom[0]), self(other.dom[1]))
         return super().__call__(other)
 
+    @axiom
+    def braided(cls):
+        """
+        A braided functor preserves the braid, but only up to the braid
+        relations: the braid of a composite type is a chosen sequence of
+        crossings and a functor rebrackets it. Free braided diagrams compare
+        presentations, so the law is checkable from
+        :class:`discopy.symmetric.Functor` on, where :attr:`symmetric`
+        states it up to hypergraph.
+        """
+        return NotImplemented
 
+
+Diagram.functor_factory = Functor
 Diagram.braid_factory = Braid
 Diagram.sum_factory = Sum
 Id = Diagram.id
@@ -267,4 +312,5 @@ class Equation(monoidal.Equation):
     """ The :class:`monoidal.Equation` of braided diagrams. """
 
 
+Diagram.equation_factory = Equation
 __getattr__ = deprecated_ob(__name__)

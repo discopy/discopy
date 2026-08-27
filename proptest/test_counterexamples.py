@@ -7,8 +7,8 @@ from typing import NamedTuple
 
 import pytest
 
-from discopy import cat
-from discopy.testing import Axiom, Relabelled, Relabelling, assert_verdict
+from discopy import biclosed, braided, cat, compact, feedback, pivotal, ribbon
+from discopy.testing import Atomic, Axiom, Relabelled, Relabelling, assert_verdict
 from discopy.utils import factory_name
 
 
@@ -25,6 +25,7 @@ class Counterexample(NamedTuple):
 COLLAPSE = Relabelling(tuple(
     (cat.Ob(name), cat.Ob("a")) for name in "abcde"))
 
+MEMORY = feedback.Ty("a") @ feedback.Ty("b")
 
 COUNTEREXAMPLES = (
     Counterexample(
@@ -33,6 +34,47 @@ COUNTEREXAMPLES = (
         reason="MappingOrCallable.then iterates the keys of the left-hand "
                "map and the identity functor enumerates none, so id >> f "
                "forgets everything f does."),
+    Counterexample(
+        axiom=braided.Diagram.braid_naturality,
+        args=(braided.Box("f", braided.Ty("a"), braided.Ty("a")),
+              braided.Box("g", braided.Ty("a"), braided.Ty("a"))),
+        reason="A free braid is a box, so naturality only holds up to the "
+               "braid relations that free diagrams do not quotient by."),
+    Counterexample(
+        axiom=biclosed.Diagram.currying_left,
+        args=((biclosed.Eval(biclosed.Ty("a") << biclosed.Ty("a")),
+               biclosed.Ty("a"), biclosed.Ty("a")), ),
+        reason="A free currying is a bubble, equal to its evaluation only "
+               "semantically."),
+    Counterexample(
+        axiom=biclosed.Diagram.currying_right,
+        args=((biclosed.Eval(
+                   biclosed.Ty("a") >> biclosed.Ty("a"), left=False),
+               biclosed.Ty("a"), biclosed.Ty("a")), ),
+        reason="A free currying is a bubble, equal to its evaluation only "
+               "semantically."),
+    Counterexample(
+        axiom=pivotal.Diagram.pivotality,
+        args=(pivotal.Diagram.id(pivotal.Ty("a")), ),
+        reason="The two transposes of a free pivotal diagram are distinct "
+               "diagrams, already on the identity wire."),
+    Counterexample(
+        axiom=ribbon.Diagram.twist_as_trace,
+        args=(Atomic(pivotal.Ty("a")), ),
+        reason="A free twist is a box, not the trace of a braid."),
+    Counterexample(
+        axiom=compact.Diagram.rotate_contravariance,
+        args=((compact.Box("f", compact.Ty("a"), compact.Ty("a")),
+               compact.Box("g", compact.Ty("a"), compact.Ty("a"))), ),
+        reason="to_hypergraph drops the rotation of a box, so the equation "
+               "holds but cannot be checked up to hypergraph."),
+    Counterexample(
+        axiom=feedback.Diagram.feedback_joining,
+        args=((feedback.Box(
+                   "f", MEMORY[:1] @ MEMORY.delay(), MEMORY[:1] @ MEMORY),
+               MEMORY), ),
+        reason="feedback.Diagram.feedback unrolls its memory in the wrong "
+               "order (#606)"),
 )
 
 

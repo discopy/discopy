@@ -347,24 +347,10 @@ def test_Diagram_getitem():
         left, box, right = layer_.boxes_and_types
         layer = Id(left) @ box @ Id(right)
         assert diagram[depth] == layer
-        assert (diagram[-depth], ) == tuple(
-            Id(left) @ box @ Id(right)
-            for left, box, right in (
-                diagram.inside[-depth].boxes_and_types, ))
+        assert diagram[depth - len(diagram)] == diagram[depth]
         assert diagram[depth:depth] == Id(layer.dom)
         assert diagram[depth:] == Id(layer.dom).then(*(
-            Id(left) @ box @ Id(right)
-            for left, box, right in (
-                layer.boxes_and_types for layer in diagram.inside[depth:])))
-        assert diagram[:depth] == Id(diagram.dom).then(*(
-            Id(left) @ box @ Id(right)
-            for left, box, right in (
-                layer.boxes_and_types for layer in diagram.inside[:depth])))
-        assert diagram[depth: depth + 2] == Id(layer.dom).then(*(
-            Id(left) @ box @ Id(right)
-            for left, box, right in (
-                layer.boxes_and_types
-                for layer in diagram.inside[depth: depth + 2])))
+            diagram[i] for i in range(depth, len(diagram))))
 
 
 def test_Diagram_offsets():
@@ -377,10 +363,6 @@ def test_Diagram_offsets():
     assert diagram.offsets == [0, 2]
 
 
-def test_Diagram_hash():
-    assert {Id(Ty('x')): 42}[Id(Ty('x'))] == 42
-
-
 def test_Diagram_str():
     x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
     assert str(Diagram((), x, x)) == "Id(x)"
@@ -388,11 +370,6 @@ def test_Diagram_str():
     assert str(Diagram((Layer(f0), ), x, y)) == "f0"
     assert str(f0 @ Id(z) >> Id(y) @ f1) == "f0 @ z >> y @ f1"
     assert str(f0 @ Id(z) >> Id(y) @ f1) == "f0 @ z >> y @ f1"
-
-
-def test_Diagram_matmul():
-    assert Id(Ty('x')) @ Id(Ty('y')) == Id(Ty('x', 'y'))
-    assert Id(Ty('x')) @ Id(Ty('y')) == Id(Ty('x')).tensor(Id(Ty('y')))
 
 
 def test_Diagram_interchange():
@@ -479,6 +456,12 @@ def test_Diagram_normal_form():
     assert (Id(x) @ f1 >> f0 @ Id(x)).normal_form() == f0 @ f1
     assert (f0 @ f1).normal_form(left=True) == Id(x) @ f1 >> f0 @ Id(x)
 
+    f, g, h = (Box(name, x, x) for name in "fgh")
+    diagram = Diagram(
+        (Layer(x, f), Layer(g, h)), x @ x, x @ x)
+    expected = g @ x >> x @ f >> x @ h
+    assert diagram.normal_form() == expected
+
 
 def test_AxiomError():
     inside = (Layer(Box('f', Ty('x'), Ty('y'))), )
@@ -549,8 +532,6 @@ def test_Functor_call():
     assert F(x) == y
     assert F(f) == f.dagger()
     assert F(F(f)) == f
-    assert F(f >> f.dagger()) == f.dagger() >> f
-    assert F(f @ f.dagger()) == f.dagger() @ Id(x) >> Id(x) @ f
     with raises(TypeError) as err:
         F(F)
 
@@ -708,3 +689,43 @@ def test_Diagram_from_callable():
         @Diagram.from_callable(x, y)
         def diagram(wire):
             return f(x)
+
+
+def test_strategy():
+    from hypothesis import find
+    from hypothesis import strategies as st
+
+    from discopy import testing
+
+    testing.assert_strategy_finds(Diagram, Box)
+    x = Ty('x')
+    composition = find(
+        Diagram.strategy(types=st.just(x), min_leaves=2, max_leaves=2),
+        lambda value: True)
+    assert len(composition.boxes) == 2 == len(composition.inside)
+    assert len(set(composition.boxes)) == len(composition.boxes)
+    assert isinstance(
+        find(Layer.strategy(factory=Diagram), lambda value: True), Layer)
+    params = dict(factory=Diagram, types=st.just(x), dom=x, cod=x, label=0)
+    first = find(Layer.strategy(**params), lambda value: True)
+    second = find(
+        Layer.strategy(**params, exclude=first.boxes), lambda value: True)
+    assert not set(first.boxes).intersection(second.boxes)
+    connected = find(
+        Diagram.strategy(boundary_connected=True), lambda value: True)
+    assert connected.to_hypergraph().is_boundary_connected
+    closed = find(
+        Diagram.strategy(boundary_connected=False),
+        lambda value: not value.to_hypergraph().is_boundary_connected)
+    assert not closed.to_hypergraph().is_boundary_connected
+    components = find(
+        Diagram.strategy(boundary_connected=False),
+        lambda value: bool(value.boxes)
+        and len(value.to_map().connected_components) > 1)
+    assert len(components.to_map().connected_components) > 1
+
+
+def test_axioms():
+    from discopy import testing
+
+    testing.assert_axioms(Ty, PRO, Diagram, Functor)

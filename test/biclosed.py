@@ -135,3 +135,15 @@ def test_to_compact():
         assert source.to_map().to_compact() == source.to_compact()
         assert not any(isinstance(box, Curry)
                        for box in source.to_compact().boxes)
+
+
+def test_strategy():
+    from discopy import testing
+
+    testing.assert_strategy_finds(Diagram, Eval)
+
+
+def test_axioms():
+    from discopy import testing
+
+    testing.assert_axioms(Ty, Diagram, Functor)
