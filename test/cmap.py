@@ -8,19 +8,15 @@ from discopy.python.finset import Permutation
 from discopy.utils import AxiomError
 
 
-def test_port_side_and_direction():
+def test_port_sides():
     from discopy.compact import Ty, CMap as M
     x = Ty("x")
     ports = M.id(x).ports
     assert ports[0].side == "up"
     assert ports[1].side == "down"
-    assert ports[0].direction == "up"
-    assert ports[1].direction == "down"
     adjoint_ports = M.id(x.r).ports
     assert adjoint_ports[0].side == "up"
     assert adjoint_ports[1].side == "down"
-    assert adjoint_ports[0].direction == "down"
-    assert adjoint_ports[1].direction == "up"
 
 
 def test_default_compact_setting():
@@ -33,10 +29,8 @@ def test_default_compact_setting():
 
 
 def test_M_init():
-    from discopy.compact import Ty, Box, CMap as M
-    x, y, z = map(Ty, "xyz")
-    f = Box("f", x @ y, z)
-    valid = M.from_box(f)
+    from discopy.compact import Ty, CMap as M
+    x, y = map(Ty, "xy")
     with raises(ValueError):
         M(x, x, (), ())
     with raises(ValueError):
@@ -47,8 +41,6 @@ def test_M_init():
         M(x @ y, x @ y, (), (1, 0, 3, 2))
     with raises(AxiomError):
         M(x, y, (), (1, 0))
-    with raises(ValueError):
-        M(f.dom, f.cod, (f,), valid.edges, offsets=(None, None))
 
 
 def test_repr_eq_and_hash():
@@ -56,10 +48,20 @@ def test_repr_eq_and_hash():
 
     x, y = map(Ty, "xy")
     cm = M.from_box(Box("f", x, y))
-    assert "ports=" in repr(cm)
+    with_metadata = M(cm.dom, cm.cod, cm.boxes, cm.edges, loops=(x, ))
+    namespace = {}
+    exec("from discopy import *", namespace)
+    back = eval(repr(with_metadata), namespace)
+    assert back == with_metadata
+    assert back.loops == with_metadata.loops
     assert cm == M.from_box(Box("f", x, y))
     assert cm != object()
     assert hash(cm) == hash(M.from_box(Box("f", x, y)))
+
+    g = M.from_box(Box("g", y, x))
+    interchanged = (cm @ g).interchange(0, 1)
+    assert interchanged.boxes != (cm @ g).boxes
+    assert (cm @ g).to_hypergraph() == interchanged.to_hypergraph()
 
 
 def test_id_and_tensor():
@@ -105,18 +107,18 @@ def test_eliminate_swaps():
 
     diagram = Id(x @ y).permute(1, 0) >> g @ x\
         >> Id(w @ x).permute(1, 0) >> f @ w
-    assert diagram == diagram.to_map().to_diagram().normal_form()
+    assert diagram.to_map().to_diagram() == x @ g >> f @ w
+    assert diagram.to_map() == diagram.to_map().to_diagram().to_map()
     assert diagram.to_map() == diagram.to_hypergraph().to_diagram().to_map()
 
 
-def test_to_diagram_preserves_offsets():
-    from discopy.compact import Ty, Box, CMap as M
+def test_states_decode_where_they_were():
+    from discopy.symmetric import Ty, Box
 
-    x, y, z = map(Ty, "xyz")
-    delayed = Box("h", x @ y, z)
-    cmap = M(delayed.dom, delayed.cod, (delayed, ),
-             M.from_box(delayed).edges, offsets=(2, ))
-    assert cmap.to_diagram().to_map() == cmap
+    x, y = map(Ty, "xy")
+    state = Box("s", Ty(), y)
+    diagram = x @ state
+    assert diagram.to_map().to_diagram() == diagram
 
 
 def test_diagram_to_map():
@@ -140,14 +142,14 @@ def test_symmetric_diagram_to_map_encodes_swap_as_wiring():
 
     x = symmetric.Ty("x")
     with raises(AxiomError):
-        monoidal.CMap(x @ x, x @ x, (), (3, 2, 1, 0))
+        monoidal.CMap(x @ x, x @ x, (), (3, 2, 1, 0)).to_diagram()
     assert symmetric.CMap(x @ x, x @ x, (), (3, 2, 1, 0))\
         == symmetric.CMap.swap(x, x)
 
     x, y, z = map(monoidal.Ty, "xyz")
     f = monoidal.Box("f", x @ y, z)
     with raises(AxiomError):
-        monoidal.CMap(y @ x, z, (f, ), (3, 2, 1, 0, 5, 4))
+        monoidal.CMap(y @ x, z, (f, ), (3, 2, 1, 0, 5, 4)).to_diagram()
 
 
 def test_diagram_to_map_structure_and_errors():
@@ -159,6 +161,7 @@ def test_diagram_to_map_structure_and_errors():
         frobenius,
         markov,
         monoidal,
+        pivotal,
         symmetric,
         traced,
     )
@@ -166,10 +169,6 @@ def test_diagram_to_map_structure_and_errors():
 
     mx, my = map(monoidal.Ty, "xy")
     f = monoidal.Box("f", mx, my)
-    assert monoidal.CMap.require_planar is True
-    assert monoidal.CMap.require_causal is True
-    assert monoidal.CMap.require_oriented is True
-    assert monoidal.CMap.require_connected is True
     assert f.to_map() == monoidal.CMap.from_box(f)
 
     bx, by = map(braided.Ty, "xy")
@@ -177,42 +176,31 @@ def test_diagram_to_map_structure_and_errors():
     assert monoidal.CMap.from_diagram(braid).boxes == (braid, )
 
     sx, sy = map(symmetric.Ty, "xy")
-    assert symmetric.CMap.require_planar is False
-    assert symmetric.CMap.require_causal is False
-    assert symmetric.CMap.require_oriented is True
-    assert symmetric.CMap.require_connected is True
     assert symmetric.Swap(sx, sy).to_map() == symmetric.CMap.swap(sx, sy)
 
     cx = compact.Ty("x")
     cup = compact.Cup(cx, cx.r)
     cap = compact.Cap(cx.r, cx)
-    assert compact.CMap.require_planar is False
-    assert compact.CMap.require_causal is False
-    assert compact.CMap.require_oriented is False
-    assert compact.CMap.require_connected is False
     assert symmetric.CMap.from_diagram(cup).boxes == (cup, )
     assert cup.to_map() == compact.CMap.cups(cx, cx.r)
     assert cap.to_map() == compact.CMap.caps(cx.r, cx)
 
     tx = traced.Ty("x")
     traced_box = traced.Box("f", tx, tx)
-    assert traced.CMap.require_planar is True
-    assert traced.CMap.require_causal is False
-    assert traced.CMap.require_oriented is True
-    assert traced.CMap.require_connected is True
     assert traced.Trace(traced_box).to_map() == traced_box.to_map().trace()
 
-    bx = balanced.Ty("x")
-    twist = balanced.Twist(bx)
-    assert traced.CMap.from_diagram(twist).boxes == (twist, )
-    assert twist.to_map().boxes == (twist, )
+    px, py = map(pivotal.Ty, "xy")
+    pbox = pivotal.Box("f", px, py)
+    assert pbox.transpose(left=True).transpose(left=False).to_map().boxes\
+        == (pbox, )
+    assert pbox.to_map() == pivotal.CMap.from_box(pbox)
+
+    bx, by = map(balanced.Ty, "xy")
+    bbox = balanced.Box("f", bx, by)
+    assert bbox.to_map() == balanced.CMap.from_box(bbox)
 
     cx, cy = map(closed.Ty, "xy")
     ev = closed.Eval(cy << cx)
-    assert closed.CMap.require_planar is False
-    assert closed.CMap.require_causal is False
-    assert closed.CMap.require_oriented is True
-    assert closed.CMap.require_connected is True
     assert ev.to_map() == closed.CMap.ev(cy, cx, left=False)
     assert ev.to_map().boxes == (ev, )
     assert closed.Box("f", cx, cx).to_map().trace()
@@ -249,10 +237,12 @@ def test_diagram_to_map_structure_and_errors():
         f.trace(2)
 
     x = monoidal.Ty("x")
-    with raises(AxiomError):
+    with raises(TypeError, match="Pregroup"):
         monoidal.CMap.cups(x, x)
-    with raises(AxiomError):
+    with raises(TypeError, match="Pregroup"):
         monoidal.CMap.caps(x, x)
+    with raises(TypeError):
+        compact.CMap.cups(x, x)
     with raises(AxiomError):
         monoidal.CMap(x @ x, monoidal.Ty(), (), (1, 0))
     with raises(AxiomError):
@@ -260,31 +250,26 @@ def test_diagram_to_map_structure_and_errors():
     assert monoidal.CMap.id(x).edges == (1, 0)
     f = monoidal.Box("f", x, x)
     g = monoidal.Box("g", x, x)
-    with raises(AxiomError):
-        monoidal.CMap(monoidal.Ty(), monoidal.Ty(), (f, g), (3, 2, 1, 0))
+    with raises(AxiomError, match="has no traces"):
+        monoidal.CMap(
+            monoidal.Ty(), monoidal.Ty(), (f, g), (3, 2, 1, 0)).to_diagram()
     s = monoidal.Box("s", monoidal.Ty(), monoidal.Ty())
     t = monoidal.Box("t", monoidal.Ty(), monoidal.Ty())
-    with raises(AxiomError):
-        monoidal.CMap(monoidal.Ty(), monoidal.Ty(), (s, t), ())
-    x = closed.Ty("x")
-    f = closed.Box("f", x, x)
-    g = closed.Box("g", x, x)
-    assert closed.CMap(closed.Ty(), closed.Ty(), (f, g), (3, 2, 1, 0))
+    assert monoidal.CMap(
+        monoidal.Ty(), monoidal.Ty(), (s, t), ()).to_diagram() == s >> t
+    for module in [closed, traced, symmetric]:
+        x = module.Ty("x")
+        f = module.Box("f", x, x)
+        g = module.Box("g", x, x)
+        cycle = module.CMap(
+            module.Ty(), module.Ty(), (f, g), (3, 2, 1, 0))
+        assert not cycle.is_acyclic
 
     x = traced.Ty("x")
-    with raises(AxiomError):
+    with raises(TypeError, match="Pregroup"):
         traced.CMap.cups(x, x)
-    with raises(AxiomError):
+    with raises(TypeError, match="Pregroup"):
         traced.CMap.caps(x, x)
-    f = traced.Box("f", x, x)
-    g = traced.Box("g", x, x)
-    assert traced.CMap(traced.Ty(), traced.Ty(), (f, g), (3, 2, 1, 0))
-    x = symmetric.Ty("x")
-    f = symmetric.Box("f", x, x)
-    g = symmetric.Box("g", x, x)
-    assert symmetric.CMap(symmetric.Ty(), symmetric.Ty(), (f, g), (
-        3, 2, 1, 0))
-
     x, y = map(closed.Ty, "xy")
     assert closed.CMap.ev(y, x).boxes == (
         closed.CMap.category.ev(y, x), )
@@ -299,7 +284,106 @@ def test_diagram_to_map_structure_and_errors():
     x = frobenius.Ty("x")
     assert frobenius.CMap.spiders(1, 2, x).boxes == (
         frobenius.Diagram.spiders(1, 2, x), )
-    assert frobenius.Diagram.map_factory is frobenius.CMap
+
+
+def test_rigid_handedness():
+    from discopy import cmap, rigid
+
+    M = cmap.CMap[rigid.Diagram]
+    x, y = map(rigid.Ty, "xy")
+
+    assert M.cups(x, x.r).to_diagram() == rigid.Cup(x, x.r)
+    assert M.caps(x.r, x).to_diagram() == rigid.Cap(x.r, x)
+    with raises(AxiomError, match="pivotal"):
+        M.cups(x.r, x)
+    with raises(AxiomError, match="pivotal"):
+        M.caps(x, x.r)
+    with raises(AxiomError, match="has no swaps"):
+        M.swap(x, y).to_diagram()
+
+    cx = compact.Ty("x")
+    assert compact.CMap.cups(cx.r, cx).to_diagram()\
+        == compact.Cup(cx.r, cx)
+    assert compact.CMap.caps(cx, cx.r).to_diagram()\
+        == compact.Cap(cx, cx.r)
+
+
+def test_only_to_diagram_needs_the_structure():
+    from discopy import cmap, monoidal, pivotal, traced
+
+    x = monoidal.Ty("x")
+    f = monoidal.Box("f", x, x)
+    cycle = monoidal.CMap(x, x, (f, ), (3, 2, 1, 0))
+    assert not cycle.is_acyclic
+    with raises(AxiomError, match="has no traces"):
+        cycle.to_diagram()
+
+    tx = traced.Ty("x")
+    feedback = traced.CMap(
+        tx, tx, (traced.Box("f", tx, tx), ), (3, 2, 1, 0))
+    assert not feedback.is_acyclic
+
+    class Planar(symmetric.Diagram):
+        """ A category with adjoint types but no cups or caps. """
+        ob = pivotal.Ty
+
+    p = pivotal.Ty("p")
+    cup = cmap.CMap[Planar](p @ p.r, pivotal.Ty(), (), (1, 0))
+    assert not cup.is_monogamous
+    with raises(AxiomError, match="has no cups or caps"):
+        cup.to_diagram()
+
+
+def test_explicit_trace_on_a_subclass():
+    from discopy import cmap, symmetric as sym
+    from discopy.utils import factory
+
+    @factory
+    class Recipe(sym.Diagram):
+        """ A user subclass of a symmetric category. """
+
+    class Step(sym.Box, Recipe):
+        """ A box in a recipe. """
+
+    class Reduce(sym.Trace, Step):
+        """ A recipe knows how to feed one of its outputs back. """
+
+    Recipe.trace_factory = Reduce
+    x = sym.Ty("x")
+    f = Step("f", x, x)
+
+    traced = cmap.CMap[Recipe].from_box(f).trace()
+    assert traced.to_diagram() == Reduce(f, False)
+    assert f.to_hypergraph().trace().to_diagram() == Reduce(f, False)
+
+    Recipe.trace_factory = sym.Trace
+    with raises(TypeError, match="Expected .*Recipe, got symmetric.Trace"):
+        cmap.CMap[Recipe].from_box(f).trace().to_diagram()
+
+
+def test_composed_snakes_are_reordered_on_downgrade():
+    x = compact.Ty("x")
+    f, g = compact.Box("f", x, x), compact.Box("g", x, x)
+    snakes = f.transpose(left=True) >> g.transpose(left=True)
+
+    cm = snakes.to_map()
+    assert not cm.is_monogamous and cm.is_acyclic
+    assert not cm.is_topologically_ordered and not cm.is_causal
+    assert cm.topological_order().boxes == (g, f)
+    once = cm.to_diagram().to_map()
+    assert once.to_diagram().to_map() == once
+    assert snakes.to_hypergraph().to_diagram().to_map().to_hypergraph()\
+        == once.to_hypergraph()
+
+
+def test_unordered_boxes_are_reordered_on_downgrade():
+    from discopy import symmetric as sym
+
+    x = sym.Ty("x")
+    f, g = sym.Box("f", x, x), sym.Box("g", x, x)
+    unordered = sym.CMap(x, x, (f, g), [3, 4, 5, 0, 1, 2])
+    assert unordered.is_acyclic and not unordered.is_topologically_ordered
+    assert unordered.to_diagram() == g >> f
 
 
 @pytest.mark.parametrize(
@@ -330,15 +414,13 @@ def test_curry_uncurry_roundtrip(module):
     right = cmap.curry(left=False)
     assert right.dom == y
     assert right.cod == x >> z
-    assert right.boxes == (
-        f, module.Diagram.coeval_factory(x >> z, left=False))
+    assert right.boxes == (module.Diagram.curry_factory(f, 1, False), )
     assert f.curry(left=False).to_map() == right
 
     left = cmap.curry(left=True)
     assert left.dom == x
     assert left.cod == z << y
-    assert left.boxes == (
-        f, module.Diagram.coeval_factory(z << y, left=True))
+    assert left.boxes == (module.Diagram.curry_factory(f, 1, True), )
     assert f.curry(left=True).to_map() == left
     assert cmap.curry() == left, "curry defaults to the left, see #560"
 
@@ -356,8 +438,7 @@ def test_curry_uncurry_roundtrip(module):
     assert right_two.dom == x @ y @ z
     assert right_two.cod == w
     assert right_two.boxes == (
-        k,
-        module.Diagram.coeval_factory(x @ y >> w, left=False),
+        module.Diagram.curry_factory(k, 2, False),
         module.Diagram.eval_factory(x @ y >> w, left=False))
 
     left_two = k.to_map().curry(n=2, left=True).uncurry(
@@ -365,8 +446,7 @@ def test_curry_uncurry_roundtrip(module):
     assert left_two.dom == x @ y @ z
     assert left_two.cod == w
     assert left_two.boxes == (
-        k,
-        module.Diagram.coeval_factory(w << y @ z, left=True),
+        module.Diagram.curry_factory(k, 2, True),
         module.Diagram.eval_factory(w << y @ z, left=True))
 
     right_nested = k.to_map().curry(left=False).curry(
@@ -412,6 +492,17 @@ def test_trace():
     assert closed_component.n_vertices == 1
     assert closed_component.euler_characteristic == 2
     assert closed_component.is_planar
+
+
+def test_make_causal_cuts_every_backward_wire_at_once():
+    from discopy import traced
+    x = traced.Ty("x")
+    f, g = traced.Box("f", x @ x, x @ x), traced.Box("g", x, x)
+    cmap = (f.to_map() >> g.to_map() @ x).trace(2)
+    assert not cmap.is_acyclic
+    assert cmap.make_causal().boxes == (
+        traced.Trace(traced.Trace(f >> g @ x)), )
+    assert cmap.to_diagram().to_map() == cmap
 
 
 def test_scalar_box():
@@ -543,18 +634,13 @@ def test_interchange(module):
     with raises(IndexError):
         cm.interchange(0, 3)
 
-    # interchange of sequentially composed boxes
     f, g = Box("f", x, y), Box("t", y, z)
     cm = M.from_box(f) >> M.from_box(g)
-    assert cm.interchange(0, 1).boxes == (g, f)
-    assert cm.interchange(0, 1).edges == Permutation.from_transpositions(
-        (
-            (0, 3),
-            (1, 4),
-            (2, 5),
-        ),
-        6
-    )
+    assert cm.is_causal
+    unordered = cm.interchange(0, 1)
+    assert unordered.boxes == (g, f)
+    assert not unordered.is_topologically_ordered
+    assert unordered.topological_order() == cm
 
 
 def test_plug_input():
@@ -657,6 +743,59 @@ def test_draw_plain_path(tmp_path):
         for _ in range(2):  # A plain path saves, overwriting silently.
             f.draw(path=path, show=False)
         assert path.exists()
+
+
+def test_boxes_with_no_domain_decode_at_the_right():
+    x, y = map(compact.Ty, "xy")
+    f = compact.Box("f", x, y)
+    snake = f.transpose(left=True)
+    assert snake.to_map().to_diagram() == snake
+
+
+def test_curry_is_wiring_only_when_the_category_is_rigid():
+    from discopy import pivotal, rigid
+
+    for module in (biclosed, closed):
+        x, y, z = map(module.Ty, "xyz")
+        f = module.Box("f", x @ y, z)
+        curried = f.to_map().curry(left=False)
+        assert curried.boxes == (module.Diagram.curry_factory(f, 1, False), )
+        assert curried.uncurry(left=False) != f.to_map()
+
+    for module in (compact, rigid, pivotal):
+        x, y, z = map(module.Ty, "xyz")
+        f = module.Box("f", x @ y, z)
+        curried = f.to_map().curry(left=True)
+        assert curried.boxes == (f, ) and not curried.is_monogamous
+        assert curried.uncurry(left=True) == f.to_map()
+
+    x, y, z = map(rigid.Ty, "xyz")
+    f = rigid.Box("f", x @ y, z)
+    assert f.to_map().curry(left=True).make_monogamous().boxes == (
+        rigid.Cap(y, y.l), f)
+    with raises(AxiomError, match="adjoint"):
+        f.to_map().curry(left=False).make_monogamous()
+
+    x, y, z = map(pivotal.Ty, "xyz")
+    f = pivotal.Box("f", x @ y, z)
+    assert f.to_map().curry(left=False).make_monogamous().boxes == (
+        pivotal.Cap(x, x.r), f)
+
+
+def test_closed_to_compact():
+    x, y, z = map(closed.Ty, "xyz")
+    f = closed.Box("f", x @ y, z)
+
+    for left in (True, False):
+        source = f.to_map().curry(left=left).uncurry(left=left)
+        result = source.to_compact()
+        exp = z << y if left else x >> z
+        assert result == f.curry(left=left).uncurry(left=left)\
+            .to_compact().to_map()
+        assert result.boxes == (
+            f,
+            closed.Coeval(exp, left=left),
+            closed.Eval(exp, left=left))
 
 
 def test_from_glued_agrees_with_folding():
