@@ -28,7 +28,6 @@ runs:
   - name: Install Graphviz
     if: inputs.graphviz == 'true'
     shell: bash
-    timeout-minutes: 6
     run: |
       APT="sudo timeout 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=10"
       $APT install -y graphviz || { $APT update && $APT install -y graphviz; }

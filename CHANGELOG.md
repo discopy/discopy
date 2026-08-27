@@ -12,7 +12,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - A `workflows` job in `build.yml`, so that the code running our pull
   requests is checked like the code it checks: `actionlint` over the
   workflows, `pflake8` over `.github`, and `pytest .github/tests/*.py`
-  over the three scripts. Three of the last five changes to `.github`
+  over the three scripts and the composite action, whose steps take a
+  strict subset of a workflow step's keys that `actionlint` does not
+  check. Three of the last five changes to `.github`
   were fixing bugs in `.github`
   ([#611](https://github.com/discopy/discopy/issues/611),
   [#615](https://github.com/discopy/discopy/issues/615),
