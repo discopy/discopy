@@ -76,12 +76,6 @@ from discopy.utils import (
 if TYPE_CHECKING:
     from discopy.monoidal import Box, Diagram, Ty
 
-FREE_TRACE = "A free trace is a box, not a rewrite."
-NO_COMONOIDS = "Combinatorial maps have no supply of comonoids."
-NO_EXPONENTIALS = "Combinatorial maps have no exponential objects."
-NO_ROTATION = "Combinatorial maps do not implement rotation."
-NO_SPIDERS = "Combinatorial maps have no supply of spiders."
-
 
 class PortKind(StrEnum):
     """ The four kinds of ports in a :class:`CMap`. """
@@ -1832,42 +1826,45 @@ cycles of this map.
         return None
 
     currying_left = \
-        BiclosedCategory.currying_left.inapplicable(NO_EXPONENTIALS)
+        BiclosedCategory.currying_left.inapplicable(messages.NO_EXPONENTIALS)
 
     currying_right = \
-        BiclosedCategory.currying_right.inapplicable(NO_EXPONENTIALS)
+        BiclosedCategory.currying_right.inapplicable(messages.NO_EXPONENTIALS)
 
     rotate_contravariance = \
-        RigidCategory.rotate_contravariance.inapplicable(NO_ROTATION)
+        RigidCategory.rotate_contravariance.inapplicable(messages.NO_ROTATION)
 
     trace_dinaturality_left = \
-        TracedCategory.trace_dinaturality_left.inapplicable(FREE_TRACE)
+        TracedCategory.trace_dinaturality_left.inapplicable(
+            messages.FREE_TRACE)
 
     trace_dinaturality_right = \
-        TracedCategory.trace_dinaturality_right.inapplicable(FREE_TRACE)
+        TracedCategory.trace_dinaturality_right.inapplicable(
+            messages.FREE_TRACE)
 
     trace_naturality_left = \
-        TracedCategory.trace_naturality_left.inapplicable(FREE_TRACE)
+        TracedCategory.trace_naturality_left.inapplicable(messages.FREE_TRACE)
 
     trace_naturality_right = \
-        TracedCategory.trace_naturality_right.inapplicable(FREE_TRACE)
+        TracedCategory.trace_naturality_right.inapplicable(messages.FREE_TRACE)
 
     copy_coassociativity = \
-        MarkovCategory.copy_coassociativity.inapplicable(NO_COMONOIDS)
+        MarkovCategory.copy_coassociativity.inapplicable(messages.NO_COMONOIDS)
 
     copy_cocommutativity = \
-        MarkovCategory.copy_cocommutativity.inapplicable(NO_COMONOIDS)
+        MarkovCategory.copy_cocommutativity.inapplicable(messages.NO_COMONOIDS)
 
     copy_counitality = \
-        MarkovCategory.copy_counitality.inapplicable(NO_COMONOIDS)
+        MarkovCategory.copy_counitality.inapplicable(messages.NO_COMONOIDS)
 
-    #: The dagger of a tensor reverses the order the boxes are stored in,
-    #: which the hypergraph the map encodes quotients away.
     dagger_monoidality = MonoidalCategory.dagger_monoidality.modulo(
         lambda term: term.to_hypergraph())
 
-    frobenius = HypergraphCategory.frobenius.inapplicable(NO_SPIDERS)
+    frobenius = HypergraphCategory.frobenius.inapplicable(
+        messages.NO_SPIDERS)
 
-    speciality = HypergraphCategory.speciality.inapplicable(NO_SPIDERS)
+    speciality = HypergraphCategory.speciality.inapplicable(
+        messages.NO_SPIDERS)
 
-    spider_fusion = HypergraphCategory.spider_fusion.inapplicable(NO_SPIDERS)
+    spider_fusion = HypergraphCategory.spider_fusion.inapplicable(
+        messages.NO_SPIDERS)
