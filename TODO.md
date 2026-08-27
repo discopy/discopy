@@ -5,7 +5,7 @@ and the branch is in conflict with `main` (`mergeable_state: dirty`). Feedback q
 verbatim in each linked thread. Fix or refute with evidence, resolve the thread either way;
 delete this file when the round is done.
 
-- [ ] merge `main` into the branch (append-only, never rebase), rerun `pflake8` and `pytest`
+- [WIP] @evening-2026-08-27T19:09Z merge `main` into the branch (append-only, never rebase), rerun `pflake8` and `pytest`
 - [ ] [testing.py:505](https://github.com/discopy/discopy/pull/347#discussion_r3863535157) P2 — "`Axiom.broken` is computed by scanning `function.__code__.co_names` for the literal string `\"AxiomError\"` … a fragile heuristic": set an explicit flag in `.failing()` instead
 - [ ] [cat.py:1016](https://github.com/discopy/discopy/pull/347#discussion_r3863535169) P2 — "`Functor.strategy` declares `dom` and `cod` keyword parameters but never uses them": honour them or drop them
 - [ ] [proptest/test_axioms.py:65](https://github.com/discopy/discopy/pull/347#discussion_r3863535177) P2 — "A broken axiom (xfail) is only exercised if one of the 25 random samples happens to be its counterexample": search with `hypothesis.find` or make the xfail strict
