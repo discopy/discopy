@@ -234,7 +234,7 @@ class QuantumGate(Box):
 
     def __init__(self, name: str, dom: Ty, cod: Ty, data=None, **params):
         if data is not None and hasattr(data, "__len__"):
-            data = [complex(v) for v in data]
+            data = [complex(v) + 0j for v in data]
         super().__init__(name, dom, cod, data, **params)
 
     def __setstate__(self, state):
@@ -373,6 +373,10 @@ class Ket(SelfConjugate, QuantumGate):
         super().__init__(name, dom, cod)
         self._digits, self._dim, self.draw_as_brakets = bitstring, 2, True
 
+    def __repr__(self):
+        return factory_name(type(self))\
+            + f"({', '.join(map(repr, self.bitstring))})"
+
     @property
     def bitstring(self):
         """ The bitstring of a Ket. """
@@ -405,6 +409,10 @@ class Bra(SelfConjugate, QuantumGate):
         dom, cod = qubit ** len(bitstring), qubit ** 0
         super().__init__(name, dom, cod)
         self._digits, self._dim, self.draw_as_brakets = bitstring, 2, True
+
+    def __repr__(self):
+        return factory_name(type(self))\
+            + f"({', '.join(map(repr, self.bitstring))})"
 
     @property
     def bitstring(self):

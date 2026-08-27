@@ -9,6 +9,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `discopy.quantum.circuit.Circuit` joins the property matrix, with a
+  `strategy` adding the standard gate set (Pauli, Clifford, rotations,
+  kets/bras, scalars) to the inherited tensor-box distribution. It has
+  no cloning or spiders, so the corresponding Markov/Frobenius axioms are
+  declared inapplicable, and its cups, caps and traces are Bell
+  preparations equal to wiring only up to evaluation. See BUGS.md.
 - `discopy.tensor.Tensor` and `Diagram` join the property matrix, with a
   `strategy` generating small integer-entried tensors over small
   dimensions; unlike `Matrix`'s, its `copy` is a correct spider, so the

@@ -749,3 +749,18 @@ def test_logical_vs_physical_swap():
     # The gate is a box: it stays whiskered and it is drawn as a crossing.
     assert str(qubit @ physical) == "qubit @ SWAP"
     assert physical.to_drawing().boxes[0].is_crossing
+
+
+def test_strategy():
+    from discopy import testing
+    from discopy.quantum.circuit import Circuit
+    from discopy.quantum.gates import Controlled, Ket, QuantumGate
+
+    testing.assert_strategy_finds(Circuit, QuantumGate, Controlled, Ket)
+
+
+def test_axioms():
+    from discopy import testing
+    from discopy.quantum.circuit import Circuit
+
+    testing.assert_axioms(Circuit)

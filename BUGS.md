@@ -5,25 +5,26 @@ most failures were one design flaw repeating across classes, so each group
 names the flaw once and lists where it struck. Fixed means fixed on this
 branch; open bugs carry their declaration in the matrix.
 
-This slice covers `discopy.tensor.Tensor`/`Diagram`, stacked on
-`split/4-matrix` since `Tensor` subclasses `Matrix`. See the earlier
-branches' BUGS.md for the axiom infrastructure, monoidal strategy,
-cmap/hypergraph and matrix slices.
+This slice covers `discopy.quantum.circuit.Circuit`, stacked on
+`split/4-tensor` since `Circuit` subclasses `tensor.Diagram`. See the
+earlier branches' BUGS.md for the rest of the property suite's history.
+
+## Serialisation inherited with the wrong signature
+
+- `quantum.gates.Ket`, `Bra` inherited `QuantumGate`'s repr, which took a
+  bitstring but printed a name — fixed by giving each its own repr that
+  round-trips the bitstring.
 
 ## Pickling that loses or demands state
 
-- `NamedGeneric.__setstate__` (in `discopy.abc`) was defined on the class
-  its subscripts never inherit from, so a subscripted instance —
-  `Matrix[int]`, `Tensor[...]`, `Hypergraph[...]`, `CMap[...]` — unpickled
-  as its bare origin class. Fixed by moving the restore into the
-  dynamically-built subscript class itself. This lands here rather than
-  with the axiom infrastructure because the only call site depending on
-  the previous (buggy) signature is `discopy.tensor.Box.__setstate__`,
-  which called `NamedGeneric.__setstate__(self, state)` explicitly; both
-  sides of the fix are in this commit.
+- `quantum.circuit.Box.__setstate__` demanded a `_mixed` key that
+  plumbing like `quantum.Swap` never stores, crashing on any pickled
+  circuit built from such boxes. Fixed by only reading and renaming the
+  key when it is actually present.
 
-## Open, declared and recorded in the matrix
+## Equality sensitive to representation noise
 
-- A `Tensor` with more than `config.NUMPY_THRESHOLD` entries elides its
-  repr as a literal ellipsis, breaking transparency
-  (`eval(repr(x)) == x`).
+- `QuantumGate` equality compares reprs, and `complex(v)` keeps IEEE
+  signed zeros, so numerically equal gates (`-1j` vs `(-0-1j)`) compared
+  unequal. Fixed by normalising the zeros on construction
+  (`complex(v) + 0j`).
