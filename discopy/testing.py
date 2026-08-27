@@ -41,11 +41,9 @@ a functor that named just a few would compose to one defined nowhere else.
 
 class Strategy[T](ABC):
     """
-    A type with a canonical property-test strategy.
-    Using ``hypothesis``, we can get the default search strategy dispatch
-    through any object that defines a method called ``draw``, but this
-    would conflict with our existing ``draw`` methods, so we do it manually
-    with this custom trait.
+    A type with a canonical `search strategy
+    <https://hypothesis.readthedocs.io/en/latest/data.html>`_
+    generating its instances.
     """
 
     @classmethod

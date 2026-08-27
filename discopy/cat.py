@@ -317,10 +317,9 @@ class Arrow(FreeCategory, Strategy["Arrow"]):
         Generate the canonical instantiation: a single identity or a single
         generator box with the requested (or an arbitrary) boundary.
 
-        No search here: this is the one-shot, non-recursive stand-in that
-        stage 2 replaces with a real ``st.recursive`` search over composite
-        paths — ``min_leaves``/``max_leaves`` are accepted for interface
-        compatibility with that later strategy but otherwise ignored.
+        Callers bound the number of generators of a composite term with
+        :code:`min_leaves` and :code:`max_leaves`; a canonical
+        instantiation has at most one, so both are ignored.
         """
         from hypothesis import strategies as st
 
@@ -1011,9 +1010,10 @@ class Functor(Category, Strategy["Functor"]):
 
     unitality = Category.unitality.failing(
         "Composition is unital only on the left: "
-        "``MappingOrCallable.then`` composes by iterating the keys of the "
-        "left-hand map, and the identity functor enumerates none, so "
-        "``id >> f`` forgets everything ``f`` does instead of being ``f``.")
+        ":code:`MappingOrCallable.then` composes by iterating the keys of "
+        "the left-hand map, and the identity functor enumerates none, so "
+        ":code:`id >> f` forgets everything :code:`f` does instead of "
+        "being :code:`f`.")
 
     dagger_involution = Category.dagger_involution.inapplicable(
         "A functor has no dagger.")
