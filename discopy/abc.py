@@ -50,10 +50,10 @@ from typing import ClassVar, Generic, TypeVar
 from discopy.testing import (
     Axiom, Atomic, Bifunctor, ComposablePair, ComposableTriple,
     FeedbackJoining, FeedbackVanishing, HorizontalPair,
-    LeftCurrying, NonEmpty, RightCurrying, TraceDinaturalityLeft,
+    LeftCurrying, Natural, NonEmpty, RightCurrying, TraceDinaturalityLeft,
     TraceDinaturalityRight, TraceNaturalityLeft, TraceNaturalityRight,
     TraceSuperposing, axiom, declared_axioms)
-from discopy.utils import classproperty, get_origin
+from discopy.utils import classproperty, factory_name, get_origin
 
 
 class Equation[T](ABC):
@@ -1016,6 +1016,32 @@ class HypergraphCategory[C0, C1](
             typ : The type of the spiders.
         """
 
+    @axiom
+    def frobenius(
+            cls, x: C0) -> Equation[C1]:
+        """ The Frobenius equation. """
+        split, merge = cls.spiders(1, 2, x), cls.spiders(2, 1, x)
+        return cls.equation_factory(
+            split @ x >> x @ merge,
+            merge >> split,
+            x @ split >> merge @ x)
+
+    @axiom
+    def speciality(
+            cls, x: C0) -> Equation[C1]:
+        """ Speciality of the Frobenius structure. """
+        split, merge = cls.spiders(1, 2, x), cls.spiders(2, 1, x)
+        return cls.equation_factory(
+            split.then(merge), cls.spiders(1, 1, x), cls.id(x))
+
+    @axiom
+    def spider_fusion(
+            cls, x: C0, m: Natural, n: Natural) -> Equation[C1]:
+        """ Fusion of two spiders connected by one leg. """
+        return cls.equation_factory(
+            cls.spiders(m, 1, x).then(cls.spiders(1, n, x)),
+            cls.spiders(m, n, x))
+
 
 class NamedGeneric(Generic[TypeVar('T')]):
     """
@@ -1081,7 +1107,11 @@ class NamedGeneric(Generic[TypeVar('T')]):
                             return func, args, data
 
                     C.__module__ = origin.__module__
-                    names = [getattr(v, "__name__", str(v)) for v in values]
+                    names = [
+                        factory_name(v)
+                        if isinstance(v, type)
+                        and v.__module__.startswith("discopy")
+                        else getattr(v, "__name__", str(v)) for v in values]
                     C.__name__ = C.__qualname__ = origin.__name__\
                         + f"[{', '.join(names)}]"
                     C.__origin__ = cls

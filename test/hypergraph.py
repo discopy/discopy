@@ -28,7 +28,7 @@ def test_Hypergraph_str():
 def test_Hypergraph_repr():
     x, y = map(Ty, "xy")
     assert repr(H.spiders(1, 0, x @ y))\
-        == "hypergraph.Hypergraph[Diagram]("\
+        == "hypergraph.Hypergraph[frobenius.Diagram]("\
            "dom=frobenius.Ty(frobenius.Wire('x'), frobenius.Wire('y')), "\
            "cod=frobenius.Ty(), boxes=(), wires=((0, 1), (), ()))"
 
@@ -257,3 +257,14 @@ def test_subclass_to_hypergraph():
     f, g = Gate('f', x, x), Gate('g', x, x)
     assert (f >> g).to_hypergraph().category == Circuit
     assert isinstance((f >> g).to_hypergraph().to_diagram(), Circuit)
+
+
+def test_strategy():
+    from hypothesis import find
+
+    hypergraph = find(H.strategy(max_leaves=1), lambda value: value.boxes)
+    assert isinstance(hypergraph, H)
+    isolated = find(
+        H.strategy(boundary_connected=False),
+        lambda value: bool(value.scalar_spiders))
+    assert isolated.scalar_spiders

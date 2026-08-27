@@ -57,6 +57,7 @@ from discopy.abc import (
     RigidCategory, SymmetricCategory, TracedCategory)
 from discopy.drawing import Node, backend
 from discopy.python.finset import Permutation
+from discopy.testing import Strategy
 from discopy.utils import (
     factory_name,
     assert_isinstance,
@@ -96,7 +97,8 @@ Mapping from :class:`Spider` to atomic :class:`frobenius.Ty`.
 """
 
 
-class Hypergraph(MonoidalCategory, NamedGeneric['category']):
+class Hypergraph(
+        MonoidalCategory, NamedGeneric['category'], Strategy["Hypergraph"]):
     """
     A hypergraph is given by:
 
@@ -188,6 +190,34 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
 
     functor = classproperty(lambda cls: cls.category.functor_factory)
     ob = classproperty(lambda cls: cls.category.ob)
+
+    @classmethod
+    def strategy(cls, *, boundary_connected=False, **params):
+        """
+        Generate hypergraphs through their associated diagram category,
+        with isolated spiders beyond the image of ``from_diagram``.
+        """
+        from hypothesis import event
+        from hypothesis import strategies as st
+
+        base = cls.category.strategy(
+            boundary_connected=boundary_connected, **params).map(
+            cls.from_diagram)
+        if boundary_connected:
+            return base
+
+        @st.composite
+        def with_isolated_spiders(draw):
+            result = draw(base)
+            n_spiders = draw(st.integers(min_value=0, max_value=2))
+            event(f"isolated spiders: {n_spiders}")
+            for _ in range(n_spiders):
+                typ = draw(cls.category.ob.strategy(
+                    min_length=1, max_length=1))
+                result @= cls.spiders(0, 0, typ)
+            return result
+
+        return with_isolated_spiders()
 
     def __init__(
             self, dom: Ty, cod: Ty, boxes: tuple[Box, ...],
@@ -327,8 +357,9 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         for depth, box in enumerate(boxes):
             box_wires.append(tuple(map(tuple, (
                 flat_wires[i:i + len(box.dom)],
-                flat_wires[i + len(box.dom):i + len(box.dom @ box.cod)]))))
-            i += len(box.dom @ box.cod)
+                flat_wires[
+                    i + len(box.dom):i + len(box.dom) + len(box.cod)]))))
+            i += len(box.dom) + len(box.cod)
         cod_wires = tuple(flat_wires[i:])
         return (dom_wires, tuple(box_wires), cod_wires)
 
@@ -847,7 +878,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
             result.extend(
                 start + len(box.dom) + len(box.cod) - i - 1
                 for i in range(len(box.cod)))
-            start += len(box.dom @ box.cod)
+            start += len(box.dom) + len(box.cod)
         result.extend(range(start, start + len(self.cod)))
         return tuple(result)
 
@@ -871,7 +902,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
             hypergraph_to_canonical.extend(
                 start + len(box.dom) + len(box.cod) - i - 1
                 for i in range(len(box.cod)))
-            start += len(box.dom @ box.cod)
+            start += len(box.dom) + len(box.cod)
         hypergraph_to_canonical.extend(range(start, start + len(old.cod)))
         hypergraph_to_canonical = tuple(hypergraph_to_canonical)
         canonical_to_hypergraph = Permutation(hypergraph_to_canonical).dagger()
@@ -1080,12 +1111,12 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
             dom_ports = range(port, port + len(box.dom))
             cod_ports = range(
                 port + len(box.dom),
-                port + len(box.dom @ box.cod)
+                port + len(box.dom) + len(box.cod)
             )
             graph.add_edges_from(
                 (source, target)
                 for source in dom_ports for target in cod_ports)
-            port += len(box.dom @ box.cod)
+            port += len(box.dom) + len(box.cod)
         return graph
 
     def topological_order(self) -> Hypergraph:
@@ -1350,9 +1381,9 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         Node('output', i=0, obj=y)
         Node('output', i=1, obj=z)
         """
-        spider_types = tuple(box.dom @ box.cod)
+        spider_types = tuple(box.dom) + tuple(box.cod)
         left = tuple(range(len(box.dom)))
-        right = tuple(range(len(box.dom), len(box.dom @ box.cod)))
+        right = tuple(range(len(box.dom), len(box.dom) + len(box.cod)))
         wires = (left, ((left, right), ), right)
         return cls(box.dom, box.cod, (box, ), wires, spider_types)
 
@@ -1597,7 +1628,8 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
             (Node("input", i=i, obj=obj), dict(i=i, box=None))
             for i, obj in enumerate(self.dom))
         graph.add_edges_from(
-            (Node("input", i=i, obj=obj), Node("spider", i=j, obj=obj))
+            (Node("input", i=i, obj=obj),
+             Node("spider", i=j, obj=self.spider_types[j]))
             for i, (j, obj) in enumerate(
                 zip(self.dom_wires, self.dom)))
         for i, (box, (dom_wires, cod_wires)) in enumerate(
@@ -1620,7 +1652,8 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
             (Node("output", i=i, obj=obj), dict(i=i, box=None))
             for i, obj in enumerate(self.cod))
         graph.add_edges_from(
-            (Node("spider", i=j, obj=obj), Node("output", i=i, obj=obj))
+            (Node("spider", i=j, obj=self.spider_types[j]),
+             Node("output", i=i, obj=obj))
             for i, (j, obj) in enumerate(zip(self.cod_wires, self.cod)))
         return graph
 

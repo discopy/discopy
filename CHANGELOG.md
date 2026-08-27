@@ -9,6 +9,13 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `discopy.cmap.CMap` and `discopy.hypergraph.Hypergraph` grow a
+  `strategy` classmethod, drawing through their associated diagram
+  category and adding closed components (loops, isolated spiders) beyond
+  its image, and `discopy.abc.HypergraphCategory` grows its
+  `frobenius`/`speciality`/`spider_fusion` axioms — enrolling `Hypergraph`
+  and `CMap` at every monoidal-derived level that has one in
+  `proptest/`. See BUGS.md.
 - The property matrix's search strategy is now recursive: `cat.Arrow` and
   `monoidal.Diagram` build composite paths/diagrams with
   `hypothesis.strategies.recursive`/an iterated layer search instead of
