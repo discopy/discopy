@@ -14,6 +14,7 @@ OpenAI-compatible gateway at ``BASE_URL`` and writes the findings to
 """
 
 import ast
+import http.client
 import json
 import os
 import re
@@ -143,18 +144,33 @@ def assemble(files, base_sha):
         files, budget, lambda path: changed_block(path, base_sha))
     context, budget, dropped = contents(deps, budget, context_block)
     parts = [instructions, style] + [block for _, block in context]
-    if dropped:
-        note = f"# Context dropped for size: {', '.join(dropped)}"
-        if len(note) + 2 <= budget:
+
+    def note_dropped(kind, paths):
+        nonlocal budget
+        note = f"# {kind} dropped for size: {', '.join(paths)}"
+        if paths and len(note) + 2 <= budget:
             parts.append(note)
             budget -= len(note) + 2
-    if missing:
-        note = f"# Changed files dropped for size: {', '.join(missing)}"
-        if len(note) + 2 <= budget:
-            parts.append(note)
-            budget -= len(note) + 2
+
+    note_dropped("Context", dropped)
+    note_dropped("Changed files", missing)
     parts += [block for _, block in changed]
     return "\n\n".join(parts)
+
+
+def complete(request, retries=2):
+    """The parsed completion, retrying a connection the gateway cut short
+    — a truncated chunked body raises ``IncompleteRead`` minutes into the
+    transfer, which is the network's failure, not the request's."""
+    for attempt in range(retries + 1):
+        try:
+            with urllib.request.urlopen(request, timeout=600) as response:
+                return json.load(response)
+        except (http.client.IncompleteRead, TimeoutError) as error:
+            print(f"gateway cut the response short: {error!r}",
+                  file=sys.stderr)
+            if attempt == retries:
+                raise
 
 
 def ask(prompt):
@@ -170,8 +186,7 @@ def ask(prompt):
         "Authorization": f"Bearer {os.environ['API_KEY']}",
         "Content-Type": "application/json"})
     try:
-        with urllib.request.urlopen(request, timeout=600) as response:
-            body = json.load(response)
+        body = complete(request)
     except urllib.error.HTTPError as error:
         text = error.read().decode(errors="replace")
         print(f"gateway error {error.code}: {text}", file=sys.stderr)
