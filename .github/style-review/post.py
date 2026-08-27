@@ -77,15 +77,17 @@ def verdicts(past, given):
 
 
 def summary(given):
-    """The tally line, `None` when no remark has been answered yet: a
-    review whose remarks are all still open says nothing about them."""
+    """The tally line, `None` before any remark has been made: how many
+    were made in all, then what became of them. The total counts the
+    remarks still open too — a round answers what it answers, and the
+    reader is owed the size of the pile either way."""
+    if not given:
+        return None
     accepted, declined = given.count("accepted"), given.count("declined")
     waiting = len(given) - accepted - declined
-    if not accepted + declined:
-        return None
-    line = (f"{accepted}+{declined} style remarks taken into account: "
-            f"{accepted} accepted / {declined} declined")
-    return line if not waiting else f"{line}, {waiting} still open"
+    line = (f"{len(given)} style remark{'' if len(given) == 1 else 's'} "
+            f"taken into account: {accepted} accepted / {declined} declined")
+    return line if not waiting else f"{line} / {waiting} still open"
 
 
 def retally(past, given):

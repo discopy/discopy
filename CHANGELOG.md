@@ -17,11 +17,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   each — `accepted` when the file now does what the remark asked,
   `declined` when someone answered that they would not do it, and neither
   while nobody has answered and nothing has moved. The **first** review of
-  the pull request then carries the tally, `X+Y style remarks taken into
-  account: X accepted / Y declined`, edited in place at the top of the
-  thread instead of posted again, with the remarks still waiting counted
-  apart. A round is one review and says which round it is, so the reader
-  sees how the review is landing without counting them
+  the pull request then carries the tally, `6 style remarks taken into
+  account: 3 accepted / 2 declined / 1 still open`, edited in place at the
+  top of the thread instead of posted again. A round is one review and
+  says which round it is, so the reader sees how the review is landing
+  without counting them. The prompt is ordered from what never moves to
+  what moves every round — instructions, `STYLE.md`, context files, the
+  past remarks as a list that only grows at its end, and last the revision
+  under review — so that two rounds of one pull request share a prefix the
+  gateway can serve from its cache rather than reading again
   ([#672](https://github.com/discopy/discopy/pull/672)).
 - The style review can be asked for, and turned off, from the pull request
   itself: `@discopy review this` in a comment reviews it now, and the

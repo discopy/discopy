@@ -35,8 +35,11 @@ performance, anything pflake8 would flag, and the `TODO.md` and
 `CHANGELOG.md` conventions.
 
 The remarks of the previous rounds are your own, so never make one of them
-again — the thread already has it. Say what became of each instead, one
-verdict per remark, by the number it is listed under:
+again — the thread already has it. They are one numbered list, oldest
+first, with whatever they drew — replies on a remark, the conversation
+around it — quoted after the whole list rather than under each remark.
+Say what became of each instead, one verdict per remark, by the number it
+is listed under:
 
 - `accepted` when the file now does what the remark asked;
 - `declined` when someone answered that they would not do it, or the file

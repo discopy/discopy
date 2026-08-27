@@ -13,6 +13,15 @@ added/removed since the merge base. Sends one chat completion to the
 OpenAI-compatible gateway at ``BASE_URL`` and writes the findings, along
 with a verdict on each past remark, to ``.style-review/findings.json`` for
 ``post.py`` to post and tally.
+
+The parts go in from the one that never moves to the one that moves every
+round, so that two rounds of the same pull request share a prefix and the
+gateway can serve it from its cache: the instructions and ``STYLE.md``
+first, then the context files, then the past remarks — a numbered list
+that only grows at its end — and last the revision under review, which is
+new by the very fact that a round is running. The order is what makes the
+prompt append-only, so a part moved earlier costs cache on every round
+after it.
 """
 
 import ast
@@ -139,24 +148,27 @@ def literal(text):
     return repr(text.strip()[:QUOTE])
 
 
-def quoted(comment, indent=""):
-    """One reply on its own line, under the remark it answers when it is
-    indented."""
-    return f"{indent}- {comment['author']}: {literal(comment['body'])}"
+def quoted(comment, about="in the conversation"):
+    """One thing somebody said on its own line, under the remark it
+    answers or in the conversation at large."""
+    return f"- {about}, {comment['author']}: {literal(comment['body'])}"
 
 
 def past_block(past):
     """The remarks of the previous rounds, each under the number its
-    verdict refers to, with the replies it drew and the conversation
-    since the first round."""
+    verdict refers to, and then what they drew. The numbered list only
+    grows at its end, so a round sends the list of the round before it
+    unchanged; a reply, which lands on whichever remark it answers, is
+    quoted after the whole list rather than in its middle, where it would
+    move every remark below it."""
     lines = ["# Style remarks from the previous rounds", ""]
-    for remark in past["remarks"]:
-        lines.append(f"{remark['number']}. `{remark['path']}:"
-                     f"{remark['line']}` — {literal(remark['comment'])}")
-        lines += [quoted(reply, "   ") for reply in remark["replies"]]
-    if past["comments"]:
-        lines += ["", "The conversation since the first round:"]
-        lines += [quoted(comment) for comment in past["comments"]]
+    lines += [f"{remark['number']}. `{remark['path']}:{remark['line']}` — "
+              f"{literal(remark['comment'])}" for remark in past["remarks"]]
+    answers = [quoted(reply, f"on remark {remark['number']}")
+               for remark in past["remarks"] for reply in remark["replies"]]
+    answers += [quoted(comment) for comment in past["comments"]]
+    if answers:
+        lines += ["", "# What those remarks drew", ""] + answers
     return "\n".join(lines)
 
 
@@ -173,9 +185,11 @@ def assemble(files, base_sha, past):
     changes. Every part is budgeted as assembled, including the
     ``"\\n\\n"`` separators the join below adds between them, so the
     request sent to the gateway never exceeds ``BUDGET``. The revision
-    under review is budgeted first and goes in whole: the past remarks
-    and the context files take what is left of the budget, in that
-    order, however many rounds have piled up."""
+    under review is budgeted first and goes in whole, then the context
+    files and last the past remarks, however many rounds have piled up:
+    a history that grew is dropped whole rather than evicting a context
+    file, which sits earlier in the prompt and would take the prefix of
+    every later round with it."""
     deps = sorted(
         {dep for path in files for dep in imports(path)} - set(files))
     with open(".github/style-review/prompt.md") as file:
@@ -187,18 +201,18 @@ def assemble(files, base_sha, past):
         files, budget, lambda path: changed_block(path, base_sha))
     if missing:
         raise ValueError(f"changed files past the budget: {missing}")
+    context, budget, dropped = contents(deps, budget, context_block)
     remarks, budget = fitted(
         past_block(past) if past["remarks"] else "", budget)
     if past["remarks"] and not remarks:
         print("The past remarks are past the budget, so this round gives "
               "no verdict.", file=sys.stderr)
-    context, budget, dropped = contents(deps, budget, context_block)
-    parts = [instructions, style] + ([remarks] if remarks else [])
-    parts += [block for _, block in context]
+    parts = [instructions, style] + [block for _, block in context]
     if dropped:
         note = f"# Context dropped for size: {', '.join(dropped)}"
         if len(note) + 2 <= budget:
             parts.append(note)
+    parts += ([remarks] if remarks else [])
     parts += [block for _, block in changed]
     return "\n\n".join(parts)
 
