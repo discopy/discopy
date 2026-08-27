@@ -27,11 +27,16 @@ def stamp(remarks):
 
 
 def recorded(body):
-    """The remarks a review recorded, ``None`` when it carries no record,
-    i.e. when it is not one of ours."""
+    """The remarks a review recorded, ``None`` when it carries no record
+    this module can read, i.e. when it is not one of ours: a body opening
+    on the marker and going on with anything else is somebody quoting it,
+    never a reason to lose the rounds that follow."""
     if not body.startswith(MARKER):
         return None
-    return json.loads(body[len(MARKER):body.index(" -->")])
+    try:
+        return json.loads(body[len(MARKER):body.index(" -->")])
+    except ValueError:
+        return None
 
 
 def human(comment):

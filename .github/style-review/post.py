@@ -92,7 +92,8 @@ def retally(past, given):
     line = summary(verdicts(past, given))
     if past["first"] is None or line is None:
         return
-    body = past["first"]["body"].split(history.TALLY)[0].rstrip()
+    body = past["first"]["body"].rsplit(
+        f"\n\n{history.TALLY}\n", 1)[0].rstrip()
     try:
         api(f"/repos/{os.environ['REPO']}/pulls/{os.environ['PR_NUMBER']}"
             f"/reviews/{past['first']['id']}", os.environ["APP_TOKEN"],

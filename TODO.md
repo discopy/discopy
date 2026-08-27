@@ -21,9 +21,9 @@ Round 1 of review feedback, from cubic (the correctness reviewer):
 > and treat invalid markers as non-style-review comments so one bad body cannot
 > block later rounds. (`.github/style-review/history.py:34`)
 
-- [ ] A past remark goes into the prompt as a literal, like a reply, so a
+- [x] A past remark goes into the prompt as a literal, like a reply, so a
       newline in it cannot break the numbered listing
-- [ ] The changed files are budgeted before the past remarks, which are dropped
+- [x] The changed files are budgeted before the past remarks, which are dropped
       whole when they do not fit
-- [ ] `retally` strips only a trailing tally, not a marker quoted in a remark
-- [ ] `recorded` reads an unparsable marker as somebody else's review
+- [x] `retally` strips only a trailing tally, not a marker quoted in a remark
+- [x] `recorded` reads an unparsable marker as somebody else's review

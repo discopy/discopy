@@ -132,12 +132,15 @@ def context_block(path):
     return section("Context (not under review)", path, body)
 
 
+def literal(text):
+    """Somebody's words on one bounded line, as a Python literal: a
+    newline or a backtick in them breaks neither the listing they sit in
+    nor the fences below, and a long one cannot eat the budget."""
+    return repr(text.strip()[:QUOTE])
+
+
 def quoted(comment, indent=""):
-    """One reply on its own line, its body as a Python literal so that a
-    newline or a backtick in it can break neither the listing around it
-    nor the fences below."""
-    return (f"{indent}- {comment['author']}: "
-            f"{comment['body'].strip()[:QUOTE]!r}")
+    return f"{indent}- {comment['author']}: {literal(comment['body'])}"
 
 
 def past_block(past):
@@ -147,7 +150,7 @@ def past_block(past):
     lines = ["# Style remarks from the previous rounds", ""]
     for remark in past["remarks"]:
         lines.append(f"{remark['number']}. `{remark['path']}:"
-                     f"{remark['line']}` — {remark['comment']}")
+                     f"{remark['line']}` — {literal(remark['comment'])}")
         lines += [quoted(reply, "   ") for reply in remark["replies"]]
     if past["comments"]:
         lines += ["", "The conversation since the first round:"]
@@ -155,26 +158,41 @@ def past_block(past):
     return "\n".join(lines)
 
 
+def fitted(text, budget):
+    """The text with the budget it leaves, or nothing at all and the
+    budget untouched: the past remarks are dropped whole rather than cut
+    mid-sentence, a round without them simply giving no verdict."""
+    cost = len(text) + 2
+    return (text, budget - cost) if cost <= budget else ("", budget)
+
+
 def assemble(files, base_sha, past):
     """The one prompt: instructions, style guide, past remarks, context,
     changes. Every part is budgeted as assembled, including the
     ``"\\n\\n"`` separators the join below adds between them, so the
-    request sent to the gateway never exceeds ``BUDGET``."""
+    request sent to the gateway never exceeds ``BUDGET``. The revision
+    under review is budgeted first and goes in whole: the past remarks
+    and the context files take what is left of the budget, in that
+    order, however many rounds have piled up."""
     deps = sorted(
         {dep for path in files for dep in imports(path)} - set(files))
     with open(".github/style-review/prompt.md") as file:
         instructions = file.read()
     with open("STYLE.md") as file:
         style = f"# STYLE.md\n\n{file.read()}"
-    fixed = [instructions, style] + (
-        [past_block(past)] if past["remarks"] else [])
-    budget = BUDGET + 2 - sum(len(part) + 2 for part in fixed)
+    budget = BUDGET + 2 - sum(len(part) + 2 for part in (instructions, style))
     changed, budget, missing = contents(
         files, budget, lambda path: changed_block(path, base_sha))
     if missing:
         raise ValueError(f"changed files past the budget: {missing}")
+    remarks, budget = fitted(
+        past_block(past) if past["remarks"] else "", budget)
+    if past["remarks"] and not remarks:
+        print("The past remarks are past the budget, so this round gives "
+              "no verdict.", file=sys.stderr)
     context, budget, dropped = contents(deps, budget, context_block)
-    parts = fixed + [block for _, block in context]
+    parts = [instructions, style] + ([remarks] if remarks else [])
+    parts += [block for _, block in context]
     if dropped:
         note = f"# Context dropped for size: {', '.join(dropped)}"
         if len(note) + 2 <= budget:
