@@ -141,12 +141,15 @@ def assemble(files, base_sha):
     budget = BUDGET + 2 - sum(len(part) + 2 for part in (instructions, style))
     changed, budget, missing = contents(
         files, budget, lambda path: changed_block(path, base_sha))
-    if missing:
-        raise ValueError(f"changed files past the budget: {missing}")
     context, budget, dropped = contents(deps, budget, context_block)
     parts = [instructions, style] + [block for _, block in context]
     if dropped:
         note = f"# Context dropped for size: {', '.join(dropped)}"
+        if len(note) + 2 <= budget:
+            parts.append(note)
+            budget -= len(note) + 2
+    if missing:
+        note = f"# Changed files dropped for size: {', '.join(missing)}"
         if len(note) + 2 <= budget:
             parts.append(note)
     parts += [block for _, block in changed]
