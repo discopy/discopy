@@ -116,6 +116,9 @@ def record(clean):
 
 
 def post_review(body, inline, remarks):
+    """One round as one review: the record of the remarks it makes, the
+    body, and the findings that sit on a line of the diff as inline
+    comments."""
     api(f"/repos/{os.environ['REPO']}/pulls/{os.environ['PR_NUMBER']}"
         f"/reviews", os.environ["APP_TOKEN"], {
             "commit_id": os.environ["HEAD_SHA"], "event": "COMMENT",

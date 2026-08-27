@@ -140,6 +140,8 @@ def literal(text):
 
 
 def quoted(comment, indent=""):
+    """One reply on its own line, under the remark it answers when it is
+    indented."""
     return f"{indent}- {comment['author']}: {literal(comment['body'])}"
 
 

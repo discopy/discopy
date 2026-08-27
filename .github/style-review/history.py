@@ -46,6 +46,8 @@ def human(comment):
 
 
 def spoken(comment):
+    """Who said it and what they said, the part of a comment a verdict
+    reads."""
     return {"author": comment["user"]["login"], "body": comment["body"]}
 
 
