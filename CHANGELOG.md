@@ -9,6 +9,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `discopy.python.finset.Function` and `Permutation` join the property
+  matrix, with a recursive `strategy` generating finite functions under
+  tensor and composition. `swap`'s known bug (#606) is recorded in the
+  counterexample ledger rather than fixed. See BUGS.md.
 - `discopy.cmap.CMap` and `discopy.hypergraph.Hypergraph` grow a
   `strategy` classmethod, drawing through their associated diagram
   category and adding closed components (loops, isolated spiders) beyond

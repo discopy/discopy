@@ -8,7 +8,9 @@ from typing import NamedTuple
 import pytest
 
 from discopy import biclosed, braided, cat, compact, feedback, pivotal, ribbon
-from discopy.testing import Atomic, Axiom, Relabelled, Relabelling, assert_verdict
+from discopy.python import finset
+from discopy.testing import (
+    Atomic, Axiom, Natural, Relabelled, Relabelling, assert_verdict)
 from discopy.utils import factory_name
 
 
@@ -75,6 +77,22 @@ COUNTEREXAMPLES = (
                MEMORY), ),
         reason="feedback.Diagram.feedback unrolls its memory in the wrong "
                "order (#606)"),
+    Counterexample(
+        axiom=finset.Function.hexagon_left,
+        args=(Atomic(Natural(1)), Atomic(Natural(1)), Atomic(Natural(1))),
+        reason="finset.Function.swap returns the inverse permutation "
+               "(#606)"),
+    Counterexample(
+        axiom=finset.Function.hexagon_right,
+        args=(Atomic(Natural(1)), Atomic(Natural(1)), Atomic(Natural(1))),
+        reason="finset.Function.swap returns the inverse permutation "
+               "(#606)"),
+    Counterexample(
+        axiom=finset.Function.braid_naturality,
+        args=(finset.Function(inside=[0], dom=1, cod=1),
+              finset.Function(inside=[], dom=2, cod=0)),
+        reason="finset.Function.swap returns the inverse permutation "
+               "(#606)"),
 )
 
 
