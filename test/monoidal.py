@@ -363,6 +363,10 @@ def test_Diagram_offsets():
     assert diagram.offsets == [0, 2]
 
 
+def test_Diagram_hash():
+    assert {Id(Ty('x')): 42}[Id(Ty('x'))] == 42
+
+
 def test_Diagram_str():
     x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
     assert str(Diagram((), x, x)) == "Id(x)"
@@ -370,6 +374,11 @@ def test_Diagram_str():
     assert str(Diagram((Layer(f0), ), x, y)) == "f0"
     assert str(f0 @ Id(z) >> Id(y) @ f1) == "f0 @ z >> y @ f1"
     assert str(f0 @ Id(z) >> Id(y) @ f1) == "f0 @ z >> y @ f1"
+
+
+def test_Diagram_matmul():
+    assert Id(Ty('x')) @ Id(Ty('y')) == Id(Ty('x', 'y'))
+    assert Id(Ty('x')) @ Id(Ty('y')) == Id(Ty('x')).tensor(Id(Ty('y')))
 
 
 def test_Diagram_interchange():
@@ -532,6 +541,8 @@ def test_Functor_call():
     assert F(x) == y
     assert F(f) == f.dagger()
     assert F(F(f)) == f
+    assert F(f >> f.dagger()) == f.dagger() >> f
+    assert F(f @ f.dagger()) == f.dagger() @ Id(x) >> Id(x) @ f
     with raises(TypeError) as err:
         F(F)
 

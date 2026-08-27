@@ -15,9 +15,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   the earlier canonical single instantiation, and every monoidal-derived
   category (`braided`, `traced`, `balanced`, `symmetric`, `biclosed`,
   `rigid`, `pivotal`, `ribbon`, `compact`, `markov`, `closed`, `feedback`,
-  `frobenius`) inherits it through its own `Diagram.strategy`
-  override, adding its own structural boxes (braids, cups and caps,
-  copies, spiders, feedback loops...) to the mix. Their axioms, stated in
+  `frobenius`) inherits it through a `Box.strategy` override — its own or
+  its base's, e.g. `closed` and `compact` inherit theirs — adding its
+  structural boxes (braids, cups and caps, copies, spiders, feedback
+  loops...) to the mix. Their axioms, stated in
   `discopy.abc`, are enrolled in `proptest/`. See BUGS.md for what the
   wider search surfaced.
 - `discopy/testing.py`, a Hypothesis-based property-testing module:
