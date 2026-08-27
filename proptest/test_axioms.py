@@ -24,6 +24,7 @@ from discopy import (
 from discopy import tensor
 from discopy.frobenius import Dim
 from discopy.matrix import Matrix
+from discopy.quantum import zx
 from discopy.testing import assert_verdict
 from discopy.utils import factory_name
 
@@ -51,6 +52,7 @@ CARRIERS = (
     frobenius.Functor,
     Matrix[int],
     Dim, tensor.Diagram, tensor.Tensor[int],
+    zx.Diagram,
 )
 
 

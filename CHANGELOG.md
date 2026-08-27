@@ -9,6 +9,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `discopy.quantum.zx.Diagram` joins the property matrix, with a
+  `strategy` adding Z/X spiders, the Hadamard and scalars to the
+  inherited tensor-box distribution. Its copy/discard, Frobenius and
+  snake-equation axioms are declared inapplicable — a Z or X spider is a
+  semantic box, equal to wiring only up to evaluation. See BUGS.md.
 - `discopy.tensor.Tensor` and `Diagram` join the property matrix, with a
   `strategy` generating small integer-entried tensors over small
   dimensions; unlike `Matrix`'s, its `copy` is a correct spider, so the
