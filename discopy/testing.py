@@ -626,7 +626,8 @@ class Axiom[T]:
         @wraps(self.equation)
         def equation(*args, **kwargs):
             return self.equation(*args, **kwargs).modulo(up_to)
-        return type(self)(equation, broken=self.broken)
+        return type(self)(
+            equation, subspaces=self.subspaces, broken=self.broken)
 
     def failing(self, reason: str) -> Axiom[T]:
         """
@@ -827,8 +828,8 @@ def assert_strategy_finds(carrier, *structures) -> None:
 
     for structure in structures:
         find(carrier.strategy(), lambda term: any(
-            isinstance(box, structure)
-            for box in getattr(term, "boxes", term.inside)))
+            isinstance(box, structure) for box in (
+                term.boxes if hasattr(term, "boxes") else term.inside)))
 
 
 def assert_verdict(axiom: Axiom, verdict) -> None:

@@ -11,11 +11,10 @@ later stages enrol more carriers are recorded on their own branch.
 
 ## Type atoms that are not wires
 
-- `Functor._map_atomic` and `utils.is_tuple` only recognised the bare
-  `tuple[type, ...]` alias, so a tuple-subclass `ob` (the python carriers'
-  `Types`, added in a later branch) would make functors into python
-  categories iterate a bare type. Fixed in `discopy/cat.py` and
-  `discopy/utils.py`.
+- `utils.is_tuple` only recognised the bare `tuple[type, ...]` alias, so
+  a tuple-subclass `ob` (the python carriers' `Types`, added in a later
+  branch) would make `Functor._map_atomic` (in `discopy/monoidal.py`,
+  which reads it) iterate a bare type. Fixed in `discopy/utils.py`.
 
 ## Open, declared and recorded in the matrix
 
