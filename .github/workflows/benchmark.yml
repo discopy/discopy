@@ -121,9 +121,9 @@ jobs:
       if: steps.previous.outputs.sha != ''
       run: |
         cat benchmark-results/comparison.md >> "$GITHUB_STEP_SUMMARY"
-        grep -q '^\*\*WARNING:' benchmark-results/comparison.md \
-          && echo "::warning::Important benchmark regressions, see the summary." \
-          || true
+        if grep -q '^\*\*WARNING:' benchmark-results/comparison.md; then
+          echo "::warning::Important benchmark regressions, see the summary."
+        fi
     - name: Stage the comparison for the comment
       if: github.event_name == 'pull_request'
       run:

@@ -19,8 +19,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   ([#611](https://github.com/discopy/discopy/issues/611),
   [#615](https://github.com/discopy/discopy/issues/615),
   [#640](https://github.com/discopy/discopy/issues/640)), every one found
-  in production. On its first run `actionlint` found the `style-review.yml`
-  bug below ([#645](https://github.com/discopy/discopy/pull/645)).
+  in production. On its first runs `actionlint` found the `style-review.yml`
+  bug below, and shellcheck the `A && B || C` in `benchmark.yml`'s summary
+  step, now an `if` ([#645](https://github.com/discopy/discopy/pull/645)).
 - `.github/actions/setup`, one composite action for installing uv, Python,
   the project and, for the jobs that draw, Graphviz. The three `build.yml`
   jobs called for it four times between them and the Graphviz incantation
