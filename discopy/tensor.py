@@ -363,6 +363,10 @@ class Functor(frobenius.Functor):
         optimize : The contraction path, passed verbatim to the backend
             ``einsum``, e.g. ``"greedy"``, ``"optimal"`` or an explicit
             path.
+        contract : The contraction engine, either ``"einsum"``,
+            ``"opt_einsum"`` or ``"quimb"``, see :meth:`Functor.contract`.
+            By default, ``einsum`` switching to ``opt_einsum`` for networks
+            with more than ``config.MAX_EINSUM_INDICES`` indices.
         params : Any other optional parameter of the backend ``einsum``
             method, passed verbatim.
 
@@ -763,6 +767,9 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
 
 
 CMap = cmap.CMap[Diagram]
+# NamedGeneric caches CMap[Diagram] by type parameter (abc.NamedGeneric),
+# and Diagram.to_map looks it up the same way, so a subclass here would be
+# invisible to to_map: attributes must land on the cached class itself.
 CMap.dtype = None
 CMap.to_quimb = Diagram.to_quimb
 
