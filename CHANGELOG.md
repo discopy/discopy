@@ -9,6 +9,20 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- The style review keeps score. Every review it posts records the remarks
+  it made, hidden in its own body, so the next round can read them back
+  whole rather than parse its own prose. That next round is one request
+  as before: the model is shown the past remarks with the replies they
+  drew, alongside the revision it is reviewing, and says what became of
+  each — `accepted` when the file now does what the remark asked,
+  `declined` when someone answered that they would not do it, and neither
+  while nobody has answered and nothing has moved. The **first** review of
+  the pull request then carries the tally, `X+Y style remarks taken into
+  account: X accepted / Y declined`, edited in place at the top of the
+  thread instead of posted again, with the remarks still waiting counted
+  apart. A round is one review and says which round it is, so the reader
+  sees how the review is landing without counting them
+  ([#672](https://github.com/discopy/discopy/pull/672)).
 - The style review can be asked for, and turned off, from the pull request
   itself: `@discopy review this` in a comment reviews it now, and the
   `no-style-review` label stops the automatic reviews on it, while the

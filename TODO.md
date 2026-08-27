@@ -5,11 +5,11 @@
 > taken into account and edits its first message with "X+Y style remarks taken
 > into accounts: X accepted / Y declined"
 
-- [ ] Mark every review the style reviewer posts, so a later round can read
+- [x] Mark every review the style reviewer posts, so a later round can read
       back the remarks it made
-- [ ] Read the previous rounds and the replies they got into
+- [x] Read the previous rounds and the replies they got into
       `.style-review/history.json`
-- [ ] Ask the model, in the same one request that reviews the revision, for a
+- [x] Ask the model, in the same one request that reviews the revision, for a
       verdict on each past remark: accepted, declined or still open
-- [ ] Edit the first review's body with the running tally
-- [ ] Document the change in `CHANGELOG.md`
+- [x] Edit the first review's body with the running tally
+- [x] Document the change in `CHANGELOG.md`

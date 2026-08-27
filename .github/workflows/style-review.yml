@@ -111,6 +111,16 @@ jobs:
         echo "changed=$(test -s .style-review/diff.patch \
           && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
+    - name: Read the remarks of the previous rounds
+      if: >
+        steps.config.outputs.configured == 'true'
+        && steps.diff.outputs.changed == 'true'
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        REPO: ${{ github.repository }}
+        PR_NUMBER: ${{ steps.pr.outputs.number }}
+      run: python3 .github/style-review/history.py
+
     - name: Review the diff
       if: >
         steps.config.outputs.configured == 'true'

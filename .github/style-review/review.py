@@ -5,12 +5,14 @@ notebook (a ``docs/notebooks/*.md`` file, its code cells fenced as
 ``python {.marimo}``), or plain prose, config or workflow. Excluded are
 generated artefacts nobody hand-writes, filtered out of the diff before
 this module runs. Assembles ``prompt.md``, ``STYLE.md``, the package-local
-files that the changed Python files import (as context), and one listing
-per changed file: the whole new file, unified-diff style, every line
-numbered by its position in the new file with a leading ``+``/``-`` for
-one added/removed since the merge base. Sends one chat completion to the
-OpenAI-compatible gateway at ``BASE_URL`` and writes the findings to
-``.style-review/findings.json`` for ``post.py`` to post.
+files that the changed Python files import (as context), the remarks the
+previous rounds made with the replies they drew, and one listing per
+changed file: the whole new file, unified-diff style, every line numbered
+by its position in the new file with a leading ``+``/``-`` for one
+added/removed since the merge base. Sends one chat completion to the
+OpenAI-compatible gateway at ``BASE_URL`` and writes the findings, along
+with a verdict on each past remark, to ``.style-review/findings.json`` for
+``post.py`` to post and tally.
 """
 
 import ast
@@ -22,8 +24,11 @@ import sys
 import urllib.error
 import urllib.request
 
+import history
+
 DIRECTORY = ".style-review"
 BUDGET = 400_000
+QUOTE = 2_000
 LANGUAGES = {
     ".py": "python", ".md": "markdown", ".rst": "rst", ".yml": "yaml",
     ".yaml": "yaml", ".toml": "toml", ".json": "json", ".css": "css",
@@ -127,24 +132,49 @@ def context_block(path):
     return section("Context (not under review)", path, body)
 
 
-def assemble(files, base_sha):
-    """The one prompt: instructions, style guide, context, changes. Every
-    part is budgeted as assembled, including the ``"\\n\\n"`` separators
-    the join below adds between them, so the request sent to the gateway
-    never exceeds ``BUDGET``."""
+def quoted(comment, indent=""):
+    """One reply on its own line, its body as a Python literal so that a
+    newline or a backtick in it can break neither the listing around it
+    nor the fences below."""
+    return (f"{indent}- {comment['author']}: "
+            f"{comment['body'].strip()[:QUOTE]!r}")
+
+
+def past_block(past):
+    """The remarks of the previous rounds, each under the number its
+    verdict refers to, with the replies it drew and the conversation
+    since the first round."""
+    lines = ["# Style remarks from the previous rounds", ""]
+    for remark in past["remarks"]:
+        lines.append(f"{remark['number']}. `{remark['path']}:"
+                     f"{remark['line']}` — {remark['comment']}")
+        lines += [quoted(reply, "   ") for reply in remark["replies"]]
+    if past["comments"]:
+        lines += ["", "The conversation since the first round:"]
+        lines += [quoted(comment) for comment in past["comments"]]
+    return "\n".join(lines)
+
+
+def assemble(files, base_sha, past):
+    """The one prompt: instructions, style guide, past remarks, context,
+    changes. Every part is budgeted as assembled, including the
+    ``"\\n\\n"`` separators the join below adds between them, so the
+    request sent to the gateway never exceeds ``BUDGET``."""
     deps = sorted(
         {dep for path in files for dep in imports(path)} - set(files))
     with open(".github/style-review/prompt.md") as file:
         instructions = file.read()
     with open("STYLE.md") as file:
         style = f"# STYLE.md\n\n{file.read()}"
-    budget = BUDGET + 2 - sum(len(part) + 2 for part in (instructions, style))
+    fixed = [instructions, style] + (
+        [past_block(past)] if past["remarks"] else [])
+    budget = BUDGET + 2 - sum(len(part) + 2 for part in fixed)
     changed, budget, missing = contents(
         files, budget, lambda path: changed_block(path, base_sha))
     if missing:
         raise ValueError(f"changed files past the budget: {missing}")
     context, budget, dropped = contents(deps, budget, context_block)
-    parts = [instructions, style] + [block for _, block in context]
+    parts = fixed + [block for _, block in context]
     if dropped:
         note = f"# Context dropped for size: {', '.join(dropped)}"
         if len(note) + 2 <= budget:
@@ -193,10 +223,13 @@ def main():
     with open(os.path.join(DIRECTORY, "files.txt")) as file:
         files = [path for path in file.read().splitlines()
                  if path and os.path.exists(path)]
-    findings = ask(assemble(files, os.environ["BASE_SHA"]))
+    past = history.load()
+    answer = ask(assemble(files, os.environ["BASE_SHA"], past))
     with open(os.path.join(DIRECTORY, "findings.json"), "w") as file:
-        json.dump(findings, file)
-    print(f"{len(findings.get('findings', []))} findings.")
+        json.dump(answer, file)
+    print(f"{len(answer.get('findings', []))} findings, "
+          f"{len(answer.get('verdicts', []))} verdicts on "
+          f"{len(past['remarks'])} past remarks.")
 
 
 if __name__ == "__main__":
