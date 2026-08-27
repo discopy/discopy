@@ -181,7 +181,7 @@ def fitted(text, budget):
 
 
 def assemble(files, base_sha, past):
-    """The one prompt: instructions, style guide, past remarks, context,
+    """The one prompt: instructions, style guide, context, past remarks,
     changes. Every part is budgeted as assembled, including the
     ``"\\n\\n"`` separators the join below adds between them, so the
     request sent to the gateway never exceeds ``BUDGET``. The revision
