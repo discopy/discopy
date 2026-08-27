@@ -241,7 +241,7 @@ class Function(function.Function, ClosedCategory, Strategy):
         return self.copy(dom) >> dom @ fixed\
             >> self >> cod @ self.discard(traced)
 
-    exp = over = under = staticmethod(lambda x, y: exp(x, y))
+    exp = staticmethod(lambda x, y: exp(x, y))
 
     dagger_involution = ClosedCategory.dagger_involution.inapplicable(
         "A python function has no dagger.")
