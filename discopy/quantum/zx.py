@@ -52,8 +52,9 @@ class Diagram(tensor.Diagram[complex]):
     copy_cocommutativity = tensor.Diagram.copy_cocommutativity.inapplicable(
         SEMANTIC_SPIDERS)
 
-    copy_monoidal_coherence = tensor.Diagram.copy_monoidal_coherence\
-        .inapplicable(SEMANTIC_SPIDERS)
+    copy_monoidal_coherence = \
+        tensor.Diagram.copy_monoidal_coherence.inapplicable(
+            SEMANTIC_SPIDERS)
 
     discard_coherence = tensor.Diagram.discard_coherence.inapplicable(
         SEMANTIC_SPIDERS)
@@ -265,12 +266,10 @@ class Box(tensor.Box[complex], Diagram):
         from hypothesis import strategies as st
 
         base = super().strategy(**params)
-        if any(params.get(boundary) is not None
-               for boundary in ("dom", "cod")):
-            return base
-        return st.one_of(base, st.sampled_from((
-            H, Z(1, 1, 0.5), Z(0, 2), Z(2, 1),
-            X(1, 2, 0.25), X(1, 0), Scalar(0.5))))
+        return cls.extend_strategy(
+            base, cls, lambda factory: st.sampled_from((
+                H, Z(1, 1, 0.5), Z(0, 2), Z(2, 1),
+                X(1, 2, 0.25), X(1, 0), Scalar(0.5))), **params)
 
 
 class Sum(tensor.Sum[complex], Box):
