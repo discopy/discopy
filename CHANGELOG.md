@@ -394,6 +394,18 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `then` and re-validating the whole prefix at every step. This speeds
   up `Diagram.eval` on every tensor backend
   ([#525](https://github.com/discopy/discopy/pull/525)).
+- `Hypergraph.from_diagram` is linear rather than quadratic in the number
+  of layers, mirroring `CMap.from_glued`: the new `Hypergraph.from_glued`
+  glues the image of every box onto a scan of open wires with a single
+  union-find pass, instead of folding the images with `then`, which
+  recomputes the pushout and relabels every spider and box built so far
+  at each layer. A closed loop left by gluing a cap directly onto a cup
+  survives as a scalar spider, since it is never referenced by the
+  scan and would otherwise vanish silently. This speeds up
+  `symmetric.Equation`, `compact.Equation`, `frobenius.Equation`,
+  `Hypergraph.simplify` and `Diagram.foliation`, all of which go through
+  `Diagram.to_hypergraph`
+  ([#623](https://github.com/discopy/discopy/issues/623)).
 
 ### Project
 
