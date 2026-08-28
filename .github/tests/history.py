@@ -50,3 +50,34 @@ def test_history_numbers_the_remarks_across_the_rounds(history, monkeypatch):
 def test_history_of_a_pull_request_nobody_reviewed(history, monkeypatch):
     monkeypatch.setattr(history, "listing", lambda path, token: [])
     assert history.history("o/r", "1", "token") == history.empty()
+
+
+def test_recorded_reads_a_marker_of_the_wrong_shape_as_none(history):
+    """Valid JSON that is not a list of remarks is somebody quoting the
+    marker, not a round: reading it as one crashed the numbering."""
+    for payload in ('"a string"', '{"path": "a.py"}', '[{"path": "a.py"}]',
+                    '[1, 2, 3]'):
+        assert history.recorded(history.MARKER + payload + " -->") is None
+
+
+def test_scored_reads_the_verdicts_a_tally_carries(history):
+    body = "Style review.\n\n" + history.scoreboard(
+        {"1": "accepted", "2": "declined"}) + "\n2 style remarks"
+    assert history.scored(body) == {"1": "accepted", "2": "declined"}
+    assert history.scored("no tally here") == {}
+    assert history.scored(history.TALLY + " not json -->") == {}
+
+
+def test_scored_keeps_only_a_verdict_that_decided_something(history):
+    body = history.scoreboard({"1": "accepted", "2": "open", "3": "?"})
+    assert history.scored(body) == {"1": "accepted"}
+
+
+def test_a_review_nobody_submitted_is_not_a_round(history, monkeypatch):
+    pending = review(history, [{"path": "a.py", "line": 1, "comment": "x"}], 4)
+    pending["submitted_at"] = None
+    listed = {"/repos/o/r/pulls/1/reviews": [pending],
+              "/repos/o/r/pulls/1/comments": [],
+              "/repos/o/r/issues/1/comments": []}
+    monkeypatch.setattr(history, "listing", lambda path, token: listed[path])
+    assert history.history("o/r", "1", "token")["rounds"] == 0

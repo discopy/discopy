@@ -24,21 +24,26 @@ def anchor(comment):
 
 
 def entries(conversation, diff_comments, reviews):
-    """One dict per contribution, with a `when` timestamp to sort by and
-    an `anchor` of `path` or `path:line` for a comment on the diff, else
-    `None`. A pending review has no `submitted_at` and is not a
-    contribution yet, so it is left out."""
+    """One dict per contribution, with a `when` timestamp to sort by, an
+    `anchor` of `path` or `path:line` for a comment on the diff, else
+    `None`, and the `thread` it belongs to, which is the comment it
+    answers or itself: two threads can sit on one line, and it is the
+    thread, not the line, whose last word must survive the budget. A
+    pending review has no `submitted_at` and is not a contribution yet,
+    so it is left out."""
     result = [
         {"when": comment["created_at"], "author": author(comment),
-         "anchor": None, "body": comment["body"] or ""}
+         "anchor": None, "thread": None, "body": comment["body"] or ""}
         for comment in conversation]
     result += [
         {"when": comment["created_at"], "author": author(comment),
-         "anchor": anchor(comment), "body": comment["body"] or ""}
+         "anchor": anchor(comment), "body": comment["body"] or "",
+         "thread": comment.get("in_reply_to_id") or comment["id"]}
         for comment in diff_comments]
     result += [
         {"when": review["submitted_at"], "author": author(review),
-         "anchor": None, "body": f"[{review['state']}] {review['body']}"}
+         "anchor": None, "thread": None,
+         "body": f"[{review['state']}] {review['body']}"}
         for review in reviews
         if review["submitted_at"] and (review["body"] or "").strip()]
     return sorted(result, key=lambda entry: entry["when"])
@@ -52,28 +57,41 @@ def block(entry):
     return f"### {head}\n\n{entry['body']}"
 
 
-def render(items, budget):
-    """The transcript, oldest first. Past the ``budget``, the oldest
-    entries are dropped first, except the latest entry on each diff
-    anchor: the most recent comment in a still-open flag's thread."""
-    latest_on_anchor = {
-        entry["anchor"] for entry in items if entry["anchor"]}
-    seen, protected = set(), set()
+def note(dropped):
+    """What the transcript says of the entries it had to leave out."""
+    if not dropped:
+        return ""
+    return (f"_{dropped} earlier message{'s' if dropped > 1 else ''} "
+            "omitted for size._\n\n")
+
+
+def latest(items):
+    """The last entry of each review thread, by identity: the most recent
+    word on a flag somebody may still be waiting on."""
+    seen, keep = set(), set()
     for entry in reversed(items):
-        if entry["anchor"] in latest_on_anchor - seen:
-            protected.add(id(entry))
-            seen.add(entry["anchor"])
-    blocks = [(entry, block(entry)) for entry in items]
-    dropped = 0
-    while sum(len(text) + 2 for _, text in blocks) > budget:
-        droppable = [
-            i for i, (entry, _) in enumerate(blocks)
-            if id(entry) not in protected]
-        if not droppable:
-            break
-        del blocks[droppable[0]]
+        if entry["thread"] and entry["thread"] not in seen:
+            seen.add(entry["thread"])
+            keep.add(id(entry))
+    return keep
+
+
+def render(items, budget):
+    """The transcript, oldest first. Past the ``budget`` the oldest entry
+    goes first, sparing the last word of each thread while any other
+    entry is left; the note counts against the budget rather than being
+    added on top of it, and the spared entries are cut too rather than
+    hand back a transcript over the budget, which the prompt would drop
+    whole for less. A budget too small for anything at all gives nothing
+    rather than the note alone, which would be over it in its turn."""
+    keep = latest(items)
+    blocks, dropped = [(entry, block(entry)) for entry in items], 0
+    while blocks and sum(
+            len(text) + 2 for _, text in blocks) + len(note(dropped)) > budget:
+        droppable = [index for index, (entry, _) in enumerate(blocks)
+                     if id(entry) not in keep]
+        del blocks[droppable[0] if droppable else 0]
         dropped += 1
-    note = (f"_{dropped} earlier message"
-            f"{'s' if dropped > 1 else ''} omitted for size._\n\n"
-            if dropped else "")
-    return note + "\n\n".join(text for _, text in blocks)
+    if not blocks:
+        return ""
+    return note(dropped) + "\n\n".join(text for _, text in blocks)

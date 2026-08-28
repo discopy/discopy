@@ -168,6 +168,8 @@ jobs:
         GH_TOKEN: ${{ steps.app-token.outputs.token }}
         PR_NUMBER: ${{ steps.pr.outputs.number }}
         CLEAN: ${{ steps.post.outputs.clean }}
+        CONFIGURED: ${{ steps.config.outputs.configured }}
+        CHANGED: ${{ steps.diff.outputs.changed }}
         REVIEW_OUTCOME: ${{ steps.review.outcome }}
       run: |
         called="$(gh api --paginate \
@@ -180,9 +182,12 @@ jobs:
         this pull request."
           exit 0
         fi
-        if [ "$REVIEW_OUTCOME" = "failure" ]; then
-          body="Style review crashed, see the \"Review the diff\" step's \
-        log. @cubic-dev-ai review"
+        # A review that was meant to run and did not is a crash of its
+        # own step or of the one before it, which GitHub skips it for.
+        if [ "$CONFIGURED" = true ] && [ "$CHANGED" = true ] \
+           && [ "$REVIEW_OUTCOME" != success ]; then
+          body="@cubic-dev-ai review — the style review did not run \
+        ($REVIEW_OUTCOME), see the job's log."
         elif [ "$CLEAN" = "true" ]; then
           body="No style remarks. @cubic-dev-ai review"
         else

@@ -35,16 +35,16 @@ are six defects.
 > P2: Only an inline-comment validation rejection should trigger the body-only
 > retry (`post.py:145`)
 
-- [ ] A verdict once decisive survives a later round that forgets it: the tally
+- [x] A verdict once decisive survives a later round that forgets it: the tally
       comment carries the verdicts, `post.py` merges rather than recomputes
-- [ ] The prompt stops forcing `open` on a remark whose file it cannot see, and
+- [x] The prompt stops forcing `open` on a remark whose file it cannot see, and
       asks for silence on it instead
-- [ ] `recorded` reads a marker of the wrong shape as somebody else's review
-- [ ] A review nobody submitted is not a round
-- [ ] `thread.render` keys its protection by the thread, counts its own note,
+- [x] `recorded` reads a marker of the wrong shape as somebody else's review
+- [x] A review nobody submitted is not a round
+- [x] `thread.render` keys its protection by the thread, counts its own note,
       and bounds what it protects
-- [ ] The handoff tells the correctness reviewer when the style review never
+- [x] The handoff tells the correctness reviewer when the style review never
       ran, and says it in a comment the `called` check recognises
-- [ ] `commentable_lines` gives the lines the diff adds, which is what the
+- [x] `commentable_lines` gives the lines the diff adds, which is what the
       prompt promises
-- [ ] Only a 422 falls back to the body
+- [x] Only a 422 falls back to the body

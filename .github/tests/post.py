@@ -15,9 +15,10 @@ diff --git a/discopy/cat.py b/discopy/cat.py
 """
 
 
-def test_commentable_lines(post):
-    assert post.commentable_lines(DIFF) == {
-        "discopy/cat.py": {12, 13, 14, 15, 50, 51}}
+def test_commentable_lines_are_the_lines_the_diff_adds(post):
+    """A hunk shows its surroundings and GitHub would take a comment on
+    them, but the prompt asks for a finding on a line the diff adds."""
+    assert post.commentable_lines(DIFF) == {"discopy/cat.py": {13, 50}}
 
 
 def test_commentable_lines_ignores_a_hunk_before_any_file(post):
@@ -74,12 +75,13 @@ def test_summary_counts_every_remark(post):
     assert post.summary([]) is None
 
 
-def test_verdicts_default_to_none_for_a_remark_the_model_skipped(post):
-    past = {"remarks": [{"number": 1}, {"number": 2}]}
-    assert post.verdicts(past, [{"remark": 2, "verdict": "declined"}]) == [
-        None, "declined"]
-    assert post.verdicts(past, [{"remark": "1", "verdict": "accepted"},
-                                {"bad": "shape"}, None]) == ["accepted", None]
+def test_verdicts_read_what_this_round_answered(post):
+    past = {"remarks": [{"number": 1}, {"number": 2}], "verdicts": {}}
+    kept = post.verdicts(past, [{"remark": 2, "verdict": "declined"}])
+    assert post.tally(past["remarks"], kept) == [None, "declined"]
+    kept = post.verdicts(past, [{"remark": "1", "verdict": "accepted"},
+                                {"bad": "shape"}, None])
+    assert post.tally(past["remarks"], kept) == ["accepted", None]
 
 
 def test_tallied_replaces_the_tally_it_finds(post, history):
@@ -99,3 +101,35 @@ def test_tallied_leaves_a_remark_quoting_the_marker_alone(post, history):
             + history.TALLY + " in a review")
     assert post.tallied(post.tallied(body, "1 style remark: 1 accepted / 0 "
                                      "declined"), None) == body
+
+
+def test_a_verdict_survives_a_round_that_forgets_it(post):
+    """A remark somebody accepted does not go back to open because a
+    later round could no longer see the file it was about."""
+    past = {"remarks": [{"number": 1}, {"number": 2}],
+            "verdicts": {"1": "accepted", "2": "declined"}}
+    kept = post.verdicts(past, [])
+    assert post.tally(past["remarks"], kept) == ["accepted", "declined"]
+    kept = post.verdicts(past, [{"remark": 1, "verdict": "open"}])
+    assert post.tally(past["remarks"], kept) == ["accepted", "declined"]
+
+
+def test_a_decisive_verdict_overrides_the_one_before_it(post):
+    past = {"remarks": [{"number": 1}], "verdicts": {"1": "declined"}}
+    kept = post.verdicts(past, [{"remark": 1, "verdict": "accepted"}])
+    assert post.tally(past["remarks"], kept) == ["accepted"]
+
+
+def test_a_remark_nobody_has_answered_is_open(post):
+    past = {"remarks": [{"number": 1}, {"number": 2}],
+            "verdicts": {"1": "accepted"}}
+    kept = post.verdicts(past, [{"bad": "shape"}, None])
+    assert post.tally(past["remarks"], kept) == ["accepted", None]
+
+
+def test_the_tally_carries_its_verdicts_for_the_next_round(post, history):
+    body = history.stamp([]) + "\nStyle review by `m`, round 1."
+    tallied = post.tallied(body, "1 style remark: 1 accepted / 0 declined",
+                           {"1": "accepted"})
+    assert history.scored(tallied) == {"1": "accepted"}
+    assert post.tallied(tallied, None) == body

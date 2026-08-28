@@ -24,7 +24,8 @@ from github import listing
 
 DIRECTORY = ".style-review"
 MARKER = "<!-- style-review "
-TALLY = "<!-- style-review-tally -->"
+TALLY = "<!-- style-review-tally"
+DECISIVE = ("accepted", "declined")
 
 
 def stamp(remarks):
@@ -32,6 +33,14 @@ def stamp(remarks):
     quoting one from closing the HTML comment early, and ``json.loads``
     reads the escape back."""
     return MARKER + json.dumps(remarks).replace(">", "\\u003e") + " -->"
+
+
+def remarklike(made):
+    """Whether a decoded record is a list of remarks, rather than of
+    whatever else somebody quoting the marker happened to write."""
+    return isinstance(made, list) and all(
+        isinstance(remark, dict)
+        and {"path", "line", "comment"} <= remark.keys() for remark in made)
 
 
 def recorded(body):
@@ -42,14 +51,36 @@ def recorded(body):
     if not body.startswith(MARKER):
         return None
     try:
-        return json.loads(body[len(MARKER):body.index(" -->")])
+        made = json.loads(body[len(MARKER):body.index(" -->")])
     except ValueError:
         return None
+    return made if remarklike(made) else None
+
+
+def scoreboard(verdicts):
+    """The hidden half of a tally: what became of each remark, by its
+    number, so that a later round reads back a verdict somebody has
+    already acted on rather than asking for it again."""
+    return f"{TALLY} " + json.dumps(verdicts).replace(">", "\\u003e") + " -->"
+
+
+def scored(body):
+    """The verdicts a tally carries, empty for a body carrying none or
+    carrying one this module cannot read."""
+    if TALLY not in body:
+        return {}
+    try:
+        kept = json.loads(body.rsplit(TALLY, 1)[1].split(" -->")[0])
+    except ValueError:
+        return {}
+    return ({number: verdict for number, verdict in kept.items()
+             if verdict in DECISIVE} if isinstance(kept, dict) else {})
 
 
 def empty():
     """The history of a pull request no round has been posted on yet."""
-    return {"rounds": 0, "reviews": [], "remarks": [], "discussion": ""}
+    return {"rounds": 0, "reviews": [], "remarks": [], "discussion": "",
+            "verdicts": {}}
 
 
 def load():
@@ -70,15 +101,18 @@ def history(repo, number, token):
     conversation = listing(f"/repos/{repo}/issues/{number}/comments", token)
     discussion = thread.render(
         thread.entries(conversation, comments, reviews), thread.BUDGET)
-    rounds = [(review, recorded(review["body"] or "")) for review in reviews]
+    rounds = [(review, recorded(review["body"] or "")) for review in reviews
+              if review["submitted_at"]]
     rounds = [(review, made) for review, made in rounds if made is not None]
-    remarks = []
-    for _, made in rounds:
+    remarks, verdicts = [], {}
+    for review, made in rounds:
         for remark in made:
             remark["number"] = len(remarks) + 1
             remarks.append(remark)
+        verdicts = scored(review["body"]) or verdicts
     return {
         "rounds": len(rounds), "remarks": remarks, "discussion": discussion,
+        "verdicts": verdicts,
         "reviews": [{"id": review["id"], "body": review["body"]}
                     for review, _ in rounds]}
 

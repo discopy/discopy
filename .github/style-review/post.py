@@ -38,15 +38,24 @@ HUNK = re.compile(r"^@@ -\S+ \+(\d+)(?:,(\d+))? @@")
 
 
 def commentable_lines(diff):
-    """Map each path in a unified diff to the new-file lines it shows."""
-    lines, path = {}, None
+    """Map each path in a unified diff to the lines it adds. A hunk shows
+    the lines around a change as well, and GitHub would take a comment on
+    those, but the prompt asks for a finding on a line the diff adds, so
+    that is what a finding is held to."""
+    lines, path, number = {}, None, 0
     for row in diff.splitlines():
         if row.startswith("+++ b/"):
             path = row[len("+++ b/"):]
             lines[path] = set()
-        elif (match := HUNK.match(row)) and path is not None:
-            start, length = int(match[1]), int(match[2] or "1")
-            lines[path].update(range(start, start + length))
+        elif match := HUNK.match(row):
+            number = int(match[1])
+        elif path is None or row.startswith("-") or row.startswith("\\"):
+            continue
+        elif row.startswith("+"):
+            lines[path].add(number)
+            number += 1
+        else:
+            number += 1
     return lines
 
 
@@ -98,15 +107,26 @@ def describe(nth, dropped, withheld, unreadable):
 
 
 def verdicts(past, given):
-    """The verdict on each past remark in the order they were made, `None`
-    for one the model skipped, which is one still open."""
-    said = {}
+    """What became of each remark by its number: this round's answer where
+    it is decisive, and otherwise the one an earlier round recorded. A
+    remark somebody has accepted or declined does not go back to open
+    because a later round forgot it — the file it was about may have left
+    the diff since, and a verdict is a thing somebody acted on."""
+    kept = dict(past["verdicts"])
     for answer in given:
         try:
-            said[int(answer["remark"])] = answer["verdict"]
+            number, verdict = str(int(answer["remark"])), answer["verdict"]
         except (KeyError, TypeError, ValueError):
             continue
-    return [said.get(remark["number"]) for remark in past["remarks"]]
+        if verdict in history.DECISIVE:
+            kept[number] = verdict
+    return kept
+
+
+def tally(remarks, verdicts):
+    """The verdicts in the order the remarks were made, `None` for a
+    remark nobody has answered yet."""
+    return [verdicts.get(str(remark["number"])) for remark in remarks]
 
 
 def summary(given):
@@ -124,12 +144,15 @@ def summary(given):
     return line if not waiting else f"{line} / {waiting} still open"
 
 
-def tallied(body, line):
+def tallied(body, line, verdicts=None):
     """A review body carrying the tally at its foot, in place of whatever
     tally it carried before, or none at all when there is no line: what a
-    review said when it was posted is history, only the tally moves."""
-    kept = body.rsplit(f"\n\n{history.TALLY}\n", 1)[0].rstrip()
-    return kept if line is None else f"{kept}\n\n{history.TALLY}\n{line}"
+    review said when it was posted is history, only the tally moves. The
+    verdicts ride with it, hidden, so the next round reads them back."""
+    kept = body.rsplit(f"\n\n{history.TALLY}", 1)[0].rstrip()
+    if line is None:
+        return kept
+    return f"{kept}\n\n{history.scoreboard(verdicts or {})}\n{line}"
 
 
 def rewrite(review, body):
@@ -195,26 +218,30 @@ def main():
               f"diff, dropped: {', '.join(off_diff)}")
     withheld, findings = len(on_diff[10:]), on_diff[:10]
     past = history.load()
-    line = summary(verdicts(past, answer.get("verdicts", [])))
+    scored = verdicts(past, answer.get("verdicts", []))
+    line = summary(tally(past["remarks"], scored))
     record(clean=not findings)
     carried = past["reviews"]
     if findings:
         body = describe(
             past["rounds"] + 1, len(off_diff), withheld, unreadable)
         try:
-            post_review(tallied(body, line), findings)
+            post_review(tallied(body, line, scored), findings)
         except urllib.error.HTTPError as error:
+            if error.code != 422:
+                raise
             print(f"Inline comments rejected ({error.code}), "
                   "posting the remarks in the body.")
             post_review(tallied("\n".join(
                 [body, "", "GitHub refused these as inline comments:"] + [
                     f"- `{f['path']}:{f['line']}` — {f['comment']}"
-                    for f in findings]), line), findings, inline=False)
+                    for f in findings]), line, scored), findings,
+                inline=False)
     else:
         print("Nothing to say on the diff, posting nothing.")
         if carried:
             newest = carried[-1]
-            rewrite(newest, tallied(newest["body"], line))
+            rewrite(newest, tallied(newest["body"], line, scored))
             carried = carried[:-1]
     for review in carried:
         rewrite(review, tallied(review["body"], None))
