@@ -57,6 +57,7 @@ def entries(repo, pr_number, token):
 
 
 def block(entry):
+    """One transcript entry, as a Markdown heading and its body."""
     head = f"{entry['author']} ({entry['when']})"
     if entry["anchor"]:
         head += f" on {entry['anchor']}"
