@@ -134,8 +134,8 @@ def diff_block(path, base_sha):
     diff = subprocess.run(
         ['git', 'diff', '--merge-base', base_sha, '--', path],
         capture_output=True, text=True, check=True).stdout
-    return section("Changed (diff only, too big for the full file)",
-                    path, diff)
+    return section(
+        "Changed (diff only, too big for the full file)", path, diff)
 
 
 def context_block(path):
