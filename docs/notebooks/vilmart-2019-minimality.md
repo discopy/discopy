@@ -593,6 +593,9 @@ X_{10,10,15}
 
 The (B) component with inputs \((1010,1010)\) and outputs
 \((0000,1111)\) is therefore positive on the left and zero on the right.
+The exact polynomial reduction is checked independently by
+`vilmart_2019_bialgebra_symbolic.py`; run it with
+`uv run --with sympy python docs/notebooks/vilmart_2019_bialgebra_symbolic.py`.
 
 ```python {.marimo}
 b_n, b_dimension = 4, 16
