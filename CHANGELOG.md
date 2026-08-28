@@ -22,9 +22,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   behind however many rounds came after it: a round with something to say
   carries it in the review it posts, a round with nothing to say edits the
   newest review already there, and any older one still carrying a tally is
-  stripped of it, so there is only ever the one. A round is one review and
-  says which round it is, so the reader sees how the review is landing
-  without counting them. The prompt is ordered from what never moves to
+  stripped of it, so there is only ever the one. A verdict that decided
+  something survives a later round that forgets it: the tally carries the
+  verdicts it recorded, hidden beside the line it shows, and a round
+  merges its answers into them rather than recomputing the lot — a remark
+  accepted while its file was in the diff stays accepted once the diff
+  has moved on, where asking a model that can no longer see that file
+  made the tally oscillate. A round is one review and says which round it
+  is, so the reader sees how the review is landing without counting
+  them. The prompt is ordered from what never moves to
   what moves every round — instructions, `STYLE.md`, context files, the
   past remarks as a list that only grows at its end, and last the revision
   under review — so that two rounds of one pull request share a prefix the
