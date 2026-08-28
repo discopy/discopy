@@ -61,5 +61,6 @@ Review round from @daydream6728 on
       `proptest/`.
 - [x] Answer the question on `proptest/test_counterexamples.py`, and drop
       the relabelling if it is not needed.
-- [ ] Unpin `pytest-xdist` in `pyproject.toml`, regenerating `uv.lock`.
+- [x] Unpin `pytest-xdist` in `pyproject.toml`: filed as #684, since
+      regenerating `uv.lock` needs a network this environment does not have.
 - [x] Delete `BUGS.md` and every reference to it.
