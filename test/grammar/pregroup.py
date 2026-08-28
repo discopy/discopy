@@ -69,3 +69,16 @@ def test_pregroup_swap_rotation():
     assert Swap(n, s).l.dom == Swap(n, s).cod.l
     assert Swap(n, s).l.cod == Swap(n, s).dom.l
     assert Swap(n, s).r.cod == Swap(n, s).dom.r
+
+
+def test_to_hypergraph():
+    s, n = Ty('s'), Ty('n')
+    Alice, Bob = Word('Alice', n), Word('Bob', n)
+    loves = Word('loves', n.r @ s @ n.l)
+    sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
+    hypergraph = sentence.to_hypergraph()
+    assert hypergraph.category == Diagram and hypergraph.ob == Ty
+    round_trip = hypergraph.to_diagram()
+    assert isinstance(round_trip, Diagram)
+    assert round_trip.to_hypergraph() == hypergraph
+    assert hash(round_trip.to_hypergraph()) == hash(hypergraph)

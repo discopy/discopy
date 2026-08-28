@@ -44,7 +44,7 @@ Channel([0.5+0.j, 0.5+0.j, 0.5+0.j, 0.5+0.j], dom=CQ(), cod=Q(Dim(2)))
 from __future__ import annotations
 
 from discopy import frobenius, tensor
-from discopy.cat import ar_factory
+from discopy.cat import factory
 from discopy.frobenius import Ty, Diagram, Box
 from discopy.matrix import backend
 from discopy.quantum.circuit import (
@@ -99,6 +99,10 @@ class CQ:
             else f"Q({self.classical})" if not self.quantum\
             else f"C({self.classical}) @ Q({self.quantum})"
 
+    @classmethod
+    def unit(cls) -> CQ:
+        return cls(Dim(), quantum=Dim())
+
     def tensor(self, *others):
         """
         The tensor of a classical-quantum dimension with some ``others``.
@@ -140,7 +144,7 @@ def Q(dim=Dim(1)) -> CQ:
     return CQ(quantum=dim)
 
 
-@ar_factory
+@factory
 class Channel(Tensor):
     """
     A channel is a tensor with :class:`CQ` types as ``dom`` and ``cod``.
@@ -193,11 +197,13 @@ class Channel(Tensor):
             >> f.cod[:1] @ g.cod[:1] @ f.cod[1:2]\
             @ Diagram.swap(f.cod[2:], g.cod[1:2]) @ g.cod[2:]
         array = tensor.Functor(
-            ob={Ty(f"{a}{b}{c}"): getattr(getattr(z, y), x)
+            ob_map={
+                Ty(f"{a}{b}{c}"): getattr(getattr(z, y), x)
                 for a, x in zip(['c', 'q'], ['classical', 'quantum'])
                 for b, y in zip([0, 1], ['dom', 'cod'])
                 for c, z in zip([0, 1], [self, other])},
-            ar={f: self.to_tensor(), g: other.to_tensor()}, dtype=self.dtype
+            ar_map={f: self.to_tensor(), g: other.to_tensor()},
+            dtype=self.dtype
         )(above >> f @ g >> below).array
         return type(self)(array, self.dom @ other.dom, self.cod @ other.cod)
 
@@ -207,6 +213,15 @@ class Channel(Tensor):
                  @ Tensor.swap(left.quantum, right.quantum)
                  @ Tensor.swap(left.quantum, right.quantum)).array
         return cls(array, left @ right, right @ left)
+
+    @classmethod
+    def permutation(cls, xs, doms) -> Channel:
+        dom = cls.ob.unit().tensor(*doms)
+        cod = cls.ob.unit().tensor(*(doms[i] for i in xs))
+        array = (Tensor.permutation(xs, [x.classical for x in doms])
+                 @ Tensor.permutation(xs, [x.quantum for x in doms])
+                 @ Tensor.permutation(xs, [x.quantum for x in doms])).array
+        return cls(array, dom, cod)
 
     @staticmethod
     def cups(left, right):
@@ -296,8 +311,8 @@ class Functor(tensor.Functor):
     A channel functor is a tensor functor into classical-quantum channels.
 
     Parameters:
-        ob (dict[cat.Ob, CQ]) : The object mapping.
-        ar (dict[cat.Box, array]) : The arrow mapping.
+        ob_map (dict[cat.Ob, CQ]) : The object mapping.
+        ar_map (dict[cat.Box, array]) : The arrow mapping.
         dom : The domain of the functor.
         dtype : The datatype for the codomain ``Channel[dtype]``.
     """
@@ -308,6 +323,9 @@ class Functor(tensor.Functor):
             return C(Dim(other.dim))
         if isinstance(other, Qudit):
             return Q(Dim(other.dim))
+        if isinstance(other, tensor.Permutation):
+            doms = list(map(self, other.dom))
+            return self.cod.permutation(other.perm, doms)
         if not isinstance(other, Box):
             return frobenius.Functor.__call__(self, other)
         if isinstance(other, Discard):

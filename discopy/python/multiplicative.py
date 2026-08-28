@@ -27,10 +27,11 @@ Summary
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Self
 
 from discopy.abc import ClosedCategory
-from discopy.utils import assert_isinstance, tuplify, untuplify, ar_factory
-from discopy.python import function
+from discopy.utils import assert_isinstance, tuplify, untuplify, factory
+from discopy.python import finset, function
 
 
 """ Functions have lists of types as input and output. """
@@ -48,7 +49,7 @@ def exp(base: Ty, exponent: Ty) -> Ty:
     return (Callable[list(exponent), tuple[base]], )
 
 
-@ar_factory
+@factory
 class Function(function.Function, ClosedCategory):
     """
     Python function with tuple as tensor.
@@ -114,6 +115,23 @@ class Function(function.Function, ClosedCategory):
         def inside(*xs):
             return untuplify(tuplify(xs)[len(x):] + tuplify(xs)[:len(x)])
         return Function(inside, dom=x + y, cod=y + x)
+
+    @classmethod
+    def permutation(cls, xs, doms) -> Self:
+        """ Permute blocks of arguments. """
+        doms, xs = list(doms), finset.Permutation(xs, len(doms))
+        offsets = [0]
+        for dom in doms:
+            offsets.append(offsets[-1] + len(dom))
+
+        def inside(*args):
+            blocks = [args[offsets[i]:offsets[i + 1]]
+                      for i in range(len(doms))]
+            return untuplify(sum((blocks[i] for i in xs), ()))
+
+        dom = sum(doms, ())
+        cod = sum((doms[i] for i in xs), ())
+        return cls(inside, dom, cod)
 
     braid = swap
 
@@ -204,6 +222,8 @@ class Function(function.Function, ClosedCategory):
         Parameters:
             n : The number of types to trace over.
         """
+        if n == 0:
+            return self
         if left:
             raise NotImplementedError
         dom, cod, traced = self.dom[:-n], self.cod[:-n], self.dom[-n:]

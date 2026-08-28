@@ -11,6 +11,7 @@ Summary
     :nosignatures:
     :toctree:
 
+    Wire
     Ty
     Exp
     Over
@@ -37,25 +38,44 @@ Axioms
 >>> x, y, z = map(Ty, "xyz")
 >>> f, g, h = Box('f', x, z << y), Box('g', x @ y, z), Box('h', y, x >> z)
 
->>> from discopy.drawing import Equation
 >>> Equation(f.uncurry(left=True).curry(left=True), f).draw(
-...     path='docs/_static/biclosed/curry-left.png', margins=(0.1, 0.05))
+...     doctest='docs/_static/biclosed/curry-left.svg', margins=(0.1, 0.05))
 
-.. image:: /_static/biclosed/curry-left.png
+.. image:: /_static/biclosed/curry-left.svg
     :align: center
 
->>> Equation(h.uncurry().curry(), h).draw(
-...     path='docs/_static/biclosed/curry-right.png', margins=(0.1, 0.05))
+>>> Equation(h.uncurry(left=False).curry(left=False), h).draw(
+...     doctest='docs/_static/biclosed/curry-right.svg', margins=(0.1, 0.05))
 
-.. image:: /_static/biclosed/curry-right.png
+.. image:: /_static/biclosed/curry-right.svg
     :align: center
 
 >>> Equation(
-...     g.curry(left=True).uncurry(left=True), g, g.curry().uncurry()).draw(
-...         path='docs/_static/biclosed/uncurry.png')
+...     g.curry(left=True).uncurry(left=True), g,
+...     g.curry(left=False).uncurry(left=False)).draw(
+...         doctest='docs/_static/biclosed/uncurry.svg')
 
-.. image:: /_static/biclosed/uncurry.png
+.. image:: /_static/biclosed/uncurry.svg
     :align: center
+
+Compact currying
+----------------
+
+:meth:`Diagram.to_compact` bends curry bubbles into coevaluation and feedback,
+which lands in :class:`CMap` as a biclosed category has no trace.
+
+>>> g.curry(left=True).uncurry(left=True).to_compact().draw(show=False,
+...     doctest="docs/_static/cmap/biclosed-curry-left.dot")
+
+.. graphviz:: /_static/cmap/biclosed-curry-left.dot
+    :align: center
+
+>>> g.curry(left=False).uncurry(left=False).to_compact().draw(show=False,
+...     doctest="docs/_static/cmap/biclosed-curry-right.dot")
+
+.. graphviz:: /_static/cmap/biclosed-curry-right.dot
+    :align: center
+
 """
 
 from __future__ import annotations
@@ -66,12 +86,13 @@ from inspect import signature
 from itertools import count
 from typing import Callable, ClassVar
 
-from discopy import cat, monoidal
+from discopy import cat, monoidal, cmap
 from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
-from discopy.cat import ob_factory, ar_factory
+from discopy.cat import factory
 from discopy.utils import (
     assert_isinstance,
+    deprecated_ob,
     factory_name,
     from_tree,
 )
@@ -117,7 +138,7 @@ def varname(obj: cat.Ob) -> str | None:
     return getattr(obj, "varname", None)
 
 
-@ob_factory
+@factory
 class Ty(monoidal.Ty):
     """
     A biclosed type is a monoidal type that can be exponentiated.
@@ -130,18 +151,19 @@ class Ty(monoidal.Ty):
     Applying a biclosed type to a callable yields a :class:`Abstraction`,
     applying it to a string yields a :class:`Constant`.
     """
+
     def __pow__(self, other: Ty) -> Ty:
         return self.exp(other) if isinstance(other, Ty)\
             else monoidal.Ty.__pow__(self, other)
 
     def exp(self, other: Ty) -> Ty:
-        return self.ob(self.exp_factory(self, other))
+        return self.ar(self.exp_factory(self, other))
 
     def over(self, other: Ty) -> Ty:
-        return self.ob(self.over_factory(self, other))
+        return self.ar(self.over_factory(self, other))
 
     def under(self, other: Ty) -> Ty:
-        return self.ob(self.under_factory(self, other))
+        return self.ar(self.under_factory(self, other))
 
     def __lshift__(self, other):
         return self.over(other)
@@ -220,7 +242,17 @@ class Ty(monoidal.Ty):
         return self.inside[0].exponent
 
 
-class Exp(cat.Ob):
+class Wire(monoidal.Wire):
+    """
+    A biclosed object is a self-dagger :class:`monoidal.Wire`, i.e. its left
+    and right colours always match. Exponentials do not interact meaningfully
+    with colours, so for now we assume everything is white.
+    """
+    def dagger(self) -> Wire:
+        return self
+
+
+class Exp(Wire):
     """
     A :code:`base` type to an :code:`exponent` type, called with :code:`**`.
 
@@ -234,8 +266,6 @@ class Exp(cat.Ob):
     def __init__(self, base: Ty, exponent: Ty):
         assert_isinstance(base, self.ob)
         assert_isinstance(exponent, self.ob)
-
-        assert self.ob == base.ob == exponent.ob
         self.base, self.exponent = base, exponent
         super().__init__(str(self))
 
@@ -295,7 +325,7 @@ class Under(Exp):
         return f"({self.exponent} >> {self.base})"
 
 
-@ar_factory
+@factory
 class Diagram(monoidal.Diagram, BiclosedCategory):
     """
     A biclosed diagram is a monoidal diagram
@@ -309,39 +339,45 @@ class Diagram(monoidal.Diagram, BiclosedCategory):
 
     ob = Ty
 
-    def curry(self, n=1, left=False) -> Diagram:
+    def curry(self, n=1, left=True) -> Diagram:
         """
         Wrapper around :class:`Curry` called by :class:`Functor`.
 
         Parameters:
             n : The number of atomic types to curry.
-            left : Whether to curry on the left or right.
+            left : Whether to curry on the left, i.e. into :class:`Over`,
+                or on the right, i.e. into :class:`Under`.
         """
         return self.curry_factory(self, n, left)
 
     @classmethod
-    def ev(cls, base: Ty, exponent: Ty, left=False) -> Eval:
+    def ev(cls, base: Ty, exponent: Ty, left=True) -> Eval:
         """
         Wrapper around :class:`Eval` called by :class:`Functor`.
 
         Parameters:
             base : The base of the exponential type to evaluate.
             exponent : The exponent of the exponential type to evaluate.
-            left : Whether to evaluate on the left or right.
+            left : Whether to evaluate on the left, i.e. from :class:`Over`,
+                or on the right, i.e. from :class:`Under`.
         """
         return cls.eval_factory(
             base << exponent if left else exponent >> base)
 
-    def uncurry(self: Diagram, left=False) -> Diagram:
+    def to_compact(self) -> CMap:
         """
-        Uncurry a biclosed diagram by composing it with :meth:`Diagram.ev`.
+        Bend curry bubbles into coevaluation and feedback, which lands in
+        :class:`CMap` as a biclosed category has no trace, see
+        :meth:`discopy.cmap.CMap.to_compact`.
 
-        Parameters:
-            left : Whether to uncurry on the left or right.
+        Example
+        -------
+        >>> x, y, z = map(Ty, "xyz")
+        >>> f = Box("f", x @ y, z)
+        >>> assert f.curry().to_compact() == (
+        ...     f.to_map() >> CMap.ev(z, y).dagger()).trace()
         """
-        base, exponent = self.cod.base, self.cod.exponent
-        return self @ exponent >> self.ev(base, exponent, True) if left\
-            else exponent @ self >> self.ev(base, exponent, False)
+        return self.to_map().to_compact()
 
     def to_drawing(self):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
@@ -411,6 +447,15 @@ class Coeval(Box):
 
     Parameters:
         x : The exponential type to coevaluate.
+
+    Note
+    ----
+    This is not the unit of the adjunction, which sends ``z`` to
+    ``(z @ x) << x``, but the transpose of :class:`Eval`, which needs the
+    exponent to be dualisable: a biclosed category has no such morphism
+    unless its exponential is read at a reflexive object, see `Zeilberger
+    (2016) <https://arxiv.org/abs/1512.06751>`_. It is used by
+    :meth:`Curry.to_drawing` and :meth:`Diagram.to_compact`.
     """
     drawing_name = "lambda"
 
@@ -435,6 +480,12 @@ class Curry(monoidal.Bubble, Box):
         arg : The diagram to curry.
         n : The number of atomic types to curry.
         left : Whether to curry on the left or right.
+
+    Example
+    -------
+    >>> x, y, z = map(Ty, "xyz")
+    >>> print(Curry(Box('f', x @ y, z)))
+    Curry(f, 1, False)
     """
     def __init__(self, arg: Diagram, n=1, left=False):
         self.n, self.left = n, left
@@ -447,6 +498,9 @@ class Curry(monoidal.Bubble, Box):
         monoidal.Bubble.__init__(
             self, arg, dom=dom, cod=cod, drawing_name="$\\Lambda$")
         Box.__init__(self, name, dom, cod)
+
+    def __str__(self):
+        return self.name
 
     def to_drawing(self):
         if self.left:
@@ -511,11 +565,10 @@ class Functor(monoidal.Functor):
         return super().__call__(other)
 
 
-class CMap(monoidal.CMap):
-    functor = Functor
+CMap = cmap.CMap[Diagram]
 
 
-Diagram.map_factory = CMap
+Diagram.functor_factory = Functor
 
 
 class TermBase(Box):
@@ -553,7 +606,7 @@ class TermBase(Box):
     >>> N, S = Ty("N"), Ty("S")
     >>> Alice, loves, Bob = N("Alice"), ((N >> S) << N)("loves"), N("Bob")
     >>> Alice(loves(Bob), left=True).draw(
-    ...     path='docs/_static/biclosed/alice-loves-bob.png',
+    ...     doctest='docs/_static/biclosed/alice-loves-bob.svg',
     ...     margins=(.3, 0), figsize=(5, 4))
     """
     dom: Ty
@@ -802,6 +855,11 @@ def _box_to_term(diagram: Diagram, box: Box, consumed: list) -> list:
         if box.dom:
             raise ValueError(f"Unexpected term box with inputs: {box}.")
         return [box]
+    permutation_factory = getattr(
+        type(diagram), "permutation_factory", None)
+    if permutation_factory is not None and isinstance(
+            box, permutation_factory):
+        return [consumed[i] for i in box.perm]
     braid_factory = getattr(type(diagram), "braid_factory", None)
     if braid_factory is not None and isinstance(box, braid_factory):
         before, inside, after = _split_scan(consumed, 0, len(box.left))
@@ -823,12 +881,11 @@ def _box_to_term(diagram: Diagram, box: Box, consumed: list) -> list:
 def _diagram_to_term(diagram: Diagram, scan: list) -> TermBase:
     """ Sweep through the layers of a diagram, building terms bottom-up. """
     for layer in diagram.inside:
-        parts = tuple(layer)
-        if len(parts) != 3:
+        boxes_and_offsets = tuple(layer.boxes_and_offsets)
+        if len(boxes_and_offsets) != 1:
             raise ValueError(f"Expected an unfoliated layer, got {layer}.")
-        left, box, _ = parts
-        before, consumed, after = _split_scan(
-            scan, len(left), len(box.dom))
+        box, offset = boxes_and_offsets[0]
+        before, consumed, after = _split_scan(scan, offset, len(box.dom))
         scan = before + _box_to_term(diagram, box, consumed) + after
     if len(scan) != 1:
         raise ValueError(
@@ -841,3 +898,10 @@ Ty.constant_factory = Constant
 Ty.application_factory = Application
 Ty.abstraction_factory = Abstraction
 Ty.over_factory, Ty.under_factory, Ty.exp_factory = Over, Under, Exp
+
+
+class Equation(monoidal.Equation):
+    """ The :class:`monoidal.Equation` of biclosed diagrams. """
+
+
+__getattr__ = deprecated_ob(__name__)

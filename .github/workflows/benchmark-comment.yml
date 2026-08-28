@@ -1,0 +1,35 @@
+name: benchmark-comment
+
+on:
+  workflow_run:
+    workflows: [benchmark]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: write
+
+jobs:
+  comment:
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      with:
+        persist-credentials: false
+    - name: Download the comparison
+      # A run cancelled before staging anything leaves no artifact, which is
+      # nothing to post; the script tells that from a download that failed,
+      # by asking whether the artifact is there at all.
+      continue-on-error: true
+      uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      with:
+        name: benchmark-comment
+        path: benchmark-comment
+        run-id: ${{ github.event.workflow_run.id }}
+        github-token: ${{ github.token }}
+    - name: Post or update the comparison
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: python3 .github/scripts/benchmark_comment.py

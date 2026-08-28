@@ -2,10 +2,15 @@
 
 from unittest.mock import Mock
 
+import pytest
+
+pytest.importorskip("pytket")
+
 import numpy as np
 from pytest import raises
 
 from discopy.quantum import tk
+from discopy.quantum.circuit import Swap
 from discopy.quantum.gates import *
 from discopy.tensor import Tensor, Dim
 
