@@ -531,7 +531,7 @@ class Dim(Ty):
     A dimension is a tuple of positive integers
     with product ``@`` and unit ``Dim(1)``.
 
-    The unit is the class attribute ``unit``, dropped from the tuple:
+    The unit is the class attribute ``unit_dim``, dropped from the tuple:
     subclasses may override it, e.g. additive dimensions with unit 0.
 
     Example
@@ -540,7 +540,7 @@ class Dim(Ty):
     Dim(2, 3)
     """
     generator_factory = int
-    unit = 1
+    unit_dim = 1
 
     def __init__(self, *inside: int, dom=None, cod=None, _scan=True, **kwargs):
         inside = kwargs.pop('inside', inside)
@@ -548,9 +548,9 @@ class Dim(Ty):
             raise TypeError(f"Unexpected keyword arguments: {list(kwargs)}.")
         for dim in inside:
             assert_isinstance(dim, int)
-            if dim < self.unit:
+            if dim < self.unit_dim:
                 raise ValueError
-        inside = tuple(dim for dim in inside if dim != self.unit)
+        inside = tuple(dim for dim in inside if dim != self.unit_dim)
         cat.FreeCategory.__init__(
             self, inside, white if dom is None else dom,
             white if cod is None else cod, _scan=False)
@@ -564,7 +564,8 @@ class Dim(Ty):
         return self.factory(self.inside[key])
 
     def __repr__(self):
-        return f"Dim({', '.join(map(repr, self.inside)) or repr(self.unit)})"
+        return "Dim(" + (
+            ", ".join(map(repr, self.inside)) or repr(self.unit_dim)) + ")"
 
     __str__ = __repr__
 

@@ -111,7 +111,7 @@ class Dim(monoidal.Dim, Ty):
     >>> assert Dim(0) == Dim() and Dim(0) @ Dim(2) @ Dim(3) == Dim(2, 3)
     >>> assert Dim(2, 3).l == Dim(2, 3).r == Dim(3, 2)
     """
-    unit = 0
+    unit_dim = 0
     l = r = property(lambda self: self.factory(*self.inside[::-1]))
 
     def unwind(self) -> Dim:
