@@ -37,7 +37,7 @@ jobs:
         uv run pflake8 .github
     - name: Test
       run:
-        uv run --with pyyaml pytest .github/tests/*.py
+        uv run --with pyyaml pytest --import-mode=importlib .github/tests/*.py
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 15   # backstop: green runs take ~6 min; a job wedged on its first network step reports nothing for hours (#591)

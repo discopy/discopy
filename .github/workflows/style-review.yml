@@ -6,6 +6,7 @@ on:
     types: [created]
 permissions:
   contents: read
+  issues: read
   pull-requests: read
 concurrency:
   # One round at a time per pull request, whatever triggered either of them:
@@ -113,7 +114,7 @@ jobs:
         echo "changed=$(test -s .style-review/diff.patch \
           && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
-    - name: Read the remarks of the previous rounds
+    - name: Read the previous rounds and the discussion
       if: >
         steps.config.outputs.configured == 'true'
         && steps.diff.outputs.changed == 'true'

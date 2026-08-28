@@ -8,11 +8,16 @@ posted them, each with the replies it received, and writes them to
 which judges whether each was taken into account, and ``post.py`` writes
 the tally of its verdicts onto the newest review of them all, where the
 thread is being read.
+
+The same three listings render the discussion so far, which goes in the
+same file: everything said on the pull request, ours and everyone else's,
+is read once here rather than once per module that wants it.
 """
 
 import json
 import os
 
+import thread
 from github import listing
 
 DIRECTORY = ".style-review"
@@ -40,36 +45,9 @@ def recorded(body):
         return None
 
 
-def human(comment):
-    """Whether a comment was written by a person: a verdict reads the
-    replies a remark drew, and the reviewer's own posts are not replies."""
-    return comment["user"]["type"] != "Bot"
-
-
-def spoken(comment):
-    """Who said it and what they said, the part of a comment a verdict
-    reads."""
-    return {"author": comment["user"]["login"], "body": comment["body"]}
-
-
-def replies(comments, remark, review):
-    """What a remark drew, when it was posted inline: the people who
-    answered the thread it opened. A remark that went to the review body
-    has no thread and draws its answers in the conversation."""
-    thread = [comment for comment in comments
-              if comment["pull_request_review_id"] == review
-              and comment["path"] == remark["path"]
-              and comment.get("line") == remark["line"]]
-    if not thread:
-        return []
-    return [spoken(comment) for comment in comments
-            if comment.get("in_reply_to_id") == thread[0]["id"]
-            and human(comment)]
-
-
 def empty():
     """The history of a pull request no round has been posted on yet."""
-    return {"rounds": 0, "reviews": [], "remarks": [], "comments": []}
+    return {"rounds": 0, "reviews": [], "remarks": [], "discussion": ""}
 
 
 def load():
@@ -82,30 +60,25 @@ def load():
 
 
 def history(repo, number, token):
-    """The rounds posted so far, their remarks numbered across all of
-    them, and the conversation since the first one."""
-    rounds = [
-        (review, recorded(review["body"] or ""))
-        for review in listing(f"/repos/{repo}/pulls/{number}/reviews", token)]
-    rounds = [(review, made) for review, made in rounds if made is not None]
-    if not rounds:
-        return empty()
+    """The rounds posted so far with their remarks numbered across all of
+    them, and everything said on the pull request as one transcript, from
+    the three listings read once."""
+    reviews = listing(f"/repos/{repo}/pulls/{number}/reviews", token)
     comments = listing(f"/repos/{repo}/pulls/{number}/comments", token)
+    conversation = listing(f"/repos/{repo}/issues/{number}/comments", token)
+    discussion = thread.render(
+        thread.entries(conversation, comments, reviews), thread.BUDGET)
+    rounds = [(review, recorded(review["body"] or "")) for review in reviews]
+    rounds = [(review, made) for review, made in rounds if made is not None]
     remarks = []
-    for review, made in rounds:
+    for _, made in rounds:
         for remark in made:
             remark["number"] = len(remarks) + 1
-            remark["replies"] = replies(comments, remark, review["id"])
             remarks.append(remark)
-    since = rounds[0][0]["submitted_at"]
     return {
-        "rounds": len(rounds), "remarks": remarks,
+        "rounds": len(rounds), "remarks": remarks, "discussion": discussion,
         "reviews": [{"id": review["id"], "body": review["body"]}
-                    for review, _ in rounds],
-        "comments": [
-            spoken(comment) for comment in listing(
-                f"/repos/{repo}/issues/{number}/comments", token)
-            if human(comment) and comment["created_at"] > since]}
+                    for review, _ in rounds]}
 
 
 def main():
@@ -115,7 +88,7 @@ def main():
     with open(os.path.join(DIRECTORY, "history.json"), "w") as file:
         json.dump(past, file)
     print(f"{past['rounds']} rounds so far, {len(past['remarks'])} remarks, "
-          f"{len(past['comments'])} replies since the first.")
+          f"{len(past['discussion'])} characters of discussion.")
 
 
 if __name__ == "__main__":

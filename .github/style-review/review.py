@@ -163,51 +163,47 @@ def literal(text):
     return repr(text.strip()[:QUOTE])
 
 
-def quoted(comment, about="in the conversation"):
-    """One thing somebody said on its own line, under the remark it
-    answers or in the conversation at large."""
-    return f"- {about}, {comment['author']}: {literal(comment['body'])}"
-
-
-def past_block(past):
+def past_block(remarks):
     """The remarks of the previous rounds, each under the number its
-    verdict refers to, and then what they drew. The numbered list only
-    grows at its end, so a round sends the list of the round before it
-    unchanged; a reply, which lands on whichever remark it answers, is
-    quoted after the whole list rather than in its middle, where it would
-    move every remark below it."""
+    verdict refers to. The list only grows at its end, so a round sends
+    the list of the round before it unchanged; what each remark drew is
+    in the discussion below it, where a new reply lands at the end
+    rather than in the middle of this list."""
     lines = ["# Style remarks from the previous rounds", ""]
     lines += [f"{remark['number']}. `{remark['path']}:{remark['line']}` — "
-              f"{literal(remark['comment'])}" for remark in past["remarks"]]
-    answers = [quoted(reply, f"on remark {remark['number']}")
-               for remark in past["remarks"] for reply in remark["replies"]]
-    answers += [quoted(comment) for comment in past["comments"]]
-    if answers:
-        lines += ["", "# What those remarks drew", ""] + answers
+              f"{literal(remark['comment'])}" for remark in remarks]
     return "\n".join(lines)
+
+
+def discussion_block(transcript):
+    """Everything said on the pull request so far, oldest first: the
+    replies a remark drew, the reviews of others, the conversation
+    around them."""
+    ticks = fence(transcript)
+    return f"# Discussion so far\n\n{ticks}text\n{transcript}\n{ticks}"
 
 
 def fitted(text, budget):
     """The text with the budget it leaves, or nothing at all and the
-    budget untouched: the past remarks are dropped whole rather than cut
-    mid-sentence, a round without them simply giving no verdict."""
+    budget untouched: a part that does not fit is dropped whole rather
+    than cut mid-sentence."""
     cost = len(text) + 2
     return (text, budget - cost) if cost <= budget else ("", budget)
 
 
 def assemble(files, base_sha, past):
     """The one prompt: instructions, style guide, context, past remarks,
-    changes. Every part is budgeted as assembled, including the
-    ``"\\n\\n"`` separators the join below adds between them, so the
+    discussion, changes. Every part is budgeted as assembled, including
+    the ``"\\n\\n"`` separators the join below adds between them, so the
     request sent to the gateway never exceeds ``BUDGET``. The revision
     under review is budgeted first and goes in whole, then the context
-    files and last the past remarks, however many rounds have piled up:
-    a history that grew is dropped whole rather than evicting a context
-    file, which sits earlier in the prompt and would take the prefix of
-    every later round with it. A changed file too big for its full-file
-    listing falls back to a plain diff of its hunks, and one too big even
-    for that is reported as unreviewed rather than raising and crashing
-    the round."""
+    files, then the past remarks and the discussion, however many rounds
+    have piled up: what grew is dropped whole rather than evicting a
+    context file, which sits earlier in the prompt and would take the
+    prefix of every later round with it. A changed file too big for its
+    full-file listing falls back to a plain diff of its hunks, and one
+    too big even for that is reported as unreviewed rather than raising
+    and crashing the round."""
     deps = sorted(
         {dep for path in files for dep in imports(path)} - set(files))
     with open(".github/style-review/prompt.md") as file:
@@ -221,10 +217,13 @@ def assemble(files, base_sha, past):
         missing, budget, lambda path: diff_block(path, base_sha))
     context, budget, dropped = contents(deps, budget, context_block)
     remarks, budget = fitted(
-        past_block(past) if past["remarks"] else "", budget)
+        past_block(past["remarks"]) if past["remarks"] else "", budget)
     if past["remarks"] and not remarks:
         print("The past remarks are past the budget, so this round gives "
               "no verdict.", file=sys.stderr)
+    discussion, budget = fitted(
+        discussion_block(past["discussion"]) if past["discussion"].strip()
+        else "", budget)
     parts = [instructions, style] + [block for _, block in context]
     notes = []
     if dropped:
@@ -241,7 +240,7 @@ def assemble(files, base_sha, past):
         if len(note) + 2 <= budget:
             parts.append(note)
             budget -= len(note) + 2
-    parts += ([remarks] if remarks else [])
+    parts += [part for part in (remarks, discussion) if part]
     parts += [block for _, block in changed] + [block for _, block in degraded]
     return "\n\n".join(parts)
 
