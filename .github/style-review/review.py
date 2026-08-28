@@ -9,10 +9,11 @@ files that the changed Python files import (as context), the remarks the
 previous rounds made with the replies they drew, and one listing per
 changed file: the whole new file, unified-diff style, every line numbered
 by its position in the new file with a leading ``+``/``-`` for one
-added/removed since the merge base. Sends one chat completion to the
-OpenAI-compatible gateway at ``BASE_URL`` and writes the findings, along
-with a verdict on each past remark, to ``.style-review/findings.json`` for
-``post.py`` to post and tally.
+added/removed since the merge base, falling back to a plain diff (or to no
+representation at all) for a file too big to fit the budget. Sends one
+chat completion to the OpenAI-compatible gateway at ``BASE_URL`` and
+writes the findings, along with a verdict on each past remark, to
+``.style-review/findings.json`` for ``post.py`` to post and tally.
 
 The parts go in from the one that never moves to the one that moves every
 round, so that two rounds of the same pull request share a prefix and the
@@ -135,6 +136,20 @@ def changed_block(path, base_sha):
     return section("Changed", path, annotated(path, base_sha) + "\n")
 
 
+def diff_block(path, base_sha):
+    """A plain, small-context ``git diff`` of ``path`` since ``base_sha``
+    — the compact fallback for a changed file whose full-file
+    ``changed_block`` doesn't fit the budget, same idea as ``assemble``
+    dropping a context file for size, except a changed file has no
+    smaller-still fallback: one that doesn't fit even as a diff is
+    reported as unreviewed rather than dropped silently."""
+    diff = subprocess.run(
+        ['git', 'diff', '--merge-base', base_sha, '--', path],
+        capture_output=True, text=True, check=True).stdout
+    return section(
+        "Changed (diff only, too big for the full file)", path, diff)
+
+
 def context_block(path):
     with open(path) as file:
         body = file.read().rstrip("\n") + "\n"
@@ -189,7 +204,10 @@ def assemble(files, base_sha, past):
     files and last the past remarks, however many rounds have piled up:
     a history that grew is dropped whole rather than evicting a context
     file, which sits earlier in the prompt and would take the prefix of
-    every later round with it."""
+    every later round with it. A changed file too big for its full-file
+    listing falls back to a plain diff of its hunks, and one too big even
+    for that is reported as unreviewed rather than raising and crashing
+    the round."""
     deps = sorted(
         {dep for path in files for dep in imports(path)} - set(files))
     with open(".github/style-review/prompt.md") as file:
@@ -199,8 +217,8 @@ def assemble(files, base_sha, past):
     budget = BUDGET + 2 - sum(len(part) + 2 for part in (instructions, style))
     changed, budget, missing = contents(
         files, budget, lambda path: changed_block(path, base_sha))
-    if missing:
-        raise ValueError(f"changed files past the budget: {missing}")
+    degraded, budget, unreviewed = contents(
+        missing, budget, lambda path: diff_block(path, base_sha))
     context, budget, dropped = contents(deps, budget, context_block)
     remarks, budget = fitted(
         past_block(past) if past["remarks"] else "", budget)
@@ -208,12 +226,23 @@ def assemble(files, base_sha, past):
         print("The past remarks are past the budget, so this round gives "
               "no verdict.", file=sys.stderr)
     parts = [instructions, style] + [block for _, block in context]
+    notes = []
     if dropped:
-        note = f"# Context dropped for size: {', '.join(dropped)}"
+        notes.append(f"# Context dropped for size: {', '.join(dropped)}")
+    if degraded:
+        notes.append(
+            "# Changed files past the budget, reviewed from a diff "
+            f"only: {', '.join(path for path, _ in degraded)}")
+    if unreviewed:
+        notes.append(
+            "# Changed files past the budget even as a diff, not "
+            f"reviewed at all: {', '.join(unreviewed)}")
+    for note in notes:
         if len(note) + 2 <= budget:
             parts.append(note)
+            budget -= len(note) + 2
     parts += ([remarks] if remarks else [])
-    parts += [block for _, block in changed]
+    parts += [block for _, block in changed] + [block for _, block in degraded]
     return "\n\n".join(parts)
 
 

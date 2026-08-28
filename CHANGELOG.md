@@ -477,6 +477,17 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   run when the branch has already moved past the event it is handling,
   rather than drafting a head that no longer exists behind its back
   ([#640](https://github.com/discopy/discopy/issues/640)).
+- `review.py`'s `assemble` raised when a changed file's full-file
+  `annotated` listing didn't fit `BUDGET`, crashing the whole
+  style-review step on a large diff. A changed file too big for that now
+  falls back to a plain, small-context `git diff` of just its hunks, the
+  same degrade already applied to imported context files; a file whose
+  diff still doesn't fit is reported as entirely unreviewed rather than
+  silently dropped. `style-review.yml`'s "Review the diff" step is now
+  named so the "Call the correctness reviewer" step can tell a crash
+  apart from a clean or a non-clean review, and says so in the comment
+  it posts instead of reading like either of those
+  ([#617](https://github.com/discopy/discopy/pull/617)).
 - `build.yml` timeouts and a bounded, retried Graphviz install
   ([#591](https://github.com/discopy/discopy/issues/591)).
 - `frobenius.Diagram.unfuse`'s doctest no longer sets `Spider.color = "red"`
