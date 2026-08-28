@@ -40,11 +40,11 @@ def test_history_numbers_the_remarks_across_the_rounds(history, monkeypatch):
         "/repos/o/r/issues/1/comments": []}
     monkeypatch.setattr(history, "listing", lambda path, token: listed[path])
     past = history.history("o/r", "1", "token")
-    assert past["rounds"] == 2
+    assert [posted["numbers"] for posted in past["rounds"]] == [[1], [2, 3]]
     assert [remark["number"] for remark in past["remarks"]] == [1, 2, 3]
     assert [remark["comment"] for remark in past["remarks"]] == [
         "one", "two", "three"]
-    assert [carrier["id"] for carrier in past["reviews"]] == [2, 3]
+    assert [posted["id"] for posted in past["rounds"]] == [2, 3]
 
 
 def test_history_of_a_pull_request_nobody_reviewed(history, monkeypatch):
@@ -80,4 +80,4 @@ def test_a_review_nobody_submitted_is_not_a_round(history, monkeypatch):
               "/repos/o/r/pulls/1/comments": [],
               "/repos/o/r/issues/1/comments": []}
     monkeypatch.setattr(history, "listing", lambda path, token: listed[path])
-    assert history.history("o/r", "1", "token")["rounds"] == 0
+    assert history.history("o/r", "1", "token")["rounds"] == []

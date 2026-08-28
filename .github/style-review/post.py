@@ -14,12 +14,12 @@ that does list them is the one GitHub leaves when it refuses the inline
 comments, where the choice is that shape or no remarks at all.
 
 One review per round, and the round records the remarks it made so that the
-next one can read them back. Whatever the model made of those past remarks
-— accepted, declined or still open — is tallied onto the newest review of
-them all, where the thread is being read: a round that posts carries the
-tally in the body it posts, a round with nothing to say edits the newest
-review already there, and any older one still carrying a tally is stripped
-of it, so there is only ever the one.
+next one can read them back. Whatever the model makes of those past remarks
+— accepted, declined or still open — is tallied onto the round that made
+them, each round counting its own remarks and no others, so that a review
+says how what it asked for landed rather than how every round's did. A
+round is scored by the ones that follow it, so the review being posted
+carries no tally of its own yet.
 
 A round whose head has moved posts nothing: its findings are about lines
 somebody has already replaced, and the push that replaced them starts a
@@ -123,19 +123,21 @@ def verdicts(past, given):
     return kept
 
 
-def tally(remarks, verdicts):
-    """The verdicts in the order the remarks were made, `None` for a
-    remark nobody has answered yet."""
-    return [verdicts.get(str(remark["number"])) for remark in remarks]
+def answered(numbers, verdicts):
+    """The verdicts on the remarks one round made, by their number, a
+    remark nobody has answered yet being missing rather than open."""
+    return {str(number): verdicts[str(number)]
+            for number in numbers if str(number) in verdicts}
 
 
-def summary(given):
-    """The tally line, `None` before any remark has been made: how many
-    were made in all, then what became of them. The total counts the
-    remarks still open too — a round answers what it answers, and the
-    reader is owed the size of the pile either way. A state nothing is in
-    is left out rather than counted at nought, and one that everything is
-    in is said of them all rather than counted at the total."""
+def summary(numbers, verdicts):
+    """The tally line of one round, `None` when it made no remark: how
+    many it made, then what became of them. The total counts the remarks
+    still open too — a round answers what it answers, and the reader is
+    owed the size of the pile either way. A state nothing is in is left
+    out rather than counted at nought, and one that everything is in is
+    said of them all rather than counted at the total."""
+    given = [verdicts.get(str(number)) for number in numbers]
     if not given:
         return None
     became = [(given.count(verdict), name) for verdict, name in (
@@ -224,34 +226,30 @@ def main():
     withheld, findings = len(on_diff[10:]), on_diff[:10]
     past = history.load()
     merged = verdicts(past, answer.get("verdicts", []))
-    line = summary(tally(past["remarks"], merged))
     record(clean=not findings)
-    carried = past["reviews"]
     if findings:
         body = describe(
-            past["rounds"] + 1, len(off_diff), withheld, unreadable)
+            len(past["rounds"]) + 1, len(off_diff), withheld, unreadable)
         try:
-            post_review(tallied(body, line, merged), findings)
+            post_review(body, findings)
         except urllib.error.HTTPError as error:
             if error.code != 422:
                 raise
             print(f"Inline comments rejected ({error.code}), "
                   "posting the remarks in the body.")
-            post_review(tallied("\n".join(
+            post_review("\n".join(
                 [body, "", "GitHub refused these as inline comments:"] + [
                     f"- `{f['path']}:{f['line']}` — {f['comment']}"
-                    for f in findings]), line, merged), findings,
-                inline=False)
+                    for f in findings]), findings, inline=False)
     else:
         print("Nothing to say on the diff, posting nothing.")
-        if carried:
-            newest = carried[-1]
-            rewrite(newest, tallied(newest["body"], line, merged))
-            carried = carried[:-1]
-    for review in carried:
-        rewrite(review, tallied(review["body"], None))
-    if line:
-        print(line)
+    for nth, previous in enumerate(past["rounds"], 1):
+        numbers = previous["numbers"]
+        line = summary(numbers, merged)
+        rewrite(previous, tallied(
+            previous["body"], line, answered(numbers, merged)))
+        if line:
+            print(f"Round {nth}: {line}")
 
 
 if __name__ == "__main__":

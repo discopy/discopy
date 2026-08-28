@@ -16,18 +16,17 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   drew, alongside the revision it is reviewing, and says what became of
   each — `accepted` when the file now does what the remark asked,
   `declined` when someone answered that they would not do it, and neither
-  while nobody has answered and nothing has moved. The **newest** review
-  of the pull request then carries the tally, `6 style remarks: 3 accepted
-  / 2 declined / 1 still open` — or `all accepted`, a state nothing is in
-  being left out rather than counted at nought — where the thread is being
-  read rather than behind however many rounds came after it: a round with
-  something to say carries it in the review it posts, a round with nothing
-  to say edits the newest review already there, and any older one still
-  carrying a tally is stripped of it, so there is only ever the one. A
-  verdict that decided something survives a later round that forgets it:
-  the tally carries the verdicts it recorded, hidden beside the line it
-  shows, and a round merges its answers into them rather than recomputing
-  the lot — a remark accepted while its file was in the diff stays
+  while nobody has answered and nothing has moved. Each review then
+  carries the tally of the remarks **it** made and no others, `3 style
+  remarks: 1 accepted / 1 declined / 1 still open` — or `all accepted`, a
+  state nothing is in being left out rather than counted at nought — so
+  that a review says how what it asked for landed, read where it asked
+  it. A round is scored by the ones that follow it, so the review being
+  posted carries no tally yet and every round already posted is written
+  again. A verdict that decided something survives a later round that
+  forgets it: each tally carries the verdicts it recorded, hidden beside
+  the line it shows, and a round merges its answers into them rather than
+  recomputing the lot — a remark accepted while its file was in the diff stays
   accepted once the diff has moved on, where asking a model that can no
   longer see that file made the tally oscillate. A round is one review and
   says which round it is, so the reader sees how the review is landing

@@ -6,8 +6,7 @@ parsing its own prose. This module collects them in the order the rounds
 posted them, each with the replies it received, and writes them to
 ``.style-review/history.json``: ``review.py`` shows them to the model,
 which judges whether each was taken into account, and ``post.py`` writes
-the tally of its verdicts onto the newest review of them all, where the
-thread is being read.
+each round's tally onto the round that made those remarks.
 
 The same three listings render the discussion so far, which goes in the
 same file: everything said on the pull request, ours and everyone else's,
@@ -85,8 +84,7 @@ def scored(body):
 
 def empty():
     """The history of a pull request no round has been posted on yet."""
-    return {"rounds": 0, "reviews": [], "remarks": [], "discussion": "",
-            "verdicts": {}}
+    return {"rounds": [], "remarks": [], "discussion": "", "verdicts": {}}
 
 
 def load():
@@ -99,28 +97,31 @@ def load():
 
 
 def history(repo, number, token):
-    """The rounds posted so far with their remarks numbered across all of
-    them, and everything said on the pull request as one transcript, from
-    the three listings read once."""
+    """The rounds posted so far, oldest first, each with the remarks it
+    made — numbered across every round, since that is what a verdict
+    names — and everything said on the pull request as one transcript,
+    from the three listings read once. Each round carries the verdicts on
+    its own remarks, so they are read back from all of them."""
     reviews = listing(f"/repos/{repo}/pulls/{number}/reviews", token)
     comments = listing(f"/repos/{repo}/pulls/{number}/comments", token)
     conversation = listing(f"/repos/{repo}/issues/{number}/comments", token)
     discussion = thread.render(
         thread.entries(conversation, comments, reviews), thread.BUDGET)
-    rounds = [(review, recorded(review["body"] or "")) for review in reviews
+    posted = [(review, recorded(review["body"] or "")) for review in reviews
               if review["submitted_at"]]
-    rounds = [(review, made) for review, made in rounds if made is not None]
-    remarks, verdicts = [], {}
-    for review, made in rounds:
+    remarks, rounds, verdicts = [], [], {}
+    for review, made in posted:
+        if made is None:
+            continue
         for remark in made:
             remark["number"] = len(remarks) + 1
             remarks.append(remark)
-        verdicts = scored(review["body"]) or verdicts
-    return {
-        "rounds": len(rounds), "remarks": remarks, "discussion": discussion,
-        "verdicts": verdicts,
-        "reviews": [{"id": review["id"], "body": review["body"]}
-                    for review, _ in rounds]}
+        rounds.append({
+            "id": review["id"], "body": review["body"],
+            "numbers": [remark["number"] for remark in made]})
+        verdicts.update(scored(review["body"]))
+    return {"rounds": rounds, "remarks": remarks, "verdicts": verdicts,
+            "discussion": discussion}
 
 
 def main():
@@ -129,7 +130,8 @@ def main():
                    os.environ["GITHUB_TOKEN"])
     with open(os.path.join(DIRECTORY, "history.json"), "w") as file:
         json.dump(past, file)
-    print(f"{past['rounds']} rounds so far, {len(past['remarks'])} remarks, "
+    print(f"{len(past['rounds'])} rounds so far, "
+          f"{len(past['remarks'])} remarks, "
           f"{len(past['discussion'])} characters of discussion.")
 
 
