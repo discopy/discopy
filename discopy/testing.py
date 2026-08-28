@@ -74,8 +74,13 @@ class Natural(int, Strategy["Natural"]):
 
     @classmethod
     def equation_factory(cls, *terms):
-        """ Construct an equation between natural numbers. """
-        from discopy.cat import Equation
+        """
+        Construct an equation between natural numbers.
+
+        The import is local because :mod:`discopy.abc` imports this module
+        for its axioms, so the arrow between them cannot be reversed.
+        """
+        from discopy.abc import Equation
 
         return Equation(*terms)
 

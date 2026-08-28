@@ -43,7 +43,7 @@ Review round from @daydream6728 on
 
 ## Work
 
-- [ ] Move the `Equation` implementation into `abc` as a `NamedGeneric`
+- [x] Move the `Equation` implementation into `abc` as a `NamedGeneric`
       parameterised by its arrow type, with `cat.Equation` as its
       instantiation, so `Category.equation_factory` needs no local import.
 - [x] Drop the quotes on the `st.SearchStrategy[T]` annotations, checking
