@@ -5,12 +5,23 @@ notebook (a ``docs/notebooks/*.md`` file, its code cells fenced as
 ``python {.marimo}``), or plain prose, config or workflow. Excluded are
 generated artefacts nobody hand-writes, filtered out of the diff before
 this module runs. Assembles ``prompt.md``, ``STYLE.md``, the package-local
-files that the changed Python files import (as context), and one listing
-per changed file: the whole new file, unified-diff style, every line
-numbered by its position in the new file with a leading ``+``/``-`` for
-one added/removed since the merge base. Sends one chat completion to the
-OpenAI-compatible gateway at ``BASE_URL`` and writes the findings to
-``.style-review/findings.json`` for ``post.py`` to post.
+files that the changed Python files import (as context), the remarks the
+previous rounds made with the replies they drew, and one listing per
+changed file: the whole new file, unified-diff style, every line numbered
+by its position in the new file with a leading ``+``/``-`` for one
+added/removed since the merge base. Sends one chat completion to the
+OpenAI-compatible gateway at ``BASE_URL`` and writes the findings, along
+with a verdict on each past remark, to ``.style-review/findings.json`` for
+``post.py`` to post and tally.
+
+The parts go in from the one that never moves to the one that moves every
+round, so that two rounds of the same pull request share a prefix and the
+gateway can serve it from its cache: the instructions and ``STYLE.md``
+first, then the context files, then the past remarks — a numbered list
+that only grows at its end — and last the revision under review, which is
+new by the very fact that a round is running. The order is what makes the
+prompt append-only, so a part moved earlier costs cache on every round
+after it.
 """
 
 import ast
@@ -22,8 +33,11 @@ import sys
 import urllib.error
 import urllib.request
 
+import history
+
 DIRECTORY = ".style-review"
 BUDGET = 400_000
+QUOTE = 2_000
 LANGUAGES = {
     ".py": "python", ".md": "markdown", ".rst": "rst", ".yml": "yaml",
     ".yaml": "yaml", ".toml": "toml", ".json": "json", ".css": "css",
@@ -127,11 +141,55 @@ def context_block(path):
     return section("Context (not under review)", path, body)
 
 
-def assemble(files, base_sha):
-    """The one prompt: instructions, style guide, context, changes. Every
-    part is budgeted as assembled, including the ``"\\n\\n"`` separators
-    the join below adds between them, so the request sent to the gateway
-    never exceeds ``BUDGET``."""
+def literal(text):
+    """Somebody's words on one bounded line, as a Python literal: a
+    newline or a backtick in them breaks neither the listing they sit in
+    nor the fences below, and a long one cannot eat the budget."""
+    return repr(text.strip()[:QUOTE])
+
+
+def quoted(comment, about="in the conversation"):
+    """One thing somebody said on its own line, under the remark it
+    answers or in the conversation at large."""
+    return f"- {about}, {comment['author']}: {literal(comment['body'])}"
+
+
+def past_block(past):
+    """The remarks of the previous rounds, each under the number its
+    verdict refers to, and then what they drew. The numbered list only
+    grows at its end, so a round sends the list of the round before it
+    unchanged; a reply, which lands on whichever remark it answers, is
+    quoted after the whole list rather than in its middle, where it would
+    move every remark below it."""
+    lines = ["# Style remarks from the previous rounds", ""]
+    lines += [f"{remark['number']}. `{remark['path']}:{remark['line']}` — "
+              f"{literal(remark['comment'])}" for remark in past["remarks"]]
+    answers = [quoted(reply, f"on remark {remark['number']}")
+               for remark in past["remarks"] for reply in remark["replies"]]
+    answers += [quoted(comment) for comment in past["comments"]]
+    if answers:
+        lines += ["", "# What those remarks drew", ""] + answers
+    return "\n".join(lines)
+
+
+def fitted(text, budget):
+    """The text with the budget it leaves, or nothing at all and the
+    budget untouched: the past remarks are dropped whole rather than cut
+    mid-sentence, a round without them simply giving no verdict."""
+    cost = len(text) + 2
+    return (text, budget - cost) if cost <= budget else ("", budget)
+
+
+def assemble(files, base_sha, past):
+    """The one prompt: instructions, style guide, context, past remarks,
+    changes. Every part is budgeted as assembled, including the
+    ``"\\n\\n"`` separators the join below adds between them, so the
+    request sent to the gateway never exceeds ``BUDGET``. The revision
+    under review is budgeted first and goes in whole, then the context
+    files and last the past remarks, however many rounds have piled up:
+    a history that grew is dropped whole rather than evicting a context
+    file, which sits earlier in the prompt and would take the prefix of
+    every later round with it."""
     deps = sorted(
         {dep for path in files for dep in imports(path)} - set(files))
     with open(".github/style-review/prompt.md") as file:
@@ -144,11 +202,17 @@ def assemble(files, base_sha):
     if missing:
         raise ValueError(f"changed files past the budget: {missing}")
     context, budget, dropped = contents(deps, budget, context_block)
+    remarks, budget = fitted(
+        past_block(past) if past["remarks"] else "", budget)
+    if past["remarks"] and not remarks:
+        print("The past remarks are past the budget, so this round gives "
+              "no verdict.", file=sys.stderr)
     parts = [instructions, style] + [block for _, block in context]
     if dropped:
         note = f"# Context dropped for size: {', '.join(dropped)}"
         if len(note) + 2 <= budget:
             parts.append(note)
+    parts += ([remarks] if remarks else [])
     parts += [block for _, block in changed]
     return "\n\n".join(parts)
 
@@ -193,10 +257,13 @@ def main():
     with open(os.path.join(DIRECTORY, "files.txt")) as file:
         files = [path for path in file.read().splitlines()
                  if path and os.path.exists(path)]
-    findings = ask(assemble(files, os.environ["BASE_SHA"]))
+    past = history.load()
+    answer = ask(assemble(files, os.environ["BASE_SHA"], past))
     with open(os.path.join(DIRECTORY, "findings.json"), "w") as file:
-        json.dump(findings, file)
-    print(f"{len(findings.get('findings', []))} findings.")
+        json.dump(answer, file)
+    print(f"{len(answer.get('findings', []))} findings, "
+          f"{len(answer.get('verdicts', []))} verdicts on "
+          f"{len(past['remarks'])} past remarks.")
 
 
 if __name__ == "__main__":

@@ -9,6 +9,53 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- The style review keeps score. Every review it posts records the remarks
+  it made, hidden in its own body, so the next round can read them back
+  whole rather than parse its own prose. That next round is one request
+  as before: the model is shown the past remarks with the replies they
+  drew, alongside the revision it is reviewing, and says what became of
+  each — `accepted` when the file now does what the remark asked,
+  `declined` when someone answered that they would not do it, and neither
+  while nobody has answered and nothing has moved. The **newest** review
+  of the pull request then carries the tally, `6 style remarks: 3 accepted
+  / 2 declined / 1 still open`, where the thread is being read rather than
+  behind however many rounds came after it: a round with something to say
+  carries it in the review it posts, a round with nothing to say edits the
+  newest review already there, and any older one still carrying a tally is
+  stripped of it, so there is only ever the one. A round is one review and
+  says which round it is, so the reader sees how the review is landing
+  without counting them. The prompt is ordered from what never moves to
+  what moves every round — instructions, `STYLE.md`, context files, the
+  past remarks as a list that only grows at its end, and last the revision
+  under review — so that two rounds of one pull request share a prefix the
+  gateway can serve from its cache rather than reading again
+  ([#672](https://github.com/discopy/discopy/pull/672)).
+- The style review never posts a review of a revision that is gone. Its
+  concurrency group keyed on the event's action as well as the pull
+  request, so a push cancelled the round another push had started but not
+  one started by `ready_for_review` or by asking for it in a comment:
+  those ran on, and posted a review of the head they had read minutes
+  earlier, with line numbers belonging to a revision nobody could see any
+  more. The group is now the pull request alone, so a newer trigger
+  cancels the round in flight whatever started either of them, and
+  `post.py` re-reads the head before posting and stands down when it has
+  moved, leaving the review to the round that push starts. The base
+  branch advancing is not this and never was: a merge base does not move
+  when its target gains commits, so the diff both we and GitHub compute —
+  and every line number in it — is the same before and after
+  ([#672](https://github.com/discopy/discopy/pull/672)).
+- The style review comments on the diff and nowhere else. Whole files are
+  what it reads to judge a change against the conventions around it, not
+  an invitation to review code the change does not touch, and a finding
+  that sits on no line of the diff is now dropped rather than moved to
+  the review body — the prompt says so, and `post.py` enforces it, saying
+  how many it dropped. Every remark it does post is a comment on the line
+  it is about: the body carries the round and what it could not say,
+  never a list of findings. Left as it was, a review of the file at large
+  spent the ten-finding cap on code nobody was changing, and under the
+  tally above those remarks stayed open forever, since fixing them was
+  out of the pull request's scope
+  ([#673](https://github.com/discopy/discopy/issues/673)).
 - A `workflows` job in `build.yml`, so that the code running our pull
   requests is checked like the code it checks: `actionlint` over the
   workflows, `pflake8` over `.github`, and `pytest .github/tests/*.py`
