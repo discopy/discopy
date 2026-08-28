@@ -126,11 +126,10 @@ def changed_block(path, base_sha):
 def diff_block(path, base_sha):
     """A plain, small-context ``git diff`` of ``path`` since ``base_sha``
     — the compact fallback for a changed file whose full-file
-    :func:`changed_block` doesn't fit the budget, same idea as
-    :func:`context_block` degrading a dropped context file, except a
-    changed file has no smaller-still fallback: one that doesn't fit
-    even as a diff is reported as unreviewed rather than dropped
-    silently."""
+    ``changed_block`` doesn't fit the budget, same idea as ``assemble``
+    dropping a context file for size, except a changed file has no
+    smaller-still fallback: one that doesn't fit even as a diff is
+    reported as unreviewed rather than dropped silently."""
     diff = subprocess.run(
         ['git', 'diff', '--merge-base', base_sha, '--', path],
         capture_output=True, text=True, check=True).stdout
