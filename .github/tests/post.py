@@ -68,11 +68,22 @@ def test_counted_says_one_of_a_thing_singular(post):
 def test_summary_counts_every_remark(post):
     assert post.summary(["accepted", "declined"]) == (
         "2 style remarks: 1 accepted / 1 declined")
-    assert post.summary(["accepted", None]) == (
-        "2 style remarks: 1 accepted / 0 declined / 1 still open")
-    assert post.summary(["declined"]) == (
-        "1 style remark: 0 accepted / 1 declined")
+    assert post.summary(["accepted", "declined", None]) == (
+        "3 style remarks: 1 accepted / 1 declined / 1 still open")
     assert post.summary([]) is None
+
+
+def test_summary_leaves_out_a_state_nothing_is_in(post):
+    """Nought declined is not news; what every remark is, is."""
+    assert post.summary(["accepted", None]) == (
+        "2 style remarks: 1 accepted / 1 still open")
+    assert post.summary(["accepted"] * 3) == "3 style remarks: all accepted"
+    assert post.summary([None, None]) == "2 style remarks: all still open"
+
+
+def test_summary_says_of_one_remark_what_became_of_it(post):
+    assert post.summary(["accepted"]) == "1 style remark: accepted"
+    assert post.summary(["declined"]) == "1 style remark: declined"
 
 
 def test_verdicts_read_what_this_round_answered(post):
@@ -86,11 +97,10 @@ def test_verdicts_read_what_this_round_answered(post):
 
 def test_tallied_replaces_the_tally_it_finds(post, history):
     body = history.stamp([]) + "\nStyle review by `m`, round 1."
-    once = post.tallied(body, "1 style remark: 1 accepted / 0 declined")
-    assert once.endswith("1 style remark: 1 accepted / 0 declined")
-    twice = post.tallied(once, "2 style remarks: 2 accepted / 0 declined")
-    assert twice == post.tallied(body, "2 style remarks: 2 accepted / 0 "
-                                 "declined")
+    once = post.tallied(body, "1 style remark: accepted")
+    assert once.endswith("1 style remark: accepted")
+    twice = post.tallied(once, "2 style remarks: all accepted")
+    assert twice == post.tallied(body, "2 style remarks: all accepted")
     assert post.tallied(twice, None) == body
 
 
@@ -99,8 +109,8 @@ def test_tallied_leaves_a_remark_quoting_the_marker_alone(post, history):
     is mentioned: a remark about the tally is a remark like any other."""
     body = (history.stamp([]) + "\nStyle review.\nnever write "
             + history.TALLY + " in a review")
-    assert post.tallied(post.tallied(body, "1 style remark: 1 accepted / 0 "
-                                     "declined"), None) == body
+    assert post.tallied(
+        post.tallied(body, "1 style remark: accepted"), None) == body
 
 
 def test_a_verdict_survives_a_round_that_forgets_it(post):
@@ -129,7 +139,7 @@ def test_a_remark_nobody_has_answered_is_open(post):
 
 def test_the_tally_carries_its_verdicts_for_the_next_round(post, history):
     body = history.stamp([]) + "\nStyle review by `m`, round 1."
-    tallied = post.tallied(body, "1 style remark: 1 accepted / 0 declined",
+    tallied = post.tallied(body, "1 style remark: accepted",
                            {"1": "accepted"})
     assert history.scored(tallied) == {"1": "accepted"}
     assert post.tallied(tallied, None) == body

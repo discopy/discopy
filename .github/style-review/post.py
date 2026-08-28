@@ -133,15 +133,20 @@ def summary(given):
     """The tally line, `None` before any remark has been made: how many
     were made in all, then what became of them. The total counts the
     remarks still open too — a round answers what it answers, and the
-    reader is owed the size of the pile either way — so it says the three
-    apart rather than calling them all taken into account."""
+    reader is owed the size of the pile either way. A state nothing is in
+    is left out rather than counted at nought, and one that everything is
+    in is said of them all rather than counted at the total."""
     if not given:
         return None
-    accepted, declined = given.count("accepted"), given.count("declined")
-    waiting = len(given) - accepted - declined
-    line = (f"{counted(len(given), 'style remark')}: "
-            f"{accepted} accepted / {declined} declined")
-    return line if not waiting else f"{line} / {waiting} still open"
+    became = [(given.count(verdict), name) for verdict, name in (
+        ("accepted", "accepted"), ("declined", "declined"),
+        (None, "still open")) if given.count(verdict)]
+    made = counted(len(given), "style remark")
+    if len(became) > 1:
+        return f"{made}: " + " / ".join(
+            f"{number} {name}" for number, name in became)
+    number, name = became[0]
+    return f"{made}: {'all ' if number > 1 else ''}{name}"
 
 
 def tallied(body, line, verdicts=None):
