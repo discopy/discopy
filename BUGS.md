@@ -5,8 +5,8 @@ most failures were one design flaw repeating across classes, so each group
 names the flaw once and lists where it struck. Fixed means fixed on this
 branch; open bugs carry their declaration in the matrix.
 
-This slice covers only the base axiom infrastructure (``discopy.cat`` and
-``discopy.abc``'s ``Category``/``ColouredMonoid`` levels). Bugs found once
+This slice covers only the base axiom infrastructure (`discopy.cat` and
+`discopy.abc`'s `Category`/`ColouredMonoid` levels). Bugs found once
 later stages enrol more carriers are recorded on their own branch.
 
 ## Type atoms that are not wires
