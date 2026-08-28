@@ -5,13 +5,15 @@ posts the findings sitting on a line of the diff as inline comments and the
 others in the review body, as the GitHub App authenticated by ``APP_TOKEN``.
 A clean run posts nothing.
 
-Every remark is an inline comment on the line it is about: a finding that
-sits on no line of the diff is dropped rather than moved to the body,
-which carries the round and what it could not say rather than a list of
-findings. A review of the file at large is not what the diff asked for
-([#673](https://github.com/discopy/discopy/issues/673)). The one body
-that does list them is the one GitHub leaves when it refuses the inline
-comments, where the choice is that shape or no remarks at all.
+A remark belongs on the line it is about, and the review asks for the
+diff ([#673](https://github.com/discopy/discopy/issues/673)) — but
+commenting outside it is an exception the reviewer may take, not a
+mistake: GitHub takes a comment on any line one of the diff's hunks
+shows, so a remark on the code the change is read against goes inline
+like the rest, and one further out still goes in the body rather than
+be lost. The body is where the round says what it could not say inline:
+the remarks GitHub would not take, the findings past the cap, and the
+changed files too big to be read whole.
 
 One review per round, and the round records the remarks it made so that the
 next one can read them back. Whatever the model makes of those past remarks
@@ -41,10 +43,11 @@ HUNK = re.compile(r"^@@ -\S+ \+(\d+)(?:,(\d+))? @@")
 
 
 def commentable_lines(diff):
-    """Map each path in a unified diff to the lines it adds. A hunk shows
-    the lines around a change as well, and GitHub would take a comment on
-    those, but the prompt asks for a finding on a line the diff adds, so
-    that is what a finding is held to."""
+    """Map each path in a unified diff to the lines GitHub takes a
+    comment on: every line one of its hunks shows, the ones the change
+    adds and the ones it is read against alike. The prompt asks for
+    findings on what the diff adds and allows the rest as an exception,
+    so this is the wider set — what can be said inline at all."""
     lines, path, number = {}, None, 0
     for row in diff.splitlines():
         if row.startswith("+++ b/"):
@@ -54,10 +57,8 @@ def commentable_lines(diff):
             number = int(match[1])
         elif path is None or row.startswith("-") or row.startswith("\\"):
             continue
-        elif row.startswith("+"):
-            lines[path].add(number)
-            number += 1
         else:
+            lines[path].add(number)
             number += 1
     return lines
 
@@ -93,20 +94,44 @@ def counted(number, thing):
     return f"{number} {thing}{'' if number == 1 else 's'}"
 
 
-def describe(nth, dropped, withheld, unreadable):
+def named(paths):
+    """A list of paths as one clause."""
+    return ", ".join(f"`{path}`" for path in paths)
+
+
+def uncovered(coverage):
+    """What the round could not read whole, said in the review rather
+    than in the job's log alone: a changed file past the prompt's budget
+    is reviewed from its diff, or not at all, and a reader is owed that
+    before taking a clean review for a read one."""
+    lines = []
+    if coverage.get("degraded"):
+        lines.append("Too big for one prompt, reviewed from their diff "
+                     f"alone: {named(coverage['degraded'])}.")
+    if coverage.get("unreviewed"):
+        lines.append("Too big for one prompt even as a diff, not reviewed "
+                     f"at all: {named(coverage['unreviewed'])}.")
+    return lines
+
+
+def elsewhere(findings, why):
+    """The remarks that go in the body rather than on their own line,
+    under the reason they are there."""
+    return ["", why] + [f"- `{f['path']}:{f['line']}` — {f['comment']}"
+                        for f in findings]
+
+
+def describe(nth, withheld, unreadable, coverage):
     """The body of one round's review: which round it is, and what it
-    could not say. The remarks themselves are inline comments on the
-    lines they are about, so no list of them belongs here."""
+    could not say inline. The remarks themselves are comments on the
+    lines they are about, save those the body has to carry."""
     lines = [f"Style review by `{os.environ['MODEL']}`, round {nth}."]
-    if dropped:
-        lines.append(
-            f"{counted(dropped, 'finding')} sat on no line of the diff.")
     if withheld:
         lines.append(f"{counted(withheld, 'further finding')} went past "
                      "the ten-finding cap.")
     if unreadable:
         lines.append(f"{counted(unreadable, 'finding')} could not be read.")
-    return "\n".join(lines)
+    return "\n".join(lines + uncovered(coverage))
 
 
 def verdicts(past, given):
@@ -188,18 +213,18 @@ def record(clean):
             file.write(f"clean={str(clean).lower()}\n")
 
 
-def post_review(body, findings, inline=True):
-    """One round as one review: the record of the remarks it makes, the
-    body, and each remark as a comment on its own line. ``inline`` goes
-    false only where GitHub has refused those comments, the remarks then
-    going in the body so that a rejection costs the round its shape
-    rather than its findings."""
+def post_review(body, remarks, comments):
+    """One round as one review: the record of every remark it makes, the
+    body, and a comment on the line of each remark GitHub takes one for.
+    A remark left out of ``comments`` is one the body carries instead,
+    because its line is nowhere in the diff or because GitHub refused
+    the comments outright."""
     api(f"/repos/{os.environ['REPO']}/pulls/{os.environ['PR_NUMBER']}"
         f"/reviews", os.environ["APP_TOKEN"], {
             "commit_id": os.environ["HEAD_SHA"], "event": "COMMENT",
-            "body": f"{history.stamp(findings)}\n{body}", "comments": [
+            "body": f"{history.stamp(remarks)}\n{body}", "comments": [
                 {"path": f["path"], "line": f["line"], "side": "RIGHT",
-                 "body": f["comment"]} for f in findings] if inline else []})
+                 "body": f["comment"]} for f in comments]})
 
 
 def main():
@@ -220,31 +245,34 @@ def main():
         raise ValueError(f"no readable finding in: {reported!r}")
     with open(os.path.join(history.DIRECTORY, "diff.patch")) as file:
         lines = commentable_lines(file.read())
-    on_diff = [
-        f for f in findings if f["line"] in lines.get(f["path"], set())]
-    off_diff = [f"{f['path']}:{f['line']}"
-                for f in findings if f not in on_diff]
+    withheld, findings = len(findings[10:]), findings[:10]
+    inline = [f for f in findings if f["line"] in lines.get(f["path"], set())]
+    off_diff = [f for f in findings if f not in inline]
     if off_diff:
-        print(f"{counted(len(off_diff), 'finding')} sat on no line of the "
-              f"diff, dropped: {', '.join(off_diff)}")
-    withheld, findings = len(on_diff[10:]), on_diff[:10]
+        print(f"{counted(len(off_diff), 'finding')} sits outside the diff, "
+              "in the body: "
+              + ", ".join(f"{f['path']}:{f['line']}" for f in off_diff))
     past = history.load()
     merged = verdicts(past, answer.get("verdicts", []))
+    coverage = answer.get("coverage", {})
     record(clean=not findings)
-    if findings:
+    if findings or uncovered(coverage):
         body = describe(
-            len(past["rounds"]) + 1, len(off_diff), withheld, unreadable)
+            len(past["rounds"]) + 1, withheld, unreadable, coverage)
+        if off_diff:
+            body = "\n".join([body] + elsewhere(
+                off_diff, "These are about lines the diff does not show, "
+                "where GitHub takes no comment:"))
         try:
-            post_review(body, findings)
+            post_review(body, findings, inline)
         except urllib.error.HTTPError as error:
             if error.code != 422:
                 raise
             print(f"Inline comments rejected ({error.code}), "
                   "posting the remarks in the body.")
-            post_review("\n".join(
-                [body, "", "GitHub refused these as inline comments:"] + [
-                    f"- `{f['path']}:{f['line']}` — {f['comment']}"
-                    for f in findings]), findings, inline=False)
+            post_review("\n".join([body] + elsewhere(
+                inline, "GitHub refused these as inline comments:")),
+                findings, [])
     else:
         print("Nothing to say on the diff, posting nothing.")
     for nth, previous in enumerate(past["rounds"], 1):

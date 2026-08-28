@@ -194,21 +194,24 @@ def fitted(text, budget):
 
 
 def assemble(files, base_sha, past):
-    """The one prompt: instructions, style guide, context, past remarks,
-    discussion, changes. Every part is budgeted as assembled, including
-    the ``"\\n\\n"`` separators the join below adds between them, so the
-    request sent to the gateway never exceeds ``BUDGET``. The revision
-    under review is budgeted first and goes in whole, then the context
-    files, then the past remarks and the discussion, however many rounds
-    have piled up: what grew is dropped whole rather than evicting a
-    context file, which sits earlier in the prompt and would take the
-    prefix of every later round with it. A changed file too big for its
-    full-file listing falls back to a plain diff of its hunks, and one
-    too big even for that is reported as unreviewed rather than raising
-    and crashing the round. The notes saying which files those were sit
-    with the changed files they describe rather than with the context
-    files: they name whatever did not fit this round, so in the prefix
-    they would rewrite its middle every time that set changed."""
+    """The one prompt, and what did not fit in it: instructions, style
+    guide, context, past remarks, discussion, changes. Every part is
+    budgeted as assembled, including the ``"\\n\\n"`` separators the join
+    below adds between them, so the request sent to the gateway never
+    exceeds ``BUDGET``. The revision under review is budgeted first and
+    goes in whole, then the context files, then the past remarks and the
+    discussion, however many rounds have piled up: what grew is dropped
+    whole rather than evicting a context file, which sits earlier in the
+    prompt and would take the prefix of every later round with it. A
+    changed file too big for its full-file listing falls back to a plain
+    diff of its hunks, and one too big even for that is reported as
+    unreviewed rather than raising and crashing the round. What did not
+    fit is returned beside the prompt, so that the review can say so
+    where it is read rather than in the job's log alone. The notes
+    saying as much to the model sit with the changed files they describe
+    rather than with the context files: they name whatever did not fit
+    this round, so in the prefix they would rewrite its middle every
+    time that set changed."""
     deps = sorted(
         {dep for path in files for dep in imports(path)} - set(files))
     with open(".github/style-review/prompt.md") as file:
@@ -247,7 +250,9 @@ def assemble(files, base_sha, past):
             parts.append(note)
             budget -= len(note) + 2
     parts += [block for _, block in changed] + [block for _, block in degraded]
-    return "\n\n".join(parts)
+    return "\n\n".join(parts), {
+        "dropped": dropped, "unreviewed": unreviewed,
+        "degraded": [path for path, _ in degraded]}
 
 
 def complete(request, attempts=ATTEMPTS):
@@ -314,12 +319,16 @@ def main():
         files = [path for path in file.read().splitlines()
                  if path and os.path.exists(path)]
     past = history.load()
-    answer = ask(assemble(files, os.environ["BASE_SHA"], past))
+    prompt, coverage = assemble(files, os.environ["BASE_SHA"], past)
+    answer = ask(prompt)
+    answer["coverage"] = coverage
     with open(os.path.join(history.DIRECTORY, "findings.json"), "w") as file:
         json.dump(answer, file)
     print(f"{len(answer.get('findings', []))} findings, "
           f"{len(answer.get('verdicts', []))} verdicts on "
-          f"{len(past['remarks'])} past remarks.")
+          f"{len(past['remarks'])} past remarks; "
+          f"{len(coverage['degraded'])} changed files read from their diff "
+          f"alone, {len(coverage['unreviewed'])} not read at all.")
 
 
 if __name__ == "__main__":

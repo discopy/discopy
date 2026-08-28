@@ -20,10 +20,12 @@ diff --git a/discopy/cat.py b/discopy/cat.py
 """
 
 
-def test_commentable_lines_are_the_lines_the_diff_adds(post):
-    """A hunk shows its surroundings and GitHub would take a comment on
-    them, but the prompt asks for a finding on a line the diff adds."""
-    assert post.commentable_lines(DIFF) == {"discopy/cat.py": {13, 50}}
+def test_commentable_lines_are_every_line_a_hunk_shows(post):
+    """The prompt asks for findings on what the diff adds and allows the
+    surrounding lines as an exception, so what can be said inline is
+    every line GitHub takes a comment on."""
+    assert post.commentable_lines(DIFF) == {
+        "discopy/cat.py": {12, 13, 14, 15, 50, 51}}
 
 
 def test_commentable_lines_ignores_a_hunk_before_any_file(post):
@@ -50,18 +52,26 @@ def test_normalised_rejects_the_unreadable(post):
 
 def test_describe_counts_what_it_could_not_say(post, monkeypatch):
     monkeypatch.setenv("MODEL", "a-model")
-    body = post.describe(3, dropped=2, withheld=3, unreadable=1)
+    body = post.describe(3, withheld=3, unreadable=1, coverage={
+        "degraded": ["a.py"], "unreviewed": ["b.py", "c.py"]})
     assert "round 3." in body
-    assert "2 findings sat on no line of the diff." in body
     assert "3 further findings went past the ten-finding cap." in body
     assert "1 finding could not be read." in body
+    assert "reviewed from their diff alone: `a.py`." in body
+    assert "not reviewed at all: `b.py`, `c.py`." in body
 
 
 def test_describe_lists_no_finding(post, monkeypatch):
-    """Every remark is an inline comment, so the body never lists one."""
+    """A remark goes on its line wherever GitHub takes it there, so the
+    body lists only what it has to carry."""
     monkeypatch.setenv("MODEL", "a-model")
-    assert post.describe(1, dropped=0, withheld=0, unreadable=0) == (
+    assert post.describe(1, withheld=0, unreadable=0, coverage={}) == (
         "Style review by `a-model`, round 1.")
+
+
+def test_elsewhere_names_where_each_remark_is_about(post):
+    assert post.elsewhere([{"path": "a.py", "line": 3, "comment": "one"}],
+                          "why:") == ["", "why:", "- `a.py:3` — one"]
 
 
 def test_counted_says_one_of_a_thing_singular(post):
@@ -209,3 +219,54 @@ def test_main_stands_down_on_a_moved_head_and_is_not_clean(
         "a round that stood down edits nothing"))
     post.main()
     assert open(tmp_path / "output").read() == "clean=false\n"
+
+
+def staged(history, path, findings, coverage=None):
+    """A round's inputs on disk, as the workflow's steps hand them over."""
+    os.makedirs(history.DIRECTORY, exist_ok=True)
+    with open(os.path.join(history.DIRECTORY, "history.json"), "w") as file:
+        json.dump(history.empty(), file)
+    with open(os.path.join(history.DIRECTORY, "findings.json"), "w") as file:
+        json.dump({"findings": findings, "coverage": coverage or {}}, file)
+    with open(os.path.join(history.DIRECTORY, "diff.patch"), "w") as file:
+        file.write(DIFF)
+
+
+def test_main_posts_a_finding_off_the_diff_in_the_body(
+        post, history, tmp_path, monkeypatch):
+    """Commenting outside the diff is discouraged, not forbidden: the
+    remark is inline where GitHub takes it there and in the body
+    otherwise, rather than dropped."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("MODEL", "a-model")
+    staged(history, tmp_path, [
+        {"path": "discopy/cat.py", "line": 13, "comment": "on the diff"},
+        {"path": "discopy/cat.py", "line": 12, "comment": "around it"},
+        {"path": "discopy/cat.py", "line": 900, "comment": "far away"}])
+    posted = []
+    monkeypatch.setattr(post, "moved", lambda: None)
+    monkeypatch.setattr(post, "post_review", lambda body, remarks, comments:
+                        posted.append((body, remarks, comments)))
+    post.main()
+    body, remarks, comments = posted[0]
+    assert [f["line"] for f in comments] == [13, 12]
+    assert [f["line"] for f in remarks] == [13, 12, 900]
+    assert "- `discopy/cat.py:900` — far away" in body
+    assert "on the diff" not in body
+
+
+def test_main_says_what_it_could_not_read_with_nothing_to_report(
+        post, history, tmp_path, monkeypatch):
+    """A round that read no finding but could not read a file whole is
+    not a clean one to the reader, whatever the handover makes of it."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("MODEL", "a-model")
+    staged(history, tmp_path, [], {"unreviewed": ["huge.py"]})
+    posted = []
+    monkeypatch.setattr(post, "moved", lambda: None)
+    monkeypatch.setattr(post, "post_review", lambda body, remarks, comments:
+                        posted.append((body, remarks, comments)))
+    post.main()
+    body, remarks, comments = posted[0]
+    assert (remarks, comments) == ([], [])
+    assert "not reviewed at all: `huge.py`." in body

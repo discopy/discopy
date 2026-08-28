@@ -130,7 +130,7 @@ def test_assemble_orders_from_what_never_moves_to_what_always_does(
         review, reviewable):
     """The prompt is a prefix two rounds share, so the parts that move
     every round go last."""
-    prompt = review.assemble(["file.py"], reviewable, past(
+    prompt, _ = review.assemble(["file.py"], reviewable, past(
         [{"number": 1, "path": "file.py", "line": 2, "comment": "one"}],
         "### toumix\n\nno, on purpose"))
     places = [prompt.index(part) for part in (
@@ -142,9 +142,9 @@ def test_assemble_orders_from_what_never_moves_to_what_always_does(
 def test_assemble_adds_to_the_round_before_it(review, reviewable):
     """What two rounds share is a prefix reaching the whole of the
     earlier round's remarks, so a gateway can serve it from its cache."""
-    first = review.assemble(["file.py"], reviewable, past(
+    first, _ = review.assemble(["file.py"], reviewable, past(
         [{"number": 1, "path": "file.py", "line": 2, "comment": "one"}]))
-    second = review.assemble(["file.py"], reviewable, past([
+    second, _ = review.assemble(["file.py"], reviewable, past([
         {"number": 1, "path": "file.py", "line": 2, "comment": "one"},
         {"number": 2, "path": "file.py", "line": 3, "comment": "two"}]))
     shared = os.path.commonprefix([first, second])
@@ -159,7 +159,7 @@ def test_a_size_note_lands_with_the_files_it_names(
     monkeypatch.setattr(review, "BUDGET", 1_000)
     with open("file.py", "a") as file:
         file.write("filler\n" * 500)
-    prompt = review.assemble(["file.py"], reviewable, past(
+    prompt, _ = review.assemble(["file.py"], reviewable, past(
         [{"number": 1, "path": "file.py", "line": 2, "comment": "one"}],
         "### toumix\n\nno, on purpose"))
     places = [prompt.index(part) for part in (

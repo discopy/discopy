@@ -3,13 +3,15 @@ string diagrams. Your job is style and consistency only: correctness belongs
 to another reviewer and mechanical linting to pflake8, so never comment on
 either. You post at most one review, make every comment count.
 
-**Comment on the diff, never on the rest of the file.** Every finding must
-sit on a line the diff adds — a line the listing marks with a leading
-`+`. You are shown whole files so that you can judge the change
-against what surrounds it, not so that you can review code the change does
-not touch: a finding on any other line is dropped unposted, and the remark
-is wasted. Each finding is posted as a comment on its own line, so write it
-as one.
+**Comment on the diff.** A finding belongs on a line the diff adds — a
+line the listing marks with a leading `+`. You are shown whole files so
+that you can judge the change against what surrounds it, not so that you
+can review code the change does not touch. Going outside the diff is
+allowed but discouraged, for the case where what is wrong with the change
+is somewhere it did not touch: such a finding is posted on its line where
+GitHub takes a comment there, and in the review body otherwise, which is
+further from the code and read by fewer people. Spend your findings on the
+diff. Each one is posted as a comment on its own line, so write it as one.
 
 Below you are given the `STYLE.md` code style guide, the files that the
 changed files import (context only, never comment on them), the remarks
@@ -80,8 +82,9 @@ Answer with nothing but this JSON, no prose around it:
                    "comment": "..."}],
      "verdicts": [{"remark": 1, "verdict": "accepted"}]}
 
-`path` is a changed file, `line` a line the diff adds or changes in that
-file — one carrying a `+` in its listing — and `comment` a short, courteous
+`path` is a changed file, `line` a line of it — one the diff adds,
+carrying a `+` in its listing, save for the discouraged exception above —
+and `comment` a short, courteous
 review comment naming the convention it appeals to, written to be read on
 that line. Report at most ten findings, the ones a human reviewer would
 thank you for; when the diff is clean, answer `{"findings": []}`.

@@ -50,20 +50,26 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   when its target gains commits, so the diff both we and GitHub compute —
   and every line number in it — is the same before and after
   ([#672](https://github.com/discopy/discopy/pull/672)).
-- The style review comments on the diff and nowhere else. Whole files are
-  what it reads to judge a change against the conventions around it, not
-  an invitation to review code the change does not touch, and a finding
-  that sits on no line of the diff is now dropped rather than moved to
-  the review body — the prompt says so, and `post.py` enforces it, saying
-  how many it dropped. Every remark it does post is a comment on the line
-  it is about: the body carries the round and what it could not say
-  rather than a list of findings, save where GitHub refuses those
-  comments, the one case where the remarks go in the body rather than be
-  lost. Left as it was, a review of the file at large
-  spent the ten-finding cap on code nobody was changing, and under the
-  tally above those remarks stayed open forever, since fixing them was
-  out of the pull request's scope
-  ([#673](https://github.com/discopy/discopy/issues/673)).
+- The style review comments on the diff, and says where it could not.
+  Whole files are what it reads to judge a change against the
+  conventions around it, not an invitation to review code the change
+  does not touch, so the prompt asks for findings on the lines the diff
+  adds and says that going outside them is allowed but discouraged —
+  for the case where what is wrong with a change is somewhere it did not
+  touch. Every remark is a comment on the line it is about wherever
+  GitHub takes one there, which is any line one of the diff's hunks
+  shows; a remark further out goes in the review body, as do the ones
+  past the ten-finding cap and, where GitHub refuses the inline comments
+  outright, all of them. Left as a review of the file at large, the
+  ten-finding cap went on code nobody was changing, and under the tally
+  above those remarks stayed open forever, since fixing them was out of
+  the pull request's scope
+  ([#673](https://github.com/discopy/discopy/issues/673)). The body also
+  names the changed files that did not fit one prompt — reviewed from
+  their diff alone, or not reviewed at all — where that was said in the
+  job's log and nowhere a reader would look, so a review with nothing to
+  say about a file it never read whole read exactly like one that had
+  read it.
 - A `workflows` job in `build.yml`, so that the code running our pull
   requests is checked like the code it checks: `actionlint` over the
   workflows, `pflake8` over `.github`, and `pytest .github/tests/*.py`
