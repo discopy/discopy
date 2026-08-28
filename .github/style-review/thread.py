@@ -81,7 +81,7 @@ def block(entry):
 def render(items, budget):
     """The transcript, oldest first. Past the ``budget``, the oldest
     entries are dropped first, except the latest entry on each diff
-    anchor: that is the exchange attached to a still-open flag."""
+    anchor: the most recent comment in a still-open flag's thread."""
     latest_on_anchor = {
         entry["anchor"] for entry in items if entry["anchor"]}
     seen, protected = set(), set()
