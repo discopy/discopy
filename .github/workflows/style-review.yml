@@ -38,7 +38,7 @@ jobs:
           "no_review=\(.labels | any(.name == "no-style-review"))"' \
           >> "$GITHUB_OUTPUT"
 
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       with:
         ref: ${{ steps.pr.outputs.head }}
         fetch-depth: 0
@@ -125,8 +125,8 @@ jobs:
     - name: Generate a discopy-bot token
       id: app-token
       if: >
-        ${{ !cancelled() && steps.todo.outputs.wait == 'false' }}
-      uses: actions/create-github-app-token@v1
+        !cancelled() && steps.todo.outputs.wait == 'false'
+      uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
       with:
         app-id: ${{ vars.DISCOPY_BOT_APP_ID }}
         private-key: ${{ secrets.DISCOPY_BOT_PRIVATE_KEY }}
@@ -147,8 +147,8 @@ jobs:
 
     - name: Call the correctness reviewer
       if: >
-        ${{ !cancelled() && steps.todo.outputs.wait == 'false'
-            && steps.post.outputs.clean != 'false' }}
+        !cancelled() && steps.todo.outputs.wait == 'false'
+        && steps.post.outputs.clean != 'false'
       env:
         GH_TOKEN: ${{ steps.app-token.outputs.token }}
         PR_NUMBER: ${{ steps.pr.outputs.number }}

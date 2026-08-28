@@ -9,6 +9,28 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- A `workflows` job in `build.yml`, so that the code running our pull
+  requests is checked like the code it checks: `actionlint` over the
+  workflows, `pflake8` over `.github`, and `pytest .github/tests/*.py`
+  over the three scripts and the composite action, whose steps take a
+  strict subset of a workflow step's keys that `actionlint` does not
+  check. Three of the last five changes to `.github`
+  were fixing bugs in `.github`
+  ([#611](https://github.com/discopy/discopy/issues/611),
+  [#615](https://github.com/discopy/discopy/issues/615),
+  [#640](https://github.com/discopy/discopy/issues/640)), every one found
+  in production. On its first runs `actionlint` found the `style-review.yml`
+  bug below, and shellcheck the `A && B || C` in `benchmark.yml`'s summary
+  step, now an `if` ([#645](https://github.com/discopy/discopy/pull/645)).
+- `.github/actions/setup`, one composite action for installing uv, Python,
+  the project and, for the jobs that draw, Graphviz. The three `build.yml`
+  jobs called for it four times between them and the Graphviz incantation
+  was byte-identical twice. `benchmark.yml` keeps its own steps: it checks
+  out two arbitrary commits and one of them predates this action
+  ([#645](https://github.com/discopy/discopy/pull/645)).
+- `.github/dependabot.yml`, grouping the monthly GitHub Actions updates
+  into one pull request, now that every action is pinned by commit
+  ([#645](https://github.com/discopy/discopy/pull/645)).
 - The style review can be asked for, and turned off, from the pull request
   itself: `@discopy review this` in a comment reviews it now, and the
   `no-style-review` label stops the automatic reviews on it, while the
@@ -100,6 +122,46 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   ([#484](https://github.com/discopy/discopy/pull/484)).
 
 ### Changed
+
+- The benchmark measures a pull request against its merge base rather
+  than the tip of its base branch. The head does not contain what landed
+  on `main` since it forked, so measuring against the tip charged the pull
+  request for everyone else's commits. `benchmark.yml` resolves it with one
+  `compare` call and records it as `previous` in the artifact metadata,
+  next to the `base` the comment still validates itself against
+  ([#645](https://github.com/discopy/discopy/pull/645)).
+- `benchmark-comment.yml` is 33 lines of YAML calling
+  `.github/scripts/benchmark_comment.py` rather than 140 lines of
+  JavaScript embedded in YAML. Nothing needed `actions/github-script`: the
+  event payload is a JSON file named by `GITHUB_EVENT_PATH` and the REST
+  API is `urllib`, which `.github/style-review/post.py` already talks to.
+  In Python it is lintable, testable and in the one language this
+  repository is written in; its validation is `unreadable`, `unattested`
+  and `mismatch`, three pure functions the tests state the refusals of.
+  The job also stopped taking the artifact's word for three things, since
+  the pull request can write it: the pull request number is checked to be
+  an integer before it reaches a URL rather than after, the merge base the
+  comment links is checked against one the job computes itself from two
+  commits it already trusts, and a run that lists no pull request of its
+  own -- one from a fork -- must name the single open pull request for its
+  head rather than any that shares its branch. A download that fails is no
+  longer silence: the job asks whether the artifact was staged at all, and
+  only then posts nothing
+  ([#645](https://github.com/discopy/discopy/pull/645)).
+- `build.yml` and `benchmark.yml` cancel a pull request's superseded runs
+  but let every commit on `main` finish, `cancel-in-progress` reading
+  `github.event_name == 'pull_request'`. Cancelling on `main` left commits
+  nothing ever built — `112b6036` is one — and threw away the pair of
+  measurements a benchmark run exists to produce
+  ([#645](https://github.com/discopy/discopy/pull/645)).
+- Every action is pinned by commit, not by moving tag, as
+  `benchmark-comment.yml` already pinned two of them; `build.yml` declares
+  `permissions: contents: read` like the other four workflows; and every
+  checkout sets `persist-credentials: false`
+  ([#645](https://github.com/discopy/discopy/pull/645)).
+- `build.yml` drops the `SRC_DIR` and `TEST_DIR` variables, which nothing
+  read, and the `tooling/uv-migration` push trigger, whose branch is gone
+  ([#645](https://github.com/discopy/discopy/pull/645)).
 
 - `CMap` is aligned on `Hypergraph`. It is parameterised by a category as
   `NamedGeneric["category"]` instead of carrying `require_*` flags, and it is
@@ -256,6 +318,18 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   ([#566](https://github.com/discopy/discopy/pull/566)).
 
 ### Fixed
+
+- `style-review.yml`'s hand-over to the correctness reviewer, and its
+  token generation, ran on every style review rather than the intended
+  ones. Both conditions were written as `if: >` folding a wrapped
+  `${{ ... }}` into a string with a trailing newline: with characters
+  around it the expression is no longer the whole value, so GitHub read a
+  non-empty string and took it as true. `@cubic-dev-ai review` was
+  therefore posted whatever the style review found, where it is meant to
+  wait for a clean one. [#634](https://github.com/discopy/discopy/pull/634)
+  rewrote both conditions and the shape survived, so the fix is applied to
+  its versions: written bare, as the file's other five conditions are
+  ([#645](https://github.com/discopy/discopy/pull/645)).
 
 - The style review no longer depends on a transition that may never
   happen. `ready_for_review` fires on the draft-to-ready edge alone, so a

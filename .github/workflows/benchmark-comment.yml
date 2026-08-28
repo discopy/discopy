@@ -7,6 +7,7 @@ on:
 
 permissions:
   actions: read
+  contents: read
   pull-requests: write
 
 jobs:
@@ -14,22 +15,14 @@ jobs:
     if: github.event.workflow_run.event == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-    - name: Find the comparison
-      id: artifact
-      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       with:
-        script: |
-          const artifacts = await github.paginate(
-            github.rest.actions.listWorkflowRunArtifacts,
-            {
-              ...context.repo,
-              run_id: context.payload.workflow_run.id,
-              per_page: 100,
-            },
-          );
-          return artifacts.some(({ name }) => name === "benchmark-comment");
+        persist-credentials: false
     - name: Download the comparison
-      if: steps.artifact.outputs.result == 'true'
+      # A run cancelled before staging anything leaves no artifact, which is
+      # nothing to post; the script tells that from a download that failed,
+      # by asking whether the artifact is there at all.
+      continue-on-error: true
       uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
       with:
         name: benchmark-comment
@@ -37,104 +30,6 @@ jobs:
         run-id: ${{ github.event.workflow_run.id }}
         github-token: ${{ github.token }}
     - name: Post or update the comparison
-      if: steps.artifact.outputs.result == 'true'
-      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
-      with:
-        script: |
-          const fs = require("fs");
-          const path = require("path");
-          const run = context.payload.workflow_run;
-          const directory = path.join(
-            process.env.GITHUB_WORKSPACE, "benchmark-comment");
-          const metadata = JSON.parse(fs.readFileSync(
-            path.join(directory, "metadata.json"), "utf8"));
-          if (!Number.isInteger(metadata.pull_request)
-              || metadata.run_id !== run.id
-              || !/^[0-9a-f]{40}$/.test(metadata.base)
-              || !/^[0-9a-f]{40}$/.test(metadata.head)
-              || metadata.head !== run.head_sha) {
-            core.setFailed("Invalid benchmark metadata.");
-            return;
-          }
-
-          const { data: pull } = await github.rest.pulls.get({
-            ...context.repo,
-            pull_number: metadata.pull_request,
-          });
-          if (pull.head.sha !== metadata.head) {
-            core.info("Skipping a comparison for a superseded head commit.");
-            return;
-          }
-
-          const source = run.head_repository?.full_name;
-          if (pull.base.repo.full_name !== `${context.repo.owner}/${context.repo.repo}`
-              || pull.head.repo.full_name !== source
-              || pull.head.ref !== run.head_branch) {
-            core.setFailed("Benchmark metadata does not match its source PR.");
-            return;
-          }
-          if (run.pull_requests.length) {
-            const sourcePull = run.pull_requests.find(
-              ({ number }) => number === metadata.pull_request);
-            if (!sourcePull || sourcePull.head.sha !== metadata.head
-                || sourcePull.base.sha !== metadata.base) {
-              core.setFailed("Benchmark run does not belong to this PR.");
-              return;
-            }
-          }
-
-          const marker = "<!-- discopy-benchmark -->";
-          const baseLink = `${pull.base.repo.html_url}/commit/${metadata.base}`;
-          const headLink = `${pull.head.repo.html_url}/commit/${metadata.head}`;
-          // benchmark/report.py renders the comparison; a pull request owns
-          // the case names it lists, so neutralise HTML and mentions.
-          const filename = path.join(directory, "comparison.md");
-          const report = fs.existsSync(filename)
-            ? fs.readFileSync(filename, "utf8")
-              .replaceAll("<", "&lt;")
-              .replaceAll("@", "&#64;")
-            : "## Benchmark comparison\n\n**ERROR:** The benchmark run did "
-              + "not produce a comparison.";
-          const contextLine = `Comparing head [\`${metadata.head.slice(0, 7)}\`](`
-            + `${headLink}) with base [\`${metadata.base.slice(0, 7)}\`](`
-            + `${baseLink}) on the same runner. [Workflow run](${run.html_url}).`;
-          const warnings = [];
-          if (pull.base.sha !== metadata.base) {
-            warnings.push(
-              "The pull request base has changed since this run; rerun the "
-              + "benchmark for a current comparison.");
-          }
-          if (run.conclusion !== "success") {
-            warnings.push(`The benchmark workflow concluded \`${run.conclusion}\`.`);
-          }
-          const warning = warnings.length
-            ? `\n\n> [!WARNING]\n> ${warnings.join(" ")}` : "";
-          const body = `${marker}\n${report}\n${contextLine}${warning}`;
-          if (body.length > 65536) {
-            core.setFailed("Benchmark comparison exceeds GitHub's comment limit.");
-            return;
-          }
-
-          const comments = await github.paginate(
-            github.rest.issues.listComments,
-            {
-              ...context.repo,
-              issue_number: metadata.pull_request,
-              per_page: 100,
-            },
-          );
-          const previous = comments.find(({ body, user }) =>
-            user?.login === "github-actions[bot]" && body?.startsWith(marker));
-          if (previous) {
-            await github.rest.issues.updateComment({
-              ...context.repo,
-              comment_id: previous.id,
-              body,
-            });
-          } else {
-            await github.rest.issues.createComment({
-              ...context.repo,
-              issue_number: metadata.pull_request,
-              body,
-            });
-          }
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: python3 .github/scripts/benchmark_comment.py
