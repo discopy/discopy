@@ -228,3 +228,10 @@ def test_pass_messages():
     assert out[-1] is None  # the token has left the map
     with raises(TypeError):
         Box('f', x, x).to_map().pass_messages()
+
+
+def test_scalar_network_forward():
+    torch = importorskip("torch")
+    scalar = Network('s', Dim(), Dim(), module=torch.nn.Identity())
+    outputs = scalar.to_map().forward()
+    assert outputs[0].shape == (1, 0)

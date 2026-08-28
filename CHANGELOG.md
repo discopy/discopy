@@ -339,6 +339,17 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `closed.Substitution` and the `biclosed`/`cmap` readbacks generate fresh
+  variable names that skip the names already present, so a variable that
+  happens to be named like the global counter's next `xN` is neither
+  captured when a binder is renamed nor identified with a fresh one
+  ([#677](https://github.com/discopy/discopy/pull/677)).
+- `CMap.to_term` raises on a rooted map whose domain ports do not all reach
+  the term, which used to silently drop those free variables
+  ([#677](https://github.com/discopy/discopy/pull/677)).
+- `neural.CMap.forward` feeds a network with no ports an empty tensor
+  instead of raising on `torch.cat([])`
+  ([#677](https://github.com/discopy/discopy/pull/677)).
 - `style-review.yml`'s hand-over to the correctness reviewer, and its
   token generation, ran on every style review rather than the intended
   ones. Both conditions were written as `if: >` folding a wrapped

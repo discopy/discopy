@@ -508,7 +508,11 @@ class Substitution:
                 return term
             var = term.var
             if any(var in value.freevars for value in inside.values()):
-                var = type(term.var)(biclosed.fresh_name(), term.var.cod)
+                avoid = {variable.name for variable in inside} | {
+                    variable.name for subterm in [term.body, *inside.values()]
+                    for variable in subterm.freevars}
+                var = type(term.var)(
+                    biclosed.fresh_name(avoid), term.var.cod)
                 inside[term.var] = var
             return type(term)(var, Substitution(inside)(term.body), term.left)
         return term

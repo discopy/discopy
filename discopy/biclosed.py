@@ -84,7 +84,7 @@ from abc import abstractmethod
 from copy import copy
 from inspect import signature
 from itertools import count
-from typing import Callable, ClassVar
+from typing import Callable, ClassVar, Container
 
 from discopy import cat, monoidal, cmap
 from discopy.abc import BiclosedCategory
@@ -100,9 +100,18 @@ from discopy.utils import (
 _fresh_names = count()
 
 
-def fresh_name() -> str:
-    """ Generate a fresh variable name from a global counter. """
-    return f"x{next(_fresh_names)}"
+def fresh_name(avoid: Container[str] = ()) -> str:
+    """
+    Generate a fresh variable name from a global counter, skipping the
+    names in ``avoid`` so that a variable that happens to be named like
+    the counter is neither captured nor identified with a fresh one.
+
+    Parameters:
+        avoid : The names already taken.
+    """
+    while (name := f"x{next(_fresh_names)}") in avoid:
+        pass
+    return name
 
 
 def annotate(typ: monoidal.Ty, name: str) -> monoidal.Ty:
@@ -780,6 +789,20 @@ class Abstraction(TermBase):
 type Term = Constant | Variable | Application | Abstraction
 
 
+def _annotated_names(diagram: Diagram) -> set[str]:
+    """
+    The variable names annotated on the wires of a diagram, recursing into
+    the argument of each :class:`Curry` box.
+    """
+    names = {varname(obj) for obj in diagram.dom.inside}
+    for box in diagram.boxes:
+        names |= {varname(obj) for typ in (box.dom, box.cod)
+                  for obj in typ.inside}
+        if isinstance(box, Curry):
+            names |= _annotated_names(box.arg)
+    return names - {None}
+
+
 def _dom_to_variables(diagram: Diagram) -> list[TermBase]:
     """
     Turn the domain of a diagram into a list of free variables, grouping
@@ -791,7 +814,7 @@ def _dom_to_variables(diagram: Diagram) -> list[TermBase]:
     while i < len(inside):
         name, j = varname(inside[i]), i + 1
         if name is None:
-            name = fresh_name()
+            name = fresh_name(avoid=_annotated_names(diagram))
         else:
             while j < len(inside) and varname(inside[j]) == name:
                 j += 1
@@ -829,7 +852,9 @@ def _box_to_term(diagram: Diagram, box: Box, consumed: list) -> list:
         abstracted = arg.dom[len(arg.dom) - n:] if box.left else arg.dom[:n]
         names = {varname(obj) for obj in abstracted.inside}
         name = names.pop() if len(names) == 1 and None not in names\
-            else fresh_name()
+            else fresh_name(avoid=_annotated_names(diagram) | {
+                variable.name for term in consumed
+                for variable in term.freevars})
         var = ob.variable_factory(name, abstracted)
         seed = consumed + [var] if box.left else [var] + consumed
         body = _diagram_to_term(arg, seed)

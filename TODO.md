@@ -18,19 +18,19 @@ Correctness review round on #677 (cubic, 9 findings), summarised:
 > `neural-boolean.ipynb` requires an undeclared JAX dependency and
 > `docs/notebooks/neural-church.md` links to an unpublished `.ipynb`.
 
-- [WIP] @session_01NMm77dxzEoNwSSAt3KUcRq-2026-08-28 10:45 Fresh names avoid
+- [x] Fresh names avoid
   capture: `closed.Substitution` and the `biclosed` readback skip names
   already present, with tests (closed.py:511, biclosed.py:105)
-- [WIP] @session_01NMm77dxzEoNwSSAt3KUcRq-2026-08-28 10:45 A portless scalar
+- [x] A portless scalar
   `Network` forwards an empty `(batch_size, 0)` tensor instead of crashing
   on `torch.cat([])` (neural.py:400)
-- [WIP] @session_01NMm77dxzEoNwSSAt3KUcRq-2026-08-28 10:45 `CMap.to_term`
+- [x] `CMap.to_term`
   rejects a rooted map with a disconnected boundary component instead of
   dropping its free variables (cmap.py:1676)
-- [WIP] @session_01NMm77dxzEoNwSSAt3KUcRq-2026-08-28 10:45 The church
+- [x] The church
   notebook links the Boolean notebook's repository source, which the docs
   exporter does not publish (neural-church.md:8)
-- [WIP] @session_01NMm77dxzEoNwSSAt3KUcRq-2026-08-28 10:45 The four
+- [x] The four
   boolean-notebook findings (assert not print, `mux` eta probe, the
   `max_nodes` cap, the JAX dependency) fold into the queued marimo
   translation, filed as an issue and answered on the threads

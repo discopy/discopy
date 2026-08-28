@@ -5,7 +5,9 @@ marimo-version: 0.23.16
 
 # Church arithmetic inside an exact token machine
 
-The [Boolean notebook](neural-boolean.ipynb) fixed the geometry-of-interaction
+The [Boolean
+notebook](https://github.com/discopy/discopy/blob/main/docs/notebooks/neural-boolean.ipynb)
+fixed the geometry-of-interaction
 token machine for *linear* lambda terms and learned the gates as opaque boxes.
 This notebook grows the machine to the **almost-linear fragment**: variables
 may be copied, so `to_map` adds delta nodes of arbitrary arity and — new here —
@@ -27,7 +29,8 @@ learnable by a two-layer MLP in seconds of JAX.
 The scorecard, all exact: 91 training equations, 23 held-out compositions,
 sums and products up to 32 with numerals **ten times larger than anything in
 training** — the length generalization the [end-to-end
-notebook](neural-lambda.ipynb) could not reach — and, pointing the decoder at
+notebook](https://github.com/discopy/discopy/blob/main/docs/notebooks/neural-lambda.ipynb)
+could not reach — and, pointing the decoder at
 `λp.λq.plus(p)(q)`, the machine **reads the lambda term of addition itself
 back out of the trained weights**, node by node.
 

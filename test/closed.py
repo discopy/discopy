@@ -376,3 +376,12 @@ def test_to_map_weakening():
     constant = Abstraction(Variable("x", X), Y("c"))
     assert sorted(box.name for box in constant.to_map().boxes)\
         == ["c", "ε", "λ"]
+
+
+def test_substitution_avoids_the_counter():
+    from discopy.biclosed import fresh_name
+    o = Unitype()
+    clash = f"x{int(fresh_name()[1:]) + 1}"
+    u, v, free = Variable("u", o), Variable("v", o), Variable(clash, o)
+    renamed = Substitution({u: v})(Abstraction(v, u(v)(free)))
+    assert free in renamed.freevars

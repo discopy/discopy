@@ -200,3 +200,11 @@ def test_to_compact():
         assert source.to_map().to_compact() == source.to_compact()
         assert not any(isinstance(box, Curry)
                        for box in source.to_compact().boxes)
+
+
+def test_fresh_names_avoid_annotated_names():
+    from discopy.biclosed import _dom_to_variables
+    clash = f"x{int(fresh_name()[1:]) + 1}"
+    diagram = Diagram.id(annotate(Ty("x"), clash) @ Ty("y"))
+    variables = _dom_to_variables(diagram)
+    assert len({variable.name for variable in variables}) == 2

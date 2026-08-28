@@ -398,7 +398,8 @@ class CMap(cmap.CMap[Diagram]):
                 assert_isinstance(box, Network)
                 box_ports = self.box_ports(box_index)
                 output = box.module(torch.cat(
-                    [incoming[i] for i in box_ports], dim=-1))
+                    [incoming[i] for i in box_ports], dim=-1)
+                    if box_ports else zeros(0))
                 box_outputs[box_index] = output
                 for i, chunk in zip(box_ports, torch.split(
                         output, [widths[i] for i in box_ports], dim=-1)):

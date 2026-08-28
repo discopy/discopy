@@ -1707,6 +1707,9 @@ cycles of this map.
             unify(left[1], right[1])
 
         leaf, variables, visited = {}, {}, set()
+        annotated = {
+            getattr(x, "varname", None) for port in ports
+            for x in getattr(port.obj, "inside", (port.obj, ))} - {None}
 
         def new_variable(port):
             obj = ports[port].obj
@@ -1714,7 +1717,7 @@ cycles of this map.
                 getattr(x, "varname", None)
                 for x in getattr(obj, "inside", (obj, ))}
             name = names.pop() if len(names) == 1 else None
-            name = biclosed.fresh_name() if name is None else name
+            name = biclosed.fresh_name(annotated) if name is None else name
             variable = (name, next(tvars))
             leaf[port] = variable
             return variable
@@ -1788,7 +1791,11 @@ cycles of this map.
             variable, body = build(('var', node[1])), build(node[2])
             return closed.Abstraction(variable, body)
 
-        return build(tree)
+        result = build(tree)
+        if any(leaf[port] not in variables
+               for port in range(len(self.dom))):
+            raise ValueError(f"Expected a connected rooted map, got {self}.")
+        return result
 
     def to_hypergraph(self):
         """

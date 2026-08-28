@@ -1053,3 +1053,14 @@ def test_merge_inputs_errors():
     cup = compact.CMap.cups(z, z.r)  # two inputs wired to each other
     with raises(ValueError):
         cup.merge_inputs((0, 1), compact.Box('δ', z, z @ z.r))
+
+
+def test_to_term_rejects_disconnected_maps():
+    term = closed.Ty("a")(lambda v: v)
+    old = term.to_map()
+    a = closed.Ty("a")
+    edges = [1, 0] + [old.edges[i] + 2 for i in range(old.n_ports)]
+    disconnected = type(old)(
+        a @ a, old.cod, old.boxes, edges, check=False)
+    with raises(ValueError):
+        disconnected.to_term()
