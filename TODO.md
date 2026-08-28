@@ -8,5 +8,5 @@
 - [x] Carry the fold over whole: #672, #617 and #620, reconciled
 - [x] Check the diff is only what those three added, #645's own content
       cancelling against the `main` that now has it
-- [ ] Close #672, #617 and #620, and #675 which folded them on the branch this
+- [x] Close #672, #617 and #620, and #675 which folded them on the branch this
       replaces
