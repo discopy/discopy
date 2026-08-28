@@ -293,6 +293,31 @@ class CMap[C0: Pregroup, C1: CMap](
             start = stop
         return tuple(result)
 
+    def box_ports(self, index: int) -> tuple[int, ...]:
+        """
+        The global port indices of a box in logical order, i.e. its domain
+        ports followed by its codomain ports, undoing the clockwise order
+        which stores the codomain ports reversed.
+
+        Parameters:
+            index : The index of the box.
+
+        Example
+        -------
+        >>> from discopy.symmetric import Ty, Box
+        >>> x, y, z = map(Ty, "xyz")
+        >>> Box("f", x, y @ z).to_map().box_ports(0)
+        (1, 3, 2)
+        """
+        return self._logical_box_ports[index]
+
+    @cached_property
+    def _logical_box_ports(self) -> tuple[tuple[int, ...], ...]:
+        """ The ports of each box in logical order, see :meth:`box_ports`. """
+        return tuple(
+            ports[:len(box.dom)] + tuple(reversed(ports[len(box.dom):]))
+            for ports, box in zip(self._box_port_indices, self.boxes))
+
     @property
     def faces(self) -> Permutation:
         """ The face permutation, computed as ``edges ; orientation``. """
@@ -1571,9 +1596,9 @@ cycles of this map.
         diagram = self.category.id(self.dom)
         scan = [edge_wire[i] for i in range(len(self.dom))]
         for depth, box in enumerate(self.boxes):
-            box_ports = self._box_port_indices[depth]
+            box_ports = self.box_ports(depth)
             dom_ports = box_ports[:len(box.dom)]
-            cod_ports = tuple(reversed(box_ports[len(box.dom):]))
+            cod_ports = box_ports[len(box.dom):]
             dom_wires = [edge_wire[i] for i in dom_ports]
             cod_wires = [edge_wire[i] for i in cod_ports]
 
@@ -1864,9 +1889,9 @@ cycles of this map.
                 for port_index in port_indices) + "</TR>"
 
         def box_table(vertex, box):
-            box_ports = self._box_port_indices[vertex]
+            box_ports = self.box_ports(vertex)
             dom_ports = box_ports[:len(box.dom)]
-            cod_ports = tuple(reversed(box_ports[len(box.dom):]))
+            cod_ports = box_ports[len(box.dom):]
             dom_arity, cod_arity = len(dom_ports), len(cod_ports)
             grid = lcm(dom_arity or 1, cod_arity or 1)
             box_width = 18 * max(dom_arity, cod_arity, 1)

@@ -110,20 +110,47 @@ L0, L1, A0, A1 = ("λ", 0), ("λ", 1), ("@", 0), ("@", 1)
 TABLES = {}
 
 
-def logical_ports(cmap, index):
-    ports = cmap._box_port_indices[index]
-    arity = len(cmap.boxes[index].dom)
-    return ports[:arity] + tuple(reversed(ports[arity:]))
-
-
 def port_table(cmap):
     if id(cmap) not in TABLES:
         table = {}
         for index, box in enumerate(cmap.boxes):
-            for wire, port in enumerate(logical_ports(cmap, index)):
+            for wire, port in enumerate(cmap.box_ports(index)):
                 table[port] = (index, box.name, wire)
         TABLES[id(cmap)] = (cmap, table)
     return TABLES[id(cmap)][1]
+
+
+def transition(index, name, wire, mult_, exp, prefix, boxes):
+    """One node of the machine: the stacks, the exit wire and the depth
+    each stack was read down to, or ``None`` for no answer."""
+    if name in ROLES:
+        principal, auxes = ROLES[name]
+        if wire == principal:
+            if not mult_:
+                return None
+            (_, j), mult_ = mult_[0], mult_[1:]
+            return mult_, exp, auxes[j], {}
+        return ((name, auxes.index(wire)), ) + mult_, exp, principal, {}
+    if name == "δ":
+        key, stack = prefix + (index, ), exp.get(prefix + (index, ), ())
+        depths = {key: len(stack)}
+        if wire == 0:
+            if not stack:
+                return None
+            j, exp[key] = stack[0], stack[1:]
+            return mult_, exp, 1 + j, depths
+        exp[key] = (wire - 1, ) + stack
+        return mult_, exp, 0, depths
+    if name == "ε":
+        return None
+    state = boxes[name](mult_, exp, prefix + (index, ))
+    if state is None:
+        return None
+    read, exp_reads = state[2]
+    depths = {"mult": len(mult_) - read} | {
+        key: len(exp.get(key, ())) - read_k
+        for key, read_k in exp_reads.items()}
+    return state[0], dict(state[1]), wire, depths
 
 
 def run(cmap, mult_, exp=None, prefix=(), max_steps=1_000_000, boxes=None):
@@ -135,36 +162,12 @@ def run(cmap, mult_, exp=None, prefix=(), max_steps=1_000_000, boxes=None):
             return mult_, {key: stack for key, stack in exp.items() if stack}
         if port not in table:
             return None, None
-        index, name, wire = table[port]
-        if name in ROLES:
-            principal, auxes = ROLES[name]
-            if wire == principal:
-                if not mult_:
-                    return None, None
-                (_, j), mult_ = mult_[0], mult_[1:]
-                out_wire = auxes[j]
-            else:
-                mult_ = ((name, auxes.index(wire)), ) + mult_
-                out_wire = principal
-        elif name == "δ":
-            key, stack = prefix + (index, ), exp.get(prefix + (index, ), ())
-            if wire == 0:
-                if not stack:
-                    return None, None
-                j, exp[key] = stack[0], stack[1:]
-                out_wire = 1 + j
-            else:
-                exp[key] = (wire - 1, ) + stack
-                out_wire = 0
-        elif name == "ε":
+        index = table[port][0]
+        state = transition(*table[port], mult_, exp, prefix, boxes)
+        if state is None:
             return None, None
-        else:
-            state = boxes[name](mult_, exp, prefix + (index, ))
-            if state is None:
-                return None, None
-            mult_, exp = state[0], dict(state[1])
-            out_wire = wire
-        port = cmap.edges[logical_ports(cmap, index)[out_wire]]
+        mult_, exp, out_wire, _ = state
+        port = cmap.edges[cmap.box_ports(index)[out_wire]]
     return None, None
 ```
 
@@ -395,42 +398,14 @@ def run_watermarked(cmap, mult_, exp, prefix, boxes,
             return mult_, {k: v for k, v in exp.items() if v}, low
         if port not in table:
             return None, None, low
-        index, name, wire = table[port]
-        if name in ROLES:
-            principal, auxes = ROLES[name]
-            if wire == principal:
-                if not mult_:
-                    return None, None, low
-                (_, j), mult_ = mult_[0], mult_[1:]
-                out_wire = auxes[j]
-            else:
-                mult_ = ((name, auxes.index(wire)), ) + mult_
-                out_wire = principal
-        elif name == "δ":
-            key, stack = prefix + (index, ), exp.get(prefix + (index, ), ())
-            low[key] = min(low.get(key, len(stack)), len(stack))
-            if wire == 0:
-                if not stack:
-                    return None, None, low
-                j, exp[key] = stack[0], stack[1:]
-                out_wire = 1 + j
-            else:
-                exp[key] = (wire - 1, ) + stack
-                out_wire = 0
-        elif name == "ε":
+        index = table[port][0]
+        state = transition(*table[port], mult_, exp, prefix, boxes)
+        if state is None:
             return None, None, low
-        else:
-            state = boxes[name](mult_, exp, prefix + (index, ))
-            if state is None:
-                return None, None, low
-            box_read, box_exp_reads = state[2]
-            low["mult"] = min(low["mult"], len(mult_) - box_read)
-            for key, box_read_k in box_exp_reads.items():
-                depth = len(exp.get(key, ())) - box_read_k
-                low[key] = min(low.get(key, depth), depth)
-            mult_, exp = state[0], dict(state[1])
-            out_wire = wire
-        port = cmap.edges[logical_ports(cmap, index)[out_wire]]
+        mult_, exp, out_wire, depths = state
+        for key, depth in depths.items():
+            low[key] = min(low.get(key, depth), depth)
+        port = cmap.edges[cmap.box_ports(index)[out_wire]]
     return None, None, low
 
 

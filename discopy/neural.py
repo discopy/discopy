@@ -258,24 +258,6 @@ class CMap(cmap.CMap[Diagram]):
     """
     functor = Functor
 
-    def box_ports(self, index: int) -> tuple[int, ...]:
-        """
-        The global port indices of a box in logical order, i.e. its domain
-        ports followed by its codomain ports, undoing the clockwise order
-        which stores the codomain ports reversed.
-
-        Parameters:
-            index : The index of the box.
-        """
-        return self._logical_box_ports[index]
-
-    @cached_property
-    def _logical_box_ports(self) -> tuple[tuple[int, ...], ...]:
-        """ The ports of each box in logical order, see :meth:`box_ports`. """
-        return tuple(
-            ports[:len(box.dom)] + tuple(reversed(ports[len(box.dom):]))
-            for ports, box in zip(self._box_port_indices, self.boxes))
-
     @cached_property
     def port_widths(self) -> tuple[int, ...]:
         """ The dimension carried by each port of the map. """

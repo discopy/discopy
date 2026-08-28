@@ -23,6 +23,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   raising, so Church zero, predecessor and subtraction become expressible
   as almost-linear maps
   ([#677](https://github.com/discopy/discopy/pull/677)).
+- `CMap.box_ports`, the global port indices of a box in logical order,
+  hoisted from `neural.CMap` to `cmap.CMap` so that every map exposes its
+  port bookkeeping through a public interface, which the token-machine
+  notebooks read instead of the private cache, and which `to_diagram` and
+  the drawing code reuse instead of undoing the clockwise order themselves
+  ([#677](https://github.com/discopy/discopy/pull/677)).
 - A `workflows` job in `build.yml`, so that the code running our pull
   requests is checked like the code it checks: `actionlint` over the
   workflows, `pflake8` over `.github`, and `pytest .github/tests/*.py`
