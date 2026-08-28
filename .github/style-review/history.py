@@ -28,11 +28,17 @@ TALLY = "<!-- style-review-tally"
 DECISIVE = ("accepted", "declined")
 
 
+def hidden(marker, payload):
+    """An HTML comment carrying JSON, which a review body hides what the
+    next round reads in. Escaping ``>`` keeps a payload quoting one from
+    closing the comment early, and ``json.loads`` reads the escape
+    back."""
+    return marker + json.dumps(payload).replace(">", r"\u003e") + " -->"
+
+
 def stamp(remarks):
-    """The hidden record a review carries. Escaping ``>`` keeps a remark
-    quoting one from closing the HTML comment early, and ``json.loads``
-    reads the escape back."""
-    return MARKER + json.dumps(remarks).replace(">", "\\u003e") + " -->"
+    """The hidden record a review carries: the remarks it made."""
+    return hidden(MARKER, remarks)
 
 
 def remarklike(made):
@@ -61,7 +67,7 @@ def scoreboard(verdicts):
     """The hidden half of a tally: what became of each remark, by its
     number, so that a later round reads back a verdict somebody has
     already acted on rather than asking for it again."""
-    return f"{TALLY} " + json.dumps(verdicts).replace(">", "\\u003e") + " -->"
+    return hidden(f"{TALLY} ", verdicts)
 
 
 def scored(body):

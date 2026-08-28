@@ -223,15 +223,15 @@ def main():
               f"diff, dropped: {', '.join(off_diff)}")
     withheld, findings = len(on_diff[10:]), on_diff[:10]
     past = history.load()
-    scored = verdicts(past, answer.get("verdicts", []))
-    line = summary(tally(past["remarks"], scored))
+    merged = verdicts(past, answer.get("verdicts", []))
+    line = summary(tally(past["remarks"], merged))
     record(clean=not findings)
     carried = past["reviews"]
     if findings:
         body = describe(
             past["rounds"] + 1, len(off_diff), withheld, unreadable)
         try:
-            post_review(tallied(body, line, scored), findings)
+            post_review(tallied(body, line, merged), findings)
         except urllib.error.HTTPError as error:
             if error.code != 422:
                 raise
@@ -240,13 +240,13 @@ def main():
             post_review(tallied("\n".join(
                 [body, "", "GitHub refused these as inline comments:"] + [
                     f"- `{f['path']}:{f['line']}` — {f['comment']}"
-                    for f in findings]), line, scored), findings,
+                    for f in findings]), line, merged), findings,
                 inline=False)
     else:
         print("Nothing to say on the diff, posting nothing.")
         if carried:
             newest = carried[-1]
-            rewrite(newest, tallied(newest["body"], line, scored))
+            rewrite(newest, tallied(newest["body"], line, merged))
             carried = carried[:-1]
     for review in carried:
         rewrite(review, tallied(review["body"], None))
