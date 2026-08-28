@@ -3,6 +3,8 @@
 import json
 import os
 
+import pytest
+
 DIFF = """\
 diff --git a/discopy/cat.py b/discopy/cat.py
 --- a/discopy/cat.py
@@ -192,3 +194,18 @@ def test_main_tallies_each_round_onto_the_round_that_made_it(
     assert edited[1][1].endswith("1 style remark: declined")
     assert history.scored(edited[0][1]) == {"1": "accepted"}
     assert history.scored(edited[1][1]) == {"2": "declined"}
+
+
+def test_main_stands_down_on_a_moved_head_and_is_not_clean(
+        post, tmp_path, monkeypatch):
+    """A round that reviewed nothing is not a round that found nothing:
+    the workflow calls the correctness reviewer once per pull request,
+    and an unset output is read as clean, so it would spend that call on
+    a head nobody read."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("GITHUB_OUTPUT", str(tmp_path / "output"))
+    monkeypatch.setattr(post, "moved", lambda: "f" * 40)
+    monkeypatch.setattr(post, "rewrite", lambda review, body: pytest.fail(
+        "a round that stood down edits nothing"))
+    post.main()
+    assert open(tmp_path / "output").read() == "clean=false\n"

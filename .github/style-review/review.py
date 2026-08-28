@@ -26,6 +26,7 @@ after it.
 """
 
 import ast
+import http.client
 import json
 import os
 import re
@@ -38,6 +39,8 @@ import history
 
 BUDGET = 400_000
 QUOTE = 2_000
+TIMEOUT = 600
+ATTEMPTS = 2
 LANGUAGES = {
     ".py": "python", ".md": "markdown", ".rst": "rst", ".yml": "yaml",
     ".yaml": "yaml", ".toml": "toml", ".json": "json", ".css": "css",
@@ -202,7 +205,10 @@ def assemble(files, base_sha, past):
     prefix of every later round with it. A changed file too big for its
     full-file listing falls back to a plain diff of its hunks, and one
     too big even for that is reported as unreviewed rather than raising
-    and crashing the round."""
+    and crashing the round. The notes saying which files those were sit
+    with the changed files they describe rather than with the context
+    files: they name whatever did not fit this round, so in the prefix
+    they would rewrite its middle every time that set changed."""
     deps = sorted(
         {dep for path in files for dep in imports(path)} - set(files))
     with open(".github/style-review/prompt.md") as file:
@@ -224,6 +230,7 @@ def assemble(files, base_sha, past):
         discussion_block(past["discussion"]) if past["discussion"].strip()
         else "", budget)
     parts = [instructions, style] + [block for _, block in context]
+    parts += [part for part in (remarks, discussion) if part]
     notes = []
     if dropped:
         notes.append(f"# Context dropped for size: {', '.join(dropped)}")
@@ -239,9 +246,32 @@ def assemble(files, base_sha, past):
         if len(note) + 2 <= budget:
             parts.append(note)
             budget -= len(note) + 2
-    parts += [part for part in (remarks, discussion) if part]
     parts += [block for _, block in changed] + [block for _, block in degraded]
     return "\n\n".join(parts)
+
+
+def complete(request, attempts=ATTEMPTS):
+    """The gateway's answer, reading it again when the transfer is cut
+    short. A chunked response can end mid-body — an ``IncompleteRead``
+    four minutes in left [#661](https://github.com/discopy/discopy/pull/661)
+    with no review at all — and a connection reset or a timeout is the
+    same failure. An ``HTTPError`` is the gateway answering rather than
+    the transfer failing, so it is raised at once, for ``ask`` to read
+    the body of, rather than asked again: it is a subclass of
+    ``URLError`` and would otherwise be caught below. The attempts are
+    capped so that the worst case stays inside the job's own timeout."""
+    for attempt in range(1, attempts + 1):
+        try:
+            with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+                return json.load(response)
+        except urllib.error.HTTPError:
+            raise
+        except (http.client.IncompleteRead, urllib.error.URLError,
+                TimeoutError) as error:
+            print(f"gateway transfer failed ({error!r}), attempt {attempt} "
+                  f"of {attempts}.", file=sys.stderr)
+            if attempt == attempts:
+                raise
 
 
 def ask(prompt):
@@ -257,8 +287,7 @@ def ask(prompt):
         "Authorization": f"Bearer {os.environ['API_KEY']}",
         "Content-Type": "application/json"})
     try:
-        with urllib.request.urlopen(request, timeout=600) as response:
-            body = json.load(response)
+        body = complete(request)
     except urllib.error.HTTPError as error:
         text = error.read().decode(errors="replace")
         print(f"gateway error {error.code}: {text}", file=sys.stderr)

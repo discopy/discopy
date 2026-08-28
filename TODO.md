@@ -19,11 +19,11 @@
 > 2. […] Worth naming the paths in the body line rather than only the count, so
 >    a dropped remark is at least locatable in the job log.
 
-- [ ] `record(clean=False)` before the moved-head return, with a test entering
+- [x] `record(clean=False)` before the moved-head return, with a test entering
       that branch
-- [ ] move the size-drop notes out of the append-only prefix, after the
+- [x] move the size-drop notes out of the append-only prefix, after the
       discussion and before the changed files they describe
-- [ ] port #671's retry as `complete()`, catching `URLError` but never
+- [x] port #671's retry as `complete()`, catching `URLError` but never
       `HTTPError`, with the attempts capped inside the job's timeout, and tests
-- [ ] answer point 2 on the thread: the dropped paths are already printed to
+- [x] answer point 2 on the thread: the dropped paths are already printed to
       the job log, and the body deliberately lists no finding

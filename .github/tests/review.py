@@ -1,7 +1,11 @@
 """Tests for the style reviewer's assembly of its one request."""
 
+import http.client
+import io
+import json
 import os
 import subprocess
+import urllib.error
 
 import pytest
 
@@ -146,3 +150,64 @@ def test_assemble_adds_to_the_round_before_it(review, reviewable):
     shared = os.path.commonprefix([first, second])
     assert "1. `file.py:2` — 'one'" in shared
     assert "# Changed: file.py" not in shared
+
+
+def test_a_size_note_lands_with_the_files_it_names(
+        review, reviewable, monkeypatch):
+    """The notes say what did not fit this round, so they go after the
+    prefix two rounds share rather than in its middle."""
+    monkeypatch.setattr(review, "BUDGET", 1_000)
+    with open("file.py", "a") as file:
+        file.write("filler\n" * 500)
+    prompt = review.assemble(["file.py"], reviewable, past(
+        [{"number": 1, "path": "file.py", "line": 2, "comment": "one"}],
+        "### toumix\n\nno, on purpose"))
+    places = [prompt.index(part) for part in (
+        "# Style remarks from the previous rounds", "# Discussion so far",
+        "# Changed files past the budget even as a diff")]
+    assert places == sorted(places)
+
+
+class Cut:
+    """A gateway that cuts the transfer short before answering."""
+
+    def __init__(self, answer, failures):
+        self.answer, self.failures, self.attempts = answer, failures, 0
+
+    def __call__(self, request, timeout=None):
+        self.attempts += 1
+        if self.attempts <= self.failures:
+            raise http.client.IncompleteRead(b"half an ans")
+        return io.BytesIO(json.dumps(self.answer).encode())
+
+
+def test_complete_reads_again_when_the_transfer_is_cut_short(
+        review, monkeypatch):
+    gateway = Cut({"choices": []}, failures=1)
+    monkeypatch.setattr(review.urllib.request, "urlopen", gateway)
+    assert review.complete("request") == {"choices": []}
+    assert gateway.attempts == 2
+
+
+def test_complete_gives_up_after_its_attempts(review, monkeypatch):
+    gateway = Cut({}, failures=review.ATTEMPTS)
+    monkeypatch.setattr(review.urllib.request, "urlopen", gateway)
+    with pytest.raises(http.client.IncompleteRead):
+        review.complete("request")
+    assert gateway.attempts == review.ATTEMPTS
+
+
+def test_complete_asks_once_when_the_gateway_answers_an_error(
+        review, monkeypatch):
+    """An `HTTPError` is the gateway answering, not the transfer
+    failing, and it is a subclass of the `URLError` retried above."""
+    asked = []
+
+    def refuse(request, timeout=None):
+        asked.append(request)
+        raise urllib.error.HTTPError("url", 400, "Bad Request", {}, None)
+
+    monkeypatch.setattr(review.urllib.request, "urlopen", refuse)
+    with pytest.raises(urllib.error.HTTPError):
+        review.complete("request")
+    assert len(asked) == 1

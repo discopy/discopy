@@ -23,7 +23,10 @@ carries no tally of its own yet.
 
 A round whose head has moved posts nothing: its findings are about lines
 somebody has already replaced, and the push that replaced them starts a
-round of its own.
+round of its own. It reports itself as not clean, since a round that
+reviewed nothing is not one that found nothing: the workflow calls the
+correctness reviewer once per pull request, and calling it here would
+spend that on a head nobody read.
 """
 
 import json
@@ -204,6 +207,7 @@ def main():
     if ahead:
         print(f"The pull request moved to {ahead[:8]} while this round ran, "
               "leaving the review to the round that push starts.")
+        record(clean=False)
         return
     with open(os.path.join(history.DIRECTORY, "findings.json")) as file:
         answer = json.load(file)

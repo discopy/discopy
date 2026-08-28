@@ -494,6 +494,36 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   run when the branch has already moved past the event it is handling,
   rather than drafting a head that no longer exists behind its back
   ([#640](https://github.com/discopy/discopy/issues/640)).
+- A style review that stands down calls nobody. `post.py` returns
+  before posting when the head has moved under it, and that return went
+  past `record`, leaving the `clean` output unset — which
+  `style-review.yml` reads as clean, since it withholds the correctness
+  reviewer on `clean == 'false'` alone. So a round that reviewed nothing
+  called `@cubic-dev-ai` on a head nobody had read, and the guard that
+  calls it once per pull request then made that permanent: the round the
+  push started found it already called and stood down in turn. Standing
+  down now records `clean=false`, which is the honest value — there is
+  something left to say about this pull request, just not by this round
+  ([#676](https://github.com/discopy/discopy/pull/676)).
+- The style review reads the gateway's answer again when the transfer is
+  cut short. A chunked response can end mid-body, and an
+  `IncompleteRead` four minutes in left
+  [#661](https://github.com/discopy/discopy/pull/661) with no review at
+  all; a connection reset or a timeout is the same failure, so `complete`
+  catches `URLError` and `TimeoutError` beside it. An `HTTPError` is the
+  gateway answering rather than the transfer failing — and a subclass of
+  `URLError`, so it would otherwise be caught — and is raised at once for
+  `ask` to print the body of. The attempts are capped at two, ten minutes
+  each, inside the job's own thirty
+  ([#671](https://github.com/discopy/discopy/pull/671), closed as
+  superseded but for this).
+- The notes naming what did not fit the style review's budget sit with
+  the changed files they describe rather than between the context files
+  and the past remarks. They name whatever was dropped, degraded or left
+  unreviewed *this* round, so in the prefix they rewrote its middle
+  whenever that set changed — costing the cache the remarks, the
+  discussion and the whole revision after them
+  ([#676](https://github.com/discopy/discopy/pull/676)).
 - `review.py`'s `assemble` raised when a changed file's full-file
   `annotated` listing didn't fit `BUDGET`, crashing the whole
   style-review step on a large diff. A changed file too big for that now
