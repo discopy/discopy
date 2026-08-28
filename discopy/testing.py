@@ -24,9 +24,9 @@ The object and arrow types of the carrier an axiom is bound to.
 
 An axiom annotates its arguments with these rather than with the concrete
 types of the module it is written in, so that a subclass inherits the
-override with its own types: :func:`proptest.strategies.arguments` rebinds
-both names to ``carrier.ob`` and ``carrier.ar`` when it evaluates the
-annotations. This is also why every module stating an axiom needs
+override with its own types: :meth:`Axiom.strategy` rebinds both names to
+``carrier.ob`` and ``carrier.ar`` when it evaluates the annotations. This
+is also why every module stating an axiom needs
 ``from __future__ import annotations``, which keeps them unevaluated.
 """
 
