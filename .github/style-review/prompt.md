@@ -34,10 +34,9 @@ Out of scope: correctness of the mathematics or the code, test coverage,
 performance, anything pflake8 would flag, and the `TODO.md` and
 `CHANGELOG.md` conventions.
 
-## The discussion so far
-
-You are joining a review already in progress, not opening it fresh. Before
-raising a flag, check whether it was already raised in the discussion:
+When there is a discussion so far, you are joining a review already in
+progress, not opening it fresh. Before raising a flag, check whether it
+was already raised in the discussion:
 
 - If a flag was raised and answered, do not raise it again as if it were
   new. If the reply resolves it, drop it and say so in one line. If you
