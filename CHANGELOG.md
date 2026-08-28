@@ -22,10 +22,29 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   subspace, the bialgebra defect vanishes exactly on the perturbations
   commuting with the Hadamard, and modulo those the paper's countermodel
   is the unique one on three qubits, the least possible size.
-- A style review workflow: when a same-repo pull request leaves draft or
-  gets the `style-review` label, one model request reads every changed
-  Python file whole — with the package-local files they import as context —
-  checks the diff against the file's own conventions and `STYLE.md`, and
+- The style review can be asked for, and turned off, from the pull request
+  itself: `@discopy review this` in a comment reviews it now, and the
+  `no-style-review` label stops the automatic reviews on it, while the
+  comment goes on working — it is "stop reviewing this on its own", not
+  "never review this". The comment is read from people with write access
+  only, and labelling already is, so nobody who can merely comment can
+  silence the reviewer or spend the gateway budget. It replaces the
+  `style-review` label, which did the same on demand except that it never
+  handed over to the correctness reviewer. A pull request already open and
+  not about to change had no trigger at all otherwise, since only a push
+  reaches one ([#638](https://github.com/discopy/discopy/issues/638)).
+- `Diagram.to_compact` and `CMap.to_compact`, bending curry bubbles into
+  coevaluation and feedback. Since a biclosed category has no trace, the
+  `biclosed` method lands in `CMap`, which is compact whatever hosts it,
+  while the `closed` one stays in diagrams. Unlike `rigid.to_rigid` and
+  `interaction.Int`, this keeps the exponential atomic and bends the wire
+  with `biclosed.Coeval`, the transpose of `Eval`, which a biclosed
+  category only has when its exponential is read at a reflexive object
+  ([#532](https://github.com/discopy/discopy/pull/532)).
+- A style review workflow: on a revision of a same-repo pull request, one
+  model request reads every changed Python file whole — with the
+  package-local files they import as context — checks the diff against the
+  file's own conventions and `STYLE.md`, and
   discopy-bot posts the findings as one review — style only, correctness
   stays with the correctness reviewer, whom discopy-bot calls once the
   style review has nothing to say. Inference runs on an open-weights
@@ -95,6 +114,37 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Changed
 
+- `CMap` is aligned on `Hypergraph`. It is parameterised by a category as
+  `NamedGeneric["category"]` instead of carrying `require_*` flags, and it is
+  always compact whatever category hosts it, so every compact operation is
+  available when manipulating maps. The host category is asked for structure
+  only on the `to_diagram` downgrade path, i.e. in `make_monogamous`, which
+  needs cups and caps, and in `make_causal`, which reorders acyclic maps
+  without traces and only asks for traces when cycles or scalar loops remain,
+  cutting every backward wire and loop at once. Each box is placed where its
+  first domain wire already is, so the decoder no longer swaps that wire to
+  the front.
+  The predicates follow the `Hypergraph` names and are local conditions on
+  the edges, `__init__` takes a keyword `check`, and `curry`, `uncurry` and
+  `ev` come from the cups and caps of `abc.RigidCategory` when the host
+  category is rigid and stay explicit boxes otherwise, all three defaulting
+  `left` to `True` like the rest of the hierarchy. `CMap.eval` delegates to
+  the `eval` of the host category, e.g. contracting a tensor map in a
+  single `einsum`, instead of `tensor` grafting it onto its `CMap` alias
+  ([#532](https://github.com/discopy/discopy/pull/532),
+  [#560](https://github.com/discopy/discopy/issues/560)).
+- `uncurry` is defined once in `abc.BiclosedCategory`, in terms of a new
+  method `base_and_exponent` for the two objects that `ev` evaluates.
+  `abc.RigidCategory` and `cmap.CMap` override that method instead of
+  duplicating the composition with `ev`: a pregroup has no exponential
+  object, so its exponent is the `n` objects at the end resp. the start of
+  the codomain, dualised, and a map reads it off its wiring when the host
+  category is rigid ([#532](https://github.com/discopy/discopy/pull/532)).
+- `balanced` and `pivotal` export a `CMap` alias like the other levels of
+  the hierarchy ([#532](https://github.com/discopy/discopy/pull/532)).
+- `Hypergraph.to_diagram` raises `messages.NOT_RIGID/FROBENIUS/TRACED/...`
+  where it checks that the category has the wiring structure
+  ([#532](https://github.com/discopy/discopy/pull/532)).
 - `Swap` is now the two-wire transposition subclass of `Permutation`, and
   constructing `Permutation(x @ y, [1, 0])` returns a `Swap`. A swap is
   plumbing like any other permutation: it coalesces with its neighbours in
@@ -137,9 +187,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - The `tensor` module is refactored to go through `CMap` for `einsum`
   ([#402](https://github.com/discopy/discopy/pull/402)).
 - Add a `functor_factory` attribute to each `Diagram` class and remove
-  `hypergraph_factory`: `Hypergraph` is now a `NamedGeneric["category"]`
-  instead of a `NamedGeneric["functor"]`
-  ([#379](https://github.com/discopy/discopy/pull/379)).
+  `hypergraph_factory` and `map_factory`: `Hypergraph` and `CMap` are
+  parameterised directly as `NamedGeneric["category"]`
+  ([#379](https://github.com/discopy/discopy/pull/379),
+  [#532](https://github.com/discopy/discopy/pull/532)).
 - Documentation notebooks are migrated from Jupyter (`.ipynb`) to marimo
   markdown, with docs (`nbsphinx` → embedded marimo HTML) and CI
   (`nbmake` → `marimo export`) updated to match
@@ -219,6 +270,46 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- The style review no longer depends on a transition that may never
+  happen. `ready_for_review` fires on the draft-to-ready edge alone, so a
+  pull request whose `TODO.md` was deleted before it was ever opened went
+  unreviewed, silently — no run, no notice, nothing in the Actions tab —
+  and a pull request the review did find something on was never reviewed
+  again, since fixing a nitpick is a plain push, leaving the correctness
+  reviewer, called only on a clean review, never called at all.
+  `style-review.yml` now triggers on `opened` and `synchronize` as well: a
+  pull request that is not draft and carries no `TODO` file is in the
+  review phase by construction, since `no-todo-on-main.yml` forces draft
+  while a `TODO` is there, so every revision of it is reviewed. Every
+  automatic trigger waits while a `TODO` file is in the tree, which also
+  keeps the review from racing that guard — on a `main`-based pull request
+  the deleting push lands while the guard still holds it draft, so the
+  review comes from the `ready_for_review` that follows rather than twice,
+  while a pull request based on anything else, which the guard watching
+  `main` alone never drafts and never marks ready, is reviewed on the push
+  itself. The hand-over to the correctness reviewer happens once per pull
+  request rather than on every clean run, since it re-reviews each push on
+  its own. A draft is never reviewed, whatever the trigger, and asking for
+  one by comment is what ignores the wait
+  ([#615](https://github.com/discopy/discopy/issues/615),
+  [#636](https://github.com/discopy/discopy/issues/636)).
+- Pivotal diagram-to-map conversion now encodes cups and caps as `CMap`
+  wiring rather than keeping them as boxes
+  ([#532](https://github.com/discopy/discopy/pull/532)).
+- `CMap.cups` and `CMap.caps` now require the handedness of the host category,
+  i.e. `cups(x, x.r)` and `caps(x.r, x)`, so that these factories reject badly
+  oriented cups and caps, rather than fixing the handedness at downgrade time.
+  ([#532](https://github.com/discopy/discopy/pull/532)).
+- `Hypergraph.explicit_trace` and `CMap.explicit_trace` no longer mistake the
+  inherited `trace_factory` of a user-defined subclass for a class method,
+  which used to raise `AttributeError: type object 'Trace' has no attribute
+  '__func__'` ([#532](https://github.com/discopy/discopy/pull/532)).
+- `CMap.topological_order` raises `AxiomError` on a map with a directed
+  cycle, where it used to crash with `TypeError` on the `None` returned by
+  `box_ranks` ([#532](https://github.com/discopy/discopy/pull/532)).
+- `Hypergraph.to_diagram` no longer asks for swaps when one of their two
+  sides is empty, where the identity does
+  ([#532](https://github.com/discopy/discopy/pull/532)).
 - A boxless `monoidal.Layer` can no longer be placed inside a `Diagram`:
   `Diagram.__init__` raises `ValueError` for a layer with no box, restoring
   the invariant that every layer holds at least one box and that the identity
@@ -247,6 +338,37 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   response and the raw answer on a JSON-parse failure, so a truncated or
   malformed answer is diagnosable instead of a bare traceback
   ([#611](https://github.com/discopy/discopy/issues/611)).
+- `style-review.yml` diffed `-- '*.py'` only, so a pull request touching
+  only a `docs/notebooks/*.md` marimo notebook always diffed empty: the
+  review step was skipped silently and the correctness reviewer was called
+  with no style pass at all. The diff now covers every authored file —
+  Python, notebooks, docs, workflows, config — excluding generated
+  artefacts (`docs/_static/**`, `discopy/*.gif`, `test/drawing/tikz/**`,
+  `test/fixtures/**`, `uv.lock`). `review.py` fences each changed file by
+  its own type (`python`, `markdown`, `yaml`, …) instead of assuming
+  everything is Python, and picks a fence at least one backtick longer
+  than any run already inside the file, so a notebook's own cell fences
+  or an inline code span can never close it early. Each changed file is
+  now sent once, not twice: rather than the full new file followed by a
+  separate global diff, `review.py` asks git for the full-context
+  (`-U100000`) diff of each file and turns it into one listing — every
+  added or context line numbered by its position in the new file, with a
+  leading `+` for one added; a removed line carries a `-` instead and no
+  number, since it has none in the new file — reusing git's own diff
+  algorithm instead of reimplementing it
+  ([#633](https://github.com/discopy/discopy/pull/633)).
+- `no-todo-on-main.yml`'s guard reads the pull request's live `draft`
+  field rather than `github.event.pull_request.draft`, a snapshot taken
+  when the event fires and stale by however long the event then waited
+  for delivery. On [#633](https://github.com/discopy/discopy/pull/633) a
+  `synchronize` delivered thirteen minutes late read `false` although the
+  guard's own previous run had drafted the pull request fifty seconds
+  earlier; the "make ready" branch is gated on that state, so neither
+  branch fired and the pull request stayed draft with no `TODO.md` and
+  nothing to correct it. The guard also leaves the decision to the newer
+  run when the branch has already moved past the event it is handling,
+  rather than drafting a head that no longer exists behind its back
+  ([#640](https://github.com/discopy/discopy/issues/640)).
 - `build.yml` timeouts and a bounded, retried Graphviz install
   ([#591](https://github.com/discopy/discopy/issues/591)).
 - `frobenius.Diagram.unfuse`'s doctest no longer sets `Spider.color = "red"`
