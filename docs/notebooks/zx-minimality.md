@@ -100,8 +100,8 @@ def euler_prime(a1, a2):
 hadamard_matrix = np.array([[1, 1], [1, -1]]) / np.sqrt(2)
 diagonal_phase = lambda angle: np.diag([1, np.exp(1j * angle)])
 
-for _ in range(100):
-    _a1, _a2, _a3 = np.random.default_rng(_).uniform(-pi, pi, 3)
+for _i in range(100):
+    _a1, _a2, _a3 = np.random.default_rng(_i).uniform(-pi, pi, 3)
     _b1, _b2, _b3, _g = euler(_a1, _a2, _a3)
     assert np.allclose(
         diagonal_phase(_a3) @ hadamard_matrix @ diagonal_phase(_a2)
@@ -167,19 +167,33 @@ HD_rule = (Z(1, 1, 1 / 4) >> Id(1) @ Z(0, 1, -1 / 4) >> X(2, 1)
 ```
 
 ```python {.marimo}
-class Round(frobenius.Functor):
-    """Round the spider phases of a diagram, for display only."""
+class Rewrite(frobenius.Functor):
+    """An endofunctor on Diagram that rewrites some boxes and leaves every
+    other box, in particular a swap, unchanged."""
     def __init__(self):
         super().__init__(
             ob_map=lambda x: x, ar_map=None, dom=Diagram, cod=Diagram)
 
+    def rewrite(self, box):
+        """The image of a box this functor rewrites, else None."""
+        raise NotImplementedError
+
     def __call__(self, other):
-        if isinstance(other, zx.Spider):
-            return type(other)(len(other.dom), len(other.cod),
-                               round(float(other.phase), 3))
+        rewritten = self.rewrite(other)
+        if rewritten is not None:
+            return rewritten
         if isinstance(other, zx.Box) and not isinstance(other, zx.Swap):
             return other
         return super().__call__(other)
+
+
+class Round(Rewrite):
+    """Round the spider phases of a diagram, for display only."""
+    def rewrite(self, box):
+        if isinstance(box, zx.Spider):
+            return type(box)(len(box.dom), len(box.cod),
+                              round(float(box.phase), 3))
+        return None
 
 
 rounded = Round()
@@ -316,20 +330,14 @@ by diagram surgery. First we expand every red spider into Hadamards around
 a green spider, which is how the model defines them anyway:
 
 ```python {.marimo}
-class Expand(frobenius.Functor):
+class Expand(Rewrite):
     """Expand every X spider into Hadamards around a Z spider."""
-    def __init__(self):
-        super().__init__(
-            ob_map=lambda x: x, ar_map=None, dom=Diagram, cod=Diagram)
-
-    def __call__(self, other):
-        if isinstance(other, X):
-            n, m = len(other.dom), len(other.cod)
-            return Id().tensor(*(n * [H])) >> Z(n, m, other.phase)\
+    def rewrite(self, box):
+        if isinstance(box, X):
+            n, m = len(box.dom), len(box.cod)
+            return Id().tensor(*(n * [H])) >> Z(n, m, box.phase)\
                 >> Id().tensor(*(m * [H]))
-        if isinstance(other, zx.Box) and not isinstance(other, zx.Swap):
-            return other
-        return super().__call__(other)
+        return None
 
 
 expand = Expand()
@@ -565,18 +573,23 @@ rotates $|100\rangle, |010\rangle, |001\rangle$.
 from itertools import combinations
 
 
+def three_cycle(dim, cycle):
+    """The antisymmetric matrix skew-rotating a three-cycle of basis
+    states, zero elsewhere."""
+    N = np.zeros((dim, dim))
+    for a, b in zip(cycle, cycle[1:] + cycle[:1]):
+        N[b, a], N[a, b] = 1, -1
+    return N
+
+
 def admissible_basis(k):
     """Three-cycles spanning the antisymmetric weight-preserving matrices
     that annihilate the constant vector on each weight subspace."""
     dim, basis = 2 ** k, []
     for w in range(k + 1):
         block = [i for i in range(dim) if bin(i).count('1') == w]
-        for i, j in combinations(range(1, len(block)), 2):
-            N = np.zeros((dim, dim))
-            cycle = (block[0], block[i], block[j])
-            for a, b in zip(cycle, cycle[1:] + cycle[:1]):
-                N[b, a], N[a, b] = 1, -1
-            basis.append(N)
+        basis += [three_cycle(dim, (block[0], block[i], block[j]))
+                  for i, j in combinations(range(1, len(block)), 2)]
     return basis
 
 

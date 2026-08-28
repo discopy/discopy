@@ -21,7 +21,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   perturbations are spanned by three-cycles inside a Hamming weight
   subspace, the bialgebra defect vanishes exactly on the perturbations
   commuting with the Hadamard, and modulo those the paper's countermodel
-  is the unique one on three qubits, the least possible size.
+  is the unique one on three qubits, the least possible size
+  ([#626](https://github.com/discopy/discopy/pull/626)).
 - The style review can be asked for, and turned off, from the pull request
   itself: `@discopy review this` in a comment reviews it now, and the
   `no-style-review` label stops the automatic reviews on it, while the
