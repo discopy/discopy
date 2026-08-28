@@ -1,5 +1,6 @@
 """Tests for the style reviewer's assembly of its one request."""
 
+import os
 import subprocess
 
 import pytest
@@ -77,3 +78,71 @@ def test_imports_gives_up_on_what_python_cannot_parse(review, tmp_path):
     notebook = tmp_path / "a.md"
     notebook.write_text("# A notebook\n\n```python {.marimo}\nx = 1\n```\n")
     assert review.imports(str(notebook)) == []
+
+
+def test_past_block_numbers_the_remarks_as_the_verdicts_do(review):
+    block = review.past_block([
+        {"number": 1, "path": "a.py", "line": 3, "comment": "one"},
+        {"number": 2, "path": "b.py", "line": 9, "comment": "two"}])
+    assert "1. `a.py:3` — 'one'" in block
+    assert "2. `b.py:9` — 'two'" in block
+
+
+def test_a_remark_reaches_the_prompt_as_one_line(review):
+    """A newline in a remark would break the numbered listing it sits
+    in, so it goes in as a literal."""
+    block = review.past_block(
+        [{"number": 1, "path": "a.py", "line": 3, "comment": "one\ntwo"}])
+    assert block.count("\n") == 2
+    assert "'one\\ntwo'" in block
+
+
+def test_literal_bounds_what_somebody_wrote(review):
+    assert len(review.literal("x" * 5_000)) < review.QUOTE + 10
+
+
+def test_fitted_drops_what_does_not_fit_whole(review):
+    assert review.fitted("abc", 5) == ("abc", 0)
+    assert review.fitted("abc", 4) == ("", 4)
+
+
+@pytest.fixture
+def reviewable(repository, monkeypatch):
+    """A repository the reviewer can assemble a prompt in."""
+    tmp_path, base = repository
+    (tmp_path / ".github" / "style-review").mkdir(parents=True)
+    (tmp_path / ".github" / "style-review" / "prompt.md").write_text(
+        "instructions\n")
+    (tmp_path / "STYLE.md").write_text("the style guide\n")
+    monkeypatch.chdir(tmp_path)
+    return base
+
+
+def past(remarks, discussion=""):
+    return {"remarks": remarks, "discussion": discussion}
+
+
+def test_assemble_orders_from_what_never_moves_to_what_always_does(
+        review, reviewable):
+    """The prompt is a prefix two rounds share, so the parts that move
+    every round go last."""
+    prompt = review.assemble(["file.py"], reviewable, past(
+        [{"number": 1, "path": "file.py", "line": 2, "comment": "one"}],
+        "### toumix\n\nno, on purpose"))
+    places = [prompt.index(part) for part in (
+        "# STYLE.md", "# Style remarks from the previous rounds",
+        "# Discussion so far", "# Changed: file.py")]
+    assert places == sorted(places)
+
+
+def test_assemble_adds_to_the_round_before_it(review, reviewable):
+    """What two rounds share is a prefix reaching the whole of the
+    earlier round's remarks, so a gateway can serve it from its cache."""
+    first = review.assemble(["file.py"], reviewable, past(
+        [{"number": 1, "path": "file.py", "line": 2, "comment": "one"}]))
+    second = review.assemble(["file.py"], reviewable, past([
+        {"number": 1, "path": "file.py", "line": 2, "comment": "one"},
+        {"number": 2, "path": "file.py", "line": 3, "comment": "two"}]))
+    shared = os.path.commonprefix([first, second])
+    assert "1. `file.py:2` — 'one'" in shared
+    assert "# Changed: file.py" not in shared

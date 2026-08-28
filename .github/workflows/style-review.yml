@@ -6,10 +6,13 @@ on:
     types: [created]
 permissions:
   contents: read
+  issues: read
   pull-requests: read
 concurrency:
+  # One round at a time per pull request, whatever triggered either of them:
+  # a push cancels the round that was reviewing the head it replaces.
   group: style-review-${{ github.event.pull_request.number
-    || github.event.issue.number }}-${{ github.event.action }}
+    || github.event.issue.number }}
   cancel-in-progress: true
 jobs:
   review:
@@ -111,7 +114,18 @@ jobs:
         echo "changed=$(test -s .style-review/diff.patch \
           && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
+    - name: Read the previous rounds and the discussion
+      if: >
+        steps.config.outputs.configured == 'true'
+        && steps.diff.outputs.changed == 'true'
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        REPO: ${{ github.repository }}
+        PR_NUMBER: ${{ steps.pr.outputs.number }}
+      run: python3 .github/style-review/history.py
+
     - name: Review the diff
+      id: review
       if: >
         steps.config.outputs.configured == 'true'
         && steps.diff.outputs.changed == 'true'
@@ -139,6 +153,7 @@ jobs:
         && steps.diff.outputs.changed == 'true'
       env:
         APP_TOKEN: ${{ steps.app-token.outputs.token }}
+        GITHUB_TOKEN: ${{ github.token }}
         REPO: ${{ github.repository }}
         PR_NUMBER: ${{ steps.pr.outputs.number }}
         HEAD_SHA: ${{ steps.pr.outputs.head }}
@@ -153,6 +168,7 @@ jobs:
         GH_TOKEN: ${{ steps.app-token.outputs.token }}
         PR_NUMBER: ${{ steps.pr.outputs.number }}
         CLEAN: ${{ steps.post.outputs.clean }}
+        REVIEW_OUTCOME: ${{ steps.review.outcome }}
       run: |
         called="$(gh api --paginate \
           "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" --jq '
@@ -164,7 +180,10 @@ jobs:
         this pull request."
           exit 0
         fi
-        if [ "$CLEAN" = "true" ]; then
+        if [ "$REVIEW_OUTCOME" = "failure" ]; then
+          body="Style review crashed, see the \"Review the diff\" step's \
+        log. @cubic-dev-ai review"
+        elif [ "$CLEAN" = "true" ]; then
           body="No style remarks. @cubic-dev-ai review"
         else
           body="@cubic-dev-ai review"
