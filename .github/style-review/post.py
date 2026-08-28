@@ -34,7 +34,6 @@ import urllib.error
 import history
 from github import api
 
-DIRECTORY = ".style-review"
 HUNK = re.compile(r"^@@ -\S+ \+(\d+)(?:,(\d+))? @@")
 
 
@@ -176,7 +175,7 @@ def main():
         print(f"The pull request moved to {ahead[:8]} while this round ran, "
               "leaving the review to the round that push starts.")
         return
-    with open(os.path.join(DIRECTORY, "findings.json")) as file:
+    with open(os.path.join(history.DIRECTORY, "findings.json")) as file:
         answer = json.load(file)
     reported = answer["findings"]
     if not isinstance(reported, list):
@@ -185,7 +184,7 @@ def main():
     unreadable = len(reported) - len(findings)
     if reported and not findings:
         raise ValueError(f"no readable finding in: {reported!r}")
-    with open(os.path.join(DIRECTORY, "diff.patch")) as file:
+    with open(os.path.join(history.DIRECTORY, "diff.patch")) as file:
         lines = commentable_lines(file.read())
     on_diff = [
         f for f in findings if f["line"] in lines.get(f["path"], set())]

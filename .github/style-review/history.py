@@ -21,6 +21,8 @@ import thread
 from github import listing
 
 DIRECTORY = ".style-review"
+"""The workspace the workflow's steps hand their files through, named
+here once for the scripts that read and write them."""
 MARKER = "<!-- style-review "
 TALLY = "<!-- style-review-tally -->"
 

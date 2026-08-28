@@ -36,7 +36,6 @@ import urllib.request
 
 import history
 
-DIRECTORY = ".style-review"
 BUDGET = 400_000
 QUOTE = 2_000
 LANGUAGES = {
@@ -282,12 +281,12 @@ def ask(prompt):
 
 
 def main():
-    with open(os.path.join(DIRECTORY, "files.txt")) as file:
+    with open(os.path.join(history.DIRECTORY, "files.txt")) as file:
         files = [path for path in file.read().splitlines()
                  if path and os.path.exists(path)]
     past = history.load()
     answer = ask(assemble(files, os.environ["BASE_SHA"], past))
-    with open(os.path.join(DIRECTORY, "findings.json"), "w") as file:
+    with open(os.path.join(history.DIRECTORY, "findings.json"), "w") as file:
         json.dump(answer, file)
     print(f"{len(answer.get('findings', []))} findings, "
           f"{len(answer.get('verdicts', []))} verdicts on "
