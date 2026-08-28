@@ -132,23 +132,34 @@ def assemble(files, base_sha, thread=""):
     """The one prompt: instructions, style guide, discussion so far,
     context, changes. Every part is budgeted as assembled, including the
     ``"\\n\\n"`` separators the join below adds between them, so the
-    request sent to the gateway never exceeds ``BUDGET``."""
+    request sent to the gateway never exceeds ``BUDGET``. The changed
+    files are the one part that must fit, so they are budgeted right
+    after the mandatory instructions and style guide; the discussion, like
+    the context, is dropped rather than raising when it does not fit."""
     deps = sorted(
         {dep for path in files for dep in imports(path)} - set(files))
     with open(".github/style-review/prompt.md") as file:
         instructions = file.read()
     with open("STYLE.md") as file:
         style = f"# STYLE.md\n\n{file.read()}"
-    head = [instructions, style]
-    if thread.strip():
-        head.append(f"# Discussion so far\n\n{thread}")
-    budget = BUDGET + 2 - sum(len(part) + 2 for part in head)
+    budget = BUDGET + 2 - sum(len(part) + 2 for part in (instructions, style))
     changed, budget, missing = contents(
         files, budget, lambda path: changed_block(path, base_sha))
     if missing:
         raise ValueError(f"changed files past the budget: {missing}")
+    thread_part = ""
+    if thread.strip():
+        ticks = fence(thread)
+        thread_part = f"# Discussion so far\n\n{ticks}text\n{thread}\n{ticks}"
+        if len(thread_part) + 2 > budget:
+            thread_part = ""
+        else:
+            budget -= len(thread_part) + 2
     context, budget, dropped = contents(deps, budget, context_block)
-    parts = head + [block for _, block in context]
+    parts = [instructions, style]
+    if thread_part:
+        parts.append(thread_part)
+    parts += [block for _, block in context]
     if dropped:
         note = f"# Context dropped for size: {', '.join(dropped)}"
         if len(note) + 2 <= budget:

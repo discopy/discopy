@@ -32,27 +32,41 @@ def get(url, token):
         page += 1
 
 
+def author(item):
+    """An item's author login, `"ghost"` for a deleted account."""
+    return (item["user"] or {}).get("login", "ghost")
+
+
+def anchor(comment):
+    """A diff comment's `path` or `path:line`, `line` falling back to
+    `original_line` when the comment is outdated, absent when neither is
+    set, e.g. a comment on the file as a whole."""
+    line = comment.get("line") or comment.get("original_line")
+    return f"{comment['path']}:{line}" if line else comment["path"]
+
+
 def entries(repo, pr_number, token):
     """One dict per contribution, with a `when` timestamp to sort by and
-    an `anchor` of `path:line` for a comment on the diff, else `None`."""
+    an `anchor` of `path` or `path:line` for a comment on the diff, else
+    `None`. A pending review has no `submitted_at` and is not a
+    contribution yet, so it is left out."""
     base = f"{API}/repos/{repo}"
     conversation = get(f"{base}/issues/{pr_number}/comments", token)
     diff_comments = get(f"{base}/pulls/{pr_number}/comments", token)
     reviews = get(f"{base}/pulls/{pr_number}/reviews", token)
     result = [
-        {"when": comment["created_at"], "author": comment["user"]["login"],
+        {"when": comment["created_at"], "author": author(comment),
          "anchor": None, "body": comment["body"] or ""}
         for comment in conversation]
     result += [
-        {"when": comment["created_at"], "author": comment["user"]["login"],
-         "anchor": f"{comment['path']}:"
-                   f"{comment.get('line') or comment['original_line']}",
-         "body": comment["body"] or ""}
+        {"when": comment["created_at"], "author": author(comment),
+         "anchor": anchor(comment), "body": comment["body"] or ""}
         for comment in diff_comments]
     result += [
-        {"when": review["submitted_at"], "author": review["user"]["login"],
+        {"when": review["submitted_at"], "author": author(review),
          "anchor": None, "body": f"[{review['state']}] {review['body']}"}
-        for review in reviews if (review["body"] or "").strip()]
+        for review in reviews
+        if review["submitted_at"] and (review["body"] or "").strip()]
     return sorted(result, key=lambda entry: entry["when"])
 
 
