@@ -6,7 +6,7 @@ from hypothesis import find
 from hypothesis import strategies as st
 from pytest import raises
 
-from discopy import closed, feedback, rigid, symmetric
+from discopy import closed, feedback, rigid, symmetric, testing
 from discopy.abc import Equation as AbstractEquation
 from discopy.cat import Arrow, Box, Equation, Functor, Ob
 from discopy.testing import (
@@ -109,6 +109,8 @@ def test_natural():
     assert Natural(1).__matmul__("x") is NotImplemented
     with raises(ValueError):
         Natural(-1)
+    assert repr(Natural(2)) == "testing.Natural(2)"
+    assert eval(repr(Natural(2))) == testing.Natural(2)
     assert holds(Natural.equation_factory(Natural(1), Natural(1)))
     assert find(Natural.strategy(), lambda number: number == 1) == 1
 

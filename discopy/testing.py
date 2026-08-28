@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from functools import wraps
 from typing import ClassVar, TypeVar, TYPE_CHECKING, get_args, get_origin
 
-from discopy.utils import AxiomError, assert_iscomposable
+from discopy.utils import AxiomError, assert_iscomposable, factory_name
 
 if TYPE_CHECKING:
     from hypothesis import strategies as st
@@ -66,6 +66,9 @@ class Natural(int, Strategy["Natural"]):
 
     __rmatmul__ = __matmul__
     __len__ = lambda self: int(self)
+
+    def __repr__(self):
+        return factory_name(type(self)) + f"({int(self)})"
 
     @classmethod
     def equation_factory(cls, *terms):
