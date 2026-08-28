@@ -11,7 +11,7 @@ from discopy import monoidal, tensor
 from discopy.python import function
 from discopy.quantum import zx
 
-from proptest.test_axioms import carrier_parameters
+from proptest.carriers import carrier_parameters
 
 IMPORTS = (
     "from discopy import *",

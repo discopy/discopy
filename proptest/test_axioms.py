@@ -4,23 +4,9 @@ import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from discopy import cat
-from discopy.testing import assert_verdict
 from discopy.utils import factory_name
 
-CARRIERS = (
-    cat.Arrow, cat.Functor,
-)
-
-
-def carrier_parameters(classify=lambda carrier: ()):
-    """
-    One pytest parameter per carrier, marked by the given classification,
-    a function from a carrier to its marks, e.g. an expected failure.
-    """
-    for carrier in CARRIERS:
-        yield pytest.param(
-            carrier, marks=classify(carrier), id=factory_name(carrier))
+from proptest.carriers import CARRIERS
 
 
 def axiom_parameters():
@@ -32,7 +18,7 @@ def axiom_parameters():
     test is skipped rather than generating arguments it could not satisfy.
     """
     for carrier in CARRIERS:
-        for axiom in getattr(carrier, "axioms", ()):
+        for axiom in getattr(carrier, "axioms", {}).values():
             if not axiom.parameters and axiom() is NotImplemented:
                 marks = pytest.mark.skip(reason=axiom.__doc__.strip())
             elif axiom.broken:
@@ -51,4 +37,4 @@ def axiom_parameters():
 def test_axiom(axiom, data):
     """ Check an axiom of a carrier against generated arguments. """
     args = data.draw(axiom.strategy(), label=axiom.name)
-    assert_verdict(axiom, axiom(*args))
+    assert axiom(*args)

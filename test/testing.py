@@ -15,8 +15,7 @@ from discopy.testing import (
     LeftCurrying, Natural, NonEmpty, Relabelled, Relabelling, RightCurrying,
     Small, Strategy, TraceDinaturalityLeft, TraceDinaturalityRight,
     TraceNaturalityLeft, TraceNaturalityRight, TraceSuperposing,
-    assert_axioms, assert_strategy_finds, assert_verdict, axiom,
-    declared_axioms, holds, is_boundary_connected, resolve)
+    assert_axioms, assert_strategy_finds, axiom, resolve)
 from discopy.utils import AxiomError, factory
 
 
@@ -93,7 +92,7 @@ def test_axioms():
 
 
 def test_strategy():
-    assert_strategy_finds(Arrow, Box)
+    assert_strategy_finds(TracedDiagram, TracedBox)
     x, y = Ob('x'), Ob('y')
     find(Ob.strategy(), lambda ob: ob.name == "a")
     assert find(Arrow.strategy(dom=x, cod=x), lambda _: True) == Arrow.id(x)
@@ -111,7 +110,7 @@ def test_natural():
         Natural(-1)
     assert repr(Natural(2)) == "testing.Natural(2)"
     assert eval(repr(Natural(2))) == testing.Natural(2)
-    assert holds(Natural.equation_factory(Natural(1), Natural(1)))
+    assert Natural.equation_factory(Natural(1), Natural(1))
     assert find(Natural.strategy(), lambda number: number == 1) == 1
 
 
@@ -131,29 +130,15 @@ def test_argument_wrappers():
         resolve(int)
 
 
-def test_is_boundary_connected():
+def test_boundary_connected():
     x = symmetric.Ty('x')
     box = symmetric.Box('f', x, x)
     scalar = symmetric.Box('s', symmetric.Ty(), symmetric.Ty())
-    assert is_boundary_connected(box.to_hypergraph())
-    assert is_boundary_connected(box) and not is_boundary_connected(scalar)
-
-    class Opaque:
-        """ A term with a combinatorial map but no hypergraph. """
-        def __init__(self, diagram):
-            self.diagram = diagram
-
-        def to_hypergraph(self):
-            raise NotImplementedError
-
-        def to_map(self):
-            return self.diagram.to_map()
-
-    assert is_boundary_connected(Opaque(box))
-    assert not is_boundary_connected(Opaque(scalar))
+    assert BoundaryConnected(box.to_hypergraph()).value
     assert BoundaryConnected((box, box)).value == (box, box)
-    with raises(ValueError):
-        BoundaryConnected(scalar)
+    for value in (scalar, scalar.to_map(), scalar.to_hypergraph()):
+        with raises(ValueError):
+            BoundaryConnected(value)
 
     class Terms(Strategy):
         """ A stub carrier quantifying over one connected box. """
@@ -243,8 +228,8 @@ def test_relabelling():
 
 def test_monoid_axioms():
     x, y, z = TracedTy('u'), TracedTy('v'), TracedTy('w')
-    assert holds(TracedTy.monoid_unitality(x))
-    assert holds(TracedTy.monoid_associativity((x, y, z)))
+    assert TracedTy.monoid_unitality(x)
+    assert TracedTy.monoid_associativity((x, y, z))
 
 
 def test_axiom_binding():
@@ -255,13 +240,15 @@ def test_axiom_binding():
     with raises(TypeError):
         Axiom(lambda cls: NotImplemented).falsify()
     box = Box('f', Ob('x'), Ob('y'))
-    assert_verdict(Arrow.unitality, Arrow.unitality(box))
-    assert not holds(AxiomError()) and not holds(AxiomError("reason", False))
+    assert Arrow.unitality(box)
+    broken = Arrow.unitality.failing("Never holds.").bind(Arrow)
+    with raises(AxiomError):
+        broken(box)
 
 
 def test_modulo():
     law = Arrow.unitality.modulo(lambda term: term.dom).bind(Arrow)
-    assert holds(law(Box('f', Ob('x'), Ob('y'))))
+    assert law(Box('f', Ob('x'), Ob('y')))
 
 
 def test_weaken():
@@ -269,7 +256,7 @@ def test_weaken():
         law = TracedTy.monoid_unitality.weaken(x=subspace).bind(TracedTy)
         assert law.modulo(lambda term: term).subspaces == law.subspaces
         args = find(law.strategy(), lambda _: True)
-        assert isinstance(args[0], Atomic) and holds(law(*args))
+        assert isinstance(args[0], Atomic) and law(*args)
 
 
 def test_element_law():
@@ -281,7 +268,7 @@ def test_element_law():
     law = preserves_identity.bind(Functor)
     assert law.is_method
     args = find(law.strategy(), lambda _: True)
-    assert holds(law(*args))
+    assert law(*args)
 
 
 def test_falsify():
@@ -302,12 +289,12 @@ def test_assert_axioms_refusal():
     assert Refusing.refuse.falsify()
 
 
-def test_declared_axioms():
-    axioms = declared_axioms(Functor)
+def test_axioms_of_carrier():
+    axioms = Functor.axioms
     assert "unitality" in axioms and axioms["unitality"].broken
 
     class Hidden(Arrow):
         """ Assigning a non-axiom over an inherited law drops it. """
         unitality = None
 
-    assert "unitality" not in declared_axioms(Hidden)
+    assert "unitality" not in Hidden.axioms

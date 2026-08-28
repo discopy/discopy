@@ -20,7 +20,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   generation — wired up in `proptest/test_axioms.py`, enrolled so far for
   `cat.Arrow` and `cat.Functor`, and run by the new `proptest` GitHub
   workflow on `main`, manual dispatch and PRs labelled `proptest`. See
-  [PROPTEST.md](PROPTEST.md) and [BUGS.md](BUGS.md).
+  [PROPTEST.md](PROPTEST.md).
 - A `workflows` job in `build.yml`, so that the code running our pull
   requests is checked like the code it checks: `actionlint` over the
   workflows, `pflake8` over `.github`, and `pytest .github/tests/*.py`

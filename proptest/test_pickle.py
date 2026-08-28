@@ -12,7 +12,7 @@ from hypothesis import strategies as st
 
 from discopy.python import function
 
-from proptest.test_axioms import carrier_parameters
+from proptest.carriers import carrier_parameters
 
 
 def classify(carrier):

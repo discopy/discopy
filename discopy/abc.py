@@ -49,7 +49,7 @@ from collections.abc import Sequence
 from typing import ClassVar, Generic, TypeVar
 
 from discopy.testing import (
-    Axiom, ComposablePair, ComposableTriple, axiom, declared_axioms)
+    Axiom, ComposablePair, ComposableTriple, axiom)
 from discopy.utils import classproperty, get_origin
 
 
@@ -104,10 +104,21 @@ class Category[C0, C1: Category](ABC):
         return CatEquation(*terms)
 
     @classproperty
-    def axioms(cls) -> tuple[Axiom, ...]:
-        """ The ordered axioms inherited by ``cls``. """
-        return tuple(
-            value.bind(cls) for value in declared_axioms(cls).values())
+    def axioms(cls) -> dict[str, Axiom]:
+        """
+        The axioms inherited by ``cls``, by name, subclasses overriding
+        bases.
+
+        Names are collected before they are filtered, so that assigning
+        anything that is not an axiom over an inherited one drops it
+        altogether, rather than restating it.
+        """
+        visible = {
+            name: value
+            for base in reversed(cls.__mro__)
+            for name, value in base.__dict__.items()}
+        return {name: value.bind(cls) for name, value in visible.items()
+                if isinstance(value, Axiom)}
 
     @classmethod
     @abstractmethod

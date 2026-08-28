@@ -8,7 +8,7 @@ from typing import NamedTuple
 import pytest
 
 from discopy import cat
-from discopy.testing import Axiom, Relabelled, Relabelling, assert_verdict
+from discopy.testing import GENERATORS, Axiom, Relabelled, Relabelling
 from discopy.utils import factory_name
 
 
@@ -23,7 +23,15 @@ class Counterexample(NamedTuple):
 
 
 COLLAPSE = Relabelling(tuple(
-    (cat.Ob(name), cat.Ob("a")) for name in "abcde"))
+    (cat.Ob(name), cat.Ob("a")) for name in GENERATORS))
+"""
+The relabelling the search shrunk to: every generator sent to the first.
+
+It names all of them because every functor the strategy builds does, see
+:obj:`discopy.testing.GENERATORS`. The images are what shrinking landed on
+rather than what the bug needs — composing on the left forgets the functor
+whatever it relabels, so the identity relabelling is a counterexample too.
+"""
 
 
 COUNTEREXAMPLES = (
@@ -48,4 +56,4 @@ def counterexample_parameters():
 @pytest.mark.parametrize("axiom, args", counterexample_parameters())
 def test_counterexample(axiom, args):
     """ Check an axiom on a recorded counterexample. """
-    assert_verdict(axiom, axiom(*args))
+    assert axiom(*args)

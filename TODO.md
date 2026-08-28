@@ -46,20 +46,20 @@ Review round from @daydream6728 on
 - [ ] Move the `Equation` implementation into `abc` as a `NamedGeneric`
       parameterised by its arrow type, with `cat.Equation` as its
       instantiation, so `Category.equation_factory` needs no local import.
-- [ ] Drop the quotes on the `st.SearchStrategy[T]` annotations, checking
+- [x] Drop the quotes on the `st.SearchStrategy[T]` annotations, checking
       that nothing evaluates them at runtime.
-- [ ] Give `CMap` an `is_boundary_connected` and delete the helper.
-- [ ] State in `assert_strategy_finds`'s signature that it takes a diagram
+- [x] Give `CMap` an `is_boundary_connected` and delete the helper.
+- [x] State in `assert_strategy_finds`'s signature that it takes a diagram
       carrier.
-- [ ] Delete `assert_verdict`.
-- [ ] Make a broken axiom raise its `AxiomError` instead of returning it,
+- [x] Delete `assert_verdict`.
+- [x] Make a broken axiom raise its `AxiomError` instead of returning it,
       and delete `holds`.
-- [ ] Delete `declared_axioms`, returning `dict[str, Axiom]` from
+- [x] Delete `declared_axioms`, returning `dict[str, Axiom]` from
       `abc.Category.axioms`.
-- [ ] Delete `proptest/test_eq_hash.py`.
-- [ ] Move `CARRIERS` and its parametrisation into a non-test module of
+- [x] Delete `proptest/test_eq_hash.py`.
+- [x] Move `CARRIERS` and its parametrisation into a non-test module of
       `proptest/`.
-- [ ] Answer the question on `proptest/test_counterexamples.py`, and drop
+- [x] Answer the question on `proptest/test_counterexamples.py`, and drop
       the relabelling if it is not needed.
 - [ ] Unpin `pytest-xdist` in `pyproject.toml`, regenerating `uv.lock`.
-- [ ] Delete `BUGS.md` and every reference to it.
+- [x] Delete `BUGS.md` and every reference to it.
