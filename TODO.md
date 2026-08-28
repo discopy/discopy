@@ -18,4 +18,4 @@
       is budgeted first and rendered last
 - [x] Move the style reviewer's own tests into `.github/tests`, where #645 put
       the harness, and give `history.py` and `thread.py` their own
-- [ ] Close #617, #620 and #672 as superseded, leaving #645 to merge on its own
+- [x] Close #617, #620 and #672 as superseded, leaving #645 to merge on its own
