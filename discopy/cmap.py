@@ -360,8 +360,8 @@ class CMap[C0: Pregroup, C1: CMap](
         this is defined for every map, in particular for the left-handed
         cups and caps of a rigid diagram, whose hypergraph is partial.
 
-        Examples
-        --------
+        Example
+        -------
         >>> from discopy.compact import Ty, Box, Diagram
         >>> x = Ty('x')
         >>> assert Box('f', x, x).to_map().is_boundary_connected
