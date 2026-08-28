@@ -56,8 +56,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   that sits on no line of the diff is now dropped rather than moved to
   the review body — the prompt says so, and `post.py` enforces it, saying
   how many it dropped. Every remark it does post is a comment on the line
-  it is about: the body carries the round and what it could not say,
-  never a list of findings. Left as it was, a review of the file at large
+  it is about: the body carries the round and what it could not say
+  rather than a list of findings, save where GitHub refuses those
+  comments, the one case where the remarks go in the body rather than be
+  lost. Left as it was, a review of the file at large
   spent the ten-finding cap on code nobody was changing, and under the
   tally above those remarks stayed open forever, since fixing them was
   out of the pull request's scope
