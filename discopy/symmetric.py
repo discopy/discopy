@@ -92,7 +92,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from discopy import monoidal, balanced, traced, hypergraph, messages
+from discopy import monoidal, balanced, hypergraph, cmap, messages
 from discopy.abc import SymmetricCategory
 from discopy.cat import factory
 from discopy.monoidal import Wire, Ty, PRO  # noqa: F401
@@ -240,12 +240,12 @@ class Diagram(balanced.Diagram, SymmetricCategory):
     >>> with raises(AxiomError) as err:
     ...     Diagram.from_callable(x, x @ x)(lambda x: (x, x))
     >>> print(err.value)
-    symmetric.Diagram has no spiders, cups or caps to draw this hypergraph.
+    symmetric.Diagram has no cups or caps for the wiring of this map.
 
     >>> with raises(AxiomError) as err:
     ...     Diagram.from_callable(x, Ty())(lambda x: ())
     >>> print(err.value)
-    symmetric.Diagram has no spiders, cups or caps to draw this hypergraph.
+    symmetric.Diagram has no cups or caps for the wiring of this map.
 
     Note
     ----
@@ -662,13 +662,9 @@ class Functor(balanced.Functor):
         return super().__call__(other)
 
 
-class CMap(traced.CMap):
-    category = Diagram
-    require_planar = False
-
+CMap = cmap.CMap[Diagram]
 
 Diagram.functor_factory = Functor
-Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.swap_factory = Swap
 Diagram.permutation_factory = Permutation

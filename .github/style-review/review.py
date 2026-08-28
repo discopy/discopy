@@ -1,26 +1,41 @@
 """Ask the model for a style review of the diff in one request.
 
-Assembles ``prompt.md``, ``STYLE.md``, the package-local files that the
-changed files import (as context), the full text of every changed file with
-line numbers and the diff from ``.style-review``, sends one chat completion
-to the OpenAI-compatible gateway at ``BASE_URL`` and writes the findings to
+A changed file is any tracked, authored file: a Python module, a marimo
+notebook (a ``docs/notebooks/*.md`` file, its code cells fenced as
+``python {.marimo}``), or plain prose, config or workflow. Excluded are
+generated artefacts nobody hand-writes, filtered out of the diff before
+this module runs. Assembles ``prompt.md``, ``STYLE.md``, the package-local
+files that the changed Python files import (as context), and one listing
+per changed file: the whole new file, unified-diff style, every line
+numbered by its position in the new file with a leading ``+``/``-`` for
+one added/removed since the merge base, falling back to a plain diff (or
+to no representation at all) for a file too big to fit the budget. Sends
+one chat completion to the
+OpenAI-compatible gateway at ``BASE_URL`` and writes the findings to
 ``.style-review/findings.json`` for ``post.py`` to post.
 """
 
 import ast
 import json
 import os
+import re
+import subprocess
 import sys
 import urllib.error
 import urllib.request
 
 DIRECTORY = ".style-review"
 BUDGET = 400_000
+LANGUAGES = {
+    ".py": "python", ".md": "markdown", ".rst": "rst", ".yml": "yaml",
+    ".yaml": "yaml", ".toml": "toml", ".json": "json", ".css": "css",
+    ".html": "html",
+}
 
 
 def imports(path):
     """The package-local paths imported by a Python file, an empty list
-    when this Python cannot parse it."""
+    when this Python cannot parse it, e.g. a marimo notebook."""
     try:
         with open(path) as file:
             tree = ast.parse(file.read())
@@ -51,8 +66,7 @@ def contents(paths, budget, block):
     also returning the leftover budget and the paths dropped."""
     kept, dropped = [], []
     for path in paths:
-        with open(path) as file:
-            text = block(path, file.read())
+        text = block(path)
         cost = len(text) + 2
         if cost <= budget:
             kept, budget = kept + [(path, text)], budget - cost
@@ -61,67 +75,112 @@ def contents(paths, budget, block):
     return kept, budget, dropped
 
 
-def numbered(text):
-    return "\n".join(
-        f"{n} {line}" for n, line in enumerate(text.splitlines(), 1))
+def annotated(path, base_sha):
+    """The whole new-file content of ``path``, unified-diff style: every
+    line prefixed by its new-file line number, with a leading ``+`` for
+    one added or ``-`` (unnumbered, since it has no new-file line) for
+    one removed since ``base_sha``. Gets git's own diff with enough
+    context to cover the whole file in one hunk, rather than
+    reimplementing the diff itself."""
+    diff = subprocess.run(
+        ['git', 'diff', '--merge-base', base_sha, '-U100000', '--', path],
+        capture_output=True, text=True, check=True).stdout
+    body = diff.split("\n@@", 1)[-1].split("\n", 1)[-1]
+    lines, number = [], 0
+    for row in body.splitlines():
+        if row.startswith("\\"):
+            continue
+        marker, content = row[:1] or ' ', row[1:]
+        if marker == '-':
+            lines.append(f"  -{content}")
+        else:
+            number += 1
+            lines.append(f"{number} {'+' if marker == '+' else ' '}{content}")
+    return "\n".join(lines)
+
+
+def language(path):
+    """The Markdown fence language for a path's own file type, ``text``
+    for anything unrecognised."""
+    return LANGUAGES.get(os.path.splitext(path)[1], "text")
+
+
+def fence(body):
+    """A backtick fence at least three long, and one longer than any run
+    already in ``body`` — an inline code span is no threat, but a
+    notebook's own triple-backtick cell fences must never close it
+    early."""
+    runs = re.findall("`+", body)
+    return "`" * max(3, max((len(run) for run in runs), default=0) + 1)
 
 
 def section(title, path, body):
-    return f"# {title}: {path}\n\n```python\n{body}```"
+    ticks = fence(body)
+    return f"# {title}: {path}\n\n{ticks}{language(path)}\n{body}{ticks}"
 
 
-def changed_block(path, text):
-    return section("Changed", path, numbered(text) + "\n")
+def changed_block(path, base_sha):
+    return section("Changed", path, annotated(path, base_sha) + "\n")
 
 
-def context_block(path, text):
-    return section("Context (not under review)", path, text)
+def diff_block(path, base_sha):
+    """A plain, small-context ``git diff`` of ``path`` since ``base_sha``
+    — the compact fallback for a changed file whose full-file
+    :func:`changed_block` doesn't fit the budget, same idea as
+    :func:`context_block` degrading a dropped context file, except a
+    changed file has no smaller-still fallback: one that doesn't fit
+    even as a diff is reported as unreviewed rather than dropped
+    silently."""
+    diff = subprocess.run(
+        ['git', 'diff', '--merge-base', base_sha, '--', path],
+        capture_output=True, text=True, check=True).stdout
+    return section("Changed (diff only, too big for the full file)",
+                    path, diff)
 
 
-def assemble(files, diff):
-    """The one prompt: instructions, style guide, context, changes, diff.
-    Every part is budgeted as assembled, including the ``"\\n\\n"``
-    separators the join below adds between them, so the request sent to
-    the gateway never exceeds ``BUDGET``. A changed file too big to fit
-    its full text falls back to the diff alone, same as a context file
-    dropped for size — except the diff itself may also be truncated for
-    size, in which case a file whose hunk falls in the truncated tail
-    gets no representation at all, and is reported as such rather than
-    as reviewed from a diff it isn't in."""
+def context_block(path):
+    with open(path) as file:
+        body = file.read().rstrip("\n") + "\n"
+    return section("Context (not under review)", path, body)
+
+
+def assemble(files, base_sha):
+    """The one prompt: instructions, style guide, context, changes. Every
+    part is budgeted as assembled, including the ``"\\n\\n"`` separators
+    the join below adds between them, so the request sent to the gateway
+    never exceeds ``BUDGET``. A changed file too big for its full-file
+    listing falls back to a plain diff of just its hunks, and one too
+    big even for that is reported as unreviewed rather than raising and
+    crashing the whole review."""
     deps = sorted(
         {dep for path in files for dep in imports(path)} - set(files))
-    if len(diff) > BUDGET // 2:
-        diff = diff[:BUDGET // 2] + "\n[diff truncated for size]"
-    diff_part = f"# Diff\n\n```diff\n{diff}```"
     with open(".github/style-review/prompt.md") as file:
         instructions = file.read()
     with open("STYLE.md") as file:
         style = f"# STYLE.md\n\n{file.read()}"
-    budget = BUDGET + 2 - sum(
-        len(part) + 2 for part in (instructions, style, diff_part))
-    changed, budget, missing = contents(files, budget, changed_block)
+    budget = BUDGET + 2 - sum(len(part) + 2 for part in (instructions, style))
+    changed, budget, missing = contents(
+        files, budget, lambda path: changed_block(path, base_sha))
+    degraded, budget, unreviewed = contents(
+        missing, budget, lambda path: diff_block(path, base_sha))
     context, budget, dropped = contents(deps, budget, context_block)
     parts = [instructions, style] + [block for _, block in context]
     notes = []
     if dropped:
         notes.append(f"# Context dropped for size: {', '.join(dropped)}")
-    unreviewed = [
-        path for path in missing if f"diff --git a/{path} " not in diff]
-    diff_only = [path for path in missing if path not in unreviewed]
-    if diff_only:
+    if degraded:
         notes.append(
-            "# Changed files past the budget, reviewed from the diff "
-            f"only: {', '.join(diff_only)}")
+            "# Changed files past the budget, reviewed from a diff "
+            f"only: {', '.join(path for path, _ in degraded)}")
     if unreviewed:
         notes.append(
-            "# Changed files past the budget with no diff left after "
-            f"truncation, not reviewed at all: {', '.join(unreviewed)}")
+            "# Changed files past the budget even as a diff, not "
+            f"reviewed at all: {', '.join(unreviewed)}")
     for note in notes:
         if len(note) + 2 <= budget:
             parts.append(note)
             budget -= len(note) + 2
-    parts += [block for _, block in changed]
-    parts.append(diff_part)
+    parts += [block for _, block in changed] + [block for _, block in degraded]
     return "\n\n".join(parts)
 
 
@@ -165,9 +224,7 @@ def main():
     with open(os.path.join(DIRECTORY, "files.txt")) as file:
         files = [path for path in file.read().splitlines()
                  if path and os.path.exists(path)]
-    with open(os.path.join(DIRECTORY, "diff.patch")) as file:
-        diff = file.read()
-    findings = ask(assemble(files, diff))
+    findings = ask(assemble(files, os.environ["BASE_SHA"]))
     with open(os.path.join(DIRECTORY, "findings.json"), "w") as file:
         json.dump(findings, file)
     print(f"{len(findings.get('findings', []))} findings.")
