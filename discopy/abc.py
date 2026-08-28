@@ -40,6 +40,7 @@ Summary
     PivotalCategory
     RibbonCategory
     NamedGeneric
+    Equation
 """
 
 from __future__ import annotations
