@@ -40,9 +40,10 @@ Summary
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Generic, Type, TypeVar, ClassVar
+from collections.abc import Sequence
+from typing import ClassVar, Generic, TypeVar
 
-from discopy.utils import get_origin
+from discopy.utils import classproperty, get_origin
 
 
 class Category[C0, C1: Category](ABC):
@@ -62,10 +63,14 @@ class Category[C0, C1: Category](ABC):
     >>> assert List([1, 2]) >> List([3]) == List([1, 2, 3])
     >>> assert List([3]) << List([1, 2]) == List([1, 2, 3])
     """
-    ob: ClassVar[Type[C0]]
-    ar: ClassVar[Type[C1]]
+    ob: ClassVar[type[C0]]
+    factory: ClassVar[type[C1]]
     dom: C0
     cod: C0
+
+    #: Backward-compatible alias for :attr:`factory`, since types are
+    #: themselves the objects of diagrams.
+    ar = classproperty(lambda cls: getattr(cls, "factory", cls))
 
     @classmethod
     @abstractmethod
@@ -110,32 +115,70 @@ class Category[C0, C1: Category](ABC):
     __lshift__ = __lrshift__ = lambda self, other: other.then(self)
 
 
-class Monoid[T]:
+class ColouredMonoid[C0, C1: ColouredMonoid](Category[C0, C1]):
     """
-    A monoid is a class with class variable ``ob`` and class method ``tensor``.
+    A coloured monoid is a category whose sequential composition ``then`` is
+    given by a monoidal ``tensor``, with the objects ``C0`` (its colours) as
+    the boundaries of its morphisms.
+
+    An ordinary :obj:`Monoid` is the special case with a single, trivial
+    colour, i.e. :class:`type(None)`. We do not enforce this so
+    that e.g. :class:`monoidal.Ty` can take colours as objects.
     """
-    ob: ClassVar[Type[T]]
+    @classmethod
+    def id(cls, dom: C0 = None) -> C1:
+        """The monoidal unit, i.e. the empty tensor ``cls()``."""
+        return cls()
 
     @classmethod
-    @abstractmethod
-    def tensor(cls) -> T:
-        """ The unit of a monoid. """
+    def unit(cls, colour: C0 = None) -> C0 | C1:
+        """
+        The unit at a colour, i.e. the identity on it.
+
+        It need not be an element of the monoid, which is why it may land in
+        ``C0``: the layers of :class:`monoidal.Layer` are closed under
+        ``tensor`` but the empty one is a type rather than a layer.
+        """
+        return cls.id(colour)
 
     @abstractmethod
-    def tensor(self, *objects: T) -> T:
+    def tensor(self, *objects: C1) -> C1:
         """ The n-ary product of a monoid for ``n > 0``. """
+
+    def then(self, *others: C1) -> C1:
+        """Sequential composition, given by the monoid product."""
+        return self.tensor(*others)
+
+    @classmethod
+    def whisker(cls, other: C0 | C1) -> C1:
+        """
+        Do nothing if ``other`` is already a morphism else apply :meth:`id`.
+
+        Parameters:
+            other : The object or morphism to be tensored on the left or right.
+        """
+        return other if isinstance(other, cls) else cls.id(other)
 
     def __matmul__(self, other):
         return self.tensor(other)
 
+    def __rmatmul__(self, other):
+        return self.whisker(other).tensor(self)
 
-class MonoidalCategory[C0: Monoid, C1: MonoidalCategory](Category[C0, C1]):
+
+# A monoid is a coloured monoid with a single, trivial colour.
+type Monoid[C1: ColouredMonoid] = ColouredMonoid[type(None), C1]
+
+
+class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](
+        Category[C0, C1]):
     """
     A monoidal category is a :class:`Category` with a method :code:`tensor` for
     both its objects and its morphisms.
 
     This base class also implements syntactic sugar :code:`@` for whiskering.
     """
+
     @classmethod
     @abstractmethod
     def tensor(cls, *morphisms: C1) -> C1:
@@ -173,23 +216,27 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
         """
         The trace of a morphism, to be instantiated.
 
+        Tracing no object at all is the identity, i.e. the vanishing axiom
+        ``f.trace(0) == f``, see `nLab
+        <https://ncatlab.org/nlab/show/traced+monoidal+category>`_.
+
         Parameters:
             n : The number of objects to trace over.
             left : Whether to trace the wires on the left or right.
         """
 
 
-class ResiduatedMonoid[T](Monoid[T]):
+class ResiduatedMonoid[C0, C1: ResiduatedMonoid](ColouredMonoid[C0, C1]):
     """
     A monoid is residuated when it comes with methods ``over`` and ``under``
     with syntactic sugar ``<<`` and ``>>``.
     """
     @abstractmethod
-    def over(self, other: T) -> T:
+    def over(self, other: C1) -> C1:
         """ The right-to-left exponential object ``self`` to the ``other``. """
 
     @abstractmethod
-    def under(self, other: T) -> T:
+    def under(self, other: C1) -> C1:
         """ The left-to-right exponential object ``self`` to the ``other``. """
 
     def __lshift__(self, other):
@@ -230,25 +277,54 @@ class BiclosedCategory[
             left : Whether to curry on the left or right.
         """
 
+    def base_and_exponent(self, n: int, left: bool) -> tuple[C0, C0]:
+        """
+        The base and exponent that :meth:`uncurry` evaluates, read off the
+        exponential object in the codomain.
 
-class Pregroup[T](ResiduatedMonoid[T]):
+        Parameters:
+            n : The number of objects to uncurry.
+            left : Whether to uncurry on the left or right.
+        """
+        if not self.cod.is_exp:
+            raise ValueError
+        base, exponent = self.cod.base, self.cod.exponent
+        if n < len(exponent):
+            raise ValueError
+        return base, exponent
+
+    def uncurry(self, n: int = 1, left: bool = True) -> C1:
+        """
+        Uncurry a morphism by composing it with :meth:`ev`, assuming its
+        codomain is an exponential object. If the exponent has less than
+        ``n`` objects, we uncurry the remaining ones in turn.
+
+        Parameters:
+            n : The number of objects to uncurry.
+            left : Whether to uncurry on the left or right.
+        """
+        if n < 0:
+            raise ValueError
+        if not n:
+            return self
+        base, exponent = self.base_and_exponent(n, left)
+        result = self @ exponent >> self.ev(base, exponent, True) if left\
+            else exponent @ self >> self.ev(base, exponent, False)
+        return result.uncurry(n - len(exponent), left)
+
+
+class Pregroup[C0, C1: Pregroup](ResiduatedMonoid[C0, C1]):
     """
     A pregroup is a residuated monoid where the left and right exponentials are
     given by tensoring with the chosen left and right duals for each object.
     """
-    l: T
-    r: T
+    l: C1
+    r: C1
 
-    def tensor(self, *others: T) -> T:
-        return super(Monoid, self).tensor(*others)
-
-    def __matmul__(self, other: T) -> T:
-        return self.tensor(other)
-
-    def over(self, other: T) -> T:
+    def over(self, other: C1) -> C1:
         return self @ other.l
 
-    def under(self, other: T) -> T:
+    def under(self, other: C1) -> C1:
         return other.r @ self
 
 
@@ -279,6 +355,79 @@ class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
             right : Its adjoint, i.e. the right-hand side of the caps.
         """
 
+    @classmethod
+    def ev(cls, base: C0, exponent: C0, left: bool = True) -> C1:
+        """
+        The evaluation of a rigid morphism is obtained using cups.
+
+        Parameters:
+            base : The base of the exponential type.
+            exponent : The exponent of the exponential type.
+            left : Whether to take the left or right evaluation.
+        """
+        return base @ cls.cups(exponent.l, exponent) if left\
+            else cls.cups(exponent, exponent.r) @ base
+
+    def curry(self, n: int = 1, left: bool = True) -> C1:
+        """
+        The curry of a rigid morphism is obtained using caps.
+
+        Parameters:
+            n : The number of objects to curry.
+            left : Whether to curry on the left or right.
+        """
+        if n < 0 or n > len(self.dom):
+            raise ValueError
+        if not n:
+            return self
+        if left:
+            base, exponent = self.dom[:-n], self.dom[-n:]
+            return base @ self.caps(exponent, exponent.l) >> self @ exponent.l
+        base, exponent = self.dom[n:], self.dom[:n]
+        return self.caps(exponent.r, exponent) @ base >> exponent.r @ self
+
+    def base_and_exponent(self, n: int, left: bool) -> tuple[C0, C0]:
+        """
+        Contrary to :meth:`BiclosedCategory.base_and_exponent`, a pregroup has
+        no exponential object to read the exponent off the codomain: it is the
+        ``n`` objects at the end resp. the start of the codomain, dualised.
+
+        Parameters:
+            n : The number of objects to uncurry.
+            left : Whether to uncurry on the left or right.
+        """
+        if n > len(self.cod):
+            raise ValueError
+        return (self.cod[:-n], self.cod[-n:].r) if left\
+            else (self.cod[n:], self.cod[:n].l)
+
+    def transpose(self, left: bool = False) -> C1:
+        """
+        The transpose of a morphism, i.e. its composition with cups and caps.
+
+        Parameters:
+            left : Whether to transpose left or right.
+
+        Example
+        -------
+        >>> from discopy.monoidal import Equation
+        >>> from discopy.rigid import Ty, Box
+        >>> x, y = map(Ty, "xy")
+        >>> f = Box('f', x, y)
+        >>> Equation(f.transpose(left=True), f, f.transpose(),
+        ...     symbols=("$\\\\mapsfrom$", "$\\\\mapsto$")).draw(
+        ...         figsize=(8, 3), doctest="docs/_static/rigid/transpose.svg")
+
+        .. image:: /_static/rigid/transpose.svg
+        """
+        if left:
+            return self.cod.l @ self.caps(self.dom, self.dom.l)\
+                >> self.cod.l @ self @ self.dom.l\
+                >> self.cups(self.cod.l, self.cod) @ self.dom.l
+        return self.caps(self.dom.r, self.dom) @ self.cod.r\
+            >> self.dom.r @ self @ self.cod.r\
+            >> self.dom.r @ self.cups(self.cod, self.cod.r)
+
 
 class PivotalCategory[C0, C1](RigidCategory[C0, C1], TracedCategory[C0, C1]):
     """
@@ -304,27 +453,9 @@ class BraidedCategory[C0, C1](MonoidalCategory[C0, C1]):
         """
 
 
-class BalancedCategory[C0, C1](
-        BraidedCategory[C0, C1], TracedCategory[C0, C1]):
+class SymmetricCategory[C0, C1](BraidedCategory[C0, C1]):
     """
-    A balanced category is a :class:`BraidedCategory` and a
-    :class:`TracedCategory` with a method :code:`twist` for the natural
-    automorphism :code:`x -> x`.
-    """
-    @classmethod
-    @abstractmethod
-    def twist(cls, dom: C0) -> C1:
-        """
-        The twist on an object, to be instantiated.
-
-        Parameters:
-            dom : The object on which to take the twist.
-        """
-
-
-class SymmetricCategory[C0, C1](BalancedCategory[C0, C1]):
-    """
-    A symmetric category is a :class:`BalancedCategory` where the braid is its
+    A symmetric category is a :class:`BraidedCategory` where the braid is its
     own inverse called :code:`swap` for the symmetry :code:`x @ y -> y @ x`.
     """
     @classmethod
@@ -339,8 +470,20 @@ class SymmetricCategory[C0, C1](BalancedCategory[C0, C1]):
         """
 
     @classmethod
-    def twist(cls, dom: C0) -> C1:
-        return cls.id(dom)
+    def permutation(cls, xs: Sequence[int], doms: Sequence[C0]) -> C1:
+        """ Compose swaps to permute the atomic objects in ``dom``. """
+        xs, doms = list(xs), list(doms)
+        if list(range(len(doms))) != sorted(xs):
+            raise ValueError
+        tensor = lambda objects: sum(objects, start=cls.ob())
+        result, done = cls.id(tensor(doms)), cls.ob()
+        while xs != list(range(len(xs))):
+            i = xs[0]
+            left, head = tensor(doms[:i]), tensor(doms[i:i + 1])
+            result >>= done @ cls.swap(left, head) @ tensor(doms[i + 1:])
+            done, doms = done @ head, doms[:i] + doms[i + 1:]
+            xs = [x - 1 if x > i else x for x in xs[1:]]
+        return result
 
     @classmethod
     def braid(cls, left: C0, right: C0) -> C1:
@@ -397,6 +540,24 @@ class FeedbackCategory[C0, C1](MarkovCategory[C0, C1]):
         """
 
 
+class BalancedCategory[C0, C1](
+        BraidedCategory[C0, C1], TracedCategory[C0, C1]):
+    """
+    A balanced category is a :class:`BraidedCategory` and a
+    :class:`TracedCategory` with a method :code:`twist` for the natural
+    automorphism :code:`x -> x`.
+    """
+    @classmethod
+    @abstractmethod
+    def twist(cls, dom: C0) -> C1:
+        """
+        The twist on an object, to be instantiated.
+
+        Parameters:
+            dom : The object on which to take the twist.
+        """
+
+
 class RibbonCategory[C0, C1](
         PivotalCategory[C0, C1], BalancedCategory[C0, C1]):
     """
@@ -409,8 +570,12 @@ class CompactCategory[C0, C1](
         RibbonCategory[C0, C1], SymmetricCategory[C0, C1]):
     """
     A compact category is a :class:`RibbonCategory` which is also a
-    :class:`SymmetricCategory`, i.e. with cups, caps and swaps.
+    :class:`SymmetricCategory`, i.e. with cups, caps and swaps and where
+    the twist is the identity.
     """
+    @classmethod
+    def twist(cls, dom: C0) -> C1:
+        return cls.id(dom)
 
 
 class HypergraphCategory[C0, C1](

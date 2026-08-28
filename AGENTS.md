@@ -4,18 +4,18 @@
 
 DisCoPy is a Python toolkit for computing with string diagrams.
 
-## Context
+Read the following documents (<10k tokens) before any work on the package:
 
-Please read the following documents (<10k tokens) before attempting any serious work on the package:
-
+- @RULES.md describes the collaboration and Git protocol for shared PR branches, follow it exactly.
+- @STYLE.md describes coding guidelines that all your work should try to follow.
 - @README.md contains a high-level description of the features along with some examples.
-- @CONTRIBUTING.md contains setup instructions, our philosophy and a code style guide.
+- @CONTRIBUTING.md contains setup instructions and our general coding philosophy.
 
 ## Where
 
 - [discopy](discopy/) contains the code with a lot of modules and a few submodules
 - [discopy.abc](discopy/abc.py) contains abstract base classes for each level of the hierarchy
-- [test](test/) is split into `syntax` and `semantics` with one file for each module or submodule
+- [test](test/) is flat with one file for each module, mirroring `discopy/`; submodules (`grammar`, `quantum`, `drawing`, `python`) keep their own directory with one file per submodule, and shared test data lives in `fixtures`
 - [docs](docs/) contains notebooks and pictures generated automatically when running the tests
 
 ## How
@@ -29,5 +29,12 @@ Before pushing anything, make sure that:
 
 - you have reported any bugs or confusing docs that you encounter even if unrelated
 - you have added docs and tests that are complete but concise as best as you can
+- you have added an entry to the `[Unreleased]` section of @CHANGELOG.md for any user-facing change
 - you have `uv run` both `pflake8 discopy` and `coverage run -m pytest` as described in @CONTRIBUTING.md
 - you have respected the [code style guide](CONTRIBUTING.md#code-style-guide)
+
+A pull request is **ready for sign-off** when all three of these hold:
+
+1) its `TODO.md` is deleted, every point having been `[x]` or filed as an issue
+2) CI is green on the real jobs, with the target branch merged in
+3) no review thread is waiting on an agent, i.e. every thread is either resolved or waiting on human feedback

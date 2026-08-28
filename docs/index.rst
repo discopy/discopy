@@ -27,9 +27,6 @@ DisCoPy documentation
     notebooks/examples
     notebooks/qnlp
     notebooks/diag-diff
-    notebooks/neural-sudoku
-    notebooks/neural-lambda
-    notebooks/neural-boolean
     notebooks/neural-church
     notebooks/21-05-03-tallcat
     notebooks/21-05-05-tallcat

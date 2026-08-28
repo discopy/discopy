@@ -5,7 +5,9 @@
 
 Thank you for considering contributing to DisCoPy, we're so excited to have you here! If you got this far, you are already part of a new generation of engineers, scientists and mathematicians making equations and programs free of the one-dimensional cave in which they are being chained.
 
-This is an open source project which started as part of [two PhD theses](https://docs.discopy.org/en/main/extra/papers.html#phd-theses) i.e. we come from academia and we are always enthusiastic about collaboration, sharing ideas and their implementations.
+This is an open source project which started as part of [two PhD theses](https://docs.discopy.org/en/main/extra/papers.html#phd-theses) i.e. we come from academia and we are always enthusiastic about sharing ideas and their implementations.
+
+Please read the [STYLE.md](STYLE.md) for guidelines which encapsulate some our coding philosophy.
 
 ## Make a first contribution
 
@@ -58,39 +60,55 @@ uv run coverage run -m pytest
 uv run coverage report -m
 ```
 
+Without the extras installed, run `uv run pytest --skip-extra` to skip what needs them.
+
 ## Run the benchmarks
 
-The composition benchmark (`benchmark/test_composition.py`) reproduces the scaling
-experiments of arXiv:2105.09257 for both `Diagram` and `Hypergraph`. It lives
-outside `testpaths`, so the normal `pytest` run never collects it — run it
-explicitly. Each `(case, size)` is a declarative
-[`pytest-benchmark`](https://pytest-benchmark.readthedocs.io) test — the fixture
-owns timing (CPU clock, GC disabled, median of a few rounds), so there is no
-hand-rolled timing code.
+`benchmark/test_composition.py` reproduces the scaling experiments of
+arXiv:2105.09257 for `Diagram` and `Hypergraph`, with analogous `CMap` cases;
+`benchmark/test_conversion.py` covers conversions between all three. They live
+outside `testpaths`, so run them explicitly. Results are keyed by suite
+(`composition` or `conversion`), family (representation or conversion), case
+(workload) and size `n`. Each data point is a declarative
+[`pytest-benchmark`](https://pytest-benchmark.readthedocs.io) test; the fixture
+owns timing (CPU clock and GC disabled) and automatically calibrates rounds
+and iterations for each workload.
 
 ```shell
 uv sync --group dev
 # small/medium sizes (the default); add BENCH_FLAGS=bench:full for the heavy tail
 uv run pytest benchmark/ -v --benchmark-json=benchmark-results/bench.json
-# render the scaling table + log-log plot (polars + matplotlib)
+# render the scaling tables + log-log plots (polars + matplotlib)
 uv run python benchmark/report.py benchmark-results/bench.json
 ```
 
-`report.py` writes `results.md`, `results.csv` and `scaling.png` into
-`benchmark-results/`. To gate on a regression, pass a committed baseline:
+`report.py` writes `NAME-results.md` and `NAME-scaling.svg` for each
+`benchmark/test_NAME.py`. To compare two runs made sequentially on the same
+machine, pass the base run when rendering the head:
 
 ```shell
-uv run python benchmark/report.py benchmark-results/bench.json \
-    --baseline benchmark/baseline.json --fail-threshold 0.25
+uv run python benchmark/report.py benchmark-results/head.json \
+    --base benchmark-results/base.json --threshold 0.25
 ```
 
-It joins the two runs on `(case, size)` and exits non-zero if any case's median
-regressed by more than the threshold. The baseline is machine-dependent, so
-generate it once on the CI runner (`workflow_dispatch` on `main`, with
-`BENCH_FLAGS=bench:full`) and commit the resulting `bench.json` as
-`benchmark/baseline.json`. The `benchmark` GitHub workflow runs the suite on pull
-requests (smoke sizes) and on `main` / manual dispatch (full sizes), uploading the
-report as an artifact.
+It joins the runs on `(suite, family, case, size)` and computes the raw change
+`head / base - 1`. It writes `comparison.md`, listing the regressions and
+speedups larger than the threshold. A regression is reported, never fatal: the
+exit code is non-zero only when the comparison itself fails, e.g. when the two
+runs share no measurement. Both runs must use the same benchmark sizes and
+machine; there is no cross-machine normalisation. The report counts the
+measurements present in only one of the two runs.
+
+The `benchmark` GitHub workflow benchmarks two commits on the same runner and
+compares them: on `main` the commit pushed against the branch as it was before
+the push, on a pull request labelled `benchmark` the head commit against the
+base. `main` runs the full size tail, a pull request the default sizes; a
+manual dispatch has nothing to compare against and only measures its own
+commit. Every run uploads the report of its head commit -- the raw
+`bench.json`, the Markdown tables and the SVG plots -- writes the comparison to
+the job summary, and raises a warning annotation, never a failure, when a
+measurement regresses. A pull request run also posts or updates a comment with
+the important regressions and speedups.
 
 ## Build the docs
 
@@ -112,7 +130,7 @@ python -m venv .venv
 . .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -e '.[test]'
-python -m pip install coverage pyproject-flake8 pytest nbmake
+python -m pip install coverage pyproject-flake8 pytest marimo
 ```
 
 Then run:
@@ -132,6 +150,9 @@ python -m build
 
 ## Release a version
 
+Before tagging, rename the `[Unreleased]` section of [CHANGELOG.md](CHANGELOG.md) to the new
+version and date, and commit it.
+
 New versions (tag with 'X.X.X') of the package are released on [PyPI](https://pypi.org/project/discopy/) using `uv publish`.
 You should run the following commands from a clean clone of the repo:
 
@@ -142,7 +163,8 @@ uv build
 uv publish
 ```
 
-Finally, [create a release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository#creating-a-release) for the newly created tag.
+Finally, [create a release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository#creating-a-release) for the newly created tag, using the
+matching section of [CHANGELOG.md](CHANGELOG.md) as its description.
 
 ## Report bugs
 
@@ -154,20 +176,27 @@ If you happen to find one, please [open an issue](https://github.com/discopy/dis
 We would be thrilled to welcome contributions in the form of examples, tests, notebooks, etc.
 We are also keen to hear if you spot any part of the documentation that you suspect is broken, outdated or plain wrong.
 
-We use the following convention so that documentation images are generated automatically when running doctests:
+We use the following convention so that documentation images are generated and compared against a baseline when running doctests:
 
 ```
 Example
 -------
 >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
 >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
->>> (f0 @ f1).draw(path='docs/_static/monoidal/tensor-example.png')
+>>> (f0 @ f1).draw(doctest='docs/_static/monoidal/tensor-example.svg')
 
-.. image:: /_static/monoidal/tensor-example.png
+.. image:: /_static/monoidal/tensor-example.svg
     :align: center
 ```
 
-For now this is not done automatically so make sure you remember to push changes to these documentation images but don't push if the changes are only due to minor glitches e.g. font aliasing.
+If the image already exists, drawing the example checks it against the
+committed baseline and raises an error when they differ. To update an image,
+delete its baseline so the next run regenerates it, or set
+`discopy.config.OVERRIDE_DOCTEST_IMAGES = True` before running the tests, in
+which case `doctest=` behaves like `path=` and just overrides the images.
+Commit the regenerated images just like any other test change, otherwise
+the CI won't pass. A plain `draw(path=...)` just saves the drawing,
+overwriting any existing file.
 
 ## Request features
 
@@ -182,24 +211,13 @@ If your request is for some general abstract nonsense that can be used throughou
 We take our pull request reviews to the same level of rigour and courtesy as our academic peer reviews.
 That is, we do our best to make sure that critical parts of the reasoning / implementation are correct but we also know there can be a next PR / paper fixing our mistakes.
 
-## Code style guide
-
-- **DisCoPy is pure.** Diagram composition should never cause side-effects, only functor application does when the codomain is effectful.
-- **DisCoPy is deterministic.** Even in their internal representation, data structures should not depend on sources of non-determinism (e.g. hashing).
-- **DisCoPy is transparent.** `eval(repr(x)) == x` should always be true and `eval(str(x)) == x` should be true assuming the obvious variable naming convention e.g. `x, y = Ob("x"), Ob("y")` and `f = Box("f", x, y)`. This `str(x)` should be as close as possible to what a mathematician would write on the board.
-- **DisCoPy has no secrets.** We avoid using private or semiprivate attributes and let the user see the internals of each data structure. We expose the interface of every subprocedure as methods that can be tested and reused.
-- **DisCoPy cares about naming.** Classes and methods should have short descriptive names, when possible the names correspond to well-known mathematical definitions.
-- **DisCoPy speaks for itself.** The code should be clear enough that it doesn't need comments, only documentation with links to mathematical definitions.
-- **DisCoPy does not show off.** If there is a simpler way to name or explain something, don't make it sound more complicated.
-- **DisCoPy never repeats itself.** The identity and composition of diagrams are defined once in `cat`, not in every level of the hierarchy. If there's duplicate code then you're probably working at the wrong level of abstraction.
-- **DisCoPy aims at never nesting.** We believe if your code goes beyond three levels deep then you're probably working at the wrong level of abstraction.
-
 ## LLM guidelines
 
 We accept contributions from large language models so long as they are explicitly indicated as such.
-We recommend using our [AGENTS.md](AGENTS.md) in your prompts so that the model has enough context to give quality results.
+The [RULES.md](RULES.md) bind every agent working on a branch or pull request in this repo; they define the checkbox mutex and append-only shared-branch protocol.
+Use our [AGENTS.md](AGENTS.md) in your prompts so that the model has enough context to give quality results.
 
 LLMs have shifted the bottleneck of software development from writing code to reviewing it, please ensure that your AI assistants save more human time than they require to supervise them.
 In particular, AI contributions should be small (a thousand lines is a red line not to cross lightly) and well-planned (delegate the execution not the design).
 
-One specific guideline for PR descriptions: it's fine to have the detailed list of changes LLM-generated but the high-level description should be either written by a human or quoting a human's prompt verbatim.
+One specific guideline for PR descriptions: it's fine to have the detailed list of changes LLM-generated but the high-level description should be either a) written by a human, b) linking to a human-written prompt or c) quoting a human's prompt verbatim.

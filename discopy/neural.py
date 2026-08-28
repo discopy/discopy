@@ -49,7 +49,7 @@ Example
 Message passing on the combinatorial map of a diagram computes its image
 under the execution formula, e.g. rerouting for a snake:
 
->>> import torch
+>>> import torch  # doctest: +EXTRA
 >>> snake = Id(Dim(2)).transpose().to_map()
 >>> snake.boxes
 ()
@@ -63,8 +63,8 @@ from typing import TYPE_CHECKING
 
 from functools import cached_property
 
-from discopy import compact, monoidal
-from discopy.cat import ar_factory, ob_factory
+from discopy import cmap, compact, hypergraph, monoidal
+from discopy.cat import factory
 from discopy.cmap import PortKind
 from discopy.pivotal import Ty
 from discopy.utils import assert_isinstance
@@ -99,7 +99,7 @@ class Seq(int):
     __str__ = __repr__
 
 
-@ob_factory
+@factory
 class Dim(monoidal.Dim, Ty):
     """
     A dimension is a tuple of positive integers seen as a self-dual type,
@@ -112,10 +112,13 @@ class Dim(monoidal.Dim, Ty):
     >>> assert Dim(2, 3).l == Dim(2, 3).r == Dim(3, 2)
     """
     unit = 0
-    l = r = property(lambda self: self.ob(*self.inside[::-1]))
+    l = r = property(lambda self: self.factory(*self.inside[::-1]))
+
+    def unwind(self) -> Dim:
+        return self
 
 
-@ar_factory
+@factory
 class Diagram(compact.Diagram):
     """
     A neural diagram is a compact diagram with dimensions as objects.
@@ -194,7 +197,7 @@ class Network(Box):
 
     Example
     -------
-    >>> import torch
+    >>> import torch  # doctest: +EXTRA
     >>> f = Network('f', Dim(2), Dim(3), module=torch.nn.Linear(5, 5))
     >>> g = Network('g', Dim(3), Dim(2), module=torch.nn.Linear(5, 5))
     >>> (f >> g).dom == (f >> g).cod == Dim(2)
@@ -228,12 +231,11 @@ class Functor(compact.Functor):
     dom = cod = Diagram
 
 
-class Hypergraph(compact.Hypergraph):
+class Hypergraph(hypergraph.Hypergraph[Diagram]):
     """ A neural hypergraph is a compact hypergraph between dimensions. """
-    functor = Functor
 
 
-class CMap(compact.CMap):
+class CMap(cmap.CMap[Diagram]):
     """
     A neural combinatorial map is a compact map with networks as boxes,
     which computes as a graph neural network.
@@ -494,6 +496,12 @@ class CMap(compact.CMap):
 
 Id = Diagram.id
 
+
+def _to_map(self) -> CMap:
+    return CMap.from_diagram(self)
+
+
+Diagram.to_map = _to_map
 Diagram.braid_factory = Swap
 Diagram.hypergraph_factory = Hypergraph
 Diagram.map_factory = CMap

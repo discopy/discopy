@@ -10,6 +10,7 @@
 .coverage
 .pylintrc
 .pytest_cache
+.mpl-cache/
 .readthedocs.yaml
 .uv-cache
 .venv
@@ -24,7 +25,15 @@ docs/_api/*
 *.egg-info
 build/*
 dist/*
-todo.md
 discopy/version.py
+# marimo (session cache, sandbox metadata, editor layouts)
+__marimo__/
+docs/notebooks/layouts/
+# notebook pages rendered at docs build time (see docs/export_notebooks.py)
+docs/notebooks/*.rst
+docs/_static/notebooks/
+# drawings left behind by a failing drawing test (backend.temporary_path)
+docs/_static/*/_*.svg
 benchmark-results/
 plans/
+.style-review/

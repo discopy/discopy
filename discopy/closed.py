@@ -25,6 +25,7 @@ Summary
     Eval
     Coeval
     Curry
+    Discard
     Sum
     Functor
     CMap
@@ -37,17 +38,16 @@ Axioms
 >>> x, y, z = map(Ty, "xyz")
 >>> f, g = Box('f', x, z << y), Box('g', x @ y, z)
 
->>> from discopy.drawing import Equation
 >>> Equation(f.uncurry().curry(), f).draw(
-...     path='docs/_static/closed/curry-left.png', margins=(0.1, 0.05))
+...     doctest='docs/_static/closed/curry-left.svg', margins=(0.1, 0.05))
 
-.. image:: /_static/closed/curry-left.png
+.. image:: /_static/closed/curry-left.svg
     :align: center
 
 >>> Equation(g.curry().uncurry(), g).draw(
-...     path='docs/_static/closed/uncurry.png')
+...     doctest='docs/_static/closed/uncurry.svg')
 
-.. image:: /_static/closed/uncurry.png
+.. image:: /_static/closed/uncurry.svg
     :align: center
 """
 
@@ -55,12 +55,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Dict, ClassVar
 
-from discopy import cat, monoidal, biclosed, markov, symmetric
+from discopy import cat, monoidal, biclosed, markov, symmetric, cmap, \
+    hypergraph
 from discopy.abc import ClosedCategory
-from discopy.cat import ob_factory, ar_factory
+from discopy.cat import factory
 
 
-@ob_factory
+@factory
 class Ty(biclosed.Ty):
     """
     A closed type is a biclosed type in a symmetric category where left and
@@ -71,10 +72,10 @@ class Ty(biclosed.Ty):
     >>> X, Y = Ty("X"), Ty("Y")
     >>> t = X(lambda x: (X >> Y)(lambda f: f(x)))
     >>> t.draw(
-    ...     path='docs/_static/closed/diagram.png',
+    ...     doctest='docs/_static/closed/diagram.svg',
     ...     aspect="auto", figsize=(8, 8), margins=(0.2, 0))
 
-    .. image:: /_static/closed/diagram.png
+    .. image:: /_static/closed/diagram.svg
         :align: center
     """
 
@@ -120,8 +121,15 @@ class Unitype(Ty):
 
     over = under = exp
 
+    def __eq__(self, other):
+        return isinstance(other, Ty) and self.inside == other.inside\
+            and (self.dom, self.cod) == (other.dom, other.cod)
 
-@ar_factory
+    def __hash__(self):
+        return hash(self.factory(*self.inside))
+
+
+@factory
 class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
     """
     A closed diagram is both a markov and a biclosed diagram.
@@ -137,6 +145,36 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
     @classmethod
     def ev(cls, base: Ty, exponent: Ty, left: bool = True):
         return cls.eval_factory(exponent >> base, left=left)
+
+    def to_compact(self) -> Diagram:
+        """
+        Open the curry bubbles into coevaluation and feedback, which stays
+        a :class:`Diagram` as a closed category is traced: each curry
+        becomes its argument followed by :class:`Coeval`, traced over the
+        curried wires, and each term is evaluated first.
+
+        Example
+        -------
+        >>> x, y, z = map(Ty, "xyz")
+        >>> f = Box("f", x @ y, z)
+        >>> assert f.curry().to_compact() == (
+        ...     f >> Coeval(z << y, left=True)).trace()
+        """
+        def image(box):
+            if isinstance(box, Curry):
+                return (box.arg.to_compact() >> Coeval(
+                    box.cod, left=box.left)).trace(
+                        len(box.cod.exponent), left=not box.left)
+            if isinstance(box, (Application, Abstraction)):
+                return box.eval(Functor.id(Diagram)).to_compact()
+            return box
+        result = self.id(self.dom)
+        for layer in self.inside:
+            for box, offset in layer.boxes_and_offsets:
+                cod = result.cod
+                result >>= cod[:offset] @ image(box)\
+                    @ cod[offset + len(box.dom):]
+        return result
 
     def to_drawing(self):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
@@ -160,7 +198,11 @@ class Curry(biclosed.Curry, Box):
     "The currying of a closed diagram."
 
 
-class Swap(markov.Swap, Box):
+class Permutation(markov.Permutation, Box):
+    "A permutation in a closed diagram."
+
+
+class Swap(Permutation, markov.Swap, Box):
     "Symmetric swap in a closed diagram."
 
 
@@ -175,7 +217,7 @@ class Copy(markov.Copy, Box):
 
 
 class Discard(markov.Discard, Copy):
-    "The discard of an atomic type in a closed diagram."
+    "A markov discard in a closed category."
 
 
 class Sum(markov.Sum, biclosed.Sum, Box):
@@ -195,9 +237,9 @@ class Functor(biclosed.Functor, markov.Functor):
     that preserves evaluation and currying.
 
     Parameters:
-        ob (Mapping[Ty, Ty]) :
+        ob_map (Mapping[Ty, Ty]) :
             Map from atomic :class:`Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
+        ar_map (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
     """
     dom = cod = Diagram
@@ -209,19 +251,14 @@ class Functor(biclosed.Functor, markov.Functor):
         return super().__call__(other)
 
 
-class Hypergraph(markov.Hypergraph):
-    functor = Functor
+CMap = cmap.CMap[Diagram]
 
 
-class CMap(biclosed.CMap):
-    functor = Functor
-    require_planar = False
-
-
-Diagram.hypergraph_factory = Hypergraph
-Diagram.map_factory = CMap
+Diagram.functor_factory = Functor
+Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.copy_factory = Copy
-Diagram.braid_factory = Swap
+Diagram.swap_factory = Swap
+Diagram.permutation_factory = Permutation
 Diagram.curry_factory = Curry
 Diagram.eval_factory = Eval
 Diagram.coeval_factory = Coeval
@@ -236,6 +273,12 @@ Id = Diagram.id
 class TermBase(Box, biclosed.TermBase):
     """
     A term in the internal language of a closed category.
+
+    Note
+    ----
+    :meth:`to_map` shadows :meth:`discopy.monoidal.Diagram.to_map` with the
+    lambda-term encoding: the map of a term *as a diagram* is
+    ``CMap.from_diagram(term)``, which is what :meth:`to_compact` uses.
     """
     functor = Functor.id(Diagram)
 
@@ -363,8 +406,7 @@ class Variable(TermBase, biclosed.Variable):
 class Application(TermBase, biclosed.Application):
     def __check_dom__(self, func, args, left):
         self.overlap = set(func.freevars).intersection(args.freevars)
-        self.freevars = list(dict.fromkeys(func.freevars + args.freevars))\
-            if self.overlap else func.freevars + args.freevars
+        self.freevars = list(dict.fromkeys(func.freevars + args.freevars))
         return self.ob().tensor(*[x.cod for x in self.freevars])
 
     def eval(self, functor=None, context=None):
@@ -390,18 +432,20 @@ class Abstraction(TermBase, biclosed.Abstraction):
 
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
-        n = len(functor(self.var.cod))
+        if self.left:
+            return type(self)(self.var, self.body).eval(functor, context)
         if context:
             new_context = Context([self.var] + context.inside)
             body = self.body.eval(functor=functor, context=new_context)
-            return body.curry(n)
-        i = self.body.freevars.index(self.var)
-        offset = sum(
-            len(functor(x.cod)) for x in self.body.freevars[:i])
+            return body.curry(left=False)
         body = self.body.eval(functor=functor)
-        p = list(range(offset, offset + n)) + [
-            j for j in range(len(body.dom)) if not offset <= j < offset + n]
-        return (body.permutation(p, body.dom).dagger() >> body).curry(n)
+        if self.var not in self.body.freevars:
+            discard = functor.cod.discard(functor(self.var.cod))
+            return (discard @ body.dom >> body).curry(left=False)
+        i, n = self.body.freevars.index(self.var), len(self.body.freevars)
+        p = [i] + [j for j in range(n) if j != i]
+        doms = [self.ob(wire) for wire in body.dom.inside]
+        return (body.permutation(p, doms).dagger() >> body).curry(left=False)
 
 
 @dataclass
@@ -411,7 +455,7 @@ class Context:
 
     @property
     def dom(self):
-        return self.category.ob.tensor(*[x.cod for x in self.inside])
+        return self.category.ob().tensor(*[x.cod for x in self.inside])
 
     def image(self, functor) -> monoidal.Ty:
         """
@@ -609,3 +653,7 @@ Ty.variable_factory = Variable
 Ty.constant_factory = Constant
 Ty.application_factory = Application
 Ty.abstraction_factory = Abstraction
+
+
+class Equation(markov.Equation):
+    """ The :class:`markov.Equation` of closed diagrams. """

@@ -30,10 +30,11 @@ import pytket as tk
 from pytket.circuit import Bit, Op, OpType, Qubit
 from pytket.utils import probs_from_counts
 
-from discopy.quantum.circuit import Functor, Id, bit, qubit, Circuit as Diagram
+from discopy.quantum.circuit import (
+    Functor, Id, Permutation, bit, qubit, Circuit as Diagram)
 from discopy.quantum.gates import (
     ClassicalGate, Controlled, QuantumGate, Bits, Bra, Digits, Ket,
-    Swap, Scalar, MixedScalar, GATES, X, Rx, Ry, Rz, CRx,
+    Scalar, MixedScalar, GATES, X, Rx, Ry, Rz, CRx,
     CRz, format_number, Discard, Measure)
 from discopy.utils import assert_isinstance
 
@@ -50,7 +51,7 @@ OPTYPE_MAP = {"H": OpType.H,
               "CZ": OpType.CZ,
               "CRx": OpType.CRx,
               "CRz": OpType.CRz,
-              "Swap": OpType.SWAP,
+              "SWAP": OpType.SWAP,
               }
 
 
@@ -282,8 +283,9 @@ def to_tk(circuit):
 
         tk_circ.add_gate(op, i_qubits)
 
-    circuit = Functor(ob=lambda x: x, ar=remove_ket1)(circuit)
-    for left, box, _ in circuit.inside:
+    circuit = Functor(ob_map=lambda x: x, ar_map=remove_ket1)(circuit)
+    for layer in circuit.inside:
+        left, box, _ = layer.boxes_and_types
         if isinstance(box, Ket):
             qubits = prepare_qubits(qubits, box, left.count(qubit))
         elif isinstance(box, Digits) and box._dim == 2 and not box.is_dagger:
@@ -298,20 +300,29 @@ def to_tk(circuit):
                 + bits[left.count(bit) + box.dom.count(bit):]
             qubits = qubits[:left.count(qubit)]\
                 + qubits[left.count(qubit) + box.dom.count(qubit):]
-        elif isinstance(box, Swap):
-            if box == Swap(qubit, qubit):
-                off = left.count(qubit)
-                swap(qubits[off], qubits[off + 1])
-            elif box == Swap(bit, bit):
-                off = left.count(bit)
+        elif isinstance(box, Permutation):
+            if all(typ == qubit for typ in box.dom):
+                units, offset, unit_factory = qubits, left.count(qubit), Qubit
+            elif all(typ == bit for typ in box.dom):
+                offset = left.count(bit)
                 if tk_circ.post_processing:
-                    right = Id(tk_circ.post_processing.cod[off + 2:])
+                    right = Id(tk_circ.post_processing.cod[
+                        offset + len(box.dom):])
                     tk_circ.post_process(
-                        Id(bit ** off) @ Swap(bit, bit) @ right)
-                else:
-                    swap(bits[off], bits[off + 1], unit_factory=Bit)
+                        Id(bit ** offset) @ box @ right)
+                    continue
+                units, unit_factory = bits, Bit
             else:  # pragma: no cover
                 continue  # bits and qubits live in different registers.
+            current = list(range(len(box.dom)))
+            position = list(range(len(box.dom)))
+            for i, source in enumerate(box.perm):
+                j = position[source]
+                if i != j:
+                    swap(units[offset + i], units[offset + j],
+                         unit_factory=unit_factory)
+                    current[i], current[j] = current[j], current[i]
+                    position[current[j]], position[source] = j, i
         elif isinstance(box, Scalar):
             tk_circ.scale(
                 box.array if box.is_mixed else abs(box.array) ** 2)
@@ -398,7 +409,7 @@ def from_tk(tk_circuit):
         circuit = circuit >> swaps >> Id(left) @ box @ Id(right) >> swaps[::-1]
     circuit = circuit >> Id().tensor(*(
         Bra(bras[i]) if i in bras
-        else Discard() if x.name == 'qubit' else Id(bit)
+        else Discard() if x == qubit else Id(bit)
         for i, x in enumerate(circuit.cod)))
     if tk_circuit.scalar != 1:
         circuit = circuit @ MixedScalar(tk_circuit.scalar)
