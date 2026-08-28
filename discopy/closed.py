@@ -254,10 +254,12 @@ class TermBase(Box, biclosed.TermBase):
         a node plugging the root and the wire of the abstracted variable, see
         :meth:`discopy.cmap.CMap.plug_input`. A variable with several
         occurrences goes through one delta node with one port per occurrence,
-        see :meth:`discopy.cmap.CMap.merge_inputs`, and a constant becomes a
-        node with a single port; :meth:`discopy.cmap.CMap.to_term` does not
-        support these two node kinds. The free variables of the term are the
-        inputs of the map and the root is its output. The names of the
+        see :meth:`discopy.cmap.CMap.merge_inputs`, a variable with no
+        occurrence plugs its abstraction into an epsilon node with a single
+        port, and a constant becomes a node with a single port;
+        :meth:`discopy.cmap.CMap.to_term` does not support these node kinds.
+        The free variables of the term are the inputs of the map and the
+        root is its output. The names of the
         variables are attached to the objects of their wires, see
         :func:`biclosed.annotate`, so that the round-trip from term to map
         and back is faithful on the nose.
@@ -275,6 +277,10 @@ class TermBase(Box, biclosed.TermBase):
         >>> two = o(lambda f: o(lambda x: f(f(x))))
         >>> sorted(box.name for box in two.to_map().boxes)
         ['@', '@', 'δ', 'λ', 'λ']
+
+        >>> zero = o(lambda f: o(lambda x: x))
+        >>> sorted(box.name for box in zero.to_map().boxes)
+        ['ε', 'λ', 'λ']
         """
         x = symmetric.Ty("x")
         application_box = symmetric.Box("@", x @ x, x)
@@ -306,9 +312,10 @@ class TermBase(Box, biclosed.TermBase):
             if isinstance(term, Abstraction):
                 body, body_vars = go(term.body)
                 if term.var not in body_vars:
-                    raise ValueError(
-                        "Expected an almost-linear term where every "
-                        f"abstracted variable occurs, got {self}.")
+                    wire = biclosed.annotate(x, term.var.name)
+                    epsilon = symmetric.Box("ε", wire, symmetric.Ty())
+                    body = symmetric.CMap.from_box(epsilon) @ body
+                    body_vars = [term.var] + body_vars
                 body, body_vars = merge(body, body_vars, term.var)
                 index = body_vars.index(term.var)
                 abstraction_box = symmetric.Box(

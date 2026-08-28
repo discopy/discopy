@@ -676,8 +676,8 @@ def test_to_map_almost_linear():
     assert len(delta.cod) == 3  # one delta with a port per occurrence
     with raises(ValueError):  # to_term does not support delta nodes
         copying.to_term()
-    with raises(ValueError):  # discarding is not almost-linear
-        closed.Abstraction(v, b("c")).to_map()
+    discarding = closed.Abstraction(v, b("c")).to_map()
+    assert sorted(box.name for box in discarding.boxes) == ['c', 'ε', 'λ']
 
 
 def test_petersen():

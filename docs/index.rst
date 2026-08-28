@@ -30,6 +30,7 @@ DisCoPy documentation
     notebooks/neural-sudoku
     notebooks/neural-lambda
     notebooks/neural-boolean
+    notebooks/neural-church
     notebooks/21-05-03-tallcat
     notebooks/21-05-05-tallcat
     notebooks/higher-order-discocat

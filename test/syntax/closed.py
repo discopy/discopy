@@ -133,6 +133,21 @@ def test_unitype():
     assert church(2).cod == o and church(2)(church(2)).cod == o
 
 
+def test_to_map_weakening():
+    o = Unitype()
+    assert sorted(box.name for box in church(0).to_map().boxes)\
+        == ["ε", "λ", "λ"]
+    pred = o(lambda n: o(lambda f: o(lambda x:
+        n(o(lambda g: o(lambda h: h(g(f)))))(
+            o(lambda u: x))(o(lambda u: u)))))
+    names = [box.name for box in pred(church(3)).to_map().boxes]
+    assert names.count("ε") == 1 and names.count("δ") == 1
+    X, Y = Ty("X"), Ty("Y")
+    constant = Abstraction(Variable("x", X), Y("c"))
+    assert sorted(box.name for box in constant.to_map().boxes)\
+        == ["c", "ε", "λ"]
+
+
 def test_bohm_tree_church_arithmetic():
     o = Unitype()
     add = o(lambda m: o(lambda n: o(lambda f: o(lambda x:
