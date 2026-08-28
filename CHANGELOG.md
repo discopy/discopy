@@ -9,6 +9,20 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `docs/notebooks/neural-church.md`, a marimo notebook growing the token
+  machine of the Boolean-gates experiment to the almost-linear fragment:
+  one private exponential stack of copy indices per delta node, exact
+  Böhm-tree readback through the deltas, the arithmetic constants learned
+  as opaque boxes from 91 equations (2–16 innocent rules each, one MLP per
+  constant trained in JAX), sums and products up to 32 from numerals never
+  larger than three, and the lambda term of every constant — addition
+  itself included — read back out of the trained weights
+  ([#677](https://github.com/discopy/discopy/pull/677)).
+- `TermBase.to_map` supports weakening: an abstracted variable that does
+  not occur plugs into an epsilon node with a single port instead of
+  raising, so Church zero, predecessor and subtraction become expressible
+  as almost-linear maps
+  ([#677](https://github.com/discopy/discopy/pull/677)).
 - A `workflows` job in `build.yml`, so that the code running our pull
   requests is checked like the code it checks: `actionlint` over the
   workflows, `pflake8` over `.github`, and `pytest .github/tests/*.py`
