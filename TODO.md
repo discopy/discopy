@@ -13,10 +13,10 @@
 > Pick a new task in the CLRS benchmark where you expect the gap GoNI vs SOTA
 > to be the largest
 
-- [WIP] @goni-ocirk4-2026-08-29 Rebuild the GoNI setup on a clean branch: merge the `discopy.neural`
+- [x] Rebuild the GoNI setup on a clean branch: merge the `discopy.neural`
       host branch (`claude/proposal-b-three-models-awc5sc`) and get its test
       suite green here.
-- [ ] Build the LCS dynamic-programming grid as a symmetric diagram — the
+- [WIP] @goni-ocirk4-2026-08-29 13:00 Build the LCS dynamic-programming grid as a symmetric diagram — the
       crossings as permutation layers — and check `MapNN` compiles it; if
       any real obstruction remains, file the issue.
 - [ ] Pick the new CLRS-30 task maximising the expected GoNI-vs-SOTA gap,
