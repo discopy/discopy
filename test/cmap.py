@@ -822,7 +822,7 @@ def test_from_glued_agrees_with_folding():
 
 
 def test_from_glued_multi_box_layer():
-    from discopy.symmetric import Ty, Box, Layer, Diagram, CMap as M
+    from discopy.symmetric import Ty, Box, Layer, Diagram
     x, y = map(Ty, "xy")
     f, g = Box("f", x, y @ y), Box("g", y, x)
     layered = Diagram(
@@ -840,3 +840,23 @@ def test_from_glued_loops():
         (M.caps(x.r, x), 0), (M.caps(y.r, y), 2),
         (M.cups(y.r, y), 2), (M.cups(x.r, x), 0)])
     assert two.loops == (x, y)
+
+
+def test_permutation_is_wiring():
+    from discopy.abc import SymmetricCategory
+    from discopy.symmetric import Ty, CMap as M
+    x, y, z = map(Ty, "xyz")
+    cases = [
+        ([0], [x]),
+        ([1, 0], [x, y @ z]),
+        ([2, 0, 1], [x, y, z]),
+        ([3, 1, 0, 2], [x @ y, z, x, y @ y @ z]),
+    ]
+    for xs, doms in cases:
+        direct = M.permutation(xs, doms)
+        swapped = SymmetricCategory.permutation.__func__(M, xs, doms)
+        assert direct.boxes == ()
+        assert (direct.dom, direct.cod) == (swapped.dom, swapped.cod)
+        assert direct.edges == swapped.edges
+    with raises(ValueError):
+        M.permutation([0, 0], [x, y])

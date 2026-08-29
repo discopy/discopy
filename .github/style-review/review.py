@@ -8,7 +8,9 @@ this module runs. Assembles ``prompt.md``, ``STYLE.md``, the package-local
 files that the changed Python files import (as context), and one listing
 per changed file: the whole new file, unified-diff style, every line
 numbered by its position in the new file with a leading ``+``/``-`` for
-one added/removed since the merge base. Sends one chat completion to the
+one added/removed since the merge base, falling back to a plain diff (or
+to no representation at all) for a file too big to fit the budget. Sends
+one chat completion to the
 OpenAI-compatible gateway at ``BASE_URL`` and writes the findings to
 ``.style-review/findings.json`` for ``post.py`` to post.
 """
@@ -37,7 +39,7 @@ def imports(path):
     try:
         with open(path) as file:
             tree = ast.parse(file.read())
-    except SyntaxError:
+    except (SyntaxError, UnicodeDecodeError):
         return []
     package, names = os.path.dirname(path).split(os.sep), set()
     for node in ast.walk(tree):
@@ -121,6 +123,20 @@ def changed_block(path, base_sha):
     return section("Changed", path, annotated(path, base_sha) + "\n")
 
 
+def diff_block(path, base_sha):
+    """A plain, small-context ``git diff`` of ``path`` since ``base_sha``
+    — the compact fallback for a changed file whose full-file
+    ``changed_block`` doesn't fit the budget, same idea as ``assemble``
+    dropping a context file for size, except a changed file has no
+    smaller-still fallback: one that doesn't fit even as a diff is
+    reported as unreviewed rather than dropped silently."""
+    diff = subprocess.run(
+        ['git', 'diff', '--merge-base', base_sha, '--', path],
+        capture_output=True, text=True, check=True).stdout
+    return section(
+        "Changed (diff only, too big for the full file)", path, diff)
+
+
 def context_block(path):
     with open(path) as file:
         body = file.read().rstrip("\n") + "\n"
@@ -131,7 +147,10 @@ def assemble(files, base_sha):
     """The one prompt: instructions, style guide, context, changes. Every
     part is budgeted as assembled, including the ``"\\n\\n"`` separators
     the join below adds between them, so the request sent to the gateway
-    never exceeds ``BUDGET``."""
+    never exceeds ``BUDGET``. A changed file too big for its full-file
+    listing falls back to a plain diff of just its hunks, and one too
+    big even for that is reported as unreviewed rather than raising and
+    crashing the whole review."""
     deps = sorted(
         {dep for path in files for dep in imports(path)} - set(files))
     with open(".github/style-review/prompt.md") as file:
@@ -141,15 +160,26 @@ def assemble(files, base_sha):
     budget = BUDGET + 2 - sum(len(part) + 2 for part in (instructions, style))
     changed, budget, missing = contents(
         files, budget, lambda path: changed_block(path, base_sha))
-    if missing:
-        raise ValueError(f"changed files past the budget: {missing}")
+    degraded, budget, unreviewed = contents(
+        missing, budget, lambda path: diff_block(path, base_sha))
     context, budget, dropped = contents(deps, budget, context_block)
     parts = [instructions, style] + [block for _, block in context]
+    notes = []
     if dropped:
-        note = f"# Context dropped for size: {', '.join(dropped)}"
+        notes.append(f"# Context dropped for size: {', '.join(dropped)}")
+    if degraded:
+        notes.append(
+            "# Changed files past the budget, reviewed from a diff "
+            f"only: {', '.join(path for path, _ in degraded)}")
+    if unreviewed:
+        notes.append(
+            "# Changed files past the budget even as a diff, not "
+            f"reviewed at all: {', '.join(unreviewed)}")
+    for note in notes:
         if len(note) + 2 <= budget:
             parts.append(note)
-    parts += [block for _, block in changed]
+            budget -= len(note) + 2
+    parts += [block for _, block in changed] + [block for _, block in degraded]
     return "\n\n".join(parts)
 
 
