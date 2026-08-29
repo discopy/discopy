@@ -28,7 +28,7 @@ GONI = Path(__file__).resolve().parents[2] / "docs" / "neural" \
 #: The module names the examples of ``docs/neural`` share: import them
 #: under a saved ``sys.modules`` and put back whatever was there, so two
 #: examples in one pytest session don't shadow each other's ``model``.
-SHARED = ("circuits", "dataset", "model")
+SHARED = ("circuits", "dataset", "model", "lcs_dataset", "lcs_model")
 
 
 def _example(directory: Path) -> dict:
@@ -45,7 +45,7 @@ def _example(directory: Path) -> dict:
 
 
 EXAMPLE = _example(GONI)
-circuits, goni_dataset, goni_model = (
+circuits, goni_dataset, goni_model, lcs_dataset, lcs_model = (
     EXAMPLE[name] for name in SHARED)
 
 
@@ -164,6 +164,63 @@ def test_lcs_computes():
         expected = torch.tensor([reference(
             word[:m].tolist(), word[m:].tolist()) for word in words])
         assert (outputs[:, circuits.answer(n)] == expected).all()
+
+
+def test_lcs_readout_directions():
+    """ The per-cell readout of ``lcs_model.Grid`` reads each cell's true
+    inputs: with the exact cell and the exact direction rule, it
+    reproduces the benchmark's traceback on random words. """
+    import numpy as np
+    cell = exact_cell()
+    generator = torch.Generator().manual_seed(7)
+    for m, n in ((3, 4), (5, 5), (8, 8)):
+        cmap = circuits.lcs(m, n, cell).to_map()
+        widths = cmap.port_widths
+        offsets, total = [], 0
+        for width in widths:
+            offsets.append(total)
+            total += width
+        index = torch.tensor([
+            [k for port in cmap.box_ports(box)[:5]
+             for k in range(offsets[port], offsets[port] + widths[port])]
+            for box in range(m * n)])
+        words = torch.randint(0, 4, (16, m + n), generator=generator).float()
+        x = torch.zeros(16, 3 * (m + n))
+        for i in range(m):
+            x[:, 3 * (m - 1 - i) + 1] = words[:, i]
+        for j in range(n):
+            x[:, 3 * (m + j) + 1] = words[:, m + j]
+        flat = cmap(x, n_rounds=m + n + 2, return_flat=True)
+        gathered = flat[:, index.reshape(-1)].reshape(16, m * n, 5)
+        a, b, _, up, left = (gathered[..., i] for i in range(5))
+        directions = torch.where(
+            a == b, torch.zeros_like(a),
+            torch.where(up >= left, torch.ones_like(a),
+                        2 * torch.ones_like(a)))
+        expected = lcs_dataset.directions(
+            words.numpy().astype(np.int8), m, n)
+        assert (directions.reshape(16, m, n).numpy() == expected).all()
+
+
+def test_grid_learns():
+    if not (GONI / "data" / "lcs-train.npz").exists():
+        skip("the lcs cache is not built; see lcs_dataset.py --generate")
+    torch.manual_seed(0)
+    grid = lcs_model.Grid(state=8, char=4, hidden=16)
+    split = lcs_dataset.load("train")
+    keys = torch.as_tensor(split["keys"][:128], dtype=torch.long)
+    b = torch.as_tensor(split["b"][:128], dtype=torch.long)
+    m, n = int(split["x_len"]), int(split["y_len"])
+    optimizer = torch.optim.Adam(grid.parameters(), lr=1e-2)
+    losses = []
+    for _ in range(50):
+        loss = torch.nn.functional.cross_entropy(
+            grid(keys, m, n).reshape(-1, 3), b.reshape(-1))
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        losses.append(loss.item())
+    assert losses[-1] < losses[0] / 2
 
 
 def test_matcher_learns():
