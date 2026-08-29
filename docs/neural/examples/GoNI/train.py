@@ -68,7 +68,7 @@ def run(seed: int, epochs: int, batch_size: int, lr: float) -> dict:
     }
     print(f"seed {seed}: val {best['val']:.3f} "
           f"test {report['test']:.3f} wide {report['wide']:.3f}")
-    return report
+    return report, matcher
 
 
 if __name__ == "__main__":
@@ -79,8 +79,8 @@ if __name__ == "__main__":
     parser.add_argument("--lr", type=float, default=1e-3)
     arguments = parser.parse_args()
     started = time.time()
-    report = run(arguments.seed, arguments.epochs,
-                 arguments.batch_size, arguments.lr)
+    report, _ = run(arguments.seed, arguments.epochs,
+                    arguments.batch_size, arguments.lr)
     report["minutes"] = (time.time() - started) / 60
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
     with open(ARTIFACTS / f"kmp-seed{arguments.seed}.json", "w") as stream:
