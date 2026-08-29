@@ -601,6 +601,20 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   and `draw` raise. The check is gated on `_scan`, so the internal fast paths
   that build layers by construction are unaffected
   ([#599](https://github.com/discopy/discopy/issues/599)).
+- `review.py`'s `assemble` raised when a changed file's full-file
+  `annotated` listing didn't fit `BUDGET`, crashing the whole
+  style-review step on a large diff. A changed file too big for that now
+  falls back to a plain, small-context `git diff` of just its hunks, the
+  same degrade already applied to imported context files; a file whose
+  diff still doesn't fit is reported as entirely unreviewed rather than
+  silently dropped. `style-review.yml`'s "Review the diff" step is now
+  named so the "Call the correctness reviewer" step can tell a crash
+  apart from a clean or a non-clean review, and says so in the comment
+  it posts instead of reading like either of those. Ported verbatim from
+  [#617](https://github.com/discopy/discopy/pull/617), whose fix now
+  rides in [#675](https://github.com/discopy/discopy/pull/675), because
+  [#686](https://github.com/discopy/discopy/pull/686) hit the crash on
+  its own review and waiting on a fix to merge is still waiting.
 - `review.py`'s `imports` gives up on a binary changed file the way it
   already gives up on a marimo notebook: it caught `SyntaxError` alone,
   so a pull request committing an `npz` cache crashed the style review

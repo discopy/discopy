@@ -112,6 +112,7 @@ jobs:
           && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
     - name: Review the diff
+      id: review
       if: >
         steps.config.outputs.configured == 'true'
         && steps.diff.outputs.changed == 'true'
@@ -153,6 +154,7 @@ jobs:
         GH_TOKEN: ${{ steps.app-token.outputs.token }}
         PR_NUMBER: ${{ steps.pr.outputs.number }}
         CLEAN: ${{ steps.post.outputs.clean }}
+        REVIEW_OUTCOME: ${{ steps.review.outcome }}
       run: |
         called="$(gh api --paginate \
           "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" --jq '
@@ -164,7 +166,10 @@ jobs:
         this pull request."
           exit 0
         fi
-        if [ "$CLEAN" = "true" ]; then
+        if [ "$REVIEW_OUTCOME" = "failure" ]; then
+          body="Style review crashed, see the \"Review the diff\" step's \
+        log. @cubic-dev-ai review"
+        elif [ "$CLEAN" = "true" ]; then
           body="No style remarks. @cubic-dev-ai review"
         else
           body="@cubic-dev-ai review"
