@@ -393,7 +393,7 @@ class Interaction:
     >>> interpret(pair, {peer: Dim(3), state: Dim(0)}, {"cell": None}).widths
     (3, 3)
     """
-    def __init__(self, cmap: CMap, ports: Mapping = (), heads: Mapping = ()):
+    def __init__(self, cmap: CMap, ports: Mapping = {}, heads: Mapping = {}):
         if len(cmap.dom) or len(cmap.cod):
             raise ValueError(
                 "a compiled interaction is closed; trace the boundary first")

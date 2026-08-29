@@ -900,10 +900,10 @@ class CMap[C0: Pregroup, C1: CMap](
         """
         A permutation encoded as boundary wiring, i.e. with no boxes.
 
-        The default implementation of :class:`~discopy.abc.
-        SymmetricCategory` composes one :meth:`swap` per inversion, which
-        is quadratic in the number of objects and composes as many maps;
-        a permutation of a map's boundary is one involution.
+        The default of :class:`~discopy.abc.SymmetricCategory` composes
+        one :meth:`swap` per inversion, which is quadratic in the number
+        of objects and composes as many maps; a permutation of a map's
+        boundary is one involution.
 
         Parameters:
             xs : The permutation, sending input ``xs[j]`` to output ``j``.
