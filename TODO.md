@@ -16,12 +16,12 @@
 - [x] Rebuild the GoNI setup on a clean branch: merge the `discopy.neural`
       host branch (`claude/proposal-b-three-models-awc5sc`) and get its test
       suite green here.
-- [WIP] @goni-ocirk4-2026-08-29 13:00 Build the LCS dynamic-programming grid as a symmetric diagram — the
+- [x] Build the LCS dynamic-programming grid as a symmetric diagram — the
       crossings as permutation layers — and check `MapNN` compiles it; if
       any real obstruction remains, file the issue.
-- [ ] Pick the new CLRS-30 task maximising the expected GoNI-vs-SOTA gap,
+- [x] Pick the new CLRS-30 task maximising the expected GoNI-vs-SOTA gap,
       with the published SOTA numbers written down next to the choice.
-- [ ] Implement the chosen task: benchmark-faithful data, the dataflow
+- [WIP] @goni-ocirk4-2026-08-29 14:00 Implement the chosen task: benchmark-faithful data, the dataflow
       circuit family, encoders/decoders and training script.
 - [ ] Train at small budget, evaluate in and out of distribution, and record
       the results with seeds and protocol.
