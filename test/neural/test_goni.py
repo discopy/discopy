@@ -16,7 +16,7 @@ import importlib
 import sys
 from pathlib import Path
 
-from pytest import importorskip, raises
+from pytest import importorskip, raises, skip
 
 from discopy.neural import Dim, Network
 
@@ -25,14 +25,28 @@ torch = importorskip("torch")
 GONI = Path(__file__).resolve().parents[2] / "docs" / "neural" \
     / "examples" / "GoNI"
 
-sys.path.insert(0, str(GONI))
-circuits = importlib.import_module("circuits")
-if (GONI / "data" / "kmp-train.npz").exists():
-    goni_dataset = importlib.import_module("dataset")
-    goni_model = importlib.import_module("model")
-else:
-    goni_dataset = goni_model = None
-sys.path.remove(str(GONI))
+#: The module names the examples of ``docs/neural`` share: import them
+#: under a saved ``sys.modules`` and put back whatever was there, so two
+#: examples in one pytest session don't shadow each other's ``model``.
+SHARED = ("circuits", "dataset", "model")
+
+
+def _example(directory: Path) -> dict:
+    saved = {name: sys.modules.pop(name, None) for name in SHARED}
+    sys.path.insert(0, str(directory))
+    try:
+        return {name: importlib.import_module(name) for name in SHARED}
+    finally:
+        sys.path.remove(str(directory))
+        for name, module in saved.items():
+            sys.modules.pop(name, None)
+            if module is not None:
+                sys.modules[name] = module
+
+
+EXAMPLE = _example(GONI)
+circuits, goni_dataset, goni_model = (
+    EXAMPLE[name] for name in SHARED)
 
 
 def exact_cell() -> Network:
@@ -153,8 +167,8 @@ def test_lcs_computes():
 
 
 def test_matcher_learns():
-    if goni_model is None:
-        importorskip("nothing", reason="the kmp cache is not built")
+    if not (GONI / "data" / "kmp-train.npz").exists():
+        skip("the kmp cache is not built; see dataset.py --generate")
     torch.manual_seed(0)
     matcher = goni_model.Matcher(state=8, char=4, hidden=16)
     split = goni_dataset.load("train")
