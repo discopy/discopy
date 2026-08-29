@@ -37,7 +37,7 @@ def imports(path):
     try:
         with open(path) as file:
             tree = ast.parse(file.read())
-    except SyntaxError:
+    except (SyntaxError, UnicodeDecodeError):
         return []
     package, names = os.path.dirname(path).split(os.sep), set()
     for node in ast.walk(tree):

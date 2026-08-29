@@ -601,6 +601,13 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   and `draw` raise. The check is gated on `_scan`, so the internal fast paths
   that build layers by construction are unaffected
   ([#599](https://github.com/discopy/discopy/issues/599)).
+- `review.py`'s `imports` gives up on a binary changed file the way it
+  already gives up on a marimo notebook: it caught `SyntaxError` alone,
+  so a pull request committing an `npz` cache crashed the style review
+  on `UnicodeDecodeError` before it could read anything — silently, since
+  the hand-over to the correctness reviewer still ran
+  ([#686](https://github.com/discopy/discopy/pull/686) found it on its
+  own review).
 - `review.py`'s style-review request: `ask` used to let a gateway
   `HTTPError` propagate without reading its body, so a 400 gave no clue
   whether it meant a dead model slug or an oversized prompt; it now prints

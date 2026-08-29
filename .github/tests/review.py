@@ -77,3 +77,9 @@ def test_imports_gives_up_on_what_python_cannot_parse(review, tmp_path):
     notebook = tmp_path / "a.md"
     notebook.write_text("# A notebook\n\n```python {.marimo}\nx = 1\n```\n")
     assert review.imports(str(notebook)) == []
+
+
+def test_imports_gives_up_on_binary_files(review, tmp_path):
+    cache = tmp_path / "a.npz"
+    cache.write_bytes(b"PK\x03\x04" + bytes(range(256)))
+    assert review.imports(str(cache)) == []
