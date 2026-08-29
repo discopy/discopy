@@ -230,7 +230,9 @@ class Network(Box):
     Networks compare equal when they have the same name, shape and module,
     where missing modules compare equal and given modules compare by
     identity. The dagger and rotation of a network reuse its module, with
-    the weights read in the new port order.
+    the weights read in the new port order. The repr omits the module —
+    a torch module has no eval-able representation, so the transparency
+    rule ``eval(repr(x)) == x`` holds only for a network without one.
 
     Example
     -------
@@ -660,13 +662,18 @@ class CMap(cmap.CMap[Diagram]):
                 (module, indices, gather.shape[0], gather.shape[1])
                 for module, indices, gather in routing["groups"])}
 
+    @cached_property
+    def _device_routing_cache(self) -> dict:
+        """ The per-device entries of :meth:`_device_routing`. """
+        return {}
+
     def _device_routing(self, device) -> dict:
         """
         The index tensors of :attr:`_routing` -- and, for closed maps, of
         :attr:`_fused_routing` -- on a device, cached so that repeated
         forward passes do not re-copy them from the CPU.
         """
-        cache = self.__dict__.setdefault("_device_routing_cache", {})
+        cache = self._device_routing_cache
         if device not in cache:
             routing = self._routing
             entry = {

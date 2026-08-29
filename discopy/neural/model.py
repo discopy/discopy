@@ -138,6 +138,9 @@ class MapNN(torch.nn.Module):
         :attr:`cache` recompiles them every epoch, which is a wall clock a
         loss curve cannot show.  See :meth:`cache_stats`.
 
+        The cache pins each diagram beside its interaction, so that a key
+        can never be a recycled ``id``.
+
         Parameters:
             diagram : A closed diagram or map in the source category, a
                       :class:`~discopy.neural.Batch` of them, or an
@@ -157,8 +160,6 @@ class MapNN(torch.nn.Module):
         compiled = interpret(source, self.ob, dict(self.ar))
         if self._rounds is not None:
             compiled.compile(**self._rounds)
-        # the diagram is pinned beside its interaction, so that a key can
-        # never be a recycled ``id``.
         self._compiled[key] = (diagram, compiled)
         while len(self._compiled) > self.cache:
             self._compiled.popitem(last=False)

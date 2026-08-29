@@ -362,6 +362,9 @@ class Interaction:
     shape ``(rows, total)``, the messages of every port in port order;
     :meth:`read` and :meth:`write` address it by ``(generator name, role)``
     rather than by offset, so no port arithmetic is ever written by hand.
+    The repr is a human summary rather than an eval-able expression: a
+    compiled object holds torch modules, which have no eval-able
+    representation, so the transparency rule stops at :attr:`cmap`.
 
     Parameters:
         cmap : The closed :class:`~discopy.neural.CMap` to run.
