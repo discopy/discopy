@@ -43,6 +43,14 @@ SPLITS = {
     "wide": {"num_samples": 128, "length": 64, "seed": 30},
 }
 
+#: Past the benchmark: the same sampler drawn at sizes where no baseline
+#: has numbers, with fresh seeds.  ``n = 256`` costs sixteen ``n = 64``
+#: forwards per sample, hence the smaller split.
+SCALE = {
+    "n128": {"num_samples": 128, "length": 128, "seed": 4},
+    "n256": {"num_samples": 32, "length": 256, "seed": 5},
+}
+
 #: The alphabet of ``clrs._src.samplers.MatcherSampler``.
 CHARS = 4
 
@@ -62,7 +70,7 @@ def generate():
     """ Draw every split with ``clrs`` and write the cache. """
     import clrs
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    for split, spec in SPLITS.items():
+    for split, spec in {**SPLITS, **SCALE}.items():
         sampler, _ = clrs.build_sampler("kmp_matcher", **spec)
         feedback = sampler.next(spec["num_samples"])
         inputs = {dp.name: dp.data for dp in feedback.features.inputs}
@@ -95,10 +103,10 @@ def first_match(keys: np.ndarray, text: int, pattern: int) -> np.ndarray:
 
 def check():
     """ Re-derive every cached answer from the cached keys. """
-    for split in SPLITS:
+    for split, spec in {**SPLITS, **SCALE}.items():
         cache = load(split)
         text, pattern = int(cache["text"]), int(cache["pattern"])
-        assert (text, pattern) == lengths(SPLITS[split]["length"])
+        assert (text, pattern) == lengths(spec["length"])
         derived = first_match(cache["keys"], text, pattern)
         assert (derived == cache["match"]).all()
         print(f"{split}: {len(cache['match'])} answers check out")
