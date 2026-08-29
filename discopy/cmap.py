@@ -46,7 +46,7 @@ from functools import cached_property, reduce
 from inspect import isclass
 from io import BytesIO
 from math import inf, lcm
-from typing import TYPE_CHECKING, ClassVar, Literal
+from typing import TYPE_CHECKING, ClassVar, Literal, Sequence
 
 from discopy import hypergraph, messages
 from discopy.abc import (
@@ -894,6 +894,37 @@ class CMap[C0: Pregroup, C1: CMap](
                for i in range(right_len)],
             2 * len(dom))
         return cls(dom, cod, (), edge, check=False)
+
+    @classmethod
+    def permutation(cls, xs: Sequence[int], doms: Sequence[Ty]) -> CMap:
+        """
+        A permutation encoded as boundary wiring, i.e. with no boxes.
+
+        The default implementation of :class:`~discopy.abc.
+        SymmetricCategory` composes one :meth:`swap` per inversion, which
+        is quadratic in the number of objects and composes as many maps;
+        a permutation of a map's boundary is one involution.
+
+        Parameters:
+            xs : The permutation, sending input ``xs[j]`` to output ``j``.
+            doms : The objects to permute, tensored as the domain.
+        """
+        xs, doms = list(xs), list(doms)
+        if list(range(len(doms))) != sorted(xs):
+            raise ValueError(
+                f"{xs} is not a permutation of {len(doms)} objects")
+        dom = sum(doms, cls.ob())
+        starts, output_start = [0], len(dom)
+        for objects in doms:
+            starts.append(starts[-1] + len(objects))
+        pairs, position = [], 0
+        for x in xs:
+            pairs += [(starts[x] + offset, output_start + position + offset)
+                      for offset in range(len(doms[x]))]
+            position += len(doms[x])
+        edge = Permutation.from_transpositions(pairs, 2 * len(dom))
+        return cls(dom, sum((doms[x] for x in xs), cls.ob()), (), edge,
+                   check=False)
 
     cup_factory = classmethod(lambda cls, left, right: cls.from_box(
         cls.category.cup_factory(left, right)))

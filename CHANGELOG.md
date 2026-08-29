@@ -737,6 +737,13 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Performance
 
+- `CMap.permutation` encodes a permutation as boundary wiring — one
+  involution, no boxes — instead of inheriting `abc.SymmetricCategory`'s
+  default, which composes one swap per inversion and made
+  `CMap.from_diagram` quadratic in the width of every permutation layer
+  it met. On a string-matching circuit with 147 boxes and one
+  frontier-wide permutation per alignment, `to_map` drops from 94 to 4
+  seconds, and the wiring is checked identical to the swap-composed one.
 - The elements of a Hopf algebra (`drinfeld_element`, `pivotal_element`,
   `ribbon_element`) contract each structural generator once through the
   cached `Algebra.arrays` and solve for the pivot with a thin SVD, so that
