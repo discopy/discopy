@@ -27,6 +27,11 @@ GONI = Path(__file__).resolve().parents[2] / "docs" / "neural" \
 
 sys.path.insert(0, str(GONI))
 circuits = importlib.import_module("circuits")
+if (GONI / "data" / "kmp-train.npz").exists():
+    goni_dataset = importlib.import_module("dataset")
+    goni_model = importlib.import_module("model")
+else:
+    goni_dataset = goni_model = None
 sys.path.remove(str(GONI))
 
 
@@ -145,3 +150,24 @@ def test_lcs_computes():
         expected = torch.tensor([reference(
             word[:m].tolist(), word[m:].tolist()) for word in words])
         assert (outputs[:, circuits.answer(n)] == expected).all()
+
+
+def test_matcher_learns():
+    if goni_model is None:
+        importorskip("nothing", reason="the kmp cache is not built")
+    torch.manual_seed(0)
+    matcher = goni_model.Matcher(state=8, char=4, hidden=16)
+    split = goni_dataset.load("train")
+    keys = torch.as_tensor(split["keys"][:128], dtype=torch.long)
+    match = torch.as_tensor(split["match"][:128], dtype=torch.long)
+    text, pattern = int(split["text"]), int(split["pattern"])
+    optimizer = torch.optim.Adam(matcher.parameters(), lr=1e-2)
+    losses = []
+    for _ in range(20):
+        loss = torch.nn.functional.cross_entropy(
+            matcher(keys, text, pattern), match)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        losses.append(loss.item())
+    assert losses[-1] < losses[0] / 2

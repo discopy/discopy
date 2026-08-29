@@ -365,6 +365,17 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   which is what a size-generalization study needs of its aggregator. It is
   also exactly permutation-equivariant rather than equivariant up to the
   reordering of a floating-point sum.
+- `docs/neural/examples/GoNI`, the Geometry of Neural Interaction study:
+  a CLRS-30 task's own dataflow circuit as a diagram, with one shared
+  learned cell per generator, so that out-of-distribution size
+  generalization is a property of the circuit family rather than of the
+  training. `circuits.lcs` draws the LCS grid as a symmetric diagram
+  whose crossings are permutation layers absorbed by `to_map` — settling
+  that the swaps which stopped a previous run of the study cost nothing
+  — and `circuits.match` draws the string matcher of `kmp_matcher`, the
+  benchmark's hardest task, trained output-only on the benchmark's own
+  splits. `test/neural/test_goni.py` checks both circuits compute their
+  algorithms exactly and that the matcher trains.
 - `docs/neural/examples/CLRS_small`, Part 1 of a port of the sudoku
   methodology to the CLRS-30 algorithmic-reasoning benchmark: the
   benchmark's own trajectories cached as arrays, an incidence diagram per
