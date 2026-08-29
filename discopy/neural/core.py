@@ -90,9 +90,9 @@ from typing import TYPE_CHECKING
 
 from functools import cached_property
 
-from discopy import cat, compact, monoidal
+from discopy import cat, cmap, compact, hypergraph, monoidal
 from discopy.cat import factory
-from discopy.cmap import Permutation, PortKind
+from discopy.cmap import PortKind
 from discopy.pivotal import Ty
 from discopy.utils import assert_isinstance
 
@@ -114,6 +114,10 @@ class Dim(monoidal.Dim, Ty):
     unit = 0
     l = r = property(lambda self: self.factory(*self.inside[::-1]))
     z = property(lambda self: 0)
+
+    def unwind(self) -> "Dim":
+        """ Dimensions are self-dual so their winding is trivial. """
+        return self
 
     def __init__(self, *inside: int, dom=None, cod=None, _scan=True,
                  **kwargs):
@@ -149,6 +153,10 @@ class Diagram(compact.Diagram):
     """
     ob = Dim
 
+    def to_map(self) -> "CMap":
+        """ Translate a neural diagram into a neural combinatorial map. """
+        return CMap.from_diagram(self)
+
 
 class Box(compact.Box, Diagram):
     """
@@ -181,7 +189,17 @@ class Cap(compact.Cap, Box):
     """
 
 
-class Swap(compact.Swap, Box):
+class Permutation(compact.Permutation, Box):
+    """
+    A neural permutation is a compact permutation between dimensions.
+
+    Parameters:
+        dom (Dim) : The dimensions to permute.
+        perm : The list sending each input to its output.
+    """
+
+
+class Swap(Permutation, compact.Swap, Box):
     """
     A neural swap is a compact swap between dimensions.
 
@@ -250,9 +268,7 @@ class Functor(compact.Functor):
     dom = cod = Diagram
 
 
-class Hypergraph(compact.Hypergraph):
-    """ A neural hypergraph is a compact hypergraph between dimensions. """
-    functor = Functor
+Hypergraph = hypergraph.Hypergraph[Diagram]
 
 
 def box_ports(cmap, index: int) -> tuple[int, ...]:
@@ -337,11 +353,11 @@ def from_wiring(cls, boxes: tuple, wires) -> "CMap":
     if len(seen) != n_ports:
         missing = sorted(set(range(n_ports)) - seen)
         raise ValueError(f"Ports {missing} are left unwired.")
-    edges = Permutation.from_transpositions(pairs, n_ports)
+    edges = cmap.Permutation.from_transpositions(pairs, n_ports)
     return cls(cls.ob(), cls.ob(), boxes, edges)
 
 
-class CMap(compact.CMap):
+class CMap(cmap.CMap[Diagram]):
     """
     A neural combinatorial map is a compact map with networks as boxes,
     which computes as a graph neural network.
@@ -929,7 +945,6 @@ class CMap(compact.CMap):
 Id = Diagram.id
 
 Diagram.functor_factory = Functor
-Diagram.braid_factory = Swap
-Diagram.hypergraph_factory = Hypergraph
-Diagram.map_factory = CMap
+Diagram.swap_factory = Swap
+Diagram.permutation_factory = Permutation
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap

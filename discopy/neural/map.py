@@ -651,7 +651,7 @@ def interpret(source, ob: Mapping, ar: Mapping) -> Interaction:
     (2, 3, 0, 1)
     """
     if not hasattr(source, "edges"):
-        source = type(source).map_factory.from_diagram(source)
+        source = source.to_map()
     if len(source.dom) or len(source.cod):
         raise ValueError("only a closed diagram compiles to an interaction")
     image = functor(source, ob, ar)
