@@ -32,11 +32,12 @@ bottom.  Define the scalar
 q = X^0_{0,1};Z^0_{1,0}.
 \]
 
-Figure 1 of arXiv:1812.09114v1 has ten equations under nine labels:
+Figure 1 of arXiv:1812.09114v1 has nine displayed equation schemas when the
+two identity equations are counted separately:
 
 | Label | Equation schema |
 |---|---|
-| (S) | (Z^a_{m,k};Z^b_{k,n}=Z^{a+b}_{m,n}), for the displayed spider-fusion arities |
+| (S) | \(Z^a_{m,k};Z^b_{k,n}=Z^{a+b}_{m,n}\), with \(m,n\geq0\), \(k\geq1\), and arbitrary orientations obtained by bending |
 | (I_g) | (Z^0_{1,1}=1_1) |
 | (I_r) | (X^0_{1,1}=1_1) |
 | (CP) | (q\,(X^0_{0,1};Z^0_{1,2})=X^0_{0,1}X^0_{0,1}) |
@@ -237,10 +238,12 @@ does not settle either one separately.
 
 ## Small grading and connectivity countermodels
 
-Four of the independence questions have canonical two-valued models.  These
-are not merely occurrence-count heuristics: an additive invariant is a compact
-functor to the one-object category whose endomorphisms are
-\(\mathbb Z/2\mathbb Z\).  Structural wires, cups, caps, and swaps map to zero.
+Five independence questions have canonical combinatorial models.  The S and H
+gradings and the E support quotient reduce to two values, CP records boundary
+connectivity, and EU records an additive phase class.  The gradings are not
+merely occurrence-count heuristics: each is a compact functor to the
+one-object category whose endomorphisms are \(\mathbb Z/2\mathbb Z\).
+Structural wires, cups, caps, and swaps map to zero.
 
 For (S), count all red and green spiders of total degree at least four modulo
 two.  Every other rule preserves this count: (H) changes the colour but not the
@@ -280,10 +283,13 @@ assert tuple(map(high_red_parity, h_counterexample)) == (1, 0)
 ```
 
 For (CP), use finite corelations.  Send every positive-degree spider to the
-indiscrete partition of its boundary and send H to the identity corelation.
-All other equations connect all their external ports on both sides.  The left
-side of (CP) connects its two outputs, while its right side leaves them in two
-components.  A singleton is the smallest nonempty object on which this
+indiscrete partition of its boundary, every degree-zero spider to the unique
+scalar, and H to the identity corelation.  Fusion has \(k\geq1\), so its two
+spiders share a component.  The identity rules are identity corelations, and
+B, HD, H, and both sides of EU have one block on their external boundary;
+FinCorel has only one scalar, so all boundaryless cases and E also hold.  The
+left side of (CP) connects its two outputs, while its right side leaves them in
+two components.  A singleton is the smallest nonempty object on which this
 distinction can occur.
 
 ```python {.marimo}
@@ -291,6 +297,46 @@ from discopy.frobenius import Diagram as FrobeniusDiagram
 from discopy.frobenius import Ty as FrobeniusTy
 
 corel_object = FrobeniusTy("x")
+
+
+def corel_arrow(box):
+    """Map a ZX generator to its boundary-connectivity corelation."""
+    if isinstance(box, (Z, X)):
+        return FrobeniusDiagram.spiders(
+            len(box.dom), len(box.cod), corel_object)
+    if box == H:
+        return FrobeniusDiagram.id(corel_object)
+    if isinstance(box, Scalar):
+        return FrobeniusDiagram.id(FrobeniusTy())
+    raise TypeError(box)
+
+
+corel_functor = Functor(
+    ob_map=lambda _: corel_object,
+    ar_map=corel_arrow,
+    dom=type(Id(1)),
+    cod=FrobeniusDiagram)
+
+
+def mapped_hypergraph(diagram):
+    """Return the finite-cospan hypergraph underlying the model."""
+    return corel_functor(diagram).to_hypergraph()
+
+
+def boundary_partition(diagram):
+    """Forget internal components and canonically label boundary blocks."""
+    hypergraph = mapped_hypergraph(diagram)
+    left, right = hypergraph.wires[0], hypergraph.wires[2]
+    names = {}
+
+    def rename(wires):
+        return tuple(
+            names.setdefault(wire, len(names))
+            for wire in wires)
+
+    return rename(left), rename(right)
+
+
 cp_connected = FrobeniusDiagram.spiders(
     0, 2, corel_object).to_hypergraph()
 cp_separate = (
@@ -301,14 +347,30 @@ cp_separate = (
 assert cp_connected.wires == ((), (), (0, 0))
 assert cp_separate.wires == ((), (), (0, 1))
 assert cp_connected != cp_separate
+assert boundary_partition(copy_left) != boundary_partition(copy_right)
+
+for _left, _right in (
+        (Z(1, 1), Id(1)),
+        (X(1, 1), Id(1)),
+        (Z(1, 2, .25) >> Z(2, 1, -.5), Z(1, 1, -.25)),
+        (bialgebra_left, bialgebra_right),
+        (H, hadamard_decomposition),
+        (H >> X(1, 3, .25) >> H @ H @ H, Z(1, 3, .25)),
+        (Z(0, 1, .25) >> X(1, 0, -.25), Id(0)),
+        euler_rule(.2, .7, -.4)):
+    assert boundary_partition(_left) == boundary_partition(_right)
 ```
 
-For (E), take the support quotient of finite cospans: every hom-set with
-nonempty outer boundary is collapsed to one element, while scalars retain only
-whether the cospan apex is empty or nonempty.  This quotient is compact and
-has exactly two scalars.  Every scalar instance of every other rule has
-nonempty support on both sides; (E) alone equates nonempty support with the
-empty apex.
+For (E), take the support quotient of finite cospans.  Every hom-set with
+nonempty outer boundary is collapsed to one element, while
+\(\operatorname{Hom}(0,0)=\{0,1\}\) records whether the cospan apex is empty
+or nonempty.  Scalar composition and tensor are Boolean OR.  This is a
+congruence: a composite closed through a nonempty middle boundary has a
+nonempty pushout, while composition through the empty boundary is just OR.
+It is therefore a compact quotient.  Map every positive-degree spider to the
+unique arrow, every zero-legged spider to 1, H to the unique arrow, and the
+empty diagram to 0.  Every scalar instance of every other rule has equal
+support on both sides; (E) alone asserts \(1=0\).
 
 ```python {.marimo}
 cospan_unit = FrobeniusTy()
@@ -318,25 +380,68 @@ nonempty_support = FrobeniusDiagram.spiders(
 
 assert empty_support.n_spiders == 0
 assert nonempty_support.n_spiders == 1
+
+
+def support_value(diagram):
+    """Evaluate the two-scalar finite-cospan support quotient."""
+    if len(diagram.dom) + len(diagram.cod):
+        return "*"
+    return int(mapped_hypergraph(diagram).n_spiders > 0)
+
+
+assert support_value(Z(0, 1, .25) >> X(1, 0, -.25)) == 1
+assert support_value(Id(0)) == 0
+assert support_value(Z(0, 2) >> Z(2, 0)) == support_value(Z(0, 0))
+assert support_value(Id(1).trace()) == 1
 ```
 
-Finally, remove (EU) and grade a diagram by the sum of all its spider phases in
+Finally, remove (EU) and use the one-object compact category whose morphism
+group is
 
 \[
 A=\mathbb R/(\tfrac\pi2\mathbb Z).
 \]
 
-The phase sum of (HD) is \(\pi/2\), hence zero in \(A\); (E) has phase sum
-zero, and all remaining rules visibly preserve the grading.  In the exact EU
+Both tensor and composition are addition, cups, caps, swaps, and H map to
+zero, and every spider maps to the class of its phase.  The phase sum of (HD)
+is \(\pi/2\), hence zero in A; (E) has phase sum zero, and all remaining
+rules, including degree-zero cases, preserve the grading.  In the exact EU
 subfamily \((a_1,a_2,a_3)=(t,\pi,t)\), Vilmart's convention gives
 \((b_1,b_2,b_3,g)=(\pi/2,0,\pi/2,t)\).  At \(t=\pi/4\), the two phase sums
 differ by the nonzero class \([\pi/4]\).
 
 ```python {.marimo}
-# Work in units of pi/4, so quotienting by pi/2 is reduction modulo 2.
-eu_phase_left = (1 + 4 + 1) % 2
-eu_phase_right = (2 + 0 + 2 + 4 + 1) % 2
-assert (eu_phase_left, eu_phase_right) == (0, 1)
+from fractions import Fraction
+
+
+def phase_grade(diagram):
+    """Evaluate the universal additive phase grade in half-turn units."""
+    total = sum(
+        (Fraction(str(box.phase)) for box in diagram.boxes
+         if isinstance(box, (Z, X))),
+        start=Fraction())
+    return total % Fraction(1, 2)
+
+
+eu_grade_left = Z(1, 1, .25) >> X(1, 1, 1) >> Z(1, 1, .25)
+eu_grade_right = (
+    (X(0, 1, 1) >> Z(1, 0, .25))
+    @ (X(0, 3) >> Z(3, 0))
+    @ (X(1, 1, .5) >> Z(1, 1) >> X(1, 1, .5)))
+
+assert (phase_grade(eu_grade_left), phase_grade(eu_grade_right)) == (
+    Fraction(), Fraction(1, 4))
+
+for _left, _right in (
+        (Z(1, 1), Id(1)),
+        (X(1, 1), Id(1)),
+        (Z(1, 2, .25) >> Z(2, 1, -.5), Z(1, 1, -.25)),
+        (copy_left, copy_right),
+        (bialgebra_left, bialgebra_right),
+        (H, hadamard_decomposition),
+        (H >> X(1, 3, .25) >> H @ H @ H, Z(1, 3, .25)),
+        (Z(0, 1, .25) >> X(1, 0, -.25), Id(0))):
+    assert phase_grade(_left) == phase_grade(_right)
 ```
 
 These quotients are minimal in a precise modest sense: the three Boolean
@@ -362,6 +467,16 @@ In EU, the green unary spider in each main chain compresses any exceptional
 red identity; both closed scalars are one.  Thus all rules except \(I_g\)
 hold for all phases and arities, while
 \(Z^0_{1,1}=p\ne 1_V=X^0_{1,1}\).
+
+There is a source-language subtlety in the executable check.  DisCoPy's
+quantum.zx class implements its structural cup as the green zero-phase
+two-leg spider, an identification which itself uses \(I_g\).  In this
+countermodel the structural cup is instead the full Kronecker delta, while
+the green two-leg tensor is \(|00\rangle\).  The symmetric functor below
+therefore checks oriented rule schemas, not cups() or trace() calls.  The
+compact extension is nevertheless canonical and checkable tensorially: all
+assigned spider tensors and p are totally symmetric, so their mates under the
+full Kronecker cup are exactly the assigned bent orientations.
 
 ```python {.marimo}
 active_projection = np.diag([1, 0]).astype(complex)
@@ -419,6 +534,200 @@ Indeed, in dimension one write \(p\) for the value of \(Z^0_{1,1}\) and
 \(g\) for the green \(\pi/4\) state.  Fusion gives \(pg=g\), while (E)
 makes \(g\) invertible.  Hence \(p=1\), so a one-dimensional model cannot
 violate \(I_g\).
+
+## The red identity is derivable
+
+The apparent symmetry between the two identity equations is misleading.  The
+green-only spider axiom permits the support countermodel above, but the red
+identity is forced by the remaining rules.  The following proof takes place
+entirely in the free compact graphical theory: it does not use a basis,
+positivity, or cancellation of arbitrary points.
+
+Put
+
+\[
+ R=X^0_{1,1},\qquad
+ u=Z^0_{0,1},\quad \epsilon=Z^0_{1,0},\quad
+ x=X^0_{0,1},\quad \delta=Z^0_{1,2},\quad \mu=X^0_{2,1},
+\]
+
+and put
+
+\[
+ q_a=X^a_{0,1};Z^0_{1,0},\qquad
+ c=X^0_{0,3};Z^0_{3,0},\qquad
+ \omega=q_\pi c.
+\]
+
+All spiders and H are symmetric under bending, as required by Only
+Connectivity Matters.
+
+1.  The degree-two (H) instance and \(I_g\) give
+    \(HRH=1\).  Thus H has both a left inverse \(HR\) and a right inverse
+    \(RH\); they coincide, H is invertible, and \(R=H^{-2}\).
+2.  For the zero-angle EU instance, Vilmart's side condition gives
+    \(b_1=b_2=b_3=g=0\).  Its equation is
+    \(R=\omega R^2\).  Cancelling the now-invertible R gives
+    \(\omega R=1\).
+3.  This also makes \(\omega\) a genuine invertible scalar, not just an
+    invertible scalar action on the qubit object.  Indeed, let
+    \(v=Z^{\pi/4}_{0,1}\) and \(w=X^{-\pi/4}_{1,0}\).  Rule (E) says
+    \(v;w=1\), and \(v;R;w\) is a scalar inverse for \(\omega\).  Since
+    scalars commute, both factors \(q_\pi\) and c are invertible.
+4.  Write \(\rho=\omega^{-1}\), so \(R=\rho\,1\).  Colour change transports
+    green fusion to a *projective* red fusion law: joining two red spiders
+    along k legs contributes \(\rho^k\).  Each internal pair contributes
+    \(H^{-2}=R=\rho\,1\).
+
+There are two scalar-cancellation points in what follows.  Both have explicit
+diagrammatic witnesses.  Let
+
+\[
+ P_a=Z^a_{1,1},\qquad w=X^{-\pi/4}_{1,0},\qquad
+ a=H;P_{\pi/4};w.
+\]
+
+The degree-one (H) instance says \(x;H=u\), so green fusion and (E) give
+\(x;a=1\).  Postcomposing (CP),
+
+\[
+q(x;\delta)=x\otimes x,
+\]
+
+by \(a\otimes a\) gives
+
+\[
+q\,t=1,\qquad t=x;\delta;(a\otimes a). \tag{1}
+\]
+
+Thus q is a unit in the scalar monoid; no field cancellation has been used.
+
+Next, projective red fusion gives
+\((x\otimes1);\mu=\rho^2 1\), up to the harmless choice of which input is
+drawn first.  Precompose (B) by \(x\otimes1\).  On its left, (CP) removes q
+and the two red multiplications each contribute \(\rho^2\), giving
+\(\rho^4\delta\).  Its right side is \(\rho^2\delta\).  Postcompose with the
+green multiplication and use (S) and \(I_g\), obtaining
+\(\rho^4 1_A=\rho^2 1_A\).  Rule (E) exhibits the tensor unit as a retract
+of A, so equality of these scalar actions implies equality of the scalars.
+Cancelling the already-invertible \(\rho\) yields
+
+\[
+\rho^2=1. \tag{2}
+\]
+
+It remains to evaluate one closed Hopf diagram.  Vilmart's own appendix gives,
+from (S), (CP), and (B), the typed equation
+
+\[
+q^2(\delta;\mu)=\epsilon;x:A\longrightarrow A. \tag{3}
+\]
+
+That printed derivation uses the red identity only in its two red-unit
+reductions.  Each replacement is a degree-one red spider joined once to a
+degree-three one, so projective fusion evaluates it as
+\(\rho X^0_{1,1}=\rho^2 1=1\).  The intervening rewrites are precisely (S),
+(B), and (CP).  Thus the six-diagram proof replays unchanged after (2), and
+(3) is a derivation from the rules still available here.  Take its compact
+trace.  Bending the two sides gives respectively c and q, hence
+
+\[
+q^2c=q.
+\]
+
+The explicit inverse (1) permits cancellation of q, proving
+
+\[
+qc=1. \tag{4}
+\]
+
+For comparison, a finite-dimensional component calculation verifies the
+same closed argument independently.  In a green classical basis set
+\(K=H^{-1}=K^T\), \(K^2=\kappa I\), and
+
+\[
+T_{abc}=\sum_jK_{aj}K_{bj}K_{cj},\qquad K\mathbf1=qe.
+\]
+
+B is exactly
+
+\[
+qT_{abc}T_{abd}=\delta_{cd}T_{abc}.
+\]
+
+Since \(K e=(\kappa/q)\mathbf1\), one has
+\(T_{abe}=\kappa^2\delta_{ab}/q\).  The B components with
+\((a,b,c,d)=(a,a,e,e)\) first give \(\kappa^2=1\); those with
+\((a,a,e,a)\) then give \(T_{aaa}=0\) for \(a\ne e\), while
+\(T_{eee}=1/q\).  Therefore \(c=\sum_aT_{aaa}=1/q\).  This check does use a
+split vector-space basis and field cancellation; equation (3) is the
+basis-free proof.
+
+It remains to account for phases.  Let
+\(\eta=q^{-1}x=cx\) be the normalized CP point and define
+\(\chi_a=\eta;P_a;\epsilon\).  Green fusion and CP give scalars
+\(\chi_a\) such that
+
+\[
+\eta;P_a=\chi_a\eta,\qquad
+\chi_a\chi_b=\chi_{a+b},\qquad
+q_a=q\chi_a. \tag{5}
+\]
+
+The first equality follows by copying \(\eta;P_a\) and applying the green
+counit to one leg; the second is spider fusion, and the third is bending plus
+the degree-one (H) instance.  Explicitly, transposing the closed scalar gives
+\(q_a=(u;P_a;H^{-1};\epsilon)^T=x;P_a;\epsilon=q\chi_a\).
+
+Now apply (HD) to \(\eta\), and set \(t=\pi/2\).  Its left side is
+\(\eta;H=cu\).  On the right, \(\eta;P_t=\chi_t\eta\), while (2) makes
+\((\eta\otimes Z^{-t}_{0,1});\mu=cZ^{-t}_{0,1}\).  The final \(P_t\)
+fuses with that state to give u.  Thus (HD) says
+
+\[
+cu=\chi_tcu.
+\]
+
+The state u is cancellable: its composite with the transpose of \(\eta\) is
+\(cq=1\).  Since c is a unit, it follows that
+
+\[
+\chi_{\pi/2}=1.
+\]
+
+Equation (5) now gives \(q_\pi=q\).  Combining this with (4) yields
+\(\omega=q_\pi c=1\), and step 2 finally gives
+
+\[
+X^0_{1,1}=R=1.
+\]
+
+Thus \(I_r\) is redundant, whereas \(I_g\) is not.  The projective assignment
+\(H=iH_{\rm std}\), with every red degree-d spider multiplied by
+\((-i)^d\), illustrates the obstruction before the scalar normalizers are
+imposed: it satisfies S, \(I_g\), CP, B, HD, and H and gives \(R=-1\), but
+violates both E and EU.
+
+The typed scalar and Hopf diagrams in the derivation are represented directly
+below.
+
+```python {.marimo}
+red_green_phase_scalar = X(0, 1, 1) >> Z(1, 0)
+triple_edge_scalar = X(0, 3) >> Z(3, 0)
+euler_zero_scalar = red_green_phase_scalar @ triple_edge_scalar
+split_effect = H >> Z(1, 1, .25) >> X(1, 0, -.25)
+copy_scalar_inverse = X(0, 1) >> Z(1, 2) >> split_effect @ split_effect
+hopf_left = copy_scalar @ copy_scalar @ (Z(1, 2) >> X(2, 1))
+hopf_right = Z(1, 0) >> X(0, 1)
+
+assert close(copy_scalar @ triple_edge_scalar, Id(0))
+assert close(euler_zero_scalar, Id(0))
+assert close(*euler_rule(0, 0, 0))
+assert close(X(0, 1) >> split_effect, Id(0))
+assert close(copy_scalar @ copy_scalar_inverse, Id(0))
+assert close(hopf_left, hopf_right)
+assert close(hopf_left.trace(), hopf_right.trace())
+```
 
 ## Hadamard decomposition: the doubled-colour model
 
@@ -509,8 +818,8 @@ lower bound on unrelated tensor countermodels is claimed.
 ## Bialgebra is independent: a phase-central deformation
 
 The obstruction left open in 2019 is not a consequence of the other rules.
-The countermodel is real and 16-dimensional, but its structure is more useful
-than its size.
+The countermodel is a real-orthogonal deformation on \(\mathbb C^{16}\);
+its structure is more useful than its size.
 
 For an integer \(N\), index the standard basis of
 \(V=\mathbb C^{2^N}\) by bit strings \(x\in\{0,1\}^N\), and put
@@ -526,6 +835,18 @@ Interpret a green degree-\(k\) spider as
 orthogonal, commute with every \(P_a\), and fix every \(p_a\).  Put
 \(K=QH_NQ^T\), interpret H as K, and obtain each red spider by applying K
 on every leg of its green counterpart.
+
+The apparently ad hoc conditions on Q have a complete description.  Over the
+reals, commuting with all phases makes Q block diagonal by Hamming weight,
+and fixing all \(p_a\) fixes the uniform vector in every block.  Hence the
+full deformation group is
+
+\[
+G_N=\prod_{w=0}^N O\left(\binom{N}{w}-1\right),
+\]
+
+acting on the orthogonal complements of those uniform vectors.  The example
+below is a one-plane rotation in the \(O(5)\) factor of \(G_4\).
 
 This entire deformation family satisfies (S), both identities, (CP), (H),
 (HD), and (E).  For example, \(Kp_0=2^{N/2}|0^N\rangle\), which proves
@@ -552,8 +873,9 @@ In contrast, if
  \quad\text{for every }a,b,c,d.
 \]
 
-Thus all the non-B rules leave a large orthogonal deformation group, and EU
-cuts it by only one cubic scalar equation.
+Thus, within this phase-central family, all the non-B rules leave a large
+orthogonal deformation group, and EU cuts it by only one cubic scalar
+equation.
 
 For \(N=4\), act nontrivially only on the six-dimensional weight-two block,
 ordered
@@ -740,27 +1062,40 @@ for _triple in b_rng.uniform(-4 * math.pi, 4 * math.pi, (100, 3)):
 The example is not essentially unique.  The displayed root is simple; adding
 another small phase-central rotation and applying the real implicit-function
 theorem gives local continuous families on the hypersurface
-\(C_3(K)=1/4\), and the strict B violation persists.  Dimension 16 is the
-smallest example found, not a global minimum.  Within the connected
-tensor-power rotation search, \(N\le2\) offers only permutations and the
-\(N=3\) scalar equation reduces to
-\(\sqrt2(\cos\theta-1)(2\cos\theta+1)^2/3=0\); the resulting rotations are
-again permutations satisfying B.  This explains the first occurrence at
-\(N=4\) in this ansatz but does not exclude unrelated dimensions 3 through 15.
+\(C_3(K)=1/4\), and the strict B violation persists.
 
-## First failed approach: scalar gradings
+There is also a sharp lower bound inside this deformation family.  For
+\(N\le2\), the group \(G_N\) contains only the relevant basis permutations.
+For \(N=3\), its identity component is \(SO(2)\times SO(2)\).  If the two
+block angles are \(\theta_1,\theta_2\), direct block multiplication shows that
+K depends only on \(\theta=\theta_1+\theta_2\), and
+
+\[
+C_3(K)-2^{-3/2}
+=\frac{\sqrt2}{3}(\cos\theta-1)(2\cos\theta+1)^2
+=-\frac{2\sqrt2}{3}\sin^2(3\theta/2).
+\]
+
+Thus EU permits only \(\theta\in(2\pi/3)\mathbb Z\); the three resulting K
+matrices are Walsh matrices with permuted characters and all satisfy B.
+Consequently \(N=4\), or dimension 16, is minimal in the connected real
+phase-central tensor-power family.  This is not a global lower bound:
+unrelated countermodels in dimensions 3 through 15 are not excluded.
+
+## Failed approaches and what they exposed
 
 The first model search multiplied every generator by a central scalar.  In
-additive notation, the most general cancellative degree-affine deformation
-compatible with green spider fusion has the form
+additive notation, a degree-affine deformation compatible with one-wire green
+fusion has the form
 
 \[
 w(Z^a_d)=u(d-2)+f(a),\qquad
 w(X^a_d)=(u-h)d-2u+f(a),\qquad w(H)=h,
 \]
 
-where (d=m+n), and the colour-change rule gives the second formula.  The
-copy rule is automatic.  Direct counting gives
+where \(d=m+n\), and colour change gives the second formula.  Vilmart's
+multiwire form of (S) additionally imposes \(2u=0\).  The copy rule is
+automatic.  Direct counting gives
 
 \[
 \operatorname{res}(I_r)=-2h,
@@ -770,19 +1105,129 @@ copy rule is automatic.  Direct counting gives
 
 The tempting 2017 twist (w(X_d)=d, w(H)=-1\pmod4) therefore makes (B)
 hold while (I_r) fails, but it violates Vilmart's scalar rule (E).
-Allowing an additive phase character does not repair it: (E), (HD), and
-the continuum of (EU) instances force the relevant residuals back to zero.
-Thus a countermodel for the unresolved rules cannot be merely a nonzero
-degree/phase rescaling of the standard semantics.  This failure motivates
-searching for non-scalar deformations, extra summands, altered compact forms,
-and noncancellative coefficient systems.
+In fact, after \(2u=0\), the residual of (E) is \(-h\), so E kills the
+projective H scale immediately.  Additive phase characters cannot repair it.
+This proved that neither unresolved rule could be settled by a central
+degree/phase grading.
 
-## Next experiments
+Several less trivial searches were also informative.
 
-1. Solve finite-dimensional polynomial models first over small finite fields
-   and then lift any witness to an exact ring or categorical construction.
-2. Linearise the equations at the standard model.  A tangent direction that
-   preserves all but one rule is a candidate infinitesimal countermodel over
-   dual numbers.
-3. Search noncancellative and direct-sum models to determine whether the
-   identity equations can fail individually rather than only together.
+- In a standard copy basis, write green phases as diagonal characters and
+  let a symmetric H relate the two colours.  CP forces H applied to the
+  all-ones vector to be supported on one basis vector.  In dimension two this
+  determines the usual Hadamard up to the projective scale above.  Searches in
+  dimensions three through six found no solution of E and HD beyond the
+  qubit block.  This rigidity motivated moving phases through degenerate
+  eigenspaces rather than altering their characters.
+- Adding a tensor-direct junk summand first seemed capable of separating both
+  identities.  It works for \(I_g\), because (S) is green-only.  Reversing
+  the construction cannot work in finite-dimensional vector spaces: the
+  degree-two (H) equation with \(I_g\) makes H and the red unary spider
+  invertible.  The zero-angle EU instance then reduces every possible failure
+  of \(I_r\) to a scalar, leading to the derivation above.
+- Phase-trivial relational and one-dimensional semiring models were too
+  rigid.  CP makes the red zero state a singleton classical point, while the
+  all-leg H equation cannot map a smaller support onto every green diagonal.
+  In a one-object commutative monoid, E makes its two factors units and forces
+  H's residual to be the unit.
+- Higher-spin and symmetric-power representations make Euler conversion look
+  automatic, but their binomial coefficients violate multiwire special spider
+  fusion.  Plain tensor powers retain fusion and every rule, but also retain
+  B because their H is the Fourier transform of \((\mathbb Z/2)^N\).
+- For B, random orthogonal searches inside Hamming-weight eigenspaces first
+  found only Walsh permutations at \(N=3\).  The exact two-block calculation
+  above then explained this rigidity.  At \(N=4\), numerical roots exposed
+  the quintic; exact symbolic reduction revealed that EU imposes only the
+  single cubic constraint \(C_3(K)=1/4\), explaining both the counterexample
+  and its continuous generalizations.
+- The cleanest near-countermodel for \(I_r\) is projective:
+  \(H=iH_{\rm std}\) and a red degree-d spider scaled by \((-i)^d\).
+  It satisfies S, \(I_g\), CP, B, HD, and H, but has
+  \(X^0_{1,1}=-1\).  E evaluates to \(-i\), and EU differs by a sign.  This
+  experiment suggested the projective reduction used in the proof instead of
+  an independence model.
+
+```python {.marimo}
+def projective_arrow(box):
+    """The near-countermodel which isolates the projective obstruction."""
+    n_inputs, n_outputs = len(box.dom), len(box.cod)
+    degree = n_inputs + n_outputs
+    if isinstance(box, Z):
+        array = spider_array(box)
+    elif isinstance(box, X):
+        array = (-1j) ** degree * spider_array(box)
+    elif box == H:
+        array = 1j * hadamard_array
+    elif isinstance(box, Scalar):
+        array = np.array(box.data, dtype=complex)
+    else:
+        raise TypeError(box)
+    return Tensor[complex](
+        array, Dim(2) ** n_inputs, Dim(2) ** n_outputs)
+
+
+projective = Functor(
+    ob_map=lambda _: Dim(2), ar_map=projective_arrow,
+    dom=type(Id(1)), cod=Tensor[complex])
+
+
+def projective_evaluate(diagram):
+    return np.asarray(projective(diagram).array)
+
+
+def projective_close(left, right):
+    return np.allclose(
+        projective_evaluate(left), projective_evaluate(right), rtol=0)
+
+
+assert projective_close(Z(1, 1), Id(1))
+assert not projective_close(X(1, 1), Id(1))
+assert projective_close(copy_left, copy_right)
+assert projective_close(bialgebra_left, bialgebra_right)
+assert projective_close(H, hadamard_decomposition)
+assert not projective_close(
+    Z(0, 1, .25) >> X(1, 0, -.25), Id(0))
+assert not projective_close(*euler_rule(0, 0, 0))
+```
+
+## Result and minimality statement
+
+The investigation gives the following status for every displayed equation.
+
+| Equation | Status | Separating model or derivation |
+|---|---|---|
+| S | independent | degree-at-least-four parity |
+| \(I_g\) | independent | minimal two-dimensional support model |
+| \(I_r\) | derivable | projective-fusion and Hopf derivation above |
+| CP | independent | finite corelations |
+| B | independent | 16-dimensional phase-central orthogonal deformation |
+| HD | independent | doubled-colour tensor model |
+| H | independent | high-degree red parity |
+| E | independent | two-scalar support-cospan quotient |
+| EU | independent | total phase in \(\mathbb R/(\pi/2\mathbb Z)\) |
+
+Consequently Vilmart's presentation is not minimal as printed: \(I_r\) can be
+deleted.  After deleting it, every remaining displayed equation has a model
+of all the others which violates that equation, so the resulting eight-rule
+presentation is minimal.  Here “rule” counts \(I_g\) and \(I_r\) separately
+and treats Only Connectivity Matters as the ambient compact graphical theory,
+as Vilmart's own minimality discussion does.
+
+## Reproduction
+
+From the repository root, the executable claims are checked with:
+
+1. `uv run python docs/export_notebooks.py --check vilmart-2019-minimality`
+2. `uv run --with sympy python docs/notebooks/vilmart_2019_bialgebra_symbolic.py`
+3. `uv run pflake8 discopy docs/notebooks/vilmart_2019_bialgebra_symbolic.py`
+4. `uv run coverage run -m pytest --skip-extra`
+
+The first command executes every notebook cell, including the DisCoPy
+functors and all numerical witnesses.  The second independently checks the
+exact quintic reduction, the violating B component, simplicity of the root,
+and the complete connected N=3 calculation.
+
+The final verification on 29 August 2026 gave 680 passed and 50 skipped for
+the documented no-extras test suite.  The nominal unskipped suite stopped at
+collection because the checkout lacks the optional `pennylane` and `pytket`
+packages; these failures are unrelated to the files in this investigation.

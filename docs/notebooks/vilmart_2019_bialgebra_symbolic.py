@@ -76,6 +76,74 @@ def main():
         93, 32)
     assert polynomial.subs(cosine, -sp.Rational(2, 5)) == -sp.Rational(
         702, 125)
+    assert sp.gcd(
+        sp.Poly(polynomial, cosine),
+        sp.Poly(sp.diff(polynomial, cosine), cosine)) == 1
+
+    # Classify the connected N=3 phase-central family.  The Walsh transform
+    # exchanges the weight-one and weight-two planes, so two block rotations
+    # enter only through the sum of their angles.  It is enough to rotate the
+    # weight-one plane by that sum.
+    dimension_three = 8
+    hadamard_three = sp.Matrix([
+        [(-1) ** weight(x & y) * sp.sqrt(2) / 4
+         for y in range(dimension_three)]
+        for x in range(dimension_three)])
+    uniform_three = sp.Matrix([1, 1, 1]) / sp.sqrt(3)
+    first_three = sp.Matrix([1, -1, 0]) / sp.sqrt(2)
+    second_three = sp.Matrix([1, 1, -2]) / sp.sqrt(6)
+    rotation_three = (
+        uniform_three * uniform_three.T
+        + cosine * (
+            first_three * first_three.T
+            + second_three * second_three.T)
+        + sine * (
+            second_three * first_three.T
+            - first_three * second_three.T))
+    change_three = sp.eye(dimension_three)
+    weight_one = [x for x in range(dimension_three) if weight(x) == 1]
+    for row, x in enumerate(weight_one):
+        for column, y in enumerate(weight_one):
+            change_three[x, y] = rotation_three[row, column]
+    deformed_three = sp.simplify(
+        change_three * hadamard_three * change_three.T)
+    cubic_three = reduce(sum(
+        deformed_three[x, y] ** 3
+        for x in range(dimension_three)
+        for y in range(dimension_three)))
+    residual_three = (
+        sp.sqrt(2) * (cosine - 1) * (2 * cosine + 1) ** 2 / 3)
+    assert sp.simplify(
+        cubic_three - sp.sqrt(2) / 4 - residual_three) == 0
+
+    # The non-identity EU roots give Walsh matrices and still satisfy B.
+    for sine_sign in (-1, 1):
+        root_three = sp.simplify(deformed_three.subs({
+            cosine: -sp.Rational(1, 2),
+            sine: sine_sign * sp.sqrt(3) / 2}))
+        assert set(root_three) == {-sp.sqrt(2) / 4, sp.sqrt(2) / 4}
+        tensor_three = [[[
+            sp.simplify(sum(
+                root_three[a, j]
+                * root_three[b, j]
+                * root_three[output, j]
+                for j in range(dimension_three)))
+            for output in range(dimension_three)]
+            for b in range(dimension_three)]
+            for a in range(dimension_three)]
+        for a in range(dimension_three):
+            for b in range(dimension_three):
+                for output in range(dimension_three):
+                    for other_output in range(dimension_three):
+                        left = (
+                            2 * sp.sqrt(2)
+                            * tensor_three[a][b][output]
+                            * tensor_three[a][b][other_output])
+                        right = (
+                            int(output == other_output)
+                            * tensor_three[a][b][output])
+                        assert sp.simplify(left - right) == 0
+
     print(cubic)
     print(witness_zero)
     print(witness_fifteen)
