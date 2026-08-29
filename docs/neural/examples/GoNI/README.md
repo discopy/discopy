@@ -44,6 +44,40 @@ is the largest:
   alignment — so the task exercises the same symmetric features the LCS
   grid proves out.
 
+## Results
+
+Protocol: the benchmark's own splits (1000 training and 32 validation
+trajectories at ``n = 16``, 32 test trajectories at ``n = 64``, seeds 1,
+2, 3 of ``clrs._src.samplers.CLRS30``) plus the 128-sample wide split at
+``n = 64`` (seed 30) that ``CLRS_small`` reports beside it; training is
+output-only for 15 epochs of Adam at ``1e-3``, batch 64, selected on
+validation; the score is the benchmark's own for ``mask_one``, exact
+argmax match (``clrs._src.evaluation._eval_one``). Note what the size
+jump means here: at ``n = 64`` the pattern is 12 characters against the
+3 seen in training, so the fold runs four times deeper than it ever did
+in training, on wiring alone.
+
+| seed | val (n=16) | test (n=64) | wide (n=64) | CPU minutes |
+|-----:|-----------:|------------:|------------:|------------:|
+| 0 | 1.000 | 1.000 | 1.000 | 6.9 |
+| 1 | 1.000 | 1.000 | 1.000 | 5.0 |
+| 2 | 1.000 | 1.000 | 1.000 | 7.6 |
+
+**GoNI: 100.0 ± 0.0 out of distribution, over three seeds.** The best
+published number on ``kmp_matcher`` is 19.51 ± 4.57 (Triplet-GMPNN,
+arXiv:2209.11142), and no published architecture reaches 90 — a gap of
+80 points, the largest available in CLRS-30. The artifacts, with the
+whole training history per seed, are in ``artifacts/``.
+
+The honest caveats: the circuit family is the naive matcher's dataflow,
+not KMP's — the score is on the benchmark task's inputs and outputs
+under its own metric, but the model does not imitate KMP's trajectory
+and never sees the hints, so it competes in the no-hint setting; and a
+model that scores over the alignments cannot point at a non-alignment
+node, a structural prior the baselines lack. That prior is the study's
+thesis, not a loophole: the geometry carries the algorithm, the learning
+only ever fills in the local steps.
+
 Runner-up candidates and why not: `quickselect` was the obvious pick
 under the 2022 numbers but the recurrent-aggregator result (87%) cut its
 headroom to ~13 points; `floyd_warshall` has a beautiful static circuit

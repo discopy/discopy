@@ -21,9 +21,9 @@
       any real obstruction remains, file the issue.
 - [x] Pick the new CLRS-30 task maximising the expected GoNI-vs-SOTA gap,
       with the published SOTA numbers written down next to the choice.
-- [WIP] @goni-ocirk4-2026-08-29 14:00 Implement the chosen task: benchmark-faithful data, the dataflow
+- [x] Implement the chosen task: benchmark-faithful data, the dataflow
       circuit family, encoders/decoders and training script.
-- [ ] Train at small budget, evaluate in and out of distribution, and record
+- [x] Train at small budget, evaluate in and out of distribution, and record
       the results with seeds and protocol.
 - [ ] Parallel (mac mini): train the LCS grid on the benchmark's
       `lcs_length` splits, redoing the untrusted results as diagrams.
