@@ -25,7 +25,7 @@
       circuit family, encoders/decoders and training script.
 - [x] Train at small budget, evaluate in and out of distribution, and record
       the results with seeds and protocol.
-- [WIP] @goni-macmini-2026-08-29 14:00 Parallel (mac mini): train the LCS grid on the benchmark's
+- [x] Parallel (mac mini): train the LCS grid on the benchmark's
       `lcs_length` splits, redoing the untrusted results as diagrams.
 - [WIP] @goni-macmini-2026-08-29 14:00 Parallel (mac mini): scale the trained kmp matcher past the
       benchmark, n = 128 and 256, where no baseline has numbers.
