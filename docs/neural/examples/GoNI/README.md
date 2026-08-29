@@ -63,7 +63,14 @@ in training, on wiring alone.
 | 1 | 1.000 | 1.000 | 1.000 | 5.0 |
 | 2 | 1.000 | 1.000 | 1.000 | 7.6 |
 
-**GoNI: 100.0 ± 0.0 out of distribution, over three seeds.** The best
+**GoNI: 100.0 ± 0.0 out of distribution, over three seeds.** Not our
+scorer's word for it: ``verify.py`` retrains, writes the predictions as
+one-hots over *all* the nodes of each sample, and a separate
+environment averages ``clrs._src.evaluation._eval_one`` — the function
+behind every published ``kmp_matcher`` number — over them: 1.0000 on
+``val``, ``test`` and ``wide`` (the committed
+``data/kmp-*-predictions.npz``, re-scorable with ``verify.py --score``
+and nothing but ``clrs`` and the cache). The best
 published number on ``kmp_matcher`` is 19.51 ± 4.57 (Triplet-GMPNN,
 arXiv:2209.11142), and no published architecture reaches 90 — a gap of
 80 points, the largest available in CLRS-30. The artifacts, with the
