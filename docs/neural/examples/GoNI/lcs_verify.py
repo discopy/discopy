@@ -54,7 +54,8 @@ def score():
         scores = [
             _eval_one(strings_pair_cat(prediction.astype(float), 3),
                       strings_pair_cat(target.astype(float), 3))
-            for prediction, target in zip(predictions, cache["b"])]
+            for prediction, target
+            in zip(predictions, cache["b"], strict=True)]
         print(f"{split}: clrs._src.evaluation._eval_one = "
               f"{float(np.mean(scores)):.4f} over {len(scores)} samples")
 

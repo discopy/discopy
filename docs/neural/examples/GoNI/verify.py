@@ -53,8 +53,8 @@ def score():
         nodes = SPLITS[split]["length"]
         truth = np.zeros((len(cache["match"]), nodes), dtype=np.float32)
         truth[np.arange(len(truth)), cache["match"]] = 1
-        scores = [_eval_one(prediction, target)
-                  for prediction, target in zip(predictions, truth)]
+        scores = [_eval_one(prediction, target) for prediction, target
+                  in zip(predictions, truth, strict=True)]
         print(f"{split}: clrs._src.evaluation._eval_one = "
               f"{float(np.mean(scores)):.4f} over {len(scores)} samples")
 

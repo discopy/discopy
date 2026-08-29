@@ -68,7 +68,8 @@ def generate():
         assert (inputs["string"][:, x_len:] == 1).all()
         keys = inputs["key"].argmax(-1).astype(np.int8)
         block = outputs["b"][:, :x_len, x_len:, :]
-        assert (block[..., :3].sum(-1) == 1).all() and (block[..., 3] == 0).all()
+        assert (block[..., :3].sum(-1) == 1).all()
+        assert (block[..., 3] == 0).all()
         b = block.argmax(-1).astype(np.int8)
         np.savez_compressed(
             path(split), keys=keys, b=b,
