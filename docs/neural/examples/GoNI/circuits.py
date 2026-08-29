@@ -81,3 +81,68 @@ def lcs(m: int, n: int, cell) -> Diagram:
 def answer(n: int) -> int:
     """ The index of ``L[m][n]`` in the codomain of :func:`lcs`. """
     return 3 * n + 2
+
+
+def match(text: int, pattern: int, step, select) -> Diagram:
+    """
+    The string-matching circuit on a text of ``text`` characters and a
+    pattern of ``pattern``, the dataflow of the task the benchmark calls
+    ``kmp_matcher``: one ``step`` per (alignment, offset) pair folding
+    "matched so far" along each alignment, then one ``select`` per
+    alignment folding the match bits into the first match.
+
+    ``step`` reads ``(s, q, c)`` — the running state, a pattern character
+    and a text character — and writes ``(c, q, s)``: the characters pass
+    through, threading the pattern down the alignments and the text along
+    the anti-diagonals, and the state carries the fold.  ``select`` reads
+    ``(m, f)`` — an alignment's match state and the "seen a match" flag —
+    and writes ``(f, out)``, folding right to left from the first
+    alignment so that ``out`` fires on the first match only.
+
+    The domain reads: one initial state per alignment, from the last
+    alignment down to the first; one ``(q, c)`` pair per offset with the
+    pattern and the first ``pattern`` text characters; the remaining text
+    characters; the initial flag.  The codomain carries one ``out`` wire
+    per alignment at :func:`match_answer`, every other wire being dead.
+    Each alignment costs one permutation layer beside its cells, clearing
+    its dead wires off the frontier; like the crossings of :func:`lcs`,
+    they are absorbed into the wiring of the combinatorial map.
+    """
+    graph = type(step).ar
+    s, q, c = (step.dom[i:i + 1] for i in range(3))
+    f = select.dom[1:2]
+    if step.cod != c @ q @ s or select.dom != s @ f \
+            or select.cod[:1] != f:
+        raise ValueError(
+            f"a step reads (s, q, c) and writes (c, q, s), a select reads "
+            f"(m, f) and writes (f, out), got {step.dom} -> {step.cod} "
+            f"and {select.dom} -> {select.cod}")
+    alignments = text - pattern + 1
+    if alignments < 1:
+        raise ValueError(f"a pattern of {pattern} does not fit "
+                         f"in a text of {text}")
+    diagram = graph.id(
+        s ** alignments @ (q @ c) ** pattern @ c ** (text - pattern) @ f)
+    for i in range(alignments):
+        pending = alignments - 1 - i
+        for j in range(pattern):
+            wires = diagram.cod
+            position = pending + 2 * j
+            diagram >>= wires[:position] @ step @ wires[position + 3:]
+        wires, fresh = diagram.cod, text - pattern - i
+        span = wires[pending:]
+        cleared = list(range(1, 2 * pattern)) \
+            + list(range(2 * pattern + 1, 2 * pattern + 1 + fresh)) \
+            + [2 * pattern] \
+            + list(range(2 * pattern + 1 + fresh, len(span))) + [0]
+        diagram >>= wires[:pending] @ graph.permutation(cleared, span)
+    for i in range(alignments):
+        wires = diagram.cod
+        position = 2 * pattern - 1 + alignments - 1 - i
+        diagram >>= wires[:position] @ select @ wires[position + 2:]
+    return diagram
+
+
+def match_answer(text: int, pattern: int, alignment: int) -> int:
+    """ The index of an alignment's ``out`` in :func:`match`'s codomain. """
+    return 2 * pattern + text - pattern - alignment

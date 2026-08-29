@@ -70,6 +70,66 @@ def test_lcs_permutations_are_wiring():
         assert boxes == m * n * (cell, )
 
 
+def exact_matcher() -> tuple[Network, Network]:
+    """ The matcher's step and select on scalar wires, as exact networks. """
+    class Step(torch.nn.Module):
+        def forward(self, x):
+            s, q, c = (x[..., i] for i in range(3))
+            zero = torch.zeros_like(s)
+            return torch.stack(
+                [zero] * 3 + [c, q, s * (q == c)], dim=-1)
+
+    class Select(torch.nn.Module):
+        def forward(self, x):
+            m, f = x[..., 0], x[..., 1]
+            zero = torch.zeros_like(m)
+            return torch.stack(
+                [zero] * 2 + [torch.maximum(f, m), m * (1 - f)], dim=-1)
+
+    return Network('step', Dim(1) ** 3, Dim(1) ** 3, module=Step()), \
+        Network('select', Dim(1) ** 2, Dim(1) ** 2, module=Select())
+
+
+def test_match_permutations_are_wiring():
+    step, select = exact_matcher()
+    for text, pattern in ((3, 1), (5, 2), (13, 3)):
+        alignments = text - pattern + 1
+        boxes = circuits.match(text, pattern, step, select).to_map().boxes
+        assert boxes == alignments * pattern * (step, ) \
+            + alignments * (select, )
+
+
+def test_match_computes():
+    step, select = exact_matcher()
+    generator = torch.Generator().manual_seed(1)
+    for text, pattern in ((3, 1), (5, 2), (13, 3), (12, 5)):
+        alignments = text - pattern + 1
+        grid = circuits.match(text, pattern, step, select).to_map()
+        keys = torch.randint(0, 3, (16, text + pattern),
+                             generator=generator).float()
+        embed = torch.randint(0, alignments, (16, ), generator=generator)
+        for sample in range(16):
+            position = int(embed[sample])
+            keys[sample, position:position + pattern] = \
+                keys[sample, text:]
+        x = torch.ones(16, alignments)
+        for j in range(pattern):
+            x = torch.cat([x, keys[:, text + j:text + j + 1],
+                           keys[:, j:j + 1]], dim=-1)
+        x = torch.cat([x, keys[:, pattern:text],
+                       torch.zeros(16, 1)], dim=-1)
+        outputs = grid(x, n_rounds=text + pattern + 2)
+        first = torch.tensor([next(
+            i for i in range(alignments)
+            if (keys[sample, i:i + pattern] == keys[sample, text:]).all())
+            for sample in range(16)])
+        scores = torch.stack([
+            outputs[:, circuits.match_answer(text, pattern, i)]
+            for i in range(alignments)], dim=-1)
+        assert (scores.argmax(-1) == first).all()
+        assert (scores.sum(-1) == 1).all()
+
+
 def test_lcs_computes():
     cell = exact_cell()
     generator = torch.Generator().manual_seed(0)
