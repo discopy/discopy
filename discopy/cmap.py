@@ -913,7 +913,7 @@ class CMap[C0: Pregroup, C1: CMap](
         if list(range(len(doms))) != sorted(xs):
             raise ValueError(
                 f"{xs} is not a permutation of {len(doms)} objects")
-        dom = sum(doms, cls.ob())
+        dom = cls.ob().tensor(*doms)
         starts, output_start = [0], len(dom)
         for objects in doms:
             starts.append(starts[-1] + len(objects))
@@ -923,7 +923,7 @@ class CMap[C0: Pregroup, C1: CMap](
                       for offset in range(len(doms[x]))]
             position += len(doms[x])
         edge = Permutation.from_transpositions(pairs, 2 * len(dom))
-        return cls(dom, sum((doms[x] for x in xs), cls.ob()), (), edge,
+        return cls(dom, cls.ob().tensor(*(doms[x] for x in xs)), (), edge,
                    check=False)
 
     cup_factory = classmethod(lambda cls, left, right: cls.from_box(
