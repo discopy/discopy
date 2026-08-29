@@ -144,3 +144,36 @@ values run four times past anything the fold saw in training — the gap
 from 99.8 in distribution to 93.5 out of it is value extrapolation in
 the learned cell, not wiring. What the family supplies is the
 geometry; the local step is where the remaining points live.
+
+## Past the benchmark: `kmp_matcher` at n = 128 and 256
+
+The benchmark stops at ``n = 64``; no baseline has numbers past it.
+``dataset.py`` draws two more splits with the benchmark's own sampler
+rules — 128 samples at ``n = 128`` (pattern 25 against text 103) and
+32 at ``n = 256`` (pattern 51 against text 205, where one forward
+costs sixteen ``n = 64`` ones), fresh seeds 4 and 5, cached and
+brute-force checked like the others.  ``scale.py`` retrains the three
+study seeds under the study protocol — each re-hits 1.000 on val, test
+and wide on the way — and evaluates each selected model on both
+splits; the weights now land in ``artifacts/`` so a later evaluation
+is a load, not a rerun.  At ``n = 128`` the fold runs eight times
+deeper than anything training showed it, at ``n = 256`` seventeen
+times.
+
+| seed | n = 128 | n = 256 |
+|-----:|--------:|--------:|
+| 0 | 0.977 | 1.000 |
+| 1 | 0.969 | 1.000 |
+| 2 | 1.000 | 1.000 |
+
+**98.2 ± 1.6 at n = 128, 100.0 ± 0.0 at n = 256.** Read together, not
+apart: the dents at 128 are 7 samples of 384 across the seeds, and the
+256 split is a quarter the size, so a slip rate of a point or two is
+as compatible with 96 clean samples as with those dents — the two
+sizes bound the same small failure rate; nothing recovers at 256.
+What the numbers say is that the family holds to within a couple of
+points at four times the benchmark's ceiling, on wiring alone — the
+weights never saw a pattern longer than three characters.  The cost
+lives elsewhere: the ``n = 256`` circuit is a one-off two-hour build
+on a laptop-class core, after which every seed's evaluation rides it
+in about a minute.
