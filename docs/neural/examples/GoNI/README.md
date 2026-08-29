@@ -92,3 +92,55 @@ but FloydNet is built around exactly that inductive bias and reports
 near-perfect scores; `strongly_connected_components` is only expressible
 statically through a transitive-closure substitute, a weaker claim than
 running the task's own dataflow.
+
+## The grid, end to end: `lcs_length`
+
+The LCS grid does not just settle the swaps question, it runs the
+benchmark's task. ``lcs_length``'s output is not the corner value but
+the traceback: one direction per cell of the dynamic-programming grid —
+0 for the diagonal on a match, 1 for up, 2 for left — the ``b`` matrix,
+scored cell by cell. The direction is a pure function of the cell's
+*inputs*: diagonal on a match, else up against left, a rule that
+reproduces the benchmark's fixpoint relaxation — boundary quirks
+included — on every cached sample, which ``lcs_dataset.py --check``
+re-derives. So the model reads the output off the running circuit:
+``lcs_model.py`` asks the map for its flat port state and gathers each
+cell's incoming messages off its domain ports — an address into the
+state, not a wire, the grid builder untouched — and a direction head
+turns them into three logits per cell. The learned part of a cell is
+the value fold alone, written on all three value outputs the way the
+exact cell writes ``L[i][j]``.
+
+Protocol: as for kmp — the benchmark's splits (8 x 8 grids at
+``n = 16`` for the 1000 training and 32 validation samples, 32 x 32 at
+``n = 64`` for the 32 test samples and the 128-sample wide split),
+seeds 0, 1, 2, output-only, Adam at ``1e-3``, batch 64, selected on
+validation; the score is exact directions over grid cells
+(``clrs._src.evaluation._eval_one`` on the scored block) — except 50
+epochs instead of 15, where validation converges at ~0.998 (at 15 it is
+still climbing through ~0.97).
+
+| seed | val (n=16) | test (n=64) | wide (n=64) | CPU minutes |
+|-----:|-----------:|------------:|------------:|------------:|
+| 0 | 0.998 | 0.924 | 0.926 | 2.1 |
+| 1 | 0.997 | 0.931 | 0.924 | 1.5 |
+| 2 | 0.998 | 0.949 | 0.941 | 1.5 |
+
+**GoNI: 93.5 ± 1.3 on test, 93.0 ± 0.9 on wide, out of distribution
+over three seeds**, against 80.51 ± 1.84 published for Triplet-GMPNN
+(arXiv:2209.11142) — on wiring the previous run of this study wrote by
+hand because it thought the swaps made a diagram impossible. Not our
+scorer's word for it either: ``lcs_verify.py`` retrains seed 0, writes
+the predicted directions beside the cache, and a separate environment
+lays both sides out with ``clrs._src.probing.strings_pair_cat`` and
+averages ``clrs._src.evaluation._eval_one`` over them — 0.9980 on
+``val``, 0.9244 on ``test``, 0.9258 on ``wide``, our accuracy to four
+decimals (the committed ``data/lcs-*-predictions.npz``, re-scorable
+with ``lcs_verify.py --score`` and nothing but ``clrs`` and the cache).
+
+Why not 100, when kmp saturates? The kmp fold carries what amounts to
+a boolean; the LCS cell carries a *count*, and at ``n = 64`` the true
+values run four times past anything the fold saw in training — the gap
+from 99.8 in distribution to 93.5 out of it is value extrapolation in
+the learned cell, not wiring. What the family supplies is the
+geometry; the local step is where the remaining points live.
