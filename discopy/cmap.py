@@ -52,6 +52,7 @@ from discopy import hypergraph, messages
 from discopy.abc import (
     BiclosedCategory,
     CompactCategory,
+    Equation,
     HypergraphCategory,
     MarkovCategory,
     MonoidalCategory,
@@ -63,7 +64,7 @@ from discopy.abc import (
 )
 from discopy.cat import Box as CatBox, Ob
 from discopy.python.finset import Permutation
-from discopy.testing import Strategy, axiom, declared_axioms
+from discopy.testing import Axiom, Strategy, axiom
 from discopy.utils import (
     AxiomError,
     assert_isatomic,
@@ -75,11 +76,6 @@ from discopy.utils import (
 
 if TYPE_CHECKING:
     from discopy.monoidal import Box, Diagram, Ty
-
-FREE_TRACE = "A free trace is a box, not a rewrite."
-NO_COMONOIDS = "Combinatorial maps have no supply of comonoids."
-NO_EXPONENTIALS = "Combinatorial maps have no exponential objects."
-NO_SPIDERS = "Combinatorial maps have no supply of spiders."
 
 
 class PortKind(StrEnum):
@@ -266,20 +262,27 @@ class CMap[C0: Pregroup, C1: CMap](
         return with_loops()
 
     @classproperty
-    def axioms(cls):
+    def axioms(cls) -> dict[str, Axiom]:
         """
         The axioms of the diagram category represented by the map, with the
         ones the map restates for itself taking precedence.
+
+        Names are collected before they are filtered, as in
+        :attr:`discopy.abc.Category.axioms`.
         """
         if cls.category is None:
-            return ()
-        restated = declared_axioms(cls)
-        return tuple(
-            restated.get(axiom.name, axiom).bind(cls)
-            for axiom in cls.category.axioms)
+            return {}
+        visible = {
+            name: value
+            for base in reversed(cls.__mro__)
+            for name, value in base.__dict__.items()}
+        restated = {name: value for name, value in visible.items()
+                    if isinstance(value, Axiom)}
+        return {name: restated.get(name, axiom).bind(cls)
+                for name, axiom in cls.category.axioms.items()}
 
     @axiom
-    def braid_naturality(cls, f: C1, g: C1):
+    def braid_naturality(cls, f: C1, g: C1) -> Equation[C1]:
         """ Naturality of the braid, up to the diagrams the maps encode. """
         return cls.category.equation_factory(*(
             term.to_diagram() for term in (
@@ -410,6 +413,30 @@ class CMap[C0: Pregroup, C1: CMap](
         if not self.boxes and len(self.loops) == 1:
             return True
         return len(self.boxes) == 1 and not self.loops
+
+    @property
+    def is_boundary_connected(self) -> bool:
+        """
+        Whether the boundary reaches every box, i.e. each connected
+        component has at least one port on the boundary.
+
+        Unlike :attr:`discopy.hypergraph.Hypergraph.is_boundary_connected`
+        this is defined for every map, in particular for the left-handed
+        cups and caps of a rigid diagram, whose hypergraph is partial.
+
+        Example
+        -------
+        >>> from discopy.compact import Ty, Box, Diagram
+        >>> x = Ty('x')
+        >>> assert Box('f', x, x).to_map().is_boundary_connected
+        >>> scalar = Box('s', Ty(), Ty()).to_map()
+        >>> assert not scalar.is_boundary_connected
+        >>> assert Diagram.id(Ty()).to_map().is_boundary_connected
+        """
+        return all(
+            len(component.dom) or len(component.cod)
+            for component in self.connected_components
+            if component.boxes or component.loops)
 
     @property
     def is_planar(self) -> bool:
@@ -1831,42 +1858,45 @@ cycles of this map.
         return None
 
     currying_left = \
-        BiclosedCategory.currying_left.inapplicable(NO_EXPONENTIALS)
+        BiclosedCategory.currying_left.inapplicable(messages.NO_EXPONENTIALS)
 
     currying_right = \
-        BiclosedCategory.currying_right.inapplicable(NO_EXPONENTIALS)
+        BiclosedCategory.currying_right.inapplicable(messages.NO_EXPONENTIALS)
 
-    rotate_contravariance = RigidCategory.rotate_contravariance.inapplicable(
-        "Combinatorial maps do not implement rotation.")
+    rotate_contravariance = \
+        RigidCategory.rotate_contravariance.inapplicable(messages.NO_ROTATION)
 
     trace_dinaturality_left = \
-        TracedCategory.trace_dinaturality_left.inapplicable(FREE_TRACE)
+        TracedCategory.trace_dinaturality_left.inapplicable(
+            messages.FREE_TRACE)
 
     trace_dinaturality_right = \
-        TracedCategory.trace_dinaturality_right.inapplicable(FREE_TRACE)
+        TracedCategory.trace_dinaturality_right.inapplicable(
+            messages.FREE_TRACE)
 
     trace_naturality_left = \
-        TracedCategory.trace_naturality_left.inapplicable(FREE_TRACE)
+        TracedCategory.trace_naturality_left.inapplicable(messages.FREE_TRACE)
 
     trace_naturality_right = \
-        TracedCategory.trace_naturality_right.inapplicable(FREE_TRACE)
+        TracedCategory.trace_naturality_right.inapplicable(messages.FREE_TRACE)
 
     copy_coassociativity = \
-        MarkovCategory.copy_coassociativity.inapplicable(NO_COMONOIDS)
+        MarkovCategory.copy_coassociativity.inapplicable(messages.NO_COMONOIDS)
 
     copy_cocommutativity = \
-        MarkovCategory.copy_cocommutativity.inapplicable(NO_COMONOIDS)
+        MarkovCategory.copy_cocommutativity.inapplicable(messages.NO_COMONOIDS)
 
     copy_counitality = \
-        MarkovCategory.copy_counitality.inapplicable(NO_COMONOIDS)
+        MarkovCategory.copy_counitality.inapplicable(messages.NO_COMONOIDS)
 
-    #: The dagger of a tensor reverses the order the boxes are stored in,
-    #: which the hypergraph the map encodes quotients away.
     dagger_monoidality = MonoidalCategory.dagger_monoidality.modulo(
         lambda term: term.to_hypergraph())
 
-    frobenius = HypergraphCategory.frobenius.inapplicable(NO_SPIDERS)
+    frobenius = HypergraphCategory.frobenius.inapplicable(
+        messages.NO_SPIDERS)
 
-    speciality = HypergraphCategory.speciality.inapplicable(NO_SPIDERS)
+    speciality = HypergraphCategory.speciality.inapplicable(
+        messages.NO_SPIDERS)
 
-    spider_fusion = HypergraphCategory.spider_fusion.inapplicable(NO_SPIDERS)
+    spider_fusion = HypergraphCategory.spider_fusion.inapplicable(
+        messages.NO_SPIDERS)

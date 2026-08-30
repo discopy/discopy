@@ -75,7 +75,7 @@ class Wire(rigid.Wire):
     def strategy(cls, **params):
         """Generate pivotal objects with parity-valued winding."""
         return super().strategy(
-            min_winding=0, max_winding=1, **params)
+            **dict(params, min_winding=0, max_winding=1))
 
     def dagger(self) -> Wire:
         """

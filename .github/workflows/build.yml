@@ -2,22 +2,42 @@ name: build
 
 on:
   push:
-    branches:
-      - 'main'
-      - 'tooling/uv-migration'
+    branches: [main]
   pull_request:
 
-# Cancel superseded runs so only the latest pipeline runs to completion.
+permissions:
+  contents: read
+
+# Supersede a pull request's own runs, but let every commit on main keep the
+# run that proves it green: cancelling those leaves main with commits nothing
+# ever built, as it did on 112b6036.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
-env:
-  SRC_DIR: discopy
-  TEST_DIR: test
-  DOCS_DIR: docs
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  workflows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    - uses: ./.github/actions/setup
+      with:
+        python-version: "3.14"
+    - name: actionlint
+      env:
+        VERSION: 1.7.9
+        SCRIPTS: https://raw.githubusercontent.com/rhysd/actionlint
+      run: |
+        curl -fsSL "$SCRIPTS/v$VERSION/scripts/download-actionlint.bash" \
+          | bash -s -- "$VERSION"
+        ./actionlint -color
+    - name: Check for errors
+      run:
+        uv run pflake8 .github
+    - name: Test
+      run:
+        uv run --with pyyaml pytest .github/tests/*.py
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 15   # backstop: green runs take ~6 min; a job wedged on its first network step reports nothing for hours (#591)
@@ -25,19 +45,10 @@ jobs:
       matrix:
         python-version: [ "3.14" ]
     steps:
-    - uses: actions/checkout@v4
-    - name: Setup uv
-      uses: astral-sh/setup-uv@v5
-      with:
-        enable-cache: true
-        cache-dependency-glob: uv.lock
-    - name: Setup Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    - uses: ./.github/actions/setup
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Install linter
-      run:
-        uv sync --locked --group dev
     - name: Check for errors
       run:
         # stop the build if there are Python syntax errors or undefined names
@@ -52,24 +63,12 @@ jobs:
       matrix:
         python-version: [ "3.12", "3.13", "3.14" ]
     steps:
-    - uses: actions/checkout@v4
-    - name: Setup uv
-      uses: astral-sh/setup-uv@v5
-      with:
-        enable-cache: true
-        cache-dependency-glob: uv.lock
-    - name: Setup Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    - uses: ./.github/actions/setup
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Install Graphviz
-      timeout-minutes: 6
-      run: |
-        APT="sudo timeout 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=10"
-        $APT install -y graphviz || { $APT update && $APT install -y graphviz; }
-    - name: Install
-      run:
-        uv sync --locked --group dev --group all
+        groups: dev all
+        graphviz: 'true'
     - name: Test
       run:
         uv run coverage run -m pytest
@@ -87,29 +86,17 @@ jobs:
       matrix:
         python-version: [ "3.14" ]
     steps:
-    - uses: actions/checkout@v4
-    - name: Setup uv
-      uses: astral-sh/setup-uv@v5
-      with:
-        enable-cache: true
-        cache-dependency-glob: uv.lock
-    - name: Setup Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    - uses: ./.github/actions/setup
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Install Graphviz
-      timeout-minutes: 6
-      run: |
-        APT="sudo timeout 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=10"
-        $APT install -y graphviz || { $APT update && $APT install -y graphviz; }
-    - name: Install
-      run:
-        uv sync --locked --group docs
+        groups: docs
+        graphviz: 'true'
     - name: Build
       run: |
-        uv run sphinx-build ${{ env.DOCS_DIR }} ${{ env.DOCS_DIR }}/_build/html
+        uv run sphinx-build docs docs/_build/html
     - name: Upload
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: docs
-        path: ${{ env.DOCS_DIR }}/_build/html
+        path: docs/_build/html

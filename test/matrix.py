@@ -61,3 +61,14 @@ def test_axioms():
     from discopy import testing
 
     testing.assert_axioms(Matrix[int])
+
+
+def test_weakened_axioms():
+    from hypothesis import find
+
+    from discopy.testing import Small
+
+    weakened = Matrix[int].axioms["copy_cocommutativity_small"]
+    assert weakened.subspaces and not weakened.broken
+    args = find(weakened.strategy(), lambda _: True)
+    assert isinstance(args[0], Small) and weakened(*args)

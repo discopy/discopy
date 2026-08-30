@@ -10,7 +10,8 @@ import pytest
 from discopy import (
     biclosed, braided, cat, compact, feedback, hopf, pivotal, ribbon)
 from discopy.matrix import Matrix
-from discopy.testing import Atomic, Axiom, Relabelled, Relabelling, assert_verdict
+from discopy.testing import (
+    GENERATORS, Atomic, Axiom, Relabelled, Relabelling)
 from discopy.utils import factory_name
 
 
@@ -25,7 +26,15 @@ class Counterexample(NamedTuple):
 
 
 COLLAPSE = Relabelling(tuple(
-    (cat.Ob(name), cat.Ob("a")) for name in "abcde"))
+    (cat.Ob(name), cat.Ob("a")) for name in GENERATORS))
+"""
+The relabelling the search shrunk to: every generator sent to the first.
+
+It names all of them because every functor the strategy builds does, see
+:obj:`discopy.testing.GENERATORS`. The images are what shrinking landed on
+rather than what the bug needs — composing on the left forgets the functor
+whatever it relabels, so the identity relabelling is a counterexample too.
+"""
 
 MEMORY = feedback.Ty("a") @ feedback.Ty("b")
 
@@ -50,16 +59,16 @@ COUNTEREXAMPLES = (
     Counterexample(
         axiom=Matrix[int].copy_cocommutativity,
         args=(2, ),
-        reason="Matrix.copy(x, n) is wrong for x, n >= 2 (#606)"),
+        reason="Matrix.copy(x, n) is wrong for x, n >= 2 (#652)"),
     Counterexample(
         axiom=Matrix[int].copy_counitality,
         args=(2, ),
-        reason="Matrix.copy(x, n) is wrong for x, n >= 2 (#606)"),
+        reason="Matrix.copy(x, n) is wrong for x, n >= 2 (#652)"),
     Counterexample(
         axiom=Matrix[int].copy_monoidal_coherence,
         args=(1, ),
         reason="Matrix.copy(x, n) is wrong for x, n >= 2, reachable "
-               "from atomic arguments through the coherence (#606)"),
+               "from atomic arguments through the coherence (#652)"),
     Counterexample(
         axiom=cat.Functor.unitality,
         args=(cat.Functor(ob_map=COLLAPSE, ar_map=Relabelled(COLLAPSE)), ),
@@ -122,4 +131,4 @@ def counterexample_parameters():
 @pytest.mark.parametrize("axiom, args", counterexample_parameters())
 def test_counterexample(axiom, args):
     """ Check an axiom on a recorded counterexample. """
-    assert_verdict(axiom, axiom(*args))
+    assert axiom(*args)
