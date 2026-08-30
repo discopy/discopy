@@ -17,7 +17,7 @@ from hypothesis import strategies as st
 from discopy import monoidal
 from discopy.utils import factory_name
 
-from proptest.test_axioms import CARRIERS
+from proptest.carriers import CARRIERS
 
 matplotlib.use("Agg")
 

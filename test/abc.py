@@ -21,7 +21,8 @@ from discopy import (
     traced.Diagram])
 def test_inapplicable_axioms_declare_themselves(carrier):
     """ Every axiom taking no argument answers that it does not apply. """
-    declared = [axiom for axiom in carrier.axioms if not axiom.parameters]
+    declared = [axiom for axiom in carrier.axioms.values()
+                if not axiom.parameters]
     assert declared
     assert all(axiom() is NotImplemented for axiom in declared)
 
