@@ -315,7 +315,7 @@ def load_corpus(url):
 
 def is_tuple(typ: type) -> bool:
     """
-    Whether a given type is tuple or a paramaterised tuple.
+    Whether a given type is tuple or a parameterised tuple.
 
     Parameters:
         typ : The type to check for equality with tuple.

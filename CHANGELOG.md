@@ -11,26 +11,35 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 - `discopy.python.additive.Function` joins the property matrix, with a
   `strategy` generating tag relabellings compared extensionally (probing
-  both sides on a canonical tagged element rather than structurally). See
-  BUGS.md.
+  both sides on a canonical tagged element rather than structurally).
 - `discopy.cmap.CMap` and `discopy.hypergraph.Hypergraph` grow a
   `strategy` classmethod, drawing through their associated diagram
   category and adding closed components (loops, isolated spiders) beyond
   its image, and `discopy.abc.HypergraphCategory` grows its
   `frobenius`/`speciality`/`spider_fusion` axioms — enrolling `Hypergraph`
   and `CMap` at every monoidal-derived level that has one in
-  `proptest/`. See BUGS.md.
+  `proptest/`. The bugs this enrolment surfaced are fixed below, except
+  one open family declared in the matrix: `CMap.to_diagram` and
+  `Hypergraph.to_diagram` need swaps to decode a trace, cup or cap at
+  `traced`, `balanced` and `pivotal`, and `Hypergraph.cups`/`caps` accept
+  only the right-adjoint orientation, so `to_hypergraph` is partial on
+  rigid's left-handed cups and caps.
 - The property matrix's search strategy is now recursive: `cat.Arrow` and
   `monoidal.Diagram` build composite paths/diagrams with
   `hypothesis.strategies.recursive`/an iterated layer search instead of
   the earlier canonical single instantiation, and every monoidal-derived
   category (`braided`, `traced`, `balanced`, `symmetric`, `biclosed`,
   `rigid`, `pivotal`, `ribbon`, `compact`, `markov`, `closed`, `feedback`,
-  `frobenius`) inherits it through its own `Diagram.strategy`
-  override, adding its own structural boxes (braids, cups and caps,
-  copies, spiders, feedback loops...) to the mix. Their axioms, stated in
-  `discopy.abc`, are enrolled in `proptest/`. See BUGS.md for what the
-  wider search surfaced.
+  `frobenius`) inherits it through a `Box.strategy` override — its own or
+  its base's, e.g. `closed` and `compact` inherit theirs — adding its
+  structural boxes (braids, cups and caps, copies, spiders, feedback
+  loops...) to the mix. Their axioms, stated in
+  `discopy.abc`, are enrolled in `proptest/`. The bugs the wider search
+  surfaced are fixed below, except two open ones declared in the matrix:
+  `feedback.Diagram.feedback` unrolls its memory in the wrong order
+  ([#606](https://github.com/discopy/discopy/issues/606)), and an
+  uncoloured `monoidal.Wire` reprs as the `cat.Ob` that `Ty` coerces,
+  which its type-strict equality rejects.
 - `discopy/testing.py`, a Hypothesis-based property-testing module:
   `Axiom`, decorated with `@discopy.testing.axiom`, states a categorical
   law once on `discopy.abc.Category`/`ColouredMonoid` and every subclass
@@ -42,7 +51,29 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   generation — wired up in `proptest/test_axioms.py`, enrolled so far for
   `cat.Arrow` and `cat.Functor`, and run by the new `proptest` GitHub
   workflow on `main`, manual dispatch and PRs labelled `proptest`. See
-  [PROPTEST.md](PROPTEST.md) and [BUGS.md](BUGS.md).
+  [PROPTEST.md](PROPTEST.md).
+- A `workflows` job in `build.yml`, so that the code running our pull
+  requests is checked like the code it checks: `actionlint` over the
+  workflows, `pflake8` over `.github`, and `pytest .github/tests/*.py`
+  over the three scripts and the composite action, whose steps take a
+  strict subset of a workflow step's keys that `actionlint` does not
+  check. Three of the last five changes to `.github`
+  were fixing bugs in `.github`
+  ([#611](https://github.com/discopy/discopy/issues/611),
+  [#615](https://github.com/discopy/discopy/issues/615),
+  [#640](https://github.com/discopy/discopy/issues/640)), every one found
+  in production. On its first runs `actionlint` found the `style-review.yml`
+  bug below, and shellcheck the `A && B || C` in `benchmark.yml`'s summary
+  step, now an `if` ([#645](https://github.com/discopy/discopy/pull/645)).
+- `.github/actions/setup`, one composite action for installing uv, Python,
+  the project and, for the jobs that draw, Graphviz. The three `build.yml`
+  jobs called for it four times between them and the Graphviz incantation
+  was byte-identical twice. `benchmark.yml` keeps its own steps: it checks
+  out two arbitrary commits and one of them predates this action
+  ([#645](https://github.com/discopy/discopy/pull/645)).
+- `.github/dependabot.yml`, grouping the monthly GitHub Actions updates
+  into one pull request, now that every action is pinned by commit
+  ([#645](https://github.com/discopy/discopy/pull/645)).
 - The style review can be asked for, and turned off, from the pull request
   itself: `@discopy review this` in a comment reviews it now, and the
   `no-style-review` label stops the automatic reviews on it, while the
@@ -134,6 +165,50 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   ([#484](https://github.com/discopy/discopy/pull/484)).
 
 ### Changed
+
+- A `NamedGeneric` subscript reads its subscript's own `factory_name`
+  instead of its bare `__name__`, so `Hypergraph[frobenius.Diagram]`
+  reprs and hashes with its full dotted name rather than the collapsed
+  `Hypergraph[Diagram]`.
+- The benchmark measures a pull request against its merge base rather
+  than the tip of its base branch. The head does not contain what landed
+  on `main` since it forked, so measuring against the tip charged the pull
+  request for everyone else's commits. `benchmark.yml` resolves it with one
+  `compare` call and records it as `previous` in the artifact metadata,
+  next to the `base` the comment still validates itself against
+  ([#645](https://github.com/discopy/discopy/pull/645)).
+- `benchmark-comment.yml` is 33 lines of YAML calling
+  `.github/scripts/benchmark_comment.py` rather than 140 lines of
+  JavaScript embedded in YAML. Nothing needed `actions/github-script`: the
+  event payload is a JSON file named by `GITHUB_EVENT_PATH` and the REST
+  API is `urllib`, which `.github/style-review/post.py` already talks to.
+  In Python it is lintable, testable and in the one language this
+  repository is written in; its validation is `unreadable`, `unattested`
+  and `mismatch`, three pure functions the tests state the refusals of.
+  The job also stopped taking the artifact's word for three things, since
+  the pull request can write it: the pull request number is checked to be
+  an integer before it reaches a URL rather than after, the merge base the
+  comment links is checked against one the job computes itself from two
+  commits it already trusts, and a run that lists no pull request of its
+  own -- one from a fork -- must name the single open pull request for its
+  head rather than any that shares its branch. A download that fails is no
+  longer silence: the job asks whether the artifact was staged at all, and
+  only then posts nothing
+  ([#645](https://github.com/discopy/discopy/pull/645)).
+- `build.yml` and `benchmark.yml` cancel a pull request's superseded runs
+  but let every commit on `main` finish, `cancel-in-progress` reading
+  `github.event_name == 'pull_request'`. Cancelling on `main` left commits
+  nothing ever built — `112b6036` is one — and threw away the pair of
+  measurements a benchmark run exists to produce
+  ([#645](https://github.com/discopy/discopy/pull/645)).
+- Every action is pinned by commit, not by moving tag, as
+  `benchmark-comment.yml` already pinned two of them; `build.yml` declares
+  `permissions: contents: read` like the other four workflows; and every
+  checkout sets `persist-credentials: false`
+  ([#645](https://github.com/discopy/discopy/pull/645)).
+- `build.yml` drops the `SRC_DIR` and `TEST_DIR` variables, which nothing
+  read, and the `tooling/uv-migration` push trigger, whose branch is gone
+  ([#645](https://github.com/discopy/discopy/pull/645)).
 
 - `CMap` is aligned on `Hypergraph`. It is parameterised by a category as
   `NamedGeneric["category"]` instead of carrying `require_*` flags, and it is
@@ -290,6 +365,46 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   ([#566](https://github.com/discopy/discopy/pull/566)).
 
 ### Fixed
+
+- `Hypergraph.to_graph` keyed spider nodes by the boundary's object
+  rather than the spider's own type, creating a phantom attributeless
+  node whenever a boundary wire reads an adjoint of its spider type, so
+  `hash` crashed with `KeyError: 'box'`; it now keys on `spider_types`.
+- `python.additive.Function` missed its `@factory` decorator, so its `ar`
+  resolved to `function.Function`, the base class of all python
+  functions, instead of itself: every generic operation building an
+  `additive.Function` from a functor or a diagram silently produced the
+  wrong class.
+- The structural boxes serialise with their own signatures instead of
+  inheriting `__repr__`, `to_tree` or `from_tree` from `Box` or `Bubble`,
+  whose `(name, dom, cod)` keys their constructors reject, so
+  `eval(repr(x))` and `dumps`/`loads` roundtrip every diagram containing
+  a `traced.Trace`, `feedback.Feedback`, `balanced.Twist`,
+  `braided.Braid`, `markov.Copy`/`Merge`/`Discard`, `frobenius.Spider`,
+  or `biclosed.Eval`/`Coeval`/`Curry` and their `closed` subclasses; and
+  `markov.Copy.__new__` no longer requires an argument the pickle
+  protocol cannot pass, so `Copy` and `Discard` unpickle.
+- `Copy.dagger`, `Merge.dagger` and `Diagram.to_staircases` dispatch
+  through the subclass's factories instead of capturing a bare `markov`
+  sibling or the bare `monoidal.Functor`: the dagger of a `closed.Copy`
+  is a `closed.Merge`, and `foliation` no longer crashes on traced
+  diagrams by rebuilding a `Trace` as a `monoidal.Bubble`.
+- `foliation` falls back to merging layers where `to_hypergraph` is
+  partial — traced diagrams and boundary-disconnected pivotal diagrams —
+  and `Feedback.dagger` raises a clean `AxiomError`, the delay being
+  irreversible, instead of a `TypeError` from generic bubble
+  reconstruction.
+- `style-review.yml`'s hand-over to the correctness reviewer, and its
+  token generation, ran on every style review rather than the intended
+  ones. Both conditions were written as `if: >` folding a wrapped
+  `${{ ... }}` into a string with a trailing newline: with characters
+  around it the expression is no longer the whole value, so GitHub read a
+  non-empty string and took it as true. `@cubic-dev-ai review` was
+  therefore posted whatever the style review found, where it is meant to
+  wait for a clean one. [#634](https://github.com/discopy/discopy/pull/634)
+  rewrote both conditions and the shape survived, so the fix is applied to
+  its versions: written bare, as the file's other five conditions are
+  ([#645](https://github.com/discopy/discopy/pull/645)).
 
 - The style review no longer depends on a transition that may never
   happen. `ready_for_review` fires on the draft-to-ready edge alone, so a
