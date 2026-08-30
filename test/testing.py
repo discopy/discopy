@@ -7,21 +7,28 @@ shape of argument the axioms expect. Whether the axioms hold is checked over
 every category in ``proptest/``.
 """
 
+from __future__ import annotations
+
 from hypothesis import find
 from pytest import raises
 
-from discopy import biclosed, cat, feedback, monoidal, traced
+from discopy import biclosed, cat, feedback, monoidal, rigid, testing, traced
 from discopy.testing import (
-    Atomic, Bifunctor, BoundaryConnected, ComposablePair, ComposableTriple,
-    FeedbackJoining, FeedbackVanishing, HomogeneousMemory, HorizontalPair,
-    LeftCurrying, Natural, NonEmpty, RightCurrying, Small,
-    TraceDinaturalityLeft, TraceDinaturalityRight, TraceNaturalityLeft,
-    TraceNaturalityRight, TraceSuperposing, axiom)
+    C0, C1, Atomic, Bifunctor, BoundaryConnected, ComposablePair,
+    ComposableTriple, FeedbackJoining, FeedbackVanishing, HomogeneousMemory,
+    HorizontalPair, LeftCurrying, Natural, NonEmpty, Relabelled, Relabelling,
+    RightCurrying, Small, TraceDinaturalityLeft, TraceDinaturalityRight,
+    TraceNaturalityLeft, TraceNaturalityRight, TraceSuperposing, axiom,
+    resolve)
 from discopy.utils import AxiomError
 
 
 def test_Natural():
     assert Natural(2) @ Natural(3) == 5 == len(Natural(5))
+    assert Natural(1).__matmul__("x") is NotImplemented
+    assert repr(Natural(2)) == "testing.Natural(2)"
+    assert eval(repr(Natural(2))) == testing.Natural(2)
+    assert str(Natural(2)) == "2"
     assert Natural.equation_factory(Natural(1), Natural(1))
     with raises(ValueError):
         Natural(-1)
@@ -190,50 +197,6 @@ def test_FeedbackJoining():
     assert shape[0].cod[-2:] == shape[1]
 
 
-def test_Axiom():
-    @axiom
-    def law(cls, f):
-        """ Not an equation. """
-        return cls.equation_factory(f)
-
-    assert repr(law) == "Axiom(law)"
-    assert [parameter.name for parameter in law.parameters] == ['f']
-    assert cat.Arrow.unitality.carrier is cat.Arrow
-    with raises(TypeError):
-        law(cat.Id(cat.Ob('x')))
-    assert law.bind(cat.Arrow)(cat.Id(cat.Ob('x')))
-
-
-def test_inapplicable():
-    class Carrier(cat.Arrow):
-        unitality = cat.Arrow.unitality.inapplicable("No identities.")
-
-    unitality, = (a for a in Carrier.axioms if a.name == "unitality")
-    assert unitality() is NotImplemented
-    assert unitality.__doc__ == "No identities."
-    assert not unitality.parameters and not unitality.broken
-
-
-def test_Small():
-    x = monoidal.Ty('x')
-    assert Small(x).value == x
-    with raises(ValueError):
-        Small(x @ x)
-    find(Small.strategy(factory=monoidal.Ty),
-         lambda value: len(value.value) == 1)
-
-
-def test_BoundaryConnected():
-    x = monoidal.Ty('x')
-    f = monoidal.Box('f', x, x)
-    scalar = monoidal.Box('s', monoidal.Ty(), monoidal.Ty())
-    assert BoundaryConnected(f).value == f
-    with raises(ValueError):
-        BoundaryConnected(f @ scalar)
-    find(BoundaryConnected.strategy(factory=monoidal.Diagram),
-         lambda value: bool(value.value.boxes))
-
-
 def test_HomogeneousMemory():
     x, m = map(feedback.Ty, "xm")
     f = feedback.Box('f', x @ (m @ m).delay(), x @ m @ m)
@@ -246,12 +209,100 @@ def test_HomogeneousMemory():
          lambda value: True)
 
 
-def test_weaken():
-    from discopy.matrix import Matrix
+def test_Relabelling():
+    x, y, z = cat.Ob('x'), cat.Ob('y'), cat.Ob('z')
+    relabelling = Relabelling(((x, y), ))
+    assert relabelling[x] == y and relabelling[z] == z
+    assert list(relabelling) == [x] and len(relabelling) == 1
+    assert bool(Relabelling()) and relabelling.send(x) == y
+    rigid_x, rigid_y = rigid.Ty('x'), rigid.Ty('y')
+    rotating = Relabelling(((rigid_x, rigid_y), ))
+    assert rotating[rigid_x.l] == rigid_y.l
+    assert rotating[rigid_x.r] == rigid_y.r
+    assert rotating.send(rigid_x @ rigid_x.l) == rigid_y @ rigid_y.l
+    delayed = Relabelling(((feedback.Ty('u'), feedback.Ty('v')), ))
+    assert delayed[feedback.Ty('u').delay()] == feedback.Ty('v').delay()
+    relabelled = Relabelled(relabelling)
+    assert relabelled[cat.Box('f', x, x)] == cat.Box('f', y, y)
+    assert list(relabelled) == [] and not len(relabelled) and bool(relabelled)
 
-    weakened, = (axiom for axiom in Matrix[int].axioms
-                 if axiom.name == "copy_cocommutativity_small")
-    assert weakened.subspaces
-    assert not weakened.broken
-    small = find(weakened.strategy(), lambda args: True)
-    assert isinstance(small[0], Small) and weakened(*small)
+
+def test_Axiom():
+    @axiom
+    def law(cls, f):
+        """ Not an equation. """
+        return cls.equation_factory(f)
+
+    assert repr(law) == "Axiom(law)"
+    assert [parameter.name for parameter in law.parameters] == ['f']
+    assert cat.Arrow.unitality.carrier is cat.Arrow
+    with raises(TypeError):
+        law(cat.Id(cat.Ob('x')))
+    with raises(TypeError):
+        law.falsify()
+    assert law.bind(cat.Arrow)(cat.Id(cat.Ob('x')))
+    broken = cat.Arrow.unitality.failing("Never holds.").bind(cat.Arrow)
+    with raises(AxiomError):
+        broken(cat.Box('f', cat.Ob('x'), cat.Ob('y')))
+
+
+def test_modulo():
+    law = cat.Arrow.unitality.modulo(lambda term: term.dom).bind(cat.Arrow)
+    assert law(cat.Box('f', cat.Ob('x'), cat.Ob('y')))
+
+
+def test_weaken():
+    for subspace in (Atomic[C1], Atomic[monoidal.Ty]):
+        law = monoidal.Ty.monoid_unitality.weaken(x=subspace)\
+            .bind(monoidal.Ty)
+        assert law.modulo(lambda term: term).subspaces == law.subspaces
+        args = find(law.strategy(), lambda _: True)
+        assert isinstance(args[0], Atomic) and law(*args)
+
+
+def test_element_law():
+    @axiom
+    def preserves_identity(self, x: C0) -> cat.Equation:
+        """ A functor preserves the identity on each object. """
+        return cat.Equation(self(cat.Arrow.id(x)), cat.Arrow.id(self(x)))
+
+    law = preserves_identity.bind(cat.Functor)
+    assert law.is_method
+    args = find(law.strategy(), lambda _: True)
+    assert law(*args)
+
+
+def test_inapplicable():
+    class Carrier(cat.Arrow):
+        unitality = cat.Arrow.unitality.inapplicable("No identities.")
+
+    unitality = Carrier.axioms["unitality"]
+    assert unitality() is NotImplemented
+    assert unitality.__doc__ == "No identities."
+    assert not unitality.parameters and not unitality.broken
+
+
+def test_Small():
+    x = monoidal.Ty('x')
+    assert Small(x).value == x
+    with raises(ValueError):
+        Small(x @ x)
+    find(Small.strategy(factory=monoidal.Ty),
+         lambda value: len(value.value) == 1)
+    with raises(TypeError):
+        resolve(int)
+
+
+def test_BoundaryConnected():
+    x = monoidal.Ty('x')
+    f = monoidal.Box('f', x, x)
+    scalar = monoidal.Box('s', monoidal.Ty(), monoidal.Ty())
+    assert BoundaryConnected(f).value == f
+    assert BoundaryConnected(f.to_hypergraph()).value
+    assert BoundaryConnected((f, f)).value == (f, f)
+    for value in (
+            f @ scalar, scalar, scalar.to_map(), scalar.to_hypergraph()):
+        with raises(ValueError):
+            BoundaryConnected(value)
+    find(BoundaryConnected.strategy(factory=monoidal.Diagram),
+         lambda value: bool(value.value.boxes))

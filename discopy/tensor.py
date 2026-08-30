@@ -189,7 +189,7 @@ class Tensor(Matrix):
         return cls.cups(left, right).dagger()
 
     #: The copy of a tensor is a correct spider, where the matrix one is
-    #: wrong for ``x, n >= 2`` (#606), so the plain laws are restored.
+    #: wrong for ``x, n >= 2`` (#652), so the plain laws are restored.
     copy_counitality = MarkovCategory.copy_counitality
 
     copy_cocommutativity = MarkovCategory.copy_cocommutativity

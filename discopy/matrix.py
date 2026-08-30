@@ -53,11 +53,11 @@ from discopy.utils import assert_isinstance, classproperty, unbiased
 if TYPE_CHECKING:
     import sympy
 
-WRONG_COPY = "``Matrix.copy(x, n)`` is wrong for ``x, n >= 2``, see #606."
+WRONG_COPY = "``Matrix.copy(x, n)`` is wrong for ``x, n >= 2``, see #652."
 
 
 @factory
-class Matrix(MarkovCategory, Strategy["Matrix"], NamedGeneric['dtype']):
+class Matrix(MarkovCategory, Strategy["Matrix"], NamedGeneric["dtype"]):
     """
     A matrix is an ``array`` with natural numbers as ``dom`` and ``cod``.
 
