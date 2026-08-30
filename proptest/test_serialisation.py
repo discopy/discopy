@@ -11,7 +11,7 @@ from discopy import hopf
 from discopy.quantum import circuit
 from discopy.utils import dumps, from_tree, loads
 
-from proptest.test_axioms import carrier_parameters
+from proptest.carriers import carrier_parameters
 
 
 def classify(carrier):

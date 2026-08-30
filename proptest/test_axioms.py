@@ -4,54 +4,9 @@ import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from discopy import (
-    balanced,
-    biclosed,
-    braided,
-    cat,
-    closed,
-    compact,
-    feedback,
-    frobenius,
-    markov,
-    monoidal,
-    pivotal,
-    ribbon,
-    rigid,
-    symmetric,
-    traced,
-)
-from discopy.testing import assert_verdict
 from discopy.utils import factory_name
 
-CARRIERS = (
-    cat.Arrow, cat.Functor,
-    monoidal.Wire, monoidal.Ty, monoidal.PRO,
-    monoidal.Diagram, monoidal.Functor,
-    braided.Diagram, braided.Functor,
-    traced.Diagram, traced.Functor,
-    balanced.Diagram, balanced.Functor,
-    symmetric.Diagram, symmetric.Functor,
-    biclosed.Ty, biclosed.Diagram, biclosed.Functor,
-    rigid.Ty, rigid.Diagram, rigid.Functor,
-    pivotal.Ty, pivotal.Diagram, pivotal.Functor,
-    ribbon.Diagram, ribbon.Functor,
-    compact.Diagram, compact.Functor,
-    markov.Diagram, markov.Functor,
-    closed.Ty, closed.Diagram, closed.Functor,
-    feedback.Ty, feedback.Diagram, feedback.Functor,
-    frobenius.Ty, frobenius.Diagram, frobenius.Functor,
-)
-
-
-def carrier_parameters(classify=lambda carrier: ()):
-    """
-    One pytest parameter per carrier, marked by the given classification,
-    a function from a carrier to its marks, e.g. an expected failure.
-    """
-    for carrier in CARRIERS:
-        yield pytest.param(
-            carrier, marks=classify(carrier), id=factory_name(carrier))
+from proptest.carriers import CARRIERS
 
 
 def axiom_parameters():
@@ -63,7 +18,7 @@ def axiom_parameters():
     test is skipped rather than generating arguments it could not satisfy.
     """
     for carrier in CARRIERS:
-        for axiom in getattr(carrier, "axioms", ()):
+        for axiom in getattr(carrier, "axioms", {}).values():
             if not axiom.parameters and axiom() is NotImplemented:
                 marks = pytest.mark.skip(reason=axiom.__doc__.strip())
             elif axiom.broken:
@@ -82,4 +37,4 @@ def axiom_parameters():
 def test_axiom(axiom, data):
     """ Check an axiom of a carrier against generated arguments. """
     args = data.draw(axiom.strategy(), label=axiom.name)
-    assert_verdict(axiom, axiom(*args))
+    assert axiom(*args)

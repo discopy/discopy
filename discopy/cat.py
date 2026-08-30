@@ -1166,60 +1166,17 @@ class Transformation(Category):
 
 class Equation(AbstractEquation[Arrow]):
     """
-    An equation is a list of ``terms`` to be compared up to a function
-    ``up_to``, the identity by default.  Casting it to ``bool`` checks whether
-    its terms are all equal up to that function.
-
-    Parameters:
-        terms : The terms of the equation.
-        symbol : The symbol between each pair of terms, ``"="`` by default.
-        symbols : The symbols between each pair of terms, overriding
-            ``symbol``; ``len(terms) * (symbol, )`` by default.
-        up_to : The function up to which ``bool(equation)`` compares its terms,
-            overriding the subclass' :attr:`up_to` if given.
+    An :class:`.abc.Equation` between arrows, see its docstring for the
+    parameters and :meth:`.abc.Equation.modulo` for quotients.
 
     Example
     -------
-    The number of boxes inside an arrow is left unchanged by associativity, so
-    we can compare arrows up to the function that counts them modulo 2:
-
     >>> x = Ob('x')
     >>> f, g = Box('f', x, x), Box('g', x, x)
     >>> parity = lambda term: len(term.inside) % 2
     >>> assert not Equation(f, f >> g >> g)
     >>> assert Equation(f, f >> g >> g, up_to=parity)
     """
-    up_to = None
-
-    def __init__(self, *terms: Arrow, symbol="=", symbols=None, up_to=None):
-        self.terms = terms
-        self.symbols = tuple(symbols) if symbols is not None\
-            else len(terms) * (symbol, )
-        if up_to is not None:
-            self.up_to = up_to
-
-    def modulo(self, up_to: Callable) -> Equation:
-        """
-        The same equation compared up to the given function, rebinding
-        :attr:`up_to`, whose name the attribute already takes.
-
-        >>> x = Ob('x')
-        >>> f, g = Box('f', x, x), Box('g', x, x)
-        >>> assert Equation(f >> g, g >> f).modulo(lambda _: True)
-        """
-        return type(self)(*self.terms, symbols=self.symbols, up_to=up_to)
-
-    def __repr__(self):
-        return factory_name(type(self))\
-            + f"({', '.join(map(repr, self.terms))})"
-
-    def __str__(self):
-        return f"Equation({', '.join(map(str, self.terms))})"
-
-    def __bool__(self):
-        terms = self.terms if self.up_to is None\
-            else list(map(self.up_to, self.terms))
-        return all(term == terms[0] for term in terms)
 
 
 Ob.equation_factory = Arrow.equation_factory = Equation

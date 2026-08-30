@@ -9,10 +9,12 @@ from dataclasses import dataclass
 from functools import wraps
 from typing import ClassVar, TypeVar, TYPE_CHECKING, get_args, get_origin
 
-from discopy.utils import AxiomError, assert_iscomposable
+from discopy.utils import AxiomError, assert_iscomposable, factory_name
 
 if TYPE_CHECKING:
     from hypothesis import strategies as st
+
+    from discopy import monoidal
 
 
 C0 = TypeVar("C0")
@@ -22,9 +24,9 @@ The object and arrow types of the carrier an axiom is bound to.
 
 An axiom annotates its arguments with these rather than with the concrete
 types of the module it is written in, so that a subclass inherits the
-override with its own types: :func:`proptest.strategies.arguments` rebinds
-both names to ``carrier.ob`` and ``carrier.ar`` when it evaluates the
-annotations. This is also why every module stating an axiom needs
+override with its own types: :meth:`Axiom.strategy` rebinds both names to
+``carrier.ob`` and ``carrier.ar`` when it evaluates the annotations. This
+is also why every module stating an axiom needs
 ``from __future__ import annotations``, which keeps them unevaluated.
 """
 
@@ -48,7 +50,7 @@ class Strategy[T](ABC):
 
     @classmethod
     @abstractmethod
-    def strategy(cls, **params) -> "st.SearchStrategy[T]":  # pragma: no cover
+    def strategy(cls, **params) -> st.SearchStrategy[T]:  # pragma: no cover
         """Build a strategy for instances of ``cls``."""
 
 
@@ -67,10 +69,18 @@ class Natural(int, Strategy["Natural"]):
     __rmatmul__ = __matmul__
     __len__ = lambda self: int(self)
 
+    def __repr__(self):
+        return factory_name(type(self)) + f"({int(self)})"
+
     @classmethod
     def equation_factory(cls, *terms):
-        """ Construct an equation between natural numbers. """
-        from discopy.cat import Equation
+        """
+        Construct an equation between natural numbers.
+
+        The import is local because :mod:`discopy.abc` imports this module
+        for its axioms, so the arrow between them cannot be reversed.
+        """
+        from discopy.abc import Equation
 
         return Equation(*terms)
 
@@ -134,28 +144,11 @@ class Small[T](Strategy[T]):
             lambda value: len(value) <= 1).map(cls)
 
 
-def is_boundary_connected(term) -> bool:
-    """
-    Whether the boundary of a term reaches every box, through its
-    hypergraph when it has one — falling back to the components of its
-    combinatorial map where the hypergraph is partial, e.g. on the
-    left-handed cups and caps of a rigid diagram.
-    """
-    if hasattr(term, "is_boundary_connected"):
-        return term.is_boundary_connected
-    try:
-        return term.to_hypergraph().is_boundary_connected
-    except (AxiomError, NotImplementedError):
-        return all(
-            len(component.dom) or len(component.cod)
-            for component in term.to_map().connected_components)
-
-
 @dataclass(frozen=True)
 class BoundaryConnected[T](Strategy[T]):
     """
-    A term whose boundary reaches every box — a diagram, a hypergraph, a
-    combinatorial map, or a pasting diagram of them.
+    A term whose boundary reaches every box — a hypergraph, a
+    combinatorial map, or a diagram read through its map.
     """
 
     value: T
@@ -164,7 +157,9 @@ class BoundaryConnected[T](Strategy[T]):
         cells = self.value if isinstance(self.value, tuple)\
             else (self.value, )
         for cell in cells:
-            if not is_boundary_connected(cell):
+            graph = cell if hasattr(cell, "is_boundary_connected")\
+                else cell.to_map()
+            if not graph.is_boundary_connected:
                 raise ValueError("Expected a boundary-connected term.")
 
     @classmethod
@@ -565,10 +560,10 @@ class Axiom[T]:
     first parameter is ``self`` is a law of an element, e.g. a functor, so the
     element is generated too and the law reads as a method on it.
 
-    Calling a bound axiom returns its own verdict: :obj:`NotImplemented` when
-    the structure does not apply to the carrier, an
-    :class:`discopy.utils.AxiomError` wrapping the equation when the law is
-    known to be broken, and the equation itself otherwise.
+    Calling a bound axiom returns its own verdict: :obj:`NotImplemented`
+    when the structure does not apply to the carrier, and the equation
+    itself otherwise; a law declared broken raises an
+    :class:`discopy.utils.AxiomError` instead of returning anything.
 
     A law is broken when *some* argument is a counterexample, not every one,
     so :attr:`broken` is declared by :meth:`failing` before any argument is
@@ -629,14 +624,14 @@ class Axiom[T]:
 
     def failing(self, reason: str) -> Axiom[T]:
         """
-        The same law declared broken, its equation wrapped in an
+        The same law declared broken: calling it raises an
         :class:`discopy.utils.AxiomError` with the reason as message and
-        documentation, e.g. ``braid_naturality =
+        the equation as its last argument, e.g. ``braid_naturality =
         BraidedCategory.braid_naturality.failing("A free braid is a box.")``.
         """
         @wraps(self.equation)
         def equation(*args, **kwargs):
-            return AxiomError(reason, self.equation(*args, **kwargs))
+            raise AxiomError(reason, self.equation(*args, **kwargs))
         equation.__doc__ = reason
         return type(self)(equation, broken=True)
 
@@ -670,7 +665,7 @@ class Axiom[T]:
             subspaces=dict(self.subspaces, **subspaces), broken=self.broken)
         return result
 
-    def strategy(self) -> "st.SearchStrategy":
+    def strategy(self) -> st.SearchStrategy:
         """
         Generate the arguments the bound axiom expects.
 
@@ -723,7 +718,7 @@ class Axiom[T]:
                 verdict = self(*args)
             except Exception:
                 return True
-            return verdict is not NotImplemented and not holds(verdict)
+            return verdict is not NotImplemented and not verdict
 
         return find(self.strategy(), refutes, **params)
 
@@ -763,7 +758,7 @@ def axiom(equation) -> Axiom:
     return Axiom(equation)
 
 
-def resolve(annotation, **params) -> "st.SearchStrategy":
+def resolve(annotation, **params) -> st.SearchStrategy:
     """ Resolve the strategy implemented by an annotated type. """
     origin = get_origin(annotation) or annotation
     if not isinstance(origin, type) or not issubclass(origin, Strategy):
@@ -793,7 +788,7 @@ def assert_axioms(*carriers) -> None:
     run of the property tests in ``proptest/``.
 
     An axiom that does not apply is skipped, a broken one is only required
-    to state its :class:`discopy.utils.AxiomError` — one example need not
+    to raise its :class:`discopy.utils.AxiomError` — one example need not
     be a counterexample — and any other law must hold.
     """
     from hypothesis import Phase, find, settings
@@ -801,69 +796,25 @@ def assert_axioms(*carriers) -> None:
     single_shot = settings(
         max_examples=1, phases=(Phase.generate, ), database=None)
     for carrier in carriers:
-        for axiom in carrier.axioms:
+        for axiom in carrier.axioms.values():
             if not axiom.parameters and axiom() is NotImplemented:
                 continue
             args = find(
                 axiom.strategy(), lambda value: True, settings=single_shot)
             try:
-                verdict = axiom(*args)
+                assert axiom(*args), axiom
             except AxiomError:
                 assert axiom.broken, axiom
-                continue
-            if axiom.broken:
-                assert isinstance(verdict, AxiomError), axiom
-            else:
-                assert holds(verdict), axiom
 
 
-def assert_strategy_finds(carrier, *structures) -> None:
+def assert_strategy_finds(
+        carrier: type[monoidal.Diagram], *structures: type) -> None:
     """
-    Check that the strategy of an arrow carrier generates a term containing
-    a box of each of the given structural classes.
+    Check that the strategy of a diagram carrier generates a term
+    containing a box of each of the given structural classes.
     """
     from hypothesis import find
 
     for structure in structures:
         find(carrier.strategy(), lambda term: any(
-            isinstance(box, structure) for box in (
-                term.boxes if hasattr(term, "boxes") else term.inside)))
-
-
-def assert_verdict(axiom: Axiom, verdict) -> None:
-    """
-    Assert the verdict a bound axiom returned for some arguments.
-
-    An :class:`discopy.utils.AxiomError` wraps the equation of a law that is
-    known to be broken — as its last argument, after an optional reason —
-    and carries none at all when the implementation refused to build its
-    terms. Either way the equation is asserted: it is :attr:`Axiom.broken`
-    that tells the runner to expect the failure.
-    """
-    assert holds(verdict)
-
-
-def holds(verdict) -> bool:
-    """
-    Whether a verdict asserts, unwrapping the equation a broken law carries
-    as the last argument of its :class:`discopy.utils.AxiomError`.
-    """
-    if isinstance(verdict, AxiomError):
-        verdict = verdict.args[-1] if verdict.args else False
-    return bool(verdict)
-
-
-def declared_axioms(cls) -> dict[str, Axiom]:
-    """
-    The axioms a class declares, by name, subclasses overriding bases.
-
-    Names are collected before they are filtered, so that assigning anything
-    that is not an axiom over an inherited one drops it altogether, rather
-    than restating it.
-    """
-    visible = {
-        name: value
-        for base in reversed(cls.__mro__)
-        for name, value in base.__dict__.items()}
-    return {name: value for name, value in visible.items()
-            if isinstance(value, Axiom)}
+            isinstance(box, structure) for box in term.boxes))
