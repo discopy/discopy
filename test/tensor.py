@@ -389,9 +389,15 @@ def test_Functor_bubble():
 
 
 def test_strategy():
+    from hypothesis import find
+
     from discopy import testing
 
     testing.assert_strategy_finds(Diagram, Spider)
+    generated = find(Tensor.strategy(dom=Dim(2), cod=Dim(3)),
+                     lambda value: bool(value.array.any()))
+    assert (generated.dom, generated.cod) == (Dim(2), Dim(3))
+    assert generated.array.shape == (2, 3)
 
 
 def test_axioms():
