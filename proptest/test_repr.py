@@ -10,9 +10,8 @@ from hypothesis import strategies as st
 from discopy import monoidal, tensor
 from discopy.python import function
 from discopy.quantum import zx
-from discopy.utils import factory_name
 
-from proptest.test_axioms import CARRIERS
+from proptest.carriers import carrier_parameters
 
 IMPORTS = (
     "from discopy import *",
@@ -51,27 +50,24 @@ def environment(carrier):
     return env
 
 
-def carrier_parameters():
-    """ One parameter per carrier, the known violations expected failures. """
-    for carrier in CARRIERS:
-        if carrier is monoidal.Wire:
-            marks = pytest.mark.xfail(reason=(
-                "An uncoloured wire reprs as the cat.Ob that Ty coerces, "
-                "which Wire.__eq__ rejects."))
-        elif carrier is tensor.Tensor[int]:
-            marks = pytest.mark.xfail(reason=(
-                "A tensor with more than config.NUMPY_THRESHOLD entries "
-                "elides its array as a literal ellipsis."))
-        elif isinstance(carrier, type)\
-                and issubclass(carrier, function.Function):
-            marks = pytest.mark.xfail(
-                reason="A closure does not repr its body.")
-        else:
-            marks = ()
-        yield pytest.param(carrier, marks=marks, id=factory_name(carrier))
+def classify(carrier):
+    """ The known violations expected failures. """
+    if carrier is monoidal.Wire:
+        return pytest.mark.xfail(reason=(
+            "An uncoloured wire reprs as the cat.Ob that Ty coerces, "
+            "which Wire.__eq__ rejects."))
+    if carrier is tensor.Tensor[int]:
+        return pytest.mark.xfail(reason=(
+            "A tensor with more than config.NUMPY_THRESHOLD entries "
+            "elides its array as a literal ellipsis."))
+    if isinstance(carrier, type)\
+            and issubclass(carrier, function.Function):
+        return pytest.mark.xfail(
+            reason="A closure does not repr its body.")
+    return ()
 
 
-@pytest.mark.parametrize("carrier", carrier_parameters())
+@pytest.mark.parametrize("carrier", carrier_parameters(classify))
 @given(data=st.data())
 @settings(max_examples=25, deadline=None)
 def test_repr(carrier, data):

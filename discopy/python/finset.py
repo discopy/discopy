@@ -28,7 +28,7 @@ from discopy.abc import SymmetricCategory
 from discopy.testing import Natural, Strategy
 
 WRONG_SWAP = \
-    "``Function.swap`` returns the inverse permutation, see #606; the "\
+    "``Function.swap`` returns the inverse permutation, see #657; the "\
     "law would only hold where every swap has equal halves, a joint "\
     "constraint that per-argument generation cannot state."
 
