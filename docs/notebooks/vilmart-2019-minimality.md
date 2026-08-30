@@ -117,9 +117,15 @@ standard = Functor(
     dom=type(Id(1)), cod=Tensor[complex])
 
 
-def evaluate(diagram):
-    """Evaluate a ZX diagram under the explicit standard interpretation."""
-    return np.asarray(standard(diagram).array)
+def make_evaluator(functor):
+    """Return the NumPy evaluator associated with a tensor functor."""
+    def evaluate_diagram(diagram):
+        return np.asarray(functor(diagram).array)
+
+    return evaluate_diagram
+
+
+evaluate = make_evaluator(standard)
 
 
 def close(left, right, atol=1e-10):
@@ -511,8 +517,7 @@ ig_countermodel = Functor(
     dom=type(Id(1)), cod=Tensor[complex])
 
 
-def ig_evaluate(diagram):
-    return np.asarray(ig_countermodel(diagram).array)
+ig_evaluate = make_evaluator(ig_countermodel)
 
 
 def ig_close(left, right):
@@ -784,8 +789,7 @@ doubled = Functor(
     dom=type(Id(1)), cod=Tensor[complex])
 
 
-def doubled_evaluate(diagram):
-    return np.asarray(doubled(diagram).array)
+doubled_evaluate = make_evaluator(doubled)
 
 
 def doubled_close(left, right):
@@ -1171,8 +1175,7 @@ projective = Functor(
     dom=type(Id(1)), cod=Tensor[complex])
 
 
-def projective_evaluate(diagram):
-    return np.asarray(projective(diagram).array)
+projective_evaluate = make_evaluator(projective)
 
 
 def projective_close(left, right):

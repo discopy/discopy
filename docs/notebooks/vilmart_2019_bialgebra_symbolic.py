@@ -9,6 +9,8 @@ SymPy is kept as an on-demand dependency because the documentation notebook
 itself uses only DisCoPy's normal NumPy dependency.
 """
 
+from itertools import product
+
 import sympy as sp
 
 
@@ -18,6 +20,27 @@ def circle_remainder(expression, cosine, sine):
     relation = sine ** 2 + cosine ** 2 - 1
     return sp.factor(sp.rem(
         sp.Poly(numerator, sine), sp.Poly(relation, sine)).as_expr())
+
+
+def assert_bialgebra(matrix):
+    """Check every component of the normalized bialgebra equation."""
+    dimension = matrix.rows
+    indices = range(dimension)
+    tensor = {
+        (first, second, output): sp.simplify(sum(
+            matrix[first, middle]
+            * matrix[second, middle]
+            * matrix[output, middle]
+            for middle in indices))
+        for first, second, output in product(indices, repeat=3)}
+    for first, second, output, other_output in product(indices, repeat=4):
+        entry = tensor[first, second, output]
+        left = (
+            sp.sqrt(dimension)
+            * entry
+            * tensor[first, second, other_output])
+        right = int(output == other_output) * entry
+        assert sp.simplify(left - right) == 0
 
 
 def main():
@@ -122,27 +145,7 @@ def main():
             cosine: -sp.Rational(1, 2),
             sine: sine_sign * sp.sqrt(3) / 2}))
         assert set(root_three) == {-sp.sqrt(2) / 4, sp.sqrt(2) / 4}
-        tensor_three = [[[
-            sp.simplify(sum(
-                root_three[a, j]
-                * root_three[b, j]
-                * root_three[output, j]
-                for j in range(dimension_three)))
-            for output in range(dimension_three)]
-            for b in range(dimension_three)]
-            for a in range(dimension_three)]
-        for a in range(dimension_three):
-            for b in range(dimension_three):
-                for output in range(dimension_three):
-                    for other_output in range(dimension_three):
-                        left = (
-                            2 * sp.sqrt(2)
-                            * tensor_three[a][b][output]
-                            * tensor_three[a][b][other_output])
-                        right = (
-                            int(output == other_output)
-                            * tensor_three[a][b][output])
-                        assert sp.simplify(left - right) == 0
+        assert_bialgebra(root_three)
 
     print(cubic)
     print(witness_zero)
