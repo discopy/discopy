@@ -16,7 +16,6 @@ forgetful functors between categories go the other way.
 
 Each class also declares its :func:`discopy.testing.axiom` equations, which
 every free category inherits along with the structure they axiomatise.
-:class:`HypergraphCategory` is axiomatised on the next branch.
 
 Summary
 -------
@@ -39,31 +38,22 @@ Summary
     PivotalCategory
     RibbonCategory
     NamedGeneric
+    Equation
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from typing import ClassVar, Generic, TypeVar
+from typing import Callable, ClassVar, Generic, TypeVar
 
 from discopy.testing import (
-    Axiom, Atomic, Bifunctor, ComposablePair, ComposableTriple,
+    Atomic, Axiom, Bifunctor, ComposablePair, ComposableTriple,
     FeedbackJoining, FeedbackVanishing, HorizontalPair,
     LeftCurrying, Natural, NonEmpty, RightCurrying, TraceDinaturalityLeft,
     TraceDinaturalityRight, TraceNaturalityLeft, TraceNaturalityRight,
-    TraceSuperposing, axiom, declared_axioms)
+    TraceSuperposing, axiom)
 from discopy.utils import classproperty, factory_name, get_origin
-
-
-class Equation[T](ABC):
-    """ The abstract interface for an equation between terms of type ``T``. """
-
-    terms: tuple[T, ...]
-
-    @abstractmethod
-    def __bool__(self) -> bool:
-        """ Whether all terms in the equation are equal. """
 
 
 class Category[C0, C1: Category](ABC):
@@ -93,7 +83,7 @@ class Category[C0, C1: Category](ABC):
     ar = classproperty(lambda cls: getattr(cls, "factory", cls))
 
     @classmethod
-    def equation_factory(cls, *terms):
+    def equation_factory(cls, *terms) -> Equation:
         """
         Construct an equation, using strict equality by default.
 
@@ -103,14 +93,24 @@ class Category[C0, C1: Category](ABC):
         defines — and :meth:`discopy.testing.Axiom.modulo` weakens it
         further.
         """
-        from discopy.cat import Equation as CatEquation
-        return CatEquation(*terms)
+        return Equation(*terms)
 
     @classproperty
-    def axioms(cls) -> tuple[Axiom, ...]:
-        """ The ordered axioms inherited by ``cls``. """
-        return tuple(
-            value.bind(cls) for value in declared_axioms(cls).values())
+    def axioms(cls) -> dict[str, Axiom]:
+        """
+        The axioms inherited by ``cls``, by name, subclasses overriding
+        bases.
+
+        Names are collected before they are filtered, so that assigning
+        anything that is not an axiom over an inherited one drops it
+        altogether, rather than restating it.
+        """
+        visible = {
+            name: value
+            for base in reversed(cls.__mro__)
+            for name, value in base.__dict__.items()}
+        return {name: value.bind(cls) for name, value in visible.items()
+                if isinstance(value, Axiom)}
 
     @classmethod
     @abstractmethod
@@ -424,7 +424,8 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
         """ Right-oriented trace dinaturality. """
         f, g = sliding
         source, target = g.cod, g.dom
-        base, cobase = f.dom[:-len(source)], f.cod[:-len(target)]
+        base = f.dom[:-len(source)] if len(source) else f.dom
+        cobase = f.cod[:-len(target)] if len(target) else f.cod
         return cls.equation_factory(
             f.then(cobase @ g).trace(len(source)),
             (base @ g).then(f).trace(len(target)))
@@ -1136,3 +1137,68 @@ class NamedGeneric(Generic[TypeVar('T')]):
         for attr in attributes:
             setattr(Result, attr, getattr(Result, attr, None))
         return Result
+
+
+class Equation(NamedGeneric["ar"]):
+    """
+    An equation is a list of ``terms`` to be compared up to a function
+    ``up_to``, the identity by default.  Casting it to ``bool`` checks
+    whether its terms are all equal up to that function.
+
+    Parameters:
+        terms : The terms of the equation.
+        symbol : The symbol between each pair of terms, ``"="`` by default.
+        symbols : The symbols between each pair of terms, overriding
+            ``symbol``; ``len(terms) * (symbol, )`` by default.
+        up_to : The function up to which ``bool(equation)`` compares its
+            terms, overriding the subclass' :attr:`up_to` if given.
+
+    Example
+    -------
+    The number of boxes inside an arrow is left unchanged by associativity,
+    so we can compare arrows up to the function that counts them modulo 2:
+
+    >>> from discopy.cat import Ob, Box, Equation
+    >>> x = Ob('x')
+    >>> f, g = Box('f', x, x), Box('g', x, x)
+    >>> parity = lambda term: len(term.inside) % 2
+    >>> assert not Equation(f, f >> g >> g)
+    >>> assert Equation(f, f >> g >> g, up_to=parity)
+    """
+    up_to = None
+
+    def __init__(self, *terms, symbol="=", symbols=None, up_to=None):
+        self.terms = terms
+        self.symbols = tuple(symbols) if symbols is not None\
+            else len(terms) * (symbol, )
+        if up_to is not None:
+            self.up_to = up_to
+
+    def modulo(self, up_to: Callable) -> Equation:
+        """
+        The same equation compared up to the given function, rebinding
+        :attr:`up_to`, whose name the attribute already takes.
+
+        >>> from discopy.cat import Ob, Box, Equation
+        >>> x = Ob('x')
+        >>> f, g = Box('f', x, x), Box('g', x, x)
+        >>> assert Equation(f >> g, g >> f).modulo(lambda _: True)
+        """
+        return type(self)(*self.terms, symbols=self.symbols, up_to=up_to)
+
+    def __repr__(self):
+        """
+        >>> from discopy.cat import Ob, Box, Equation
+        >>> Equation(Box('f', Ob('x'), Ob('x')))
+        cat.Equation(cat.Box('f', cat.Ob('x'), cat.Ob('x')))
+        """
+        return factory_name(type(self))\
+            + f"({', '.join(map(repr, self.terms))})"
+
+    def __str__(self):
+        return f"Equation({', '.join(map(str, self.terms))})"
+
+    def __bool__(self):
+        terms = self.terms if self.up_to is None\
+            else list(map(self.up_to, self.terms))
+        return all(term == terms[0] for term in terms)

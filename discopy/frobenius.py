@@ -84,7 +84,7 @@ class Wire(pivotal.Wire):
     def strategy(cls, **params):
         """Generate self-dual objects at winding zero."""
         return rigid.Wire.strategy.__func__(
-            cls, min_winding=0, max_winding=0, **params)
+            cls, **dict(params, min_winding=0, max_winding=0))
 
 
 @factory
