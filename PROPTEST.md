@@ -20,9 +20,10 @@ search strategy whenever a bug escapes it.
   with `*` as the only wildcard so brackets match themselves. Recorded
   counterexamples carry the id of their matrix cell, so a glob selects a
   law's search and its records together.
-- Each `test/<module>.py` has a `test_axioms` dry run (one example per
+- Each `test/<module>.py` gains a `test_axioms` dry run (one example per
   axiom) and a `test_strategy` checking the strategy reaches the module's
-  structural boxes: the fast loop before the full matrix.
+  structural boxes, as its module's carriers are enrolled on the later
+  branches of this stack: the fast loop before the full matrix.
 
 ## Properties before implementation
 

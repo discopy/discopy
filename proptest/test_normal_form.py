@@ -11,7 +11,7 @@ from discopy import hopf, monoidal, pivotal, ribbon, rigid
 from discopy.quantum import zx
 from discopy.utils import factory_name
 
-from proptest.test_axioms import CARRIERS
+from proptest.carriers import CARRIERS
 
 PARTIAL_HYPERGRAPH = pytest.mark.xfail(reason=(
     "to_hypergraph rejects a left-handed cup or cap: Hypergraph.cups and "
