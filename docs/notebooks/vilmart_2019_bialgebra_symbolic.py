@@ -44,7 +44,10 @@ def assert_bialgebra(matrix):
 
 
 def main():
-    """Check the cubic scalar and the explicit violating component."""
+    """Check the cubic scalar and the explicit violating component.
+
+    The RootOf witness comparison is exact, not a floating-point check.
+    """
     cosine, sine = sp.symbols("c s", real=True)
     dimension = 16
     weight = int.bit_count
@@ -123,7 +126,6 @@ def main():
     assert sp.simplify(
         cubic.subs(root_substitution) - sp.Rational(1, 4)) == 0
     witness_at_root = expected.subs(root_substitution)
-    # This is an exact RootOf sign decision, not a floating-point check.
     assert (
         witness_at_root - sp.Rational(61, 640)).is_positive is True
 

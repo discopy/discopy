@@ -125,12 +125,17 @@ def make_evaluator(functor):
     return evaluate_diagram
 
 
+def make_close(evaluator, atol=1e-8):
+    """Return an entrywise equality check for an evaluator."""
+    def close_diagrams(left, right):
+        return np.allclose(
+            evaluator(left), evaluator(right), atol=atol, rtol=0)
+
+    return close_diagrams
+
+
 evaluate = make_evaluator(standard)
-
-
-def close(left, right, atol=1e-10):
-    """Check an interpreted diagram equation entry by entry."""
-    return np.allclose(evaluate(left), evaluate(right), atol=atol, rtol=0)
+close = make_close(evaluate, atol=1e-10)
 ```
 
 Here are the eight linear rule families and representative spider-fusion and
@@ -261,20 +266,19 @@ because Vilmart's (S) schema is green-only.  The degree-four colour-change
 instance violates it.
 
 ```python {.marimo}
-def high_spider_parity(diagram):
-    """The Z/2-valued model which separates spider fusion."""
-    return sum(
-        isinstance(box, (Z, X))
-        and len(box.dom) + len(box.cod) >= 4
-        for box in diagram.boxes) % 2
+def make_high_spider_parity(spider_type):
+    """Return a Z/2-valued high-degree spider countermodel."""
+    def parity(diagram):
+        return sum(
+            isinstance(box, spider_type)
+            and len(box.dom) + len(box.cod) >= 4
+            for box in diagram.boxes) % 2
+
+    return parity
 
 
-def high_red_parity(diagram):
-    """The Z/2-valued model which separates colour change."""
-    return sum(
-        isinstance(box, X)
-        and len(box.dom) + len(box.cod) >= 4
-        for box in diagram.boxes) % 2
+high_spider_parity = make_high_spider_parity((Z, X))
+high_red_parity = make_high_spider_parity(X)
 
 
 s_counterexample = (
@@ -518,10 +522,7 @@ ig_countermodel = Functor(
 
 
 ig_evaluate = make_evaluator(ig_countermodel)
-
-
-def ig_close(left, right):
-    return np.allclose(ig_evaluate(left), ig_evaluate(right), rtol=0)
+ig_close = make_close(ig_evaluate)
 
 
 assert not ig_close(Z(1, 1), Id(1))
@@ -790,11 +791,7 @@ doubled = Functor(
 
 
 doubled_evaluate = make_evaluator(doubled)
-
-
-def doubled_close(left, right):
-    return np.allclose(
-        doubled_evaluate(left), doubled_evaluate(right), atol=1e-9, rtol=0)
+doubled_close = make_close(doubled_evaluate, atol=1e-9)
 
 
 assert doubled_close(Z(1, 1), Id(1))
@@ -1180,11 +1177,7 @@ projective = Functor(
 
 
 projective_evaluate = make_evaluator(projective)
-
-
-def projective_close(left, right):
-    return np.allclose(
-        projective_evaluate(left), projective_evaluate(right), rtol=0)
+projective_close = make_close(projective_evaluate)
 
 
 assert projective_close(Z(1, 1), Id(1))
