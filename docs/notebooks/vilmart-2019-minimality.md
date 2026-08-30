@@ -1213,6 +1213,125 @@ presentation is minimal.  Here “rule” counts \(I_g\) and \(I_r\) separately
 and treats Only Connectivity Matters as the ambient compact graphical theory,
 as Vilmart's own minimality discussion does.
 
+## Post hoc comparison: an independent rediscovery
+
+This section was added on 30 August 2026, after the investigation above had
+been completed, committed, and opened as pull request
+[#688](https://github.com/discopy/discopy/pull/688).  The discovery phase was
+deliberately restricted to Vilmart's 2019 arXiv v1 and sources available
+before 2020.  Only afterwards did we read Stoltz and Vilmart's
+[*Minimality of the Pure Qubit ZX Calculus*](https://arxiv.org/abs/2608.14872)
+and the separate DisCoPy reproduction in pull request
+[#626](https://github.com/discopy/discopy/pull/626).  Thus the result above is
+an independent rediscovery in the sense of information provenance; this is
+not a claim of chronological priority over Stoltz and Vilmart, whose preprint
+was already public.
+
+For the presentation studied here, the conclusions coincide exactly.
+Stoltz and Vilmart call the eight-rule calculus obtained by deleting \(I_r\)
+\(\mathrm{ZX}_{\mathrm{opt}}\), and prove that it is complete and minimal.
+They additionally establish a second minimal seven-rule presentation
+\(\mathrm{ZX}'_{\mathrm{opt}}\), involving \(IV\) and \(EU'\), which is not
+analysed in this notebook.
+
+### The bialgebra countermodels are finite and infinitesimal versions of one idea
+
+Stoltz and Vilmart give the simpler countermodel if arbitrary coefficient
+rings are allowed.  Their wire is the rank-eight module
+
+\[
+ \mathbb D^8,\qquad \mathbb D=\mathbb C[\varepsilon]/(\varepsilon^2),
+\]
+
+and their Hadamard is
+
+\[
+ H'=(I+\varepsilon N)^{-1}H_3(I+\varepsilon N),
+ \qquad H_3=H^{\otimes3},
+\]
+
+where \(N\) is a sparse skew three-cycle on the weight-one basis states.
+The bialgebra already fails to first order, with witness coefficient
+\(-\sqrt2\varepsilon/4\), while every other rule remains valid.
+
+This is the tangent version of the phase-central deformation constructed
+above.  Indeed, at \(N=3\) our finite Euler obstruction is
+
+\[
+ C_3(K)-2^{-3/2}
+ =-\frac{2\sqrt2}{3}\sin^2(3\theta/2)=O(\theta^2),
+\]
+
+whereas the bialgebra defect has a nonzero linear term.  Substituting an
+infinitesimal \(\theta\) proportional to \(\varepsilon\) kills the Euler
+obstruction because \(\varepsilon^2=0\), without killing the bialgebra
+defect.  In ordinary complex vector spaces that quadratic obstruction must
+instead vanish at an actual finite point.  In the connected real \(N=3\)
+family classified above, the exact Euler solutions are Walsh points and all
+satisfy (B); the first countermodel in that family occurs at \(N=4\).  The
+construction above achieves this on \(\mathbb C^{16}\) by solving the exact
+cubic-scalar constraint.  This explains both the close structural agreement
+and the extra algebraic complexity of our original witness.
+
+The sizes are therefore not directly comparable.  Stoltz and Vilmart use
+rank eight over a nonreduced ring; after forgetting the module structure,
+\(\mathbb D^8\) has complex dimension sixteen, but its tensor product and
+monoidal unit are still those of \(\mathbb D\)-modules.  Our model is an
+ordinary finite-dimensional \(\mathbb C\)-linear model with no nilpotent
+scalars.
+
+Pull request #626 makes the infinitesimal structure explicit by evaluating
+diagrams and their first derivatives.  It further computes the effective
+spaces of admissible bialgebra-breaking tangent directions to have dimensions
+\(0,0,1,12\) for one through four qubits.  These are quotient dimensions of
+tangent parameters, not wire dimensions.  In our language its admissibility
+conditions are precisely the Lie-algebra versions of commuting with all phase
+gates and fixing every uniform weight vector.
+
+### The two derivations of the red identity track the same scalar anomaly
+
+Both proofs isolate the failure of naive red fusion before proving that its
+scalar residue is trivial.  With
+
+\[
+ R=X^0_{1,1},\qquad q_a=X^a_{0,1};Z^0_{1,0},\qquad
+ c=X^0_{0,3};Z^0_{3,0},
+\]
+
+Stoltz and Vilmart's residual scalar \(cq_\pi\) is our \(\omega\).  Their
+scalar-cleanup lemma \(cq_0=1\) is the diagrammatic counterpart of our traced
+Hopf calculation \(qc=1\), and their phase-deletion lemmas play the role of
+our character calculation \(\chi_{\pi/2}=1\).  Both routes conclude that
+\(cq_\pi=1\), hence \(R=1\).
+
+The presentation is different.  Their Appendix A gives a longer, completely
+diagrammatic chain of named rewrites, making every scalar movement visible.
+Our proof packages the same obstruction into invertibility, projective red
+fusion, a typed Hopf trace, and a phase character.  It is shorter and exposes
+the algebraic mechanism, but refers back to Vilmart's printed Hopf derivation
+for one intermediate equation.  Pull request #626 transcribes the endpoints
+of the appendix lemmas and checks their standard semantics; the syntactic
+rewrite derivations themselves remain the argument in Stoltz and Vilmart's
+paper.
+
+### Scope beyond the common theorem
+
+Stoltz and Vilmart introduce the two missing independence models, for \(B\)
+and \(I_g\), and use Vilmart's earlier results for the other six rules.  This
+notebook instead supplies an explicit separating model for every surviving
+rule.  Their Boolean-relational \(I_g\) model and our two-dimensional linear
+support model have the same support pattern; our additional result is the
+one-dimensional impossibility statement for field-valued tensor models.
+Conversely, their treatment is broader because it proves minimality of both
+\(\mathrm{ZX}_{\mathrm{opt}}\) and \(\mathrm{ZX}'_{\mathrm{opt}}\).
+
+The independent proofs therefore meet at the same theorem but contribute
+different refinements: Stoltz and Vilmart give a clean rank-eight
+infinitesimal bialgebra witness and fully graphical identity proofs, while
+this investigation gives ordinary-complex finite deformations, countermodels
+for the complete rule table, and lower-dimensional classifications inside
+several model families.
+
 ## Reproduction
 
 From the repository root, the executable claims are checked with:
