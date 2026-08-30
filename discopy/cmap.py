@@ -52,6 +52,7 @@ from discopy import hypergraph, messages
 from discopy.abc import (
     BiclosedCategory,
     CompactCategory,
+    Equation,
     HypergraphCategory,
     MarkovCategory,
     MonoidalCategory,
@@ -281,7 +282,7 @@ class CMap[C0: Pregroup, C1: CMap](
                 for name, axiom in cls.category.axioms.items()}
 
     @axiom
-    def braid_naturality(cls, f: C1, g: C1):
+    def braid_naturality(cls, f: C1, g: C1) -> Equation[C1]:
         """ Naturality of the braid, up to the diagrams the maps encode. """
         return cls.category.equation_factory(*(
             term.to_diagram() for term in (
