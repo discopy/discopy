@@ -875,7 +875,7 @@ NOT_ITS_OWN_FACTORY = (
     "draws tensor diagrams without actions or data.")
 
 
-def semantics(term) -> tensor.Tensor:
+def rounded_eval(term) -> tensor.Tensor:
     """
     The tensor a diagram of intertwiners contracts to, rounded against
     float noise: the quotient the ribbon laws of :class:`Intertwiner`
@@ -960,16 +960,16 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
     swap_inverse = tensor.Diagram.swap_inverse.inapplicable(
         BRAIDED_NOT_SYMMETRIC)
 
-    hexagon_left = tensor.Diagram.hexagon_left.modulo(semantics)
+    hexagon_left = tensor.Diagram.hexagon_left.modulo(rounded_eval)
 
-    hexagon_right = tensor.Diagram.hexagon_right.modulo(semantics)
+    hexagon_right = tensor.Diagram.hexagon_right.modulo(rounded_eval)
 
     braid_naturality = tensor.Diagram.braid_naturality.inapplicable(
         NOT_ITS_OWN_FACTORY)
 
-    balanced_twist = tensor.Diagram.balanced_twist.modulo(semantics)
+    balanced_twist = tensor.Diagram.balanced_twist.modulo(rounded_eval)
 
-    twist_as_trace = tensor.Diagram.twist_as_trace.modulo(semantics)
+    twist_as_trace = tensor.Diagram.twist_as_trace.modulo(rounded_eval)
 
     reidemeister_1_cup = tensor.Diagram.reidemeister_1_cup.failing(
         WRONG_ON_COMPOSITES)
@@ -977,16 +977,16 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
     reidemeister_1_cap = tensor.Diagram.reidemeister_1_cap.failing(
         WRONG_ON_COMPOSITES)
 
-    snake_equations = tensor.Diagram.snake_equations.modulo(semantics)
+    snake_equations = tensor.Diagram.snake_equations.modulo(rounded_eval)
 
     pivotality = tensor.Diagram.pivotality.inapplicable(
         NOT_ITS_OWN_FACTORY)
 
-    caps_coherence = tensor.Diagram.caps_coherence.modulo(semantics)
+    caps_coherence = tensor.Diagram.caps_coherence.modulo(rounded_eval)
 
-    currying_left = tensor.Diagram.currying_left.modulo(semantics)
+    currying_left = tensor.Diagram.currying_left.modulo(rounded_eval)
 
-    currying_right = tensor.Diagram.currying_right.modulo(semantics)
+    currying_right = tensor.Diagram.currying_right.modulo(rounded_eval)
 
     trace_superposing_left = tensor.Diagram.trace_superposing_left\
         .inapplicable(NOT_ITS_OWN_FACTORY)
@@ -1010,6 +1010,18 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
         if not isinstance(inside, tuple):
             inside = Box('', dom, cod, inside).inside
         super().__init__(inside, dom, cod, _scan=_scan)
+
+    @classmethod
+    def wrap(cls, body, dom, cod):
+        """
+        Wrap a :class:`.tensor.Diagram` ``body`` as an intertwiner from
+        ``dom`` to ``cod`` when both are :class:`Representation`\\ s,
+        keeping the bare dimensions of ``body`` otherwise.
+        """
+        if isinstance(dom, Representation)\
+                and isinstance(cod, Representation):
+            return cls(body.inside, dom, cod)
+        return cls(body.inside, body.dom, body.cod)
 
     @classmethod
     def braid(cls, left, right, is_dagger=False):
@@ -1040,10 +1052,7 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
             body = swap >> r_action(right, left, H.R >> H.antipode @ Id(H.ty))
         else:
             body = r_action(left, right, H.R) >> swap
-        if isinstance(left, Representation)\
-                and isinstance(right, Representation):
-            return cls(body.inside, left @ right, right @ left)
-        return cls(body.inside, body.dom, body.cod)
+        return cls.wrap(body, left @ right, right @ left)
 
     @classmethod
     def twist(cls, dom):
@@ -1055,9 +1064,7 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
             raise ValueError("the twist needs a quasitriangular structure")
         body = cls.algebra.ribbon_element @ Id(Dim(*dom.inside)) \
             >> dom.action
-        if isinstance(dom, Representation):
-            return cls(body.inside, dom, dom)
-        return cls(body.inside, body.dom, body.cod)
+        return cls.wrap(body, dom, dom)
 
     @classmethod
     def cups(cls, left, right):
@@ -1080,10 +1087,7 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
             g_inv = H.pivotal_element >> H.antipode
             body = Id(Dim(*left.inside)) \
                 @ (g_inv @ Id(Dim(*right.inside)) >> right.action) >> body
-        if isinstance(left, Representation)\
-                and isinstance(right, Representation):
-            return cls(body.inside, left @ right, cls.ob())
-        return cls(body.inside, body.dom, body.cod)
+        return cls.wrap(body, left @ right, cls.ob())
 
     @classmethod
     def caps(cls, left, right):
@@ -1105,10 +1109,7 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
             g_inv = H.pivotal_element >> H.antipode
             body = body >> Id(Dim(*left.inside)) \
                 @ (g_inv @ Id(Dim(*right.inside)) >> right.action)
-        if isinstance(left, Representation)\
-                and isinstance(right, Representation):
-            return cls(body.inside, cls.ob(), left @ right)
-        return cls(body.inside, body.dom, body.cod)
+        return cls.wrap(body, cls.ob(), left @ right)
 
     @classmethod
     def strategy(cls, *, dom=None, cod=None,

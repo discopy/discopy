@@ -147,7 +147,7 @@ def test_representation_is_a_dim():
     trivial = Representation[D](Dim(2))
     assert trivial == Dim(2) and trivial.is_module()
     assert hash(trivial) == hash(Dim(2))
-    from discopy import hopf, compact, tensor  # noqa: F401  (used by eval)
+    from discopy import hopf, compact, tensor  # noqa: F401
     assert eval(repr(trivial)) == trivial
 
 
