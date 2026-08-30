@@ -151,10 +151,15 @@ class Function(function.Function, SymmetricCategory, Strategy["Function"]):
 
     @classmethod
     def probe(cls, f) -> tuple:
-        """ The observations of a function on a canonical tagged element. """
+        """
+        The observations of a function on two canonical elements of
+        every tag, each built by calling the tag's domain type on a
+        small integer seed — the identity on the integer universe of
+        :meth:`Types.strategy`.
+        """
         return tuple(
-            f(seed, tag)
-            for tag in range(len(f.dom)) for seed in (2, 3))
+            f(dom(seed), tag)
+            for tag, dom in enumerate(f.dom) for seed in (2, 3))
 
     @classmethod
     def strategy(cls, *, dom=None, cod=None, max_length=3, **_):

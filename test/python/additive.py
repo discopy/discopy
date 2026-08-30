@@ -56,6 +56,20 @@ def test_strategy():
     find(Function.strategy(), lambda f: len(f.dom) > len(f.cod) >= 1)
 
 
+def test_Types_matmul():
+    from discopy.python.additive import Ty
+
+    assert (int,) @ Ty((str,)) == Ty((int, str)) == Ty((int,)) @ (str,)
+    assert isinstance((int,) @ Ty((str,)), Ty)
+
+
+def test_probe_non_integer_domain():
+    from discopy.python.additive import Function, Ty
+
+    f = Function(lambda obj: obj.upper(), Ty((str,)), Ty((str,)))
+    assert Function.equation_factory(f, f)
+
+
 def test_axioms():
     from discopy import testing
     from discopy.python.additive import Function
