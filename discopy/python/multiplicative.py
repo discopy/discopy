@@ -60,7 +60,7 @@ class Types(function.Types):
 
 
 @factory
-class Function(function.Function, ClosedCategory, Strategy):
+class Function(function.Function, ClosedCategory, Strategy["Function"]):
     """
     Python function with tuple as tensor.
 
@@ -241,7 +241,7 @@ class Function(function.Function, ClosedCategory, Strategy):
         return self.copy(dom) >> dom @ fixed\
             >> self >> cod @ self.discard(traced)
 
-    exp = staticmethod(lambda x, y: exp(x, y))
+    exp = staticmethod(exp)
 
     dagger_involution = ClosedCategory.dagger_involution.inapplicable(
         "A python function has no dagger.")

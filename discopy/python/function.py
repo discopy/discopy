@@ -23,7 +23,7 @@ from discopy.abc import Category
 from discopy.testing import Strategy
 from discopy.utils import (
     assert_iscomposable, assert_isinstance,
-    tuplify, untuplify, classproperty, factory)
+    tuplify, untuplify, classproperty, factory, factory_name)
 
 
 class Types(tuple, Strategy["Types"]):
@@ -31,6 +31,14 @@ class Types(tuple, Strategy["Types"]):
     A tuple of Python types seen as an object, with a strategy drawing
     tuples of :class:`int` — the one-type universe the property matrix
     generates its functions over.
+
+    Example
+    -------
+    >>> from discopy import python
+    >>> x = Types((int, )) @ (bool, )
+    >>> x
+    python.function.Types((int, bool))
+    >>> assert eval(repr(x)) == x
     """
     def __matmul__(self, other):
         if not isinstance(other, tuple):
@@ -41,6 +49,12 @@ class Types(tuple, Strategy["Types"]):
         if not isinstance(other, tuple):
             return NotImplemented
         return type(self)(tuple(other) + tuple(self))
+
+    def __repr__(self):
+        names = [t.__name__ if isinstance(t, type) else repr(t)
+                 for t in self]
+        inside = names[0] + ", " if len(names) == 1 else ", ".join(names)
+        return f"{factory_name(type(self))}(({inside}))"
 
     @classmethod
     def strategy(cls, *, min_length=0, max_length=3, **_):
