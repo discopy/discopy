@@ -464,7 +464,7 @@ class BiclosedCategory[
         """ Left currying followed by evaluation. """
         f, base, exponent = arguments
         return cls.equation_factory(
-            cls._uncurry(f, base, exponent, left=True), f)
+            cls.uncurry_composition(f, base, exponent, left=True), f)
 
     @axiom
     def currying_right(
@@ -472,11 +472,22 @@ class BiclosedCategory[
         """ Right currying followed by evaluation. """
         f, base, exponent = arguments
         return cls.equation_factory(
-            cls._uncurry(f, base, exponent, left=False), f)
+            cls.uncurry_composition(f, base, exponent, left=False), f)
 
     @classmethod
-    def _uncurry(
-            cls, f: C1, base: C0, exponent: C0, left: bool):
+    def uncurry_composition(
+            cls, f: C1, base: C0, exponent: C0, left: bool) -> C1:
+        """
+        Curry ``f`` then evaluate it back, i.e. whisker the currying with
+        ``exponent`` and compose with :meth:`ev` — the roundtrip that
+        :meth:`currying_left` and :meth:`currying_right` state equal to ``f``.
+
+        Parameters:
+            f : The morphism to curry and evaluate back.
+            base : The base of the exponential, i.e. the codomain of ``f``.
+            exponent : The objects curried out of the domain of ``f``.
+            left : Whether to curry on the left or right.
+        """
         curried = f.curry(left=left)
         ev = cls.ev(base, exponent, left)
         return (curried @ exponent).then(ev) if left\
