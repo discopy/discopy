@@ -68,6 +68,7 @@ class Natural(int, Strategy["Natural"]):
 
     __rmatmul__ = __matmul__
     __len__ = lambda self: int(self)
+    __str__ = int.__repr__
 
     def __repr__(self):
         return factory_name(type(self)) + f"({int(self)})"
