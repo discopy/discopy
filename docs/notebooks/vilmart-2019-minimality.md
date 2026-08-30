@@ -912,10 +912,14 @@ C_3(K)=\frac14+\frac{(1-c)P(c)}{768}=\frac14,
 so every non-B axiom holds.  But
 
 \[
-X_{10,10,0}=\frac14,qquad
+X_{10,10,0}=\frac14,\qquad
 X_{10,10,15}
 =\frac{7-6c-c^2+4\sqrt6s}{96}>0.
 \]
+
+Indeed, \(c\in(-1/2,-2/5)\) gives \(c^2<1/4\) and
+\(-6c>12/5\), while the chosen branch has \(s>0\).  Thus
+\(X_{10,10,15}>(7+12/5-1/4)/96=61/640\).
 
 The (B) component with inputs \((1010,1010)\) and outputs
 \((0000,1111)\) is therefore positive on the left and zero on the right.

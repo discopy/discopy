@@ -99,9 +99,33 @@ def main():
         93, 32)
     assert polynomial.subs(cosine, -sp.Rational(2, 5)) == -sp.Rational(
         702, 125)
+    polynomial_in_cosine = sp.Poly(polynomial, cosine)
     assert sp.gcd(
-        sp.Poly(polynomial, cosine),
+        polynomial_in_cosine,
         sp.Poly(sp.diff(polynomial, cosine), cosine)) == 1
+
+    lower_bound = -sp.Rational(1, 2)
+    upper_bound = -sp.Rational(2, 5)
+    root_interval = sp.Interval.open(lower_bound, upper_bound)
+    assert polynomial_in_cosine.count_roots(
+        lower_bound, upper_bound) == 1
+    admissible_roots = [
+        root for root in polynomial_in_cosine.all_roots()
+        if root.is_real and root_interval.contains(root) is sp.true]
+    assert len(admissible_roots) == 1
+    admissible_cosine, = admissible_roots
+    assert sp.simplify(polynomial.subs(
+        cosine, admissible_cosine)) == 0
+    admissible_sine = sp.sqrt(1 - admissible_cosine ** 2)
+    assert admissible_sine.is_positive is True
+    root_substitution = {
+        cosine: admissible_cosine, sine: admissible_sine}
+    assert sp.simplify(
+        cubic.subs(root_substitution) - sp.Rational(1, 4)) == 0
+    witness_at_root = expected.subs(root_substitution)
+    # This is an exact RootOf sign decision, not a floating-point check.
+    assert (
+        witness_at_root - sp.Rational(61, 640)).is_positive is True
 
     # Classify the connected N=3 phase-central family.  The Walsh transform
     # exchanges the weight-one and weight-two planes, so two block rotations
