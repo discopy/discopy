@@ -41,16 +41,16 @@ COUNTEREXAMPLES = (
     Counterexample(
         axiom=Matrix[int].copy_cocommutativity,
         args=(2, ),
-        reason="Matrix.copy(x, n) is wrong for x, n >= 2 (#606)"),
+        reason="Matrix.copy(x, n) is wrong for x, n >= 2 (#652)"),
     Counterexample(
         axiom=Matrix[int].copy_counitality,
         args=(2, ),
-        reason="Matrix.copy(x, n) is wrong for x, n >= 2 (#606)"),
+        reason="Matrix.copy(x, n) is wrong for x, n >= 2 (#652)"),
     Counterexample(
         axiom=Matrix[int].copy_monoidal_coherence,
         args=(1, ),
         reason="Matrix.copy(x, n) is wrong for x, n >= 2, reachable "
-               "from atomic arguments through the coherence (#606)"),
+               "from atomic arguments through the coherence (#652)"),
     Counterexample(
         axiom=cat.Functor.unitality,
         args=(cat.Functor(ob_map=COLLAPSE, ar_map=Relabelled(COLLAPSE)), ),

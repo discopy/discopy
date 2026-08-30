@@ -96,7 +96,7 @@ COUNTEREXAMPLES = (
     Counterexample(
         axiom=Matrix[int].copy_cocommutativity,
         args=(2, ),
-        reason="Matrix.copy(x, n) is wrong for x, n >= 2 (#606)"),
+        reason="Matrix.copy(x, n) is wrong for x, n >= 2 (#652)"),
     ...)
 ```
 
