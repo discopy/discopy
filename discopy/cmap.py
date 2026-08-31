@@ -341,14 +341,20 @@ class CMap[C0: Pregroup, C1: CMap](
     @property
     def is_scalar(self) -> bool:
         """
-        Whether the map is scalar, i.e. a single box with no ports, or a
-        single scalar loop.
+        Whether the map is a scalar, i.e. an endomorphism of the unit.
+
+        Scalars are the maps with no boundary, so they are closed under
+        tensor:
+
+        >>> from discopy.compact import Ty, Box, CMap
+        >>> x = Ty("x")
+        >>> loop = CMap.caps(x.r, x) >> CMap.cups(x.r, x)
+        >>> box = Box("s", Ty(), Ty()).to_map()
+        >>> assert loop.is_scalar and box.is_scalar
+        >>> assert (loop @ box).is_scalar
+        >>> assert not CMap.id(x).is_scalar
         """
-        if self.n_ports > 0:
-            return False
-        if not self.boxes and len(self.loops) == 1:
-            return True
-        return len(self.boxes) == 1 and not self.loops
+        return not self.dom and not self.cod
 
     @property
     def genus(self) -> int:
@@ -357,8 +363,10 @@ class CMap[C0: Pregroup, C1: CMap](
         smallest orientable surface it embeds in without crossings.
 
         This is :math:`(2 - \chi) / 2` for the Euler characteristic
-        :math:`\chi` of :attr:`euler_characteristic`, and zero for a scalar,
-        which has no embedding to speak of.
+        :math:`\chi` of :attr:`euler_characteristic`, and zero for a map
+        with no vertex, i.e. a loop: a circle does embed in the sphere, but
+        Euler's formula only counts it once a vertex has subdivided it,
+        which a loop by definition has not.
 
         >>> from discopy.symmetric import Ty, Box, Swap
         >>> x, y, z = map(Ty, "xyz")
@@ -368,7 +376,8 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> (Swap(y, x) >> f).to_map().genus
         1
         """
-        return 0 if self.is_scalar else (2 - self.euler_characteristic) // 2
+        return 0 if not self.n_vertices else (
+            2 - self.euler_characteristic) // 2
 
     @property
     def is_planar(self) -> bool:

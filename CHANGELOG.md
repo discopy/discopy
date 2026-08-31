@@ -9,6 +9,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `CMap.is_scalar` is `not dom and not cod`, i.e. a scalar is an
+  endomorphism of the unit, where it used to be "a single box with no ports,
+  or a single scalar loop". Scalars are closed under tensor and that
+  definition was not: a tensor of two scalar boxes has two boxes, so it
+  answered `False`. `genus` keys its degenerate case on `n_vertices` rather
+  than on this, since what Euler's formula cannot count is a map with no
+  vertex to subdivide its loop, not a map with no boundary -- a closed map
+  with many boxes is a scalar and still has a genus worth computing
+  ([#690](https://github.com/discopy/discopy/pull/690)).
 - `CMap.genus`, the number of handles of the smallest orientable surface a
   connected map embeds in, i.e. `(2 - χ) / 2`, and zero on a scalar, which
   has no embedding to speak of. `euler_characteristic` and `is_planar` were

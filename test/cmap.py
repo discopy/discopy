@@ -734,6 +734,20 @@ def test_euler_characteristic():
     assert compact.CMap.id().connected_components == [compact.CMap.id()]
 
 
+def test_scalars_are_closed_under_tensor():
+    """A scalar is an endomorphism of the unit, so a tensor of them is one."""
+    from discopy.compact import Ty, Box, CMap
+
+    x = Ty("x")
+    loop = CMap.caps(x.r, x) >> CMap.cups(x.r, x)
+    box = Box("s", Ty(), Ty()).to_map()
+    assert loop.is_scalar and box.is_scalar
+    assert (loop @ box).is_scalar
+    assert (box @ box).is_scalar
+    assert not CMap.id(x).is_scalar
+    assert not Box("f", x, x).to_map().is_scalar
+
+
 def test_genus():
     from discopy import compact, symmetric
 
