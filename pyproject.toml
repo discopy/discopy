@@ -52,7 +52,7 @@ dev = [
     "pytest",
     "pytest-benchmark",
     "polars",
-    "pytest-xdist>=3.8.0",
+    "pytest-xdist",
 ]
 docs = ["discopy[docs]"]
 quantum = ["discopy[quantum]"]
