@@ -109,6 +109,8 @@ Summary
 """
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from discopy.abc import NamedGeneric, TracedCategory
 from discopy.kleisli import channel
 from discopy.kleisli.monad import Monad
@@ -264,7 +266,7 @@ class Channel(TracedCategory, NamedGeneric['monad']):
     ob = Ty
     monad: Monad = None
 
-    def __init__(self, inside: callable, dom: Ty, cod: Ty):
+    def __init__(self, inside: Callable, dom: Ty, cod: Ty):
         dom, cod = tuplify(dom), tuplify(cod)
         packed_cls = channel.Channel[type(self).monad]
 

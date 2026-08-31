@@ -29,6 +29,8 @@ Summary
 """
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from discopy.abc import Category, NamedGeneric
 from discopy.kleisli.monad import Monad
 from discopy.python.function import Function
@@ -67,7 +69,7 @@ class Channel(Category, NamedGeneric['monad']):
     ob = type
     monad: Monad = None
 
-    def __init__(self, inside: callable, dom: type, cod: type):
+    def __init__(self, inside: Callable, dom: type, cod: type):
         monad = type(self).monad
         self.inside = inside if isinstance(inside, Function)\
             else Function(inside, dom, monad(cod))
