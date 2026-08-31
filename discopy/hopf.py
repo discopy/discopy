@@ -710,7 +710,7 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
         return hash(repr(frobenius.Dim(*self.inside)))
 
     @classmethod
-    def strategy(cls, *, min_length=0, max_length=2, **_):
+    def strategy(cls, *, min_length=0, max_length=2, **params):
         """Generate tensor powers of the two-anyon module."""
         from hypothesis import strategies as st
 
@@ -1113,7 +1113,7 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
 
     @classmethod
     def strategy(cls, *, dom=None, cod=None,
-                 min_leaves=None, max_leaves=3, **_):
+                 min_leaves=None, max_leaves=3, **params):
         """
         Generate layered braids, twists and genuine intertwiner boxes —
         diagonal anyon projections, scaled identities and zero maps — so

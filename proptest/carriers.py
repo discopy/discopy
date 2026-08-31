@@ -16,6 +16,7 @@ from discopy import (
     compact,
     feedback,
     frobenius,
+    hopf,
     markov,
     monoidal,
     pivotal,
@@ -25,7 +26,6 @@ from discopy import (
     tensor,
     traced,
 )
-from discopy import hopf
 from discopy.matrix import Matrix
 from discopy.utils import factory_name
 
