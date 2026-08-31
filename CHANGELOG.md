@@ -17,7 +17,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   asked by anything reading a topological obstruction off a map rather than
   just testing for one. `is_planar` is now "every component has genus zero"
   instead of repeating the scalar special case and the comparison against
-  two.
+  two ([#690](https://github.com/discopy/discopy/pull/690)).
 - A `workflows` job in `build.yml`, so that the code running our pull
   requests is checked like the code it checks: `actionlint` over the
   workflows, `pflake8` over `.github`, and `pytest .github/tests/*.py`
