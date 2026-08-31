@@ -112,7 +112,12 @@ class Wire(frobenius.Wire):
 
     @classmethod
     def strategy(cls, **params):
-        """Generate bits, qubits and small qudits."""
+        """
+        Generate bits, qubits and small qudits.
+
+        The inherited parameters are ignored: a circuit wire is self-dual
+        with no winding, determined by its kind and dimension alone.
+        """
         from hypothesis import strategies as st
 
         return st.tuples(
@@ -952,7 +957,7 @@ class Box(tensor.Box[complex], Circuit):
 
         base = super().strategy(**params)
         return cls.extend_strategy(
-            base, cls, lambda factory: st.sampled_from((
+            base, gates.QuantumGate, lambda _: st.sampled_from((
                 gates.H, gates.X, gates.Y, gates.Z, gates.S, gates.T,
                 gates.CX, gates.Rz(0.5), gates.Rx(0.25),
                 gates.Ket(0), gates.Bra(1), gates.scalar(0.5))), **params)
@@ -1073,6 +1078,7 @@ def bitstring2index(bitstring):
 
 Circuit.swap_factory, Circuit.sum_factory = Swap, Sum
 Circuit.permutation_factory = Permutation
+Circuit.functor_factory = Functor
 bit, qubit = Ty(Digit(2)), Ty(Qudit(2))
 Id = Circuit.id
 
