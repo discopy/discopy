@@ -27,8 +27,8 @@ from discopy.python import finset, function
 from discopy.python.function import Types
 
 
-# Lists of types interpreted as disjoint union.
 Ty = Types
+"""Lists of types interpreted as disjoint union."""
 
 
 @factory
@@ -162,6 +162,21 @@ class Function(function.Function, SymmetricCategory, Strategy["Function"]):
             for tag, dom in enumerate(f.dom) for seed in (2, 3))
 
     @classmethod
+    def relabelling(cls, source, target, mapping) -> Function:
+        """
+        The function sending each tag of ``source`` to its image under
+        ``mapping``, keeping the object.
+
+        Parameters:
+            source : The domain types, one per tag.
+            target : The codomain types, one per tag.
+            mapping : The image in ``target`` of each tag of ``source``.
+        """
+        def inside(obj, tag=0):
+            return obj if len(target) == 1 else (obj, mapping[tag])
+        return cls(inside, source, target)
+
+    @classmethod
     def strategy(cls, *, dom=None, cod=None, max_length=3, **_):
         """Generate tag relabellings, i.e. finite maps between the tags."""
         from hypothesis import strategies as st
@@ -172,14 +187,10 @@ class Function(function.Function, SymmetricCategory, Strategy["Function"]):
             source, target = map(tuplify, boundaries)
             if source and not target:
                 return st.nothing()
-
-            def build(mapping):
-                def inside(obj, tag=0):
-                    return obj if len(target) == 1 else (obj, mapping[tag])
-                return cls(inside, source, target)
             return st.tuples(*(
                 st.integers(min_value=0, max_value=len(target) - 1)
-                for _ in source)).map(build)
+                for _ in source)).map(
+                    lambda mapping: cls.relabelling(source, target, mapping))
 
         return st.tuples(
             types if dom is None else st.just(dom),
