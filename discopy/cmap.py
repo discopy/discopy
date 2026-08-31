@@ -368,9 +368,7 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> (Swap(y, x) >> f).to_map().genus
         1
         """
-        if self.is_scalar:
-            return 0
-        return (2 - self.euler_characteristic) // 2
+        return 0 if self.is_scalar else (2 - self.euler_characteristic) // 2
 
     @property
     def is_planar(self) -> bool:
