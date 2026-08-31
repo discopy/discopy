@@ -133,17 +133,7 @@ class Permutation(Function, SymmetricCategory):
     @classmethod
     def strategy(
             cls, *, max_size=10, dom=None, cod=None):
-        """
-        Generate permutations with optional exact boundaries.
-
-        This is pulled forward from the ``python.finset`` branch: the
-        symmetric-family strategy (``discopy.symmetric.Layer.strategy``)
-        permutes its layers using this generator, so it is needed as soon
-        as any symmetric-derived diagram is generated. The rest of
-        ``finset``'s own enrolment in the property matrix — ``Function``'s
-        axiom overrides, its own recursive strategy — lands with the
-        ``python.finset`` branch.
-        """
+        """ Generate permutations with optional exact boundaries. """
         from hypothesis import strategies as st
 
         if dom is not None and cod is not None and dom != cod:

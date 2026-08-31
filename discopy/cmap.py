@@ -266,18 +266,10 @@ class CMap[C0: Pregroup, C1: CMap](
         """
         The axioms of the diagram category represented by the map, with the
         ones the map restates for itself taking precedence.
-
-        Names are collected before they are filtered, as in
-        :attr:`discopy.abc.Category.axioms`.
         """
         if cls.category is None:
             return {}
-        visible = {
-            name: value
-            for base in reversed(cls.__mro__)
-            for name, value in base.__dict__.items()}
-        restated = {name: value for name, value in visible.items()
-                    if isinstance(value, Axiom)}
+        restated = super().axioms
         return {name: restated.get(name, axiom).bind(cls)
                 for name, axiom in cls.category.axioms.items()}
 
