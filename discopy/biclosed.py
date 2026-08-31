@@ -81,10 +81,12 @@ which lands in :class:`CMap` as a biclosed category has no trace.
 from __future__ import annotations
 
 from abc import abstractmethod
+from copy import copy
 from inspect import signature
-from typing import Callable, ClassVar
+from itertools import count
+from typing import Callable, ClassVar, Container
 
-from discopy import monoidal, cmap
+from discopy import cat, monoidal, cmap
 from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
 from discopy.cat import factory
@@ -94,6 +96,55 @@ from discopy.utils import (
     factory_name,
     from_tree,
 )
+
+_fresh_names = count()
+
+
+def fresh_name(avoid: Container[str] = ()) -> str:
+    """
+    Generate a fresh variable name from a global counter, skipping the
+    names in ``avoid`` so that a variable that happens to be named like
+    the counter is neither captured nor identified with a fresh one.
+
+    Parameters:
+        avoid : The names already taken.
+    """
+    while (name := f"x{next(_fresh_names)}") in avoid:
+        pass
+    return name
+
+
+def annotate(typ: monoidal.Ty, name: str) -> monoidal.Ty:
+    """
+    Return a copy of ``typ`` with a ``varname`` attribute attached to each of
+    the objects inside, used to remember the name of the variable that a wire
+    stands for so that :meth:`Diagram.to_term` is inverse to
+    :meth:`TermBase.eval` on the nose rather than up to alpha equivalence.
+
+    Parameters:
+        typ : The type to annotate.
+        name : The name of the variable carried by the wires of ``typ``.
+
+    Note
+    ----
+    The annotated objects still compare equal to the original ones:
+
+    >>> x = Ty('x')
+    >>> assert annotate(x, 'v') == x
+    >>> annotate(x, 'v').inside[0].varname
+    'v'
+    """
+    inside = []
+    for obj in typ.inside:
+        obj = copy(obj)
+        obj.varname = name
+        inside.append(obj)
+    return type(typ)(*inside)
+
+
+def varname(obj: cat.Ob) -> str | None:
+    """ The variable name attached to an object, or ``None`` if absent. """
+    return getattr(obj, "varname", None)
 
 
 @factory
@@ -339,6 +390,29 @@ class Diagram(monoidal.Diagram, BiclosedCategory):
 
     def to_drawing(self):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
+
+    def to_term(self) -> TermBase:
+        """
+        Decompile a diagram back to a term in the internal language, i.e. the
+        inverse of :meth:`TermBase.eval` for the identity functor.
+
+        Free variables are read off the domain of the diagram, abstracted
+        variables off the exponent of each :class:`Curry` box. Their names
+        are recovered from the ``varname`` attribute attached to objects by
+        :meth:`Variable.eval` so that the round-trip from term to diagram and
+        back is faithful on the nose; fresh names are generated from a global
+        counter in case the attribute is absent. Boxes with no input other
+        than :class:`Eval`, :class:`Coeval` and :class:`Curry` are decompiled
+        to :class:`Constant` terms.
+
+        Example
+        -------
+        >>> X, Y = Ty("X"), Ty("Y")
+        >>> f = (X >> Y)("f")
+        >>> term = X(lambda x, left=True: x(f, left=True))
+        >>> assert term.eval().to_term() == term
+        """
+        return _diagram_to_term(self, _dom_to_variables(self))
 
 
 class Box(monoidal.Box, Diagram):
@@ -609,7 +683,10 @@ class Variable(TermBase):
 
     def eval(self, functor=None):
         functor = functor or self.functor
-        return functor.cod.id(functor(self.cod))
+        typ = functor(self.cod)
+        if isinstance(typ, monoidal.Ty):
+            typ = annotate(typ, self.name)
+        return functor.cod.id(typ)
 
     @property
     def constants(self):
@@ -710,6 +787,136 @@ class Abstraction(TermBase):
 
 
 type Term = Constant | Variable | Application | Abstraction
+
+
+def _annotated_names(diagram: Diagram) -> set[str]:
+    """
+    The variable names annotated on the wires of a diagram, recursing into
+    the argument of each :class:`Curry` box.
+    """
+    names = {varname(obj) for obj in diagram.dom.inside}
+    for box in diagram.boxes:
+        names |= {varname(obj) for typ in (box.dom, box.cod)
+                  for obj in typ.inside}
+        if isinstance(box, Curry):
+            names |= _annotated_names(box.arg)
+    return names - {None}
+
+
+def _dom_to_variables(diagram: Diagram) -> list[TermBase]:
+    """
+    Turn the domain of a diagram into a list of free variables, grouping
+    consecutive objects that carry the same ``varname`` annotation and
+    generating fresh names for unannotated objects.
+    """
+    scan, i, inside = [], 0, diagram.dom.inside
+    factory = diagram.ob.variable_factory
+    while i < len(inside):
+        name, j = varname(inside[i]), i + 1
+        if name is None:
+            name = fresh_name(avoid=_annotated_names(diagram))
+        else:
+            while j < len(inside) and varname(inside[j]) == name:
+                j += 1
+        scan.append(factory(name, diagram.dom[i:j]))
+        i = j
+    return scan
+
+
+def _split_scan(scan: list, offset: int, width: int) -> tuple:
+    """
+    Split a scan of terms into the segments before, inside and after the
+    wires ``[offset, offset + width)``, raising when the boundaries do not
+    align with the terms in the scan.
+    """
+    total, i = 0, 0
+    while total < offset:
+        total += len(scan[i].cod)
+        i += 1
+    j, consumed = i, 0
+    while consumed < width:
+        consumed += len(scan[j].cod)
+        j += 1
+    if total != offset or consumed != width:
+        raise ValueError(
+            f"Expected a box acting on whole terms, got {scan} "
+            f"at offset {offset} and width {width}.")
+    return scan[:i], scan[i:j], scan[j:]
+
+
+def _box_to_term(diagram: Diagram, box: Box, consumed: list) -> list:
+    """ Apply one box of a diagram to the scan of terms built so far. """
+    ob = diagram.ob
+    if isinstance(box, Curry):
+        arg, n = box.arg, box.n
+        abstracted = arg.dom[len(arg.dom) - n:] if box.left else arg.dom[:n]
+        names = {varname(obj) for obj in abstracted.inside}
+        name = names.pop() if len(names) == 1 and None not in names\
+            else fresh_name(avoid=_annotated_names(diagram) | {
+                variable.name for term in consumed
+                for variable in term.freevars})
+        var = ob.variable_factory(name, abstracted)
+        seed = consumed + [var] if box.left else [var] + consumed
+        body = _diagram_to_term(arg, seed)
+        is_symmetric = getattr(type(diagram), "braid_factory", None)\
+            is not None
+        return [ob.abstraction_factory(
+            var, body, False if is_symmetric else not box.left)]
+    if isinstance(box, Eval):
+        if len(consumed) != 2:
+            raise ValueError(
+                f"Expected the function and argument of {box}, "
+                f"got {consumed}.")
+        func, args = consumed if box.left else consumed[::-1]
+        if func.cod != box.x or args.cod != box.x.exponent:
+            raise ValueError(
+                f"Expected terms of type {box.x} and {box.x.exponent}, "
+                f"got {consumed}.")
+        is_symmetric = getattr(type(diagram), "braid_factory", None)\
+            is not None
+        return [ob.application_factory(
+            func, args, False if is_symmetric else not box.left)]
+    if isinstance(box, TermBase):
+        if box.dom:
+            raise ValueError(f"Unexpected term box with inputs: {box}.")
+        return [box]
+    permutation_factory = getattr(
+        type(diagram), "permutation_factory", None)
+    if permutation_factory is not None and isinstance(
+            box, permutation_factory):
+        return [consumed[i] for i in box.perm]
+    braid_factory = getattr(type(diagram), "braid_factory", None)
+    if braid_factory is not None and isinstance(box, braid_factory):
+        before, inside, after = _split_scan(consumed, 0, len(box.left))
+        assert not before
+        return after + inside
+    copy_factory = getattr(type(diagram), "copy_factory", None)
+    if copy_factory is not None and isinstance(box, copy_factory):
+        term, = consumed
+        if not isinstance(term, Variable):
+            raise ValueError(f"Expected a variable to copy, got {term}.")
+        return len(box.cod) * [term]
+    if not box.dom and not isinstance(
+            box, (Eval, Coeval, monoidal.Bubble, monoidal.Sum)):
+        return [ob.constant_factory(box.name, box.cod)]
+    raise ValueError(
+        f"Expected a diagram in the image of TermBase.eval, got {box}.")
+
+
+def _diagram_to_term(diagram: Diagram, scan: list) -> TermBase:
+    """ Sweep through the layers of a diagram, building terms bottom-up. """
+    for layer in diagram.inside:
+        boxes_and_offsets = tuple(layer.boxes_and_offsets)
+        if len(boxes_and_offsets) != 1:
+            raise ValueError(f"Expected an unfoliated layer, got {layer}.")
+        box, offset = boxes_and_offsets[0]
+        before, consumed, after = _split_scan(scan, offset, len(box.dom))
+        scan = before + _box_to_term(diagram, box, consumed) + after
+    if len(scan) != 1:
+        raise ValueError(
+            f"Expected a diagram encoding a single term, got {scan}.")
+    return scan[0]
+
 
 Ty.variable_factory = Variable
 Ty.constant_factory = Constant

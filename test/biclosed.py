@@ -111,6 +111,71 @@ def test_Abstraction_well_typed():
         Abstraction(a, term)
 
 
+def test_to_term_round_trip():
+    X, Y, N, S = Ty('X'), Ty('Y'), Ty('N'), Ty('S')
+    f, g, h = (X >> Y)("f"), (Y << X)("g"), ((X >> Y) << X)("h")
+    x = Variable("x", X)
+    Alice, loves, Bob = N("Alice"), ((N >> S) << N)("loves"), N("Bob")
+    for term in [
+            X("c"),
+            x(f, left=True),
+            g(x),
+            X(lambda z, left=True: z(f, left=True)),
+            X(lambda z: g(z)),
+            Alice(loves(Bob), left=True),
+            X(lambda a: h(a)),
+            Abstraction(x, Variable("fv", Y << X)(x)),
+            Abstraction(x, x(Variable("gv", X >> Y), left=True), left=True)]:
+        result = term.eval().to_term()
+        assert result == term and str(result) == str(term)
+
+
+def test_to_term_varnames():
+    X, Y = Ty('X'), Ty('Y')
+    f = (X >> Y)("f")
+    diagram = X(lambda my_var, left=True: my_var(f, left=True)).eval()
+    assert [
+        getattr(obj, "varname", None)
+        for obj in diagram.boxes[0].arg.dom.inside] == ["my_var"]
+
+
+def test_to_term_fresh_names():
+    X, Y = Ty('X'), Ty('Y')
+    diagram = Curry(Eval(Y << X))  # hand-built, hence no varname attributes
+    term = diagram.to_term()
+    assert isinstance(term, Abstraction)
+    assert term.eval() == diagram
+
+
+def test_to_term_multi_object_variable():
+    x, y = Ty('x'), Ty('y')
+    pair = Variable("pair", x @ y)
+    assert pair.eval().to_term() == pair
+
+
+def test_to_term_errors():
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
+    with raises(ValueError):
+        Id(x @ y).to_term()  # two variables are not a single term
+    with raises(ValueError):
+        Box('f', x, y).to_term()  # a box with inputs is not a constant
+    with raises(ValueError):
+        Coeval(y << x).to_term()
+    with raises(ValueError):
+        Variable('v', x).to_term()  # a term box with inputs
+    with raises(ValueError):  # a box cutting through the wires of a term
+        ((x @ y)("c") >> Box('g', x, x) @ y).to_term()
+    with raises(ValueError):  # three terms fed to a single evaluation
+        (x("a") @ y("b") @ ((x @ y) >> z)("c")
+         >> Eval((x @ y) >> z)).to_term()
+    with raises(ValueError):  # two terms that do not split as func and args
+        (x("a") @ (y @ ((x @ y) >> z))("pair")
+         >> Eval((x @ y) >> z)).to_term()
+    with raises(ValueError):  # foliated layers are not supported
+        (Box('a', Ty(), x) @ Box('b', Ty(), y)).foliation().to_term()
+
+
+
 def test_to_rigid():
     from discopy import rigid
 
@@ -135,3 +200,11 @@ def test_to_compact():
         assert source.to_map().to_compact() == source.to_compact()
         assert not any(isinstance(box, Curry)
                        for box in source.to_compact().boxes)
+
+
+def test_fresh_names_avoid_annotated_names():
+    from discopy.biclosed import _dom_to_variables
+    clash = f"x{int(fresh_name()[1:]) + 1}"
+    diagram = Diagram.id(annotate(Ty("x"), clash) @ Ty("y"))
+    variables = _dom_to_variables(diagram)
+    assert len({variable.name for variable in variables}) == 2

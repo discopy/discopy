@@ -29,6 +29,7 @@ from discopy import (
     matrix,
     tensor,
     hopf,
+    neural,
     quantum,
     grammar,
     drawing,

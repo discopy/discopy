@@ -9,6 +9,26 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `docs/notebooks/neural-church.md`, a marimo notebook growing the token
+  machine of the Boolean-gates experiment to the almost-linear fragment:
+  one private exponential stack of copy indices per delta node, exact
+  Böhm-tree readback through the deltas, the arithmetic constants learned
+  as opaque boxes from 91 equations (2–16 innocent rules each, one MLP per
+  constant trained in JAX), sums and products up to 32 from numerals never
+  larger than three, and the lambda term of every constant — addition
+  itself included — read back out of the trained weights
+  ([#677](https://github.com/discopy/discopy/pull/677)).
+- `TermBase.to_map` supports weakening: an abstracted variable that does
+  not occur plugs into an epsilon node with a single port instead of
+  raising, so Church zero, predecessor and subtraction become expressible
+  as almost-linear maps
+  ([#677](https://github.com/discopy/discopy/pull/677)).
+- `CMap.box_ports`, the global port indices of a box in logical order,
+  hoisted from `neural.CMap` to `cmap.CMap` so that every map exposes its
+  port bookkeeping through a public interface, which the token-machine
+  notebooks read instead of the private cache, and which `to_diagram` and
+  the drawing code reuse instead of undoing the clockwise order themselves
+  ([#677](https://github.com/discopy/discopy/pull/677)).
 - A `workflows` job in `build.yml`, so that the code running our pull
   requests is checked like the code it checks: `actionlint` over the
   workflows, `pflake8` over `.github`, and `pytest .github/tests/*.py`
@@ -319,6 +339,17 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `closed.Substitution` and the `biclosed`/`cmap` readbacks generate fresh
+  variable names that skip the names already present, so a variable that
+  happens to be named like the global counter's next `xN` is neither
+  captured when a binder is renamed nor identified with a fresh one
+  ([#677](https://github.com/discopy/discopy/pull/677)).
+- `CMap.to_term` raises on a rooted map whose domain ports do not all reach
+  the term, which used to silently drop those free variables
+  ([#677](https://github.com/discopy/discopy/pull/677)).
+- `neural.CMap.forward` feeds a network with no ports an empty tensor
+  instead of raising on `torch.cat([])`
+  ([#677](https://github.com/discopy/discopy/pull/677)).
 - `style-review.yml`'s hand-over to the correctness reviewer, and its
   token generation, ran on every style review rather than the intended
   ones. Both conditions were written as `if: >` folding a wrapped
