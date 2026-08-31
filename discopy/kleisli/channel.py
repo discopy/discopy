@@ -96,7 +96,7 @@ class Channel(Category, NamedGeneric['monad']):
         assert_iscomposable(self, other)
         monad = type(self).monad
         bind = self.inside\
-            >> monad.functor(other.inside) >> monad.mult(other.cod)
+            >> monad(other.inside) >> monad.mult(other.cod)
         return type(self)(bind, self.dom, other.cod)
 
     def __call__(self, x):

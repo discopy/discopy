@@ -316,8 +316,8 @@ class Channel(TracedCategory, NamedGeneric['monad']):
         assert_isinstance(other, type(self))
         monad = type(self).monad
         dom, cod = self.dom + other.dom, self.cod + other.cod
-        left = monad.functor(injection(0, self.cod, cod))
-        right = monad.functor(injection(len(self.cod), other.cod, cod))
+        left = monad(injection(0, self.cod, cod))
+        right = monad(injection(len(self.cod), other.cod, cod))
 
         def inside(obj, tag=0):
             return left(self(obj, tag)) if tag < len(self.dom)\
@@ -408,7 +408,7 @@ class Channel(TracedCategory, NamedGeneric['monad']):
             return self(value, tag - len(cod) + len(dom))
         resolve = monad.iterate(
             step, lambda value: unpack_value(value)[1] < len(cod))
-        exit_ = monad.functor(injection(0, self.cod, cod))
+        exit_ = monad(injection(0, self.cod, cod))
         return type(self)(
             lambda obj, tag=0: exit_(resolve(self(obj, tag))), dom, cod)
 

@@ -8,7 +8,7 @@ from discopy.python.function import Function, EndoFunctor
 from discopy.python.additive import Function as AdditiveFunction
 from discopy.kleisli.monad import (
     Monad, Maybe, Powerset, Subdistribution, Seed,
-    make_monad, make_state, merge, sample)
+    make_state, merge, sample)
 from discopy.kleisli.channel import Channel
 from discopy.kleisli import additive, multiplicative
 from discopy.kleisli.additive import Tagged
@@ -30,22 +30,26 @@ def test_EndoFunctor():
     assert listing.then(listing)(int) == listing(listing(int))
 
 
-def test_Monad_type_errors():
-    with raises(TypeError):
-        Monad("bad", "not-a-functor", Maybe.unit, Maybe.mult)
-    with raises(TypeError):
-        Monad("bad", Maybe.functor, "not-a-transformation", Maybe.mult)
-    with raises(TypeError):
-        Monad("bad", Maybe.functor, Maybe.unit, "not-a-transformation")
-
-
 def test_Monad_repr():
     assert repr(Maybe) == "Monad('Maybe')"
     assert str(Maybe) == Maybe.__name__ == "Maybe"
 
 
-def test_make_monad():
-    identity = make_monad(
+def test_Monad_eq_and_hash():
+    """
+    Equality and hashing are by name, not structure: two independently
+    built monads with the same name compare and hash equal, which is what
+    makes ``Maybe`` usable as a ``NamedGeneric`` key, e.g. ``Channel[Maybe]``.
+    """
+    other_maybe = Monad(
+        "Maybe", lambda X: X | None, lambda f: f,
+        lambda X: Function.id(X), lambda X: Function.id(X))
+    assert Maybe == other_maybe and hash(Maybe) == hash(other_maybe)
+    assert Maybe != Powerset and Maybe != "Maybe"
+
+
+def test_Monad_identity():
+    identity = Monad(
         "Identity", lambda X: X, lambda f: f,
         lambda X: Function.id(X), lambda X: Function.id(X))
     assert identity(int) == (int, )
@@ -57,19 +61,19 @@ def unit_laws(monad: Monad, X: type, values: list):
     MX = monad(X)
     for value in values:
         assert monad.mult(X)(monad.unit(MX)(value)) == value
-        assert monad.mult(X)(monad.functor(monad.unit(X))(value)) == value
+        assert monad.mult(X)(monad(monad.unit(X))(value)) == value
 
 
 def test_maybe_laws():
     unit_laws(Maybe, int, [0, 1, -5, None])
-    lifted = Maybe.functor(Function(lambda x: x + 1, int, int))
+    lifted = Maybe(Function(lambda x: x + 1, int, int))
     assert lifted(1) == 2 and lifted(None) is None
 
 
 def test_powerset_laws():
     unit_laws(Powerset, int, [
         frozenset(), frozenset({1}), frozenset({1, 2, 3})])
-    lifted = Powerset.functor(Function(lambda x: x % 2, int, int))
+    lifted = Powerset(Function(lambda x: x % 2, int, int))
     assert lifted(frozenset({1, 2, 3, 4})) == frozenset({0, 1})
 
 
@@ -77,7 +81,7 @@ def test_subdistribution_laws():
     unit_laws(Subdistribution, int, [
         frozenset(), frozenset({(1, 1.)}),
         frozenset({(1, .5), (2, .5)})])
-    lifted = Subdistribution.functor(Function(lambda x: x % 2, int, int))
+    lifted = Subdistribution(Function(lambda x: x % 2, int, int))
     assert lifted(frozenset({(1, .5), (3, .5)})) == frozenset({(1, 1.)})
 
 
@@ -86,7 +90,7 @@ def test_associativity():
     lhs = Powerset.mult(int)(
         Powerset.mult(Powerset(int))(frozenset({mx})))
     rhs = Powerset.mult(int)(
-        Powerset.functor(Powerset.mult(int))(frozenset({mx})))
+        Powerset(Powerset.mult(int))(frozenset({mx})))
     assert lhs == rhs == frozenset({1, 2, 3})
 
 
@@ -228,7 +232,7 @@ def make_writer(append, empty):
     only used here to exhibit a *non-commutative* monad, e.g. taking
     ``append`` to be string concatenation.
     """
-    return make_monad(
+    return Monad(
         "Writer",
         ob_map=lambda X: Row,
         lift=lambda f: Function(
@@ -339,9 +343,9 @@ def test_state_laws():
     for value in [tick("egg"), tick("yolk")]:
         assert run(State.mult(str)(State.unit(State(str))(value)), states)\
             == run(value, states)\
-            == run(State.mult(str)(State.functor(State.unit(str))(value)),
+            == run(State.mult(str)(State(State.unit(str))(value)),
                    states)
-    lifted = State.functor(Function(lambda x: x + "s", str, str))
+    lifted = State(Function(lambda x: x + "s", str, str))
     assert lifted(tick("egg"))(0) == ("eggs", 1)
 
 

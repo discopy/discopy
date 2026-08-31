@@ -37,7 +37,6 @@ Summary
     Powerset
     Subdistribution
     Seed
-    make_monad
     make_state
     iterate_maybe
     iterate_powerset
@@ -51,22 +50,25 @@ from collections.abc import Callable, Iterable
 from discopy.cat import Transformation
 from discopy.python.function import EndoFunctor, Function
 from discopy.utils import (
-    assert_isinstance, factory_name, tuplify, untuplify)
+    assert_isinstance, assert_iscomposable, factory_name, tuplify, untuplify)
 
 
-class Monad:
+class Monad(EndoFunctor):
     """
     A monad is a monoid in the category of Python endofunctors, i.e. an
-    :class:`EndoFunctor` ``functor`` together with a ``unit`` and a ``mult``
-    natural transformation satisfying the laws of a monoid.
+    :class:`EndoFunctor` together with a ``unit`` and a ``mult`` natural
+    transformation satisfying the laws of a monoid.
 
     Parameters:
         name : The name of the monad, used e.g. by :class:`Channel[M]
             <discopy.kleisli.channel.Channel>` to name the Kleisli category.
-        functor : The underlying endofunctor, i.e. the monad itself.
-        unit : The natural transformation ``eta : Id -> functor``.
-        mult : The natural transformation ``mu : functor >> functor
-            -> functor``.
+        ob_map : Mapping from a type ``X`` to the type ``M(X)``.
+        lift : Mapping from a function ``f : X -> Y`` to ``M(f) : M(X)
+            -> M(Y)``, i.e. the functorial action on functions.
+        unit_map : Mapping from a type ``X`` to the function ``eta_X : X
+            -> M(X)``.
+        mult_map : Mapping from a type ``X`` to the function
+            ``mu_X : M(M(X)) -> M(X)``.
         iterate : The optional iteration operator, see :attr:`iterate`.
 
     Example
@@ -76,15 +78,14 @@ class Monad:
 
     >>> unit, mult = Maybe.unit, Maybe.mult
     >>> Mx = Maybe(int)
-    >>> assert mult(int)(unit(Mx)(5)) == 5 == mult(int)(
-    ...     Maybe.functor(unit(int))(5))
+    >>> assert mult(int)(unit(Mx)(5)) == 5 == mult(int)(Maybe(unit(int))(5))
 
     The associativity law holds for the :attr:`Powerset` monad on ``int``:
 
     >>> mx = frozenset({frozenset({1, 2}), frozenset({3})})
     >>> lhs = Powerset.mult(int)(Powerset.mult(Powerset(int))(
     ...     frozenset({mx})))
-    >>> rhs = Powerset.mult(int)(Powerset.functor(Powerset.mult(int))(
+    >>> rhs = Powerset.mult(int)(Powerset(Powerset.mult(int))(
     ...     frozenset({mx})))
     >>> assert lhs == rhs == frozenset({1, 2, 3})
     """
@@ -113,80 +114,45 @@ class Monad:
     """
 
     def __init__(
-            self, name: str, functor: EndoFunctor,
-            unit: Transformation, mult: Transformation,
+            self, name: str, ob_map: Callable, lift: Callable,
+            unit_map: Callable, mult_map: Callable,
             iterate: Callable = None):
-        assert_isinstance(functor, EndoFunctor)
-        assert_isinstance(unit, Transformation)
-        assert_isinstance(mult, Transformation)
+        super().__init__(lambda X: (ob_map(untuplify(X)), ), lift)
+        unwrap = lambda X: untuplify(tuplify(X))
         self.__name__ = self.name = name
-        self.functor, self.unit, self.mult = functor, unit, mult
+        self.unit = Transformation(
+            lambda X: unit_map(unwrap(X)), EndoFunctor.id(), self)
+        self.mult = Transformation(
+            lambda X: mult_map(unwrap(X)), self.then(self), self)
         self.iterate = iterate
 
-    def __call__(self, X: type) -> tuple[type, ...]:
+    def then(self, other: EndoFunctor) -> EndoFunctor:
         """
-        The type ``M(X)`` of computations with values in ``X`` and effects
-        given by the monad.
+        The composition of the monad's underlying endofunctor with another,
+        i.e. plain functor composition: the composite is not itself
+        required to be a monad, so it is an :class:`EndoFunctor` rather
+        than a :class:`Monad`.
 
         Parameters:
-            X : The type of values.
+            other : The other endofunctor to compose with.
         """
-        return self.functor(X)
+        assert_isinstance(other, EndoFunctor)
+        assert_iscomposable(self, other)
+        return EndoFunctor(
+            self.ob_map.then(other), self.ar_map.then(other),
+            dom=self.dom, cod=other.cod)
 
-    @classmethod
-    def from_maps(
-            cls, name, ob_map, lift, unit_map, mult_map,
-            iterate: Callable = None) -> Monad:
-        """
-        Build a monad from mappings on types and functions.
+    def __eq__(self, other):
+        return isinstance(other, Monad) and self.name == other.name
 
-        Parameters:
-            name : The name of the monad.
-            ob_map : Mapping from a type ``X`` to the type ``M(X)``.
-            lift : Mapping from a function ``f : X -> Y`` to ``M(f) : M(X)
-                -> M(Y)``, i.e. the functorial action on functions.
-            unit_map : Mapping from a type ``X`` to the function ``eta_X : X
-                -> M(X)``.
-            mult_map : Mapping from a type ``X`` to the function
-                ``mu_X : M(M(X)) -> M(X)``.
-            iterate : The optional iteration operator, see
-                :attr:`Monad.iterate`.
-        """
-        unwrap = lambda X: untuplify(tuplify(X))
-        functor = EndoFunctor(lambda X: (ob_map(untuplify(X)), ), lift)
-        unit = Transformation(
-            lambda X: unit_map(unwrap(X)), EndoFunctor.id(), functor)
-        mult = Transformation(
-            lambda X: mult_map(unwrap(X)), functor.then(functor), functor)
-        return cls(name, functor, unit, mult, iterate)
+    def __hash__(self):
+        return hash(repr(self))
 
     def __repr__(self):
         return f"Monad({self.name!r})"
 
     def __str__(self):
         return self.name
-
-
-def make_monad(
-        name, ob_map, lift, unit_map, mult_map,
-        iterate: Callable = None) -> Monad:
-    """
-    Alias for :meth:`Monad.from_maps`.
-
-    Parameters:
-        name : The name of the monad.
-        ob_map : Mapping from a type ``X`` to the type ``M(X)``.
-        lift : Mapping from a function ``f : X -> Y`` to ``M(f) : M(X)
-            -> M(Y)``, i.e. the functorial action on functions.
-        unit_map : Mapping from a type ``X`` to the function ``eta_X : X
-            -> M(X)``.
-        mult_map : Mapping from a type ``X`` to the function ``mu_X : M(M(X))
-            -> M(X)``.
-        iterate : The optional iteration operator, see
-            :attr:`Monad.iterate`.
-    """
-    return Monad.from_maps(
-        name, ob_map, lift, unit_map, mult_map, iterate)
 
 
 def iterate_maybe(step: Callable, exits: Callable) -> Callable:
@@ -213,7 +179,9 @@ def iterate_maybe(step: Callable, exits: Callable) -> Callable:
     return inside
 
 
-def iterate_powerset(step: Callable, exits: Callable) -> Callable:
+def iterate_powerset[T](
+        step: Callable[[T], frozenset[T]], exits: Callable[[T], bool]
+        ) -> Callable[[frozenset[T]], frozenset[T]]:
     """
     The iteration operator of the :attr:`Powerset` monad, i.e. the set of
     outcomes reachable in finitely many steps, computed breadth-first.
@@ -253,7 +221,7 @@ def iterate_powerset(step: Callable, exits: Callable) -> Callable:
     return inside
 
 
-Maybe = Monad.from_maps(
+Maybe = Monad(
     "Maybe",
     ob_map=lambda X: X | None,
     lift=lambda f: Function(
@@ -268,7 +236,7 @@ multiplication are both the identity, since Python's native optional type
 does not distinguish ``None`` from a doubly-wrapped ``None``.
 """
 
-Powerset = Monad.from_maps(
+Powerset = Monad(
     "Powerset",
     ob_map=lambda X: frozenset[X],
     lift=lambda f: Function(
@@ -307,13 +275,23 @@ def dist(X: type) -> type:
 
     Parameters:
         X : The type of outcomes.
+
+    Note
+    ----
+    This stays a plain function rather than a PEP 695 ``type Dist[X] = ...``
+    alias: subscripting such an alias does not eagerly resolve to a
+    ``frozenset`` origin, so :func:`~discopy.utils.get_origin` cannot see
+    through it and the ``isinstance`` checks in :class:`~discopy.python
+    .function.Function.__call__` break on every subdistribution channel.
     """
     return frozenset[tuple[X, float]]
 
 
-def iterate_subdistribution(
-        step: Callable, exits: Callable,
-        tolerance: float = 1e-12) -> Callable:
+def iterate_subdistribution[T](
+        step: Callable[[T], frozenset[tuple[T, float]]],
+        exits: Callable[[T], bool], tolerance: float = 1e-12
+        ) -> Callable[
+            [frozenset[tuple[T, float]]], frozenset[tuple[T, float]]]:
     """
     The iteration operator of the :attr:`Subdistribution` monad, i.e. the
     execution formula: push the mass that is still looping through ``step``
@@ -363,7 +341,7 @@ def iterate_subdistribution(
     return inside
 
 
-Subdistribution = Monad.from_maps(
+Subdistribution = Monad(
     "Subdistribution",
     ob_map=dist,
     lift=lambda f: Function(
@@ -444,7 +422,7 @@ def make_state(S: type) -> Monad:
     >>> assert State.mult(str)(lambda s: (tick("egg"), s + 1))(0) == ("egg", 2)
     """
     ob_map = lambda X: Callable[[S], tuple[X, S]]
-    return Monad.from_maps(
+    return Monad(
         f"State[{factory_name(S)}]",
         ob_map=ob_map,
         lift=lambda f: Function(

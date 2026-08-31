@@ -212,7 +212,7 @@ class Channel(Category, NamedGeneric['monad']):
         if len(self.cod) == 1:
             return raw
         unpacking = function.Function(unpack_value, pack(self.cod), tuple)
-        return monad.functor(unpacking)(raw)
+        return monad(unpacking)(raw)
 
     def then(self, other: Channel) -> Channel:
         """
@@ -240,7 +240,7 @@ class Channel(Category, NamedGeneric['monad']):
             pairing = function.Function(
                 lambda b: pack_value(unpack_value(b) + y),
                 pack(self.cod), pack(self.cod + Y))
-            return monad.functor(pairing)(self.raw(*values))
+            return monad(pairing)(self.raw(*values))
         return type(self)(inside, self.dom + Y, self.cod + Y)
 
     def left_whisker(self, X: Ty) -> Channel:
@@ -257,7 +257,7 @@ class Channel(Category, NamedGeneric['monad']):
             pairing = function.Function(
                 lambda d: pack_value(x + unpack_value(d)),
                 pack(self.cod), pack(X + self.cod))
-            return monad.functor(pairing)(self.raw(*values))
+            return monad(pairing)(self.raw(*values))
         return type(self)(inside, X + self.dom, X + self.cod)
 
     def tensor(self, other: Channel) -> Channel:
