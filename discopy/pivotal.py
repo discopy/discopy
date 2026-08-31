@@ -284,7 +284,6 @@ class Functor(rigid.Functor):
 
 Diagram.functor_factory = Functor
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
-Diagram.functor_factory = Functor
 Hypergraph = hypergraph.Hypergraph[Diagram]
 CMap = cmap.CMap[Diagram]
 Id = Diagram.id
