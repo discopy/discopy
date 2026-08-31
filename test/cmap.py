@@ -734,6 +734,32 @@ def test_euler_characteristic():
     assert compact.CMap.id().connected_components == [compact.CMap.id()]
 
 
+def test_genus():
+    from discopy import compact, symmetric
+
+    x, y = map(symmetric.Ty, "xy")
+    f = symmetric.Box("f", x @ y, x @ y).to_map()
+    assert f.genus == 0
+    assert f.is_planar
+
+    crossed = (symmetric.Swap(y, x) >> symmetric.Box("f", x @ y, x)).to_map()
+    assert crossed.euler_characteristic == 0
+    assert crossed.genus == 1
+    assert not crossed.is_planar
+
+    cx, cy = map(compact.Ty, "xy")
+    scalar = compact.CMap.caps(cx.r, cx) >> compact.CMap.cups(cx.r, cx)
+    assert scalar.euler_characteristic == 0
+    assert scalar.genus == 0
+    assert scalar.is_planar
+
+    torus = (compact.Swap(cy, cx) >> compact.Box("f", cx @ cy, cx)).to_map()
+    assert torus.genus == 1
+    assert not (torus @ scalar).is_planar
+    with raises(ValueError):
+        (torus @ scalar).genus
+
+
 def test_draw_plain_path(tmp_path):
     if shutil.which("dot") is None:
         pytest.skip("needs the graphviz dot binary")

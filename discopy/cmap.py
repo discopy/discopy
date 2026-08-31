@@ -351,19 +351,36 @@ class CMap[C0: Pregroup, C1: CMap](
         return len(self.boxes) == 1 and not self.loops
 
     @property
+    def genus(self) -> int:
+        r"""
+        The genus of a connected map, i.e. the number of handles of the
+        smallest orientable surface it embeds in without crossings.
+
+        This is :math:`(2 - \chi) / 2` for the Euler characteristic
+        :math:`\chi` of :attr:`euler_characteristic`, and zero for a scalar,
+        which has no embedding to speak of.
+
+        >>> from discopy.symmetric import Ty, Box, Swap
+        >>> x, y, z = map(Ty, "xyz")
+        >>> f = Box("f", x @ y, z)
+        >>> f.to_map().genus
+        0
+        >>> (Swap(y, x) >> f).to_map().genus
+        1
+        """
+        if self.is_scalar:
+            return 0
+        return (2 - self.euler_characteristic) // 2
+
+    @property
     def is_planar(self) -> bool:
         """
-        Whether the combinatorial map is planar, i.e. all of its non-scalar
-        components have an Euler characteristic of 2.
+        Whether the combinatorial map is planar, i.e. all of its components
+        have :attr:`genus` zero.
         """
-
-        components = [
-            component for component in self.connected_components
-            if not component.is_scalar]
-        if not components:
-            return True
         return all(
-            component.euler_characteristic == 2 for component in components)
+            component.genus == 0
+            for component in self.connected_components)
 
     @property
     def orientation(self) -> Permutation:

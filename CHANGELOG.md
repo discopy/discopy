@@ -9,6 +9,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `CMap.genus`, the number of handles of the smallest orientable surface a
+  connected map embeds in, i.e. `(2 - χ) / 2`, and zero on a scalar, which
+  has no embedding to speak of. `euler_characteristic` and `is_planar` were
+  both here already, but a map that is not planar is not thereby all the
+  same: the genus says *how far* from planar it is, which is the question
+  asked by anything reading a topological obstruction off a map rather than
+  just testing for one. `is_planar` is now "every component has genus zero"
+  instead of repeating the scalar special case and the comparison against
+  two.
 - A `workflows` job in `build.yml`, so that the code running our pull
   requests is checked like the code it checks: `actionlint` over the
   workflows, `pflake8` over `.github`, and `pytest .github/tests/*.py`
