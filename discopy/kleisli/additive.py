@@ -46,7 +46,7 @@ Token machines
 --------------
 
 Dal Lago & Hoshino's `Geometry of Bayesian Programming
-<https://arxiv.org/abs/1904.11324>`_ (2019) reads a probabilistic program
+<https://arxiv.org/abs/1904.07425>`_ (2019) reads a probabilistic program
 as a net and its execution as a token walking through it. A machine with
 entry wires ``dom``, exit wires ``cod`` and ``n`` internal wires is a
 channel over the subdistribution monad

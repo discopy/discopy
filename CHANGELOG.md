@@ -182,6 +182,22 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   a `TracedCategory`, so whiskering on either side comes from
   `MonoidalCategory`
   ([#443](https://github.com/discopy/discopy/pull/443)).
+- `discopy.kleisli.token`, probabilistic token passing on lambda terms: a
+  `Machine[M]` interprets the constants of a `closed` term, one transition
+  of the token is a `kleisli.additive.Channel` from an entry plus the two
+  directions the token travels in to an exit plus the same two, and the
+  machine is its trace, i.e. the execution formula walks the token until it
+  leaves. Following Dal Lago & Hoshino's [Geometry of Bayesian
+  Programming](https://arxiv.org/abs/1904.07425), the worked example is
+  the discrete analogue of their calculus' two constants: `sample` draws a
+  coin's bias from a prior and `score` multiplies the weight of the branch
+  it runs in, so the mass the token loses is the evidence and dividing by
+  it is Bayes' rule. The machine is generic in the monad, hence also
+  nondeterministic over `Powerset` and partial over `Maybe`. Half of
+  [#618](https://github.com/discopy/discopy/issues/618); the `Hypergraph`
+  evaluation methods stay blocked on
+  [#366](https://github.com/discopy/discopy/pull/366) and
+  [#363](https://github.com/discopy/discopy/pull/363).
 - `para.Symmetric` carries an optional coparameter space: a map is
   `inside : dom @ param -> cod @ copar` with `copar` empty by default, so
   parametric maps read as before, coparametric maps are the empty-`param`
@@ -459,6 +475,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   and `draw` raise. The check is gated on `_scan`, so the internal fast paths
   that build layers by construction are unaffected
   ([#599](https://github.com/discopy/discopy/issues/599)).
+- The Dal Lago & Hoshino citation in `kleisli.additive` pointed at
+  arXiv:1904.11324, which is not their paper; the geometry of Bayesian
+  programming is arXiv:1904.07425.
 - `kleisli.additive.Channel.trace(0)` no longer empties `dom` and `cod`:
   the tenth `self.dom[:-n]` site of
   [#578](https://github.com/discopy/discopy/issues/578), left to this
