@@ -162,9 +162,14 @@ class Product(biclosed.Wire):
         return hash(repr(self))
 
     def __str__(self):
-        return "(" + " * ".join(
-            str(typ) if len(typ) == 1 else f"({typ})"
-            for typ in self.factors) + ")"
+        if len(self.factors) == 2:
+            return "(" + " * ".join(
+                str(typ) if len(typ) == 1 else f"({typ})"
+                for typ in self.factors) + ")"
+        if not self.factors:
+            return f"{type(self).__name__}()"
+        first, *others = self.factors
+        return f"{first}.product({', '.join(map(str, others))})"
 
     def __repr__(self):
         return factory_name(type(self))\
@@ -324,6 +329,14 @@ class Pack(Box):
     def __repr__(self):
         return factory_name(type(self)) + f"({self.cod!r})"
 
+    def to_tree(self):
+        return {'factory': factory_name(type(self)),
+                'cod': self.cod.to_tree()}
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(from_tree(tree['cod']))
+
 
 class Unpack(Box):
     """
@@ -350,6 +363,14 @@ class Unpack(Box):
 
     def __repr__(self):
         return factory_name(type(self)) + f"({self.dom!r})"
+
+    def to_tree(self):
+        return {'factory': factory_name(type(self)),
+                'dom': self.dom.to_tree()}
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(from_tree(tree['dom']))
 
 
 class Permutation(markov.Permutation, Box):
@@ -410,9 +431,12 @@ class Functor(biclosed.Functor, markov.Functor):
             return self(self.dom.ob().tensor(*other.factors))
         if isinstance(other, (Pack, Unpack)) and self.cod is not Drawing:
             typ = other.cod if isinstance(other, Pack) else other.dom
-            if hasattr(self.cod.ob, "product"):
-                return type(other)(self(typ))
-            return self.cod.id(self(typ))
+            if not hasattr(self.cod.ob, "product"):
+                return self.cod.id(self(typ))
+            if hasattr(self.cod, "pack_factory"):
+                factory = self.cod.pack_factory if isinstance(other, Pack)\
+                    else self.cod.unpack_factory
+                return factory(self(typ))
         if isinstance(other, (
                 cat.Ob, biclosed.Eval, biclosed.Coeval, biclosed.Curry)):
             return biclosed.Functor.__call__(self, other)
@@ -427,6 +451,8 @@ Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.copy_factory = Copy
 Diagram.swap_factory = Swap
 Diagram.permutation_factory = Permutation
+Diagram.pack_factory = Pack
+Diagram.unpack_factory = Unpack
 Diagram.curry_factory = Curry
 Diagram.eval_factory = Eval
 Diagram.coeval_factory = Coeval
@@ -604,6 +630,14 @@ class Tuple(TermBase):
     def constants(self):
         return sum([term.constants for term in self.terms], [])
 
+    def to_tree(self):
+        return {'factory': factory_name(type(self)),
+                'terms': [term.to_tree() for term in self.terms]}
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(*map(from_tree, tree['terms']))
+
 
 class Projection(TermBase):
     """
@@ -647,6 +681,14 @@ class Projection(TermBase):
     @property
     def constants(self):
         return self.arg.constants
+
+    def to_tree(self):
+        return {'factory': factory_name(type(self)),
+                'arg': self.arg.to_tree(), 'index': self.index}
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(from_tree(tree['arg']), tree['index'])
 
 
 class Let(TermBase):
@@ -709,6 +751,11 @@ class Let(TermBase):
                 self.ob().tensor(*[x.cod for x in rest])))
             return expression @ identity >> body
         context = context or Context(self.freevars)
+        shadowed = set(self.variables).intersection(context.inside)
+        if shadowed:
+            raise ValueError(
+                f"{sorted(shadowed, key=str)} would shadow a variable of "
+                f"the enclosing context {context.inside}")
         expression = self.expression.eval_unpacked(
             functor=functor, context=context)
         if not shared and all(x in self.expression.freevars
@@ -729,6 +776,20 @@ class Let(TermBase):
     @property
     def constants(self):
         return self.expression.constants + self.body.constants
+
+    def to_tree(self):
+        return {
+            'factory': factory_name(type(self)),
+            'expression': self.expression.to_tree(),
+            'variables': [var.to_tree() for var in self.variables],
+            'body': self.body.to_tree()}
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(
+            from_tree(tree['expression']),
+            tuple(map(from_tree, tree['variables'])),
+            from_tree(tree['body']))
 
 
 def let(expression: Term, body: Callable) -> Let:
@@ -798,13 +859,19 @@ class Substitution:
         return type(self)({k: v for k, v in self.inside.items()
                            if k not in variables})
 
-    def bind(self, *variables: Variable) -> Substitution:
+    def bind(self, *variables: Variable, body: Term = None) -> Substitution:
         """
-        The restriction of a substitution under binding ``variables``,
-        which raises when a replacement has one of them as a free variable:
-        substituting it would capture the variable and change the term.
+        The restriction of a substitution under binding ``variables`` in
+        ``body``, which raises when a replacement free in ``body`` has one
+        of them as a free variable: substituting it would capture the
+        variable and change the term. A replacement whose key does not
+        occur free in ``body`` is dropped from ``result`` before applying
+        it, so it is never checked: it would not be substituted anyway.
         """
         result = self.without(*variables)
+        if body is not None:
+            result = type(self)({k: v for k, v in result.inside.items()
+                                 if k in body.freevars})
         captured = [x for term in result.inside.values()
                     for x in term.freevars if x in variables]
         if captured:
@@ -814,21 +881,23 @@ class Substitution:
         return result
 
     def __call__(self, term: Term) -> Term:
-        if isinstance(term, Variable):
-            return self.inside.get(term, term)
-        if isinstance(term, Application):
-            return type(term)(self(term.func), self(term.args), term.left)
-        if isinstance(term, Abstraction):
-            return type(term)(
-                term.var, self.bind(term.var)(term.body), term.left)
-        if isinstance(term, Tuple):
-            return type(term)(*map(self, term.terms))
-        if isinstance(term, Projection):
-            return type(term)(self(term.arg), term.index)
-        if isinstance(term, Let):
-            return type(term)(self(term.expression), term.variables,
-                              self.bind(*term.variables)(term.body))
-        return term
+        match term:
+            case Variable():
+                return self.inside.get(term, term)
+            case Application(func=func, args=args, left=left):
+                return type(term)(self(func), self(args), left)
+            case Abstraction(var=var, body=body, left=left):
+                return type(term)(
+                    var, self.bind(var, body=body)(body), left)
+            case Tuple(terms=terms):
+                return type(term)(*map(self, terms))
+            case Projection(arg=arg, index=index):
+                return type(term)(self(arg), index)
+            case Let(expression=expression, variables=variables, body=body):
+                return type(term)(self(expression), variables,
+                                  self.bind(*variables, body=body)(body))
+            case _:
+                return term
 
 
 Ty.variable_factory = Variable

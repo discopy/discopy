@@ -3,6 +3,7 @@ from __future__ import annotations
 from pytest import raises
 
 from discopy.closed import *
+from discopy.utils import dumps, loads
 
 
 def test_exp():
@@ -23,6 +24,45 @@ def test_product():
         Pack(X @ Y)
     with raises(TypeError):
         Unpack(X @ Y)
+
+
+def test_product_str_round_trip():
+    X, Y, Z = Ty("X"), Ty("Y"), Ty("Z")
+    for typ in (X.product(Y, Z), X.product()):
+        assert eval(str(typ)) == typ
+    assert eval(str(Product())) == Product()
+
+
+def test_pack_to_hypergraph():
+    X, Y = Ty("X"), Ty("Y")
+    for box in (Pack(X * Y), Unpack(X * Y)):
+        hypergraph = box.to_hypergraph()
+        assert hypergraph.dom == box.dom and hypergraph.cod == box.cod
+        assert hypergraph.to_diagram() == box
+
+
+def test_pack_to_tree():
+    X, Y = Ty("X"), Ty("Y")
+    for box in (Pack(X * Y), Unpack(X * Y)):
+        assert loads(dumps(box)) == box
+
+
+def test_term_to_tree():
+    """
+    ``Tuple``, ``Projection`` and ``Let`` round-trip through their own
+    ``to_tree``/``from_tree`` for terms with no ``Variable`` or ``Constant``
+    leaf: those two inherit ``Box.from_tree`` from ``biclosed`` and its
+    ``name``/``dom``/``cod`` kwargs don't match either of their
+    constructors, a pre-existing gap this test does not cover, see
+    https://github.com/discopy/discopy/pull/489#discussion_r3896298502.
+    """
+    empty = Tuple()
+    assert loads(dumps(empty)) == empty
+    nested = Tuple(Tuple(), Tuple())
+    assert loads(dumps(nested)) == nested
+    assert loads(dumps(Projection(nested, 0))) == Projection(nested, 0)
+    let_term = Let(Tuple(), (), Tuple())
+    assert loads(dumps(let_term)) == let_term
 
 
 def test_strictification():
@@ -93,6 +133,15 @@ def test_let_shared():
     assert t.eval().dom == X and t.eval().cod == X
 
 
+def test_let_shadowing():
+    X = Ty("X")
+    x, y = Variable("x", X), Variable("y", X)
+    f, g2 = (X >> X)("f"), ((X * X) >> X)("g2")
+    term = Tuple(g2(Tuple(x, y)), let(f(y), lambda x: Tuple(x, y)))
+    with raises(ValueError):
+        term.eval()
+
+
 def test_substitution():
     X, Y = Ty("X"), Ty("Y")
     f = (X >> Y)("f")
@@ -116,6 +165,13 @@ def test_substitution_capture():
         Substitution({x: y})(t)
     with raises(ValueError):
         Substitution({x: y})(Abstraction(y, Tuple(y, x)))
+
+
+def test_substitution_bind_ignores_unused_replacements():
+    X = Ty("X")
+    x, y, z = (Variable(name, X) for name in "xyz")
+    term = Abstraction(y, x)
+    assert Substitution({z: y})(term) == term
 
 
 def test_compact_str():
