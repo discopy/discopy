@@ -14,7 +14,7 @@ The queue item is this branch's re-merge: #687 (hybrid LLM-GoNI) picks
 these terms as the diagram language the LLM writes, and #443's last box
 waits here too.
 
-- [ ] Merge `origin/main` into this branch (append-only, never rebase)
+- [WIP] @evening-2026-09-01T00:30Z Merge `origin/main` into this branch (append-only, never rebase)
   and resolve the conflicts: `closed.py` moved under #532/#560 —
   `curry`/`ev`/`uncurry` now default `left=True`, `CMap` is
   parameterised as `NamedGeneric["category"]`.
