@@ -15,9 +15,11 @@ Software dependencies between modules go top-to-bottom, left-to-right and
 forgetful functors between categories go the other way.
 
 Each class also declares its :func:`discopy.testing.axiom` equations, which
-every free category inherits along with the structure they axiomatise —
-this branch states them on :class:`Category` and :class:`ColouredMonoid`
-only, the rest of the hierarchy is axiomatised on later branches.
+every free category inherits along with the structure they axiomatise:
+:class:`Category` states the unitality and associativity of composition,
+the typing of its identities and composites, and the involution and
+contravariance of its dagger; :class:`ColouredMonoid` states the unitality
+and associativity of its product.
 
 Summary
 -------
