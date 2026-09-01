@@ -32,6 +32,32 @@ def test_commentable_lines_ignores_a_hunk_before_any_file(post):
     assert post.commentable_lines("@@ -1 +1 @@\n context\n") == {}
 
 
+TWO_FILES = """\
+diff --git a/a.py b/a.py
+--- a/a.py
++++ b/a.py
+@@ -1,2 +1,2 @@
+ context
++added
+diff --git a/b.py b/b.py
+new file mode 100644
+index 0000000..1234567
+--- /dev/null
++++ b/b.py
+@@ -0,0 +1,2 @@
++first
++second
+"""
+
+
+def test_commentable_lines_does_not_leak_across_a_file_boundary(post):
+    """Inter-file metadata rows (`diff --git`, `index`, `new file mode`)
+    used to fall through to the previous file's counter, inflating its
+    line numbers past its own end."""
+    assert post.commentable_lines(TWO_FILES) == {
+        "a.py": {1, 2}, "b.py": {1, 2}}
+
+
 def test_normalised_reads_a_string_line(post):
     finding = {"path": "discopy/cat.py", "line": "42", "comment": " x "}
     assert post.normalised(finding) == {
@@ -148,6 +174,19 @@ def test_tallied_leaves_a_remark_quoting_the_marker_alone(post, history):
         post.tallied(body, "1 style remark: accepted"), None) == body
 
 
+def test_tallied_survives_a_remark_quoting_it_after_a_blank_line(
+        post, history):
+    """A remark quoting the marker after a blank line used to be read as
+    the real tally, and everything from there to the end of the body
+    silently discarded — real review content, not just the marker."""
+    body = (history.stamp([]) + "\nStyle review.\n\nnever write "
+            + history.TALLY + " after a blank line"
+            + "\n\nreal content that must survive")
+    once = post.tallied(body, "1 style remark: accepted")
+    assert once.startswith(body)
+    assert once.endswith("1 style remark: accepted")
+
+
 def test_a_verdict_survives_a_round_that_forgets_it(post):
     """A remark somebody accepted does not go back to open because a
     later round could no longer see the file it was about."""
@@ -258,9 +297,11 @@ def test_main_posts_a_finding_off_the_diff_in_the_body(
 def test_main_says_what_it_could_not_read_with_nothing_to_report(
         post, history, tmp_path, monkeypatch):
     """A round that read no finding but could not read a file whole is
-    not a clean one to the reader, whatever the handover makes of it."""
+    not a clean one: it hands over to the correctness reviewer as clean
+    otherwise, on a partial read."""
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("MODEL", "a-model")
+    monkeypatch.setenv("GITHUB_OUTPUT", str(tmp_path / "output"))
     staged(history, tmp_path, [], {"unreviewed": ["huge.py"]})
     posted = []
     monkeypatch.setattr(post, "moved", lambda: None)
@@ -270,3 +311,4 @@ def test_main_says_what_it_could_not_read_with_nothing_to_report(
     body, remarks, comments = posted[0]
     assert (remarks, comments) == ([], [])
     assert "not reviewed at all: `huge.py`." in body
+    assert open(tmp_path / "output").read() == "clean=false\n"

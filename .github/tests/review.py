@@ -171,19 +171,30 @@ def test_a_size_note_lands_with_the_files_it_names(
 class Cut:
     """A gateway that cuts the transfer short before answering."""
 
-    def __init__(self, answer, failures):
+    def __init__(self, answer, failures, error=None):
         self.answer, self.failures, self.attempts = answer, failures, 0
+        self.error = error or http.client.IncompleteRead(b"half an ans")
 
     def __call__(self, request, timeout=None):
         self.attempts += 1
         if self.attempts <= self.failures:
-            raise http.client.IncompleteRead(b"half an ans")
+            raise self.error
         return io.BytesIO(json.dumps(self.answer).encode())
 
 
 def test_complete_reads_again_when_the_transfer_is_cut_short(
         review, monkeypatch):
     gateway = Cut({"choices": []}, failures=1)
+    monkeypatch.setattr(review.urllib.request, "urlopen", gateway)
+    assert review.complete("request") == {"choices": []}
+    assert gateway.attempts == 2
+
+
+def test_complete_reads_again_after_a_connection_reset(review, monkeypatch):
+    """A reset mid-body is the same failure as an incomplete read, not a
+    new kind the retry missed."""
+    gateway = Cut({"choices": []}, failures=1,
+                  error=ConnectionResetError("reset"))
     monkeypatch.setattr(review.urllib.request, "urlopen", gateway)
     assert review.complete("request") == {"choices": []}
     assert gateway.attempts == 2

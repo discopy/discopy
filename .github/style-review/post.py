@@ -47,10 +47,17 @@ def commentable_lines(diff):
     comment on: every line one of its hunks shows, the ones the change
     adds and the ones it is read against alike. The prompt asks for
     findings on what the diff adds and allows the rest as an exception,
-    so this is the wider set — what can be said inline at all."""
+    so this is the wider set — what can be said inline at all. A
+    ``diff --git`` line resets the path until the next ``+++ b/``, so the
+    metadata rows a renamed or newly-added file carries between them
+    (``index``, ``new file mode``, ``similarity index``, ...) fall into
+    no path's count rather than inflating the previous file's past its
+    own end."""
     lines, path, number = {}, None, 0
     for row in diff.splitlines():
-        if row.startswith("+++ b/"):
+        if row.startswith("diff --git "):
+            path = None
+        elif row.startswith("+++ b/"):
             path = row[len("+++ b/"):]
             lines[path] = set()
         elif match := HUNK.match(row):
@@ -183,8 +190,14 @@ def tallied(body, line, verdicts=None):
     """A review body carrying the tally at its foot, in place of whatever
     tally it carried before, or none at all when there is no line: what a
     review said when it was posted is history, only the tally moves. The
-    verdicts ride with it, hidden, so the next round reads them back."""
-    kept = body.rsplit(f"\n\n{history.TALLY}", 1)[0].rstrip()
+    verdicts ride with it, hidden, so the next round reads them back.
+
+    The tally this function itself writes is always the exact trailing
+    shape ``history.TALLY_TAIL`` matches, so that is what is stripped —
+    a remark that quotes the marker in the body proper, however it is
+    placed, is left alone rather than read as one to replace."""
+    match = history.TALLY_TAIL.search(body)
+    kept = body[:match.start()] if match else body
     if line is None:
         return kept
     return f"{kept}\n\n{history.scoreboard(verdicts or {})}\n{line}"
@@ -255,8 +268,9 @@ def main():
     past = history.load()
     merged = verdicts(past, answer.get("verdicts", []))
     coverage = answer.get("coverage", {})
-    record(clean=not findings)
-    if findings or uncovered(coverage):
+    gaps = uncovered(coverage)
+    record(clean=not findings and not gaps)
+    if findings or gaps:
         body = describe(
             len(past["rounds"]) + 1, withheld, unreadable, coverage)
         if off_diff:

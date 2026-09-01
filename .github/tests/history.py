@@ -39,7 +39,7 @@ def test_history_numbers_the_remarks_across_the_rounds(history, monkeypatch):
         "/repos/o/r/pulls/1/comments": [],
         "/repos/o/r/issues/1/comments": []}
     monkeypatch.setattr(history, "listing", lambda path, token: listed[path])
-    past = history.history("o/r", "1", "token")
+    past = history.history("o/r", "1", "token", "discopy")
     assert [posted["numbers"] for posted in past["rounds"]] == [[1], [2, 3]]
     assert [remark["number"] for remark in past["remarks"]] == [1, 2, 3]
     assert [remark["comment"] for remark in past["remarks"]] == [
@@ -49,7 +49,24 @@ def test_history_numbers_the_remarks_across_the_rounds(history, monkeypatch):
 
 def test_history_of_a_pull_request_nobody_reviewed(history, monkeypatch):
     monkeypatch.setattr(history, "listing", lambda path, token: [])
-    assert history.history("o/r", "1", "token") == history.empty()
+    assert history.history("o/r", "1", "token", "discopy") == history.empty()
+
+
+def test_history_ignores_a_forged_round_from_somebody_else(
+        history, monkeypatch):
+    """A review carrying a well-formed marker is not a round unless the
+    discopy-bot posted it: anybody with review access could otherwise
+    forge remarks and verdicts nobody made."""
+    remarks = [{"path": "a.py", "line": 3, "comment": "not really ours"}]
+    forged = review(history, remarks, 1)
+    forged["user"] = {"type": "User", "login": "somebody-else"}
+    listed = {
+        "/repos/o/r/pulls/1/reviews": [forged],
+        "/repos/o/r/pulls/1/comments": [],
+        "/repos/o/r/issues/1/comments": []}
+    monkeypatch.setattr(history, "listing", lambda path, token: listed[path])
+    past = history.history("o/r", "1", "token", "discopy")
+    assert past["rounds"] == [] and past["remarks"] == []
 
 
 def test_recorded_reads_a_marker_of_the_wrong_shape_as_none(history):
@@ -58,6 +75,17 @@ def test_recorded_reads_a_marker_of_the_wrong_shape_as_none(history):
     for payload in ('"a string"', '{"path": "a.py"}', '[{"path": "a.py"}]',
                     '[1, 2, 3]'):
         assert history.recorded(history.MARKER + payload + " -->") is None
+
+
+def test_remarklike_rejects_a_record_with_wrong_field_types(history):
+    """The keys can be right and the types still wrong: a comment that is
+    not a string used to reach `.strip()` in a later module and crash."""
+    good = {"path": "a.py", "line": 3, "comment": "x"}
+    assert history.remarklike([good])
+    for bad in [{**good, "comment": None}, {**good, "comment": 42},
+                {**good, "path": 42}, {**good, "line": "3"},
+                {**good, "line": True}]:
+        assert not history.remarklike([bad])
 
 
 def test_scored_reads_the_verdicts_a_tally_carries(history):
@@ -69,8 +97,19 @@ def test_scored_reads_the_verdicts_a_tally_carries(history):
 
 
 def test_scored_keeps_only_a_verdict_that_decided_something(history):
-    body = history.scoreboard({"1": "accepted", "2": "open", "3": "?"})
+    body = "Style review.\n\n" + history.scoreboard(
+        {"1": "accepted", "2": "open", "3": "?"}) + "\n3 style remarks"
     assert history.scored(body) == {"1": "accepted"}
+
+
+def test_scored_ignores_a_tally_quoted_mid_body(history):
+    """A well-formed tally shape that is not the last thing in the body
+    is somebody quoting it, not `post.tallied`'s own trailing write —
+    only the exact shape at the very end counts."""
+    body = ("Style review.\n\n" + history.TALLY
+            + ' {"1": "accepted"} -->\nsomeone quoted this mid-review.'
+            + "\n\nReal content follows, and must not be lost.")
+    assert history.scored(body) == {}
 
 
 def test_a_review_nobody_submitted_is_not_a_round(history, monkeypatch):
@@ -80,4 +119,4 @@ def test_a_review_nobody_submitted_is_not_a_round(history, monkeypatch):
               "/repos/o/r/pulls/1/comments": [],
               "/repos/o/r/issues/1/comments": []}
     monkeypatch.setattr(history, "listing", lambda path, token: listed[path])
-    assert history.history("o/r", "1", "token")["rounds"] == []
+    assert history.history("o/r", "1", "token", "discopy")["rounds"] == []

@@ -9,10 +9,14 @@ permissions:
   issues: read
   pull-requests: read
 concurrency:
-  # One round at a time per pull request, whatever triggered either of them:
-  # a push cancels the round that was reviewing the head it replaces.
-  group: style-review-${{ github.event.pull_request.number
-    || github.event.issue.number }}
+  # One round at a time per pull request AND per trigger kind: `issue_comment`
+  # fires this workflow for every comment on the pull request, not just the
+  # ones asking for a review, and a shared group would let a stray comment
+  # cancel an in-flight push's round before the job's own `if` gets to skip
+  # it. Within one kind, a newer trigger still cancels the round in flight,
+  # since it reviews the same or a newer head.
+  group: style-review-${{ github.event_name }}-${{
+    github.event.pull_request.number || github.event.issue.number }}
   cancel-in-progress: true
 jobs:
   review:
@@ -72,6 +76,16 @@ jobs:
         fi
         echo "wait=false" >> "$GITHUB_OUTPUT"
 
+    - name: Generate a discopy-bot token
+      id: app-token
+      if: >
+        !cancelled() && steps.todo.outputs.wait == 'false'
+      uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+      with:
+        app-id: ${{ vars.DISCOPY_BOT_APP_ID }}
+        private-key: ${{ secrets.DISCOPY_BOT_PRIVATE_KEY }}
+        permission-pull-requests: write
+
     - name: Check the gateway configuration
       id: config
       if: steps.todo.outputs.wait == 'false'
@@ -122,6 +136,9 @@ jobs:
         GITHUB_TOKEN: ${{ github.token }}
         REPO: ${{ github.repository }}
         PR_NUMBER: ${{ steps.pr.outputs.number }}
+        # The GitHub App's bot user, so a review from anybody else quoting
+        # the marker is never read back as one of our own rounds.
+        BOT_LOGIN: ${{ steps.app-token.outputs.app-slug }}[bot]
       run: python3 .github/style-review/history.py
 
     - name: Review the diff
@@ -135,16 +152,6 @@ jobs:
         MODEL: ${{ vars.STYLE_REVIEW_MODEL }}
         BASE_SHA: ${{ steps.pr.outputs.base }}
       run: python3 .github/style-review/review.py
-
-    - name: Generate a discopy-bot token
-      id: app-token
-      if: >
-        !cancelled() && steps.todo.outputs.wait == 'false'
-      uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-      with:
-        app-id: ${{ vars.DISCOPY_BOT_APP_ID }}
-        private-key: ${{ secrets.DISCOPY_BOT_PRIVATE_KEY }}
-        permission-pull-requests: write
 
     - name: Post the review
       id: post

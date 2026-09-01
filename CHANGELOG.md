@@ -389,6 +389,41 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- Nine findings in the style reviewer's own memory machinery (#676),
+  found by cubic reviewing a different pull request (#665) against a
+  stale merge-base that happened to pull `main`'s new code into its
+  diff. Two were forgeable trust boundaries: `history()` read any review
+  starting with the public `MARKER` and carrying valid JSON as one of
+  the discopy-bot's own rounds, so anybody with review access could
+  forge remarks and verdicts nobody made — it now reads only reviews
+  posted by the discopy-bot's own login, threaded through as `BOT_LOGIN`
+  from the `app-token` step's `app-slug`, which the workflow now
+  generates before `history.py` runs rather than after. `scored()` and
+  `post.tallied()` likewise matched a tally-looking marker wherever one
+  was quoted in a body, which could delete real review content sitting
+  after a remark that happened to quote the marker after a blank line;
+  both now match only the exact trailing shape `tallied()` itself
+  writes, anchored to the end of the body. Two were robustness gaps:
+  `remarklike` checked a remark's keys but not their types, so a
+  non-string `comment` reached `.strip()` in `review.past_block` and
+  crashed the round — it now validates every field; and
+  `review.complete()` retried `IncompleteRead`/`URLError`/`TimeoutError`
+  but not `ConnectionError`, despite its own docstring already claiming
+  a connection reset was handled the same way. Three were correctness
+  bugs: `post.commentable_lines()` let inter-file metadata rows
+  (`diff --git`, `index`, `new file mode`) fall through to the previous
+  file's line counter, inflating it past the file's own end and posting
+  an off-diff finding inline at a coincidental line; `main()` recorded
+  `clean=true` whenever there was no finding, even while `coverage`
+  listed files the round could not read at all, handing a partial
+  review to the correctness reviewer as a clean one; and
+  `style-review.yml`'s concurrency group keyed `issue_comment` and
+  `pull_request` events together, so any comment on the pull request —
+  not only one asking for a review — could cancel an in-flight push's
+  round before its own `if` had a chance to skip the no-op ones, and a
+  push could just as wrongly cancel an on-demand round; the group is now
+  keyed by `github.event_name` too
+  ([#695](https://github.com/discopy/discopy/issues/695)).
 - `style-review.yml`'s hand-over to the correctness reviewer, and its
   token generation, ran on every style review rather than the intended
   ones. Both conditions were written as `if: >` folding a wrapped

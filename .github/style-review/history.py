@@ -17,6 +17,7 @@ for the scripts that read and write them.
 
 import json
 import os
+import re
 
 import thread
 from github import listing
@@ -42,10 +43,16 @@ def stamp(remarks):
 
 def remarklike(made):
     """Whether a decoded record is a list of remarks, rather than of
-    whatever else somebody quoting the marker happened to write."""
+    whatever else somebody quoting the marker happened to write. Field
+    types are checked here, at the boundary, so a malformed record never
+    reaches a caller that assumes a remark's ``comment`` is a string."""
     return isinstance(made, list) and all(
         isinstance(remark, dict)
-        and {"path", "line", "comment"} <= remark.keys() for remark in made)
+        and {"path", "line", "comment"} <= remark.keys()
+        and isinstance(remark["path"], str)
+        and isinstance(remark["line"], int)
+        and not isinstance(remark["line"], bool)
+        and isinstance(remark["comment"], str) for remark in made)
 
 
 def recorded(body):
@@ -69,13 +76,23 @@ def scoreboard(verdicts):
     return hidden(f"{TALLY} ", verdicts)
 
 
+TALLY_TAIL = re.compile(
+    r"\n\n" + re.escape(TALLY) + r" (.*) -->\n[^\n]*\Z", re.DOTALL)
+
+
 def scored(body):
     """The verdicts a tally carries, empty for a body carrying none or
-    carrying one this module cannot read."""
+    carrying one this module cannot read. ``post.tallied`` only ever
+    writes one at the very end of the body, so this looks there and
+    nowhere else: a remark that quotes the marker in passing, however it
+    is placed, is never mistaken for one."""
     if TALLY not in body:
         return {}
+    match = TALLY_TAIL.search(body)
+    if not match:
+        return {}
     try:
-        kept = json.loads(body.rsplit(TALLY, 1)[1].split(" -->")[0])
+        kept = json.loads(match[1])
     except ValueError:
         return {}
     return ({number: verdict for number, verdict in kept.items()
@@ -96,19 +113,24 @@ def load():
         return json.load(file)
 
 
-def history(repo, number, token):
+def history(repo, number, token, bot):
     """The rounds posted so far, oldest first, each with the remarks it
     made — numbered across every round, since that is what a verdict
     names — and everything said on the pull request as one transcript,
     from the three listings read once. Each round carries the verdicts on
-    its own remarks, so they are read back from all of them."""
+    its own remarks, so they are read back from all of them.
+
+    Only a review posted by ``bot``, the discopy-bot's own login, is read
+    as a round: a review from anybody else starting with ``MARKER`` and
+    carrying valid JSON is somebody quoting it, not a round to trust —
+    nothing about the marker itself proves who wrote it."""
     reviews = listing(f"/repos/{repo}/pulls/{number}/reviews", token)
     comments = listing(f"/repos/{repo}/pulls/{number}/comments", token)
     conversation = listing(f"/repos/{repo}/issues/{number}/comments", token)
     discussion = thread.render(
         thread.entries(conversation, comments, reviews), thread.BUDGET)
     posted = [(review, recorded(review["body"] or "")) for review in reviews
-              if review["submitted_at"]]
+              if review["submitted_at"] and review["user"]["login"] == bot]
     remarks, rounds, verdicts = [], [], {}
     for review, made in posted:
         if made is None:
@@ -127,7 +149,7 @@ def history(repo, number, token):
 def main():
     os.makedirs(DIRECTORY, exist_ok=True)
     past = history(os.environ["REPO"], os.environ["PR_NUMBER"],
-                   os.environ["GITHUB_TOKEN"])
+                   os.environ["GITHUB_TOKEN"], os.environ["BOT_LOGIN"])
     with open(os.path.join(DIRECTORY, "history.json"), "w") as file:
         json.dump(past, file)
     print(f"{len(past['rounds'])} rounds so far, "

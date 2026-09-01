@@ -260,11 +260,13 @@ def complete(request, attempts=ATTEMPTS):
     short. A chunked response can end mid-body — an ``IncompleteRead``
     four minutes in left [#661](https://github.com/discopy/discopy/pull/661)
     with no review at all — and a connection reset or a timeout is the
-    same failure. An ``HTTPError`` is the gateway answering rather than
-    the transfer failing, so it is raised at once, for ``ask`` to read
-    the body of, rather than asked again: it is a subclass of
-    ``URLError`` and would otherwise be caught below. The attempts are
-    capped so that the worst case stays inside the job's own timeout."""
+    same failure, ``ConnectionError`` (``ConnectionResetError`` among
+    its subclasses) included. An ``HTTPError`` is the gateway answering
+    rather than the transfer failing, so it is raised at once, for
+    ``ask`` to read the body of, rather than asked again: it is a
+    subclass of ``URLError`` and would otherwise be caught below. The
+    attempts are capped so that the worst case stays inside the job's
+    own timeout."""
     for attempt in range(1, attempts + 1):
         try:
             with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
@@ -272,7 +274,7 @@ def complete(request, attempts=ATTEMPTS):
         except urllib.error.HTTPError:
             raise
         except (http.client.IncompleteRead, urllib.error.URLError,
-                TimeoutError) as error:
+                TimeoutError, ConnectionError) as error:
             print(f"gateway transfer failed ({error!r}), attempt {attempt} "
                   f"of {attempts}.", file=sys.stderr)
             if attempt == attempts:
