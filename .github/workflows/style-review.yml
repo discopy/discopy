@@ -6,10 +6,13 @@ on:
     types: [created]
 permissions:
   contents: read
+  issues: read
   pull-requests: read
 concurrency:
+  # One round at a time per pull request, whatever triggered either of them:
+  # a push cancels the round that was reviewing the head it replaces.
   group: style-review-${{ github.event.pull_request.number
-    || github.event.issue.number }}-${{ github.event.action }}
+    || github.event.issue.number }}
   cancel-in-progress: true
 jobs:
   review:
@@ -38,7 +41,7 @@ jobs:
           "no_review=\(.labels | any(.name == "no-style-review"))"' \
           >> "$GITHUB_OUTPUT"
 
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         ref: ${{ steps.pr.outputs.head }}
         fetch-depth: 0
@@ -111,7 +114,18 @@ jobs:
         echo "changed=$(test -s .style-review/diff.patch \
           && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
+    - name: Read the previous rounds and the discussion
+      if: >
+        steps.config.outputs.configured == 'true'
+        && steps.diff.outputs.changed == 'true'
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        REPO: ${{ github.repository }}
+        PR_NUMBER: ${{ steps.pr.outputs.number }}
+      run: python3 .github/style-review/history.py
+
     - name: Review the diff
+      id: review
       if: >
         steps.config.outputs.configured == 'true'
         && steps.diff.outputs.changed == 'true'
@@ -125,8 +139,8 @@ jobs:
     - name: Generate a discopy-bot token
       id: app-token
       if: >
-        ${{ !cancelled() && steps.todo.outputs.wait == 'false' }}
-      uses: actions/create-github-app-token@v1
+        !cancelled() && steps.todo.outputs.wait == 'false'
+      uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
       with:
         app-id: ${{ vars.DISCOPY_BOT_APP_ID }}
         private-key: ${{ secrets.DISCOPY_BOT_PRIVATE_KEY }}
@@ -139,6 +153,7 @@ jobs:
         && steps.diff.outputs.changed == 'true'
       env:
         APP_TOKEN: ${{ steps.app-token.outputs.token }}
+        GITHUB_TOKEN: ${{ github.token }}
         REPO: ${{ github.repository }}
         PR_NUMBER: ${{ steps.pr.outputs.number }}
         HEAD_SHA: ${{ steps.pr.outputs.head }}
@@ -147,12 +162,15 @@ jobs:
 
     - name: Call the correctness reviewer
       if: >
-        ${{ !cancelled() && steps.todo.outputs.wait == 'false'
-            && steps.post.outputs.clean != 'false' }}
+        !cancelled() && steps.todo.outputs.wait == 'false'
+        && steps.post.outputs.clean != 'false'
       env:
         GH_TOKEN: ${{ steps.app-token.outputs.token }}
         PR_NUMBER: ${{ steps.pr.outputs.number }}
         CLEAN: ${{ steps.post.outputs.clean }}
+        CONFIGURED: ${{ steps.config.outputs.configured }}
+        CHANGED: ${{ steps.diff.outputs.changed }}
+        REVIEW_OUTCOME: ${{ steps.review.outcome }}
       run: |
         called="$(gh api --paginate \
           "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" --jq '
@@ -164,7 +182,13 @@ jobs:
         this pull request."
           exit 0
         fi
-        if [ "$CLEAN" = "true" ]; then
+        # A review that was meant to run and did not is a crash of its
+        # own step or of the one before it, which GitHub skips it for.
+        if [ "$CONFIGURED" = true ] && [ "$CHANGED" = true ] \
+           && [ "$REVIEW_OUTCOME" != success ]; then
+          body="@cubic-dev-ai review — the style review did not run \
+        ($REVIEW_OUTCOME), see the job's log."
+        elif [ "$CLEAN" = "true" ]; then
           body="No style remarks. @cubic-dev-ai review"
         else
           body="@cubic-dev-ai review"
