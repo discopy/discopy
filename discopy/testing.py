@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import inspect
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping
+from dataclasses import KW_ONLY, dataclass, replace
 from functools import wraps
 from typing import ClassVar, TypeVar, TYPE_CHECKING, get_args, get_origin
 
@@ -28,6 +28,9 @@ override with its own types: :meth:`Axiom.strategy` rebinds both names to
 ``carrier.ob`` and ``carrier.ar`` when it evaluates the annotations. This
 is also why every module stating an axiom needs
 ``from __future__ import annotations``, which keeps them unevaluated.
+Rebinding happens through the ``locals`` of that evaluation because the
+:pep:`695` type parameters of :class:`discopy.abc.Category` live in a
+scope :func:`eval` cannot see, in globals or anywhere else.
 """
 
 
@@ -551,6 +554,18 @@ class Relabelled(Mapping):
         return True
 
 
+class AxiomFailure(AxiomError):
+    """
+    A law declared broken, raised when the bound axiom is called: the
+    reason is the message and :attr:`equation` is the law evaluated on the
+    arguments, which a recorded counterexample must falsify.
+    """
+    def __init__(self, reason: str, equation):
+        super().__init__(reason, equation)
+        self.equation = equation
+
+
+@dataclass(eq=False)
 class Axiom[T]:
     """
     A categorical law, stated either of a carrier or of one of its elements.
@@ -563,7 +578,7 @@ class Axiom[T]:
     Calling a bound axiom returns its own verdict: :obj:`NotImplemented`
     when the structure does not apply to the carrier, and the equation
     itself otherwise; a law declared broken raises an
-    :class:`discopy.utils.AxiomError` instead of returning anything.
+    :class:`AxiomFailure` carrying that equation instead of returning it.
 
     A law is broken when *some* argument is a counterexample, not every one,
     so :attr:`broken` is declared by :meth:`failing` before any argument is
@@ -571,18 +586,21 @@ class Axiom[T]:
     failure and lets the search find the counterexample.
     """
 
-    def __init__(self, equation, *, carrier=None, name=None, subspaces=None,
-                 broken=False):
-        function = equation.__func__ if isinstance(equation, classmethod)\
-            else equation
-        self.equation = function
-        self.signature = inspect.signature(function)
+    equation: Callable
+    _: KW_ONLY
+    carrier: type[T] = None
+    name: str = None
+    subspaces: dict = None
+    broken: bool = False
+
+    def __post_init__(self):
+        if isinstance(self.equation, classmethod):
+            self.equation = self.equation.__func__
+        self.signature = inspect.signature(self.equation)
         self.receiver = next(iter(self.signature.parameters), None)
-        self.carrier = carrier
-        self.name = self.__name__ = name or function.__name__
-        self.broken = broken
-        self.subspaces = dict(subspaces or {})
-        self.__doc__ = function.__doc__
+        self.name = self.__name__ = self.name or self.equation.__name__
+        self.subspaces = dict(self.subspaces or {})
+        self.__doc__ = self.equation.__doc__
 
     def __repr__(self):
         return f"Axiom({self.name})"
@@ -602,9 +620,7 @@ class Axiom[T]:
 
     def bind(self, carrier: type[T]) -> Axiom[T]:
         """ Bind the axiom to a concrete carrier. """
-        return type(self)(
-            self.equation, carrier=carrier, name=self.name,
-            subspaces=self.subspaces, broken=self.broken)
+        return replace(self, carrier=carrier)
 
     def __get__(self, instance, owner: type[T]) -> Axiom[T]:
         return self.bind(owner)
@@ -619,21 +635,20 @@ class Axiom[T]:
         @wraps(self.equation)
         def equation(*args, **kwargs):
             return self.equation(*args, **kwargs).modulo(up_to)
-        return type(self)(
-            equation, subspaces=self.subspaces, broken=self.broken)
+        return replace(self, equation=equation)
 
     def failing(self, reason: str) -> Axiom[T]:
         """
         The same law declared broken: calling it raises an
-        :class:`discopy.utils.AxiomError` with the reason as message and
-        the equation as its last argument, e.g. ``braid_naturality =
+        :class:`AxiomFailure` with the reason as message and the equation
+        evaluated on the arguments, e.g. ``braid_naturality =
         BraidedCategory.braid_naturality.failing("A free braid is a box.")``.
         """
         @wraps(self.equation)
         def equation(*args, **kwargs):
-            raise AxiomError(reason, self.equation(*args, **kwargs))
+            raise AxiomFailure(reason, self.equation(*args, **kwargs))
         equation.__doc__ = reason
-        return type(self)(equation, broken=True)
+        return replace(self, equation=equation, broken=True)
 
     def inapplicable(self, reason: str) -> Axiom[T]:
         """
@@ -644,8 +659,8 @@ class Axiom[T]:
         """
         def law(cls):
             return NotImplemented
-        law.__name__, law.__doc__ = self.name, reason
-        return type(self)(law)
+        law.__doc__ = reason
+        return replace(self, equation=law, subspaces={}, broken=False)
 
     def weaken(self, **subspaces) -> Axiom[T]:
         """
@@ -660,10 +675,7 @@ class Axiom[T]:
         matrix one expected failure and one green cell instead of one
         blanket expected failure.
         """
-        result = type(self)(
-            self.equation, name=self.name,
-            subspaces=dict(self.subspaces, **subspaces), broken=self.broken)
-        return result
+        return replace(self, subspaces=dict(self.subspaces, **subspaces))
 
     def strategy(self) -> st.SearchStrategy:
         """

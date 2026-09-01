@@ -10,7 +10,7 @@ from discopy import closed, feedback, rigid, symmetric, testing
 from discopy.abc import Equation as AbstractEquation
 from discopy.cat import Arrow, Box, Equation, Functor, Ob
 from discopy.testing import (
-    C0, C1, Atomic, Axiom, BoundaryConnected, ComposablePair,
+    C0, C1, Atomic, Axiom, AxiomFailure, BoundaryConnected, ComposablePair,
     FeedbackJoining, FeedbackVanishing, HomogeneousMemory, HorizontalPair,
     LeftCurrying, Natural, NonEmpty, Relabelled, Relabelling, RightCurrying,
     Small, Strategy, TraceDinaturalityLeft, TraceDinaturalityRight,
@@ -239,11 +239,22 @@ def test_axiom_binding():
         Axiom(lambda cls: NotImplemented)()
     with raises(TypeError):
         Axiom(lambda cls: NotImplemented).falsify()
+    assert Axiom(classmethod(lambda cls: NotImplemented)).bind(Arrow)()\
+        is NotImplemented
     box = Box('f', Ob('x'), Ob('y'))
     assert Arrow.unitality(box)
-    broken = Arrow.unitality.failing("Never holds.").bind(Arrow)
-    with raises(AxiomError):
-        broken(box)
+    broken = Arrow.unitality.weaken(f=Atomic[C1]).failing("Never holds.")
+    assert broken.subspaces == {"f": Atomic[C1]}
+    with raises(AxiomFailure) as failure:
+        broken(Atomic(box))
+    assert failure.value.equation
+
+
+def test_inapplicable():
+    law = Arrow.unitality.inapplicable("No identities to cancel.")
+    assert law.name == "unitality"
+    assert law.__doc__ == "No identities to cancel."
+    assert law() is NotImplemented
 
 
 def test_modulo():
