@@ -19,8 +19,13 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   with many boxes is a scalar and still has a genus worth computing
   ([#690](https://github.com/discopy/discopy/pull/690)).
 - `CMap.genus`, the number of handles of the smallest orientable surface a
-  connected map embeds in, i.e. `(2 - χ) / 2`, and zero on a scalar, which
-  has no embedding to speak of. `euler_characteristic` and `is_planar` were
+  connected map embeds in, i.e. `(2 - χ) / 2`, deferring to
+  `euler_characteristic` and raising with it on a map that is not connected.
+  Zero for a map with no vertex, i.e. a loop, which is the one degenerate
+  case: a circle does embed in the sphere, but Euler's formula only counts it
+  once a vertex has subdivided it. A scalar is not degenerate — a standard
+  combinatorial map is a connected scalar and has a genus like any other.
+  `euler_characteristic` and `is_planar` were
   both here already, but a map that is not planar is not thereby all the
   same: the genus says *how far* from planar it is, which is the question
   asked by anything reading a topological obstruction off a map rather than

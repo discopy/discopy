@@ -773,6 +773,12 @@ def test_genus():
     with raises(ValueError):
         (torus @ scalar).genus
 
+    # A disconnected map has no genus even with nothing to subdivide.
+    loops = compact.CMap(compact.Ty(), compact.Ty(), (), [], loops=(cx, cy))
+    assert loops.n_vertices == 0
+    with raises(ValueError):
+        loops.genus
+
 
 def test_draw_plain_path(tmp_path):
     if shutil.which("dot") is None:

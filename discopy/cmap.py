@@ -363,10 +363,14 @@ class CMap[C0: Pregroup, C1: CMap](
         smallest orientable surface it embeds in without crossings.
 
         This is :math:`(2 - \chi) / 2` for the Euler characteristic
-        :math:`\chi` of :attr:`euler_characteristic`, and zero for a map
-        with no vertex, i.e. a loop: a circle does embed in the sphere, but
-        Euler's formula only counts it once a vertex has subdivided it,
-        which a loop by definition has not.
+        :math:`\chi` of :attr:`euler_characteristic`, which it defers to and
+        which raises :class:`ValueError` on a map that is not connected.
+
+        A map with no vertex, i.e. a loop, has genus zero: a circle does
+        embed in the sphere, but Euler's formula only counts it once a
+        vertex has subdivided it, which a loop by definition has not. This
+        is the only degenerate case -- a closed map is a scalar and has a
+        genus like any other.
 
         >>> from discopy.symmetric import Ty, Box, Swap
         >>> x, y, z = map(Ty, "xyz")
@@ -376,8 +380,8 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> (Swap(y, x) >> f).to_map().genus
         1
         """
-        return 0 if not self.n_vertices else (
-            2 - self.euler_characteristic) // 2
+        characteristic = self.euler_characteristic
+        return 0 if not self.n_vertices else (2 - characteristic) // 2
 
     @property
     def is_planar(self) -> bool:
