@@ -9,13 +9,22 @@ permissions:
   issues: read
   pull-requests: read
 concurrency:
-  # One round at a time per pull request AND per trigger kind: `issue_comment`
-  # fires this workflow for every comment on the pull request, not just the
-  # ones asking for a review, and a shared group would let a stray comment
-  # cancel an in-flight push's round before the job's own `if` gets to skip
-  # it. Within one kind, a newer trigger still cancels the round in flight,
-  # since it reviews the same or a newer head.
-  group: style-review-${{ github.event_name }}-${{
+  # Every trigger this job would actually review — a push, or an
+  # "@discopy review this" from someone authorized — shares one group per
+  # pull request, so a newer one still cancels the round in flight for the
+  # same or a newer head, and a push and an on-demand ask can't both post a
+  # round for the same revision. `issue_comment` fires this workflow for
+  # every comment on the pull request, though, not just the ones asking for
+  # a review, and cancellation happens before the job's own `if` gets to
+  # skip the rest — so anything that isn't a real trigger gets its own
+  # group, keyed by the run itself, and can never cancel a round in flight.
+  group: style-review-${{
+    (github.event_name == 'pull_request'
+      || (github.event.issue.pull_request != null
+          && contains(github.event.comment.body, '@discopy review this')
+          && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'),
+                      github.event.comment.author_association)))
+    && 'review' || github.run_id }}-${{
     github.event.pull_request.number || github.event.issue.number }}
   cancel-in-progress: true
 jobs:

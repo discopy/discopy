@@ -421,8 +421,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `pull_request` events together, so any comment on the pull request —
   not only one asking for a review — could cancel an in-flight push's
   round before its own `if` had a chance to skip the no-op ones, and a
-  push could just as wrongly cancel an on-demand round; the group is now
-  keyed by `github.event_name` too
+  push could just as wrongly cancel an on-demand round; the group now
+  shares one key for every trigger the job would actually review, a
+  push or an authorized `@discopy review this` alike, and falls back to
+  one keyed by the run itself for anything else, which can never
+  collide with — and cancel — a real round
   ([#695](https://github.com/discopy/discopy/issues/695)).
 - `style-review.yml`'s hand-over to the correctness reviewer, and its
   token generation, ran on every style review rather than the intended

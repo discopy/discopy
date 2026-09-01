@@ -69,6 +69,21 @@ def test_history_ignores_a_forged_round_from_somebody_else(
     assert past["rounds"] == [] and past["remarks"] == []
 
 
+def test_history_ignores_a_review_from_a_deleted_account(history, monkeypatch):
+    """GitHub returns `null` for a deleted account's `user`, the same as
+    it does on a comment `thread.author` already guards against — it
+    must not crash the round while filtering for the bot's own login."""
+    orphaned = review(
+        history, [{"path": "a.py", "line": 1, "comment": "x"}], 1)
+    orphaned["user"] = None
+    listed = {"/repos/o/r/pulls/1/reviews": [orphaned],
+              "/repos/o/r/pulls/1/comments": [],
+              "/repos/o/r/issues/1/comments": []}
+    monkeypatch.setattr(history, "listing", lambda path, token: listed[path])
+    past = history.history("o/r", "1", "token", "discopy")
+    assert past["rounds"] == [] and past["remarks"] == []
+
+
 def test_recorded_reads_a_marker_of_the_wrong_shape_as_none(history):
     """Valid JSON that is not a list of remarks is somebody quoting the
     marker, not a round: reading it as one crashed the numbering."""
@@ -110,6 +125,17 @@ def test_scored_ignores_a_tally_quoted_mid_body(history):
             + ' {"1": "accepted"} -->\nsomeone quoted this mid-review.'
             + "\n\nReal content follows, and must not be lost.")
     assert history.scored(body) == {}
+
+
+def test_scored_does_not_span_two_well_formed_tallies(history):
+    """A quoted tally earlier in the body, itself a complete
+    `... --> \\n<line>` shape, must not make a greedy match swallow the
+    real one that follows it — only the trailing one is read."""
+    body = ("Style review.\n\n" + history.scoreboard({"1": "accepted"})
+            + "\nan earlier quoted tally, not the real one"
+            + "\n\n" + history.scoreboard({"2": "declined"})
+            + "\n1 style remark: declined")
+    assert history.scored(body) == {"2": "declined"}
 
 
 def test_a_review_nobody_submitted_is_not_a_round(history, monkeypatch):

@@ -77,7 +77,7 @@ def scoreboard(verdicts):
 
 
 TALLY_TAIL = re.compile(
-    r"\n\n" + re.escape(TALLY) + r" (.*) -->\n[^\n]*\Z", re.DOTALL)
+    r"\n\n" + re.escape(TALLY) + r" ([^\n]*) -->\n[^\n]*\Z")
 
 
 def scored(body):
@@ -123,14 +123,17 @@ def history(repo, number, token, bot):
     Only a review posted by ``bot``, the discopy-bot's own login, is read
     as a round: a review from anybody else starting with ``MARKER`` and
     carrying valid JSON is somebody quoting it, not a round to trust —
-    nothing about the marker itself proves who wrote it."""
+    nothing about the marker itself proves who wrote it. ``user`` is
+    ``None`` for a deleted account, the same as ``thread.author`` already
+    guards against, and one is never the bot's own."""
     reviews = listing(f"/repos/{repo}/pulls/{number}/reviews", token)
     comments = listing(f"/repos/{repo}/pulls/{number}/comments", token)
     conversation = listing(f"/repos/{repo}/issues/{number}/comments", token)
     discussion = thread.render(
         thread.entries(conversation, comments, reviews), thread.BUDGET)
     posted = [(review, recorded(review["body"] or "")) for review in reviews
-              if review["submitted_at"] and review["user"]["login"] == bot]
+              if review["submitted_at"]
+              and (review["user"] or {}).get("login") == bot]
     remarks, rounds, verdicts = [], [], {}
     for review, made in posted:
         if made is None:
