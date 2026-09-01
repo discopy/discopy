@@ -37,6 +37,67 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `cat.Arrow` and `cat.Functor`, and run by the new `proptest` GitHub
   workflow on `main`, manual dispatch and PRs labelled `proptest`. See
   [PROPTEST.md](PROPTEST.md).
+- The style review keeps score. Every review it posts records the remarks
+  it made, hidden in its own body, so the next round can read them back
+  whole rather than parse its own prose. That next round is one request
+  as before: the model is shown the past remarks with the replies they
+  drew, alongside the revision it is reviewing, and says what became of
+  each — `accepted` when the file now does what the remark asked,
+  `declined` when someone answered that they would not do it, and neither
+  while nobody has answered and nothing has moved. Each review then
+  carries the tally of the remarks **it** made and no others, `3 style
+  remarks: 1 accepted / 1 declined / 1 still open` — or `all accepted`, a
+  state nothing is in being left out rather than counted at nought — so
+  that a review says how what it asked for landed, read where it asked
+  it. A round is scored by the ones that follow it, so the review being
+  posted carries no tally yet and every round already posted is written
+  again. A verdict that decided something survives a later round that
+  forgets it: each tally carries the verdicts it recorded, hidden beside
+  the line it shows, and a round merges its answers into them rather than
+  recomputing the lot — a remark accepted while its file was in the diff stays
+  accepted once the diff has moved on, where asking a model that can no
+  longer see that file made the tally oscillate. A round is one review and
+  says which round it is, so the reader sees how the review is landing
+  without counting them. The prompt is ordered from what never moves to
+  what moves every round — instructions, `STYLE.md`, context files, the
+  past remarks as a list that only grows at its end, and last the revision
+  under review — so that two rounds of one pull request share a prefix the
+  gateway can serve from its cache rather than reading again
+  ([#672](https://github.com/discopy/discopy/pull/672)).
+- The style review never posts a review of a revision that is gone. Its
+  concurrency group keyed on the event's action as well as the pull
+  request, so a push cancelled the round another push had started but not
+  one started by `ready_for_review` or by asking for it in a comment:
+  those ran on, and posted a review of the head they had read minutes
+  earlier, with line numbers belonging to a revision nobody could see any
+  more. The group is now the pull request alone, so a newer trigger
+  cancels the round in flight whatever started either of them, and
+  `post.py` re-reads the head before posting and stands down when it has
+  moved, leaving the review to the round that push starts. The base
+  branch advancing is not this and never was: a merge base does not move
+  when its target gains commits, so the diff both we and GitHub compute —
+  and every line number in it — is the same before and after
+  ([#672](https://github.com/discopy/discopy/pull/672)).
+- The style review comments on the diff, and says where it could not.
+  Whole files are what it reads to judge a change against the
+  conventions around it, not an invitation to review code the change
+  does not touch, so the prompt asks for findings on the lines the diff
+  adds and says that going outside them is allowed but discouraged —
+  for the case where what is wrong with a change is somewhere it did not
+  touch. Every remark is a comment on the line it is about wherever
+  GitHub takes one there, which is any line one of the diff's hunks
+  shows; a remark further out goes in the review body, as do the ones
+  past the ten-finding cap and, where GitHub refuses the inline comments
+  outright, all of them. Left as a review of the file at large, the
+  ten-finding cap went on code nobody was changing, and under the tally
+  above those remarks stayed open forever, since fixing them was out of
+  the pull request's scope
+  ([#673](https://github.com/discopy/discopy/issues/673)). The body also
+  names the changed files that did not fit one prompt — reviewed from
+  their diff alone, or not reviewed at all — where that was said in the
+  job's log and nowhere a reader would look, so a review with nothing to
+  say about a file it never read whole read exactly like one that had
+  read it.
 - A `workflows` job in `build.yml`, so that the code running our pull
   requests is checked like the code it checks: `actionlint` over the
   workflows, `pflake8` over `.github`, and `pytest .github/tests/*.py`
@@ -88,7 +149,16 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   model behind an OpenAI-compatible gateway, configured by the
   `STYLE_REVIEW_BASE_URL` and `STYLE_REVIEW_MODEL` repository variables and
   the `STYLE_REVIEW_API_KEY` secret
-  ([#608](https://github.com/discopy/discopy/pull/608)).
+  ([#608](https://github.com/discopy/discopy/pull/608)). The review prompt
+  now also carries the PR discussion so far — conversation comments,
+  diff comments and review summaries, merged chronologically by
+  `thread.py` from the three listings `history.py` already reads for the
+  tally — so a re-review references a resolved flag instead of re-raising
+  it, and weighs an author's reply as context about the discussion rather
+  than authority on the style itself
+  ([#620](https://github.com/discopy/discopy/pull/620);
+  [#619](https://github.com/discopy/discopy/issues/619) tracks the
+  long-term memory this is a prerequisite for).
 - Combinatorial map representation, `discopy.cmap`, encoding diagrams in
   compact categories as a permutation on the ports of each box
   ([#338](https://github.com/discopy/discopy/pull/338)).
@@ -477,6 +547,47 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   run when the branch has already moved past the event it is handling,
   rather than drafting a head that no longer exists behind its back
   ([#640](https://github.com/discopy/discopy/issues/640)).
+- A style review that stands down calls nobody. `post.py` returns
+  before posting when the head has moved under it, and that return went
+  past `record`, leaving the `clean` output unset — which
+  `style-review.yml` reads as clean, since it withholds the correctness
+  reviewer on `clean == 'false'` alone. So a round that reviewed nothing
+  called `@cubic-dev-ai` on a head nobody had read, and the guard that
+  calls it once per pull request then made that permanent: the round the
+  push started found it already called and stood down in turn. Standing
+  down now records `clean=false`, which is the honest value — there is
+  something left to say about this pull request, just not by this round
+  ([#676](https://github.com/discopy/discopy/pull/676)).
+- The style review reads the gateway's answer again when the transfer is
+  cut short. A chunked response can end mid-body, and an
+  `IncompleteRead` four minutes in left
+  [#661](https://github.com/discopy/discopy/pull/661) with no review at
+  all; a connection reset or a timeout is the same failure, so `complete`
+  catches `URLError` and `TimeoutError` beside it. An `HTTPError` is the
+  gateway answering rather than the transfer failing — and a subclass of
+  `URLError`, so it would otherwise be caught — and is raised at once for
+  `ask` to print the body of. The attempts are capped at two, ten minutes
+  each, inside the job's own thirty
+  ([#671](https://github.com/discopy/discopy/pull/671), closed as
+  superseded but for this).
+- The notes naming what did not fit the style review's budget sit with
+  the changed files they describe rather than between the context files
+  and the past remarks. They name whatever was dropped, degraded or left
+  unreviewed *this* round, so in the prefix they rewrote its middle
+  whenever that set changed — costing the cache the remarks, the
+  discussion and the whole revision after them
+  ([#676](https://github.com/discopy/discopy/pull/676)).
+- `review.py`'s `assemble` raised when a changed file's full-file
+  `annotated` listing didn't fit `BUDGET`, crashing the whole
+  style-review step on a large diff. A changed file too big for that now
+  falls back to a plain, small-context `git diff` of just its hunks, the
+  same degrade already applied to imported context files; a file whose
+  diff still doesn't fit is reported as entirely unreviewed rather than
+  silently dropped. `style-review.yml`'s "Review the diff" step is now
+  named so the "Call the correctness reviewer" step can tell a crash
+  apart from a clean or a non-clean review, and says so in the comment
+  it posts instead of reading like either of those
+  ([#617](https://github.com/discopy/discopy/pull/617)).
 - `build.yml` timeouts and a bounded, retried Graphviz install
   ([#591](https://github.com/discopy/discopy/issues/591)).
 - `frobenius.Diagram.unfuse`'s doctest no longer sets `Spider.color = "red"`
