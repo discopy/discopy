@@ -128,7 +128,7 @@ class Exp(biclosed.Exp):
         return f"({self.exponent} >> {self.base})"
 
 
-class Product(biclosed.Ob):
+class Product(biclosed.Wire):
     """
     The product of a tuple of types, which is not strictly associative,
     called with ``*`` in the binary case.
