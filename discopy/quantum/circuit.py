@@ -219,8 +219,8 @@ class Circuit(tensor.Diagram[complex]):
     copy_cocommutativity = tensor.Diagram.copy_cocommutativity.inapplicable(
         NO_CLONING)
 
-    copy_monoidal_coherence = tensor.Diagram.copy_monoidal_coherence\
-        .inapplicable(NO_CLONING)
+    copy_monoidal_coherence = (
+        tensor.Diagram.copy_monoidal_coherence.inapplicable(NO_CLONING))
 
     discard_coherence = tensor.Diagram.discard_coherence.inapplicable(
         NO_CLONING)
