@@ -14,12 +14,12 @@ from pytest import raises
 
 from discopy import biclosed, cat, feedback, monoidal, rigid, testing, traced
 from discopy.testing import (
-    C0, C1, Atomic, Bifunctor, BoundaryConnected, ComposablePair,
-    ComposableTriple, FeedbackJoining, FeedbackVanishing, HomogeneousMemory,
-    HorizontalPair, LeftCurrying, Natural, NonEmpty, Relabelled, Relabelling,
-    RightCurrying, Small, TraceDinaturalityLeft, TraceDinaturalityRight,
-    TraceNaturalityLeft, TraceNaturalityRight, TraceSuperposing, axiom,
-    resolve)
+    C0, C1, Atomic, Axiom, AxiomFailure, Bifunctor, BoundaryConnected,
+    ComposablePair, ComposableTriple, FeedbackJoining, FeedbackVanishing,
+    HomogeneousMemory, HorizontalPair, LeftCurrying, Natural, NonEmpty,
+    Relabelled, Relabelling, RightCurrying, Small, TraceDinaturalityLeft,
+    TraceDinaturalityRight, TraceNaturalityLeft, TraceNaturalityRight,
+    TraceSuperposing, axiom, resolve)
 from discopy.utils import AxiomError
 
 
@@ -240,20 +240,23 @@ def test_Axiom():
     with raises(TypeError):
         law.falsify()
     assert law.bind(cat.Arrow)(cat.Id(cat.Ob('x')))
-    broken = cat.Arrow.unitality.failing("Never holds.").bind(cat.Arrow)
-    with raises(AxiomError):
-        broken(cat.Box('f', cat.Ob('x'), cat.Ob('y')))
+    assert Axiom(classmethod(lambda cls: NotImplemented)).bind(cat.Arrow)()\
+        is NotImplemented
+    broken = cat.Arrow.unitality.weaken(f=Atomic[C1]).failing("Never holds.")
+    assert broken.subspaces == {"f": Atomic[C1]}
+    with raises(AxiomFailure) as failure:
+        broken(Atomic(cat.Box('f', cat.Ob('x'), cat.Ob('y'))))
+    assert failure.value.equation
 
 
 def test_modulo():
-    law = cat.Arrow.unitality.modulo(lambda term: term.dom).bind(cat.Arrow)
+    law = cat.Arrow.unitality.modulo(lambda term: term.dom)
     assert law(cat.Box('f', cat.Ob('x'), cat.Ob('y')))
 
 
 def test_weaken():
     for subspace in (Atomic[C1], Atomic[monoidal.Ty]):
-        law = monoidal.Ty.monoid_unitality.weaken(x=subspace)\
-            .bind(monoidal.Ty)
+        law = monoidal.Ty.monoid_unitality.weaken(x=subspace)
         assert law.modulo(lambda term: term).subspaces == law.subspaces
         args = find(law.strategy(), lambda _: True)
         assert isinstance(args[0], Atomic) and law(*args)
@@ -279,6 +282,9 @@ def test_inapplicable():
     assert unitality() is NotImplemented
     assert unitality.__doc__ == "No identities."
     assert not unitality.parameters and not unitality.broken
+    dropped = cat.Arrow.unitality.weaken(f=Atomic[C1])\
+        .inapplicable("No identities.")
+    assert dropped.name == "unitality" and not dropped.subspaces
 
 
 def test_Small():
