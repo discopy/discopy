@@ -55,11 +55,11 @@ at `ce044a0`, nothing posted to GitHub), quoted findings:
 The work, as decided with the maintainer (keep the current API, KISS
 over DRY, focus on the replay promise and verified correctness issues):
 
-- [ ] 1.1: `failing` raises a new `AxiomFailure(AxiomError)` naming its
+- [WIP] @session_01Bwih1mV32usVtEFyNbDhq8-2026-09-01 12:40 1.1: `failing` raises a new `AxiomFailure(AxiomError)` naming its
       equation; `test_counterexample` reads the equation off the
       failure so a record earns its xfail and flips to XPASS when the
       bug is fixed; PROPTEST.md reworded to match.
-- [ ] Field drops: `Axiom` becomes a `@dataclass(eq=False)` and every
+- [WIP] @session_01Bwih1mV32usVtEFyNbDhq8-2026-09-01 12:40 Field drops: `Axiom` becomes a `@dataclass(eq=False)` and every
       combinator goes through `dataclasses.replace`, fixing `failing`
       dropping `subspaces` (and `modulo`/`weaken` dropping fields) and
       the redundant temporary in `weaken`; unit tests for the
