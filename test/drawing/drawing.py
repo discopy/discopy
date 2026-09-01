@@ -1,7 +1,7 @@
 
 import os
 
-from pytest import raises
+from pytest import importorskip, raises
 
 from discopy.utils import AxiomError
 from discopy.config import DRAWING_DEFAULT
@@ -549,6 +549,7 @@ def test_tikz_controlled_node_ids():
 
 
 def test_rich_display():
+    importorskip("anywidget")
     from io import StringIO
     import matplotlib.pyplot as plt
     from discopy.monoidal import Ty, Box
@@ -561,12 +562,15 @@ def test_rich_display():
         svg, png = obj._repr_svg_(), obj.to_png()
         assert svg.startswith('<?xml') and '</svg>\n' in svg
         assert png.startswith(b'\x89PNG')
-        assert obj._repr_mimebundle_() == {
-            'image/svg+xml': svg, 'image/png': png}
+        bundle = obj._repr_mimebundle_()
+        assert 'image/svg+xml' in bundle
+        assert 'image/png' in bundle
+        assert 'application/vnd.jupyter.widget-view+json' in bundle
         assert obj._repr_mimebundle_(include=['image/svg+xml']) == {
             'image/svg+xml': svg}
-        assert obj._repr_mimebundle_(exclude=['image/svg+xml']) == {
-            'image/png': png}
+        sub = obj._repr_mimebundle_(exclude=['image/svg+xml'])
+        assert 'image/png' in sub
+        assert 'image/svg+xml' not in sub
         assert obj._repr_mimebundle_(include=['text/html']) == {}
 
     assert plt.get_fignums() == []
