@@ -31,6 +31,22 @@ waits here too.
   Fixed one merge-fallout warning: `Product` was left subclassing the
   deprecated `biclosed.Ob` alias instead of `biclosed.Wire` (#566's
   rename, landed on `main` after this branch forked).
-- [ ] Re-read the open review threads against the merged state and
+- [x] Re-read the open review threads against the merged state and
   answer or fix each, then delete this `TODO.md` to hand the pull
-  request back to review.
+  request back to review. 19 threads: 5 were already resolved; 7 more
+  were real bugs (nightmare6728's PBT-flavoured pass on the merged
+  tree), fixed in `e8afcfec` and resolved — `Pack`/`Unpack` escaping
+  the functor codomain into `Hypergraph`, `Let.eval` under variable
+  shadowing, `Substitution.bind` over-rejecting, `Product.__str__` not
+  round-tripping past arity 2, the five new boxes missing
+  `to_tree`/`from_tree`, and the outdated duplicate of the deprecated
+  `biclosed.Ob` fix; one nitpick (pattern matching) applied and
+  resolved; one (the `Drawing` functor guard) auto-resolved by
+  cubic-dev-ai's own tally on rereading `e8afcfec`. Six threads stay
+  open, waiting on human feedback rather than an agent: two real but
+  harder findings filed as issues rather than patched here (#693
+  `to_term`'s free-variable order, #694 eager quadratic naming) and
+  four genuine design questions from daydream6728 (`Function.tensor`'s
+  signature, a `Projection.__getitem__` shorthand, folding `Unpack`
+  into `eval`, and a docstring-placement remark) that are USER's call,
+  not mine.
