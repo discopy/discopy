@@ -69,7 +69,7 @@ from dataclasses import dataclass
 from inspect import signature
 from typing import Callable, Dict, ClassVar
 
-from discopy import cat, monoidal, biclosed, markov, hypergraph
+from discopy import cat, monoidal, biclosed, markov, cmap, hypergraph
 from discopy.abc import ClosedCategory
 from discopy.cat import factory
 from discopy.drawing import Drawing
@@ -197,6 +197,36 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
     def ev(cls, base: Ty, exponent: Ty, left: bool = True):
         return cls.eval_factory(exponent >> base, left=left)
 
+    def to_compact(self) -> Diagram:
+        """
+        Open the curry bubbles into coevaluation and feedback, which stays
+        a :class:`Diagram` as a closed category is traced: each curry
+        becomes its argument followed by :class:`Coeval`, traced over the
+        curried wires, and each term is evaluated first.
+
+        Example
+        -------
+        >>> x, y, z = map(Ty, "xyz")
+        >>> f = Box("f", x @ y, z)
+        >>> assert f.curry().to_compact() == (
+        ...     f >> Coeval(z << y, left=True)).trace()
+        """
+        def image(box):
+            if isinstance(box, Curry):
+                return (box.arg.to_compact() >> Coeval(
+                    box.cod, left=box.left)).trace(
+                        len(box.cod.exponent), left=not box.left)
+            if isinstance(box, (Application, Abstraction)):
+                return box.eval(Functor.id(Diagram)).to_compact()
+            return box
+        result = self.id(self.dom)
+        for layer in self.inside:
+            for box, offset in layer.boxes_and_offsets:
+                cod = result.cod
+                result >>= cod[:offset] @ image(box)\
+                    @ cod[offset + len(box.dom):]
+        return result
+
     def to_drawing(self):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
 
@@ -322,7 +352,11 @@ class Unpack(Box):
         return factory_name(type(self)) + f"({self.dom!r})"
 
 
-class Swap(markov.Swap, Box):
+class Permutation(markov.Permutation, Box):
+    "A permutation in a closed diagram."
+
+
+class Swap(Permutation, markov.Swap, Box):
     "Symmetric swap in a closed diagram."
 
 
@@ -385,16 +419,14 @@ class Functor(biclosed.Functor, markov.Functor):
         return super().__call__(other)
 
 
-class CMap(biclosed.CMap):
-    category = Diagram
-    require_planar = False
+CMap = cmap.CMap[Diagram]
 
 
 Diagram.functor_factory = Functor
-Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.copy_factory = Copy
 Diagram.swap_factory = Swap
+Diagram.permutation_factory = Permutation
 Diagram.curry_factory = Curry
 Diagram.eval_factory = Eval
 Diagram.coeval_factory = Coeval

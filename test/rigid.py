@@ -1,5 +1,6 @@
 from pytest import raises
 
+from discopy.monoidal import Colour
 from discopy.rigid import *
 
 
@@ -51,6 +52,12 @@ def test_Ob_repr():
 def test_Ob_str():
     a = Wire('a')
     assert str(a) == "a" and str(a.r) == "a.r" and str(a.l) == "a.l"
+
+
+def test_Wire_unwind():
+    red, blue = Colour("red"), Colour("blue")
+    x = Wire("x", dom=red, cod=blue)
+    assert x.r.r.unwind() == x
 
 
 def test_Ty_z():
@@ -160,3 +167,22 @@ def test_sum_adjoint():
     two_boxes = two + boxes
     assert two_boxes.l == two.l + boxes.l
     assert two_boxes.l.r == two_boxes
+
+
+def test_curry_uncurry():
+    x, y, z = map(Ty, "xyz")
+    f = Box('f', x @ y, z)
+    assert f.curry(n=0) == f == f.uncurry(n=0)
+    assert f.curry().uncurry().normal_form() == f
+    assert f.curry(left=False).uncurry(left=False).normal_form() == f
+    assert f.curry(n=2).uncurry(n=2).normal_form() == f
+    with raises(ValueError):
+        f.curry(n=3)
+    with raises(ValueError):
+        f.uncurry(n=2)
+
+
+def test_curry_zero():
+    x = Ty('x')
+    f = Box('f', x @ x, x)
+    assert f.curry(0) == f == f.curry(0, left=False)
