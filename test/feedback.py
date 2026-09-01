@@ -9,9 +9,9 @@ def test_invalid_inputs():
     with raises(NotImplementedError):
         Ty('x').delay(-1)
     with raises(ValueError):
-        HeadOb(Ob('x').delay())
+        HeadOb(Wire('x').delay())
     with raises(ValueError):
-        TailOb(Ob('x').delay())
+        TailOb(Wire('x').delay())
 
 
 def test_Diagram_repr():
@@ -88,3 +88,12 @@ def test_fibonacci():
         cod=stream.Stream[python.Function])
 
     assert F(fib).unroll(9).now()[:10] == (0, 1, 1, 2, 3, 5, 8, 13, 21, 34)
+
+
+def test_Permutation_delay():
+    x, y, z = map(Ty, "xyz")
+    perm = Permutation(x @ y @ z, [2, 0, 1])
+    assert perm.delay() == Permutation((x @ y @ z).delay(), [2, 0, 1])
+    assert perm.delay(2) == perm.delay().delay()
+    assert (perm >> Swap(z, x) @ y).delay()\
+        == perm.delay() >> Swap(z, x).delay() @ y.delay()

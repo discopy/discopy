@@ -52,7 +52,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, ClassVar
 
-from discopy import cat, monoidal, biclosed, markov, hypergraph
+from discopy import cat, monoidal, biclosed, markov, cmap, hypergraph
 from discopy.abc import ClosedCategory
 from discopy.cat import factory
 
@@ -102,6 +102,36 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
     def ev(cls, base: Ty, exponent: Ty, left: bool = True):
         return cls.eval_factory(exponent >> base, left=left)
 
+    def to_compact(self) -> Diagram:
+        """
+        Open the curry bubbles into coevaluation and feedback, which stays
+        a :class:`Diagram` as a closed category is traced: each curry
+        becomes its argument followed by :class:`Coeval`, traced over the
+        curried wires, and each term is evaluated first.
+
+        Example
+        -------
+        >>> x, y, z = map(Ty, "xyz")
+        >>> f = Box("f", x @ y, z)
+        >>> assert f.curry().to_compact() == (
+        ...     f >> Coeval(z << y, left=True)).trace()
+        """
+        def image(box):
+            if isinstance(box, Curry):
+                return (box.arg.to_compact() >> Coeval(
+                    box.cod, left=box.left)).trace(
+                        len(box.cod.exponent), left=not box.left)
+            if isinstance(box, (Application, Abstraction)):
+                return box.eval(Functor.id(Diagram)).to_compact()
+            return box
+        result = self.id(self.dom)
+        for layer in self.inside:
+            for box, offset in layer.boxes_and_offsets:
+                cod = result.cod
+                result >>= cod[:offset] @ image(box)\
+                    @ cod[offset + len(box.dom):]
+        return result
+
     def to_drawing(self):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
 
@@ -124,7 +154,11 @@ class Curry(biclosed.Curry, Box):
     "The currying of a closed diagram."
 
 
-class Swap(markov.Swap, Box):
+class Permutation(markov.Permutation, Box):
+    "A permutation in a closed diagram."
+
+
+class Swap(Permutation, markov.Swap, Box):
     "Symmetric swap in a closed diagram."
 
 
@@ -173,16 +207,14 @@ class Functor(biclosed.Functor, markov.Functor):
         return super().__call__(other)
 
 
-class CMap(biclosed.CMap):
-    category = Diagram
-    require_planar = False
+CMap = cmap.CMap[Diagram]
 
 
 Diagram.functor_factory = Functor
-Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.copy_factory = Copy
 Diagram.swap_factory = Swap
+Diagram.permutation_factory = Permutation
 Diagram.curry_factory = Curry
 Diagram.eval_factory = Eval
 Diagram.coeval_factory = Coeval
@@ -230,9 +262,8 @@ class Variable(TermBase, biclosed.Variable):
 class Application(TermBase, biclosed.Application):
     def __check_dom__(self, func, args, left):
         self.overlap = set(func.freevars).intersection(args.freevars)
-        self.freevars = list(set(func.freevars + args.freevars))\
-            if self.overlap else func.freevars + args.freevars
-        return self.ob.tensor(*[x.cod for x in self.freevars])
+        self.freevars = list(dict.fromkeys(func.freevars + args.freevars))
+        return self.ob().tensor(*[x.cod for x in self.freevars])
 
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
@@ -257,15 +288,20 @@ class Abstraction(TermBase, biclosed.Abstraction):
 
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
+        if self.left:
+            return type(self)(self.var, self.body).eval(functor, context)
         if context:
             new_context = Context([self.var] + context.inside)
             body = self.body.eval(functor=functor, context=new_context)
-            return body.curry(left=True)
-        i, n = self.body.freevars.index(self.var), len(self.body.freevars)
+            return body.curry(left=False)
         body = self.body.eval(functor=functor)
-        p = [0] + [j + 1 if j < i else j for j in range(n) if j != i]
+        if self.var not in self.body.freevars:
+            discard = functor.cod.discard(functor(self.var.cod))
+            return (discard @ body.dom >> body).curry(left=False)
+        i, n = self.body.freevars.index(self.var), len(self.body.freevars)
+        p = [i] + [j for j in range(n) if j != i]
         doms = [self.ob(wire) for wire in body.dom.inside]
-        return (body.permutation(p, doms).dagger() >> body).curry()
+        return (body.permutation(p, doms).dagger() >> body).curry(left=False)
 
 
 @dataclass

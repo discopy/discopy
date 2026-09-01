@@ -65,41 +65,51 @@ Without the extras installed, run `uv run pytest --skip-extra` to skip what need
 
 ## Run the benchmarks
 
-The composition benchmark (`benchmark/test_composition.py`) reproduces the scaling
-experiments of arXiv:2105.09257 for both `Diagram` and `Hypergraph`. It lives
-outside `testpaths`, so the normal `pytest` run never collects it — run it
-explicitly. Each `(case, size)` is a declarative
-[`pytest-benchmark`](https://pytest-benchmark.readthedocs.io) test — the fixture
-owns timing (CPU clock, GC disabled, median of a few rounds), so there is no
-hand-rolled timing code.
+`benchmark/test_composition.py` reproduces the scaling experiments of
+arXiv:2105.09257 for `Diagram` and `Hypergraph`, with analogous `CMap` cases;
+`benchmark/test_conversion.py` covers conversions between all three. They live
+outside `testpaths`, so run them explicitly. Results are keyed by suite
+(`composition` or `conversion`), family (representation or conversion), case
+(workload) and size `n`. Each data point is a declarative
+[`pytest-benchmark`](https://pytest-benchmark.readthedocs.io) test; the fixture
+owns timing (CPU clock and GC disabled) and automatically calibrates rounds
+and iterations for each workload.
 
 ```shell
 uv sync --group dev
 # small/medium sizes (the default); add BENCH_FLAGS=bench:full for the heavy tail
 uv run pytest benchmark/ -v --benchmark-json=benchmark-results/bench.json
-# render the scaling table + log-log plot (polars + matplotlib)
+# render the scaling tables + log-log plots (polars + matplotlib)
 uv run python benchmark/report.py benchmark-results/bench.json
 ```
 
-`report.py` writes `results.md`, `results.csv` and `scaling.png` into
-`benchmark-results/`. To gate on a regression, pass a committed baseline:
+`report.py` writes `NAME-results.md` and `NAME-scaling.svg` for each
+`benchmark/test_NAME.py`. To compare two runs made sequentially on the same
+machine, pass the base run when rendering the head:
 
 ```shell
-uv run python benchmark/report.py benchmark-results/bench.json \
-    --baseline benchmark/baseline.json --fail-threshold 0.25
+uv run python benchmark/report.py benchmark-results/head.json \
+    --base benchmark-results/base.json --threshold 0.25
 ```
 
-It joins the two runs on `(case, size)` and exits non-zero if any case's median
-regressed by more than the threshold. The baseline is machine-dependent, so
-generate it once on the CI runner (`workflow_dispatch` on `main`, with
-`BENCH_FLAGS=bench:full`) and commit the resulting `bench.json` as
-`benchmark/baseline.json`. The `benchmark` GitHub workflow runs the suite on pull
-requests (smoke sizes) and on `main` / manual dispatch (full sizes), uploading the
-report as an artifact.
+It joins the runs on `(suite, family, case, size)` and computes the raw change
+`head / base - 1`. It writes `comparison.md`, listing the regressions and
+speedups larger than the threshold. A regression is reported, never fatal: the
+exit code is non-zero only when the comparison itself fails, e.g. when the two
+runs share no measurement. Both runs must use the same benchmark sizes and
+machine; there is no cross-machine normalisation. The report counts the
+measurements present in only one of the two runs.
 
-A benchmarking job is available in the CI pipeline. By default, it is running only
-on the main branch, but you can enable it on your pull requests by attaching the
-tag `benchmark`.
+The `benchmark` GitHub workflow benchmarks two commits on the same runner and
+compares them: on `main` the commit pushed against the branch as it was before
+the push, on a pull request labelled `benchmark` the head commit against the
+base. `main` runs the full size tail, a pull request the default sizes; a
+manual dispatch has nothing to compare against and only measures its own
+commit. Every run uploads the report of its head commit -- the raw
+`bench.json`, the Markdown tables and the SVG plots -- writes the comparison to
+the job summary, and raises a warning annotation, never a failure, when a
+measurement regresses. A pull request run also posts or updates a comment with
+the important regressions and speedups.
 
 ## Build the docs
 

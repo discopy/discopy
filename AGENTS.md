@@ -35,6 +35,6 @@ Before pushing anything, make sure that:
 
 A pull request is **ready for sign-off** when all three of these hold:
 
-1) every point of its `TODO.md` is `[x]`, the rest filed as issues
+1) its `TODO.md` is deleted, every point having been `[x]` or filed as an issue
 2) CI is green on the real jobs, with the target branch merged in
 3) no review thread is waiting on an agent, i.e. every thread is either resolved or waiting on human feedback

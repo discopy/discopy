@@ -74,8 +74,14 @@ This is a special case of naturality.
 >>> yang_baxter_left = Swap(x, y) @ z >> y @ Swap(x, z) >> Swap(y, z) @ x
 >>> yang_baxter_right = x @ Swap(y, z) >> Swap(x, z) @ y >> z @ Swap(x, y)
 >>> assert Equation(yang_baxter_left, yang_baxter_right)
->>> Equation(yang_baxter_left, yang_baxter_right).draw(
-...     doctest='docs/_static/symmetric/yang-baxter.svg', figsize=(3, 2))
+
+Both sides foliate to the same single permutation.
+
+>>> yang_baxter_middle = yang_baxter_left.foliation()
+>>> assert yang_baxter_middle == yang_baxter_right.foliation()
+>>> assert yang_baxter_middle == Permutation(x @ y @ z, [2, 1, 0])
+>>> Equation(yang_baxter_left, yang_baxter_middle, yang_baxter_right).draw(
+...     doctest='docs/_static/symmetric/yang-baxter.svg', figsize=(5, 2))
 
 .. image:: /_static/symmetric/yang-baxter.svg
     :align: center
@@ -86,25 +92,23 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from discopy import monoidal, balanced, traced, messages, hypergraph
+from discopy import monoidal, balanced, hypergraph, cmap, messages
 from discopy.abc import SymmetricCategory
 from discopy.cat import factory
 from discopy.monoidal import Wire, Ty, PRO  # noqa: F401
 from discopy.python import finset
 from discopy.utils import (
-    assert_isinstance, classproperty, factory_name,
-    from_tree)
+    AxiomError, assert_iscomposable, classproperty, factory_name, from_tree)
 
 
 class Layer(monoidal.Layer):
     """
-    A tensor product :math:`s_0 \\otimes f_1 \\otimes \\dots \\otimes f_n
-    \\otimes s_n` of generators :math:`f_i` and routing :math:`s_i`, where
-    routing is a type when it is the identity and a :class:`Permutation`
-    otherwise. :class:`Swap` is a generator, distinct from ``[1, 0]``.
+    A tensor product of generators and non-empty plumbing, where plumbing is a
+    type when it is the identity and a :class:`Permutation` otherwise.
+    :class:`Swap` is the permutation ``[1, 0]`` on two atomic wires.
 
-    Routing components are coalesced, so a permutation given between two
-    types becomes one permutation and the layer stays alternating. An
+    Plumbing components are coalesced, so a permutation given between two
+    types becomes one permutation. Generators can be consecutive. An
     identity permutation is stored as its type, hence a layer with a single
     permutation always permutes: the identity is the empty diagram, not a
     layer.
@@ -113,8 +117,8 @@ class Layer(monoidal.Layer):
     :class:`discopy.monoidal.Layer`.
 
     Parameters:
-        inside : Alternating routing and generators, starting and ending
-                 with routing.
+        inside : Generators and plumbing, with at least one generator or one
+                 non-identity permutation.
 
     Examples
     --------
@@ -125,7 +129,7 @@ class Layer(monoidal.Layer):
     >>> assert Layer(x, perm, y) == Layer(Permutation(x @ x @ y @ y,
     ...     [0, 2, 1, 3]))
 
-    Forgetting the distinction between routing and generators gives the
+    Forgetting the distinction between plumbing and generators gives the
     ordinary alternating view of a :class:`discopy.monoidal.Layer`, which is
     what :attr:`boxes`, :attr:`boxes_and_offsets` and the rewrites indexed by
     them are computed from.
@@ -134,74 +138,56 @@ class Layer(monoidal.Layer):
     ...     x, f, Ty(), perm, Ty())
     >>> assert Layer(x, f, perm).boxes_and_offsets == [(f, 1), (perm, 2)]
     """
-    def __init__(self, *inside):
-        boxes_or_types = []
-        for value in inside:
-            if boxes_or_types and self.is_routing(value)\
-                    and self.is_routing(boxes_or_types[-1]):
-                boxes_or_types[-1] = boxes_or_types[-1] @ value
-            else:
-                boxes_or_types.append(value)
-        if not len(boxes_or_types) % 2 or any(
-                self.is_routing(value) != (not i % 2)
-                for i, value in enumerate(boxes_or_types)):
-            raise ValueError(messages.LAYERS_MUST_ALTERNATE)
-        super().__init__(*(
-            value.dom if isinstance(value, Permutation) and value.is_identity
-            else value for value in boxes_or_types))
-
-    @staticmethod
-    def is_routing(value) -> bool:
+    @classmethod
+    def normalise(cls, inside):
         """
-        Whether a component routes wires rather than generating them.
-
-        >>> x = Ty('x')
-        >>> assert Layer.is_routing(x) and Layer.is_routing(
-        ...     Permutation(x @ x, [1, 0]))
-        >>> assert not Layer.is_routing(Box('f', x, x))
+        Normalise identity permutations to their underlying types, so a
+        layer whose only component is an identity permutation raises the
+        same :class:`ValueError` as a layer without a box.
         """
-        return isinstance(value, (monoidal.Ty, Permutation))
+        return super().normalise(
+            value.dom
+            if isinstance(value, Permutation) and hasattr(value, 'perm')
+            and value.is_identity else value
+            for value in inside)
 
     @property
-    def is_structural(self) -> bool:
+    def is_plumbing(self) -> bool:
         """
-        Whether the layer routes its wires non-trivially, i.e. one of its
-        routing components is a :class:`Permutation` rather than a type.
+        Whether the layer plumbs its wires non-trivially, i.e. one of its
+        plumbing components is a :class:`Permutation` rather than a type.
 
         >>> x, y = Ty('x'), Ty('y')
-        >>> assert Layer(Permutation(x @ y, [1, 0])).is_structural
-        >>> assert not Layer(x, Box('f', x, y), y).is_structural
+        >>> assert Layer(Permutation(x @ y, [1, 0])).is_plumbing
+        >>> assert not Layer(x, Box('f', x, y), y).is_plumbing
         """
         return any(isinstance(value, Permutation) for value in self)
 
-    @property
-    def boxes_and_types(self):
-        """ Every permutation as an ordinary box between empty types. """
-        result = []
-        for i, value in enumerate(self.boxes_or_types):
-            if i % 2 or not isinstance(value, Permutation):
-                result.append(value)
-            else:
-                result += [
-                    value.dom[:0], value, value.cod[len(value.cod):]]
-        return tuple(result)
+    def merge(self, other: Layer) -> Layer:
+        """
+        Merge two layers of pure plumbing by composing their permutations,
+        otherwise fall back to :meth:`discopy.monoidal.Layer.merge`.
 
-    @classmethod
-    def cast(cls, box: Box) -> Layer:
-        """ Turn a generator or a permutation into a layer. """
-        if isinstance(box, Permutation):
-            return cls(box)
-        return cls(box.dom[:0], box, box.cod[len(box.cod):])
+        Parameters:
+            other : The other layer with which to merge.
 
-    def tensor(self, other: Layer) -> Layer:
-        """ Tensor layers, coalescing their touching routing. """
-        assert_isinstance(other, type(self))
-        return type(self)(*self, *other)
-
-    def __matmul__(self, other):
-        if isinstance(other, type(self)):
-            return self.tensor(other)
-        return super().__matmul__(other)
+        Example
+        -------
+        >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
+        >>> layer0 = Layer(Permutation(x @ y @ z, [1, 0, 2]))
+        >>> layer1 = Layer(Permutation(y @ x @ z, [0, 2, 1]))
+        >>> assert layer0.merge(layer1) == Layer(
+        ...     Permutation(x @ y @ z, [1, 2, 0]))
+        """
+        if len(self.boxes_or_types) == 1 == len(other.boxes_or_types)\
+                and self.is_plumbing and other.is_plumbing:
+            assert_iscomposable(self, other)
+            first, second = self.boxes_or_types[0], other.boxes_or_types[0]
+            perm = [first.perm[i] for i in second.perm]
+            if perm == sorted(perm):
+                raise AxiomError(messages.NOT_MERGEABLE.format(self, other))
+            return type(self)(first.permutation_factory(self.dom, perm))
+        return super().merge(other)
 
 
 @factory
@@ -219,7 +205,7 @@ class Diagram(balanced.Diagram, SymmetricCategory):
     Equality and hashing of symmetric diagrams is always syntactic: two
     diagrams are equal if and only if they are built from the same layers.
     To compare diagrams up to hypergraph isomorphism (swaps, spider fusion,
-    trace routing) use ``from discopy.symmetric import Equation``, i.e. the
+    trace plumbing) use ``from discopy.symmetric import Equation``, i.e. the
     :class:`Equation` whose :attr:`~Equation.up_to` is :attr:`to_hypergraph`.
 
     >>> x, y = Ty("x"), Ty("y")
@@ -254,12 +240,12 @@ class Diagram(balanced.Diagram, SymmetricCategory):
     >>> with raises(AxiomError) as err:
     ...     Diagram.from_callable(x, x @ x)(lambda x: (x, x))
     >>> print(err.value)
-    symmetric.Diagram has no spiders, cups or caps to draw this hypergraph.
+    symmetric.Diagram has no cups or caps for the wiring of this map.
 
     >>> with raises(AxiomError) as err:
     ...     Diagram.from_callable(x, Ty())(lambda x: ())
     >>> print(err.value)
-    symmetric.Diagram has no spiders, cups or caps to draw this hypergraph.
+    symmetric.Diagram has no cups or caps for the wiring of this map.
 
     Note
     ----
@@ -283,9 +269,9 @@ class Diagram(balanced.Diagram, SymmetricCategory):
     twist_factory = classmethod(lambda cls, dom: cls.id(dom))
 
     @property
-    def is_structural(self) -> bool:
-        """ Whether one of the layers routes its wires non-trivially. """
-        return any(layer.is_structural for layer in self.inside)
+    def is_plumbing(self) -> bool:
+        """ Whether one of the layers plumbs its wires non-trivially. """
+        return any(layer.is_plumbing for layer in self.inside)
 
     @classmethod
     def swap(cls, left: monoidal.Ty, right: monoidal.Ty) -> Diagram:
@@ -390,16 +376,16 @@ class Diagram(balanced.Diagram, SymmetricCategory):
 
     def foliation(self):
         """
-        Merge independent generators, keeping native routing compact.
+        Merge independent generators, keeping native plumbing compact.
 
-        A hypergraph forgets that routing is native, so a diagram with a
+        A hypergraph forgets that plumbing is native, so a diagram with a
         :class:`Permutation` is foliated by merging its layers instead.
 
         >>> x, y = Ty('x'), Ty('y')
         >>> perm = Permutation(x @ y, [1, 0])
         >>> assert perm.foliation() == perm
         """
-        if self.is_structural:
+        if self.is_plumbing:
             return self.merge_layers()
         return super().foliation()
 
@@ -438,9 +424,10 @@ class Permutation(Box):
     as attribute, with the convention that output wire ``i`` comes from input
     wire ``perm[i]``, i.e. ``cod[i] == dom[perm[i]]``.
 
-    A :class:`Layer` stores it as routing rather than as a generator, and the
-    identity permutation is the identity diagram. It draws as a single band of
-    crossing wires rather than a staircase of swaps.
+    A :class:`Layer` stores it as plumbing rather than as a generator, and the
+    identity permutation is the identity diagram. The transposition ``[1, 0]``
+    on two atomic wires constructs a :class:`Swap`. Other permutations draw as
+    a single band of crossing wires rather than a staircase of swaps.
 
     Parameters:
         dom : The domain, i.e. the wires to permute.
@@ -454,8 +441,7 @@ class Permutation(Box):
     >>> assert perm.dagger() == Permutation(y @ z @ x, [2, 0, 1])
     >>> assert Equation(perm >> perm.dagger(), Id(x @ y @ z))
     >>> assert perm @ Id(w) == Permutation(x @ y @ z @ w, [1, 2, 0, 3])
-    >>> assert Permutation(x @ y, [1, 0]) != Swap(x, y)
-    >>> assert Equation(Permutation(x @ y, [1, 0]), Swap(x, y))
+    >>> assert Permutation(x @ y, [1, 0]) == Swap(x, y)
     >>> assert Permutation(x @ y, [0, 1]) == Id(x @ y)
 
     Writing permutations by hand keeps swap-heavy diagrams compact: a whole
@@ -475,6 +461,15 @@ class Permutation(Box):
     .. image:: /_static/symmetric/foliation.svg
         :align: center
     """
+
+    def __new__(cls, dom: monoidal.Ty = None,
+                perm: Sequence[int] = None):
+        if dom is None or cls is cls.ar.swap_factory:
+            return super().__new__(cls)
+        factory = cls.ar.swap_factory\
+            if isinstance(perm, Sequence)\
+            and finset.Permutation.is_swap(perm) else cls
+        return super(Permutation, factory).__new__(factory)
 
     def __init__(self, dom: monoidal.Ty, perm: Sequence[int]):
         self.perm = finset.Permutation(perm, len(dom))
@@ -545,12 +540,12 @@ class Permutation(Box):
         if other is None:
             return self
         if isinstance(other, Permutation):
-            result = type(self)(
+            result = self.permutation_factory(
                 self.dom @ other.dom, self.perm.tensor(other.perm))
         elif isinstance(other, monoidal.Ty)\
                 or isinstance(other, Diagram) and not other.inside:
             typ = other if isinstance(other, monoidal.Ty) else other.dom
-            result = type(self)(self.dom @ typ, self.perm.tensor(
+            result = self.permutation_factory(self.dom @ typ, self.perm.tensor(
                 finset.Permutation.id(len(typ))))
         else:
             result = super().tensor(other)
@@ -560,7 +555,7 @@ class Permutation(Box):
         if not isinstance(other, monoidal.Ty):
             return super().__rmatmul__(other)
         perm = finset.Permutation.id(len(other)).tensor(self.perm)
-        return type(self)(other @ self.dom, perm)
+        return self.permutation_factory(other @ self.dom, perm)
 
     def __repr__(self):
         return f"{factory_name(type(self))}({self.dom!r}, {list(self.perm)})"
@@ -569,9 +564,12 @@ class Permutation(Box):
         return f"Permutation({self.dom}, {list(self.perm)})"
 
 
-class Swap(balanced.Braid, Box):
+Layer.plumbing = (monoidal.Ty, Permutation)
+
+
+class Swap(Permutation, balanced.Braid, Box):
     """
-    The swap of atomic types :code:`left` and :code:`right`.
+    The permutation ``[1, 0]`` of two atomic types.
 
     Parameters:
         left : The type on the top left and bottom right.
@@ -582,13 +580,35 @@ class Swap(balanced.Braid, Box):
     :class:`Swap` is only defined for atomic types (i.e. of length 1).
     For complex types, use :meth:`Diagram.swap` instead.
     """
+    def __setstate__(self, state):
+        state.setdefault('perm', finset.Permutation([1, 0], 2))
+        super().__setstate__(state)
+
     def __init__(self, left, right):
+        if len(left) == 2:
+            perm = finset.Permutation(right, len(left))
+            if not perm.is_swap():
+                raise ValueError
+            left, right = left[:1], left[1:]
+        self.perm = finset.Permutation([1, 0], 2)
         balanced.Braid.__init__(self, left, right)
         Box.__init__(self, self.name, self.dom, self.cod,
                      draw_as_wires=True, draw_as_braid=False)
 
     def dagger(self):
         return type(self)(self.right, self.left)
+
+    def to_swaps(self):
+        return self
+
+    def to_drawing(self):
+        return Box.to_drawing(self)
+
+    def __repr__(self):
+        return balanced.Braid.__repr__(self)
+
+    def __str__(self):
+        return self.name
 
 
 class Trace(balanced.Trace, Box):
@@ -630,9 +650,10 @@ class Functor(balanced.Functor):
     dom = cod = Diagram
 
     def __call__(self, other):
-        if isinstance(other, Swap):
+        if isinstance(other, Swap) and hasattr(self.cod.ar, "swap"):
             return self.cod.ar.swap(self(other.dom[0]), self(other.dom[1]))
-        if isinstance(other, Permutation):
+        if isinstance(other, Permutation) and hasattr(
+                self.cod.ar, "permutation"):
             if isinstance(other.dom, PRO):
                 doms = self(other.dom)
             else:
@@ -641,13 +662,9 @@ class Functor(balanced.Functor):
         return super().__call__(other)
 
 
-class CMap(traced.CMap):
-    category = Diagram
-    require_planar = False
-
+CMap = cmap.CMap[Diagram]
 
 Diagram.functor_factory = Functor
-Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.swap_factory = Swap
 Diagram.permutation_factory = Permutation
@@ -659,7 +676,7 @@ Id = Diagram.id
 class Equation(monoidal.Equation):
     """
     The :class:`monoidal.Equation` of symmetric diagrams compared up to
-    hypergraph isomorphism, i.e. up to swaps, spider fusion and trace routing.
+    hypergraph isomorphism, i.e. up to swaps, spider fusion and trace plumbing.
 
     Example
     -------

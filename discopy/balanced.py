@@ -35,7 +35,7 @@ from __future__ import annotations
 from copy import copy
 from dataclasses import dataclass
 
-from discopy import config, monoidal, braided, traced, hypergraph
+from discopy import config, monoidal, braided, traced, cmap, hypergraph
 from discopy.abc import BalancedCategory
 from discopy.cat import factory
 from discopy.monoidal import Colour, Ty  # noqa: F401
@@ -316,7 +316,7 @@ class Functor(braided.Functor, traced.Functor):
     dom = cod = Diagram
 
     def __call__(self, other):
-        if isinstance(other, Twist):
+        if isinstance(other, Twist) and hasattr(self.cod, "twist"):
             return self.cod.twist(self(other.dom))
         if isinstance(other, Trace):
             return traced.Functor.__call__(self, other)
@@ -362,7 +362,7 @@ class DualRail(Functor):
 
 
 Diagram.functor_factory = Functor
-Diagram.map_factory = traced.CMap
+CMap = cmap.CMap[Diagram]
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.braid_factory = Braid
 Diagram.twist_factory = Twist

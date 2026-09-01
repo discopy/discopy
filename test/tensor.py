@@ -146,7 +146,7 @@ def test_Functor_repr():
     x = frobenius.Ty('x')
     F = Functor({x: 2}, {}, dom=frobenius.Diagram, dtype=bool)
     assert repr(F) ==\
-        "tensor.Functor(ob_map={frobenius.Ty(frobenius.Ob('x')): 2}, "\
+        "tensor.Functor(ob_map={frobenius.Ty(frobenius.Wire('x')): 2}, "\
         "ar_map={}, dom=frobenius.Diagram, dtype=bool)"
 
 
@@ -360,6 +360,14 @@ def test_Functor_pytorch():
     assert result.item() == 18. and t.grad.item() == 12.
 
 
+def test_spider_eval_pytorch():
+    import torch
+    with backend('pytorch'):
+        result = (Spider(0, 1, Dim(2)) >> Spider(1, 0, Dim(2))).eval()
+        assert isinstance(result.array, torch.Tensor)
+        assert result.array.item() == 2.
+
+
 def test_eval_params():
     vector = Box('vector', Dim(1), Dim(2), [1., 2.])
     diagram = vector >> vector[::-1]
@@ -372,9 +380,9 @@ def test_eval_params():
     assert Functor({x: 2}, {v: [1., 2.]}, order='C')(v >> v.dagger()) \
         == F(v >> v.dagger())
     assert repr(F) == \
-        "tensor.Functor(ob_map={frobenius.Ty(frobenius.Ob('x')): 2}, " \
+        "tensor.Functor(ob_map={frobenius.Ty(frobenius.Wire('x')): 2}, " \
         "ar_map={frobenius.Box('v', frobenius.Ty(), " \
-        "frobenius.Ty(frobenius.Ob('x'))): [1.0, 2.0]}, " \
+        "frobenius.Ty(frobenius.Wire('x'))): [1.0, 2.0]}, " \
         "dom=frobenius.Diagram, dtype=float, optimize='optimal')"
 
 

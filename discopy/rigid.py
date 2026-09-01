@@ -11,7 +11,7 @@ Summary
     :nosignatures:
     :toctree:
 
-    Ob
+    Wire
     Ty
     PRO
     Diagram
@@ -48,7 +48,7 @@ colours ``a`` and ``b``:
 >>> from discopy.monoidal import Colour
 >>> a = Colour('cornflowerblue', label='Function')
 >>> b = Colour('palegreen', label='Morphism')
->>> F = Ty(Ob('F', dom=a, cod=b))
+>>> F = Ty(Wire('F', dom=a, cod=b))
 >>> G = F.r
 >>> eta, epsilon = Cap(G, F), Cup(F, G)
 >>> left_snake = Id(F) @ eta >> epsilon @ Id(F)
@@ -147,6 +147,8 @@ out the two objects needed below as ``cat.Ob`` instances so that
 
 from __future__ import annotations
 
+import copy
+
 from collections.abc import Callable
 
 from typing import Iterator
@@ -155,17 +157,18 @@ from discopy import cat, monoidal, biclosed, messages
 from discopy.abc import Pregroup, RigidCategory
 from discopy.cat import factory
 from discopy.utils import (
+    assert_isatomic,
     assert_isinstance,
-    factory_name,
-    BinaryBoxConstructor,
     AxiomError,
-    assert_isatomic
+    BinaryBoxConstructor,
+    deprecated_ob,
+    factory_name,
 )
 
 
-class Ob(monoidal.Wire):
+class Wire(monoidal.Wire):
     """
-    A rigid object has adjoints :meth:`Ob.l` and :meth:`Ob.r`.
+    A rigid object has adjoints :meth:`Wire.l` and :meth:`Wire.r`.
 
     Parameters:
         name : The name of the object.
@@ -180,7 +183,7 @@ class Ob(monoidal.Wire):
 
     Example
     -------
-    >>> a = Ob('a')
+    >>> a = Wire('a')
     >>> assert a.l.r == a.r.l == a and a != a.l.l != a.r.r
     """
 
@@ -197,22 +200,28 @@ class Ob(monoidal.Wire):
         self.z = z
         super().__init__(name, dom, cod)
 
-    def dagger(self) -> Ob:
+    def dagger(self) -> Wire:
         raise AxiomError("Rigid types have no dagger, use pivotal instead.")
 
     @property
-    def l(self) -> Ob:
+    def l(self) -> Wire:
         """ The left adjoint of the object. """
         return type(self)(self.name, self.z - 1, dom=self.cod, cod=self.dom)
 
     @property
-    def r(self) -> Ob:
+    def r(self) -> Wire:
         """ The right adjoint of the object. """
         return type(self)(self.name, self.z + 1, dom=self.cod, cod=self.dom)
 
+    def unwind(self) -> Wire:
+        """ The object with winding number zero and the same colours. """
+        result = copy.copy(self)
+        result.z = 0
+        return result
+
     def __eq__(self, other):
         return monoidal.Wire.__eq__(self, other)\
-            and isinstance(other, Ob) and self.z == other.z
+            and isinstance(other, Wire) and self.z == other.z
 
     def __hash__(self):
         return hash(repr(self))
@@ -247,7 +256,7 @@ class Ty(Pregroup, biclosed.Ty):
     A rigid type is a biclosed type with rigid objects inside.
 
     Parameters:
-        inside (tuple[Ob, ...]) : The objects inside the type.
+        inside (tuple[Wire, ...]) : The objects inside the type.
 
     Example
     -------
@@ -255,6 +264,8 @@ class Ty(Pregroup, biclosed.Ty):
     >>> assert n.l.r == n == n.r.l
     >>> assert (s @ n).l == n.l @ s.l and (s @ n).r == n.r @ s.r
     """
+    generator_factory = Wire
+
     def __setstate__(self, state):
         if '_z' in state:  # Backward compatibility
             del state['_z']
@@ -290,7 +301,8 @@ class Ty(Pregroup, biclosed.Ty):
 
     def unwind(self) -> Ty:
         """
-        Rotate an atomic type until its winding number is zero.
+        The atomic type with winding number zero, see :meth:`Wire.unwind`.
+        This method is only defined for atomic types.
 
         The previous normalisation applied ``.r`` once, which is only an
         involution for pivotal types: it sent rigid ``n.r`` to ``n.r.r``.
@@ -300,14 +312,8 @@ class Ty(Pregroup, biclosed.Ty):
         >>> n = Ty('n')
         >>> assert n.r.r.unwind() == n.l.unwind() == n
         """
-        typ = self
-        while typ.z > 0:
-            typ = typ.l
-        while typ.z < 0:
-            typ = typ.r
-        return typ
-
-    generator_factory = Ob
+        assert_isatomic(self)
+        return self.ar(self.inside[0].unwind())
 
 
 @factory
@@ -328,10 +334,11 @@ class Layer(monoidal.Layer):
     A rigid layer is a monoidal layer that can be rotated.
 
     Parameters:
-        inside : An odd number of alternating types and boxes.
+        inside : Boxes and non-empty types, with at least one box.
     """
     def rotate(self, left=False):
-        return type(self)(*(x.l if left else x.r for x in list(self)[::-1]))
+        return type(self)(
+            *(x.l if left else x.r for x in list(self)[::-1]), normalise=False)
 
     l = property(lambda self: self.rotate(left=True))
     r = property(lambda self: self.rotate(left=False))
@@ -358,6 +365,20 @@ class Diagram(biclosed.Diagram, RigidCategory):
 
     .. image:: /_static/rigid/diagram-example.svg
         :align: center
+
+    Currying and evaluation come from cups and caps:
+
+    >>> from discopy.monoidal import Equation
+    >>> x = Ty('x')
+    >>> g = Box('g', x @ x, x)
+    >>> assert g.curry().uncurry().normal_form() == g
+    >>> assert g.curry(left=False).uncurry(left=False).normal_form() == g
+    >>> Equation(g.curry(left=False), g, g.curry(),
+    ...     symbols=("$\\\\mapsfrom$", "$\\\\mapsto$")).draw(
+    ...         doctest="docs/_static/rigid/curry.svg")
+
+    .. image:: /_static/rigid/curry.svg
+        :align: center
     """
 
     ob = Ty
@@ -365,10 +386,8 @@ class Diagram(biclosed.Diagram, RigidCategory):
 
     to_drawing = monoidal.Diagram.to_drawing
 
-    @classmethod
-    def ev(cls, base: Ty, exponent: Ty, left=True) -> Diagram:
-        return base @ cls.cups(exponent.l, exponent) if left\
-            else cls.cups(exponent, exponent.r) @ base
+    ev = classmethod(RigidCategory.ev.__func__)
+    curry = RigidCategory.curry
 
     @classmethod
     def cups(cls, left: Ty, right: Ty) -> Diagram:
@@ -409,25 +428,6 @@ class Diagram(biclosed.Diagram, RigidCategory):
             :align: center
         """
         return nesting(cls, cls.cap_factory)(left, right)
-
-    def curry(self, n=1, left=True) -> Diagram:
-        """
-        The curry of a rigid diagram is obtained using cups and caps.
-
-        >>> x = Ty('x')
-        >>> g = Box('g', x @ x, x)
-        >>> Equation(g.curry(left=False), g, g.curry(),
-        ...     symbols=("$\\\\mapsfrom$", "$\\\\mapsto$")).draw(
-        ...         doctest="docs/_static/rigid/curry.svg")
-
-        .. image:: /_static/rigid/curry.svg
-            :align: center
-        """
-        if left:
-            base, exponent = self.dom[:-n], self.dom[-n:]
-            return base @ self.caps(exponent, exponent.l) >> self @ exponent.l
-        base, exponent = self.dom[n:], self.dom[:n]
-        return self.caps(exponent.r, exponent) @ base >> exponent.r @ self
 
     def rotate(self, left=False):
         """
@@ -831,9 +831,9 @@ class Functor(biclosed.Functor):
     dom = cod = Diagram
 
     def __call__(self, other):
-        if isinstance(other, Ty) or isinstance(other, Ob) and other.z == 0:
+        if isinstance(other, Ty) or isinstance(other, Wire) and other.z == 0:
             return super().__call__(other)
-        if isinstance(other, Ob):
+        if isinstance(other, Wire):
             return self(other.r).l if other.z < 0 else self(other.l).r
         if isinstance(other, Cup):
             return self.cod.cups(self(other.dom[:1]), self(other.dom[1:]))
@@ -889,3 +889,6 @@ Id = Diagram.id
 
 class Equation(biclosed.Equation):
     """ The :class:`biclosed.Equation` of rigid diagrams. """
+
+
+__getattr__ = deprecated_ob(__name__)

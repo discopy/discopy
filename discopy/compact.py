@@ -54,14 +54,15 @@ Coherence
 ...     Cap(x, x.r) @ Cap(y, y.r) >> x @ Diagram.swap(x.r, y @ y.r))
 """
 
-from discopy import symmetric, ribbon, rigid, hypergraph
+from discopy import symmetric, ribbon, rigid, cmap, hypergraph
 from discopy.abc import CompactCategory
 from discopy.cat import factory
-from discopy.pivotal import Ob, Ty  # noqa: F401
+from discopy.utils import deprecated_ob
+from discopy.pivotal import Wire, Ty  # noqa: F401
 
 
 class Layer(symmetric.Layer, rigid.Layer):
-    """ A compact layer with permutation routing and rigid rotation. """
+    """ A compact layer with permutation plumbing and rigid rotation. """
 
 
 @factory
@@ -110,16 +111,6 @@ class Cap(ribbon.Cap, Box):
     """
 
 
-class Swap(symmetric.Swap, ribbon.Braid, Box):
-    """
-    A compact swap is a symmetric swap and a ribbon braid.
-
-    Parameters:
-        left (pivotal.Ty) : The type on the top left and bottom right.
-        right (pivotal.Ty) : The type on the top right and bottom left.
-    """
-
-
 class Permutation(symmetric.Permutation, Box):
     """
     A compact permutation is a symmetric permutation in a compact category.
@@ -134,6 +125,16 @@ class Permutation(symmetric.Permutation, Box):
 
     l = property(lambda self: self.rotate(left=True))
     r = property(lambda self: self.rotate(left=False))
+
+
+class Swap(Permutation, symmetric.Swap, ribbon.Braid, Box):
+    """
+    A compact swap is a symmetric swap and a ribbon braid.
+
+    Parameters:
+        left (pivotal.Ty) : The type on the top left and bottom right.
+        right (pivotal.Ty) : The type on the top right and bottom left.
+    """
 
 
 class Functor(symmetric.Functor, ribbon.Functor):
@@ -154,18 +155,13 @@ class Functor(symmetric.Functor, ribbon.Functor):
         return ribbon.Functor.__call__(self, other)
 
 
-class CMap(symmetric.CMap):
-    category = Diagram
-    require_oriented = False
-    require_connected = False
-
+CMap = cmap.CMap[Diagram]
 
 Id = Diagram.id
 
 Diagram.swap_factory = Swap
 Diagram.functor_factory = Functor
 Diagram.permutation_factory = Permutation
-Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 
@@ -173,3 +169,6 @@ Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 class Equation(symmetric.Equation):
     """ The :class:`symmetric.Equation` of compact diagrams. """
     up_to = staticmethod(Diagram.to_hypergraph)
+
+
+__getattr__ = deprecated_ob(__name__)

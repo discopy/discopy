@@ -541,6 +541,8 @@ class Backend(ABC):
             x, "always_draw_label", False)
         if not params.get('wire_labels', True) and not draw_label_anyway:
             return
+        if getattr(x.inside[0], "skip_label", False):
+            return  # A wire at a fixed point of a permutation.
         if hasattr(x.inside[0], "reposition_label"):
             j += 0.25  # The label of e.g. cups, caps and swaps.
         label = str(x.inside[0])
@@ -749,9 +751,9 @@ class Backend(ABC):
             middle = positions[wire]
             left, right = middle[0] - .25, middle[0] + .25
             height = positions[node][1] + .25
-            for j in range(3):
-                source = (left + .1 * j, height - .1 * j)
-                target = (right - .1 * j, height - .1 * j)
+            for k in range(3):
+                source = (left + .1 * k, height - .1 * k)
+                target = (right - .1 * k, height - .1 * k)
                 self.draw_wire(source, target)
 
     def draw_measure(self, positions, node, **params):

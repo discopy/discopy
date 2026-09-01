@@ -131,6 +131,39 @@ def product(xs: list, unit=1):
     return unit if not xs else product(xs[1:], unit * xs[0])
 
 
+def deprecated_ob(module_name: str):
+    """
+    The module-level ``__getattr__`` of the modules whose ``Ob`` class was
+    renamed to ``Wire``, returning the new class with a
+    :class:`DeprecationWarning`.
+
+    Parameters:
+        module_name : The ``__name__`` of the module deprecating its ``Ob``.
+
+    Example
+    -------
+    >>> import warnings
+    >>> from discopy import rigid
+    >>> with warnings.catch_warnings(record=True) as w:
+    ...     warnings.simplefilter("always")
+    ...     assert rigid.Ob is rigid.Wire
+    >>> print(w[-1].message)
+    discopy.rigid.Ob is deprecated, use discopy.rigid.Wire instead.
+    """
+    def __getattr__(name):
+        if name == "Ob":
+            import sys
+            import warnings
+            warnings.warn(
+                f"{module_name}.Ob is deprecated, "
+                f"use {module_name}.Wire instead.",
+                DeprecationWarning, stacklevel=2)
+            return sys.modules[module_name].Wire
+        raise AttributeError(
+            f"module {module_name!r} has no attribute {name!r}")
+    return __getattr__
+
+
 def factory_name(cls: type) -> str:
     """
     Returns a string describing a DisCoPy class.
