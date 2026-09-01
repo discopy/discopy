@@ -122,10 +122,13 @@ def test_argument_wrappers():
         with raises(ValueError):
             wrapper(value)
     assert find(
-        Atomic.strategy(factory=Natural), lambda _: True) == Atomic(one)
-    assert find(NonEmpty.strategy(factory=Natural), lambda _: True).value
+        Atomic[Natural].strategy(), lambda _: True) == Atomic[Natural](one)
+    assert find(NonEmpty[Natural].strategy(), lambda _: True).value
     assert len(
-        find(Small.strategy(factory=Natural), lambda _: True).value) <= 1
+        find(Small[Natural].strategy(), lambda _: True).value) <= 1
+    pair = find(
+        resolve(NonEmpty[ComposablePair[TracedDiagram]]), lambda _: True)
+    assert isinstance(pair.value, ComposablePair)
     with raises(TypeError):
         resolve(int)
 
@@ -147,7 +150,7 @@ def test_boundary_connected():
             return st.just(box)
 
     assert find(
-        BoundaryConnected.strategy(factory=Terms), lambda _: True).value == box
+        BoundaryConnected[Terms].strategy(), lambda _: True).value == box
 
 
 def test_pasting_diagram():
@@ -167,7 +170,7 @@ def test_trace_wrappers():
     for wrapper in (TraceSuperposing, TraceNaturalityLeft,
                     TraceNaturalityRight, TraceDinaturalityLeft,
                     TraceDinaturalityRight):
-        find(wrapper.strategy(factory=TracedDiagram), lambda _: True)
+        find(wrapper[TracedDiagram].strategy(), lambda _: True)
     with raises(ValueError):
         TraceNaturalityLeft(TracedBox('f', x, x), y, TracedBox('g', x, y))
     with raises(ValueError):
@@ -181,8 +184,8 @@ def test_currying_wrappers():
         == (evaluation, base, exponent)
     with raises(ValueError):
         RightCurrying(evaluation, base, exponent)
-    find(LeftCurrying.strategy(factory=ClosedDiagram), lambda _: True)
-    find(RightCurrying.strategy(factory=ClosedDiagram), lambda _: True)
+    find(LeftCurrying[ClosedDiagram].strategy(), lambda _: True)
+    find(RightCurrying[ClosedDiagram].strategy(), lambda _: True)
 
 
 def test_feedback_wrappers():
@@ -205,7 +208,7 @@ def test_feedback_wrappers():
     with raises(ValueError):
         HomogeneousMemory(joining, memory)
     for wrapper in (FeedbackVanishing, FeedbackJoining, HomogeneousMemory):
-        find(wrapper.strategy(factory=FeedbackDiagram), lambda _: True)
+        find(wrapper[FeedbackDiagram].strategy(), lambda _: True)
 
 
 def test_relabelling():
@@ -239,6 +242,8 @@ def test_axiom_binding():
         Axiom(lambda cls: NotImplemented)()
     with raises(TypeError):
         Axiom(lambda cls: NotImplemented).falsify()
+    with raises(TypeError):
+        Axiom(lambda cls: NotImplemented).strategy()
     assert Axiom(classmethod(lambda cls: NotImplemented)).bind(Arrow)()\
         is NotImplemented
     box = Box('f', Ob('x'), Ob('y'))

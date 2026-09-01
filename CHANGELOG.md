@@ -20,7 +20,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   its arguments falsifying the law and flips visibly when the bug is
   fixed; `Axiom` is a dataclass whose classifiers derive one from another
   with `dataclasses.replace`, so none of them drops a field — `.failing`
-  used to lose the subspaces a `.weaken` declared. The
+  used to lose the subspaces a `.weaken` declared. The argument and
+  subspace wrappers are parameterised with `NamedGeneric["factory"]` like
+  `Hypergraph` and `Equation` — which moves `NamedGeneric` itself down to
+  `discopy.utils`, re-exported from `discopy.abc`, so `discopy.testing`
+  can use it — making a subscripted wrapper a class whose
+  `strategy(cls, **params)` matches the contract `Strategy.strategy` now
+  states, so a subspace annotation like `NonEmpty[ComposablePair[C1]]`
+  builds; an unbound axiom's `.strategy()` raises the same `TypeError`
+  as `.falsify` and calling it. The
   search itself is the canonical instantiation only — one atomic object or
   one free/generator box per parameter, no recursive or compound
   generation — wired up in `proptest/test_axioms.py`, enrolled so far for
