@@ -9,6 +9,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- Products and let statements in the term language of `discopy.closed`:
+  a not-strictly-associative `Product` type constructor called with `*`,
+  `Pack`/`Unpack` boxes witnessing the isomorphism with the strict tensor,
+  the `Tuple`, `Projection` and `Let` terms with a `let` introspection
+  helper, and `Diagram.to_term` printing any causal diagram as a compact
+  term in fine-grain call-by-value style via `Hypergraph`
+  ([#370](https://github.com/discopy/discopy/issues/370),
+  [#458](https://github.com/discopy/discopy/issues/458),
+  [#489](https://github.com/discopy/discopy/pull/489)).
 - The style review keeps score. Every review it posts records the remarks
   it made, hidden in its own body, so the next round can read them back
   whole rather than parse its own prose. That next round is one request
@@ -543,6 +552,34 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   ([#617](https://github.com/discopy/discopy/pull/617)).
 - `build.yml` timeouts and a bounded, retried Graphviz install
   ([#591](https://github.com/discopy/discopy/issues/591)).
+- `closed.Substitution` no longer drops constants, loses the `left` flag
+  on applications or recurses forever on abstractions, and it covers the
+  new term formers; substituting under a binder raises rather than
+  capturing a free variable of a replacement
+  ([#492](https://github.com/discopy/discopy/issues/492),
+  [#489](https://github.com/discopy/discopy/pull/489)).
+- `python.Function.tensor` is variadic like `monoidal.Diagram.tensor`
+  ([#493](https://github.com/discopy/discopy/issues/493),
+  [#489](https://github.com/discopy/discopy/pull/489)).
+- `closed.Product` no longer subclasses the deprecated `biclosed.Ob`
+  alias. Its `str` prints `X.product(Y, Z)` rather than `(X * Y * Z)` at
+  any arity but two, since the infix form is ambiguous with the pairwise
+  nesting `(X * Y) * Z` it is deliberately distinct from and does not
+  round-trip through `eval` there. `closed.Functor` routes `Pack`/`Unpack`
+  through `pack_factory`/`unpack_factory` instead of always rebuilding a
+  `closed.Pack`/`Unpack`, so converting a diagram with either box to a
+  `Hypergraph` (or any other non-`Diagram` codomain with product types) no
+  longer raises. `Let.eval` raises when a bound variable would shadow one
+  already in scope, instead of building a diagram whose two occurrences
+  collapse into one. `Substitution.bind` only raises on a replacement that
+  is actually free in the term it is entering, rather than every
+  replacement surviving `without`, so substituting into an abstraction or
+  a let no longer rejects substitutions that could not have captured
+  anything. `Pack`, `Unpack`, `Tuple`, `Projection` and `Let` have their
+  own `to_tree`/`from_tree` pair, like `Product` already did, instead of
+  inheriting `Box`'s, which builds them with a `name` keyword none of
+  their constructors accept
+  ([#489](https://github.com/discopy/discopy/pull/489)).
 - `frobenius.Diagram.unfuse`'s doctest no longer sets `Spider.color = "red"`
   to draw its example, which was leaking into every later doctest in the
   same pytest process

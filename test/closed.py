@@ -1,12 +1,238 @@
 from __future__ import annotations
 
+from pytest import raises
+
 from discopy.closed import *
+from discopy.utils import dumps, loads
 
 
 def test_exp():
     X, Y = Ty('X'), Ty('Y')
     assert X >> Y == Y ** X == Y << X
     assert X @ Ty() == X == Ty() @ X
+
+
+def test_product():
+    X, Y, Z = Ty("X"), Ty("Y"), Ty("Z")
+    assert X * Y == Ty(Product(X, Y))
+    assert (X * Y) * Z != X * (Y * Z) != X.product(Y, Z)
+    assert (X * Y).is_product and (X * Y).factors == (X, Y)
+    assert eval(str(X * Y)) == X * Y
+    assert Pack(X * Y).dagger() == Unpack(X * Y)
+    assert Unpack(X * Y).dagger() == Pack(X * Y)
+    with raises(TypeError):
+        Pack(X @ Y)
+    with raises(TypeError):
+        Unpack(X @ Y)
+
+
+def test_product_str_round_trip():
+    X, Y, Z = Ty("X"), Ty("Y"), Ty("Z")
+    for typ in (X.product(Y, Z), X.product()):
+        assert eval(str(typ)) == typ
+    assert eval(str(Product())) == Product()
+
+
+def test_pack_to_hypergraph():
+    X, Y = Ty("X"), Ty("Y")
+    for box in (Pack(X * Y), Unpack(X * Y)):
+        hypergraph = box.to_hypergraph()
+        assert hypergraph.dom == box.dom and hypergraph.cod == box.cod
+        assert hypergraph.to_diagram() == box
+
+
+def test_pack_to_tree():
+    X, Y = Ty("X"), Ty("Y")
+    for box in (Pack(X * Y), Unpack(X * Y)):
+        assert loads(dumps(box)) == box
+
+
+def test_term_to_tree():
+    """
+    ``Tuple``, ``Projection`` and ``Let`` round-trip through their own
+    ``to_tree``/``from_tree`` for terms with no ``Variable`` or ``Constant``
+    leaf: those two inherit ``Box.from_tree`` from ``biclosed`` and its
+    ``name``/``dom``/``cod`` kwargs don't match either of their
+    constructors, a pre-existing gap this test does not cover, see
+    https://github.com/discopy/discopy/pull/489#discussion_r3896298502.
+    """
+    empty = Tuple()
+    assert loads(dumps(empty)) == empty
+    nested = Tuple(Tuple(), Tuple())
+    assert loads(dumps(nested)) == nested
+    assert loads(dumps(Projection(nested, 0))) == Projection(nested, 0)
+    let_term = Let(Tuple(), (), Tuple())
+    assert loads(dumps(let_term)) == let_term
+
+
+def test_strictification():
+    X, Y, Z = Ty("X"), Ty("Y"), Ty("Z")
+    F = Functor({typ: typ @ typ for typ in (X, Y, Z)}, {})
+    assert F((X * Y) * Z) == (X @ X * (Y @ Y)) * (Z @ Z)
+    from discopy.python import Function
+    G = Functor({X: int, Y: bool, Z: float}, {}, cod=Function)
+    assert G((X * Y) * Z) == (int, bool, float) == G(X.product(Y, Z))
+    packed = G(Pack(X * Y))
+    assert packed.dom == packed.cod == (int, bool)
+    assert packed(5, True) == (5, True)
+
+
+def test_tuple():
+    X, Y = Ty("X"), Ty("Y")
+    x, y = Variable("x", X), Variable("y", Y)
+    assert Tuple(x, y).cod == X * Y
+    assert Tuple(x, Tuple(y, x)).cod == X * (Y * X)
+    assert Tuple(x, y).eval() == Pack(X * Y)
+    assert Tuple(x, x).eval() == Copy(X) >> Pack(X * X)
+    assert Tuple().cod == Ty() and Tuple().eval() == Id(Ty())
+
+
+def test_projection():
+    X, Y = Ty("X"), Ty("Y")
+    x, y = Variable("x", X), Variable("y", Y)
+    assert Projection(Tuple(x, y), 1).eval() == Discard(X) @ Y
+    f = (X >> X * Y)("f")
+    assert Projection(f(x), 1).eval()\
+        == f @ X >> Diagram.ev(X * Y, X) >> Unpack(X * Y) >> Discard(X) @ Y
+    with raises(TypeError):
+        Projection(x, 0)
+    with raises(IndexError):
+        Projection(Tuple(x, y), 2)
+
+
+def test_let():
+    X, Y, Z = Ty("X"), Ty("Y"), Ty("Z")
+    f, g = (X >> Y)("f"), (Y >> Z)("g")
+    x = Variable("x", X)
+    t = let(f(x), lambda y: g(y))
+    assert t.freevars == [x] and t.cod == Z
+    assert t.eval() == f @ X >> Diagram.ev(Y, X) >> g @ Y >> Diagram.ev(Z, Y)
+    assert Substitution({x: x})(t) == t
+
+    both = let(Tuple(f(x), x), lambda y, z: Tuple(z, y))
+    assert both.cod == X * Y and both.eval().dom == X
+
+    with raises(ValueError):
+        Let(f(x), (x, ), x)
+    with raises(ValueError):
+        Let(f(x), (Variable("y", Z), ), x)
+    with raises(ValueError):
+        let(f(x), lambda y, z: y)
+    with raises(ValueError):
+        let(f(x), lambda *ys: ys[0])
+    with raises(ValueError):
+        let(f(x), lambda **ys: x)
+
+
+def test_let_shared():
+    X = Ty("X")
+    x = Variable("x", X)
+    effect = (X >> Ty())("effect")
+    t = let(effect(x), lambda: x)
+    assert t.cod == X and t.freevars == [x]
+    assert t.eval().dom == X and t.eval().cod == X
+
+
+def test_let_shadowing():
+    X = Ty("X")
+    x, y = Variable("x", X), Variable("y", X)
+    f, g2 = (X >> X)("f"), ((X * X) >> X)("g2")
+    term = Tuple(g2(Tuple(x, y)), let(f(y), lambda x: Tuple(x, y)))
+    with raises(ValueError):
+        term.eval()
+
+
+def test_substitution():
+    X, Y = Ty("X"), Ty("Y")
+    f = (X >> Y)("f")
+    x, z = Variable("x", X), Variable("z", X)
+    s = Substitution({x: z})
+    assert s(f) == f and s(x) == z
+    assert s(f(x)) == f(z)
+    assert s(Tuple(x, f(x))) == Tuple(z, f(z))
+    assert s(Projection(Tuple(x, x), 0)) == Projection(Tuple(z, z), 0)
+    assert s(Abstraction(x, f(x))) == Abstraction(x, f(x))
+    assert s(let(f(x), lambda y: y)) == let(f(z), lambda y: y)
+
+
+def test_substitution_capture():
+    X = Ty("X")
+    x, y, z = (Variable(name, X) for name in "xyz")
+    g = (X >> X)("g")
+    t = let(g(z), lambda y: Tuple(y, x))
+    assert Substitution({x: z})(t) == let(g(z), lambda y: Tuple(y, z))
+    with raises(ValueError):
+        Substitution({x: y})(t)
+    with raises(ValueError):
+        Substitution({x: y})(Abstraction(y, Tuple(y, x)))
+
+
+def test_substitution_bind_ignores_unused_replacements():
+    X = Ty("X")
+    x, y, z = (Variable(name, X) for name in "xyz")
+    term = Abstraction(y, x)
+    assert Substitution({z: y})(term) == term
+
+
+def test_compact_str():
+    E = Ty("E")
+    query, feed_forward = (E >> E)("query"), (E >> E)("feed_forward")
+    x = Variable("x", E)
+    t = let(query(x), lambda q: feed_forward(q))
+    assert str(t) == "let(query(x), lambda q: feed_forward(q))"
+    assert eval(str(t), dict(
+        let=let, query=query, feed_forward=feed_forward, x=x)) == t
+
+
+def test_to_term():
+    X, Y = Ty("X"), Ty("Y")
+    f, g = Box("f", X, Y @ Y), Box("g", Y @ Y, Y)
+    diagram = Diagram.copy(X) >> f @ Diagram.discard(X) >> g
+    t = diagram.to_term()
+    assert str(t) == "let(f(x0), lambda x1, x2: g(Tuple(x1, x2)))"
+    x0 = Variable("x0", X)
+    assert eval(str(t), dict(
+        let=let, Tuple=Tuple, x0=x0,
+        f=(X >> Y @ Y)("f"), g=(Y.product(Y) >> Y)("g"))) == t
+
+    assert Copy(X).to_term() == Tuple(x0, x0)
+    assert Box("h", X, Y).to_term() == (X >> Y)("h")(x0)
+    effect = Box("effect", X, Ty())
+    assert effect.to_term() == (X >> Ty())("effect")(x0)
+    assert effect.to_term().cod == Ty()
+
+
+def test_to_term_round_trip():
+    from discopy.python import Function
+    X, Y = Ty("X"), Ty("Y")
+    f, g = Box("f", X, Y @ Y), Box("g", Y @ Y, Y)
+    diagram = Diagram.copy(X) >> f @ Diagram.discard(X) >> g
+    term = diagram.to_term()
+    F = Functor({X: int, Y: int}, {
+        f: Function(lambda n: (n, n + 1), (int,), (int, int)),
+        g: Function(lambda a, b: a * b, (int, int), (int,))}, cod=Function)
+    constant_f, constant_g = term.constants
+    G = Functor({X: int, Y: int}, {
+        constant_f: Function(
+            lambda: lambda n: (n, n + 1), (),
+            Function.exp((int, int), (int,))),
+        constant_g: Function(
+            lambda: lambda a, b: a * b, (),
+            Function.exp((int,), (int, int)))}, cod=Function)
+    assert F(diagram)(3) == G(term)(3) == 12
+
+
+def test_python_let():
+    from discopy.python import Function
+    x = Ty("x")
+    f, g = (x >> x)("f"), (x.product(x) >> x)("g")
+    v = Variable("v", x)
+    t = let(Tuple(f(v), f(v)), lambda a, b: g(Tuple(a, b)))
+    F = Functor({x: int}, {
+        f: Function(lambda: lambda n: n + 1, (), Function.exp((int,), (int,))),
+        g: Function(lambda: lambda a, b: a * b, (),
+                    Function.exp((int,), (int, int)))}, cod=Function)
+    assert F(t)(3) == 16
 
 
 def test_str():
