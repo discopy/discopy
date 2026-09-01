@@ -55,21 +55,21 @@ at `ce044a0`, nothing posted to GitHub), quoted findings:
 The work, as decided with the maintainer (keep the current API, KISS
 over DRY, focus on the replay promise and verified correctness issues):
 
-- [WIP] @session_01Bwih1mV32usVtEFyNbDhq8-2026-09-01 12:40 1.1: `failing` raises a new `AxiomFailure(AxiomError)` naming its
+- [x] 1.1: `failing` raises a new `AxiomFailure(AxiomError)` naming its
       equation; `test_counterexample` reads the equation off the
       failure so a record earns its xfail and flips to XPASS when the
       bug is fixed; PROPTEST.md reworded to match.
-- [WIP] @session_01Bwih1mV32usVtEFyNbDhq8-2026-09-01 12:40 Field drops: `Axiom` becomes a `@dataclass(eq=False)` and every
+- [x] Field drops: `Axiom` becomes a `@dataclass(eq=False)` and every
       combinator goes through `dataclasses.replace`, fixing `failing`
       dropping `subspaces` (and `modulo`/`weaken` dropping fields) and
       the redundant temporary in `weaken`; unit tests for the
       preserved subspaces and for `inapplicable`.
-- [ ] 2.1: proptest.yml concurrency mirrors build.yml.
-- [ ] 2.2: declined — PEP 695 type parameters live in a scope `eval`
+- [x] 2.1: proptest.yml concurrency mirrors build.yml.
+- [x] 2.2: declined — PEP 695 type parameters live in a scope `eval`
       cannot see (verified `NameError`), so the `locals` rebinding is
       the only working mechanism; pin the reasoning in the `C0`/`C1`
       docstring.
-- [ ] CHANGELOG entry; PR body drift (ABC not Protocol, no
+- [x] CHANGELOG entry; PR body drift (ABC not Protocol, no
       `free_strategy`, split/3 not split/4) and one round-summary
       comment on the PR, answering the declined points (1.2 declined:
       `.inapplicable` covers permanent deviations; atomic idiom kept
