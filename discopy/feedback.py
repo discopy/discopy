@@ -148,7 +148,6 @@ from __future__ import annotations
 
 from discopy import monoidal, braided, markov, hypergraph
 from discopy.abc import FeedbackCategory
-from discopy.cat import factory
 from discopy.utils import (
     deprecated_ob,
     factory, factory_name, from_tree, assert_isinstance, AxiomError,
