@@ -167,7 +167,7 @@ class Trace(markov.Trace, Box):
 
 
 class Copy(markov.Copy, Box):
-    "A markov copy in a closed category"
+    "A markov copy in a closed category."
 
     is_linear = False
 
