@@ -1616,6 +1616,16 @@ class Box(cat.Box, Diagram):
     """
 
     def __init_subclass__(cls, **params):
+        """
+        Register a box class as the ``box_factory`` of its own diagrams.
+
+        A subclass listing its diagram class among its bases is the
+        generator of that category, e.g. :class:`discopy.braided.Box` for
+        :class:`discopy.braided.Diagram`, so each level of the hierarchy
+        wires itself rather than repeating the assignment. This does not
+        fire for :class:`Box` itself, which is why ``Diagram.box_factory``
+        is assigned at the end of this module.
+        """
         super().__init_subclass__(**params)
         if cls.ar in cls.__bases__:
             cls.ar.box_factory = cls

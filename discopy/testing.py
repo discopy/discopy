@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import inspect
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping
+from dataclasses import KW_ONLY, dataclass, replace
 from functools import wraps
-from typing import ClassVar, TypeVar, TYPE_CHECKING, get_args, get_origin
+from typing import ClassVar, TypeVar, TYPE_CHECKING
 
-from discopy.utils import AxiomError, assert_iscomposable, factory_name
+from discopy.utils import (
+    AxiomError, NamedGeneric, assert_iscomposable, factory_name, get_origin)
 
 if TYPE_CHECKING:
     from hypothesis import strategies as st
@@ -28,6 +29,9 @@ override with its own types: :meth:`Axiom.strategy` rebinds both names to
 ``carrier.ob`` and ``carrier.ar`` when it evaluates the annotations. This
 is also why every module stating an axiom needs
 ``from __future__ import annotations``, which keeps them unevaluated.
+Rebinding happens through the ``locals`` of that evaluation because the
+:pep:`695` type parameters of :class:`discopy.abc.Category` live in a
+scope :func:`eval` cannot see, in globals or anywhere else.
 """
 
 
@@ -51,7 +55,17 @@ class Strategy[T](ABC):
     @classmethod
     @abstractmethod
     def strategy(cls, **params) -> st.SearchStrategy[T]:  # pragma: no cover
-        """Build a strategy for instances of ``cls``."""
+        """
+        Build a strategy for instances of ``cls``.
+
+        An override that delegates to another strategy accepts
+        ``**params``, pops the parameters it consumes and forwards the
+        rest, so that a caller's bounds pass through unchanged and a
+        subclass overrides what a base popped just by passing it. A
+        terminal strategy instead declares exactly the parameters it
+        implements: a constraint it cannot honour fails loudly as an
+        unexpected keyword rather than being silently dropped.
+        """
 
 
 class Natural(int, Strategy["Natural"]):
@@ -96,63 +110,63 @@ class Natural(int, Strategy["Natural"]):
 
 
 @dataclass(frozen=True)
-class Atomic[T](Strategy[T]):
-    """ An object containing exactly one generator. """
+class Atomic(Strategy, NamedGeneric["factory"]):
+    """ An object of the factory containing exactly one generator. """
 
-    value: T
+    value: object
 
     def __post_init__(self):
         if len(self.value) != 1:
             raise ValueError("Expected an atomic object.")
 
     @classmethod
-    def strategy(cls, *, factory: type[T]):
+    def strategy(cls, **params):
         """Generate an object containing exactly one generator."""
-        return factory.strategy().filter(
+        return resolve(cls.factory, **params).filter(
             lambda value: len(value) == 1).map(cls)
 
 
 @dataclass(frozen=True)
-class NonEmpty[T](Strategy[T]):
-    """ A non-empty object. """
+class NonEmpty(Strategy, NamedGeneric["factory"]):
+    """ A non-empty object of the factory. """
 
-    value: T
+    value: object
 
     def __post_init__(self):
         if not len(self.value):
             raise ValueError("Expected a non-empty object.")
 
     @classmethod
-    def strategy(cls, *, factory: type[T], **params):
+    def strategy(cls, **params):
         """Generate a non-empty object."""
-        return factory.strategy(**params).filter(bool).map(cls)
+        return resolve(cls.factory, **params).filter(bool).map(cls)
 
 
 @dataclass(frozen=True)
-class Small[T](Strategy[T]):
-    """ An object of length at most one. """
+class Small(Strategy, NamedGeneric["factory"]):
+    """ An object of the factory of length at most one. """
 
-    value: T
+    value: object
 
     def __post_init__(self):
         if len(self.value) > 1:
             raise ValueError("Expected an object of length at most one.")
 
     @classmethod
-    def strategy(cls, *, factory, **params):
+    def strategy(cls, **params):
         """Generate an object of length at most one."""
-        return resolve(factory, **params).filter(
+        return resolve(cls.factory, **params).filter(
             lambda value: len(value) <= 1).map(cls)
 
 
 @dataclass(frozen=True)
-class BoundaryConnected[T](Strategy[T]):
+class BoundaryConnected(Strategy, NamedGeneric["factory"]):
     """
     A term whose boundary reaches every box — a hypergraph, a
     combinatorial map, or a diagram read through its map.
     """
 
-    value: T
+    value: object
 
     def __post_init__(self):
         cells = self.value if isinstance(self.value, tuple)\
@@ -164,20 +178,20 @@ class BoundaryConnected[T](Strategy[T]):
                 raise ValueError("Expected a boundary-connected term.")
 
     @classmethod
-    def strategy(cls, *, factory, **params):
+    def strategy(cls, **params):
         """Generate from the factory restricted to connected terms."""
         return resolve(
-            factory, boundary_connected=True, **params).map(cls)
+            cls.factory, boundary_connected=True, **params).map(cls)
 
 
-class PastingDiagram[T](Strategy[tuple[T, ...]], tuple[T, ...]):
+class PastingDiagram(Strategy, NamedGeneric["factory"], tuple):
     """ A rectangular grid with composable rows and columns. """
 
     n_rows: ClassVar[int]
     n_columns: ClassVar[int]
     n_active_rows: ClassVar[int] = 1
 
-    def __new__(cls, *cells: T):
+    def __new__(cls, *cells: C1):
         if len(cells) != cls.n_rows * cls.n_columns:
             raise ValueError("Expected one value per cell.")
         for row in range(cls.n_rows - 1):
@@ -191,10 +205,11 @@ class PastingDiagram[T](Strategy[tuple[T, ...]], tuple[T, ...]):
         return super().__new__(cls, cells)
 
     @classmethod
-    def strategy(cls, *, factory: type[T], **params):
+    def strategy(cls, **params):
         """Generate a grid column-by-column using composable boundaries."""
         from hypothesis import strategies as st
 
+        factory = cls.factory
         dom, cod = params.pop("dom", None), params.pop("cod", None)
 
         @st.composite
@@ -225,34 +240,33 @@ class PastingDiagram[T](Strategy[tuple[T, ...]], tuple[T, ...]):
         return pasting_diagram()
 
 
-class ComposablePair[T](PastingDiagram[T], tuple[T, T]):
+class ComposablePair(PastingDiagram):
     """ Two morphisms composable from left to right. """
 
     n_rows, n_columns = 2, 1
     n_active_rows = 2
 
 
-class ComposableTriple[T](PastingDiagram[T], tuple[T, T, T]):
+class ComposableTriple(PastingDiagram):
     """ Three values composable from left to right. """
 
     n_rows, n_columns = 3, 1
     n_active_rows = 3
 
 
-class HorizontalPair[T](PastingDiagram[T], tuple[T, T]):
+class HorizontalPair(PastingDiagram):
     """ Two horizontally composable cells. """
 
     n_rows, n_columns = 1, 2
 
 
-class Bifunctor[T](PastingDiagram[T], tuple[T, T, T, T]):
+class Bifunctor(PastingDiagram):
     """ A two-by-two pasting diagram for bifunctoriality. """
 
     n_rows = n_columns = 2
 
 
-class TraceSuperposing[C0, C1](
-        Strategy[tuple[C1, C0]], tuple[C1, C0]):
+class TraceSuperposing(Strategy, NamedGeneric["factory"], tuple):
     """ A traceable arrow and an object to superpose. """
 
     def __new__(cls, traced: C1, obj: C0):
@@ -260,19 +274,18 @@ class TraceSuperposing[C0, C1](
         return super().__new__(cls, (traced, obj))
 
     @classmethod
-    def strategy(cls, *, factory: type[C1]):
+    def strategy(cls):
         """Generate a traceable identity and an arbitrary object."""
         from hypothesis import strategies as st
 
-        object_type, arrow_type = factory.ob, factory
+        object_type, arrow_type = cls.factory.ob, cls.factory
         objects = object_type.strategy()
         atomic = object_type.strategy().filter(lambda obj: len(obj) == 1)
         return st.tuples(atomic, objects).map(
             lambda pair: cls(arrow_type.id(pair[0]), pair[1]))
 
 
-class TraceSliding[C0, C1](
-        Strategy[tuple[C1, C0, C1]], tuple[C1, C0, C1]):
+class TraceSliding(Strategy, NamedGeneric["factory"], tuple):
     """ Arguments for trace sliding over an arbitrary traced type. """
 
     left: ClassVar[bool]
@@ -285,10 +298,11 @@ class TraceSliding[C0, C1](
         return super().__new__(cls, (traced, obj, sliding))
 
     @classmethod
-    def strategy(cls, *, factory: type[C1]):
+    def strategy(cls):
         """Generate non-trivial morphisms with compatible trace boundaries."""
         from hypothesis import strategies as st
 
+        factory = cls.factory
         objects = factory.ob.strategy()
         traced = factory.ob.strategy(min_length=1)
 
@@ -305,20 +319,19 @@ class TraceSliding[C0, C1](
         return st.tuples(traced, objects, objects).flatmap(morphisms)
 
 
-class TraceNaturalityLeft[C0, C1](TraceSliding[C0, C1]):
+class TraceNaturalityLeft(TraceSliding):
     """ Arguments for left-oriented trace naturality. """
 
     left = True
 
 
-class TraceNaturalityRight[C0, C1](TraceSliding[C0, C1]):
+class TraceNaturalityRight(TraceSliding):
     """ Arguments for right-oriented trace naturality. """
 
     left = False
 
 
-class TraceDinaturality[C0, C1](
-        Strategy[tuple[C1, C1]], tuple[C1, C1]):
+class TraceDinaturality(Strategy, NamedGeneric["factory"], tuple):
     """ A traceable arrow and an arrow to slide around its trace. """
 
     left: ClassVar[bool]
@@ -333,10 +346,11 @@ class TraceDinaturality[C0, C1](
         return super().__new__(cls, (traced, sliding))
 
     @classmethod
-    def strategy(cls, *, factory: type[C1]):
+    def strategy(cls):
         """Generate an arrow sliding between two traced objects."""
         from hypothesis import strategies as st
 
+        factory = cls.factory
         objects = factory.ob.strategy()
         traced = factory.ob.strategy(min_length=1)
 
@@ -354,20 +368,19 @@ class TraceDinaturality[C0, C1](
         return st.tuples(objects, objects, traced, traced).flatmap(arrows)
 
 
-class TraceDinaturalityLeft[C0, C1](TraceDinaturality[C0, C1]):
+class TraceDinaturalityLeft(TraceDinaturality):
     """ Arguments for left-oriented trace dinaturality. """
 
     left = True
 
 
-class TraceDinaturalityRight[C0, C1](TraceDinaturality[C0, C1]):
+class TraceDinaturalityRight(TraceDinaturality):
     """ Arguments for right-oriented trace dinaturality. """
 
     left = False
 
 
-class LeftCurrying[C0, C1](
-        Strategy[tuple[C1, C0, C0]], tuple[C1, C0, C0]):
+class LeftCurrying(Strategy, NamedGeneric["factory"], tuple):
     """ Arguments for left currying followed by evaluation. """
 
     left = True
@@ -381,24 +394,23 @@ class LeftCurrying[C0, C1](
         return super().__new__(cls, (arrow, base, exponent))
 
     @classmethod
-    def strategy(cls, *, factory: type[C1]):
+    def strategy(cls):
         """Generate an evaluation suitable for left or right currying."""
         from hypothesis import strategies as st
 
-        object_type, arrow_type = factory.ob, factory
+        object_type, arrow_type = cls.factory.ob, cls.factory
         objects = object_type.strategy().filter(lambda obj: len(obj) == 1)
         return st.tuples(objects, objects).map(lambda pair: cls(
             arrow_type.ev(*pair, left=cls.left), *pair))
 
 
-class RightCurrying[C0, C1](LeftCurrying[C0, C1]):
+class RightCurrying(LeftCurrying):
     """ Arguments for right currying followed by evaluation. """
 
     left = False
 
 
-class FeedbackVanishing[C0, C1](
-        Strategy[tuple[C1, C0]], tuple[C1, C0]):
+class FeedbackVanishing(Strategy, NamedGeneric["factory"], tuple):
     """ A feedback arrow together with the monoidal unit. """
 
     def __new__(cls, arrow: C1, unit: C0):
@@ -408,15 +420,14 @@ class FeedbackVanishing[C0, C1](
         return super().__new__(cls, (arrow, unit))
 
     @classmethod
-    def strategy(cls, *, factory: type[C1], **params):
+    def strategy(cls, **params):
         """Generate a feedback arrow paired with the monoidal unit."""
-        object_type, arrow_type = factory.ob, factory
+        object_type, arrow_type = cls.factory.ob, cls.factory
         return arrow_type.strategy(**params).map(
             lambda arrow: cls(arrow, object_type()))
 
 
-class FeedbackJoining[C0, C1](
-        Strategy[tuple[C1, C0]], tuple[C1, C0]):
+class FeedbackJoining(Strategy, NamedGeneric["factory"], tuple):
     """ A feedback arrow with at least two units of memory. """
 
     def __new__(cls, arrow: C1, memory: C0):
@@ -429,11 +440,11 @@ class FeedbackJoining[C0, C1](
         return super().__new__(cls, (arrow, memory))
 
     @classmethod
-    def strategy(cls, *, factory: type[C1]):
+    def strategy(cls):
         """Generate a feedback arrow with two units of memory."""
         from hypothesis import strategies as st
 
-        object_type, arrow_type = factory.ob, factory
+        object_type, arrow_type = cls.factory.ob, cls.factory
         objects = object_type.strategy()
         atomic = object_type.strategy().filter(lambda obj: len(obj) == 1)
 
@@ -447,7 +458,7 @@ class FeedbackJoining[C0, C1](
         return st.tuples(objects, atomic, atomic).flatmap(arrows)
 
 
-class HomogeneousMemory[C0, C1](FeedbackJoining[C0, C1]):
+class HomogeneousMemory(FeedbackJoining):
     """ A feedback arrow whose units of memory are all the same object. """
 
     def __new__(cls, arrow: C1, memory: C0):
@@ -456,11 +467,11 @@ class HomogeneousMemory[C0, C1](FeedbackJoining[C0, C1]):
         return super().__new__(cls, arrow, memory)
 
     @classmethod
-    def strategy(cls, *, factory: type[C1]):
+    def strategy(cls):
         """Generate a feedback arrow with two units of the same memory."""
         from hypothesis import strategies as st
 
-        object_type, arrow_type = factory.ob, factory
+        object_type, arrow_type = cls.factory.ob, cls.factory
         objects = object_type.strategy()
         atomic = object_type.strategy().filter(lambda obj: len(obj) == 1)
 
@@ -552,6 +563,18 @@ class Relabelled(Mapping):
         return True
 
 
+class AxiomFailure(AxiomError):
+    """
+    A law declared broken, raised when the bound axiom is called: the
+    reason is the message and :attr:`equation` is the law evaluated on the
+    arguments, which a recorded counterexample must falsify.
+    """
+    def __init__(self, reason: str, equation):
+        super().__init__(reason, equation)
+        self.equation = equation
+
+
+@dataclass(eq=False)
 class Axiom[T]:
     """
     A categorical law, stated either of a carrier or of one of its elements.
@@ -564,7 +587,7 @@ class Axiom[T]:
     Calling a bound axiom returns its own verdict: :obj:`NotImplemented`
     when the structure does not apply to the carrier, and the equation
     itself otherwise; a law declared broken raises an
-    :class:`discopy.utils.AxiomError` instead of returning anything.
+    :class:`AxiomFailure` carrying that equation instead of returning it.
 
     A law is broken when *some* argument is a counterexample, not every one,
     so :attr:`broken` is declared by :meth:`failing` before any argument is
@@ -572,18 +595,21 @@ class Axiom[T]:
     failure and lets the search find the counterexample.
     """
 
-    def __init__(self, equation, *, carrier=None, name=None, subspaces=None,
-                 broken=False):
-        function = equation.__func__ if isinstance(equation, classmethod)\
-            else equation
-        self.equation = function
-        self.signature = inspect.signature(function)
+    equation: Callable
+    _: KW_ONLY
+    carrier: type[T] = None
+    name: str = None
+    subspaces: dict = None
+    broken: bool = False
+
+    def __post_init__(self):
+        if isinstance(self.equation, classmethod):
+            self.equation = self.equation.__func__
+        self.signature = inspect.signature(self.equation)
         self.receiver = next(iter(self.signature.parameters), None)
-        self.carrier = carrier
-        self.name = self.__name__ = name or function.__name__
-        self.broken = broken
-        self.subspaces = dict(subspaces or {})
-        self.__doc__ = function.__doc__
+        self.name = self.__name__ = self.name or self.equation.__name__
+        self.subspaces = dict(self.subspaces or {})
+        self.__doc__ = self.equation.__doc__
 
     def __repr__(self):
         return f"Axiom({self.name})"
@@ -603,9 +629,7 @@ class Axiom[T]:
 
     def bind(self, carrier: type[T]) -> Axiom[T]:
         """ Bind the axiom to a concrete carrier. """
-        return type(self)(
-            self.equation, carrier=carrier, name=self.name,
-            subspaces=self.subspaces, broken=self.broken)
+        return replace(self, carrier=carrier)
 
     def __get__(self, instance, owner: type[T]) -> Axiom[T]:
         return self.bind(owner)
@@ -620,21 +644,20 @@ class Axiom[T]:
         @wraps(self.equation)
         def equation(*args, **kwargs):
             return self.equation(*args, **kwargs).modulo(up_to)
-        return type(self)(
-            equation, subspaces=self.subspaces, broken=self.broken)
+        return replace(self, equation=equation)
 
     def failing(self, reason: str) -> Axiom[T]:
         """
         The same law declared broken: calling it raises an
-        :class:`discopy.utils.AxiomError` with the reason as message and
-        the equation as its last argument, e.g. ``braid_naturality =
+        :class:`AxiomFailure` with the reason as message and the equation
+        evaluated on the arguments, e.g. ``braid_naturality =
         BraidedCategory.braid_naturality.failing("A free braid is a box.")``.
         """
         @wraps(self.equation)
         def equation(*args, **kwargs):
-            raise AxiomError(reason, self.equation(*args, **kwargs))
+            raise AxiomFailure(reason, self.equation(*args, **kwargs))
         equation.__doc__ = reason
-        return type(self)(equation, broken=True)
+        return replace(self, equation=equation, broken=True)
 
     def inapplicable(self, reason: str) -> Axiom[T]:
         """
@@ -645,8 +668,8 @@ class Axiom[T]:
         """
         def law(cls):
             return NotImplemented
-        law.__name__, law.__doc__ = self.name, reason
-        return type(self)(law)
+        law.__doc__ = reason
+        return replace(self, equation=law, subspaces={}, broken=False)
 
     def weaken(self, **subspaces) -> Axiom[T]:
         """
@@ -661,10 +684,7 @@ class Axiom[T]:
         matrix one expected failure and one green cell instead of one
         blanket expected failure.
         """
-        result = type(self)(
-            self.equation, name=self.name,
-            subspaces=dict(self.subspaces, **subspaces), broken=self.broken)
-        return result
+        return replace(self, subspaces=dict(self.subspaces, **subspaces))
 
     def strategy(self) -> st.SearchStrategy:
         """
@@ -677,6 +697,8 @@ class Axiom[T]:
         """
         from hypothesis import strategies as st
 
+        if self.carrier is None:
+            raise TypeError(f"{self.name} is not bound to a class.")
         function = inspect.unwrap(self.equation)
         source = self.carrier.dom if self.is_method else self.carrier
         scope = {"C0": source.ob, "C1": source.ar}
@@ -710,9 +732,6 @@ class Axiom[T]:
         hypothesis.errors.NoSuchExample: No examples found of condition ...
         """
         from hypothesis import find
-
-        if self.carrier is None:
-            raise TypeError(f"{self.name} is not bound to a class.")
 
         def refutes(args):
             try:
@@ -761,26 +780,28 @@ def axiom(equation) -> Axiom:
 
 def resolve(annotation, **params) -> st.SearchStrategy:
     """ Resolve the strategy implemented by an annotated type. """
-    origin = get_origin(annotation) or annotation
-    if not isinstance(origin, type) or not issubclass(origin, Strategy):
+    if not isinstance(annotation, type)\
+            or not issubclass(annotation, Strategy):
         raise TypeError(
             f"Expected a Strategy annotation, got {annotation!r}.")
-    if args := get_args(annotation):
-        params["factory"] = args[-1]
-    return origin.strategy(**params)
+    return annotation.strategy(**params)
 
 
 def substitute(annotation, scope: dict):
     """
     Replace the :obj:`C0` and :obj:`C1` type variables of a subspace
-    annotation by the objects and arrows they stand for.
+    annotation by the objects and arrows they stand for, rebuilding each
+    parameterised wrapper whose factory the substitution changes.
     """
     if isinstance(annotation, TypeVar):
         return scope[annotation.__name__]
-    if args := get_args(annotation):
-        origin = get_origin(annotation)
-        return origin[tuple(substitute(arg, scope) for arg in args)]
-    return annotation
+    factory = getattr(annotation, "factory", None)
+    if factory is None or factory is annotation:
+        return annotation
+    substituted = substitute(factory, scope)
+    if substituted is factory:
+        return annotation
+    return get_origin(annotation)[substituted]
 
 
 def assert_axioms(*carriers) -> None:
