@@ -518,6 +518,8 @@ class CMap(cmap.CMap[Diagram]):
     @property
     def memory_widths(self) -> tuple[int, ...]:
         """ The private memory width of each box occurrence. """
+        for box in self.boxes:
+            assert_isinstance(box, Network)
         return tuple(sum(box.mem.inside) for box in self.boxes)
 
     @property
@@ -649,7 +651,8 @@ class CMap(cmap.CMap[Diagram]):
         * ``input``, ``output`` : the boundary ports of the map,
         * ``groups`` : boxes grouped by shared module and port widths, each
           with the flat indices of their ports in logical order, so that one
-          module call evaluates a whole group at once.
+          module call evaluates a whole group at once; a module wrapping a
+          map is called through its all-port ``box_forward``.
         """
         import torch
         widths = self.port_widths
@@ -668,7 +671,8 @@ class CMap(cmap.CMap[Diagram]):
             assert_isinstance(box, Network)
             box_ports = self.box_ports(index)
             key = (id(box.module), tuple(widths[i] for i in box_ports))
-            groups.setdefault(key, (box.module, []))[1].append(
+            module = getattr(box.module, "box_forward", box.module)
+            groups.setdefault(key, (module, []))[1].append(
                 (index, box_ports))
 
         def gather(members):

@@ -193,6 +193,12 @@ class ParamMap(para.Symmetric):
                    laws=tuple(laws))
 
     @property
+    def name(self) -> str:
+        """ The name of the generator, or the diagram inside as a string. """
+        return self.inside.name if isinstance(self.inside, Network) \
+            else str(self.inside)
+
+    @property
     def params(self) -> Dim:
         """ The parameter object :math:`P`, i.e. :attr:`param`. """
         return self.param
