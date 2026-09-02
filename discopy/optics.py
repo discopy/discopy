@@ -237,6 +237,10 @@ class Optic(SymmetricCategory, NamedGeneric['category']):
             identity(self.residual + self.cod.negative), self.backward)
         assert_iscomposable(self.backward, identity(self.dom.negative))
 
+    def __repr__(self):
+        return factory_name(type(self)) + f"({self.dom!r}, {self.cod!r}, "\
+            f"{self.forward!r}, {self.backward!r}, {self.residual!r})"
+
     @classmethod
     def lift(cls, forward: category, backward: category = None) -> Optic:
         """
@@ -410,6 +414,10 @@ class Lens(SymmetricCategory, NamedGeneric['category']):
         assert_iscomposable(
             identity(self.dom.positive + self.cod.negative), self.put)
         assert_iscomposable(self.put, identity(self.dom.negative))
+
+    def __repr__(self):
+        return factory_name(type(self)) + f"({self.dom!r}, {self.cod!r}, "\
+            f"{self.get!r}, {self.put!r})"
 
     @classmethod
     def lift(cls, get: category, backward: category = None) -> Lens:

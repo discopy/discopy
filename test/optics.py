@@ -2,7 +2,7 @@
 
 from pytest import raises
 
-from discopy import cat, markov, monoidal, optics
+from discopy import cat, markov, monoidal, optics, symmetric
 from discopy.interaction import Ty as IntTy
 from discopy.optics import Lens, Optic, Ty
 from discopy.para import Symmetric
@@ -23,8 +23,10 @@ h = Optic(Z, W, Box('h', z, k @ w), Box("h'", k @ w_, z_), k)
 def test_ty():
     assert Ty[int](1, 2) @ Ty[int](3, 4) == Ty[int](4, 6)
     assert -(X @ Y) == -X @ -Y == Ty(x_ @ y_, x @ y)
-    scope = {"cat": cat, "monoidal": monoidal, "optics": optics}
+    scope = {"cat": cat, "monoidal": monoidal, "optics": optics,
+             "symmetric": symmetric, "markov": markov}
     assert eval(repr(X), scope) == X and str(X) == "x @ -x'"
+    assert eval(repr(f), scope) == f and eval(repr(lens()), scope) == lens()
     assert Ty[int]() == Ty[int](0, 0) and Ty.unit() == Ty()
 
 
