@@ -143,6 +143,8 @@ class Cell(torch.nn.Module):
         orbit = signature.orbits[0]
         self.orbit = orbit.role
         self.leg = sum(self.widths[atom] for atom in orbit.role)
+        if not self.leg:
+            raise ValueError("the first orbit of a cell carries no width")
         self.fixed = signature.width(self.widths) \
             - orbit.copies * orbit.arity * self.leg
         self._places: dict = {}
@@ -246,6 +248,14 @@ class Site(Cell):
         if any(self.widths[role] != self.state_width
                for role in self.states):
             raise ValueError("the states of one cell must be equally wide")
+        if len(self.states) != (2 if recurrent == "lstm" else 1):
+            raise ValueError(
+                f"a {recurrent} cell carries {2 if recurrent == 'lstm' else 1}"
+                f" state, got {len(self.states)}")
+        if not emit and self.state_width != self.leg:
+            raise ValueError(
+                "without an emit map the state is broadcast as the belief, "
+                "so it must be as wide as a leg")
 
         self.encode = _mlp(self.state_width + self.leg, hidden, depth)
         self.update = RECURRENT[recurrent](
@@ -258,7 +268,9 @@ class Site(Cell):
 
     def forward(self, x):
         arity, places = self.places(x.shape[-1])
-        message = x[:, places[self.orbit[0]]].reshape(-1, arity, self.leg)
+        message = torch.cat([
+            x[:, places[role]] for role in self.orbit if self.widths[role]],
+            -1).reshape(-1, arity, self.leg)
         carried = [x[:, places[role]] for role in self.states]
         given = {role: x[:, places[role]] for role in self.inputs}
 

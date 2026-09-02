@@ -15,8 +15,9 @@ semantics of backpropagation of :cite:t:`CruttwellEtAl22`; the reverse
 derivative ``A @ B -> A`` of :func:`rdiff` is the ``put`` of its lens,
 discarding the primal output before the backward leg.
 
-Only causal monogamous hypergraphs are accepted.  Identity wires and swaps
-have structural rules; every other generator needs an explicit rule.  This
+Only causal monogamous hypergraphs are accepted.  Identity wires and
+permutations have structural rules; every other generator needs an
+explicit rule.  This
 keeps residuals in the diagram rather than in an autograd tape or a module
 cache.
 
@@ -62,7 +63,8 @@ from __future__ import annotations
 
 from discopy import optics
 from discopy.neural.backend import get_backend
-from discopy.neural.core import Diagram, Dim, Hypergraph, Network, Swap
+from discopy.neural.core import (
+    Diagram, Dim, Hypergraph, Network, Permutation)
 from discopy.utils import MappingOrCallable, assert_isinstance
 
 #: A reverse rule is an optic over neural diagrams between pairs ``(A, A)``.
@@ -94,8 +96,9 @@ def reverse_rule(forward: Diagram, backward: Diagram,
 
 def _generator_rule(box, rules) -> ReverseRule:
     """ Look up and type-check the reverse rule for one generator. """
-    if isinstance(box, Swap):
-        return ReverseRule.swap(pair(box.dom[:1]), pair(box.dom[1:]))
+    if isinstance(box, Permutation):
+        return ReverseRule.permutation(
+            list(box.perm), [pair(atom) for atom in box.dom])
     try:
         rule = rules[box]
     except KeyError as exception:

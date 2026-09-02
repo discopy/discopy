@@ -104,6 +104,11 @@ def backend(name: str = None):
         _current.reset(token)
 
 
+def current() -> str:
+    """ The name of the backend selected by the innermost :func:`backend`. """
+    return _current.get()
+
+
 def get_backend(name: str | Backend = None) -> Backend:
     """
     Get a neural execution backend by name, or return a given backend.

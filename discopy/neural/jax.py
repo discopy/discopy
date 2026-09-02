@@ -37,7 +37,7 @@ class JAX(Backend):
     A module is a callable PyTree from one batched all-port array to an array
     of the same width. ``jax.tree_util.Partial`` can bind parameter arrays to
     a function while leaving them visible to JAX transformations.
-    :meth:`CMap.as_network <discopy.neural.network.CMap.as_network>` returns a
+    :meth:`CMap.as_network <discopy.neural.core.CMap.as_network>` returns a
     callable PyTree whose map is static metadata and whose distinct modules are
     dynamic children. Pass that wrapper as an argument to transformations, e.g.
     ``jax.jit(lambda model, x: model(x))(model, x)``. Execution controls such

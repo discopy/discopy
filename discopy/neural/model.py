@@ -47,7 +47,9 @@ which :meth:`compile` handles like any other diagram.
 Compiling a diagram costs a permutation and a handful of index tensors, so
 :meth:`compile` caches its result; **intern the diagrams** -- build one per
 shape, e.g. behind an ``lru_cache`` -- and a recurring mix of shapes costs
-one compilation ever.
+one compilation ever.  The cache is keyed by the diagram alone: ``ob`` and
+``ar`` are read at construction, and a model whose modules are swapped
+afterwards keeps the interactions it compiled, so build a new model instead.
 
 Summary
 -------

@@ -285,6 +285,7 @@ def check_equivariant(module, signature: Signature, widths: Mapping,
     total = signature.width(widths)
     generator = torch.Generator().manual_seed(seed)
     rows = torch.randn(batch, total, generator=generator, dtype=torch.double)
+    rows = rows.to(**_like(module))
     residuals: dict = {}
     with torch.no_grad():
         expected = module(rows)
@@ -295,7 +296,7 @@ def check_equivariant(module, signature: Signature, widths: Mapping,
             for atom in orbit.role:
                 residuals[atom] = max(residuals.get(atom, 0.0), residual)
     broken = {atom: value for atom, value in residuals.items()
-              if value > atol}
+              if not value <= atol}
     if broken:
         raise AxiomError(", ".join(
             f"{atom} is not {_sym_of(signature, atom)}-equivariant: "
@@ -340,19 +341,38 @@ def fusion_residual(module, signature: Signature, widths: Mapping,
     True
     """
     import torch
+    if rounds < 1:
+        raise ValueError("the shared wire needs at least one exchange")
     leg = sum(widths[atom] for atom in signature.orbits[0].role)
     generator = torch.Generator().manual_seed(seed)
     rows = torch.randn(batch, 2 * arity * leg, generator=generator,
-                       dtype=torch.double)
+                       dtype=torch.double).to(**_like(module))
     left, right = rows[:, :arity * leg], rows[:, arity * leg:]
-    shared = torch.zeros(batch, 2 * leg, dtype=rows.dtype)
+    shared = torch.zeros(batch, 2 * leg, dtype=rows.dtype,
+                         device=rows.device)
     with torch.no_grad():
         for _ in range(rounds):
             one = module(torch.cat([left, shared[:, leg:]], -1))
             other = module(torch.cat([right, shared[:, :leg]], -1))
             shared = torch.cat([one[:, -leg:], other[:, -leg:]], -1)
         glued = torch.cat([one[:, :-leg], other[:, :-leg]], -1)
-        return float((glued - module(rows)).abs().max())
+        residual = (glued - module(rows)).abs().max()
+        return float(residual) if torch.isfinite(residual) else float("inf")
+
+
+def _like(module) -> dict:
+    """
+    The dtype and device of a module's first parameter or buffer, so that
+    a measurement feeds it what it computes on; double on the CPU when it
+    has neither.
+    """
+    import torch
+    found = next(module.parameters(), None) if hasattr(
+        module, "parameters") else None
+    if found is None and hasattr(module, "buffers"):
+        found = next(module.buffers(), None)
+    return {"dtype": torch.double, "device": "cpu"} if found is None \
+        else {"dtype": found.dtype, "device": found.device}
 
 
 def _orbit_generators(signature: Signature):

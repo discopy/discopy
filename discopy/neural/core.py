@@ -94,7 +94,7 @@ from functools import cached_property
 from discopy import cat, cmap, compact, hypergraph, monoidal, para
 from discopy.cat import factory
 from discopy.cmap import PortKind
-from discopy.neural.backend import Backend, get_backend
+from discopy.neural.backend import Backend, current, get_backend
 from discopy.neural.execution import Execution
 from discopy.pivotal import Ty
 from discopy.utils import assert_isinstance, factory_name, from_tree as decode
@@ -604,8 +604,11 @@ class CMap(cmap.CMap[Diagram]):
                        if isinstance(init, (list, tuple)) else [init])
         ref = next((t for t in given if t is not None), None)
         batch_size = 1 if ref is None else ref.shape[0]
-        proto = ref if ref is not None else next(
-            iter(self.parameters()), None) if self.boxes else None
+        proto = ref
+        if proto is None and self.boxes:
+            proto = next(iter(self.parameters()), None)
+        if proto is None and self.boxes:
+            proto = next(iter(self.module_list.buffers()), None)
         kwargs = {} if proto is None else {
             "dtype": proto.dtype, "device": proto.device}
         return batch_size, kwargs
@@ -916,9 +919,11 @@ class CMap(cmap.CMap[Diagram]):
         along the wires is one permutation of the last axis and all the
         boxes sharing a module and a port signature are evaluated in one
         batched call, on the device of the input, the initial messages or
-        the parameters. Everything else -- another backend, replacement
-        modules, private memory, the causal schedule -- runs the reference
-        :meth:`forward_reference`, one call per box per round.
+        the parameters. Everything else -- another backend, whether given
+        here or selected by the :func:`~discopy.neural.backend.backend`
+        context, replacement modules, private memory, the causal schedule
+        -- runs the reference :meth:`forward_reference`, one call per box
+        per round.
 
         Parameters:
             x : The input, of shape ``(batch_size, sum of domain widths)``.
@@ -962,6 +967,8 @@ class CMap(cmap.CMap[Diagram]):
         if modules is not None and len(modules) == len(self.modules) and all(
                 given is own for given, own in zip(modules, self.modules)):
             modules = None
+        if backend is None and current() != "pytorch":
+            backend = current()
         if causal or return_memory or any(self.memory_widths) or any(
                 given is not None for given in (memory, backend, modules)):
             if return_rounds or return_flat:
@@ -975,13 +982,17 @@ class CMap(cmap.CMap[Diagram]):
         routing = self._routing
         widths, offsets = self.port_widths, routing["offsets"]
         n_rounds = len(self.boxes) if n_rounds is None else n_rounds
+        if n_rounds < 0:
+            raise ValueError("n_rounds cannot be negative.")
+        closed = not (len(self.dom) or len(self.cod))
+        if closed and x is not None and x.shape[-1]:
+            raise ValueError("A closed map takes no input.")
         batch_size, kwargs = self._prepare(x, init)
         device = kwargs.get("device", None)
         step = self._step(device)
         device_routing = self._device_routing(device)
         groups = device_routing["groups"]
         fused = "perm" in device_routing
-        closed = not (len(self.dom) or len(self.cod))
 
         if isinstance(init, (list, tuple)):
             init = torch.cat([

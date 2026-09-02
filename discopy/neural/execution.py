@@ -93,6 +93,9 @@ class Execution:
     @cached_property
     def topological_order(self) -> tuple[int, ...]:
         """ Order boxes from boundary inputs towards boundary outputs. """
+        if self.inside.loops:
+            raise ValueError(
+                "A causal schedule requires an acyclic map, without loops.")
         domain_owner, codomain_owner, box_port_owner = {}, {}, {}
         for box_index, (box, ports) in enumerate(zip(
                 self.inside.boxes, self.box_ports)):

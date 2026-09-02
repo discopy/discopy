@@ -9,9 +9,10 @@ package.
 
 An **ordinary parametric map** :math:`(P, f) : X \\to Y` is a map
 
-.. math:: f : P \\otimes X \\to Y
+.. math:: f : X \\otimes P \\to Y
 
-from a parameter object and an input to an output.  That is a feed-forward
+from an input and a parameter object to an output, the parameters on the
+right as :mod:`discopy.para` has them.  That is a feed-forward
 layer, and it is *not* what a :class:`~discopy.neural.Network` is.  These
 are the morphisms of :math:`\\mathrm{Para}`, they compose by substitution,
 and :class:`ParamMap` records them.
@@ -24,7 +25,7 @@ the *boundary* of a box.  Write the boundary as
 the inputs read as the outputs of whatever is upstream, together with the
 outputs; then a local neural interaction is
 
-.. math:: \\Phi_f : P_f \\otimes \\partial f \\to \\partial f,
+.. math:: \\Phi_f : \\partial f \\otimes P_f \\to \\partial f,
 
 reading one incoming message on every port and emitting one outgoing
 message on every port.  This is the local half of the execution formula of
@@ -218,7 +219,7 @@ class ParamMap(para.Symmetric):
 class InteractionMap(para.Symmetric):
     """
     A parametric interaction map :math:`(P, \\Phi) : X \\to Y`, i.e. a map
-    :math:`\\Phi : P \\otimes (X^* \\otimes Y) \\to X^* \\otimes Y` on the
+    :math:`\\Phi : (X^* \\otimes Y) \\otimes P \\to X^* \\otimes Y` on the
     boundary of a box: a parametric map of :mod:`discopy.para` whose domain
     and codomain are both the :attr:`boundary`, in the port order the
     executable module reads, the :attr:`inputs` then the :attr:`outputs`.
@@ -485,8 +486,10 @@ class Interaction:
 
     def sites(self, key) -> int:
         """
-        How many sites a family has, i.e. how many generators of that name
-        carry that role.
+        How many heads a family has, i.e. how many values :meth:`read`
+        returns for it: one per traced pair, and one per port of an
+        untraced role -- a generator whose role has several legs counts
+        once per leg.
 
         Parameters:
             key : A ``(generator name, role)`` pair.

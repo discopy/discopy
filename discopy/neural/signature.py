@@ -434,7 +434,9 @@ def from_incidence(incidence: tuple, node: Signature, relation: Signature,
     ['cell', 'cell', 'cell', 'unit', 'readout']
     """
     n_nodes = len(incidence)
-    n_relations = 1 + max(max(relations) for relations in incidence)
+    n_relations = 1 + max(
+        (index for relations in incidence for index in relations),
+        default=-1)
     size = [0] * n_relations
     for relations in incidence:
         for index in relations:

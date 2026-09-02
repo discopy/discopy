@@ -214,6 +214,7 @@ def _sites(cmap, name: str, role) -> int:
     a traced leg once, exactly as
     :attr:`~discopy.neural.map.Interaction.heads` does.
     """
+    cmap = cmap.to_map() if hasattr(cmap, "to_map") else cmap
     count = 0
     for index, box in enumerate(cmap.boxes):
         if box.name != name:

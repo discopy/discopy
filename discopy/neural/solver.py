@@ -350,9 +350,9 @@ class Recursion(Solver):
         for _ in range(self.steps if steps is None else steps):
             state = Recursion.step(self, interaction, state, cycles,
                                    grad=grad)
-            every.append(state)
+            every = every + [state] if deep else [state]
             state = state.detach()
-        return state, every if deep else every[-1:]
+        return every[-1], every
 
 
 class HaltHead(torch.nn.Linear):
@@ -400,7 +400,8 @@ class HaltHead(torch.nn.Linear):
     def __init__(self, dim: int, kind: str = "mean"):
         if kind not in ("mean", "softmin"):
             raise ValueError(kind)
-        super().__init__(dim, 1)
+        with torch.random.fork_rng(devices=[]):
+            super().__init__(dim, 1)
         self.kind = kind
         with torch.no_grad():
             self.weight.zero_()
