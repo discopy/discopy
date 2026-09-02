@@ -33,7 +33,7 @@ def test_lazy_torch_import():
 def test_backend_contract():
     methods = {
         "zeros", "split", "concatenate", "activate",
-        "prototype", "wrap", "zeros_module"}
+        "prototype", "wrap", "zeros_module", "index", "put", "compile"}
     assert Backend.__abstractmethods__ == methods
     assert BACKENDS == {'pytorch': 'discopy.neural.torch.PyTorch',
                         'jax': 'discopy.neural.jax.JAX'}

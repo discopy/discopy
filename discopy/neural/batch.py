@@ -11,7 +11,7 @@ question, and the formalism already answers it: the disjoint union of maps
 is their monoidal product ``a @ b``, and running the product is running
 both at once.
 
-Nothing is lost by doing so.  :attr:`~discopy.neural.CMap.fused_routing`
+Nothing is lost by doing so.  :attr:`~discopy.neural.CMap.routing`
 groups boxes by the module they share, so a site of ``a`` and a site of
 ``b`` with the same module and the same port widths land in one group and
 cost one batched call between them; only sites of genuinely different
@@ -127,7 +127,7 @@ class Batch:
     def sizes(self, key) -> tuple[int, ...]:
         """
         The number of sites of a family in each *given* member, i.e. the
-        split sizes of the axis a solver's output ranges over.
+        split sizes of the axis a model's output ranges over.
 
         Parameters:
             key : A ``(generator name, role)`` pair, whose role must
@@ -211,8 +211,8 @@ def _width(ob, role) -> int:
 def _sites(cmap, name: str, role) -> int:
     """
     How many sites of a name carry a role in a map: one per leg, counting
-    a traced leg once, exactly as
-    :attr:`~discopy.neural.map.Interaction.heads` does.
+    a traced leg once, exactly as the heads of
+    :func:`~discopy.neural.map.families` do.
     """
     cmap = cmap.to_map() if hasattr(cmap, "to_map") else cmap
     count = 0

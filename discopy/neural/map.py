@@ -32,12 +32,11 @@ message on every port.  This is the local half of the execution formula of
 the geometry of interaction :cite:p:`Abramsky96`, and it is exactly what
 the torch module of a :class:`~discopy.neural.Network` computes:
 ``R ** width -> R ** width`` for ``width`` the sum of the domain and
-codomain dimensions.  A cell of :mod:`discopy.neural.cells` answers *every*
-leg of its orbit, its inputs included, which no ``X -> Y`` signature can
-say.  :class:`InteractionMap` records these, and deliberately does **not**
-compose: two interaction maps glued along a shared object do not compose by
-substitution, they talk to each other along wires.  That is the next
-paragraph.
+codomain dimensions.  A module answers *every* leg of its box, its inputs
+included, which no ``X -> Y`` signature can say.  :class:`InteractionMap`
+records these, and deliberately does **not** compose: two interaction maps
+glued along a shared object do not compose by substitution, they talk to
+each other along wires.  That is the next paragraph.
 
 The global interaction
 ----------------------
@@ -55,9 +54,10 @@ induced by the wiring,
 .. math:: T_{D,\\theta} = \\sigma_D \\circ \\Phi_\\theta : S_D \\to S_D
 
 on the state object :math:`S_D = \\bigoplus_p \\mathbb{R}^{w_p}`, one summand
-per port.  :class:`Interaction` is that compiled object: the closed map, the
+per port.  :func:`interpret` builds that closed map, :func:`families` the
 port index of every ``(generator name, role)`` family, and
-:meth:`Interaction.advance`, the one implementation of :math:`T^n`.
+:meth:`~discopy.neural.CMap.forward` with ``return_flat`` is the one
+implementation of :math:`T^n`.
 
 When an initial message vector :math:`i` is re-injected -- ``inject=True``
 -- the round is
@@ -85,9 +85,8 @@ Four notions that are easy to conflate, kept apart
 * a **fixed point** of :math:`T` is a fourth thing.  If some :math:`T`
   happens to be a contraction then :math:`T^n` converges, but that is an
   analytic property of the learned weights, to be measured -- never
-  something the category supplies.  :class:`~discopy.neural.FixedPoint` is
-  the solver that looks for one and :meth:`Interaction.residual` is the
-  number that says whether it found one.
+  something the category supplies: the residual :math:`\\|T(s) - s\\|` of
+  a state is the number that says whether it is one.
 
 Note
 ----
@@ -98,8 +97,8 @@ whereas a module reads its domain ports in domain order -- which is what
 :func:`box_ports` restores when it un-reverses the clockwise storage.  So
 :attr:`InteractionMap.boundary` is ``dom @ cod``.
 
-This module imports ``torch`` lazily, inside the methods that need it, so
-that a diagram can be compiled and inspected on a machine without it.
+This module imports no tensor framework, so that a diagram can be compiled
+and inspected on a machine without one.
 
 Summary
 -------
@@ -111,21 +110,29 @@ Summary
 
     ParamMap
     InteractionMap
-    Interaction
+
+.. admonition:: Functions
+
+    .. autosummary::
+        :template: function.rst
+        :nosignatures:
+        :toctree:
+
+        interaction_spec
+        functor
+        interpret
+        families
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Mapping
+from typing import Mapping
 
 from discopy import para
 from discopy.neural.core import (
     CMap, Diagram, Dim, Functor, Network, box_ports)
 from discopy.utils import AxiomError, assert_isinstance, unbiased
-
-if TYPE_CHECKING:
-    import torch
 
 
 @dataclass
@@ -147,13 +154,6 @@ class ParamMap(para.Symmetric):
         inside : The diagram ``dom @ param -> cod``.
         param : The parameter object :math:`P`, the unit by default.
         copar : Unused, the unit.
-        laws : The laws promised, see :mod:`discopy.neural.laws`.
-
-    Note
-    ----
-    Composition and tensor forget the laws.  A law is a statement about
-    the legs of *one* map, and the laws of a product are not the union of
-    its parts': the legs have been renumbered.
 
     Example
     -------
@@ -172,11 +172,10 @@ class ParamMap(para.Symmetric):
     True
     """
     category = Diagram
-    laws: tuple = ()
 
     @classmethod
-    def generator(cls, name: str, dom: Dim, cod: Dim, params: Dim = Dim(),
-                  laws: tuple = ()) -> ParamMap:
+    def generator(cls, name: str, dom: Dim, cod: Dim, params: Dim = Dim()
+                  ) -> ParamMap:
         """
         The parametric map of a generator: its box ``dom @ params -> cod``
         with the parameters as parameter object.
@@ -186,10 +185,8 @@ class ParamMap(para.Symmetric):
             dom : The domain :math:`X`.
             cod : The codomain :math:`Y`.
             params : The parameter object :math:`P`, the unit by default.
-            laws : The laws promised, see :mod:`discopy.neural.laws`.
         """
-        return cls(dom, cod, Network(name, dom @ params, cod), params,
-                   laws=tuple(laws))
+        return cls(dom, cod, Network(name, dom @ params, cod), params)
 
     @property
     def name(self) -> str:
@@ -234,7 +231,6 @@ class InteractionMap(para.Symmetric):
         copar : Unused, the unit.
         inputs : The inputs :math:`X` of the box.
         outputs : The outputs :math:`Y` of the box.
-        laws : The laws promised, see :mod:`discopy.neural.laws`.
 
     Note
     ----
@@ -242,7 +238,8 @@ class InteractionMap(para.Symmetric):
     rather than pretending.  Two of them glued along a shared object talk
     to each other along the wires: that is symmetric feedback -- the trace
     of the two boxes over the shared boundary -- and what computes it is a
-    finite number of rounds of :meth:`Interaction.advance`.  Their *tensor*
+    finite number of rounds of :meth:`CMap.forward
+    <discopy.neural.CMap.forward>`.  Their *tensor*
     is meaningful and is kept, because :math:`\\Phi_\\theta` is exactly the
     parallel application of every local interaction.
 
@@ -257,7 +254,7 @@ class InteractionMap(para.Symmetric):
     Traceback (most recent call last):
         ...
     discopy.utils.AxiomError: interaction maps do not compose by \
-substitution: wire them together and iterate, see Interaction.
+substitution: wire them together and iterate, see CMap.forward.
 
     The boundary of a tensor is not the tensor of the boundaries -- it
     interleaves, which is why a map lays out one contiguous block per
@@ -271,11 +268,10 @@ substitution: wire them together and iterate, see Interaction.
     category = Diagram
     inputs: Dim = Dim()
     outputs: Dim = Dim()
-    laws: tuple = ()
 
     @classmethod
     def generator(cls, name: str, inputs: Dim, outputs: Dim,
-                  params: Dim = Dim(), laws: tuple = ()) -> InteractionMap:
+                  params: Dim = Dim()) -> InteractionMap:
         """
         The interaction map of a generator: its box on the boundary
         ``inputs @ outputs``, with the parameters as parameter object.
@@ -285,12 +281,11 @@ substitution: wire them together and iterate, see Interaction.
             inputs : The inputs :math:`X` of the box.
             outputs : The outputs :math:`Y` of the box.
             params : The parameter object :math:`P`, the unit by default.
-            laws : The laws promised, see :mod:`discopy.neural.laws`.
         """
         boundary = inputs @ outputs
         return cls(boundary, boundary,
                    Network(name, boundary @ params, boundary), params,
-                   inputs=inputs, outputs=outputs, laws=tuple(laws))
+                   inputs=inputs, outputs=outputs)
 
     @property
     def name(self) -> str:
@@ -335,13 +330,13 @@ substitution: wire them together and iterate, see Interaction.
         True
         """
         return self.generator(
-            self.name, self.outputs, self.inputs, self.params, self.laws)
+            self.name, self.outputs, self.inputs, self.params)
 
     @unbiased
     def then(self, other) -> InteractionMap:
         raise AxiomError(
             "interaction maps do not compose by substitution: wire them "
-            "together and iterate, see Interaction.")
+            "together and iterate, see CMap.forward.")
 
     @unbiased
     def tensor(self, other: InteractionMap) -> InteractionMap:
@@ -351,7 +346,7 @@ substitution: wire them together and iterate, see Interaction.
             self.outputs @ other.outputs, self.params @ other.params)
 
 
-def interaction_spec(network, laws: tuple = ()) -> InteractionMap:
+def interaction_spec(network) -> InteractionMap:
     """
     The formal interaction map a :class:`~discopy.neural.Network` realises.
 
@@ -366,9 +361,6 @@ def interaction_spec(network, laws: tuple = ()) -> InteractionMap:
 
     Parameters:
         network : The network to read.
-        laws : The laws to attach, e.g.
-               :func:`discopy.neural.laws.symmetry` of the signature of the
-               site the network fills.
 
     Example
     -------
@@ -388,250 +380,7 @@ def interaction_spec(network, laws: tuple = ()) -> InteractionMap:
     params = Dim() if parameters is None else Dim(
         sum(parameter.numel() for parameter in parameters()))
     return InteractionMap.generator(
-        network.name, network.dom, network.cod, params, laws)
-
-
-class Interaction:
-    """
-    A compiled diagram: the global interaction
-    :math:`T_{D,\\theta} = \\sigma_D \\circ \\Phi_\\theta : S_D \\to S_D`
-    together with the port index a caller reads and writes it through.
-
-    This is what :meth:`~discopy.neural.MapNN.compile` returns and what a
-    :class:`~discopy.neural.Solver` executes.  A state is one flat tensor of
-    shape ``(rows, total)``, the messages of every port in port order;
-    :meth:`read` and :meth:`write` address it by ``(generator name, role)``
-    rather than by offset, so no port arithmetic is ever written by hand.
-    The repr is a human summary rather than an eval-able expression: a
-    compiled object holds torch modules, which have no eval-able
-    representation, so the transparency rule stops at :attr:`cmap`.
-
-    Parameters:
-        cmap : The closed :class:`~discopy.neural.CMap` to run.
-        ports : The global port indices of each ``(name, role)`` family, in
-                box order then position order.
-        heads : The subset of :attr:`ports` a module *reads*: one port per
-                traced pair, every port of an untraced family.
-
-    Example
-    -------
-    >>> from discopy.frobenius import Ty
-    >>> from discopy.neural import Dim, Orbit, Signature
-    >>> from discopy.neural.signature import from_relation
-    >>> peer, state = Ty("peer"), Ty("state")
-    >>> node = Signature((Orbit(peer, 1), Orbit(state, traced=True)))
-    >>> pair = from_relation(((1, ), (0, )), node)
-    >>> kept = interpret(pair, {peer: Dim(3), state: Dim(5)}, {"cell": None})
-    >>> kept.widths  # ports are stored clockwise, codomain last
-    (5, 5, 3, 5, 5, 3)
-    >>> kept.heads["cell", state], kept.ports["cell", state]
-    ((1, 4), (1, 0, 4, 3))
-
-    Sending a role to ``Dim(0)`` erases its ports and the wires on them,
-    which is how one diagram serves two models:
-
-    >>> interpret(pair, {peer: Dim(3), state: Dim(0)}, {"cell": None}).widths
-    (3, 3)
-    """
-    def __init__(self, cmap: CMap, ports: Mapping = {}, heads: Mapping = {}):
-        if len(cmap.dom) or len(cmap.cod):
-            raise ValueError(
-                "a compiled interaction is closed; trace the boundary first")
-        self.cmap = cmap
-        self.ports = dict(ports)
-        self.heads = dict(heads)
-        self.widths = cmap.port_widths
-        offsets, total = [], 0
-        for port, width in enumerate(self.widths):
-            offsets.append(total)
-            total += width
-            if self.widths[cmap.edges[port]] != width:
-                raise ValueError("a wire changes width")
-        self.offsets, self.total = offsets, total
-        self._cache: dict = {}
-
-    @property
-    def local(self) -> tuple:
-        """ The interaction :math:`\\Phi_f` of each box, in box order. """
-        return tuple(interaction_spec(box) for box in self.cmap.boxes)
-
-    @property
-    def routing(self) -> tuple[int, ...]:
-        """ The wiring :math:`\\sigma_D`, as an involution on ports. """
-        return tuple(self.cmap.edges)
-
-    @property
-    def state(self) -> Dim:
-        """ The state object :math:`S_D`, one summand per port. """
-        return Dim(*self.widths)
-
-    @property
-    def n_wires(self) -> int:
-        """ The number of wires, i.e. half the number of ports. """
-        return self.cmap.n_ports // 2
-
-    def is_involution(self) -> bool:
-        """
-        Whether :attr:`routing` is a fixpoint-free involution, i.e. whether
-        every port is wired to exactly one other and never to itself.
-        """
-        return all(self.routing[other] == port and other != port
-                   for port, other in enumerate(self.routing))
-
-    def sites(self, key) -> int:
-        """
-        How many heads a family has, i.e. how many values :meth:`read`
-        returns for it: one per traced pair, and one per port of an
-        untraced role -- a generator whose role has several legs counts
-        once per leg.
-
-        Parameters:
-            key : A ``(generator name, role)`` pair.
-        """
-        return len(self.heads[key])
-
-    def __repr__(self):
-        return f"Interaction({len(self.cmap.boxes)} boxes, " \
-               f"{self.n_wires} wires, state width {self.total})"
-
-    def compile(self, **kwargs) -> Interaction:
-        """
-        Compile the round step with ``torch.compile``; see
-        :meth:`discopy.neural.CMap.compile`.  Message passing on these maps
-        is launch-bound -- many small kernels per round -- so this is a
-        several-fold wall-clock speedup on a GPU at identical numerics up
-        to rounding error.
-        """
-        self.cmap.compile(**kwargs)
-        return self
-
-    def zeros(self, rows: int, dtype=None, device=None) -> "torch.Tensor":
-        """ An all-zero state of ``rows`` rows. """
-        import torch
-        return torch.zeros(rows, self.total, dtype=dtype, device=device)
-
-    def advance(self, state, rounds: int, inject: bool = False,
-                per_round: bool = False):
-        """
-        :math:`T^{\\text{rounds}}(s)`: that many rounds of synchronous
-        message passing from a flat state, back to a flat state.
-
-        Parameters:
-            state : The flat incoming messages, ``(rows, total)``.
-            rounds : The number of rounds.
-            inject : Whether to re-add ``state`` after routing every round,
-                     i.e. whether the transition is
-                     :math:`\\sigma(\\Phi(s)) + i` rather than
-                     :math:`\\sigma(\\Phi(s))`.
-            per_round : Whether to return the state after every round
-                        rather than only the last.
-        """
-        return self.cmap(init=state, n_rounds=rounds, inject=inject,
-                         return_rounds=per_round, return_flat=True)
-
-    def residual(self, state, inject: bool = False) -> "torch.Tensor":
-        """
-        :math:`\\|T(s) - s\\|_\\infty` per row: how far a state is from
-        being a fixed point of the transition.
-
-        Nothing makes this go to zero.  It is the number a
-        :class:`~discopy.neural.FixedPoint` solver stops on and the honest
-        answer to "does this map converge", which is a property of the
-        learned weights rather than of the category.
-
-        Parameters:
-            state : The flat incoming messages.
-            inject : Whether the transition re-adds the initial messages.
-        """
-        return (self.advance(state, 1, inject) - state).abs().amax(dim=-1)
-
-    def route(self, outgoing) -> "torch.Tensor":
-        """
-        The flat state that starts the next round, from the per-box
-        outgoing messages of this one: one application of the ``edges``
-        involution, as a single cached permutation.
-
-        Parameters:
-            outgoing : One tensor per box, in the logical port order of
-                       that box.
-        """
-        import torch
-        flat = torch.cat(list(outgoing), -1)
-        key = ("route", flat.device)
-        if key not in self._cache:
-            position, cursor = [0] * len(self.widths), 0
-            for index in range(len(self.cmap.boxes)):
-                for port in box_ports(self.cmap, index):
-                    position[port] = cursor
-                    cursor += self.widths[port]
-            self._cache[key] = torch.tensor([
-                k for port, width in enumerate(self.widths)
-                for k in range(position[self.cmap.edges[port]],
-                               position[self.cmap.edges[port]] + width)],
-                dtype=torch.long, device=flat.device)
-        return flat[:, self._cache[key]]
-
-    def index(self, ports: tuple[int, ...], device=None) -> "torch.Tensor":
-        """
-        The flat indices of a family of equally wide ports, cached.
-
-        Parameters:
-            ports : The global port indices.
-            device : The device the index tensor lives on.
-        """
-        import torch
-        key = (tuple(ports), device)
-        if key not in self._cache:
-            width = self.widths[ports[0]]
-            if any(self.widths[port] != width for port in ports):
-                raise ValueError(
-                    "ports of different widths cannot be read as one block")
-            self._cache[key] = torch.tensor(
-                [k for port in ports
-                 for k in range(self.offsets[port],
-                                self.offsets[port] + width)],
-                dtype=torch.long, device=device)
-        return self._cache[key]
-
-    def read(self, state, key, every: bool = False):
-        """
-        The messages of a family, of shape ``(rows, sites, width)``.
-
-        Parameters:
-            state : The flat incoming messages.
-            key : A ``(generator name, role)`` pair, or a tuple of port
-                  indices.
-            every : Whether to read every port of the family rather than
-                    one per traced pair.
-        """
-        ports = self._family(key, every)
-        return state.index_select(1, self.index(ports, state.device)) \
-            .reshape(len(state), len(ports), self.widths[ports[0]])
-
-    def write(self, state, key, values):
-        """
-        A copy of ``state`` with ``values`` written on *every* port of a
-        family, one value per site broadcast to each copy of its trace.
-
-        Parameters:
-            state : The flat incoming messages.
-            key : A ``(generator name, role)`` pair, or a tuple of port
-                  indices.
-            values : A tensor of shape ``(rows, sites, width)``.
-        """
-        ports = self._family(key, every=True)
-        copies = len(ports) // len(self._family(key, every=False))
-        if copies > 1:
-            values = values.repeat_interleave(copies, dim=1)
-        return state.index_copy(
-            1, self.index(ports, state.device),
-            values.reshape(len(state), -1).to(state.dtype))
-
-    def _family(self, key, every: bool) -> tuple[int, ...]:
-        """ A ``(name, role)`` key or a bare tuple of ports, as ports. """
-        if isinstance(key, tuple) and key and isinstance(key[0], int):
-            return key
-        return (self.ports if every else self.heads)[key]
+        network.name, network.dom, network.cod, params)
 
 
 def functor(source, ob: Mapping, ar: Mapping) -> Functor:
@@ -657,11 +406,13 @@ def functor(source, ob: Mapping, ar: Mapping) -> Functor:
     return Functor(ob_map=dict(ob), ar_map=networks, dom=category)
 
 
-def interpret(source, ob: Mapping, ar: Mapping) -> Interaction:
+def interpret(source, ob: Mapping, ar: Mapping) -> CMap:
     """
-    Compile a diagram into a global interaction, port by port: each
-    generator becomes its image :class:`~discopy.neural.Network`, each wire
-    a wire between the image ports.
+    Compile a closed diagram into the :class:`~discopy.neural.CMap` that
+    runs it, port by port: each generator becomes its image
+    :class:`~discopy.neural.Network`, each wire a wire between the image
+    ports. The ``(generator name, role)`` addressing of its flat state is
+    :func:`families`.
 
     A role must go to an atomic ``Dim`` -- one abstract port becomes one
     concrete port -- or to ``Dim(0)``, in which case the port vanishes and
@@ -683,10 +434,10 @@ def interpret(source, ob: Mapping, ar: Mapping) -> Interaction:
     >>> x = Ty("x")
     >>> f, g = Box("f", Ty(), x @ x), Box("g", x @ x, Ty())
     >>> compiled = interpret(f >> g, {x: Dim(2)}, {"f": None, "g": None})
-    >>> compiled.routing, compiled.state
+    >>> tuple(compiled.edges), Dim(*compiled.port_widths)
     ((3, 2, 1, 0), Dim(2, 2, 2, 2))
-    >>> interpret(f >> Diagram.swap(x, x) >> g,
-    ...           {x: Dim(2)}, {"f": None, "g": None}).routing
+    >>> tuple(interpret(f >> Diagram.swap(x, x) >> g,
+    ...                 {x: Dim(2)}, {"f": None, "g": None}).edges)
     (2, 3, 0, 1)
     """
     if not hasattr(source, "edges"):
@@ -725,55 +476,63 @@ def interpret(source, ob: Mapping, ar: Mapping) -> Interaction:
             raise ValueError(
                 f"the wire {one} -- {two} is only erased at one end")
         wires.append(((one[0], position[one]), (two[0], position[two])))
-    cmap = CMap.from_wiring(boxes, wires)
-    return Interaction(cmap, *_families(source, cmap, erased, position))
+    return CMap.from_wiring(boxes, wires)
 
 
-def _families(source, cmap: CMap, erased: Mapping, position: Mapping):
+def families(source, cmap: CMap, ob: Mapping) -> tuple[dict, dict]:
     """
-    The global port indices of each ``(generator name, role)`` pair, in box
-    order then position order.
+    The global port indices of each ``(generator name, role)`` pair of a
+    compiled diagram, in box order then position order: every port of the
+    family, and its *heads*, the ports a module reads a value off rather
+    than the far end of its own loop -- a port is a head unless it is wired
+    to an earlier port of the same box, which is exactly the second copy
+    of a traced leg, read off the wiring rather than off a declaration.
 
-    A port is a *head* -- one a module reads a value off, rather than the
-    far end of its own loop -- unless it is wired to an earlier port of the
-    same box.  That is exactly the second copy of a traced leg, read off
-    the wiring rather than off a declaration.
+    Parameters:
+        source : The closed map that was compiled.
+        cmap : Its image under :func:`interpret`.
+        ob : The ``Dim`` each atomic role carries, as given to
+             :func:`interpret`.
+
+    Example
+    -------
+    >>> from discopy.frobenius import Ty
+    >>> from discopy.neural import Dim, Orbit, Signature
+    >>> from discopy.neural.signature import from_relation
+    >>> peer, state = Ty("peer"), Ty("state")
+    >>> node = Signature((Orbit(peer, 1), Orbit(state, traced=True)))
+    >>> pair = from_relation(((1, ), (0, )), node)
+    >>> ob = {peer: Dim(3), state: Dim(5)}
+    >>> kept = interpret(pair, ob, {"cell": None})
+    >>> kept.port_widths  # ports are stored clockwise, codomain last
+    (5, 5, 3, 5, 5, 3)
+    >>> ports, heads = families(pair, kept, ob)
+    >>> ports["cell", state], heads["cell", state]
+    ((1, 0, 4, 3), (1, 4))
+
+    Sending a role to ``Dim(0)`` erases its ports and the wires on them,
+    which is how one diagram serves two models:
+
+    >>> ob = {peer: Dim(3), state: Dim(0)}
+    >>> erased = interpret(pair, ob, {"cell": None})
+    >>> erased.port_widths, ("cell", state) in families(pair, erased, ob)[0]
+    ((3, 3), False)
     """
+    if not hasattr(source, "edges"):
+        source = source.to_map()
     ports: dict = {}
     heads: dict = {}
     for index, box in enumerate(source.boxes):
         abstract, concrete = box_ports(source, index), box_ports(cmap, index)
         place_of = {port: place for place, port in enumerate(abstract)}
+        cursor = 0
         for place, role in enumerate(tuple(box.dom) + tuple(box.cod)):
-            if erased[index, place]:
+            if not len(ob[role]):
                 continue
-            port = concrete[position[index, place]]
+            port = concrete[cursor]
+            cursor += 1
             ports.setdefault((box.name, role), []).append(port)
             if place_of.get(source.edges[abstract[place]], place) >= place:
                 heads.setdefault((box.name, role), []).append(port)
     return ({key: tuple(value) for key, value in ports.items()},
             {key: tuple(value) for key, value in heads.items()})
-
-
-def route(cmap: CMap, outgoing) -> list:
-    """
-    The readable spelling of :meth:`Interaction.route`: one application of
-    the ``edges`` involution, box by box and port by port.
-
-    Composing ``forward`` with ``route`` resumes message passing exactly,
-    which is what a segmented solver relies on.
-
-    Parameters:
-        cmap : The closed map whose boxes emitted the messages.
-        outgoing : One tensor per box, in the logical port order of that
-                   box.
-    """
-    import torch
-    widths = cmap.port_widths
-    per_port: list = [None] * len(widths)
-    for index, emitted in enumerate(outgoing):
-        ports = box_ports(cmap, index)
-        chunks = torch.split(emitted, [widths[port] for port in ports], -1)
-        for port, chunk in zip(ports, chunks):
-            per_port[port] = chunk
-    return [per_port[cmap.edges[port]] for port in range(len(widths))]

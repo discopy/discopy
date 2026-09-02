@@ -14,8 +14,7 @@ from _pytest.doctest import DoctestItem
 UNIMPORTABLE = (
     "discopy/quantum/pennylane.py", "discopy/quantum/tk.py",
     "discopy/neural/torch.py", "discopy/neural/jax.py",
-    "discopy/neural/cells.py", "discopy/neural/model.py",
-    "discopy/neural/solver.py")
+    "discopy/neural/model.py")
 
 
 def pytest_addoption(parser):

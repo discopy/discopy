@@ -3,13 +3,16 @@
 """
 The execution formula of the geometry of interaction, on any backend.
 
-:class:`Execution` runs a neural :class:`~discopy.neural.CMap` one Python
-call per box per round, on whichever :class:`~discopy.neural.Backend` holds
-the tensors: it is the reference the vectorised torch path of
-:meth:`CMap.forward <discopy.neural.CMap.forward>` is checked against, the
-path every other backend runs, and the one that carries the private
-memory of a :class:`~discopy.neural.Network` and the causal schedule of a
-feed-forward map.
+:class:`Execution` runs a neural :class:`~discopy.neural.CMap` on whichever
+:class:`~discopy.neural.Backend` holds the tensors, torch or JAX. All the
+messages live in one flat array of shape ``(batch_size, total width)``, in
+port order; one round applies every box then routes along the wires. The
+boxes sharing a module and a port signature are applied in one batched call
+-- the geometry of interaction says nothing about the order the boxes fire
+in, so the activation of a round is one call per *group* -- and the routing
+is one permutation of the last axis. The private memory of a
+:class:`~discopy.neural.Network` is a second flat array beside the messages,
+and a feed-forward map can run its boxes once each, in topological order.
 
 Summary
 -------
@@ -20,6 +23,18 @@ Summary
     :toctree:
 
     Execution
+
+.. admonition:: Functions
+
+    .. autosummary::
+        :template: function.rst
+        :nosignatures:
+        :toctree:
+
+        activate_box
+        activate
+        make_step
+        box_forward
 """
 
 from __future__ import annotations
@@ -34,30 +49,37 @@ class Execution:
     """
     The geometry-of-interaction execution of a neural combinatorial map.
 
-    Let ``edge`` be the fixpoint-free involution on ports and ``activate``
-    apply every network independently. One synchronous round first activates
-    the boxes, then routes their outgoing messages with
-    ``incoming[i] = outgoing[edge[i]]``. Boundary inputs are emitted before
-    every round, while ``init`` is optionally injected after every routing
-    step as well as before the first round.
+    Let ``edges`` be the fixpoint-free involution on ports and ``activate``
+    apply every network at once. One synchronous round activates the boxes,
+    then routes their outgoing messages with ``incoming = outgoing[src]``
+    for ``src`` the flat index of ``edges``. Boundary inputs are emitted
+    before every round, while ``init`` is optionally injected after every
+    routing step as well as before the first round.
 
     Parameters:
         inside : The combinatorial map to execute.
-        x : The boundary input.
-        init : The initial incoming messages.
-        memory : The initial private memory, one tensor per box occurrence.
+        x : The boundary input, ``(batch_size, sum of domain widths)``.
+        init : The initial incoming messages, per port or as one flat array.
+        memory : The initial private memory, per box occurrence or flat.
         backend : The execution backend, the current backend by default.
         modules : The backend-owned modules, in the map's unique-module order.
                   The modules inside the boxes are used by default, so that
                   a backend can train copies of them without rebuilding
                   the map.
+
+    Example
+    -------
+    >>> from discopy.neural import Dim, Network
+    >>> f = Network('f', Dim(2), Dim(3))
+    >>> execution = Execution(f.to_map(), backend="jax")  # doctest: +EXTRA
+    >>> execution.inside.routing["src"]  # doctest: +EXTRA
+    (2, 3, 4, 0, 1)
     """
     def __init__(
             self, inside, x=None, init=None, memory=None,
             backend: str | Backend = None, modules=None):
         self.inside = inside
-        self.x, self.init = x, init
-        self.memory = memory
+        self.x, self.init, self.memory = x, init, memory
         self.backend = get_backend(backend)
         self.modules = inside.modules if modules is None else tuple(modules)
         if len(self.modules) != len(inside.modules):
@@ -65,40 +87,20 @@ class Execution:
                 f"Expected {len(inside.modules)} modules, "
                 f"got {len(self.modules)}.")
         self.batch_size, self.prototype = 1, None
-        self.initial = self.boundary = self.incoming = ()
-        self.outgoing = self.box_outputs = ()
-        self.memories = ()
-
-    @property
-    def input_ports(self) -> tuple[int, ...]:
-        """ The indices of boundary input ports. """
-        return self.inside.input_ports
-
-    @property
-    def output_ports(self) -> tuple[int, ...]:
-        """ The indices of boundary output ports. """
-        return self.inside.output_ports
-
-    @cached_property
-    def box_ports(self) -> tuple[tuple[int, ...], ...]:
-        """ The ports of each box in domain-then-codomain order. """
-        return tuple(
-            self.inside.box_ports(i) for i in range(len(self.inside.boxes)))
-
-    @property
-    def memory_widths(self) -> tuple[int, ...]:
-        """ The private memory width of each box occurrence. """
-        return self.inside.memory_widths
+        self.source = self.initial = self.incoming = self.outgoing = None
+        self.stored = None
 
     @cached_property
     def topological_order(self) -> tuple[int, ...]:
         """ Order boxes from boundary inputs towards boundary outputs. """
-        if self.inside.loops:
+        inside = self.inside
+        if inside.loops:
             raise ValueError(
                 "A causal schedule requires an acyclic map, without loops.")
+        box_ports = tuple(
+            inside.box_ports(i) for i in range(len(inside.boxes)))
         domain_owner, codomain_owner, box_port_owner = {}, {}, {}
-        for box_index, (box, ports) in enumerate(zip(
-                self.inside.boxes, self.box_ports)):
+        for box_index, (box, ports) in enumerate(zip(inside.boxes, box_ports)):
             arity = len(box.dom)
             for port in ports:
                 box_port_owner[port] = box_index
@@ -108,39 +110,29 @@ class Execution:
                 codomain_owner[port] = box_index
 
         dependencies = []
-        for box_index, (box, ports) in enumerate(zip(
-                self.inside.boxes, self.box_ports)):
+        for box_index, (box, ports) in enumerate(zip(inside.boxes, box_ports)):
             arity, current = len(box.dom), set()
             for port in ports[:arity]:
-                source = self.inside.edges[port]
+                source = inside.edges[port]
                 if source in codomain_owner:
                     current.add(codomain_owner[source])
-                elif source in box_port_owner:
-                    raise ValueError(
-                        "A causal schedule requires every box input to be "
-                        "wired from a box output or boundary input.")
-                elif self.inside.ports[source].kind != PortKind.INPUT:
+                elif source in box_port_owner\
+                        or inside.ports[source].kind != PortKind.INPUT:
                     raise ValueError(
                         "A causal schedule requires every box input to be "
                         "wired from a box output or boundary input.")
             dependencies.append(current)
-
             for port in ports[arity:]:
-                target = self.inside.edges[port]
-                if target in box_port_owner and target not in domain_owner:
-                    raise ValueError(
-                        "A causal schedule requires every box output to be "
-                        "wired to a box input or boundary output.")
-                if target not in box_port_owner\
-                        and self.inside.ports[target].kind != PortKind.OUTPUT:
+                target = inside.edges[port]
+                if (target in box_port_owner and target not in domain_owner)\
+                        or (target not in box_port_owner and inside.ports[
+                            target].kind != PortKind.OUTPUT):
                     raise ValueError(
                         "A causal schedule requires every box output to be "
                         "wired to a box input or boundary output.")
 
         remaining = [set(items) for items in dependencies]
-        ready = [
-            box_index for box_index, items in enumerate(remaining)
-            if not items]
+        ready = [i for i, items in enumerate(remaining) if not items]
         order = []
         while ready:
             box_index = ready.pop(0)
@@ -151,10 +143,15 @@ class Execution:
                     if not items and target not in order\
                             and target not in ready:
                         ready.append(target)
-        if len(order) != len(self.inside.boxes):
+        if len(order) != len(inside.boxes):
             raise ValueError(
                 "A causal schedule requires an acyclic box dependency graph.")
         return tuple(order)
+
+    @property
+    def indices(self) -> dict:
+        """ The routing of the map as index arrays of the backend. """
+        return self.inside.indices(self.backend, self.prototype)
 
     def zeros(self, width: int):
         """ A zero message with the execution's batch size and prototype. """
@@ -180,32 +177,38 @@ class Execution:
             return (value for value in given if value is not None)
         return iter(()) if given is None else iter((given, ))
 
-    def _initialize_messages(self, given, widths, label):
-        """ Normalize a tensor or nullable per-item sequence to messages. """
+    def flat(self, given, widths: tuple[int, ...], label: str):
+        """
+        One flat array from a flat array, a per-item sequence with ``None``
+        for zeros, or nothing at all.
+
+        Parameters:
+            given : The messages, or ``None``.
+            widths : The width of each item.
+            label : The name of the argument, for the error messages.
+        """
         if given is None:
-            values = len(widths) * (None, )
-        elif isinstance(given, (list, tuple)):
-            if len(given) != len(widths):
-                raise ValueError(
-                    f"{label} must contain {len(widths)} messages, "
-                    f"got {len(given)}.")
-            values = given
-        else:
-            self.validate(given, sum(widths), label)
-            values = self.backend.split(given, widths) if widths else ()
-        return tuple(
+            return self.zeros(sum(widths))
+        if not isinstance(given, (list, tuple)):
+            return self.validate(given, sum(widths), label)
+        if len(given) != len(widths):
+            raise ValueError(
+                f"{label} must contain {len(widths)} messages, "
+                f"got {len(given)}.")
+        values = tuple(
             self.zeros(width) if value is None
             else self.validate(value, width, f"{label}[{i}]")
-            for i, (value, width) in enumerate(zip(values, widths)))
+            for i, (value, width) in enumerate(zip(given, widths)))
+        return self.backend.concatenate(values) if values \
+            else self.zeros(0)
 
-    def initialize(self) -> tuple:
-        """ Initialize public messages and per-box private memories. """
-        widths = self.inside.port_widths
-        given = (
-            self._values(self.x), self._values(self.init),
-            self._values(self.memory))
+    def initialize(self):
+        """ Initialize the flat messages and the flat private memory. """
+        inside, backend = self.inside, self.backend
+        widths = inside.port_widths
         reference = next((
-            value for values in given for value in values), None)
+            value for given in (self.x, self.init, self.memory)
+            for value in self._values(given)), None)
         if reference is not None:
             shape = getattr(reference, "shape", None)
             if shape is None or len(shape) != 2:
@@ -213,145 +216,220 @@ class Execution:
                     "Messages must have shape (batch_size, width).")
         self.batch_size = 1 if reference is None else shape[0]
         self.prototype = reference if reference is not None\
-            else self.backend.prototype(self.modules)
+            else backend.prototype(self.modules)
+        indices = self.indices
 
-        boundary = [self.zeros(width) for width in widths]
+        self.source = self.zeros(sum(widths))
         if self.x is not None:
             self.validate(
-                self.x, sum(widths[i] for i in self.input_ports), "x")
-            slices = self.backend.split(
-                self.x, tuple(widths[i] for i in self.input_ports))
-            for i, message in zip(self.input_ports, slices):
-                boundary[i] = message
-
-        initial = self._initialize_messages(self.init, widths, "init")
-        memories = self._initialize_messages(
-            self.memory, self.memory_widths, "memory")
-
-        incoming = list(initial)
-        for i in self.input_ports:
-            edge = self.inside.edges[i]
-            incoming[edge] = incoming[edge] + boundary[i]
-
-        self.initial = tuple(initial)
-        self.boundary = tuple(boundary)
-        self.incoming = tuple(incoming)
-        self.outgoing = ()
-        self.box_outputs = len(self.inside.boxes) * (None, )
-        self.memories = memories
+                self.x, sum(widths[i] for i in inside.input_ports), "x")
+            if inside.input_ports:
+                self.source = backend.put(
+                    self.source, indices["input"], self.x)
+        self.initial = self.flat(self.init, widths, "init")
+        self.stored = self.flat(self.memory, inside.memory_widths, "memory")
+        self.incoming = self.initial + self.source[:, indices["src"]]
+        self.outgoing = None
         return self.incoming
 
-    def activate_box(self, box_index: int, incoming):
-        """ Apply one network to its public messages and private memory. """
-        widths = self.inside.port_widths
-        ports = self.box_ports[box_index]
-        public_widths = tuple(widths[i] for i in ports)
-        memory_width = self.memory_widths[box_index]
-        values = tuple(incoming[i] for i in ports)\
-            + (self.memories[box_index], )
-        module = self.modules[self.inside.module_indices[box_index]]
-        output = self.backend.activate(
-            module, self.backend.concatenate(values))
-        self.validate(
-            output, sum(public_widths) + memory_width,
-            f"output of box {box_index}")
-        chunks = self.backend.split(
-            output, public_widths + (memory_width, ))
-        public, next_memory = chunks[:-1], chunks[-1]
-        box_output = (
-            self.backend.concatenate(public) if public else self.zeros(0))
-        return public, next_memory, box_output
+    @property
+    def memories(self) -> tuple:
+        """ The private memory of each box occurrence, from the flat one. """
+        widths = self.inside.memory_widths
+        return self.backend.split(self.stored, widths) if widths else ()
 
-    def activate(self) -> tuple:
-        """ Apply each network to its public messages and private memory. """
-        widths = self.inside.port_widths
-        outgoing = [self.zeros(width) for width in widths]
-        for i in self.input_ports:
-            outgoing[i] = self.boundary[i]
+    def step(self, incoming, stored, inject: bool) -> tuple:
+        """
+        One round from the flat state: every box applied, the outputs
+        routed along the wires and the initial messages re-added when
+        injecting. The step is :func:`make_step`'s closure, cached and
+        compiled on the map, see :meth:`CMap.step`.
 
-        box_outputs, memories = [], []
-        for box_index, ports in enumerate(self.box_ports):
-            public, next_memory, box_output = self.activate_box(
-                box_index, self.incoming)
-            box_outputs.append(box_output)
-            memories.append(next_memory)
-            for i, chunk in zip(ports, public):
-                outgoing[i] = chunk
+        Parameters:
+            incoming : The flat incoming messages.
+            stored : The flat private memory.
+            inject : Whether to re-add the initial messages after routing.
+        """
+        step = self.inside.step(self.backend, self.prototype, self.modules)
+        return step(incoming, stored, self.source, self.initial, inject)
 
-        self.outgoing = tuple(outgoing)
-        self.box_outputs = tuple(box_outputs)
-        self.memories = tuple(memories)
+    def activate(self):
+        """ Apply every box to its messages and private memory. """
+        self.outgoing, self.stored = activate(
+            self.backend, self.modules, self.indices, self.source,
+            self.incoming, self.stored)
         return self.outgoing
 
-    def route(self) -> tuple:
-        """ Route outgoing messages along the edge involution. """
-        self.incoming = tuple(
-            self.outgoing[self.inside.edges[i]]
-            for i in range(self.inside.n_ports))
+    def route(self):
+        """ Route the outgoing messages along the edge involution. """
+        self.incoming = self.outgoing[:, self.indices["src"]]
         return self.incoming
 
-    def inject(self) -> tuple:
+    def inject(self):
         """ Add the initial messages to the current incoming messages. """
-        self.incoming = tuple(
-            message + initial
-            for message, initial in zip(self.incoming, self.initial))
+        self.incoming = self.incoming + self.initial
         return self.incoming
 
-    def readout(self):
+    def box_outputs(self, outgoing=None) -> tuple:
+        """ The outgoing messages of each box, in its logical port order. """
+        outgoing = self.outgoing if outgoing is None else outgoing
+        indices = self.indices
+        widths = tuple(
+            sum(self.inside.port_widths[port] for port in ports)
+            for ports in self.inside.routing["boxes"])
+        return self.backend.split(
+            outgoing[:, indices["ports"]], widths) if widths else ()
+
+    def readout(self, incoming=None, outgoing=None):
         """ Read boundary outputs, or final box outputs for a closed map. """
+        incoming = self.incoming if incoming is None else incoming
         if self.inside.has_boundary:
-            return self.backend.concatenate(tuple(
-                self.incoming[i] for i in self.output_ports))\
-                if self.output_ports else self.zeros(0)
-        return self.box_outputs
+            return incoming[:, self.indices["output"]]\
+                if self.inside.output_ports else self.zeros(0)
+        return self.box_outputs(outgoing)
 
     def forward(
             self, n_rounds: int = None, inject: bool = True,
-            return_memory: bool = False):
-        """ Execute synchronous activation and routing rounds. """
+            return_memory: bool = False, return_rounds: bool = False,
+            return_flat: bool = False):
+        """
+        Execute synchronous activation and routing rounds.
+
+        Parameters:
+            n_rounds : The number of rounds, the number of boxes by default.
+            inject : Whether to re-add ``init`` after every routing step
+                     rather than just before the first round.
+            return_memory : Whether to return the final memories, one per
+                            box occurrence, beside the result.
+            return_rounds : Whether to return the result after every round
+                            rather than just the last.
+            return_flat : Whether the result is the flat incoming messages
+                          of the next round rather than the boundary
+                          outputs or the per-box outputs.
+        """
         self.initialize()
         n_rounds = len(self.inside.boxes) if n_rounds is None else n_rounds
         if n_rounds < 0:
             raise ValueError("n_rounds cannot be negative.")
+        inject = inject and self.init is not None
+        rounds = []
         for _ in range(n_rounds):
-            self.activate()
-            self.route()
-            if inject and self.init is not None:
-                self.inject()
-        result = self.readout()
+            self.incoming, self.outgoing, self.stored = self.step(
+                self.incoming, self.stored, inject)
+            if return_rounds:
+                rounds.append(self.incoming if return_flat else self.readout())
+        result = rounds if return_rounds else self.incoming if return_flat\
+            else self.readout()
         return (result, self.memories) if return_memory else result
 
     def forward_causal(
             self, inject: bool = True, return_memory: bool = False):
-        """ Execute every box once in topological order. """
+        """
+        Execute every box once in topological order, for a feed-forward map.
+
+        Parameters:
+            inject : Whether to re-add ``init`` on the ports a box writes.
+            return_memory : Whether to return the final memories beside.
+        """
         self.initialize()
-        widths = self.inside.port_widths
-        incoming = list(self.incoming)
-        outgoing = [self.zeros(width) for width in widths]
-        for port in self.input_ports:
-            outgoing[port] = self.boundary[port]
-        box_outputs = list(self.box_outputs)
-        memories = list(self.memories)
-
+        backend, indices = self.backend, self.indices
+        incoming, outgoing, stored = self.incoming, self.source, self.stored
         for box_index in self.topological_order:
-            ports = self.box_ports[box_index]
-            public, next_memory, box_output = self.activate_box(
-                box_index, incoming)
-            box_outputs[box_index] = box_output
-            memories[box_index] = next_memory
-            for port, chunk in zip(ports, public):
-                outgoing[port] = chunk
-                target = self.inside.edges[port]
-                incoming[target] = chunk + self.initial[target]\
-                    if inject and self.init is not None else chunk
-
-        self.incoming, self.outgoing = tuple(incoming), tuple(outgoing)
-        self.box_outputs, self.memories = (
-            tuple(box_outputs), tuple(memories))
+            box = indices["boxes"][box_index]
+            public, next_memory = activate_box(
+                self.backend, self.modules, box, incoming, stored)
+            outgoing = backend.put(outgoing, box["ports"], public)
+            if box["memory_width"]:
+                stored = backend.put(stored, box["memory"], next_memory)
+            arrived = public + self.initial[:, box["targets"]]\
+                if inject and self.init is not None else public
+            incoming = backend.put(incoming, box["targets"], arrived)
+        self.incoming, self.outgoing, self.stored = incoming, outgoing, stored
         result = self.readout()
         return (result, self.memories) if return_memory else result
 
     __call__ = forward
+
+
+def activate_box(backend, modules, group: dict, incoming, stored) -> tuple:
+    """
+    Apply one module to every box of a group at once: the public outputs
+    and the next memories, one row per box and batch, as ``(batch_size,
+    n_boxes * width)`` arrays ready to be put back at the group's indices.
+
+    Parameters:
+        backend : The execution backend.
+        modules : The backend-owned modules, in the map's unique-module
+                  order.
+        group : An entry of ``groups`` or of ``boxes`` in the map's
+                :meth:`~discopy.neural.CMap.indices`.
+        incoming : The flat incoming messages.
+        stored : The flat private memory.
+    """
+    width, memory_width = group["width"], group["memory_width"]
+    n_boxes, batch_size = len(group["boxes"]), incoming.shape[0]
+    values = incoming[:, group["ports"]].reshape(-1, width)
+    if memory_width:
+        values = backend.concatenate((values, stored[
+            :, group["memory"]].reshape(-1, memory_width)))
+    outputs = backend.activate(modules[group["module"]], values)
+    shape = getattr(outputs, "shape", None)
+    if shape is None or tuple(shape) != (
+            batch_size * n_boxes, width + memory_width):
+        raise ValueError(
+            f"output of box {group['boxes'][0]} has shape "
+            f"{None if shape is None else tuple(shape)}, expected "
+            f"({batch_size * n_boxes}, {width + memory_width}).")
+    public, next_memory = backend.split(outputs, (width, memory_width))
+    return public.reshape(batch_size, -1), next_memory.reshape(
+        batch_size, -1)
+
+
+def activate(backend, modules, indices: dict, source, incoming, stored):
+    """
+    Apply every box of a map to its messages and private memory, one call
+    per group of boxes sharing a module: the flat outgoing messages, with
+    the boundary inputs of ``source`` on the input ports, and the next
+    flat memory.
+
+    Parameters:
+        backend : The execution backend.
+        modules : The backend-owned modules.
+        indices : The map's :meth:`~discopy.neural.CMap.indices`.
+        source : The flat boundary inputs, zero elsewhere.
+        incoming : The flat incoming messages.
+        stored : The flat private memory.
+    """
+    outgoing = source
+    for group in indices["groups"]:
+        public, next_memory = activate_box(
+            backend, modules, group, incoming, stored)
+        outgoing = backend.put(outgoing, group["ports"], public)
+        if group["memory_width"]:
+            stored = backend.put(stored, group["memory"], next_memory)
+    return outgoing, stored
+
+
+def make_step(backend, modules, indices: dict):
+    """
+    One round of message passing as a function of flat arrays alone,
+    ``(incoming, stored, source, initial, inject) -> (incoming, outgoing,
+    stored)``, so that a backend can compile it once per map: the boxes
+    applied by :func:`activate`, the outputs routed by the ``src``
+    permutation and the initial messages re-added when ``inject``.
+
+    Parameters:
+        backend : The execution backend.
+        modules : The backend-owned modules.
+        indices : The map's :meth:`~discopy.neural.CMap.indices`.
+    """
+    def step(incoming, stored, source, initial, inject: bool):
+        outgoing, stored = activate(
+            backend, modules, indices, source, incoming, stored)
+        incoming = outgoing[:, indices["src"]]
+        return (incoming + initial if inject else incoming), outgoing, stored
+
+    return step
 
 
 def box_forward(inside, messages, backend, modules):
@@ -363,7 +441,7 @@ def box_forward(inside, messages, backend, modules):
     the next memory, as :meth:`Execution.forward` computes them.
     """
     dom_width, cod_width = sum(inside.dom.inside), sum(inside.cod.inside)
-    memory_width = sum(sum(box.mem.inside) for box in inside.boxes)
+    memory_width = sum(inside.memory_widths)
     expected = dom_width + cod_width + memory_width
     shape = getattr(messages, "shape", None)
     if shape is None or len(shape) != 2 or shape[-1] != expected:
@@ -377,20 +455,13 @@ def box_forward(inside, messages, backend, modules):
         inside, memory=memory if memory_width else None,
         backend=backend, modules=modules)
     boundary_ports = inside.input_ports + inside.output_ports
-    boundary = backend.split(
-        backend.concatenate((inputs, outputs)),
-        tuple(inside.port_widths[i] for i in boundary_ports))\
-        if boundary_ports else ()
     initial = [None] * inside.n_ports
-    for port, value in zip(boundary_ports, boundary):
+    for port, value in zip(boundary_ports, backend.split(
+            backend.concatenate((inputs, outputs)),
+            tuple(inside.port_widths[i] for i in boundary_ports))):
         initial[inside.edges[port]] = value
     execution.init = initial
     execution.forward()
-    public = backend.concatenate(tuple(
-        execution.incoming[i] for i in boundary_ports))\
-        if boundary_ports\
-        else backend.zeros(messages.shape[0], 0, like=messages)
-    next_memory = backend.concatenate(execution.memories)\
-        if execution.memories\
-        else backend.zeros(messages.shape[0], 0, like=messages)
-    return backend.concatenate((public, next_memory))
+    public = execution.incoming[:, execution.indices["boundary"]]\
+        if boundary_ports else backend.zeros(shape[0], 0, like=messages)
+    return backend.concatenate((public, execution.stored))
