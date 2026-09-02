@@ -10,7 +10,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 ### Added
 
 - `discopy.neural`, one package for neural interpretations of diagrams,
-  merging the three that were open: the compact closed category of
+  merging the heads that were open: the compact closed category of
   `Network` boxes with additive `Dim` objects, and its `CMap` running the
   execution formula of the geometry of interaction as one `Execution` on
   any `Backend` (`pytorch`, `jax`): all the messages in one flat array,

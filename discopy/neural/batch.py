@@ -211,7 +211,7 @@ def _width(ob, role) -> int:
 def _sites(cmap, name: str, role) -> int:
     """
     How many sites of a name carry a role in a map: one per leg, counting
-    a traced leg once, exactly as the heads of
+    a traced leg once, exactly as the heads returned by
     :func:`~discopy.neural.map.families` do.
     """
     cmap = cmap.to_map() if hasattr(cmap, "to_map") else cmap

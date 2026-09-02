@@ -605,7 +605,8 @@ class CMap(cmap.CMap[Diagram]):
         Example
         -------
         >>> f = Network('f', Dim(0), Dim(1, 1), module=object())
-        >>> ring = CMap(CMap.ob(), CMap.ob(), (f, f), [3, 2, 1, 0])
+        >>> ring = CMap.from_wiring(
+        ...     (f, f), [((0, 0), (1, 1)), ((0, 1), (1, 0))])
         >>> ring.routing["src"], ring.routing["boxes"]
         ((3, 2, 1, 0), ((1, 0), (3, 2)))
         >>> ring.routing["groups"][0]["ports"]
