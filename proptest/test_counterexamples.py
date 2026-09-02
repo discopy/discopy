@@ -11,7 +11,7 @@ from discopy import (
     biclosed, braided, cat, compact, feedback, hopf, pivotal, ribbon)
 from discopy.matrix import Matrix
 from discopy.testing import (
-    GENERATORS, Atomic, Axiom, Relabelled, Relabelling)
+    GENERATORS, Atomic, Axiom, AxiomFailure, Relabelled, Relabelling)
 from discopy.utils import factory_name
 
 
@@ -130,5 +130,14 @@ def counterexample_parameters():
 
 @pytest.mark.parametrize("axiom, args", counterexample_parameters())
 def test_counterexample(axiom, args):
-    """ Check an axiom on a recorded counterexample. """
-    assert axiom(*args)
+    """
+    Check an axiom on a recorded counterexample.
+
+    A broken axiom's failure carries the equation, which the record must
+    falsify: its cell xfails while the bug stands and passes — visibly,
+    as an expected pass — the day the bug is fixed.
+    """
+    try:
+        assert axiom(*args)
+    except AxiomFailure as failure:
+        assert failure.equation
