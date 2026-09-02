@@ -492,11 +492,6 @@ class CMap(cmap.CMap[Diagram]):
             sum(getattr(port.obj, "inside", (port.obj, )))
             for port in self.ports)
 
-    @property
-    def port_dims(self) -> tuple[int, ...]:
-        """ The dimension carried by each port, see :attr:`port_widths`. """
-        return self.port_widths
-
     @cached_property
     def modules(self) -> tuple:
         """ The distinct modules of the networks inside the map. """
@@ -644,7 +639,7 @@ class CMap(cmap.CMap[Diagram]):
         return execution.forward(n_rounds, inject, return_memory)
 
     @cached_property
-    def _routing(self) -> dict:
+    def routing(self) -> dict:
         """
         Cached index tensors for the vectorized :meth:`forward`, on the CPU
         and moved to the working device at call time:
@@ -696,7 +691,7 @@ class CMap(cmap.CMap[Diagram]):
                 for module, members in groups.values())}
 
     @cached_property
-    def _fused_routing(self) -> dict:
+    def fused_routing(self) -> dict:
         """
         Index tensors for the closed-map fast path of :meth:`forward`, where
         the flat messages are stored in *box order* -- for each group of
@@ -717,7 +712,7 @@ class CMap(cmap.CMap[Diagram]):
         belongs to a box, so the group blocks partition the flat tensor.
         """
         import torch
-        routing = self._routing
+        routing = self.routing
         layout = torch.cat([
             gather.reshape(-1) for _, _, gather in routing["groups"]])
         assert len(layout) == routing["total"], "the map is not closed"
@@ -732,25 +727,25 @@ class CMap(cmap.CMap[Diagram]):
 
     @cached_property
     def _device_routing_cache(self) -> dict:
-        """ The per-device entries of :meth:`_device_routing`. """
+        """ The per-device entries of :meth:`device_routing`. """
         return {}
 
-    def _device_routing(self, device) -> dict:
+    def device_routing(self, device) -> dict:
         """
-        The index tensors of :attr:`_routing` -- and, for closed maps, of
-        :attr:`_fused_routing` -- on a device, cached so that repeated
+        The index tensors of :attr:`routing` -- and, for closed maps, of
+        :attr:`fused_routing` -- on a device, cached so that repeated
         forward passes do not re-copy them from the CPU.
         """
         cache = self._device_routing_cache
         if device not in cache:
-            routing = self._routing
+            routing = self.routing
             entry = {
                 "src": routing["src"].to(device),
                 "groups": tuple(
                     (module, indices, gather.to(device))
                     for module, indices, gather in routing["groups"])}
             if not routing["input"] and not routing["output"] and self.boxes:
-                fused = self._fused_routing
+                fused = self.fused_routing
                 entry.update(
                     layout=fused["layout"].to(device),
                     inverse=fused["inverse"].to(device),
@@ -799,13 +794,13 @@ class CMap(cmap.CMap[Diagram]):
         One round of message passing as a single function of flat tensors,
         ``(incoming, source, init) -> (incoming, group outputs)``, cached
         per device. On a closed map the flat tensors are in the box-order
-        layout of :attr:`_fused_routing` and ``source`` is ignored; on an
+        layout of :attr:`fused_routing` and ``source`` is ignored; on an
         open map they are in port order.
         """
         import torch
         cache = self.__dict__.setdefault("_step_body_cache", {})
         if device not in cache:
-            routing = self._device_routing(device)
+            routing = self.device_routing(device)
             if "perm" in routing:
                 perm, metas = routing["perm"], routing["metas"]
 
@@ -877,7 +872,7 @@ class CMap(cmap.CMap[Diagram]):
         cache = self.__dict__.setdefault("_step_flat_cache", {})
         if device not in cache:
             body = self._step_body(device)
-            inverse = self._device_routing(device)["inverse"]
+            inverse = self.device_routing(device)["inverse"]
 
             def step(incoming, init):
                 incoming, group_outputs = body(incoming, None, init)
@@ -960,7 +955,7 @@ class CMap(cmap.CMap[Diagram]):
         Note
         ----
         On a closed map the messages are held in the box-order layout of
-        :attr:`_fused_routing` -- module inputs are contiguous views, one
+        :attr:`fused_routing` -- module inputs are contiguous views, one
         round of routing is one permutation -- and are only permuted back
         to port order where the caller sees them, so the results are
         identical to the port-order path element for element.
@@ -980,7 +975,7 @@ class CMap(cmap.CMap[Diagram]):
                 return_memory=return_memory, causal=causal,
                 backend=backend, modules=modules)
         import torch
-        routing = self._routing
+        routing = self.routing
         widths, offsets = self.port_widths, routing["offsets"]
         n_rounds = len(self.boxes) if n_rounds is None else n_rounds
         if n_rounds < 0:
@@ -991,7 +986,7 @@ class CMap(cmap.CMap[Diagram]):
         batch_size, kwargs = self._prepare(x, init)
         device = kwargs.get("device", None)
         step = self._step(device)
-        device_routing = self._device_routing(device)
+        device_routing = self.device_routing(device)
         groups = device_routing["groups"]
         fused = "perm" in device_routing
 

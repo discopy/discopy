@@ -200,7 +200,7 @@ class Execution:
 
     def initialize(self) -> tuple:
         """ Initialize public messages and per-box private memories. """
-        widths = self.inside.port_dims
+        widths = self.inside.port_widths
         given = (
             self._values(self.x), self._values(self.init),
             self._values(self.memory))
@@ -243,7 +243,7 @@ class Execution:
 
     def activate_box(self, box_index: int, incoming):
         """ Apply one network to its public messages and private memory. """
-        widths = self.inside.port_dims
+        widths = self.inside.port_widths
         ports = self.box_ports[box_index]
         public_widths = tuple(widths[i] for i in ports)
         memory_width = self.memory_widths[box_index]
@@ -264,7 +264,7 @@ class Execution:
 
     def activate(self) -> tuple:
         """ Apply each network to its public messages and private memory. """
-        widths = self.inside.port_dims
+        widths = self.inside.port_widths
         outgoing = [self.zeros(width) for width in widths]
         for i in self.input_ports:
             outgoing[i] = self.boundary[i]
@@ -325,7 +325,7 @@ class Execution:
             self, inject: bool = True, return_memory: bool = False):
         """ Execute every box once in topological order. """
         self.initialize()
-        widths = self.inside.port_dims
+        widths = self.inside.port_widths
         incoming = list(self.incoming)
         outgoing = [self.zeros(width) for width in widths]
         for port in self.input_ports:
@@ -352,3 +352,45 @@ class Execution:
         return (result, self.memories) if return_memory else result
 
     __call__ = forward
+
+
+def box_forward(inside, messages, backend, modules):
+    """
+    Run a map as one box of the all-port protocol, the way the wrappers of
+    every :class:`~discopy.neural.backend.Backend` do: ``messages`` is one
+    batch of incoming messages on the public ports of ``inside`` followed by
+    its private memory, and the result is the outgoing messages followed by
+    the next memory, as :meth:`Execution.forward` computes them.
+    """
+    dom_width, cod_width = sum(inside.dom.inside), sum(inside.cod.inside)
+    memory_width = sum(sum(box.mem.inside) for box in inside.boxes)
+    expected = dom_width + cod_width + memory_width
+    shape = getattr(messages, "shape", None)
+    if shape is None or len(shape) != 2 or shape[-1] != expected:
+        actual = None if shape is None else tuple(shape)
+        raise ValueError(
+            f"Nested map messages have shape {actual}, "
+            f"expected (batch_size, {expected}).")
+    inputs, outputs, memory = backend.split(
+        messages, (dom_width, cod_width, memory_width))
+    execution = Execution(
+        inside, memory=memory if memory_width else None,
+        backend=backend, modules=modules)
+    boundary_ports = inside.input_ports + inside.output_ports
+    boundary = backend.split(
+        backend.concatenate((inputs, outputs)),
+        tuple(inside.port_widths[i] for i in boundary_ports))\
+        if boundary_ports else ()
+    initial = [None] * inside.n_ports
+    for port, value in zip(boundary_ports, boundary):
+        initial[inside.edges[port]] = value
+    execution.init = initial
+    execution.forward()
+    public = backend.concatenate(tuple(
+        execution.incoming[i] for i in boundary_ports))\
+        if boundary_ports\
+        else backend.zeros(messages.shape[0], 0, like=messages)
+    next_memory = backend.concatenate(execution.memories)\
+        if execution.memories\
+        else backend.zeros(messages.shape[0], 0, like=messages)
+    return backend.concatenate((public, next_memory))

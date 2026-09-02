@@ -11,7 +11,7 @@ question, and the formalism already answers it: the disjoint union of maps
 is their monoidal product ``a @ b``, and running the product is running
 both at once.
 
-Nothing is lost by doing so.  :attr:`~discopy.neural.CMap._fused_routing`
+Nothing is lost by doing so.  :attr:`~discopy.neural.CMap.fused_routing`
 groups boxes by the module they share, so a site of ``a`` and a site of
 ``b`` with the same module and the same port widths land in one group and
 cost one batched call between them; only sites of genuinely different

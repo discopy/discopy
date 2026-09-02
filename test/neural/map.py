@@ -200,7 +200,7 @@ def test_the_interaction_agrees_with_the_map():
     assert found.widths == cmap.port_widths
     assert found.routing == tuple(cmap.edges)
     assert found.state == Dim(*cmap.port_widths)
-    assert found.total == cmap._routing["total"] == sum(cmap.port_widths)
+    assert found.total == sum(cmap.port_widths)
     assert found.n_wires == cmap.n_ports // 2 == len(cmap.ports) // 2
     assert found.is_involution()
     assert [spec.name for spec in found.local] \

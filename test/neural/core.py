@@ -80,14 +80,14 @@ def test_network_as_box():
     assert stateful != f
     assert stateful.dagger().mem == stateful.rotate().mem == Dim(4)
     assert stateful == stateful.dagger().dagger()
-    assert stateful.to_map().port_dims == f.to_map().port_dims
+    assert stateful.to_map().port_widths == f.to_map().port_widths
     assert loads(dumps(stateful)) == stateful
 
 
-def test_port_dims():
+def test_port_widths():
     f = Network('f', Dim(2, 3), Dim(4, 5, 6))
     fm = f.to_map()
-    assert fm.port_dims == (2, 3, 2, 3, 6, 5, 4, 4, 5, 6)
+    assert fm.port_widths == (2, 3, 2, 3, 6, 5, 4, 4, 5, 6)
 
 
 def test_to_hypergraph():
@@ -339,7 +339,7 @@ def test_forward_closed_map():
     network = grid.as_network()
     states = network()
     assert len(states) == 16 and all(s.shape == (1, 6) for s in states)
-    init = torch.rand(5, sum(grid.port_dims))
+    init = torch.rand(5, sum(grid.port_widths))
     injected, not_injected = (
         network(init=init, n_rounds=2, inject=inject)
         for inject in (True, False))
@@ -467,7 +467,7 @@ def test_training():
         embedded = embedding(clues)
         init = [None] * grid.n_ports
         for box_index in range(n_cells):
-            for port in grid._box_port_indices[box_index]:
+            for port in grid.box_ports(box_index):
                 init[port] = embedded[:, box_index, :]
         states = network(init=init, n_rounds=4)
         return readout(torch.stack(states, dim=1))

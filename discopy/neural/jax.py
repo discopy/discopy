@@ -25,6 +25,7 @@ import jax
 import jax.numpy as jnp
 
 from discopy.neural.backend import Backend
+from discopy.neural.execution import box_forward
 
 if TYPE_CHECKING:
     from discopy.neural.core import CMap
@@ -121,39 +122,6 @@ class CMapModule:
     __call__ = forward
 
     def box_forward(self, messages):
-        """ Adapt direct map execution to the neural all-port protocol. """
-        from discopy.neural.execution import Execution
-
-        backend, inside = self.backend, self.inside
-        dom_width, cod_width = sum(inside.dom.inside), sum(inside.cod.inside)
-        memory_width = sum(sum(box.mem.inside) for box in inside.boxes)
-        expected = dom_width + cod_width + memory_width
-        shape = getattr(messages, "shape", None)
-        if shape is None or len(shape) != 2 or shape[-1] != expected:
-            actual = None if shape is None else tuple(shape)
-            raise ValueError(
-                f"Nested map messages have shape {actual}, "
-                f"expected (batch_size, {expected}).")
-        inputs, outputs, memory = backend.split(
-            messages, (dom_width, cod_width, memory_width))
-        execution = Execution(
-            inside, memory=memory if memory_width else None,
-            backend=backend, modules=self.modules)
-        boundary_ports = inside.input_ports + inside.output_ports
-        boundary = backend.split(
-            backend.concatenate((inputs, outputs)),
-            tuple(inside.port_dims[i] for i in boundary_ports))\
-            if boundary_ports else ()
-        initial = [None] * inside.n_ports
-        for port, value in zip(boundary_ports, boundary):
-            initial[inside.edges[port]] = value
-        execution.init = initial
-        execution.forward()
-        public = backend.concatenate(tuple(
-            execution.incoming[i] for i in boundary_ports))\
-            if boundary_ports\
-            else backend.zeros(messages.shape[0], 0, like=messages)
-        next_memory = backend.concatenate(execution.memories)\
-            if execution.memories\
-            else backend.zeros(messages.shape[0], 0, like=messages)
-        return backend.concatenate((public, next_memory))
+        """ One box of the all-port protocol, see :func:`box_forward`. """
+        return box_forward(
+            self.inside, messages, self.backend, self.modules)

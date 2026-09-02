@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING
 import torch
 
 from discopy.neural.backend import Backend
+from discopy.neural.execution import box_forward
 
 if TYPE_CHECKING:
     from discopy.neural.core import CMap
@@ -99,38 +100,6 @@ class CMapModule(torch.nn.Module):
         return self.inside.forward(*args, **kwargs)
 
     def box_forward(self, messages: torch.Tensor) -> torch.Tensor:
-        """ Adapt direct map execution to the neural all-port protocol. """
-        from discopy.neural.execution import Execution
-
-        dom_width, cod_width = (
-            sum(self.inside.dom.inside), sum(self.inside.cod.inside))
-        memory_width = sum(
-            sum(box.mem.inside) for box in self.inside.boxes)
-        expected = dom_width + cod_width + memory_width
-        if len(messages.shape) != 2 or messages.shape[-1] != expected:
-            raise ValueError(
-                f"Nested map messages have shape {tuple(messages.shape)}, "
-                f"expected (batch_size, {expected}).")
-        inputs, outputs, memory = messages.split(
-            (dom_width, cod_width, memory_width), dim=-1)
-        execution = Execution(
-            self.inside, memory=memory if memory_width else None,
-            backend=self.backend, modules=self.networks)
-        boundary_ports = self.inside.input_ports + self.inside.output_ports
-        boundary = torch.split(
-            torch.cat((inputs, outputs), dim=-1),
-            tuple(self.inside.port_dims[i] for i in boundary_ports), dim=-1)\
-            if boundary_ports else ()
-        initial = [None] * self.inside.n_ports
-        for port, value in zip(boundary_ports, boundary):
-            initial[self.inside.edges[port]] = value
-        execution.init = initial
-        execution.forward()
-        public = torch.cat(
-            tuple(execution.incoming[i] for i in boundary_ports), dim=-1)\
-            if boundary_ports\
-            else messages.new_zeros((messages.shape[0], 0))
-        next_memory = torch.cat(execution.memories, dim=-1)\
-            if execution.memories\
-            else messages.new_zeros((messages.shape[0], 0))
-        return torch.cat((public, next_memory), dim=-1)
+        """ One box of the all-port protocol, see :func:`box_forward`. """
+        return box_forward(
+            self.inside, messages, self.backend, self.networks)

@@ -61,7 +61,7 @@ def test_nonuniform_relation_forward_matches_reference():
     found = interpret(path, {PEER: Dim(3), STATE: Dim(4), CLUE: Dim(2)},
                       {"cell": module})
     # one module, two degrees: exactly two batched groups
-    assert len(found.cmap._fused_routing["metas"]) == 2
+    assert len(found.cmap.fused_routing["metas"]) == 2
     torch.manual_seed(1)
     init = torch.randn(2, found.total, dtype=torch.double)
     with torch.no_grad():
@@ -278,7 +278,7 @@ def test_a_batch_is_the_product_of_its_members():
         assert torch.allclose(expected, found, atol=1e-13)
     # one module call covers every site of the same degree, not one per
     # member: here the degrees are 1 and 2, hence two groups
-    assert len(model.compile(batch).cmap._fused_routing["metas"]) == 2
+    assert len(model.compile(batch).cmap.fused_routing["metas"]) == 2
 
 
 def test_a_batch_drops_its_padding():
