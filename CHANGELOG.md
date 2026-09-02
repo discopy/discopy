@@ -9,6 +9,24 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `discopy.neural`, one package for neural interpretations of diagrams,
+  merging the three that were open: the compact closed category of
+  `Network` boxes with additive `Dim` objects, its `CMap` running the
+  execution formula of the geometry of interaction -- vectorised on torch,
+  one call per box per round on any `Backend` (`pytorch`, `jax`) through
+  `Execution`, with the private memory and causal schedule of feed-forward
+  maps -- and `MapNN`, the solvers (`Iterate`, `FixedPoint`, `Recursion`,
+  `ACT`), heterogeneous batching, the cells with their symmetry signatures
+  and laws. What a generator means is said in `discopy.para`: a `ParamMap`
+  is a parametric map over neural diagrams and an `InteractionMap` one on
+  the boundary of a box; and reverse differentiation is said in
+  `discopy.optics`: a reverse rule is an `Optic` over neural diagrams and
+  `rdiff` the `put` of its lens. `import discopy.neural` imports no tensor
+  framework ([#702](https://github.com/discopy/discopy/issues/702),
+  merging [#399](https://github.com/discopy/discopy/pull/399),
+  [#495](https://github.com/discopy/discopy/pull/495),
+  [#585](https://github.com/discopy/discopy/pull/585) and the library
+  half of [#686](https://github.com/discopy/discopy/pull/686)).
 - The category of optics, `discopy.optics`, over any symmetric underlying
   category: an `Optic` is a residual with a forward and a backward
   morphism, composing by tensoring the residuals as `discopy.para` does
