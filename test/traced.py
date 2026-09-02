@@ -11,8 +11,8 @@ def test_trace_repr():
 def test_trace_name():
     x = Ty('x')
     f = Box('f', x @ x, x @ x)
-    assert f.trace().inside[0].generator.name == "Trace(f)"
-    assert f.trace(left=True).inside[0].generator.name == "Trace(f, left=True)"
+    assert f.trace().name == "Trace(f)"
+    assert f.trace(left=True).name == "Trace(f, left=True)"
 
 
 def test_trace_error():
