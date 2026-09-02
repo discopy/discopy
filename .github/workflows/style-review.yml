@@ -1,29 +1,80 @@
 name: style-review
 on:
   pull_request:
-    types: [ready_for_review, labeled]
+    types: [opened, ready_for_review, synchronize]
+  issue_comment:
+    types: [created]
 permissions:
   contents: read
+  issues: read
+  pull-requests: read
 concurrency:
+  # One round at a time per pull request, whatever triggered either of them:
+  # a push cancels the round that was reviewing the head it replaces.
   group: style-review-${{ github.event.pull_request.number
-    }}-${{ github.event.label.name || github.event.action }}
+    || github.event.issue.number }}
   cancel-in-progress: true
 jobs:
   review:
     if: >
-      github.event.pull_request.head.repo.full_name == github.repository
-      && (github.event.action == 'ready_for_review'
-          || github.event.label.name == 'style-review')
+      github.event_name == 'issue_comment'
+      && github.event.issue.pull_request != null
+      && contains(github.event.comment.body, '@discopy review this')
+      && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'),
+                  github.event.comment.author_association)
+      || github.event_name == 'pull_request'
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-    - uses: actions/checkout@v4
+    - name: Read the pull request
+      id: pr
+      env:
+        GH_TOKEN: ${{ github.token }}
+        NUMBER: ${{ github.event.pull_request.number
+          || github.event.issue.number }}
+      run: |
+        gh api "repos/$GITHUB_REPOSITORY/pulls/$NUMBER" --jq '
+          "number=\(.number)", "head=\(.head.sha)", "base=\(.base.sha)",
+          "repo=\(.head.repo.full_name)", "draft=\(.draft)",
+          "no_review=\(.labels | any(.name == "no-style-review"))"' \
+          >> "$GITHUB_OUTPUT"
+
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
-        ref: ${{ github.event.pull_request.head.sha }}
+        ref: ${{ steps.pr.outputs.head }}
         fetch-depth: 0
+
+    - name: Decide whether to review
+      id: todo
+      env:
+        ASKED: ${{ github.event_name == 'issue_comment' }}
+        DRAFT: ${{ steps.pr.outputs.draft }}
+        HEAD_REPO: ${{ steps.pr.outputs.repo }}
+        NO_REVIEW: ${{ steps.pr.outputs.no_review }}
+      run: |
+        stop() {
+          echo "::notice::$1"
+          echo "wait=true" >> "$GITHUB_OUTPUT"
+          exit 0
+        }
+        [ "$HEAD_REPO" = "$GITHUB_REPOSITORY" ] \
+          || stop "A pull request from a fork is not reviewed."
+        [ "$DRAFT" = false ] || stop "A draft is not reviewed."
+        if [ "$ASKED" != true ]; then
+          [ "$NO_REVIEW" = false ] \
+            || stop "This pull request is labelled no-style-review."
+          if git ls-files | grep -Eiq '(^|/)todo(\.[^/]*)?$'; then
+            stop "TODO is still there — the style review waits for the push \
+        that deletes it."
+          fi
+        fi
+        echo "wait=false" >> "$GITHUB_OUTPUT"
 
     - name: Check the gateway configuration
       id: config
+      if: steps.todo.outputs.wait == 'false'
       env:
         BASE_URL: ${{ vars.STYLE_REVIEW_BASE_URL }}
         MODEL: ${{ vars.STYLE_REVIEW_MODEL }}
@@ -38,19 +89,43 @@ jobs:
           echo "configured=false" >> "$GITHUB_OUTPUT"
         fi
 
-    - name: Diff the Python files against the merge base
+    - name: Diff the changed files against the merge base
       id: diff
+      if: steps.todo.outputs.wait == 'false'
       env:
-        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        BASE_SHA: ${{ steps.pr.outputs.base }}
       run: |
         mkdir -p .style-review
-        git diff --merge-base "$BASE_SHA" -- '*.py' > .style-review/diff.patch
-        git diff --merge-base "$BASE_SHA" --name-only -- '*.py' \
+        # Style applies to every authored file, not just Python: docs,
+        # notebooks, workflows, config. Excluded are generated artefacts
+        # nobody hand-writes: drawing baselines and the dependency lockfile.
+        paths=(
+          '.'
+          ':(exclude)docs/_static/**'
+          ':(exclude)discopy/*.gif'
+          ':(exclude)test/drawing/tikz/**'
+          ':(exclude)test/fixtures/**'
+          ':(exclude)uv.lock'
+        )
+        git diff --merge-base "$BASE_SHA" -- "${paths[@]}" \
+          > .style-review/diff.patch
+        git diff --merge-base "$BASE_SHA" --name-only -- "${paths[@]}" \
           > .style-review/files.txt
         echo "changed=$(test -s .style-review/diff.patch \
           && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
+    - name: Read the previous rounds and the discussion
+      if: >
+        steps.config.outputs.configured == 'true'
+        && steps.diff.outputs.changed == 'true'
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        REPO: ${{ github.repository }}
+        PR_NUMBER: ${{ steps.pr.outputs.number }}
+      run: python3 .github/style-review/history.py
+
     - name: Review the diff
+      id: review
       if: >
         steps.config.outputs.configured == 'true'
         && steps.diff.outputs.changed == 'true'
@@ -58,16 +133,14 @@ jobs:
         BASE_URL: ${{ vars.STYLE_REVIEW_BASE_URL }}
         API_KEY: ${{ secrets.STYLE_REVIEW_API_KEY }}
         MODEL: ${{ vars.STYLE_REVIEW_MODEL }}
+        BASE_SHA: ${{ steps.pr.outputs.base }}
       run: python3 .github/style-review/review.py
 
     - name: Generate a discopy-bot token
       id: app-token
       if: >
-        ${{ !cancelled()
-            && (github.event.action == 'ready_for_review'
-                || (steps.config.outputs.configured == 'true'
-                    && steps.diff.outputs.changed == 'true')) }}
-      uses: actions/create-github-app-token@v1
+        !cancelled() && steps.todo.outputs.wait == 'false'
+      uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
       with:
         app-id: ${{ vars.DISCOPY_BOT_APP_ID }}
         private-key: ${{ secrets.DISCOPY_BOT_PRIVATE_KEY }}
@@ -80,22 +153,42 @@ jobs:
         && steps.diff.outputs.changed == 'true'
       env:
         APP_TOKEN: ${{ steps.app-token.outputs.token }}
+        GITHUB_TOKEN: ${{ github.token }}
         REPO: ${{ github.repository }}
-        PR_NUMBER: ${{ github.event.pull_request.number }}
-        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        PR_NUMBER: ${{ steps.pr.outputs.number }}
+        HEAD_SHA: ${{ steps.pr.outputs.head }}
         MODEL: ${{ vars.STYLE_REVIEW_MODEL }}
       run: python3 .github/style-review/post.py
 
     - name: Call the correctness reviewer
       if: >
-        ${{ !cancelled() && github.event.action == 'ready_for_review'
-            && steps.post.outputs.clean != 'false' }}
+        !cancelled() && steps.todo.outputs.wait == 'false'
+        && steps.post.outputs.clean != 'false'
       env:
         GH_TOKEN: ${{ steps.app-token.outputs.token }}
-        PR_NUMBER: ${{ github.event.pull_request.number }}
+        PR_NUMBER: ${{ steps.pr.outputs.number }}
         CLEAN: ${{ steps.post.outputs.clean }}
+        CONFIGURED: ${{ steps.config.outputs.configured }}
+        CHANGED: ${{ steps.diff.outputs.changed }}
+        REVIEW_OUTCOME: ${{ steps.review.outcome }}
       run: |
-        if [ "$CLEAN" = "true" ]; then
+        called="$(gh api --paginate \
+          "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" --jq '
+            .[] | select(.body | startswith("@cubic-dev-ai review")
+              or startswith("No style remarks. @cubic-dev-ai review"))
+            | .id' | wc -l)"
+        if [ "$called" -gt 0 ]; then
+          echo "::notice::The correctness reviewer was already called on \
+        this pull request."
+          exit 0
+        fi
+        # A review that was meant to run and did not is a crash of its
+        # own step or of the one before it, which GitHub skips it for.
+        if [ "$CONFIGURED" = true ] && [ "$CHANGED" = true ] \
+           && [ "$REVIEW_OUTCOME" != success ]; then
+          body="@cubic-dev-ai review — the style review did not run \
+        ($REVIEW_OUTCOME), see the job's log."
+        elif [ "$CLEAN" = "true" ]; then
           body="No style remarks. @cubic-dev-ai review"
         else
           body="@cubic-dev-ai review"
