@@ -6,7 +6,7 @@ from hypothesis import find
 from hypothesis import strategies as st
 from pytest import raises
 
-from discopy import closed, feedback, rigid, symmetric, testing
+from discopy import cat, closed, feedback, rigid, symmetric, testing
 from discopy.abc import Equation as AbstractEquation
 from discopy.cat import Arrow, Box, Equation, Functor, Ob
 from discopy.testing import (
@@ -236,7 +236,10 @@ def test_monoid_axioms():
 
 
 def test_axiom_binding():
-    assert repr(Arrow.unitality) == "Axiom(unitality)"
+    assert repr(Axiom(lambda cls: NotImplemented)) == "Axiom(<lambda>)"
+    assert eval(repr(Arrow.unitality)) == cat.Arrow.unitality
+    assert hash(Arrow.unitality) == hash(eval(repr(Arrow.unitality)))
+    assert Arrow.unitality != Functor.unitality
     assert Functor.dagger_involution() is NotImplemented
     with raises(TypeError):
         Axiom(lambda cls: NotImplemented)()
