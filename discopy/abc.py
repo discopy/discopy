@@ -277,6 +277,41 @@ class BiclosedCategory[
             left : Whether to curry on the left or right.
         """
 
+    def base_and_exponent(self, n: int, left: bool) -> tuple[C0, C0]:
+        """
+        The base and exponent that :meth:`uncurry` evaluates, read off the
+        exponential object in the codomain.
+
+        Parameters:
+            n : The number of objects to uncurry.
+            left : Whether to uncurry on the left or right.
+        """
+        if not self.cod.is_exp:
+            raise ValueError
+        base, exponent = self.cod.base, self.cod.exponent
+        if n < len(exponent):
+            raise ValueError
+        return base, exponent
+
+    def uncurry(self, n: int = 1, left: bool = True) -> C1:
+        """
+        Uncurry a morphism by composing it with :meth:`ev`, assuming its
+        codomain is an exponential object. If the exponent has less than
+        ``n`` objects, we uncurry the remaining ones in turn.
+
+        Parameters:
+            n : The number of objects to uncurry.
+            left : Whether to uncurry on the left or right.
+        """
+        if n < 0:
+            raise ValueError
+        if not n:
+            return self
+        base, exponent = self.base_and_exponent(n, left)
+        result = self @ exponent >> self.ev(base, exponent, True) if left\
+            else exponent @ self >> self.ev(base, exponent, False)
+        return result.uncurry(n - len(exponent), left)
+
 
 class Pregroup[C0, C1: Pregroup](ResiduatedMonoid[C0, C1]):
     """
@@ -319,6 +354,52 @@ class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
             left : The left-hand side of the caps.
             right : Its adjoint, i.e. the right-hand side of the caps.
         """
+
+    @classmethod
+    def ev(cls, base: C0, exponent: C0, left: bool = True) -> C1:
+        """
+        The evaluation of a rigid morphism is obtained using cups.
+
+        Parameters:
+            base : The base of the exponential type.
+            exponent : The exponent of the exponential type.
+            left : Whether to take the left or right evaluation.
+        """
+        return base @ cls.cups(exponent.l, exponent) if left\
+            else cls.cups(exponent, exponent.r) @ base
+
+    def curry(self, n: int = 1, left: bool = True) -> C1:
+        """
+        The curry of a rigid morphism is obtained using caps.
+
+        Parameters:
+            n : The number of objects to curry.
+            left : Whether to curry on the left or right.
+        """
+        if n < 0 or n > len(self.dom):
+            raise ValueError
+        if not n:
+            return self
+        if left:
+            base, exponent = self.dom[:-n], self.dom[-n:]
+            return base @ self.caps(exponent, exponent.l) >> self @ exponent.l
+        base, exponent = self.dom[n:], self.dom[:n]
+        return self.caps(exponent.r, exponent) @ base >> exponent.r @ self
+
+    def base_and_exponent(self, n: int, left: bool) -> tuple[C0, C0]:
+        """
+        Contrary to :meth:`BiclosedCategory.base_and_exponent`, a pregroup has
+        no exponential object to read the exponent off the codomain: it is the
+        ``n`` objects at the end resp. the start of the codomain, dualised.
+
+        Parameters:
+            n : The number of objects to uncurry.
+            left : Whether to uncurry on the left or right.
+        """
+        if n > len(self.cod):
+            raise ValueError
+        return (self.cod[:-n], self.cod[-n:].r) if left\
+            else (self.cod[n:], self.cod[:n].l)
 
     def transpose(self, left: bool = False) -> C1:
         """

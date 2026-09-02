@@ -23,6 +23,22 @@ Summary
     Spider
     Sum
     Bubble
+
+Tensor combinatorial maps
+-------------------------
+
+A :class:`CMap` is a tensor network stored as a combinatorial map, whose
+boxes are tensors, edges are summed indices and boundary ports are free
+indices. Swaps, cups and caps become wiring while spiders stay as boxes.
+
+>>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
+>>> assert (vector >> vector[::-1]).to_map().eval().array == 1
+
+>>> with backend('jax'):  # doctest: +EXTRA
+...     import jax, jax.numpy as jnp
+...     b = lambda x: Box[float]('v', Dim(1), Dim(2), x * jnp.ones(2))
+...     f = lambda x: (b(x) >> b(x)[::-1]).to_map().eval().array
+...     assert jax.grad(f)(1.) == 4.
 """
 
 from __future__ import annotations
@@ -513,7 +529,8 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
             ob_map=lambda x: Dim(*(
                 getattr(obj, "dim", obj) for obj in x.inside)),
             ar_map=lambda box: box.array,
-            dtype=dtype or self.dtype, optimize=optimize, **params)(self)
+            dtype=dtype or getattr(self, "dtype", None),
+            optimize=optimize, **params)(self)
 
     def to_quimb(self, dtype: type = None) -> "quimb.tensor.Tensor":
         """
@@ -663,30 +680,7 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
         return result
 
 
-class CMap(frobenius.CMap):
-    """
-    A tensor combinatorial map is a tensor network stored as a combinatorial
-    map, whose structure is Einstein notation: boxes are tensors, the
-    2-cycles of the ``edges`` involution are the summed indices and the
-    boundary ports are the free indices.
-
-    Swaps, cups and caps become wiring while spiders stay as boxes, so that
-    every wire has exactly two ends.
-
-    Example
-    -------
-    >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
-    >>> assert (vector >> vector[::-1]).to_map().eval().array == 1
-
-    >>> with backend('jax'):  # doctest: +EXTRA
-    ...     import jax, jax.numpy as jnp
-    ...     b = lambda x: Box[float]('v', Dim(1), Dim(2), x * jnp.ones(2))
-    ...     f = lambda x: (b(x) >> b(x)[::-1]).to_map().eval().array
-    ...     assert jax.grad(f)(1.) == 4.
-    """
-    category, dtype = Diagram, None
-
-    eval = Diagram.eval
+CMap = cmap.CMap[Diagram]
 
 
 class Box(frobenius.Box, Diagram):
@@ -903,7 +897,6 @@ Diagram.sum_factory, Diagram.swap_factory = Sum, Swap
 Diagram.permutation_factory = Permutation
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Diagram.spider_factory, Diagram.bubble_factory = Spider, Bubble
-Diagram.map_factory = CMap
 Id = Diagram.id
 
 
