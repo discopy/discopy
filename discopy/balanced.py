@@ -39,8 +39,8 @@ from discopy import config, monoidal, braided, traced, cmap, hypergraph
 from discopy.abc import BalancedCategory
 from discopy.cat import factory
 from discopy.monoidal import Colour, Ty  # noqa: F401
-from discopy.testing import axiom
 from discopy.utils import factory_name, from_tree, assert_isatomic
+from discopy.testing import axiom
 
 
 @dataclass(frozen=True)
