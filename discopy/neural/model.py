@@ -93,7 +93,8 @@ class MapNN(torch.nn.Module):
     Example
     -------
     >>> from discopy.frobenius import Ty
-    >>> from discopy.neural import Dim, Mode, Orbit, Signature, Site, Sym
+    >>> from discopy.neural import Dim, Mode, Orbit  # doctest: +EXTRA
+    >>> from discopy.neural import Signature, Site, Sym
     >>> from discopy.neural.signature import from_relation
     >>> peer, state = Ty("peer"), Ty("state")
     >>> node = Signature((Orbit(peer, 1, Sym.PERM), Orbit(state, traced=True)))

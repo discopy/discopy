@@ -28,17 +28,20 @@ import sys
 from pathlib import Path
 
 import pytest
-import torch
+
+torch = pytest.importorskip("torch")
 
 from discopy.frobenius import Ty
+from discopy.para import Symmetric
 from discopy.neural import (
     Dim, Iterate, Mode, Network, Orbit, Relation, Signature, Site, Sym, laws)
 from discopy.neural.laws import check_equivariant, fusion_residual
 from discopy.neural.map import (
-    Interaction, InteractionMap, ParamMap, Parametric, interaction_spec,
+    Interaction, InteractionMap, ParamMap, interaction_spec,
     interpret, route)
 from discopy.neural.signature import from_relation
 from discopy.utils import AxiomError
+
 
 PEER, STATE, MESSAGE = Ty("peer"), Ty("state"), Ty("message")
 
@@ -100,12 +103,12 @@ def test_param_maps_compose_by_substitution():
     strict monoid, so the layout is associative on the nose and a
     bracketing can never change which weights are where.
     """
-    f = ParamMap("f", Dim(2), Dim(3), Dim(6))
-    g = ParamMap("g", Dim(3), Dim(4), Dim(12))
-    h = ParamMap("h", Dim(4), Dim(5), Dim(20))
+    f = ParamMap.generator("f", Dim(2), Dim(3), Dim(6))
+    g = ParamMap.generator("g", Dim(3), Dim(4), Dim(12))
+    h = ParamMap.generator("h", Dim(4), Dim(5), Dim(20))
     assert (f.name, f.dom, f.cod, f.params, f.laws) \
         == ("f", Dim(2), Dim(3), Dim(6), ())
-    assert isinstance(f, Parametric) and ParamMap.id(Dim(2)).params == Dim()
+    assert isinstance(f, Symmetric) and ParamMap.id(Dim(2)).params == Dim()
     assert (f >> g).params == Dim(6, 12) != (g.params @ f.params)
     assert ((f >> g) >> h).params == (f >> (g >> h)).params == Dim(6, 12, 20)
     assert ((f @ g) @ h).params == (f @ (g @ h)).params == Dim(6, 12, 20)
@@ -122,14 +125,14 @@ def test_interaction_maps_do_not_compose():
     computes it is a finite number of rounds, not a substitution.  Their
     *tensor* is meaningful and is kept.
     """
-    f = InteractionMap("f", Dim(2, 3), Dim(4, 5, 6))
-    g = InteractionMap("g", Dim(7), Dim(8))
+    f = InteractionMap.generator("f", Dim(2, 3), Dim(4, 5, 6))
+    g = InteractionMap.generator("g", Dim(7), Dim(8))
     with pytest.raises(AxiomError, match="do not compose"):
         f >> g
     with pytest.raises(TypeError):
-        ParamMap("f", Dim(2), Dim(3)) @ g
-    assert ParamMap("f", Dim(2), Dim(3)) \
-        != InteractionMap("f", Dim(2), Dim(3))
+        ParamMap.generator("f", Dim(2), Dim(3)) @ g
+    assert ParamMap.generator("f", Dim(2), Dim(3)) \
+        != InteractionMap.generator("f", Dim(2), Dim(3))
 
     # the boundary is ``X* @ Y`` in the port order the module reads
     assert f.boundary == Dim(2, 3, 4, 5, 6) and f.width == 20
@@ -146,7 +149,7 @@ def test_interaction_spec_reads_a_network():
     module = torch.nn.Linear(5, 5)
     f = Network("f", Dim(2), Dim(3), module=module)
     spec = interaction_spec(f)
-    assert spec == InteractionMap("f", Dim(2), Dim(3), Dim(30))
+    assert spec == InteractionMap.generator("f", Dim(2), Dim(3), Dim(30))
     assert spec.boundary == f.dom @ f.cod
     assert spec.width == module.in_features == module.out_features
     assert interaction_spec(f.dagger()) == spec.dagger()
@@ -463,4 +466,4 @@ def test_a_site_carries_its_laws():
     assert spec.width == node.width({PEER: 3, STATE: 4}) == 17
     assert check_equivariant(module, node, {PEER: 3, STATE: 4})[PEER] < 1e-12
     # the tensor forgets the laws, because a product makes no such promise
-    assert (spec @ InteractionMap("g", Dim(2), Dim(2))).laws == ()
+    assert (spec @ InteractionMap.generator("g", Dim(2), Dim(2))).laws == ()

@@ -261,7 +261,7 @@ def check_equivariant(module, signature: Signature, widths: Mapping,
 
     Example
     -------
-    >>> import torch
+    >>> import torch  # doctest: +EXTRA
     >>> from discopy.frobenius import Ty
     >>> from discopy.neural import Orbit, Signature, Sym
     >>> message = Ty("message")
@@ -332,7 +332,7 @@ def fusion_residual(module, signature: Signature, widths: Mapping,
     -------
     >>> from discopy.frobenius import Ty
     >>> from discopy.neural import Orbit, Signature, Sym
-    >>> from discopy.neural.cells import Relation
+    >>> from discopy.neural.cells import Relation  # doctest: +EXTRA
     >>> message = Ty("message")
     >>> unit = Signature((Orbit(message, 4, Sym.PERM), ))
     >>> box = Relation(unit, {message: 2}, hidden=4).double()

@@ -118,9 +118,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Mapping
 
-from discopy import messages
-from discopy.neural.core import CMap, Dim, Functor, Network, box_ports
-from discopy.utils import AxiomError, assert_isinstance
+from discopy import para
+from discopy.neural.core import (
+    CMap, Diagram, Dim, Functor, Network, box_ports)
+from discopy.utils import AxiomError, assert_isinstance, unbiased
 
 if TYPE_CHECKING:
     import torch
@@ -128,112 +129,107 @@ if TYPE_CHECKING:
 
 # --- what a generator is ---------------------------------------------------
 
-@dataclass(frozen=True)
-class Parametric:
+@dataclass
+class ParamMap(para.Symmetric):
     """
-    The bookkeeping the two parametric notions share: a name, a domain, a
-    codomain, a parameter object and the laws promised.
+    An ordinary parametric map :math:`(P, f) : X \\to Y`, i.e. a map
+    :math:`f : X \\otimes P \\to Y`: a parametric map of :mod:`discopy.para`
+    over neural diagrams, whose ``inside`` is the box of the generator.
 
-    The tensor puts the parameter objects side by side, left then right,
-    and that order is the whole content of the definition.  Since
-    :class:`~discopy.neural.Dim` is a strict monoid this is strictly
-    associative and strictly unital on the parametric data, i.e. on the
-    domain, the codomain and the parameter object.
+    A layer of a feed-forward network is one of these, and they compose by
+    substitution: :math:`(Q, g) \\circ (P, f)` has parameter object
+    :math:`P \\otimes Q`, the composition of parametric maps.  A
+    :class:`~discopy.neural.Network` is *not* one: see
+    :class:`InteractionMap`.
 
     Parameters:
-        name : The identity of the generator.
         dom : The domain :math:`X`.
         cod : The codomain :math:`Y`.
-        params : The parameter object :math:`P`, the unit by default.
+        inside : The diagram ``dom @ param -> cod``.
+        param : The parameter object :math:`P`, the unit by default.
+        copar : Unused, the unit.
         laws : The laws promised, see :mod:`discopy.neural.laws`.
 
     Note
     ----
-    The tensor forgets the laws.  A law is a statement about the legs of
-    *one* map, and the laws of a product are not the union of its parts':
-    the legs have been renumbered.
-    """
-
-    name: str
-    dom: Dim
-    cod: Dim
-    params: Dim = Dim()
-    laws: tuple = ()
-
-    def __matmul__(self, other: Parametric) -> Parametric:
-        if type(other) is not type(self):
-            return NotImplemented
-        return type(self)(f"({self.name} @ {other.name})",
-                          self.dom @ other.dom, self.cod @ other.cod,
-                          self.params @ other.params)
-
-
-@dataclass(frozen=True)
-class ParamMap(Parametric):
-    """
-    An ordinary parametric map :math:`(P, f) : X \\to Y`, i.e. a map
-    :math:`f : P \\otimes X \\to Y`.
-
-    A layer of a feed-forward network is one of these, and they compose by
-    substitution: :math:`(Q, g) \\circ (P, f)` has parameter object
-    :math:`P \\otimes Q`.  A :class:`~discopy.neural.Network` is *not* one:
-    see :class:`InteractionMap`.
+    Composition and tensor forget the laws.  A law is a statement about
+    the legs of *one* map, and the laws of a product are not the union of
+    its parts': the legs have been renumbered.
 
     Example
     -------
     >>> from discopy.neural import Dim
-    >>> f = ParamMap("f", Dim(2), Dim(3), Dim(6))
-    >>> g = ParamMap("g", Dim(3), Dim(4), Dim(12))
-    >>> (f >> g).name, (f >> g).dom, (f >> g).cod, (f >> g).params
-    ('(f >> g)', Dim(2), Dim(4), Dim(6, 12))
+    >>> f = ParamMap.generator("f", Dim(2), Dim(3), Dim(6))
+    >>> g = ParamMap.generator("g", Dim(3), Dim(4), Dim(12))
+    >>> (f >> g).dom, (f >> g).cod, (f >> g).params
+    (Dim(2), Dim(4), Dim(6, 12))
     >>> (f @ g).dom, (f @ g).cod, (f @ g).params
     (Dim(2, 3), Dim(3, 4), Dim(6, 12))
-    >>> f >> f
-    Traceback (most recent call last):
-        ...
-    discopy.utils.AxiomError: f does not compose with f: Dim(3) != Dim(2).
+    >>> (f >> g).inside.boxes[1]
+    neural.Network('g', Dim(3, 12), Dim(4))
+    >>> data = lambda one: (one.dom, one.cod, one.params)
+    >>> data(ParamMap.id(Dim(2)) >> f) == data(f) == data(
+    ...     f >> ParamMap.id(Dim(3)))
+    True
     """
+    category = Diagram
+    laws: tuple = ()
 
     @classmethod
-    def id(cls, dom: Dim = Dim()) -> ParamMap:
+    def generator(cls, name: str, dom: Dim, cod: Dim, params: Dim = Dim(),
+                  laws: tuple = ()) -> ParamMap:
         """
-        The identity map on an object: no parameters, nothing promised.
+        The parametric map of a generator: its box ``dom @ params -> cod``
+        with the parameters as parameter object.
 
         Parameters:
-            dom : The object.
-
-        Example
-        -------
-        >>> from discopy.neural import Dim
-        >>> f = ParamMap("f", Dim(2), Dim(3), Dim(6))
-        >>> def data(one):
-        ...     return one.dom, one.cod, one.params
-        >>> data(ParamMap.id(Dim(2)) >> f) == data(f) == data(
-        ...     f >> ParamMap.id(Dim(3)))
-        True
+            name : The name of the generator.
+            dom : The domain :math:`X`.
+            cod : The codomain :math:`Y`.
+            params : The parameter object :math:`P`, the unit by default.
+            laws : The laws promised, see :mod:`discopy.neural.laws`.
         """
-        return cls("Id", dom, dom)
+        return cls(dom, cod, Network(name, dom @ params, cod), params,
+                   laws=tuple(laws))
 
-    def __rshift__(self, other: ParamMap) -> ParamMap:
-        if type(other) is not type(self):
-            return NotImplemented
-        if self.cod != other.dom:
-            raise AxiomError(messages.NOT_COMPOSABLE.format(
-                self.name, other.name, self.cod, other.dom))
-        return type(self)(f"({self.name} >> {other.name})", self.dom,
-                          other.cod, self.params @ other.params)
+    @property
+    def params(self) -> Dim:
+        """ The parameter object :math:`P`, i.e. :attr:`param`. """
+        return self.param
+
+    @unbiased
+    def then(self, other: ParamMap) -> ParamMap:
+        assert_isinstance(other, ParamMap)
+        return super().then(other)
+
+    @unbiased
+    def tensor(self, other: ParamMap) -> ParamMap:
+        assert_isinstance(other, ParamMap)
+        return super().tensor(other)
 
 
-@dataclass(frozen=True)
-class InteractionMap(Parametric):
+@dataclass
+class InteractionMap(para.Symmetric):
     """
     A parametric interaction map :math:`(P, \\Phi) : X \\to Y`, i.e. a map
     :math:`\\Phi : P \\otimes (X^* \\otimes Y) \\to X^* \\otimes Y` on the
-    boundary of a box.
+    boundary of a box: a parametric map of :mod:`discopy.para` whose domain
+    and codomain are both the :attr:`boundary`, in the port order the
+    executable module reads, the :attr:`inputs` then the :attr:`outputs`.
 
     This is the formal reading of a :class:`~discopy.neural.Network`: same
-    name, same domain, same codomain, and a module whose input and output
-    both live on :attr:`boundary`.
+    name, same inputs, same outputs, and a module whose input and output
+    both live on the boundary.
+
+    Parameters:
+        dom : The boundary :math:`X^* \\otimes Y`, as ``inputs @ outputs``.
+        cod : The boundary again.
+        inside : The box ``boundary @ param -> boundary``.
+        param : The parameter object :math:`P`, the unit by default.
+        copar : Unused, the unit.
+        inputs : The inputs :math:`X` of the box.
+        outputs : The outputs :math:`Y` of the box.
+        laws : The laws promised, see :mod:`discopy.neural.laws`.
 
     Note
     ----
@@ -248,8 +244,8 @@ class InteractionMap(Parametric):
     Example
     -------
     >>> from discopy.neural import Dim
-    >>> f = InteractionMap("f", Dim(2), Dim(3), Dim(25))
-    >>> g = InteractionMap("g", Dim(5), Dim(7), Dim(49))
+    >>> f = InteractionMap.generator("f", Dim(2), Dim(3), Dim(25))
+    >>> g = InteractionMap.generator("g", Dim(5), Dim(7), Dim(49))
     >>> f.boundary, f.width
     (Dim(2, 3), 5)
     >>> f >> g
@@ -267,14 +263,47 @@ substitution: wire them together and iterate, see Interaction.
     >>> (f @ g).width == f.width + g.width
     True
     """
+    category = Diagram
+    inputs: Dim = Dim()
+    outputs: Dim = Dim()
+    laws: tuple = ()
+
+    @classmethod
+    def generator(cls, name: str, inputs: Dim, outputs: Dim,
+                  params: Dim = Dim(), laws: tuple = ()) -> InteractionMap:
+        """
+        The interaction map of a generator: its box on the boundary
+        ``inputs @ outputs``, with the parameters as parameter object.
+
+        Parameters:
+            name : The name of the generator.
+            inputs : The inputs :math:`X` of the box.
+            outputs : The outputs :math:`Y` of the box.
+            params : The parameter object :math:`P`, the unit by default.
+            laws : The laws promised, see :mod:`discopy.neural.laws`.
+        """
+        boundary = inputs @ outputs
+        return cls(boundary, boundary,
+                   Network(name, boundary @ params, boundary), params,
+                   inputs=inputs, outputs=outputs, laws=tuple(laws))
+
+    @property
+    def name(self) -> str:
+        """ The name of the generator. """
+        return self.inside.name
+
+    @property
+    def params(self) -> Dim:
+        """ The parameter object :math:`P`, i.e. :attr:`param`. """
+        return self.param
 
     @property
     def boundary(self) -> Dim:
         """
         The boundary :math:`\\partial f = X^* \\otimes Y`, in the port order
-        the executable module reads: the domain then the codomain.
+        the executable module reads: the inputs then the outputs.
         """
-        return self.dom @ self.cod
+        return self.dom
 
     @property
     def width(self) -> int:
@@ -294,19 +323,27 @@ substitution: wire them together and iterate, see Interaction.
         Example
         -------
         >>> from discopy.neural import Dim
-        >>> f = InteractionMap("f", Dim(2), Dim(3), Dim(25))
+        >>> f = InteractionMap.generator("f", Dim(2), Dim(3), Dim(25))
         >>> f.dagger().boundary, f.dagger().width
         (Dim(3, 2), 5)
         >>> f.dagger().dagger() == f
         True
         """
-        return type(self)(self.name, self.cod, self.dom, self.params,
-                          self.laws)
+        return self.generator(
+            self.name, self.outputs, self.inputs, self.params, self.laws)
 
-    def __rshift__(self, other) -> InteractionMap:
+    @unbiased
+    def then(self, other) -> InteractionMap:
         raise AxiomError(
             "interaction maps do not compose by substitution: wire them "
             "together and iterate, see Interaction.")
+
+    @unbiased
+    def tensor(self, other: InteractionMap) -> InteractionMap:
+        assert_isinstance(other, InteractionMap)
+        return self.generator(
+            f"({self.name} @ {other.name})", self.inputs @ other.inputs,
+            self.outputs @ other.outputs, self.params @ other.params)
 
 
 def interaction_spec(network, laws: tuple = ()) -> InteractionMap:
@@ -330,7 +367,7 @@ def interaction_spec(network, laws: tuple = ()) -> InteractionMap:
 
     Example
     -------
-    >>> import torch
+    >>> import torch  # doctest: +EXTRA
     >>> from discopy.neural import Dim, Network
     >>> f = Network("f", Dim(2), Dim(3), module=torch.nn.Linear(5, 5))
     >>> spec = interaction_spec(f)
@@ -345,8 +382,8 @@ def interaction_spec(network, laws: tuple = ()) -> InteractionMap:
     parameters = getattr(module, "parameters", None)
     params = Dim() if parameters is None else Dim(
         sum(parameter.numel() for parameter in parameters()))
-    return InteractionMap(network.name, network.dom, network.cod, params,
-                          tuple(laws))
+    return InteractionMap.generator(
+        network.name, network.dom, network.cod, params, laws)
 
 
 # --- what a diagram compiles to --------------------------------------------
