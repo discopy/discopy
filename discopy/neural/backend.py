@@ -4,7 +4,7 @@
 The abstract interface a neural execution backend has to implement.
 
 A backend owns the tensor primitives and the module protocol, so that
-:mod:`discopy.neural.network` only knows about the geometry of interaction.
+:mod:`discopy.neural.execution` only knows about the geometry of interaction.
 Concrete backends live in their own module, e.g. :mod:`discopy.neural.torch`,
 and are imported lazily so that ``import discopy.neural`` imports no tensor
 framework.
@@ -68,6 +68,18 @@ class Backend(ABC):
     @abstractmethod
     def zeros_module(self):
         """ Return a parameter-free all-port zero module. """
+
+    @abstractmethod
+    def index(self, indices: tuple[int, ...], like=None):
+        """ Return an integer array of positions along the last axis. """
+
+    @abstractmethod
+    def put(self, value, indices, updates):
+        """ Return a copy of a batch with ``updates`` at ``indices``. """
+
+    @abstractmethod
+    def compile(self, function, **kwargs):
+        """ Return the function compiled by the framework. """
 
 
 BACKENDS = {

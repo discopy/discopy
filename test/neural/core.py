@@ -33,7 +33,7 @@ def test_lazy_torch_import():
 def test_backend_contract():
     methods = {
         "zeros", "split", "concatenate", "activate",
-        "prototype", "wrap", "zeros_module"}
+        "prototype", "wrap", "zeros_module", "index", "put", "compile"}
     assert Backend.__abstractmethods__ == methods
     assert BACKENDS == {'pytorch': 'discopy.neural.torch.PyTorch',
                         'jax': 'discopy.neural.jax.JAX'}
@@ -339,6 +339,7 @@ def test_forward_closed_map():
     network = grid.as_network()
     states = network()
     assert len(states) == 16 and all(s.shape == (1, 6) for s in states)
+    assert network(n_rounds=0) == 16 * (None, )
     init = torch.rand(5, sum(grid.port_widths))
     injected, not_injected = (
         network(init=init, n_rounds=2, inject=inject)

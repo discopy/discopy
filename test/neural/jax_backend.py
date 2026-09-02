@@ -69,6 +69,7 @@ def test_jax_backend_eager_and_closed():
         n_rounds=1, inject=False)
     assert all(map(jnp.array_equal, states, (
         jnp.array([[2., 4.]]), jnp.array([[6., 8.]]))))
+    assert model(n_rounds=0) == (None, None)
 
     with backend("jax"):
         zero = discard(Dim(2)).module
