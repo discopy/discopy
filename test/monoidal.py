@@ -76,6 +76,39 @@ def test_coloured_Ty_tree_and_legacy_tree():
     assert from_tree(legacy) == Ty('x')
 
 
+def test_Diagram_rejects_boxless_layer():
+    """ A layer with no box is an internal transient of :meth:`Layer.tensor`,
+    never a layer of a diagram: the identity is the empty sequence. """
+    x = Ty('x')
+    with raises(ValueError):
+        Diagram(inside=(Layer(Ty(), normalise=False), ), dom=Ty(), cod=Ty())
+    with raises(ValueError):
+        Diagram(inside=(Layer(x, normalise=False), ), dom=x, cod=x)
+    assert Diagram.id(Ty()).inside == () == Id(x).inside[:0]
+    assert Layer(x, normalise=False).boxes == []
+    assert (x @ Box('f', x, x)).inside[0].boxes
+
+
+def test_composition_never_emits_a_boxless_layer():
+    """ ``then``, ``tensor`` and ``normal_form`` build their layers with
+    ``_scan=False``, so the constructor cannot catch a boxless one: these are
+    the paths that have to be checked by hand. """
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
+    f, g, h = Box('f', x, y), Box('g', y, z), Box('h', z, x)
+    interchanger = f @ Id(z) >> Id(y) @ h
+    diagrams = [
+        f >> g, f >> g >> h, f >> f.dagger(), (f >> g).dagger(),
+        f @ g, g @ f, f @ g @ h, f.tensor(), f.tensor(g, h),
+        x @ f, f @ x, Ty() @ f, f @ Ty(), Id(Ty()) @ f, f @ Id(Ty()),
+        Id(x) @ f, f @ Id(y), Id(Ty()) >> Id(Ty()),
+        interchanger, interchanger.normal_form(), interchanger.foliation(),
+        interchanger.interchange(0, 1),
+        (f @ Id(z) >> Id(y) @ h).normal_form().dagger(),
+    ]
+    for diagram in diagrams:
+        assert all(layer.boxes for layer in diagram.inside), repr(diagram)
+
+
 def test_Ty_init():
     assert list(Ty('x', 'y', 'z')) == [Ty('x'), Ty('y'), Ty('z')]
 
@@ -214,6 +247,38 @@ def test_Layer_coloured_units():
         layer @ Ty.id(red)
     with raises(AxiomError):
         Layer(Ty.id(green), f)
+
+
+def test_Layer_has_no_identity():
+    x = Ty('x')
+    f = Box('f', x, x)
+
+    with raises(ValueError):
+        Layer.id()
+    with raises(ValueError):
+        Layer.id(x)
+    with raises(ValueError):
+        Layer(Ty())
+
+    assert Ty() @ Layer(f) == Layer(f) == Layer(f) @ Ty()
+    assert not [t for t in (x @ Layer(f)).boxes_or_types
+                if isinstance(t, Ty) and not t]
+
+
+def test_Layer_unit():
+    x = Ty('x')
+    f = Box('f', x, x)
+    red, green = map(Colour, ("red", "green"))
+    coloured = Ty(Wire('w', red, green))
+    layer = Layer(coloured[:0], Box('c', coloured, coloured), coloured[1:])
+
+    assert Layer.unit() == Ty() == Ty.unit()
+    assert Layer.unit() @ Layer(f) == Layer(f) == Layer(f) @ Layer.unit()
+    assert Layer.unit(red) @ layer == layer == layer @ Layer.unit(green)
+    with raises(AxiomError):
+        Layer.unit(green) @ layer
+    with raises(ValueError):
+        Layer()
 
 
 def test_Layer_tensor():
