@@ -54,7 +54,7 @@ We also have its dagger and its transpose:
 
 from __future__ import annotations
 
-from discopy import cat, rigid, traced
+from discopy import cat, cmap, rigid, traced
 from discopy.abc import PivotalCategory
 from discopy.cat import factory
 from discopy.utils import deprecated_ob
@@ -263,8 +263,10 @@ class Functor(rigid.Functor):
     dom = cod = Diagram
 
 
+Diagram.functor_factory = Functor
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Diagram.sum_factory = Sum
+CMap = cmap.CMap[Diagram]
 Id = Diagram.id
 
 
