@@ -25,7 +25,7 @@ import torch
 from discopy.neural.backend import Backend
 
 if TYPE_CHECKING:
-    from discopy.neural.network import CMap
+    from discopy.neural.core import CMap
 
 
 class PyTorch(Backend):
@@ -100,7 +100,7 @@ class CMapModule(torch.nn.Module):
 
     def box_forward(self, messages: torch.Tensor) -> torch.Tensor:
         """ Adapt direct map execution to the neural all-port protocol. """
-        from discopy.neural.network import Execution
+        from discopy.neural.execution import Execution
 
         dom_width, cod_width = (
             sum(self.inside.dom.inside), sum(self.inside.cod.inside))

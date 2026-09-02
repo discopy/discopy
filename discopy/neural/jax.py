@@ -27,7 +27,7 @@ import jax.numpy as jnp
 from discopy.neural.backend import Backend
 
 if TYPE_CHECKING:
-    from discopy.neural.network import CMap
+    from discopy.neural.core import CMap
 
 
 class JAX(Backend):
@@ -122,7 +122,7 @@ class CMapModule:
 
     def box_forward(self, messages):
         """ Adapt direct map execution to the neural all-port protocol. """
-        from discopy.neural.network import Execution
+        from discopy.neural.execution import Execution
 
         backend, inside = self.backend, self.inside
         dom_width, cod_width = sum(inside.dom.inside), sum(inside.cod.inside)

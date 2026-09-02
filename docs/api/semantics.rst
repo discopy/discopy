@@ -15,3 +15,4 @@ DisCoPy's computational core: categories of functions, matrices and tensors.
     discopy.para
     discopy.optics
     discopy.interaction
+    discopy.neural

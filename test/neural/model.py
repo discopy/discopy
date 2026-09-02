@@ -13,7 +13,8 @@ degenerates to the special one.
 """
 
 import pytest
-import torch
+
+torch = pytest.importorskip("torch")
 
 from discopy.frobenius import Ty
 from discopy.neural import (
@@ -22,6 +23,7 @@ from discopy.neural import (
     check_equivariant, from_incidence, from_relation, interpret)
 from discopy.neural.cells import POOL, Cyclic, Gate
 from discopy.utils import AxiomError
+
 
 MESSAGE, PEER = Ty("message"), Ty("peer")
 STATE, CLUE, ANSWER = Ty("state"), Ty("clue"), Ty("answer")

@@ -61,13 +61,14 @@ Summary
 
     Dim
     Diagram
-    Box
     Network
     Cup
     Cap
+    Permutation
     Swap
     Functor
     Hypergraph
+    Para
     CMap
 
 Example
@@ -76,7 +77,7 @@ Example
 Message passing on the combinatorial map of a diagram computes its image
 under the execution formula, e.g. rerouting for a snake:
 
->>> import torch
+>>> import torch  # doctest: +EXTRA
 >>> snake = Id(Dim(2)).transpose().to_map()
 >>> snake.boxes
 ()
@@ -90,11 +91,13 @@ from typing import TYPE_CHECKING
 
 from functools import cached_property
 
-from discopy import cat, cmap, compact, hypergraph, monoidal
+from discopy import cat, cmap, compact, hypergraph, monoidal, para
 from discopy.cat import factory
 from discopy.cmap import PortKind
+from discopy.neural.backend import Backend, get_backend
+from discopy.neural.execution import Execution
 from discopy.pivotal import Ty
-from discopy.utils import assert_isinstance
+from discopy.utils import assert_isinstance, factory_name, from_tree as decode
 
 if TYPE_CHECKING:
     import torch
@@ -140,6 +143,14 @@ class Dim(monoidal.Dim, Ty):
 
     __str__ = __repr__
 
+    def to_tree(self) -> dict:
+        return {'factory': factory_name(type(self)),
+                'inside': list(self.inside)}
+
+    @classmethod
+    def from_tree(cls, tree: dict) -> "Dim":
+        return cls(*tree['inside'])
+
 
 @factory
 class Diagram(compact.Diagram):
@@ -158,18 +169,110 @@ class Diagram(compact.Diagram):
         return CMap.from_diagram(self)
 
 
-class Box(compact.Box, Diagram):
+class Network(compact.Box, Diagram):
     """
-    A neural box is a compact box between dimensions.
+    A network is a neural box together with a backend module computing it.
+
+    A network is a cell of a message-passing network rather than a
+    feedforward layer: its module maps ``R ** width`` to ``R ** width`` for
+    ``width`` the sum of the domain, codomain and private memory
+    dimensions, i.e. it reads one incoming message and emits one outgoing
+    message on every public port at once, in the order given by the domain
+    followed by the codomain, then reads the previous memory and emits the
+    next one. A feedforward layer is the special case of a module which
+    ignores the messages incoming on its codomain, executed with
+    :meth:`CMap.forward` and ``causal=True`` so that every box fires once in
+    topological order. Reusing the same network instance, or the same
+    module, as several boxes shares its weights but each box occurrence has
+    its own memory.
+
+    Cups, caps and swaps are networks with ``module`` left to ``None``,
+    since they are pure rerouting.
 
     Parameters:
-        name (str) : The name of the box.
-        dom (Dim) : The domain of the box, i.e. its input.
-        cod (Dim) : The codomain of the box, i.e. its output.
+        name : The name of the network.
+        dom : The domain of the network, i.e. its input.
+        cod : The codomain of the network, i.e. its output.
+        module : The backend-owned module of the network.
+        mem : The private memory dimension, empty by default.
+
+    Note
+    ----
+    Networks compare equal when they have the same name, shape, memory and
+    module, where missing modules compare equal and given modules compare
+    by identity. The dagger and rotation of a network reuse its module and
+    preserve its memory, with the public ports read in the new order. The
+    repr omits the module, which has no eval-able representation, so the
+    transparency rule ``eval(repr(x)) == x`` holds for a network without
+    one.
+
+    Example
+    -------
+    >>> import torch  # doctest: +EXTRA
+    >>> f = Network('f', Dim(2), Dim(3), module=torch.nn.Linear(5, 5))
+    >>> g = Network('g', Dim(3), Dim(2), module=torch.nn.Linear(5, 5))
+    >>> (f >> g).dom == (f >> g).cod == Dim(2)
+    True
+    >>> f.module(torch.ones(1, 5)).shape
+    torch.Size([1, 5])
+    >>> assert f[::-1].module is f.module
     """
+    module, mem = None, Dim()
+
+    def __init__(self, name: str, dom: Dim, cod: Dim,
+                 module: object = None, mem: Dim = Dim(),
+                 data=None, **params):
+        assert_isinstance(mem, Dim)
+        self.mem = mem
+        self.module = module if module is not None else data
+        super().__init__(name, dom, cod, data=self.module, **params)
+
+    def __call__(self, *args, **kwargs):
+        return self.module(*args, **kwargs)
+
+    def __repr__(self):
+        mem = f", mem={self.mem!r}" if self.mem else ""
+        return f"neural.Network({self.name!r}, {self.dom!r}, {self.cod!r}"\
+            f"{mem})"
+
+    def dagger(self) -> Network:
+        """ Reverse the public ports, keeping the module and the memory. """
+        return type(self)(
+            self.name, dom=self.cod, cod=self.dom, module=self.module,
+            mem=self.mem, is_dagger=not self.is_dagger, z=self.z)
+
+    def rotate(self, left=False) -> Network:
+        """ Rotate the public ports, keeping the module and the memory. """
+        del left
+        return type(self)(
+            self.name, dom=self.cod.r, cod=self.dom.r, module=self.module,
+            mem=self.mem, is_dagger=self.is_dagger, z=(self.z + 1) % 2)
+
+    def setoid(self):
+        """ Compare given modules by identity and include the memory. """
+        result = super().setoid()
+        module = None if self.module is None else id(self.module)
+        return result[:5] + (module, ) + result[6:] + (self.mem, )
+
+    def to_tree(self) -> dict:
+        """ Serialise the shape of the network, memory included. """
+        tree = super().to_tree()
+        tree['mem'] = self.mem.to_tree()
+        if self.z:
+            tree['z'] = self.z
+        return tree
+
+    @classmethod
+    def from_tree(cls, tree: dict) -> Network:
+        """ Deserialise a network, accepting trees without a memory. """
+        dom, cod = map(decode, (tree['dom'], tree['cod']))
+        mem = decode(tree['mem']) if 'mem' in tree else Dim()
+        return cls(
+            tree['name'], dom, cod, data=tree.get('data'), mem=mem,
+            is_dagger='is_dagger' in tree, z=tree.get('z', 0))
 
 
-class Cup(compact.Cup, Box):
+class Cup(compact.Cup, Network):
     """
     A neural cup is a compact cup between self-dual dimensions.
 
@@ -179,7 +282,7 @@ class Cup(compact.Cup, Box):
     """
 
 
-class Cap(compact.Cap, Box):
+class Cap(compact.Cap, Network):
     """
     A neural cap is a compact cap between self-dual dimensions.
 
@@ -189,7 +292,7 @@ class Cap(compact.Cap, Box):
     """
 
 
-class Permutation(compact.Permutation, Box):
+class Permutation(compact.Permutation, Network):
     """
     A neural permutation is a compact permutation between dimensions.
 
@@ -199,7 +302,7 @@ class Permutation(compact.Permutation, Box):
     """
 
 
-class Swap(Permutation, compact.Swap, Box):
+class Swap(Permutation, compact.Swap, Network):
     """
     A neural swap is a compact swap between dimensions.
 
@@ -207,55 +310,6 @@ class Swap(Permutation, compact.Swap, Box):
         left (Dim) : The dimension on the top left and bottom right.
         right (Dim) : The dimension on the top right and bottom left.
     """
-
-
-class Network(Box):
-    """
-    A network is a neural box together with a torch module computing it.
-
-    The module maps ``R ** width`` to ``R ** width`` for ``width`` the sum
-    of the domain and codomain dimensions, reading one incoming message and
-    emitting one outgoing message on every port, in the order given by the
-    domain followed by the codomain. Reusing the same network instance, or
-    the same module, as several boxes shares its weights.
-
-    Parameters:
-        name : The name of the network.
-        dom : The domain of the network, i.e. its input.
-        cod : The codomain of the network, i.e. its output.
-        module : The torch module of the network.
-
-    Note
-    ----
-    Networks compare equal when they have the same name, shape and module,
-    where missing modules compare equal and given modules compare by
-    identity. The dagger and rotation of a network reuse its module, with
-    the weights read in the new port order. The repr omits the module —
-    a torch module has no eval-able representation, so the transparency
-    rule ``eval(repr(x)) == x`` holds only for a network without one.
-
-    Example
-    -------
-    >>> import torch
-    >>> f = Network('f', Dim(2), Dim(3), module=torch.nn.Linear(5, 5))
-    >>> g = Network('g', Dim(3), Dim(2), module=torch.nn.Linear(5, 5))
-    >>> (f >> g).dom == (f >> g).cod == Dim(2)
-    True
-    >>> f.module(torch.ones(1, 5)).shape
-    torch.Size([1, 5])
-    >>> assert f[::-1].module is f.module
-    """
-    def __init__(self, name: str, dom: Dim, cod: Dim,
-                 module: "torch.nn.Module" = None, data=None, **params):
-        self.module = module if module is not None else data
-        super().__init__(name, dom, cod, data=self.module, **params)
-
-    def __call__(self, *args, **kwargs):
-        return self.module(*args, **kwargs)
-
-    def __repr__(self):
-        return f"neural.Network({self.name!r}, " \
-               f"dom={self.dom!r}, cod={self.cod!r})"
 
 
 class Functor(compact.Functor):
@@ -271,6 +325,32 @@ class Functor(compact.Functor):
 
 
 Hypergraph = hypergraph.Hypergraph[Diagram]
+
+
+class Para(para.Compact):
+    """
+    A parametric network is a network whose weights are boundary values
+    rather than hidden inside its modules, i.e. a parametric map
+    ``inside : dom @ param -> cod`` over :class:`Diagram` with ``param``
+    the dimension of the weights, see :mod:`discopy.para`. Composition and
+    tensor accumulate the parameter spaces of the layers and route them to
+    the right, so assembling a model does not whisker each layer with the
+    weights of all the others.
+
+    Example
+    -------
+    >>> linear = lambda n: Para(Dim(n), Dim(n), Network(
+    ...     f"linear{n}", Dim(n, n * n), Dim(n)), Dim(n * n))
+    >>> network = linear(2) >> linear(2)
+    >>> network.dom, network.cod, network.param
+    (Dim(2), Dim(2), Dim(4, 4))
+    >>> assert network.inside == linear(2).inside @ Dim(4) >> linear(2).inside
+    >>> assert Para.lift(Diagram.id(Dim(2))) == Para.id(Dim(2))
+    """
+    category = Diagram
+
+
+Equation = compact.Equation
 
 
 def box_ports(cmap, index: int) -> tuple[int, ...]:
@@ -411,10 +491,14 @@ class CMap(cmap.CMap[Diagram]):
             sum(getattr(port.obj, "inside", (port.obj, )))
             for port in self.ports)
 
+    @property
+    def port_dims(self) -> tuple[int, ...]:
+        """ The dimension carried by each port, see :attr:`port_widths`. """
+        return self.port_widths
+
     @cached_property
-    def module_list(self) -> "torch.nn.ModuleList":
-        """ The distinct torch modules of the networks inside the map. """
-        import torch
+    def modules(self) -> tuple:
+        """ The distinct modules of the networks inside the map. """
         modules, seen = [], set()
         for box in self.boxes:
             assert_isinstance(box, Network)
@@ -423,7 +507,41 @@ class CMap(cmap.CMap[Diagram]):
             if id(box.module) not in seen:
                 seen.add(id(box.module))
                 modules.append(box.module)
-        return torch.nn.ModuleList(modules)
+        return tuple(modules)
+
+    @cached_property
+    def module_indices(self) -> tuple[int, ...]:
+        """ The index in :attr:`modules` of each box occurrence's module. """
+        indices = {id(module): i for i, module in enumerate(self.modules)}
+        return tuple(indices[id(box.module)] for box in self.boxes)
+
+    @property
+    def memory_widths(self) -> tuple[int, ...]:
+        """ The private memory width of each box occurrence. """
+        return tuple(sum(box.mem.inside) for box in self.boxes)
+
+    @property
+    def input_ports(self) -> tuple[int, ...]:
+        """ The indices of the boundary input ports. """
+        return tuple(i for i, port in enumerate(self.ports)
+                     if port.kind == PortKind.INPUT)
+
+    @property
+    def output_ports(self) -> tuple[int, ...]:
+        """ The indices of the boundary output ports. """
+        return tuple(i for i, port in enumerate(self.ports)
+                     if port.kind == PortKind.OUTPUT)
+
+    @property
+    def has_boundary(self) -> bool:
+        """ Whether the map has any boundary port. """
+        return bool(len(self.dom) or len(self.cod))
+
+    @cached_property
+    def module_list(self) -> "torch.nn.ModuleList":
+        """ The distinct torch modules of the networks inside the map. """
+        import torch
+        return torch.nn.ModuleList(self.modules)
 
     def parameters(self, recurse: bool = True):
         """ The parameters of the networks inside the map. """
@@ -455,30 +573,24 @@ class CMap(cmap.CMap[Diagram]):
         self.module_list.to(*args, **kwargs)
         return self
 
-    def as_network(self, name: str = "network") -> Network:
+    def as_network(self, name: str = "network",
+                   backend: str | Backend = None) -> Network:
         """
-        Wrap the map back into a :class:`Network` with a fresh torch module
-        inside, whose forward pass is the message passing of the map. The
-        module registers the modules of the networks inside the map, so
-        that the result can be used inside a larger model.
+        Wrap the map back into a :class:`Network` with a fresh backend
+        module inside, whose forward pass is the message passing of the
+        map. The module registers the modules of the networks inside the
+        map, so that the result can be trained or nested inside a larger
+        model, and its private memory is the memory of every box occurrence
+        concatenated.
 
         Parameters:
             name : The name of the network.
+            backend : The backend name or instance, the current one by
+                      default.
         """
-        import torch
-        cmap = self
-
-        class CMapModule(torch.nn.Module):
-            """ A combinatorial map wrapped as a torch module. """
-            def __init__(self):
-                super().__init__()
-                self.networks = cmap.module_list
-
-            def forward(self, *args, **kwargs):
-                """ Message passing over the wrapped map. """
-                return cmap.forward(*args, **kwargs)
-
-        return Network(name, self.dom, self.cod, module=CMapModule())
+        backend = get_backend(backend)
+        return Network(name, self.dom, self.cod, module=backend.wrap(self),
+                       mem=Dim(sum(self.memory_widths)))
 
     def _prepare(self, x, init):
         """
@@ -496,19 +608,14 @@ class CMap(cmap.CMap[Diagram]):
             "dtype": proto.dtype, "device": proto.device}
         return batch_size, kwargs
 
-    def forward_reference(self, x: "torch.Tensor" = None, init=None,
-                          n_rounds: int = None, inject: bool = True):
+    def forward_reference(self, x=None, init=None, n_rounds: int = None,
+                          inject: bool = True, **kwargs):
         """
-        Synchronous message passing along the wires of the map, i.e. the
-        execution formula of the geometry of interaction. Reference
-        implementation: one Python call per box per round, kept for clarity
-        and for testing; see :meth:`forward` for the vectorized equivalent.
-
-        Every port carries one message of shape ``(batch_size, width)``.
-        The boundary input ports deliver the corresponding slice of ``x``
-        along their wires before the first round and after every round.
-        Each round, every network reads the incoming messages on its ports
-        and emits outgoing ones, then all messages travel along the wires.
+        Synchronous message passing along the wires of the map, one Python
+        call per box per round, on any backend: the :class:`Execution` of
+        :mod:`discopy.neural.execution`. It is the reference the vectorised
+        :meth:`forward` is checked against, and the path that carries
+        private memory, the causal schedule and every backend but torch.
 
         Parameters:
             x : The input, of shape ``(batch_size, sum of domain widths)``.
@@ -517,65 +624,18 @@ class CMap(cmap.CMap[Diagram]):
             n_rounds : The number of rounds, the number of boxes by default.
             inject : Whether to re-add ``init`` to the incoming messages at
                      every round rather than just the first.
-
-        Returns:
-            The final messages at the boundary output ports, concatenated,
-            or the tuple of final per-box outgoing messages in logical port
-            order when the map is closed.
+            kwargs : ``memory``, ``return_memory``, ``causal``, ``backend``
+                     and ``modules``, see :meth:`forward`.
         """
-        import torch
-        ports = self.ports
-        widths = self.port_widths
-        n_rounds = len(self.boxes) if n_rounds is None else n_rounds
-        batch_size, kwargs = self._prepare(x, init)
-
-        def zeros(width):
-            return torch.zeros(batch_size, width, **kwargs)
-
-        input_ports = [i for i, port in enumerate(ports)
-                       if port.kind == PortKind.INPUT]
-        x_slices = dict(zip(input_ports, torch.split(
-            x, [widths[i] for i in input_ports], dim=-1))) if x is not None\
-            else {i: zeros(widths[i]) for i in input_ports}
-        if init is not None:
-            if isinstance(init, torch.Tensor):
-                init = torch.split(init, list(widths), dim=-1)
-            init = [message if message is not None else zeros(width)
-                    for message, width in zip(init, widths)]
-
-        incoming = [zeros(width) for width in widths]\
-            if init is None else list(init)
-        for i in input_ports:
-            incoming[self.edges[i]] = incoming[self.edges[i]] + x_slices[i]
-        box_outputs = [None] * len(self.boxes)
-
-        for _ in range(n_rounds):
-            outgoing = [None] * len(ports)
-            for i in input_ports:
-                outgoing[i] = x_slices[i]
-            for box_index, box in enumerate(self.boxes):
-                assert_isinstance(box, Network)
-                box_ports = self.box_ports(box_index)
-                output = box.module(torch.cat(
-                    [incoming[i] for i in box_ports], dim=-1))
-                box_outputs[box_index] = output
-                for i, chunk in zip(box_ports, torch.split(
-                        output, [widths[i] for i in box_ports], dim=-1)):
-                    outgoing[i] = chunk
-            incoming = [
-                outgoing[self.edges[i]]
-                if outgoing[self.edges[i]] is not None else zeros(width)
-                for i, width in enumerate(widths)]
-            if inject and init is not None:
-                incoming = [message + initial
-                            for message, initial in zip(incoming, init)]
-
-        if len(self.dom) or len(self.cod):
-            output_ports = [i for i, port in enumerate(ports)
-                            if port.kind == PortKind.OUTPUT]
-            return torch.cat([incoming[i] for i in output_ports], dim=-1)\
-                if output_ports else zeros(0)
-        return tuple(box_outputs)
+        causal = kwargs.pop("causal", False)
+        return_memory = kwargs.pop("return_memory", False)
+        execution = Execution(self, x, init, **kwargs)
+        if causal:
+            if n_rounds is not None:
+                raise ValueError(
+                    "A causal schedule cannot be combined with n_rounds.")
+            return execution.forward_causal(inject, return_memory)
+        return execution.forward(n_rounds, inject, return_memory)
 
     @cached_property
     def _routing(self) -> dict:
@@ -837,16 +897,24 @@ class CMap(cmap.CMap[Diagram]):
             cache[device, n_rounds] = self._compiled(run)
         return cache[device, n_rounds]
 
-    def forward(self, x: "torch.Tensor" = None, init=None,
-                n_rounds: int = None, inject: bool = True,
-                return_rounds: bool = False, return_flat: bool = False):
+    def forward(self, x=None, init=None, n_rounds: int = None,
+                inject: bool = True, return_rounds: bool = False,
+                return_flat: bool = False, memory=None,
+                return_memory: bool = False, causal: bool = False,
+                backend: str | Backend = None, modules=None):
         """
-        Vectorized synchronous message passing, equivalent to
-        :meth:`forward_reference`: all the messages live in one flat tensor
-        of shape ``(batch_size, total width)``, routing along the wires is
-        one permutation of the last axis and all the boxes sharing a module
-        and a port signature are evaluated in one batched call. It runs on
-        the device of the input, the initial messages or the parameters.
+        Synchronous message passing along the wires of the map, i.e. the
+        execution formula of the geometry of interaction.
+
+        On torch tensors with the modules of the boxes, no private memory
+        and no causal schedule, this is vectorised: all the messages live in
+        one flat tensor of shape ``(batch_size, total width)``, routing
+        along the wires is one permutation of the last axis and all the
+        boxes sharing a module and a port signature are evaluated in one
+        batched call, on the device of the input, the initial messages or
+        the parameters. Everything else -- another backend, replacement
+        modules, private memory, the causal schedule -- runs the reference
+        :meth:`forward_reference`, one call per box per round.
 
         Parameters:
             x : The input, of shape ``(batch_size, sum of domain widths)``.
@@ -867,6 +935,17 @@ class CMap(cmap.CMap[Diagram]):
                           rebuild, so reading a family of ports from it
                           directly skips that round-trip and keeps the
                           backward graph small; see :meth:`compile`.
+            memory : The initial private memory, per box occurrence or as
+                     one tensor of the concatenated memory dimensions.
+            return_memory : Whether to return the final per-box memories
+                            together with the usual result.
+            causal : Whether to activate every box once in topological
+                     order, for a feed-forward map; not combined with
+                     ``n_rounds``.
+            backend : The backend name or instance, the current one by
+                      default.
+            modules : The backend-owned modules in :attr:`modules` order,
+                      the modules of the boxes by default.
 
         Note
         ----
@@ -876,6 +955,18 @@ class CMap(cmap.CMap[Diagram]):
         to port order where the caller sees them, so the results are
         identical to the port-order path element for element.
         """
+        if modules is not None and len(modules) == len(self.modules) and all(
+                given is own for given, own in zip(modules, self.modules)):
+            modules = None
+        if causal or return_memory or any(self.memory_widths) or any(
+                given is not None for given in (memory, backend, modules)):
+            if return_rounds or return_flat:
+                raise ValueError(
+                    "return_rounds and return_flat are only vectorised.")
+            return self.forward_reference(
+                x, init, n_rounds, inject, memory=memory,
+                return_memory=return_memory, causal=causal,
+                backend=backend, modules=modules)
         import torch
         routing = self._routing
         widths, offsets = self.port_widths, routing["offsets"]

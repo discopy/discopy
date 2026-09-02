@@ -8,8 +8,9 @@ import sys
 from pytest import importorskip, raises
 
 from discopy import compact
-from discopy.neural import *
-from discopy.neural import CMap, Diagram, Functor, Id
+from discopy.neural import (
+    BACKENDS, Backend, CMap, Cap, Cup, Diagram, Dim, Equation, Execution, Id,
+    Network, Para, Swap, get_backend)
 
 from discopy.python.finset import Permutation
 from discopy.utils import AxiomError, dumps, loads
@@ -34,7 +35,8 @@ def test_backend_contract():
         "zeros", "split", "concatenate", "activate",
         "prototype", "wrap", "zeros_module"}
     assert Backend.__abstractmethods__ == methods
-    assert BACKENDS == {'pytorch': 'discopy.neural.torch.PyTorch'}
+    assert BACKENDS == {'pytorch': 'discopy.neural.torch.PyTorch',
+                        'jax': 'discopy.neural.jax.JAX'}
     with raises(TypeError):
         Backend()
     importorskip("torch")
@@ -66,7 +68,7 @@ def test_network_as_box():
     g = Network('g', Dim(3), Dim(2))
     assert (f >> g).dom == Dim(2) and (f @ g).cod == Dim(3, 2)
     assert f.dagger().dom == Dim(3) and f.rotate().cod == Dim(2)
-    assert repr(f) == "neural.network.Network('f', Dim(2), Dim(3))"
+    assert repr(f) == "neural.Network('f', Dim(2), Dim(3))"
     assert Network('f', Dim(2), Dim(3)) == Network('f', Dim(2), Dim(3))
     one, other = (
         Network('f', Dim(2), Dim(3), module=object()) for _ in range(2))

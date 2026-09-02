@@ -58,6 +58,26 @@ assumed.
 The modules
 -----------
 
+.. autosummary::
+    :template: module.rst
+    :toctree: ../_api
+
+    discopy.neural.core
+    discopy.neural.execution
+    discopy.neural.backend
+    discopy.neural.map
+    discopy.neural.batch
+    discopy.neural.signature
+    discopy.neural.laws
+    discopy.neural.rdiff
+
+The torch-dependent modules -- :mod:`~discopy.neural.model`,
+:mod:`~discopy.neural.solver`, :mod:`~discopy.neural.cells` and the
+:mod:`~discopy.neural.torch` and :mod:`~discopy.neural.jax` backends -- are
+left out of the summary so that the documentation builds without a tensor
+framework installed.
+
+
 * :mod:`~discopy.neural.model` : :class:`MapNN`, the central abstraction.
 * :mod:`~discopy.neural.map` : the interpretation and the compiled
   :class:`~discopy.neural.map.Interaction`, together with the formal
@@ -77,7 +97,12 @@ The modules
   strongly a learned module keeps them.
 * :mod:`~discopy.neural.core` : the compact closed category itself --
   :class:`Dim` objects, :class:`Network` boxes and the :class:`CMap` whose
-  forward pass is the execution formula.
+  forward pass is the execution formula, vectorised on torch.
+* :mod:`~discopy.neural.execution` : the execution formula one call per box
+  per round, on any :mod:`~discopy.neural.backend`: :mod:`torch
+  <discopy.neural.torch>` and :mod:`jax <discopy.neural.jax>`.
+* :mod:`~discopy.neural.rdiff` : reverse derivatives of neural diagrams, as
+  the optics of :mod:`discopy.optics`.
 
 Note
 ----
@@ -97,22 +122,26 @@ from __future__ import annotations
 
 import importlib
 
+from discopy.neural.backend import BACKENDS, Backend, backend, get_backend
 from discopy.neural.core import (
-    Box,
     CMap,
     Cap,
     Cup,
     Diagram,
     Dim,
+    Equation,
     Functor,
     Hypergraph,
     Id,
     Network,
+    Para,
+    Permutation,
     Swap,
     box_ports,
     from_wiring,
 )
-from discopy.neural import batch, core, laws, signature
+from discopy.neural.execution import Execution
+from discopy.neural import batch, core, execution, laws, rdiff, signature
 from discopy.neural.batch import Batch, bucket
 from discopy.neural.laws import (
     Action,
@@ -155,15 +184,16 @@ DEFERRED = {
 #: is deliberately kept out of ``__all__``: a star import must not shadow
 #: the builtin ``map``.
 __all__ = [
-    "ACT", "Action", "Batch", "Box", "CMap", "Cap", "Cup", "Cyclic",
-    "Diagram", "Dim", "FixedPoint", "Functor", "Gate", "HaltHead",
-    "Hypergraph", "Id", "Interaction", "InteractionMap", "Iterate", "Law",
-    "MapNN", "Mode", "Network", "Orbit", "ParamMap", "Recursion", "Refresh",
-    "Relation", "Signature", "Site", "Solver", "Strictness", "Swap", "Sym",
+    "ACT", "Action", "BACKENDS", "Backend", "Batch", "CMap", "Cap", "Cup",
+    "Cyclic", "Diagram", "Dim", "Equation", "Execution", "FixedPoint",
+    "Functor", "Gate", "HaltHead", "Hypergraph", "Id", "Interaction",
+    "InteractionMap", "Iterate", "Law", "MapNN", "Mode", "Network", "Orbit",
+    "Para", "ParamMap", "Permutation", "Recursion", "Refresh", "Relation",
+    "Signature", "Site", "Solver", "Strictness", "Swap", "Sym", "backend",
     "batch", "box_ports", "bucket", "cells", "check_equivariant", "core",
-    "from_incidence", "from_relation", "from_wiring", "fusion_residual",
-    "interaction_spec", "interpret", "laws", "model", "signature", "solver",
-    "symmetry",
+    "execution", "from_incidence", "from_relation", "from_wiring",
+    "fusion_residual", "get_backend", "interaction_spec", "interpret",
+    "laws", "model", "rdiff", "signature", "solver", "symmetry",
 ]
 
 
