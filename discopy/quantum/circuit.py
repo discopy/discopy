@@ -247,11 +247,11 @@ class Circuit(tensor.Diagram[complex]):
     reidemeister_1_cap = tensor.Diagram.reidemeister_1_cap.inapplicable(
         BELL_WIRING)
 
-    trace_superposing_left = tensor.Diagram.trace_superposing_left\
-        .inapplicable(BELL_WIRING)
+    trace_superposing_left = (
+        tensor.Diagram.trace_superposing_left.inapplicable(BELL_WIRING))
 
-    trace_superposing_right = tensor.Diagram.trace_superposing_right\
-        .inapplicable(BELL_WIRING)
+    trace_superposing_right = (
+        tensor.Diagram.trace_superposing_right.inapplicable(BELL_WIRING))
 
     trace_naturality_left = tensor.Diagram.trace_naturality_left\
         .inapplicable(BELL_WIRING)

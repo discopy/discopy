@@ -374,8 +374,8 @@ class Ket(SelfConjugate, QuantumGate):
         self._digits, self._dim, self.draw_as_brakets = bitstring, 2, True
 
     def __repr__(self):
-        return factory_name(type(self))\
-            + f"({', '.join(map(repr, self.bitstring))})"
+        return (factory_name(type(self))
+                + f"({', '.join(map(repr, self.bitstring))})")
 
     @property
     def bitstring(self):
@@ -411,8 +411,8 @@ class Bra(SelfConjugate, QuantumGate):
         self._digits, self._dim, self.draw_as_brakets = bitstring, 2, True
 
     def __repr__(self):
-        return factory_name(type(self))\
-            + f"({', '.join(map(repr, self.bitstring))})"
+        return (factory_name(type(self))
+                + f"({', '.join(map(repr, self.bitstring))})")
 
     @property
     def bitstring(self):
