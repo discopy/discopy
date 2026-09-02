@@ -128,8 +128,6 @@ if TYPE_CHECKING:
     import torch
 
 
-# --- what a generator is ---------------------------------------------------
-
 @dataclass
 class ParamMap(para.Symmetric):
     """
@@ -167,7 +165,7 @@ class ParamMap(para.Symmetric):
     >>> (f @ g).dom, (f @ g).cod, (f @ g).params
     (Dim(2, 3), Dim(3, 4), Dim(6, 12))
     >>> (f >> g).inside.boxes[1]
-    neural.Network('g', Dim(3, 12), Dim(4))
+    neural.core.Network('g', Dim(3, 12), Dim(4))
     >>> data = lambda one: (one.dom, one.cod, one.params)
     >>> data(ParamMap.id(Dim(2)) >> f) == data(f) == data(
     ...     f >> ParamMap.id(Dim(3)))
@@ -393,8 +391,6 @@ def interaction_spec(network, laws: tuple = ()) -> InteractionMap:
         network.name, network.dom, network.cod, params, laws)
 
 
-# --- what a diagram compiles to --------------------------------------------
-
 class Interaction:
     """
     A compiled diagram: the global interaction
@@ -454,8 +450,6 @@ class Interaction:
         self.offsets, self.total = offsets, total
         self._cache: dict = {}
 
-    # --- what it denotes ---------------------------------------------------
-
     @property
     def local(self) -> tuple:
         """ The interaction :math:`\\Phi_f` of each box, in box order. """
@@ -499,8 +493,6 @@ class Interaction:
     def __repr__(self):
         return f"Interaction({len(self.cmap.boxes)} boxes, " \
                f"{self.n_wires} wires, state width {self.total})"
-
-    # --- how it runs -------------------------------------------------------
 
     def compile(self, **kwargs) -> Interaction:
         """
@@ -578,8 +570,6 @@ class Interaction:
                                position[self.cmap.edges[port]] + width)],
                 dtype=torch.long, device=flat.device)
         return flat[:, self._cache[key]]
-
-    # --- how it is addressed -----------------------------------------------
 
     def index(self, ports: tuple[int, ...], device=None) -> "torch.Tensor":
         """

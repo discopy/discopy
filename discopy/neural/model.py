@@ -128,8 +128,6 @@ class MapNN(torch.nn.Module):
         self._compiled: OrderedDict = OrderedDict()
         self._rounds: dict = None
 
-    # --- syntax to semantics ------------------------------------------------
-
     def compile(self, diagram) -> Interaction:
         """
         The global interaction a diagram means under this interpretation,
@@ -204,8 +202,6 @@ class MapNN(torch.nn.Module):
             compiled.compile(**kwargs)
         return self
 
-    # --- the state ----------------------------------------------------------
-
     def initial(self, diagram, values: Mapping = None, rows: int = None,
                 dtype=None, device=None):
         """
@@ -268,8 +264,6 @@ class MapNN(torch.nn.Module):
             key : A ``(generator name, role)`` pair.
         """
         return self.compile(diagram).sites(key)
-
-    # --- running it ---------------------------------------------------------
 
     def run(self, diagram, state, deep: bool = False, **overrides):
         """

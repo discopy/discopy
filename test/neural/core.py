@@ -68,7 +68,7 @@ def test_network_as_box():
     g = Network('g', Dim(3), Dim(2))
     assert (f >> g).dom == Dim(2) and (f @ g).cod == Dim(3, 2)
     assert f.dagger().dom == Dim(3) and f.rotate().cod == Dim(2)
-    assert repr(f) == "neural.Network('f', Dim(2), Dim(3))"
+    assert repr(f) == "neural.core.Network('f', Dim(2), Dim(3))"
     assert Network('f', Dim(2), Dim(3)) == Network('f', Dim(2), Dim(3))
     one, other = (
         Network('f', Dim(2), Dim(3), module=object()) for _ in range(2))

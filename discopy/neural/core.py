@@ -232,8 +232,8 @@ class Network(compact.Box, Diagram):
 
     def __repr__(self):
         mem = f", mem={self.mem!r}" if self.mem else ""
-        return f"neural.Network({self.name!r}, {self.dom!r}, {self.cod!r}"\
-            f"{mem})"
+        return f"{factory_name(type(self))}({self.name!r}, {self.dom!r}, "\
+            f"{self.cod!r}{mem})"
 
     def dagger(self) -> Network:
         """ Reverse the public ports, keeping the module and the memory. """
@@ -317,8 +317,9 @@ class Functor(compact.Functor):
     A neural functor is a compact functor between neural diagrams.
 
     Parameters:
-        ob (Mapping[Dim, Dim]) : Map from atomic :class:`Dim` to `cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
+        ob_map (Mapping[Dim, Dim]) : Map from atomic :class:`Dim` to `cod.ob`.
+        ar_map (Mapping[Network, Diagram]) : Map from :class:`Network` to
+            :code:`cod`.
         cod (Category) : The codomain of the functor.
     """
     dom = cod = Diagram

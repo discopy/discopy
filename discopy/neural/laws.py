@@ -230,8 +230,6 @@ def symmetry(signature: Signature,
         for orbit in signature.orbits if not action(orbit).is_trivial)
 
 
-# --- the executable diagnostics --------------------------------------------
-
 def check_equivariant(module, signature: Signature, widths: Mapping,
                       atol: float = 1e-5, batch: int = 4,
                       seed: int = 0) -> dict:

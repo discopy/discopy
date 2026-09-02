@@ -358,8 +358,6 @@ def leg_generators(sym: Sym, arity: int) -> list[tuple[int, ...]]:
     return [swap, rotation]
 
 
-# --- drawing a wiring out of a family's combinatorics ----------------------
-
 def _wire_loops(wires: list, index: int, signature: Signature) -> None:
     """
     Close the traced ports of a box onto themselves.
