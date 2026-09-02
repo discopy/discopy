@@ -110,8 +110,10 @@ COUNTEREXAMPLES = (
 - `reason` says what broke and links the issue when there is one.
 
 The replay test marks a record xfail exactly when its axiom is declared
-`.failing`, so a record never needs updating when the bug is fixed — only
-the `.failing` declaration moves.
+`.failing` and checks the equation the axiom's `AxiomFailure` carries, so
+the xfail is earned by the arguments falsifying the law — a typo'd record
+shows up as an unexpected pass — and a record never needs updating when
+the bug is fixed: only the `.failing` declaration moves.
 
 Never delete a record because it is inconvenient; a record only leaves
 when the law itself leaves the codebase.
