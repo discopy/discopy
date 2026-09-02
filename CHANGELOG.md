@@ -190,6 +190,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `taft(n)`, the smallest algebras with a pivot of order `n` (Sweedler's
   algebra is `n = 2`), realise the Kauffman–Radford ribbon criterion
   ([#484](https://github.com/discopy/discopy/pull/484)).
+- Syntactic beta reduction on `closed.Term` with capture-avoiding
+  substitution, and `closed.BohmTree` as the normal form: its arguments are
+  reduced lazily against a shared budget, with pluggable reduction
+  strategies defaulting to leftmost-outermost
+  ([#442](https://github.com/discopy/discopy/pull/442)).
 
 ### Changed
 
