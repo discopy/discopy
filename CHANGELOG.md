@@ -389,6 +389,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `traced.Trace.__init__`'s `name` ternary had `+` binding tighter than the
+  conditional, so every right trace (`left=False`) was named `")"` instead of
+  `"Trace(f)"`, breaking `STYLE.md`'s transparency rule for its internal
+  generator representation. Already fixed independently on `main` via #532;
+  this entry documents #628's own regression test
+  ([#604](https://github.com/discopy/discopy/issues/604)).
 - `style-review.yml`'s hand-over to the correctness reviewer, and its
   token generation, ran on every style review rather than the intended
   ones. Both conditions were written as `if: >` folding a wrapped
