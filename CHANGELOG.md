@@ -389,6 +389,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `traced.Sum`, `pivotal.Sum`, `compact.Sum` and `frobenius.Sum` were missing,
+  so a functor with a formal sum in its codomain (e.g. `ar_map=lambda x: x
+  + x`) crashed on any diagram in one of these four categories, unlike every
+  other level of the hierarchy
+  ([#207](https://github.com/discopy/discopy/issues/207)).
 - `style-review.yml`'s hand-over to the correctness reviewer, and its
   token generation, ran on every style review rather than the intended
   ones. Both conditions were written as `if: >` folding a wrapped

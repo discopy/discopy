@@ -64,3 +64,9 @@ def test_mixed_Layer_rotation_and_transpose():
     assert diagram.transpose_box(0, 0).boxes[-1] == f
     assert f.r in diagram.transpose_box(0, 1).boxes
     assert list(diagram.snake_removal()) == []
+
+
+def test_Sum():
+    f = Box('f', 'x', 'x')
+    assert Sum([f]) == f
+    assert isinstance(f + f, Sum) and (f + f).terms == (f, f)

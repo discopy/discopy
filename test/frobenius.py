@@ -63,3 +63,9 @@ def test_spider_decomposition():
     assert Spider(5, 1, n).unfuse() == (Spider(2, 1, n) @ Spider(2, 1, n)
                                            @ Id(n) >> Spider(2, 1, n) @ Id(n)
                                            >> Spider(2, 1, n))
+
+
+def test_Sum():
+    f = Box('f', 'x', 'x')
+    assert Sum([f]) == f
+    assert isinstance(f + f, Sum) and (f + f).terms == (f, f)
