@@ -7,9 +7,15 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+# Supersede a pull request's own runs, but let every commit on main keep the
+# run that proves it green: PR runs are derandomised so they re-draw the same
+# examples, while main runs are where the suite searches new ground.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   proptest:
