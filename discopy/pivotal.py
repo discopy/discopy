@@ -73,9 +73,14 @@ class Wire(rigid.Wire):
 
     @classmethod
     def strategy(cls, **params):
-        """Generate pivotal objects with parity-valued winding."""
+        """
+        Generate pivotal objects with parity-valued winding.
+
+        The bounds are defaults rather than pins: a subclass whose objects
+        are more self-dual still narrows them by passing its own.
+        """
         return super().strategy(
-            **dict(params, min_winding=0, max_winding=1))
+            **{"min_winding": 0, "max_winding": 1, **params})
 
     def dagger(self) -> Wire:
         """
