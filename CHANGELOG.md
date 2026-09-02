@@ -21,7 +21,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   derivatives of gradient-based learning, and a parametric lens
   `para.Symmetric[Lens[Function]]` a neural network with its weights'
   gradients beside its input's
-  ([#699](https://github.com/discopy/discopy/pull/699)).
+  ([#701](https://github.com/discopy/discopy/pull/701)).
 - The style review keeps score. Every review it posts records the remarks
   it made, hidden in its own body, so the next round can read them back
   whole rather than parse its own prose. That next round is one request
