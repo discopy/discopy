@@ -443,7 +443,7 @@ def interpret(source, ob: Mapping, ar: Mapping) -> CMap:
     if not hasattr(source, "edges"):
         source = source.to_map()
     if len(source.dom) or len(source.cod):
-        raise ValueError("only a closed diagram compiles to an interaction")
+        raise ValueError("only a closed diagram compiles to a map")
     image = functor(source, ob, ar)
     boxes = tuple(image(box) for box in source.boxes)
     for box, network in zip(source.boxes, boxes):
