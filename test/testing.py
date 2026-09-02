@@ -14,12 +14,12 @@ from pytest import raises
 
 from discopy import biclosed, cat, feedback, monoidal, rigid, testing, traced
 from discopy.testing import (
-    C0, C1, Atomic, Bifunctor, BoundaryConnected, ComposablePair,
-    ComposableTriple, FeedbackJoining, FeedbackVanishing, HomogeneousMemory,
-    HorizontalPair, LeftCurrying, Natural, NonEmpty, Relabelled, Relabelling,
-    RightCurrying, Small, TraceDinaturalityLeft, TraceDinaturalityRight,
-    TraceNaturalityLeft, TraceNaturalityRight, TraceSuperposing, axiom,
-    resolve)
+    C0, C1, Atomic, Axiom, AxiomFailure, Bifunctor, BoundaryConnected,
+    ComposablePair, ComposableTriple, FeedbackJoining, FeedbackVanishing,
+    HomogeneousMemory, HorizontalPair, LeftCurrying, Natural, NonEmpty,
+    Relabelled, Relabelling, RightCurrying, Small, TraceDinaturalityLeft,
+    TraceDinaturalityRight, TraceNaturalityLeft, TraceNaturalityRight,
+    TraceSuperposing, axiom, resolve)
 from discopy.utils import AxiomError
 
 
@@ -40,7 +40,7 @@ def test_Atomic():
     assert Atomic(x).value == x
     with raises(ValueError):
         Atomic(x @ y)
-    find(Atomic.strategy(factory=monoidal.Ty),
+    find(Atomic[monoidal.Ty].strategy(),
          lambda value: len(value.value) == 1)
 
 
@@ -49,8 +49,10 @@ def test_NonEmpty():
     assert NonEmpty(x).value == x
     with raises(ValueError):
         NonEmpty(monoidal.Ty())
-    find(NonEmpty.strategy(factory=monoidal.Ty),
+    find(NonEmpty[monoidal.Ty].strategy(),
          lambda value: len(value.value) > 1)
+    nested = find(resolve(NonEmpty[ComposablePair[cat.Arrow]]), lambda _: True)
+    assert isinstance(nested.value, ComposablePair)
 
 
 def test_ComposablePair():
@@ -61,7 +63,7 @@ def test_ComposablePair():
         ComposablePair(f)
     with raises(AxiomError):
         ComposablePair(f, f)
-    find(ComposablePair.strategy(factory=cat.Arrow),
+    find(ComposablePair[cat.Arrow].strategy(),
          lambda value: all(term.inside for term in value))
 
 
@@ -71,7 +73,7 @@ def test_ComposableTriple():
     assert ComposableTriple(f, g, f) == (f, g, f)
     with raises(AxiomError):
         ComposableTriple(f, f, f)
-    find(ComposableTriple.strategy(factory=cat.Arrow),
+    find(ComposableTriple[cat.Arrow].strategy(),
          lambda value: all(term.inside for term in value))
 
 
@@ -81,7 +83,7 @@ def test_HorizontalPair():
     assert HorizontalPair(f, g) == (f, g)
     with raises(ValueError):
         HorizontalPair(f)
-    find(HorizontalPair.strategy(factory=monoidal.Diagram),
+    find(HorizontalPair[monoidal.Diagram].strategy(),
          lambda value: all(term.boxes for term in value))
 
 
@@ -91,7 +93,7 @@ def test_Bifunctor():
     assert Bifunctor(f, f, g, g) == (f, f, g, g)
     with raises(AxiomError):
         Bifunctor(f, f, f, f)
-    find(Bifunctor.strategy(factory=monoidal.Diagram),
+    find(Bifunctor[monoidal.Diagram].strategy(),
          lambda value: all(
              value[column].boxes or value[column + 2].boxes
              for column in range(2)))
@@ -102,7 +104,7 @@ def test_TraceSuperposing():
     assert TraceSuperposing(traced.Id(x), y) == (traced.Id(x), y)
     with raises(AxiomError):
         TraceSuperposing(traced.Box('f', x, y), z)
-    find(TraceSuperposing.strategy(factory=traced.Diagram),
+    find(TraceSuperposing[traced.Diagram].strategy(),
          lambda value: len(value[1]) > 1)
 
 
@@ -112,7 +114,7 @@ def test_TraceNaturalityLeft():
     assert TraceNaturalityLeft(f, x, g) == (f, x, g)
     with raises(ValueError):
         TraceNaturalityLeft(traced.Id(x @ y), x, traced.Id(x))
-    find(TraceNaturalityLeft.strategy(factory=traced.Diagram),
+    find(TraceNaturalityLeft[traced.Diagram].strategy(),
          lambda value: value[2].dom != value[2].cod)
 
 
@@ -122,7 +124,7 @@ def test_TraceNaturalityRight():
     assert TraceNaturalityRight(f, x, g) == (f, x, g)
     with raises(ValueError):
         TraceNaturalityRight(traced.Id(x @ y), x, traced.Id(y))
-    find(TraceNaturalityRight.strategy(factory=traced.Diagram),
+    find(TraceNaturalityRight[traced.Diagram].strategy(),
          lambda value: value[2].dom != value[2].cod)
 
 
@@ -132,7 +134,7 @@ def test_TraceDinaturalityLeft():
     assert TraceDinaturalityLeft(f, g) == (f, g)
     with raises(ValueError):
         TraceDinaturalityLeft(g, f)
-    find(TraceDinaturalityLeft.strategy(factory=traced.Diagram),
+    find(TraceDinaturalityLeft[traced.Diagram].strategy(),
          lambda value: value[1].dom != value[1].cod)
 
 
@@ -142,7 +144,7 @@ def test_TraceDinaturalityRight():
     assert TraceDinaturalityRight(f, g) == (f, g)
     with raises(ValueError):
         TraceDinaturalityRight(g, f)
-    shape = find(TraceDinaturalityRight.strategy(factory=traced.Diagram),
+    shape = find(TraceDinaturalityRight[traced.Diagram].strategy(),
                  lambda value: value[1].dom != value[1].cod)
     sliding = shape[1]
     assert shape[0].dom[-len(sliding.cod):] == sliding.cod
@@ -155,7 +157,7 @@ def test_LeftCurrying():
     assert LeftCurrying(evaluation, x, y) == (evaluation, x, y)
     with raises(ValueError):
         LeftCurrying(evaluation, y, x)
-    find(LeftCurrying.strategy(factory=biclosed.Diagram),
+    find(LeftCurrying[biclosed.Diagram].strategy(),
          lambda value: value[1] != value[2])
 
 
@@ -165,7 +167,7 @@ def test_RightCurrying():
     assert RightCurrying(evaluation, x, y) == (evaluation, x, y)
     with raises(ValueError):
         RightCurrying(evaluation, y, x)
-    find(RightCurrying.strategy(factory=biclosed.Diagram),
+    find(RightCurrying[biclosed.Diagram].strategy(),
          lambda value: value[1] != value[2])
 
 
@@ -175,7 +177,7 @@ def test_FeedbackVanishing():
     assert FeedbackVanishing(f, unit) == (f, unit)
     with raises(ValueError):
         FeedbackVanishing(f, x)
-    find(FeedbackVanishing.strategy(factory=feedback.Diagram),
+    find(FeedbackVanishing[feedback.Diagram].strategy(),
          lambda value: value[0].boxes)
 
 
@@ -191,7 +193,7 @@ def test_FeedbackJoining():
     with raises(ValueError):
         FeedbackJoining(
             feedback.Box('g', x @ memory.delay(), x @ memory.delay()), memory)
-    shape = find(FeedbackJoining.strategy(factory=feedback.Diagram),
+    shape = find(FeedbackJoining[feedback.Diagram].strategy(),
                  lambda value: value[1][:1] != value[1][1:])
     assert shape[0].cod[-2:] == shape[1]
 
@@ -204,7 +206,7 @@ def test_HomogeneousMemory():
     g = feedback.Box('g', x @ (m @ n).delay(), x @ m @ n)
     with raises(ValueError):
         HomogeneousMemory(g, m @ n)
-    find(HomogeneousMemory.strategy(factory=feedback.Diagram),
+    find(HomogeneousMemory[feedback.Diagram].strategy(),
          lambda value: True)
 
 
@@ -240,20 +242,23 @@ def test_Axiom():
     with raises(TypeError):
         law.falsify()
     assert law.bind(cat.Arrow)(cat.Id(cat.Ob('x')))
-    broken = cat.Arrow.unitality.failing("Never holds.").bind(cat.Arrow)
-    with raises(AxiomError):
-        broken(cat.Box('f', cat.Ob('x'), cat.Ob('y')))
+    assert Axiom(classmethod(lambda cls: NotImplemented)).bind(cat.Arrow)()\
+        is NotImplemented
+    broken = cat.Arrow.unitality.weaken(f=Atomic[C1]).failing("Never holds.")
+    assert broken.subspaces == {"f": Atomic[C1]}
+    with raises(AxiomFailure) as failure:
+        broken(Atomic(cat.Box('f', cat.Ob('x'), cat.Ob('y'))))
+    assert failure.value.equation
 
 
 def test_modulo():
-    law = cat.Arrow.unitality.modulo(lambda term: term.dom).bind(cat.Arrow)
+    law = cat.Arrow.unitality.modulo(lambda term: term.dom)
     assert law(cat.Box('f', cat.Ob('x'), cat.Ob('y')))
 
 
 def test_weaken():
     for subspace in (Atomic[C1], Atomic[monoidal.Ty]):
-        law = monoidal.Ty.monoid_unitality.weaken(x=subspace)\
-            .bind(monoidal.Ty)
+        law = monoidal.Ty.monoid_unitality.weaken(x=subspace)
         assert law.modulo(lambda term: term).subspaces == law.subspaces
         args = find(law.strategy(), lambda _: True)
         assert isinstance(args[0], Atomic) and law(*args)
@@ -279,6 +284,9 @@ def test_inapplicable():
     assert unitality() is NotImplemented
     assert unitality.__doc__ == "No identities."
     assert not unitality.parameters and not unitality.broken
+    dropped = cat.Arrow.unitality.weaken(f=Atomic[C1])\
+        .inapplicable("No identities.")
+    assert dropped.name == "unitality" and not dropped.subspaces
 
 
 def test_Small():
@@ -286,7 +294,7 @@ def test_Small():
     assert Small(x).value == x
     with raises(ValueError):
         Small(x @ x)
-    find(Small.strategy(factory=monoidal.Ty),
+    find(Small[monoidal.Ty].strategy(),
          lambda value: len(value.value) == 1)
     with raises(TypeError):
         resolve(int)
@@ -303,5 +311,5 @@ def test_BoundaryConnected():
             f @ scalar, scalar, scalar.to_map(), scalar.to_hypergraph()):
         with raises(ValueError):
             BoundaryConnected(value)
-    find(BoundaryConnected.strategy(factory=monoidal.Diagram),
+    find(BoundaryConnected[monoidal.Diagram].strategy(),
          lambda value: bool(value.value.boxes))
