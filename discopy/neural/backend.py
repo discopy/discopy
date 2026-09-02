@@ -71,15 +71,15 @@ class Backend(ABC):
 
     @abstractmethod
     def index(self, indices: tuple[int, ...], like=None):
-        """ An integer array of positions along the last axis. """
+        """ Return an integer array of positions along the last axis. """
 
     @abstractmethod
     def put(self, value, indices, updates):
-        """ A copy of a batch with ``updates`` at ``indices``, last axis. """
+        """ Return a copy of a batch with ``updates`` at ``indices``. """
 
     @abstractmethod
     def compile(self, function, **kwargs):
-        """ The function compiled by the framework, e.g. ``torch.compile``. """
+        """ Return the function compiled by the framework. """
 
 
 BACKENDS = {

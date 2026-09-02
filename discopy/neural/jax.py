@@ -87,17 +87,18 @@ class JAX(Backend):
         return jax.tree_util.Partial(jnp.zeros_like)
 
     def index(self, indices: tuple[int, ...], like=None):
-        """ An integer array of positions, concrete even under ``jit``. """
+        """ Return an integer array of positions, concrete under ``jit``. """
         return numpy.asarray(indices, dtype=numpy.int32)
 
     def put(self, value, indices, updates):
-        """ A copy of ``value`` with ``updates`` at ``indices``. """
+        """ Return a copy of ``value`` with ``updates`` at ``indices``. """
         return value.at[:, indices].set(updates)
 
     def compile(self, function, **kwargs):
         """
-        The function under ``jax.jit``, with ``inject`` static: the round
-        step of :func:`~discopy.neural.execution.make_step` branches on it.
+        Return the function under ``jax.jit``, with ``inject`` static: the
+        round step of :func:`~discopy.neural.execution.make_step` branches
+        on it.
         """
         return jax.jit(function, **{"static_argnames": ("inject", ), **kwargs})
 

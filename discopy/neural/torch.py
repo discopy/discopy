@@ -73,17 +73,17 @@ class PyTorch(Backend):
         return Zeros()
 
     def index(self, indices: tuple[int, ...], like=None) -> torch.Tensor:
-        """ A long tensor of positions, on the device of ``like``. """
+        """ Return a long tensor of positions on the device of ``like``. """
         device = None if like is None else like.device
         return torch.tensor(indices, dtype=torch.long, device=device)
 
     def put(self, value: torch.Tensor, indices: torch.Tensor,
             updates: torch.Tensor) -> torch.Tensor:
-        """ A copy of ``value`` with ``updates`` at ``indices``. """
+        """ Return a copy of ``value`` with ``updates`` at ``indices``. """
         return value.index_copy(1, indices, updates.to(value.dtype))
 
     def compile(self, function, **kwargs):
-        """ The function under ``torch.compile``. """
+        """ Return the function under ``torch.compile``. """
         return torch.compile(function, **kwargs)
 
 

@@ -353,7 +353,8 @@ class Execution:
 
 def activate_box(backend, modules, group: dict, incoming, stored) -> tuple:
     """
-    Apply one module to every box of a group at once: the public outputs
+    Apply one module to every box of a group at once, returning the public
+    outputs
     and the next memories, one row per box and batch, as ``(batch_size,
     n_boxes * width)`` arrays ready to be put back at the group's indices.
 
@@ -412,11 +413,11 @@ def activate(backend, modules, indices: dict, source, incoming, stored):
 
 def make_step(backend, modules, indices: dict):
     """
-    One round of message passing as a function of flat arrays alone,
-    ``(incoming, stored, source, initial, inject) -> (incoming, outgoing,
-    stored)``, so that a backend can compile it once per map: the boxes
-    applied by :func:`activate`, the outputs routed by the ``src``
-    permutation and the initial messages re-added when ``inject``.
+    Return one round of message passing as a function of flat arrays
+    alone, ``(incoming, stored, source, initial, inject) -> (incoming,
+    outgoing, stored)``, so that a backend can compile it once per map:
+    the boxes applied by :func:`activate`, the outputs routed by the
+    ``src`` permutation and the initial messages re-added when ``inject``.
 
     Parameters:
         backend : The execution backend.
