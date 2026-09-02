@@ -389,6 +389,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `stream.Stream.__init__`'s codomain-mismatch `AxiomError` formats `cod`/`now.cod`
+  instead of `dom`/`now.dom`, so a genuine codomain mismatch no longer prints the
+  same (correct) domain on both sides of `!=`
+  ([#605](https://github.com/discopy/discopy/issues/605)).
 - `style-review.yml`'s hand-over to the correctness reviewer, and its
   token generation, ran on every style review rather than the intended
   ones. Both conditions were written as `if: >` folding a wrapped

@@ -16,6 +16,9 @@ def test_errors():
     with raises(AxiomError):
         non_constant = T(dom, _later=lambda: dom)
         S(now, non_constant, cod, mem)
+    mismatched_cod = python.Function(lambda x: x, (int, ), (int, ))
+    with raises(AxiomError, match=r"str.*!= .*int"):
+        S(mismatched_cod, T(int), T(str))
 
 
 def test_python_stream():
