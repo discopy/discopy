@@ -795,6 +795,12 @@ class Bubble(Box):
     def free_symbols(self):
         return super().free_symbols.union(*[f.free_symbols for f in self.args])
 
+    def dagger(self) -> Bubble:
+        return type(self)(
+            *(arg.dagger() for arg in self.args),
+            dom=self.cod, cod=self.dom, name=self.name, method=self.method,
+            data=self.data, is_dagger=not self.is_dagger)
+
     def to_tree(self):
         return {
             'factory': factory_name(type(self)),
