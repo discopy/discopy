@@ -70,7 +70,7 @@ class MapNN(torch.nn.Module):
     >>> torch.manual_seed(0)  # doctest: +ELLIPSIS
     <torch...>
     >>> model = MapNN(ob={peer: Dim(3), state: Dim(4)},
-    ...               ar={"cell": torch.nn.Linear(11, 11)}, rounds=3)
+    ...               ar={"cell": torch.nn.PReLU()}, rounds=3)
 
     One model, two shapes, one set of weights:
 

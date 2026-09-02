@@ -70,10 +70,10 @@ class Execution:
     Example
     -------
     >>> from discopy.neural import Dim, Network
-    >>> f = Network('f', Dim(2), Dim(3))
+    >>> f = Network('f', Dim(2), Dim(3), module=object())
     >>> execution = Execution(f.to_map(), backend="jax")  # doctest: +EXTRA
     >>> execution.inside.routing["src"]  # doctest: +EXTRA
-    (2, 3, 4, 0, 1)
+    (2, 3, 0, 1, 7, 8, 9, 4, 5, 6)
     """
     def __init__(
             self, inside, x=None, init=None, memory=None,

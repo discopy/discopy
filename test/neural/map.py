@@ -281,7 +281,8 @@ def test_iteration_is_resumption():
         piecewise = advance(advance(state, 2, inject=True), 3, inject=True)
         rounds = cmap(init=state, n_rounds=5, inject=False,
                       return_rounds=True, return_flat=True)
-    assert torch.equal(whole, resumed) and torch.equal(rounds[1], resumed)
+    assert torch.equal(whole, resumed)
+    assert torch.equal(rounds[1], advance(state, 2))
     assert not torch.equal(injected, piecewise)
     assert len(rounds) == 5 and torch.equal(rounds[-1], whole)
 
