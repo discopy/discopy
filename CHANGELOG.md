@@ -14,7 +14,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `Network` boxes with additive `Dim` objects, and its `CMap` running the
   execution formula of the geometry of interaction as one `Execution` on
   any `Backend` (`pytorch`, `jax`): all the messages in one flat array,
-  one batched call per round for every group of boxes sharing a module,
+  one batched call per round for every group of boxes sharing a module
+  and a port signature,
   one permutation for the routing, with the private memory of a `Network`
   beside the messages and the causal schedule of a feed-forward map.
   `MapNN` compiles a diagram into that map and addresses its flat state by

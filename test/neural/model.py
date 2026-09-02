@@ -191,6 +191,27 @@ def test_writing_a_family_writes_every_copy_of_its_trace():
     assert model.initial(pair, rows=3).shape == (3, state.shape[1])
 
 
+def test_writing_a_family_with_several_legs():
+    """
+    A traced orbit with two legs lays out both heads before both tails, so
+    a value written on a head lands on the tail its wire loops back to,
+    not on the port next to it.
+    """
+    node = Signature((
+        Orbit(PEER, 1, Sym.PERM), Orbit(STATE, 2, traced=True),
+        Orbit(CLUE, traced=True)))
+    pair = from_relation(((1, ), (0, )), node)
+    model = small_model()
+    cmap, ports, heads = model.compile(pair)
+    assert len(heads["cell", STATE]) == 4 and len(ports["cell", STATE]) == 8
+    values = torch.arange(4 * 4, dtype=torch.double).reshape(1, 4, 4)
+    state = model.initial(pair, {("cell", STATE): values})
+    assert torch.equal(model.read(pair, state, ("cell", STATE)), values)
+    for head in heads["cell", STATE]:
+        assert torch.equal(cmap.read(state, (head, )),
+                           cmap.read(state, (cmap.edges[head], )))
+
+
 def test_a_batch_is_the_product_of_its_members():
     """
     Running ``[a, b]`` gives, member for member, what running ``a`` and

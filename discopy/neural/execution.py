@@ -271,8 +271,13 @@ class Execution:
         return self.incoming
 
     def box_outputs(self, outgoing=None) -> tuple:
-        """ The outgoing messages of each box, in its logical port order. """
+        """
+        The outgoing messages of each box in its logical port order, or
+        ``None`` for each box before any round has run.
+        """
         outgoing = self.outgoing if outgoing is None else outgoing
+        if outgoing is None:
+            return len(self.inside.boxes) * (None, )
         indices = self.indices
         widths = tuple(
             sum(self.inside.port_widths[port] for port in ports)

@@ -209,7 +209,8 @@ class MapNN(torch.nn.Module):
     def write(self, diagram, state, key, values):
         """
         A copy of the state with values written on every copy of a family,
-        one value per site broadcast to each copy of its trace.
+        one value per head written on the head and on the tail its wire
+        loops back to.
 
         Parameters:
             diagram : The diagram the state belongs to.
@@ -218,9 +219,11 @@ class MapNN(torch.nn.Module):
             values : A tensor of shape ``(rows, sites, width)``.
         """
         cmap, ports, heads = self.compile(diagram)
-        copies = len(ports[key]) // len(heads[key])
-        if copies > 1:
-            values = values.repeat_interleave(copies, dim=1)
+        if len(ports[key]) > len(heads[key]):
+            head = {port: i for i, port in enumerate(heads[key])}
+            values = values[:, [
+                head[port] if port in head else head[cmap.edges[port]]
+                for port in ports[key]]]
         return cmap.write(state, ports[key], values)
 
     def sites(self, diagram, key) -> int:

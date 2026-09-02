@@ -100,7 +100,10 @@ class JAX(Backend):
         round step of :func:`~discopy.neural.execution.make_step` branches
         on it.
         """
-        return jax.jit(function, **{"static_argnames": ("inject", ), **kwargs})
+        static = kwargs.pop("static_argnames", ())
+        static = (static, ) if isinstance(static, str) else tuple(static)
+        return jax.jit(
+            function, static_argnames=static + ("inject", ), **kwargs)
 
 
 @jax.tree_util.register_pytree_node_class

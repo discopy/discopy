@@ -339,6 +339,7 @@ def test_forward_closed_map():
     network = grid.as_network()
     states = network()
     assert len(states) == 16 and all(s.shape == (1, 6) for s in states)
+    assert network(n_rounds=0) == 16 * (None, )
     init = torch.rand(5, sum(grid.port_widths))
     injected, not_injected = (
         network(init=init, n_rounds=2, inject=inject)
