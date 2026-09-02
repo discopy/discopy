@@ -4,7 +4,7 @@ are idempotent and preserve the diagram up to hypergraph.
 """
 
 import pytest
-from hypothesis import given, settings
+from hypothesis import given
 from hypothesis import strategies as st
 
 from discopy import hopf, monoidal, pivotal, ribbon, rigid
@@ -47,7 +47,6 @@ DIAGRAMS = tuple(diagram_parameters(xfail={
 
 @pytest.mark.parametrize("carrier", DIAGRAMS)
 @given(data=st.data())
-@settings(max_examples=25, deadline=None)
 def test_normal_form(carrier, data):
     """
     Check that ``normal_form`` is an idempotent representative, on the
@@ -65,7 +64,6 @@ def test_normal_form(carrier, data):
         zx.Diagram: WRONG_SPIDER_FACTORY,
         hopf.Intertwiner[hopf.Double(hopf.Algebra.cyclic(2))]: REP_DUALS})))
 @given(data=st.data())
-@settings(max_examples=25, deadline=None)
 def test_foliation(carrier, data):
     """
     Check that ``foliation`` is an idempotent representative — on the
