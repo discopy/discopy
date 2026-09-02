@@ -62,6 +62,13 @@ uv run coverage report -m
 
 Without the extras installed, run `uv run pytest --skip-extra` to skip what needs them.
 
+A sandboxed environment can block some of the extras outright (e.g. no network access to fetch
+the `torch`/`pytket` wheels, no `graphviz` binary), so `--skip-extra` may still leave a fixed set
+of environment-only failures that look identical to a real regression. Diff the failure set
+against the same command run on the merge base rather than guessing: what's new is yours, what
+was already failing there is the sandbox, not the change. CI on the pushed branch is the
+authority on the real suite: claim green only for what you actually executed locally.
+
 ## Run the benchmarks
 
 `benchmark/test_composition.py` reproduces the scaling experiments of
