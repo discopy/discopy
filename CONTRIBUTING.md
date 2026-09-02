@@ -91,6 +91,18 @@ apply, and xfailed when the law is declared broken, each carrying its
 reason: pass `-rsxX` to list the skips, xfails and unexpected passes with
 their reasons, and `-x` to stop at the first genuine failure.
 
+`proptest/conftest.py` registers three Hypothesis profiles over the
+`.hypothesis/examples` database, selected by `HYPOTHESIS_PROFILE`: `dev`
+by default, `pr` for the small budget a pull request runs with and
+`explore` for the large one `main` and the nightly run search with.
+With a `GITHUB_TOKEN` in the environment, `dev` also reads the database
+CI uploads as a workflow artifact, so a failure found on CI replays on
+your machine before any search.
+
+```shell
+HYPOTHESIS_PROFILE=explore uv run pytest proptest/ -n auto -p no:benchmark
+```
+
 `proptest/test_counterexamples.py` replays every recorded counterexample —
 the bound axiom and the arguments a search once shrunk a failure to — so
 known bugs reproduce deterministically on every run. [PROPTEST.md](PROPTEST.md)
@@ -100,8 +112,8 @@ missed a bug. `Axiom.falsify`, which searches afresh for a shrunk
 counterexample and raises `NoSuchExample` when it finds none, remains for
 interactive exploration when no failure is in hand.
 
-The `proptest` GitHub workflow runs this suite on `main`, on manual dispatch,
-and on pull requests labelled `proptest`.
+The `proptest` GitHub workflow runs this suite on pull requests labelled
+`proptest`, on `main`, nightly and on manual dispatch.
 
 ## Run the benchmarks
 

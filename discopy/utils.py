@@ -125,7 +125,7 @@ class NamedGeneric(Generic[TypeVar('T')]):
     A ``NamedGeneric`` is a ``Generic`` where the type parameter has a name.
 
     Parameters:
-        attr : The name of the type parameter.
+        attributes : The names of the type parameters.
 
     Note
     ----

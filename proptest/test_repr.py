@@ -4,7 +4,7 @@ environment, for every carrier of the property matrix.
 """
 
 import pytest
-from hypothesis import given, settings
+from hypothesis import given
 from hypothesis import strategies as st
 
 from discopy import monoidal, tensor
@@ -69,7 +69,6 @@ def classify(carrier):
 
 @pytest.mark.parametrize("carrier", carrier_parameters(classify))
 @given(data=st.data())
-@settings(max_examples=25, deadline=None)
 def test_repr(carrier, data):
     """ Check that ``repr`` evaluates back to the value it describes. """
     value = data.draw(carrier.strategy())
