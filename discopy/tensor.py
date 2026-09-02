@@ -478,7 +478,16 @@ class Functor(frobenius.Functor):
             operands = [
                 x for pair in zip(arrays, indices) for x in pair]
             if next(fresh) > config.MAX_EINSUM_INDICES:
-                import opt_einsum
+                try:
+                    import opt_einsum
+                except ImportError as error:
+                    if error.name != "opt_einsum":
+                        raise
+                    raise ImportError(
+                        "Contracting more than "
+                        f"{config.MAX_EINSUM_INDICES} indices requires "
+                        "opt_einsum, run `pip install opt_einsum`."
+                    ) from error
                 array = opt_einsum.contract(
                     *operands, output,
                     optimize=self.optimize, **self.params)

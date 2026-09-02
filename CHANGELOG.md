@@ -389,6 +389,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- Contracting a tensor network with more than `config.MAX_EINSUM_INDICES`
+  indices imports `opt_einsum`, which is not a declared dependency; a plain
+  install now raises a clear `ImportError` naming the package to install
+  instead of `ModuleNotFoundError` with no context
+  ([#596](https://github.com/discopy/discopy/issues/596)).
 - `style-review.yml`'s hand-over to the correctness reviewer, and its
   token generation, ran on every style review rather than the intended
   ones. Both conditions were written as `if: >` folding a wrapped
