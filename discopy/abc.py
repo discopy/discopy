@@ -45,7 +45,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from typing import Callable, ClassVar, Generic, TypeVar
+from typing import Callable, ClassVar
 
 from discopy.testing import (
     Atomic, Axiom, Bifunctor, ComposablePair, ComposableTriple,
@@ -53,7 +53,7 @@ from discopy.testing import (
     LeftCurrying, Natural, NonEmpty, RightCurrying, TraceDinaturalityLeft,
     TraceDinaturalityRight, TraceNaturalityLeft, TraceNaturalityRight,
     TraceSuperposing, axiom)
-from discopy.utils import classproperty, factory_name, get_origin
+from discopy.utils import NamedGeneric, classproperty, factory_name
 
 
 class Category[C0, C1: Category](ABC):
@@ -375,7 +375,7 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
 
     @axiom
     def trace_superposing_left(
-            cls, pair: TraceSuperposing[C0, C1]) -> Equation[C1]:
+            cls, pair: TraceSuperposing[C1]) -> Equation[C1]:
         """ Left-oriented superposing. """
         f, obj = pair
         return cls.equation_factory(
@@ -383,7 +383,7 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
 
     @axiom
     def trace_superposing_right(
-            cls, pair: TraceSuperposing[C0, C1]) -> Equation[C1]:
+            cls, pair: TraceSuperposing[C1]) -> Equation[C1]:
         """ Right-oriented superposing. """
         f, obj = pair
         return cls.equation_factory(
@@ -391,7 +391,7 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
 
     @axiom
     def trace_naturality_left(
-            cls, sliding: TraceNaturalityLeft[C0, C1]) -> Equation[C1]:
+            cls, sliding: TraceNaturalityLeft[C1]) -> Equation[C1]:
         """ Left-oriented trace naturality. """
         f, x, g = sliding
         return cls.equation_factory(
@@ -400,7 +400,7 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
 
     @axiom
     def trace_naturality_right(
-            cls, sliding: TraceNaturalityRight[C0, C1]) -> Equation[C1]:
+            cls, sliding: TraceNaturalityRight[C1]) -> Equation[C1]:
         """ Right-oriented trace naturality. """
         f, x, g = sliding
         return cls.equation_factory(
@@ -409,7 +409,7 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
 
     @axiom
     def trace_dinaturality_left(
-            cls, sliding: TraceDinaturalityLeft[C0, C1]) -> Equation[C1]:
+            cls, sliding: TraceDinaturalityLeft[C1]) -> Equation[C1]:
         """ Left-oriented trace dinaturality. """
         f, g = sliding
         source, target = g.cod, g.dom
@@ -420,7 +420,7 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
 
     @axiom
     def trace_dinaturality_right(
-            cls, sliding: TraceDinaturalityRight[C0, C1]) -> Equation[C1]:
+            cls, sliding: TraceDinaturalityRight[C1]) -> Equation[C1]:
         """ Right-oriented trace dinaturality. """
         f, g = sliding
         source, target = g.cod, g.dom
@@ -484,7 +484,7 @@ class BiclosedCategory[
 
     @axiom
     def currying_left(
-            cls, arguments: LeftCurrying[C0, C1]) -> Equation[C1]:
+            cls, arguments: LeftCurrying[C1]) -> Equation[C1]:
         """ Left currying followed by evaluation. """
         f, base, exponent = arguments
         return cls.equation_factory(
@@ -492,7 +492,7 @@ class BiclosedCategory[
 
     @axiom
     def currying_right(
-            cls, arguments: RightCurrying[C0, C1]) -> Equation[C1]:
+            cls, arguments: RightCurrying[C1]) -> Equation[C1]:
         """ Right currying followed by evaluation. """
         f, base, exponent = arguments
         return cls.equation_factory(
@@ -911,7 +911,7 @@ class FeedbackCategory[C0, C1](MarkovCategory[C0, C1]):
 
     @axiom
     def feedback_vanishing(
-            cls, arguments: FeedbackVanishing[C0, C1]) -> Equation[C1]:
+            cls, arguments: FeedbackVanishing[C1]) -> Equation[C1]:
         """ Vanishing of feedback over the unit. """
         f, unit = arguments
         return cls.equation_factory(f.feedback(mem=unit), f)
@@ -927,7 +927,7 @@ class FeedbackCategory[C0, C1](MarkovCategory[C0, C1]):
 
     @axiom
     def feedback_joining(
-            cls, arguments: FeedbackJoining[C0, C1]) -> Equation[C1]:
+            cls, arguments: FeedbackJoining[C1]) -> Equation[C1]:
         """ Joining nested feedback loops. """
         f, mem = arguments
         return cls.equation_factory(
@@ -1053,101 +1053,6 @@ class HypergraphCategory[C0, C1](
         return cls.equation_factory(
             cls.spiders(m, 1, x).then(cls.spiders(1, n, x)),
             cls.spiders(m, n, x))
-
-
-class NamedGeneric(Generic[TypeVar('T')]):
-    """
-    A ``NamedGeneric`` is a ``Generic`` where the type parameter has a name.
-
-    Parameters:
-        attr : The name of the type parameter.
-
-    Note
-    ----
-    In a standard ``Generic`` class, the type parameter disappears when the
-    member of the class is instantiated, e.g.
-
-    >>> assert list[int]([1, 2, 3])\\
-    ...     == list[float]([1, 2, 3])\\
-    ...     == [1, 2, 3]
-
-    In a ``NamedGeneric``, the type parameter is attached to the members of the
-    class so that we have access to it.
-
-    Example
-    -------
-
-    >>> from dataclasses import dataclass
-    >>> @dataclass
-    ... class L(NamedGeneric["dtype"]):
-    ...     inside: list
-    >>> assert L[int]([1, 2, 3]).dtype == int
-    >>> assert L[int]([1, 2, 3]) != L[float]([1, 2, 3])
-    """
-    _cache = dict()
-
-    def __class_getitem__(_, attributes):
-        if not isinstance(attributes, tuple):
-            attributes = (attributes,)
-
-        G = Generic.__class_getitem__(tuple(map(TypeVar, attributes)))
-
-        class Result(G):
-            def __class_getitem__(cls, values):
-                if hasattr(cls, "__is_named_generic__"):
-                    cls = cls.__bases__[0]
-                values = values if isinstance(values, tuple) else (values,)
-                cls_values = tuple(
-                    getattr(cls, attr, None) for attr in attributes)
-                if cls not in NamedGeneric._cache:
-                    NamedGeneric._cache[cls] = {cls_values: cls}
-                if values not in NamedGeneric._cache[cls]:
-                    origin = get_origin(cls)
-
-                    class C(origin):
-                        __is_named_generic__ = True
-
-                        # We need this to fix pickling of nested classes
-                        # https://stackoverflow.com/questions/1947904/how-can-i-pickle-a-dynamically-created-nested-class-in-python
-                        def __reduce__(self):
-                            func, args, data = super().__reduce__()
-                            # Check if class name is of the form:
-                            # *ClassName*[*type*]
-                            if '[' in args[0].__name__:
-                                args = (origin, ) + args[1:]
-                                data |= {"__class_getitem__values__": values}
-                            return func, args, data
-
-                    C.__module__ = origin.__module__
-                    names = [
-                        factory_name(v)
-                        if isinstance(v, type)
-                        and v.__module__.startswith("discopy")
-                        else getattr(v, "__name__", str(v)) for v in values]
-                    C.__name__ = C.__qualname__ = origin.__name__\
-                        + f"[{', '.join(names)}]"
-                    C.__origin__ = cls
-                    for attr, value in zip(attributes, values):
-                        setattr(C, attr, value)
-                    NamedGeneric._cache[cls][values] = C
-                return NamedGeneric._cache[cls][values]
-
-            def __setstate__(self, state):
-                if "__class_getitem__values__" in state:
-                    values = state.pop("__class_getitem__values__")
-                    self.__class__ = self.__class__[values]
-                setstate = getattr(super(), "__setstate__", None)
-                if setstate is None:
-                    self.__dict__.update(state)
-                else:
-                    setstate(state)
-
-            __name__ = __qualname__\
-                = f"NamedGeneric[{', '.join(map(repr, attributes))}]"
-
-        for attr in attributes:
-            setattr(Result, attr, getattr(Result, attr, None))
-        return Result
 
 
 class Equation(NamedGeneric["ar"]):

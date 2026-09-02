@@ -956,7 +956,7 @@ all = [
     { name = "pyproject-flake8" },
     { name = "pytest" },
     { name = "pytest-benchmark" },
-    { name = "pytest-xdist", specifier = ">=3.8.0" },
+    { name = "pytest-xdist" },
 ]
 dev = [
     { name = "coverage" },
@@ -967,7 +967,7 @@ dev = [
     { name = "pyproject-flake8" },
     { name = "pytest" },
     { name = "pytest-benchmark" },
-    { name = "pytest-xdist", specifier = ">=3.8.0" },
+    { name = "pytest-xdist" },
 ]
 docs = [{ name = "discopy", extras = ["docs"] }]
 grammar = [{ name = "discopy", extras = ["grammar"] }]
