@@ -166,7 +166,11 @@ The `proptest` workflow runs the suite on pull requests labelled
 
 - `pr`, on pull requests: a small budget of new examples after the
   `reuse` phase has replayed every failure the database remembers, so a
-  known bug fails at once and a run is fast.
+  known bug fails at once and a run is fast. The workflow fixes the
+  seed with `--hypothesis-seed`, which keeps the database where
+  `derandomize` would drop it, so a pull request draws the same
+  examples every time: it is red for its own diff or for a failure the
+  artifact already holds, never for luck.
 - `explore`, on `main`, nightly and on dispatch: a large budget, where
   new counterexamples come from.
 - `dev`, the default elsewhere: a middling budget, and with a
@@ -180,10 +184,10 @@ counterexample. Hypothesis prunes what passes again and keeps what
 fails, so a failure found by one night's search fails every pull request
 until it is fixed or declared, with no one recording anything.
 
-Runs are randomised, so a red check on a pull request can be a bug its
-diff did not cause: the shrunk draws in the log and the printed
+Explore runs are randomised, so a red check on `main` or overnight is
+where a new bug surfaces: the shrunk draws in the log and the printed
 `@reproduce_failure(<version>, <blob>)` decorator reproduce it under the
-Hypothesis `uv.lock` pins, and the artifact replays it through the `dev`
-profile. `--hypothesis-show-statistics` is on, so the log of an explore
-run also says how often each shape was drawn, the input of a strategy
-audit.
+Hypothesis `uv.lock` pins, and the artifact replays it on every pull
+request and, through the `dev` profile, on your machine.
+`--hypothesis-show-statistics` is on, so the log of an explore run also
+says how often each shape was drawn, the input of a strategy audit.

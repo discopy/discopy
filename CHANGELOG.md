@@ -36,8 +36,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   workflow on PRs labelled `proptest`, on `main`, nightly and on manual
   dispatch. `proptest/conftest.py` registers three Hypothesis profiles
   over one example database, keyed per cell by node id: `pr` replays what
-  the database remembers and generates a few examples, `explore` searches
-  with a large budget, and `dev` reads CI's database through a read-only
+  the database remembers and generates a few examples from a fixed seed,
+  `explore` searches with a large budget, and `dev` reads CI's database through a read-only
   `GitHubArtifactDatabase` given a `GITHUB_TOKEN`. The workflow downloads
   the database from the previous run's artifact and uploads its own after
   every run, so a counterexample found by one night's search fails every

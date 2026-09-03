@@ -93,8 +93,9 @@ their reasons, and `-x` to stop at the first genuine failure.
 
 `proptest/conftest.py` registers three Hypothesis profiles over the
 `.hypothesis/examples` database, selected by `HYPOTHESIS_PROFILE`: `dev`
-by default, `pr` for the small budget a pull request runs with and
-`explore` for the large one `main` and the nightly run search with.
+by default, `pr` for the small budget a pull request runs with, under a
+fixed `--hypothesis-seed` so that it draws the same examples every time,
+and `explore` for the large one `main` and the nightly run search with.
 With a `GITHUB_TOKEN` in the environment, `dev` also reads the database
 CI uploads as a workflow artifact, so a failure found on CI replays on
 your machine before any search.

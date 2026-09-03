@@ -30,9 +30,12 @@ jobs:
     timeout-minutes: 30
     env:
       # A pull request replays what the database remembers and generates a
-      # few examples on top; every other run searches new ground.
+      # few examples on top, from a fixed seed so that a run draws the same
+      # examples every time; every other run searches new ground.
       HYPOTHESIS_PROFILE: >-
         ${{ github.event_name == 'pull_request' && 'pr' || 'explore' }}
+      PYTEST_ADDOPTS: >-
+        ${{ github.event_name == 'pull_request' && '--hypothesis-seed=0' || '' }}
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
     - uses: ./.github/actions/setup
