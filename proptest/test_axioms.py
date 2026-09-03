@@ -1,7 +1,7 @@
 """ Property tests for DisCoPy's principal categorical data structures. """
 
 import pytest
-from hypothesis import HealthCheck, given, settings
+from hypothesis import given, note
 from hypothesis import strategies as st
 
 from discopy.utils import factory_name
@@ -32,9 +32,9 @@ def axiom_parameters():
 
 @pytest.mark.parametrize("axiom", axiom_parameters())
 @given(data=st.data())
-@settings(max_examples=25, deadline=None,
-          suppress_health_check=[HealthCheck.filter_too_much])
 def test_axiom(axiom, data):
     """ Check an axiom of a carrier against generated arguments. """
     args = data.draw(axiom.strategy(), label=axiom.name)
-    assert axiom(*args)
+    verdict = axiom(*args)
+    note(verdict)
+    assert verdict
