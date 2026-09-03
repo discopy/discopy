@@ -389,6 +389,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `quantum.circuit`'s module-level `backend` (the array-backend context
+  manager imported from `discopy.matrix`) is renamed `array_backend`, so it
+  is no longer shadowed within the bodies of `Circuit.eval` and
+  `Circuit.get_counts`, which each declare their own pytket `backend=`
+  parameter of the same name
+  ([#534](https://github.com/discopy/discopy/issues/534)).
 - `style-review.yml`'s hand-over to the correctness reviewer, and its
   token generation, ran on every style review rather than the intended
   ones. Both conditions were written as `if: >` folding a wrapped
@@ -400,7 +406,6 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   rewrote both conditions and the shape survived, so the fix is applied to
   its versions: written bare, as the file's other five conditions are
   ([#645](https://github.com/discopy/discopy/pull/645)).
-
 - The style review no longer depends on a transition that may never
   happen. `ready_for_review` fires on the draft-to-ready edge alone, so a
   pull request whose `TODO.md` was deleted before it was ever opened went
