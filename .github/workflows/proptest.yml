@@ -5,14 +5,17 @@ on:
     types: [opened, reopened, ready_for_review, synchronize, labeled]
   push:
     branches: [main]
+  schedule:
+  - cron: "17 3 * * *"
   workflow_dispatch:
 
 permissions:
   contents: read
+  actions: read
 
 # Supersede a pull request's own runs, but let every commit on main keep the
-# run that proves it green: PR runs are derandomised so they re-draw the same
-# examples, while main runs are where the suite searches new ground.
+# run that proves it green: a main run is where the suite searches new
+# ground, and cancelling it throws that search away.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -25,11 +28,33 @@ jobs:
       || contains(github.event.pull_request.labels.*.name, 'proptest')
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      # A pull request replays what the database remembers and generates a
+      # few examples on top; every other run searches new ground.
+      HYPOTHESIS_PROFILE: >-
+        ${{ github.event_name == 'pull_request' && 'pr' || 'explore' }}
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
     - uses: ./.github/actions/setup
       with:
         python-version: "3.14"
+    - name: Download the example database
+      uses: dawidd6/action-download-artifact@ac66b43f0e6a346234dd65d4d0c8fbb31cb316e5 # v11
+      with:
+        name: hypothesis-example-db
+        path: .hypothesis/examples
+        search_artifacts: true
+        workflow_conclusion: completed
+        if_no_artifact_found: warn
     - name: Run property tests
       run:
         uv run pytest proptest/ -n auto -p no:benchmark -vrxX
+        --hypothesis-show-statistics
+    - name: Upload the example database
+      if: always()
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: hypothesis-example-db
+        path: .hypothesis/examples
+        include-hidden-files: true
+        retention-days: 90
