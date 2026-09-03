@@ -88,7 +88,17 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   one free/generator box per parameter, no recursive or compound
   generation — wired up in `proptest/test_axioms.py`, enrolled so far for
   `cat.Arrow` and `cat.Functor`, and run by the new `proptest` GitHub
-  workflow on `main`, manual dispatch and PRs labelled `proptest`. See
+  workflow on PRs labelled `proptest`, on `main`, nightly and on manual
+  dispatch. `proptest/conftest.py` registers three Hypothesis profiles
+  over one example database, keyed per cell by node id: `pr` replays what
+  the database remembers and generates a few examples, `explore` searches
+  with a large budget, and `dev` reads CI's database through a read-only
+  `GitHubArtifactDatabase` given a `GITHUB_TOKEN`. The workflow downloads
+  the database from the previous run's artifact and uploads its own after
+  every run, so a counterexample found by one night's search fails every
+  pull request until it is fixed or declared; a recorded counterexample
+  xfails strictly while its axiom is declared `.failing`, so a fixed bug
+  fails as an unexpected pass until the declaration moves. See
   [PROPTEST.md](PROPTEST.md).
 - The style review keeps score. Every review it posts records the remarks
   it made, hidden in its own body, so the next round can read them back
