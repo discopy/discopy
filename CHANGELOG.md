@@ -431,6 +431,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `rigid.Diagram.functor_factory` is `rigid.Functor`: it inherited
+  `biclosed.Functor`, which does not rotate, so a box mapped through
+  it lost the rotation of its boundary.
 - `style-review.yml`'s hand-over to the correctness reviewer, and its
   token generation, ran on every style review rather than the intended
   ones. Both conditions were written as `if: >` folding a wrapped

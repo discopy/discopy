@@ -77,8 +77,8 @@ verbatim.
 > rigid or feedback category — or, if the functor really is to own that,
 > boxes should go through it too rather than through `send`.
 
-- [WIP] @session_01Bwih1mV32usVtEFyNbDhq8-2026-09-03 17:00 `Relabelling` maps a box's boundary through the functor of the box's own category, so rotation and delay stay the functor's business and reach boxes too; `send` goes; `test_relabelling` pins a rotated and a delayed boundary through a box.
-- [WIP] @session_01Bwih1mV32usVtEFyNbDhq8-2026-09-03 17:00 The record xfail admits `AxiomError` beside `AssertionError`, the two shapes `falsify` counts, with the docstring saying so.
-- [WIP] @session_01Bwih1mV32usVtEFyNbDhq8-2026-09-03 17:00 `weaken`'s docstring names `Square`.
-- [WIP] @session_01Bwih1mV32usVtEFyNbDhq8-2026-09-03 17:00 The matrix tolerates a carrier without `axioms`, documented: a carrier enrolled for the ad-hoc properties need not state laws.
+- [x] `Relabelling` maps a box's boundary through the functor of the box's own category, so rotation and delay stay the functor's business and reach boxes too; `send` goes; `test_relabelling` pins a rotated and a delayed boundary through a box.
+- [x] The record xfail admits `AxiomError` beside `AssertionError`, the two shapes `falsify` counts, with the docstring saying so.
+- [x] `weaken`'s docstring names `Square`.
+- [x] The matrix tolerates a carrier without `axioms`, documented: a carrier enrolled for the ad-hoc properties need not state laws.
 - [WIP] @session_01Bwih1mV32usVtEFyNbDhq8-2026-09-03 17:00 Answer the suggestion to enrol a rigid-family carrier: the strategies it needs are stage 2's, so the unit pin stands in for it here.

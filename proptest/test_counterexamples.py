@@ -10,7 +10,7 @@ import pytest
 from discopy import cat
 from discopy.testing import (
     GENERATORS, Axiom, AxiomFailure, Relabelling)
-from discopy.utils import factory_name
+from discopy.utils import AxiomError, factory_name
 
 
 class Counterexample(NamedTuple):
@@ -53,7 +53,7 @@ def counterexample_parameters():
     """
     for axiom, args, reason in COUNTEREXAMPLES:
         marks = pytest.mark.xfail(
-            reason=reason, raises=AssertionError, strict=True)\
+            reason=reason, raises=(AssertionError, AxiomError), strict=True)\
             if axiom.broken else ()
         yield pytest.param(
             axiom, args, marks=marks,

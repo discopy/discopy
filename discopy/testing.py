@@ -179,13 +179,15 @@ arguments the search shrunk the failure to.
   the file's imports as records arrive.
 - ``reason`` says what broke and links the issue when there is one.
 
-The replay test marks a record xfail, strictly and for an assertion
-only, exactly when its axiom is declared :meth:`Axiom.failing`, and checks
-the equation the axiom's :class:`AxiomFailure` carries, so the xfail is
-earned by the arguments falsifying the law — a fixed bug shows up as an
-unexpected pass, which strictness turns red, and a typo'd record as an
-error rather than an expected failure — and a record never needs updating
-when the bug is fixed: only the ``.failing`` declaration moves.
+The replay test marks a record xfail, strictly, exactly when its axiom is
+declared :meth:`Axiom.failing`, and checks the equation the axiom's
+:class:`AxiomFailure` carries, so the xfail is earned by the arguments
+falsifying the law in one of the two shapes :meth:`Axiom.falsify` counts:
+the equation is false, an assertion, or the implementation refuses to
+build its terms, an :class:`discopy.utils.AxiomError`. A fixed bug shows
+up as an unexpected pass, which strictness turns red, a typo'd record as
+an error rather than an expected failure, and a record never needs
+updating when the bug is fixed: only the ``.failing`` declaration moves.
 
 Never delete a record because it is inconvenient; a record only leaves
 when the law itself leaves the codebase.
@@ -427,7 +429,7 @@ class Axiom[T]:
         The same law quantified over a subspace of the named arguments,
         e.g. ``bifunctoriality_connected =
         MonoidalCategory.bifunctoriality.weaken(
-        square=BoundaryConnected[Bifunctor[C1]])``: each named parameter
+        square=BoundaryConnected[Square[C1]])``: each named parameter
         is generated from its subspace strategy, whose wrapper validates
         membership on construction — so a recorded counterexample replays
         honestly — and is unwrapped before the body reads it. Assigned to
@@ -998,16 +1000,20 @@ class Relabelling(Mapping):
     def __getitem__(self, key):
         """
         The image of an atom, looked up by name, or of a box, relabelled on
-        its boundary. A rotation or a delay of the atom is the business of
-        the functor that reads the map, e.g. :class:`discopy.rigid.Functor`.
+        its boundary by the functor of the box's own category: a rotation or
+        a delay of an atom is that functor's business, e.g.
+        :class:`discopy.rigid.Functor`'s, on a box's boundary as on an
+        object.
 
         The import is local because :mod:`discopy.cat` imports this module
         for its strategies, so the arrow between them cannot be reversed.
         """
-        from discopy.cat import Ob
+        from discopy.cat import Functor, Ob
 
         if not isinstance(key, Ob):
-            return type(key)(key.name, self.send(key.dom), self.send(key.cod))
+            functor = getattr(type(key), "functor_factory", Functor)
+            relabel = functor(self, self)
+            return type(key)(key.name, relabel(key.dom), relabel(key.cod))
         wire, = getattr(key, "inside", (key, ))
         for atom, image in self.images:
             other, = getattr(atom, "inside", (atom, ))
@@ -1024,13 +1030,6 @@ class Relabelling(Mapping):
     def __bool__(self):
         """ A relabelling is total, even when it renames nothing. """
         return True
-
-    def send(self, typ):
-        """ The image of an object, atom by atom. """
-        if not hasattr(typ, "inside"):
-            return self[typ]
-        return type(typ)().tensor(*(
-            self[typ[i:i + 1]] for i in range(len(typ))))
 
 
 def resolve(annotation, **params) -> st.SearchStrategy:

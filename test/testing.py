@@ -218,12 +218,20 @@ def test_relabelling():
     assert relabelling[x] == y and relabelling[z] == z
     assert relabelling[Box('f', x, z)] == Box('f', y, z)
     assert list(relabelling) == [x] and len(relabelling) == 1
-    assert bool(Relabelling()) and relabelling.send(x) == y
+    assert bool(Relabelling())
     rigid_x, rigid_y = rigid.Ty('x'), rigid.Ty('y')
     rotating = Relabelling(((rigid_x, rigid_y), ))
-    assert rotating.send(rigid_x @ rigid_x) == rigid_y @ rigid_y
     functor = rigid.Functor(rotating, rotating)
     assert functor(rigid_x.l) == rigid_y.l and functor(rigid_x.r) == rigid_y.r
+    rotated = rigid.Box('f', rigid_x.r, rigid_x @ rigid_x)
+    assert rotating[rotated] == rigid.Box('f', rigid_y.r, rigid_y @ rigid_y)
+    assert functor(rotated >> rotated.dagger()) == functor(rotated)\
+        >> functor(rotated).dagger()
+    u, v = feedback.Ty('u'), feedback.Ty('v')
+    delaying = Relabelling(((u, v), ))
+    delayed = feedback.Box('g', u.delay(), u)
+    assert delaying[delayed] == feedback.Box('g', v.delay(), v)
+    assert feedback.Functor(delaying, delaying)(u.delay()) == v.delay()
 
 
 def test_monoid_axioms():
