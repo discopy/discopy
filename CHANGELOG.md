@@ -9,6 +9,19 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- The category of optics, `discopy.optics`, over any symmetric underlying
+  category: an `Optic` is a residual with a forward and a backward
+  morphism, composing by tensoring the residuals as `discopy.para` does
+  with its co/parameters, over pairs `optics.Ty` tensored componentwise.
+  `Lens` is the cartesian instance over a Markov category, a `get` and a
+  `put` composing by the chain rule, with `to_optic` and `Optic.to_lens`
+  between the two; `Optic.to_int` reads an optic over a traced category as
+  an integer diagram of `discopy.interaction`, the residual being the wire
+  between the legs. Lenses over `python.Function` are the reverse
+  derivatives of gradient-based learning, and a parametric lens
+  `para.Symmetric[Lens[Function]]` a neural network with its weights'
+  gradients beside its input's
+  ([#701](https://github.com/discopy/discopy/pull/701)).
 - The style review keeps score. Every review it posts records the remarks
   it made, hidden in its own body, so the next round can read them back
   whole rather than parse its own prose. That next round is one request
