@@ -18,7 +18,7 @@ def axiom_parameters():
     test is skipped rather than generating arguments it could not satisfy.
     """
     for carrier in CARRIERS:
-        for axiom in getattr(carrier, "axioms", {}).values():
+        for axiom in carrier.axioms.values():
             if not axiom.parameters and axiom() is NotImplemented:
                 marks = pytest.mark.skip(reason=axiom.__doc__.strip())
             elif axiom.broken:
