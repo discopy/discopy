@@ -1,0 +1,79 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# CodeRabbit is DisCoPy's style reviewer. It reads every changed file whole,
+# judges the diff against STYLE.md and the conventions of the file it lands
+# in, and comments on the lines the change adds. Correctness stays with the
+# correctness reviewer (cubic): the instructions below keep this reviewer in
+# the style lane so the two do not overlap. STYLE.md is the source of truth;
+# the path instructions restate it so the reviewer applies it per file.
+language: en-US
+reviews:
+  # Fewer, higher-signal comments: a style pass a human thanks you for, not a
+  # blanket of nitpicks.
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  auto_review:
+    enabled: true
+    # A draft still carries its TODO.md (RULES.md): it is not ready to review.
+    # Deleting TODO.md takes the pull request out of draft and hands it here.
+    drafts: false
+    base_branches:
+      - main
+  path_instructions:
+    - path: "discopy/**/*.py"
+      instructions: |
+        Review for STYLE.md and consistency ONLY — never correctness of the
+        code or the mathematics, test coverage, or performance, and nothing
+        pflake8/pylint already flag. Spend findings on the lines the diff
+        adds; read the whole file only to judge the change against what
+        surrounds it. Check the diff against STYLE.md:
+        - Pure: diagram composition has no side effects; only functor
+          application into an effectful codomain does.
+        - Deterministic: no dependence on non-determinism (e.g. hashing,
+          set iteration order) in a data structure's representation.
+        - Transparent: `eval(repr(x)) == x` holds, and `str(x)` reads like
+          what a mathematician writes on the board.
+        - No secrets: avoid private/semiprivate attributes; expose each
+          subprocedure as a testable, reusable method.
+        - Naming: short, descriptive, matching well-known mathematical
+          definitions where one exists.
+        - Speaks for itself: no explanatory comments — the code should be
+          clear on its own, documented only with links to definitions.
+        - Doesn't show off: prefer the simpler name or explanation.
+        - Never repeats itself: shared behaviour (identity, composition) is
+          defined once at the right level of abstraction, not per level;
+          duplicate code usually means the wrong level.
+        - Never nests: more than three levels deep usually means the wrong
+          level of abstraction.
+        - No TODOs: no `TODO` file or directory, no `TODO` comment — a bug
+          or missing piece is an issue, not a marker in the tree.
+        Also check the change is consistent with the file it lands in and
+        with the modules it imports: docstring and doctest shape, section
+        ordering, level of abstraction, whatever the surrounding code does.
+    - path: "test/**/*.py"
+      instructions: |
+        Style and consistency ONLY, not correctness or coverage. The test
+        tree mirrors `discopy/`, one file per module; submodules keep their
+        own directory. Check naming, structure and the level of abstraction
+        match the surrounding tests, and that additions are complete but
+        concise. STYLE.md's naming, no-comments and no-nesting points apply.
+    - path: "docs/**/*.md"
+      instructions: |
+        These are marimo notebooks: STYLE.md applies to their Python code
+        cells exactly as to a module. Review prose only where the diff
+        touches it, and only for consistency with the surrounding prose —
+        never the correctness of the mathematics it states.
+    - path: "**/*.py"
+      instructions: |
+        Style and consistency against STYLE.md ONLY, never correctness. This
+        catches Python outside `discopy/` and `test/` (benchmarks, `.github`
+        scripts, docs helpers): the same naming, self-documenting, no-nesting
+        and no-TODO points apply, judged against each file's own conventions.
+  tools:
+    ruff:
+      enabled: false
+chat:
+  auto_reply: true

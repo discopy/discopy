@@ -387,6 +387,26 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   factory string load the same way
   ([#566](https://github.com/discopy/discopy/pull/566)).
 
+### Removed
+
+- The in-house style reviewer — `.github/style-review/` (the `review.py`,
+  `post.py`, `history.py`, `thread.py` and `github.py` scripts and their
+  `prompt.md`), the `style-review.yml` workflow, and their tests under
+  `.github/tests/` — is retired in favour of CodeRabbit, configured by a
+  new `.coderabbit.yaml` that restates `STYLE.md` as per-path review
+  instructions. It was built around our own open-weights model behind an
+  OpenAI-compatible gateway, and around a cross-round `accepted`/`declined`/
+  `open` tally kept in hidden review bodies; CodeRabbit is free for public
+  repositories, so the gateway (and the `STYLE_REVIEW_BASE_URL`/`_MODEL`
+  variables and `STYLE_REVIEW_API_KEY` secret it read) is no longer needed.
+  Correctness review is unchanged — cubic keeps that lane — but the two
+  reviewers now run as independent GitHub Apps on pull request events, so
+  the style→correctness hand-over the workflow orchestrated (the source of
+  #634/#645/#676) is gone rather than reimplemented. The `no-todo-on-main`
+  draft gate stays: a draft carries its `TODO.md` and CodeRabbit skips
+  drafts, so deleting `TODO.md` still hands a pull request to the style
+  reviewer first.
+
 ### Fixed
 
 - `style-review.yml`'s hand-over to the correctness reviewer, and its
