@@ -9,6 +9,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `discopy.quantum.zx.Diagram` joins the property matrix, with a
+  `strategy` adding Z/X spiders, the Hadamard and scalars to the
+  inherited tensor-box distribution. Its copy/discard, Frobenius and
+  snake-equation axioms are declared inapplicable — a Z or X spider is a
+  semantic box, equal to wiring only up to evaluation. The bugs this
+  enrolment surfaced are fixed below, except one open bug declared in
+  the matrix: `zx.Diagram` inherits `tensor`'s `spider_factory`, which
+  expects dimensions rather than `PRO` types, so a functor cannot
+  rebuild a ZX spider — xfailed in `proptest/test_normal_form.py`.
 - `discopy.tensor.Tensor` and `Diagram` join the property matrix, with a
   `strategy` generating small integer-entried tensors over `Dim`
   boundaries drawn from `Dim.strategy`; unlike `Matrix`'s, its `copy` is
@@ -477,6 +486,13 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `zx.Spider`, `Scalar` and `H` serialise with their own signatures
+  instead of inheriting `__repr__`, `to_tree` or `from_tree` from
+  `tensor.Box`/`Bubble`, whose `(name, dom, cod)` keys their own
+  `__init__` rejects, so `eval(repr(x))` and `dumps`/`loads` roundtrip
+  every ZX diagram; and `zx.H` is a `Hadamard` class that is its own
+  dagger rather than a `Box` carrying a `lambda` as its dagger,
+  unpicklable by construction.
 - A subscripted `NamedGeneric` instance — `Matrix[int]`, `Tensor[...]`,
   `Hypergraph[...]`, `CMap[...]` — unpickled as its bare origin class:
   `NamedGeneric.__setstate__` was defined on a class its subscripts never

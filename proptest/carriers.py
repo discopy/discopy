@@ -26,6 +26,7 @@ from discopy import (
     traced,
 )
 from discopy.matrix import Matrix
+from discopy.quantum import zx
 from discopy.utils import factory_name
 
 CARRIERS = (
@@ -52,6 +53,7 @@ CARRIERS = (
     frobenius.Functor,
     Matrix[int],
     frobenius.Dim, tensor.Diagram, tensor.Tensor[int],
+    zx.Diagram,
 )
 
 
