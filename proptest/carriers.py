@@ -24,6 +24,7 @@ from discopy import (
     symmetric,
     traced,
 )
+from discopy.python import finset
 from discopy.utils import factory_name
 
 CARRIERS = (
@@ -48,6 +49,7 @@ CARRIERS = (
     feedback.Ty, feedback.Diagram, feedback.Hypergraph, feedback.Functor,
     frobenius.Ty, frobenius.Diagram, frobenius.Hypergraph, frobenius.CMap,
     frobenius.Functor,
+    finset.Function, finset.Permutation,
 )
 
 

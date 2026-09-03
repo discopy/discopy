@@ -9,6 +9,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `discopy.python.finset.Function` and `Permutation` join the property
+  matrix, with a recursive `strategy` generating finite functions under
+  tensor and composition. One open bug is declared in the matrix rather
+  than fixed: `finset.Function.swap` returns the inverse permutation
+  ([#657](https://github.com/discopy/discopy/issues/657)), correct only
+  where both halves have equal length — a joint constraint per-argument
+  generation cannot state — so `braid_naturality`, `hexagon_left` and
+  `hexagon_right` are declared broken and recorded in the counterexample
+  ledger.
 - `discopy.cmap.CMap` and `discopy.hypergraph.Hypergraph` grow a
   `strategy` classmethod, drawing through their associated diagram
   category and adding closed components (loops, isolated spiders) beyond
@@ -457,6 +466,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `finset.Function.ob` is `discopy.testing.Natural` rather than the bare
+  `int`, which the strategy and axiom machinery could not treat as a
+  wire-like generating object.
 - `Hypergraph.to_graph` keyed spider nodes by the boundary's object
   rather than the spider's own type, creating a phantom attributeless
   node whenever a boundary wire reads an adjoint of its spider type, so
