@@ -15,7 +15,10 @@ search strategy whenever a bug escapes it.
   (roundtrips, transparency, pickling, hashing, idempotence) over the same
   carriers and strategies.
 - `proptest/test_counterexamples.py` replays every recorded counterexample
-  deterministically — no generation, no search. It is the suite's memory.
+  deterministically — no generation, no search: the matrix's explicit
+  phase. Its memory is Hypothesis's example database, `.hypothesis` on
+  your machine and a workflow artifact on CI, which every run reads
+  before it searches.
 - Select cells by glob: `uv run pytest proptest/ --axioms '<glob>' -vrsxX`,
   with `*` as the only wildcard so brackets match themselves. Recorded
   counterexamples carry the id of their matrix cell, so a glob selects a
@@ -58,14 +61,18 @@ stay as unit tests in `test/`.
 
 1. **Isolate it**: `uv run pytest proptest/ --axioms '<carrier>.<law>' -x
    -vrsxX`. Hypothesis reports the shrunk falsifying example as labelled
-   draws; on rerun the local `.hypothesis` database replays it first, so
-   the failure is stable on your machine.
-2. **Record it first, then debug.** DisCoPy is transparent, so the
-   printed draws are valid Python building the exact counterexample.
-   Paste them into a record in `proptest/test_counterexamples.py` (format
-   below) before touching the implementation: from then on the bug
-   reproduces deterministically for every agent and machine, including
-   from a CI log where no database survives the runner.
+   draws; on rerun the `.hypothesis` database replays it first, so the
+   failure is stable on your machine. A failure CI found is in the
+   artifact its run uploaded: with a `GITHUB_TOKEN` in the environment
+   the `dev` profile reads that database too, and the cell fails for you
+   the same way without a search.
+2. **Record it, then debug.** DisCoPy is transparent, so the printed
+   draws are valid Python building the exact counterexample. Paste them
+   into a record in `proptest/test_counterexamples.py` (format below)
+   before touching the implementation: the database remembers a failure
+   only under the Hypothesis `uv.lock` pins and only while an artifact
+   lives, while a record reproduces it for every agent and machine, from
+   a CI log included, and stays as the pin once the bug is fixed.
 3. **Debug against the record**, not the search. In a REPL, call the
    record's axiom on its arguments and inspect the returned `Equation`'s
    sides. Do not reach for `Axiom.falsify` to reproduce a known failure:
@@ -76,10 +83,12 @@ stay as unit tests in `test/`.
    regression pin; there is nothing else to write.
 5. **Or file it.** If the fix is out of scope, open an issue, declare the
    axiom `.failing("<reason> (#<issue>)")` where the carrier breaks it,
-   and keep the record: it xfails together with the axiom and starts
-   passing — visibly, via `-rxX` — the day the bug is fixed, at which
-   point the `.failing` declaration is removed and the record becomes the
-   pin.
+   and keep the record: it xfails together with the axiom, strictly, so
+   the day the bug is fixed the record fails as an unexpected pass until
+   the `.failing` declaration is removed — at which point the record is
+   the pin. The search cell xfails too, without strictness: whether a
+   search finds a rare counterexample within its budget is not a fact
+   about the law.
 
 A counterexample against an ad-hoc property that has no `Axiom` follows
 the same steps, except the record is a plain regression test in the
@@ -109,11 +118,12 @@ COUNTEREXAMPLES = (
   the file's imports as records arrive.
 - `reason` says what broke and links the issue when there is one.
 
-The replay test marks a record xfail exactly when its axiom is declared
-`.failing` and checks the equation the axiom's `AxiomFailure` carries, so
-the xfail is earned by the arguments falsifying the law — a typo'd record
-shows up as an unexpected pass — and a record never needs updating when
-the bug is fixed: only the `.failing` declaration moves.
+The replay test marks a record xfail, strictly, exactly when its axiom is
+declared `.failing` and checks the equation the axiom's `AxiomFailure`
+carries, so the xfail is earned by the arguments falsifying the law — a
+typo'd record and a fixed bug both show up as an unexpected pass, which
+strictness turns red — and a record never needs updating when the bug is
+fixed: only the `.failing` declaration moves.
 
 Never delete a record because it is inconvenient; a record only leaves
 when the law itself leaves the codebase.
@@ -149,23 +159,31 @@ guard the class of bugs and not just the recorded instance.
 
 ## CI
 
-The `proptest` workflow runs the suite on `main`, on manual dispatch, and
-on pull requests labelled `proptest`. GitHub Actions sets `CI=true`,
-which switches Hypothesis to its CI profile — `derandomize=True` and
-`print_blob=True` — so a CI run draws the same examples every time and a
-failure log carries everything needed to reproduce it, three ways:
+The `proptest` workflow runs the suite on pull requests labelled
+`proptest`, on every push to `main`, nightly, and on manual dispatch.
+`proptest/conftest.py` registers three Hypothesis profiles, selected by
+`HYPOTHESIS_PROFILE`, over one example database, `.hypothesis/examples`:
 
-- `CI=true uv run pytest proptest/ --axioms '<cell>' -x` replays the
-  run's exact draws locally, derandomisation being machine-independent;
-- the `Draw N` lines of the report print full reprs — transparency makes
-  them the code that builds the counterexample, ready to paste into a
-  record — unlike the `assert ... where` lines above them, which pytest
-  clips;
-- the printed `@reproduce_failure(<version>, <blob>)` decorator replays
-  the exact choices under the Hypothesis that `uv.lock` pins.
+- `pr`, on pull requests: a small budget of new examples after the
+  `reuse` phase has replayed every failure the database remembers, so a
+  known bug fails at once and a run is fast.
+- `explore`, on `main`, nightly and on dispatch: a large budget, where
+  new counterexamples come from.
+- `dev`, the default elsewhere: a middling budget, and with a
+  `GITHUB_TOKEN` in the environment the local database is backed by
+  CI's, read-only, so what CI found replays on your machine.
 
-The flip side of derandomisation is that CI never searches new ground:
-exploration happens in local runs, which stay randomised and remember
-their failures in `.hypothesis`. Either way, record what CI finds —
-recorded counterexamples replay on every run of `proptest/`, so a fixed
-bug failing again fails every run, loudly, everywhere.
+Every run downloads the database the previous run uploaded as the
+`hypothesis-example-db` artifact and uploads its own afterwards, whether
+or not it passed — a failed run's artifact is the one holding the new
+counterexample. Hypothesis prunes what passes again and keeps what
+fails, so a failure found by one night's search fails every pull request
+until it is fixed or declared, with no one recording anything.
+
+Runs are randomised, so a red check on a pull request can be a bug its
+diff did not cause: the shrunk draws in the log and the printed
+`@reproduce_failure(<version>, <blob>)` decorator reproduce it under the
+Hypothesis `uv.lock` pins, and the artifact replays it through the `dev`
+profile. `--hypothesis-show-statistics` is on, so the log of an explore
+run also says how often each shape was drawn, the input of a strategy
+audit.

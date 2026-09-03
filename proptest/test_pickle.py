@@ -7,7 +7,7 @@ type parameter of a :class:`discopy.abc.NamedGeneric` subscript.
 import pickle
 
 import pytest
-from hypothesis import given, settings
+from hypothesis import given
 from hypothesis import strategies as st
 
 from discopy.python import function
@@ -25,7 +25,6 @@ def classify(carrier):
 
 @pytest.mark.parametrize("carrier", carrier_parameters(classify))
 @given(data=st.data())
-@settings(max_examples=25, deadline=None)
 def test_pickle(carrier, data):
     """ Check that a pickled value loads back equal, with the same class. """
     value = data.draw(carrier.strategy())
