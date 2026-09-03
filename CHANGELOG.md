@@ -173,6 +173,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   hierarchy below symmetric: traced, Markov, closed, feedback, compact and
   hypergraph ([#558](https://github.com/discopy/discopy/issues/558),
   refactoring [#325](https://github.com/discopy/discopy/pull/325)).
+- `discopy.kleisli`, the Kleisli category of a `Monad`, with the channel,
+  multiplicative and additive instances. `Monad` carries an optional
+  `iterate` operator, i.e. the structure of an Elgot monad, so that
+  `kleisli.additive.Channel.trace` is defined exactly for the monads that
+  supply one, with Dal Lago-Hoshino's token machines as a worked example
+  where conditioning is a trace. `kleisli.additive.Channel` declares itself
+  a `TracedCategory`, so whiskering on either side comes from
+  `MonoidalCategory`
+  ([#443](https://github.com/discopy/discopy/pull/443)).
 - `para.Symmetric` carries an optional coparameter space: a map is
   `inside : dom @ param -> cod @ copar` with `copar` empty by default, so
   parametric maps read as before, coparametric maps are the empty-`param`
@@ -450,6 +459,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   and `draw` raise. The check is gated on `_scan`, so the internal fast paths
   that build layers by construction are unaffected
   ([#599](https://github.com/discopy/discopy/issues/599)).
+- `kleisli.additive.Channel.trace(0)` no longer empties `dom` and `cod`:
+  the tenth `self.dom[:-n]` site of
+  [#578](https://github.com/discopy/discopy/issues/578), left to this
+  branch since `discopy.kleisli` was not yet on `main` when the other nine
+  were fixed by [#588](https://github.com/discopy/discopy/pull/588).
 - `review.py`'s style-review request: `ask` used to let a gateway
   `HTTPError` propagate without reading its body, so a 400 gave no clue
   whether it meant a dead model slug or an oversized prompt; it now prints
