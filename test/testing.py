@@ -236,12 +236,18 @@ def test_Axiom():
         return cls.equation_factory(f)
 
     assert repr(law) == "Axiom(law)"
+    assert eval(repr(cat.Arrow.unitality)) == cat.Arrow.unitality
+    assert hash(cat.Arrow.unitality) == hash(eval(repr(cat.Arrow.unitality)))
+    assert cat.Arrow.unitality != cat.Functor.unitality
+    assert cat.Functor.dagger_involution() is NotImplemented
     assert [parameter.name for parameter in law.parameters] == ['f']
     assert cat.Arrow.unitality.carrier is cat.Arrow
     with raises(TypeError):
         law(cat.Id(cat.Ob('x')))
     with raises(TypeError):
         law.falsify()
+    with raises(TypeError):
+        law.strategy()
     assert law.bind(cat.Arrow)(cat.Id(cat.Ob('x')))
     assert Axiom(classmethod(lambda cls: NotImplemented)).bind(cat.Arrow)()\
         is NotImplemented

@@ -120,9 +120,14 @@ COUNTEREXAMPLES = (
 
 
 def counterexample_parameters():
-    """ One parameter per record, xfail while its axiom is declared broken. """
+    """
+    One parameter per record, a strict xfail while its axiom is declared
+    broken: the day the bug is fixed the record fails as an unexpected pass
+    until the ``.failing`` declaration moves.
+    """
     for axiom, args, reason in COUNTEREXAMPLES:
-        marks = pytest.mark.xfail(reason=reason) if axiom.broken else ()
+        marks = pytest.mark.xfail(reason=reason, strict=True)\
+            if axiom.broken else ()
         yield pytest.param(
             axiom, args, marks=marks,
             id=f"{factory_name(axiom.carrier)}.{axiom.name}")
