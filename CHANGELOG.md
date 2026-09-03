@@ -43,8 +43,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   every run, so a counterexample found by one night's search fails every
   pull request until it is fixed or declared; a recorded counterexample
   xfails strictly while its axiom is declared `.failing`, so a fixed bug
-  fails as an unexpected pass until the declaration moves. See
-  [PROPTEST.md](PROPTEST.md).
+  fails as an unexpected pass until the declaration moves. The workflow
+  for developing against the suite — laws stated before implementation,
+  a failing cell debugged, its counterexample recorded, a strategy that
+  missed a bug audited — is the documentation of `discopy.testing`,
+  which joins the API docs under its own `testing` page; `AGENTS.md`
+  points to it from `Where` rather than importing it into every agent's
+  context, and links its other documents rather than importing them with
+  the `@` syntax only `CLAUDE.md` is read with.
 - The style review keeps score. Every review it posts records the remarks
   it made, hidden in its own body, so the next round can read them back
   whole rather than parse its own prose. That next round is one request

@@ -1,4 +1,4 @@
-""" DisCoPy's property-testing module in action, see PROPTEST.md. """
+""" DisCoPy's property-testing module in action. """
 
 from __future__ import annotations
 

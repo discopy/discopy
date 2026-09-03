@@ -64,11 +64,11 @@ CodeRabbit on dce7568, quoted verbatim.
 > Docstring coverage is 55.63% which is insufficient. The required threshold
 > is 80.00%. Docstring coverage is scoped to functions touched by this diff.
 
-- [WIP] @session_01Bwih1mV32usVtEFyNbDhq8-2026-09-03 13:15 `build.yml`: drop the comment and the timeout bump, every run of this branch since the bump finishes in about five minutes.
-- [WIP] @session_01Bwih1mV32usVtEFyNbDhq8-2026-09-03 13:15 `AGENTS.md`: links in place of the `@` imports, and the property-testing pointer out of the must-read list, to be read when a property fails or a carrier or a law is added.
-- [WIP] @session_01Bwih1mV32usVtEFyNbDhq8-2026-09-03 13:15 `PROPTEST.md` becomes the documentation of `discopy.testing`: its content moves into the module docstring in a voice for every developer, `discopy.testing` joins the API docs, every reference to the file is updated and the file is deleted.
+- [x] `build.yml`: drop the comment and the timeout bump, every run of this branch since the bump finishes in about five minutes.
+- [x] `AGENTS.md`: links in place of the `@` imports, and the property-testing pointer out of the must-read list, to be read when a property fails or a carrier or a law is added.
+- [x] `PROPTEST.md` becomes the documentation of `discopy.testing`: its content moves into the module docstring in a voice for every developer, `discopy.testing` joins the API docs, every reference to the file is updated and the file is deleted.
 - [WIP] @session_01Bwih1mV32usVtEFyNbDhq8-2026-09-03 13:15 Answer the three questions on axioms versus the other properties with one proposal: transparency, pickling and serialisation as `Equation`-valued laws of every carrier, so the matrix owns them and the property files go.
-- [WIP] @session_01Bwih1mV32usVtEFyNbDhq8-2026-09-03 13:15 `proptest.yml`: `persist-credentials: false` on the checkout.
-- [WIP] @session_01Bwih1mV32usVtEFyNbDhq8-2026-09-03 13:15 `assert_axioms` accepts a `NotImplemented` verdict, as `falsify` and the matrix do.
+- [x] `proptest.yml`: `persist-credentials: false` on the checkout.
+- [x] `assert_axioms` accepts a `NotImplemented` verdict, as `falsify` and the matrix do.
 - [WIP] @session_01Bwih1mV32usVtEFyNbDhq8-2026-09-03 13:15 Answer the `DIAGRAMS` thread: an empty parametrisation is an explicit pytest skip, and #659 enrols the diagram carriers.
-- [WIP] @session_01Bwih1mV32usVtEFyNbDhq8-2026-09-03 13:15 Docstrings on the new named helpers the diff adds without one.
+- [x] Docstrings on the new named helpers the diff adds without one.

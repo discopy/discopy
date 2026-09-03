@@ -326,6 +326,7 @@ class Arrow(FreeCategory, Strategy["Arrow"]):
         types = cls.ob.strategy() if types is None else types
 
         def generators(dom=None, cod=None):
+            """ Generator boxes between the given boundaries. """
             return cls.generator_factory.strategy(
                 types=types, dom=dom, cod=cod)
 
@@ -1000,6 +1001,7 @@ class Functor(Category, Strategy["Functor"]):
         atoms = [cls.dom.ob(name) for name in GENERATORS]
 
         def relabel(images):
+            """ The endofunctor sending each atom to its image. """
             labelling = Relabelling(tuple(zip(atoms, images)))
             return cls(labelling, Relabelled(labelling))
 

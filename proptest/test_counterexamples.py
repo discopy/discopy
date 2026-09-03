@@ -1,6 +1,6 @@
 """
 Deterministic replay of recorded counterexamples, the memory of the
-property suite: see PROPTEST.md for the recording protocol.
+property suite: :mod:`discopy.testing` documents the recording protocol.
 """
 
 from typing import NamedTuple
