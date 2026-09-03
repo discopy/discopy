@@ -54,7 +54,7 @@ class Strategy[T](ABC):
 
     @classmethod
     @abstractmethod
-    def strategy(cls, **params) -> st.SearchStrategy[T]:  # pragma: no cover
+    def strategy(cls, **params) -> st.SearchStrategy[T]:
         """
         Build a strategy for instances of ``cls``.
 
