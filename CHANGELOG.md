@@ -389,6 +389,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `biclosed.Variable` and `closed.Variable` require an atomic codomain:
+  the abstraction machinery indexes contexts and free variables by
+  variable, counting on that index to coincide with a wire index, so a
+  variable of type `x @ y` used to bind only the last wire, leaving the
+  other one silently free in `biclosed`, and crash from inside `finset`
+  in `closed`, where `Abstraction.eval` permutes as many wires as there
+  are free variables
+  ([#609](https://github.com/discopy/discopy/issues/609)).
 - `style-review.yml`'s hand-over to the correctness reviewer, and its
   token generation, ran on every style review rather than the intended
   ones. Both conditions were written as `if: >` folding a wrapped

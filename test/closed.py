@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pytest import raises
+
 from discopy.closed import *
 
 
@@ -134,6 +136,24 @@ def test_nonlinear_eval():
 
     discarded, = Y(lambda y: X(lambda x: g(x)(x))).eval().boxes
     assert any(isinstance(box, Discard) for box in discarded.arg.boxes)
+
+
+def test_Variable_atomic():
+    """
+    `closed.Variable` inherits `biclosed.Variable`'s atomicity check: a
+    variable stands for exactly one wire, so a non-atomic codomain used to
+    reach `Abstraction.eval`, which indexes a permutation by variable
+    count and a domain by wire count, and raised from inside `finset`
+    whenever the two disagreed (regression test for #609).
+    """
+    X, Y = Ty('X'), Ty('Y')
+    with raises(ValueError):
+        Variable('v', X @ Y)
+    v = Variable('v', X)
+    assert Abstraction(v, v).eval().dom == Ty()
+    assert Abstraction(v, v).eval().cod == (X >> X)
+
+
 def test_context_dom():
     """
     `Context.dom` instantiates `category.ob` before calling `.tensor`, so
