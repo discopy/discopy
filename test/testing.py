@@ -12,8 +12,8 @@ from discopy.cat import Arrow, Box, Equation, Functor, Ob
 from discopy.testing import (
     C0, C1, Atomic, Axiom, AxiomFailure, BoundaryConnected, ComposablePair,
     FeedbackJoining, FeedbackVanishing, HomogeneousMemory, HorizontalPair,
-    LeftCurrying, Natural, NonEmpty, Relabelled, Relabelling, RightCurrying,
-    Small, Strategy, TraceDinaturalityLeft, TraceDinaturalityRight,
+    LeftCurrying, Natural, NonEmpty, Relabelling, RightCurrying,
+    Strategy, Subsingleton, TraceDinaturalityLeft, TraceDinaturalityRight,
     TraceNaturalityLeft, TraceNaturalityRight, TraceSuperposing,
     assert_axioms, assert_strategy_finds, axiom, resolve)
 from discopy.utils import AxiomError, factory
@@ -116,16 +116,17 @@ def test_natural():
 
 def test_argument_wrappers():
     one, two = Natural(1), Natural(2)
-    assert Atomic(one).value == NonEmpty(one).value == Small(one).value == one
+    assert Atomic(one).value == NonEmpty(one).value == one
+    assert Subsingleton(one).value == one
     for wrapper, value in (
-            (Atomic, two), (NonEmpty, Natural()), (Small, two)):
+            (Atomic, two), (NonEmpty, Natural()), (Subsingleton, two)):
         with raises(ValueError):
             wrapper(value)
     assert find(
         Atomic[Natural].strategy(), lambda _: True) == Atomic[Natural](one)
     assert find(NonEmpty[Natural].strategy(), lambda _: True).value
     assert len(
-        find(Small[Natural].strategy(), lambda _: True).value) <= 1
+        find(Subsingleton[Natural].strategy(), lambda _: True).value) <= 1
     pair = find(
         resolve(NonEmpty[ComposablePair[TracedDiagram]]), lambda _: True)
     assert isinstance(pair.value, ComposablePair)
@@ -138,7 +139,7 @@ def test_boundary_connected():
     box = symmetric.Box('f', x, x)
     scalar = symmetric.Box('s', symmetric.Ty(), symmetric.Ty())
     assert BoundaryConnected(box.to_hypergraph()).value
-    assert BoundaryConnected((box, box)).value == (box, box)
+    assert BoundaryConnected(HorizontalPair(box, box)).value == (box, box)
     for value in (scalar, scalar.to_map(), scalar.to_hypergraph()):
         with raises(ValueError):
             BoundaryConnected(value)
@@ -215,18 +216,14 @@ def test_relabelling():
     x, y, z = Ob('x'), Ob('y'), Ob('z')
     relabelling = Relabelling(((x, y), ))
     assert relabelling[x] == y and relabelling[z] == z
+    assert relabelling[Box('f', x, z)] == Box('f', y, z)
     assert list(relabelling) == [x] and len(relabelling) == 1
     assert bool(Relabelling()) and relabelling.send(x) == y
     rigid_x, rigid_y = rigid.Ty('x'), rigid.Ty('y')
     rotating = Relabelling(((rigid_x, rigid_y), ))
-    assert rotating[rigid_x.l] == rigid_y.l
-    assert rotating[rigid_x.r] == rigid_y.r
-    assert rotating.send(rigid_x @ rigid_x.l) == rigid_y @ rigid_y.l
-    delayed = Relabelling(((FeedbackTy('u'), FeedbackTy('v')), ))
-    assert delayed[FeedbackTy('u').delay()] == FeedbackTy('v').delay()
-    relabelled = Relabelled(relabelling)
-    assert relabelled[Box('f', x, x)] == Box('f', y, y)
-    assert list(relabelled) == [] and not len(relabelled) and bool(relabelled)
+    assert rotating.send(rigid_x @ rigid_x) == rigid_y @ rigid_y
+    functor = rigid.Functor(rotating, rotating)
+    assert functor(rigid_x.l) == rigid_y.l and functor(rigid_x.r) == rigid_y.r
 
 
 def test_monoid_axioms():

@@ -115,11 +115,11 @@ as of dce7568, quoted verbatim.
 > I would have expected this to be the first class of the overall file,
 > taking a break before diving deeper
 
-- [WIP] @session_01Bwih1mV32usVtEFyNbDhq8-2026-09-03 14:05 `Axiom`, `AxiomFailure` and `axiom` open the module, before `Strategy` and the wrappers.
-- [WIP] @session_01Bwih1mV32usVtEFyNbDhq8-2026-09-03 14:05 `Small` becomes `Subsingleton`; `Bifunctor` becomes `Square`, a bifunctor being a functor out of a product.
-- [WIP] @session_01Bwih1mV32usVtEFyNbDhq8-2026-09-03 14:05 The wrappers' `value` fields are typed `C0` and `C1`, and `BoundaryConnected` checks the cells of a `PastingDiagram` rather than of any tuple.
-- [WIP] @session_01Bwih1mV32usVtEFyNbDhq8-2026-09-03 14:05 `TraceDinaturality`'s docstring says the arrow is traceable only once the sliding arrow is composed in.
-- [WIP] @session_01Bwih1mV32usVtEFyNbDhq8-2026-09-03 14:05 `Relabelling` looks atoms up by name only, leaving rotations to `rigid.Functor` and delays to `feedback.Functor`; `Relabelled` is a case of its `__getitem__`, so a generated functor is `cls(labelling, labelling)`.
+- [x] `Axiom`, `AxiomFailure` and `axiom` open the module, before `Strategy` and the wrappers.
+- [x] `Small` becomes `Subsingleton`; `Bifunctor` becomes `Square`, a bifunctor being a functor out of a product.
+- [x] The wrappers' `value` fields are typed `C0` and `C1`, and `BoundaryConnected` checks the cells of a `PastingDiagram` rather than of any tuple.
+- [x] `TraceDinaturality`'s docstring says the arrow is traceable only once the sliding arrow is composed in.
+- [x] `Relabelling` looks atoms up by name only, leaving rotations to `rigid.Functor` and delays to `feedback.Functor`; `Relabelled` is a case of its `__getitem__`, so a generated functor is `cls(labelling, labelling)`.
 - [WIP] @session_01Bwih1mV32usVtEFyNbDhq8-2026-09-03 14:05 Answer the `then` question: a `then` on `Relabelling` only helps once `MappingOrCallable.then` delegates to it, which is the composition redesign #648 asks for.
 - [WIP] @session_01Bwih1mV32usVtEFyNbDhq8-2026-09-03 14:05 Answer the local import: `hypothesis` is a test dependency and `discopy.abc` imports this module, so it must import without it.
 - [WIP] @session_01Bwih1mV32usVtEFyNbDhq8-2026-09-03 14:05 File the issue for `Nat` in the main library — `PRO` renamed, `testing.Natural` retired, the unary sequence protocol, `PROB`/`PROP` — and answer the three threads with it.

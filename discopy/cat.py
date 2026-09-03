@@ -84,7 +84,7 @@ from typing import (
 from discopy import messages, utils
 from discopy.abc import Category, Equation as AbstractEquation
 from discopy.testing import (
-    GENERATORS, Relabelled, Relabelling, Strategy, axiom)
+    GENERATORS, Relabelling, Strategy, axiom)
 from discopy.utils import (  # noqa: F401
     factory,
     factory_name,
@@ -1003,7 +1003,7 @@ class Functor(Category, Strategy["Functor"]):
         def relabel(images):
             """ The endofunctor sending each atom to its image. """
             labelling = Relabelling(tuple(zip(atoms, images)))
-            return cls(labelling, Relabelled(labelling))
+            return cls(labelling, labelling)
 
         return st.tuples(
             *(st.sampled_from(atoms) for _ in atoms)).map(relabel).filter(

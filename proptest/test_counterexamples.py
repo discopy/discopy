@@ -9,7 +9,7 @@ import pytest
 
 from discopy import cat
 from discopy.testing import (
-    GENERATORS, Axiom, AxiomFailure, Relabelled, Relabelling)
+    GENERATORS, Axiom, AxiomFailure, Relabelling)
 from discopy.utils import factory_name
 
 
@@ -38,7 +38,7 @@ whatever it relabels, so the identity relabelling is a counterexample too.
 COUNTEREXAMPLES = (
     Counterexample(
         axiom=cat.Functor.unitality,
-        args=(cat.Functor(ob_map=COLLAPSE, ar_map=Relabelled(COLLAPSE)), ),
+        args=(cat.Functor(ob_map=COLLAPSE, ar_map=COLLAPSE), ),
         reason="MappingOrCallable.then iterates the keys of the left-hand "
                "map and the identity functor enumerates none, so id >> f "
                "forgets everything f does."),

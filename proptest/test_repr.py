@@ -22,7 +22,7 @@ IMPORTS = (
     "from discopy.tensor import Tensor",
     "from discopy.frobenius import Dim",
     "from discopy.python.finset import Function, Permutation",
-    "from discopy.testing import Relabelling, Relabelled",
+    "from discopy.testing import Relabelling",
 )
 """
 What the fresh environment loads: the package itself, plus the obvious
