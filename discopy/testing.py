@@ -347,7 +347,7 @@ class Axiom[T]:
             self.equation = self.equation.__func__
         self.signature = inspect.signature(self.equation)
         self.receiver = next(iter(self.signature.parameters), None)
-        self.name = self.__name__ = self.name or self.equation.__name__
+        self.name = self.name or self.equation.__name__
         self.subspaces = dict(self.subspaces or {})
         self.__doc__ = self.equation.__doc__
 
@@ -370,7 +370,7 @@ class Axiom[T]:
         override built with :meth:`modulo`, :meth:`failing` or
         :meth:`inapplicable` needs no name of its own.
         """
-        self.name = self.__name__ = name
+        self.name = name
 
     @property
     def is_method(self) -> bool:
