@@ -9,6 +9,13 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `discopy.quantum.circuit.Circuit` joins the property matrix, with a
+  `strategy` adding the standard gate set (Pauli, Clifford, rotations,
+  kets/bras, scalars) to the inherited tensor-box distribution. It has
+  no cloning or spiders, so the corresponding Markov/Frobenius axioms are
+  declared inapplicable, and its cups, caps and traces are Bell
+  preparations equal to wiring only up to evaluation. The bugs this
+  enrolment surfaced are fixed below.
 - `discopy.tensor.Tensor` and `Diagram` join the property matrix, with a
   `strategy` generating small integer-entried tensors over `Dim`
   boundaries drawn from `Dim.strategy`; unlike `Matrix`'s, its `copy` is
@@ -477,6 +484,17 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `quantum.gates.Ket` and `Bra` inherited `QuantumGate`'s repr, which
+  takes a name where their constructors take a bitstring, so
+  `eval(repr(x))` did not round-trip; each now has its own repr printing
+  the bitstring.
+- `quantum.circuit.Box.__setstate__` demanded a `_mixed` key that
+  plumbing like `quantum.circuit.Swap` never stores, crashing on any
+  pickled circuit built from such boxes; the key is now only read and
+  renamed when it is present.
+- `QuantumGate` equality compares reprs and `complex(v)` keeps IEEE
+  signed zeros, so numerically equal gates (`-1j` vs `(-0-1j)`) compared
+  unequal; the zeros are normalised on construction (`complex(v) + 0j`).
 - A subscripted `NamedGeneric` instance — `Matrix[int]`, `Tensor[...]`,
   `Hypergraph[...]`, `CMap[...]` — unpickled as its bare origin class:
   `NamedGeneric.__setstate__` was defined on a class its subscripts never
