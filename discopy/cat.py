@@ -1010,6 +1010,8 @@ class Functor(Category, Strategy["Functor"]):
                 lambda functor: dom in (None, functor.dom)
                 and cod in (None, functor.cod))
 
+    serialisation = Strategy.serialisation.inapplicable(
+        "A functor has no tree.")
     unitality = Category.unitality.failing(
         "Composition is unital only on the left: "
         ":code:`MappingOrCallable.then` composes by iterating the keys of "

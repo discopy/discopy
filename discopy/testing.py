@@ -66,9 +66,15 @@ The suite
   carrier in ``CARRIERS``, one pytest cell per pair, arguments generated
   by :meth:`Axiom.strategy` from the annotations of the law's own
   parameters.
-- The other ``proptest/test_*.py`` files check ad-hoc boolean properties
-  (roundtrips, transparency, pickling, hashing, idempotence) over the same
-  carriers and strategies.
+- :class:`Strategy` states the laws of any type that generates its own
+  instances, whatever its level: :meth:`Strategy.transparency`,
+  :meth:`Strategy.pickling` and :meth:`Strategy.serialisation` are cells
+  of the matrix for every carrier, and a carrier whose representations
+  print bare names overrides :meth:`Strategy.environment` with the
+  namespace they read back in.
+- ``proptest/test_drawing.py`` and ``proptest/test_normal_form.py`` check
+  the remaining ad-hoc properties — drawing does not raise, a normal form
+  and a foliation are idempotent — over the diagram carriers.
 - ``proptest/test_counterexamples.py`` replays every recorded
   counterexample deterministically — no generation, no search: the
   matrix's explicit phase. Its memory is Hypothesis's example database,
@@ -264,6 +270,7 @@ says how often each shape was drawn, the input of a strategy audit.
 from __future__ import annotations
 
 import inspect
+import pickle
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping
 from dataclasses import KW_ONLY, dataclass, replace
@@ -271,12 +278,14 @@ from functools import wraps
 from typing import ClassVar, TypeVar, TYPE_CHECKING
 
 from discopy.utils import (
-    AxiomError, NamedGeneric, assert_iscomposable, factory_name, get_origin)
+    AxiomError, NamedGeneric, assert_iscomposable, classproperty, dumps,
+    factory_name, from_tree, get_origin, loads)
 
 if TYPE_CHECKING:
     from hypothesis import strategies as st
 
     from discopy import monoidal
+    from discopy.abc import Equation
 
 
 C0 = TypeVar("C0")
@@ -446,18 +455,28 @@ class Axiom[T]:
         ``C0`` and ``C1`` resolve to the objects and arrows of the carrier,
         or of the carrier's domain for a law of an element: the arguments a
         functor is applied to live in the category it maps from, and its
-        codomain is reachable as ``self.cod`` from the body.
+        codomain is reachable as ``self.cod`` from the body. A carrier that
+        is no category, e.g. a type of objects, stands for both.
+
+        Only the parameters' annotations are evaluated: the law's return
+        annotation may name a type its module imports for checking only.
         """
         from hypothesis import strategies as st
 
         if self.carrier is None:
             raise TypeError(f"{self.name} is not bound to a class.")
         function = inspect.unwrap(self.equation)
-        source = self.carrier.dom if self.is_method else self.carrier
-        scope = {"C0": source.ob, "C1": source.ar}
-        annotations = inspect.get_annotations(
-            function, globals=function.__globals__, locals=scope,
-            eval_str=True)
+        domain = getattr(self.carrier, "dom", None)
+        source = domain if self.is_method and isinstance(domain, type)\
+            else self.carrier
+        scope = {
+            "C0": getattr(source, "ob", source),
+            "C1": getattr(source, "ar", source)}
+        annotations = {
+            name: eval(annotation, function.__globals__, scope)
+            if isinstance(annotation, str) else annotation
+            for name, annotation in function.__annotations__.items()
+            if name != "return"}
         annotations[self.receiver] = self.carrier
         annotations.update({
             name: substitute(annotation, scope)
@@ -531,12 +550,31 @@ def axiom(equation) -> Axiom:
     return Axiom(equation)
 
 
+def inherited_axioms(cls) -> dict[str, Axiom]:
+    """
+    The axioms inherited by ``cls``, by name, subclasses overriding bases.
+
+    Names are collected before they are filtered, so that assigning
+    anything that is not an axiom over an inherited one drops it
+    altogether, rather than restating it.
+    """
+    visible = {
+        name: value
+        for base in reversed(cls.__mro__)
+        for name, value in base.__dict__.items()}
+    return {name: value.bind(cls) for name, value in visible.items()
+            if isinstance(value, Axiom)}
+
+
 class Strategy[T](ABC):
     """
     A type with a canonical `search strategy
     <https://hypothesis.readthedocs.io/en/latest/data.html>`_
-    generating its instances.
+    generating its instances, and the laws every such type obeys: a term
+    reads back from its representation, its pickle and its tree.
     """
+
+    axioms = classproperty(inherited_axioms)
 
     @classmethod
     @abstractmethod
@@ -552,6 +590,57 @@ class Strategy[T](ABC):
         implements: a constraint it cannot honour fails loudly as an
         unexpected keyword rather than being silently dropped.
         """
+
+    @classmethod
+    def environment(cls) -> dict:
+        """
+        The namespace the representation of a term reads back in: the
+        public names of the package, as ``from discopy import *`` binds
+        them, so that a representation qualified by module such as
+        ``cat.Box('f', cat.Ob('x'), cat.Ob('y'))`` evaluates. A carrier
+        whose representations print bare names adds them.
+
+        The import is local because the package imports this module.
+        """
+        import discopy
+
+        return {name: value for name, value in vars(discopy).items()
+                if not name.startswith("_")}
+
+    @axiom
+    def transparency(self) -> Equation:
+        """
+        The representation of a term evaluates back to it, in the
+        :meth:`environment` of its type.
+
+        The import is local because :mod:`discopy.abc` imports this module
+        for its axioms, so the arrow between them cannot be reversed.
+        """
+        from discopy.abc import Equation
+
+        return Equation(eval(repr(self), type(self).environment()), self)
+
+    @axiom
+    def pickling(self) -> Equation:
+        """
+        A term loads back from its pickle, of the same class: the equation
+        is between the pairs of a class and a term, since a subscript of a
+        :class:`discopy.utils.NamedGeneric` is part of what a pickle keeps.
+        """
+        from discopy.abc import Equation
+
+        loaded = pickle.loads(pickle.dumps(self))
+        return Equation((type(loaded), loaded), (type(self), self))
+
+    @axiom
+    def serialisation(self) -> Equation:
+        """
+        A term decodes back from its tree and from the JSON of its tree.
+        A type without a tree declares the law inapplicable.
+        """
+        from discopy.abc import Equation
+
+        return Equation(from_tree(self.to_tree()), loads(dumps(self)), self)
 
 
 class Natural(int, Strategy["Natural"]):
@@ -592,6 +681,9 @@ class Natural(int, Strategy["Natural"]):
         return st.one_of(
             st.just(1),
             st.integers(min_value=0, max_value=max_size)).map(cls)
+
+    serialisation = Strategy.serialisation.inapplicable(
+        "A natural number has no tree.")
 
 
 @dataclass(frozen=True)
@@ -996,6 +1088,9 @@ class Relabelling(Mapping):
     something comparable.
     """
     images: tuple[tuple[object, object], ...] = ()
+
+    def __repr__(self):
+        return factory_name(type(self)) + f"(images={self.images!r})"
 
     def __getitem__(self, key):
         """

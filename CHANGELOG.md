@@ -43,7 +43,16 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   every run, so a counterexample found by one night's search fails every
   pull request until it is fixed or declared; a recorded counterexample
   xfails strictly while its axiom is declared `.failing`, so a fixed bug
-  fails as an unexpected pass until the declaration moves. The workflow
+  fails as an unexpected pass until the declaration moves. `Strategy`
+  states the laws of any type that generates its own instances, whatever
+  its level: `transparency`, `pickling` and `serialisation` are cells of
+  the matrix for every carrier — `eval(repr(x))`, the pickle and the tree
+  of a term read back to it, as `Equation`s like every other law — with
+  `Strategy.environment` for the namespace a representation reads back
+  in, which a carrier printing bare names overrides; the ad-hoc property
+  files for representations, pickling and serialisation are gone, and a
+  known violation is a `.failing` declaration on its carrier like any
+  other broken law. The workflow
   for developing against the suite — laws stated before implementation,
   a failing cell debugged, its counterexample recorded, a strategy that
   missed a bug audited — is the documentation of `discopy.testing`,

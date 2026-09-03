@@ -102,6 +102,28 @@ def test_strategy():
     assert find(Box.strategy(dom=x), lambda _: True).dom == x
 
 
+def test_element_laws():
+    box = Box('f', Ob('x'), Ob('y'))
+    assert Arrow.transparency(box) and Arrow.pickling(box)
+    assert Arrow.serialisation(box)
+    assert Functor.serialisation() is NotImplemented
+    assert "transparency" in Natural.axioms
+    assert Natural.transparency(Natural(2)) and Natural.pickling(Natural(2))
+
+    class Bare(Natural):
+        """ A number whose representation prints its bare class name. """
+        def __repr__(self):
+            return f"Bare({int(self)})"
+
+        @classmethod
+        def environment(cls):
+            return {"Bare": cls}
+
+    assert Bare.transparency(Bare(2)) and "Bare" not in Natural.environment()
+    with raises(NameError):
+        eval(repr(Bare(2)), Natural.environment())
+
+
 def test_natural():
     assert Natural() == 0 and Natural(2) @ Natural(3) == Natural(5)
     assert len(Natural(3)) == 3
