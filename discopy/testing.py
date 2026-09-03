@@ -573,7 +573,7 @@ class AxiomFailure(AxiomError):
         self.equation = equation
 
 
-@dataclass(eq=False)
+@dataclass
 class Axiom[T]:
     """
     A categorical law, stated either of a carrier or of one of its elements.
@@ -611,7 +611,17 @@ class Axiom[T]:
         self.__doc__ = self.equation.__doc__
 
     def __repr__(self):
-        return f"Axiom({self.name})"
+        """
+        A bound axiom is the attribute of its carrier, e.g.
+        ``cat.Arrow.unitality``; an unbound one wraps a function and has no
+        transparent representation.
+        """
+        if self.carrier is None:
+            return f"Axiom({self.name})"
+        return f"{factory_name(self.carrier)}.{self.name}"
+
+    def __hash__(self):
+        return hash((self.equation, self.carrier, self.name))
 
     def __set_name__(self, owner, name):
         """
