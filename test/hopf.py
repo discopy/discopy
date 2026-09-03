@@ -147,7 +147,7 @@ def test_representation_is_a_dim():
     trivial = Representation[D](Dim(2))
     assert trivial == Dim(2) and trivial.is_module()
     assert hash(trivial) == hash(Dim(2))
-    from discopy import hopf, compact, tensor  # noqa: F401  (used by eval)
+    from discopy import hopf, compact, tensor  # noqa: F401
     assert eval(repr(trivial)) == trivial
 
 
@@ -475,3 +475,16 @@ def test_snake_equations_with_pivot():
                        atol=1e-6)
     assert np.allclose(F(right).eval(dtype=complex).array, identity,
                        atol=1e-6)
+
+
+def test_strategy():
+    from hypothesis import find
+
+    carrier = Intertwiner[Double(Algebra.cyclic(2))]
+    find(carrier.strategy(), lambda diagram: len(diagram.boxes) >= 2)
+
+
+def test_axioms():
+    from discopy import testing
+
+    testing.assert_axioms(Intertwiner[Double(Algebra.cyclic(2))])

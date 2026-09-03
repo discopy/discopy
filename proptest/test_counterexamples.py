@@ -7,7 +7,8 @@ from typing import NamedTuple
 
 import pytest
 
-from discopy import biclosed, braided, cat, compact, feedback, pivotal, ribbon
+from discopy import (
+    biclosed, braided, cat, compact, feedback, hopf, pivotal, ribbon)
 from discopy.matrix import Matrix
 from discopy.testing import (
     GENERATORS, Atomic, Axiom, AxiomFailure, Relabelled, Relabelling)
@@ -37,7 +38,24 @@ whatever it relabels, so the identity relabelling is a counterexample too.
 
 MEMORY = feedback.Ty("a") @ feedback.Ty("b")
 
+INTERTWINER = hopf.Intertwiner[hopf.Double(hopf.Algebra.cyclic(2))]
+
+ANYONS = INTERTWINER.ob.direct_sum([
+    INTERTWINER.ob.anyon(0, -1), INTERTWINER.ob.anyon(1, 1)])
+
 COUNTEREXAMPLES = (
+    Counterexample(
+        axiom=INTERTWINER.reidemeister_1_cap,
+        args=(ANYONS @ ANYONS, ),
+        reason="Reidemeister 1 fails on a composite module, where the "
+               "swap is the braiding and the pivotal correction fires "
+               "on a structural comparison with the unit."),
+    Counterexample(
+        axiom=INTERTWINER.reidemeister_1_cup,
+        args=(ANYONS @ ANYONS, ),
+        reason="Reidemeister 1 fails on a composite module, where the "
+               "swap is the braiding and the pivotal correction fires "
+               "on a structural comparison with the unit."),
     Counterexample(
         axiom=Matrix[int].copy_cocommutativity,
         args=(2, ),

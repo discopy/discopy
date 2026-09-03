@@ -9,6 +9,24 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `discopy.hopf.Intertwiner` (the ribbon category of representations of a
+  finite-dimensional Hopf algebra) joins the property matrix, evaluated
+  at the Drinfeld double of the cyclic group algebra. Its `frobenius`,
+  `speciality` and `spider_fusion` axioms (inherited from
+  `HypergraphCategory` via `tensor.Diagram`) are declared inapplicable —
+  representations have no supply of spiders. The bug this enrolment
+  surfaced is fixed below, except two open families declared in the
+  matrix: a `Representation` is a `Dim` carrying an action and the code
+  mixes the two
+  ([#654](https://github.com/discopy/discopy/issues/654)), so the
+  arrow-quantified laws are inapplicable (`Intertwiner` is not its own
+  factory), `normal_form` and `foliation` cannot be checked up to
+  hypergraph (the hypergraph functor rebuilds a cup or cap's adjoint as
+  the dimension reversal, not the dual module) and a class subscripted
+  by an algebra instance has no importable factory name, so its trees
+  cannot be decoded; and Reidemeister 1 fails, flakily, on a composite
+  module of `Rep(D(Z/2))`, recorded in the counterexample ledger
+  ([#655](https://github.com/discopy/discopy/issues/655)).
 - `discopy.tensor.Tensor` and `Diagram` join the property matrix, with a
   `strategy` generating small integer-entried tensors over `Dim`
   boundaries drawn from `Dim.strategy`; unlike `Matrix`'s, its `copy` is
@@ -477,6 +495,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- The ribbon classmethods `hopf.Intertwiner.braid`, `twist`, `cups` and
+  `caps` returned plain dimension boundaries, dropping the module
+  structure their callers read the action from.
 - A subscripted `NamedGeneric` instance — `Matrix[int]`, `Tensor[...]`,
   `Hypergraph[...]`, `CMap[...]` — unpickled as its bare origin class:
   `NamedGeneric.__setstate__` was defined on a class its subscripts never
