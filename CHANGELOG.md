@@ -480,6 +480,13 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   and `Feedback.dagger` raises a clean `AxiomError`, the delay being
   irreversible, instead of a `TypeError` from generic bubble
   reconstruction.
+- `grammar.categorial.Functor` and `grammar.pregroup.Functor` carry the
+  `@factory` decorator they were missing, so their `ar` resolves to the
+  grammar-level functor rather than the `biclosed.Functor` resp.
+  `frobenius.Functor` it subclasses, pinned by a regression test in each
+  module. Neither functor is enrolled in the property matrix: grammar
+  diagrams are built from a lexicon rather than generated, so they have
+  no generic strategy of their own.
 - `style-review.yml`'s hand-over to the correctness reviewer, and its
   token generation, ran on every style review rather than the intended
   ones. Both conditions were written as `if: >` folding a wrapped
