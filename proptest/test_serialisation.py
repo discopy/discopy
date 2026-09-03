@@ -4,7 +4,7 @@ Property tests for tree serialisation: every carrier that implements
 """
 
 import pytest
-from hypothesis import given, settings
+from hypothesis import given
 from hypothesis import strategies as st
 
 from discopy import hopf
@@ -30,7 +30,6 @@ def classify(carrier):
 
 @pytest.mark.parametrize("carrier", carrier_parameters(classify))
 @given(data=st.data())
-@settings(max_examples=25, deadline=None)
 def test_serialisation(carrier, data):
     """ Check that a value decodes back from its tree and its JSON. """
     value = data.draw(carrier.strategy())
