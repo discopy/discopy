@@ -410,9 +410,7 @@ class Bra(SelfConjugate, QuantumGate):
         super().__init__(name, dom, cod)
         self._digits, self._dim, self.draw_as_brakets = bitstring, 2, True
 
-    def __repr__(self):
-        return (factory_name(type(self))
-                + f"({', '.join(map(repr, self.bitstring))})")
+    __repr__ = Ket.__repr__
 
     @property
     def bitstring(self):
