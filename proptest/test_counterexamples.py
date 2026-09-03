@@ -52,7 +52,8 @@ def counterexample_parameters():
     until the ``.failing`` declaration moves.
     """
     for axiom, args, reason in COUNTEREXAMPLES:
-        marks = pytest.mark.xfail(reason=reason, strict=True)\
+        marks = pytest.mark.xfail(
+            reason=reason, raises=AssertionError, strict=True)\
             if axiom.broken else ()
         yield pytest.param(
             axiom, args, marks=marks,

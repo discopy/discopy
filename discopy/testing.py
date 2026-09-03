@@ -179,12 +179,13 @@ arguments the search shrunk the failure to.
   the file's imports as records arrive.
 - ``reason`` says what broke and links the issue when there is one.
 
-The replay test marks a record xfail, strictly, exactly when its axiom is
-declared :meth:`Axiom.failing` and checks the equation the axiom's
-:class:`AxiomFailure` carries, so the xfail is earned by the arguments
-falsifying the law — a typo'd record and a fixed bug both show up as an
-unexpected pass, which strictness turns red — and a record never needs
-updating when the bug is fixed: only the ``.failing`` declaration moves.
+The replay test marks a record xfail, strictly and for an assertion
+only, exactly when its axiom is declared :meth:`Axiom.failing`, and checks
+the equation the axiom's :class:`AxiomFailure` carries, so the xfail is
+earned by the arguments falsifying the law — a fixed bug shows up as an
+unexpected pass, which strictness turns red, and a typo'd record as an
+error rather than an expected failure — and a record never needs updating
+when the bug is fixed: only the ``.failing`` declaration moves.
 
 Never delete a record because it is inconvenient; a record only leaves
 when the law itself leaves the codebase.
