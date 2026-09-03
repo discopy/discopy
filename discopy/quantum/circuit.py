@@ -253,17 +253,17 @@ class Circuit(tensor.Diagram[complex]):
     trace_superposing_right = (
         tensor.Diagram.trace_superposing_right.inapplicable(BELL_WIRING))
 
-    trace_naturality_left = tensor.Diagram.trace_naturality_left\
-        .inapplicable(BELL_WIRING)
+    trace_naturality_left = (
+        tensor.Diagram.trace_naturality_left.inapplicable(BELL_WIRING))
 
-    trace_naturality_right = tensor.Diagram.trace_naturality_right\
-        .inapplicable(BELL_WIRING)
+    trace_naturality_right = (
+        tensor.Diagram.trace_naturality_right.inapplicable(BELL_WIRING))
 
-    trace_dinaturality_left = tensor.Diagram.trace_dinaturality_left\
-        .inapplicable(BELL_WIRING)
+    trace_dinaturality_left = (
+        tensor.Diagram.trace_dinaturality_left.inapplicable(BELL_WIRING))
 
-    trace_dinaturality_right = tensor.Diagram.trace_dinaturality_right\
-        .inapplicable(BELL_WIRING)
+    trace_dinaturality_right = (
+        tensor.Diagram.trace_dinaturality_right.inapplicable(BELL_WIRING))
 
     caps_coherence = tensor.Diagram.caps_coherence.inapplicable(BELL_WIRING)
 
