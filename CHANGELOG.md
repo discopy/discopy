@@ -64,15 +64,30 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   workflow on PRs labelled `proptest`, on `main`, nightly and on manual
   dispatch. `proptest/conftest.py` registers three Hypothesis profiles
   over one example database, keyed per cell by node id: `pr` replays what
-  the database remembers and generates a few examples, `explore` searches
-  with a large budget, and `dev` reads CI's database through a read-only
+  the database remembers and generates a few examples from a fixed seed,
+  `explore` searches with a large budget, and `dev` reads CI's database through a read-only
   `GitHubArtifactDatabase` given a `GITHUB_TOKEN`. The workflow downloads
   the database from the previous run's artifact and uploads its own after
   every run, so a counterexample found by one night's search fails every
   pull request until it is fixed or declared; a recorded counterexample
   xfails strictly while its axiom is declared `.failing`, so a fixed bug
-  fails as an unexpected pass until the declaration moves. See
-  [PROPTEST.md](PROPTEST.md).
+  fails as an unexpected pass until the declaration moves. `Strategy`
+  states the laws of any type that generates its own instances, whatever
+  its level: `transparency`, `pickling` and `serialisation` are cells of
+  the matrix for every carrier — `eval(repr(x))`, the pickle and the tree
+  of a term read back to it, as `Equation`s like every other law — with
+  `Strategy.environment` for the namespace a representation reads back
+  in, which a carrier printing bare names overrides; the ad-hoc property
+  files for representations, pickling and serialisation are gone, and a
+  known violation is a `.failing` declaration on its carrier like any
+  other broken law. The workflow
+  for developing against the suite — laws stated before implementation,
+  a failing cell debugged, its counterexample recorded, a strategy that
+  missed a bug audited — is the documentation of `discopy.testing`,
+  which joins the API docs under its own `testing` page; `AGENTS.md`
+  points to it from `Where` rather than importing it into every agent's
+  context, and links its other documents rather than importing them with
+  the `@` syntax only `CLAUDE.md` is read with.
 - The style review keeps score. Every review it posts records the remarks
   it made, hidden in its own body, so the next round can read them back
   whole rather than parse its own prose. That next round is one request
@@ -461,6 +476,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   rather than the spider's own type, creating a phantom attributeless
   node whenever a boundary wire reads an adjoint of its spider type, so
   `hash` crashed with `KeyError: 'box'`; it now keys on `spider_types`.
+- `rigid.Diagram.functor_factory` is `rigid.Functor`: it inherited
+  `biclosed.Functor`, which does not rotate, so a box mapped through
+  it lost the rotation of its boundary.
 - The structural boxes serialise with their own signatures instead of
   inheriting `__repr__`, `to_tree` or `from_tree` from `Box` or `Bubble`,
   whose `(name, dom, cod)` keys their constructors reject, so

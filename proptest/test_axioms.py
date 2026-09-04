@@ -16,6 +16,8 @@ def axiom_parameters():
     An axiom taking no argument states its verdict without one, so we ask it
     here: :obj:`NotImplemented` means the structure does not apply and the
     test is skipped rather than generating arguments it could not satisfy.
+    A carrier need not state laws at all: one enrolled for the ad-hoc
+    properties only, such as a type of wires, has no ``axioms``.
     """
     for carrier in CARRIERS:
         for axiom in getattr(carrier, "axioms", {}).values():
