@@ -22,6 +22,19 @@ reviews:
     drafts: false
     base_branches:
       - main
+  # path_instructions only steer the review of a file that is already in
+  # scope; they do not decide which files are reviewed. These filters do:
+  # they drop the generated and vendored artefacts nobody hand-writes — the
+  # same set the retired reviewer excluded — so the style pass stays on
+  # authored source and never lands on a drawing baseline or a lockfile.
+  # Everything else keeps CodeRabbit's own defaults.
+  path_filters:
+    - "!docs/_static/**"
+    - "!discopy/*.gif"
+    - "!test/drawing/tikz/**"
+    - "!test/fixtures/**"
+    - "!**/__marimo__/session/**"
+    - "!uv.lock"
   path_instructions:
     - path: "discopy/**/*.py"
       instructions: |
