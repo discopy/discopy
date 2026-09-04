@@ -20,7 +20,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `Hypergraph.to_diagram` need swaps to decode a trace, cup or cap at
   `traced`, `balanced` and `pivotal`, and `Hypergraph.cups`/`caps` accept
   only the right-adjoint orientation, so `to_hypergraph` is partial on
-  rigid's left-handed cups and caps.
+  rigid's left-handed cups and caps. Both representations declare the
+  `serialisation` law inapplicable, `messages.NO_TREE`: a wiring is a
+  permutation on ports rather than a tree, so neither has `to_tree`, and
+  the matrix says so where a reader looks instead of leaving twenty red
+  cells for a method nobody wrote — [#713](https://github.com/discopy/discopy/issues/713)
+  is where implementing it would go. Their `transparency` and `pickling`
+  hold: a map and a hypergraph both read back from their `repr` and their
+  pickle.
 - The property matrix's search strategy is now recursive: `cat.Arrow` and
   `monoidal.Diagram` build composite paths/diagrams with
   `hypothesis.strategies.recursive`/an iterated layer search instead of
