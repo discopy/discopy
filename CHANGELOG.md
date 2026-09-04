@@ -56,6 +56,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - Rich display hooks (`_repr_svg_`/`_repr_html_`) for `Diagram` and `Drawing`
   in Jupyter/IPython
   ([#445](https://github.com/discopy/discopy/pull/445)).
+- A `contract` parameter on `tensor.Functor`, `tensor.Diagram.eval` and
+  `quantum.circuit.Circuit.eval` choosing the contraction engine between
+  `einsum` (the default, switching to `opt_einsum` past
+  `config.MAX_EINSUM_INDICES` indices) and `quimb`, which accepts `cotengra`
+  path optimizers via `optimize` and compressed contraction via `max_bond`,
+  with the Einstein notation exposed as `tensor.Functor.operands` and the
+  contraction dependencies declared in a new `tensor` extra
+  ([#523](https://github.com/discopy/discopy/issues/523)).
 - Composition benchmark suite for diagram operations, reproducing the
   scaling experiments of arXiv:2105.09257
   ([#346](https://github.com/discopy/discopy/pull/346)).
@@ -172,6 +180,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `Hypergraph.to_diagram` raises `messages.NOT_RIGID/FROBENIUS/TRACED/...`
   where it checks that the category has the wiring structure
   ([#532](https://github.com/discopy/discopy/pull/532)).
+- `to_quimb` is rebuilt on the combinatorial map, shared between
+  `tensor.Diagram` and `tensor.CMap`: swaps, cups and caps become wiring
+  instead of dense tensors, the network is deterministic and the `dtype`
+  parameter takes effect
+  ([#523](https://github.com/discopy/discopy/issues/523)).
 - `Swap` is now the two-wire transposition subclass of `Permutation`, and
   constructing `Permutation(x @ y, [1, 0])` returns a `Swap`. A swap is
   plumbing like any other permutation: it coalesces with its neighbours in
@@ -192,7 +205,6 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   the gate while compiling a logical swap away by applying later gates to
   the permuted qubits.
   `discopy.quantum` exports both, `discopy.quantum.gates` only the gate.
-
 - `monoidal.Layer` holds a list of boxes and non-empty types with at least
   one box and no two consecutive types, instead of an odd-length list
   alternating type and box. Whiskering extends the list only when the type

@@ -842,6 +842,11 @@ quantum = [
     { name = "torch", version = "2.13.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux'" },
     { name = "torch", version = "2.13.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'linux'" },
 ]
+tensor = [
+    { name = "cotengra" },
+    { name = "opt-einsum" },
+    { name = "quimb" },
+]
 test = [
     { name = "coverage" },
     { name = "jax" },
@@ -867,7 +872,7 @@ test = [
 [package.dev-dependencies]
 all = [
     { name = "coverage" },
-    { name = "discopy", extra = ["docs", "grammar", "quantum"] },
+    { name = "discopy", extra = ["docs", "grammar", "quantum", "tensor"] },
     { name = "marimo" },
     { name = "polars" },
     { name = "pylint" },
@@ -893,9 +898,13 @@ grammar = [
 quantum = [
     { name = "discopy", extra = ["quantum"] },
 ]
+tensor = [
+    { name = "discopy", extra = ["tensor"] },
+]
 
 [package.metadata]
 requires-dist = [
+    { name = "cotengra", marker = "extra == 'tensor'" },
     { name = "coverage", marker = "extra == 'test'" },
     { name = "discopy", extras = ["grammar", "quantum"], marker = "extra == 'test'" },
     { name = "ipykernel", marker = "extra == 'docs'", specifier = "==6.23.*" },
@@ -910,6 +919,7 @@ requires-dist = [
     { name = "networkx" },
     { name = "nltk", marker = "extra == 'grammar'" },
     { name = "numpy" },
+    { name = "opt-einsum", marker = "extra == 'tensor'" },
     { name = "pennylane", marker = "extra == 'quantum'", specifier = ">=0.45.0" },
     { name = "pennylane-qiskit", marker = "extra == 'quantum'", specifier = ">=0.45.0" },
     { name = "pillow" },
@@ -922,6 +932,7 @@ requires-dist = [
     { name = "qiskit", marker = "extra == 'quantum'" },
     { name = "qiskit-aer", marker = "extra == 'quantum'" },
     { name = "quimb", marker = "extra == 'quantum'" },
+    { name = "quimb", marker = "extra == 'tensor'" },
     { name = "sphinx", marker = "extra == 'docs'", specifier = "==7.2.*" },
     { name = "sphinx-book-theme", marker = "extra == 'docs'", specifier = "==1.1.*" },
     { name = "sphinxcontrib-bibtex", marker = "extra == 'docs'", specifier = "==2.5.*" },
@@ -933,7 +944,7 @@ requires-dist = [
     { name = "torch", marker = "sys_platform == 'linux' and extra == 'quantum'", index = "https://download.pytorch.org/whl/cpu" },
     { name = "torch", marker = "sys_platform != 'linux' and extra == 'quantum'" },
 ]
-provides-extras = ["quantum", "grammar", "test", "docs"]
+provides-extras = ["tensor", "quantum", "grammar", "test", "docs"]
 
 [package.metadata.requires-dev]
 all = [
@@ -941,6 +952,7 @@ all = [
     { name = "discopy", extras = ["docs"] },
     { name = "discopy", extras = ["grammar"] },
     { name = "discopy", extras = ["quantum"] },
+    { name = "discopy", extras = ["tensor"] },
     { name = "marimo" },
     { name = "polars" },
     { name = "pylint" },
@@ -960,6 +972,7 @@ dev = [
 docs = [{ name = "discopy", extras = ["docs"] }]
 grammar = [{ name = "discopy", extras = ["grammar"] }]
 quantum = [{ name = "discopy", extras = ["quantum"] }]
+tensor = [{ name = "discopy", extras = ["tensor"] }]
 
 [[package]]
 name = "docutils"
