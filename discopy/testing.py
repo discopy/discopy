@@ -69,9 +69,10 @@ The suite
 - :class:`Strategy` states the laws of any type that generates its own
   instances, whatever its level: :meth:`Strategy.transparency`,
   :meth:`Strategy.pickling` and :meth:`Strategy.serialisation` are cells
-  of the matrix for every carrier, and a carrier whose representations
-  print bare names overrides :meth:`Strategy.environment` with the
-  namespace they read back in.
+  of the matrix for every carrier, which read back in
+  :meth:`Strategy.environment`: the package's public names and its own
+  module's, so that a representation printing bare names evaluates
+  without the carrier declaring anything.
 - ``proptest/test_drawing.py`` and ``proptest/test_normal_form.py`` check
   the remaining ad-hoc properties — drawing does not raise, a normal form
   and a foliation are idempotent — over the diagram carriers.
