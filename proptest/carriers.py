@@ -22,6 +22,7 @@ from discopy import (
     ribbon,
     rigid,
     symmetric,
+    tensor,
     traced,
 )
 from discopy.matrix import Matrix
@@ -50,6 +51,7 @@ CARRIERS = (
     frobenius.Ty, frobenius.Diagram, frobenius.Hypergraph, frobenius.CMap,
     frobenius.Functor,
     Matrix[int],
+    frobenius.Dim, tensor.Diagram, tensor.Tensor[int],
 )
 
 

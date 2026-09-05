@@ -29,13 +29,11 @@ def test_Dim():
     with raises(ValueError):
         Dim(-1)
     dim = Dim(2, 3)
-    assert Dim(1) @ dim == dim @ Dim(1) == dim
     assert Dim(1).tensor(*(Dim(2, 3), Dim(4), Dim(1))) == Dim(2, 3, 4)
     assert dim[:1] == Dim(3, 2)[1:] == Dim(2)
     assert dim[0] == Dim(3, 2)[1]
     assert dim.inside[0] == 2
     assert repr(Dim(1, 2, 3)) == str(dim) == "Dim(2, 3)"
-    assert {dim: 42}[dim] == 42
     assert Dim(2, 3, 4).r == Dim(4, 3, 2)
 
 
@@ -128,13 +126,6 @@ def test_Tensor_tensor():
     ob, ar = {x: 2, y: 3}, {f: [1, 0, 0, 1], g: list(range(9))}
     F = Functor(ob, ar)
     assert F(f) @ F(g) == F(f @ g)
-
-
-def test_tensor_swap():
-    f = Tensor([1, 0, 0, 1], Dim(2), Dim(2))
-    g = Tensor(list(range(9)), Dim(3), Dim(3))
-    swap = Tensor.swap(Dim(2), Dim(3))
-    assert f @ g >> swap == swap >> g @ f
 
 
 def test_tensor_spiders():
@@ -395,3 +386,21 @@ def test_Functor_bubble():
     assert np.allclose(
         np.asarray(F(men_are_mortal.arg).array, dtype=float),
         np.asarray(men_are_mortal.arg.eval().array, dtype=float))
+
+
+def test_strategy():
+    from hypothesis import find
+
+    from discopy import testing
+
+    testing.assert_strategy_finds(Diagram, Spider)
+    generated = find(Tensor.strategy(dom=Dim(2), cod=Dim(3)),
+                     lambda value: bool(value.array.any()))
+    assert (generated.dom, generated.cod) == (Dim(2), Dim(3))
+    assert generated.array.shape == (2, 3)
+
+
+def test_axioms():
+    from discopy import testing
+
+    testing.assert_axioms(Dim, Diagram, Tensor[int])

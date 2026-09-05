@@ -9,6 +9,18 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `discopy.tensor.Tensor` and `Diagram` join the property matrix, with a
+  `strategy` generating small integer-entried tensors over `Dim`
+  boundaries drawn from `Dim.strategy`; unlike `Matrix`'s, its `copy` is
+  a correct spider
+  ([#652](https://github.com/discopy/discopy/issues/652)), so the
+  Markov-category copy laws are restored rather than declared broken.
+  One open bug is declared in the matrix: a tensor with more than
+  `config.NUMPY_THRESHOLD` entries elides its repr as a literal
+  ellipsis, so `eval(repr(t))` does not even parse
+  ([#714](https://github.com/discopy/discopy/issues/714)). `Matrix`
+  shares the representation and escapes only because its strategy stays
+  under the threshold.
 - `discopy.matrix.Matrix` joins the property matrix, with a `strategy`
   classmethod generating small integer-valued matrices. The bug this
   enrolment surfaced is fixed below, except one open family declared in
@@ -425,6 +437,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- A subscripted `NamedGeneric` instance — `Matrix[int]`, `Tensor[...]`,
+  `Hypergraph[...]`, `CMap[...]` — unpickled as its bare origin class:
+  `NamedGeneric.__setstate__` was defined on a class its subscripts never
+  inherit from. The restore now lives in the dynamically-built subscript
+  class itself, and `tensor.Box.__setstate__` drops its explicit call to
+  the old signature.
 - The three recorded counterexamples against `Matrix`'s copy laws hold
   `Natural` arguments rather than bare `int`s, which is what the search
   shrinks to. `copy_monoidal_coherence` tensors its object, so the bare
