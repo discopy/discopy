@@ -50,15 +50,21 @@ from typing import TYPE_CHECKING, ClassVar, Literal
 
 from discopy import hypergraph, messages
 from discopy.abc import (
+    BiclosedCategory,
     CompactCategory,
+    Equation,
+    HypergraphCategory,
+    MarkovCategory,
+    MonoidalCategory,
     NamedGeneric,
     Pregroup,
     RigidCategory,
     SymmetricCategory,
     TracedCategory,
 )
-from discopy.cat import Ob
+from discopy.cat import Box as CatBox, Ob
 from discopy.python.finset import Permutation
+from discopy.testing import Axiom, Strategy, axiom
 from discopy.utils import (
     AxiomError,
     assert_isatomic,
@@ -126,8 +132,7 @@ class Port:
 
 
 class CMap[C0: Pregroup, C1: CMap](
-    CompactCategory[C0, C1], NamedGeneric['category']
-):
+        CompactCategory[C0, C1], NamedGeneric['category'], Strategy[C1]):
     r"""
     An open combinatorial map, i.e. a diagram represented as a bijection
     between its ports.
@@ -226,6 +231,56 @@ class CMap[C0: Pregroup, C1: CMap](
     functor = classproperty(lambda cls: cls.category.functor_factory)
     ob = classproperty(lambda cls: cls.category.ob)
 
+    @classmethod
+    def strategy(cls, *, boundary_connected=False, **params):
+        """
+        Generate maps through diagrams, with loops beyond the image of
+        ``from_diagram``.
+        """
+        from hypothesis import event
+        from hypothesis import strategies as st
+
+        base = cls.category.strategy(
+            boundary_connected=boundary_connected, **params).map(
+            cls.from_diagram)
+        if boundary_connected:
+            return base
+
+        @st.composite
+        def with_loops(draw):
+            result = draw(base)
+            n_loops = draw(st.integers(min_value=0, max_value=2))
+            event(f"loops: {n_loops}")
+            for _ in range(n_loops):
+                typ = draw(cls.category.ob.strategy(
+                    min_length=1, max_length=1))
+                result @= cls(
+                    cls.category.ob(), cls.category.ob(), (), (),
+                    loops=(typ, ))
+            return result
+
+        return with_loops()
+
+    @classproperty
+    def axioms(cls) -> dict[str, Axiom]:
+        """
+        The axioms of the diagram category represented by the map, with the
+        ones the map restates for itself taking precedence.
+        """
+        if cls.category is None:
+            return {}
+        restated = super().axioms
+        return {name: restated.get(name, axiom).bind(cls)
+                for name, axiom in cls.category.axioms.items()}
+
+    @axiom
+    def braid_naturality(cls, f: C1, g: C1) -> Equation[C1]:
+        """ Naturality of the braid, up to the diagrams the maps encode. """
+        return cls.category.equation_factory(*(
+            term.to_diagram() for term in (
+                f @ g >> cls.braid(f.cod, g.cod),
+                cls.braid(f.dom, g.dom) >> g @ f)))
+
     dom: C0
     cod: C0
     loops: tuple[C0, ...]
@@ -242,7 +297,8 @@ class CMap[C0: Pregroup, C1: CMap](
         for loop in loops:
             assert_isatomic(loop, self.category.ob)
         self.dom, self.cod, self.boxes = dom, cod, tuple(boxes)
-        self.loops = tuple(loops)
+        self.loops = tuple(sorted(
+            loops, key=lambda loop: (factory_name(type(loop)), repr(loop))))
 
         self.edges = Permutation(edges, self.n_ports)
         if check:
@@ -792,6 +848,13 @@ class CMap[C0: Pregroup, C1: CMap](
         return cls(box.dom, box.cod, (box, ), edge, check=False)
 
     @classmethod
+    def from_generator(cls, generator: Diagram) -> CMap:
+        """ Encode a primitive generator as a box and structure as wiring. """
+        return cls.from_box(generator)\
+            if isinstance(generator, CatBox)\
+            else cls.from_diagram(generator)
+
+    @classmethod
     def from_glued(cls, dom: Ty, cod: Ty,
                    images: Iterable[tuple[CMap, int]]) -> CMap:
         """
@@ -951,12 +1014,12 @@ class CMap[C0: Pregroup, C1: CMap](
     @classmethod
     def copy(cls, typ: Ty, n: int = 2) -> CMap:
         """ Copy is kept as a box: one input cannot wire to many outputs. """
-        return cls.from_box(cls.category.copy(typ, n))
+        return cls.from_generator(cls.category.copy(typ, n))
 
     @classmethod
     def merge(cls, typ: Ty, n: int = 2) -> CMap:
         """ Merge is kept as a box: many inputs cannot wire to one output. """
-        return cls.from_box(cls.category.merge(typ, n))
+        return cls.from_generator(cls.category.merge(typ, n))
 
     @classmethod
     def discard(cls, typ: Ty) -> CMap:
@@ -1055,7 +1118,7 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> assert CMap.spiders(1, 2, Dim(2, 3)).eval().is_close(
         ...     Tensor.spiders(1, 2, Dim(2, 3)))
         """
-        return cls.from_box(cls.category.spiders(
+        return cls.from_generator(cls.category.spiders(
             n_legs_in, n_legs_out, typ, phases))
 
     @unbiased
@@ -1784,4 +1847,50 @@ cycles of this map.
         figure.subplots_adjust(
             top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
         plt.show(block=block)
-        return
+        return None
+
+    serialisation = Strategy.serialisation.inapplicable(messages.NO_TREE)
+
+    currying_left = \
+        BiclosedCategory.currying_left.inapplicable(messages.NO_EXPONENTIALS)
+
+    currying_right = \
+        BiclosedCategory.currying_right.inapplicable(messages.NO_EXPONENTIALS)
+
+    rotate_contravariance = \
+        RigidCategory.rotate_contravariance.inapplicable(messages.NO_ROTATION)
+
+    trace_dinaturality_left = \
+        TracedCategory.trace_dinaturality_left.inapplicable(
+            messages.FREE_TRACE)
+
+    trace_dinaturality_right = \
+        TracedCategory.trace_dinaturality_right.inapplicable(
+            messages.FREE_TRACE)
+
+    trace_naturality_left = \
+        TracedCategory.trace_naturality_left.inapplicable(messages.FREE_TRACE)
+
+    trace_naturality_right = \
+        TracedCategory.trace_naturality_right.inapplicable(messages.FREE_TRACE)
+
+    copy_coassociativity = \
+        MarkovCategory.copy_coassociativity.inapplicable(messages.NO_COMONOIDS)
+
+    copy_cocommutativity = \
+        MarkovCategory.copy_cocommutativity.inapplicable(messages.NO_COMONOIDS)
+
+    copy_counitality = \
+        MarkovCategory.copy_counitality.inapplicable(messages.NO_COMONOIDS)
+
+    dagger_monoidality = MonoidalCategory.dagger_monoidality.modulo(
+        lambda term: term.to_hypergraph())
+
+    frobenius = HypergraphCategory.frobenius.inapplicable(
+        messages.NO_SPIDERS)
+
+    speciality = HypergraphCategory.speciality.inapplicable(
+        messages.NO_SPIDERS)
+
+    spider_fusion = HypergraphCategory.spider_fusion.inapplicable(
+        messages.NO_SPIDERS)

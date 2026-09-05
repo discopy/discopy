@@ -9,6 +9,25 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `discopy.cmap.CMap` and `discopy.hypergraph.Hypergraph` grow a
+  `strategy` classmethod, drawing through their associated diagram
+  category and adding closed components (loops, isolated spiders) beyond
+  its image, and `discopy.abc.HypergraphCategory` grows its
+  `frobenius`/`speciality`/`spider_fusion` axioms — enrolling `Hypergraph`
+  and `CMap` at every monoidal-derived level that has one in
+  `proptest/`. The bugs this enrolment surfaced are fixed below, except
+  one open family declared in the matrix: `CMap.to_diagram` and
+  `Hypergraph.to_diagram` need swaps to decode a trace, cup or cap at
+  `traced`, `balanced` and `pivotal`, and `Hypergraph.cups`/`caps` accept
+  only the right-adjoint orientation, so `to_hypergraph` is partial on
+  rigid's left-handed cups and caps. Both representations declare the
+  `serialisation` law inapplicable, `messages.NO_TREE`: a wiring is a
+  permutation on ports rather than a tree, so neither has `to_tree`, and
+  the matrix says so where a reader looks instead of leaving twenty red
+  cells for a method nobody wrote — [#713](https://github.com/discopy/discopy/issues/713)
+  is where implementing it would go. Their `transparency` and `pickling`
+  hold: a map and a hypergraph both read back from their `repr` and their
+  pickle.
 - The property matrix's search strategy is now recursive: `cat.Arrow` and
   `monoidal.Diagram` build composite paths/diagrams with
   `hypothesis.strategies.recursive`/an iterated layer search instead of
@@ -172,6 +191,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Changed
 
+- A `NamedGeneric` subscript reads its subscript's own `factory_name`
+  instead of its bare `__name__`, so `Hypergraph[frobenius.Diagram]`
+  reprs and hashes with its full dotted name rather than the collapsed
+  `Hypergraph[Diagram]`.
 - The benchmark measures a pull request against its merge base rather
   than the tip of its base branch. The head does not contain what landed
   on `main` since it forked, so measuring against the tip charged the pull
@@ -388,6 +411,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `Hypergraph.to_graph` keyed spider nodes by the boundary's object
+  rather than the spider's own type, creating a phantom attributeless
+  node whenever a boundary wire reads an adjoint of its spider type, so
+  `hash` crashed with `KeyError: 'box'`; it now keys on `spider_types`.
 - `rigid.Diagram.functor_factory` is `rigid.Functor`: it inherited
   `biclosed.Functor`, which does not rotate, so a box mapped through
   it lost the rotation of its boundary.

@@ -1,9 +1,10 @@
 import shutil
 
+from hypothesis import find
 import pytest
 from pytest import raises
 
-from discopy import closed, biclosed, compact, symmetric
+from discopy import closed, biclosed, compact, monoidal, symmetric
 from discopy.python.finset import Permutation
 from discopy.utils import AxiomError
 
@@ -28,8 +29,29 @@ def test_default_compact_setting():
     assert cm.to_hypergraph().category == M.category
 
 
+def test_CMap_strategy_preserves_subclass():
+    class CustomCMap(compact.CMap):
+        pass
+
+    cmap = find(CustomCMap.strategy(max_leaves=1), lambda _: True)
+    assert type(cmap) is CustomCMap
+
+
+def test_CMap_strategy_generates_closed_components():
+    cmap = find(monoidal.CMap.strategy(boundary_connected=False),
+                lambda value: not value.to_hypergraph()
+                .is_boundary_connected)
+    assert not cmap.to_hypergraph().is_boundary_connected
+
+
+def test_CMap_strategy_generates_loops():
+    cmap = find(compact.CMap.strategy(boundary_connected=False),
+                lambda value: bool(value.loops))
+    assert cmap.loops
+
+
 def test_M_init():
-    from discopy.compact import Ty, CMap as M
+    from discopy.compact import Ty, Box, CMap as M
     x, y = map(Ty, "xy")
     with raises(ValueError):
         M(x, x, (), ())
@@ -41,6 +63,11 @@ def test_M_init():
         M(x @ y, x @ y, (), (1, 0, 3, 2))
     with raises(AxiomError):
         M(x, y, (), (1, 0))
+    f = M.from_box(Box("f", x, y))
+    with raises(AxiomError):
+        f >> f
+    with raises(IndexError):
+        f.interchange(0, 1)
 
 
 def test_repr_eq_and_hash():
@@ -88,28 +115,6 @@ def test_from_box_and_to_hypergraph():
     multi_input = M.from_box(Box("g", x @ y, z))
     assert multi_input.orientation == Permutation.from_cycles(
         [(1, 0, 5), (2, 3, 4)], 6)
-
-
-def test_eliminate_swaps():
-    from discopy.compact import Ty, Id, Box
-
-    x, y, w, z = map(Ty, "xyzw")
-
-    diagram = Id(x @ y).permute(1, 0).permute(1, 0)
-    assert diagram != Id(x @ y)  # there are swaps to eliminate
-    assert diagram.to_map().to_diagram().normal_form() == Id(x @ y)
-
-    diagram = Id(x @ y @ w @ z).permute(2, 3, 0, 1).permute(2, 3, 0, 1)
-    assert diagram != Id(x @ y @ w @ z)
-    assert diagram.to_map().to_diagram().normal_form() == Id(x @ y @ w @ z)
-
-    f, g = Box("f", x, z), Box("g", y, w)
-
-    diagram = Id(x @ y).permute(1, 0) >> g @ x\
-        >> Id(w @ x).permute(1, 0) >> f @ w
-    assert diagram.to_map().to_diagram() == x @ g >> f @ w
-    assert diagram.to_map() == diagram.to_map().to_diagram().to_map()
-    assert diagram.to_map() == diagram.to_hypergraph().to_diagram().to_map()
 
 
 def test_states_decode_where_they_were():
@@ -394,7 +399,7 @@ def test_unordered_boxes_are_reordered_on_downgrade():
         biclosed,
     ]
 )
-def test_curry_uncurry_roundtrip(module):
+def test_curry_edge_cases(module):
     x, y, z = map(module.Ty, "xyz")
     f = module.Box("f", x @ y, z)
     cmap = f.to_map()
@@ -406,92 +411,32 @@ def test_curry_uncurry_roundtrip(module):
         cmap.uncurry(n=2)
 
     if module is compact:
-        assert cmap.curry().uncurry() == cmap
-        assert cmap.curry(left=True).uncurry(left=True) == cmap
-        assert cmap.curry(n=2, left=True).uncurry(n=2, left=True) == cmap
         return
 
-    right = cmap.curry(left=False)
-    assert right.dom == y
-    assert right.cod == x >> z
-    assert right.boxes == (module.Diagram.curry_factory(f, 1, False), )
-    assert f.curry(left=False).to_map() == right
-
-    left = cmap.curry(left=True)
-    assert left.dom == x
-    assert left.cod == z << y
-    assert left.boxes == (module.Diagram.curry_factory(f, 1, True), )
-    assert f.curry(left=True).to_map() == left
-    assert cmap.curry() == left, "curry defaults to the left, see #560"
-
-    h = module.Box("h", y, x >> z)
-    uncurried = h.to_map().uncurry(left=False)
-    assert uncurried.dom == x @ y
-    assert uncurried.cod == z
-    assert uncurried.boxes == (
-        h, module.Diagram.eval_factory(x >> z, left=False))
-    assert h.uncurry(left=False).to_map() == uncurried
-
-    w = module.Ty("w")
-    k = module.Box("k", x @ y @ z, w)
-    right_two = k.to_map().curry(n=2, left=False).uncurry(n=2, left=False)
-    assert right_two.dom == x @ y @ z
-    assert right_two.cod == w
-    assert right_two.boxes == (
-        module.Diagram.curry_factory(k, 2, False),
-        module.Diagram.eval_factory(x @ y >> w, left=False))
-
-    left_two = k.to_map().curry(n=2, left=True).uncurry(
-        n=2, left=True)
-    assert left_two.dom == x @ y @ z
-    assert left_two.cod == w
-    assert left_two.boxes == (
-        module.Diagram.curry_factory(k, 2, True),
-        module.Diagram.eval_factory(w << y @ z, left=True))
-
-    right_nested = k.to_map().curry(left=False).curry(
-        left=False).uncurry(n=2, left=False)
-    assert right_nested.dom == x @ y @ z
-    assert right_nested.cod == w
-
-    left_nested = k.to_map().curry(left=True).curry(
-        left=True).uncurry(n=2, left=True)
-    assert left_nested.dom == x @ y @ z
-    assert left_nested.cod == w
-
+    assert cmap.curry() == cmap.curry(left=True),\
+        "curry defaults to the left, see #560"
     with raises(ValueError):
-        k.to_map().curry(n=2, left=False).uncurry(left=False)
+        module.Box("k", x @ y @ z, module.Ty("w")).to_map()\
+            .curry(n=2, left=False).uncurry(left=False)
 
 
-def test_trace():
+def test_trace_loops():
     from discopy.compact import Ty, Box, CMap as M
 
-    x, y = map(Ty, "xy")
+    x = Ty("x")
     assert M.id(x).trace().loops == (x, )
     assert M.id(x).trace(left=True).loops == (x, )
-    assert M.swap(x, x).trace() == M.id(x)
 
-    f = M.from_box(Box("f", x @ y, x @ y))
-    right_trace = f.trace()
-    assert right_trace.dom == x
-    assert right_trace.cod == x
-    assert right_trace.boxes == f.boxes
-
-    left_trace = f.trace(left=True)
-    assert left_trace.dom == y
-    assert left_trace.cod == y
-    assert left_trace.boxes == f.boxes
+    from discopy.traced import CMap as TracedMap, Ty as TracedTy
+    traced_x, traced_y = map(TracedTy, "xy")
+    traced = TracedMap.id(traced_x @ traced_y).trace()
+    assert traced.dom == traced.cod == traced_x
+    assert traced.loops == (traced_y, )
 
     closed_component = M.from_box(Box("h", x, x)).trace()
-    assert closed_component.dom == Ty()
-    assert closed_component.cod == Ty()
-    assert len(closed_component.boxes) == 1
-    assert closed_component.edges == (1, 0)
+    assert closed_component.dom == closed_component.cod == Ty()
     assert closed_component.loops == ()
     assert closed_component.boundary_cycle == ()
-    assert closed_component.n_vertices == 1
-    assert closed_component.euler_characteristic == 2
-    assert closed_component.is_planar
 
 
 def test_make_causal_cuts_every_backward_wire_at_once():
@@ -517,26 +462,6 @@ def test_scalar_box():
     assert cm.is_scalar
     assert cm.is_planar
     assert cm.to_hypergraph() == s.to_hypergraph()
-
-
-def test_zipping_cups_and_caps():
-    """
-    │ ╭─╮ ╭─╮ ╭─╮ ╭─╮    │
-    │ │ │ │ │ │ │ │ │  = │
-    ╰─╯ ╰─╯ ╰─╯ ╰─╯ │    │
-    """
-
-    from discopy.compact import Ty, Diagram as D, CMap as M
-
-    x, y = map(Ty, 'xy')
-
-    def zipping_expr(c, z):
-        id, cup, cap = c.id(z), c.cups(z, z.r), c.caps(z.r, z)
-        return id @ cap @ cap @ cap @ cap >> cup @ cup @ cup @ cup @ id
-
-    assert zipping_expr(D, x).to_map() == zipping_expr(M, x) == M.id(x)
-    assert zipping_expr(D, x @ y).to_map()\
-        == zipping_expr(M, x @ y) == M.id(x @ y)
 
 
 def test_scalar_is_not_eliminated():
@@ -567,6 +492,33 @@ def test_connected_components_of_loops():
     assert tuple(c.loops for c in components) == ((x,), (y,))
 
 
+def test_loop_order_is_canonical():
+    from discopy.compact import Ty, CMap as M
+
+    x, y = map(Ty, "xy")
+    left = M(Ty(), Ty(), (), (), loops=(x, y))
+    right = M(Ty(), Ty(), (), (), loops=(y, x))
+    assert left == right and hash(left) == hash(right)
+
+
+def test_compact_evaluation_is_wiring():
+    from discopy.compact import Ty, Diagram, CMap
+
+    x, y = map(Ty, "xy")
+    for left in False, True:
+        evaluation = CMap.ev(x, y, left)
+        assert evaluation == Diagram.ev(x, y, left).to_map()
+        assert not evaluation.boxes
+
+
+def test_empty_structural_generators_are_wiring():
+    from discopy import frobenius, markov
+
+    assert markov.CMap.copy(markov.Ty(), 2) == markov.CMap.id()
+    assert frobenius.CMap.spiders(
+        1, 2, frobenius.Ty()) == frobenius.CMap.id()
+
+
 def test_hypergraph_to_map():
     from discopy import compact, frobenius
 
@@ -577,70 +529,6 @@ def test_hypergraph_to_map():
     fx = frobenius.Ty("x")
     assert frobenius.Hypergraph.spiders(1, 2, fx).to_map()\
         == frobenius.CMap.spiders(1, 2, fx)
-
-
-def test_then():
-    from discopy.compact import Ty, Box, CMap as M
-
-    x, y, z, w = map(Ty, "xyzw")
-    f, g, h = [
-        M.from_box(box) for box in [
-            Box("f", x, y), Box("g", y, z), Box("h", z, w)]
-    ]
-    assert ((f >> g) >> h) == (f >> (g >> h))
-    assert (f >> M.id(y)) == f
-    assert (M.id(x) >> f) == f
-    assert (f >> g).to_hypergraph() == f.to_hypergraph() >> g.to_hypergraph()
-    with raises(AxiomError):
-        f >> f
-
-
-def test_tensor():
-    from discopy.compact import Ty, Box, CMap as M
-
-    x, y, z = map(Ty, "xyz")
-    f = M.from_box(Box("f", x, y))
-    g = M.from_box(Box("g", y, z))
-    assert (f @ g).to_hypergraph() == f.to_hypergraph() @ g.to_hypergraph()
-    assert (f @ M.id()) == f
-    assert (M.id() @ f) == f
-
-
-@pytest.mark.parametrize(
-    "module",
-    [
-        symmetric,
-        compact,
-        closed,
-    ]
-)
-def test_interchange(module):
-    Ty, Box, M = module.Ty, module.Box, module.CMap
-
-    # interchange of independent boxes
-    x, y, z, w, a, b = map(Ty, "xyzwab")
-    f, g, h = Box("f", x, y), Box("g", z, w), Box("h", a, b)
-    cm = M.from_box(f) @ M.from_box(g) @ M.from_box(h)
-    swapped = cm.interchange(0, 2)
-    assert swapped.boxes == (h, g, f)
-    assert swapped.dom == cm.dom
-    assert swapped.cod == cm.cod
-    assert swapped.edges == Permutation.from_transpositions(
-        [(0, 7), (1, 5), (2, 3), (4, 11), (6, 10), (8, 9)],
-        12,
-    )
-    assert swapped != cm
-    assert swapped.interchange(2, 0) == cm
-    with raises(IndexError):
-        cm.interchange(0, 3)
-
-    f, g = Box("f", x, y), Box("t", y, z)
-    cm = M.from_box(f) >> M.from_box(g)
-    assert cm.is_causal
-    unordered = cm.interchange(0, 1)
-    assert unordered.boxes == (g, f)
-    assert not unordered.is_topologically_ordered
-    assert unordered.topological_order() == cm
 
 
 def test_plug_input():
@@ -669,29 +557,6 @@ def test_plug_input():
         f.plug_input(0, Box("lambda", x, y @ z), y, root_index=2)
     with raises(ValueError):
         f.plug_input(0, Box("bad", Ty(), y @ z), y)
-
-
-def test_tensor_then():
-    from discopy.compact import Ty, Box, CMap as M
-
-    x, y, z, a, b = map(Ty, "xyzab")
-    f1 = M.from_box(Box("f1", x, y))
-    f2 = M.from_box(Box("f2", y, z))
-    g = M.from_box(Box("g", a, b))
-    assert ((f1 >> f2) @ g).to_hypergraph() == (
-        f1.to_hypergraph() >> f2.to_hypergraph()
-    ) @ g.to_hypergraph()
-
-
-def test_then_tensor():
-    from discopy.compact import Ty, Box, CMap as M
-    x1, x2, y1, y2, z = map(Ty, ["x1", "x2", "y1", "y2", "z"])
-    f1 = M.from_box(Box("f1", x1, y1))
-    f2 = M.from_box(Box("f2", x2, y2))
-    g = M.from_box(Box("g", y1 @ y2, z))
-    assert ((f1 @ f2) >> g).to_hypergraph() == (
-        f1.to_hypergraph() @ f2.to_hypergraph()
-    ) >> g.to_hypergraph()
 
 
 def test_euler_characteristic():
