@@ -9,6 +9,60 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `discopy/testing.py`, a Hypothesis-based property-testing module:
+  `Axiom`, decorated with `@discopy.testing.axiom`, states a categorical
+  law once on `discopy.abc.Category`/`ColouredMonoid` and every subclass
+  inherits it; `.failing`/`.inapplicable` classify a law as broken or not
+  applicable to a carrier, and `.modulo`/`.weaken` are defined (compare up
+  to a function, quantify over a named subspace) but not used yet. A
+  broken law raises `AxiomFailure` carrying its equation, which the
+  recorded-counterexample replay checks, so a record's xfail is earned by
+  its arguments falsifying the law and flips visibly when the bug is
+  fixed; `Axiom` is a dataclass whose classifiers derive one from another
+  with `dataclasses.replace`, so none of them drops a field — `.failing`
+  used to lose the subspaces a `.weaken` declared. The argument and
+  subspace wrappers are parameterised with `NamedGeneric["factory"]` like
+  `Hypergraph` and `Equation` — which moves `NamedGeneric` itself down to
+  `discopy.utils`, re-exported from `discopy.abc`, so `discopy.testing`
+  can use it — making a subscripted wrapper a class whose
+  `strategy(cls, **params)` matches the contract `Strategy.strategy` now
+  states, so a subspace annotation like `NonEmpty[ComposablePair[C1]]`
+  builds; an unbound axiom's `.strategy()` raises the same `TypeError`
+  as `.falsify` and calling it. The
+  search itself is the canonical instantiation only — one atomic object or
+  one free/generator box per parameter, no recursive or compound
+  generation — wired up in `proptest/test_axioms.py`, enrolled so far for
+  `cat.Arrow` and `cat.Functor`, and run by the new `proptest` GitHub
+  workflow on PRs labelled `proptest`, on `main`, nightly and on manual
+  dispatch. `proptest/conftest.py` registers three Hypothesis profiles
+  over one example database, keyed per cell by node id: `pr` replays what
+  the database remembers and generates a few examples from a fixed seed,
+  `explore` searches with a large budget, and `dev` reads CI's database through a read-only
+  `GitHubArtifactDatabase` given a `GITHUB_TOKEN`. The workflow downloads
+  the database from the previous run's artifact and uploads its own after
+  every run, so a counterexample found by one night's search fails every
+  pull request until it is fixed or declared; a recorded counterexample
+  xfails strictly while its axiom is declared `.failing`, so a fixed bug
+  fails as an unexpected pass until the declaration moves. `Strategy`
+  states the laws of any type that generates its own instances, whatever
+  its level: `transparency`, `pickling` and `serialisation` are cells of
+  the matrix for every carrier — `eval(repr(x))`, the pickle and the tree
+  of a term read back to it, as `Equation`s like every other law — with
+  `Strategy.environment` for the namespace a representation reads back
+  in — the package's public names and then those of the module the
+  carrier is defined in, so that a term printing bare names such as
+  `Tensor[int]([0], dom=Dim(1), cod=Dim(1))` reads back without its
+  carrier declaring anything; the ad-hoc property
+  files for representations, pickling and serialisation are gone, and a
+  known violation is a `.failing` declaration on its carrier like any
+  other broken law. The workflow
+  for developing against the suite — laws stated before implementation,
+  a failing cell debugged, its counterexample recorded, a strategy that
+  missed a bug audited — is the documentation of `discopy.testing`,
+  which joins the API docs under its own `testing` page; `AGENTS.md`
+  points to it from `Where` rather than importing it into every agent's
+  context, and links its other documents rather than importing them with
+  the `@` syntax only `CLAUDE.md` is read with.
 - A `workflows` job in `build.yml`, so that the code running our pull
   requests is checked like the code it checks: `actionlint` over the
   workflows, `pflake8` over `.github`, and `pytest .github/tests/*.py`
@@ -317,6 +371,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `rigid.Diagram.functor_factory` is `rigid.Functor`: it inherited
+  `biclosed.Functor`, which does not rotate, so a box mapped through
+  it lost the rotation of its boundary.
 - Pivotal diagram-to-map conversion now encodes cups and caps as `CMap`
   wiring rather than keeping them as boxes
   ([#532](https://github.com/discopy/discopy/pull/532)).
