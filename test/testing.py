@@ -28,6 +28,7 @@ def test_Natural():
     assert Natural(1).__matmul__("x") is NotImplemented
     assert repr(Natural(2)) == "testing.Natural(2)"
     assert eval(repr(Natural(2))) == testing.Natural(2)
+    assert str(Natural(2)) == "2"
     assert Natural.equation_factory(Natural(1), Natural(1))
     with raises(ValueError):
         Natural(-1)

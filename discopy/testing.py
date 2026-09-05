@@ -174,7 +174,7 @@ arguments the search shrunk the failure to.
         Counterexample(
             axiom=Matrix[int].copy_cocommutativity,
             args=(2, ),
-            reason="Matrix.copy(x, n) is wrong for x, n >= 2 (#606)"),
+            reason="Matrix.copy(x, n) is wrong for x, n >= 2 (#652)"),
         ...)
 
 - ``axiom`` is the class attribute access, which binds the :class:`Axiom`
@@ -666,6 +666,7 @@ class Natural(int, Strategy["Natural"]):
 
     __rmatmul__ = __matmul__
     __len__ = lambda self: int(self)
+    __str__ = int.__repr__
 
     def __repr__(self):
         return factory_name(type(self)) + f"({int(self)})"
