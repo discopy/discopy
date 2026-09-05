@@ -271,6 +271,7 @@ from __future__ import annotations
 
 import inspect
 import pickle
+import sys
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping
 from dataclasses import KW_ONLY, dataclass, replace
@@ -597,15 +598,22 @@ class Strategy[T](ABC):
         The namespace the representation of a term reads back in: the
         public names of the package, as ``from discopy import *`` binds
         them, so that a representation qualified by module such as
-        ``cat.Box('f', cat.Ob('x'), cat.Ob('y'))`` evaluates. A carrier
-        whose representations print bare names adds them.
+        ``cat.Box('f', cat.Ob('x'), cat.Ob('y'))`` evaluates, and then
+        those of the module the carrier is defined in, so that one
+        printing bare names such as ``Tensor[int]([0], dom=Dim(1),
+        cod=Dim(1))`` evaluates too. The module comes second because a
+        term prints the names its own module binds: ``Dim`` in
+        ``discopy.tensor`` is the one a tensor is built from.
 
         The import is local because the package imports this module.
         """
         import discopy
 
-        return {name: value for name, value in vars(discopy).items()
-                if not name.startswith("_")}
+        public = lambda namespace: {
+            name: value for name, value in namespace.items()
+            if not name.startswith("_")}
+        module = sys.modules[cls.__module__]
+        return dict(public(vars(discopy)), **public(vars(module)))
 
     @axiom
     def transparency(self) -> Equation:
