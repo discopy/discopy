@@ -18,6 +18,7 @@ DisCoPy documentation
     api/quantum
     api/grammar
     api/drawing
+    api/testing
 
 .. toctree::
     :caption: Notebooks
