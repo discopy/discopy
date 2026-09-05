@@ -153,18 +153,6 @@ class Matrix(MarkovCategory, Strategy["Matrix"], NamedGeneric["dtype"]):
                     max_size=shape[0] * shape[1]).map(
                         lambda array: factory(array, *shape)))
 
-    @classmethod
-    def environment(cls) -> dict:
-        """
-        The public names of :mod:`discopy.matrix` on top of the package's,
-        since a matrix prints its class by its bare name.
-        """
-        from discopy import matrix
-
-        return dict(super().environment(), **{
-            name: value for name, value in vars(matrix).items()
-            if not name.startswith("_")})
-
     serialisation = Strategy.serialisation.inapplicable(messages.NO_SYNTAX)
 
     def cast(self, dtype: type) -> Matrix:

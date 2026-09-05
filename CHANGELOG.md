@@ -20,10 +20,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `Subsingleton[C0]` (objects of length at most one), where the bug does
   not reach; the monoidal coherence reaches dimension two even from atomic
   arguments, so it has no small-object restatement.
-  `Matrix` also answers the three laws every carrier now states:
-  `environment` adds the public names of `discopy.matrix`, since a matrix
-  prints its class by its bare name where the package binds only the
-  module; and `serialisation` is declared inapplicable
+  `Matrix` also declares `serialisation` inapplicable
   (`messages.NO_SYNTAX`), since `to_tree` encodes syntax and a matrix is
   semantics — every free module implements it, no concrete one does.
 - `discopy.cmap.CMap` and `discopy.hypergraph.Hypergraph` grow a
