@@ -101,7 +101,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   the matrix for every carrier — `eval(repr(x))`, the pickle and the tree
   of a term read back to it, as `Equation`s like every other law — with
   `Strategy.environment` for the namespace a representation reads back
-  in, which a carrier printing bare names overrides; the ad-hoc property
+  in — the package's public names and then those of the module the
+  carrier is defined in, so that a term printing bare names such as
+  `Tensor[int]([0], dom=Dim(1), cod=Dim(1))` reads back without its
+  carrier declaring anything; the ad-hoc property
   files for representations, pickling and serialisation are gone, and a
   known violation is a `.failing` declaration on its carrier like any
   other broken law. The workflow
