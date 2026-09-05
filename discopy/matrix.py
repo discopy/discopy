@@ -47,7 +47,7 @@ from discopy.cat import (
     assert_iscomposable,
     assert_isparallel,
 )
-from discopy.testing import C0, Natural, Small, Strategy
+from discopy.testing import C0, Natural, Strategy, Subsingleton
 from discopy.utils import assert_isinstance, classproperty, unbiased
 
 if TYPE_CHECKING:
@@ -152,6 +152,20 @@ class Matrix(MarkovCategory, Strategy["Matrix"], NamedGeneric["dtype"]):
                     entries, min_size=shape[0] * shape[1],
                     max_size=shape[0] * shape[1]).map(
                         lambda array: factory(array, *shape)))
+
+    @classmethod
+    def environment(cls) -> dict:
+        """
+        The public names of :mod:`discopy.matrix` on top of the package's,
+        since a matrix prints its class by its bare name.
+        """
+        from discopy import matrix
+
+        return dict(super().environment(), **{
+            name: value for name, value in vars(matrix).items()
+            if not name.startswith("_")})
+
+    serialisation = Strategy.serialisation.inapplicable(messages.NO_SYNTAX)
 
     def cast(self, dtype: type) -> Matrix:
         """
@@ -440,10 +454,10 @@ class Matrix(MarkovCategory, Strategy["Matrix"], NamedGeneric["dtype"]):
     #: The copy laws hold below dimension two, where the coherence does
     #: not: ``copy(x @ x)`` reaches dimension two from atomic ``x``.
     copy_cocommutativity_small = \
-        MarkovCategory.copy_cocommutativity.weaken(x=Small[C0])
+        MarkovCategory.copy_cocommutativity.weaken(x=Subsingleton[C0])
 
     copy_counitality_small = \
-        MarkovCategory.copy_counitality.weaken(x=Small[C0])
+        MarkovCategory.copy_counitality.weaken(x=Subsingleton[C0])
 
 
 def array2string(array, **params):

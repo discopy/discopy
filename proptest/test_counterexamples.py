@@ -1,6 +1,6 @@
 """
 Deterministic replay of recorded counterexamples, the memory of the
-property suite: see PROPTEST.md for the recording protocol.
+property suite: :mod:`discopy.testing` documents the recording protocol.
 """
 
 from typing import NamedTuple
@@ -10,8 +10,8 @@ import pytest
 from discopy import biclosed, braided, cat, compact, feedback, pivotal, ribbon
 from discopy.matrix import Matrix
 from discopy.testing import (
-    GENERATORS, Atomic, Axiom, AxiomFailure, Relabelled, Relabelling)
-from discopy.utils import factory_name
+    GENERATORS, Atomic, Axiom, AxiomFailure, Natural, Relabelling)
+from discopy.utils import AxiomError, factory_name
 
 
 class Counterexample(NamedTuple):
@@ -40,20 +40,20 @@ MEMORY = feedback.Ty("a") @ feedback.Ty("b")
 COUNTEREXAMPLES = (
     Counterexample(
         axiom=Matrix[int].copy_cocommutativity,
-        args=(2, ),
+        args=(Natural(2), ),
         reason="Matrix.copy(x, n) is wrong for x, n >= 2 (#652)"),
     Counterexample(
         axiom=Matrix[int].copy_counitality,
-        args=(2, ),
+        args=(Natural(2), ),
         reason="Matrix.copy(x, n) is wrong for x, n >= 2 (#652)"),
     Counterexample(
         axiom=Matrix[int].copy_monoidal_coherence,
-        args=(1, ),
+        args=(Natural(1), ),
         reason="Matrix.copy(x, n) is wrong for x, n >= 2, reachable "
                "from atomic arguments through the coherence (#652)"),
     Counterexample(
         axiom=cat.Functor.unitality,
-        args=(cat.Functor(ob_map=COLLAPSE, ar_map=Relabelled(COLLAPSE)), ),
+        args=(cat.Functor(ob_map=COLLAPSE, ar_map=COLLAPSE), ),
         reason="MappingOrCallable.then iterates the keys of the left-hand "
                "map and the identity functor enumerates none, so id >> f "
                "forgets everything f does."),
@@ -108,7 +108,8 @@ def counterexample_parameters():
     until the ``.failing`` declaration moves.
     """
     for axiom, args, reason in COUNTEREXAMPLES:
-        marks = pytest.mark.xfail(reason=reason, strict=True)\
+        marks = pytest.mark.xfail(
+            reason=reason, raises=(AssertionError, AxiomError), strict=True)\
             if axiom.broken else ()
         yield pytest.param(
             axiom, args, marks=marks,

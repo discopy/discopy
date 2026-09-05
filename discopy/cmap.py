@@ -1849,6 +1849,8 @@ cycles of this map.
         plt.show(block=block)
         return None
 
+    serialisation = Strategy.serialisation.inapplicable(messages.NO_TREE)
+
     currying_left = \
         BiclosedCategory.currying_left.inapplicable(messages.NO_EXPONENTIALS)
 

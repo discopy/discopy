@@ -191,6 +191,8 @@ class Hypergraph(
     functor = classproperty(lambda cls: cls.category.functor_factory)
     ob = classproperty(lambda cls: cls.category.ob)
 
+    serialisation = Strategy.serialisation.inapplicable(messages.NO_TREE)
+
     @classmethod
     def strategy(cls, *, boundary_connected=False, **params):
         """
