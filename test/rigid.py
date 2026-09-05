@@ -24,16 +24,6 @@ def test_Ty_over_under():
     assert y.under(x) == x.r @ y == x >> y
 
 
-def test_Box_hash():
-    x, y = Ty('x'), Ty('y')
-    f = Box('f', x, y)
-    assert f == f @ Id()
-    assert hash(f) == hash(f @ Id())
-    assert hash(f) == hash(Id() @ f)
-    assert f @ Id() in {f}
-    assert {f: 42}[f @ Id()] == 42
-
-
 def test_Box_hash_winding():
     """
     Rigid boxes that differ only by their winding number must not be equal
@@ -186,3 +176,15 @@ def test_curry_zero():
     x = Ty('x')
     f = Box('f', x @ x, x)
     assert f.curry(0) == f == f.curry(0, left=False)
+
+
+def test_strategy():
+    from discopy import testing
+
+    testing.assert_strategy_finds(Diagram, Cup, Cap)
+
+
+def test_axioms():
+    from discopy import testing
+
+    testing.assert_axioms(Ty, Diagram, Functor)

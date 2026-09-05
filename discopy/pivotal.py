@@ -54,8 +54,8 @@ We also have its dagger and its transpose:
 
 from __future__ import annotations
 
-from discopy import cat, cmap, rigid, traced
-from discopy.abc import PivotalCategory
+from discopy import abc, cat, cmap, hypergraph, rigid, traced
+from discopy.abc import PivotalCategory, SymmetricCategory
 from discopy.cat import factory
 from discopy.utils import deprecated_ob
 
@@ -70,6 +70,17 @@ class Wire(rigid.Wire):
     """
     l = r = property(lambda self: type(self)(
         self.name, (self.z + 1) % 2, dom=self.cod, cod=self.dom))
+
+    @classmethod
+    def strategy(cls, **params):
+        """
+        Generate pivotal objects with parity-valued winding.
+
+        The bounds are defaults rather than pins: a subclass whose objects
+        are more self-dual still narrows them by passing its own.
+        """
+        return super().strategy(
+            **{"min_winding": 0, "max_winding": 1, **params})
 
     def dagger(self) -> Wire:
         """
@@ -89,6 +100,10 @@ class Ty(rigid.Ty):
         inside (Wire) : The objects inside the type.
     """
     generator_factory = Wire
+
+    dagger_involution = abc.Category.dagger_involution
+
+    dagger_contravariance = abc.Category.dagger_contravariance
 
 
 @factory
@@ -117,6 +132,12 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
         cod (Ty) : The codomain of the diagram, i.e. its output.
     """
     ob = Ty
+
+    dagger_involution = abc.Category.dagger_involution
+
+    dagger_contravariance = abc.Category.dagger_contravariance
+
+    dagger_monoidality = traced.Diagram.dagger_monoidality
 
     def dagger(self):
         """
@@ -158,6 +179,12 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
         """
         return self.rotate().dagger()
 
+    def to_hypergraph(self) -> Hypergraph:
+        """Translate a boundary-connected pivotal diagram to a hypergraph."""
+        if not isinstance(self, SymmetricCategory):
+            self.normal_form()
+        return super().to_hypergraph()
+
     @classmethod
     def trace_factory(cls, diagram: Diagram, left=False):
         """
@@ -177,6 +204,13 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
             else dom @ cls.cap_factory(traced_wire, traced_wire.r)\
             >> diagram @ traced_wire.r\
             >> cod @ cls.cup_factory(traced_wire, traced_wire.r)
+
+    trace_superposing_left = abc.TracedCategory.trace_superposing_left
+
+    trace_superposing_right = abc.TracedCategory.trace_superposing_right
+
+    pivotality = abc.PivotalCategory.pivotality.failing(
+        "The two transposes differ by a snake.")
 
 
 class Box(rigid.Box, Diagram):
@@ -239,6 +273,7 @@ class Cap(rigid.Cap, Box):
         return self.cup_factory(self.left, self.right)
 
 
+@factory
 class Functor(rigid.Functor):
     """
     A pivotal functor is a rigid functor on a pivotal category.
@@ -254,6 +289,7 @@ class Functor(rigid.Functor):
 
 Diagram.functor_factory = Functor
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
+Hypergraph = hypergraph.Hypergraph[Diagram]
 CMap = cmap.CMap[Diagram]
 Id = Diagram.id
 
@@ -262,4 +298,5 @@ class Equation(rigid.Equation):
     """ The :class:`rigid.Equation` of pivotal diagrams. """
 
 
+Diagram.equation_factory = Equation
 __getattr__ = deprecated_ob(__name__)

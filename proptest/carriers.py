@@ -7,11 +7,42 @@ rather than in any one of them.
 
 import pytest
 
-from discopy import cat
+from discopy import (
+    balanced,
+    biclosed,
+    braided,
+    cat,
+    closed,
+    compact,
+    feedback,
+    frobenius,
+    markov,
+    monoidal,
+    pivotal,
+    ribbon,
+    rigid,
+    symmetric,
+    traced,
+)
 from discopy.utils import factory_name
 
 CARRIERS = (
     cat.Arrow, cat.Functor,
+    monoidal.Wire, monoidal.Ty, monoidal.PRO,
+    monoidal.Diagram, monoidal.Functor,
+    braided.Diagram, braided.Functor,
+    traced.Diagram, traced.Functor,
+    balanced.Diagram, balanced.Functor,
+    symmetric.Diagram, symmetric.Functor,
+    biclosed.Ty, biclosed.Diagram, biclosed.Functor,
+    rigid.Ty, rigid.Diagram, rigid.Functor,
+    pivotal.Ty, pivotal.Diagram, pivotal.Functor,
+    ribbon.Diagram, ribbon.Functor,
+    compact.Diagram, compact.Functor,
+    markov.Diagram, markov.Functor,
+    closed.Ty, closed.Diagram, closed.Functor,
+    feedback.Ty, feedback.Diagram, feedback.Functor,
+    frobenius.Ty, frobenius.Diagram, frobenius.Functor,
 )
 
 

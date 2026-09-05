@@ -63,3 +63,15 @@ def test_spider_decomposition():
     assert Spider(5, 1, n).unfuse() == (Spider(2, 1, n) @ Spider(2, 1, n)
                                            @ Id(n) >> Spider(2, 1, n) @ Id(n)
                                            >> Spider(2, 1, n))
+
+
+def test_strategy():
+    from discopy import testing
+
+    testing.assert_strategy_finds(Diagram, Spider)
+
+
+def test_axioms():
+    from discopy import testing
+
+    testing.assert_axioms(Ty, Diagram, Functor)

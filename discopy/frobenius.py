@@ -63,10 +63,12 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from discopy import (
-    monoidal, rigid, markov, compact, pivotal, cmap, hypergraph)
+    abc, monoidal, rigid, markov, compact, pivotal, cmap, hypergraph)
 from discopy.abc import HypergraphCategory
 from discopy.cat import factory
-from discopy.utils import assert_isatomic, deprecated_ob, factory_name
+from discopy.utils import (
+    assert_isatomic, deprecated_ob, factory_name, from_tree)
+from discopy.testing import Atomic, C0, axiom
 
 
 class Wire(pivotal.Wire):
@@ -77,6 +79,12 @@ class Wire(pivotal.Wire):
         name : The name of the object.
     """
     l = r = property(lambda self: self)
+
+    @classmethod
+    def strategy(cls, **params):
+        """Generate self-dual objects at winding zero."""
+        return super().strategy(
+            **{"min_winding": 0, "max_winding": 0, **params})
 
 
 @factory
@@ -110,6 +118,10 @@ class Dim(monoidal.Dim, Ty):
     """ A dimension is a tuple of integers greater than one seen as a type. """
 
     l = r = property(lambda self: self.ar(*self.inside[::-1]))
+
+    def unwind(self):
+        """ A dimension carries no winding. """
+        return self
 
 
 @factory
@@ -178,6 +190,21 @@ class Box(compact.Box, markov.Box, Diagram):
         dom (Ty) : The domain of the box, i.e. its input.
         cod (Ty) : The codomain of the box, i.e. its output.
     """
+
+    @classmethod
+    def strategy(cls, **params):
+        """Add spiders to the inherited box distribution."""
+        from hypothesis import strategies as st
+
+        base = super().strategy(**params)
+        factory = cls.ar.spider_factory
+        return cls.extend_strategy(
+            base, factory,
+            lambda factory: st.tuples(
+                st.sampled_from(
+                    ((0, 1), (1, 0), (1, 2), (2, 1), (2, 2))),
+                cls.atomic_strategy()).map(
+                    lambda args: factory(*args[0], args[1])), **params)
 
 
 class Cup(compact.Cup, Box):
@@ -263,6 +290,17 @@ class Spider(Box):
         """ The phase of the spider. """
         return self.data
 
+    def to_tree(self):
+        tree = {'factory': factory_name(type(self)),
+                'n_legs_in': len(self.dom), 'n_legs_out': len(self.cod),
+                'typ': self.typ.to_tree()}
+        return tree if self.data is None else dict(tree, data=self.data)
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(tree['n_legs_in'], tree['n_legs_out'],
+                   from_tree(tree['typ']), tree.get('data'))
+
     def __repr__(self):
         phase_repr = "" if self.phase is None \
             else f", phase={repr(self.phase)}"
@@ -288,6 +326,7 @@ class Bubble(monoidal.Bubble, Box):
     """
 
 
+@factory
 class Functor(compact.Functor, markov.Functor):
     """
     A hypergraph functor is a compact functor that preserves spiders.
@@ -308,6 +347,13 @@ class Functor(compact.Functor, markov.Functor):
         if isinstance(other, (markov.Copy, markov.Merge)):
             return markov.Functor.__call__(self, other)
         return compact.Functor.__call__(self, other)
+
+    @axiom
+    def frobenius(self, x: Atomic[C0]):
+        """ A hypergraph functor preserves the spiders. """
+        x = x.value
+        return self.cod.equation_factory(
+            self(self.dom.spiders(1, 2, x)), self.cod.spiders(1, 2, self(x)))
 
 
 def interleaving(cls: type, factory: Callable
@@ -385,6 +431,10 @@ def coherence(cls: type, factory: Callable
 
 
 CMap = cmap.CMap[Diagram]
+CMap.currying_left = abc.BiclosedCategory.currying_left
+CMap.currying_right = abc.BiclosedCategory.currying_right
+CMap.trace_naturality_left = abc.TracedCategory.trace_naturality_left
+CMap.trace_naturality_right = abc.TracedCategory.trace_naturality_right
 
 Diagram.functor_factory = Functor
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
@@ -400,4 +450,5 @@ class Equation(compact.Equation):
     up_to = staticmethod(Diagram.to_hypergraph)
 
 
+Diagram.equation_factory = Equation
 __getattr__ = deprecated_ob(__name__)

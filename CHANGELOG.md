@@ -9,6 +9,22 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- The property matrix's search strategy is now recursive: `cat.Arrow` and
+  `monoidal.Diagram` build composite paths/diagrams with
+  `hypothesis.strategies.recursive`/an iterated layer search instead of
+  the earlier canonical single instantiation, and every monoidal-derived
+  category (`braided`, `traced`, `balanced`, `symmetric`, `biclosed`,
+  `rigid`, `pivotal`, `ribbon`, `compact`, `markov`, `closed`, `feedback`,
+  `frobenius`) inherits it through a `Box.strategy` override — its own or
+  its base's, e.g. `closed` and `compact` inherit theirs — adding its
+  structural boxes (braids, cups and caps, copies, spiders, feedback
+  loops...) to the mix. Their axioms, stated in
+  `discopy.abc`, are enrolled in `proptest/`. The bugs the wider search
+  surfaced are fixed below, except two open ones declared in the matrix:
+  `feedback.Diagram.feedback` unrolls its memory in the wrong order
+  ([#606](https://github.com/discopy/discopy/issues/606)), and an
+  uncoloured `monoidal.Wire` reprs as the `cat.Ob` that `Ty` coerces,
+  which its type-strict equality rejects.
 - `discopy/testing.py`, a Hypothesis-based property-testing module:
   `Axiom`, decorated with `@discopy.testing.axiom`, states a categorical
   law once on `discopy.abc.Category`/`ColouredMonoid` and every subclass
@@ -63,6 +79,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   points to it from `Where` rather than importing it into every agent's
   context, and links its other documents rather than importing them with
   the `@` syntax only `CLAUDE.md` is read with.
+
 - A `workflows` job in `build.yml`, so that the code running our pull
   requests is checked like the code it checks: `actionlint` over the
   workflows, `pflake8` over `.github`, and `pytest .github/tests/*.py`
@@ -374,6 +391,27 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `rigid.Diagram.functor_factory` is `rigid.Functor`: it inherited
   `biclosed.Functor`, which does not rotate, so a box mapped through
   it lost the rotation of its boundary.
+- The structural boxes serialise with their own signatures instead of
+  inheriting `__repr__`, `to_tree` or `from_tree` from `Box` or `Bubble`,
+  whose `(name, dom, cod)` keys their constructors reject, so
+  `eval(repr(x))` and `dumps`/`loads` roundtrip every diagram containing
+  a `traced.Trace`, `feedback.Feedback`, `balanced.Twist`,
+  `braided.Braid`, `markov.Copy`/`Merge`/`Discard`, `frobenius.Spider`,
+  or `biclosed.Eval`/`Coeval`/`Curry` and their `closed` subclasses; and
+  `markov.Copy.__new__` no longer requires an argument the pickle
+  protocol cannot pass, so `Copy` and `Discard` unpickle.
+- `Copy.dagger`, `Merge.dagger` and `Diagram.to_staircases` dispatch
+  through the subclass's factories instead of capturing a bare `markov`
+  sibling or the bare `monoidal.Functor`: the dagger of a `closed.Copy`
+  is a `closed.Merge`, and `foliation` no longer crashes on traced
+  diagrams by rebuilding a `Trace` as a `monoidal.Bubble`.
+- `foliation` falls back to merging layers where `to_hypergraph` is
+  partial — traced diagrams and boundary-disconnected pivotal diagrams —
+  and `Feedback.dagger` raises a clean `AxiomError`, the delay being
+  irreversible, instead of a `TypeError` from generic bubble
+  reconstruction.
+
+
 - Pivotal diagram-to-map conversion now encodes cups and caps as `CMap`
   wiring rather than keeping them as boxes
   ([#532](https://github.com/discopy/discopy/pull/532)).

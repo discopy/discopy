@@ -5,6 +5,14 @@ from discopy import *
 from discopy.feedback import *
 
 
+def test_factories():
+    assert Diagram.trace_factory is Trace
+    assert Diagram.discard_factory is Discard
+    x = Ty("x")
+    assert type(Diagram.id(x @ x).trace()) is Trace
+    assert type(Diagram.discard(x)) is Discard
+
+
 def test_invalid_inputs():
     with raises(NotImplementedError):
         Ty('x').delay(-1)
@@ -97,3 +105,15 @@ def test_Permutation_delay():
     assert perm.delay(2) == perm.delay().delay()
     assert (perm >> Swap(z, x) @ y).delay()\
         == perm.delay() >> Swap(z, x).delay() @ y.delay()
+
+
+def test_strategy():
+    from discopy import testing
+
+    testing.assert_strategy_finds(Diagram, Feedback)
+
+
+def test_axioms():
+    from discopy import testing
+
+    testing.assert_axioms(Ty, Diagram, Functor)
