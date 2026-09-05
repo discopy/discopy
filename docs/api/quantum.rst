@@ -11,6 +11,7 @@ quantum
     discopy.quantum.circuit
     discopy.quantum.gates
     discopy.quantum.ansatze
+    discopy.quantum.reservoir
     discopy.quantum.zx
     discopy.quantum.tk
     discopy.quantum.pennylane
