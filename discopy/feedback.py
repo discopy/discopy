@@ -406,7 +406,7 @@ class Diagram(markov.Diagram, FeedbackCategory):
 
     feedback_joining = FeedbackCategory.feedback_joining.failing(
         "``feedback`` unrolls heterogeneous memory in the wrong order, so "
-        "it refuses to build the joined loop at all, see #606 — and the "
+        "it refuses to build the joined loop at all, see #649 — and the "
         "search falsifies the law even on homogeneous memory, so there "
         "is no subspace to weaken it to.")
 

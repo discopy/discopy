@@ -22,9 +22,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `discopy.abc`, are enrolled in `proptest/`. The bugs the wider search
   surfaced are fixed below, except two open ones declared in the matrix:
   `feedback.Diagram.feedback` unrolls its memory in the wrong order
-  ([#606](https://github.com/discopy/discopy/issues/606)), and an
+  ([#649](https://github.com/discopy/discopy/issues/649)), and an
   uncoloured `monoidal.Wire` reprs as the `cat.Ob` that `Ty` coerces,
-  which its type-strict equality rejects.
+  which its type-strict equality rejects
+  ([#650](https://github.com/discopy/discopy/issues/650)).
 - `discopy/testing.py`, a Hypothesis-based property-testing module:
   `Axiom`, decorated with `@discopy.testing.axiom`, states a categorical
   law once on `discopy.abc.Category`/`ColouredMonoid` and every subclass

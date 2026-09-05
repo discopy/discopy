@@ -83,7 +83,7 @@ COUNTEREXAMPLES = (
                    "f", MEMORY[:1] @ MEMORY.delay(), MEMORY[:1] @ MEMORY),
                MEMORY), ),
         reason="feedback.Diagram.feedback unrolls its memory in the wrong "
-               "order (#606)"),
+               "order (#649)"),
 )
 
 
