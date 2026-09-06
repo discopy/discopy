@@ -277,7 +277,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping
 from dataclasses import KW_ONLY, dataclass, replace
 from functools import wraps
-from typing import TYPE_CHECKING, ClassVar, TypeVar
+from typing import TYPE_CHECKING, ClassVar, TypeVar, Concatenate
 
 from discopy.utils import (
     AxiomError,
@@ -337,7 +337,7 @@ class AxiomFailure(AxiomError):
 
 
 @dataclass
-class Axiom[T]:
+class Axiom[**P, T]:
     """
     A categorical law, stated either of a carrier or of one of its elements.
 
@@ -357,7 +357,7 @@ class Axiom[T]:
     failure and lets the search find the counterexample.
     """
 
-    equation: Callable
+    equation: Callable[Concatenate[type, P], T]
     _: KW_ONLY
     carrier: type[T] = None
     name: str = None
@@ -391,14 +391,14 @@ class Axiom[T]:
         """ Whether the law is stated of an element rather than a carrier. """
         return self.receiver == "self"
 
-    def bind(self, carrier: type[T]) -> Axiom[T]:
+    def bind(self, carrier: type[T]) -> Axiom[P, T]:
         """ Bind the axiom to a concrete carrier. """
         return replace(self, carrier=carrier)
 
-    def __get__(self, instance, owner: type[T]) -> Axiom[T]:
+    def __get__(self, instance, owner: type[T]) -> Axiom[P, T]:
         return self.bind(owner)
 
-    def modulo(self, up_to) -> Axiom[T]:
+    def modulo(self, up_to) -> Axiom[P, T]:
         """
         The same law with its equation compared up to a function, so that a
         carrier weakens an inherited axiom in one statement, e.g.
@@ -410,7 +410,7 @@ class Axiom[T]:
             return self.equation(*args, **kwargs).modulo(up_to)
         return replace(self, equation=equation)
 
-    def failing(self, reason: str) -> Axiom[T]:
+    def failing(self, reason: str) -> Axiom[P, T]:
         """
         The same law declared broken: calling it raises an
         :class:`AxiomFailure` with the reason as message and the equation
@@ -423,7 +423,7 @@ class Axiom[T]:
         equation.__doc__ = reason
         return replace(self, equation=equation, broken=True)
 
-    def inapplicable(self, reason: str) -> Axiom[T]:
+    def inapplicable(self, reason: str) -> Axiom[P, T]:
         """
         The same law declared not to apply to the carrier: it takes no
         argument and returns :obj:`NotImplemented`, with the reason as its
@@ -435,7 +435,7 @@ class Axiom[T]:
         law.__doc__ = reason
         return replace(self, equation=law, subspaces={}, broken=False)
 
-    def weaken(self, **subspaces) -> Axiom[T]:
+    def weaken(self, **subspaces) -> Axiom[P, T]:
         """
         The same law quantified over a subspace of the named arguments,
         e.g. ``bifunctoriality_connected =
@@ -532,7 +532,7 @@ class Axiom[T]:
             annotation=self.carrier)
         return (receiver, ) + explicit
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> Equation[T]:
         if self.carrier is None:
             raise TypeError(f"{self.name} is not bound to a class.")
         signature = self.signature.replace(parameters=self.parameters)
@@ -547,7 +547,7 @@ class Axiom[T]:
             **{self.receiver: self.carrier, **arguments})
 
 
-def axiom(equation) -> Axiom:
+def axiom[**P, T](equation: Callable[P, T]) -> Axiom[P, T]:
     """ Decorate an equation as an inherited categorical axiom. """
     return Axiom(equation)
 
@@ -1171,8 +1171,8 @@ def assert_axioms(*carriers) -> None:
                 assert verdict is NotImplemented or verdict, axiom
 
 
-def assert_strategy_finds(
-        carrier: type[monoidal.Diagram], *structures: type) -> None:
+def assert_strategy_finds[D: monoidal.Diagram](
+        carrier: type[D], *structures: type[D]):
     """
     Check that the strategy of a diagram carrier generates a term
     containing a box of each of the given structural classes.

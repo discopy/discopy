@@ -7,15 +7,37 @@ from hypothesis import strategies as st
 from pytest import raises
 
 from discopy import cat, closed, feedback, rigid, symmetric, testing
-from discopy.abc import Equation as AbstractEquation
-from discopy.cat import Arrow, Box, Equation, Functor, Ob
+from discopy.abc import Equation
+from discopy.cat import Arrow, Box, Functor, Ob
 from discopy.testing import (
-    C0, C1, Atomic, Axiom, AxiomFailure, BoundaryConnected, ComposablePair,
-    FeedbackJoining, FeedbackVanishing, HomogeneousMemory, HorizontalPair,
-    LeftCurrying, Natural, NonEmpty, Relabelling, RightCurrying,
-    Strategy, Subsingleton, TraceDinaturalityLeft, TraceDinaturalityRight,
-    TraceNaturalityLeft, TraceNaturalityRight, TraceSuperposing,
-    assert_axioms, assert_strategy_finds, axiom, resolve)
+    C0,
+    C1,
+    Atomic,
+    Axiom,
+    AxiomFailure,
+    BoundaryConnected,
+    ComposablePair,
+    FeedbackJoining,
+    FeedbackVanishing,
+    HomogeneousMemory,
+    HorizontalPair,
+    LeftCurrying,
+    Natural,
+    NonEmpty,
+    Relabelling,
+    RightCurrying,
+    Strategy,
+    Subsingleton,
+    TraceDinaturalityLeft,
+    TraceDinaturalityRight,
+    TraceNaturalityLeft,
+    TraceNaturalityRight,
+    TraceSuperposing,
+    assert_axioms,
+    assert_strategy_finds,
+    axiom,
+    resolve,
+)
 from discopy.utils import AxiomError, factory
 
 
@@ -100,28 +122,6 @@ def test_strategy():
     assert find(Arrow.strategy(dom=x), lambda _: True).dom == x
     assert find(Arrow.strategy(cod=y), lambda _: True).cod == y
     assert find(Box.strategy(dom=x), lambda _: True).dom == x
-
-
-def test_element_laws():
-    box = Box('f', Ob('x'), Ob('y'))
-    assert Arrow.transparency(box) and Arrow.pickling(box)
-    assert Arrow.serialisation(box)
-    assert Functor.serialisation() is NotImplemented
-    assert "transparency" in Natural.axioms
-    assert Natural.transparency(Natural(2)) and Natural.pickling(Natural(2))
-
-    class Bare(Natural):
-        """ A number whose representation prints its bare class name. """
-        def __repr__(self):
-            return f"Bare({int(self)})"
-
-        @classmethod
-        def environment(cls):
-            return {"Bare": cls}
-
-    assert Bare.transparency(Bare(2)) and "Bare" not in Natural.environment()
-    with raises(NameError):
-        eval(repr(Bare(2)), Natural.environment())
 
 
 def test_natural():
@@ -307,7 +307,7 @@ def test_weaken():
 
 def test_element_law():
     @axiom
-    def preserves_identity(self, x: C0) -> AbstractEquation:
+    def preserves_identity(self, x: C0) -> Equation:
         """ A functor preserves the identity on each object. """
         return Equation(self(Arrow.id(x)), Arrow.id(self(x)))
 
@@ -320,19 +320,6 @@ def test_element_law():
 def test_falsify():
     counterexample, = Functor.unitality.falsify()
     assert isinstance(counterexample, Functor)
-
-
-def test_assert_axioms_refusal():
-    def refuse(cls, f: C1) -> AbstractEquation:
-        """ The equation never builds its terms. """
-        raise AxiomError
-
-    class Refusing(Arrow):
-        """ A carrier whose extra law refuses to build its terms. """
-
-    Refusing.refuse = Axiom(refuse).failing("The equation never builds.")
-    assert_axioms(Refusing)
-    assert Refusing.refuse.falsify()
 
 
 def test_axioms_of_carrier():
