@@ -21,7 +21,7 @@ Summary
     NonEmpty
     Subsingleton
     BoundaryConnected
-    PastingDiagram
+    Grid
     ComposablePair
     ComposableTriple
     HorizontalPair
@@ -277,11 +277,18 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping
 from dataclasses import KW_ONLY, dataclass, replace
 from functools import wraps
-from typing import ClassVar, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar, TypeVar
 
 from discopy.utils import (
-    AxiomError, NamedGeneric, assert_iscomposable, classproperty, dumps,
-    factory_name, from_tree, get_origin, loads)
+    AxiomError,
+    NamedGeneric,
+    assert_iscomposable,
+    dumps,
+    factory_name,
+    from_tree,
+    get_origin,
+    loads,
+)
 
 if TYPE_CHECKING:
     from hypothesis import strategies as st
@@ -323,6 +330,7 @@ class AxiomFailure(AxiomError):
     reason is the message and :attr:`equation` is the law evaluated on the
     arguments, which a recorded counterexample must falsify.
     """
+
     def __init__(self, reason: str, equation):
         super().__init__(reason, equation)
         self.equation = equation
@@ -502,7 +510,7 @@ class Axiom[T]:
         def refutes(args):
             try:
                 verdict = self(*args)
-            except Exception:
+            except AxiomFailure:
                 return True
             return verdict is not NotImplemented and not verdict
 
@@ -730,7 +738,7 @@ class BoundaryConnected(Strategy, NamedGeneric["factory"]):
     value: C1
 
     def __post_init__(self):
-        cells = self.value if isinstance(self.value, PastingDiagram)\
+        cells = self.value if isinstance(self.value, Grid)\
             else (self.value, )
         for cell in cells:
             graph = cell if hasattr(cell, "is_boundary_connected")\
@@ -745,7 +753,7 @@ class BoundaryConnected(Strategy, NamedGeneric["factory"]):
             cls.factory, boundary_connected=True, **params).map(cls)
 
 
-class PastingDiagram(Strategy, NamedGeneric["factory"], tuple):
+class Grid(Strategy, NamedGeneric["factory"], tuple):
     """ A rectangular grid with composable rows and columns. """
 
     n_rows: ClassVar[int]
@@ -802,27 +810,27 @@ class PastingDiagram(Strategy, NamedGeneric["factory"], tuple):
         return pasting_diagram()
 
 
-class ComposablePair(PastingDiagram):
+class ComposablePair(Grid):
     """ Two morphisms composable from left to right. """
 
     n_rows, n_columns = 2, 1
     n_active_rows = 2
 
 
-class ComposableTriple(PastingDiagram):
+class ComposableTriple(Grid):
     """ Three values composable from left to right. """
 
     n_rows, n_columns = 3, 1
     n_active_rows = 3
 
 
-class HorizontalPair(PastingDiagram):
+class HorizontalPair(Grid):
     """ Two horizontally composable cells. """
 
     n_rows, n_columns = 1, 2
 
 
-class Square(PastingDiagram):
+class Square(Grid):
     """ A two-by-two grid of cells, the arguments of the interchange law. """
 
     n_rows = n_columns = 2
