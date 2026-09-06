@@ -82,3 +82,7 @@ def test_to_hypergraph():
     assert isinstance(round_trip, Diagram)
     assert round_trip.to_hypergraph() == hypergraph
     assert hash(round_trip.to_hypergraph()) == hash(hypergraph)
+
+
+def test_functor_factory():
+    assert Functor.ar is Functor
