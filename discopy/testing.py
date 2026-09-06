@@ -378,14 +378,6 @@ class Axiom[T]:
     def __hash__(self):
         return hash((self.equation, self.carrier, self.name))
 
-    def __set_name__(self, owner, name):
-        """
-        Take the name of the attribute the axiom is assigned to, so that an
-        override built with :meth:`modulo`, :meth:`failing` or
-        :meth:`inapplicable` needs no name of its own.
-        """
-        self.name = name
-
     @property
     def is_method(self) -> bool:
         """ Whether the law is stated of an element rather than a carrier. """
@@ -552,22 +544,6 @@ def axiom(equation) -> Axiom:
     return Axiom(equation)
 
 
-def inherited_axioms(cls) -> dict[str, Axiom]:
-    """
-    The axioms inherited by ``cls``, by name, subclasses overriding bases.
-
-    Names are collected before they are filtered, so that assigning
-    anything that is not an axiom over an inherited one drops it
-    altogether, rather than restating it.
-    """
-    visible = {
-        name: value
-        for base in reversed(cls.__mro__)
-        for name, value in base.__dict__.items()}
-    return {name: value.bind(cls) for name, value in visible.items()
-            if isinstance(value, Axiom)}
-
-
 class Strategy[T](ABC):
     """
     A type with a canonical `search strategy
@@ -575,8 +551,6 @@ class Strategy[T](ABC):
     generating its instances, and the laws every such type obeys: a term
     reads back from its representation, its pickle and its tree.
     """
-
-    axioms = classproperty(inherited_axioms)
 
     @classmethod
     @abstractmethod

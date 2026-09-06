@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 The abstract base classes for categories.
 
@@ -48,11 +46,11 @@ Summary
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
-from typing import Callable, ClassVar
+from collections.abc import Callable, Sequence
+from functools import partial
+from typing import ClassVar
 
-from discopy.testing import (
-    ComposablePair, ComposableTriple, axiom, inherited_axioms)
+from discopy.testing import Axiom, ComposablePair, ComposableTriple, axiom
 from discopy.utils import NamedGeneric, classproperty, factory_name
 
 
@@ -95,7 +93,21 @@ class Category[C0, C1: Category](ABC):
         """
         return Equation(*terms)
 
-    axioms = classproperty(inherited_axioms)
+    @classproperty
+    def axioms(cls) -> dict[str, Axiom]:
+        """
+        The axioms inherited by ``cls``, by name, subclasses overriding bases.
+
+        Names are collected before they are filtered, so that assigning
+        anything that is not an axiom over an inherited one drops it
+        altogether, rather than restating it.
+        """
+        visible = {
+            name: value
+            for base in reversed(cls.__mro__)
+            for name, value in base.__dict__.items()}
+        return {name: value.bind(cls) for name, value in visible.items()
+                if isinstance(value, Axiom)}
 
     @classmethod
     @abstractmethod
@@ -563,7 +575,7 @@ class SymmetricCategory[C0, C1](BraidedCategory[C0, C1]):
         xs, doms = list(xs), list(doms)
         if list(range(len(doms))) != sorted(xs):
             raise ValueError
-        tensor = lambda objects: sum(objects, start=cls.ob())
+        tensor = partial(sum, start=cls.ob())
         result, done = cls.id(tensor(doms)), cls.ob()
         while xs != list(range(len(xs))):
             i = xs[0]
