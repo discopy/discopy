@@ -38,6 +38,10 @@ from discopy.python import finset, function
 """ Functions have lists of types as input and output. """
 Ty = tuple[type, ...]
 
+OPAQUE = ("A python function is a callable, not syntax: its ``inside`` "
+          "reprs as an address, pickles only when the interpreter can name "
+          "it, and has no tree.")
+
 
 def exp(base: Ty, exponent: Ty) -> Ty:
     """
@@ -251,6 +255,10 @@ class Function(function.Function, ClosedCategory, Strategy["Function"]):
 
     dagger_monoidality = ClosedCategory.dagger_monoidality.inapplicable(
         "A python function has no dagger.")
+
+    transparency = Strategy.transparency.inapplicable(OPAQUE)
+    pickling = Strategy.pickling.inapplicable(OPAQUE)
+    serialisation = Strategy.serialisation.inapplicable(OPAQUE)
 
     @classmethod
     def equation_factory(cls, *terms):
