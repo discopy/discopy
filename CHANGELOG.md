@@ -9,6 +9,13 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `discopy.python.additive.Function` joins the property matrix, with a
+  `strategy` generating tag relabellings compared extensionally (probing
+  both sides on a canonical tagged element rather than structurally).
+  `transparency`, `pickling` and `serialisation` are declared
+  inapplicable: a python function is a callable, so its `inside` reprs as
+  an address rather than an expression, pickles only when the interpreter
+  can name it, and has no tree.
 - `discopy.cmap.CMap` and `discopy.hypergraph.Hypergraph` grow a
   `strategy` classmethod, drawing through their associated diagram
   category and adding closed components (loops, isolated spiders) beyond
@@ -415,6 +422,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   rather than the spider's own type, creating a phantom attributeless
   node whenever a boundary wire reads an adjoint of its spider type, so
   `hash` crashed with `KeyError: 'box'`; it now keys on `spider_types`.
+- `python.additive.Function` missed its `@factory` decorator, so its `ar`
+  resolved to `function.Function`, the base class of all python
+  functions, instead of itself: every generic operation building an
+  `additive.Function` from a functor or a diagram silently produced the
+  wrong class.
 - `rigid.Diagram.functor_factory` is `rigid.Functor`: it inherited
   `biclosed.Functor`, which does not rotate, so a box mapped through
   it lost the rotation of its boundary.
