@@ -10,8 +10,7 @@ import pytest
 from discopy import biclosed, braided, cat, compact, feedback, pivotal, ribbon
 from discopy.python import finset
 from discopy.testing import (
-    GENERATORS, Atomic, Axiom, AxiomFailure, Natural, Relabelled,
-    Relabelling)
+    GENERATORS, Atomic, Axiom, AxiomFailure, Natural, Relabelling)
 from discopy.utils import AxiomError, factory_name
 
 

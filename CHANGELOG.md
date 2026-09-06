@@ -17,7 +17,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   where both halves have equal length — a joint constraint per-argument
   generation cannot state — so `braid_naturality`, `hexagon_left` and
   `hexagon_right` are declared broken and recorded in the counterexample
-  ledger.
+  ledger. `serialisation` is declared inapplicable — a finite function is
+  a list of integers rather than a tree, so it has no `to_tree` — while
+  `transparency` and `pickling` hold, the list being data.
 - `discopy.cmap.CMap` and `discopy.hypergraph.Hypergraph` grow a
   `strategy` classmethod, drawing through their associated diagram
   category and adding closed components (loops, isolated spiders) beyond

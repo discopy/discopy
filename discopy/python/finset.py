@@ -186,6 +186,9 @@ class Function(SymmetricCategory, Sequence, Strategy["Function"]):
     dagger_monoidality = abc.MonoidalCategory.dagger_monoidality.inapplicable(
         NO_DAGGER)
 
+    serialisation = Strategy.serialisation.inapplicable(
+        "A finite function is a list of integers, not a tree.")
+
 
 type Cycle = Iterable[int]
 type Cycles = Iterable[Cycle]
