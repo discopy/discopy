@@ -14,10 +14,10 @@ from pytest import raises
 
 from discopy import biclosed, cat, feedback, monoidal, rigid, testing, traced
 from discopy.testing import (
-    C0, C1, Atomic, Axiom, AxiomFailure, Bifunctor, BoundaryConnected,
+    C0, C1, Atomic, Axiom, AxiomFailure, Square, BoundaryConnected,
     ComposablePair, ComposableTriple, FeedbackJoining, FeedbackVanishing,
     HomogeneousMemory, HorizontalPair, LeftCurrying, Natural, NonEmpty,
-    Relabelled, Relabelling, RightCurrying, Small, TraceDinaturalityLeft,
+    Relabelling, RightCurrying, Subsingleton, TraceDinaturalityLeft,
     TraceDinaturalityRight, TraceNaturalityLeft, TraceNaturalityRight,
     TraceSuperposing, axiom, resolve)
 from discopy.utils import AxiomError
@@ -90,10 +90,10 @@ def test_HorizontalPair():
 def test_Bifunctor():
     x, y = map(monoidal.Ty, "xy")
     f, g = monoidal.Box('f', x, y), monoidal.Box('g', y, x)
-    assert Bifunctor(f, f, g, g) == (f, f, g, g)
+    assert Square(f, f, g, g) == (f, f, g, g)
     with raises(AxiomError):
-        Bifunctor(f, f, f, f)
-    find(Bifunctor[monoidal.Diagram].strategy(),
+        Square(f, f, f, f)
+    find(Square[monoidal.Diagram].strategy(),
          lambda value: all(
              value[column].boxes or value[column + 2].boxes
              for column in range(2)))
@@ -215,17 +215,18 @@ def test_Relabelling():
     relabelling = Relabelling(((x, y), ))
     assert relabelling[x] == y and relabelling[z] == z
     assert list(relabelling) == [x] and len(relabelling) == 1
-    assert bool(Relabelling()) and relabelling.send(x) == y
+    assert bool(Relabelling())
+    assert relabelling[cat.Box('f', x, x)] == cat.Box('f', y, y)
     rigid_x, rigid_y = rigid.Ty('x'), rigid.Ty('y')
     rotating = Relabelling(((rigid_x, rigid_y), ))
-    assert rotating[rigid_x.l] == rigid_y.l
-    assert rotating[rigid_x.r] == rigid_y.r
-    assert rotating.send(rigid_x @ rigid_x.l) == rigid_y @ rigid_y.l
+    functor = rigid.Functor(rotating, rotating)
+    assert functor(rigid_x.l) == rigid_y.l and functor(rigid_x.r) == rigid_y.r
+    rotated = rigid.Box('f', rigid_x.r, rigid_x @ rigid_x)
+    assert rotating[rotated] == rigid.Box('f', rigid_y.r, rigid_y @ rigid_y)
     delayed = Relabelling(((feedback.Ty('u'), feedback.Ty('v')), ))
-    assert delayed[feedback.Ty('u').delay()] == feedback.Ty('v').delay()
-    relabelled = Relabelled(relabelling)
-    assert relabelled[cat.Box('f', x, x)] == cat.Box('f', y, y)
-    assert list(relabelled) == [] and not len(relabelled) and bool(relabelled)
+    delaying = feedback.Box('f', feedback.Ty('u').delay(), feedback.Ty('u'))
+    assert delayed[delaying] == feedback.Box(
+        'f', feedback.Ty('v').delay(), feedback.Ty('v'))
 
 
 def test_Axiom():
@@ -297,10 +298,10 @@ def test_inapplicable():
 
 def test_Small():
     x = monoidal.Ty('x')
-    assert Small(x).value == x
+    assert Subsingleton(x).value == x
     with raises(ValueError):
-        Small(x @ x)
-    find(Small[monoidal.Ty].strategy(),
+        Subsingleton(x @ x)
+    find(Subsingleton[monoidal.Ty].strategy(),
          lambda value: len(value.value) == 1)
     with raises(TypeError):
         resolve(int)
@@ -312,7 +313,7 @@ def test_BoundaryConnected():
     scalar = monoidal.Box('s', monoidal.Ty(), monoidal.Ty())
     assert BoundaryConnected(f).value == f
     assert BoundaryConnected(f.to_hypergraph()).value
-    assert BoundaryConnected((f, f)).value == (f, f)
+    assert BoundaryConnected(HorizontalPair(f, f)).value == (f, f)
     for value in (
             f @ scalar, scalar, scalar.to_map(), scalar.to_hypergraph()):
         with raises(ValueError):

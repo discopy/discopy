@@ -172,12 +172,16 @@ class NamedGeneric(Generic[TypeVar('T')]):
                     class C(origin):
                         __is_named_generic__ = True
 
-                        # We need this to fix pickling of nested classes
-                        # https://stackoverflow.com/questions/1947904/how-can-i-pickle-a-dynamically-created-nested-class-in-python
                         def __reduce__(self):
+                            """
+                            Pickle a member of the subscripted class as a
+                            member of its origin carrying the values, since
+                            a class created inside a function cannot be
+                            found by name, see `how can I pickle a
+                            dynamically created nested class
+                            <https://stackoverflow.com/questions/1947904>`_.
+                            """
                             func, args, data = super().__reduce__()
-                            # Check if class name is of the form:
-                            # *ClassName*[*type*]
                             if '[' in args[0].__name__:
                                 args = (origin, ) + args[1:]
                                 data |= {"__class_getitem__values__": values}

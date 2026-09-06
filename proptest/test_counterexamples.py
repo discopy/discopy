@@ -1,6 +1,6 @@
 """
 Deterministic replay of recorded counterexamples, the memory of the
-property suite: see PROPTEST.md for the recording protocol.
+property suite: :mod:`discopy.testing` documents the recording protocol.
 """
 
 from typing import NamedTuple
@@ -12,7 +12,7 @@ from discopy.python import finset
 from discopy.testing import (
     GENERATORS, Atomic, Axiom, AxiomFailure, Natural, Relabelled,
     Relabelling)
-from discopy.utils import factory_name
+from discopy.utils import AxiomError, factory_name
 
 
 class Counterexample(NamedTuple):
@@ -41,7 +41,7 @@ MEMORY = feedback.Ty("a") @ feedback.Ty("b")
 COUNTEREXAMPLES = (
     Counterexample(
         axiom=cat.Functor.unitality,
-        args=(cat.Functor(ob_map=COLLAPSE, ar_map=Relabelled(COLLAPSE)), ),
+        args=(cat.Functor(ob_map=COLLAPSE, ar_map=COLLAPSE), ),
         reason="MappingOrCallable.then iterates the keys of the left-hand "
                "map and the identity functor enumerates none, so id >> f "
                "forgets everything f does."),
@@ -112,7 +112,8 @@ def counterexample_parameters():
     until the ``.failing`` declaration moves.
     """
     for axiom, args, reason in COUNTEREXAMPLES:
-        marks = pytest.mark.xfail(reason=reason, strict=True)\
+        marks = pytest.mark.xfail(
+            reason=reason, raises=(AssertionError, AxiomError), strict=True)\
             if axiom.broken else ()
         yield pytest.param(
             axiom, args, marks=marks,

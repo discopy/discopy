@@ -63,7 +63,7 @@ from warnings import warn
 from discopy import cat, drawing, hypergraph, cmap, messages
 from discopy.abc import ColouredMonoid, MonoidalCategory
 from discopy.testing import (
-    Bifunctor, BoundaryConnected, C1, GENERATORS, HorizontalPair, Strategy,
+    Square, BoundaryConnected, C1, GENERATORS, HorizontalPair, Strategy,
     axiom)
 from discopy.drawing import Drawing
 from discopy.config import (
@@ -156,6 +156,11 @@ class Wire(cat.Ob):
             st.just(dom), st.just(cod)).map(
                 lambda args: cls(
                     args[0], dom=args[1], cod=args[2]))
+
+    transparency = Strategy.transparency.failing(
+        "An uncoloured wire reprs as the cat.Ob that Ty coerces, which "
+        "the type-strict Wire.__eq__ then rejects "
+        "(https://github.com/discopy/discopy/issues/650).")
 
     def __setstate__(self, state):
         state.setdefault('dom', white)
@@ -1557,7 +1562,7 @@ class Diagram(
         return super().from_tree(tree)
 
     bifunctoriality = MonoidalCategory.bifunctoriality.modulo(
-        normal_form).weaken(square=BoundaryConnected[Bifunctor[C1]])
+        normal_form).weaken(square=BoundaryConnected[Square[C1]])
 
     dagger_monoidality = MonoidalCategory.dagger_monoidality.modulo(
         normal_form).weaken(pair=BoundaryConnected[HorizontalPair[C1]])
