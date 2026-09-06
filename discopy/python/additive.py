@@ -30,6 +30,10 @@ from discopy.python.function import Types
 Ty = Types
 """Lists of types interpreted as disjoint union."""
 
+OPAQUE = ("A python function is a callable, not syntax: its ``inside`` "
+          "reprs as an address, pickles only when the interpreter can name "
+          "it, and has no tree.")
+
 
 @factory
 class Function(function.Function, SymmetricCategory, Strategy["Function"]):
@@ -138,6 +142,10 @@ class Function(function.Function, SymmetricCategory, Strategy["Function"]):
 
     dagger_monoidality = SymmetricCategory.dagger_monoidality.inapplicable(
         "Only a swap has a dagger.")
+
+    transparency = Strategy.transparency.inapplicable(OPAQUE)
+    pickling = Strategy.pickling.inapplicable(OPAQUE)
+    serialisation = Strategy.serialisation.inapplicable(OPAQUE)
 
     @classmethod
     def equation_factory(cls, *terms):
