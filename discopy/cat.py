@@ -84,7 +84,7 @@ from typing import (
 from discopy import messages, utils
 from discopy.abc import Category, Equation as AbstractEquation
 from discopy.testing import (
-    GENERATORS, Relabelled, Relabelling, Strategy, axiom)
+    GENERATORS, Relabelling, Strategy, axiom)
 from discopy.utils import (  # noqa: F401
     factory,
     factory_name,
@@ -319,6 +319,7 @@ class Arrow(FreeCategory, Strategy["Arrow"]):
         types = cls.ob.strategy() if types is None else types
 
         def generators(dom=None, cod=None):
+            """ Generator boxes between the given boundaries. """
             return cls.generator_factory.strategy(
                 types=types, dom=dom, cod=cod)
 
@@ -1020,14 +1021,17 @@ class Functor(Category, Strategy["Functor"]):
         atoms = [cls.dom.ob(name) for name in GENERATORS]
 
         def relabel(images):
+            """ The endofunctor sending each atom to its image. """
             labelling = Relabelling(tuple(zip(atoms, images)))
-            return cls(labelling, Relabelled(labelling))
+            return cls(labelling, labelling)
 
         return st.tuples(
             *(st.sampled_from(atoms) for _ in atoms)).map(relabel).filter(
                 lambda functor: dom in (None, functor.dom)
                 and cod in (None, functor.cod))
 
+    serialisation = Strategy.serialisation.inapplicable(
+        "A functor has no tree.")
     unitality = Category.unitality.failing(
         "Composition is unital only on the left: "
         ":code:`MappingOrCallable.then` composes by iterating the keys of "
