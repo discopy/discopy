@@ -28,7 +28,7 @@ Design decisions taken in the session, for reviewers:
 - [x] `test/table.py` and the doctests
 - [x] `discopy/__init__.py`, `docs/api/syntax.rst`, `CHANGELOG.md`
 - [x] `pflake8`, `pylint`, `pytest`, coverage >= 98, sphinx
-- [ ] Fill in the pull request number in the `CHANGELOG.md` entry
+- [x] Fill in the pull request number in the `CHANGELOG.md` entry
 
 Checks run locally: `pflake8 discopy` clean, `pylint discopy` 8.63/10,
 `pytest` 954 passed 1 skipped with every extra installed, `coverage` 98% in

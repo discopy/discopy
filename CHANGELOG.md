@@ -19,7 +19,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   diagram in one pass and `Morphism.to_diagram` reads back the cheapest
   section, so the two are inverse up to the wiring laws. Ported from the
   `metatheory` equality-saturation engine
-  ([#PR](https://github.com/discopy/discopy/pull/PR)).
+  ([#730](https://github.com/discopy/discopy/pull/730)).
 - A `workflows` job in `build.yml`, so that the code running our pull
   requests is checked like the code it checks: `actionlint` over the
   workflows, `pflake8` over `.github`, and `pytest .github/tests/*.py`
