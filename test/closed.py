@@ -150,8 +150,9 @@ def test_Variable_atomic():
     with raises(ValueError):
         Variable('v', X @ Y)
     v = Variable('v', X)
-    assert Abstraction(v, v).eval().dom == Ty()
-    assert Abstraction(v, v).eval().cod == (X >> X)
+    abstraction = Abstraction(v, v).eval()
+    assert abstraction.dom == Ty()
+    assert abstraction.cod == (X >> X)
 
 
 def test_context_dom():
