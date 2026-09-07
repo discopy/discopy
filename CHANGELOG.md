@@ -503,10 +503,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Project
 
-- `.claude/hooks/session-start.sh`, a `SessionStart` hook for Claude Code
-  on the web that syncs the full development environment before the
-  session starts, so that the linter and the whole test suite run as
-  `CONTRIBUTING.md` says. When `download.pytorch.org`, the index
+- `.claude/hooks/session-start.sh`, registered in `.claude/settings.json`
+  as a `SessionStart` hook for Claude Code on the web, syncs the full
+  development environment before the session starts, so that the linter
+  and the whole test suite run as `CONTRIBUTING.md` says; without the
+  registration the script is inert. When `download.pytorch.org`, the index
   `pyproject.toml` pins torch to on Linux, is not reachable from the
   session, it syncs everything but torch and installs the locked version
   from PyPI instead, whose wheels run on the CPU. Every agent session so
