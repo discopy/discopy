@@ -9,6 +9,17 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- Table representation, `discopy.table`, encoding a set of diagrams as a
+  `Carrier`: a table of cells over a union-find of wires, i.e. the carrier of
+  an e-graph. Each tree of the union-find is a vertex of the underlying
+  hypergraph, so merging two wires fuses two spiders and a vertex with more
+  than one producing cell holds alternatives, which a `Hypergraph` cannot
+  express: it reads the same incidence data as a Frobenius merge, and indeed
+  `(f + g).to_hypergraph()` raises today. `Carrier.from_diagram` interns a
+  diagram in one pass and `Morphism.to_diagram` reads back the cheapest
+  section, so the two are inverse up to the wiring laws. Ported from the
+  `metatheory` equality-saturation engine
+  ([#PR](https://github.com/discopy/discopy/pull/PR)).
 - A `workflows` job in `build.yml`, so that the code running our pull
   requests is checked like the code it checks: `actionlint` over the
   workflows, `pflake8` over `.github`, and `pytest .github/tests/*.py`
