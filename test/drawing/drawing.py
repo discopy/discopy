@@ -110,8 +110,6 @@ def test_compare_drawing_raster_and_bytes(tmp_path):
 
 
 def test_dark_mode_style(tmp_path):
-    # A saved SVG opens with the media query and tags its wires and labels,
-    # so a single file reads on both light and dark pages, see issue #453.
     path = tmp_path / "box.svg"
     Box("f", Ty("x"), Ty("y")).draw(path=path, show=False)
     text = path.read_text()
@@ -121,13 +119,10 @@ def test_dark_mode_style(tmp_path):
 
 
 def test_dark_mode_style_in_buffer():
-    # In-memory SVGs, e.g. in a Jupyter cell, carry the same style block.
-    assert backend.DARK_MODE_STYLE in Box("f", Ty("x"), Ty("y"))._repr_svg_()
+    assert backend.DARK_MODE_STYLE in Box("f", Ty("x"), Ty("y")).to_svg()
 
 
 def test_coloured_wires_keep_static_colours(tmp_path):
-    # Wires and labels over coloured regions are not tagged: black stays
-    # readable over a light region on both light and dark pages.
     red, green = map(monoidal.Colour, ("red", "green"))
     x = monoidal.Ty(monoidal.Wire("x", red, green))
     path = tmp_path / "box.svg"
@@ -136,8 +131,6 @@ def test_coloured_wires_keep_static_colours(tmp_path):
 
 
 def test_white_spiders_are_unfilled(tmp_path):
-    # e.g. the symbol of an Equation is just its label, leaving no white
-    # patch on a non-white page.
     path = tmp_path / "spider.svg"
     monoidal.Box(
         "+", monoidal.Ty(), monoidal.Ty(), draw_as_spider=True, color="white"
@@ -146,7 +139,6 @@ def test_white_spiders_are_unfilled(tmp_path):
 
 
 def test_raster_keeps_white_background(tmp_path):
-    # PNGs cannot adapt to the page behind them, so they stay white.
     from PIL import Image
     path = tmp_path / "box.png"
     Box("f", Ty("x"), Ty("y")).draw(path=path, show=False)
