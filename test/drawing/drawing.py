@@ -241,9 +241,6 @@ def region_hexes(diagram, **params):
 
 
 def test_draw_regions_uncoloured_shapes():
-    # Region filling runs for cups, caps, swaps, spiders and many-legged
-    # boxes; with no colours every region is white, i.e. the neutral
-    # background, so nothing is painted at all, see issue #521.
     from discopy.frobenius import Spider, Ty as FTy
     x = Ty('x')
     shapes = [
@@ -284,7 +281,6 @@ def test_draw_coloured_equation():
     x = Ty(Wire("x", dom=red, cod=green))
     equation = Equation(Box("f", x, x), Box("g", x, x))
     colours = region_hexes(equation)
-    # Both term regions show; the white around the slots is not painted.
     assert {'#e8a5a5', '#d8f8d8'} <= colours
     assert '#ffffff' not in colours
 
@@ -423,18 +419,6 @@ def test_draw_legend_figsize_and_space():
 
 
 def test_region_cells_example():
-    """
-    Concrete example clarifying ``Backend.region_cells``: a coloured cup
-    ``Cup(x, x.r)`` with ``x`` separating red from green, of width 2 and
-    height 1, decomposes into two height bands:
-        * below the cup, from 0 to 0.5: a single red cell spanning the
-          full width, since no separator crosses the band;
-        * above, from 0.5 to 1: red left of the left leg, green inside
-          the cup between the legs, red right of the right leg.
-    Each cell is bounded by quadratic Beziers ``(top, control, bottom)``
-    hugging the wires on *both* sides, restricted to the band, with the
-    sides of the canvas as straight outermost boundaries, see issue #521.
-    """
     red, green = map(monoidal.Colour, ("red", "green"))
     x = Ty(Wire("x", dom=red, cod=green))
     drawing = Cup(x, x.r).to_drawing()
@@ -449,12 +433,6 @@ def test_region_cells_example():
 
 
 def test_region_cells_do_not_overlap():
-    # Each point of the canvas is covered by at most one region cell, so
-    # translucent colours are not painted twice where two regions of the
-    # same colour are adjacent, see issue #521. With every separator a
-    # straight vertical line, the cells are rectangles whose areas add up
-    # to the area of the canvas minus the box, which is a 2-cell rather
-    # than a region, i.e. a hole with nothing painted underneath.
     translucent = monoidal.Colour("#3a86ff80")
     x = monoidal.Ty(monoidal.Wire("x", translucent, translucent))
     y = monoidal.Ty(monoidal.Wire("y", translucent, translucent))
@@ -465,15 +443,11 @@ def test_region_cells_do_not_overlap():
     area = sum(
         (right[0].x - left[0].x) * (left[0].y - left[-1].y)
         for left, right, _ in cells)
-    box_area = 1.5 * 0.5  # the box spans (0.25, 1.75) x (0.25, 0.75)
+    box_area = 1.5 * 0.5
     assert area == drawing.width * drawing.height - box_area
 
 
 def test_region_white_cells_erase_to_the_background():
-    # A white region enclosed by coloured ones is not painted at all
-    # rather than overpainted in opaque white, see issue #521. The frame
-    # colour is set explicitly since its default is transparent, per
-    # USER's ruling on #497 that frame interiors are white by default.
     white = monoidal.Colour("white")
     u = monoidal.Ty(monoidal.Wire("u", white, white))
     frame = monoidal.Box("f", u, u).bubble(dom=u, cod=u, draw_as_frame=True)
