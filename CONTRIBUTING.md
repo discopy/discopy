@@ -213,7 +213,7 @@ That is, we do our best to make sure that critical parts of the reasoning / impl
 
 ## LLM guidelines
 
-We accept contributions from large language models so long as they are explicitly indicated as such.
+We accept contributions from large language models so long as they are explicitly indicated as such and authored under a GitHub handle separate from the human who prompted them, so that authorship stays traceable; the resulting pull request needs to be approved by at least one human other than that prompter, in addition to any other review it requires.
 The [RULES.md](RULES.md) bind every agent working on a branch or pull request in this repo; they define the checkbox mutex and append-only shared-branch protocol.
 Use our [AGENTS.md](AGENTS.md) in your prompts so that the model has enough context to give quality results.
 
@@ -221,5 +221,3 @@ LLMs have shifted the bottleneck of software development from writing code to re
 In particular, AI contributions should be small (a thousand lines is a red line not to cross lightly) and well-planned (delegate the execution not the design).
 
 One specific guideline for PR descriptions: it's fine to have the detailed list of changes LLM-generated but the high-level description should be either a) written by a human, b) linking to a human-written prompt or c) quoting a human's prompt verbatim.
-
-LLM contributions must be authored under a GitHub handle separate from the human who prompted them, so that authorship stays traceable. A pull request authored by an LLM needs to be approved by at least one human other than the one who prompted it, in addition to any other review it requires.
