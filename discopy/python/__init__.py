@@ -7,10 +7,10 @@ Categories of Python functions.
     :template: module.rst
     :toctree: ../_api
 
-    discopy.python.finset
-    discopy.python.function
-    discopy.python.additive
-    discopy.python.multiplicative
+    finset
+    function
+    additive
+    multiplicative
 """
 
 from discopy.python.multiplicative import exp, Ty, Function
