@@ -15,7 +15,10 @@ backward leg a parametric map with the residual as parameter
 lens `(get, put)` with the residual normalised to `x` by copying, the
 bidirectional accessors of :cite:t:`ClarkeEtAl20`; when it is traced, an
 optic is an integer diagram :mod:`discopy.interaction` with the residual as
-the wire between the two legs.
+the wire between the two legs. Two optics are equal when their
+representatives are; the quotient by sliding a morphism across the residual
+is decided by :meth:`Optic.to_int` in a traced category and by
+:meth:`Optic.to_lens` in a Markov one.
 
 Summary
 -------
@@ -28,58 +31,6 @@ Summary
     Ty
     Optic
     Lens
-
-Axioms
-------
-
-Composition tensors the residuals: the backward legs compose past the first
-residual and the forward legs swap the second residual past the first, as
-:meth:`Symmetric.then <discopy.para.Symmetric.then>` does with its
-coparameters:
-
->>> from discopy.symmetric import Ty as T, Box, Diagram
->>> x, x_, y, y_, z, z_ = map(T, ["x", "x'", "y", "y'", "z", "z'"])
->>> m, n = map(T, "mn")
->>> X, Y, Z = Ty(x, x_), Ty(y, y_), Ty(z, z_)
->>> f = Optic(X, Y, Box('f', x, y @ m), Box("f'", m @ y_, x_), m)
->>> g = Optic(Y, Z, Box('g', y, z @ n), Box("g'", n @ z_, y_), n)
->>> assert (f >> g).residual == m @ n
->>> assert (f >> g).forward\\
-...     == f.forward >> g.forward @ m >> z @ Diagram.swap(n, m)
->>> assert (f >> g).backward == m @ g.backward >> f.backward
->>> (f >> g).to_int().draw(doctest="docs/_static/optics/then.svg")
-
-.. image:: /_static/optics/then.svg
-    :align: center
-
-The tensor swaps the residual of the left-hand side past the output of the
-right-hand side on the forward leg, and the residual of the right-hand side
-past the input of the left-hand side on the backward leg, one swap each:
-
->>> w, w_, k = map(T, ["w", "w'", "k"])
->>> W = Ty(w, w_)
->>> h = Optic(Z, W, Box('h', z, w @ k), Box("h'", k @ w_, z_), k)
->>> assert (f @ h).residual == m @ k
->>> assert (f @ h).dom == X @ Z and (f @ h).cod == Y @ W
->>> assert (f @ h).forward\\
-...     == f.forward @ h.forward >> y @ Diagram.swap(m, w) @ k
->>> assert (f @ h).backward\\
-...     == m @ Diagram.swap(k, y_) @ w_ >> f.backward @ h.backward
->>> (f @ h).to_int().draw(doctest="docs/_static/optics/tensor.svg")
-
-.. image:: /_static/optics/tensor.svg
-    :align: center
-
-The identity and swap of :class:`Optic` are those of the underlying
-category on each half, with the empty residual:
-
->>> assert Optic.id(X) == Optic.lift(f.category.id(x), f.category.id(x_))
->>> assert Optic.swap(X, Y).forward == f.category.swap(x, y)
->>> assert Optic.swap(X, Y).backward == f.category.swap(y_, x_)
-
-Two optics are equal when their representatives are; the quotient by
-sliding a morphism across the residual is decided by :meth:`Optic.to_int`
-in a traced category and by :meth:`Optic.to_lens` in a Markov one.
 
 Example
 -------
@@ -103,35 +54,6 @@ It is well-behaved, i.e. it satisfies the three lens laws:
 >>> assert first.get(*first.put(1, "b", 2)) == 2
 >>> assert first.put(1, "b", first.get(1, "b")) == (1, "b")
 >>> assert first.put(*first.put(1, "b", 2), 3) == first.put(1, "b", 3)
-
-Lenses compose by the chain rule, which is why they are the semantics of
-reverse-mode differentiation :cite:p:`CruttwellEtAl22`: the reverse
-derivative of a function `f` is the lens with `get` its value and `put`
-its Jacobian transposed, applied to the incoming gradient.
-
->>> R = Ty[tuple]((float, ), (float, ))
->>> square = Lens[Function](R, R,
-...     Function(lambda x: x * x, (float, ), (float, )),
-...     Function(lambda x, dy: 2 * x * dy, (float, float), (float, )))
->>> (square >> square).get(3.)
-81.0
->>> (square >> square).put(3., 1.)
-108.0
-
-A neural network is then a parametric lens: the parameters are the weights
-and their gradients come back beside the input's, see :mod:`discopy.para`.
-
->>> from discopy.para import Symmetric
->>> layer = Symmetric[Lens[Function]](R, R, Lens[Function](R @ R, R,
-...     Function(lambda x, w: w * x, (float, float), (float, )),
-...     Function(lambda x, w, dy: (w * dy, x * dy),
-...              (float, float, float), (float, float))), param=R)
->>> network = layer >> layer
->>> assert network.param == R @ R
->>> network.inside.get(2., 3., 5.)
-30.0
->>> network.inside.put(2., 3., 5., 1.)
-(15.0, 10.0, 6.0)
 """
 
 from __future__ import annotations
@@ -183,11 +105,8 @@ class Ty(interaction.Ty):
                f"(positive={pos}, negative={neg})"
 
     def __str__(self):
-        try:
-            return " @ ".join(list(map(str, self.positive)) + [
-                f"-{x}" for x in self.negative])
-        except TypeError:  # e.g. when Ty.natural == int
-            return repr(self)
+        return " @ ".join(list(map(str, self.positive)) + [
+            f"-{x}" for x in self.negative])
 
 
 def pairs(category) -> type:
@@ -276,6 +195,13 @@ class Optic(SymmetricCategory, NamedGeneric['category']):
 
         Parameters:
             dom : The domain of the identity, also its codomain.
+
+        Example
+        -------
+        >>> from discopy.symmetric import Ty as T, Diagram
+        >>> x, x_ = T('x'), T("x'")
+        >>> X = Ty(x, x_)
+        >>> assert Optic.id(X) == Optic.lift(Diagram.id(x), Diagram.id(x_))
         """
         dom = cls.ob() if dom is None else dom
         return cls.lift(
@@ -286,10 +212,29 @@ class Optic(SymmetricCategory, NamedGeneric['category']):
         """
         Sequential composition tensors the residuals: the forward legs
         compose then swap the second residual past the first, the backward
-        legs compose in reverse past the first residual.
+        legs compose in reverse past the first residual, as
+        :meth:`Symmetric.then <discopy.para.Symmetric.then>` does with its
+        coparameters.
 
         Parameters:
             other : The optic to compose with.
+
+        Example
+        -------
+        >>> from discopy.symmetric import Ty as T, Box, Diagram
+        >>> x, x_, y, y_, z, z_ = map(T, ["x", "x'", "y", "y'", "z", "z'"])
+        >>> m, n = map(T, "mn")
+        >>> X, Y, Z = Ty(x, x_), Ty(y, y_), Ty(z, z_)
+        >>> f = Optic(X, Y, Box('f', x, y @ m), Box("f'", m @ y_, x_), m)
+        >>> g = Optic(Y, Z, Box('g', y, z @ n), Box("g'", n @ z_, y_), n)
+        >>> assert (f >> g).residual == m @ n
+        >>> assert (f >> g).forward\\
+        ...     == f.forward >> g.forward @ m >> z @ Diagram.swap(n, m)
+        >>> assert (f >> g).backward == m @ g.backward >> f.backward
+        >>> (f >> g).to_int().draw(doctest="docs/_static/optics/then.svg")
+
+        .. image:: /_static/optics/then.svg
+            :align: center
         """
         assert_iscomposable(self, other)
         identity, swap = self.category.id, self.category.swap
@@ -309,6 +254,26 @@ class Optic(SymmetricCategory, NamedGeneric['category']):
 
         Parameters:
             other : The optic to compose in parallel.
+
+        Example
+        -------
+        >>> from discopy.symmetric import Ty as T, Box, Diagram
+        >>> x, x_, y, y_, z, z_, w, w_ = map(
+        ...     T, ["x", "x'", "y", "y'", "z", "z'", "w", "w'"])
+        >>> m, k = map(T, "mk")
+        >>> X, Y, Z, W = Ty(x, x_), Ty(y, y_), Ty(z, z_), Ty(w, w_)
+        >>> f = Optic(X, Y, Box('f', x, y @ m), Box("f'", m @ y_, x_), m)
+        >>> h = Optic(Z, W, Box('h', z, w @ k), Box("h'", k @ w_, z_), k)
+        >>> assert (f @ h).residual == m @ k
+        >>> assert (f @ h).dom == X @ Z and (f @ h).cod == Y @ W
+        >>> assert (f @ h).forward\\
+        ...     == f.forward @ h.forward >> y @ Diagram.swap(m, w) @ k
+        >>> assert (f @ h).backward\\
+        ...     == m @ Diagram.swap(k, y_) @ w_ >> f.backward @ h.backward
+        >>> (f @ h).to_int().draw(doctest="docs/_static/optics/tensor.svg")
+
+        .. image:: /_static/optics/tensor.svg
+            :align: center
         """
         identity, swap = self.category.id, self.category.swap
         forward = self.forward @ other.forward >> identity(self.cod.positive)\
@@ -329,6 +294,14 @@ class Optic(SymmetricCategory, NamedGeneric['category']):
         Parameters:
             left : The pair on the left of the swap.
             right : The pair on the right of the swap.
+
+        Example
+        -------
+        >>> from discopy.symmetric import Ty as T, Diagram
+        >>> x, x_, y, y_ = map(T, ["x", "x'", "y", "y'"])
+        >>> X, Y = Ty(x, x_), Ty(y, y_)
+        >>> assert Optic.swap(X, Y).forward == Diagram.swap(x, y)
+        >>> assert Optic.swap(X, Y).backward == Diagram.swap(y_, x_)
         """
         return cls.lift(cls.category.swap(left.positive, right.positive),
                         cls.category.swap(right.negative, left.negative))
@@ -396,7 +369,9 @@ class Lens(SymmetricCategory, NamedGeneric['category']):
     and update of a cartesian product, i.e. when copy is natural for both.
     Lenses form a symmetric category and not a Markov one: copying a pair
     would ask for a monoid on its negative half, which is how the reverse
-    derivative of a fan-out sums the gradients.
+    derivative of a fan-out sums the gradients. A neural network is a
+    parametric lens, i.e. a :class:`Symmetric <discopy.para.Symmetric>`
+    over `Lens`; see :mod:`discopy.neural`.
 
     .. admonition:: Summary
 
@@ -469,9 +444,26 @@ class Lens(SymmetricCategory, NamedGeneric['category']):
         """
         Sequential composition is the chain rule: `put` copies the input,
         reads it with `self.get`, writes with `other.put` then `self.put`.
+        This is why lenses over :class:`Function <discopy.python.Function>`
+        are the semantics of reverse-mode differentiation
+        :cite:p:`CruttwellEtAl22`: the reverse derivative of a function `f`
+        is the lens with `get` its value and `put` its Jacobian transposed,
+        applied to the incoming gradient.
 
         Parameters:
             other : The lens to compose with.
+
+        Example
+        -------
+        >>> from discopy.python import Function
+        >>> R = Ty[tuple]((float, ), (float, ))
+        >>> square = Lens[Function](R, R,
+        ...     Function(lambda x: x * x, (float, ), (float, )),
+        ...     Function(lambda x, dy: 2 * x * dy, (float, float), (float, )))
+        >>> (square >> square).get(3.)
+        81.0
+        >>> (square >> square).put(3., 1.)
+        108.0
         """
         assert_iscomposable(self, other)
         identity, copy = self.category.id, self.category.copy
