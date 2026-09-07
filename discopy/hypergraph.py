@@ -487,15 +487,23 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
     def rotate(self, left=False):
         """
         The half-turn rotation of a hypergraph, called with ``.l`` and ``.r``.
+
+        A half-turn exchanges the two boundaries of everything it turns: of
+        the hypergraph, so that its domain is the rotation of the codomain,
+        and of each box, so that the ports which read its domain come to
+        read its codomain. The spiders are rotated where they stand, being
+        the objects the ports are typed by.
         """
         dom, cod = (x.l if left else x.r for x in (self.cod, self.dom))
         boxes = tuple(box.l if left else box.r for box in self.boxes[::-1])
         dom_wires = self.cod_wires[::-1]
-        box_wires = tuple((x[::-1], y[::-1]) for x, y in self.box_wires[::-1])
+        box_wires = tuple((y[::-1], x[::-1]) for x, y in self.box_wires[::-1])
         cod_wires = self.dom_wires[::-1]
         wires = dom_wires, box_wires, cod_wires
+        spider_types = tuple(
+            x.l if left else x.r for x in self.spider_types)
         return type(self)(
-            dom, cod, boxes, wires, self.spider_types, self.offsets[::-1])
+            dom, cod, boxes, wires, spider_types, self.offsets[::-1])
 
     l = property(lambda self: self.rotate(left=True))
     r = property(lambda self: self.rotate(left=False))
