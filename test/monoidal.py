@@ -442,6 +442,13 @@ def test_Diagram_size():
     assert len(diagram) == 1 and diagram.size == 2
 
 
+def test_Bubble_dagger():
+    x, y = Ty('x'), Ty('y')
+    f = Box('f', x, y)
+    assert f.bubble().dagger() == f.dagger().bubble()
+    assert f.bubble().dagger().dagger() == f.bubble()
+
+
 def test_Box_globularity():
     red, green, blue = map(Colour, ("red", "green", "blue"))
     x, y = Ty(Wire("x", red, green)), Ty(Wire("y", red, green))

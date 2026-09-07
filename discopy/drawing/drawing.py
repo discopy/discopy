@@ -114,6 +114,15 @@ Bubbles, grammatical diagrams and quantum circuits use the same backend:
 .. image:: /_static/drawing/bubble-straight-wire.svg
     :align: center
 
+A bubble whose inside and outside have a different number of wires keeps its
+boundary, see issue #520:
+
+>>> Box('f', x, x ** 3).bubble(dom=x ** 3, cod=x).draw(
+...     doctest="docs/_static/drawing/bubble-uneven-wires.svg")
+
+.. image:: /_static/drawing/bubble-uneven-wires.svg
+    :align: center
+
 >>> from discopy.compact import (
 ...     Cap, Ty as RTy, Box as RBox, Id as RId)
 >>> n, s = map(RTy, 'ns')
@@ -205,7 +214,7 @@ if TYPE_CHECKING:
     from discopy import monoidal
 
 
-def _trailing_margin(ob) -> float:
+def trailing_margin(ob) -> float:
     """ The extra width needed to the right of the last wire of a type. """
     return max(
         0, getattr(ob, "right_margin", 0) - 0.5,
@@ -648,7 +657,7 @@ class Drawing(TracedCategory, RichDisplay):
             if box.min_width else content
 
         trailing = 0 if is_bubble else max(
-            (_trailing_margin(row.inside[-1])
+            (trailing_margin(row.inside[-1])
              for row in (box.dom, box.cod) if row.inside), default=0)
         width, height = content + trailing, box.height
 
@@ -731,7 +740,7 @@ class Drawing(TracedCategory, RichDisplay):
         inside = PlaneGraph(nx.DiGraph(), dict())
         offsets = dom.wire_offsets()
         height = 0.5
-        width = 0.5 + offsets[-1] + _trailing_margin(
+        width = 0.5 + offsets[-1] + trailing_margin(
             dom.inside[-1]) if dom else 0.5
         result = Drawing(inside, dom, dom, (), width, height, _check=False)
         dom_nodes = [Node("dom", i=i, x=x) for i, x in enumerate(dom)]
@@ -1028,8 +1037,8 @@ class Drawing(TracedCategory, RichDisplay):
             (u, v) for u in result.box_nodes for v in box_cod_nodes])
         return result
 
-    def bubble(self, dom=None, cod=None, name=None,
-               width=None, height=None, draw_as_square=False) -> Drawing:
+    def bubble(self, dom=None, cod=None, name=None, width=None, height=None,
+               draw_as_square=False, frame_sides=False) -> Drawing:
         """
         Draw a closed line around a drawing, with some wires coming in and out.
 
@@ -1037,7 +1046,15 @@ class Drawing(TracedCategory, RichDisplay):
             dom (monoidal.Ty) : The wires coming into the bubble.
             cod (monoidal.Ty) : The wires coming out of the bubble.
             name (str) : The label of the bubble, drawn on the top left.
-            width
+            width : The width of the bubble, its natural width by default.
+            height : The height of the bubble, its natural height by default.
+            draw_as_square : Whether to draw the closed line as a square
+                rather than a bubble.
+            frame_sides : Whether to draw the left and right sides with zero
+                width, as :meth:`slot` and :meth:`frame` do: the colours of
+                the regions they separate show the edge in their place. A
+                bubble drawn as a square has no such colours, so it keeps its
+                sides.
 
         >>> from discopy.symmetric import *
         >>> a, b, c, d = map(Ty, "abcd")
@@ -1057,9 +1074,7 @@ class Drawing(TracedCategory, RichDisplay):
         left[0].always_draw_label = True
         wires_can_go_straight = (
             len(dom), len(cod)) == (len(arg_dom), len(arg_cod))
-        if draw_as_square:
-            # The left and right sides of a square frame, e.g. the slots of an
-            # Equation between coloured terms, are drawn with zero width.
+        if frame_sides:
             left.inside[0].frame_boundary = right.inside[0].frame_boundary \
                 = True
         if draw_as_square or not wires_can_go_straight:
@@ -1116,7 +1131,8 @@ class Drawing(TracedCategory, RichDisplay):
         from discopy.monoidal import Ty
         frame_type = Ty.id(colour)
         return self.bubble(
-            frame_type, frame_type, draw_as_square=True, **params)
+            frame_type, frame_type,
+            draw_as_square=True, frame_sides=True, **params)
 
     def frame(self, *others: Drawing,
               dom=None, cod=None, name=None, draw_vertically=False,
@@ -1155,7 +1171,7 @@ class Drawing(TracedCategory, RichDisplay):
                 height=max([arg.height for arg in args] + [0]))
         slots = tuple(arg.slot(colour, **params) for arg in args)
         result = getattr(slots[0], method)(*slots[1:]).bubble(
-            dom, cod, name, draw_as_square=True)
+            dom, cod, name, draw_as_square=True, frame_sides=True)
         result.reposition_box_dom()
         result.reposition_box_cod()
         return result
