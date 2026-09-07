@@ -13,7 +13,7 @@ from discopy.utils import AxiomError
 
 def make_rule(name, dom, cod, residual):
     return reverse_rule(
-        Network(f"{name}.forward", dom, residual @ cod),
+        Network(f"{name}.forward", dom, cod @ residual),
         Network(f"{name}.backward", residual @ cod, dom), residual)
 
 
@@ -34,10 +34,10 @@ def test_reverse_rule_validation():
     assert isinstance(rule, ReverseRule)
     assert (rule.dom, rule.cod, rule.residual) == (pair(x), pair(y), memory)
     with raises(AxiomError):
-        reverse_rule(Network("forward", x, memory @ y),
+        reverse_rule(Network("forward", x, y @ memory),
                      Network("backward", memory @ y, y), memory)
     with raises(AxiomError):
-        reverse_rule(Network("forward", x, memory @ y),
+        reverse_rule(Network("forward", x, y @ memory),
                      Network("backward", y @ memory, x), memory)
 
 
@@ -48,9 +48,10 @@ def test_reverse_rule_composition():
     result = first >> second
     assert result.dom == pair(x) and result.cod == pair(z)
     assert result.residual == Dim(7, 11)
-    assert result.forward.dom == x and result.forward.cod == Dim(7, 11) @ z
+    assert result.forward.dom == x and result.forward.cod == z @ Dim(7, 11)
     assert result.backward.dom == Dim(7, 11) @ z and result.backward.cod == x
-    assert result.forward == first.forward >> Dim(7) @ second.forward
+    assert result.forward == first.forward >> second.forward @ Dim(7)\
+        >> z @ Diagram.swap(Dim(11), Dim(7))
     assert result.backward == Dim(7) @ second.backward >> first.backward
     with raises(AxiomError):
         first >> make_rule("h", z, x, Dim(13))
@@ -63,7 +64,7 @@ def test_reverse_rule_tensor():
     result = left @ right
     assert result.dom == pair(a @ c) and result.cod == pair(b @ d)
     assert result.residual == Dim(11, 13)
-    assert result.forward.cod == Dim(11, 13) @ b @ d
+    assert result.forward.cod == b @ d @ Dim(11, 13)
     assert result.backward.dom == Dim(11, 13) @ b @ d
 
 

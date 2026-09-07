@@ -4,16 +4,16 @@
 Reverse derivatives of neural diagrams, as optics.
 
 A reverse rule for a box ``f : A -> B`` is an :class:`~discopy.optics.Optic`
-over neural diagrams: a residual ``M``, a forward leg ``A -> M @ B``
+over neural diagrams: a residual ``M``, a forward leg ``A -> B @ M``
 computing ``f`` and storing what the backward leg needs, and a backward leg
 ``M @ B -> A`` taking the residual and a cotangent on ``B`` to a cotangent
-on ``A``.  Composition tensors the residuals and tensor swaps them past the
-outputs, as optics do, and :func:`differentiate` is the functorial fold of
-the rules over the layers of a diagram, identities and swaps being
-structural.  This is the reverse derivative category read as optics, the
-semantics of backpropagation of :cite:t:`CruttwellEtAl22`; the reverse
-derivative ``A @ B -> A`` of :func:`rdiff` is the ``put`` of its lens,
-discarding the primal output before the backward leg.
+on ``A``.  Composition and tensor route the residuals as optics do, and
+:func:`differentiate` is the functorial fold of the rules over the layers
+of a diagram, identities and swaps being structural.  This is the reverse
+derivative category read as optics, the semantics of backpropagation of
+:cite:t:`CruttwellEtAl22`; the reverse derivative ``A @ B -> A`` of
+:func:`rdiff` is the ``put`` of its lens, discarding the primal output
+before the backward leg.
 
 Only causal monogamous hypergraphs are accepted.  Identity wires and
 permutations have structural rules; every other generator needs an
@@ -48,7 +48,7 @@ Example
 
 >>> from discopy.neural import Dim, Network
 >>> x, y, m = Dim(2), Dim(3), Dim(5)
->>> rule = reverse_rule(Network("f", x, m @ y), Network("f'", m @ y, x), m)
+>>> rule = reverse_rule(Network("f", x, y @ m), Network("f'", m @ y, x), m)
 >>> rule.dom, rule.cod, rule.residual
 (optics.Ty[neural.core.Dim](positive=Dim(2), negative=Dim(2)), \
 optics.Ty[neural.core.Dim](positive=Dim(3), negative=Dim(3)), Dim(5))
@@ -82,7 +82,7 @@ def pair(dim: Dim) -> Pair:
 def reverse_rule(forward: Diagram, backward: Diagram,
                  residual: Dim = Dim()) -> ReverseRule:
     """
-    The reverse rule with a forward leg ``A -> residual @ B`` and a
+    The reverse rule with a forward leg ``A -> B @ residual`` and a
     backward leg ``residual @ B -> A``.
 
     Parameters:
@@ -90,7 +90,8 @@ def reverse_rule(forward: Diagram, backward: Diagram,
         backward : The backward leg.
         residual : What the forward leg stores for the backward one.
     """
-    dom, cod = forward.dom, forward.cod[len(residual):]
+    dom = forward.dom
+    cod = forward.cod[:len(forward.cod) - len(residual)]
     return ReverseRule(pair(dom), pair(cod), forward, backward, residual)
 
 
@@ -168,5 +169,5 @@ def rdiff(graph: Hypergraph, rules, discard_factory=discard) -> Hypergraph:
         raise ValueError(
             "The discard factory must return a diagram B -> Dim().")
     diagram = rule.forward @ graph.cod\
-        >> rule.residual @ dropped @ graph.cod >> rule.backward
+        >> dropped @ rule.residual @ graph.cod >> rule.backward
     return diagram.to_hypergraph()
