@@ -285,7 +285,6 @@ from discopy.utils import (
     assert_iscomposable,
     dumps,
     factory_name,
-    classproperty,
     from_tree,
     get_origin,
     loads,
@@ -553,27 +552,6 @@ def axiom[**P, T](equation: Callable[P, T]) -> Axiom[P, T]:
     return Axiom(equation)
 
 
-def inherited_axioms(cls) -> dict[str, Axiom]:
-    """
-    The axioms inherited by ``cls``, by name, subclasses overriding bases.
-
-    Names are collected before they are filtered, so that assigning
-    anything that is not an axiom over an inherited one drops it
-    altogether, rather than restating it.
-
-    A carrier states laws whether or not it is a category: this is what
-    :attr:`discopy.abc.Category.axioms` and :attr:`Strategy.axioms` both
-    read, so that a type of wires states transparency just as an arrow
-    states unitality.
-    """
-    visible = {
-        name: value
-        for base in reversed(cls.__mro__)
-        for name, value in base.__dict__.items()}
-    return {name: value.bind(cls) for name, value in visible.items()
-            if isinstance(value, Axiom)}
-
-
 class Strategy[T](ABC):
     """
     A type with a canonical `search strategy
@@ -581,11 +559,6 @@ class Strategy[T](ABC):
     generating its instances, and the laws every such type obeys: a term
     reads back from its representation, its pickle and its tree.
     """
-
-    @classproperty
-    def axioms(cls) -> dict[str, Axiom]:
-        """ The axioms of ``cls``, see :func:`inherited_axioms`. """
-        return inherited_axioms(cls)
 
     @classmethod
     @abstractmethod

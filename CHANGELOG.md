@@ -20,12 +20,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   structural boxes (braids, cups and caps, copies, spiders, feedback
   loops...) to the mix. Their axioms, stated in
   `discopy.abc`, are enrolled in `proptest/`. The bugs the wider search
-  surfaced are fixed below, except two open ones declared in the matrix:
-  `feedback.Diagram.feedback` unrolls its memory in the wrong order
+  surfaced are fixed below, except two left open: `feedback.Diagram.feedback`
+  unrolls its memory in the wrong order, declared broken in the matrix
   ([#649](https://github.com/discopy/discopy/issues/649)), and an
   uncoloured `monoidal.Wire` reprs as the `cat.Ob` that `Ty` coerces,
   which its type-strict equality rejects
-  ([#650](https://github.com/discopy/discopy/issues/650)).
+  ([#650](https://github.com/discopy/discopy/issues/650)) -- a wire is a
+  generating 1-cell rather than a category, so it states no axioms and the
+  matrix does not reach it.
 - `discopy/testing.py`, a Hypothesis-based property-testing module:
   `Axiom`, decorated with `@discopy.testing.axiom`, states a categorical
   law once on `discopy.abc.Category`/`ColouredMonoid` and every subclass

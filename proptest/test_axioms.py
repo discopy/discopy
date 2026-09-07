@@ -16,11 +16,12 @@ def axiom_parameters():
     An axiom taking no argument states its verdict without one, so we ask it
     here: :obj:`NotImplemented` means the structure does not apply and the
     test is skipped rather than generating arguments it could not satisfy.
-    A carrier need not state laws at all: one enrolled for the ad-hoc
-    properties only, such as a type of wires, has no ``axioms``.
+    Axioms come from :class:`discopy.abc.Category`, so a carrier that is
+    not one states none: :class:`monoidal.Wire` is a generating 1-cell,
+    not a category, and is enrolled for the ad-hoc properties only.
     """
     for carrier in CARRIERS:
-        for axiom in carrier.axioms.values():
+        for axiom in getattr(carrier, "axioms", {}).values():
             if not axiom.parameters and axiom() is NotImplemented:
                 marks = pytest.mark.skip(reason=axiom.__doc__.strip())
             elif axiom.broken:

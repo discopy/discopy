@@ -50,8 +50,7 @@ from discopy.testing import (
     Atomic, Axiom, ComposablePair, ComposableTriple, FeedbackJoining,
     FeedbackVanishing, HorizontalPair, LeftCurrying, NonEmpty,
     RightCurrying, Square, TraceDinaturalityLeft, TraceDinaturalityRight,
-    TraceNaturalityLeft, TraceNaturalityRight, TraceSuperposing, axiom,
-    inherited_axioms)
+    TraceNaturalityLeft, TraceNaturalityRight, TraceSuperposing, axiom)
 from discopy.utils import NamedGeneric, classproperty, factory_name
 
 
@@ -103,7 +102,12 @@ class Category[C0, C1: Category](ABC):
         anything that is not an axiom over an inherited one drops it
         altogether, rather than restating it.
         """
-        return inherited_axioms(cls)
+        visible = {
+            name: value
+            for base in reversed(cls.__mro__)
+            for name, value in base.__dict__.items()}
+        return {name: value.bind(cls) for name, value in visible.items()
+                if isinstance(value, Axiom)}
 
     @classmethod
     @abstractmethod
