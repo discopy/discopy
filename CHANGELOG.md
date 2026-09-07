@@ -522,6 +522,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Project
 
+- The docs build on Sphinx 7.4 rather than 7.2, whose `stringify_annotation`
+  handled a `TypeVar` but not a `ParamSpec`, so a signature such as
+  `Callable[Concatenate[type, P], T]` crashed autodoc on Python 3.14, where
+  `typing.get_type_hints` resolves the PEP 695 type parameter. The pin and
+  the lock move, `myst-parser == 2.0.*` allowing any Sphinx below 8, and the
+  `drawing`, `grammar`, `python` and `quantum` API pages list their
+  submodules without the module prefix, which Sphinx 7.4 warns against
+  under `automodule`
+  ([#722](https://github.com/discopy/discopy/issues/722)).
 - `CONTRIBUTING.md`'s LLM guidelines require an LLM contribution to be
   authored under a GitHub handle separate from the human who prompted it,
   and a pull request authored by an LLM to be approved by at least one
