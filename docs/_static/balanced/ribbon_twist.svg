@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
   "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="468pt" height="288pt" viewBox="0 0 468 288" xmlns="http://www.w3.org/2000/svg" version="1.1">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="468pt" height="288pt" viewBox="0 0 468 288" xmlns="http://www.w3.org/2000/svg" version="1.1"><style type="text/css">@media (prefers-color-scheme: dark) {[id^="dark-stroke"] path { stroke: #ffffff !important; } [id^="dark-fill"] g, [id^="dark-fill"] use { fill: #ffffff !important; stroke: #ffffff !important; }}</style>
  <defs>
   <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
  </defs>
@@ -11,8 +11,9 @@
 L 468 288 
 L 468 0 
 L 0 0 
+L 0 288 
 z
-" style="fill: #ffffff"/>
+" style="fill: none"/>
   </g>
   <g id="axes_1">
    <g id="patch_2">
@@ -20,8 +21,9 @@ z
 L 468 288 
 L 468 0 
 L 0 0 
+L 0 288 
 z
-" clip-path="url(#p8f23917320)" style="fill: #ffffff; stroke: #ffffff; stroke-linejoin: miter"/>
+" clip-path="url(#p8f23917320)" style="fill: none"/>
    </g>
    <g id="patch_3">
     <path d="M 54 234 
@@ -401,7 +403,7 @@ C 289.882251 234 306 217.882251 306 198
    </g>
    <g id="PathCollection_1">
     <defs>
-     <path id="m5424884f66" d="M 0 5.422177 
+     <path id="m45181e8209" d="M 0 5.422177 
 C 1.437978 5.422177 2.817254 4.850862 3.834058 3.834058 
 C 4.850862 2.817254 5.422177 1.437978 5.422177 0 
 C 5.422177 -1.437978 4.850862 -2.817254 3.834058 -3.834058 
@@ -411,18 +413,17 @@ C -4.850862 -2.817254 -5.422177 -1.437978 -5.422177 0
 C -5.422177 1.437978 -4.850862 2.817254 -3.834058 3.834058 
 C -2.817254 4.850862 -1.437978 5.422177 0 5.422177 
 z
-" style="stroke: #ffffff"/>
+" style="stroke: #000000; stroke-opacity: 0"/>
     </defs>
     <g clip-path="url(#p8f23917320)">
-     <use xlink:href="#m5424884f66" x="144" y="144" style="fill: #ffffff; stroke: #ffffff"/>
+     <use xlink:href="#m45181e8209" x="144" y="144" style="fill-opacity: 0; stroke: #000000; stroke-opacity: 0"/>
     </g>
    </g>
-   <g id="text_1">
-    <g clip-path="url(#p8f23917320)">
-     <!-- = -->
-     <g transform="translate(138.972187 147.31125) scale(0.12 -0.12)">
-      <defs>
-       <path id="DejaVuSans-3d" d="M 678 2906 
+   <g id="dark-fill-1">
+    <!-- = -->
+    <g transform="translate(138.972187 147.31125) scale(0.12 -0.12)">
+     <defs>
+      <path id="DejaVuSans-3d" d="M 678 2906 
 L 4684 2906 
 L 4684 2381 
 L 678 2381 
@@ -435,9 +436,8 @@ L 678 1100
 L 678 1631 
 z
 " transform="scale(0.015625)"/>
-      </defs>
-      <use xlink:href="#DejaVuSans-3d"/>
-     </g>
+     </defs>
+     <use xlink:href="#DejaVuSans-3d"/>
     </g>
    </g>
   </g>

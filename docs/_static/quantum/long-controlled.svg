@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
   "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="360pt" height="144pt" viewBox="0 0 360 144" xmlns="http://www.w3.org/2000/svg" version="1.1">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="360pt" height="144pt" viewBox="0 0 360 144" xmlns="http://www.w3.org/2000/svg" version="1.1"><style type="text/css">@media (prefers-color-scheme: dark) {[id^="dark-stroke"] path { stroke: #ffffff !important; } [id^="dark-fill"] g, [id^="dark-fill"] use { fill: #ffffff !important; stroke: #ffffff !important; }}</style>
  <defs>
   <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
  </defs>
@@ -11,8 +11,9 @@
 L 360 144 
 L 360 0 
 L 0 0 
+L 0 144 
 z
-" style="fill: #ffffff"/>
+" style="fill: none"/>
   </g>
   <g id="axes_1">
    <g id="patch_2">
@@ -20,85 +21,86 @@ z
 L 360 144 
 L 360 0 
 L 0 0 
+L 0 144 
 z
-" clip-path="url(#p47b61f2627)" style="fill: #ffffff; stroke: #ffffff; stroke-linejoin: miter"/>
+" clip-path="url(#p47b61f2627)" style="fill: none"/>
    </g>
-   <g id="patch_3">
+   <g id="dark-stroke-1">
     <path d="M 36 0 
 Q 36 18 36 18 
 " clip-path="url(#p47b61f2627)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_4">
+   <g id="dark-stroke-2">
     <path d="M 108 0 
 Q 108 18 108 18 
 " clip-path="url(#p47b61f2627)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_5">
+   <g id="dark-stroke-3">
     <path d="M 180 0 
 Q 180 18 180 18 
 " clip-path="url(#p47b61f2627)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_6">
+   <g id="dark-stroke-4">
     <path d="M 252 0 
 Q 252 18 252 18 
 " clip-path="url(#p47b61f2627)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_7">
+   <g id="dark-stroke-5">
     <path d="M 324 0 
 Q 324 18 324 18 
 " clip-path="url(#p47b61f2627)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_8">
+   <g id="dark-stroke-6">
     <path d="M 36 54 
 Q 36 90 36 90 
 " clip-path="url(#p47b61f2627)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_9">
+   <g id="dark-stroke-7">
     <path d="M 108 54 
 Q 108 90 108 90 
 " clip-path="url(#p47b61f2627)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_10">
+   <g id="dark-stroke-8">
     <path d="M 180 54 
 Q 180 90 180 90 
 " clip-path="url(#p47b61f2627)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_11">
+   <g id="dark-stroke-9">
     <path d="M 252 54 
 Q 252 90 252 90 
 " clip-path="url(#p47b61f2627)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_12">
+   <g id="dark-stroke-10">
     <path d="M 324 54 
 Q 324 90 324 90 
 " clip-path="url(#p47b61f2627)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_13">
+   <g id="dark-stroke-11">
     <path d="M 36 126 
 Q 36 144 36 144 
 " clip-path="url(#p47b61f2627)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_14">
+   <g id="dark-stroke-12">
     <path d="M 108 126 
 Q 108 144 108 144 
 " clip-path="url(#p47b61f2627)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_15">
+   <g id="dark-stroke-13">
     <path d="M 180 126 
 Q 180 144 180 144 
 " clip-path="url(#p47b61f2627)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_16">
+   <g id="dark-stroke-14">
     <path d="M 252 126 
 Q 252 144 252 144 
 " clip-path="url(#p47b61f2627)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_17">
+   <g id="dark-stroke-15">
     <path d="M 324 126 
 Q 324 144 324 144 
 " clip-path="url(#p47b61f2627)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_18">
+   <g id="dark-stroke-16">
     <path d="M 252 18 
 Q 252 54 252 54 
 " clip-path="url(#p47b61f2627)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
@@ -133,17 +135,17 @@ L 0 -8.188406
      <use xlink:href="#mc68145a221" x="252" y="36" style="stroke: #000000; stroke-width: 1.5"/>
     </g>
    </g>
-   <g id="patch_19">
+   <g id="dark-stroke-17">
     <path d="M 324 18 
 Q 324 54 324 54 
 " clip-path="url(#p47b61f2627)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_20">
+   <g id="dark-stroke-18">
     <path d="M 324 36 
 Q 252 36 252 36 
 " clip-path="url(#p47b61f2627)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="PathCollection_3">
+   <g id="dark-fill-19">
     <defs>
      <path id="m1d28fb65be" d="M 0 5.790078 
 C 1.535547 5.790078 3.008408 5.179999 4.094203 4.094203 
@@ -161,32 +163,32 @@ z
      <use xlink:href="#m1d28fb65be" x="324" y="36" style="stroke: #000000"/>
     </g>
    </g>
-   <g id="patch_21">
+   <g id="dark-stroke-20">
     <path d="M 36 18 
 Q 36 54 36 54 
 " clip-path="url(#p47b61f2627)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_22">
+   <g id="dark-stroke-21">
     <path d="M 108 18 
 Q 108 54 108 54 
 " clip-path="url(#p47b61f2627)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_23">
+   <g id="dark-stroke-22">
     <path d="M 180 18 
 Q 180 54 180 54 
 " clip-path="url(#p47b61f2627)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_24">
+   <g id="dark-stroke-23">
     <path d="M 36 36 
 Q 252 36 252 36 
 " clip-path="url(#p47b61f2627)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="PathCollection_4">
+   <g id="dark-fill-24">
     <g clip-path="url(#p47b61f2627)">
      <use xlink:href="#m1d28fb65be" x="36" y="36" style="stroke: #000000"/>
     </g>
    </g>
-   <g id="patch_25">
+   <g id="patch_3">
     <path d="M 162 126 
 L 162 90 
 L 198 90 
@@ -194,52 +196,52 @@ L 198 126
 z
 " clip-path="url(#p47b61f2627)" style="fill: #ffffff; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_26">
+   <g id="dark-stroke-25">
     <path d="M 252 90 
 Q 252 126 252 126 
 " clip-path="url(#p47b61f2627)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_27">
+   <g id="dark-stroke-26">
     <path d="M 252 108 
 Q 198 108 198 108 
 " clip-path="url(#p47b61f2627)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="PathCollection_5">
+   <g id="dark-fill-27">
     <g clip-path="url(#p47b61f2627)">
      <use xlink:href="#m1d28fb65be" x="252" y="108" style="stroke: #000000"/>
     </g>
    </g>
-   <g id="patch_28">
+   <g id="dark-stroke-28">
     <path d="M 36 90 
 Q 36 126 36 126 
 " clip-path="url(#p47b61f2627)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_29">
+   <g id="dark-stroke-29">
     <path d="M 108 90 
 Q 108 126 108 126 
 " clip-path="url(#p47b61f2627)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_30">
+   <g id="dark-stroke-30">
     <path d="M 36 108 
 Q 162 108 162 108 
 " clip-path="url(#p47b61f2627)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="PathCollection_6">
+   <g id="dark-fill-31">
     <g clip-path="url(#p47b61f2627)">
      <use xlink:href="#m1d28fb65be" x="36" y="108" style="stroke: #000000"/>
     </g>
    </g>
-   <g id="patch_31">
+   <g id="dark-stroke-32">
     <path d="M 324 90 
 Q 324 126 324 126 
 " clip-path="url(#p47b61f2627)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_32">
+   <g id="dark-stroke-33">
     <path d="M 324 108 
 Q 252 108 252 108 
 " clip-path="url(#p47b61f2627)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="PathCollection_7">
+   <g id="dark-fill-34">
     <g clip-path="url(#p47b61f2627)">
      <use xlink:href="#m1d28fb65be" x="324" y="108" style="stroke: #000000"/>
     </g>
