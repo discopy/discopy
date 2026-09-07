@@ -114,6 +114,7 @@ def test_Hypergraph_rotate():
         assert (graph.r.dom, graph.r.cod) == (graph.cod.r, graph.dom.r)
         assert (graph.l.dom, graph.l.cod) == (graph.cod.l, graph.dom.l)
         assert graph.l.r == graph == graph.r.l
+        assert graph.rotate() == box.rotate().to_hypergraph()
 
 
 def test_Box():
