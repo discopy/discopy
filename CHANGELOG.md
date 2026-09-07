@@ -9,9 +9,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
-- `abc.Nat`, the sequence-protocol trait for the free monoid on one
-  generator, and `abc.PRO`, the `MonoidalCategory` whose objects are `Nat`
-  ([#709](https://github.com/discopy/discopy/issues/709)).
+- `abc.Nat`, a concrete dataclass for the free monoid on one generator
+  (`n: int` with addition as `tensor`), and `abc.PRO`/`abc.PROB`/`abc.PROP`,
+  the `MonoidalCategory`/`BraidedCategory`/`SymmetricCategory` whose objects
+  are `Nat` ([#709](https://github.com/discopy/discopy/issues/709)).
 - A `workflows` job in `build.yml`, so that the code running our pull
   requests is checked like the code it checks: `actionlint` over the
   workflows, `pflake8` over `.github`, and `pytest .github/tests/*.py`
@@ -110,9 +111,17 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   encoding was already exposed through the sequence protocol
   (`len`, iteration and slicing, e.g. `Nat(3)[:1] == Nat(1)`), just under
   the wrong name — `PRO` is the name for the monoidal category with `Nat`
-  as objects, see `abc.PRO` above. `monoidal.Functor.__call__` now maps a
-  `Nat` atom by atom, i.e. it calls `ob_map` once per generator instead of
-  once and repeating the result `other.n` times. The old names still work
+  as objects, see `abc.PRO` above. `abc.Nat` carries the concrete
+  behaviour (its dataclass field `n`, `tensor` as addition, the sequence
+  protocol), so `monoidal.Nat` only adds what a `Ty` needs on top: `dom`,
+  `cod`, `inside`, serialisation and the whiskering-aware `tensor` that
+  raises on a mismatched `Ty` rather than silently reinterpreting it.
+  `monoidal.Functor.__call__` now maps a `Nat` atom by atom, folding with
+  `@` (`operator.matmul`, i.e. tensor) rather than `+`, since the fold
+  combines *objects* of the codomain category and nothing guarantees an
+  arbitrary codomain's `+` means the same thing as its tensor — it also
+  calls `ob_map` once per generator instead of once and repeating the
+  result `other.n` times. The old names still work
   through a `DeprecationWarning`, via `utils.deprecated_alias`, the
   general form of `utils.deprecated_ob` (which already deprecated `Ob` in
   favour of `Wire`) now taking a mapping of every name a module deprecates

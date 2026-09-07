@@ -55,8 +55,9 @@ We can check the Eckmann-Hilton argument, up to interchanger.
 from __future__ import annotations
 
 import itertools
+import operator
 from dataclasses import dataclass, field
-from functools import cached_property
+from functools import cached_property, reduce
 from typing import Iterator, Callable, TYPE_CHECKING
 from warnings import warn
 
@@ -503,14 +504,6 @@ class Nat(abc.Nat, Ty):
         return self.factory(self.n + sum(other.n for other in others))
 
     then = tensor
-
-    def __getitem__(self, key):
-        if isinstance(key, slice):
-            return self.factory(len(self.inside[key]))
-        return cat.Arrow.__getitem__(self, key)
-
-    def __len__(self):
-        return self.n
 
     def __repr__(self):
         return factory_name(type(self)) + f"({self.n})"
@@ -1656,11 +1649,8 @@ class Functor(cat.Functor):
         if isinstance(other, Nat):
             if not other.n:
                 return self.cod.ob()
-            images = [self._map_atomic(x) for x in other]
-            result = images[0]
-            for image in images[1:]:
-                result = result + image
-            return result
+            images = (self._map_atomic(x) for x in other)
+            return reduce(operator.matmul, images)
         if isinstance(other, Ty):
             if not other.inside:
                 # Empty coloured identity: keep its (mapped) boundary colour.
