@@ -306,10 +306,8 @@ class Ty(monoidal.Ty):
 class Layer(markov.Layer):
     """ A feedback layer is a monoidal layer with a `delay` method. """
     def delay(self, n_steps=1):
-        return type(self)(*(type(x)(x.dom.delay(n_steps), x.perm)
-                            if isinstance(x, markov.Permutation)
-                            else x.delay(n_steps)
-                            for x in self.boxes_or_types), normalise=False)
+        return type(self)(*(x.delay(n_steps) for x in self.boxes_or_types),
+                          normalise=False)
 
 
 @factory
@@ -442,7 +440,14 @@ class Box(markov.Box, Diagram):
         return markov.Box.setoid(self) + (self.time_step, )
 
 
-class Swap(markov.Swap, Box):
+class Permutation(markov.Permutation, Box):
+    "A permutation in a feedback diagram."
+
+    def delay(self, n_steps=1):
+        return type(self)(self.dom.delay(n_steps), self.perm)
+
+
+class Swap(Permutation, markov.Swap, Box):
     """
     The swap of feedback types :code:`left` and :code:`right`.
 
@@ -663,6 +668,7 @@ class Functor(markov.Functor):
 
 Diagram.functor_factory = Functor
 Diagram.swap_factory = Swap
+Diagram.permutation_factory = Permutation
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.feedback_factory, Diagram.followed_by = Feedback, FollowedBy
 Hypergraph = hypergraph.Hypergraph[Diagram]

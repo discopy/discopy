@@ -2,33 +2,34 @@
 
 """
 Render a ``pytest-benchmark`` JSON run as scaling tables and log-log plots,
-with an optional regression gate against a committed baseline.
+with an optional same-runner comparison against a base run.
 
     python benchmark/report.py RUN.json [--output DIR]
-                               [--baseline BASE.json] [--fail-threshold 0.25]
+                               [--base BASE.json] [--threshold 0.25]
 
 Reads the median CPU time of each ``(suite, family, case, size)`` from
-``RUN.json``. For each suite ``NAME``, it produces a hierarchical table as
-``NAME-results.{html,md,csv}`` and a ``NAME-scaling.png`` plot. With
-``--baseline``, it joins the two runs on all four keys, prints the per-cell
-deltas and exits non-zero if any case regresses by more than
-``--fail-threshold`` (a fraction, e.g. ``0.25`` = 25%).
+``RUN.json``. For each suite ``NAME``, it produces a scaling table as
+``NAME-results.md`` and a ``NAME-scaling.svg`` plot. With
+``--base``, it joins head and base runs on all four keys and writes the
+changes larger than ``--threshold`` (a fraction, e.g. ``0.25`` = 25%) to
+``comparison.md`` as regressions and speedups. A regression is reported, never
+fatal: the exit code is non-zero only when the comparison itself fails.
 """
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
-from html import escape
-import gzip
 import json
 import os
 
 import polars as pl
 
 
-def load(path: str, opener=open) -> pl.DataFrame:
+KEYS = ["suite", "family", "case", "size"]
+
+
+def load(path: str) -> pl.DataFrame:
     """A tidy suite, family, case, size and median frame."""
-    with opener(path, "rt") as file:
+    with open(path) as file:
         data = json.load(file)
     rows = []
     for bench in data["benchmarks"]:
@@ -47,16 +48,10 @@ def load(path: str, opener=open) -> pl.DataFrame:
     ).sort("suite", "family", "case", "size")
 
 
-def scaling_table(df: pl.DataFrame, spec: Plot) -> pl.DataFrame:
+def scaling_table(df: pl.DataFrame) -> pl.DataFrame:
     """One row per family/case and one column per size."""
-    ordered = pl.concat([
-        df.filter(pl.col("family") == family).sort("case", "size")
-        for families in spec.panels
-        for family in families
-    ])
-    table = ordered.pivot(
-        on="size", index=["family", "case"], values="median",
-    )
+    table = df.sort("family", "case", "size").pivot(
+        on="size", index=["family", "case"], values="median")
     return table.select(
         "family", "case", *sorted(table.columns[2:], key=int))
 
@@ -74,65 +69,6 @@ def to_markdown(table: pl.DataFrame) -> str:
     return "\n".join(lines)
 
 
-def _rowspan(rows: list[tuple], i: int, depth: int) -> int:
-    """Length of a row group, or zero when ``i`` is not its first row."""
-    key = rows[i][:depth]
-    if i and rows[i - 1][:depth] == key:
-        return 0
-    return next((j - i for j in range(i + 1, len(rows))
-                 if rows[j][:depth] != key), len(rows) - i)
-
-
-def to_html(table: pl.DataFrame) -> str:
-    """Render family as an HTML row group."""
-    rows, columns = list(table.iter_rows()), table.columns
-    lines = [
-        "<!doctype html>",
-        '<meta charset="utf-8">',
-        "<title>Benchmark scaling</title>",
-        "<style>table{border-collapse:collapse}th,td{border:1px solid #bbb;"
-        "padding:.3rem .5rem;text-align:right}th[scope=rowgroup],"
-        "th[scope=row]{text-align:left;vertical-align:top}</style>",
-        "<table>",
-        "<thead><tr>" + "".join(
-            f'<th scope="col">{escape(column)}</th>' for column in columns)
-        + "</tr></thead>",
-        "<tbody>",
-    ]
-    for i, row in enumerate(rows):
-        cells = []
-        span = _rowspan(rows, i, 1)
-        if span:
-            cells.append(
-                f'<th scope="rowgroup" rowspan="{span}">'
-                f'{escape(str(row[0]))}</th>')
-        cells.append(f'<th scope="row">{escape(str(row[1]))}</th>')
-        cells += [
-            f"<td>{'' if value is None else f'{value:.4f}'}</td>"
-            for value in row[2:]]
-        lines.append("<tr>" + "".join(cells) + "</tr>")
-    return "\n".join(lines + ["</tbody>", "</table>"])
-
-
-@dataclass(frozen=True)
-class Plot:
-    """Declarative panel layout for one suite."""
-    panels: tuple[tuple[str, ...], ...]
-    figsize: tuple[int, int]
-    title: str
-
-
-PLOTS = {
-    "composition": Plot(
-        (("Diagram", "Hypergraph", "CMap"),), (19, 6),
-        "Composition benchmark scaling"),
-    "conversion": Plot((
-        ("Diagram → Hypergraph", "Hypergraph → CMap", "CMap → Diagram"),
-        ("Hypergraph → Diagram", "CMap → Hypergraph", "Diagram → CMap"),
-    ), (19, 11), "Representation conversion benchmark scaling"),
-}
-
-
 def case_colors(df: pl.DataFrame) -> dict[str, tuple]:
     """Stable colors shared by each case across every family and suite."""
     import matplotlib
@@ -144,126 +80,164 @@ def case_colors(df: pl.DataFrame) -> dict[str, tuple]:
     return {case: palette(i % palette.N) for i, case in enumerate(cases)}
 
 
-def plot(df: pl.DataFrame, path: str, spec: Plot, colors: dict) -> None:
-    """Plot one suite according to its declarative panel layout."""
+def plot(
+        df: pl.DataFrame, path: str, suite: str, colors: dict) -> None:
+    """Plot one panel per family, three panels to a row."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
+    panels = sorted(df["family"].unique())
+    columns = min(3, len(panels))
+    rows = -(-len(panels) // columns)
     figure, axes = plt.subplots(
-        len(spec.panels), len(spec.panels[0]), figsize=spec.figsize,
+        rows, columns, figsize=(6.5 * columns, 5.5 * rows),
         sharey=True, squeeze=False)
-    for row, families in enumerate(spec.panels):
-        for column, family in enumerate(families):
-            axis = axes[row, column]
-            panel = df.filter(pl.col("family") == family)
-            for (case,), group in panel.group_by("case", maintain_order=True):
-                ordered = group.sort("size")
-                axis.plot(
-                    ordered["size"].to_list(), ordered["median"].to_list(),
-                    marker="o", label=case, color=colors[case])
-            axis.set(xscale="log", yscale="log", xlabel="size $n$",
-                     title=family)
-            axis.legend(fontsize="small")
-    for axis in axes.flat:
+    for axis, family in zip(axes.flat, panels):
+        panel = df.filter(pl.col("family") == family)
+        for (case,), group in panel.group_by("case", maintain_order=True):
+            ordered = group.sort("size")
+            axis.plot(
+                ordered["size"].to_list(), ordered["median"].to_list(),
+                marker="o", label=case, color=colors[case])
+        axis.set(xscale="log", yscale="log", xlabel="size $n$", title=family)
+        axis.legend(fontsize="small")
         axis.grid(True, which="both", linestyle=":", linewidth=.5)
+    for axis in axes.flat[len(panels):]:
+        axis.set_axis_off()
     for axis in axes[:, 0]:
         axis.set_ylabel("median CPU time (s)")
-    figure.suptitle(spec.title)
+    figure.suptitle(f"{suite.capitalize()} benchmark scaling")
     figure.tight_layout()
-    figure.savefig(path, dpi=120)
+    figure.savefig(path)
     plt.close(figure)
 
 
 def write_reports(df: pl.DataFrame, output: str) -> list[str]:
-    """Write one hierarchical table and scaling plot per suite."""
+    """Write one scaling table and plot per suite."""
     colors = case_colors(df)
     names = []
-    for suite, spec in PLOTS.items():
+    for suite in sorted(df["suite"].unique()):
         group = df.filter(pl.col("suite") == suite)
-        if group.is_empty():
-            continue
-        table = scaling_table(group, spec)
+        table = scaling_table(group)
         with pl.Config(tbl_rows=-1, tbl_cols=-1, fmt_str_lengths=80):
             print(table)
-        report_names = [
-            f"{suite}-results.{extension}"
-            for extension in ("md", "csv", "html")]
-        with open(os.path.join(output, report_names[0]), "w") as file:
+        table_name = f"{suite}-results.md"
+        with open(os.path.join(output, table_name), "w") as file:
             file.write(to_markdown(table) + "\n")
-        table.write_csv(os.path.join(output, report_names[1]))
-        with open(os.path.join(output, report_names[2]), "w") as file:
-            file.write(to_html(table) + "\n")
-        plot_name = f"{suite}-scaling.png"
-        plot(group, os.path.join(output, plot_name), spec, colors)
-        names += report_names + [plot_name]
+        plot_name = f"{suite}-scaling.svg"
+        plot(group, os.path.join(output, plot_name), suite, colors)
+        names += [table_name, plot_name]
     return names
 
 
-def compare(current: pl.DataFrame, baseline: pl.DataFrame) -> pl.DataFrame:
-    """ Per-cell relative change vs baseline, worst first (shared only).
-
-    ``delta`` is the raw change in median and ``normalised`` divides it by the
-    run-wide median change, i.e. by the speed of the machine the run landed on.
-    GitHub hands out several CPU models for the same runner label, so a raw
-    delta mixes the machine in with the code. Writing a measurement as
-    ``t = machine * code * baseline``, the median over cases estimates the
-    machine -- most cases are unchanged, and the median ignores the few that
-    are not -- and dividing it out leaves the change due to the code alone.
-    Dividing rather than subtracting keeps the threshold meaning the same
-    thing on every machine: subtracting would scale it by the machine factor.
-    """
-    return current.join(
-        baseline, on=["suite", "family", "case", "size"], suffix="_base",
+def compare(head: pl.DataFrame, base: pl.DataFrame) -> pl.DataFrame:
+    """Raw head-relative-to-base changes, worst first (shared only)."""
+    return head.rename({"median": "head"}).join(
+        base.rename({"median": "base"}), on=KEYS,
     ).with_columns(
-        ((pl.col("median") - pl.col("median_base")) / pl.col("median_base"))
-        .alias("delta"),
-    ).with_columns(
-        ((1 + pl.col("delta")) / (1 + pl.col("delta").median()) - 1)
-        .alias("normalised"),
-    ).sort("normalised", descending=True)
+        (pl.col("head") / pl.col("base") - 1).alias("change"),
+    ).sort(
+        ["change", *KEYS], descending=[True, False, False, False, False])
 
 
-def main() -> int:
+def _comparison_table(rows: pl.DataFrame) -> str:
+    """Render comparison rows as a Markdown table."""
+    lines = [
+        "| suite | family | case | n | base (s) | head (s) | change |",
+        "| --- | --- | --- | ---: | ---: | ---: | ---: |",
+    ]
+    for suite, family, case, size, base, head, change in rows.select(
+            *KEYS, "base", "head", "change").iter_rows():
+        labels = [
+            str(value).replace("|", "\\|").replace("\n", " ")
+            for value in (suite, family, case)]
+        lines.append(
+            f"| {' | '.join(labels)} | {size} | {base:.3g} | {head:.3g} "
+            f"| {change:+.1%} |")
+    return "\n".join(lines)
+
+
+def comparison_markdown(
+        head: pl.DataFrame, base: pl.DataFrame, threshold: float) -> str:
+    """Summarise important raw regressions and speedups in Markdown."""
+    changes = compare(head, base)
+    regressions = changes.filter(pl.col("change") > threshold)
+    speedups = changes.filter(pl.col("change") < -threshold).sort(
+        ["change", *KEYS], descending=[False, False, False, False, False])
+    head_only = head.join(base.select(KEYS), on=KEYS, how="anti")
+    base_only = base.join(head.select(KEYS), on=KEYS, how="anti")
+
+    if changes.is_empty():
+        status = "**ERROR:** No shared benchmark measurements were found."
+    elif regressions.is_empty():
+        status = "**PASS:** No important regressions were found."
+    else:
+        suffix = "" if len(regressions) == 1 else "s"
+        status = (
+            f"**WARNING:** {len(regressions)} important regression{suffix} "
+            "found.")
+    speedup_suffix = "" if len(speedups) == 1 else "s"
+    lines = [
+        "## Benchmark comparison",
+        "",
+        status,
+        "",
+        f"Important changes exceed {threshold:.0%} in either direction. "
+        f"Found {len(speedups)} important speedup{speedup_suffix} among "
+        f"{len(changes)} shared measurements.",
+        f"Head-only measurements: {len(head_only)}. "
+        f"Base-only measurements: {len(base_only)}.",
+        "",
+        f"### Regressions (more than {threshold:.0%} slower)",
+        "",
+        (_comparison_table(regressions) if len(regressions)
+         else "_No important regressions._"),
+        "",
+        f"### Speedups (more than {threshold:.0%} faster)",
+        "",
+        (_comparison_table(speedups) if len(speedups)
+         else "_No important speedups._"),
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Render a pytest-benchmark run; optionally gate.")
+        description="Render a pytest-benchmark run; optionally compare.")
     parser.add_argument("run", help="pytest-benchmark --benchmark-json file")
     parser.add_argument("--output", default="benchmark-results")
     parser.add_argument(
-        "--baseline", help="baseline --benchmark-json to gate against")
+        "--base", help="same-runner base --benchmark-json to compare against")
     parser.add_argument(
-        "--fail-threshold", type=float, default=0.25,
-        help="fail if a case regresses by more than this fraction relative to"
-             " the run-wide median change")
-    args = parser.parse_args()
+        "--threshold", type=float, default=0.25,
+        help="report a change larger than this fraction as important")
+    args = parser.parse_args(argv)
 
     os.makedirs(args.output, exist_ok=True)
     df = load(args.run)
     written = write_reports(df, args.output)
     print(f"wrote {', '.join(written)} to {args.output}/")
 
-    if not args.baseline:
+    if not args.base:
         return 0
-    if not os.path.exists(args.baseline):
-        print(f"baseline {args.baseline} not found; skipping regression gate.")
-        return 0
-    deltas = compare(df, load(args.baseline, gzip.open))
-    machine = deltas["delta"].median()
-    regressions = deltas.filter(
-        pl.col("normalised") > args.fail_threshold)
-    with pl.Config(tbl_rows=-1):
-        print(deltas.select(
-            "suite", "family", "case", "size", "median",
-            "median_base", "delta", "normalised"))
-    print(f"the machine this run landed on is {machine:+.1%} "
-          "off the baseline's, measured as the run-wide median delta.")
-    if len(regressions):
-        print(f"REGRESSION: {len(regressions)} case(s) over "
-              f"+{args.fail_threshold:.0%} normalised vs baseline:")
-        print(regressions.select(
-            "suite", "family", "case", "size", "delta", "normalised"))
+    if not os.path.exists(args.base):
+        print(f"base run {args.base} not found.")
+        return 2
+
+    base = load(args.base)
+    changes = compare(df, base)
+    comparison = comparison_markdown(df, base, args.threshold)
+    comparison_path = os.path.join(args.output, "comparison.md")
+    with open(comparison_path, "w") as file:
+        file.write(comparison)
+    print(comparison)
+    print(f"wrote comparison.md to {args.output}/")
+
+    if changes.is_empty():
         return 1
-    print(f"no case regressed by more than +{args.fail_threshold:.0%}.")
+    with pl.Config(tbl_rows=-1):
+        print(changes)
     return 0
 
 

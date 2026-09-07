@@ -136,7 +136,7 @@ Note that we can only check equality of streams up to a finite number of steps.
     :align: center
 
 >>> eq_up_to_interchanger = lambda *xs: all_eq(
-...     monoidal.Diagram.normal_form(x.now) for x in xs)
+...     x.now.to_hypergraph() for x in xs)
 >>> assert eq_up_to_interchanger((f @ g) @ h, f @ (g @ h))
 
 * Interchanger holds up to permutation of the memories:
@@ -536,16 +536,16 @@ class Stream(MonoidalCategory, NamedGeneric['category']):
     @classmethod
     def permutation(cls, xs: Sequence[int], doms: Sequence[Ty]) -> Stream:
         """ Construct a stream of permutations. """
+        doms = list(doms)
         xs = finset.Permutation(xs, len(doms))
+        dom = cls.ob().tensor(*doms)
         if xs.is_identity:
-            dom = cls.ob().tensor(*doms)
             return cls.id(dom)
-        now = cls.category.ar.permutation(xs, doms.now)
-        _later = None if doms.is_constant else (
-            lambda: cls.permutation(xs, doms.later))
-        cod = type(doms)(now.cod, None if _later is None
-                         else lambda: _later().cod)
-        return cls(now, doms, cod, _later=_later)
+        now = cls.category.ar.permutation(xs, [dom.now for dom in doms])
+        _later = None if all(dom.is_constant for dom in doms) else (
+            lambda: cls.permutation(xs, [dom.later for dom in doms]))
+        cod = cls.ob().tensor(*(doms[i] for i in xs))
+        return cls(now, dom, cod, _later=_later)
 
     @classmethod
     def copy(cls, dom: Ty, n: int = 2) -> Stream:

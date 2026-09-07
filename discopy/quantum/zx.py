@@ -108,9 +108,10 @@ class Diagram(tensor.Diagram[complex]):
                     graph.add_edge((source, node), etype)
                 scan = scan[:offset] + len(box.cod) * [(node, False)]\
                     + scan[offset + len(box.dom):]
-            elif isinstance(box, Swap):
-                scan = scan[:offset] + [scan[offset + 1], scan[offset]]\
-                    + scan[offset + 2:]
+            elif isinstance(box, Permutation):
+                segment = scan[offset:offset + len(box.dom)]
+                scan[offset:offset + len(box.dom)] = [
+                    segment[i] for i in box.perm]
             elif isinstance(box, Scalar):
                 graph.scalar.add_float(box.data)
             elif box == H:
@@ -241,7 +242,11 @@ class Sum(tensor.Sum[complex], Box):
     """
 
 
-class Swap(tensor.Swap[complex], Box):
+class Permutation(tensor.Permutation[complex], Box):
+    "A permutation in a ZX diagram."
+
+
+class Swap(Permutation, tensor.Swap[complex], Box):
     """ Swap in a ZX diagram. """
     def __repr__(self):
         return "SWAP"
@@ -367,6 +372,8 @@ def gate2zx(box):
     if isinstance(box, Controlled) and box.distance != 1:
         return circuit2zx(box._decompose())
     standard_gates = {
+        # A physical swap is wire crossing in the ZX calculus.
+        quantum.SWAP: SWAP,
         quantum.H: H,
         quantum.Z: Z(1, 1, .5),
         quantum.X: X(1, 1, .5),
@@ -390,4 +397,5 @@ H.color, H.shape = "yellow", "rectangle"
 
 SWAP = Swap(PRO(1), PRO(1))
 Diagram.swap_factory, Diagram.sum_factory = Swap, Sum
+Diagram.permutation_factory = Permutation
 Id = Diagram.id

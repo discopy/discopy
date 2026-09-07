@@ -55,7 +55,7 @@ from discopy import messages
 from discopy.cat import rsubs
 from discopy.matrix import get_backend
 from discopy.quantum.circuit import (
-    Circuit, Digit, Ty, bit, qubit, Box, Swap, Sum, Id)
+    Circuit, Digit, Ty, bit, qubit, Box, Sum, Id)
 from discopy.tensor import backend
 from discopy.utils import factory_name, assert_isinstance
 
@@ -783,7 +783,9 @@ def scalar(expr, is_mixed=False):
     return Scalar(expr, is_mixed=is_mixed)
 
 
-SWAP = Swap(qubit, qubit)
+SWAP = QuantumGate(
+    'SWAP', qubit ** 2, qubit ** 2, draw_as_wires=True, is_dagger=None,
+    z=None, data=[1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1])
 H = QuantumGate(
     'H', qubit, qubit,
     data=[2 ** -0.5 * x for x in [1, 1, 1, -1]], is_dagger=None, z=None)

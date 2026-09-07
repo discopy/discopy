@@ -18,10 +18,11 @@ Summary
 from __future__ import annotations
 
 from functools import cache
+from typing import Self
 
 from discopy.abc import SymmetricCategory
 from discopy.utils import assert_isinstance, tuplify
-from discopy.python import function
+from discopy.python import finset, function
 
 
 """ Lists of types interpreted as disjoint union. """
@@ -101,6 +102,26 @@ class Function(function.Function, SymmetricCategory):
             return (obj, new_tag)
         return Function(inside, dom=x + y, cod=y + x, is_swap_of=(x, y))
 
+    @classmethod
+    def permutation(cls, xs, doms) -> Self:
+        """ Permute the tags of a disjoint union. """
+        doms, xs = list(doms), finset.Permutation(xs, len(doms))
+        offsets = [0]
+        for dom in doms:
+            offsets.append(offsets[-1] + len(dom))
+        inverse = xs.dagger()
+
+        def inside(obj, tag=0):
+            block = next(i for i in range(len(doms))
+                         if tag < offsets[i + 1])
+            new_tag = sum(len(doms[i]) for i in xs[:inverse[block]])\
+                + tag - offsets[block]
+            return obj if offsets[-1] == 1 else (obj, new_tag)
+
+        dom = sum(doms, ())
+        cod = sum((doms[i] for i in xs), ())
+        return cls(inside, dom, cod)
+
     def dagger(self):
         if self.is_swap_of is None:
             raise ValueError
@@ -113,6 +134,8 @@ class Function(function.Function, SymmetricCategory):
         Parameters:
             n : The number of types to trace over.
         """
+        if n == 0:
+            return self
         if left:
             raise NotImplementedError
         dom, cod = self.dom[:-n], self.cod[:-n]
@@ -120,6 +143,8 @@ class Function(function.Function, SymmetricCategory):
         def inside(obj, tag=0):
             run_at_least_once = True
             while run_at_least_once or tag >= len(cod):
+                if not run_at_least_once:
+                    tag = tag - len(cod) + len(dom)
                 run_at_least_once = False
                 result = self(obj, tag)
                 obj, tag = (result, 0) if len(self.cod) == 1 else result

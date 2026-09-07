@@ -48,14 +48,15 @@ def test_Circuit_spiders():
     assert Circuit.spiders(0, 1, qubit ** 2) == ((sqrt(2) >> Ket(0) >> H)
                                                  @ (sqrt(2) >> Ket(0) >> H))
 
+    swap = Swap(qubit, qubit)  # spiders plumb their wires, they do not SWAP
     assert Circuit.spiders(2, 1, qubit ** 2) == Circuit.decode(
         qubit @ qubit @ qubit @ qubit,
-        zip([SWAP, CX, Bra(0), CX, Bra(0)], [1, 0, 1, 1, 2]))
+        zip([swap, CX, Bra(0), CX, Bra(0)], [1, 0, 1, 1, 2]))
 
     boxes = [
         sqrt(2), Ket(0), H, Ket(0), CX, Ket(0), CX,
         sqrt(2), Ket(0), H, Ket(0), CX, Ket(0), CX,
-        SWAP, SWAP, SWAP]
+        swap, swap, swap]
     offsets = [0, 0, 0, 1, 0, 1, 0, 3, 3, 3, 4, 3, 4, 3, 2, 1, 3]
     ghz2 = Circuit.decode(Ty(), zip(boxes, offsets))
     assert Circuit.spiders(0, 3, qubit ** 2).eval() == ghz2.eval()
@@ -733,3 +734,18 @@ def test_quimb_pure_eval(c):
     t = t.data.transpose(*np.argsort(t.inds))
 
     assert np.allclose(t, c.eval().array), f"{t} != {c.eval().array}"
+
+
+def test_logical_vs_physical_swap():
+    logical, physical = Circuit.swap(qubit, qubit), SWAP
+
+    assert logical != physical
+    assert np.allclose(logical.eval().array, physical.eval().array)
+
+    # A logical swap is plumbing: it coalesces with the wires beside it.
+    assert str(qubit @ logical)\
+        == "Permutation(qubit @ qubit @ qubit, [0, 2, 1])"
+
+    # The gate is a box: it stays whiskered and it is drawn as a crossing.
+    assert str(qubit @ physical) == "qubit @ SWAP"
+    assert physical.to_drawing().boxes[0].is_crossing

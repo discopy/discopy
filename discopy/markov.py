@@ -73,7 +73,7 @@ in the same diagram they automatically satisfy the :mod:`frobenius` axioms.
 
 from __future__ import annotations
 
-from discopy import symmetric, monoidal, hypergraph
+from discopy import symmetric, monoidal, cmap, hypergraph
 from discopy.abc import MarkovCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty  # noqa: F401
@@ -166,16 +166,6 @@ class Box(symmetric.Box, Diagram):
     """
 
 
-class Swap(symmetric.Swap, Box):
-    """
-    Symmetric swap in a Markov diagram.
-
-    Parameters:
-        left (monoidal.Ty) : The type on the top left and bottom right.
-        right (monoidal.Ty) : The type on the top right and bottom left.
-    """
-
-
 class Permutation(symmetric.Permutation, Box):
     """
     A permutation in a Markov category.
@@ -183,6 +173,16 @@ class Permutation(symmetric.Permutation, Box):
     Parameters:
         dom (monoidal.Ty) : The domain, i.e. the wires to permute.
         perm : The permutation as a :class:`finset.Permutation` or a list.
+    """
+
+
+class Swap(Permutation, symmetric.Swap, Box):
+    """
+    Symmetric swap in a Markov diagram.
+
+    Parameters:
+        left (monoidal.Ty) : The type on the top left and bottom right.
+        right (monoidal.Ty) : The type on the top right and bottom left.
     """
 
 
@@ -311,12 +311,9 @@ class Functor(symmetric.Functor):
         return super().__call__(other)
 
 
-class CMap(symmetric.CMap):
-    category = Diagram
-
+CMap = cmap.CMap[Diagram]
 
 Diagram.functor_factory = Functor
-Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.swap_factory = Swap
