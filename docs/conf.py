@@ -34,6 +34,7 @@ extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.mathjax',
               'youtube',
               'bases-fullname',
+              'paramspec',
               'sphinxcontrib.bibtex',
               'sphinxcontrib.tikz',
               'IPython.sphinxext.ipython_console_highlighting'
