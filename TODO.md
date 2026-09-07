@@ -20,11 +20,16 @@ Design decisions taken in the session, for reviewers:
   `1d90a812`) demotes Tiurin's ⊥ e-box to RESERVED, because the flat
   nondeterministic join is already inductive in the union-find.
 
-- [ ] `discopy/table.py`: `SymbolTable`, `UnionFind`, `Shard`
-- [ ] `discopy/table.py`: `Carrier` (intern, hashcons, merge, rebuild, scan)
-- [ ] `discopy/table.py`: `Wires` and `Morphism`, the category structure
-- [ ] `discopy/table.py`: `Carrier.from_diagram`, the frame scan
-- [ ] `discopy/table.py`: `Morphism.to_diagram`, min-cost section then layout
-- [ ] `test/table.py` and the doctests
-- [ ] `discopy/__init__.py`, `docs/api/syntax.rst`, `CHANGELOG.md`
-- [ ] `pflake8`, `pylint`, `pytest`, coverage >= 98, sphinx
+- [x] `discopy/table.py`: `SymbolTable`, `UnionFind`, `Shard`
+- [x] `discopy/table.py`: `Carrier` (intern, hashcons, merge, rebuild, scan)
+- [x] `discopy/table.py`: `Wires` and `Morphism`, the category structure
+- [x] `discopy/table.py`: `Carrier.from_diagram`, the frame scan
+- [x] `discopy/table.py`: `Morphism.to_diagram`, min-cost section then layout
+- [x] `test/table.py` and the doctests
+- [x] `discopy/__init__.py`, `docs/api/syntax.rst`, `CHANGELOG.md`
+- [x] `pflake8`, `pylint`, `pytest`, coverage >= 98, sphinx
+- [ ] Fill in the pull request number in the `CHANGELOG.md` entry
+
+Checks run locally: `pflake8 discopy` clean, `pylint discopy` 8.63/10,
+`pytest` 954 passed 1 skipped with every extra installed, `coverage` 98% in
+total and 100% on `discopy/table.py`, `sphinx-build` clean for the new pages.
