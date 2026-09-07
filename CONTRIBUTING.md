@@ -221,3 +221,5 @@ LLMs have shifted the bottleneck of software development from writing code to re
 In particular, AI contributions should be small (a thousand lines is a red line not to cross lightly) and well-planned (delegate the execution not the design).
 
 One specific guideline for PR descriptions: it's fine to have the detailed list of changes LLM-generated but the high-level description should be either a) written by a human, b) linking to a human-written prompt or c) quoting a human's prompt verbatim.
+
+LLM contributions must be authored under a GitHub handle separate from the human who prompted them, so that authorship stays traceable. A pull request authored by an LLM needs to be approved by at least one human other than the one who prompted it, in addition to any other review it requires.

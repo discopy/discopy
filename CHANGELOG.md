@@ -503,6 +503,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Project
 
+- `CONTRIBUTING.md`'s LLM guidelines require an LLM contribution to be
+  authored under a GitHub handle separate from the human who prompted it,
+  and a pull request authored by an LLM to be approved by at least one
+  human other than the one who prompted it.
 - The `TODO.md` rule of `RULES.md` is split in two: creation stays point 1,
   and a new point 2 has the agent delete its own `TODO.md` once every
   point is `[x]` or filed as an issue, taking the pull request out of draft:
