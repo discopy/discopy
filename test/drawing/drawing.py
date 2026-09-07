@@ -109,6 +109,43 @@ def test_compare_drawing_raster_and_bytes(tmp_path):
     assert not actual.exists()
 
 
+def test_dark_mode_style(tmp_path):
+    path = tmp_path / "box.svg"
+    Box("f", Ty("x"), Ty("y")).draw(path=path, show=False)
+    text = path.read_text()
+    opening = text.index(">", text.index("<svg")) + 1
+    assert text[opening:].startswith(backend.DARK_MODE_STYLE)
+    assert 'id="dark-stroke-' in text and 'id="dark-fill-' in text
+
+
+def test_dark_mode_style_in_buffer():
+    assert backend.DARK_MODE_STYLE in Box("f", Ty("x"), Ty("y")).to_svg()
+
+
+def test_coloured_wires_keep_static_colours(tmp_path):
+    red, green = map(monoidal.Colour, ("red", "green"))
+    x = monoidal.Ty(monoidal.Wire("x", red, green))
+    path = tmp_path / "box.svg"
+    monoidal.Box("f", x, x).draw(path=path, show=False)
+    assert 'id="dark-' not in path.read_text()
+
+
+def test_white_spiders_are_unfilled(tmp_path):
+    path = tmp_path / "spider.svg"
+    monoidal.Box(
+        "+", monoidal.Ty(), monoidal.Ty(), draw_as_spider=True, color="white"
+    ).draw(path=path, show=False)
+    assert 'style="fill: #ffffff' not in path.read_text()
+
+
+def test_raster_keeps_white_background(tmp_path):
+    from PIL import Image
+    path = tmp_path / "box.png"
+    Box("f", Ty("x"), Ty("y")).draw(path=path, show=False)
+    assert Image.open(path).convert("RGBA").getpixel((0, 0)) == (
+        255, 255, 255, 255)
+
+
 def test_draw_coloured_regions_and_frame():
     red, green, blue = map(
         monoidal.Colour, ("red", "green", "blue"))
