@@ -55,8 +55,8 @@
 - [x] Open the issue `Docs build crashes on a ParamSpec under the pinned Sphinx 7.2`
 - [x] Pin `sphinx == 7.4.*` in the `docs` extra of `pyproject.toml`
 - [ ] Regenerate `uv.lock` with `uv lock --upgrade-package sphinx` and read the diff (blocked: needs a machine that reaches `download.pytorch.org`, both agent environments get HTTP 403 on the CONNECT, see the failure report in 8b21931)
-- [WIP] @session_01Q2uPyh42cUZxXAuT28PQNQ-2026-09-07 13:24 Build the docs on Python 3.14 before and after the bump and compare the warnings
-- [WIP] @session_01Q2uPyh42cUZxXAuT28PQNQ-2026-09-07 13:24 Build the docs of `split/1-axiom-infra` on 3.14 without the `paramspec` shim and check the `Axiom` page
+- [x] Build the docs on Python 3.14 before and after the bump and compare the warnings
+- [x] Build the docs of `split/1-axiom-infra` on 3.14 without the `paramspec` shim and check the `Axiom` page
 - [x] Add the `CHANGELOG.md` bullet under `### Project` linking the issue
-- [ ] Run `uv run pflake8 discopy` and `uv run coverage run -m pytest`
+- [x] Run `uv run pflake8 discopy` and `uv run coverage run -m pytest`
 - [ ] Open the pull request against `main` with `Fixes #<n>`
