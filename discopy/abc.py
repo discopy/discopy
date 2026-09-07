@@ -48,11 +48,11 @@ from collections.abc import Sequence
 from typing import Callable, ClassVar
 
 from discopy.testing import (
-    Atomic, Axiom, Bifunctor, ComposablePair, ComposableTriple,
-    FeedbackJoining, FeedbackVanishing, HorizontalPair,
-    LeftCurrying, Natural, NonEmpty, RightCurrying, TraceDinaturalityLeft,
-    TraceDinaturalityRight, TraceNaturalityLeft, TraceNaturalityRight,
-    TraceSuperposing, axiom)
+    Atomic, ComposablePair, ComposableTriple, FeedbackJoining,
+    FeedbackVanishing, HorizontalPair, LeftCurrying, Natural, NonEmpty,
+    RightCurrying, Square, TraceDinaturalityLeft, TraceDinaturalityRight,
+    TraceNaturalityLeft, TraceNaturalityRight, TraceSuperposing, axiom,
+    inherited_axioms)
 from discopy.utils import NamedGeneric, classproperty, factory_name
 
 
@@ -95,22 +95,7 @@ class Category[C0, C1: Category](ABC):
         """
         return Equation(*terms)
 
-    @classproperty
-    def axioms(cls) -> dict[str, Axiom]:
-        """
-        The axioms inherited by ``cls``, by name, subclasses overriding
-        bases.
-
-        Names are collected before they are filtered, so that assigning
-        anything that is not an axiom over an inherited one drops it
-        altogether, rather than restating it.
-        """
-        visible = {
-            name: value
-            for base in reversed(cls.__mro__)
-            for name, value in base.__dict__.items()}
-        return {name: value.bind(cls) for name, value in visible.items()
-                if isinstance(value, Axiom)}
+    axioms = classproperty(inherited_axioms)
 
     @classmethod
     @abstractmethod
@@ -310,7 +295,7 @@ class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](
 
     @axiom
     def bifunctoriality(
-            cls, square: Bifunctor[C1]) -> Equation[C1]:
+            cls, square: Square[C1]) -> Equation[C1]:
         """ Bifunctoriality of the tensor. """
         f, g, h, k = square
         return cls.equation_factory(

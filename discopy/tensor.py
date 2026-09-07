@@ -55,6 +55,7 @@ from discopy.matrix import (  # noqa: F401
     NumPy, JAX, PyTorch, TensorFlow)
 from discopy.abc import MarkovCategory, NamedGeneric
 from discopy.python import finset
+from discopy.testing import Strategy
 from discopy.utils import (
     factory_name, assert_isinstance, product, assert_isatomic)
 
@@ -195,6 +196,15 @@ class Tensor(Matrix):
     copy_cocommutativity = MarkovCategory.copy_cocommutativity
 
     copy_monoidal_coherence = MarkovCategory.copy_monoidal_coherence
+
+    #: Above ``config.NUMPY_THRESHOLD`` entries the array prints elided,
+    #: and the ``...`` it prints is ``Ellipsis`` rather than a number, so
+    #: the representation does not even parse back (#714). ``Matrix``
+    #: shares the repr and escapes only because its strategy stays under
+    #: the threshold.
+    transparency = Strategy.transparency.failing(
+        "repr elides an array of more than config.NUMPY_THRESHOLD "
+        "entries (#714)")
 
     @classmethod
     def strategy(cls, *, dom=None, cod=None, max_dim=3, max_entry=3):
