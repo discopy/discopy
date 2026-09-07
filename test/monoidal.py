@@ -180,17 +180,14 @@ def test_Nat_getitem():
 
 
 def test_Nat_sequence_protocol():
-    # The unary encoding is explicit through the sequence protocol.
     assert len(Nat(3)) == 3
     assert list(Nat(3)) == 3 * [Nat(1)]
     assert Nat(3)[:1] == Nat(1)
 
 
 def test_Nat_identity_and_dagger():
-    # Nat(0) is the monoidal unit and identity.
     assert Nat(0) @ Nat(3) == Nat(3) == Nat(3) @ Nat(0)
     assert Nat.id() == Nat(0) == Nat.id(Nat(0))
-    # Reversing a Nat is a no-op: all wires are interchangeable.
     assert Nat(3)[::-1] == Nat(3)
     assert Nat(3).dagger() == Nat(3)
 

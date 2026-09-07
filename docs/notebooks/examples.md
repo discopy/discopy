@@ -36,7 +36,7 @@ from discopy.cat import factory
 
 @factory  # Ensure that composition of circuits remains a circuit.
 class Circuit(monoidal.Diagram):
-    ob = monoidal.Nat  # Use natural numbers as objects.
+    ob = monoidal.Nat
 
     def __call__(self, *bits):
         F = monoidal.Functor(

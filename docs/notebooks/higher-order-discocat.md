@@ -22,7 +22,7 @@ from discopy.cat import factory
 
 @factory
 class Formula(frobenius.Diagram):
-    ob = frobenius.Nat  # i.e. natural numbers as objects
+    ob = frobenius.Nat
 
     def eval(self, size):
         return frobenius.Functor(
