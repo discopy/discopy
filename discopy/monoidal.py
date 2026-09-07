@@ -1648,18 +1648,6 @@ class Functor(cat.Functor):
         return result if isinstance(result, cod_type) else\
             (result, ) if cod_type == tuple else self.cod.ob(result)
 
-    def empty_image(self, typ):
-        if not hasattr(self.cod.ob, 'id'):
-            return self.cod.ob()
-        return self.cod.ob.id(self(typ.dom))
-
-    @staticmethod
-    def fold_images(images):
-        result = images[0]
-        for image in images[1:]:
-            result = result + image
-        return result
-
     def __call__(self, other):
         if isinstance(other, Colour):
             return self._map_colour(other)
@@ -1667,12 +1655,23 @@ class Functor(cat.Functor):
             return sum([self.ob_map[x] for x in other], self.cod.ob())
         if isinstance(other, Nat):
             if not other.n:
-                return self.empty_image(other)
-            return self.fold_images([self._map_atomic(x) for x in other])
+                return self.cod.ob()
+            images = [self._map_atomic(x) for x in other]
+            result = images[0]
+            for image in images[1:]:
+                result = result + image
+            return result
         if isinstance(other, Ty):
             if not other.inside:
-                return self.empty_image(other)
-            return self.fold_images(list(map(self, other.inside)))
+                # Empty coloured identity: keep its (mapped) boundary colour.
+                if not hasattr(self.cod.ob, 'id'):
+                    return self.cod.ob()
+                return self.cod.ob.id(self(other.dom))
+            images = list(map(self, other.inside))
+            result = images[0]
+            for image in images[1:]:
+                result = result + image
+            return result
         if isinstance(other, self.dom.ob.generator_factory):
             if isinstance(other, Wire) and other.is_dagger:
                 # Map a daggered coloured generator functorially: its image is

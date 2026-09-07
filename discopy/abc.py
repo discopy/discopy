@@ -23,18 +23,26 @@ Summary
     :toctree:
 
     Category
+    ColouredMonoid
+    Monoid
+    Nat
     MonoidalCategory
     PRO
-    BraidedCategory
     TracedCategory
-    BalancedCategory
-    SymmetricCategory
-    MarkovCategory
-    FeedbackCategory
-    ClosedCategory
+    ResiduatedMonoid
+    BiclosedCategory
+    Pregroup
     RigidCategory
     PivotalCategory
+    BraidedCategory
+    SymmetricCategory
+    MarkovCategory
+    ClosedCategory
+    FeedbackCategory
+    BalancedCategory
     RibbonCategory
+    CompactCategory
+    HypergraphCategory
     NamedGeneric
 """
 
@@ -167,11 +175,11 @@ class ColouredMonoid[C0, C1: ColouredMonoid](Category[C0, C1]):
         return self.whisker(other).tensor(self)
 
 
-# A monoid is a coloured monoid with a single, trivial colour.
-type Monoid[C1: ColouredMonoid] = ColouredMonoid[type(None), C1]
+class Monoid[C1: Monoid](ColouredMonoid[type(None), C1]):
+    """ A monoid is a coloured monoid with a single, trivial colour. """
 
 
-class Nat[C1: Nat](ColouredMonoid[type(None), C1]):
+class Nat[C1: Nat](Monoid[C1]):
     """
     ``Nat`` is the free monoid on one generator, i.e. the natural numbers
     with addition as tensor. It is also a sequence over its unary encoding:
