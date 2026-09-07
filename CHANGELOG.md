@@ -503,6 +503,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Project
 
+- The docs build on Sphinx 7.4 rather than 7.2, whose `stringify_annotation`
+  handled a `TypeVar` but not a `ParamSpec`, so a signature such as
+  `Callable[Concatenate[type, P], T]` crashed autodoc on Python 3.14, where
+  `typing.get_type_hints` resolves the PEP 695 type parameter. Only the pin
+  and the lock move: `myst-parser == 2.0.*` allows any Sphinx below 8
+  ([#722](https://github.com/discopy/discopy/issues/722)).
 - The `TODO.md` rule of `RULES.md` is split in two: creation stays point 1,
   and a new point 2 has the agent delete its own `TODO.md` once every
   point is `[x]` or filed as an issue, taking the pull request out of draft:
