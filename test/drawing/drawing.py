@@ -109,6 +109,51 @@ def test_compare_drawing_raster_and_bytes(tmp_path):
     assert not actual.exists()
 
 
+def test_dark_mode_style(tmp_path):
+    # A saved SVG opens with the media query and tags its wires and labels,
+    # so a single file reads on both light and dark pages, see issue #453.
+    path = tmp_path / "box.svg"
+    Box("f", Ty("x"), Ty("y")).draw(path=path, show=False)
+    text = path.read_text()
+    opening = text.index(">", text.index("<svg")) + 1
+    assert text[opening:].startswith(backend.DARK_MODE_STYLE)
+    assert 'id="dark-stroke-' in text and 'id="dark-fill-' in text
+
+
+def test_dark_mode_style_in_buffer():
+    # In-memory SVGs, e.g. in a Jupyter cell, carry the same style block.
+    assert backend.DARK_MODE_STYLE in Box("f", Ty("x"), Ty("y"))._repr_svg_()
+
+
+def test_coloured_wires_keep_static_colours(tmp_path):
+    # Wires and labels over coloured regions are not tagged: black stays
+    # readable over a light region on both light and dark pages.
+    red, green = map(monoidal.Colour, ("red", "green"))
+    x = monoidal.Ty(monoidal.Wire("x", red, green))
+    path = tmp_path / "box.svg"
+    monoidal.Box("f", x, x).draw(path=path, show=False)
+    assert 'id="dark-' not in path.read_text()
+
+
+def test_white_spiders_are_unfilled(tmp_path):
+    # e.g. the symbol of an Equation is just its label, leaving no white
+    # patch on a non-white page.
+    path = tmp_path / "spider.svg"
+    monoidal.Box(
+        "+", monoidal.Ty(), monoidal.Ty(), draw_as_spider=True, color="white"
+    ).draw(path=path, show=False)
+    assert 'style="fill: #ffffff' not in path.read_text()
+
+
+def test_raster_keeps_white_background(tmp_path):
+    # PNGs cannot adapt to the page behind them, so they stay white.
+    from PIL import Image
+    path = tmp_path / "box.png"
+    Box("f", Ty("x"), Ty("y")).draw(path=path, show=False)
+    assert Image.open(path).convert("RGBA").getpixel((0, 0)) == (
+        255, 255, 255, 255)
+
+
 def test_draw_coloured_regions_and_frame():
     red, green, blue = map(
         monoidal.Colour, ("red", "green", "blue"))
