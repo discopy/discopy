@@ -19,6 +19,16 @@ Composition is a side effect on the carrier: :meth:`Morphism.then` asserts that
 the wires it composes are equal. Diagrams stay pure, the carrier is the
 effectful codomain of :meth:`Carrier.from_diagram`.
 
+Note
+----
+:meth:`Carrier.intern` keys a cell on its box and the classes of its input
+wires only, and mints the output wires itself, so that interning the same box
+on the same inputs twice gives one cell. This is how an e-graph interns a
+term; it enforces at once the functional dependency that
+:meth:`Carrier.rebuild` would otherwise restore, and it assumes a box is a
+function of its inputs, which fails in a Markov category where copying is
+not natural.
+
 Summary
 -------
 
@@ -356,7 +366,8 @@ class Carrier(NamedGeneric['category']):
         shard = self.shards.setdefault(key, Shard(key[1], key[2]))
         shard.append(tuple(src) + tuple(tgt))
         self.rows.append((key, len(shard) - 1))
-        self.hashcons[key, tuple(map(self.uf.find, src))] = len(self.rows) - 1
+        self.hashcons.setdefault(
+            (key, tuple(map(self.uf.find, src))), len(self.rows) - 1)
         return len(self.rows) - 1
 
     def intern(self, box: Box, src: tuple[int, ...]) -> tuple[int, ...]:
@@ -568,8 +579,11 @@ class Morphism(MonoidalCategory):
     """
     An arrow of the category presented by a carrier, i.e. a pair of boundaries.
 
-    Composition asserts that the wires it composes are equal, so the laws of a
-    monoidal category hold up to :meth:`equiv` rather than on the nose.
+    An arrow is a pair of boundaries, so the laws of a monoidal category hold
+    on the nose; what composition does is assert that the wires it composes
+    are equal. Two arrows built separately are equal only when the carrier
+    records the equations that identify their boundaries, which is what
+    :meth:`equiv` reads.
 
     Parameters:
         dom : The wires on the domain.
