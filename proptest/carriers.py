@@ -16,6 +16,7 @@ from discopy import (
     compact,
     feedback,
     frobenius,
+    hopf,
     markov,
     monoidal,
     pivotal,
@@ -52,6 +53,7 @@ CARRIERS = (
     frobenius.Functor,
     Matrix[int],
     frobenius.Dim, tensor.Diagram, tensor.Tensor[int],
+    hopf.Intertwiner[hopf.Double(hopf.Algebra.cyclic(2))],
 )
 
 
