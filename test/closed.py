@@ -30,6 +30,41 @@ def test_python_Functor():
     assert F(g.curry().uncurry())(1j, True) == F(g)(1j, True)
 
 
+def test_to_compact():
+    w, x, y, z = map(Ty, "wxyz")
+    f = Box("f", x @ y, z)
+
+    for left in (True, False):
+        source = f.curry(left=left)
+        target = source.to_compact()
+        expected = (f >> Coeval(source.cod, left=left)).trace(
+            left=not left)
+        assert target == expected
+        assert (target.dom, target.cod) == (source.dom, source.cod)
+
+    h = Box("h", w @ x @ y, z)
+    for left in (True, False):
+        source = h.curry(n=2, left=left)
+        assert source.to_compact() == (
+            h >> Coeval(source.cod, left=left)).trace(
+                n=2, left=not left)
+
+    g = Box("g", z << y, x)
+    assert (f.curry() >> g).to_compact() == f.curry().to_compact() >>\
+        g.to_compact()
+
+    nested = f.curry().curry().to_compact().to_map()
+    assert sum(isinstance(box, Coeval) for box in nested.boxes) == 2
+    assert not any(isinstance(box, Curry) for box in nested.boxes)
+
+    identity = x(lambda variable: variable)
+    application = identity(x("a"))
+    for term in (identity, application):
+        result = term.to_compact().to_map()
+        assert not any(isinstance(box, Curry) for box in result.boxes)
+        assert term.to_map().to_compact() == result
+
+
 def test_Application_without_freevars():
     """ A closed application of constants has an empty domain, see #542. """
     X, Y = Ty('X'), Ty('Y')
