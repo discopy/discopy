@@ -1357,12 +1357,99 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         return cls(box.dom, box.cod, (box, ), wires, spider_types)
 
     @classmethod
+    def from_glued(cls, dom: Ty, cod: Ty,
+                   images: Iterable[tuple[Hypergraph, int]]) -> Hypergraph:
+        """
+        Glue a sequence of hypergraphs onto a scan of open wires, in one pass.
+
+        Each spider of the result is a connected component of the spiders of
+        the ``images``, computed by union-find as they are glued. This is the
+        colimit of the diagram of gluings, i.e. the same hypergraph as the
+        iterated :meth:`then` of the ``images`` whiskered at their offsets,
+        but built once rather than rebuilt at every step.
+
+        Parameters:
+            dom : The domain of the result.
+            cod : The codomain of the result.
+            images : Each hypergraph to glue, together with the offset at
+                which its domain meets the scan.
+
+        Example
+        -------
+        >>> from discopy.frobenius import Ty, Box, Hypergraph as H
+        >>> x = Ty('x')
+        >>> f = Box('f', x, x).to_hypergraph()
+        >>> g = Box('g', x, x).to_hypergraph()
+        >>> H.from_glued(x, x, [(f, 0), (g, 0)]) == f >> g
+        True
+
+        A cap glued directly onto a cup leaves a closed loop, kept as a
+        scalar spider rather than dropped:
+
+        >>> caps, cups = H.caps(x, x), H.cups(x, x)
+        >>> H.from_glued(H.category.ob(), H.category.ob(), [
+        ...     (caps, 0), (cups, 0)]).scalar_spiders
+        [0]
+        """
+        parent, objects = [], []
+
+        def fresh(obj):
+            parent.append(len(parent))
+            objects.append(obj)
+            return len(parent) - 1
+
+        def find(spider):
+            while parent[spider] != spider:
+                parent[spider] = parent[parent[spider]]
+                spider = parent[spider]
+            return spider
+
+        def union(source, target):
+            source, target = sorted([find(source), find(target)])
+            if source != target:
+                parent[target] = source
+
+        dom_wires = tuple(fresh(obj) for obj in dom)
+        scan = list(dom_wires)
+        boxes, box_wires, offsets = [], [], []
+        for image, offset in images:
+            local = [fresh(t) for t in image.spider_types]
+            for i, spider in enumerate(image.dom_wires):
+                union(scan[offset + i], local[spider])
+            boxes += list(image.boxes)
+            box_wires += [
+                (tuple(local[s] for s in x), tuple(local[s] for s in y))
+                for x, y in image.box_wires]
+            offsets += list(image.offsets)
+            scan[offset:offset + len(image.dom)] = [
+                local[s] for s in image.cod_wires]
+        cod_wires = tuple(scan)
+
+        relabel = lambda wires: tuple(find(spider) for spider in wires)
+        wires = (
+            relabel(dom_wires),
+            tuple((relabel(x), relabel(y)) for x, y in box_wires),
+            relabel(cod_wires))
+        spider_types = {
+            find(spider): objects[find(spider)]
+            for spider in range(len(parent))}
+        return cls(
+            dom, cod, tuple(boxes), wires, spider_types, tuple(offsets))
+
+    @classmethod
     def from_diagram(cls, old: Diagram) -> Hypergraph:
         """
         Turn a :class:`Diagram` into a :class:`Hypergraph`.
 
         Parameters:
             old : The planar diagram to encode as hypergraph.
+
+        Note
+        ----
+        The image of each box is computed by the functor into ``cls``, then
+        the images are glued in a single pass with :meth:`from_glued`,
+        rather than folding them one at a time with :meth:`then`, which
+        relabels the whole hypergraph built so far at every box.
 
         Example
         -------
@@ -1374,10 +1461,15 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         ...           H.spiders(1, 2, x @ y)]:
         ...     assert back_n_forth(d) == d
         """
-        factory = cls[type(old).ar]
-        return factory.functor(
-            ob_map=lambda typ: typ, ar_map=cls.from_box,
-            dom=type(old), cod=cls)(old)
+        category = type(old).ar
+        factory = cls if cls.category is category else cls[category]
+        functor = factory.functor(
+            ob_map=lambda typ: typ, ar_map=factory.from_box,
+            dom=category, cod=factory)
+        return factory.from_glued(old.dom, old.cod, [
+            (functor(box), offset)
+            for layer in old.inside
+            for box, offset in layer.boxes_and_offsets])
 
     def to_diagram(self) -> Diagram:
         """
