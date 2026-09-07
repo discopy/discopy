@@ -272,6 +272,38 @@ def save_and_compare(path, save, tol=DEFAULT['plt_tol']):
     compare_drawing(path, actual_path, tol)
 
 
+DARK_MODE_STYLE = (
+    '<style type="text/css">'
+    '@media (prefers-color-scheme: dark) {'
+    '[id^="dark-stroke"] path { stroke: #ffffff !important; } '
+    '[id^="dark-fill"] g, [id^="dark-fill"] use '
+    '{ fill: #ffffff !important; stroke: #ffffff !important; }'
+    '}</style>')
+
+
+def add_dark_mode_style(path):
+    """
+    Insert :data:`DARK_MODE_STYLE` after the opening tag of an SVG saved at
+    ``path``, a file name or an in-memory text buffer: a media query turning
+    the elements tagged by :meth:`Matplotlib.dark_gid` white on a dark page,
+    every other renderer keeping the static black on a transparent canvas.
+    """
+    if hasattr(path, "getvalue"):
+        text = path.getvalue()
+    else:
+        with open(path, encoding="utf-8") as file:
+            text = file.read()
+    opening = text.index(">", text.index("<svg")) + 1
+    text = text[:opening] + DARK_MODE_STYLE + text[opening:]
+    if hasattr(path, "getvalue"):
+        path.seek(0)
+        path.truncate()
+        path.write(text)
+    else:
+        with open(path, "w", encoding="utf-8") as file:
+            file.write(text)
+
+
 def savefig(path, format=None, compare=False, tol=DEFAULT['plt_tol']):
     """
     Save the current Matplotlib figure, as a baseline when ``compare``.
@@ -281,6 +313,10 @@ def savefig(path, format=None, compare=False, tol=DEFAULT['plt_tol']):
     embed the Matplotlib version as ``"Software"``, SVGs embed the current date
     and randomise the ids of their clip paths, so we drop the former and fix
     the salt used for the latter.
+
+    SVGs are saved on a transparent canvas with :func:`add_dark_mode_style`,
+    so a single file reads on both light and dark pages; raster formats
+    cannot adapt to the page behind them, so they keep their white background.
     """
     path_str = str(path)
     is_svg = format == "svg" or (format is None and path_str.endswith(".svg"))
@@ -292,7 +328,10 @@ def savefig(path, format=None, compare=False, tol=DEFAULT['plt_tol']):
 
     def save(actual_path):
         with matplotlib_context():
-            plt.savefig(actual_path, format=format, metadata=metadata)
+            plt.savefig(actual_path, format=format, metadata=metadata,
+                        transparent=is_svg)
+        if is_svg:
+            add_dark_mode_style(actual_path)
 
     save_and_compare(path, save, tol) if compare else save(path)
 
@@ -377,14 +416,34 @@ class Backend(ABC):
         luma = 0.299 * red + 0.587 * green + 0.114 * blue
         return "white" if luma < threshold else "black"
 
-    def draw_wire(self, source, target,
-                  bend_out=False, bend_in=False, style=None, linewidth=None):
-        """ Draws a wire from source to target, possibly with a Bezier. """
+    def draw_wire(self, source, target, bend_out=False, bend_in=False,
+                  style=None, linewidth=None, adaptive=True):
+        """ Draws a wire from source to target, possibly with a Bezier.
+        An ``adaptive`` wire lies on the neutral canvas, so its stroke may
+        adapt to a dark page, see :meth:`Matplotlib.dark_gid`. """
         self.max_width = max(self.max_width, source[0], target[0])
 
-    def draw_bezier(self, points):
+    def draw_bezier(self, points, adaptive=True):
         """ Draws a cubic Bezier curve from a list of four control points. """
         self.max_width = max(self.max_width, max(x for x, _ in points))
+
+    @staticmethod
+    def on_neutral_canvas(*types):
+        """
+        Whether wires of the given types only border white regions, i.e. the
+        neutral canvas, so that their strokes and labels may adapt to a dark
+        page rather than keep a static colour readable over their region.
+        """
+        for typ in types:
+            colours = [getattr(typ, "dom", None), getattr(typ, "cod", None)]
+            colours += [
+                colour for obj in getattr(typ, "inside", ())
+                for colour in (
+                    getattr(obj, "dom", None), getattr(obj, "cod", None))]
+            if any(colour is not None and colour.name != "white"
+                   for colour in colours):
+                return False
+        return True
 
     def draw_filled_shape(self, start, steps, color):
         """
@@ -423,7 +482,8 @@ class Backend(ABC):
                 [(middle, apex), (middle + kx, apex),
                  (right, centre + sign * ky), (right, centre)])
 
-    def draw_half_circle(self, left, right, end, centre, sign, depth=None):
+    def draw_half_circle(self, left, right, end, centre, sign, depth=None,
+                         adaptive=True):
         """
         Draws a half circle (or ellipse if ``depth`` differs from the radius)
         from ``(left, centre)`` to ``(right, centre)`` with vertical sides up
@@ -431,11 +491,11 @@ class Backend(ABC):
         see :meth:`half_circle_beziers`.
         """
         if end != centre:
-            self.draw_wire((left, end), (left, centre))
-            self.draw_wire((right, centre), (right, end))
+            self.draw_wire((left, end), (left, centre), adaptive=adaptive)
+            self.draw_wire((right, centre), (right, end), adaptive=adaptive)
         for points in self.half_circle_beziers(
                 left, right, centre, sign, depth):
-            self.draw_bezier(points)
+            self.draw_bezier(points, adaptive=adaptive)
 
     @staticmethod
     def fold_depths(xs):
@@ -467,7 +527,7 @@ class Backend(ABC):
                 ("curve", a_sub[1], a_sub[2], a_sub[3]), ("line", b_sub[3]),
                 ("curve", b_sub[2], b_sub[1], b_sub[0])], color)
 
-    def draw_braid_strand(self, source, target, middle, gap=0):
+    def draw_braid_strand(self, source, target, middle, gap=0, adaptive=True):
         """
         Draws a single strand of a braid crossing the horizontal line at
         height ``middle``. The strand is vertical at both ends and diagonal in
@@ -477,9 +537,11 @@ class Backend(ABC):
         """
         control = self.braid_strand(source, target, middle)
         if not gap:
-            return self.draw_bezier(control)
-        self.draw_bezier(bezier_subcurve(control, 0, 0.5 - gap))
-        self.draw_bezier(bezier_subcurve(control, 0.5 + gap, 1))
+            return self.draw_bezier(control, adaptive=adaptive)
+        self.draw_bezier(bezier_subcurve(control, 0, 0.5 - gap),
+                         adaptive=adaptive)
+        self.draw_bezier(bezier_subcurve(control, 0.5 + gap, 1),
+                         adaptive=adaptive)
 
     def draw_spiders(self, graph, draw_box_labels=True, **params):
         """ Draws a list of boxes depicted as spiders. """
@@ -496,7 +558,8 @@ class Backend(ABC):
     def draw_boundary(self, graph, boundary_color="white", **params):
         x, y = graph.width, graph.height
         self.draw_polygon(
-            (0, 0), (x, 0), (x, y), (0, y), edgecolor=boundary_color)
+            (0, 0), (x, 0), (x, y), (0, y),
+            facecolor=boundary_color, edgecolor=boundary_color)
 
     @abstractmethod
     def draw_regions(self, graph, **params):
@@ -679,11 +742,12 @@ class Backend(ABC):
         # The region to the right of this wire, coloured the same way as
         # in draw_regions, is what the label is drawn on top of.
         background = getattr(x, "cod", None)
+        adaptive = background is None or background.name == "white"
         color = self.readable_foreground(
-            background.name if background is not None else "white")
+            "white" if adaptive else background.name)
         self.draw_text(
             label, i, j, verticalalignment='top', fontsize=fontsize,
-            color=color)
+            color=color, adaptive=adaptive)
 
     @staticmethod
     def has_boundary_sides(typ):
@@ -734,9 +798,11 @@ class Backend(ABC):
                    for n in (source, target)):
                 continue  # crossings are drawn on their own
             bend_out, bend_in = source.kind == "box", target.kind == "box"
+            typ = getattr(source, 'x', None) or getattr(target, 'x', None)
             self.draw_wire(
                 source_position, target_position, bend_out, bend_in,
-                linewidth=(0 if is_frame_boundary else None))
+                linewidth=(0 if is_frame_boundary else None),
+                adaptive=self.on_neutral_canvas(typ))
 
     def fill_fold(self, outer, inner, color):
         """
@@ -770,7 +836,8 @@ class Backend(ABC):
                     xs[1][0], xs[2][0], end, -1, inner_depth),
                 ribbon.name)
         for (a, b), depth in [((0, 3), outer_depth), ((1, 2), inner_depth)]:
-            self.draw_half_circle(xs[a][0], xs[b][0], end, end, -1, depth)
+            self.draw_half_circle(xs[a][0], xs[b][0], end, end, -1, depth,
+                                  adaptive=ribbon is None)
 
     def draw_dual_rail_cap(self, positions, node, **params):
         """
@@ -792,7 +859,8 @@ class Backend(ABC):
                     xs[1][0], xs[2][0], end, 1, inner_depth),
                 ribbon.name)
         for (a, b), depth in [((0, 3), outer_depth), ((1, 2), inner_depth)]:
-            self.draw_half_circle(xs[a][0], xs[b][0], end, end, 1, depth)
+            self.draw_half_circle(xs[a][0], xs[b][0], end, end, 1, depth,
+                                  adaptive=ribbon is None)
 
     def draw_braid(self, positions, node):
         """
@@ -807,27 +875,29 @@ class Backend(ABC):
                for i in range(2)]
         _, middle = positions[node]
         left, right = (dom[0], cod[1]), (dom[1], cod[0])
+        adaptive = self.on_neutral_canvas(box.dom, box.cod)
         if not getattr(box, "draw_as_braid", False):
-            self.draw_braid_strand(*left, middle)
-            self.draw_braid_strand(*right, middle)
+            self.draw_braid_strand(*left, middle, adaptive=adaptive)
+            self.draw_braid_strand(*right, middle, adaptive=adaptive)
             return
         # Keep the shadow roughly the same height, e.g. for a double braid,
         # by widening the (relative) gap when the braid is short.
         gap = min(0.3, 0.1 / (dom[0][1] - cod[0][1]))
         # The left wire goes under the right one unless the box is dagger.
         over, under = (left, right) if box.is_dagger else (right, left)
-        self.draw_braid_strand(*under, middle, gap=gap)
-        self.draw_braid_strand(*over, middle)
+        self.draw_braid_strand(*under, middle, gap=gap, adaptive=adaptive)
+        self.draw_braid_strand(*over, middle, adaptive=adaptive)
 
     def draw_permutation(self, positions, node):
         """ Draw a permutation as a band of crossing wires. """
         box, j = node.box, node.j
         middle = positions[node][1]
+        adaptive = self.on_neutral_canvas(box.dom, box.cod)
         for i, source in enumerate(box.permutation_indices):
             dom = positions[Node(
                 "box_dom", i=source, j=j, x=box.dom[source])]
             cod = positions[Node("box_cod", i=i, j=j, x=box.cod[i])]
-            self.draw_braid_strand(dom, cod, middle)
+            self.draw_braid_strand(dom, cod, middle, adaptive=adaptive)
 
     def draw_boxes(self, graph, **params):
         drawing_methods = [
@@ -886,9 +956,12 @@ class Backend(ABC):
         """ Draws a :class:`discopy.quantum.circuit.Measure` box. """
         self.draw_box(positions, node, **dict(params, draw_box_labels=False))
         i, j = positions[node]
-        self.draw_wire((i - .15, j - .1), (i, j + .1), bend_in=True)
-        self.draw_wire((i, j + .1), (i + .15, j - .1), bend_out=True)
-        self.draw_wire((i, j - .1), (i + .05, j + .15), style='->')
+        self.draw_wire(
+            (i - .15, j - .1), (i, j + .1), bend_in=True, adaptive=False)
+        self.draw_wire(
+            (i, j + .1), (i + .15, j - .1), bend_out=True, adaptive=False)
+        self.draw_wire(
+            (i, j - .1), (i + .05, j + .15), style='->', adaptive=False)
 
     def draw_dual_rail_braid(self, positions, node, **params):
         """
@@ -914,9 +987,10 @@ class Backend(ABC):
             if color is not None:  # Fill the band between the two strands.
                 self.fill_strand_band(
                     ribbon[0], ribbon[1], y_middle, color, gap)
-        for (ribbon, _), gap in [(under, 0.2), (over, 0)]:
+        for (ribbon, color), gap in [(under, 0.2), (over, 0)]:
             for source, target in ribbon:
-                self.draw_braid_strand(source, target, y_middle, gap)
+                self.draw_braid_strand(source, target, y_middle, gap,
+                                       adaptive=color is None)
 
     def draw_dual_rail_twist(self, positions, node, **params):
         """
@@ -978,8 +1052,10 @@ class Backend(ABC):
             first_under = (k == 0) != box.is_dagger
             under, over = (first_rail, second_rail) if first_under\
                 else (second_rail, first_rail)
-            self.draw_braid_strand(under[0], under[1], under[2], gap=0.15)
-            self.draw_braid_strand(over[0], over[1], over[2])
+            self.draw_braid_strand(under[0], under[1], under[2], gap=0.15,
+                                   adaptive=color is None)
+            self.draw_braid_strand(over[0], over[1], over[2],
+                                   adaptive=color is None)
 
     def draw_brakets(self, positions, node, **params):
         """ Draws a :class:`discopy.quantum.gates.Ket` box. """
@@ -1086,7 +1162,7 @@ class Backend(ABC):
 
         self.draw_node(
             *middle, color="black", shape="circle",
-            nodesize=params.get("nodesize", 1))
+            nodesize=params.get("nodesize", 1), adaptive=True)
 
 
 class TikZ(Backend):
@@ -1169,8 +1245,8 @@ class TikZ(Backend):
         """
         super().draw_regions(graph, **params)
 
-    def draw_wire(self, source, target,
-                  bend_out=False, bend_in=False, style=None, linewidth=None):
+    def draw_wire(self, source, target, bend_out=False, bend_in=False,
+                  style=None, linewidth=None, adaptive=True):
         out = -90 if not bend_out or source[0] == target[0]\
             else (180 if source[0] > target[0] else 0)
         inp = 90 if not bend_in or source[0] == target[0]\
@@ -1199,7 +1275,7 @@ class TikZ(Backend):
             self.nodes[source], self.nodes[target]))
         super().draw_wire(source, target, bend_out=bend_out, bend_in=bend_in)
 
-    def draw_bezier(self, points):
+    def draw_bezier(self, points, adaptive=True):
         for point in points:
             if tuple(point) not in self.nodes:
                 self.add_node(*point)
@@ -1280,10 +1356,25 @@ class Matplotlib(Backend):
         self.axis = axis or plt.subplots(figsize=figsize, facecolor='white')[1]
         self.linewidth = linewidth
         self.format = format
+        self.dark_count = 0
         super().__init__()
+
+    def dark_gid(self, kind):
+        """
+        A fresh id prefixed ``dark-stroke`` or ``dark-fill``, tagging an
+        element drawn black on the neutral canvas so that
+        :data:`DARK_MODE_STYLE` turns it white on a dark page.
+        """
+        self.dark_count += 1
+        return f"dark-{kind}-{self.dark_count}"
+
+    def draw_boundary(self, graph, boundary_color="none", **params):
+        super().draw_boundary(graph, boundary_color=boundary_color, **params)
 
     def draw_text(self, text, i, j, **params):
         params['fontsize'] = params.get('fontsize', DEFAULT['fontsize'])
+        if params.pop('adaptive', False):
+            params['gid'] = self.dark_gid("fill")
         self.axis.text(i, j, text, **params)
         super().draw_text(text, i, j, **params)
 
@@ -1293,7 +1384,9 @@ class Matplotlib(Backend):
             c=COLORS[params.get("color", "black")],
             marker=SHAPES[params.get("shape", "circle")],
             s=300 * params.get("nodesize", 1),
-            edgecolors=params.get("edgecolor", None))
+            edgecolors=params.get("edgecolor", None),
+            gid=self.dark_gid("fill")
+            if params.get("adaptive", False) else None)
         super().draw_node(i, j, **params)
 
     def draw_polygon(
@@ -1347,8 +1440,8 @@ class Matplotlib(Backend):
             handles=handles, loc=params.get("legend_loc", "upper right"),
             fontsize=params.get("fontsize_types", params.get("fontsize")))
 
-    def draw_wire(self, source, target,
-                  bend_out=False, bend_in=False, style=None, linewidth=None):
+    def draw_wire(self, source, target, bend_out=False, bend_in=False,
+                  style=None, linewidth=None, adaptive=True):
         linewidth = self.linewidth if linewidth is None else linewidth
         if style == '->':  # pragma: no cover
             self.axis.arrow(
@@ -1360,15 +1453,19 @@ class Matplotlib(Backend):
             path = Path([source, mid, target],
                         [Path.MOVETO, Path.CURVE3, Path.CURVE3])
             self.axis.add_patch(PathPatch(
-                path, facecolor='none', linewidth=linewidth))
+                path, facecolor='none', linewidth=linewidth,
+                gid=self.dark_gid("stroke")
+                if adaptive and linewidth else None))
         super().draw_wire(source, target, bend_out=bend_out, bend_in=bend_in)
 
-    def draw_bezier(self, points):
+    def draw_bezier(self, points, adaptive=True):
         path = Path(
             list(points),
             [Path.MOVETO, Path.CURVE4, Path.CURVE4, Path.CURVE4])
         self.axis.add_patch(PathPatch(
-            path, facecolor='none', linewidth=self.linewidth))
+            path, facecolor='none', linewidth=self.linewidth,
+            gid=self.dark_gid("stroke")
+            if adaptive and self.linewidth else None))
         super().draw_bezier(points)
 
     def draw_filled_shape(self, start, steps, color):
@@ -1388,21 +1485,35 @@ class Matplotlib(Backend):
         super().draw_filled_shape(start, steps, color)
 
     def draw_spiders(self, graph, draw_box_labels=True, **params):
+        """
+        Draws the spiders, grouped by shape and by whether they adapt to a
+        dark page: black spiders lie on the neutral canvas so they turn
+        white, coloured ones keep their colour. White spiders are drawn
+        unfilled, e.g. the symbol of an :class:`discopy.monoidal.Equation`
+        is just its label, with no white patch on a non-white page.
+        """
         import networkx as nx
         nodes = [node for node in graph.nodes
                  if node.kind == "box" and node.box.draw_as_spider]
-        shapes = {node: node.box.shape for node in nodes}
-        for shape in dict.fromkeys(shapes.values()):
-            colors = {n: n.box.color for n, s in shapes.items() if s == shape}
-            nodes, colors = zip(*colors.items())
+        groups = {}
+        for node in nodes:
+            groups.setdefault(
+                (node.box.shape, node.box.color == "black"), []).append(node)
+        for (shape, adaptive), group in groups.items():
             nx.draw_networkx_nodes(
-                *graph.inside, nodelist=nodes,
-                node_color=[COLORS[color] for color in colors],
+                *graph.inside, nodelist=group,
+                node_color=[
+                    "none" if node.box.color == "white"
+                    else COLORS[node.box.color] for node in group],
                 node_shape=SHAPES[shape], ax=self.axis,
-                node_size=300 * params.get("nodesize", 1))
+                node_size=300 * params.get("nodesize", 1)
+            ).set_gid(self.dark_gid("fill") if adaptive else None)
             if draw_box_labels:
-                labels = {node: node.box.drawing_name for node in nodes}
-                nx.draw_networkx_labels(*graph.inside, labels)
+                for node in group:
+                    self.draw_text(
+                        node.box.drawing_name, *graph.positions[node],
+                        ha='center', va='center',
+                        adaptive=node.box.color == "white")
         super().draw_spiders(graph, draw_box_labels)
 
     def output(self, path=None, show=True, **params):
