@@ -305,6 +305,13 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   in `closed`, where `Abstraction.eval` permutes as many wires as there
   are free variables
   ([#609](https://github.com/discopy/discopy/issues/609)).
+- `cat.Bubble.dagger`: a bubble's dagger was inherited from `Box.dagger`,
+  which reconstructs with `type(self)(name, cod, dom, ...)` — positional
+  arguments `Bubble.__init__` reads as `*args`, so it crashed with
+  `AttributeError` on the very first (non-arrow) argument. `Bubble` now
+  daggers each of its `args`, swaps `dom`/`cod` and carries `data`/`is_dagger`
+  through like `Box.dagger` does
+  ([#55](https://github.com/discopy/discopy/issues/55)).
 - `style-review.yml`'s hand-over to the correctness reviewer, and its
   token generation, ran on every style review rather than the intended
   ones. Both conditions were written as `if: >` folding a wrapped
@@ -336,6 +343,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- Region painting computes the exact extents of each coloured region —
+  polygons bounded by the wires on both sides, subdivided per height band —
+  instead of overpainting everything to the right of each wire up to the
+  full canvas width: translucent colours are no longer painted twice where
+  two regions of the same colour are adjacent, white regions are not
+  painted at all, so they erase to the background, and neither is the
+  inside of a box, which is a 2-cell rather than a region, so no colour
+  can bleed out around its border
+  ([#521](https://github.com/discopy/discopy/issues/521)).
 - Pivotal diagram-to-map conversion now encodes cups and caps as `CMap`
   wiring rather than keeping them as boxes
   ([#532](https://github.com/discopy/discopy/pull/532)).
