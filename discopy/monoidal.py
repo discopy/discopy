@@ -55,9 +55,8 @@ We can check the Eckmann-Hilton argument, up to interchanger.
 from __future__ import annotations
 
 import itertools
-import operator
 from dataclasses import dataclass, field
-from functools import cached_property, reduce
+from functools import cached_property
 from typing import Iterator, Callable, TYPE_CHECKING
 from warnings import warn
 
@@ -1649,8 +1648,11 @@ class Functor(cat.Functor):
         if isinstance(other, Nat):
             if not other.n:
                 return self.cod.ob()
-            images = (self._map_atomic(x) for x in other)
-            return reduce(operator.matmul, images)
+            images = [self._map_atomic(x) for x in other]
+            result = images[0]
+            for image in images[1:]:
+                result = result + image
+            return result
         if isinstance(other, Ty):
             if not other.inside:
                 # Empty coloured identity: keep its (mapped) boundary colour.

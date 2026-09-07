@@ -575,6 +575,16 @@ def test_Nat_Functor():
     assert Functor(lambda x: x, lambda f: f)(Nat(2)) == Nat(2)
 
 
+def test_Nat_Functor_tuple_ob():
+    # A codomain's objects need not support `@`, e.g. python.Function.ob is
+    # a plain tuple of types, combined by concatenation with `+`.
+    class TupleDiagram(Diagram):
+        ob = tuple[bool, ...]
+
+    F = Functor(lambda _: bool, lambda f: f, cod=TupleDiagram)
+    assert F(Nat(3)) == (bool, bool, bool)
+
+
 def test_Functor_sum():
     x, y = Ty('x'), Ty('y')
     f, g = Box('f', x, y), Box('g', x, y)
