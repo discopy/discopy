@@ -3,7 +3,8 @@ import random
 from pytest import raises
 
 from discopy.hypergraph import *
-from discopy.frobenius import Ty, Box, Cap, Hypergraph as H
+from discopy.frobenius import (
+    Ty, Box, Cap, Cup, Diagram, Spider, Hypergraph as H)
 
 def test_pushout():
     with raises(ValueError):
@@ -118,6 +119,14 @@ def test_AxiomError():
         H.caps(x @ y, x @ y)
 
 
+def test_non_self_dual():
+    from discopy import compact
+    x = compact.Ty('x')
+    # A non-self-dual cap round-trips through its hypergraph, see issue #390.
+    assert compact.Equation(
+        compact.Cap(x.r, x).to_hypergraph().to_diagram(), compact.Cap(x.r, x))
+
+
 def test_non_adjoint_wire():
     from discopy import compact
     x = compact.Ty('x')
@@ -128,6 +137,27 @@ def test_non_adjoint_wire():
     # Adjoint cups and caps, and self-dual frobenius caps, are fine.
     assert K.cups(x, x.r) and K.caps(x.r, x)
     assert Cap(Ty('x'), Ty('x')).to_hypergraph()
+
+
+def test_spider_producers_and_consumers():
+    from discopy import compact
+    K = compact.Hypergraph
+    x, e = compact.Ty('x'), compact.Ty()
+    f, g, h = (
+        compact.Box('f', e, x), compact.Box('g', e, x), compact.Box('h', x, e))
+    # A spider with two producers (f, g) and a consumer (h) is a genuine
+    # merge, not a cup, so the adjointness check should not apply even
+    # though x is not self-dual, see issue #390.
+    merge = K(e, e, (f, g, h),
+              ((), (((), (0,)), ((), (0,)), ((0,), ())), ()))
+    assert merge.spider_wires == [({0, 1}, {2})]
+
+    # Symmetrically, a spider with a producer and two consumers is a
+    # genuine copy, not a cap.
+    g, h = compact.Box('g', x, e), compact.Box('h', x, e)
+    copy = K(e, e, (f, g, h),
+             ((), (((), (0,)), ((0,), ()), ((0,), ())), ()))
+    assert copy.spider_wires == [({0}, {1, 2})]
 
 
 def test_cups():
@@ -211,6 +241,77 @@ def test_parameterisation():
     assert H.category == frobenius.Diagram
     assert H.functor == frobenius.Functor == H.category.functor_factory
     assert H.ob == frobenius.Ty
+
+
+def _naive_from_diagram(old):
+    """ The pre-#623 implementation of :meth:`Hypergraph.from_diagram`,
+    folding the image of each box with :meth:`Hypergraph.then` one at a
+    time instead of gluing them in a single pass, kept here as an oracle
+    against which the linear-time :meth:`Hypergraph.from_glued` is
+    checked for regressions. """
+    factory = H[type(old).ar]
+    return factory.functor(
+        ob_map=lambda typ: typ, ar_map=factory.from_box,
+        dom=type(old), cod=factory)(old)
+
+
+def test_Hypergraph_from_glued():
+    x = Ty('x')
+    f, g = Box('f', x, x).to_hypergraph(), Box('g', x, x).to_hypergraph()
+    assert H.from_glued(x, x, [(f, 0), (g, 0)]) == f >> g
+
+
+def test_Hypergraph_from_diagram_closed_loop():
+    """ A cap glued directly onto a cup leaves a closed loop: it must
+    survive gluing as a scalar spider rather than vanish because it is
+    never referenced by :attr:`Hypergraph.dom_wires`, ``box_wires`` or
+    ``cod_wires``, see issue #623. """
+    x = Ty('x')
+    diagram = Cap(x, x) >> Cup(x, x)
+    hypergraph = diagram.to_hypergraph()
+    assert hypergraph.n_spiders == 1 and hypergraph.scalar_spiders == [0]
+    assert not hypergraph.is_acyclic
+    assert hypergraph == _naive_from_diagram(diagram)
+
+
+def test_Hypergraph_from_diagram_matches_naive_composition():
+    """ Gluing every box in one pass agrees with folding their images with
+    :meth:`Hypergraph.then` one layer at a time, on diagrams that exercise
+    a chain of swaps, states and effects, and boxes of different arity and
+    coarity sharing a layer, see issue #623. """
+    x = Ty('x')
+    f = Box('f', x, x)
+    state, effect = Box('s', Ty(), x), Box('e', x, Ty())
+    split, merge = Box('p', x, x @ x), Box('m', x @ x, x)
+
+    chain = Diagram.id(x @ x)
+    for _ in range(6):
+        chain = chain >> (f @ x) >> Diagram.swap(x, x)
+
+    diagrams = [
+        chain,
+        state >> split >> merge >> effect,
+        Diagram.id(x) @ split >> f @ merge,
+        Cap(x, x) @ x >> x @ Cup(x, x),
+    ]
+    for diagram in diagrams:
+        assert diagram.to_hypergraph() == _naive_from_diagram(diagram)
+
+
+def test_Hypergraph_from_diagram_pinned_category():
+    """ Calling :meth:`from_diagram` on a :class:`Hypergraph` pinned to a
+    category other than the diagram's own must still pick the functor of
+    the diagram's own category, i.e. ``factory.functor`` rather than
+    ``cls.functor``: a :class:`symmetric.Hypergraph` has no ``Functor``
+    that expands a :class:`Spider`, so using its functor would flatten the
+    spider into an opaque box instead of pure wiring, per the cubic-dev-ai
+    review of #644. """
+    from discopy import symmetric
+    x = Ty('x')
+    spider = Spider(1, 2, x)
+    result = symmetric.Hypergraph.from_diagram(spider)
+    assert result.boxes == () and result == _naive_from_diagram(spider)
+    assert result == spider.to_hypergraph()
 
 
 def test_subclass_to_hypergraph():
