@@ -1,15 +1,9 @@
 # TODO
 
-USER's review on #701, 2026-09-07:
+USER's review on #701, 2026-09-07, followed here since `rdiff` is built on its optics:
 
 > the swap is useless here, we can get rid of it by changing the formula for lenses
 
-(`docs/_static/optics/lens.svg`)
-
 > even worse here the double swap shouldn't be here from the start
 
-(`docs/_static/optics/tensor.svg`)
-
-- [WIP] @session_0124rh162JphJzjCUFHzdBtC-2026-09-07 17:15 The residual on the right of the forward leg, `dom.positive -> cod.positive @ residual`, the backward leg unchanged: `to_int` is planar and `Lens.to_optic` is `copy >> get @ id`, no swap.
-- [WIP] @session_0124rh162JphJzjCUFHzdBtC-2026-09-07 17:15 `tensor` with one swap per leg and none undone by the next; `then` with the swap on the forward leg, as `para` composes coparameters.
-- [WIP] @session_0124rh162JphJzjCUFHzdBtC-2026-09-07 17:15 Tests and the four `docs/_static/optics` baselines regenerated; both threads answered; #705's `rdiff` follows on its own branch.
+- [WIP] @session_0124rh162JphJzjCUFHzdBtC-2026-09-07 17:35 `rdiff` on the new convention: a reverse rule's forward leg is `A -> B @ M`, `reverse_rule` reads the codomain off the end, `rdiff` discards the primal output on the left of the residual; tests and doctest to match.
