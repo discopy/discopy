@@ -33,7 +33,7 @@ import numpy as np
 
 from matplotlib.testing.compare import compare_images
 from matplotlib import patheffects
-from matplotlib.patches import PathPatch, Patch, Rectangle
+from matplotlib.patches import PathPatch, Patch
 from matplotlib.path import Path
 from PIL import Image, ImageSequence
 
@@ -348,7 +348,34 @@ def inject_dark_mode_style_buffer(buffer):
     buffer.write(patched)
 
 
-def _bezier_subcurve(points, t0, t1):
+def blossom(points, u, v):
+    """
+    Evaluate the `blossom`_ of a quadratic Bezier (3 control points) on a
+    pair of parameters, i.e. the symmetric multi-affine map that gives back
+    the curve on the diagonal: ``blossom(points, t, t)`` is the point of
+    the curve at ``t``.
+
+    .. _blossom: https://en.wikipedia.org/wiki/Blossom_(functional)
+    """
+    (x0, y0), (xc, yc), (x1, y1) = points
+    return Point(
+        (1 - u) * (1 - v) * x0 + ((1 - u) * v + u * (1 - v)) * xc
+        + u * v * x1,
+        (1 - u) * (1 - v) * y0 + ((1 - u) * v + u * (1 - v)) * yc
+        + u * v * y1)
+
+
+def quadratic_subcurve(points, t0, t1):
+    """
+    Restrict a quadratic Bezier (3 control points) to the range [t0, t1],
+    i.e. evaluate its :func:`blossom` on the pairs (t0, t0), (t0, t1) and
+    (t1, t1).
+    """
+    return (blossom(points, t0, t0), blossom(points, t0, t1),
+            blossom(points, t1, t1))
+
+
+def bezier_subcurve(points, t0, t1):
     """ Restrict a cubic Bezier (4 control points) to the range [t0, t1]. """
     def lerp(a, b, t):
         return (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
@@ -378,23 +405,6 @@ class Backend(ABC):
 
     def draw_polygon(self, *points, facecolor=None, edgecolor=None):
         """ Draws a polygon given a list of points. """
-        self.max_width = max(self.max_width, max(i for i, _ in points))
-
-    def draw_curved_polygon(
-            self, *points, facecolor=None, edgecolor=None, bend_out=False):
-        """
-        Draws a polygon whose first edge is a quadratic Bezier curve
-        rather than a straight line, e.g. for the coloured regions of
-        :meth:`draw_regions`.
-
-        The first two points are the start and end of the curved edge,
-        the remaining points are connected by straight lines back to the
-        start, as in :meth:`draw_polygon`. The Bezier control point is
-        the corner of the start and end points, i.e.
-        ``(points[1].x, points[0].y)``, or ``(points[0].x, points[1].y)``
-        when ``bend_out`` is set, so that the curve hugs a wire bending
-        out of or into a box.
-        """
         self.max_width = max(self.max_width, max(i for i, _ in points))
 
     @staticmethod
@@ -509,7 +519,7 @@ class Backend(ABC):
         spans = [(0, 1)] if not gap else [(0, 0.5 - gap), (0.5 + gap, 1)]
         for t0, t1 in spans:
             a_sub, b_sub = (
-                _bezier_subcurve(a, t0, t1), _bezier_subcurve(b, t0, t1))
+                bezier_subcurve(a, t0, t1), bezier_subcurve(b, t0, t1))
             self.draw_filled_shape(a_sub[0], [
                 ("curve", a_sub[1], a_sub[2], a_sub[3]), ("line", b_sub[3]),
                 ("curve", b_sub[2], b_sub[1], b_sub[0])], color)
@@ -525,8 +535,8 @@ class Backend(ABC):
         control = self.braid_strand(source, target, middle)
         if not gap:
             return self.draw_bezier(control)
-        self.draw_bezier(_bezier_subcurve(control, 0, 0.5 - gap))
-        self.draw_bezier(_bezier_subcurve(control, 0.5 + gap, 1))
+        self.draw_bezier(bezier_subcurve(control, 0, 0.5 - gap))
+        self.draw_bezier(bezier_subcurve(control, 0.5 + gap, 1))
 
     def draw_spiders(self, graph, draw_box_labels=True, **params):
         """ Draws a list of boxes depicted as spiders. """
@@ -580,6 +590,122 @@ class Backend(ABC):
                 if colour is not None and colour.name != "white":
                     colours.setdefault(colour.name, colour)
         return colours
+
+    @staticmethod
+    def region_separators(graph):
+        """
+        The boundaries between the regions of a drawing: a quadratic Bezier
+        ``(top, control, bottom)`` for each non-horizontal visible edge and
+        for both sides of each box, paired with the name of the colour of
+        the region to its right. The Bezier control point is the one of
+        :meth:`draw_wire`, so a separator hugs the wire drawn over it.
+        Horizontal edges bound no region on either side, so they are left
+        out, and the left side of a box carries ``None`` since a box is a
+        2-cell, i.e. there is no region underneath it.
+        """
+        separators = []
+        for source, target in Backend.visible_edges(graph):
+            top, bottom = graph.positions[source], graph.positions[target]
+            if top.y == bottom.y:
+                continue
+            control = Point(bottom.x, top.y) if source.kind == "box"\
+                else Point(top.x, bottom.y)
+            if top.y < bottom.y:
+                top, bottom = bottom, top
+            typ = getattr(source, 'x', None) or getattr(target, 'x', None)
+            separators.append(((top, control, bottom), typ.cod.name))
+        for node in graph.box_nodes:
+            if node.box.draw_as_wires or node.box.draw_as_spider:
+                continue
+            for side, colour in [(0, None), (1, node.box.dom.cod.name)]:
+                top = graph.positions[Node(f"box-corner-{side}1", j=node.j)]
+                bottom = graph.positions[Node(f"box-corner-{side}0", j=node.j)]
+                separators.append(
+                    ((top, Point(top.x, bottom.y), bottom), colour))
+        return separators
+
+    @staticmethod
+    def separator_param(curve, y):
+        """
+        The Bezier parameter at which a separator ``curve`` from top to
+        bottom crosses the horizontal line at height ``y``, see
+        :meth:`region_separators`. The control point of a separator is
+        level with one of its endpoints, so its height is monotone and
+        the parameter has a closed form.
+        """
+        top, control, bottom = (point.y for point in curve)
+        if control == top:
+            return sqrt(max(0., min(1., (top - y) / (top - bottom))))
+        return 1 - sqrt(max(0., min(1., (y - bottom) / (top - bottom))))
+
+    @staticmethod
+    def region_band(separators, bottom, top):
+        """
+        The separators that span the height band from ``bottom`` to ``top``,
+        restricted to it and ordered from left to right, see
+        :meth:`region_cells`. Two separators may touch at a shared endpoint
+        on the boundary of the band but never cross inside it, so they are
+        ordered by their horizontal position at its middle height.
+        """
+        band = []
+        for curve, colour in separators:
+            if curve[0].y < top or curve[-1].y > bottom:
+                continue
+            first, last = (
+                Backend.separator_param(curve, y) for y in (top, bottom))
+            middle = Backend.separator_param(curve, (top + bottom) / 2)
+            (x0, _), control, (x1, _) = quadratic_subcurve(
+                curve, first, last)
+            band.append((
+                quadratic_subcurve(curve, middle, middle)[0].x,
+                (Point(x0, top), control, Point(x1, bottom)), colour))
+        return [(curve, colour)
+                for _, curve, colour in sorted(band, key=lambda x: x[0])]
+
+    @staticmethod
+    def region_cells(graph):
+        """
+        The exact extents of the coloured regions of a drawing, computed by
+        trapezoidal decomposition: the canvas is subdivided at every height
+        where a separator starts or ends and, inside each of the resulting
+        bands, each consecutive pair of separators bounds one cell, filled
+        with the colour that its left boundary carries -- ``graph.dom.dom``
+        for the leftmost cell, with the sides of the canvas as outermost
+        boundaries. White cells are left out as they are the neutral
+        background, see :meth:`region_colours`, and so are the cells
+        underneath a box, whose left side carries no colour at all.
+
+        Returns the list of cells ``(left, right, colour)`` where ``left``
+        and ``right`` are quadratic Beziers ``(top, control, bottom)``
+        restricted to the band, ordered bottom to top then left to right.
+        """
+        separators = Backend.region_separators(graph)
+        heights = sorted(set([0, graph.height] + [
+            point.y for curve, _ in separators
+            for point in (curve[0], curve[-1])]))
+        cells = []
+        for bottom, top in zip(heights, heights[1:]):
+            left, colour = (
+                Point(0, top), Point(0, bottom), Point(0, bottom)
+            ), graph.dom.dom.name
+            for right, next_colour in Backend.region_band(
+                    separators, bottom, top):
+                if right != left:
+                    cells.append((left, right, colour))
+                left, colour = right, next_colour
+            cells.append((left, (
+                Point(graph.width, top), Point(graph.width, bottom),
+                Point(graph.width, bottom)), colour))
+        return [cell for cell in cells if cell[-1] not in (None, "white")]
+
+    def draw_region_cell(self, left, right, facecolor):
+        """
+        Fill the cell between two quadratic Beziers ``left`` and ``right``
+        given as ``(top, control, bottom)`` triples spanning the same
+        height band, see :meth:`region_cells`.
+        """
+        self.max_width = max(
+            self.max_width, max(x for x, _ in left + right))
 
     @staticmethod
     def visible_edges(graph):
@@ -883,15 +1009,15 @@ class Backend(ABC):
             # ribbon has turned over: fill it with a darker shade of the
             # front colour, for a nicer visual of the twist.
             front_top0, back_top0 = (
-                _bezier_subcurve(top0, 0, .5), _bezier_subcurve(top0, .5, 1))
+                bezier_subcurve(top0, 0, .5), bezier_subcurve(top0, .5, 1))
             back_bottom0, front_bottom0 = (
-                _bezier_subcurve(bottom0, 0, .5),
-                _bezier_subcurve(bottom0, .5, 1))
+                bezier_subcurve(bottom0, 0, .5),
+                bezier_subcurve(bottom0, .5, 1))
             front_top1, back_top1 = (
-                _bezier_subcurve(top1, 0, .5), _bezier_subcurve(top1, .5, 1))
+                bezier_subcurve(top1, 0, .5), bezier_subcurve(top1, .5, 1))
             back_bottom1, front_bottom1 = (
-                _bezier_subcurve(bottom1, 0, .5),
-                _bezier_subcurve(bottom1, .5, 1))
+                bezier_subcurve(bottom1, 0, .5),
+                bezier_subcurve(bottom1, .5, 1))
             self.draw_filled_shape(front_top0[0], [
                 ("curve", *front_top0[1:]), ("line", front_top1[3]),
                 ("curve", front_top1[2], front_top1[1], front_top1[0])],
@@ -1097,36 +1223,15 @@ class TikZ(Backend):
         self.edgelayer.append(f"\\draw [{options}] {str_connections};\n")
         super().draw_polygon(*points)
 
-    def draw_curved_polygon(
-            self, *points,
-            facecolor=DEFAULT["facecolor"], edgecolor=DEFAULT["edgecolor"],
-            bend_out=False):
-        source, target, *rest = points
-        control = (target[0], source[1]) if bend_out\
-            else (source[0], target[1])
-        source_node = self.add_node(*source)
-        control_node = self.add_node(*control)
-        target_node = self.add_node(*target)
-        rest_nodes = [self.add_node(*point) for point in rest]
-        options = f"-, fill={{{facecolor}}}"
-        curve = (
-            f"({source_node}.center) .. controls "
-            f"({control_node}.center) .. ({target_node}.center)")
-        straight = "".join(
-            f" to ({node}.center)" for node in rest_nodes + [source_node])
-        self.edgelayer.append(f"\\draw [{options}] {curve}{straight};\n")
-        super().draw_curved_polygon(
-            *points, facecolor=facecolor, edgecolor=edgecolor,
-            bend_out=bend_out)
-
     def draw_regions(self, graph, **params):
         """
         Coloured regions are not wired up for the TikZ backend yet, even
-        though :meth:`draw_curved_polygon` is implemented above: region
-        colours may be arbitrary matplotlib colours (e.g. hexcodes) that
-        are not valid TikZ/xcolor names, so filling them in for real needs
-        a colour-formatting step similar to :meth:`format_color`. This is
-        a deliberate no-op in the meantime, leaving TikZ's output as-is.
+        though :meth:`Backend.region_cells` computes their extents for any
+        backend: region colours may be arbitrary matplotlib colours (e.g.
+        hexcodes) that are not valid TikZ/xcolor names, so filling them in
+        for real needs a colour-formatting step similar to
+        :meth:`format_color`. This is a deliberate no-op in the meantime,
+        leaving TikZ's output as-is.
         """
         super().draw_regions(graph, **params)
 
@@ -1243,8 +1348,6 @@ class Matplotlib(Backend):
             self.axis.set_facecolor("none")
         self.linewidth = linewidth
         self.format = format
-        self.region_paths = []
-        self.opaque_canvas = False
         self.adaptive_count = 0
         super().__init__()
 
@@ -1253,11 +1356,8 @@ class Matplotlib(Backend):
         The ``id`` of the next SVG element that adapts to a dark page:
         :func:`inject_dark_mode_style` turns the stroke of ``"stroke"``
         elements and the fill of ``"fill"`` elements white under
-        ``prefers-color-scheme: dark``. On the opaque white canvas of
-        :meth:`draw_opaque_canvas` nothing adapts, so this is ``None``.
+        ``prefers-color-scheme: dark``.
         """
-        if self.opaque_canvas:
-            return None
         self.adaptive_count += 1
         return f"dark-{kind}-{self.adaptive_count}"
 
@@ -1301,21 +1401,6 @@ class Matplotlib(Backend):
             path_effects=effects, zorder=.75 if below else 1,
             gid=self.adaptive_gid("stroke") if adaptive else None))
 
-    def draw_opaque_canvas(self):
-        """
-        Paints the canvas white behind everything, called by :meth:`output`
-        when a white region has overpainted a coloured one: the painter's
-        algorithm of :meth:`draw_regions` erases to white rather than to
-        transparent, so the drawing only reads on the white page it erased
-        for, see https://github.com/discopy/discopy/issues/521
-        """
-        xlim, ylim = self.axis.get_xlim(), self.axis.get_ylim()
-        self.axis.add_patch(Rectangle(
-            (xlim[0], ylim[0]), xlim[1] - xlim[0], ylim[1] - ylim[0],
-            facecolor="white", edgecolor="none", zorder=0))
-        self.axis.set_xlim(xlim)
-        self.axis.set_ylim(ylim)
-
     def draw_boundary(self, graph, boundary_color="none", **params):
         """ Draw a transparent canvas with an optional boundary colour. """
         x, y = graph.width, graph.height
@@ -1355,84 +1440,27 @@ class Matplotlib(Backend):
             edgecolor=COLORS.get(edgecolor, edgecolor)))
         super().draw_polygon(*points)
 
-    def draw_curved_polygon(
-            self, *points,
-            facecolor=DEFAULT["facecolor"], edgecolor=DEFAULT["edgecolor"],
-            bend_out=False):
-        source, target, *rest = points
-        control = (target[0], source[1]) if bend_out\
-            else (source[0], target[1])
-        vertices = [source, control, target] + rest + [source]
-        codes = [Path.MOVETO, Path.CURVE3, Path.CURVE3]\
-            + len(rest) * [Path.LINETO] + [Path.CLOSEPOLY]
-        # Disable antialiasing so that abutting same-colour regions do not
-        # leave a hairline seam where the background shows through.
-        patch = PathPatch(
+    def draw_region_cell(self, left, right, facecolor):
+        """
+        Fill the cell between two quadratic Beziers with a single patch:
+        down the ``left`` boundary, straight across the bottom, up the
+        ``right`` boundary and straight back across the top. Antialiasing
+        is disabled so that abutting cells of the same colour do not leave
+        a hairline seam where the background shows through.
+        """
+        vertices = list(left) + list(reversed(right)) + [left[0]]
+        codes = [Path.MOVETO] + 2 * [Path.CURVE3]\
+            + [Path.LINETO] + 2 * [Path.CURVE3] + [Path.CLOSEPOLY]
+        self.axis.add_patch(PathPatch(
             Path(vertices, codes), linewidth=0, antialiased=False,
-            facecolor=COLORS.get(facecolor, facecolor), edgecolor='none')
-        self.axis.add_patch(patch)
-        super().draw_curved_polygon(
-            *points, facecolor=facecolor, edgecolor=edgecolor,
-            bend_out=bend_out)
-        return patch
-
-    def _draw_right_region(self, source, target, width, facecolor,
-                           bend_out=False):
-        """
-        Fill the region to the right of a wire from ``source`` to
-        ``target``, up to the diagram's right-hand ``width``, with a
-        curved polygon, see :meth:`draw_curved_polygon` and the example
-        in ``test_draw_right_region_example`` for a concrete case.
-
-        Regions are painted left to right by overpainting everything to the
-        right of each wire, so a white region must overpaint the colours
-        before it; it is clipped to them so that the rest of the canvas
-        stays transparent.
-        """
-        points = (source, target, (width, target[1]), (width, source[1]))
-        if facecolor != "white":
-            self.region_paths.append(self.draw_curved_polygon(
-                *points, facecolor=facecolor, bend_out=bend_out).get_path())
-        elif self.region_paths:
-            self.opaque_canvas = True
-            self.draw_curved_polygon(
-                *points, facecolor=facecolor, bend_out=bend_out
-            ).set_clip_path(
-                Path.make_compound_path(*self.region_paths),
-                self.axis.transData)
+            facecolor=COLORS.get(facecolor, facecolor), edgecolor='none'))
+        super().draw_region_cell(left, right, facecolor)
 
     def draw_regions(self, graph, **params):
-        """ Fill the coloured 0-cell regions of the diagram. """
-        self._draw_right_region(
-            (0, 0), (0, graph.height), graph.width, graph.dom.dom.name)
-
-        separators = []
-
-        for source, target in self.visible_edges(graph):
-            source_position, target_position = (
-                graph.positions[source], graph.positions[target])
-            if source_position == target_position:
-                continue
-            typ = getattr(source, 'x', None) or getattr(target, 'x', None)
-            bend_out = source.kind == "box"
-            x = (source_position.x + target_position.x) / 2
-            separators.append((x, source_position, target_position,
-                               typ.cod.name, bend_out))
-
-        for node in graph.box_nodes:
-            box = node.box
-            if box.draw_as_wires or box.draw_as_spider:
-                continue
-            j = node.j
-            top_right = graph.positions[Node("box-corner-11", j=j)]
-            bottom_right = graph.positions[Node("box-corner-10", j=j)]
-            separators.append((top_right.x, top_right, bottom_right,
-                               box.dom.cod.name, False))
-
-        for _, source, target, colour, bend_out in sorted(
-                separators, key=lambda item: item[0]):
-            self._draw_right_region(
-                source, target, graph.width, colour, bend_out=bend_out)
+        """ Fill the coloured 0-cell regions of the diagram, one patch per
+        cell of :meth:`region_cells`. """
+        for left, right, colour in self.region_cells(graph):
+            self.draw_region_cell(left, right, facecolor=colour)
         super().draw_regions(graph, **params)
 
     def draw_legend(self, graph, **params):
@@ -1539,8 +1567,6 @@ class Matplotlib(Backend):
             self.axis.set_xlim(*xlim)
         if ylim is not None:
             self.axis.set_ylim(*ylim)
-        if self.opaque_canvas:
-            self.draw_opaque_canvas()
         if path is not None:
             try:
                 savefig(

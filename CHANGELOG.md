@@ -9,17 +9,28 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
-- The style review can be asked for, and turned off, from the pull request
-  itself: `@discopy review this` in a comment reviews it now, and the
-  `no-style-review` label stops the automatic reviews on it, while the
-  comment goes on working — it is "stop reviewing this on its own", not
-  "never review this". The comment is read from people with write access
-  only, and labelling already is, so nobody who can merely comment can
-  silence the reviewer or spend the gateway budget. It replaces the
-  `style-review` label, which did the same on demand except that it never
-  handed over to the correctness reviewer. A pull request already open and
-  not about to change had no trigger at all otherwise, since only a push
-  reaches one ([#638](https://github.com/discopy/discopy/issues/638)).
+- A `workflows` job in `build.yml`, so that the code running our pull
+  requests is checked like the code it checks: `actionlint` over the
+  workflows, `pflake8` over `.github`, and `pytest .github/tests/*.py`
+  over the three scripts and the composite action, whose steps take a
+  strict subset of a workflow step's keys that `actionlint` does not
+  check. Three of the last five changes to `.github`
+  were fixing bugs in `.github`
+  ([#611](https://github.com/discopy/discopy/issues/611),
+  [#615](https://github.com/discopy/discopy/issues/615),
+  [#640](https://github.com/discopy/discopy/issues/640)), every one found
+  in production. On its first runs shellcheck found the `A && B || C` in
+  `benchmark.yml`'s summary step, now an `if`
+  ([#645](https://github.com/discopy/discopy/pull/645)).
+- `.github/actions/setup`, one composite action for installing uv, Python,
+  the project and, for the jobs that draw, Graphviz. The three `build.yml`
+  jobs called for it four times between them and the Graphviz incantation
+  was byte-identical twice. `benchmark.yml` keeps its own steps: it checks
+  out two arbitrary commits and one of them predates this action
+  ([#645](https://github.com/discopy/discopy/pull/645)).
+- `.github/dependabot.yml`, grouping the monthly GitHub Actions updates
+  into one pull request, now that every action is pinned by commit
+  ([#645](https://github.com/discopy/discopy/pull/645)).
 - `Diagram.to_compact` and `CMap.to_compact`, bending curry bubbles into
   coevaluation and feedback. Since a biclosed category has no trace, the
   `biclosed` method lands in `CMap`, which is compact whatever hosts it,
@@ -28,17 +39,6 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   with `biclosed.Coeval`, the transpose of `Eval`, which a biclosed
   category only has when its exponential is read at a reflexive object
   ([#532](https://github.com/discopy/discopy/pull/532)).
-- A style review workflow: on a revision of a same-repo pull request, one
-  model request reads every changed Python file whole — with the
-  package-local files they import as context — checks the diff against the
-  file's own conventions and `STYLE.md`, and
-  discopy-bot posts the findings as one review — style only, correctness
-  stays with the correctness reviewer, whom discopy-bot calls once the
-  style review has nothing to say. Inference runs on an open-weights
-  model behind an OpenAI-compatible gateway, configured by the
-  `STYLE_REVIEW_BASE_URL` and `STYLE_REVIEW_MODEL` repository variables and
-  the `STYLE_REVIEW_API_KEY` secret
-  ([#608](https://github.com/discopy/discopy/pull/608)).
 - Combinatorial map representation, `discopy.cmap`, encoding diagrams in
   compact categories as a permutation on the ports of each box
   ([#338](https://github.com/discopy/discopy/pull/338)).
@@ -100,6 +100,46 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   ([#484](https://github.com/discopy/discopy/pull/484)).
 
 ### Changed
+
+- The benchmark measures a pull request against its merge base rather
+  than the tip of its base branch. The head does not contain what landed
+  on `main` since it forked, so measuring against the tip charged the pull
+  request for everyone else's commits. `benchmark.yml` resolves it with one
+  `compare` call and records it as `previous` in the artifact metadata,
+  next to the `base` the comment still validates itself against
+  ([#645](https://github.com/discopy/discopy/pull/645)).
+- `benchmark-comment.yml` is 33 lines of YAML calling
+  `.github/scripts/benchmark_comment.py` rather than 140 lines of
+  JavaScript embedded in YAML. Nothing needed `actions/github-script`: the
+  event payload is a JSON file named by `GITHUB_EVENT_PATH` and the REST
+  API is `urllib`, from the standard library.
+  In Python it is lintable, testable and in the one language this
+  repository is written in; its validation is `unreadable`, `unattested`
+  and `mismatch`, three pure functions the tests state the refusals of.
+  The job also stopped taking the artifact's word for three things, since
+  the pull request can write it: the pull request number is checked to be
+  an integer before it reaches a URL rather than after, the merge base the
+  comment links is checked against one the job computes itself from two
+  commits it already trusts, and a run that lists no pull request of its
+  own -- one from a fork -- must name the single open pull request for its
+  head rather than any that shares its branch. A download that fails is no
+  longer silence: the job asks whether the artifact was staged at all, and
+  only then posts nothing
+  ([#645](https://github.com/discopy/discopy/pull/645)).
+- `build.yml` and `benchmark.yml` cancel a pull request's superseded runs
+  but let every commit on `main` finish, `cancel-in-progress` reading
+  `github.event_name == 'pull_request'`. Cancelling on `main` left commits
+  nothing ever built — `112b6036` is one — and threw away the pair of
+  measurements a benchmark run exists to produce
+  ([#645](https://github.com/discopy/discopy/pull/645)).
+- Every action is pinned by commit, not by moving tag, as
+  `benchmark-comment.yml` already pinned two of them; `build.yml` declares
+  `permissions: contents: read` like the other four workflows; and every
+  checkout sets `persist-credentials: false`
+  ([#645](https://github.com/discopy/discopy/pull/645)).
+- `build.yml` drops the `SRC_DIR` and `TEST_DIR` variables, which nothing
+  read, and the `tooling/uv-migration` push trigger, whose branch is gone
+  ([#645](https://github.com/discopy/discopy/pull/645)).
 
 - `CMap` is aligned on `Hypergraph`. It is parameterised by a category as
   `NamedGeneric["category"]` instead of carrying `require_*` flags, and it is
@@ -243,11 +283,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   block turning the black strokes and labels on the transparent canvas
   white, so browsers show solid white wires and labels on a dark page
   while other renderers keep the borders as the static fallback; wires
-  beside a coloured region keep their black. A drawing whose regions
-  erase a colour back to white keeps an opaque white canvas, on which
-  nothing adapts, until
-  [#521](https://github.com/discopy/discopy/issues/521) fills regions
-  between their two boundaries
+  beside a coloured region keep their black. Region painting is exact
+  rather than paint-then-erase (see
+  [#521](https://github.com/discopy/discopy/issues/521) below), so no
+  drawing needs an opaque fallback canvas: every drawing stays transparent
   ([#497](https://github.com/discopy/discopy/pull/497)).
 - Benchmarks compare two commits measured on the same runner rather than a
   committed baseline, so no baseline is stored in the repository and no
@@ -269,31 +308,55 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   factory string load the same way
   ([#566](https://github.com/discopy/discopy/pull/566)).
 
+### Removed
+
+- `cat.Bubble.dagger`: a bubble's dagger was inherited from `Box.dagger`,
+  which reconstructs with `type(self)(name, cod, dom, ...)` — positional
+  arguments `Bubble.__init__` reads as `*args`, so it crashed with
+  `AttributeError` on the very first (non-arrow) argument. `Bubble` now
+  daggers each of its `args`, swaps `dom`/`cod` and carries `data`/`is_dagger`
+  through like `Box.dagger` does
+  ([#55](https://github.com/discopy/discopy/issues/55)).
+- `style-review.yml`'s hand-over to the correctness reviewer, and its
+  token generation, ran on every style review rather than the intended
+  ones. Both conditions were written as `if: >` folding a wrapped
+  `${{ ... }}` into a string with a trailing newline: with characters
+  around it the expression is no longer the whole value, so GitHub read a
+  non-empty string and took it as true. `@cubic-dev-ai review` was
+  therefore posted whatever the style review found, where it is meant to
+  wait for a clean one. [#634](https://github.com/discopy/discopy/pull/634)
+  rewrote both conditions and the shape survived, so the fix is applied to
+  its versions: written bare, as the file's other five conditions are
+  ([#645](https://github.com/discopy/discopy/pull/645)).
+- The in-house style reviewer — `.github/style-review/` (the `review.py`,
+  `post.py`, `history.py`, `thread.py` and `github.py` scripts and their
+  `prompt.md`), the `style-review.yml` workflow, and their tests under
+  `.github/tests/` — is retired in favour of CodeRabbit, configured by a
+  new `.coderabbit.yaml` that restates `STYLE.md` as per-path review
+  instructions. It was built around our own open-weights model behind an
+  OpenAI-compatible gateway, and around a cross-round `accepted`/`declined`/
+  `open` tally kept in hidden review bodies; CodeRabbit is free for public
+  repositories, so the gateway (and the `STYLE_REVIEW_BASE_URL`/`_MODEL`
+  variables and `STYLE_REVIEW_API_KEY` secret it read) is no longer needed.
+  Correctness review is unchanged — cubic keeps that lane — but the two
+  reviewers now run as independent GitHub Apps on pull request events, so
+  the style→correctness hand-over the workflow orchestrated (the source of
+  #634/#645/#676) is gone rather than reimplemented. The `no-todo-on-main`
+  draft gate stays: a draft carries its `TODO.md` and CodeRabbit skips
+  drafts, so deleting `TODO.md` still hands a pull request to the style
+  reviewer first.
+
 ### Fixed
 
-- The style review no longer depends on a transition that may never
-  happen. `ready_for_review` fires on the draft-to-ready edge alone, so a
-  pull request whose `TODO.md` was deleted before it was ever opened went
-  unreviewed, silently — no run, no notice, nothing in the Actions tab —
-  and a pull request the review did find something on was never reviewed
-  again, since fixing a nitpick is a plain push, leaving the correctness
-  reviewer, called only on a clean review, never called at all.
-  `style-review.yml` now triggers on `opened` and `synchronize` as well: a
-  pull request that is not draft and carries no `TODO` file is in the
-  review phase by construction, since `no-todo-on-main.yml` forces draft
-  while a `TODO` is there, so every revision of it is reviewed. Every
-  automatic trigger waits while a `TODO` file is in the tree, which also
-  keeps the review from racing that guard — on a `main`-based pull request
-  the deleting push lands while the guard still holds it draft, so the
-  review comes from the `ready_for_review` that follows rather than twice,
-  while a pull request based on anything else, which the guard watching
-  `main` alone never drafts and never marks ready, is reviewed on the push
-  itself. The hand-over to the correctness reviewer happens once per pull
-  request rather than on every clean run, since it re-reviews each push on
-  its own. A draft is never reviewed, whatever the trigger, and asking for
-  one by comment is what ignores the wait
-  ([#615](https://github.com/discopy/discopy/issues/615),
-  [#636](https://github.com/discopy/discopy/issues/636)).
+- Region painting computes the exact extents of each coloured region —
+  polygons bounded by the wires on both sides, subdivided per height band —
+  instead of overpainting everything to the right of each wire up to the
+  full canvas width: translucent colours are no longer painted twice where
+  two regions of the same colour are adjacent, white regions are not
+  painted at all, so they erase to the background, and neither is the
+  inside of a box, which is a 2-cell rather than a region, so no colour
+  can bleed out around its border
+  ([#521](https://github.com/discopy/discopy/issues/521)).
 - Pivotal diagram-to-map conversion now encodes cups and caps as `CMap`
   wiring rather than keeping them as boxes
   ([#532](https://github.com/discopy/discopy/pull/532)).
@@ -320,44 +383,6 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   and `draw` raise. The check is gated on `_scan`, so the internal fast paths
   that build layers by construction are unaffected
   ([#599](https://github.com/discopy/discopy/issues/599)).
-- `review.py`'s style-review request: `ask` used to let a gateway
-  `HTTPError` propagate without reading its body, so a 400 gave no clue
-  whether it meant a dead model slug or an oversized prompt; it now prints
-  the response body before re-raising. `assemble` used to budget the raw
-  file texts against `BUDGET`, but `numbered`'s line-number prefixes, the
-  per-file headers, `prompt.md` and `STYLE.md` were all added on top,
-  uncounted, so the assembled prompt could exceed `BUDGET` on a PR
-  touching a large module even when its diff was small; every part is now
-  budgeted as assembled. `ask` also used to unconditionally send
-  `"reasoning": {"enabled": False, "exclude": True}`, which not only 400s
-  on models that mandate reasoning (e.g. `stealth/ox-alpha`, with
-  "Reasoning is mandatory for this endpoint and cannot be disabled") but
-  measurably hurt review quality by forcing it off; `ask` no longer sends
-  the `reasoning` field at all, leaving it to each model's own default,
-  with `max_tokens` raised from 8,192 to 32,768 so reasoning tokens don't
-  starve the answer, and it now logs `finish_reason`/`usage` on every
-  response and the raw answer on a JSON-parse failure, so a truncated or
-  malformed answer is diagnosable instead of a bare traceback
-  ([#611](https://github.com/discopy/discopy/issues/611)).
-- `style-review.yml` diffed `-- '*.py'` only, so a pull request touching
-  only a `docs/notebooks/*.md` marimo notebook always diffed empty: the
-  review step was skipped silently and the correctness reviewer was called
-  with no style pass at all. The diff now covers every authored file —
-  Python, notebooks, docs, workflows, config — excluding generated
-  artefacts (`docs/_static/**`, `discopy/*.gif`, `test/drawing/tikz/**`,
-  `test/fixtures/**`, `uv.lock`). `review.py` fences each changed file by
-  its own type (`python`, `markdown`, `yaml`, …) instead of assuming
-  everything is Python, and picks a fence at least one backtick longer
-  than any run already inside the file, so a notebook's own cell fences
-  or an inline code span can never close it early. Each changed file is
-  now sent once, not twice: rather than the full new file followed by a
-  separate global diff, `review.py` asks git for the full-context
-  (`-U100000`) diff of each file and turns it into one listing — every
-  added or context line numbered by its position in the new file, with a
-  leading `+` for one added; a removed line carries a `-` instead and no
-  number, since it has none in the new file — reusing git's own diff
-  algorithm instead of reimplementing it
-  ([#633](https://github.com/discopy/discopy/pull/633)).
 - `no-todo-on-main.yml`'s guard reads the pull request's live `draft`
   field rather than `github.event.pull_request.draft`, a snapshot taken
   when the event fires and stale by however long the event then waited
@@ -461,6 +486,25 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `then` and re-validating the whole prefix at every step. This speeds
   up `Diagram.eval` on every tensor backend
   ([#525](https://github.com/discopy/discopy/pull/525)).
+- `Hypergraph.from_diagram` is linear rather than quadratic in the number
+  of layers, mirroring `CMap.from_glued`: the new `Hypergraph.from_glued`
+  glues the image of every box onto a scan of open wires with a single
+  union-find pass, instead of folding the images with `then`, which
+  recomputes the pushout and relabels every spider and box built so far
+  at each layer. A closed loop left by gluing a cap directly onto a cup
+  survives as a scalar spider, since it is never referenced by the
+  scan and would otherwise vanish silently. This speeds up
+  `symmetric.Equation`, `compact.Equation`, `frobenius.Equation`,
+  `Hypergraph.simplify` and `Diagram.foliation`, all of which go through
+  `Diagram.to_hypergraph`
+  ([#623](https://github.com/discopy/discopy/issues/623)).
+- `CMap.ports` is a `cached_property`, confirmed with a regression test
+  rather than assumed from `CMap`'s immutability: `Hypergraph.from_map`
+  reads it once per box, so a plain `@property` rebuilding the whole port
+  list on every access made `CMap.to_hypergraph` quadratic in the number
+  of boxes, 226 s at 3200 boxes. It is now linear, e.g. 65.6 ms at 800
+  boxes and 294.9 ms at 3200, down from 5.4 s and 226 s
+  ([#624](https://github.com/discopy/discopy/issues/624)).
 
 ### Project
 
