@@ -72,6 +72,20 @@ class PyTorch(Backend):
         """ Return a parameter-free all-port zero module. """
         return Zeros()
 
+    def index(self, indices: tuple[int, ...], like=None) -> torch.Tensor:
+        """ Return a long tensor of positions on the device of ``like``. """
+        device = None if like is None else like.device
+        return torch.tensor(indices, dtype=torch.long, device=device)
+
+    def put(self, value: torch.Tensor, indices: torch.Tensor,
+            updates: torch.Tensor) -> torch.Tensor:
+        """ Return a copy of ``value`` with ``updates`` at ``indices``. """
+        return value.index_copy(1, indices, updates.to(value.dtype))
+
+    def compile(self, function, **kwargs):
+        """ Return the function under ``torch.compile``. """
+        return torch.compile(function, **kwargs)
+
 
 class Zeros(torch.nn.Module):
     """ An all-port module which emits zeros with its input's metadata. """

@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING
 
 import jax
 import jax.numpy as jnp
+import numpy
 
 from discopy.neural.backend import Backend
 from discopy.neural.execution import box_forward
@@ -84,6 +85,25 @@ class JAX(Backend):
     def zeros_module(self):
         """ Return a parameter-free all-port zero callable PyTree. """
         return jax.tree_util.Partial(jnp.zeros_like)
+
+    def index(self, indices: tuple[int, ...], like=None):
+        """ Return an integer array of positions, concrete under ``jit``. """
+        return numpy.asarray(indices, dtype=numpy.int32)
+
+    def put(self, value, indices, updates):
+        """ Return a copy of ``value`` with ``updates`` at ``indices``. """
+        return value.at[:, indices].set(updates)
+
+    def compile(self, function, **kwargs):
+        """
+        Return the function under ``jax.jit``, with ``inject`` static: the
+        round step of :func:`~discopy.neural.execution.make_step` branches
+        on it.
+        """
+        static = kwargs.pop("static_argnames", ())
+        static = (static, ) if isinstance(static, str) else tuple(static)
+        return jax.jit(
+            function, static_argnames=static + ("inject", ), **kwargs)
 
 
 @jax.tree_util.register_pytree_node_class

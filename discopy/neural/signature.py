@@ -11,8 +11,7 @@ symmetry -- a spider, a braid, a constraint unit over nine members.  Those
 stay boxes, and their equations hold **iff the torch module satisfies
 them**.  A :class:`Signature` is where that promise is written down: it says
 how many ports a box has, which of them are one orbit under a group, and
-which are traced; :func:`~discopy.neural.laws.check_equivariant` then
-measures whether the module keeps it.
+which are traced; whether the module keeps it is measured, not assumed.
 
 A signature is not part of the user-facing workflow -- a
 :class:`~discopy.neural.MapNN` reads a diagram, not a signature.  It is the
@@ -22,10 +21,10 @@ used in three places that would otherwise have to agree by hand:
 * :meth:`Signature.cod` builds the type of an abstract box, so that
   :func:`from_incidence` and :func:`from_relation` can draw a wiring out of
   a family's combinatorics alone;
-* :meth:`Signature.slices` gives the flat offsets a
-  :mod:`~discopy.neural.cells` module reads and writes;
-* :meth:`Signature.generators` gives the group
-  :func:`~discopy.neural.laws.check_equivariant` runs a module against.
+* :meth:`Signature.slices` gives the flat offsets a module filling the
+  box reads and writes;
+* :meth:`Signature.generators` gives the group an equivariance check runs
+  a module against.
 
 Summary
 -------
@@ -233,7 +232,7 @@ class Signature:
         persistent state channel: what a box writes on one end it reads
         back on the other one round later.  That is delayed feedback under
         finite iteration, not a fixed point; see
-        :class:`~discopy.neural.map.Interaction`.
+        :mod:`discopy.neural.map`.
         """
         result, cursor = [], 0
         for orbit in self.orbits:
@@ -300,8 +299,7 @@ class Signature:
         A permutation acts on the *legs* of one orbit and on every copy of
         each leg alike, so a traced orbit stays traced.  The identity of
         the group generated is the equation the module at this site must
-        satisfy; :func:`~discopy.neural.laws.check_equivariant` measures
-        how far it is from it.
+        satisfy.
 
         Example
         -------
@@ -332,9 +330,7 @@ def leg_generators(sym: Sym, arity: int) -> list[tuple[int, ...]]:
     The generators of a symmetry group, as permutations of legs.
 
     This is the group itself, before it acts on anything:
-    :meth:`Signature.generators` is the same group acting on ports and
-    :mod:`discopy.neural.laws` is where it is read as an action
-    :math:`\\rho : G \\to \\mathrm{Aut}(X)`.
+    :meth:`Signature.generators` is the same group acting on ports.
 
     Parameters:
         sym : The symmetry the legs carry.
@@ -423,7 +419,7 @@ def from_incidence(incidence: tuple, node: Signature, relation: Signature,
     (5, 9)
 
     A graph-level readout is one more relation every node belongs to,
-    under its own name -- a generator, not a solver feature:
+    under its own name -- a generator, not a feature of the model:
 
     >>> shape = from_incidence(
     ...     ((0, 1), (0, 1), (1, )), node, unit,

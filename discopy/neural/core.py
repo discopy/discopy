@@ -19,19 +19,16 @@ which implements the execution formula of the geometry of interaction, see
 :cite:t:`Abramsky96` and :mod:`discopy.interaction` for the Int-construction
 of Joyal, Street & Verity :cite:p:`JoyalEtAl96`.
 
-The forward pass is vectorized: all the messages live in one flat tensor, one
-round of routing is a single permutation of its last axis, and every box that
-shares a module and a port signature is evaluated in one batched call, so a
-grid of identical cells costs one module call per round rather than one per
-cell. On a closed map -- no boundary, every port owned by a box -- the
-messages are stored in box order rather than port order, so each module reads
-its inputs as a contiguous view and one round costs exactly one permutation,
-with no gather or scatter around the module calls. It runs on whatever device
-its parameters live on, so ``cmap.to("cuda")`` followed by
-``cmap(x.to("cuda"))`` trains on the GPU. :meth:`CMap.forward_reference`
-is the equivalent one-call-per-box implementation, kept for clarity and tests;
-:meth:`CMap.compile` wraps the per-round step in ``torch.compile`` for maps
-whose rounds are launch-bound rather than compute-bound.
+The forward pass is the :class:`~discopy.neural.execution.Execution` of the
+map on a :class:`~discopy.neural.backend.Backend`, torch or JAX: all the
+messages live in one flat array, one round of routing is a single
+permutation of its last axis, and every box that shares a module and a port
+signature is evaluated in one batched call, so a grid of identical cells
+costs one module call per round rather than one per cell. It runs on
+whatever device its parameters live on, so ``cmap.to("cuda")`` followed by
+``cmap(x.to("cuda"))`` trains on the GPU, and :meth:`CMap.compile` hands the
+per-round step to the backend's compiler for maps whose rounds are
+launch-bound rather than compute-bound.
 Cells need not be feedforward: a box can carry state between rounds along a
 self-wired pair of ports.  Structurally that pair *is* the categorical trace
 of the compact target -- it is wiring, which a functor preserves strictly --
@@ -43,9 +40,9 @@ kept apart there.
 
 This module is the *category*.  Training a neural interpretation of a
 diagram goes through :class:`~discopy.neural.MapNN`, which compiles a
-diagram and a family of shared generator modules into an
-:class:`~discopy.neural.map.Interaction` and hands it to a
-:class:`~discopy.neural.Solver`.
+diagram and a family of shared generator modules into a :class:`CMap` and
+addresses its flat state by ``(generator name, role)`` through
+:meth:`CMap.read` and :meth:`CMap.write`.
 
 Note that ``import discopy.neural`` does not import ``torch``: networks can
 be built, composed and rewired without it, only evaluating their modules
@@ -94,8 +91,8 @@ from functools import cached_property
 from discopy import cat, cmap, compact, hypergraph, monoidal, para
 from discopy.cat import factory
 from discopy.cmap import PortKind
-from discopy.neural.backend import Backend, current, get_backend
-from discopy.neural.execution import Execution
+from discopy.neural.backend import Backend, get_backend
+from discopy.neural.execution import Execution, make_step
 from discopy.pivotal import Ty
 from discopy.utils import assert_isinstance, factory_name, from_tree as decode
 
@@ -590,315 +587,221 @@ class CMap(cmap.CMap[Diagram]):
         return Network(name, self.dom, self.cod, module=backend.wrap(self),
                        mem=Dim(sum(self.memory_widths)))
 
-    def _prepare(self, x, init):
-        """
-        Common set-up for the two forward passes: the number of rows in the
-        batch and the ``dtype``/``device`` of a reference tensor, taken from
-        the input, the initial messages or the parameters in that order.
-        """
-        given = [x] + (list(init)
-                       if isinstance(init, (list, tuple)) else [init])
-        ref = next((t for t in given if t is not None), None)
-        batch_size = 1 if ref is None else ref.shape[0]
-        proto = ref
-        if proto is None and self.boxes:
-            proto = next(iter(self.parameters()), None)
-        if proto is None and self.boxes:
-            proto = next(iter(self.module_list.buffers()), None)
-        kwargs = {} if proto is None else {
-            "dtype": proto.dtype, "device": proto.device}
-        return batch_size, kwargs
-
-    def forward_reference(self, x=None, init=None, n_rounds: int = None,
-                          inject: bool = True, **kwargs):
-        """
-        Synchronous message passing along the wires of the map, one Python
-        call per box per round, on any backend: the :class:`Execution` of
-        :mod:`discopy.neural.execution`. It is the reference the vectorised
-        :meth:`forward` is checked against, and the path that carries
-        private memory, the causal schedule and every backend but torch.
-
-        Parameters:
-            x : The input, of shape ``(batch_size, sum of domain widths)``.
-            init : The initial incoming messages, given per port or as one
-                   tensor of shape ``(batch_size, sum of port widths)``.
-            n_rounds : The number of rounds, the number of boxes by default.
-            inject : Whether to re-add ``init`` to the incoming messages at
-                     every round rather than just the first.
-            kwargs : ``memory``, ``return_memory``, ``causal``, ``backend``
-                     and ``modules``, see :meth:`forward`.
-        """
-        causal = kwargs.pop("causal", False)
-        return_memory = kwargs.pop("return_memory", False)
-        execution = Execution(self, x, init, **kwargs)
-        if causal:
-            if n_rounds is not None:
-                raise ValueError(
-                    "A causal schedule cannot be combined with n_rounds.")
-            return execution.forward_causal(inject, return_memory)
-        return execution.forward(n_rounds, inject, return_memory)
-
     @cached_property
     def routing(self) -> dict:
         """
-        Cached index tensors for the vectorized :meth:`forward`, on the CPU
-        and moved to the working device at call time:
+        The wiring of the map as flat positions, with no tensor framework:
 
         * ``total`` : the total width, and ``offsets`` : the flat offset of
           each port,
-        * ``src`` : the routing permutation, ``incoming = outgoing[:, src]``,
-        * ``input``, ``output`` : the boundary ports of the map,
-        * ``groups`` : boxes grouped by shared module and port widths, each
-          with the flat indices of their ports in logical order, so that one
-          module call evaluates a whole group at once; a module wrapping a
-          map is called through its all-port ``box_forward``.
+        * ``src`` : the routing permutation, ``incoming = outgoing[src]``,
+        * ``input``, ``output`` : the flat positions of the boundary ports,
+        * ``boxes`` : the ports of each box in logical order, and
+          ``memory`` : the flat range of each box's private memory,
+        * ``groups`` : the boxes grouped by module, port widths and memory
+          width, each with its ``ports`` and ``memory`` positions in box
+          order, so that one module call evaluates a whole group at once.
+
+        Example
+        -------
+        >>> f = Network('f', Dim(0), Dim(1, 1), module=object())
+        >>> ring = CMap.from_wiring(
+        ...     (f, f), [((0, 0), (1, 1)), ((0, 1), (1, 0))])
+        >>> ring.routing["src"], ring.routing["boxes"]
+        ((3, 2, 1, 0), ((1, 0), (3, 2)))
+        >>> ring.routing["groups"][0]["ports"]
+        (1, 0, 3, 2)
         """
-        import torch
-        widths = self.port_widths
+        widths, memory_widths = self.port_widths, self.memory_widths
         offsets, total = [], 0
         for width in widths:
             offsets.append(total)
             total += width
-        src = torch.empty(total, dtype=torch.long)
-        for i, width in enumerate(widths):
-            j = self.edges[i]
-            src[offsets[i]:offsets[i] + width] = torch.arange(
-                offsets[j], offsets[j] + widths[j])
+        memory_offsets = [0]
+        for width in memory_widths:
+            memory_offsets.append(memory_offsets[-1] + width)
 
+        def flat(ports):
+            return tuple(k for i in ports
+                         for k in range(offsets[i], offsets[i] + widths[i]))
+
+        boxes = tuple(
+            self.box_ports(index) for index in range(len(self.boxes)))
+        memory = tuple(
+            tuple(range(memory_offsets[i], memory_offsets[i + 1]))
+            for i in range(len(self.boxes)))
         groups: dict = {}
-        for index, box in enumerate(self.boxes):
-            assert_isinstance(box, Network)
-            box_ports = self.box_ports(index)
-            key = (id(box.module), tuple(widths[i] for i in box_ports))
-            module = getattr(box.module, "box_forward", box.module)
-            groups.setdefault(key, (module, []))[1].append(
-                (index, box_ports))
-
-        def gather(members):
-            return torch.tensor([
-                [k for i in box_ports
-                 for k in range(offsets[i], offsets[i] + widths[i])]
-                for _, box_ports in members], dtype=torch.long)
-
+        for index, ports in enumerate(boxes):
+            key = (self.module_indices[index],
+                   tuple(widths[i] for i in ports), memory_widths[index])
+            groups.setdefault(key, []).append(index)
         return {
-            "total": total, "offsets": offsets, "src": src,
-            "input": tuple(i for i, port in enumerate(self.ports)
-                           if port.kind == PortKind.INPUT),
-            "output": tuple(i for i, port in enumerate(self.ports)
-                            if port.kind == PortKind.OUTPUT),
-            "groups": tuple(
-                (module, tuple(index for index, _ in members), gather(members))
-                for module, members in groups.values())}
+            "total": total, "offsets": tuple(offsets),
+            "src": flat(tuple(self.edges)),
+            "input": flat(self.input_ports), "output": flat(self.output_ports),
+            "boxes": boxes, "memory": memory,
+            "groups": tuple({
+                "module": module, "boxes": tuple(members),
+                "width": sum(box_widths), "memory_width": memory_width,
+                "ports": tuple(k for i in members for k in flat(boxes[i])),
+                "memory": tuple(k for i in members for k in memory[i])}
+                for (module, box_widths, memory_width), members
+                in groups.items())}
 
-    @cached_property
-    def fused_routing(self) -> dict:
+    def indices(self, backend: Backend, like=None) -> dict:
         """
-        Index tensors for the closed-map fast path of :meth:`forward`, where
-        the flat messages are stored in *box order* -- for each group of
-        boxes sharing a module, one contiguous block of shape ``(n_boxes,
-        width)`` -- rather than in port order:
-
-        * ``layout`` : the port-order position stored at each box-order
-          position, i.e. ``box_order = port_order[..., layout]``,
-        * ``inverse`` : the inverse permutation, back to port order,
-        * ``perm`` : one round of routing in box order, the wire involution
-          conjugated by the change of layout, ``inverse . src . layout``,
-        * ``metas`` : per group, its module, box indices and block shape.
-
-        In this layout every module reads its inputs as a contiguous view
-        and one round of routing is the single permutation ``perm``: the
-        clone, the scatters and the input gathers of the port-order step
-        all disappear.  Only defined for closed maps, where every port
-        belongs to a box, so the group blocks partition the flat tensor.
-        """
-        import torch
-        routing = self.routing
-        layout = torch.cat([
-            gather.reshape(-1) for _, _, gather in routing["groups"]])
-        assert len(layout) == routing["total"], "the map is not closed"
-        inverse = torch.empty_like(layout)
-        inverse[layout] = torch.arange(len(layout))
-        return {
-            "layout": layout, "inverse": inverse,
-            "perm": inverse[routing["src"][layout]],
-            "metas": tuple(
-                (module, indices, gather.shape[0], gather.shape[1])
-                for module, indices, gather in routing["groups"])}
-
-    @cached_property
-    def _device_routing_cache(self) -> dict:
-        """ The per-device entries of :meth:`device_routing`. """
-        return {}
-
-    def device_routing(self, device) -> dict:
-        """
-        The index tensors of :attr:`routing` -- and, for closed maps, of
-        :attr:`fused_routing` -- on a device, cached so that repeated
-        forward passes do not re-copy them from the CPU.
-        """
-        cache = self._device_routing_cache
-        if device not in cache:
-            routing = self.routing
-            entry = {
-                "src": routing["src"].to(device),
-                "groups": tuple(
-                    (module, indices, gather.to(device))
-                    for module, indices, gather in routing["groups"])}
-            if not routing["input"] and not routing["output"] and self.boxes:
-                fused = self.fused_routing
-                entry.update(
-                    layout=fused["layout"].to(device),
-                    inverse=fused["inverse"].to(device),
-                    perm=fused["perm"].to(device),
-                    metas=fused["metas"])
-            cache[device] = entry
-        return cache[device]
-
-    def compile(self, unroll: bool = False, **kwargs) -> CMap:
-        """
-        Compile the per-round step of :meth:`forward` with ``torch.compile``.
-
-        Message passing over a small map is launch-bound rather than
-        compute-bound: each round issues many small kernels whose launch
-        overhead dwarfs their arithmetic. Compiling the round step fuses
-        them, typically a several-fold wall-clock speedup on a GPU. The
-        round loop stays in Python, so ``n_rounds`` stays dynamic and does
-        not trigger recompilation; compilation happens lazily on the first
-        forward pass per device and batch size.
+        The :attr:`routing` as index arrays of a backend, cached per
+        backend and device: ``src``, ``input``, ``output``, the
+        ``boundary`` inputs then outputs, every box's ``ports`` in box
+        order, the ``groups`` and each box on its own in ``boxes``, with
+        the ``targets`` its outputs arrive at.
 
         Parameters:
-            unroll : Whether to compile the whole ``n_rounds`` loop of a
-                     closed map as one function rather than one round at a
-                     time, so that e.g. ``mode="reduce-overhead"`` replays a
-                     run as a single CUDA graph. One graph is compiled per
-                     distinct ``n_rounds``, so this suits loops whose depth
-                     is fixed; ``return_rounds`` falls back to the
-                     round-by-round step.
-            kwargs : Passed through to ``torch.compile``, e.g. ``mode``.
-
-        Note
-        ----
-        Compiled kernels may reorder floating-point reductions, so results
-        can differ from the eager path by rounding error (relative
-        differences of about ``1e-6``); gradients agree to the same order.
+            backend : The execution backend.
+            like : An array on the device the indices should live on.
         """
-        self._step_compile = kwargs
-        self._unroll = unroll
-        self.__dict__.pop("_step_cache", None)
-        self.__dict__.pop("_step_flat_cache", None)
-        self.__dict__.pop("_runner_cache", None)
+        key = (backend, getattr(like, "device", None))
+        cache = self.__dict__.setdefault("index_cache", {})
+        if key not in cache:
+            routing, widths = self.routing, self.port_widths
+
+            def index(positions):
+                return backend.index(tuple(positions), like)
+
+            def entry(group):
+                return dict(group, ports=index(group["ports"]),
+                            memory=index(group["memory"]))
+
+            def box(i, ports):
+                return entry({
+                    "module": self.module_indices[i], "boxes": (i, ),
+                    "width": sum(widths[port] for port in ports),
+                    "memory_width": self.memory_widths[i],
+                    "ports": [k for port in ports for k in range(
+                        routing["offsets"][port],
+                        routing["offsets"][port] + widths[port])],
+                    "memory": routing["memory"][i],
+                    "targets": [k for port in ports for k in range(
+                        routing["offsets"][self.edges[port]],
+                        routing["offsets"][self.edges[port]]
+                        + widths[port])]})
+
+            cache[key] = {
+                "src": index(routing["src"]),
+                "input": index(routing["input"]),
+                "output": index(routing["output"]),
+                "boundary": index(routing["input"] + routing["output"]),
+                "ports": index(k for group in routing["boxes"]
+                               for port in group for k in range(
+                                   routing["offsets"][port],
+                                   routing["offsets"][port] + widths[port])),
+                "groups": tuple(map(entry, routing["groups"])),
+                "boxes": tuple(
+                    box(i, ports) for i, ports in enumerate(routing["boxes"]))}
+            for box_entry in cache[key]["boxes"]:
+                box_entry["targets"] = index(box_entry["targets"])
+        return cache[key]
+
+    def __getstate__(self):
+        """ The map without its caches of index arrays and round steps. """
+        state = dict(self.__dict__)
+        state.pop("index_cache", None)
+        state.pop("step_cache", None)
+        return state
+
+    def compile(self, **kwargs) -> CMap:
+        """
+        Compile the per-round :meth:`step` with the backend's compiler,
+        ``torch.compile`` on torch, so that the many small kernels of a
+        round on a small map are fused. The round loop stays in Python, so
+        ``n_rounds`` stays dynamic; compilation happens lazily on the first
+        forward pass per backend, device and modules.
+
+        Parameters:
+            kwargs : Passed through to the compiler, e.g. ``mode``.
+        """
+        self.compile_kwargs = kwargs
+        self.__dict__.pop("step_cache", None)
         return self
 
-    def _step_body(self, device):
+    def step(self, backend: Backend, like=None, modules=None):
         """
-        One round of message passing as a single function of flat tensors,
-        ``(incoming, source, init) -> (incoming, group outputs)``, cached
-        per device. On a closed map the flat tensors are in the box-order
-        layout of :attr:`fused_routing` and ``source`` is ignored; on an
-        open map they are in port order.
+        One round of message passing as a function of flat arrays,
+        :func:`~discopy.neural.execution.make_step`'s closure over the
+        :meth:`indices` and the modules, cached per backend, device and
+        modules and compiled when :meth:`compile` was called.
+
+        Parameters:
+            backend : The execution backend.
+            like : An array on the device the round runs on.
+            modules : The backend-owned modules, those of the boxes by
+                      default.
         """
-        import torch
-        cache = self.__dict__.setdefault("_step_body_cache", {})
-        if device not in cache:
-            routing = self.device_routing(device)
-            if "perm" in routing:
-                perm, metas = routing["perm"], routing["metas"]
+        modules = self.modules if modules is None else modules
+        key = (backend, getattr(like, "device", None), tuple(map(id, modules)))
+        cache = self.__dict__.setdefault("step_cache", {})
+        if key not in cache:
+            step = make_step(backend, modules, self.indices(backend, like))
+            kwargs = getattr(self, "compile_kwargs", None)
+            cache[key] = step if kwargs is None\
+                else backend.compile(step, **kwargs)
+        return cache[key]
 
-                def step(incoming, source, init):
-                    chunks, group_outputs, offset = [], [], 0
-                    for module, _, n_boxes, width in metas:
-                        block = n_boxes * width
-                        outputs = module(
-                            incoming[:, offset:offset + block]
-                            .reshape(-1, width))
-                        group_outputs.append(
-                            outputs.reshape(-1, n_boxes, width))
-                        chunks.append(outputs.reshape(-1, block))
-                        offset += block
-                    incoming = torch.cat(chunks, dim=-1)[:, perm]
-                    if init is not None:
-                        incoming = incoming + init
-                    return incoming, group_outputs
-            else:
-                src, groups = routing["src"], routing["groups"]
-
-                def step(incoming, source, init):
-                    outgoing = source.clone()
-                    group_outputs = []
-                    for module, _, gather in groups:
-                        n_boxes, width = gather.shape
-                        outputs = module(
-                            incoming[:, gather.reshape(-1)]
-                            .reshape(-1, width)).reshape(-1, n_boxes, width)
-                        outgoing[:, gather.reshape(-1)] = outputs.reshape(
-                            outputs.shape[0], n_boxes * width)
-                        group_outputs.append(outputs)
-                    incoming = outgoing[:, src]
-                    if init is not None:
-                        incoming = incoming + init
-                    return incoming, group_outputs
-            cache[device] = step
-        return cache[device]
-
-    def _compiled(self, function):
+    def zeros(self, rows: int, like=None, backend: str | Backend = None):
         """
-        The function wrapped in ``torch.compile`` when :meth:`compile` was
-        called on the map, the function itself otherwise.
-        """
-        if getattr(self, "_step_compile", None) is None:
-            return function
-        import torch
-        return torch.compile(function, **self._step_compile)
+        An all-zero flat state of ``rows`` rows, one summand per port.
 
-    def _step(self, device):
+        Parameters:
+            rows : The batch size.
+            like : An array whose dtype and device the state follows.
+            backend : The backend name or instance, the current one by
+                      default.
         """
-        The round step of :meth:`_step_body`, wrapped in ``torch.compile``
-        when :meth:`compile` was called on the map, cached per device.
+        return get_backend(backend).zeros(
+            rows, self.routing["total"], like=like)
+
+    def read(self, state, ports: tuple[int, ...],
+             backend: str | Backend = None):
         """
-        cache = self.__dict__.setdefault("_step_cache", {})
-        if device not in cache:
-            cache[device] = self._compiled(self._step_body(device))
-        return cache[device]
+        The messages of a family of equally wide ports, as an array of
+        shape ``(rows, len(ports), width)``, from a flat state.
 
-    def _step_flat(self, device):
+        Parameters:
+            state : The flat messages, ``(rows, total)``.
+            ports : The global port indices.
+            backend : The backend name or instance, the current one by
+                      default.
         """
-        The round step of :meth:`_step_body` followed by the permutation
-        back to port order, ``(incoming, init) -> (incoming, flat, group
-        outputs)``, cached per device and compiled like :meth:`_step`.
-        This is the step of ``return_rounds`` with ``return_flat`` on a
-        closed map: emitting the port-order flat inside the step keeps
-        the per-round read out of the eager path.
+        widths, offsets = self.port_widths, self.routing["offsets"]
+        width = widths[ports[0]] if ports else 0
+        if any(widths[port] != width for port in ports):
+            raise ValueError(
+                "ports of different widths cannot be read as one block")
+        index = get_backend(backend).index(tuple(
+            k for port in ports
+            for k in range(offsets[port], offsets[port] + width)), state)
+        return state[:, index].reshape(state.shape[0], len(ports), width)
+
+    def write(self, state, ports: tuple[int, ...], values,
+              backend: str | Backend = None):
         """
-        cache = self.__dict__.setdefault("_step_flat_cache", {})
-        if device not in cache:
-            body = self._step_body(device)
-            inverse = self.device_routing(device)["inverse"]
+        A copy of a flat state with ``values`` written on a family of
+        equally wide ports.
 
-            def step(incoming, init):
-                incoming, group_outputs = body(incoming, None, init)
-                return incoming, incoming[:, inverse], group_outputs
-
-            cache[device] = self._compiled(step)
-        return cache[device]
-
-    def _runner(self, device, n_rounds: int):
+        Parameters:
+            state : The flat messages, ``(rows, total)``.
+            ports : The global port indices.
+            values : An array of shape ``(rows, len(ports), width)``.
+            backend : The backend name or instance, the current one by
+                      default.
         """
-        The whole ``n_rounds`` loop over :meth:`_step_body` as one function,
-        wrapped in ``torch.compile`` when :meth:`compile` was called with
-        ``unroll=True``, cached per device and number of rounds.
-        """
-        cache = self.__dict__.setdefault("_runner_cache", {})
-        if (device, n_rounds) not in cache:
-            step = self._step_body(device)
-
-            def run(incoming, init):
-                group_outputs = None
-                for _ in range(n_rounds):
-                    incoming, group_outputs = step(incoming, None, init)
-                return incoming, group_outputs
-
-            cache[device, n_rounds] = self._compiled(run)
-        return cache[device, n_rounds]
+        backend = get_backend(backend)
+        offsets, widths = self.routing["offsets"], self.port_widths
+        index = backend.index(tuple(
+            k for port in ports
+            for k in range(offsets[port], offsets[port] + widths[port])),
+            state)
+        return backend.put(state, index, values.reshape(state.shape[0], -1))
 
     def forward(self, x=None, init=None, n_rounds: int = None,
                 inject: bool = True, return_rounds: bool = False,
@@ -907,19 +810,11 @@ class CMap(cmap.CMap[Diagram]):
                 backend: str | Backend = None, modules=None):
         """
         Synchronous message passing along the wires of the map, i.e. the
-        execution formula of the geometry of interaction.
-
-        On torch tensors with the modules of the boxes, no private memory
-        and no causal schedule, this is vectorised: all the messages live in
-        one flat tensor of shape ``(batch_size, total width)``, routing
-        along the wires is one permutation of the last axis and all the
-        boxes sharing a module and a port signature are evaluated in one
-        batched call, on the device of the input, the initial messages or
-        the parameters. Everything else -- another backend, whether given
-        here or selected by the :func:`~discopy.neural.backend.backend`
-        context, replacement modules, private memory, the causal schedule
-        -- runs the reference :meth:`forward_reference`, one call per box
-        per round.
+        execution formula of the geometry of interaction, as the
+        :class:`~discopy.neural.execution.Execution` of the map on a
+        backend: all the messages in one flat array, the boxes sharing a
+        module evaluated in one batched call per round and the routing one
+        permutation.
 
         Parameters:
             x : The input, of shape ``(batch_size, sum of domain widths)``.
@@ -935,11 +830,7 @@ class CMap(cmap.CMap[Diagram]):
                           the next round -- one tensor of shape
                           ``(batch_size, sum of port widths)`` in port
                           order -- instead of slicing the boundary ports or
-                          collecting the per-box outputs. This is the same
-                          tensor that re-routing the per-box outputs would
-                          rebuild, so reading a family of ports from it
-                          directly skips that round-trip and keeps the
-                          backward graph small; see :meth:`compile`.
+                          collecting the per-box outputs.
             memory : The initial private memory, per box occurrence or as
                      one tensor of the concatenated memory dimensions.
             return_memory : Whether to return the final per-box memories
@@ -951,102 +842,22 @@ class CMap(cmap.CMap[Diagram]):
                       default.
             modules : The backend-owned modules in :attr:`modules` order,
                       the modules of the boxes by default.
-
-        Note
-        ----
-        On a closed map the messages are held in the box-order layout of
-        :attr:`fused_routing` -- module inputs are contiguous views, one
-        round of routing is one permutation -- and are only permuted back
-        to port order where the caller sees them, so the results are
-        identical to the port-order path element for element.
         """
-        if modules is not None and len(modules) == len(self.modules) and all(
-                given is own for given, own in zip(modules, self.modules)):
-            modules = None
-        if backend is None and current() != "pytorch":
-            backend = current()
-        if causal or return_memory or any(self.memory_widths) or any(
-                given is not None for given in (memory, backend, modules)):
+        if not (len(self.dom) or len(self.cod)) and x is not None\
+                and x.shape[-1]:
+            raise ValueError("A closed map takes no input.")
+        execution = Execution(
+            self, x, init, memory=memory, backend=backend, modules=modules)
+        if causal:
+            if n_rounds is not None:
+                raise ValueError(
+                    "A causal schedule cannot be combined with n_rounds.")
             if return_rounds or return_flat:
                 raise ValueError(
-                    "return_rounds and return_flat are only vectorised.")
-            return self.forward_reference(
-                x, init, n_rounds, inject, memory=memory,
-                return_memory=return_memory, causal=causal,
-                backend=backend, modules=modules)
-        import torch
-        routing = self.routing
-        widths, offsets = self.port_widths, routing["offsets"]
-        n_rounds = len(self.boxes) if n_rounds is None else n_rounds
-        if n_rounds < 0:
-            raise ValueError("n_rounds cannot be negative.")
-        closed = not (len(self.dom) or len(self.cod))
-        if closed and x is not None and x.shape[-1]:
-            raise ValueError("A closed map takes no input.")
-        batch_size, kwargs = self._prepare(x, init)
-        device = kwargs.get("device", None)
-        step = self._step(device)
-        device_routing = self.device_routing(device)
-        groups = device_routing["groups"]
-        fused = "perm" in device_routing
-
-        if isinstance(init, (list, tuple)):
-            init = torch.cat([
-                message if message is not None
-                else torch.zeros(batch_size, width, **kwargs)
-                for message, width in zip(init, widths)], dim=-1)
-
-        if fused:
-            source = None
-            incoming = torch.zeros(batch_size, routing["total"], **kwargs)\
-                if init is None else init[:, device_routing["layout"]]
-            injected = incoming if (inject and init is not None) else None
-        else:
-            src = device_routing["src"]
-            source = torch.zeros(batch_size, routing["total"], **kwargs)
-            if x is not None:
-                for i, chunk in zip(routing["input"], torch.split(
-                        x, [widths[i] for i in routing["input"]], dim=-1)):
-                    source[:, offsets[i]:offsets[i] + widths[i]] = chunk
-            incoming = source[:, src] if init is None \
-                else init + source[:, src]
-            injected = init if (inject and init is not None) else None
-
-        def read(incoming, group_outputs):
-            if return_flat:
-                return incoming[:, device_routing["inverse"]] if fused \
-                    else incoming
-            if closed:
-                box_outputs = [None] * len(self.boxes)
-                for (_, indices, _), outputs in zip(groups, group_outputs):
-                    if outputs is not None:
-                        for k, index in enumerate(indices):
-                            box_outputs[index] = outputs[:, k]
-                return tuple(box_outputs)
-            return torch.cat([
-                incoming[:, offsets[i]:offsets[i] + widths[i]]
-                for i in routing["output"]], dim=-1)\
-                if routing["output"] else torch.zeros(
-                    batch_size, 0, **kwargs)
-
-        if fused and n_rounds and not return_rounds \
-                and getattr(self, "_unroll", False):
-            incoming, group_outputs = self._runner(device, n_rounds)(
-                incoming, injected)
-            return read(incoming, group_outputs)
-
-        rounds, group_outputs = [], [None] * len(groups)
-        if fused and return_rounds and return_flat:
-            step_flat = self._step_flat(device)
-            for _ in range(n_rounds):
-                incoming, flat, group_outputs = step_flat(incoming, injected)
-                rounds.append(flat)
-            return rounds
-        for _ in range(n_rounds):
-            incoming, group_outputs = step(incoming, source, injected)
-            if return_rounds:
-                rounds.append(read(incoming, group_outputs))
-        return rounds if return_rounds else read(incoming, group_outputs)
+                    "A causal schedule has no rounds to return.")
+            return execution.forward_causal(inject, return_memory)
+        return execution.forward(
+            n_rounds, inject, return_memory, return_rounds, return_flat)
 
     __call__ = forward
 
