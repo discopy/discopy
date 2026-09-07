@@ -52,11 +52,11 @@
 
 ## Work
 
-- [ ] Open the issue `Docs build crashes on a ParamSpec under the pinned Sphinx 7.2`
-- [ ] Pin `sphinx == 7.4.*` in the `docs` extra of `pyproject.toml`
-- [ ] Regenerate `uv.lock` with `uv lock --upgrade-package sphinx` and read the diff
-- [ ] Build the docs on Python 3.14 before and after the bump and compare the warnings
-- [ ] Build the docs of `split/1-axiom-infra` on 3.14 without the `paramspec` shim and check the `Axiom` page
+- [WIP] @session_01Q2uPyh42cUZxXAuT28PQNQ-2026-09-07 13:24 Open the issue `Docs build crashes on a ParamSpec under the pinned Sphinx 7.2`
+- [WIP] @session_01Q2uPyh42cUZxXAuT28PQNQ-2026-09-07 13:24 Pin `sphinx == 7.4.*` in the `docs` extra of `pyproject.toml`
+- [WIP] @session_01Q2uPyh42cUZxXAuT28PQNQ-2026-09-07 13:24 Regenerate `uv.lock` with `uv lock --upgrade-package sphinx` and read the diff
+- [WIP] @session_01Q2uPyh42cUZxXAuT28PQNQ-2026-09-07 13:24 Build the docs on Python 3.14 before and after the bump and compare the warnings
+- [WIP] @session_01Q2uPyh42cUZxXAuT28PQNQ-2026-09-07 13:24 Build the docs of `split/1-axiom-infra` on 3.14 without the `paramspec` shim and check the `Axiom` page
 - [ ] Add the `CHANGELOG.md` bullet under `### Project` linking the issue
 - [ ] Run `uv run pflake8 discopy` and `uv run coverage run -m pytest`
 - [ ] Open the pull request against `main` with `Fixes #<n>`
