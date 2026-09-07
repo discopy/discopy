@@ -5,8 +5,9 @@ The category of optics over a symmetric underlying `category`, and its
 cartesian instance: lenses over a Markov category.
 
 An optic from a pair `(x, x_)` to a pair `(y, y_)` is a residual `m` with a
-`forward` morphism `x -> m @ y` and a `backward` morphism `m @ y_ -> x_` in
-the underlying category, see :cite:t:`Riley18`. Composition tensors the
+`forward` morphism `x -> y @ m` and a `backward` morphism `m @ y_ -> x_` in
+the underlying category, see :cite:t:`Riley18`, the residual on the outside
+of both legs so that the optic is drawn as a comb. Composition tensors the
 residuals, as in the category of parametric maps :mod:`discopy.para`: the
 forward leg is a coparametric map with the residual as coparameter, the
 backward leg a parametric map with the residual as parameter
@@ -31,30 +32,39 @@ Summary
 Axioms
 ------
 
-Composition tensors the residuals and routes nothing:
+Composition tensors the residuals: the backward legs compose past the first
+residual and the forward legs swap the second residual past the first, as
+:meth:`Symmetric.then <discopy.para.Symmetric.then>` does with its
+coparameters:
 
->>> from discopy.symmetric import Ty as T, Box
+>>> from discopy.symmetric import Ty as T, Box, Diagram
 >>> x, x_, y, y_, z, z_ = map(T, ["x", "x'", "y", "y'", "z", "z'"])
 >>> m, n = map(T, "mn")
 >>> X, Y, Z = Ty(x, x_), Ty(y, y_), Ty(z, z_)
->>> f = Optic(X, Y, Box('f', x, m @ y), Box("f'", m @ y_, x_), m)
->>> g = Optic(Y, Z, Box('g', y, n @ z), Box("g'", n @ z_, y_), n)
+>>> f = Optic(X, Y, Box('f', x, y @ m), Box("f'", m @ y_, x_), m)
+>>> g = Optic(Y, Z, Box('g', y, z @ n), Box("g'", n @ z_, y_), n)
 >>> assert (f >> g).residual == m @ n
->>> assert (f >> g).forward == f.forward >> m @ g.forward
+>>> assert (f >> g).forward\\
+...     == f.forward >> g.forward @ m >> z @ Diagram.swap(n, m)
 >>> assert (f >> g).backward == m @ g.backward >> f.backward
 >>> (f >> g).to_int().draw(doctest="docs/_static/optics/then.svg")
 
 .. image:: /_static/optics/then.svg
     :align: center
 
-The tensor swaps the residual of the right-hand side past the left-hand
-side, on both legs:
+The tensor swaps the residual of the left-hand side past the output of the
+right-hand side on the forward leg, and the residual of the right-hand side
+past the input of the left-hand side on the backward leg, one swap each:
 
 >>> w, w_, k = map(T, ["w", "w'", "k"])
 >>> W = Ty(w, w_)
->>> h = Optic(Z, W, Box('h', z, k @ w), Box("h'", k @ w_, z_), k)
+>>> h = Optic(Z, W, Box('h', z, w @ k), Box("h'", k @ w_, z_), k)
 >>> assert (f @ h).residual == m @ k
 >>> assert (f @ h).dom == X @ Z and (f @ h).cod == Y @ W
+>>> assert (f @ h).forward\\
+...     == f.forward @ h.forward >> y @ Diagram.swap(m, w) @ k
+>>> assert (f @ h).backward\\
+...     == m @ Diagram.swap(k, y_) @ w_ >> f.backward @ h.backward
 >>> (f @ h).to_int().draw(doctest="docs/_static/optics/tensor.svg")
 
 .. image:: /_static/optics/tensor.svg
@@ -189,14 +199,14 @@ def pairs(category) -> type:
 class Optic(SymmetricCategory, NamedGeneric['category']):
     """
     An optic from `dom` to `cod` is a `residual` with a `forward` morphism
-    `dom.positive -> residual @ cod.positive` and a `backward` morphism
+    `dom.positive -> cod.positive @ residual` and a `backward` morphism
     `residual @ cod.negative -> dom.negative` in an underlying `category`.
 
     Parameters:
         dom (Ty) : The domain of the optic.
         cod (Ty) : The codomain of the optic.
         forward (category) :
-            The morphism ``dom.positive -> residual @ cod.positive``.
+            The morphism ``dom.positive -> cod.positive @ residual``.
         backward (category) :
             The morphism ``residual @ cod.negative -> dom.negative``.
         residual (category.ob) : The residual, empty by default.
@@ -232,13 +242,14 @@ class Optic(SymmetricCategory, NamedGeneric['category']):
         identity = self.category.id
         assert_iscomposable(identity(self.dom.positive), self.forward)
         assert_iscomposable(
-            self.forward, identity(self.residual + self.cod.positive))
+            self.forward, identity(self.cod.positive + self.residual))
         assert_iscomposable(
             identity(self.residual + self.cod.negative), self.backward)
         assert_iscomposable(self.backward, identity(self.dom.negative))
 
     def __repr__(self):
-        return factory_name(type(self)) + f"({self.dom!r}, {self.cod!r}, "\
+        return f"optics.Optic[{factory_name(self.category)}]"\
+            f"({self.dom!r}, {self.cod!r}, "\
             f"{self.forward!r}, {self.backward!r}, {self.residual!r})"
 
     @classmethod
@@ -274,31 +285,35 @@ class Optic(SymmetricCategory, NamedGeneric['category']):
     def then(self, other: Optic) -> Optic:
         """
         Sequential composition tensors the residuals: the forward legs
-        compose past the first residual, the backward legs in reverse.
+        compose then swap the second residual past the first, the backward
+        legs compose in reverse past the first residual.
 
         Parameters:
             other : The optic to compose with.
         """
         assert_iscomposable(self, other)
-        residual = self.category.id(self.residual)
-        forward = self.forward >> residual @ other.forward
-        backward = residual @ other.backward >> self.backward
+        identity, swap = self.category.id, self.category.swap
+        forward = self.forward >> other.forward @ identity(self.residual)\
+            >> identity(other.cod.positive)\
+            @ swap(other.residual, self.residual)
+        backward = identity(self.residual) @ other.backward >> self.backward
         return type(self)(self.dom, other.cod, forward, backward,
                           self.residual + other.residual)
 
     @unbiased
     def tensor(self, other: Optic) -> Optic:
         """
-        Parallel composition tensors the residuals, swapping the residual
-        of `other` past the codomain of `self` on both legs.
+        Parallel composition tensors the residuals: the forward legs swap
+        the residual of `self` past the output of `other`, the backward legs
+        swap the residual of `other` past the input of `self`.
 
         Parameters:
             other : The optic to compose in parallel.
         """
         identity, swap = self.category.id, self.category.swap
-        forward = self.forward @ other.forward >> identity(self.residual)\
-            @ swap(self.cod.positive, other.residual)\
-            @ identity(other.cod.positive)
+        forward = self.forward @ other.forward >> identity(self.cod.positive)\
+            @ swap(self.residual, other.cod.positive)\
+            @ identity(other.residual)
         backward = identity(self.residual)\
             @ swap(other.residual, self.cod.negative)\
             @ identity(other.cod.negative) >> self.backward @ other.backward
@@ -321,25 +336,24 @@ class Optic(SymmetricCategory, NamedGeneric['category']):
     def to_int(self) -> interaction.Diagram:
         """
         The integer diagram `dom.positive @ cod.negative -> cod.positive @
-        dom.negative` of an optic over a traced category: the residual is
-        the wire between the two legs, so that composition of optics is the
-        symmetric feedback of :mod:`discopy.interaction` up to the axioms of
-        traced categories, and the tensor is that of integer diagrams up to
-        the swap of the negative halves.
+        dom.negative` of an optic over a traced category: the two legs side
+        by side with the residual as the wire between them, no swap, so that
+        composition of optics is the symmetric feedback of
+        :mod:`discopy.interaction` up to the axioms of traced categories,
+        and the tensor is that of integer diagrams up to the swap of the
+        negative halves.
 
         >>> from discopy.symmetric import Ty as T, Box
         >>> x, x_, y, y_, m = map(T, ["x", "x'", "y", "y'", "m"])
         >>> f = Optic(Ty(x, x_), Ty(y, y_),
-        ...           Box('f', x, m @ y), Box("f'", m @ y_, x_), m)
+        ...           Box('f', x, y @ m), Box("f'", m @ y_, x_), m)
         >>> f.to_int().draw(doctest="docs/_static/optics/to-int.svg")
 
         .. image:: /_static/optics/to-int.svg
             :align: center
         """
-        identity, swap = self.category.id, self.category.swap
+        identity = self.category.id
         inside = self.forward @ identity(self.cod.negative)\
-            >> swap(self.residual, self.cod.positive)\
-            @ identity(self.cod.negative)\
             >> identity(self.cod.positive) @ self.backward
         ob = interaction.Ty[self.ob.natural]
         return interaction.Diagram[self.category](
@@ -353,9 +367,9 @@ class Optic(SymmetricCategory, NamedGeneric['category']):
         """
         identity, discard = self.category.id, self.category.discard
         positive, negative, residual = *self.cod, self.residual
-        get = self.forward >> discard(residual) @ identity(positive)
-        put = self.forward @ identity(negative) >> identity(residual)\
-            @ discard(positive) @ identity(negative) >> self.backward
+        get = self.forward >> identity(positive) @ discard(residual)
+        put = self.forward @ identity(negative) >> discard(positive)\
+            @ identity(residual + negative) >> self.backward
         return Lens[self.category](self.dom, self.cod, get, put)
 
 
@@ -416,8 +430,8 @@ class Lens(SymmetricCategory, NamedGeneric['category']):
         assert_iscomposable(self.put, identity(self.dom.negative))
 
     def __repr__(self):
-        return factory_name(type(self)) + f"({self.dom!r}, {self.cod!r}, "\
-            f"{self.get!r}, {self.put!r})"
+        return f"optics.Lens[{factory_name(self.category)}]"\
+            f"({self.dom!r}, {self.cod!r}, {self.get!r}, {self.put!r})"
 
     @classmethod
     def lift(cls, get: category, backward: category = None) -> Lens:
@@ -514,6 +528,6 @@ class Lens(SymmetricCategory, NamedGeneric['category']):
         """
         identity, copy = self.category.id, self.category.copy
         positive = self.dom.positive
-        forward = copy(positive) >> identity(positive) @ self.get
+        forward = copy(positive) >> self.get @ identity(positive)
         return Optic[self.category](
             self.dom, self.cod, forward, self.put, positive)

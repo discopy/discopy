@@ -15,9 +15,9 @@ x, x_, y, y_, z, z_, w, w_ = map(
     T, ["x", "x'", "y", "y'", "z", "z'", "w", "w'"])
 m, n, k = map(T, "mnk")
 X, Y, Z, W = Ty(x, x_), Ty(y, y_), Ty(z, z_), Ty(w, w_)
-f = Optic(X, Y, Box('f', x, m @ y), Box("f'", m @ y_, x_), m)
-g = Optic(Y, Z, Box('g', y, n @ z), Box("g'", n @ z_, y_), n)
-h = Optic(Z, W, Box('h', z, k @ w), Box("h'", k @ w_, z_), k)
+f = Optic(X, Y, Box('f', x, y @ m), Box("f'", m @ y_, x_), m)
+g = Optic(Y, Z, Box('g', y, z @ n), Box("g'", n @ z_, y_), n)
+h = Optic(Z, W, Box('h', z, w @ k), Box("h'", k @ w_, z_), k)
 
 
 def test_ty():
@@ -27,6 +27,10 @@ def test_ty():
              "symmetric": symmetric, "markov": markov}
     assert eval(repr(X), scope) == X and str(X) == "x @ -x'"
     assert eval(repr(f), scope) == f and eval(repr(lens()), scope) == lens()
+    assert repr(square).startswith(
+        "optics.Lens[python.multiplicative.Function](")
+    assert repr(Optic[Function].id(R)).startswith(
+        "optics.Optic[python.multiplicative.Function](")
     assert Ty[int]() == Ty[int](0, 0) and Ty.unit() == Ty()
 
 
@@ -34,9 +38,9 @@ def test_errors():
     with raises(TypeError):
         Optic(x, y, Box('f', x, y), Box("f'", y_, x_))
     with raises(AxiomError):
-        Optic(X, Y, Box('f', x, m @ y), Box("f'", m @ y_, x_), n)
+        Optic(X, Y, Box('f', x, y @ m), Box("f'", m @ y_, x_), n)
     with raises(AxiomError):
-        Optic(X, Z, Box('f', x, m @ y), Box("f'", m @ y_, x_), m)
+        Optic(X, Z, Box('f', x, y @ m), Box("f'", m @ y_, x_), m)
     with raises(AxiomError):
         g >> f
     with raises(AxiomError):
@@ -45,7 +49,8 @@ def test_errors():
 
 def test_category_axioms():
     assert f >> Optic.id(Y) == f == Optic.id(X) >> f
-    assert (f >> g) >> h == f >> (g >> h)
+    assert ((f >> g) >> h).to_int().inside.to_hypergraph()\
+        == (f >> (g >> h)).to_int().inside.to_hypergraph()
     assert f >> g >> h == Optic.then(f, g, h)
     assert (f @ h).dom == X @ Z and (f @ h).cod == Y @ W
     assert (f @ h).residual == m @ k
@@ -71,6 +76,7 @@ def test_symmetric_axioms():
 def test_to_int():
     assert f.to_int().dom == IntTy[T](x, x_)
     assert f.to_int().cod == IntTy[T](y, y_)
+    assert f.to_int().inside == f.forward @ y_ >> y @ f.backward
     assert (f >> g).to_int().inside.to_hypergraph()\
         == (f.to_int() >> g.to_int()).inside.to_hypergraph()
     assert Optic.id(X).to_int().inside.to_hypergraph()\
@@ -104,8 +110,8 @@ def test_lens_and_optic():
     optic = l.to_optic()
     assert optic.residual == x and optic.backward == l.put
     assert optic.to_int().inside.to_hypergraph() == (
-        markov.Diagram.copy(x) @ y_ >> x @ l.get @ y_
-        >> markov.Diagram.swap(x, y) @ y_ >> y @ l.put).to_hypergraph()
+        markov.Diagram.copy(x) @ y_ >> l.get @ x @ y_ >> y @ l.put
+    ).to_hypergraph()
     assert optic.to_lens().get.to_hypergraph() == l.get.to_hypergraph()
 
 
@@ -124,7 +130,7 @@ def test_chain_rule():
     assert (Lens[Function].swap(R, R) >> square @ square).put(2., 3., 1., 1.)\
         == (4., 6.)
     optic = square.to_optic()
-    assert optic.forward(3.) == (3., 9.) and optic.to_lens().put(3., 1.) == 6.
+    assert optic.forward(3.) == (9., 3.) and optic.to_lens().put(3., 1.) == 6.
 
 
 def test_learner():
