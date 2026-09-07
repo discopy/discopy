@@ -874,6 +874,11 @@ NOT_ITS_OWN_FACTORY = (
     "plain tensor category, so an arrow-quantified argument strategy "
     "draws tensor diagrams without actions or data.")
 
+NO_FACTORY_NAME = (
+    "A class subscripted by an algebra instance has no importable "
+    "factory name, so a tree naming ``Representation[Double(4)]`` "
+    "does not read back.")
+
 
 def rounded_eval(term) -> tensor.Tensor:
     """
@@ -957,6 +962,9 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
 
     spider_fusion = tensor.Diagram.spider_fusion.inapplicable(NO_SPIDERS)
 
+    serialisation = tensor.Diagram.serialisation.inapplicable(
+        NO_FACTORY_NAME)
+
     swap_inverse = tensor.Diagram.swap_inverse.inapplicable(
         BRAIDED_NOT_SYMMETRIC)
 
@@ -971,11 +979,11 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
 
     twist_as_trace = tensor.Diagram.twist_as_trace.modulo(rounded_eval)
 
-    reidemeister_1_cup = tensor.Diagram.reidemeister_1_cup.failing(
-        WRONG_ON_COMPOSITES)
+    reidemeister_1_cup = tensor.Diagram.reidemeister_1_cup\
+        .modulo(rounded_eval).failing(WRONG_ON_COMPOSITES)
 
-    reidemeister_1_cap = tensor.Diagram.reidemeister_1_cap.failing(
-        WRONG_ON_COMPOSITES)
+    reidemeister_1_cap = tensor.Diagram.reidemeister_1_cap\
+        .modulo(rounded_eval).failing(WRONG_ON_COMPOSITES)
 
     snake_equations = tensor.Diagram.snake_equations.modulo(rounded_eval)
 
@@ -1008,7 +1016,7 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
 
     def __init__(self, inside, dom, cod, _scan=True):
         if not isinstance(inside, tuple):
-            inside = Box('', dom, cod, inside).inside
+            inside = Box[complex]('', dom, cod, inside).inside
         super().__init__(inside, dom, cod, _scan=_scan)
 
     @classmethod

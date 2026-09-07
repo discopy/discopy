@@ -24,8 +24,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   hypergraph (the hypergraph functor rebuilds a cup or cap's adjoint as
   the dimension reversal, not the dual module) and a class subscripted
   by an algebra instance has no importable factory name, so its trees
-  cannot be decoded; and Reidemeister 1 fails, flakily, on a composite
-  module of `Rep(D(Z/2))`, recorded in the counterexample ledger
+  cannot be decoded and `serialisation` is declared inapplicable; and
+  Reidemeister 1, stated up to evaluation like the other ribbon laws of
+  the carrier, fails on a composite module of `Rep(D(Z/2))`, recorded in
+  the counterexample ledger
   ([#655](https://github.com/discopy/discopy/issues/655)).
 - `discopy.tensor.Tensor` and `Diagram` join the property matrix, with a
   `strategy` generating small integer-entried tensors over `Dim`
@@ -457,7 +459,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 - The ribbon classmethods `hopf.Intertwiner.braid`, `twist`, `cups` and
   `caps` returned plain dimension boundaries, dropping the module
-  structure their callers read the action from.
+  structure their callers read the action from. `Intertwiner` also wraps
+  its data in `Box[complex]`, as the rest of the module builds its
+  boxes, instead of letting numpy infer `complex128`, whose bare name no
+  environment binds when the representation reads back.
 - A subscripted `NamedGeneric` instance — `Matrix[int]`, `Tensor[...]`,
   `Hypergraph[...]`, `CMap[...]` — unpickled as its bare origin class:
   `NamedGeneric.__setstate__` was defined on a class its subscripts never
