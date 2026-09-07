@@ -9,6 +9,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `abc.Nat`, the sequence-protocol trait for the free monoid on one
+  generator, and `abc.PRO`, the `MonoidalCategory` whose objects are `Nat`
+  ([#709](https://github.com/discopy/discopy/issues/709)).
 - A `workflows` job in `build.yml`, so that the code running our pull
   requests is checked like the code it checks: `actionlint` over the
   workflows, `pflake8` over `.github`, and `pytest .github/tests/*.py`
@@ -101,6 +104,19 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Changed
 
+- `monoidal.PRO` (and its counterparts `rigid.PRO`, `pivotal.PRO` and
+  `frobenius.PRO`) is renamed to `Nat`: it is the free monoid on one
+  generator, natural numbers with addition as tensor, and its unary
+  encoding was already exposed through the sequence protocol
+  (`len`, iteration and slicing, e.g. `Nat(3)[:1] == Nat(1)`), just under
+  the wrong name — `PRO` is the name for the monoidal category with `Nat`
+  as objects, see `abc.PRO` above. `monoidal.Functor.__call__` now maps a
+  `Nat` atom by atom, i.e. it calls `ob_map` once per generator instead of
+  once and repeating the result `other.n` times. The old names still work
+  through a `DeprecationWarning`, via `utils.deprecated_alias`, the
+  general form of `utils.deprecated_ob` (which already deprecated `Ob` in
+  favour of `Wire`) now taking a mapping of every name a module deprecates
+  ([#709](https://github.com/discopy/discopy/issues/709)).
 - Matplotlib SVGs adapt to the page behind them: they are saved on a
   transparent canvas and open with a `prefers-color-scheme: dark` media
   query that turns the elements drawn black on that canvas — wires, braids,

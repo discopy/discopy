@@ -14,7 +14,7 @@ Summary
     Colour
     Wire
     Ty
-    PRO
+    Nat
     Dim
     Layer
     Diagram
@@ -60,7 +60,7 @@ from functools import cached_property
 from typing import Iterator, Callable, TYPE_CHECKING
 from warnings import warn
 
-from discopy import cat, drawing, hypergraph, cmap, messages
+from discopy import abc, cat, drawing, hypergraph, cmap, messages
 from discopy.abc import ColouredMonoid, MonoidalCategory
 from discopy.drawing import Drawing
 from discopy.config import (
@@ -73,6 +73,7 @@ from discopy.utils import (
     assert_isinstance,
     assert_iscomposable,
     AxiomError,
+    deprecated_alias,
     get_origin,
     MappingOrCallable,
     RichDisplay,
@@ -439,33 +440,42 @@ class Ty(cat.Ob, FreeMonoid):
 
 
 @factory
-class PRO(Ty):
+class Nat(abc.Nat, Ty):
     """
-    A PRO is a natural number ``n`` seen as a type with addition as tensor.
+    ``Nat`` is a natural number ``n`` seen as a type with addition as
+    tensor, i.e. the free monoid on one generator.
 
     Parameters
     ----------
     inside : int | tuple
-        The length of the PRO type, or a tuple of generators whose
-        length is taken.
+        The natural number, or a tuple of generators whose length is taken.
 
     Example
     -------
-    >>> assert PRO(1) @ PRO(2) == PRO(3)
+    >>> assert Nat(1) @ Nat(2) == Nat(3)
+
+    ``Nat`` is also a sequence over its unary encoding, so slicing, iterating
+    and taking its length reads it the same way as any other :class:`Ty`.
+
+    >>> assert len(Nat(3)) == 3 and list(Nat(3)) == 3 * [Nat(1)]
+    >>> assert Nat(3)[:1] == Nat(1) == Nat(3)[0]
 
     Note
     ----
-    If ``ob`` is ``PRO`` then :class:`Diagram` will automatically turn
-    any ``n: int`` into ``PRO(n)``. Thus ``PRO`` never needs to be called.
+    If ``ob`` is ``Nat`` then :class:`Diagram` will automatically turn
+    any ``n: int`` into ``Nat(n)``. Thus ``Nat`` never needs to be called,
+    and the resulting diagrams live in a :class:`discopy.abc.PRO`.
 
     >>> @factory
-    ... class Circuit(Diagram):
-    ...     ob = PRO
+    ... class Circuit(abc.PRO, Diagram):
+    ...     ob = Nat
     >>> class Gate(Box, Circuit): ...
     >>> CX = Gate('CX', 2, 2)
 
     >>> assert CX @ 2 >> 2 @ CX == CX @ CX
     """
+    generator_factory = int
+
     def __init__(self, inside: int | tuple = 0, dom: Colour = None,
                  cod: Colour = None, _scan: bool = True):
         self.n = inside if isinstance(inside, int) else len(inside)
@@ -484,7 +494,7 @@ class PRO(Ty):
     def inside(self):
         return self.n * (1, )
 
-    def tensor(self, *others: PRO) -> PRO:
+    def tensor(self, *others: Nat) -> Nat:
         for other in others:
             if not isinstance(other, Ty):
                 return NotImplemented  # This allows whiskering on the left.
@@ -506,7 +516,7 @@ class PRO(Ty):
         return factory_name(type(self)) + f"({self.n})"
 
     def __str__(self):
-        return f"PRO({self.n})"
+        return f"Nat({self.n})"
 
     def __eq__(self, other):
         return isinstance(other, self.factory) and self.n == other.n
@@ -1638,26 +1648,31 @@ class Functor(cat.Functor):
         return result if isinstance(result, cod_type) else\
             (result, ) if cod_type == tuple else self.cod.ob(result)
 
+    def _empty(self, typ):
+        # Empty coloured identity: keep its (mapped) boundary colour.
+        if not hasattr(self.cod.ob, 'id'):
+            return self.cod.ob()
+        return self.cod.ob.id(self(typ.dom))
+
+    @staticmethod
+    def _fold(images):
+        result = images[0]
+        for image in images[1:]:
+            result = result + image
+        return result
+
     def __call__(self, other):
         if isinstance(other, Colour):
             return self._map_colour(other)
-        if isinstance(other, PRO):
-            result = self._map_atomic(other.factory(1))
-            unit = result[:0] if isinstance(result, Ty) else self.cod.ob()
-            return sum(other.n * [result], unit)
         if isinstance(other, Dim):
             return sum([self.ob_map[x] for x in other], self.cod.ob())
+        if isinstance(other, Nat):
+            return self._empty(other) if not other.n\
+                else self._fold([self._map_atomic(atom) for atom in other])
         if isinstance(other, Ty):
             if not other.inside:
-                # Empty coloured identity: keep its (mapped) boundary colour.
-                if not hasattr(self.cod.ob, 'id'):
-                    return self.cod.ob()
-                return self.cod.ob.id(self(other.dom))
-            images = list(map(self, other.inside))
-            result = images[0]
-            for image in images[1:]:
-                result = result + image
-            return result
+                return self._empty(other)
+            return self._fold(list(map(self, other.inside)))
         if isinstance(other, self.dom.ob.generator_factory):
             if isinstance(other, Wire) and other.is_dagger:
                 # Map a daggered coloured generator functorially: its image is
@@ -1761,3 +1776,5 @@ Diagram.functor_factory = Functor
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Drawing.ob = Ty
 Id = Diagram.id
+
+__getattr__ = deprecated_alias(__name__, {"PRO": "Nat"})

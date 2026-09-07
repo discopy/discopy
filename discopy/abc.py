@@ -24,6 +24,7 @@ Summary
 
     Category
     MonoidalCategory
+    PRO
     BraidedCategory
     TracedCategory
     BalancedCategory
@@ -170,6 +171,27 @@ class ColouredMonoid[C0, C1: ColouredMonoid](Category[C0, C1]):
 type Monoid[C1: ColouredMonoid] = ColouredMonoid[type(None), C1]
 
 
+class Nat[C1: Nat](ColouredMonoid[type(None), C1]):
+    """
+    ``Nat`` is the free monoid on one generator, i.e. the natural numbers
+    with addition as tensor. It is also a sequence over its unary encoding:
+    :meth:`__len__` gives back the natural number itself and slicing reads
+    it off as a sequence of ``1``'s, e.g. ``Nat(3)[:1] == Nat(1)``.
+    """
+    @abstractmethod
+    def __len__(self) -> int:
+        """ The natural number itself. """
+
+    @abstractmethod
+    def __getitem__(self, key: int | slice) -> C1:
+        """
+        Slicing a natural number reads it off as a sequence of ``1``'s.
+
+        Parameters:
+            key : An integer or a slice.
+        """
+
+
 class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](
         Category[C0, C1]):
     """
@@ -204,6 +226,13 @@ class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](
 
     def __rmatmul__(self, other):
         return self.whisker(other).tensor(self)
+
+
+class PRO[C1: PRO](MonoidalCategory[Nat, C1]):
+    """
+    A PRO is a :class:`MonoidalCategory` whose objects are the natural
+    numbers :class:`Nat`, i.e. the free monoidal category on one generator.
+    """
 
 
 class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):

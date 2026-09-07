@@ -22,7 +22,7 @@ from discopy.cat import factory
 
 @factory
 class Formula(frobenius.Diagram):
-    ob = frobenius.PRO  # i.e. natural numbers as objects
+    ob = frobenius.Nat  # i.e. natural numbers as objects
 
     def eval(self, size):
         return frobenius.Functor(
@@ -93,7 +93,7 @@ F = Functor(
     ar_map={Alice: lambda: lambda f: A >> f,
         sleeps: lambda: lambda P: P(S.dagger()),
         man: lambda: M, island: lambda: I,
-        big: lambda: lambda f: f @ B >> Ligature(2, 1, frobenius.PRO(1)),
+        big: lambda: lambda f: f @ B >> Ligature(2, 1, frobenius.Nat(1)),
         w_is: lambda: lambda P: lambda Q: Q(P(Id(1)).dagger()),
         kills: lambda: lambda P: lambda Q: Q(P(K).dagger()),
         no: lambda: lambda state: lambda effect: (state >> effect).bubble(),
