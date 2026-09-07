@@ -531,6 +531,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   submodules without the module prefix, which Sphinx 7.4 warns against
   under `automodule`
   ([#722](https://github.com/discopy/discopy/issues/722)).
+- `CONTRIBUTING.md`'s LLM guidelines require an LLM contribution to be
+  authored under a GitHub handle separate from the human who prompted it,
+  and a pull request authored by an LLM to be approved by at least one
+  human other than the one who prompted it.
 - `.claude/hooks/session-start.sh`, registered in `.claude/settings.json`
   as a `SessionStart` hook for Claude Code on the web, syncs the full
   development environment before the session starts, so that the linter
