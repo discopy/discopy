@@ -576,8 +576,6 @@ def test_Nat_Functor():
 
 
 def test_Nat_Functor_tuple_ob():
-    # A codomain's objects need not support `@`, e.g. python.Function.ob is
-    # a plain tuple of types, combined by concatenation with `+`.
     class TupleDiagram(Diagram):
         ob = tuple[bool, ...]
 

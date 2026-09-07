@@ -116,12 +116,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   protocol), so `monoidal.Nat` only adds what a `Ty` needs on top: `dom`,
   `cod`, `inside`, serialisation and the whiskering-aware `tensor` that
   raises on a mismatched `Ty` rather than silently reinterpreting it.
-  `monoidal.Functor.__call__` now maps a `Nat` atom by atom, folding with
-  `@` (`operator.matmul`, i.e. tensor) rather than `+`, since the fold
-  combines *objects* of the codomain category and nothing guarantees an
-  arbitrary codomain's `+` means the same thing as its tensor — it also
-  calls `ob_map` once per generator instead of once and repeating the
-  result `other.n` times. The old names still work
+  `monoidal.Functor.__call__` now maps a `Nat` atom by atom, calling
+  `ob_map` once per generator instead of once and repeating the result
+  `other.n` times, and folds the images with `+` like the pre-existing
+  `Dim`/`Ty` branches: an arbitrary codomain's objects need only support
+  `+`, e.g. `python.Function.ob = tuple[type, ...]`, whose images are
+  plain tuples with a `+` but no `__matmul__` at all. The old names still work
   through a `DeprecationWarning`, via `utils.deprecated_alias`, the
   general form of `utils.deprecated_ob` (which already deprecated `Ob` in
   favour of `Wire`) now taking a mapping of every name a module deprecates
