@@ -9,6 +9,7 @@ from discopy.utils import AxiomError
 
 x, y = Ty('x'), Ty('y')
 f, g, h = Box('f', x, y), Box('g', y, x), Box('h', x, x)
+k = Box('k', x, x)
 state = Box('s', Ty(), x)
 
 
@@ -34,12 +35,14 @@ def test_UnionFind():
     assert union_find == eval(repr(union_find)) != UnionFind()
 
 
-def test_UnionFind_by_size():
-    union_find = UnionFind()
-    a, b, c = [union_find.fresh() for _ in range(3)]
-    union_find.union(b, c)
-    union_find.union(a, b)
-    assert union_find.find(a) == b
+def test_UnionFind_order_independence():
+    left, right = UnionFind(), UnionFind()
+    for union_find in (left, right):
+        for _ in range(4):
+            union_find.fresh()
+    left.union(1, 2), left.union(1, 3), left.union(0, 1)
+    right.union(0, 1), right.union(2, 3), right.union(0, 2)
+    assert left == right == UnionFind([0, 0, 0, 0])
 
 
 def test_UnionFind_path_compression():
@@ -128,14 +131,47 @@ def test_Carrier_costs_cycle():
     carrier = Carrier()
     a = carrier.wires(x)
     carrier.merge(a.inside[0], carrier.intern(h, a.inside)[0])
-    assert carrier.costs() == ({}, {})
+    assert carrier.costs() == ({}, {carrier.uf.find(a.inside[0]): 0})
+
+
+def test_Carrier_order():
+    carrier = Carrier([x, x, x], [(h, 1, 2), (h, 0, 1)])
+    morphism = Morphism(Wires(carrier, (0, ), x), Wires(carrier, (2, ), x))
+    assert morphism.to_diagram() == h >> h
+    cyclic = Carrier([x, x], [(h, 0, 1), (h, 1, 0)])
+    with raises(AxiomError):
+        cyclic.order({0, 1}, {1: 0, 0: 1})
+
+
+def test_Morphism_then_closes_a_loop():
+    carrier = Carrier()
+    morphism = carrier.from_box(h)
+    with raises(AxiomError):
+        morphism.then(morphism)
+    assert not morphism.equiv(Morphism.id(morphism.dom))
+
+
+def test_Carrier_depends_on_diamond():
+    carrier = Carrier()
+    a, = carrier.wires(x).inside
+    left, right = carrier.intern(h, (a, )), carrier.intern(k, (a, ))
+    top, = carrier.intern(Box('t', x @ x, x), left + right)
+    assert carrier.depends_on(top, a) and not carrier.depends_on(a, top)
+
+
+def test_Morphism_state_lift():
+    morphism = Carrier.from_diagram(state @ state)
+    assert len(morphism.carrier.rows) == 2
+    morphism.carrier.rebuild()
+    assert len(morphism.carrier.dead) == 1
+    assert len(morphism.to_hypergraph().boxes) == 2
 
 
 @mark.parametrize("diagram", [
     f, f >> g, f @ g, Id(x), Swap(x, y), Cap(x, x) >> Cup(x, x),
     Id(x) @ Cap(x, x) >> Cup(x, x) @ Id(x), Spider(2, 1, x),
     Spider(1, 1, x, .5), Spider(0, 0, x), state @ state, state >> f,
-    f @ Id(x) >> Id(y) @ h])
+    f @ Id(x) >> Id(y) @ h, (state @ state) >> (h @ h)])
 def test_round_trip(diagram):
     morphism = Carrier.from_diagram(diagram)
     assert morphism.to_diagram().to_hypergraph() == diagram.to_hypergraph()

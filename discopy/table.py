@@ -19,15 +19,15 @@ Composition is a side effect on the carrier: :meth:`Morphism.then` asserts that
 the wires it composes are equal. Diagrams stay pure, the carrier is the
 effectful codomain of :meth:`Carrier.from_diagram`.
 
-Note
-----
-:meth:`Carrier.intern` keys a cell on its box and the classes of its input
-wires only, and mints the output wires itself, so that interning the same box
-on the same inputs twice gives one cell. This is how an e-graph interns a
-term; it enforces at once the functional dependency that
-:meth:`Carrier.rebuild` would otherwise restore, and it assumes a box is a
-function of its inputs, which fails in a Markov category where copying is
-not natural.
+There are two ways to add a cell. :meth:`Carrier.append` adds one on wires the
+caller has already minted, which is what :meth:`Carrier.from_diagram` does: the
+boxes of a diagram are occurrences, and two of them are resources rather than
+one shared cell. :meth:`Carrier.intern` instead keys a cell on its box and the
+classes of its inputs and mints the outputs itself, so that interning the same
+box on the same inputs twice gives one cell. That is how an e-graph interns a
+term: it enforces at once the functional dependency that
+:meth:`Carrier.rebuild` would otherwise restore, and so assumes a box is a
+function of its inputs, which a Markov category does not grant.
 
 Summary
 -------
@@ -68,6 +68,7 @@ wires makes two rows congruent:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from heapq import heapify, heappop, heappush
 from typing import TYPE_CHECKING, Hashable, Iterator
 
 import numpy as np
@@ -152,9 +153,10 @@ class UnionFind:
     """
     A union-find over wires, i.e. the vertices of a carrier.
 
-    Each tree is one vertex of the underlying hypergraph, the spider whose legs
-    are the wires in the tree. Roots are chosen by size, ties by lowest wire,
-    so that the table does not depend on the order of the merges.
+    Each tree is one vertex of the underlying hypergraph, i.e. one spider of
+    the diagrams it carries. The root of a tree is the least of its wires, so
+    that the parents depend on the partition and not on the order of the
+    merges.
 
     Parameters:
         parent : The parent of each wire, the identity for a fresh one.
@@ -168,11 +170,16 @@ class UnionFind:
     (1, 1, 0)
     >>> uf
     table.UnionFind([0, 1, 1])
+
+    The order of the merges does not matter:
+
+    >>> left, right = UnionFind([0, 0, 0]), UnionFind([0, 1, 1])
+    >>> right.union(0, 1)
+    >>> assert left == right
     """
     def __init__(self, parent: list[int] = ()):
         parent = list(parent)
         self.parent = np.array(parent + [0], dtype=np.int64)
-        self.size = np.ones(len(self.parent), dtype=np.int64)
         self.length = len(parent)
         for wire, root in enumerate(parent):
             if wire != root:
@@ -182,9 +189,7 @@ class UnionFind:
         """ Add a wire in a tree of its own and return it. """
         if self.length == len(self.parent):
             self.parent = grow(self.parent, self.length + 1)
-            self.size = grow(self.size, self.length + 1)
         self.parent[self.length] = self.length
-        self.size[self.length] = 1
         self.length += 1
         return self.length - 1
 
@@ -210,13 +215,8 @@ class UnionFind:
             left : The first wire.
             right : The second wire.
         """
-        left, right = self.find(left), self.find(right)
-        if left == right:
-            return
-        if (self.size[left], -left) < (self.size[right], -right):
-            left, right = right, left
+        left, right = sorted((self.find(left), self.find(right)))
         self.parent[right] = left
-        self.size[left] += self.size[right]
 
     def __len__(self) -> int:
         return self.length
@@ -397,6 +397,38 @@ class Carrier(NamedGeneric['category']):
         """
         self.uf.union(left, right)
 
+    def depends_on(self, wire: int, other: int) -> bool:
+        """
+        Whether a wire depends on another, i.e. the second is reachable by
+        walking the cells backwards from the first.
+
+        Parameters:
+            wire : The wire to walk back from.
+            other : The wire to look for.
+
+        Example
+        -------
+        >>> from discopy.frobenius import Ty, Box, Carrier
+        >>> x = Ty('x')
+        >>> carrier = Carrier()
+        >>> a, = carrier.wires(x).inside
+        >>> b, = carrier.intern(Box('f', x, x), (a, ))
+        >>> assert carrier.depends_on(b, a) and not carrier.depends_on(a, b)
+        """
+        producers = {}
+        for gid, box, src, tgt in self.scan():
+            for produced in map(self.uf.find, tgt):
+                producers.setdefault(produced, []).append(gid)
+        seen, scan = set(), [self.uf.find(wire)]
+        while scan:
+            found = scan.pop()
+            if found in seen:
+                continue
+            seen.add(found)
+            for gid in producers.get(found, ()):
+                scan += [self.uf.find(w) for w in self[gid][1]]
+        return self.uf.find(other) in seen
+
     def rebuild(self):
         """
         Close the carrier under congruence: when two live cells have the same
@@ -452,6 +484,9 @@ class Carrier(NamedGeneric['category']):
                         stable = False
             if stable:
                 break
+        for gid, box, src, tgt in self.scan():
+            for wire in map(self.uf.find, tgt):
+                chosen.setdefault(wire, gid)
         return cost, chosen
 
     def section(self, boundary: tuple[int, ...]) -> list[int]:
@@ -473,7 +508,40 @@ class Carrier(NamedGeneric['category']):
                 continue
             keep.add(gid)
             scan += list(self[gid][1])
-        return sorted(keep)
+        return self.order(keep, chosen)
+
+    def order(self, keep: set[int], chosen: dict[int, int]) -> list[int]:
+        """
+        Sort cells so that a producer comes before the cells consuming it.
+
+        Parameters:
+            keep : The cells to sort.
+            chosen : The cell producing each vertex.
+
+        Raises:
+            AxiomError : If the cells have a directed cycle.
+        """
+        blocking = {gid: 0 for gid in keep}
+        consumers = {}
+        for gid in keep:
+            for wire in self[gid][1]:
+                producer = chosen.get(self.uf.find(wire))
+                if producer in blocking and producer != gid:
+                    consumers.setdefault(producer, []).append(gid)
+                    blocking[gid] += 1
+        ready = sorted(gid for gid in keep if not blocking[gid])
+        heapify(ready)
+        result = []
+        while ready:
+            gid = heappop(ready)
+            result.append(gid)
+            for consumer in consumers.get(gid, ()):
+                blocking[consumer] -= 1
+                if not blocking[consumer]:
+                    heappush(ready, consumer)
+        if len(result) != len(keep):
+            raise AxiomError(messages.NOT_ACYCLIC.format(self))
+        return result
 
     def from_box(self, box: Box) -> Morphism:
         """
@@ -508,8 +576,10 @@ class Carrier(NamedGeneric['category']):
         dom = carrier.wires(diagram.dom)
         scan = list(dom.inside)
         for box, offset in zip(diagram.boxes, diagram.offsets):
-            scan[offset:offset + len(box.dom)] = carrier.intern(
-                box, tuple(scan[offset:offset + len(box.dom)]))
+            src = tuple(scan[offset:offset + len(box.dom)])
+            tgt = tuple(carrier.wire(obj) for obj in box.cod)
+            carrier.append(box, src, tgt)
+            scan[offset:offset + len(box.dom)] = tgt
         return Morphism(dom, Wires(carrier, tuple(scan), diagram.cod))
 
     def __getitem__(self, gid: int) -> tuple[Box, tuple, tuple]:
@@ -633,7 +703,12 @@ class Morphism(MonoidalCategory):
         if not self.is_composable(other):
             raise AxiomError(messages.NOT_COMPOSABLE.format(
                 self, other, self.cod.ty, other.dom.ty))
-        for left, right in zip(self.cod.inside, other.dom.inside):
+        glued = [(left, right)
+                 for left, right in zip(self.cod.inside, other.dom.inside)
+                 if self.carrier.uf.find(left) != self.carrier.uf.find(right)]
+        if any(self.carrier.depends_on(left, right) for left, right in glued):
+            raise AxiomError(messages.CLOSES_A_LOOP.format(self, other))
+        for left, right in glued:
             self.carrier.merge(left, right)
         return Morphism(self.dom, other.cod)
 
