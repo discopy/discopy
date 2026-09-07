@@ -116,7 +116,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   instead of painting a white plate behind them in dark mode
   ([#453](https://github.com/discopy/discopy/issues/453), superseding the
   static outlines of
-  [#497](https://github.com/discopy/discopy/pull/497)).
+  [#497](https://github.com/discopy/discopy/pull/497)). The hand-drawn
+  snake equation of the README header adapts the same way, replacing its
+  separate `snake-equation-dark.svg`, and the unreferenced
+  `frobenius-axioms.svg` is deleted.
 - The benchmark measures a pull request against its merge base rather
   than the tip of its base branch. The head does not contain what landed
   on `main` since it forked, so measuring against the tip charged the pull
