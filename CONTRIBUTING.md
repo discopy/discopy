@@ -213,7 +213,9 @@ That is, we do our best to make sure that critical parts of the reasoning / impl
 
 ## LLM guidelines
 
-We accept contributions from large language models so long as they are explicitly indicated as such and authored under a GitHub handle separate from the human who prompted them, so that authorship stays traceable; the resulting pull request needs to be approved by at least one human other than that prompter, in addition to any other review it requires.
+We accept contributions from large language models so long as they are explicitly indicated as such and authored under a GitHub handle separate from the human who prompted them, so that authorship stays traceable.
+Each LLM handle is clearly linked to the one human who runs it, and that human must never publish under their own personal handle what should go through it instead: this way, a human can review their own agent's pull requests directly on GitHub without it looking like they are talking to themselves.
+The resulting pull request needs to be approved by at least one human other than that prompter, in addition to any other review it requires.
 The [RULES.md](RULES.md) bind every agent working on a branch or pull request in this repo; they define the checkbox mutex and append-only shared-branch protocol.
 Use our [AGENTS.md](AGENTS.md) in your prompts so that the model has enough context to give quality results.
 
