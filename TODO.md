@@ -59,4 +59,4 @@
 - [x] Build the docs of `split/1-axiom-infra` on 3.14 without the `paramspec` shim and check the `Axiom` page
 - [x] Add the `CHANGELOG.md` bullet under `### Project` linking the issue
 - [x] Run `uv run pflake8 discopy` and `uv run coverage run -m pytest`
-- [ ] Open the pull request against `main` with `Fixes #<n>`
+- [x] Open the pull request against `main` with `Fixes #<n>` (#723, draft until the lock lands)
