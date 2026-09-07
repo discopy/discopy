@@ -27,6 +27,10 @@ def test_ty():
              "symmetric": symmetric, "markov": markov}
     assert eval(repr(X), scope) == X and str(X) == "x @ -x'"
     assert eval(repr(f), scope) == f and eval(repr(lens()), scope) == lens()
+    assert repr(square).startswith(
+        "optics.Lens[python.multiplicative.Function](")
+    assert repr(Optic[Function].id(R)).startswith(
+        "optics.Optic[python.multiplicative.Function](")
     assert Ty[int]() == Ty[int](0, 0) and Ty.unit() == Ty()
 
 
