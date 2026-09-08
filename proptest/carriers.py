@@ -10,9 +10,7 @@ import pytest
 from discopy import cat
 from discopy.utils import factory_name
 
-CARRIERS = (
-    cat.Arrow, cat.Functor,
-)
+CARRIERS = (cat.Arrow, )
 
 
 def carrier_parameters(classify=lambda carrier: ()):

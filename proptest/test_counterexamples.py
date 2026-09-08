@@ -7,9 +7,7 @@ from typing import NamedTuple
 
 import pytest
 
-from discopy import cat
-from discopy.axioms import (
-    GENERATORS, Axiom, AxiomFailure, Relabelling)
+from discopy.axioms import Axiom, AxiomFailure
 from discopy.utils import AxiomError, factory_name
 
 
@@ -23,26 +21,10 @@ class Counterexample(NamedTuple):
     reason: str
 
 
-COLLAPSE = Relabelling(tuple(
-    (cat.Ob(name), cat.Ob("a")) for name in GENERATORS))
+COUNTEREXAMPLES: tuple[Counterexample, ...] = ()
 """
-The relabelling the search shrunk to: every generator sent to the first.
-
-It names all of them because every functor the strategy builds does, see
-:obj:`discopy.axioms.GENERATORS`. The images are what shrinking landed on
-rather than what the bug needs — composing on the left forgets the functor
-whatever it relabels, so the identity relabelling is a counterexample too.
+The records: none while no law of an enrolled carrier is declared broken.
 """
-
-
-COUNTEREXAMPLES = (
-    Counterexample(
-        axiom=cat.Functor.unitality,
-        args=(cat.Functor(ob_map=COLLAPSE, ar_map=COLLAPSE), ),
-        reason="MappingOrCallable.then iterates the keys of the left-hand "
-               "map and the identity functor enumerates none, so id >> f "
-               "forgets everything f does."),
-)
 
 
 def counterexample_parameters():

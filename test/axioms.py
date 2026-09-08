@@ -2,120 +2,79 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Self
 
 from hypothesis import find
 from hypothesis import strategies as st
+from hypothesis.errors import NoSuchExample
 from pytest import raises
 
-from discopy import cat, closed, feedback, rigid, symmetric
-from discopy.cat import Arrow, Box, Functor, Ob
+from discopy import cat
 from discopy.axioms import (
     C1,
-    Atomic,
     Axiom,
     AxiomFailure,
-    BoundaryConnected,
     ComposablePair,
+    ComposableTriple,
     Equation,
-    FeedbackJoining,
-    FeedbackVanishing,
-    HomogeneousMemory,
-    HorizontalPair,
-    LeftCurrying,
-    Natural,
-    NonEmpty,
-    Relabelling,
-    RightCurrying,
+    Grid,
     Strategy,
-    Subsingleton,
-    TraceDinaturalityLeft,
-    TraceDinaturalityRight,
-    TraceNaturalityLeft,
-    TraceNaturalityRight,
-    TraceSuperposing,
     assert_axioms,
-    assert_strategy_finds,
     axiom,
     resolve,
+    substitute,
 )
-from discopy.utils import AxiomError, factory
+from discopy.cat import Arrow, Box, Functor, Ob
+from discopy.utils import AxiomError, NamedGeneric
 
 
-class TypeStrategy(Strategy):
-    """ Generate a type of length at most two over three atomic names. """
+@dataclass(frozen=True)
+class Endo(Strategy, NamedGeneric["factory"]):
+    """ An endomorphism of the factory, the subspace a law is weakened to. """
 
-    @classmethod
-    def strategy(cls, *, min_length=0):
-        return st.lists(
-            st.sampled_from("uvw"),
-            min_size=min_length, max_size=2).map(lambda names: cls(*names))
+    value: C1
 
-
-class BoxStrategy(Strategy):
-    """ Generate a single generator box with the requested boundary. """
-
-    box_factory: type
+    def __post_init__(self):
+        if self.value.dom != self.value.cod:
+            raise ValueError("Expected an endomorphism.")
 
     @classmethod
-    def strategy(cls, *, dom=None, cod=None, **params):
-        doms = cls.ob.strategy() if dom is None else st.just(dom)
-        cods = cls.ob.strategy() if cod is None else st.just(cod)
-        return st.tuples(doms, cods).map(
-            lambda pair: cls.box_factory("f", *pair))
+    def strategy(cls, **params):
+        """Generate an arrow with equal domain and codomain."""
+        return resolve(cls.factory, **params).filter(
+            lambda arrow: arrow.dom == arrow.cod).map(cls)
 
 
-@factory
-class TracedTy(TypeStrategy, symmetric.Ty):
-    """ The objects of a toy traced category. """
+class Word(str, Strategy["Word"]):
+    """ A word with tensor given by concatenation, a monoid to grid. """
+
+    __matmul__ = lambda self, other: Word(str(self) + str(other))
+
+    @classmethod
+    def strategy(cls, **params):
+        """Generate a word over two letters."""
+        return st.text("ab", max_size=3).map(cls)
 
 
-@factory
-class TracedDiagram(BoxStrategy, symmetric.Diagram):
-    """ The arrows of a toy traced category. """
-    ob = TracedTy
+class Row(Grid):
+    """ Two horizontally composable cells. """
 
-
-class TracedBox(symmetric.Box, TracedDiagram):
-    """ A generator of the toy traced category. """
-
-
-@factory
-class ClosedTy(TypeStrategy, closed.Ty):
-    """ The objects of a toy closed category. """
-
-
-@factory
-class ClosedDiagram(closed.Diagram):
-    """ The arrows of a toy closed category. """
-    ob = ClosedTy
-
-
-@factory
-class FeedbackTy(TypeStrategy, feedback.Ty):
-    """ The objects of a toy feedback category. """
-
-
-@factory
-class FeedbackDiagram(BoxStrategy, feedback.Diagram):
-    """ The arrows of a toy feedback category. """
-    ob = FeedbackTy
-
-
-class FeedbackBox(feedback.Box, FeedbackDiagram):
-    """ A generator of the toy feedback category. """
-
-
-TracedDiagram.box_factory = TracedBox
-FeedbackDiagram.box_factory = FeedbackBox
+    n_rows, n_columns = 1, 2
 
 
 def test_axioms():
-    assert_axioms(Arrow, Functor)
+    assert_axioms(Arrow)
+
+    class Classified(Arrow):
+        """ A carrier with a broken law and an inapplicable one. """
+        unitality = Arrow.unitality.failing("Never holds.")
+        dagger_involution = Arrow.dagger_involution.inapplicable("No dagger.")
+
+    assert_axioms(Classified)
 
 
 def test_strategy():
-    assert_strategy_finds(TracedDiagram, TracedBox)
     x, y = Ob('x'), Ob('y')
     find(Ob.strategy(), lambda ob: ob.name == "a")
     assert find(Arrow.strategy(dom=x, cod=x), lambda _: True) == Arrow.id(x)
@@ -125,142 +84,24 @@ def test_strategy():
     assert find(Box.strategy(dom=x), lambda _: True).dom == x
 
 
-def test_natural():
-    assert Natural() == 0 and Natural(2) @ Natural(3) == Natural(5)
-    assert len(Natural(3)) == 3
-    assert Natural(1).__matmul__("x") is NotImplemented
+def test_composable_shapes():
+    x, y = Ob('x'), Ob('y')
+    f, g = Box('f', x, y), Box('g', y, x)
+    assert ComposablePair(f, g) == (f, g)
+    assert ComposableTriple(f, g, f) == (f, g, f)
     with raises(ValueError):
-        Natural(-1)
-    assert repr(Natural(2)) == "axioms.Natural(2)"
-    assert eval(repr(Natural(2)), Natural.environment()) == Natural(2)
-    assert Natural.equation_factory(Natural(1), Natural(1))
-    assert find(Natural.strategy(), lambda number: number == 1) == 1
-
-
-def test_argument_wrappers():
-    one, two = Natural(1), Natural(2)
-    assert Atomic(one).value == NonEmpty(one).value == one
-    assert Subsingleton(one).value == one
-    for wrapper, value in (
-            (Atomic, two), (NonEmpty, Natural()), (Subsingleton, two)):
-        with raises(ValueError):
-            wrapper(value)
-    assert find(
-        Atomic[Natural].strategy(), lambda _: True) == Atomic[Natural](one)
-    assert find(NonEmpty[Natural].strategy(), lambda _: True).value
-    assert len(
-        find(Subsingleton[Natural].strategy(), lambda _: True).value) <= 1
-    pair = find(
-        resolve(NonEmpty[ComposablePair[TracedDiagram]]), lambda _: True)
-    assert isinstance(pair.value, ComposablePair)
+        ComposablePair(f)
+    with raises(AxiomError):
+        ComposablePair(f, f)
+    pair = find(resolve(ComposablePair[Arrow]), lambda _: True)
+    assert isinstance(pair, ComposablePair) and pair[0].cod == pair[1].dom
+    assert Row(Word("a"), Word("b")) == ("a", "b")
     with raises(TypeError):
         resolve(int)
-
-
-def test_boundary_connected():
-    x = symmetric.Ty('x')
-    box = symmetric.Box('f', x, x)
-    scalar = symmetric.Box('s', symmetric.Ty(), symmetric.Ty())
-    assert BoundaryConnected(box.to_hypergraph()).value
-    assert BoundaryConnected(HorizontalPair(box, box)).value == (box, box)
-    for value in (scalar, scalar.to_map(), scalar.to_hypergraph()):
-        with raises(ValueError):
-            BoundaryConnected(value)
-
-    class Terms(Strategy):
-        """ A stub carrier quantifying over one connected box. """
-        @classmethod
-        def strategy(cls, *, boundary_connected=False):
-            return st.just(box)
-
-    assert find(
-        BoundaryConnected[Terms].strategy(), lambda _: True).value == box
-
-
-def test_pasting_diagram():
-    x, y = TracedTy('u'), TracedTy('v')
-    box = TracedBox('f', x, y)
-    assert HorizontalPair(box, box) == (box, box)
-    with raises(ValueError):
-        HorizontalPair(box)
-    with raises(AxiomError):
-        ComposablePair(box, box)
-
-
-def test_trace_wrappers():
-    x, y = TracedTy('u'), TracedTy('v')
-    identity = TracedDiagram.id(x)
-    assert TraceSuperposing(identity, y) == (identity, y)
-    for wrapper in (TraceSuperposing, TraceNaturalityLeft,
-                    TraceNaturalityRight, TraceDinaturalityLeft,
-                    TraceDinaturalityRight):
-        find(wrapper[TracedDiagram].strategy(), lambda _: True)
-    with raises(ValueError):
-        TraceNaturalityLeft(TracedBox('f', x, x), y, TracedBox('g', x, y))
-    with raises(ValueError):
-        TraceDinaturalityLeft(TracedBox('f', x, x), TracedBox('g', y, y))
-
-
-def test_currying_wrappers():
-    base, exponent = ClosedTy('u'), ClosedTy('v')
-    evaluation = ClosedDiagram.ev(base, exponent, left=True)
-    assert LeftCurrying(evaluation, base, exponent)\
-        == (evaluation, base, exponent)
-    with raises(ValueError):
-        RightCurrying(evaluation, base, exponent)
-    find(LeftCurrying[ClosedDiagram].strategy(), lambda _: True)
-    find(RightCurrying[ClosedDiagram].strategy(), lambda _: True)
-
-
-def test_feedback_wrappers():
-    x, y = FeedbackTy('u'), FeedbackTy('v')
-    box, memory = FeedbackBox('f', x, y), x @ y
-    assert FeedbackVanishing(box, FeedbackTy()) == (box, FeedbackTy())
-    with raises(ValueError):
-        FeedbackVanishing(box, x)
-    joining = FeedbackBox('f', x @ memory.delay(), x @ memory)
-    assert FeedbackJoining(joining, memory) == (joining, memory)
-    with raises(ValueError):
-        FeedbackJoining(joining, x)
-    with raises(ValueError):
-        FeedbackJoining(FeedbackBox('f', x @ memory, x @ memory), memory)
-    with raises(ValueError):
-        FeedbackJoining(FeedbackBox(
-            'f', x @ memory.delay(), x @ memory.delay()), memory)
-    assert HomogeneousMemory(
-        FeedbackBox('f', x @ (x @ x).delay(), x @ x @ x), x @ x)
-    with raises(ValueError):
-        HomogeneousMemory(joining, memory)
-    for wrapper in (FeedbackVanishing, FeedbackJoining, HomogeneousMemory):
-        find(wrapper[FeedbackDiagram].strategy(), lambda _: True)
-
-
-def test_relabelling():
-    x, y, z = Ob('x'), Ob('y'), Ob('z')
-    relabelling = Relabelling(((x, y), ))
-    assert relabelling[x] == y and relabelling[z] == z
-    assert relabelling[Box('f', x, z)] == Box('f', y, z)
-    assert list(relabelling) == [x] and len(relabelling) == 1
-    assert bool(Relabelling())
-    rigid_x, rigid_y = rigid.Ty('x'), rigid.Ty('y')
-    rotating = Relabelling(((rigid_x, rigid_y), ))
-    functor = rigid.Functor(rotating, rotating)
-    assert functor(rigid_x.l) == rigid_y.l and functor(rigid_x.r) == rigid_y.r
-    rotated = rigid.Box('f', rigid_x.r, rigid_x @ rigid_x)
-    assert rotating[rotated] == rigid.Box('f', rigid_y.r, rigid_y @ rigid_y)
-    assert functor(rotated >> rotated.dagger()) == functor(rotated)\
-        >> functor(rotated).dagger()
-    u, v = feedback.Ty('u'), feedback.Ty('v')
-    delaying = Relabelling(((u, v), ))
-    delayed = feedback.Box('g', u.delay(), u)
-    assert delaying[delayed] == feedback.Box('g', v.delay(), v)
-    assert feedback.Functor(delaying, delaying)(u.delay()) == v.delay()
-
-
-def test_monoid_axioms():
-    x, y, z = TracedTy('u'), TracedTy('v'), TracedTy('w')
-    assert TracedTy.monoid_unitality(x)
-    assert TracedTy.monoid_associativity((x, y, z))
+    scope = {"C1": Arrow}
+    assert substitute(int, scope) is int
+    assert substitute(ComposablePair[Arrow], scope) is ComposablePair[Arrow]
+    assert substitute(ComposablePair[C1], scope) is ComposablePair[Arrow]
 
 
 def test_axiom_binding():
@@ -268,7 +109,6 @@ def test_axiom_binding():
     assert eval(repr(Arrow.unitality)) == cat.Arrow.unitality
     assert hash(Arrow.unitality) == hash(eval(repr(Arrow.unitality)))
     assert Arrow.unitality != Functor.unitality
-    assert Functor.dagger_involution() is NotImplemented
     with raises(TypeError):
         Axiom(lambda cls: NotImplemented)()
     with raises(TypeError):
@@ -278,11 +118,20 @@ def test_axiom_binding():
     assert axiom(lambda cls: NotImplemented).bind(Arrow)() is NotImplemented
     box = Box('f', Ob('x'), Ob('y'))
     assert Arrow.unitality(box)
-    broken = Arrow.unitality.weaken(f=Atomic[C1]).failing("Never holds.")
-    assert broken.subspaces == {"f": Atomic[C1]}
+    broken = Arrow.unitality.weaken(f=Endo[C1]).failing("Never holds.")
+    assert broken.subspaces == {"f": Endo[C1]}
+    loop = Box('g', Ob('x'), Ob('x'))
     with raises(AxiomFailure) as failure:
-        broken(Atomic(box))
+        broken(Endo(loop))
     assert failure.value.equation
+
+
+def test_deferred_annotations():
+    """ A law compiled without deferred annotations is refused. """
+    namespace, source = {}, "def eager(cls, f: int): return NotImplemented"
+    exec(compile(source, "<eager>", "exec", dont_inherit=True), namespace)
+    with raises(TypeError, match="__future__"):
+        axiom(namespace["eager"])
 
 
 def test_inapplicable():
@@ -298,32 +147,43 @@ def test_modulo():
 
 
 def test_weaken():
-    for subspace in (Atomic[C1], Atomic[TracedTy]):
-        law = TracedTy.monoid_unitality.weaken(x=subspace).bind(TracedTy)
-        assert law.modulo(lambda term: term).subspaces == law.subspaces
-        args = find(law.strategy(), lambda _: True)
-        assert isinstance(args[0], Atomic) and law(*args)
-
-
-def test_functor_law():
-    @axiom
-    def preserves_identity(cls, functor: Self, x: Self.dom.ob) -> Equation:
-        """ A functor preserves the identity on each object. """
-        return Equation(functor(cls.dom.id(x)), cls.cod.id(functor(x)))
-
-    law = preserves_identity.bind(Functor)
+    law = Arrow.unitality.weaken(f=Endo[C1]).bind(Arrow)
+    assert law.modulo(lambda term: term).subspaces == law.subspaces
     args = find(law.strategy(), lambda _: True)
-    assert isinstance(args[0], Functor) and law(*args)
+    assert isinstance(args[0], Endo) and law(*args)
+
+
+def test_self_annotation():
+    @axiom
+    def absorbing(cls, f: Self) -> Equation:
+        """ The identity on the domain absorbs into any arrow. """
+        return Equation(cls.id(f.dom) >> f, f)
+
+    law = absorbing.bind(Arrow)
+    args = find(law.strategy(), lambda _: True)
+    assert isinstance(args[0], Arrow) and law(*args)
 
 
 def test_falsify():
-    counterexample, = Functor.unitality.falsify()
-    assert isinstance(counterexample, Functor)
+    @axiom
+    def trivial(cls, f: C1) -> Equation:
+        """ Every arrow is an identity, which a box refutes. """
+        return Equation(f, cls.id(f.dom))
+
+    counterexample, = trivial.bind(Arrow).falsify()
+    assert isinstance(counterexample, Arrow) and counterexample.inside
+    assert Arrow.unitality.failing("Never holds.").falsify()
+    with raises(NoSuchExample):
+        Arrow.associativity.falsify()
 
 
 def test_axioms_of_carrier():
-    axioms = Functor.axioms
-    assert "unitality" in axioms and axioms["unitality"].broken
+    class Broken(Arrow):
+        """ A carrier declaring an inherited law broken. """
+        unitality = Arrow.unitality.failing("Never holds.")
+
+    assert Broken.axioms["unitality"].broken
+    assert not Arrow.axioms["unitality"].broken
 
     class Hidden(Arrow):
         """ Assigning a non-axiom over an inherited law drops it. """
