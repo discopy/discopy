@@ -9,6 +9,20 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `utils.Serialisable`, the serialisation interface of DisCoPy: a generic
+  pair of inverse methods `to_tree` and `from_tree` driven by one hook,
+  the class attribute `tree_keys`, with the value-level subroutines
+  exposed as `utils.encode` and `utils.decode`. A class with a different
+  constructor declares its keys once instead of reimplementing both
+  methods, keeping the two sides from drifting apart: `cat.Ob`, `Arrow`,
+  `Box`, `Sum` and `utils.BinaryBoxConstructor` drop their hand-written
+  pairs for declarations that produce byte-identical trees, and an
+  umbrella issue collects every implementor still missing
+  ([#742](https://github.com/discopy/discopy/issues/742)). An arrow
+  decoded by the generic method has its composition checked again, where
+  `Arrow.from_tree` used to skip the check, and an explicit
+  `"is_dagger": false` in a tree decodes as `False`, where the old
+  key-presence test read it as `True`.
 - A `workflows` job in `build.yml`, so that the code running our pull
   requests is checked like the code it checks: `actionlint` over the
   workflows, `pflake8` over `.github`, and `pytest .github/tests/*.py`
@@ -354,6 +368,25 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- Pickling an instance of a parameterised `NamedGeneric` class silently
+  lost the parameter: `__reduce__` stashed the values for a
+  `NamedGeneric.__setstate__` that no subclass inherits, since the
+  parameterised classes subclass `typing.Generic` instead. A module-level
+  reconstructor now parameterises the class before pickle restores the
+  state, fixing `pickle` and `copy.deepcopy` of `Hypergraph`, `CMap`,
+  `Matrix`, `Tensor`, `interaction.Ty` and `hopf.Representation`, which
+  came back with `category` or `dtype` `None` and a stray
+  `__class_getitem__values__` attribute
+  ([#742](https://github.com/discopy/discopy/issues/742)).
+- `rigid.Box` keeps its winding number through `dumps` and `loads`:
+  `z` is one of its `tree_keys`, where a rotated box used to round-trip
+  silently to an unrotated one
+  ([#742](https://github.com/discopy/discopy/issues/742)).
+- `utils.from_tree` resolves a parameterised factory name such as
+  `"tensor.Box[float]"` to its origin class instead of raising
+  `AttributeError`, and `cat.Bubble.from_tree` warns on the outdated
+  singular `'arg'` key like the other outdated-dumps shims
+  ([#742](https://github.com/discopy/discopy/issues/742)).
 - `Hypergraph.rotate` exchanged the two boundaries of the hypergraph and
   replaced each box by its rotation, but left the *ports* of those boxes
   and the spiders where they were: the wires reading a box's domain went

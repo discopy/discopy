@@ -8,5 +8,5 @@
 - [x] `rigid.Box` serialises `z`, fixing the silent loss on rotated boxes
 - [x] fix pickling and deepcopy of parameterised `NamedGeneric` classes losing their parameter
 - [x] `from_tree` resolves parameterised factory names such as `tensor.Box[float]`
-- [ ] file one umbrella issue with every remaining missing piece, property-based round-trip testing included
+- [x] file one umbrella issue with every remaining missing piece, property-based round-trip testing included: [#742](https://github.com/discopy/discopy/issues/742)
 - [ ] regression tests for each fixed bug, `CHANGELOG.md` entry, `pflake8` and `pytest` green
