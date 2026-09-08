@@ -124,14 +124,11 @@ class Ob(Serialisable):
         if "name" not in state and "_name" in state:
             state["name"] = state["_name"]
             del state["_name"]
-        self.__dict__.update(state)
+        super().__setstate__(state)
 
     def __init__(self, name: str = ""):
         assert_isinstance(name, str)
         self.name = name
-
-    def __repr__(self):
-        return f"{factory_name(type(self))}({repr(self.name)})"
 
     def __str__(self):
         return str(self.name)
@@ -285,7 +282,7 @@ class Arrow(FreeCategory, Serialisable):
             self.dom, self.cod, self.inside = (
                 state['_dom'], state['_cod'], tuple(state['_boxes']))
             del state['_dom'], state['_cod'], state['_boxes']
-        self.__dict__.update(state)
+        super().__setstate__(state)
 
     def __repr__(self):
         if not self.inside:  # i.e. self is identity.
@@ -521,10 +518,7 @@ class Box(Arrow):
     def __repr__(self):
         if self.is_dagger:
             return repr(self.dagger()) + ".dagger()"
-        str_data = '' if self.data is None else ", data=" + repr(self.data)
-        return factory_name(type(self))\
-            + f"({repr(self.name)}, {repr(self.dom)}, " \
-              f"{repr(self.cod)}{str_data})"
+        return Serialisable.__repr__(self)
 
     def __str__(self):
         return str(self.name) + ("[::-1]" if self.is_dagger else '')

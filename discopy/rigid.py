@@ -678,12 +678,6 @@ class Box(biclosed.Box, Diagram):
         return cat.Box.__str__(self) if not self.z\
             else str(self.r) + '.l' if self.z < 0 else str(self.l) + '.r'
 
-    def __repr__(self):
-        if self.is_dagger:
-            return biclosed.Box.__repr__(self)
-        return biclosed.Box.__repr__(self)[:-1] + (
-            f', z={self.z})' if self.z else ')')
-
     def setoid(self):
         """
         Rigid boxes are equal when they are equal as :class:`cat.Box` and their

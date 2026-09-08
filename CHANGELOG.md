@@ -9,15 +9,21 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
-- `utils.Serialisable`, the serialisation interface of DisCoPy: a generic
-  pair of inverse methods `to_tree` and `from_tree` driven by one hook,
-  the class attribute `tree_keys`, with the value-level subroutines
-  exposed as `utils.encode` and `utils.decode`. A class with a different
-  constructor declares its keys once instead of reimplementing both
-  methods, keeping the two sides from drifting apart: `cat.Ob`, `Arrow`,
-  `Box`, `Sum` and `utils.BinaryBoxConstructor` drop their hand-written
-  pairs for declarations that produce byte-identical trees, and an
-  umbrella issue collects every implementor still missing
+- `utils.Serialisable`, the serialisation interface of DisCoPy, one hook
+  driving all three mechanisms: the class attribute `tree_keys` names
+  the attributes that are also keyword arguments of `__init__`, from
+  which follow a generic pair of inverse methods `to_tree` and
+  `from_tree` (with the value-level subroutines exposed as
+  `utils.encode` and `utils.decode`), a generic `__repr__` such that
+  `eval(repr(x)) == x`, and `__setstate__`, the terminal that every
+  pickle migration shim chains into. A class with a different
+  constructor declares its keys once instead of reimplementing each
+  method: `cat.Ob`, `Arrow`, `Box`, `Sum` and
+  `utils.BinaryBoxConstructor` drop their hand-written `to_tree` and
+  `from_tree` pairs for declarations that produce byte-identical trees,
+  and `cat.Ob`, `cat.Box` (all but its dagger case), `rigid.Box` and
+  `BinaryBoxConstructor` drop the hand-written reprs the generic one
+  reproduces. An umbrella issue collects every implementor still missing
   ([#742](https://github.com/discopy/discopy/issues/742)). An arrow
   decoded by the generic method has its composition checked again, where
   `Arrow.from_tree` used to skip the check, and an explicit

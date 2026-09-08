@@ -261,13 +261,20 @@ def decode(value):
 
 class Serialisable:
     """
-    The serialisation interface of DisCoPy: a generic pair of inverse
-    methods :meth:`to_tree` and :meth:`from_tree`, both driven by one
-    hook, the class attribute ``tree_keys``.
+    The serialisation interface of DisCoPy, one hook driving all three
+    mechanisms: the class attribute ``tree_keys`` names attributes that
+    are also keyword arguments of ``__init__``, from which follow
 
-    ``tree_keys`` names attributes that are also keyword arguments of
-    ``__init__``, so that a subclass with a different constructor
-    declares its keys once instead of reimplementing both methods.
+    - a generic pair of inverse methods :meth:`to_tree` and
+      :meth:`from_tree`, the JSON serialisation behind :func:`dumps`
+      and :func:`loads`,
+    - a generic :meth:`__repr__` such that ``eval(repr(x)) == x``,
+    - :meth:`__setstate__`, the terminal of every pickle migration
+      chain; the class parameters of :class:`discopy.abc.NamedGeneric`
+      are pickled by their own machinery.
+
+    A subclass with a different constructor declares its keys once
+    instead of reimplementing each method.
 
     Example
     -------
@@ -277,6 +284,43 @@ class Serialisable:
     >>> assert Box.from_tree(f.to_tree()) == f
     """
     tree_keys: tuple[str, ...] = ()
+
+    def is_default(self, key: str) -> bool:
+        """
+        Whether the value of an attribute equals its class default,
+        in which case :meth:`to_tree` and :meth:`__repr__` drop it.
+
+        Parameters:
+            key : The name of the attribute.
+        """
+        if not hasattr(type(self), key):
+            return False
+        value, default = getattr(self, key), getattr(type(self), key)
+        return value is default or (
+            type(value) is type(default) and value == default)
+
+    def __repr__(self):
+        """
+        The transparent representation of a DisCoPy object: an attribute
+        without a class default is positional, one that differs from its
+        default is a keyword argument and one equal to it is dropped.
+
+        Example
+        -------
+        >>> import discopy
+        >>> from discopy.cat import Box
+        >>> f = Box('f', 'x', 'y', data=42)
+        >>> f
+        cat.Box('f', cat.Ob('x'), cat.Ob('y'), data=42)
+        >>> assert eval(repr(f), vars(discopy)) == f
+        """
+        return factory_name(type(self)) + "(" + ", ".join(
+            f"{key}={repr(getattr(self, key))}" if hasattr(type(self), key)
+            else repr(getattr(self, key))
+            for key in self.tree_keys if not self.is_default(key)) + ")"
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
 
     def to_tree(self) -> dict:
         """
@@ -309,14 +353,8 @@ class Serialisable:
             'cod': {'factory': 'cat.Ob', 'name': 'x'}}
         """
         tree = {'factory': factory_name(type(self))}
-        for key in self.tree_keys:
-            value = getattr(self, key)
-            if hasattr(type(self), key):
-                default = getattr(type(self), key)
-                if value is default or (
-                        type(value) is type(default) and value == default):
-                    continue
-            tree[key] = encode(value)
+        tree.update({key: encode(getattr(self, key))
+                     for key in self.tree_keys if not self.is_default(key)})
         return tree
 
     @classmethod
@@ -552,10 +590,6 @@ class BinaryBoxConstructor(Serialisable):
                               f"({state['left']}, {state['right']})"
             )
         super().__setstate__(state)
-
-    def __repr__(self):
-        return factory_name(type(self))\
-            + f"({repr(self.left)}, {repr(self.right)})"
 
 
 @lru_cache(maxsize=1024)
