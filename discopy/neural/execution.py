@@ -58,7 +58,9 @@ class Execution:
         x : The boundary input, ``(batch_size, sum of domain widths)``.
         init : The initial incoming messages, per port or as one flat array.
         memory : The initial private memory, per box occurrence or flat.
-        backend : The execution backend, the current backend by default.
+        backend : The execution backend, the one owning the first array
+                  given among ``x``, ``init`` and ``memory`` by default,
+                  else the current backend.
         modules : The backend-owned modules, in the map's unique-module order.
                   The modules inside the boxes are used by default, so that
                   a backend can train copies of them without rebuilding
@@ -77,7 +79,7 @@ class Execution:
             backend: str | Backend = None, modules=None):
         self.inside = inside
         self.x, self.init, self.memory = x, init, memory
-        self.backend = get_backend(backend)
+        self.backend = get_backend(backend, like=self.reference)
         self.modules = inside.modules if modules is None else tuple(modules)
         if len(self.modules) != len(inside.modules):
             raise ValueError(
@@ -86,6 +88,18 @@ class Execution:
         self.batch_size, self.prototype = 1, None
         self.source = self.initial = self.incoming = self.outgoing = None
         self.stored = None
+
+    @property
+    def reference(self):
+        """
+        The first array given among ``x``, ``init`` and ``memory``, whose
+        backend, batch size, dtype and device the execution follows.
+        """
+        return next((
+            value for given in (self.x, self.init, self.memory)
+            for value in (
+                given if isinstance(given, (list, tuple)) else (given, ))
+            if value is not None), None)
 
     @property
     def topological_order(self) -> tuple[int, ...]:
@@ -156,16 +170,12 @@ class Execution:
     def initialize(self):
         """
         Initialize the flat messages and the flat private memory, reading
-        the batch size, dtype and device off the first array given among
-        ``x``, ``init`` and ``memory``, else off the modules.
+        the batch size, dtype and device off :attr:`reference`, else off
+        the modules.
         """
         inside, backend = self.inside, self.backend
         widths = inside.port_widths
-        reference = next((
-            value for given in (self.x, self.init, self.memory)
-            for value in (
-                given if isinstance(given, (list, tuple)) else (given, ))
-            if value is not None), None)
+        reference = self.reference
         if reference is not None:
             shape = getattr(reference, "shape", None)
             if shape is None or len(shape) != 2:
