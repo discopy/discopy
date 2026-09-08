@@ -658,7 +658,11 @@ class Box(biclosed.Box, Diagram):
     >>> assert f.l.z == -1 and f.z == 0 and f.r.z == 1
     >>> assert f.r.l == f == f.l.r
     >>> assert f.l.l != f != f.r.r
+    >>> from discopy.utils import dumps, loads
+    >>> assert loads(dumps(f.r)) == f.r
     """
+    z = 0
+    tree_keys = cat.Box.tree_keys + ('z', )
 
     def __setstate__(self, state):
         if '_z' in state:  # Backward compatibility

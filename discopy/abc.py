@@ -599,6 +599,23 @@ class HypergraphCategory[C0, C1](
         """
 
 
+def unpickle_parameterised(func, args, values):
+    """
+    Rebuild an instance of a parameterised class: reconstruct the
+    instance of the origin class and parameterise its class with
+    ``values``, before pickle restores the state as usual, so that the
+    ``__setstate__`` of the origin class sees the right parameters.
+
+    Parameters:
+        func : The reconstructor of the origin class.
+        args : The arguments to the reconstructor.
+        values : The parameters of the class, see :class:`NamedGeneric`.
+    """
+    self = func(*args)
+    self.__class__ = self.__class__[values]
+    return self
+
+
 class NamedGeneric(Generic[TypeVar('T')]):
     """
     A ``NamedGeneric`` is a ``Generic`` where the type parameter has a name.
@@ -658,8 +675,8 @@ class NamedGeneric(Generic[TypeVar('T')]):
                             # Check if class name is of the form:
                             # *ClassName*[*type*]
                             if '[' in args[0].__name__:
-                                args = (origin, ) + args[1:]
-                                data |= {"__class_getitem__values__": values}
+                                return unpickle_parameterised, (
+                                    func, (origin, ) + args[1:], values), data
                             return func, args, data
 
                     C.__module__ = origin.__module__

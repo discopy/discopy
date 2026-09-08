@@ -5,8 +5,8 @@
 
 - [x] `utils.Serialisable`, generic `to_tree`/`from_tree` driven by one `tree_keys` hook, with `BinaryBoxConstructor` as first client
 - [x] rebase `cat.Ob`/`Arrow`/`Box`/`Sum`/`Bubble` on the hook, byte-identical trees, `DeprecationWarning` on the `Bubble` `'arg'` shim
-- [ ] `rigid.Box` serialises `z`, fixing the silent loss on rotated boxes
-- [ ] fix pickling and deepcopy of parameterised `NamedGeneric` classes losing their parameter
-- [ ] `from_tree` resolves parameterised factory names such as `tensor.Box[float]`
+- [x] `rigid.Box` serialises `z`, fixing the silent loss on rotated boxes
+- [x] fix pickling and deepcopy of parameterised `NamedGeneric` classes losing their parameter
+- [x] `from_tree` resolves parameterised factory names such as `tensor.Box[float]`
 - [ ] file one umbrella issue with every remaining missing piece, property-based round-trip testing included
 - [ ] regression tests for each fixed bug, `CHANGELOG.md` entry, `pflake8` and `pytest` green

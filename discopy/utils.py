@@ -204,8 +204,14 @@ def from_tree(tree: dict):
     >>> from discopy.cat import Box
     >>> f = Box('f', 'x', 'y', data=42)
     >>> assert from_tree(tree) == f >> f[::-1]
+
+    Note
+    ----
+    A parameterised factory such as ``"tensor.Box[float]"`` resolves to
+    its origin class, which re-derives the parameter from the tree.
     """
-    *modules, factory = tree['factory'].removeprefix('discopy.').split('.')
+    factory = tree['factory'].removeprefix('discopy.').split('[')[0]
+    *modules, factory = factory.split('.')
     import discopy
     module = discopy
     for attr in modules:
