@@ -1195,3 +1195,6 @@ Ob.equation_factory = Arrow.equation_factory = Equation
 Arrow.sum_factory = Sum
 Arrow.bubble_factory = Bubble
 Id = Arrow.id
+
+
+Arrow.generator_factory = Box

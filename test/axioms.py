@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-One test for each argument generator of :mod:`discopy.testing`: it accepts
+One test for each argument generator of :mod:`discopy.axioms`: it accepts
 valid arguments, rejects invalid ones, and its search strategy reaches every
 shape of argument the axioms expect. Whether the axioms hold is checked over
 every category in ``proptest/``.
@@ -9,9 +9,11 @@ every category in ``proptest/``.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Self
 
 from hypothesis import find
+from hypothesis.errors import NoSuchExample
 from pytest import raises
 
 from discopy import biclosed, cat, feedback, monoidal, rigid, traced
@@ -21,7 +23,7 @@ from discopy.axioms import (
     HomogeneousMemory, HorizontalPair, LeftCurrying, Natural, NonEmpty,
     Relabelling, RightCurrying, Square, Subsingleton, TraceDinaturalityLeft,
     TraceDinaturalityRight, TraceNaturalityLeft, TraceNaturalityRight,
-    TraceSuperposing, axiom, resolve)
+    TraceSuperposing, axiom, resolve, substitute)
 from discopy.utils import AxiomError
 
 
@@ -322,3 +324,43 @@ def test_BoundaryConnected():
             BoundaryConnected(value)
     find(BoundaryConnected[monoidal.Diagram].strategy(),
          lambda value: bool(value.value.boxes))
+
+
+def test_substitute():
+    scope = {"C1": cat.Arrow}
+    assert substitute(int, scope) is int
+    assert substitute(ComposablePair[cat.Arrow], scope)\
+        is ComposablePair[cat.Arrow]
+    assert substitute(ComposablePair[C1], scope) is ComposablePair[cat.Arrow]
+
+
+def test_deferred_annotations():
+    """ A law compiled without deferred annotations is refused. """
+    namespace, source = {}, "def eager(cls, f: int): return NotImplemented"
+    exec(compile(source, "<eager>", "exec", dont_inherit=True), namespace)
+    with raises(TypeError, match="__future__"):
+        axiom(namespace["eager"])
+
+
+def test_self_annotation():
+    @axiom
+    def absorbing(cls, f: Self) -> Equation:
+        """ The identity on the domain absorbs into any arrow. """
+        return Equation(cls.id(f.dom) >> f, f)
+
+    law = absorbing.bind(cat.Arrow)
+    args = find(law.strategy(), lambda _: True)
+    assert isinstance(args[0], cat.Arrow) and law(*args)
+
+
+def test_falsify():
+    @axiom
+    def trivial(cls, f: C1) -> Equation:
+        """ Every arrow is an identity, which a box refutes. """
+        return Equation(f, cls.id(f.dom))
+
+    counterexample, = trivial.bind(cat.Arrow).falsify()
+    assert isinstance(counterexample, cat.Arrow) and counterexample.inside
+    assert cat.Arrow.unitality.failing("Never holds.").falsify()
+    with raises(NoSuchExample):
+        cat.Arrow.associativity.falsify()

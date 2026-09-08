@@ -18,29 +18,9 @@ Summary
     Axiom
     AxiomFailure
     Strategy
-    Natural
-    Atomic
-    NonEmpty
-    Subsingleton
-    BoundaryConnected
     Grid
     ComposablePair
     ComposableTriple
-    HorizontalPair
-    Square
-    TraceSuperposing
-    TraceSliding
-    TraceNaturalityLeft
-    TraceNaturalityRight
-    TraceDinaturality
-    TraceDinaturalityLeft
-    TraceDinaturalityRight
-    LeftCurrying
-    RightCurrying
-    FeedbackVanishing
-    FeedbackJoining
-    HomogeneousMemory
-    Relabelling
 
 .. admonition:: Functions
 
@@ -53,7 +33,6 @@ Summary
         resolve
         substitute
         assert_axioms
-        assert_strategy_finds
 
 How to develop DisCoPy against its property suite: state the laws before
 writing the implementation, let the matrix search for counterexamples,
@@ -75,21 +54,18 @@ The suite
   :meth:`Strategy.environment`: the package's public names and its own
   module's, so that a representation printing bare names evaluates
   without the carrier declaring anything.
-- ``proptest/test_drawing.py`` and ``proptest/test_normal_form.py`` check
-  the remaining ad-hoc properties — drawing does not raise, a normal form
-  and a foliation are idempotent — over the diagram carriers.
 - ``proptest/test_counterexamples.py`` replays every recorded
   counterexample deterministically — no generation, no search: the
   matrix's explicit phase. Its memory is Hypothesis's example database,
   ``.hypothesis`` on your machine and a workflow artifact on CI, which
   every run reads before it searches.
-- Select cells by glob: ``uv run pytest proptest/ --axioms '<glob>'
-  -vrsxX``, with ``*`` as the only wildcard so brackets match themselves.
-  Recorded counterexamples carry the id of their matrix cell, so a glob
-  selects a law's search and its records together.
+- Select cells with pytest's own ``-k``: ``uv run pytest proptest/ -k
+  'Arrow and unitality' -vrsxX``. Recorded counterexamples carry the id
+  of their matrix cell, so one expression selects a law's search and its
+  records together.
 - Each ``test/<module>.py`` gains a ``test_axioms`` dry run (one example
   per axiom, see :func:`assert_axioms`) and a ``test_strategy`` checking
-  the strategy reaches the module's structural boxes, as its module's
+  the strategy reaches the structure its laws need, as its module's
   carriers are enrolled: the fast loop before the full matrix.
 
 Properties before implementation
@@ -104,7 +80,7 @@ agent branch, as the first checkboxes of its ``TODO.md``:
    must the new carrier inherit, compare :meth:`Axiom.modulo` a quotient,
    declare :meth:`Axiom.inapplicable` — or :meth:`Axiom.weaken` to a
    subspace, generating a named parameter from a membership-validating
-   wrapper such as :class:`BoundaryConnected`, so that a
+   wrapper, which arrives with the carrier that needs it, so that a
    :meth:`Axiom.failing` law with a green subspace shows one expected
    failure and one green cell? Write this down before any implementation.
 2. **Scaffold the axioms.** Declare each law as an :class:`Axiom` on the
@@ -114,8 +90,8 @@ agent branch, as the first checkboxes of its ``TODO.md``:
    body calls the operations the feature will provide; until they exist,
    the cell fails. That is the red state of the loop.
 3. **Reach the structure.** Extend the carrier's strategy so generated
-   terms actually contain the new boxes, and pin that with
-   :func:`assert_strategy_finds` in the module's ``test_strategy``. A
+   terms actually contain the new boxes, and pin that with a
+   :func:`hypothesis.find` in the module's ``test_strategy``. A
    green cell whose strategy never generates the structure proves
    nothing.
 4. **Implement until green**, on the dry run first, then the matrix.
@@ -127,13 +103,13 @@ stay as unit tests in ``test/``.
 Debugging a failing cell
 ------------------------
 
-1. **Isolate it**: ``uv run pytest proptest/ --axioms '<carrier>.<law>'
+1. **Isolate it**: ``uv run pytest proptest/ -k '<Carrier> and <law>'
    -x -vrsxX``. Hypothesis reports the shrunk falsifying example as
    labelled draws; on rerun the ``.hypothesis`` database replays it
    first, so the failure is stable on your machine. A failure CI found is
-   in the artifact its run uploaded: with a ``GITHUB_TOKEN`` in the
-   environment the ``dev`` profile reads that database too, and the cell
-   fails for you the same way without a search.
+   in the artifact its run uploaded: the ``shared`` profile reads that
+   database too, given a ``GITHUB_TOKEN``, and the cell fails for you the
+   same way without a search.
 2. **Record it, then debug.** DisCoPy is transparent, so the printed
    draws are valid Python building the exact counterexample. Paste them
    into a record in ``proptest/test_counterexamples.py`` (format below)
@@ -213,8 +189,7 @@ audit closes the class. Check three causes, in order:
    predicate for the shape — the structural box involved, the boundary,
    the depth. :class:`hypothesis.errors.NoSuchExample` convicts the
    strategy: extend it, then pin the reach in the module's
-   ``test_strategy``, with :func:`assert_strategy_finds` when the shape is
-   a box class and a bespoke ``find`` otherwise.
+   ``test_strategy`` with a ``find`` for the shape.
 2. **Rarity.** Reachable but starved: run the cell with
    ``--hypothesis-show-statistics``, tagging the shape with
    :func:`hypothesis.event` if need be, to see how often it is drawn, and
@@ -250,28 +225,34 @@ The ``proptest`` workflow runs the suite on pull requests labelled
   artifact already holds, never for luck.
 - ``explore``, on ``main``, nightly and on dispatch: a large budget,
   where new counterexamples come from.
-- ``dev``, the default elsewhere: a middling budget, and with a
-  ``GITHUB_TOKEN`` in the environment the local database is backed by
-  CI's, read-only, so what CI found replays on your machine.
+- ``dev``, the default elsewhere: a middling budget over the local
+  database alone.
+- ``shared``, on request: the ``dev`` budget with the local database
+  backed by CI's, read-only, through a ``GITHUB_TOKEN``, so what CI found
+  replays on your machine. It reaches GitHub only when asked for, never
+  as a side effect of a token in the environment.
 
 Every run downloads the database the previous run uploaded as the
-``hypothesis-example-db`` artifact and uploads its own afterwards,
-whether or not it passed — a failed run's artifact is the one holding the
-new counterexample. Hypothesis prunes what passes again and keeps what
-fails, so a failure found by one night's search fails every pull request
-until it is fixed or declared, with no one recording anything.
+``hypothesis-example-db`` artifact; a run of ``main``, the nightly search
+or a dispatch uploads its own afterwards, whether or not it passed — a
+failed run's artifact is the one holding the new counterexample — while
+a pull request only reads it, so a branch cannot rewrite the shared
+memory before it merges. Hypothesis prunes what passes again and keeps
+what fails, so a failure found by one night's search fails every pull
+request until it is fixed or declared, with no one recording anything.
 
 Explore runs are randomised, so a red check on ``main`` or overnight is
 where a new bug surfaces: the shrunk draws in the log and the printed
 ``@reproduce_failure(<version>, <blob>)`` decorator reproduce it under
 the Hypothesis ``uv.lock`` pins, and the artifact replays it on every
-pull request and, through the ``dev`` profile, on your machine.
+pull request and, through the ``shared`` profile, on your machine.
 ``--hypothesis-show-statistics`` is on, so the log of an explore run also
 says how often each shape was drawn, the input of a strategy audit.
 """
 
 from __future__ import annotations
 
+import __future__
 import inspect
 import pickle
 import sys
@@ -312,7 +293,7 @@ itself for a law of every term of a type whatever its level, such as
 evaluates the annotations; a law of functors names the category they map
 from as ``Self.dom``. This is also why every module stating an axiom
 needs ``from __future__ import annotations``, which keeps them
-unevaluated.
+unevaluated: :class:`Axiom` refuses an equation compiled without it.
 Rebinding happens through the ``locals`` of that evaluation because the
 :pep:`695` type parameters of :class:`discopy.abc.Category` live in a
 scope :func:`eval` cannot see, in globals or anywhere else.
@@ -453,6 +434,12 @@ class Axiom[**P, T]:
     broken: bool = False
 
     def __post_init__(self):
+        function = inspect.unwrap(self.equation)
+        deferred = __future__.annotations.compiler_flag
+        if not function.__code__.co_flags & deferred:
+            raise TypeError(
+                f"{function.__module__} states the axiom {function.__name__} "
+                "without `from __future__ import annotations`.")
         self.name = self.name or self.equation.__name__
         self.subspaces = dict(self.subspaces or {})
         self.__doc__ = self.equation.__doc__
@@ -518,9 +505,8 @@ class Axiom[**P, T]:
     def weaken(self, **subspaces) -> Axiom[P, T]:
         """
         The same law quantified over a subspace of the named arguments,
-        e.g. ``bifunctoriality_connected =
-        MonoidalCategory.bifunctoriality.weaken(
-        square=BoundaryConnected[Square[C1]])``: each named parameter
+        e.g. ``unitality_of_loops = Category.unitality.weaken(f=Endo[C1])``
+        for a wrapper ``Endo`` of the endomorphisms: each named parameter
         is generated from its subspace strategy, whose wrapper validates
         membership on construction — so a recorded counterexample replays
         honestly — and is unwrapped before the body reads it. Assigned to
@@ -588,10 +574,8 @@ class Axiom[**P, T]:
         :class:`hypothesis.errors.NoSuchExample` when no counterexample is
         found. Keyword arguments are passed to :func:`hypothesis.find`.
 
-        >>> from discopy.cat import Functor
-        >>> Functor.unitality.falsify()  # doctest: +ELLIPSIS
-        (cat.Functor(ob_map=..., ar_map=...),)
-        >>> Functor.associativity.falsify()  # doctest: +ELLIPSIS
+        >>> from discopy.cat import Arrow
+        >>> Arrow.associativity.falsify()  # doctest: +ELLIPSIS
         Traceback (most recent call last):
          ...
         hypothesis.errors.NoSuchExample: No examples found of condition ...

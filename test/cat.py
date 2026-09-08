@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import annotations
+
 import pytest
 from pytest import raises
 
@@ -419,3 +421,17 @@ def test_cat_valued_functor():
     F = Functor(ob_map={x: x, y: y}, ar_map={f: f})
     H = Functor(ob_map={x: Arrow, y: Arrow}, ar_map={f: F}, cod=Functor)
     assert H(x) is Arrow and H(f) == F
+
+
+def test_Functor_then_left_unit():
+    """
+    Composition is unital only on the left up to equality of functors
+    (#648): the identity functor is a pair of functions, so composing it on
+    the left of a functor given by dictionaries yields a pair of functions
+    that acts the same but compares unequal.
+    """
+    x, y = Ob('x'), Ob('y')
+    F = Functor({x: y, y: x}, {})
+    assert F >> Functor.id() == F
+    assert Functor.id() >> F != F
+    assert (Functor.id() >> F)(x) == F(x)

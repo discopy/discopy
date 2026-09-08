@@ -78,12 +78,13 @@ cores, with `-p no:benchmark` unloading the benchmark plugin that is
 incompatible with it; drop both to run serially, e.g. when debugging a
 single cell.
 
-Every cell of the matrix is one axiom of one carrier, and the `--axioms`
-flag selects cells by glob, which can be used for shorter, targeted tests.
+Every cell of the matrix is one axiom of one carrier, named
+`<module>.<Carrier>.<law>`, so pytest's own `-k` selects cells for
+shorter, targeted tests.
 
 ```shell
-uv run pytest proptest/ --axioms '*.unitality' -v
-uv run pytest proptest/ --axioms 'cat.Functor.*'
+uv run pytest proptest/ -k unitality -v
+uv run pytest proptest/ -k 'Arrow and not typing'
 ```
 
 A cell is skipped when its axiom declares that the structure does not
@@ -96,9 +97,9 @@ their reasons, and `-x` to stop at the first genuine failure.
 by default, `pr` for the small budget a pull request runs with, under a
 fixed `--hypothesis-seed` so that it draws the same examples every time,
 and `explore` for the large one `main` and the nightly run search with.
-With a `GITHUB_TOKEN` in the environment, `dev` also reads the database
-CI uploads as a workflow artifact, so a failure found on CI replays on
-your machine before any search.
+A fourth, `shared`, is `dev` reading the database CI uploads as a workflow
+artifact, through a `GITHUB_TOKEN`, so a failure found on CI replays on
+your machine before any search; it reaches GitHub only when selected.
 
 ```shell
 HYPOTHESIS_PROFILE=explore uv run pytest proptest/ -n auto -p no:benchmark

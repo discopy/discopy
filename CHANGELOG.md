@@ -60,22 +60,25 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `discopy.utils`, re-exported from `discopy.abc`, so `discopy.axioms`
   can use it — making a subscripted wrapper a class whose
   `strategy(cls, **params)` matches the contract `Strategy.strategy` now
-  states, so a subspace annotation like `NonEmpty[ComposablePair[C1]]`
+  states, so a subspace annotation like `ComposablePair[C1]`
   builds; an unbound axiom's `.strategy()` raises the same `TypeError`
   as `.falsify` and calling it. The
   search itself is the canonical instantiation only — one atomic object or
   one free/generator box per parameter, no recursive or compound
   generation — wired up in `proptest/test_axioms.py`, enrolled so far for
-  `cat.Arrow` and `cat.Functor`, and run by the new `proptest` GitHub
+  `cat.Arrow`, and run by the new `proptest` GitHub
   workflow on PRs labelled `proptest`, on `main`, nightly and on manual
   dispatch. `proptest/conftest.py` registers three Hypothesis profiles
-  over one example database, keyed per cell by node id: `pr` replays what
-  the database remembers and generates a few examples from a fixed seed,
-  `explore` searches with a large budget, and `dev` reads CI's database through a read-only
-  `GitHubArtifactDatabase` given a `GITHUB_TOKEN`. The workflow downloads
-  the database from the previous run's artifact and uploads its own after
-  every run, so a counterexample found by one night's search fails every
-  pull request until it is fixed or declared; a recorded counterexample
+  over one example database, keyed per cell: `pr` replays what the
+  database remembers and generates a few examples from a fixed seed,
+  `explore` searches with a large budget, `dev` works on the local
+  database alone and `shared`, registered only when selected, backs it
+  with CI's through a read-only `GitHubArtifactDatabase` and a
+  `GITHUB_TOKEN`. The workflow downloads the database from the previous
+  run's artifact, and a run of `main`, the nightly search or a dispatch
+  uploads its own afterwards — a pull request only reads it — so a
+  counterexample found by one night's search fails every pull request
+  until it is fixed or declared; a recorded counterexample
   xfails strictly while its axiom is declared `.failing`, so a fixed bug
   fails as an unexpected pass until the declaration moves. `Strategy`
   states the laws of any type that generates its own instances, whatever

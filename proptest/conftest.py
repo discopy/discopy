@@ -24,29 +24,27 @@ COMMON = dict(
     suppress_health_check=[HealthCheck.filter_too_much])
 
 
-def shared() -> MultiplexedDatabase:
-    """
-    The local database backed by CI's, read-only, so that a developer with
-    a ``GITHUB_TOKEN`` replays what CI found without recording anything.
-    """
-    return MultiplexedDatabase(LOCAL, ReadOnlyDatabase(
-        GitHubArtifactDatabase("discopy", "discopy")))
-
+PROFILE = os.environ.get("HYPOTHESIS_PROFILE", "dev")
 
 settings.register_profile("pr", max_examples=20, **COMMON)
 settings.register_profile("explore", max_examples=1000, **COMMON)
-settings.register_profile("dev", max_examples=100, **dict(
-    COMMON, database=shared() if "GITHUB_TOKEN" in os.environ else LOCAL))
-settings.load_profile(os.environ.get("HYPOTHESIS_PROFILE", "dev"))
+settings.register_profile("dev", max_examples=100, **COMMON)
+if PROFILE != "shared":
+    settings.load_profile(PROFILE)
 
 
-def pytest_runtest_setup(item):
+def pytest_configure(config):
     """
-    Key the database of a Hypothesis cell by its node id.
-
-    Hypothesis keys the database by the digest of the test function, which
-    every parameter of a parametrized test shares, so one cell's failures
-    would be replayed against every other cell.
+    Register and load the ``shared`` profile on demand: the ``dev`` budget
+    over the local database backed by CI's, read-only, so that a developer
+    with a ``GITHUB_TOKEN`` replays what CI found without recording
+    anything. Building the artifact database touches storage, which
+    Hypothesis warns against at conftest import, so it happens only when
+    the profile is asked for.
     """
-    if hasattr(item.obj, "hypothesis"):
-        item.obj._hypothesis_internal_database_key = item.nodeid.encode()
+    if PROFILE == "shared":
+        database = MultiplexedDatabase(LOCAL, ReadOnlyDatabase(
+            GitHubArtifactDatabase("discopy", "discopy")))
+        settings.register_profile(
+            "shared", max_examples=100, **dict(COMMON, database=database))
+        settings.load_profile("shared")

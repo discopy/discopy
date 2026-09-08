@@ -188,3 +188,10 @@ def test_axioms():
     from discopy import axioms
 
     axioms.assert_axioms(Ty, Diagram, Functor)
+
+
+def test_functor_factory():
+    """ The functor of a rigid diagram rotates, so a boundary keeps its z. """
+    x, y = Ty('x'), Ty('y')
+    assert Diagram.functor_factory is Functor
+    assert Diagram.functor_factory({x: y}, {})(x.r) == y.r
