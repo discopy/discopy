@@ -5,28 +5,44 @@ The compact closed category of bidirectional neural networks, with additive
 dimensions as objects and concatenation as tensor.
 
 A :class:`Network` with domain ``Dim(a_1, ..., a_m)`` and codomain
-``Dim(b_1, ..., b_n)`` carries one module from ``R ** w`` to ``R ** w`` for
-``w = a_1 + ... + a_m + b_1 + ... + b_n``, reading incoming messages on all
-its ports and emitting outgoing messages on all its ports. Networks compose
-with the cartesian product of vector spaces, so the tensor of dimensions is
-their sum with the zero-dimensional space ``Dim(0)`` as unit; dimensions
-are self-dual so that cups, caps and swaps are pure rerouting.
+``Dim(b_1, ..., b_n)`` carries one :class:`torch.nn.Module` from ``R ** w``
+to ``R ** w`` for ``w = a_1 + ... + a_m + b_1 + ... + b_n``, reading incoming
+messages on all its ports and emitting outgoing messages on all its ports.
+Networks compose with the cartesian product of vector spaces, so the tensor
+of dimensions is their sum with the zero-dimensional space ``Dim(0)`` as
+unit; dimensions are self-dual so that cups, caps and swaps are pure
+rerouting.
 
-A morphism of this category is a graph neural network: the combinatorial
-map of a diagram lays the messages of every port out as one flat vector,
-:attr:`CMap.routing`, along which synchronous message passing computes the
-execution formula of the geometry of interaction, see :cite:t:`Abramsky96`
-and :mod:`discopy.interaction` for the Int-construction of Joyal, Street &
-Verity :cite:p:`JoyalEtAl96`. Running it is the business of
-:mod:`discopy.neural.execution`.
+The combinatorial maps of this category are graph neural networks: the
+:meth:`CMap.forward` pass does synchronous message passing along the wires,
+which implements the execution formula of the geometry of interaction, see
+:cite:t:`Abramsky96` and :mod:`discopy.interaction` for the Int-construction
+of Joyal, Street & Verity :cite:p:`JoyalEtAl96`.
 
+The forward pass is the :class:`~discopy.neural.execution.Execution` of the
+map on a :class:`~discopy.neural.backend.Backend`, torch or JAX: all the
+messages live in one flat array, one round of routing is a single
+permutation of its last axis, and every box that shares a module and a port
+signature is evaluated in one batched call, so a grid of identical cells
+costs one module call per round rather than one per cell. It runs on
+whatever device its parameters live on, so ``cmap.to("cuda")`` followed by
+``cmap(x.to("cuda"))`` trains on the GPU, and :meth:`CMap.compile` hands the
+per-round step to the backend's compiler for maps whose rounds are
+launch-bound rather than compute-bound.
 Cells need not be feedforward: a box can carry state between rounds along a
 self-wired pair of ports.  Structurally that pair *is* the categorical trace
 of the compact target -- it is wiring, which a functor preserves strictly --
 while what it computes over finitely many rounds is delayed feedback: what a
-box writes on one end it reads on the other one round later. Only the syntax
-is compact closed: a trace would ask for the fixed point of the execution
-formula, where a run computes a fixed number of rounds.
+box writes on one end it reads on the other one round later.  Repeated
+rounds are the finite iteration ``T ** n``, never a fixed-point solve; see
+:mod:`discopy.neural.map` for the transition ``T`` and for the four notions
+kept apart there.
+
+This module is the *category*.  Training a neural interpretation of a
+diagram goes through :class:`~discopy.neural.MapNN`, which compiles a
+diagram and a family of shared generator modules into a :class:`CMap` and
+addresses its flat state by ``(generator name, role)`` through
+:meth:`CMap.read` and :meth:`CMap.write`.
 
 Note that ``import discopy.neural`` does not import ``torch``: networks can
 be built, composed and rewired without it, only evaluating their modules
@@ -55,11 +71,15 @@ Summary
 Example
 -------
 
-The combinatorial map of a snake has no box, it is pure rerouting:
+Message passing on the combinatorial map of a diagram computes its image
+under the execution formula, e.g. rerouting for a snake:
 
+>>> import torch  # doctest: +EXTRA
 >>> snake = Id(Dim(2)).transpose().to_map()
->>> snake.boxes, snake.routing["src"]
-((), (2, 3, 0, 1))
+>>> snake.boxes
+()
+>>> x = torch.tensor([[0.1, 0.2]])
+>>> assert (snake(x) == x).all()
 """
 
 from __future__ import annotations
@@ -69,6 +89,8 @@ from functools import cached_property
 from discopy import cmap, compact, hypergraph, monoidal, para
 from discopy.cat import factory
 from discopy.cmap import PortKind
+from discopy.neural.backend import Backend, get_backend
+from discopy.neural.execution import Execution, make_step
 from discopy.pivotal import Ty
 from discopy.utils import assert_isinstance, factory_name, from_tree as decode
 
@@ -337,10 +359,13 @@ Equation = compact.Equation
 class CMap(cmap.CMap[Diagram]):
     """
     A neural combinatorial map is a compact map with networks as boxes,
-    which computes as a graph neural network: one message per port,
-    travelling along the wires given by the ``edges`` involution, laid out
-    as one flat vector by :attr:`routing`. Running it is the business of
-    :mod:`discopy.neural.execution`.
+    which computes as a graph neural network.
+
+    The :meth:`forward` pass does synchronous message passing: one message
+    per port, travelling along the wires given by the ``edges`` involution.
+    :meth:`as_network` wraps the map back into a :class:`Network` with a
+    fresh module of the backend inside, the handle a training loop holds:
+    its parameters are those of the networks inside the map.
 
     Example
     -------
@@ -399,6 +424,34 @@ class CMap(cmap.CMap[Diagram]):
     def has_boundary(self) -> bool:
         """ Whether the map has any boundary port. """
         return bool(len(self.dom) or len(self.cod))
+
+    def as_network(self, name: str = "network",
+                   backend: str | Backend = None) -> Network:
+        """
+        Wrap the map back into a :class:`Network` with a fresh backend
+        module inside, whose forward pass is the message passing of the
+        map. The module registers the modules of the networks inside the
+        map, so that the result can be trained or nested inside a larger
+        model, and its private memory is the memory of every box occurrence
+        concatenated.
+
+        As a box of a larger map, the network runs the map from a cold
+        start on every outer round, see
+        :func:`~discopy.neural.execution.box_forward`: ``len(self.boxes)``
+        synchronous rounds with the outer messages injected on its boundary
+        at every one of them, only the private memory carried from one
+        outer round to the next. That is the execution of the flattened
+        diagram exactly when every module ignores the messages incoming on
+        its codomain and no box has memory.
+
+        Parameters:
+            name : The name of the network.
+            backend : The backend name or instance, the current one by
+                      default.
+        """
+        backend = get_backend(backend)
+        return Network(name, self.dom, self.cod, module=backend.wrap(self),
+                       mem=Dim(sum(self.memory_widths)))
 
     @cached_property
     def routing(self) -> dict:
@@ -472,6 +525,210 @@ class CMap(cmap.CMap[Diagram]):
                     k for i in members for k in boxes[i]["memory"])}
                 for (module, box_widths, memory_width), members
                 in groups.items())}
+
+    @cached_property
+    def index_cache(self) -> dict:
+        """ The :meth:`indices` computed so far, per backend and device. """
+        return {}
+
+    @cached_property
+    def step_cache(self) -> dict:
+        """ The :meth:`step` built so far, per backend and device. """
+        return {}
+
+    compile_kwargs = None
+
+    def indices(self, backend: Backend, like=None) -> dict:
+        """
+        The :attr:`routing` as index arrays of a backend, cached per
+        backend and device in :attr:`index_cache`: ``src``, ``input``,
+        ``output``, the ``boundary`` inputs then outputs, every box's
+        ``ports`` in box order, the ``groups`` and each box on its own in
+        ``boxes``, with the ``targets`` its outputs arrive at.
+
+        Parameters:
+            backend : The execution backend.
+            like : An array on the device the indices should live on.
+        """
+        key = (backend, getattr(like, "device", None))
+        if key not in self.index_cache:
+            routing = self.routing
+            self.index_cache[key] = {
+                "src": backend.index(routing["src"], like),
+                "input": backend.index(routing["input"], like),
+                "output": backend.index(routing["output"], like),
+                "boundary": backend.index(
+                    routing["input"] + routing["output"], like),
+                "ports": backend.index(routing["ports"], like),
+                "groups": tuple(dict(
+                    group, ports=backend.index(group["ports"], like),
+                    memory=backend.index(group["memory"], like))
+                    for group in routing["groups"]),
+                "boxes": tuple(dict(
+                    box, ports=backend.index(box["ports"], like),
+                    memory=backend.index(box["memory"], like),
+                    targets=backend.index(box["targets"], like))
+                    for box in routing["boxes"])}
+        return self.index_cache[key]
+
+    def __getstate__(self):
+        """ The map without its caches of index arrays and round steps. """
+        state = dict(self.__dict__)
+        state.pop("index_cache", None)
+        state.pop("step_cache", None)
+        return state
+
+    def compile(self, **kwargs) -> CMap:
+        """
+        Compile the per-round :meth:`step` with the backend's compiler,
+        ``torch.compile`` on torch and ``jax.jit`` on JAX, so that the many
+        small kernels of a round on a small map are fused. The round loop
+        stays in Python, so ``n_rounds`` stays dynamic; compilation happens
+        lazily on the first forward pass per backend and device, the
+        modules being an argument of the step. The causal schedule fires
+        the boxes one at a time and never runs the compiled step.
+
+        Parameters:
+            kwargs : Passed through to the compiler, e.g. ``mode``.
+        """
+        self.compile_kwargs = kwargs
+        self.__dict__.pop("step_cache", None)
+        return self
+
+    def step(self, backend: Backend, like=None):
+        """
+        One round of message passing as a function of the modules and the
+        flat arrays, :func:`~discopy.neural.execution.make_step`'s closure
+        over the :meth:`indices`, cached per backend and device in
+        :attr:`step_cache` and compiled when :meth:`compile` was called.
+
+        Parameters:
+            backend : The execution backend.
+            like : An array on the device the round runs on.
+        """
+        key = (backend, getattr(like, "device", None))
+        if key not in self.step_cache:
+            step = make_step(backend, self.indices(backend, like))
+            self.step_cache[key] = step if self.compile_kwargs is None\
+                else backend.compile(step, **self.compile_kwargs)
+        return self.step_cache[key]
+
+    def zeros(self, rows: int, like=None, backend: str | Backend = None):
+        """
+        An all-zero flat state of ``rows`` rows, one summand per port.
+
+        Parameters:
+            rows : The batch size.
+            like : An array whose backend, dtype and device the state
+                   follows.
+            backend : The backend name or instance, that of ``like`` or
+                      else the current one by default.
+        """
+        return get_backend(backend, like=like).zeros(
+            rows, self.routing["total"], like=like)
+
+    def read(self, state, ports: tuple[int, ...]):
+        """
+        The messages of a family of equally wide ports, as an array of
+        shape ``(rows, len(ports), width)``, from a flat state of whichever
+        backend owns it.
+
+        Parameters:
+            state : The flat messages, ``(rows, total)``.
+            ports : The global port indices.
+        """
+        widths, offsets = self.port_widths, self.routing["offsets"]
+        width = widths[ports[0]] if ports else 0
+        if any(widths[port] != width for port in ports):
+            raise ValueError(
+                "ports of different widths cannot be read as one block")
+        index = get_backend(like=state).index(tuple(
+            k for port in ports
+            for k in range(offsets[port], offsets[port] + width)), state)
+        return state[:, index].reshape(state.shape[0], len(ports), width)
+
+    def write(self, state, ports: tuple[int, ...], values):
+        """
+        A copy of a flat state with ``values`` written on a family of
+        equally wide ports, on whichever backend owns the state.
+
+        Parameters:
+            state : The flat messages, ``(rows, total)``.
+            ports : The global port indices.
+            values : An array of shape ``(rows, len(ports), width)``.
+        """
+        backend = get_backend(like=state)
+        offsets, widths = self.routing["offsets"], self.port_widths
+        index = backend.index(tuple(
+            k for port in ports
+            for k in range(offsets[port], offsets[port] + widths[port])),
+            state)
+        return backend.put(state, index, values.reshape(state.shape[0], -1))
+
+    def forward(self, x=None, init=None, n_rounds: int = None,
+                inject: bool = True, return_rounds: bool = False,
+                return_flat: bool = False, memory=None,
+                return_memory: bool = False, causal: bool = False,
+                backend: str | Backend = None, modules=None):
+        """
+        Synchronous message passing along the wires of the map, i.e. the
+        execution formula of the geometry of interaction, as the
+        :class:`~discopy.neural.execution.Execution` of the map on a
+        backend: all the messages in one flat array, the boxes sharing a
+        module evaluated in one batched call per round and the routing one
+        permutation.
+
+        Parameters:
+            x : The input, of shape ``(batch_size, sum of domain widths)``;
+                on a closed map, an ``x`` of width 0 sets the batch size
+                and nothing else.
+            init : The initial incoming messages, given per port or as one
+                   tensor of shape ``(batch_size, sum of port widths)``.
+                   On a boundary output port it is a bias on the output
+                   while injecting, re-added to the message arriving there
+                   after every round, while on a boundary input port
+                   nothing but ``return_flat`` reads it.
+            n_rounds : The number of rounds, the number of boxes by default.
+            inject : Whether to re-add ``init`` to the incoming messages at
+                     every round rather than just the first.
+            return_rounds : Whether to return the result after every round
+                            rather than just the last, e.g. so that a loss
+                            can supervise every round of message passing.
+            return_flat : Whether to return the flat incoming messages of
+                          the next round -- one tensor of shape
+                          ``(batch_size, sum of port widths)`` in port
+                          order -- instead of slicing the boundary ports or
+                          collecting the per-box outputs; under ``causal``,
+                          the flat messages after the pass.
+            memory : The initial private memory, per box occurrence or as
+                     one tensor of the concatenated memory dimensions.
+            return_memory : Whether to return the final per-box memories
+                            together with the usual result.
+            causal : Whether to activate every box once in topological
+                     order, for a feed-forward map; not combined with
+                     ``n_rounds`` nor ``return_rounds``.
+            backend : The backend name or instance, the current one by
+                      default.
+            modules : The backend-owned modules in :attr:`modules` order,
+                      the modules of the boxes by default.
+        """
+        if not self.has_boundary and x is not None and x.shape[-1]:
+            raise ValueError("A closed map takes no input.")
+        execution = Execution(
+            self, x, init, memory=memory, backend=backend, modules=modules)
+        if causal:
+            if n_rounds is not None:
+                raise ValueError(
+                    "A causal schedule cannot be combined with n_rounds.")
+            if return_rounds:
+                raise ValueError(
+                    "A causal schedule has no rounds to return.")
+            return execution.forward_causal(
+                inject, return_memory, return_flat)
+        return execution.forward(
+            n_rounds, inject, return_memory, return_rounds, return_flat)
+
+    __call__ = forward
 
 
 Id = Diagram.id

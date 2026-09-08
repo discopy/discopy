@@ -139,6 +139,9 @@ def test_para():
     assert (network.dom, network.cod, network.param)\
         == (Dim(1), Dim(1), Dim(1, 1))
     assert network.inside.dom == Dim(1, 1, 1)
+    weights = torch.tensor([[2., 3., 5.]])
+    assert network.inside.to_map()(weights, causal=True)\
+        == torch.tensor([[30.]])
     assert (scale @ scale).param == Dim(1, 1)
     with raises(AxiomError):
         Para(Dim(1), Dim(1), scale.inside, Dim(2))
