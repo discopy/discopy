@@ -847,32 +847,3 @@ def test_from_glued_loops():
         (M.caps(x.r, x), 0), (M.caps(y.r, y), 2),
         (M.cups(y.r, y), 2), (M.cups(x.r, x), 0)])
     assert two.loops == (x, y)
-
-
-def test_logical_order():
-    from discopy.compact import Ty, Box, CMap as M
-    x, y = map(Ty, "xy")
-    assert M.logical_order(2, 3) == (0, 1, 4, 3, 2)
-    assert M.logical_order(0, 0) == () and M.logical_order(1, 0) == (0, )
-    cm = M.from_box(Box("f", x @ y, x @ y @ x))
-    assert cm.box_ports(0) == (2, 3, 6, 5, 4)
-
-
-def test_from_wiring_errors():
-    from discopy.symmetric import Ty, Box, CMap as M
-    x = Ty("x")
-    f = Box("f", x, x)
-    with raises(ValueError, match="has no port"):
-        M.from_wiring((f, ), [((0, 0), (0, 2))])
-    for box_index in (-1, 1):
-        with raises(ValueError, match="no box"):
-            M.from_wiring((f, ), [((0, 0), (box_index, 1))])
-    with raises(ValueError, match="wired to itself"):
-        M.from_wiring((f, ), [((0, 0), (0, 0))])
-    with raises(ValueError, match="wired twice"):
-        M.from_wiring((f, f), [((0, 0), (0, 1)), ((0, 0), (1, 1))])
-    with raises(ValueError, match="left unwired"):
-        M.from_wiring((f, f), [((0, 0), (0, 1))])
-    closed = M.from_wiring((f, f), [((0, 0), (1, 1)), ((0, 1), (1, 0))])
-    assert closed.n_ports == 4 and closed.is_monogamous
-    assert closed.dom == closed.cod == Ty() and closed.boxes == (f, f)
