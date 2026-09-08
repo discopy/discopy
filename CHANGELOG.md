@@ -9,67 +9,6 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
-- The style review keeps score. Every review it posts records the remarks
-  it made, hidden in its own body, so the next round can read them back
-  whole rather than parse its own prose. That next round is one request
-  as before: the model is shown the past remarks with the replies they
-  drew, alongside the revision it is reviewing, and says what became of
-  each — `accepted` when the file now does what the remark asked,
-  `declined` when someone answered that they would not do it, and neither
-  while nobody has answered and nothing has moved. Each review then
-  carries the tally of the remarks **it** made and no others, `3 style
-  remarks: 1 accepted / 1 declined / 1 still open` — or `all accepted`, a
-  state nothing is in being left out rather than counted at nought — so
-  that a review says how what it asked for landed, read where it asked
-  it. A round is scored by the ones that follow it, so the review being
-  posted carries no tally yet and every round already posted is written
-  again. A verdict that decided something survives a later round that
-  forgets it: each tally carries the verdicts it recorded, hidden beside
-  the line it shows, and a round merges its answers into them rather than
-  recomputing the lot — a remark accepted while its file was in the diff stays
-  accepted once the diff has moved on, where asking a model that can no
-  longer see that file made the tally oscillate. A round is one review and
-  says which round it is, so the reader sees how the review is landing
-  without counting them. The prompt is ordered from what never moves to
-  what moves every round — instructions, `STYLE.md`, context files, the
-  past remarks as a list that only grows at its end, and last the revision
-  under review — so that two rounds of one pull request share a prefix the
-  gateway can serve from its cache rather than reading again
-  ([#672](https://github.com/discopy/discopy/pull/672)).
-- The style review never posts a review of a revision that is gone. Its
-  concurrency group keyed on the event's action as well as the pull
-  request, so a push cancelled the round another push had started but not
-  one started by `ready_for_review` or by asking for it in a comment:
-  those ran on, and posted a review of the head they had read minutes
-  earlier, with line numbers belonging to a revision nobody could see any
-  more. The group is now the pull request alone, so a newer trigger
-  cancels the round in flight whatever started either of them, and
-  `post.py` re-reads the head before posting and stands down when it has
-  moved, leaving the review to the round that push starts. The base
-  branch advancing is not this and never was: a merge base does not move
-  when its target gains commits, so the diff both we and GitHub compute —
-  and every line number in it — is the same before and after
-  ([#672](https://github.com/discopy/discopy/pull/672)).
-- The style review comments on the diff, and says where it could not.
-  Whole files are what it reads to judge a change against the
-  conventions around it, not an invitation to review code the change
-  does not touch, so the prompt asks for findings on the lines the diff
-  adds and says that going outside them is allowed but discouraged —
-  for the case where what is wrong with a change is somewhere it did not
-  touch. Every remark is a comment on the line it is about wherever
-  GitHub takes one there, which is any line one of the diff's hunks
-  shows; a remark further out goes in the review body, as do the ones
-  past the ten-finding cap and, where GitHub refuses the inline comments
-  outright, all of them. Left as a review of the file at large, the
-  ten-finding cap went on code nobody was changing, and under the tally
-  above those remarks stayed open forever, since fixing them was out of
-  the pull request's scope
-  ([#673](https://github.com/discopy/discopy/issues/673)). The body also
-  names the changed files that did not fit one prompt — reviewed from
-  their diff alone, or not reviewed at all — where that was said in the
-  job's log and nowhere a reader would look, so a review with nothing to
-  say about a file it never read whole read exactly like one that had
-  read it.
 - A `workflows` job in `build.yml`, so that the code running our pull
   requests is checked like the code it checks: `actionlint` over the
   workflows, `pflake8` over `.github`, and `pytest .github/tests/*.py`
@@ -80,9 +19,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   ([#611](https://github.com/discopy/discopy/issues/611),
   [#615](https://github.com/discopy/discopy/issues/615),
   [#640](https://github.com/discopy/discopy/issues/640)), every one found
-  in production. On its first runs `actionlint` found the `style-review.yml`
-  bug below, and shellcheck the `A && B || C` in `benchmark.yml`'s summary
-  step, now an `if` ([#645](https://github.com/discopy/discopy/pull/645)).
+  in production. On its first runs shellcheck found the `A && B || C` in
+  `benchmark.yml`'s summary step, now an `if`
+  ([#645](https://github.com/discopy/discopy/pull/645)).
 - `.github/actions/setup`, one composite action for installing uv, Python,
   the project and, for the jobs that draw, Graphviz. The three `build.yml`
   jobs called for it four times between them and the Graphviz incantation
@@ -92,17 +31,6 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `.github/dependabot.yml`, grouping the monthly GitHub Actions updates
   into one pull request, now that every action is pinned by commit
   ([#645](https://github.com/discopy/discopy/pull/645)).
-- The style review can be asked for, and turned off, from the pull request
-  itself: `@discopy review this` in a comment reviews it now, and the
-  `no-style-review` label stops the automatic reviews on it, while the
-  comment goes on working — it is "stop reviewing this on its own", not
-  "never review this". The comment is read from people with write access
-  only, and labelling already is, so nobody who can merely comment can
-  silence the reviewer or spend the gateway budget. It replaces the
-  `style-review` label, which did the same on demand except that it never
-  handed over to the correctness reviewer. A pull request already open and
-  not about to change had no trigger at all otherwise, since only a push
-  reaches one ([#638](https://github.com/discopy/discopy/issues/638)).
 - `Diagram.to_compact` and `CMap.to_compact`, bending curry bubbles into
   coevaluation and feedback. Since a biclosed category has no trace, the
   `biclosed` method lands in `CMap`, which is compact whatever hosts it,
@@ -111,26 +39,6 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   with `biclosed.Coeval`, the transpose of `Eval`, which a biclosed
   category only has when its exponential is read at a reflexive object
   ([#532](https://github.com/discopy/discopy/pull/532)).
-- A style review workflow: on a revision of a same-repo pull request, one
-  model request reads every changed Python file whole — with the
-  package-local files they import as context — checks the diff against the
-  file's own conventions and `STYLE.md`, and
-  discopy-bot posts the findings as one review — style only, correctness
-  stays with the correctness reviewer, whom discopy-bot calls once the
-  style review has nothing to say. Inference runs on an open-weights
-  model behind an OpenAI-compatible gateway, configured by the
-  `STYLE_REVIEW_BASE_URL` and `STYLE_REVIEW_MODEL` repository variables and
-  the `STYLE_REVIEW_API_KEY` secret
-  ([#608](https://github.com/discopy/discopy/pull/608)). The review prompt
-  now also carries the PR discussion so far — conversation comments,
-  diff comments and review summaries, merged chronologically by
-  `thread.py` from the three listings `history.py` already reads for the
-  tally — so a re-review references a resolved flag instead of re-raising
-  it, and weighs an author's reply as context about the discussion rather
-  than authority on the style itself
-  ([#620](https://github.com/discopy/discopy/pull/620);
-  [#619](https://github.com/discopy/discopy/issues/619) tracks the
-  long-term memory this is a prerequisite for).
 - Combinatorial map representation, `discopy.cmap`, encoding diagrams in
   compact categories as a permutation on the ports of each box
   ([#338](https://github.com/discopy/discopy/pull/338)).
@@ -193,6 +101,25 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Changed
 
+- Matplotlib SVGs adapt to the page behind them: they are saved on a
+  transparent canvas and open with a `prefers-color-scheme: dark` media
+  query that turns the elements drawn black on that canvas — wires, braids,
+  wire labels, spiders and their labels, control dots — white on a dark
+  page, so a single SVG file reads on both light and dark backgrounds.
+  Elements whose readability does not depend on the page keep their static
+  colours: box interiors stay white with black labels, coloured regions
+  keep their fill and the black strokes over them. White spiders, e.g. the
+  symbol of an `Equation`, are drawn unfilled so they leave no white patch
+  on a non-white page, and raster formats keep their white background since
+  they cannot adapt. The docs let content images follow the theme toggle by
+  setting their `color-scheme`, which propagates into the SVG media query,
+  instead of painting a white plate behind them in dark mode
+  ([#453](https://github.com/discopy/discopy/issues/453), superseding the
+  static outlines of
+  [#497](https://github.com/discopy/discopy/pull/497)). The hand-drawn
+  snake equation of the README header adapts the same way, replacing its
+  separate `snake-equation-dark.svg`, and the unreferenced
+  `frobenius-axioms.svg` is deleted.
 - The benchmark measures a pull request against its merge base rather
   than the tip of its base branch. The head does not contain what landed
   on `main` since it forked, so measuring against the tip charged the pull
@@ -204,7 +131,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `.github/scripts/benchmark_comment.py` rather than 140 lines of
   JavaScript embedded in YAML. Nothing needed `actions/github-script`: the
   event payload is a JSON file named by `GITHUB_EVENT_PATH` and the REST
-  API is `urllib`, which `.github/style-review/post.py` already talks to.
+  API is `urllib`, from the standard library.
   In Python it is lintable, testable and in the one language this
   repository is written in; its validation is `unreadable`, `unattested`
   and `mismatch`, three pure functions the tests state the refusals of.
@@ -387,7 +314,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   factory string load the same way
   ([#566](https://github.com/discopy/discopy/pull/566)).
 
-### Fixed
+### Removed
 
 - `quantum.circuit`'s module-level `backend` (the array-backend context
   manager imported from `discopy.matrix`) is renamed `array_backend`, so it
@@ -395,6 +322,13 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `Circuit.get_counts`, which each declare their own pytket `backend=`
   parameter of the same name
   ([#534](https://github.com/discopy/discopy/issues/534)).
+- `cat.Bubble.dagger`: a bubble's dagger was inherited from `Box.dagger`,
+  which reconstructs with `type(self)(name, cod, dom, ...)` — positional
+  arguments `Bubble.__init__` reads as `*args`, so it crashed with
+  `AttributeError` on the very first (non-arrow) argument. `Bubble` now
+  daggers each of its `args`, swaps `dom`/`cod` and carries `data`/`is_dagger`
+  through like `Box.dagger` does
+  ([#55](https://github.com/discopy/discopy/issues/55)).
 - `style-review.yml`'s hand-over to the correctness reviewer, and its
   token generation, ran on every style review rather than the intended
   ones. Both conditions were written as `if: >` folding a wrapped
@@ -429,6 +363,47 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   one by comment is what ignores the wait
   ([#615](https://github.com/discopy/discopy/issues/615),
   [#636](https://github.com/discopy/discopy/issues/636)).
+- The in-house style reviewer — `.github/style-review/` (the `review.py`,
+  `post.py`, `history.py`, `thread.py` and `github.py` scripts and their
+  `prompt.md`), the `style-review.yml` workflow, and their tests under
+  `.github/tests/` — is retired in favour of CodeRabbit, configured by a
+  new `.coderabbit.yaml` that restates `STYLE.md` as per-path review
+  instructions. It was built around our own open-weights model behind an
+  OpenAI-compatible gateway, and around a cross-round `accepted`/`declined`/
+  `open` tally kept in hidden review bodies; CodeRabbit is free for public
+  repositories, so the gateway (and the `STYLE_REVIEW_BASE_URL`/`_MODEL`
+  variables and `STYLE_REVIEW_API_KEY` secret it read) is no longer needed.
+  Correctness review is unchanged — cubic keeps that lane — but the two
+  reviewers now run as independent GitHub Apps on pull request events, so
+  the style→correctness hand-over the workflow orchestrated (the source of
+  #634/#645/#676) is gone rather than reimplemented. The `no-todo-on-main`
+  draft gate stays: a draft carries its `TODO.md` and CodeRabbit skips
+  drafts, so deleting `TODO.md` still hands a pull request to the style
+  reviewer first.
+
+### Fixed
+
+- `Hypergraph.rotate` exchanged the two boundaries of the hypergraph and
+  replaced each box by its rotation, but left the *ports* of those boxes
+  and the spiders where they were: the wires reading a box's domain went
+  on reading its domain although the rotated box's domain is its old
+  codomain, and a spider typed `a` stayed `a` under a rotation that made
+  every port around it `a.r`. Both are invisible on an endomorphism of a
+  self-dual type, which is most of what the drawing and conversion tests
+  rotate — `test_Hypergraph_rotate` rotated the identity and nothing
+  else. Anything else raised: a bare `ValueError` from
+  `Hypergraph.__init__` when the two arities differ, an `AxiomError` on
+  the spider types when they do not. `.l` and `.r` are involutions again
+  ([#716](https://github.com/discopy/discopy/issues/716)).
+- Region painting computes the exact extents of each coloured region —
+  polygons bounded by the wires on both sides, subdivided per height band —
+  instead of overpainting everything to the right of each wire up to the
+  full canvas width: translucent colours are no longer painted twice where
+  two regions of the same colour are adjacent, white regions are not
+  painted at all, so they erase to the background, and neither is the
+  inside of a box, which is a 2-cell rather than a region, so no colour
+  can bleed out around its border
+  ([#521](https://github.com/discopy/discopy/issues/521)).
 - Pivotal diagram-to-map conversion now encodes cups and caps as `CMap`
   wiring rather than keeping them as boxes
   ([#532](https://github.com/discopy/discopy/pull/532)).
@@ -455,44 +430,6 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   and `draw` raise. The check is gated on `_scan`, so the internal fast paths
   that build layers by construction are unaffected
   ([#599](https://github.com/discopy/discopy/issues/599)).
-- `review.py`'s style-review request: `ask` used to let a gateway
-  `HTTPError` propagate without reading its body, so a 400 gave no clue
-  whether it meant a dead model slug or an oversized prompt; it now prints
-  the response body before re-raising. `assemble` used to budget the raw
-  file texts against `BUDGET`, but `numbered`'s line-number prefixes, the
-  per-file headers, `prompt.md` and `STYLE.md` were all added on top,
-  uncounted, so the assembled prompt could exceed `BUDGET` on a PR
-  touching a large module even when its diff was small; every part is now
-  budgeted as assembled. `ask` also used to unconditionally send
-  `"reasoning": {"enabled": False, "exclude": True}`, which not only 400s
-  on models that mandate reasoning (e.g. `stealth/ox-alpha`, with
-  "Reasoning is mandatory for this endpoint and cannot be disabled") but
-  measurably hurt review quality by forcing it off; `ask` no longer sends
-  the `reasoning` field at all, leaving it to each model's own default,
-  with `max_tokens` raised from 8,192 to 32,768 so reasoning tokens don't
-  starve the answer, and it now logs `finish_reason`/`usage` on every
-  response and the raw answer on a JSON-parse failure, so a truncated or
-  malformed answer is diagnosable instead of a bare traceback
-  ([#611](https://github.com/discopy/discopy/issues/611)).
-- `style-review.yml` diffed `-- '*.py'` only, so a pull request touching
-  only a `docs/notebooks/*.md` marimo notebook always diffed empty: the
-  review step was skipped silently and the correctness reviewer was called
-  with no style pass at all. The diff now covers every authored file —
-  Python, notebooks, docs, workflows, config — excluding generated
-  artefacts (`docs/_static/**`, `discopy/*.gif`, `test/drawing/tikz/**`,
-  `test/fixtures/**`, `uv.lock`). `review.py` fences each changed file by
-  its own type (`python`, `markdown`, `yaml`, …) instead of assuming
-  everything is Python, and picks a fence at least one backtick longer
-  than any run already inside the file, so a notebook's own cell fences
-  or an inline code span can never close it early. Each changed file is
-  now sent once, not twice: rather than the full new file followed by a
-  separate global diff, `review.py` asks git for the full-context
-  (`-U100000`) diff of each file and turns it into one listing — every
-  added or context line numbered by its position in the new file, with a
-  leading `+` for one added; a removed line carries a `-` instead and no
-  number, since it has none in the new file — reusing git's own diff
-  algorithm instead of reimplementing it
-  ([#633](https://github.com/discopy/discopy/pull/633)).
 - `no-todo-on-main.yml`'s guard reads the pull request's live `draft`
   field rather than `github.event.pull_request.draft`, a snapshot taken
   when the event fires and stale by however long the event then waited
@@ -505,47 +442,6 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   run when the branch has already moved past the event it is handling,
   rather than drafting a head that no longer exists behind its back
   ([#640](https://github.com/discopy/discopy/issues/640)).
-- A style review that stands down calls nobody. `post.py` returns
-  before posting when the head has moved under it, and that return went
-  past `record`, leaving the `clean` output unset — which
-  `style-review.yml` reads as clean, since it withholds the correctness
-  reviewer on `clean == 'false'` alone. So a round that reviewed nothing
-  called `@cubic-dev-ai` on a head nobody had read, and the guard that
-  calls it once per pull request then made that permanent: the round the
-  push started found it already called and stood down in turn. Standing
-  down now records `clean=false`, which is the honest value — there is
-  something left to say about this pull request, just not by this round
-  ([#676](https://github.com/discopy/discopy/pull/676)).
-- The style review reads the gateway's answer again when the transfer is
-  cut short. A chunked response can end mid-body, and an
-  `IncompleteRead` four minutes in left
-  [#661](https://github.com/discopy/discopy/pull/661) with no review at
-  all; a connection reset or a timeout is the same failure, so `complete`
-  catches `URLError` and `TimeoutError` beside it. An `HTTPError` is the
-  gateway answering rather than the transfer failing — and a subclass of
-  `URLError`, so it would otherwise be caught — and is raised at once for
-  `ask` to print the body of. The attempts are capped at two, ten minutes
-  each, inside the job's own thirty
-  ([#671](https://github.com/discopy/discopy/pull/671), closed as
-  superseded but for this).
-- The notes naming what did not fit the style review's budget sit with
-  the changed files they describe rather than between the context files
-  and the past remarks. They name whatever was dropped, degraded or left
-  unreviewed *this* round, so in the prefix they rewrote its middle
-  whenever that set changed — costing the cache the remarks, the
-  discussion and the whole revision after them
-  ([#676](https://github.com/discopy/discopy/pull/676)).
-- `review.py`'s `assemble` raised when a changed file's full-file
-  `annotated` listing didn't fit `BUDGET`, crashing the whole
-  style-review step on a large diff. A changed file too big for that now
-  falls back to a plain, small-context `git diff` of just its hunks, the
-  same degrade already applied to imported context files; a file whose
-  diff still doesn't fit is reported as entirely unreviewed rather than
-  silently dropped. `style-review.yml`'s "Review the diff" step is now
-  named so the "Call the correctness reviewer" step can tell a crash
-  apart from a clean or a non-clean review, and says so in the comment
-  it posts instead of reading like either of those
-  ([#617](https://github.com/discopy/discopy/pull/617)).
 - `build.yml` timeouts and a bounded, retried Graphviz install
   ([#591](https://github.com/discopy/discopy/issues/591)).
 - `frobenius.Diagram.unfuse`'s doctest no longer sets `Spider.color = "red"`
@@ -578,6 +474,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   ([#387](https://github.com/discopy/discopy/pull/387)).
 - Bubble drawing
   ([#431](https://github.com/discopy/discopy/pull/431)).
+- A bubble whose inside and outside have a different number of wires keeps
+  its boundary. Drawing the sides of a square frame with zero width is now
+  the business of `Drawing.slot` and `Drawing.frame`, which have the colours
+  of the regions they separate to show the edge in their place, rather than
+  of every bubble drawn as a square, which has none and so came out with no
+  visible outline at all
+  ([#520](https://github.com/discopy/discopy/issues/520),
+  [#569](https://github.com/discopy/discopy/issues/569)).
 - Controlled gate drawing: the control wire is anchored on the indexed
   input of the controlled box rather than its first one, so gates with a
   classical wire or a distance other than one are drawn on the right wires
@@ -637,9 +541,50 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `then` and re-validating the whole prefix at every step. This speeds
   up `Diagram.eval` on every tensor backend
   ([#525](https://github.com/discopy/discopy/pull/525)).
+- `Hypergraph.from_diagram` is linear rather than quadratic in the number
+  of layers, mirroring `CMap.from_glued`: the new `Hypergraph.from_glued`
+  glues the image of every box onto a scan of open wires with a single
+  union-find pass, instead of folding the images with `then`, which
+  recomputes the pushout and relabels every spider and box built so far
+  at each layer. A closed loop left by gluing a cap directly onto a cup
+  survives as a scalar spider, since it is never referenced by the
+  scan and would otherwise vanish silently. This speeds up
+  `symmetric.Equation`, `compact.Equation`, `frobenius.Equation`,
+  `Hypergraph.simplify` and `Diagram.foliation`, all of which go through
+  `Diagram.to_hypergraph`
+  ([#623](https://github.com/discopy/discopy/issues/623)).
+- `CMap.ports` is a `cached_property`, confirmed with a regression test
+  rather than assumed from `CMap`'s immutability: `Hypergraph.from_map`
+  reads it once per box, so a plain `@property` rebuilding the whole port
+  list on every access made `CMap.to_hypergraph` quadratic in the number
+  of boxes, 226 s at 3200 boxes. It is now linear, e.g. 65.6 ms at 800
+  boxes and 294.9 ms at 3200, down from 5.4 s and 226 s
+  ([#624](https://github.com/discopy/discopy/issues/624)).
 
 ### Project
 
+- The docs build on Sphinx 7.4 rather than 7.2, whose `stringify_annotation`
+  handled a `TypeVar` but not a `ParamSpec`, so a signature such as
+  `Callable[Concatenate[type, P], T]` crashed autodoc on Python 3.14, where
+  `typing.get_type_hints` resolves the PEP 695 type parameter. The pin and
+  the lock move, `myst-parser == 2.0.*` allowing any Sphinx below 8, and the
+  `drawing`, `grammar`, `python` and `quantum` API pages list their
+  submodules without the module prefix, which Sphinx 7.4 warns against
+  under `automodule`
+  ([#722](https://github.com/discopy/discopy/issues/722)).
+- `CONTRIBUTING.md`'s LLM guidelines require an LLM contribution to be
+  authored under a GitHub handle separate from the human who prompted it,
+  and a pull request authored by an LLM to be approved by at least one
+  human other than the one who prompted it.
+- `.claude/hooks/session-start.sh`, registered in `.claude/settings.json`
+  as a `SessionStart` hook for Claude Code on the web, syncs the full
+  development environment before the session starts, so that the linter
+  and the whole test suite run as `CONTRIBUTING.md` says; without the
+  registration the script is inert. When `download.pytorch.org`, the index
+  `pyproject.toml` pins torch to on Linux, is not reachable from the
+  session, it syncs everything but torch and installs the locked version
+  from PyPI instead, whose wheels run on the CPU. Every agent session so
+  far ran `pytest --skip-extra` and reported the torch tests skipped.
 - The `TODO.md` rule of `RULES.md` is split in two: creation stays point 1,
   and a new point 2 has the agent delete its own `TODO.md` once every
   point is `[x]` or filed as an issue, taking the pull request out of draft:
