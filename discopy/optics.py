@@ -1,24 +1,27 @@
 # -*- coding: utf-8 -*-
 
 """
-The category of optics over a symmetric underlying `category`, and its
-cartesian instance: lenses over a Markov category.
+The category of optics over a symmetric underlying `category`, and the
+optics of a cartesian category: lenses, defined over any Markov one.
 
 An optic from a pair `(x, x_)` to a pair `(y, y_)` is a residual `m` with a
 `forward` morphism `x -> y @ m` and a `backward` morphism `m @ y_ -> x_` in
-the underlying category, see :cite:t:`Riley18`, the residual on the outside
-of both legs so that the optic is drawn as a comb. Composition tensors the
-residuals, as in the category of parametric maps :mod:`discopy.para`: the
-forward leg is a coparametric map with the residual as coparameter, the
-backward leg a parametric map with the residual as parameter
-:cite:p:`CapucciEtAl21`. When the underlying category is Markov, an optic is a
-lens `(get, put)` with the residual normalised to `x` by copying, the
-bidirectional accessors of :cite:t:`ClarkeEtAl20`; when it is traced, an
-optic is an integer diagram :mod:`discopy.interaction` with the residual as
-the wire between the two legs. Two optics are equal when their
-representatives are; the quotient by sliding a morphism across the residual
-is decided by :meth:`Optic.to_int` in a traced category and by
-:meth:`Optic.to_lens` in a Markov one.
+the underlying category, see :cite:t:`Riley18`, the residual on the right
+of the forward leg and on the left of the backward one, so that the two
+legs side by side draw as a comb. Composition tensors the residuals, as in
+the category of parametric maps :mod:`discopy.para`: the forward leg is a
+coparametric map with the residual as coparameter, the backward leg a
+parametric map with the residual as parameter :cite:p:`CapucciEtAl21`.
+When the underlying category is cartesian, an optic is a lens `(get, put)`
+with the residual normalised to `x` by copying, the bidirectional accessors
+of :cite:t:`ClarkeEtAl20`; when it is traced, an optic is an integer
+diagram :mod:`discopy.interaction` with the residual as the wire between
+the two legs. Two optics are equal when their representatives are; the
+quotient by sliding a morphism across the residual is decided by
+:meth:`Optic.to_int` for diagrams in the free traced category and by
+:meth:`Optic.to_lens` when copy is natural, i.e. in a cartesian category:
+over a Markov category, `to_lens` forgets the correlation between output
+and residual.
 
 Summary
 -------
@@ -30,6 +33,7 @@ Summary
 
     Ty
     Optic
+    Traced
     Lens
 
 Example
@@ -59,13 +63,14 @@ It is well-behaved, i.e. it satisfies the three lens laws:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import get_origin
+from typing import Callable
 
-from discopy import interaction, markov, monoidal, symmetric
-from discopy.abc import NamedGeneric, SymmetricCategory
+from discopy import interaction, markov, messages, monoidal, symmetric
+from discopy.abc import (
+    MarkovCategory, NamedGeneric, SymmetricCategory, TracedCategory)
 from discopy.utils import (
-    assert_iscomposable, assert_isinstance, classproperty, factory_name,
-    unbiased)
+    AxiomError, assert_iscomposable, assert_isinstance, classproperty,
+    factory_name, get_origin, unbiased)
 
 
 class Ty(interaction.Ty):
@@ -78,40 +83,23 @@ class Ty(interaction.Ty):
 
     Note
     ----
-    An :class:`interaction.Ty <discopy.interaction.Ty>` reverses the negative
-    halves when tensoring, as the duals of a rigid category do; the
-    underlying category of an optic is symmetric, so the two halves tensor
-    side by side and a gradient comes back in the order of the inputs.
+    An :class:`interaction.Ty <discopy.interaction.Ty>` reverses the
+    negative halves when tensoring, as the duals of a rigid category do;
+    the underlying category of an optic is symmetric, so its
+    :attr:`negatives` stay side by side and a gradient comes back in the
+    order of the inputs.
 
-    >>> x, y = Ty[int](1, 2), Ty[int](3, 4)
-    >>> assert x @ y == Ty[int](1 + 3, 2 + 4)
+    >>> x, y = Ty[tuple](("x", ), ("x'", )), Ty[tuple](("y", ), ("y'", ))
+    >>> assert x @ y == Ty[tuple](("x", "y"), ("x'", "y'"))
     >>> assert -(x @ y) == -x @ -y
     """
     natural = monoidal.Ty
-
-    def tensor(self, *others: Ty) -> Ty:
-        if any(not isinstance(other, Ty) for other in others):
-            return NotImplemented
-        unit = type(self).natural()
-        positive = sum([x.positive for x in (self, ) + others], unit)
-        negative = sum([x.negative for x in (self, ) + others], unit)
-        return type(self)(positive, negative)
-
-    __matmul__ = __add__ = tensor
-
-    def __repr__(self):
-        pos, neg = repr(self.positive), repr(self.negative)
-        return f"optics.Ty[{factory_name(self.natural)}]"\
-               f"(positive={pos}, negative={neg})"
-
-    def __str__(self):
-        return " @ ".join(list(map(str, self.positive)) + [
-            f"-{x}" for x in self.negative])
+    negatives = staticmethod(tuple)
 
 
 def pairs(category) -> type:
     """ The pairs of objects of a category, e.g. of tuples of types. """
-    return Ty[get_origin(category.ob) or category.ob]
+    return Ty[get_origin(category.ob)]
 
 
 @dataclass
@@ -129,6 +117,20 @@ class Optic(SymmetricCategory, NamedGeneric['category']):
         backward (category) :
             The morphism ``residual @ cod.negative -> dom.negative``.
         residual (category.ob) : The residual, empty by default.
+
+    Note
+    ----
+    The structure of the underlying category lifts leg by leg, or not at
+    all. Over a traced category, optics are traced, see :class:`Traced`.
+    Over a compact or hypergraph category, cups, caps and spiders lift with
+    empty residual, since :meth:`lift` is a strict monoidal functor from
+    the category and its opposite: the dual of `(x, x_)` is `(x.r, x_.r)`,
+    with the cup of `x` and the cap of `x_` as legs, and the copy of
+    `(x, x_)` has the copy of `x` and the merge of `x_` as legs, which is
+    how the reverse derivative of a fan-out sums the gradients. Over a
+    Markov category, optics are only symmetric: copying a pair would ask
+    for a merge on its negative half and discarding for a unit, which is
+    why :class:`Lens` is symmetric too.
 
     .. admonition:: Summary
 
@@ -154,10 +156,11 @@ class Optic(SymmetricCategory, NamedGeneric['category']):
     def __post_init__(self):
         if self.residual is None:
             self.residual = self.category.ob()
-        assert_isinstance(self.dom, Ty)
-        assert_isinstance(self.cod, Ty)
+        assert_isinstance(self.dom, self.ob)
+        assert_isinstance(self.cod, self.ob)
         assert_isinstance(self.forward, self.category)
         assert_isinstance(self.backward, self.category)
+        assert_isinstance(self.residual, self.category.ob)
         identity = self.category.id
         assert_iscomposable(identity(self.dom.positive), self.forward)
         assert_iscomposable(
@@ -167,8 +170,9 @@ class Optic(SymmetricCategory, NamedGeneric['category']):
         assert_iscomposable(self.backward, identity(self.dom.negative))
 
     def __repr__(self):
-        return f"optics.Optic[{factory_name(self.category)}]"\
-            f"({self.dom!r}, {self.cod!r}, "\
+        factory, category = map(
+            factory_name, (get_origin(type(self)), self.category))
+        return f"{factory}[{category}]({self.dom!r}, {self.cod!r}, "\
             f"{self.forward!r}, {self.backward!r}, {self.residual!r})"
 
     @classmethod
@@ -236,6 +240,7 @@ class Optic(SymmetricCategory, NamedGeneric['category']):
         .. image:: /_static/optics/then.svg
             :align: center
         """
+        assert_isinstance(other, type(self))
         assert_iscomposable(self, other)
         identity, swap = self.category.id, self.category.swap
         forward = self.forward >> other.forward @ identity(self.residual)\
@@ -275,6 +280,7 @@ class Optic(SymmetricCategory, NamedGeneric['category']):
         .. image:: /_static/optics/tensor.svg
             :align: center
         """
+        assert_isinstance(other, type(self))
         identity, swap = self.category.id, self.category.swap
         forward = self.forward @ other.forward >> identity(self.cod.positive)\
             @ swap(self.residual, other.cod.positive)\
@@ -332,18 +338,72 @@ class Optic(SymmetricCategory, NamedGeneric['category']):
         return interaction.Diagram[self.category](
             inside, ob(*self.dom), ob(*self.cod))
 
-    def to_lens(self) -> Lens:
+    def to_lens(self, discard: Callable = None) -> Lens:
         """
-        The lens of an optic over a Markov category: `get` discards the
-        residual, `put` recomputes it from the input and discards the
-        output, so that the residual is `dom.positive` up to sliding.
+        The lens of an optic: `get` discards the residual, `put` recomputes
+        it from the input and discards the output. When copy is natural,
+        i.e. over a cartesian category, this decides the quotient of optics
+        by sliding a morphism across the residual, which is then
+        `dom.positive` up to sliding; over a Markov category, it forgets the
+        correlation between output and residual.
+
+        Parameters:
+            discard : The discard of the underlying category by default, or
+                an explicit one over a category without: the lens then has
+                a `put` but no composition, which copies.
         """
-        identity, discard = self.category.id, self.category.discard
+        lens = Lens[self.category]
+        if discard is None:
+            lens.assert_ismarkov()
+            discard = self.category.discard
+        identity = self.category.id
         positive, negative, residual = *self.cod, self.residual
         get = self.forward >> identity(positive) @ discard(residual)
         put = self.forward @ identity(negative) >> discard(positive)\
             @ identity(residual + negative) >> self.backward
-        return Lens[self.category](self.dom, self.cod, get, put)
+        return lens(self.dom, self.cod, get, put)
+
+
+class Traced(Optic, TracedCategory):
+    """
+    Optics over a traced category are traced leg by leg: the forward leg
+    over the positive halves, with the residual swapped out of the way, the
+    backward leg over the negative halves, so that :meth:`Optic.to_int` is
+    a traced functor into :mod:`discopy.interaction`.
+
+    Example
+    -------
+    >>> from discopy.symmetric import Ty as T, Box, Diagram
+    >>> x, x_, u, u_, m = map(T, ["x", "x'", "u", "u'", "m"])
+    >>> X, U = Ty(x, x_), Ty(u, u_)
+    >>> f = Traced(X @ U, X @ U, Box('f', x @ u, x @ u @ m),
+    ...            Box("f'", m @ x_ @ u_, x_ @ u_), m)
+    >>> assert f.trace().dom == X == f.trace().cod
+    >>> assert f.trace().forward\\
+    ...     == (f.forward >> x @ Diagram.swap(u, m)).trace()
+    >>> assert f.trace().backward == f.backward.trace()
+    """
+    def trace(self, n: int = 1, left: bool = False) -> Traced:
+        """
+        The trace of an optic over the last `n` atoms of each half of its
+        domain and codomain, the residual never being traced.
+
+        Parameters:
+            n : The number of atoms to trace over on each half.
+            left : Whether to trace on the left, not implemented.
+        """
+        if n == 0:
+            return self
+        if left:
+            raise NotImplementedError
+        identity, swap = self.category.id, self.category.swap
+        (x, x_), (y, y_) = (
+            (positive[:-n], negative[:-n])
+            for positive, negative in (self.dom, self.cod))
+        u = self.dom.positive[-n:]
+        forward = self.forward >> identity(y) @ swap(u, self.residual)
+        return type(self)(self.ob(x, x_), self.ob(y, y_), forward.trace(n),
+                          self.backward.trace(n), self.residual)
 
 
 @dataclass
@@ -365,13 +425,15 @@ class Lens(SymmetricCategory, NamedGeneric['category']):
     Lenses are the optics whose residual is the input itself, copied. The
     identity is a unit for composition up to the counit law on the left and
     the naturality of discard on the right, i.e. the axioms of Markov
-    categories; the lens laws hold when `get` and `put` are the projection
-    and update of a cartesian product, i.e. when copy is natural for both.
-    Lenses form a symmetric category and not a Markov one: copying a pair
-    would ask for a monoid on its negative half, which is how the reverse
-    derivative of a fan-out sums the gradients. A neural network is a
-    parametric lens, i.e. a :class:`Symmetric <discopy.para.Symmetric>`
-    over `Lens`; see :mod:`discopy.neural`.
+    categories; composition is associative up to the naturality of copy for
+    `get`, i.e. when `get` is deterministic, as every morphism of a
+    cartesian category is. Lenses form a symmetric category and not a Markov
+    one:
+    copying a pair would ask for a monoid on its negative half, which is
+    how the reverse derivative of a fan-out sums the gradients. A neural
+    network is a parametric lens, i.e. a
+    :class:`Symmetric <discopy.para.Symmetric>` over `Lens`; see
+    :mod:`discopy.neural`.
 
     .. admonition:: Summary
 
@@ -393,8 +455,8 @@ class Lens(SymmetricCategory, NamedGeneric['category']):
     put: category
 
     def __post_init__(self):
-        assert_isinstance(self.dom, Ty)
-        assert_isinstance(self.cod, Ty)
+        assert_isinstance(self.dom, self.ob)
+        assert_isinstance(self.cod, self.ob)
         assert_isinstance(self.get, self.category)
         assert_isinstance(self.put, self.category)
         identity = self.category.id
@@ -405,8 +467,17 @@ class Lens(SymmetricCategory, NamedGeneric['category']):
         assert_iscomposable(self.put, identity(self.dom.negative))
 
     def __repr__(self):
-        return f"optics.Lens[{factory_name(self.category)}]"\
+        factory, category = map(
+            factory_name, (get_origin(type(self)), self.category))
+        return f"{factory}[{category}]"\
             f"({self.dom!r}, {self.cod!r}, {self.get!r}, {self.put!r})"
+
+    @classmethod
+    def assert_ismarkov(cls):
+        """ Assert that :attr:`category` has copy and discard. """
+        if not issubclass(cls.category, MarkovCategory):
+            raise AxiomError(messages.NOT_MARKOV.format(
+                factory_name(cls.category)))
 
     @classmethod
     def lift(cls, get: category, backward: category = None) -> Lens:
@@ -420,6 +491,7 @@ class Lens(SymmetricCategory, NamedGeneric['category']):
             get : The morphism to lift on the positive halves.
             backward : The morphism to lift on the negative halves.
         """
+        cls.assert_ismarkov()
         if backward is None:
             backward = cls.category.id(cls.category.ob())
         return cls(cls.ob(get.dom, backward.cod),
@@ -465,6 +537,8 @@ class Lens(SymmetricCategory, NamedGeneric['category']):
         >>> (square >> square).put(3., 1.)
         108.0
         """
+        assert_isinstance(other, type(self))
+        self.assert_ismarkov()
         assert_iscomposable(self, other)
         identity, copy = self.category.id, self.category.copy
         positive, negative = self.dom.positive, other.cod.negative
@@ -483,6 +557,7 @@ class Lens(SymmetricCategory, NamedGeneric['category']):
         Parameters:
             other : The lens to compose in parallel.
         """
+        assert_isinstance(other, type(self))
         identity, swap = self.category.id, self.category.swap
         get = self.get @ other.get
         put = identity(self.dom.positive)\
@@ -518,6 +593,7 @@ class Lens(SymmetricCategory, NamedGeneric['category']):
         .. image:: /_static/optics/lens.svg
             :align: center
         """
+        self.assert_ismarkov()
         identity, copy = self.category.id, self.category.copy
         positive = self.dom.positive
         forward = copy(positive) >> self.get @ identity(positive)
