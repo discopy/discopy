@@ -102,8 +102,8 @@ class Zeros(torch.nn.Module):
         return torch.zeros_like(value)
 
 
-#: The one zero module, so that two discards of a type are equal networks.
 ZEROS = Zeros()
+""" The one zero module, so that two discards of a type are equal networks. """
 
 
 class CMapModule(torch.nn.Module):
