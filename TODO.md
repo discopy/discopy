@@ -3,7 +3,7 @@
 > it is not so clear to me what is the serialization infrastructure in discopy.
 > have a look at the codebase and map out a plan to extract the various serialization interfaces (pickle, repr, to_tree) to ensure the interface is stable across all implementors
 
-- [ ] `utils.Serialisable`, generic `to_tree`/`from_tree` driven by one `tree_keys` hook, with `BinaryBoxConstructor` as first client
+- [WIP] @session_01PoVD21cMmz9uw2UqreoNwM-2026-09-08 12:32 `utils.Serialisable`, generic `to_tree`/`from_tree` driven by one `tree_keys` hook, with `BinaryBoxConstructor` as first client
 - [ ] rebase `cat.Ob`/`Arrow`/`Box`/`Sum`/`Bubble` on the hook, byte-identical trees, `DeprecationWarning` on the `Bubble` `'arg'` shim
 - [ ] `rigid.Box` serialises `z`, fixing the silent loss on rotated boxes
 - [ ] fix pickling and deepcopy of parameterised `NamedGeneric` classes losing their parameter
