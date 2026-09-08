@@ -23,6 +23,11 @@ def test_backend():
     assert isinstance(Tensor.id().array, np.ndarray)
 
 
+def test_Diagram_is_PROP():
+    box = Box('f', Dim(2), Dim(2), [0, 1, 1, 0])
+    assert isinstance(box, PROP)
+
+
 def test_Dim():
     with raises(TypeError):
         Dim('a')

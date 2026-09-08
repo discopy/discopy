@@ -14,7 +14,17 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   the `MonoidalCategory`/`BraidedCategory`/`SymmetricCategory` whose objects
   are `Nat` — `PROB(PRO, BraidedCategory[Nat, C1])` and
   `PROP(PROB, SymmetricCategory[Nat, C1])`, mirroring how
-  `abc.SymmetricCategory` already extends `abc.BraidedCategory` directly
+  `abc.SymmetricCategory` already extends `abc.BraidedCategory` directly.
+  `tensor.Diagram` and `python.finset.Permutation` now inherit from `PROP`,
+  its first two concrete users: both already implemented the full
+  `SymmetricCategory` interface, so the MRO change adds no new abstract
+  methods. Neither is a strict `PROP` in the classical sense — a `PROP`'s
+  objects are exactly `Nat`, but `tensor.Diagram`'s are `Dim` (an object
+  per wire can have any dimension, not just a fixed one, the same reason
+  `quantum.circuit.Circuit` with qudits doesn't fit) and
+  `finset.Permutation`'s are plain `int`, not boxed `Nat`; Python does not
+  check the type parameter at runtime, so the classes still typecheck as
+  `PROP` under covariant subtyping
   ([#709](https://github.com/discopy/discopy/issues/709)).
 - A `workflows` job in `build.yml`, so that the code running our pull
   requests is checked like the code it checks: `actionlint` over the

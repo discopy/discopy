@@ -24,7 +24,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from discopy import messages
-from discopy.abc import MonoidalCategory, SymmetricCategory
+from discopy.abc import MonoidalCategory, PROP
 
 
 @dataclass
@@ -113,7 +113,7 @@ type Cycle = Iterable[int]
 type Cycles = Iterable[Cycle]
 
 
-class Permutation(Function, SymmetricCategory):
+class Permutation(Function, PROP):
     """
     A permutation of a finite set, seen as a bijective finite-set function.
 
