@@ -109,6 +109,25 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Changed
 
+- Matplotlib SVGs adapt to the page behind them: they are saved on a
+  transparent canvas and open with a `prefers-color-scheme: dark` media
+  query that turns the elements drawn black on that canvas — wires, braids,
+  wire labels, spiders and their labels, control dots — white on a dark
+  page, so a single SVG file reads on both light and dark backgrounds.
+  Elements whose readability does not depend on the page keep their static
+  colours: box interiors stay white with black labels, coloured regions
+  keep their fill and the black strokes over them. White spiders, e.g. the
+  symbol of an `Equation`, are drawn unfilled so they leave no white patch
+  on a non-white page, and raster formats keep their white background since
+  they cannot adapt. The docs let content images follow the theme toggle by
+  setting their `color-scheme`, which propagates into the SVG media query,
+  instead of painting a white plate behind them in dark mode
+  ([#453](https://github.com/discopy/discopy/issues/453), superseding the
+  static outlines of
+  [#497](https://github.com/discopy/discopy/pull/497)). The hand-drawn
+  snake equation of the README header adapts the same way, replacing its
+  separate `snake-equation-dark.svg`, and the unreferenced
+  `frobenius-axioms.svg` is deleted.
 - The benchmark measures a pull request against its merge base rather
   than the tip of its base branch. The head does not contain what landed
   on `main` since it forked, so measuring against the tip charged the pull
@@ -309,6 +328,24 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Removed
 
+- `cat.Bubble.dagger`: a bubble's dagger was inherited from `Box.dagger`,
+  which reconstructs with `type(self)(name, cod, dom, ...)` — positional
+  arguments `Bubble.__init__` reads as `*args`, so it crashed with
+  `AttributeError` on the very first (non-arrow) argument. `Bubble` now
+  daggers each of its `args`, swaps `dom`/`cod` and carries `data`/`is_dagger`
+  through like `Box.dagger` does
+  ([#55](https://github.com/discopy/discopy/issues/55)).
+- `style-review.yml`'s hand-over to the correctness reviewer, and its
+  token generation, ran on every style review rather than the intended
+  ones. Both conditions were written as `if: >` folding a wrapped
+  `${{ ... }}` into a string with a trailing newline: with characters
+  around it the expression is no longer the whole value, so GitHub read a
+  non-empty string and took it as true. `@cubic-dev-ai review` was
+  therefore posted whatever the style review found, where it is meant to
+  wait for a clean one. [#634](https://github.com/discopy/discopy/pull/634)
+  rewrote both conditions and the shape survived, so the fix is applied to
+  its versions: written bare, as the file's other five conditions are
+  ([#645](https://github.com/discopy/discopy/pull/645)).
 - The in-house style reviewer — `.github/style-review/` (the `review.py`,
   `post.py`, `history.py`, `thread.py` and `github.py` scripts and their
   `prompt.md`), the `style-review.yml` workflow, and their tests under
@@ -329,6 +366,27 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `Hypergraph.rotate` exchanged the two boundaries of the hypergraph and
+  replaced each box by its rotation, but left the *ports* of those boxes
+  and the spiders where they were: the wires reading a box's domain went
+  on reading its domain although the rotated box's domain is its old
+  codomain, and a spider typed `a` stayed `a` under a rotation that made
+  every port around it `a.r`. Both are invisible on an endomorphism of a
+  self-dual type, which is most of what the drawing and conversion tests
+  rotate — `test_Hypergraph_rotate` rotated the identity and nothing
+  else. Anything else raised: a bare `ValueError` from
+  `Hypergraph.__init__` when the two arities differ, an `AxiomError` on
+  the spider types when they do not. `.l` and `.r` are involutions again
+  ([#716](https://github.com/discopy/discopy/issues/716)).
+- Region painting computes the exact extents of each coloured region —
+  polygons bounded by the wires on both sides, subdivided per height band —
+  instead of overpainting everything to the right of each wire up to the
+  full canvas width: translucent colours are no longer painted twice where
+  two regions of the same colour are adjacent, white regions are not
+  painted at all, so they erase to the background, and neither is the
+  inside of a box, which is a 2-cell rather than a region, so no colour
+  can bleed out around its border
+  ([#521](https://github.com/discopy/discopy/issues/521)).
 - Pivotal diagram-to-map conversion now encodes cups and caps as `CMap`
   wiring rather than keeping them as boxes
   ([#532](https://github.com/discopy/discopy/pull/532)).
@@ -399,6 +457,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   ([#387](https://github.com/discopy/discopy/pull/387)).
 - Bubble drawing
   ([#431](https://github.com/discopy/discopy/pull/431)).
+- A bubble whose inside and outside have a different number of wires keeps
+  its boundary. Drawing the sides of a square frame with zero width is now
+  the business of `Drawing.slot` and `Drawing.frame`, which have the colours
+  of the regions they separate to show the edge in their place, rather than
+  of every bubble drawn as a square, which has none and so came out with no
+  visible outline at all
+  ([#520](https://github.com/discopy/discopy/issues/520),
+  [#569](https://github.com/discopy/discopy/issues/569)).
 - Controlled gate drawing: the control wire is anchored on the indexed
   input of the controlled box rather than its first one, so gates with a
   classical wire or a distance other than one are drawn on the right wires
@@ -458,9 +524,50 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `then` and re-validating the whole prefix at every step. This speeds
   up `Diagram.eval` on every tensor backend
   ([#525](https://github.com/discopy/discopy/pull/525)).
+- `Hypergraph.from_diagram` is linear rather than quadratic in the number
+  of layers, mirroring `CMap.from_glued`: the new `Hypergraph.from_glued`
+  glues the image of every box onto a scan of open wires with a single
+  union-find pass, instead of folding the images with `then`, which
+  recomputes the pushout and relabels every spider and box built so far
+  at each layer. A closed loop left by gluing a cap directly onto a cup
+  survives as a scalar spider, since it is never referenced by the
+  scan and would otherwise vanish silently. This speeds up
+  `symmetric.Equation`, `compact.Equation`, `frobenius.Equation`,
+  `Hypergraph.simplify` and `Diagram.foliation`, all of which go through
+  `Diagram.to_hypergraph`
+  ([#623](https://github.com/discopy/discopy/issues/623)).
+- `CMap.ports` is a `cached_property`, confirmed with a regression test
+  rather than assumed from `CMap`'s immutability: `Hypergraph.from_map`
+  reads it once per box, so a plain `@property` rebuilding the whole port
+  list on every access made `CMap.to_hypergraph` quadratic in the number
+  of boxes, 226 s at 3200 boxes. It is now linear, e.g. 65.6 ms at 800
+  boxes and 294.9 ms at 3200, down from 5.4 s and 226 s
+  ([#624](https://github.com/discopy/discopy/issues/624)).
 
 ### Project
 
+- The docs build on Sphinx 7.4 rather than 7.2, whose `stringify_annotation`
+  handled a `TypeVar` but not a `ParamSpec`, so a signature such as
+  `Callable[Concatenate[type, P], T]` crashed autodoc on Python 3.14, where
+  `typing.get_type_hints` resolves the PEP 695 type parameter. The pin and
+  the lock move, `myst-parser == 2.0.*` allowing any Sphinx below 8, and the
+  `drawing`, `grammar`, `python` and `quantum` API pages list their
+  submodules without the module prefix, which Sphinx 7.4 warns against
+  under `automodule`
+  ([#722](https://github.com/discopy/discopy/issues/722)).
+- `CONTRIBUTING.md`'s LLM guidelines require an LLM contribution to be
+  authored under a GitHub handle separate from the human who prompted it,
+  and a pull request authored by an LLM to be approved by at least one
+  human other than the one who prompted it.
+- `.claude/hooks/session-start.sh`, registered in `.claude/settings.json`
+  as a `SessionStart` hook for Claude Code on the web, syncs the full
+  development environment before the session starts, so that the linter
+  and the whole test suite run as `CONTRIBUTING.md` says; without the
+  registration the script is inert. When `download.pytorch.org`, the index
+  `pyproject.toml` pins torch to on Linux, is not reachable from the
+  session, it syncs everything but torch and installs the locked version
+  from PyPI instead, whose wheels run on the CPU. Every agent session so
+  far ran `pytest --skip-extra` and reported the torch tests skipped.
 - The `TODO.md` rule of `RULES.md` is split in two: creation stays point 1,
   and a new point 2 has the agent delete its own `TODO.md` once every
   point is `[x]` or filed as an issue, taking the pull request out of draft:
