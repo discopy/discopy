@@ -89,8 +89,6 @@ class Diagram(symmetric.Diagram, ribbon.Diagram, CompactCategory):
 
     twist_as_trace = abc.RibbonCategory.twist_as_trace
 
-    rotate_contravariance = abc.RigidCategory.rotate_contravariance
-
 
 class Box(symmetric.Box, ribbon.Box, Diagram):
     """

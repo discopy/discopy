@@ -20,14 +20,24 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   structural boxes (braids, cups and caps, copies, spiders, feedback
   loops...) to the mix. Their axioms, stated in
   `discopy.abc`, are enrolled in `proptest/`. The bugs the wider search
-  surfaced are fixed below, except two left open: `feedback.Diagram.feedback`
-  unrolls its memory in the wrong order, declared broken in the matrix
-  ([#649](https://github.com/discopy/discopy/issues/649)), and an
-  uncoloured `monoidal.Wire` reprs as the `cat.Ob` that `Ty` coerces,
-  which its type-strict equality rejects
-  ([#650](https://github.com/discopy/discopy/issues/650)) -- a wire is a
-  generating 1-cell rather than a category, so it states no axioms and the
-  matrix does not reach it.
+  surfaced are fixed below, except one declared in the matrix —
+  `feedback.Diagram.feedback` unrolls its memory in the wrong order
+  ([#649](https://github.com/discopy/discopy/issues/649)) — and one the
+  matrix cannot reach: an uncoloured `monoidal.Wire` reprs as the `cat.Ob`
+  that `Ty` coerces, which its type-strict equality rejects
+  ([#650](https://github.com/discopy/discopy/issues/650)). `Wire` is the
+  generating 1-cell of `Ty`, not a category, so it states no axioms and has
+  no cell to declare; `Ty` does not stand in for it, since `Ty.__init__`
+  coerces the `cat.Ob` back into a `Wire` and its own `transparency`
+  passes. The issue tracks it, not a declaration.
+  `compact.Diagram.rotate_contravariance` is no longer declared broken: it
+  was declared so because `to_hypergraph` dropped the rotation of a box,
+  which #716 fixed, and its recorded counterexample — two endomorphisms on
+  one type, precisely the case the old `rotate` got right by accident — no
+  longer falsifies it. The strict xfail xpassed and failed the run the day
+  the fix arrived, which is the mechanism the ledger was built for. A
+  thousand examples turn up no replacement, so the declaration and the
+  record are both removed rather than rewritten.
 - `discopy/testing.py`, a Hypothesis-based property-testing module:
   `Axiom`, decorated with `@discopy.testing.axiom`, states a categorical
   law once on `discopy.abc.Category`/`ColouredMonoid` and every subclass
