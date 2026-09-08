@@ -29,7 +29,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   the types of its domain as one generator rather than factor by factor,
   so that functors, drawings and hypergraphs of networks map each leg as
   a whole ([#702](https://github.com/discopy/discopy/issues/702),
-  [#736](https://github.com/discopy/discopy/pull/736)).
+  [#736](https://github.com/discopy/discopy/pull/736),
+  [#743](https://github.com/discopy/discopy/pull/743)).
 - The category of optics, `discopy.optics`, over any symmetric underlying
   category: an `Optic` is a residual with a forward and a backward
   morphism, composing by tensoring the residuals as `discopy.para` does
@@ -394,7 +395,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `python.Function` is hashable: its dataclass compared `inside`, `dom` and
   `cod` without hashing them, so `jax.jit` refused a function, as did any
   cache keyed on one
-  ([#736](https://github.com/discopy/discopy/pull/736)).
+  ([#743](https://github.com/discopy/discopy/pull/743)).
 - `traced.Trace` loads from its serialisation, which records which side is
   traced: `loads(dumps(f.trace()))` raised `TypeError` from the inherited
   `Bubble.from_tree`, on every level of the hierarchy
