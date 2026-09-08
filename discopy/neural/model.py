@@ -1,0 +1,290 @@
+# -*- coding: utf-8 -*-
+
+"""
+A functor from diagrams to runnable maps, as a torch module.
+
+:class:`MapNN` holds the width of every role and the shared module of every
+generator, interprets each diagram it is given once through
+:func:`~discopy.neural.map.interpret`, builds an initial state out of the
+caller's inputs and runs the rounds of :meth:`~discopy.neural.CMap.forward`
+on it. A state is one flat tensor of shape ``(rows, total)``, the messages
+of every port in port order, that :meth:`MapNN.read` and :meth:`MapNN.write`
+address by ``(generator name, role)`` rather than by offset, through the
+:func:`~discopy.neural.map.families` of the diagram, so no port arithmetic is
+ever written by hand::
+
+    loss = sum(criterion(readout(model.read(diagram, s, answer)), target)
+               for s in model(diagram, {clue: x}, deep=True))
+
+Summary
+-------
+
+.. autosummary::
+    :template: class.rst
+    :nosignatures:
+    :toctree:
+
+    Interpretation
+    MapNN
+"""
+
+from __future__ import annotations
+
+from collections import OrderedDict
+from typing import Mapping, NamedTuple
+
+import torch
+
+from discopy.neural.batch import Batch
+from discopy.neural.core import CMap
+from discopy.neural.map import families, interpret, to_map
+
+
+class Interpretation(NamedTuple):
+    """
+    What a diagram means under a :class:`MapNN`: the map that runs it and
+    the port families addressing its flat state.
+
+    Parameters:
+        cmap : The closed map, from :func:`~discopy.neural.map.interpret`.
+        ports : Every port of each ``(generator name, role)`` family, from
+                :func:`~discopy.neural.map.families`.
+        heads : The ports of each family a value is read off, one per
+                traced pair, from :func:`~discopy.neural.map.heads`.
+    """
+    cmap: CMap
+    ports: dict
+    heads: dict
+
+
+class MapNN(torch.nn.Module):
+    """
+    A functor from diagrams to runnable maps, as a torch module: the width
+    of every role, the shared module of every generator, and how many
+    rounds to run.
+
+    One module fills every site of a generator name whatever its degree,
+    so a module shared across degrees must be width-agnostic, answering
+    every port alike whatever the width it is handed, or read its degree
+    off that width through :meth:`~discopy.neural.Signature.slices`: a
+    ``Linear`` cell trained on one shape fails on another.
+
+    Parameters:
+        ob : The :class:`~discopy.neural.Dim` each atomic role carries.
+        ar : The torch module filling each generator name, shared by every
+             site of that name.
+        rounds : The rounds of message passing one call performs.
+        inject : Whether every round re-adds the initial messages, i.e.
+                 whether the transition is :math:`\\sigma(\\Phi(s)) + i`.
+        cache : How many interpreted diagrams to keep, least recently used
+                first out.
+
+    Note
+    ----
+    ``torch.nn.Module.compile`` is left as torch defines it; the
+    ``torch.compile`` of the per-round step of every map is
+    :meth:`compile_rounds`.
+
+    Example
+    -------
+    >>> from discopy.frobenius import Ty
+    >>> from discopy.neural import Dim, Orbit, Signature  # doctest: +EXTRA
+    >>> from discopy.neural.signature import from_relation
+    >>> peer, state = Ty("peer"), Ty("state")
+    >>> node = Signature((Orbit(peer, 1), Orbit(state, traced=True)))
+    >>> torch.manual_seed(0)  # doctest: +ELLIPSIS
+    <torch...>
+    >>> model = MapNN(ob={peer: Dim(3), state: Dim(4)},
+    ...               ar={"cell": torch.nn.PReLU()}, rounds=3)
+
+    One model, two shapes, one set of weights:
+
+    >>> pair = from_relation(((1, ), (0, )), node)
+    >>> path = from_relation(((1, ), (0, 2), (1, )), node)
+    >>> [model(shape).shape for shape in (pair, path)]
+    [torch.Size([1, 22]), torch.Size([1, 36])]
+    >>> model.read(path, model(path), ("cell", state)).shape
+    torch.Size([1, 3, 4])
+    """
+    def __init__(self, ob: Mapping, ar: Mapping, rounds: int = 1,
+                 inject: bool = False, cache: int = 128):
+        super().__init__()
+        self.ob = dict(ob)
+        self.ar = torch.nn.ModuleDict(ar)
+        self.rounds, self.inject = rounds, inject
+        self.cache = cache
+        self.hits, self.misses = 0, 0
+        self.compiled: OrderedDict = OrderedDict()
+        self.rounds_kwargs: dict = None
+
+    def interpret(self, diagram) -> Interpretation:
+        """
+        The map a diagram means under this interpretation and the
+        :func:`~discopy.neural.map.families` of its ports, cached by the
+        identity of the diagram, or by the identities of the members of a
+        :class:`~discopy.neural.Batch`.
+
+        Every call is counted in :attr:`hits` or :attr:`misses`, since
+        interpreting is the expensive half of running a diagram once and
+        free every time after: a model whose diagrams do not fit its
+        :attr:`cache` reinterprets them every epoch, which is a wall clock
+        a loss curve cannot show.  See :meth:`cache_stats`.
+
+        The cache pins each diagram beside its map, so that a key can never
+        be a recycled ``id``, and is keyed by the diagram alone: a model
+        whose modules are swapped afterwards is a new model.
+
+        Parameters:
+            diagram : A closed diagram or map in the source category, or a
+                      :class:`~discopy.neural.Batch` of them.
+        """
+        if isinstance(diagram, Batch):
+            key, source = diagram.cache_key(), diagram.diagram
+        else:
+            key, source = id(diagram), diagram
+        if key in self.compiled:
+            self.hits += 1
+            self.compiled.move_to_end(key)
+            return self.compiled[key][1]
+        self.misses += 1
+        source = to_map(source)
+        cmap = interpret(source, self.ob, dict(self.ar))
+        if self.rounds_kwargs is not None:
+            cmap.compile(**self.rounds_kwargs)
+        found = Interpretation(cmap, *families(source, cmap, self.ob))
+        self.compiled[key] = (diagram, found)
+        while len(self.compiled) > self.cache:
+            self.compiled.popitem(last=False)
+        return found
+
+    def cache_stats(self, reset: bool = False) -> dict:
+        """
+        What :meth:`interpret` has done so far: ``hits``, ``misses``, how
+        many maps are ``held`` and the ``capacity`` they are held in.  A
+        ``held`` equal to ``capacity`` with ``misses`` still rising is an
+        evicting cache, i.e. a reinterpretation per epoch.
+
+        Parameters:
+            reset : Whether to zero the counters, so that a caller can
+                    measure one epoch rather than a whole run.
+
+        Example
+        -------
+        >>> model = MapNN({}, {}, cache=1)
+        >>> model.cache_stats()
+        {'hits': 0, 'misses': 0, 'held': 0, 'capacity': 1}
+        """
+        found = {"hits": self.hits, "misses": self.misses,
+                 "held": len(self.compiled), "capacity": self.cache}
+        if reset:
+            self.hits, self.misses = 0, 0
+        return found
+
+    def compile_rounds(self, **kwargs) -> MapNN:
+        """
+        Compile the per-round step of every map with ``torch.compile``; see
+        :meth:`discopy.neural.CMap.compile`.
+
+        Parameters:
+            kwargs : Passed through to ``torch.compile``.
+        """
+        self.rounds_kwargs = kwargs
+        for _, found in self.compiled.values():
+            found.cmap.compile(**kwargs)
+        return self
+
+    def initial(self, diagram, values: Mapping = None, rows: int = None,
+                like=None):
+        """
+        The initial flat state: the given values on every copy of their
+        family, zeros everywhere else.
+
+        Parameters:
+            diagram : The diagram to run.
+            values : A tensor of shape ``(rows, sites, width)`` per
+                     ``(generator name, role)`` family.
+            rows : The batch size, read off the values by default.
+            like : A tensor whose dtype and device the state follows, read
+                   off the values or off the parameters by default.
+        """
+        cmap = self.interpret(diagram).cmap
+        values = dict(values or {})
+        reference = next(iter(values.values()), None)
+        if reference is None:
+            reference = next(iter(self.parameters()), None)
+        elif rows is None:
+            rows = len(reference)
+        like = reference if like is None else like
+        state = cmap.zeros(1 if rows is None else rows, like=like)
+        for key, value in values.items():
+            state = self.write(diagram, state, key, value)
+        return state
+
+    def read(self, diagram, state, key, every: bool = False):
+        """
+        The messages of a family, of shape ``(rows, sites, width)``.
+
+        Parameters:
+            diagram : The diagram the state belongs to.
+            state : The flat messages.
+            key : A ``(generator name, role)`` pair.
+            every : Whether to read every port rather than one per traced
+                    pair.
+        """
+        cmap, ports, heads = self.interpret(diagram)
+        return cmap.read(state, (ports if every else heads)[key])
+
+    def write(self, diagram, state, key, values):
+        """
+        A copy of the state with values written on every copy of a family,
+        one value per head written on the head and on the tail its wire
+        loops back to.
+
+        Parameters:
+            diagram : The diagram the state belongs to.
+            state : The flat messages.
+            key : A ``(generator name, role)`` pair.
+            values : A tensor of shape ``(rows, sites, width)``.
+        """
+        cmap, ports, heads = self.interpret(diagram)
+        if len(ports[key]) > len(heads[key]):
+            head = {port: i for i, port in enumerate(heads[key])}
+            values = values[:, [
+                head[port] if port in head else head[cmap.edges[port]]
+                for port in ports[key]]]
+        return cmap.write(state, ports[key], values)
+
+    def sites(self, diagram, key) -> int:
+        """
+        How many heads a family has in a diagram, i.e. how many values
+        :meth:`read` returns for it: one per traced pair, and one per port
+        of an untraced role.
+
+        Parameters:
+            diagram : The diagram to interpret.
+            key : A ``(generator name, role)`` pair.
+        """
+        return len(self.interpret(diagram).heads[key])
+
+    def forward(self, diagram, init=None, deep: bool = False,
+                rounds: int = None, inject: bool = None):
+        """
+        The flat state after the rounds of message passing, or the list of
+        the states after every round under ``deep``.
+
+        Parameters:
+            diagram : The diagram to run.
+            init : The initial values per family, as in :meth:`initial`, or
+                   a flat state to start from.
+            deep : Whether to return the state after every round.
+            rounds : The rounds of message passing, :attr:`rounds` by
+                     default.
+            inject : Whether to re-add the initial state after every round,
+                     :attr:`inject` by default.
+        """
+        state = init if isinstance(init, torch.Tensor) \
+            else self.initial(diagram, init)
+        return self.interpret(diagram).cmap(
+            init=state, n_rounds=self.rounds if rounds is None else rounds,
+            inject=self.inject if inject is None else inject,
+            return_rounds=deep, return_flat=True)
