@@ -129,14 +129,22 @@ def get_backend(name: str | Backend = None, like=None) -> Backend:
 
     Parameters:
         name : The backend name or instance, the current backend by default.
-        like : An array whose framework's backend is wanted, if one of the
-               backends imported so far owns it.
+        like : An array whose framework's backend is wanted, if a registered
+               backend owns it: the backends loaded so far are asked first,
+               then the others are loaded, those without their framework
+               installed being skipped.
     """
     if isinstance(name, Backend):
         return name
     if name is None and like is not None:
-        for loaded in _cache.values():
-            if loaded.owns(like):
-                return loaded
+        candidates = list(_cache) + [
+            other for other in BACKENDS if other not in _cache]
+        for candidate in candidates:
+            try:
+                with backend(candidate) as loaded:
+                    if loaded.owns(like):
+                        return loaded
+            except ImportError:
+                continue
     with backend(name) as result:
         return result
