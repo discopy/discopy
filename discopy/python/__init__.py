@@ -17,7 +17,7 @@ from discopy.python.multiplicative import exp, Function
 
 
 def __getattr__(name):
-    if name == "Ty":  # The free monoid List[type], resolved lazily.
+    if name == "Ty":
         from discopy.python.multiplicative import Ty
         return Ty
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

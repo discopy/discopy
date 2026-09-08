@@ -161,6 +161,6 @@ Merge = Function.merge
 
 
 def __getattr__(name):
-    if name == "Ty":  # The free monoid List[type], resolved lazily.
+    if name == "Ty":
         return function.Function.ob
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

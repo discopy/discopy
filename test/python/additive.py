@@ -3,7 +3,7 @@
 
 def test_additive_Function():
     from discopy.interaction import Ty, Diagram
-    from discopy.python.additive import Ty as T, Function, Id, Swap, Merge
+    from discopy.python.additive import Function, Id, Swap, Merge
 
     X, xs = (int, ), []
     m, e = Function.merge(X, n=2), Function.merge(X, n=0)
@@ -31,10 +31,10 @@ def test_additive_Function():
     assert eq((g @ X >> f).trace(), g >> f.trace())  # Left-naturality
     assert eq((f >> g @ X).trace(), f.trace() >> g)  # Right-naturality
 
-    T, D = Ty[Function.ob], Diagram[Function]
-    XX = Function.cast(X)
+    IntTy, D = Ty[Function.ob], Diagram[Function]
+    dom = Function.cast(X)
 
-    assert eq(D.id(T(XX, XX)).transpose().inside, Id(X + X))
+    assert eq(D.id(IntTy(dom, dom)).transpose().inside, Id(X + X))
 
 
 def test_trace_unequal_arity():
