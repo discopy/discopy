@@ -140,10 +140,6 @@ from discopy.neural.signature import (
     from_relation,
 )
 
-#: ``discopy.neural.map`` is a submodule, reachable as an attribute, but it
-#: is deliberately kept out of ``__all__``: a star import must not shadow
-#: the builtin ``map``. ``model`` and ``MapNN`` import torch, so they are
-#: imported on first use and kept out of a star import too.
 __all__ = [
     "BACKENDS", "Backend", "Batch", "CMap", "Cap", "Cup", "Diagram", "Dim",
     "Equation", "Execution", "Functor", "Hypergraph", "Id", "Network",
@@ -152,6 +148,12 @@ __all__ = [
     "from_relation", "get_backend", "heads", "interpret", "rdiff",
     "signature", "to_map", "width",
 ]
+"""
+``discopy.neural.map`` is a submodule, reachable as an attribute, but it
+is deliberately kept out of ``__all__``: a star import must not shadow
+the builtin ``map``. ``model`` and ``MapNN`` import torch, so they are
+imported on first use and kept out of a star import too.
+"""
 
 
 def __getattr__(name: str):
