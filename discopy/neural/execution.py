@@ -68,7 +68,7 @@ class Execution:
     -------
     >>> from discopy.neural import Dim, Network
     >>> f = Network('f', Dim(2), Dim(3), module=object())
-    >>> execution = Execution(f.to_map(), backend="pytorch")  # doctest: +EXTRA
+    >>> execution = Execution(f.to_map(), backend="jax")  # doctest: +EXTRA
     >>> execution.inside.routing["src"]  # doctest: +EXTRA
     (2, 3, 0, 1, 7, 8, 9, 4, 5, 6)
     """

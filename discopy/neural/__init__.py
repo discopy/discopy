@@ -22,8 +22,9 @@ round. Interpreting a diagram of another category is the business of
     discopy.neural.execution
     discopy.neural.backend
 
-The framework-dependent backend :mod:`~discopy.neural.torch` is left out of
-the summary so that the documentation builds without a tensor framework.
+The framework-dependent backends :mod:`~discopy.neural.torch` and
+:mod:`~discopy.neural.jax` are left out of the summary so that the
+documentation builds without a tensor framework.
 
 Note
 ----

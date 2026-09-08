@@ -88,6 +88,7 @@ class Backend(ABC):
 
 BACKENDS = {
     'pytorch': 'discopy.neural.torch.PyTorch',
+    'jax': 'discopy.neural.jax.JAX',
 }
 
 _current = ContextVar('discopy.neural.backend', default='pytorch')

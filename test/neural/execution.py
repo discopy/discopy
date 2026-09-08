@@ -40,7 +40,7 @@ def ring(n_cells, network):
 def test_backend_contract():
     with raises(TypeError):
         Backend()
-    assert set(BACKENDS) == {"pytorch"}
+    assert set(BACKENDS) == {"pytorch", "jax"}
     importorskip("torch")
     from discopy.neural.torch import PyTorch
     pytorch = PyTorch()
@@ -55,8 +55,13 @@ def test_get_backend():
         get_backend("numpy")
     assert get_backend(like=torch.zeros(1)) is get_backend("pytorch")
     assert get_backend(like=object()) is get_backend()
-    with backend("pytorch") as outer:
+    jax = importorskip("jax")
+    with backend("jax") as outer:
         assert get_backend() is outer
+        assert get_backend(like=torch.zeros(1)) is get_backend("pytorch")
+        assert get_backend(like=jax.numpy.zeros(1)) is outer
+        with backend("pytorch") as inner:
+            assert get_backend() is inner and inner is not outer
         with backend() as same:
             assert same is outer
     assert get_backend() is get_backend("pytorch")
