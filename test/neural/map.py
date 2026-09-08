@@ -20,7 +20,7 @@ from pathlib import Path
 from pytest import importorskip, raises
 
 from discopy.compact import Box, Cup, Ty as CompactTy
-from discopy.frobenius import Ty
+from discopy.frobenius import Box as Generator, Diagram, Ty
 from discopy.neural import (
     Dim, Id, Network, Orbit, Para, Signature, Sym, families, heads, interpret)
 from discopy.neural.map import width
@@ -175,6 +175,24 @@ def test_erasing_a_role_erases_its_wires():
     assert erased.port_widths == (3, 3)
     assert ("cell", STATE) not in families(pair, erased, erased_ob)[1]
     assert width(pair, erased_ob) == 6 == sum(erased.port_widths)
+
+
+def test_a_scalar_loop_survives_unless_erased():
+    """
+    A cap on a cup is a closed component with no ports: the compiled map
+    keeps it, typed by the width of its role, so that a causal schedule
+    refuses it as ``cmap`` does; a ``Dim(0)`` role erases it like a wire.
+    """
+    x = Ty("x")
+    f, g = Generator("f", Ty(), x @ x), Generator("g", x @ x, Ty())
+    source = (f >> g) @ (Diagram.caps(x, x) >> Diagram.cups(x, x))
+    assert source.to_map().loops == (x, )
+    kept = interpret(source, {x: Dim(2)}, {"f": None, "g": None})
+    assert kept.loops == (Dim(2), ) and not kept.is_acyclic
+    erased = interpret(source, {x: Dim(0)}, {"f": None, "g": None})
+    assert erased.loops == () and erased.n_ports == 0 and erased.is_acyclic
+    with raises(ValueError, match="non-atomic"):
+        interpret(source, {x: Dim(2, 2)}, {"f": None, "g": None})
 
 
 def test_a_dualised_role_reads_its_width_through_the_functor():
