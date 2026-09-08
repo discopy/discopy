@@ -4,7 +4,7 @@
 A functor from diagrams to runnable maps, as a torch module.
 
 :class:`MapNN` holds the width of every role and the shared module of every
-generator, compiles each diagram it is given once through
+generator, interprets each diagram it is given once through
 :func:`~discopy.neural.map.interpret`, builds an initial state out of the
 caller's inputs and runs the rounds of :meth:`~discopy.neural.CMap.forward`
 on it. A state is one flat tensor of shape ``(rows, total)``, the messages
@@ -24,17 +24,37 @@ Summary
     :nosignatures:
     :toctree:
 
+    Interpretation
     MapNN
 """
 
 from __future__ import annotations
 
 from collections import OrderedDict
-from typing import Mapping
+from typing import Mapping, NamedTuple
 
 import torch
 
-from discopy.neural.map import families, interpret
+from discopy.neural.batch import Batch
+from discopy.neural.core import CMap
+from discopy.neural.map import families, interpret, to_map
+
+
+class Interpretation(NamedTuple):
+    """
+    What a diagram means under a :class:`MapNN`: the map that runs it and
+    the port families addressing its flat state.
+
+    Parameters:
+        cmap : The closed map, from :func:`~discopy.neural.map.interpret`.
+        ports : Every port of each ``(generator name, role)`` family, from
+                :func:`~discopy.neural.map.families`.
+        heads : The ports of each family a value is read off, one per
+                traced pair, from :func:`~discopy.neural.map.heads`.
+    """
+    cmap: CMap
+    ports: dict
+    heads: dict
 
 
 class MapNN(torch.nn.Module):
@@ -43,6 +63,12 @@ class MapNN(torch.nn.Module):
     of every role, the shared module of every generator, and how many
     rounds to run.
 
+    One module fills every site of a generator name whatever its degree,
+    so a module shared across degrees must be width-agnostic, answering
+    every port alike whatever the width it is handed, or read its degree
+    off that width through :meth:`~discopy.neural.Signature.slices`: a
+    ``Linear`` cell trained on one shape fails on another.
+
     Parameters:
         ob : The :class:`~discopy.neural.Dim` each atomic role carries.
         ar : The torch module filling each generator name, shared by every
@@ -50,15 +76,14 @@ class MapNN(torch.nn.Module):
         rounds : The rounds of message passing one call performs.
         inject : Whether every round re-adds the initial messages, i.e.
                  whether the transition is :math:`\\sigma(\\Phi(s)) + i`.
-        cache : How many compiled diagrams to keep, least recently used
+        cache : How many interpreted diagrams to keep, least recently used
                 first out.
 
     Note
     ----
-    :meth:`compile` deliberately shadows ``torch.nn.Module.compile``, which
-    is ``torch.compile(self)``: here the word means *compiling a diagram
-    into a map*, which is what this class is for.  The ``torch.compile``
-    of the per-round step is :meth:`compile_rounds`.
+    ``torch.nn.Module.compile`` is left as torch defines it; the
+    ``torch.compile`` of the per-round step of every map is
+    :meth:`compile_rounds`.
 
     Example
     -------
@@ -92,17 +117,18 @@ class MapNN(torch.nn.Module):
         self.compiled: OrderedDict = OrderedDict()
         self.rounds_kwargs: dict = None
 
-    def compile(self, diagram) -> tuple:
+    def interpret(self, diagram) -> Interpretation:
         """
         The map a diagram means under this interpretation and the
         :func:`~discopy.neural.map.families` of its ports, cached by the
-        identity of the diagram.
+        identity of the diagram, or by the identities of the members of a
+        :class:`~discopy.neural.Batch`.
 
         Every call is counted in :attr:`hits` or :attr:`misses`, since
-        compiling is the expensive half of running a diagram once and free
-        every time after: a model whose diagrams do not fit its
-        :attr:`cache` recompiles them every epoch, which is a wall clock a
-        loss curve cannot show.  See :meth:`cache_stats`.
+        interpreting is the expensive half of running a diagram once and
+        free every time after: a model whose diagrams do not fit its
+        :attr:`cache` reinterprets them every epoch, which is a wall clock
+        a loss curve cannot show.  See :meth:`cache_stats`.
 
         The cache pins each diagram beside its map, so that a key can never
         be a recycled ``id``, and is keyed by the diagram alone: a model
@@ -112,29 +138,31 @@ class MapNN(torch.nn.Module):
             diagram : A closed diagram or map in the source category, or a
                       :class:`~discopy.neural.Batch` of them.
         """
-        key = diagram.cache_key() if hasattr(diagram, "cache_key") \
-            else id(diagram)
+        if isinstance(diagram, Batch):
+            key, source = diagram.cache_key(), diagram.diagram
+        else:
+            key, source = id(diagram), diagram
         if key in self.compiled:
             self.hits += 1
             self.compiled.move_to_end(key)
-            return self.compiled[key][1:]
+            return self.compiled[key][1]
         self.misses += 1
-        source = getattr(diagram, "diagram", diagram)
+        source = to_map(source)
         cmap = interpret(source, self.ob, dict(self.ar))
         if self.rounds_kwargs is not None:
             cmap.compile(**self.rounds_kwargs)
-        ports, heads = families(source, cmap, self.ob)
-        self.compiled[key] = (diagram, cmap, ports, heads)
+        found = Interpretation(cmap, *families(source, cmap, self.ob))
+        self.compiled[key] = (diagram, found)
         while len(self.compiled) > self.cache:
             self.compiled.popitem(last=False)
-        return cmap, ports, heads
+        return found
 
     def cache_stats(self, reset: bool = False) -> dict:
         """
-        What :meth:`compile` has done so far: ``hits``, ``misses``, how
+        What :meth:`interpret` has done so far: ``hits``, ``misses``, how
         many maps are ``held`` and the ``capacity`` they are held in.  A
         ``held`` equal to ``capacity`` with ``misses`` still rising is an
-        evicting cache, i.e. a recompilation per epoch.
+        evicting cache, i.e. a reinterpretation per epoch.
 
         Parameters:
             reset : Whether to zero the counters, so that a caller can
@@ -161,8 +189,8 @@ class MapNN(torch.nn.Module):
             kwargs : Passed through to ``torch.compile``.
         """
         self.rounds_kwargs = kwargs
-        for _, cmap, _, _ in self.compiled.values():
-            cmap.compile(**kwargs)
+        for _, found in self.compiled.values():
+            found.cmap.compile(**kwargs)
         return self
 
     def initial(self, diagram, values: Mapping = None, rows: int = None,
@@ -179,7 +207,7 @@ class MapNN(torch.nn.Module):
             like : A tensor whose dtype and device the state follows, read
                    off the values or off the parameters by default.
         """
-        cmap, _, _ = self.compile(diagram)
+        cmap = self.interpret(diagram).cmap
         values = dict(values or {})
         reference = next(iter(values.values()), None)
         if reference is None:
@@ -203,7 +231,7 @@ class MapNN(torch.nn.Module):
             every : Whether to read every port rather than one per traced
                     pair.
         """
-        cmap, ports, heads = self.compile(diagram)
+        cmap, ports, heads = self.interpret(diagram)
         return cmap.read(state, (ports if every else heads)[key])
 
     def write(self, diagram, state, key, values):
@@ -218,7 +246,7 @@ class MapNN(torch.nn.Module):
             key : A ``(generator name, role)`` pair.
             values : A tensor of shape ``(rows, sites, width)``.
         """
-        cmap, ports, heads = self.compile(diagram)
+        cmap, ports, heads = self.interpret(diagram)
         if len(ports[key]) > len(heads[key]):
             head = {port: i for i, port in enumerate(heads[key])}
             values = values[:, [
@@ -233,10 +261,10 @@ class MapNN(torch.nn.Module):
         of an untraced role.
 
         Parameters:
-            diagram : The diagram to compile.
+            diagram : The diagram to interpret.
             key : A ``(generator name, role)`` pair.
         """
-        return len(self.compile(diagram)[2][key])
+        return len(self.interpret(diagram).heads[key])
 
     def forward(self, diagram, init=None, deep: bool = False,
                 rounds: int = None, inject: bool = None):
@@ -256,8 +284,7 @@ class MapNN(torch.nn.Module):
         """
         state = init if isinstance(init, torch.Tensor) \
             else self.initial(diagram, init)
-        cmap, _, _ = self.compile(diagram)
-        return cmap(
+        return self.interpret(diagram).cmap(
             init=state, n_rounds=self.rounds if rounds is None else rounds,
             inject=self.inject if inject is None else inject,
             return_rounds=deep, return_flat=True)

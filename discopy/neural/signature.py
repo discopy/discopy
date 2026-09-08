@@ -8,23 +8,25 @@ A functor into :mod:`discopy.neural` preserves swaps, cups, caps and traces
 strictly and for free, because they are wiring: a permutation of a flat
 tensor.  What it cannot preserve for free is a box whose legs carry a
 symmetry -- a spider, a braid, a constraint unit over nine members.  Those
-stay boxes, and their equations hold **iff the torch module satisfies
-them**.  A :class:`Signature` is where that promise is written down: it says
-how many ports a box has, which of them are one orbit under a group, and
-which are traced; whether the module keeps it is measured, not assumed.
+stay boxes, and their equations hold **iff the module satisfies them**.  A
+:class:`Signature` is where that promise is written down: it says how many
+ports a box has, which of them are one orbit under a group, and which are
+traced; whether the module keeps it is measured, not assumed.
 
 A signature is not part of the user-facing workflow -- a
 :class:`~discopy.neural.MapNN` reads a diagram, not a signature.  It is the
-single source of truth for the *port layout of one generator*, and it is
-used in three places that would otherwise have to agree by hand:
+single source of truth for the *port layout of one generator*, which three
+things would otherwise have to agree on by hand:
 
-* :meth:`Signature.cod` builds the type of an abstract box, so that
-  :func:`from_incidence` and :func:`from_relation` can draw a wiring out of
-  a family's combinatorics alone;
-* :meth:`Signature.slices` gives the flat offsets a module filling the
-  box reads and writes;
-* :meth:`Signature.generators` gives the group an equivariance check runs
-  a module against.
+* :meth:`Signature.cod` is the type of the abstract box, so that
+  :func:`from_incidence` and :func:`from_relation` draw a wiring out of a
+  family's combinatorics alone;
+* :meth:`Signature.slices` gives the flat offsets a module filling the box
+  reads and writes, so that a cell serving several degrees reads its layout
+  off the signature rather than off a cursor of its own;
+* :meth:`Signature.generators` gives the group an equivariance check runs a
+  module against -- the check itself is the notebooks' business, like the
+  cells.
 
 Summary
 -------
@@ -37,6 +39,17 @@ Summary
     Sym
     Orbit
     Signature
+
+.. admonition:: Functions
+
+    .. autosummary::
+        :template: function.rst
+        :nosignatures:
+        :toctree:
+
+        leg_generators
+        from_incidence
+        from_relation
 
 Example
 -------
@@ -82,11 +95,19 @@ class Sym(StrEnum):
     * :attr:`PERM` : the symmetric group, e.g. the members of a constraint
       unit or the legs of a spider.
     * :attr:`CYCLIC` : the cyclic group, e.g. the legs of a planar node.
+
+    Example
+    -------
+    >>> Sym.PERM, str(Sym.PERM)
+    (Sym.PERM, 'perm')
     """
 
     NONE = "none"
     PERM = "perm"
     CYCLIC = "cyclic"
+
+    def __repr__(self):
+        return f"Sym.{self.name}"
 
 
 @dataclass(frozen=True)
@@ -116,6 +137,9 @@ class Orbit:
     >>> hidden, memory = Ty("hidden"), Ty("memory")
     >>> print(Orbit(hidden @ memory, traced=True).cod)
     hidden @ memory @ hidden @ memory
+    >>> Orbit(Ty("peer"), 3, Sym.PERM)
+    Orbit(role=frobenius.Ty(frobenius.Wire('peer')), arity=3, sym=Sym.PERM, \
+traced=False)
     """
 
     role: frobenius.Ty
@@ -182,31 +206,29 @@ class Signature:
         """ The atomic role of each port, in logical port order. """
         return tuple(self.cod)
 
-    def box(self, name: str, category=frobenius):
+    def box(self, name: str) -> frobenius.Box:
         """
         The abstract box of this signature: no domain, one port per role.
 
-        The source category is a parameter, so the same signature builds a
-        symmetric, compact or frobenius box; its ``require_planar``,
-        ``require_acyclic``, ``require_oriented`` and ``require_connected``
-        flags then do the guarding when the box is wired into a map.
+        The box lives in :mod:`discopy.frobenius`, since every box a
+        builder wires has an empty domain, so every wire joins two codomain
+        ports, and a map accepts such a wire only between adjoint types:
+        the roles have to be self-dual.
 
         Parameters:
             name : The name of the box, which is also the key its module is
                    looked up under.
-            category : The module the box and its types come from.
 
         Example
         -------
-        >>> from discopy import compact, frobenius, symmetric
-        >>> unit = Signature((Orbit(frobenius.Ty("message"), 3, Sym.PERM), ))
+        >>> from discopy.frobenius import Ty
+        >>> unit = Signature((Orbit(Ty("message"), 3, Sym.PERM), ))
+        >>> print(unit.box("unit"))
+        unit
         >>> print(unit.box("unit").cod)
         message @ message @ message
-        >>> isinstance(unit.box("unit", category=symmetric), symmetric.Box)
-        True
         """
-        typ = category.Ty(*[atom.inside[0].name for atom in self.cod])
-        return category.Box(name, category.Ty(), typ)
+        return frobenius.Box(name, frobenius.Ty(), self.cod)
 
     def positions(self, role: frobenius.Ty) -> tuple[int, ...]:
         """
@@ -242,10 +264,38 @@ class Signature:
             cursor += span * orbit.copies
         return tuple(result)
 
+    def loop_wires(self, index: int) -> list:
+        """
+        The wires closing the traced ports of a box onto themselves, as
+        pairs of ``(index, position)`` for
+        :meth:`~discopy.cmap.CMap.from_wiring`.
+
+        A loop is a trace, and the trace of a compact map is wiring: the
+        same map comes out of tracing the boundary of an open one.
+
+        Parameters:
+            index : The index of the box in the map.
+
+        Example
+        -------
+        >>> from discopy.frobenius import Box, CMap, Ty
+        >>> g = Box("g", Ty("x"), Ty("x"))
+        >>> loop = Signature((Orbit(Ty("x"), traced=True), ))
+        >>> loop.loop_wires(0)
+        [((0, 0), (0, 1))]
+        >>> CMap.from_box(g).trace() == CMap.from_wiring(
+        ...     (g, ), loop.loop_wires(0))
+        True
+        """
+        return [((index, source), (index, target))
+                for source, target in self.loops()]
+
     def slices(self, widths: Mapping) -> dict:
         """
         Where each atomic role sits in the flat message vector of a box,
-        given the width of every role.
+        given the width of every role: the block of all the outgoing copies
+        of its legs, which for a traced orbit is followed by the incoming
+        block of the same layout.
 
         This is the one place a port offset is computed.  A module reads and
         writes through these slices, so its cursor arithmetic and the type
@@ -254,21 +304,22 @@ class Signature:
         Parameters:
             widths : The width carried by each atomic role; roles of width
                      zero are erased, exactly as ``Dim(0)`` erases a port.
+
+        Raises:
+            ValueError : If a role appears in two orbits, whose slices
+                         would then be two blocks under one key.
         """
         result, cursor = {}, 0
         for orbit in self.orbits:
-            leg = sum(widths[atom] for atom in orbit.role)
-            block = orbit.arity * leg
-            inner = cursor
+            inner, leg = cursor, sum(widths[atom] for atom in orbit.role)
             for atom in orbit.role:
-                width = widths[atom]
-                if width:
-                    result[atom] = slice(
-                        inner, inner + (block if len(orbit.role) == 1
-                                        else width))
-                inner += width
-            cursor += orbit.copies * block
-        return result
+                if atom in result:
+                    raise ValueError(f"{atom} appears in two orbits")
+                result[atom] = slice(inner, inner + orbit.arity * widths[atom])
+                inner += widths[atom]
+            cursor += orbit.copies * orbit.arity * leg
+        return {atom: block for atom, block in result.items()
+                if block.stop > block.start}
 
     def width(self, widths: Mapping) -> int:
         """ The total flat width of a box under the given role widths. """
@@ -296,9 +347,11 @@ class Signature:
         permutations of its ports.
 
         A permutation acts on the *legs* of one orbit and on every copy of
-        each leg alike, so a traced orbit stays traced.  The identity of
-        the group generated is the equation the module at this site must
-        satisfy.
+        each leg alike, so a traced orbit stays traced: it is the tensor of
+        the identity on the ports before the orbit, one copy of the leg
+        permutation per copy of the orbit, and the identity after.  The
+        identity of the group generated is the equation the module at this
+        site must satisfy.
 
         Example
         -------
@@ -309,18 +362,15 @@ class Signature:
         """
         result, cursor = [], 0
         for orbit in self.orbits:
-            span, legs = len(orbit.role), orbit.arity
-            block = span * legs
-            for cycle in leg_generators(orbit.sym, legs):
-                mapping = list(range(len(self.roles)))
-                for copy in range(orbit.copies):
-                    start = cursor + copy * block
-                    for leg in range(legs):
-                        for atom in range(span):
-                            mapping[start + leg * span + atom] = \
-                                start + cycle[leg] * span + atom
-                result.append(Permutation(mapping))
-            cursor += block * orbit.copies
+            span, after = len(orbit.role), len(self.roles) - cursor
+            for cycle in leg_generators(orbit.sym, orbit.arity):
+                legs = Permutation([
+                    cycle[leg] * span + atom
+                    for leg in range(orbit.arity) for atom in range(span)])
+                result.append(Permutation.id(cursor).tensor(
+                    *(legs, ) * orbit.copies,
+                    Permutation.id(after - orbit.n_ports)))
+            cursor += orbit.n_ports
         return result
 
 
@@ -353,40 +403,27 @@ def leg_generators(sym: Sym, arity: int) -> list[tuple[int, ...]]:
     return [swap, rotation]
 
 
-def _wire_loops(wires: list, index: int, signature: Signature) -> None:
-    """
-    Close the traced ports of a box onto themselves.
-
-    A loop is a trace, and the trace of a compact map is wiring: the same
-    map comes out of tracing the boundary of an open one.
-
-    >>> from discopy.frobenius import Box, CMap, Ty
-    >>> g = Box("g", Ty("x"), Ty("x"))
-    >>> CMap.from_box(g).trace() == CMap.from_wiring(
-    ...     (g, ), [((0, 0), (0, 1))])
-    True
-    """
-    wires += [((index, source), (index, target))
-              for source, target in signature.loops()]
-
-
 def from_incidence(incidence: tuple, node: Signature, relation: Signature,
-                   node_name: str = NODE, relation_name=RELATION,
-                   category=frobenius):
+                   node_name: str = NODE, relation_name=RELATION
+                   ) -> frobenius.CMap:
     """
     The bipartite incidence graph of a family of nodes and the relations
-    they belong to, as a closed map in the source category: one node box
-    per node with one incidence port per relation it belongs to plus its
-    traced loops, one relation box per relation with one port per member,
-    and a wire from each node to each of its relations.
+    they belong to, as a closed map in :mod:`discopy.frobenius`: one node
+    box per node with one incidence port per relation it belongs to plus
+    its traced loops, one relation box per relation with one port per
+    member, and a wire from each node to each of its relations.
 
     Neither the degrees nor the sizes need to be uniform: a node of degree
     ``d`` gets the node signature with its first orbit resized to ``d``,
     and likewise a relation of ``m`` members -- one shared module still
-    fills every site of a name, reading its arity off the width it is
-    handed, at the cost of one batched call per distinct degree.  A module
-    pooled with ``"mean"`` keeps its input scale independent of the
-    degree; declare that on any generator whose degree varies.
+    fills every site of a name, at the cost of one batched call per
+    distinct degree.  A module shared across degrees must be
+    width-agnostic, answering every port alike whatever the width it is
+    handed, or read its degree off that width through
+    :meth:`Signature.slices`: a ``Linear`` cell built for one degree fails
+    on another.  A module pooled with ``"mean"`` keeps its input scale
+    independent of the degree; declare that on any generator whose degree
+    varies.
 
     Parameters:
         incidence : Per node, the indices of the relations it belongs to;
@@ -404,7 +441,6 @@ def from_incidence(incidence: tuple, node: Signature, relation: Signature,
                         module, so a relation playing a different part,
                         e.g. a graph-level readout wired to every node,
                         is a relation with a name of its own.
-        category : The source category the wiring is drawn in.
 
     Example
     -------
@@ -454,23 +490,22 @@ def from_incidence(incidence: tuple, node: Signature, relation: Signature,
             wires.append(
                 ((index, position), (n_nodes + other, free[other])))
             free[other] += 1
-        _wire_loops(wires, index, nodes[index])
+        wires += nodes[index].loop_wires(index)
     for other in range(n_relations):
-        _wire_loops(wires, n_nodes + other, units[other])
+        wires += units[other].loop_wires(n_nodes + other)
 
-    boxes = tuple(sig.box(node_name, category) for sig in nodes) + tuple(
-        sig.box(names[index], category)
-        for index, sig in enumerate(units))
-    return category.CMap.from_wiring(boxes, wires)
+    boxes = tuple(sig.box(node_name) for sig in nodes) + tuple(
+        sig.box(names[index]) for index, sig in enumerate(units))
+    return frobenius.CMap.from_wiring(boxes, wires)
 
 
-def from_relation(relation: tuple, node: Signature, node_name: str = NODE,
-                  category=frobenius):
+def from_relation(relation: tuple, node: Signature, node_name: str = NODE
+                  ) -> frobenius.CMap:
     """
-    The graph of a binary relation between nodes, as a closed map in the
-    source category: one node box per node with one port per related node
-    plus its traced loops, and a wire between each related pair.  No
-    hyperedge boxes.
+    The graph of a binary relation between nodes, as a closed map in
+    :mod:`discopy.frobenius`: one node box per node with one port per
+    related node plus its traced loops, and a wire between each related
+    pair.  No hyperedge boxes.
 
     The relation must be symmetric; the degrees need not be uniform, a
     node related to ``d`` others gets the node signature with its first
@@ -483,7 +518,6 @@ def from_relation(relation: tuple, node: Signature, node_name: str = NODE,
                relation orbit; its declared arity is a default, resized
                per node.
         node_name : The name every node box carries.
-        category : The source category the wiring is drawn in.
 
     Example
     -------
@@ -508,7 +542,7 @@ def from_relation(relation: tuple, node: Signature, node_name: str = NODE,
             if index < other:
                 wires.append(((index, relation[index].index(other)),
                               (other, relation[other].index(index))))
-        _wire_loops(wires, index, nodes[index])
+        wires += nodes[index].loop_wires(index)
 
-    boxes = tuple(sig.box(node_name, category) for sig in nodes)
-    return category.CMap.from_wiring(boxes, wires)
+    boxes = tuple(sig.box(node_name) for sig in nodes)
+    return frobenius.CMap.from_wiring(boxes, wires)

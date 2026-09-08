@@ -3,9 +3,8 @@
 """
 What a generator means and what a diagram compiles to.
 
-The two readings of a generator -- a :class:`~discopy.neural.ParamMap` that
-composes by substitution, an :class:`~discopy.neural.InteractionMap` that
-does not -- and the compilation of a closed diagram into the
+A generator is read on the boundary of its box -- see
+:class:`~discopy.neural.Network` -- and a closed diagram compiles into the
 :class:`~discopy.neural.CMap` that runs it, with the ``(generator, role)``
 :func:`~discopy.neural.families` of its ports.  The formulae of the module
 docstring are pinned on a module that answers every port alike, so that
@@ -18,17 +17,17 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
+from pytest import importorskip, raises
 
-torch = pytest.importorskip("torch")
-
+from discopy.compact import Box, Cup, Ty as CompactTy
 from discopy.frobenius import Ty
-from discopy.para import Symmetric
 from discopy.neural import (
-    Dim, Network, Orbit, Signature, Sym, families, interpret)
-from discopy.neural.map import InteractionMap, ParamMap, interaction_spec
+    Dim, Id, Network, Orbit, Para, Signature, Sym, families, heads, interpret)
+from discopy.neural.map import width
 from discopy.neural.signature import from_relation
 from discopy.utils import AxiomError
+
+torch = importorskip("torch")
 
 
 PEER, STATE = Ty("peer"), Ty("state")
@@ -82,78 +81,129 @@ def test_compiling_a_diagram_does_not_import_torch():
     assert found.stdout.strip() == "6 False"
 
 
-def test_param_maps_compose_by_substitution():
+def test_parametric_networks_compose_by_substitution():
     """
     An ordinary parametric map is a morphism of ``Para``: it composes, and
     the parameter objects go side by side, left then right.  ``Dim`` is a
     strict monoid, so the layout is associative on the nose and a
-    bracketing can never change which weights are where.
+    bracketing can never change which weights are where.  A network in a
+    diagram is not one of these: it is read on its boundary and talks
+    along wires, see :class:`~discopy.neural.Network`.
     """
-    f = ParamMap.generator("f", Dim(2), Dim(3), Dim(6))
-    g = ParamMap.generator("g", Dim(3), Dim(4), Dim(12))
-    h = ParamMap.generator("h", Dim(4), Dim(5), Dim(20))
-    assert (f.name, f.dom, f.cod, f.params) == ("f", Dim(2), Dim(3), Dim(6))
-    assert isinstance(f, Symmetric) and ParamMap.id(Dim(2)).params == Dim()
-    assert (f >> g).params == Dim(6, 12) != (g.params @ f.params)
-    assert ((f >> g) >> h).params == (f >> (g >> h)).params == Dim(6, 12, 20)
-    assert ((f @ g) @ h).params == (f @ (g @ h)).params == Dim(6, 12, 20)
+    f = Para.generator("f", Dim(2), Dim(3), Dim(6))
+    g = Para.generator("g", Dim(3), Dim(4), Dim(12))
+    h = Para.generator("h", Dim(4), Dim(5), Dim(20))
+    assert (f.dom, f.cod, f.param) == (Dim(2), Dim(3), Dim(6))
+    assert f.inside == Network("f", Dim(2, 6), Dim(3))
+    assert (f >> g).param == Dim(6, 12) != g.param @ f.param
+    assert (f >> g).inside.boxes[1] == Network("g", Dim(3, 12), Dim(4))
+    assert ((f >> g) >> h).param == (f >> (g >> h)).param == Dim(6, 12, 20)
+    assert ((f @ g) @ h).param == (f @ (g @ h)).param == Dim(6, 12, 20)
     assert ((f @ g) @ h).dom == (f @ (g @ h)).dom == Dim(2, 3, 4)
-    with pytest.raises(AxiomError, match="does not compose"):
+    shape = [(one.dom, one.cod, one.param) for one in (
+        Para.id(Dim(2)) >> f, f, f >> Para.id(Dim(3)))]
+    assert shape[0] == shape[1] == shape[2]
+    with raises(AxiomError):
         f >> f
 
 
-def test_interaction_maps_do_not_compose():
+def test_heads_are_read_off_the_wiring():
     """
-    The refusal that keeps the two readings apart.  Two interactions glued
-    along a shared object talk along the wires -- symmetric feedback, i.e.
-    the trace of the two boxes over the shared boundary -- and what
-    computes it is a finite number of rounds, not a substitution.  Their
-    *tensor* is meaningful and is kept.
+    A port is a head unless it is wired to an earlier port of the same box,
+    which is exactly the second copy of a traced leg.  No declaration is
+    consulted: the wiring says which ports a module reads a value off.
     """
-    f = InteractionMap.generator("f", Dim(2, 3), Dim(4, 5, 6))
-    g = InteractionMap.generator("g", Dim(7), Dim(8))
-    with pytest.raises(AxiomError, match="do not compose"):
-        f >> g
-    with pytest.raises(TypeError):
-        ParamMap.generator("f", Dim(2), Dim(3)) @ g
-    assert ParamMap.generator("f", Dim(2), Dim(3)) \
-        != InteractionMap.generator("f", Dim(2), Dim(3))
-    assert f.boundary == Dim(2, 3, 4, 5, 6) and f.width == 20
-    assert f.dagger().boundary == Dim(4, 5, 6, 2, 3)
-    assert f.dagger().width == 20 and f.dagger().dagger() == f
-    assert (f @ g).boundary == Dim(2, 3, 7, 4, 5, 6, 8)
-    assert (f @ g).boundary != f.boundary @ g.boundary
-    assert (f @ g).width == f.width + g.width
+    pair = from_relation(((1, ), (0, )), node_signature(1))
+    ports, head_ports = families(pair, interpret(pair, OB, {"cell": None}), OB)
+    assert ports["cell", STATE] == (1, 0, 4, 3)
+    assert head_ports["cell", STATE] == (1, 4)
+    assert ports["cell", PEER] == head_ports["cell", PEER] == (2, 5)
+    assert heads(pair) == heads(pair.to_diagram()) == {
+        ("cell", PEER): ((0, 0), (1, 0)), ("cell", STATE): ((0, 1), (1, 1))}
 
 
-def test_interaction_spec_reads_a_network():
-    torch.manual_seed(0)
-    module = torch.nn.Linear(5, 5)
-    f = Network("f", Dim(2), Dim(3), module=module)
-    spec = interaction_spec(f)
-    assert spec == InteractionMap.generator("f", Dim(2), Dim(3), Dim(30))
-    assert spec.boundary == f.dom @ f.cod
-    assert spec.width == module.in_features == module.out_features
-    assert interaction_spec(f.dagger()) == spec.dagger()
-    assert interaction_spec(Network("g", Dim(2), Dim(3))).params == Dim()
-    assert interaction_spec(
-        Network("g", Dim(2), Dim(3), module=object())).params == Dim()
+def test_heads_of_a_three_leg_orbit():
+    """
+    A traced orbit with three legs lays out its three outgoing copies before
+    its three incoming ones, so the heads of the family are the first half
+    of its ports in each box and every tail is the far end of its own head.
+    """
+    node = Signature((Orbit(PEER, 1), Orbit(STATE, 3, traced=True)))
+    pair = from_relation(((1, ), (0, )), node)
+    assert node.loops() == ((1, 4), (2, 5), (3, 6))
+    assert heads(pair)["cell", STATE] == (
+        (0, 1), (0, 2), (0, 3), (1, 1), (1, 2), (1, 3))
+    cmap = interpret(pair, OB, {"cell": None})
+    ports, head_ports = families(pair, cmap, OB)
+    assert ports["cell", STATE] == (5, 4, 3, 2, 1, 0, 12, 11, 10, 9, 8, 7)
+    assert head_ports["cell", STATE] == (5, 4, 3, 12, 11, 10)
+    assert [cmap.edges[head] for head in head_ports["cell", STATE]]\
+        == [2, 1, 0, 9, 8, 7]
 
 
-def test_the_specs_agree_with_the_map():
+def test_a_role_maps_to_an_atomic_dim():
+    """
+    One abstract port becomes one concrete port, or none: a role sent to a
+    composite dimension has no port to become.
+    """
+    pair = from_relation(((1, ), (0, )), node_signature(1))
+    with raises(ValueError, match="non-atomic"):
+        interpret(pair, {PEER: Dim(3, 3), STATE: Dim(4)}, {"cell": None})
+
+
+def test_only_a_closed_diagram_compiles():
+    """
+    A boundary port is one no box answers, so an open diagram has no global
+    transition: ``interpret`` refuses a diagram and its map alike.
+    """
+    f = Network("f", Dim(2), Dim(3))
+    for source in (f, f.to_map(), Id(Dim(2)).to_map()):
+        with raises(ValueError, match="closed"):
+            interpret(source, {}, {"f": None})
+
+
+def test_erasing_a_role_erases_its_wires():
+    """
+    ``Dim(0)`` is the monoidal unit, so a role sent to it leaves neither a
+    port nor a wire -- which is how one diagram serves two models.
+    """
+    pair = from_relation(((1, ), (0, )), node_signature(1))
+    kept = interpret(pair, {PEER: Dim(3), STATE: Dim(5)}, {"cell": None})
+    erased_ob = {PEER: Dim(3), STATE: Dim(0)}
+    erased = interpret(pair, erased_ob, {"cell": None})
+    assert kept.port_widths == (5, 5, 3, 5, 5, 3)
+    assert erased.port_widths == (3, 3)
+    assert ("cell", STATE) not in families(pair, erased, erased_ob)[1]
+    assert width(pair, erased_ob) == 6 == sum(erased.port_widths)
+
+
+def test_a_dualised_role_reads_its_width_through_the_functor():
+    """
+    The functor sends a dual role to the dual of its image and an integer
+    to an atomic dimension, so a compact source whose box carries ``x.r``
+    compiles, and its families and its width are read off that functor.
+    """
+    x = CompactTy("x")
+    closed = Box("f", CompactTy(), x @ x.r) >> Cup(x, x.r)
+    cmap = interpret(closed, {x: Dim(2)}, {"f": None})
+    assert cmap.port_widths == (2, 2) and tuple(cmap.edges) == (1, 0)
+    ports, head_ports = families(closed, cmap, {x: 2})
+    assert ports == {("f", x): (1, ), ("f", x.r): (0, )}
+    assert head_ports == {("f", x): (1, )}
+    assert width(closed, {x: 2}) == width(closed, {x: Dim(2)}) == 4
+
+
+def test_sites_share_one_module():
+    """
+    Three sites of one name share one module, so the map has one module's
+    worth of weights rather than the product of the sites' parameter
+    objects.
+    """
     module, cmap = compiled()
-    specs = [interaction_spec(box) for box in cmap.boxes]
-    assert [spec.name for spec in specs] == ["cell", "cell", "cell"]
-    for index, (spec, box) in enumerate(zip(specs, cmap.boxes)):
-        assert spec.boundary == box.dom @ box.cod
-        assert spec.width == sum(
-            cmap.port_widths[port] for port in cmap.box_ports(index))
-    assert {spec.params for spec in specs} == {
-        Dim(sum(p.numel() for p in module.parameters()))}
-    # sites share one module, so theta is *not* the product of their
-    # parameter objects: the map has one module's worth of weights.
-    assert sum(p.numel() for p in cmap.parameters()) \
-        == sum(p.numel() for p in module.parameters())
+    assert [box.module for box in cmap.boxes] == [module] * 3
+    wrapped = cmap.as_network().module
+    assert sum(p.numel() for p in wrapped.parameters()) \
+        == sum(p.numel() for p in module.parameters()) == 2
 
 
 def test_a_map_keeps_the_shape_it_was_built_with():
@@ -179,50 +229,19 @@ def test_a_map_keeps_the_shape_it_was_built_with():
     assert shape() == before and cmap.port_widths == shape()[0]
 
 
-def test_heads_are_read_off_the_wiring():
-    """
-    A port is a head unless it is wired to an earlier port of the same box,
-    which is exactly the second copy of a traced leg.  No declaration is
-    consulted: the wiring says which ports a module reads a value off.
-    """
-    pair = from_relation(((1, ), (0, )), node_signature(1))
-    ports, heads = families(pair, interpret(pair, OB, {"cell": None}), OB)
-    assert ports["cell", STATE] == (1, 0, 4, 3)
-    assert heads["cell", STATE] == (1, 4)
-    assert ports["cell", PEER] == heads["cell", PEER] == (2, 5)
-
-
-def test_erasing_a_role_erases_its_wires():
-    """
-    ``Dim(0)`` is the monoidal unit, so a role sent to it leaves neither a
-    port nor a wire -- which is how one diagram serves two models.
-    """
-    pair = from_relation(((1, ), (0, )), node_signature(1))
-    kept = interpret(pair, {PEER: Dim(3), STATE: Dim(5)}, {"cell": None})
-    erased_ob = {PEER: Dim(3), STATE: Dim(0)}
-    erased = interpret(pair, erased_ob, {"cell": None})
-    assert kept.port_widths == (5, 5, 3, 5, 5, 3)
-    assert erased.port_widths == (3, 3)
-    assert ("cell", STATE) not in families(pair, erased, erased_ob)[1]
-    with pytest.raises(ValueError, match="non-atomic"):
-        interpret(pair, {PEER: Dim(3, 3), STATE: Dim(4)}, {"cell": None})
-    with pytest.raises(ValueError, match="closed"):
-        interpret(Network("f", Dim(2), Dim(3)).to_map(), {}, {"f": None})
-
-
 def test_read_and_write_address_a_family():
     pair = from_relation(((1, ), (0, )), node_signature(1))
     cmap = interpret(pair, OB, {"cell": Affine()})
-    ports, heads = families(pair, cmap, OB)
+    ports, head_ports = families(pair, cmap, OB)
     state = cmap.zeros(2, like=torch.zeros(1, dtype=torch.double))
     values = torch.arange(2 * 4 * 4, dtype=torch.double).reshape(2, 4, 4)
     written = cmap.write(state, ports["cell", STATE], values)
     assert torch.equal(cmap.read(written, ports["cell", STATE]), values)
     assert torch.equal(
-        cmap.read(written, heads["cell", STATE]), values[:, 0::2])
-    assert cmap.read(written, heads["cell", PEER]).abs().sum() == 0
+        cmap.read(written, head_ports["cell", STATE]), values[:, 0::2])
+    assert cmap.read(written, head_ports["cell", PEER]).abs().sum() == 0
     assert state.shape == (2, sum(cmap.port_widths))
-    with pytest.raises(ValueError, match="different widths"):
+    with raises(ValueError, match="different widths"):
         cmap.read(state, (0, 2))
 
 
@@ -309,7 +328,6 @@ def test_a_snake_is_pure_rerouting():
     for free: a snake has no box at all, and its forward pass is the
     identity.
     """
-    from discopy.neural import Id
     snake = Id(Dim(2)).transpose().to_map()
     assert snake.boxes == () and snake.port_widths == (2, 2)
     x = torch.tensor([[0.1, 0.2]])

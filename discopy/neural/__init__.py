@@ -84,10 +84,9 @@ framework installed.
   :mod:`jax <discopy.neural.jax>`: one flat array of messages, one batched
   call per group of boxes sharing a module, one permutation per round.
 * :mod:`~discopy.neural.map` : the interpretation of a diagram as a map,
-  the ``(generator, role)`` families of its ports, and the formal
-  specifications :class:`~discopy.neural.map.ParamMap` and
-  :class:`~discopy.neural.map.InteractionMap` that say what a generator
-  means.
+  the ``(generator, role)`` families of its ports and their heads, and the
+  width of a diagram under an interpretation; what a generator means is
+  said on :class:`Network`, and a feed-forward layer is a :class:`Para`.
 * :mod:`~discopy.neural.model` : :class:`MapNN`, the functor from diagrams
   to runnable maps as a torch module.
 * :mod:`~discopy.neural.batch` : batching over heterogeneous diagrams.
@@ -132,7 +131,7 @@ from discopy.neural.core import (
 from discopy.neural.execution import Execution
 from discopy.neural import batch, core, execution, rdiff, signature
 from discopy.neural.batch import Batch, bucket
-from discopy.neural.map import families, heads, interpret
+from discopy.neural.map import families, heads, interpret, to_map, width
 from discopy.neural.signature import (
     Orbit,
     Signature,
@@ -151,7 +150,7 @@ __all__ = [
     "Orbit", "Para", "Permutation", "Signature", "Swap", "Sym", "batch",
     "bucket", "core", "execution", "families", "from_incidence",
     "from_relation", "get_backend", "heads", "interpret", "rdiff",
-    "signature",
+    "signature", "to_map", "width",
 ]
 
 

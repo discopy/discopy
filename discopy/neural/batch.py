@@ -23,10 +23,13 @@ split.
 
 Two habits keep this cheap.  Intern the diagrams -- one instance per shape,
 as an ``lru_cache`` builder naturally gives -- so that
-:meth:`~discopy.neural.MapNN.compile` hits its cache; and pass ``pad=True``
-so that :func:`bucket` rounds the member count up to a coarse ladder by
-repeating the last member, and a run sees a handful of distinct shapes
-rather than one per batch.
+:meth:`~discopy.neural.MapNN.interpret` hits its cache; and pass
+``pad=True`` so that :func:`bucket` rounds the member count up to a coarse
+ladder by repeating the last member, and a run sees a handful of distinct
+shapes rather than one per batch.
+
+This module imports no tensor framework: the arrays a batch cuts and joins
+are handed to the :func:`~discopy.neural.backend.get_backend` owning them.
 
 Summary
 -------
@@ -36,14 +39,24 @@ Summary
     :nosignatures:
 
     Batch
+
+.. admonition:: Functions
+
+    .. autosummary::
+        :template: function.rst
+        :nosignatures:
+        :toctree:
+
+        bucket
 """
 
 from __future__ import annotations
 
-from functools import reduce
+from functools import cached_property, reduce
 from operator import matmul
 
-from discopy.neural.map import heads
+from discopy.neural.backend import get_backend
+from discopy.neural.map import heads, width
 
 #: The member counts a batch is rounded up to, so that a run sees a few
 #: distinct shapes rather than one per batch.
@@ -72,8 +85,8 @@ class Batch:
     Several diagrams run as one: their monoidal product.
 
     A batch is itself a diagram as far as
-    :meth:`~discopy.neural.MapNN.compile` is concerned, so a model runs it
-    exactly as it runs a single sample; what a batch adds is the
+    :meth:`~discopy.neural.MapNN.interpret` is concerned, so a model runs
+    it exactly as it runs a single sample; what a batch adds is the
     bookkeeping to cut the result back into members.
 
     Parameters:
@@ -95,64 +108,75 @@ class Batch:
     (6, (2, 4))
     >>> together.widths({peer: 3, state: 5})
     (26, 52)
+
+    Padding repeats the last member up to the next bucket, and only the
+    given members are cut back out:
+
+    >>> padded = Batch((pair, quad, pair), pad=True)
+    >>> len(padded), len(padded.parts), padded.sizes(("cell", state))
+    (3, 4, (2, 4, 2))
+    >>> padded.sizes(("cell", state), padded=True)
+    (2, 4, 2, 2)
     """
     def __init__(self, parts, pad: bool = False):
         parts = tuple(parts)
         if not parts:
             raise ValueError("a batch needs at least one member")
-        self.given = len(parts)
-        if pad:
-            parts += (parts[-1], ) * (bucket(len(parts)) - len(parts))
-        self.parts = parts
-        self._diagram = None
+        self.given, self.pad = len(parts), pad
+        self.parts = parts + (parts[-1], ) * (bucket(len(parts)) - len(parts))\
+            if pad else parts
+
+    def __repr__(self):
+        return f"Batch({self.parts[:self.given]!r}, pad={self.pad!r})"
+
+    def __eq__(self, other):
+        return isinstance(other, Batch)\
+            and (self.parts, self.pad) == (other.parts, other.pad)
 
     def __len__(self) -> int:
         return self.given
 
-    @property
+    @cached_property
     def diagram(self):
-        """ The monoidal product of the members, built once. """
-        if self._diagram is None:
-            self._diagram = reduce(matmul, self.parts)
-        return self._diagram
+        """ The monoidal product of the members, padding included. """
+        return reduce(matmul, self.parts)
 
     def cache_key(self) -> tuple:
         """
-        What :meth:`~discopy.neural.MapNN.compile` keys its cache on: the
-        identity of each member, so that a fresh batch of interned diagrams
-        hits the cache.
+        What :meth:`~discopy.neural.MapNN.interpret` keys its cache on:
+        the identity of each member, padding included, so that a fresh
+        batch of interned diagrams hits the cache.
         """
         return ("batch", ) + tuple(id(part) for part in self.parts)
 
-    def sizes(self, key) -> tuple[int, ...]:
+    def sizes(self, key, padded: bool = False) -> tuple[int, ...]:
         """
-        The number of sites of a family in each *given* member, i.e. the
-        split sizes of the axis a model's output ranges over.
+        The number of sites of a family in each member, i.e. the split
+        sizes of the axis a model's output ranges over: its
+        :func:`~discopy.neural.map.heads`, zero where the member has none.
 
         Parameters:
             key : A ``(generator name, role)`` pair, whose role must
                   survive the interpretation.
+            padded : Whether to count the padding members too.
         """
-        return tuple(_sites(part, *key) for part in self.parts)[:self.given]
+        parts = self.parts if padded else self.parts[:self.given]
+        return tuple(len(heads(part).get(key, ())) for part in parts)
 
-    def widths(self, ob) -> tuple[int, ...]:
+    def widths(self, ob, padded: bool = False) -> tuple[int, ...]:
         """
-        The flat state width of each *given* member, without compiling it.
+        The flat state :func:`~discopy.neural.map.width` of each member,
+        without compiling it.
 
         Parameters:
             ob : The width each atomic role carries, as an integer or a
                  :class:`~discopy.neural.Dim`.
+            padded : Whether to include the padding members too.
         """
-        def width(role):
-            found = ob[role]
-            return found if isinstance(found, int) else sum(found.inside)
+        parts = self.parts if padded else self.parts[:self.given]
+        return tuple(width(part, ob) for part in parts)
 
-        return tuple(
-            sum(width(role) for box in part.boxes
-                for role in tuple(box.dom) + tuple(box.cod))
-            for part in self.parts)[:self.given]
-
-    def split(self, values, key) -> list:
+    def split(self, values, key) -> tuple:
         """
         A tensor over the site axis of the product -- logits, targets, a
         correctness mask -- cut into one piece per given member, the
@@ -162,9 +186,8 @@ class Batch:
             values : A tensor of shape ``(rows, sites, ...)``.
             key : The ``(generator name, role)`` the site axis ranges over.
         """
-        import torch
-        return list(torch.split(
-            values, list(self._all_sizes(key)), dim=1))[:self.given]
+        return get_backend(like=values).split(
+            values, self.sizes(key, padded=True), axis=1)[:self.given]
 
     def join(self, states):
         """
@@ -175,14 +198,13 @@ class Batch:
         Parameters:
             states : One tensor per given member, in member order.
         """
-        import torch
-        states = list(states)
+        states = tuple(states)
         if len(states) != self.given:
             raise ValueError(f"expected {self.given} states")
-        states += [states[-1]] * (len(self.parts) - self.given)
-        return torch.cat(states, -1)
+        states += (states[-1], ) * (len(self.parts) - self.given)
+        return get_backend(like=states[0]).concatenate(states)
 
-    def split_state(self, flat, ob) -> list:
+    def split_state(self, flat, ob) -> tuple:
         """
         The flat state of each given member, from that of the product.
 
@@ -190,27 +212,5 @@ class Batch:
             flat : The flat state of the product.
             ob : The width each atomic role carries.
         """
-        import torch
-        sizes = tuple(
-            sum(_width(ob, role) for box in part.boxes
-                for role in tuple(box.dom) + tuple(box.cod))
-            for part in self.parts)
-        return list(torch.split(flat, list(sizes), -1))[:self.given]
-
-    def _all_sizes(self, key) -> tuple[int, ...]:
-        """ :meth:`sizes` over every member, padding included. """
-        return tuple(_sites(part, *key) for part in self.parts)
-
-
-def _width(ob, role) -> int:
-    """ The integer width a role carries, given ints or ``Dim``s. """
-    found = ob[role]
-    return found if isinstance(found, int) else sum(found.inside)
-
-
-def _sites(source, name: str, role) -> int:
-    """
-    How many sites of a name carry a role in a diagram: one per leg,
-    counting a traced leg once, i.e. its :func:`~discopy.neural.map.heads`.
-    """
-    return len(heads(source).get((name, role), ()))
+        return get_backend(like=flat).split(
+            flat, self.widths(ob, padded=True))[:self.given]
