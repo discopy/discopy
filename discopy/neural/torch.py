@@ -38,10 +38,10 @@ class PyTorch(Backend):
             return torch.zeros(batch_size, width)
         return like.new_zeros((batch_size, width))
 
-    def split(self, value: torch.Tensor, widths: tuple[int, ...]
-              ) -> tuple[torch.Tensor, ...]:
-        """ Split a batch into messages of the given widths. """
-        return tuple(torch.split(value, widths, dim=-1))
+    def split(self, value: torch.Tensor, widths: tuple[int, ...],
+              axis: int = -1) -> tuple[torch.Tensor, ...]:
+        """ Split a batch into messages of the given widths along an axis. """
+        return tuple(torch.split(value, widths, dim=axis))
 
     def concatenate(self, values: tuple[torch.Tensor, ...]) -> torch.Tensor:
         """ Concatenate messages along their final dimension. """
@@ -69,8 +69,8 @@ class PyTorch(Backend):
         return CMapModule(inside, self)
 
     def zeros_module(self) -> Zeros:
-        """ Return a parameter-free all-port zero module. """
-        return Zeros()
+        """ The parameter-free all-port zero module, one for every discard. """
+        return ZEROS
 
     def index(self, indices: tuple[int, ...], like=None) -> torch.Tensor:
         """ Return a long tensor of positions on the device of ``like``. """
@@ -86,6 +86,10 @@ class PyTorch(Backend):
         """ Return the function under ``torch.compile``. """
         return torch.compile(function, **kwargs)
 
+    def owns(self, value) -> bool:
+        """ Whether a value is a torch tensor. """
+        return isinstance(value, torch.Tensor)
+
 
 class Zeros(torch.nn.Module):
     """ An all-port module which emits zeros with its input's metadata. """
@@ -93,6 +97,10 @@ class Zeros(torch.nn.Module):
     def forward(self, value: torch.Tensor) -> torch.Tensor:
         """ Return zeros matching the shape and metadata of ``value``. """
         return torch.zeros_like(value)
+
+
+#: The one zero module, so that two discards of a type are equal networks.
+ZEROS = Zeros()
 
 
 class CMapModule(torch.nn.Module):

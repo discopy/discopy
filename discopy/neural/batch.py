@@ -43,7 +43,7 @@ from __future__ import annotations
 from functools import reduce
 from operator import matmul
 
-from discopy.neural.core import box_ports
+from discopy.neural.map import heads
 
 #: The member counts a batch is rounded up to, so that a run sees a few
 #: distinct shapes rather than one per batch.
@@ -208,21 +208,9 @@ def _width(ob, role) -> int:
     return found if isinstance(found, int) else sum(found.inside)
 
 
-def _sites(cmap, name: str, role) -> int:
+def _sites(source, name: str, role) -> int:
     """
-    How many sites of a name carry a role in a map: one per leg, counting
-    a traced leg once, exactly as the heads returned by
-    :func:`~discopy.neural.map.families` do.
+    How many sites of a name carry a role in a diagram: one per leg,
+    counting a traced leg once, i.e. its :func:`~discopy.neural.map.heads`.
     """
-    cmap = cmap.to_map() if hasattr(cmap, "to_map") else cmap
-    count = 0
-    for index, box in enumerate(cmap.boxes):
-        if box.name != name:
-            continue
-        ports = box_ports(cmap, index)
-        place = {port: i for i, port in enumerate(ports)}
-        for position, found in enumerate(tuple(box.dom) + tuple(box.cod)):
-            if found == role and place.get(
-                    cmap.edges[ports[position]], position) >= position:
-                count += 1
-    return count
+    return len(heads(source).get((name, role), ()))

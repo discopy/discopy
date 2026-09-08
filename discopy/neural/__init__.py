@@ -111,9 +111,9 @@ Example
 
 from __future__ import annotations
 
-import importlib
+from importlib import import_module
 
-from discopy.neural.backend import BACKENDS, Backend, backend, get_backend
+from discopy.neural.backend import BACKENDS, Backend, get_backend
 from discopy.neural.core import (
     CMap,
     Cap,
@@ -128,19 +128,11 @@ from discopy.neural.core import (
     Para,
     Permutation,
     Swap,
-    box_ports,
-    from_wiring,
 )
 from discopy.neural.execution import Execution
 from discopy.neural import batch, core, execution, rdiff, signature
 from discopy.neural.batch import Batch, bucket
-from discopy.neural.map import (
-    InteractionMap,
-    ParamMap,
-    families,
-    interaction_spec,
-    interpret,
-)
+from discopy.neural.map import families, heads, interpret
 from discopy.neural.signature import (
     Orbit,
     Signature,
@@ -149,36 +141,23 @@ from discopy.neural.signature import (
     from_relation,
 )
 
-#: The submodules that import ``torch`` at module level, loaded lazily so
-#: that ``import discopy.neural`` stays torch-free.
-LAZY = ("model", )
-
-#: The torch-dependent names, and the submodule each of them lives in.
-DEFERRED = {"MapNN": "model"}
-
 #: ``discopy.neural.map`` is a submodule, reachable as an attribute, but it
 #: is deliberately kept out of ``__all__``: a star import must not shadow
-#: the builtin ``map``.
+#: the builtin ``map``. ``model`` and ``MapNN`` import torch, so they are
+#: imported on first use and kept out of a star import too.
 __all__ = [
     "BACKENDS", "Backend", "Batch", "CMap", "Cap", "Cup", "Diagram", "Dim",
-    "Equation", "Execution", "Functor", "Hypergraph", "Id", "InteractionMap",
-    "MapNN", "Network", "Orbit", "Para", "ParamMap", "Permutation",
-    "Signature", "Swap", "Sym", "backend", "batch", "box_ports", "bucket",
-    "core", "execution", "families", "from_incidence", "from_relation",
-    "from_wiring", "get_backend", "interaction_spec", "interpret", "model",
-    "rdiff", "signature",
+    "Equation", "Execution", "Functor", "Hypergraph", "Id", "Network",
+    "Orbit", "Para", "Permutation", "Signature", "Swap", "Sym", "batch",
+    "bucket", "core", "execution", "families", "from_incidence",
+    "from_relation", "get_backend", "heads", "interpret", "rdiff",
+    "signature",
 ]
 
 
 def __getattr__(name: str):
-    """ Import a torch-dependent submodule or name on first use. """
-    if name in LAZY:
-        module = importlib.import_module(f"discopy.neural.{name}")
-        globals()[name] = module
-        return module
-    if name in DEFERRED:
-        module = importlib.import_module(f"discopy.neural.{DEFERRED[name]}")
-        value = getattr(module, name)
-        globals()[name] = value
-        return value
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    """ Import the torch-dependent ``model`` or ``MapNN`` on first use. """
+    if name not in ("model", "MapNN"):
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    model = import_module("discopy.neural.model")
+    return model if name == "model" else model.MapNN

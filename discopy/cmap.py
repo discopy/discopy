@@ -291,6 +291,26 @@ class CMap[C0: Pregroup, C1: CMap](
             start = stop
         return tuple(result)
 
+    def box_ports(self, index: int) -> tuple[int, ...]:
+        """
+        The port indices of a box in logical order, i.e. its domain ports
+        followed by its codomain ports, undoing the clockwise order which
+        stores the codomain ports reversed.
+
+        Parameters:
+            index : The index of the box.
+
+        Example
+        -------
+        >>> from discopy.symmetric import Ty, Box, CMap
+        >>> x, y = Ty('x'), Ty('y')
+        >>> CMap.from_box(Box('f', x @ y, x @ y @ x)).box_ports(0)
+        (2, 3, 6, 5, 4)
+        """
+        ports = self._box_port_indices[index]
+        arity = len(self.boxes[index].dom)
+        return ports[:arity] + tuple(reversed(ports[arity:]))
+
     @property
     def faces(self) -> Permutation:
         """ The face permutation, computed as ``edges ; orientation``. """
@@ -849,6 +869,65 @@ class CMap[C0: Pregroup, C1: CMap](
                 source, target = ends[wire]
                 edges[source], edges[target] = target, source
         return cls(dom, cod, boxes, edges, loops=loops)
+
+    @classmethod
+    def from_wiring(cls, boxes: tuple, wires) -> CMap:
+        """
+        A closed map given by boxes and wires between pairs ``(box_index,
+        port_position)``, where the position counts the domain ports of the
+        box followed by its codomain ports, as :meth:`box_ports` does.
+
+        Parameters:
+            boxes : The boxes of the map.
+            wires : Pairs of ``(box_index, port_position)`` pairs.
+
+        Raises:
+            ValueError : If a port is left unwired or wired twice.
+
+        Example
+        -------
+        >>> from discopy.symmetric import Ty, Box, CMap
+        >>> x = Ty('x')
+        >>> f, g = Box('f', x, x @ x), Box('g', x @ x, x)
+        >>> cm = CMap.from_wiring((f, g), [
+        ...     ((0, 0), (1, 2)), ((0, 1), (1, 0)), ((0, 2), (1, 1))])
+        >>> assert cm.edges.is_fixpoint_free_involution()
+        >>> CMap.from_wiring((f, ), [((0, 0), (0, 0))])
+        Traceback (most recent call last):
+            ...
+        ValueError: Port (0, 0) is wired to itself.
+        """
+        boxes = tuple(boxes)
+        starts, n_ports = [], 0
+        for box in boxes:
+            starts.append(n_ports)
+            n_ports += len(box.dom) + len(box.cod)
+
+        def global_index(box_index: int, position: int) -> int:
+            box = boxes[box_index]
+            arity, coarity = len(box.dom), len(box.cod)
+            if not 0 <= position < arity + coarity:
+                raise ValueError(f"Box {box_index} has no port {position}.")
+            if position < arity:
+                return starts[box_index] + position
+            return starts[box_index] + arity\
+                + (coarity - 1 - (position - arity))
+
+        pairs, seen = [], set()
+        for (one, other) in wires:
+            i, j = global_index(*one), global_index(*other)
+            if i == j:
+                raise ValueError(f"Port {one} is wired to itself.")
+            for port, position in ((i, one), (j, other)):
+                if port in seen:
+                    raise ValueError(f"Port {position} is wired twice.")
+            seen.update((i, j))
+            pairs.append((i, j))
+        if len(seen) != n_ports:
+            missing = sorted(set(range(n_ports)) - seen)
+            raise ValueError(f"Ports {missing} are left unwired.")
+        edges = Permutation.from_transpositions(pairs, n_ports)
+        return cls(cls.ob(), cls.ob(), boxes, edges)
 
     @classmethod
     def from_diagram(cls, old: Diagram) -> CMap:
@@ -1426,9 +1505,9 @@ cycles of this map.
         diagram = self.category.id(self.dom)
         scan = [edge_wire[i] for i in range(len(self.dom))]
         for depth, box in enumerate(self.boxes):
-            box_ports = self._box_port_indices[depth]
+            box_ports = self.box_ports(depth)
             dom_ports = box_ports[:len(box.dom)]
-            cod_ports = tuple(reversed(box_ports[len(box.dom):]))
+            cod_ports = box_ports[len(box.dom):]
             dom_wires = [edge_wire[i] for i in dom_ports]
             cod_wires = [edge_wire[i] for i in cod_ports]
 
@@ -1568,9 +1647,9 @@ cycles of this map.
                 for port_index in port_indices) + "</TR>"
 
         def box_table(vertex, box):
-            box_ports = self._box_port_indices[vertex]
+            box_ports = self.box_ports(vertex)
             dom_ports = box_ports[:len(box.dom)]
-            cod_ports = tuple(reversed(box_ports[len(box.dom):]))
+            cod_ports = box_ports[len(box.dom):]
             dom_arity, cod_arity = len(dom_ports), len(cod_ports)
             grid = lcm(dom_arity or 1, cod_arity or 1)
             box_width = 18 * max(dom_arity, cod_arity, 1)

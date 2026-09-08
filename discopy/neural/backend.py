@@ -46,8 +46,8 @@ class Backend(ABC):
         """ Return a batch of zero messages. """
 
     @abstractmethod
-    def split(self, value, widths: tuple[int, ...]) -> tuple:
-        """ Split a batch into messages of the given widths. """
+    def split(self, value, widths: tuple[int, ...], axis: int = -1) -> tuple:
+        """ Split a batch into messages of the given widths along an axis. """
 
     @abstractmethod
     def concatenate(self, values: tuple):
@@ -81,6 +81,10 @@ class Backend(ABC):
     def compile(self, function, **kwargs):
         """ Return the function compiled by the framework. """
 
+    @abstractmethod
+    def owns(self, value) -> bool:
+        """ Whether a value is an array of the framework. """
+
 
 BACKENDS = {
     'pytorch': 'discopy.neural.torch.PyTorch',
@@ -106,6 +110,9 @@ def backend(name: str = None):
         name : The backend name, ``"pytorch"`` by default.
     """
     name = name or _current.get()
+    if name not in BACKENDS:
+        raise KeyError(f"Unknown backend {name!r}, expected one of "
+                       f"{tuple(BACKENDS)}.")
     token = _current.set(name)
     try:
         if name not in _cache:
@@ -116,19 +123,21 @@ def backend(name: str = None):
         _current.reset(token)
 
 
-def current() -> str:
-    """ The name of the backend selected by the innermost :func:`backend`. """
-    return _current.get()
-
-
-def get_backend(name: str | Backend = None) -> Backend:
+def get_backend(name: str | Backend = None, like=None) -> Backend:
     """
-    Get a neural execution backend by name, or return a given backend.
+    Get a neural execution backend by name, or return a given backend, or
+    the backend owning an array.
 
     Parameters:
         name : The backend name or instance, the current backend by default.
+        like : An array whose framework's backend is wanted, if one of the
+               backends imported so far owns it.
     """
     if isinstance(name, Backend):
         return name
+    if name is None and like is not None:
+        for loaded in _cache.values():
+            if loaded.owns(like):
+                return loaded
     with backend(name) as result:
         return result

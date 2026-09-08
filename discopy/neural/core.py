@@ -84,20 +84,15 @@ under the execution formula, e.g. rerouting for a snake:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from functools import cached_property
 
-from discopy import cat, cmap, compact, hypergraph, monoidal, para
+from discopy import cmap, compact, hypergraph, monoidal, para
 from discopy.cat import factory
 from discopy.cmap import PortKind
 from discopy.neural.backend import Backend, get_backend
 from discopy.neural.execution import Execution, make_step
 from discopy.pivotal import Ty
 from discopy.utils import assert_isinstance, factory_name, from_tree as decode
-
-if TYPE_CHECKING:
-    import torch
 
 
 @factory
@@ -110,6 +105,8 @@ class Dim(monoidal.Dim, Ty):
     -------
     >>> assert Dim(0) == Dim() and Dim(0) @ Dim(2) @ Dim(3) == Dim(2, 3)
     >>> assert Dim(2, 3).l == Dim(2, 3).r == Dim(3, 2)
+    >>> from discopy.utils import dumps, loads
+    >>> assert loads(dumps(Dim(2, 3))) == Dim(2, 3)
     """
     unit = 0
     l = r = property(lambda self: self.factory(*self.inside[::-1]))
@@ -118,35 +115,6 @@ class Dim(monoidal.Dim, Ty):
     def unwind(self) -> "Dim":
         """ Dimensions are self-dual so their winding is trivial. """
         return self
-
-    def __init__(self, *inside: int, dom=None, cod=None, _scan=True,
-                 **kwargs):
-        inside = kwargs.pop('inside', inside)
-        if kwargs:
-            raise TypeError(f"Unexpected keyword arguments: {list(kwargs)}.")
-        for dim in inside:
-            assert_isinstance(dim, int)
-            if dim < self.unit:
-                raise ValueError
-        inside = tuple(dim for dim in inside if dim != self.unit)
-        white = monoidal.white
-        cat.FreeCategory.__init__(
-            self, inside, white if dom is None else dom,
-            white if cod is None else cod, _scan=False)
-        cat.Ob.__init__(self, type(self).__name__)
-
-    def __repr__(self):
-        return f"Dim({', '.join(map(repr, self.inside)) or repr(self.unit)})"
-
-    __str__ = __repr__
-
-    def to_tree(self) -> dict:
-        return {'factory': factory_name(type(self)),
-                'inside': list(self.inside)}
-
-    @classmethod
-    def from_tree(cls, tree: dict) -> "Dim":
-        return cls(*tree['inside'])
 
 
 @factory
@@ -195,13 +163,14 @@ class Network(compact.Box, Diagram):
 
     Note
     ----
-    Networks compare equal when they have the same name, shape, memory and
-    module, where missing modules compare equal and given modules compare
-    by identity. The dagger and rotation of a network reuse its module and
-    preserve its memory, with the public ports read in the new order. The
-    repr omits the module, which has no eval-able representation, so the
-    transparency rule ``eval(repr(x)) == x`` holds for a network without
-    one.
+    The module is the ``data`` of the box, so networks compare equal when
+    they have the same name, shape, memory and module, and a framework's
+    modules compare by identity. The dagger and rotation of a network reuse
+    its module and preserve its memory, with the public ports read in the
+    new order. The repr and the serialisation omit the module, which has no
+    eval-able representation, so ``eval(repr(f)) == f`` and
+    ``loads(dumps(f)) == f`` hold for a network without one and give the
+    shape of one with.
 
     Example
     -------
@@ -228,9 +197,12 @@ class Network(compact.Box, Diagram):
         return self.module(*args, **kwargs)
 
     def __repr__(self):
+        if self.is_dagger:
+            return repr(self.dagger()) + ".dagger()"
         mem = f", mem={self.mem!r}" if self.mem else ""
+        z = f", z={self.z}" if self.z else ""
         return f"{factory_name(type(self))}({self.name!r}, {self.dom!r}, "\
-            f"{self.cod!r}{mem})"
+            f"{self.cod!r}{mem}{z})"
 
     def dagger(self) -> Network:
         """ Reverse the public ports, keeping the module and the memory. """
@@ -246,14 +218,12 @@ class Network(compact.Box, Diagram):
             mem=self.mem, is_dagger=self.is_dagger, z=(self.z + 1) % 2)
 
     def setoid(self):
-        """ Compare given modules by identity and include the memory. """
-        result = super().setoid()
-        module = None if self.module is None else id(self.module)
-        return result[:5] + (module, ) + result[6:] + (self.mem, )
+        return super().setoid() + (self.mem, )
 
     def to_tree(self) -> dict:
         """ Serialise the shape of the network, memory included. """
         tree = super().to_tree()
+        tree.pop('data', None)
         tree['mem'] = self.mem.to_tree()
         if self.z:
             tree['z'] = self.z
@@ -344,97 +314,27 @@ class Para(para.Compact):
     (Dim(2), Dim(2), Dim(4, 4))
     >>> assert network.inside == linear(2).inside @ Dim(4) >> linear(2).inside
     >>> assert Para.lift(Diagram.id(Dim(2))) == Para.id(Dim(2))
+    >>> assert linear(2) == Para.generator("linear2", Dim(2), Dim(2), Dim(4))
     """
     category = Diagram
 
+    @classmethod
+    def generator(cls, name: str, dom: Dim, cod: Dim, param: Dim = Dim()
+                  ) -> Para:
+        """
+        The parametric network of one generator, i.e. its box
+        ``dom @ param -> cod`` with ``param`` as parameter object.
+
+        Parameters:
+            name : The name of the generator.
+            dom : The domain of the generator.
+            cod : The codomain of the generator.
+            param : The parameter object, the unit by default.
+        """
+        return cls(dom, cod, Network(name, dom @ param, cod), param)
+
 
 Equation = compact.Equation
-
-
-def box_ports(cmap, index: int) -> tuple[int, ...]:
-    """
-    The global port indices of a box in logical order, i.e. its domain
-    ports followed by its codomain ports, undoing the clockwise order
-    which stores the codomain ports reversed.
-
-    Defined for a map in any compact category, so that the interpretation
-    of :mod:`discopy.neural.map` can read the source and the image the same
-    way.
-
-    Parameters:
-        cmap : The map to read.
-        index : The index of the box.
-
-    Example
-    -------
-    >>> f = Network('f', Dim(2, 3), Dim(4, 5, 6))
-    >>> box_ports(f.to_map(), 0)
-    (2, 3, 6, 5, 4)
-    """
-    ports = cmap._box_port_indices[index]
-    arity = len(cmap.boxes[index].dom)
-    return ports[:arity] + tuple(reversed(ports[arity:]))
-
-
-def from_wiring(cls, boxes: tuple, wires) -> "CMap":
-    """
-    A closed map of class ``cls`` given by boxes and wires between pairs
-    ``(box_index, port_position)``, where the position counts the
-    domain ports of the box followed by its codomain ports.
-
-    Parameters:
-        cls : The :class:`~discopy.cmap.CMap` subclass to build.
-        boxes : The boxes of the map.
-        wires : Pairs of ``(box_index, port_position)`` pairs.
-
-    Raises:
-        ValueError : If a port is left unwired or wired twice.
-
-    Example
-    -------
-    >>> from discopy.symmetric import Ty, Box, CMap
-    >>> x = Ty('x')
-    >>> f, g = Box('f', x, x @ x), Box('g', x @ x, x)
-    >>> cm = from_wiring(CMap, (f, g), [
-    ...     ((0, 0), (1, 2)), ((0, 1), (1, 0)), ((0, 2), (1, 1))])
-    >>> assert cm.edges.is_fixpoint_free_involution()
-    >>> from_wiring(CMap, (f, ), [((0, 0), (0, 0))])
-    Traceback (most recent call last):
-        ...
-    ValueError: Port (0, 0) is wired to itself.
-    """
-    boxes = tuple(boxes)
-    starts, n_ports = [], 0
-    for box in boxes:
-        starts.append(n_ports)
-        n_ports += len(box.dom) + len(box.cod)
-
-    def global_index(box_index: int, position: int) -> int:
-        box = boxes[box_index]
-        arity, coarity = len(box.dom), len(box.cod)
-        if not 0 <= position < arity + coarity:
-            raise ValueError(
-                f"Box {box_index} has no port {position}.")
-        if position < arity:
-            return starts[box_index] + position
-        return starts[box_index] + arity\
-            + (coarity - 1 - (position - arity))
-
-    pairs, seen = [], set()
-    for (one, other) in wires:
-        i, j = global_index(*one), global_index(*other)
-        if i == j:
-            raise ValueError(f"Port {one} is wired to itself.")
-        for port, position in ((i, one), (j, other)):
-            if port in seen:
-                raise ValueError(f"Port {position} is wired twice.")
-        seen.update((i, j))
-        pairs.append((i, j))
-    if len(seen) != n_ports:
-        missing = sorted(set(range(n_ports)) - seen)
-        raise ValueError(f"Ports {missing} are left unwired.")
-    edges = cmap.Permutation.from_transpositions(pairs, n_ports)
-    return cls(cls.ob(), cls.ob(), boxes, edges)
 
 
 class CMap(cmap.CMap[Diagram]):
@@ -444,10 +344,9 @@ class CMap(cmap.CMap[Diagram]):
 
     The :meth:`forward` pass does synchronous message passing: one message
     per port, travelling along the wires given by the ``edges`` involution.
-    An optimizer only needs :meth:`parameters` and a training loop only
-    needs to call the map, so it can be trained like any torch module;
-    :meth:`as_network` wraps it back into a :class:`Network` with a fresh
-    module inside, for use inside a larger model.
+    :meth:`as_network` wraps the map back into a :class:`Network` with a
+    fresh module of the backend inside, the handle a training loop holds:
+    its parameters are those of the networks inside the map.
 
     Example
     -------
@@ -461,33 +360,10 @@ class CMap(cmap.CMap[Diagram]):
     category = Diagram
     functor = Functor
 
-    from_wiring = classmethod(from_wiring)
-
-    def box_ports(self, index: int) -> tuple[int, ...]:
-        """
-        The global port indices of a box in logical order; see
-        :func:`box_ports`.
-
-        Parameters:
-            index : The index of the box.
-        """
-        return box_ports(self, index)
-
     @cached_property
     def port_widths(self) -> tuple[int, ...]:
-        """
-        The dimension carried by each port of the map.
-
-        Cached like :attr:`module_list` beside it, and for the same
-        reason: it is a function of the boxes, which a map fixes in its
-        constructor, and :meth:`forward` reads it on every call.  One
-        round of a fixed-point iteration is one call, so a residual curve
-        over a diagram with a box per pair rebuilt every port of it per
-        round.
-        """
-        return tuple(
-            sum(getattr(port.obj, "inside", (port.obj, )))
-            for port in self.ports)
+        """ The dimension carried by each port of the map. """
+        return tuple(sum(port.obj.inside) for port in self.ports)
 
     @cached_property
     def modules(self) -> tuple:
@@ -508,11 +384,9 @@ class CMap(cmap.CMap[Diagram]):
         indices = {id(module): i for i, module in enumerate(self.modules)}
         return tuple(indices[id(box.module)] for box in self.boxes)
 
-    @property
+    @cached_property
     def memory_widths(self) -> tuple[int, ...]:
         """ The private memory width of each box occurrence. """
-        for box in self.boxes:
-            assert_isinstance(box, Network)
         return tuple(sum(box.mem.inside) for box in self.boxes)
 
     @property
@@ -531,42 +405,6 @@ class CMap(cmap.CMap[Diagram]):
     def has_boundary(self) -> bool:
         """ Whether the map has any boundary port. """
         return bool(len(self.dom) or len(self.cod))
-
-    @cached_property
-    def module_list(self) -> "torch.nn.ModuleList":
-        """ The distinct torch modules of the networks inside the map. """
-        import torch
-        return torch.nn.ModuleList(self.modules)
-
-    def parameters(self, recurse: bool = True):
-        """ The parameters of the networks inside the map. """
-        return self.module_list.parameters(recurse)
-
-    def named_parameters(self, prefix: str = '', recurse: bool = True):
-        """ The named parameters of the networks inside the map. """
-        return self.module_list.named_parameters(prefix, recurse)
-
-    def state_dict(self, *args, **kwargs):
-        """ The state dict of the networks inside the map. """
-        return self.module_list.state_dict(*args, **kwargs)
-
-    def load_state_dict(self, state_dict, **kwargs):
-        """ Load a state dict into the networks inside the map. """
-        return self.module_list.load_state_dict(state_dict, **kwargs)
-
-    def train(self, mode: bool = True) -> CMap:
-        """ Set the networks inside the map to training mode. """
-        self.module_list.train(mode)
-        return self
-
-    def eval(self) -> CMap:
-        """ Set the networks inside the map to evaluation mode. """
-        return self.train(False)
-
-    def to(self, *args, **kwargs) -> CMap:
-        """ Move the networks inside the map to a device or dtype. """
-        self.module_list.to(*args, **kwargs)
-        return self
 
     def as_network(self, name: str = "network",
                    backend: str | Backend = None) -> Network:
@@ -843,8 +681,7 @@ class CMap(cmap.CMap[Diagram]):
             modules : The backend-owned modules in :attr:`modules` order,
                       the modules of the boxes by default.
         """
-        if not (len(self.dom) or len(self.cod)) and x is not None\
-                and x.shape[-1]:
+        if not self.has_boundary and x is not None and x.shape[-1]:
             raise ValueError("A closed map takes no input.")
         execution = Execution(
             self, x, init, memory=memory, backend=backend, modules=modules)

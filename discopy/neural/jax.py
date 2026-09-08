@@ -55,11 +55,12 @@ class JAX(Backend):
             return jnp.zeros((batch_size, width))
         return jnp.zeros_like(like, shape=(batch_size, width))
 
-    def split(self, value, widths: tuple[int, ...]) -> tuple:
-        """ Split a batch into messages of the given widths. """
+    def split(self, value, widths: tuple[int, ...], axis: int = -1) -> tuple:
+        """ Split a batch into messages of the given widths along an axis. """
         if not widths:
             return ()
-        return tuple(jnp.split(value, tuple(accumulate(widths[:-1])), axis=-1))
+        return tuple(
+            jnp.split(value, tuple(accumulate(widths[:-1])), axis=axis))
 
     def concatenate(self, values: tuple):
         """ Concatenate messages along their final dimension. """
@@ -83,8 +84,8 @@ class JAX(Backend):
         return CMapModule(inside, tuple(inside.modules), self)
 
     def zeros_module(self):
-        """ Return a parameter-free all-port zero callable PyTree. """
-        return jax.tree_util.Partial(jnp.zeros_like)
+        """ The parameter-free zero callable, one for every discard. """
+        return ZEROS
 
     def index(self, indices: tuple[int, ...], like=None):
         """ Return an integer array of positions, concrete under ``jit``. """
@@ -104,6 +105,14 @@ class JAX(Backend):
         static = (static, ) if isinstance(static, str) else tuple(static)
         return jax.jit(
             function, static_argnames=static + ("inject", ), **kwargs)
+
+    def owns(self, value) -> bool:
+        """ Whether a value is a JAX array. """
+        return isinstance(value, jax.Array)
+
+
+#: The one zero callable, so that two discards of a type are equal networks.
+ZEROS = jax.tree_util.Partial(jnp.zeros_like)
 
 
 @jax.tree_util.register_pytree_node_class

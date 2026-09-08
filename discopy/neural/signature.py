@@ -64,7 +64,6 @@ from enum import StrEnum
 from typing import Mapping
 
 from discopy import frobenius
-from discopy.neural.core import from_wiring
 from discopy.python.finset import Permutation
 
 #: The name the node boxes of a generated wiring get by default.
@@ -363,8 +362,8 @@ def _wire_loops(wires: list, index: int, signature: Signature) -> None:
 
     >>> from discopy.frobenius import Box, CMap, Ty
     >>> g = Box("g", Ty("x"), Ty("x"))
-    >>> CMap.from_box(g).trace() == from_wiring(
-    ...     CMap, (g, ), [((0, 0), (0, 1))])
+    >>> CMap.from_box(g).trace() == CMap.from_wiring(
+    ...     (g, ), [((0, 0), (0, 1))])
     True
     """
     wires += [((index, source), (index, target))
@@ -462,7 +461,7 @@ def from_incidence(incidence: tuple, node: Signature, relation: Signature,
     boxes = tuple(sig.box(node_name, category) for sig in nodes) + tuple(
         sig.box(names[index], category)
         for index, sig in enumerate(units))
-    return from_wiring(category.CMap, boxes, wires)
+    return category.CMap.from_wiring(boxes, wires)
 
 
 def from_relation(relation: tuple, node: Signature, node_name: str = NODE,
@@ -512,4 +511,4 @@ def from_relation(relation: tuple, node: Signature, node_name: str = NODE,
         _wire_loops(wires, index, nodes[index])
 
     boxes = tuple(sig.box(node_name, category) for sig in nodes)
-    return from_wiring(category.CMap, boxes, wires)
+    return category.CMap.from_wiring(boxes, wires)

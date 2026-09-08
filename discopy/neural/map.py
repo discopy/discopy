@@ -130,8 +130,7 @@ from dataclasses import dataclass
 from typing import Mapping
 
 from discopy import para
-from discopy.neural.core import (
-    CMap, Diagram, Dim, Functor, Network, box_ports)
+from discopy.neural.core import CMap, Diagram, Dim, Functor, Network
 from discopy.utils import AxiomError, assert_isinstance, unbiased
 
 
@@ -440,8 +439,7 @@ def interpret(source, ob: Mapping, ar: Mapping) -> CMap:
     ...                 {x: Dim(2)}, {"f": None, "g": None}).edges)
     (2, 3, 0, 1)
     """
-    if not hasattr(source, "edges"):
-        source = source.to_map()
+    source = to_map(source)
     if len(source.dom) or len(source.cod):
         raise ValueError("only a closed diagram compiles to a map")
     image = functor(source, ob, ar)
@@ -464,7 +462,7 @@ def interpret(source, ob: Mapping, ar: Mapping) -> CMap:
 
     logical = {port: (index, place)
                for index in range(len(source.boxes))
-               for place, port in enumerate(box_ports(source, index))}
+               for place, port in enumerate(source.box_ports(index))}
     wires = []
     for port, other in enumerate(source.edges):
         if port > other:
@@ -479,14 +477,50 @@ def interpret(source, ob: Mapping, ar: Mapping) -> CMap:
     return CMap.from_wiring(boxes, wires)
 
 
+def heads(source) -> dict:
+    """
+    The *heads* of each ``(generator name, role)`` family of a closed
+    diagram, as ``(box index, port position)`` pairs in box order then
+    position order: the ports a module reads a value off rather than the
+    far end of its own loop. A port is a head unless it is wired to an
+    earlier port of the same box, which is exactly the second copy of a
+    traced leg, read off the wiring rather than off a declaration.
+
+    Parameters:
+        source : The closed diagram or map in the source category.
+
+    Example
+    -------
+    >>> from discopy.frobenius import Ty
+    >>> from discopy.neural import Orbit, Signature
+    >>> from discopy.neural.signature import from_relation
+    >>> peer, state = Ty("peer"), Ty("state")
+    >>> node = Signature((Orbit(peer, 1), Orbit(state, traced=True)))
+    >>> pair = from_relation(((1, ), (0, )), node)
+    >>> heads(pair)["cell", state]
+    ((0, 1), (1, 1))
+    """
+    source = to_map(source)
+    result: dict = {}
+    for index, box in enumerate(source.boxes):
+        ports = source.box_ports(index)
+        place_of = {port: place for place, port in enumerate(ports)}
+        for place, role in enumerate(tuple(box.dom) + tuple(box.cod)):
+            if place_of.get(source.edges[ports[place]], place) >= place:
+                result.setdefault((box.name, role), []).append((index, place))
+    return {key: tuple(value) for key, value in result.items()}
+
+
+def to_map(source):
+    """ The map of a closed diagram, or the map itself. """
+    return source if hasattr(source, "edges") else source.to_map()
+
+
 def families(source, cmap: CMap, ob: Mapping) -> tuple[dict, dict]:
     """
     The global port indices of each ``(generator name, role)`` pair of a
     compiled diagram, in box order then position order: every port of the
-    family, and its *heads*, the ports a module reads a value off rather
-    than the far end of its own loop -- a port is a head unless it is wired
-    to an earlier port of the same box, which is exactly the second copy
-    of a traced leg, read off the wiring rather than off a declaration.
+    family, and its :func:`heads`.
 
     Parameters:
         source : The closed map that was compiled.
@@ -518,21 +552,20 @@ def families(source, cmap: CMap, ob: Mapping) -> tuple[dict, dict]:
     >>> erased.port_widths, ("cell", state) in families(pair, erased, ob)[0]
     ((3, 3), False)
     """
-    if not hasattr(source, "edges"):
-        source = source.to_map()
+    source = to_map(source)
+    image = Functor(ob_map=dict(ob), dom=type(source).category.ar)
+    is_head = {place for places in heads(source).values() for place in places}
     ports: dict = {}
-    heads: dict = {}
+    head_ports: dict = {}
     for index, box in enumerate(source.boxes):
-        abstract, concrete = box_ports(source, index), box_ports(cmap, index)
-        place_of = {port: place for place, port in enumerate(abstract)}
-        cursor = 0
+        concrete, cursor = cmap.box_ports(index), 0
         for place, role in enumerate(tuple(box.dom) + tuple(box.cod)):
-            if not len(ob[role]):
+            if not len(image(role)):
                 continue
             port = concrete[cursor]
             cursor += 1
             ports.setdefault((box.name, role), []).append(port)
-            if place_of.get(source.edges[abstract[place]], place) >= place:
-                heads.setdefault((box.name, role), []).append(port)
+            if (index, place) in is_head:
+                head_ports.setdefault((box.name, role), []).append(port)
     return ({key: tuple(value) for key, value in ports.items()},
-            {key: tuple(value) for key, value in heads.items()})
+            {key: tuple(value) for key, value in head_ports.items()})
