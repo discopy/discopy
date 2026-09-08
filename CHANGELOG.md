@@ -13,14 +13,17 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   category: an `Optic` is a residual with a forward and a backward
   morphism, composing by tensoring the residuals as `discopy.para` does
   with its co/parameters, over pairs `optics.Ty` tensored componentwise.
-  `Lens` is the cartesian instance over a Markov category, a `get` and a
-  `put` composing by the chain rule, with `to_optic` and `Optic.to_lens`
-  between the two; `Optic.to_int` reads an optic over a traced category as
-  an integer diagram of `discopy.interaction`, the residual being the wire
-  between the legs. Lenses over `python.Function` are the reverse
-  derivatives of gradient-based learning, and a parametric lens
+  `Lens` is the optics of a cartesian category, defined over any Markov
+  one: a `get` and a `put` composing by the chain rule, with `to_optic`
+  and `Optic.to_lens` between the two, the latter taking the `discard` a
+  category without one lacks; `Optic.to_int` reads an optic over a traced
+  category as an integer diagram of `discopy.interaction`, the residual
+  being the wire between the legs, and `Traced` traces an optic over a
+  traced category leg by leg. Lenses over `python.Function` are the
+  reverse derivatives of gradient-based learning, and a parametric lens
   `para.Symmetric[Lens[Function]]` a neural network with its weights'
-  gradients beside its input's
+  gradients beside its input's. Composing lenses over a category without
+  `copy` and `discard` raises `messages.NOT_MARKOV`
   ([#701](https://github.com/discopy/discopy/pull/701)).
 - A `workflows` job in `build.yml`, so that the code running our pull
   requests is checked like the code it checks: `actionlint` over the
@@ -367,6 +370,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `interaction.Diagram.caps` built its inside on `negative @ positive`
+  where the constructor asks for `positive @ negative`, so a cap on a type
+  with both halves raised `ValueError`; both snake equations hold on such
+  a type now. `interaction.Ty.unit` called `natural.unit()`, which an
+  `int` or a `tuple` natural does not have: it is `cls()`, the pair of
+  empty halves ([#701](https://github.com/discopy/discopy/pull/701)).
 - `Hypergraph.rotate` exchanged the two boundaries of the hypergraph and
   replaced each box by its rotation, but left the *ports* of those boxes
   and the spiders where they were: the wires reading a box's domain went
