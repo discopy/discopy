@@ -287,7 +287,7 @@ class Arrow(FreeCategory, Serialisable):
     def __repr__(self):
         if not self.inside:  # i.e. self is identity.
             return f"{factory_name(type(self))}.id({repr(self.dom)})"
-        if self.generator is self:  # i.e. self is a box.
+        if self.generator is self:
             return super().__repr__()
         return f"{factory_name(self.ar)}(inside={repr(self.inside)}, " \
                f"dom={repr(self.dom)}, cod={repr(self.cod)})"
