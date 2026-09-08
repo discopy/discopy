@@ -6,6 +6,6 @@ Human prompt, verbatim (USER, 2026-09-08):
 
 This branch is one level of the stack that consolidates #705: mapnn, the torch module a diagram trains as, and batching over heterogeneous diagrams.
 
-- [ ] cut the level's files from #705's tree onto its base
-- [ ] `uv run pflake8 discopy` and the level's tests green locally
-- [ ] pull request opened with its review cost and what to check
+- [x] cut the level's files from #705's tree onto its base
+- [x] `uv run pflake8 discopy` and the level's tests green locally
+- [x] pull request opened with its review cost and what to check
