@@ -219,50 +219,10 @@ def from_tree(tree: dict):
     return getattr(module, factory).from_tree(tree)
 
 
-def encode(value):
-    """
-    Encode an attribute of a :class:`Serialisable` object as the value
-    of a tree: recurse on anything with a ``to_tree`` method and on
-    non-empty lists and tuples thereof, pass raw JSON data through.
-
-    Parameters:
-        value : The attribute to encode.
-    """
-    if hasattr(value, 'to_tree'):
-        return value.to_tree()
-    if isinstance(value, (list, tuple)) and value and all(
-            hasattr(v, 'to_tree') for v in value):
-        return [v.to_tree() for v in value]
-    return value
-
-
-def decode(value):
-    """
-    Decode the value of a tree, the inverse of :func:`encode`: a
-    dictionary with a ``'factory'`` key goes to :func:`from_tree`, a
-    non-empty list of such dictionaries to the tuple of decoded objects,
-    raw JSON data passes through unchanged.
-
-    Parameters:
-        value : The value to decode.
-
-    Note
-    ----
-    Raw data that happens to be a dictionary with a ``'factory'`` key is
-    indistinguishable from a serialised object and gets decoded as one.
-    """
-    if isinstance(value, dict) and 'factory' in value:
-        return from_tree(value)
-    if isinstance(value, list) and value and all(
-            isinstance(v, dict) and 'factory' in v for v in value):
-        return tuple(map(from_tree, value))
-    return value
-
-
 class Serialisable:
     """
     The serialisation interface of DisCoPy, one hook driving all three
-    mechanisms: the class attribute ``tree_keys`` names attributes that
+    mechanisms: the class attribute ``serialised_attrs`` names attributes that
     are also keyword arguments of ``__init__``, from which follow
 
     - a generic pair of inverse methods :meth:`to_tree` and
@@ -279,11 +239,12 @@ class Serialisable:
     Example
     -------
     >>> from discopy.cat import Box
-    >>> assert Box.tree_keys == ('name', 'dom', 'cod', 'is_dagger', 'data')
+    >>> assert Box.serialised_attrs\\
+    ...     == ('name', 'dom', 'cod', 'is_dagger', 'data')
     >>> f = Box('f', 'x', 'y', data=42)
     >>> assert Box.from_tree(f.to_tree()) == f
     """
-    tree_keys: tuple[str, ...] = ()
+    serialised_attrs: tuple[str, ...] = ()
 
     def is_default(self, key: str) -> bool:
         """
@@ -317,7 +278,7 @@ class Serialisable:
         return factory_name(type(self)) + "(" + ", ".join(
             f"{key}={repr(getattr(self, key))}" if hasattr(type(self), key)
             else repr(getattr(self, key))
-            for key in self.tree_keys if not self.is_default(key)) + ")"
+            for key in self.serialised_attrs if not self.is_default(key)) + ")"
 
     def __setstate__(self, state):
         """
@@ -334,8 +295,11 @@ class Serialisable:
         Serialise a DisCoPy object, see :func:`dumps`.
 
         The tree records the :func:`factory_name` and then each of the
-        ``tree_keys``, dropping a key when its value equals the class
-        attribute of the same name, e.g. a box that is not a dagger.
+        ``serialised_attrs``, dropping a key when its value equals the
+        class attribute of the same name, e.g. a box that is not a
+        dagger. An attribute with a ``to_tree`` method is serialised, a
+        non-empty list or tuple of such attributes becomes the list of
+        their trees, raw JSON data passes through unchanged.
 
         Example
         -------
@@ -360,8 +324,16 @@ class Serialisable:
             'cod': {'factory': 'cat.Ob', 'name': 'x'}}
         """
         tree = {'factory': factory_name(type(self))}
-        tree.update({key: encode(getattr(self, key))
-                     for key in self.tree_keys if not self.is_default(key)})
+        for key in self.serialised_attrs:
+            if self.is_default(key):
+                continue
+            value = getattr(self, key)
+            if hasattr(value, 'to_tree'):
+                value = value.to_tree()
+            elif isinstance(value, (list, tuple)) and value and all(
+                    hasattr(v, 'to_tree') for v in value):
+                value = [v.to_tree() for v in value]
+            tree[key] = value
         return tree
 
     @classmethod
@@ -370,7 +342,10 @@ class Serialisable:
         Decode a serialised DisCoPy object, see :func:`loads`.
 
         A key missing from the tree falls back to the default value of
-        the corresponding keyword argument of ``__init__``.
+        the corresponding keyword argument of ``__init__``. A value with
+        a ``'factory'`` key decodes recursively, a non-empty list of
+        such values to the tuple of decoded objects, raw JSON data
+        passes through unchanged.
 
         Parameters:
             tree : DisCoPy serialisation.
@@ -380,8 +355,18 @@ class Serialisable:
         >>> from discopy.cat import Ob
         >>> assert Ob.from_tree({'factory': 'cat.Ob', 'name': 'x'}) == Ob('x')
         """
-        return cls(**{key: decode(tree[key])
-                      for key in cls.tree_keys if key in tree})
+        kwargs = {}
+        for key in cls.serialised_attrs:
+            if key not in tree:
+                continue
+            value = tree[key]
+            if isinstance(value, dict) and 'factory' in value:
+                value = from_tree(value)
+            elif isinstance(value, list) and value and all(
+                    isinstance(v, dict) and 'factory' in v for v in value):
+                value = tuple(map(from_tree, value))
+            kwargs[key] = value
+        return cls(**kwargs)
 
 
 def dumps(obj, **kwargs):
@@ -584,7 +569,7 @@ class BinaryBoxConstructor(Serialisable):
         left : Some attribute on the left.
         right : Some attribute on the right.
     """
-    tree_keys = ('left', 'right')
+    serialised_attrs = ('left', 'right')
 
     def __init__(self, left, right):
         self.left, self.right = left, right

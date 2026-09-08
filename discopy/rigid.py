@@ -662,7 +662,7 @@ class Box(biclosed.Box, Diagram):
     >>> assert loads(dumps(f.r)) == f.r
     """
     z = 0
-    tree_keys = cat.Box.tree_keys + ('z', )
+    serialised_attrs = cat.Box.serialised_attrs + ('z', )
 
     def __setstate__(self, state):
         if '_z' in state:  # Backward compatibility

@@ -118,7 +118,7 @@ class Ob(Serialisable):
     >>> assert x == x_ and x != y
     >>> assert x.to_tree() == {'factory': 'cat.Ob', 'name': 'x'}
     """
-    tree_keys = ('name', )
+    serialised_attrs = ('name', )
 
     def __setstate__(self, state):
         if "name" not in state and "_name" in state:
@@ -275,7 +275,7 @@ class Arrow(FreeCategory, Serialisable):
     see :class:`monoidal.PRO`.
     """
     ob = Ob
-    tree_keys = ('inside', 'dom', 'cod')
+    serialised_attrs = ('inside', 'dom', 'cod')
 
     def __setstate__(self, state):
         if '_dom' in state:  # Backward compatibility
@@ -287,6 +287,8 @@ class Arrow(FreeCategory, Serialisable):
     def __repr__(self):
         if not self.inside:  # i.e. self is identity.
             return f"{factory_name(type(self))}.id({repr(self.dom)})"
+        if self.generator is self:  # i.e. self is a box.
+            return super().__repr__()
         return f"{factory_name(self.ar)}(inside={repr(self.inside)}, " \
                f"dom={repr(self.dom)}, cod={repr(self.cod)})"
 
@@ -462,7 +464,7 @@ class Box(Arrow):
     >>> assert f.inside == (f, )
     """
     data, is_dagger = None, False
-    tree_keys = ('name', 'dom', 'cod', 'is_dagger', 'data')
+    serialised_attrs = ('name', 'dom', 'cod', 'is_dagger', 'data')
 
     def __setstate__(self, state):
         if '_name' in state:  # Backward compatibility
@@ -518,7 +520,7 @@ class Box(Arrow):
     def __repr__(self):
         if self.is_dagger:
             return repr(self.dagger()) + ".dagger()"
-        return Serialisable.__repr__(self)
+        return super().__repr__()
 
     def __str__(self):
         return str(self.name) + ("[::-1]" if self.is_dagger else '')
@@ -561,7 +563,7 @@ class Sum(Box):
     ----
     The sum is non-commutative, i.e. :code:`Sum([f, g]) != Sum([g, f])`.
     """
-    tree_keys = ('terms', 'dom', 'cod')
+    serialised_attrs = ('terms', 'dom', 'cod')
 
     def __init__(
             self, terms: tuple[Arrow, ...], dom: Ob = None, cod: Ob = None):
@@ -651,7 +653,7 @@ class Bubble(Box):
     Raises:
         ValueError : When dom is None but all the args have the same dom.
     """
-    tree_keys = ('args', 'dom', 'cod')
+    serialised_attrs = ('args', 'dom', 'cod')
 
     def __init__(self, *args: Arrow, dom: Ob = None, cod: Ob = None,
                  name="", method="bubble", **kwargs):
