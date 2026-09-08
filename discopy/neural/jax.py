@@ -113,8 +113,10 @@ class JAX(Backend):
         return isinstance(value, jax.Array)
 
 
-#: The one zero callable, so that two discards of a type are equal networks.
 ZEROS = jax.tree_util.Partial(jnp.zeros_like)
+"""
+The one zero callable, so that two discards of a type are equal networks.
+"""
 
 
 @jax.tree_util.register_pytree_node_class
