@@ -871,7 +871,7 @@ class CMap[C0: Pregroup, C1: CMap](
         return cls(dom, cod, boxes, edges, loops=loops)
 
     @classmethod
-    def from_wiring(cls, boxes: tuple, wires) -> CMap:
+    def from_wiring(cls, boxes: tuple, wires, loops: tuple = ()) -> CMap:
         """
         A closed map given by boxes and wires between pairs ``(box_index,
         port_position)``, where the position counts the domain ports of the
@@ -880,6 +880,7 @@ class CMap[C0: Pregroup, C1: CMap](
         Parameters:
             boxes : The boxes of the map.
             wires : Pairs of ``(box_index, port_position)`` pairs.
+            loops : The types of the closed components with no ports.
 
         Raises:
             ValueError : If a port is left unwired or wired twice.
@@ -892,6 +893,7 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> cm = CMap.from_wiring((f, g), [
         ...     ((0, 0), (1, 2)), ((0, 1), (1, 0)), ((0, 2), (1, 1))])
         >>> assert cm.edges.is_fixpoint_free_involution()
+        >>> assert CMap.from_wiring((), [], loops=(x, )).loops == (x, )
         >>> CMap.from_wiring((f, ), [((0, 0), (0, 0))])
         Traceback (most recent call last):
             ...
@@ -927,7 +929,7 @@ class CMap[C0: Pregroup, C1: CMap](
             missing = sorted(set(range(n_ports)) - seen)
             raise ValueError(f"Ports {missing} are left unwired.")
         edges = Permutation.from_transpositions(pairs, n_ports)
-        return cls(cls.ob(), cls.ob(), boxes, edges)
+        return cls(cls.ob(), cls.ob(), boxes, edges, loops=loops)
 
     @classmethod
     def from_diagram(cls, old: Diagram) -> CMap:
