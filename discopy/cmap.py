@@ -900,7 +900,8 @@ class CMap[C0: Pregroup, C1: CMap](
             loops : The types of the closed components with no ports.
 
         Raises:
-            ValueError : If a port is left unwired or wired twice.
+            ValueError : If a wire names a box or a port that does not exist,
+                or if a port is left unwired or wired twice.
 
         Example
         -------
@@ -923,6 +924,8 @@ class CMap[C0: Pregroup, C1: CMap](
             n_ports += len(box.dom) + len(box.cod)
 
         def global_index(box_index: int, position: int) -> int:
+            if not 0 <= box_index < len(boxes):
+                raise ValueError(f"There is no box {box_index}.")
             box = boxes[box_index]
             offsets = cls.logical_order(len(box.dom), len(box.cod))
             if not 0 <= position < len(offsets):

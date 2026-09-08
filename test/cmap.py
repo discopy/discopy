@@ -864,6 +864,9 @@ def test_from_wiring_errors():
     f = Box("f", x, x)
     with raises(ValueError, match="has no port"):
         M.from_wiring((f, ), [((0, 0), (0, 2))])
+    for box_index in (-1, 1):
+        with raises(ValueError, match="no box"):
+            M.from_wiring((f, ), [((0, 0), (box_index, 1))])
     with raises(ValueError, match="wired to itself"):
         M.from_wiring((f, ), [((0, 0), (0, 0))])
     with raises(ValueError, match="wired twice"):
