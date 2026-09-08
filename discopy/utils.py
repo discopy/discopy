@@ -320,6 +320,13 @@ class Serialisable:
             for key in self.tree_keys if not self.is_default(key)) + ")"
 
     def __setstate__(self, state):
+        """
+        Restore a pickled state, the terminal that every pickle
+        migration shim chains into with ``super().__setstate__``.
+
+        Parameters:
+            state : The pickled state of the object.
+        """
         self.__dict__.update(state)
 
     def to_tree(self) -> dict:

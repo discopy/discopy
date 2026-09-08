@@ -242,7 +242,7 @@ class QuantumGate(Box):
             state["data"] = state['_array'].flatten().tolist()
         if "_name" in state:
             gate = GATES.get(state["_name"])
-            if isinstance(gate, QuantumGate):  # not a parametrised class
+            if isinstance(gate, QuantumGate):
                 state["data"] = copy.deepcopy(gate.data)
                 state["_z"] = gate.z
         super().__setstate__(state)
