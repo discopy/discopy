@@ -16,12 +16,19 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   the free rig on the natural numbers; `Network` is the free traced
   Markov category on `Box` layers of any input and output legs, each
   carrying an optional `module`, so that a residual block is a `copy` and
-  a recurrent cell a `trace`. Running a network on a tensor framework
-  comes in the next pull request, and `import discopy.neural` imports
-  none. `monoidal.Functor` reads a `Dim` that generates the types of its
-  domain as one generator rather than factor by factor, so that functors,
-  drawings and hypergraphs of networks map each leg as a whole
-  ([#702](https://github.com/discopy/discopy/issues/702),
+  a recurrent cell a `trace`. A feedforward network compiles:
+  `Box.forward` applies the module of a layer to one tensor per leg, with
+  `Dims.check` checking the shape of each tensor against its leg;
+  `Network.to_function` is the functor into `python.Function` sending
+  every leg to a tensor type and every box to its `forward`, with the
+  copy, discard and swap of tuples, which `jax.jit` and `jax.grad` take as
+  it is; and `discopy.neural.torch.Module` runs it as a PyTorch module
+  with the modules of the boxes as its submodules, `torch.compile`
+  included. A trace does not compile yet, and `import discopy.neural`
+  imports no framework. `monoidal.Functor` reads a `Dim` that generates
+  the types of its domain as one generator rather than factor by factor,
+  so that functors, drawings and hypergraphs of networks map each leg as
+  a whole ([#702](https://github.com/discopy/discopy/issues/702),
   [#736](https://github.com/discopy/discopy/pull/736)).
 - The category of optics, `discopy.optics`, over any symmetric underlying
   category: an `Optic` is a residual with a forward and a backward
@@ -384,6 +391,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `python.Function` is hashable: its dataclass compared `inside`, `dom` and
+  `cod` without hashing them, so `jax.jit` refused a function, as did any
+  cache keyed on one
+  ([#736](https://github.com/discopy/discopy/pull/736)).
 - `traced.Trace` loads from its serialisation, which records which side is
   traced: `loads(dumps(f.trace()))` raised `TypeError` from the inherited
   `Bubble.from_tree`, on every level of the hierarchy

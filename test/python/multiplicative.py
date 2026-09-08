@@ -33,3 +33,9 @@ def test_trace():
 def test_list_generic_in_function():
     func = Function(sum, List[int], int)
     assert func([1, 2, 3]) == 6
+
+
+def test_hash():
+    f = Function(lambda x: x, int, int)
+    assert hash(f) == hash(Function(f.inside, int, int)) and {f: 0}[f] == 0
+    assert hash(f) != hash(Function(f.inside, int, str))

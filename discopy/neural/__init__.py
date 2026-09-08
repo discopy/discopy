@@ -3,13 +3,16 @@
 """
 ``discopy.neural`` interprets DisCoPy diagrams as neural networks:
 :mod:`discopy.neural.network` is the traced category of feedforward
-networks, with lists of shapes :class:`Dims` as objects and layers as boxes.
+networks, with lists of shapes :class:`Dims` as objects and layers as boxes,
+compiling to a function on tensors that :mod:`discopy.neural.torch` runs as
+a PyTorch module and ``jax.jit`` takes as it is.
 
 .. autosummary::
     :template: module.rst
     :toctree: ../_api
 
     discopy.neural.network
+    discopy.neural.torch
 
 Note
 ----

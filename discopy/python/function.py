@@ -26,7 +26,7 @@ from discopy.utils import (
 
 
 @factory
-@dataclass
+@dataclass(unsafe_hash=True)
 class Function(Category):
     """
     Python function with sequential composition.
