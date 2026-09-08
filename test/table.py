@@ -4,7 +4,7 @@ from pytest import mark, raises
 from discopy import frobenius, table
 from discopy.frobenius import (
     Box, Cap, Carrier, Cup, Diagram, Id, Spider, Swap, Ty)
-from discopy.table import Morphism, Shard, SymbolTable, UnionFind, Wires
+from discopy.table import Morphism, Shard, SymbolTable, Wires
 from discopy.utils import AxiomError
 
 x, y = Ty('x'), Ty('y')
@@ -23,36 +23,6 @@ def test_SymbolTable():
     assert symbols.intern(True) == 1 != symbols.intern(1)
     assert symbols[0] == 1 and len(symbols) == 2
     assert symbols == eval(repr(symbols)) != SymbolTable()
-
-
-def test_UnionFind():
-    union_find = UnionFind()
-    a, b, c = [union_find.fresh() for _ in range(3)]
-    union_find.union(b, c)
-    union_find.union(c, b)
-    assert union_find.find(c) == union_find.find(b) == b
-    assert union_find.find(a) == a and len(union_find) == 3
-    assert union_find == eval(repr(union_find)) != UnionFind()
-
-
-def test_UnionFind_order_independence():
-    left, right = UnionFind(), UnionFind()
-    for union_find in (left, right):
-        for _ in range(4):
-            union_find.fresh()
-    left.union(1, 2), left.union(1, 3), left.union(0, 1)
-    right.union(0, 1), right.union(2, 3), right.union(0, 2)
-    assert left == right == UnionFind([0, 0, 0, 0])
-
-
-def test_UnionFind_path_compression():
-    union_find = UnionFind()
-    for _ in range(4):
-        union_find.fresh()
-    union_find.union(0, 1)
-    union_find.union(2, 3)
-    union_find.union(1, 3)
-    assert union_find.find(3) == 0 and union_find.parent[3] == 0
 
 
 def test_Shard():

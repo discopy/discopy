@@ -3,10 +3,11 @@
 """
 Diagrams as tables, i.e. the carrier of an e-graph of string diagrams.
 
-A :class:`Carrier` is a table of cells over a union-find of wires. A cell is
-one occurrence of a box: its row holds the wires on the box's input and
-output ports. Rows are sharded by generator and arity so that each
-:class:`Shard` is a rectangular table of integers.
+A :class:`Carrier` is a table of cells over a
+:class:`discopy.utils.UnionFind` of wires. A cell is one occurrence of a box:
+its row holds the wires on the box's input and output ports. Rows are sharded
+by generator and arity so that each :class:`Shard` is a rectangular table of
+integers.
 
 Each tree of the union-find is a vertex of the underlying hypergraph, i.e. the
 spider whose legs are its member wires. Thus :meth:`Carrier.merge` fuses two
@@ -38,7 +39,6 @@ Summary
     :toctree:
 
     SymbolTable
-    UnionFind
     Shard
     Carrier
     Wires
@@ -75,7 +75,8 @@ import numpy as np
 
 from discopy import hypergraph, messages
 from discopy.abc import MonoidalCategory, NamedGeneric
-from discopy.utils import AxiomError, classproperty, factory_name, unbiased
+from discopy.utils import (
+    AxiomError, UnionFind, classproperty, factory_name, unbiased)
 
 if TYPE_CHECKING:
     from discopy.monoidal import Box, Diagram, Ty
@@ -147,88 +148,6 @@ class SymbolTable:
 
     def __repr__(self) -> str:
         return f"{factory_name(type(self))}({self.inside})"
-
-
-class UnionFind:
-    """
-    A union-find over wires, i.e. the vertices of a carrier.
-
-    Each tree is one vertex of the underlying hypergraph, i.e. one spider of
-    the diagrams it carries. The root of a tree is the least of its wires, so
-    that the parents depend on the partition and not on the order of the
-    merges.
-
-    Parameters:
-        parent : The parent of each wire, the identity for a fresh one.
-
-    Example
-    -------
-    >>> uf = UnionFind()
-    >>> a, b, c = uf.fresh(), uf.fresh(), uf.fresh()
-    >>> uf.union(b, c)
-    >>> uf.find(b), uf.find(c), uf.find(a)
-    (1, 1, 0)
-    >>> uf
-    table.UnionFind([0, 1, 1])
-
-    The order of the merges does not matter:
-
-    >>> left, right = UnionFind([0, 0, 0]), UnionFind([0, 1, 1])
-    >>> right.union(0, 1)
-    >>> assert left == right
-    """
-    def __init__(self, parent: list[int] = ()):
-        parent = list(parent)
-        self.parent = np.array(parent + [0], dtype=np.int64)
-        self.length = len(parent)
-        for wire, root in enumerate(parent):
-            if wire != root:
-                self.union(wire, root)
-
-    def fresh(self) -> int:
-        """ Add a wire in a tree of its own and return it. """
-        if self.length == len(self.parent):
-            self.parent = grow(self.parent, self.length + 1)
-        self.parent[self.length] = self.length
-        self.length += 1
-        return self.length - 1
-
-    def find(self, wire: int) -> int:
-        """
-        The root of the tree containing a wire, compressing the path to it.
-
-        Parameters:
-            wire : The wire to look up.
-        """
-        root = wire
-        while self.parent[root] != root:
-            root = self.parent[root]
-        while self.parent[wire] != root:
-            self.parent[wire], wire = root, self.parent[wire]
-        return int(root)
-
-    def union(self, left: int, right: int):
-        """
-        Merge the trees of two wires, i.e. fuse two vertices.
-
-        Parameters:
-            left : The first wire.
-            right : The second wire.
-        """
-        left, right = sorted((self.find(left), self.find(right)))
-        self.parent[right] = left
-
-    def __len__(self) -> int:
-        return self.length
-
-    def __eq__(self, other) -> bool:
-        return isinstance(other, UnionFind) and list(self) == list(other)
-
-    def __iter__(self) -> Iterator[int]:
-        return (self.find(wire) for wire in range(self.length))
-
-    def __repr__(self) -> str:
-        return f"{factory_name(type(self))}({list(self)})"
 
 
 class Shard:

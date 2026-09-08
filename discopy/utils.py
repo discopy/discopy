@@ -363,6 +363,82 @@ def inductive(induction_step):
     return method
 
 
+class UnionFind:
+    """
+    A union-find over consecutive integers, e.g. the wires of a diagram.
+
+    The root of a tree is the least of its elements, so that the parents
+    depend on the partition and not on the order of the merges.
+
+    Parameters:
+        parent : The parent of each element, itself for a fresh one.
+
+    Example
+    -------
+    >>> union_find = UnionFind()
+    >>> a, b, c = [union_find.fresh() for _ in range(3)]
+    >>> union_find.union(b, c)
+    >>> union_find.find(b), union_find.find(c), union_find.find(a)
+    (1, 1, 0)
+    >>> union_find
+    utils.UnionFind([0, 1, 1])
+
+    The order of the merges does not matter:
+
+    >>> left, right = UnionFind([0, 0, 0]), UnionFind([0, 1, 1])
+    >>> right.union(0, 1)
+    >>> assert left == right
+    """
+    def __init__(self, parent: Iterable[int] = ()):
+        self.parent = []
+        for element, root in enumerate(parent):
+            self.fresh()
+            if element != root:
+                self.union(element, root)
+
+    def fresh(self) -> int:
+        """ Add an element in a tree of its own and return it. """
+        self.parent.append(len(self.parent))
+        return len(self.parent) - 1
+
+    def find(self, element: int) -> int:
+        """
+        The root of the tree containing an element, compressing the path.
+
+        Parameters:
+            element : The element to look up.
+        """
+        root = element
+        while self.parent[root] != root:
+            root = self.parent[root]
+        while self.parent[element] != root:
+            self.parent[element], element = root, self.parent[element]
+        return root
+
+    def union(self, left: int, right: int):
+        """
+        Merge the trees of two elements.
+
+        Parameters:
+            left : The first element.
+            right : The second element.
+        """
+        left, right = sorted((self.find(left), self.find(right)))
+        self.parent[right] = left
+
+    def __len__(self) -> int:
+        return len(self.parent)
+
+    def __eq__(self, other) -> bool:
+        return isinstance(other, UnionFind) and list(self) == list(other)
+
+    def __iter__(self) -> Iterable[int]:
+        return (self.find(element) for element in range(len(self.parent)))
+
+    def __repr__(self) -> str:
+        return f"{factory_name(type(self))}({list(self)})"
+
+
 Pushout = tuple[dict[int, int], dict[int, int]]
 
 

@@ -20,6 +20,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   section, so the two are inverse up to the wiring laws. Ported from the
   `metatheory` equality-saturation engine
   ([#730](https://github.com/discopy/discopy/pull/730)).
+- A `utils.UnionFind`, used by `table.Carrier` and by the two places that had
+  their own copy: `CMap.from_glued` and `Hypergraph.is_boundary_connected`
+  ([#730](https://github.com/discopy/discopy/pull/730)).
 - A `workflows` job in `build.yml`, so that the code running our pull
   requests is checked like the code it checks: `actionlint` over the
   workflows, `pflake8` over `.github`, and `pytest .github/tests/*.py`
