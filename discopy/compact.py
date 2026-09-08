@@ -89,9 +89,7 @@ class Diagram(symmetric.Diagram, ribbon.Diagram, CompactCategory):
 
     twist_as_trace = abc.RibbonCategory.twist_as_trace
 
-    rotate_contravariance = abc.RigidCategory.rotate_contravariance.failing(
-        "``to_hypergraph`` drops the rotation of a box, so the equation "
-        "holds but cannot be checked up to hypergraph.")
+    rotate_contravariance = abc.RigidCategory.rotate_contravariance
 
 
 class Box(symmetric.Box, ribbon.Box, Diagram):

@@ -102,8 +102,20 @@ def test_Hypergraph_simplify_bubble_size():
 
 
 def test_Hypergraph_rotate():
+    from discopy import compact
+
     assert H.id() == \
            H.id().rotate(left=False).rotate(left=True)
+
+    x, y = map(compact.Ty, "xy")
+    for box in (compact.Box('f', compact.Ty(), x),
+                compact.Box('g', x, y),
+                compact.Box('h', x @ y, x)):
+        graph = box.to_hypergraph()
+        assert (graph.r.dom, graph.r.cod) == (graph.cod.r, graph.dom.r)
+        assert (graph.l.dom, graph.l.cod) == (graph.cod.l, graph.dom.l)
+        assert graph.l.r == graph == graph.r.l
+        assert graph.rotate() == box.rotate().to_hypergraph()
 
 
 def test_Box():
