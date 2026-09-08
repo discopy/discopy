@@ -31,6 +31,29 @@ and then an ordinary PyTorch training loop::
 The cells filling the generators, the solvers running the rounds and the
 laws a cell promises are the notebooks' business, not the library's.
 
+The semantics
+-------------
+
+Underneath, a diagram :math:`D` in a source category :math:`C` is
+interpreted by a monoidal functor: each atomic role goes to the ``Dim`` it
+carries, and each generator :math:`f : X \\to Y` to a **parametric
+interaction map** on its boundary,
+
+.. math:: \\Phi_f : \\partial f \\otimes P_f \\to \\partial f, \\qquad
+          \\partial f = X^* \\otimes Y,
+
+rather than to an ordinary feed-forward map :math:`X \\to Y`.  Wiring the
+boundaries together compiles the diagram to a global transition
+
+.. math:: T_{D,\\theta} = \\sigma_D \\circ \\Phi_\\theta : S_D \\to S_D,
+
+the execution formula of the geometry of interaction, on the state object
+:math:`S_D` with one summand per port.  Swaps, cups, caps and traces are
+wiring in the target category, so a functor preserves them strictly and for
+free; what survives as a box is a generator whose legs carry a symmetry,
+and *that* is a promise about a torch module, measured rather than
+assumed.
+
 The modules
 -----------
 
@@ -41,14 +64,16 @@ The modules
     discopy.neural.core
     discopy.neural.execution
     discopy.neural.backend
-    discopy.neural.signature
     discopy.neural.map
     discopy.neural.batch
+    discopy.neural.signature
+    discopy.neural.rdiff
 
 The framework-dependent modules -- :mod:`~discopy.neural.model` and the
 :mod:`~discopy.neural.torch` and :mod:`~discopy.neural.jax` backends -- are
 left out of the summary so that the documentation builds without a tensor
-framework.
+framework installed.
+
 
 * :mod:`~discopy.neural.core` : the compact closed category itself --
   :class:`Dim` objects, :class:`Network` boxes and the :class:`CMap` whose
@@ -58,8 +83,6 @@ framework.
   :mod:`~discopy.neural.backend`, :mod:`torch <discopy.neural.torch>` or
   :mod:`jax <discopy.neural.jax>`: one flat array of messages, one batched
   call per group of boxes sharing a module, one permutation per round.
-* :mod:`~discopy.neural.signature` : the port layout of one generator, and
-  the wiring builders that draw a diagram out of a family's combinatorics.
 * :mod:`~discopy.neural.map` : the interpretation of a diagram as a map,
   the ``(generator, role)`` families of its ports and their heads, and the
   width of a diagram under an interpretation; what a generator means is
@@ -67,6 +90,10 @@ framework.
 * :mod:`~discopy.neural.model` : :class:`MapNN`, the functor from diagrams
   to runnable maps as a torch module.
 * :mod:`~discopy.neural.batch` : batching over heterogeneous diagrams.
+* :mod:`~discopy.neural.signature` : the port layout of one generator, and
+  the wiring builders that draw a diagram out of a family's combinatorics.
+* :mod:`~discopy.neural.rdiff` : reverse derivatives of neural diagrams, as
+  the optics of :mod:`discopy.optics`.
 
 Note
 ----
@@ -102,7 +129,7 @@ from discopy.neural.core import (
     Swap,
 )
 from discopy.neural.execution import Execution
-from discopy.neural import batch, core, execution, signature
+from discopy.neural import batch, core, execution, rdiff, signature
 from discopy.neural.batch import Batch, bucket
 from discopy.neural.map import families, heads, interpret, to_map, width
 from discopy.neural.signature import (
@@ -115,10 +142,11 @@ from discopy.neural.signature import (
 
 __all__ = [
     "BACKENDS", "Backend", "Batch", "CMap", "Cap", "Cup", "Diagram", "Dim",
-    "Equation", "Execution", "Functor", "Hypergraph", "Id", "Network", "Orbit",
-    "Para", "Permutation", "Signature", "Swap", "Sym", "batch", "bucket",
-    "core", "execution", "families", "from_incidence", "from_relation",
-    "get_backend", "heads", "interpret", "signature", "to_map", "width",
+    "Equation", "Execution", "Functor", "Hypergraph", "Id", "Network",
+    "Orbit", "Para", "Permutation", "Signature", "Swap", "Sym", "batch",
+    "bucket", "core", "execution", "families", "from_incidence",
+    "from_relation", "get_backend", "heads", "interpret", "rdiff",
+    "signature", "to_map", "width",
 ]
 """
 ``discopy.neural.map`` is a submodule, reachable as an attribute, but it

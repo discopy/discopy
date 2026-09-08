@@ -9,6 +9,38 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `discopy.neural`, one package for neural interpretations of diagrams,
+  merging the heads that were open: the compact closed category of
+  `Network` boxes with additive `Dim` objects, and its `CMap` running the
+  execution formula of the geometry of interaction as one `Execution` on
+  any `Backend` (`pytorch`, `jax`): all the messages in one flat array,
+  one batched call per round for every group of boxes sharing a module
+  and a port signature, one permutation for the routing, with the private
+  memory of a `Network` beside the messages and the causal schedule of a
+  feed-forward map. `MapNN` interprets a diagram into that map and
+  addresses its flat state by `(generator, role)` through `CMap.read` and
+  `CMap.write`, with heterogeneous batching and the symmetry signatures
+  that draw a diagram out of a family's combinatorics. A network's module
+  is read on the boundary of its box, where it answers every leg at once,
+  which no parametric map `X @ P -> Y` says: a feed-forward layer is a
+  `Para.generator`, the parametric network of `discopy.para`. Reverse
+  differentiation is said in `discopy.optics`: a reverse rule is an
+  `Optic` over neural diagrams and `rdiff` the `put` of its lens, a
+  diagram that `to_map` runs. The cells filling the generators, the
+  solvers running the rounds and the laws a cell promises are left to the
+  notebooks, as are the sudoku, CLRS-30 and CatGPT examples of the merged
+  heads, and `import discopy.neural` imports no tensor framework
+  ([#702](https://github.com/discopy/discopy/issues/702),
+  merging [#399](https://github.com/discopy/discopy/pull/399),
+  [#495](https://github.com/discopy/discopy/pull/495),
+  [#585](https://github.com/discopy/discopy/pull/585) and the library
+  half of [#686](https://github.com/discopy/discopy/pull/686), minus its
+  `CMap.permutation`, which waits for its own pull request).
+- `cmap.CMap.box_ports`, the ports of a box in logical order, which
+  `to_diagram` and `to_dot` computed inline, and `cmap.CMap.from_wiring`,
+  the closed map of boxes and wires between `(box, position)` pairs,
+  which `discopy.neural` builds its maps with
+  ([#702](https://github.com/discopy/discopy/issues/702)).
 - The category of optics, `discopy.optics`, over any symmetric underlying
   category: an `Optic` is a residual with a forward and a backward
   morphism, composing by tensoring the residuals as `discopy.para` does
@@ -370,6 +402,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `monoidal.Dim` reads the integer its tensor drops off a class attribute
+  `neutral`, so that the additive dimensions of `discopy.neural` set it to
+  `0` rather than copy the constructor, and it serialises:
+  `dumps(Dim(2, 3))` raised `AttributeError` since `monoidal.Ty.to_tree`
+  maps `to_tree` over the integers inside
+  ([#702](https://github.com/discopy/discopy/issues/702)).
 - `interaction.Diagram.caps` built its inside on `negative @ positive`
   where the constructor asks for `positive @ negative`, so a cap on a type
   with both halves raised `ValueError`; both snake equations hold on such

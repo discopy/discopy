@@ -5,6 +5,7 @@ from pytest import importorskip
 from discopy.neural import (
     CMap, Diagram, Dim, Execution, Id, Network, get_backend)
 from discopy.neural.backend import backend
+from discopy.neural.rdiff import discard
 from discopy.python.finset import Permutation
 
 jax = importorskip("jax")
@@ -79,7 +80,7 @@ def test_jax_backend_eager_and_closed():
     assert model(n_rounds=0) == (None, None)
 
     with backend("jax"):
-        zero = get_backend().zeros_module()
+        zero = discard(Dim(2)).module
     assert jnp.array_equal(
         jax.jit(zero)(value), jnp.zeros_like(value))
 
