@@ -12,11 +12,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `discopy/axioms.py`, a Hypothesis-based property-testing module, home
   of `Equation` (formerly `discopy.abc.Equation`): a law is stated once
   on `discopy.abc.Category`/`ColouredMonoid` and every subclass inherits
-  it, as a `ClassAxiom` decorated with `@classaxiom` when it quantifies
-  over the objects and arrows of a carrier — the class whose instances
-  are the terms of the law — and as an `Axiom` decorated with `@axiom`
-  when it is a law of one element read as a method, `@axiom` of a
-  `classmethod` being the former; `.failing`/`.inapplicable` classify a
+  it, as an `Axiom` decorated with `@axiom`: a classmethod of its
+  carrier — the class whose instances are the terms of the law —
+  implicitly, its remaining parameters generated from their annotations,
+  `C0`, `C1` or `Self` for the objects, arrows or terms of the carrier;
+  `.failing`/`.inapplicable` classify a
   law as broken or not applicable to a carrier, and `.modulo`/`.weaken`
   are defined (compare up to a function, quantify over a named subspace)
   but not used yet. A

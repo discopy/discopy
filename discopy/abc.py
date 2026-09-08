@@ -12,8 +12,7 @@ the characteristic generator of its categorical structure as an
 Software dependencies between modules go top-to-bottom, left-to-right and
 forgetful functors between categories go the other way.
 
-Each class also declares its :func:`discopy.axioms.classaxiom` equations,
-which
+Each class also declares its :func:`discopy.axioms.axiom` equations, which
 every free category inherits along with the structure they axiomatise:
 :class:`Category` states the unitality and associativity of composition,
 the typing of its identities and composites, and the involution and
@@ -51,7 +50,7 @@ from functools import partial
 from typing import ClassVar
 
 from discopy.axioms import (
-    Axiom, ComposablePair, ComposableTriple, Equation, classaxiom)
+    Axiom, ComposablePair, ComposableTriple, Equation, axiom)
 from discopy.utils import NamedGeneric, classproperty  # noqa: F401
 
 
@@ -149,14 +148,14 @@ class Category[C0, C1: Category](ABC):
         """
         return (self.dom, self.cod) == (other.dom, other.cod)
 
-    @classaxiom
+    @axiom
     def unitality(
             cls, f: C1) -> Equation[C1]:
         """ Left and right unitality of composition. """
         return cls.equation_factory(
             cls.id(f.dom).then(f), f, f.then(cls.id(f.cod)))
 
-    @classaxiom
+    @axiom
     def associativity(
             cls, triple: ComposableTriple[C1]) -> Equation[C1]:
         """ Associativity of composition. """
@@ -164,34 +163,34 @@ class Category[C0, C1: Category](ABC):
         return cls.equation_factory(
             f.then(g).then(h), f.then(g.then(h)))
 
-    @classaxiom
+    @axiom
     def identity_typing(
             cls, x: C0) -> Equation[C0]:
         """ Typing of identity morphisms. """
         identity = cls.id(x)
         return cls.ob.equation_factory(identity.dom, x, identity.cod)
 
-    @classaxiom
+    @axiom
     def composition_dom_typing(
             cls, pair: ComposablePair[C1]) -> Equation[C0]:
         """ Domain typing of composition. """
         f, g = pair
         return cls.ob.equation_factory(f.then(g).dom, f.dom)
 
-    @classaxiom
+    @axiom
     def composition_cod_typing(
             cls, pair: ComposablePair[C1]) -> Equation[C0]:
         """ Codomain typing of composition. """
         f, g = pair
         return cls.ob.equation_factory(f.then(g).cod, g.cod)
 
-    @classaxiom
+    @axiom
     def dagger_involution(
             cls, f: C1) -> Equation[C1]:
         """ The dagger is involutive. """
         return cls.equation_factory(f.dagger().dagger(), f)
 
-    @classaxiom
+    @axiom
     def dagger_contravariance(
             cls, pair: ComposablePair[C1]) -> Equation[C1]:
         """ The dagger reverses composition. """
@@ -233,13 +232,13 @@ class ColouredMonoid[C0, C1: ColouredMonoid](Category[C0, C1]):
     def tensor(self, *objects: C1) -> C1:
         """ The n-ary product of a monoid for ``n > 0``. """
 
-    @classaxiom
+    @axiom
     def monoid_unitality(
             cls, x: C1) -> Equation[C1]:
         """ Unitality of a monoid. """
         return cls.equation_factory(cls.unit() @ x, x, x @ cls.unit())
 
-    @classaxiom
+    @axiom
     def monoid_associativity(
             cls, triple: ComposableTriple[C1]) -> Equation[C1]:
         """ Associativity of a monoid. """

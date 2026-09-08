@@ -16,7 +16,6 @@ Summary
 
     Equation
     Axiom
-    ClassAxiom
     AxiomFailure
     Strategy
     Natural
@@ -51,7 +50,6 @@ Summary
         :toctree:
 
         axiom
-        classaxiom
         resolve
         substitute
         assert_axioms
@@ -109,11 +107,10 @@ agent branch, as the first checkboxes of its ``TODO.md``:
    wrapper such as :class:`BoundaryConnected`, so that a
    :meth:`Axiom.failing` law with a green subspace shows one expected
    failure and one green cell? Write this down before any implementation.
-2. **Scaffold the axioms.** Declare each law on the abstract base class,
-   with :func:`classaxiom` when it quantifies over the objects and arrows
-   of the carrier and :func:`axiom` when over one of its elements — or as
-   an ad-hoc property in its ``proptest/`` file when it is a boolean
-   rather than an equation — and enrol the carrier in ``CARRIERS``. The
+2. **Scaffold the axioms.** Declare each law as an :class:`Axiom` on the
+   abstract base class — or an ad-hoc property in its ``proptest/`` file
+   when it is a boolean rather than an equation — and enrol the carrier
+   in ``CARRIERS``. The
    body calls the operations the feature will provide; until they exist,
    the cell fails. That is the red state of the loop.
 3. **Reach the structure.** Extend the carrier's strategy so generated
@@ -282,7 +279,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping
 from dataclasses import KW_ONLY, dataclass, replace
 from functools import wraps
-from typing import TYPE_CHECKING, ClassVar, TypeVar, Concatenate
+from typing import TYPE_CHECKING, ClassVar, Concatenate, Self, TypeVar
 
 from discopy.utils import (
     AxiomError,
@@ -309,8 +306,11 @@ The object and arrow types of the carrier an axiom is bound to.
 An axiom annotates its arguments with these rather than with the concrete
 types of the module it is written in, so that a subclass inherits the
 override with its own types: :meth:`Axiom.strategy` rebinds both names to
-``carrier.ob`` and ``carrier.ar``, its :attr:`Axiom.scope`, when it
-evaluates the annotations. This is also why every module stating an axiom
+``carrier.ob`` and ``carrier.ar``, and :data:`typing.Self` to the carrier
+itself for a law of every term of a type whatever its level, such as
+:meth:`Strategy.transparency`, in its :attr:`Axiom.scope` when it
+evaluates the annotations; a law of functors names the category they map
+from as ``Self.dom``. This is also why every module stating an axiom
 needs ``from __future__ import annotations``, which keeps them
 unevaluated.
 Rebinding happens through the ``locals`` of that evaluation because the
@@ -409,17 +409,16 @@ class AxiomFailure(AxiomError):
 @dataclass
 class Axiom[**P, T]:
     """
-    A categorical law stated of the elements of a carrier.
+    A categorical law stated of a carrier.
 
     The carrier of a law is the class it is bound to, whose instances are
     the terms the law quantifies over: the underlying set of a model, in
     the sense of universal algebra, e.g. :class:`discopy.cat.Arrow` for the
-    laws of :class:`discopy.abc.Category`. The law reads as a method: its
-    first parameter is the element, generated from the carrier like its
-    remaining arguments, e.g. :meth:`Strategy.transparency` of any term or
-    the naturality of a functor. A law stated of the carrier itself,
-    quantified over its objects and arrows rather than over an element, is
-    a :class:`ClassAxiom`, declared with :func:`classaxiom`.
+    laws of :class:`discopy.abc.Category`. The law is a classmethod of its
+    carrier, implicitly: its first parameter is the carrier and the
+    remaining ones are generated from their annotations, e.g. three
+    composable arrows for the associativity of composition, or a term of
+    the carrier itself for :meth:`Strategy.transparency`.
 
     Calling a bound axiom returns its own verdict: :obj:`NotImplemented`
     when the structure does not apply to the carrier, and the equation
@@ -432,10 +431,11 @@ class Axiom[**P, T]:
     failure and lets the search find the counterexample.
 
     Parameters:
-        equation : The function stating the law, from the element and the
-            arguments annotated with :obj:`C0`, :obj:`C1` or a
-            :class:`Strategy` to an :class:`Equation`, or to
-            :obj:`NotImplemented` when the structure does not apply.
+        equation : The function stating the law, from the carrier and the
+            arguments annotated with :obj:`C0`, :obj:`C1`,
+            :data:`typing.Self` or a :class:`Strategy` to an
+            :class:`Equation`, or to :obj:`NotImplemented` when the
+            structure does not apply.
         carrier : The class the law is bound to, :obj:`None` until
             :meth:`bind` or the attribute access on a class binds it.
         name : The attribute the law is stored under, the name of the
@@ -445,7 +445,7 @@ class Axiom[**P, T]:
         broken : Whether the law is declared broken by :meth:`failing`.
     """
 
-    equation: Callable[Concatenate[T, P], Equation]
+    equation: Callable[Concatenate[type[T], P], Equation]
     _: KW_ONLY
     carrier: type[T] = None
     name: str = None
@@ -503,18 +503,17 @@ class Axiom[**P, T]:
         equation.__doc__ = reason
         return replace(self, equation=equation, broken=True)
 
-    def inapplicable(self, reason: str) -> ClassAxiom[P, T]:
+    def inapplicable(self, reason: str) -> Axiom[P, T]:
         """
-        The same law declared not to apply to the carrier: a
-        :class:`ClassAxiom` that takes no argument and returns
-        :obj:`NotImplemented`, with the reason as its documentation, e.g.
-        ``trace_vanishing = TracedCategory.trace_vanishing.inapplicable("No
-        trace.")``.
+        The same law declared not to apply to the carrier: it takes no
+        argument and returns :obj:`NotImplemented`, with the reason as its
+        documentation, e.g. ``trace_vanishing =
+        TracedCategory.trace_vanishing.inapplicable("No trace.")``.
         """
         def law(cls):
             return NotImplemented
         law.__doc__ = reason
-        return ClassAxiom(law, carrier=self.carrier, name=self.name)
+        return replace(self, equation=law, subspaces={}, broken=False)
 
     def weaken(self, **subspaces) -> Axiom[P, T]:
         """
@@ -534,29 +533,26 @@ class Axiom[**P, T]:
     @property
     def parameters(self) -> tuple[inspect.Parameter, ...]:
         """
-        The parameters whose arguments the property matrix generates: the
-        element itself, annotated with the carrier, then those of the law.
+        The parameters whose arguments the property matrix generates: all
+        but the first, which is the carrier.
         """
-        receiver, *explicit = inspect.signature(
-            self.equation).parameters.values()
-        return (receiver.replace(annotation=self.carrier), *explicit)
+        return tuple(
+            inspect.signature(self.equation).parameters.values())[1:]
 
     @property
     def scope(self) -> dict:
         """
-        The objects and arrows that :obj:`C0` and :obj:`C1` name in the
-        annotations of the law: those of the carrier's domain when the
-        carrier is a class of functors — the arguments a functor is applied
-        to live in the category it maps from, and its codomain is reachable
-        as ``self.cod`` from the body — and of the carrier itself otherwise.
-        A carrier that is no category, e.g. a type of objects, stands for
-        both.
+        What the names in the annotations of the law stand for: the carrier
+        itself for :data:`typing.Self`, and its objects and arrows for
+        :obj:`C0` and :obj:`C1`. A carrier that is no category, e.g. a
+        type of objects, stands for both; a class of functors is the arrows
+        of ``Cat``, and the category it maps from, where the arguments a
+        functor is applied to live, is reachable as ``Self.dom``.
         """
-        domain = getattr(self.carrier, "dom", None)
-        source = domain if isinstance(domain, type) else self.carrier
         return {
-            "C0": getattr(source, "ob", source),
-            "C1": getattr(source, "ar", source)}
+            "Self": self.carrier,
+            "C0": getattr(self.carrier, "ob", self.carrier),
+            "C1": getattr(self.carrier, "ar", self.carrier)}
 
     def strategy(self) -> st.SearchStrategy:
         """
@@ -626,54 +622,16 @@ class Axiom[**P, T]:
             for name, value in bound.arguments.items()}
 
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> Equation[T]:
-        return self.equation(**self.arguments(*args, **kwargs))
-
-
-class ClassAxiom[**P, T](Axiom[P, T]):
-    """
-    A categorical law stated of the carrier itself: the first parameter of
-    the equation is the carrier, as for a :func:`classmethod`, and the
-    remaining ones are quantified over its objects and arrows, e.g. the
-    associativity of composition over three composable arrows. Declared
-    with :func:`classaxiom`.
-    """
-    @property
-    def parameters(self) -> tuple[inspect.Parameter, ...]:
-        """ The parameters of the law but the carrier. """
-        return tuple(
-            inspect.signature(self.equation).parameters.values())[1:]
-
-    @property
-    def scope(self) -> dict:
-        """ The objects and arrows of the carrier itself. """
-        return {
-            "C0": getattr(self.carrier, "ob", self.carrier),
-            "C1": getattr(self.carrier, "ar", self.carrier)}
-
-    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> Equation[T]:
         return self.equation(self.carrier, **self.arguments(*args, **kwargs))
 
 
 def axiom[**P, T](
-        equation: Callable[Concatenate[T, P], Equation]) -> Axiom[P, T]:
+        equation: Callable[Concatenate[type[T], P], Equation]) -> Axiom[P, T]:
     """
-    Decorate an equation as a law of the elements of a carrier, its first
-    parameter the element as for a method, or as a :class:`ClassAxiom` of
-    the carrier itself when the equation is a :func:`classmethod`.
+    Decorate an equation as a categorical axiom: a classmethod of its
+    carrier, implicitly, whose remaining parameters are generated.
     """
-    if isinstance(equation, classmethod):
-        return ClassAxiom(equation.__func__)
     return Axiom(equation)
-
-
-def classaxiom[**P, T](
-        equation: Callable[Concatenate[type[T], P], Equation]
-) -> ClassAxiom[P, T]:
-    """
-    Decorate an equation as a law of the carrier itself: :func:`axiom` of a
-    :func:`classmethod`.
-    """
-    return axiom(classmethod(equation))
 
 
 class Strategy[T](ABC):
@@ -723,30 +681,30 @@ class Strategy[T](ABC):
         return dict(public(vars(discopy)), **public(vars(module)))
 
     @axiom
-    def transparency(self) -> Equation:
+    def transparency(cls, term: Self) -> Equation:
         """
         The representation of a term evaluates back to it, in the
         :meth:`environment` of its type.
         """
-        return Equation(eval(repr(self), type(self).environment()), self)
+        return Equation(eval(repr(term), cls.environment()), term)
 
     @axiom
-    def pickling(self) -> Equation:
+    def pickling(cls, term: Self) -> Equation:
         """
         A term loads back from its pickle, of the same class: the equation
         is between the pairs of a class and a term, since a subscript of a
         :class:`discopy.utils.NamedGeneric` is part of what a pickle keeps.
         """
-        loaded = pickle.loads(pickle.dumps(self))
-        return Equation((type(loaded), loaded), (type(self), self))
+        loaded = pickle.loads(pickle.dumps(term))
+        return Equation((type(loaded), loaded), (type(term), term))
 
     @axiom
-    def serialisation(self) -> Equation:
+    def serialisation(cls, term: Self) -> Equation:
         """
         A term decodes back from its tree and from the JSON of its tree.
         A type without a tree declares the law inapplicable.
         """
-        return Equation(from_tree(self.to_tree()), loads(dumps(self)), self)
+        return Equation(from_tree(term.to_tree()), loads(dumps(term)), term)
 
 
 class Natural(int, Strategy["Natural"]):

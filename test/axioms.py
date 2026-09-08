@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Self
+
 from hypothesis import find
 from hypothesis import strategies as st
 from pytest import raises
@@ -9,13 +11,11 @@ from pytest import raises
 from discopy import cat, closed, feedback, rigid, symmetric
 from discopy.cat import Arrow, Box, Functor, Ob
 from discopy.axioms import (
-    C0,
     C1,
     Atomic,
     Axiom,
     AxiomFailure,
     BoundaryConnected,
-    ClassAxiom,
     ComposablePair,
     Equation,
     FeedbackJoining,
@@ -37,7 +37,6 @@ from discopy.axioms import (
     assert_axioms,
     assert_strategy_finds,
     axiom,
-    classaxiom,
     resolve,
 )
 from discopy.utils import AxiomError, factory
@@ -276,10 +275,7 @@ def test_axiom_binding():
         Axiom(lambda cls: NotImplemented).falsify()
     with raises(TypeError):
         Axiom(lambda cls: NotImplemented).strategy()
-    for law in (axiom(classmethod(lambda cls: NotImplemented)),
-                classaxiom(lambda cls: NotImplemented)):
-        assert isinstance(law, ClassAxiom)
-        assert law.bind(Arrow)() is NotImplemented
+    assert axiom(lambda cls: NotImplemented).bind(Arrow)() is NotImplemented
     box = Box('f', Ob('x'), Ob('y'))
     assert Arrow.unitality(box)
     broken = Arrow.unitality.weaken(f=Atomic[C1]).failing("Never holds.")
@@ -309,16 +305,15 @@ def test_weaken():
         assert isinstance(args[0], Atomic) and law(*args)
 
 
-def test_element_law():
+def test_functor_law():
     @axiom
-    def preserves_identity(self, x: C0) -> Equation:
+    def preserves_identity(cls, functor: Self, x: Self.dom.ob) -> Equation:
         """ A functor preserves the identity on each object. """
-        return Equation(self(Arrow.id(x)), Arrow.id(self(x)))
+        return Equation(functor(cls.dom.id(x)), cls.cod.id(functor(x)))
 
     law = preserves_identity.bind(Functor)
-    assert not isinstance(law, ClassAxiom)
     args = find(law.strategy(), lambda _: True)
-    assert law(*args)
+    assert isinstance(args[0], Functor) and law(*args)
 
 
 def test_falsify():
