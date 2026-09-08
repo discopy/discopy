@@ -408,6 +408,18 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `Hypergraph.rotate` exchanged the two boundaries of the hypergraph and
+  replaced each box by its rotation, but left the *ports* of those boxes
+  and the spiders where they were: the wires reading a box's domain went
+  on reading its domain although the rotated box's domain is its old
+  codomain, and a spider typed `a` stayed `a` under a rotation that made
+  every port around it `a.r`. Both are invisible on an endomorphism of a
+  self-dual type, which is most of what the drawing and conversion tests
+  rotate — `test_Hypergraph_rotate` rotated the identity and nothing
+  else. Anything else raised: a bare `ValueError` from
+  `Hypergraph.__init__` when the two arities differ, an `AxiomError` on
+  the spider types when they do not. `.l` and `.r` are involutions again
+  ([#716](https://github.com/discopy/discopy/issues/716)).
 - `rigid.Diagram.functor_factory` is `rigid.Functor`: it inherited
   `biclosed.Functor`, which does not rotate, so a box mapped through
   it lost the rotation of its boundary.
