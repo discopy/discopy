@@ -505,7 +505,7 @@ class BraidedCategory[C0, C1](MonoidalCategory[C0, C1]):
         """
 
 
-class PROB[C1: PROB](BraidedCategory[Nat, C1]):
+class PROB[C1: PROB](PRO[C1], BraidedCategory[Nat, C1]):
     """
     A PROB is a :class:`BraidedCategory` whose objects are the natural
     numbers :class:`Nat`, i.e. the free braided category on one generator.
@@ -549,7 +549,7 @@ class SymmetricCategory[C0, C1](BraidedCategory[C0, C1]):
         return cls.swap(left, right)
 
 
-class PROP[C1: PROP](SymmetricCategory[Nat, C1]):
+class PROP[C1: PROP](PROB[C1], SymmetricCategory[Nat, C1]):
     """
     A PROP is a :class:`SymmetricCategory` whose objects are the natural
     numbers :class:`Nat`, i.e. the free symmetric category on one generator.

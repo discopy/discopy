@@ -12,7 +12,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `abc.Nat`, a concrete dataclass for the free monoid on one generator
   (`n: int` with addition as `tensor`), and `abc.PRO`/`abc.PROB`/`abc.PROP`,
   the `MonoidalCategory`/`BraidedCategory`/`SymmetricCategory` whose objects
-  are `Nat` ([#709](https://github.com/discopy/discopy/issues/709)).
+  are `Nat` — `PROB(PRO, BraidedCategory[Nat, C1])` and
+  `PROP(PROB, SymmetricCategory[Nat, C1])`, mirroring how
+  `abc.SymmetricCategory` already extends `abc.BraidedCategory` directly
+  ([#709](https://github.com/discopy/discopy/issues/709)).
 - A `workflows` job in `build.yml`, so that the code running our pull
   requests is checked like the code it checks: `actionlint` over the
   workflows, `pflake8` over `.github`, and `pytest .github/tests/*.py`
