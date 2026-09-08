@@ -291,11 +291,28 @@ class CMap[C0: Pregroup, C1: CMap](
             start = stop
         return tuple(result)
 
+    @staticmethod
+    def logical_order(arity: int, coarity: int) -> tuple[int, ...]:
+        """
+        The offsets of the ports of a box in logical order, i.e. its domain
+        ports followed by its codomain ports, within the clockwise order
+        which stores the codomain ports reversed.
+
+        Parameters:
+            arity : The number of domain ports.
+            coarity : The number of codomain ports.
+
+        Example
+        -------
+        >>> CMap.logical_order(2, 3)
+        (0, 1, 4, 3, 2)
+        """
+        return tuple(range(arity)) + tuple(
+            reversed(range(arity, arity + coarity)))
+
     def box_ports(self, index: int) -> tuple[int, ...]:
         """
-        The port indices of a box in logical order, i.e. its domain ports
-        followed by its codomain ports, undoing the clockwise order which
-        stores the codomain ports reversed.
+        The port indices of a box in :meth:`logical_order`.
 
         Parameters:
             index : The index of the box.
@@ -307,9 +324,9 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> CMap.from_box(Box('f', x @ y, x @ y @ x)).box_ports(0)
         (2, 3, 6, 5, 4)
         """
-        ports = self._box_port_indices[index]
-        arity = len(self.boxes[index].dom)
-        return ports[:arity] + tuple(reversed(ports[arity:]))
+        ports, box = self._box_port_indices[index], self.boxes[index]
+        return tuple(
+            ports[i] for i in self.logical_order(len(box.dom), len(box.cod)))
 
     @property
     def faces(self) -> Permutation:
@@ -907,13 +924,10 @@ class CMap[C0: Pregroup, C1: CMap](
 
         def global_index(box_index: int, position: int) -> int:
             box = boxes[box_index]
-            arity, coarity = len(box.dom), len(box.cod)
-            if not 0 <= position < arity + coarity:
+            offsets = cls.logical_order(len(box.dom), len(box.cod))
+            if not 0 <= position < len(offsets):
                 raise ValueError(f"Box {box_index} has no port {position}.")
-            if position < arity:
-                return starts[box_index] + position
-            return starts[box_index] + arity\
-                + (coarity - 1 - (position - arity))
+            return starts[box_index] + offsets[position]
 
         pairs, seen = [], set()
         for (one, other) in wires:

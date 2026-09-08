@@ -9,6 +9,33 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `discopy.neural`, neural networks as diagrams. `discopy.neural.network`
+  is the traced category of feedforward networks: `Dims` is the free
+  monoid over the multiplicative `Dim`, i.e. a list of shapes with
+  concatenation as tensor and the product of shapes distributing over it,
+  the free rig on the natural numbers; `Network` is the free traced
+  Markov category on `Box` layers, each carrying an optional `module`,
+  so that a residual block is a `copy` and a recurrent cell a `trace`.
+  `discopy.neural.interaction` is the free compact category it
+  generates: a `Ty` is a list of `Leg` shapes with a direction, a `Box`
+  from `dom` to `cod` is a network from the legs it reads,
+  `dom.positive @ cod.negative`, to the legs it writes,
+  `cod.positive @ dom.negative`, and `CMap.to_network` is the execution
+  formula of the geometry of interaction: the networks of the boxes side
+  by side, one permutation routing each leg written to the leg that reads
+  it and one trace feeding the boxes back to each other, so that
+  `Diagram.to_int` evaluates a diagram in `Int(Network)`. Running a
+  network on a tensor framework comes in a later pull request, and
+  `import discopy.neural` imports none. `monoidal.Functor` reads a `Dim`
+  that generates the types of its domain as one generator rather than
+  factor by factor, so that functors, drawings and hypergraphs of
+  networks map each leg as a whole
+  ([#702](https://github.com/discopy/discopy/issues/702),
+  [#736](https://github.com/discopy/discopy/pull/736)).
+- `CMap.from_wiring`, a closed map given by its boxes and the wires
+  between their ports counted in `CMap.logical_order`, the domain ports
+  followed by the codomain ones, which `CMap.box_ports` lists for a box
+  of the map ([#736](https://github.com/discopy/discopy/pull/736)).
 - The category of optics, `discopy.optics`, over any symmetric underlying
   category: an `Optic` is a residual with a forward and a backward
   morphism, composing by tensoring the residuals as `discopy.para` does
@@ -370,6 +397,16 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `traced.Trace` loads from its serialisation, which records which side is
+  traced: `loads(dumps(f.trace()))` raised `TypeError` from the inherited
+  `Bubble.from_tree`, on every level of the hierarchy
+  ([#736](https://github.com/discopy/discopy/pull/736)).
+- `markov.Copy` and `markov.Merge` load from their serialisation, where
+  `loads(dumps(Copy(x)))` raised `TypeError` from the inherited
+  `Box.from_tree`, and their daggers go through `merge_factory` and
+  `copy_factory`, so that a subclass of `markov.Diagram` daggers its
+  copies into its own merges rather than into `markov.Merge`
+  ([#736](https://github.com/discopy/discopy/pull/736)).
 - `interaction.Diagram.caps` built its inside on `negative @ positive`
   where the constructor asks for `positive @ negative`, so a cap on a type
   with both halves raised `ValueError`; both snake equations hold on such

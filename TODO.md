@@ -22,10 +22,10 @@ Review round on #736, toumix on 2026-09-08 09:03–09:09 UTC, verbatim:
 
 > one thing that still requires some thought: Dim is additive and only records the dimension of each leg but that means we completely drop the multiplicative side. what we would need is the free rig on natural numbers, i.e. lists of Dim objects. Let's call that Dims instead, i.e. Dims is the FreeMonoid over Dim.
 
-- [WIP] @session_01R6htvGCTMQQqTNP1ApWzmc-2026-09-08 09:32 `discopy.neural.core` is renamed `discopy.neural.network`
-- [WIP] @session_01R6htvGCTMQQqTNP1ApWzmc-2026-09-08 09:32 the example of the package docstring is removed
-- [WIP] @session_01R6htvGCTMQQqTNP1ApWzmc-2026-09-08 09:32 the package docstring names what this pull request has and nothing further down the stack
-- [WIP] @session_01R6htvGCTMQQqTNP1ApWzmc-2026-09-08 09:32 `Network` is a feedforward net `Dim -> Dim` with inputs and outputs of any widths, and networks form the free traced cartesian category on such boxes: `then`, `tensor`, `id`, `swap`, `copy`, `discard` and `trace` as diagram operations (the design is proposed on the pull request and waits on a 🚀)
-- [WIP] @session_01R6htvGCTMQQqTNP1ApWzmc-2026-09-08 09:32 the compact category is `Int(Network)`: objects are pairs `(X+, X-)` of dimensions, a box `(X+, X-) -> (Y+, Y-)` is a network `X+ @ Y- -> Y+ @ X-`, `CMap` is its combinatorial maps with a routing per channel, and a feedforward net is the box `(X, 0) -> (Y, 0)`
-- [WIP] @session_01R6htvGCTMQQqTNP1ApWzmc-2026-09-08 09:32 graph neural networks — the bidirectional cells `(X, X) -> (Y, Y)`, `mem`, signatures, `interpret`, `MapNN` — leave this stack for a later pull request
-- [WIP] @session_01R6htvGCTMQQqTNP1ApWzmc-2026-09-08 09:32 #737, #738 and #705 are re-cut on the new base once it lands; #739, #740 and #741 wait for the later pull request
+- [x] `discopy.neural.core` is renamed `discopy.neural.network`
+- [x] the example of the package docstring is removed
+- [x] the package docstring names what this pull request has and nothing further down the stack
+- [x] `Network` is a feedforward net `Dim -> Dim` with inputs and outputs of any widths, and networks form the free traced cartesian category on such boxes: `then`, `tensor`, `id`, `swap`, `copy`, `discard` and `trace` as diagram operations (the design is proposed on the pull request and waits on a 🚀)
+- [x] the compact category is `Int(Network)`: objects are pairs `(X+, X-)` of dimensions, a box `(X+, X-) -> (Y+, Y-)` is a network `X+ @ Y- -> Y+ @ X-`, `CMap` is its combinatorial maps with a routing per channel, and a feedforward net is the box `(X, 0) -> (Y, 0)`
+- [x] graph neural networks — the bidirectional cells `(X, X) -> (Y, Y)`, `mem`, signatures, `interpret`, `MapNN` — leave this stack for a later pull request
+- [x] #737, #738 and #705 are re-cut on the new base once it lands; #739, #740 and #741 wait for the later pull request — recorded as the plan on #702, since it can only happen after this pull request merges

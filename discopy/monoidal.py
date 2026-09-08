@@ -531,10 +531,6 @@ class Dim(Ty):
     A dimension is a tuple of positive integers
     with product ``@`` and unit ``Dim(1)``.
 
-    The class attribute ``neutral`` is the integer that the tensor drops
-    and the smallest one a dimension may hold, ``1`` for a product;
-    :class:`discopy.neural.Dim` sets it to ``0`` for additive dimensions.
-
     Example
     -------
     >>> Dim(1) @ Dim(2) @ Dim(3)
@@ -543,7 +539,6 @@ class Dim(Ty):
     >>> assert loads(dumps(Dim(2, 3))) == Dim(2, 3)
     """
     generator_factory = int
-    neutral = 1
 
     def __init__(self, *inside: int, dom=None, cod=None, _scan=True, **kwargs):
         inside = kwargs.pop('inside', inside)
@@ -551,10 +546,9 @@ class Dim(Ty):
             raise TypeError(f"Unexpected keyword arguments: {list(kwargs)}.")
         for dim in inside:
             assert_isinstance(dim, int)
-            if dim < self.neutral:
-                raise ValueError(
-                    f"Expected at least {self.neutral}, got {dim}.")
-        inside = tuple(dim for dim in inside if dim != self.neutral)
+            if dim < 1:
+                raise ValueError
+        inside = tuple(dim for dim in inside if dim > 1)
         cat.FreeCategory.__init__(
             self, inside, white if dom is None else dom,
             white if cod is None else cod, _scan=False)
@@ -568,7 +562,7 @@ class Dim(Ty):
         return self.factory(self.inside[key])
 
     def __repr__(self):
-        return f"Dim({', '.join(map(repr, self.inside)) or self.neutral})"
+        return f"Dim({', '.join(map(repr, self.inside)) or '1'})"
 
     __str__ = __repr__
 
@@ -1657,6 +1651,9 @@ class Functor(cat.Functor):
     def __call__(self, other):
         if isinstance(other, Colour):
             return self._map_colour(other)
+        if isinstance(other, Dim) and isinstance(
+                other, self.dom.ob.generator_factory):
+            return self._map_atomic(self.dom.ob(other))
         if isinstance(other, PRO):
             result = self._map_atomic(other.factory(1))
             unit = result[:0] if isinstance(result, Ty) else self.cod.ob()
