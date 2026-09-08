@@ -20,7 +20,7 @@ def axiom_parameters():
     properties only, such as a type of wires, has no ``axioms``.
     """
     for carrier in CARRIERS:
-        for axiom in getattr(carrier, "axioms", {}).values():
+        for axiom in carrier.axioms.values():
             if not axiom.parameters and axiom() is NotImplemented:
                 marks = pytest.mark.skip(reason=axiom.__doc__.strip())
             elif axiom.broken:

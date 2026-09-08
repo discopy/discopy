@@ -21,7 +21,7 @@ Summary
     NonEmpty
     Subsingleton
     BoundaryConnected
-    PastingDiagram
+    Grid
     ComposablePair
     ComposableTriple
     HorizontalPair
@@ -277,11 +277,18 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping
 from dataclasses import KW_ONLY, dataclass, replace
 from functools import wraps
-from typing import ClassVar, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar, TypeVar, Concatenate
 
 from discopy.utils import (
-    AxiomError, NamedGeneric, assert_iscomposable, classproperty, dumps,
-    factory_name, from_tree, get_origin, loads)
+    AxiomError,
+    NamedGeneric,
+    assert_iscomposable,
+    dumps,
+    factory_name,
+    from_tree,
+    get_origin,
+    loads,
+)
 
 if TYPE_CHECKING:
     from hypothesis import strategies as st
@@ -323,13 +330,14 @@ class AxiomFailure(AxiomError):
     reason is the message and :attr:`equation` is the law evaluated on the
     arguments, which a recorded counterexample must falsify.
     """
+
     def __init__(self, reason: str, equation):
         super().__init__(reason, equation)
         self.equation = equation
 
 
 @dataclass
-class Axiom[T]:
+class Axiom[**P, T]:
     """
     A categorical law, stated either of a carrier or of one of its elements.
 
@@ -349,7 +357,7 @@ class Axiom[T]:
     failure and lets the search find the counterexample.
     """
 
-    equation: Callable
+    equation: Callable[Concatenate[type, P], T]
     _: KW_ONLY
     carrier: type[T] = None
     name: str = None
@@ -378,27 +386,19 @@ class Axiom[T]:
     def __hash__(self):
         return hash((self.equation, self.carrier, self.name))
 
-    def __set_name__(self, owner, name):
-        """
-        Take the name of the attribute the axiom is assigned to, so that an
-        override built with :meth:`modulo`, :meth:`failing` or
-        :meth:`inapplicable` needs no name of its own.
-        """
-        self.name = name
-
     @property
     def is_method(self) -> bool:
         """ Whether the law is stated of an element rather than a carrier. """
         return self.receiver == "self"
 
-    def bind(self, carrier: type[T]) -> Axiom[T]:
+    def bind(self, carrier: type[T]) -> Axiom[P, T]:
         """ Bind the axiom to a concrete carrier. """
         return replace(self, carrier=carrier)
 
-    def __get__(self, instance, owner: type[T]) -> Axiom[T]:
+    def __get__(self, instance, owner: type[T]) -> Axiom[P, T]:
         return self.bind(owner)
 
-    def modulo(self, up_to) -> Axiom[T]:
+    def modulo(self, up_to) -> Axiom[P, T]:
         """
         The same law with its equation compared up to a function, so that a
         carrier weakens an inherited axiom in one statement, e.g.
@@ -410,7 +410,7 @@ class Axiom[T]:
             return self.equation(*args, **kwargs).modulo(up_to)
         return replace(self, equation=equation)
 
-    def failing(self, reason: str) -> Axiom[T]:
+    def failing(self, reason: str) -> Axiom[P, T]:
         """
         The same law declared broken: calling it raises an
         :class:`AxiomFailure` with the reason as message and the equation
@@ -423,7 +423,7 @@ class Axiom[T]:
         equation.__doc__ = reason
         return replace(self, equation=equation, broken=True)
 
-    def inapplicable(self, reason: str) -> Axiom[T]:
+    def inapplicable(self, reason: str) -> Axiom[P, T]:
         """
         The same law declared not to apply to the carrier: it takes no
         argument and returns :obj:`NotImplemented`, with the reason as its
@@ -435,7 +435,7 @@ class Axiom[T]:
         law.__doc__ = reason
         return replace(self, equation=law, subspaces={}, broken=False)
 
-    def weaken(self, **subspaces) -> Axiom[T]:
+    def weaken(self, **subspaces) -> Axiom[P, T]:
         """
         The same law quantified over a subspace of the named arguments,
         e.g. ``bifunctoriality_connected =
@@ -510,7 +510,7 @@ class Axiom[T]:
         def refutes(args):
             try:
                 verdict = self(*args)
-            except Exception:
+            except AxiomFailure:
                 return True
             return verdict is not NotImplemented and not verdict
 
@@ -532,7 +532,7 @@ class Axiom[T]:
             annotation=self.carrier)
         return (receiver, ) + explicit
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> Equation[T]:
         if self.carrier is None:
             raise TypeError(f"{self.name} is not bound to a class.")
         signature = self.signature.replace(parameters=self.parameters)
@@ -547,25 +547,9 @@ class Axiom[T]:
             **{self.receiver: self.carrier, **arguments})
 
 
-def axiom(equation) -> Axiom:
+def axiom[**P, T](equation: Callable[P, T]) -> Axiom[P, T]:
     """ Decorate an equation as an inherited categorical axiom. """
     return Axiom(equation)
-
-
-def inherited_axioms(cls) -> dict[str, Axiom]:
-    """
-    The axioms inherited by ``cls``, by name, subclasses overriding bases.
-
-    Names are collected before they are filtered, so that assigning
-    anything that is not an axiom over an inherited one drops it
-    altogether, rather than restating it.
-    """
-    visible = {
-        name: value
-        for base in reversed(cls.__mro__)
-        for name, value in base.__dict__.items()}
-    return {name: value.bind(cls) for name, value in visible.items()
-            if isinstance(value, Axiom)}
 
 
 class Strategy[T](ABC):
@@ -575,8 +559,6 @@ class Strategy[T](ABC):
     generating its instances, and the laws every such type obeys: a term
     reads back from its representation, its pickle and its tree.
     """
-
-    axioms = classproperty(inherited_axioms)
 
     @classmethod
     @abstractmethod
@@ -756,7 +738,7 @@ class BoundaryConnected(Strategy, NamedGeneric["factory"]):
     value: C1
 
     def __post_init__(self):
-        cells = self.value if isinstance(self.value, PastingDiagram)\
+        cells = self.value if isinstance(self.value, Grid)\
             else (self.value, )
         for cell in cells:
             graph = cell if hasattr(cell, "is_boundary_connected")\
@@ -771,7 +753,7 @@ class BoundaryConnected(Strategy, NamedGeneric["factory"]):
             cls.factory, boundary_connected=True, **params).map(cls)
 
 
-class PastingDiagram(Strategy, NamedGeneric["factory"], tuple):
+class Grid(Strategy, NamedGeneric["factory"], tuple):
     """ A rectangular grid with composable rows and columns. """
 
     n_rows: ClassVar[int]
@@ -828,27 +810,27 @@ class PastingDiagram(Strategy, NamedGeneric["factory"], tuple):
         return pasting_diagram()
 
 
-class ComposablePair(PastingDiagram):
+class ComposablePair(Grid):
     """ Two morphisms composable from left to right. """
 
     n_rows, n_columns = 2, 1
     n_active_rows = 2
 
 
-class ComposableTriple(PastingDiagram):
+class ComposableTriple(Grid):
     """ Three values composable from left to right. """
 
     n_rows, n_columns = 3, 1
     n_active_rows = 3
 
 
-class HorizontalPair(PastingDiagram):
+class HorizontalPair(Grid):
     """ Two horizontally composable cells. """
 
     n_rows, n_columns = 1, 2
 
 
-class Square(PastingDiagram):
+class Square(Grid):
     """ A two-by-two grid of cells, the arguments of the interchange law. """
 
     n_rows = n_columns = 2
@@ -1189,8 +1171,8 @@ def assert_axioms(*carriers) -> None:
                 assert verdict is NotImplemented or verdict, axiom
 
 
-def assert_strategy_finds(
-        carrier: type[monoidal.Diagram], *structures: type) -> None:
+def assert_strategy_finds[D: monoidal.Diagram](
+        carrier: type[D], *structures: type[D]):
     """
     Check that the strategy of a diagram carrier generates a term
     containing a box of each of the given structural classes.
