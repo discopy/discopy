@@ -168,7 +168,8 @@ def interpret(source, ob: Mapping, ar: Mapping) -> CMap:
     concrete port -- or to ``Dim(0)``, in which case the port vanishes and
     the wire on it with it.  A wire joins two ports of adjoint roles, which
     the functor sends to dimensions of one width, so a wire is erased whole
-    or not at all.
+    or not at all; so is a scalar loop, a closed component with no ports,
+    which the map keeps otherwise.
 
     Parameters:
         source : The closed map in the source category, whose atomic types
@@ -199,13 +200,17 @@ def interpret(source, ob: Mapping, ar: Mapping) -> CMap:
     for network in boxes:
         assert_isinstance(network, Network)
 
+    def atomic(role):
+        width = image(role)
+        if len(width) > 1:
+            raise ValueError(f"{role} maps to the non-atomic {width}")
+        return width
+
     position = {}
     for index, box in enumerate(source.boxes):
         cursor = 0
         for place, role in enumerate(tuple(box.dom) + tuple(box.cod)):
-            width = image(role)
-            if len(width) > 1:
-                raise ValueError(f"{role} maps to the non-atomic {width}")
+            width = atomic(role)
             if len(width):
                 position[index, place] = cursor
             cursor += len(width)
@@ -218,7 +223,9 @@ def interpret(source, ob: Mapping, ar: Mapping) -> CMap:
          (logical[other][0], position[logical[other]]))
         for port, other in enumerate(source.edges)
         if port < other and logical[port] in position]
-    return CMap.from_wiring(boxes, wires)
+    loops = tuple(
+        width for width in map(atomic, source.loops) if len(width))
+    return CMap.from_wiring(boxes, wires, loops=loops)
 
 
 def heads(source) -> dict:

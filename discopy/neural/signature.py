@@ -334,12 +334,19 @@ class Signature:
         how one shared module serves sites of different degree.
 
         Parameters:
-            role : The role of the orbit to resize.
+            role : The role of the orbit to resize, or one of its atoms.
             arity : Its new arity.
+
+        Raises:
+            ValueError : If no orbit carries the role.
         """
+        matches = [
+            role in (orbit.role, *orbit.role) for orbit in self.orbits]
+        if not any(matches):
+            raise ValueError(f"no orbit carries the role {role}")
         return Signature(tuple(
-            replace(orbit, arity=arity) if role in tuple(orbit.role)
-            else orbit for orbit in self.orbits))
+            replace(orbit, arity=arity) if match else orbit
+            for orbit, match in zip(self.orbits, matches)))
 
     def generators(self) -> list[Permutation]:
         """
@@ -507,10 +514,11 @@ def from_relation(relation: tuple, node: Signature, node_name: str = NODE
     related node plus its traced loops, and a wire between each related
     pair.  No hyperedge boxes.
 
-    The relation must be symmetric; the degrees need not be uniform, a
-    node related to ``d`` others gets the node signature with its first
-    orbit resized to ``d``, and the one shared module still fills every
-    site (see :func:`from_incidence`).
+    The relation must be symmetric and irreflexive, a node having one port
+    per related node where a self-edge would need two; the degrees need
+    not be uniform, a node related to ``d`` others gets the node signature
+    with its first orbit resized to ``d``, and the one shared module still
+    fills every site (see :func:`from_incidence`).
 
     Parameters:
         relation : Per node, the indices of the nodes it is related to.
@@ -537,6 +545,8 @@ def from_relation(relation: tuple, node: Signature, node_name: str = NODE
     wires: list = []
     for index, others in enumerate(relation):
         for other in others:
+            if other == index:
+                raise ValueError(f"node {index} is related to itself")
             if index not in relation[other]:
                 raise ValueError("the relation is not symmetric")
             if index < other:
