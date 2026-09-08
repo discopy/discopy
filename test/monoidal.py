@@ -713,9 +713,9 @@ def test_strategy():
     from hypothesis import find
     from hypothesis import strategies as st
 
-    from discopy import testing
+    from discopy import axiom
 
-    testing.assert_strategy_finds(Diagram, Box)
+    axiom.assert_strategy_finds(Diagram, Box)
     x = Ty('x')
     composition = find(
         Diagram.strategy(types=st.just(x), min_leaves=2, max_leaves=2),
@@ -744,6 +744,6 @@ def test_strategy():
 
 
 def test_axioms():
-    from discopy import testing
+    from discopy import axiom
 
-    testing.assert_axioms(Ty, PRO, Diagram, Functor)
+    axiom.assert_axioms(Ty, PRO, Diagram, Functor)

@@ -95,12 +95,12 @@ def test_rotate():
 
 
 def test_strategy():
-    from discopy import testing
+    from discopy import axiom
 
-    testing.assert_strategy_finds(Diagram, Twist, Cup, Cap)
+    axiom.assert_strategy_finds(Diagram, Twist, Cup, Cap)
 
 
 def test_axioms():
-    from discopy import testing
+    from discopy import axiom
 
-    testing.assert_axioms(Diagram, Functor)
+    axiom.assert_axioms(Diagram, Functor)

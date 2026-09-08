@@ -62,7 +62,7 @@ from warnings import warn
 
 from discopy import cat, drawing, hypergraph, cmap, messages
 from discopy.abc import ColouredMonoid, MonoidalCategory
-from discopy.testing import (
+from discopy.axiom import (
     Square, BoundaryConnected, C1, GENERATORS, HorizontalPair, Strategy,
     axiom)
 from discopy.drawing import Drawing

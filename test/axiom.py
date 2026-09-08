@@ -12,25 +12,25 @@ from __future__ import annotations
 from hypothesis import find
 from pytest import raises
 
-from discopy import biclosed, cat, feedback, monoidal, rigid, testing, traced
-from discopy.testing import (
-    C0, C1, Atomic, Axiom, AxiomFailure, Square, BoundaryConnected,
+from discopy import biclosed, cat, feedback, monoidal, rigid, traced
+from discopy.axiom import (
+    C0, C1, Atomic, Axiom, AxiomFailure, BoundaryConnected, ClassAxiom,
     ComposablePair, ComposableTriple, FeedbackJoining, FeedbackVanishing,
     HomogeneousMemory, HorizontalPair, LeftCurrying, Natural, NonEmpty,
-    Relabelling, RightCurrying, Subsingleton, TraceDinaturalityLeft,
+    Relabelling, RightCurrying, Square, Subsingleton, TraceDinaturalityLeft,
     TraceDinaturalityRight, TraceNaturalityLeft, TraceNaturalityRight,
-    TraceSuperposing, axiom, resolve)
+    TraceSuperposing, axiom, classaxiom, resolve)
 from discopy.utils import AxiomError
 
 
 def test_Natural():
     assert Natural(2) @ Natural(3) == 5 == len(Natural(5))
     assert Natural(1).__matmul__("x") is NotImplemented
-    assert repr(Natural(2)) == "testing.Natural(2)"
-    assert eval(repr(Natural(2))) == testing.Natural(2)
-    assert Natural.equation_factory(Natural(1), Natural(1))
     with raises(ValueError):
         Natural(-1)
+    assert repr(Natural(2)) == "axiom.Natural(2)"
+    assert eval(repr(Natural(2)), Natural.environment()) == Natural(2)
+    assert Natural.equation_factory(Natural(1), Natural(1))
     find(Natural.strategy(), lambda value: value == 0)
     find(Natural.strategy(), lambda value: value > 1)
 
@@ -230,12 +230,12 @@ def test_Relabelling():
 
 
 def test_Axiom():
-    @axiom
+    @classaxiom
     def law(cls, f):
         """ Not an equation. """
         return cls.equation_factory(f)
 
-    assert repr(law) == "Axiom(law)"
+    assert repr(law) == "ClassAxiom(law)"
     assert eval(repr(cat.Arrow.unitality)) == cat.Arrow.unitality
     assert hash(cat.Arrow.unitality) == hash(eval(repr(cat.Arrow.unitality)))
     assert cat.Arrow.unitality != cat.Functor.unitality
@@ -249,8 +249,11 @@ def test_Axiom():
     with raises(TypeError):
         law.strategy()
     assert law.bind(cat.Arrow)(cat.Id(cat.Ob('x')))
-    assert Axiom(classmethod(lambda cls: NotImplemented)).bind(cat.Arrow)()\
-        is NotImplemented
+    for class_law in (axiom(classmethod(lambda cls: NotImplemented)),
+                      classaxiom(lambda cls: NotImplemented)):
+        assert isinstance(class_law, ClassAxiom)
+        assert class_law.bind(cat.Arrow)() is NotImplemented
+    assert cat.Arrow.unitality(cat.Box('f', cat.Ob('x'), cat.Ob('y')))
     broken = cat.Arrow.unitality.weaken(f=Atomic[C1]).failing("Never holds.")
     assert broken.subspaces == {"f": Atomic[C1]}
     with raises(AxiomFailure) as failure:
@@ -278,7 +281,7 @@ def test_element_law():
         return cat.Equation(self(cat.Arrow.id(x)), cat.Arrow.id(self(x)))
 
     law = preserves_identity.bind(cat.Functor)
-    assert law.is_method
+    assert not isinstance(law, ClassAxiom)
     args = find(law.strategy(), lambda _: True)
     assert law(*args)
 

@@ -68,7 +68,7 @@ from discopy.abc import HypergraphCategory
 from discopy.cat import factory
 from discopy.utils import (
     assert_isatomic, deprecated_ob, factory_name, from_tree)
-from discopy.testing import Atomic, C0, axiom
+from discopy.axiom import Atomic, C0, axiom
 
 
 class Wire(pivotal.Wire):

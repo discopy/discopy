@@ -384,9 +384,9 @@ def test_coloured_Layer_boxes_and_types():
 def test_strategy():
     from hypothesis import find
 
-    from discopy import testing
+    from discopy import axiom
 
-    testing.assert_strategy_finds(Diagram, Swap)
+    axiom.assert_strategy_finds(Diagram, Swap)
     cod = Ty(*"xyz")
     layer = find(Layer.strategy(factory=Diagram, cod=cod),
                  lambda value: value.is_plumbing)
@@ -396,6 +396,6 @@ def test_strategy():
 
 
 def test_axioms():
-    from discopy import testing
+    from discopy import axiom
 
-    testing.assert_axioms(Diagram, Functor)
+    axiom.assert_axioms(Diagram, Functor)

@@ -12,8 +12,12 @@ the characteristic generator of its categorical structure as an
 Software dependencies between modules go top-to-bottom, left-to-right and
 forgetful functors between categories go the other way.
 
-Each class also declares its :func:`discopy.testing.axiom` equations, which
-every free category inherits along with the structure they axiomatise.
+Each class also declares its :func:`discopy.axiom.classaxiom` equations,
+which every free category inherits along with the structure they
+axiomatise: :class:`Category` states the unitality and associativity of
+composition, the typing of its identities and composites, and the
+involution and contravariance of its dagger; :class:`ColouredMonoid`
+states the unitality and associativity of its product.
 
 Summary
 -------
@@ -36,22 +40,22 @@ Summary
     PivotalCategory
     RibbonCategory
     NamedGeneric
-    Equation
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from functools import partial
 from typing import ClassVar
 
-from discopy.testing import (
-    Atomic, Axiom, ComposablePair, ComposableTriple, FeedbackJoining,
-    FeedbackVanishing, HorizontalPair, LeftCurrying, NonEmpty,
-    RightCurrying, Square, TraceDinaturalityLeft, TraceDinaturalityRight,
-    TraceNaturalityLeft, TraceNaturalityRight, TraceSuperposing, axiom)
-from discopy.utils import NamedGeneric, classproperty, factory_name
+from discopy.axiom import (
+    Atomic, Axiom, ComposablePair, ComposableTriple, Equation,
+    FeedbackJoining, FeedbackVanishing, HorizontalPair, LeftCurrying,
+    NonEmpty, RightCurrying, Square, TraceDinaturalityLeft,
+    TraceDinaturalityRight, TraceNaturalityLeft, TraceNaturalityRight,
+    TraceSuperposing, classaxiom)
+from discopy.utils import NamedGeneric, classproperty  # noqa: F401
 
 
 class Category[C0, C1: Category](ABC):
@@ -88,7 +92,7 @@ class Category[C0, C1: Category](ABC):
         A class that quotients its equations overrides this, e.g. by
         hypergraph isomorphism from symmetric categories on, so an axiom
         built with it is checked up to whatever quotient the carrier
-        defines — and :meth:`discopy.testing.Axiom.modulo` weakens it
+        defines — and :meth:`discopy.axiom.Axiom.modulo` weakens it
         further.
         """
         return Equation(*terms)
@@ -148,14 +152,14 @@ class Category[C0, C1: Category](ABC):
         """
         return (self.dom, self.cod) == (other.dom, other.cod)
 
-    @axiom
+    @classaxiom
     def unitality(
             cls, f: C1) -> Equation[C1]:
         """ Left and right unitality of composition. """
         return cls.equation_factory(
             cls.id(f.dom).then(f), f, f.then(cls.id(f.cod)))
 
-    @axiom
+    @classaxiom
     def associativity(
             cls, triple: ComposableTriple[C1]) -> Equation[C1]:
         """ Associativity of composition. """
@@ -163,34 +167,34 @@ class Category[C0, C1: Category](ABC):
         return cls.equation_factory(
             f.then(g).then(h), f.then(g.then(h)))
 
-    @axiom
+    @classaxiom
     def identity_typing(
             cls, x: C0) -> Equation[C0]:
         """ Typing of identity morphisms. """
         identity = cls.id(x)
         return cls.ob.equation_factory(identity.dom, x, identity.cod)
 
-    @axiom
+    @classaxiom
     def composition_dom_typing(
             cls, pair: ComposablePair[C1]) -> Equation[C0]:
         """ Domain typing of composition. """
         f, g = pair
         return cls.ob.equation_factory(f.then(g).dom, f.dom)
 
-    @axiom
+    @classaxiom
     def composition_cod_typing(
             cls, pair: ComposablePair[C1]) -> Equation[C0]:
         """ Codomain typing of composition. """
         f, g = pair
         return cls.ob.equation_factory(f.then(g).cod, g.cod)
 
-    @axiom
+    @classaxiom
     def dagger_involution(
             cls, f: C1) -> Equation[C1]:
         """ The dagger is involutive. """
         return cls.equation_factory(f.dagger().dagger(), f)
 
-    @axiom
+    @classaxiom
     def dagger_contravariance(
             cls, pair: ComposablePair[C1]) -> Equation[C1]:
         """ The dagger reverses composition. """
@@ -232,13 +236,13 @@ class ColouredMonoid[C0, C1: ColouredMonoid](Category[C0, C1]):
     def tensor(self, *objects: C1) -> C1:
         """ The n-ary product of a monoid for ``n > 0``. """
 
-    @axiom
+    @classaxiom
     def monoid_unitality(
             cls, x: C1) -> Equation[C1]:
         """ Unitality of a monoid. """
         return cls.equation_factory(cls.unit() @ x, x, x @ cls.unit())
 
-    @axiom
+    @classaxiom
     def monoid_associativity(
             cls, triple: ComposableTriple[C1]) -> Equation[C1]:
         """ Associativity of a monoid. """
@@ -305,7 +309,7 @@ class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](
     def __rmatmul__(self, other):
         return self.whisker(other).tensor(self)
 
-    @axiom
+    @classaxiom
     def bifunctoriality(
             cls, square: Square[C1]) -> Equation[C1]:
         """ Bifunctoriality of the tensor. """
@@ -313,7 +317,7 @@ class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](
         return cls.equation_factory(
             f @ g >> h @ k, (f >> h) @ (g >> k))
 
-    @axiom
+    @classaxiom
     def tensor_unitality(
             cls, pair: HorizontalPair[C1]) -> Equation[C1]:
         """ Preservation of identities by tensor. """
@@ -321,21 +325,21 @@ class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](
         return cls.equation_factory(
             cls.id(x) @ cls.id(y), cls.id(x @ y))
 
-    @axiom
+    @classaxiom
     def tensor_dom_typing(
             cls, pair: HorizontalPair[C1]) -> Equation[C0]:
         """ Domain typing of tensor. """
         f, g = pair
         return cls.ob.equation_factory((f @ g).dom, f.dom @ g.dom)
 
-    @axiom
+    @classaxiom
     def tensor_cod_typing(
             cls, pair: HorizontalPair[C1]) -> Equation[C0]:
         """ Codomain typing of tensor. """
         f, g = pair
         return cls.ob.equation_factory((f @ g).cod, f.cod @ g.cod)
 
-    @axiom
+    @classaxiom
     def dagger_monoidality(
             cls, pair: HorizontalPair[C1]) -> Equation[C1]:
         """ The dagger distributes over the tensor. """
@@ -363,14 +367,14 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
             left : Whether to trace the wires on the left or right.
         """
 
-    @axiom
+    @classaxiom
     def trace_vanishing(
             cls, f: C1) -> Equation[C1]:
         """ Vanishing of a trace over the unit. """
         return cls.equation_factory(
             f.trace(0), f, f.trace(0, left=True))
 
-    @axiom
+    @classaxiom
     def trace_superposing_left(
             cls, pair: TraceSuperposing[C1]) -> Equation[C1]:
         """ Left-oriented superposing. """
@@ -378,7 +382,7 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
         return cls.equation_factory(
             (f @ obj).trace(left=True), f.trace(left=True) @ obj)
 
-    @axiom
+    @classaxiom
     def trace_superposing_right(
             cls, pair: TraceSuperposing[C1]) -> Equation[C1]:
         """ Right-oriented superposing. """
@@ -386,7 +390,7 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
         return cls.equation_factory(
             (obj @ f).trace(), obj @ f.trace())
 
-    @axiom
+    @classaxiom
     def trace_naturality_left(
             cls, sliding: TraceNaturalityLeft[C1]) -> Equation[C1]:
         """ Left-oriented trace naturality. """
@@ -395,7 +399,7 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
             (x @ g).then(f).then(x @ g).trace(len(x), left=True),
             g.then(f.trace(len(x), left=True)).then(g))
 
-    @axiom
+    @classaxiom
     def trace_naturality_right(
             cls, sliding: TraceNaturalityRight[C1]) -> Equation[C1]:
         """ Right-oriented trace naturality. """
@@ -404,7 +408,7 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
             (g @ x).then(f).then(g @ x).trace(len(x)),
             g.then(f.trace(len(x))).then(g))
 
-    @axiom
+    @classaxiom
     def trace_dinaturality_left(
             cls, sliding: TraceDinaturalityLeft[C1]) -> Equation[C1]:
         """ Left-oriented trace dinaturality. """
@@ -415,7 +419,7 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
             f.then(g @ cobase).trace(len(source), left=True),
             (g @ base).then(f).trace(len(target), left=True))
 
-    @axiom
+    @classaxiom
     def trace_dinaturality_right(
             cls, sliding: TraceDinaturalityRight[C1]) -> Equation[C1]:
         """ Right-oriented trace dinaturality. """
@@ -479,7 +483,7 @@ class BiclosedCategory[
             left : Whether to curry on the left or right.
         """
 
-    @axiom
+    @classaxiom
     def currying_left(
             cls, arguments: LeftCurrying[C1]) -> Equation[C1]:
         """ Left currying followed by evaluation. """
@@ -487,7 +491,7 @@ class BiclosedCategory[
         return cls.equation_factory(
             cls.uncurry_composition(f, base, exponent, left=True), f)
 
-    @axiom
+    @classaxiom
     def currying_right(
             cls, arguments: RightCurrying[C1]) -> Equation[C1]:
         """ Right currying followed by evaluation. """
@@ -564,7 +568,7 @@ class Pregroup[C0, C1: Pregroup](ResiduatedMonoid[C0, C1]):
     def under(self, other: C1) -> C1:
         return other.r @ self
 
-    @axiom
+    @classaxiom
     def adjunction(
             cls, x: C1) -> Equation[C1]:
         """ The left and right adjoints are mutually inverse. """
@@ -598,7 +602,7 @@ class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
             right : Its adjoint, i.e. the right-hand side of the caps.
         """
 
-    @axiom
+    @classaxiom
     def snake_equations(
             cls, x: C0) -> Equation[C1]:
         """ The two snake equations. """
@@ -608,7 +612,7 @@ class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
             cls.id(x) @ cls.cups(x.l, x))
         return cls.equation_factory(snake_r, cls.id(x), snake_l)
 
-    @axiom
+    @classaxiom
     def caps_coherence(
             cls, x: NonEmpty[C0],
             y: NonEmpty[C0]) -> Equation[C1]:
@@ -618,7 +622,7 @@ class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
             cls.caps(x @ y, (x @ y).l),
             cls.caps(x, x.l).then(x @ cls.caps(y, y.l) @ x.l))
 
-    @axiom
+    @classaxiom
     def rotate_contravariance(
             cls, pair: ComposablePair[C1]) -> Equation[C1]:
         """ Rotation reverses composition. """
@@ -705,13 +709,13 @@ class PivotalCategory[C0, C1](RigidCategory[C0, C1], TracedCategory[C0, C1]):
     A pivotal category is a :class:`RigidCategory` where the left and right
     adjoints coincide, hence it is also a :class:`TracedCategory`.
     """
-    @axiom
+    @classaxiom
     def self_dual(
             cls, x: C0) -> Equation[C0]:
         """ Equality of left and right adjoints. """
         return cls.ob.equation_factory(x.r, x.l)
 
-    @axiom
+    @classaxiom
     def pivotality(
             cls, f: C1) -> Equation[C1]:
         """ Equality of left and right transposes. """
@@ -739,7 +743,7 @@ class BraidedCategory[C0, C1](MonoidalCategory[C0, C1]):
             right : The object on the right of the braid.
         """
 
-    @axiom
+    @classaxiom
     def hexagon_left(
             cls, x: Atomic[C0],
             y: Atomic[C0],
@@ -750,7 +754,7 @@ class BraidedCategory[C0, C1](MonoidalCategory[C0, C1]):
             cls.braid(x, y @ z),
             (cls.braid(x, y) @ z).then(y @ cls.braid(x, z)))
 
-    @axiom
+    @classaxiom
     def hexagon_right(
             cls, x: Atomic[C0],
             y: Atomic[C0],
@@ -761,7 +765,7 @@ class BraidedCategory[C0, C1](MonoidalCategory[C0, C1]):
             cls.braid(x @ y, z),
             (x @ cls.braid(y, z)).then(cls.braid(x, z) @ y))
 
-    @axiom
+    @classaxiom
     def braid_naturality(
             cls, f: C1, g: C1) -> Equation[C1]:
         """ Naturality of the braid. """
@@ -807,7 +811,7 @@ class SymmetricCategory[C0, C1](BraidedCategory[C0, C1]):
     def braid(cls, left: C0, right: C0) -> C1:
         return cls.swap(left, right)
 
-    @axiom
+    @classaxiom
     def swap_inverse(
             cls, x: C0, y: C0) -> Equation[C1]:
         """ Involutivity of the swap. """
@@ -831,7 +835,7 @@ class MarkovCategory[C0, C1](SymmetricCategory[C0, C1]):
             n : The number of copies.
         """
 
-    @axiom
+    @classaxiom
     def copy_counitality(
             cls, x: C0) -> Equation[C1]:
         """ Counitality of copying. """
@@ -840,7 +844,7 @@ class MarkovCategory[C0, C1](SymmetricCategory[C0, C1]):
             copy.then(discard @ x), cls.id(x),
             copy.then(x @ discard))
 
-    @axiom
+    @classaxiom
     def copy_coassociativity(
             cls, x: C0) -> Equation[C1]:
         """ Coassociativity of copying. """
@@ -848,14 +852,14 @@ class MarkovCategory[C0, C1](SymmetricCategory[C0, C1]):
         return cls.equation_factory(
             copy.then(copy @ x), copy.then(x @ copy))
 
-    @axiom
+    @classaxiom
     def copy_cocommutativity(
             cls, x: C0) -> Equation[C1]:
         """ Cocommutativity of copying. """
         copy = cls.copy(x)
         return cls.equation_factory(copy.then(cls.swap(x, x)), copy)
 
-    @axiom
+    @classaxiom
     def discard_coherence(
             cls, x: C0) -> Equation[C1]:
         """ Monoidal coherence of discarding. """
@@ -863,7 +867,7 @@ class MarkovCategory[C0, C1](SymmetricCategory[C0, C1]):
             cls.copy(x @ x, n=0),
             cls.copy(x, n=0) @ cls.copy(x, n=0))
 
-    @axiom
+    @classaxiom
     def copy_monoidal_coherence(
             cls, x: C0) -> Equation[C1]:
         """ Monoidal coherence of copying. """
@@ -906,7 +910,7 @@ class FeedbackCategory[C0, C1](MarkovCategory[C0, C1]):
             mem : The memory type to trace over.
         """
 
-    @axiom
+    @classaxiom
     def feedback_vanishing(
             cls, arguments: FeedbackVanishing[C1]) -> Equation[C1]:
         """ Vanishing of feedback over the unit. """
@@ -922,7 +926,7 @@ class FeedbackCategory[C0, C1](MarkovCategory[C0, C1]):
     dagger_monoidality = MonoidalCategory.dagger_monoidality.inapplicable(
         "The delay of a feedback category is not reversible.")
 
-    @axiom
+    @classaxiom
     def feedback_joining(
             cls, arguments: FeedbackJoining[C1]) -> Equation[C1]:
         """ Joining nested feedback loops. """
@@ -948,7 +952,7 @@ class BalancedCategory[C0, C1](
             dom : The object on which to take the twist.
         """
 
-    @axiom
+    @classaxiom
     def balanced_twist(
             cls, x: Atomic[C0],
             y: Atomic[C0]) -> Equation[C1]:
@@ -967,7 +971,7 @@ class RibbonCategory[C0, C1](
     A ribbon category is a :class:`PivotalCategory` which is also a
     :class:`BalancedCategory`, i.e. where diagrams can draw knots and links.
     """
-    @axiom
+    @classaxiom
     def twist_as_trace(
             cls, x: Atomic[C0]) -> Equation[C1]:
         """ The twist as both orientations of a traced braid. """
@@ -988,7 +992,7 @@ class CompactCategory[C0, C1](
     def twist(cls, dom: C0) -> C1:
         return cls.id(dom)
 
-    @axiom
+    @classaxiom
     def reidemeister_1_cap(
             cls, x: C0) -> Equation[C1]:
         """ Reidemeister move 1 for caps. """
@@ -996,7 +1000,7 @@ class CompactCategory[C0, C1](
             cls.caps(x, x.r).then(cls.swap(x, x.r)),
             cls.caps(x.r, x))
 
-    @axiom
+    @classaxiom
     def reidemeister_1_cup(
             cls, x: C0) -> Equation[C1]:
         """ Reidemeister move 1 for cups. """
@@ -1024,68 +1028,3 @@ class HypergraphCategory[C0, C1](
             n_legs_out : The number of legs out for each spider.
             typ : The type of the spiders.
         """
-
-
-class Equation(NamedGeneric["ar"]):
-    """
-    An equation is a list of ``terms`` to be compared up to a function
-    ``up_to``, the identity by default.  Casting it to ``bool`` checks
-    whether its terms are all equal up to that function.
-
-    Parameters:
-        terms : The terms of the equation.
-        symbol : The symbol between each pair of terms, ``"="`` by default.
-        symbols : The symbols between each pair of terms, overriding
-            ``symbol``; ``len(terms) * (symbol, )`` by default.
-        up_to : The function up to which ``bool(equation)`` compares its
-            terms, overriding the subclass' :attr:`up_to` if given.
-
-    Example
-    -------
-    The number of boxes inside an arrow is left unchanged by associativity,
-    so we can compare arrows up to the function that counts them modulo 2:
-
-    >>> from discopy.cat import Ob, Box, Equation
-    >>> x = Ob('x')
-    >>> f, g = Box('f', x, x), Box('g', x, x)
-    >>> parity = lambda term: len(term.inside) % 2
-    >>> assert not Equation(f, f >> g >> g)
-    >>> assert Equation(f, f >> g >> g, up_to=parity)
-    """
-    up_to = None
-
-    def __init__(self, *terms, symbol="=", symbols=None, up_to=None):
-        self.terms = terms
-        self.symbols = tuple(symbols) if symbols is not None\
-            else len(terms) * (symbol, )
-        if up_to is not None:
-            self.up_to = up_to
-
-    def modulo(self, up_to: Callable) -> Equation:
-        """
-        The same equation compared up to the given function, rebinding
-        :attr:`up_to`, whose name the attribute already takes.
-
-        >>> from discopy.cat import Ob, Box, Equation
-        >>> x = Ob('x')
-        >>> f, g = Box('f', x, x), Box('g', x, x)
-        >>> assert Equation(f >> g, g >> f).modulo(lambda _: True)
-        """
-        return type(self)(*self.terms, symbols=self.symbols, up_to=up_to)
-
-    def __repr__(self):
-        """
-        >>> from discopy.cat import Ob, Box, Equation
-        >>> Equation(Box('f', Ob('x'), Ob('x')))
-        cat.Equation(cat.Box('f', cat.Ob('x'), cat.Ob('x')))
-        """
-        return factory_name(type(self))\
-            + f"({', '.join(map(repr, self.terms))})"
-
-    def __str__(self):
-        return f"Equation({', '.join(map(str, self.terms))})"
-
-    def __bool__(self):
-        terms = self.terms if self.up_to is None\
-            else list(map(self.up_to, self.terms))
-        return all(term == terms[0] for term in terms)

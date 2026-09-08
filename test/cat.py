@@ -3,19 +3,19 @@
 import pytest
 from pytest import raises
 
-from discopy import abc, testing
+from discopy import abc, axiom
 from discopy.cat import *
 from discopy.utils import AxiomError
 
 
 def test_axiom_mro_discovery_order_and_shadowing():
     class Parent(Arrow):
-        @testing.axiom
+        @axiom.axiom
         def parent_law(cls):
             return cls.equation_factory(0, 0)
 
     class Child(Parent):
-        @testing.axiom
+        @axiom.axiom
         def child_law(cls):
             return cls.equation_factory(0, 0)
 
@@ -410,7 +410,7 @@ def test_strategy():
 
 
 def test_axioms():
-    testing.assert_axioms(Arrow, Functor)
+    axiom.assert_axioms(Arrow, Functor)
 
 
 def test_cat_valued_functor():

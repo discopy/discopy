@@ -19,9 +19,9 @@ def test_simplify():
 def test_strategy():
     from hypothesis import find
 
-    from discopy import testing
+    from discopy import axiom
 
-    testing.assert_strategy_finds(Diagram, Braid)
+    axiom.assert_strategy_finds(Diagram, Braid)
     for is_dagger in (False, True):
         box = find(Box.strategy(), lambda value: isinstance(value, Braid)
                    and value.is_dagger == is_dagger)
@@ -29,6 +29,6 @@ def test_strategy():
 
 
 def test_axioms():
-    from discopy import testing
+    from discopy import axiom
 
-    testing.assert_axioms(Diagram, Functor)
+    axiom.assert_axioms(Diagram, Functor)

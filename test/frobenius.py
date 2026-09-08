@@ -66,12 +66,12 @@ def test_spider_decomposition():
 
 
 def test_strategy():
-    from discopy import testing
+    from discopy import axiom
 
-    testing.assert_strategy_finds(Diagram, Spider)
+    axiom.assert_strategy_finds(Diagram, Spider)
 
 
 def test_axioms():
-    from discopy import testing
+    from discopy import axiom
 
-    testing.assert_axioms(Ty, Diagram, Functor)
+    axiom.assert_axioms(Ty, Diagram, Functor)

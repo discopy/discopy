@@ -213,12 +213,12 @@ def test_draw_copy_and_swap():
 
 
 def test_strategy():
-    from discopy import testing
+    from discopy import axiom
 
-    testing.assert_strategy_finds(Diagram, Eval, Copy)
+    axiom.assert_strategy_finds(Diagram, Eval, Copy)
 
 
 def test_axioms():
-    from discopy import testing
+    from discopy import axiom
 
-    testing.assert_axioms(Ty, Diagram, Functor)
+    axiom.assert_axioms(Ty, Diagram, Functor)

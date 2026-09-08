@@ -164,7 +164,7 @@ from discopy.utils import (
     deprecated_ob,
     factory_name,
 )
-from discopy.testing import Atomic, C0, GENERATORS, axiom
+from discopy.axiom import Atomic, C0, GENERATORS, axiom
 
 
 class Wire(monoidal.Wire):

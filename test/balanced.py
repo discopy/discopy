@@ -88,9 +88,9 @@ def test_to_braided_default_and_zero_width():
 
 
 def test_strategy():
-    from discopy import testing
+    from discopy import axiom
 
-    testing.assert_strategy_finds(Diagram, Twist)
+    axiom.assert_strategy_finds(Diagram, Twist)
     base = Box.free_strategy()
     assert Box.extend_strategy(
         base, Diagram.twist_factory,
@@ -99,6 +99,6 @@ def test_strategy():
 
 
 def test_axioms():
-    from discopy import testing
+    from discopy import axiom
 
-    testing.assert_axioms(Diagram, Functor)
+    axiom.assert_axioms(Diagram, Functor)
