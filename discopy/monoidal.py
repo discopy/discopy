@@ -1649,10 +1649,7 @@ class Functor(cat.Functor):
             if not other.n:
                 return self.cod.ob()
             images = [self._map_atomic(x) for x in other]
-            result = images[0]
-            for image in images[1:]:
-                result = result + image
-            return result
+            return sum(images[1:], images[0])
         if isinstance(other, Ty):
             if not other.inside:
                 # Empty coloured identity: keep its (mapped) boundary colour.
