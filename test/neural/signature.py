@@ -98,12 +98,12 @@ def test_both_builders_draw_frobenius_maps():
         unit.box("unit", category=frobenius)
 
 
-def test_the_relation_must_be_symmetric():
+def test_the_relation_must_be_symmetric_and_irreflexive():
     node = Signature((Orbit(PEER, 1), Orbit(STATE, traced=True)))
     with raises(ValueError, match="not symmetric"):
         from_relation(((1, ), (0, ), (0, )), node)
-    with raises(ValueError, match="left unwired"):
-        from_relation(((0, ), ), node)
+    with raises(ValueError, match="related to itself"):
+        from_relation(((0, 1), (0, )), node)
 
 
 def test_incidence_names_and_signatures():
@@ -127,11 +127,23 @@ def test_incidence_names_and_signatures():
 
 
 def test_resize_keeps_a_composite_leg_single():
+    """
+    A composite leg is addressed by its whole role or by any of its atoms,
+    and stays single either way; a role no orbit carries is an error, not
+    a no-op, so a builder resizing the wrong orbit hears about it.
+    """
     clique = peer_cell(2)
     assert clique.resize(PEER, 5).orbits[0].arity == 5
+    assert clique.resize(HIDDEN, 1) == clique.resize(HIDDEN @ MEMORY, 1)
     assert clique.resize(HIDDEN, 1) == clique
+    for role in (HIDDEN, HIDDEN @ MEMORY):
+        with raises(ValueError, match="several roles"):
+            clique.resize(role, 2)
+    with raises(ValueError, match="no orbit carries"):
+        clique.resize(MESSAGE, 2)
+    composite_first = Signature((Orbit(HIDDEN @ MEMORY), Orbit(PEER, 1)))
     with raises(ValueError, match="several roles"):
-        clique.resize(HIDDEN, 2)
+        from_relation(((1, ), (0, 2), (1, )), composite_first)
     with raises(ValueError):
         Orbit(PEER, -1)
 
