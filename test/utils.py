@@ -9,7 +9,7 @@ from pytest import warns
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
-from discopy import rigid
+from discopy import rigid, utils
 from discopy.cat import Ob
 from discopy.utils import *
 from discopy.tensor import Box
@@ -103,3 +103,27 @@ def test_wire_tree_roundtrip():
     with warns(DeprecationWarning):
         assert from_tree({'factory': 'discopy.frobenius.Ob', 'name': 'x'})\
             == frobenius.Wire('x')
+
+
+def test_UnionFind():
+    union_find = UnionFind()
+    a, b, c = [union_find.fresh() for _ in range(3)]
+    union_find.union(b, c)
+    union_find.union(c, b)
+    assert union_find.find(c) == union_find.find(b) == b
+    assert union_find.find(a) == a and len(union_find) == 3
+    assert union_find == eval(repr(union_find)) != UnionFind()
+
+
+def test_UnionFind_order_independence():
+    left, right = UnionFind(4 * [0]), UnionFind(range(4))
+    right.union(0, 1), right.union(2, 3), right.union(0, 2)
+    assert left == right != UnionFind()
+
+
+def test_UnionFind_path_compression():
+    union_find = UnionFind(range(4))
+    union_find.union(0, 1)
+    union_find.union(2, 3)
+    union_find.union(1, 3)
+    assert union_find.find(3) == 0 and union_find.parent[3] == 0

@@ -34,3 +34,5 @@ NOT_RIGID = "{} has no cups or caps for the wiring of this map."
 NOT_TRACED = "{} has no traces for the cycles of this map."
 NOT_SYMMETRIC = "{} has no swaps to downgrade this map."
 NOT_ACYCLIC = "{} has a directed cycle, its boxes cannot be ordered."
+CLOSES_A_LOOP = "Composing {} with {} would close a loop, the second"\
+                " depends on the first: use merge to assert it instead."
