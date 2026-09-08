@@ -10,7 +10,10 @@ laid out as one flat vector by :attr:`CMap.routing`.
 :mod:`~discopy.neural.backend`: :meth:`CMap.forward` is the execution
 formula of the geometry of interaction, all the messages in one flat array,
 one batched call per group of boxes sharing a module, one permutation per
-round. Interpreting a diagram of another category is the business of
+round. :mod:`~discopy.neural.signature` says what a generator of the source
+category promises: its ports grouped into orbits, the symmetry each orbit
+carries, and the wiring builders that draw a diagram out of a family's
+combinatorics. Interpreting such a diagram is the business of
 :mod:`discopy.neural.map` and training that of
 :class:`~discopy.neural.model.MapNN`; both land on top of these.
 
@@ -21,6 +24,7 @@ round. Interpreting a diagram of another category is the business of
     discopy.neural.core
     discopy.neural.execution
     discopy.neural.backend
+    discopy.neural.signature
 
 The framework-dependent backends :mod:`~discopy.neural.torch` and
 :mod:`~discopy.neural.jax` are left out of the summary so that the
@@ -57,10 +61,18 @@ from discopy.neural.core import (
     Swap,
 )
 from discopy.neural.execution import Execution
-from discopy.neural import core, execution
+from discopy.neural import core, execution, signature
+from discopy.neural.signature import (
+    Orbit,
+    Signature,
+    Sym,
+    from_incidence,
+    from_relation,
+)
 
 __all__ = [
     "BACKENDS", "Backend", "CMap", "Cap", "Cup", "Diagram", "Dim", "Equation",
-    "Execution", "Functor", "Hypergraph", "Id", "Network", "Para",
-    "Permutation", "Swap", "core", "execution", "get_backend",
+    "Execution", "Functor", "Hypergraph", "Id", "Network", "Orbit", "Para",
+    "Permutation", "Signature", "Swap", "Sym", "core", "execution",
+    "from_incidence", "from_relation", "get_backend", "signature",
 ]
