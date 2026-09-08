@@ -53,7 +53,7 @@ from discopy.frobenius import Dim, Cup
 from discopy.matrix import (  # noqa: F401
     Matrix, backend, set_backend, get_backend,
     NumPy, JAX, PyTorch, TensorFlow)
-from discopy.abc import NamedGeneric, PROP
+from discopy.abc import NamedGeneric
 from discopy.python import finset
 from discopy.utils import (
     factory_name, assert_isinstance, product, assert_isatomic)
@@ -491,7 +491,7 @@ class Functor(frobenius.Functor):
 
 
 @factory
-class Diagram(NamedGeneric['dtype'], frobenius.Diagram, PROP):
+class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
     """
     A tensor diagram is a frobenius diagram with tensor boxes.
 

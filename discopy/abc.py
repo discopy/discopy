@@ -196,9 +196,14 @@ class Nat(Monoid["Nat"]):
     n: int = 0
 
     def tensor(self, *others: Nat) -> Nat:
+        if any(not isinstance(other, Nat) for other in others):
+            return NotImplemented  # This allows whiskering on the left.
         return type(self)(self.n + sum(other.n for other in others))
 
     def __len__(self) -> int:
+        return self.n
+
+    def __index__(self) -> int:
         return self.n
 
     def __getitem__(self, key: int | slice) -> Nat:

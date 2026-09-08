@@ -15,16 +15,18 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   are `Nat` — `PROB(PRO, BraidedCategory[Nat, C1])` and
   `PROP(PROB, SymmetricCategory[Nat, C1])`, mirroring how
   `abc.SymmetricCategory` already extends `abc.BraidedCategory` directly.
-  `tensor.Diagram` and `python.finset.Permutation` now inherit from `PROP`,
-  its first two concrete users: both already implemented the full
-  `SymmetricCategory` interface, so the MRO change adds no new abstract
-  methods. Neither is a strict `PROP` in the classical sense — a `PROP`'s
-  objects are exactly `Nat`, but `tensor.Diagram`'s are `Dim` (an object
-  per wire can have any dimension, not just a fixed one, the same reason
-  `quantum.circuit.Circuit` with qudits doesn't fit) and
-  `finset.Permutation`'s are plain `int`, not boxed `Nat`; Python does not
-  check the type parameter at runtime, so the classes still typecheck as
-  `PROP` under covariant subtyping
+  `abc.Nat` also gets `__index__` (so `range(n)`/`int(n)` work whether `n`
+  is a plain `int` or a `Nat`) and its `tensor` now returns `NotImplemented`
+  for a non-`Nat` argument, like `monoidal.FreeMonoid.tensor` already does
+  — needed to let `@` fall back to the other operand's `__rmatmul__` for
+  whiskering, e.g. `Nat(1) @ some_morphism`, which previously crashed with
+  `AttributeError` instead of building the identity on `Nat(1)` first.
+  `python.finset.Function`/`Permutation.ob` changes from a raw `int` to
+  `Nat`, its `dom`/`cod` now genuinely `Nat` instances (auto-cast from `int`
+  at construction, the same convenience `monoidal.Diagram` already gives
+  any `ob = Nat` subclass) rather than merely claiming to be one without
+  the objects to match; `Permutation` inherits `abc.PROP` on the strength
+  of that, its first genuine user
   ([#709](https://github.com/discopy/discopy/issues/709)).
 - A `workflows` job in `build.yml`, so that the code running our pull
   requests is checked like the code it checks: `actionlint` over the
