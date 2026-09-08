@@ -2,7 +2,8 @@
 
 from pytest import importorskip
 
-from discopy.neural import CMap, Diagram, Dim, Id, Network, get_backend
+from discopy.neural import (
+    CMap, Diagram, Dim, Execution, Id, Network, get_backend)
 from discopy.neural.backend import backend
 from discopy.neural.rdiff import discard
 from discopy.python.finset import Permutation
@@ -82,6 +83,29 @@ def test_jax_backend_eager_and_closed():
         zero = discard(Dim(2)).module
     assert jnp.array_equal(
         jax.jit(zero)(value), jnp.zeros_like(value))
+
+
+def test_a_state_runs_on_the_backend_that_owns_it():
+    """
+    An array is run by the backend that owns it when none is named, as
+    ``zeros``, ``read`` and ``write`` select theirs, whatever the current
+    backend: a JAX array under the torch default, a torch tensor under JAX.
+    """
+    torch = importorskip("torch")
+    cmap = Network("cell", Dim(1), Dim(1), module=module()).to_map()
+    value = jnp.array([[3.]])
+    assert isinstance(cmap(value), jax.Array)
+    assert jnp.array_equal(cmap(value), cmap(value, backend="jax"))
+    assert Execution(cmap, init=(value, )).backend is get_backend("jax")
+
+    linear = torch.nn.Linear(2, 2, bias=False)
+    torch_cmap = Network("cell", Dim(1), Dim(1), module=linear).to_map()
+    tensor = torch.tensor([[3.]])
+    with backend("jax"):
+        assert Execution(torch_cmap, memory=tensor).backend \
+            is get_backend("pytorch")
+        assert torch.equal(torch_cmap(tensor), torch_cmap(
+            tensor, backend="pytorch"))
 
 
 def test_jax_jit_gradient_update_and_sharing():
