@@ -110,6 +110,21 @@ class Wire(frobenius.Wire):
     def to_tree(self) -> dict:
         return dict(dim=self.dim, **super().to_tree())
 
+    @classmethod
+    def strategy(cls, **params):
+        """
+        Generate bits, qubits and small qudits.
+
+        The inherited parameters are ignored: a circuit wire is self-dual
+        with no winding, determined by its kind and dimension alone.
+        """
+        from hypothesis import strategies as st
+
+        return st.tuples(
+            st.sampled_from((Digit, Qudit)),
+            st.integers(min_value=2, max_value=3)).map(
+                lambda pair: pair[0](pair[1]))
+
 
 class Digit(Wire):
     """
@@ -174,6 +189,15 @@ class Ty(frobenius.Ty):
     generator_factory = Wire
 
 
+NO_CLONING = "No cloning: a circuit has no copy."
+
+NO_SPIDERS = "A circuit has no spiders."
+
+BELL_WIRING = (
+    "A circuit's cups, caps and traces are Bell preparations and "
+    "effects, equal to wiring only up to evaluation.")
+
+
 @factory
 class Circuit(tensor.Diagram[complex]):
     """
@@ -185,6 +209,63 @@ class Circuit(tensor.Diagram[complex]):
         cod (quantum.circuit.Ty) : The codomain of the circuit diagram.
     """
     ob = Ty
+
+    copy_counitality = tensor.Diagram.copy_counitality.inapplicable(
+        NO_CLONING)
+
+    copy_coassociativity = tensor.Diagram.copy_coassociativity.inapplicable(
+        NO_CLONING)
+
+    copy_cocommutativity = tensor.Diagram.copy_cocommutativity.inapplicable(
+        NO_CLONING)
+
+    copy_monoidal_coherence = (
+        tensor.Diagram.copy_monoidal_coherence.inapplicable(NO_CLONING))
+
+    discard_coherence = tensor.Diagram.discard_coherence.inapplicable(
+        NO_CLONING)
+
+    frobenius = tensor.Diagram.frobenius.inapplicable(NO_SPIDERS)
+
+    speciality = tensor.Diagram.speciality.inapplicable(NO_SPIDERS)
+
+    spider_fusion = tensor.Diagram.spider_fusion.inapplicable(NO_SPIDERS)
+
+    snake_equations = tensor.Diagram.snake_equations.inapplicable(BELL_WIRING)
+
+    pivotality = tensor.Diagram.pivotality.inapplicable(BELL_WIRING)
+
+    currying_left = tensor.Diagram.currying_left.inapplicable(BELL_WIRING)
+
+    currying_right = tensor.Diagram.currying_right.inapplicable(BELL_WIRING)
+
+    twist_as_trace = tensor.Diagram.twist_as_trace.inapplicable(BELL_WIRING)
+
+    reidemeister_1_cup = tensor.Diagram.reidemeister_1_cup.inapplicable(
+        BELL_WIRING)
+
+    reidemeister_1_cap = tensor.Diagram.reidemeister_1_cap.inapplicable(
+        BELL_WIRING)
+
+    trace_superposing_left = (
+        tensor.Diagram.trace_superposing_left.inapplicable(BELL_WIRING))
+
+    trace_superposing_right = (
+        tensor.Diagram.trace_superposing_right.inapplicable(BELL_WIRING))
+
+    trace_naturality_left = (
+        tensor.Diagram.trace_naturality_left.inapplicable(BELL_WIRING))
+
+    trace_naturality_right = (
+        tensor.Diagram.trace_naturality_right.inapplicable(BELL_WIRING))
+
+    trace_dinaturality_left = (
+        tensor.Diagram.trace_dinaturality_left.inapplicable(BELL_WIRING))
+
+    trace_dinaturality_right = (
+        tensor.Diagram.trace_dinaturality_right.inapplicable(BELL_WIRING))
+
+    caps_coherence = tensor.Diagram.caps_coherence.inapplicable(BELL_WIRING)
 
     @classmethod
     def id(cls, dom: int | Ty = None):
@@ -863,10 +944,23 @@ class Box(tensor.Box[complex], Circuit):
         tensor.Box[complex].__init__(self, name, dom, cod, data, **params)
 
     def __setstate__(self, state):
-        if "_is_mixed" not in state:
-            state["_is_mixed"] = state["_mixed"]
-            del state["_mixed"]
+        if "_is_mixed" not in state and "_mixed" in state:
+            state["_is_mixed"] = state.pop("_mixed")
         super().__setstate__(state)
+
+    @classmethod
+    def strategy(cls, **params):
+        """Add the standard gates to the inherited box distribution."""
+        from hypothesis import strategies as st
+
+        from discopy.quantum import gates
+
+        base = super().strategy(**params)
+        return cls.extend_strategy(
+            base, gates.QuantumGate, lambda _: st.sampled_from((
+                gates.H, gates.X, gates.Y, gates.Z, gates.S, gates.T,
+                gates.CX, gates.Rz(0.5), gates.Rx(0.25),
+                gates.Ket(0), gates.Bra(1), gates.scalar(0.5))), **params)
 
     @property
     def array(self):
@@ -956,6 +1050,7 @@ class Swap(Permutation, tensor.Swap, Box):
         return Tensor[complex].swap(Dim(left.dim), Dim(right.dim)).array
 
 
+@factory
 class Functor(frobenius.Functor):
     """ :class:`Circuit`-valued functor. """
     dom = cod = Circuit
@@ -983,6 +1078,7 @@ def bitstring2index(bitstring):
 
 Circuit.swap_factory, Circuit.sum_factory = Swap, Sum
 Circuit.permutation_factory = Permutation
+Circuit.functor_factory = Functor
 bit, qubit = Ty(Digit(2)), Ty(Qudit(2))
 Id = Circuit.id
 
