@@ -80,6 +80,7 @@ from __future__ import annotations
 from functools import total_ordering, cached_property
 from typing import (
     Callable, Mapping, Iterable, TYPE_CHECKING)
+from warnings import warn
 
 from discopy import messages, utils
 from discopy.abc import Category
@@ -90,6 +91,7 @@ from discopy.utils import (  # noqa: F401
     rsubs,
     unbiased,
     MappingOrCallable,
+    Serialisable,
     assert_isinstance,
     assert_iscomposable,
     assert_isparallel,
@@ -103,7 +105,7 @@ dumps, loads = utils.dumps, utils.loads
 
 
 @total_ordering
-class Ob:
+class Ob(Serialisable):
     """
     An object with a string as :code:`name`.
 
@@ -114,7 +116,10 @@ class Ob:
     -------
     >>> x, x_, y = Ob('x'), Ob('x'), Ob('y')
     >>> assert x == x_ and x != y
+    >>> assert x.to_tree() == {'factory': 'cat.Ob', 'name': 'x'}
     """
+    tree_keys = ('name', )
+
     def __setstate__(self, state):
         if "name" not in state and "_name" in state:
             state["name"] = state["_name"]
@@ -139,32 +144,6 @@ class Ob:
 
     def __lt__(self, other):
         return self.name < other.name
-
-    def to_tree(self) -> dict:
-        """
-        Serialise a DisCoPy object, see :func:`dumps`.
-
-        Example
-        -------
-        >>> Ob('x').to_tree()
-        {'factory': 'cat.Ob', 'name': 'x'}
-        """
-        return {'factory': factory_name(type(self)), 'name': self.name}
-
-    @classmethod
-    def from_tree(cls, tree: dict) -> Ob:
-        """
-        Decode a serialised DisCoPy object, see :func:`loads`.
-
-        Parameters:
-            tree : DisCoPy serialisation.
-
-        Example
-        -------
-        >>> x = Ob('x')
-        >>> assert Ob.from_tree(x.to_tree()) == x
-        """
-        return cls(tree['name'])
 
 
 class FreeCategory(Category):
@@ -252,7 +231,7 @@ class FreeCategory(Category):
 
 
 @factory
-class Arrow(FreeCategory):
+class Arrow(FreeCategory, Serialisable):
     """
     An arrow is a tuple of composable boxes :code:`inside` with a pair of
     objects :code:`dom` and :code:`cod` as domain and codomain.
@@ -299,6 +278,7 @@ class Arrow(FreeCategory):
     see :class:`monoidal.PRO`.
     """
     ob = Ob
+    tree_keys = ('inside', 'dom', 'cod')
 
     def __setstate__(self, state):
         if '_dom' in state:  # Backward compatibility
@@ -464,53 +444,6 @@ class Arrow(FreeCategory):
             dom=self.dom, cod=self.cod, inside=tuple(
                 box.lambdify(*symbols, **kwargs)(*xs) for box in self.inside))
 
-    def to_tree(self) -> dict:
-        """
-        Serialise a DisCoPy arrow, see :func:`discopy.utils.dumps`.
-
-        Example
-        -------
-        >>> from pprint import PrettyPrinter
-        >>> pprint = PrettyPrinter(indent=4, width=70, sort_dicts=False).pprint
-        >>> f = Box('f', 'x', 'y', data=42)
-        >>> pprint((f >> f[::-1]).to_tree())
-        {   'factory': 'cat.Arrow',
-            'inside': [   {   'factory': 'cat.Box',
-                              'name': 'f',
-                              'dom': {'factory': 'cat.Ob', 'name': 'x'},
-                              'cod': {'factory': 'cat.Ob', 'name': 'y'},
-                              'data': 42},
-                          {   'factory': 'cat.Box',
-                              'name': 'f',
-                              'dom': {'factory': 'cat.Ob', 'name': 'y'},
-                              'cod': {'factory': 'cat.Ob', 'name': 'x'},
-                              'is_dagger': True,
-                              'data': 42}],
-            'dom': {'factory': 'cat.Ob', 'name': 'x'},
-            'cod': {'factory': 'cat.Ob', 'name': 'x'}}
-        """
-        return {
-            'factory': factory_name(type(self)),
-            'inside': [box.to_tree() for box in self.inside],
-            'dom': self.dom.to_tree(), 'cod': self.cod.to_tree()}
-
-    @classmethod
-    def from_tree(cls, tree: dict) -> Arrow:
-        """
-        Decode a serialised DisCoPy arrow, see :func:`discopy.utils.loads`.
-
-        Parameters:
-            tree : DisCoPy serialisation.
-
-        Example
-        -------
-        >>> f = Box('f', 'x', 'y', data=42)
-        >>> assert Arrow.from_tree((f >> f[::-1]).to_tree()) == f >> f[::-1]
-        """
-        dom, cod = map(from_tree, (tree['dom'], tree['cod']))
-        inside = tuple(map(from_tree, tree['inside']))
-        return cls(inside, dom, cod, _scan=False)
-
 
 @total_ordering
 class Box(Arrow):
@@ -531,6 +464,9 @@ class Box(Arrow):
     >>> f = Box('f', x, y, data=[42])
     >>> assert f.inside == (f, )
     """
+    data, is_dagger = None, False
+    tree_keys = ('name', 'dom', 'cod', 'is_dagger', 'data')
+
     def __setstate__(self, state):
         if '_name' in state:  # Backward compatibility
             self.name, self.data, self.is_dagger = (
@@ -605,25 +541,6 @@ class Box(Arrow):
     def __lt__(self, other):
         return self.name < other.name
 
-    def to_tree(self) -> dict:
-        tree = {
-            'factory': factory_name(type(self)),
-            'name': self.name,
-            'dom': self.dom.to_tree(),
-            'cod': self.cod.to_tree()}
-        if self.is_dagger:
-            tree['is_dagger'] = True
-        if self.data is not None:
-            tree['data'] = self.data
-        return tree
-
-    @classmethod
-    def from_tree(cls, tree: dict) -> Box:
-        name = tree['name']
-        dom, cod = map(from_tree, (tree['dom'], tree['cod']))
-        data, is_dagger = tree.get('data', None), 'is_dagger' in tree
-        return cls(name=name, dom=dom, cod=cod, data=data, is_dagger=is_dagger)
-
 
 class Sum(Box):
     """
@@ -650,8 +567,11 @@ class Sum(Box):
     ----
     The sum is non-commutative, i.e. :code:`Sum([f, g]) != Sum([g, f])`.
     """
+    tree_keys = ('terms', 'dom', 'cod')
+
     def __init__(
             self, terms: tuple[Arrow, ...], dom: Ob = None, cod: Ob = None):
+        terms = tuple(terms)
         if not terms and (dom is None or cod is None):
             raise ValueError(messages.MISSING_TYPES_FOR_EMPTY_SUM)
         dom = terms[0].dom if dom is None else dom
@@ -720,19 +640,6 @@ class Sum(Box):
             tuple(box.lambdify(*symbols, **kwargs)(*xs) for box in self.terms),
             dom=self.dom, cod=self.cod)
 
-    def to_tree(self):
-        return {
-            'factory': factory_name(type(self)),
-            'terms': [t.to_tree() for t in self.terms],
-            'dom': self.dom.to_tree(),
-            'cod': self.cod.to_tree()}
-
-    @classmethod
-    def from_tree(cls, tree):
-        dom, cod = map(from_tree, (tree['dom'], tree['cod']))
-        terms = tuple(map(from_tree, tree['terms']))
-        return cls(terms=terms, dom=dom, cod=cod)
-
 
 class Bubble(Box):
     """
@@ -750,6 +657,8 @@ class Bubble(Box):
     Raises:
         ValueError : When dom is None but all the args have the same dom.
     """
+    tree_keys = ('args', 'dom', 'cod')
+
     def __init__(self, *args: Arrow, dom: Ob = None, cod: Ob = None,
                  name="", method="bubble", **kwargs):
         dom, = set(arg.dom for arg in args) if dom is None else (dom, )
@@ -801,18 +710,20 @@ class Bubble(Box):
             dom=self.cod, cod=self.dom, name=self.name, method=self.method,
             data=self.data, is_dagger=not self.is_dagger)
 
-    def to_tree(self):
-        return {
-            'factory': factory_name(type(self)),
-            'args': [f.to_tree() for f in self.args],
-            'dom': self.dom.to_tree(),
-            'cod': self.cod.to_tree()}
-
     @classmethod
     def from_tree(cls, tree):
-        args = [tree['arg']] if 'args' not in tree else tree['args']
+        """
+        Decode a serialised bubble, whose ``args`` unpack as positional
+        arguments, see :func:`discopy.utils.loads`.
+
+        Parameters:
+            tree : DisCoPy serialisation.
+        """
+        if 'args' not in tree:  # Backward compatibility
+            warn("Outdated dumps", DeprecationWarning)
+            tree['args'] = [tree['arg']]
         dom, cod = map(from_tree, (tree['dom'], tree['cod']))
-        return cls(*map(from_tree, args), dom=dom, cod=cod)
+        return cls(*map(from_tree, tree['args']), dom=dom, cod=cod)
 
 
 @factory

@@ -241,10 +241,10 @@ class QuantumGate(Box):
         if "_array" in state and not state["_array"] is None:
             state["data"] = state['_array'].flatten().tolist()
         if "_name" in state:
-            if state["_name"] in GATES and hasattr(
-                    GATES[state["_name"]], "data"):
-                state["data"] = copy.deepcopy(GATES[state["_name"]].data)
-                state["_z"] = GATES[state["_name"]].z
+            gate = GATES.get(state["_name"])
+            if isinstance(gate, QuantumGate):  # not a parametrised class
+                state["data"] = copy.deepcopy(gate.data)
+                state["_z"] = gate.z
         super().__setstate__(state)
 
     def setoid(self):

@@ -213,6 +213,126 @@ def from_tree(tree: dict):
     return getattr(module, factory).from_tree(tree)
 
 
+def encode(value):
+    """
+    Encode an attribute of a :class:`Serialisable` object as the value
+    of a tree: recurse on anything with a ``to_tree`` method and on
+    non-empty lists and tuples thereof, pass raw JSON data through.
+
+    Parameters:
+        value : The attribute to encode.
+    """
+    if hasattr(value, 'to_tree'):
+        return value.to_tree()
+    if isinstance(value, (list, tuple)) and value and all(
+            hasattr(v, 'to_tree') for v in value):
+        return [v.to_tree() for v in value]
+    return value
+
+
+def decode(value):
+    """
+    Decode the value of a tree, the inverse of :func:`encode`: a
+    dictionary with a ``'factory'`` key goes to :func:`from_tree`, a
+    non-empty list of such dictionaries to the tuple of decoded objects,
+    raw JSON data passes through unchanged.
+
+    Parameters:
+        value : The value to decode.
+
+    Note
+    ----
+    Raw data that happens to be a dictionary with a ``'factory'`` key is
+    indistinguishable from a serialised object and gets decoded as one.
+    """
+    if isinstance(value, dict) and 'factory' in value:
+        return from_tree(value)
+    if isinstance(value, list) and value and all(
+            isinstance(v, dict) and 'factory' in v for v in value):
+        return tuple(map(from_tree, value))
+    return value
+
+
+class Serialisable:
+    """
+    The serialisation interface of DisCoPy: a generic pair of inverse
+    methods :meth:`to_tree` and :meth:`from_tree`, both driven by one
+    hook, the class attribute ``tree_keys``.
+
+    ``tree_keys`` names attributes that are also keyword arguments of
+    ``__init__``, so that a subclass with a different constructor
+    declares its keys once instead of reimplementing both methods.
+
+    Example
+    -------
+    >>> from discopy.cat import Box
+    >>> assert Box.tree_keys == ('name', 'dom', 'cod', 'is_dagger', 'data')
+    >>> f = Box('f', 'x', 'y', data=42)
+    >>> assert Box.from_tree(f.to_tree()) == f
+    """
+    tree_keys: tuple[str, ...] = ()
+
+    def to_tree(self) -> dict:
+        """
+        Serialise a DisCoPy object, see :func:`dumps`.
+
+        The tree records the :func:`factory_name` and then each of the
+        ``tree_keys``, dropping a key when its value equals the class
+        attribute of the same name, e.g. a box that is not a dagger.
+
+        Example
+        -------
+        >>> from pprint import PrettyPrinter
+        >>> pprint = PrettyPrinter(indent=4, width=70, sort_dicts=False).pprint
+        >>> from discopy.cat import Box
+        >>> f = Box('f', 'x', 'y', data=42)
+        >>> pprint((f >> f[::-1]).to_tree())
+        {   'factory': 'cat.Arrow',
+            'inside': [   {   'factory': 'cat.Box',
+                              'name': 'f',
+                              'dom': {'factory': 'cat.Ob', 'name': 'x'},
+                              'cod': {'factory': 'cat.Ob', 'name': 'y'},
+                              'data': 42},
+                          {   'factory': 'cat.Box',
+                              'name': 'f',
+                              'dom': {'factory': 'cat.Ob', 'name': 'y'},
+                              'cod': {'factory': 'cat.Ob', 'name': 'x'},
+                              'is_dagger': True,
+                              'data': 42}],
+            'dom': {'factory': 'cat.Ob', 'name': 'x'},
+            'cod': {'factory': 'cat.Ob', 'name': 'x'}}
+        """
+        tree = {'factory': factory_name(type(self))}
+        for key in self.tree_keys:
+            value = getattr(self, key)
+            if hasattr(type(self), key):
+                default = getattr(type(self), key)
+                if value is default or (
+                        type(value) is type(default) and value == default):
+                    continue
+            tree[key] = encode(value)
+        return tree
+
+    @classmethod
+    def from_tree(cls, tree: dict) -> Serialisable:
+        """
+        Decode a serialised DisCoPy object, see :func:`loads`.
+
+        A key missing from the tree falls back to the default value of
+        the corresponding keyword argument of ``__init__``.
+
+        Parameters:
+            tree : DisCoPy serialisation.
+
+        Example
+        -------
+        >>> from discopy.cat import Ob
+        >>> assert Ob.from_tree({'factory': 'cat.Ob', 'name': 'x'}) == Ob('x')
+        """
+        return cls(**{key: decode(tree[key])
+                      for key in cls.tree_keys if key in tree})
+
+
 def dumps(obj, **kwargs):
     """
     Serialise a DisCoPy object as JSON.
@@ -405,7 +525,7 @@ def pushout(
     return left_pushout, right_pushout
 
 
-class BinaryBoxConstructor:
+class BinaryBoxConstructor(Serialisable):
     """
     Box constructor with attributes ``left`` and ``right`` as input.
 
@@ -413,6 +533,8 @@ class BinaryBoxConstructor:
         left : Some attribute on the left.
         right : Some attribute on the right.
     """
+    tree_keys = ('left', 'right')
+
     def __init__(self, left, right):
         self.left, self.right = left, right
 
@@ -428,16 +550,6 @@ class BinaryBoxConstructor:
     def __repr__(self):
         return factory_name(type(self))\
             + f"({repr(self.left)}, {repr(self.right)})"
-
-    def to_tree(self) -> dict:
-        """ Serialise a binary box constructor. """
-        left, right = self.left.to_tree(), self.right.to_tree()
-        return dict(factory=factory_name(type(self)), left=left, right=right)
-
-    @classmethod
-    def from_tree(cls, tree: dict) -> BinaryBoxConstructor:
-        """ Decode a serialised binary box constructor. """
-        return cls(*map(from_tree, (tree['left'], tree['right'])))
 
 
 @lru_cache(maxsize=1024)

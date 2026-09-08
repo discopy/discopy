@@ -1340,7 +1340,7 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
 
     @classmethod
     def from_tree(cls, tree):
-        if "inside" not in tree:
+        if "boxes" in tree:  # Backward compatibility
             warn("Outdated dumps", DeprecationWarning)
             boxes, offsets = map(from_tree, tree['boxes']), tree['offsets']
             return cls.decode(from_tree(tree['dom']), zip(boxes, offsets))
