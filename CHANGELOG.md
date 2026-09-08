@@ -38,14 +38,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   the fix arrived, which is the mechanism the ledger was built for. A
   thousand examples turn up no replacement, so the declaration and the
   record are both removed rather than rewritten.
-- `discopy/axiom.py`, a Hypothesis-based property-testing module, home
+- `discopy/axioms.py`, a Hypothesis-based property-testing module, home
   of `Equation` (formerly `discopy.abc.Equation`): a law is stated once
   on `discopy.abc.Category`/`ColouredMonoid` and every subclass inherits
-  it, as a `ClassAxiom` decorated with `@classaxiom` when it quantifies
-  over the objects and arrows of a carrier — the class whose instances
-  are the terms of the law — and as an `Axiom` decorated with `@axiom`
-  when it is a law of one element read as a method, `@axiom` of a
-  `classmethod` being the former; `.failing`/`.inapplicable` classify a
+  it, as an `Axiom` decorated with `@axiom`: a classmethod of its
+  carrier — the class whose instances are the terms of the law —
+  implicitly, its remaining parameters generated from their annotations,
+  `C0`, `C1` or `Self` for the objects, arrows or terms of the carrier;
+  `.failing`/`.inapplicable` classify a
   law as broken or not applicable to a carrier, and `.modulo`/`.weaken`
   are defined (compare up to a function, quantify over a named subspace)
   but not used yet. A
@@ -57,7 +57,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   used to lose the subspaces a `.weaken` declared. The argument and
   subspace wrappers are parameterised with `NamedGeneric["factory"]` like
   `Hypergraph` and `Equation` — which moves `NamedGeneric` itself down to
-  `discopy.utils`, re-exported from `discopy.abc`, so `discopy.axiom`
+  `discopy.utils`, re-exported from `discopy.abc`, so `discopy.axioms`
   can use it — making a subscripted wrapper a class whose
   `strategy(cls, **params)` matches the contract `Strategy.strategy` now
   states, so a subspace annotation like `NonEmpty[ComposablePair[C1]]`
@@ -83,17 +83,16 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   the matrix for every carrier — `eval(repr(x))`, the pickle and the tree
   of a term read back to it, as `Equation`s like every other law — with
   `Strategy.environment` for the namespace a representation reads back
-  in — the public names of the module the carrier is defined in and
-  then the package's, so that a term printing bare names such as
+  in — the package's public names and then those of the module the
+  carrier is defined in, so that a term printing bare names such as
   `Tensor[int]([0], dom=Dim(1), cod=Dim(1))` reads back without its
-  carrier declaring anything and one printing `axiom.Natural(2)` reads
-  back where `axiom` names the decorator; the ad-hoc property
+  carrier declaring anything; the ad-hoc property
   files for representations, pickling and serialisation are gone, and a
   known violation is a `.failing` declaration on its carrier like any
   other broken law. The workflow
   for developing against the suite — laws stated before implementation,
   a failing cell debugged, its counterexample recorded, a strategy that
-  missed a bug audited — is the documentation of `discopy.axiom`,
+  missed a bug audited — is the documentation of `discopy.axioms`,
   which joins the API docs under its own `axiom` page; `AGENTS.md`
   points to it from `Where` rather than importing it into every agent's
   context, and links its other documents rather than importing them with

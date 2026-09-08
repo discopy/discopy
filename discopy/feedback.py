@@ -152,7 +152,7 @@ from discopy.utils import (
     deprecated_ob,
     factory, factory_name, from_tree, assert_isinstance, AxiomError,
 )
-from discopy.axiom import GENERATORS
+from discopy.axioms import GENERATORS
 
 
 def str_delayed(time_step: int):

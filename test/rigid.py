@@ -179,12 +179,12 @@ def test_curry_zero():
 
 
 def test_strategy():
-    from discopy import axiom
+    from discopy import axioms
 
-    axiom.assert_strategy_finds(Diagram, Cup, Cap)
+    axioms.assert_strategy_finds(Diagram, Cup, Cap)
 
 
 def test_axioms():
-    from discopy import axiom
+    from discopy import axioms
 
-    axiom.assert_axioms(Ty, Diagram, Functor)
+    axioms.assert_axioms(Ty, Diagram, Functor)

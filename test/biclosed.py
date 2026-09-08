@@ -138,12 +138,12 @@ def test_to_compact():
 
 
 def test_strategy():
-    from discopy import axiom
+    from discopy import axioms
 
-    axiom.assert_strategy_finds(Diagram, Eval)
+    axioms.assert_strategy_finds(Diagram, Eval)
 
 
 def test_axioms():
-    from discopy import axiom
+    from discopy import axioms
 
-    axiom.assert_axioms(Ty, Diagram, Functor)
+    axioms.assert_axioms(Ty, Diagram, Functor)

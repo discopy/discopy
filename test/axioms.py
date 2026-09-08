@@ -9,17 +9,19 @@ every category in ``proptest/``.
 
 from __future__ import annotations
 
+from typing import Self
+
 from hypothesis import find
 from pytest import raises
 
 from discopy import biclosed, cat, feedback, monoidal, rigid, traced
-from discopy.axiom import (
-    C0, C1, Atomic, Axiom, AxiomFailure, BoundaryConnected, ClassAxiom,
-    ComposablePair, ComposableTriple, FeedbackJoining, FeedbackVanishing,
+from discopy.axioms import (
+    C0, C1, Atomic, Axiom, AxiomFailure, BoundaryConnected, ComposablePair,
+    ComposableTriple, Equation, FeedbackJoining, FeedbackVanishing,
     HomogeneousMemory, HorizontalPair, LeftCurrying, Natural, NonEmpty,
     Relabelling, RightCurrying, Square, Subsingleton, TraceDinaturalityLeft,
     TraceDinaturalityRight, TraceNaturalityLeft, TraceNaturalityRight,
-    TraceSuperposing, axiom, classaxiom, resolve)
+    TraceSuperposing, axiom, resolve)
 from discopy.utils import AxiomError
 
 
@@ -28,7 +30,7 @@ def test_Natural():
     assert Natural(1).__matmul__("x") is NotImplemented
     with raises(ValueError):
         Natural(-1)
-    assert repr(Natural(2)) == "axiom.Natural(2)"
+    assert repr(Natural(2)) == "axioms.Natural(2)"
     assert eval(repr(Natural(2)), Natural.environment()) == Natural(2)
     assert Natural.equation_factory(Natural(1), Natural(1))
     find(Natural.strategy(), lambda value: value == 0)
@@ -230,12 +232,12 @@ def test_Relabelling():
 
 
 def test_Axiom():
-    @classaxiom
+    @axiom
     def law(cls, f):
         """ Not an equation. """
         return cls.equation_factory(f)
 
-    assert repr(law) == "ClassAxiom(law)"
+    assert repr(law) == "Axiom(law)"
     assert eval(repr(cat.Arrow.unitality)) == cat.Arrow.unitality
     assert hash(cat.Arrow.unitality) == hash(eval(repr(cat.Arrow.unitality)))
     assert cat.Arrow.unitality != cat.Functor.unitality
@@ -249,10 +251,8 @@ def test_Axiom():
     with raises(TypeError):
         law.strategy()
     assert law.bind(cat.Arrow)(cat.Id(cat.Ob('x')))
-    for class_law in (axiom(classmethod(lambda cls: NotImplemented)),
-                      classaxiom(lambda cls: NotImplemented)):
-        assert isinstance(class_law, ClassAxiom)
-        assert class_law.bind(cat.Arrow)() is NotImplemented
+    assert axiom(lambda cls: NotImplemented).bind(cat.Arrow)()\
+        is NotImplemented
     assert cat.Arrow.unitality(cat.Box('f', cat.Ob('x'), cat.Ob('y')))
     broken = cat.Arrow.unitality.weaken(f=Atomic[C1]).failing("Never holds.")
     assert broken.subspaces == {"f": Atomic[C1]}
@@ -274,16 +274,15 @@ def test_weaken():
         assert isinstance(args[0], Atomic) and law(*args)
 
 
-def test_element_law():
+def test_functor_law():
     @axiom
-    def preserves_identity(self, x: C0) -> cat.Equation:
+    def preserves_identity(cls, functor: Self, x: Self.dom.ob) -> Equation:
         """ A functor preserves the identity on each object. """
-        return cat.Equation(self(cat.Arrow.id(x)), cat.Arrow.id(self(x)))
+        return Equation(functor(cls.dom.id(x)), cls.cod.id(functor(x)))
 
     law = preserves_identity.bind(cat.Functor)
-    assert not isinstance(law, ClassAxiom)
     args = find(law.strategy(), lambda _: True)
-    assert law(*args)
+    assert isinstance(args[0], cat.Functor) and law(*args)
 
 
 def test_inapplicable():

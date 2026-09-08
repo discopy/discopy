@@ -40,12 +40,12 @@ def test_trace_vanishing():
 
 
 def test_strategy():
-    from discopy import axiom
+    from discopy import axioms
 
-    axiom.assert_strategy_finds(Diagram, Trace)
+    axioms.assert_strategy_finds(Diagram, Trace)
 
 
 def test_axioms():
-    from discopy import axiom
+    from discopy import axioms
 
-    axiom.assert_axioms(Diagram, Functor)
+    axioms.assert_axioms(Diagram, Functor)

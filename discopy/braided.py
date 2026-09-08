@@ -68,7 +68,7 @@ from discopy.utils import (
     BinaryBoxConstructor, assert_isatomic, deprecated_ob, factory_name,
     from_tree
 )
-from discopy.axiom import classaxiom
+from discopy.axioms import axiom
 
 
 class Wire(monoidal.Wire):
@@ -289,7 +289,7 @@ class Functor(monoidal.Functor):
             return self.cod.braid(self(other.dom[0]), self(other.dom[1]))
         return super().__call__(other)
 
-    @classaxiom
+    @axiom
     def braided(cls):
         """
         A braided functor preserves the braid, but only up to the braid

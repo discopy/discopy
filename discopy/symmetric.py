@@ -92,6 +92,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from typing import Self
+
 from discopy import abc, balanced, cmap, hypergraph, messages, monoidal
 from discopy.abc import SymmetricCategory
 from discopy.cat import factory
@@ -99,7 +101,7 @@ from discopy.monoidal import Wire, Ty, PRO  # noqa: F401
 from discopy.python import finset
 from discopy.utils import (
     AxiomError, assert_iscomposable, classproperty, factory_name, from_tree)
-from discopy.axiom import Atomic, C0, axiom
+from discopy.axioms import Atomic, axiom
 
 
 class Layer(monoidal.Layer):
@@ -727,11 +729,13 @@ class Functor(balanced.Functor):
         return super().__call__(other)
 
     @axiom
-    def symmetric(self, x: Atomic[C0], y: Atomic[C0]):
+    def symmetric(cls, functor: Self,
+                  x: Atomic[Self.dom.ob], y: Atomic[Self.dom.ob]):
         """ A symmetric functor preserves the swap. """
         x, y = x.value, y.value
-        return self.cod.equation_factory(
-            self(self.dom.swap(x, y)), self.cod.swap(self(x), self(y)))
+        return functor.cod.equation_factory(
+            functor(functor.dom.swap(x, y)),
+            functor.cod.swap(functor(x), functor(y)))
 
 
 CMap = cmap.CMap[Diagram]

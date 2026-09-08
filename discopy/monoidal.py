@@ -57,12 +57,12 @@ from __future__ import annotations
 import itertools
 from dataclasses import dataclass, field
 from functools import cached_property
-from typing import Iterator, Callable, TYPE_CHECKING
+from typing import Iterator, Callable, TYPE_CHECKING, Self
 from warnings import warn
 
 from discopy import cat, drawing, hypergraph, cmap, messages
 from discopy.abc import ColouredMonoid, MonoidalCategory
-from discopy.axiom import (
+from discopy.axioms import (
     Square, BoundaryConnected, C1, GENERATORS, HorizontalPair, Strategy,
     axiom)
 from discopy.drawing import Drawing
@@ -1954,10 +1954,11 @@ class Functor(cat.Functor):
         return super().__call__(other)
 
     @axiom
-    def monoidal(self, pair: HorizontalPair[C1]):
+    def monoidal(cls, functor: Self, pair: HorizontalPair[Self.dom.ar]):
         """ A monoidal functor preserves the tensor. """
         f, g = pair
-        return self.cod.equation_factory(self(f @ g), self(f) @ self(g))
+        return functor.cod.equation_factory(
+            functor(f @ g), functor(f) @ functor(g))
 
 
 @dataclass

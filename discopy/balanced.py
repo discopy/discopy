@@ -40,7 +40,7 @@ from discopy.abc import BalancedCategory
 from discopy.cat import factory
 from discopy.monoidal import Colour, Ty  # noqa: F401
 from discopy.utils import factory_name, from_tree, assert_isatomic
-from discopy.axiom import classaxiom
+from discopy.axioms import axiom
 
 
 @dataclass(frozen=True)
@@ -342,7 +342,7 @@ class Functor(braided.Functor, traced.Functor):
             return traced.Functor.__call__(self, other)
         return braided.Functor.__call__(self, other)
 
-    @classaxiom
+    @axiom
     def balanced(cls):
         """
         A balanced functor preserves the twist, but the twist of a composite

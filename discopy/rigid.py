@@ -151,7 +151,7 @@ import copy
 
 from collections.abc import Callable
 
-from typing import Iterator
+from typing import Iterator, Self
 
 from discopy import cat, monoidal, biclosed, messages
 from discopy.abc import Category, Pregroup, RigidCategory
@@ -164,7 +164,7 @@ from discopy.utils import (
     deprecated_ob,
     factory_name,
 )
-from discopy.axiom import Atomic, C0, GENERATORS, axiom
+from discopy.axioms import Atomic, GENERATORS, axiom
 
 
 class Wire(monoidal.Wire):
@@ -901,18 +901,20 @@ class Functor(biclosed.Functor):
         return super().__call__(other)
 
     @axiom
-    def rigid_cups(self, x: Atomic[C0]):
+    def rigid_cups(cls, functor: Self, x: Atomic[Self.dom.ob]):
         """ A rigid functor preserves the cups. """
         x = x.value
-        return self.cod.equation_factory(
-            self(self.dom.cups(x, x.r)), self.cod.cups(self(x), self(x.r)))
+        return functor.cod.equation_factory(
+            functor(functor.dom.cups(x, x.r)),
+            functor.cod.cups(functor(x), functor(x.r)))
 
     @axiom
-    def rigid_caps(self, x: Atomic[C0]):
+    def rigid_caps(cls, functor: Self, x: Atomic[Self.dom.ob]):
         """ A rigid functor preserves the caps. """
         x = x.value
-        return self.cod.equation_factory(
-            self(self.dom.caps(x.r, x)), self.cod.caps(self(x.r), self(x)))
+        return functor.cod.equation_factory(
+            functor(functor.dom.caps(x.r, x)),
+            functor.cod.caps(functor(x.r), functor(x)))
 
 
 def nesting(cls: type, factory: Callable) -> Callable[[Ty, Ty], Diagram]:

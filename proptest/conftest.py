@@ -1,6 +1,6 @@
 """
 Hypothesis profiles and example databases for the property suite, see
-the documentation of :mod:`discopy.axiom`.
+the documentation of :mod:`discopy.axioms`.
 
 Under ``CI`` a registered profile inherits Hypothesis's ``ci`` defaults,
 ``derandomize=True`` and hence ``database=None``, so both are explicit.

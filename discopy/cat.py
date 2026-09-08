@@ -83,9 +83,9 @@ from typing import (
 
 from discopy import messages, utils
 from discopy.abc import Category
-from discopy.axiom import (
+from discopy.axioms import (
     GENERATORS, Equation as AbstractEquation, Relabelling, Strategy,
-    classaxiom)
+    axiom)
 from discopy.utils import (  # noqa: F401
     factory,
     factory_name,
@@ -1052,7 +1052,7 @@ class Functor(Category, Strategy["Functor"]):
     dagger_contravariance = Category.dagger_contravariance.inapplicable(
         "A functor has no dagger.")
 
-    @classaxiom
+    @axiom
     def identity_typing(cls):
         """
         Typing of the identity functor.
@@ -1178,8 +1178,8 @@ class Transformation(Category):
 
 class Equation(AbstractEquation[Arrow]):
     """
-    An :class:`.axiom.Equation` between arrows, see its docstring for the
-    parameters and :meth:`.axiom.Equation.modulo` for quotients.
+    An :class:`.axioms.Equation` between arrows, see its docstring for the
+    parameters and :meth:`.axioms.Equation.modulo` for quotients.
 
     Example
     -------
