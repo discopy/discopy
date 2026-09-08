@@ -122,9 +122,13 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `Dim`/`Ty` branches: an arbitrary codomain's objects need only support
   `+`, e.g. `python.Function.ob = tuple[type, ...]`, whose images are
   plain tuples with a `+` but no `__matmul__` at all. The old names still work
-  through a `DeprecationWarning`, via `utils.deprecated_alias`, the
-  general form of `utils.deprecated_ob` (which already deprecated `Ob` in
-  favour of `Wire`) now taking a mapping of every name a module deprecates
+  through a `DeprecationWarning`, via a new `utils.deprecated_alias` taking a
+  mapping of every name a module deprecates. `utils.deprecated_ob`, the
+  single-purpose `Ob`→`Wire` wrapper it generalises, is removed: its six call
+  sites (`biclosed`, `braided`, `compact`, `feedback`, `grammar.pregroup`,
+  `quantum.circuit`) now call `deprecated_alias(__name__, {"Ob": "Wire"})`
+  directly, the same as `rigid`/`pivotal`/`frobenius`/`monoidal` already do
+  for their `PRO`→`Nat` alias
   ([#709](https://github.com/discopy/discopy/issues/709)).
 - Matplotlib SVGs adapt to the page behind them: they are saved on a
   transparent canvas and open with a `prefers-color-scheme: dark` media

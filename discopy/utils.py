@@ -166,28 +166,6 @@ def deprecated_alias(module_name: str, aliases: dict[str, str]):
     return __getattr__
 
 
-def deprecated_ob(module_name: str):
-    """
-    The module-level ``__getattr__`` of the modules whose ``Ob`` class was
-    renamed to ``Wire``, returning the new class with a
-    :class:`DeprecationWarning`.
-
-    Parameters:
-        module_name : The ``__name__`` of the module deprecating its ``Ob``.
-
-    Example
-    -------
-    >>> import warnings
-    >>> from discopy import rigid
-    >>> with warnings.catch_warnings(record=True) as w:
-    ...     warnings.simplefilter("always")
-    ...     assert rigid.Ob is rigid.Wire
-    >>> print(w[-1].message)
-    discopy.rigid.Ob is deprecated, use discopy.rigid.Wire instead.
-    """
-    return deprecated_alias(module_name, {"Ob": "Wire"})
-
-
 def factory_name(cls: type) -> str:
     """
     Returns a string describing a DisCoPy class.

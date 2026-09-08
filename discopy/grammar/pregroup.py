@@ -32,7 +32,7 @@ Summary
 
 from discopy import rigid, frobenius, messages
 from discopy.cat import factory
-from discopy.utils import AxiomError, deprecated_ob
+from discopy.utils import AxiomError, deprecated_alias
 from discopy.grammar import thue
 from discopy.rigid import Wire  # noqa: F401
 
@@ -259,4 +259,4 @@ Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Id = Diagram.id
 
 
-__getattr__ = deprecated_ob(__name__)
+__getattr__ = deprecated_alias(__name__, {"Ob": "Wire"})
