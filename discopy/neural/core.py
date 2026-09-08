@@ -707,8 +707,8 @@ class CMap(cmap.CMap[Diagram]):
             causal : Whether to activate every box once in topological
                      order, for a feed-forward map; not combined with
                      ``n_rounds`` nor ``return_rounds``.
-            backend : The backend name or instance, the current one by
-                      default.
+            backend : The backend name or instance, the one owning the
+                      first array given by default, else the current one.
             modules : The backend-owned modules in :attr:`modules` order,
                       the modules of the boxes by default.
         """
