@@ -34,19 +34,16 @@ from discopy.utils import assert_isinstance, tuplify, untuplify, factory
 from discopy.python import finset, function
 
 
-""" Functions have lists of types as input and output. """
-Ty = tuple[type, ...]
-
-
-def exp(base: Ty, exponent: Ty) -> Ty:
+def exp(base, exponent):
     """
-    The exponential of a tuple of Python types by another.
+    The exponential of a list of Python types by another.
 
     Parameters:
         base (python.Ty) : The base type.
         exponent (python.Ty) : The exponent type.
     """
-    return (Callable[list(exponent), tuple[base]], )
+    return function.Function.ob(
+        Callable[list(exponent), tuple[tuple(base)]])
 
 
 @factory
@@ -73,8 +70,6 @@ class Function(function.Function, ClosedCategory):
             fix
             trace
     """
-
-    ob = Ty
 
     def __call__(self, *xs):
         if self.type_checking:
@@ -104,13 +99,13 @@ class Function(function.Function, ClosedCategory):
         return Function(inside, self.dom + other.dom, self.cod + other.cod)
 
     @staticmethod
-    def swap(x: Ty, y: Ty) -> Function:
+    def swap(x, y) -> Function:
         """
-        The function for swapping two tuples of types :code:`x` and :code:`y`.
+        The function for swapping two lists of types :code:`x` and :code:`y`.
 
         Parameters:
-            x : The tuple of types on the left.
-            y : The tuple of types on the right.
+            x : The list of types on the left.
+            y : The list of types on the right.
         """
         def inside(*xs):
             return untuplify(tuplify(xs)[len(x):] + tuplify(xs)[:len(x)])
@@ -136,28 +131,28 @@ class Function(function.Function, ClosedCategory):
     braid = swap
 
     @staticmethod
-    def copy(x: Ty, n=2) -> Function:
+    def copy(x, n=2) -> Function:
         """
-        The function for making :code:`n` copies of a tuple of types :code:`x`.
+        The function for making :code:`n` copies of a list of types :code:`x`.
 
         Parameters:
-            x : The tuple of types to copy.
+            x : The list of types to copy.
             n : The number of copies.
         """
         return Function(lambda *xs: n * xs, dom=x, cod=n * x)
 
     @staticmethod
-    def discard(dom: Ty) -> Function:
+    def discard(dom) -> Function:
         """
-        The function discarding a tuple of types, i.e. making zero copies.
+        The function discarding a list of types, i.e. making zero copies.
 
         Parameters:
-            dom : The tuple of types to discard.
+            dom : The list of types to discard.
         """
         return Function.copy(dom, 0)
 
     @staticmethod
-    def ev(base: Ty, exponent: Ty, left=True) -> Function:
+    def ev(base, exponent, left=True) -> Function:
         """
         The evaluation function,
         i.e. take a function and apply it to an argument.
@@ -197,7 +192,7 @@ class Function(function.Function, ClosedCategory):
         Parameters:
             left : Whether to uncurry on the left or right.
         """
-        traced = self.cod[0].__args__
+        traced = self.cod.inside[0].__args__
         base, exponent = traced[-1].__args__, traced[:-1]
         return self @ exponent >> Function.ev(base, exponent) if left\
             else exponent @ self >> Function.ev(base, exponent, left=False)
@@ -232,3 +227,9 @@ class Function(function.Function, ClosedCategory):
             >> self >> cod @ self.discard(traced)
 
     exp = over = under = staticmethod(lambda x, y: exp(x, y))
+
+
+def __getattr__(name):
+    if name == "Ty":  # The free monoid List[type], resolved lazily.
+        return function.Function.ob
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

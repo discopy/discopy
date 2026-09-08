@@ -25,6 +25,12 @@ from discopy.utils import (
     tuplify, untuplify, classproperty, factory)
 
 
+def _type_monoid():
+    """ The free monoid ``monoidal.List[type]`` used as ``Function.ob``. """
+    from discopy.monoidal import List
+    return List[type]
+
+
 @factory
 @dataclass
 class Function(Category):
@@ -42,27 +48,40 @@ class Function(Category):
 
             id
             then
+
+    Note
+    ----
+    The objects of the category are :code:`List[type]`, the free monoid on
+    Python's :code:`type`, so that a :class:`monoidal.Functor` into
+    :class:`Function` folds the image of a type with the monoid product
+    :code:`@` rather than tuple concatenation.
     """
     inside: Callable
     dom: type
     cod: type
 
-    ob = tuple[type, ...]
+    ob = classproperty(lambda cls: _type_monoid())
     type_checking = True
 
     def __init__(self, inside: Callable, dom: type, cod: type):
-        dom, cod = map(tuplify, (dom, cod))
-        self.inside, self.dom, self.cod = inside, dom, cod
+        self.inside, self.dom, self.cod = (
+            inside, self.cast(dom), self.cast(cod))
+
+    @classmethod
+    def cast(cls, dom):
+        """ Cast a type or tuple of types into ``cls.ob``, the free monoid. """
+        return dom if isinstance(dom, cls.ob)\
+            else cls.ob(*dom) if isinstance(dom, tuple) else cls.ob(dom)
 
     @classmethod
     def id(cls, dom: type) -> Function:
         """
-        The identity function on a given tuple of types :code:`dom`.
+        The identity function on a given list of types :code:`dom`.
 
         Parameters:
-            dom (type) : The typle of types on which to take the identity.
+            dom (type) : The list of types on which to take the identity.
         """
-        return cls(lambda *xs: untuplify(xs), tuplify(dom), tuplify(dom))
+        return cls(lambda *xs: untuplify(xs), dom, dom)
 
     def then(self, other: Function) -> Function:
         """
@@ -87,8 +106,8 @@ class Function(Category):
 
     def __call__(self, arg):
         if self.type_checking:
-            assert_isinstance(arg, self.dom)
+            assert_isinstance(arg, tuple(self.dom))
         result = self.inside(arg)
         if self.type_checking:
-            assert_isinstance(result, self.cod)
+            assert_isinstance(result, tuple(self.cod))
         return result

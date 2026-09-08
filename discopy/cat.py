@@ -238,11 +238,12 @@ class FreeCategory(Category):
         inside = self.inside[key]
         if step < 0:  # A negative step reverses the path, hence the dagger.
             inside = tuple(gen.dagger() for gen in inside)
-        if inside:
+        if inside and hasattr(inside[0], "dom"):
             dom, cod = inside[0].dom, inside[-1].cod
-        elif 0 <= start < len(self):
+        elif not inside and 0 <= start < len(self)\
+                and hasattr(self.inside[start], "dom"):
             dom = cod = self.inside[start].dom
-        else:
+        else:  # Generators with no boundary keep the whole path's colour.
             dom = cod = self.cod if step > 0 else self.dom
         return self.ar(inside=inside, dom=dom, cod=cod, _scan=abs(step) > 1)
 
@@ -923,9 +924,7 @@ class Functor(Category):
         if isinstance(other, Ob):
             result = self.ob_map[other]
             origin = get_origin(self.cod.ob)
-            if isinstance(result, origin):
-                return result
-            return (result, ) if origin == tuple\
+            return result if isinstance(result, origin)\
                 else self.cod.ob(result)
         if isinstance(other, Sum):
             return sum(map(self, other.terms),

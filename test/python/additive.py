@@ -31,9 +31,10 @@ def test_additive_Function():
     assert eq((g @ X >> f).trace(), g >> f.trace())  # Left-naturality
     assert eq((f >> g @ X).trace(), f.trace() >> g)  # Right-naturality
 
-    T, D = Ty[tuple], Diagram[Function]
+    T, D = Ty[Function.ob], Diagram[Function]
+    XX = Function.cast(X)
 
-    assert eq(D.id(T(X, X)).transpose().inside, Id(X + X))
+    assert eq(D.id(T(XX, XX)).transpose().inside, Id(X + X))
 
 
 def test_trace_unequal_arity():

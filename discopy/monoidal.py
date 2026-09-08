@@ -13,6 +13,7 @@ Summary
 
     Colour
     Wire
+    List
     Ty
     PRO
     Dim
@@ -61,7 +62,7 @@ from typing import Iterator, Callable, TYPE_CHECKING
 from warnings import warn
 
 from discopy import cat, drawing, hypergraph, cmap, messages
-from discopy.abc import ColouredMonoid, MonoidalCategory
+from discopy.abc import ColouredMonoid, MonoidalCategory, NamedGeneric
 from discopy.drawing import Drawing
 from discopy.config import (
     BOX_DRAWING_ATTRIBUTES, WIRE_DRAWING_ATTRIBUTES,
@@ -177,25 +178,79 @@ class Wire(cat.Ob):
         return cls(tree['name'], dom, cod, is_dagger='is_dagger' in tree)
 
 
-class FreeMonoid(cat.FreeCategory, ColouredMonoid):
-    """A free category whose composition is also its monoid product."""
+class List(
+        cat.FreeCategory, ColouredMonoid, NamedGeneric['generator_factory']):
+    """
+    The free monoid on a ``generator_factory``, i.e. a sequence of atoms with
+    tensor given by concatenation and composition equal to that tensor.
 
-    def __init__(self, inside, dom: Colour = None, cod: Colour = None,
-                 _scan: bool = True):
+    ``List[X]`` is the free monoid on ``X`` the same way ``Hypergraph[C]`` is
+    the hypergraph category over a category ``C``: :class:`Ty` is the special
+    case ``generator_factory = Wire`` and ``python.Function.ob == List[type]``
+    is the free monoid on Python's ``type``.
+
+    >>> assert List[int](2, 3) @ List[int](4) == List[int](2, 3, 4)
+    >>> assert List[int](2, 3) + List[int](4) == List[int](2, 3, 4)
+    >>> assert 2 * List[int](2, 3) == List[int](2, 3, 2, 3)
+    >>> assert List[int](2, 3)[1:] == List[int](3) and not List[int]()
+
+    A concrete monoid whose atoms carry no colour on either side, e.g. Python's
+    ``type``, has a trivial :obj:`white` boundary, so ``List[X]`` is a plain
+    :obj:`Monoid`. :class:`Ty` refines this with :class:`Wire` atoms coloured
+    by the :class:`Colour` regions on either side.
+    """
+    ob = Colour
+
+    def __init__(self, *inside, dom: Colour = None, cod: Colour = None,
+                 _scan: bool = True, **kwargs):
+        inside = kwargs.pop('inside', inside)
+        if kwargs:
+            raise TypeError(f"Unexpected keyword arguments: {list(kwargs)}.")
+        boundaried = bool(inside) and isinstance(
+            getattr(inside[0], 'dom', None), Colour)
         if dom is None:
-            dom = inside[0].dom if inside else white
+            dom = inside[0].dom if boundaried else white
         if cod is None:
-            cod = inside[-1].cod if inside else white
-        cat.FreeCategory.__init__(self, inside, dom, cod, _scan)
+            cod = inside[-1].cod if boundaried else white
+        cat.FreeCategory.__init__(self, inside, dom, cod, _scan and boundaried)
 
     def tensor(self, *others):
         # Whiskering: tensoring a type with e.g. a diagram returns
         # NotImplemented so the other operand's __rmatmul__ takes over.
-        if any(not isinstance(other, self.factory) for other in others):
+        if any(not isinstance(other, self.ar) for other in others):
             return NotImplemented
         return cat.FreeCategory.then(self, *others)
 
     then = tensor
+
+    def cast(self, other) -> List:
+        """ Embed an atom or a tuple of atoms into ``self``'s factory. """
+        if isinstance(other, self.ar):
+            return other
+        return self.ar(*other) if isinstance(other, tuple) else self.ar(other)
+
+    def __add__(self, other):
+        return self.tensor(self.cast(other))
+
+    def __radd__(self, other):
+        return self.cast(other).tensor(self)
+
+    def __mul__(self, n_times):
+        return self.tensor(*(n_times - 1) * [self]) if n_times > 0\
+            else self.ar()
+
+    __rmul__ = __mul__
+
+    def __eq__(self, other):
+        return type(self) is type(other) and self.inside == other.inside\
+            and (self.dom, self.cod) == (other.dom, other.cod)
+
+    def __hash__(self):
+        return hash((type(self), self.inside, self.dom, self.cod))
+
+    def __repr__(self):
+        return factory_name(type(self))\
+            + f"({', '.join(map(repr, self.inside))})"
 
     @property
     def is_generator(self):
@@ -209,7 +264,7 @@ class FreeMonoid(cat.FreeCategory, ColouredMonoid):
 
 
 @factory
-class Ty(cat.Ob, FreeMonoid):
+class Ty(cat.Ob, List):
     """
     A type is a composable path of objects with :meth:`Ty.tensor`
     as concatenation.
@@ -279,7 +334,7 @@ class Ty(cat.Ob, FreeMonoid):
             assert_isinstance(obj, (str, self.generator_factory) + (
                 (cat.Ob, ) if self.generator_factory is Wire else ()))
         inside = tuple(map(self.cast_wire, inside))
-        FreeMonoid.__init__(self, inside, dom, cod, _scan)
+        List.__init__(self, *inside, dom=dom, cod=cod, _scan=_scan)
         cat.Ob.__init__(self, type(self).__name__)
 
     def count(self, obj: cat.Ob) -> int:
@@ -399,7 +454,7 @@ class Ty(cat.Ob, FreeMonoid):
             return cls(dom=from_tree(tree['dom']), cod=from_tree(tree['cod']))
         return cls()
 
-    __add__ = FreeMonoid.__matmul__
+    __add__ = List.__matmul__
 
     def to_drawing(self) -> Ty:
         if not self.inside:
@@ -1635,8 +1690,8 @@ class Functor(cat.Functor):
     def _map_atomic(self, key):
         result = self.ob_map[key]
         cod_type = get_origin(self.cod.ob)
-        return result if isinstance(result, cod_type) else\
-            (result, ) if cod_type == tuple else self.cod.ob(result)
+        return result if isinstance(result, cod_type)\
+            else self.cod.ob(result)
 
     def __call__(self, other):
         if isinstance(other, Colour):
@@ -1656,7 +1711,7 @@ class Functor(cat.Functor):
             images = list(map(self, other.inside))
             result = images[0]
             for image in images[1:]:
-                result = result + image
+                result = result @ image
             return result
         if isinstance(other, self.dom.ob.generator_factory):
             if isinstance(other, Wire) and other.is_dagger:
@@ -1761,3 +1816,11 @@ Diagram.functor_factory = Functor
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Drawing.ob = Ty
 Id = Diagram.id
+
+
+def __getattr__(name):
+    if name == "FreeMonoid":
+        warn("monoidal.FreeMonoid is deprecated, use monoidal.List instead.",
+             DeprecationWarning, stacklevel=2)
+        return List
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

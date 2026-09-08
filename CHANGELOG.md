@@ -101,6 +101,21 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Changed
 
+- `monoidal.FreeMonoid` is renamed `List` and parameterised as a
+  `NamedGeneric["generator_factory"]`, so `List[X]` is the free monoid on a
+  generator type `X` the way `Hypergraph[C]` is the hypergraph category over a
+  category `C`. `Ty` stays the `generator_factory = Wire` special case, and
+  `python.Function.ob` is now `List[type]` rather than `tuple[type, ...]`: its
+  `dom` and `cod` are the free monoid on Python's `type`. Because a `List` is a
+  `ColouredMonoid`, its objects support `@`, so `monoidal.Functor` folds the
+  image of a type with the monoid product like every other codomain, dropping
+  the tuple-only `+` fallback it needed while `Function.ob` was a bare tuple
+  (which supports `+` but not `@`, [#727](https://github.com/discopy/discopy/pull/727)'s
+  `e26af1f`). `cat.FreeCategory.__getitem__` slices a path of generators with
+  no boundary (e.g. Python's `type`) by keeping the whole path's colour rather
+  than reading a colour off an atom that has none. `monoidal.FreeMonoid`
+  remains as a deprecated alias
+  ([#728](https://github.com/discopy/discopy/issues/728)).
 - Matplotlib SVGs adapt to the page behind them: they are saved on a
   transparent canvas and open with a `prefers-color-scheme: dark` media
   query that turns the elements drawn black on that canvas — wires, braids,

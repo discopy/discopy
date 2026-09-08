@@ -21,12 +21,8 @@ from functools import cache
 from typing import Self
 
 from discopy.abc import SymmetricCategory
-from discopy.utils import assert_isinstance, tuplify
+from discopy.utils import assert_isinstance
 from discopy.python import finset, function
-
-
-""" Lists of types interpreted as disjoint union. """
-Ty = tuple[type, ...]
 
 
 class Function(function.Function, SymmetricCategory):
@@ -47,19 +43,17 @@ class Function(function.Function, SymmetricCategory):
             trace
     """
 
-    ob = Ty
-
     def __init__(self, inside, dom, cod, is_swap_of=None):
         self.is_swap_of = is_swap_of
         super().__init__(inside, dom, cod)
 
     def __call__(self, obj, tag=0):
         if self.type_checking:
-            assert_isinstance(obj, self.dom[tag])
+            assert_isinstance(obj, self.dom.inside[tag])
         result = self.inside(obj, *(() if len(self.dom) == 1 else (tag, )))
         if self.type_checking:
             obj, tag = (result, 0) if len(self.cod) == 1 else result
-            assert_isinstance(obj, self.cod[tag])
+            assert_isinstance(obj, self.cod.inside[tag])
         return result
 
     def tensor(self, other: Function) -> Function:
@@ -84,15 +78,15 @@ class Function(function.Function, SymmetricCategory):
 
     @staticmethod
     @cache
-    def swap(x: Ty, y: Ty) -> Function:
+    def swap(x, y) -> Function:
         """
         Swap the tags of a disjoint union from `x + y` to `y + x`.
 
         Parameters:
-            x : The tuple of types on the left.
-            y : The tuple of types on the right.
+            x : The list of types on the left.
+            y : The list of types on the right.
         """
-        x, y = map(tuplify, (x, y))
+        x, y = map(Function.cast, (x, y))
 
         def inside(obj, tag=0):
             new_tag = tag + len(y) if tag < len(x) else tag - len(x)
@@ -152,7 +146,7 @@ class Function(function.Function, SymmetricCategory):
         return Function(inside, dom, cod)
 
     @staticmethod
-    def merge(x: Ty, n=2) -> Function:
+    def merge(x, n=2) -> Function:
         def inside(obj, tag=0):
             if len(x) == 1:
                 assert tag % len(x) == 0
@@ -164,3 +158,9 @@ class Function(function.Function, SymmetricCategory):
 Swap = Function.braid = Function.swap
 Id = Function.twist = Function.id
 Merge = Function.merge
+
+
+def __getattr__(name):
+    if name == "Ty":  # The free monoid List[type], resolved lazily.
+        return function.Function.ob
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

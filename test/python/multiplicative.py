@@ -33,3 +33,18 @@ def test_trace():
 def test_list_generic_in_function():
     func = Function(sum, List[int], int)
     assert func([1, 2, 3]) == 6
+
+
+def test_Functor_into_Function_folds_with_matmul():
+    from discopy import monoidal
+    from discopy.monoidal import Ty, Box, Functor
+
+    # python.Function.ob is the free monoid List[type], so a Functor folds the
+    # image of a type with the monoid product @, not tuple + (issue #728).
+    assert Function.ob is monoidal.List[type]
+    x = Ty('x')
+    g = Box('g', x @ x, x)
+    F = Functor(ob_map={x: bool}, ar_map={g: lambda a, b: a and b}, cod=Function)
+    assert F(x @ x) == F(x) @ F(x) == monoidal.List[type](bool, bool)
+    assert F(Ty()) == monoidal.List[type]()
+    assert F(g)(True, True) is True and F(g)(True, False) is False
