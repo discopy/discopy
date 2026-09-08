@@ -31,8 +31,8 @@ Review round on PR #658 by toumix, 2026-09-07 15:19 to 2026-09-08 07:04 UTC:
 
 > let's remove the non-alpha-invariant hack and replace it with two decorators axiom and classaxiom
 
-- [WIP] @session_01Bwih1mV32usVtEFyNbDhq8-2026-09-08 07:12 `Axiom` is a law of an element and `ClassAxiom` a law of the carrier, told apart by the decorator — `axiom` and `classaxiom`, sugar for `axiom` of a `classmethod` — instead of the name of the first parameter; `abc.py` and `cat.py` declare their laws with `classaxiom`
-- [WIP] @session_01Bwih1mV32usVtEFyNbDhq8-2026-09-08 07:12 Document every attribute of `Axiom`, say what a carrier is, and give `modulo` an example that makes sense of a `Diagram`
-- [WIP] @session_01Bwih1mV32usVtEFyNbDhq8-2026-09-08 07:12 Rename `discopy.testing` to `discopy.axiom` — module, tests, docs page, `AGENTS.md`, `CONTRIBUTING.md`, `CHANGELOG.md` — and move `Equation` into it
-- [WIP] @session_01Bwih1mV32usVtEFyNbDhq8-2026-09-08 07:12 Open an issue for `abc.DaggerCategory`, so a functor need not declare the dagger laws inapplicable
+- [x] `Axiom` is a law of an element and `ClassAxiom` a law of the carrier, told apart by the decorator — `axiom` and `classaxiom`, sugar for `axiom` of a `classmethod` — instead of the name of the first parameter; `abc.py` and `cat.py` declare their laws with `classaxiom`
+- [x] Document every attribute of `Axiom`, say what a carrier is, and give `modulo` an example that makes sense of a `Diagram`
+- [x] Rename `discopy.testing` to `discopy.axiom` — module, tests, docs page, `AGENTS.md`, `CONTRIBUTING.md`, `CHANGELOG.md` — and move `Equation` into it
+- [x] Open an issue for `abc.DaggerCategory`, so a functor need not declare the dagger laws inapplicable
 - [WIP] @session_01Bwih1mV32usVtEFyNbDhq8-2026-09-08 07:12 Run `pflake8` and the test suite, update the PR body, reply on and resolve every thread

@@ -107,7 +107,7 @@ HYPOTHESIS_PROFILE=explore uv run pytest proptest/ -n auto -p no:benchmark
 `proptest/test_counterexamples.py` replays every recorded counterexample —
 the bound axiom and the arguments a search once shrunk a failure to — so
 known bugs reproduce deterministically on every run. The documentation of
-[`discopy.testing`](discopy/testing.py) describes the whole workflow: stating
+[`discopy.axiom`](discopy/axiom.py) describes the whole workflow: stating
 laws before implementing, debugging a failing cell, recording its
 counterexample and auditing a strategy that missed a bug. `Axiom.falsify`,
 which searches afresh for a shrunk counterexample and raises `NoSuchExample`

@@ -6,17 +6,18 @@ from hypothesis import find
 from hypothesis import strategies as st
 from pytest import raises
 
-from discopy import cat, closed, feedback, rigid, symmetric, testing
-from discopy.abc import Equation
+from discopy import cat, closed, feedback, rigid, symmetric
 from discopy.cat import Arrow, Box, Functor, Ob
-from discopy.testing import (
+from discopy.axiom import (
     C0,
     C1,
     Atomic,
     Axiom,
     AxiomFailure,
     BoundaryConnected,
+    ClassAxiom,
     ComposablePair,
+    Equation,
     FeedbackJoining,
     FeedbackVanishing,
     HomogeneousMemory,
@@ -36,6 +37,7 @@ from discopy.testing import (
     assert_axioms,
     assert_strategy_finds,
     axiom,
+    classaxiom,
     resolve,
 )
 from discopy.utils import AxiomError, factory
@@ -130,8 +132,8 @@ def test_natural():
     assert Natural(1).__matmul__("x") is NotImplemented
     with raises(ValueError):
         Natural(-1)
-    assert repr(Natural(2)) == "testing.Natural(2)"
-    assert eval(repr(Natural(2))) == testing.Natural(2)
+    assert repr(Natural(2)) == "axiom.Natural(2)"
+    assert eval(repr(Natural(2)), Natural.environment()) == Natural(2)
     assert Natural.equation_factory(Natural(1), Natural(1))
     assert find(Natural.strategy(), lambda number: number == 1) == 1
 
@@ -274,8 +276,10 @@ def test_axiom_binding():
         Axiom(lambda cls: NotImplemented).falsify()
     with raises(TypeError):
         Axiom(lambda cls: NotImplemented).strategy()
-    assert Axiom(classmethod(lambda cls: NotImplemented)).bind(Arrow)()\
-        is NotImplemented
+    for law in (axiom(classmethod(lambda cls: NotImplemented)),
+                classaxiom(lambda cls: NotImplemented)):
+        assert isinstance(law, ClassAxiom)
+        assert law.bind(Arrow)() is NotImplemented
     box = Box('f', Ob('x'), Ob('y'))
     assert Arrow.unitality(box)
     broken = Arrow.unitality.weaken(f=Atomic[C1]).failing("Never holds.")
@@ -312,7 +316,7 @@ def test_element_law():
         return Equation(self(Arrow.id(x)), Arrow.id(self(x)))
 
     law = preserves_identity.bind(Functor)
-    assert law.is_method
+    assert not isinstance(law, ClassAxiom)
     args = find(law.strategy(), lambda _: True)
     assert law(*args)
 
