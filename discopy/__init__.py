@@ -5,7 +5,7 @@
 import doctest
 
 from discopy import (
-    axiom,
+    axioms,
     abc,
     cat,
     monoidal,

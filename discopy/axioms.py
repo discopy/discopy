@@ -74,8 +74,8 @@ The suite
   instances, whatever its level: :meth:`Strategy.transparency`,
   :meth:`Strategy.pickling` and :meth:`Strategy.serialisation` are cells
   of the matrix for every carrier, which read back in
-  :meth:`Strategy.environment`: its own module's public names and the
-  package's, so that a representation printing bare names evaluates
+  :meth:`Strategy.environment`: the package's public names and its own
+  module's, so that a representation printing bare names evaluates
   without the carrier declaring anything.
 - ``proptest/test_drawing.py`` and ``proptest/test_normal_form.py`` check
   the remaining ad-hoc properties — drawing does not raise, a normal form
@@ -703,15 +703,14 @@ class Strategy[T](ABC):
     def environment(cls) -> dict:
         """
         The namespace the representation of a term reads back in: the
-        public names of the module the carrier is defined in, so that a
-        representation printing bare names such as ``Tensor[int]([0],
-        dom=Dim(1), cod=Dim(1))`` evaluates, and those of the package, as
-        ``from discopy import *`` binds them, so that one qualified by
-        module such as ``cat.Box('f', cat.Ob('x'), cat.Ob('y'))``
-        evaluates too. The package comes second because its names are
-        the modules, which a module may bind to something else: every
-        module stating laws imports the :func:`axiom` decorator under the
-        name of this module.
+        public names of the package, as ``from discopy import *`` binds
+        them, so that a representation qualified by module such as
+        ``cat.Box('f', cat.Ob('x'), cat.Ob('y'))`` evaluates, and then
+        those of the module the carrier is defined in, so that one
+        printing bare names such as ``Tensor[int]([0], dom=Dim(1),
+        cod=Dim(1))`` evaluates too. The module comes second because a
+        term prints the names its own module binds: ``Dim`` in
+        ``discopy.tensor`` is the one a tensor is built from.
 
         The import is local because the package imports this module.
         """
@@ -721,7 +720,7 @@ class Strategy[T](ABC):
             name: value for name, value in namespace.items()
             if not name.startswith("_")}
         module = sys.modules[cls.__module__]
-        return dict(public(vars(module)), **public(vars(discopy)))
+        return dict(public(vars(discopy)), **public(vars(module)))
 
     @axiom
     def transparency(self) -> Equation:

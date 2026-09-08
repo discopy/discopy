@@ -8,7 +8,7 @@ from pytest import raises
 
 from discopy import cat, closed, feedback, rigid, symmetric
 from discopy.cat import Arrow, Box, Functor, Ob
-from discopy.axiom import (
+from discopy.axioms import (
     C0,
     C1,
     Atomic,
@@ -132,7 +132,7 @@ def test_natural():
     assert Natural(1).__matmul__("x") is NotImplemented
     with raises(ValueError):
         Natural(-1)
-    assert repr(Natural(2)) == "axiom.Natural(2)"
+    assert repr(Natural(2)) == "axioms.Natural(2)"
     assert eval(repr(Natural(2)), Natural.environment()) == Natural(2)
     assert Natural.equation_factory(Natural(1), Natural(1))
     assert find(Natural.strategy(), lambda number: number == 1) == 1
