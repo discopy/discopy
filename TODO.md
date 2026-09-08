@@ -1,10 +1,11 @@
 # TODO
 
-Review round on #736, toumix on 2026-09-08 12:59 UTC, verbatim:
+Prompt, toumix on discopy#736, 2026-09-08 12:59 UTC, verbatim:
 
 > forget about interaction and bidirectionality for now, focus on getting a feedforward neural network to compile from diagram to pytorch/hax
 
-- [x] `discopy.neural.interaction`, its tests and its image leave this pull request, with `test/neural/__init__.py`; the geometry of interaction stays in the history for later
-- [x] the `cmap.CMap` additions (`box_ports`, `from_wiring`, `logical_order`) and their tests leave with it, having no consumer left here
-- [x] the package docstring, the changelog entry and the body of the pull request say `network` only
-- [WIP] @session_01R6htvGCTMQQqTNP1ApWzmc-2026-09-08 13:05 a feedforward `Network` compiles from the diagram to PyTorch and to JAX in the next pull request, stacked on this one, its design proposed there
+- [WIP] @session_01R6htvGCTMQQqTNP1ApWzmc-2026-09-08 13:20 `Dims.check` and `Box.forward`: a layer's module applied to one tensor per leg, the shape of each tensor checked against its leg
+- [WIP] @session_01R6htvGCTMQQqTNP1ApWzmc-2026-09-08 13:20 `Network.to_function`: a feedforward network compiled to a `python.Function` on tensors by the functor sending legs to a tensor type and boxes to `forward`, with copy, discard and swap those of `python.Function`; a trace refuses
+- [WIP] @session_01R6htvGCTMQQqTNP1ApWzmc-2026-09-08 13:20 `discopy.neural.torch.Module`: the network as a PyTorch module, the modules of its boxes registered as submodules, `forward` running the compiled function, `torch.compile` taking it
+- [WIP] @session_01R6htvGCTMQQqTNP1ApWzmc-2026-09-08 13:20 JAX: `jax.jit` and `jax.grad` through the compiled function, tested
+- [WIP] @session_01R6htvGCTMQQqTNP1ApWzmc-2026-09-08 13:20 the package docstring, the changelog and the coverage omit for `torch.compile`'s writes
