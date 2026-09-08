@@ -76,11 +76,13 @@ from discopy.neural.core import (
     Diagram, Dim, Hypergraph, Network, Permutation)
 from discopy.utils import MappingOrCallable, assert_isinstance
 
-#: A reverse rule is an optic over neural diagrams between pairs ``(A, A)``.
 ReverseRule = optics.Optic[Diagram]
+"""
+A reverse rule is an optic over neural diagrams between pairs ``(A, A)``.
+"""
 
-#: The pairs of dimensions the rules go between.
 Pair = ReverseRule.ob
+""" The pairs of dimensions the rules go between. """
 
 
 def pair(dim: Dim) -> Pair:
