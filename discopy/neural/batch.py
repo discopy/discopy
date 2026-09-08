@@ -58,9 +58,11 @@ from operator import matmul
 from discopy.neural.backend import get_backend
 from discopy.neural.map import heads, width
 
-#: The member counts a batch is rounded up to, so that a run sees a few
-#: distinct shapes rather than one per batch.
 BUCKETS = (1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024)
+"""
+The member counts a batch is rounded up to, so that a run sees a few
+distinct shapes rather than one per batch.
+"""
 
 
 def bucket(size: int, ladder=BUCKETS) -> int:
