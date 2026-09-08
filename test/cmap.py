@@ -19,6 +19,13 @@ def test_port_sides():
     assert adjoint_ports[1].side == "down"
 
 
+def test_ports_is_cached():
+    from discopy.compact import Ty, Box, CMap as M
+    x, y = map(Ty, "xy")
+    cm = M.from_box(Box("f", x, y))
+    assert cm.ports is cm.ports
+
+
 def test_default_compact_setting():
     from discopy.compact import Ty, Box, CMap as M
     x, y = map(Ty, "xy")
