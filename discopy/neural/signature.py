@@ -79,11 +79,11 @@ from typing import Mapping
 from discopy import frobenius
 from discopy.python.finset import Permutation
 
-#: The name the node boxes of a generated wiring get by default.
 NODE = "cell"
+""" The name the node boxes of a generated wiring get by default. """
 
-#: The name the hyperedge boxes of a generated wiring get by default.
 RELATION = "unit"
+""" The name the hyperedge boxes of a generated wiring get by default. """
 
 
 class Sym(StrEnum):
