@@ -12,7 +12,7 @@ from pytest import raises
 from discopy import frobenius
 from discopy.frobenius import CMap, Ty
 from discopy.neural import (
-    Orbit, Signature, Sym, from_incidence, from_relation)
+    Dim, Orbit, Signature, Sym, from_incidence, from_relation, interpret)
 from discopy.neural.signature import leg_generators
 
 
@@ -150,6 +150,16 @@ def test_slices_with_an_erased_and_a_repeated_role():
     for width in (4, 0):
         with raises(ValueError, match="two orbits"):
             twice.slices({STATE: width})
+
+
+def test_width_is_the_width_of_the_compiled_box():
+    node = Signature((Orbit(PEER, 1), Orbit(STATE, traced=True)))
+    path = from_relation(((1, ), (0, 2), (1, )), node)
+    compiled = interpret(path, {PEER: Dim(3), STATE: Dim(4)}, {"cell": None})
+    for index, degree in enumerate((1, 2, 1)):
+        assert node.resize(PEER, degree).width({PEER: 3, STATE: 4}) \
+            == sum(compiled.port_widths[port]
+                   for port in compiled.box_ports(index)) == 3 * degree + 8
 
 
 def test_generators_act_on_legs_and_on_every_copy():
