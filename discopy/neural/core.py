@@ -108,7 +108,7 @@ class Dim(monoidal.Dim, Ty):
     >>> from discopy.utils import dumps, loads
     >>> assert loads(dumps(Dim(2, 3))) == Dim(2, 3)
     """
-    unit = 0
+    neutral = 0
     l = r = property(lambda self: self.factory(*self.inside[::-1]))
     z = property(lambda self: 0)
 

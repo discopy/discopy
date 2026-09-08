@@ -531,9 +531,9 @@ class Dim(Ty):
     A dimension is a tuple of positive integers
     with product ``@`` and unit ``Dim(1)``.
 
-    The class attribute ``unit`` is the integer that the tensor drops and
-    the smallest one a dimension may hold; :class:`discopy.neural.Dim` sets
-    it to ``0`` for additive dimensions.
+    The class attribute ``neutral`` is the integer that the tensor drops
+    and the smallest one a dimension may hold, ``1`` for a product;
+    :class:`discopy.neural.Dim` sets it to ``0`` for additive dimensions.
 
     Example
     -------
@@ -543,7 +543,7 @@ class Dim(Ty):
     >>> assert loads(dumps(Dim(2, 3))) == Dim(2, 3)
     """
     generator_factory = int
-    unit = 1
+    neutral = 1
 
     def __init__(self, *inside: int, dom=None, cod=None, _scan=True, **kwargs):
         inside = kwargs.pop('inside', inside)
@@ -551,10 +551,10 @@ class Dim(Ty):
             raise TypeError(f"Unexpected keyword arguments: {list(kwargs)}.")
         for dim in inside:
             assert_isinstance(dim, int)
-            if dim < self.unit:
+            if dim < self.neutral:
                 raise ValueError(
-                    f"Expected at least {self.unit}, got {dim}.")
-        inside = tuple(dim for dim in inside if dim != self.unit)
+                    f"Expected at least {self.neutral}, got {dim}.")
+        inside = tuple(dim for dim in inside if dim != self.neutral)
         cat.FreeCategory.__init__(
             self, inside, white if dom is None else dom,
             white if cod is None else cod, _scan=False)
@@ -568,7 +568,7 @@ class Dim(Ty):
         return self.factory(self.inside[key])
 
     def __repr__(self):
-        return f"Dim({', '.join(map(repr, self.inside)) or repr(self.unit)})"
+        return f"Dim({', '.join(map(repr, self.inside)) or self.neutral})"
 
     __str__ = __repr__
 
