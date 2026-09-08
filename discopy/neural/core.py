@@ -151,6 +151,22 @@ class Network(compact.Box, Diagram):
     module, as several boxes shares its weights but each box occurrence has
     its own memory.
 
+    In the language of :mod:`discopy.para`, the module of a network
+    :math:`f : X \\to Y` is a parametric map on the *boundary* of its box,
+
+    .. math:: \\Phi_f : \\partial f \\otimes P_f \\to \\partial f, \\qquad
+              \\partial f = X^* \\otimes Y,
+
+    with :math:`P_f` the weights: it answers every leg of the box, inputs
+    included, which no ordinary parametric map :math:`X \\otimes P \\to Y`
+    -- a layer, composing by substitution as :class:`Para` does -- can say.
+    Two interactions glued along a shared object do not compose by
+    substitution either: they talk to each other along the wires, by
+    symmetric feedback, i.e. the trace of the two boxes over the shared
+    boundary, and what computes it is a finite number of rounds of
+    :meth:`CMap.forward`; see :mod:`discopy.neural.map` for the global
+    transition they add up to.
+
     Cups, caps and swaps are networks with ``module`` left to ``None``,
     since they are pure rerouting.
 
@@ -167,7 +183,10 @@ class Network(compact.Box, Diagram):
     they have the same name, shape, memory and module, and a framework's
     modules compare by identity. The dagger and rotation of a network reuse
     its module and preserve its memory, with the public ports read in the
-    new order. The repr and the serialisation omit the module, which has no
+    new order: the dagger computes :math:`\\Phi_f` on the boundary read as
+    ``cod @ dom``, which is the same interaction with its two halves
+    exchanged only when the module is equivariant under that block swap.
+    The repr and the serialisation omit the module, which has no
     eval-able representation, so ``eval(repr(f)) == f`` and
     ``loads(dumps(f)) == f`` hold for a network without one and give the
     shape of one with.
@@ -389,19 +408,19 @@ class CMap(cmap.CMap[Diagram]):
         """ The private memory width of each box occurrence. """
         return tuple(sum(box.mem.inside) for box in self.boxes)
 
-    @property
+    @cached_property
     def input_ports(self) -> tuple[int, ...]:
         """ The indices of the boundary input ports. """
         return tuple(i for i, port in enumerate(self.ports)
                      if port.kind == PortKind.INPUT)
 
-    @property
+    @cached_property
     def output_ports(self) -> tuple[int, ...]:
         """ The indices of the boundary output ports. """
         return tuple(i for i, port in enumerate(self.ports)
                      if port.kind == PortKind.OUTPUT)
 
-    @property
+    @cached_property
     def has_boundary(self) -> bool:
         """ Whether the map has any boundary port. """
         return bool(len(self.dom) or len(self.cod))
@@ -415,6 +434,15 @@ class CMap(cmap.CMap[Diagram]):
         map, so that the result can be trained or nested inside a larger
         model, and its private memory is the memory of every box occurrence
         concatenated.
+
+        As a box of a larger map, the network runs the map from a cold
+        start on every outer round, see
+        :func:`~discopy.neural.execution.box_forward`: ``len(self.boxes)``
+        synchronous rounds with the outer messages injected on its boundary
+        at every one of them, only the private memory carried from one
+        outer round to the next. That is the execution of the flattened
+        diagram exactly when every module ignores the messages incoming on
+        its codomain and no box has memory.
 
         Parameters:
             name : The name of the network.
@@ -434,8 +462,13 @@ class CMap(cmap.CMap[Diagram]):
           each port,
         * ``src`` : the routing permutation, ``incoming = outgoing[src]``,
         * ``input``, ``output`` : the flat positions of the boundary ports,
-        * ``boxes`` : the ports of each box in logical order, and
-          ``memory`` : the flat range of each box's private memory,
+          and ``ports`` : those of the ports of every box, in box order
+          then logical order,
+        * ``boxes`` : each box on its own, with its ``module`` index, its
+          public ``width`` and ``memory_width``, the flat positions of its
+          ``ports`` and of its private ``memory``, and the ``targets`` its
+          outputs arrive at, i.e. the far end of each of its wires; and
+          ``widths`` : the public width of each box,
         * ``groups`` : the boxes grouped by module, port widths and memory
           width, each with its ``ports`` and ``memory`` positions in box
           order, so that one module call evaluates a whole group at once.
@@ -445,8 +478,10 @@ class CMap(cmap.CMap[Diagram]):
         >>> f = Network('f', Dim(0), Dim(1, 1), module=object())
         >>> ring = CMap.from_wiring(
         ...     (f, f), [((0, 0), (1, 1)), ((0, 1), (1, 0))])
-        >>> ring.routing["src"], ring.routing["boxes"]
-        ((3, 2, 1, 0), ((1, 0), (3, 2)))
+        >>> ring.routing["src"], ring.routing["ports"]
+        ((3, 2, 1, 0), (1, 0, 3, 2))
+        >>> ring.routing["boxes"][0]["targets"]
+        (2, 3)
         >>> ring.routing["groups"][0]["ports"]
         (1, 0, 3, 2)
         """
@@ -463,82 +498,78 @@ class CMap(cmap.CMap[Diagram]):
             return tuple(k for i in ports
                          for k in range(offsets[i], offsets[i] + widths[i]))
 
-        boxes = tuple(
-            self.box_ports(index) for index in range(len(self.boxes)))
-        memory = tuple(
-            tuple(range(memory_offsets[i], memory_offsets[i + 1]))
-            for i in range(len(self.boxes)))
+        box_ports = tuple(self.box_ports(i) for i in range(len(self.boxes)))
+        boxes = tuple({
+            "module": self.module_indices[i], "boxes": (i, ),
+            "width": sum(widths[port] for port in ports),
+            "memory_width": memory_widths[i], "ports": flat(ports),
+            "memory": tuple(range(memory_offsets[i], memory_offsets[i + 1])),
+            "targets": flat(tuple(self.edges[port] for port in ports))}
+            for i, ports in enumerate(box_ports))
         groups: dict = {}
-        for index, ports in enumerate(boxes):
-            key = (self.module_indices[index],
-                   tuple(widths[i] for i in ports), memory_widths[index])
-            groups.setdefault(key, []).append(index)
+        for i, ports in enumerate(box_ports):
+            key = (self.module_indices[i],
+                   tuple(widths[port] for port in ports), memory_widths[i])
+            groups.setdefault(key, []).append(i)
         return {
             "total": total, "offsets": tuple(offsets),
             "src": flat(tuple(self.edges)),
             "input": flat(self.input_ports), "output": flat(self.output_ports),
-            "boxes": boxes, "memory": memory,
+            "ports": tuple(k for box in boxes for k in box["ports"]),
+            "boxes": boxes, "widths": tuple(box["width"] for box in boxes),
             "groups": tuple({
                 "module": module, "boxes": tuple(members),
                 "width": sum(box_widths), "memory_width": memory_width,
-                "ports": tuple(k for i in members for k in flat(boxes[i])),
-                "memory": tuple(k for i in members for k in memory[i])}
+                "ports": tuple(k for i in members for k in boxes[i]["ports"]),
+                "memory": tuple(
+                    k for i in members for k in boxes[i]["memory"])}
                 for (module, box_widths, memory_width), members
                 in groups.items())}
+
+    @cached_property
+    def index_cache(self) -> dict:
+        """ The :meth:`indices` computed so far, per backend and device. """
+        return {}
+
+    @cached_property
+    def step_cache(self) -> dict:
+        """ The :meth:`step` built so far, per backend and device. """
+        return {}
+
+    compile_kwargs = None
 
     def indices(self, backend: Backend, like=None) -> dict:
         """
         The :attr:`routing` as index arrays of a backend, cached per
-        backend and device: ``src``, ``input``, ``output``, the
-        ``boundary`` inputs then outputs, every box's ``ports`` in box
-        order, the ``groups`` and each box on its own in ``boxes``, with
-        the ``targets`` its outputs arrive at.
+        backend and device in :attr:`index_cache`: ``src``, ``input``,
+        ``output``, the ``boundary`` inputs then outputs, every box's
+        ``ports`` in box order, the ``groups`` and each box on its own in
+        ``boxes``, with the ``targets`` its outputs arrive at.
 
         Parameters:
             backend : The execution backend.
             like : An array on the device the indices should live on.
         """
         key = (backend, getattr(like, "device", None))
-        cache = self.__dict__.setdefault("index_cache", {})
-        if key not in cache:
-            routing, widths = self.routing, self.port_widths
-
-            def index(positions):
-                return backend.index(tuple(positions), like)
-
-            def entry(group):
-                return dict(group, ports=index(group["ports"]),
-                            memory=index(group["memory"]))
-
-            def box(i, ports):
-                return entry({
-                    "module": self.module_indices[i], "boxes": (i, ),
-                    "width": sum(widths[port] for port in ports),
-                    "memory_width": self.memory_widths[i],
-                    "ports": [k for port in ports for k in range(
-                        routing["offsets"][port],
-                        routing["offsets"][port] + widths[port])],
-                    "memory": routing["memory"][i],
-                    "targets": [k for port in ports for k in range(
-                        routing["offsets"][self.edges[port]],
-                        routing["offsets"][self.edges[port]]
-                        + widths[port])]})
-
-            cache[key] = {
-                "src": index(routing["src"]),
-                "input": index(routing["input"]),
-                "output": index(routing["output"]),
-                "boundary": index(routing["input"] + routing["output"]),
-                "ports": index(k for group in routing["boxes"]
-                               for port in group for k in range(
-                                   routing["offsets"][port],
-                                   routing["offsets"][port] + widths[port])),
-                "groups": tuple(map(entry, routing["groups"])),
-                "boxes": tuple(
-                    box(i, ports) for i, ports in enumerate(routing["boxes"]))}
-            for box_entry in cache[key]["boxes"]:
-                box_entry["targets"] = index(box_entry["targets"])
-        return cache[key]
+        if key not in self.index_cache:
+            routing = self.routing
+            self.index_cache[key] = {
+                "src": backend.index(routing["src"], like),
+                "input": backend.index(routing["input"], like),
+                "output": backend.index(routing["output"], like),
+                "boundary": backend.index(
+                    routing["input"] + routing["output"], like),
+                "ports": backend.index(routing["ports"], like),
+                "groups": tuple(dict(
+                    group, ports=backend.index(group["ports"], like),
+                    memory=backend.index(group["memory"], like))
+                    for group in routing["groups"]),
+                "boxes": tuple(dict(
+                    box, ports=backend.index(box["ports"], like),
+                    memory=backend.index(box["memory"], like),
+                    targets=backend.index(box["targets"], like))
+                    for box in routing["boxes"])}
+        return self.index_cache[key]
 
     def __getstate__(self):
         """ The map without its caches of index arrays and round steps. """
@@ -550,10 +581,12 @@ class CMap(cmap.CMap[Diagram]):
     def compile(self, **kwargs) -> CMap:
         """
         Compile the per-round :meth:`step` with the backend's compiler,
-        ``torch.compile`` on torch, so that the many small kernels of a
-        round on a small map are fused. The round loop stays in Python, so
-        ``n_rounds`` stays dynamic; compilation happens lazily on the first
-        forward pass per backend, device and modules.
+        ``torch.compile`` on torch and ``jax.jit`` on JAX, so that the many
+        small kernels of a round on a small map are fused. The round loop
+        stays in Python, so ``n_rounds`` stays dynamic; compilation happens
+        lazily on the first forward pass per backend and device, the
+        modules being an argument of the step. The causal schedule fires
+        the boxes one at a time and never runs the compiled step.
 
         Parameters:
             kwargs : Passed through to the compiler, e.g. ``mode``.
@@ -562,28 +595,23 @@ class CMap(cmap.CMap[Diagram]):
         self.__dict__.pop("step_cache", None)
         return self
 
-    def step(self, backend: Backend, like=None, modules=None):
+    def step(self, backend: Backend, like=None):
         """
-        One round of message passing as a function of flat arrays,
-        :func:`~discopy.neural.execution.make_step`'s closure over the
-        :meth:`indices` and the modules, cached per backend, device and
-        modules and compiled when :meth:`compile` was called.
+        One round of message passing as a function of the modules and the
+        flat arrays, :func:`~discopy.neural.execution.make_step`'s closure
+        over the :meth:`indices`, cached per backend and device in
+        :attr:`step_cache` and compiled when :meth:`compile` was called.
 
         Parameters:
             backend : The execution backend.
             like : An array on the device the round runs on.
-            modules : The backend-owned modules, those of the boxes by
-                      default.
         """
-        modules = self.modules if modules is None else modules
-        key = (backend, getattr(like, "device", None), tuple(map(id, modules)))
-        cache = self.__dict__.setdefault("step_cache", {})
-        if key not in cache:
-            step = make_step(backend, modules, self.indices(backend, like))
-            kwargs = getattr(self, "compile_kwargs", None)
-            cache[key] = step if kwargs is None\
-                else backend.compile(step, **kwargs)
-        return cache[key]
+        key = (backend, getattr(like, "device", None))
+        if key not in self.step_cache:
+            step = make_step(backend, self.indices(backend, like))
+            self.step_cache[key] = step if self.compile_kwargs is None\
+                else backend.compile(step, **self.compile_kwargs)
+        return self.step_cache[key]
 
     def zeros(self, rows: int, like=None, backend: str | Backend = None):
         """
@@ -591,49 +619,45 @@ class CMap(cmap.CMap[Diagram]):
 
         Parameters:
             rows : The batch size.
-            like : An array whose dtype and device the state follows.
-            backend : The backend name or instance, the current one by
-                      default.
+            like : An array whose backend, dtype and device the state
+                   follows.
+            backend : The backend name or instance, that of ``like`` or
+                      else the current one by default.
         """
-        return get_backend(backend).zeros(
+        return get_backend(backend, like=like).zeros(
             rows, self.routing["total"], like=like)
 
-    def read(self, state, ports: tuple[int, ...],
-             backend: str | Backend = None):
+    def read(self, state, ports: tuple[int, ...]):
         """
         The messages of a family of equally wide ports, as an array of
-        shape ``(rows, len(ports), width)``, from a flat state.
+        shape ``(rows, len(ports), width)``, from a flat state of whichever
+        backend owns it.
 
         Parameters:
             state : The flat messages, ``(rows, total)``.
             ports : The global port indices.
-            backend : The backend name or instance, the current one by
-                      default.
         """
         widths, offsets = self.port_widths, self.routing["offsets"]
         width = widths[ports[0]] if ports else 0
         if any(widths[port] != width for port in ports):
             raise ValueError(
                 "ports of different widths cannot be read as one block")
-        index = get_backend(backend).index(tuple(
+        index = get_backend(like=state).index(tuple(
             k for port in ports
             for k in range(offsets[port], offsets[port] + width)), state)
         return state[:, index].reshape(state.shape[0], len(ports), width)
 
-    def write(self, state, ports: tuple[int, ...], values,
-              backend: str | Backend = None):
+    def write(self, state, ports: tuple[int, ...], values):
         """
         A copy of a flat state with ``values`` written on a family of
-        equally wide ports.
+        equally wide ports, on whichever backend owns the state.
 
         Parameters:
             state : The flat messages, ``(rows, total)``.
             ports : The global port indices.
             values : An array of shape ``(rows, len(ports), width)``.
-            backend : The backend name or instance, the current one by
-                      default.
         """
-        backend = get_backend(backend)
+        backend = get_backend(like=state)
         offsets, widths = self.routing["offsets"], self.port_widths
         index = backend.index(tuple(
             k for port in ports
@@ -655,9 +679,15 @@ class CMap(cmap.CMap[Diagram]):
         permutation.
 
         Parameters:
-            x : The input, of shape ``(batch_size, sum of domain widths)``.
+            x : The input, of shape ``(batch_size, sum of domain widths)``;
+                on a closed map, an ``x`` of width 0 sets the batch size
+                and nothing else.
             init : The initial incoming messages, given per port or as one
                    tensor of shape ``(batch_size, sum of port widths)``.
+                   On a boundary output port it is a bias on the output
+                   while injecting, re-added to the message arriving there
+                   after every round, while on a boundary input port
+                   nothing but ``return_flat`` reads it.
             n_rounds : The number of rounds, the number of boxes by default.
             inject : Whether to re-add ``init`` to the incoming messages at
                      every round rather than just the first.
@@ -668,14 +698,15 @@ class CMap(cmap.CMap[Diagram]):
                           the next round -- one tensor of shape
                           ``(batch_size, sum of port widths)`` in port
                           order -- instead of slicing the boundary ports or
-                          collecting the per-box outputs.
+                          collecting the per-box outputs; under ``causal``,
+                          the flat messages after the pass.
             memory : The initial private memory, per box occurrence or as
                      one tensor of the concatenated memory dimensions.
             return_memory : Whether to return the final per-box memories
                             together with the usual result.
             causal : Whether to activate every box once in topological
                      order, for a feed-forward map; not combined with
-                     ``n_rounds``.
+                     ``n_rounds`` nor ``return_rounds``.
             backend : The backend name or instance, the current one by
                       default.
             modules : The backend-owned modules in :attr:`modules` order,
@@ -689,10 +720,11 @@ class CMap(cmap.CMap[Diagram]):
             if n_rounds is not None:
                 raise ValueError(
                     "A causal schedule cannot be combined with n_rounds.")
-            if return_rounds or return_flat:
+            if return_rounds:
                 raise ValueError(
                     "A causal schedule has no rounds to return.")
-            return execution.forward_causal(inject, return_memory)
+            return execution.forward_causal(
+                inject, return_memory, return_flat)
         return execution.forward(
             n_rounds, inject, return_memory, return_rounds, return_flat)
 

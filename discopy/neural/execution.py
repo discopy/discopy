@@ -39,9 +39,6 @@ Summary
 
 from __future__ import annotations
 
-from functools import cached_property
-
-from discopy.cmap import PortKind
 from discopy.neural.backend import Backend, get_backend
 
 
@@ -90,63 +87,24 @@ class Execution:
         self.source = self.initial = self.incoming = self.outgoing = None
         self.stored = None
 
-    @cached_property
+    @property
     def topological_order(self) -> tuple[int, ...]:
-        """ Order boxes from boundary inputs towards boundary outputs. """
-        inside = self.inside
-        if inside.loops:
-            raise ValueError(
-                "A causal schedule requires an acyclic map, without loops.")
-        box_ports = tuple(
-            inside.box_ports(i) for i in range(len(inside.boxes)))
-        domain_owner, codomain_owner, box_port_owner = {}, {}, {}
-        for box_index, (box, ports) in enumerate(zip(inside.boxes, box_ports)):
-            arity = len(box.dom)
-            for port in ports:
-                box_port_owner[port] = box_index
-            for port in ports[:arity]:
-                domain_owner[port] = box_index
-            for port in ports[arity:]:
-                codomain_owner[port] = box_index
+        """
+        The boxes from the boundary inputs towards the boundary outputs,
+        sorted by :attr:`~discopy.cmap.CMap.box_ranks` then by index, the
+        order :meth:`~discopy.cmap.CMap.topological_order` puts them in.
 
-        dependencies = []
-        for box_index, (box, ports) in enumerate(zip(inside.boxes, box_ports)):
-            arity, current = len(box.dom), set()
-            for port in ports[:arity]:
-                source = inside.edges[port]
-                if source in codomain_owner:
-                    current.add(codomain_owner[source])
-                elif source in box_port_owner\
-                        or inside.ports[source].kind != PortKind.INPUT:
-                    raise ValueError(
-                        "A causal schedule requires every box input to be "
-                        "wired from a box output or boundary input.")
-            dependencies.append(current)
-            for port in ports[arity:]:
-                target = inside.edges[port]
-                if (target in box_port_owner and target not in domain_owner)\
-                        or (target not in box_port_owner and inside.ports[
-                            target].kind != PortKind.OUTPUT):
-                    raise ValueError(
-                        "A causal schedule requires every box output to be "
-                        "wired to a box input or boundary output.")
-
-        remaining = [set(items) for items in dependencies]
-        ready = [i for i, items in enumerate(remaining) if not items]
-        order = []
-        while ready:
-            box_index = ready.pop(0)
-            order.append(box_index)
-            for target, items in enumerate(remaining):
-                if box_index in items:
-                    items.remove(box_index)
-                    if not items and target not in order\
-                            and target not in ready:
-                        ready.append(target)
-        if len(order) != len(inside.boxes):
+        Raises:
+            ValueError : If the map has loops, a directed cycle or a cup or
+                cap, i.e. it is not :attr:`~discopy.cmap.CMap.is_causal`
+                even once its boxes are reordered.
+        """
+        inside, ranks = self.inside, self.inside.box_ranks
+        if inside.loops or ranks is None or not inside.is_monogamous:
             raise ValueError(
-                "A causal schedule requires an acyclic box dependency graph.")
-        return tuple(order)
+                "A causal schedule requires an acyclic monogamous map.")
+        return tuple(sorted(
+            range(len(inside.boxes)), key=lambda i: (ranks[i], i)))
 
     @property
     def indices(self) -> dict:
@@ -169,13 +127,6 @@ class Execution:
                 f"{label} has shape {tuple(shape)}, expected "
                 f"({self.batch_size}, {width}).")
         return value
-
-    @staticmethod
-    def _values(given):
-        """ Yield non-null tensors from a tensor or per-item sequence. """
-        if isinstance(given, (list, tuple)):
-            return (value for value in given if value is not None)
-        return iter(()) if given is None else iter((given, ))
 
     def flat(self, given, widths: tuple[int, ...], label: str):
         """
@@ -203,12 +154,18 @@ class Execution:
             else self.zeros(0)
 
     def initialize(self):
-        """ Initialize the flat messages and the flat private memory. """
+        """
+        Initialize the flat messages and the flat private memory, reading
+        the batch size, dtype and device off the first array given among
+        ``x``, ``init`` and ``memory``, else off the modules.
+        """
         inside, backend = self.inside, self.backend
         widths = inside.port_widths
         reference = next((
             value for given in (self.x, self.init, self.memory)
-            for value in self._values(given)), None)
+            for value in (
+                given if isinstance(given, (list, tuple)) else (given, ))
+            if value is not None), None)
         if reference is not None:
             shape = getattr(reference, "shape", None)
             if shape is None or len(shape) != 2:
@@ -243,15 +200,17 @@ class Execution:
         One round from the flat state: every box applied, the outputs
         routed along the wires and the initial messages re-added when
         injecting. The step is :func:`make_step`'s closure, cached and
-        compiled on the map, see :meth:`CMap.step`.
+        compiled on the map, see :meth:`CMap.step`, applied to the modules
+        of the execution.
 
         Parameters:
             incoming : The flat incoming messages.
             stored : The flat private memory.
             inject : Whether to re-add the initial messages after routing.
         """
-        step = self.inside.step(self.backend, self.prototype, self.modules)
-        return step(incoming, stored, self.source, self.initial, inject)
+        step = self.inside.step(self.backend, self.prototype)
+        return step(
+            self.modules, incoming, stored, self.source, self.initial, inject)
 
     def activate(self):
         """ Apply every box to its messages and private memory. """
@@ -278,12 +237,9 @@ class Execution:
         outgoing = self.outgoing if outgoing is None else outgoing
         if outgoing is None:
             return len(self.inside.boxes) * (None, )
-        indices = self.indices
-        widths = tuple(
-            sum(self.inside.port_widths[port] for port in ports)
-            for ports in self.inside.routing["boxes"])
+        widths = self.inside.routing["widths"]
         return self.backend.split(
-            outgoing[:, indices["ports"]], widths) if widths else ()
+            outgoing[:, self.indices["ports"]], widths) if widths else ()
 
     def readout(self, incoming=None, outgoing=None):
         """ Read boundary outputs, or final box outputs for a closed map. """
@@ -328,29 +284,34 @@ class Execution:
         return (result, self.memories) if return_memory else result
 
     def forward_causal(
-            self, inject: bool = True, return_memory: bool = False):
+            self, inject: bool = True, return_memory: bool = False,
+            return_flat: bool = False):
         """
-        Execute every box once in topological order, for a feed-forward map.
+        Execute every box once in :attr:`topological_order`, for a
+        feed-forward map, one module call per box.
 
         Parameters:
             inject : Whether to re-add ``init`` on the ports a box writes.
             return_memory : Whether to return the final memories beside.
+            return_flat : Whether the result is the flat incoming messages
+                          after the pass rather than the boundary outputs.
         """
         self.initialize()
         backend, indices = self.backend, self.indices
         incoming, outgoing, stored = self.incoming, self.source, self.stored
+        inject = inject and self.init is not None
         for box_index in self.topological_order:
             box = indices["boxes"][box_index]
             public, next_memory = activate_box(
-                self.backend, self.modules, box, incoming, stored)
+                backend, self.modules, box, incoming, stored)
             outgoing = backend.put(outgoing, box["ports"], public)
             if box["memory_width"]:
                 stored = backend.put(stored, box["memory"], next_memory)
             arrived = public + self.initial[:, box["targets"]]\
-                if inject and self.init is not None else public
+                if inject else public
             incoming = backend.put(incoming, box["targets"], arrived)
         self.incoming, self.outgoing, self.stored = incoming, outgoing, stored
-        result = self.readout()
+        result = incoming if return_flat else self.readout()
         return (result, self.memories) if return_memory else result
 
     __call__ = forward
@@ -359,9 +320,11 @@ class Execution:
 def activate_box(backend, modules, group: dict, incoming, stored) -> tuple:
     """
     Apply one module to every box of a group at once, returning the public
-    outputs
-    and the next memories, one row per box and batch, as ``(batch_size,
-    n_boxes * width)`` arrays ready to be put back at the group's indices.
+    outputs and the next memories, one row per box and batch, as
+    ``(batch_size, n_boxes * width)`` arrays ready to be put back at the
+    group's indices. The sizes are spelled out so that a box with no public
+    port, e.g. a memory-only cell or a closed map wrapped by
+    :meth:`~discopy.neural.CMap.as_network`, reshapes its empty messages.
 
     Parameters:
         backend : The execution backend.
@@ -374,21 +337,21 @@ def activate_box(backend, modules, group: dict, incoming, stored) -> tuple:
     """
     width, memory_width = group["width"], group["memory_width"]
     n_boxes, batch_size = len(group["boxes"]), incoming.shape[0]
-    values = incoming[:, group["ports"]].reshape(-1, width)
+    rows = batch_size * n_boxes
+    values = incoming[:, group["ports"]].reshape(rows, width)
     if memory_width:
-        values = backend.concatenate((values, stored[
-            :, group["memory"]].reshape(-1, memory_width)))
+        values = backend.concatenate((
+            values, stored[:, group["memory"]].reshape(rows, memory_width)))
     outputs = backend.activate(modules[group["module"]], values)
     shape = getattr(outputs, "shape", None)
-    if shape is None or tuple(shape) != (
-            batch_size * n_boxes, width + memory_width):
+    if shape is None or tuple(shape) != (rows, width + memory_width):
         raise ValueError(
             f"output of box {group['boxes'][0]} has shape "
             f"{None if shape is None else tuple(shape)}, expected "
-            f"({batch_size * n_boxes}, {width + memory_width}).")
+            f"({rows}, {width + memory_width}).")
     public, next_memory = backend.split(outputs, (width, memory_width))
-    return public.reshape(batch_size, -1), next_memory.reshape(
-        batch_size, -1)
+    return (public.reshape(batch_size, n_boxes * width),
+            next_memory.reshape(batch_size, n_boxes * memory_width))
 
 
 def activate(backend, modules, indices: dict, source, incoming, stored):
@@ -416,20 +379,22 @@ def activate(backend, modules, indices: dict, source, incoming, stored):
     return outgoing, stored
 
 
-def make_step(backend, modules, indices: dict):
+def make_step(backend, indices: dict):
     """
-    Return one round of message passing as a function of flat arrays
-    alone, ``(incoming, stored, source, initial, inject) -> (incoming,
-    outgoing, stored)``, so that a backend can compile it once per map:
-    the boxes applied by :func:`activate`, the outputs routed by the
-    ``src`` permutation and the initial messages re-added when ``inject``.
+    Return one round of message passing as a function of the modules and
+    flat arrays alone, ``(modules, incoming, stored, source, initial,
+    inject) -> (incoming, outgoing, stored)``, so that a backend can
+    compile it once per map and device: the boxes applied by
+    :func:`activate`, the outputs routed by the ``src`` permutation and the
+    initial messages re-added when ``inject``. The modules are an argument
+    rather than a closure so that the same step serves every functional
+    update of the parameters, e.g. under ``jax.grad`` or with ``modules=``.
 
     Parameters:
         backend : The execution backend.
-        modules : The backend-owned modules.
         indices : The map's :meth:`~discopy.neural.CMap.indices`.
     """
-    def step(incoming, stored, source, initial, inject: bool):
+    def step(modules, incoming, stored, source, initial, inject: bool):
         outgoing, stored = activate(
             backend, modules, indices, source, incoming, stored)
         incoming = outgoing[:, indices["src"]]
@@ -444,7 +409,26 @@ def box_forward(inside, messages, backend, modules):
     every :class:`~discopy.neural.backend.Backend` do: ``messages`` is one
     batch of incoming messages on the public ports of ``inside`` followed by
     its private memory, and the result is the outgoing messages followed by
-    the next memory, as :meth:`Execution.forward` computes them.
+    the next memory.
+
+    The map starts cold on every call: :meth:`Execution.forward` with its
+    defaults, i.e. ``len(inside.boxes)`` synchronous rounds from zero
+    messages on every internal wire, the outer messages injected on the far
+    end of each boundary wire at every round, then the messages arriving on
+    the boundary read off. Only the private memory is carried from one outer
+    round to the next, so a message on an internal wire, e.g. a trace, is
+    reset every call and one outer round is ``len(inside.boxes)`` memory
+    updates. This agrees with the execution of the flattened diagram, the
+    map substituted for the box, exactly when every module ignores the
+    messages incoming on its codomain and no box has memory: both then reach
+    the same fixed point, and ``causal=True`` agrees on both.
+
+    Parameters:
+        inside : The map to run.
+        messages : The incoming messages then the memory, one row per batch.
+        backend : The execution backend.
+        modules : The backend-owned modules, in the map's unique-module
+                  order.
     """
     dom_width, cod_width = sum(inside.dom.inside), sum(inside.cod.inside)
     memory_width = sum(inside.memory_widths)
@@ -457,16 +441,14 @@ def box_forward(inside, messages, backend, modules):
             f"expected (batch_size, {expected}).")
     inputs, outputs, memory = backend.split(
         messages, (dom_width, cod_width, memory_width))
-    execution = Execution(
-        inside, memory=memory if memory_width else None,
-        backend=backend, modules=modules)
     boundary_ports = inside.input_ports + inside.output_ports
     initial = [None] * inside.n_ports
     for port, value in zip(boundary_ports, backend.split(
             backend.concatenate((inputs, outputs)),
             tuple(inside.port_widths[i] for i in boundary_ports))):
         initial[inside.edges[port]] = value
-    execution.init = initial
+    execution = Execution(
+        inside, init=initial, memory=memory, backend=backend, modules=modules)
     execution.forward()
     public = execution.incoming[:, execution.indices["boundary"]]\
         if boundary_ports else backend.zeros(shape[0], 0, like=messages)

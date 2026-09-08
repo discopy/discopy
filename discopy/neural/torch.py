@@ -79,7 +79,10 @@ class PyTorch(Backend):
 
     def put(self, value: torch.Tensor, indices: torch.Tensor,
             updates: torch.Tensor) -> torch.Tensor:
-        """ Return a copy of ``value`` with ``updates`` at ``indices``. """
+        """
+        Return a copy of ``value`` with ``updates`` at ``indices``, the
+        updates cast to the dtype of ``value``.
+        """
         return value.index_copy(1, indices, updates.to(value.dtype))
 
     def compile(self, function, **kwargs):

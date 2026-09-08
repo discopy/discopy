@@ -99,7 +99,9 @@ class JAX(Backend):
         """
         Return the function under ``jax.jit``, with ``inject`` static: the
         round step of :func:`~discopy.neural.execution.make_step` branches
-        on it.
+        on it. The modules are a PyTree argument of the step, so that a
+        functional update of the parameters, e.g. under ``jax.grad``, runs
+        the step compiled once.
         """
         static = kwargs.pop("static_argnames", ())
         static = (static, ) if isinstance(static, str) else tuple(static)
