@@ -120,6 +120,30 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Changed
 
+- `abc.TracedCategory` inherits from `abc.FeedbackCategory`, which moves
+  down the hierarchy from `MarkovCategory` to `MonoidalCategory`: a traced
+  category is a feedback category whose delay is trivial, so
+  `TracedCategory` implements `delay` as the identity and `feedback` as the
+  trace over `mem` — stated once for every traced carrier, i.e. the free
+  traced, balanced, symmetric, markov, pivotal, ribbon, compact and
+  frobenius diagrams, `Drawing` and `CMap`, while `stream.Stream` now
+  declares the `FeedbackCategory` it already implements.
+  `Hypergraph` keeps its `MonoidalCategory` base on purpose: a hypergraph
+  is parameterised by its host category, and over a feedback host such as
+  `feedback.Hypergraph` its delay is not trivial, so it must not inherit
+  the trace-based `feedback` — `feedback.Functor` keeps `Feedback` bubbles
+  as opaque boxes exactly when its codomain has no `feedback` method, which
+  is how `feedback.Equation` compares diagrams. `monoidal.Ty.delay` is
+  the identity, overridden by `feedback.Ty`, the same way `unwind` is
+  trivial until `rigid.Ty` overrides it. The note in `discopy.feedback`
+  showing that every traced category is a feedback category used to
+  monkey-patch `symmetric`; its doctest now runs on the built-in methods.
+  The free `feedback.Diagram` and `feedback.Ty` cannot conversely become
+  base classes of `traced.Diagram` and `traced.Ty`: they are already their
+  subclasses through `markov`, since the free feedback category is
+  symmetric with a non-trivial delay, so the concrete classes inherit the
+  other way around and the shared interface lives in `abc`
+  ([#710](https://github.com/discopy/discopy/issues/710)).
 - `monoidal.PRO` (and its counterparts `rigid.PRO`, `pivotal.PRO` and
   `frobenius.PRO`) is renamed to `Nat`: it is the free monoid on one
   generator, natural numbers with addition as tensor, and its unary

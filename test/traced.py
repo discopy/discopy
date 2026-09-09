@@ -18,6 +18,23 @@ def test_trace_dagger():
     assert f.trace().dagger() == f.dagger().trace()
 
 
+def test_trivial_delay_and_feedback():
+    from discopy import symmetric
+
+    x = Ty('x')
+    f = Box('f', x @ x, x @ x)
+    assert f.delay() == f and x.delay() == x
+    assert f.feedback() == f.trace()
+    assert f.feedback(mem=x @ x) == f.trace(2)
+    assert f.feedback(mem=Ty()) == f
+
+    y = symmetric.Ty('y')
+    g = symmetric.Box('g', y @ y, y @ y)
+    assert g.delay() == g and g.feedback() == g.trace()
+    assert g.to_map().feedback() == g.to_map().trace()
+    assert g.to_drawing().feedback() == g.to_drawing().trace()
+
+
 def test_trace_vanishing():
     from discopy import compact, matrix, ribbon
     from discopy.python import additive, multiplicative
