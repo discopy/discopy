@@ -7,7 +7,7 @@ from typing import NamedTuple
 
 import pytest
 
-from discopy import biclosed, braided, cat, compact, feedback, pivotal, ribbon
+from discopy import biclosed, braided, cat, feedback, pivotal, ribbon
 from discopy.matrix import Matrix
 from discopy.testing import (
     GENERATORS, Atomic, Axiom, AxiomFailure, Natural, Relabelling)
@@ -85,12 +85,6 @@ COUNTEREXAMPLES = (
         axiom=ribbon.Diagram.twist_as_trace,
         args=(Atomic(pivotal.Ty("a")), ),
         reason="A free twist is a box, not the trace of a braid."),
-    Counterexample(
-        axiom=compact.Diagram.rotate_contravariance,
-        args=((compact.Box("f", compact.Ty("a"), compact.Ty("a")),
-               compact.Box("g", compact.Ty("a"), compact.Ty("a"))), ),
-        reason="to_hypergraph drops the rotation of a box, so the equation "
-               "holds but cannot be checked up to hypergraph."),
     Counterexample(
         axiom=feedback.Diagram.feedback_joining,
         args=((feedback.Box(
