@@ -4,6 +4,7 @@ import pytest
 from pytest import raises
 
 from discopy import closed, biclosed, compact, symmetric
+from discopy.abc import DaggerCategory
 from discopy.python.finset import Permutation
 from discopy.utils import AxiomError
 
@@ -32,6 +33,7 @@ def test_default_compact_setting():
     f = Box("f", x, y)
     cm = M.from_box(f)
     assert isinstance(f, M.category)
+    assert isinstance(cm, DaggerCategory)
     assert cm.to_hypergraph().category == M.category
 
 

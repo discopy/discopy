@@ -174,6 +174,7 @@ def test_spider_producers_and_consumers():
 
 def test_cups():
     x = Ty('x')
+    assert issubclass(H, DaggerCategory)
     assert H.cups(x, x).make_monogamous().dagger()\
         == H.caps(x, x).make_monogamous()
     assert H.caps(x, x).make_monogamous().dagger()\

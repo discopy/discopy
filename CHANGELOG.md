@@ -18,7 +18,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   the dagger axioms for the carriers that declare one instead of every
   carrier opting out by hand. `cat.FreeCategory` keeps the implementation —
   reversal by slicing, shared with `monoidal.FreeMonoid` — without the
-  declaration ([#731](https://github.com/discopy/discopy/issues/731)).
+  declaration. `matrix.Matrix`, `hypergraph.Hypergraph` and `cmap.CMap`
+  declare it too: the conjugate transpose and the boundary swaps are
+  daggers of their own
+  ([#731](https://github.com/discopy/discopy/issues/731)).
 - `abc.Nat`, a concrete dataclass for the free monoid on one generator
   (`n: int` with addition as `tensor`), and `abc.PRO`/`abc.PROB`/`abc.PROP`,
   the `MonoidalCategory`/`BraidedCategory`/`SymmetricCategory` whose objects
