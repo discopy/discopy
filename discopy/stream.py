@@ -166,7 +166,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from discopy import symmetric
-from discopy.abc import MonoidalCategory, NamedGeneric
+from discopy.abc import FeedbackCategory, NamedGeneric
 from discopy.python import finset
 from discopy.utils import (
     AxiomError, get_origin, is_tuple,
@@ -297,7 +297,7 @@ class Ty(NamedGeneric['base']):
 
 
 @dataclass
-class Stream(MonoidalCategory, NamedGeneric['category']):
+class Stream(FeedbackCategory, NamedGeneric['category']):
     """
     Monoidal streams over an underlying `category`.
 
