@@ -11,8 +11,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 - `abc.DaggerCategory`, a `Category` with an abstract `dagger`, so that the
   dagger laws — contravariance and involution — are stated only where there
-  is a dagger. `cat.Arrow` inherits it, and the diagram classes down the
-  hierarchy with it, while `cat.Functor` and `monoidal.Ty` do not: a functor
+  is a dagger. `cat.Arrow` inherits it, and the diagram classes inherit it
+  down the hierarchy, while `cat.Functor` and `monoidal.Ty` do not: a functor
   has no dagger and a type's generators need not either, so the property
   tests of [#658](https://github.com/discopy/discopy/pull/658) can generate
   the dagger axioms for the carriers that declare one instead of every
