@@ -23,7 +23,7 @@ class Counterexample(NamedTuple):
 
 COUNTEREXAMPLES: tuple[Counterexample, ...] = ()
 """
-The records: none while no law of an enrolled carrier is declared broken.
+The records: none while no law of an enrolled category is declared broken.
 """
 
 
@@ -39,7 +39,7 @@ def counterexample_parameters():
             if axiom.broken else ()
         yield pytest.param(
             axiom, args, marks=marks,
-            id=f"{factory_name(axiom.carrier)}.{axiom.name}")
+            id=f"{factory_name(axiom.category)}.{axiom.name}")
 
 
 @pytest.mark.parametrize("axiom, args", counterexample_parameters())

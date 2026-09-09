@@ -11,13 +11,13 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 - `discopy/axioms.py`, a Hypothesis-based property-testing module, home
   of `Equation` (formerly `discopy.abc.Equation`): a law is stated once
-  on `discopy.abc.Category`/`ColouredMonoid` and every subclass inherits
+  on `discopy.abc.Category` and every subclass inherits
   it, as an `Axiom` decorated with `@axiom`: a classmethod of its
-  carrier — the class whose instances are the terms of the law —
-  implicitly, its remaining parameters generated from their annotations,
-  `C0`, `C1` or `Self` for the objects, arrows or terms of the carrier;
+  category — the class it is bound to — implicitly, its remaining
+  parameters generated from their annotations, `C0`, `C1` or `Self` for
+  the objects, arrows or terms of the category;
   `.failing`/`.inapplicable` classify a
-  law as broken or not applicable to a carrier, and `.modulo`/`.weaken`
+  law as broken or not applicable to a category, and `.modulo`/`.weaken`
   are defined (compare up to a function, quantify over a named subspace)
   but not used yet. A
   broken law raises `AxiomFailure` carrying its equation, which the
@@ -54,15 +54,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   fails as an unexpected pass until the declaration moves. `Strategy`
   states the laws of any type that generates its own instances, whatever
   its level: `transparency`, `pickling` and `serialisation` are cells of
-  the matrix for every carrier — `eval(repr(x))`, the pickle and the tree
+  the matrix for every category — `eval(repr(x))`, the pickle and the tree
   of a term read back to it, as `Equation`s like every other law — with
   `Strategy.environment` for the namespace a representation reads back
   in — the package's public names and then those of the module the
-  carrier is defined in, so that a term printing bare names such as
+  category is defined in, so that a term printing bare names such as
   `Tensor[int]([0], dom=Dim(1), cod=Dim(1))` reads back without its
-  carrier declaring anything; the ad-hoc property
+  category declaring anything; the ad-hoc property
   files for representations, pickling and serialisation are gone, and a
-  known violation is a `.failing` declaration on its carrier like any
+  known violation is a `.failing` declaration on its category like any
   other broken law. The workflow
   for developing against the suite — laws stated before implementation,
   a failing cell debugged, its counterexample recorded, a strategy that

@@ -1,9 +1,8 @@
 """
 Property-based testing of the axioms with `Hypothesis
-<https://hypothesis.readthedocs.io>`_: a law is stated once as an
-:class:`Axiom` of an abstract base class, a carrier — a class whose
-instances are the terms the law quantifies over — generates its own
-instances through :class:`Strategy`, and the matrix in ``proptest/``
+<https://hypothesis.readthedocs.io>`_: an :class:`Axiom` is stated once
+on an abstract base class, a category generates its own objects and
+arrows through :class:`Strategy`, and the matrix in ``proptest/``
 searches every cell for a counterexample.
 
 Summary
@@ -44,16 +43,16 @@ The suite
 ---------
 
 - ``proptest/test_axioms.py`` is the matrix: every :class:`Axiom` of every
-  carrier in ``CARRIERS``, one pytest cell per pair, arguments generated
+  category in ``CATEGORIES``, one pytest cell per pair, arguments generated
   by :meth:`Axiom.strategy` from the annotations of the law's own
   parameters.
 - :class:`Strategy` states the laws of any type that generates its own
   instances, whatever its level: :meth:`Strategy.transparency`,
   :meth:`Strategy.pickling` and :meth:`Strategy.serialisation` are cells
-  of the matrix for every carrier, which read back in
+  of the matrix for every category, which read back in
   :meth:`Strategy.environment`: the package's public names and its own
   module's, so that a representation printing bare names evaluates
-  without the carrier declaring anything.
+  without the category declaring anything.
 - ``proptest/test_counterexamples.py`` replays every recorded
   counterexample deterministically — no generation, no search: the
   matrix's explicit phase. Its memory is Hypothesis's example database,
@@ -66,7 +65,7 @@ The suite
 - Each ``test/<module>.py`` gains a ``test_axioms`` dry run (one example
   per axiom, see :func:`assert_axioms`) and a ``test_strategy`` checking
   the strategy reaches the structure its laws need, as its module's
-  carriers are enrolled: the fast loop before the full matrix.
+  categories are enrolled: the fast loop before the full matrix.
 
 Properties before implementation
 --------------------------------
@@ -77,33 +76,33 @@ agent branch, as the first checkboxes of its ``TODO.md``:
 
 1. **State the laws.** Which equations define the new structure? Which
    level of :mod:`discopy.abc` do they belong to? Which existing axioms
-   must the new carrier inherit, compare :meth:`Axiom.modulo` a quotient,
+   must the new category inherit, compare :meth:`Axiom.modulo` a quotient,
    declare :meth:`Axiom.inapplicable` — or :meth:`Axiom.weaken` to a
    subspace, generating a named parameter from a membership-validating
-   wrapper, which arrives with the carrier that needs it, so that a
+   wrapper, which arrives with the category that needs it, so that a
    :meth:`Axiom.failing` law with a green subspace shows one expected
    failure and one green cell? Write this down before any implementation.
 2. **Scaffold the axioms.** Declare each law as an :class:`Axiom` on the
    abstract base class — or an ad-hoc property in its ``proptest/`` file
-   when it is a boolean rather than an equation — and enrol the carrier
-   in ``CARRIERS``. The
+   when it is a boolean rather than an equation — and enrol the category
+   in ``CATEGORIES``. The
    body calls the operations the feature will provide; until they exist,
    the cell fails. That is the red state of the loop.
-3. **Reach the structure.** Extend the carrier's strategy so generated
+3. **Reach the structure.** Extend the category's strategy so generated
    terms actually contain the new boxes, and pin that with a
    :func:`hypothesis.find` in the module's ``test_strategy``. A
    green cell whose strategy never generates the structure proves
    nothing.
 4. **Implement until green**, on the dry run first, then the matrix.
 
-A property is meaningful when it quantifies over all terms of a carrier.
+A property is meaningful when it quantifies over all terms of a category.
 Single behaviours — validation raises, error messages, encoding pins —
 stay as unit tests in ``test/``.
 
 Debugging a failing cell
 ------------------------
 
-1. **Isolate it**: ``uv run pytest proptest/ -k '<Carrier> and <law>'
+1. **Isolate it**: ``uv run pytest proptest/ -k '<Category> and <law>'
    -x -vrsxX``. Hypothesis reports the shrunk falsifying example as
    labelled draws; on rerun the ``.hypothesis`` database replays it
    first, so the failure is stable on your machine. A failure CI found is
@@ -127,7 +126,7 @@ Debugging a failing cell
 4. **Fix the root cause.** The recorded cell flips green and stays as the
    regression pin; there is nothing else to write.
 5. **Or file it.** If the fix is out of scope, open an issue, declare the
-   axiom ``.failing("<reason> (#<issue>)")`` where the carrier breaks it,
+   axiom ``.failing("<reason> (#<issue>)")`` where the category breaks it,
    and keep the record: it xfails together with the axiom, strictly, so
    the day the bug is fixed the record fails as an unexpected pass until
    the :meth:`Axiom.failing` declaration is removed — at which point the
@@ -156,7 +155,7 @@ arguments the search shrunk the failure to.
         ...)
 
 - ``axiom`` is the class attribute access, which binds the :class:`Axiom`
-  to its carrier — the same object the matrix checks, so a record can
+  to its category — the same object the matrix checks, so a record can
   never drift from the law it witnesses.
 - ``args`` are the generated arguments, one per draw, in draw order —
   actual terms, not strings. Transparency is what lets the falsifying
@@ -185,7 +184,7 @@ its law sat green is a coverage escape. The record pins the instance; the
 audit closes the class. Check three causes, in order:
 
 1. **Reach.** Can the strategy build the counterexample's shape at all?
-   Ask :func:`hypothesis.find` with the carrier's strategy and a
+   Ask :func:`hypothesis.find` with the category's strategy and a
    predicate for the shape — the structural box involved, the boundary,
    the depth. :class:`hypothesis.errors.NoSuchExample` convicts the
    strategy: extend it, then pin the reach in the module's
@@ -280,12 +279,12 @@ if TYPE_CHECKING:
 C0 = TypeVar("C0")
 C1 = TypeVar("C1")
 """
-The object and arrow types of the carrier an axiom is bound to.
+The object and arrow types of the category an axiom is bound to.
 
 An axiom annotates its arguments with these rather than with the concrete
 types of the module it is written in, so that a subclass inherits the
 override with its own types: :meth:`Axiom.strategy` rebinds both names to
-``carrier.ob`` and ``carrier.ar``, and :data:`typing.Self` to the carrier
+``category.ob`` and ``category.ar``, and :data:`typing.Self` to the category
 itself for a law of every term of a type whatever its level, such as
 :meth:`Strategy.transparency`, in its :attr:`Axiom.scope` when it
 evaluates the annotations; a law of functors names the category they map
@@ -388,19 +387,20 @@ class AxiomFailure(AxiomError):
 @dataclass
 class Axiom[**P, T]:
     """
-    A categorical law stated of a carrier.
+    An axiom of a category, stated once on an abstract base class and
+    inherited by every category below it.
 
-    The carrier of a law is the class it is bound to, whose instances are
-    the terms the law quantifies over: the underlying set of a model, in
-    the sense of universal algebra, e.g. :class:`discopy.cat.Arrow` for the
-    laws of :class:`discopy.abc.Category`. The law is a classmethod of its
-    carrier, implicitly: its first parameter is the carrier and the
-    remaining ones are generated from their annotations, e.g. three
-    composable arrows for the associativity of composition, or a term of
-    the carrier itself for :meth:`Strategy.transparency`.
+    The category is the class the axiom is bound to, e.g.
+    :class:`discopy.cat.Arrow` for the axioms of
+    :class:`discopy.abc.Category`. The axiom is a classmethod of it,
+    implicitly: its first parameter is the category and the remaining ones
+    are generated from their annotations — an object for the typing of
+    identities, three composable arrows for the associativity of
+    composition, a term of the category itself for
+    :meth:`Strategy.transparency`.
 
     Calling a bound axiom returns its own verdict: :obj:`NotImplemented`
-    when the structure does not apply to the carrier, and the equation
+    when the structure does not apply to the category, and the equation
     itself otherwise; a law declared broken raises an
     :class:`AxiomFailure` carrying that equation instead of returning it.
 
@@ -410,12 +410,12 @@ class Axiom[**P, T]:
     failure and lets the search find the counterexample.
 
     Parameters:
-        equation : The function stating the law, from the carrier and the
+        equation : The function stating the law, from the category and the
             arguments annotated with :obj:`C0`, :obj:`C1`,
             :data:`typing.Self` or a :class:`Strategy` to an
             :class:`Equation`, or to :obj:`NotImplemented` when the
             structure does not apply.
-        carrier : The class the law is bound to, :obj:`None` until
+        category : The class the axiom is bound to, :obj:`None` until
             :meth:`bind` or the attribute access on a class binds it.
         name : The attribute the law is stored under, the name of the
             equation by default.
@@ -426,7 +426,7 @@ class Axiom[**P, T]:
 
     equation: Callable[Concatenate[type[T], P], Equation]
     _: KW_ONLY
-    carrier: type[T] = None
+    category: type[T] = None
     name: str = None
     subspaces: dict = None
     broken: bool = False
@@ -444,20 +444,20 @@ class Axiom[**P, T]:
 
     def __repr__(self):
         """
-        A bound axiom is the attribute of its carrier, e.g.
+        A bound axiom is the attribute of its category, e.g.
         ``cat.Arrow.unitality``; an unbound one wraps a function and has no
         transparent representation.
         """
-        if self.carrier is None:
+        if self.category is None:
             return f"{type(self).__name__}({self.name})"
-        return f"{factory_name(self.carrier)}.{self.name}"
+        return f"{factory_name(self.category)}.{self.name}"
 
     def __hash__(self):
-        return hash((self.equation, self.carrier, self.name))
+        return hash((self.equation, self.category, self.name))
 
-    def bind(self, carrier: type[T]) -> Axiom[P, T]:
-        """ Bind the axiom to a concrete carrier. """
-        return replace(self, carrier=carrier)
+    def bind(self, category: type[T]) -> Axiom[P, T]:
+        """ Bind the axiom to a concrete category. """
+        return replace(self, category=category)
 
     def __get__(self, instance, owner: type[T]) -> Axiom[P, T]:
         return self.bind(owner)
@@ -465,7 +465,7 @@ class Axiom[**P, T]:
     def modulo(self, up_to) -> Axiom[P, T]:
         """
         The same law with its equation compared up to a function, so that a
-        carrier weakens an inherited axiom in one statement, e.g. a diagram
+        category weakens an inherited axiom in one statement, e.g. a diagram
         compares the interchange law up to its normal form:
         ``Diagram.bifunctoriality = MonoidalCategory.bifunctoriality.modulo(
         Diagram.normal_form)``.
@@ -490,7 +490,7 @@ class Axiom[**P, T]:
 
     def inapplicable(self, reason: str) -> Axiom[P, T]:
         """
-        The same law declared not to apply to the carrier: it takes no
+        The same law declared not to apply to the category: it takes no
         argument and returns :obj:`NotImplemented`, with the reason as its
         documentation, e.g. ``trace_vanishing =
         TracedCategory.trace_vanishing.inapplicable("No trace.")``.
@@ -518,7 +518,7 @@ class Axiom[**P, T]:
     def parameters(self) -> tuple[inspect.Parameter, ...]:
         """
         The parameters whose arguments the property matrix generates: all
-        but the first, which is the carrier.
+        but the first, which is the category.
         """
         return tuple(
             inspect.signature(self.equation).parameters.values())[1:]
@@ -526,30 +526,30 @@ class Axiom[**P, T]:
     @property
     def scope(self) -> dict:
         """
-        What the names in the annotations of the law stand for: the carrier
-        itself for :data:`typing.Self`, and its objects and arrows for
-        :obj:`C0` and :obj:`C1`. A carrier that is no category, e.g. a
-        type of objects, stands for both; a class of functors is the arrows
-        of ``Cat``, and the category it maps from, where the arguments a
-        functor is applied to live, is reachable as ``Self.dom``.
+        What the names in the annotations of the axiom stand for: the
+        category itself for :data:`typing.Self`, and its objects and arrows
+        for :obj:`C0` and :obj:`C1`. A monoid, having no objects of its
+        own, stands for both; a class of functors is the arrows of ``Cat``,
+        and the category it maps from, where the arguments a functor is
+        applied to live, is reachable as ``Self.dom``.
         """
         return {
-            "Self": self.carrier,
-            "C0": getattr(self.carrier, "ob", self.carrier),
-            "C1": getattr(self.carrier, "ar", self.carrier)}
+            "Self": self.category,
+            "C0": getattr(self.category, "ob", self.category),
+            "C1": getattr(self.category, "ar", self.category)}
 
     def strategy(self) -> st.SearchStrategy:
         """
         Generate the arguments the bound axiom expects: one per required
         parameter, from its annotation evaluated in the :attr:`scope` of the
-        carrier or from the subspace :meth:`weaken` declared for it.
+        category or from the subspace :meth:`weaken` declared for it.
 
         Only the parameters' annotations are evaluated: the law's return
         annotation may name a type its module imports for checking only.
         """
         from hypothesis import strategies as st
 
-        if self.carrier is None:
+        if self.category is None:
             raise TypeError(f"{self.name} is not bound to a class.")
         namespace = inspect.unwrap(self.equation).__globals__
         annotations = {
@@ -595,7 +595,7 @@ class Axiom[**P, T]:
         unwrapping those a :attr:`subspaces` wrapper validated on
         construction.
         """
-        if self.carrier is None:
+        if self.category is None:
             raise TypeError(f"{self.name} is not bound to a class.")
         bound = inspect.Signature(self.parameters).bind(*args, **kwargs)
         bound.apply_defaults()
@@ -604,14 +604,14 @@ class Axiom[**P, T]:
             for name, value in bound.arguments.items()}
 
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> Equation[T]:
-        return self.equation(self.carrier, **self.arguments(*args, **kwargs))
+        return self.equation(self.category, **self.arguments(*args, **kwargs))
 
 
 def axiom[**P, T](
         equation: Callable[Concatenate[type[T], P], Equation]) -> Axiom[P, T]:
     """
     Decorate an equation as a categorical axiom: a classmethod of its
-    carrier, implicitly, whose remaining parameters are generated.
+    category, implicitly, whose remaining parameters are generated.
     """
     return Axiom(equation)
 
@@ -646,7 +646,7 @@ class Strategy[T](ABC):
         public names of the package, as ``from discopy import *`` binds
         them, so that a representation qualified by module such as
         ``cat.Box('f', cat.Ob('x'), cat.Ob('y'))`` evaluates, and then
-        those of the module the carrier is defined in, so that one
+        those of the module the category is defined in, so that one
         printing bare names such as ``Tensor[int]([0], dom=Dim(1),
         cod=Dim(1))`` evaluates too. The module comes second because a
         term prints the names its own module binds: ``Dim`` in
@@ -786,9 +786,9 @@ def substitute(annotation, scope: dict):
     return get_origin(annotation)[substituted]
 
 
-def assert_axioms(*carriers) -> None:
+def assert_axioms(*categories) -> None:
     """
-    Check every axiom of each carrier on a single generated example, a dry
+    Check every axiom of each category on a single generated example, a dry
     run of the property tests in ``proptest/``.
 
     An axiom that does not apply is skipped, a broken one is only required
@@ -799,8 +799,8 @@ def assert_axioms(*carriers) -> None:
 
     single_shot = settings(
         max_examples=1, phases=(Phase.generate, ), database=None)
-    for carrier in carriers:
-        for axiom in carrier.axioms.values():
+    for category in categories:
+        for axiom in category.axioms.values():
             if not axiom.parameters and axiom() is NotImplemented:
                 continue
             args = find(

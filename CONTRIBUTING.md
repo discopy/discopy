@@ -78,8 +78,8 @@ cores, with `-p no:benchmark` unloading the benchmark plugin that is
 incompatible with it; drop both to run serially, e.g. when debugging a
 single cell.
 
-Every cell of the matrix is one axiom of one carrier, named
-`<module>.<Carrier>.<law>`, so pytest's own `-k` selects cells for
+Every cell of the matrix is one axiom of one category, named
+`<module>.<Category>.<law>`, so pytest's own `-k` selects cells for
 shorter, targeted tests.
 
 ```shell

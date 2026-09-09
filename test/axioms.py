@@ -67,7 +67,7 @@ def test_axioms():
     assert_axioms(Arrow)
 
     class Classified(Arrow):
-        """ A carrier with a broken law and an inapplicable one. """
+        """ A category with a broken law and an inapplicable one. """
         unitality = Arrow.unitality.failing("Never holds.")
         dagger_involution = Arrow.dagger_involution.inapplicable("No dagger.")
 
@@ -177,9 +177,9 @@ def test_falsify():
         Arrow.associativity.falsify()
 
 
-def test_axioms_of_carrier():
+def test_axioms_of_category():
     class Broken(Arrow):
-        """ A carrier declaring an inherited law broken. """
+        """ A category declaring an inherited law broken. """
         unitality = Arrow.unitality.failing("Never holds.")
 
     assert Broken.axioms["unitality"].broken
