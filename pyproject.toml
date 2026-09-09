@@ -165,3 +165,8 @@ omit = ["test/plugin.py"]
 
 [tool.coverage.report]
 fail_under = 98
+
+[tool.marimo.display]
+# The docs embed the exported notebooks in iframes, where only the browser's
+# prefers-color-scheme reaches: "system" follows it, "light" ignores it.
+theme = "system"
