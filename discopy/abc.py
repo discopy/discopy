@@ -162,6 +162,21 @@ class ColouredMonoid[C0, C1: ColouredMonoid](Category[C0, C1]):
         return self.tensor(*others)
 
     @classmethod
+    def cast(cls, atoms) -> C1:
+        """
+        The element of a tuple of atoms, or of a single atom; an element of
+        the monoid is unchanged.
+
+        Parameters:
+            atoms : An element, a tuple of atoms or a single atom.
+
+        >>> assert Nat.cast(2) == Nat(2) == Nat.cast(Nat(2))
+        """
+        if isinstance(atoms, cls):
+            return atoms
+        return cls(*atoms) if isinstance(atoms, tuple) else cls(atoms)
+
+    @classmethod
     def whisker(cls, other: C0 | C1) -> C1:
         """
         Do nothing if ``other`` is already a morphism else apply :meth:`id`.

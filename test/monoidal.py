@@ -730,8 +730,7 @@ def test_Diagram_from_callable():
 
 
 def test_List():
-    import warnings
-    from discopy import monoidal
+    from discopy import abc, monoidal
 
     # List[X] is a NamedGeneric on the generator type, cached like Hypergraph.
     assert List[int].generator_factory is int and List[int] is List[int]
@@ -752,21 +751,14 @@ def test_List():
     with raises(IndexError):
         a[2]
 
-    # Its atoms have no colour so it is a plain monoid, white on both sides.
-    assert not a.is_coloured and a.dom == a.cod == monoidal.white
+    # Its only colour is the unit: List is a Monoid, Ty the coloured one.
+    assert issubclass(List, abc.Monoid) and a.dom is a.cod is None
+    assert not issubclass(Ty, List) and Ty.generator_factory is Wire
+    assert all(issubclass(Ty, base)
+               for base in (cat.Ob, cat.FreeCategory, abc.ColouredMonoid))
     assert Dim(2, 3)[::-1] == Dim(3, 2) and Dim(2, 3)[0] == Dim(2)
-
-    # Ty is the special case whose generators are coloured Wires.
-    assert issubclass(Ty, List) and Ty.generator_factory is Wire
-    assert Ty().is_coloured and issubclass(Ty, cat.Ob)
     red = monoidal.Colour('red')
-    empty_red = List[Wire](dom=red, cod=red)
-    assert not empty_red.inside and eval(repr(empty_red)) == empty_red
+    assert Ty.cast(('x', 'y')) == Ty('x', 'y') == Ty.cast(Ty('x', 'y'))
+    assert eval(repr(Ty.id(red))) == Ty.id(red)
     with raises(AxiomError):
-        List[Wire](Wire('x', red, red), Wire('y'))
-
-    # monoidal.FreeMonoid is a deprecated alias for List.
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        assert monoidal.FreeMonoid is List
-    assert issubclass(caught[-1].category, DeprecationWarning)
+        Ty(Wire('x', red, red), Wire('y'))

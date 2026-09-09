@@ -9,6 +9,25 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `monoidal.List`, the free monoid on a generator type: `List[X]` is a
+  tuple of instances of `X` with concatenation as `tensor` and the empty
+  list as unit, an `abc.Monoid` parameterised as
+  `NamedGeneric["generator_factory"]` the way `Hypergraph[C]` is the
+  hypergraph category over `C`. Free monoids come at three levels: `Ty`
+  has arbitrary colours and generators, `List` a single colour and
+  arbitrary generators, `Nat` a single colour and a single generator. A
+  list is a sequence of its length-one sublists with the atoms as
+  `inside`, and `abc.ColouredMonoid.cast` embeds a tuple of atoms, or a
+  single atom, into any monoid. `python.Function.ob` is `List[type]`
+  rather than `tuple[type, ...]`: the `dom` and `cod` of a function are
+  the free monoid on Python's `type`, a type or a tuple of types is cast
+  into one wherever a function is built, indexing a function's `dom` or
+  `cod` gives a list of length one and `dom.inside[i]` the type itself.
+  `python.Ty` is an alias of `List[type]`, defined in `python.function`
+  with `additive` and `multiplicative` re-exporting it; the package
+  imports `multiplicative` on first use, since it imports `monoidal`
+  which imports `python.finset`
+  ([#728](https://github.com/discopy/discopy/issues/728)).
 - `abc.Nat`, a concrete dataclass for the free monoid on one generator
   (`n: int` with addition as `tensor`), and `abc.PRO`/`abc.PROB`/`abc.PROP`,
   the `MonoidalCategory`/`BraidedCategory`/`SymmetricCategory` whose objects
@@ -17,7 +36,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `abc.SymmetricCategory` already extends `abc.BraidedCategory` directly.
   `abc.Nat` also gets `__index__` (so `range(n)`/`int(n)` work whether `n`
   is a plain `int` or a `Nat`) and its `tensor` now returns `NotImplemented`
-  for a non-`Nat` argument, like `monoidal.FreeMonoid.tensor` already does
+  for a non-`Nat` argument, like `monoidal.Ty.tensor` already does
   — needed to let `@` fall back to the other operand's `__rmatmul__` for
   whiskering, e.g. `Nat(1) @ some_morphism`, which previously crashed with
   `AttributeError` instead of building the identity on `Nat(1)` first.
@@ -120,18 +139,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Changed
 
-- `monoidal.FreeMonoid` is renamed `List` and parameterised as a
-  `NamedGeneric["generator_factory"]`: `List[X]` is the free monoid on `X`
-  the way `Hypergraph[C]` is the hypergraph category over `C`, `Ty` is the
-  case `generator_factory = Wire`. A `List` is a `ColouredMonoid`, so it
-  carries the whole interface of a type — `@`, `**`, `len`, indexing,
-  slicing and iteration over its length-one sublists, with the atoms as
-  `inside` — once, where `Ty` used to define it; the atoms of a `List`
-  other than a `Ty` carry no colour, so it is `white` on both sides and
-  `Dim` no longer needs its own slicing. Addition is no longer an alias of
-  the tensor on any object: `Ty.__add__`, `stream.Ty.__add__` and
-  `interaction.Ty.__add__` are removed, `+` raises `TypeError` on a
-  `List`, and every fold of objects with `sum` or `+` — in
+- `monoidal.Ty` is the free coloured monoid itself: it subclasses
+  `cat.Ob`, `cat.FreeCategory` and `abc.ColouredMonoid` directly, folding
+  in the unreleased `FreeMonoid` whose only subclass it was. Addition is
+  no longer an alias of the tensor on any object: `Ty.__add__`,
+  `stream.Ty.__add__` and `interaction.Ty.__add__` are removed, `+` raises
+  `TypeError` on a `List`, and every fold of objects with `sum` or `+` — in
   `abc.SymmetricCategory.permutation`, `Hypergraph.from_graph`,
   `interaction.Ty.tensor`, `stream.Ty.sequence` and `para` — goes through
   `tensor`. `matrix.Matrix.ob` is `abc.Nat` rather than a bare `int`, its
@@ -139,23 +152,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   does ([#709](https://github.com/discopy/discopy/issues/709)): the
   `Int`-construction over `Matrix[bool]` folds its objects with `tensor`,
   which an `int` does not have, and `abc.Nat` prints as its number so a
-  matrix still reads `dom=2, cod=2`.
-  `python.Function.ob` is `List[type]` rather than `tuple[type, ...]`: the
-  `dom` and `cod` of a function are the free monoid on Python's `type`. A
-  type or a tuple of types is `List.cast` into one wherever a function is
-  built; `para.Symmetric` checks that its four objects are `category.ob`,
-  so a tuple of types is refused where it used to be concatenated with `+`
+  matrix still reads `dom=2, cod=2`. `para.Symmetric` checks that its four
+  objects are `category.ob`, so a tuple of types is refused where it used
+  to be concatenated with `+`
   ([#750](https://github.com/discopy/discopy/issues/750)).
   `monoidal.Functor` folds the images of every object with `tensor` instead
-  of the `+` it fell back to while `Function.ob` was a bare tuple, and
-  `_map_atomic` goes with the tuple case it existed for, as do the tuple
-  special case of `stream.Ty` and `utils.is_tuple`. Indexing a function's
-  `dom` or `cod` now gives a list of length one, as for any `Ty`, and
-  `dom.inside[i]` the type itself. `python.Ty` is an alias of `List[type]`,
-  defined in `python.function` with `additive` and `multiplicative`
-  re-exporting it; the package imports `multiplicative` on first use, since
-  it imports `monoidal` which imports `python.finset`. `monoidal.FreeMonoid`
-  remains as a deprecated alias
+  of the `+` it fell back to while `python.Function.ob` was a bare tuple,
+  and `_map_atomic` goes with the tuple case it existed for, as do the
+  tuple special case of `stream.Ty` and `utils.is_tuple`
   ([#728](https://github.com/discopy/discopy/issues/728)).
 - `monoidal.PRO` (and its counterparts `rigid.PRO`, `pivotal.PRO` and
   `frobenius.PRO`) is renamed to `Nat`: it is the free monoid on one
