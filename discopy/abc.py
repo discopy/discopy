@@ -28,6 +28,7 @@ Summary
     Nat
     MonoidalCategory
     PRO
+    FeedbackCategory
     TracedCategory
     ResiduatedMonoid
     BiclosedCategory
@@ -40,7 +41,6 @@ Summary
     PROP
     MarkovCategory
     ClosedCategory
-    FeedbackCategory
     BalancedCategory
     RibbonCategory
     CompactCategory
@@ -263,10 +263,42 @@ class PRO[C1: PRO](MonoidalCategory[Nat, C1]):
     """
 
 
-class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
+class FeedbackCategory[C0, C1](MonoidalCategory[C0, C1]):
     """
-    A traced category is a :class:`MonoidalCategory` with a method
-    :code:`trace` for the partial trace of a morphism over some objects.
+    A feedback category is a :class:`MonoidalCategory` with a :code:`delay`
+    endofunctor and a :code:`feedback` operator.
+
+    The free feedback category :mod:`discopy.feedback` is built on top of a
+    :class:`MarkovCategory` but the interface itself needs only a monoidal
+    category, so that :class:`TracedCategory` can implement it with a
+    trivial delay.
+    """
+    @abstractmethod
+    def delay(self, n_steps: int = 1) -> C1:
+        """
+        The delay endofunctor applied to a morphism.
+
+        Parameters:
+            n_steps : The number of time steps to delay.
+        """
+
+    @abstractmethod
+    def feedback(self, dom: C0 = None, cod: C0 = None, mem: C0 = None) -> C1:
+        """
+        The feedback operator on a morphism.
+
+        Parameters:
+            dom : The domain of the feedback.
+            cod : The codomain of the feedback.
+            mem : The memory type to trace over.
+        """
+
+
+class TracedCategory[C0, C1](FeedbackCategory[C0, C1]):
+    """
+    A traced category is a :class:`FeedbackCategory` with a method
+    :code:`trace` for the partial trace of a morphism over some objects,
+    where the delay is trivial and the feedback is given by the trace.
     """
     @abstractmethod
     def trace(self, n: int = 1, left: bool = False) -> C1:
@@ -281,6 +313,27 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
             n : The number of objects to trace over.
             left : Whether to trace the wires on the left or right.
         """
+
+    def delay(self, n_steps: int = 1) -> C1:
+        """
+        The delay of a traced category is trivial, i.e. the identity.
+
+        Parameters:
+            n_steps : The number of time steps to delay.
+        """
+        return self
+
+    def feedback(self, dom: C0 = None, cod: C0 = None, mem: C0 = None) -> C1:
+        """
+        The feedback of a traced category is the trace over the ``mem``
+        objects, one by default; ``dom`` and ``cod`` are determined by it.
+
+        Parameters:
+            dom : The domain of the feedback.
+            cod : The codomain of the feedback.
+            mem : The memory objects to trace over.
+        """
+        return self.trace(1 if mem is None else len(mem))
 
 
 class ResiduatedMonoid[C0, C1: ResiduatedMonoid](ColouredMonoid[C0, C1]):
@@ -583,32 +636,6 @@ class ClosedCategory[C0, C1](BiclosedCategory[C0, C1], MarkovCategory[C0, C1]):
     A closed category is a symmetric :class:`BiclosedCategory`. We also assume
     it comes with copy and discard so it is also a :class:`MarkovCategory`.
     """
-
-
-class FeedbackCategory[C0, C1](MarkovCategory[C0, C1]):
-    """
-    A feedback category is a :class:`MarkovCategory` with a :code:`delay`
-    endofunctor and a :code:`feedback` operator.
-    """
-    @abstractmethod
-    def delay(self, n_steps: int = 1) -> C1:
-        """
-        The delay endofunctor applied to a morphism.
-
-        Parameters:
-            n_steps : The number of time steps to delay.
-        """
-
-    @abstractmethod
-    def feedback(self, dom: C0, cod: C0, mem: C0) -> C1:
-        """
-        The feedback operator on a morphism.
-
-        Parameters:
-            dom : The domain of the feedback.
-            cod : The codomain of the feedback.
-            mem : The memory type to trace over.
-        """
 
 
 class BalancedCategory[C0, C1](
