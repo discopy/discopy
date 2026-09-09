@@ -99,7 +99,7 @@ def test_python():
     f, ff = python.Ty(float), python.Ty(float, float)
     inside = Function(lambda a, w, b: w * a + b, f ** 3, f)
     layer = Symmetric[Function](f, f, inside, ff)
-    with raises(TypeError):  # The objects are lists of types, not tuples.
+    with raises(TypeError):
         Symmetric[Function]((float, ), (float, ), inside, (float, float))
     pair = layer @ layer
     assert pair.inside(1., 2., 10., 0., 3., 5.) == (10., 11.)
