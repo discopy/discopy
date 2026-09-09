@@ -75,7 +75,6 @@ from discopy.utils import (
     assert_iscomposable,
     AxiomError,
     deprecated_alias,
-    get_origin,
     MappingOrCallable,
     RichDisplay,
 )
@@ -1685,12 +1684,6 @@ class Functor(cat.Functor):
     def _map_colour(self, colour):
         return self.colour_map[colour] if self.colour_map else colour
 
-    def _map_atomic(self, key):
-        result = self.ob_map[key]
-        cod_type = get_origin(self.cod.ob)
-        return result if isinstance(result, cod_type)\
-            else self.cod.ob(result)
-
     def __call__(self, other):
         if isinstance(other, Colour):
             return self._map_colour(other)
@@ -1700,7 +1693,7 @@ class Functor(cat.Functor):
                 result = result @ self.ob_map[x]
             return result
         if isinstance(other, Nat):
-            image = self._map_atomic(other.factory(1))
+            image = super().__call__(other.factory(1))
             result = image[:0]
             for _ in range(other.n):
                 result = result @ image
@@ -1721,7 +1714,7 @@ class Functor(cat.Functor):
                 # Map a daggered coloured generator functorially: its image is
                 # the dagger of the image of the underlying generator.
                 return self(other.dagger()).dagger()
-            result = self._map_atomic(self.dom.ob(other))
+            result = super().__call__(self.dom.ob(other))
             if isinstance(other, Wire) and isinstance(result, Ty):
                 expected = self(other.dom), self(other.cod)
                 if (result.dom, result.cod) != expected:

@@ -131,6 +131,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   it fell back to while `Function.ob` was a bare tuple (which supports `+` but
   not `@`, [#727](https://github.com/discopy/discopy/pull/727)'s `e26af1f`);
   the `Nat` and `Dim` branches fold with `@` too and `Ty.__add__` is removed.
+  `monoidal.Functor` maps each atomic object through its `cat.Functor` base
+  rather than a private `_map_atomic`, whose only remaining content once the
+  tuple case was gone duplicated that base.
   `cat.FreeCategory.__getitem__` slices a path of generators with no boundary
   (e.g. Python's `type`) by keeping the whole path's colour rather than reading
   a colour off an atom that has none. `monoidal.FreeMonoid` remains as a
