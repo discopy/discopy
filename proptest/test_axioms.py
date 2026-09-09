@@ -6,22 +6,22 @@ from hypothesis import strategies as st
 
 from discopy.utils import factory_name
 
-from proptest.carriers import CARRIERS
+from proptest.categories import CATEGORIES
 
 
 def axiom_parameters():
     """
-    Translate every axiom of every carrier to a pytest parameter.
+    Translate every axiom of every category to a pytest parameter.
 
     An axiom taking no argument states its verdict without one, so we ask it
     here: :obj:`NotImplemented` means the structure does not apply and the
     test is skipped rather than generating arguments it could not satisfy.
-    Axioms come from :class:`discopy.abc.Category`, so a carrier that is
-    not one states none: :class:`monoidal.Wire` is a generating 1-cell,
-    not a category, and is enrolled for the ad-hoc properties only.
+    Axioms are stated of a category, so an entry that is not one states
+    none: :class:`monoidal.Wire` is a generating 1-cell, enrolled for the
+    ad-hoc properties only.
     """
-    for carrier in CARRIERS:
-        for axiom in getattr(carrier, "axioms", {}).values():
+    for category in CATEGORIES:
+        for axiom in getattr(category, "axioms", {}).values():
             if not axiom.parameters and axiom() is NotImplemented:
                 marks = pytest.mark.skip(reason=axiom.__doc__.strip())
             elif axiom.broken:
@@ -30,13 +30,13 @@ def axiom_parameters():
                 marks = ()
             yield pytest.param(
                 axiom, marks=marks,
-                id=f"{factory_name(carrier)}.{axiom.name}")
+                id=f"{factory_name(category)}.{axiom.name}")
 
 
 @pytest.mark.parametrize("axiom", axiom_parameters())
 @given(data=st.data())
 def test_axiom(axiom, data):
-    """ Check an axiom of a carrier against generated arguments. """
+    """ Check an axiom of a category against generated arguments. """
     args = data.draw(axiom.strategy(), label=axiom.name)
     verdict = axiom(*args)
     note(verdict)

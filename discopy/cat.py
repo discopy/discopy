@@ -1058,7 +1058,7 @@ class Functor(Category, Strategy["Functor"]):
         Typing of the identity functor.
 
         The objects of ``Cat`` are categories, which the property matrix does
-        not generate, so this is stated of the one the carrier maps.
+        not generate, so this is stated of the one the functor maps.
         """
         identity = cls.id(cls.dom)
         return cls.ob.equation_factory(identity.dom, cls.dom, identity.cod)

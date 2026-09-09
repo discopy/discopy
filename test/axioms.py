@@ -23,7 +23,7 @@ from discopy.axioms import (
     HomogeneousMemory, HorizontalPair, LeftCurrying, Natural, NonEmpty,
     Relabelling, RightCurrying, Square, Subsingleton, TraceDinaturalityLeft,
     TraceDinaturalityRight, TraceNaturalityLeft, TraceNaturalityRight,
-    TraceSuperposing, axiom, resolve, substitute)
+    TraceSuperposing, assert_axioms, axiom, resolve, substitute)
 from discopy.utils import AxiomError
 
 
@@ -57,6 +57,18 @@ def test_NonEmpty():
          lambda value: len(value.value) > 1)
     nested = find(resolve(NonEmpty[ComposablePair[cat.Arrow]]), lambda _: True)
     assert isinstance(nested.value, ComposablePair)
+
+
+def test_classified_axioms():
+    """ A category may declare an inherited law broken or inapplicable. """
+    class Classified(cat.Arrow):
+        """ A category with a broken law and an inapplicable one. """
+        unitality = cat.Arrow.unitality.failing("Never holds.")
+        dagger_involution = cat.Arrow.dagger_involution.inapplicable(
+            "No dagger.")
+
+    assert_axioms(cat.Arrow)
+    assert_axioms(Classified)
 
 
 def test_ComposablePair():
@@ -245,7 +257,7 @@ def test_Axiom():
     assert cat.Arrow.unitality != cat.Functor.unitality
     assert cat.Functor.dagger_involution() is NotImplemented
     assert [parameter.name for parameter in law.parameters] == ['f']
-    assert cat.Arrow.unitality.carrier is cat.Arrow
+    assert cat.Arrow.unitality.category is cat.Arrow
     with raises(TypeError):
         law(cat.Id(cat.Ob('x')))
     with raises(TypeError):
@@ -270,7 +282,7 @@ def test_modulo():
 
 def test_weaken():
     for subspace in (Atomic[C1], Atomic[monoidal.Ty]):
-        law = monoidal.Ty.monoid_unitality.weaken(x=subspace)
+        law = monoidal.Ty.unitality.weaken(f=subspace)
         assert law.modulo(lambda term: term).subspaces == law.subspaces
         args = find(law.strategy(), lambda _: True)
         assert isinstance(args[0], Atomic) and law(*args)
@@ -288,10 +300,10 @@ def test_functor_law():
 
 
 def test_inapplicable():
-    class Carrier(cat.Arrow):
+    class Inapplicable(cat.Arrow):
         unitality = cat.Arrow.unitality.inapplicable("No identities.")
 
-    unitality = Carrier.axioms["unitality"]
+    unitality = Inapplicable.axioms["unitality"]
     assert unitality() is NotImplemented
     assert unitality.__doc__ == "No identities."
     assert not unitality.parameters and not unitality.broken
@@ -364,3 +376,13 @@ def test_falsify():
     assert cat.Arrow.unitality.failing("Never holds.").falsify()
     with raises(NoSuchExample):
         cat.Arrow.associativity.falsify()
+
+
+def test_broken_flag():
+    """ Declaring a law broken sets the flag on the subclass alone. """
+    class Broken(cat.Arrow):
+        """ A category declaring an inherited law broken. """
+        unitality = cat.Arrow.unitality.failing("Never holds.")
+
+    assert Broken.axioms["unitality"].broken
+    assert not cat.Arrow.axioms["unitality"].broken

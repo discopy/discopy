@@ -16,8 +16,8 @@ Each class also declares its :func:`discopy.axioms.axiom` equations, which
 every free category inherits along with the structure they axiomatise:
 :class:`Category` states the unitality and associativity of composition,
 the typing of its identities and composites, and the involution and
-contravariance of its dagger; :class:`ColouredMonoid` states the unitality
-and associativity of its product.
+contravariance of its dagger; a :class:`ColouredMonoid` inherits them as
+the unitality and associativity of its product, its composition.
 
 Summary
 -------
@@ -90,7 +90,7 @@ class Category[C0, C1: Category](ABC):
 
         A class that quotients its equations overrides this, e.g. by
         hypergraph isomorphism from symmetric categories on, so an axiom
-        built with it is checked up to whatever quotient the carrier
+        built with it is checked up to whatever quotient the category
         defines — and :meth:`discopy.axioms.Axiom.modulo` weakens it
         further.
         """
@@ -234,19 +234,6 @@ class ColouredMonoid[C0, C1: ColouredMonoid](Category[C0, C1]):
     @abstractmethod
     def tensor(self, *objects: C1) -> C1:
         """ The n-ary product of a monoid for ``n > 0``. """
-
-    @axiom
-    def monoid_unitality(
-            cls, x: C1) -> Equation[C1]:
-        """ Unitality of a monoid. """
-        return cls.equation_factory(cls.unit() @ x, x, x @ cls.unit())
-
-    @axiom
-    def monoid_associativity(
-            cls, triple: ComposableTriple[C1]) -> Equation[C1]:
-        """ Associativity of a monoid. """
-        x, y, z = triple
-        return cls.equation_factory(x @ (y @ z), (x @ y) @ z)
 
     def then(self, *others: C1) -> C1:
         """Sequential composition, given by the monoid product."""
