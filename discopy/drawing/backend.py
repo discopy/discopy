@@ -730,6 +730,12 @@ class Backend(ABC):
             yield source, target
 
     def draw_wire_label(self, x, i, j, **params):
+        """
+        Draw the label of a wire, in a colour readable over the region to
+        its right, which :meth:`draw_regions` paints underneath it. A
+        transparent region is the page, taken to be white and adapted to
+        when it is dark, see :meth:`Matplotlib.dark_gid`.
+        """
         draw_label_anyway = params.get('draw_box_labels', True) and getattr(
             x, "always_draw_label", False)
         if not params.get('wire_labels', True) and not draw_label_anyway:
@@ -743,10 +749,6 @@ class Backend(ABC):
         i += pad_i
         j -= pad_j
         fontsize = params.get('fontsize_types', params.get('fontsize', None))
-        # The region to the right of this wire, coloured the same way as
-        # in draw_regions, is what the label is drawn on top of. A
-        # transparent one is the page, assumed white and adapted to when
-        # it is dark, see :meth:`Matplotlib.dark_gid`.
         background = getattr(x, "cod", None)
         adaptive = background is None or background.name == TRANSPARENT
         color = self.readable_foreground(

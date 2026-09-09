@@ -138,7 +138,6 @@ def test_transparent_spiders_are_unfilled(tmp_path):
             color=color).draw(path=path, show=False)
         return path.read_text()
 
-    # A transparent spider leaves no patch, a white one is painted white.
     assert 'style="fill: #ffffff' not in spider_svg(config.TRANSPARENT)
     assert 'style="fill: #ffffff' in spider_svg("white")
 
@@ -270,8 +269,7 @@ def test_draw_coloured_equation():
 
 
 def test_draw_white_regions_are_painted():
-    # White is a colour like any other, only the transparent default is
-    # left unpainted, see issue #751.
+    # White is a colour like any other, see issue #751.
     white = monoidal.Colour("white")
     x = Ty(Wire("x", dom=white, cod=white))
     assert region_hexes(Box("f", x, x)) == {'#ffffff'}
