@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
   "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="216pt" height="72pt" viewBox="0 0 216 72" xmlns="http://www.w3.org/2000/svg" version="1.1">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="216pt" height="72pt" viewBox="0 0 216 72" xmlns="http://www.w3.org/2000/svg" version="1.1"><style type="text/css">@media (prefers-color-scheme: dark) {[id^="dark-stroke"] path { stroke: #ffffff !important; } [id^="dark-fill"] g, [id^="dark-fill"] use { fill: #ffffff !important; stroke: #ffffff !important; }}</style>
  <defs>
   <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
  </defs>
@@ -11,8 +11,9 @@
 L 216 72 
 L 216 0 
 L 0 0 
+L 0 72 
 z
-" style="fill: #ffffff"/>
+" style="fill: none"/>
   </g>
   <g id="axes_1">
    <g id="patch_2">
@@ -20,40 +21,41 @@ z
 L 175.5 68.727273 
 L 175.5 3.272727 
 L 40.5 3.272727 
+L 40.5 68.727273 
 z
-" clip-path="url(#pb50c65d36c)" style="fill: #ffffff; stroke: #ffffff; stroke-linejoin: miter"/>
+" clip-path="url(#pb50c65d36c)" style="fill: none"/>
    </g>
-   <g id="patch_3">
+   <g id="dark-stroke-2">
     <path d="M 57.375 3.272727 
 Q 57.375 36 57.375 36 
 " clip-path="url(#pb50c65d36c)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_4">
+   <g id="dark-stroke-4">
     <path d="M 91.125 3.272727 
 Q 91.125 19.636364 108 19.636364 
 " clip-path="url(#pb50c65d36c)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_5">
+   <g id="dark-stroke-6">
     <path d="M 124.875 3.272727 
 Q 124.875 19.636364 108 19.636364 
 " clip-path="url(#pb50c65d36c)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_6">
+   <g id="dark-stroke-8">
     <path d="M 158.625 3.272727 
 Q 158.625 36 158.625 36 
 " clip-path="url(#pb50c65d36c)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_7">
+   <g id="dark-stroke-9">
     <path d="M 57.375 36 
 Q 57.375 52.363636 108 52.363636 
 " clip-path="url(#pb50c65d36c)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="patch_8">
+   <g id="dark-stroke-10">
     <path d="M 158.625 36 
 Q 158.625 52.363636 108 52.363636 
 " clip-path="url(#pb50c65d36c)" style="fill: none; stroke: #000000; stroke-linejoin: miter"/>
    </g>
-   <g id="text_1">
+   <g id="dark-fill-1">
     <!-- a.l -->
     <g transform="translate(59.484375 12.916619) scale(0.1 -0.1)">
      <defs>
@@ -110,7 +112,7 @@ z
      <use xlink:href="#DejaVuSans-6c" transform="translate(93.066406 0)"/>
     </g>
    </g>
-   <g id="text_2">
+   <g id="dark-fill-3">
     <!-- b -->
     <g transform="translate(93.234375 12.916619) scale(0.1 -0.1)">
      <defs>
@@ -144,7 +146,7 @@ z
      <use xlink:href="#DejaVuSans-62"/>
     </g>
    </g>
-   <g id="text_3">
+   <g id="dark-fill-5">
     <!-- b.r -->
     <g transform="translate(126.984375 12.916619) scale(0.1 -0.1)">
      <defs>
@@ -171,7 +173,7 @@ z
      <use xlink:href="#DejaVuSans-72" transform="translate(95.263672 0)"/>
     </g>
    </g>
-   <g id="text_4">
+   <g id="dark-fill-7">
     <!-- a -->
     <g transform="translate(160.734375 12.916619) scale(0.1 -0.1)">
      <use xlink:href="#DejaVuSans-61"/>

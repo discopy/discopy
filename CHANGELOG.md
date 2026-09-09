@@ -101,6 +101,25 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Changed
 
+- Matplotlib SVGs adapt to the page behind them: they are saved on a
+  transparent canvas and open with a `prefers-color-scheme: dark` media
+  query that turns the elements drawn black on that canvas — wires, braids,
+  wire labels, spiders and their labels, control dots — white on a dark
+  page, so a single SVG file reads on both light and dark backgrounds.
+  Elements whose readability does not depend on the page keep their static
+  colours: box interiors stay white with black labels, coloured regions
+  keep their fill and the black strokes over them. White spiders, e.g. the
+  symbol of an `Equation`, are drawn unfilled so they leave no white patch
+  on a non-white page, and raster formats keep their white background since
+  they cannot adapt. The docs let content images follow the theme toggle by
+  setting their `color-scheme`, which propagates into the SVG media query,
+  instead of painting a white plate behind them in dark mode
+  ([#453](https://github.com/discopy/discopy/issues/453), superseding the
+  static outlines of
+  [#497](https://github.com/discopy/discopy/pull/497)). The hand-drawn
+  snake equation of the README header adapts the same way, replacing its
+  separate `snake-equation-dark.svg`, and the unreferenced
+  `frobenius-axioms.svg` is deleted.
 - The benchmark measures a pull request against its merge base rather
   than the tip of its base branch. The head does not contain what landed
   on `main` since it forked, so measuring against the tip charged the pull
@@ -343,6 +362,18 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `Hypergraph.rotate` exchanged the two boundaries of the hypergraph and
+  replaced each box by its rotation, but left the *ports* of those boxes
+  and the spiders where they were: the wires reading a box's domain went
+  on reading its domain although the rotated box's domain is its old
+  codomain, and a spider typed `a` stayed `a` under a rotation that made
+  every port around it `a.r`. Both are invisible on an endomorphism of a
+  self-dual type, which is most of what the drawing and conversion tests
+  rotate — `test_Hypergraph_rotate` rotated the identity and nothing
+  else. Anything else raised: a bare `ValueError` from
+  `Hypergraph.__init__` when the two arities differ, an `AxiomError` on
+  the spider types when they do not. `.l` and `.r` are involutions again
+  ([#716](https://github.com/discopy/discopy/issues/716)).
 - Region painting computes the exact extents of each coloured region —
   polygons bounded by the wires on both sides, subdivided per height band —
   instead of overpainting everything to the right of each wire up to the
@@ -422,6 +453,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   ([#387](https://github.com/discopy/discopy/pull/387)).
 - Bubble drawing
   ([#431](https://github.com/discopy/discopy/pull/431)).
+- A bubble whose inside and outside have a different number of wires keeps
+  its boundary. Drawing the sides of a square frame with zero width is now
+  the business of `Drawing.slot` and `Drawing.frame`, which have the colours
+  of the regions they separate to show the edge in their place, rather than
+  of every bubble drawn as a square, which has none and so came out with no
+  visible outline at all
+  ([#520](https://github.com/discopy/discopy/issues/520),
+  [#569](https://github.com/discopy/discopy/issues/569)).
 - Controlled gate drawing: the control wire is anchored on the indexed
   input of the controlled box rather than its first one, so gates with a
   classical wire or a distance other than one are drawn on the right wires
@@ -503,6 +542,28 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Project
 
+- The docs build on Sphinx 7.4 rather than 7.2, whose `stringify_annotation`
+  handled a `TypeVar` but not a `ParamSpec`, so a signature such as
+  `Callable[Concatenate[type, P], T]` crashed autodoc on Python 3.14, where
+  `typing.get_type_hints` resolves the PEP 695 type parameter. The pin and
+  the lock move, `myst-parser == 2.0.*` allowing any Sphinx below 8, and the
+  `drawing`, `grammar`, `python` and `quantum` API pages list their
+  submodules without the module prefix, which Sphinx 7.4 warns against
+  under `automodule`
+  ([#722](https://github.com/discopy/discopy/issues/722)).
+- `CONTRIBUTING.md`'s LLM guidelines require an LLM contribution to be
+  authored under a GitHub handle separate from the human who prompted it,
+  and a pull request authored by an LLM to be approved by at least one
+  human other than the one who prompted it.
+- `.claude/hooks/session-start.sh`, registered in `.claude/settings.json`
+  as a `SessionStart` hook for Claude Code on the web, syncs the full
+  development environment before the session starts, so that the linter
+  and the whole test suite run as `CONTRIBUTING.md` says; without the
+  registration the script is inert. When `download.pytorch.org`, the index
+  `pyproject.toml` pins torch to on Linux, is not reachable from the
+  session, it syncs everything but torch and installs the locked version
+  from PyPI instead, whose wheels run on the CPU. Every agent session so
+  far ran `pytest --skip-extra` and reported the torch tests skipped.
 - The `TODO.md` rule of `RULES.md` is split in two: creation stays point 1,
   and a new point 2 has the agent delete its own `TODO.md` once every
   point is `[x]` or filed as an issue, taking the pull request out of draft:
