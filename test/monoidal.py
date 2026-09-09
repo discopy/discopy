@@ -146,46 +146,50 @@ def test_Ty_pow():
         Ty('x') ** Ty('y')
 
 
-def test_PRO_init():
-    assert list(PRO(0)) == []
-    assert all(len(PRO(n)) == n for n in range(5))
+def test_Nat_init():
+    assert list(Nat(0)) == []
+    assert all(len(Nat(n)) == n for n in range(5))
 
 
-def test_PRO_tensor():
-    assert PRO(2) @ PRO(3) @ PRO(7) == PRO(12) == PRO(2).tensor(PRO(3), PRO(7))
+def test_Nat_tensor():
+    assert Nat(2) @ Nat(3) @ Nat(7) == Nat(12) == Nat(2).tensor(Nat(3), Nat(7))
     with raises(TypeError) as err:
-        PRO(2) @ Ty('x')
+        Nat(2) @ Ty('x')
 
 
-def test_PRO_repr():
-    assert repr((PRO(0), PRO(1))) == "(monoidal.PRO(0), monoidal.PRO(1))"
+def test_Nat_repr():
+    assert repr((Nat(0), Nat(1))) == "(monoidal.Nat(0), monoidal.Nat(1))"
 
 
-def test_PRO_hash():
-    assert hash(PRO(0)) == hash(PRO(0)) != hash(PRO(1))
+def test_Nat_hash():
+    assert hash(Nat(0)) == hash(Nat(0)) != hash(Nat(1))
 
 
-def test_PRO_to_tree():
-    assert PRO(0).to_tree() == {'factory': 'monoidal.PRO', 'n': 0}
-    assert PRO.from_tree(PRO(0).to_tree()) == PRO(0)
+def test_Nat_to_tree():
+    assert Nat(0).to_tree() == {'factory': 'monoidal.Nat', 'n': 0}
+    assert Nat.from_tree(Nat(0).to_tree()) == Nat(0)
 
 
-def test_PRO_str():
-    assert str(PRO(2 * 3 * 7)) == "PRO(42)"
+def test_Nat_str():
+    assert str(Nat(2 * 3 * 7)) == "Nat(42)"
 
 
-def test_PRO_getitem():
-    assert PRO(42)[2: 4] == PRO(2)
-    assert all(PRO(42)[i] == PRO(1) for i in range(42))
+def test_Nat_getitem():
+    assert Nat(42)[2: 4] == Nat(2)
+    assert all(Nat(42)[i] == Nat(1) for i in range(42))
 
 
-def test_PRO_identity_and_dagger():
-    # PRO(0) is the monoidal unit and identity.
-    assert PRO(0) @ PRO(3) == PRO(3) == PRO(3) @ PRO(0)
-    assert PRO.id() == PRO(0) == PRO.id(PRO(0))
-    # Reversing a PRO is a no-op: all wires are interchangeable.
-    assert PRO(3)[::-1] == PRO(3)
-    assert PRO(3).dagger() == PRO(3)
+def test_Nat_sequence_protocol():
+    assert len(Nat(3)) == 3
+    assert list(Nat(3)) == 3 * [Nat(1)]
+    assert Nat(3)[:1] == Nat(1)
+
+
+def test_Nat_identity_and_dagger():
+    assert Nat(0) @ Nat(3) == Nat(3) == Nat(3) @ Nat(0)
+    assert Nat.id() == Nat(0) == Nat.id(Nat(0))
+    assert Nat(3)[::-1] == Nat(3)
+    assert Nat(3).dagger() == Nat(3)
 
 
 def test_Dim_identity_and_slicing():
@@ -562,13 +566,21 @@ def test_Functor_call():
         F(F)
 
 
-def test_PRO_Functor():
-    class PRODiagram(Diagram):
-        ob = PRO
+def test_Nat_Functor():
+    class NatDiagram(Diagram):
+        ob = Nat
 
-    G = Functor(lambda x: x @ x, lambda f: f, cod=PRODiagram)
-    assert G(PRO(2)) == PRO(4)
-    assert Functor(lambda x: x, lambda f: f)(PRO(2)) == PRO(2)
+    G = Functor(lambda x: x @ x, lambda f: f, cod=NatDiagram)
+    assert G(Nat(2)) == Nat(4)
+    assert Functor(lambda x: x, lambda f: f, cod=NatDiagram)(Nat(2)) == Nat(2)
+
+
+def test_Nat_Functor_list_ob():
+    class ListDiagram(Diagram):
+        ob = List[bool]
+
+    F = Functor(lambda _: bool, lambda f: f, cod=ListDiagram)
+    assert F(Nat(3)) == List[bool](bool, bool, bool)
 
 
 def test_Functor_sum():
