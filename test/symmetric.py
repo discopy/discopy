@@ -69,8 +69,8 @@ def test_Functor_keys_boxes_by_syntax():
 
 
 def test_Diagram_permutation():
-    x = PRO(1)
-    tmp, Diagram.ob = Diagram.ob, PRO
+    x = Nat(1)
+    tmp, Diagram.ob = Diagram.ob, Nat
     assert Diagram.swap(x, x ** 2)\
         == Diagram.swap(x, x) @ Id(x) >> Id(x) @ Diagram.swap(x, x)\
         == Diagram.permutation([1, 2, 0])\
@@ -364,7 +364,7 @@ def test_large_Permutation_to_hypergraph():
 def test_default_Permutation_to_hypergraph():
     perm = Diagram.from_permutation([2, 1, 0])
     graph = perm.to_hypergraph()
-    assert graph.cod == PRO(3)
+    assert graph.cod == Nat(3)
     assert graph.cod_wires == (2, 1, 0)
     assert Equation(perm, perm.to_swaps())
 
