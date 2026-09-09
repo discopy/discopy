@@ -46,3 +46,29 @@ def test_autotyping():
     with backend('pytorch'):
         assert Matrix([0.5, 0.5], dom=1, cod=2).dtype == torch.float32
 
+
+
+def test_strategy():
+    from hypothesis import find
+
+    generated = find(Matrix.strategy(dom=2, cod=3),
+                     lambda value: bool(value.array.any()))
+    assert (generated.dom, generated.cod) == (2, 3)
+    assert generated.array.shape == (2, 3)
+
+
+def test_axioms():
+    from discopy import testing
+
+    testing.assert_axioms(Matrix[int])
+
+
+def test_weakened_axioms():
+    from hypothesis import find
+
+    from discopy.testing import Subsingleton
+
+    weakened = Matrix[int].axioms["copy_cocommutativity_small"]
+    assert weakened.subspaces and not weakened.broken
+    args = find(weakened.strategy(), lambda _: True)
+    assert isinstance(args[0], Subsingleton) and weakened(*args)
