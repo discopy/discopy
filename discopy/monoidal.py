@@ -216,8 +216,6 @@ class List(
         cat.FreeCategory.__init__(self, inside, dom, cod, _scan and boundaried)
 
     def tensor(self, *others):
-        # Whiskering: tensoring a type with e.g. a diagram returns
-        # NotImplemented so the other operand's __rmatmul__ takes over.
         if any(not isinstance(other, self.ar) for other in others):
             return NotImplemented
         return cat.FreeCategory.then(self, *others)
