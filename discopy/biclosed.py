@@ -91,7 +91,7 @@ from discopy.cat import factory
 from discopy.utils import (
     assert_isatomic,
     assert_isinstance,
-    deprecated_ob,
+    deprecated_alias,
     factory_name,
     from_tree,
 )
@@ -729,4 +729,4 @@ class Equation(monoidal.Equation):
     """ The :class:`monoidal.Equation` of biclosed diagrams. """
 
 
-__getattr__ = deprecated_ob(__name__)
+__getattr__ = deprecated_alias(__name__, {"Ob": "Wire"})
