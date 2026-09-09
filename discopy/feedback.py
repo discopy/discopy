@@ -110,13 +110,10 @@ This can only be checked up to extensional equivalence of streams.
 
 Note
 ----
-Every traced symmetric category is a feedback category with a trivial delay:
+Every traced category is a feedback category with a trivial delay, see
+:class:`discopy.abc.TracedCategory`, e.g. the free symmetric category:
 
 >>> from discopy import symmetric
->>> symmetric.Ty.delay = symmetric.Diagram.delay = lambda self: self
->>> symmetric.Diagram.feedback = lambda self, dom=None, cod=None, mem=None:\\
-...     self.trace(len(mem))
-
 >>> F0 = Functor(
 ...     ob_map=lambda x: symmetric.Ty(x.generator.name), ar_map={},
 ...     cod=symmetric.Diagram)
