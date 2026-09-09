@@ -1681,12 +1681,9 @@ class Functor(cat.Functor):
         return result[:-len(suffix) if suffix else None] + (
             f", colour_map={self.colour_map!r}{suffix}")
 
-    def _map_colour(self, colour):
-        return self.colour_map[colour] if self.colour_map else colour
-
     def __call__(self, other):
         if isinstance(other, Colour):
-            return self._map_colour(other)
+            return self.colour_map[other] if self.colour_map else other
         if isinstance(other, Dim):
             result = self.cod.ob()
             for x in other:
@@ -1700,15 +1697,11 @@ class Functor(cat.Functor):
             return result
         if isinstance(other, Ty):
             if not other.inside:
-                # Empty coloured identity: keep its (mapped) boundary colour.
                 if not hasattr(self.cod.ob, 'id'):
                     return self.cod.ob()
                 return self.cod.ob.id(self(other.dom))
             images = list(map(self, other.inside))
-            result = images[0]
-            for image in images[1:]:
-                result = result @ image
-            return result
+            return images[0].tensor(*images[1:])
         if isinstance(other, self.dom.ob.generator_factory):
             if isinstance(other, Wire) and other.is_dagger:
                 # Map a daggered coloured generator functorially: its image is
