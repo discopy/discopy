@@ -121,6 +121,16 @@ Dinaturality
     :align: center
 
 >>> assert sliding_left and sliding_right
+
+Feedback
+========
+
+A traced category is a feedback category where the delay is trivial and the
+feedback is given by the trace, see :class:`discopy.abc.TracedCategory`.
+
+>>> assert f.delay() == f and x.delay() == x
+>>> assert f.feedback() == f.trace()
+>>> assert f.feedback(mem=x @ x) == f.trace(n=2)
 """
 
 from discopy import monoidal, cmap, hypergraph
