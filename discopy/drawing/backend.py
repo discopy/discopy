@@ -41,7 +41,8 @@ from discopy.drawing import Node, Point
 
 from discopy.config import (  # noqa: F401
     BOX_DRAWING_ATTRIBUTES as ATTRIBUTES,
-    DRAWING_DEFAULT as DEFAULT, COLORS, SHAPES, RIBBON_FOLD_DEPTH)
+    DRAWING_DEFAULT as DEFAULT, COLORS, SHAPES, RIBBON_FOLD_DEPTH,
+    TRANSPARENT)
 
 if TYPE_CHECKING:
     from discopy.drawing import PlaneGraph
@@ -430,9 +431,10 @@ class Backend(ABC):
     @staticmethod
     def on_neutral_canvas(*types):
         """
-        Whether wires of the given types only border white regions, i.e. the
-        neutral canvas, so that their strokes and labels may adapt to a dark
-        page rather than keep a static colour readable over their region.
+        Whether wires of the given types only border transparent regions,
+        i.e. the neutral canvas, so that their strokes and labels may adapt
+        to a dark page rather than keep a static colour readable over their
+        region.
         """
         for typ in types:
             colours = [getattr(typ, "dom", None), getattr(typ, "cod", None)]
@@ -440,7 +442,7 @@ class Backend(ABC):
                 colour for obj in getattr(typ, "inside", ())
                 for colour in (
                     getattr(obj, "dom", None), getattr(obj, "cod", None))]
-            if any(colour is not None and colour.name != "white"
+            if any(colour is not None and colour.name != TRANSPARENT
                    for colour in colours):
                 return False
         return True
@@ -577,11 +579,12 @@ class Backend(ABC):
     @staticmethod
     def region_colours(graph):
         """
-        The distinct non-white region colours of a diagram, keyed by colour.
+        The distinct painted region colours of a diagram, keyed by colour.
 
         Returns an order-preserving mapping from each colour's name to its
-        :class:`monoidal.Colour`, suitable for a drawing legend. White is
-        omitted as it is the neutral background.
+        :class:`monoidal.Colour`, suitable for a drawing legend.
+        :data:`discopy.config.TRANSPARENT` is omitted as it is the neutral
+        background.
         """
         colours = {}
         types = [graph.dom, graph.cod]
@@ -593,7 +596,7 @@ class Backend(ABC):
                 candidates += [
                     getattr(obj, "dom", None), getattr(obj, "cod", None)]
             for colour in candidates:
-                if colour is not None and colour.name != "white":
+                if colour is not None and colour.name != TRANSPARENT:
                     colours.setdefault(colour.name, colour)
         return colours
 
@@ -677,7 +680,7 @@ class Backend(ABC):
         bands, each consecutive pair of separators bounds one cell, filled
         with the colour that its left boundary carries -- ``graph.dom.dom``
         for the leftmost cell, with the sides of the canvas as outermost
-        boundaries. White cells are left out as they are the neutral
+        boundaries. Transparent cells are left out as they are the neutral
         background, see :meth:`region_colours`, and so are the cells
         underneath a box, whose left side carries no colour at all.
 
@@ -702,7 +705,8 @@ class Backend(ABC):
             cells.append((left, (
                 Point(graph.width, top), Point(graph.width, bottom),
                 Point(graph.width, bottom)), colour))
-        return [cell for cell in cells if cell[-1] not in (None, "white")]
+        return [
+            cell for cell in cells if cell[-1] not in (None, TRANSPARENT)]
 
     def draw_region_cell(self, left, right, facecolor):
         """
@@ -740,9 +744,11 @@ class Backend(ABC):
         j -= pad_j
         fontsize = params.get('fontsize_types', params.get('fontsize', None))
         # The region to the right of this wire, coloured the same way as
-        # in draw_regions, is what the label is drawn on top of.
+        # in draw_regions, is what the label is drawn on top of. A
+        # transparent one is the page, assumed white and adapted to when
+        # it is dark, see :meth:`Matplotlib.dark_gid`.
         background = getattr(x, "cod", None)
-        adaptive = background is None or background.name == "white"
+        adaptive = background is None or background.name == TRANSPARENT
         color = self.readable_foreground(
             "white" if adaptive else background.name)
         self.draw_text(
@@ -1176,7 +1182,9 @@ class TikZ(Backend):
 
     @staticmethod
     def format_color(color):
-        """ Formats a color. """
+        """ Formats a color, TikZ spelling transparency like matplotlib. """
+        if color == TRANSPARENT:
+            return color
         hexcode = COLORS[color]
         rgb = [
             int(hex, 16) for hex in [hexcode[1:3], hexcode[3:5], hexcode[5:]]]
@@ -1488,9 +1496,9 @@ class Matplotlib(Backend):
         """
         Draws the spiders, grouped by shape and by whether they adapt to a
         dark page: black spiders lie on the neutral canvas so they turn
-        white, coloured ones keep their colour. White spiders are drawn
-        unfilled, e.g. the symbol of an :class:`discopy.monoidal.Equation`
-        is just its label, with no white patch on a non-white page.
+        white, coloured ones keep their colour. A transparent spider is just
+        its label, e.g. the symbol of an :class:`discopy.monoidal.Equation`,
+        which leaves no patch on a coloured page.
         """
         import networkx as nx
         nodes = [node for node in graph.nodes
@@ -1502,9 +1510,8 @@ class Matplotlib(Backend):
         for (shape, adaptive), group in groups.items():
             nx.draw_networkx_nodes(
                 *graph.inside, nodelist=group,
-                node_color=[
-                    "none" if node.box.color == "white"
-                    else COLORS[node.box.color] for node in group],
+                node_color=[COLORS.get(node.box.color, node.box.color)
+                            for node in group],
                 node_shape=SHAPES[shape], ax=self.axis,
                 node_size=300 * params.get("nodesize", 1)
             ).set_gid(self.dark_gid("fill") if adaptive else None)
@@ -1513,7 +1520,7 @@ class Matplotlib(Backend):
                     self.draw_text(
                         node.box.drawing_name, *graph.positions[node],
                         ha='center', va='center',
-                        adaptive=node.box.color == "white")
+                        adaptive=node.box.color == TRANSPARENT)
         super().draw_spiders(graph, draw_box_labels)
 
     def output(self, path=None, show=True, **params):
