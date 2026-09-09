@@ -333,16 +333,11 @@ class Ty(cat.Ob, cat.FreeCategory, ColouredMonoid):
             return self.factory.id(self.dom)
         return self.tensor(*(n_times - 1) * [self])
 
-    def __iter__(self):
-        for i in range(len(self)):
-            yield self[i:i + 1]
+    __iter__, __hash__ = List.__iter__, List.__hash__
 
     def __eq__(self, other):
         return type(self) is type(other) and self.inside == other.inside\
             and (self.dom, self.cod) == (other.dom, other.cod)
-
-    def __hash__(self):
-        return hash(repr(self))
 
     def __repr__(self):
         if not self.inside and self.dom != white:

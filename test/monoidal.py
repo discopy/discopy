@@ -751,7 +751,6 @@ def test_List():
     with raises(IndexError):
         a[2]
 
-    # Its only colour is the unit: List is a Monoid, Ty the coloured one.
     assert issubclass(List, abc.Monoid) and a.dom is a.cod is None
     assert not issubclass(Ty, List) and Ty.generator_factory is Wire
     assert all(issubclass(Ty, base)
