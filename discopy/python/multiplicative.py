@@ -97,7 +97,7 @@ class Function(function.Function, ClosedCategory):
         def inside(*xs):
             left, right = xs[:len(self.dom)], xs[len(self.dom):]
             return untuplify(tuplify(self(*left)) + tuplify(other(*right)))
-        return Function(inside, self.dom + other.dom, self.cod + other.cod)
+        return Function(inside, self.dom @ other.dom, self.cod @ other.cod)
 
     @staticmethod
     def swap(x: Ty, y: Ty) -> Function:
@@ -112,7 +112,7 @@ class Function(function.Function, ClosedCategory):
 
         def inside(*xs):
             return untuplify(tuplify(xs)[len(x):] + tuplify(xs)[:len(x)])
-        return Function(inside, dom=x + y, cod=y + x)
+        return Function(inside, dom=x @ y, cod=y @ x)
 
     @classmethod
     def permutation(cls, xs, doms) -> Self:
@@ -167,9 +167,9 @@ class Function(function.Function, ClosedCategory):
         """
         base, exponent = map(Ty.cast, (base, exponent))
         if left:
-            dom, cod = Function.exp(base, exponent) + exponent, base
+            dom, cod = Function.exp(base, exponent) @ exponent, base
             return Function(lambda f, *xs: f(*xs), dom, cod)
-        dom, cod = exponent + Function.exp(base, exponent), base
+        dom, cod = exponent @ Function.exp(base, exponent), base
         return Function(lambda *xs: xs[-1](*xs[:-1]), dom, cod)
 
     def curry(self, n=1, left=True) -> Function:

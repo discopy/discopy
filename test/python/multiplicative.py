@@ -4,14 +4,14 @@ from typing import List
 from pytest import raises
 
 from discopy.biclosed import *
-from discopy.python import Function, exp
+from discopy.python import Function, Ty, exp
 
 
 def test_Function():
-    x, y, z = (complex, ), (bool, ), (float, )
+    x, y, z = Ty(complex), Ty(bool), Ty(float)
     f = Function(dom=y, cod=exp(z, x),
                  inside=lambda y: lambda x: abs(x) ** 2 if y else 0)
-    g = Function(dom=x + y, cod=z, inside=lambda x, y: f(y)(x))
+    g = Function(dom=x @ y, cod=z, inside=lambda x, y: f(y)(x))
 
     assert f.uncurry().curry()(True)(1j) == f(True)(1j)
     assert f.uncurry(left=False).curry(left=False)(True)(1j) == f(True)(1j)

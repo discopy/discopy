@@ -124,16 +124,28 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `NamedGeneric["generator_factory"]`: `List[X]` is the free monoid on `X`
   the way `Hypergraph[C]` is the hypergraph category over `C`, `Ty` is the
   case `generator_factory = Wire`. A `List` is a `ColouredMonoid`, so it
-  carries the whole interface of a type — `@` and its alias `+`, `**`,
-  `len`, indexing, slicing and iteration over its length-one sublists, with
-  the atoms as `inside` — once, where `Ty` used to define it; the atoms of a
-  `List` other than a `Ty` carry no colour, so it is `white` on both sides
-  and `Dim` no longer needs its own slicing.
+  carries the whole interface of a type — `@`, `**`, `len`, indexing,
+  slicing and iteration over its length-one sublists, with the atoms as
+  `inside` — once, where `Ty` used to define it; the atoms of a `List`
+  other than a `Ty` carry no colour, so it is `white` on both sides and
+  `Dim` no longer needs its own slicing. Addition is no longer an alias of
+  the tensor on any object: `Ty.__add__`, `stream.Ty.__add__` and
+  `interaction.Ty.__add__` are removed, `+` raises `TypeError` on a
+  `List`, and every fold of objects with `sum` or `+` — in
+  `abc.SymmetricCategory.permutation`, `Hypergraph.from_graph`,
+  `interaction.Ty.tensor`, `stream.Ty.sequence` and `para` — goes through
+  `tensor`. `matrix.Matrix.ob` is `abc.Nat` rather than a bare `int`, its
+  `dom` and `cod` cast from `int` at construction as `python.finset` already
+  does ([#709](https://github.com/discopy/discopy/issues/709)): the
+  `Int`-construction over `Matrix[bool]` folds its objects with `tensor`,
+  which an `int` does not have, and `abc.Nat` prints as its number so a
+  matrix still reads `dom=2, cod=2`.
   `python.Function.ob` is `List[type]` rather than `tuple[type, ...]`: the
   `dom` and `cod` of a function are the free monoid on Python's `type`. A
   type or a tuple of types is `List.cast` into one wherever a function is
-  built, and `+` casts its other operand the same way, so that code written
-  against tuples of types, e.g. `para.Symmetric[Function]`, still reads.
+  built; `para.Symmetric` checks that its four objects are `category.ob`,
+  so a tuple of types is refused where it used to be concatenated with `+`
+  ([#750](https://github.com/discopy/discopy/issues/750)).
   `monoidal.Functor` folds the images of every object with `tensor` instead
   of the `+` it fell back to while `Function.ob` was a bare tuple, and
   `_map_atomic` goes with the tuple case it existed for, as do the tuple

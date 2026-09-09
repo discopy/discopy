@@ -255,7 +255,7 @@ class Ty(NamedGeneric['base']):
         x1 @ y1
         x2 @ y2
         """
-        now = sum([cls.base(f"{obj}{n_steps}") for obj in x], cls.base())
+        now = cls.base().tensor(*(cls.base(f"{obj}{n_steps}") for obj in x))
         return cls(now, _later=lambda: cls.sequence(x, n_steps + 1))
 
     @inductive
@@ -269,7 +269,7 @@ class Ty(NamedGeneric['base']):
         x2
         x3
         """
-        return type(self)(self.now + self.later.now, lambda: self.later.later)
+        return type(self)(self.now @ self.later.now, lambda: self.later.later)
 
     @unbiased
     def tensor(self, other: Ty) -> Ty:
@@ -287,9 +287,9 @@ class Ty(NamedGeneric['base']):
             return NotImplemented
         _later = None if self.is_constant and other.is_constant else (
             lambda: self.later.tensor(other.later))
-        return type(self)(self.now + other.now, _later)
+        return type(self)(self.now @ other.now, _later)
 
-    __add__ = __matmul__ = symmetric.Ty.__matmul__
+    __matmul__ = symmetric.Ty.__matmul__
     __pow__ = symmetric.Ty.__pow__
 
 
@@ -325,8 +325,8 @@ class Stream(MonoidalCategory, NamedGeneric['category']):
     ----
     The parameters should satisfy the following conditions:
 
-    >>> assert now.dom == dom.now + mem.now
-    >>> assert now.cod == cod.now + mem.later.now
+    >>> assert now.dom == dom.now @ mem.now
+    >>> assert now.cod == cod.now @ mem.later.now
 
     >>> assert dom.later.now == later.dom.now
     >>> assert cod.later.now == later.cod.now
@@ -361,11 +361,11 @@ class Stream(MonoidalCategory, NamedGeneric['category']):
             assert_isinstance(typ, Ty)
         if not isinstance(now, self.category):
             now = self.category(
-                now, dom.now + mem.now, cod.now + mem.later.now)
-        if now.dom != dom.now + mem.now:
-            raise AxiomError(f"{dom.now + mem.now} != {now.dom}")
-        if now.cod != cod.now + mem.later.now:
-            raise AxiomError(f"{dom.now + mem.later.now} != {now.dom}")
+                now, dom.now @ mem.now, cod.now @ mem.later.now)
+        if now.dom != dom.now @ mem.now:
+            raise AxiomError(f"{dom.now @ mem.now} != {now.dom}")
+        if now.cod != cod.now @ mem.later.now:
+            raise AxiomError(f"{cod.now @ mem.later.now} != {now.cod}")
         if _later is None:
             if not all(x.is_constant for x in [dom, cod, mem]):
                 raise ValueError(
@@ -580,9 +580,9 @@ class Stream(MonoidalCategory, NamedGeneric['category']):
                 raise NotImplementedError
 
         assert self.dom.now == dom.now if _first_call else (
-            self.dom.now == dom.now + mem.now)
-        assert self.cod.now == cod.now + mem.now if _first_call else (
-            self.cod.now == cod.now + mem.later.now)
+            self.dom.now == dom.now @ mem.now)
+        assert self.cod.now == cod.now @ mem.now if _first_call else (
+            self.cod.now == cod.now @ mem.later.now)
 
         def _later():
             return self.later.feedback(dom.later, cod.later, mem.later, False)

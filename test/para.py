@@ -5,6 +5,7 @@ from pytest import raises
 from discopy import closed, compact, feedback, frobenius, markov
 from discopy.para import (
     Closed, Compact, Feedback, Hypergraph, Markov, Symmetric, Traced)
+from discopy import python
 from discopy.python import Function
 from discopy.symmetric import Box, Diagram, Ty
 from discopy.utils import AxiomError
@@ -95,9 +96,11 @@ def test_hypergraph():
 
 
 def test_python():
-    inside = Function(lambda a, w, b: w * a + b, (float, ) * 3, (float, ))
-    layer = Symmetric[Function](
-        (float, ), (float, ), inside, (float, float))
+    f, ff = python.Ty(float), python.Ty(float, float)
+    inside = Function(lambda a, w, b: w * a + b, f ** 3, f)
+    layer = Symmetric[Function](f, f, inside, ff)
+    with raises(TypeError):  # The objects are lists of types, not tuples.
+        Symmetric[Function]((float, ), (float, ), inside, (float, float))
     pair = layer @ layer
     assert pair.inside(1., 2., 10., 0., 3., 5.) == (10., 11.)
 
@@ -136,9 +139,9 @@ def test_copar_feedback():
 
 
 def test_copar_python():
-    add = Function(lambda a, s: (a + s, a), (float, ) * 2, (float, ) * 2)
-    cell = Symmetric[Function](
-        (float, ), (float, ), add, (float, ), (float, ))
+    f = python.Ty(float)
+    add = Function(lambda a, s: (a + s, a), f ** 2, f ** 2)
+    cell = Symmetric[Function](f, f, add, f, f)
     network = cell >> cell
-    assert network.param == network.copar == (float, float)
+    assert network.param == network.copar == f ** 2
     assert network.inside(2., 1., 10.) == (13., 2., 3.)

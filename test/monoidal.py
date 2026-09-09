@@ -736,7 +736,9 @@ def test_List():
     # List[X] is a NamedGeneric on the generator type, cached like Hypergraph.
     assert List[int].generator_factory is int and List[int] is List[int]
     a, b = List[int](2, 3), List[int](4)
-    assert a @ b == a + b == a + (4, ) == (2, 3) + b == List[int](2, 3, 4)
+    assert a @ b == List[int](2, 3, 4)
+    with raises(TypeError):
+        a + b  # Addition is not an alias of tensor.
     assert List[int].cast(2) == List[int].cast((2, )) == List[int](2)
     assert a ** 2 == a @ a == List[int](2, 3, 2, 3) and a ** 0 == List[int]()
     assert hash(a) == hash(List[int](2, 3)) != hash(b) and eval(repr(a)) == a

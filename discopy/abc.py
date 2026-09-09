@@ -206,6 +206,9 @@ class Nat(Monoid["Nat"]):
     def __index__(self) -> int:
         return self.n
 
+    def __str__(self) -> str:
+        return str(self.n)
+
     def __getitem__(self, key: int | slice) -> Nat:
         """
         Slicing a natural number reads it off as a sequence of ``1``'s.
@@ -539,7 +542,7 @@ class SymmetricCategory[C0, C1](BraidedCategory[C0, C1]):
         xs, doms = list(xs), list(doms)
         if list(range(len(doms))) != sorted(xs):
             raise ValueError
-        tensor = lambda objects: sum(objects, start=cls.ob())
+        tensor = lambda objects: cls.ob().tensor(*objects)
         result, done = cls.id(tensor(doms)), cls.ob()
         while xs != list(range(len(xs))):
             i = xs[0]

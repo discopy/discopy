@@ -5,14 +5,14 @@ def test_additive_Function():
     from discopy.interaction import Ty, Diagram
     from discopy.python.additive import Function, Id, Swap, Merge
 
-    X, xs = (int, ), []
+    X, xs = Function.ob(int), []
     m, e = Function.merge(X, n=2), Function.merge(X, n=0)
 
     def f_inside(m, n=0):
         xs.append(m)
         return 3 * m + 1 if m % 2 else m // 2, 0 if n == 1 and m == 2 else 1
 
-    f = Function(f_inside, X + X, X + X)
+    f = Function(f_inside, X @ X, X @ X)
     g = Function(lambda m: m // 2, X, X)
 
     # This converges if https://en.wikipedia.org/wiki/Collatz_conjecture holds.
@@ -24,7 +24,7 @@ def test_additive_Function():
     assert eq(Swap(X, X) >> m, m)
     assert eq(X @ e >> m, Id(X), e @ X >> m)
     assert eq(m @ X >> m, X @ m >> m, Function.merge(X, n=3))
-    assert eq(Function.merge(X + X), X @ Swap(X, X) @ X >> m @ m)
+    assert eq(Function.merge(X @ X), X @ Swap(X, X) @ X >> m @ m)
 
     assert eq(Swap(X, X).trace(), Id(X))  # Yanking
     assert eq((f >> X @ g).trace(), (X @ g >> f).trace())  # Sliding
@@ -32,9 +32,7 @@ def test_additive_Function():
     assert eq((f >> g @ X).trace(), f.trace() >> g)  # Right-naturality
 
     IntTy, D = Ty[Function.ob], Diagram[Function]
-    dom = Function.ob.cast(X)
-
-    assert eq(D.id(IntTy(dom, dom)).transpose().inside, Id(X + X))
+    assert eq(D.id(IntTy(X, X)).transpose().inside, Id(X @ X))
 
 
 def test_trace_unequal_arity():

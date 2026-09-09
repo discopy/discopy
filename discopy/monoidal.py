@@ -250,12 +250,6 @@ class List(
             return atoms
         return cls.ar(*atoms) if isinstance(atoms, tuple) else cls.ar(atoms)
 
-    def __add__(self, other):
-        return self.tensor(self.cast(other))
-
-    def __radd__(self, other):
-        return self.cast(other).tensor(self)
-
     def __pow__(self, n_times: int):
         assert_isinstance(n_times, int)
         if n_times <= 0:

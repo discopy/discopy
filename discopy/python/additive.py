@@ -64,7 +64,7 @@ class Function(function.Function, SymmetricCategory):
         Parameters:
             other : The other function to compose in sequence.
         """
-        dom, cod = self.dom + other.dom, self.cod + other.cod
+        dom, cod = self.dom @ other.dom, self.cod @ other.cod
 
         def inside(obj, tag=0):
             if tag < len(self.dom):
@@ -81,7 +81,7 @@ class Function(function.Function, SymmetricCategory):
     @cache
     def swap(x: Ty, y: Ty) -> Function:
         """
-        Swap the tags of a disjoint union from `x + y` to `y + x`.
+        Swap the tags of a disjoint union from `x @ y` to `y @ x`.
 
         Parameters:
             x : The list of types on the left.
@@ -91,11 +91,11 @@ class Function(function.Function, SymmetricCategory):
 
         def inside(obj, tag=0):
             new_tag = tag + len(y) if tag < len(x) else tag - len(x)
-            if len(x + y) == 1:
+            if len(x) + len(y) == 1:
                 assert new_tag == 0
                 return obj
             return (obj, new_tag)
-        return Function(inside, dom=x + y, cod=y + x, is_swap_of=(x, y))
+        return Function(inside, dom=x @ y, cod=y @ x, is_swap_of=(x, y))
 
     @classmethod
     def permutation(cls, xs, doms) -> Self:
