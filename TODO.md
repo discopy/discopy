@@ -11,4 +11,4 @@
 - [x] Move `abc.FeedbackCategory` down the hierarchy from `MarkovCategory` to `MonoidalCategory` and make `abc.TracedCategory` inherit from it, with `delay` the identity and `feedback` given by the trace.
 - [x] Give traced types the trivial delay concretely: `monoidal.Ty.delay` is the identity like `unwind`, overridden by `feedback.Ty`; document the new methods in `traced`. The free `feedback.Diagram` and `feedback.Ty` cannot conversely become base classes of `traced.Diagram` and `traced.Ty`: they are already their subclasses through `markov`, so the concrete inheritance goes the other way around and the shared interface lives in `abc`.
 - [x] Replace the monkey-patching in the `feedback` module note by the now built-in methods, and declare `stream.Stream` the `FeedbackCategory` it already implements.
-- [WIP] @session_01Ux5oPZt3xhLRBUZBAZTQ4f-2026-09-09 12:30 Add tests and a changelog entry, run `pflake8` and the test suite.
+- [x] Add tests and a changelog entry, run `pflake8` and the test suite.
