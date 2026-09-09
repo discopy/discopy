@@ -157,11 +157,6 @@ class Wire(cat.Ob):
                 lambda args: cls(
                     args[0], dom=args[1], cod=args[2]))
 
-    transparency = Strategy.transparency.failing(
-        "An uncoloured wire reprs as the cat.Ob that Ty coerces, which "
-        "the type-strict Wire.__eq__ then rejects "
-        "(https://github.com/discopy/discopy/issues/650).")
-
     def __setstate__(self, state):
         state.setdefault('dom', white)
         state.setdefault('cod', white)
