@@ -736,22 +736,32 @@ def test_List():
     # List[X] is a NamedGeneric on the generator type, cached like Hypergraph.
     assert List[int].generator_factory is int and List[int] is List[int]
     a, b = List[int](2, 3), List[int](4)
-    assert a @ b == a + b == List[int](2, 3, 4)
-    assert 2 * a == a @ a == List[int](2, 3, 2, 3)
+    assert a @ b == a + b == a + (4, ) == (2, 3) + b == List[int](2, 3, 4)
+    assert List[int].cast(2) == List[int].cast((2, )) == List[int](2)
+    assert a ** 2 == a @ a == List[int](2, 3, 2, 3) and a ** 0 == List[int]()
+    assert hash(a) == hash(List[int](2, 3)) != hash(b) and eval(repr(a)) == a
 
-    # A List has a tuple-like interface so it drops in for python.Function.ob.
-    assert () + a == a + () == a + (4,)[:0] == a
-    assert a + (4, ) == List[int](2, 3, 4)
-    assert len(a) == 2 and list(a) == [2, 3] and a.inside == (2, 3)
-    assert a[0] == List[int](2) and a[1:] == List[int](3) and not a[:0]
+    # A list is a sequence of its sublists, the atoms are its inside.
+    assert len(a) == 2 and a.inside == (2, 3)
+    assert list(a) == [a[0], a[1]] == [List[int](2), List[int](3)]
+    assert a[1:] == a[-1] == List[int](3) and not a[:0]
+    assert a[::-1] == List[int](3, 2)
     assert List[int]() == List[int]() != List[str]("x") != List[int](2)
+    with raises(IndexError):
+        a[2]
+
+    # Its atoms have no colour so it is a plain monoid, white on both sides.
+    assert not a.is_coloured and a.dom == a.cod == monoidal.white
+    assert Dim(2, 3)[::-1] == Dim(3, 2) and Dim(2, 3)[0] == Dim(2)
 
     # Ty is the special case whose generators are coloured Wires.
     assert issubclass(Ty, List) and Ty.generator_factory is Wire
-
-    # eval(repr(x)) == x holds for empty coloured boundaries, not just Ty.
-    empty_red = List[Wire](dom=monoidal.Colour('red'), cod=monoidal.Colour('red'))
+    assert Ty().is_coloured and issubclass(Ty, cat.Ob)
+    red = monoidal.Colour('red')
+    empty_red = List[Wire](dom=red, cod=red)
     assert not empty_red.inside and eval(repr(empty_red)) == empty_red
+    with raises(AxiomError):
+        List[Wire](Wire('x', red, red), Wire('y'))
 
     # monoidal.FreeMonoid is a deprecated alias for List.
     with warnings.catch_warnings(record=True) as caught:

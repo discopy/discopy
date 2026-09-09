@@ -238,10 +238,9 @@ class FreeCategory(Category):
         inside = self.inside[key]
         if step < 0:  # A negative step reverses the path, hence the dagger.
             inside = tuple(gen.dagger() for gen in inside)
-        if inside and hasattr(inside[0], "dom"):
+        if inside:
             dom, cod = inside[0].dom, inside[-1].cod
-        elif not inside and 0 <= start < len(self)\
-                and hasattr(self.inside[start], "dom"):
+        elif 0 <= start < len(self):
             dom = cod = self.inside[start].dom
         else:
             dom = cod = self.cod if step > 0 else self.dom

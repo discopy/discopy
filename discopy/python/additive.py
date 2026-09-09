@@ -11,18 +11,19 @@ Summary
     :nosignatures:
     :toctree:
 
-    Ty
     Function
 """
 
 from __future__ import annotations
 
 from functools import cache
+from itertools import accumulate
 from typing import Self
 
 from discopy.abc import SymmetricCategory
 from discopy.utils import assert_isinstance
 from discopy.python import finset, function
+from discopy.python.function import Ty
 
 
 class Function(function.Function, SymmetricCategory):
@@ -78,7 +79,7 @@ class Function(function.Function, SymmetricCategory):
 
     @staticmethod
     @cache
-    def swap(x, y) -> Function:
+    def swap(x: Ty, y: Ty) -> Function:
         """
         Swap the tags of a disjoint union from `x + y` to `y + x`.
 
@@ -86,7 +87,7 @@ class Function(function.Function, SymmetricCategory):
             x : The list of types on the left.
             y : The list of types on the right.
         """
-        x, y = map(Function.cast, (x, y))
+        x, y = map(Ty.cast, (x, y))
 
         def inside(obj, tag=0):
             new_tag = tag + len(y) if tag < len(x) else tag - len(x)
@@ -99,10 +100,9 @@ class Function(function.Function, SymmetricCategory):
     @classmethod
     def permutation(cls, xs, doms) -> Self:
         """ Permute the tags of a disjoint union. """
-        doms, xs = list(doms), finset.Permutation(xs, len(doms))
-        offsets = [0]
-        for dom in doms:
-            offsets.append(offsets[-1] + len(dom))
+        doms = list(map(cls.ob.cast, doms))
+        xs = finset.Permutation(xs, len(doms))
+        offsets = [0, *accumulate(map(len, doms))]
         inverse = xs.dagger()
 
         def inside(obj, tag=0):
@@ -112,8 +112,8 @@ class Function(function.Function, SymmetricCategory):
                 + tag - offsets[block]
             return obj if offsets[-1] == 1 else (obj, new_tag)
 
-        dom = sum(doms, ())
-        cod = sum((doms[i] for i in xs), ())
+        dom = cls.ob().tensor(*doms)
+        cod = cls.ob().tensor(*(doms[i] for i in xs))
         return cls(inside, dom, cod)
 
     def dagger(self):
@@ -146,21 +146,24 @@ class Function(function.Function, SymmetricCategory):
         return Function(inside, dom, cod)
 
     @staticmethod
-    def merge(x, n=2) -> Function:
+    def merge(x: Ty, n=2) -> Function:
+        """
+        Merge :code:`n` copies of a list of types :code:`x` into one.
+
+        Parameters:
+            x : The list of types to merge.
+            n : The number of copies.
+        """
+        x = Ty.cast(x)
+
         def inside(obj, tag=0):
             if len(x) == 1:
                 assert tag % len(x) == 0
                 return obj
             return (obj, tag % len(x))
-        return Function(inside, n * x, x)
+        return Function(inside, x ** n, x)
 
 
 Swap = Function.braid = Function.swap
 Id = Function.twist = Function.id
 Merge = Function.merge
-
-
-def __getattr__(name):
-    if name == "Ty":
-        return function.Function.ob
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

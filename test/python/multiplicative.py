@@ -4,7 +4,7 @@ from typing import List
 from pytest import raises
 
 from discopy.biclosed import *
-from discopy.python import *
+from discopy.python import Function, exp
 
 
 def test_Function():

@@ -169,7 +169,7 @@ from discopy import symmetric
 from discopy.abc import MonoidalCategory, NamedGeneric
 from discopy.python import finset
 from discopy.utils import (
-    AxiomError, get_origin, is_tuple,
+    AxiomError,
     assert_isinstance, unbiased, inductive, classproperty, factory_name)
 
 
@@ -192,11 +192,8 @@ class Ty(NamedGeneric['base']):
 
     def __init__(
             self, now: base = None, _later: Callable[[], Ty[base]] = None):
-        if is_tuple(self.base) and not isinstance(now, (tuple, type(None))):
-            now = (now, )
-        now = now if isinstance(now, get_origin(self.base)) else (
-            self.base() if now is None else self.base(now))
-        self.now, self._later = now, _later
+        self.now = self.base() if now is None else self.base.cast(now)
+        self._later = _later
 
     def __repr__(self):
         _later = "" if self.is_constant else f", _later={repr(self._later)}"

@@ -20,15 +20,14 @@ from dataclasses import dataclass
 from contextlib import contextmanager
 
 from discopy.abc import Category
+from discopy.monoidal import List
 from discopy.utils import (
     assert_iscomposable, assert_isinstance,
     tuplify, untuplify, classproperty, factory)
 
 
-def _type_monoid():
-    """ The free monoid ``monoidal.List[type]`` used as ``Function.ob``. """
-    from discopy.monoidal import List
-    return List[type]
+Ty = List[type]
+""" Lists of Python types, i.e. the free monoid on ``type``. """
 
 
 @factory
@@ -42,36 +41,28 @@ class Function(Category):
         dom : The domain of the function, i.e. its input type.
         cod : The codomain of the function, i.e. its output type.
 
+    Note
+    ----
+    The objects are :class:`monoidal.List` ``[type]``, the free monoid on
+    Python's ``type``: a type or a tuple of types is ``cast`` into one.
+
     .. admonition:: Summary
 
         .. autosummary::
 
             id
             then
-
-    Note
-    ----
-    The objects of the category are :code:`List[type]`, the free monoid on
-    Python's :code:`type`, so that a :class:`monoidal.Functor` into
-    :class:`Function` folds the image of a type with the monoid product
-    :code:`@` rather than tuple concatenation.
     """
     inside: Callable
-    dom: type
-    cod: type
+    dom: Ty
+    cod: Ty
 
-    ob = classproperty(lambda cls: _type_monoid())
+    ob = Ty
     type_checking = True
 
-    def __init__(self, inside: Callable, dom: type, cod: type):
+    def __init__(self, inside: Callable, dom: Ty, cod: Ty):
         self.inside, self.dom, self.cod = (
-            inside, self.cast(dom), self.cast(cod))
-
-    @classmethod
-    def cast(cls, dom):
-        """ Cast a type or tuple of types into ``cls.ob``, the free monoid. """
-        return dom if isinstance(dom, cls.ob)\
-            else cls.ob(*dom) if isinstance(dom, tuple) else cls.ob(dom)
+            inside, self.ob.cast(dom), self.ob.cast(cod))
 
     @classmethod
     def id(cls, dom: type) -> Function:
@@ -106,8 +97,8 @@ class Function(Category):
 
     def __call__(self, arg):
         if self.type_checking:
-            assert_isinstance(arg, tuple(self.dom))
+            assert_isinstance(arg, self.dom.inside)
         result = self.inside(arg)
         if self.type_checking:
-            assert_isinstance(result, tuple(self.cod))
+            assert_isinstance(result, self.cod.inside)
         return result

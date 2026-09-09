@@ -121,23 +121,29 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 ### Changed
 
 - `monoidal.FreeMonoid` is renamed `List` and parameterised as a
-  `NamedGeneric["generator_factory"]`, so `List[X]` is the free monoid on a
-  generator type `X` the way `Hypergraph[C]` is the hypergraph category over a
-  category `C`. `Ty` stays the `generator_factory = Wire` special case, and
-  `python.Function.ob` is now `List[type]` rather than `tuple[type, ...]`: its
-  `dom` and `cod` are the free monoid on Python's `type`. Because a `List` is a
-  `ColouredMonoid`, its objects support `@`, so `monoidal.Functor` folds the
-  image of every object with the monoid product `@`, eradicating the `+` fold
-  it fell back to while `Function.ob` was a bare tuple (which supports `+` but
-  not `@`, [#727](https://github.com/discopy/discopy/pull/727)'s `e26af1f`);
-  the `Nat` and `Dim` branches fold with `@` too and `Ty.__add__` is removed.
-  `monoidal.Functor` maps each atomic object through its `cat.Functor` base
-  rather than a private `_map_atomic`, whose only remaining content once the
-  tuple case was gone duplicated that base.
-  `cat.FreeCategory.__getitem__` slices a path of generators with no boundary
-  (e.g. Python's `type`) by keeping the whole path's colour rather than reading
-  a colour off an atom that has none. `monoidal.FreeMonoid` remains as a
-  deprecated alias
+  `NamedGeneric["generator_factory"]`: `List[X]` is the free monoid on `X`
+  the way `Hypergraph[C]` is the hypergraph category over `C`, `Ty` is the
+  case `generator_factory = Wire`. A `List` is a `ColouredMonoid`, so it
+  carries the whole interface of a type — `@` and its alias `+`, `**`,
+  `len`, indexing, slicing and iteration over its length-one sublists, with
+  the atoms as `inside` — once, where `Ty` used to define it; the atoms of a
+  `List` other than a `Ty` carry no colour, so it is `white` on both sides
+  and `Dim` no longer needs its own slicing.
+  `python.Function.ob` is `List[type]` rather than `tuple[type, ...]`: the
+  `dom` and `cod` of a function are the free monoid on Python's `type`. A
+  type or a tuple of types is `List.cast` into one wherever a function is
+  built, and `+` casts its other operand the same way, so that code written
+  against tuples of types, e.g. `para.Symmetric[Function]`, still reads.
+  `monoidal.Functor` folds the images of every object with `tensor` instead
+  of the `+` it fell back to while `Function.ob` was a bare tuple, and
+  `_map_atomic` goes with the tuple case it existed for, as do the tuple
+  special case of `stream.Ty` and `utils.is_tuple`. Indexing a function's
+  `dom` or `cod` now gives a list of length one, as for any `Ty`, and
+  `dom.inside[i]` the type itself. `python.Ty` is an alias of `List[type]`,
+  defined in `python.function` with `additive` and `multiplicative`
+  re-exporting it; the package imports `multiplicative` on first use, since
+  it imports `monoidal` which imports `python.finset`. `monoidal.FreeMonoid`
+  remains as a deprecated alias
   ([#728](https://github.com/discopy/discopy/issues/728)).
 - `monoidal.PRO` (and its counterparts `rigid.PRO`, `pivotal.PRO` and
   `frobenius.PRO`) is renamed to `Nat`: it is the free monoid on one

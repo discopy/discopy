@@ -11,7 +11,6 @@ Summary
     :nosignatures:
     :toctree:
 
-    Ty
     Function
 
 .. admonition:: Functions
@@ -27,23 +26,25 @@ Summary
 from __future__ import annotations
 
 from collections.abc import Callable
+from itertools import accumulate
 from typing import Self
 
 from discopy.abc import ClosedCategory
 from discopy.utils import assert_isinstance, tuplify, untuplify, factory
 from discopy.python import finset, function
+from discopy.python.function import Ty
 
 
-def exp(base, exponent):
+def exp(base: Ty, exponent: Ty) -> Ty:
     """
     The exponential of a list of Python types by another.
 
     Parameters:
-        base (python.Ty) : The base type.
-        exponent (python.Ty) : The exponent type.
+        base : The base types.
+        exponent : The exponent types.
     """
-    return function.Function.ob(
-        Callable[list(exponent), tuple[tuple(base)]])
+    base, exponent = map(Ty.cast, (base, exponent))
+    return Ty(Callable[list(exponent.inside), tuple[base.inside]])
 
 
 @factory
@@ -75,14 +76,14 @@ class Function(function.Function, ClosedCategory):
         if self.type_checking:
             if len(xs) != len(self.dom):
                 raise ValueError
-            for (x, t) in zip(xs, self.dom):
+            for (x, t) in zip(xs, self.dom.inside):
                 callable(x) or assert_isinstance(x, t)
         ys = self.inside(*xs)
         if self.type_checking:
             if len(self.cod) != 1 and (
                     not isinstance(ys, tuple) or len(self.cod) != len(ys)):
                 raise RuntimeError
-            for (y, t) in zip(tuplify(ys), self.cod):
+            for (y, t) in zip(tuplify(ys), self.cod.inside):
                 callable(y) or assert_isinstance(y, t)
         return ys
 
@@ -99,7 +100,7 @@ class Function(function.Function, ClosedCategory):
         return Function(inside, self.dom + other.dom, self.cod + other.cod)
 
     @staticmethod
-    def swap(x, y) -> Function:
+    def swap(x: Ty, y: Ty) -> Function:
         """
         The function for swapping two lists of types :code:`x` and :code:`y`.
 
@@ -107,6 +108,8 @@ class Function(function.Function, ClosedCategory):
             x : The list of types on the left.
             y : The list of types on the right.
         """
+        x, y = map(Ty.cast, (x, y))
+
         def inside(*xs):
             return untuplify(tuplify(xs)[len(x):] + tuplify(xs)[:len(x)])
         return Function(inside, dom=x + y, cod=y + x)
@@ -114,24 +117,23 @@ class Function(function.Function, ClosedCategory):
     @classmethod
     def permutation(cls, xs, doms) -> Self:
         """ Permute blocks of arguments. """
-        doms, xs = list(doms), finset.Permutation(xs, len(doms))
-        offsets = [0]
-        for dom in doms:
-            offsets.append(offsets[-1] + len(dom))
+        doms = list(map(cls.ob.cast, doms))
+        xs = finset.Permutation(xs, len(doms))
+        offsets = [0, *accumulate(map(len, doms))]
 
         def inside(*args):
             blocks = [args[offsets[i]:offsets[i + 1]]
                       for i in range(len(doms))]
             return untuplify(sum((blocks[i] for i in xs), ()))
 
-        dom = sum(doms, ())
-        cod = sum((doms[i] for i in xs), ())
+        dom = cls.ob().tensor(*doms)
+        cod = cls.ob().tensor(*(doms[i] for i in xs))
         return cls(inside, dom, cod)
 
     braid = swap
 
     @staticmethod
-    def copy(x, n=2) -> Function:
+    def copy(x: Ty, n=2) -> Function:
         """
         The function for making :code:`n` copies of a list of types :code:`x`.
 
@@ -139,10 +141,11 @@ class Function(function.Function, ClosedCategory):
             x : The list of types to copy.
             n : The number of copies.
         """
-        return Function(lambda *xs: n * xs, dom=x, cod=n * x)
+        x = Ty.cast(x)
+        return Function(lambda *xs: n * xs, dom=x, cod=x ** n)
 
     @staticmethod
-    def discard(dom) -> Function:
+    def discard(dom: Ty) -> Function:
         """
         The function discarding a list of types, i.e. making zero copies.
 
@@ -152,7 +155,7 @@ class Function(function.Function, ClosedCategory):
         return Function.copy(dom, 0)
 
     @staticmethod
-    def ev(base, exponent, left=True) -> Function:
+    def ev(base: Ty, exponent: Ty, left=True) -> Function:
         """
         The evaluation function,
         i.e. take a function and apply it to an argument.
@@ -162,6 +165,7 @@ class Function(function.Function, ClosedCategory):
             exponent : The input type.
             left : Whether to take the function on the left or right.
         """
+        base, exponent = map(Ty.cast, (base, exponent))
         if left:
             dom, cod = Function.exp(base, exponent) + exponent, base
             return Function(lambda f, *xs: f(*xs), dom, cod)
@@ -193,7 +197,7 @@ class Function(function.Function, ClosedCategory):
             left : Whether to uncurry on the left or right.
         """
         traced = self.cod.inside[0].__args__
-        base, exponent = traced[-1].__args__, traced[:-1]
+        base, exponent = map(Ty.cast, (traced[-1].__args__, traced[:-1]))
         return self @ exponent >> Function.ev(base, exponent) if left\
             else exponent @ self >> Function.ev(base, exponent, left=False)
 
@@ -227,9 +231,3 @@ class Function(function.Function, ClosedCategory):
             >> self >> cod @ self.discard(traced)
 
     exp = over = under = staticmethod(lambda x, y: exp(x, y))
-
-
-def __getattr__(name):
-    if name == "Ty":
-        return function.Function.ob
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

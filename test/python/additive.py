@@ -32,7 +32,7 @@ def test_additive_Function():
     assert eq((f >> g @ X).trace(), f.trace() >> g)  # Right-naturality
 
     IntTy, D = Ty[Function.ob], Diagram[Function]
-    dom = Function.cast(X)
+    dom = Function.ob.cast(X)
 
     assert eq(D.id(IntTy(dom, dom)).transpose().inside, Id(X + X))
 
