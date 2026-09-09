@@ -15,6 +15,8 @@ def test_Ty():
     assert Ty.ob is Colour and Ty.ar is Ty
     assert isinstance(white, cat.Ob)
     assert isinstance(x, cat.FreeCategory)
+    assert not isinstance(x, DaggerCategory) and issubclass(
+        Diagram, DaggerCategory)
     assert isinstance(x, cat.Ob) and not isinstance(x, Wire)
     assert x @ y != y @ x
     assert x.then(y) == x @ y  # >> is overridden by closed exponentials.

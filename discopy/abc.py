@@ -23,6 +23,7 @@ Summary
     :toctree:
 
     Category
+    DaggerCategory
     ColouredMonoid
     Monoid
     Nat
@@ -125,6 +126,19 @@ class Category[C0, C1: Category](ABC):
 
     __rshift__ = __llshift__ = lambda self, other: self.then(other)
     __lshift__ = __lrshift__ = lambda self, other: other.then(self)
+
+
+class DaggerCategory[C0, C1: DaggerCategory](Category[C0, C1]):
+    """
+    A `dagger category <https://ncatlab.org/nlab/show/dagger+category>`_ is a
+    :class:`Category` with a method :code:`dagger` for the identity-on-objects
+    contravariant involution, i.e. such that
+    ``(f >> g).dagger() == g.dagger() >> f.dagger()``
+    and ``f.dagger().dagger() == f``.
+    """
+    @abstractmethod
+    def dagger(self) -> C1:
+        """ The dagger of a morphism, to be instantiated. """
 
 
 class ColouredMonoid[C0, C1: ColouredMonoid](Category[C0, C1]):
