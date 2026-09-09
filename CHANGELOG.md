@@ -135,10 +135,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   once and folding that image `other.n` times with `+`, rather than mapping
   each of the `n` identical atoms separately: a `Nat` is a unary encoding,
   so every atom is the same generator and its image need only be computed
-  once. The fold is with `+` like the pre-existing `Dim`/`Ty` branches, so
-  an arbitrary codomain's objects need only support `+`, e.g.
-  `python.Function.ob = tuple[type, ...]`, whose images are plain tuples
-  with a `+` but no `__matmul__` at all. The old names still work
+  once. The fold starts from the image's own unit (`image[:0]`) rather than
+  the declared codomain unit `cod.ob()`, since the latter can be a supertype
+  of the image — `Diagram.to_hypergraph` on a `Nat`-typed permutation maps a
+  `Nat` boundary through a functor whose `cod.ob` is the category's generic
+  `Ty`, and `Ty() @ Nat` is refused. The fold is with `+` like the
+  pre-existing `Dim`/`Ty` branches, so an arbitrary codomain's objects need
+  only support `+`, e.g. `python.Function.ob = tuple[type, ...]`, whose
+  images are plain tuples with a `+` but no `__matmul__` at all. The old names still work
   through a `DeprecationWarning`, via a new `utils.deprecated_alias` taking a
   mapping of every name a module deprecates. `utils.deprecated_ob`, the
   single-purpose `Ob`→`Wire` wrapper it generalises, is removed: its six call

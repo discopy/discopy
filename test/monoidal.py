@@ -572,7 +572,7 @@ def test_Nat_Functor():
 
     G = Functor(lambda x: x @ x, lambda f: f, cod=NatDiagram)
     assert G(Nat(2)) == Nat(4)
-    assert Functor(lambda x: x, lambda f: f)(Nat(2)) == Nat(2)
+    assert Functor(lambda x: x, lambda f: f, cod=NatDiagram)(Nat(2)) == Nat(2)
 
 
 def test_Nat_Functor_tuple_ob():
