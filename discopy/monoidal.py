@@ -247,6 +247,8 @@ class List(
         return hash((type(self), self.inside, self.dom, self.cod))
 
     def __repr__(self):
+        if not self.inside and self.dom != white:
+            return f"{factory_name(type(self))}.id({self.dom!r})"
         return factory_name(type(self))\
             + f"({', '.join(map(repr, self.inside))})"
 

@@ -749,6 +749,10 @@ def test_List():
     # Ty is the special case whose generators are coloured Wires.
     assert issubclass(Ty, List) and Ty.generator_factory is Wire
 
+    # eval(repr(x)) == x holds for empty coloured boundaries, not just Ty.
+    empty_red = List[Wire](dom=monoidal.Colour('red'), cod=monoidal.Colour('red'))
+    assert not empty_red.inside and eval(repr(empty_red)) == empty_red
+
     # monoidal.FreeMonoid is a deprecated alias for List.
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
