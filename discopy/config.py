@@ -102,6 +102,12 @@ DRAWING_DEFAULT = {
     "svg_tol": 1,
 }
 
+# The colour of a region that is not painted at all, so that whatever is
+# behind the drawing shows through: the default of
+# :class:`discopy.monoidal.Colour` and of a spider that is drawn unfilled.
+# Both matplotlib and TikZ spell transparency this way.
+TRANSPARENT = "none"
+
 # Mapping from tikz colors to hexcodes.
 COLORS = {
     "white": '#ffffff',

@@ -5,7 +5,7 @@
 
 - [WIP] @session_01Psss5f4oAymHHt8grgLjJn-2026-09-09 12:00 Make `monoidal.Colour` transparent by default: `config.TRANSPARENT`,
       `monoidal.transparent` in place of `monoidal.white`, `rigid.Wire`.
-- [ ] Remove the "if white then transparent" special cases in
+- [WIP] @session_01Psss5f4oAymHHt8grgLjJn-2026-09-09 12:10 Remove the "if white then transparent" special cases in
       `drawing.backend` (region cells, legend, neutral canvas, wire labels,
       spiders) and in `Drawing.add`, so an explicit white gets painted.
 - [ ] Update the tests that assert white is the neutral background and add
