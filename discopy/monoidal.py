@@ -310,6 +310,20 @@ class Ty(cat.Ob, FreeMonoid):
         """
         return self
 
+    def delay(self, n_steps: int = 1) -> Ty:
+        """
+        The delay of a type by ``n_steps``.
+
+        This is the identity for monoidal types, so that a traced category
+        is a feedback category where the delay is trivial, see
+        :class:`discopy.abc.TracedCategory`. It is overridden by
+        :class:`feedback.Ty`, which delays each of its generators.
+
+        Parameters:
+            n_steps : The number of time steps to delay.
+        """
+        return self
+
     @property
     def is_atomic(self) -> bool:
         """ Whether a type is atomic, i.e. it has length 1. """
