@@ -9,7 +9,7 @@
 > issue is that wires are turned white when the theme changes to dark, but the
 > marimo background stays white so they become invisible.
 
-- [ ] Investigate why the marimo previews ignore the docs theme switch.
-- [ ] Make the exported notebooks follow the theme and turn dark with the docs.
-- [ ] Test the fix end-to-end in a browser, run the linter and the test suite.
-- [ ] Add a changelog entry.
+- [WIP] @session_01PYmoyhxYhEXYSJSBMuPVrG-2026-09-09 08:55 Investigate why the marimo previews ignore the docs theme switch.
+- [WIP] @session_01PYmoyhxYhEXYSJSBMuPVrG-2026-09-09 08:55 Make the exported notebooks follow the theme and turn dark with the docs.
+- [WIP] @session_01PYmoyhxYhEXYSJSBMuPVrG-2026-09-09 08:55 Test the fix end-to-end in a browser, run the linter and the test suite.
+- [WIP] @session_01PYmoyhxYhEXYSJSBMuPVrG-2026-09-09 08:55 Add a changelog entry.
