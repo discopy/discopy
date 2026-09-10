@@ -404,6 +404,18 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- The marimo notebook previews in the docs follow the theme switch. The
+  notebooks are exported with marimo's `system` theme and the docs relay
+  the resolved theme into each notebook's iframe through marimo's
+  host-theming bridge, since browsers do not forward the page's colour
+  scheme into an iframe: only the browser-level preference reached it,
+  turning the wires of the adaptive SVGs white on the notebook's white
+  background for dark-mode readers. The diagrams drawn inline in a
+  notebook read the browser preference rather than the notebook theme,
+  so the export inserts a stylesheet keying their adaptive colours to
+  marimo's theme class, which outweighs the media query of
+  `drawing.backend.DARK_MODE_STYLE`
+  ([#453](https://github.com/discopy/discopy/issues/453)).
 - `Hypergraph.rotate` exchanged the two boundaries of the hypergraph and
   replaced each box by its rotation, but left the *ports* of those boxes
   and the spiders where they were: the wires reading a box's domain went
