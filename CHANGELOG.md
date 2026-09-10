@@ -385,6 +385,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Removed
 
+- `biclosed.Variable` and `closed.Variable` require an atomic codomain:
+  the abstraction machinery indexes contexts and free variables by
+  variable, counting on that index to coincide with a wire index, so a
+  variable of type `x @ y` used to bind only the last wire, leaving the
+  other one silently free in `biclosed`, and crash from inside `finset`
+  in `closed`, where `Abstraction.eval` permutes as many wires as there
+  are free variables
+  ([#609](https://github.com/discopy/discopy/issues/609)).
 - `cat.Bubble.dagger`: a bubble's dagger was inherited from `Box.dagger`,
   which reconstructs with `type(self)(name, cod, dom, ...)` — positional
   arguments `Bubble.__init__` reads as `*args`, so it crashed with

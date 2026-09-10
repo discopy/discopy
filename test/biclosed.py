@@ -51,6 +51,20 @@ def test_Term():
     assert Abstraction(var, var(g, left=True), left=True).cod == y >> x
 
 
+def test_Variable_atomic():
+    """
+    A variable stands for exactly one wire, so a non-atomic codomain is
+    rejected at construction rather than silently binding the last wire
+    instead of the whole variable (regression test for #609).
+    """
+    x, y = Ty('x'), Ty('y')
+    with raises(ValueError):
+        Variable('v', x @ y)
+    with raises(ValueError):
+        Variable('v', Ty())
+    assert Variable('v', x).cod == x
+
+
 def test_Term_str():
     X, Y = Ty('X'), Ty('Y')
     f, g = (Y << X)("f"), (X >> Y)("g")
