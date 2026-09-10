@@ -91,13 +91,19 @@ class Function(function.Function, ClosedCategory):
                 callable(y) or assert_isinstance(y, t)
         return ys
 
-    def tensor(self, other: Function) -> Function:
+    def tensor(self, other: Function = None, *others: Function) -> Function:
         """
         The parallel composition of two functions, called with :code:`@`.
 
         Parameters:
             other : The other function to compose in sequence.
+            others : Any further functions to compose in sequence.
         """
+        if others:
+            return self.tensor(other).tensor(*others)
+        if other is None:
+            return self
+
         def inside(*xs):
             left, right = xs[:len(self.dom)], xs[len(self.dom):]
             return untuplify(tuplify(self(*left)) + tuplify(other(*right)))
