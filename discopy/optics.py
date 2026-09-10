@@ -331,9 +331,8 @@ class Optic(SymmetricCategory, NamedGeneric['category']):
         .. image:: /_static/optics/to-int.svg
             :align: center
         """
-        identity = self.category.id
-        inside = self.forward @ identity(self.cod.negative)\
-            >> identity(self.cod.positive) @ self.backward
+        inside = self.forward @ self.cod.negative\
+            >> self.cod.positive @ self.backward
         ob = interaction.Ty[self.ob.natural]
         return interaction.Diagram[self.category](
             inside, ob(*self.dom), ob(*self.cod))
