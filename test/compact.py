@@ -67,12 +67,12 @@ def test_mixed_Layer_rotation_and_transpose():
 
 
 def test_strategy():
-    from discopy import testing
+    from discopy import axioms
 
-    testing.assert_strategy_finds(Diagram, Swap, Cup, Cap)
+    axioms.assert_strategy_finds(Diagram, Swap, Cup, Cap)
 
 
 def test_axioms():
-    from discopy import testing
+    from discopy import axioms
 
-    testing.assert_axioms(Diagram, Functor)
+    axioms.assert_axioms(Diagram, Functor)

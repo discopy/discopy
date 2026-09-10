@@ -82,9 +82,9 @@ from typing import (
     Callable, Mapping, Iterable, TYPE_CHECKING)
 
 from discopy import messages, utils
-from discopy.abc import Category, Equation as AbstractEquation
-from discopy.testing import (
-    GENERATORS, Relabelling, Strategy, axiom)
+from discopy.abc import Category
+from discopy.axioms import (
+    GENERATORS, Equation as AbstractEquation, Relabelling, Strategy, axiom)
 from discopy.utils import (  # noqa: F401
     factory,
     factory_name,
@@ -305,7 +305,7 @@ class Arrow(FreeCategory, Strategy["Arrow"]):
     ----
     If ``dom`` or ``cod`` are not instances of ``ob``, they are
     automatically cast. This means one can use e.g. ``int`` instead of ``Ob``,
-    see :class:`monoidal.PRO`.
+    see :class:`monoidal.Nat`.
     """
     ob = Ob
 
@@ -928,7 +928,7 @@ class Functor(Category, Strategy["Functor"]):
     >>> m.data.append(False)
     >>> assert F(m) == m[::-1]
     """
-    ob = Category
+    ob = type[Category]
     dom = cod = Arrow
 
     @classmethod
@@ -994,8 +994,7 @@ class Functor(Category, Strategy["Functor"]):
         if isinstance(other, Ob):
             result = self.ob_map[other]
             origin = get_origin(self.cod.ob)
-            if isinstance(result, origin) or (
-                    isinstance(result, type) and issubclass(result, origin)):
+            if isinstance(result, origin):
                 return result
             return (result, ) if origin == tuple\
                 else self.cod.ob(result)
@@ -1060,7 +1059,7 @@ class Functor(Category, Strategy["Functor"]):
         not generate, so this is stated of the one the carrier maps.
         """
         identity = cls.id(cls.dom)
-        return cls.ob.equation_factory(identity.dom, cls.dom, identity.cod)
+        return AbstractEquation(identity.dom, cls.dom, identity.cod)
 
 
 Arrow.generator_factory = Box
@@ -1177,8 +1176,8 @@ class Transformation(Category):
 
 class Equation(AbstractEquation[Arrow]):
     """
-    An :class:`.abc.Equation` between arrows, see its docstring for the
-    parameters and :meth:`.abc.Equation.modulo` for quotients.
+    An :class:`.axioms.Equation` between arrows, see its docstring for the
+    parameters and :meth:`.axioms.Equation.modulo` for quotients.
 
     Example
     -------

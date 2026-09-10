@@ -1,6 +1,6 @@
 """
 Deterministic replay of recorded counterexamples, the memory of the
-property suite: :mod:`discopy.testing` documents the recording protocol.
+property suite: :mod:`discopy.axioms` documents the recording protocol.
 """
 
 from typing import NamedTuple
@@ -8,7 +8,7 @@ from typing import NamedTuple
 import pytest
 
 from discopy import biclosed, braided, cat, feedback, pivotal, ribbon
-from discopy.testing import (
+from discopy.axioms import (
     GENERATORS, Atomic, Axiom, AxiomFailure, Relabelling)
 from discopy.utils import AxiomError, factory_name
 
@@ -29,7 +29,7 @@ COLLAPSE = Relabelling(tuple(
 The relabelling the search shrunk to: every generator sent to the first.
 
 It names all of them because every functor the strategy builds does, see
-:obj:`discopy.testing.GENERATORS`. The images are what shrinking landed on
+:obj:`discopy.axioms.GENERATORS`. The images are what shrinking landed on
 rather than what the bug needs — composing on the left forgets the functor
 whatever it relabels, so the identity relabelling is a counterexample too.
 """
@@ -93,7 +93,7 @@ def counterexample_parameters():
             if axiom.broken else ()
         yield pytest.param(
             axiom, args, marks=marks,
-            id=f"{factory_name(axiom.carrier)}.{axiom.name}")
+            id=f"{factory_name(axiom.category)}.{axiom.name}")
 
 
 @pytest.mark.parametrize("axiom, args", counterexample_parameters())

@@ -90,16 +90,18 @@ Both sides foliate to the same single permutation.
 
 from __future__ import annotations
 
+from typing import Self
+
 from collections.abc import Sequence
 
 from discopy import abc, balanced, cmap, hypergraph, messages, monoidal
 from discopy.abc import SymmetricCategory
 from discopy.cat import factory
-from discopy.monoidal import Wire, Ty, PRO  # noqa: F401
+from discopy.monoidal import Wire, Ty, Nat  # noqa: F401
 from discopy.python import finset
 from discopy.utils import (
     AxiomError, assert_iscomposable, classproperty, factory_name, from_tree)
-from discopy.testing import Atomic, C0, axiom
+from discopy.axioms import Atomic, axiom
 
 
 class Layer(monoidal.Layer):
@@ -347,12 +349,12 @@ class Diagram(balanced.Diagram, SymmetricCategory):
             xs : A permutation, as a sequence of integers or a
                  :class:`finset.Permutation`.
             dom : A type of the same length as :code:`xs`,
-                  default is :code:`PRO(len(xs))`.
+                  default is :code:`Nat(len(xs))`.
         """
 
-        doms = PRO(len(xs)) if doms is None else doms
+        doms = Nat(len(xs)) if doms is None else doms
         size = len(doms)
-        unit = type(doms)() if isinstance(doms, PRO) else cls.ob()
+        unit = type(doms)() if isinstance(doms, Nat) else cls.ob()
         tensor = lambda tys: unit.tensor(*tys)
         dom = tensor(doms)
 
@@ -384,7 +386,7 @@ class Diagram(balanced.Diagram, SymmetricCategory):
             perm : A permutation, as a sequence of integers or a
                    :class:`finset.Permutation`.
             dom : A type of the same length as :code:`perm`,
-                  default is :code:`PRO(len(perm))`.
+                  default is :code:`Nat(len(perm))`.
 
         Examples
         --------
@@ -394,7 +396,7 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         >>> assert Diagram.from_permutation(
         ...     [0, 1, 2], x @ y @ z) == Id(x @ y @ z)
         """
-        dom = PRO(len(perm)) if dom is None else dom
+        dom = Nat(len(perm)) if dom is None else dom
         perm = finset.Permutation(perm, len(dom))
         if perm.is_identity:
             return cls.id(dom)
@@ -577,7 +579,7 @@ class Permutation(Box):
         >>> perm = Permutation(x @ y @ z, [1, 2, 0])
         >>> assert Equation(perm.to_swaps(), perm)
         """
-        doms = self.dom if isinstance(self.dom, PRO)\
+        doms = self.dom if isinstance(self.dom, Nat)\
             else list(map(self.ob, self.dom.inside))
         return self.ar.permutation(self.perm, doms)
 
@@ -719,7 +721,7 @@ class Functor(balanced.Functor):
             return self.cod.ar.swap(self(other.dom[0]), self(other.dom[1]))
         if isinstance(other, Permutation) and hasattr(
                 self.cod.ar, "permutation"):
-            if isinstance(other.dom, PRO):
+            if isinstance(other.dom, Nat):
                 doms = self(other.dom)
             else:
                 doms = list(map(self, other.dom))
@@ -727,7 +729,8 @@ class Functor(balanced.Functor):
         return super().__call__(other)
 
     @axiom
-    def symmetric(self, x: Atomic[C0], y: Atomic[C0]):
+    def symmetric(
+            cls, self: Self, x: Atomic[Self.dom.ob], y: Atomic[Self.dom.ob]):
         """ A symmetric functor preserves the swap. """
         x, y = x.value, y.value
         return self.cod.equation_factory(

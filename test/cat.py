@@ -3,19 +3,19 @@
 import pytest
 from pytest import raises
 
-from discopy import abc, testing
+from discopy import abc, axioms
 from discopy.cat import *
 from discopy.utils import AxiomError
 
 
 def test_axiom_mro_discovery_order_and_shadowing():
     class Parent(Arrow):
-        @testing.axiom
+        @axioms.axiom
         def parent_law(cls):
             return cls.equation_factory(0, 0)
 
     class Child(Parent):
-        @testing.axiom
+        @axioms.axiom
         def child_law(cls):
             return cls.equation_factory(0, 0)
 
@@ -410,7 +410,7 @@ def test_strategy():
 
 
 def test_axioms():
-    testing.assert_axioms(Arrow, Functor)
+    axioms.assert_axioms(Arrow, Functor)
 
 
 def test_cat_valued_functor():
@@ -419,3 +419,17 @@ def test_cat_valued_functor():
     F = Functor(ob_map={x: x, y: y}, ar_map={f: f})
     H = Functor(ob_map={x: Arrow, y: Arrow}, ar_map={f: F}, cod=Functor)
     assert H(x) is Arrow and H(f) == F
+
+
+def test_Functor_then_left_unit():
+    """
+    Composition is unital only on the left up to equality of functors
+    (#648): the identity functor is a pair of functions, so composing it on
+    the left of a functor given by dictionaries yields a pair of functions
+    that acts the same but compares unequal.
+    """
+    x, y = Ob('x'), Ob('y')
+    F = Functor({x: y, y: x}, {})
+    assert F >> Functor.id() == F
+    assert Functor.id() >> F != F
+    assert (Functor.id() >> F)(x) == F(x)

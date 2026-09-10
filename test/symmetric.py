@@ -59,8 +59,12 @@ def test_Functor_keys_boxes_by_syntax():
 
 
 def test_Diagram_permutation():
-    x = PRO(1)
-    tmp, Diagram.ob = Diagram.ob, PRO
+    x = Nat(1)
+    tmp, Diagram.ob = Diagram.ob, Nat
+    assert Diagram.swap(x, x ** 2)\
+        == Diagram.swap(x, x) @ Id(x) >> Id(x) @ Diagram.swap(x, x)\
+        == Diagram.permutation([1, 2, 0])\
+        == Diagram.permutation([2, 0, 1]).dagger()
     with raises(ValueError):
         Diagram.permutation([2, 0])
     with raises(ValueError):
@@ -337,7 +341,7 @@ def test_large_Permutation_to_hypergraph():
 def test_default_Permutation_to_hypergraph():
     perm = Diagram.from_permutation([2, 1, 0])
     graph = perm.to_hypergraph()
-    assert graph.cod == PRO(3)
+    assert graph.cod == Nat(3)
     assert graph.cod_wires == (2, 1, 0)
     assert Equation(perm, perm.to_swaps())
 
@@ -384,9 +388,9 @@ def test_coloured_Layer_boxes_and_types():
 def test_strategy():
     from hypothesis import find
 
-    from discopy import testing
+    from discopy import axioms
 
-    testing.assert_strategy_finds(Diagram, Swap)
+    axioms.assert_strategy_finds(Diagram, Swap)
     cod = Ty(*"xyz")
     layer = find(Layer.strategy(factory=Diagram, cod=cod),
                  lambda value: value.is_plumbing)
@@ -396,6 +400,6 @@ def test_strategy():
 
 
 def test_axioms():
-    from discopy import testing
+    from discopy import axioms
 
-    testing.assert_axioms(Diagram, Functor)
+    axioms.assert_axioms(Diagram, Functor)

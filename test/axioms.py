@@ -1,38 +1,206 @@
-# -*- coding: utf-8 -*-
-
-"""
-One test for each argument generator of :mod:`discopy.testing`: it accepts
-valid arguments, rejects invalid ones, and its search strategy reaches every
-shape of argument the axioms expect. Whether the axioms hold is checked over
-every category in ``proptest/``.
-"""
+""" DisCoPy's property-axioms module in action. """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import Self
+
 from hypothesis import find
+from hypothesis import strategies as st
+from hypothesis.errors import NoSuchExample
 from pytest import raises
 
-from discopy import biclosed, cat, feedback, monoidal, rigid, testing, traced
-from discopy.testing import (
+from discopy import cat
+from discopy.axioms import (
+    C1,
+    Axiom,
+    AxiomFailure,
+    ComposablePair,
+    ComposableTriple,
+    Equation,
+    Grid,
+    Strategy,
+    assert_axioms,
+    axiom,
+    resolve,
+    substitute,
+)
+from discopy.cat import Arrow, Box, Functor, Ob
+from discopy.utils import AxiomError, NamedGeneric
+
+
+from discopy import biclosed, cat, feedback, monoidal, rigid, axioms, traced
+from discopy.axioms import (
     C0, C1, Atomic, Axiom, AxiomFailure, Square, BoundaryConnected,
     ComposablePair, ComposableTriple, FeedbackJoining, FeedbackVanishing,
-    HomogeneousMemory, HorizontalPair, LeftCurrying, Natural, NonEmpty,
+    HomogeneousMemory, HorizontalPair, LeftCurrying, NonEmpty,
     Relabelling, RightCurrying, Subsingleton, TraceDinaturalityLeft,
     TraceDinaturalityRight, TraceNaturalityLeft, TraceNaturalityRight,
     TraceSuperposing, axiom, resolve)
 from discopy.utils import AxiomError
 
 
-def test_Natural():
-    assert Natural(2) @ Natural(3) == 5 == len(Natural(5))
-    assert Natural(1).__matmul__("x") is NotImplemented
-    assert repr(Natural(2)) == "testing.Natural(2)"
-    assert eval(repr(Natural(2))) == testing.Natural(2)
-    assert Natural.equation_factory(Natural(1), Natural(1))
+@dataclass(frozen=True)
+class Endo(Strategy, NamedGeneric["factory"]):
+    """ An endomorphism of the factory, the subspace a law is weakened to. """
+
+    value: C1
+
+    def __post_init__(self):
+        if self.value.dom != self.value.cod:
+            raise ValueError("Expected an endomorphism.")
+
+    @classmethod
+    def strategy(cls, **params):
+        """Generate an arrow with equal domain and codomain."""
+        return resolve(cls.factory, **params).filter(
+            lambda arrow: arrow.dom == arrow.cod).map(cls)
+
+
+class Word(str, Strategy["Word"]):
+    """ A word with tensor given by concatenation, a monoid to grid. """
+
+    __matmul__ = lambda self, other: Word(str(self) + str(other))
+
+    @classmethod
+    def strategy(cls, **params):
+        """Generate a word over two letters."""
+        return st.text("ab", max_size=3).map(cls)
+
+
+class Row(Grid):
+    """ Two horizontally composable cells. """
+
+    n_rows, n_columns = 1, 2
+
+
+def test_axioms():
+    assert_axioms(Arrow)
+
+    class Classified(Arrow):
+        """ A category with a broken law and an inapplicable one. """
+        unitality = Arrow.unitality.failing("Never holds.")
+        dagger_involution = Arrow.dagger_involution.inapplicable("No dagger.")
+
+    assert_axioms(Classified)
+
+
+def test_strategy():
+    x, y = Ob('x'), Ob('y')
+    find(Ob.strategy(), lambda ob: ob.name == "a")
+    assert find(Arrow.strategy(dom=x, cod=x), lambda _: True) == Arrow.id(x)
+    assert find(Arrow.strategy(dom=x, cod=y), lambda _: True).cod == y
+    assert find(Arrow.strategy(dom=x), lambda _: True).dom == x
+    assert find(Arrow.strategy(cod=y), lambda _: True).cod == y
+    assert find(Box.strategy(dom=x), lambda _: True).dom == x
+
+
+def test_composable_shapes():
+    x, y = Ob('x'), Ob('y')
+    f, g = Box('f', x, y), Box('g', y, x)
+    assert ComposablePair(f, g) == (f, g)
+    assert ComposableTriple(f, g, f) == (f, g, f)
     with raises(ValueError):
-        Natural(-1)
-    find(Natural.strategy(), lambda value: value == 0)
-    find(Natural.strategy(), lambda value: value > 1)
+        ComposablePair(f)
+    with raises(AxiomError):
+        ComposablePair(f, f)
+    pair = find(resolve(ComposablePair[Arrow]), lambda _: True)
+    assert isinstance(pair, ComposablePair) and pair[0].cod == pair[1].dom
+    assert Row(Word("a"), Word("b")) == ("a", "b")
+    with raises(TypeError):
+        resolve(int)
+    scope = {"C1": Arrow}
+    assert substitute(int, scope) is int
+    assert substitute(ComposablePair[Arrow], scope) is ComposablePair[Arrow]
+    assert substitute(ComposablePair[C1], scope) is ComposablePair[Arrow]
+
+
+def test_axiom_binding():
+    assert repr(Axiom(lambda cls: NotImplemented)) == "Axiom(<lambda>)"
+    assert eval(repr(Arrow.unitality)) == cat.Arrow.unitality
+    assert hash(Arrow.unitality) == hash(eval(repr(Arrow.unitality)))
+    assert Arrow.unitality != Functor.unitality
+    with raises(TypeError):
+        Axiom(lambda cls: NotImplemented)()
+    with raises(TypeError):
+        Axiom(lambda cls: NotImplemented).falsify()
+    with raises(TypeError):
+        Axiom(lambda cls: NotImplemented).strategy()
+    assert axiom(lambda cls: NotImplemented).bind(Arrow)() is NotImplemented
+    box = Box('f', Ob('x'), Ob('y'))
+    assert Arrow.unitality(box)
+    broken = Arrow.unitality.weaken(f=Endo[C1]).failing("Never holds.")
+    assert broken.subspaces == {"f": Endo[C1]}
+    loop = Box('g', Ob('x'), Ob('x'))
+    with raises(AxiomFailure) as failure:
+        broken(Endo(loop))
+    assert failure.value.equation
+
+
+def test_deferred_annotations():
+    """ A law compiled without deferred annotations is refused. """
+    namespace, source = {}, "def eager(cls, f: int): return NotImplemented"
+    exec(compile(source, "<eager>", "exec", dont_inherit=True), namespace)
+    with raises(TypeError, match="__future__"):
+        axiom(namespace["eager"])
+
+
+def test_inapplicable():
+    law = Arrow.unitality.inapplicable("No identities to cancel.")
+    assert law.name == "unitality"
+    assert law.__doc__ == "No identities to cancel."
+    assert law() is NotImplemented
+
+
+def test_modulo():
+    law = Arrow.unitality.modulo(lambda term: term.dom).bind(Arrow)
+    assert law(Box('f', Ob('x'), Ob('y')))
+
+
+def test_weaken():
+    law = Arrow.unitality.weaken(f=Endo[C1]).bind(Arrow)
+    assert law.modulo(lambda term: term).subspaces == law.subspaces
+    args = find(law.strategy(), lambda _: True)
+    assert isinstance(args[0], Endo) and law(*args)
+
+
+def test_self_annotation():
+    @axiom
+    def absorbing(cls, f: Self) -> Equation:
+        """ The identity on the domain absorbs into any arrow. """
+        return Equation(cls.id(f.dom) >> f, f)
+
+    law = absorbing.bind(Arrow)
+    args = find(law.strategy(), lambda _: True)
+    assert isinstance(args[0], Arrow) and law(*args)
+
+
+def test_falsify():
+    @axiom
+    def trivial(cls, f: C1) -> Equation:
+        """ Every arrow is an identity, which a box refutes. """
+        return Equation(f, cls.id(f.dom))
+
+    counterexample, = trivial.bind(Arrow).falsify()
+    assert isinstance(counterexample, Arrow) and counterexample.inside
+    assert Arrow.unitality.failing("Never holds.").falsify()
+    with raises(NoSuchExample):
+        Arrow.associativity.falsify()
+
+
+def test_axioms_of_category():
+    class Broken(Arrow):
+        """ A category declaring an inherited law broken. """
+        unitality = Arrow.unitality.failing("Never holds.")
+
+    assert Broken.axioms["unitality"].broken
+    assert not Arrow.axioms["unitality"].broken
+
+    class Hidden(Arrow):
+        """ Assigning a non-axiom over an inherited law drops it. """
+        unitality = None
+
+    assert "unitality" not in Hidden.axioms
 
 
 def test_Atomic():
@@ -227,73 +395,6 @@ def test_Relabelling():
     delaying = feedback.Box('f', feedback.Ty('u').delay(), feedback.Ty('u'))
     assert delayed[delaying] == feedback.Box(
         'f', feedback.Ty('v').delay(), feedback.Ty('v'))
-
-
-def test_Axiom():
-    @axiom
-    def law(cls, f):
-        """ Not an equation. """
-        return cls.equation_factory(f)
-
-    assert repr(law) == "Axiom(law)"
-    assert eval(repr(cat.Arrow.unitality)) == cat.Arrow.unitality
-    assert hash(cat.Arrow.unitality) == hash(eval(repr(cat.Arrow.unitality)))
-    assert cat.Arrow.unitality != cat.Functor.unitality
-    assert cat.Functor.dagger_involution() is NotImplemented
-    assert [parameter.name for parameter in law.parameters] == ['f']
-    assert cat.Arrow.unitality.carrier is cat.Arrow
-    with raises(TypeError):
-        law(cat.Id(cat.Ob('x')))
-    with raises(TypeError):
-        law.falsify()
-    with raises(TypeError):
-        law.strategy()
-    assert law.bind(cat.Arrow)(cat.Id(cat.Ob('x')))
-    assert Axiom(classmethod(lambda cls: NotImplemented)).bind(cat.Arrow)()\
-        is NotImplemented
-    broken = cat.Arrow.unitality.weaken(f=Atomic[C1]).failing("Never holds.")
-    assert broken.subspaces == {"f": Atomic[C1]}
-    with raises(AxiomFailure) as failure:
-        broken(Atomic(cat.Box('f', cat.Ob('x'), cat.Ob('y'))))
-    assert failure.value.equation
-
-
-def test_modulo():
-    law = cat.Arrow.unitality.modulo(lambda term: term.dom)
-    assert law(cat.Box('f', cat.Ob('x'), cat.Ob('y')))
-
-
-def test_weaken():
-    for subspace in (Atomic[C1], Atomic[monoidal.Ty]):
-        law = monoidal.Ty.monoid_unitality.weaken(x=subspace)
-        assert law.modulo(lambda term: term).subspaces == law.subspaces
-        args = find(law.strategy(), lambda _: True)
-        assert isinstance(args[0], Atomic) and law(*args)
-
-
-def test_element_law():
-    @axiom
-    def preserves_identity(self, x: C0) -> cat.Equation:
-        """ A functor preserves the identity on each object. """
-        return cat.Equation(self(cat.Arrow.id(x)), cat.Arrow.id(self(x)))
-
-    law = preserves_identity.bind(cat.Functor)
-    assert law.is_method
-    args = find(law.strategy(), lambda _: True)
-    assert law(*args)
-
-
-def test_inapplicable():
-    class Carrier(cat.Arrow):
-        unitality = cat.Arrow.unitality.inapplicable("No identities.")
-
-    unitality = Carrier.axioms["unitality"]
-    assert unitality() is NotImplemented
-    assert unitality.__doc__ == "No identities."
-    assert not unitality.parameters and not unitality.broken
-    dropped = cat.Arrow.unitality.weaken(f=Atomic[C1])\
-        .inapplicable("No identities.")
-    assert dropped.name == "unitality" and not dropped.subspaces
 
 
 def test_Small():

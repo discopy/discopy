@@ -89,7 +89,7 @@ from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
 from discopy.cat import factory
 from discopy.utils import (
-    assert_isinstance, deprecated_ob, factory_name, from_tree
+    assert_isinstance, deprecated_alias, factory_name, from_tree
 )
 
 
@@ -771,4 +771,4 @@ class Equation(monoidal.Equation):
 
 
 Diagram.equation_factory = Equation
-__getattr__ = deprecated_ob(__name__)
+__getattr__ = deprecated_alias(__name__, {"Ob": "Wire"})

@@ -13,7 +13,7 @@ Summary
 
     Wire
     Ty
-    PRO
+    Nat
     Diagram
     Box
     Cup
@@ -147,6 +147,8 @@ out the two objects needed below as ``cat.Ob`` instances so that
 
 from __future__ import annotations
 
+from typing import Self
+
 import copy
 
 from collections.abc import Callable
@@ -161,10 +163,10 @@ from discopy.utils import (
     assert_isinstance,
     AxiomError,
     BinaryBoxConstructor,
-    deprecated_ob,
+    deprecated_alias,
     factory_name,
 )
-from discopy.testing import Atomic, C0, GENERATORS, axiom
+from discopy.axioms import Atomic, GENERATORS, axiom
 
 
 class Wire(monoidal.Wire):
@@ -338,14 +340,15 @@ class Ty(Pregroup, biclosed.Ty):
 
 
 @factory
-class PRO(monoidal.PRO, Ty):
+class Nat(monoidal.Nat, Ty):
     """
-    A rigid PRO is a natural number ``n`` seen as a rigid type of length ``n``.
+    A rigid ``Nat`` is a natural number ``n`` seen as a rigid type of
+    length ``n``.
 
     Parameters
     ----------
     n : int
-        The length of the PRO type.
+        The natural number.
     """
     l = r = property(lambda self: self)
 
@@ -901,14 +904,14 @@ class Functor(biclosed.Functor):
         return super().__call__(other)
 
     @axiom
-    def rigid_cups(self, x: Atomic[C0]):
+    def rigid_cups(cls, self: Self, x: Atomic[Self.dom.ob]):
         """ A rigid functor preserves the cups. """
         x = x.value
         return self.cod.equation_factory(
             self(self.dom.cups(x, x.r)), self.cod.cups(self(x), self(x.r)))
 
     @axiom
-    def rigid_caps(self, x: Atomic[C0]):
+    def rigid_caps(cls, self: Self, x: Atomic[Self.dom.ob]):
         """ A rigid functor preserves the caps. """
         x = x.value
         return self.cod.equation_factory(
@@ -957,4 +960,4 @@ class Equation(biclosed.Equation):
 
 
 Diagram.equation_factory = Equation
-__getattr__ = deprecated_ob(__name__)
+__getattr__ = deprecated_alias(__name__, {"Ob": "Wire", "PRO": "Nat"})
