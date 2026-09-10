@@ -81,6 +81,7 @@ which lands in :class:`CMap` as a biclosed category has no trace.
 from __future__ import annotations
 
 from abc import abstractmethod
+from functools import cached_property
 from inspect import signature
 from typing import Callable, ClassVar
 
@@ -225,7 +226,11 @@ class Exp(Wire):
         assert_isinstance(base, self.ob)
         assert_isinstance(exponent, self.ob)
         self.base, self.exponent = base, exponent
-        super().__init__(str(self))
+        super().__init__(None)
+
+    @cached_property
+    def name(self):
+        return str(self)
 
     def __eq__(self, other):
         return isinstance(other, type(self))\
@@ -424,15 +429,18 @@ class Curry(monoidal.Bubble, Box):
     """
     def __init__(self, arg: Diagram, n=1, left=False):
         self.n, self.left = n, left
-        name = f"Curry({arg}, {n}, {left})"
         if left:
             dom = arg.dom[:len(arg.dom) - n]
             cod = arg.cod << arg.dom[len(arg.dom) - n:]
         else:
             dom, cod = arg.dom[n:], arg.dom[:n] >> arg.cod
         monoidal.Bubble.__init__(
-            self, arg, dom=dom, cod=cod, drawing_name="$\\Lambda$")
-        Box.__init__(self, name, dom, cod)
+            self, arg, dom=dom, cod=cod, name=None,
+            drawing_name="$\\Lambda$")
+
+    @cached_property
+    def name(self):
+        return f"Curry({self.arg}, {self.n}, {self.left})"
 
     def __str__(self):
         return self.name
@@ -638,10 +646,13 @@ class Application(TermBase):
         if self.func.cod.exponent != self.args.cod:
             raise ValueError(
                 f"Expected {self.func.cod.exponent}, got {self.args.cod}")
-        cod, fname, xname = func.cod.base, str(func), str(args)
-        name = f"{xname}({fname}, left=True)" if left else f"{fname}({xname})"
         dom = self.__check_dom__(func, args, left)
-        super().__init__(name, dom, cod)
+        super().__init__(None, dom, func.cod.base)
+
+    @cached_property
+    def name(self):
+        func, args = str(self.func), str(self.args)
+        return f"{args}({func}, left=True)" if self.left else f"{func}({args})"
 
     def __check_dom__(self, func, args, left):
         assert_isinstance(func.cod.inside[0], Under if left else Over)
@@ -678,11 +689,14 @@ class Abstraction(TermBase):
 
     def __init__(self, var: Variable, body: Term, left: bool = False):
         self.var, self.body, self.left = var, body, left
-        left_str = ", left=True" if left else ""
-        name = f"{var.cod}(lambda {var.name}{left_str}: {body})"
         cod = var.cod >> body.cod if left else body.cod << var.cod
         dom = self.__check_dom__()
-        super().__init__(name, dom, cod)
+        super().__init__(None, dom, cod)
+
+    @cached_property
+    def name(self):
+        left = ", left=True" if self.left else ""
+        return f"{self.var.cod}(lambda {self.var.name}{left}: {self.body})"
 
     def __check_dom__(self):
         body_freevars = self.body.freevars

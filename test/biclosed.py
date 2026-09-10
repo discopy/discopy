@@ -61,6 +61,22 @@ def test_Term_str():
     assert str(f(y)) == "(Y << X)('f')(y)"
 
 
+def test_lazy_name():
+    """A name that embeds a whole subterm is computed at most once, on read."""
+    X, Y = Ty('X'), Ty('Y')
+    f, x = (Y << X)("f"), X("x")
+    exp, application = (Y << X).inside[0], f(x)
+    abstraction, curry = X(lambda y: f(y)), Box("h", X @ Y, X).curry()
+    for term in [exp, application, abstraction, curry]:
+        assert "name" not in vars(term)
+    assert exp.name == "(Y << X)"
+    assert application.name == "(Y << X)('f')(X('x'))"
+    assert abstraction.name == "X(lambda y: (Y << X)('f')(y))"
+    assert curry.name == "Curry(h, 1, True)"
+    for term in [exp, application, abstraction, curry]:
+        assert vars(term)["name"] == term.name
+
+
 def test_Term_linear_planar():
     x, y, z = Ty('x'), Ty('y'), Ty('z')
     f, g = (x << y)("f"), (y >> x)("g")

@@ -108,7 +108,9 @@ class Ob:
     An object with a string as :code:`name`.
 
     Parameters:
-        name : The name of the object.
+        name : The name of the object, or :code:`None` to leave it to a
+            subclass which computes it lazily, e.g. as a
+            :func:`functools.cached_property`.
 
     Example
     -------
@@ -121,9 +123,10 @@ class Ob:
             del state["_name"]
         self.__dict__.update(state)
 
-    def __init__(self, name: str = ""):
-        assert_isinstance(name, str)
-        self.name = name
+    def __init__(self, name: "str | None" = ""):
+        if name is not None:
+            assert_isinstance(name, str)
+            self.name = name
 
     def __repr__(self):
         return f"{factory_name(type(self))}({repr(self.name)})"
@@ -518,7 +521,8 @@ class Box(Arrow):
     A box is an arrow with a :code:`name` and the tuple of just itself inside.
 
     Parameters:
-        name : The name of the box.
+        name : The name of the box, or :code:`None` to leave it to a
+            subclass which computes it lazily.
         dom : The domain of the box, i.e. the input.
         cod : The codomain of the box, i.e. the output.
         data (any) : Extra data in the box, default is :code:`None`.
@@ -530,6 +534,20 @@ class Box(Arrow):
     >>> x, y = Ob('x'), Ob('y')
     >>> f = Box('f', x, y, data=[42])
     >>> assert f.inside == (f, )
+
+    A box whose name is expensive to format, e.g. one that embeds the name
+    of the whole diagram inside it, can define it as a
+    :func:`functools.cached_property` and pass :code:`None` instead, so that
+    the string is computed at most once and only if it is read.
+
+    >>> class Twice(Box):
+    ...     def __init__(self, arg):
+    ...         self.arg = arg
+    ...         super().__init__(None, arg.dom, arg.cod)
+    ...     @cached_property
+    ...     def name(self):
+    ...         return f"Twice({self.arg})"
+    >>> assert str(Twice(Twice(f))) == "Twice(Twice(f))"
     """
     def __setstate__(self, state):
         if '_name' in state:  # Backward compatibility
@@ -538,10 +556,12 @@ class Box(Arrow):
             del state['_name'], state['_data'], state['_dagger']
         super().__setstate__(state)
 
-    def __init__(
-            self, name: str, dom: Ob, cod: Ob, data=None, is_dagger=False):
-        assert_isinstance(name, str)
-        self.name, self.data, self.is_dagger = name, data, is_dagger
+    def __init__(self, name: "str | None", dom: Ob, cod: Ob,
+                 data=None, is_dagger=False):
+        if name is not None:
+            assert_isinstance(name, str)
+            self.name = name
+        self.data, self.is_dagger = data, is_dagger
         Arrow.__init__(self, (self, ), dom, cod, _scan=False)
 
     @cached_property

@@ -577,6 +577,24 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Performance
 
+- Every name that embeds the string of a whole subterm is computed on
+  read rather than in `__init__`: `biclosed.Exp`, whose name is the string
+  of the exponential it nests, and `biclosed.Curry`, `Application` and
+  `Abstraction`, whose names embed the argument, the function and the
+  argument, and the body respectively. Each of them formatted a string
+  containing the strings of all its children, so building a term of `n`
+  formers did O(n²) string work even when nothing ever read a name, and
+  building `X >> X >> ... >> X` hit the recursion limit at a few hundred
+  arrows although nothing printed it. `cat.Ob` and `cat.Box` take `None` for
+  the name of a subclass that defines it as a `cached_property` instead,
+  the same way `Ty.name` went lazy in
+  [#421](https://github.com/discopy/discopy/pull/421); the strings are
+  unchanged, and a chain of `n` applications is linear, e.g. 0.46 s
+  instead of 6.3 s at `n = 8000`
+  ([#694](https://github.com/discopy/discopy/issues/694)). The
+  `Tuple`, `Projection` and `Let` of
+  [#489](https://github.com/discopy/discopy/pull/489), which the issue
+  names, need the same one-liner when that branch lands.
 - The elements of a Hopf algebra (`drinfeld_element`, `pivotal_element`,
   `ribbon_element`) contract each structural generator once through the
   cached `Algebra.arrays` and solve for the pivot with a thin SVD, so that
