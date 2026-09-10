@@ -1,4 +1,4 @@
-""" DisCoPy's property-axioms module in action. """
+""" DisCoPy's property-testing module in action. """
 
 from __future__ import annotations
 
@@ -10,34 +10,16 @@ from hypothesis import strategies as st
 from hypothesis.errors import NoSuchExample
 from pytest import raises
 
-from discopy import cat
+from discopy import biclosed, cat, feedback, monoidal, rigid, traced
 from discopy.axioms import (
-    C1,
-    Axiom,
-    AxiomFailure,
-    ComposablePair,
-    ComposableTriple,
-    Equation,
-    Grid,
-    Strategy,
-    assert_axioms,
-    axiom,
-    resolve,
-    substitute,
-)
+    C1, Atomic, Axiom, AxiomFailure, BoundaryConnected, ComposablePair,
+    ComposableTriple, Equation, FeedbackJoining, FeedbackVanishing, Grid,
+    HomogeneousMemory, HorizontalPair, LeftCurrying, NonEmpty, Relabelling,
+    RightCurrying, Square, Strategy, Subsingleton, TraceDinaturalityLeft,
+    TraceDinaturalityRight, TraceNaturalityLeft, TraceNaturalityRight,
+    TraceSuperposing, assert_axioms, axiom, resolve, substitute)
 from discopy.cat import Arrow, Box, Functor, Ob
 from discopy.utils import AxiomError, NamedGeneric
-
-
-from discopy import biclosed, cat, feedback, monoidal, rigid, axioms, traced
-from discopy.axioms import (
-    C0, C1, Atomic, Axiom, AxiomFailure, Square, BoundaryConnected,
-    ComposablePair, ComposableTriple, FeedbackJoining, FeedbackVanishing,
-    HomogeneousMemory, HorizontalPair, LeftCurrying, NonEmpty,
-    Relabelling, RightCurrying, Subsingleton, TraceDinaturalityLeft,
-    TraceDinaturalityRight, TraceNaturalityLeft, TraceNaturalityRight,
-    TraceSuperposing, axiom, resolve)
-from discopy.utils import AxiomError
 
 
 @dataclass(frozen=True)
@@ -421,3 +403,22 @@ def test_BoundaryConnected():
             BoundaryConnected(value)
     find(BoundaryConnected[monoidal.Diagram].strategy(),
          lambda value: bool(value.value.boxes))
+
+
+def test_functor_law():
+    @axiom
+    def preserves_identity(cls, functor: Self, x: Self.dom.ob) -> Equation:
+        """ A functor preserves the identity on each object. """
+        return Equation(
+            functor(cls.dom.id(x)), functor.cod.id(functor(x)))
+
+    law = preserves_identity.bind(Functor)
+    functor, obj = find(law.strategy(), lambda _: True)
+    assert isinstance(functor, Functor) and isinstance(obj, Ob)
+    assert law(functor, obj)
+
+
+def test_monoid_law():
+    law = monoidal.Ty.unitality.weaken(f=Atomic[C1])
+    args = find(law.strategy(), lambda _: True)
+    assert isinstance(args[0], Atomic) and law(*args)

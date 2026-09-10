@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import annotations
+
 import pytest
 from pytest import raises
 
@@ -31,7 +33,7 @@ def test_default_equation_factory():
     assert isinstance(
         abc.Category.__dict__["equation_factory"], classmethod)
     equation = abc.Category.equation_factory(0, 0)
-    assert isinstance(equation, abc.Equation) and equation
+    assert isinstance(equation, axioms.Equation) and equation
     assert isinstance(Arrow.equation_factory(0, 0), Equation)
 
 
@@ -423,8 +425,8 @@ def test_cat_valued_functor():
 
 def test_Functor_then_left_unit():
     """
-    Composition is unital only on the left up to equality of functors
-    (#648): the identity functor is a pair of functions, so composing it on
+    Left unitality holds extensionally but fails functor equality (#648):
+    the identity functor is a pair of functions, so composing it on
     the left of a functor given by dictionaries yields a pair of functions
     that acts the same but compares unequal.
     """

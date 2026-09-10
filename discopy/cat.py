@@ -84,7 +84,8 @@ from typing import (
 from discopy import messages, utils
 from discopy.abc import Category
 from discopy.axioms import (
-    GENERATORS, Equation as AbstractEquation, Relabelling, Strategy, axiom)
+    C1, GENERATORS, ComposablePair, Equation as AbstractEquation, Relabelling,
+    Strategy, axiom)
 from discopy.utils import (  # noqa: F401
     factory,
     factory_name,
@@ -1038,11 +1039,9 @@ class Functor(Category, Strategy["Functor"]):
     serialisation = Strategy.serialisation.inapplicable(
         "A functor has no tree.")
     unitality = Category.unitality.failing(
-        "Composition is unital only on the left: "
-        ":code:`MappingOrCallable.then` composes by iterating the keys of "
-        "the left-hand map, and the identity functor enumerates none, so "
-        ":code:`id >> f` forgets everything :code:`f` does instead of "
-        "being :code:`f`.")
+        "The identity functor is a pair of functions: composing it on the "
+        "left of a functor given by mappings acts the same but compares "
+        "unequal (#648).")
 
     dagger_involution = Category.dagger_involution.inapplicable(
         "A functor has no dagger.")
@@ -1056,10 +1055,22 @@ class Functor(Category, Strategy["Functor"]):
         Typing of the identity functor.
 
         The objects of ``Cat`` are categories, which the property matrix does
-        not generate, so this is stated of the one the carrier maps.
+        not generate, so this is stated of the one the functor maps.
         """
         identity = cls.id(cls.dom)
         return AbstractEquation(identity.dom, cls.dom, identity.cod)
+
+    @axiom
+    def composition_dom_typing(cls, pair: ComposablePair[C1]):
+        """ Composition of functors preserves the source category. """
+        f, g = pair
+        return AbstractEquation(f.then(g).dom, f.dom)
+
+    @axiom
+    def composition_cod_typing(cls, pair: ComposablePair[C1]):
+        """ Composition of functors preserves the target category. """
+        f, g = pair
+        return AbstractEquation(f.then(g).cod, g.cod)
 
 
 Arrow.generator_factory = Box

@@ -205,7 +205,7 @@ class Wire(monoidal.Wire):
 
     @classmethod
     def strategy(
-            cls, *, dom=monoidal.white, cod=monoidal.white,
+            cls, *, dom=monoidal.transparent, cod=monoidal.transparent,
             min_winding=-1, max_winding=1):
         """Generate rigid objects with bounded winding number."""
         from hypothesis import strategies as st

@@ -47,8 +47,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   the objects, arrows or terms of the category;
   `.failing`/`.inapplicable` classify a
   law as broken or not applicable to a category, and `.modulo`/`.weaken`
-  are defined (compare up to a function, quantify over a named subspace)
-  but not used yet. A
+  compare up to a function or quantify over a named subspace. A
   broken law raises `AxiomFailure` carrying its equation, which the
   recorded-counterexample replay checks, so a record's xfail is earned by
   its arguments falsifying the law and flips visibly when the bug is
@@ -63,10 +62,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   states, so a subspace annotation like `ComposablePair[C1]`
   builds; an unbound axiom's `.strategy()` raises the same `TypeError`
   as `.falsify` and calling it. The
-  search itself is the canonical instantiation only — one atomic object or
-  one free/generator box per parameter, no recursive or compound
-  generation — wired up in `proptest/test_axioms.py`, enrolled so far for
-  `cat.Arrow`, and run by the new `proptest` GitHub
+  recursive search is wired up in `proptest/test_axioms.py`, enrolled for
+  the free categories and their functors listed in `proptest/categories.py`,
+  and run by the new `proptest` GitHub
   workflow on PRs labelled `proptest`, on `main`, nightly and on manual
   dispatch. `proptest/conftest.py` registers three Hypothesis profiles
   over one example database, keyed per cell: `pr` replays what the
@@ -96,7 +94,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   for developing against the suite — laws stated before implementation,
   a failing cell debugged, its counterexample recorded, a strategy that
   missed a bug audited — is the documentation of `discopy.axioms`,
-  which joins the API docs under its own `axiom` page; `AGENTS.md`
+  which joins the API docs under its own `axioms` page; `AGENTS.md`
   points to it from `Where` rather than importing it into every agent's
   context, and links its other documents rather than importing them with
   the `@` syntax only `CLAUDE.md` is read with.
@@ -210,6 +208,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   ([#484](https://github.com/discopy/discopy/pull/484)).
 
 ### Changed
+
+- The monoidal property suite uses `discopy.axioms` and the category registry.
+  Functor laws quantify their functor with `Self` and their source types with
+  `Self.dom`; monoids inherit category unitality and associativity. Strategy
+  defaults follow transparent colours and `Nat` boundaries, and unused
+  natural-number helpers and classifications are removed.
 
 - `monoidal.Colour` is transparent by default rather than white, i.e. its
   `name` defaults to the new `config.TRANSPARENT` and `monoidal.white` is

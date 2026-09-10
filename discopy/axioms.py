@@ -73,6 +73,9 @@ The suite
   :meth:`Strategy.environment`: the package's public names and its own
   module's, so that a representation printing bare names evaluates
   without the category declaring anything.
+- ``proptest/test_drawing.py`` and ``proptest/test_normal_form.py`` check
+  drawing and rewriting over the diagram categories;
+  ``proptest/test_conversion.py`` checks their representations.
 - ``proptest/test_counterexamples.py`` replays every recorded
   counterexample deterministically — no generation, no search: the
   matrix's explicit phase. Its memory is Hypothesis's example database,
@@ -1206,13 +1209,13 @@ def assert_axioms(*categories) -> None:
 
 
 def assert_strategy_finds[D: monoidal.Diagram](
-        carrier: type[D], *structures: type[D]):
+        category: type[D], *structures: type[D]):
     """
-    Check that the strategy of a diagram carrier generates a term
+    Check that the strategy of a diagram category generates a term
     containing a box of each of the given structural classes.
     """
     from hypothesis import find
 
     for structure in structures:
-        find(carrier.strategy(), lambda term: any(
+        find(category.strategy(), lambda term: any(
             isinstance(box, structure) for box in term.boxes))

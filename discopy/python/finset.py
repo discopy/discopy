@@ -141,7 +141,7 @@ class Permutation(Function, PROP):
         """ Generate permutations with optional exact boundaries. """
         from hypothesis import strategies as st
 
-        if dom is not None and cod is not None and dom != cod:
+        if dom is not None and cod is not None and int(dom) != int(cod):
             return st.nothing()
         size = dom if dom is not None else cod
         sizes = st.integers(min_value=0, max_value=max_size)\
