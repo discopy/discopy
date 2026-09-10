@@ -67,7 +67,7 @@ from discopy.abc import (
 from discopy.drawing import Drawing
 from discopy.config import (
     BOX_DRAWING_ATTRIBUTES, WIRE_DRAWING_ATTRIBUTES,
-    COLOUR_DRAWING_ATTRIBUTES)
+    COLOUR_DRAWING_ATTRIBUTES, TRANSPARENT)
 from discopy.utils import (
     factory,
     factory_name,
@@ -87,7 +87,8 @@ if TYPE_CHECKING:
 @dataclass(frozen=True)
 class Colour(cat.Ob):
     """
-    A 0-cell, drawn using its matplotlib-compatible ``name``.
+    A 0-cell, drawn using its matplotlib-compatible ``name``, by default
+    :data:`discopy.config.TRANSPARENT` so that the page shows through.
 
     An optional ``label`` gives the region a human-readable name for the
     drawing legend (e.g. a category) while still filling with ``name``. It
@@ -95,7 +96,7 @@ class Colour(cat.Ob):
     colour still merge.
     """
 
-    name: str = "white"
+    name: str = TRANSPARENT
     label: "str | None" = field(default=None, compare=False)
 
     def __post_init__(self):
@@ -123,14 +124,14 @@ class Colour(cat.Ob):
         return cls(tree['name'], label=tree.get('label'))
 
 
-white = Colour("white")
+transparent = Colour(TRANSPARENT)
 
 
 class Wire(cat.Ob):
     """A generating 1-cell with a colour on either side."""
 
-    def __init__(self, name: str, dom: Colour = white,
-                 cod: Colour = white, is_dagger: bool = False):
+    def __init__(self, name: str, dom: Colour = transparent,
+                 cod: Colour = transparent, is_dagger: bool = False):
         assert_isinstance(dom, Colour)
         assert_isinstance(cod, Colour)
         self.is_dagger = is_dagger
@@ -138,8 +139,8 @@ class Wire(cat.Ob):
         super().__init__(name)
 
     def __setstate__(self, state):
-        state.setdefault('dom', white)
-        state.setdefault('cod', white)
+        state.setdefault('dom', transparent)
+        state.setdefault('cod', transparent)
         state.setdefault('is_dagger', False)
         super().__setstate__(state)
 
@@ -156,7 +157,7 @@ class Wire(cat.Ob):
         return hash((type(self), self.name, self.dom, self.cod))
 
     def __repr__(self):
-        if self.dom == self.cod == white:
+        if self.dom == self.cod == transparent:
             return repr(cat.Ob(self.name))
         return (f"{factory_name(type(self))}({self.name!r}, "
                 f"dom={self.dom!r}, cod={self.cod!r})")
@@ -164,9 +165,9 @@ class Wire(cat.Ob):
     def to_tree(self):
         tree = super().to_tree()
         tree['factory'] = factory_name(type(self))
-        if self.dom != white:
+        if self.dom != transparent:
             tree['dom'] = self.dom.to_tree()
-        if self.cod != white:
+        if self.cod != transparent:
             tree['cod'] = self.cod.to_tree()
         if self.is_dagger:
             tree['is_dagger'] = True
@@ -174,8 +175,8 @@ class Wire(cat.Ob):
 
     @classmethod
     def from_tree(cls, tree):
-        dom = from_tree(tree['dom']) if 'dom' in tree else white
-        cod = from_tree(tree['cod']) if 'cod' in tree else white
+        dom = from_tree(tree['dom']) if 'dom' in tree else transparent
+        cod = from_tree(tree['cod']) if 'cod' in tree else transparent
         return cls(tree['name'], dom, cod, is_dagger='is_dagger' in tree)
 
 
@@ -318,9 +319,9 @@ class Ty(cat.Ob, cat.FreeCategory, ColouredMonoid):
                 (cat.Ob, ) if self.generator_factory is Wire else ()))
         inside = tuple(map(self.cast_wire, inside))
         if dom is None:
-            dom = inside[0].dom if inside else white
+            dom = inside[0].dom if inside else transparent
         if cod is None:
-            cod = inside[-1].cod if inside else white
+            cod = inside[-1].cod if inside else transparent
         cat.FreeCategory.__init__(self, inside, dom, cod, _scan)
         cat.Ob.__init__(self, type(self).__name__)
 
@@ -348,7 +349,7 @@ class Ty(cat.Ob, cat.FreeCategory, ColouredMonoid):
         return hash((type(self), self.inside, self.dom, self.cod))
 
     def __repr__(self):
-        if not self.inside and self.dom != white:
+        if not self.inside and self.dom != transparent:
             return f"{factory_name(type(self))}.id({self.dom!r})"
         return factory_name(type(self))\
             + f"({', '.join(map(repr, self.inside))})"
@@ -398,7 +399,7 @@ class Ty(cat.Ob, cat.FreeCategory, ColouredMonoid):
     def __str__(self):
         name = type(self).__name__
         if not self.inside:
-            if self.dom == white:
+            if self.dom == transparent:
                 return f"{name}()"
             return f"{name}.id({self.dom})"
         parts = []
@@ -426,16 +427,16 @@ class Ty(cat.Ob, cat.FreeCategory, ColouredMonoid):
             state["inside"] = state['_objects']
             del state['_objects']
         if 'dom' not in state:
-            state['dom'] = white
+            state['dom'] = transparent
         if 'cod' not in state:
-            state['cod'] = white
+            state['cod'] = transparent
         cat.Ob.__setstate__(self, state)
 
     def to_tree(self):
         tree = {
             'factory': factory_name(type(self)),
             'inside': [x.to_tree() for x in self.inside]}
-        if not self.inside and self.dom != white:
+        if not self.inside and self.dom != transparent:
             tree['dom'] = self.dom.to_tree()
             tree['cod'] = self.cod.to_tree()
         return tree
@@ -459,8 +460,9 @@ class Ty(cat.Ob, cat.FreeCategory, ColouredMonoid):
     def to_drawing(self) -> Ty:
         if not self.inside:
             return Ty.id(self.dom)
-        result = Ty(*(Wire(str(x), getattr(x, 'dom', white),
-                           getattr(x, 'cod', white)) for x in self.inside))
+        result = Ty(*(
+            Wire(str(x), getattr(x, 'dom', transparent),
+                 getattr(x, 'cod', transparent)) for x in self.inside))
         for new, old in zip(result.inside, self.inside):
             if getattr(old, "frame_boundary", False):
                 new.frame_boundary = True
@@ -533,14 +535,14 @@ class Nat(abc.Nat, Ty):
     def __init__(self, inside: int | tuple = 0, dom: Colour = None,
                  cod: Colour = None, _scan: bool = True):
         self.n = inside if isinstance(inside, int) else len(inside)
-        self.dom = self.cod = white
+        self.dom = self.cod = transparent
         cat.Ob.__init__(self, type(self).__name__)
 
     def __setstate__(self, state):
         if "n" not in state:
             state = {"n": len(state["_objects"])}
-        state.setdefault("dom", white)
-        state.setdefault("cod", white)
+        state.setdefault("dom", transparent)
+        state.setdefault("cod", transparent)
         state.setdefault("name", type(self).__name__)
         cat.Ob.__setstate__(self, state)
 
@@ -604,8 +606,8 @@ class Dim(Ty):
                 raise ValueError
         inside = tuple(dim for dim in inside if dim > 1)
         cat.FreeCategory.__init__(
-            self, inside, white if dom is None else dom,
-            white if cod is None else cod, _scan=False)
+            self, inside, transparent if dom is None else dom,
+            transparent if cod is None else cod, _scan=False)
         cat.Ob.__init__(self, type(self).__name__)
 
     def __getitem__(self, key: int | slice) -> Dim:
@@ -1427,8 +1429,10 @@ class Box(cat.Box, Diagram):
         The name of the style when tikzing the box.
     color : str, optional
         The color to use when drawing the box, one of
-        :code:`"white", "red", "green", "blue", "yellow", "black"`.
-        Default is :code:`"red" if draw_as_spider else "white"`.
+        :code:`"transparent", "red", "green", "blue", "yellow", "black"` or any
+        other matplotlib colour, e.g. :data:`discopy.config.TRANSPARENT`
+        for a spider drawn unfilled.
+        Default is :code:`"black" if draw_as_spider else "transparent"`.
     shape : str, optional
         The shape to use when drawing a spider,
         one of :code:`"circle", "rectangle"`.
