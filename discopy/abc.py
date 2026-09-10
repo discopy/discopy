@@ -28,17 +28,28 @@ Summary
     :toctree:
 
     Category
+    ColouredMonoid
+    Monoid
+    Nat
     MonoidalCategory
-    BraidedCategory
+    PRO
     TracedCategory
-    BalancedCategory
-    SymmetricCategory
-    MarkovCategory
-    FeedbackCategory
-    ClosedCategory
+    ResiduatedMonoid
+    BiclosedCategory
+    Pregroup
     RigidCategory
     PivotalCategory
+    BraidedCategory
+    PROB
+    SymmetricCategory
+    PROP
+    MarkovCategory
+    ClosedCategory
+    FeedbackCategory
+    BalancedCategory
     RibbonCategory
+    CompactCategory
+    HypergraphCategory
     NamedGeneric
 """
 
@@ -46,6 +57,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import ClassVar
 
 from discopy.axioms import (
@@ -252,8 +264,46 @@ class ColouredMonoid[C0, C1: ColouredMonoid](Category[C0, C1]):
         return self.whisker(other).tensor(self)
 
 
-# A monoid is a coloured monoid with a single, trivial colour.
-type Monoid[C1: ColouredMonoid] = ColouredMonoid[type(None), C1]
+class Monoid[C1: Monoid](ColouredMonoid[type(None), C1]):
+    """ A monoid is a coloured monoid with a single, trivial colour. """
+
+
+@dataclass
+class Nat(Monoid["Nat"]):
+    """
+    ``Nat`` is the free monoid on one generator, i.e. the natural numbers
+    with addition as tensor. It is also a sequence over its unary encoding:
+    :meth:`__len__` gives back the natural number itself and slicing reads
+    it off as a sequence of ``1``'s, e.g. ``Nat(3)[:1] == Nat(1)``.
+
+    Parameters:
+        n : The natural number.
+    """
+    n: int = 0
+
+    def tensor(self, *others: Nat) -> Nat:
+        if any(not isinstance(other, Nat) for other in others):
+            return NotImplemented  # This allows whiskering on the left.
+        return type(self)(self.n + sum(other.n for other in others))
+
+    def __len__(self) -> int:
+        return self.n
+
+    def __index__(self) -> int:
+        return self.n
+
+    def __getitem__(self, key: int | slice) -> Nat:
+        """
+        Slicing a natural number reads it off as a sequence of ``1``'s.
+
+        Parameters:
+            key : An integer or a slice.
+        """
+        if isinstance(key, slice):
+            return type(self)(len(range(self.n)[key]))
+        if key >= self.n or key < -self.n:
+            raise IndexError
+        return type(self)(1)
 
 
 class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](
@@ -290,6 +340,13 @@ class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](
 
     def __rmatmul__(self, other):
         return self.whisker(other).tensor(self)
+
+
+class PRO[C1: PRO](MonoidalCategory[Nat, C1]):
+    """
+    A PRO is a :class:`MonoidalCategory` whose objects are the natural
+    numbers :class:`Nat`, i.e. the free monoidal category on one generator.
+    """
 
 
 class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
@@ -539,6 +596,13 @@ class BraidedCategory[C0, C1](MonoidalCategory[C0, C1]):
         """
 
 
+class PROB[C1: PROB](PRO[C1], BraidedCategory[Nat, C1]):
+    """
+    A PROB is a :class:`BraidedCategory` whose objects are the natural
+    numbers :class:`Nat`, i.e. the free braided category on one generator.
+    """
+
+
 class SymmetricCategory[C0, C1](BraidedCategory[C0, C1]):
     """
     A symmetric category is a :class:`BraidedCategory` where the braid is its
@@ -574,6 +638,13 @@ class SymmetricCategory[C0, C1](BraidedCategory[C0, C1]):
     @classmethod
     def braid(cls, left: C0, right: C0) -> C1:
         return cls.swap(left, right)
+
+
+class PROP[C1: PROP](PROB[C1], SymmetricCategory[Nat, C1]):
+    """
+    A PROP is a :class:`SymmetricCategory` whose objects are the natural
+    numbers :class:`Nat`, i.e. the free symmetric category on one generator.
+    """
 
 
 class MarkovCategory[C0, C1](SymmetricCategory[C0, C1]):

@@ -36,7 +36,7 @@ from discopy.cat import factory
 
 @factory  # Ensure that composition of circuits remains a circuit.
 class Circuit(monoidal.Diagram):
-    ob = monoidal.PRO  # Use natural numbers as objects.
+    ob = monoidal.Nat
 
     def __call__(self, *bits):
         F = monoidal.Functor(
@@ -107,7 +107,7 @@ link = cap >> x_3.r @ cap @ x_3 >> braid.r @ braid >> x_3.r @ cup @ x_3 >> cup
 
 @factory
 class Kauffman(ribbon.Diagram):
-    ob = ribbon.PRO
+    ob = ribbon.Nat
 
 class Cup(ribbon.Cup, Kauffman):
     pass
@@ -200,7 +200,7 @@ Tensor[bool].bubble = lambda self, **_: self.map(lambda x: not x)
 
 @factory
 class Formula(frobenius.Diagram):
-    ob = frobenius.PRO
+    ob = frobenius.Nat
 
     def eval(self, size, model):
         return frobenius.Functor(
@@ -216,7 +216,7 @@ G, M = [Predicate(unary, 0, 1) for unary in ("G", "M")]
 lp, lg, lm = [[0, 1], [0, 0]], [0, 1], [1, 0]
 size, model = 2, {G: lg, M: lm, P: lp}
 
-formula = G >> Ligature(1, 2, frobenius.PRO(1))\
+formula = G >> Ligature(1, 2, frobenius.Nat(1))\
     >> Cut(Cut(Formula.id(1)) >> G.dagger())\
     @ (M @ 1 >> P.dagger())
 
