@@ -28,7 +28,7 @@ from discopy.utils import factory_name
 
 CATEGORIES = (
     cat.Arrow, cat.Functor,
-    monoidal.Wire, monoidal.Ty, monoidal.PRO,
+    monoidal.Wire, monoidal.Ty, monoidal.Nat,
     monoidal.Diagram, monoidal.Functor,
     braided.Diagram, braided.Functor,
     traced.Diagram, traced.Functor,

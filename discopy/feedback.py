@@ -149,7 +149,7 @@ from __future__ import annotations
 from discopy import monoidal, braided, markov, hypergraph
 from discopy.abc import FeedbackCategory
 from discopy.utils import (
-    deprecated_ob,
+    deprecated_alias,
     factory, factory_name, from_tree, assert_isinstance, AxiomError,
 )
 from discopy.axioms import GENERATORS
@@ -750,4 +750,4 @@ class Equation(markov.Equation):
 
 
 Diagram.equation_factory = Equation
-__getattr__ = deprecated_ob(__name__)
+__getattr__ = deprecated_alias(__name__, {"Ob": "Wire"})

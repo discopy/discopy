@@ -101,6 +101,25 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   context, and links its other documents rather than importing them with
   the `@` syntax only `CLAUDE.md` is read with.
 
+- `abc.Nat`, a concrete dataclass for the free monoid on one generator
+  (`n: int` with addition as `tensor`), and `abc.PRO`/`abc.PROB`/`abc.PROP`,
+  the `MonoidalCategory`/`BraidedCategory`/`SymmetricCategory` whose objects
+  are `Nat` — `PROB(PRO, BraidedCategory[Nat, C1])` and
+  `PROP(PROB, SymmetricCategory[Nat, C1])`, mirroring how
+  `abc.SymmetricCategory` already extends `abc.BraidedCategory` directly.
+  `abc.Nat` also gets `__index__` (so `range(n)`/`int(n)` work whether `n`
+  is a plain `int` or a `Nat`) and its `tensor` now returns `NotImplemented`
+  for a non-`Nat` argument, like `monoidal.FreeMonoid.tensor` already does
+  — needed to let `@` fall back to the other operand's `__rmatmul__` for
+  whiskering, e.g. `Nat(1) @ some_morphism`, which previously crashed with
+  `AttributeError` instead of building the identity on `Nat(1)` first.
+  `python.finset.Function`/`Permutation.ob` changes from a raw `int` to
+  `Nat`, its `dom`/`cod` now genuinely `Nat` instances (auto-cast from `int`
+  at construction, the same convenience `monoidal.Diagram` already gives
+  any `ob = Nat` subclass) rather than merely claiming to be one without
+  the objects to match; `Permutation` inherits `abc.PROP` on the strength
+  of that, its first genuine user
+  ([#709](https://github.com/discopy/discopy/issues/709)).
 - A `workflows` job in `build.yml`, so that the code running our pull
   requests is checked like the code it checks: `actionlint` over the
   workflows, `pflake8` over `.github`, and `pytest .github/tests/*.py`
@@ -193,6 +212,37 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Changed
 
+- `monoidal.PRO` (and its counterparts `rigid.PRO`, `pivotal.PRO` and
+  `frobenius.PRO`) is renamed to `Nat`: it is the free monoid on one
+  generator, natural numbers with addition as tensor, and its unary
+  encoding was already exposed through the sequence protocol
+  (`len`, iteration and slicing, e.g. `Nat(3)[:1] == Nat(1)`), just under
+  the wrong name — `PRO` is the name for the monoidal category with `Nat`
+  as objects, see `abc.PRO` above. `abc.Nat` carries the concrete
+  behaviour (its dataclass field `n`, `tensor` as addition, the sequence
+  protocol), so `monoidal.Nat` only adds what a `Ty` needs on top: `dom`,
+  `cod`, `inside`, serialisation and the whiskering-aware `tensor` that
+  raises on a mismatched `Ty` rather than silently reinterpreting it.
+  `monoidal.Functor.__call__` maps a `Nat` by mapping its single generator
+  once and folding that image `other.n` times with `+`, rather than mapping
+  each of the `n` identical atoms separately: a `Nat` is a unary encoding,
+  so every atom is the same generator and its image need only be computed
+  once. The fold starts from the image's own unit (`image[:0]`) rather than
+  the declared codomain unit `cod.ob()`, since the latter can be a supertype
+  of the image — `Diagram.to_hypergraph` on a `Nat`-typed permutation maps a
+  `Nat` boundary through a functor whose `cod.ob` is the category's generic
+  `Ty`, and `Ty() @ Nat` is refused. The fold is with `+` like the
+  pre-existing `Dim`/`Ty` branches, so an arbitrary codomain's objects need
+  only support `+`, e.g. `python.Function.ob = tuple[type, ...]`, whose
+  images are plain tuples with a `+` but no `__matmul__` at all. The old names still work
+  through a `DeprecationWarning`, via a new `utils.deprecated_alias` taking a
+  mapping of every name a module deprecates. `utils.deprecated_ob`, the
+  single-purpose `Ob`→`Wire` wrapper it generalises, is removed: its six call
+  sites (`biclosed`, `braided`, `compact`, `feedback`, `grammar.pregroup`,
+  `quantum.circuit`) now call `deprecated_alias(__name__, {"Ob": "Wire"})`
+  directly, the same as `rigid`/`pivotal`/`frobenius`/`monoidal` already do
+  for their `PRO`→`Nat` alias
+  ([#709](https://github.com/discopy/discopy/issues/709)).
 - Matplotlib SVGs adapt to the page behind them: they are saved on a
   transparent canvas and open with a `prefers-color-scheme: dark` media
   query that turns the elements drawn black on that canvas — wires, braids,

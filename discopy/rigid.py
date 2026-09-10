@@ -13,7 +13,7 @@ Summary
 
     Wire
     Ty
-    PRO
+    Nat
     Diagram
     Box
     Cup
@@ -161,7 +161,7 @@ from discopy.utils import (
     assert_isinstance,
     AxiomError,
     BinaryBoxConstructor,
-    deprecated_ob,
+    deprecated_alias,
     factory_name,
 )
 from discopy.axioms import Atomic, GENERATORS, axiom
@@ -338,14 +338,15 @@ class Ty(Pregroup, biclosed.Ty):
 
 
 @factory
-class PRO(monoidal.PRO, Ty):
+class Nat(monoidal.Nat, Ty):
     """
-    A rigid PRO is a natural number ``n`` seen as a rigid type of length ``n``.
+    A rigid ``Nat`` is a natural number ``n`` seen as a rigid type of
+    length ``n``.
 
     Parameters
     ----------
     n : int
-        The length of the PRO type.
+        The natural number.
     """
     l = r = property(lambda self: self)
 
@@ -959,4 +960,4 @@ class Equation(biclosed.Equation):
 
 
 Diagram.equation_factory = Equation
-__getattr__ = deprecated_ob(__name__)
+__getattr__ = deprecated_alias(__name__, {"Ob": "Wire", "PRO": "Nat"})

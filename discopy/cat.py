@@ -306,7 +306,7 @@ class Arrow(FreeCategory, Strategy["Arrow"]):
     ----
     If ``dom`` or ``cod`` are not instances of ``ob``, they are
     automatically cast. This means one can use e.g. ``int`` instead of ``Ob``,
-    see :class:`monoidal.PRO`.
+    see :class:`monoidal.Nat`.
     """
     ob = Ob
 

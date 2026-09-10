@@ -59,7 +59,7 @@ from __future__ import annotations
 from discopy import abc, cmap, hypergraph, ribbon, rigid, symmetric
 from discopy.abc import CompactCategory
 from discopy.cat import factory
-from discopy.utils import deprecated_ob
+from discopy.utils import deprecated_alias
 from discopy.pivotal import Wire, Ty  # noqa: F401
 
 
@@ -187,4 +187,4 @@ class Equation(symmetric.Equation):
 
 
 Diagram.equation_factory = Equation
-__getattr__ = deprecated_ob(__name__)
+__getattr__ = deprecated_alias(__name__, {"Ob": "Wire"})

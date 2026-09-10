@@ -58,8 +58,8 @@ def test_Ty_z():
     assert Ty('x').l.z == -1
 
 
-def test_PRO_r():
-    assert PRO(2).r == PRO(2)
+def test_Nat_r():
+    assert Nat(2).r == Nat(2)
 
 
 def test_Diagram_cups():

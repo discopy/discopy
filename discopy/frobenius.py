@@ -69,7 +69,7 @@ from discopy import (
 from discopy.abc import HypergraphCategory
 from discopy.cat import factory
 from discopy.utils import (
-    assert_isatomic, deprecated_ob, factory_name, from_tree)
+    assert_isatomic, deprecated_alias, factory_name, from_tree)
 from discopy.axioms import Atomic, axiom
 
 
@@ -101,15 +101,15 @@ class Ty(pivotal.Ty):
 
 
 @factory
-class PRO(rigid.PRO, Ty):
+class Nat(rigid.Nat, Ty):
     """
-    A PRO is a natural number ``n`` seen as a frobenius type with unnamed
-    objects.
+    A ``Nat`` is a natural number ``n`` seen as a frobenius type with
+    unnamed objects.
 
     Parameters
     ----------
     n : int
-        The length of the PRO type.
+        The natural number.
     """
 
     l = r = property(lambda self: self)
@@ -454,4 +454,4 @@ class Equation(compact.Equation):
 
 
 Diagram.equation_factory = Equation
-__getattr__ = deprecated_ob(__name__)
+__getattr__ = deprecated_alias(__name__, {"Ob": "Wire", "PRO": "Nat"})

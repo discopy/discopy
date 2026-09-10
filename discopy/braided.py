@@ -65,9 +65,8 @@ from discopy.abc import BraidedCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty, Match
 from discopy.utils import (
-    BinaryBoxConstructor, assert_isatomic, deprecated_ob, factory_name,
-    from_tree
-)
+    assert_isatomic, BinaryBoxConstructor, deprecated_alias,
+    factory_name, from_tree)
 from discopy.axioms import axiom
 
 
@@ -313,4 +312,4 @@ class Equation(monoidal.Equation):
 
 
 Diagram.equation_factory = Equation
-__getattr__ = deprecated_ob(__name__)
+__getattr__ = deprecated_alias(__name__, {"Ob": "Wire"})
