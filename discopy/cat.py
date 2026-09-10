@@ -296,7 +296,7 @@ class Arrow(FreeCategory):
     ----
     If ``dom`` or ``cod`` are not instances of ``ob``, they are
     automatically cast. This means one can use e.g. ``int`` instead of ``Ob``,
-    see :class:`monoidal.PRO`.
+    see :class:`monoidal.Nat`.
     """
     ob = Ob
 
@@ -794,6 +794,12 @@ class Bubble(Box):
     @property
     def free_symbols(self):
         return super().free_symbols.union(*[f.free_symbols for f in self.args])
+
+    def dagger(self) -> Bubble:
+        return type(self)(
+            *(arg.dagger() for arg in self.args),
+            dom=self.cod, cod=self.dom, name=self.name, method=self.method,
+            data=self.data, is_dagger=not self.is_dagger)
 
     def to_tree(self):
         return {
