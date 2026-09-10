@@ -264,7 +264,7 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
         result = outputs[0] if len(outputs) == 1 else Tuple(*outputs)
         for box, (dom_wires, cod_wires) in reversed(list(zip(
                 hypergraph.boxes, hypergraph.box_wires))):
-            expression = self.__box_to_term__(
+            expression = self.box_to_term(
                 box, [variables[i] for i in dom_wires])
             bound = [variables[i] for i in cod_wires]
             trivial = bound == [result] or not bound\
@@ -274,7 +274,7 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
         return result
 
     @classmethod
-    def __box_to_term__(cls, box, args):
+    def box_to_term(cls, box, args):
         "The application of a box as a constant to variables for its inputs."
         if not box.dom:
             return cls.ob.constant_factory(box.name, box.cod)
@@ -476,7 +476,7 @@ class TermBase(Box, biclosed.TermBase):
     def eval_unpacked(self, functor=None, context=None):
         """
         The evaluation of a term followed by the unpacking of its product
-        codomain, overriden by :class:`Tuple` so that binding a literal
+        codomain, overridden by :class:`Tuple` so that binding a literal
         tuple never produces a :class:`Pack` followed by an
         :class:`Unpack`.
         """
