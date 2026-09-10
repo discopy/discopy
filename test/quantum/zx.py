@@ -31,10 +31,10 @@ def random_had_cnot_diagram():
 
 
 def test_Diagram():
-    bialgebra = Z(1, 2) @ Z(1, 2) >> PRO(1) @ SWAP @ PRO(1) >> X(2, 1) @ X(2, 1)
-    assert str(bialgebra) == "Z(1, 2) @ PRO(1) >> PRO(2) @ Z(1, 2) " \
-                             ">> Permutation(PRO(4), [0, 2, 1, 3]) " \
-                             ">> X(2, 1) @ PRO(2) >> PRO(1) @ X(2, 1)"
+    bialgebra = Z(1, 2) @ Z(1, 2) >> Nat(1) @ SWAP @ Nat(1) >> X(2, 1) @ X(2, 1)
+    assert str(bialgebra) == "Z(1, 2) @ Nat(1) >> Nat(2) @ Z(1, 2) " \
+                             ">> Permutation(Nat(4), [0, 2, 1, 3]) " \
+                             ">> X(2, 1) @ Nat(2) >> Nat(1) @ X(2, 1)"
 
 
 def test_Spider():
@@ -63,7 +63,7 @@ def test_Functor():
     x = frobenius.Ty('x')
     f = frobenius.Box('f', x, x)
     F = frobenius.Functor(
-        ob_map=lambda _: PRO(1),
+        ob_map=lambda _: Nat(1),
         ar_map=lambda f: Z(len(f.dom), len(f.cod)),
         cod=Diagram)
     assert F(f) == Z(1, 1)
@@ -89,7 +89,7 @@ def test_grad():
     assert Z(1, 1, phi).grad(phi) == scalar(pi) @ Z(1, 1, phi + .5)
     assert (Z(1, 1, phi / 2) >> Z(1, 1, phi + 1)).grad(phi)\
         == (scalar(pi / 2) @ Z(1, 1, phi / 2 + .5) >> Z(1, 1, phi + 1))\
-           + (Z(1, 1, phi / 2) >> scalar(pi) @ PRO(1) >> Z(1, 1, phi + 1.5))
+           + (Z(1, 1, phi / 2) >> scalar(pi) @ Nat(1) >> Z(1, 1, phi + 1.5))
 
 
 def test_to_pyzx_errors():
@@ -107,14 +107,14 @@ def test_to_pyzx_scalar():
     pytest.importorskip("pyzx")
     # Test that a scalar is translated to the corresponding pyzx object.
     k = np.exp(np.pi / 4 * 1j)
-    m = (scalar(k) @ scalar(k) @ PRO(1)).to_pyzx().to_matrix()
+    m = (scalar(k) @ scalar(k) @ Nat(1)).to_pyzx().to_matrix()
     m = np.linalg.norm(m / 1j - np.eye(2))
     assert np.isclose(m, 0)
 
 
 def test_from_pyzx_errors():
     pytest.importorskip("pyzx")
-    bialgebra = Z(1, 2) @ Z(1, 2) >> PRO(1) @ SWAP @ PRO(1) >> X(2, 1) @ X(2, 1)
+    bialgebra = Z(1, 2) @ Z(1, 2) >> Nat(1) @ SWAP @ Nat(1) >> X(2, 1) @ X(2, 1)
     graph = bialgebra.to_pyzx()
     graph.set_inputs(())
     graph.set_outputs(())
@@ -158,7 +158,7 @@ def test_circuit2zx():
     pytest.importorskip("pyzx")
     circuit = Ket(0, 0) >> quantum.H @ Rx(0) >> CRz(0) >> CRx(0) >> CU1(0)
     assert circuit2zx(circuit) == Diagram.decode(
-        dom=PRO(0), boxes_and_offsets=zip([
+        dom=Nat(0), boxes_and_offsets=zip([
             X(0, 1), X(0, 1), scalar(0.5), H, X(1, 1),
             Z(1, 2), Z(1, 2), X(2, 1), Z(1, 0), scalar(2 ** 0.5),
             X(1, 2), X(1, 2), Z(2, 1), X(1, 0), scalar(2 ** 0.5),
@@ -185,7 +185,7 @@ def test_circuit2zx():
 
     assert (circuit2zx(quantum.Id(3).CX(0, 2))
             == Diagram.decode(
-                dom=PRO(3),
+                dom=Nat(3),
                 boxes_and_offsets=zip(
                     [SWAP, Z(1, 2), X(2, 1), scalar(2 ** 0.5), SWAP],
                     [1, 0, 1, 2, 1])))
