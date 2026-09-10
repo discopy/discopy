@@ -18,7 +18,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   arbitrary generators, `Nat` a single colour and a single generator. A
   list is a sequence of its length-one sublists with the atoms as
   `inside`, and `abc.ColouredMonoid.cast` embeds a tuple of atoms, or a
-  single atom, into any monoid. `python.Function.ob` is `List[type]`
+  single atom, into any monoid. `List`, `Ty` and `hopf.Representation`
+  hash by their fields rather than their `repr`, and `List.tensor` raises
+  `TypeError` on anything but a list of the same type, `@` alone returning
+  `NotImplemented` so that a list still whiskers a morphism on the left.
+  `python.Function.ob` is `List[type]`
   rather than `tuple[type, ...]`: the `dom` and `cod` of a function are
   the free monoid on Python's `type`, a type or a tuple of types is cast
   into one wherever a function is built, indexing a function's `dom` or

@@ -208,10 +208,15 @@ class List(Monoid, NamedGeneric['generator_factory']):
         self.inside = inside
 
     def tensor(self, *others: List) -> List:
-        if any(not isinstance(other, type(self)) for other in others):
-            return NotImplemented
+        for other in others:
+            assert_isinstance(other, type(self))
         return type(self)(
             *self.inside, *(x for other in others for x in other.inside))
+
+    def __matmul__(self, other):
+        if not isinstance(other, type(self)):
+            return NotImplemented  # This allows whiskering on the left.
+        return self.tensor(other)
 
     def __len__(self) -> int:
         return len(self.inside)
@@ -234,7 +239,7 @@ class List(Monoid, NamedGeneric['generator_factory']):
         return type(self) is type(other) and self.inside == other.inside
 
     def __hash__(self):
-        return hash(repr(self))
+        return hash((type(self), self.inside))
 
     def __repr__(self):
         return factory_name(type(self))\
@@ -333,11 +338,14 @@ class Ty(cat.Ob, cat.FreeCategory, ColouredMonoid):
             return self.factory.id(self.dom)
         return self.tensor(*(n_times - 1) * [self])
 
-    __iter__, __hash__ = List.__iter__, List.__hash__
+    __iter__ = List.__iter__
 
     def __eq__(self, other):
         return type(self) is type(other) and self.inside == other.inside\
             and (self.dom, self.cod) == (other.dom, other.cod)
+
+    def __hash__(self):
+        return hash((type(self), self.inside, self.dom, self.cod))
 
     def __repr__(self):
         if not self.inside and self.dom != white:
