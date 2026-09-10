@@ -28,8 +28,8 @@
 \node [] (25) at (8.75, 2) {};
 \node [] (26) at (8.75, 1) {};
 \node [] (27) at (8.25, 0.5) {};
-\node [circle, fill=white, scale=0.329] (28) at (3.5, 1.0) {=};
-\node [circle, fill=white, scale=0.329] (29) at (5.5, 1.0) {=};
+\node [circle, fill=none, scale=0.329] (28) at (3.5, 1.0) {=};
+\node [circle, fill=none, scale=0.329] (29) at (5.5, 1.0) {=};
 \end{pgfonlayer}
 \begin{pgfonlayer}{edgelayer}
 \draw [-, fill={white}] (1.center) to (2.center) to (3.center) to (4.center) to (1.center);
