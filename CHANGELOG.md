@@ -520,6 +520,20 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `Diagram.to_gif` embeds the animation in the `<img>` tag it returns, as a
+  `data:` URI, rather than pointing at the path it saved to. That path is
+  relative to the working directory, which is where a Jupyter notebook used
+  to be served from, but marimo exports a notebook to a self-contained page
+  under `docs/_static/notebooks/`: the `../_static/spiral.gif` that the two
+  notebooks drawing a spiral asked for resolved to
+  `_static/_static/spiral.gif` and the animation was gone from the docs.
+  Neither notebook passes a `path` anymore, so the docs build no longer
+  rewrites a tracked file in place
+  ([#724](https://github.com/discopy/discopy/issues/724)) -- both were
+  writing the same `docs/_static/spiral.gif`, which is now unreferenced and
+  deleted. Called with no path at all, `to_gif` writes the animation in the
+  temporary directory it already uses for the frames instead of leaving a
+  `tmp_*.gif` behind in the working directory.
 - The marimo notebook previews in the docs follow the theme switch. The
   notebooks are exported with marimo's `system` theme and the docs relay
   the resolved theme into each notebook's iframe through marimo's

@@ -230,22 +230,13 @@ def spiral(n_cups):
             x ** (n_cups - i - 1) @ cup @ x ** (n_cups - i - 1)
     return result
 
-import os
-
-_static_dir = os.path.join(
-    os.path.dirname(mo.notebook_location() or "."), "..", "_static")
-if not os.path.isdir(_static_dir):
-    _static_dir = os.path.join("..", "_static")
-_spiral_path = os.path.join(_static_dir, "spiral.gif")
-
 rewrite_steps = spiral(4).normalize()
 Diagram.to_gif(
     *rewrite_steps,
     wire_labels=False,
     draw_box_labels=False,
     figsize=(4, 4),
-    loop=True,
-    path=_spiral_path)
+    loop=True)
 ```
 
 **Input:**
