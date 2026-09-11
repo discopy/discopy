@@ -18,7 +18,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `frobenius`) inherits it through a `Box.strategy` override — its own or
   its base's, e.g. `closed` and `compact` inherit theirs — adding its
   structural boxes (braids, cups and caps, copies, spiders, feedback
-  loops...) to the mix. Their axioms, stated in
+  loops...) to the mix. A terminal strategy declares the bounds it
+  implements rather than swallowing the rest: `monoidal.Nat.strategy`,
+  `monoidal.Dim.strategy` and `feedback.Wire.strategy` take the `dom` and
+  `cod` their callers forward and return `nothing()` for a colour they
+  cannot have, since `monoidal.is_monochrome` says those types are
+  transparent on both sides whatever they are built from — before, the
+  constraint was dropped and the search answered a question it had not
+  been asked. Their axioms, stated in
   `discopy.abc`, are enrolled in `proptest/`. The bugs the wider search
   surfaced are fixed below, except one declared in the matrix —
   `feedback.Diagram.feedback` unrolls its memory in the wrong order

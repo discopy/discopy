@@ -174,11 +174,13 @@ class Wire(braided.Wire):
         super().__init__(name)
 
     @classmethod
-    def strategy(cls, **params):
+    def strategy(cls, *, dom=monoidal.transparent,
+                 cod=monoidal.transparent):
         """Generate constant feedback objects at time zero."""
         from hypothesis import strategies as st
 
-        del params
+        if not monoidal.is_monochrome(dom, cod):
+            return st.nothing()
         return st.sampled_from(GENERATORS).map(cls)
 
     def delay(self, n_steps=1):

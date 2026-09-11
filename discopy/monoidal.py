@@ -139,6 +139,22 @@ class Colour(cat.Ob):
 transparent = Colour(TRANSPARENT)
 
 
+def is_monochrome(dom: Colour, cod: Colour) -> bool:
+    """
+    Whether a requested boundary is one a monochrome type can have.
+
+    A monochrome type — a natural number, a dimension, a feedback wire —
+    is transparent on both sides whatever it is built from, so a caller
+    asking it for a colour is asking for a term that does not exist.
+    :obj:`None` is a boundary left unspecified, which every type can have.
+
+    Parameters:
+        dom : The domain asked for.
+        cod : The codomain asked for.
+    """
+    return dom in (None, transparent) and cod in (None, transparent)
+
+
 class Wire(cat.Ob):
     """A generating 1-cell with a colour on either side."""
 
@@ -536,10 +552,13 @@ class Nat(abc.Nat, Ty):
         cat.Ob.__init__(self, type(self).__name__)
 
     @classmethod
-    def strategy(cls, *, min_length=0, max_length=3, **_):
+    def strategy(cls, *, min_length=0, max_length=3,
+                 dom=transparent, cod=transparent):
         """Generate small natural-number types."""
         from hypothesis import strategies as st
 
+        if not is_monochrome(dom, cod):
+            return st.nothing()
         return st.integers(
             min_value=min_length, max_value=max_length).map(cls)
 
@@ -635,10 +654,13 @@ class Dim(Ty):
     __str__ = __repr__
 
     @classmethod
-    def strategy(cls, *, min_length=0, max_length=2, max_dim=3, **_):
+    def strategy(cls, *, min_length=0, max_length=2, max_dim=3,
+                 dom=transparent, cod=transparent):
         """Generate small dimensions."""
         from hypothesis import strategies as st
 
+        if not is_monochrome(dom, cod):
+            return st.nothing()
         return st.lists(
             st.integers(min_value=2, max_value=max_dim),
             min_size=min_length, max_size=max_length).map(
