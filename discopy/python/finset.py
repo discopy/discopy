@@ -17,7 +17,7 @@ Summary
 """
 
 from __future__ import annotations
-from discopy.utils import assert_isinstance, unbiased
+from discopy.utils import assert_isinstance
 from typing import Iterable, Self, Any
 from collections.abc import Sequence
 
@@ -76,11 +76,19 @@ class Function(MonoidalCategory, Sequence):
     def id(x: int | Nat = 0):
         return Function(list(range(x)), x, x)
 
-    @unbiased
-    def then(self, other: Function) -> Function:
-        """ The composite ``self ; other``, read off backwards. """
-        inside = [self[other[i]] for i in range(len(other))]
-        return Function(inside, self.dom, other.cod)
+    def then(self, *others: Function) -> Function:
+        """
+        The composite ``self ; others``, read off backwards, i.e. each
+        index of the last codomain walked back through every function.
+        """
+        if not others:
+            return self
+        factors = (self, ) + others
+        inside = factors[-1].inside
+        for factor in reversed(factors[:-1]):
+            image = factor.inside
+            inside = [image[i] for i in inside]
+        return Function(inside, self.dom, factors[-1].cod)
 
     def tensor(self, other: Function) -> Function:
         inside = list(self.inside) + [
@@ -242,12 +250,16 @@ class Permutation(Function, PROP):
             i = self[i]
         return tuple(cycle)
 
-    @unbiased
-    def then(self, other: Self) -> Self:
-        """ Return ``self ; other``, i.e. ``result[i] == other[self[i]]``. """
-        other = type(self)(other, len(self))
-        elems = (other[self[i]] for i in range(len(self)))
-        return type(self)(elems, len(self))
+    def then(self, *others: Self) -> Self:
+        """ Return ``self ; others``, i.e. each index pushed through them
+        in turn, ``result[i] == other[self[i]]`` for a single ``other``. """
+        if not others:
+            return self
+        inside = self.inside
+        for other in others:
+            image = type(self)(other, len(self)).inside
+            inside = [image[i] for i in inside]
+        return type(self)(inside, len(self))
 
     def dagger(self) -> Self:
         """ Return the inverse permutation. """
