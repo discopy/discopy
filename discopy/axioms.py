@@ -7,11 +7,11 @@ abstract base class of :mod:`discopy.abc`, whether a category or the
 serialisation interface — and inherited by every class below it, where
 :meth:`Axiom.failing` and :meth:`Axiom.inapplicable` classify it when a
 class breaks it or has no such structure. A :class:`Testable` class
-generates its own instances; one that does not yet declares
-:data:`no_strategy` as its axioms, which is how it opts out. The matrix
-in ``proptest/`` reads its carriers off :meth:`Theory.subclasses` rather
-than a list, and checks every axiom of every carrier against generated
-arguments, one cell per pair; CONTRIBUTING.md says how to run it.
+generates its own instances; a class that cannot do so yet opts out by
+declaring :data:`no_strategy` as its axioms. The matrix in ``proptest/``
+reads its carriers off :meth:`Theory.subclasses` rather than a list, and
+checks every axiom of every carrier against generated arguments, one
+cell per pair; CONTRIBUTING.md says how to run it.
 
 Summary
 -------
@@ -533,8 +533,8 @@ class Theory:
     @classproperty
     def axioms(cls) -> dict[str, Axiom]:
         """
-        The axioms inherited by ``cls``, by name, subclasses overriding
-        bases and each bound to ``cls``.
+        The axioms inherited by ``cls``, keyed by name and bound to
+        ``cls``, an override on a subclass hiding the base it overrides.
 
         Names are collected before they are filtered, so that assigning
         anything that is not an axiom over an inherited one drops it
@@ -550,9 +550,11 @@ class Theory:
     @classmethod
     def subclasses(cls) -> tuple[type[Theory], ...]:
         """
-        Every transitive subclass of ``cls``, itself included, in the
-        order a breadth-first walk of the subclass graph meets them,
-        each listed once however many paths reach it.
+        Every transitive subclass of ``cls``, ``cls`` itself included.
+
+        A subclass is listed once, however many paths reach it, in the
+        order a breadth-first walk of the subclass graph first meets
+        it.
 
         Example
         -------
