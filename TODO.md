@@ -9,8 +9,8 @@
 
 Non-conforming, `(self, other=None, *others)`:
 
-- [ ] `monoidal.Diagram.tensor`
-- [ ] `monoidal.Sum.tensor`
+- [WIP] @session_01Cx6uSFsQAKANhJLV1mQVpM-2026-09-11 08:07 `monoidal.Diagram.tensor`
+- [WIP] @session_01Cx6uSFsQAKANhJLV1mQVpM-2026-09-11 08:07 `monoidal.Sum.tensor`
 - [ ] `symmetric.Permutation.tensor`
 - [ ] `python.finset.Permutation.tensor`
 - [ ] `tensor.Tensor.tensor`
@@ -19,7 +19,7 @@ Non-conforming, `(self, other=None, *others)`:
 
 Non-conforming, binary with no `@unbiased`:
 
-- [ ] `monoidal.Layer.tensor`
+- [WIP] @session_01Cx6uSFsQAKANhJLV1mQVpM-2026-09-11 08:07 `monoidal.Layer.tensor`
 - [ ] `python.finset.Function.tensor`
 - [ ] `python.additive.Function.tensor`
 - [ ] `python.multiplicative.Function.tensor`
