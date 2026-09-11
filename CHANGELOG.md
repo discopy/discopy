@@ -763,6 +763,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Project
 
+- `build.yml`'s `test` job gets 25 minutes rather than 15. The axioms of
+  every category are checked once each by the unit suite as well as
+  searched by the matrix, which takes the job past the backstop
+  [#591](https://github.com/discopy/discopy/issues/591) set against a job
+  wedged with nothing to report: on this branch 3.14 finishes in nine
+  minutes and 3.12 and 3.13 are cancelled mid-run.
 - The docs build on Sphinx 7.4 rather than 7.2, whose `stringify_annotation`
   handled a `TypeVar` but not a `ParamSpec`, so a signature such as
   `Callable[Concatenate[type, P], T]` crashed autodoc on Python 3.14, where
