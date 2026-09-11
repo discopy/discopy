@@ -378,11 +378,8 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
 
     def tensor(self, *others: Hypergraph):
         """
-        Tensor of ``n`` hypergraph diagrams, i.e. their disjoint union.
-
-        The spiders of every factor are relabeled in a single pass, so that
-        tensoring ``n`` hypergraphs builds one hypergraph rather than
-        ``n - 1`` intermediate ones, each of which relabels the whole prefix.
+        Tensor of ``n`` hypergraph diagrams, i.e. their disjoint union,
+        with the spiders of every factor relabeled apart.
 
         >>> from discopy.frobenius import Ty, Box, Hypergraph as H
         >>> x = Ty('x')

@@ -95,10 +95,6 @@ class Function(function.Function, ClosedCategory):
         """
         The parallel composition of ``n`` functions, called with :code:`@`.
 
-        The functions are called side by side in one pass rather than nested
-        two at a time, so that calling the tensor of ``n`` functions costs
-        one Python frame rather than ``n``.
-
         Parameters:
             others : The other functions to compose in parallel.
 

@@ -83,7 +83,7 @@ class Function(MonoidalCategory, Sequence):
     def tensor(self, *others: Function) -> Function:
         """
         The disjoint union of ``n`` functions, i.e. their lists concatenated
-        in one pass with each shifted by the domains before it.
+        with each shifted by the domains before it.
 
         >>> unit = Function([0], 1, 1)
         >>> assert unit.tensor(unit) == Function([0, 1], 2, 2)
@@ -278,8 +278,7 @@ class Permutation(Function, PROP):
 
     def tensor(self, *others) -> Self:
         """
-        The disjoint union of ``n`` permutations, concatenated in one pass
-        rather than reallocated for every pair.
+        The disjoint union of ``n`` permutations.
 
         >>> swap = Permutation([1, 0])
         >>> assert swap.tensor(swap) == Permutation([1, 0, 3, 2])

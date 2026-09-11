@@ -730,7 +730,6 @@ def test_Diagram_from_callable():
 
 
 def test_tensor_of_sum_with_diagram():
-    """ A diagram tensored with a sum is promoted to a sum. """
     x = Ty('x')
     f, g = Box('f', x, x), Box('g', x, x)
     assert f.tensor(g + g, f) == (f @ g @ f) + (f @ g @ f)

@@ -539,9 +539,8 @@ class Permutation(Box):
     def tensor(self, *others):
         """
         Tensoring plumbing with plumbing gives one wider permutation: a run
-        of permutations and types coalesces into a single
-        :meth:`permutation_factory` call on the disjoint union of their
-        underlying :class:`.finset.Permutation`.
+        of permutations and types coalesces into the permutation on the
+        disjoint union of their underlying :class:`.finset.Permutation`.
 
         A generator interrupts the run, from which point the layers are
         those of an ordinary :meth:`.monoidal.Diagram.tensor`.

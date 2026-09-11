@@ -67,10 +67,6 @@ class Function(function.Function, SymmetricCategory):
         """
         The disjoint union of ``n`` functions, called with :code:`@`.
 
-        The summand a tag belongs to is found by bisecting the offsets of
-        the domains, so that calling the tensor of ``n`` functions dispatches
-        once rather than descending ``n`` nested unions.
-
         Parameters:
             others : The other functions to take the disjoint union with.
 

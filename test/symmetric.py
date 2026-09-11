@@ -409,10 +409,6 @@ def test_coloured_Layer_boxes_and_types():
 
 
 def test_tensor_coalesces_plumbing():
-    """
-    A run of permutations and types coalesces into one permutation, while a
-    generator interrupts the run.
-    """
     from functools import reduce
     x = Ty('x')
     perm = Permutation(x @ x, [1, 0])

@@ -252,8 +252,7 @@ class Matrix(MonoidalCategory, NamedGeneric['dtype']):
     def tensor(self, *others: Matrix):
         """
         The direct sum of ``n`` matrices, i.e. one block-diagonal array with
-        a block for each matrix, filled in a single pass rather than
-        reallocated for every pair.
+        a block for each matrix.
 
         >>> one, two = Matrix([1], 1, 1), Matrix([2], 1, 1)
         >>> assert one.tensor(two) == Matrix([1, 0, 0, 2], 2, 2)

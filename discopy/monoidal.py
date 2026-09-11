@@ -749,9 +749,7 @@ class Layer(cat.Box, ColouredMonoid):
         Tensor more layers on the right, normalising each common boundary.
 
         A type is merged into the boundary rather than embedded as a layer,
-        so that whiskering never builds one out of empty plumbing. The
-        boundaries are normalised in one pass, so that tensoring ``n`` layers
-        is linear rather than quadratic in ``n``.
+        so that whiskering never builds one out of empty plumbing.
 
         Parameters:
             others : The types, boxes or layers to tensor on the right.
@@ -973,9 +971,8 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
 
             self @ other == self @ other.dom >> self.cod @ other
 
-        The ``n`` diagrams are tensored simultaneously rather than two at a
-        time: each layer is whiskered once, by the codomains of the diagrams
-        before it and the domains of those after it.
+        Each layer of the ``i``-th diagram is whiskered by the codomains of
+        the diagrams before it and the domains of those after it.
 
         Example
         -------

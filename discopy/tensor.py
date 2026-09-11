@@ -153,9 +153,6 @@ class Tensor(Matrix):
         The tensor of ``n`` tensors, i.e. their outer product with the axes
         of every domain moved in front of those of every codomain.
 
-        The axes are moved once rather than after each outer product, so
-        that the array is permuted one time instead of ``n - 1``.
-
         >>> v = Tensor([1, 0], Dim(1), Dim(2))
         >>> assert v.tensor(v, v) == v @ v @ v
         """

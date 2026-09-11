@@ -1104,8 +1104,7 @@ class CMap[C0: Pregroup, C1: CMap](
 
         The ports of a map come as ``dom``, then the ports of its boxes,
         then ``cod``, so the disjoint union is the concatenation of the
-        factors read back in that order: one permutation built in a single
-        pass, rather than ``n - 1`` that each relabel the whole prefix.
+        factors read back in that order.
 
         >>> from discopy.compact import Ty, Box
         >>> x = Ty('x')
