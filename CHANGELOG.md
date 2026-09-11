@@ -482,6 +482,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Removed
 
+- `quantum.circuit`'s module-level `backend` (the array-backend context
+  manager imported from `discopy.matrix`) is renamed `array_backend`, so it
+  is no longer shadowed within the bodies of `Circuit.eval` and
+  `Circuit.get_counts`, which each declare their own pytket `backend=`
+  parameter of the same name
+  ([#534](https://github.com/discopy/discopy/issues/534)).
 - `cat.Bubble.dagger`: a bubble's dagger was inherited from `Box.dagger`,
   which reconstructs with `type(self)(name, cod, dom, ...)` — positional
   arguments `Bubble.__init__` reads as `*args`, so it crashed with
@@ -500,6 +506,29 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   rewrote both conditions and the shape survived, so the fix is applied to
   its versions: written bare, as the file's other five conditions are
   ([#645](https://github.com/discopy/discopy/pull/645)).
+- The style review no longer depends on a transition that may never
+  happen. `ready_for_review` fires on the draft-to-ready edge alone, so a
+  pull request whose `TODO.md` was deleted before it was ever opened went
+  unreviewed, silently — no run, no notice, nothing in the Actions tab —
+  and a pull request the review did find something on was never reviewed
+  again, since fixing a nitpick is a plain push, leaving the correctness
+  reviewer, called only on a clean review, never called at all.
+  `style-review.yml` now triggers on `opened` and `synchronize` as well: a
+  pull request that is not draft and carries no `TODO` file is in the
+  review phase by construction, since `no-todo-on-main.yml` forces draft
+  while a `TODO` is there, so every revision of it is reviewed. Every
+  automatic trigger waits while a `TODO` file is in the tree, which also
+  keeps the review from racing that guard — on a `main`-based pull request
+  the deleting push lands while the guard still holds it draft, so the
+  review comes from the `ready_for_review` that follows rather than twice,
+  while a pull request based on anything else, which the guard watching
+  `main` alone never drafts and never marks ready, is reviewed on the push
+  itself. The hand-over to the correctness reviewer happens once per pull
+  request rather than on every clean run, since it re-reviews each push on
+  its own. A draft is never reviewed, whatever the trigger, and asking for
+  one by comment is what ignores the wait
+  ([#615](https://github.com/discopy/discopy/issues/615),
+  [#636](https://github.com/discopy/discopy/issues/636)).
 - The in-house style reviewer — `.github/style-review/` (the `review.py`,
   `post.py`, `history.py`, `thread.py` and `github.py` scripts and their
   `prompt.md`), the `style-review.yml` workflow, and their tests under
