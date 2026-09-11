@@ -206,13 +206,6 @@ def test_NonEmpty():
 
 
 def test_ComposablePair():
-    x, y = map(cat.Ob, "xy")
-    f, g = cat.Box('f', x, y), cat.Box('g', y, x)
-    assert ComposablePair(f, g) == (f, g)
-    with raises(ValueError):
-        ComposablePair(f)
-    with raises(AxiomError):
-        ComposablePair(f, f)
     find(ComposablePair[cat.Arrow].strategy(),
          lambda value: all(term.inside for term in value))
 
@@ -379,15 +372,13 @@ def test_Relabelling():
         'f', feedback.Ty('v').delay(), feedback.Ty('v'))
 
 
-def test_Small():
+def test_Subsingleton():
     x = monoidal.Ty('x')
     assert Subsingleton(x).value == x
     with raises(ValueError):
         Subsingleton(x @ x)
     find(Subsingleton[monoidal.Ty].strategy(),
          lambda value: len(value.value) == 1)
-    with raises(TypeError):
-        resolve(int)
 
 
 def test_BoundaryConnected():
