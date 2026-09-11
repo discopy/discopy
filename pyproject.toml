@@ -173,3 +173,8 @@ fail_under = 98
 exclude_also = [
     "if TYPE_CHECKING",
 ]
+
+[tool.marimo.display]
+# The docs embed the exported notebooks in iframes, where only the browser's
+# prefers-color-scheme reaches: "system" follows it, "light" ignores it.
+theme = "system"
