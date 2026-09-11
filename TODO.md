@@ -26,10 +26,10 @@ shrinks: the abstract roots inherit the raising default instead of
 declaring it, so `abc.Serialisable`, `abc.Category`, `cat.Ob` and
 `cat.Arrow` all stop declaring anything.
 
-- [ ] `Theory` absorbs `Testable`, with `strategy` raising by default
-- [ ] `no_strategy` opts out of `strategy`, on the eight classes that
+- [WIP] @session_01PoVD21cMmz9uw2UqreoNwM-2026-09-11 13:15 `Theory` absorbs `Testable`, with `strategy` raising by default
+- [WIP] @session_01PoVD21cMmz9uw2UqreoNwM-2026-09-11 13:15 `no_strategy` opts out of `strategy`, on the eight classes that
       inherit one they should not; `declared_axioms` goes
-- [ ] `ComposablePair` and `Grid` state the laws they enforce in `__new__`
-- [ ] `proptest/test_axioms.py` reads its carriers off `strategy`
-- [ ] `CHANGELOG.md`, `CONTRIBUTING.md`, `AGENTS.md`
-- [ ] `pflake8`, the test suite and the property matrix
+- [WIP] @session_01PoVD21cMmz9uw2UqreoNwM-2026-09-11 13:15 `ComposablePair` and `Grid` state the laws they enforce in `__new__`
+- [WIP] @session_01PoVD21cMmz9uw2UqreoNwM-2026-09-11 13:15 `proptest/test_axioms.py` reads its carriers off `strategy`
+- [WIP] @session_01PoVD21cMmz9uw2UqreoNwM-2026-09-11 13:15 `CHANGELOG.md`, `CONTRIBUTING.md`, `AGENTS.md`
+- [WIP] @session_01PoVD21cMmz9uw2UqreoNwM-2026-09-11 13:15 `pflake8`, the test suite and the property matrix
