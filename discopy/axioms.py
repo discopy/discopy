@@ -7,11 +7,11 @@ abstract base class of :mod:`discopy.abc`, whether a category or the
 serialisation interface — and inherited by every class below it, where
 :meth:`Axiom.failing` and :meth:`Axiom.inapplicable` classify it when a
 class breaks it or has no such structure. A :class:`Testable` class
-generates its own instances, which is also how it enrols itself: the
-matrix in ``proptest/`` reads its carriers off
-:meth:`Theory.theories` rather than a list, and checks every axiom of
-every carrier against generated arguments, one cell per pair;
-CONTRIBUTING.md says how to run it.
+generates its own instances; one that does not yet declares
+:data:`no_strategy` as its axioms, which is how it opts out. The matrix
+in ``proptest/`` reads its carriers off :meth:`Theory.theories` rather
+than a list, and checks every axiom of every carrier against generated
+arguments, one cell per pair; CONTRIBUTING.md says how to run it.
 
 Summary
 -------
@@ -555,6 +555,30 @@ class Theory:
                     found[subclass] = None
                     queue.append(subclass)
         return tuple(found)
+
+
+declared_axioms = Theory.__dict__["axioms"]
+"""
+The default :attr:`Theory.axioms`, under a name that a class enrolling
+itself below one that opted out can assign back, e.g. ``cat.Ob``.
+"""
+
+
+@classproperty
+def no_strategy(cls) -> dict[str, Axiom]:
+    """
+    The :attr:`Theory.axioms` of a class that does not generate its own
+    terms yet, raising :class:`NotImplementedError` rather than listing
+    laws that nothing can be drawn to check.
+
+    A class states its laws as soon as it has them and enrols itself in
+    the property matrix when it says how to generate the terms they
+    quantify over: until then it declares ``axioms = no_strategy``, which
+    its subclasses inherit until one of them implements
+    :meth:`Testable.strategy` and declares :data:`declared_axioms` back.
+    """
+    raise NotImplementedError(
+        f"No search strategy implemented for {cls.__name__}")
 
 
 def resolve(annotation, **params) -> st.SearchStrategy:

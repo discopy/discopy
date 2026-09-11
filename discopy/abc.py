@@ -65,7 +65,8 @@ from dataclasses import dataclass
 from typing import ClassVar, Self
 
 from discopy.axioms import (  # noqa: F401
-    Axiom, ComposablePair, ComposableTriple, Equation, Theory, axiom)
+    Axiom, ComposablePair, ComposableTriple, Equation, Theory, axiom,
+    no_strategy)
 from discopy.utils import (  # noqa: F401
     NamedGeneric, classproperty, factory_name)
 
@@ -106,6 +107,8 @@ class Serialisable(Theory):
     >>> assert Box.from_tree(f.to_tree()) == f
     """
     serialised_attrs: tuple[str, ...] = ()
+
+    axioms = no_strategy
 
     def is_default(self, key: str) -> bool:
         """
@@ -316,6 +319,8 @@ class Category[C0, C1: Category](Theory, ABC):
     factory: ClassVar[type[C1]]
     dom: C0
     cod: C0
+
+    axioms = no_strategy
 
     #: Backward-compatible alias for :attr:`factory`, since types are
     #: themselves the objects of diagrams.

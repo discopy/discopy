@@ -62,6 +62,7 @@ from warnings import warn
 
 from discopy import abc, cat, drawing, hypergraph, cmap, messages
 from discopy.abc import ColouredMonoid, MonoidalCategory
+from discopy.axioms import no_strategy
 from discopy.drawing import Drawing
 from discopy.config import (
     BOX_DRAWING_ATTRIBUTES, WIRE_DRAWING_ATTRIBUTES,
@@ -97,6 +98,7 @@ class Colour(cat.Ob):
 
     name: str = TRANSPARENT
     label: "str | None" = field(default=None, compare=False)
+    axioms = no_strategy
 
     def __post_init__(self):
         assert_isinstance(self.name, str)
@@ -128,6 +130,8 @@ transparent = Colour(TRANSPARENT)
 
 class Wire(cat.Ob):
     """A generating 1-cell with a colour on either side."""
+
+    axioms = no_strategy
 
     def __init__(self, name: str, dom: Colour = transparent,
                  cod: Colour = transparent, is_dagger: bool = False):
@@ -253,6 +257,7 @@ class Ty(cat.Ob, FreeMonoid):
     """
     ob = Colour
     generator_factory = Wire
+    axioms = no_strategy
 
     def cast_wire(self, x: str | cat.Ob) -> cat.Ob:
         """
@@ -582,6 +587,7 @@ class Layer(cat.Box, ColouredMonoid):
             tensoring ``n`` layers takes linear rather than quadratic time.
     """
     ob = Ty
+    axioms = no_strategy
 
     def __setstate__(self, state):
         if 'boxes_or_types' not in state:
@@ -889,6 +895,7 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
     """
     ob = Ty
     layer_factory = Layer
+    axioms = no_strategy
 
     def __setstate__(self, state):
         if 'inside' not in state:  # Backward compatibility
@@ -1404,6 +1411,8 @@ class Box(cat.Box, Diagram):
     .. image:: /_static/monoidal/coloured-box.svg
         :align: center
     """
+
+    axioms = no_strategy
 
     def __init__(self, name: str, dom: Ty, cod: Ty, **params):
         dom = dom if isinstance(dom, self.ob) else self.ob(dom)

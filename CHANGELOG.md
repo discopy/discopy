@@ -43,14 +43,20 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `axioms` classproperty they share, so that a carrier stating the
   roundtrips without being a category — the objects of a category, say —
   is enrolled like the rest. `Theory.theories` walks the transitive
-  subclasses, and `proptest/carriers.py` (formerly `categories.py`) reads
-  the matrix off it: a carrier enrols itself by defining a `strategy`,
-  rather than by being added to a list kept beside the suite, so a
-  category whose terms cannot be generated yet states its laws without
-  being checked against them and is checked as soon as it says how. That
-  is `cat.Ob`, `cat.Arrow` and `cat.Box` to begin with, where the matrix
-  reached the objects and boxes only through the arrows containing
-  them.
+  subclasses and `proptest/test_axioms.py` reads the matrix off it,
+  rather than off a list kept beside the suite: a class that cannot
+  generate its terms yet opts out by declaring `axioms = no_strategy`,
+  the classproperty that raises `NotImplementedError` in place of laws
+  nothing can be drawn to check, and enrols itself by implementing
+  `Testable.strategy` and declaring `declared_axioms` — the default
+  `Theory.axioms` under a name a class can assign back — instead. So a
+  category states its laws from the moment it has them, is checked as
+  soon as it says how to generate their terms, and says which of the two
+  it is where it is defined. That is `cat.Ob`, `cat.Arrow` and `cat.Box`
+  to begin with, where the matrix reached the objects and boxes only
+  through the arrows containing them; the ten classes between and below
+  them that generate nothing yet — `abc.Serialisable`, `abc.Category`,
+  `cat.Sum`, `cat.Bubble` and the six of `monoidal` — carry the opt-out.
 - `discopy/axioms.py`, a Hypothesis-based property-testing module, home
   of `Equation` (formerly `discopy.abc.Equation`): a law is stated once
   on `discopy.abc.Category` and every subclass inherits

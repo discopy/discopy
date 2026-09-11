@@ -22,10 +22,12 @@ from discopy.axioms import (
     Testable,
     assert_axioms,
     axiom,
+    declared_axioms,
     resolve,
     substitute,
 )
 from discopy.cat import Arrow, Box, Functor, Ob
+from discopy.monoidal import Diagram
 from discopy.utils import AxiomError, NamedGeneric
 
 
@@ -190,3 +192,15 @@ def test_axioms_of_category():
         unitality = None
 
     assert "unitality" not in Hidden.axioms
+
+
+def test_no_strategy():
+    with raises(NotImplementedError) as err:
+        Diagram.axioms
+    assert "No search strategy implemented for Diagram" in str(err.value)
+
+    class Generated(Diagram):
+        """ A class enrolling itself back below one that opted out. """
+        axioms = declared_axioms
+
+    assert Generated.axioms["unitality"] == Generated.unitality
