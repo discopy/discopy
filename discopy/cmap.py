@@ -1098,35 +1098,42 @@ class CMap[C0: Pregroup, C1: CMap](
         return type(self)(
             dom, cod, self.boxes, edge, loops=loops, check=False)
 
-    @unbiased
-    def tensor(self, other: CMap) -> CMap:
-        """ Tensor product given by disjoint union of the two maps. """
-        dom, cod = self.dom @ other.dom, self.cod @ other.cod
-        boxes = self.boxes + other.boxes
-        self_dom, self_cod = len(self.dom), len(self.cod)
-        other_dom, other_cod = len(other.dom), len(other.cod)
-        self_box_ports = self.n_ports - self_dom - self_cod
-        other_box_ports = other.n_ports - other_dom - other_cod
-        self_map = (
-            tuple(range(self_dom))
-            + tuple(range(
-                self_dom + other_dom,
-                self_dom + other_dom + self_box_ports)))
-        other_map = (
-            tuple(range(self_dom, self_dom + other_dom))
-            + tuple(range(
-                self_dom + other_dom + self_box_ports,
-                self_dom + other_dom + self_box_ports + other_box_ports)))
-        cod_start = self_dom + other_dom + self_box_ports + other_box_ports
-        n_ports = self.n_ports + other.n_ports
-        self_map += tuple(range(cod_start, cod_start + self_cod))
-        other_map += tuple(range(cod_start + self_cod, n_ports))
+    def tensor(self, *others: CMap) -> CMap:
+        """
+        Tensor product given by disjoint union of ``n`` maps.
 
-        edge = self.edges.tensor(other.edges).conjugate(
-            Permutation(self_map + other_map))
+        The ports of a map come as ``dom``, then the ports of its boxes,
+        then ``cod``, so the disjoint union is the concatenation of the
+        factors read back in that order: one permutation built in a single
+        pass, rather than ``n - 1`` that each relabel the whole prefix.
+
+        >>> from discopy.compact import Ty, Box
+        >>> x = Ty('x')
+        >>> f, g, h = (Box(name, x, x).to_map() for name in "fgh")
+        >>> assert f.tensor(g, h) == f @ g @ h
+        """
+        if not others:
+            return self
+        factors = (self, ) + others
+        n_box_ports = [
+            factor.n_ports - len(factor.dom) - len(factor.cod)
+            for factor in factors]
+        mapping, i, j = [], 0, sum(len(factor.dom) for factor in factors)
+        k = j + sum(n_box_ports)
+        boxes, loops = [], []
+        for factor, n_box in zip(factors, n_box_ports):
+            mapping += list(range(i, i + len(factor.dom)))
+            mapping += list(range(j, j + n_box))
+            mapping += list(range(k, k + len(factor.cod)))
+            i, j, k = i + len(factor.dom), j + n_box, k + len(factor.cod)
+            boxes += factor.boxes
+            loops += factor.loops
+        edges = self.edges.tensor(*(other.edges for other in others))
         return type(self)(
-            dom, cod, boxes, edge,
-            loops=self.loops + other.loops, check=False)
+            self.dom.tensor(*(other.dom for other in others)),
+            self.cod.tensor(*(other.cod for other in others)),
+            tuple(boxes), edges.conjugate(Permutation(mapping)),
+            loops=tuple(loops), check=False)
 
     def interchange(self, i: int, j: int) -> CMap:
         """
