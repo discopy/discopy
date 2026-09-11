@@ -995,13 +995,12 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
         for other in others:
             assert_isinstance(other, self.ar)
             assert_isinstance(self, other.ar)
-        unit = self.dom[:0]
-        suffixes = [unit]
-        for other in reversed(others):
+        suffixes = [others[-1].dom]
+        for other in reversed(others[:-1]):
             suffixes.append(other.dom @ suffixes[-1])
-        dom, prefix, inside = self.dom @ suffixes[-1], unit, []
+        dom, prefix, inside = self.dom @ suffixes[-1], self.cod[:0], []
         for diagram in (self, ) + others:
-            suffix = suffixes.pop()
+            suffix = suffixes.pop() if suffixes else None
             for layer in diagram.inside:
                 inside.append(
                     prefix @ layer @ suffix if prefix and suffix
@@ -1485,8 +1484,9 @@ class Sum(cat.Sum, Box):
         """
         if not others:
             return self
-        sums = [other if isinstance(other, Sum) else self.sum_factory((other, ))
-                for other in others]
+        sums = [
+            other if isinstance(other, Sum) else self.sum_factory((other, ))
+            for other in others]
         dom = self.dom.tensor(*(other.dom for other in sums))
         cod = self.cod.tensor(*(other.cod for other in sums))
         terms = tuple(

@@ -17,6 +17,7 @@ Summary
 
 from __future__ import annotations
 
+from bisect import bisect_right
 from functools import cache
 from typing import Self
 
@@ -62,24 +63,38 @@ class Function(function.Function, SymmetricCategory):
             assert_isinstance(obj, self.cod[tag])
         return result
 
-    def tensor(self, other: Function) -> Function:
+    def tensor(self, *others: Function) -> Function:
         """
-        The disjoint union of two functions, called with :code:`@`.
+        The disjoint union of ``n`` functions, called with :code:`@`.
+
+        The summand a tag belongs to is found by bisecting the offsets of
+        the domains, so that calling the tensor of ``n`` functions dispatches
+        once rather than descending ``n`` nested unions.
 
         Parameters:
-            other : The other function to compose in sequence.
+            others : The other functions to take the disjoint union with.
+
+        Example
+        -------
+        >>> f = Function(lambda x: -x, (int, ), (int, ))
+        >>> assert f.tensor(f, f)(1, 2) == (-1, 2)
         """
-        dom, cod = self.dom + other.dom, self.cod + other.cod
+        if not others:
+            return self
+        factors = (self, ) + others
+        doms, cods = [0], [0]
+        for factor in factors:
+            doms.append(doms[-1] + len(factor.dom))
+            cods.append(cods[-1] + len(factor.cod))
+        dom = sum((factor.dom for factor in others), self.dom)
+        cod = sum((factor.cod for factor in others), self.cod)
 
         def inside(obj, tag=0):
-            if tag < len(self.dom):
-                result = self(obj, tag)
-                obj, tag = (result, 0) if len(self.cod) == 1 else result
-            else:
-                result = other(obj, tag - len(self.dom))
-                obj, tag = (result, 0) if len(other.cod) == 1 else result
-                tag += len(self.cod)
-            return obj if len(cod) == 1 else (obj, tag)
+            i = bisect_right(doms, tag) - 1
+            factor = factors[i]
+            result = factor(obj, tag - doms[i])
+            obj, tag = (result, 0) if len(factor.cod) == 1 else result
+            return obj if len(cod) == 1 else (obj, tag + cods[i])
         return Function(inside, dom, cod)
 
     @staticmethod

@@ -69,3 +69,19 @@ def test_FinSet():
     assert F(copy >> discard @ x) == F(Diagram.id(x)) == F(copy >> x @ discard)
     assert F(copy >> copy @ x) == F(Diagram.copy(x, 3)) == F(copy >> x @ copy)
     assert F(copy >> swap) == F(copy)
+
+
+def test_tensor_is_simultaneous():
+    """ The disjoint union of ``n`` finite functions agrees with the fold. """
+    from functools import reduce
+    from discopy.python.finset import Function, Permutation
+    functions = [
+        Function([0], 1, 1), Function([1, 0], 2, 2), Function([0, 0], 1, 2)]
+    fold = reduce(lambda f, g: f.tensor(g), functions)
+    assert functions[0].tensor(*functions[1:]) == fold
+    assert functions[0].tensor() == functions[0]
+    permutations = [
+        Permutation([1, 0]), Permutation([2, 0, 1]), Permutation([0])]
+    assert permutations[0].tensor(*permutations[1:])\
+        == reduce(lambda f, g: f.tensor(g), permutations)
+    assert permutations[0].tensor() == permutations[0]

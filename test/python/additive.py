@@ -47,3 +47,18 @@ def test_trace_unequal_arity():
 
     f = Function(inside, (int, int), (int, int, int))
     assert f.trace()(7) == (7, 1)
+
+
+def test_tensor_is_simultaneous():
+    """ The disjoint union of ``n`` functions agrees with the fold. """
+    from functools import reduce
+    from discopy.python.additive import Function
+    f = Function(lambda x: -x, (int, ), (int, ))
+    g = Function(lambda x, tag: (-x, 1 - tag), (int, int), (int, int))
+    functions = [f, g, f]
+    fold = reduce(lambda x, y: x.tensor(y), functions)
+    nary = functions[0].tensor(*functions[1:])
+    assert (nary.dom, nary.cod) == (fold.dom, fold.cod)
+    for tag in range(len(nary.dom)):
+        assert nary(1, tag) == fold(1, tag)
+    assert f.tensor() == f

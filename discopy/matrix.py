@@ -255,20 +255,20 @@ class Matrix(MonoidalCategory, NamedGeneric['dtype']):
         a block for each matrix, filled in a single pass rather than
         reallocated for every pair.
 
-        >>> assert Matrix([1], 1, 1).tensor(Matrix([2], 1, 1))\
-        ...     == Matrix([1, 0, 0, 2], 2, 2)
+        >>> one, two = Matrix([1], 1, 1), Matrix([2], 1, 1)
+        >>> assert one.tensor(two) == Matrix([1, 0, 0, 2], 2, 2)
         """
         if not others:
             return self
-        matrices = (self, ) + others
+        factors = (self, ) + others
         for other in others:
             assert_isinstance(other, type(self))
-        dom = sum(matrix.dom for matrix in matrices)
-        cod = sum(matrix.cod for matrix in matrices)
+        dom = sum(factor.dom for factor in factors)
+        cod = sum(factor.cod for factor in factors)
         array, i, j = self.zero(dom, cod).array, 0, 0
-        for matrix in matrices:
-            array[i:i + matrix.dom, j:j + matrix.cod] = matrix.array
-            i, j = i + matrix.dom, j + matrix.cod
+        for factor in factors:
+            array[i:i + factor.dom, j:j + factor.cod] = factor.array
+            i, j = i + factor.dom, j + factor.cod
         return type(self)(array, dom, cod)
 
     def __add__(self, other):

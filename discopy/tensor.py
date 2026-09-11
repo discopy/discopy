@@ -161,16 +161,16 @@ class Tensor(Matrix):
         """
         if not others:
             return self
-        tensors = (self, ) + others
+        factors = (self, ) + others
         for other in others:
             assert_isinstance(other, Tensor)
         dom = self.dom.tensor(*(other.dom for other in others))
         cod = self.cod.tensor(*(other.cod for other in others))
         source, target, i, j = [], [], 0, len(dom)
-        for other in tensors:
-            target += list(range(i, i + len(other.dom)))
-            target += list(range(j, j + len(other.cod)))
-            i, j = i + len(other.dom), j + len(other.cod)
+        for factor in factors:
+            target += list(range(i, i + len(factor.dom)))
+            target += list(range(j, j + len(factor.cod)))
+            i, j = i + len(factor.dom), j + len(factor.cod)
         source = list(range(len(target)))
         with backend() as np:
             array = self.array

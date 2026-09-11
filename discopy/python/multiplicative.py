@@ -91,17 +91,36 @@ class Function(function.Function, ClosedCategory):
                 callable(y) or assert_isinstance(y, t)
         return ys
 
-    def tensor(self, other: Function) -> Function:
+    def tensor(self, *others: Function) -> Function:
         """
-        The parallel composition of two functions, called with :code:`@`.
+        The parallel composition of ``n`` functions, called with :code:`@`.
+
+        The functions are called side by side in one pass rather than nested
+        two at a time, so that calling the tensor of ``n`` functions costs
+        one Python frame rather than ``n``.
 
         Parameters:
-            other : The other function to compose in sequence.
+            others : The other functions to compose in parallel.
+
+        Example
+        -------
+        >>> add = Function(lambda x, y: x + y, (int, int), (int, ))
+        >>> assert add.tensor(add, add)(1, 2, 3, 4, 5, 6) == (3, 7, 11)
         """
+        if not others:
+            return self
+        factors = (self, ) + others
+        offsets = [0]
+        for factor in factors:
+            offsets.append(offsets[-1] + len(factor.dom))
+
         def inside(*xs):
-            left, right = xs[:len(self.dom)], xs[len(self.dom):]
-            return untuplify(tuplify(self(*left)) + tuplify(other(*right)))
-        return Function(inside, self.dom + other.dom, self.cod + other.cod)
+            return untuplify(sum((
+                tuplify(factor(*xs[offsets[i]:offsets[i + 1]]))
+                for i, factor in enumerate(factors)), ()))
+        dom = sum((factor.dom for factor in others), self.dom)
+        cod = sum((factor.cod for factor in others), self.cod)
+        return Function(inside, dom, cod)
 
     @staticmethod
     def swap(x: Ty, y: Ty) -> Function:

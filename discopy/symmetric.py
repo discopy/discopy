@@ -536,20 +536,37 @@ class Permutation(Box):
     def dagger(self) -> Permutation:
         return type(self)(self.cod, self.perm.dagger())
 
-    def tensor(self, other=None, *others):
-        if other is None:
-            return self
-        if isinstance(other, Permutation):
-            result = self.permutation_factory(
-                self.dom @ other.dom, self.perm.tensor(other.perm))
-        elif isinstance(other, monoidal.Ty)\
-                or isinstance(other, Diagram) and not other.inside:
-            typ = other if isinstance(other, monoidal.Ty) else other.dom
-            result = self.permutation_factory(self.dom @ typ, self.perm.tensor(
-                finset.Permutation.id(len(typ))))
-        else:
-            result = super().tensor(other)
-        return result.tensor(*others)
+    def tensor(self, *others):
+        """
+        Tensoring plumbing with plumbing gives one wider permutation: a run
+        of permutations and types coalesces into a single
+        :meth:`permutation_factory` call on the disjoint union of their
+        underlying :class:`.finset.Permutation`.
+
+        A generator interrupts the run, from which point the layers are
+        those of an ordinary :meth:`.monoidal.Diagram.tensor`.
+
+        >>> x = Ty('x')
+        >>> perm = Permutation(x @ x, [1, 0])
+        >>> assert perm.tensor(x, perm) == Permutation(
+        ...     x ** 5, [1, 0, 2, 4, 3])
+        """
+        perms, dom, rest = [self.perm], self.dom, list(others)
+        while rest and (
+                isinstance(rest[0], (Permutation, monoidal.Ty))
+                or isinstance(rest[0], Diagram) and not rest[0].inside):
+            other = rest.pop(0)
+            if isinstance(other, Permutation):
+                perms.append(other.perm)
+                dom = dom @ other.dom
+            else:
+                typ = other if isinstance(other, monoidal.Ty) else other.dom
+                perms.append(finset.Permutation.id(len(typ)))
+                dom = dom @ typ
+        result = self if len(perms) == 1 else self.permutation_factory(
+            dom, perms[0].tensor(*perms[1:]))
+        return result if not rest\
+            else super(Permutation, result).tensor(*rest)
 
     def __rmatmul__(self, other):
         if not isinstance(other, monoidal.Ty):

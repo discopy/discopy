@@ -80,11 +80,24 @@ class Function(MonoidalCategory, Sequence):
         inside = [self[other[i]] for i in range(len(other))]
         return Function(inside, self.dom, other.cod)
 
-    def tensor(self, other: Function) -> Function:
-        inside = list(self.inside) + [
-            int(self.dom) + other[i] for i in range(len(other))]
+    def tensor(self, *others: Function) -> Function:
+        """
+        The disjoint union of ``n`` functions, i.e. their lists concatenated
+        in one pass with each shifted by the domains before it.
+
+        >>> unit = Function([0], 1, 1)
+        >>> assert unit.tensor(unit) == Function([0, 1], 2, 2)
+        """
+        if not others:
+            return self
+        inside, shift = [], 0
+        for factor in (self, ) + others:
+            inside += [shift + i for i in factor.inside]
+            shift += int(factor.dom)
         return Function(
-            inside, self.dom.tensor(other.dom), self.cod.tensor(other.cod))
+            inside,
+            self.dom.tensor(*(other.dom for other in others)),
+            self.cod.tensor(*(other.cod for other in others)))
 
     @staticmethod
     def swap(x: int | Nat, y: int | Nat) -> Function:
@@ -263,16 +276,22 @@ class Permutation(Function, PROP):
         other = type(self)(other, len(self))
         return other.dagger().then(self).then(other)
 
-    def tensor(self, other=None, *others) -> Self:
-        """ Return the disjoint union of permutations. """
-        if other is None:
+    def tensor(self, *others) -> Self:
+        """
+        The disjoint union of ``n`` permutations, concatenated in one pass
+        rather than reallocated for every pair.
+
+        >>> swap = Permutation([1, 0])
+        >>> assert swap.tensor(swap) == Permutation([1, 0, 3, 2])
+        """
+        if not others:
             return self
-        other = type(self)(other)
-        shift = len(self)
-        result = type(self)(
-            tuple(self) + tuple(shift + i for i in other),
-            len(self) + len(other))
-        return result.tensor(*others)
+        inside, shift = list(self), len(self)
+        for other in others:
+            other = type(self)(other)
+            inside += [shift + i for i in other]
+            shift += len(other)
+        return type(self)(inside, shift)
 
     def embed(self, injection: Iterable[int], size: int) -> Self:
         """ Embed into ``range(size)`` along ``injection``. """

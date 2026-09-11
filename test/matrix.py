@@ -46,3 +46,15 @@ def test_autotyping():
     with backend('pytorch'):
         assert Matrix([0.5, 0.5], dom=1, cod=2).dtype == torch.float32
 
+
+
+def test_tensor_is_simultaneous():
+    """ The direct sum of ``n`` matrices agrees with folding two at a time. """
+    from functools import reduce
+    matrices = [
+        Matrix([1, 2], 1, 2), Matrix([3, 4, 5, 6, 7, 8], 2, 3),
+        Matrix([], 0, 2), Matrix([9], 1, 1)]
+    fold = reduce(lambda f, g: f.tensor(g), matrices)
+    assert matrices[0].tensor(*matrices[1:]) == fold
+    assert (fold.dom, fold.cod) == (4, 8)
+    assert matrices[0].tensor() == matrices[0]
