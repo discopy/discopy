@@ -70,3 +70,32 @@ def test_Permutation():
     assert Permutation(x @ y, [1, 0]) == Swap(x, y)
     assert issubclass(Swap, Permutation)
     assert Equation(perm, perm.to_swaps())
+
+
+def test_copy_and_merge_serialisation():
+    from discopy.utils import dumps, loads
+    x = Ty('x')
+    for box in (Copy(x), Copy(x, 3), Merge(x), Merge(x, 0), Discard(x)):
+        assert loads(dumps(box)) == box
+    assert loads(dumps(Copy(x) >> Merge(x))) == Copy(x) >> Merge(x)
+    assert repr(Merge(x, 3)) == "markov.Merge(monoidal.Ty(cat.Ob('x')), 3)"
+
+
+def test_copy_and_merge_factories():
+    from discopy.utils import factory
+
+    @factory
+    class Recipe(Diagram):
+        """ A subclass with its own copies and merges. """
+
+    class RecipeCopy(Copy, Recipe):
+        """ The copy of an ingredient. """
+
+    class RecipeMerge(Merge, Recipe):
+        """ The merge of two ingredients. """
+
+    Recipe.copy_factory, Recipe.merge_factory = RecipeCopy, RecipeMerge
+    x = Ty('x')
+    assert isinstance(RecipeCopy(x).dagger(), RecipeMerge)
+    assert isinstance(RecipeMerge(x).dagger(), RecipeCopy)
+    assert isinstance(Recipe.merge(x).boxes[0], RecipeMerge)

@@ -41,3 +41,14 @@ def test_trace_vanishing():
 
     k = multiplicative.Function(lambda i, j: (i, j), (int, int), (int, int))
     assert k.trace(0) == k
+
+
+def test_trace_serialisation():
+    from discopy.utils import dumps, loads
+    from discopy import symmetric
+    f = Box('f', 'x', 'x')
+    for trace in (f.trace(), f.trace(left=True)):
+        assert loads(dumps(trace)) == trace
+    x = symmetric.Ty('x')
+    swap = symmetric.Swap(x, x)
+    assert loads(dumps(swap.trace(left=True))) == swap.trace(left=True)
