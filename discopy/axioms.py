@@ -9,7 +9,7 @@ serialisation interface — and inherited by every class below it, where
 class breaks it or has no such structure. A :class:`Testable` class
 generates its own instances; one that does not yet declares
 :data:`no_strategy` as its axioms, which is how it opts out. The matrix
-in ``proptest/`` reads its carriers off :meth:`Theory.theories` rather
+in ``proptest/`` reads its carriers off :meth:`Theory.subclasses` rather
 than a list, and checks every axiom of every carrier against generated
 arguments, one cell per pair; CONTRIBUTING.md says how to run it.
 
@@ -547,7 +547,7 @@ class Theory:
                 if isinstance(value, Axiom)}
 
     @classmethod
-    def theories(cls) -> tuple[type[Theory], ...]:
+    def subclasses(cls) -> tuple[type[Theory], ...]:
         """
         Every transitive subclass of ``cls``, itself included, in the
         order a breadth-first walk of the subclass graph meets them,
@@ -556,8 +556,8 @@ class Theory:
         Example
         -------
         >>> from discopy.cat import Arrow, Box
-        >>> assert Arrow.theories()[0] is Arrow
-        >>> assert Box in Arrow.theories()  # a subclass of a subclass
+        >>> assert Arrow.subclasses()[0] is Arrow
+        >>> assert Box in Arrow.subclasses()  # a subclass of a subclass
         """
         found, queue = {cls: None}, [cls]
         while queue:

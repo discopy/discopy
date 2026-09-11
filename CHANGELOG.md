@@ -42,7 +42,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `Serialisable` subclass the new `axioms.Theory`, which carries the
   `axioms` classproperty they share, so that a carrier stating the
   roundtrips without being a category — the objects of a category, say —
-  is enrolled like the rest. `Theory.theories` walks the transitive
+  is enrolled like the rest. `Theory.subclasses` walks the transitive
   subclasses and `proptest/test_axioms.py` reads the matrix off it,
   rather than off a list kept beside the suite: a class that cannot
   generate its terms yet opts out by declaring `axioms = no_strategy`,

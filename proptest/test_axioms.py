@@ -32,7 +32,7 @@ def carriers() -> tuple[type[Theory], ...]:
         return True
 
     return tuple(sorted(
-        filter(generates, Theory.theories()), key=factory_name))
+        filter(generates, Theory.subclasses()), key=factory_name))
 
 
 def axiom_parameters():
