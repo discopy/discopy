@@ -9,6 +9,42 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- The property matrix's search strategy is now recursive: `cat.Arrow` and
+  `monoidal.Diagram` build composite paths/diagrams with
+  `hypothesis.strategies.recursive`/an iterated layer search instead of
+  the earlier canonical single instantiation, and every monoidal-derived
+  category (`braided`, `traced`, `balanced`, `symmetric`, `biclosed`,
+  `rigid`, `pivotal`, `ribbon`, `compact`, `markov`, `closed`, `feedback`,
+  `frobenius`) inherits it through a `Box.strategy` override — its own or
+  its base's, e.g. `closed` and `compact` inherit theirs — adding its
+  structural boxes (braids, cups and caps, copies, spiders, feedback
+  loops...) to the mix. A terminal strategy declares the bounds it
+  implements rather than swallowing the rest: `monoidal.Nat.strategy`,
+  `monoidal.Dim.strategy` and `feedback.Wire.strategy` take the `dom` and
+  `cod` their callers forward and return `nothing()` for a colour they
+  cannot have, since `monoidal.is_monochrome` says those types are
+  transparent on both sides whatever they are built from — before, the
+  constraint was dropped and the search answered a question it had not
+  been asked. Their axioms, stated in
+  `discopy.abc`, are enrolled in `proptest/`. The bugs the wider search
+  surfaced are fixed below, except one declared in the matrix —
+  `feedback.Diagram.feedback` unrolls its memory in the wrong order
+  ([#649](https://github.com/discopy/discopy/issues/649)) — and one the
+  matrix cannot reach: an uncoloured `monoidal.Wire` reprs as the `cat.Ob`
+  that `Ty` coerces, which its type-strict equality rejects
+  ([#650](https://github.com/discopy/discopy/issues/650)). `Wire` is the
+  generating 1-cell of `Ty`, not a category, so it states no axioms and has
+  no cell to declare; `Ty` does not stand in for it, since `Ty.__init__`
+  coerces the `cat.Ob` back into a `Wire` and its own `transparency`
+  passes. The issue tracks it, not a declaration.
+  `compact.Diagram.rotate_contravariance` is no longer declared broken: it
+  was declared so because `to_hypergraph` dropped the rotation of a box,
+  which #716 fixed, and its recorded counterexample — two endomorphisms on
+  one type, precisely the case the old `rotate` got right by accident — no
+  longer falsifies it. The strict xfail xpassed and failed the run the day
+  the fix arrived, which is the mechanism the ledger was built for. A
+  thousand examples turn up no replacement, so the declaration and the
+  record are both removed rather than rewritten.
 - `monoidal.List`, the free monoid on a generator type: `List[X]` is a
   tuple of instances of `X` with concatenation as `tensor` and the empty
   list as unit, an `abc.Monoid` parameterised as
@@ -41,10 +77,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   the objects, arrows or terms of the category;
   `.failing`/`.inapplicable` classify a
   law as broken or not applicable to a category, and `.modulo`/`.weaken`
-  are defined (compare up to a function, quantify over a named subspace)
-  but not used yet. A
-  broken law raises `AxiomFailure` carrying its equation, whose sides say
-  how it failed; `Axiom` is a dataclass whose classifiers derive one from another
+  compare up to a function or quantify over a named subspace. A
+  broken law raises `AxiomFailure` carrying its equation, which the
+  recorded-counterexample replay checks, so a record's xfail is earned by
+  its arguments falsifying the law and flips visibly when the bug is
+  fixed; `Axiom` is a dataclass whose classifiers derive one from another
   with `dataclasses.replace`, so none of them drops a field — `.failing`
   used to lose the subspaces a `.weaken` declared. The argument and
   subspace wrappers are parameterised with `NamedGeneric["factory"]` like
@@ -55,10 +92,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   states, so a subspace annotation like `ComposablePair[C1]`
   builds; an unbound axiom's `.strategy()` raises the same `TypeError`
   as `.falsify` and calling it. The
-  search itself is the canonical instantiation only — one atomic object or
-  one free/generator box per parameter, no recursive or compound
-  generation — wired up in `proptest/test_axioms.py`, enrolled so far for
-  `cat.Arrow`, and run by the new `proptest` GitHub
+  recursive search is wired up in `proptest/test_axioms.py`, enrolled for
+  the free categories and their functors listed in `proptest/categories.py`,
+  and run by the new `proptest` GitHub
   workflow on PRs labelled `proptest`, on `main`, nightly and on manual
   dispatch. `proptest/conftest.py` registers four Hypothesis profiles
   over one example database, keyed per cell: `pr` replays what the
@@ -70,8 +106,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   run's artifact, and a run of `main`, the nightly search or a dispatch
   uploads its own afterwards — a pull request only reads it — so a
   counterexample found by one night's search fails every pull request
-  until it is fixed or declared, and `Axiom.falsify` searches for one on
-  demand. `Testable`
+  until it is fixed or declared, and `Axiom.falsify` searches for one
+  on demand; a recorded counterexample xfails strictly while its axiom
+  is declared `.failing`, so a fixed bug fails as an unexpected pass
+  until the declaration moves. `Testable`
   states the laws of any type that generates its own instances, whatever
   its level: `transparency`, `pickling` and `serialisation` are cells of
   the matrix for every category — `eval(repr(x))`, the pickle and the tree
@@ -83,10 +121,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   category declaring anything; the ad-hoc property
   files for representations, pickling and serialisation are gone, and a
   known violation is a `.failing` declaration on its category like any
-  other broken law. `discopy.axioms` joins the API docs under its own
-  `axioms` page, with `CONTRIBUTING.md` saying how to run the suite;
-  `AGENTS.md` points to it from `Where` rather than importing it into
-  every agent's context.
+  other broken law. The workflow
+  for developing against the suite — laws stated before implementation,
+  a failing cell debugged, its counterexample recorded, a strategy that
+  missed a bug audited — is the documentation of `discopy.axioms`,
+  which joins the API docs under its own `axioms` page, with
+  `CONTRIBUTING.md` saying how to run the suite; `AGENTS.md`
+  points to it from `Where` rather than importing it into every agent's
+  context, and links its other documents rather than importing them with
+  the `@` syntax only `CLAUDE.md` is read with.
 - `abc.Nat`, a concrete dataclass for the free monoid on one generator
   (`n: int` with addition as `tensor`), and `abc.PRO`/`abc.PROB`/`abc.PROP`,
   the `MonoidalCategory`/`BraidedCategory`/`SymmetricCategory` whose objects
@@ -197,6 +240,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   ([#484](https://github.com/discopy/discopy/pull/484)).
 
 ### Changed
+
+- The monoidal property suite uses `discopy.axioms` and the category registry.
+  Functor laws quantify their functor with `Self` and their source types with
+  `Self.dom`; monoids inherit category unitality and associativity.
+  Search-strategy defaults follow transparent colours and `Nat` boundaries,
+  and unused natural-number helpers and classifications are removed.
 
 - `monoidal.Colour` is transparent by default rather than white, i.e. its
   `name` defaults to the new `config.TRANSPARENT` and `monoidal.white` is
@@ -547,6 +596,25 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `rigid.Diagram.functor_factory` is `rigid.Functor`: it inherited
   `biclosed.Functor`, which does not rotate, so a box mapped through
   it lost the rotation of its boundary.
+- The structural boxes serialise with their own signatures instead of
+  inheriting `__repr__`, `to_tree` or `from_tree` from `Box` or `Bubble`,
+  whose `(name, dom, cod)` keys their constructors reject, so
+  `eval(repr(x))` and `dumps`/`loads` roundtrip every diagram containing
+  a `traced.Trace`, `feedback.Feedback`, `balanced.Twist`,
+  `braided.Braid`, `markov.Copy`/`Merge`/`Discard`, `frobenius.Spider`,
+  or `biclosed.Eval`/`Coeval`/`Curry` and their `closed` subclasses; and
+  `markov.Copy.__new__` no longer requires an argument the pickle
+  protocol cannot pass, so `Copy` and `Discard` unpickle.
+- `Copy.dagger`, `Merge.dagger` and `Diagram.to_staircases` dispatch
+  through the subclass's factories instead of capturing a bare `markov`
+  sibling or the bare `monoidal.Functor`: the dagger of a `closed.Copy`
+  is a `closed.Merge`, and `foliation` no longer crashes on traced
+  diagrams by rebuilding a `Trace` as a `monoidal.Bubble`.
+- `foliation` falls back to merging layers where `to_hypergraph` is
+  partial — traced diagrams and boundary-disconnected pivotal diagrams —
+  and `Feedback.dagger` raises a clean `AxiomError`, the delay being
+  irreversible, instead of a `TypeError` from generic bubble
+  reconstruction.
 - Region painting computes the exact extents of each coloured region —
   polygons bounded by the wires on both sides, subdivided per height band —
   instead of overpainting everything to the right of each wire up to the
