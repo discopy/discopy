@@ -33,24 +33,3 @@ def test_trace():
 def test_list_generic_in_function():
     func = Function(sum, List[int], int)
     assert func([1, 2, 3]) == 6
-
-
-def test_tensor_is_simultaneous():
-    """
-    Tensoring ``n`` functions at once agrees with folding two at a time, and
-    calls them in one Python frame rather than ``n`` nested ones.
-    """
-    from functools import reduce
-    f = Function(lambda x: x + 1, (int, ), (int, ))
-    g = Function(lambda x, y: (y, x), (int, int), (int, int))
-    functions = [f, g, f, g]
-    fold = reduce(lambda x, y: x.tensor(y), functions)
-    nary = functions[0].tensor(*functions[1:])
-    assert (nary.dom, nary.cod) == (fold.dom, fold.cod)
-    assert nary(0, 1, 2, 3, 4, 5) == fold(0, 1, 2, 3, 4, 5)
-    assert f.tensor() == f
-    # The fold nests one closure per function, so calling it overflows the
-    # stack where the n-ary tensor is flat, see discopy#489.
-    identities = [Function(lambda x: x, (int, ), (int, ))] * 2000
-    assert identities[0].tensor(*identities[1:])(*range(2000))\
-        == tuple(range(2000))

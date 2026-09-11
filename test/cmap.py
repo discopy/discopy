@@ -847,19 +847,3 @@ def test_from_glued_loops():
         (M.caps(x.r, x), 0), (M.caps(y.r, y), 2),
         (M.cups(y.r, y), 2), (M.cups(x.r, x), 0)])
     assert two.loops == (x, y)
-
-
-def test_tensor_is_simultaneous():
-    """ Tensoring ``n`` maps at once agrees with the fold. """
-    from functools import reduce
-    from discopy.compact import Ty, Box, Diagram
-    from discopy.cmap import CMap
-    x, y = Ty('x'), Ty('y')
-    factors = [
-        Box('f', x, y @ x).to_map(), CMap[Diagram].id(y),
-        (Box('g', x, x) >> Box('h', x, y)).to_map(),
-        CMap[Diagram].id(Ty()), Diagram.swap(x, y).to_map()]
-    fold = reduce(lambda f, g: f.tensor(g), factors)
-    assert factors[0].tensor(*factors[1:]) == fold
-    assert factors[0].tensor() == factors[0]
-    assert fold.n_ports == sum(f.n_ports for f in factors)

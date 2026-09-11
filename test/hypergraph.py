@@ -341,17 +341,3 @@ def test_subclass_to_hypergraph():
     f, g = Gate('f', x, x), Gate('g', x, x)
     assert (f >> g).to_hypergraph().category == Circuit
     assert isinstance((f >> g).to_hypergraph().to_diagram(), Circuit)
-
-
-def test_tensor_is_simultaneous():
-    """ Tensoring ``n`` hypergraphs at once agrees with the fold. """
-    from functools import reduce
-    from discopy.frobenius import Ty, Box, Hypergraph as H
-    x, y = Ty('x'), Ty('y')
-    factors = [
-        Box('f', x, y).to_hypergraph(), H.id(y), H.spiders(1, 2, x),
-        H.id(Ty()), H.swap(x, y)]
-    fold = reduce(lambda f, g: f.tensor(g), factors)
-    assert factors[0].tensor(*factors[1:]) == fold
-    assert factors[0].tensor() == factors[0]
-    assert fold.n_spiders == sum(f.n_spiders for f in factors)

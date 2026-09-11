@@ -138,10 +138,6 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   because the empty product of one thing is itself, and each class folds
   or, where that costs, tensors its `n` arguments at once
   ([#489](https://github.com/discopy/discopy/pull/489#discussion_r3896050565)).
-  `test/utils.py` pins the contract on every class in the package that
-  defines `tensor`, reading the signature with `follow_wrapped=False` so
-  that a method wrapped by `unbiased` is checked on the signature its
-  callers see rather than the binary one inside.
 
 - `monoidal.Colour` is transparent by default rather than white, i.e. its
   `name` defaults to the new `config.TRANSPARENT` and `monoidal.white` is

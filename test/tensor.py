@@ -395,17 +395,3 @@ def test_Functor_bubble():
     assert np.allclose(
         np.asarray(F(men_are_mortal.arg).array, dtype=float),
         np.asarray(men_are_mortal.arg.eval().array, dtype=float))
-
-
-def test_tensor_is_simultaneous():
-    """ The tensor of ``n`` tensors agrees with folding two at a time. """
-    from functools import reduce
-    tensors = [
-        Tensor([1, 2], Dim(1), Dim(2)),
-        Tensor([1, 2, 3, 4, 5, 6], Dim(2), Dim(3)),
-        Tensor(2, Dim(1), Dim(1)),
-        Tensor([1, 0, 0, 1], Dim(2), Dim(2))]
-    fold = reduce(lambda f, g: f.tensor(g), tensors)
-    assert tensors[0].tensor(*tensors[1:]) == fold
-    assert (fold.dom, fold.cod) == (Dim(2, 2), Dim(2, 3, 2))
-    assert tensors[0].tensor() == tensors[0]

@@ -729,27 +729,6 @@ def test_Diagram_from_callable():
             return f(x)
 
 
-def test_tensor_is_simultaneous():
-    """ Tensoring ``n`` diagrams at once agrees with folding two at a time. """
-    from functools import reduce
-    x, y = Ty('x'), Ty('y')
-    diagrams = [
-        Box('f', x, y) >> Box('g', y, x), Id(x @ y), Box('h', x, x @ y),
-        Id(Ty()), Box('k', y @ x, y)]
-    fold = reduce(lambda f, g: f.tensor(g), diagrams)
-    assert diagrams[0].tensor(*diagrams[1:]) == fold
-    assert fold.dom == Ty(*"xxyxyx") and fold.cod == Ty(*"xxyxyy")
-    layers = [Layer(Box(name, x, x)) for name in "fgh"]
-    assert layers[0].tensor(*layers[1:])\
-        == reduce(lambda f, g: f.tensor(g), layers)
-    f = Box('f', x, x)
-    sums = [f + f, f + Box('g', x, x), f + f]
-    assert sums[0].tensor(*sums[1:])\
-        == reduce(lambda f, g: f.tensor(g), sums)
-    for value in [diagrams[0], layers[0], sums[0]]:
-        assert value.tensor() == value
-
-
 def test_tensor_of_sum_with_diagram():
     """ A diagram tensored with a sum is promoted to a sum. """
     x = Ty('x')

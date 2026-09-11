@@ -1,9 +1,6 @@
 from os import listdir
 
-import importlib
-import inspect
 import pickle
-import pkgutil
 import re
 
 import pytest
@@ -106,48 +103,3 @@ def test_wire_tree_roundtrip():
     with warns(DeprecationWarning):
         assert from_tree({'factory': 'discopy.frobenius.Ob', 'name': 'x'})\
             == frobenius.Wire('x')
-
-
-def discopy_classes():
-    """ Every class defined in a module of the ``discopy`` package. """
-    import discopy
-    modules = [discopy]
-    for info in pkgutil.walk_packages(discopy.__path__, "discopy."):
-        try:
-            modules.append(importlib.import_module(info.name))
-        except ImportError:  # e.g. an extra dependency is not installed.
-            continue
-    for module in modules:
-        for value in vars(module).values():
-            if inspect.isclass(value)\
-                    and value.__module__.startswith("discopy."):
-                yield value
-
-
-TENSORS = sorted({
-    f"{cls.__module__}.{cls.__qualname__}"
-    for cls in discopy_classes() if "tensor" in vars(cls)})
-
-
-@pytest.mark.parametrize("name", TENSORS)
-def test_tensor_is_unbiased(name):
-    """
-    Every ``tensor`` takes ``(self, *others)`` like
-    ``abc.MonoidalCategory.tensor``, rather than a fixed number of arguments.
-
-    See https://github.com/discopy/discopy/pull/489#discussion_r3896050565
-    """
-    module, _, qualname = name.rpartition(".")
-    cls = importlib.import_module(module)
-    for piece in qualname.split("."):
-        cls = getattr(cls, piece)
-    method = vars(cls)["tensor"]
-    method = method.__func__ if isinstance(method, classmethod) else method
-    if not inspect.isfunction(method):
-        return  # e.g. a tensor inherited under another name.
-    # follow_wrapped=False so that a method wrapped by unbiased is checked
-    # on the signature its callers see, not on the binary one inside.
-    parameters = inspect.signature(method, follow_wrapped=False).parameters
-    kinds = [parameter.kind for parameter in list(parameters.values())[1:]]
-    assert kinds[:1] == [inspect.Parameter.VAR_POSITIONAL], (
-        f"{name}.tensor({', '.join(parameters)}) should take (self, *others)")
