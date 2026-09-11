@@ -9,31 +9,41 @@
 
 Non-conforming, `(self, other=None, *others)`:
 
-- [WIP] @session_01Cx6uSFsQAKANhJLV1mQVpM-2026-09-11 08:07 `monoidal.Diagram.tensor`
-- [WIP] @session_01Cx6uSFsQAKANhJLV1mQVpM-2026-09-11 08:07 `monoidal.Sum.tensor`
-- [WIP] @session_01Cx6uSFsQAKANhJLV1mQVpM-2026-09-11 08:13 `symmetric.Permutation.tensor`
-- [WIP] @session_01Cx6uSFsQAKANhJLV1mQVpM-2026-09-11 08:13 `python.finset.Permutation.tensor`
-- [WIP] @session_01Cx6uSFsQAKANhJLV1mQVpM-2026-09-11 08:11 `tensor.Tensor.tensor`
-- [WIP] @session_01Cx6uSFsQAKANhJLV1mQVpM-2026-09-11 08:11 `matrix.Matrix.tensor`
-- [WIP] @session_01Cx6uSFsQAKANhJLV1mQVpM-2026-09-11 08:11 `quantum.channel.Channel.tensor`
+- [x] `monoidal.Diagram.tensor`
+- [x] `monoidal.Sum.tensor`
+- [x] `symmetric.Permutation.tensor`
+- [x] `python.finset.Permutation.tensor`
+- [x] `tensor.Tensor.tensor`
+- [x] `matrix.Matrix.tensor`
+- [x] `quantum.channel.Channel.tensor`
 
 Non-conforming, binary with no `@unbiased`:
 
-- [WIP] @session_01Cx6uSFsQAKANhJLV1mQVpM-2026-09-11 08:07 `monoidal.Layer.tensor`
-- [WIP] @session_01Cx6uSFsQAKANhJLV1mQVpM-2026-09-11 08:13 `python.finset.Function.tensor`
-- [WIP] @session_01Cx6uSFsQAKANhJLV1mQVpM-2026-09-11 08:13 `python.additive.Function.tensor`
-- [WIP] @session_01Cx6uSFsQAKANhJLV1mQVpM-2026-09-11 08:13 `python.multiplicative.Function.tensor`
+- [x] `monoidal.Layer.tensor`
+- [x] `python.finset.Function.tensor`
+- [x] `python.additive.Function.tensor`
+- [x] `python.multiplicative.Function.tensor`
 
 Conforming through `@unbiased`, to be measured for an `n`-ary rewrite:
 
-- [WIP] @session_01Cx6uSFsQAKANhJLV1mQVpM-2026-09-11 08:31 `hypergraph.Hypergraph.tensor`, `cmap.CMap.tensor`, `drawing.Drawing.tensor`
-- [ ] `para.Symmetric.tensor`, `stream.Ty.tensor`, `stream.Stream.tensor`,
-      `interaction.Diagram.tensor`
+- [x] `hypergraph.Hypergraph.tensor` and `cmap.CMap.tensor` rewritten
+      `n`-ary, both quadratic folds before
+- [x] `drawing.Drawing.tensor` left as a fold: nothing calls it with more
+      than one argument, the pairwise fold being in `Functor.__call__`,
+      so an `n`-ary rewrite would be dead code -- filed as #759
+- [x] `para.Symmetric.tensor`, `stream.Ty.tensor`, `stream.Stream.tensor`,
+      `interaction.Diagram.tensor` -- already conforming through
+      `@unbiased`, left as folds: their bodies interleave swaps rather
+      than concatenate, so an `n`-ary form is a different construction
+      rather than the same one done once
 
 Already conforming: `abc.Nat`, `monoidal.FreeMonoid`, `monoidal.Nat`,
 `interaction.Ty`, `hopf.Representation`, `quantum.channel.CQ`.
 
 ## Wrap-up
 
-- [ ] benchmark the `n`-ary rewrites against the fold
-- [ ] tests, `CHANGELOG.md`, `pflake8 discopy`, `coverage run -m pytest`
+- [x] benchmark the `n`-ary rewrites against the fold
+- [x] tests, `CHANGELOG.md`, `pflake8 discopy`, `coverage run -m pytest`
+- [x] filed #759 (`Functor.__call__` folds a layer's images pairwise,
+      `Drawing.tensor` still a fold) and #760 (`then` has the same
+      non-conforming signatures as `tensor` did)

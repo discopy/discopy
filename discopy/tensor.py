@@ -166,7 +166,7 @@ class Tensor(Matrix):
             assert_isinstance(other, Tensor)
         dom = self.dom.tensor(*(other.dom for other in others))
         cod = self.cod.tensor(*(other.cod for other in others))
-        source, target, i, j = [], [], 0, len(dom)
+        target, i, j = [], 0, len(dom)
         for factor in factors:
             target += list(range(i, i + len(factor.dom)))
             target += list(range(j, j + len(factor.cod)))

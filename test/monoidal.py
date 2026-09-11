@@ -746,6 +746,8 @@ def test_tensor_is_simultaneous():
     sums = [f + f, f + Box('g', x, x), f + f]
     assert sums[0].tensor(*sums[1:])\
         == reduce(lambda f, g: f.tensor(g), sums)
+    for value in [diagrams[0], layers[0], sums[0]]:
+        assert value.tensor() == value
 
 
 def test_tensor_of_sum_with_diagram():
