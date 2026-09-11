@@ -186,3 +186,10 @@ def test_curry_zero():
     x = Ty('x')
     f = Box('f', x @ x, x)
     assert f.curry(0) == f == f.curry(0, left=False)
+
+
+def test_functor_factory():
+    """ The functor of a rigid diagram rotates, so a boundary keeps its z. """
+    x, y = Ty('x'), Ty('y')
+    assert Diagram.functor_factory is Functor
+    assert Diagram.functor_factory({x: y}, {})(x.r) == y.r

@@ -9,6 +9,84 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `monoidal.List`, the free monoid on a generator type: `List[X]` is a
+  tuple of instances of `X` with concatenation as `tensor` and the empty
+  list as unit, an `abc.Monoid` parameterised as
+  `NamedGeneric["generator_factory"]` the way `Hypergraph[C]` is the
+  hypergraph category over `C`. Free monoids come at three levels: `Ty`
+  has arbitrary colours and generators, `List` a single colour and
+  arbitrary generators, `Nat` a single colour and a single generator. A
+  list is a sequence of its length-one sublists with the atoms as
+  `inside`, and `abc.ColouredMonoid.cast` embeds a tuple of atoms, or a
+  single atom, into any monoid. `List`, `Ty` and `hopf.Representation`
+  hash by their fields rather than their `repr`, and `List.tensor` raises
+  `TypeError` on anything but a list of the same type, `@` alone returning
+  `NotImplemented` so that a list still whiskers a morphism on the left.
+  `python.Function.ob` is `List[type]`
+  rather than `tuple[type, ...]`: the `dom` and `cod` of a function are
+  the free monoid on Python's `type`, a type or a tuple of types is cast
+  into one wherever a function is built, indexing a function's `dom` or
+  `cod` gives a list of length one and `dom.inside[i]` the type itself.
+  `python.Ty` is an alias of `List[type]`, defined in `python.function`
+  with `additive` and `multiplicative` re-exporting it; the package
+  imports `multiplicative` on first use, since it imports `monoidal`
+  which imports `python.finset`
+  ([#728](https://github.com/discopy/discopy/issues/728)).
+- `discopy/axioms.py`, a Hypothesis-based property-testing module, home
+  of `Equation` (formerly `discopy.abc.Equation`): a law is stated once
+  on `discopy.abc.Category` and every subclass inherits
+  it, as an `Axiom` decorated with `@axiom`: a classmethod of its
+  category — the class it is bound to — implicitly, its remaining
+  parameters generated from their annotations, `C0`, `C1` or `Self` for
+  the objects, arrows or terms of the category;
+  `.failing`/`.inapplicable` classify a
+  law as broken or not applicable to a category, and `.modulo`/`.weaken`
+  are defined (compare up to a function, quantify over a named subspace)
+  but not used yet. A
+  broken law raises `AxiomFailure` carrying its equation, whose sides say
+  how it failed; `Axiom` is a dataclass whose classifiers derive one from another
+  with `dataclasses.replace`, so none of them drops a field — `.failing`
+  used to lose the subspaces a `.weaken` declared. The argument and
+  subspace wrappers are parameterised with `NamedGeneric["factory"]` like
+  `Hypergraph` and `Equation` — which moves `NamedGeneric` itself down to
+  `discopy.utils`, re-exported from `discopy.abc`, so `discopy.axioms`
+  can use it — making a subscripted wrapper a class whose
+  `strategy(cls, **params)` matches the contract `Testable.strategy` now
+  states, so a subspace annotation like `ComposablePair[C1]`
+  builds; an unbound axiom's `.strategy()` raises the same `TypeError`
+  as `.falsify` and calling it. The
+  search itself is the canonical instantiation only — one atomic object or
+  one free/generator box per parameter, no recursive or compound
+  generation — wired up in `proptest/test_axioms.py`, enrolled so far for
+  `cat.Arrow`, and run by the new `proptest` GitHub
+  workflow on PRs labelled `proptest`, on `main`, nightly and on manual
+  dispatch. `proptest/conftest.py` registers four Hypothesis profiles
+  over one example database, keyed per cell: `pr` replays what the
+  database remembers and generates a few examples from a fixed seed,
+  `explore` searches with a large budget, `dev` works on the local
+  database alone and `shared`, registered only when selected, backs it
+  with CI's through a read-only `GitHubArtifactDatabase` and a
+  `GITHUB_TOKEN`. The workflow downloads the database from the previous
+  run's artifact, and a run of `main`, the nightly search or a dispatch
+  uploads its own afterwards — a pull request only reads it — so a
+  counterexample found by one night's search fails every pull request
+  until it is fixed or declared, and `Axiom.falsify` searches for one on
+  demand. `Testable`
+  states the laws of any type that generates its own instances, whatever
+  its level: `transparency`, `pickling` and `serialisation` are cells of
+  the matrix for every category — `eval(repr(x))`, the pickle and the tree
+  of a term read back to it, as `Equation`s like every other law — with
+  `Testable.environment` for the namespace a representation reads back
+  in — the package's public names and then those of the module the
+  category is defined in, so that a term printing bare names such as
+  `Tensor[int]([0], dom=Dim(1), cod=Dim(1))` reads back without its
+  category declaring anything; the ad-hoc property
+  files for representations, pickling and serialisation are gone, and a
+  known violation is a `.failing` declaration on its category like any
+  other broken law. `discopy.axioms` joins the API docs under its own
+  `axioms` page, with `CONTRIBUTING.md` saying how to run the suite;
+  `AGENTS.md` points to it from `Where` rather than importing it into
+  every agent's context.
 - `abc.Nat`, a concrete dataclass for the free monoid on one generator
   (`n: int` with addition as `tensor`), and `abc.PRO`/`abc.PROB`/`abc.PROP`,
   the `MonoidalCategory`/`BraidedCategory`/`SymmetricCategory` whose objects
@@ -17,7 +95,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `abc.SymmetricCategory` already extends `abc.BraidedCategory` directly.
   `abc.Nat` also gets `__index__` (so `range(n)`/`int(n)` work whether `n`
   is a plain `int` or a `Nat`) and its `tensor` now returns `NotImplemented`
-  for a non-`Nat` argument, like `monoidal.FreeMonoid.tensor` already does
+  for a non-`Nat` argument, like `monoidal.Ty.tensor` already does
   — needed to let `@` fall back to the other operand's `__rmatmul__` for
   whiskering, e.g. `Nat(1) @ some_morphism`, which previously crashed with
   `AttributeError` instead of building the identity on `Nat(1)` first.
@@ -147,6 +225,28 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   spelt the symbol `fill=white` where matplotlib already drew it unfilled
   and now agrees with it, `TikZ.format_color` passing the transparent
   colour through as TikZ spells it the same way.
+- `monoidal.Ty` is the free coloured monoid itself: it subclasses
+  `cat.Ob`, `cat.FreeCategory` and `abc.ColouredMonoid` directly, folding
+  in the unreleased `FreeMonoid` whose only subclass it was. Addition is
+  no longer an alias of the tensor on any object: `Ty.__add__`,
+  `stream.Ty.__add__` and `interaction.Ty.__add__` are removed, `+` raises
+  `TypeError` on a `List`, and every fold of objects with `sum` or `+` — in
+  `abc.SymmetricCategory.permutation`, `Hypergraph.from_graph`,
+  `interaction.Ty.tensor`, `stream.Ty.sequence` and `para` — goes through
+  `tensor`. `matrix.Matrix.ob` is `abc.Nat` rather than a bare `int`, its
+  `dom` and `cod` cast from `int` at construction as `python.finset` already
+  does ([#709](https://github.com/discopy/discopy/issues/709)): the
+  `Int`-construction over `Matrix[bool]` folds its objects with `tensor`,
+  which an `int` does not have, and `abc.Nat` prints as its number so a
+  matrix still reads `dom=2, cod=2`. `para.Symmetric` checks that its four
+  objects are `category.ob`, so a tuple of types is refused where it used
+  to be concatenated with `+`
+  ([#750](https://github.com/discopy/discopy/issues/750)).
+  `monoidal.Functor` folds the images of every object with `tensor` instead
+  of the `+` it fell back to while `python.Function.ob` was a bare tuple,
+  and `_map_atomic` goes with the tuple case it existed for, as do the
+  tuple special case of `stream.Ty` and `utils.is_tuple`
+  ([#728](https://github.com/discopy/discopy/issues/728)).
 - `monoidal.PRO` (and its counterparts `rigid.PRO`, `pivotal.PRO` and
   `frobenius.PRO`) is renamed to `Nat`: it is the free monoid on one
   generator, natural numbers with addition as tensor, and its unary
@@ -159,17 +259,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `cod`, `inside`, serialisation and the whiskering-aware `tensor` that
   raises on a mismatched `Ty` rather than silently reinterpreting it.
   `monoidal.Functor.__call__` maps a `Nat` by mapping its single generator
-  once and folding that image `other.n` times with `+`, rather than mapping
+  once and folding that image `other.n` times with `@`, rather than mapping
   each of the `n` identical atoms separately: a `Nat` is a unary encoding,
   so every atom is the same generator and its image need only be computed
   once. The fold starts from the image's own unit (`image[:0]`) rather than
   the declared codomain unit `cod.ob()`, since the latter can be a supertype
   of the image — `Diagram.to_hypergraph` on a `Nat`-typed permutation maps a
   `Nat` boundary through a functor whose `cod.ob` is the category's generic
-  `Ty`, and `Ty() @ Nat` is refused. The fold is with `+` like the
-  pre-existing `Dim`/`Ty` branches, so an arbitrary codomain's objects need
-  only support `+`, e.g. `python.Function.ob = tuple[type, ...]`, whose
-  images are plain tuples with a `+` but no `__matmul__` at all. The old names still work
+  `Ty`, and `Ty() @ Nat` is refused. The old names still work
   through a `DeprecationWarning`, via a new `utils.deprecated_alias` taking a
   mapping of every name a module deprecates. `utils.deprecated_ob`, the
   single-purpose `Ob`→`Wire` wrapper it generalises, is removed: its six call
@@ -459,6 +556,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `Hypergraph.__init__` when the two arities differ, an `AxiomError` on
   the spider types when they do not. `.l` and `.r` are involutions again
   ([#716](https://github.com/discopy/discopy/issues/716)).
+- `rigid.Diagram.functor_factory` is `rigid.Functor`: it inherited
+  `biclosed.Functor`, which does not rotate, so a box mapped through
+  it lost the rotation of its boundary.
 - Region painting computes the exact extents of each coloured region —
   polygons bounded by the wires on both sides, subdivided per height band —
   instead of overpainting everything to the right of each wire up to the
