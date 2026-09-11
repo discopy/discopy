@@ -90,7 +90,7 @@ from discopy.drawing import Drawing
 from discopy.cat import factory
 from discopy.utils import (
     assert_isinstance,
-    deprecated_ob,
+    deprecated_alias,
     factory_name,
     from_tree,
 )
@@ -204,7 +204,7 @@ class Wire(monoidal.Wire):
     """
     A biclosed object is a self-dagger :class:`monoidal.Wire`, i.e. its left
     and right colours always match. Exponentials do not interact meaningfully
-    with colours, so for now we assume everything is white.
+    with colours, so for now we assume everything is transparent.
     """
     def dagger(self) -> Wire:
         return self
@@ -722,4 +722,4 @@ class Equation(monoidal.Equation):
     """ The :class:`monoidal.Equation` of biclosed diagrams. """
 
 
-__getattr__ = deprecated_ob(__name__)
+__getattr__ = deprecated_alias(__name__, {"Ob": "Wire"})
