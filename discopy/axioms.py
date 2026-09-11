@@ -516,6 +516,17 @@ class Theory:
     :class:`discopy.abc.Serialisable` those of writing a term down and
     reading it back. A class need not be a category to state laws, which
     is why the two meet here rather than in either of them.
+
+    Stating a law and generating the terms it quantifies over are
+    independent axes, so a theory need not be :class:`Testable` and a
+    testable type need not be a theory. Every abstract base class of
+    :mod:`discopy.abc` states laws with no terms of its own to generate,
+    and :class:`discopy.python.Function` — a concrete category whose
+    morphisms are Python functions — states them although its equality is
+    intensional, so ``f >> id == f`` is false however the function is
+    drawn and only :meth:`Axiom.modulo` extensional behaviour can hold.
+    Conversely :class:`ComposablePair` generates the arguments a law
+    quantifies over while stating no law of its own.
     """
 
     @classproperty
