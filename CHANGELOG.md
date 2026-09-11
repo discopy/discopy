@@ -38,8 +38,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `abc.Category` gains the axioms `nullary_composition`, that `f.then()`
   is `f`, and `unbiased_composition`, that `f.then(g, h)` is
   `f.then(g).then(h)`, so the property matrix holds every type it
-  quantifies over to the contract. `test/utils.py` checks the same over the twelve concrete
-  implementors the matrix does not generate terms for yet.
+  quantifies over to the contract. `test/utils.py` checks the same over
+  the twelve concrete implementors the matrix does not generate terms
+  for yet.
 - `python.function.Function.then` builds one closure that applies each
   function in a loop, rather than nesting `n` of them, so calling an
   `n`-fold composite costs one Python frame instead of `n`.
