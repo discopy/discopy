@@ -518,15 +518,16 @@ class Theory:
     is why the two meet here rather than in either of them.
 
     Stating a law and generating the terms it quantifies over are
-    independent axes, so a theory need not be :class:`Testable` and a
-    testable type need not be a theory. Every abstract base class of
-    :mod:`discopy.abc` states laws with no terms of its own to generate,
-    and :class:`discopy.python.Function` — a concrete category whose
-    morphisms are Python functions — states them although its equality is
-    intensional, so ``f >> id == f`` is false however the function is
-    drawn and only :meth:`Axiom.modulo` extensional behaviour can hold.
-    Conversely :class:`ComposablePair` generates the arguments a law
-    quantifies over while stating no law of its own.
+    independent, so a theory need not be :class:`Testable`. Every
+    abstract base class of :mod:`discopy.abc` states laws and has no
+    terms of its own to generate. :class:`discopy.python.Function` has
+    terms, but its equality is intensional: ``f >> id == f`` is false for
+    every morphism, so no strategy makes unitality hold and only
+    :meth:`Axiom.modulo` extensional behaviour can.
+
+    A :class:`Testable` need not be a theory either:
+    :class:`ComposablePair` generates the arguments that laws quantify
+    over and states none of its own.
     """
 
     @classproperty
@@ -570,8 +571,11 @@ class Theory:
 
 declared_axioms = Theory.__dict__["axioms"]
 """
-The default :attr:`Theory.axioms`, under a name that a class enrolling
-itself below one that opted out can assign back, e.g. ``cat.Ob``.
+The default :attr:`Theory.axioms`, under a name that can be assigned.
+
+A class below one that declared :data:`no_strategy` enrols itself back
+into the property matrix by declaring ``axioms = declared_axioms``, as
+:class:`discopy.cat.Ob` does below :class:`discopy.abc.Serialisable`.
 """
 
 
@@ -582,10 +586,10 @@ def no_strategy(cls) -> dict[str, Axiom]:
     terms yet, raising :class:`NotImplementedError` rather than listing
     laws that nothing can be drawn to check.
 
-    A class states its laws as soon as it has them and enrols itself in
-    the property matrix when it says how to generate the terms they
-    quantify over: until then it declares ``axioms = no_strategy``, which
-    its subclasses inherit until one of them implements
+    A class states its laws as soon as it has them, and enrols itself
+    in the property matrix once it says how to generate the terms they
+    quantify over. Until then it declares ``axioms = no_strategy``. Its
+    subclasses inherit that declaration, until one of them implements
     :meth:`Testable.strategy` and declares :data:`declared_axioms` back.
     """
     raise NotImplementedError(
