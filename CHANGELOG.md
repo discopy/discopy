@@ -509,15 +509,6 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `python.additive.Function`; a chain built with `>>` still nests, since
   that operator is binary.
 
-### Performance
-
-- `python.finset.Permutation.then` walks each index through the
-  permutations in one pass over their `inside` lists, rather than reading
-  both operands through `__getitem__` at every element and iterating the
-  first through the `Sequence` protocol: composing two permutations of
-  five elements takes 5.6 us rather than 7.6, and `Permutation.conjugate`,
-  which composes twice, 19.5 us rather than 23.2.
-
 - The marimo notebook previews in the docs follow the theme switch. The
   notebooks are exported with marimo's `system` theme and the docs relay
   the resolved theme into each notebook's iframe through marimo's
@@ -674,6 +665,13 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   ([#484](https://github.com/discopy/discopy/pull/484)).
 
 ### Performance
+
+- `python.finset.Permutation.then` walks each index through the
+  permutations in one pass over their `inside` lists, rather than reading
+  both operands through `__getitem__` at every element and iterating the
+  first through the `Sequence` protocol: composing two permutations of
+  five elements takes 5.6 us rather than 7.6, and `Permutation.conjugate`,
+  which composes twice, 19.5 us rather than 23.2.
 
 - The elements of a Hopf algebra (`drinfeld_element`, `pivotal_element`,
   `ribbon_element`) contract each structural generator once through the

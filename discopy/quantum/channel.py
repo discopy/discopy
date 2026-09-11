@@ -51,7 +51,7 @@ from discopy.quantum.circuit import (
     Digit, Qudit)
 from discopy.quantum.gates import Discard, Measure, MixedState, Encode, Scalar
 from discopy.tensor import Dim, Tensor
-from discopy.utils import assert_isinstance
+from discopy.utils import assert_isinstance, unbiased
 
 
 class CQ:
