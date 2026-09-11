@@ -13,7 +13,7 @@ Summary
 
     Wire
     Ty
-    PRO
+    Nat
     Diagram
     Box
     Cup
@@ -161,7 +161,7 @@ from discopy.utils import (
     assert_isinstance,
     AxiomError,
     BinaryBoxConstructor,
-    deprecated_ob,
+    deprecated_alias,
     factory_name,
 )
 
@@ -194,8 +194,8 @@ class Wire(monoidal.Wire):
         super().__setstate__(state)
 
     def __init__(self, name: str, z: int = 0,
-                 dom: monoidal.Colour = monoidal.white,
-                 cod: monoidal.Colour = monoidal.white):
+                 dom: monoidal.Colour = monoidal.transparent,
+                 cod: monoidal.Colour = monoidal.transparent):
         assert_isinstance(z, int)
         self.z = z
         super().__init__(name, dom, cod)
@@ -229,7 +229,7 @@ class Wire(monoidal.Wire):
     def __repr__(self):
         cls_name = factory_name(type(self))
         z_repr = ', z=' + repr(self.z) if self.z else ''
-        if self.dom == self.cod == monoidal.white:
+        if self.dom == self.cod == monoidal.transparent:
             return f"{cls_name}({self.name!r}{z_repr})"
         return f"{cls_name}({self.name!r}{z_repr}, " \
             f"dom={self.dom!r}, cod={self.cod!r})"
@@ -317,14 +317,15 @@ class Ty(Pregroup, biclosed.Ty):
 
 
 @factory
-class PRO(monoidal.PRO, Ty):
+class Nat(monoidal.Nat, Ty):
     """
-    A rigid PRO is a natural number ``n`` seen as a rigid type of length ``n``.
+    A rigid ``Nat`` is a natural number ``n`` seen as a rigid type of
+    length ``n``.
 
     Parameters
     ----------
     n : int
-        The length of the PRO type.
+        The natural number.
     """
     l = r = property(lambda self: self)
 
@@ -365,6 +366,20 @@ class Diagram(biclosed.Diagram, RigidCategory):
 
     .. image:: /_static/rigid/diagram-example.svg
         :align: center
+
+    Currying and evaluation come from cups and caps:
+
+    >>> from discopy.monoidal import Equation
+    >>> x = Ty('x')
+    >>> g = Box('g', x @ x, x)
+    >>> assert g.curry().uncurry().normal_form() == g
+    >>> assert g.curry(left=False).uncurry(left=False).normal_form() == g
+    >>> Equation(g.curry(left=False), g, g.curry(),
+    ...     symbols=("$\\\\mapsfrom$", "$\\\\mapsto$")).draw(
+    ...         doctest="docs/_static/rigid/curry.svg")
+
+    .. image:: /_static/rigid/curry.svg
+        :align: center
     """
 
     ob = Ty
@@ -372,10 +387,8 @@ class Diagram(biclosed.Diagram, RigidCategory):
 
     to_drawing = monoidal.Diagram.to_drawing
 
-    @classmethod
-    def ev(cls, base: Ty, exponent: Ty, left=True) -> Diagram:
-        return base @ cls.cups(exponent.l, exponent) if left\
-            else cls.cups(exponent, exponent.r) @ base
+    ev = classmethod(RigidCategory.ev.__func__)
+    curry = RigidCategory.curry
 
     @classmethod
     def cups(cls, left: Ty, right: Ty) -> Diagram:
@@ -416,27 +429,6 @@ class Diagram(biclosed.Diagram, RigidCategory):
             :align: center
         """
         return nesting(cls, cls.cap_factory)(left, right)
-
-    def curry(self, n=1, left=True) -> Diagram:
-        """
-        The curry of a rigid diagram is obtained using cups and caps.
-
-        >>> x = Ty('x')
-        >>> g = Box('g', x @ x, x)
-        >>> Equation(g.curry(left=False), g, g.curry(),
-        ...     symbols=("$\\\\mapsfrom$", "$\\\\mapsto$")).draw(
-        ...         doctest="docs/_static/rigid/curry.svg")
-
-        .. image:: /_static/rigid/curry.svg
-            :align: center
-        """
-        if n == 0:
-            return self
-        if left:
-            base, exponent = self.dom[:-n], self.dom[-n:]
-            return base @ self.caps(exponent, exponent.l) >> self @ exponent.l
-        base, exponent = self.dom[n:], self.dom[:n]
-        return self.caps(exponent.r, exponent) @ base >> exponent.r @ self
 
     def rotate(self, left=False):
         """
@@ -892,6 +884,7 @@ def to_rigid(self):
 biclosed.Diagram.to_rigid = to_rigid
 
 Diagram.cup_factory, Diagram.cap_factory, Diagram.sum_factory = Cup, Cap, Sum
+Diagram.functor_factory = Functor
 
 Id = Diagram.id
 
@@ -900,4 +893,4 @@ class Equation(biclosed.Equation):
     """ The :class:`biclosed.Equation` of rigid diagrams. """
 
 
-__getattr__ = deprecated_ob(__name__)
+__getattr__ = deprecated_alias(__name__, {"Ob": "Wire", "PRO": "Nat"})

@@ -10,6 +10,7 @@ from math import ceil
 from pathlib import Path
 from typing import (
     Callable,
+    Generic,
     Mapping,
     Iterable,
     TypeVar,
@@ -119,6 +120,96 @@ def get_origin(typ):
     return getattr(typ, "__origin__", typ)
 
 
+class NamedGeneric(Generic[TypeVar('T')]):
+    """
+    A ``NamedGeneric`` is a ``Generic`` where the type parameter has a name.
+
+    Parameters:
+        attributes : The names of the type parameters.
+
+    Note
+    ----
+    In a standard ``Generic`` class, the type parameter disappears when the
+    member of the class is instantiated, e.g.
+
+    >>> assert list[int]([1, 2, 3])\\
+    ...     == list[float]([1, 2, 3])\\
+    ...     == [1, 2, 3]
+
+    In a ``NamedGeneric``, the type parameter is attached to the members of the
+    class so that we have access to it.
+
+    Example
+    -------
+
+    >>> from dataclasses import dataclass
+    >>> @dataclass
+    ... class L(NamedGeneric["dtype"]):
+    ...     inside: list
+    >>> assert L[int]([1, 2, 3]).dtype == int
+    >>> assert L[int]([1, 2, 3]) != L[float]([1, 2, 3])
+    """
+    _cache = dict()
+
+    def __class_getitem__(_, attributes):
+        if not isinstance(attributes, tuple):
+            attributes = (attributes,)
+
+        G = Generic.__class_getitem__(tuple(map(TypeVar, attributes)))
+
+        class Result(G):
+            def __class_getitem__(cls, values):
+                if hasattr(cls, "__is_named_generic__"):
+                    cls = cls.__bases__[0]
+                values = values if isinstance(values, tuple) else (values,)
+                cls_values = tuple(
+                    getattr(cls, attr, None) for attr in attributes)
+                if cls not in NamedGeneric._cache:
+                    NamedGeneric._cache[cls] = {cls_values: cls}
+                if values not in NamedGeneric._cache[cls]:
+                    origin = get_origin(cls)
+
+                    class C(origin):
+                        __is_named_generic__ = True
+
+                        def __reduce__(self):
+                            """
+                            Pickle a member of the subscripted class as a
+                            member of its origin carrying the values, since
+                            a class created inside a function cannot be
+                            found by name, see `how can I pickle a
+                            dynamically created nested class
+                            <https://stackoverflow.com/questions/1947904>`_.
+                            """
+                            func, args, data = super().__reduce__()
+                            if '[' in args[0].__name__:
+                                args = (origin, ) + args[1:]
+                                data |= {"__class_getitem__values__": values}
+                            return func, args, data
+
+                    C.__module__ = origin.__module__
+                    names = [getattr(v, "__name__", str(v)) for v in values]
+                    C.__name__ = C.__qualname__ = origin.__name__\
+                        + f"[{', '.join(names)}]"
+                    C.__origin__ = cls
+                    for attr, value in zip(attributes, values):
+                        setattr(C, attr, value)
+                    NamedGeneric._cache[cls][values] = C
+                return NamedGeneric._cache[cls][values]
+
+            __name__ = __qualname__\
+                = f"NamedGeneric[{', '.join(map(repr, attributes))}]"
+
+        for attr in attributes:
+            setattr(Result, attr, getattr(Result, attr, None))
+        return Result
+
+    def __setstate__(self, state):
+        if "__class_getitem__values__" in state:
+            new_cls = self.__class__[state["__class_getitem__values__"]]
+            self.__class__ = new_cls
+
+
 def product(xs: list, unit=1):
     """
     The left-fold product of a ``unit`` with list of ``xs``.
@@ -131,14 +222,15 @@ def product(xs: list, unit=1):
     return unit if not xs else product(xs[1:], unit * xs[0])
 
 
-def deprecated_ob(module_name: str):
+def deprecated_alias(module_name: str, aliases: dict[str, str]):
     """
-    The module-level ``__getattr__`` of the modules whose ``Ob`` class was
-    renamed to ``Wire``, returning the new class with a
+    The module-level ``__getattr__`` of a module with one or more classes
+    that were renamed, returning each new class with a
     :class:`DeprecationWarning`.
 
     Parameters:
-        module_name : The ``__name__`` of the module deprecating its ``Ob``.
+        module_name : The ``__name__`` of the module deprecating names.
+        aliases : A mapping from each deprecated name to its new name.
 
     Example
     -------
@@ -146,19 +238,20 @@ def deprecated_ob(module_name: str):
     >>> from discopy import rigid
     >>> with warnings.catch_warnings(record=True) as w:
     ...     warnings.simplefilter("always")
-    ...     assert rigid.Ob is rigid.Wire
+    ...     assert rigid.PRO is rigid.Nat
     >>> print(w[-1].message)
-    discopy.rigid.Ob is deprecated, use discopy.rigid.Wire instead.
+    discopy.rigid.PRO is deprecated, use discopy.rigid.Nat instead.
     """
     def __getattr__(name):
-        if name == "Ob":
+        if name in aliases:
             import sys
             import warnings
+            new_name = aliases[name]
             warnings.warn(
-                f"{module_name}.Ob is deprecated, "
-                f"use {module_name}.Wire instead.",
+                f"{module_name}.{name} is deprecated, "
+                f"use {module_name}.{new_name} instead.",
                 DeprecationWarning, stacklevel=2)
-            return sys.modules[module_name].Wire
+            return getattr(sys.modules[module_name], new_name)
         raise AttributeError(
             f"module {module_name!r} has no attribute {name!r}")
     return __getattr__
@@ -315,7 +408,7 @@ def load_corpus(url):
 
 def is_tuple(typ: type) -> bool:
     """
-    Whether a given type is tuple or a paramaterised tuple.
+    Whether a given type is tuple or a parameterised tuple.
 
     Parameters:
         typ : The type to check for equality with tuple.

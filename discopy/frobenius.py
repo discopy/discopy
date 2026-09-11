@@ -62,10 +62,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from discopy import monoidal, rigid, markov, compact, pivotal, hypergraph
+from discopy import (
+    monoidal, rigid, markov, compact, pivotal, cmap, hypergraph)
 from discopy.abc import HypergraphCategory
 from discopy.cat import factory
-from discopy.utils import assert_isatomic, deprecated_ob, factory_name
+from discopy.utils import assert_isatomic, deprecated_alias, factory_name
 
 
 class Wire(pivotal.Wire):
@@ -90,15 +91,15 @@ class Ty(pivotal.Ty):
 
 
 @factory
-class PRO(rigid.PRO, Ty):
+class Nat(rigid.Nat, Ty):
     """
-    A PRO is a natural number ``n`` seen as a frobenius type with unnamed
-    objects.
+    A ``Nat`` is a natural number ``n`` seen as a frobenius type with
+    unnamed objects.
 
     Parameters
     ----------
     n : int
-        The length of the PRO type.
+        The natural number.
     """
 
     l = r = property(lambda self: self)
@@ -383,12 +384,9 @@ def coherence(cls: type, factory: Callable
     return method
 
 
-class CMap(compact.CMap):
-    category = Diagram
-
+CMap = cmap.CMap[Diagram]
 
 Diagram.functor_factory = Functor
-Diagram.map_factory = CMap
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Diagram.swap_factory, Diagram.spider_factory = Swap, Spider
 Diagram.permutation_factory = Permutation
@@ -402,4 +400,4 @@ class Equation(compact.Equation):
     up_to = staticmethod(Diagram.to_hypergraph)
 
 
-__getattr__ = deprecated_ob(__name__)
+__getattr__ = deprecated_alias(__name__, {"Ob": "Wire", "PRO": "Nat"})

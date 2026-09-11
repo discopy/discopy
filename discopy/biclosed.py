@@ -57,21 +57,40 @@ Axioms
 
 .. image:: /_static/biclosed/uncurry.svg
     :align: center
+
+Compact currying
+----------------
+
+:meth:`Diagram.to_compact` bends curry bubbles into coevaluation and feedback,
+which lands in :class:`CMap` as a biclosed category has no trace.
+
+>>> g.curry(left=True).uncurry(left=True).to_compact().draw(show=False,
+...     doctest="docs/_static/cmap/biclosed-curry-left.dot")
+
+.. graphviz:: /_static/cmap/biclosed-curry-left.dot
+    :align: center
+
+>>> g.curry(left=False).uncurry(left=False).to_compact().draw(show=False,
+...     doctest="docs/_static/cmap/biclosed-curry-right.dot")
+
+.. graphviz:: /_static/cmap/biclosed-curry-right.dot
+    :align: center
+
 """
 
 from __future__ import annotations
 
 from abc import abstractmethod
 from inspect import signature
-from typing import Callable, ClassVar, Self
+from typing import Callable, ClassVar
 
-from discopy import monoidal
+from discopy import monoidal, cmap
 from discopy.abc import BiclosedCategory, ClosedCategory
 from discopy.drawing import Drawing
 from discopy.cat import factory
 from discopy.utils import (
     assert_isinstance,
-    deprecated_ob,
+    deprecated_alias,
     factory_name,
     from_tree,
     get_origin,
@@ -186,7 +205,7 @@ class Wire(monoidal.Wire):
     """
     A biclosed object is a self-dagger :class:`monoidal.Wire`, i.e. its left
     and right colours always match. Exponentials do not interact meaningfully
-    with colours, so for now we assume everything is white.
+    with colours, so for now we assume everything is transparent.
     """
     def dagger(self) -> Wire:
         return self
@@ -304,17 +323,20 @@ class Diagram(monoidal.Diagram, BiclosedCategory):
         return cls.eval_factory(
             base << exponent if left else exponent >> base)
 
-    def uncurry(self: Diagram, left=True) -> Diagram:
+    def to_compact(self) -> CMap:
         """
-        Uncurry a biclosed diagram by composing it with :meth:`Diagram.ev`.
+        Bend curry bubbles into coevaluation and feedback, which lands in
+        :class:`CMap` as a biclosed category has no trace, see
+        :meth:`discopy.cmap.CMap.to_compact`.
 
-        Parameters:
-            left : Whether to uncurry on the left, i.e. from :class:`Over`,
-                or on the right, i.e. from :class:`Under`.
+        Example
+        -------
+        >>> x, y, z = map(Ty, "xyz")
+        >>> f = Box("f", x @ y, z)
+        >>> assert f.curry().to_compact() == (
+        ...     f.to_map() >> CMap.ev(z, y).dagger()).trace()
         """
-        base, exponent = self.cod.base, self.cod.exponent
-        return self @ exponent >> self.ev(base, exponent, True) if left\
-            else exponent @ self >> self.ev(base, exponent, False)
+        return self.to_map().to_compact()
 
     def to_drawing(self):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
@@ -361,6 +383,15 @@ class Coeval(Box):
 
     Parameters:
         x : The exponential type to coevaluate.
+
+    Note
+    ----
+    This is not the unit of the adjunction, which sends ``z`` to
+    ``(z @ x) << x``, but the transpose of :class:`Eval`, which needs the
+    exponent to be dualisable: a biclosed category has no such morphism
+    unless its exponential is read at a reflexive object, see `Zeilberger
+    (2016) <https://arxiv.org/abs/1512.06751>`_. It is used by
+    :meth:`Curry.to_drawing` and :meth:`Diagram.to_compact`.
     """
     drawing_name = "lambda"
 
@@ -385,6 +416,12 @@ class Curry(monoidal.Bubble, Box):
         arg : The diagram to curry.
         n : The number of atomic types to curry.
         left : Whether to curry on the left or right, default is ``True``.
+
+    Example
+    -------
+    >>> x, y, z = map(Ty, "xyz")
+    >>> print(Curry(Box('f', x @ y, z)))
+    Curry(f, 1, True)
     """
     def __init__(self, arg: Diagram, n=1, left=True):
         self.n, self.left = n, left
@@ -397,6 +434,9 @@ class Curry(monoidal.Bubble, Box):
         monoidal.Bubble.__init__(
             self, arg, dom=dom, cod=cod, drawing_name="$\\Lambda$")
         Box.__init__(self, name, dom, cod)
+
+    def __str__(self):
+        return self.name
 
     def to_drawing(self):
         if self.left:
@@ -450,7 +490,8 @@ class Functor(monoidal.Functor):
 
     def __call__(self, other):
         if isinstance(other, TermBase):
-            if issubclass(get_origin(self.cod.ob), Ty):
+            if issubclass(get_origin(self.cod.ob), Ty) \
+                    and not issubclass(get_origin(self.cod), cmap.CMap):
                 return other.map(self)
             return other.eval(self)
         for cls, attr in [(Over, "over"), (Under, "under"), (Exp, "exp")]:
@@ -474,85 +515,10 @@ class Functor(monoidal.Functor):
         return super().__call__(other)
 
 
-class CMap(monoidal.CMap):
-    category = Diagram
-
-    require_causal = False
-
-    def curry(self, n=1, left=True) -> Self:
-        """
-        Curry a combinatorial map using the closed structure of the host
-        category.
-
-        Parameters:
-            n : The number of objects to curry.
-            left : Whether to curry on the left, i.e. into :class:`Over`,
-                or on the right, i.e. into :class:`Under`.
-
-        >>> from discopy.closed import Ty, Box
-        >>> x, y, z = map(Ty, "xyz")
-        >>> f = Box("f", x @ y, z).to_map()
-        >>> f.curry(left=False).uncurry(left=False).draw(show=False,
-        ...     doctest="docs/_static/cmap/biclosed-curry-right.dot")
-
-        .. graphviz:: /_static/cmap/biclosed-curry-right.dot
-            :align: center
-
-        >>> f.curry(left=True).uncurry(left=True).draw(show=False,
-        ...     doctest="docs/_static/cmap/biclosed-curry-left.dot")
-
-        .. graphviz:: /_static/cmap/biclosed-curry-left.dot
-            :align: center
-        """
-        if n < 0 or n > len(self.dom):
-            raise ValueError
-        if not n:
-            return self
-
-        base = self.cod
-        if left:
-            exponent = self.dom[len(self.dom) - n:]
-            exp = base << exponent
-            coev = type(self).from_box(
-                self.category.coeval_factory(exp, left=True))
-            return (self >> coev).trace(n, left=False)
-
-        exponent = self.dom[:n]
-        exp = exponent >> base
-        coev = type(self).from_box(
-            self.category.coeval_factory(exp, left=False))
-        return (self >> coev).trace(n, left=True)
-
-    def uncurry(self, n=1, left=True) -> Self:
-        """
-        Uncurry a combinatorial map using the evaluation box of the host
-        category.
-
-        Parameters:
-            n : The number of objects to uncurry.
-            left : Whether to uncurry on the left, i.e. from :class:`Over`,
-                or on the right, i.e. from :class:`Under`.
-        """
-        if n < 0:
-            raise ValueError
-        if not n:
-            return self
-        if not self.cod.is_exp:
-            raise ValueError
-
-        exponent = self.cod.exponent
-        if n < len(exponent):
-            raise ValueError
-
-        ev = type(self).from_box(self.category.eval_factory(self.cod, left))
-        result = self @ type(self).id(exponent) >> ev if left\
-            else type(self).id(exponent) @ self >> ev
-        remaining = n - len(exponent)
-        return result if not remaining else result.uncurry(remaining, left)
+CMap = cmap.CMap[Diagram]
 
 
 Diagram.functor_factory = Functor
-Diagram.map_factory = CMap
 
 
 class TermBase(Box):
@@ -844,4 +810,4 @@ class Equation(monoidal.Equation):
     """ The :class:`monoidal.Equation` of biclosed diagrams. """
 
 
-__getattr__ = deprecated_ob(__name__)
+__getattr__ = deprecated_alias(__name__, {"Ob": "Wire"})

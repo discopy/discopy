@@ -34,3 +34,16 @@ def test_additive_Function():
     T, D = Ty[tuple], Diagram[Function]
 
     assert eq(D.id(T(X, X)).transpose().inside, Id(X + X))
+
+
+def test_trace_unequal_arity():
+    from discopy.python.additive import Function
+
+    # f : A + U -> B + C + U, traced over U: tag 0 (A) loops back to U,
+    # any other tag (C) exits. len(dom) == 2 != 3 == len(cod), so the
+    # traced summand sits at a different tag on each side.
+    def inside(obj, tag=0):
+        return obj, 2 if tag == 0 else 1
+
+    f = Function(inside, (int, int), (int, int, int))
+    assert f.trace()(7) == (7, 1)

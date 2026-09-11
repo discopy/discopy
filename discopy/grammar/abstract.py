@@ -48,7 +48,7 @@ Example
 
 from __future__ import annotations
 
-from discopy import closed, hypergraph
+from discopy import closed, cmap, hypergraph
 from discopy.cat import factory
 from discopy.grammar import categorial
 
@@ -144,9 +144,7 @@ class Functor(closed.Functor):
     dom = cod = Diagram
 
 
-class CMap(closed.CMap):
-    "A combinatorial map for abstract diagrams."
-    category = Diagram
+CMap = cmap.CMap[Diagram]
 
 
 class Lexicon(categorial.Functor, Functor):
@@ -232,7 +230,6 @@ type Term = Constant | Variable | Application | Abstraction
 
 Id = Diagram.id
 Diagram.functor_factory = Functor
-Diagram.map_factory = CMap
 Diagram.copy_factory = Copy
 Diagram.permutation_factory = Permutation
 Diagram.swap_factory = Swap

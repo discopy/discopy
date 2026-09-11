@@ -92,10 +92,10 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from discopy import monoidal, balanced, traced, hypergraph, messages
+from discopy import monoidal, balanced, hypergraph, cmap, messages
 from discopy.abc import SymmetricCategory
 from discopy.cat import factory
-from discopy.monoidal import Wire, Ty, PRO  # noqa: F401
+from discopy.monoidal import Wire, Ty, Nat  # noqa: F401
 from discopy.python import finset
 from discopy.utils import (
     AxiomError, assert_iscomposable, classproperty, factory_name, from_tree)
@@ -240,12 +240,12 @@ class Diagram(balanced.Diagram, SymmetricCategory):
     >>> with raises(AxiomError) as err:
     ...     Diagram.from_callable(x, x @ x)(lambda x: (x, x))
     >>> print(err.value)
-    symmetric.Diagram has no spiders, cups or caps to draw this hypergraph.
+    symmetric.Diagram has no cups or caps for the wiring of this map.
 
     >>> with raises(AxiomError) as err:
     ...     Diagram.from_callable(x, Ty())(lambda x: ())
     >>> print(err.value)
-    symmetric.Diagram has no spiders, cups or caps to draw this hypergraph.
+    symmetric.Diagram has no cups or caps for the wiring of this map.
 
     Note
     ----
@@ -299,12 +299,12 @@ class Diagram(balanced.Diagram, SymmetricCategory):
             xs : A permutation, as a sequence of integers or a
                  :class:`finset.Permutation`.
             dom : A type of the same length as :code:`xs`,
-                  default is :code:`PRO(len(xs))`.
+                  default is :code:`Nat(len(xs))`.
         """
 
-        doms = PRO(len(xs)) if doms is None else doms
+        doms = Nat(len(xs)) if doms is None else doms
         size = len(doms)
-        unit = type(doms)() if isinstance(doms, PRO) else cls.ob()
+        unit = type(doms)() if isinstance(doms, Nat) else cls.ob()
         tensor = lambda tys: unit.tensor(*tys)
         dom = tensor(doms)
 
@@ -336,7 +336,7 @@ class Diagram(balanced.Diagram, SymmetricCategory):
             perm : A permutation, as a sequence of integers or a
                    :class:`finset.Permutation`.
             dom : A type of the same length as :code:`perm`,
-                  default is :code:`PRO(len(perm))`.
+                  default is :code:`Nat(len(perm))`.
 
         Examples
         --------
@@ -346,7 +346,7 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         >>> assert Diagram.from_permutation(
         ...     [0, 1, 2], x @ y @ z) == Id(x @ y @ z)
         """
-        dom = PRO(len(perm)) if dom is None else dom
+        dom = Nat(len(perm)) if dom is None else dom
         perm = finset.Permutation(perm, len(dom))
         if perm.is_identity:
             return cls.id(dom)
@@ -513,7 +513,7 @@ class Permutation(Box):
         >>> perm = Permutation(x @ y @ z, [1, 2, 0])
         >>> assert Equation(perm.to_swaps(), perm)
         """
-        doms = self.dom if isinstance(self.dom, PRO)\
+        doms = self.dom if isinstance(self.dom, Nat)\
             else list(map(self.ob, self.dom.inside))
         return self.ar.permutation(self.perm, doms)
 
@@ -654,7 +654,7 @@ class Functor(balanced.Functor):
             return self.cod.ar.swap(self(other.dom[0]), self(other.dom[1]))
         if isinstance(other, Permutation) and hasattr(
                 self.cod.ar, "permutation"):
-            if isinstance(other.dom, PRO):
+            if isinstance(other.dom, Nat):
                 doms = self(other.dom)
             else:
                 doms = list(map(self, other.dom))
@@ -662,13 +662,9 @@ class Functor(balanced.Functor):
         return super().__call__(other)
 
 
-class CMap(traced.CMap):
-    category = Diagram
-    require_planar = False
-
+CMap = cmap.CMap[Diagram]
 
 Diagram.functor_factory = Functor
-Diagram.map_factory = CMap
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.swap_factory = Swap
 Diagram.permutation_factory = Permutation

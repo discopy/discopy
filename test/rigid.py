@@ -68,8 +68,8 @@ def test_Ty_z():
     assert Ty('x').l.z == -1
 
 
-def test_PRO_r():
-    assert PRO(2).r == PRO(2)
+def test_Nat_r():
+    assert Nat(2).r == Nat(2)
 
 
 def test_Diagram_cups():
@@ -169,7 +169,27 @@ def test_sum_adjoint():
     assert two_boxes.l.r == two_boxes
 
 
+def test_curry_uncurry():
+    x, y, z = map(Ty, "xyz")
+    f = Box('f', x @ y, z)
+    assert f.curry(n=0) == f == f.uncurry(n=0)
+    assert f.curry().uncurry().normal_form() == f
+    assert f.curry(left=False).uncurry(left=False).normal_form() == f
+    assert f.curry(n=2).uncurry(n=2).normal_form() == f
+    with raises(ValueError):
+        f.curry(n=3)
+    with raises(ValueError):
+        f.uncurry(n=2)
+
+
 def test_curry_zero():
     x = Ty('x')
     f = Box('f', x @ x, x)
     assert f.curry(0) == f == f.curry(0, left=False)
+
+
+def test_functor_factory():
+    """ The functor of a rigid diagram rotates, so a boundary keeps its z. """
+    x, y = Ty('x'), Ty('y')
+    assert Diagram.functor_factory is Functor
+    assert Diagram.functor_factory({x: y}, {})(x.r) == y.r
