@@ -7,6 +7,43 @@ All notable changes to DisCoPy are documented here. The format follows
 
 Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
+### Changed
+
+- Every `then` takes `(self, *others)`, the signature that
+  `abc.Category.then` declares and documents as "sequential composition of
+  `n >= 1` morphisms". Python does not check an override's signature, so
+  nine implementors narrowed it to `(self, other)` — `cat.Functor`,
+  `cat.Transformation`, `monoidal.Functor`, `python.function.Function`,
+  `python.finset.Function` and `python.finset.Permutation` — or widened it
+  to `(self, other=None, *others)` — `tensor.Tensor` and
+  `quantum.channel.Channel` — and satisfied the abstract method while
+  breaking its contract. A narrowed `then` raised `TypeError` on no
+  argument, where the contract makes `f.then()` equal to `f`, and on three
+  or more. The widened pair did something worse than refuse: they
+  delegated `n >= 3` to `super().then`, whose fold composes with the
+  *base* class's binary method, so `Tensor.then(g, h)` multiplied the
+  arrays as matrices instead of contracting them. Over the 625 triples of
+  boundaries drawn from five small `Dim`s, 567 raised `ValueError` on the
+  reshape and 15 returned the wrong array with no error at all — e.g.
+  `Dim(2) -> Dim(3) -> Dim(2) -> Dim(2, 2)`, where the answer came back
+  transposed. The classes that compose `n` in one pass now do so, the
+  rest declare
+  `utils.unbiased`, and `abc.Category.then` says that wrapping a binary
+  implementation is the way to keep the signature.
+- `utils.unbiased` advertises the `(self, *others)` signature it
+  implements. `functools.wraps` sets `__wrapped__`, which
+  `inspect.signature` follows, so `help` and the API docs documented every
+  unbiased method as taking exactly one argument — the binary signature
+  the decorator exists to widen.
+- `abc.Category` gains the axioms `nullary_composition`, that `f.then()`
+  is `f`, and `unbiased_composition`, that `f.then(g, h)` is
+  `f.then(g).then(h)`, so the property matrix holds every carrier to the
+  contract. `test/utils.py` checks the same over the twelve concrete
+  implementors the matrix does not generate terms for yet.
+- `python.function.Function.then` builds one closure that applies each
+  function in a loop, rather than nesting `n` of them, so calling an
+  `n`-fold composite costs one Python frame instead of `n`.
+
 ### Added
 
 - `discopy/axioms.py`, a Hypothesis-based property-testing module, home

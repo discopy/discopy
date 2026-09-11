@@ -64,17 +64,38 @@ class Function(Category):
         """
         return cls(lambda *xs: untuplify(xs), tuplify(dom), tuplify(dom))
 
-    def then(self, other: Function) -> Function:
+    def then(self, *others: Function) -> Function:
         """
-        The sequential composition of two functions, called with :code:`>>`.
+        The sequential composition of ``n`` functions, called with
+        :code:`>>`.
 
         Parameters:
-            other : The other function to compose in sequence.
+            others : The other functions to compose in sequence.
+
+        Example
+        -------
+        >>> succ = Function(lambda x: x + 1, (int, ), (int, ))
+        >>> assert succ.then(succ, succ)(0) == 3
+        >>> assert succ.then()(0) == 1
+
+        Note
+        ----
+        The composite applies each function in a loop rather than nesting
+        ``n`` closures, so calling it costs one Python frame whatever ``n``.
         """
-        assert_isinstance(other, type(self))
-        assert_iscomposable(self, other)
-        return type(self)(
-            lambda *args: other(*tuplify(self(*args))), self.dom, other.cod)
+        if not others:
+            return self
+        functions = (self, ) + others
+        for other in others:
+            assert_isinstance(other, type(self))
+        for f, g in zip(functions, others):
+            assert_iscomposable(f, g)
+
+        def inside(*args):
+            for function in functions:
+                args = tuplify(function(*args))
+            return untuplify(args)
+        return type(self)(inside, self.dom, others[-1].cod)
 
     @classproperty
     @contextmanager

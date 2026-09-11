@@ -77,10 +77,22 @@ class Category[C0, C1: Category](ABC):
     -------
     >>> class List(list, Category):
     ...     ob, dom, cod = type(None), None, None
-    ...     def then(self, other):
-    ...         return self + other
+    ...     def then(self, *others):
+    ...         return sum(others, self)
     >>> assert List([1, 2]) >> List([3]) == List([1, 2, 3])
     >>> assert List([3]) << List([1, 2]) == List([1, 2, 3])
+    >>> assert List([1]).then(List([2]), List([3])) == List([1, 2, 3])
+
+    A category whose composition is naturally binary wraps it in
+    :func:`discopy.utils.unbiased` rather than narrowing the signature.
+
+    >>> from discopy.utils import unbiased
+    >>> class Pair(List):
+    ...     @unbiased
+    ...     def then(self, other):
+    ...         return Pair(list.__add__(self, other))
+    >>> assert Pair([1]).then(Pair([2]), Pair([3])) == Pair([1, 2, 3])
+    >>> assert Pair([1]).then() == Pair([1])
     """
     ob: ClassVar[type[C0]]
     factory: ClassVar[type[C1]]
@@ -135,8 +147,15 @@ class Category[C0, C1: Category](ABC):
         """
         Sequential composition of `n >= 1` morphisms, to be instantiated.
 
+        The signature is part of the contract: ``self.then()`` is ``self``
+        and ``self.then(g, h)`` is ``self >> g >> h``. Python does not check
+        an override's signature, so an implementation that composes exactly
+        two morphisms satisfies this abstract method while breaking it —
+        wrap a binary implementation in :func:`discopy.utils.unbiased`
+        instead of narrowing the signature.
+
         Parameters:
-            other : The other morphism to compose sequentially.
+            others : The other morphisms to compose sequentially.
         """
 
     def is_composable(self, other: C1) -> bool:
@@ -173,6 +192,19 @@ class Category[C0, C1: Category](ABC):
         f, g, h = triple
         return cls.equation_factory(
             f.then(g).then(h), f.then(g.then(h)))
+
+    @axiom
+    def nullary_composition(
+            cls, f: C1) -> Equation[C1]:
+        """ Composing a morphism with nothing else is the morphism. """
+        return cls.equation_factory(f.then(), f)
+
+    @axiom
+    def unbiased_composition(
+            cls, triple: ComposableTriple[C1]) -> Equation[C1]:
+        """ The n-ary composite is the fold of the binary one. """
+        f, g, h = triple
+        return cls.equation_factory(f.then(g, h), f.then(g).then(h))
 
     @axiom
     def identity_typing(

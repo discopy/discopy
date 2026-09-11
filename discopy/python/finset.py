@@ -76,9 +76,20 @@ class Function(MonoidalCategory, Sequence):
     def id(x: int | Nat = 0):
         return Function(list(range(x)), x, x)
 
-    def then(self, other: Function) -> Function:
-        inside = [self[other[i]] for i in range(len(other))]
-        return Function(inside, self.dom, other.cod)
+    def then(self, *others: Function) -> Function:
+        """
+        The sequential composition of ``n`` functions between finite sets.
+
+        >>> f = Function([1, 0], 2, 2)
+        >>> assert f.then(f, f) == f and f.then() == f
+        """
+        if not others:
+            return self
+        inside, cod = self.inside, self.cod
+        for other in others:
+            inside = [inside[other[i]] for i in range(len(other))]
+            cod = other.cod
+        return Function(inside, self.dom, cod)
 
     def tensor(self, other: Function) -> Function:
         inside = list(self.inside) + [
@@ -240,11 +251,20 @@ class Permutation(Function, PROP):
             i = self[i]
         return tuple(cycle)
 
-    def then(self, other: Self) -> Self:
-        """ Return ``self ; other``, i.e. ``result[i] == other[self[i]]``. """
-        other = type(self)(other, len(self))
-        elems = (other[self[i]] for i in range(len(self)))
-        return type(self)(elems, len(self))
+    def then(self, *others: Self) -> Self:
+        """
+        Return ``self ; others``, i.e. composing ``n`` permutations so that
+        ``self.then(other)[i] == other[self[i]]``.
+
+        >>> swap = Permutation([1, 0])
+        >>> assert swap.then(swap) == Permutation([0, 1])
+        >>> assert swap.then(swap, swap) == swap == swap.then()
+        """
+        inside = range(len(self))
+        for other in (self, ) + others:
+            other = type(self)(other, len(self))
+            inside = [other[i] for i in inside]
+        return type(self)(inside, len(self))
 
     def dagger(self) -> Self:
         """ Return the inverse permutation. """

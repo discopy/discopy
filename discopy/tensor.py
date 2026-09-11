@@ -56,7 +56,7 @@ from discopy.matrix import (  # noqa: F401
 from discopy.abc import NamedGeneric
 from discopy.python import finset
 from discopy.utils import (
-    factory_name, assert_isinstance, product, assert_isatomic)
+    factory_name, assert_isinstance, product, assert_isatomic, unbiased)
 
 if TYPE_CHECKING:
     import sympy
@@ -137,9 +137,15 @@ class Tensor(Matrix):
     def id(cls, dom=Dim(1)) -> Tensor:
         return cls(Matrix.id(product(dom.inside)).array, dom, dom)
 
-    def then(self, other: Tensor = None, *others: Tensor) -> Tensor:
-        if other is None or others:
-            return super().then(other, *others)
+    @unbiased
+    def then(self, other: Tensor) -> Tensor:
+        """
+        The contraction of two tensors along their shared boundary.
+
+        >>> vector = Tensor([0, 1], Dim(1), Dim(2))
+        >>> swap = Tensor.swap(Dim(2), Dim(1))
+        >>> assert vector.then(Tensor.id(Dim(2)), swap) == vector
+        """
         assert_isinstance(other, type(self))
         assert_iscomposable(self, other)
         with backend() as np:

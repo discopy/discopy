@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 from functools import lru_cache, wraps
 from math import ceil
@@ -432,7 +433,19 @@ def unbiased(binary_method):
     Turn a biased method with signature (self, other) to an unbiased one, i.e.
     with signature (self, *others), see the `nLab`_.
 
+    The wrapper advertises that signature rather than the one it wraps:
+    :func:`functools.wraps` sets ``__wrapped__``, which
+    :func:`inspect.signature` follows, so ``help`` and the API docs used to
+    document an unbiased method as taking exactly one argument.
+
     .. _nLab: https://ncatlab.org/nlab/show/biased+definition
+
+    Example
+    -------
+    >>> from inspect import signature
+    >>> from discopy.matrix import Matrix
+    >>> print(signature(Matrix.then))
+    (self, *others: 'Matrix') -> 'Matrix'
     """
     @wraps(binary_method)
     def method(self, *others, **params):
@@ -440,6 +453,16 @@ def unbiased(binary_method):
         for other in others:
             result = binary_method(result, other, **params)
         return result
+    biased = inspect.signature(binary_method)
+    self, other, *rest = biased.parameters.values()
+    method.__signature__ = biased.replace(parameters=[
+        self,
+        other.replace(
+            name=other.name if other.name.endswith("s")
+            else other.name + "s",
+            kind=inspect.Parameter.VAR_POSITIONAL),
+        *(parameter.replace(kind=inspect.Parameter.KEYWORD_ONLY)
+          for parameter in rest)])
     return method
 
 

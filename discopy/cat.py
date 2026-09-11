@@ -920,6 +920,7 @@ class Functor(Category):
         """
         return cls(lambda x: x, lambda f: f, dom=dom, cod=dom)
 
+    @unbiased
     def then(self, other: Functor) -> Functor:
         """
         The composition of functor with another.
@@ -1085,6 +1086,7 @@ class Transformation(Category):
         """
         return cls(lambda x: dom.cod.id(dom(x)), dom, dom)
 
+    @unbiased
     def then(self, other: Transformation) -> Transformation:
         """
         The vertical composition of a transformation with another.

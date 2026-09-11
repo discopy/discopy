@@ -103,3 +103,125 @@ def test_wire_tree_roundtrip():
     with warns(DeprecationWarning):
         assert from_tree({'factory': 'discopy.frobenius.Ob', 'name': 'x'})\
             == frobenius.Wire('x')
+
+
+def composable_triple(cls):
+    """ Three composable morphisms of a concrete category. """
+    from discopy import cat, matrix, monoidal
+    from discopy.hypergraph import Hypergraph
+    from discopy.python import finset, function
+    from discopy.quantum.channel import C, Channel
+    from discopy.tensor import Dim, Tensor
+
+    x, y = cat.Ob('x'), monoidal.Ty('y')
+    return {
+        cat.Arrow: lambda: [cat.Box(name, x, x) for name in "fgh"],
+        monoidal.Diagram: lambda: [monoidal.Box(n, y, y) for n in "fgh"],
+        matrix.Matrix: lambda: 3 * [matrix.Matrix([0, 1, 1, 0], 2, 2)],
+        Tensor: lambda: [
+            Tensor([0, 1, 1, 0, 1, 0, 0, 1], Dim(2), Dim(2, 2)),
+            Tensor([1, 0, 0, 1, 0, 1, 1, 0], Dim(2, 2), Dim(2)),
+            Tensor([0, 1, 1, 0], Dim(2), Dim(2))],
+        Channel: lambda: 3 * [
+            Channel(Tensor.id(Dim(1)).array, C(Dim(1)), C(Dim(1)))],
+        function.Function: lambda: 3 * [
+            function.Function(lambda n: n + 1, (int, ), (int, ))],
+        finset.Function: lambda: 3 * [finset.Function([1, 0], 2, 2)],
+        finset.Permutation: lambda: 3 * [finset.Permutation([1, 2, 0])],
+        cat.Functor: lambda: 3 * [cat.Functor({x: x}, {})],
+        cat.Transformation: lambda: 3 * [
+            cat.Transformation.id(cat.Functor({x: x}, {}))],
+        monoidal.Functor: lambda: 3 * [monoidal.Functor({y: y}, {})],
+        Hypergraph: lambda: 3 * [monoidal.Box('f', y, y).to_hypergraph()],
+    }[cls]()
+
+
+def implementors():
+    """ Every concrete class implementing ``abc.Category.then``. """
+    from discopy import cat, matrix, monoidal
+    from discopy.hypergraph import Hypergraph
+    from discopy.python import finset, function
+    from discopy.quantum.channel import Channel
+    from discopy.tensor import Tensor
+
+    return [
+        cat.Arrow, monoidal.Diagram, matrix.Matrix, Tensor, Channel,
+        function.Function, finset.Function, finset.Permutation,
+        cat.Functor, cat.Transformation, monoidal.Functor, Hypergraph]
+
+
+def same(f, g):
+    """
+    Whether two morphisms are equal, or act the same when they cannot be:
+    ``python.Function`` and ``cat.Transformation`` are given by closures, so
+    two composites that agree everywhere are still never equal.
+    """
+    from discopy import cat
+    from discopy.python import function
+
+    if isinstance(f, function.Function):
+        return (f.dom, f.cod) == (g.dom, g.cod) and f(0) == g(0)
+    if isinstance(f, cat.Transformation):
+        probe = cat.Ob('x')
+        return (f.dom, f.cod) == (g.dom, g.cod) and f(probe) == g(probe)
+    return f == g
+
+
+@pytest.mark.parametrize("cls", implementors(), ids=factory_name)
+def test_then_is_unbiased(cls):
+    """
+    ``then`` composes ``n >= 0`` morphisms in every category, as
+    :meth:`discopy.abc.Category.then` declares.
+
+    Python does not check an override's signature, so a category that
+    composes exactly two morphisms satisfies the abstract method while
+    breaking its contract: ``Tensor.then(g, h)`` used to raise
+    :class:`ValueError`, and every binary ``then`` used to raise on no
+    argument at all.
+    """
+    f, g, h = composable_triple(cls)
+    assert same(f.then(), f)
+    assert same(f.then(g), f >> g)
+    assert same(f.then(g, h), (f >> g) >> h)
+
+
+@pytest.mark.parametrize("cls", implementors(), ids=factory_name)
+def test_then_signature(cls):
+    """
+    Every ``then`` advertises the unbiased signature it implements, whether
+    it is n-ary itself or wrapped in :func:`discopy.utils.unbiased`.
+    """
+    from inspect import Parameter, signature
+
+    parameters = list(signature(cls.then).parameters.values())
+    assert parameters[1].kind == Parameter.VAR_POSITIONAL
+
+
+def test_then_tensor_contracts():
+    """
+    ``Tensor.then`` contracts every step, where sending ``n >= 3`` to
+    ``Matrix.then`` used to multiply the arrays as matrices: for most
+    boundaries that raised, but for these three it returned the transpose
+    of the right answer, silently.
+    """
+    from discopy.tensor import Dim, Tensor
+
+    f = Tensor([1, 0, 0, 1, 0, 0], Dim(2), Dim(3))
+    g = Tensor([1, 2, 0, 1, 1, 0], Dim(3), Dim(2))
+    h = Tensor([1, 0, 0, 1, 0, 1, 1, 0], Dim(2), Dim(2, 2))
+    assert f.then(g, h) == (f >> g) >> h
+    assert f.then(g, h).array.tolist()\
+        == [[[1, 2], [2, 1]], [[1, 2], [2, 1]]]
+
+
+def test_then_not_composable():
+    """ The n-ary composite type checks every step, not just the first. """
+    from discopy import cat
+    from discopy.tensor import Dim, Tensor
+
+    x, y = cat.Ob('x'), cat.Ob('y')
+    f, g = cat.Box('f', x, x), cat.Box('g', y, y)
+    with pytest.raises(AxiomError):
+        f.then(f, g)
+    with pytest.raises(AxiomError):
+        Tensor.id(Dim(2)).then(Tensor.id(Dim(2)), Tensor.id(Dim(3)))
