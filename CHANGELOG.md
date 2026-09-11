@@ -36,23 +36,23 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   copy goes through the same reduction as a pickle without the bytes,
   which is how the `NamedGeneric` parameters were lost below. Stating an
   axiom is no longer the business of `Category` alone: both it and
-  `Serialisable` subclass the new `axioms.Theory`, which carries the
-  `axioms` classproperty they share, so that a carrier stating the
-  roundtrips without being a category — the objects of a category, say —
-  is enrolled like the rest. `Theory` is also what `Testable` was: one
-  class both states the laws and says how to draw the terms they
-  quantify over, since the two never came apart in practice. Every
-  abstract base class that states laws is one a subclass will generate
-  eventually, and the wrappers that generate a law's arguments —
-  `Grid`, `ComposablePair`, `ComposableTriple` — state the composability
-  their constructor enforces, rather than being generators of nothing.
-  `Theory.strategy` is deliberately not an `abstractmethod`: that would
+  `Serialisable` subclass `axioms.Testable`, which carries the `axioms`
+  classproperty they share, so that a carrier stating the roundtrips
+  without being a category — the objects of a category, say — is
+  enrolled like the rest. One class both states the laws and says how to
+  draw the terms they quantify over, since the two never come apart in
+  practice: every abstract base class that states laws is one a subclass
+  will generate eventually, and the wrappers that generate a law's
+  arguments — `Grid`, `ComposablePair`, `ComposableTriple` — state the
+  composability their constructor enforces, rather than being generators
+  of nothing.
+  `Testable.strategy` is deliberately not an `abstractmethod`: that would
   make every category which has not implemented one uninstantiable
   rather than merely unchecked, 66 concrete classes among them, so the
-  default raises `NotImplementedError` instead. `Theory.subclasses`
+  default raises `NotImplementedError` instead. `Testable.subclasses`
   walks the transitive subclasses and `proptest/test_axioms.py` reads
   the matrix off it, rather than off a list kept beside the suite: a
-  theory enrols itself by implementing `strategy`, and one that would
+  class enrols itself by implementing `strategy`, and one that would
   inherit a strategy for the wrong terms — a `monoidal.Ty` is not the
   `cat.Ob` it subclasses — declares `strategy = no_strategy` until it
   implements its own. So a category states its laws from the moment it
@@ -81,7 +81,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `Hypergraph` and `Equation` — which moves `NamedGeneric` itself down to
   `discopy.utils`, re-exported from `discopy.abc`, so `discopy.axioms`
   can use it — making a subscripted wrapper a class whose
-  `strategy(cls, **params)` matches the contract `Theory.strategy` now
+  `strategy(cls, **params)` matches the contract `Testable.strategy` now
   states, so a subspace annotation like `ComposablePair[C1]`
   builds; an unbound axiom's `.strategy()` raises the same `TypeError`
   as `.falsify` and calling it. The
@@ -101,7 +101,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   uploads its own afterwards — a pull request only reads it — so a
   counterexample found by one night's search fails every pull request
   until it is fixed or declared, and `Axiom.falsify` searches for one on
-  demand. `Theory.strategy`
+  demand. `Testable.strategy`
   generates the terms a law quantifies over, whatever its level, while
   the laws that a term reads back from its representation, its pickle
   and its tree are stated on `abc.Serialisable` above; the ad-hoc property

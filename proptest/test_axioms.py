@@ -4,25 +4,25 @@ import pytest
 from hypothesis import given, note
 from hypothesis import strategies as st
 
-from discopy.axioms import Theory
+from discopy.axioms import Testable
 from discopy.utils import factory_name
 
 
-def carriers() -> tuple[type[Theory], ...]:
+def carriers() -> tuple[type[Testable], ...]:
     """
     The carriers of the matrix: every transitive subclass of
-    :class:`discopy.axioms.Theory` that generates its own terms, i.e.
-    every one whose :meth:`discopy.axioms.Theory.strategy` is
+    :class:`discopy.axioms.Testable` that generates its own terms, i.e.
+    every one whose :meth:`discopy.axioms.Testable.strategy` is
     implemented rather than left to raise.
 
     Implementing a strategy is how a class enrols itself, so that the
     matrix follows the package rather than a list kept beside it: a
-    theory whose terms cannot be generated yet states its laws without
+    class whose terms cannot be generated yet states its laws without
     being checked against them, and is checked as soon as it says how.
 
     Importing :mod:`discopy.axioms` imports the package that defines
     them, so every subclass is in place by the time this is called.
-    :class:`Theory` itself states no law, so it carries no cell.
+    :class:`Testable` itself states no law, so it carries no cell.
     """
     def generates(carrier):
         try:
@@ -32,7 +32,7 @@ def carriers() -> tuple[type[Theory], ...]:
         return True
 
     return tuple(sorted(
-        filter(generates, Theory.subclasses()), key=factory_name))
+        filter(generates, Testable.subclasses()), key=factory_name))
 
 
 def axiom_parameters():

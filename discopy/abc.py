@@ -65,12 +65,12 @@ from dataclasses import dataclass
 from typing import ClassVar, Self
 
 from discopy.axioms import (  # noqa: F401
-    Axiom, ComposablePair, ComposableTriple, Equation, Theory, axiom)
+    Axiom, ComposablePair, ComposableTriple, Equation, Testable, axiom)
 from discopy.utils import (  # noqa: F401
     NamedGeneric, classproperty, factory_name)
 
 
-class Serialisable(Theory):
+class Serialisable(Testable):
     """
     The serialisation interface of DisCoPy, one hook driving all three
     mechanisms: the class attribute ``serialised_attrs`` names attributes that
@@ -93,7 +93,7 @@ class Serialisable(Theory):
     for its representation, :meth:`pickling` and :meth:`copying` for the
     pickle protocol and :meth:`serialisation` for its tree. They are
     axioms like any other, so a class that also implements
-    :meth:`discopy.axioms.Theory.strategy` has them checked against
+    :meth:`discopy.axioms.Testable.strategy` has them checked against
     generated terms, and one that violates a law declares it
     ``.failing`` rather than leaving it untested.
 
@@ -295,7 +295,7 @@ class Serialisable(Theory):
         return Equation(from_tree(term.to_tree()), loads(dumps(term)), term)
 
 
-class Category[C0, C1: Category](Theory, ABC):
+class Category[C0, C1: Category](Testable, ABC):
     """
     A category is a class with two class variables ``ob, ar``, two attributes
     ``dom, cod`` and two methods ``id, then``.

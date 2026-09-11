@@ -19,7 +19,7 @@ from discopy.axioms import (
     ComposableTriple,
     Equation,
     Grid,
-    Theory,
+    Testable,
     assert_axioms,
     axiom,
     no_strategy,
@@ -32,7 +32,7 @@ from discopy.utils import AxiomError, NamedGeneric
 
 
 @dataclass(frozen=True)
-class Endo(Theory, NamedGeneric["factory"]):
+class Endo(Testable, NamedGeneric["factory"]):
     """ An endomorphism of the factory, the subspace a law is weakened to. """
 
     value: C1
@@ -48,7 +48,7 @@ class Endo(Theory, NamedGeneric["factory"]):
             lambda arrow: arrow.dom == arrow.cod).map(cls)
 
 
-class Word(str, Theory["Word"]):
+class Word(str, Testable["Word"]):
     """ A word with tensor given by concatenation, a monoid to grid. """
 
     __matmul__ = lambda self, other: Word(str(self) + str(other))
@@ -195,7 +195,7 @@ def test_axioms_of_category():
 
 
 def test_no_strategy():
-    """ A theory that does not generate its terms says so on `strategy`. """
+    """ A class that does not generate its terms says so on `strategy`. """
     with raises(NotImplementedError) as err:
         Diagram.strategy()
     assert "No search strategy implemented for Diagram" in str(err.value)
@@ -211,7 +211,7 @@ def test_no_strategy():
 
 def test_grid_states_its_law():
     """
-    A grid is a theory like any other: it states the composability its
+    A grid is testable like any other: it states the composability its
     constructor enforces, and is checked against it once subscripted.
     """
     x, y = Ob('x'), Ob('y')

@@ -2,14 +2,15 @@
 Property-based testing of the axioms with `Hypothesis
 <https://hypothesis.readthedocs.io>`_.
 
-An :class:`Axiom` is an equation stated once on a :class:`Theory` — an
-abstract base class of :mod:`discopy.abc`, whether a category or the
-serialisation interface — and inherited by every class below it, where
+An :class:`Axiom` is an equation stated once on a :class:`Testable`
+class — an abstract base class of :mod:`discopy.abc`, whether a category
+or the serialisation interface — and inherited by every class below it,
+where
 :meth:`Axiom.failing` and :meth:`Axiom.inapplicable` classify it when a
-class breaks it or has no such structure. A theory that implements
-:meth:`Theory.strategy` generates its own terms; one that cannot do so
+class breaks it or has no such structure. A class that implements
+:meth:`Testable.strategy` generates its own terms; one that cannot do so
 yet leaves the strategy to raise. The matrix in ``proptest/`` reads its
-carriers off :meth:`Theory.subclasses` rather than a list, and checks
+carriers off :meth:`Testable.subclasses` rather than a list, and checks
 every axiom of every carrier against generated arguments, one cell per
 pair; CONTRIBUTING.md says how to run it.
 
@@ -24,7 +25,7 @@ Summary
     Equation
     Axiom
     AxiomFailure
-    Theory
+    Testable
     Grid
     ComposablePair
     ComposableTriple
@@ -201,7 +202,7 @@ class Axiom[**P, T]:
     Parameters:
         equation : The function stating the law, from the category and the
             arguments annotated with :obj:`C0`, :obj:`C1`,
-            :data:`typing.Self` or a :class:`Theory` to an
+            :data:`typing.Self` or a :class:`Testable` to an
             :class:`Equation`, or to :obj:`NotImplemented` when the
             structure does not apply.
         category : The class the axiom is bound to, :obj:`None` until
@@ -405,21 +406,21 @@ def axiom[**P, T](
     return Axiom(equation)
 
 
-class Theory[T]:
+class Testable[T]:
     """
-    A theory is a class that states axioms, which its subclasses inherit
-    along with the structure they axiomatise, and that says how to
-    generate the terms those axioms quantify over.
+    A testable class states axioms, which its subclasses inherit along
+    with the structure they axiomatise, and says how to generate the
+    terms those axioms quantify over.
 
-    Both kinds of theory subclass this: a :class:`discopy.abc.Category`
-    states the laws of a categorical structure, a
+    Both kinds of law meet here: a :class:`discopy.abc.Category` states
+    those of a categorical structure, a
     :class:`discopy.abc.Serialisable` those of writing a term down and
     reading it back. A class need not be a category to state laws, which
-    is why the two meet here rather than in either of them. Nor need it
-    be either to be a theory: :class:`ComposablePair` states the law it
-    enforces on the pairs it generates.
+    is why the two meet here rather than in either of them, nor need it
+    be either: :class:`ComposablePair` states the law it enforces on the
+    pairs it generates.
 
-    A theory that implements :meth:`strategy` is a *carrier* of the
+    A class that implements :meth:`strategy` is a *carrier* of the
     property matrix in ``proptest/``, which checks each of its axioms
     against generated terms. One that does not is not checked, and says
     so by leaving :meth:`strategy` to raise.
@@ -430,7 +431,7 @@ class Theory[T]:
         """
         Build a `search strategy
         <https://hypothesis.readthedocs.io/en/latest/data.html>`_ for
-        instances of ``cls``, which is how a theory enrols itself in the
+        instances of ``cls``, which is how a class enrols itself in the
         property matrix.
 
         An override that delegates to another strategy accepts
@@ -441,7 +442,7 @@ class Theory[T]:
         implements: a constraint it cannot honour fails loudly as an
         unexpected keyword rather than being silently dropped.
 
-        The default raises: a theory states its laws as soon as it has
+        The default raises: a class states its laws as soon as it has
         them, and is checked against them once it says how to draw their
         terms. It is deliberately not an :func:`abc.abstractmethod`,
         which would make every category that has not implemented one
@@ -474,7 +475,7 @@ class Theory[T]:
                 if isinstance(value, Axiom)}
 
     @classmethod
-    def subclasses(cls) -> tuple[type[Theory], ...]:
+    def subclasses(cls) -> tuple[type[Testable], ...]:
         """
         Every transitive subclass of ``cls``, ``cls`` itself included.
 
@@ -497,11 +498,11 @@ class Theory[T]:
         return tuple(found)
 
 
-no_strategy = Theory.__dict__["strategy"]
+no_strategy = Testable.__dict__["strategy"]
 """
-The default :meth:`Theory.strategy`, under a name that can be assigned.
+The default :meth:`Testable.strategy`, under a name that can be assigned.
 
-A class inherits it from :class:`Theory` unless a base it refines
+A class inherits it from :class:`Testable` unless a base it refines
 implements one: the terms of a :class:`discopy.monoidal.Ty` are not
 those of the :class:`discopy.cat.Ob` it subclasses, so a class that
 would inherit the wrong strategy declares ``strategy = no_strategy``
@@ -509,7 +510,7 @@ until it implements its own.
 """
 
 
-class Grid(Theory, NamedGeneric["factory"], tuple):
+class Grid(Testable, NamedGeneric["factory"], tuple):
     """ A rectangular grid with composable rows and columns. """
 
     n_rows: ClassVar[int]
@@ -604,9 +605,9 @@ class ComposableTriple(Grid):
 def resolve(annotation, **params) -> st.SearchStrategy:
     """ Resolve the strategy implemented by an annotated type. """
     if not isinstance(annotation, type)\
-            or not issubclass(annotation, Theory):
+            or not issubclass(annotation, Testable):
         raise TypeError(
-            f"Expected a Theory annotation, got {annotation!r}.")
+            f"Expected a Testable annotation, got {annotation!r}.")
     return annotation.strategy(**params)
 
 

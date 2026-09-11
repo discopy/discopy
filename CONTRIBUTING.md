@@ -81,7 +81,7 @@ single cell.
 Every cell of the matrix is one axiom of one carrier, named
 `<module>.<Carrier>.<law>`, so pytest's own `-k` selects cells for
 shorter, targeted tests. The carriers are discovered rather than listed:
-every subclass of `discopy.axioms.Theory` that implements `strategy`,
+every subclass of `discopy.axioms.Testable` that implements `strategy`,
 so a class enrols itself by saying how to generate its instances. One
 that would inherit a strategy for the wrong terms declares
 `strategy = no_strategy` until it implements its own. Most are
