@@ -3,7 +3,7 @@
 import subprocess
 import sys
 
-from pytest import raises
+from pytest import importorskip, raises
 
 from discopy import neural, python
 from discopy.neural.network import (
@@ -37,6 +37,19 @@ def test_dims():
         Dims(0)
     with raises(TypeError):
         Dims(2) * Dim(2)
+
+
+def test_check():
+    import numpy as np
+    Dims().check()
+    Dims(2, Dim(2, 3), Dim()).check(
+        np.ones((5, 2)), np.ones((5, 2, 3)), np.ones(()))
+    with raises(AxiomError, match="Expected 2 tensors, got 1"):
+        Dims(2, 3).check(np.ones(2))
+    with raises(AxiomError, match="Expected a shape ending in"):
+        Dims(Dim(2, 3)).check(np.ones((3, 2)))
+    with raises(AxiomError):
+        Dims(4).check(np.ones((4, 1)))
 
 
 def test_box():
@@ -124,3 +137,60 @@ def test_functor():
     assert G(residual)\
         == Network.copy(x @ x) >> (add >> add.dagger()) @ x @ x >> add @ add
     assert G(residual.trace()) == G(residual).trace(2)
+
+
+def test_forward():
+    import numpy as np
+    x = Dims(2)
+    split = Box('split', Dims(4), x @ x, module=lambda v: (v[:2], v[2:]))
+    first, second = split.forward(np.arange(4))
+    assert list(first) == [0, 1] and list(second) == [2, 3]
+    assert Box('f', x, x, module=lambda v: v).forward(np.ones(2)).shape == (2,)
+    with raises(ValueError, match="has no module"):
+        Box('f', x, x).forward(np.ones(2))
+    with raises(AxiomError, match="split: Expected 1 tensors, got 2"):
+        split.forward(np.ones(2), np.ones(2))
+    with raises(AxiomError, match="f: Expected a shape ending in"):
+        Box('f', x, x, module=lambda v: v[:1]).forward(np.ones(2))
+
+
+def test_to_function():
+    import numpy as np
+    x = Dims(2)
+    double = Box('double', x, x, module=lambda v: 2 * v)
+    add = Box('add', x @ x, x, module=lambda v, w: v + w)
+    residual = Network.copy(x) >> double @ x >> add
+    function = residual.to_function(np.ndarray)
+    assert list(function(np.array([1, 2]))) == [3, 6]
+    assert function.dom == function.cod == (np.ndarray, )
+    permuted = (double @ x >> Swap(x, x) >> add).to_function()
+    assert list(permuted(np.array([1, 2]), np.array([3, 4]))) == [5, 8]
+    assert Network.discard(x).to_function()(np.ones(2)) == ()
+    assert list(Id(x).to_function()(np.array([1, 2]))) == [1, 2]
+    with raises(TypeError):
+        function([1, 2])
+    with raises(NotImplementedError, match="only feedforward"):
+        (add >> Network.copy(x)).trace().to_function()
+    with raises(ValueError, match="has no module"):
+        Network.merge(x).to_function()
+
+
+def test_to_function_jax():
+    jax = importorskip("jax")
+    import jax.numpy as jnp
+    x, h = Dims(2), Dims(3)
+
+    def network(weights):
+        linear = Box('linear', x, h, module=lambda v: v @ weights)
+        relu = Box('relu', h, h, module=jax.nn.relu)
+        add = Box('add', h @ h, h, module=jnp.add)
+        return Network.copy(x) >> linear @ linear >> relu @ h >> add
+
+    weights = jnp.ones((2, 3))
+    function = jax.jit(network(weights).to_function(jax.Array))
+    outputs = function(jnp.array([[1., -1.], [2., 2.]]))
+    assert outputs.shape == (2, 3) and float(outputs[1, 0]) == 8.
+    loss = lambda weights, inputs: jnp.sum(
+        network(weights).to_function(jax.Array)(inputs))
+    gradient = jax.grad(loss)(weights, jnp.ones((4, 2)))
+    assert gradient.shape == (2, 3) and float(gradient[0, 0]) == 8.
