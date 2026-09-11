@@ -198,6 +198,29 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Changed
 
+- Every `then` takes `(self, *others)`, the signature that
+  `abc.Category.then` declares and `cat.Arrow` implements. Eight classes
+  kept one of two non-conforming shapes: `(self, other=None, *others)` on
+  `tensor.Tensor` and `quantum.channel.Channel`, and a plain binary
+  `(self, other)` with no `utils.unbiased` on `cat.Functor`,
+  `cat.Transformation`, `monoidal.Functor`, `python.function.Function`,
+  `python.finset.Function` and `python.finset.Permutation`, which raised
+  `TypeError` on a third argument.
+  The `None` branch was dead rather than a unit: it forwarded to
+  `cat.Arrow.then` as `super().then(None)`, which composes against `None`
+  rather than returning `self`, so
+  `Tensor([1, 0, 0, 1], Dim(2), Dim(2)).then(None)` raised `TypeError`
+  ([#760](https://github.com/discopy/discopy/issues/760)).
+  Five of them take `utils.unbiased`, which already spells the signature.
+  The three in `discopy.python` are written out instead:
+  `python.function.Function` because folding it nests one closure per
+  composition, and the two `python.finset` ones because the wrapper costs
+  more than the call it wraps there -- composing two finite functions is
+  cheap enough that the extra frame was 29% of it.
+  `utils.MappingOrCallable.then` is binary too and stays that way:
+  it post-composes a mapping with a functor rather than composing two
+  morphisms, and `MappingOrCallable` is not an `abc.Category`.
+
 - `monoidal.Colour` is transparent by default rather than white, i.e. its
   `name` defaults to the new `config.TRANSPARENT` and `monoidal.white` is
   renamed to `monoidal.transparent`. The drawing code painted every region
@@ -520,6 +543,16 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `python.function.Function.then` composes its `n` functions in one Python
+  frame rather than nesting one closure per composition, so that a long
+  chain can be called at all: composing two thousand functions and calling
+  the result raised `RecursionError`, the same nesting that made the tensor
+  of a few hundred `python` functions raise
+  ([#760](https://github.com/discopy/discopy/issues/760)). This is
+  inherited by `python.multiplicative.Function` and
+  `python.additive.Function`; a chain built with `>>` still nests, since
+  that operator is binary.
+
 - The marimo notebook previews in the docs follow the theme switch. The
   notebooks are exported with marimo's `system` theme and the docs relay
   the resolved theme into each notebook's iframe through marimo's
@@ -676,6 +709,13 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   ([#484](https://github.com/discopy/discopy/pull/484)).
 
 ### Performance
+
+- `python.finset.Permutation.then` walks each index through the
+  permutations in one pass over their `inside` lists, rather than reading
+  both operands through `__getitem__` at every element and iterating the
+  first through the `Sequence` protocol: composing two permutations of
+  five elements takes 5.6 us rather than 7.6, and `Permutation.conjugate`,
+  which composes twice, 19.5 us rather than 23.2.
 
 - The elements of a Hopf algebra (`drinfeld_element`, `pivotal_element`,
   `ribbon_element`) contract each structural generator once through the

@@ -74,17 +74,33 @@ class Function(Category):
         """
         return cls(lambda *xs: untuplify(xs), dom, dom)
 
-    def then(self, other: Function) -> Function:
+    def then(self, *others: Function) -> Function:
         """
-        The sequential composition of two functions, called with :code:`>>`.
+        The sequential composition of ``n`` functions, called with
+        :code:`>>`.
 
         Parameters:
-            other : The other function to compose in sequence.
+            others : The other functions to compose in sequence.
+
+        Example
+        -------
+        >>> from discopy.python.multiplicative import Function
+        >>> succ = Function(lambda x: x + 1, (int, ), (int, ))
+        >>> assert succ.then(succ, succ)(0) == 3
         """
-        assert_isinstance(other, type(self))
-        assert_iscomposable(self, other)
-        return type(self)(
-            lambda *args: other(*tuplify(self(*args))), self.dom, other.cod)
+        if not others:
+            return self
+        factors = (self, ) + others
+        for factor, other in zip(factors, others):
+            assert_isinstance(other, type(self))
+            assert_iscomposable(factor, other)
+        *before, last = factors
+
+        def inside(*args):
+            for factor in before:
+                args = tuplify(factor(*args))
+            return last(*args)
+        return type(self)(inside, self.dom, others[-1].cod)
 
     @classproperty
     @contextmanager
