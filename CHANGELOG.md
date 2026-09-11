@@ -30,7 +30,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `Hypergraph` and `Equation` — which moves `NamedGeneric` itself down to
   `discopy.utils`, re-exported from `discopy.abc`, so `discopy.axioms`
   can use it — making a subscripted wrapper a class whose
-  `strategy(cls, **params)` matches the contract `Strategy.strategy` now
+  `strategy(cls, **params)` matches the contract `Testable.strategy` now
   states, so a subspace annotation like `ComposablePair[C1]`
   builds; an unbound axiom's `.strategy()` raises the same `TypeError`
   as `.falsify` and calling it. The
@@ -51,12 +51,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   counterexample found by one night's search fails every pull request
   until it is fixed or declared; a recorded counterexample
   xfails strictly while its axiom is declared `.failing`, so a fixed bug
-  fails as an unexpected pass until the declaration moves. `Strategy`
+  fails as an unexpected pass until the declaration moves. `Testable`
   states the laws of any type that generates its own instances, whatever
   its level: `transparency`, `pickling` and `serialisation` are cells of
   the matrix for every category — `eval(repr(x))`, the pickle and the tree
   of a term read back to it, as `Equation`s like every other law — with
-  `Strategy.environment` for the namespace a representation reads back
+  `Testable.environment` for the namespace a representation reads back
   in — the package's public names and then those of the module the
   category is defined in, so that a term printing bare names such as
   `Tensor[int]([0], dom=Dim(1), cod=Dim(1))` reads back without its

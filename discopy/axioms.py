@@ -2,7 +2,7 @@
 Property-based testing of the axioms with `Hypothesis
 <https://hypothesis.readthedocs.io>`_: an :class:`Axiom` is stated once
 on an abstract base class, a category generates its own objects and
-arrows through :class:`Strategy`, and the matrix in ``proptest/``
+arrows through :class:`Testable`, and the matrix in ``proptest/``
 searches every cell for a counterexample.
 
 Summary
@@ -16,7 +16,7 @@ Summary
     Equation
     Axiom
     AxiomFailure
-    Strategy
+    Testable
     Grid
     ComposablePair
     ComposableTriple
@@ -46,11 +46,11 @@ The suite
   category in ``CATEGORIES``, one pytest cell per pair, arguments generated
   by :meth:`Axiom.strategy` from the annotations of the law's own
   parameters.
-- :class:`Strategy` states the laws of any type that generates its own
-  instances, whatever its level: :meth:`Strategy.transparency`,
-  :meth:`Strategy.pickling` and :meth:`Strategy.serialisation` are cells
+- :class:`Testable` states the laws of any type that generates its own
+  instances, whatever its level: :meth:`Testable.transparency`,
+  :meth:`Testable.pickling` and :meth:`Testable.serialisation` are cells
   of the matrix for every category, which read back in
-  :meth:`Strategy.environment`: the package's public names and its own
+  :meth:`Testable.environment`: the package's public names and its own
   module's, so that a representation printing bare names evaluates
   without the category declaring anything.
 - ``proptest/test_counterexamples.py`` replays every recorded
@@ -286,7 +286,7 @@ types of the module it is written in, so that a subclass inherits the
 override with its own types: :meth:`Axiom.strategy` rebinds both names to
 ``category.ob`` and ``category.ar``, and :data:`typing.Self` to the category
 itself for a law of every term of a type whatever its level, such as
-:meth:`Strategy.transparency`, in its :attr:`Axiom.scope` when it
+:meth:`Testable.transparency`, in its :attr:`Axiom.scope` when it
 evaluates the annotations; a law of functors names the category they map
 from as ``Self.dom``. This is also why every module stating an axiom
 needs ``from __future__ import annotations``, which keeps them
@@ -397,7 +397,7 @@ class Axiom[**P, T]:
     are generated from their annotations — an object for the typing of
     identities, three composable arrows for the associativity of
     composition, a term of the category itself for
-    :meth:`Strategy.transparency`.
+    :meth:`Testable.transparency`.
 
     Calling a bound axiom returns its own verdict: :obj:`NotImplemented`
     when the structure does not apply to the category, and the equation
@@ -412,7 +412,7 @@ class Axiom[**P, T]:
     Parameters:
         equation : The function stating the law, from the category and the
             arguments annotated with :obj:`C0`, :obj:`C1`,
-            :data:`typing.Self` or a :class:`Strategy` to an
+            :data:`typing.Self` or a :class:`Testable` to an
             :class:`Equation`, or to :obj:`NotImplemented` when the
             structure does not apply.
         category : The class the axiom is bound to, :obj:`None` until
@@ -616,12 +616,12 @@ def axiom[**P, T](
     return Axiom(equation)
 
 
-class Strategy[T](ABC):
+class Testable[T](ABC):
     """
-    A type with a canonical `search strategy
-    <https://hypothesis.readthedocs.io/en/latest/data.html>`_
-    generating its instances, and the laws every such type obeys: a term
-    reads back from its representation, its pickle and its tree.
+    A type that comes with a `search strategy
+    <https://hypothesis.readthedocs.io/en/latest/data.html>`_ generating
+    its instances, and the laws every such type obeys: a term reads back
+    from its representation, its pickle and its tree.
     """
 
     @classmethod
@@ -689,7 +689,7 @@ class Strategy[T](ABC):
         return Equation(from_tree(term.to_tree()), loads(dumps(term)), term)
 
 
-class Grid(Strategy, NamedGeneric["factory"], tuple):
+class Grid(Testable, NamedGeneric["factory"], tuple):
     """ A rectangular grid with composable rows and columns. """
 
     n_rows: ClassVar[int]
@@ -763,9 +763,9 @@ class ComposableTriple(Grid):
 def resolve(annotation, **params) -> st.SearchStrategy:
     """ Resolve the strategy implemented by an annotated type. """
     if not isinstance(annotation, type)\
-            or not issubclass(annotation, Strategy):
+            or not issubclass(annotation, Testable):
         raise TypeError(
-            f"Expected a Strategy annotation, got {annotation!r}.")
+            f"Expected a Testable annotation, got {annotation!r}.")
     return annotation.strategy(**params)
 
 

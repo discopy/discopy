@@ -83,7 +83,7 @@ from typing import (
 
 from discopy import messages, utils
 from discopy.abc import Category
-from discopy.axioms import GENERATORS, Equation as AbstractEquation, Strategy
+from discopy.axioms import GENERATORS, Equation as AbstractEquation, Testable
 from discopy.utils import (  # noqa: F401
     factory,
     factory_name,
@@ -104,7 +104,7 @@ dumps, loads = utils.dumps, utils.loads
 
 
 @total_ordering
-class Ob(Strategy["Ob"]):
+class Ob(Testable["Ob"]):
     """
     An object with a string as :code:`name`.
 
@@ -260,7 +260,7 @@ class FreeCategory(Category):
 
 
 @factory
-class Arrow(FreeCategory, Strategy["Arrow"]):
+class Arrow(FreeCategory, Testable["Arrow"]):
     """
     An arrow is a tuple of composable boxes :code:`inside` with a pair of
     objects :code:`dom` and :code:`cod` as domain and codomain.
