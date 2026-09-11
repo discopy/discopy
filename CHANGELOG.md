@@ -188,10 +188,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   rather than returning `self`, so
   `Tensor([1, 0, 0, 1], Dim(2), Dim(2)).then(None)` raised `TypeError`
   ([#760](https://github.com/discopy/discopy/issues/760)).
-  Six of them take `utils.unbiased`, which already spells the signature;
-  the two `python.finset` ones are written out instead, because the
-  wrapper costs more than the call it wraps there -- composing two finite
-  functions is cheap enough that the extra frame was 29% of it.
+  Five of them take `utils.unbiased`, which already spells the signature.
+  The three in `discopy.python` are written out instead:
+  `python.function.Function` because folding it nests one closure per
+  composition, and the two `python.finset` ones because the wrapper costs
+  more than the call it wraps there -- composing two finite functions is
+  cheap enough that the extra frame was 29% of it.
   `utils.MappingOrCallable.then` is binary too and stays that way:
   it post-composes a mapping with a functor rather than composing two
   morphisms, and `MappingOrCallable` is not an `abc.Category`.
