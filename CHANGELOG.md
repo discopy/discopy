@@ -9,6 +9,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- Abstract categorial grammars, `discopy.grammar.abstract`, where derivations
+  are (almost) linear lambda terms with words as constants and lexicons are
+  functors from free biclosed categories to free closed categories:
+  `closed.TermBase.from_biclosed` and `closed.Ty.from_biclosed` drop
+  planarity by collapsing left and right exponentials, `abstract.Lexicon`
+  subclasses `categorial.Functor` and `closed.Functor` so that crossed
+  compositions and type raising translate into lambda terms, and
+  `closed.TermBase.normal_form` beta-reduces a term
+  ([#398](https://github.com/discopy/discopy/issues/398)).
 - `discopy/axioms.py`, a Hypothesis-based property-testing module, home
   of `Equation` (formerly `discopy.abc.Equation`): a law is stated once
   on `discopy.abc.Category` and every subclass inherits
@@ -478,6 +487,33 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `biclosed.Curry`'s own constructor defaulted to `left=False`, disagreeing
+  with `Diagram.curry`'s `left=True` default since #560 unified the two: a
+  bare `Curry(box)` curried the opposite side of `box.curry()`.
+  `closed.Diagram.bc` and `grammar.categorial.Diagram.bc` passed `n` without
+  `left`, so backward composition curried on the wrong side by the same
+  drift.
+  `closed.Application.__check_dom__` and `closed.Abstraction.eval` order
+  free variables and permute wires by variable count rather than by wire
+  width, so an abstracted or applied term with a multi-wire free variable
+  built the wrong domain or crashed `Diagram.permutation`; both now account
+  for each variable's width. `grammar.abstract` set `braid_factory` instead
+  of `swap_factory` (renamed by #440) and defined no `Permutation` class of
+  its own, so any swap or non-trivial permutation of abstract diagrams
+  silently built a `closed.Diagram` instead of a `grammar.abstract.Diagram`.
+- `biclosed.Functor.__call__`'s term dispatch (added alongside
+  `discopy.grammar.abstract` above) took `self.cod.ob`'s being a subclass of
+  `Ty` as a sign that the codomain is itself a term category and mapped the
+  term symbolically with `TermBase.map` instead of evaluating it — true of
+  every category built on `biclosed.Ty`, `CMap` included, since `CMap` reuses
+  its host category's own `Ty` as its object type. Calling `to_map()` on any
+  `Application` or `Abstraction` therefore returned the term unchanged rather
+  than a `CMap`, `AttributeError`-ing downstream the moment something tried
+  to read `.ports` off it. The check now also excludes `CMap` as a codomain.
+  `grammar.abstract.CMap` is a `cmap.CMap[Diagram]` alias like the rest of the
+  hierarchy rather than a hand-rolled subclass, and the dead
+  `Diagram.map_factory` assignment it carried (removed everywhere else by
+  #532) is dropped.
 - The marimo notebook previews in the docs follow the theme switch. The
   notebooks are exported with marimo's `system` theme and the docs relay
   the resolved theme into each notebook's iframe through marimo's
