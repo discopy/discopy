@@ -1618,7 +1618,6 @@ class Functor(cat.Functor):
 
     @unbiased
     def then(self, other):
-        """ The composition of a functor with another. """
         assert_isinstance(other, Functor)
         assert_iscomposable(self, other)
         return type(self)(

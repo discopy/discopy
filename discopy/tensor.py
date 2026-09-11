@@ -139,10 +139,6 @@ class Tensor(Matrix):
 
     @unbiased
     def then(self, other: Tensor) -> Tensor:
-        """
-        The composition of two tensors, i.e. their contraction over the
-        ``len(self.cod)`` axes they share.
-        """
         assert_isinstance(other, type(self))
         assert_iscomposable(self, other)
         with backend() as np:

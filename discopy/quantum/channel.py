@@ -176,7 +176,6 @@ class Channel(Tensor):
 
     @unbiased
     def then(self, other: Channel) -> Channel:
-        """ The composition of two channels, as underlying tensors. """
         assert_isinstance(other, type(self))
         array = (self.to_tensor() >> other.to_tensor()).array
         return type(self)(array, self.dom, other.cod)
