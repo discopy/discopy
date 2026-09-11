@@ -63,8 +63,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   other broken law. `discopy.axioms` joins the API docs under its own
   `axioms` page, with `CONTRIBUTING.md` saying how to run the suite;
   `AGENTS.md` points to it from `Where` rather than importing it into
-  every agent's context, and links its other documents rather than
-  importing them with the `@` syntax only `CLAUDE.md` is read with.
+  every agent's context.
 - `abc.Nat`, a concrete dataclass for the free monoid on one generator
   (`n: int` with addition as `tensor`), and `abc.PRO`/`abc.PROB`/`abc.PROP`,
   the `MonoidalCategory`/`BraidedCategory`/`SymmetricCategory` whose objects
