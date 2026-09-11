@@ -120,6 +120,23 @@ def get_origin(typ):
     return getattr(typ, "__origin__", typ)
 
 
+def unpickle_parameterised(func, args, values):
+    """
+    Rebuild an instance of a parameterised class: reconstruct the
+    instance of the origin class and parameterise its class with
+    ``values``, before pickle restores the state as usual, so that the
+    ``__setstate__`` of the origin class sees the right parameters.
+
+    Parameters:
+        func : The reconstructor of the origin class.
+        args : The arguments to the reconstructor.
+        values : The parameters of the class, see :class:`NamedGeneric`.
+    """
+    self = func(*args)
+    self.__class__ = self.__class__[values]
+    return self
+
+
 class NamedGeneric(Generic[TypeVar('T')]):
     """
     A ``NamedGeneric`` is a ``Generic`` where the type parameter has a name.
@@ -183,8 +200,8 @@ class NamedGeneric(Generic[TypeVar('T')]):
                             """
                             func, args, data = super().__reduce__()
                             if '[' in args[0].__name__:
-                                args = (origin, ) + args[1:]
-                                data |= {"__class_getitem__values__": values}
+                                return unpickle_parameterised, (
+                                    func, (origin, ) + args[1:], values), data
                             return func, args, data
 
                     C.__module__ = origin.__module__
@@ -297,8 +314,14 @@ def from_tree(tree: dict):
     >>> from discopy.cat import Box
     >>> f = Box('f', 'x', 'y', data=42)
     >>> assert from_tree(tree) == f >> f[::-1]
+
+    Note
+    ----
+    A parameterised factory such as ``"tensor.Box[float]"`` resolves to
+    its origin class, which re-derives the parameter from the tree.
     """
-    *modules, factory = tree['factory'].removeprefix('discopy.').split('.')
+    factory = tree['factory'].removeprefix('discopy.').split('[')[0]
+    *modules, factory = factory.split('.')
     import discopy
     module = discopy
     for attr in modules:
@@ -492,10 +515,17 @@ class BinaryBoxConstructor:
     """
     Box constructor with attributes ``left`` and ``right`` as input.
 
+    The class declares what serialises it, which
+    :class:`discopy.axioms.Serialisable` reads off whichever box it is mixed
+    into, rather than implementing the interface itself: a binary box
+    constructor is never a term on its own.
+
     Parameters:
         left : Some attribute on the left.
         right : Some attribute on the right.
     """
+    serialised_attrs = ('left', 'right')
+
     def __init__(self, left, right):
         self.left, self.right = left, right
 
@@ -507,20 +537,6 @@ class BinaryBoxConstructor:
                               f"({state['left']}, {state['right']})"
             )
         super().__setstate__(state)
-
-    def __repr__(self):
-        return factory_name(type(self))\
-            + f"({repr(self.left)}, {repr(self.right)})"
-
-    def to_tree(self) -> dict:
-        """ Serialise a binary box constructor. """
-        left, right = self.left.to_tree(), self.right.to_tree()
-        return dict(factory=factory_name(type(self)), left=left, right=right)
-
-    @classmethod
-    def from_tree(cls, tree: dict) -> BinaryBoxConstructor:
-        """ Decode a serialised binary box constructor. """
-        return cls(*map(from_tree, (tree['left'], tree['right'])))
 
 
 @lru_cache(maxsize=1024)
