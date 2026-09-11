@@ -526,7 +526,7 @@ class BinaryBoxConstructor:
     Box constructor with attributes ``left`` and ``right`` as input.
 
     The class declares what serialises it, which
-    :class:`discopy.abc.Serialisable` reads off whichever box it is mixed
+    :class:`discopy.axioms.Serialisable` reads off whichever box it is mixed
     into, rather than implementing the interface itself: a binary box
     constructor is never a term on its own.
 

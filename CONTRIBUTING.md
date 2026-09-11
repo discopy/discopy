@@ -85,7 +85,7 @@ every subclass of `discopy.axioms.Testable` that implements `strategy`,
 so a class enrols itself by saying how to generate its instances. One
 that would inherit a strategy for the wrong terms declares
 `strategy = no_strategy` until it implements its own. Most are
-categories; the roundtrip laws of `discopy.abc.Serialisable` are also
+categories; the roundtrip laws of `discopy.axioms.Serialisable` are also
 checked on the terms that state them without being categories, e.g. the
 objects of a category.
 

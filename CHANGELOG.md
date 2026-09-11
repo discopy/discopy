@@ -9,7 +9,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
-- `abc.Serialisable`, the serialisation interface of DisCoPy, one hook
+- `axioms.Serialisable`, the serialisation interface of DisCoPy, one hook
   driving all three mechanisms: the class attribute `serialised_attrs`
   names the attributes that are also keyword arguments of `__init__`,
   from which follow a generic pair of inverse methods `to_tree` and
@@ -29,7 +29,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `"is_dagger": false` in a tree decodes as `False`, where the old
   key-presence test read it as `True`.
 - Each mechanism comes with the law that it is a roundtrip, stated on
-  `abc.Serialisable` as an axiom like any other: `transparency` for the
+  `axioms.Serialisable` as an axiom like any other: `repr_transparency`
+  for the
   representation, `pickling` and `copying` for the pickle protocol and
   `serialisation` for the tree, with `environment` for the namespace a
   representation reads back in. `copying` is new — a deep
@@ -104,7 +105,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   demand. `Testable.strategy`
   generates the terms a law quantifies over, whatever its level, while
   the laws that a term reads back from its representation, its pickle
-  and its tree are stated on `abc.Serialisable` above; the ad-hoc property
+  and its tree are stated on `axioms.Serialisable` above; the ad-hoc property
   files for representations, pickling and serialisation are gone, and a
   known violation is a `.failing` declaration on its category like any
   other broken law. `discopy.axioms` joins the API docs under its own

@@ -29,6 +29,7 @@ Summary
     Grid
     ComposablePair
     ComposableTriple
+    Serialisable
 
 .. admonition:: Functions
 
@@ -47,7 +48,10 @@ from __future__ import annotations
 
 import __future__
 import inspect
+import pickle
+import sys
 from collections.abc import Callable
+from copy import deepcopy
 from dataclasses import KW_ONLY, dataclass, replace
 from functools import wraps
 from typing import TYPE_CHECKING, ClassVar, Concatenate, Self, TypeVar
@@ -75,8 +79,7 @@ types of the module it is written in, so that a subclass inherits the
 override with its own types: :meth:`Axiom.strategy` rebinds both names to
 ``category.ob`` and ``category.ar``, and :data:`typing.Self` to the category
 itself for a law of every term of a type whatever its level, such as
-:meth:`discopy.abc.Serialisable.transparency`, in its
-:attr:`Axiom.scope` when it
+:meth:`Serialisable.repr_transparency`, in its :attr:`Axiom.scope` when it
 evaluates the annotations; a law of functors names the category they map
 from as ``Self.dom``. This is also why every module stating an axiom
 needs ``from __future__ import annotations``, which keeps them
@@ -187,7 +190,7 @@ class Axiom[**P, T]:
     are generated from their annotations — an object for the typing of
     identities, three composable arrows for the associativity of
     composition, a term of the category itself for
-    :meth:`discopy.abc.Serialisable.transparency`.
+    :meth:`Serialisable.repr_transparency`.
 
     Calling a bound axiom returns its own verdict: :obj:`NotImplemented`
     when the structure does not apply to the category, and the equation
@@ -414,7 +417,7 @@ class Testable[T]:
 
     Both kinds of law meet here: a :class:`discopy.abc.Category` states
     those of a categorical structure, a
-    :class:`discopy.abc.Serialisable` those of writing a term down and
+    :class:`Serialisable` those of writing a term down and
     reading it back. A class need not be a category to state laws, which
     is why the two meet here rather than in either of them, nor need it
     be either: :class:`ComposablePair` states the law it enforces on the
@@ -653,3 +656,235 @@ def assert_axioms(*categories) -> None:
                 assert axiom.broken, axiom
             else:
                 assert verdict is NotImplemented or verdict, axiom
+
+
+class Serialisable(Testable):
+    """
+    The serialisation interface of DisCoPy, one hook driving all three
+    mechanisms: the class attribute ``serialised_attrs`` names attributes that
+    are also keyword arguments of ``__init__``, from which follow
+
+    - a generic pair of inverse methods :meth:`to_tree` and
+      :meth:`from_tree`, the JSON serialisation behind
+      :func:`discopy.utils.dumps` and :func:`discopy.utils.loads`,
+    - a generic :meth:`__repr__` such that ``eval(repr(x)) == x``,
+    - :meth:`__setstate__`, the terminal of every pickle migration
+      chain; the class parameters of
+      :class:`discopy.utils.NamedGeneric` are pickled by their own
+      machinery.
+
+    A subclass with a different constructor declares its keys once
+    instead of reimplementing each method.
+
+    Each mechanism comes with the law that it is a roundtrip, i.e. that
+    a term reads back from what it was written to:
+    :meth:`repr_transparency`
+    for its representation, :meth:`pickling` and :meth:`copying` for the
+    pickle protocol and :meth:`serialisation` for its tree. They are
+    axioms like any other, so a class that also implements
+    :meth:`discopy.axioms.Testable.strategy` has them checked against
+    generated terms, and one that violates a law declares it
+    ``.failing`` rather than leaving it untested.
+
+    Example
+    -------
+    >>> from discopy.cat import Box
+    >>> assert Box.serialised_attrs\\
+    ...     == ('name', 'dom', 'cod', 'is_dagger', 'data')
+    >>> f = Box('f', 'x', 'y', data=42)
+    >>> assert Box.from_tree(f.to_tree()) == f
+    """
+    serialised_attrs: tuple[str, ...] = ()
+
+    def is_default(self, key: str) -> bool:
+        """
+        Whether the value of an attribute equals its class default,
+        in which case :meth:`to_tree` and :meth:`__repr__` drop it.
+
+        Parameters:
+            key : The name of the attribute.
+        """
+        if not hasattr(type(self), key):
+            return False
+        value, default = getattr(self, key), getattr(type(self), key)
+        return value is default or (
+            type(value) is type(default) and value == default)
+
+    def __repr__(self):
+        """
+        The transparent representation of a DisCoPy object: an attribute
+        without a class default is positional, one that differs from its
+        default is a keyword argument and one equal to it is dropped.
+
+        Example
+        -------
+        >>> import discopy
+        >>> from discopy.cat import Box
+        >>> f = Box('f', 'x', 'y', data=42)
+        >>> f
+        cat.Box('f', cat.Ob('x'), cat.Ob('y'), data=42)
+        >>> assert eval(repr(f), vars(discopy)) == f
+        """
+        return factory_name(type(self)) + "(" + ", ".join(
+            f"{key}={repr(getattr(self, key))}" if hasattr(type(self), key)
+            else repr(getattr(self, key))
+            for key in self.serialised_attrs if not self.is_default(key)) + ")"
+
+    def __setstate__(self, state):
+        """
+        Restore a pickled state, the terminal that every pickle
+        migration shim chains into with ``super().__setstate__``.
+
+        Parameters:
+            state : The pickled state of the object.
+        """
+        self.__dict__.update(state)
+
+    def to_tree(self) -> dict:
+        """
+        Serialise a DisCoPy object, see :func:`dumps`.
+
+        The tree records the :func:`factory_name` and then each of the
+        ``serialised_attrs``, dropping a key when its value equals the
+        class attribute of the same name, e.g. a box that is not a
+        dagger. An attribute with a ``to_tree`` method is serialised, a
+        non-empty list or tuple of such attributes becomes the list of
+        their trees, raw JSON data passes through unchanged.
+
+        Example
+        -------
+        >>> from pprint import PrettyPrinter
+        >>> pprint = PrettyPrinter(indent=4, width=70, sort_dicts=False).pprint
+        >>> from discopy.cat import Box
+        >>> f = Box('f', 'x', 'y', data=42)
+        >>> pprint((f >> f[::-1]).to_tree())
+        {   'factory': 'cat.Arrow',
+            'inside': [   {   'factory': 'cat.Box',
+                              'name': 'f',
+                              'dom': {'factory': 'cat.Ob', 'name': 'x'},
+                              'cod': {'factory': 'cat.Ob', 'name': 'y'},
+                              'data': 42},
+                          {   'factory': 'cat.Box',
+                              'name': 'f',
+                              'dom': {'factory': 'cat.Ob', 'name': 'y'},
+                              'cod': {'factory': 'cat.Ob', 'name': 'x'},
+                              'is_dagger': True,
+                              'data': 42}],
+            'dom': {'factory': 'cat.Ob', 'name': 'x'},
+            'cod': {'factory': 'cat.Ob', 'name': 'x'}}
+        """
+        tree = {'factory': factory_name(type(self))}
+        for key in self.serialised_attrs:
+            if self.is_default(key):
+                continue
+            value = getattr(self, key)
+            if hasattr(value, 'to_tree'):
+                value = value.to_tree()
+            elif isinstance(value, (list, tuple)) and value and all(
+                    hasattr(v, 'to_tree') for v in value):
+                value = [v.to_tree() for v in value]
+            tree[key] = value
+        return tree
+
+    @classmethod
+    def from_tree(cls, tree: dict) -> Serialisable:
+        """
+        Decode a serialised DisCoPy object, see :func:`loads`.
+
+        A key missing from the tree falls back to the default value of
+        the corresponding keyword argument of ``__init__``. A value with
+        a ``'factory'`` key decodes recursively, a non-empty list of
+        such values to the tuple of decoded objects, raw JSON data
+        passes through unchanged.
+
+        Parameters:
+            tree : DisCoPy serialisation.
+
+        Example
+        -------
+        >>> from discopy.cat import Ob
+        >>> assert Ob.from_tree({'factory': 'cat.Ob', 'name': 'x'}) == Ob('x')
+        """
+        from discopy.utils import from_tree
+
+        kwargs = {}
+        for key in cls.serialised_attrs:
+            if key not in tree:
+                continue
+            value = tree[key]
+            if isinstance(value, dict) and 'factory' in value:
+                value = from_tree(value)
+            elif isinstance(value, list) and value and all(
+                    isinstance(v, dict) and 'factory' in v for v in value):
+                value = tuple(map(from_tree, value))
+            kwargs[key] = value
+        return cls(**kwargs)
+
+    @classmethod
+    def environment(cls) -> dict:
+        """
+        The namespace the representation of a term reads back in: the
+        public names of the package, as ``from discopy import *`` binds
+        them, so that a representation qualified by module such as
+        ``cat.Box('f', cat.Ob('x'), cat.Ob('y'))`` evaluates, and then
+        those of the module the class is defined in, so that one
+        printing bare names such as ``Tensor[int]([0], dom=Dim(1),
+        cod=Dim(1))`` evaluates too. The module comes second because a
+        term prints the names its own module binds: ``Dim`` in
+        ``discopy.tensor`` is the one a tensor is built from.
+
+        The import is local because the package imports this module.
+        """
+        import discopy
+
+        public = lambda namespace: {
+            name: value for name, value in namespace.items()
+            if not name.startswith("_")}
+        module = sys.modules[cls.__module__]
+        return dict(public(vars(discopy)), **public(vars(module)))
+
+    @axiom
+    def repr_transparency(cls, term: Self) -> Equation:
+        """
+        The representation of a term evaluates back to it, in the
+        :meth:`environment` of its type.
+
+        Its ``str`` reads back too, which STYLE.md asks of every term
+        under "the obvious variable naming convention", but the
+        environment that convention needs is more than a namespace, so
+        ``str_transparency`` is left to
+        `#764 <https://github.com/discopy/discopy/issues/764>`_.
+        """
+        return Equation(eval(repr(term), cls.environment()), term)
+
+    @axiom
+    def pickling(cls, term: Self) -> Equation:
+        """
+        A term loads back from its pickle, of the same class: the equation
+        is between the pairs of a class and a term, since a subscript of a
+        :class:`discopy.utils.NamedGeneric` is part of what a pickle keeps.
+        """
+        loaded = pickle.loads(pickle.dumps(term))
+        return Equation((type(loaded), loaded), (type(term), term))
+
+    @axiom
+    def copying(cls, term: Self) -> Equation:
+        """
+        A term is equal to its deep copy, of the same class. Copying goes
+        through the same protocol as :meth:`pickling` without the bytes,
+        so a class whose reduction drops what its state needs — the
+        parameters of a :class:`discopy.utils.NamedGeneric`, say — breaks
+        one law with the other.
+        """
+        copied = deepcopy(term)
+        return Equation((type(copied), copied), (type(term), term))
+
+    @axiom
+    def serialisation(cls, term: Self) -> Equation:
+        """
+        A term decodes back from its tree and from the JSON of its tree.
+        A type without a tree declares the law inapplicable.
+        """
+        from discopy.utils import dumps, from_tree, loads
+
+        return Equation(from_tree(term.to_tree()), loads(dumps(term)), term)
