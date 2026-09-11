@@ -13,9 +13,9 @@ Non-conforming, `(self, other=None, *others)`:
 - [WIP] @session_01Cx6uSFsQAKANhJLV1mQVpM-2026-09-11 08:07 `monoidal.Sum.tensor`
 - [ ] `symmetric.Permutation.tensor`
 - [ ] `python.finset.Permutation.tensor`
-- [ ] `tensor.Tensor.tensor`
-- [ ] `matrix.Matrix.tensor`
-- [ ] `quantum.channel.Channel.tensor`
+- [WIP] @session_01Cx6uSFsQAKANhJLV1mQVpM-2026-09-11 08:11 `tensor.Tensor.tensor`
+- [WIP] @session_01Cx6uSFsQAKANhJLV1mQVpM-2026-09-11 08:11 `matrix.Matrix.tensor`
+- [WIP] @session_01Cx6uSFsQAKANhJLV1mQVpM-2026-09-11 08:11 `quantum.channel.Channel.tensor`
 
 Non-conforming, binary with no `@unbiased`:
 
