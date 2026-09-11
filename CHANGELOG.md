@@ -22,7 +22,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `discopy.abc`, are enrolled in `proptest/`. The bugs the wider search
   surfaced are fixed below, except one declared in the matrix —
   `feedback.Diagram.feedback` unrolls its memory in the wrong order
-  ([#606](https://github.com/discopy/discopy/issues/606)) — and one the
+  ([#649](https://github.com/discopy/discopy/issues/649)) — and one the
   matrix cannot reach: an uncoloured `monoidal.Wire` reprs as the `cat.Ob`
   that `Ty` coerces, which its type-strict equality rejects
   ([#650](https://github.com/discopy/discopy/issues/650)). `Wire` is the
@@ -58,7 +58,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `Hypergraph` and `Equation` — which moves `NamedGeneric` itself down to
   `discopy.utils`, re-exported from `discopy.abc`, so `discopy.axioms`
   can use it — making a subscripted wrapper a class whose
-  `strategy(cls, **params)` matches the contract `Strategy.strategy` now
+  `strategy(cls, **params)` matches the contract `Testable.strategy` now
   states, so a subspace annotation like `ComposablePair[C1]`
   builds; an unbound axiom's `.strategy()` raises the same `TypeError`
   as `.falsify` and calling it. The
@@ -66,7 +66,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   the free categories and their functors listed in `proptest/categories.py`,
   and run by the new `proptest` GitHub
   workflow on PRs labelled `proptest`, on `main`, nightly and on manual
-  dispatch. `proptest/conftest.py` registers three Hypothesis profiles
+  dispatch. `proptest/conftest.py` registers four Hypothesis profiles
   over one example database, keyed per cell: `pr` replays what the
   database remembers and generates a few examples from a fixed seed,
   `explore` searches with a large budget, `dev` works on the local
@@ -76,14 +76,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   run's artifact, and a run of `main`, the nightly search or a dispatch
   uploads its own afterwards — a pull request only reads it — so a
   counterexample found by one night's search fails every pull request
-  until it is fixed or declared; a recorded counterexample
-  xfails strictly while its axiom is declared `.failing`, so a fixed bug
-  fails as an unexpected pass until the declaration moves. `Strategy`
+  until it is fixed or declared, and `Axiom.falsify` searches for one
+  on demand; a recorded counterexample xfails strictly while its axiom
+  is declared `.failing`, so a fixed bug fails as an unexpected pass
+  until the declaration moves. `Testable`
   states the laws of any type that generates its own instances, whatever
   its level: `transparency`, `pickling` and `serialisation` are cells of
   the matrix for every category — `eval(repr(x))`, the pickle and the tree
   of a term read back to it, as `Equation`s like every other law — with
-  `Strategy.environment` for the namespace a representation reads back
+  `Testable.environment` for the namespace a representation reads back
   in — the package's public names and then those of the module the
   category is defined in, so that a term printing bare names such as
   `Tensor[int]([0], dom=Dim(1), cod=Dim(1))` reads back without its
@@ -94,7 +95,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   for developing against the suite — laws stated before implementation,
   a failing cell debugged, its counterexample recorded, a strategy that
   missed a bug audited — is the documentation of `discopy.axioms`,
-  which joins the API docs under its own `axioms` page; `AGENTS.md`
+  which joins the API docs under its own `axioms` page, with
+  `CONTRIBUTING.md` saying how to run the suite; `AGENTS.md`
   points to it from `Where` rather than importing it into every agent's
   context, and links its other documents rather than importing them with
   the `@` syntax only `CLAUDE.md` is read with.
@@ -211,9 +213,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 - The monoidal property suite uses `discopy.axioms` and the category registry.
   Functor laws quantify their functor with `Self` and their source types with
-  `Self.dom`; monoids inherit category unitality and associativity. Strategy
-  defaults follow transparent colours and `Nat` boundaries, and unused
-  natural-number helpers and classifications are removed.
+  `Self.dom`; monoids inherit category unitality and associativity.
+  Search-strategy defaults follow transparent colours and `Nat` boundaries,
+  and unused natural-number helpers and classifications are removed.
 
 - `monoidal.Colour` is transparent by default rather than white, i.e. its
   `name` defaults to the new `config.TRANSPARENT` and `monoidal.white` is

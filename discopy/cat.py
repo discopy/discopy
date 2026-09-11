@@ -85,7 +85,7 @@ from discopy import messages, utils
 from discopy.abc import Category
 from discopy.axioms import (
     C1, GENERATORS, ComposablePair, Equation as AbstractEquation, Relabelling,
-    Strategy, axiom)
+    Testable, axiom)
 from discopy.utils import (  # noqa: F401
     factory,
     factory_name,
@@ -106,7 +106,7 @@ dumps, loads = utils.dumps, utils.loads
 
 
 @total_ordering
-class Ob(Strategy["Ob"]):
+class Ob(Testable["Ob"]):
     """
     An object with a string as :code:`name`.
 
@@ -262,7 +262,7 @@ class FreeCategory(Category):
 
 
 @factory
-class Arrow(FreeCategory, Strategy["Arrow"]):
+class Arrow(FreeCategory, Testable["Arrow"]):
     """
     An arrow is a tuple of composable boxes :code:`inside` with a pair of
     objects :code:`dom` and :code:`cod` as domain and codomain.
@@ -888,7 +888,7 @@ class Bubble(Box):
 
 
 @factory
-class Functor(Category, Strategy["Functor"]):
+class Functor(Category, Testable["Functor"]):
     """
     A functor is a pair of maps :code:`ob_map` and :code:`ar_map` and an
     optional codomain category :code:`cod`.
@@ -1036,7 +1036,7 @@ class Functor(Category, Strategy["Functor"]):
                 lambda functor: dom in (None, functor.dom)
                 and cod in (None, functor.cod))
 
-    serialisation = Strategy.serialisation.inapplicable(
+    serialisation = Testable.serialisation.inapplicable(
         "A functor has no tree.")
     unitality = Category.unitality.failing(
         "The identity functor is a pair of functions: composing it on the "

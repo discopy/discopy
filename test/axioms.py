@@ -15,7 +15,7 @@ from discopy.axioms import (
     C1, Atomic, Axiom, AxiomFailure, BoundaryConnected, ComposablePair,
     ComposableTriple, Equation, FeedbackJoining, FeedbackVanishing, Grid,
     HomogeneousMemory, HorizontalPair, LeftCurrying, NonEmpty, Relabelling,
-    RightCurrying, Square, Strategy, Subsingleton, TraceDinaturalityLeft,
+    RightCurrying, Square, Testable, Subsingleton, TraceDinaturalityLeft,
     TraceDinaturalityRight, TraceNaturalityLeft, TraceNaturalityRight,
     TraceSuperposing, assert_axioms, axiom, resolve, substitute)
 from discopy.cat import Arrow, Box, Functor, Ob
@@ -23,7 +23,7 @@ from discopy.utils import AxiomError, NamedGeneric
 
 
 @dataclass(frozen=True)
-class Endo(Strategy, NamedGeneric["factory"]):
+class Endo(Testable, NamedGeneric["factory"]):
     """ An endomorphism of the factory, the subspace a law is weakened to. """
 
     value: C1
@@ -39,7 +39,7 @@ class Endo(Strategy, NamedGeneric["factory"]):
             lambda arrow: arrow.dom == arrow.cod).map(cls)
 
 
-class Word(str, Strategy["Word"]):
+class Word(str, Testable["Word"]):
     """ A word with tensor given by concatenation, a monoid to grid. """
 
     __matmul__ = lambda self, other: Word(str(self) + str(other))

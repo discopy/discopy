@@ -65,7 +65,7 @@ from warnings import warn
 from discopy import abc, cat, drawing, hypergraph, cmap, messages
 from discopy.abc import ColouredMonoid, MonoidalCategory
 from discopy.axioms import (
-    Square, BoundaryConnected, C1, GENERATORS, HorizontalPair, Strategy,
+    Square, BoundaryConnected, C1, GENERATORS, HorizontalPair, Testable,
     axiom)
 from discopy.drawing import Drawing
 from discopy.config import (
@@ -1018,7 +1018,7 @@ class Layer(cat.Box, ColouredMonoid):
 
 @factory
 class Diagram(
-        cat.Arrow, MonoidalCategory, RichDisplay, Strategy["Diagram"]):
+        cat.Arrow, MonoidalCategory, RichDisplay, Testable["Diagram"]):
     """
     A diagram is a tuple of composable layers :code:`inside` with a pair of
     types :code:`dom` and :code:`cod` as domain and codomain.
