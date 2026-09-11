@@ -14,6 +14,7 @@ def get_version():
 # -- Project information -----------------------------------------------------
 
 project = 'DisCoPy'
+author = 'DisCoPy'
 copyright = '2019, DisCoPy'
 
 # The full version, including alpha/beta/rc tags

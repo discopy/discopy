@@ -6,5 +6,5 @@
 > * the footer says "author name not set"
 
 - [x] `spiral.gif` disappeared from the docs
-- [ ] the footer says "Author name not set"
+- [x] the footer says "Author name not set"
 - [ ] report anything else broken that the build surfaces

@@ -534,6 +534,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   deleted. Called with no path at all, `to_gif` writes the animation in the
   temporary directory it already uses for the frames instead of leaving a
   `tmp_*.gif` behind in the working directory.
+- The docs footer reads "By DisCoPy" rather than "By Author name not set":
+  `docs/conf.py` never set `author` and Sphinx 7.4 defaults it to that
+  sentence, where 7.2 said `unknown`
+  ([#723](https://github.com/discopy/discopy/pull/723)).
 - The marimo notebook previews in the docs follow the theme switch. The
   notebooks are exported with marimo's `system` theme and the docs relay
   the resolved theme into each notebook's iframe through marimo's
