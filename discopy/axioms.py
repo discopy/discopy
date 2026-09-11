@@ -45,23 +45,18 @@ from __future__ import annotations
 
 import __future__
 import inspect
-import pickle
-import sys
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import KW_ONLY, dataclass, replace
 from functools import wraps
-from typing import TYPE_CHECKING, ClassVar, Concatenate, Self, TypeVar
+from typing import TYPE_CHECKING, ClassVar, Concatenate, TypeVar
 
 from discopy.utils import (
     AxiomError,
     NamedGeneric,
     assert_iscomposable,
-    dumps,
     factory_name,
-    from_tree,
     get_origin,
-    loads,
 )
 
 if TYPE_CHECKING:
@@ -412,8 +407,13 @@ class Testable[T](ABC):
     """
     A type that comes with a `search strategy
     <https://hypothesis.readthedocs.io/en/latest/data.html>`_ generating
-    its instances, and the laws every such type obeys: a term reads back
-    from its representation, its pickle and its tree.
+    its instances, so that the axioms quantifying over them have
+    something to quantify over.
+
+    Generating a type is independent from writing it down: the laws that
+    a term reads back from its representation, its pickle and its tree
+    are those of :class:`discopy.abc.Serialisable`, which a testable
+    type inherits when it is serialisable and does not when it is not.
     """
 
     @classmethod
@@ -430,55 +430,6 @@ class Testable[T](ABC):
         implements: a constraint it cannot honour fails loudly as an
         unexpected keyword rather than being silently dropped.
         """
-
-    @classmethod
-    def environment(cls) -> dict:
-        """
-        The namespace the representation of a term reads back in: the
-        public names of the package, as ``from discopy import *`` binds
-        them, so that a representation qualified by module such as
-        ``cat.Box('f', cat.Ob('x'), cat.Ob('y'))`` evaluates, and then
-        those of the module the category is defined in, so that one
-        printing bare names such as ``Tensor[int]([0], dom=Dim(1),
-        cod=Dim(1))`` evaluates too. The module comes second because a
-        term prints the names its own module binds: ``Dim`` in
-        ``discopy.tensor`` is the one a tensor is built from.
-
-        The import is local because the package imports this module.
-        """
-        import discopy
-
-        public = lambda namespace: {
-            name: value for name, value in namespace.items()
-            if not name.startswith("_")}
-        module = sys.modules[cls.__module__]
-        return dict(public(vars(discopy)), **public(vars(module)))
-
-    @axiom
-    def transparency(cls, term: Self) -> Equation:
-        """
-        The representation of a term evaluates back to it, in the
-        :meth:`environment` of its type.
-        """
-        return Equation(eval(repr(term), cls.environment()), term)
-
-    @axiom
-    def pickling(cls, term: Self) -> Equation:
-        """
-        A term loads back from its pickle, of the same class: the equation
-        is between the pairs of a class and a term, since a subscript of a
-        :class:`discopy.utils.NamedGeneric` is part of what a pickle keeps.
-        """
-        loaded = pickle.loads(pickle.dumps(term))
-        return Equation((type(loaded), loaded), (type(term), term))
-
-    @axiom
-    def serialisation(cls, term: Self) -> Equation:
-        """
-        A term decodes back from its tree and from the JSON of its tree.
-        A type without a tree declares the law inapplicable.
-        """
-        return Equation(from_tree(term.to_tree()), loads(dumps(term)), term)
 
 
 class Grid(Testable, NamedGeneric["factory"], tuple):
@@ -550,6 +501,28 @@ class ComposableTriple(Grid):
 
     n_rows, n_columns = 3, 1
     n_active_rows = 3
+
+
+def declared_axioms(cls) -> dict[str, Axiom]:
+    """
+    The axioms a class inherits, by name, subclasses overriding bases and
+    each bound to ``cls``.
+
+    Names are collected before they are filtered, so that assigning
+    anything that is not an axiom over an inherited one drops it
+    altogether, rather than restating it.
+
+    A class need not be a category to state laws: the roundtrips of
+    :class:`discopy.abc.Serialisable` are declared by everything that
+    writes itself down, e.g. the objects of a category as much as its
+    arrows.
+    """
+    visible = {
+        name: value
+        for base in reversed(cls.__mro__)
+        for name, value in base.__dict__.items()}
+    return {name: value.bind(cls) for name, value in visible.items()
+            if isinstance(value, Axiom)}
 
 
 def resolve(annotation, **params) -> st.SearchStrategy:

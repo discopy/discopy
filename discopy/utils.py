@@ -329,156 +329,6 @@ def from_tree(tree: dict):
     return getattr(module, factory).from_tree(tree)
 
 
-class Serialisable:
-    """
-    The serialisation interface of DisCoPy, one hook driving all three
-    mechanisms: the class attribute ``serialised_attrs`` names attributes that
-    are also keyword arguments of ``__init__``, from which follow
-
-    - a generic pair of inverse methods :meth:`to_tree` and
-      :meth:`from_tree`, the JSON serialisation behind :func:`dumps`
-      and :func:`loads`,
-    - a generic :meth:`__repr__` such that ``eval(repr(x)) == x``,
-    - :meth:`__setstate__`, the terminal of every pickle migration
-      chain; the class parameters of :class:`discopy.abc.NamedGeneric`
-      are pickled by their own machinery.
-
-    A subclass with a different constructor declares its keys once
-    instead of reimplementing each method.
-
-    Example
-    -------
-    >>> from discopy.cat import Box
-    >>> assert Box.serialised_attrs\\
-    ...     == ('name', 'dom', 'cod', 'is_dagger', 'data')
-    >>> f = Box('f', 'x', 'y', data=42)
-    >>> assert Box.from_tree(f.to_tree()) == f
-    """
-    serialised_attrs: tuple[str, ...] = ()
-
-    def is_default(self, key: str) -> bool:
-        """
-        Whether the value of an attribute equals its class default,
-        in which case :meth:`to_tree` and :meth:`__repr__` drop it.
-
-        Parameters:
-            key : The name of the attribute.
-        """
-        if not hasattr(type(self), key):
-            return False
-        value, default = getattr(self, key), getattr(type(self), key)
-        return value is default or (
-            type(value) is type(default) and value == default)
-
-    def __repr__(self):
-        """
-        The transparent representation of a DisCoPy object: an attribute
-        without a class default is positional, one that differs from its
-        default is a keyword argument and one equal to it is dropped.
-
-        Example
-        -------
-        >>> import discopy
-        >>> from discopy.cat import Box
-        >>> f = Box('f', 'x', 'y', data=42)
-        >>> f
-        cat.Box('f', cat.Ob('x'), cat.Ob('y'), data=42)
-        >>> assert eval(repr(f), vars(discopy)) == f
-        """
-        return factory_name(type(self)) + "(" + ", ".join(
-            f"{key}={repr(getattr(self, key))}" if hasattr(type(self), key)
-            else repr(getattr(self, key))
-            for key in self.serialised_attrs if not self.is_default(key)) + ")"
-
-    def __setstate__(self, state):
-        """
-        Restore a pickled state, the terminal that every pickle
-        migration shim chains into with ``super().__setstate__``.
-
-        Parameters:
-            state : The pickled state of the object.
-        """
-        self.__dict__.update(state)
-
-    def to_tree(self) -> dict:
-        """
-        Serialise a DisCoPy object, see :func:`dumps`.
-
-        The tree records the :func:`factory_name` and then each of the
-        ``serialised_attrs``, dropping a key when its value equals the
-        class attribute of the same name, e.g. a box that is not a
-        dagger. An attribute with a ``to_tree`` method is serialised, a
-        non-empty list or tuple of such attributes becomes the list of
-        their trees, raw JSON data passes through unchanged.
-
-        Example
-        -------
-        >>> from pprint import PrettyPrinter
-        >>> pprint = PrettyPrinter(indent=4, width=70, sort_dicts=False).pprint
-        >>> from discopy.cat import Box
-        >>> f = Box('f', 'x', 'y', data=42)
-        >>> pprint((f >> f[::-1]).to_tree())
-        {   'factory': 'cat.Arrow',
-            'inside': [   {   'factory': 'cat.Box',
-                              'name': 'f',
-                              'dom': {'factory': 'cat.Ob', 'name': 'x'},
-                              'cod': {'factory': 'cat.Ob', 'name': 'y'},
-                              'data': 42},
-                          {   'factory': 'cat.Box',
-                              'name': 'f',
-                              'dom': {'factory': 'cat.Ob', 'name': 'y'},
-                              'cod': {'factory': 'cat.Ob', 'name': 'x'},
-                              'is_dagger': True,
-                              'data': 42}],
-            'dom': {'factory': 'cat.Ob', 'name': 'x'},
-            'cod': {'factory': 'cat.Ob', 'name': 'x'}}
-        """
-        tree = {'factory': factory_name(type(self))}
-        for key in self.serialised_attrs:
-            if self.is_default(key):
-                continue
-            value = getattr(self, key)
-            if hasattr(value, 'to_tree'):
-                value = value.to_tree()
-            elif isinstance(value, (list, tuple)) and value and all(
-                    hasattr(v, 'to_tree') for v in value):
-                value = [v.to_tree() for v in value]
-            tree[key] = value
-        return tree
-
-    @classmethod
-    def from_tree(cls, tree: dict) -> Serialisable:
-        """
-        Decode a serialised DisCoPy object, see :func:`loads`.
-
-        A key missing from the tree falls back to the default value of
-        the corresponding keyword argument of ``__init__``. A value with
-        a ``'factory'`` key decodes recursively, a non-empty list of
-        such values to the tuple of decoded objects, raw JSON data
-        passes through unchanged.
-
-        Parameters:
-            tree : DisCoPy serialisation.
-
-        Example
-        -------
-        >>> from discopy.cat import Ob
-        >>> assert Ob.from_tree({'factory': 'cat.Ob', 'name': 'x'}) == Ob('x')
-        """
-        kwargs = {}
-        for key in cls.serialised_attrs:
-            if key not in tree:
-                continue
-            value = tree[key]
-            if isinstance(value, dict) and 'factory' in value:
-                value = from_tree(value)
-            elif isinstance(value, list) and value and all(
-                    isinstance(v, dict) and 'factory' in v for v in value):
-                value = tuple(map(from_tree, value))
-            kwargs[key] = value
-        return cls(**kwargs)
-
-
 def dumps(obj, **kwargs):
     """
     Serialise a DisCoPy object as JSON.
@@ -671,9 +521,14 @@ def pushout(
     return left_pushout, right_pushout
 
 
-class BinaryBoxConstructor(Serialisable):
+class BinaryBoxConstructor:
     """
     Box constructor with attributes ``left`` and ``right`` as input.
+
+    The class declares what serialises it, which
+    :class:`discopy.abc.Serialisable` reads off whichever box it is mixed
+    into, rather than implementing the interface itself: a binary box
+    constructor is never a term on its own.
 
     Parameters:
         left : Some attribute on the left.

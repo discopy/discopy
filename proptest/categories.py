@@ -12,6 +12,12 @@ from discopy.utils import factory_name
 
 CATEGORIES = (cat.Arrow, )
 
+#: The serialisable carriers that are not categories of their own, so that
+#: the roundtrip laws are checked on the terms themselves rather than only
+#: on the arrows that contain them: the objects a boundary is made of, and
+#: the boxes whose attributes an arrow only serialises indirectly.
+CARRIERS = (cat.Ob, cat.Box)
+
 
 def category_parameters(classify=lambda category: ()):
     """

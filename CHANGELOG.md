@@ -9,25 +9,42 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
-- `utils.Serialisable`, the serialisation interface of DisCoPy, one hook
+- `abc.Serialisable`, the serialisation interface of DisCoPy, one hook
   driving all three mechanisms: the class attribute `serialised_attrs`
   names the attributes that are also keyword arguments of `__init__`,
   from which follow a generic pair of inverse methods `to_tree` and
   `from_tree`, a generic `__repr__` such that `eval(repr(x)) == x`, and
   `__setstate__`, the terminal that every pickle migration shim chains
-  into. A class with a different
-  constructor declares its keys once instead of reimplementing each
-  method: `cat.Ob`, `Arrow`, `Box`, `Sum` and
-  `utils.BinaryBoxConstructor` drop their hand-written `to_tree` and
-  `from_tree` pairs for declarations that produce byte-identical trees,
-  and `cat.Ob`, `cat.Box` (all but its dagger case), `rigid.Box` and
-  `BinaryBoxConstructor` drop the hand-written reprs the generic one
-  reproduces. An umbrella issue collects every implementor still missing
+  into. A class with a different constructor declares its attributes
+  once instead of reimplementing each method: `cat.Ob`, `Arrow`, `Box`,
+  `Sum` and `utils.BinaryBoxConstructor` drop their hand-written
+  `to_tree` and `from_tree` pairs for declarations that produce
+  byte-identical trees, and `cat.Ob`, `cat.Box` (all but its dagger
+  case), `rigid.Box` and `BinaryBoxConstructor` drop the hand-written
+  reprs the generic one reproduces. An umbrella issue collects every
+  implementor still missing
   ([#742](https://github.com/discopy/discopy/issues/742)). An arrow
   decoded by the generic method has its composition checked again, where
   `Arrow.from_tree` used to skip the check, and an explicit
   `"is_dagger": false` in a tree decodes as `False`, where the old
   key-presence test read it as `True`.
+- Each mechanism comes with the law that it is a roundtrip, stated on
+  `abc.Serialisable` as an axiom like any other: `transparency` for the
+  representation, `pickling` and `copying` for the pickle protocol and
+  `serialisation` for the tree, with `environment` for the namespace a
+  representation reads back in. `axioms.Testable` is left the generation
+  contract alone, which is the axis that varies independently: a type
+  that generates its instances need not write itself down, and one that
+  writes itself down need not be generated. `copying` is new — a deep
+  copy goes through the same reduction as a pickle without the bytes,
+  which is how the `NamedGeneric` parameters were lost below. The
+  collection of an axiom is no longer the business of `Category`:
+  `axioms.declared_axioms` walks the MRO of any class and
+  `Category.axioms` delegates to it, so that a carrier stating the
+  roundtrips without being a category — the objects of a category, say —
+  is enrolled like the rest. `proptest/test_serialisation.py` checks
+  every roundtrip of every such carrier, `cat.Ob` and `cat.Box` to
+  begin with.
 - `discopy/axioms.py`, a Hypothesis-based property-testing module, home
   of `Equation` (formerly `discopy.abc.Equation`): a law is stated once
   on `discopy.abc.Category` and every subclass inherits
@@ -68,15 +85,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   counterexample found by one night's search fails every pull request
   until it is fixed or declared, and `Axiom.falsify` searches for one on
   demand. `Testable`
-  states the laws of any type that generates its own instances, whatever
-  its level: `transparency`, `pickling` and `serialisation` are cells of
-  the matrix for every category — `eval(repr(x))`, the pickle and the tree
-  of a term read back to it, as `Equation`s like every other law — with
-  `Testable.environment` for the namespace a representation reads back
-  in — the package's public names and then those of the module the
-  category is defined in, so that a term printing bare names such as
-  `Tensor[int]([0], dom=Dim(1), cod=Dim(1))` reads back without its
-  category declaring anything; the ad-hoc property
+  generates the terms a law quantifies over, whatever its level, while
+  the laws that a term reads back from its representation, its pickle
+  and its tree are stated on `abc.Serialisable` above; the ad-hoc property
   files for representations, pickling and serialisation are gone, and a
   known violation is a `.failing` declaration on its category like any
   other broken law. `discopy.axioms` joins the API docs under its own

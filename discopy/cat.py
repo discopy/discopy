@@ -83,7 +83,7 @@ from typing import (
 from warnings import warn
 
 from discopy import messages, utils
-from discopy.abc import Category
+from discopy.abc import Category, Serialisable
 from discopy.axioms import GENERATORS, Equation as AbstractEquation, Testable
 from discopy.utils import (  # noqa: F401
     factory,
@@ -92,7 +92,6 @@ from discopy.utils import (  # noqa: F401
     rsubs,
     unbiased,
     MappingOrCallable,
-    Serialisable,
     assert_isinstance,
     assert_iscomposable,
     assert_isparallel,
