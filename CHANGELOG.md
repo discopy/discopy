@@ -32,31 +32,36 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `abc.Serialisable` as an axiom like any other: `transparency` for the
   representation, `pickling` and `copying` for the pickle protocol and
   `serialisation` for the tree, with `environment` for the namespace a
-  representation reads back in. `axioms.Testable` is left the generation
-  contract alone, which is the axis that varies independently: a type
-  that generates its instances need not write itself down, and one that
-  writes itself down need not be generated. `copying` is new — a deep
+  representation reads back in. `copying` is new — a deep
   copy goes through the same reduction as a pickle without the bytes,
   which is how the `NamedGeneric` parameters were lost below. Stating an
   axiom is no longer the business of `Category` alone: both it and
   `Serialisable` subclass the new `axioms.Theory`, which carries the
   `axioms` classproperty they share, so that a carrier stating the
   roundtrips without being a category — the objects of a category, say —
-  is enrolled like the rest. `Theory.subclasses` walks the transitive
-  subclasses and `proptest/test_axioms.py` reads the matrix off it,
-  rather than off a list kept beside the suite: a class that cannot
-  generate its terms yet opts out by declaring `axioms = no_strategy`,
-  the classproperty that raises `NotImplementedError` in place of laws
-  nothing can be drawn to check, and enrols itself by implementing
-  `Testable.strategy` and declaring `declared_axioms` — the default
-  `Theory.axioms` under a name a class can assign back — instead. So a
-  category states its laws from the moment it has them, is checked as
-  soon as it says how to generate their terms, and says which of the two
-  it is where it is defined. That is `cat.Ob`, `cat.Arrow` and `cat.Box`
-  to begin with, where the matrix reached the objects and boxes only
-  through the arrows containing them; the ten classes between and below
-  them that generate nothing yet — `abc.Serialisable`, `abc.Category`,
-  `cat.Sum`, `cat.Bubble` and the six of `monoidal` — carry the opt-out.
+  is enrolled like the rest. `Theory` is also what `Testable` was: one
+  class both states the laws and says how to draw the terms they
+  quantify over, since the two never came apart in practice. Every
+  abstract base class that states laws is one a subclass will generate
+  eventually, and the wrappers that generate a law's arguments —
+  `Grid`, `ComposablePair`, `ComposableTriple` — state the composability
+  their constructor enforces, rather than being generators of nothing.
+  `Theory.strategy` is deliberately not an `abstractmethod`: that would
+  make every category which has not implemented one uninstantiable
+  rather than merely unchecked, 66 concrete classes among them, so the
+  default raises `NotImplementedError` instead. `Theory.subclasses`
+  walks the transitive subclasses and `proptest/test_axioms.py` reads
+  the matrix off it, rather than off a list kept beside the suite: a
+  theory enrols itself by implementing `strategy`, and one that would
+  inherit a strategy for the wrong terms — a `monoidal.Ty` is not the
+  `cat.Ob` it subclasses — declares `strategy = no_strategy` until it
+  implements its own. So a category states its laws from the moment it
+  has them, is checked as soon as it says how to generate their terms,
+  and says which of the two it is where it is defined. That is `cat.Ob`,
+  `cat.Arrow` and `cat.Box` to begin with, where the matrix reached the
+  objects and boxes only through the arrows containing them; the eight
+  classes below them that generate nothing yet — `cat.Sum`,
+  `cat.Bubble` and the six of `monoidal` — carry the opt-out.
 - `discopy/axioms.py`, a Hypothesis-based property-testing module, home
   of `Equation` (formerly `discopy.abc.Equation`): a law is stated once
   on `discopy.abc.Category` and every subclass inherits
@@ -76,7 +81,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `Hypergraph` and `Equation` — which moves `NamedGeneric` itself down to
   `discopy.utils`, re-exported from `discopy.abc`, so `discopy.axioms`
   can use it — making a subscripted wrapper a class whose
-  `strategy(cls, **params)` matches the contract `Testable.strategy` now
+  `strategy(cls, **params)` matches the contract `Theory.strategy` now
   states, so a subspace annotation like `ComposablePair[C1]`
   builds; an unbound axiom's `.strategy()` raises the same `TypeError`
   as `.falsify` and calling it. The
@@ -96,7 +101,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   uploads its own afterwards — a pull request only reads it — so a
   counterexample found by one night's search fails every pull request
   until it is fixed or declared, and `Axiom.falsify` searches for one on
-  demand. `Testable`
+  demand. `Theory.strategy`
   generates the terms a law quantifies over, whatever its level, while
   the laws that a term reads back from its representation, its pickle
   and its tree are stated on `abc.Serialisable` above; the ad-hoc property

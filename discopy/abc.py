@@ -65,8 +65,7 @@ from dataclasses import dataclass
 from typing import ClassVar, Self
 
 from discopy.axioms import (  # noqa: F401
-    Axiom, ComposablePair, ComposableTriple, Equation, Theory, axiom,
-    no_strategy)
+    Axiom, ComposablePair, ComposableTriple, Equation, Theory, axiom)
 from discopy.utils import (  # noqa: F401
     NamedGeneric, classproperty, factory_name)
 
@@ -93,8 +92,8 @@ class Serialisable(Theory):
     a term reads back from what it was written to: :meth:`transparency`
     for its representation, :meth:`pickling` and :meth:`copying` for the
     pickle protocol and :meth:`serialisation` for its tree. They are
-    axioms like any other, so a class that also generates its instances
-    — a :class:`discopy.axioms.Testable` — has them checked against
+    axioms like any other, so a class that also implements
+    :meth:`discopy.axioms.Theory.strategy` has them checked against
     generated terms, and one that violates a law declares it
     ``.failing`` rather than leaving it untested.
 
@@ -107,8 +106,6 @@ class Serialisable(Theory):
     >>> assert Box.from_tree(f.to_tree()) == f
     """
     serialised_attrs: tuple[str, ...] = ()
-
-    axioms = no_strategy
 
     def is_default(self, key: str) -> bool:
         """
@@ -319,8 +316,6 @@ class Category[C0, C1: Category](Theory, ABC):
     factory: ClassVar[type[C1]]
     dom: C0
     cod: C0
-
-    axioms = no_strategy
 
     #: Backward-compatible alias for :attr:`factory`, since types are
     #: themselves the objects of diagrams.

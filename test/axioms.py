@@ -19,10 +19,10 @@ from discopy.axioms import (
     ComposableTriple,
     Equation,
     Grid,
-    Testable,
+    Theory,
     assert_axioms,
     axiom,
-    declared_axioms,
+    no_strategy,
     resolve,
     substitute,
 )
@@ -32,7 +32,7 @@ from discopy.utils import AxiomError, NamedGeneric
 
 
 @dataclass(frozen=True)
-class Endo(Testable, NamedGeneric["factory"]):
+class Endo(Theory, NamedGeneric["factory"]):
     """ An endomorphism of the factory, the subspace a law is weakened to. """
 
     value: C1
@@ -48,7 +48,7 @@ class Endo(Testable, NamedGeneric["factory"]):
             lambda arrow: arrow.dom == arrow.cod).map(cls)
 
 
-class Word(str, Testable["Word"]):
+class Word(str, Theory["Word"]):
     """ A word with tensor given by concatenation, a monoid to grid. """
 
     __matmul__ = lambda self, other: Word(str(self) + str(other))
@@ -195,12 +195,32 @@ def test_axioms_of_category():
 
 
 def test_no_strategy():
+    """ A theory that does not generate its terms says so on `strategy`. """
     with raises(NotImplementedError) as err:
-        Diagram.axioms
+        Diagram.strategy()
     assert "No search strategy implemented for Diagram" in str(err.value)
 
-    class Generated(Diagram):
-        """ A class enrolling itself back below one that opted out. """
-        axioms = declared_axioms
+    class Opted(Arrow):
+        """ A class that would inherit a strategy for the wrong terms. """
+        strategy = no_strategy
 
-    assert Generated.axioms["unitality"] == Generated.unitality
+    with raises(NotImplementedError):
+        Opted.strategy()
+    assert Opted.axioms["unitality"] == Opted.unitality
+
+
+def test_grid_states_its_law():
+    """
+    A grid is a theory like any other: it states the composability its
+    constructor enforces, and is checked against it once subscripted.
+    """
+    x, y = Ob('x'), Ob('y')
+    composability = ComposablePair[Arrow].composability
+    assert composability(ComposablePair(Box('f', x, y), Box('g', y, x)))
+    drawn, = find(composability.strategy(), lambda _: True)
+    assert composability(drawn)
+    with raises(NoSuchExample):
+        composability.falsify()
+
+    with raises(NotImplementedError):
+        ComposablePair.strategy()  # no factory to draw the cells from

@@ -87,8 +87,6 @@ from discopy.abc import Category, Serialisable
 from discopy.axioms import (
     GENERATORS,
     Equation as AbstractEquation,
-    Testable,
-    declared_axioms,
     no_strategy,
 )
 from discopy.utils import (  # noqa: F401
@@ -111,7 +109,7 @@ dumps, loads = utils.dumps, utils.loads
 
 
 @total_ordering
-class Ob(Serialisable, Testable["Ob"]):
+class Ob(Serialisable):
     """
     An object with a string as :code:`name`.
 
@@ -125,7 +123,6 @@ class Ob(Serialisable, Testable["Ob"]):
     >>> assert x.to_tree() == {'factory': 'cat.Ob', 'name': 'x'}
     """
     serialised_attrs = ('name', )
-    axioms = declared_axioms
 
     def __setstate__(self, state):
         if "name" not in state and "_name" in state:
@@ -242,7 +239,7 @@ class FreeCategory(Category):
 
 
 @factory
-class Arrow(FreeCategory, Serialisable, Testable["Arrow"]):
+class Arrow(FreeCategory, Serialisable):
     """
     An arrow is a tuple of composable boxes :code:`inside` with a pair of
     objects :code:`dom` and :code:`cod` as domain and codomain.
@@ -290,7 +287,6 @@ class Arrow(FreeCategory, Serialisable, Testable["Arrow"]):
     """
     ob = Ob
     serialised_attrs = ('inside', 'dom', 'cod')
-    axioms = declared_axioms
 
     @classmethod
     def strategy(
@@ -620,7 +616,7 @@ class Sum(Box):
     The sum is non-commutative, i.e. :code:`Sum([f, g]) != Sum([g, f])`.
     """
     serialised_attrs = ('terms', 'dom', 'cod')
-    axioms = no_strategy
+    strategy = no_strategy
 
     def __init__(
             self, terms: tuple[Arrow, ...], dom: Ob = None, cod: Ob = None):
@@ -711,7 +707,7 @@ class Bubble(Box):
         ValueError : When dom is None but all the args have the same dom.
     """
     serialised_attrs = ('args', 'dom', 'cod')
-    axioms = no_strategy
+    strategy = no_strategy
 
     def __init__(self, *args: Arrow, dom: Ob = None, cod: Ob = None,
                  name="", method="bubble", **kwargs):

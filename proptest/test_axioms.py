@@ -12,12 +12,12 @@ def carriers() -> tuple[type[Theory], ...]:
     """
     The carriers of the matrix: every transitive subclass of
     :class:`discopy.axioms.Theory` that generates its own terms, i.e.
-    every one that has not declared
-    :data:`discopy.axioms.no_strategy` as its axioms.
+    every one whose :meth:`discopy.axioms.Theory.strategy` is
+    implemented rather than left to raise.
 
-    Opting out is how a class stays out of the matrix, so that the
+    Implementing a strategy is how a class enrols itself, so that the
     matrix follows the package rather than a list kept beside it: a
-    category whose terms cannot be generated yet states its laws without
+    theory whose terms cannot be generated yet states its laws without
     being checked against them, and is checked as soon as it says how.
 
     Importing :mod:`discopy.axioms` imports the package that defines
@@ -26,7 +26,7 @@ def carriers() -> tuple[type[Theory], ...]:
     """
     def generates(carrier):
         try:
-            carrier.axioms
+            carrier.strategy()
         except NotImplementedError:
             return False
         return True

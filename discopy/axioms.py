@@ -6,12 +6,12 @@ An :class:`Axiom` is an equation stated once on a :class:`Theory` — an
 abstract base class of :mod:`discopy.abc`, whether a category or the
 serialisation interface — and inherited by every class below it, where
 :meth:`Axiom.failing` and :meth:`Axiom.inapplicable` classify it when a
-class breaks it or has no such structure. A :class:`Testable` class
-generates its own instances; a class that cannot do so yet opts out by
-declaring :data:`no_strategy` as its axioms. The matrix in ``proptest/``
-reads its carriers off :meth:`Theory.subclasses` rather than a list, and
-checks every axiom of every carrier against generated arguments, one
-cell per pair; CONTRIBUTING.md says how to run it.
+class breaks it or has no such structure. A theory that implements
+:meth:`Theory.strategy` generates its own terms; one that cannot do so
+yet leaves the strategy to raise. The matrix in ``proptest/`` reads its
+carriers off :meth:`Theory.subclasses` rather than a list, and checks
+every axiom of every carrier against generated arguments, one cell per
+pair; CONTRIBUTING.md says how to run it.
 
 Summary
 -------
@@ -25,7 +25,6 @@ Summary
     Axiom
     AxiomFailure
     Theory
-    Testable
     Grid
     ComposablePair
     ComposableTriple
@@ -47,11 +46,10 @@ from __future__ import annotations
 
 import __future__
 import inspect
-from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import KW_ONLY, dataclass, replace
 from functools import wraps
-from typing import TYPE_CHECKING, ClassVar, Concatenate, TypeVar
+from typing import TYPE_CHECKING, ClassVar, Concatenate, Self, TypeVar
 
 from discopy.utils import (
     AxiomError,
@@ -76,7 +74,8 @@ types of the module it is written in, so that a subclass inherits the
 override with its own types: :meth:`Axiom.strategy` rebinds both names to
 ``category.ob`` and ``category.ar``, and :data:`typing.Self` to the category
 itself for a law of every term of a type whatever its level, such as
-:meth:`Testable.transparency`, in its :attr:`Axiom.scope` when it
+:meth:`discopy.abc.Serialisable.transparency`, in its
+:attr:`Axiom.scope` when it
 evaluates the annotations; a law of functors names the category they map
 from as ``Self.dom``. This is also why every module stating an axiom
 needs ``from __future__ import annotations``, which keeps them
@@ -187,7 +186,7 @@ class Axiom[**P, T]:
     are generated from their annotations — an object for the typing of
     identities, three composable arrows for the associativity of
     composition, a term of the category itself for
-    :meth:`Testable.transparency`.
+    :meth:`discopy.abc.Serialisable.transparency`.
 
     Calling a bound axiom returns its own verdict: :obj:`NotImplemented`
     when the structure does not apply to the category, and the equation
@@ -202,7 +201,7 @@ class Axiom[**P, T]:
     Parameters:
         equation : The function stating the law, from the category and the
             arguments annotated with :obj:`C0`, :obj:`C1`,
-            :data:`typing.Self` or a :class:`Testable` to an
+            :data:`typing.Self` or a :class:`Theory` to an
             :class:`Equation`, or to :obj:`NotImplemented` when the
             structure does not apply.
         category : The class the axiom is bound to, :obj:`None` until
@@ -406,24 +405,33 @@ def axiom[**P, T](
     return Axiom(equation)
 
 
-class Testable[T](ABC):
+class Theory[T]:
     """
-    A type that comes with a `search strategy
-    <https://hypothesis.readthedocs.io/en/latest/data.html>`_ generating
-    its instances, so that the axioms quantifying over them have
-    something to quantify over.
+    A theory is a class that states axioms, which its subclasses inherit
+    along with the structure they axiomatise, and that says how to
+    generate the terms those axioms quantify over.
 
-    Generating a type is independent from writing it down: the laws that
-    a term reads back from its representation, its pickle and its tree
-    are those of :class:`discopy.abc.Serialisable`, which a testable
-    type inherits when it is serialisable and does not when it is not.
+    Both kinds of theory subclass this: a :class:`discopy.abc.Category`
+    states the laws of a categorical structure, a
+    :class:`discopy.abc.Serialisable` those of writing a term down and
+    reading it back. A class need not be a category to state laws, which
+    is why the two meet here rather than in either of them. Nor need it
+    be either to be a theory: :class:`ComposablePair` states the law it
+    enforces on the pairs it generates.
+
+    A theory that implements :meth:`strategy` is a *carrier* of the
+    property matrix in ``proptest/``, which checks each of its axioms
+    against generated terms. One that does not is not checked, and says
+    so by leaving :meth:`strategy` to raise.
     """
 
     @classmethod
-    @abstractmethod
     def strategy(cls, **params) -> st.SearchStrategy[T]:
         """
-        Build a strategy for instances of ``cls``.
+        Build a `search strategy
+        <https://hypothesis.readthedocs.io/en/latest/data.html>`_ for
+        instances of ``cls``, which is how a theory enrols itself in the
+        property matrix.
 
         An override that delegates to another strategy accepts
         ``**params``, pops the parameters it consumes and forwards the
@@ -432,15 +440,93 @@ class Testable[T](ABC):
         terminal strategy instead declares exactly the parameters it
         implements: a constraint it cannot honour fails loudly as an
         unexpected keyword rather than being silently dropped.
+
+        The default raises: a theory states its laws as soon as it has
+        them, and is checked against them once it says how to draw their
+        terms. It is deliberately not an :func:`abc.abstractmethod`,
+        which would make every category that has not implemented one
+        uninstantiable rather than merely unchecked.
+
+        >>> from discopy.monoidal import Diagram
+        >>> Diagram.strategy()
+        Traceback (most recent call last):
+         ...
+        NotImplementedError: No search strategy implemented for Diagram
         """
+        raise NotImplementedError(
+            f"No search strategy implemented for {cls.__name__}")
+
+    @classproperty
+    def axioms(cls) -> dict[str, Axiom]:
+        """
+        The axioms inherited by ``cls``, keyed by name and bound to
+        ``cls``, an override on a subclass hiding the base it overrides.
+
+        Names are collected before they are filtered, so that assigning
+        anything that is not an axiom over an inherited one drops it
+        altogether, rather than restating it.
+        """
+        visible = {
+            name: value
+            for base in reversed(cls.__mro__)
+            for name, value in base.__dict__.items()}
+        return {name: value.bind(cls) for name, value in visible.items()
+                if isinstance(value, Axiom)}
+
+    @classmethod
+    def subclasses(cls) -> tuple[type[Theory], ...]:
+        """
+        Every transitive subclass of ``cls``, ``cls`` itself included.
+
+        A subclass is listed once, however many paths reach it, in the
+        order a breadth-first walk of the subclass graph first meets
+        it.
+
+        Example
+        -------
+        >>> from discopy.cat import Arrow, Box
+        >>> assert Arrow.subclasses()[0] is Arrow
+        >>> assert Box in Arrow.subclasses()  # a subclass of a subclass
+        """
+        found, queue = {cls: None}, [cls]
+        while queue:
+            for subclass in queue.pop(0).__subclasses__():
+                if subclass not in found:
+                    found[subclass] = None
+                    queue.append(subclass)
+        return tuple(found)
 
 
-class Grid(Testable, NamedGeneric["factory"], tuple):
+no_strategy = Theory.__dict__["strategy"]
+"""
+The default :meth:`Theory.strategy`, under a name that can be assigned.
+
+A class inherits it from :class:`Theory` unless a base it refines
+implements one: the terms of a :class:`discopy.monoidal.Ty` are not
+those of the :class:`discopy.cat.Ob` it subclasses, so a class that
+would inherit the wrong strategy declares ``strategy = no_strategy``
+until it implements its own.
+"""
+
+
+class Grid(Theory, NamedGeneric["factory"], tuple):
     """ A rectangular grid with composable rows and columns. """
 
     n_rows: ClassVar[int]
     n_columns: ClassVar[int]
     n_active_rows: ClassVar[int] = 1
+
+    @axiom
+    def composability(cls, grid: Self) -> Equation:
+        """
+        Every cell composes with the cell below it, the law that
+        :meth:`__new__` enforces and :meth:`strategy` draws for: the
+        codomains of each row are the domains of the row under it.
+        """
+        above = tuple(
+            grid[i].cod for i in range(cls.n_columns * (cls.n_rows - 1)))
+        below = tuple(grid[i + cls.n_columns].dom for i in range(len(above)))
+        return Equation(above, below)
 
     def __new__(cls, *cells: C1):
         if len(cells) != cls.n_rows * cls.n_columns:
@@ -457,10 +543,19 @@ class Grid(Testable, NamedGeneric["factory"], tuple):
 
     @classmethod
     def strategy(cls, **params):
-        """Generate a grid column-by-column using composable boundaries."""
+        """
+        Generate a grid column-by-column using composable boundaries.
+
+        A grid draws its cells from its ``factory``, so an unsubscripted
+        one has no strategy: ``ComposablePair`` cannot generate anything,
+        ``ComposablePair[Arrow]`` generates pairs of arrows.
+        """
         from hypothesis import strategies as st
 
         factory = cls.factory
+        if factory is None:
+            raise NotImplementedError(
+                f"No search strategy implemented for {cls.__name__}")
         dom, cod = params.pop("dom", None), params.pop("cod", None)
 
         @st.composite
@@ -506,104 +601,12 @@ class ComposableTriple(Grid):
     n_active_rows = 3
 
 
-class Theory:
-    """
-    A theory is a class that states axioms, which its subclasses inherit
-    along with the structure they axiomatise.
-
-    Both kinds of theory subclass this: a :class:`discopy.abc.Category`
-    states the laws of a categorical structure, a
-    :class:`discopy.abc.Serialisable` those of writing a term down and
-    reading it back. A class need not be a category to state laws, which
-    is why the two meet here rather than in either of them.
-
-    Stating a law and generating the terms it quantifies over are
-    independent, so a theory need not be :class:`Testable`. Every
-    abstract base class of :mod:`discopy.abc` states laws and has no
-    terms of its own to generate. :class:`discopy.python.Function` has
-    terms, but its equality is intensional: ``f >> id == f`` is false for
-    every morphism, so no strategy makes unitality hold and only
-    :meth:`Axiom.modulo` extensional behaviour can.
-
-    A :class:`Testable` need not be a theory either:
-    :class:`ComposablePair` generates the arguments that laws quantify
-    over and states none of its own.
-    """
-
-    @classproperty
-    def axioms(cls) -> dict[str, Axiom]:
-        """
-        The axioms inherited by ``cls``, keyed by name and bound to
-        ``cls``, an override on a subclass hiding the base it overrides.
-
-        Names are collected before they are filtered, so that assigning
-        anything that is not an axiom over an inherited one drops it
-        altogether, rather than restating it.
-        """
-        visible = {
-            name: value
-            for base in reversed(cls.__mro__)
-            for name, value in base.__dict__.items()}
-        return {name: value.bind(cls) for name, value in visible.items()
-                if isinstance(value, Axiom)}
-
-    @classmethod
-    def subclasses(cls) -> tuple[type[Theory], ...]:
-        """
-        Every transitive subclass of ``cls``, ``cls`` itself included.
-
-        A subclass is listed once, however many paths reach it, in the
-        order a breadth-first walk of the subclass graph first meets
-        it.
-
-        Example
-        -------
-        >>> from discopy.cat import Arrow, Box
-        >>> assert Arrow.subclasses()[0] is Arrow
-        >>> assert Box in Arrow.subclasses()  # a subclass of a subclass
-        """
-        found, queue = {cls: None}, [cls]
-        while queue:
-            for subclass in queue.pop(0).__subclasses__():
-                if subclass not in found:
-                    found[subclass] = None
-                    queue.append(subclass)
-        return tuple(found)
-
-
-declared_axioms = Theory.__dict__["axioms"]
-"""
-The default :attr:`Theory.axioms`, under a name that can be assigned.
-
-A class below one that declared :data:`no_strategy` enrols itself back
-into the property matrix by declaring ``axioms = declared_axioms``, as
-:class:`discopy.cat.Ob` does below :class:`discopy.abc.Serialisable`.
-"""
-
-
-@classproperty
-def no_strategy(cls) -> dict[str, Axiom]:
-    """
-    The :attr:`Theory.axioms` of a class that does not generate its own
-    terms yet, raising :class:`NotImplementedError` rather than listing
-    laws that nothing can be drawn to check.
-
-    A class states its laws as soon as it has them, and enrols itself
-    in the property matrix once it says how to generate the terms they
-    quantify over. Until then it declares ``axioms = no_strategy``. Its
-    subclasses inherit that declaration, until one of them implements
-    :meth:`Testable.strategy` and declares :data:`declared_axioms` back.
-    """
-    raise NotImplementedError(
-        f"No search strategy implemented for {cls.__name__}")
-
-
 def resolve(annotation, **params) -> st.SearchStrategy:
     """ Resolve the strategy implemented by an annotated type. """
     if not isinstance(annotation, type)\
-            or not issubclass(annotation, Testable):
+            or not issubclass(annotation, Theory):
         raise TypeError(
-            f"Expected a Testable annotation, got {annotation!r}.")
+            f"Expected a Theory annotation, got {annotation!r}.")
     return annotation.strategy(**params)
 
 
