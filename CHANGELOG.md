@@ -175,6 +175,23 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Changed
 
+- Every `then` takes `(self, *others)`, the signature that
+  `abc.Category.then` declares and `cat.Arrow` implements. Eight classes
+  kept one of two non-conforming shapes: `(self, other=None, *others)` on
+  `tensor.Tensor` and `quantum.channel.Channel`, and a plain binary
+  `(self, other)` with no `utils.unbiased` on `cat.Functor`,
+  `cat.Transformation`, `monoidal.Functor`, `python.function.Function`,
+  `python.finset.Function` and `python.finset.Permutation`, which raised
+  `TypeError` on a third argument.
+  The `None` branch was dead rather than a unit: it forwarded to
+  `cat.Arrow.then` as `super().then(None)`, which composes against `None`
+  rather than returning `self`, so
+  `Tensor([1, 0, 0, 1], Dim(2), Dim(2)).then(None)` raised `TypeError`
+  ([#760](https://github.com/discopy/discopy/issues/760)).
+  `utils.MappingOrCallable.then` is binary too and stays that way:
+  it post-composes a mapping with a functor rather than composing two
+  morphisms, and `MappingOrCallable` is not an `abc.Category`.
+
 - `monoidal.Colour` is transparent by default rather than white, i.e. its
   `name` defaults to the new `config.TRANSPARENT` and `monoidal.white` is
   renamed to `monoidal.transparent`. The drawing code painted every region
@@ -477,6 +494,16 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   reviewer first.
 
 ### Fixed
+
+- `python.function.Function.then` composes its `n` functions in one Python
+  frame rather than nesting one closure per composition, so that a long
+  chain can be called at all: composing two thousand functions and calling
+  the result raised `RecursionError`, the same nesting that made the tensor
+  of a few hundred `python` functions raise
+  ([#760](https://github.com/discopy/discopy/issues/760)). This is
+  inherited by `python.multiplicative.Function` and
+  `python.additive.Function`; a chain built with `>>` still nests, since
+  that operator is binary.
 
 - The marimo notebook previews in the docs follow the theme switch. The
   notebooks are exported with marimo's `system` theme and the docs relay

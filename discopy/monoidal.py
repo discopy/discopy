@@ -77,6 +77,7 @@ from discopy.utils import (
     get_origin,
     MappingOrCallable,
     RichDisplay,
+    unbiased,
 )
 
 if TYPE_CHECKING:
@@ -1615,7 +1616,9 @@ class Functor(cat.Functor):
     def id(cls, dom=None):
         return cls(lambda x: x, lambda f: f, dom=dom, cod=dom)
 
+    @unbiased
     def then(self, other):
+        """ The composition of a functor with another. """
         assert_isinstance(other, Functor)
         assert_iscomposable(self, other)
         return type(self)(

@@ -174,9 +174,9 @@ class Channel(Tensor):
         assert_isinstance(dom, CQ)
         return cls(Tensor[cls.dtype].id(dom.to_dim()).array, dom, dom)
 
-    def then(self, other: Channel = None, *others: Channel) -> Channel:
-        if other is None or others:
-            return super().then(other, *others)
+    @unbiased
+    def then(self, other: Channel) -> Channel:
+        """ The composition of two channels, as underlying tensors. """
         assert_isinstance(other, type(self))
         array = (self.to_tensor() >> other.to_tensor()).array
         return type(self)(array, self.dom, other.cod)

@@ -17,7 +17,7 @@ Summary
 """
 
 from __future__ import annotations
-from discopy.utils import assert_isinstance
+from discopy.utils import assert_isinstance, unbiased
 from typing import Iterable, Self, Any
 from collections.abc import Sequence
 
@@ -76,7 +76,9 @@ class Function(MonoidalCategory, Sequence):
     def id(x: int | Nat = 0):
         return Function(list(range(x)), x, x)
 
+    @unbiased
     def then(self, other: Function) -> Function:
+        """ The composite ``self ; other``, read off backwards. """
         inside = [self[other[i]] for i in range(len(other))]
         return Function(inside, self.dom, other.cod)
 
@@ -240,6 +242,7 @@ class Permutation(Function, PROP):
             i = self[i]
         return tuple(cycle)
 
+    @unbiased
     def then(self, other: Self) -> Self:
         """ Return ``self ; other``, i.e. ``result[i] == other[self[i]]``. """
         other = type(self)(other, len(self))
