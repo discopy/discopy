@@ -10,8 +10,8 @@ Review feedback from @toumix on `discopy/abc.py`, quoted verbatim:
 >     def repr_transparency(cls, term: Self) -> Equation:
 > ```
 
-- [ ] Move `Serialisable` to the end of `discopy/axioms.py`
-- [ ] Rename `transparency` to `repr_transparency`
-- [ ] File the issue for `str_transparency` and link it
-- [ ] `CHANGELOG.md` and the docs that name either
-- [ ] `pflake8`, the test suite and the property matrix
+- [WIP] @session_01PoVD21cMmz9uw2UqreoNwM-2026-09-11 13:54 Move `Serialisable` to the end of `discopy/axioms.py`
+- [WIP] @session_01PoVD21cMmz9uw2UqreoNwM-2026-09-11 13:54 Rename `transparency` to `repr_transparency`
+- [WIP] @session_01PoVD21cMmz9uw2UqreoNwM-2026-09-11 13:54 File the issue for `str_transparency` and link it
+- [WIP] @session_01PoVD21cMmz9uw2UqreoNwM-2026-09-11 13:54 `CHANGELOG.md` and the docs that name either
+- [WIP] @session_01PoVD21cMmz9uw2UqreoNwM-2026-09-11 13:54 `pflake8`, the test suite and the property matrix
