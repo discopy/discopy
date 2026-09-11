@@ -9,6 +9,6 @@ own base with thirteen conflicted paths: `discopy/abc.py`, `proptest/categories.
 and eleven `test/` modules. A head that conflicts with its base is broken, not
 merely behind, and #661–#669 all wait on this one merge.
 
-- [WIP] @01UJ1bCP-2026-09-11 00:25 Merge `split/2-monoidal-strategy` in and resolve the thirteen conflicts
-- [ ] Run `pflake8`, the test suite and `proptest/` on the merge result
-- [ ] Push and confirm the head is mergeable and every expected check green
+- [x] Merge `split/2-monoidal-strategy` in and resolve the thirteen conflicts
+- [x] Run `pflake8`, the test suite and `proptest/` on the merge result
+- [WIP] @01UJ1bCP-2026-09-11 01:00 Push and confirm the head is mergeable and every expected check green
