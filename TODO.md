@@ -23,12 +23,12 @@ survey of what each one actually does at `n = 0, 2, 3`:
 | `python.finset.Function` | `(self, other)` | `TypeError` | ok | `TypeError` |
 | `python.finset.Permutation` | `(self, other)` | `TypeError` | ok | `TypeError` |
 
-- [ ] `utils.unbiased` advertises `(self, *others)` to `inspect.signature`
-- [ ] `abc.Category` teaches the contract: the docstring example and the
+- [WIP] @session_01PoVD21cMmz9uw2UqreoNwM-2026-09-11 12:06 `utils.unbiased` advertises `(self, *others)` to `inspect.signature`
+- [WIP] @session_01PoVD21cMmz9uw2UqreoNwM-2026-09-11 12:06 `abc.Category` teaches the contract: the docstring example and the
       `Parameters:` of the abstract method both say `other`
-- [ ] `cat.Functor`, `cat.Transformation` and `monoidal.Functor` compose `n`
-- [ ] `python.function.Function` and `python.finset` compose `n`
-- [ ] `tensor.Tensor` and `quantum.channel.Channel` drop the `other=None`
+- [WIP] @session_01PoVD21cMmz9uw2UqreoNwM-2026-09-11 12:06 `cat.Functor`, `cat.Transformation` and `monoidal.Functor` compose `n`
+- [WIP] @session_01PoVD21cMmz9uw2UqreoNwM-2026-09-11 12:06 `python.function.Function` and `python.finset` compose `n`
+- [WIP] @session_01PoVD21cMmz9uw2UqreoNwM-2026-09-11 12:06 `tensor.Tensor` and `quantum.channel.Channel` drop the `other=None`
       hack, which sends `n >= 3` to the wrong composition
-- [ ] One test of the contract at `n = 0, 1, 2, 3` over every implementor
-- [ ] `CHANGELOG.md`, `pflake8`, the test suite and the property matrix
+- [WIP] @session_01PoVD21cMmz9uw2UqreoNwM-2026-09-11 12:06 One test of the contract at `n = 0, 1, 2, 3` over every implementor
+- [WIP] @session_01PoVD21cMmz9uw2UqreoNwM-2026-09-11 12:06 `CHANGELOG.md`, `pflake8`, the test suite and the property matrix
