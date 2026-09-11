@@ -13,6 +13,7 @@ Summary
 
     Colour
     Wire
+    List
     Ty
     Nat
     Dim
@@ -61,7 +62,8 @@ from typing import Iterator, Callable, TYPE_CHECKING
 from warnings import warn
 
 from discopy import abc, cat, drawing, hypergraph, cmap, messages
-from discopy.abc import ColouredMonoid, MonoidalCategory
+from discopy.abc import (
+    ColouredMonoid, Monoid, MonoidalCategory, NamedGeneric)
 from discopy.axioms import no_strategy
 from discopy.drawing import Drawing
 from discopy.config import (
@@ -75,7 +77,6 @@ from discopy.utils import (
     assert_iscomposable,
     AxiomError,
     deprecated_alias,
-    get_origin,
     MappingOrCallable,
     RichDisplay,
 )
@@ -183,39 +184,75 @@ class Wire(cat.Ob):
         return cls(tree['name'], dom, cod, is_dagger='is_dagger' in tree)
 
 
-class FreeMonoid(cat.FreeCategory, ColouredMonoid):
-    """A free category whose composition is also its monoid product."""
+class List(Monoid, NamedGeneric['generator_factory']):
+    """
+    The free monoid on a ``generator_factory``, i.e. lists of its instances
+    with concatenation as :meth:`tensor` and the empty list as unit.
 
-    def __init__(self, inside, dom: Colour = None, cod: Colour = None,
-                 _scan: bool = True):
-        if dom is None:
-            dom = inside[0].dom if inside else transparent
-        if cod is None:
-            cod = inside[-1].cod if inside else transparent
-        cat.FreeCategory.__init__(self, inside, dom, cod, _scan)
+    ``List[X]`` is the free monoid on ``X`` the way ``Hypergraph[C]`` is the
+    hypergraph category over a category ``C``, e.g. ``python.Function.ob``
+    is ``List[type]``, the free monoid on Python's ``type``. It has a single,
+    trivial colour: :class:`Ty` is the free *coloured* monoid, with
+    :class:`Colour` boundaries on its :class:`Wire` generators, and
+    :class:`Nat` the free monoid on a single generator.
 
-    def tensor(self, *others):
-        # Whiskering: tensoring a type with e.g. a diagram returns
-        # NotImplemented so the other operand's __rmatmul__ takes over.
-        if any(not isinstance(other, self.factory) for other in others):
-            return NotImplemented
-        return cat.FreeCategory.then(self, *others)
+    >>> assert List[int](2, 3) @ List[int](4) == List[int](2, 3, 4)
+    >>> assert List[int](2, 3) ** 2 == List[int](2, 3, 2, 3)
+    >>> assert List[int](2, 3)[1:] == List[int](3) and not List[int]()
 
-    then = tensor
+    Note
+    ----
+    A list is a sequence of its length-one sublists, e.g.
+    ``List[int](2, 3)[0] == List[int](2)``; the atoms themselves are its
+    :attr:`inside`, e.g. ``List[int](2, 3).inside[0] == 2``.
+    """
+    ob = type(None)
+    dom = cod = None
 
-    @property
-    def is_generator(self):
-        """ Whether a type is a single generating object. """
-        return len(self.inside) == 1
+    def __init__(self, *inside):
+        self.inside = inside
 
-    @property
-    def generator(self):
-        """ The single object inside a generator type. """
-        return self.inside[0] if self.is_generator else None
+    def tensor(self, *others: List) -> List:
+        for other in others:
+            assert_isinstance(other, type(self))
+        return type(self)(
+            *self.inside, *(x for other in others for x in other.inside))
+
+    def __matmul__(self, other):
+        if not isinstance(other, type(self)):
+            return NotImplemented  # This allows whiskering on the left.
+        return self.tensor(other)
+
+    def __len__(self) -> int:
+        return len(self.inside)
+
+    def __getitem__(self, key: int | slice) -> List:
+        if isinstance(key, slice):
+            return type(self)(*self.inside[key])
+        return type(self)(self.inside[key])
+
+    def __iter__(self):
+        for i in range(len(self)):
+            yield self[i:i + 1]
+
+    def __pow__(self, n_times: int) -> List:
+        assert_isinstance(n_times, int)
+        return self.tensor(*(n_times - 1) * [self]) if n_times > 0\
+            else type(self)()
+
+    def __eq__(self, other):
+        return type(self) is type(other) and self.inside == other.inside
+
+    def __hash__(self):
+        return hash((type(self), self.inside))
+
+    def __repr__(self):
+        return factory_name(type(self))\
+            + f"({', '.join(map(repr, self.inside))})"
 
 
 @factory
-class Ty(cat.Ob, FreeMonoid):
+class Ty(cat.Ob, cat.FreeCategory, ColouredMonoid):
     """
     A type is a composable path of objects with :meth:`Ty.tensor`
     as concatenation.
@@ -286,8 +323,51 @@ class Ty(cat.Ob, FreeMonoid):
             assert_isinstance(obj, (str, self.generator_factory) + (
                 (cat.Ob, ) if self.generator_factory is Wire else ()))
         inside = tuple(map(self.cast_wire, inside))
-        FreeMonoid.__init__(self, inside, dom, cod, _scan)
+        if dom is None:
+            dom = inside[0].dom if inside else transparent
+        if cod is None:
+            cod = inside[-1].cod if inside else transparent
+        cat.FreeCategory.__init__(self, inside, dom, cod, _scan)
         cat.Ob.__init__(self, type(self).__name__)
+
+    def tensor(self, *others: Ty) -> Ty:
+        if any(not isinstance(other, self.factory) for other in others):
+            return NotImplemented  # This allows whiskering on the left.
+        return cat.FreeCategory.then(self, *others)
+
+    then = tensor
+
+    def __pow__(self, n_times: int) -> Ty:
+        assert_isinstance(n_times, int)
+        if n_times <= 0:
+            assert self.dom == self.cod
+            return self.factory.id(self.dom)
+        return self.tensor(*(n_times - 1) * [self])
+
+    __iter__ = List.__iter__
+
+    def __eq__(self, other):
+        return type(self) is type(other) and self.inside == other.inside\
+            and (self.dom, self.cod) == (other.dom, other.cod)
+
+    def __hash__(self):
+        return hash((type(self), self.inside, self.dom, self.cod))
+
+    def __repr__(self):
+        if not self.inside and self.dom != transparent:
+            return f"{factory_name(type(self))}.id({self.dom!r})"
+        return factory_name(type(self))\
+            + f"({', '.join(map(repr, self.inside))})"
+
+    @property
+    def is_generator(self) -> bool:
+        """ Whether a type is a single generating object. """
+        return len(self.inside) == 1
+
+    @property
+    def generator(self) -> Wire:
+        """ The single object inside a generator type. """
+        return self.inside[0] if self.is_generator else None
 
     def count(self, obj: cat.Ob) -> int:
         """
@@ -321,19 +401,6 @@ class Ty(cat.Ob, FreeMonoid):
         """ Whether a type is atomic, i.e. it has length 1. """
         return len(self) == 1
 
-    def __eq__(self, other):
-        return type(self) is type(other) and self.inside == other.inside\
-            and (self.dom, self.cod) == (other.dom, other.cod)
-
-    def __hash__(self):
-        return hash(repr(self))
-
-    def __repr__(self):
-        if not self.inside and self.dom != transparent:
-            return f"{factory_name(type(self))}.id({self.dom!r})"
-        return factory_name(type(self))\
-            + f"({', '.join(map(repr, self.inside))})"
-
     def __str__(self):
         name = type(self).__name__
         if not self.inside:
@@ -359,17 +426,6 @@ class Ty(cat.Ob, FreeMonoid):
         assert_isinstance(other, Ty)
         return (len(self.inside), self.inside)\
             < (len(other.inside), other.inside)
-
-    def __iter__(self):
-        for i in range(len(self)):
-            yield self[i:i + 1]
-
-    def __pow__(self, n_times):
-        assert_isinstance(n_times, int)
-        if n_times <= 0:
-            assert self.dom == self.cod
-            return self.factory.id(self.dom)
-        return self.tensor(*(n_times - 1) * [self])
 
     def __setstate__(self, state):
         if 'inside' not in state and "_objects" in state:
@@ -405,8 +461,6 @@ class Ty(cat.Ob, FreeMonoid):
         if 'dom' in tree:
             return cls(dom=from_tree(tree['dom']), cod=from_tree(tree['cod']))
         return cls()
-
-    __add__ = FreeMonoid.__matmul__
 
     def to_drawing(self) -> Ty:
         if not self.inside:
@@ -561,11 +615,9 @@ class Dim(Ty):
             transparent if cod is None else cod, _scan=False)
         cat.Ob.__init__(self, type(self).__name__)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: int | slice) -> Dim:
         if isinstance(key, slice):
             return self.factory(*self.inside[key])
-        if key >= len(self) or key < -len(self):
-            raise IndexError
         return self.factory(self.inside[key])
 
     def __repr__(self):
@@ -1384,10 +1436,10 @@ class Box(cat.Box, Diagram):
         The name of the style when tikzing the box.
     color : str, optional
         The color to use when drawing the box, one of
-        :code:`"white", "red", "green", "blue", "yellow", "black"` or any
+        :code:`"transparent", "red", "green", "blue", "yellow", "black"` or any
         other matplotlib colour, e.g. :data:`discopy.config.TRANSPARENT`
         for a spider drawn unfilled.
-        Default is :code:`"black" if draw_as_spider else "white"`.
+        Default is :code:`"black" if draw_as_spider else "transparent"`.
     shape : str, optional
         The shape to use when drawing a spider,
         one of :code:`"circle", "rectangle"`.
@@ -1644,40 +1696,27 @@ class Functor(cat.Functor):
         return result[:-len(suffix) if suffix else None] + (
             f", colour_map={self.colour_map!r}{suffix}")
 
-    def _map_colour(self, colour):
-        return self.colour_map[colour] if self.colour_map else colour
-
-    def _map_atomic(self, key):
-        result = self.ob_map[key]
-        cod_type = get_origin(self.cod.ob)
-        return result if isinstance(result, cod_type) else\
-            (result, ) if cod_type == tuple else self.cod.ob(result)
-
     def __call__(self, other):
         if isinstance(other, Colour):
-            return self._map_colour(other)
+            return self.colour_map[other] if self.colour_map else other
         if isinstance(other, Dim):
-            return sum([self.ob_map[x] for x in other], self.cod.ob())
+            return self.cod.ob().tensor(*(self.ob_map[x] for x in other))
         if isinstance(other, Nat):
-            image = self._map_atomic(other.factory(1))
-            return sum(other.n * [image], image[:0])
+            image = super().__call__(other.factory(1))
+            return image[:0].tensor(*other.n * [image])
         if isinstance(other, Ty):
             if not other.inside:
-                # Empty coloured identity: keep its (mapped) boundary colour.
                 if not hasattr(self.cod.ob, 'id'):
                     return self.cod.ob()
                 return self.cod.ob.id(self(other.dom))
-            images = list(map(self, other.inside))
-            result = images[0]
-            for image in images[1:]:
-                result = result + image
-            return result
+            head, *tail = map(self, other.inside)
+            return head.tensor(*tail)
         if isinstance(other, self.dom.ob.generator_factory):
             if isinstance(other, Wire) and other.is_dagger:
                 # Map a daggered coloured generator functorially: its image is
                 # the dagger of the image of the underlying generator.
                 return self(other.dagger()).dagger()
-            result = self._map_atomic(self.dom.ob(other))
+            result = super().__call__(self.dom.ob(other))
             if isinstance(other, Wire) and isinstance(result, Ty):
                 expected = self(other.dom), self(other.cod)
                 if (result.dom, result.cod) != expected:
