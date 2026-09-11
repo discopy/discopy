@@ -115,7 +115,7 @@ def test_Term_context_order_and_composite_abstraction():
         assert (term.eval().dom, term.eval().cod) == (term.dom, term.cod)
 
 
-def test_term_Functor():
+def test_Term_Functor():
     x, y = Ty('x'), Ty('y')
     f, a = (y << x)("f"), x("a")
     g, b = (y << x)("g"), x("b")
@@ -126,9 +126,9 @@ def test_term_Functor():
     assert F(var) == var
     assert F(Abstraction(var, f(var))) == Abstraction(var, g(var))
 
-    h, c = (x >> y)("h"), (x >> y)("k")
-    G = Functor(ob_map={x: x, y: y}, ar_map={h: c, a: b})
-    assert G(a(h, left=True)) == b(c, left=True)
+    h, k = (x >> y)("h"), (x >> y)("k")
+    G = Functor(ob_map={x: x, y: y}, ar_map={h: k, a: b})
+    assert G(a(h, left=True)) == b(k, left=True)
 
 
 def test_Abstraction_eval():

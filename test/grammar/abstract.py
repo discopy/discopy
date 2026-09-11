@@ -136,7 +136,11 @@ def test_Lexicon_Montague_semantics():
     Syntax: two sentences with the same grammatical structure.
 
     Semantics: logical formulas as lambda terms with higher-order constants
-    for the quantifiers and connectives.
+    for the quantifiers and connectives. "married" is interpreted de dicto
+    and "learnt" de re, i.e. the object quantifier scopes below the subject
+    quantifier ("for every woman there exists a man that she married") in
+    the first and above it ("there exists a song that every child learnt")
+    in the second.
     """
     n, np, s = map(categorial.Ty, ("n", "np", "s"))
     every, a = (np << n)("every"), (np << n)("a")
@@ -163,8 +167,6 @@ def test_Lexicon_Montague_semantics():
     A = ET(lambda p: ET(lambda q: exists(
         e(lambda y: and_(p(y))(q(y))))))
 
-    # "married" is interpreted de dicto, "learnt" de re: the object
-    # quantifier scopes below or above the subject quantifier.
     married_sem = NP(lambda o: NP(lambda su: su(
         e(lambda z: o(e(lambda w: MARRIED(w)(z)))))))
     learnt_sem = NP(lambda o: NP(lambda su: o(
@@ -176,10 +178,8 @@ def test_Lexicon_Montague_semantics():
                 woman: WOMAN, man: MAN, child: CHILD, song: SONG,
                 married: married_sem, learnt: learnt_sem})
 
-    # For every woman there exists a man that she married.
     de_dicto = forall(e(lambda x: implies(WOMAN(x))(
         exists(e(lambda y: and_(MAN(y))(MARRIED(y)(x)))))))
-    # There exists a song that every child learnt.
     de_re = exists(e(lambda y: and_(SONG(y))(
         forall(e(lambda x: implies(CHILD(x))(LEARNT(y)(x)))))))
 

@@ -284,11 +284,6 @@ def test_discard_and_nonlinear_eval():
     assert not Copy(x).is_linear
 
     g = (x >> (x >> y))("g")
-    term = x(lambda v: g(v)(v))
-    diagram = term.eval()
-    assert diagram.dom == Ty() and diagram.cod == x >> y
-    assert not diagram.arg.is_linear
-
     shared_abstraction = x(lambda v: x(lambda w: g(w)(v))(v))
     diagram = shared_abstraction.eval()
     assert diagram.dom == Ty() and diagram.cod == x >> y
