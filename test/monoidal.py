@@ -761,3 +761,10 @@ def test_List():
     assert eval(repr(Ty.id(red))) == Ty.id(red)
     with raises(AxiomError):
         Ty(Wire('x', red, red), Wire('y'))
+
+
+def test_tensor_of_sum_with_diagram():
+    x = Ty('x')
+    f, g = Box('f', x, x), Box('g', x, x)
+    assert f.tensor(g + g, f) == (f @ g @ f) + (f @ g @ f)
+    assert (f + f).tensor(g, f) == (f @ g @ f) + (f @ g @ f)

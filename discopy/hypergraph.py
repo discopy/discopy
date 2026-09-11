@@ -376,19 +376,38 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
             right[i]: t for i, t in enumerate(other.spider_types)})
         return type(self)(dom, cod, boxes, wires, spider_types, offsets)
 
-    @unbiased
-    def tensor(self, other: Hypergraph):
-        """ Tensor of two hypergraph diagrams, i.e. their disjoint union. """
-        dom, cod = self.dom @ other.dom, self.cod @ other.cod
-        boxes, offsets = self.boxes + other.boxes, self.offsets + other.offsets
-        shift = lambda w: tuple(self.n_spiders + i for i in w)
-        dom_wires = self.dom_wires + shift(other.dom_wires)
-        box_wires = self.box_wires + tuple(
-            (shift(x), shift(y)) for x, y in other.box_wires)
-        cod_wires = self.cod_wires + shift(other.cod_wires)
-        wires = dom_wires, box_wires, cod_wires
-        spiders = self.spider_types + other.spider_types
-        return type(self)(dom, cod, boxes, wires, spiders, offsets)
+    def tensor(self, *others: Hypergraph):
+        """
+        Tensor of ``n`` hypergraph diagrams, i.e. their disjoint union,
+        with the spiders of every factor relabeled apart.
+
+        >>> from discopy.frobenius import Ty, Box, Hypergraph as H
+        >>> x = Ty('x')
+        >>> f, g, h = (Box(name, x, x).to_hypergraph() for name in "fgh")
+        >>> assert f.tensor(g, h) == f @ g @ h
+        """
+        if not others:
+            return self
+
+        def shifted(wires, shift):
+            return tuple(shift + spider for spider in wires)
+
+        boxes, offsets, spiders, shift = [], [], [], 0
+        dom_wires, box_wires, cod_wires = [], [], []
+        for factor in (self, ) + others:
+            boxes += factor.boxes
+            offsets += factor.offsets
+            spiders += factor.spider_types
+            dom_wires += shifted(factor.dom_wires, shift)
+            cod_wires += shifted(factor.cod_wires, shift)
+            box_wires += [(shifted(x, shift), shifted(y, shift))
+                          for x, y in factor.box_wires]
+            shift += factor.n_spiders
+        wires = tuple(dom_wires), tuple(box_wires), tuple(cod_wires)
+        return type(self)(
+            self.dom.tensor(*(other.dom for other in others)),
+            self.cod.tensor(*(other.cod for other in others)),
+            tuple(boxes), wires, tuple(spiders), tuple(offsets))
 
     def dagger(self):
         """

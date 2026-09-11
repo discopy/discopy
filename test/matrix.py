@@ -45,4 +45,3 @@ def test_autotyping():
         assert Matrix([0.5, 0.5], dom=1, cod=2).dtype == np.float32
     with backend('pytorch'):
         assert Matrix([0.5, 0.5], dom=1, cod=2).dtype == torch.float32
-

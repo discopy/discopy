@@ -41,7 +41,7 @@ from operator import index
 from types import ModuleType
 from typing import Union, Literal as L, Callable, TYPE_CHECKING
 
-from discopy import monoidal, config, messages
+from discopy import config, messages
 from discopy.abc import MonoidalCategory, NamedGeneric, Nat
 from discopy.cat import (
     factory,
@@ -253,14 +253,25 @@ class Matrix(MonoidalCategory, NamedGeneric['dtype']):
             array = np.matmul(self.array, other.array)
         return type(self)(array, self.dom, other.cod)
 
-    def tensor(self, other: Matrix = None, *others: Matrix):
-        if others or other is None:
-            return monoidal.Diagram.tensor(self, other, *others)
-        assert_isinstance(other, type(self))
-        dom, cod = self.dom @ other.dom, self.cod @ other.cod
-        array = self.zero(dom, cod).array
-        array[:self.dom, :self.cod] = self.array
-        array[self.dom:, self.cod:] = other.array
+    def tensor(self, *others: Matrix):
+        """
+        The direct sum of ``n`` matrices, i.e. one block-diagonal array with
+        a block for each matrix.
+
+        >>> one, two = Matrix([1], 1, 1), Matrix([2], 1, 1)
+        >>> assert one.tensor(two) == Matrix([1, 0, 0, 2], 2, 2)
+        """
+        if not others:
+            return self
+        for other in others:
+            assert_isinstance(other, type(self))
+        dom = self.dom.tensor(*(other.dom for other in others))
+        cod = self.cod.tensor(*(other.cod for other in others))
+        array, i, j = self.zero(dom, cod).array, 0, 0
+        for factor in (self, ) + others:
+            rows, columns = index(factor.dom), index(factor.cod)
+            array[i:i + rows, j:j + columns] = factor.array
+            i, j = i + rows, j + columns
         return type(self)(array, dom, cod)
 
     def __add__(self, other):

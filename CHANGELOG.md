@@ -198,6 +198,25 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Changed
 
+- Every `tensor` takes `(self, *others)`, the signature that
+  `abc.MonoidalCategory.tensor` has always declared. The implementing
+  classes were never adapted when `abc` was introduced, so they came in
+  two non-conforming shapes: `(self, other=None, *others)` on
+  `monoidal.Diagram`, `monoidal.Sum`, `symmetric.Permutation`,
+  `python.finset.Permutation`, `tensor.Tensor`, `matrix.Matrix` and
+  `quantum.channel.Channel`, and a plain binary `(self, other)` with no
+  `utils.unbiased` on `monoidal.Layer` and the three `python.Function`
+  classes, which raised `TypeError` on a third argument.
+  The `None` was the unit in the unary case (`f.tensor(None) == f`) and
+  nothing in the variadic one, and the three classes that are not diagrams
+  at all -- `Tensor`, `Matrix` and `Channel` -- reached for
+  `monoidal.Diagram.tensor` to fold for them, borrowing a method of a
+  category they do not belong to for its recursion alone. Neither is
+  needed once the signature is the declared one: `f.tensor()` is `f`
+  because the empty product of one thing is itself, and each class folds
+  or, where that costs, tensors its `n` arguments at once
+  ([#489](https://github.com/discopy/discopy/pull/489#discussion_r3896050565)).
+
 - `monoidal.Colour` is transparent by default rather than white, i.e. its
   `name` defaults to the new `config.TRANSPARENT` and `monoidal.white` is
   renamed to `monoidal.transparent`. The drawing code painted every region
@@ -676,6 +695,39 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   ([#484](https://github.com/discopy/discopy/pull/484)).
 
 ### Performance
+
+- Tensoring `n` morphisms is done in one pass rather than by folding two at
+  a time, which re-did the work of every previous step:
+  - `monoidal.Diagram.tensor` whiskers each layer once, by the codomains of
+    the diagrams before it and the domains of those after it, instead of
+    re-whiskering every accumulated layer at each step -- and the types it
+    whiskered with grew as it went, so the fold was cubic. Tensoring 400
+    boxes takes 112 ms rather than 12.6 s.
+  - `hypergraph.Hypergraph.tensor` relabels the spiders of each factor once
+    against an accumulated offset, where the constructor relabelled the
+    whole prefix at every step: 200 boxes in 18.9 ms rather than 2.09 s.
+    This is the same quadratic fold that
+    [#623](https://github.com/discopy/discopy/issues/623) removed from
+    `Hypergraph.from_diagram`.
+  - `cmap.CMap.tensor` builds the port permutation in one pass rather than
+    conjugating the whole map at every step: 200 boxes in 5.0 ms rather
+    than 252 ms.
+  - `matrix.Matrix.tensor` fills one block-diagonal array instead of
+    reallocating a growing one for each pair: 200 matrices in 1.2 ms rather
+    than 35.6 ms.
+  - `python.finset.Function.tensor` and `Permutation.tensor` concatenate the
+    lists in one pass: 600 permutations in 3.1 ms rather than 166 ms.
+  - `tensor.Tensor.tensor` moves the axes of the outer product once rather
+    than `n - 1` times, and `monoidal.Layer.tensor` normalises the
+    boundaries over one list.
+- `python.multiplicative.Function.tensor` and
+  `python.additive.Function.tensor` call their factors in one Python frame
+  rather than descending `n` nested closures, the additive one bisecting
+  the domain offsets to find the summand a tag belongs to. Calling the
+  tensor of 300 functions takes 0.9 ms rather than 43.7 ms (multiplicative)
+  and 0.7 ms rather than 87.4 ms (additive). This also fixes a crash: the
+  nesting meant that calling the tensor of a few hundred functions raised
+  `RecursionError`.
 
 - The elements of a Hopf algebra (`drinfeld_element`, `pivotal_element`,
   `ribbon_element`) contract each structural generator once through the
