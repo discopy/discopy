@@ -384,3 +384,17 @@ def test_Sum():
     assert len(Sum((), x, y)) == 0
     assert Sum((), x, x).then(f, g) == Sum((), x, z)
     assert Sum((), x, y).dagger() == Sum((), y, x)
+
+
+def test_Functor_then_left_unit():
+    """
+    Composition is unital only on the left up to equality of functors
+    (#648): the identity functor is a pair of functions, so composing it on
+    the left of a functor given by dictionaries yields a pair of functions
+    that acts the same but compares unequal.
+    """
+    x, y = Ob('x'), Ob('y')
+    F = Functor({x: y, y: x}, {})
+    assert F >> Functor.id() == F
+    assert Functor.id() >> F != F
+    assert (Functor.id() >> F)(x) == F(x)
