@@ -65,13 +65,12 @@ from dataclasses import dataclass
 from typing import ClassVar, Self
 
 from discopy.axioms import (  # noqa: F401
-    Axiom, ComposablePair, ComposableTriple, Equation, axiom,
-    declared_axioms)
+    Axiom, ComposablePair, ComposableTriple, Equation, Theory, axiom)
 from discopy.utils import (  # noqa: F401
     NamedGeneric, classproperty, factory_name)
 
 
-class Serialisable:
+class Serialisable(Theory):
     """
     The serialisation interface of DisCoPy, one hook driving all three
     mechanisms: the class attribute ``serialised_attrs`` names attributes that
@@ -296,7 +295,7 @@ class Serialisable:
         return Equation(from_tree(term.to_tree()), loads(dumps(term)), term)
 
 
-class Category[C0, C1: Category](ABC):
+class Category[C0, C1: Category](Theory, ABC):
     """
     A category is a class with two class variables ``ob, ar``, two attributes
     ``dom, cod`` and two methods ``id, then``.
@@ -334,11 +333,6 @@ class Category[C0, C1: Category](ABC):
         further.
         """
         return Equation(*terms)
-
-    @classproperty
-    def axioms(cls) -> dict[str, Axiom]:
-        """ The axioms inherited by ``cls``, see :func:`declared_axioms`. """
-        return declared_axioms(cls)
 
     @classmethod
     @abstractmethod

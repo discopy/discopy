@@ -15,7 +15,7 @@ Read the following documents (<10k tokens) before any work on the package:
 
 - [discopy](discopy/) contains the code with a lot of modules and a few submodules
 - [discopy.abc](discopy/abc.py) contains abstract base classes for each level of the hierarchy
-- [discopy.axioms](discopy/axioms.py) contains the property-testing module: `Axiom` states a law once on an abstract base class, `Testable` generates the terms it quantifies over, and the matrix in `proptest/` checks every cell. The roundtrip laws of serialisation are stated on `discopy.abc.Serialisable`. Read it before adding a category or an axiom.
+- [discopy.axioms](discopy/axioms.py) contains the property-testing module: `Axiom` states a law once on a `Theory` — `discopy.abc.Category` for the categorical laws, `discopy.abc.Serialisable` for the roundtrips of serialisation — `Testable` generates the terms it quantifies over, and the matrix in `proptest/` checks every cell, discovering its carriers from the subclasses that define a `strategy`. Read it before adding a category or an axiom.
 - [test](test/) is flat with one file for each module, mirroring `discopy/`; submodules (`grammar`, `quantum`, `drawing`, `python`) keep their own directory with one file per submodule, and shared test data lives in `fixtures`
 - [docs](docs/) contains notebooks and pictures generated automatically when running the tests
 

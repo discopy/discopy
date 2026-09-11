@@ -37,14 +37,20 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   that generates its instances need not write itself down, and one that
   writes itself down need not be generated. `copying` is new — a deep
   copy goes through the same reduction as a pickle without the bytes,
-  which is how the `NamedGeneric` parameters were lost below. The
-  collection of an axiom is no longer the business of `Category`:
-  `axioms.declared_axioms` walks the MRO of any class and
-  `Category.axioms` delegates to it, so that a carrier stating the
+  which is how the `NamedGeneric` parameters were lost below. Stating an
+  axiom is no longer the business of `Category` alone: both it and
+  `Serialisable` subclass the new `axioms.Theory`, which carries the
+  `axioms` classproperty they share, so that a carrier stating the
   roundtrips without being a category — the objects of a category, say —
-  is enrolled like the rest. `proptest/test_serialisation.py` checks
-  every roundtrip of every such carrier, `cat.Ob` and `cat.Box` to
-  begin with.
+  is enrolled like the rest. `Theory.theories` walks the transitive
+  subclasses, and `proptest/carriers.py` (formerly `categories.py`) reads
+  the matrix off it: a carrier enrols itself by defining a `strategy`,
+  rather than by being added to a list kept beside the suite, so a
+  category whose terms cannot be generated yet states its laws without
+  being checked against them and is checked as soon as it says how. That
+  is `cat.Ob`, `cat.Arrow` and `cat.Box` to begin with, where the matrix
+  reached the objects and boxes only through the arrows containing
+  them.
 - `discopy/axioms.py`, a Hypothesis-based property-testing module, home
   of `Equation` (formerly `discopy.abc.Equation`): a law is stated once
   on `discopy.abc.Category` and every subclass inherits

@@ -80,9 +80,12 @@ single cell.
 
 Every cell of the matrix is one axiom of one carrier, named
 `<module>.<Carrier>.<law>`, so pytest's own `-k` selects cells for
-shorter, targeted tests. Most carriers are categories; the roundtrip
-laws of `discopy.abc.Serialisable` are also checked on the terms that
-state them without being categories, e.g. the objects of a category.
+shorter, targeted tests. The carriers are discovered rather than listed:
+every subclass of `discopy.axioms.Theory` that defines a `strategy`, so
+a class enrols itself by saying how to generate its instances. Most are
+categories; the roundtrip laws of `discopy.abc.Serialisable` are also
+checked on the terms that state them without being categories, e.g. the
+objects of a category.
 
 ```shell
 uv run pytest proptest/ -k unitality -v

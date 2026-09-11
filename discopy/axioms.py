@@ -2,15 +2,16 @@
 Property-based testing of the axioms with `Hypothesis
 <https://hypothesis.readthedocs.io>`_.
 
-An :class:`Axiom` is an equation stated once on an abstract base class of
-:mod:`discopy.abc` and inherited by every category below it, where
+An :class:`Axiom` is an equation stated once on a :class:`Theory` — an
+abstract base class of :mod:`discopy.abc`, whether a category or the
+serialisation interface — and inherited by every class below it, where
 :meth:`Axiom.failing` and :meth:`Axiom.inapplicable` classify it when a
-category breaks it or has no such structure. A :class:`Testable` category
-generates its own objects and arrows, and states the laws every type that
-does so obeys: a term reads back from its representation, its pickle and
-its tree. The matrix in ``proptest/`` checks every axiom of every
-category against generated arguments, one cell per pair; CONTRIBUTING.md
-says how to run it.
+class breaks it or has no such structure. A :class:`Testable` class
+generates its own instances, which is also how it enrols itself: the
+matrix in ``proptest/`` reads its carriers off
+:meth:`Theory.theories` rather than a list, and checks every axiom of
+every carrier against generated arguments, one cell per pair;
+CONTRIBUTING.md says how to run it.
 
 Summary
 -------
@@ -23,6 +24,7 @@ Summary
     Equation
     Axiom
     AxiomFailure
+    Theory
     Testable
     Grid
     ComposablePair
@@ -55,6 +57,7 @@ from discopy.utils import (
     AxiomError,
     NamedGeneric,
     assert_iscomposable,
+    classproperty,
     factory_name,
     get_origin,
 )
@@ -503,26 +506,55 @@ class ComposableTriple(Grid):
     n_active_rows = 3
 
 
-def declared_axioms(cls) -> dict[str, Axiom]:
+class Theory:
     """
-    The axioms a class inherits, by name, subclasses overriding bases and
-    each bound to ``cls``.
+    A theory is a class that states axioms, which its subclasses inherit
+    along with the structure they axiomatise.
 
-    Names are collected before they are filtered, so that assigning
-    anything that is not an axiom over an inherited one drops it
-    altogether, rather than restating it.
-
-    A class need not be a category to state laws: the roundtrips of
-    :class:`discopy.abc.Serialisable` are declared by everything that
-    writes itself down, e.g. the objects of a category as much as its
-    arrows.
+    Both kinds of theory subclass this: a :class:`discopy.abc.Category`
+    states the laws of a categorical structure, a
+    :class:`discopy.abc.Serialisable` those of writing a term down and
+    reading it back. A class need not be a category to state laws, which
+    is why the two meet here rather than in either of them.
     """
-    visible = {
-        name: value
-        for base in reversed(cls.__mro__)
-        for name, value in base.__dict__.items()}
-    return {name: value.bind(cls) for name, value in visible.items()
-            if isinstance(value, Axiom)}
+
+    @classproperty
+    def axioms(cls) -> dict[str, Axiom]:
+        """
+        The axioms inherited by ``cls``, by name, subclasses overriding
+        bases and each bound to ``cls``.
+
+        Names are collected before they are filtered, so that assigning
+        anything that is not an axiom over an inherited one drops it
+        altogether, rather than restating it.
+        """
+        visible = {
+            name: value
+            for base in reversed(cls.__mro__)
+            for name, value in base.__dict__.items()}
+        return {name: value.bind(cls) for name, value in visible.items()
+                if isinstance(value, Axiom)}
+
+    @classmethod
+    def theories(cls) -> tuple[type[Theory], ...]:
+        """
+        Every transitive subclass of ``cls``, itself included, in the
+        order a breadth-first walk of the subclass graph meets them,
+        each listed once however many paths reach it.
+
+        Example
+        -------
+        >>> from discopy.cat import Arrow, Box
+        >>> assert Arrow.theories()[0] is Arrow
+        >>> assert Box in Arrow.theories()  # a subclass of a subclass
+        """
+        found, queue = {cls: None}, [cls]
+        while queue:
+            for subclass in queue.pop(0).__subclasses__():
+                if subclass not in found:
+                    found[subclass] = None
+                    queue.append(subclass)
+        return tuple(found)
 
 
 def resolve(annotation, **params) -> st.SearchStrategy:
