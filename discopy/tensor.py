@@ -148,21 +148,38 @@ class Tensor(Matrix):
                 else self.array * other.array
         return type(self)(array, self.dom, other.cod)
 
-    def tensor(self, other: Tensor = None, *others: Tensor) -> Tensor:
-        if other is None or others:
-            return Diagram.tensor(self, other, *others)
-        assert_isinstance(other, Tensor)
-        dom, cod = self.dom @ other.dom, self.cod @ other.cod
-        source = range(len(dom @ cod))
-        target = [
-            i if i < len(self.dom) or i >= len(self.dom @ other.dom @ self.cod)
-            else i - len(self.cod) if i >= len(self.dom @ self.cod)
-            else i + len(other.dom) for i in source]
+    def tensor(self, *others: Tensor) -> Tensor:
+        """
+        The tensor of ``n`` tensors, i.e. their outer product with the axes
+        of every domain moved in front of those of every codomain.
+
+        The axes are moved once rather than after each outer product, so
+        that the array is permuted one time instead of ``n - 1``.
+
+        >>> v = Tensor([1, 0], Dim(1), Dim(2))
+        >>> assert v.tensor(v, v) == v @ v @ v
+        """
+        if not others:
+            return self
+        tensors = (self, ) + others
+        for other in others:
+            assert_isinstance(other, Tensor)
+        dom = self.dom.tensor(*(other.dom for other in others))
+        cod = self.cod.tensor(*(other.cod for other in others))
+        source, target, i, j = [], [], 0, len(dom)
+        for other in tensors:
+            target += list(range(i, i + len(other.dom)))
+            target += list(range(j, j + len(other.cod)))
+            i, j = i + len(other.dom), j + len(other.cod)
+        source = list(range(len(target)))
         with backend() as np:
-            array = np.tensordot(self.array, other.array, 0)\
-                if self.array.shape and other.array.shape\
-                else self.array * other.array
-            array = np.moveaxis(array, source, target)
+            array = self.array
+            for other in others:
+                array = np.tensordot(array, other.array, 0)\
+                    if array.shape and other.array.shape\
+                    else array * other.array
+            if source:
+                array = np.moveaxis(array, source, target)
         return type(self)(array, dom, cod)
 
     def dagger(self) -> Tensor:

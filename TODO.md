@@ -11,8 +11,8 @@ Non-conforming, `(self, other=None, *others)`:
 
 - [WIP] @session_01Cx6uSFsQAKANhJLV1mQVpM-2026-09-11 08:07 `monoidal.Diagram.tensor`
 - [WIP] @session_01Cx6uSFsQAKANhJLV1mQVpM-2026-09-11 08:07 `monoidal.Sum.tensor`
-- [ ] `symmetric.Permutation.tensor`
-- [ ] `python.finset.Permutation.tensor`
+- [WIP] @session_01Cx6uSFsQAKANhJLV1mQVpM-2026-09-11 08:13 `symmetric.Permutation.tensor`
+- [WIP] @session_01Cx6uSFsQAKANhJLV1mQVpM-2026-09-11 08:13 `python.finset.Permutation.tensor`
 - [WIP] @session_01Cx6uSFsQAKANhJLV1mQVpM-2026-09-11 08:11 `tensor.Tensor.tensor`
 - [WIP] @session_01Cx6uSFsQAKANhJLV1mQVpM-2026-09-11 08:11 `matrix.Matrix.tensor`
 - [WIP] @session_01Cx6uSFsQAKANhJLV1mQVpM-2026-09-11 08:11 `quantum.channel.Channel.tensor`
@@ -20,9 +20,9 @@ Non-conforming, `(self, other=None, *others)`:
 Non-conforming, binary with no `@unbiased`:
 
 - [WIP] @session_01Cx6uSFsQAKANhJLV1mQVpM-2026-09-11 08:07 `monoidal.Layer.tensor`
-- [ ] `python.finset.Function.tensor`
-- [ ] `python.additive.Function.tensor`
-- [ ] `python.multiplicative.Function.tensor`
+- [WIP] @session_01Cx6uSFsQAKANhJLV1mQVpM-2026-09-11 08:13 `python.finset.Function.tensor`
+- [WIP] @session_01Cx6uSFsQAKANhJLV1mQVpM-2026-09-11 08:13 `python.additive.Function.tensor`
+- [WIP] @session_01Cx6uSFsQAKANhJLV1mQVpM-2026-09-11 08:13 `python.multiplicative.Function.tensor`
 
 Conforming through `@unbiased`, to be measured for an `n`-ary rewrite:
 
