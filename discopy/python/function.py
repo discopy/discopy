@@ -84,11 +84,12 @@ class Function(Category):
         for factor, other in zip(factors, others):
             assert_isinstance(other, type(self))
             assert_iscomposable(factor, other)
+        *before, last = factors
 
         def inside(*args):
-            for factor in factors[:-1]:
+            for factor in before:
                 args = tuplify(factor(*args))
-            return factors[-1](*args)
+            return last(*args)
         return type(self)(inside, self.dom, others[-1].cod)
 
     @classproperty
