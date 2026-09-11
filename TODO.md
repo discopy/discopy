@@ -26,7 +26,7 @@ Non-conforming, binary with no `@unbiased`:
 
 Conforming through `@unbiased`, to be measured for an `n`-ary rewrite:
 
-- [ ] `hypergraph.Hypergraph.tensor`, `cmap.CMap.tensor`, `drawing.Drawing.tensor`
+- [WIP] @session_01Cx6uSFsQAKANhJLV1mQVpM-2026-09-11 08:31 `hypergraph.Hypergraph.tensor`, `cmap.CMap.tensor`, `drawing.Drawing.tensor`
 - [ ] `para.Symmetric.tensor`, `stream.Ty.tensor`, `stream.Stream.tensor`,
       `interaction.Diagram.tensor`
 
