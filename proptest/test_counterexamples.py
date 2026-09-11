@@ -30,8 +30,8 @@ The relabelling the search shrunk to: every generator sent to the first.
 
 It names all of them because every functor the strategy builds does, see
 :obj:`discopy.axioms.GENERATORS`. The images are what shrinking landed on
-rather than what the bug needs — composing on the left forgets the functor
-whatever it relabels, so the identity relabelling is a counterexample too.
+rather than what the bug needs: composing the identity functor on the
+left preserves its action but compares unequal (#648).
 """
 
 MEMORY = feedback.Ty("a") @ feedback.Ty("b")
@@ -40,9 +40,8 @@ COUNTEREXAMPLES = (
     Counterexample(
         axiom=cat.Functor.unitality,
         args=(cat.Functor(ob_map=COLLAPSE, ar_map=COLLAPSE), ),
-        reason="MappingOrCallable.then iterates the keys of the left-hand "
-               "map and the identity functor enumerates none, so id >> f "
-               "forgets everything f does."),
+        reason="Composing the identity functor on the left of a mapping "
+               "preserves its action but compares unequal (#648)."),
     Counterexample(
         axiom=braided.Diagram.braid_naturality,
         args=(braided.Box("f", braided.Ty("a"), braided.Ty("a")),
@@ -77,7 +76,7 @@ COUNTEREXAMPLES = (
                    "f", MEMORY[:1] @ MEMORY.delay(), MEMORY[:1] @ MEMORY),
                MEMORY), ),
         reason="feedback.Diagram.feedback unrolls its memory in the wrong "
-               "order (#649)"),
+               "order (#606)"),
 )
 
 

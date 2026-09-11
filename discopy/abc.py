@@ -61,11 +61,10 @@ from dataclasses import dataclass
 from typing import ClassVar
 
 from discopy.axioms import (
-    Atomic, Axiom, ComposablePair, ComposableTriple, Equation,
-    FeedbackJoining, FeedbackVanishing, HorizontalPair, LeftCurrying,
-    NonEmpty, RightCurrying, Square, TraceDinaturalityLeft,
-    TraceDinaturalityRight, TraceNaturalityLeft, TraceNaturalityRight,
-    TraceSuperposing, axiom)
+    Atomic, Axiom, Equation, ComposablePair, ComposableTriple, FeedbackJoining,
+    FeedbackVanishing, HorizontalPair, LeftCurrying, NonEmpty,
+    RightCurrying, Square, TraceDinaturalityLeft, TraceDinaturalityRight,
+    TraceNaturalityLeft, TraceNaturalityRight, TraceSuperposing, axiom)
 from discopy.utils import NamedGeneric, classproperty  # noqa: F401
 
 

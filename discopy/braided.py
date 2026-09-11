@@ -65,8 +65,9 @@ from discopy.abc import BraidedCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty, Match
 from discopy.utils import (
-    assert_isatomic, BinaryBoxConstructor, deprecated_alias,
-    factory_name, from_tree)
+    BinaryBoxConstructor, assert_isatomic, deprecated_alias, factory_name,
+    from_tree
+)
 from discopy.axioms import axiom
 
 
@@ -74,7 +75,8 @@ class Wire(monoidal.Wire):
     """
     A braided object is a self-dagger :class:`monoidal.Wire`. From braided
     categories onwards colours stop making sense, i.e. we cannot add colours to
-    braids or swaps in any meaningful way, so its colours are always white.
+    braids or swaps in any meaningful way, so its colours are always
+    transparent.
     """
     def dagger(self) -> Wire:
         return self

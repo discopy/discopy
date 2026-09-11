@@ -17,7 +17,26 @@ Summary
     Axiom
     AxiomFailure
     Strategy
+    Atomic
+    NonEmpty
+    Subsingleton
+    BoundaryConnected
     Grid
+    HorizontalPair
+    Square
+    TraceSuperposing
+    TraceSliding
+    TraceNaturalityLeft
+    TraceNaturalityRight
+    TraceDinaturality
+    TraceDinaturalityLeft
+    TraceDinaturalityRight
+    LeftCurrying
+    RightCurrying
+    FeedbackVanishing
+    FeedbackJoining
+    HomogeneousMemory
+    Relabelling
     ComposablePair
     ComposableTriple
 
@@ -32,6 +51,7 @@ Summary
         resolve
         substitute
         assert_axioms
+        assert_strategy_finds
 
 How to develop DisCoPy against its property suite: state the laws before
 writing the implementation, let the matrix search for counterexamples,
@@ -53,6 +73,9 @@ The suite
   :meth:`Strategy.environment`: the package's public names and its own
   module's, so that a representation printing bare names evaluates
   without the category declaring anything.
+- ``proptest/test_drawing.py`` and ``proptest/test_normal_form.py`` check
+  drawing and rewriting over the diagram categories;
+  ``proptest/test_conversion.py`` checks their representations.
 - ``proptest/test_counterexamples.py`` replays every recorded
   counterexample deterministically — no generation, no search: the
   matrix's explicit phase. Its memory is Hypothesis's example database,
@@ -689,44 +712,6 @@ class Strategy[T](ABC):
         A type without a tree declares the law inapplicable.
         """
         return Equation(from_tree(term.to_tree()), loads(dumps(term)), term)
-
-
-class Natural(int, Strategy["Natural"]):
-    """ A non-negative integer with tensor given by addition. """
-
-    def __new__(cls, value=0):
-        if not isinstance(value, int) or value < 0:
-            raise ValueError("Expected a non-negative integer.")
-        return super().__new__(cls, value)
-
-    def __matmul__(self, other):
-        return type(self)(self + other) if isinstance(other, int)\
-            else NotImplemented
-
-    __rmatmul__ = __matmul__
-    __len__ = lambda self: int(self)
-
-    def __repr__(self):
-        return factory_name(type(self)) + f"({int(self)})"
-
-    @classmethod
-    def equation_factory(cls, *terms):
-        """
-        Construct an equation between natural numbers.
-        """
-        return Equation(*terms)
-
-    @classmethod
-    def strategy(cls, *, max_size=3):
-        """Generate non-negative integers."""
-        from hypothesis import strategies as st
-
-        return st.one_of(
-            st.just(1),
-            st.integers(min_value=0, max_value=max_size)).map(cls)
-
-    serialisation = Strategy.serialisation.inapplicable(
-        "A natural number has no tree.")
 
 
 @dataclass(frozen=True)

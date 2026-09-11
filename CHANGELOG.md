@@ -22,7 +22,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `discopy.abc`, are enrolled in `proptest/`. The bugs the wider search
   surfaced are fixed below, except one declared in the matrix —
   `feedback.Diagram.feedback` unrolls its memory in the wrong order
-  ([#649](https://github.com/discopy/discopy/issues/649)) — and one the
+  ([#606](https://github.com/discopy/discopy/issues/606)) — and one the
   matrix cannot reach: an uncoloured `monoidal.Wire` reprs as the `cat.Ob`
   that `Ty` coerces, which its type-strict equality rejects
   ([#650](https://github.com/discopy/discopy/issues/650)). `Wire` is the
@@ -47,8 +47,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   the objects, arrows or terms of the category;
   `.failing`/`.inapplicable` classify a
   law as broken or not applicable to a category, and `.modulo`/`.weaken`
-  are defined (compare up to a function, quantify over a named subspace)
-  but not used yet. A
+  compare up to a function or quantify over a named subspace. A
   broken law raises `AxiomFailure` carrying its equation, which the
   recorded-counterexample replay checks, so a record's xfail is earned by
   its arguments falsifying the law and flips visibly when the bug is
@@ -63,10 +62,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   states, so a subspace annotation like `ComposablePair[C1]`
   builds; an unbound axiom's `.strategy()` raises the same `TypeError`
   as `.falsify` and calling it. The
-  search itself is the canonical instantiation only — one atomic object or
-  one free/generator box per parameter, no recursive or compound
-  generation — wired up in `proptest/test_axioms.py`, enrolled so far for
-  `cat.Arrow`, and run by the new `proptest` GitHub
+  recursive search is wired up in `proptest/test_axioms.py`, enrolled for
+  the free categories and their functors listed in `proptest/categories.py`,
+  and run by the new `proptest` GitHub
   workflow on PRs labelled `proptest`, on `main`, nightly and on manual
   dispatch. `proptest/conftest.py` registers three Hypothesis profiles
   over one example database, keyed per cell: `pr` replays what the
@@ -96,11 +94,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   for developing against the suite — laws stated before implementation,
   a failing cell debugged, its counterexample recorded, a strategy that
   missed a bug audited — is the documentation of `discopy.axioms`,
-  which joins the API docs under its own `axiom` page; `AGENTS.md`
+  which joins the API docs under its own `axioms` page; `AGENTS.md`
   points to it from `Where` rather than importing it into every agent's
   context, and links its other documents rather than importing them with
   the `@` syntax only `CLAUDE.md` is read with.
-
 - `abc.Nat`, a concrete dataclass for the free monoid on one generator
   (`n: int` with addition as `tensor`), and `abc.PRO`/`abc.PROB`/`abc.PROP`,
   the `MonoidalCategory`/`BraidedCategory`/`SymmetricCategory` whose objects
@@ -212,6 +209,31 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Changed
 
+- The monoidal property suite uses `discopy.axioms` and the category registry.
+  Functor laws quantify their functor with `Self` and their source types with
+  `Self.dom`; monoids inherit category unitality and associativity. Strategy
+  defaults follow transparent colours and `Nat` boundaries, and unused
+  natural-number helpers and classifications are removed.
+
+- `monoidal.Colour` is transparent by default rather than white, i.e. its
+  `name` defaults to the new `config.TRANSPARENT` and `monoidal.white` is
+  renamed to `monoidal.transparent`. The drawing code painted every region
+  but skipped the white ones, so the neutral background was spelt "white"
+  and a white region could not be asked for: the region was not filled, it
+  was left out of the legend, the wires around it adapted to a dark page as
+  if they lay on the bare canvas and a spider coloured white was drawn
+  unfilled. Each of those now tests for the transparent colour, so white is
+  a colour like any other and the neutral background is the one that is
+  actually transparent, as `savefig` already made the canvas
+  ([#751](https://github.com/discopy/discopy/issues/751), completing
+  [#725](https://github.com/discopy/discopy/pull/725) with what
+  [#497](https://github.com/discopy/discopy/pull/497) had right). Nothing
+  in the library asks for a white region, so the drawings are unchanged:
+  the symbol of an `Equation` and the slots around its terms are
+  transparent now rather than white. The one exception is TikZ, which
+  spelt the symbol `fill=white` where matplotlib already drew it unfilled
+  and now agrees with it, `TikZ.format_color` passing the transparent
+  colour through as TikZ spells it the same way.
 - `monoidal.PRO` (and its counterparts `rigid.PRO`, `pivotal.PRO` and
   `frobenius.PRO`) is renamed to `Nat`: it is the free monoid on one
   generator, natural numbers with addition as tensor, and its unary
@@ -496,6 +518,18 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- The marimo notebook previews in the docs follow the theme switch. The
+  notebooks are exported with marimo's `system` theme and the docs relay
+  the resolved theme into each notebook's iframe through marimo's
+  host-theming bridge, since browsers do not forward the page's colour
+  scheme into an iframe: only the browser-level preference reached it,
+  turning the wires of the adaptive SVGs white on the notebook's white
+  background for dark-mode readers. The diagrams drawn inline in a
+  notebook read the browser preference rather than the notebook theme,
+  so the export inserts a stylesheet keying their adaptive colours to
+  marimo's theme class, which outweighs the media query of
+  `drawing.backend.DARK_MODE_STYLE`
+  ([#453](https://github.com/discopy/discopy/issues/453)).
 - `Hypergraph.rotate` exchanged the two boundaries of the hypergraph and
   replaced each box by its rotation, but left the *ports* of those boxes
   and the spiders where they were: the wires reading a box's domain went

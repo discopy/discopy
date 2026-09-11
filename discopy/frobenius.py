@@ -60,9 +60,9 @@ Speciality
 
 from __future__ import annotations
 
-from collections.abc import Callable
-
 from typing import Self
+
+from collections.abc import Callable
 
 from discopy import (
     abc, monoidal, rigid, markov, compact, pivotal, cmap, hypergraph)
@@ -351,12 +351,11 @@ class Functor(compact.Functor, markov.Functor):
         return compact.Functor.__call__(self, other)
 
     @axiom
-    def frobenius(cls, functor: Self, x: Atomic[Self.dom.ob]):
+    def frobenius(cls, self: Self, x: Atomic[Self.dom.ob]):
         """ A hypergraph functor preserves the spiders. """
         x = x.value
-        return functor.cod.equation_factory(
-            functor(functor.dom.spiders(1, 2, x)),
-            functor.cod.spiders(1, 2, functor(x)))
+        return self.cod.equation_factory(
+            self(self.dom.spiders(1, 2, x)), self.cod.spiders(1, 2, self(x)))
 
 
 def interleaving(cls: type, factory: Callable

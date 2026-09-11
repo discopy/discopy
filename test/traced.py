@@ -21,7 +21,7 @@ def test_trace_dagger():
 
 
 def test_trace_vanishing():
-    """ trace(0) is the identity for the categories outside the matrix, #578. """
+    """ trace(0) is the identity for the carriers outside the matrix, #578. """
     from discopy import compact, matrix
     from discopy.python import additive, multiplicative
 

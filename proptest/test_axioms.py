@@ -16,12 +16,9 @@ def axiom_parameters():
     An axiom taking no argument states its verdict without one, so we ask it
     here: :obj:`NotImplemented` means the structure does not apply and the
     test is skipped rather than generating arguments it could not satisfy.
-    Axioms are stated of a category, so an entry that is not one states
-    none: :class:`monoidal.Wire` is a generating 1-cell, enrolled for the
-    ad-hoc properties only.
     """
     for category in CATEGORIES:
-        for axiom in getattr(category, "axioms", {}).values():
+        for axiom in category.axioms.values():
             if not axiom.parameters and axiom() is NotImplemented:
                 marks = pytest.mark.skip(reason=axiom.__doc__.strip())
             elif axiom.broken:

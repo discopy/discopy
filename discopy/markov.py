@@ -345,11 +345,11 @@ class Functor(symmetric.Functor):
         return super().__call__(other)
 
     @axiom
-    def markov(cls, functor: Self, x: Atomic[Self.dom.ob]):
+    def markov(cls, self: Self, x: Atomic[Self.dom.ob]):
         """ A Markov functor preserves the copy. """
         x = x.value
-        return functor.cod.equation_factory(
-            functor(functor.dom.copy(x)), functor.cod.copy(functor(x)))
+        return self.cod.equation_factory(
+            self(self.dom.copy(x)), self.cod.copy(self(x)))
 
 
 CMap = cmap.CMap[Diagram]

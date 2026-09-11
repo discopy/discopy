@@ -147,11 +147,13 @@ out the two objects needed below as ``cat.Ob`` instances so that
 
 from __future__ import annotations
 
+from typing import Self
+
 import copy
 
 from collections.abc import Callable
 
-from typing import Iterator, Self
+from typing import Iterator
 
 from discopy import cat, monoidal, biclosed, messages
 from discopy.abc import Category, Pregroup, RigidCategory
@@ -195,15 +197,15 @@ class Wire(monoidal.Wire):
         super().__setstate__(state)
 
     def __init__(self, name: str, z: int = 0,
-                 dom: monoidal.Colour = monoidal.white,
-                 cod: monoidal.Colour = monoidal.white):
+                 dom: monoidal.Colour = monoidal.transparent,
+                 cod: monoidal.Colour = monoidal.transparent):
         assert_isinstance(z, int)
         self.z = z
         super().__init__(name, dom, cod)
 
     @classmethod
     def strategy(
-            cls, *, dom=monoidal.white, cod=monoidal.white,
+            cls, *, dom=monoidal.transparent, cod=monoidal.transparent,
             min_winding=-1, max_winding=1):
         """Generate rigid objects with bounded winding number."""
         from hypothesis import strategies as st
@@ -244,7 +246,7 @@ class Wire(monoidal.Wire):
     def __repr__(self):
         cls_name = factory_name(type(self))
         z_repr = ', z=' + repr(self.z) if self.z else ''
-        if self.dom == self.cod == monoidal.white:
+        if self.dom == self.cod == monoidal.transparent:
             return f"{cls_name}({self.name!r}{z_repr})"
         return f"{cls_name}({self.name!r}{z_repr}, " \
             f"dom={self.dom!r}, cod={self.cod!r})"
@@ -902,20 +904,18 @@ class Functor(biclosed.Functor):
         return super().__call__(other)
 
     @axiom
-    def rigid_cups(cls, functor: Self, x: Atomic[Self.dom.ob]):
+    def rigid_cups(cls, self: Self, x: Atomic[Self.dom.ob]):
         """ A rigid functor preserves the cups. """
         x = x.value
-        return functor.cod.equation_factory(
-            functor(functor.dom.cups(x, x.r)),
-            functor.cod.cups(functor(x), functor(x.r)))
+        return self.cod.equation_factory(
+            self(self.dom.cups(x, x.r)), self.cod.cups(self(x), self(x.r)))
 
     @axiom
-    def rigid_caps(cls, functor: Self, x: Atomic[Self.dom.ob]):
+    def rigid_caps(cls, self: Self, x: Atomic[Self.dom.ob]):
         """ A rigid functor preserves the caps. """
         x = x.value
-        return functor.cod.equation_factory(
-            functor(functor.dom.caps(x.r, x)),
-            functor.cod.caps(functor(x.r), functor(x)))
+        return self.cod.equation_factory(
+            self(self.dom.caps(x.r, x)), self.cod.caps(self(x.r), self(x)))
 
 
 def nesting(cls: type, factory: Callable) -> Callable[[Ty, Ty], Diagram]:

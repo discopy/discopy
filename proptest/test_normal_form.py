@@ -7,8 +7,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from discopy import hopf, monoidal, pivotal, ribbon, rigid
-from discopy.quantum import zx
+from discopy import monoidal, pivotal, ribbon, rigid
 from discopy.utils import factory_name
 
 from proptest.categories import CATEGORIES
@@ -17,32 +16,21 @@ PARTIAL_HYPERGRAPH = pytest.mark.xfail(reason=(
     "to_hypergraph rejects a left-handed cup or cap: Hypergraph.cups and "
     "caps only accept the right-adjoint orientation."))
 
-WRONG_SPIDER_FACTORY = pytest.mark.xfail(reason=(
-    "The functor image of a spider is built by tensor's spider factory, "
-    "which expects dimensions rather than PRO types."))
 
-REP_DUALS = pytest.mark.xfail(reason=(
-    "The hypergraph functor rebuilds a representation-typed cup or cap "
-    "whose adjoint is its dimension reversal, not the dual module."))
-
-
-def diagram_parameters(xfail=()):
-    """ One parameter per diagram category, with per-test expected fails. """
+def diagram_parameters():
+    """ One parameter per diagram category, with per-test expected failures. """
     for category in CATEGORIES:
         if not (isinstance(category, type)
                 and issubclass(category, monoidal.Diagram)):
             continue
         if category is rigid.Diagram:
             marks = PARTIAL_HYPERGRAPH
-        elif category in xfail:
-            marks = xfail[category]
         else:
             marks = ()
         yield pytest.param(category, marks=marks, id=factory_name(category))
 
 
-DIAGRAMS = tuple(diagram_parameters(xfail={
-    hopf.Intertwiner[hopf.Double(hopf.Algebra.cyclic(2))]: REP_DUALS}))
+DIAGRAMS = tuple(diagram_parameters())
 
 
 @pytest.mark.parametrize("category", DIAGRAMS)
@@ -59,10 +47,7 @@ def test_normal_form(category, data):
     assert normal.to_hypergraph() == diagram.to_hypergraph()
 
 
-@pytest.mark.parametrize(
-    "category", tuple(diagram_parameters(xfail={
-        zx.Diagram: WRONG_SPIDER_FACTORY,
-        hopf.Intertwiner[hopf.Double(hopf.Algebra.cyclic(2))]: REP_DUALS})))
+@pytest.mark.parametrize("category", DIAGRAMS)
 @given(data=st.data())
 def test_foliation(category, data):
     """

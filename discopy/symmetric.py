@@ -90,9 +90,9 @@ Both sides foliate to the same single permutation.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-
 from typing import Self
+
+from collections.abc import Sequence
 
 from discopy import abc, balanced, cmap, hypergraph, messages, monoidal
 from discopy.abc import SymmetricCategory
@@ -729,13 +729,12 @@ class Functor(balanced.Functor):
         return super().__call__(other)
 
     @axiom
-    def symmetric(cls, functor: Self,
-                  x: Atomic[Self.dom.ob], y: Atomic[Self.dom.ob]):
+    def symmetric(
+            cls, self: Self, x: Atomic[Self.dom.ob], y: Atomic[Self.dom.ob]):
         """ A symmetric functor preserves the swap. """
         x, y = x.value, y.value
-        return functor.cod.equation_factory(
-            functor(functor.dom.swap(x, y)),
-            functor.cod.swap(functor(x), functor(y)))
+        return self.cod.equation_factory(
+            self(self.dom.swap(x, y)), self.cod.swap(self(x), self(y)))
 
 
 CMap = cmap.CMap[Diagram]

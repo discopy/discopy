@@ -135,19 +135,17 @@ class Permutation(Function, PROP):
     >>> Permutation((1, 0)).is_fixpoint_free_involution()
     True
     """
-    ob = int
-
     @classmethod
     def strategy(
             cls, *, max_size=10, dom=None, cod=None):
         """ Generate permutations with optional exact boundaries. """
         from hypothesis import strategies as st
 
-        if dom is not None and cod is not None and dom != cod:
+        if dom is not None and cod is not None and int(dom) != int(cod):
             return st.nothing()
         size = dom if dom is not None else cod
         sizes = st.integers(min_value=0, max_value=max_size)\
-            if size is None else st.just(size)
+            if size is None else st.just(int(size))
         return sizes.flatmap(lambda size: st.permutations(
             tuple(range(size))).map(
                 lambda inside: cls(inside, size)))
