@@ -763,14 +763,16 @@ class Layer(cat.Box, ColouredMonoid):
         >>> assert Layer(f).tensor(Layer(g), Layer(h)) == Layer(f, g, h)
         >>> assert Layer(f).tensor(x, Layer(g)) == Layer(f, x, g)
         """
-        inside = list(self)
+        factory = type(self)
+        inside = list(self.boxes_or_types)
         for other in others:
-            other = type(self).whisker(other)
-            pieces = (other, ) if isinstance(other, self.ob) else tuple(other)
-            type(self).check((inside[-1], pieces[0]))
+            other = factory.whisker(other)
+            pieces = (other, ) if isinstance(other, self.ob)\
+                else other.boxes_or_types
+            factory.check((inside[-1], pieces[0]))
             inside[-1:] = [
-                *type(self).normalise((inside[-1], pieces[0])), *pieces[1:]]
-        return type(self)(*inside, normalise=False)
+                *factory.normalise((inside[-1], pieces[0])), *pieces[1:]]
+        return factory(*inside, normalise=False)
 
     def __rmatmul__(self, other):
         other = type(self).whisker(other)
@@ -990,23 +992,26 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
         """
         if not others:
             return self
-        if any(isinstance(other, Sum) for other in others):
-            return self.sum_factory((self, )).tensor(*others)
         for other in others:
+            if isinstance(other, Sum):
+                return self.sum_factory((self, )).tensor(*others)
             assert_isinstance(other, self.ar)
             assert_isinstance(self, other.ar)
         suffixes = [others[-1].dom]
         for other in reversed(others[:-1]):
             suffixes.append(other.dom @ suffixes[-1])
-        dom, prefix, inside = self.dom @ suffixes[-1], self.cod[:0], []
+        dom, prefix, inside = self.dom @ suffixes[-1], None, []
         for diagram in (self, ) + others:
             suffix = suffixes.pop() if suffixes else None
-            for layer in diagram.inside:
-                inside.append(
-                    prefix @ layer @ suffix if prefix and suffix
-                    else prefix @ layer if prefix
-                    else layer @ suffix if suffix else layer)
-            prefix = prefix @ diagram.cod
+            if prefix and suffix:
+                inside += [prefix @ layer @ suffix for layer in diagram.inside]
+            elif prefix:
+                inside += [prefix @ layer for layer in diagram.inside]
+            elif suffix:
+                inside += [layer @ suffix for layer in diagram.inside]
+            else:
+                inside += diagram.inside
+            prefix = diagram.cod if prefix is None else prefix @ diagram.cod
         return self.ar(tuple(inside), dom, prefix, _scan=False)
 
     @property
