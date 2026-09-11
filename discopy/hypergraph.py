@@ -57,7 +57,7 @@ from discopy.abc import (
     RigidCategory, SymmetricCategory, TracedCategory)
 from discopy.drawing import Node, backend
 from discopy.python.finset import Permutation
-from discopy.testing import Strategy
+from discopy.axioms import Strategy
 from discopy.utils import (
     factory_name,
     assert_isinstance,

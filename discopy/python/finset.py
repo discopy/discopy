@@ -24,7 +24,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from discopy import messages
-from discopy.abc import MonoidalCategory, SymmetricCategory
+from discopy.abc import MonoidalCategory, PROP, Nat
 
 
 @dataclass
@@ -51,69 +51,76 @@ class Function(MonoidalCategory, Sequence):
             copy
     """
     inside: list[int]
-    dom: int
-    cod: int
+    dom: Nat
+    cod: Nat
 
-    ob = int
+    ob = Nat
 
     def __post_init__(self):
+        self.dom = self.dom if isinstance(self.dom, Nat) else Nat(self.dom)
+        self.cod = self.cod if isinstance(self.cod, Nat) else Nat(self.cod)
         if isinstance(self.inside, dict):
-            self.inside = [self.inside[i] for i in range(self.cod)]
+            self.inside = [self.inside[i] for i in range(len(self.cod))]
         else:
             self.inside = list(self.inside)
-        if len(self.inside) != self.cod:
+        if len(self.inside) != len(self.cod):
             raise ValueError
 
     def __getitem__(self, key):
         return self.inside[key]
 
     def __len__(self) -> int:
-        return self.cod
+        return len(self.cod)
 
     @staticmethod
-    def id(x: int = 0):
+    def id(x: int | Nat = 0):
         return Function(list(range(x)), x, x)
 
     def then(self, other: Function) -> Function:
-        inside = [self[other[i]] for i in range(other.cod)]
+        inside = [self[other[i]] for i in range(len(other))]
         return Function(inside, self.dom, other.cod)
 
     def tensor(self, other: Function) -> Function:
         inside = list(self.inside) + [
-            self.dom + other[i] for i in range(other.cod)]
-        return Function(inside, self.dom + other.dom, self.cod + other.cod)
+            int(self.dom) + other[i] for i in range(len(other))]
+        return Function(
+            inside, self.dom.tensor(other.dom), self.cod.tensor(other.cod))
 
     @staticmethod
-    def swap(x: int, y: int) -> Function:
-        inside = list(Permutation.swap(x, y))
-        return Function(inside, x + y, x + y)
+    def swap(x: int | Nat, y: int | Nat) -> Function:
+        m, n = int(x), int(y)
+        inside = list(Permutation.swap(m, n))
+        return Function(inside, m + n, m + n)
 
     def is_swap(self) -> bool:
         """
         Whether this is the permutation ``(1, 0)``, callable on a raw
         sequence as well as on a :class:`Function` with a two-wire domain.
         """
-        return getattr(self, "dom", 2) == 2\
+        dom = getattr(self, "dom", None)
+        return (dom is None or len(dom) == 2)\
             and len(self) == 2 and self[0] == 1 and self[1] == 0
 
     @classmethod
-    def permutation(cls, xs: Sequence[int], doms: Sequence[int]) -> Function:
+    def permutation(
+            cls, xs: Sequence[int], doms: Sequence[int | Nat]) -> Function:
         xs = Permutation(xs)
-        dom = sum(doms)
+        dom = sum(int(d) for d in doms)
         if xs.is_identity:
             return Function.id(dom)
         return Function(list(Permutation(xs, dom)), dom, dom)
 
     @staticmethod
-    def copy(x: int, n=2) -> Function:
-        return Function([i % x for i in range(n * x)], x, n * x)
+    def copy(x: int | Nat, n=2) -> Function:
+        k = int(x)
+        return Function([i % k for i in range(n * k)], k, n * k)
 
 
 type Cycle = Iterable[int]
 type Cycles = Iterable[Cycle]
 
 
-class Permutation(Function, SymmetricCategory):
+class Permutation(Function, PROP):
     """
     A permutation of a finite set, seen as a bijective finite-set function.
 
@@ -128,19 +135,17 @@ class Permutation(Function, SymmetricCategory):
     >>> Permutation((1, 0)).is_fixpoint_free_involution()
     True
     """
-    ob = int
-
     @classmethod
     def strategy(
             cls, *, max_size=10, dom=None, cod=None):
         """ Generate permutations with optional exact boundaries. """
         from hypothesis import strategies as st
 
-        if dom is not None and cod is not None and dom != cod:
+        if dom is not None and cod is not None and int(dom) != int(cod):
             return st.nothing()
         size = dom if dom is not None else cod
         sizes = st.integers(min_value=0, max_value=max_size)\
-            if size is None else st.just(size)
+            if size is None else st.just(int(size))
         return sizes.flatmap(lambda size: st.permutations(
             tuple(range(size))).map(
                 lambda inside: cls(inside, size)))
@@ -162,7 +167,7 @@ class Permutation(Function, SymmetricCategory):
         super().__init__(list(inside), size, size)
 
     def __iter__(self):
-        return (self[i] for i in range(self.cod))
+        return (self[i] for i in range(len(self)))
 
     def __getitem__(self, key: int) -> int:
         if isinstance(key, slice):
@@ -183,9 +188,10 @@ class Permutation(Function, SymmetricCategory):
         return hash(tuple(self))
 
     @classmethod
-    def id(cls, dom: int = 0) -> Self:
+    def id(cls, dom: int | Nat = 0) -> Self:
         """ The identity permutation on ``range(size)``. """
-        return cls(range(dom), dom)
+        n = int(dom)
+        return cls(range(n), n)
 
     identity = id
 
@@ -328,11 +334,12 @@ class Permutation(Function, SymmetricCategory):
         return component_of
 
     @classmethod
-    def swap(cls, left: int, right: int) -> Self:
+    def swap(cls, left: int | Nat, right: int | Nat) -> Self:
+        m, n = int(left), int(right)
         inside = tuple(
-            i + right if i < left else i - left
-            for i in range(left + right))
-        return cls(inside, left + right)
+            i + n if i < m else i - m
+            for i in range(m + n))
+        return cls(inside, m + n)
 
     def trace(self, n: int = 1, left: bool = False) -> Self:
         raise NotImplementedError

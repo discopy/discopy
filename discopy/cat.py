@@ -82,9 +82,10 @@ from typing import (
     Callable, Mapping, Iterable, TYPE_CHECKING)
 
 from discopy import messages, utils
-from discopy.abc import Category, Equation as AbstractEquation
-from discopy.testing import (
-    GENERATORS, Relabelling, Strategy, axiom)
+from discopy.abc import Category
+from discopy.axioms import (
+    C1, GENERATORS, ComposablePair, Equation as AbstractEquation, Relabelling,
+    Strategy, axiom)
 from discopy.utils import (  # noqa: F401
     factory,
     factory_name,
@@ -305,7 +306,7 @@ class Arrow(FreeCategory, Strategy["Arrow"]):
     ----
     If ``dom`` or ``cod`` are not instances of ``ob``, they are
     automatically cast. This means one can use e.g. ``int`` instead of ``Ob``,
-    see :class:`monoidal.PRO`.
+    see :class:`monoidal.Nat`.
     """
     ob = Ob
 
@@ -928,7 +929,7 @@ class Functor(Category, Strategy["Functor"]):
     >>> m.data.append(False)
     >>> assert F(m) == m[::-1]
     """
-    ob = Category
+    ob = type[Category]
     dom = cod = Arrow
 
     @classmethod
@@ -994,8 +995,7 @@ class Functor(Category, Strategy["Functor"]):
         if isinstance(other, Ob):
             result = self.ob_map[other]
             origin = get_origin(self.cod.ob)
-            if isinstance(result, origin) or (
-                    isinstance(result, type) and issubclass(result, origin)):
+            if isinstance(result, origin):
                 return result
             return (result, ) if origin == tuple\
                 else self.cod.ob(result)
@@ -1039,11 +1039,9 @@ class Functor(Category, Strategy["Functor"]):
     serialisation = Strategy.serialisation.inapplicable(
         "A functor has no tree.")
     unitality = Category.unitality.failing(
-        "Composition is unital only on the left: "
-        ":code:`MappingOrCallable.then` composes by iterating the keys of "
-        "the left-hand map, and the identity functor enumerates none, so "
-        ":code:`id >> f` forgets everything :code:`f` does instead of "
-        "being :code:`f`.")
+        "The identity functor is a pair of functions: composing it on the "
+        "left of a functor given by mappings acts the same but compares "
+        "unequal (#648).")
 
     dagger_involution = Category.dagger_involution.inapplicable(
         "A functor has no dagger.")
@@ -1057,10 +1055,22 @@ class Functor(Category, Strategy["Functor"]):
         Typing of the identity functor.
 
         The objects of ``Cat`` are categories, which the property matrix does
-        not generate, so this is stated of the one the carrier maps.
+        not generate, so this is stated of the one the functor maps.
         """
         identity = cls.id(cls.dom)
-        return cls.ob.equation_factory(identity.dom, cls.dom, identity.cod)
+        return AbstractEquation(identity.dom, cls.dom, identity.cod)
+
+    @axiom
+    def composition_dom_typing(cls, pair: ComposablePair[C1]):
+        """ Composition of functors preserves the source category. """
+        f, g = pair
+        return AbstractEquation(f.then(g).dom, f.dom)
+
+    @axiom
+    def composition_cod_typing(cls, pair: ComposablePair[C1]):
+        """ Composition of functors preserves the target category. """
+        f, g = pair
+        return AbstractEquation(f.then(g).cod, g.cod)
 
 
 Arrow.generator_factory = Box
@@ -1177,8 +1187,8 @@ class Transformation(Category):
 
 class Equation(AbstractEquation[Arrow]):
     """
-    An :class:`.abc.Equation` between arrows, see its docstring for the
-    parameters and :meth:`.abc.Equation.modulo` for quotients.
+    An :class:`.axioms.Equation` between arrows, see its docstring for the
+    parameters and :meth:`.axioms.Equation.modulo` for quotients.
 
     Example
     -------

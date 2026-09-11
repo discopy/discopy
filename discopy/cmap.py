@@ -64,7 +64,7 @@ from discopy.abc import (
 )
 from discopy.cat import Box as CatBox, Ob
 from discopy.python.finset import Permutation
-from discopy.testing import Axiom, Strategy, axiom
+from discopy.axioms import Axiom, Strategy, axiom
 from discopy.utils import (
     AxiomError,
     assert_isatomic,

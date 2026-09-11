@@ -130,12 +130,16 @@ def test_coloured_wires_keep_static_colours(tmp_path):
     assert 'id="dark-' not in path.read_text()
 
 
-def test_white_spiders_are_unfilled(tmp_path):
-    path = tmp_path / "spider.svg"
-    monoidal.Box(
-        "+", monoidal.Ty(), monoidal.Ty(), draw_as_spider=True, color="white"
-    ).draw(path=path, show=False)
-    assert 'style="fill: #ffffff' not in path.read_text()
+def test_transparent_spiders_are_unfilled(tmp_path):
+    def spider_svg(color):
+        path = tmp_path / f"{color}.svg"
+        monoidal.Box(
+            "+", monoidal.Ty(), monoidal.Ty(), draw_as_spider=True,
+            color=color).draw(path=path, show=False)
+        return path.read_text()
+
+    assert 'style="fill: #ffffff' not in spider_svg(config.TRANSPARENT)
+    assert 'style="fill: #ffffff' in spider_svg("white")
 
 
 def test_raster_keeps_white_background(tmp_path):
@@ -196,7 +200,7 @@ def test_bubble_boundary_is_visible():
     box_node, = Drawing.frame_opening(x, y, z, monoidal.Ty("")).box_nodes
     assert not Backend.is_frame_boundary(box_node)
     slot = Drawing.from_box(
-        monoidal.Box("f", x, x)).slot(monoidal.Colour("white"))
+        monoidal.Box("f", x, x)).slot(monoidal.Colour())
     frame_box_nodes = [n for n in slot.box_nodes if n.box.frame_boundary]
     assert frame_box_nodes
     assert all(map(Backend.is_frame_boundary, frame_box_nodes))
@@ -217,7 +221,7 @@ def region_hexes(diagram, **params):
 
 def test_draw_regions_uncoloured_shapes():
     # Region filling runs for cups, caps, swaps, spiders and many-legged
-    # boxes; with no colours every region is white, i.e. the neutral
+    # boxes; with no colours every region is transparent, i.e. the neutral
     # background, so nothing is painted at all, see issue #521.
     from discopy.frobenius import Spider, Ty as FTy
     x = Ty('x')
@@ -259,9 +263,16 @@ def test_draw_coloured_equation():
     x = Ty(Wire("x", dom=red, cod=green))
     equation = Equation(Box("f", x, x), Box("g", x, x))
     colours = region_hexes(equation)
-    # Both term regions show; the white around the slots is not painted.
+    # Both term regions show; the transparent slots are not painted.
     assert {'#e8a5a5', '#d8f8d8'} <= colours
     assert '#ffffff' not in colours
+
+
+def test_draw_white_regions_are_painted():
+    # White is a colour like any other, see issue #751.
+    white = monoidal.Colour("white")
+    x = Ty(Wire("x", dom=white, cod=white))
+    assert region_hexes(Box("f", x, x)) == {'#ffffff'}
 
 
 def test_draw_region_non_colors_string():
@@ -289,7 +300,7 @@ def test_draw_legend():
     legend = backend.axis.get_legend()
     labels = [text.get_text() for text in legend.get_texts()]
     assert set(labels) == {"red", "green", "blue"}
-    # Each swatch is filled with its own colour, white is left out.
+    # Each swatch is filled with its own colour, transparent is left out.
     swatches = {to_hex(handle.get_facecolor())
                 for handle in legend.legend_handles}
     assert swatches == {'#e8a5a5', '#d8f8d8', '#776ff3'}
@@ -392,11 +403,10 @@ def test_region_cells_do_not_overlap():
     assert area == drawing.width * drawing.height - box_area
 
 
-def test_region_white_cells_erase_to_the_background():
-    # A white region enclosed by coloured ones is not painted at all
+def test_region_transparent_cells_erase_to_the_background():
+    # A transparent region enclosed by coloured ones is not painted at all
     # rather than overpainted in opaque white, see issue #521.
-    white = monoidal.Colour("white")
-    u = monoidal.Ty(monoidal.Wire("u", white, white))
+    u = monoidal.Ty(monoidal.Wire("u"))
     frame = monoidal.Box("f", u, u).bubble(dom=u, cod=u, draw_as_frame=True)
     colours = region_hexes(frame)
     assert '#d3d3d3' in colours and '#ffffff' not in colours

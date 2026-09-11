@@ -1,5 +1,5 @@
 """
-The carriers of the property matrix and their parametrisation.
+The categories of the property matrix and their parametrisation.
 
 Every file of the suite quantifies over the same list, so it lives here
 rather than in any one of them.
@@ -26,9 +26,9 @@ from discopy import (
 )
 from discopy.utils import factory_name
 
-CARRIERS = (
+CATEGORIES = (
     cat.Arrow, cat.Functor,
-    monoidal.Wire, monoidal.Ty, monoidal.PRO,
+    monoidal.Ty, monoidal.Nat,
     monoidal.Diagram, monoidal.Hypergraph,
     monoidal.CMap, monoidal.Functor,
     braided.Diagram, braided.Functor,
@@ -51,11 +51,11 @@ CARRIERS = (
 )
 
 
-def carrier_parameters(classify=lambda carrier: ()):
+def category_parameters(classify=lambda category: ()):
     """
-    One pytest parameter per carrier, marked by the given classification,
-    a function from a carrier to its marks, e.g. an expected failure.
+    One pytest parameter per category, marked by the given classification,
+    a function from a category to its marks, e.g. an expected failure.
     """
-    for carrier in CARRIERS:
+    for category in CATEGORIES:
         yield pytest.param(
-            carrier, marks=classify(carrier), id=factory_name(carrier))
+            category, marks=classify(category), id=factory_name(category))

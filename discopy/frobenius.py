@@ -60,6 +60,8 @@ Speciality
 
 from __future__ import annotations
 
+from typing import Self
+
 from collections.abc import Callable
 
 from discopy import (
@@ -67,8 +69,8 @@ from discopy import (
 from discopy.abc import HypergraphCategory
 from discopy.cat import factory
 from discopy.utils import (
-    assert_isatomic, deprecated_ob, factory_name, from_tree)
-from discopy.testing import Atomic, C0, axiom
+    assert_isatomic, deprecated_alias, factory_name, from_tree)
+from discopy.axioms import Atomic, axiom
 
 
 class Wire(pivotal.Wire):
@@ -99,15 +101,15 @@ class Ty(pivotal.Ty):
 
 
 @factory
-class PRO(rigid.PRO, Ty):
+class Nat(rigid.Nat, Ty):
     """
-    A PRO is a natural number ``n`` seen as a frobenius type with unnamed
-    objects.
+    A ``Nat`` is a natural number ``n`` seen as a frobenius type with
+    unnamed objects.
 
     Parameters
     ----------
     n : int
-        The length of the PRO type.
+        The natural number.
     """
 
     l = r = property(lambda self: self)
@@ -349,7 +351,7 @@ class Functor(compact.Functor, markov.Functor):
         return compact.Functor.__call__(self, other)
 
     @axiom
-    def frobenius(self, x: Atomic[C0]):
+    def frobenius(cls, self: Self, x: Atomic[Self.dom.ob]):
         """ A hypergraph functor preserves the spiders. """
         x = x.value
         return self.cod.equation_factory(
@@ -451,4 +453,4 @@ class Equation(compact.Equation):
 
 
 Diagram.equation_factory = Equation
-__getattr__ = deprecated_ob(__name__)
+__getattr__ = deprecated_alias(__name__, {"Ob": "Wire", "PRO": "Nat"})

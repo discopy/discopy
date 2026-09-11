@@ -108,12 +108,12 @@ def test_Permutation_delay():
 
 
 def test_strategy():
-    from discopy import testing
+    from discopy import axioms
 
-    testing.assert_strategy_finds(Diagram, Feedback)
+    axioms.assert_strategy_finds(Diagram, Feedback)
 
 
 def test_axioms():
-    from discopy import testing
+    from discopy import axioms
 
-    testing.assert_axioms(Ty, Diagram, Hypergraph, Functor)
+    axioms.assert_axioms(Ty, Diagram, Hypergraph, Functor)

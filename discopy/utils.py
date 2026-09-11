@@ -231,14 +231,15 @@ def product(xs: list, unit=1):
     return unit if not xs else product(xs[1:], unit * xs[0])
 
 
-def deprecated_ob(module_name: str):
+def deprecated_alias(module_name: str, aliases: dict[str, str]):
     """
-    The module-level ``__getattr__`` of the modules whose ``Ob`` class was
-    renamed to ``Wire``, returning the new class with a
+    The module-level ``__getattr__`` of a module with one or more classes
+    that were renamed, returning each new class with a
     :class:`DeprecationWarning`.
 
     Parameters:
-        module_name : The ``__name__`` of the module deprecating its ``Ob``.
+        module_name : The ``__name__`` of the module deprecating names.
+        aliases : A mapping from each deprecated name to its new name.
 
     Example
     -------
@@ -246,19 +247,20 @@ def deprecated_ob(module_name: str):
     >>> from discopy import rigid
     >>> with warnings.catch_warnings(record=True) as w:
     ...     warnings.simplefilter("always")
-    ...     assert rigid.Ob is rigid.Wire
+    ...     assert rigid.PRO is rigid.Nat
     >>> print(w[-1].message)
-    discopy.rigid.Ob is deprecated, use discopy.rigid.Wire instead.
+    discopy.rigid.PRO is deprecated, use discopy.rigid.Nat instead.
     """
     def __getattr__(name):
-        if name == "Ob":
+        if name in aliases:
             import sys
             import warnings
+            new_name = aliases[name]
             warnings.warn(
-                f"{module_name}.Ob is deprecated, "
-                f"use {module_name}.Wire instead.",
+                f"{module_name}.{name} is deprecated, "
+                f"use {module_name}.{new_name} instead.",
                 DeprecationWarning, stacklevel=2)
-            return sys.modules[module_name].Wire
+            return getattr(sys.modules[module_name], new_name)
         raise AttributeError(
             f"module {module_name!r} has no attribute {name!r}")
     return __getattr__
@@ -420,8 +422,7 @@ def is_tuple(typ: type) -> bool:
     Parameters:
         typ : The type to check for equality with tuple.
     """
-    origin = get_origin(typ)
-    return isinstance(origin, type) and issubclass(origin, tuple)
+    return get_origin(typ) is tuple
 
 
 def assert_isinstance(object_, cls: type | tuple[type, ...]):
