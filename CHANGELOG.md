@@ -38,7 +38,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   which is how the `NamedGeneric` parameters were lost below. Stating an
   axiom is no longer the business of `Category` alone: both it and
   `Serialisable` subclass `axioms.Testable`, which carries the `axioms`
-  classproperty they share, so that a carrier stating the roundtrips
+  classproperty they share, so that a type stating the roundtrips
   without being a category — the objects of a category, say — is
   enrolled like the rest. One class both states the laws and says how to
   draw the terms they quantify over, since the two never come apart in

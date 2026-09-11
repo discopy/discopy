@@ -78,11 +78,11 @@ cores, with `-p no:benchmark` unloading the benchmark plugin that is
 incompatible with it; drop both to run serially, e.g. when debugging a
 single cell.
 
-Every cell of the matrix is one axiom of one carrier, named
-`<module>.<Carrier>.<law>`, so pytest's own `-k` selects cells for
-shorter, targeted tests. The carriers are discovered rather than listed:
+Every cell of the matrix is one axiom of one testable type, named
+`<module>.<Type>.<law>`, so pytest's own `-k` selects cells for
+shorter, targeted tests. The types are discovered rather than listed:
 every subclass of `discopy.axioms.Testable` that implements `strategy`,
-so a class enrols itself by saying how to generate its instances. One
+so a type enrols itself by saying how to generate its instances. One
 that would inherit a strategy for the wrong terms declares
 `strategy = no_strategy` until it implements its own. Most are
 categories; the roundtrip laws of `discopy.axioms.Serialisable` are also

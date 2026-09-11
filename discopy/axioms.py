@@ -9,10 +9,10 @@ where
 :meth:`Axiom.failing` and :meth:`Axiom.inapplicable` classify it when a
 class breaks it or has no such structure. A class that implements
 :meth:`Testable.strategy` generates its own terms; one that cannot do so
-yet leaves the strategy to raise. The matrix in ``proptest/`` reads its
-carriers off :meth:`Testable.subclasses` rather than a list, and checks
-every axiom of every carrier against generated arguments, one cell per
-pair; CONTRIBUTING.md says how to run it.
+yet leaves the strategy to raise. The matrix in ``proptest/`` reads the
+types it quantifies over off :meth:`Testable.subclasses` rather than a
+list, and checks every axiom of every type against generated arguments,
+one cell per pair; CONTRIBUTING.md says how to run it.
 
 Summary
 -------
@@ -423,10 +423,10 @@ class Testable[T]:
     be either: :class:`ComposablePair` states the law it enforces on the
     pairs it generates.
 
-    A class that implements :meth:`strategy` is a *carrier* of the
-    property matrix in ``proptest/``, which checks each of its axioms
-    against generated terms. One that does not is not checked, and says
-    so by leaving :meth:`strategy` to raise.
+    A type that implements :meth:`strategy` is one the property matrix
+    in ``proptest/`` quantifies over, checking each of its axioms against
+    generated terms. One that does not is not checked, and says so by
+    leaving :meth:`strategy` to raise.
     """
 
     @classmethod
