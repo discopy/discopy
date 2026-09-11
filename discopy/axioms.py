@@ -1,9 +1,16 @@
 """
 Property-based testing of the axioms with `Hypothesis
-<https://hypothesis.readthedocs.io>`_: an :class:`Axiom` is stated once
-on an abstract base class, a category generates its own objects and
-arrows through :class:`Testable`, and the matrix in ``proptest/``
-searches every cell for a counterexample.
+<https://hypothesis.readthedocs.io>`_.
+
+An :class:`Axiom` is an equation stated once on an abstract base class of
+:mod:`discopy.abc` and inherited by every category below it, where
+:meth:`Axiom.failing` and :meth:`Axiom.inapplicable` classify it when a
+category breaks it or has no such structure. A :class:`Testable` category
+generates its own objects and arrows, and states the laws every type that
+does so obeys: a term reads back from its representation, its pickle and
+its tree. The matrix in ``proptest/`` checks every axiom of every
+category against generated arguments, one cell per pair; CONTRIBUTING.md
+says how to run it.
 
 Summary
 -------
@@ -32,221 +39,6 @@ Summary
         resolve
         substitute
         assert_axioms
-
-How to develop DisCoPy against its property suite: state the laws before
-writing the implementation, let the matrix search for counterexamples,
-replay a failure deterministically, record the counterexample so the bug
-can never come back unnoticed, and audit the search strategy whenever a
-bug escapes it.
-
-The suite
----------
-
-- ``proptest/test_axioms.py`` is the matrix: every :class:`Axiom` of every
-  category in ``CATEGORIES``, one pytest cell per pair, arguments generated
-  by :meth:`Axiom.strategy` from the annotations of the law's own
-  parameters.
-- :class:`Testable` states the laws of any type that generates its own
-  instances, whatever its level: :meth:`Testable.transparency`,
-  :meth:`Testable.pickling` and :meth:`Testable.serialisation` are cells
-  of the matrix for every category, which read back in
-  :meth:`Testable.environment`: the package's public names and its own
-  module's, so that a representation printing bare names evaluates
-  without the category declaring anything.
-- ``proptest/test_counterexamples.py`` replays every recorded
-  counterexample deterministically — no generation, no search: the
-  matrix's explicit phase. Its memory is Hypothesis's example database,
-  ``.hypothesis`` on your machine and a workflow artifact on CI, which
-  every run reads before it searches.
-- Select cells with pytest's own ``-k``: ``uv run pytest proptest/ -k
-  'Arrow and unitality' -vrsxX``. Recorded counterexamples carry the id
-  of their matrix cell, so one expression selects a law's search and its
-  records together.
-- Each ``test/<module>.py`` gains a ``test_axioms`` dry run (one example
-  per axiom, see :func:`assert_axioms`) and a ``test_strategy`` checking
-  the strategy reaches the structure its laws need, as its module's
-  categories are enrolled: the fast loop before the full matrix.
-
-Properties before implementation
---------------------------------
-
-A feature starts as mathematics, and the mathematics starts as
-properties. Before implementing anything, write the laws down — on an
-agent branch, as the first checkboxes of its ``TODO.md``:
-
-1. **State the laws.** Which equations define the new structure? Which
-   level of :mod:`discopy.abc` do they belong to? Which existing axioms
-   must the new category inherit, compare :meth:`Axiom.modulo` a quotient,
-   declare :meth:`Axiom.inapplicable` — or :meth:`Axiom.weaken` to a
-   subspace, generating a named parameter from a membership-validating
-   wrapper, which arrives with the category that needs it, so that a
-   :meth:`Axiom.failing` law with a green subspace shows one expected
-   failure and one green cell? Write this down before any implementation.
-2. **Scaffold the axioms.** Declare each law as an :class:`Axiom` on the
-   abstract base class — or an ad-hoc property in its ``proptest/`` file
-   when it is a boolean rather than an equation — and enrol the category
-   in ``CATEGORIES``. The
-   body calls the operations the feature will provide; until they exist,
-   the cell fails. That is the red state of the loop.
-3. **Reach the structure.** Extend the category's strategy so generated
-   terms actually contain the new boxes, and pin that with a
-   :func:`hypothesis.find` in the module's ``test_strategy``. A
-   green cell whose strategy never generates the structure proves
-   nothing.
-4. **Implement until green**, on the dry run first, then the matrix.
-
-A property is meaningful when it quantifies over all terms of a category.
-Single behaviours — validation raises, error messages, encoding pins —
-stay as unit tests in ``test/``.
-
-Debugging a failing cell
-------------------------
-
-1. **Isolate it**: ``uv run pytest proptest/ -k '<Category> and <law>'
-   -x -vrsxX``. Hypothesis reports the shrunk falsifying example as
-   labelled draws; on rerun the ``.hypothesis`` database replays it
-   first, so the failure is stable on your machine. A failure CI found is
-   in the artifact its run uploaded: the ``shared`` profile reads that
-   database too, given a ``GITHUB_TOKEN``, and the cell fails for you the
-   same way without a search.
-2. **Record it, then debug.** DisCoPy is transparent, so the printed
-   draws are valid Python building the exact counterexample. Paste them
-   into a record in ``proptest/test_counterexamples.py`` (format below)
-   before touching the implementation: the database remembers a failure
-   only under the Hypothesis ``uv.lock`` pins and only while an artifact
-   lives, while a record reproduces it on every machine, from a CI log
-   included, and stays as the pin once the bug is fixed.
-3. **Debug against the record**, not the search. In a REPL, call the
-   record's axiom on its arguments and inspect the returned
-   :class:`Equation`'s sides. Do not reach for
-   :meth:`Axiom.falsify` to reproduce a known failure: it searches and
-   shrinks afresh each run and may land on a different counterexample, or
-   none. It remains only for interactive exploration when no failure is
-   in hand.
-4. **Fix the root cause.** The recorded cell flips green and stays as the
-   regression pin; there is nothing else to write.
-5. **Or file it.** If the fix is out of scope, open an issue, declare the
-   axiom ``.failing("<reason> (#<issue>)")`` where the category breaks it,
-   and keep the record: it xfails together with the axiom, strictly, so
-   the day the bug is fixed the record fails as an unexpected pass until
-   the :meth:`Axiom.failing` declaration is removed — at which point the
-   record is the pin. The search cell xfails too, without strictness:
-   whether a search finds a rare counterexample within its budget is not
-   a fact about the law.
-
-A counterexample against an ad-hoc property that has no :class:`Axiom`
-follows the same steps, except the record is a plain regression test in
-the module's ``test/`` file.
-
-Recording counterexamples
--------------------------
-
-``proptest/test_counterexamples.py`` holds the records and their replay.
-A record is structured data: the bound axiom itself and the very
-arguments the search shrunk the failure to.
-
-.. code-block:: python
-
-    COUNTEREXAMPLES = (
-        Counterexample(
-            axiom=Matrix[int].copy_cocommutativity,
-            args=(2, ),
-            reason="Matrix.copy(x, n) is wrong for x, n >= 2 (#606)"),
-        ...)
-
-- ``axiom`` is the class attribute access, which binds the :class:`Axiom`
-  to its category — the same object the matrix checks, so a record can
-  never drift from the law it witnesses.
-- ``args`` are the generated arguments, one per draw, in draw order —
-  actual terms, not strings. Transparency is what lets the falsifying
-  draws be pasted verbatim; their reprs are module-qualified, so extend
-  the file's imports as records arrive.
-- ``reason`` says what broke and links the issue when there is one.
-
-The replay test marks a record xfail, strictly, exactly when its axiom is
-declared :meth:`Axiom.failing`, and checks the equation the axiom's
-:class:`AxiomFailure` carries, so the xfail is earned by the arguments
-falsifying the law in one of the two shapes :meth:`Axiom.falsify` counts:
-the equation is false, an assertion, or the implementation refuses to
-build its terms, an :class:`discopy.utils.AxiomError`. A fixed bug shows
-up as an unexpected pass, which strictness turns red, a typo'd record as
-an error rather than an expected failure, and a record never needs
-updating when the bug is fixed: only the ``.failing`` declaration moves.
-
-Never delete a record because it is inconvenient; a record only leaves
-when the law itself leaves the codebase.
-
-Auditing a strategy that missed a bug
--------------------------------------
-
-A bug found outside the matrix — by hand, by a user, in the wild — while
-its law sat green is a coverage escape. The record pins the instance; the
-audit closes the class. Check three causes, in order:
-
-1. **Reach.** Can the strategy build the counterexample's shape at all?
-   Ask :func:`hypothesis.find` with the category's strategy and a
-   predicate for the shape — the structural box involved, the boundary,
-   the depth. :class:`hypothesis.errors.NoSuchExample` convicts the
-   strategy: extend it, then pin the reach in the module's
-   ``test_strategy`` with a ``find`` for the shape.
-2. **Rarity.** Reachable but starved: run the cell with
-   ``--hypothesis-show-statistics``, tagging the shape with
-   :func:`hypothesis.event` if need be, to see how often it is drawn, and
-   check with ``coverage run -m pytest proptest/`` that the buggy lines
-   are hit at all. A shape drawn much less than once per ``max_examples``
-   is invisible at the matrix's budget: rebalance the strategy's weights
-   or grow its size bounds rather than raising the budget.
-3. **Observation.** Drawn but not seen: the law compares its equation
-   :meth:`Axiom.modulo` a quotient that erases the difference, states
-   something weaker than what the bug violates, or the violated law was
-   never stated — in which case the fix is a new axiom, stated first as
-   in the feature protocol.
-
-The audit is done when the search rediscovers the bug by itself: hold the
-fix back and watch the cell go red without help. Only then does the suite
-guard the class of bugs and not just the recorded instance.
-
-Continuous integration
-----------------------
-
-The ``proptest`` workflow runs the suite on pull requests labelled
-``proptest``, on every push to ``main``, nightly, and on manual dispatch.
-``proptest/conftest.py`` registers three Hypothesis profiles, selected by
-``HYPOTHESIS_PROFILE``, over one example database,
-``.hypothesis/examples``:
-
-- ``pr``, on pull requests: a small budget of new examples after the
-  ``reuse`` phase has replayed every failure the database remembers, so a
-  known bug fails at once and a run is fast. The workflow fixes the seed
-  with ``--hypothesis-seed``, which keeps the database where
-  ``derandomize`` would drop it, so a pull request draws the same
-  examples every time: it is red for its own diff or for a failure the
-  artifact already holds, never for luck.
-- ``explore``, on ``main``, nightly and on dispatch: a large budget,
-  where new counterexamples come from.
-- ``dev``, the default elsewhere: a middling budget over the local
-  database alone.
-- ``shared``, on request: the ``dev`` budget with the local database
-  backed by CI's, read-only, through a ``GITHUB_TOKEN``, so what CI found
-  replays on your machine. It reaches GitHub only when asked for, never
-  as a side effect of a token in the environment.
-
-Every run downloads the database the previous run uploaded as the
-``hypothesis-example-db`` artifact; a run of ``main``, the nightly search
-or a dispatch uploads its own afterwards, whether or not it passed — a
-failed run's artifact is the one holding the new counterexample — while
-a pull request only reads it, so a branch cannot rewrite the shared
-memory before it merges. Hypothesis prunes what passes again and keeps
-what fails, so a failure found by one night's search fails every pull
-request until it is fixed or declared, with no one recording anything.
-
-Explore runs are randomised, so a red check on ``main`` or overnight is
-where a new bug surfaces: the shrunk draws in the log and the printed
-``@reproduce_failure(<version>, <blob>)`` decorator reproduce it under
-the Hypothesis ``uv.lock`` pins, and the artifact replays it on every
-pull request and, through the ``shared`` profile, on your machine.
-``--hypothesis-show-statistics`` is on, so the log of an explore run also
-says how often each shape was drawn, the input of a strategy audit.
 """
 
 from __future__ import annotations
@@ -376,7 +168,7 @@ class AxiomFailure(AxiomError):
     """
     A law declared broken, raised when the bound axiom is called: the
     reason is the message and :attr:`equation` is the law evaluated on the
-    arguments, which a recorded counterexample must falsify.
+    arguments, whose sides say how it failed.
     """
 
     def __init__(self, reason: str, equation):
@@ -506,8 +298,8 @@ class Axiom[**P, T]:
         e.g. ``unitality_of_loops = Category.unitality.weaken(f=Endo[C1])``
         for a wrapper ``Endo`` of the endomorphisms: each named parameter
         is generated from its subspace strategy, whose wrapper validates
-        membership on construction — so a recorded counterexample replays
-        honestly — and is unwrapped before the body reads it. Assigned to
+        membership on construction and is unwrapped before the body reads
+        it. Assigned to
         its own attribute beside a ``.failing`` declaration, it shows the
         matrix one expected failure and one green cell instead of one
         blanket expected failure.

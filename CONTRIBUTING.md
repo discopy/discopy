@@ -92,7 +92,7 @@ apply, and xfailed when the law is declared broken, each carrying its
 reason: pass `-rsxX` to list the skips, xfails and unexpected passes with
 their reasons, and `-x` to stop at the first genuine failure.
 
-`proptest/conftest.py` registers three Hypothesis profiles over the
+`proptest/conftest.py` registers four Hypothesis profiles over the
 `.hypothesis/examples` database, selected by `HYPOTHESIS_PROFILE`: `dev`
 by default, `pr` for the small budget a pull request runs with, under a
 fixed `--hypothesis-seed` so that it draws the same examples every time,
@@ -105,15 +105,12 @@ your machine before any search; it reaches GitHub only when selected.
 HYPOTHESIS_PROFILE=explore uv run pytest proptest/ -n auto -p no:benchmark
 ```
 
-`proptest/test_counterexamples.py` replays every recorded counterexample —
-the bound axiom and the arguments a search once shrunk a failure to — so
-known bugs reproduce deterministically on every run. The documentation of
-[`discopy.axioms`](discopy/axioms.py) describes the whole workflow: stating
-laws before implementing, debugging a failing cell, recording its
-counterexample and auditing a strategy that missed a bug. `Axiom.falsify`,
-which searches afresh for a shrunk counterexample and raises `NoSuchExample`
-when it finds none, remains for interactive exploration when no failure is
-in hand.
+`Axiom.falsify` searches for a shrunk counterexample to a law on demand,
+raising `NoSuchExample` when it finds none, which is how a failing cell
+becomes a concrete term to debug in a REPL: call
+`<Category>.<law>.falsify()` on the category that breaks the law, then
+inspect the sides of the `Equation` the axiom returns on the arguments it
+hands back.
 
 The `proptest` GitHub workflow runs this suite on pull requests labelled
 `proptest`, on `main`, nightly and on manual dispatch.

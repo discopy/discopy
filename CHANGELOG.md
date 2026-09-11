@@ -20,10 +20,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   law as broken or not applicable to a category, and `.modulo`/`.weaken`
   are defined (compare up to a function, quantify over a named subspace)
   but not used yet. A
-  broken law raises `AxiomFailure` carrying its equation, which the
-  recorded-counterexample replay checks, so a record's xfail is earned by
-  its arguments falsifying the law and flips visibly when the bug is
-  fixed; `Axiom` is a dataclass whose classifiers derive one from another
+  broken law raises `AxiomFailure` carrying its equation, whose sides say
+  how it failed; `Axiom` is a dataclass whose classifiers derive one from another
   with `dataclasses.replace`, so none of them drops a field — `.failing`
   used to lose the subspaces a `.weaken` declared. The argument and
   subspace wrappers are parameterised with `NamedGeneric["factory"]` like
@@ -39,7 +37,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   generation — wired up in `proptest/test_axioms.py`, enrolled so far for
   `cat.Arrow`, and run by the new `proptest` GitHub
   workflow on PRs labelled `proptest`, on `main`, nightly and on manual
-  dispatch. `proptest/conftest.py` registers three Hypothesis profiles
+  dispatch. `proptest/conftest.py` registers four Hypothesis profiles
   over one example database, keyed per cell: `pr` replays what the
   database remembers and generates a few examples from a fixed seed,
   `explore` searches with a large budget, `dev` works on the local
@@ -49,9 +47,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   run's artifact, and a run of `main`, the nightly search or a dispatch
   uploads its own afterwards — a pull request only reads it — so a
   counterexample found by one night's search fails every pull request
-  until it is fixed or declared; a recorded counterexample
-  xfails strictly while its axiom is declared `.failing`, so a fixed bug
-  fails as an unexpected pass until the declaration moves. `Testable`
+  until it is fixed or declared, and `Axiom.falsify` searches for one on
+  demand. `Testable`
   states the laws of any type that generates its own instances, whatever
   its level: `transparency`, `pickling` and `serialisation` are cells of
   the matrix for every category — `eval(repr(x))`, the pickle and the tree
@@ -63,14 +60,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   category declaring anything; the ad-hoc property
   files for representations, pickling and serialisation are gone, and a
   known violation is a `.failing` declaration on its category like any
-  other broken law. The workflow
-  for developing against the suite — laws stated before implementation,
-  a failing cell debugged, its counterexample recorded, a strategy that
-  missed a bug audited — is the documentation of `discopy.axioms`,
-  which joins the API docs under its own `axiom` page; `AGENTS.md`
-  points to it from `Where` rather than importing it into every agent's
-  context, and links its other documents rather than importing them with
-  the `@` syntax only `CLAUDE.md` is read with.
+  other broken law. `discopy.axioms` joins the API docs under its own
+  `axioms` page, with `CONTRIBUTING.md` saying how to run the suite;
+  `AGENTS.md` points to it from `Where` rather than importing it into
+  every agent's context, and links its other documents rather than
+  importing them with the `@` syntax only `CLAUDE.md` is read with.
 - `abc.Nat`, a concrete dataclass for the free monoid on one generator
   (`n: int` with addition as `tensor`), and `abc.PRO`/`abc.PROB`/`abc.PROP`,
   the `MonoidalCategory`/`BraidedCategory`/`SymmetricCategory` whose objects
