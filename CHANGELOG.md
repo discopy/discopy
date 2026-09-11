@@ -93,6 +93,29 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   job's log and nowhere a reader would look, so a review with nothing to
   say about a file it never read whole read exactly like one that had
   read it.
+- `monoidal.List`, the free monoid on a generator type: `List[X]` is a
+  tuple of instances of `X` with concatenation as `tensor` and the empty
+  list as unit, an `abc.Monoid` parameterised as
+  `NamedGeneric["generator_factory"]` the way `Hypergraph[C]` is the
+  hypergraph category over `C`. Free monoids come at three levels: `Ty`
+  has arbitrary colours and generators, `List` a single colour and
+  arbitrary generators, `Nat` a single colour and a single generator. A
+  list is a sequence of its length-one sublists with the atoms as
+  `inside`, and `abc.ColouredMonoid.cast` embeds a tuple of atoms, or a
+  single atom, into any monoid. `List`, `Ty` and `hopf.Representation`
+  hash by their fields rather than their `repr`, and `List.tensor` raises
+  `TypeError` on anything but a list of the same type, `@` alone returning
+  `NotImplemented` so that a list still whiskers a morphism on the left.
+  `python.Function.ob` is `List[type]`
+  rather than `tuple[type, ...]`: the `dom` and `cod` of a function are
+  the free monoid on Python's `type`, a type or a tuple of types is cast
+  into one wherever a function is built, indexing a function's `dom` or
+  `cod` gives a list of length one and `dom.inside[i]` the type itself.
+  `python.Ty` is an alias of `List[type]`, defined in `python.function`
+  with `additive` and `multiplicative` re-exporting it; the package
+  imports `multiplicative` on first use, since it imports `monoidal`
+  which imports `python.finset`
+  ([#728](https://github.com/discopy/discopy/issues/728)).
 - `discopy/axioms.py`, a Hypothesis-based property-testing module, home
   of `Equation` (formerly `discopy.abc.Equation`): a law is stated once
   on `discopy.abc.Category` and every subclass inherits
@@ -156,7 +179,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `abc.SymmetricCategory` already extends `abc.BraidedCategory` directly.
   `abc.Nat` also gets `__index__` (so `range(n)`/`int(n)` work whether `n`
   is a plain `int` or a `Nat`) and its `tensor` now returns `NotImplemented`
-  for a non-`Nat` argument, like `monoidal.FreeMonoid.tensor` already does
+  for a non-`Nat` argument, like `monoidal.Ty.tensor` already does
   — needed to let `@` fall back to the other operand's `__rmatmul__` for
   whiskering, e.g. `Nat(1) @ some_morphism`, which previously crashed with
   `AttributeError` instead of building the identity on `Nat(1)` first.
@@ -278,6 +301,28 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   spelt the symbol `fill=white` where matplotlib already drew it unfilled
   and now agrees with it, `TikZ.format_color` passing the transparent
   colour through as TikZ spells it the same way.
+- `monoidal.Ty` is the free coloured monoid itself: it subclasses
+  `cat.Ob`, `cat.FreeCategory` and `abc.ColouredMonoid` directly, folding
+  in the unreleased `FreeMonoid` whose only subclass it was. Addition is
+  no longer an alias of the tensor on any object: `Ty.__add__`,
+  `stream.Ty.__add__` and `interaction.Ty.__add__` are removed, `+` raises
+  `TypeError` on a `List`, and every fold of objects with `sum` or `+` — in
+  `abc.SymmetricCategory.permutation`, `Hypergraph.from_graph`,
+  `interaction.Ty.tensor`, `stream.Ty.sequence` and `para` — goes through
+  `tensor`. `matrix.Matrix.ob` is `abc.Nat` rather than a bare `int`, its
+  `dom` and `cod` cast from `int` at construction as `python.finset` already
+  does ([#709](https://github.com/discopy/discopy/issues/709)): the
+  `Int`-construction over `Matrix[bool]` folds its objects with `tensor`,
+  which an `int` does not have, and `abc.Nat` prints as its number so a
+  matrix still reads `dom=2, cod=2`. `para.Symmetric` checks that its four
+  objects are `category.ob`, so a tuple of types is refused where it used
+  to be concatenated with `+`
+  ([#750](https://github.com/discopy/discopy/issues/750)).
+  `monoidal.Functor` folds the images of every object with `tensor` instead
+  of the `+` it fell back to while `python.Function.ob` was a bare tuple,
+  and `_map_atomic` goes with the tuple case it existed for, as do the
+  tuple special case of `stream.Ty` and `utils.is_tuple`
+  ([#728](https://github.com/discopy/discopy/issues/728)).
 - `monoidal.PRO` (and its counterparts `rigid.PRO`, `pivotal.PRO` and
   `frobenius.PRO`) is renamed to `Nat`: it is the free monoid on one
   generator, natural numbers with addition as tensor, and its unary
@@ -290,17 +335,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `cod`, `inside`, serialisation and the whiskering-aware `tensor` that
   raises on a mismatched `Ty` rather than silently reinterpreting it.
   `monoidal.Functor.__call__` maps a `Nat` by mapping its single generator
-  once and folding that image `other.n` times with `+`, rather than mapping
+  once and folding that image `other.n` times with `@`, rather than mapping
   each of the `n` identical atoms separately: a `Nat` is a unary encoding,
   so every atom is the same generator and its image need only be computed
   once. The fold starts from the image's own unit (`image[:0]`) rather than
   the declared codomain unit `cod.ob()`, since the latter can be a supertype
   of the image — `Diagram.to_hypergraph` on a `Nat`-typed permutation maps a
   `Nat` boundary through a functor whose `cod.ob` is the category's generic
-  `Ty`, and `Ty() @ Nat` is refused. The fold is with `+` like the
-  pre-existing `Dim`/`Ty` branches, so an arbitrary codomain's objects need
-  only support `+`, e.g. `python.Function.ob = tuple[type, ...]`, whose
-  images are plain tuples with a `+` but no `__matmul__` at all. The old names still work
+  `Ty`, and `Ty() @ Nat` is refused. The old names still work
   through a `DeprecationWarning`, via a new `utils.deprecated_alias` taking a
   mapping of every name a module deprecates. `utils.deprecated_ob`, the
   single-purpose `Ob`→`Wire` wrapper it generalises, is removed: its six call
