@@ -71,6 +71,12 @@ class Wire(rigid.Wire):
     l = r = property(lambda self: type(self)(
         self.name, (self.z + 1) % 2, dom=self.cod, cod=self.dom))
 
+    @classmethod
+    def strategy(cls, **params):
+        """Generate pivotal wires, whose winding number is a parity."""
+        return super().strategy(
+            **{"min_winding": 0, "max_winding": 1, **params})
+
     def dagger(self) -> Wire:
         """
         The dagger of a pivotal object coincides with its left and right

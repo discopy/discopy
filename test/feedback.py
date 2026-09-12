@@ -97,3 +97,16 @@ def test_Permutation_delay():
     assert perm.delay(2) == perm.delay().delay()
     assert (perm >> Swap(z, x) @ y).delay()\
         == perm.delay() >> Swap(z, x).delay() @ y.delay()
+
+
+def test_strategy():
+    from hypothesis import find
+
+    from discopy import axioms
+
+    axioms.assert_strategy_finds(Diagram, Feedback)
+    x = Diagram.ob('x')
+    nested = find(
+        Diagram.strategy(dom=x @ x.delay(), cod=x @ x),
+        lambda value: any(isinstance(box, Feedback) for box in value.boxes))
+    assert nested.cod == x @ x

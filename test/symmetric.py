@@ -406,3 +406,18 @@ def test_coloured_Layer_boxes_and_types():
     assert Layer(f).boxes_and_types == (empty_red, f, empty_green)
     assert Layer(empty_red, f, empty_green).boxes_and_types\
         == (empty_red, f, empty_green)
+
+
+def test_strategy():
+    from hypothesis import find
+
+    from discopy import axioms
+
+    axioms.assert_strategy_finds(Diagram, Swap)
+    x, y, z = map(Diagram.ob, "xyz")
+    shuffled = find(
+        Diagram.strategy(dom=x @ y @ z, cod=z @ x @ y),
+        lambda value: any(
+            isinstance(box, Permutation) and not isinstance(box, Swap)
+            for box in value.boxes))
+    assert shuffled.cod == z @ x @ y

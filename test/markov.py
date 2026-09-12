@@ -70,3 +70,17 @@ def test_Permutation():
     assert Permutation(x @ y, [1, 0]) == Swap(x, y)
     assert issubclass(Swap, Permutation)
     assert Equation(perm, perm.to_swaps())
+
+
+def test_strategy():
+    from hypothesis import find
+
+    from discopy import axioms
+
+    axioms.assert_strategy_finds(Diagram, Copy)
+    x = Diagram.ob('x')
+    discarding = find(
+        Diagram.strategy(dom=x, cod=x),
+        lambda value: any(
+            isinstance(box, Copy) and not box.cod for box in value.boxes))
+    assert (discarding.dom, discarding.cod) == (x, x)

@@ -57,6 +57,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
+from itertools import permutations
 from dataclasses import dataclass
 from typing import ClassVar
 
@@ -449,6 +450,16 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
             left : Whether to trace the wires on the left or right.
         """
 
+    @rule(lambda cls, dom, cod, size: size >= 2)
+    def tracing(cls, draw, dom, cod, size, types):
+        """ ``x ⊢ y`` is the trace of ``m @ x ⊢ m @ y`` over a drawn atom. """
+        from hypothesis import strategies as st
+
+        memory, left = draw(cls.atoms()), draw(st.booleans())
+        premise = (memory @ dom, memory @ cod, size - 1) if left\
+            else (dom @ memory, cod @ memory, size - 1)
+        return [premise], lambda f: f.trace(left=left)
+
 
 class ResiduatedMonoid[C0, C1: ResiduatedMonoid](ColouredMonoid[C0, C1]):
     """
@@ -535,6 +546,27 @@ class BiclosedCategory[
         result = self @ exponent >> self.ev(base, exponent, True) if left\
             else exponent @ self >> self.ev(base, exponent, False)
         return result.uncurry(n - len(exponent), left)
+
+    @leaf
+    def evaluating(cls, dom, cod):
+        """ ``(y << x) @ x ⊢ y`` and ``x @ (x >> y) ⊢ y`` are evaluations. """
+        if len(dom) != 2:
+            return None
+        for exponential, argument, left in (
+                (dom[:1], dom[1:], True), (dom[1:], dom[:1], False)):
+            if exponential.is_exp and exponential.exponent == argument\
+                    and exponential.base == cod:
+                return cls.eval_factory(exponential, left=left)
+        return None
+
+    @evaluating.hint
+    def evaluating(cls, dom, cod, types):
+        """ An exponential beside its argument. """
+        from hypothesis import strategies as st
+
+        return st.tuples(cls.atoms(), cls.atoms(), st.booleans()).map(
+            lambda args: (args[0] << args[1]) @ args[1] if args[2]
+            else args[1] @ (args[1] >> args[0]))
 
 
 class Pregroup[C0, C1: Pregroup](ResiduatedMonoid[C0, C1]):
@@ -652,6 +684,33 @@ class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
             >> self.dom.r @ self @ self.cod.r\
             >> self.dom.r @ self.cups(self.cod, self.cod.r)
 
+    @leaf
+    def cupping(cls, dom, cod):
+        """ ``x @ x.r ⊢ ()`` is a cup, ``x.l @ x`` included. """
+        if cod or len(dom) != 2 or dom[1:] != dom[:1].r:
+            return None
+        return cls.cups(dom[:1], dom[1:])
+
+    @cupping.hint
+    def cupping(cls, dom, cod, types):
+        """ An atom beside its right adjoint. """
+        return cls.atoms().map(lambda x: x @ x.r)
+
+    @leaf
+    def capping(cls, dom, cod):
+        """ ``() ⊢ x @ x.l`` is a cap, ``x.r @ x`` included. """
+        if dom or len(cod) != 2 or cod[1:] != cod[:1].l:
+            return None
+        return cls.caps(cod[:1], cod[1:])
+
+    @capping.hint
+    def capping(cls, dom, cod, types):
+        """ An atom beside its left adjoint. """
+        return cls.atoms().map(lambda x: x @ x.l)
+
+    evaluating = BiclosedCategory.evaluating.inapplicable(
+        "A rigid evaluation is a cup, which cupping reaches.")
+
 
 class PivotalCategory[C0, C1](RigidCategory[C0, C1], TracedCategory[C0, C1]):
     """
@@ -675,6 +734,24 @@ class BraidedCategory[C0, C1](MonoidalCategory[C0, C1]):
             left : The object on the left of the braid.
             right : The object on the right of the braid.
         """
+
+    @rule(lambda cls, dom, cod, size:
+          size == 1 and len(dom) == 2 and cod == dom[1:] @ dom[:1])
+    def braiding(cls, draw, dom, cod, size, types):
+        """ ``x @ y ⊢ y @ x`` is a braid, over or under. """
+        from hypothesis import strategies as st
+
+        over = draw(st.booleans())
+        return [], lambda: cls.braid(dom[:1], dom[1:]) if over\
+            else cls.braid(dom[1:], dom[:1]).dagger()
+
+    @braiding.hint
+    def braiding(cls, dom, cod, types):
+        """ Two atoms. """
+        from hypothesis import strategies as st
+
+        return st.tuples(cls.atoms(), cls.atoms()).map(
+            lambda pair: pair[0] @ pair[1])
 
 
 class PROB[C1: PROB](PRO[C1], BraidedCategory[Nat, C1]):
@@ -720,6 +797,36 @@ class SymmetricCategory[C0, C1](BraidedCategory[C0, C1]):
     def braid(cls, left: C0, right: C0) -> C1:
         return cls.swap(left, right)
 
+    @classmethod
+    def shuffles(cls, dom, cod) -> list:
+        """ The non-identity permutations of ``dom`` with codomain ``cod``. """
+        return [
+            perm for perm in permutations(range(len(dom)))
+            if perm != tuple(range(len(dom)))
+            and dom[:0].tensor(*(dom[i:i + 1] for i in perm)) == cod]
+
+    @rule(lambda cls, dom, cod, size:
+          size == 1 and len(dom) == len(cod) >= 2 and dom != cod
+          and sorted(map(repr, dom)) == sorted(map(repr, cod)))
+    def permuting(cls, draw, dom, cod, size, types):
+        """ ``x ⊢ y`` is a permutation when ``y`` shuffles ``x``. """
+        from hypothesis import strategies as st
+
+        perm = draw(st.sampled_from(cls.shuffles(dom, cod)))
+        return [], lambda: cls.permutation_factory(dom, list(perm))
+
+    @permuting.hint
+    def permuting(cls, dom, cod, types):
+        """ Either boundary with two adjacent atoms swapped. """
+        from hypothesis import strategies as st
+
+        swapped = [
+            boundary[:i] @ boundary[i + 1:i + 2] @ boundary[i:i + 1]
+            @ boundary[i + 2:]
+            for boundary in (dom, cod) for i in range(len(boundary) - 1)
+            if boundary[i:i + 1] != boundary[i + 1:i + 2]]
+        return st.sampled_from(swapped) if swapped else st.nothing()
+
 
 class PROP[C1: PROP](PROB[C1], SymmetricCategory[Nat, C1]):
     """
@@ -743,6 +850,19 @@ class MarkovCategory[C0, C1](SymmetricCategory[C0, C1]):
             x : The object to copy.
             n : The number of copies.
         """
+
+    @leaf
+    def copying(cls, dom, cod):
+        """ ``x ⊢ x @ ... @ x`` is a copy, none or up to three. """
+        if len(dom) != 1 or len(cod) not in (0, 2, 3)\
+                or any(cod[i:i + 1] != dom for i in range(len(cod))):
+            return None
+        return cls.copy(dom, n=len(cod))
+
+    @copying.hint
+    def copying(cls, dom, cod, types):
+        """ An atom twice. """
+        return cls.atoms().map(lambda x: x @ x)
 
 
 class ClosedCategory[C0, C1](BiclosedCategory[C0, C1], MarkovCategory[C0, C1]):
@@ -777,6 +897,16 @@ class FeedbackCategory[C0, C1](MarkovCategory[C0, C1]):
             mem : The memory type to trace over.
         """
 
+    @rule(lambda cls, dom, cod, size: size >= 2)
+    def feeding_back(cls, draw, dom, cod, size, types):
+        """
+        ``x ⊢ y`` is the feedback of ``x @ m.delay() ⊢ y @ m`` over a drawn
+        atom of memory.
+        """
+        memory = draw(cls.atoms())
+        premise = (dom @ memory.delay(), cod @ memory, size - 1)
+        return [premise], lambda f: f.feedback(mem=memory)
+
 
 class BalancedCategory[C0, C1](
         BraidedCategory[C0, C1], TracedCategory[C0, C1]):
@@ -794,6 +924,11 @@ class BalancedCategory[C0, C1](
         Parameters:
             dom : The object on which to take the twist.
         """
+
+    @leaf
+    def twisting(cls, dom, cod):
+        """ ``x ⊢ x`` is a twist. """
+        return cls.twist(dom) if len(dom) == 1 and dom == cod else None
 
 
 class RibbonCategory[C0, C1](
@@ -815,6 +950,9 @@ class CompactCategory[C0, C1](
     def twist(cls, dom: C0) -> C1:
         return cls.id(dom)
 
+    twisting = BalancedCategory.twisting.inapplicable(
+        "The twist is the identity.")
+
 
 class HypergraphCategory[C0, C1](
         CompactCategory[C0, C1], MarkovCategory[C0, C1]):
@@ -835,3 +973,17 @@ class HypergraphCategory[C0, C1](
             n_legs_out : The number of legs out for each spider.
             typ : The type of the spiders.
         """
+
+    @leaf
+    def spidering(cls, dom, cod):
+        """ ``x @ .. @ x ⊢ x @ .. @ x`` is a spider, on up to two legs. """
+        legs = dom @ cod
+        if not legs or len(legs) > 4 or (len(dom), len(cod)) == (1, 1)\
+                or any(legs[i:i + 1] != legs[:1] for i in range(len(legs))):
+            return None
+        return cls.spiders(len(dom), len(cod), legs[:1])
+
+    @spidering.hint
+    def spidering(cls, dom, cod, types):
+        """ An atom twice. """
+        return cls.atoms().map(lambda x: x @ x)

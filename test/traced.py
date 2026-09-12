@@ -41,3 +41,18 @@ def test_trace_vanishing():
 
     k = multiplicative.Function(lambda i, j: (i, j), (int, int), (int, int))
     assert k.trace(0) == k
+
+
+def test_strategy():
+    from hypothesis import find
+
+    from discopy import axioms
+
+    axioms.assert_strategy_finds(Diagram, Trace)
+    x, y = Diagram.ob('x'), Diagram.ob('y')
+    nested = find(
+        Diagram.strategy(dom=x, cod=y),
+        lambda value: any(
+            isinstance(box, Trace) and len(box.arg.boxes) > 1
+            for box in value.boxes))
+    assert (nested.dom, nested.cod) == (x, y)

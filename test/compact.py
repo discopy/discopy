@@ -64,3 +64,20 @@ def test_mixed_Layer_rotation_and_transpose():
     assert diagram.transpose_box(0, 0).boxes[-1] == f
     assert f.r in diagram.transpose_box(0, 1).boxes
     assert list(diagram.snake_removal()) == []
+
+
+def test_strategy():
+    from hypothesis import find
+
+    from discopy import axioms
+    from discopy.traced import Trace
+
+    axioms.assert_strategy_finds(Diagram, Swap, Cup, Cap)
+    x = Diagram.ob('x')
+    traced = find(
+        Diagram.strategy(dom=x, cod=x),
+        lambda value: any(
+            isinstance(box, Trace)
+            and any(isinstance(inner, Cup) for inner in box.arg.boxes)
+            for box in value.boxes))
+    assert (traced.dom, traced.cod) == (x, x)

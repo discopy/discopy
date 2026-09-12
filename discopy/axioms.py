@@ -46,6 +46,7 @@ Summary
         resolve
         substitute
         assert_axioms
+        assert_strategy_finds
 """
 
 from __future__ import annotations
@@ -1030,3 +1031,16 @@ class Serialisable(Testable):
         from discopy.utils import dumps, from_tree, loads
 
         return Equation(from_tree(term.to_tree()), loads(dumps(term)), term)
+
+
+def assert_strategy_finds(category, *structures: type) -> None:
+    """
+    Check that the strategy of a diagram category generates a term
+    containing a box of each of the given structural classes, the reach a
+    module's ``test_strategy`` pins.
+    """
+    from hypothesis import find
+
+    for structure in structures:
+        find(category.strategy(), lambda term: any(
+            isinstance(box, structure) for box in term.boxes))

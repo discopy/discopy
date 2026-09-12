@@ -85,3 +85,16 @@ def test_to_braided_default_and_zero_width():
 
     # width=0 returns the diagram as is, i.e. without dual rails.
     assert twist.to_braided(width=0) == twist
+
+
+def test_strategy():
+    from hypothesis import find
+
+    from discopy import axioms
+
+    axioms.assert_strategy_finds(Diagram, Twist, Braid)
+    x, y = Diagram.ob('x'), Diagram.ob('y')
+    twisted = find(
+        Diagram.strategy(dom=x, cod=y),
+        lambda value: any(isinstance(box, Twist) for box in value.boxes))
+    assert (twisted.dom, twisted.cod) == (x, y)

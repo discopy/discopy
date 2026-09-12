@@ -148,7 +148,7 @@ from __future__ import annotations
 
 from discopy import monoidal, braided, markov, hypergraph
 from discopy.axioms import GENERATORS, no_strategy
-from discopy.abc import FeedbackCategory
+from discopy.abc import FeedbackCategory, TracedCategory
 from discopy.utils import (
     deprecated_alias,
     factory, factory_name, assert_isinstance, AxiomError,
@@ -347,6 +347,11 @@ class Diagram(markov.Diagram, FeedbackCategory):
     .. image:: /_static/feedback/feedback-random-walk.svg
         :align: center
     """
+    tracing = TracedCategory.tracing.inapplicable(
+        "A feedback category feeds back rather than traces: the trace a "
+        "feedback diagram inherits from markov builds a markov.Trace that "
+        "is not a feedback diagram.")
+
     ob = Ty
     layer_factory = Layer
 
