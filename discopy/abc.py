@@ -748,11 +748,17 @@ class BraidedCategory[C0, C1](MonoidalCategory[C0, C1]):
 
     @braiding.hint
     def braiding(cls, dom, cod, types):
-        """ Two atoms. """
+        """ Either boundary with two adjacent atoms swapped, or two atoms. """
         from hypothesis import strategies as st
 
-        return st.tuples(cls.atoms(), cls.atoms()).map(
+        swapped = [
+            boundary[:i] @ boundary[i + 1:i + 2] @ boundary[i:i + 1]
+            @ boundary[i + 2:]
+            for boundary in (dom, cod) for i in range(len(boundary) - 1)]
+        pairs = st.tuples(cls.atoms(), cls.atoms()).map(
             lambda pair: pair[0] @ pair[1])
+        return st.one_of(st.sampled_from(swapped), pairs) if swapped\
+            else pairs
 
 
 class PROB[C1: PROB](PRO[C1], BraidedCategory[Nat, C1]):
