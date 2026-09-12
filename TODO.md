@@ -31,3 +31,11 @@ Rough edges met on the way, each worth an issue:
 - [x] the axioms of every level of `discopy.abc` restated beside the rules, from `bifunctoriality` to `reidemeister_1_cup`
 - [x] the matrix on every level: each failure classified, `.modulo` a quotient where the free category identifies terms, `.failing` with a reason where a law breaks, `.inapplicable` where a structure is absent
 - [x] docs autosummary, CHANGELOG entry, `uv run pflake8 discopy`, `uv run coverage run -m pytest`, `uv run pytest proptest/ -n auto -p no:benchmark` green
+
+## Round: degenerate shapes
+
+> do we still need shapes like TraceVanishing or TraceSuperposing? arent hints doing a similar thing?
+>
+> do it
+
+- [WIP] @claude-3f440127-2026-09-12 14:25 `TraceSuperposing` and the currying shapes draw a real arrow through the search rather than an identity or the evaluation itself; `FeedbackVanishing` and `HomogeneousMemory` go, the vanishing law taking an arrow; the matrix reclassified where the wider reach changes a verdict; CHANGELOG
