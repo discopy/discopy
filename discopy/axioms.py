@@ -27,9 +27,26 @@ Summary
     AxiomFailure
     Rule
     Testable
+    Atomic
+    NonEmpty
+    BoundaryConnected
     Grid
     ComposablePair
     ComposableTriple
+    HorizontalPair
+    Square
+    TraceSuperposing
+    TraceSliding
+    TraceNaturalityLeft
+    TraceNaturalityRight
+    TraceDinaturality
+    TraceDinaturalityLeft
+    TraceDinaturalityRight
+    LeftCurrying
+    RightCurrying
+    FeedbackVanishing
+    FeedbackJoining
+    HomogeneousMemory
     Serialisable
 
 .. admonition:: Functions
@@ -824,6 +841,287 @@ class ComposableTriple(Grid):
 
     n_rows, n_columns = 3, 1
     n_active_rows = 3
+
+
+class HorizontalPair(Grid):
+    """ Two horizontally composable cells. """
+
+    n_rows, n_columns = 1, 2
+
+
+class Square(Grid):
+    """ A two-by-two grid of cells, the arguments of the interchange law. """
+
+    n_rows = n_columns = 2
+
+
+@dataclass(frozen=True)
+class Atomic(Testable, NamedGeneric["factory"]):
+    """ An object of the factory containing exactly one generator. """
+
+    value: C0
+
+    def __post_init__(self):
+        if len(self.value) != 1:
+            raise ValueError("Expected an atomic object.")
+
+    @classmethod
+    def strategy(cls, **params):
+        """Generate an object of length one."""
+        return resolve(
+            cls.factory, **{**params, "min_length": 1, "max_length": 1}
+        ).map(cls)
+
+
+@dataclass(frozen=True)
+class NonEmpty(Testable, NamedGeneric["factory"]):
+    """ A non-empty object of the factory. """
+
+    value: C0
+
+    def __post_init__(self):
+        if not len(self.value):
+            raise ValueError("Expected a non-empty object.")
+
+    @classmethod
+    def strategy(cls, **params):
+        """Generate an object of length at least one."""
+        return resolve(cls.factory, **{**params, "min_length": 1}).map(cls)
+
+
+@dataclass(frozen=True)
+class BoundaryConnected(Testable, NamedGeneric["factory"]):
+    """
+    A diagram whose boundary reaches every box, or a grid of such diagrams,
+    connected cell by cell: the subspace where a normal form is defined.
+    """
+
+    value: C1
+
+    def __post_init__(self):
+        cells = self.value if isinstance(self.value, Grid)\
+            else (self.value, )
+        for cell in cells:
+            if not cell.to_hypergraph().is_boundary_connected:
+                raise ValueError("Expected a boundary-connected diagram.")
+
+    @classmethod
+    def strategy(cls, **params):
+        """Generate from the factory restricted to connected diagrams."""
+        return resolve(
+            cls.factory, boundary_connected=True, **params).map(cls)
+
+
+class TraceSuperposing(Testable, NamedGeneric["factory"], tuple):
+    """ A traceable arrow and an object to superpose. """
+
+    def __new__(cls, traced: C1, obj: C0):
+        traced.trace()
+        return super().__new__(cls, (traced, obj))
+
+    @classmethod
+    def strategy(cls):
+        """Generate the identity on an atom and an arbitrary object."""
+        from hypothesis import strategies as st
+
+        factory = cls.factory
+        return st.tuples(factory.atoms(), factory.ob.strategy()).map(
+            lambda pair: cls(factory.id(pair[0]), pair[1]))
+
+
+class TraceSliding(Testable, NamedGeneric["factory"], tuple):
+    """ A traced arrow and one to slide around its trace. """
+
+    left: ClassVar[bool]
+
+    def __new__(cls, traced: C1, obj: C0, sliding: C1):
+        traced_dom = obj @ sliding.cod if cls.left else sliding.cod @ obj
+        traced_cod = obj @ sliding.dom if cls.left else sliding.dom @ obj
+        if (traced.dom, traced.cod) != (traced_dom, traced_cod):
+            raise ValueError("Expected compatible trace sliding boundaries.")
+        return super().__new__(cls, (traced, obj, sliding))
+
+    @classmethod
+    def strategy(cls):
+        """Generate the sliding arrow, then the traced one around it."""
+        from hypothesis import strategies as st
+
+        factory = cls.factory
+
+        @st.composite
+        def arguments(draw):
+            obj = draw(factory.ob.strategy(min_length=1))
+            dom, cod = draw(factory.ob.strategy()), draw(factory.ob.strategy())
+            traced_dom = obj @ cod if cls.left else cod @ obj
+            traced_cod = obj @ dom if cls.left else dom @ obj
+            traced = draw(factory.strategy(
+                dom=traced_dom, cod=traced_cod, min_leaves=1))
+            sliding = draw(factory.strategy(dom=dom, cod=cod, min_leaves=1))
+            return cls(traced, obj, sliding)
+
+        return arguments()
+
+
+class TraceNaturalityLeft(TraceSliding):
+    """ Arguments for left-oriented trace naturality. """
+
+    left = True
+
+
+class TraceNaturalityRight(TraceSliding):
+    """ Arguments for right-oriented trace naturality. """
+
+    left = False
+
+
+class TraceDinaturality(Testable, NamedGeneric["factory"], tuple):
+    """
+    An arrow and one to slide around its trace, traceable only once the
+    sliding arrow is composed in on either side.
+    """
+
+    left: ClassVar[bool]
+
+    def __new__(cls, traced: C1, sliding: C1):
+        traced_in, traced_out = (
+            (traced.dom[:len(sliding.cod)], traced.cod[:len(sliding.dom)])
+            if cls.left else
+            (traced.dom[-len(sliding.cod):], traced.cod[-len(sliding.dom):]))
+        if (traced_in, traced_out) != (sliding.cod, sliding.dom):
+            raise ValueError("Expected compatible trace sliding boundaries.")
+        return super().__new__(cls, (traced, sliding))
+
+    @classmethod
+    def strategy(cls):
+        """Generate an arrow sliding between the ends of a traced one."""
+        from hypothesis import strategies as st
+
+        factory = cls.factory
+
+        @st.composite
+        def arguments(draw):
+            objects = factory.ob.strategy()
+            base, cobase = draw(objects), draw(objects)
+            source, target = (
+                draw(factory.ob.strategy(min_length=1)) for _ in range(2))
+            traced_dom = source @ base if cls.left else base @ source
+            traced_cod = target @ cobase if cls.left else cobase @ target
+            traced = draw(factory.strategy(
+                dom=traced_dom, cod=traced_cod, min_leaves=1))
+            sliding = draw(factory.strategy(
+                dom=target, cod=source, min_leaves=1))
+            return cls(traced, sliding)
+
+        return arguments()
+
+
+class TraceDinaturalityLeft(TraceDinaturality):
+    """ Arguments for left-oriented trace dinaturality. """
+
+    left = True
+
+
+class TraceDinaturalityRight(TraceDinaturality):
+    """ Arguments for right-oriented trace dinaturality. """
+
+    left = False
+
+
+class LeftCurrying(Testable, NamedGeneric["factory"], tuple):
+    """ Arguments for left currying followed by evaluation. """
+
+    left = True
+
+    def __new__(cls, arrow: C1, base: C0, exponent: C0):
+        exponential = base << exponent if cls.left else exponent >> base
+        arrow_dom = exponential @ exponent if cls.left\
+            else exponent @ exponential
+        if (arrow.dom, arrow.cod) != (arrow_dom, base):
+            raise ValueError("Expected an evaluation morphism.")
+        return super().__new__(cls, (arrow, base, exponent))
+
+    @classmethod
+    def strategy(cls):
+        """Generate an evaluation on two atoms."""
+        from hypothesis import strategies as st
+
+        factory = cls.factory
+        return st.tuples(factory.atoms(), factory.atoms()).map(
+            lambda pair: cls(factory.ev(*pair, left=cls.left), *pair))
+
+
+class RightCurrying(LeftCurrying):
+    """ Arguments for right currying followed by evaluation. """
+
+    left = False
+
+
+class FeedbackVanishing(Testable, NamedGeneric["factory"], tuple):
+    """ A feedback arrow together with the monoidal unit. """
+
+    def __new__(cls, arrow: C1, unit: C0):
+        if len(unit):
+            raise ValueError("Expected the monoidal unit.")
+        arrow.feedback(mem=unit)
+        return super().__new__(cls, (arrow, unit))
+
+    @classmethod
+    def strategy(cls, **params):
+        """Generate an arrow paired with the monoidal unit."""
+        factory = cls.factory
+        return factory.strategy(**params).map(
+            lambda arrow: cls(arrow, factory.ob()))
+
+
+class FeedbackJoining(Testable, NamedGeneric["factory"], tuple):
+    """ A feedback arrow with at least two units of memory. """
+
+    def __new__(cls, arrow: C1, memory: C0):
+        if len(memory) < 2:
+            raise ValueError("Expected at least two units of memory.")
+        if arrow.dom[-len(memory):] != memory.delay():
+            raise ValueError("Expected the delayed memory in the domain.")
+        if arrow.cod[-len(memory):] != memory:
+            raise ValueError("Expected the memory in the codomain.")
+        return super().__new__(cls, (arrow, memory))
+
+    @classmethod
+    def memories(cls):
+        """ A strategy for two units of memory. """
+        from hypothesis import strategies as st
+
+        return st.tuples(cls.factory.atoms(), cls.factory.atoms()).map(
+            lambda pair: pair[0] @ pair[1])
+
+    @classmethod
+    def strategy(cls):
+        """Generate the memory, then an arrow feeding it back."""
+        from hypothesis import strategies as st
+
+        factory = cls.factory
+
+        @st.composite
+        def arguments(draw):
+            obj, memory = draw(factory.ob.strategy()), draw(cls.memories())
+            arrow = draw(factory.strategy(
+                dom=obj @ memory.delay(), cod=obj @ memory))
+            return cls(arrow, memory)
+
+        return arguments()
+
+
+class HomogeneousMemory(FeedbackJoining):
+    """ A feedback arrow whose units of memory are all the same object. """
+
+    def __new__(cls, arrow: C1, memory: C0):
+        if any(memory[i:i + 1] != memory[:1] for i in range(len(memory))):
+            raise ValueError("Expected homogeneous memory.")
+        return super().__new__(cls, arrow, memory)
+
+    @classmethod
+    def memories(cls):
+        """ A strategy for one unit of memory, twice. """
+        return cls.factory.atoms().map(lambda atom: atom @ atom)
 
 
 def resolve(annotation, **params) -> st.SearchStrategy:

@@ -10,16 +10,31 @@ from hypothesis import strategies as st
 from hypothesis.errors import NoSuchExample
 from pytest import raises
 
-from discopy import cat
+from discopy import biclosed, cat, feedback, monoidal, traced
 from discopy.axioms import (
     C1,
+    Atomic,
     Axiom,
     AxiomFailure,
+    BoundaryConnected,
     ComposablePair,
     ComposableTriple,
     Equation,
+    FeedbackJoining,
+    FeedbackVanishing,
     Grid,
+    HomogeneousMemory,
+    HorizontalPair,
+    LeftCurrying,
+    NonEmpty,
+    RightCurrying,
+    Square,
     Testable,
+    TraceDinaturalityLeft,
+    TraceDinaturalityRight,
+    TraceNaturalityLeft,
+    TraceNaturalityRight,
+    TraceSuperposing,
     assert_axioms,
     axiom,
     no_strategy,
@@ -265,3 +280,131 @@ def test_leaf_applies_only_on_its_shape():
     with raises(NoSuchExample):
         find(search(Toy, dom=x, cod=y, min_leaves=1, max_leaves=1,
                     types=Ob.strategy()), is_loop)
+
+
+def test_Atomic():
+    x, y = map(monoidal.Ty, "xy")
+    assert Atomic(x).value == x
+    with raises(ValueError):
+        Atomic(x @ y)
+    find(Atomic[monoidal.Ty].strategy(), lambda value: len(value.value) == 1)
+
+
+def test_NonEmpty():
+    x = monoidal.Ty('x')
+    assert NonEmpty(x).value == x
+    with raises(ValueError):
+        NonEmpty(monoidal.Ty())
+    find(NonEmpty[monoidal.Ty].strategy(), lambda value: len(value.value) > 1)
+
+
+def test_HorizontalPair():
+    x, y = map(monoidal.Ty, "xy")
+    f, g = monoidal.Box('f', x, y), monoidal.Box('g', y, x)
+    assert HorizontalPair(f, g) == (f, g)
+    with raises(ValueError):
+        HorizontalPair(f)
+    find(HorizontalPair[monoidal.Diagram].strategy(),
+         lambda value: all(term.boxes for term in value))
+
+
+def test_Square():
+    x, y = map(monoidal.Ty, "xy")
+    f, g = monoidal.Box('f', x, y), monoidal.Box('g', y, x)
+    assert Square(f, f, g, g) == (f, f, g, g)
+    with raises(AxiomError):
+        Square(f, f, f, f)
+    find(Square[monoidal.Diagram].strategy(), lambda value: all(
+        value[column].boxes or value[column + 2].boxes
+        for column in range(2)))
+
+
+def test_BoundaryConnected():
+    x = monoidal.Ty('x')
+    f = monoidal.Box('f', x, x)
+    scalar = monoidal.Box('s', monoidal.Ty(), monoidal.Ty())
+    assert BoundaryConnected(f).value == f
+    assert BoundaryConnected(HorizontalPair(f, f)).value == (f, f)
+    for value in (f @ scalar, scalar):
+        with raises(ValueError):
+            BoundaryConnected(value)
+    find(BoundaryConnected[monoidal.Diagram].strategy(),
+         lambda value: bool(value.value.boxes))
+
+
+def test_TraceSuperposing():
+    x, y, z = map(traced.Ty, "xyz")
+    assert TraceSuperposing(traced.Id(x), y) == (traced.Id(x), y)
+    with raises(AxiomError):
+        TraceSuperposing(traced.Box('f', x, y), z)
+    find(TraceSuperposing[traced.Diagram].strategy(),
+         lambda value: len(value[1]) > 1)
+
+
+def test_TraceNaturality():
+    x, y = map(traced.Ty, "xy")
+    f, g = traced.Box('f', x @ y, x @ x), traced.Box('g', x, y)
+    assert TraceNaturalityLeft(f, x, g) == (f, x, g)
+    with raises(ValueError):
+        TraceNaturalityLeft(traced.Id(x @ y), x, traced.Id(x))
+    h = traced.Box('h', y @ x, x @ x)
+    assert TraceNaturalityRight(h, x, g) == (h, x, g)
+    with raises(ValueError):
+        TraceNaturalityRight(traced.Id(x @ y), x, traced.Id(y))
+    for shape in (TraceNaturalityLeft, TraceNaturalityRight):
+        find(shape[traced.Diagram].strategy(),
+             lambda value: value[2].dom != value[2].cod)
+
+
+def test_TraceDinaturality():
+    x, y, z = map(traced.Ty, "xyz")
+    f, g = traced.Box('f', x @ z, y @ z), traced.Box('g', y, x)
+    assert TraceDinaturalityLeft(f, g) == (f, g)
+    with raises(ValueError):
+        TraceDinaturalityLeft(g, f)
+    h = traced.Box('h', z @ x, z @ y)
+    assert TraceDinaturalityRight(h, g) == (h, g)
+    with raises(ValueError):
+        TraceDinaturalityRight(g, h)
+    shape = find(TraceDinaturalityRight[traced.Diagram].strategy(),
+                 lambda value: value[1].dom != value[1].cod)
+    sliding = shape[1]
+    assert shape[0].dom[-len(sliding.cod):] == sliding.cod
+    assert shape[0].cod[-len(sliding.dom):] == sliding.dom
+
+
+def test_Currying():
+    x, y = map(biclosed.Ty, "xy")
+    for shape, left in ((LeftCurrying, True), (RightCurrying, False)):
+        evaluation = biclosed.Diagram.ev(x, y, left=left)
+        assert shape(evaluation, x, y) == (evaluation, x, y)
+        with raises(ValueError):
+            shape(evaluation, y, x)
+        find(shape[biclosed.Diagram].strategy(),
+             lambda value: value[1] != value[2])
+
+
+def test_FeedbackShapes():
+    x, y, z = map(feedback.Ty, "xyz")
+    f, unit = feedback.Box('f', x, x), feedback.Ty()
+    assert FeedbackVanishing(f, unit) == (f, unit)
+    with raises(ValueError):
+        FeedbackVanishing(f, x)
+    find(FeedbackVanishing[feedback.Diagram].strategy(),
+         lambda value: value[0].boxes)
+    memory = y @ z
+    g = feedback.Box('g', x @ memory.delay(), x @ memory)
+    assert FeedbackJoining(g, memory) == (g, memory)
+    with raises(ValueError):
+        FeedbackJoining(g, feedback.Ty())
+    with raises(ValueError):
+        FeedbackJoining(feedback.Box('h', x @ memory, x @ memory), memory)
+    shape = find(FeedbackJoining[feedback.Diagram].strategy(),
+                 lambda value: value[1][:1] != value[1][1:])
+    assert shape[0].cod[-2:] == shape[1]
+    m = feedback.Ty('m')
+    assert HomogeneousMemory(
+        feedback.Box('k', x @ (m @ m).delay(), x @ m @ m), m @ m)
+    with raises(ValueError):
+        HomogeneousMemory(g, memory)
+    find(HomogeneousMemory[feedback.Diagram].strategy(), lambda value: True)

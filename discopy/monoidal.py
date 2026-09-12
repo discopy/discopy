@@ -998,11 +998,12 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
     @classmethod
     def strategy(
             cls, *, types=None, dom=None, cod=None,
-            min_leaves=None, max_leaves=3):
+            min_leaves=None, max_leaves=3, boundary_connected=False):
         """
         Generate diagrams by :func:`discopy.axioms.search` over the
         :attr:`rules` of the category, tensored with up to two closed
-        components.
+        components unless ``boundary_connected``, in which case a trace
+        closing a loop around a box is filtered out too.
         """
         from hypothesis import strategies as st
 
@@ -1010,6 +1011,9 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
         diagrams = search(
             cls, types=types, dom=dom, cod=cod,
             min_leaves=min_leaves, max_leaves=max_leaves)
+        if boundary_connected:
+            return diagrams.filter(
+                lambda diagram: diagram.to_hypergraph().is_boundary_connected)
         scalars = search(
             cls, types=types, dom=cls.ob(), cod=cls.ob(),
             min_leaves=1, max_leaves=max_leaves)
