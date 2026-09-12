@@ -29,5 +29,5 @@ Rough edges met on the way, each worth an issue:
 
 - [x] the argument shapes as `Testable` wrappers in `discopy/axioms.py`, generating through the constrained search: `Atomic`, `NonEmpty`, `HorizontalPair`, `Square`, the trace and feedback shapes, the currying shapes; tests in `test/axioms.py`
 - [x] the axioms of every level of `discopy.abc` restated beside the rules, from `bifunctoriality` to `reidemeister_1_cup`
-- [WIP] @claude-3f440127-2026-09-12 13:55 the matrix on every level: each failure classified, `.modulo` a quotient where the free category identifies terms, `.failing` with a reason where a law breaks, `.inapplicable` where a structure is absent
-- [ ] docs autosummary, CHANGELOG entry, `uv run pflake8 discopy`, `uv run coverage run -m pytest`, `uv run pytest proptest/ -n auto -p no:benchmark` green
+- [x] the matrix on every level: each failure classified, `.modulo` a quotient where the free category identifies terms, `.failing` with a reason where a law breaks, `.inapplicable` where a structure is absent
+- [x] docs autosummary, CHANGELOG entry, `uv run pflake8 discopy`, `uv run coverage run -m pytest`, `uv run pytest proptest/ -n auto -p no:benchmark` green
