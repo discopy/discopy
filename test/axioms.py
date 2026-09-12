@@ -14,10 +14,11 @@ from discopy import biclosed, cat, feedback, monoidal, rigid, traced
 from discopy.axioms import (
     C1, Atomic, Axiom, AxiomFailure, BoundaryConnected, ComposablePair,
     ComposableTriple, Equation, FeedbackJoining, FeedbackVanishing, Grid,
-    HomogeneousMemory, HorizontalPair, LeftCurrying, NonEmpty, Relabelling,
-    RightCurrying, Square, Testable, Subsingleton, TraceDinaturalityLeft,
-    TraceDinaturalityRight, TraceNaturalityLeft, TraceNaturalityRight,
-    TraceSuperposing, assert_axioms, axiom, resolve, substitute)
+    HomogeneousMemory, HorizontalPair, LeftCurrying, Natural, NonEmpty,
+    Relabelling, RightCurrying, Square, Testable, Subsingleton,
+    TraceDinaturalityLeft, TraceDinaturalityRight, TraceNaturalityLeft,
+    TraceNaturalityRight, TraceSuperposing, assert_axioms, axiom, resolve,
+    substitute)
 from discopy.cat import Arrow, Box, Functor, Ob
 from discopy.utils import AxiomError, NamedGeneric
 
@@ -183,6 +184,18 @@ def test_axioms_of_category():
         unitality = None
 
     assert "unitality" not in Hidden.axioms
+
+
+def test_Natural():
+    assert Natural() == 0 and Natural(2) @ Natural(3) == Natural(5)
+    assert len(Natural(3)) == 3
+    assert Natural(1).__matmul__("x") is NotImplemented
+    with raises(ValueError):
+        Natural(-1)
+    assert repr(Natural(2)) == "axioms.Natural(2)"
+    assert eval(repr(Natural(2)), Natural.environment()) == Natural(2)
+    assert Natural.equation_factory(Natural(1), Natural(1))
+    assert find(Natural.strategy(), lambda number: number == 1) == 1
 
 
 def test_Atomic():

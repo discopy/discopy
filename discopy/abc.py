@@ -62,7 +62,7 @@ from typing import ClassVar
 
 from discopy.axioms import (
     Atomic, Axiom, Equation, ComposablePair, ComposableTriple, FeedbackJoining,
-    FeedbackVanishing, HorizontalPair, LeftCurrying, NonEmpty,
+    FeedbackVanishing, HorizontalPair, LeftCurrying, Natural, NonEmpty,
     RightCurrying, Square, TraceDinaturalityLeft, TraceDinaturalityRight,
     TraceNaturalityLeft, TraceNaturalityRight, TraceSuperposing, axiom)
 from discopy.utils import NamedGeneric, classproperty  # noqa: F401
@@ -1102,3 +1102,30 @@ class HypergraphCategory[C0, C1](
             n_legs_out : The number of legs out for each spider.
             typ : The type of the spiders.
         """
+
+    @axiom
+    def frobenius(
+            cls, x: C0) -> Equation[C1]:
+        """ The Frobenius equation. """
+        split, merge = cls.spiders(1, 2, x), cls.spiders(2, 1, x)
+        return cls.equation_factory(
+            split @ x >> x @ merge,
+            merge >> split,
+            x @ split >> merge @ x)
+
+    @axiom
+    def speciality(
+            cls, x: C0) -> Equation[C1]:
+        """ Speciality of the Frobenius structure. """
+        split, merge = cls.spiders(1, 2, x), cls.spiders(2, 1, x)
+        return cls.equation_factory(
+            split.then(merge), cls.spiders(1, 1, x), cls.id(x))
+
+    @axiom
+    def spider_fusion(
+            cls, x: C0, n_legs_in: Natural,
+            n_legs_out: Natural) -> Equation[C1]:
+        """ Fusion of two spiders connected by one leg. """
+        return cls.equation_factory(
+            cls.spiders(n_legs_in, 1, x).then(cls.spiders(1, n_legs_out, x)),
+            cls.spiders(n_legs_in, n_legs_out, x))
