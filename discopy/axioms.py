@@ -1,9 +1,16 @@
 """
 Property-based testing of the axioms with `Hypothesis
-<https://hypothesis.readthedocs.io>`_: an :class:`Axiom` is stated once
-on an abstract base class, a category generates its own objects and
-arrows through :class:`Strategy`, and the matrix in ``proptest/``
-searches every cell for a counterexample.
+<https://hypothesis.readthedocs.io>`_.
+
+An :class:`Axiom` is an equation stated once on an abstract base class of
+:mod:`discopy.abc` and inherited by every category below it, where
+:meth:`Axiom.failing` and :meth:`Axiom.inapplicable` classify it when a
+category breaks it or has no such structure. A :class:`Testable` category
+generates its own objects and arrows, and states the laws every type that
+does so obeys: a term reads back from its representation, its pickle and
+its tree. The matrix in ``proptest/`` checks every axiom of every
+category against generated arguments, one cell per pair; CONTRIBUTING.md
+says how to run it.
 
 Summary
 -------
@@ -16,7 +23,7 @@ Summary
     Equation
     Axiom
     AxiomFailure
-    Strategy
+    Testable
     Natural
     Atomic
     NonEmpty
@@ -67,11 +74,11 @@ The suite
   category in ``CATEGORIES``, one pytest cell per pair, arguments generated
   by :meth:`Axiom.strategy` from the annotations of the law's own
   parameters.
-- :class:`Strategy` states the laws of any type that generates its own
-  instances, whatever its level: :meth:`Strategy.transparency`,
-  :meth:`Strategy.pickling` and :meth:`Strategy.serialisation` are cells
+- :class:`Testable` states the laws of any type that generates its own
+  instances, whatever its level: :meth:`Testable.transparency`,
+  :meth:`Testable.pickling` and :meth:`Testable.serialisation` are cells
   of the matrix for every category, which read back in
-  :meth:`Strategy.environment`: the package's public names and its own
+  :meth:`Testable.environment`: the package's public names and its own
   module's, so that a representation printing bare names evaluates
   without the category declaring anything.
 - ``proptest/test_drawing.py`` and ``proptest/test_normal_form.py`` check
@@ -312,7 +319,7 @@ types of the module it is written in, so that a subclass inherits the
 override with its own types: :meth:`Axiom.strategy` rebinds both names to
 ``category.ob`` and ``category.ar``, and :data:`typing.Self` to the category
 itself for a law of every term of a type whatever its level, such as
-:meth:`Strategy.transparency`, in its :attr:`Axiom.scope` when it
+:meth:`Testable.transparency`, in its :attr:`Axiom.scope` when it
 evaluates the annotations; a law of functors names the category they map
 from as ``Self.dom``. This is also why every module stating an axiom
 needs ``from __future__ import annotations``, which keeps them
@@ -423,7 +430,7 @@ class Axiom[**P, T]:
     are generated from their annotations — an object for the typing of
     identities, three composable arrows for the associativity of
     composition, a term of the category itself for
-    :meth:`Strategy.transparency`.
+    :meth:`Testable.transparency`.
 
     Calling a bound axiom returns its own verdict: :obj:`NotImplemented`
     when the structure does not apply to the category, and the equation
@@ -438,7 +445,7 @@ class Axiom[**P, T]:
     Parameters:
         equation : The function stating the law, from the category and the
             arguments annotated with :obj:`C0`, :obj:`C1`,
-            :data:`typing.Self` or a :class:`Strategy` to an
+            :data:`typing.Self` or a :class:`Testable` to an
             :class:`Equation`, or to :obj:`NotImplemented` when the
             structure does not apply.
         category : The class the axiom is bound to, :obj:`None` until
@@ -642,12 +649,12 @@ def axiom[**P, T](
     return Axiom(equation)
 
 
-class Strategy[T](ABC):
+class Testable[T](ABC):
     """
-    A type with a canonical `search strategy
-    <https://hypothesis.readthedocs.io/en/latest/data.html>`_
-    generating its instances, and the laws every such type obeys: a term
-    reads back from its representation, its pickle and its tree.
+    A type that comes with a `search strategy
+    <https://hypothesis.readthedocs.io/en/latest/data.html>`_ generating
+    its instances, and the laws every such type obeys: a term reads back
+    from its representation, its pickle and its tree.
     """
 
     @classmethod
@@ -715,7 +722,7 @@ class Strategy[T](ABC):
         return Equation(from_tree(term.to_tree()), loads(dumps(term)), term)
 
 
-class Natural(int, Strategy["Natural"]):
+class Natural(int, Testable["Natural"]):
     """ A non-negative integer with tensor given by addition. """
 
     def __new__(cls, value=0):
@@ -747,12 +754,12 @@ class Natural(int, Strategy["Natural"]):
             st.just(1),
             st.integers(min_value=0, max_value=max_size)).map(cls)
 
-    serialisation = Strategy.serialisation.inapplicable(
+    serialisation = Testable.serialisation.inapplicable(
         "A natural number has no tree.")
 
 
 @dataclass(frozen=True)
-class Atomic(Strategy, NamedGeneric["factory"]):
+class Atomic(Testable, NamedGeneric["factory"]):
     """ An object of the factory containing exactly one generator. """
 
     value: C0
@@ -769,7 +776,7 @@ class Atomic(Strategy, NamedGeneric["factory"]):
 
 
 @dataclass(frozen=True)
-class NonEmpty(Strategy, NamedGeneric["factory"]):
+class NonEmpty(Testable, NamedGeneric["factory"]):
     """ A non-empty object of the factory. """
 
     value: C0
@@ -785,7 +792,7 @@ class NonEmpty(Strategy, NamedGeneric["factory"]):
 
 
 @dataclass(frozen=True)
-class Subsingleton(Strategy, NamedGeneric["factory"]):
+class Subsingleton(Testable, NamedGeneric["factory"]):
     """ An object of the factory of length at most one. """
 
     value: C0
@@ -802,7 +809,7 @@ class Subsingleton(Strategy, NamedGeneric["factory"]):
 
 
 @dataclass(frozen=True)
-class BoundaryConnected(Strategy, NamedGeneric["factory"]):
+class BoundaryConnected(Testable, NamedGeneric["factory"]):
     """
     A term whose boundary reaches every box — a hypergraph, a
     combinatorial map, or a diagram read through its map — or a pasting
@@ -827,7 +834,7 @@ class BoundaryConnected(Strategy, NamedGeneric["factory"]):
             cls.factory, boundary_connected=True, **params).map(cls)
 
 
-class Grid(Strategy, NamedGeneric["factory"], tuple):
+class Grid(Testable, NamedGeneric["factory"], tuple):
     """ A rectangular grid with composable rows and columns. """
 
     n_rows: ClassVar[int]
@@ -910,7 +917,7 @@ class Square(Grid):
     n_rows = n_columns = 2
 
 
-class TraceSuperposing(Strategy, NamedGeneric["factory"], tuple):
+class TraceSuperposing(Testable, NamedGeneric["factory"], tuple):
     """ A traceable arrow and an object to superpose. """
 
     def __new__(cls, traced: C1, obj: C0):
@@ -929,7 +936,7 @@ class TraceSuperposing(Strategy, NamedGeneric["factory"], tuple):
             lambda pair: cls(arrow_type.id(pair[0]), pair[1]))
 
 
-class TraceSliding(Strategy, NamedGeneric["factory"], tuple):
+class TraceSliding(Testable, NamedGeneric["factory"], tuple):
     """ Arguments for trace sliding over an arbitrary traced type. """
 
     left: ClassVar[bool]
@@ -976,7 +983,7 @@ class TraceNaturalityRight(TraceSliding):
     left = False
 
 
-class TraceDinaturality(Strategy, NamedGeneric["factory"], tuple):
+class TraceDinaturality(Testable, NamedGeneric["factory"], tuple):
     """
     An arrow and one to slide around its trace, traceable only once the
     sliding arrow is composed in on either side.
@@ -1029,7 +1036,7 @@ class TraceDinaturalityRight(TraceDinaturality):
     left = False
 
 
-class LeftCurrying(Strategy, NamedGeneric["factory"], tuple):
+class LeftCurrying(Testable, NamedGeneric["factory"], tuple):
     """ Arguments for left currying followed by evaluation. """
 
     left = True
@@ -1059,7 +1066,7 @@ class RightCurrying(LeftCurrying):
     left = False
 
 
-class FeedbackVanishing(Strategy, NamedGeneric["factory"], tuple):
+class FeedbackVanishing(Testable, NamedGeneric["factory"], tuple):
     """ A feedback arrow together with the monoidal unit. """
 
     def __new__(cls, arrow: C1, unit: C0):
@@ -1076,7 +1083,7 @@ class FeedbackVanishing(Strategy, NamedGeneric["factory"], tuple):
             lambda arrow: cls(arrow, object_type()))
 
 
-class FeedbackJoining(Strategy, NamedGeneric["factory"], tuple):
+class FeedbackJoining(Testable, NamedGeneric["factory"], tuple):
     """ A feedback arrow with at least two units of memory. """
 
     def __new__(cls, arrow: C1, memory: C0):
@@ -1195,9 +1202,9 @@ class Relabelling(Mapping):
 def resolve(annotation, **params) -> st.SearchStrategy:
     """ Resolve the strategy implemented by an annotated type. """
     if not isinstance(annotation, type)\
-            or not issubclass(annotation, Strategy):
+            or not issubclass(annotation, Testable):
         raise TypeError(
-            f"Expected a Strategy annotation, got {annotation!r}.")
+            f"Expected a Testable annotation, got {annotation!r}.")
     return annotation.strategy(**params)
 
 

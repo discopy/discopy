@@ -64,7 +64,7 @@ from discopy.abc import (
 )
 from discopy.cat import Box as CatBox, Ob
 from discopy.python.finset import Permutation
-from discopy.axioms import Axiom, Strategy, axiom
+from discopy.axioms import Axiom, Testable, axiom
 from discopy.utils import (
     AxiomError,
     assert_isatomic,
@@ -132,7 +132,7 @@ class Port:
 
 
 class CMap[C0: Pregroup, C1: CMap](
-        CompactCategory[C0, C1], NamedGeneric['category'], Strategy[C1]):
+        CompactCategory[C0, C1], NamedGeneric['category'], Testable[C1]):
     r"""
     An open combinatorial map, i.e. a diagram represented as a bijection
     between its ports.
@@ -1849,7 +1849,7 @@ cycles of this map.
         plt.show(block=block)
         return None
 
-    serialisation = Strategy.serialisation.inapplicable(messages.NO_TREE)
+    serialisation = Testable.serialisation.inapplicable(messages.NO_TREE)
 
     currying_left = \
         BiclosedCategory.currying_left.inapplicable(messages.NO_EXPONENTIALS)

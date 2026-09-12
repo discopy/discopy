@@ -58,12 +58,7 @@ jobs:
         uv run pylint discopy
   test:
     runs-on: ubuntu-latest
-    # The property matrix runs in its own workflow, but the axioms of every
-    # category are also checked once each by the unit suite, which takes this
-    # branch past the 15 minutes that were a backstop against a wedged job
-    # (#591): 3.14 finishes in nine minutes and 3.12 and 3.13 do not finish at
-    # all. A backstop it stays, at the length the suite now needs.
-    timeout-minutes: 25
+    timeout-minutes: 25   # backstop: the suite takes ~14 min on 3.12, and 15 killed green runs mid notebook-check
     strategy:
       matrix:
         python-version: [ "3.12", "3.13", "3.14" ]

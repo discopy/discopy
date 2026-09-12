@@ -567,12 +567,12 @@ def test_Nat_Functor():
     assert Functor(lambda x: x, lambda f: f, cod=NatDiagram)(Nat(2)) == Nat(2)
 
 
-def test_Nat_Functor_tuple_ob():
-    class TupleDiagram(Diagram):
-        ob = tuple[bool, ...]
+def test_Nat_Functor_list_ob():
+    class ListDiagram(Diagram):
+        ob = List[bool]
 
-    F = Functor(lambda _: bool, lambda f: f, cod=TupleDiagram)
-    assert F(Nat(3)) == (bool, bool, bool)
+    F = Functor(lambda _: bool, lambda f: f, cod=ListDiagram)
+    assert F(Nat(3)) == List[bool](bool, bool, bool)
 
 
 def test_Functor_sum():
@@ -759,3 +759,37 @@ def test_axioms():
     from discopy import axioms
 
     axioms.assert_axioms(Ty, Nat, Diagram, Hypergraph, CMap, Functor)
+
+
+def test_List():
+    from discopy import abc, monoidal
+
+    # List[X] is a NamedGeneric on the generator type, cached like Hypergraph.
+    assert List[int].generator_factory is int and List[int] is List[int]
+    a, b = List[int](2, 3), List[int](4)
+    assert a @ b == List[int](2, 3, 4)
+    with raises(TypeError):
+        a + b
+    assert List[int].cast(2) == List[int].cast((2, )) == List[int](2)
+    assert a ** 2 == a @ a == List[int](2, 3, 2, 3) and a ** 0 == List[int]()
+    assert hash(a) == hash(List[int](2, 3)) != hash(b) and eval(repr(a)) == a
+
+    # A list is a sequence of its sublists, the atoms are its inside.
+    assert len(a) == 2 and a.inside == (2, 3)
+    assert list(a) == [a[0], a[1]] == [List[int](2), List[int](3)]
+    assert a[1:] == a[-1] == List[int](3) and not a[:0]
+    assert a[::-1] == List[int](3, 2)
+    assert List[int]() == List[int]() != List[str]("x") != List[int](2)
+    with raises(IndexError):
+        a[2]
+
+    assert issubclass(List, abc.Monoid) and a.dom is a.cod is None
+    assert not issubclass(Ty, List) and Ty.generator_factory is Wire
+    assert all(issubclass(Ty, base)
+               for base in (cat.Ob, cat.FreeCategory, abc.ColouredMonoid))
+    assert Dim(2, 3)[::-1] == Dim(3, 2) and Dim(2, 3)[0] == Dim(2)
+    red = monoidal.Colour('red')
+    assert Ty.cast(('x', 'y')) == Ty('x', 'y') == Ty.cast(Ty('x', 'y'))
+    assert eval(repr(Ty.id(red))) == Ty.id(red)
+    with raises(AxiomError):
+        Ty(Wire('x', red, red), Wire('y'))

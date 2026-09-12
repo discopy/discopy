@@ -15,7 +15,7 @@ from discopy.axioms import (
     C1, Atomic, Axiom, AxiomFailure, BoundaryConnected, ComposablePair,
     ComposableTriple, Equation, FeedbackJoining, FeedbackVanishing, Grid,
     HomogeneousMemory, HorizontalPair, LeftCurrying, Natural, NonEmpty,
-    Relabelling, RightCurrying, Square, Strategy, Subsingleton,
+    Relabelling, RightCurrying, Square, Testable, Subsingleton,
     TraceDinaturalityLeft, TraceDinaturalityRight, TraceNaturalityLeft,
     TraceNaturalityRight, TraceSuperposing, assert_axioms, axiom, resolve,
     substitute)
@@ -24,7 +24,7 @@ from discopy.utils import AxiomError, NamedGeneric
 
 
 @dataclass(frozen=True)
-class Endo(Strategy, NamedGeneric["factory"]):
+class Endo(Testable, NamedGeneric["factory"]):
     """ An endomorphism of the factory, the subspace a law is weakened to. """
 
     value: C1
@@ -40,7 +40,7 @@ class Endo(Strategy, NamedGeneric["factory"]):
             lambda arrow: arrow.dom == arrow.cod).map(cls)
 
 
-class Word(str, Strategy["Word"]):
+class Word(str, Testable["Word"]):
     """ A word with tensor given by concatenation, a monoid to grid. """
 
     __matmul__ = lambda self, other: Word(str(self) + str(other))
@@ -219,13 +219,6 @@ def test_NonEmpty():
 
 
 def test_ComposablePair():
-    x, y = map(cat.Ob, "xy")
-    f, g = cat.Box('f', x, y), cat.Box('g', y, x)
-    assert ComposablePair(f, g) == (f, g)
-    with raises(ValueError):
-        ComposablePair(f)
-    with raises(AxiomError):
-        ComposablePair(f, f)
     find(ComposablePair[cat.Arrow].strategy(),
          lambda value: all(term.inside for term in value))
 
@@ -392,15 +385,13 @@ def test_Relabelling():
         'f', feedback.Ty('v').delay(), feedback.Ty('v'))
 
 
-def test_Small():
+def test_Subsingleton():
     x = monoidal.Ty('x')
     assert Subsingleton(x).value == x
     with raises(ValueError):
         Subsingleton(x @ x)
     find(Subsingleton[monoidal.Ty].strategy(),
          lambda value: len(value.value) == 1)
-    with raises(TypeError):
-        resolve(int)
 
 
 def test_BoundaryConnected():

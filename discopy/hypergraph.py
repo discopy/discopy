@@ -57,7 +57,7 @@ from discopy.abc import (
     RigidCategory, SymmetricCategory, TracedCategory)
 from discopy.drawing import Node, backend
 from discopy.python.finset import Permutation
-from discopy.axioms import Strategy
+from discopy.axioms import Testable
 from discopy.utils import (
     factory_name,
     assert_isinstance,
@@ -98,7 +98,7 @@ Mapping from :class:`Spider` to atomic :class:`frobenius.Ty`.
 
 
 class Hypergraph(
-        MonoidalCategory, NamedGeneric['category'], Strategy["Hypergraph"]):
+        MonoidalCategory, NamedGeneric['category'], Testable["Hypergraph"]):
     """
     A hypergraph is given by:
 
@@ -191,7 +191,7 @@ class Hypergraph(
     functor = classproperty(lambda cls: cls.category.functor_factory)
     ob = classproperty(lambda cls: cls.category.ob)
 
-    serialisation = Strategy.serialisation.inapplicable(messages.NO_TREE)
+    serialisation = Testable.serialisation.inapplicable(messages.NO_TREE)
 
     @classmethod
     def strategy(cls, *, boundary_connected=False, **params):
@@ -1701,8 +1701,8 @@ class Hypergraph(
                     [inputs, outputs, box_nodes, spider_nodes]):
                 if node.kind == kind:
                     nodelist.append(node)
-        dom = sum([n.obj for n in inputs], cls.category.ob())
-        cod = sum([n.obj for n in outputs], cls.category.ob())
+        dom = cls.category.ob().tensor(*(n.obj for n in inputs))
+        cod = cls.category.ob().tensor(*(n.obj for n in outputs))
         boxes = tuple(n.box for n in box_nodes)
         offsets = tuple(n.offset for n in box_nodes)
         spider_types = {n: n.obj for n in spider_nodes}

@@ -425,8 +425,8 @@ def test_cat_valued_functor():
 
 def test_Functor_then_left_unit():
     """
-    Left unitality holds extensionally but fails functor equality (#648):
-    the identity functor is a pair of functions, so composing it on
+    Composition is unital only on the left up to equality of functors
+    (#648): the identity functor is a pair of functions, so composing it on
     the left of a functor given by dictionaries yields a pair of functions
     that acts the same but compares unequal.
     """
