@@ -39,3 +39,14 @@ Rough edges met on the way, each worth an issue:
 > do it
 
 - [x] `TraceSuperposing` and the currying shapes draw a real arrow through the search rather than an identity or the evaluation itself; `FeedbackVanishing` and `HomogeneousMemory` go, the vanishing law taking an arrow; the matrix reclassified where the wider reach changes a verdict; CHANGELOG
+
+## Round: the sequent-pattern language
+
+> is there any way to unify axioms and rules? don't implement anything just think about it
+>
+> do level 2, the sequent-pattern language
+
+- [WIP] @claude-3f440127-2026-09-12 15:03 `Var`, `Pattern` and sequent patterns in `discopy/axioms.py`: matching with backtracking and inversion of adjoints, delays and exponentials, instantiation by kind; tests
+- [ ] `@leaf` and `@rule` from patterns, with the hint derived from the conclusion pattern; the structural rules of `discopy.abc` restated as patterns, hand-written hints gone; `search` checks the sequent a rule claims
+- [ ] `Shape` with declared premises and returns, validator and strategy generic; the arrow shapes restated as patterns, `Grid` and the bespoke shape classes gone
+- [ ] the matrix green, docs autosummary, CHANGELOG, `uv run pflake8 discopy`, `uv run coverage run -m pytest`, `uv run pytest proptest/ -n auto -p no:benchmark`
