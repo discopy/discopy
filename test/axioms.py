@@ -21,25 +21,29 @@ from discopy.axioms import (
     ComposableTriple,
     Equation,
     FeedbackJoining,
-    Grid,
     HorizontalPair,
     LeftCurrying,
     NonEmpty,
     RightCurrying,
+    Shape,
     Square,
     Testable,
     TraceDinaturalityLeft,
     TraceDinaturalityRight,
     TraceNaturalityLeft,
     TraceNaturalityRight,
-    TraceSuperposing,
+    TraceSuperposingLeft,
+    TraceSuperposingRight,
     assert_axioms,
     axiom,
     no_strategy,
     resolve,
     substitute,
 )
+from discopy.axioms import Var
 from discopy.cat import Arrow, Box, Functor, Ob
+
+A, B, C, D = (Var.type(name) for name in "ABCD")
 from discopy.monoidal import Layer
 from discopy.utils import AxiomError, NamedGeneric
 
@@ -72,10 +76,10 @@ class Word(str, Testable["Word"]):
         return st.text("ab", max_size=3).map(cls)
 
 
-class Row(Grid):
-    """ Two horizontally composable cells. """
+class Row(Shape):
+    """ Two words side by side, a shape over a monoid with no arrows. """
 
-    n_rows, n_columns = 1, 2
+    returns = (A, B)
 
 
 def test_axioms():
@@ -222,21 +226,44 @@ def test_no_strategy():
     assert Opted.axioms["unitality"] == Opted.unitality
 
 
-def test_grid_states_its_law():
+def test_shape_states_its_law():
     """
-    A grid is testable like any other: it states the composability its
+    A shape is testable like any other: it states the typing its
     constructor enforces, and is checked against it once subscripted.
     """
     x, y = Ob('x'), Ob('y')
-    composability = ComposablePair[Arrow].composability
-    assert composability(ComposablePair(Box('f', x, y), Box('g', y, x)))
-    drawn, = find(composability.strategy(), lambda _: True)
-    assert composability(drawn)
+    well_formed = ComposablePair[Arrow].well_formed
+    assert well_formed(ComposablePair(Box('f', x, y), Box('g', y, x)))
+    drawn, = find(well_formed.strategy(), lambda _: True)
+    assert well_formed(drawn)
     with raises(NoSuchExample):
-        composability.falsify()
-
+        well_formed.falsify()
     with raises(NotImplementedError):
         ComposablePair.strategy()  # no factory to draw the cells from
+
+
+def test_Shape_declaration():
+    """ A shape declares its premises as patterns and what it returns. """
+    from discopy import traced
+
+    X = Var.atom('X')
+
+    class Loop(Shape):
+        """ An arrow whose boundaries share a first atom, and that atom. """
+        premises = dict(f=(X @ A, X @ B))
+        returns = ("f", X)
+
+    a, b = map(traced.Ty, "ab")
+    f = traced.Box('f', a @ b, a)
+    assert Loop(f, a) == (f, a)
+    with raises(AxiomError):
+        Loop(f, b)
+    with raises(AxiomError):
+        Loop(traced.Box('g', b @ a, a), a)
+    with raises(ValueError):
+        Loop(f)
+    drawn = find(Loop[traced.Diagram].strategy(), lambda value: value[0].boxes)
+    assert drawn[0].dom[:1] == drawn[1] == drawn[0].cod[:1]
 
 
 def test_rules_are_inherited_and_bound():
@@ -362,23 +389,25 @@ def test_BoundaryConnected():
 
 def test_TraceSuperposing():
     x, y, z = map(traced.Ty, "xyz")
-    assert TraceSuperposing(traced.Id(x), y) == (traced.Id(x), y)
+    assert TraceSuperposingLeft(traced.Id(x), y) == (traced.Id(x), y)
+    assert TraceSuperposingRight(traced.Id(x), y) == (traced.Id(x), y)
     with raises(AxiomError):
-        TraceSuperposing(traced.Box('f', x, y), z)
-    superposed = find(TraceSuperposing[traced.Diagram].strategy(),
-                      lambda value: value[0].boxes and len(value[1]) > 1)
-    assert superposed[0].boxes
+        TraceSuperposingLeft(traced.Box('f', x, y), z)
+    for shape in (TraceSuperposingLeft, TraceSuperposingRight):
+        superposed = find(shape[traced.Diagram].strategy(),
+                          lambda value: value[0].boxes and len(value[1]) > 1)
+        assert superposed[0].boxes
 
 
 def test_TraceNaturality():
     x, y = map(traced.Ty, "xy")
     f, g = traced.Box('f', x @ y, x @ x), traced.Box('g', x, y)
     assert TraceNaturalityLeft(f, x, g) == (f, x, g)
-    with raises(ValueError):
+    with raises(AxiomError):
         TraceNaturalityLeft(traced.Id(x @ y), x, traced.Id(x))
     h = traced.Box('h', y @ x, x @ x)
     assert TraceNaturalityRight(h, x, g) == (h, x, g)
-    with raises(ValueError):
+    with raises(AxiomError):
         TraceNaturalityRight(traced.Id(x @ y), x, traced.Id(y))
     for shape in (TraceNaturalityLeft, TraceNaturalityRight):
         find(shape[traced.Diagram].strategy(),
@@ -389,11 +418,11 @@ def test_TraceDinaturality():
     x, y, z = map(traced.Ty, "xyz")
     f, g = traced.Box('f', x @ z, y @ z), traced.Box('g', y, x)
     assert TraceDinaturalityLeft(f, g) == (f, g)
-    with raises(ValueError):
+    with raises(AxiomError):
         TraceDinaturalityLeft(g, f)
     h = traced.Box('h', z @ x, z @ y)
     assert TraceDinaturalityRight(h, g) == (h, g)
-    with raises(ValueError):
+    with raises(AxiomError):
         TraceDinaturalityRight(g, h)
     shape = find(TraceDinaturalityRight[traced.Diagram].strategy(),
                  lambda value: value[1].dom != value[1].cod)
@@ -407,9 +436,9 @@ def test_Currying():
     f, g = biclosed.Box('f', z @ y, x), biclosed.Box('g', y @ z, x)
     assert LeftCurrying(f, x, y) == (f, x, y)
     assert RightCurrying(g, x, y) == (g, x, y)
-    with raises(ValueError):
+    with raises(AxiomError):
         LeftCurrying(g, x, y)
-    with raises(ValueError):
+    with raises(AxiomError):
         RightCurrying(f, x, y)
     for shape in (LeftCurrying, RightCurrying):
         drawn = find(shape[biclosed.Diagram].strategy(), lambda value:
@@ -422,9 +451,9 @@ def test_FeedbackJoining():
     memory = y @ z
     g = feedback.Box('g', x @ memory.delay(), x @ memory)
     assert FeedbackJoining(g, memory) == (g, memory)
-    with raises(ValueError):
+    with raises(AxiomError):
         FeedbackJoining(g, feedback.Ty())
-    with raises(ValueError):
+    with raises(AxiomError):
         FeedbackJoining(feedback.Box('h', x @ memory, x @ memory), memory)
     shape = find(FeedbackJoining[feedback.Diagram].strategy(),
                  lambda value: value[1][:1] != value[1][1:])

@@ -66,7 +66,8 @@ from discopy.axioms import (  # noqa: F401
     HorizontalPair, LeftCurrying, NonEmpty, RightCurrying,
     Rule, Serialisable, Square, Testable, TraceDinaturalityLeft,
     TraceDinaturalityRight, TraceNaturalityLeft, TraceNaturalityRight,
-    TraceSuperposing, Pattern, Var, axiom, leaf, rule)
+    TraceSuperposingLeft, TraceSuperposingRight, Pattern, Var, axiom, leaf,
+    rule)
 from discopy.utils import (  # noqa: F401
     NamedGeneric, classproperty, factory_name)
 
@@ -519,7 +520,7 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
 
     @axiom
     def trace_superposing_left(
-            cls, pair: TraceSuperposing[C1]) -> Equation[C1]:
+            cls, pair: TraceSuperposingLeft[C1]) -> Equation[C1]:
         """ Left-oriented superposing. """
         f, obj = pair
         return cls.equation_factory(
@@ -527,7 +528,7 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
 
     @axiom
     def trace_superposing_right(
-            cls, pair: TraceSuperposing[C1]) -> Equation[C1]:
+            cls, pair: TraceSuperposingRight[C1]) -> Equation[C1]:
         """ Right-oriented superposing. """
         f, obj = pair
         return cls.equation_factory(

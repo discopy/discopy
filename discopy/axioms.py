@@ -33,16 +33,15 @@ Summary
     Atomic
     NonEmpty
     BoundaryConnected
-    Grid
+    Shape
     ComposablePair
     ComposableTriple
     HorizontalPair
     Square
-    TraceSuperposing
-    TraceSliding
+    TraceSuperposingLeft
+    TraceSuperposingRight
     TraceNaturalityLeft
     TraceNaturalityRight
-    TraceDinaturality
     TraceDinaturalityLeft
     TraceDinaturalityRight
     LeftCurrying
@@ -160,7 +159,6 @@ from typing import TYPE_CHECKING, ClassVar, Concatenate, Self, TypeVar
 from discopy.utils import (
     AxiomError,
     NamedGeneric,
-    assert_iscomposable,
     classproperty,
     factory_name,
     get_origin,
@@ -1083,9 +1081,11 @@ class Pattern(tuple):
             env[item.name] if isinstance(item, Var) else item.value(env)
             for item in self]
         if unit is None:
-            unit = values[0][:0] if values else next(iter(env.values()))[:0]
-        return unit.tensor(*values) if hasattr(unit, "tensor")\
-            else values[0]
+            first = values[0] if values else next(iter(env.values()))
+            if not hasattr(first, "tensor"):
+                return values[0]
+            unit = first[:0]
+        return unit.tensor(*values)
 
     def strategy(self, factory, env: dict = None):
         """
@@ -1164,107 +1164,6 @@ def factory_of(shape: type) -> type:
     return shape.factory
 
 
-class Grid(Testable, NamedGeneric["factory"], tuple):
-    """ A rectangular grid with composable rows and columns. """
-
-    n_rows: ClassVar[int]
-    n_columns: ClassVar[int]
-    n_active_rows: ClassVar[int] = 1
-
-    @axiom
-    def composability(cls, grid: Self) -> Equation:
-        """
-        Every cell composes with the cell below it, the law that
-        :meth:`__new__` enforces and :meth:`strategy` draws for: the
-        codomains of each row are the domains of the row under it.
-        """
-        above = tuple(
-            grid[i].cod for i in range(cls.n_columns * (cls.n_rows - 1)))
-        below = tuple(grid[i + cls.n_columns].dom for i in range(len(above)))
-        return Equation(above, below)
-
-    def __new__(cls, *cells: C1):
-        if len(cells) != cls.n_rows * cls.n_columns:
-            raise ValueError("Expected one value per cell.")
-        for row in range(cls.n_rows - 1):
-            for column in range(cls.n_columns):
-                i = row * cls.n_columns + column
-                assert_iscomposable(cells[i], cells[i + cls.n_columns])
-        for row in range(cls.n_rows):
-            for column in range(cls.n_columns - 1):
-                i = row * cls.n_columns + column
-                cells[i] @ cells[i + 1]
-        return super().__new__(cls, cells)
-
-    @classmethod
-    def strategy(cls, **params):
-        """
-        Generate a grid column-by-column using composable boundaries.
-
-        A grid draws its cells from its ``factory``, so an unsubscripted
-        one has no strategy: ``ComposablePair`` cannot generate anything,
-        ``ComposablePair[Arrow]`` generates pairs of arrows.
-        """
-        from hypothesis import strategies as st
-
-        factory = factory_of(cls)
-        dom, cod = params.pop("dom", None), params.pop("cod", None)
-
-        @st.composite
-        def pasting_diagram(draw):
-            """ Draw each column as a chain of cells padded by identities. """
-            active = draw(st.integers(
-                min_value=0,
-                max_value=cls.n_rows - cls.n_active_rows))
-            columns = []
-            for _ in range(cls.n_columns):
-                column, boundary = [], dom
-                for row in range(cls.n_active_rows):
-                    cell = draw(factory.strategy(
-                        dom=boundary,
-                        cod=cod if row == cls.n_active_rows - 1 else None,
-                        **params))
-                    column.append(cell)
-                    boundary = cell.cod
-                columns.append(
-                    active * [factory.id(column[0].dom)]
-                    + column
-                    + (cls.n_rows - active - cls.n_active_rows)
-                    * [factory.id(column[-1].cod)])
-            return cls(*(
-                columns[column][row]
-                for row in range(cls.n_rows)
-                for column in range(cls.n_columns)))
-
-        return pasting_diagram()
-
-
-class ComposablePair(Grid):
-    """ Two morphisms composable from left to right. """
-
-    n_rows, n_columns = 2, 1
-    n_active_rows = 2
-
-
-class ComposableTriple(Grid):
-    """ Three values composable from left to right. """
-
-    n_rows, n_columns = 3, 1
-    n_active_rows = 3
-
-
-class HorizontalPair(Grid):
-    """ Two horizontally composable cells. """
-
-    n_rows, n_columns = 1, 2
-
-
-class Square(Grid):
-    """ A two-by-two grid of cells, the arguments of the interchange law. """
-
-    n_rows = n_columns = 2
-
-
 @dataclass(frozen=True)
 class Atomic(Testable, NamedGeneric["factory"]):
     """ An object of the factory containing exactly one generator. """
@@ -1324,200 +1223,198 @@ class BoundaryConnected(Testable, NamedGeneric["factory"]):
             factory_of(cls), boundary_connected=True, **params).map(cls)
 
 
-class TraceSuperposing(Testable, NamedGeneric["factory"], tuple):
-    """ An arrow traceable on either side, and an object to superpose. """
-
-    def __new__(cls, traced: C1, obj: C0):
-        traced.trace()
-        traced.trace(left=True)
-        return super().__new__(cls, (traced, obj))
-
-    @classmethod
-    def strategy(cls, **params):
-        """Generate an arrow between boundaries sharing both end atoms."""
-        from hypothesis import strategies as st
-
-        factory = factory_of(cls)
-
-        @st.composite
-        def arguments(draw):
-            head, tail = draw(factory.atoms()), draw(factory.atoms())
-            dom, cod = draw(factory.ob.strategy()), draw(factory.ob.strategy())
-            traced = draw(factory.strategy(
-                dom=head @ dom @ tail, cod=head @ cod @ tail, min_leaves=1,
-                **params))
-            return cls(traced, draw(factory.ob.strategy()))
-
-        return arguments()
-
-
-class TraceSliding(Testable, NamedGeneric["factory"], tuple):
-    """ A traced arrow and one to slide around its trace. """
-
-    left: ClassVar[bool]
-
-    def __new__(cls, traced: C1, obj: C0, sliding: C1):
-        traced_dom = obj @ sliding.cod if cls.left else sliding.cod @ obj
-        traced_cod = obj @ sliding.dom if cls.left else sliding.dom @ obj
-        if (traced.dom, traced.cod) != (traced_dom, traced_cod):
-            raise ValueError("Expected compatible trace sliding boundaries.")
-        return super().__new__(cls, (traced, obj, sliding))
-
-    @classmethod
-    def strategy(cls, **params):
-        """Generate the sliding arrow, then the traced one around it."""
-        from hypothesis import strategies as st
-
-        factory = factory_of(cls)
-
-        @st.composite
-        def arguments(draw):
-            obj = draw(factory.ob.strategy(min_length=1))
-            dom, cod = draw(factory.ob.strategy()), draw(factory.ob.strategy())
-            traced_dom = obj @ cod if cls.left else cod @ obj
-            traced_cod = obj @ dom if cls.left else dom @ obj
-            traced = draw(factory.strategy(
-                dom=traced_dom, cod=traced_cod, min_leaves=1, **params))
-            sliding = draw(factory.strategy(
-                dom=dom, cod=cod, min_leaves=1, **params))
-            return cls(traced, obj, sliding)
-
-        return arguments()
-
-
-class TraceNaturalityLeft(TraceSliding):
-    """ Arguments for left-oriented trace naturality. """
-
-    left = True
-
-
-class TraceNaturalityRight(TraceSliding):
-    """ Arguments for right-oriented trace naturality. """
-
-    left = False
-
-
-class TraceDinaturality(Testable, NamedGeneric["factory"], tuple):
+class Shape(Testable, NamedGeneric["factory"], tuple):
     """
-    An arrow and one to slide around its trace, traceable only once the
-    sliding arrow is composed in on either side.
+    The arguments of a law, as a tuple of arrows and objects: a subclass
+    declares its ``premises``, named sequent patterns, and what it
+    ``returns``, premise names and metavariables in order. The constructor
+    checks that the arguments match, the strategy draws the metavariables
+    by kind and each arrow through the search of the ``factory``.
+
+    >>> from discopy.cat import Arrow, Box, Ob
+    >>> x, y = Ob('x'), Ob('y')
+    >>> ComposablePair(Box('f', x, y), Box('g', y, x))[0].name
+    'f'
     """
+    premises: ClassVar[dict] = {}
+    returns: ClassVar[tuple] = ()
 
-    left: ClassVar[bool]
+    @classmethod
+    def sequents(cls) -> dict:
+        """ The premises as sequent patterns, by name. """
+        return {name: sequent(*pair) for name, pair in cls.premises.items()}
 
-    def __new__(cls, traced: C1, sliding: C1):
-        traced_in, traced_out = (
-            (traced.dom[:len(sliding.cod)], traced.cod[:len(sliding.dom)])
-            if cls.left else
-            (traced.dom[-len(sliding.cod):], traced.cod[-len(sliding.dom):]))
-        if (traced_in, traced_out) != (sliding.cod, sliding.dom):
-            raise ValueError("Expected compatible trace sliding boundaries.")
-        return super().__new__(cls, (traced, sliding))
+    @classmethod
+    def variables(cls) -> dict[str, Var]:
+        """ The metavariables of the premises and of the returned entries. """
+        found = {
+            var.name: var for pair in cls.sequents().values()
+            for side in pair for var in side.vars}
+        found.update({
+            entry.name: entry for entry in cls.returns
+            if isinstance(entry, Var)})
+        return found
+
+    def __new__(cls, *values):
+        if len(values) != len(cls.returns):
+            raise ValueError("Expected one value per entry.")
+        env = {}
+        for entry, value in zip(cls.returns, values):
+            if isinstance(entry, Var):
+                env = bind(env, entry, value)
+                if env is None or size(value) not in entry.lengths(value, 0):
+                    raise AxiomError(
+                        f"{value} is not a {entry.kind} for {cls.__name__}.")
+        arrows = [
+            (cls.sequents()[entry], value)
+            for entry, value in zip(cls.returns, values)
+            if isinstance(entry, str)]
+
+        def consistent(index, env):
+            if index == len(arrows):
+                yield env
+                return
+            pair, value = arrows[index]
+            for bound in matching(pair, value.dom, value.cod, env):
+                yield from consistent(index + 1, bound)
+
+        if next(consistent(0, env), None) is None:
+            raise AxiomError(
+                f"{values} do not match the premises of {cls.__name__}.")
+        return super().__new__(cls, values)
 
     @classmethod
     def strategy(cls, **params):
-        """Generate an arrow sliding between the ends of a traced one."""
+        """Draw the metavariables by kind, then each arrow by the search."""
         from hypothesis import strategies as st
 
         factory = factory_of(cls)
+        sequents = cls.sequents()
 
         @st.composite
         def arguments(draw):
-            objects = factory.ob.strategy()
-            base, cobase = draw(objects), draw(objects)
-            source, target = (
-                draw(factory.ob.strategy(min_length=1)) for _ in range(2))
-            traced_dom = source @ base if cls.left else base @ source
-            traced_cod = target @ cobase if cls.left else cobase @ target
-            traced = draw(factory.strategy(
-                dom=traced_dom, cod=traced_cod, min_leaves=1, **params))
-            sliding = draw(factory.strategy(
-                dom=target, cod=source, min_leaves=1, **params))
-            return cls(traced, sliding)
+            env = draw_vars(draw, cls.variables().values(), factory)
+            unit = unit_of(factory, env)
+            arrows = {
+                name: draw(factory.strategy(
+                    dom=dom.instantiate(env, unit),
+                    cod=cod.instantiate(env, unit), **params))
+                for name, (dom, cod) in sequents.items()}
+            return cls(*(
+                arrows[entry] if isinstance(entry, str) else env[entry.name]
+                for entry in cls.returns))
 
         return arguments()
 
-
-class TraceDinaturalityLeft(TraceDinaturality):
-    """ Arguments for left-oriented trace dinaturality. """
-
-    left = True
-
-
-class TraceDinaturalityRight(TraceDinaturality):
-    """ Arguments for right-oriented trace dinaturality. """
-
-    left = False
+    @axiom
+    def well_formed(cls, shape: Self) -> Equation:
+        """
+        The arguments match the premises, the law :meth:`__new__` enforces
+        and :meth:`strategy` draws for.
+        """
+        return Equation(cls(*shape), shape)
 
 
-class LeftCurrying(Testable, NamedGeneric["factory"], tuple):
-    """
-    An arrow into a base with the exponent at one end of its domain, the
-    arguments of currying followed by evaluation.
-    """
-
-    left = True
-
-    def __new__(cls, arrow: C1, base: C0, exponent: C0):
-        n = len(exponent)
-        end = arrow.dom[-n:] if cls.left else arrow.dom[:n]
-        if arrow.cod != base or not n or end != exponent:
-            raise ValueError("Expected the exponent at the end to curry.")
-        return super().__new__(cls, (arrow, base, exponent))
-
-    @classmethod
-    def strategy(cls, **params):
-        """Generate the base and exponent, then an arrow to curry."""
-        from hypothesis import strategies as st
-
-        factory = factory_of(cls)
-
-        @st.composite
-        def arguments(draw):
-            base, exponent = draw(factory.atoms()), draw(factory.atoms())
-            rest = draw(factory.ob.strategy())
-            dom = rest @ exponent if cls.left else exponent @ rest
-            arrow = draw(factory.strategy(
-                dom=dom, cod=base, min_leaves=1, **params))
-            return cls(arrow, base, exponent)
-
-        return arguments()
+A, B, C, D, E, F = (Var.type(name) for name in "ABCDEF")
+X, Y = Var.atom("X"), Var.atom("Y")
+N, K = Var.nonempty("N"), Var.nonempty("K")
+P = Var.pair("P")
+"""
+The metavariables of the shapes below: ``A`` to ``F`` stand for types,
+``X`` and ``Y`` for atoms, ``N`` and ``K`` for non-empty types and ``P``
+for a pair of atoms.
+"""
 
 
-class RightCurrying(LeftCurrying):
-    """ Arguments for right currying followed by evaluation. """
+class ComposablePair(Shape):
+    """ Two morphisms composable from left to right. """
 
-    left = False
+    premises = dict(f=(A, B), g=(B, C))
+    returns = ("f", "g")
 
 
-class FeedbackJoining(Testable, NamedGeneric["factory"], tuple):
-    """ A feedback arrow with at least two units of memory. """
+class ComposableTriple(Shape):
+    """ Three morphisms composable from left to right. """
 
-    def __new__(cls, arrow: C1, memory: C0):
-        if len(memory) < 2:
-            raise ValueError("Expected at least two units of memory.")
-        if arrow.dom[-len(memory):] != memory.delay():
-            raise ValueError("Expected the delayed memory in the domain.")
-        if arrow.cod[-len(memory):] != memory:
-            raise ValueError("Expected the memory in the codomain.")
-        return super().__new__(cls, (arrow, memory))
+    premises = dict(f=(A, B), g=(B, C), h=(C, D))
+    returns = ("f", "g", "h")
 
-    @classmethod
-    def strategy(cls, **params):
-        """Generate two units of memory, then an arrow feeding them back."""
-        from hypothesis import strategies as st
 
-        factory = factory_of(cls)
+class HorizontalPair(Shape):
+    """ Two morphisms side by side. """
 
-        @st.composite
-        def arguments(draw):
-            obj = draw(factory.ob.strategy())
-            memory = draw(factory.atoms()) @ draw(factory.atoms())
-            arrow = draw(factory.strategy(
-                dom=obj @ memory.delay(), cod=obj @ memory, **params))
-            return cls(arrow, memory)
+    premises = dict(f=(A, B), g=(C, D))
+    returns = ("f", "g")
 
-        return arguments()
+
+class Square(Shape):
+    """ Two morphisms side by side and two below them, the interchange. """
+
+    premises = dict(f=(A, B), g=(C, D), h=(B, E), k=(D, F))
+    returns = ("f", "g", "h", "k")
+
+
+class TraceSuperposingLeft(Shape):
+    """ An arrow traceable on the left, and an object to superpose. """
+
+    premises = dict(f=(X @ A, X @ B))
+    returns = ("f", C)
+
+
+class TraceSuperposingRight(Shape):
+    """ An arrow traceable on the right, and an object to superpose. """
+
+    premises = dict(f=(A @ X, B @ X))
+    returns = ("f", C)
+
+
+class TraceNaturalityLeft(Shape):
+    """ A traced arrow, the object it is traced over and one to slide. """
+
+    premises = dict(f=(N @ A, N @ B), g=(B, A))
+    returns = ("f", N, "g")
+
+
+class TraceNaturalityRight(Shape):
+    """ A traced arrow, the object it is traced over and one to slide. """
+
+    premises = dict(f=(A @ N, B @ N), g=(B, A))
+    returns = ("f", N, "g")
+
+
+class TraceDinaturalityLeft(Shape):
+    """ An arrow traceable once the other is composed in on either side. """
+
+    premises = dict(f=(N @ A, K @ B), g=(K, N))
+    returns = ("f", "g")
+
+
+class TraceDinaturalityRight(Shape):
+    """ An arrow traceable once the other is composed in on either side. """
+
+    premises = dict(f=(A @ N, B @ K), g=(K, N))
+    returns = ("f", "g")
+
+
+class LeftCurrying(Shape):
+    """ An arrow into a base with the exponent at the end of its domain. """
+
+    premises = dict(f=(A @ Y, X))
+    returns = ("f", X, Y)
+
+
+class RightCurrying(Shape):
+    """ An arrow into a base with the exponent at the start of its domain. """
+
+    premises = dict(f=(Y @ A, X))
+    returns = ("f", X, Y)
+
+
+class FeedbackJoining(Shape):
+    """ An arrow feeding two units of memory back, and that memory. """
+
+    premises = dict(f=(A @ P.delay(), A @ P))
+    returns = ("f", P)
 
 
 def resolve(annotation, **params) -> st.SearchStrategy:
