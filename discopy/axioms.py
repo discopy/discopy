@@ -25,6 +25,7 @@ Summary
     Equation
     Axiom
     AxiomFailure
+    Rule
     Testable
     Grid
     ComposablePair
@@ -39,6 +40,9 @@ Summary
         :toctree:
 
         axiom
+        rule
+        leaf
+        search
         resolve
         substitute
         assert_axioms
@@ -409,6 +413,138 @@ def axiom[**P, T](
     return Axiom(equation)
 
 
+@dataclass
+class Rule[T]:
+    """
+    An inference rule of a category seen as a deductive system: a sequent
+    is a pair of objects ``dom ⊢ cod`` with a ``size``, the number of boxes
+    left to place, and the rule says whether it :attr:`applies` to the
+    sequent and, if chosen, which :attr:`premises` it reduces it to and how
+    to conclude the arrow from their proofs. A rule is stated once on an
+    abstract base class beside the axioms that exercise the structure it
+    generates, and :func:`search` interprets the rules a category inherits.
+
+    Parameters:
+        premises : From the category, a Hypothesis ``draw``, the sequent and
+            the strategy for ``types``, to the list of premises
+            ``(dom, cod, size)`` and the function concluding the arrow from
+            their proofs; the draws it makes are those of the rule chosen.
+        applies : Whether the rule applies to the sequent, without drawing.
+        shape : A strategy for boundaries the rule fires on, given the
+            category, the sequent and the strategy for types, declared by
+            :meth:`hint` and drawn as a middle boundary by ``Category.cut``.
+        category : The class the rule is bound to, :obj:`None` until
+            :meth:`bind` or the attribute access on a class binds it.
+        name : The attribute the rule is stored under.
+    """
+
+    premises: Callable
+    applies: Callable
+    _: KW_ONLY
+    shape: Callable = None
+    category: type[T] = None
+    name: str = None
+
+    def __post_init__(self):
+        self.name = self.name or self.premises.__name__
+        self.__doc__ = self.premises.__doc__
+
+    def __repr__(self):
+        if self.category is None:
+            return f"{type(self).__name__}({self.name})"
+        return f"{factory_name(self.category)}.{self.name}"
+
+    def bind(self, category: type[T]) -> Rule[T]:
+        """ Bind the rule to a concrete category. """
+        return replace(self, category=category)
+
+    def __get__(self, instance, owner: type[T]) -> Rule[T]:
+        return self.bind(owner)
+
+    def hint(self, shape: Callable) -> Rule[T]:
+        """
+        The same rule declaring a strategy for boundaries it fires on, so
+        that a cut can draw a middle boundary the rule applies to, e.g.
+        ``x @ x.r`` for a cup.
+        """
+        return replace(self, shape=shape)
+
+    def inapplicable(self, reason: str) -> Rule[T]:
+        """
+        The same rule declared never to apply to the category, with the
+        reason as its documentation, e.g. ``twisting =
+        BalancedCategory.twisting.inapplicable("The twist is the identity.")``.
+        """
+        never = replace(
+            self, applies=lambda cls, dom, cod, size: False, shape=None)
+        never.__doc__ = reason
+        return never
+
+
+def rule[T](applies: Callable) -> Callable[[Callable], Rule[T]]:
+    """
+    Decorate the premises of an inference rule with the predicate saying
+    when it applies, e.g. ``@rule(lambda cls, dom, cod, size: size >= 2)``
+    for a cut.
+    """
+    return lambda premises: Rule(premises, applies)
+
+
+def leaf[T](build: Callable) -> Rule[T]:
+    """
+    Decorate a leaf rule: a function from the category and a sequent to a
+    single box concluding it, or :obj:`None` when the boundary has not the
+    shape of that box, e.g. a cup on ``x @ x.r ⊢ ()``. It applies to
+    sequents of size one whose boundary it builds a box for.
+    """
+    def premises(cls, draw, dom, cod, size, types):
+        return [], lambda: build(cls, dom, cod)
+
+    premises.__name__, premises.__doc__ = build.__name__, build.__doc__
+    return Rule(premises, lambda cls, dom, cod, size:
+                size == 1 and build(cls, dom, cod) is not None)
+
+
+def search(
+        category, *, types, dom=None, cod=None,
+        min_leaves=None, max_leaves) -> st.SearchStrategy:
+    """
+    Generate arrows of the category by backward proof search over its
+    rules: from a sequent ``dom ⊢ cod`` with a ``size`` — the number of
+    boxes left to place, drawn within the given bounds — draw a rule among
+    those that apply, recurse on its premises and conclude. A boundary
+    left :obj:`None` is drawn from ``types``, equal to the other one when no
+    box may bridge them. Each application is reported as a Hypothesis
+    event, so the statistics of a cell say how often each rule fired.
+    """
+    from hypothesis import event
+    from hypothesis import strategies as st
+
+    @st.composite
+    def derive(draw, dom, cod, size):
+        applicable = [
+            rule for rule in category.rules.values()
+            if rule.applies(category, dom, cod, size)]
+        chosen = draw(st.sampled_from(applicable))
+        event(f"rule: {chosen.name}")
+        premises, conclude = chosen.premises(
+            category, draw, dom, cod, size, types)
+        return conclude(*[draw(derive(*premise)) for premise in premises])
+
+    @st.composite
+    def arrows(draw):
+        source = draw(types) if dom is None else dom
+        target = cod if cod is not None\
+            else source if not max_leaves else draw(types)
+        source = target if dom is None and not max_leaves else source
+        size = draw(st.integers(
+            min_value=max(min_leaves or 0, int(source != target)),
+            max_value=max_leaves))
+        return draw(derive(source, target, size))
+
+    return arrows()
+
+
 class Testable[T]:
     """
     A testable class states axioms, which its subclasses inherit along
@@ -460,22 +596,28 @@ class Testable[T]:
         raise NotImplementedError(
             f"No search strategy implemented for {cls.__name__}")
 
-    @classproperty
-    def axioms(cls) -> dict[str, Axiom]:
+    @classmethod
+    def declarations(cls, kind: type) -> dict:
         """
-        The axioms inherited by ``cls``, keyed by name and bound to
-        ``cls``, an override on a subclass hiding the base it overrides.
+        The declarations of a kind inherited by ``cls``, keyed by name and
+        bound to ``cls``, an override on a subclass hiding the base it
+        overrides.
 
         Names are collected before they are filtered, so that assigning
-        anything that is not an axiom over an inherited one drops it
-        altogether, rather than restating it.
+        anything that is not of the kind over an inherited declaration drops
+        it altogether, rather than restating it.
         """
         visible = {
             name: value
             for base in reversed(cls.__mro__)
             for name, value in base.__dict__.items()}
         return {name: value.bind(cls) for name, value in visible.items()
-                if isinstance(value, Axiom)}
+                if isinstance(value, kind)}
+
+    @classproperty
+    def axioms(cls) -> dict[str, Axiom]:
+        """ The axioms inherited by ``cls``, see :meth:`declarations`. """
+        return cls.declarations(Axiom)
 
     @classmethod
     def subclasses(cls) -> tuple[type[Testable], ...]:

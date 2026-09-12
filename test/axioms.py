@@ -224,3 +224,44 @@ def test_grid_states_its_law():
 
     with raises(NotImplementedError):
         ComposablePair.strategy()  # no factory to draw the cells from
+
+
+def test_rules_are_inherited_and_bound():
+    """ A category collects its rules through the MRO, like its axioms. """
+    from discopy.axioms import Rule, search
+
+    assert set(Arrow.rules) == {"identity", "box", "cut"}
+    cut = Arrow.rules["cut"]
+    assert isinstance(cut, Rule) and cut.category is Arrow
+    assert repr(cut) == "cat.Arrow.cut"
+    x, y = Ob('x'), Ob('y')
+    arrow = find(
+        search(Arrow, dom=x, cod=y, min_leaves=3, max_leaves=3,
+               types=Ob.strategy()),
+        lambda _: True)
+    assert (arrow.dom, arrow.cod, len(arrow.inside)) == (x, y, 3)
+    assert find(
+        search(Arrow, dom=x, cod=x, max_leaves=0, types=Ob.strategy()),
+        lambda _: True) == Arrow.id(x)
+
+
+def test_leaf_applies_only_on_its_shape():
+    """ A leaf is offered exactly when its pattern matches the sequent. """
+    from discopy.axioms import leaf, search
+
+    class Toy(Arrow):
+        """ Loops on every object, and no cut. """
+        cut = None
+
+        @leaf
+        def loop(cls, dom, cod):
+            return Box('loop', dom, cod) if dom == cod else None
+
+    assert set(Toy.rules) == {"identity", "box", "loop"}
+    x, y = Ob('x'), Ob('y')
+    is_loop = lambda arrow: arrow.inside[0].name == 'loop'
+    find(search(Toy, dom=x, cod=x, min_leaves=1, max_leaves=1,
+                types=Ob.strategy()), is_loop)
+    with raises(NoSuchExample):
+        find(search(Toy, dom=x, cod=y, min_leaves=1, max_leaves=1,
+                    types=Ob.strategy()), is_loop)

@@ -61,8 +61,8 @@ from dataclasses import dataclass
 from typing import ClassVar
 
 from discopy.axioms import (  # noqa: F401
-    Axiom, ComposablePair, ComposableTriple, Equation, Serialisable, Testable,
-    axiom)
+    Axiom, ComposablePair, ComposableTriple, Equation, Rule, Serialisable,
+    Testable, axiom, leaf, rule)
 from discopy.utils import (  # noqa: F401
     NamedGeneric, classproperty, factory_name)
 
@@ -144,6 +144,51 @@ class Category[C0, C1: Category](Testable, ABC):
             other : The other morphism.
         """
         return (self.dom, self.cod) == (other.dom, other.cod)
+
+    @classproperty
+    def rules(cls) -> dict[str, Rule]:
+        """
+        The inference rules inherited by ``cls``, see
+        :meth:`discopy.axioms.Testable.declarations`: the same walk as
+        :attr:`axioms`, so a category generates exactly the structures whose
+        laws it must satisfy.
+        """
+        return cls.declarations(Rule)
+
+    @classmethod
+    def hints(cls, dom, cod, types) -> list:
+        """
+        The strategies for boundaries the rules of ``cls`` fire on, given a
+        sequent: what a cut draws its middle from besides the types.
+        """
+        return [rule.shape(cls, dom, cod, types)
+                for rule in cls.rules.values() if rule.shape is not None]
+
+    @rule(lambda cls, dom, cod, size: size == 0 and dom == cod)
+    def identity(cls, draw, dom, cod, size, types):
+        """ ``x ⊢ x`` with no box is the identity. """
+        return [], lambda: cls.id(dom)
+
+    @rule(lambda cls, dom, cod, size: size == 1)
+    def box(cls, draw, dom, cod, size, types):
+        """ ``x ⊢ y`` with one box is a fresh generator. """
+        from hypothesis import strategies as st
+
+        name = str(draw(st.uuids()))
+        return [], lambda: cls.box_factory(name, dom, cod)
+
+    @rule(lambda cls, dom, cod, size: size >= 2)
+    def cut(cls, draw, dom, cod, size, types):
+        """
+        ``x ⊢ z`` splits into ``x ⊢ y`` and ``y ⊢ z`` at a drawn middle,
+        from the types or from a boundary some rule :meth:`hints` at.
+        """
+        from hypothesis import strategies as st
+
+        middle = draw(st.one_of(types, *cls.hints(dom, cod, types)))
+        left = draw(st.integers(min_value=1, max_value=size - 1))
+        premises = [(dom, middle, left), (middle, cod, size - left)]
+        return premises, lambda f, g: f >> g
 
     @axiom
     def unitality(

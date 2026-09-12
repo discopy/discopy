@@ -88,6 +88,7 @@ from discopy.axioms import (
     GENERATORS,
     Equation as AbstractEquation,
     no_strategy,
+    search,
 )
 from discopy.utils import (  # noqa: F401
     factory,
@@ -293,29 +294,12 @@ class Arrow(FreeCategory, Serialisable):
             cls, *, types=None, dom=None, cod=None,
             min_leaves=None, max_leaves=10):
         """
-        Generate the canonical instantiation: a single identity or a single
-        generator box with the requested (or an arbitrary) boundary.
-
-        Callers bound the number of generators of a composite term with
-        :code:`min_leaves` and :code:`max_leaves`; a canonical
-        instantiation has at most one, so both are ignored.
+        Generate arrows by :func:`discopy.axioms.search` over the
+        :attr:`rules` of the category.
         """
-        from hypothesis import strategies as st
-
-        types = cls.ob.strategy() if types is None else types
-
-        def generators(dom=None, cod=None):
-            """ Generator boxes between the given boundaries. """
-            return cls.generator_factory.strategy(
-                types=types, dom=dom, cod=cod)
-
-        if dom is not None and cod is not None:
-            if dom == cod:
-                return st.just(cls.id(dom))
-            return generators(dom=dom, cod=cod)
-        if dom is not None or cod is not None:
-            return generators(dom=dom, cod=cod)
-        return st.one_of(types.map(cls.id), generators())
+        return search(
+            cls, types=cls.ob.strategy() if types is None else types,
+            dom=dom, cod=cod, min_leaves=min_leaves, max_leaves=max_leaves)
 
     def __setstate__(self, state):
         if '_dom' in state:  # Backward compatibility
@@ -907,7 +891,7 @@ class Functor(Category):
         return result
 
 
-Arrow.generator_factory = Box
+Arrow.generator_factory = Arrow.box_factory = Box
 
 
 @factory

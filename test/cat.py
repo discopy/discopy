@@ -398,3 +398,18 @@ def test_Functor_then_left_unit():
     assert F >> Functor.id() == F
     assert Functor.id() >> F != F
     assert (Functor.id() >> F)(x) == F(x)
+
+
+def test_strategy():
+    from hypothesis import find
+
+    a, b = Ob('a'), Ob('b')
+    arrow = find(
+        Arrow.strategy(dom=a, cod=b, min_leaves=2, max_leaves=2),
+        lambda value: len(value.inside) > 1)
+    assert (arrow.dom, arrow.cod) == (a, b)
+    sized = find(
+        Arrow.strategy(dom=a, cod=a, min_leaves=3, max_leaves=3),
+        lambda value: True)
+    assert len(sized.inside) == 3 and len(set(sized.inside)) == 3
+    assert not find(Arrow.strategy(max_leaves=0), lambda _: True).inside
