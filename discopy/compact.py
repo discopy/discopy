@@ -56,6 +56,7 @@ Coherence
 
 from discopy import symmetric, ribbon, rigid, cmap, hypergraph
 from discopy.abc import CompactCategory
+from discopy.axioms import Serialisable
 from discopy.cat import factory
 from discopy.utils import deprecated_alias
 from discopy.pivotal import Wire, Ty  # noqa: F401
@@ -75,6 +76,8 @@ class Diagram(symmetric.Diagram, ribbon.Diagram, CompactCategory):
         dom (pivotal.Ty) : The domain of the diagram, i.e. its input.
         cod (pivotal.Ty) : The codomain of the diagram, i.e. its output.
     """
+    serialisation = Serialisable.serialisation
+
     ob = Ty
     layer_factory = Layer
     trace_factory = ribbon.Diagram.trace_factory

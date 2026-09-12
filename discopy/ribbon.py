@@ -78,6 +78,7 @@ cap becomes a ribbon folding back.
 
 from discopy import rigid, pivotal, balanced
 from discopy.abc import RibbonCategory
+from discopy.axioms import Serialisable
 from discopy.cat import factory
 from discopy.pivotal import Ty, Nat  # noqa: F401
 
@@ -92,6 +93,9 @@ class Diagram(pivotal.Diagram, balanced.Diagram, RibbonCategory):
         dom (pivotal.Ty) : The domain of the diagram, i.e. its input.
         cod (pivotal.Ty) : The codomain of the diagram, i.e. its output.
     """
+    serialisation = Serialisable.serialisation.failing(
+        "The generic tree of a twist does not read back (#742).")
+
     def trace(self, n=1, left=False):
         """
         The trace of a ribbon diagram.

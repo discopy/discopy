@@ -64,7 +64,7 @@ from warnings import warn
 from discopy import abc, cat, drawing, hypergraph, cmap, messages
 from discopy.abc import (
     ColouredMonoid, Monoid, MonoidalCategory, NamedGeneric)
-from discopy.axioms import GENERATORS, no_strategy, search
+from discopy.axioms import GENERATORS, Serialisable, no_strategy, search
 from discopy.drawing import Drawing
 from discopy.config import (
     BOX_DRAWING_ATTRIBUTES, WIRE_DRAWING_ATTRIBUTES,
@@ -99,7 +99,14 @@ class Colour(cat.Ob):
 
     name: str = TRANSPARENT
     label: "str | None" = field(default=None, compare=False)
-    strategy = no_strategy
+
+    @classmethod
+    def strategy(cls):
+        """Generate a colour, transparent or one of four."""
+        from hypothesis import strategies as st
+
+        return st.sampled_from(
+            (TRANSPARENT, "white", "red", "green", "blue")).map(cls)
 
     def __post_init__(self):
         assert_isinstance(self.name, str)
@@ -123,7 +130,7 @@ class Colour(cat.Ob):
 
     @classmethod
     def from_tree(cls, tree):
-        return cls(tree['name'], label=tree.get('label'))
+        return cls(tree.get('name', TRANSPARENT), label=tree.get('label'))
 
 
 transparent = Colour(TRANSPARENT)
@@ -153,6 +160,10 @@ class Wire(cat.Ob):
         state.setdefault('cod', transparent)
         state.setdefault('is_dagger', False)
         super().__setstate__(state)
+
+    repr_transparency = Serialisable.repr_transparency.failing(
+        "An uncoloured wire reprs as the cat.Ob its type coerces, which its "
+        "type-strict equality rejects (#650).")
 
     def dagger(self):
         return type(self)(
@@ -305,16 +316,22 @@ class Ty(cat.Ob, cat.FreeCategory, ColouredMonoid):
     def strategy(
             cls, *, min_length=0, max_length=3,
             dom=transparent, cod=transparent):
-        """Generate words of wires, transparent between the given colours."""
+        """
+        Generate words of wires, transparent between the given colours; a
+        colour left :obj:`None` is drawn, which is how the laws of the
+        category of colours a type is quantify over coloured words.
+        """
         from hypothesis import strategies as st
 
         @st.composite
         def words(draw):
-            minimum = max(min_length, int(dom != cod))
+            source = draw(cls.ob.strategy()) if dom is None else dom
+            target = draw(cls.ob.strategy()) if cod is None else cod
+            minimum = max(min_length, int(source != target))
             length = draw(st.integers(min_value=minimum, max_value=max_length))
             if not length:
-                return cls(dom=dom, cod=cod)
-            colours = [dom] + [transparent] * (length - 1) + [cod]
+                return cls(dom=source, cod=target)
+            colours = [source] + [transparent] * (length - 1) + [target]
             return cls(*(
                 draw(cls.generator_factory.strategy(
                     dom=colours[i], cod=colours[i + 1]))
@@ -563,13 +580,7 @@ class Nat(abc.Nat, Ty):
     """
     generator_factory = int
 
-    @classmethod
-    def strategy(cls, *, min_length=0, max_length=3, **_):
-        """Generate small natural-number types."""
-        from hypothesis import strategies as st
-
-        return st.integers(
-            min_value=min_length, max_value=max_length).map(cls)
+    strategy = no_strategy
 
     def __init__(self, inside: int | tuple = 0, dom: Colour = None,
                  cod: Colour = None, _scan: bool = True):
@@ -635,15 +646,7 @@ class Dim(Ty):
     """
     generator_factory = int
 
-    @classmethod
-    def strategy(cls, *, min_length=0, max_length=2, max_dim=3, **_):
-        """Generate small dimensions."""
-        from hypothesis import strategies as st
-
-        return st.lists(
-            st.integers(min_value=2, max_value=max_dim),
-            min_size=min_length, max_size=max_length).map(
-                lambda inside: cls(*inside))
+    strategy = no_strategy
 
     def __init__(self, *inside: int, dom=None, cod=None, _scan=True, **kwargs):
         inside = kwargs.pop('inside', inside)

@@ -148,7 +148,7 @@ from __future__ import annotations
 
 from discopy import monoidal, braided, markov, hypergraph
 from discopy.axioms import GENERATORS, no_strategy
-from discopy.abc import FeedbackCategory, TracedCategory
+from discopy.abc import Category, FeedbackCategory, TracedCategory
 from discopy.utils import (
     deprecated_alias,
     factory, factory_name, assert_isinstance, AxiomError,
@@ -297,6 +297,13 @@ class TailOb(Wire):
 @factory
 class Ty(monoidal.Ty):
     """ A feedback type is a monoidal type with `delay`, `head` and `tail`. """
+    @classmethod
+    def strategy(cls, **params):
+        """A feedback wire carries no colours: transparent words."""
+        return super().strategy(**{
+            **params,
+            "dom": monoidal.transparent, "cod": monoidal.transparent})
+
     generator_factory = Wire
 
     def delay(self, n_steps=1):
@@ -347,6 +354,13 @@ class Diagram(markov.Diagram, FeedbackCategory):
     .. image:: /_static/feedback/feedback-random-walk.svg
         :align: center
     """
+    dagger_involution = Category.dagger_involution.failing(
+        "The dagger of a feedback box is built by the generic constructor, "
+        "which Feedback does not take (#742).")
+    dagger_contravariance = Category.dagger_contravariance.failing(
+        "The dagger of a feedback box is built by the generic constructor, "
+        "which Feedback does not take (#742).")
+
     tracing = TracedCategory.tracing.inapplicable(
         "A feedback category feeds back rather than traces: the trace a "
         "feedback diagram inherits from markov builds a markov.Trace that "

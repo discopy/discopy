@@ -55,7 +55,7 @@ We also have its dagger and its transpose:
 from __future__ import annotations
 
 from discopy import cat, cmap, rigid, traced
-from discopy.abc import PivotalCategory
+from discopy.abc import Category, PivotalCategory
 from discopy.cat import factory
 from discopy.utils import deprecated_alias
 
@@ -96,6 +96,9 @@ class Ty(rigid.Ty):
     """
     generator_factory = Wire
 
+    dagger_involution = Category.dagger_involution
+    dagger_contravariance = Category.dagger_contravariance
+
 
 @factory
 class Nat(rigid.Nat, Ty):
@@ -122,6 +125,9 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
         dom (Ty) : The domain of the diagram, i.e. its input.
         cod (Ty) : The codomain of the diagram, i.e. its output.
     """
+    dagger_involution = Category.dagger_involution
+    dagger_contravariance = Category.dagger_contravariance
+
     ob = Ty
 
     def dagger(self):

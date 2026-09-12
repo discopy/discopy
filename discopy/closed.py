@@ -172,6 +172,16 @@ class Copy(markov.Copy, Box):
     is_linear = False
 
 
+class Merge(markov.Merge, Box):
+    """
+    A merge in a closed diagram, the dagger of a :class:`Copy`.
+
+    Parameters:
+        x : The type to merge.
+        n : The number of copies to merge.
+    """
+
+
 class Discard(markov.Discard, Copy):
     "A markov discard in a closed category."
 
@@ -212,7 +222,7 @@ CMap = cmap.CMap[Diagram]
 
 Diagram.functor_factory = Functor
 Hypergraph = hypergraph.Hypergraph[Diagram]
-Diagram.copy_factory = Copy
+Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.swap_factory = Swap
 Diagram.permutation_factory = Permutation
 Diagram.curry_factory = Curry

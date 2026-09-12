@@ -125,6 +125,7 @@ Dinaturality
 
 from discopy import monoidal, cmap, hypergraph
 from discopy.abc import TracedCategory
+from discopy.axioms import Serialisable
 from discopy.cat import factory
 from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import (
@@ -144,6 +145,11 @@ class Diagram(monoidal.Diagram, TracedCategory):
         dom (monoidal.Ty) : The domain of the diagram, i.e. its input.
         cod (monoidal.Ty) : The codomain of the diagram, i.e. its output.
     """
+    repr_transparency = Serialisable.repr_transparency.failing(
+        "The generic representation of a trace does not read back (#742).")
+    serialisation = Serialisable.serialisation.failing(
+        "The generic tree of a trace does not read back (#742).")
+
     def trace(self, n=1, left=False):
         """
         Feed ``n`` outputs back into inputs.

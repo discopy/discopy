@@ -783,3 +783,8 @@ def test_strategy():
         lambda value: value.boxes
         and not value.to_hypergraph().is_boundary_connected)
     assert scalar.boxes
+
+
+def test_transparent_colour_serialisation():
+    colour = Colour()
+    assert Colour.from_tree(colour.to_tree()) == colour

@@ -216,3 +216,10 @@ def test_strategy():
     from discopy import axioms
 
     axioms.assert_strategy_finds(Diagram, Eval, Copy)
+
+
+def test_merge_is_a_closed_diagram():
+    x = Ty('x')
+    merge = Diagram.copy(x).dagger()
+    assert isinstance(merge, Diagram) and isinstance(merge, Merge)
+    assert (Diagram.id(x @ x) >> merge).boxes == [merge]

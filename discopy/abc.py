@@ -561,10 +561,11 @@ class BiclosedCategory[
 
     @evaluating.hint
     def evaluating(cls, dom, cod, types):
-        """ An exponential beside its argument. """
+        """ An exponential into an atomic codomain, beside its argument. """
         from hypothesis import strategies as st
 
-        return st.tuples(cls.atoms(), cls.atoms(), st.booleans()).map(
+        bases = st.just(cod) if len(cod) == 1 else cls.atoms()
+        return st.tuples(bases, cls.atoms(), st.booleans()).map(
             lambda args: (args[0] << args[1]) @ args[1] if args[2]
             else args[1] @ (args[1] >> args[0]))
 
@@ -861,8 +862,11 @@ class MarkovCategory[C0, C1](SymmetricCategory[C0, C1]):
 
     @copying.hint
     def copying(cls, dom, cod, types):
-        """ An atom twice. """
-        return cls.atoms().map(lambda x: x @ x)
+        """ The domain twice, when atomic, else an atom twice. """
+        from hypothesis import strategies as st
+
+        atoms = st.just(dom) if len(dom) == 1 else cls.atoms()
+        return atoms.map(lambda x: x @ x)
 
 
 class ClosedCategory[C0, C1](BiclosedCategory[C0, C1], MarkovCategory[C0, C1]):
@@ -929,6 +933,15 @@ class BalancedCategory[C0, C1](
     def twisting(cls, dom, cod):
         """ ``x ⊢ x`` is a twist. """
         return cls.twist(dom) if len(dom) == 1 and dom == cod else None
+
+    @twisting.hint
+    def twisting(cls, dom, cod, types):
+        """ An atom of either boundary. """
+        from hypothesis import strategies as st
+
+        atoms = [boundary[i:i + 1]
+                 for boundary in (dom, cod) for i in range(len(boundary))]
+        return st.sampled_from(atoms) if atoms else st.nothing()
 
 
 class RibbonCategory[C0, C1](

@@ -65,6 +65,7 @@ from collections.abc import Callable
 from discopy import (
     monoidal, rigid, markov, compact, pivotal, cmap, hypergraph)
 from discopy.abc import HypergraphCategory
+from discopy.axioms import Serialisable
 from discopy.cat import factory
 from discopy.utils import assert_isatomic, deprecated_alias, factory_name
 
@@ -93,6 +94,13 @@ class Ty(pivotal.Ty):
     Parameters:
         inside (frobenius.Wire) : The objects inside the type.
     """
+    @classmethod
+    def strategy(cls, **params):
+        """A self-dual wire has no colours to swap: transparent words."""
+        return super().strategy(**{
+            **params,
+            "dom": monoidal.transparent, "cod": monoidal.transparent})
+
     generator_factory = Wire
 
 
@@ -128,6 +136,9 @@ class Diagram(compact.Diagram, markov.Diagram, HypergraphCategory):
         dom (Ty) : The domain of the diagram, i.e. its input.
         cod (Ty) : The codomain of the diagram, i.e. its output.
     """
+    serialisation = Serialisable.serialisation.failing(
+        "The generic tree of a spider does not read back (#742).")
+    pickling = Serialisable.pickling
 
     ob = Ty
 

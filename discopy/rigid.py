@@ -78,8 +78,7 @@ length-one word on it, while the counit ``epsilon`` evaluates a word of
 elements of a monoid as their product:
 
 >>> from functools import lru_cache
->>> from discopy.axioms import GENERATORS
-from discopy.abc import ColouredMonoid
+>>> from discopy.abc import ColouredMonoid
 >>> from discopy.python.function import Function
 >>> from discopy.cat import Ob as CatOb, Functor, Transformation
 
@@ -155,8 +154,8 @@ from collections.abc import Callable
 from typing import Iterator
 
 from discopy import cat, monoidal, biclosed, messages
-from discopy.abc import Pregroup, RigidCategory
-from discopy.axioms import GENERATORS
+from discopy.abc import Category, Pregroup, RigidCategory
+from discopy.axioms import GENERATORS, Serialisable
 from discopy.cat import factory
 from discopy.utils import (
     assert_isatomic,
@@ -216,6 +215,8 @@ class Wire(monoidal.Wire):
 
     def dagger(self) -> Wire:
         raise AxiomError("Rigid types have no dagger, use pivotal instead.")
+
+    repr_transparency = Serialisable.repr_transparency
 
     @property
     def l(self) -> Wire:
@@ -279,6 +280,11 @@ class Ty(Pregroup, biclosed.Ty):
     >>> assert (s @ n).l == n.l @ s.l and (s @ n).r == n.r @ s.r
     """
     generator_factory = Wire
+
+    dagger_involution = Category.dagger_involution.inapplicable(
+        "Rigid types have no dagger, use pivotal instead.")
+    dagger_contravariance = Category.dagger_contravariance.inapplicable(
+        "Rigid types have no dagger, use pivotal instead.")
 
     def __setstate__(self, state):
         if '_z' in state:  # Backward compatibility
@@ -395,9 +401,16 @@ class Diagram(biclosed.Diagram, RigidCategory):
     .. image:: /_static/rigid/curry.svg
         :align: center
     """
+    repr_transparency = Serialisable.repr_transparency
+    serialisation = Serialisable.serialisation
 
     ob = Ty
     layer_factory = Layer
+
+    dagger_involution = Category.dagger_involution.inapplicable(
+        "Rigid diagrams have no dagger, use pivotal instead.")
+    dagger_contravariance = Category.dagger_contravariance.inapplicable(
+        "Rigid diagrams have no dagger, use pivotal instead.")
 
     to_drawing = monoidal.Diagram.to_drawing
 

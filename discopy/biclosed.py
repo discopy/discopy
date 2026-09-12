@@ -85,7 +85,7 @@ from inspect import signature
 from typing import Callable, ClassVar
 
 from discopy import monoidal, cmap
-from discopy.axioms import no_strategy
+from discopy.axioms import Serialisable, no_strategy
 from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
 from discopy.cat import factory
@@ -296,6 +296,11 @@ class Diagram(monoidal.Diagram, BiclosedCategory):
         dom (Ty) : The domain of the diagram, i.e. its input.
         cod (Ty) : The codomain of the diagram, i.e. its output.
     """
+    repr_transparency = Serialisable.repr_transparency.failing(
+        "The generic representation of an evaluation does not read back "
+        "(#742).")
+    serialisation = Serialisable.serialisation.failing(
+        "The generic tree of an evaluation does not read back (#742).")
 
     ob = Ty
 
