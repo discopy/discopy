@@ -418,7 +418,9 @@ class Diagram(markov.Diagram, FeedbackCategory):
 
     d = Wire.d
 
-    dagger_monoidality = FeedbackCategory.dagger_monoidality
+    dagger_monoidality = FeedbackCategory.dagger_monoidality.failing(
+        "The dagger of a feedback box is built by the generic constructor, "
+        "which Feedback does not take (#742).")
 
     feedback_joining = FeedbackCategory.feedback_joining.failing(
         "feedback unrolls heterogeneous memory in the wrong order, so it "

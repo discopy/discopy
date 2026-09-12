@@ -36,6 +36,31 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   own terms. The `filter_too_much` health check is no longer suppressed
   in `proptest/conftest.py`, the search filtering nothing. See *Search
   strategies as proof search* in the documentation of `discopy.axioms`.
+- Every axiom of `discopy.abc` is stated again beside the rules that
+  generate its structure, from `bifunctoriality` to `reidemeister_1_cup`,
+  quantified over shapes the search generates: `Atomic`, `NonEmpty`,
+  `BoundaryConnected`, `HorizontalPair`, `Square`, the trace superposing,
+  sliding and dinaturality shapes, the currying shapes and the feedback
+  shapes are `Testable` wrappers whose constructors enforce what their
+  laws need and whose strategies draw the boundaries first, then the
+  arrows through the constrained search, with neither `flatmap` nor
+  `filter`; `Diagram.strategy` takes `boundary_connected` and
+  `Diagram.is_boundary_connected` reads the hypergraph, a diagram with
+  none being outside the subspace where a normal form is defined. Every
+  module wires the `Equation` it defines as its `equation_factory`, so
+  the laws of a free symmetric category and above compare up to
+  hypergraph isomorphism, as they hold, where `main` defined the
+  quotients without using them. The classifications the free categories
+  force are declared where they were: interchange and dagger
+  monoidality modulo the normal form on connected diagrams, snakes and
+  the rigid currying modulo the normal form, a free trace is a box and a
+  free braid does not commute past one, the two transposes of a pivotal
+  diagram differ by a snake, the traced braid does not reduce to the
+  twist, feedback joining unrolls memory in the wrong order
+  ([#606](https://github.com/discopy/discopy/issues/606)) and currying
+  does not evaluate back
+  ([#562](https://github.com/discopy/discopy/issues/562)). Each level's
+  test file dry-runs its laws with `assert_axioms`.
 - `feedback.Discard` and `closed.Merge`, the discard of a feedback
   diagram and the merge of a closed one: `feedback.Diagram.copy(x, 0)`
   built a `markov.Discard` and `closed.Diagram.copy(x).dagger()` a
