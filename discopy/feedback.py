@@ -354,7 +354,11 @@ class Diagram(markov.Diagram, FeedbackCategory):
     .. image:: /_static/feedback/feedback-random-walk.svg
         :align: center
     """
-    tracing = TracedCategory.tracing.inapplicable(
+    tracing_left = TracedCategory.tracing_left.inapplicable(
+        "A feedback category feeds back rather than traces: the trace a "
+        "feedback diagram inherits from markov builds a markov.Trace that "
+        "is not a feedback diagram.")
+    tracing_right = TracedCategory.tracing_right.inapplicable(
         "A feedback category feeds back rather than traces: the trace a "
         "feedback diagram inherits from markov builds a markov.Trace that "
         "is not a feedback diagram.")

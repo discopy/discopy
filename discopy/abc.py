@@ -66,9 +66,18 @@ from discopy.axioms import (  # noqa: F401
     HorizontalPair, LeftCurrying, NonEmpty, RightCurrying,
     Rule, Serialisable, Square, Testable, TraceDinaturalityLeft,
     TraceDinaturalityRight, TraceNaturalityLeft, TraceNaturalityRight,
-    TraceSuperposing, axiom, leaf, rule)
+    TraceSuperposing, Pattern, Var, axiom, leaf, rule)
 from discopy.utils import (  # noqa: F401
     NamedGeneric, classproperty, factory_name)
+
+
+A, B = Var.type("A"), Var.type("B")
+X, Y, M, E = Var.atom("X"), Var.atom("Y"), Var.atom("M"), Var.atom("E")
+"""
+The metavariables of the sequent patterns the rules below are stated
+with: ``A`` and ``B`` stand for types, ``X`` and ``Y`` for atoms, ``M``
+for an atom of memory and ``E`` for an exponent.
+"""
 
 
 class Category[C0, C1: Category](Testable, ABC):
@@ -491,15 +500,15 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
             left : Whether to trace the wires on the left or right.
         """
 
-    @rule(lambda cls, dom, cod, size: size >= 2)
-    def tracing(cls, draw, dom, cod, size, types):
-        """ ``x ⊢ y`` is the trace of ``m @ x ⊢ m @ y`` over a drawn atom. """
-        from hypothesis import strategies as st
+    @rule(conclusion=(A, B), premises=dict(f=(M @ A, M @ B)))
+    def tracing_left(cls, dom, cod, f, **env):
+        """ ``x ⊢ y`` is the left trace of ``m @ x ⊢ m @ y`` over an atom. """
+        return f.trace(left=True)
 
-        memory, left = draw(cls.atoms()), draw(st.booleans())
-        premise = (memory @ dom, memory @ cod, size - 1) if left\
-            else (dom @ memory, cod @ memory, size - 1)
-        return [premise], lambda f: f.trace(left=left)
+    @rule(conclusion=(A, B), premises=dict(f=(A @ M, B @ M)))
+    def tracing_right(cls, dom, cod, f, **env):
+        """ ``x ⊢ y`` is the right trace of ``x @ m ⊢ y @ m`` over an atom. """
+        return f.trace()
 
     @axiom
     def trace_vanishing(
@@ -652,27 +661,15 @@ class BiclosedCategory[
             else exponent @ self >> self.ev(base, exponent, False)
         return result.uncurry(n - len(exponent), left)
 
-    @leaf
-    def evaluating(cls, dom, cod):
-        """ ``(y << x) @ x ⊢ y`` and ``x @ (x >> y) ⊢ y`` are evaluations. """
-        if len(dom) != 2:
-            return None
-        for exponential, argument, left in (
-                (dom[:1], dom[1:], True), (dom[1:], dom[:1], False)):
-            if exponential.is_exp and exponential.exponent == argument\
-                    and exponential.base == cod:
-                return cls.eval_factory(exponential, left=left)
-        return None
+    @leaf(((Y << E) @ E, Y))
+    def evaluating_left(cls, dom, cod, Y, E):
+        """ ``(y << e) @ e ⊢ y`` is a left evaluation. """
+        return cls.ev(Y, E, left=True)
 
-    @evaluating.hint
-    def evaluating(cls, dom, cod, types):
-        """ An exponential into an atomic codomain, beside its argument. """
-        from hypothesis import strategies as st
-
-        bases = st.just(cod) if len(cod) == 1 else cls.atoms()
-        return st.tuples(bases, cls.atoms(), st.booleans()).map(
-            lambda args: (args[0] << args[1]) @ args[1] if args[2]
-            else args[1] @ (args[1] >> args[0]))
+    @leaf((E @ (E >> Y), Y))
+    def evaluating_right(cls, dom, cod, Y, E):
+        """ ``e @ (e >> y) ⊢ y`` is a right evaluation. """
+        return cls.ev(Y, E, left=False)
 
     @classmethod
     def uncurry_composition(
@@ -832,31 +829,19 @@ class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
             >> self.dom.r @ self @ self.cod.r\
             >> self.dom.r @ self.cups(self.cod, self.cod.r)
 
-    @leaf
-    def cupping(cls, dom, cod):
+    @leaf((X @ X.r, ()))
+    def cupping(cls, dom, cod, X):
         """ ``x @ x.r ⊢ ()`` is a cup, ``x.l @ x`` included. """
-        if cod or len(dom) != 2 or dom[1:] != dom[:1].r:
-            return None
-        return cls.cups(dom[:1], dom[1:])
+        return cls.cups(X, X.r)
 
-    @cupping.hint
-    def cupping(cls, dom, cod, types):
-        """ An atom beside its right adjoint. """
-        return cls.atoms().map(lambda x: x @ x.r)
-
-    @leaf
-    def capping(cls, dom, cod):
+    @leaf(((), X @ X.l))
+    def capping(cls, dom, cod, X):
         """ ``() ⊢ x @ x.l`` is a cap, ``x.r @ x`` included. """
-        if dom or len(cod) != 2 or cod[1:] != cod[:1].l:
-            return None
-        return cls.caps(cod[:1], cod[1:])
+        return cls.caps(X, X.l)
 
-    @capping.hint
-    def capping(cls, dom, cod, types):
-        """ An atom beside its left adjoint. """
-        return cls.atoms().map(lambda x: x @ x.l)
-
-    evaluating = BiclosedCategory.evaluating.inapplicable(
+    evaluating_left = BiclosedCategory.evaluating_left.inapplicable(
+        "A rigid evaluation is a cup, which cupping reaches.")
+    evaluating_right = BiclosedCategory.evaluating_right.inapplicable(
         "A rigid evaluation is a cup, which cupping reaches.")
 
     @axiom
@@ -928,29 +913,15 @@ class BraidedCategory[C0, C1](MonoidalCategory[C0, C1]):
             right : The object on the right of the braid.
         """
 
-    @rule(lambda cls, dom, cod, size:
-          size == 1 and len(dom) == 2 and cod == dom[1:] @ dom[:1])
-    def braiding(cls, draw, dom, cod, size, types):
-        """ ``x @ y ⊢ y @ x`` is a braid, over or under. """
-        from hypothesis import strategies as st
+    @leaf((X @ Y, Y @ X))
+    def braiding(cls, dom, cod, X, Y):
+        """ ``x @ y ⊢ y @ x`` is a braid over. """
+        return cls.braid(X, Y)
 
-        over = draw(st.booleans())
-        return [], lambda: cls.braid(dom[:1], dom[1:]) if over\
-            else cls.braid(dom[1:], dom[:1]).dagger()
-
-    @braiding.hint
-    def braiding(cls, dom, cod, types):
-        """ Either boundary with two adjacent atoms swapped, or two atoms. """
-        from hypothesis import strategies as st
-
-        swapped = [
-            boundary[:i] @ boundary[i + 1:i + 2] @ boundary[i:i + 1]
-            @ boundary[i + 2:]
-            for boundary in (dom, cod) for i in range(len(boundary) - 1)]
-        pairs = st.tuples(cls.atoms(), cls.atoms()).map(
-            lambda pair: pair[0] @ pair[1])
-        return st.one_of(st.sampled_from(swapped), pairs) if swapped\
-            else pairs
+    @leaf((X @ Y, Y @ X))
+    def braiding_under(cls, dom, cod, X, Y):
+        """ ``x @ y ⊢ y @ x`` is a braid under, the dagger of one over. """
+        return cls.braid(Y, X).dagger()
 
     @axiom
     def hexagon_left(
@@ -1087,21 +1058,10 @@ class MarkovCategory[C0, C1](SymmetricCategory[C0, C1]):
             n : The number of copies.
         """
 
-    @leaf
-    def copying(cls, dom, cod):
+    @leaf((X, ()), (X, X @ X), (X, X @ X @ X))
+    def copying(cls, dom, cod, X):
         """ ``x ⊢ x @ ... @ x`` is a copy, none or up to three. """
-        if len(dom) != 1 or len(cod) not in (0, 2, 3)\
-                or any(cod[i:i + 1] != dom for i in range(len(cod))):
-            return None
-        return cls.copy(dom, n=len(cod))
-
-    @copying.hint
-    def copying(cls, dom, cod, types):
-        """ The domain twice, when atomic, else an atom twice. """
-        from hypothesis import strategies as st
-
-        atoms = st.just(dom) if len(dom) == 1 else cls.atoms()
-        return atoms.map(lambda x: x @ x)
+        return cls.copy(X, n=len(cod))
 
     @axiom
     def copy_counitality(
@@ -1177,15 +1137,10 @@ class FeedbackCategory[C0, C1](MarkovCategory[C0, C1]):
             mem : The memory type to trace over.
         """
 
-    @rule(lambda cls, dom, cod, size: size >= 2)
-    def feeding_back(cls, draw, dom, cod, size, types):
-        """
-        ``x ⊢ y`` is the feedback of ``x @ m.delay() ⊢ y @ m`` over a drawn
-        atom of memory.
-        """
-        memory = draw(cls.atoms())
-        premise = (dom @ memory.delay(), cod @ memory, size - 1)
-        return [premise], lambda f: f.feedback(mem=memory)
+    @rule(conclusion=(A, B), premises=dict(f=(A @ M.delay(), B @ M)))
+    def feeding_back(cls, dom, cod, f, M, **env):
+        """ ``x ⊢ y`` is the feedback of ``x @ m.delay() ⊢ y @ m``. """
+        return f.feedback(mem=M)
 
     @axiom
     def feedback_vanishing(
@@ -1225,19 +1180,10 @@ class BalancedCategory[C0, C1](
             dom : The object on which to take the twist.
         """
 
-    @leaf
-    def twisting(cls, dom, cod):
+    @leaf((X, X))
+    def twisting(cls, dom, cod, X):
         """ ``x ⊢ x`` is a twist. """
-        return cls.twist(dom) if len(dom) == 1 and dom == cod else None
-
-    @twisting.hint
-    def twisting(cls, dom, cod, types):
-        """ An atom of either boundary. """
-        from hypothesis import strategies as st
-
-        atoms = [boundary[i:i + 1]
-                 for boundary in (dom, cod) for i in range(len(boundary))]
-        return st.sampled_from(atoms) if atoms else st.nothing()
+        return cls.twist(X)
 
     @axiom
     def balanced_twist(
@@ -1320,16 +1266,10 @@ class HypergraphCategory[C0, C1](
             typ : The type of the spiders.
         """
 
-    @leaf
-    def spidering(cls, dom, cod):
-        """ ``x @ .. @ x ⊢ x @ .. @ x`` is a spider, on up to two legs. """
-        legs = dom @ cod
-        if not legs or len(legs) > 4 or (len(dom), len(cod)) == (1, 1)\
-                or any(legs[i:i + 1] != legs[:1] for i in range(len(legs))):
-            return None
-        return cls.spiders(len(dom), len(cod), legs[:1])
-
-    @spidering.hint
-    def spidering(cls, dom, cod, types):
-        """ An atom twice. """
-        return cls.atoms().map(lambda x: x @ x)
+    @leaf(*(
+        (Pattern((X, ) * m), Pattern((X, ) * n))
+        for m in range(5) for n in range(5)
+        if 0 < m + n <= 4 and (m, n) != (1, 1)))
+    def spidering(cls, dom, cod, X):
+        """ ``x @ .. @ x ⊢ x @ .. @ x`` is a spider, on up to four legs. """
+        return cls.spiders(len(dom), len(cod), X)

@@ -260,15 +260,17 @@ def test_rules_are_inherited_and_bound():
 
 def test_leaf_applies_only_on_its_shape():
     """ A leaf is offered exactly when its pattern matches the sequent. """
-    from discopy.axioms import leaf, search
+    from discopy.axioms import Var, leaf, search
+
+    A = Var.type('A')
 
     class Toy(Arrow):
         """ Loops on every object, and no cut. """
         cut = None
 
-        @leaf
-        def loop(cls, dom, cod):
-            return Box('loop', dom, cod) if dom == cod else None
+        @leaf((A, A))
+        def loop(cls, dom, cod, A):
+            return Box('loop', dom, cod)
 
     assert set(Toy.rules) == {"identity", "box", "loop"}
     x, y = Ob('x'), Ob('y')
@@ -278,6 +280,34 @@ def test_leaf_applies_only_on_its_shape():
     with raises(NoSuchExample):
         find(search(Toy, dom=x, cod=y, min_leaves=1, max_leaves=1,
                     types=Ob.strategy()), is_loop)
+
+
+def test_rules_from_patterns():
+    """ A pattern rule matches, builds, and hints at the sequent it needs. """
+    from discopy import braided, rigid, traced
+
+    x, y, z = map(rigid.Ty, "xyz")
+    cupping = rigid.Diagram.rules["cupping"]
+    assert cupping.applies(rigid.Diagram, x @ x.r, rigid.Ty(), 1)
+    assert cupping.applies(rigid.Diagram, x.l @ x, rigid.Ty(), 1)
+    assert not cupping.applies(rigid.Diagram, x @ y.r, rigid.Ty(), 1)
+    assert not cupping.applies(rigid.Diagram, x @ x.r, rigid.Ty(), 2)
+    types = rigid.Ty.strategy()
+    assert find(cupping.shape(rigid.Diagram, x @ x.r, rigid.Ty(), types),
+                lambda middle: not middle) == rigid.Ty()
+    a, b, c = map(braided.Ty, "abc")
+    braiding = braided.Diagram.rules["braiding"]
+    hinted = find(braiding.shape(braided.Diagram, a @ b @ c, c, types),
+                  lambda middle: middle == b @ a @ c)
+    assert hinted == b @ a @ c
+    tracing = traced.Diagram.rules["tracing_left"]
+    assert tracing.applies(traced.Diagram, a, b, 2)
+    assert not tracing.applies(traced.Diagram, a, b, 1)
+    traced_arrow = find(
+        traced.Diagram.strategy(dom=a, cod=b, min_leaves=2, max_leaves=2),
+        lambda value: any(isinstance(box, traced.Trace) and box.left
+                          for box in value.boxes))
+    assert (traced_arrow.dom, traced_arrow.cod) == (a, b)
 
 
 def test_Atomic():

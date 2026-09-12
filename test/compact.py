@@ -72,11 +72,11 @@ def test_strategy():
     from discopy import axioms
 
     axioms.assert_strategy_finds(Diagram, Swap, Cup, Cap)
-    x = Diagram.ob('x')
+    x, y = Diagram.ob('x'), Diagram.ob('y')
     swapped = find(
-        Diagram.strategy(dom=x, cod=x),
+        Diagram.strategy(dom=x @ y, cod=y @ x),
         lambda value: any(isinstance(box, Swap) for box in value.boxes))
-    assert (swapped.dom, swapped.cod) == (x, x)
+    assert (swapped.dom, swapped.cod) == (x @ y, y @ x)
 
 
 def test_axioms():

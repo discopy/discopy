@@ -26,6 +26,9 @@ Summary
     Axiom
     AxiomFailure
     Rule
+    Var
+    Op
+    Pattern
     Testable
     Atomic
     NonEmpty
@@ -575,28 +578,145 @@ class Rule[T]:
         return never
 
 
-def rule[T](applies: Callable) -> Callable[[Callable], Rule[T]]:
-    """
-    Decorate the premises of an inference rule with the predicate saying
-    when it applies, e.g. ``@rule(lambda cls, dom, cod, size: size >= 2)``
-    for a cut.
-    """
-    return lambda premises: Rule(premises, applies)
+def pattern(item) -> Pattern:
+    """ Coerce a variable, a derived item or a tuple into a pattern. """
+    if isinstance(item, Pattern):
+        return item
+    return Pattern(item if isinstance(item, tuple) else (item, ))
 
 
-def leaf[T](build: Callable) -> Rule[T]:
-    """
-    Decorate a leaf rule: a function from the category and a sequent to a
-    single box concluding it, or :obj:`None` when the boundary has not the
-    shape of that box, e.g. a cup on ``x @ x.r ⊢ ()``. It applies to
-    sequents of size one whose boundary it builds a box for.
-    """
-    def premises(cls, draw, dom, cod, size, types):
-        return [], lambda: build(cls, dom, cod)
+def sequent(dom, cod) -> tuple[Pattern, Pattern]:
+    """ A sequent pattern, one pattern for each boundary. """
+    return pattern(dom), pattern(cod)
 
-    premises.__name__, premises.__doc__ = build.__name__, build.__doc__
-    return Rule(premises, lambda cls, dom, cod, size:
-                size == 1 and build(cls, dom, cod) is not None)
+
+def matching(sequent, dom, cod, env: dict = None):
+    """ The environments matching a sequent pattern against a sequent. """
+    dom_pattern, cod_pattern = sequent
+    for bound in dom_pattern.match(dom, env):
+        yield from cod_pattern.match(cod, bound)
+
+
+def windows(pattern: Pattern, typ):
+    """
+    The matches of a pattern against a type or, when it has a fixed
+    length, against each window of the type, as triples of the context on
+    the left, the environment and the context on the right.
+    """
+    if not pattern.fixed or not hasattr(typ, "__len__"):
+        for env in pattern.match(typ):
+            yield None, env, None
+        return
+    for start in range(size(typ) - pattern.length + 1):
+        stop = start + pattern.length
+        for env in pattern.match(typ[start:stop]):
+            yield typ[:start], env, typ[stop:]
+
+
+def hint_from(sequents) -> Callable:
+    """
+    The boundary strategy a rule derives from its conclusion patterns: a
+    middle that its domain pattern matches on the sequent's domain, or
+    its codomain pattern on the codomain, so that the rule fires on one
+    side of the cut, and otherwise a fresh instance of either pattern.
+    """
+    def shape(cls, dom, cod, types):
+        from hypothesis import strategies as st
+
+        def around(left, right):
+            return lambda middle: middle if left is None\
+                else left @ middle @ right
+
+        options = []
+        for dom_pattern, cod_pattern in sequents:
+            for source, target, boundary in (
+                    (dom_pattern, cod_pattern, dom),
+                    (cod_pattern, dom_pattern, cod)):
+                for left, env, right in windows(source, boundary):
+                    options.append(
+                        target.strategy(cls, env).map(around(left, right)))
+            options += [
+                side.strategy(cls) for side in (dom_pattern, cod_pattern)
+                if side.vars and not all(
+                    var.kind == "type" for var in side.vars)]
+        return st.one_of(*options) if options else st.nothing()
+
+    return shape
+
+
+def leaf[T](*sequents) -> Callable[[Callable], Rule[T]]:
+    """
+    Decorate a leaf rule with the sequent patterns it concludes: a
+    function from the category, the sequent and the bound variables to a
+    single box, e.g. ``@leaf((X @ X.r, ()))`` for a cup. It applies to
+    sequents of size one that some pattern matches.
+    """
+    sequents = [sequent(*pair) for pair in sequents]
+
+    def decorate(build):
+        def applies(cls, dom, cod, size):
+            return size == 1 and any(
+                True for pair in sequents for _ in matching(pair, dom, cod))
+
+        def premises(cls, draw, dom, cod, size, types):
+            env = next(
+                env for pair in sequents for env in matching(pair, dom, cod))
+            return [], lambda: build(cls, dom, cod, **env)
+
+        premises.__name__, premises.__doc__ = build.__name__, build.__doc__
+        return Rule(premises, applies, shape=hint_from(sequents))
+
+    return decorate
+
+
+def rule[T](
+        applies: Callable = None, *, conclusion=None, premises=None,
+        boxes: int = 1) -> Callable[[Callable], Rule[T]]:
+    """
+    Decorate an inference rule, either with the predicate saying when it
+    applies, e.g. ``@rule(lambda cls, dom, cod, size: size >= 2)`` for a
+    cut, the function then giving its premises; or with the sequent
+    pattern it concludes and the named sequent patterns of its premises,
+    e.g. ``@rule(conclusion=(A, B), premises=dict(f=(M @ A, M @ B)))``
+    for a trace, the function then concluding from the bound variables and
+    the proofs of the premises, counting the ``boxes`` it adds itself.
+    """
+    if applies is not None:
+        return lambda premises: Rule(premises, applies)
+    conclusion = sequent(*conclusion)
+    premises = {name: sequent(*pair) for name, pair in premises.items()}
+    names = tuple(premises)
+    variables = tuple({
+        var.name: var for pair in premises.values()
+        for side in pair for var in side.vars}.values())
+
+    def decorate(build):
+        def applies(cls, dom, cod, size):
+            return size >= boxes + len(names)\
+                and any(True for _ in matching(conclusion, dom, cod))
+
+        def derive(cls, draw, dom, cod, size, types):
+            from hypothesis import strategies as st
+
+            env = draw_vars(
+                draw, variables, cls, next(matching(conclusion, dom, cod)))
+            unit = unit_of(cls, env)
+            sizes, left = [], size - boxes
+            for remaining in reversed(range(len(names))):
+                sizes.append(draw(st.integers(
+                    min_value=1, max_value=left - remaining)))
+                left -= sizes[-1]
+            sequents = [
+                (premises[name][0].instantiate(env, unit),
+                 premises[name][1].instantiate(env, unit), n)
+                for name, n in zip(names, sizes)]
+            return sequents, lambda *proofs: build(
+                cls, dom, cod, **env, **dict(zip(names, proofs)))
+
+        derive.__name__, derive.__doc__ = build.__name__, build.__doc__
+        return Rule(derive, applies, shape=hint_from([conclusion]))
+
+    return decorate
 
 
 def search(
@@ -623,7 +743,11 @@ def search(
         event(f"rule: {chosen.name}")
         premises, conclude = chosen.premises(
             category, draw, dom, cod, size, types)
-        return conclude(*[draw(derive(*premise)) for premise in premises])
+        term = conclude(*[draw(derive(*premise)) for premise in premises])
+        if (term.dom, term.cod) != (dom, cod):
+            raise AxiomError(
+                f"{chosen} built {term} for {dom} ⊢ {cod}.")
+        return term
 
     @st.composite
     def arrows(draw):
@@ -862,10 +986,11 @@ class Op:
         if self.name in ("over", "under"):
             if size(part) != 1 or not getattr(part, "is_exp", False):
                 return None
-            base, exponent = part.base, part.exponent
-            if not getattr(part, "is_" + self.name):
-                return None
-            return bind(bind(env, self.var, base), self.other, exponent)
+            bound = bind(env, self.var, part.base)
+            bound = None if bound is None\
+                else bind(bound, self.other, part.exponent)
+            return bound if bound is not None and self.value(bound) == part\
+                else None
         try:
             candidate = part.delay(-1) if self.name == "delay"\
                 else getattr(part, self.INVERSES[self.name])
@@ -926,6 +1051,13 @@ class Pattern(tuple):
     def fixed(self) -> bool:
         """ Whether every item has a length known before matching. """
         return all(var.kind in ("atom", "pair") for var in self.vars)
+
+    @property
+    def length(self) -> int:
+        """ The length of the types a :attr:`fixed` pattern stands for. """
+        return sum(
+            Var.LENGTHS[(item if isinstance(item, Var) else item.var).kind][0]
+            for item in self)
 
     def match(self, typ, env: dict = None):
         """
