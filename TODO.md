@@ -64,3 +64,18 @@ Rough edges met on the way, each worth an issue:
 > is this still as efficient as the previous shape implementation?
 
 - [x] measured: `bifunctoriality` 15.7 → 46 ms per example, the predicate rejecting whole tuples the wrappers filtered arrow by arrow; a `Subspace` carries the generation parameters, `connected` draws no closed component, 13.2 ms after
+
+## Round: metavariables as type parameters
+
+> instead of defining a bunch of variables at the top of abc, define variables using generic syntax like
+> ```
+>     @axiom
+>     def composition_cod_typing[A: C0, B: C0, C: C0](cls, f: C1[A, B], g: C1[B, C]) -> ...
+> # and
+>     @axiom
+>     def feedback_joining[A: C0, M: C0](cls, f: C1[A @ M.d, A @ M], mem: M) -> ...
+> ```
+
+- [WIP] @claude-3f440127-2026-09-12 23:59 a law's metavariables are its type parameters, their kind the bound: `C0` a type, `Atom[C0]`, `NonEmpty[C0]`, `Pair[C0]`; `M.d` is the delay; rules read their conclusion and premises off annotated `dom`, `cod` and premise parameters the same way; tests
+- [ ] every axiom and rule of `discopy.abc` declared with type parameters, the module-level metavariables gone
+- [ ] the matrix green, docs, CHANGELOG, `uv run pflake8 discopy`, `uv run coverage run -m pytest`, `uv run pytest proptest/ -n auto -p no:benchmark`
