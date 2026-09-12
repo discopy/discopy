@@ -50,3 +50,11 @@ Rough edges met on the way, each worth an issue:
 - [x] `@leaf` and `@rule` from patterns, with the hint derived from the conclusion pattern; the structural rules of `discopy.abc` restated as patterns, hand-written hints gone; `search` checks the sequent a rule claims
 - [x] `Shape` with declared premises and returns, validator and strategy generic; the arrow shapes restated as patterns, `Grid` and the bespoke shape classes gone
 - [x] the matrix green, docs autosummary, CHANGELOG, `uv run pflake8 discopy`, `uv run coverage run -m pytest`, `uv run pytest proptest/ -n auto -p no:benchmark`
+
+## Round: sequents from annotations
+
+> extract the sequent pattern from the type signature of axioms, we shouldn't need any shape anymore. everything should be constructed from annotations
+
+- [WIP] @claude-3f440127-2026-09-12 15:53 `Axiom.strategy` draws every argument from its annotation: `C1[A, B]` an arrow of that sequent, a `Var` an object of its kind, shared metavariables drawn once; `weaken` takes a predicate on the equation; tests
+- [ ] every axiom of `discopy.abc` annotated with its sequents, `Shape`, `Atomic`, `NonEmpty` and `BoundaryConnected` gone, the connected subspace a predicate; module declarations and tests follow
+- [ ] the matrix green, docs, CHANGELOG, `uv run pflake8 discopy`, `uv run coverage run -m pytest`, `uv run pytest proptest/ -n auto -p no:benchmark`
