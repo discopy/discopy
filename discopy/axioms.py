@@ -749,6 +749,277 @@ until it implements its own.
 """
 
 
+class Var:
+    """
+    A metavariable of a sequent pattern, standing for a type, an atom, a
+    pair of atoms or a non-empty type according to its ``kind``; ``@``
+    concatenates it into a :class:`Pattern`, and ``.r``, ``.l``,
+    ``.delay()``, ``<<`` and ``>>`` derive the adjoints, delay and
+    exponentials of what it stands for.
+
+    >>> X, A = Var.atom('X'), Var.type('A')
+    >>> A @ X @ X.r
+    Pattern(A, X, X.r)
+    """
+    LENGTHS = {"atom": (1, ), "pair": (2, ), "type": None, "nonempty": None}
+
+    def __init__(self, name: str, kind: str = "type"):
+        if kind not in self.LENGTHS:
+            raise ValueError(f"Unknown kind of metavariable: {kind!r}.")
+        self.name, self.kind = name, kind
+
+    @classmethod
+    def type(cls, name: str) -> Var:
+        """ A metavariable for any type. """
+        return cls(name, "type")
+
+    @classmethod
+    def atom(cls, name: str) -> Var:
+        """ A metavariable for an atomic type. """
+        return cls(name, "atom")
+
+    @classmethod
+    def pair(cls, name: str) -> Var:
+        """ A metavariable for two atoms. """
+        return cls(name, "pair")
+
+    @classmethod
+    def nonempty(cls, name: str) -> Var:
+        """ A metavariable for a non-empty type. """
+        return cls(name, "nonempty")
+
+    def lengths(self, typ, position: int) -> tuple[int, ...]:
+        """ The lengths this metavariable may take from a position on. """
+        remaining = size(typ) - position
+        if self.kind == "type":
+            return tuple(range(remaining + 1))
+        if self.kind == "nonempty":
+            return tuple(range(1, remaining + 1))
+        return tuple(n for n in self.LENGTHS[self.kind] if n <= remaining)
+
+    def __repr__(self):
+        return self.name
+
+    def __matmul__(self, other) -> Pattern:
+        return Pattern((self, )) @ other
+
+    r = property(lambda self: Op(self, "r"))
+    l = property(lambda self: Op(self, "l"))  # noqa: E741
+
+    def delay(self) -> Op:
+        """ The delay of what the metavariable stands for. """
+        return Op(self, "delay")
+
+    def __lshift__(self, other: Var) -> Op:
+        return Op(self, "over", other)
+
+    def __rshift__(self, other: Var) -> Op:
+        return Op(other, "under", self)
+
+
+class Op:
+    """
+    A derived item of a sequent pattern: the left or right adjoint, the
+    delay, or an exponential of what a :class:`Var` stands for, e.g.
+    ``X.r`` or ``B << E`` for the base ``B`` to the exponent ``E``.
+    """
+    INVERSES = {"r": "l", "l": "r"}
+
+    def __init__(self, var: Var, name: str, other: Var = None):
+        self.var, self.name, self.other = var, name, other
+
+    def __repr__(self):
+        if self.name == "over":
+            return f"({self.var} << {self.other})"
+        if self.name == "under":
+            return f"({self.other} >> {self.var})"
+        suffix = "()" if self.name == "delay" else ""
+        return f"{self.var}.{self.name}{suffix}"
+
+    def __matmul__(self, other) -> Pattern:
+        return Pattern((self, )) @ other
+
+    @property
+    def vars(self) -> tuple[Var, ...]:
+        return (self.var, ) if self.other is None else (self.var, self.other)
+
+    def value(self, env: dict):
+        """ What the item stands for, given the values of its variables. """
+        base = env[self.var.name]
+        if self.name == "over":
+            return base << env[self.other.name]
+        if self.name == "under":
+            return env[self.other.name] >> base
+        if self.name == "delay":
+            return base.delay()
+        return getattr(base, self.name)
+
+    def invert(self, part, env: dict) -> dict | None:
+        """
+        The environment binding the variables so that the item stands for
+        ``part``, extending ``env`` consistently, or :obj:`None`.
+        """
+        if self.name in ("over", "under"):
+            if size(part) != 1 or not getattr(part, "is_exp", False):
+                return None
+            base, exponent = part.base, part.exponent
+            if not getattr(part, "is_" + self.name):
+                return None
+            return bind(bind(env, self.var, base), self.other, exponent)
+        try:
+            candidate = part.delay(-1) if self.name == "delay"\
+                else getattr(part, self.INVERSES[self.name])
+        except (ValueError, NotImplementedError, AxiomError):
+            return None
+        bound = bind(env, self.var, candidate)
+        return bound if bound is not None and self.value(bound) == part\
+            else None
+
+
+def bind(env: dict, var: Var, value) -> dict | None:
+    """ ``env`` with ``var`` bound to ``value``, or :obj:`None` on a clash. """
+    if var.name in env:
+        return env if env[var.name] == value else None
+    return dict(env, **{var.name: value})
+
+
+def size(typ) -> int:
+    """ The length of a type, one for an object that is not a sequence. """
+    return len(typ) if hasattr(typ, "__len__") else 1
+
+
+def part(typ, start: int, stop: int):
+    """ A slice of a type, the object itself when it is not a sequence. """
+    if hasattr(typ, "__len__"):
+        return typ[start:stop]
+    return typ if (start, stop) == (0, 1) else None
+
+
+class Pattern(tuple):
+    """
+    A pattern for one boundary of a sequent: a sequence of :class:`Var`
+    and :class:`Op` items, built with ``@``. It :meth:`match`es a type
+    by binding its variables, :meth:`instantiate`s from their values, and
+    gives a :meth:`strategy` drawing the unbound ones by kind.
+    """
+
+    def __new__(cls, items=()):
+        return super().__new__(cls, tuple(items))
+
+    def __repr__(self):
+        return f"Pattern({', '.join(map(repr, self))})"
+
+    def __matmul__(self, other) -> Pattern:
+        items = other if isinstance(other, tuple) else (other, )
+        return Pattern(tuple(self) + tuple(items))
+
+    @property
+    def vars(self) -> tuple[Var, ...]:
+        """ The variables of the pattern, in order of first occurrence. """
+        found = {}
+        for item in self:
+            for var in (item, ) if isinstance(item, Var) else item.vars:
+                found.setdefault(var.name, var)
+        return tuple(found.values())
+
+    @property
+    def fixed(self) -> bool:
+        """ Whether every item has a length known before matching. """
+        return all(var.kind in ("atom", "pair") for var in self.vars)
+
+    def match(self, typ, env: dict = None):
+        """
+        Yield every environment binding the variables so that the pattern
+        stands for ``typ``, extending ``env``: a type variable may take any
+        length, so there may be several, or none.
+        """
+        yield from self.matches(typ, 0, dict(env or {}))
+
+    def matches(self, typ, position: int, env: dict):
+        """ The environments matching the items from ``position`` on. """
+        if not self:
+            if position == size(typ):
+                yield env
+            return
+        item, rest = self[0], Pattern(self[1:])
+        for length, bound in item_bindings(item, typ, position, env):
+            yield from rest.matches(typ, position + length, bound)
+
+    def instantiate(self, env: dict, unit=None):
+        """ The type the pattern stands for, given all its variables. """
+        values = [
+            env[item.name] if isinstance(item, Var) else item.value(env)
+            for item in self]
+        if unit is None:
+            unit = values[0][:0] if values else next(iter(env.values()))[:0]
+        return unit.tensor(*values) if hasattr(unit, "tensor")\
+            else values[0]
+
+    def strategy(self, factory, env: dict = None):
+        """
+        A strategy for the types the pattern stands for, drawing each
+        unbound variable from the factory by its kind.
+        """
+        from hypothesis import strategies as st
+
+        @st.composite
+        def types(draw):
+            bound = draw_vars(draw, self.vars, factory, env)
+            return self.instantiate(bound, unit=unit_of(factory, bound))
+
+        return types()
+
+
+def item_bindings(item, typ, position: int, env: dict):
+    """ The lengths and environments an item can take at a position. """
+    if isinstance(item, Var):
+        if item.name in env:
+            value = env[item.name]
+            if part(typ, position, position + size(value)) == value:
+                yield size(value), env
+            return
+        for length in item.lengths(typ, position):
+            value = part(typ, position, position + length)
+            if value is not None:
+                yield length, dict(env, **{item.name: value})
+        return
+    if all(var.name in env for var in item.vars):
+        value = item.value(env)
+        if part(typ, position, position + size(value)) == value:
+            yield size(value), env
+        return
+    for length in item.var.lengths(typ, position):
+        value = part(typ, position, position + length)
+        bound = None if value is None else item.invert(value, env)
+        if bound is not None:
+            yield length, bound
+
+
+def draw_vars(draw, variables, factory, env: dict = None) -> dict:
+    """ Draw a value for each variable not already in ``env``, by kind. """
+    bound = dict(env or {})
+    for var in variables:
+        if var.name in bound:
+            continue
+        if var.kind == "atom":
+            bound[var.name] = draw(factory.atoms())
+        elif var.kind == "pair":
+            bound[var.name] = draw(factory.atoms()) @ draw(factory.atoms())
+        elif var.kind == "nonempty":
+            bound[var.name] = draw(factory.ob.strategy(min_length=1))
+        else:
+            bound[var.name] = draw(factory.ob.strategy())
+    return bound
+
+
+def unit_of(factory, env: dict):
+    """ The unit type of a factory, read off a bound value if there is one. """
+    for value in env.values():
+        if hasattr(value, "__len__"):
+            return value[:0]
+    return factory.ob() if hasattr(factory.ob, "tensor") else None
+
+
 def factory_of(shape: type) -> type:
     """
     The factory a shape draws its terms from: an unsubscripted shape has

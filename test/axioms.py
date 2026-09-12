@@ -399,3 +399,58 @@ def test_FeedbackJoining():
     shape = find(FeedbackJoining[feedback.Diagram].strategy(),
                  lambda value: value[1][:1] != value[1][1:])
     assert shape[0].cod[-2:] == shape[1]
+
+
+def test_pattern_matching():
+    from discopy import rigid
+    from discopy.axioms import Var, Pattern
+
+    X, Y = Var.atom('X'), Var.atom('Y')
+    A, B = Var.type('A'), Var.type('B')
+    a, b, c = map(rigid.Ty, "abc")
+    assert isinstance(X @ X.r, Pattern) and (X @ X.r).fixed
+    assert not (A @ X).fixed
+    assert list((X @ X.r).match(a @ a.r)) == [{"X": a}]
+    assert list((X @ X.r).match(a @ b.r)) == []
+    assert list((X @ X.l).match(a.r @ a)) == [{"X": a.r}]
+    assert list((X.r @ X).match(a.r @ a)) == [{"X": a}]
+    assert list((A @ X @ B).match(a @ b @ c)) == [
+        {"A": rigid.Ty(), "X": a, "B": b @ c},
+        {"A": a, "X": b, "B": c},
+        {"A": a @ b, "X": c, "B": rigid.Ty()}]
+    assert list((A @ A).match(a @ b @ a @ b)) == [{"A": a @ b}]
+    assert list(Pattern().match(rigid.Ty())) == [{}]
+    assert list((X @ Y).match(a)) == []
+    x = cat.Ob('x')
+    assert list(Pattern((A, )).match(x)) == [{"A": x}]
+
+
+def test_pattern_exponentials_and_delays():
+    from discopy import biclosed, feedback
+    from discopy.axioms import Var
+
+    B, E = Var.atom('B'), Var.atom('E')
+    x, y = map(biclosed.Ty, "xy")
+    assert list(((B << E) @ E).match((y << x) @ x)) == [{"B": y, "E": x}]
+    assert list(((B << E) @ E).match((y << x) @ y)) == []
+    assert list((E @ (E >> B)).match(x @ (x >> y))) == [{"E": x, "B": y}]
+    M, A = Var.pair('M'), Var.type('A')
+    u, v, w = map(feedback.Ty, "uvw")
+    assert list((A @ M.delay()).match(w @ (u @ v).delay())) == [
+        {"A": w, "M": u @ v}]
+    assert list((A @ M).match(w @ u @ v)) == [{"A": w, "M": u @ v}]
+
+
+def test_pattern_instantiation():
+    from discopy import rigid
+    from discopy.axioms import Var, Pattern
+
+    X, A = Var.atom('X'), Var.type('A')
+    a, b = map(rigid.Ty, "ab")
+    assert (A @ X @ X.r).instantiate({"A": a @ b, "X": a}) == a @ b @ a @ a.r
+    assert Pattern().instantiate({}, unit=rigid.Ty()) == rigid.Ty()
+    drawn = find(
+        (X @ X.r).strategy(rigid.Diagram), lambda value: len(value) == 2)
+    assert drawn[1:] == drawn[:1].r
+    assert find((A @ X).strategy(rigid.Diagram, {"X": a}),
+                lambda value: len(value) == 3)[2:] == a
