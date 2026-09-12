@@ -110,3 +110,10 @@ def test_strategy():
         Diagram.strategy(dom=x @ x.delay(), cod=x @ x),
         lambda value: any(isinstance(box, Feedback) for box in value.boxes))
     assert nested.cod == x @ x
+
+
+def test_discard_is_a_feedback_diagram():
+    x = Ty('x')
+    discard = Diagram.copy(x, n=0)
+    assert isinstance(discard, Diagram) and isinstance(discard, Discard)
+    assert (discard >> Diagram.id(Ty())).boxes == [discard]

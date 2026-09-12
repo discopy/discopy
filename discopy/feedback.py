@@ -513,6 +513,15 @@ class Merge(markov.Merge, Box):
         return type(self)(self.cod.delay(n_steps), len(self.dom))
 
 
+class Discard(markov.Discard, Copy):
+    """
+    A discard in a feedback diagram, i.e. a copy with no output.
+
+    Parameters:
+        x : The type to discard.
+    """
+
+
 class Head(monoidal.Bubble, Box):
     """
     The head of a feedback diagram, interpreted as the first element followed
@@ -688,6 +697,7 @@ Diagram.functor_factory = Functor
 Diagram.swap_factory = Swap
 Diagram.permutation_factory = Permutation
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
+Diagram.discard_factory = Discard
 Diagram.feedback_factory, Diagram.followed_by = Feedback, FollowedBy
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Id = Diagram.id

@@ -70,14 +70,10 @@ def test_strategy():
     from hypothesis import find
 
     from discopy import axioms
-    from discopy.traced import Trace
 
     axioms.assert_strategy_finds(Diagram, Swap, Cup, Cap)
     x = Diagram.ob('x')
-    traced = find(
+    swapped = find(
         Diagram.strategy(dom=x, cod=x),
-        lambda value: any(
-            isinstance(box, Trace)
-            and any(isinstance(inner, Cup) for inner in box.arg.boxes)
-            for box in value.boxes))
-    assert (traced.dom, traced.cod) == (x, x)
+        lambda value: any(isinstance(box, Swap) for box in value.boxes))
+    assert (swapped.dom, swapped.cod) == (x, x)
