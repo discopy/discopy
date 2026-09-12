@@ -773,6 +773,9 @@ CMap = cmap.CMap[Diagram]
 # NamedGeneric caches CMap[Diagram] by type parameter (abc.NamedGeneric),
 # and Diagram.to_map looks it up the same way, so a subclass here would be
 # invisible to to_map: attributes must land on the cached class itself.
+# CMap instances (built generically in cmap.py, with no host-specific
+# dtype of their own) have no dtype attribute; Diagram.to_quimb reads
+# self.dtype, so a class-level default of None keeps it callable here.
 CMap.dtype = None
 CMap.to_quimb = Diagram.to_quimb
 
