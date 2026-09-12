@@ -61,6 +61,16 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   does not evaluate back
   ([#562](https://github.com/discopy/discopy/issues/562)). Each level's
   test file dry-runs its laws with `assert_axioms`.
+- A law declares its metavariables as its type parameters, their kind as
+  the bound: `composition_cod_typing[A: C0, B: C0, C: C0](cls, f: C1[A,
+  B], g: C1[B, C])`, `hexagon_left[X: Atom[C0], Y: Atom[C0], Z:
+  Atom[C0]](cls, x: X, y: Y, z: Z)`, `feedback_joining[A: C0, P:
+  Pair[C0]](cls, f: C1[A @ P.d, A @ P], mem: P)` with `.d` the delay. A
+  rule reads its conclusion off its `dom` and `cod` annotations and its
+  premises off the others the same way, `tracing_left[A: C0, B: C0, M:
+  Atom[C0]](cls, dom: A, cod: B, f: C1[M @ A, M @ B])`, `|` joining
+  alternative patterns; the procedural rules take `applies=`. The
+  metavariables declared at the top of `discopy.abc` are gone.
 - A law's arguments are drawn from its annotations: `C1` stands for the
   `Hom` of the category and `C1[A, B]` for the `Sequent` of its arrows
   from `A` to `B`, a `Var` annotates an object of its kind, and

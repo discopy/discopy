@@ -29,6 +29,10 @@ Summary
     Var
     Op
     Pattern
+    Kind
+    Atom
+    NonEmpty
+    Pair
     Testable
     Hom
     Sequent
@@ -125,12 +129,16 @@ premises=dict(f=(M @ A, M @ B)))`` for a trace: matching the conclusion
 binds the variables, the unbound ones are drawn by kind, and the hint a
 cut draws its middle from is derived from the conclusion, matched on
 either boundary of the sequent, in any window when its length is fixed,
-so that the rule fires on one side of the cut. A law states the sequents
-of its arguments in its annotations, ``bifunctoriality(cls, f: C1[A, B],
-g: C1[C, D], h: C1[B, U], k: C1[D, V])``, an object by its kind,
-``hexagon_left(cls, x: X, y: Y, z: Z)``, and :meth:`Axiom.strategy`
-draws the metavariables once and each arrow through the search of its
-sequent, so there is no shape to declare beside the law; a law compared
+so that the rule fires on one side of the cut. A law declares its
+metavariables as its type parameters, their :class:`Kind` as the bound,
+and states the sequents of its arguments in its annotations,
+``bifunctoriality[A: C0, B: C0, C: C0, D: C0, U: C0, V: C0](cls, f:
+C1[A, B], g: C1[C, D], h: C1[B, U], k: C1[D, V])``, an object by its
+kind, ``hexagon_left[X: Atom[C0], Y: Atom[C0], Z: Atom[C0]](cls, x: X,
+y: Y, z: Z)``; :meth:`Axiom.strategy` draws the metavariables once and
+each arrow through the search of its sequent, so nothing is declared
+beside the law. A rule reads its conclusion off its ``dom`` and ``cod``
+annotations and its premises off the others the same way. A law compared
 modulo a normal form is :meth:`Axiom.weaken`ed to :func:`connected`
 equations, where the normal form is defined. Identity, box, cut,
 tensoring and permuting, which split or shuffle arbitrarily, stay
@@ -427,15 +435,18 @@ class Axiom[**P, T]:
         category itself for :data:`typing.Self`, its objects for :obj:`C0`
         and, for :obj:`C1`, the :class:`Hom` of its arrows, which
         subscripts into a :class:`Sequent`: ``f: C1[A, B]`` is an arrow
-        from what ``A`` stands for to what ``B`` stands for. A monoid,
+        from what ``A`` stands for to what ``B`` stands for, the law's
+        type parameters standing for metavariables of the :class:`Kind`
+        their bound gives. A monoid,
         having no objects of its own, stands for both; a class of functors
         is the arrows of ``Cat``, and the category it maps from is
         reachable as ``Self.dom``.
         """
-        return {
-            "Self": self.category,
-            "C0": getattr(self.category, "ob", self.category),
-            "C1": Hom(getattr(self.category, "ar", self.category))}
+        return dict(
+            metavariables(inspect.unwrap(self.equation)),
+            Self=self.category,
+            C0=getattr(self.category, "ob", self.category),
+            C1=Hom(getattr(self.category, "ar", self.category)))
 
     def annotations(self) -> dict:
         """ The evaluated annotation of each generated parameter. """
@@ -627,6 +638,35 @@ def sequent(dom, cod) -> tuple[Pattern, Pattern]:
     return pattern(dom), pattern(cod)
 
 
+def sequents(dom, cod) -> list[tuple[Pattern, Pattern]]:
+    """ The sequent patterns of two boundaries, alternatives expanded. """
+    options = lambda side: tuple(side) if isinstance(side, Alternatives)\
+        else (pattern(side), )
+    return [(d, c) for d in options(dom) for c in options(cod)]
+
+
+def declared(function) -> tuple[dict, dict]:
+    """
+    What a rule declares in its annotations, evaluated with its type
+    parameters as metavariables: the sequent patterns of ``dom`` and
+    ``cod`` and the :class:`Sequent` of each premise, by name.
+    """
+    variables = metavariables(function)
+    scope = dict(variables, C1=Hom(None))
+    evaluated = {
+        parameter.name: eval(
+            parameter.annotation, function.__globals__, scope)
+        if isinstance(parameter.annotation, str) else parameter.annotation
+        for parameter in inspect.signature(function).parameters.values()
+        if parameter.annotation is not inspect.Parameter.empty}
+    conclusions = sequents(evaluated.pop("dom", ()), evaluated.pop("cod", ()))
+    premises = {
+        name: (annotation.dom, annotation.cod)
+        for name, annotation in evaluated.items()
+        if isinstance(annotation, Sequent)}
+    return conclusions, premises
+
+
 def matching(sequent, dom, cod, env: dict = None):
     """ The environments matching a sequent pattern against a sequent. """
     dom_pattern, cod_pattern = sequent
@@ -681,79 +721,87 @@ def hint_from(sequents) -> Callable:
     return shape
 
 
-def leaf[T](*sequents) -> Callable[[Callable], Rule[T]]:
+def leaf[T](*args) -> Rule[T] | Callable[[Callable], Rule[T]]:
     """
-    Decorate a leaf rule with the sequent patterns it concludes: a
-    function from the category, the sequent and the bound variables to a
-    single box, e.g. ``@leaf((X @ X.r, ()))`` for a cup. It applies to
-    sequents of size one that some pattern matches.
+    Decorate a leaf rule: bare, it reads the sequent patterns it concludes
+    off the annotations of ``dom`` and ``cod``, its metavariables being
+    its type parameters, e.g. ``def cupping[X: Atom[C0]](cls, dom: X @
+    X.r, cod: (), X)``; given sequent patterns instead, it concludes any
+    of them. The function builds a single box from the category, the
+    sequent and the bound variables, and the rule applies to sequents of
+    size one that some pattern matches.
     """
-    sequents = [sequent(*pair) for pair in sequents]
+    if len(args) == 1 and callable(args[0]):
+        conclusions, _ = declared(args[0])
+        return leaf(*conclusions)(args[0])
+    conclusions = [sequent(*pair) for pair in args]
 
     def decorate(build):
         def applies(cls, dom, cod, size):
             return size == 1 and any(
-                True for pair in sequents for _ in matching(pair, dom, cod))
+                True for pair in conclusions for _ in matching(pair, dom, cod))
 
         def premises(cls, draw, dom, cod, size, types):
             env = next(
-                env for pair in sequents for env in matching(pair, dom, cod))
+                env for pair in conclusions
+                for env in matching(pair, dom, cod))
             return [], lambda: build(cls, dom, cod, **env)
 
         premises.__name__, premises.__doc__ = build.__name__, build.__doc__
-        return Rule(premises, applies, shape=hint_from(sequents))
+        return Rule(premises, applies, shape=hint_from(conclusions))
 
     return decorate
 
 
 def rule[T](
-        applies: Callable | None = None, *, conclusion=None, premises=None,
-        boxes: int = 1) -> Callable[[Callable], Rule[T]]:
+        build: Callable = None, *, applies: Callable = None,
+        boxes: int = 1) -> Rule[T] | Callable[[Callable], Rule[T]]:
     """
-    Decorate an inference rule, either with the predicate saying when it
-    applies, e.g. ``@rule(lambda cls, dom, cod, size: size >= 2)`` for a
-    cut, the function then giving its premises; or with the sequent
-    pattern it concludes and the named sequent patterns of its premises,
-    e.g. ``@rule(conclusion=(A, B), premises=dict(f=(M @ A, M @ B)))``
-    for a trace, the function then concluding from the bound variables and
-    the proofs of the premises, counting the ``boxes`` it adds itself.
+    Decorate an inference rule: bare, it reads the sequent it concludes
+    off the annotations of ``dom`` and ``cod`` and its premises off the
+    other annotated parameters, its metavariables being its type
+    parameters, e.g. ``def tracing_left[A: C0, B: C0, M: Atom[C0]](cls,
+    dom: A, cod: B, f: C1[M @ A, M @ B], **env)``, the function concluding
+    from the bound variables and the proofs of the premises and counting
+    the ``boxes`` it adds itself. Given ``applies``, the predicate saying
+    when a rule applies, the function gives its premises instead, e.g.
+    ``@rule(applies=lambda cls, dom, cod, size: size >= 2)`` for a cut.
     """
     if applies is not None:
         return lambda premises: Rule(premises, applies)
-    conclusion = sequent(*conclusion)
-    premises = {name: sequent(*pair) for name, pair in premises.items()}
+    if build is None:
+        return lambda build: rule(build, boxes=boxes)
+    conclusions, premises = declared(build)
+    conclusion, = conclusions
     names = tuple(premises)
     variables = tuple({
         var.name: var for pair in premises.values()
         for side in pair for var in side.vars}.values())
 
-    def decorate(build):
-        def applies(cls, dom, cod, size):
-            return size >= boxes + len(names)\
-                and any(True for _ in matching(conclusion, dom, cod))
+    def applies_to(cls, dom, cod, size):
+        return size >= boxes + len(names)\
+            and any(True for _ in matching(conclusion, dom, cod))
 
-        def derive(cls, draw, dom, cod, size, types):
-            from hypothesis import strategies as st
+    def derive(cls, draw, dom, cod, size, types):
+        from hypothesis import strategies as st
 
-            env = draw_vars(
-                draw, variables, cls, next(matching(conclusion, dom, cod)))
-            unit = unit_of(cls, env)
-            sizes, left = [], size - boxes
-            for remaining in reversed(range(len(names))):
-                sizes.append(draw(st.integers(
-                    min_value=1, max_value=left - remaining)))
-                left -= sizes[-1]
-            sequents = [
-                (premises[name][0].instantiate(env, unit),
-                 premises[name][1].instantiate(env, unit), n)
-                for name, n in zip(names, sizes)]
-            return sequents, lambda *proofs: build(
-                cls, dom, cod, **env, **dict(zip(names, proofs)))
+        env = draw_vars(
+            draw, variables, cls, next(matching(conclusion, dom, cod)))
+        unit = unit_of(cls, env)
+        sizes, left = [], size - boxes
+        for remaining in reversed(range(len(names))):
+            sizes.append(draw(st.integers(
+                min_value=1, max_value=left - remaining)))
+            left -= sizes[-1]
+        drawn = [
+            (premises[name][0].instantiate(env, unit),
+             premises[name][1].instantiate(env, unit), n)
+            for name, n in zip(names, sizes)]
+        return drawn, lambda *proofs: build(
+            cls, dom, cod, **env, **dict(zip(names, proofs)))
 
-        derive.__name__, derive.__doc__ = build.__name__, build.__doc__
-        return Rule(derive, applies, shape=hint_from([conclusion]))
-
-    return decorate
+    derive.__name__, derive.__doc__ = build.__name__, build.__doc__
+    return Rule(derive, applies_to, shape=hint_from([conclusion]))
 
 
 def search(
@@ -1005,11 +1053,58 @@ class Var:
         """ The delay of what the metavariable stands for. """
         return Op(self, "delay")
 
+    d = property(delay)
+
+    def __or__(self, other) -> Alternatives:
+        return Alternatives((pattern(self), )) | other
+
     def __lshift__(self, other: Var) -> Op:
         return Op(self, "over", other)
 
     def __rshift__(self, other: Var) -> Op:
         return Op(other, "under", self)
+
+
+class Kind:
+    """
+    The kind of a metavariable, as the bound of a type parameter of a law
+    or a rule: ``[A: C0]`` stands for a type, ``[X: Atom[C0]]`` for an
+    atom, ``[N: NonEmpty[C0]]`` for a non-empty type and ``[P: Pair[C0]]``
+    for a pair of atoms.
+    """
+    kind = "type"
+
+    def __class_getitem__(cls, item):
+        return cls
+
+
+class Atom(Kind):
+    """ The kind of an atomic metavariable. """
+    kind = "atom"
+
+
+class NonEmpty(Kind):
+    """ The kind of a non-empty metavariable. """
+    kind = "nonempty"
+
+
+class Pair(Kind):
+    """ The kind of a metavariable for two atoms. """
+    kind = "pair"
+
+
+def metavariables(function) -> dict[str, Var]:
+    """
+    The metavariables a function declares as its type parameters, of the
+    kind its bound gives, a type when it has none.
+    """
+    def kind_of(parameter):
+        bound = getattr(parameter, "__bound__", None)
+        return getattr(bound, "kind", "type")
+
+    return {
+        parameter.__name__: Var(parameter.__name__, kind_of(parameter))
+        for parameter in getattr(function, "__type_params__", ())}
 
 
 class Op:
@@ -1033,6 +1128,9 @@ class Op:
 
     def __matmul__(self, other) -> Pattern:
         return Pattern((self, )) @ other
+
+    def __or__(self, other) -> Alternatives:
+        return Alternatives((pattern(self), )) | other
 
     @property
     def vars(self) -> tuple[Var, ...]:
@@ -1109,6 +1207,12 @@ class Pattern(tuple):
         items = other if isinstance(other, tuple) else (other, )
         return Pattern(tuple(self) + tuple(items))
 
+    def __or__(self, other) -> Alternatives:
+        return Alternatives((self, )) | other
+
+    def __ror__(self, other) -> Alternatives:
+        return Alternatives((pattern(other), )) | self
+
     @property
     def vars(self) -> tuple[Var, ...]:
         """ The variables of the pattern, in order of first occurrence. """
@@ -1173,6 +1277,17 @@ class Pattern(tuple):
             return self.instantiate(bound, unit=unit_of(factory, bound))
 
         return types()
+
+
+class Alternatives(tuple):
+    """ Patterns for one boundary, any of which may match, joined by ``|``. """
+
+    def __or__(self, other) -> Alternatives:
+        options = other if isinstance(other, Alternatives)\
+            else (pattern(other), )
+        return Alternatives(tuple(self) + tuple(options))
+
+    __ror__ = __or__
 
 
 def item_bindings(item, typ, position: int, env: dict):

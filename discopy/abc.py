@@ -62,22 +62,10 @@ from dataclasses import dataclass
 from typing import ClassVar
 
 from discopy.axioms import (  # noqa: F401
-    Axiom, Equation, Pattern, Rule, Serialisable, Testable, Var, axiom, leaf,
-    rule)
+    C0, C1, Atom, Axiom, Equation, NonEmpty, Pair, Pattern, Rule,
+    Serialisable, Testable, Var, axiom, leaf, rule)
 from discopy.utils import (  # noqa: F401
     NamedGeneric, classproperty, factory_name)
-
-
-A, B, C, D, U, V = (Var.type(name) for name in "ABCDUV")
-X, Y, Z, M, E = (Var.atom(name) for name in "XYZME")
-N, K, P = Var.nonempty("N"), Var.nonempty("K"), Var.pair("P")
-"""
-The metavariables of the sequent patterns the rules and the laws below
-are stated with, in the annotations of the laws: ``A`` to ``V`` stand
-for types, ``X``, ``Y`` and ``Z`` for atoms, ``M`` for an atom of memory,
-``E`` for an exponent, ``N`` and ``K`` for non-empty types and ``P`` for
-a pair of atoms. ``C1[A, B]`` is an arrow from ``A`` to ``B``.
-"""
 
 
 class Category[C0, C1: Category](Testable, ABC):
@@ -177,12 +165,12 @@ class Category[C0, C1: Category](Testable, ABC):
         return [rule.shape(cls, dom, cod, types)
                 for rule in cls.rules.values() if rule.shape is not None]
 
-    @rule(lambda cls, dom, cod, size: size == 0 and dom == cod)
+    @rule(applies=lambda cls, dom, cod, size: size == 0 and dom == cod)
     def identity(cls, draw, dom, cod, size, types):
         """ ``x ⊢ x`` with no box is the identity. """
         return [], lambda: cls.id(dom)
 
-    @rule(lambda cls, dom, cod, size: size == 1)
+    @rule(applies=lambda cls, dom, cod, size: size == 1)
     def box(cls, draw, dom, cod, size, types):
         """ ``x ⊢ y`` with one box is a fresh generator. """
         from hypothesis import strategies as st
@@ -190,7 +178,7 @@ class Category[C0, C1: Category](Testable, ABC):
         name = str(draw(st.uuids()))
         return [], lambda: cls.box_factory(name, dom, cod)
 
-    @rule(lambda cls, dom, cod, size: size >= 2)
+    @rule(applies=lambda cls, dom, cod, size: size >= 2)
     def cut(cls, draw, dom, cod, size, types):
         """
         ``x ⊢ z`` splits into ``x ⊢ y`` and ``y ⊢ z`` at a drawn middle,
@@ -211,7 +199,7 @@ class Category[C0, C1: Category](Testable, ABC):
             cls.id(f.dom).then(f), f, f.then(cls.id(f.cod)))
 
     @axiom
-    def associativity(
+    def associativity[A: C0, B: C0, C: C0, D: C0](
             cls, f: C1[A, B], g: C1[B, C], h: C1[C, D]) -> Equation[C1]:
         """ Associativity of composition. """
         return cls.equation_factory(
@@ -225,13 +213,13 @@ class Category[C0, C1: Category](Testable, ABC):
         return cls.ob.equation_factory(identity.dom, x, identity.cod)
 
     @axiom
-    def composition_dom_typing(
+    def composition_dom_typing[A: C0, B: C0, C: C0](
             cls, f: C1[A, B], g: C1[B, C]) -> Equation[C0]:
         """ Domain typing of composition. """
         return cls.ob.equation_factory(f.then(g).dom, f.dom)
 
     @axiom
-    def composition_cod_typing(
+    def composition_cod_typing[A: C0, B: C0, C: C0](
             cls, f: C1[A, B], g: C1[B, C]) -> Equation[C0]:
         """ Codomain typing of composition. """
         return cls.ob.equation_factory(f.then(g).cod, g.cod)
@@ -243,7 +231,7 @@ class Category[C0, C1: Category](Testable, ABC):
         return cls.equation_factory(f.dagger().dagger(), f)
 
     @axiom
-    def dagger_contravariance(
+    def dagger_contravariance[A: C0, B: C0, C: C0](
             cls, f: C1[A, B], g: C1[B, C]) -> Equation[C1]:
         """ The dagger reverses composition. """
         return cls.equation_factory(
@@ -422,7 +410,7 @@ class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](
                 ((dom[:i], cod[:j], k), (dom[i:], cod[j:], size - k))]
             if fits(*left) and fits(*right)]
 
-    @rule(lambda cls, dom, cod, size:
+    @rule(applies=lambda cls, dom, cod, size:
           size >= 1 and bool(cls.splits(dom, cod, size)))
     def tensoring(cls, draw, dom, cod, size, types):
         """ ``x @ x' ⊢ y @ y'`` splits into ``x ⊢ y`` and ``x' ⊢ y'``. """
@@ -432,7 +420,7 @@ class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](
         return premises, lambda f, g: f @ g
 
     @axiom
-    def bifunctoriality(
+    def bifunctoriality[A: C0, B: C0, C: C0, D: C0, U: C0, V: C0](
             cls, f: C1[A, B], g: C1[C, D], h: C1[B, U], k: C1[D, V]
             ) -> Equation[C1]:
         """ Bifunctoriality of the tensor. """
@@ -492,13 +480,15 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
             left : Whether to trace the wires on the left or right.
         """
 
-    @rule(conclusion=(A, B), premises=dict(f=(M @ A, M @ B)))
-    def tracing_left(cls, dom, cod, f, **env):
+    @rule
+    def tracing_left[A: C0, B: C0, M: Atom[C0]](
+            cls, dom: A, cod: B, f: C1[M @ A, M @ B], **env):
         """ ``x ⊢ y`` is the left trace of ``m @ x ⊢ m @ y`` over an atom. """
         return f.trace(left=True)
 
-    @rule(conclusion=(A, B), premises=dict(f=(A @ M, B @ M)))
-    def tracing_right(cls, dom, cod, f, **env):
+    @rule
+    def tracing_right[A: C0, B: C0, M: Atom[C0]](
+            cls, dom: A, cod: B, f: C1[A @ M, B @ M], **env):
         """ ``x ⊢ y`` is the right trace of ``x @ m ⊢ y @ m`` over an atom. """
         return f.trace()
 
@@ -510,21 +500,21 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
             f.trace(0), f, f.trace(0, left=True))
 
     @axiom
-    def trace_superposing_left(
+    def trace_superposing_left[X: Atom[C0], A: C0, B: C0](
             cls, f: C1[X @ A, X @ B], obj: C0) -> Equation[C1]:
         """ Left-oriented superposing. """
         return cls.equation_factory(
             (f @ obj).trace(left=True), f.trace(left=True) @ obj)
 
     @axiom
-    def trace_superposing_right(
+    def trace_superposing_right[X: Atom[C0], A: C0, B: C0](
             cls, f: C1[A @ X, B @ X], obj: C0) -> Equation[C1]:
         """ Right-oriented superposing. """
         return cls.equation_factory(
             (obj @ f).trace(), obj @ f.trace())
 
     @axiom
-    def trace_naturality_left(
+    def trace_naturality_left[N: NonEmpty[C0], A: C0, B: C0](
             cls, f: C1[N @ A, N @ B], x: N, g: C1[B, A]) -> Equation[C1]:
         """ Left-oriented trace naturality. """
         return cls.equation_factory(
@@ -532,7 +522,7 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
             g.then(f.trace(len(x), left=True)).then(g))
 
     @axiom
-    def trace_naturality_right(
+    def trace_naturality_right[N: NonEmpty[C0], A: C0, B: C0](
             cls, f: C1[A @ N, B @ N], x: N, g: C1[B, A]) -> Equation[C1]:
         """ Right-oriented trace naturality. """
         return cls.equation_factory(
@@ -540,7 +530,8 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
             g.then(f.trace(len(x))).then(g))
 
     @axiom
-    def trace_dinaturality_left(
+    def trace_dinaturality_left[
+            N: NonEmpty[C0], K: NonEmpty[C0], A: C0, B: C0](
             cls, f: C1[N @ A, K @ B], g: C1[K, N]) -> Equation[C1]:
         """ Left-oriented trace dinaturality. """
         source, target = g.cod, g.dom
@@ -550,7 +541,8 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
             (g @ base).then(f).trace(len(target), left=True))
 
     @axiom
-    def trace_dinaturality_right(
+    def trace_dinaturality_right[
+            N: NonEmpty[C0], K: NonEmpty[C0], A: C0, B: C0](
             cls, f: C1[A @ N, B @ K], g: C1[K, N]) -> Equation[C1]:
         """ Right-oriented trace dinaturality. """
         source, target = g.cod, g.dom
@@ -647,13 +639,15 @@ class BiclosedCategory[
             else exponent @ self >> self.ev(base, exponent, False)
         return result.uncurry(n - len(exponent), left)
 
-    @leaf(((Y << E) @ E, Y))
-    def evaluating_left(cls, dom, cod, Y, E):
+    @leaf
+    def evaluating_left[Y: Atom[C0], E: Atom[C0]](
+            cls, dom: (Y << E) @ E, cod: Y, Y, E):
         """ ``(y << e) @ e ⊢ y`` is a left evaluation. """
         return cls.ev(Y, E, left=True)
 
-    @leaf((E @ (E >> Y), Y))
-    def evaluating_right(cls, dom, cod, Y, E):
+    @leaf
+    def evaluating_right[Y: Atom[C0], E: Atom[C0]](
+            cls, dom: E @ (E >> Y), cod: Y, Y, E):
         """ ``e @ (e >> y) ⊢ y`` is a right evaluation. """
         return cls.ev(Y, E, left=False)
 
@@ -678,14 +672,14 @@ class BiclosedCategory[
             else (exponent @ curried).then(ev)
 
     @axiom
-    def currying_left(
+    def currying_left[A: C0, X: Atom[C0], E: Atom[C0]](
             cls, f: C1[A @ E, X], base: X, exponent: E) -> Equation[C1]:
         """ Left currying followed by evaluation. """
         return cls.equation_factory(
             cls.uncurry_composition(f, base, exponent, left=True), f)
 
     @axiom
-    def currying_right(
+    def currying_right[A: C0, X: Atom[C0], E: Atom[C0]](
             cls, f: C1[E @ A, X], base: X, exponent: E) -> Equation[C1]:
         """ Right currying followed by evaluation. """
         return cls.equation_factory(
@@ -813,13 +807,13 @@ class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
             >> self.dom.r @ self @ self.cod.r\
             >> self.dom.r @ self.cups(self.cod, self.cod.r)
 
-    @leaf((X @ X.r, ()))
-    def cupping(cls, dom, cod, X):
+    @leaf
+    def cupping[X: Atom[C0]](cls, dom: X @ X.r, cod: (), X):
         """ ``x @ x.r ⊢ ()`` is a cup, ``x.l @ x`` included. """
         return cls.cups(X, X.r)
 
-    @leaf(((), X @ X.l))
-    def capping(cls, dom, cod, X):
+    @leaf
+    def capping[X: Atom[C0]](cls, dom: (), cod: X @ X.l, X):
         """ ``() ⊢ x @ x.l`` is a cap, ``x.r @ x`` included. """
         return cls.caps(X, X.l)
 
@@ -839,7 +833,7 @@ class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
         return cls.equation_factory(snake_r, cls.id(x), snake_l)
 
     @axiom
-    def caps_coherence(
+    def caps_coherence[N: NonEmpty[C0], K: NonEmpty[C0]](
             cls, x: N, y: K) -> Equation[C1]:
         """ Monoidal coherence of caps. """
         return cls.equation_factory(
@@ -847,7 +841,7 @@ class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
             cls.caps(x, x.l).then(x @ cls.caps(y, y.l) @ x.l))
 
     @axiom
-    def rotate_contravariance(
+    def rotate_contravariance[A: C0, B: C0, C: C0](
             cls, f: C1[A, B], g: C1[B, C]) -> Equation[C1]:
         """ Rotation reverses composition. """
         return cls.equation_factory(
@@ -894,18 +888,19 @@ class BraidedCategory[C0, C1](MonoidalCategory[C0, C1]):
             right : The object on the right of the braid.
         """
 
-    @leaf((X @ Y, Y @ X))
-    def braiding(cls, dom, cod, X, Y):
+    @leaf
+    def braiding[X: Atom[C0], Y: Atom[C0]](cls, dom: X @ Y, cod: Y @ X, X, Y):
         """ ``x @ y ⊢ y @ x`` is a braid over. """
         return cls.braid(X, Y)
 
-    @leaf((X @ Y, Y @ X))
-    def braiding_under(cls, dom, cod, X, Y):
+    @leaf
+    def braiding_under[X: Atom[C0], Y: Atom[C0]](
+            cls, dom: X @ Y, cod: Y @ X, X, Y):
         """ ``x @ y ⊢ y @ x`` is a braid under, the dagger of one over. """
         return cls.braid(Y, X).dagger()
 
     @axiom
-    def hexagon_left(
+    def hexagon_left[X: Atom[C0], Y: Atom[C0], Z: Atom[C0]](
             cls, x: X, y: Y, z: Z) -> Equation[C1]:
         """ The left hexagon equation. """
         return cls.equation_factory(
@@ -913,7 +908,7 @@ class BraidedCategory[C0, C1](MonoidalCategory[C0, C1]):
             (cls.braid(x, y) @ z).then(y @ cls.braid(x, z)))
 
     @axiom
-    def hexagon_right(
+    def hexagon_right[X: Atom[C0], Y: Atom[C0], Z: Atom[C0]](
             cls, x: X, y: Y, z: Z) -> Equation[C1]:
         """ The right hexagon equation. """
         return cls.equation_factory(
@@ -980,7 +975,7 @@ class SymmetricCategory[C0, C1](BraidedCategory[C0, C1]):
             if perm != tuple(range(len(dom)))
             and dom[:0].tensor(*(dom[i:i + 1] for i in perm)) == cod]
 
-    @rule(lambda cls, dom, cod, size:
+    @rule(applies=lambda cls, dom, cod, size:
           size == 1 and len(dom) == len(cod) >= 2 and dom != cod
           and sorted(map(repr, dom)) == sorted(map(repr, cod)))
     def permuting(cls, draw, dom, cod, size, types):
@@ -1033,8 +1028,8 @@ class MarkovCategory[C0, C1](SymmetricCategory[C0, C1]):
             n : The number of copies.
         """
 
-    @leaf((X, ()), (X, X @ X), (X, X @ X @ X))
-    def copying(cls, dom, cod, X):
+    @leaf
+    def copying[X: Atom[C0]](cls, dom: X, cod: () | X @ X | X @ X @ X, X):
         """ ``x ⊢ x @ ... @ x`` is a copy, none or up to three. """
         return cls.copy(X, n=len(cod))
 
@@ -1112,8 +1107,9 @@ class FeedbackCategory[C0, C1](MarkovCategory[C0, C1]):
             mem : The memory type to trace over.
         """
 
-    @rule(conclusion=(A, B), premises=dict(f=(A @ M.delay(), B @ M)))
-    def feeding_back(cls, dom, cod, f, M, **env):
+    @rule
+    def feeding_back[A: C0, B: C0, M: Atom[C0]](
+            cls, dom: A, cod: B, f: C1[A @ M.d, B @ M], M, **env):
         """ ``x ⊢ y`` is the feedback of ``x @ m.delay() ⊢ y @ m``. """
         return f.feedback(mem=M)
 
@@ -1124,8 +1120,8 @@ class FeedbackCategory[C0, C1](MarkovCategory[C0, C1]):
         return cls.equation_factory(f.feedback(mem=cls.ob()), f)
 
     @axiom
-    def feedback_joining(
-            cls, f: C1[A @ P.delay(), A @ P], mem: P) -> Equation[C1]:
+    def feedback_joining[A: C0, P: Pair[C0]](
+            cls, f: C1[A @ P.d, A @ P], mem: P) -> Equation[C1]:
         """ Joining nested feedback loops. """
         return cls.equation_factory(
             f.feedback(mem=mem), f.feedback().feedback())
@@ -1154,13 +1150,13 @@ class BalancedCategory[C0, C1](
             dom : The object on which to take the twist.
         """
 
-    @leaf((X, X))
-    def twisting(cls, dom, cod, X):
+    @leaf
+    def twisting[X: Atom[C0]](cls, dom: X, cod: X, X):
         """ ``x ⊢ x`` is a twist. """
         return cls.twist(X)
 
     @axiom
-    def balanced_twist(
+    def balanced_twist[X: Atom[C0], Y: Atom[C0]](
             cls, x: X, y: Y) -> Equation[C1]:
         """ Compatibility of the twist and braid. """
         return cls.equation_factory(
@@ -1178,7 +1174,7 @@ class RibbonCategory[C0, C1](
     """
 
     @axiom
-    def twist_as_trace(
+    def twist_as_trace[X: Atom[C0]](
             cls, x: X) -> Equation[C1]:
         """ The twist as both orientations of a traced braid. """
         braid = cls.braid(x, x)
@@ -1238,7 +1234,7 @@ class HypergraphCategory[C0, C1](
         """
 
     @leaf(*(
-        (Pattern((X, ) * m), Pattern((X, ) * n))
+        (Pattern((Var.atom("X"), ) * m), Pattern((Var.atom("X"), ) * n))
         for m in range(5) for n in range(5)
         if 0 < m + n <= 4 and (m, n) != (1, 1)))
     def spidering(cls, dom, cod, X):

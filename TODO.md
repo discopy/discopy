@@ -76,6 +76,6 @@ Rough edges met on the way, each worth an issue:
 >     def feedback_joining[A: C0, M: C0](cls, f: C1[A @ M.d, A @ M], mem: M) -> ...
 > ```
 
-- [WIP] @claude-3f440127-2026-09-12 23:59 a law's metavariables are its type parameters, their kind the bound: `C0` a type, `Atom[C0]`, `NonEmpty[C0]`, `Pair[C0]`; `M.d` is the delay; rules read their conclusion and premises off annotated `dom`, `cod` and premise parameters the same way; tests
-- [ ] every axiom and rule of `discopy.abc` declared with type parameters, the module-level metavariables gone
+- [x] a law's metavariables are its type parameters, their kind the bound: `C0` a type, `Atom[C0]`, `NonEmpty[C0]`, `Pair[C0]`; `M.d` is the delay; rules read their conclusion and premises off annotated `dom`, `cod` and premise parameters the same way; tests
+- [x] every axiom and rule of `discopy.abc` declared with type parameters, the module-level metavariables gone
 - [ ] the matrix green, docs, CHANGELOG, `uv run pflake8 discopy`, `uv run coverage run -m pytest`, `uv run pytest proptest/ -n auto -p no:benchmark`

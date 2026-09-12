@@ -10,10 +10,13 @@ from pytest import raises
 
 from discopy import biclosed, cat, feedback, monoidal, traced
 from discopy.axioms import (
+    C0,
     C1,
+    Atom,
     Axiom,
     AxiomFailure,
     Equation,
+    Pair,
     Testable,
     Var,
     assert_axioms,
@@ -26,8 +29,6 @@ from discopy.cat import Arrow, Box, Functor, Ob
 from discopy.monoidal import Layer
 from discopy.utils import AxiomError
 
-A, B, C, D = (Var.type(name) for name in "ABCD")
-X, Y = Var.atom("X"), Var.atom("Y")
 
 
 def loops(equation: Equation) -> bool:
@@ -59,7 +60,8 @@ def test_strategy():
 def test_annotated_sequents():
     """ A law draws its arguments from the sequents its annotations give. """
     @axiom
-    def composing(cls, f: C1[A, B], g: C1[B, C]) -> Equation:
+    def composing[A: C0, B: C0, C: C0](
+            cls, f: C1[A, B], g: C1[B, C]) -> Equation:
         """ The domain of a composite. """
         return Equation(f.then(g).dom, f.dom)
 
@@ -72,7 +74,8 @@ def test_annotated_sequents():
         law.falsify()
 
     @axiom
-    def atoms(cls, x: X, y: Y, t: A) -> Equation:
+    def atoms[X: Atom[C0], Y: Atom[C0], T: C0](
+            cls, x: X, y: Y, t: T) -> Equation:
         """ Two atoms and a type. """
         return Equation(len(x @ y), 2)
 
@@ -81,13 +84,24 @@ def test_annotated_sequents():
     assert [len(value) for value in drawn[:2]] == [1, 1]
 
     @axiom
-    def shared(cls, f: C1[X @ A, X @ B], x: X) -> Equation:
+    def shared[X: Atom[C0], A: C0, B: C0](
+            cls, f: C1[X @ A, X @ B], x: X) -> Equation:
         """ A variable shared by an arrow and an object. """
         return Equation(f.dom[:1], x)
 
     law = shared.bind(monoidal.Diagram)
     f, x = find(law.strategy(), lambda args: args[0].boxes)
     assert f.dom[:1] == x == f.cod[:1] and law(f, x)
+
+    @axiom
+    def delayed[A: C0, P: Pair[C0]](
+            cls, f: C1[A @ P.d, A @ P], mem: P) -> Equation:
+        """ The delay written as ``.d``. """
+        return Equation(f.dom[-2:], mem.delay())
+
+    law = delayed.bind(feedback.Diagram)
+    f, mem = find(law.strategy(), lambda args: args[0].boxes)
+    assert len(mem) == 2 and law(f, mem)
     with raises(TypeError):
         resolve(int)
 
@@ -223,16 +237,14 @@ def test_rules_are_inherited_and_bound():
 
 def test_leaf_applies_only_on_its_shape():
     """ A leaf is offered exactly when its pattern matches the sequent. """
-    from discopy.axioms import Var, leaf, search
-
-    A = Var.type('A')
+    from discopy.axioms import leaf, search
 
     class Toy(Arrow):
         """ Loops on every object, and no cut. """
         cut = None
 
-        @leaf((A, A))
-        def loop(cls, dom, cod, A):
+        @leaf
+        def loop[A: C0](cls, dom: A, cod: A, A):
             return Box('loop', dom, cod)
 
     assert set(Toy.rules) == {"identity", "box", "loop"}
@@ -243,6 +255,30 @@ def test_leaf_applies_only_on_its_shape():
     with raises(NoSuchExample):
         find(search(Toy, dom=x, cod=y, min_leaves=1, max_leaves=1,
                     types=Ob.strategy()), is_loop)
+
+
+def test_rule_from_annotations():
+    """ A rule reads its conclusion and premises off its annotations. """
+    from discopy import traced
+    from discopy.axioms import rule
+
+    class Toy(traced.Diagram):
+        """ Traced diagrams with a rule of their own. """
+
+        @rule
+        def looping[A: C0, B: C0, M: Atom[C0]](
+                cls, dom: A, cod: B, f: C1[M @ A, M @ B], **env):
+            return f.trace(left=True)
+
+    looping = Toy.rules["looping"]
+    a, b = map(traced.Ty, "ab")
+    assert looping.applies(Toy, a, b, 2) and not looping.applies(Toy, a, b, 1)
+    from discopy.axioms import search
+    looped = find(
+        search(Toy, dom=a, cod=b, min_leaves=2, max_leaves=2,
+               types=traced.Ty.strategy(min_length=1)),
+        lambda value: any(isinstance(box, traced.Trace) for box in value.boxes))
+    assert (looped.dom, looped.cod) == (a, b)
 
 
 def test_rules_from_patterns():
