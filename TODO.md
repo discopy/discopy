@@ -79,3 +79,14 @@ Rough edges met on the way, each worth an issue:
 - [x] a law's metavariables are its type parameters, their kind the bound: `C0` a type, `Atom[C0]`, `NonEmpty[C0]`, `Pair[C0]`; `M.d` is the delay; rules read their conclusion and premises off annotated `dom`, `cod` and premise parameters the same way; tests
 - [x] every axiom and rule of `discopy.abc` declared with type parameters, the module-level metavariables gone
 - [x] the matrix green, docs, CHANGELOG, `uv run pflake8 discopy`, `uv run coverage run -m pytest`, `uv run pytest proptest/ -n auto -p no:benchmark`
+
+## Round: the fast profile and the pattern EDSL
+
+> * the full property testing suite is too expensive to run every time, create a new hypothesis profile that has the same hypothesis settings as the default except that when enabled, every axiom is tested once bound to its defining class, and avoid re-testing inherited axioms. this is the first thing you should do and from now you should use this fast profile.
+> * consolidate Pattern as a strongly typed edsl with a base class PatternBase + concrete dataclass + closed type alias Pattern[T] as a union
+> * it would make more sense if Axiom[P, T].strategy returned a st.SearchStrategy[Equation[T]], and instead have the input strategy stored as self.pattern.strategy. make Axiom and Pattern inherit from Testable
+
+- [WIP] @af1f3450-2026-09-13 10:20 the `fast` profile in `proptest/conftest.py`, the `dev` settings, under which the matrix keeps one cell per declaration of a law: the enrolled type nearest the class declaring it; `CONTRIBUTING.md`
+- [WIP] @af1f3450-2026-09-13 10:20 `PatternBase` and the concrete dataclasses `Var`, `Adjoint`, `Delay`, `Exp`, `Word`, `Alternatives`, `Sequent`, `Hom`, `Signature`, with `Pattern[T]` the closed union; `Op`, `pattern`, `sequent`, `sequents`, `matching`, `resolve` gone; tests
+- [WIP] @af1f3450-2026-09-13 10:20 `Axiom` and `PatternBase` subclass `Testable`; `Axiom.pattern` is the `Signature` of its annotations and `Axiom.strategy` maps its strategy to equations; `falsify` returns the equation; the matrix and `assert_axioms` follow
+- [ ] docs, CHANGELOG, `uv run pflake8 discopy`, `uv run coverage run -m pytest`, `HYPOTHESIS_PROFILE=fast uv run pytest proptest/ -n auto -p no:benchmark`
