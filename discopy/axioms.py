@@ -44,9 +44,7 @@ Summary
     TraceDinaturalityRight
     LeftCurrying
     RightCurrying
-    FeedbackVanishing
     FeedbackJoining
-    HomogeneousMemory
     Serialisable
 
 .. admonition:: Functions
@@ -901,17 +899,19 @@ class NonEmpty(Testable, NamedGeneric["factory"]):
 @dataclass(frozen=True)
 class BoundaryConnected(Testable, NamedGeneric["factory"]):
     """
-    A diagram whose boundary reaches every box, or a grid of such diagrams,
-    connected cell by cell: the subspace where a normal form is defined.
+    A diagram whose boundary reaches every box, or a shape of such
+    diagrams, connected cell by cell: the subspace where a normal form is
+    defined.
     """
 
     value: C1
 
     def __post_init__(self):
-        cells = self.value if isinstance(self.value, Grid)\
+        cells = self.value if isinstance(self.value, tuple)\
             else (self.value, )
         for cell in cells:
-            if not cell.is_boundary_connected:
+            if hasattr(cell, "is_boundary_connected")\
+                    and not cell.is_boundary_connected:
                 raise ValueError("Expected a boundary-connected diagram.")
 
     @classmethod
@@ -922,20 +922,30 @@ class BoundaryConnected(Testable, NamedGeneric["factory"]):
 
 
 class TraceSuperposing(Testable, NamedGeneric["factory"], tuple):
-    """ A traceable arrow and an object to superpose. """
+    """ An arrow traceable on either side, and an object to superpose. """
 
     def __new__(cls, traced: C1, obj: C0):
         traced.trace()
+        traced.trace(left=True)
         return super().__new__(cls, (traced, obj))
 
     @classmethod
-    def strategy(cls):
-        """Generate the identity on an atom and an arbitrary object."""
+    def strategy(cls, **params):
+        """Generate an arrow between boundaries sharing both end atoms."""
         from hypothesis import strategies as st
 
         factory = factory_of(cls)
-        return st.tuples(factory.atoms(), factory.ob.strategy()).map(
-            lambda pair: cls(factory.id(pair[0]), pair[1]))
+
+        @st.composite
+        def arguments(draw):
+            head, tail = draw(factory.atoms()), draw(factory.atoms())
+            dom, cod = draw(factory.ob.strategy()), draw(factory.ob.strategy())
+            traced = draw(factory.strategy(
+                dom=head @ dom @ tail, cod=head @ cod @ tail, min_leaves=1,
+                **params))
+            return cls(traced, draw(factory.ob.strategy()))
+
+        return arguments()
 
 
 class TraceSliding(Testable, NamedGeneric["factory"], tuple):
@@ -951,7 +961,7 @@ class TraceSliding(Testable, NamedGeneric["factory"], tuple):
         return super().__new__(cls, (traced, obj, sliding))
 
     @classmethod
-    def strategy(cls):
+    def strategy(cls, **params):
         """Generate the sliding arrow, then the traced one around it."""
         from hypothesis import strategies as st
 
@@ -964,8 +974,9 @@ class TraceSliding(Testable, NamedGeneric["factory"], tuple):
             traced_dom = obj @ cod if cls.left else cod @ obj
             traced_cod = obj @ dom if cls.left else dom @ obj
             traced = draw(factory.strategy(
-                dom=traced_dom, cod=traced_cod, min_leaves=1))
-            sliding = draw(factory.strategy(dom=dom, cod=cod, min_leaves=1))
+                dom=traced_dom, cod=traced_cod, min_leaves=1, **params))
+            sliding = draw(factory.strategy(
+                dom=dom, cod=cod, min_leaves=1, **params))
             return cls(traced, obj, sliding)
 
         return arguments()
@@ -1001,7 +1012,7 @@ class TraceDinaturality(Testable, NamedGeneric["factory"], tuple):
         return super().__new__(cls, (traced, sliding))
 
     @classmethod
-    def strategy(cls):
+    def strategy(cls, **params):
         """Generate an arrow sliding between the ends of a traced one."""
         from hypothesis import strategies as st
 
@@ -1016,9 +1027,9 @@ class TraceDinaturality(Testable, NamedGeneric["factory"], tuple):
             traced_dom = source @ base if cls.left else base @ source
             traced_cod = target @ cobase if cls.left else cobase @ target
             traced = draw(factory.strategy(
-                dom=traced_dom, cod=traced_cod, min_leaves=1))
+                dom=traced_dom, cod=traced_cod, min_leaves=1, **params))
             sliding = draw(factory.strategy(
-                dom=target, cod=source, min_leaves=1))
+                dom=target, cod=source, min_leaves=1, **params))
             return cls(traced, sliding)
 
         return arguments()
@@ -1037,49 +1048,43 @@ class TraceDinaturalityRight(TraceDinaturality):
 
 
 class LeftCurrying(Testable, NamedGeneric["factory"], tuple):
-    """ Arguments for left currying followed by evaluation. """
+    """
+    An arrow into a base with the exponent at one end of its domain, the
+    arguments of currying followed by evaluation.
+    """
 
     left = True
 
     def __new__(cls, arrow: C1, base: C0, exponent: C0):
-        exponential = base << exponent if cls.left else exponent >> base
-        arrow_dom = exponential @ exponent if cls.left\
-            else exponent @ exponential
-        if (arrow.dom, arrow.cod) != (arrow_dom, base):
-            raise ValueError("Expected an evaluation morphism.")
+        n = len(exponent)
+        end = arrow.dom[-n:] if cls.left else arrow.dom[:n]
+        if arrow.cod != base or not n or end != exponent:
+            raise ValueError("Expected the exponent at the end to curry.")
         return super().__new__(cls, (arrow, base, exponent))
 
     @classmethod
-    def strategy(cls):
-        """Generate an evaluation on two atoms."""
+    def strategy(cls, **params):
+        """Generate the base and exponent, then an arrow to curry."""
         from hypothesis import strategies as st
 
         factory = factory_of(cls)
-        return st.tuples(factory.atoms(), factory.atoms()).map(
-            lambda pair: cls(factory.ev(*pair, left=cls.left), *pair))
+
+        @st.composite
+        def arguments(draw):
+            base, exponent = draw(factory.atoms()), draw(factory.atoms())
+            rest = draw(factory.ob.strategy())
+            dom = rest @ exponent if cls.left else exponent @ rest
+            arrow = draw(factory.strategy(
+                dom=dom, cod=base, min_leaves=1, **params))
+            return cls(arrow, base, exponent)
+
+        return arguments()
 
 
 class RightCurrying(LeftCurrying):
     """ Arguments for right currying followed by evaluation. """
 
     left = False
-
-
-class FeedbackVanishing(Testable, NamedGeneric["factory"], tuple):
-    """ A feedback arrow together with the monoidal unit. """
-
-    def __new__(cls, arrow: C1, unit: C0):
-        if len(unit):
-            raise ValueError("Expected the monoidal unit.")
-        arrow.feedback(mem=unit)
-        return super().__new__(cls, (arrow, unit))
-
-    @classmethod
-    def strategy(cls, **params):
-        """Generate an arrow paired with the monoidal unit."""
-        factory = factory_of(cls)
-        return factory.strategy(**params).map(
-            lambda arrow: cls(arrow, factory.ob()))
 
 
 class FeedbackJoining(Testable, NamedGeneric["factory"], tuple):
@@ -1095,43 +1100,21 @@ class FeedbackJoining(Testable, NamedGeneric["factory"], tuple):
         return super().__new__(cls, (arrow, memory))
 
     @classmethod
-    def memories(cls):
-        """ A strategy for two units of memory. """
-        from hypothesis import strategies as st
-
-        factory = factory_of(cls)
-        return st.tuples(factory.atoms(), factory.atoms()).map(
-            lambda pair: pair[0] @ pair[1])
-
-    @classmethod
-    def strategy(cls):
-        """Generate the memory, then an arrow feeding it back."""
+    def strategy(cls, **params):
+        """Generate two units of memory, then an arrow feeding them back."""
         from hypothesis import strategies as st
 
         factory = factory_of(cls)
 
         @st.composite
         def arguments(draw):
-            obj, memory = draw(factory.ob.strategy()), draw(cls.memories())
+            obj = draw(factory.ob.strategy())
+            memory = draw(factory.atoms()) @ draw(factory.atoms())
             arrow = draw(factory.strategy(
-                dom=obj @ memory.delay(), cod=obj @ memory))
+                dom=obj @ memory.delay(), cod=obj @ memory, **params))
             return cls(arrow, memory)
 
         return arguments()
-
-
-class HomogeneousMemory(FeedbackJoining):
-    """ A feedback arrow whose units of memory are all the same object. """
-
-    def __new__(cls, arrow: C1, memory: C0):
-        if any(memory[i:i + 1] != memory[:1] for i in range(len(memory))):
-            raise ValueError("Expected homogeneous memory.")
-        return super().__new__(cls, arrow, memory)
-
-    @classmethod
-    def memories(cls):
-        """ A strategy for one unit of memory, twice. """
-        return factory_of(cls).atoms().map(lambda atom: atom @ atom)
 
 
 def resolve(annotation, **params) -> st.SearchStrategy:

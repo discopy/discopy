@@ -61,6 +61,17 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   does not evaluate back
   ([#562](https://github.com/discopy/discopy/issues/562)). Each level's
   test file dry-runs its laws with `assert_axioms`.
+- The shapes that only ever drew one canonical term draw a real arrow
+  through the search: `TraceSuperposing` drew the identity on an atom and
+  the currying shapes the evaluation itself, so superposing was tested on
+  identities and currying on `ev` alone; they now draw any arrow
+  traceable on either side, resp. any arrow into the base with the
+  exponent at the end to curry. `FeedbackVanishing` is gone, the law
+  taking an arrow and the unit being a constant, and so is
+  `HomogeneousMemory`, which no law used. `BoundaryConnected` accepts a
+  shape of diagrams, and the rigid currying laws are weakened to it like
+  interchange is, the rigid normal form being partial on closed
+  components.
 - `feedback.Discard` and `closed.Merge`, the discard of a feedback
   diagram and the merge of a closed one: `feedback.Diagram.copy(x, 0)`
   built a `markov.Discard` and `closed.Diagram.copy(x).dagger()` a

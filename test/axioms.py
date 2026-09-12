@@ -21,9 +21,7 @@ from discopy.axioms import (
     ComposableTriple,
     Equation,
     FeedbackJoining,
-    FeedbackVanishing,
     Grid,
-    HomogeneousMemory,
     HorizontalPair,
     LeftCurrying,
     NonEmpty,
@@ -337,8 +335,9 @@ def test_TraceSuperposing():
     assert TraceSuperposing(traced.Id(x), y) == (traced.Id(x), y)
     with raises(AxiomError):
         TraceSuperposing(traced.Box('f', x, y), z)
-    find(TraceSuperposing[traced.Diagram].strategy(),
-         lambda value: len(value[1]) > 1)
+    superposed = find(TraceSuperposing[traced.Diagram].strategy(),
+                      lambda value: value[0].boxes and len(value[1]) > 1)
+    assert superposed[0].boxes
 
 
 def test_TraceNaturality():
@@ -374,24 +373,22 @@ def test_TraceDinaturality():
 
 
 def test_Currying():
-    x, y = map(biclosed.Ty, "xy")
-    for shape, left in ((LeftCurrying, True), (RightCurrying, False)):
-        evaluation = biclosed.Diagram.ev(x, y, left=left)
-        assert shape(evaluation, x, y) == (evaluation, x, y)
-        with raises(ValueError):
-            shape(evaluation, y, x)
-        find(shape[biclosed.Diagram].strategy(),
-             lambda value: value[1] != value[2])
-
-
-def test_FeedbackShapes():
-    x, y, z = map(feedback.Ty, "xyz")
-    f, unit = feedback.Box('f', x, x), feedback.Ty()
-    assert FeedbackVanishing(f, unit) == (f, unit)
+    x, y, z = map(biclosed.Ty, "xyz")
+    f, g = biclosed.Box('f', z @ y, x), biclosed.Box('g', y @ z, x)
+    assert LeftCurrying(f, x, y) == (f, x, y)
+    assert RightCurrying(g, x, y) == (g, x, y)
     with raises(ValueError):
-        FeedbackVanishing(f, x)
-    find(FeedbackVanishing[feedback.Diagram].strategy(),
-         lambda value: value[0].boxes)
+        LeftCurrying(g, x, y)
+    with raises(ValueError):
+        RightCurrying(f, x, y)
+    for shape in (LeftCurrying, RightCurrying):
+        drawn = find(shape[biclosed.Diagram].strategy(), lambda value:
+                     len(value[0].dom) > 1 and not value[0].dom.is_exp)
+        assert drawn[0].cod == drawn[1]
+
+
+def test_FeedbackJoining():
+    x, y, z = map(feedback.Ty, "xyz")
     memory = y @ z
     g = feedback.Box('g', x @ memory.delay(), x @ memory)
     assert FeedbackJoining(g, memory) == (g, memory)
@@ -402,9 +399,3 @@ def test_FeedbackShapes():
     shape = find(FeedbackJoining[feedback.Diagram].strategy(),
                  lambda value: value[1][:1] != value[1][1:])
     assert shape[0].cod[-2:] == shape[1]
-    m = feedback.Ty('m')
-    assert HomogeneousMemory(
-        feedback.Box('k', x @ (m @ m).delay(), x @ m @ m), m @ m)
-    with raises(ValueError):
-        HomogeneousMemory(g, memory)
-    find(HomogeneousMemory[feedback.Diagram].strategy(), lambda value: True)

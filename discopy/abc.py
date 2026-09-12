@@ -63,7 +63,7 @@ from typing import ClassVar
 
 from discopy.axioms import (  # noqa: F401
     Atomic, Axiom, ComposablePair, ComposableTriple, Equation, FeedbackJoining,
-    FeedbackVanishing, HorizontalPair, LeftCurrying, NonEmpty, RightCurrying,
+    HorizontalPair, LeftCurrying, NonEmpty, RightCurrying,
     Rule, Serialisable, Square, Testable, TraceDinaturalityLeft,
     TraceDinaturalityRight, TraceNaturalityLeft, TraceNaturalityRight,
     TraceSuperposing, axiom, leaf, rule)
@@ -1189,10 +1189,9 @@ class FeedbackCategory[C0, C1](MarkovCategory[C0, C1]):
 
     @axiom
     def feedback_vanishing(
-            cls, arguments: FeedbackVanishing[C1]) -> Equation[C1]:
+            cls, f: C1) -> Equation[C1]:
         """ Vanishing of feedback over the unit. """
-        f, unit = arguments
-        return cls.equation_factory(f.feedback(mem=unit), f)
+        return cls.equation_factory(f.feedback(mem=cls.ob()), f)
 
     @axiom
     def feedback_joining(
