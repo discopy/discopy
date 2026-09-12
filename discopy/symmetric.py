@@ -93,7 +93,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from discopy import monoidal, balanced, hypergraph, cmap, messages
-from discopy.abc import SymmetricCategory
+from discopy.abc import MonoidalCategory, SymmetricCategory
 from discopy.cat import factory
 from discopy.monoidal import Wire, Ty, Nat  # noqa: F401
 from discopy.python import finset
@@ -404,6 +404,10 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         """
         return self.to_hypergraph().depth()
 
+    bifunctoriality = MonoidalCategory.bifunctoriality
+
+    dagger_monoidality = MonoidalCategory.dagger_monoidality
+
 
 class Box(balanced.Box, Diagram):
     """
@@ -684,3 +688,6 @@ class Equation(monoidal.Equation):
     >>> assert Equation(Swap(x, y) >> Swap(y, x), Id(x @ y))
     """
     up_to = staticmethod(Diagram.to_hypergraph)
+
+
+Diagram.equation_factory = Equation

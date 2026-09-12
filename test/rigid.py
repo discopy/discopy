@@ -207,3 +207,9 @@ def test_strategy():
         lambda value: any(isinstance(box, Cup) for box in value.boxes)
         and any(isinstance(box, Cap) for box in value.boxes))
     assert (snake.dom, snake.cod) == (x, x)
+
+
+def test_axioms():
+    from discopy import axioms
+
+    axioms.assert_axioms(Diagram)

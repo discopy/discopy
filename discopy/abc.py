@@ -62,8 +62,11 @@ from dataclasses import dataclass
 from typing import ClassVar
 
 from discopy.axioms import (  # noqa: F401
-    Axiom, ComposablePair, ComposableTriple, Equation, Rule, Serialisable,
-    Testable, axiom, leaf, rule)
+    Atomic, Axiom, ComposablePair, ComposableTriple, Equation, FeedbackJoining,
+    FeedbackVanishing, HorizontalPair, LeftCurrying, NonEmpty, RightCurrying,
+    Rule, Serialisable, Square, Testable, TraceDinaturalityLeft,
+    TraceDinaturalityRight, TraceNaturalityLeft, TraceNaturalityRight,
+    TraceSuperposing, axiom, leaf, rule)
 from discopy.utils import (  # noqa: F401
     NamedGeneric, classproperty, factory_name)
 
@@ -423,6 +426,44 @@ class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](
         premises = list(draw(st.sampled_from(cls.splits(dom, cod, size))))
         return premises, lambda f, g: f @ g
 
+    @axiom
+    def bifunctoriality(
+            cls, square: Square[C1]) -> Equation[C1]:
+        """ Bifunctoriality of the tensor. """
+        f, g, h, k = square
+        return cls.equation_factory(
+            f @ g >> h @ k, (f >> h) @ (g >> k))
+
+    @axiom
+    def tensor_unitality(
+            cls, pair: HorizontalPair[C1]) -> Equation[C1]:
+        """ Preservation of identities by tensor. """
+        x, y = (cell.dom for cell in pair)
+        return cls.equation_factory(
+            cls.id(x) @ cls.id(y), cls.id(x @ y))
+
+    @axiom
+    def tensor_dom_typing(
+            cls, pair: HorizontalPair[C1]) -> Equation[C0]:
+        """ Domain typing of tensor. """
+        f, g = pair
+        return cls.ob.equation_factory((f @ g).dom, f.dom @ g.dom)
+
+    @axiom
+    def tensor_cod_typing(
+            cls, pair: HorizontalPair[C1]) -> Equation[C0]:
+        """ Codomain typing of tensor. """
+        f, g = pair
+        return cls.ob.equation_factory((f @ g).cod, f.cod @ g.cod)
+
+    @axiom
+    def dagger_monoidality(
+            cls, pair: HorizontalPair[C1]) -> Equation[C1]:
+        """ The dagger distributes over the tensor. """
+        f, g = pair
+        return cls.equation_factory(
+            (f @ g).dagger(), f.dagger() @ g.dagger())
+
 
 class PRO[C1: PRO](MonoidalCategory[Nat, C1]):
     """
@@ -459,6 +500,70 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
         premise = (memory @ dom, memory @ cod, size - 1) if left\
             else (dom @ memory, cod @ memory, size - 1)
         return [premise], lambda f: f.trace(left=left)
+
+    @axiom
+    def trace_vanishing(
+            cls, f: C1) -> Equation[C1]:
+        """ Vanishing of a trace over the unit. """
+        return cls.equation_factory(
+            f.trace(0), f, f.trace(0, left=True))
+
+    @axiom
+    def trace_superposing_left(
+            cls, pair: TraceSuperposing[C1]) -> Equation[C1]:
+        """ Left-oriented superposing. """
+        f, obj = pair
+        return cls.equation_factory(
+            (f @ obj).trace(left=True), f.trace(left=True) @ obj)
+
+    @axiom
+    def trace_superposing_right(
+            cls, pair: TraceSuperposing[C1]) -> Equation[C1]:
+        """ Right-oriented superposing. """
+        f, obj = pair
+        return cls.equation_factory(
+            (obj @ f).trace(), obj @ f.trace())
+
+    @axiom
+    def trace_naturality_left(
+            cls, sliding: TraceNaturalityLeft[C1]) -> Equation[C1]:
+        """ Left-oriented trace naturality. """
+        f, x, g = sliding
+        return cls.equation_factory(
+            (x @ g).then(f).then(x @ g).trace(len(x), left=True),
+            g.then(f.trace(len(x), left=True)).then(g))
+
+    @axiom
+    def trace_naturality_right(
+            cls, sliding: TraceNaturalityRight[C1]) -> Equation[C1]:
+        """ Right-oriented trace naturality. """
+        f, x, g = sliding
+        return cls.equation_factory(
+            (g @ x).then(f).then(g @ x).trace(len(x)),
+            g.then(f.trace(len(x))).then(g))
+
+    @axiom
+    def trace_dinaturality_left(
+            cls, sliding: TraceDinaturalityLeft[C1]) -> Equation[C1]:
+        """ Left-oriented trace dinaturality. """
+        f, g = sliding
+        source, target = g.cod, g.dom
+        base, cobase = f.dom[len(source):], f.cod[len(target):]
+        return cls.equation_factory(
+            f.then(g @ cobase).trace(len(source), left=True),
+            (g @ base).then(f).trace(len(target), left=True))
+
+    @axiom
+    def trace_dinaturality_right(
+            cls, sliding: TraceDinaturalityRight[C1]) -> Equation[C1]:
+        """ Right-oriented trace dinaturality. """
+        f, g = sliding
+        source, target = g.cod, g.dom
+        base = f.dom[:-len(source)] if len(source) else f.dom
+        cobase = f.cod[:-len(target)] if len(target) else f.cod
+        return cls.equation_factory(
+            f.then(cobase @ g).trace(len(source)),
+            (base @ g).then(f).trace(len(target)))
 
 
 class ResiduatedMonoid[C0, C1: ResiduatedMonoid](ColouredMonoid[C0, C1]):
@@ -569,6 +674,42 @@ class BiclosedCategory[
             lambda args: (args[0] << args[1]) @ args[1] if args[2]
             else args[1] @ (args[1] >> args[0]))
 
+    @classmethod
+    def uncurry_composition(
+            cls, f: C1, base: C0, exponent: C0, left: bool) -> C1:
+        """
+        Curry ``f`` then evaluate it back, i.e. whisker the currying with
+        ``exponent`` and compose with :meth:`ev`, the roundtrip that
+        :meth:`currying_left` and :meth:`currying_right` state equal to
+        ``f``.
+
+        Parameters:
+            f : The morphism to curry and evaluate back.
+            base : The base of the exponential, i.e. the codomain of ``f``.
+            exponent : The objects curried out of the domain of ``f``.
+            left : Whether to curry on the left or right.
+        """
+        curried = f.curry(left=left)
+        ev = cls.ev(base, exponent, left)
+        return (curried @ exponent).then(ev) if left\
+            else (exponent @ curried).then(ev)
+
+    @axiom
+    def currying_left(
+            cls, arguments: LeftCurrying[C1]) -> Equation[C1]:
+        """ Left currying followed by evaluation. """
+        f, base, exponent = arguments
+        return cls.equation_factory(
+            cls.uncurry_composition(f, base, exponent, left=True), f)
+
+    @axiom
+    def currying_right(
+            cls, arguments: RightCurrying[C1]) -> Equation[C1]:
+        """ Right currying followed by evaluation. """
+        f, base, exponent = arguments
+        return cls.equation_factory(
+            cls.uncurry_composition(f, base, exponent, left=False), f)
+
 
 class Pregroup[C0, C1: Pregroup](ResiduatedMonoid[C0, C1]):
     """
@@ -583,6 +724,12 @@ class Pregroup[C0, C1: Pregroup](ResiduatedMonoid[C0, C1]):
 
     def under(self, other: C1) -> C1:
         return other.r @ self
+
+    @axiom
+    def adjunction(
+            cls, x: C1) -> Equation[C1]:
+        """ The left and right adjoints are mutually inverse. """
+        return cls.equation_factory(x.l.r, x, x.r.l)
 
 
 class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
@@ -712,12 +859,57 @@ class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
     evaluating = BiclosedCategory.evaluating.inapplicable(
         "A rigid evaluation is a cup, which cupping reaches.")
 
+    @axiom
+    def snake_equations(
+            cls, x: C0) -> Equation[C1]:
+        """ The two snake equations. """
+        snake_r = (cls.id(x) @ cls.caps(x.r, x)).then(
+            cls.cups(x, x.r) @ cls.id(x))
+        snake_l = (cls.caps(x, x.l) @ cls.id(x)).then(
+            cls.id(x) @ cls.cups(x.l, x))
+        return cls.equation_factory(snake_r, cls.id(x), snake_l)
+
+    @axiom
+    def caps_coherence(
+            cls, x: NonEmpty[C0],
+            y: NonEmpty[C0]) -> Equation[C1]:
+        """ Monoidal coherence of caps. """
+        x, y = x.value, y.value
+        return cls.equation_factory(
+            cls.caps(x @ y, (x @ y).l),
+            cls.caps(x, x.l).then(x @ cls.caps(y, y.l) @ x.l))
+
+    @axiom
+    def rotate_contravariance(
+            cls, pair: ComposablePair[C1]) -> Equation[C1]:
+        """ Rotation reverses composition. """
+        f, g = pair
+        return cls.equation_factory(
+            f.then(g).rotate(), g.rotate().then(f.rotate()))
+
 
 class PivotalCategory[C0, C1](RigidCategory[C0, C1], TracedCategory[C0, C1]):
     """
     A pivotal category is a :class:`RigidCategory` where the left and right
     adjoints coincide, hence it is also a :class:`TracedCategory`.
     """
+
+    @axiom
+    def self_dual(
+            cls, x: C0) -> Equation[C0]:
+        """ Equality of left and right adjoints. """
+        return cls.ob.equation_factory(x.r, x.l)
+
+    @axiom
+    def pivotality(
+            cls, f: C1) -> Equation[C1]:
+        """ Equality of left and right transposes. """
+        dom, cod = f.dom, f.cod
+        left_transpose = (cod.l @ cls.caps(dom, dom.l)).then(
+            cod.l @ f @ dom.l).then(cls.cups(cod.l, cod) @ dom.l)
+        right_transpose = (cls.caps(dom.r, dom) @ cod.r).then(
+            dom.r @ f @ cod.r).then(dom.r @ cls.cups(cod, cod.r))
+        return cls.equation_factory(left_transpose, right_transpose)
 
 
 class BraidedCategory[C0, C1](MonoidalCategory[C0, C1]):
@@ -759,6 +951,36 @@ class BraidedCategory[C0, C1](MonoidalCategory[C0, C1]):
             lambda pair: pair[0] @ pair[1])
         return st.one_of(st.sampled_from(swapped), pairs) if swapped\
             else pairs
+
+    @axiom
+    def hexagon_left(
+            cls, x: Atomic[C0],
+            y: Atomic[C0],
+            z: Atomic[C0]) -> Equation[C1]:
+        """ The left hexagon equation. """
+        x, y, z = x.value, y.value, z.value
+        return cls.equation_factory(
+            cls.braid(x, y @ z),
+            (cls.braid(x, y) @ z).then(y @ cls.braid(x, z)))
+
+    @axiom
+    def hexagon_right(
+            cls, x: Atomic[C0],
+            y: Atomic[C0],
+            z: Atomic[C0]) -> Equation[C1]:
+        """ The right hexagon equation. """
+        x, y, z = x.value, y.value, z.value
+        return cls.equation_factory(
+            cls.braid(x @ y, z),
+            (x @ cls.braid(y, z)).then(cls.braid(x, z) @ y))
+
+    @axiom
+    def braid_naturality(
+            cls, f: C1, g: C1) -> Equation[C1]:
+        """ Naturality of the braid. """
+        return cls.equation_factory(
+            f @ g >> cls.braid(f.cod, g.cod),
+            cls.braid(f.dom, g.dom) >> g @ f)
 
 
 class PROB[C1: PROB](PRO[C1], BraidedCategory[Nat, C1]):
@@ -834,6 +1056,13 @@ class SymmetricCategory[C0, C1](BraidedCategory[C0, C1]):
             if boundary[i:i + 1] != boundary[i + 1:i + 2]]
         return st.sampled_from(swapped) if swapped else st.nothing()
 
+    @axiom
+    def swap_inverse(
+            cls, x: C0, y: C0) -> Equation[C1]:
+        """ Involutivity of the swap. """
+        return cls.equation_factory(
+            cls.swap(x, y).then(cls.swap(y, x)), cls.id(x @ y))
+
 
 class PROP[C1: PROP](PROB[C1], SymmetricCategory[Nat, C1]):
     """
@@ -873,6 +1102,47 @@ class MarkovCategory[C0, C1](SymmetricCategory[C0, C1]):
 
         atoms = st.just(dom) if len(dom) == 1 else cls.atoms()
         return atoms.map(lambda x: x @ x)
+
+    @axiom
+    def copy_counitality(
+            cls, x: C0) -> Equation[C1]:
+        """ Counitality of copying. """
+        copy, discard = cls.copy(x), cls.copy(x, n=0)
+        return cls.equation_factory(
+            copy.then(discard @ x), cls.id(x),
+            copy.then(x @ discard))
+
+    @axiom
+    def copy_coassociativity(
+            cls, x: C0) -> Equation[C1]:
+        """ Coassociativity of copying. """
+        copy = cls.copy(x)
+        return cls.equation_factory(
+            copy.then(copy @ x), copy.then(x @ copy))
+
+    @axiom
+    def copy_cocommutativity(
+            cls, x: C0) -> Equation[C1]:
+        """ Cocommutativity of copying. """
+        copy = cls.copy(x)
+        return cls.equation_factory(copy.then(cls.swap(x, x)), copy)
+
+    @axiom
+    def discard_coherence(
+            cls, x: C0) -> Equation[C1]:
+        """ Monoidal coherence of discarding. """
+        return cls.equation_factory(
+            cls.copy(x @ x, n=0),
+            cls.copy(x, n=0) @ cls.copy(x, n=0))
+
+    @axiom
+    def copy_monoidal_coherence(
+            cls, x: C0) -> Equation[C1]:
+        """ Monoidal coherence of copying. """
+        return cls.equation_factory(
+            cls.copy(x @ x),
+            (cls.copy(x) @ cls.copy(x)).then(
+                x @ cls.swap(x, x) @ x))
 
 
 class ClosedCategory[C0, C1](BiclosedCategory[C0, C1], MarkovCategory[C0, C1]):
@@ -917,6 +1187,27 @@ class FeedbackCategory[C0, C1](MarkovCategory[C0, C1]):
         premise = (dom @ memory.delay(), cod @ memory, size - 1)
         return [premise], lambda f: f.feedback(mem=memory)
 
+    @axiom
+    def feedback_vanishing(
+            cls, arguments: FeedbackVanishing[C1]) -> Equation[C1]:
+        """ Vanishing of feedback over the unit. """
+        f, unit = arguments
+        return cls.equation_factory(f.feedback(mem=unit), f)
+
+    @axiom
+    def feedback_joining(
+            cls, arguments: FeedbackJoining[C1]) -> Equation[C1]:
+        """ Joining nested feedback loops. """
+        f, mem = arguments
+        return cls.equation_factory(
+            f.feedback(mem=mem), f.feedback().feedback())
+
+    dagger_involution = Category.dagger_involution.inapplicable(
+        "The delay of a feedback category is not reversible.")
+
+    dagger_contravariance = Category.dagger_contravariance.inapplicable(
+        "The delay of a feedback category is not reversible.")
+
 
 class BalancedCategory[C0, C1](
         BraidedCategory[C0, C1], TracedCategory[C0, C1]):
@@ -949,6 +1240,18 @@ class BalancedCategory[C0, C1](
                  for boundary in (dom, cod) for i in range(len(boundary))]
         return st.sampled_from(atoms) if atoms else st.nothing()
 
+    @axiom
+    def balanced_twist(
+            cls, x: Atomic[C0],
+            y: Atomic[C0]) -> Equation[C1]:
+        """ Compatibility of the twist and braid. """
+        x, y = x.value, y.value
+        return cls.equation_factory(
+            cls.twist(x @ y),
+            cls.braid(x, y).then(
+                cls.twist(y) @ cls.twist(x)).then(
+                    cls.braid(y, x)))
+
 
 class RibbonCategory[C0, C1](
         PivotalCategory[C0, C1], BalancedCategory[C0, C1]):
@@ -956,6 +1259,15 @@ class RibbonCategory[C0, C1](
     A ribbon category is a :class:`PivotalCategory` which is also a
     :class:`BalancedCategory`, i.e. where diagrams can draw knots and links.
     """
+
+    @axiom
+    def twist_as_trace(
+            cls, x: Atomic[C0]) -> Equation[C1]:
+        """ The twist as both orientations of a traced braid. """
+        x = x.value
+        braid = cls.braid(x, x)
+        return cls.equation_factory(
+            braid.trace(left=True), cls.twist(x), braid.trace())
 
 
 class CompactCategory[C0, C1](
@@ -971,6 +1283,22 @@ class CompactCategory[C0, C1](
 
     twisting = BalancedCategory.twisting.inapplicable(
         "The twist is the identity.")
+
+    @axiom
+    def reidemeister_1_cap(
+            cls, x: C0) -> Equation[C1]:
+        """ Reidemeister move 1 for caps. """
+        return cls.equation_factory(
+            cls.caps(x, x.r).then(cls.swap(x, x.r)),
+            cls.caps(x.r, x))
+
+    @axiom
+    def reidemeister_1_cup(
+            cls, x: C0) -> Equation[C1]:
+        """ Reidemeister move 1 for cups. """
+        return cls.equation_factory(
+            cls.swap(x, x.r).then(cls.cups(x.r, x)),
+            cls.cups(x, x.r))
 
 
 class HypergraphCategory[C0, C1](

@@ -374,3 +374,6 @@ Id = Diagram.id
 
 class Equation(braided.Equation):
     """ The :class:`braided.Equation` of balanced diagrams. """
+
+
+Diagram.equation_factory = Equation

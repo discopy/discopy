@@ -117,3 +117,9 @@ def test_discard_is_a_feedback_diagram():
     discard = Diagram.copy(x, n=0)
     assert isinstance(discard, Diagram) and isinstance(discard, Discard)
     assert (discard >> Diagram.id(Ty())).boxes == [discard]
+
+
+def test_axioms():
+    from discopy import axioms
+
+    axioms.assert_axioms(Diagram)

@@ -148,7 +148,7 @@ from __future__ import annotations
 
 from discopy import monoidal, braided, markov, hypergraph
 from discopy.axioms import GENERATORS, no_strategy
-from discopy.abc import Category, FeedbackCategory, TracedCategory
+from discopy.abc import FeedbackCategory, TracedCategory
 from discopy.utils import (
     deprecated_alias,
     factory, factory_name, assert_isinstance, AxiomError,
@@ -354,13 +354,6 @@ class Diagram(markov.Diagram, FeedbackCategory):
     .. image:: /_static/feedback/feedback-random-walk.svg
         :align: center
     """
-    dagger_involution = Category.dagger_involution.failing(
-        "The dagger of a feedback box is built by the generic constructor, "
-        "which Feedback does not take (#742).")
-    dagger_contravariance = Category.dagger_contravariance.failing(
-        "The dagger of a feedback box is built by the generic constructor, "
-        "which Feedback does not take (#742).")
-
     tracing = TracedCategory.tracing.inapplicable(
         "A feedback category feeds back rather than traces: the trace a "
         "feedback diagram inherits from markov builds a markov.Trace that "
@@ -424,6 +417,12 @@ class Diagram(markov.Diagram, FeedbackCategory):
         return Tail(self)
 
     d = Wire.d
+
+    dagger_monoidality = FeedbackCategory.dagger_monoidality
+
+    feedback_joining = FeedbackCategory.feedback_joining.failing(
+        "feedback unrolls heterogeneous memory in the wrong order, so it "
+        "refuses to build the joined loop at all (#606).")
 
 
 class Box(markov.Box, Diagram):
@@ -720,6 +719,9 @@ Id = Diagram.id
 class Equation(markov.Equation):
     """ The :class:`markov.Equation` of feedback diagrams. """
     up_to = staticmethod(Diagram.to_hypergraph)
+
+
+Diagram.equation_factory = Equation
 
 
 __getattr__ = deprecated_alias(__name__, {"Ob": "Wire"})

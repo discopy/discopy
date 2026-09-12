@@ -84,3 +84,9 @@ def test_strategy():
         lambda value: any(
             isinstance(box, Copy) and not box.cod for box in value.boxes))
     assert (discarding.dom, discarding.cod) == (x, x)
+
+
+def test_axioms():
+    from discopy import axioms
+
+    axioms.assert_axioms(Diagram)

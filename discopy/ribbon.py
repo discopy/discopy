@@ -155,6 +155,9 @@ class Diagram(pivotal.Diagram, balanced.Diagram, RibbonCategory):
         """
         return self.to_braided(width, colour)
 
+    twist_as_trace = RibbonCategory.twist_as_trace.failing(
+        "The traced braid does not reduce to the twist.")
+
 
 class Box(pivotal.Box, balanced.Box, Diagram):
     """
@@ -371,3 +374,6 @@ Id = Diagram.id
 
 class Equation(pivotal.Equation):
     """ The :class:`pivotal.Equation` of ribbon diagrams. """
+
+
+Diagram.equation_factory = Equation

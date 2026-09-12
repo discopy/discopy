@@ -751,6 +751,18 @@ until it implements its own.
 """
 
 
+def factory_of(shape: type) -> type:
+    """
+    The factory a shape draws its terms from: an unsubscripted shape has
+    none, so it has no strategy either, e.g. ``Square`` generates nothing
+    where ``Square[Diagram]`` generates squares of diagrams.
+    """
+    if not isinstance(shape.factory, type):
+        raise NotImplementedError(
+            f"No search strategy implemented for {shape.__name__}")
+    return shape.factory
+
+
 class Grid(Testable, NamedGeneric["factory"], tuple):
     """ A rectangular grid with composable rows and columns. """
 
@@ -794,10 +806,7 @@ class Grid(Testable, NamedGeneric["factory"], tuple):
         """
         from hypothesis import strategies as st
 
-        factory = cls.factory
-        if factory is None:
-            raise NotImplementedError(
-                f"No search strategy implemented for {cls.__name__}")
+        factory = factory_of(cls)
         dom, cod = params.pop("dom", None), params.pop("cod", None)
 
         @st.composite
@@ -868,9 +877,8 @@ class Atomic(Testable, NamedGeneric["factory"]):
     @classmethod
     def strategy(cls, **params):
         """Generate an object of length one."""
-        return resolve(
-            cls.factory, **{**params, "min_length": 1, "max_length": 1}
-        ).map(cls)
+        return resolve(factory_of(cls), **{
+            **params, "min_length": 1, "max_length": 1}).map(cls)
 
 
 @dataclass(frozen=True)
@@ -886,7 +894,8 @@ class NonEmpty(Testable, NamedGeneric["factory"]):
     @classmethod
     def strategy(cls, **params):
         """Generate an object of length at least one."""
-        return resolve(cls.factory, **{**params, "min_length": 1}).map(cls)
+        return resolve(
+            factory_of(cls), **{**params, "min_length": 1}).map(cls)
 
 
 @dataclass(frozen=True)
@@ -902,14 +911,14 @@ class BoundaryConnected(Testable, NamedGeneric["factory"]):
         cells = self.value if isinstance(self.value, Grid)\
             else (self.value, )
         for cell in cells:
-            if not cell.to_hypergraph().is_boundary_connected:
+            if not cell.is_boundary_connected:
                 raise ValueError("Expected a boundary-connected diagram.")
 
     @classmethod
     def strategy(cls, **params):
         """Generate from the factory restricted to connected diagrams."""
         return resolve(
-            cls.factory, boundary_connected=True, **params).map(cls)
+            factory_of(cls), boundary_connected=True, **params).map(cls)
 
 
 class TraceSuperposing(Testable, NamedGeneric["factory"], tuple):
@@ -924,7 +933,7 @@ class TraceSuperposing(Testable, NamedGeneric["factory"], tuple):
         """Generate the identity on an atom and an arbitrary object."""
         from hypothesis import strategies as st
 
-        factory = cls.factory
+        factory = factory_of(cls)
         return st.tuples(factory.atoms(), factory.ob.strategy()).map(
             lambda pair: cls(factory.id(pair[0]), pair[1]))
 
@@ -946,7 +955,7 @@ class TraceSliding(Testable, NamedGeneric["factory"], tuple):
         """Generate the sliding arrow, then the traced one around it."""
         from hypothesis import strategies as st
 
-        factory = cls.factory
+        factory = factory_of(cls)
 
         @st.composite
         def arguments(draw):
@@ -996,7 +1005,7 @@ class TraceDinaturality(Testable, NamedGeneric["factory"], tuple):
         """Generate an arrow sliding between the ends of a traced one."""
         from hypothesis import strategies as st
 
-        factory = cls.factory
+        factory = factory_of(cls)
 
         @st.composite
         def arguments(draw):
@@ -1045,7 +1054,7 @@ class LeftCurrying(Testable, NamedGeneric["factory"], tuple):
         """Generate an evaluation on two atoms."""
         from hypothesis import strategies as st
 
-        factory = cls.factory
+        factory = factory_of(cls)
         return st.tuples(factory.atoms(), factory.atoms()).map(
             lambda pair: cls(factory.ev(*pair, left=cls.left), *pair))
 
@@ -1068,7 +1077,7 @@ class FeedbackVanishing(Testable, NamedGeneric["factory"], tuple):
     @classmethod
     def strategy(cls, **params):
         """Generate an arrow paired with the monoidal unit."""
-        factory = cls.factory
+        factory = factory_of(cls)
         return factory.strategy(**params).map(
             lambda arrow: cls(arrow, factory.ob()))
 
@@ -1090,7 +1099,8 @@ class FeedbackJoining(Testable, NamedGeneric["factory"], tuple):
         """ A strategy for two units of memory. """
         from hypothesis import strategies as st
 
-        return st.tuples(cls.factory.atoms(), cls.factory.atoms()).map(
+        factory = factory_of(cls)
+        return st.tuples(factory.atoms(), factory.atoms()).map(
             lambda pair: pair[0] @ pair[1])
 
     @classmethod
@@ -1098,7 +1108,7 @@ class FeedbackJoining(Testable, NamedGeneric["factory"], tuple):
         """Generate the memory, then an arrow feeding it back."""
         from hypothesis import strategies as st
 
-        factory = cls.factory
+        factory = factory_of(cls)
 
         @st.composite
         def arguments(draw):
@@ -1121,7 +1131,7 @@ class HomogeneousMemory(FeedbackJoining):
     @classmethod
     def memories(cls):
         """ A strategy for one unit of memory, twice. """
-        return cls.factory.atoms().map(lambda atom: atom @ atom)
+        return factory_of(cls).atoms().map(lambda atom: atom @ atom)
 
 
 def resolve(annotation, **params) -> st.SearchStrategy:

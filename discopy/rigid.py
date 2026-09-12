@@ -667,6 +667,15 @@ class Diagram(biclosed.Diagram, RigidCategory):
         """
         return super().normal_form(**params)
 
+    snake_equations = RigidCategory.snake_equations.modulo(normal_form)
+
+    currying_left = RigidCategory.currying_left.modulo(normal_form)
+
+    currying_right = RigidCategory.currying_right.modulo(normal_form)
+
+    dagger_monoidality = RigidCategory.dagger_monoidality.inapplicable(
+        "Rigid cups and caps have no dagger, use pivotal instead.")
+
 
 class Box(biclosed.Box, Diagram):
     """
@@ -916,6 +925,9 @@ Id = Diagram.id
 
 class Equation(biclosed.Equation):
     """ The :class:`biclosed.Equation` of rigid diagrams. """
+
+
+Diagram.equation_factory = Equation
 
 
 __getattr__ = deprecated_alias(__name__, {"Ob": "Wire", "PRO": "Nat"})

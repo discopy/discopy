@@ -223,3 +223,9 @@ def test_merge_is_a_closed_diagram():
     merge = Diagram.copy(x).dagger()
     assert isinstance(merge, Diagram) and isinstance(merge, Merge)
     assert (Diagram.id(x @ x) >> merge).boxes == [merge]
+
+
+def test_axioms():
+    from discopy import axioms
+
+    axioms.assert_axioms(Diagram)

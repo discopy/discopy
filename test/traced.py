@@ -56,3 +56,9 @@ def test_strategy():
             isinstance(box, Trace) and len(box.arg.boxes) > 1
             for box in value.boxes))
     assert (nested.dom, nested.cod) == (x, y)
+
+
+def test_axioms():
+    from discopy import axioms
+
+    axioms.assert_axioms(Diagram)

@@ -788,3 +788,9 @@ def test_strategy():
 def test_transparent_colour_serialisation():
     colour = Colour()
     assert Colour.from_tree(colour.to_tree()) == colour
+
+
+def test_axioms():
+    from discopy import axioms
+
+    axioms.assert_axioms(Diagram)

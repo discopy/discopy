@@ -421,3 +421,9 @@ def test_strategy():
             isinstance(box, Permutation) and not isinstance(box, Swap)
             for box in value.boxes))
     assert shuffled.cod == z @ x @ y
+
+
+def test_axioms():
+    from discopy import axioms
+
+    axioms.assert_axioms(Diagram)

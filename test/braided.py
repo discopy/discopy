@@ -38,3 +38,9 @@ def test_dagger_braid_serialisation():
     x, y = Ty('x'), Ty('y')
     braid = Braid(x, y, is_dagger=True)
     assert from_tree(braid.to_tree()) == braid == loads(dumps(braid))
+
+
+def test_axioms():
+    from discopy import axioms
+
+    axioms.assert_axioms(Diagram)

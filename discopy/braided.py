@@ -159,6 +159,9 @@ class Diagram(monoidal.Diagram, BraidedCategory):
                       right=right_wires if left else right_wires[1:])
         return match.substitute(target)
 
+    braid_naturality = BraidedCategory.braid_naturality.failing(
+        "A free braid does not commute past a box.")
+
 
 class Box(monoidal.Box, Diagram):
     """
@@ -268,6 +271,9 @@ Id = Diagram.id
 
 class Equation(monoidal.Equation):
     """ The :class:`monoidal.Equation` of braided diagrams. """
+
+
+Diagram.equation_factory = Equation
 
 
 __getattr__ = deprecated_alias(__name__, {"Ob": "Wire"})

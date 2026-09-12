@@ -55,7 +55,8 @@ We also have its dagger and its transpose:
 from __future__ import annotations
 
 from discopy import cat, cmap, rigid, traced
-from discopy.abc import Category, PivotalCategory
+from discopy.abc import (
+    Category, MonoidalCategory, PivotalCategory, TracedCategory)
 from discopy.cat import factory
 from discopy.utils import deprecated_alias
 
@@ -190,6 +191,16 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
             >> diagram @ traced_wire.r\
             >> cod @ cls.cup_factory(traced_wire, traced_wire.r)
 
+    pivotality = PivotalCategory.pivotality.failing(
+        "The two transposes differ by a snake the normal form does not "
+        "close.")
+
+    trace_superposing_left = TracedCategory.trace_superposing_left
+
+    trace_superposing_right = TracedCategory.trace_superposing_right
+
+    dagger_monoidality = MonoidalCategory.dagger_monoidality
+
 
 class Box(rigid.Box, Diagram):
     """
@@ -272,6 +283,9 @@ Id = Diagram.id
 
 class Equation(rigid.Equation):
     """ The :class:`rigid.Equation` of pivotal diagrams. """
+
+
+Diagram.equation_factory = Equation
 
 
 __getattr__ = deprecated_alias(__name__, {"Ob": "Wire", "PRO": "Nat"})

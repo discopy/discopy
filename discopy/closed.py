@@ -347,3 +347,6 @@ Ty.abstraction_factory = Abstraction
 
 class Equation(markov.Equation):
     """ The :class:`markov.Equation` of closed diagrams. """
+
+
+Diagram.equation_factory = Equation

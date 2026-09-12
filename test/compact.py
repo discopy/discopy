@@ -77,3 +77,9 @@ def test_strategy():
         Diagram.strategy(dom=x, cod=x),
         lambda value: any(isinstance(box, Swap) for box in value.boxes))
     assert (swapped.dom, swapped.cod) == (x, x)
+
+
+def test_axioms():
+    from discopy import axioms
+
+    axioms.assert_axioms(Diagram)

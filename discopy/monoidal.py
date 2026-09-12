@@ -64,7 +64,9 @@ from warnings import warn
 from discopy import abc, cat, drawing, hypergraph, cmap, messages
 from discopy.abc import (
     ColouredMonoid, Monoid, MonoidalCategory, NamedGeneric)
-from discopy.axioms import GENERATORS, Serialisable, no_strategy, search
+from discopy.axioms import (
+    C1, GENERATORS, BoundaryConnected, HorizontalPair, Serialisable, Square,
+    no_strategy, search)
 from discopy.drawing import Drawing
 from discopy.config import (
     BOX_DRAWING_ATTRIBUTES, WIRE_DRAWING_ATTRIBUTES,
@@ -1013,7 +1015,7 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
             min_leaves=min_leaves, max_leaves=max_leaves)
         if boundary_connected:
             return diagrams.filter(
-                lambda diagram: diagram.to_hypergraph().is_boundary_connected)
+                lambda diagram: diagram.is_boundary_connected)
         scalars = search(
             cls, types=types, dom=cls.ob(), cod=cls.ob(),
             min_leaves=1, max_leaves=max_leaves)
@@ -1035,6 +1037,19 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
                 if not layer.boxes:
                     raise ValueError(messages.LAYERS_MUST_HAVE_A_BOX)
         super().__init__(inside, dom, cod, _scan=_scan)
+
+    @property
+    def is_boundary_connected(self) -> bool:
+        """
+        Whether the boundary reaches every box, read off the hypergraph;
+        a diagram with no hypergraph, e.g. one with a left-handed cup, is
+        not connected either: this is the subspace a normal form is
+        defined on.
+        """
+        try:
+            return self.to_hypergraph().is_boundary_connected
+        except AxiomError:
+            return False
 
     @property
     def size(self):
@@ -1480,6 +1495,12 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
             return cls.decode(from_tree(tree['dom']), zip(boxes, offsets))
         return super().from_tree(tree)
 
+    bifunctoriality = MonoidalCategory.bifunctoriality.modulo(
+        normal_form).weaken(square=BoundaryConnected[Square[C1]])
+
+    dagger_monoidality = MonoidalCategory.dagger_monoidality.modulo(
+        normal_form).weaken(pair=BoundaryConnected[HorizontalPair[C1]])
+
 
 class Box(cat.Box, Diagram):
     """
@@ -1897,6 +1918,10 @@ class Equation(cat.Equation, RichDisplay):
             params : Passed to :meth:`Diagram.draw`.
         """
         return self.to_drawing().draw(path=path, **params)
+
+
+Colour.equation_factory = cat.Equation
+Diagram.equation_factory = Equation
 
 
 Diagram.draw = drawing.draw

@@ -141,3 +141,9 @@ def test_strategy():
     from discopy import axioms
 
     axioms.assert_strategy_finds(Diagram, Eval)
+
+
+def test_axioms():
+    from discopy import axioms
+
+    axioms.assert_axioms(Diagram)

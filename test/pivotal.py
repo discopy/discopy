@@ -17,3 +17,9 @@ def test_strategy():
     axioms.assert_strategy_finds(Diagram, Cup, Cap)
     winding = find(Ty.strategy(min_length=1), lambda value: value.inside[0].z)
     assert winding.inside[0].z
+
+
+def test_axioms():
+    from discopy import axioms
+
+    axioms.assert_axioms(Diagram)
