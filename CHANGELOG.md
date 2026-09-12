@@ -42,6 +42,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `markov.Merge`, neither a diagram of its own category, which the copying
   rule met at once; `markov.Copy.dagger` and `markov.Merge.dagger` now go
   through the level's `merge_factory` and `copy_factory`.
+- A dagger braid reads back from its tree: `is_dagger` is one of
+  `braided.Braid`'s `serialised_attrs`, where the tree of `Braid(x, y,
+  is_dagger=True)` used to decode as the braid over, met by the search
+  once its braiding hint read the sequent.
 - `monoidal.Colour.from_tree` reads back the transparent colour, whose
   `name` its tree omits as the default. The laws every enrolled level now
   faces are classified where they break: `monoidal.Wire.repr_transparency`

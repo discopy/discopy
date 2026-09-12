@@ -185,6 +185,8 @@ class Braid(BinaryBoxConstructor, Box):
     :class:`Braid` is only defined for atomic types (i.e. of length 1).
     For complex types, use :meth:`Diagram.braid` instead.
     """
+    serialised_attrs = ('left', 'right', 'is_dagger')
+
     def __init__(self, left: monoidal.Ty, right: monoidal.Ty, is_dagger=False):
         assert_isatomic(left, monoidal.Ty)
         assert_isatomic(right, monoidal.Ty)

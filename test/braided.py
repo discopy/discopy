@@ -30,3 +30,11 @@ def test_strategy():
                               and box.is_dagger == is_dagger
                               for box in value.boxes))
         assert (braided.dom, braided.cod) == (x @ y, y @ x)
+
+
+def test_dagger_braid_serialisation():
+    from discopy.utils import dumps, from_tree, loads
+
+    x, y = Ty('x'), Ty('y')
+    braid = Braid(x, y, is_dagger=True)
+    assert from_tree(braid.to_tree()) == braid == loads(dumps(braid))
