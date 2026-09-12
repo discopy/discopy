@@ -27,7 +27,7 @@ from discopy.axioms import (
     substitute,
 )
 from discopy.cat import Arrow, Box, Functor, Ob
-from discopy.monoidal import Diagram
+from discopy.monoidal import Layer
 from discopy.utils import AxiomError, NamedGeneric
 
 
@@ -197,8 +197,8 @@ def test_axioms_of_category():
 def test_no_strategy():
     """ A class that does not generate its terms says so on `strategy`. """
     with raises(NotImplementedError) as err:
-        Diagram.strategy()
-    assert "No search strategy implemented for Diagram" in str(err.value)
+        Layer.strategy()
+    assert "No search strategy implemented for Layer" in str(err.value)
 
     class Opted(Arrow):
         """ A class that would inherit a strategy for the wrong terms. """

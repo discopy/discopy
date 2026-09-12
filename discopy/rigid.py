@@ -78,7 +78,8 @@ length-one word on it, while the counit ``epsilon`` evaluates a word of
 elements of a monoid as their product:
 
 >>> from functools import lru_cache
->>> from discopy.abc import ColouredMonoid
+>>> from discopy.axioms import GENERATORS
+from discopy.abc import ColouredMonoid
 >>> from discopy.python.function import Function
 >>> from discopy.cat import Ob as CatOb, Functor, Transformation
 
@@ -155,6 +156,7 @@ from typing import Iterator
 
 from discopy import cat, monoidal, biclosed, messages
 from discopy.abc import Pregroup, RigidCategory
+from discopy.axioms import GENERATORS
 from discopy.cat import factory
 from discopy.utils import (
     assert_isatomic,
@@ -199,6 +201,18 @@ class Wire(monoidal.Wire):
         assert_isinstance(z, int)
         self.z = z
         super().__init__(name, dom, cod)
+
+    @classmethod
+    def strategy(
+            cls, *, dom=monoidal.transparent, cod=monoidal.transparent,
+            min_winding=-1, max_winding=1):
+        """Generate rigid wires with a bounded winding number."""
+        from hypothesis import strategies as st
+
+        return st.tuples(
+            st.sampled_from(GENERATORS),
+            st.integers(min_value=min_winding, max_value=max_winding)).map(
+                lambda args: cls(args[0], args[1], dom=dom, cod=cod))
 
     def dagger(self) -> Wire:
         raise AxiomError("Rigid types have no dagger, use pivotal instead.")

@@ -31,6 +31,7 @@ Summary
 """
 
 from discopy import rigid, frobenius, messages
+from discopy.axioms import no_strategy
 from discopy.cat import factory
 from discopy.utils import AxiomError, deprecated_alias
 from discopy.grammar import thue
@@ -56,6 +57,8 @@ class Ty(rigid.Ty):
     >>> n.assert_isadjoint(n.l)
     >>> n.assert_isadjoint(n.r)
     """
+    strategy = no_strategy
+
     def assert_isadjoint(self, other):
         """
         Raise ``AxiomError`` if two pregroup types are not adjoints.
@@ -97,6 +100,7 @@ class Diagram(frobenius.Diagram):
     >>> F = tensor.Functor(ob, ar, dom=Diagram, dtype=bool)
     >>> assert F(sentence)
     """
+    strategy = no_strategy
     ob = Ty
 
     def normal_form(self, **params):
@@ -159,6 +163,7 @@ class Box(frobenius.Box, Diagram):
     """
     A pregroup box is a frobenius box in a pregroup diagram.
     """
+    strategy = no_strategy
     rotate = rigid.Box.rotate
 
 

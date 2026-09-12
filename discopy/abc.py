@@ -390,6 +390,38 @@ class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](
     def __rmatmul__(self, other):
         return self.whisker(other).tensor(self)
 
+    @classmethod
+    def atoms(cls):
+        """ A strategy for the atomic objects, the memory of a trace. """
+        return cls.ob.strategy(min_length=1, max_length=1)
+
+    @classmethod
+    def splits(cls, dom, cod, size) -> list:
+        """
+        The ways of proving ``dom ⊢ cod`` with ``size`` boxes as a tensor of
+        two premises: each premise has a non-empty boundary, and one with
+        no box is an identity, i.e. a whiskering.
+        """
+        def fits(source, target, boxes):
+            return (source or target) and (boxes or source == target)
+
+        return [
+            (left, right)
+            for i in range(len(dom) + 1) for j in range(len(cod) + 1)
+            for k in range(size + 1)
+            for left, right in [
+                ((dom[:i], cod[:j], k), (dom[i:], cod[j:], size - k))]
+            if fits(*left) and fits(*right)]
+
+    @rule(lambda cls, dom, cod, size:
+          size >= 1 and bool(cls.splits(dom, cod, size)))
+    def tensoring(cls, draw, dom, cod, size, types):
+        """ ``x @ x' ⊢ y @ y'`` splits into ``x ⊢ y`` and ``x' ⊢ y'``. """
+        from hypothesis import strategies as st
+
+        premises = list(draw(st.sampled_from(cls.splits(dom, cod, size))))
+        return premises, lambda f, g: f @ g
+
 
 class PRO[C1: PRO](MonoidalCategory[Nat, C1]):
     """

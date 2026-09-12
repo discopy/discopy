@@ -587,11 +587,11 @@ class Testable[T]:
         which would make every category that has not implemented one
         uninstantiable rather than merely unchecked.
 
-        >>> from discopy.monoidal import Diagram
-        >>> Diagram.strategy()
+        >>> from discopy.monoidal import Layer
+        >>> Layer.strategy()
         Traceback (most recent call last):
          ...
-        NotImplementedError: No search strategy implemented for Diagram
+        NotImplementedError: No search strategy implemented for Layer
         """
         raise NotImplementedError(
             f"No search strategy implemented for {cls.__name__}")

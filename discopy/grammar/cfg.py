@@ -40,6 +40,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from discopy import monoidal
+from discopy.axioms import no_strategy
 from discopy.cat import factory, Functor
 from discopy.grammar import thue
 from discopy.monoidal import Ty
@@ -155,6 +156,8 @@ class Rule(Tree, thue.Rule):
     A rule is a generator of free operads, given by an atomic type ``dom``,
     a type ``cod`` of arbitrary length and an optional ``name``.
     """
+    strategy = no_strategy
+
     def __init__(self, dom: monoidal.Ty, cod: monoidal.Ty, name: str = None):
         assert_isinstance(dom, Ty)
         assert_isatomic(cod, Ty)

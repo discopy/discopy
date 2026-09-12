@@ -71,6 +71,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from discopy import messages, tensor, frobenius
+from discopy.axioms import no_strategy
 from discopy.cat import factory
 from discopy.matrix import backend
 from discopy.tensor import Dim, Tensor
@@ -91,6 +92,8 @@ class Wire(frobenius.Wire):
     :class:`Qudit`, but feel free to open a pull-request if you discover a
     third kind of information unit.
     """
+    strategy = no_strategy
+
     def __init__(self, name: str, dim=2, z=0):
         assert_isinstance(dim, int)
         assert_isinstance(self, (Digit, Qudit))
@@ -171,6 +174,7 @@ class Ty(frobenius.Ty):
     >>> print(bit ** 2 @ qubit ** 3)
     bit @ bit @ qubit @ qubit @ qubit
     """
+    strategy = no_strategy
     generator_factory = Wire
 
 

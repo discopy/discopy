@@ -78,6 +78,12 @@ class Wire(pivotal.Wire):
     """
     l = r = property(lambda self: self)
 
+    @classmethod
+    def strategy(cls, **params):
+        """Generate self-dual wires, at winding number zero."""
+        return super().strategy(
+            **{"min_winding": 0, "max_winding": 0, **params})
+
 
 @factory
 class Ty(pivotal.Ty):

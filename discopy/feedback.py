@@ -147,6 +147,7 @@ In the category of streams, this is just the identity.
 from __future__ import annotations
 
 from discopy import monoidal, braided, markov, hypergraph
+from discopy.axioms import GENERATORS, no_strategy
 from discopy.abc import FeedbackCategory
 from discopy.utils import (
     deprecated_alias,
@@ -171,6 +172,14 @@ class Wire(braided.Wire):
             raise NotImplementedError
         self.time_step, self.is_constant = time_step, is_constant
         super().__init__(name)
+
+    @classmethod
+    def strategy(cls, **params):
+        """Generate constant feedback wires at time zero, colours ignored."""
+        from hypothesis import strategies as st
+
+        del params
+        return st.sampled_from(GENERATORS).map(cls)
 
     def delay(self, n_steps=1):
         """ The delay of a feedback object. """
@@ -235,6 +244,8 @@ class HeadOb(Wire):
 
     Note the object `arg: Wire` cannot be itself a `HeadOb` or be delayed.
     """
+    strategy = no_strategy
+
     def __init__(self, arg: Wire, time_step: int = 0):
         assert_isinstance(arg, Wire)
         if isinstance(arg, HeadOb) or arg.time_step:
@@ -271,6 +282,8 @@ class TailOb(Wire):
     >>> x = Wire('x', is_constant=False)
     >>> assert x.tail == TailOb(x)
     """
+    strategy = no_strategy
+
     def __init__(self, arg: Wire, time_step: int = 0):
         assert_isinstance(arg, Wire)
         if isinstance(arg, HeadOb) or arg.is_constant or arg.time_step > 0:

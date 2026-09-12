@@ -64,7 +64,7 @@ from warnings import warn
 from discopy import abc, cat, drawing, hypergraph, cmap, messages
 from discopy.abc import (
     ColouredMonoid, Monoid, MonoidalCategory, NamedGeneric)
-from discopy.axioms import no_strategy
+from discopy.axioms import GENERATORS, no_strategy, search
 from discopy.drawing import Drawing
 from discopy.config import (
     BOX_DRAWING_ATTRIBUTES, WIRE_DRAWING_ATTRIBUTES,
@@ -132,7 +132,13 @@ transparent = Colour(TRANSPARENT)
 class Wire(cat.Ob):
     """A generating 1-cell with a colour on either side."""
 
-    strategy = no_strategy
+    @classmethod
+    def strategy(cls, *, dom=transparent, cod=transparent):
+        """Generate named wires with the given colours on either side."""
+        from hypothesis import strategies as st
+
+        return st.sampled_from(GENERATORS).map(
+            lambda name: cls(name, dom=dom, cod=cod))
 
     def __init__(self, name: str, dom: Colour = transparent,
                  cod: Colour = transparent, is_dagger: bool = False):
@@ -294,7 +300,27 @@ class Ty(cat.Ob, cat.FreeCategory, ColouredMonoid):
     """
     ob = Colour
     generator_factory = Wire
-    strategy = no_strategy
+
+    @classmethod
+    def strategy(
+            cls, *, min_length=0, max_length=3,
+            dom=transparent, cod=transparent):
+        """Generate words of wires, transparent between the given colours."""
+        from hypothesis import strategies as st
+
+        @st.composite
+        def words(draw):
+            minimum = max(min_length, int(dom != cod))
+            length = draw(st.integers(min_value=minimum, max_value=max_length))
+            if not length:
+                return cls(dom=dom, cod=cod)
+            colours = [dom] + [transparent] * (length - 1) + [cod]
+            return cls(*(
+                draw(cls.generator_factory.strategy(
+                    dom=colours[i], cod=colours[i + 1]))
+                for i in range(length)))
+
+        return words()
 
     def cast_wire(self, x: str | cat.Ob) -> cat.Ob:
         """
@@ -537,6 +563,14 @@ class Nat(abc.Nat, Ty):
     """
     generator_factory = int
 
+    @classmethod
+    def strategy(cls, *, min_length=0, max_length=3, **_):
+        """Generate small natural-number types."""
+        from hypothesis import strategies as st
+
+        return st.integers(
+            min_value=min_length, max_value=max_length).map(cls)
+
     def __init__(self, inside: int | tuple = 0, dom: Colour = None,
                  cod: Colour = None, _scan: bool = True):
         self.n = inside if isinstance(inside, int) else len(inside)
@@ -600,6 +634,16 @@ class Dim(Ty):
     Dim(2, 3)
     """
     generator_factory = int
+
+    @classmethod
+    def strategy(cls, *, min_length=0, max_length=2, max_dim=3, **_):
+        """Generate small dimensions."""
+        from hypothesis import strategies as st
+
+        return st.lists(
+            st.integers(min_value=2, max_value=max_dim),
+            min_size=min_length, max_size=max_length).map(
+                lambda inside: cls(*inside))
 
     def __init__(self, *inside: int, dom=None, cod=None, _scan=True, **kwargs):
         inside = kwargs.pop('inside', inside)
@@ -947,7 +991,27 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
     """
     ob = Ty
     layer_factory = Layer
-    strategy = no_strategy
+
+    @classmethod
+    def strategy(
+            cls, *, types=None, dom=None, cod=None,
+            min_leaves=None, max_leaves=3):
+        """
+        Generate diagrams by :func:`discopy.axioms.search` over the
+        :attr:`rules` of the category, tensored with up to two closed
+        components.
+        """
+        from hypothesis import strategies as st
+
+        types = cls.ob.strategy(min_length=1) if types is None else types
+        diagrams = search(
+            cls, types=types, dom=dom, cod=cod,
+            min_leaves=min_leaves, max_leaves=max_leaves)
+        scalars = search(
+            cls, types=types, dom=cls.ob(), cod=cls.ob(),
+            min_leaves=1, max_leaves=max_leaves)
+        return st.tuples(diagrams, st.lists(scalars, max_size=2)).map(
+            lambda args: args[0].tensor(*args[1]))
 
     def __setstate__(self, state):
         if 'inside' not in state:  # Backward compatibility
@@ -1464,7 +1528,30 @@ class Box(cat.Box, Diagram):
         :align: center
     """
 
-    strategy = no_strategy
+    def __init_subclass__(cls, **params):
+        """
+        A subclass listing its diagram class among its bases is the
+        generator of that category, e.g. :class:`discopy.braided.Box` for
+        :class:`discopy.braided.Diagram`, so each level of the hierarchy
+        wires itself rather than repeating the assignment. This does not
+        fire for :class:`Box` itself, which is why ``Diagram.box_factory``
+        is assigned at the end of this module.
+        """
+        super().__init_subclass__(**params)
+        if cls.ar in cls.__bases__:
+            cls.ar.box_factory = cls
+
+    @classmethod
+    def strategy(cls, **params):
+        """
+        Generate fresh boxes, for the generator class of a level only: a
+        structural box such as a cup is generated by the rules of its
+        category, inside a diagram, so its own strategy is left to raise.
+        """
+        if cls is not cls.ar.box_factory:
+            raise NotImplementedError(
+                f"No search strategy implemented for {cls.__name__}")
+        return super().strategy(**params)
 
     def __init__(self, name: str, dom: Ty, cod: Ty, **params):
         dom = dom if isinstance(dom, self.ob) else self.ob(dom)
@@ -1808,6 +1895,7 @@ class Equation(cat.Equation, RichDisplay):
 Diagram.draw = drawing.draw
 Diagram.to_gif = drawing.to_gif
 
+Diagram.box_factory = Box
 Diagram.sum_factory = Sum
 Diagram.bubble_factory = Bubble
 Diagram.functor_factory = Functor

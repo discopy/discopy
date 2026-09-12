@@ -761,3 +761,25 @@ def test_List():
     assert eval(repr(Ty.id(red))) == Ty.id(red)
     with raises(AxiomError):
         Ty(Wire('x', red, red), Wire('y'))
+
+
+def test_strategy():
+    from hypothesis import find
+    from hypothesis import strategies as st
+
+    x = Ty('x')
+    find(Ty.strategy(), lambda value: len(value) == 2)
+    composition = find(
+        Diagram.strategy(types=st.just(x), min_leaves=2, max_leaves=2),
+        lambda value: True)
+    assert len(composition.boxes) == 2 == len(set(composition.boxes))
+    state = find(
+        Diagram.strategy(dom=x, cod=x),
+        lambda value: any(not box.dom for box in value.boxes)
+        and value.to_hypergraph().is_boundary_connected)
+    assert (state.dom, state.cod) == (x, x)
+    scalar = find(
+        Diagram.strategy(),
+        lambda value: value.boxes
+        and not value.to_hypergraph().is_boundary_connected)
+    assert scalar.boxes

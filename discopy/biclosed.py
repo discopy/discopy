@@ -85,6 +85,7 @@ from inspect import signature
 from typing import Callable, ClassVar
 
 from discopy import monoidal, cmap
+from discopy.axioms import no_strategy
 from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
 from discopy.cat import factory
@@ -218,6 +219,7 @@ class Exp(Wire):
         base : The base type.
         exponent : The exponent type.
     """
+    strategy = no_strategy
 
     ob = Ty
 

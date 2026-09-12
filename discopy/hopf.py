@@ -127,6 +127,7 @@ from functools import cached_property
 import numpy as np
 
 from discopy import monoidal, ribbon, tensor, frobenius
+from discopy.axioms import no_strategy
 from discopy.tensor import Dim, Box, Id
 from discopy.abc import RibbonCategory, NamedGeneric
 from discopy.utils import (
@@ -678,6 +679,8 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
     .. graphviz:: /_static/hopf/module.dot
         :align: center
     """
+    strategy = no_strategy
+
     def __init__(self, dim=None, action=None):
         if self.algebra is None:
             raise ValueError(
