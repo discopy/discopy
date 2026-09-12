@@ -38,4 +38,4 @@ Rough edges met on the way, each worth an issue:
 >
 > do it
 
-- [WIP] @claude-3f440127-2026-09-12 14:25 `TraceSuperposing` and the currying shapes draw a real arrow through the search rather than an identity or the evaluation itself; `FeedbackVanishing` and `HomogeneousMemory` go, the vanishing law taking an arrow; the matrix reclassified where the wider reach changes a verdict; CHANGELOG
+- [x] `TraceSuperposing` and the currying shapes draw a real arrow through the search rather than an identity or the evaluation itself; `FeedbackVanishing` and `HomogeneousMemory` go, the vanishing law taking an arrow; the matrix reclassified where the wider reach changes a verdict; CHANGELOG
