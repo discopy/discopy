@@ -842,6 +842,11 @@ quantum = [
     { name = "torch", version = "2.13.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux'" },
     { name = "torch", version = "2.13.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'linux'" },
 ]
+tensor = [
+    { name = "cotengra" },
+    { name = "opt-einsum" },
+    { name = "quimb" },
+]
 test = [
     { name = "coverage" },
     { name = "hypothesis" },
@@ -869,7 +874,7 @@ test = [
 [package.dev-dependencies]
 all = [
     { name = "coverage" },
-    { name = "discopy", extra = ["docs", "grammar", "quantum"] },
+    { name = "discopy", extra = ["docs", "grammar", "quantum", "tensor"] },
     { name = "hypothesis" },
     { name = "marimo" },
     { name = "polars" },
@@ -899,9 +904,13 @@ grammar = [
 quantum = [
     { name = "discopy", extra = ["quantum"] },
 ]
+tensor = [
+    { name = "discopy", extra = ["tensor"] },
+]
 
 [package.metadata]
 requires-dist = [
+    { name = "cotengra", marker = "extra == 'tensor'" },
     { name = "coverage", marker = "extra == 'test'" },
     { name = "discopy", extras = ["grammar", "quantum"], marker = "extra == 'test'" },
     { name = "hypothesis", marker = "extra == 'test'" },
@@ -917,6 +926,7 @@ requires-dist = [
     { name = "networkx" },
     { name = "nltk", marker = "extra == 'grammar'" },
     { name = "numpy" },
+    { name = "opt-einsum", marker = "extra == 'tensor'" },
     { name = "pennylane", marker = "extra == 'quantum'", specifier = ">=0.45.0" },
     { name = "pennylane-qiskit", marker = "extra == 'quantum'", specifier = ">=0.45.0" },
     { name = "pillow" },
@@ -930,6 +940,7 @@ requires-dist = [
     { name = "qiskit", marker = "extra == 'quantum'" },
     { name = "qiskit-aer", marker = "extra == 'quantum'" },
     { name = "quimb", marker = "extra == 'quantum'" },
+    { name = "quimb", marker = "extra == 'tensor'" },
     { name = "sphinx", marker = "extra == 'docs'", specifier = "==7.4.*" },
     { name = "sphinx-book-theme", marker = "extra == 'docs'", specifier = "==1.1.*" },
     { name = "sphinxcontrib-bibtex", marker = "extra == 'docs'", specifier = "==2.5.*" },
@@ -941,7 +952,7 @@ requires-dist = [
     { name = "torch", marker = "sys_platform == 'linux' and extra == 'quantum'", index = "https://download.pytorch.org/whl/cpu" },
     { name = "torch", marker = "sys_platform != 'linux' and extra == 'quantum'" },
 ]
-provides-extras = ["quantum", "grammar", "test", "docs"]
+provides-extras = ["tensor", "quantum", "grammar", "test", "docs"]
 
 [package.metadata.requires-dev]
 all = [
@@ -949,6 +960,7 @@ all = [
     { name = "discopy", extras = ["docs"] },
     { name = "discopy", extras = ["grammar"] },
     { name = "discopy", extras = ["quantum"] },
+    { name = "discopy", extras = ["tensor"] },
     { name = "hypothesis" },
     { name = "marimo" },
     { name = "polars" },
@@ -972,6 +984,7 @@ dev = [
 docs = [{ name = "discopy", extras = ["docs"] }]
 grammar = [{ name = "discopy", extras = ["grammar"] }]
 quantum = [{ name = "discopy", extras = ["quantum"] }]
+tensor = [{ name = "discopy", extras = ["tensor"] }]
 
 [[package]]
 name = "docutils"
@@ -3994,13 +4007,13 @@ resolution-markers = [
     "python_full_version < '3.13' and sys_platform != 'linux'",
 ]
 dependencies = [
-    { name = "filelock", marker = "sys_platform != 'linux'" },
-    { name = "fsspec", marker = "sys_platform != 'linux'" },
-    { name = "jinja2", marker = "sys_platform != 'linux'" },
-    { name = "networkx", marker = "sys_platform != 'linux'" },
-    { name = "setuptools", marker = "sys_platform != 'linux'" },
-    { name = "sympy", marker = "sys_platform != 'linux'" },
-    { name = "typing-extensions", marker = "sys_platform != 'linux'" },
+    { name = "filelock" },
+    { name = "fsspec" },
+    { name = "jinja2" },
+    { name = "networkx" },
+    { name = "setuptools" },
+    { name = "sympy" },
+    { name = "typing-extensions" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c4/3a/ed0f4d4d1dcde03bced7aac9a28e800abcdc0cbd06b6775044c9fbd877b7/torch-2.13.0-cp312-cp312-macosx_14_0_arm64.whl", hash = "sha256:2fe228aba290d14b9f31b049be550dbd469c3fd3013d7a19705b30454da97027", size = 111213045, upload-time = "2026-07-08T16:05:22.997Z" },
@@ -4023,13 +4036,13 @@ resolution-markers = [
     "python_full_version < '3.13' and sys_platform == 'linux'",
 ]
 dependencies = [
-    { name = "filelock", marker = "sys_platform == 'linux'" },
-    { name = "fsspec", marker = "sys_platform == 'linux'" },
-    { name = "jinja2", marker = "sys_platform == 'linux'" },
-    { name = "networkx", marker = "sys_platform == 'linux'" },
-    { name = "setuptools", marker = "sys_platform == 'linux'" },
-    { name = "sympy", marker = "sys_platform == 'linux'" },
-    { name = "typing-extensions", marker = "sys_platform == 'linux'" },
+    { name = "filelock" },
+    { name = "fsspec" },
+    { name = "jinja2" },
+    { name = "networkx" },
+    { name = "setuptools" },
+    { name = "sympy" },
+    { name = "typing-extensions" },
 ]
 wheels = [
     { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp312-cp312-linux_s390x.whl", hash = "sha256:ffadde149901c8afa138daa38d898264003cfcf1a3336ca5cd964b5af227d867", upload-time = "2026-07-08T19:28:41Z" },
