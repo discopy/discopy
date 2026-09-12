@@ -1123,8 +1123,9 @@ class HypergraphCategory[C0, C1](
 
     @axiom
     def spider_fusion(
-            cls, x: C0, m: Natural, n: Natural) -> Equation[C1]:
+            cls, x: C0, n_legs_in: Natural,
+            n_legs_out: Natural) -> Equation[C1]:
         """ Fusion of two spiders connected by one leg. """
         return cls.equation_factory(
-            cls.spiders(m, 1, x).then(cls.spiders(1, n, x)),
-            cls.spiders(m, n, x))
+            cls.spiders(n_legs_in, 1, x).then(cls.spiders(1, n_legs_out, x)),
+            cls.spiders(n_legs_in, n_legs_out, x))
