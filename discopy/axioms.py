@@ -32,6 +32,7 @@ Summary
     Testable
     Hom
     Sequent
+    Subspace
     Serialisable
 
 .. admonition:: Functions
@@ -46,7 +47,6 @@ Summary
         leaf
         search
         resolve
-        connected
         assert_axioms
         assert_strategy_finds
 
@@ -404,8 +404,10 @@ class Axiom[**P, T]:
         its equation holds, e.g. ``bifunctoriality =
         MonoidalCategory.bifunctoriality.modulo(normal_form).weaken(
         connected)`` for the interchange compared up to a normal form
-        defined on connected diagrams only: the search draws arguments
-        whose equation the predicate accepts.
+        defined on connected diagrams only. The search draws each arrow
+        the predicate accepts as an equation of one term, so that an
+        argument outside the subspace costs one draw rather than the
+        whole tuple, and keeps the tuples whose equation it accepts.
         """
         return replace(self, subspace=subspace)
 
@@ -469,14 +471,21 @@ class Axiom[**P, T]:
                 annotation.vars if isinstance(annotation, Sequent)
                 else (annotation, ) if isinstance(annotation, Var) else ())}
 
+        def arrows(dom, cod):
+            if self.subspace is None:
+                return category.strategy(dom=dom, cod=cod)
+            params = getattr(self.subspace, "params", None) or {}
+            return category.strategy(dom=dom, cod=cod, **params).filter(
+                lambda term: self.subspace(Equation(term)))
+
         @st.composite
         def arguments(draw):
             env = draw_vars(draw, variables.values(), category)
             unit = unit_of(category, env)
             return tuple(
-                draw(category.strategy(
-                    dom=annotation.dom.instantiate(env, unit),
-                    cod=annotation.cod.instantiate(env, unit)))
+                draw(arrows(
+                    annotation.dom.instantiate(env, unit),
+                    annotation.cod.instantiate(env, unit)))
                 if isinstance(annotation, Sequent)
                 else env[annotation.name] if isinstance(annotation, Var)
                 else draw(resolve(annotation))
@@ -698,7 +707,7 @@ def leaf[T](*sequents) -> Callable[[Callable], Rule[T]]:
 
 
 def rule[T](
-        applies: Callable = None, *, conclusion=None, premises=None,
+        applies: Callable | None = None, *, conclusion=None, premises=None,
         boxes: int = 1) -> Callable[[Callable], Rule[T]]:
     """
     Decorate an inference rule, either with the predicate saying when it
@@ -1228,13 +1237,37 @@ def resolve(annotation, **params) -> st.SearchStrategy:
     return annotation.strategy(**params)
 
 
-def connected(equation) -> bool:
+@dataclass(frozen=True)
+class Subspace:
     """
-    Whether every term of an equation is boundary connected, the subspace
-    a normal form is defined on: a law compared modulo a normal form is
-    :meth:`Axiom.weaken`ed to it.
+    A subspace a law is :meth:`Axiom.weaken`ed to: a predicate on its
+    equation, and the parameters the strategy of the category draws
+    inside the subspace with, so that an argument outside it is not drawn
+    only to be rejected.
+
+    Parameters:
+        predicate : Whether an equation lies in the subspace.
+        params : The keyword arguments passed to the category's strategy.
     """
-    return all(term.is_boundary_connected for term in equation.terms)
+
+    predicate: Callable
+    params: dict = None
+
+    def __call__(self, equation) -> bool:
+        return self.predicate(equation)
+
+
+connected = Subspace(
+    lambda equation: all(
+        term.is_boundary_connected for term in equation.terms),
+    dict(boundary_connected=True))
+"""
+The subspace where every term of the equation is boundary connected, on
+which a normal form is defined: a law compared modulo a normal form is
+:meth:`Axiom.weaken`ed to it, and its arguments are drawn with no closed
+component tensored on, a trace closing a loop being caught by the
+predicate.
+"""
 
 
 def assert_axioms(*categories) -> None:

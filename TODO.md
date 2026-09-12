@@ -58,3 +58,9 @@ Rough edges met on the way, each worth an issue:
 - [x] `Axiom.strategy` draws every argument from its annotation: `C1[A, B]` an arrow of that sequent, a `Var` an object of its kind, shared metavariables drawn once; `weaken` takes a predicate on the equation; tests
 - [x] every axiom of `discopy.abc` annotated with its sequents, `Shape`, `Atomic`, `NonEmpty` and `BoundaryConnected` gone, the connected subspace a predicate; module declarations and tests follow
 - [x] the matrix green, docs, CHANGELOG, `uv run pflake8 discopy`, `uv run coverage run -m pytest`, `uv run pytest proptest/ -n auto -p no:benchmark`
+
+## Round: efficiency of the annotations
+
+> is this still as efficient as the previous shape implementation?
+
+- [x] measured: `bifunctoriality` 15.7 → 46 ms per example, the predicate rejecting whole tuples the wrappers filtered arrow by arrow; a `Subspace` carries the generation parameters, `connected` draws no closed component, 13.2 ms after

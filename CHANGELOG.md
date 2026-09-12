@@ -71,8 +71,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `bifunctoriality(f: C1[A, B], g: C1[C, D], h: C1[B, U], k: C1[D, V])`
   for one, and `Shape`, `Atomic`, `NonEmpty` and `BoundaryConnected` are
   gone with the argument wrappers: `Axiom.weaken` takes a predicate on the
-  equation, `connected` for the laws compared modulo a normal form, and
-  `Diagram.strategy` loses its `boundary_connected` flag.
+  equation, `connected` for the laws compared modulo a normal form: a
+  `Subspace` carries the predicate and the parameters the category's
+  strategy draws inside it with, so an argument outside the subspace is
+  not drawn only to be rejected, which keeps the cost of a weakened law
+  where the argument wrappers had it.
 - A sequent-pattern language in `discopy.axioms`, shared by the rules
   and the shapes: a `Var` stands for a type, an atom, a pair of atoms or
   a non-empty type, its adjoints, delay and exponentials are derived

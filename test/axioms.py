@@ -143,6 +143,9 @@ def test_weaken():
     box, scalar = monoidal.Box('f', x, y), monoidal.Box('s', x[:0], x[:0])
     assert connected(Equation(box, box))
     assert not connected(Equation(box, box @ scalar))
+    with raises(NoSuchExample):
+        find(monoidal.Diagram.bifunctoriality.strategy(), lambda args: any(
+            not arrow.is_boundary_connected for arrow in args))
 
 
 def test_self_annotation():
