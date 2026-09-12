@@ -129,6 +129,24 @@ Three facts about this search:
   counterexample is a minimal derivation, since deleting a cut collapses
   the term to a leaf.
 
+Rules and the shapes of a law's arguments share one sequent-pattern
+language. A :class:`Var` stands for a type, an atom, a pair of atoms or a
+non-empty type, its adjoints, delay and exponentials are derived items,
+and ``@`` concatenates them into a :class:`Pattern` for one boundary of a
+sequent. A leaf declares the sequent patterns it concludes,
+``@leaf((X @ X.r, ()))`` for a cup, and a rule its conclusion and the
+named patterns of its premises, ``@rule(conclusion=(A, B),
+premises=dict(f=(M @ A, M @ B)))`` for a trace: matching the conclusion
+binds the variables, the unbound ones are drawn by kind, and the hint a
+cut draws its middle from is derived from the conclusion, matched on
+either boundary of the sequent, in any window when its length is fixed,
+so that the rule fires on one side of the cut. A :class:`Shape` declares
+the premises of a law the same way and what it returns, so
+``ComposablePair``, ``Square``, the trace, currying and feedback shapes
+are declarations of two lines, checked by one constructor and drawn by
+one strategy. Identity, box, cut, tensoring and permuting, which split or
+shuffle arbitrarily, stay procedural.
+
 The search does not focus the syntax: focused proofs are canonical forms,
 and a generator of normal forms would make the interchange, naturality and
 sliding laws vacuous. Uniform sampling of large typed terms is a different
@@ -1202,25 +1220,34 @@ class NonEmpty(Testable, NamedGeneric["factory"]):
 class BoundaryConnected(Testable, NamedGeneric["factory"]):
     """
     A diagram whose boundary reaches every box, or a shape of such
-    diagrams, connected cell by cell: the subspace where a normal form is
-    defined.
+    diagrams whose pasting, when the shape has one, is connected too: the
+    subspace where a normal form is defined, a state pasted onto an
+    effect closing a component the normal form cannot reach.
     """
 
     value: C1
 
     def __post_init__(self):
-        cells = self.value if isinstance(self.value, tuple)\
-            else (self.value, )
-        for cell in cells:
-            if hasattr(cell, "is_boundary_connected")\
-                    and not cell.is_boundary_connected:
-                raise ValueError("Expected a boundary-connected diagram.")
+        if not self.connected(self.value):
+            raise ValueError("Expected a boundary-connected diagram.")
+
+    @staticmethod
+    def connected(value) -> bool:
+        """ Whether a diagram, or the pasting of a shape, is connected. """
+        cells = [value.pasting()] if hasattr(value, "pasting")\
+            else list(value) if isinstance(value, tuple) else [value]
+        return all(
+            cell.is_boundary_connected for cell in cells
+            if hasattr(cell, "is_boundary_connected"))
 
     @classmethod
     def strategy(cls, **params):
         """Generate from the factory restricted to connected diagrams."""
-        return resolve(
-            factory_of(cls), boundary_connected=True, **params).map(cls)
+        factory = factory_of(cls)
+        connected = resolve(factory, boundary_connected=True, **params)
+        if hasattr(factory, "pasting"):
+            connected = connected.filter(cls.connected)
+        return connected.map(cls)
 
 
 class Shape(Testable, NamedGeneric["factory"], tuple):
@@ -1352,6 +1379,11 @@ class Square(Shape):
 
     premises = dict(f=(A, B), g=(C, D), h=(B, E), k=(D, F))
     returns = ("f", "g", "h", "k")
+
+    def pasting(self):
+        """ The square pasted, ``f @ g >> h @ k``. """
+        f, g, h, k = self
+        return f @ g >> h @ k
 
 
 class TraceSuperposingLeft(Shape):

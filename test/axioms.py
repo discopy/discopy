@@ -383,6 +383,13 @@ def test_BoundaryConnected():
     for value in (f @ scalar, scalar):
         with raises(ValueError):
             BoundaryConnected(value)
+    state, effect = monoidal.Box('s', monoidal.Ty(), x), monoidal.Box('t', x, monoidal.Ty())
+    assert BoundaryConnected(Square(f, f, f, f)).value == (f, f, f, f)
+    with raises(ValueError):
+        BoundaryConnected(Square(state, f, effect, f))
+    square = find(BoundaryConnected[Square[monoidal.Diagram]].strategy(),
+                  lambda value: any(not cell.dom for cell in value.value))
+    assert square.value.pasting().is_boundary_connected
     find(BoundaryConnected[monoidal.Diagram].strategy(),
          lambda value: bool(value.value.boxes))
 

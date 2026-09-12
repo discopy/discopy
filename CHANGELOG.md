@@ -61,6 +61,28 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   does not evaluate back
   ([#562](https://github.com/discopy/discopy/issues/562)). Each level's
   test file dry-runs its laws with `assert_axioms`.
+- A sequent-pattern language in `discopy.axioms`, shared by the rules
+  and the shapes: a `Var` stands for a type, an atom, a pair of atoms or
+  a non-empty type, its adjoints, delay and exponentials are derived
+  items, and `@` concatenates them into a `Pattern` for one boundary of a
+  sequent, which matches a type by binding its variables, backtracking
+  over the lengths a type variable may take and inverting an adjoint, a
+  delay or an exponential met before its variable, and instantiates from
+  bound values, drawing the unbound ones by kind. A leaf declares the
+  sequent patterns it concludes, `@leaf((X @ X.r, ()))` for a cup, and a
+  rule its conclusion and the named patterns of its premises,
+  `@rule(conclusion=(A, B), premises=dict(f=(M @ A, M @ B)))` for a
+  trace; the hint a cut draws its middle from is derived from the
+  conclusion, matched on either boundary of the sequent in any window
+  when its length is fixed, so the hand-written hints are gone. A `Shape`
+  declares the premises of a law as named patterns and what it returns:
+  `ComposablePair`, `Square`, the trace, currying and feedback shapes are
+  two-line declarations, with one generic constructor checking the
+  arguments and one generic strategy drawing them through the search,
+  where `Grid` and ten bespoke classes were; the superposing shape splits
+  into the left and right traceability its two laws need. `search` checks
+  that a rule builds the sequent it claims. Identity, box, cut, tensoring
+  and permuting, which split or shuffle arbitrarily, stay procedural.
 - The shapes that only ever drew one canonical term draw a real arrow
   through the search: `TraceSuperposing` drew the identity on an atom and
   the currying shapes the evaluation itself, so superposing was tested on
