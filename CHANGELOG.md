@@ -61,6 +61,18 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   does not evaluate back
   ([#562](https://github.com/discopy/discopy/issues/562)). Each level's
   test file dry-runs its laws with `assert_axioms`.
+- A law's arguments are drawn from its annotations: `C1` stands for the
+  `Hom` of the category and `C1[A, B]` for the `Sequent` of its arrows
+  from `A` to `B`, a `Var` annotates an object of its kind, and
+  `Axiom.strategy` draws the metavariables of every annotation once, then
+  each arrow through the search of its sequent, so that `f: C1[A, B],
+  g: C1[B, C]` are composable and `f: C1[X @ A, X @ B]` shares its first
+  atom with `x: X`. Every axiom of `discopy.abc` reads that way,
+  `bifunctoriality(f: C1[A, B], g: C1[C, D], h: C1[B, U], k: C1[D, V])`
+  for one, and `Shape`, `Atomic`, `NonEmpty` and `BoundaryConnected` are
+  gone with the argument wrappers: `Axiom.weaken` takes a predicate on the
+  equation, `connected` for the laws compared modulo a normal form, and
+  `Diagram.strategy` loses its `boundary_connected` flag.
 - A sequent-pattern language in `discopy.axioms`, shared by the rules
   and the shapes: a `Var` stands for a type, an atom, a pair of atoms or
   a non-empty type, its adjoints, delay and exponentials are derived

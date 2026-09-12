@@ -57,8 +57,7 @@ Coherence
 from discopy import symmetric, ribbon, rigid, cmap, hypergraph
 from discopy.abc import (
     BiclosedCategory, CompactCategory, PivotalCategory, RibbonCategory)
-from discopy.axioms import (
-    C1, BoundaryConnected, LeftCurrying, RightCurrying, Serialisable)
+from discopy.axioms import Serialisable, connected
 from discopy.cat import factory
 from discopy.utils import deprecated_alias
 from discopy.pivotal import Wire, Ty  # noqa: F401
@@ -88,11 +87,9 @@ class Diagram(symmetric.Diagram, ribbon.Diagram, CompactCategory):
 
     twist_as_trace = RibbonCategory.twist_as_trace
 
-    currying_left = BiclosedCategory.currying_left.weaken(
-        arguments=BoundaryConnected[LeftCurrying[C1]])
+    currying_left = BiclosedCategory.currying_left.weaken(connected)
 
-    currying_right = BiclosedCategory.currying_right.weaken(
-        arguments=BoundaryConnected[RightCurrying[C1]])
+    currying_right = BiclosedCategory.currying_right.weaken(connected)
 
 
 class Box(symmetric.Box, ribbon.Box, Diagram):

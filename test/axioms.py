@@ -2,84 +2,37 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Self
 
 from hypothesis import find
-from hypothesis import strategies as st
 from hypothesis.errors import NoSuchExample
 from pytest import raises
 
 from discopy import biclosed, cat, feedback, monoidal, traced
 from discopy.axioms import (
     C1,
-    Atomic,
     Axiom,
     AxiomFailure,
-    BoundaryConnected,
-    ComposablePair,
-    ComposableTriple,
     Equation,
-    FeedbackJoining,
-    HorizontalPair,
-    LeftCurrying,
-    NonEmpty,
-    RightCurrying,
-    Shape,
-    Square,
     Testable,
-    TraceDinaturalityLeft,
-    TraceDinaturalityRight,
-    TraceNaturalityLeft,
-    TraceNaturalityRight,
-    TraceSuperposingLeft,
-    TraceSuperposingRight,
+    Var,
     assert_axioms,
     axiom,
+    connected,
     no_strategy,
     resolve,
-    substitute,
 )
-from discopy.axioms import Var
 from discopy.cat import Arrow, Box, Functor, Ob
+from discopy.monoidal import Layer
+from discopy.utils import AxiomError
 
 A, B, C, D = (Var.type(name) for name in "ABCD")
-from discopy.monoidal import Layer
-from discopy.utils import AxiomError, NamedGeneric
+X, Y = Var.atom("X"), Var.atom("Y")
 
 
-@dataclass(frozen=True)
-class Endo(Testable, NamedGeneric["factory"]):
-    """ An endomorphism of the factory, the subspace a law is weakened to. """
-
-    value: C1
-
-    def __post_init__(self):
-        if self.value.dom != self.value.cod:
-            raise ValueError("Expected an endomorphism.")
-
-    @classmethod
-    def strategy(cls, **params):
-        """Generate an arrow with equal domain and codomain."""
-        return resolve(cls.factory, **params).filter(
-            lambda arrow: arrow.dom == arrow.cod).map(cls)
-
-
-class Word(str, Testable["Word"]):
-    """ A word with tensor given by concatenation, a monoid to grid. """
-
-    __matmul__ = lambda self, other: Word(str(self) + str(other))
-
-    @classmethod
-    def strategy(cls, **params):
-        """Generate a word over two letters."""
-        return st.text("ab", max_size=3).map(cls)
-
-
-class Row(Shape):
-    """ Two words side by side, a shape over a monoid with no arrows. """
-
-    returns = (A, B)
+def loops(equation: Equation) -> bool:
+    """ The subspace of a law where every term is an endomorphism. """
+    return all(term.dom == term.cod for term in equation.terms)
 
 
 def test_axioms():
@@ -103,24 +56,40 @@ def test_strategy():
     assert find(Box.strategy(dom=x), lambda _: True).dom == x
 
 
-def test_composable_shapes():
+def test_annotated_sequents():
+    """ A law draws its arguments from the sequents its annotations give. """
+    @axiom
+    def composing(cls, f: C1[A, B], g: C1[B, C]) -> Equation:
+        """ The domain of a composite. """
+        return Equation(f.then(g).dom, f.dom)
+
+    law = composing.bind(Arrow)
+    f, g = find(law.strategy(), lambda args: all(a.inside for a in args))
+    assert f.cod == g.dom and law(f, g)
     x, y = Ob('x'), Ob('y')
-    f, g = Box('f', x, y), Box('g', y, x)
-    assert ComposablePair(f, g) == (f, g)
-    assert ComposableTriple(f, g, f) == (f, g, f)
-    with raises(ValueError):
-        ComposablePair(f)
-    with raises(AxiomError):
-        ComposablePair(f, f)
-    pair = find(resolve(ComposablePair[Arrow]), lambda _: True)
-    assert isinstance(pair, ComposablePair) and pair[0].cod == pair[1].dom
-    assert Row(Word("a"), Word("b")) == ("a", "b")
+    assert law(Box('f', x, y), Box('g', y, x))
+    with raises(NoSuchExample):
+        law.falsify()
+
+    @axiom
+    def atoms(cls, x: X, y: Y, t: A) -> Equation:
+        """ Two atoms and a type. """
+        return Equation(len(x @ y), 2)
+
+    drawn = find(
+        atoms.bind(monoidal.Diagram).strategy(), lambda args: len(args[2]) > 1)
+    assert [len(value) for value in drawn[:2]] == [1, 1]
+
+    @axiom
+    def shared(cls, f: C1[X @ A, X @ B], x: X) -> Equation:
+        """ A variable shared by an arrow and an object. """
+        return Equation(f.dom[:1], x)
+
+    law = shared.bind(monoidal.Diagram)
+    f, x = find(law.strategy(), lambda args: args[0].boxes)
+    assert f.dom[:1] == x == f.cod[:1] and law(f, x)
     with raises(TypeError):
         resolve(int)
-    scope = {"C1": Arrow}
-    assert substitute(int, scope) is int
-    assert substitute(ComposablePair[Arrow], scope) is ComposablePair[Arrow]
-    assert substitute(ComposablePair[C1], scope) is ComposablePair[Arrow]
 
 
 def test_axiom_binding():
@@ -137,11 +106,11 @@ def test_axiom_binding():
     assert axiom(lambda cls: NotImplemented).bind(Arrow)() is NotImplemented
     box = Box('f', Ob('x'), Ob('y'))
     assert Arrow.unitality(box)
-    broken = Arrow.unitality.weaken(f=Endo[C1]).failing("Never holds.")
-    assert broken.subspaces == {"f": Endo[C1]}
+    broken = Arrow.unitality.weaken(loops).failing("Never holds.")
+    assert broken.subspace is loops
     loop = Box('g', Ob('x'), Ob('x'))
     with raises(AxiomFailure) as failure:
-        broken(Endo(loop))
+        broken(loop)
     assert failure.value.equation
 
 
@@ -166,10 +135,14 @@ def test_modulo():
 
 
 def test_weaken():
-    law = Arrow.unitality.weaken(f=Endo[C1]).bind(Arrow)
-    assert law.modulo(lambda term: term).subspaces == law.subspaces
-    args = find(law.strategy(), lambda _: True)
-    assert isinstance(args[0], Endo) and law(*args)
+    law = Arrow.unitality.weaken(loops).bind(Arrow)
+    assert law.modulo(lambda term: term).subspace is loops
+    f, = find(law.strategy(), lambda args: args[0].inside)
+    assert f.dom == f.cod and law(f)
+    x, y = monoidal.Ty('x'), monoidal.Ty('y')
+    box, scalar = monoidal.Box('f', x, y), monoidal.Box('s', x[:0], x[:0])
+    assert connected(Equation(box, box))
+    assert not connected(Equation(box, box @ scalar))
 
 
 def test_self_annotation():
@@ -224,46 +197,6 @@ def test_no_strategy():
     with raises(NotImplementedError):
         Opted.strategy()
     assert Opted.axioms["unitality"] == Opted.unitality
-
-
-def test_shape_states_its_law():
-    """
-    A shape is testable like any other: it states the typing its
-    constructor enforces, and is checked against it once subscripted.
-    """
-    x, y = Ob('x'), Ob('y')
-    well_formed = ComposablePair[Arrow].well_formed
-    assert well_formed(ComposablePair(Box('f', x, y), Box('g', y, x)))
-    drawn, = find(well_formed.strategy(), lambda _: True)
-    assert well_formed(drawn)
-    with raises(NoSuchExample):
-        well_formed.falsify()
-    with raises(NotImplementedError):
-        ComposablePair.strategy()  # no factory to draw the cells from
-
-
-def test_Shape_declaration():
-    """ A shape declares its premises as patterns and what it returns. """
-    from discopy import traced
-
-    X = Var.atom('X')
-
-    class Loop(Shape):
-        """ An arrow whose boundaries share a first atom, and that atom. """
-        premises = dict(f=(X @ A, X @ B))
-        returns = ("f", X)
-
-    a, b = map(traced.Ty, "ab")
-    f = traced.Box('f', a @ b, a)
-    assert Loop(f, a) == (f, a)
-    with raises(AxiomError):
-        Loop(f, b)
-    with raises(AxiomError):
-        Loop(traced.Box('g', b @ a, a), a)
-    with raises(ValueError):
-        Loop(f)
-    drawn = find(Loop[traced.Diagram].strategy(), lambda value: value[0].boxes)
-    assert drawn[0].dom[:1] == drawn[1] == drawn[0].cod[:1]
 
 
 def test_rules_are_inherited_and_bound():
@@ -335,136 +268,6 @@ def test_rules_from_patterns():
         lambda value: any(isinstance(box, traced.Trace) and box.left
                           for box in value.boxes))
     assert (traced_arrow.dom, traced_arrow.cod) == (a, b)
-
-
-def test_Atomic():
-    x, y = map(monoidal.Ty, "xy")
-    assert Atomic(x).value == x
-    with raises(ValueError):
-        Atomic(x @ y)
-    find(Atomic[monoidal.Ty].strategy(), lambda value: len(value.value) == 1)
-
-
-def test_NonEmpty():
-    x = monoidal.Ty('x')
-    assert NonEmpty(x).value == x
-    with raises(ValueError):
-        NonEmpty(monoidal.Ty())
-    find(NonEmpty[monoidal.Ty].strategy(), lambda value: len(value.value) > 1)
-
-
-def test_HorizontalPair():
-    x, y = map(monoidal.Ty, "xy")
-    f, g = monoidal.Box('f', x, y), monoidal.Box('g', y, x)
-    assert HorizontalPair(f, g) == (f, g)
-    with raises(ValueError):
-        HorizontalPair(f)
-    find(HorizontalPair[monoidal.Diagram].strategy(),
-         lambda value: all(term.boxes for term in value))
-
-
-def test_Square():
-    x, y = map(monoidal.Ty, "xy")
-    f, g = monoidal.Box('f', x, y), monoidal.Box('g', y, x)
-    assert Square(f, f, g, g) == (f, f, g, g)
-    with raises(AxiomError):
-        Square(f, f, f, f)
-    find(Square[monoidal.Diagram].strategy(), lambda value: all(
-        value[column].boxes or value[column + 2].boxes
-        for column in range(2)))
-
-
-def test_BoundaryConnected():
-    x = monoidal.Ty('x')
-    f = monoidal.Box('f', x, x)
-    scalar = monoidal.Box('s', monoidal.Ty(), monoidal.Ty())
-    assert BoundaryConnected(f).value == f
-    assert BoundaryConnected(HorizontalPair(f, f)).value == (f, f)
-    for value in (f @ scalar, scalar):
-        with raises(ValueError):
-            BoundaryConnected(value)
-    state, effect = monoidal.Box('s', monoidal.Ty(), x), monoidal.Box('t', x, monoidal.Ty())
-    assert BoundaryConnected(Square(f, f, f, f)).value == (f, f, f, f)
-    with raises(ValueError):
-        BoundaryConnected(Square(state, f, effect, f))
-    square = find(BoundaryConnected[Square[monoidal.Diagram]].strategy(),
-                  lambda value: any(not cell.dom for cell in value.value))
-    assert square.value.pasting().is_boundary_connected
-    find(BoundaryConnected[monoidal.Diagram].strategy(),
-         lambda value: bool(value.value.boxes))
-
-
-def test_TraceSuperposing():
-    x, y, z = map(traced.Ty, "xyz")
-    assert TraceSuperposingLeft(traced.Id(x), y) == (traced.Id(x), y)
-    assert TraceSuperposingRight(traced.Id(x), y) == (traced.Id(x), y)
-    with raises(AxiomError):
-        TraceSuperposingLeft(traced.Box('f', x, y), z)
-    for shape in (TraceSuperposingLeft, TraceSuperposingRight):
-        superposed = find(shape[traced.Diagram].strategy(),
-                          lambda value: value[0].boxes and len(value[1]) > 1)
-        assert superposed[0].boxes
-
-
-def test_TraceNaturality():
-    x, y = map(traced.Ty, "xy")
-    f, g = traced.Box('f', x @ y, x @ x), traced.Box('g', x, y)
-    assert TraceNaturalityLeft(f, x, g) == (f, x, g)
-    with raises(AxiomError):
-        TraceNaturalityLeft(traced.Id(x @ y), x, traced.Id(x))
-    h = traced.Box('h', y @ x, x @ x)
-    assert TraceNaturalityRight(h, x, g) == (h, x, g)
-    with raises(AxiomError):
-        TraceNaturalityRight(traced.Id(x @ y), x, traced.Id(y))
-    for shape in (TraceNaturalityLeft, TraceNaturalityRight):
-        find(shape[traced.Diagram].strategy(),
-             lambda value: value[2].dom != value[2].cod)
-
-
-def test_TraceDinaturality():
-    x, y, z = map(traced.Ty, "xyz")
-    f, g = traced.Box('f', x @ z, y @ z), traced.Box('g', y, x)
-    assert TraceDinaturalityLeft(f, g) == (f, g)
-    with raises(AxiomError):
-        TraceDinaturalityLeft(g, f)
-    h = traced.Box('h', z @ x, z @ y)
-    assert TraceDinaturalityRight(h, g) == (h, g)
-    with raises(AxiomError):
-        TraceDinaturalityRight(g, h)
-    shape = find(TraceDinaturalityRight[traced.Diagram].strategy(),
-                 lambda value: value[1].dom != value[1].cod)
-    sliding = shape[1]
-    assert shape[0].dom[-len(sliding.cod):] == sliding.cod
-    assert shape[0].cod[-len(sliding.dom):] == sliding.dom
-
-
-def test_Currying():
-    x, y, z = map(biclosed.Ty, "xyz")
-    f, g = biclosed.Box('f', z @ y, x), biclosed.Box('g', y @ z, x)
-    assert LeftCurrying(f, x, y) == (f, x, y)
-    assert RightCurrying(g, x, y) == (g, x, y)
-    with raises(AxiomError):
-        LeftCurrying(g, x, y)
-    with raises(AxiomError):
-        RightCurrying(f, x, y)
-    for shape in (LeftCurrying, RightCurrying):
-        drawn = find(shape[biclosed.Diagram].strategy(), lambda value:
-                     len(value[0].dom) > 1 and not value[0].dom.is_exp)
-        assert drawn[0].cod == drawn[1]
-
-
-def test_FeedbackJoining():
-    x, y, z = map(feedback.Ty, "xyz")
-    memory = y @ z
-    g = feedback.Box('g', x @ memory.delay(), x @ memory)
-    assert FeedbackJoining(g, memory) == (g, memory)
-    with raises(AxiomError):
-        FeedbackJoining(g, feedback.Ty())
-    with raises(AxiomError):
-        FeedbackJoining(feedback.Box('h', x @ memory, x @ memory), memory)
-    shape = find(FeedbackJoining[feedback.Diagram].strategy(),
-                 lambda value: value[1][:1] != value[1][1:])
-    assert shape[0].cod[-2:] == shape[1]
 
 
 def test_pattern_matching():

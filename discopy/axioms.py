@@ -30,23 +30,8 @@ Summary
     Op
     Pattern
     Testable
-    Atomic
-    NonEmpty
-    BoundaryConnected
-    Shape
-    ComposablePair
-    ComposableTriple
-    HorizontalPair
-    Square
-    TraceSuperposingLeft
-    TraceSuperposingRight
-    TraceNaturalityLeft
-    TraceNaturalityRight
-    TraceDinaturalityLeft
-    TraceDinaturalityRight
-    LeftCurrying
-    RightCurrying
-    FeedbackJoining
+    Hom
+    Sequent
     Serialisable
 
 .. admonition:: Functions
@@ -61,7 +46,7 @@ Summary
         leaf
         search
         resolve
-        substitute
+        connected
         assert_axioms
         assert_strategy_finds
 
@@ -140,12 +125,16 @@ premises=dict(f=(M @ A, M @ B)))`` for a trace: matching the conclusion
 binds the variables, the unbound ones are drawn by kind, and the hint a
 cut draws its middle from is derived from the conclusion, matched on
 either boundary of the sequent, in any window when its length is fixed,
-so that the rule fires on one side of the cut. A :class:`Shape` declares
-the premises of a law the same way and what it returns, so
-``ComposablePair``, ``Square``, the trace, currying and feedback shapes
-are declarations of two lines, checked by one constructor and drawn by
-one strategy. Identity, box, cut, tensoring and permuting, which split or
-shuffle arbitrarily, stay procedural.
+so that the rule fires on one side of the cut. A law states the sequents
+of its arguments in its annotations, ``bifunctoriality(cls, f: C1[A, B],
+g: C1[C, D], h: C1[B, U], k: C1[D, V])``, an object by its kind,
+``hexagon_left(cls, x: X, y: Y, z: Z)``, and :meth:`Axiom.strategy`
+draws the metavariables once and each arrow through the search of its
+sequent, so there is no shape to declare beside the law; a law compared
+modulo a normal form is :meth:`Axiom.weaken`ed to :func:`connected`
+equations, where the normal form is defined. Identity, box, cut,
+tensoring and permuting, which split or shuffle arbitrarily, stay
+procedural.
 
 The search does not focus the syntax: focused proofs are canonical forms,
 and a generator of normal forms would make the interchange, naturality and
@@ -172,14 +161,13 @@ from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import KW_ONLY, dataclass, replace
 from functools import wraps
-from typing import TYPE_CHECKING, ClassVar, Concatenate, Self, TypeVar
+from typing import TYPE_CHECKING, Concatenate, Self, TypeVar
 
 from discopy.utils import (
     AxiomError,
     NamedGeneric,
     classproperty,
     factory_name,
-    get_origin,
 )
 
 if TYPE_CHECKING:
@@ -329,8 +317,9 @@ class Axiom[**P, T]:
             :meth:`bind` or the attribute access on a class binds it.
         name : The attribute the law is stored under, the name of the
             equation by default.
-        subspaces : The strategies the named parameters are generated from
-            instead of their annotations, declared by :meth:`weaken`.
+        subspace : The predicate on the equation the law is quantified
+            over, declared by :meth:`weaken`, :obj:`None` for the whole
+            space.
         broken : Whether the law is declared broken by :meth:`failing`.
     """
 
@@ -338,7 +327,7 @@ class Axiom[**P, T]:
     _: KW_ONLY
     category: type[T] = None
     name: str = None
-    subspaces: dict = None
+    subspace: Callable = None
     broken: bool = False
 
     def __post_init__(self):
@@ -349,7 +338,6 @@ class Axiom[**P, T]:
                 f"{function.__module__} states the axiom {function.__name__} "
                 "without `from __future__ import annotations`.")
         self.name = self.name or self.equation.__name__
-        self.subspaces = dict(self.subspaces or {})
         self.__doc__ = self.equation.__doc__
 
     def __repr__(self):
@@ -408,21 +396,18 @@ class Axiom[**P, T]:
         def law(cls):
             return NotImplemented
         law.__doc__ = reason
-        return replace(self, equation=law, subspaces={}, broken=False)
+        return replace(self, equation=law, subspace=None, broken=False)
 
-    def weaken(self, **subspaces) -> Axiom[P, T]:
+    def weaken(self, subspace: Callable) -> Axiom[P, T]:
         """
-        The same law quantified over a subspace of the named arguments,
-        e.g. ``unitality_of_loops = Category.unitality.weaken(f=Endo[C1])``
-        for a wrapper ``Endo`` of the endomorphisms: each named parameter
-        is generated from its subspace strategy, whose wrapper validates
-        membership on construction and is unwrapped before the body reads
-        it. Assigned to
-        its own attribute beside a ``.failing`` declaration, it shows the
-        matrix one expected failure and one green cell instead of one
-        blanket expected failure.
+        The same law quantified over the subspace where a predicate on
+        its equation holds, e.g. ``bifunctoriality =
+        MonoidalCategory.bifunctoriality.modulo(normal_form).weaken(
+        connected)`` for the interchange compared up to a normal form
+        defined on connected diagrams only: the search draws arguments
+        whose equation the predicate accepts.
         """
-        return replace(self, subspaces=dict(self.subspaces, **subspaces))
+        return replace(self, subspace=subspace)
 
     @property
     def parameters(self) -> tuple[inspect.Parameter, ...]:
@@ -437,42 +422,75 @@ class Axiom[**P, T]:
     def scope(self) -> dict:
         """
         What the names in the annotations of the axiom stand for: the
-        category itself for :data:`typing.Self`, and its objects and arrows
-        for :obj:`C0` and :obj:`C1`. A monoid, having no objects of its
-        own, stands for both; a class of functors is the arrows of ``Cat``,
-        and the category it maps from, where the arguments a functor is
-        applied to live, is reachable as ``Self.dom``.
+        category itself for :data:`typing.Self`, its objects for :obj:`C0`
+        and, for :obj:`C1`, the :class:`Hom` of its arrows, which
+        subscripts into a :class:`Sequent`: ``f: C1[A, B]`` is an arrow
+        from what ``A`` stands for to what ``B`` stands for. A monoid,
+        having no objects of its own, stands for both; a class of functors
+        is the arrows of ``Cat``, and the category it maps from is
+        reachable as ``Self.dom``.
         """
         return {
             "Self": self.category,
             "C0": getattr(self.category, "ob", self.category),
-            "C1": getattr(self.category, "ar", self.category)}
+            "C1": Hom(getattr(self.category, "ar", self.category))}
+
+    def annotations(self) -> dict:
+        """ The evaluated annotation of each generated parameter. """
+        if self.category is None:
+            raise TypeError(f"{self.name} is not bound to a class.")
+        namespace = inspect.unwrap(self.equation).__globals__
+        return {
+            parameter.name: eval(parameter.annotation, namespace, self.scope)
+            if isinstance(parameter.annotation, str) else parameter.annotation
+            for parameter in self.parameters
+            if parameter.default is inspect.Parameter.empty}
 
     def strategy(self) -> st.SearchStrategy:
         """
-        Generate the arguments the bound axiom expects: one per required
-        parameter, from its annotation evaluated in the :attr:`scope` of the
-        category or from the subspace :meth:`weaken` declared for it.
+        Generate the arguments the bound axiom expects, one per required
+        parameter, from its annotation evaluated in the :attr:`scope` of
+        the category: an arrow of the :class:`Sequent` ``C1[A, B]``
+        through the search, an object of the kind of a :class:`Var`, and
+        any other :class:`Testable` from its own strategy. The
+        metavariables of every annotation are drawn once, so that ``f:
+        C1[A, B], g: C1[B, C]`` are composable. A :meth:`weaken`ed law
+        keeps the arguments whose equation its predicate accepts.
 
         Only the parameters' annotations are evaluated: the law's return
         annotation may name a type its module imports for checking only.
         """
         from hypothesis import strategies as st
 
-        if self.category is None:
-            raise TypeError(f"{self.name} is not bound to a class.")
-        namespace = inspect.unwrap(self.equation).__globals__
-        annotations = {
-            parameter.name: eval(parameter.annotation, namespace, self.scope)
-            if isinstance(parameter.annotation, str) else parameter.annotation
-            for parameter in self.parameters}
-        annotations.update({
-            name: substitute(annotation, self.scope)
-            for name, annotation in self.subspaces.items()})
-        return st.tuples(*(
-            resolve(annotations[parameter.name])
-            for parameter in self.parameters
-            if parameter.default is inspect.Parameter.empty))
+        annotations, category = self.annotations(), self.category
+        variables = {
+            var.name: var for annotation in annotations.values()
+            for var in (
+                annotation.vars if isinstance(annotation, Sequent)
+                else (annotation, ) if isinstance(annotation, Var) else ())}
+
+        @st.composite
+        def arguments(draw):
+            env = draw_vars(draw, variables.values(), category)
+            unit = unit_of(category, env)
+            return tuple(
+                draw(category.strategy(
+                    dom=annotation.dom.instantiate(env, unit),
+                    cod=annotation.cod.instantiate(env, unit)))
+                if isinstance(annotation, Sequent)
+                else env[annotation.name] if isinstance(annotation, Var)
+                else draw(resolve(annotation))
+                for annotation in annotations.values())
+
+        def within(args) -> bool:
+            try:
+                equation = self.equation(category, *args)
+            except AxiomFailure as failure:
+                equation = failure.equation
+            return self.subspace(equation)
+
+        drawn = arguments()
+        return drawn if self.subspace is None else drawn.filter(within)
 
     def falsify(self, **params) -> tuple:
         """
@@ -500,18 +518,12 @@ class Axiom[**P, T]:
         return find(self.strategy(), refutes, **params)
 
     def arguments(self, *args: P.args, **kwargs: P.kwargs) -> dict:
-        """
-        Bind the arguments to the :attr:`parameters` of the bound axiom,
-        unwrapping those a :attr:`subspaces` wrapper validated on
-        construction.
-        """
+        """ Bind the arguments to the :attr:`parameters` of the axiom. """
         if self.category is None:
             raise TypeError(f"{self.name} is not bound to a class.")
         bound = inspect.Signature(self.parameters).bind(*args, **kwargs)
         bound.apply_defaults()
-        return {
-            name: value.value if name in self.subspaces else value
-            for name, value in bound.arguments.items()}
+        return dict(bound.arguments)
 
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> Equation[T]:
         return self.equation(self.category, **self.arguments(*args, **kwargs))
@@ -777,6 +789,40 @@ def search(
         return draw(derive(source, target, size))
 
     return arrows()
+
+
+@dataclass(frozen=True)
+class Sequent:
+    """ A sequent pattern, one :class:`Pattern` for each boundary. """
+
+    dom: Pattern
+    cod: Pattern
+
+    @property
+    def vars(self) -> tuple[Var, ...]:
+        """ The variables of both boundaries. """
+        return tuple({
+            var.name: var for side in (self.dom, self.cod)
+            for var in side.vars}.values())
+
+    def __iter__(self):
+        yield self.dom
+        yield self.cod
+
+
+@dataclass(frozen=True)
+class Hom:
+    """
+    What :obj:`C1` stands for in the annotations of a law: the arrows of
+    a category, and ``C1[A, B]`` the :class:`Sequent` of those from ``A``
+    to ``B``.
+    """
+
+    category: type
+
+    def __getitem__(self, boundaries) -> Sequent:
+        dom, cod = boundaries
+        return Sequent(pattern(dom), pattern(cod))
 
 
 class Testable[T]:
@@ -1167,290 +1213,14 @@ def unit_of(factory, env: dict):
     for value in env.values():
         if hasattr(value, "__len__"):
             return value[:0]
-    return factory.ob() if hasattr(factory.ob, "tensor") else None
-
-
-def factory_of(shape: type) -> type:
-    """
-    The factory a shape draws its terms from: an unsubscripted shape has
-    none, so it has no strategy either, e.g. ``Square`` generates nothing
-    where ``Square[Diagram]`` generates squares of diagrams.
-    """
-    if not isinstance(shape.factory, type):
-        raise NotImplementedError(
-            f"No search strategy implemented for {shape.__name__}")
-    return shape.factory
-
-
-@dataclass(frozen=True)
-class Atomic(Testable, NamedGeneric["factory"]):
-    """ An object of the factory containing exactly one generator. """
-
-    value: C0
-
-    def __post_init__(self):
-        if len(self.value) != 1:
-            raise ValueError("Expected an atomic object.")
-
-    @classmethod
-    def strategy(cls, **params):
-        """Generate an object of length one."""
-        return resolve(factory_of(cls), **{
-            **params, "min_length": 1, "max_length": 1}).map(cls)
-
-
-@dataclass(frozen=True)
-class NonEmpty(Testable, NamedGeneric["factory"]):
-    """ A non-empty object of the factory. """
-
-    value: C0
-
-    def __post_init__(self):
-        if not len(self.value):
-            raise ValueError("Expected a non-empty object.")
-
-    @classmethod
-    def strategy(cls, **params):
-        """Generate an object of length at least one."""
-        return resolve(
-            factory_of(cls), **{**params, "min_length": 1}).map(cls)
-
-
-@dataclass(frozen=True)
-class BoundaryConnected(Testable, NamedGeneric["factory"]):
-    """
-    A diagram whose boundary reaches every box, or a shape of such
-    diagrams whose pasting, when the shape has one, is connected too: the
-    subspace where a normal form is defined, a state pasted onto an
-    effect closing a component the normal form cannot reach.
-    """
-
-    value: C1
-
-    def __post_init__(self):
-        if not self.connected(self.value):
-            raise ValueError("Expected a boundary-connected diagram.")
-
-    @staticmethod
-    def connected(value) -> bool:
-        """ Whether a diagram, or the pasting of a shape, is connected. """
-        cells = [value.pasting()] if hasattr(value, "pasting")\
-            else list(value) if isinstance(value, tuple) else [value]
-        return all(
-            cell.is_boundary_connected for cell in cells
-            if hasattr(cell, "is_boundary_connected"))
-
-    @classmethod
-    def strategy(cls, **params):
-        """Generate from the factory restricted to connected diagrams."""
-        factory = factory_of(cls)
-        connected = resolve(factory, boundary_connected=True, **params)
-        if hasattr(factory, "pasting"):
-            connected = connected.filter(cls.connected)
-        return connected.map(cls)
-
-
-class Shape(Testable, NamedGeneric["factory"], tuple):
-    """
-    The arguments of a law, as a tuple of arrows and objects: a subclass
-    declares its ``premises``, named sequent patterns, and what it
-    ``returns``, premise names and metavariables in order. The constructor
-    checks that the arguments match, the strategy draws the metavariables
-    by kind and each arrow through the search of the ``factory``.
-
-    >>> from discopy.cat import Arrow, Box, Ob
-    >>> x, y = Ob('x'), Ob('y')
-    >>> ComposablePair(Box('f', x, y), Box('g', y, x))[0].name
-    'f'
-    """
-    premises: ClassVar[dict] = {}
-    returns: ClassVar[tuple] = ()
-
-    @classmethod
-    def sequents(cls) -> dict:
-        """ The premises as sequent patterns, by name. """
-        return {name: sequent(*pair) for name, pair in cls.premises.items()}
-
-    @classmethod
-    def variables(cls) -> dict[str, Var]:
-        """ The metavariables of the premises and of the returned entries. """
-        found = {
-            var.name: var for pair in cls.sequents().values()
-            for side in pair for var in side.vars}
-        found.update({
-            entry.name: entry for entry in cls.returns
-            if isinstance(entry, Var)})
-        return found
-
-    def __new__(cls, *values):
-        if len(values) != len(cls.returns):
-            raise ValueError("Expected one value per entry.")
-        env = {}
-        for entry, value in zip(cls.returns, values):
-            if isinstance(entry, Var):
-                env = bind(env, entry, value)
-                if env is None or size(value) not in entry.lengths(value, 0):
-                    raise AxiomError(
-                        f"{value} is not a {entry.kind} for {cls.__name__}.")
-        arrows = [
-            (cls.sequents()[entry], value)
-            for entry, value in zip(cls.returns, values)
-            if isinstance(entry, str)]
-
-        def consistent(index, env):
-            if index == len(arrows):
-                yield env
-                return
-            pair, value = arrows[index]
-            for bound in matching(pair, value.dom, value.cod, env):
-                yield from consistent(index + 1, bound)
-
-        if next(consistent(0, env), None) is None:
-            raise AxiomError(
-                f"{values} do not match the premises of {cls.__name__}.")
-        return super().__new__(cls, values)
-
-    @classmethod
-    def strategy(cls, **params):
-        """Draw the metavariables by kind, then each arrow by the search."""
-        from hypothesis import strategies as st
-
-        factory = factory_of(cls)
-        sequents = cls.sequents()
-
-        @st.composite
-        def arguments(draw):
-            env = draw_vars(draw, cls.variables().values(), factory)
-            unit = unit_of(factory, env)
-            arrows = {
-                name: draw(factory.strategy(
-                    dom=dom.instantiate(env, unit),
-                    cod=cod.instantiate(env, unit), **params))
-                for name, (dom, cod) in sequents.items()}
-            return cls(*(
-                arrows[entry] if isinstance(entry, str) else env[entry.name]
-                for entry in cls.returns))
-
-        return arguments()
-
-    @axiom
-    def well_formed(cls, shape: Self) -> Equation:
-        """
-        The arguments match the premises, the law :meth:`__new__` enforces
-        and :meth:`strategy` draws for.
-        """
-        return Equation(cls(*shape), shape)
-
-
-A, B, C, D, E, F = (Var.type(name) for name in "ABCDEF")
-X, Y = Var.atom("X"), Var.atom("Y")
-N, K = Var.nonempty("N"), Var.nonempty("K")
-P = Var.pair("P")
-"""
-The metavariables of the shapes below: ``A`` to ``F`` stand for types,
-``X`` and ``Y`` for atoms, ``N`` and ``K`` for non-empty types and ``P``
-for a pair of atoms.
-"""
-
-
-class ComposablePair(Shape):
-    """ Two morphisms composable from left to right. """
-
-    premises = dict(f=(A, B), g=(B, C))
-    returns = ("f", "g")
-
-
-class ComposableTriple(Shape):
-    """ Three morphisms composable from left to right. """
-
-    premises = dict(f=(A, B), g=(B, C), h=(C, D))
-    returns = ("f", "g", "h")
-
-
-class HorizontalPair(Shape):
-    """ Two morphisms side by side. """
-
-    premises = dict(f=(A, B), g=(C, D))
-    returns = ("f", "g")
-
-
-class Square(Shape):
-    """ Two morphisms side by side and two below them, the interchange. """
-
-    premises = dict(f=(A, B), g=(C, D), h=(B, E), k=(D, F))
-    returns = ("f", "g", "h", "k")
-
-    def pasting(self):
-        """ The square pasted, ``f @ g >> h @ k``. """
-        f, g, h, k = self
-        return f @ g >> h @ k
-
-
-class TraceSuperposingLeft(Shape):
-    """ An arrow traceable on the left, and an object to superpose. """
-
-    premises = dict(f=(X @ A, X @ B))
-    returns = ("f", C)
-
-
-class TraceSuperposingRight(Shape):
-    """ An arrow traceable on the right, and an object to superpose. """
-
-    premises = dict(f=(A @ X, B @ X))
-    returns = ("f", C)
-
-
-class TraceNaturalityLeft(Shape):
-    """ A traced arrow, the object it is traced over and one to slide. """
-
-    premises = dict(f=(N @ A, N @ B), g=(B, A))
-    returns = ("f", N, "g")
-
-
-class TraceNaturalityRight(Shape):
-    """ A traced arrow, the object it is traced over and one to slide. """
-
-    premises = dict(f=(A @ N, B @ N), g=(B, A))
-    returns = ("f", N, "g")
-
-
-class TraceDinaturalityLeft(Shape):
-    """ An arrow traceable once the other is composed in on either side. """
-
-    premises = dict(f=(N @ A, K @ B), g=(K, N))
-    returns = ("f", "g")
-
-
-class TraceDinaturalityRight(Shape):
-    """ An arrow traceable once the other is composed in on either side. """
-
-    premises = dict(f=(A @ N, B @ K), g=(K, N))
-    returns = ("f", "g")
-
-
-class LeftCurrying(Shape):
-    """ An arrow into a base with the exponent at the end of its domain. """
-
-    premises = dict(f=(A @ Y, X))
-    returns = ("f", X, Y)
-
-
-class RightCurrying(Shape):
-    """ An arrow into a base with the exponent at the start of its domain. """
-
-    premises = dict(f=(Y @ A, X))
-    returns = ("f", X, Y)
-
-
-class FeedbackJoining(Shape):
-    """ An arrow feeding two units of memory back, and that memory. """
-
-    premises = dict(f=(A @ P.delay(), A @ P))
-    returns = ("f", P)
+    ob = getattr(factory, "ob", None)
+    return ob() if hasattr(ob, "tensor") else None
 
 
 def resolve(annotation, **params) -> st.SearchStrategy:
     """ Resolve the strategy implemented by an annotated type. """
+    if isinstance(annotation, Hom):
+        return annotation.category.strategy(**params)
     if not isinstance(annotation, type)\
             or not issubclass(annotation, Testable):
         raise TypeError(
@@ -1458,21 +1228,13 @@ def resolve(annotation, **params) -> st.SearchStrategy:
     return annotation.strategy(**params)
 
 
-def substitute(annotation, scope: dict):
+def connected(equation) -> bool:
     """
-    Replace the :obj:`C0` and :obj:`C1` type variables of a subspace
-    annotation by the objects and arrows they stand for, rebuilding each
-    parameterised wrapper whose factory the substitution changes.
+    Whether every term of an equation is boundary connected, the subspace
+    a normal form is defined on: a law compared modulo a normal form is
+    :meth:`Axiom.weaken`ed to it.
     """
-    if isinstance(annotation, TypeVar):
-        return scope[annotation.__name__]
-    factory = getattr(annotation, "factory", None)
-    if factory is None or factory is annotation:
-        return annotation
-    substituted = substitute(factory, scope)
-    if substituted is factory:
-        return annotation
-    return get_origin(annotation)[substituted]
+    return all(term.is_boundary_connected for term in equation.terms)
 
 
 def assert_axioms(*categories) -> None:

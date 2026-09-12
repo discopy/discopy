@@ -65,8 +65,7 @@ from discopy import abc, cat, drawing, hypergraph, cmap, messages
 from discopy.abc import (
     ColouredMonoid, Monoid, MonoidalCategory, NamedGeneric)
 from discopy.axioms import (
-    C1, GENERATORS, BoundaryConnected, HorizontalPair, Serialisable, Square,
-    no_strategy, search)
+    GENERATORS, Serialisable, connected, no_strategy, search)
 from discopy.drawing import Drawing
 from discopy.config import (
     BOX_DRAWING_ATTRIBUTES, WIRE_DRAWING_ATTRIBUTES,
@@ -1000,12 +999,11 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
     @classmethod
     def strategy(
             cls, *, types=None, dom=None, cod=None,
-            min_leaves=None, max_leaves=3, boundary_connected=False):
+            min_leaves=None, max_leaves=3):
         """
         Generate diagrams by :func:`discopy.axioms.search` over the
         :attr:`rules` of the category, tensored with up to two closed
-        components unless ``boundary_connected``, in which case a trace
-        closing a loop around a box is filtered out too.
+        components.
         """
         from hypothesis import strategies as st
 
@@ -1013,9 +1011,6 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
         diagrams = search(
             cls, types=types, dom=dom, cod=cod,
             min_leaves=min_leaves, max_leaves=max_leaves)
-        if boundary_connected:
-            return diagrams.filter(
-                lambda diagram: diagram.is_boundary_connected)
         scalars = search(
             cls, types=types, dom=cls.ob(), cod=cls.ob(),
             min_leaves=1, max_leaves=max_leaves)
@@ -1041,15 +1036,20 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
     @property
     def is_boundary_connected(self) -> bool:
         """
-        Whether the boundary reaches every box, read off the hypergraph;
-        a diagram with no hypergraph, e.g. one with a left-handed cup, is
-        not connected either: this is the subspace a normal form is
-        defined on.
+        Whether the boundary reaches every box, i.e. every connected
+        component of the map with a box or a loop has a port on the
+        boundary: the subspace a normal form is defined on. The map is
+        read rather than the hypergraph, which a left-handed cup has none
+        of.
+
+        >>> x = Ty('x')
+        >>> assert Box('f', x, x).is_boundary_connected
+        >>> assert not Box('s', Ty(), Ty()).is_boundary_connected
         """
-        try:
-            return self.to_hypergraph().is_boundary_connected
-        except AxiomError:
-            return False
+        return all(
+            len(component.dom) or len(component.cod)
+            for component in self.to_map().connected_components
+            if component.boxes or component.loops)
 
     @property
     def size(self):
@@ -1496,10 +1496,10 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
         return super().from_tree(tree)
 
     bifunctoriality = MonoidalCategory.bifunctoriality.modulo(
-        normal_form).weaken(square=BoundaryConnected[Square[C1]])
+        normal_form).weaken(connected)
 
     dagger_monoidality = MonoidalCategory.dagger_monoidality.modulo(
-        normal_form).weaken(pair=BoundaryConnected[HorizontalPair[C1]])
+        normal_form).weaken(connected)
 
 
 class Box(cat.Box, Diagram):
