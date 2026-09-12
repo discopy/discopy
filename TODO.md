@@ -49,4 +49,4 @@ Rough edges met on the way, each worth an issue:
 - [x] `Var`, `Pattern` and sequent patterns in `discopy/axioms.py`: matching with backtracking and inversion of adjoints, delays and exponentials, instantiation by kind; tests
 - [x] `@leaf` and `@rule` from patterns, with the hint derived from the conclusion pattern; the structural rules of `discopy.abc` restated as patterns, hand-written hints gone; `search` checks the sequent a rule claims
 - [x] `Shape` with declared premises and returns, validator and strategy generic; the arrow shapes restated as patterns, `Grid` and the bespoke shape classes gone
-- [WIP] @claude-3f440127-2026-09-12 15:20 the matrix green, docs autosummary, CHANGELOG, `uv run pflake8 discopy`, `uv run coverage run -m pytest`, `uv run pytest proptest/ -n auto -p no:benchmark`
+- [x] the matrix green, docs autosummary, CHANGELOG, `uv run pflake8 discopy`, `uv run coverage run -m pytest`, `uv run pytest proptest/ -n auto -p no:benchmark`
