@@ -78,4 +78,4 @@ Rough edges met on the way, each worth an issue:
 
 - [x] a law's metavariables are its type parameters, their kind the bound: `C0` a type, `Atom[C0]`, `NonEmpty[C0]`, `Pair[C0]`; `M.d` is the delay; rules read their conclusion and premises off annotated `dom`, `cod` and premise parameters the same way; tests
 - [x] every axiom and rule of `discopy.abc` declared with type parameters, the module-level metavariables gone
-- [ ] the matrix green, docs, CHANGELOG, `uv run pflake8 discopy`, `uv run coverage run -m pytest`, `uv run pytest proptest/ -n auto -p no:benchmark`
+- [x] the matrix green, docs, CHANGELOG, `uv run pflake8 discopy`, `uv run coverage run -m pytest`, `uv run pytest proptest/ -n auto -p no:benchmark`
