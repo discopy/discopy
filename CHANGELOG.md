@@ -71,7 +71,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `HomogeneousMemory`, which no law used. `BoundaryConnected` accepts a
   shape of diagrams, and the rigid currying laws are weakened to it like
   interchange is, the rigid normal form being partial on closed
-  components.
+  components; from compact categories on, whose equations compare up to
+  hypergraph isomorphism, the plain law holds on connected arguments
+  where the normal form knows no swaps.
 - `feedback.Discard` and `closed.Merge`, the discard of a feedback
   diagram and the merge of a closed one: `feedback.Diagram.copy(x, 0)`
   built a `markov.Discard` and `closed.Diagram.copy(x).dagger()` a
