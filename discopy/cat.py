@@ -83,6 +83,7 @@ from typing import (
 
 from discopy import messages, utils
 from discopy.abc import Category, DaggerCategory
+from discopy.axioms import GENERATORS, Equation as AbstractEquation, Testable
 from discopy.utils import (  # noqa: F401
     factory,
     factory_name,
@@ -103,7 +104,7 @@ dumps, loads = utils.dumps, utils.loads
 
 
 @total_ordering
-class Ob:
+class Ob(Testable["Ob"]):
     """
     An object with a string as :code:`name`.
 
@@ -139,6 +140,13 @@ class Ob:
 
     def __lt__(self, other):
         return self.name < other.name
+
+    @classmethod
+    def strategy(cls):
+        """Generate named objects."""
+        from hypothesis import strategies as st
+
+        return st.sampled_from(GENERATORS).map(cls)
 
     def to_tree(self) -> dict:
         """
@@ -252,7 +260,7 @@ class FreeCategory(Category):
 
 
 @factory
-class Arrow(FreeCategory, DaggerCategory):
+class Arrow(FreeCategory, DaggerCategory, Testable["Arrow"]):
     """
     An arrow is a tuple of composable boxes :code:`inside` with a pair of
     objects :code:`dom` and :code:`cod` as domain and codomain.
@@ -299,6 +307,35 @@ class Arrow(FreeCategory, DaggerCategory):
     see :class:`monoidal.Nat`.
     """
     ob = Ob
+
+    @classmethod
+    def strategy(
+            cls, *, types=None, dom=None, cod=None,
+            min_leaves=None, max_leaves=10):
+        """
+        Generate the canonical instantiation: a single identity or a single
+        generator box with the requested (or an arbitrary) boundary.
+
+        Callers bound the number of generators of a composite term with
+        :code:`min_leaves` and :code:`max_leaves`; a canonical
+        instantiation has at most one, so both are ignored.
+        """
+        from hypothesis import strategies as st
+
+        types = cls.ob.strategy() if types is None else types
+
+        def generators(dom=None, cod=None):
+            """ Generator boxes between the given boundaries. """
+            return cls.generator_factory.strategy(
+                types=types, dom=dom, cod=cod)
+
+        if dom is not None and cod is not None:
+            if dom == cod:
+                return st.just(cls.id(dom))
+            return generators(dom=dom, cod=cod)
+        if dom is not None or cod is not None:
+            return generators(dom=dom, cod=cod)
+        return st.one_of(types.map(cls.id), generators())
 
     def __setstate__(self, state):
         if '_dom' in state:  # Backward compatibility
@@ -531,6 +568,19 @@ class Box(Arrow):
     >>> f = Box('f', x, y, data=[42])
     >>> assert f.inside == (f, )
     """
+
+    @classmethod
+    def strategy(
+            cls, *, types=None, dom=None, cod=None):
+        """Generate fresh free boxes with optional exact boundaries."""
+        from hypothesis import strategies as st
+
+        types = cls.ob.strategy() if types is None else types
+        doms = types if dom is None else st.just(dom)
+        cods = types if cod is None else st.just(cod)
+        return st.tuples(st.uuids(), doms, cods).map(
+            lambda args: cls(str(args[0]), args[1], args[2]))
+
     def __setstate__(self, state):
         if '_name' in state:  # Backward compatibility
             self.name, self.data, self.is_dagger = (
@@ -923,9 +973,7 @@ class Functor(Category):
         if isinstance(other, Ob):
             result = self.ob_map[other]
             origin = get_origin(self.cod.ob)
-            if isinstance(result, origin):
-                return result
-            return (result, ) if origin == tuple\
+            return result if isinstance(result, origin)\
                 else self.cod.ob(result)
         if isinstance(other, Sum):
             return sum(map(self, other.terms),
@@ -1060,53 +1108,22 @@ class Transformation(Category):
             f"dom={self.dom!r}, cod={self.cod!r})")
 
 
-class Equation:
+class Equation(AbstractEquation[Arrow]):
     """
-    An equation is a list of ``terms`` to be compared up to a function
-    ``up_to``, the identity by default.  Casting it to ``bool`` checks whether
-    its terms are all equal up to that function.
-
-    Parameters:
-        terms : The terms of the equation.
-        symbol : The symbol between each pair of terms, ``"="`` by default.
-        symbols : The symbols between each pair of terms, overriding
-            ``symbol``; ``len(terms) * (symbol, )`` by default.
-        up_to : The function up to which ``bool(equation)`` compares its terms,
-            overriding the subclass' :attr:`up_to` if given.
+    An :class:`.axioms.Equation` between arrows, see its docstring for the
+    parameters and :meth:`.axioms.Equation.modulo` for quotients.
 
     Example
     -------
-    The number of boxes inside an arrow is left unchanged by associativity, so
-    we can compare arrows up to the function that counts them modulo 2:
-
     >>> x = Ob('x')
     >>> f, g = Box('f', x, x), Box('g', x, x)
     >>> parity = lambda term: len(term.inside) % 2
     >>> assert not Equation(f, f >> g >> g)
     >>> assert Equation(f, f >> g >> g, up_to=parity)
     """
-    up_to = None
-
-    def __init__(self, *terms: Arrow, symbol="=", symbols=None, up_to=None):
-        self.terms = terms
-        self.symbols = tuple(symbols) if symbols is not None\
-            else len(terms) * (symbol, )
-        if up_to is not None:
-            self.up_to = up_to
-
-    def __repr__(self):
-        return factory_name(type(self))\
-            + f"({', '.join(map(repr, self.terms))})"
-
-    def __str__(self):
-        return f"Equation({', '.join(map(str, self.terms))})"
-
-    def __bool__(self):
-        terms = self.terms if self.up_to is None\
-            else list(map(self.up_to, self.terms))
-        return all(term == terms[0] for term in terms)
 
 
+Ob.equation_factory = Arrow.equation_factory = Equation
 Arrow.sum_factory = Sum
 Arrow.bubble_factory = Bubble
 Id = Arrow.id

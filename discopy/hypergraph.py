@@ -1668,8 +1668,8 @@ class Hypergraph(MonoidalCategory, DaggerCategory, NamedGeneric['category']):
                     [inputs, outputs, box_nodes, spider_nodes]):
                 if node.kind == kind:
                     nodelist.append(node)
-        dom = sum([n.obj for n in inputs], cls.category.ob())
-        cod = sum([n.obj for n in outputs], cls.category.ob())
+        dom = cls.category.ob().tensor(*(n.obj for n in inputs))
+        cod = cls.category.ob().tensor(*(n.obj for n in outputs))
         boxes = tuple(n.box for n in box_nodes)
         offsets = tuple(n.offset for n in box_nodes)
         spider_types = {n: n.obj for n in spider_nodes}
