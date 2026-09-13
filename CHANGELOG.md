@@ -88,6 +88,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   gone, and every pattern draws through one composite strategy built
   once, where a fresh `st.composite` inspected its function at every
   draw, half the cost of generating an example.
+- `Axiom.canonical`, the law as a schema: its equation on the canonical
+  arguments of its pattern, each metavariable an object named after it
+  and each arrow a box named after its parameter — `Equation(f >> g >>
+  h, f >> g >> h)` for associativity — and `Axiom.draw`, drawing it;
+  `PatternBase.canonical` gives the default value of any pattern.
 - `Axiom` is a `Testable` whose terms are its equations: `Axiom.pattern`
   is the `Signature` of its annotations, whose strategy is the input of
   the law, and `Axiom.strategy` returns a `SearchStrategy[Equation[T]]`,

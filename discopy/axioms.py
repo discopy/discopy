@@ -648,6 +648,39 @@ class Axiom[**P, T](Testable[Equation]):
         return find(
             self.equations(verdict), lambda equation: not equation, **params)
 
+    def canonical(self) -> Equation[T]:
+        """
+        The law as a schema: its equation on the canonical arguments of
+        its :attr:`pattern`, each metavariable an object named after it
+        and each arrow a box named after its parameter, the equation a
+        law declared broken raises included.
+
+        >>> from discopy.cat import Arrow
+        >>> print(Arrow.associativity.canonical())
+        Equation(f >> g >> h, f >> g >> h)
+        """
+        try:
+            return self(*self.pattern.canonical(self.category))
+        except AxiomFailure as failure:
+            return failure.equation
+
+    def draw(self, **params):
+        """
+        Draw the :meth:`canonical` equation of the law, the parameters
+        those of :meth:`discopy.monoidal.Equation.draw`.
+
+        >>> from discopy.symmetric import Diagram
+        >>> Diagram.bifunctoriality.draw(
+        ...     doctest="docs/_static/axioms/bifunctoriality.svg")
+
+        .. image:: /_static/axioms/bifunctoriality.svg
+            :align: center
+        """
+        equation = self.canonical()
+        if equation is NotImplemented:
+            raise TypeError(f"{self} does not apply, so has nothing to draw.")
+        return equation.draw(**params)
+
     def arguments(self, *args: P.args, **kwargs: P.kwargs) -> dict:
         """ Bind the arguments to the :attr:`parameters` of the axiom. """
         if self.category is None:
@@ -979,6 +1012,16 @@ class PatternBase[T](Testable[T]):
         """
         return generated()(self, factory, dict(env or {}), params)
 
+    def canonical(self, factory, env: dict = None, name: str = None) -> T:
+        """
+        The value the pattern stands for by default: each variable not in
+        ``env`` an object of the ``factory`` named after it, an arrow a
+        box named ``name``, so that a law reads as a schema, see
+        :meth:`Axiom.canonical`.
+        """
+        bound = canonical_vars(self.vars, factory, env)
+        return self.instantiate(bound, unit_of(factory, bound))
+
     def __matmul__(self, other) -> Word:
         return Word.of(self) @ other
 
@@ -1132,6 +1175,14 @@ class Var[T](ItemBase[T]):
         if self.kind == "nonempty":
             return draw(factory.ob.strategy(min_length=1))
         return draw(factory.ob.strategy())
+
+    def canonical(self, factory, env: dict = None, name: str = None) -> T:
+        """ What ``env`` binds the variable to, else an object of its name. """
+        if env and self.name in env:
+            return env[self.name]
+        if self.kind == "pair":
+            return factory.ob(f"{self.name}0") @ factory.ob(f"{self.name}1")
+        return factory.ob(self.name)
 
     r = property(lambda self: Adjoint(self, left=False))
     l = property(lambda self: Adjoint(self, left=True))  # noqa: E741
@@ -1465,6 +1516,11 @@ class Sequent[T](PatternBase[T]):
         dom, cod = self.instantiate(bound, unit_of(factory, bound))
         return draw(factory.strategy(dom=dom, cod=cod, **params))
 
+    def canonical(self, factory, env: dict = None, name: str = None) -> T:
+        """ A box named ``name`` between the canonical boundaries. """
+        dom, cod = super().canonical(factory, env)
+        return factory.box_factory(name or "f", dom, cod)
+
 
 @dataclass(frozen=True)
 class Hom[T](PatternBase[T]):
@@ -1502,6 +1558,17 @@ class Hom[T](PatternBase[T]):
 
     def generate(self, draw: Callable, factory, env: dict, **params) -> T:
         return draw(self.testable.strategy(**params))
+
+    def canonical(self, factory, env: dict = None, name: str = None) -> T:
+        """
+        A box named ``name`` from ``x`` to ``y`` when the class has a
+        ``box_factory``, else a term of the class named ``name``.
+        """
+        name = name or "f"
+        if hasattr(self.testable, "box_factory"):
+            ob = self.testable.ob
+            return self.testable.box_factory(name, ob("x"), ob("y"))
+        return self.testable(name)
 
 
 @dataclass(frozen=True)
@@ -1548,6 +1615,13 @@ class Signature[T](PatternBase[T]):
         return tuple(
             pattern.generate(draw, factory, bound, **params)
             for pattern in self.patterns.values())
+
+    def canonical(self, factory, env: dict = None, name: str = None) -> T:
+        """ The canonical arguments, each named after its parameter. """
+        bound = canonical_vars(self.vars, factory, env)
+        return tuple(
+            pattern.canonical(factory, bound, name)
+            for name, pattern in self.patterns.items())
 
 
 type Item[T] = Var[T] | Adjoint[T] | Delay[T] | Exp[T]
@@ -1596,6 +1670,14 @@ def bind_vars(draw: Callable, variables, factory, env: dict) -> dict:
     bound = dict(env)
     for var in variables:
         bound[var.name] = var.generate(draw, factory, bound)
+    return bound
+
+
+def canonical_vars(variables, factory, env: dict = None) -> dict:
+    """ ``env`` extended with the canonical value of each variable missing. """
+    bound = dict(env or {})
+    for var in variables:
+        bound.setdefault(var.name, var.canonical(factory))
     return bound
 
 

@@ -197,6 +197,26 @@ def test_falsify():
         Arrow.associativity.falsify()
 
 
+def test_canonical():
+    """ A law reads as a schema on the canonical arguments of its pattern. """
+    A, B, C, D = map(Ob, "ABCD")
+    f, g, h = Box('f', A, B), Box('g', B, C), Box('h', C, D)
+    canonical = Arrow.associativity.canonical()
+    assert canonical and canonical.terms[0] == f >> g >> h
+    assert Arrow.associativity.pattern.canonical(Arrow) == (f, g, h)
+    assert Arrow.unitality.canonical().terms[1] == Box('f', Ob('x'), Ob('y'))
+    from discopy import symmetric
+    swap = symmetric.Diagram.swap_inverse.canonical()
+    assert swap and swap.terms[1] == symmetric.Id(
+        symmetric.Ty('x') @ symmetric.Ty('y'))
+    assert Arrow.unitality.failing("Never holds.").canonical()
+    assert Arrow.unitality.inapplicable("No units.").canonical()\
+        is NotImplemented
+    with raises(TypeError):
+        Arrow.unitality.inapplicable("No units.").draw()
+    assert monoidal.Diagram.tensor_dom_typing.canonical()
+
+
 def test_axioms_of_category():
     class Broken(Arrow):
         """ A category declaring an inherited law broken. """
