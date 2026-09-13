@@ -120,3 +120,10 @@ Rough edges met on the way, each worth an issue:
 > make MonoidalCategory subclass TwoCategory[Colour, C0, C1] with real colours
 
 - [x] `abc.Colour`, the 0-cells, `MonoidalCategory(TwoCategory[Colour, C0, C1])` resolving to the category's own colours; a level substituted by a superclass of the positional cells keeps the cells; `BraidedCategory` and `RigidCategory` declare the one trivial colour crossing and bending wires need; tests, CHANGELOG, lint, `uv run pytest`, the matrices
+
+## Round: generators
+
+> these solvers aren't good, lets return to the initial approach of defining rules, generators and axioms and deriving search strategies from there.
+> allow diagrams to adjust the set of generators that the strategy can invoke. just like axioms collect all axioms, generators should be a similar method that can be overridden. use this to generate random sentences for pregroup or generate quantum circuits.
+
+- [WIP] @af1f3450-2026-09-13 19:10 `Category.generators`, the rules building a box from nothing, collected like `axioms` and overridable by a class attribute; `search` invokes the structure of `rules` and the generators of `generators`; `Rule.constant(box)` the generator of one given box; random sentences of a pregroup grammar and random quantum circuits from a gate set, in tests and doctests; CHANGELOG, lint, `uv run pytest`, the fast matrix
