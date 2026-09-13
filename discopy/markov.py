@@ -117,6 +117,8 @@ class Diagram(symmetric.Diagram, MarkovCategory):
     """
     pickling = Serialisable.pickling.failing(
         "A copy does not unpickle, its __new__ wanting its type (#742).")
+    copying = Serialisable.copying.failing(
+        "A copy does not deep-copy, its __new__ wanting its type (#742).")
 
     @classmethod
     def spider_factory(cls, n_legs_in, n_legs_out, typ, phase=None):

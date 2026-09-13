@@ -272,13 +272,15 @@ def test_leaf_applies_only_on_its_shape():
 
     class Toy(Arrow):
         """ Loops on every object, and no cut. """
-        cut = None
+        cut = Arrow.cut.inapplicable("No cut.")
 
+        @classmethod
         @leaf
-        def loop[A: C0](cls, dom: A, cod: A, A):
-            return Box('loop', dom, cod)
+        def loop[A: C0](cls, dom: A) -> C1[A, A]:
+            return Box('loop', dom, dom)
 
-    assert set(Toy.rules) == {"identity", "box", "loop"}
+    assert set(Toy.rules) == {"identity", "box", "cut", "loop"}
+    assert not Toy.rules["cut"].applies(Toy, Ob('x'), Ob('x'), 2)
     x, y = Ob('x'), Ob('y')
     is_loop = lambda arrow: arrow.inside[0].name == 'loop'
     find(search(Toy, dom=x, cod=x, min_leaves=1, max_leaves=1,
@@ -298,8 +300,8 @@ def test_rule_from_annotations():
 
         @rule
         def looping[A: C0, B: C0, M: Atom[C0]](
-                cls, dom: A, cod: B, f: C1[M @ A, M @ B], **env):
-            return f.trace(left=True)
+                self: C1[M @ A, M @ B]) -> C1[A, B]:
+            return self.trace(left=True)
 
     looping = Toy.rules["looping"]
     a, b = map(traced.Ty, "ab")
@@ -317,7 +319,7 @@ def test_rules_from_patterns():
     from discopy import braided, rigid, traced
 
     x, y, z = map(rigid.Ty, "xyz")
-    cupping = rigid.Diagram.rules["cupping"]
+    cupping = rigid.Diagram.rules["cups"]
     assert cupping.applies(rigid.Diagram, x @ x.r, rigid.Ty(), 1)
     assert cupping.applies(rigid.Diagram, x.l @ x, rigid.Ty(), 1)
     assert not cupping.applies(rigid.Diagram, x @ y.r, rigid.Ty(), 1)
@@ -326,11 +328,11 @@ def test_rules_from_patterns():
     assert find(cupping.shape(rigid.Diagram, x @ x.r, rigid.Ty(), types),
                 lambda middle: not middle) == rigid.Ty()
     a, b, c = map(braided.Ty, "abc")
-    braiding = braided.Diagram.rules["braiding"]
+    braiding = braided.Diagram.rules["braid"]
     hinted = find(braiding.shape(braided.Diagram, a @ b @ c, c, types),
                   lambda middle: middle == b @ a @ c)
     assert hinted == b @ a @ c
-    tracing = traced.Diagram.rules["tracing_left"]
+    tracing = traced.Diagram.rules["trace"]
     assert tracing.applies(traced.Diagram, a, b, 2)
     assert not tracing.applies(traced.Diagram, a, b, 1)
     traced_arrow = find(
@@ -381,6 +383,41 @@ def test_pattern_exponentials_and_delays():
     assert list((A @ M.delay()).match(w @ (u @ v).delay())) == [
         {"A": w, "M": u @ v}]
     assert list((A @ M).match(w @ u @ v)) == [{"A": w, "M": u @ v}]
+
+
+def test_pattern_counts_and_choices():
+    """ A count repeats an item and a boolean chooses a boundary. """
+    from discopy import frobenius, rigid
+    from discopy.axioms import Var, inapplicable
+
+    X, Y, N, L = Var.atom('X'), Var.atom('Y'), Var('N', 'count'), Var('L', 'bool')
+    a, b = map(rigid.Ty, "ab")
+    assert list((X ** N).match(a @ a)) == [{"N": 2, "X": a}]
+    assert list((X ** N).match(a @ b)) == []
+    assert list((X ** N).match(rigid.Ty())) == [{"N": 0}]
+    assert (X ** N).instantiate({"X": a, "N": 3}) == a @ a @ a
+    assert str(X ** N) == "X ** N"
+    choice = L[X @ Y, Y @ X]
+    assert str(choice) == "L[X @ Y, Y @ X]"
+    assert list(choice.match(a @ b)) == [
+        {"L": True, "X": a, "Y": b}, {"L": False, "Y": a, "X": b}]
+    assert choice.instantiate({"L": False, "X": a, "Y": b}) == b @ a
+    with raises(TypeError):
+        X[X, Y]
+    spiders = frobenius.Diagram.rules["spiders"]
+    x = frobenius.Ty('x')
+    assert spiders.applies(frobenius.Diagram, x @ x, x, 1)
+    assert not spiders.applies(frobenius.Diagram, x @ x, x @ frobenius.Ty('y'), 1)
+
+    class Toy(Arrow):
+        """ A category dropping the cut by an inapplicable override. """
+        @inapplicable("Never composes.")
+        def then(self, *others):
+            return Arrow.then(self, *others)
+
+    assert Toy.rules["cut"].applies(Toy, Ob('x'), Ob('x'), 2)
+    assert not Toy.rules["then"].applies(Toy, Ob('x'), Ob('x'), 2)
+    assert Toy.rules["then"].__doc__ == "Never composes."
 
 
 def test_pattern_instantiation():

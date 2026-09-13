@@ -62,8 +62,8 @@ from dataclasses import dataclass
 from typing import ClassVar
 
 from discopy.axioms import (  # noqa: F401
-    C0, C1, Atom, Axiom, Equation, NonEmpty, Pair, Rule, Sequent,
-    Serialisable, Testable, Var, Word, axiom, leaf, rule)
+    C0, C1, Atom, Axiom, Bool, Count, Equation, NonEmpty, Pair, Rule,
+    Serialisable, Testable, Var, axiom, inapplicable, leaf, rule)
 from discopy.utils import (  # noqa: F401
     NamedGeneric, classproperty, factory_name)
 
@@ -149,12 +149,21 @@ class Category[C0, C1: Category](Testable, ABC):
     @classproperty
     def rules(cls) -> dict[str, Rule]:
         """
-        The inference rules inherited by ``cls``, see
-        :meth:`discopy.axioms.Testable.declarations`: the same walk as
-        :attr:`axioms`, so a category generates exactly the structures whose
-        laws it must satisfy.
+        The inference rules inherited by ``cls``: the rule each structural
+        method carries, see :func:`discopy.axioms.leaf` and
+        :func:`discopy.axioms.rule`, collected through the MRO as
+        :attr:`axioms` are, so a category generates exactly the structures
+        whose laws it must satisfy. A plain override of a method keeps the
+        rule of the method it overrides, one decorated with
+        :func:`discopy.axioms.inapplicable` drops it.
         """
-        return cls.declarations(Rule)
+        found = {}
+        for base in reversed(cls.__mro__):
+            for name, value in base.__dict__.items():
+                carried = Rule.of(value)
+                if carried is not None:
+                    found[name] = carried.bind(cls)
+        return found
 
     @classmethod
     def hints(cls, dom, cod, types) -> list:
@@ -466,31 +475,24 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
     A traced category is a :class:`MonoidalCategory` with a method
     :code:`trace` for the partial trace of a morphism over some objects.
     """
+    @rule
     @abstractmethod
-    def trace(self, n: int = 1, left: bool = False) -> C1:
+    def trace[A: C0, B: C0, M: Atom[C0], L: Bool](
+            self: C1[L[M @ A, A @ M], L[M @ B, B @ M]],
+            n: int = 1, left: L = False) -> C1[A, B]:
         """
         The trace of a morphism, to be instantiated.
 
         Tracing no object at all is the identity, i.e. the vanishing axiom
         ``f.trace(0) == f``, see `nLab
-        <https://ncatlab.org/nlab/show/traced+monoidal+category>`_.
+        <https://ncatlab.org/nlab/show/traced+monoidal+category>`_. As a
+        rule, ``x ⊢ y`` is the trace of ``m @ x ⊢ m @ y`` or of ``x @ m ⊢
+        y @ m`` over an atom, on the left or on the right.
 
         Parameters:
             n : The number of objects to trace over.
             left : Whether to trace the wires on the left or right.
         """
-
-    @rule
-    def tracing_left[A: C0, B: C0, M: Atom[C0]](
-            cls, dom: A, cod: B, f: C1[M @ A, M @ B], **env):
-        """ ``x ⊢ y`` is the left trace of ``m @ x ⊢ m @ y`` over an atom. """
-        return f.trace(left=True)
-
-    @rule
-    def tracing_right[A: C0, B: C0, M: Atom[C0]](
-            cls, dom: A, cod: B, f: C1[A @ M, B @ M], **env):
-        """ ``x ⊢ y`` is the right trace of ``x @ m ⊢ y @ m`` over an atom. """
-        return f.trace()
 
     @axiom
     def trace_vanishing(
@@ -583,10 +585,15 @@ class BiclosedCategory[
     exponentials :code`x << y` and :code`x >> y`.
     """
     @classmethod
+    @leaf
     @abstractmethod
-    def ev(cls, base: C0, exponent: C0, left: bool = True) -> C1:
+    def ev[Y: Atom[C0], E: Atom[C0], L: Bool](
+            cls, base: Y, exponent: E, left: L = True
+    ) -> C1[L[(Y << E) @ E, E @ (E >> Y)], Y]:
         """
-        The evaluation of an exponential type, to be instantiated.
+        The evaluation of an exponential type, to be instantiated: as a
+        rule, ``(y << e) @ e ⊢ y`` is a left evaluation and ``e @ (e >>
+        y) ⊢ y`` a right one.
 
         Parameters:
             base : The base of the exponential type.
@@ -638,18 +645,6 @@ class BiclosedCategory[
         result = self @ exponent >> self.ev(base, exponent, True) if left\
             else exponent @ self >> self.ev(base, exponent, False)
         return result.uncurry(n - len(exponent), left)
-
-    @leaf
-    def evaluating_left[Y: Atom[C0], E: Atom[C0]](
-            cls, dom: (Y << E) @ E, cod: Y, Y, E):
-        """ ``(y << e) @ e ⊢ y`` is a left evaluation. """
-        return cls.ev(Y, E, left=True)
-
-    @leaf
-    def evaluating_right[Y: Atom[C0], E: Atom[C0]](
-            cls, dom: E @ (E >> Y), cod: Y, Y, E):
-        """ ``e @ (e >> y) ⊢ y`` is a right evaluation. """
-        return cls.ev(Y, E, left=False)
 
     @classmethod
     def uncurry_composition(
@@ -713,10 +708,12 @@ class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
     object type and methods for :code:`cups` and :code:`caps`.
     """
     @classmethod
+    @leaf
     @abstractmethod
-    def cups(cls, left: C0, right: C0) -> C1:
+    def cups[X: Atom[C0]](cls, left: X, right: X.r) -> C1[X @ X.r, ()]:
         """
-        The cups witnessing :code:`right` as the adjoint of :code:`left`.
+        The cups witnessing :code:`right` as the adjoint of :code:`left`:
+        as a rule, ``x @ x.r ⊢ ()`` is a cup, ``x.l @ x`` included.
 
         Parameters:
             left : The left-hand side of the cups.
@@ -724,10 +721,12 @@ class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
         """
 
     @classmethod
+    @leaf
     @abstractmethod
-    def caps(cls, left: C0, right: C0) -> C1:
+    def caps[X: Atom[C0]](cls, left: X, right: X.l) -> C1[(), X @ X.l]:
         """
-        The caps witnessing :code:`right` as the adjoint of :code:`left`.
+        The caps witnessing :code:`right` as the adjoint of :code:`left`:
+        as a rule, ``() ⊢ x @ x.l`` is a cap, ``x.r @ x`` included.
 
         Parameters:
             left : The left-hand side of the caps.
@@ -735,6 +734,7 @@ class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
         """
 
     @classmethod
+    @inapplicable("A rigid evaluation is a cup, which cups reaches.")
     def ev(cls, base: C0, exponent: C0, left: bool = True) -> C1:
         """
         The evaluation of a rigid morphism is obtained using cups.
@@ -807,21 +807,6 @@ class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
             >> self.dom.r @ self @ self.cod.r\
             >> self.dom.r @ self.cups(self.cod, self.cod.r)
 
-    @leaf
-    def cupping[X: Atom[C0]](cls, dom: X @ X.r, cod: (), X):
-        """ ``x @ x.r ⊢ ()`` is a cup, ``x.l @ x`` included. """
-        return cls.cups(X, X.r)
-
-    @leaf
-    def capping[X: Atom[C0]](cls, dom: (), cod: X @ X.l, X):
-        """ ``() ⊢ x @ x.l`` is a cap, ``x.r @ x`` included. """
-        return cls.caps(X, X.l)
-
-    evaluating_left = BiclosedCategory.evaluating_left.inapplicable(
-        "A rigid evaluation is a cup, which cupping reaches.")
-    evaluating_right = BiclosedCategory.evaluating_right.inapplicable(
-        "A rigid evaluation is a cup, which cupping reaches.")
-
     @axiom
     def snake_equations(
             cls, x: C0) -> Equation[C1]:
@@ -878,26 +863,18 @@ class BraidedCategory[C0, C1](MonoidalCategory[C0, C1]):
     :code:`braid` for the natural isomorphism :code:`x @ y -> y @ x`.
     """
     @classmethod
+    @leaf
     @abstractmethod
-    def braid(cls, left: C0, right: C0) -> C1:
+    def braid[X: Atom[C0], Y: Atom[C0]](
+            cls, left: X, right: Y) -> C1[X @ Y, Y @ X]:
         """
-        The braid of two objects, to be instantiated.
+        The braid of two objects, to be instantiated: as a rule, ``x @ y
+        ⊢ y @ x`` is a braid over.
 
         Parameters:
             left : The object on the left of the braid.
             right : The object on the right of the braid.
         """
-
-    @leaf
-    def braiding[X: Atom[C0], Y: Atom[C0]](cls, dom: X @ Y, cod: Y @ X, X, Y):
-        """ ``x @ y ⊢ y @ x`` is a braid over. """
-        return cls.braid(X, Y)
-
-    @leaf
-    def braiding_under[X: Atom[C0], Y: Atom[C0]](
-            cls, dom: X @ Y, cod: Y @ X, X, Y):
-        """ ``x @ y ⊢ y @ x`` is a braid under, the dagger of one over. """
-        return cls.braid(Y, X).dagger()
 
     @axiom
     def hexagon_left[X: Atom[C0], Y: Atom[C0], Z: Atom[C0]](
@@ -1018,20 +995,17 @@ class MarkovCategory[C0, C1](SymmetricCategory[C0, C1]):
     :code:`copy` and :code:`merge` for the supply of commutative comonoids.
     """
     @classmethod
+    @leaf
     @abstractmethod
-    def copy(cls, x: C0, n: int = 2) -> C1:
+    def copy[X: Atom[C0], N: Count](cls, x: X, n: N = 2) -> C1[X, X ** N]:
         """
-        Make :code:`n` copies of a given object :code:`x`.
+        Make :code:`n` copies of a given object :code:`x`: as a rule,
+        ``x ⊢ x @ .. @ x`` is a copy, none or up to three drawn.
 
         Parameters:
             x : The object to copy.
             n : The number of copies.
         """
-
-    @leaf
-    def copying[X: Atom[C0]](cls, dom: X, cod: () | X @ X | X @ X @ X, X):
-        """ ``x ⊢ x @ ... @ x`` is a copy, none or up to three. """
-        return cls.copy(X, n=len(cod))
 
     @axiom
     def copy_counitality(
@@ -1096,22 +1070,19 @@ class FeedbackCategory[C0, C1](MarkovCategory[C0, C1]):
             n_steps : The number of time steps to delay.
         """
 
+    @rule
     @abstractmethod
-    def feedback(self, dom: C0, cod: C0, mem: C0) -> C1:
+    def feedback[A: C0, B: C0, M: Atom[C0]](
+            self: C1[A @ M.d, B @ M], dom: A, cod: B, mem: M) -> C1[A, B]:
         """
-        The feedback operator on a morphism.
+        The feedback operator on a morphism: as a rule, ``x ⊢ y`` is the
+        feedback of ``x @ m.delay() ⊢ y @ m`` over an atom.
 
         Parameters:
             dom : The domain of the feedback.
             cod : The codomain of the feedback.
             mem : The memory type to trace over.
         """
-
-    @rule
-    def feeding_back[A: C0, B: C0, M: Atom[C0]](
-            cls, dom: A, cod: B, f: C1[A @ M.d, B @ M], M, **env):
-        """ ``x ⊢ y`` is the feedback of ``x @ m.delay() ⊢ y @ m``. """
-        return f.feedback(mem=M)
 
     @axiom
     def feedback_vanishing(
@@ -1141,19 +1112,16 @@ class BalancedCategory[C0, C1](
     automorphism :code:`x -> x`.
     """
     @classmethod
+    @leaf
     @abstractmethod
-    def twist(cls, dom: C0) -> C1:
+    def twist[X: Atom[C0]](cls, dom: X) -> C1[X, X]:
         """
-        The twist on an object, to be instantiated.
+        The twist on an object, to be instantiated. As a rule, ``x ⊢ x``
+        is a twist.
 
         Parameters:
             dom : The object on which to take the twist.
         """
-
-    @leaf
-    def twisting[X: Atom[C0]](cls, dom: X, cod: X, X):
-        """ ``x ⊢ x`` is a twist. """
-        return cls.twist(X)
 
     @axiom
     def balanced_twist[X: Atom[C0], Y: Atom[C0]](
@@ -1190,11 +1158,9 @@ class CompactCategory[C0, C1](
     the twist is the identity.
     """
     @classmethod
+    @inapplicable("The twist is the identity.")
     def twist(cls, dom: C0) -> C1:
         return cls.id(dom)
-
-    twisting = BalancedCategory.twisting.inapplicable(
-        "The twist is the identity.")
 
     @axiom
     def reidemeister_1_cap(
@@ -1222,21 +1188,17 @@ class HypergraphCategory[C0, C1](
     This makes it both a :class:`CompactCategory` and a :class:`MarkovCategory`
     """
     @classmethod
+    @leaf
     @abstractmethod
-    def spiders(cls, n_legs_in: int, n_legs_out: int, typ: C0) -> C1:
+    def spiders[X: Atom[C0], M: Count, N: Count](
+            cls, n_legs_in: M, n_legs_out: N, typ: X) -> C1[X ** M, X ** N]:
         """
-        The spiders on a given type with ``n_legs_in`` and ``n_legs_out``.
+        The spiders on a given type with ``n_legs_in`` and ``n_legs_out``:
+        as a rule, ``x @ .. @ x ⊢ x @ .. @ x`` is a spider, on up to three
+        legs a side drawn.
 
         Parameters:
             n_legs_in : The number of legs in for each spider.
             n_legs_out : The number of legs out for each spider.
             typ : The type of the spiders.
         """
-
-    @leaf(*(
-        Sequent(Word(m * (Var.atom("X"), )), Word(n * (Var.atom("X"), )))
-        for m in range(5) for n in range(5)
-        if 0 < m + n <= 4 and (m, n) != (1, 1)))
-    def spidering(cls, dom, cod, X):
-        """ ``x @ .. @ x ⊢ x @ .. @ x`` is a spider, on up to four legs. """
-        return cls.spiders(len(dom), len(cod), X)

@@ -34,8 +34,10 @@ Summary
     Adjoint
     Delay
     Exp
+    Repeat
     Word
     Alternatives
+    Choice
     Sequent
     Hom
     Signature
@@ -43,6 +45,8 @@ Summary
     Atom
     NonEmpty
     Pair
+    Count
+    Bool
     Subspace
     Serialisable
 
@@ -56,8 +60,8 @@ Summary
         axiom
         rule
         leaf
+        inapplicable
         search
-        resolve
         assert_axioms
         assert_strategy_finds
 
@@ -133,12 +137,16 @@ from one, and ``@`` concatenates them into a :class:`Word` for one
 boundary of a :class:`Sequent`, ``|`` joining :class:`Alternatives`. A
 pattern matches a value by binding its metavariables and generates one
 by drawing the unbound ones by kind, so it is a :class:`Testable` of the
-values it stands for. A leaf reads the sequent it concludes off the
-annotations of its ``dom`` and ``cod``, ``cupping[X: Atom[C0]](cls, dom:
-X @ X.r, cod: (), X)``, and a rule its conclusion and the named sequents
-of its premises, ``tracing_left[A: C0, B: C0, M: Atom[C0]](cls, dom: A,
-cod: B, f: C1[M @ A, M @ B])``, the metavariables being the type
-parameters and their :class:`Kind` the bound: matching the conclusion
+values it stands for. A structural method carries its own rule:
+:func:`leaf` or :func:`rule` reads the sequent it concludes off its
+return annotation, ``cups[X: Atom[C0]](cls, left: X, right: X.r) ->
+C1[X @ X.r, ()]``, its premises off the parameters annotated with a
+sequent, ``self`` included, ``trace[A: C0, B: C0, M: Atom[C0], L:
+Bool](self: C1[L[M @ A, A @ M], L[M @ B, B @ M]], n: int = 1, left: L =
+False) -> C1[A, B]``, and its other arguments off their patterns, a
+:class:`Count` repeating an item, ``X ** N`` for the legs of a spider,
+and a :class:`Bool` choosing a boundary, the metavariables being the
+type parameters and their :class:`Kind` the bound: matching the conclusion
 binds the variables, the unbound ones are drawn by kind, and the hint a
 cut draws its middle from is derived from the conclusion, matched on
 either boundary of the sequent, in any window when its length is fixed,
@@ -163,12 +171,12 @@ problem, solved by Boltzmann samplers :cite:`BendkowskiEtAl18`; the matrix
 wants small, shrinkable, structurally diverse terms, which size-indexed
 random backward search gives.
 
-Adding a structure to a level means declaring its :class:`Rule` beside its
-abstract method — a :func:`leaf` for a box the boundary determines, a
-:func:`rule` for one with premises, with a :meth:`Rule.hint` when its
-boundary is a shape a random type rarely takes — and pinning the reach in
-the module's ``test_strategy`` with :func:`assert_strategy_finds`, inside a
-hole with both boundaries fixed where a law needs it there.
+Adding a structure to a level means annotating its abstract method with
+the sequent it builds — :func:`leaf` for a box the boundary determines,
+:func:`rule` for one with premises — the hint a cut draws from following
+from the conclusion, and pinning the reach in the module's
+``test_strategy`` with :func:`assert_strategy_finds`, inside a hole with
+both boundaries fixed where a law needs it there.
 """
 
 from __future__ import annotations
@@ -750,6 +758,18 @@ class Rule[T]:
     def __get__(self, instance, owner: type[T]) -> Rule[T]:
         return self.bind(owner)
 
+    @classmethod
+    def of(cls, value) -> Rule[T] | None:
+        """
+        The rule a value of a class namespace carries: a rule itself, or
+        a method marked by :func:`leaf`, :func:`rule` or
+        :func:`inapplicable`, a classmethod unwrapped; :obj:`None` for
+        anything else.
+        """
+        if isinstance(value, Rule):
+            return value
+        return getattr(getattr(value, "__func__", value), "__rule__", None)
+
     def hint(self, shape: Callable) -> Rule[T]:
         """
         The same rule declaring a strategy for boundaries it fires on, so
@@ -764,32 +784,72 @@ class Rule[T]:
         reason as its documentation, e.g. ``twisting =
         BalancedCategory.twisting.inapplicable("The twist is the identity.")``.
         """
-        never = replace(
-            self, applies=lambda cls, dom, cod, size: False, shape=None)
-        never.__doc__ = reason
-        return never
+        @wraps(self.premises)
+        def premises(*args, **kwargs):
+            return self.premises(*args, **kwargs)
+
+        premises.__doc__ = reason
+        return replace(
+            self, premises=premises, shape=None,
+            applies=lambda cls, dom, cod, size: False)
 
 
-def declared(function) -> tuple[Sequent, dict[str, Sequent]]:
+def declared(method) -> tuple[Sequent, dict[str, Sequent], dict]:
     """
-    What a rule declares in its annotations, evaluated with its type
-    parameters as metavariables: the :class:`Sequent` it concludes from
-    ``dom`` and ``cod``, and the sequent of each premise, by name.
+    What a method declares as a rule in its annotations, evaluated with
+    its type parameters as metavariables: the :class:`Sequent` it
+    concludes, from its return annotation ``C1[dom, cod]``, the sequent
+    of each premise, from the parameters annotated with one — ``self``
+    for the morphism an instance method builds on — and the pattern of
+    each other argument, by name.
     """
-    variables = metavariables(function)
-    scope = dict(variables, C1=Hom())
+    scope = dict(metavariables(method), C1=Hom())
+    signature = inspect.signature(method)
+
+    def evaluate(annotation):
+        return eval(annotation, method.__globals__, scope)\
+            if isinstance(annotation, str) else annotation
+
+    conclusion = evaluate(signature.return_annotation)
+    if not isinstance(conclusion, Sequent):
+        raise TypeError(
+            f"{method.__name__} concludes no sequent: annotate its return "
+            "with C1[dom, cod].")
     evaluated = {
-        parameter.name: eval(
-            parameter.annotation, function.__globals__, scope)
-        if isinstance(parameter.annotation, str) else parameter.annotation
-        for parameter in inspect.signature(function).parameters.values()
+        name: evaluate(parameter.annotation)
+        for name, parameter in signature.parameters.items()
         if parameter.annotation is not inspect.Parameter.empty}
-    conclusion = Sequent(
-        boundary(evaluated.pop("dom", ())), boundary(evaluated.pop("cod", ())))
     premises = {
         name: annotation for name, annotation in evaluated.items()
         if isinstance(annotation, Sequent)}
-    return conclusion, premises
+    arguments = {
+        name: annotation for name, annotation in evaluated.items()
+        if isinstance(annotation, PatternBase) and name not in premises}
+    return conclusion, premises, arguments
+
+
+def apply(cls, method, arguments: dict, env: dict, proofs: dict):
+    """
+    Call the method of ``cls`` by name, on the values its argument
+    patterns stand for and the proofs of its premises, the proof of
+    ``self`` as the receiver: the concrete method of the category is
+    called, not the abstract one that carries the rule.
+    """
+    unit = unit_of(cls, env)
+    kwargs = {
+        name: pattern.instantiate(env, unit)
+        for name, pattern in arguments.items()}
+    kwargs.update(proofs)
+    receiver = kwargs.pop("self", cls)
+    return getattr(receiver, method.__name__)(**kwargs)
+
+
+def marked(
+        method, derive: Callable, applies: Callable, conclusion) -> Callable:
+    """ The method carrying the rule its annotations declare. """
+    derive.__name__, derive.__doc__ = method.__name__, method.__doc__
+    method.__rule__ = Rule(derive, applies, shape=hint_from([conclusion]))
+    return method
 
 
 def windows(word: Word, typ):
@@ -840,61 +900,59 @@ def hint_from(sequents: list[Sequent]) -> Callable:
     return shape
 
 
-def leaf[T](*args) -> Rule[T] | Callable[[Callable], Rule[T]]:
+def leaf(method: Callable) -> Callable:
     """
-    Decorate a leaf rule: bare, it reads the sequent it concludes off the
-    annotations of ``dom`` and ``cod``, its metavariables being its type
-    parameters, e.g. ``def cupping[X: Atom[C0]](cls, dom: X @ X.r, cod:
-    (), X)``; given :class:`Sequent` patterns instead, it concludes any
-    of them. The function builds a single box from the category, the
-    sequent and the bound variables, and the rule applies to sequents of
-    size one that some pattern matches.
+    Mark a structural method as a leaf rule, the sequent it concludes
+    read off its annotations, its metavariables being its type
+    parameters: ``def cups[X: Atom[C0]](cls, left: X, right: X.r) ->
+    C1[X @ X.r, ()]`` says that ``x @ x.r ⊢ ()`` is a cup, built by
+    calling the method on the values its parameters stand for. The rule
+    applies to sequents of size one that the conclusion matches, and the
+    method is returned unchanged, carrying it: it stays the method of
+    its category, abstract or not, and an override keeps the rule
+    unless :func:`inapplicable` drops it.
     """
-    if len(args) == 1 and callable(args[0]):
-        conclusion, _ = declared(args[0])
-        return leaf(conclusion)(args[0])
-    conclusions = list(args)
+    conclusion, premises, arguments = declared(method)
+    if premises:
+        raise TypeError(f"A leaf has no premise, {method.__name__} has.")
 
-    def decorate(build):
-        def applies(cls, dom, cod, size):
-            return size == 1 and any(
-                True for sequent in conclusions
-                for _ in sequent.matches(dom, cod))
+    def applies(cls, dom, cod, size):
+        return size == 1 and any(True for _ in conclusion.matches(dom, cod))
 
-        def premises(cls, draw, dom, cod, size, types):
-            env = next(
-                env for sequent in conclusions
-                for env in sequent.matches(dom, cod))
-            return [], lambda: build(cls, dom, cod, **env)
+    def derive(cls, draw, dom, cod, size, types):
+        env = bind_vars(
+            draw, conclusion.vars, cls, next(conclusion.matches(dom, cod)))
+        return [], lambda: apply(cls, method, arguments, env, {})
 
-        premises.__name__, premises.__doc__ = build.__name__, build.__doc__
-        return Rule(premises, applies, shape=hint_from(conclusions))
-
-    return decorate
+    return marked(method, derive, applies, conclusion)
 
 
-def rule[T](
-        build: Callable = None, *, applies: Callable = None,
-        boxes: int = 1) -> Rule[T] | Callable[[Callable], Rule[T]]:
+def rule(
+        method: Callable = None, *, applies: Callable = None,
+        boxes: int = 1) -> Callable:
     """
-    Decorate an inference rule: bare, it reads the sequent it concludes
-    off the annotations of ``dom`` and ``cod`` and its premises off the
-    other annotated parameters, its metavariables being its type
-    parameters, e.g. ``def tracing_left[A: C0, B: C0, M: Atom[C0]](cls,
-    dom: A, cod: B, f: C1[M @ A, M @ B], **env)``, the function concluding
-    from the bound variables and the proofs of the premises and counting
-    the ``boxes`` it adds itself. Given ``applies``, the predicate saying
-    when a rule applies, the function gives its premises instead, e.g.
-    ``@rule(applies=lambda cls, dom, cod, size: size >= 2)`` for a cut.
+    Mark a structural method as an inference rule, the sequent it
+    concludes read off its return annotation and its premises off the
+    parameters annotated with one, ``self`` included, its metavariables
+    being its type parameters: ``def trace[A: C0, B: C0, M: Atom[C0], L:
+    Bool](self: C1[L[M @ A, A @ M], L[M @ B, B @ M]], n: int = 1, left: L
+    = False) -> C1[A, B]`` says that ``x ⊢ y`` is the trace of ``m @ x ⊢
+    m @ y`` or of ``x @ m ⊢ y @ m`` over an atom, on the side ``L``
+    stands for, built by calling the method on the proofs of its
+    premises and the values its other parameters stand for, counting the
+    ``boxes`` it adds itself. Given ``applies``, the predicate saying
+    when a rule applies, the decorated function gives the premises
+    instead, procedurally, e.g. ``@rule(applies=lambda cls, dom, cod,
+    size: size >= 2)`` for a cut, and is replaced by the :class:`Rule`.
     """
     if applies is not None:
         return lambda premises: Rule(premises, applies)
-    if build is None:
-        return lambda build: rule(build, boxes=boxes)
-    conclusion, premises = declared(build)
+    if method is None:
+        return lambda method: rule(method, boxes=boxes)
+    conclusion, premises, arguments = declared(method)
     names = tuple(premises)
     variables = tuple({
-        var.name: var for sequent in premises.values()
+        var.name: var for sequent in (conclusion, *premises.values())
         for var in sequent.vars}.values())
 
     def applies_to(cls, dom, cod, size):
@@ -915,11 +973,30 @@ def rule[T](
         drawn = [
             (*premises[name].instantiate(env, unit), n)
             for name, n in zip(names, sizes)]
-        return drawn, lambda *proofs: build(
-            cls, dom, cod, **env, **dict(zip(names, proofs)))
+        return drawn, lambda *proofs: apply(
+            cls, method, arguments, env, dict(zip(names, proofs)))
 
-    derive.__name__, derive.__doc__ = build.__name__, build.__doc__
-    return Rule(derive, applies_to, shape=hint_from([conclusion]))
+    return marked(method, derive, applies_to, conclusion)
+
+
+def inapplicable(reason: str) -> Callable:
+    """
+    Decorate an override of a structural method to declare the rule it
+    inherits not to apply to the category, with the reason as the rule's
+    documentation, e.g. ``@inapplicable("The twist is the identity.")``
+    on the ``twist`` of a compact category; the inherited method itself
+    can be redeclared, ``trace = inapplicable("...")(markov.Diagram.trace)``.
+    """
+    def decorate(method):
+        @wraps(method)
+        def override(*args, **kwargs):
+            return method(*args, **kwargs)
+
+        override.__rule__ = Rule(
+            override, lambda cls, dom, cod, size: False).inapplicable(reason)
+        return override
+
+    return decorate
 
 
 def search(
@@ -1073,6 +1150,9 @@ class ItemBase[T](PatternBase[T]):
     def instantiate(self, env: dict, unit=None) -> T:
         return self.value(env)
 
+    def __pow__(self, count: Var) -> Repeat[T]:
+        return Repeat(self, count)
+
     def bindings(
             self, typ, position: int, env: dict) -> Iterator[tuple[int, dict]]:
         """ The lengths and environments the item can take at a position. """
@@ -1106,7 +1186,8 @@ class Var[T](ItemBase[T]):
     kind: str = "type"
 
     LENGTHS: ClassVar[dict] = {
-        "atom": (1, ), "pair": (2, ), "type": None, "nonempty": None}
+        "atom": (1, ), "pair": (2, ), "type": None, "nonempty": None,
+        "count": (), "bool": ()}
 
     def __post_init__(self):
         if self.kind not in self.LENGTHS:
@@ -1158,6 +1239,13 @@ class Var[T](ItemBase[T]):
             return tuple(range(1, remaining + 1))
         return tuple(n for n in self.LENGTHS[self.kind] if n <= remaining)
 
+    def __getitem__(self, options) -> Choice[T]:
+        """ The choice a boolean variable makes between two boundaries. """
+        if self.kind != "bool":
+            raise TypeError(f"Only a Bool variable chooses, {self} is not.")
+        then, otherwise = options
+        return Choice(self, boundary(then), boundary(otherwise))
+
     def value(self, env: dict) -> T:
         return env[self.name]
 
@@ -1165,9 +1253,18 @@ class Var[T](ItemBase[T]):
         return bind(env, self, value)
 
     def generate(self, draw: Callable, factory, env: dict, **params) -> T:
-        """ What ``env`` binds the variable to, else a draw by kind. """
+        """
+        What ``env`` binds the variable to, else a draw by kind: a
+        count up to three, a boolean, or an object of the factory.
+        """
+        from hypothesis import strategies as st
+
         if self.name in env:
             return env[self.name]
+        if self.kind == "count":
+            return draw(st.integers(min_value=0, max_value=3))
+        if self.kind == "bool":
+            return draw(st.booleans())
         if self.kind == "atom":
             return draw(factory.atoms())
         if self.kind == "pair":
@@ -1177,9 +1274,16 @@ class Var[T](ItemBase[T]):
         return draw(factory.ob.strategy())
 
     def canonical(self, factory, env: dict = None, name: str = None) -> T:
-        """ What ``env`` binds the variable to, else an object of its name. """
+        """
+        What ``env`` binds the variable to, else an object of its name, a
+        count of two or :obj:`True`.
+        """
         if env and self.name in env:
             return env[self.name]
+        if self.kind == "count":
+            return 2
+        if self.kind == "bool":
+            return True
         if self.kind == "pair":
             return factory.ob(f"{self.name}0") @ factory.ob(f"{self.name}1")
         return factory.ob(self.name)
@@ -1226,6 +1330,22 @@ class NonEmpty(Kind):
 class Pair(Kind):
     """ The kind of a metavariable for two atoms. """
     kind = "pair"
+
+
+class Count(Kind):
+    """
+    The kind of a metavariable for a number, the count of a
+    :class:`Repeat`, e.g. ``[N: Count]`` for the legs of a spider.
+    """
+    kind = "count"
+
+
+class Bool(Kind):
+    """
+    The kind of a metavariable for a boolean, the selector of a
+    :class:`Choice`, e.g. ``[L: Bool]`` for the side of a trace.
+    """
+    kind = "bool"
 
 
 def metavariables(function) -> dict[str, Var]:
@@ -1351,6 +1471,43 @@ class Exp[T](Derived[T]):
 
 
 @dataclass(frozen=True)
+class Repeat[T](ItemBase[T]):
+    """
+    An item repeated as many times as a :class:`Count` variable stands
+    for, ``X ** N``: the legs of a spider, the copies of a copy.
+    """
+    item: ItemBase[T]
+    count: Var[T]
+
+    def __str__(self):
+        return f"{self.item} ** {self.count}"
+
+    @property
+    def vars(self) -> tuple[Var, ...]:
+        return self.item.vars + (self.count, )
+
+    @property
+    def fixed(self) -> bool:
+        return False
+
+    @property
+    def length(self) -> int:
+        raise TypeError(f"{self} has no fixed length.")
+
+    def lengths(self, typ, position: int) -> tuple[int, ...]:
+        return tuple(range(size(typ) - position + 1))
+
+    def value(self, env: dict) -> T:
+        item = self.item.value(env)
+        return item[:0].tensor(*env[self.count.name] * [item])
+
+    def invert(self, value, env: dict) -> dict | None:
+        bound = bind(env, self.count, size(value))
+        return None if bound is None else next(
+            Word(size(value) * (self.item, )).match(value, bound), None)
+
+
+@dataclass(frozen=True)
 class Word[T](PatternBase[T]):
     """
     A pattern for one boundary of a sequent, the concatenation of
@@ -1469,6 +1626,42 @@ class Alternatives[T](PatternBase[T]):
 
 
 @dataclass(frozen=True)
+class Choice[T](PatternBase[T]):
+    """
+    The choice a :class:`Bool` variable makes between two boundaries,
+    ``L[then, otherwise]``: matching either binds the variable to which,
+    so that the side of a trace or of an evaluation is a metavariable.
+    """
+    var: Var[T]
+    then: Word[T] | Alternatives[T]
+    otherwise: Word[T] | Alternatives[T]
+
+    def __str__(self):
+        return f"{self.var}[{self.then}, {self.otherwise}]"
+
+    @property
+    def vars(self) -> tuple[Var, ...]:
+        return tuple({
+            var.name: var for var in (self.var, ) + self.then.vars
+            + self.otherwise.vars}.values())
+
+    @property
+    def options(self) -> tuple[Word[T], ...]:
+        """ The words either boundary stands for. """
+        return words(self.then) + words(self.otherwise)
+
+    def match(self, value, env: dict = None) -> Iterator[dict]:
+        for flag, option in ((True, self.then), (False, self.otherwise)):
+            bound = bind(dict(env or {}), self.var, flag)
+            if bound is not None:
+                yield from option.match(value, bound)
+
+    def instantiate(self, env: dict, unit=None) -> T:
+        chosen = self.then if env[self.var.name] else self.otherwise
+        return chosen.instantiate(env, unit)
+
+
+@dataclass(frozen=True)
 class Sequent[T](PatternBase[T]):
     """
     A pattern for the arrows from what ``dom`` stands for to what ``cod``
@@ -1476,8 +1669,8 @@ class Sequent[T](PatternBase[T]):
     matches an arrow by its boundaries and generates one through the
     search of the category, :meth:`Testable.strategy` with both.
     """
-    dom: Word | Alternatives
-    cod: Word | Alternatives
+    dom: Word | Alternatives | Choice
+    cod: Word | Alternatives | Choice
 
     def __str__(self):
         return f"{self.dom} ⊢ {self.cod}"
@@ -1494,10 +1687,8 @@ class Sequent[T](PatternBase[T]):
     @property
     def options(self) -> list[tuple[Word, Word]]:
         """ The pairs of words the sequent stands for, alternatives apart. """
-        sides = [
-            side.options if isinstance(side, Alternatives) else (side, )
-            for side in self]
-        return [(dom, cod) for dom in sides[0] for cod in sides[1]]
+        return [
+            (dom, cod) for dom in words(self.dom) for cod in words(self.cod)]
 
     def matches(self, dom, cod, env: dict = None) -> Iterator[dict]:
         """ The environments matching the boundaries of a sequent. """
@@ -1624,14 +1815,15 @@ class Signature[T](PatternBase[T]):
             for name, pattern in self.patterns.items())
 
 
-type Item[T] = Var[T] | Adjoint[T] | Delay[T] | Exp[T]
+type Item[T] = Var[T] | Adjoint[T] | Delay[T] | Exp[T] | Repeat[T]
 """
 An item of a :class:`Word`: a metavariable or one derived from it, see
 :class:`ItemBase`.
 """
 
 type Pattern[T] = (
-    Item[T] | Word[T] | Alternatives[T] | Sequent[T] | Hom[T] | Signature[T])
+    Item[T] | Word[T] | Alternatives[T] | Choice[T] | Sequent[T] | Hom[T]
+    | Signature[T])
 """
 The sequent-pattern language, closed: every pattern is one of these, each
 a :class:`PatternBase`, standing for the objects of a category as an
@@ -1641,9 +1833,15 @@ a :class:`Signature`.
 """
 
 
-def boundary(item) -> Word | Alternatives:
-    """ Coerce the annotation of a boundary into a word or alternatives. """
-    return item if isinstance(item, Alternatives) else Word.of(item)
+def boundary(item) -> Word | Alternatives | Choice:
+    """ Coerce the annotation of a boundary into a pattern for one. """
+    return item if isinstance(item, (Alternatives, Choice)) else Word.of(item)
+
+
+def words(side) -> tuple[Word, ...]:
+    """ The words a boundary pattern stands for, alternatives apart. """
+    return side.options if isinstance(side, (Alternatives, Choice))\
+        else (side, )
 
 
 def bind(env: dict, var: Var, value) -> dict | None:

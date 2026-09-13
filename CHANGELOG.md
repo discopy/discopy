@@ -88,6 +88,30 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   gone, and every pattern draws through one composite strategy built
   once, where a fresh `st.composite` inspected its function at every
   draw, half the cost of generating an example.
+- The structural rules are the structural methods: `@leaf` and `@rule`
+  mark the abstract method itself — `cups`, `caps`, `braid`, `twist`,
+  `ev`, `copy`, `spiders`, `trace` and `feedback` — reading the sequent
+  it concludes off its return annotation `C1[dom, cod]`, its premises off
+  the parameters annotated with a sequent, `self` included, and its
+  other arguments off their patterns, so that the search calls the
+  method of the category on what they stand for: `cupping`, `capping`,
+  `braiding`, `braiding_under`, `twisting`, `evaluating_left`,
+  `evaluating_right`, `copying`, `spidering`, `tracing_left`,
+  `tracing_right` and `feeding_back` are gone, the identity, box, cut,
+  tensoring and permuting rules staying procedural. A `Count`
+  metavariable repeats an item, `X ** N` for the legs of a spider or the
+  copies of a copy, and a `Bool` one chooses a boundary, `L[M @ A, A @
+  M]` for the side of a trace or of an evaluation, `Repeat` and `Choice`
+  in the pattern language. `Category.rules` reads the rule a method
+  carries through the MRO, `Rule.of`, a plain override keeping it and one
+  decorated with `inapplicable(reason)` dropping it, as the rigid
+  evaluation, the compact twist and the feedback trace do. The under
+  braid, the dagger of a braid rather than a method, is no longer
+  generated. The copy rule now reaches a single copy, ``x ⊢ x``, and
+  with it a bare `markov.Copy` at the top of a term, which does not
+  deep-copy for the reason it does not unpickle: `copying` is declared
+  failing beside `pickling` on markov diagrams
+  ([#742](https://github.com/discopy/discopy/issues/742)).
 - `Axiom.canonical`, the law as a schema: its equation on the canonical
   arguments of its pattern, each metavariable an object named after it
   and each arrow a box named after its parameter — `Equation(f >> g >>

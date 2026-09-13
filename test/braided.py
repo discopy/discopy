@@ -23,13 +23,10 @@ def test_strategy():
 
     axioms.assert_strategy_finds(Diagram, Braid)
     x, y = Diagram.ob('x'), Diagram.ob('y')
-    for is_dagger in (False, True):
-        braided = find(
-            Diagram.strategy(dom=x @ y, cod=y @ x),
-            lambda value: any(isinstance(box, Braid)
-                              and box.is_dagger == is_dagger
-                              for box in value.boxes))
-        assert (braided.dom, braided.cod) == (x @ y, y @ x)
+    braided = find(
+        Diagram.strategy(dom=x @ y, cod=y @ x),
+        lambda value: any(isinstance(box, Braid) for box in value.boxes))
+    assert (braided.dom, braided.cod) == (x @ y, y @ x)
 
 
 def test_dagger_braid_serialisation():
