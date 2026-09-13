@@ -96,3 +96,9 @@ Rough edges met on the way, each worth an issue:
 > define Axiom.canonical which instantiates the pattern with the default names and returns the axiom schema as an equation over diagrams, then Axiom.draw which draws this canonical equation
 
 - [x] `PatternBase.canonical`: each metavariable an object named after it, each sequent a box named after its parameter; `Axiom.canonical` the law on those, `Axiom.draw` drawing it; tests, a drawn baseline, CHANGELOG, lint, `uv run pytest test/axioms.py`, the fast matrix
+
+## Round: rules on the methods
+
+> remove rules and leaves and instead directly apply @rule or @leaf to the methods like feedback cups caps etc... no feeding_back cupping capping
+
+- [WIP] @af1f3450-2026-09-13 12:10 `@leaf`/`@rule` mark the structural method itself: the sequent it concludes read off its return annotation `-> C1[dom, cod]`, its premises off the parameters annotated `C1[..]`, `self` included, its other arguments off their patterns; `Count` and `Bool` kinds with `X ** N` and `L[a, b]` for the legs of a spider, the copies and the side of a trace or an evaluation; `inapplicable(reason)` on an override; `Category.rules` reads the rule a method carries through plain overrides; the named rules gone; tests, docs, CHANGELOG, lint, `uv run pytest`, the fast matrix
