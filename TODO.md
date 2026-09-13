@@ -114,3 +114,9 @@ Rough edges met on the way, each worth an issue:
 - [x] `Axiom` stores its `pattern` and `result` at decoration and its `owner` at `__set_name__`; calling it typechecks the arguments against the pattern and the terms of the equation against the result
 - [x] `Rule` stores its `conclusion` and `pattern`; one derivation for every rule: a feasible match drawn, an identity premise where the match allows, the unbound type variables drawn from the types and the hints, the proofs and the built cell typechecked; `id`, `then` and `tensor` declarative, `box` and `permutation` procedural; `identity`, `cut`, `tensoring`, `splits`, `atoms` gone, `hints` a function
 - [x] `TwoCategory` states the monoidal axioms and rules on 0-, 1- and 2-cells, `MonoidalCategory` inherits them; `generator` the name of `leaf`; tests, docs, CHANGELOG, lint, `uv run pytest`, the fast matrix
+
+## Round: real colours
+
+> make MonoidalCategory subclass TwoCategory[Colour, C0, C1] with real colours
+
+- [WIP] @af1f3450-2026-09-13 15:10 `abc.Colour`, the 0-cells, `MonoidalCategory(TwoCategory[Colour, C0, C1])` resolving to the category's own colours; a level substituted by a superclass of the positional cells keeps the cells; `BraidedCategory` and `RigidCategory` declare the one trivial colour crossing and bending wires need; tests, CHANGELOG, lint, `uv run pytest`, the matrices
