@@ -26,6 +26,7 @@ Summary
     Axiom
     AxiomFailure
     Rule
+    Prepared
     Testable
     PatternBase
     ItemBase
@@ -38,9 +39,11 @@ Summary
     Word
     Alternatives
     Choice
+    Level
     Sequent
-    Hom
     Signature
+    Cells
+    Verdict
     Kind
     Atom
     NonEmpty
@@ -59,8 +62,10 @@ Summary
 
         axiom
         rule
-        leaf
+        generator
         inapplicable
+        hints
+        top_of
         search
         assert_axioms
         assert_strategy_finds
@@ -131,14 +136,24 @@ Three facts about this search:
 
 Rules and the arguments of a law share one sequent-pattern language,
 :data:`Pattern`, closed under a :class:`PatternBase`. A :class:`Var`
-stands for a type, an atom, a pair of atoms or a non-empty type, an
-:class:`Adjoint`, a :class:`Delay` or an :class:`Exp` for what is derived
-from one, and ``@`` concatenates them into a :class:`Word` for one
-boundary of a :class:`Sequent`, ``|`` joining :class:`Alternatives`. A
-pattern matches a value by binding its metavariables and generates one
-by drawing the unbound ones by kind, so it is a :class:`Testable` of the
-values it stands for. A structural method carries its own rule:
-:func:`leaf` or :func:`rule` reads the sequent it concludes off its
+stands for a cell of the :class:`Level` its bound names — the objects
+:data:`C0` and the arrows :data:`C1` of a category, the colours
+:data:`C0`, the 1-cells :data:`C1` and the 2-cells :data:`C2` of a
+2-category, ``C1[R, G]`` the 1-cells between two colours — refined by a
+:class:`Kind` to an atom, a pair of atoms or a non-empty type; an
+:class:`Adjoint`, a :class:`Delay` or an :class:`Exp` is derived from
+one, and ``@`` concatenates them into a :class:`Word` for one boundary
+of a :class:`Sequent`, ``|`` joining :class:`Alternatives`. A pattern
+matches a value by binding its metavariables and generates one by
+drawing the unbound ones by kind, so it is a :class:`Testable` of the
+values it stands for; the levels resolve in the category a law is bound
+to through the :class:`Cells` of the class declaring it, so that the
+laws of categories hold of the 2-cells of a 2-category and a monoidal
+category inherits those of 2-categories with one trivial colour, see
+:func:`levels_of`. A law or a rule stores its patterns and checks a call
+against them, its arguments and its equation or the cell it builds. A
+structural method carries its own rule:
+:func:`generator` or :func:`rule` reads the sequent it concludes off its
 return annotation, ``cups[X: Atom[C0]](cls, left: X, right: X.r) ->
 C1[X @ X.r, ()]``, its premises off the parameters annotated with a
 sequent, ``self`` included, ``trace[A: C0, B: C0, M: Atom[C0], L:
@@ -161,8 +176,9 @@ search of its sequent, and :meth:`Axiom.strategy` maps it to the
 equations the law states, so nothing is declared beside the law. A law
 compared modulo a normal form is :meth:`Axiom.weaken`ed to
 :func:`connected` equations, where the normal form is defined. Identity,
-box, cut, tensoring and permuting, which split or shuffle arbitrarily,
-stay procedural.
+composition and tensor are the rules of ``id``, ``then`` and ``tensor``;
+the box, a free generator, and the permutation, which shuffles
+arbitrarily, stay procedural.
 
 The search does not focus the syntax: focused proofs are canonical forms,
 and a generator of normal forms would make the interchange, naturality and
@@ -172,7 +188,7 @@ wants small, shrinkable, structurally diverse terms, which size-indexed
 random backward search gives.
 
 Adding a structure to a level means annotating its abstract method with
-the sequent it builds — :func:`leaf` for a box the boundary determines,
+the sequent it builds — :func:`generator` for a box the boundary determines,
 :func:`rule` for one with premises — the hint a cut draws from following
 from the conclusion, and pinning the reach in the module's
 ``test_strategy`` with :func:`assert_strategy_finds`, inside a hole with
@@ -189,7 +205,10 @@ from collections.abc import Callable, Iterator
 from copy import deepcopy
 from dataclasses import KW_ONLY, dataclass, field, replace
 from functools import cache, wraps
-from typing import TYPE_CHECKING, ClassVar, Concatenate, Self, TypeVar
+from abc import ABCMeta
+from types import NoneType
+from typing import (
+    TYPE_CHECKING, ClassVar, Concatenate, Self, TypeVar, get_args, get_origin)
 
 from discopy.utils import (
     AxiomError,
@@ -200,37 +219,6 @@ from discopy.utils import (
 
 if TYPE_CHECKING:
     from hypothesis import strategies as st
-
-
-C0 = TypeVar("C0")
-C1 = TypeVar("C1")
-"""
-The object and arrow types of the category an axiom is bound to.
-
-An axiom annotates its arguments with these rather than with the concrete
-types of the module it is written in, so that a subclass inherits the
-override with its own types: :meth:`Axiom.strategy` rebinds both names to
-``category.ob`` and ``category.ar``, and :data:`typing.Self` to the category
-itself for a law of every term of a type whatever its level, such as
-:meth:`Serialisable.repr_transparency`, in its :attr:`Axiom.scope` when it
-evaluates the annotations; a law of functors names the category they map
-from as ``Self.dom``. This is also why every module stating an axiom
-needs ``from __future__ import annotations``, which keeps them
-unevaluated: :class:`Axiom` refuses an equation compiled without it.
-Rebinding happens through the ``locals`` of that evaluation because the
-:pep:`695` type parameters of :class:`discopy.abc.Category` live in a
-scope :func:`eval` cannot see, in globals or anywhere else.
-"""
-
-
-GENERATORS = tuple("abcde")
-"""
-The names the generators of a free category are drawn from.
-
-They are finitely many and shared, so a generated functor can name every one
-of them: composing two functors keeps only the keys of the left-hand map, so
-a functor that named just a few would compose to one defined nowhere else.
-"""
 
 
 class Equation(NamedGeneric["ar"]):
@@ -310,7 +298,23 @@ class AxiomFailure(AxiomError):
         self.equation = equation
 
 
-class Testable[T]:
+class Prepared(ABCMeta):
+    """
+    The metaclass of :class:`Testable`, preparing every class body with
+    the levels :data:`C0`, :data:`C1` and :data:`C2`, so that a type
+    parameter of a law or a rule may be bounded by them, ``[X: C1[R,
+    G]]``, where the type parameters of the class, of the same names,
+    would otherwise shadow them: a :class:`typing.TypeVar` is no pattern.
+    """
+    @classmethod
+    def __prepare__(mcs, name, bases, **kwargs):
+        levels = {
+            name: globals()[name]
+            for name in ("C0", "C1", "C2") if name in globals()}
+        return dict(super().__prepare__(name, bases, **kwargs), **levels)
+
+
+class Testable[T](metaclass=Prepared):
     """
     A testable class states axioms, which its subclasses inherit along
     with the structure they axiomatise, and says how to generate the
@@ -409,6 +413,19 @@ class Testable[T]:
         return tuple(found)
 
 
+def top_of(cls: type) -> int:
+    """
+    The top level of a class: the index of the last type parameter of the
+    first generic class in its MRO, which stands for the class itself,
+    each parameter before it for the objects of the next. A
+    ``Category[C0, C1]`` has its arrows for top and a ``TwoCategory[C0,
+    C1, C2]`` its 2-cells, so a law stated on either resolves its levels
+    in a subclass by depth from the top: ``C1[A, B]`` in a law of
+    categories is the arrows of a 2-category too.
+    """
+    return len(levels_of(cls)) - 1
+
+
 no_strategy = Testable.__dict__["strategy"]
 """
 The default :meth:`Testable.strategy`, under a name that can be assigned.
@@ -437,7 +454,9 @@ class Axiom[**P, T](Testable[Equation]):
     :meth:`Serialisable.repr_transparency`. The :attr:`pattern` of those
     annotations is the input of the law and :meth:`strategy`, which maps
     it to the equations the law states, its output: a bound axiom is a
-    :class:`Testable` whose terms are its equations.
+    :class:`Testable` whose terms are its equations. Calling it checks
+    the arguments against the pattern and the terms of the equation
+    against the :attr:`result` its return annotation states.
 
     Calling a bound axiom returns its own verdict: :obj:`NotImplemented`
     when the structure does not apply to the category, and the equation
@@ -451,8 +470,8 @@ class Axiom[**P, T](Testable[Equation]):
 
     Parameters:
         equation : The function stating the law, from the category and the
-            arguments annotated with :obj:`C0`, :obj:`C1`,
-            :data:`typing.Self` or a :class:`Testable` to an
+            arguments annotated with :data:`C0`, :data:`C1`, :data:`C2`,
+            :data:`typing.Self` or a :class:`Var` to an
             :class:`Equation`, or to :obj:`NotImplemented` when the
             structure does not apply.
         category : The class the axiom is bound to, :obj:`None` until
@@ -463,6 +482,11 @@ class Axiom[**P, T](Testable[Equation]):
             over, declared by :meth:`weaken`, :obj:`None` for the whole
             space.
         broken : Whether the law is declared broken by :meth:`failing`.
+        owner : The class the law is declared on, whose levels its
+            annotations name, set when the class is created.
+        pattern : The :class:`Signature` of the annotated parameters.
+        result : The pattern the terms of the equation match, from the
+            return annotation ``Equation[...]``, :obj:`None` when bare.
     """
 
     equation: Callable[Concatenate[type[T], P], Equation]
@@ -471,6 +495,9 @@ class Axiom[**P, T](Testable[Equation]):
     name: str = None
     subspace: Callable = None
     broken: bool = False
+    owner: type = None
+    pattern: Signature = None
+    result: PatternBase = None
 
     def __post_init__(self):
         function = inspect.unwrap(self.equation)
@@ -481,6 +508,16 @@ class Axiom[**P, T](Testable[Equation]):
                 "without `from __future__ import annotations`.")
         self.name = self.name or self.equation.__name__
         self.__doc__ = self.equation.__doc__
+        if self.pattern is None:
+            required = [
+                parameter for parameter in self.parameters
+                if parameter.default is inspect.Parameter.empty]
+            annotations, result = annotated(function, required)
+            self.pattern, self.result = Signature(annotations), result
+
+    def __set_name__(self, owner: type, name: str):
+        if self.owner is None:
+            self.owner = owner
 
     def __repr__(self):
         """
@@ -538,7 +575,9 @@ class Axiom[**P, T](Testable[Equation]):
         def law(cls):
             return NotImplemented
         law.__doc__ = reason
-        return replace(self, equation=law, subspace=None, broken=False)
+        return replace(
+            self, equation=law, subspace=None, broken=False,
+            pattern=None, result=None)
 
     def weaken(self, subspace: Callable) -> Axiom[P, T]:
         """
@@ -562,54 +601,14 @@ class Axiom[**P, T](Testable[Equation]):
             inspect.signature(self.equation).parameters.values())[1:]
 
     @property
-    def scope(self) -> dict:
+    def cells(self) -> Cells:
         """
-        What the names in the annotations of the axiom stand for: the
-        category itself for :data:`typing.Self`, its objects for :obj:`C0`
-        and, for :obj:`C1`, the :class:`Hom` of its arrows, which
-        subscripts into a :class:`Sequent`: ``f: C1[A, B]`` is an arrow
-        from what ``A`` stands for to what ``B`` stands for, the law's
-        type parameters standing for metavariables of the :class:`Kind`
-        their bound gives. A monoid,
-        having no objects of its own, stands for both; a class of functors
-        is the arrows of ``Cat``, and the category it maps from is
-        reachable as ``Self.dom``.
+        The cells of the bound category at each level the law names, see
+        :class:`Cells`: the top is that of the :attr:`owner`.
         """
-        return dict(
-            metavariables(inspect.unwrap(self.equation)),
-            Self=self.category,
-            C0=getattr(self.category, "ob", self.category),
-            C1=Hom(getattr(self.category, "ar", self.category)))
-
-    def annotations(self) -> dict:
-        """ The evaluated annotation of each generated parameter. """
         if self.category is None:
             raise TypeError(f"{self.name} is not bound to a class.")
-        namespace = inspect.unwrap(self.equation).__globals__
-        return {
-            parameter.name: eval(parameter.annotation, namespace, self.scope)
-            if isinstance(parameter.annotation, str) else parameter.annotation
-            for parameter in self.parameters
-            if parameter.default is inspect.Parameter.empty}
-
-    @property
-    def pattern(self) -> Signature:
-        """
-        The pattern of the arguments the bound axiom expects, one per
-        required parameter, from its annotation evaluated in the
-        :attr:`scope` of the category: the :class:`Sequent` ``C1[A, B]``
-        for an arrow drawn through the search, a :class:`Var` for an
-        object of its kind and the :class:`Hom` of any :class:`Testable`
-        for a term drawn from its own strategy. Its strategy is the input
-        of the law, see :class:`Signature`.
-
-        Only the parameters' annotations are evaluated: the law's return
-        annotation may name a type its module imports for checking only.
-        """
-        return Signature({
-            name: annotation if isinstance(annotation, PatternBase)
-            else Hom(annotation)
-            for name, annotation in self.annotations().items()})
+        return Cells.of(self.category, self.owner)
 
     def equations(self, evaluate: Callable) -> st.SearchStrategy[Equation[T]]:
         """
@@ -619,7 +618,7 @@ class Axiom[**P, T](Testable[Equation]):
         the equations its predicate rejects are filtered out.
         """
         params = getattr(self.subspace, "params", None) or {}
-        drawn = self.pattern.strategy(self.category, **params).map(
+        drawn = self.pattern.strategy(self.cells, **params).map(
             lambda args: evaluate(*args))
         return drawn if self.subspace is None else drawn.filter(self.subspace)
 
@@ -659,16 +658,16 @@ class Axiom[**P, T](Testable[Equation]):
     def canonical(self) -> Equation[T]:
         """
         The law as a schema: its equation on the canonical arguments of
-        its :attr:`pattern`, each metavariable an object named after it
-        and each arrow a box named after its parameter, the equation a
-        law declared broken raises included.
+        its :attr:`pattern`, each metavariable a cell named after it and
+        each arrow a box named after its parameter, the equation a law
+        declared broken raises included.
 
         >>> from discopy.cat import Arrow
         >>> print(Arrow.associativity.canonical())
         Equation(f >> g >> h, f >> g >> h)
         """
         try:
-            return self(*self.pattern.canonical(self.category))
+            return self(*self.pattern.canonical(self.cells))
         except AxiomFailure as failure:
             return failure.equation
 
@@ -698,7 +697,23 @@ class Axiom[**P, T](Testable[Equation]):
         return dict(bound.arguments)
 
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> Equation[T]:
-        return self.equation(self.category, **self.arguments(*args, **kwargs))
+        """
+        The verdict of the law on the arguments, which must match its
+        :attr:`pattern`, and whose equation must match its :attr:`result`
+        term by term, or :exc:`TypeError`.
+        """
+        arguments, cells = self.arguments(*args, **kwargs), self.cells
+        given = tuple(arguments[name] for name in self.pattern.patterns)
+        env = next(self.pattern.match(given, cells=cells), None)
+        if env is None:
+            raise TypeError(f"{self} expects {self.pattern}, got {given}.")
+        verdict = self.equation(self.category, **arguments)
+        if self.result is not None and isinstance(verdict, Equation):
+            for term in verdict.terms:
+                if next(self.result.match(term, env, cells), None) is None:
+                    raise TypeError(
+                        f"{self} states {self.result}, got {term!r}.")
+        return verdict
 
 
 def axiom[**P, T](
@@ -710,41 +725,104 @@ def axiom[**P, T](
     return Axiom(equation)
 
 
+def annotated(
+        function: Callable, parameters=None) -> tuple[dict, PatternBase]:
+    """
+    The patterns a function's annotations declare, evaluated with its
+    type parameters as metavariables and :data:`C0`, :data:`C1`,
+    :data:`C2`, :data:`typing.Self` as levels: one per annotated parameter
+    among those given, all by default, and the one its return annotation
+    ``C1[dom, cod]`` or ``Equation[...]`` states, :obj:`None` when it
+    states no pattern.
+    """
+    scope = dict(
+        metavariables(function), Self=Level(), Equation=Verdict,
+        C0=C0, C1=C1, C2=C2)
+    signature = inspect.signature(function)
+    if parameters is None:
+        parameters = signature.parameters.values()
+
+    def evaluate(annotation):
+        if isinstance(annotation, str):
+            annotation = eval(annotation, function.__globals__, scope)
+        return annotation if isinstance(annotation, PatternBase) else None
+
+    patterns = {
+        parameter.name: pattern for parameter in parameters
+        if parameter.annotation is not inspect.Parameter.empty
+        and (pattern := evaluate(parameter.annotation)) is not None}
+    return patterns, evaluate(signature.return_annotation)
+
+
+class Verdict:
+    """
+    What ``Equation`` stands for in the return annotation of a law:
+    ``Equation[C2[A @ C, U @ V]]`` is the pattern the terms of its
+    equation must match, bare ``Equation`` none.
+    """
+    def __class_getitem__(cls, item):
+        return item
+
+
 @dataclass
 class Rule[T]:
     """
     An inference rule of a category seen as a deductive system: a sequent
     is a pair of objects ``dom ⊢ cod`` with a ``size``, the number of boxes
-    left to place, and the rule says whether it :attr:`applies` to the
-    sequent and, if chosen, which :attr:`premises` it reduces it to and how
-    to conclude the arrow from their proofs. A rule is stated once on an
-    abstract base class beside the axioms that exercise the structure it
-    generates, and :func:`search` interprets the rules a category inherits.
+    left to place, and the rule says whether it :meth:`applies` to the
+    sequent and, if chosen, which premises it :meth:`derive`\\ s it from
+    and how to conclude the arrow from their proofs. A rule is stated on
+    the structural method that builds the arrow, by :func:`generator` or
+    :func:`rule`, which read its :attr:`conclusion` and :attr:`pattern`
+    off the method's annotations, and :func:`search` interprets the rules
+    a category inherits. A rule that splits or shuffles arbitrarily is
+    stated procedurally instead, with ``@rule(applies=...)``.
 
     Parameters:
-        premises : From the category, a Hypothesis ``draw``, the sequent and
-            the strategy for ``types``, to the list of premises
-            ``(dom, cod, size)`` and the function concluding the arrow from
-            their proofs; the draws it makes are those of the rule chosen.
-        applies : Whether the rule applies to the sequent, without drawing.
+        procedure : For a procedural rule, from the category, a Hypothesis
+            ``draw``, the sequent and the strategy for ``types``, to the
+            list of premises ``(dom, cod, size)`` and the function
+            concluding the arrow from their proofs.
+        condition : For a procedural rule, whether it applies to the
+            sequent, without drawing.
         shape : A strategy for boundaries the rule fires on, given the
-            category, the sequent and the strategy for types, declared by
-            :meth:`hint` and drawn as a middle boundary by ``Category.cut``.
+            cells, the sequent and the strategy for types, drawn as a
+            middle boundary by a composition, see :func:`hints`.
         category : The class the rule is bound to, :obj:`None` until
             :meth:`bind` or the attribute access on a class binds it.
+        owner : The class the rule is declared on, whose levels its
+            annotations name.
         name : The attribute the rule is stored under.
+        method : The structural method a declarative rule calls.
+        conclusion : The :class:`Sequent` a declarative rule concludes.
+        pattern : The :class:`Signature` of the method's annotated
+            parameters, a :class:`Sequent` for each premise, ``self``
+            included, and a pattern for each other argument.
+        boxes : The number of boxes the rule adds itself.
+        reason : Why the rule was declared inapplicable, if it was.
     """
 
-    premises: Callable
-    applies: Callable
+    procedure: Callable = None
+    condition: Callable = None
     _: KW_ONLY
     shape: Callable = None
     category: type[T] = None
+    owner: type = None
     name: str = None
+    method: Callable = None
+    conclusion: Sequent = None
+    pattern: Signature = None
+    boxes: int = 1
+    reason: str = None
 
     def __post_init__(self):
-        self.name = self.name or self.premises.__name__
-        self.__doc__ = self.premises.__doc__
+        function = self.method or self.procedure
+        self.name = self.name or function.__name__
+        self.__doc__ = self.reason or function.__doc__
+
+    def __set_name__(self, owner: type, name: str):
+        if self.owner is None:
+            self.owner = owner
 
     def __repr__(self):
         if self.category is None:
@@ -762,7 +840,7 @@ class Rule[T]:
     def of(cls, value) -> Rule[T] | None:
         """
         The rule a value of a class namespace carries: a rule itself, or
-        a method marked by :func:`leaf`, :func:`rule` or
+        a method marked by :func:`generator`, :func:`rule` or
         :func:`inapplicable`, a classmethod unwrapped; :obj:`None` for
         anything else.
         """
@@ -773,83 +851,158 @@ class Rule[T]:
     def hint(self, shape: Callable) -> Rule[T]:
         """
         The same rule declaring a strategy for boundaries it fires on, so
-        that a cut can draw a middle boundary the rule applies to, e.g.
-        ``x @ x.r`` for a cup.
+        that a composition can draw a middle boundary the rule applies to,
+        e.g. ``x @ x.r`` for a cup.
         """
         return replace(self, shape=shape)
 
     def inapplicable(self, reason: str) -> Rule[T]:
         """
         The same rule declared never to apply to the category, with the
-        reason as its documentation, e.g. ``twisting =
-        BalancedCategory.twisting.inapplicable("The twist is the identity.")``.
+        reason as its documentation, e.g. ``cut =
+        Arrow.cut.inapplicable("No cut.")`` for a procedural rule; a
+        structural method drops the rule it inherits with
+        :func:`inapplicable`.
         """
-        @wraps(self.premises)
-        def premises(*args, **kwargs):
-            return self.premises(*args, **kwargs)
-
-        premises.__doc__ = reason
         return replace(
-            self, premises=premises, shape=None,
-            applies=lambda cls, dom, cod, size: False)
+            self, condition=lambda cls, dom, cod, size: False, shape=None,
+            reason=reason)
+
+    @property
+    def premises(self) -> dict[str, Sequent]:
+        """ The sequent of each premise, by parameter name. """
+        return {
+            name: pattern for name, pattern in self.pattern.patterns.items()
+            if isinstance(pattern, Sequent)}
+
+    @property
+    def arguments(self) -> dict[str, PatternBase]:
+        """ The pattern of each other argument of the method, by name. """
+        return {
+            name: pattern for name, pattern in self.pattern.patterns.items()
+            if not isinstance(pattern, Sequent)}
+
+    def cells(self, types=None) -> Cells:
+        """ The cells of the bound category at the levels the rule names. """
+        return Cells.of(self.category, self.owner, types)
+
+    def middles(self, dom, cod, types) -> st.SearchStrategy:
+        """
+        The strategy for boundaries the rule fires on, given a sequent,
+        from its :attr:`shape`: what the middle of a composition is drawn
+        from besides the types, see :func:`hints`.
+        """
+        return self.shape(self.cells(types).between(dom, cod), dom, cod)
+
+    def applies(self, cls, dom, cod, size: int) -> bool:
+        """ Whether the rule applies to a sequent, without drawing. """
+        if self.condition is not None:
+            return self.condition(cls, dom, cod, size)
+        return bool(self.matches(dom, cod, size))
+
+    def matches(self, dom, cod, size: int) -> list[dict]:
+        """
+        The environments matching the :attr:`conclusion` on a sequent that
+        leave the premises a feasible number of boxes: each needs
+        :func:`least` one unless it is an identity, a rule adding no box
+        needs one somewhere, and a rule with no premise takes them all.
+        """
+        budget = size - self.boxes
+        if budget < 0 or (not self.premises and budget) or (
+                self.premises and not self.boxes and not budget):
+            return []
+        unit = self.cells().unit()
+        return [
+            env for env in self.conclusion.matches(dom, cod)
+            if None not in (needs := [
+                least(premise, env, unit)
+                for premise in self.premises.values()])
+            and sum(needs) <= budget]
+
+    def derive(self, draw: Callable, dom, cod, size: int, types
+               ) -> tuple[list, Callable]:
+        """
+        The premises the rule reduces a sequent to, as triples ``(dom,
+        cod, size)``, and the function concluding the arrow from their
+        proofs: a procedural rule's own, and otherwise a feasible match of
+        the conclusion drawn, the unbound variables drawn from the types
+        and the :func:`hints`, the boxes shared out with an identity
+        where the match allows one, the proofs and the built arrow
+        checked against their sequents.
+        """
+        if self.procedure is not None:
+            return self.procedure(self.category, draw, dom, cod, size, types)
+        from hypothesis import strategies as st
+
+        cells = self.cells(types).between(dom, cod)
+        cells = replace(
+            cells, hints=lambda: hints(self.category, dom, cod, types))
+        env = draw(st.sampled_from(self.matches(dom, cod, size)))
+        env = self.pattern.draw_vars(draw, cells, env)
+        unit = cells.unit()
+        premises = {
+            name: sequent.instantiate(env, unit)
+            for name, sequent in self.premises.items()}
+        needs = [
+            1 if need is None else need for need in (
+                least(sequent, env, unit)
+                for sequent in self.premises.values())]
+        names, sizes, budget = list(premises), [], size - self.boxes
+        for i, name in enumerate(names):
+            rest = sum(needs[i + 1:])
+            drawn = budget if i == len(names) - 1 else draw(st.integers(
+                min_value=needs[i], max_value=budget - rest))
+            sizes.append(drawn)
+            budget -= drawn
+        drawn = [(*premises[name], n) for name, n in zip(names, sizes)]
+        expected = self.conclusion.instantiate(env, unit)
+
+        def conclude(*proofs):
+            for (source, target, _), proof in zip(drawn, proofs):
+                if (proof.dom, proof.cod) != (source, target):
+                    raise AxiomError(
+                        f"{self} was given {proof} for {source} ⊢ {target}.")
+            term = apply(
+                cells.category, self.method, self.arguments, env,
+                dict(zip(names, proofs)), unit)
+            if (term.dom, term.cod) != expected:
+                raise AxiomError(f"{self} built {term} for {dom} ⊢ {cod}.")
+            return term
+
+        return drawn, conclude
 
 
-def declared(method) -> tuple[Sequent, dict[str, Sequent], dict]:
+def least(premise: Sequent, env: dict, unit=None) -> int | None:
     """
-    What a method declares as a rule in its annotations, evaluated with
-    its type parameters as metavariables: the :class:`Sequent` it
-    concludes, from its return annotation ``C1[dom, cod]``, the sequent
-    of each premise, from the parameters annotated with one — ``self``
-    for the morphism an instance method builds on — and the pattern of
-    each other argument, by name.
+    The least number of boxes a premise needs, given the bound variables:
+    none when it is an identity, one otherwise or while a variable of
+    its boundaries is still free, and no number at all — :obj:`None` —
+    for a premise on the unit alone, a closed component the search
+    draws at the top only.
     """
-    scope = dict(metavariables(method), C1=Hom())
-    signature = inspect.signature(method)
-
-    def evaluate(annotation):
-        return eval(annotation, method.__globals__, scope)\
-            if isinstance(annotation, str) else annotation
-
-    conclusion = evaluate(signature.return_annotation)
-    if not isinstance(conclusion, Sequent):
-        raise TypeError(
-            f"{method.__name__} concludes no sequent: annotate its return "
-            "with C1[dom, cod].")
-    evaluated = {
-        name: evaluate(parameter.annotation)
-        for name, parameter in signature.parameters.items()
-        if parameter.annotation is not inspect.Parameter.empty}
-    premises = {
-        name: annotation for name, annotation in evaluated.items()
-        if isinstance(annotation, Sequent)}
-    arguments = {
-        name: annotation for name, annotation in evaluated.items()
-        if isinstance(annotation, PatternBase) and name not in premises}
-    return conclusion, premises, arguments
+    try:
+        dom, cod = premise.instantiate(env, unit)
+    except KeyError:
+        return 1
+    if not size(dom) and not size(cod):
+        return None
+    return int(dom != cod)
 
 
-def apply(cls, method, arguments: dict, env: dict, proofs: dict):
+def apply(category, method, arguments: dict, env: dict, proofs: dict,
+          unit=None):
     """
-    Call the method of ``cls`` by name, on the values its argument
-    patterns stand for and the proofs of its premises, the proof of
-    ``self`` as the receiver: the concrete method of the category is
-    called, not the abstract one that carries the rule.
+    Call the method of ``category`` by name — the concrete one, not the
+    abstract one that carries the rule — on the proofs of its premises,
+    positionally, the proof of ``self`` as the receiver, and on the values
+    its argument patterns stand for, by keyword.
     """
-    unit = unit_of(cls, env)
     kwargs = {
         name: pattern.instantiate(env, unit)
         for name, pattern in arguments.items()}
-    kwargs.update(proofs)
-    receiver = kwargs.pop("self", cls)
-    return getattr(receiver, method.__name__)(**kwargs)
-
-
-def marked(
-        method, derive: Callable, applies: Callable, conclusion) -> Callable:
-    """ The method carrying the rule its annotations declare. """
-    derive.__name__, derive.__doc__ = method.__name__, method.__doc__
-    method.__rule__ = Rule(derive, applies, shape=hint_from([conclusion]))
-    return method
+    proofs = dict(proofs)
+    receiver = proofs.pop("self", category)
+    return getattr(receiver, method.__name__)(*proofs.values(), **kwargs)
 
 
 def windows(word: Word, typ):
@@ -868,14 +1021,15 @@ def windows(word: Word, typ):
             yield typ[:start], env, typ[stop:]
 
 
-def hint_from(sequents: list[Sequent]) -> Callable:
+def hint_from(conclusion: Sequent) -> Callable:
     """
-    The boundary strategy a rule derives from the sequents it concludes:
+    The boundary strategy a rule derives from the sequent it concludes:
     a middle that a domain pattern matches on the sequent's domain, or
     a codomain pattern on the codomain, so that the rule fires on one
-    side of the cut, and otherwise a fresh instance of either pattern.
+    side of a composition, and otherwise a fresh instance of either
+    pattern.
     """
-    def shape(cls, dom, cod, types):
+    def shape(cells: Cells, dom, cod):
         from hypothesis import strategies as st
 
         def around(left, right):
@@ -883,48 +1037,64 @@ def hint_from(sequents: list[Sequent]) -> Callable:
                 else left @ middle @ right
 
         options = []
-        for sequent in sequents:
-            for dom_pattern, cod_pattern in sequent.options:
-                for source, target, side in (
-                        (dom_pattern, cod_pattern, dom),
-                        (cod_pattern, dom_pattern, cod)):
-                    for left, env, right in windows(source, side):
-                        options.append(
-                            target.strategy(cls, env).map(around(left, right)))
-                options += [
-                    word.strategy(cls) for word in (dom_pattern, cod_pattern)
-                    if word.vars and not all(
-                        var.kind == "type" for var in word.vars)]
+        for dom_pattern, cod_pattern in conclusion.options:
+            for source, target, side in (
+                    (dom_pattern, cod_pattern, dom),
+                    (cod_pattern, dom_pattern, cod)):
+                for left, env, right in windows(source, side):
+                    options.append(
+                        target.strategy(cells, env).map(around(left, right)))
+            options += [
+                word.strategy(cells) for word in (dom_pattern, cod_pattern)
+                if word.vars and not all(
+                    var.kind == "type" for var in word.vars)]
         return st.one_of(*options) if options else st.nothing()
 
     return shape
 
 
-def leaf(method: Callable) -> Callable:
+def hints(category, dom, cod, types) -> list:
     """
-    Mark a structural method as a leaf rule, the sequent it concludes
-    read off its annotations, its metavariables being its type
-    parameters: ``def cups[X: Atom[C0]](cls, left: X, right: X.r) ->
-    C1[X @ X.r, ()]`` says that ``x @ x.r ⊢ ()`` is a cup, built by
-    calling the method on the values its parameters stand for. The rule
-    applies to sequents of size one that the conclusion matches, and the
-    method is returned unchanged, carrying it: it stays the method of
-    its category, abstract or not, and an override keeps the rule
-    unless :func:`inapplicable` drops it.
+    The strategies for boundaries the rules of a category fire on, given
+    a sequent: what the middle of a composition is drawn from besides
+    the types, so that a cup or a braid gets the boundary it needs.
     """
-    conclusion, premises, arguments = declared(method)
-    if premises:
-        raise TypeError(f"A leaf has no premise, {method.__name__} has.")
+    return [
+        rule.middles(dom, cod, types)
+        for rule in category.rules.values() if rule.shape is not None]
 
-    def applies(cls, dom, cod, size):
-        return size == 1 and any(True for _ in conclusion.matches(dom, cod))
 
-    def derive(cls, draw, dom, cod, size, types):
-        env = bind_vars(
-            draw, conclusion.vars, cls, next(conclusion.matches(dom, cod)))
-        return [], lambda: apply(cls, method, arguments, env, {})
+def declared(method: Callable) -> tuple[Sequent, Signature]:
+    """
+    What a structural method declares as a rule in its annotations,
+    evaluated with its type parameters as metavariables: the
+    :class:`Sequent` it concludes, from its return annotation ``C1[dom,
+    cod]``, and the :class:`Signature` of its annotated parameters, a
+    sequent for each premise — ``self`` for the morphism an instance
+    method builds on — and a pattern for each other argument.
+    """
+    patterns, conclusion = annotated(method)
+    if not isinstance(conclusion, Sequent):
+        raise TypeError(
+            f"{method.__name__} concludes no sequent: annotate its return "
+            "with C1[dom, cod].")
+    return conclusion, Signature(patterns)
 
-    return marked(method, derive, applies, conclusion)
+
+def generator(method: Callable) -> Callable:
+    """
+    Mark a structural method as a generator: a :func:`rule` with no
+    premise, building one box from the values its parameters stand for,
+    ``def cups[X: Atom[C0]](cls, left: X, right: X.r) -> C1[X @ X.r,
+    ()]`` saying that ``x @ x.r ⊢ ()`` is a cup. The method is returned
+    unchanged, carrying the rule: it stays the method of its category,
+    abstract or not, and an override keeps the rule unless
+    :func:`inapplicable` drops it.
+    """
+    marked = rule(method)
+    if marked.__rule__.premises:
+        raise TypeError(f"A generator has no premise, {method.__name__} has.")
+    return marked
 
 
 def rule(
@@ -940,43 +1110,21 @@ def rule(
     m @ y`` or of ``x @ m ⊢ y @ m`` over an atom, on the side ``L``
     stands for, built by calling the method on the proofs of its
     premises and the values its other parameters stand for, counting the
-    ``boxes`` it adds itself. Given ``applies``, the predicate saying
-    when a rule applies, the decorated function gives the premises
-    instead, procedurally, e.g. ``@rule(applies=lambda cls, dom, cod,
-    size: size >= 2)`` for a cut, and is replaced by the :class:`Rule`.
+    ``boxes`` it adds itself: none for a composition or a tensor. Given
+    ``applies``, the predicate saying when a rule applies, the decorated
+    function gives the premises instead, procedurally, e.g.
+    ``@rule(applies=lambda cls, dom, cod, size: size == 1)`` for a box,
+    and is replaced by the :class:`Rule`.
     """
     if applies is not None:
-        return lambda premises: Rule(premises, applies)
+        return lambda procedure: Rule(procedure, applies)
     if method is None:
         return lambda method: rule(method, boxes=boxes)
-    conclusion, premises, arguments = declared(method)
-    names = tuple(premises)
-    variables = tuple({
-        var.name: var for sequent in (conclusion, *premises.values())
-        for var in sequent.vars}.values())
-
-    def applies_to(cls, dom, cod, size):
-        return size >= boxes + len(names)\
-            and any(True for _ in conclusion.matches(dom, cod))
-
-    def derive(cls, draw, dom, cod, size, types):
-        from hypothesis import strategies as st
-
-        env = bind_vars(
-            draw, variables, cls, next(conclusion.matches(dom, cod)))
-        unit = unit_of(cls, env)
-        sizes, left = [], size - boxes
-        for remaining in reversed(range(len(names))):
-            sizes.append(draw(st.integers(
-                min_value=1, max_value=left - remaining)))
-            left -= sizes[-1]
-        drawn = [
-            (*premises[name].instantiate(env, unit), n)
-            for name, n in zip(names, sizes)]
-        return drawn, lambda *proofs: apply(
-            cls, method, arguments, env, dict(zip(names, proofs)))
-
-    return marked(method, derive, applies_to, conclusion)
+    conclusion, pattern = declared(method)
+    method.__rule__ = Rule(
+        method=method, conclusion=conclusion, pattern=pattern,
+        shape=hint_from(conclusion), boxes=boxes)
+    return method
 
 
 def inapplicable(reason: str) -> Callable:
@@ -993,7 +1141,8 @@ def inapplicable(reason: str) -> Callable:
             return method(*args, **kwargs)
 
         override.__rule__ = Rule(
-            override, lambda cls, dom, cod, size: False).inapplicable(reason)
+            method=override, condition=lambda cls, dom, cod, size: False,
+            reason=reason)
         return override
 
     return decorate
@@ -1014,15 +1163,15 @@ def search(
     from hypothesis import event
     from hypothesis import strategies as st
 
+    rules = list(category.rules.values())
+
     @st.composite
     def derive(draw, dom, cod, size):
         applicable = [
-            rule for rule in category.rules.values()
-            if rule.applies(category, dom, cod, size)]
+            rule for rule in rules if rule.applies(category, dom, cod, size)]
         chosen = draw(st.sampled_from(applicable))
         event(f"rule: {chosen.name}")
-        premises, conclude = chosen.premises(
-            category, draw, dom, cod, size, types)
+        premises, conclude = chosen.derive(draw, dom, cod, size, types)
         term = conclude(*[draw(derive(*premise)) for premise in premises])
         if (term.dom, term.cod) != (dom, cod):
             raise AxiomError(
@@ -1050,8 +1199,9 @@ class PatternBase[T](Testable[T]):
     :meth:`match`\\ ing a value and reads to :meth:`instantiate` one, and
     its :meth:`strategy` draws the unbound ones by kind, so that a law or
     a rule states the shape of its arguments once and both matching and
-    generating follow. ``@`` concatenates patterns into a :class:`Word`
-    and ``|`` joins them into :class:`Alternatives`.
+    generating follow. The values are the cells of a category at some
+    level, see :class:`Cells`. ``@`` concatenates patterns into a
+    :class:`Word` and ``|`` joins them into :class:`Alternatives`.
     """
 
     @property
@@ -1059,7 +1209,8 @@ class PatternBase[T](Testable[T]):
         """ The metavariables of the pattern, in order of first occurrence. """
         raise NotImplementedError
 
-    def match(self, value, env: dict = None) -> Iterator[dict]:
+    def match(self, value, env: dict = None, cells: Cells = None
+              ) -> Iterator[dict]:
         """
         Yield every environment binding the variables so that the pattern
         stands for ``value``, extending ``env``: a type variable may take
@@ -1071,33 +1222,41 @@ class PatternBase[T](Testable[T]):
         """ The value the pattern stands for, given all its variables. """
         raise NotImplementedError
 
-    def generate(self, draw: Callable, factory, env: dict, **params) -> T:
+    def draw_vars(self, draw: Callable, cells: Cells, env: dict) -> dict:
+        """
+        ``env`` extended with a value drawn for each variable of the
+        pattern not in it, in order of first occurrence.
+        """
+        return bind_vars(draw, self.vars, cells, env)
+
+    def generate(self, draw: Callable, cells: Cells, env: dict, **params) -> T:
         """
         Draw a value the pattern stands for, extending ``env`` with the
-        variables it draws from the ``factory`` by kind; the parameters go
-        to the strategies of the factory's terms.
+        variables it draws from the cells by kind; the parameters go to
+        the strategies of the cells.
         """
-        bound = bind_vars(draw, self.vars, factory, env)
-        return self.instantiate(bound, unit_of(factory, bound))
+        bound = self.draw_vars(draw, cells, env)
+        return self.instantiate(bound, unit_of(cells, bound))
 
-    def strategy(
-            self, factory, env: dict = None, **params) -> st.SearchStrategy[T]:
+    def strategy(self, cells: Cells | type, env: dict = None, **params
+                 ) -> st.SearchStrategy[T]:
         """
         A strategy for the values the pattern stands for, the variables
-        not in ``env`` drawn from the ``factory``: the category whose
-        objects and arrows they stand for.
+        not in ``env`` drawn from the cells of a category, given as such
+        or as the category itself.
         """
-        return generated()(self, factory, dict(env or {}), params)
+        return generated()(self, Cells.of(cells), dict(env or {}), params)
 
-    def canonical(self, factory, env: dict = None, name: str = None) -> T:
+    def canonical(self, cells: Cells | type, env: dict = None,
+                  name: str = None) -> T:
         """
         The value the pattern stands for by default: each variable not in
-        ``env`` an object of the ``factory`` named after it, an arrow a
-        box named ``name``, so that a law reads as a schema, see
-        :meth:`Axiom.canonical`.
+        ``env`` a cell named after it, an arrow a box named ``name``, so
+        that a law reads as a schema, see :meth:`Axiom.canonical`.
         """
-        bound = canonical_vars(self.vars, factory, env)
-        return self.instantiate(bound, unit_of(factory, bound))
+        cells = Cells.of(cells)
+        bound = canonical_vars(self.vars, cells, env)
+        return self.instantiate(bound, unit_of(cells, bound))
 
     def __matmul__(self, other) -> Word:
         return Word.of(self) @ other
@@ -1110,6 +1269,179 @@ class PatternBase[T](Testable[T]):
 
     def __ror__(self, other) -> Alternatives:
         return Alternatives.of(other) | self
+
+
+@dataclass(frozen=True)
+class Level[T](PatternBase[T]):
+    """
+    The cells of a category at a level, what :data:`C0`, :data:`C1` and
+    :data:`C2` stand for in the annotations of a law or a rule: bare, any
+    cell of the level, and ``C1[R, G]`` the :class:`Sequent` of those
+    from ``R`` to ``G``. The level counts from the objects of the class
+    declaring the law, whose last type parameter is its top, see
+    :func:`top_of`; :obj:`None` is the top itself, what
+    :data:`typing.Self` stands for.
+    """
+    n: int = None
+
+    def __repr__(self):
+        return "Self" if self.n is None else f"C{self.n}"
+
+    def __getitem__(self, boundaries) -> Sequent[T]:
+        dom, cod = boundaries
+        return Sequent(boundary(dom), boundary(cod), self.n)
+
+    @property
+    def level(self) -> int:
+        return self.n
+
+    @property
+    def vars(self) -> tuple[Var, ...]:
+        return ()
+
+    def match(self, value, env: dict = None, cells: Cells = None
+              ) -> Iterator[dict]:
+        """
+        Whether the value is a cell of the level, the class of the cells
+        being the ``ar`` of the class at that level when it has one: a
+        subclass without a factory of its own builds the arrows of its
+        base.
+        """
+        factory = None if cells is None else cells[self.n]
+        if factory is None or factory is NoneType or isinstance(
+                value, getattr(factory, "ar", factory)):
+            yield dict(env or {})
+
+    def instantiate(self, env: dict, unit=None) -> T:
+        raise TypeError(f"A cell of {self} is drawn, not instantiated.")
+
+    def generate(self, draw: Callable, cells: Cells, env: dict, **params) -> T:
+        if cells[self.n] is NoneType:
+            return cells.trivial(self.n)
+        return draw(cells[self.n].strategy(**params))
+
+    def canonical(self, cells: Cells | type, env: dict = None,
+                  name: str = None) -> T:
+        cells = Cells.of(cells)
+        if cells[self.n] is NoneType:
+            return cells.trivial(self.n)
+        return cell_named(cells[self.n], name or "f")
+
+
+@dataclass(frozen=True)
+class Cells:
+    """
+    The cells of a category at each level a pattern names, those of the
+    class declaring it: the class itself at the top, its objects one
+    level down, theirs two down, and so on, see :func:`levels_of`, so
+    that ``C1`` in a law of categories is the arrows of a 2-category
+    too, and ``C0`` in a law of 2-categories its colours — a single
+    trivial one, :class:`types.NoneType`, in a monoidal category.
+
+    Parameters:
+        category : The category the pattern is bound to.
+        levels : The class of the cells at each level, from the bottom.
+        types : A strategy the search draws a free type variable from,
+            :obj:`None` to draw from the cells of its level.
+        hints : A function giving the strategies for boundaries the rules
+            of the category fire on, drawn from as well as the types.
+        boundaries : The colours a free type variable stands between,
+            those of the sequent a rule derives, when the objects have
+            some: the middle of a composition is parallel to its ends.
+
+    >>> from types import NoneType
+    >>> from discopy.abc import TwoCategory
+    >>> from discopy.monoidal import Diagram, Ty
+    >>> cells = Cells.of(Diagram, TwoCategory)
+    >>> assert (cells[2], cells[1], cells[0]) == (Diagram, Ty, NoneType)
+    >>> assert Cells.of(Diagram).top == 1 and Cells.of(Diagram)[0] is Ty
+    """
+    category: type
+    levels: tuple
+    types: object = None
+    hints: Callable = None
+    boundaries: tuple = None
+
+    @property
+    def top(self) -> int:
+        """ The level of the category itself. """
+        return len(self.levels) - 1
+
+    def between(self, dom, cod) -> Cells:
+        """ The same cells, between the colours of a sequent if any. """
+        if hasattr(dom, "dom") and hasattr(dom, "cod"):
+            return replace(self, boundaries=(dom.dom, dom.cod))
+        return self
+
+    @classmethod
+    def of(cls, category, owner: type = None, types=None) -> Cells:
+        """
+        The cells of a category at the levels of a class it inherits
+        from, its own by default, or the cells given.
+        """
+        if isinstance(category, Cells):
+            return category
+        return cls(category, levels_of(category, owner), types)
+
+    def __getitem__(self, level: int | None) -> type:
+        return self.category if level is None else self.levels[level]
+
+    def unit(self, level: int = None):
+        """
+        The unit of the objects of the cells at a level, the top by
+        default, when they have a tensor, else :obj:`None`.
+        """
+        objects = self[(self.top if level is None else level) - 1]
+        return objects() if hasattr(objects, "tensor") else None
+
+    def trivial(self, level: int):
+        """
+        The one cell of a trivial level, the colour of the unit of the
+        level above, e.g. the transparent colour of a monoidal category.
+        """
+        return self[level + 1]().dom
+
+
+def levels_of(category: type, owner: type = None) -> tuple:
+    """
+    The class of the cells of ``category`` at each level of ``owner``, a
+    class it inherits from, from the bottom up: each type parameter of
+    the owner is followed through what the classes below substitute for
+    it, a type parameter of theirs or a concrete type — ``NoneType`` for
+    the single trivial colour of a monoidal category — and, where the
+    substitution ends, resolved by depth from the top, the category's
+    ``ob`` taken as many times as the parameter is from the last one.
+    The owner is the first generic class in the MRO by default.
+    """
+    owner = next(
+        (base for base in (owner or category).__mro__ if base.__type_params__),
+        owner or category)
+    chain = [base for base in category.__mro__ if issubclass(base, owner)]
+
+    def substituted(base: type, parameter):
+        for subclass in chain:
+            for orig in subclass.__dict__.get("__orig_bases__", ()):
+                if get_origin(orig) is base:
+                    arguments = dict(zip(base.__type_params__, get_args(orig)))
+                    if parameter in arguments:
+                        return subclass, arguments[parameter]
+        return None
+
+    def resolve(current: type, parameter):
+        found = substituted(current, parameter)
+        if found is not None and isinstance(found[1], TypeVar):
+            return resolve(*found)
+        if found is not None and isinstance(found[1], type):
+            return found[1]
+        parameters = current.__type_params__
+        depth = len(parameters) - 1 - parameters.index(parameter)
+        factory = category
+        for _ in range(depth):
+            factory = factory.ob
+        return factory
+
+    return tuple(
+        resolve(owner, parameter) for parameter in owner.__type_params__)
 
 
 class ItemBase[T](PatternBase[T]):
@@ -1144,8 +1476,9 @@ class ItemBase[T](PatternBase[T]):
         """
         raise NotImplementedError
 
-    def match(self, value, env: dict = None) -> Iterator[dict]:
-        yield from Word.of(self).match(value, env)
+    def match(self, value, env: dict = None, cells: Cells = None
+              ) -> Iterator[dict]:
+        yield from Word.of(self).match(value, env, cells)
 
     def instantiate(self, env: dict, unit=None) -> T:
         return self.value(env)
@@ -1169,152 +1502,29 @@ class ItemBase[T](PatternBase[T]):
 
 
 @dataclass(frozen=True)
-class Var[T](ItemBase[T]):
-    """
-    A metavariable, standing for a type, an atom, a pair of atoms or a
-    non-empty type according to its ``kind``; ``.r``, ``.l``, ``.d``,
-    ``<<`` and ``>>`` derive the adjoints, delay and exponentials of what
-    it stands for, see :class:`Adjoint`, :class:`Delay` and :class:`Exp`.
-
-    >>> X, A = Var.atom('X'), Var.type('A')
-    >>> print(A @ X @ X.r)
-    A @ X @ X.r
-    >>> Var.atom('X')
-    Var.atom('X')
-    """
-    name: str
-    kind: str = "type"
-
-    LENGTHS: ClassVar[dict] = {
-        "atom": (1, ), "pair": (2, ), "type": None, "nonempty": None,
-        "count": (), "bool": ()}
-
-    def __post_init__(self):
-        if self.kind not in self.LENGTHS:
-            raise ValueError(f"Unknown kind of metavariable: {self.kind!r}.")
-
-    @classmethod
-    def type(cls, name: str) -> Var[T]:
-        """ A metavariable for any type. """
-        return cls(name, "type")
-
-    @classmethod
-    def atom(cls, name: str) -> Var[T]:
-        """ A metavariable for an atomic type. """
-        return cls(name, "atom")
-
-    @classmethod
-    def pair(cls, name: str) -> Var[T]:
-        """ A metavariable for two atoms. """
-        return cls(name, "pair")
-
-    @classmethod
-    def nonempty(cls, name: str) -> Var[T]:
-        """ A metavariable for a non-empty type. """
-        return cls(name, "nonempty")
-
-    def __repr__(self):
-        return f"Var.{self.kind}({self.name!r})"
-
-    def __str__(self):
-        return self.name
-
-    @property
-    def vars(self) -> tuple[Var, ...]:
-        return (self, )
-
-    @property
-    def fixed(self) -> bool:
-        return self.kind in ("atom", "pair")
-
-    @property
-    def length(self) -> int:
-        return self.LENGTHS[self.kind][0]
-
-    def lengths(self, typ, position: int) -> tuple[int, ...]:
-        remaining = size(typ) - position
-        if self.kind == "type":
-            return tuple(range(remaining + 1))
-        if self.kind == "nonempty":
-            return tuple(range(1, remaining + 1))
-        return tuple(n for n in self.LENGTHS[self.kind] if n <= remaining)
-
-    def __getitem__(self, options) -> Choice[T]:
-        """ The choice a boolean variable makes between two boundaries. """
-        if self.kind != "bool":
-            raise TypeError(f"Only a Bool variable chooses, {self} is not.")
-        then, otherwise = options
-        return Choice(self, boundary(then), boundary(otherwise))
-
-    def value(self, env: dict) -> T:
-        return env[self.name]
-
-    def invert(self, value, env: dict) -> dict | None:
-        return bind(env, self, value)
-
-    def generate(self, draw: Callable, factory, env: dict, **params) -> T:
-        """
-        What ``env`` binds the variable to, else a draw by kind: a
-        count up to three, a boolean, or an object of the factory.
-        """
-        from hypothesis import strategies as st
-
-        if self.name in env:
-            return env[self.name]
-        if self.kind == "count":
-            return draw(st.integers(min_value=0, max_value=3))
-        if self.kind == "bool":
-            return draw(st.booleans())
-        if self.kind == "atom":
-            return draw(factory.atoms())
-        if self.kind == "pair":
-            return draw(factory.atoms()) @ draw(factory.atoms())
-        if self.kind == "nonempty":
-            return draw(factory.ob.strategy(min_length=1))
-        return draw(factory.ob.strategy())
-
-    def canonical(self, factory, env: dict = None, name: str = None) -> T:
-        """
-        What ``env`` binds the variable to, else an object of its name, a
-        count of two or :obj:`True`.
-        """
-        if env and self.name in env:
-            return env[self.name]
-        if self.kind == "count":
-            return 2
-        if self.kind == "bool":
-            return True
-        if self.kind == "pair":
-            return factory.ob(f"{self.name}0") @ factory.ob(f"{self.name}1")
-        return factory.ob(self.name)
-
-    r = property(lambda self: Adjoint(self, left=False))
-    l = property(lambda self: Adjoint(self, left=True))  # noqa: E741
-
-    def delay(self) -> Delay[T]:
-        """ The delay of what the metavariable stands for. """
-        return Delay(self)
-
-    d = property(delay)
-
-    def __lshift__(self, other: Var) -> Exp[T]:
-        return Exp(self, other, left=True)
-
-    def __rshift__(self, other: Var) -> Exp[T]:
-        return Exp(other, self, left=False)
-
-
 class Kind:
     """
     The kind of a metavariable, as the bound of a type parameter of a law
-    or a rule: ``[A: C0]`` stands for a type, ``[X: Atom[C0]]`` for an
-    atom, ``[N: NonEmpty[C0]]`` for a non-empty type and ``[P: Pair[C0]]``
-    for a pair of atoms.
+    or a rule, refining the cells of a level or a sequent of them:
+    ``[A: C0]`` stands for any object, ``[X: Atom[C0]]`` for an atom,
+    ``[N: NonEmpty[C0]]`` for a non-empty type, ``[P: Pair[C0]]`` for a
+    pair of atoms and ``[X: Atom[C1[R, G]]]`` for an atomic 1-cell from
+    the colour ``R`` to the colour ``G``.
     """
-    kind = "type"
+    inner: Level | Sequent = None
+    kind: ClassVar[str] = "type"
 
     def __class_getitem__(cls, item):
-        return cls
+        return cls(item)
+
+    @property
+    def level(self) -> int:
+        return None if self.inner is None else self.inner.level
+
+    @property
+    def boundaries(self) -> Sequent | None:
+        """ The sequent the kind refines, if it is one. """
+        return self.inner if isinstance(self.inner, Sequent) else None
 
 
 class Atom(Kind):
@@ -1348,18 +1558,244 @@ class Bool(Kind):
     kind = "bool"
 
 
+@dataclass(frozen=True)
+class Var[T](ItemBase[T]):
+    """
+    A metavariable, standing for a cell of the level its ``bound``
+    names, a :class:`Level` for any, a :class:`Sequent` for one between
+    given boundaries, a :class:`Kind` for an atom, a pair of atoms, a
+    non-empty type, a count or a boolean; ``.r``, ``.l``, ``.d``, ``<<``
+    and ``>>`` derive the adjoints, delay and exponentials of what it
+    stands for, see :class:`Adjoint`, :class:`Delay` and :class:`Exp`,
+    ``**`` repeats it and a boolean chooses with ``[]``, see
+    :class:`Repeat` and :class:`Choice`.
+
+    >>> X, A = Var.atom('X'), Var.type('A')
+    >>> print(A @ X @ X.r)
+    A @ X @ X.r
+    >>> Var.atom('X')
+    Var.atom('X')
+    """
+    name: str
+    bound: Level | Sequent | Kind = Level(0)
+
+    LENGTHS: ClassVar[dict] = {
+        "atom": (1, ), "pair": (2, ), "type": None, "nonempty": None,
+        "count": (), "bool": ()}
+
+    @classmethod
+    def type(cls, name: str, bound=Level(0)) -> Var[T]:
+        """ A metavariable for any type. """
+        return cls(name, bound)
+
+    @classmethod
+    def atom(cls, name: str, bound=Level(0)) -> Var[T]:
+        """ A metavariable for an atomic type. """
+        return cls(name, Atom(bound))
+
+    @classmethod
+    def pair(cls, name: str, bound=Level(0)) -> Var[T]:
+        """ A metavariable for two atoms. """
+        return cls(name, Pair(bound))
+
+    @classmethod
+    def nonempty(cls, name: str, bound=Level(0)) -> Var[T]:
+        """ A metavariable for a non-empty type. """
+        return cls(name, NonEmpty(bound))
+
+    @property
+    def kind(self) -> str:
+        """ The kind of the variable, ``"type"`` unless a :class:`Kind`. """
+        return getattr(self.bound, "kind", "type")
+
+    @property
+    def level(self) -> int:
+        """ The level of the cells the variable stands for. """
+        return self.bound.level
+
+    @property
+    def boundaries(self) -> Sequent | None:
+        """ The sequent between which the variable stands, if given. """
+        return self.bound if isinstance(self.bound, Sequent)\
+            else getattr(self.bound, "boundaries", None)
+
+    def __repr__(self):
+        inner = getattr(self.bound, "inner", self.bound)
+        if inner == Level(0):
+            return f"Var.{self.kind}({self.name!r})"
+        return f"Var({self.name!r}, {self.bound!r})"
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def vars(self) -> tuple[Var, ...]:
+        boundaries = self.boundaries
+        return (self, ) if boundaries is None else boundaries.vars + (self, )
+
+    @property
+    def fixed(self) -> bool:
+        return self.kind in ("atom", "pair")
+
+    @property
+    def length(self) -> int:
+        return self.LENGTHS[self.kind][0]
+
+    def lengths(self, typ, position: int) -> tuple[int, ...]:
+        remaining = size(typ) - position
+        if self.kind == "type":
+            return tuple(range(remaining + 1))
+        if self.kind == "nonempty":
+            return tuple(range(1, remaining + 1))
+        return tuple(n for n in self.LENGTHS[self.kind] if n <= remaining)
+
+    def __getitem__(self, options) -> Choice[T]:
+        """ The choice a boolean variable makes between two boundaries. """
+        if self.kind != "bool":
+            raise TypeError(f"Only a Bool variable chooses, {self} is not.")
+        then, otherwise = options
+        return Choice(self, boundary(then), boundary(otherwise))
+
+    def value(self, env: dict) -> T:
+        return env[self.name]
+
+    def invert(self, value, env: dict) -> dict | None:
+        return bind(env, self, value)
+
+    def boundary_values(self, env: dict) -> dict:
+        """ The ``dom`` and ``cod`` the variable stands between, bound. """
+        if self.boundaries is None:
+            return {}
+        return dict(zip(("dom", "cod"), self.boundaries.instantiate(env)))
+
+    def generate(self, draw: Callable, cells: Cells, env: dict,
+                 between: tuple = None, **params) -> T:
+        """
+        What ``env`` binds the variable to, else a draw by kind: a count
+        up to three, a boolean, or a cell of the level from the cells,
+        between the boundaries it stands between, those given by a word
+        drawing it after its neighbours, or those of the cells; a free
+        type variable at the level of the objects draws from the types
+        and the hints of the cells when they have some.
+        """
+        from hypothesis import strategies as st
+
+        if self.name in env:
+            return env[self.name]
+        if self.kind == "count":
+            return draw(st.integers(min_value=0, max_value=3))
+        if self.kind == "bool":
+            return draw(st.booleans())
+        if cells[self.level] is NoneType:
+            return cells.trivial(self.level)
+        boundaries = self.boundary_values(env)
+        lengths = {
+            "atom": dict(min_length=1, max_length=1),
+            "pair": dict(min_length=2, max_length=2),
+            "nonempty": dict(min_length=1)}.get(self.kind, {})
+        if not boundaries and self.level == cells.top - 1:
+            coloured = self.level and cells[self.level - 1] is not NoneType
+            if between is not None and between != (None, None):
+                boundaries = {
+                    side: colour for side, colour in zip(
+                        ("dom", "cod"), between)
+                    if colour is not None or coloured}
+            elif cells.boundaries is not None:
+                boundaries = dict(zip(("dom", "cod"), cells.boundaries))
+        if self.kind == "type" and self.level == cells.top - 1 and (
+                cells.types is not None or cells.hints is not None):
+            hinted = cells.hints() if cells.hints is not None else ()
+            own = cells[self.level].strategy(**boundaries)\
+                if boundaries or cells.types is None else cells.types
+            return draw(st.one_of(own, *hinted))
+        return draw(cells[self.level].strategy(**lengths, **boundaries))
+
+    def canonical(self, cells: Cells | type, env: dict = None,
+                  name: str = None) -> T:
+        """
+        What ``env`` binds the variable to, else a cell of its name
+        between its boundaries, a count of two or :obj:`True`, or the one
+        cell of a trivial level.
+        """
+        if env and self.name in env:
+            return env[self.name]
+        if self.kind == "count":
+            return 2
+        if self.kind == "bool":
+            return True
+        cells = Cells.of(cells)
+        if cells[self.level] is NoneType:
+            return cells.trivial(self.level)
+        env = canonical_vars(self.vars[:-1], cells, env)
+        factory, boundaries = cells[self.level], self.boundary_values(env)
+        if self.kind == "pair":
+            return cell_named(factory, f"{self.name}0", **boundaries)\
+                @ cell_named(factory, f"{self.name}1", **boundaries)
+        return cell_named(factory, self.name, **boundaries)
+
+    r = property(lambda self: Adjoint(self, left=False))
+    l = property(lambda self: Adjoint(self, left=True))  # noqa: E741
+
+    def delay(self) -> Delay[T]:
+        """ The delay of what the metavariable stands for. """
+        return Delay(self)
+
+    d = property(delay)
+
+    def __lshift__(self, other: Var) -> Exp[T]:
+        return Exp(self, other, left=True)
+
+    def __rshift__(self, other: Var) -> Exp[T]:
+        return Exp(other, self, left=False)
+
+
 def metavariables(function) -> dict[str, Var]:
     """
-    The metavariables a function declares as its type parameters, of the
-    kind its bound gives, a type when it has none.
+    The metavariables a function declares as its type parameters, bounded
+    by a level, a sequent of cells or a kind, any object of the lowest
+    level when unbounded: a type parameter named in the bound of another,
+    ``[R: C0, G: C0, X: C1[R, G]]``, is the metavariable of that name.
     """
-    def kind_of(parameter):
-        bound = getattr(parameter, "__bound__", None)
-        return getattr(bound, "kind", "type")
-
-    return {
-        parameter.__name__: Var(parameter.__name__, kind_of(parameter))
+    parameters = {
+        parameter.__name__: parameter
         for parameter in getattr(function, "__type_params__", ())}
+    found = {}
+
+    def var(name: str) -> Var:
+        if name not in found:
+            found[name] = Var(name, bound_of(parameters[name]))
+        return found[name]
+
+    def bound_of(parameter):
+        bound = parameter.__bound__
+        if bound is None:
+            return Level(0)
+        if isinstance(bound, type) and issubclass(bound, Kind):
+            return bound()
+        if isinstance(bound, (Kind, Level, Sequent)):
+            return resolve(bound)
+        raise TypeError(
+            f"{parameter} is bounded by {bound!r}, no level nor kind.")
+
+    def resolve(pattern):
+        if isinstance(pattern, TypeVar):
+            return var(pattern.__name__)
+        if isinstance(pattern, Word):
+            return Word(tuple(resolve(item) for item in pattern.items))
+        if isinstance(pattern, Alternatives):
+            return Alternatives(tuple(map(resolve, pattern.options)))
+        if isinstance(pattern, Choice):
+            return Choice(
+                resolve(pattern.var), resolve(pattern.then),
+                resolve(pattern.otherwise))
+        if isinstance(pattern, Sequent):
+            return replace(
+                pattern, dom=resolve(pattern.dom), cod=resolve(pattern.cod))
+        if isinstance(pattern, Kind) and pattern.inner is not None:
+            return replace(pattern, inner=resolve(pattern.inner))
+        return pattern
+
+    return {name: var(name) for name in parameters}
 
 
 @dataclass(frozen=True)
@@ -1443,7 +1879,9 @@ class Exp[T](Derived[T]):
 
     @property
     def vars(self) -> tuple[Var, ...]:
-        return (self.var, self.exponent)
+        return tuple({
+            var.name: var for var in self.var.vars + self.exponent.vars
+        }.values())
 
     @property
     def fixed(self) -> bool:
@@ -1558,8 +1996,42 @@ class Word[T](PatternBase[T]):
         """ The length of the types a :attr:`fixed` word stands for. """
         return sum(item.length for item in self.items)
 
-    def match(self, value, env: dict = None) -> Iterator[dict]:
+    def match(self, value, env: dict = None, cells: Cells = None
+              ) -> Iterator[dict]:
         yield from self.matches(value, 0, dict(env or {}))
+
+    def draw_vars(self, draw: Callable, cells: Cells, env: dict) -> dict:
+        """
+        The variables drawn item by item, each free variable between the
+        colours its neighbours fix — the codomain of the item before it,
+        the domain of the one after it when bound, the colours of the
+        cells at either end — so that the word composes: a repeated item
+        stands between one colour and the same.
+        """
+        bound, values = dict(env), []
+        for i, item in enumerate(self.items):
+            if all(var.name in bound for var in item.vars):
+                values.append(item.value(bound))
+                continue
+            ends = cells.boundaries or (None, None)
+            dom = getattr(values[-1], "cod", None) if values else ends[0]
+            following = self.items[i + 1:i + 2]
+            if not following:
+                cod = ends[1]
+            elif all(var.name in bound for var in following[0].vars):
+                cod = getattr(following[0].value(bound), "dom", None)
+            else:
+                cod = None
+            if isinstance(item, Repeat):
+                dom = cod = dom if dom is not None else cod
+            for var in item.vars:
+                if var.name not in bound:
+                    between = (dom, cod) if isinstance(item, (Var, Repeat))\
+                        and var is (getattr(item, "item", item)) else None
+                    bound[var.name] = var.generate(
+                        draw, cells, bound, between=between)
+            values.append(item.value(bound))
+        return bound
 
     def matches(self, typ, position: int, env: dict) -> Iterator[dict]:
         """ The environments matching the items from ``position`` on. """
@@ -1572,13 +2044,22 @@ class Word[T](PatternBase[T]):
             yield from rest.matches(typ, position + length, bound)
 
     def instantiate(self, env: dict, unit=None) -> T:
+        """
+        The tensor of what the items stand for, the ``unit`` when there
+        is none, read off a bound type when not given.
+        """
         values = [item.value(env) for item in self.items]
+        if values:
+            return values[0] if len(values) == 1\
+                else values[0].tensor(*values[1:])
         if unit is None:
-            first = values[0] if values else next(iter(env.values()))
-            if not hasattr(first, "tensor"):
-                return values[0]
-            unit = first[:0]
-        return unit.tensor(*values)
+            unit = next((
+                value[:0] for value in env.values()
+                if hasattr(value, "tensor") and hasattr(value, "__len__")),
+                None)
+        if unit is None:
+            raise TypeError(f"No unit to instantiate {self} with.")
+        return unit
 
 
 @dataclass(frozen=True)
@@ -1608,9 +2089,10 @@ class Alternatives[T](PatternBase[T]):
             var.name: var for option in self.options
             for var in option.vars}.values())
 
-    def match(self, value, env: dict = None) -> Iterator[dict]:
+    def match(self, value, env: dict = None, cells: Cells = None
+              ) -> Iterator[dict]:
         for option in self.options:
-            yield from option.match(value, env)
+            yield from option.match(value, env, cells)
 
     def instantiate(self, env: dict, unit=None) -> T:
         """ The first option all of whose variables are bound. """
@@ -1618,11 +2100,16 @@ class Alternatives[T](PatternBase[T]):
             option.instantiate(env, unit) for option in self.options
             if all(var.name in env for var in option.vars))
 
-    def generate(self, draw: Callable, factory, env: dict, **params) -> T:
+    def generate(self, draw: Callable, cells: Cells, env: dict, **params) -> T:
         from hypothesis import strategies as st
 
         option = draw(st.sampled_from(self.options))
-        return option.generate(draw, factory, env, **params)
+        return option.generate(draw, cells, env, **params)
+
+    def draw_vars(self, draw: Callable, cells: Cells, env: dict) -> dict:
+        from hypothesis import strategies as st
+
+        return draw(st.sampled_from(self.options)).draw_vars(draw, cells, env)
 
 
 @dataclass(frozen=True)
@@ -1650,27 +2137,35 @@ class Choice[T](PatternBase[T]):
         """ The words either boundary stands for. """
         return words(self.then) + words(self.otherwise)
 
-    def match(self, value, env: dict = None) -> Iterator[dict]:
+    def match(self, value, env: dict = None, cells: Cells = None
+              ) -> Iterator[dict]:
         for flag, option in ((True, self.then), (False, self.otherwise)):
             bound = bind(dict(env or {}), self.var, flag)
             if bound is not None:
-                yield from option.match(value, bound)
+                yield from option.match(value, bound, cells)
 
     def instantiate(self, env: dict, unit=None) -> T:
         chosen = self.then if env[self.var.name] else self.otherwise
         return chosen.instantiate(env, unit)
 
+    def draw_vars(self, draw: Callable, cells: Cells, env: dict) -> dict:
+        bound = bind_vars(draw, (self.var, ), cells, env)
+        chosen = self.then if bound[self.var.name] else self.otherwise
+        return chosen.draw_vars(draw, cells, bound)
+
 
 @dataclass(frozen=True)
 class Sequent[T](PatternBase[T]):
     """
-    A pattern for the arrows from what ``dom`` stands for to what ``cod``
+    A pattern for the cells from what ``dom`` stands for to what ``cod``
     stands for, ``C1[A, B]`` in the annotations of a law or a rule: it
-    matches an arrow by its boundaries and generates one through the
-    search of the category, :meth:`Testable.strategy` with both.
+    matches a cell by its boundaries and generates one through the
+    strategy of the cells at its ``level``, :meth:`Testable.strategy`
+    with both boundaries — the search, for the arrows of a category.
     """
     dom: Word | Alternatives | Choice
     cod: Word | Alternatives | Choice
+    level: int = None
 
     def __str__(self):
         return f"{self.dom} ⊢ {self.cod}"
@@ -1695,81 +2190,41 @@ class Sequent[T](PatternBase[T]):
         for bound in self.dom.match(dom, env):
             yield from self.cod.match(cod, bound)
 
-    def match(self, value, env: dict = None) -> Iterator[dict]:
-        yield from self.matches(value.dom, value.cod, env)
+    def match(self, value, env: dict = None, cells: Cells = None
+              ) -> Iterator[dict]:
+        if hasattr(value, "dom") and hasattr(value, "cod"):
+            yield from self.matches(value.dom, value.cod, env)
 
     def instantiate(self, env: dict, unit=None) -> tuple:
         """ The boundaries the sequent stands for. """
         return self.dom.instantiate(env, unit), self.cod.instantiate(env, unit)
 
-    def generate(self, draw: Callable, factory, env: dict, **params) -> T:
-        bound = bind_vars(draw, self.vars, factory, env)
-        dom, cod = self.instantiate(bound, unit_of(factory, bound))
-        return draw(factory.strategy(dom=dom, cod=cod, **params))
+    def draw_vars(self, draw: Callable, cells: Cells, env: dict) -> dict:
+        return self.cod.draw_vars(
+            draw, cells, self.dom.draw_vars(draw, cells, env))
 
-    def canonical(self, factory, env: dict = None, name: str = None) -> T:
+    def generate(self, draw: Callable, cells: Cells, env: dict, **params) -> T:
+        bound = self.draw_vars(draw, cells, env)
+        dom, cod = self.instantiate(bound, cells.unit(self.level))
+        return draw(cells[self.level].strategy(dom=dom, cod=cod, **params))
+
+    def canonical(self, cells: Cells | type, env: dict = None,
+                  name: str = None) -> T:
         """ A box named ``name`` between the canonical boundaries. """
-        dom, cod = super().canonical(factory, env)
-        return factory.box_factory(name or "f", dom, cod)
-
-
-@dataclass(frozen=True)
-class Hom[T](PatternBase[T]):
-    """
-    The terms of a testable class, the arrows of a category, what
-    :obj:`C1` stands for in the annotations of a law: ``C1[A, B]`` is the
-    :class:`Sequent` of the arrows from ``A`` to ``B``, and :obj:`C1`
-    alone any arrow, drawn from the class's own strategy. The class is
-    :obj:`None` where it is not known yet, in the annotations of a rule.
-    """
-    testable: type[T] = None
-
-    def __post_init__(self):
-        if self.testable is not None and not (
-                isinstance(self.testable, type)
-                and issubclass(self.testable, Testable)):
-            raise TypeError(
-                f"Expected a Testable class, got {self.testable!r}.")
-
-    def __getitem__(self, boundaries) -> Sequent[T]:
-        dom, cod = boundaries
-        return Sequent(boundary(dom), boundary(cod))
-
-    @property
-    def vars(self) -> tuple[Var, ...]:
-        return ()
-
-    def match(self, value, env: dict = None) -> Iterator[dict]:
-        if isinstance(value, self.testable):
-            yield dict(env or {})
-
-    def instantiate(self, env: dict, unit=None) -> T:
-        raise TypeError(
-            f"A term of {self.testable} is drawn, not instantiated.")
-
-    def generate(self, draw: Callable, factory, env: dict, **params) -> T:
-        return draw(self.testable.strategy(**params))
-
-    def canonical(self, factory, env: dict = None, name: str = None) -> T:
-        """
-        A box named ``name`` from ``x`` to ``y`` when the class has a
-        ``box_factory``, else a term of the class named ``name``.
-        """
-        name = name or "f"
-        if hasattr(self.testable, "box_factory"):
-            ob = self.testable.ob
-            return self.testable.box_factory(name, ob("x"), ob("y"))
-        return self.testable(name)
+        cells = Cells.of(cells)
+        bound = canonical_vars(self.vars, cells, env)
+        dom, cod = self.instantiate(bound, cells.unit(self.level))
+        return cell_named(cells[self.level], name or "f", dom, cod)
 
 
 @dataclass(frozen=True)
 class Signature[T](PatternBase[T]):
     """
-    The pattern of the arguments of a law, one pattern per parameter by
-    name, standing for tuples of arguments: the metavariables are shared
-    across the patterns and drawn once, so that ``f: C1[A, B], g: C1[B,
-    C]`` are composable and ``f: C1[X @ A, X @ B]`` shares its first atom
-    with ``x: X``.
+    The pattern of the arguments of a law or a rule, one pattern per
+    parameter by name, standing for tuples of arguments: the
+    metavariables are shared across the patterns and drawn once, so that
+    ``f: C1[A, B], g: C1[B, C]`` are composable and ``f: C1[X @ A, X @
+    B]`` shares its first atom with ``x: X``.
     """
     patterns: dict[str, PatternBase] = field(default_factory=dict, hash=False)
 
@@ -1783,14 +2238,15 @@ class Signature[T](PatternBase[T]):
             var.name: var for pattern in self.patterns.values()
             for var in pattern.vars}.values())
 
-    def match(self, value, env: dict = None) -> Iterator[dict]:
+    def match(self, value, env: dict = None, cells: Cells = None
+              ) -> Iterator[dict]:
         """ The environments matching a tuple of arguments, in order. """
         def go(pairs, env):
             if not pairs:
                 yield env
                 return
             (pattern, argument), rest = pairs[0], pairs[1:]
-            for bound in pattern.match(argument, env):
+            for bound in pattern.match(argument, env, cells):
                 yield from go(rest, bound)
 
         pairs = list(zip(self.patterns.values(), value))
@@ -1801,17 +2257,24 @@ class Signature[T](PatternBase[T]):
             pattern.instantiate(env, unit)
             for pattern in self.patterns.values())
 
-    def generate(self, draw: Callable, factory, env: dict, **params) -> T:
-        bound = bind_vars(draw, self.vars, factory, env)
+    def draw_vars(self, draw: Callable, cells: Cells, env: dict) -> dict:
+        for pattern in self.patterns.values():
+            env = pattern.draw_vars(draw, cells, env)
+        return env
+
+    def generate(self, draw: Callable, cells: Cells, env: dict, **params) -> T:
+        bound = self.draw_vars(draw, cells, env)
         return tuple(
-            pattern.generate(draw, factory, bound, **params)
+            pattern.generate(draw, cells, bound, **params)
             for pattern in self.patterns.values())
 
-    def canonical(self, factory, env: dict = None, name: str = None) -> T:
+    def canonical(self, cells: Cells | type, env: dict = None,
+                  name: str = None) -> T:
         """ The canonical arguments, each named after its parameter. """
-        bound = canonical_vars(self.vars, factory, env)
+        cells = Cells.of(cells)
+        bound = canonical_vars(self.vars, cells, env)
         return tuple(
-            pattern.canonical(factory, bound, name)
+            pattern.canonical(cells, bound, name)
             for name, pattern in self.patterns.items())
 
 
@@ -1822,14 +2285,38 @@ An item of a :class:`Word`: a metavariable or one derived from it, see
 """
 
 type Pattern[T] = (
-    Item[T] | Word[T] | Alternatives[T] | Choice[T] | Sequent[T] | Hom[T]
+    Item[T] | Word[T] | Alternatives[T] | Choice[T] | Level[T] | Sequent[T]
     | Signature[T])
 """
 The sequent-pattern language, closed: every pattern is one of these, each
 a :class:`PatternBase`, standing for the objects of a category as an
-:data:`Item`, a :class:`Word` or :class:`Alternatives`, for its arrows as
-a :class:`Sequent` or a :class:`Hom`, and for the arguments of a law as
-a :class:`Signature`.
+:data:`Item`, a :class:`Word`, :class:`Alternatives` or a :class:`Choice`,
+for the cells of a level as a :class:`Level` or a :class:`Sequent`, and
+for the arguments of a law as a :class:`Signature`.
+"""
+
+C0, C1, C2 = Level(0), Level(1), Level(2)
+"""
+The levels of the cells of a category, what a law or a rule annotates
+its arguments with rather than the concrete types of the module it is
+written in, so that a subclass inherits the override with its own
+types: the objects and arrows of a ``Category[C0, C1]``, the colours,
+types and diagrams of a ``TwoCategory[C0, C1, C2]``, each resolved by
+depth from the top in the category the law is bound to, see
+:class:`Cells`; ``C1[A, B]`` is the :class:`Sequent` of the 1-cells from
+``A`` to ``B``. :data:`typing.Self` stands for the top itself, for a law
+of every term of a type whatever its level, such as
+:meth:`Serialisable.repr_transparency`.
+"""
+
+
+GENERATORS = tuple("abcde")
+"""
+The names the generators of a free category are drawn from.
+
+They are finitely many and shared, so a generated functor can name every one
+of them: composing two functors keeps only the keys of the left-hand map, so
+a functor that named just a few would compose to one defined nowhere else.
 """
 
 
@@ -1840,15 +2327,23 @@ def boundary(item) -> Word | Alternatives | Choice:
 
 def words(side) -> tuple[Word, ...]:
     """ The words a boundary pattern stands for, alternatives apart. """
-    return side.options if isinstance(side, (Alternatives, Choice))\
+    return tuple(side.options) if isinstance(side, (Alternatives, Choice))\
         else (side, )
 
 
 def bind(env: dict, var: Var, value) -> dict | None:
-    """ ``env`` with ``var`` bound to ``value``, or :obj:`None` on a clash. """
+    """
+    ``env`` with ``var`` bound to ``value``, its boundaries matched when
+    the variable stands between some, or :obj:`None` on a clash.
+    """
     if var.name in env:
         return env if env[var.name] == value else None
-    return dict(env, **{var.name: value})
+    bound = dict(env, **{var.name: value})
+    if var.boundaries is None:
+        return bound
+    if not hasattr(value, "dom") or not hasattr(value, "cod"):
+        return None
+    return next(var.boundaries.matches(value.dom, value.cod, bound), None)
 
 
 def size(typ) -> int:
@@ -1863,29 +2358,54 @@ def part(typ, start: int, stop: int):
     return typ if (start, stop) == (0, 1) else None
 
 
-def bind_vars(draw: Callable, variables, factory, env: dict) -> dict:
+def bind_vars(draw: Callable, variables, cells: Cells, env: dict) -> dict:
     """ ``env`` extended with a value drawn for each variable not in it. """
     bound = dict(env)
     for var in variables:
-        bound[var.name] = var.generate(draw, factory, bound)
+        bound[var.name] = var.generate(draw, cells, bound)
     return bound
 
 
-def canonical_vars(variables, factory, env: dict = None) -> dict:
+def canonical_vars(variables, cells: Cells, env: dict = None) -> dict:
     """ ``env`` extended with the canonical value of each variable missing. """
     bound = dict(env or {})
     for var in variables:
-        bound.setdefault(var.name, var.canonical(factory))
+        bound.setdefault(var.name, var.canonical(cells, bound))
     return bound
 
 
-def unit_of(factory, env: dict):
-    """ The unit type of a factory, read off a bound value if there is one. """
+def unit_of(cells: Cells, env: dict):
+    """
+    The unit of the objects of the cells, read off a bound value if the
+    objects have no tensor of their own.
+    """
+    unit = cells.unit()
+    if unit is not None:
+        return unit
     for value in env.values():
-        if hasattr(value, "__len__"):
+        if hasattr(value, "tensor") and hasattr(value, "__len__"):
             return value[:0]
-    ob = getattr(factory, "ob", None)
-    return ob() if hasattr(ob, "tensor") else None
+    return None
+
+
+def cell_named(factory: type, name: str, dom=None, cod=None):
+    """
+    A cell of a class named after a parameter or a variable: a box of the
+    class when it has a ``box_factory``, between ``dom`` and ``cod`` or
+    objects named ``x`` and ``y``; else its generator, wrapped into the
+    class when it is not one, e.g. a type of one wire; else a term of the
+    class of that name.
+    """
+    if hasattr(factory, "box_factory"):
+        dom = factory.ob("x") if dom is None else dom
+        cod = factory.ob("y") if cod is None else cod
+        return factory.box_factory(name, dom, cod)
+    if getattr(factory, "generator_factory", None) is not None:
+        boundaries = {} if dom is None else dict(dom=dom, cod=cod)
+        generator = factory.generator_factory(name, **boundaries)
+        return generator if isinstance(generator, factory)\
+            else factory(generator)
+    return factory(name)
 
 
 @cache
@@ -1898,8 +2418,8 @@ def generated() -> Callable:
     from hypothesis import strategies as st
 
     @st.composite
-    def generate(draw, pattern, factory, env, params):
-        return pattern.generate(draw, factory, env, **params)
+    def generate(draw, pattern, cells, env, params):
+        return pattern.generate(draw, cells, env, **params)
 
     return generate
 

@@ -88,6 +88,55 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   gone, and every pattern draws through one composite strategy built
   once, where a fresh `st.composite` inspected its function at every
   draw, half the cost of generating an example.
+- Patterns work for 2-categorical shapes: `C0`, `C1` and `C2` are
+  `Level`s rather than type variables, `C1[R, G]` the `Sequent` of the
+  1-cells from the colour `R` to the colour `G`, and the bound of a type
+  parameter names them, `[X: C0, Y: C0, A: C1[X, Y]]`, a variable bounded
+  by a sequent matching and drawing its boundaries too, `Atom[C1[X,
+  Y]]` included. A law names the levels of the class declaring it, whose
+  last type parameter is the class itself and each one before the
+  objects of the next: `abc.TwoCategory[C0, C1, C2](Category[C1, C2])`
+  states the tensor rule and the axioms of the tensor —
+  `bifunctoriality`, `tensor_unitality`, `tensor_dom_typing`,
+  `tensor_cod_typing`, `dagger_monoidality` — on colours, 1-cells and
+  2-cells, and `MonoidalCategory[C0, C1](TwoCategory[NoneType, C0,
+  C1])` inherits them with the one trivial colour, `Cells` resolving a
+  level through the type parameters the classes substitute for those of
+  their bases, `levels_of`, a concrete type ending the chain and the
+  category's `ob` chain from the top otherwise. A class subclassing
+  `TwoCategory` with `monoidal.Colour` draws real colours, its free type
+  variables between the colours their neighbours fix, so that a word
+  composes and the middle of a composition is parallel to its ends;
+  from a braided or a rigid category on, crossing and bending wires need
+  the colours to coincide, which the trivial colour gives. The metaclass
+  of `Testable`, `Prepared`, prepares every class body with the three
+  levels, since the type parameters of a class of the same names would
+  otherwise shadow them in a bound, a `TypeVar` being no pattern.
+- An axiom and a rule store their patterns: `Axiom.pattern` is the
+  `Signature` of the annotated parameters, built at decoration, and
+  `Axiom.result` the pattern the terms of its equation match, from a
+  return annotation `Equation[C2[A @ C, U @ V]]`; `Rule.conclusion` and
+  `Rule.pattern` are the sequent a structural method concludes and the
+  signature of its premises and arguments. Calling a law typechecks its
+  arguments against the pattern and the equation against the result,
+  raising `TypeError` on a mismatch, and a rule typechecks the proofs of
+  its premises and the cell it builds. `Axiom.owner` and `Rule.owner`
+  are the class declaring a law or a rule, set when the class is created
+  and kept by the copies its classifications make.
+- Everything a category states in `discopy.abc` is a rule, a generator
+  or an axiom: `leaf` is renamed `generator`, and `id`, `then` and
+  `tensor` carry the identity, composition and tensor rules themselves —
+  `then[A: C0, B: C0, C: C0](self: C1[A, B], other: C1[B, C]) -> C1[A,
+  C]`, the middle drawn from the types and the hints — where
+  `identity`, `cut`, `tensoring`, `splits` and `atoms` were; `box` and
+  `permuting` stay procedural, being a free generator and a shuffle. One
+  derivation serves every rule: a feasible match of the conclusion is
+  drawn, an identity premise allowed where the match makes one, the
+  boxes shared out, the unbound variables drawn, the proofs and the
+  built cell checked against their sequents. `Category.hints` is the
+  function `hints`, and `Rule.middles` the boundaries a rule hints at.
+  `monoidal.Diagram.strategy` tensors its closed components at the
+  colour of the diagram's codomain.
 - The structural rules are the structural methods: `@leaf` and `@rule`
   mark the abstract method itself — `cups`, `caps`, `braid`, `twist`,
   `ev`, `copy`, `spiders`, `trace` and `feedback` — reading the sequent

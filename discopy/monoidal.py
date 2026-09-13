@@ -1003,7 +1003,8 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
         """
         Generate diagrams by :func:`discopy.axioms.search` over the
         :attr:`rules` of the category, tensored with up to two closed
-        components unless ``boundary_connected``.
+        components at the colour of their codomain unless
+        ``boundary_connected``.
         """
         from hypothesis import strategies as st
 
@@ -1013,11 +1014,16 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
             min_leaves=min_leaves, max_leaves=max_leaves)
         if boundary_connected:
             return diagrams
-        scalars = search(
-            cls, types=types, dom=cls.ob(), cod=cls.ob(),
-            min_leaves=1, max_leaves=max_leaves)
-        return st.tuples(diagrams, st.lists(scalars, max_size=2)).map(
-            lambda args: args[0].tensor(*args[1]))
+
+        def closed(diagram):
+            unit = cls.ob(dom=diagram.cod.cod, cod=diagram.cod.cod)
+            scalars = search(
+                cls, types=types, dom=unit, cod=unit,
+                min_leaves=1, max_leaves=max_leaves)
+            return st.lists(scalars, max_size=2).map(
+                lambda components: diagram.tensor(*components))
+
+        return diagrams.flatmap(closed)
 
     def __setstate__(self, state):
         if 'inside' not in state:  # Backward compatibility
