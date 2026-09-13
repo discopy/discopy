@@ -84,33 +84,27 @@ def test_to_hypergraph():
     assert hash(round_trip.to_hypergraph()) == hash(hypergraph)
 
 def test_random_sentences():
-    """ The strategy of a vocabulary draws grammatical sentences. """
-    from hypothesis import HealthCheck, find, settings
+    """ The strategy of a pregroup diagram draws grammatical sentences. """
+    from hypothesis import find
 
-    from discopy import monoidal
-    from discopy.axioms import Rule, inapplicable
+    from discopy.axioms import Rule
 
     n, s = Ty('n'), Ty('s')
-    Alice, Bob = Word('Alice', n), Word('Bob', n)
-    loves, sees = Word('loves', n.r @ s @ n.l), Word('sees', n.r @ s @ n.l)
+    sentence = find(
+        Diagram.strategy(min_leaves=5, max_leaves=5),
+        lambda diagram: diagram.foliation().boxes[0].name == 'Bob')
+    assert sentence.foliation() == (
+        Word('Bob', n) @ Word('loves', n.r @ s @ n.l) @ Word('Alice', n)
+        >> Cup(n, n.r) @ s @ Cup(n.l, n)).foliation()
+    assert all(isinstance(box, (Word, Cup)) for box in sentence.boxes)
 
     class Sentence(Diagram):
-        """ A sentence is a diagram of words and cups. """
-        strategy = monoidal.Diagram.__dict__["strategy"]
-        trace = inapplicable("No loop in a sentence.")(Diagram.trace)
+        """ A grammar assigns its own words. """
         generators = {
             "cups": Diagram.generators["cups"], **{
                 word.name: Rule.constant(word)
-                for word in (Alice, Bob, loves, sees)}}
+                for word in (Word('Alice', n), Word('sleeps', n.r @ s))}}
 
-    sentence = find(
-        Sentence.strategy(dom=Ty(), cod=s, min_leaves=5, max_leaves=5),
-        lambda diagram: any(box.name == 'sees' for box in diagram.boxes),
-        settings=settings(
-            max_examples=2000, suppress_health_check=list(HealthCheck)))
-    words = [box for box in sentence.boxes if isinstance(box, Word)]
-    assert sorted((word.cod for word in words), key=str) == [
-        n, n, n.r @ s @ n.l]
-    assert all(
-        isinstance(box, (Word, Cup)) for box in sentence.boxes)
-    assert (sentence.dom, sentence.cod) == (Ty(), s)
+    assert find(Sentence.strategy(min_leaves=3), bool).foliation() == (
+        Word('Alice', n) @ Word('sleeps', n.r @ s) >> Cup(n, n.r) @ s
+    ).foliation()

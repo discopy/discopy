@@ -1374,8 +1374,9 @@ def search(
     those that apply, recurse on its premises and conclude. A boundary
     left :obj:`None` is drawn from ``types``, equal to the other one when no
     box may bridge them. Each application is reported as a Hypothesis
-    event, so the statistics of a cell say how often each rule fired. A
-    sequent no rule derives, which a class drawing from a fixed set of
+    event, so the statistics of a cell say how often each rule fired. The
+    size is drawn among those the sequent is :func:`derivable` with, and
+    a sequent no rule derives, which a class drawing from a fixed set of
     generators can reach, rejects the draw.
     """
     from hypothesis import event, reject
@@ -1404,10 +1405,13 @@ def search(
         target = cod if cod is not None\
             else source if not max_leaves else draw(types)
         source = target if dom is None and not max_leaves else source
-        size = draw(st.integers(
-            min_value=max(min_leaves or 0, int(source != target)),
-            max_value=max_leaves))
-        return draw(derive(source, target, size))
+        sizes = [
+            size for size in range(
+                max(min_leaves or 0, int(source != target)), max_leaves + 1)
+            if derivable(category, source, target, size)]
+        if not sizes:
+            reject()
+        return draw(derive(source, target, draw(st.sampled_from(sizes))))
 
     return arrows()
 

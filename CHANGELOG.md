@@ -96,11 +96,20 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   the sequent of the box, builds it and hints at the boundary it leaves
   where its domain sits, so that a composition draws a middle it fires
   on. `axioms.invoked` lists what the search runs, the structure of the
-  rules and the generators of the class, so that a subclass of
-  `pregroup.Diagram` over the words of a vocabulary and the cups draws
-  grammatical sentences, and one of `quantum.circuit.Circuit` over a
-  gate set draws circuits, as `test/grammar/pregroup.py` and
-  `test/quantum/circuit.py` do.
+  rules and the generators of the class. `pregroup.Diagram` is generated
+  by the words of `pregroup.VOCABULARY`, *Alice loves Bob*, and the cups
+  reducing them, so that `pregroup.Diagram.strategy()` draws grammatical
+  sentences, from the empty type to the sentence type by default, and
+  `quantum.circuit.Circuit` by the gates of `quantum.gates.GATES` that
+  take no parameter and the swap, so that `Circuit.strategy(dom=qubit **
+  2)` draws circuits on two qubits; a grammar or a gate set assigns its
+  own generators on a subclass. Neither traces, the search declaring the
+  trace inapplicable where it would unfold a loop, and neither is a cell
+  of the matrix: a category whose generators leave out the free box
+  fills only the sequents its vocabulary derives, not the ones a law
+  draws, and `proptest/test_axioms.py` keeps to the free categories. The
+  search draws the size of an arrow among those the sequent is
+  `axioms.derivable` with, where it drew any and rejected the dead ends.
 - Patterns work for 2-categorical shapes: `C0`, `C1` and `C2` are
   `Level`s rather than type variables, `C1[R, G]` the `Sequent` of the
   1-cells from the colour `R` to the colour `G`, and the bound of a type

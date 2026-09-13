@@ -26,13 +26,18 @@ def types() -> tuple[type[Testable], ...]:
     them, so every subclass is in place by the time this is called. A
     class stating no law gets no cell: :class:`Testable` itself, and an
     axiom or a pattern, which generate their terms without stating laws.
+    Nor does a category over a fixed vocabulary, whose
+    :attr:`discopy.abc.Category.generators` leave out the free box: the
+    sentences of a pregroup grammar or the circuits over a gate set fill
+    only the sequents their vocabulary derives, not the ones a law draws,
+    and their laws are those of the free category they live in.
     """
     def generates(testable):
         try:
             testable.strategy()
         except NotImplementedError:
             return False
-        return True
+        return "box" in getattr(testable, "generators", ("box", ))
 
     return tuple(sorted(
         (testable for testable in Testable.subclasses()

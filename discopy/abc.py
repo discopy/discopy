@@ -194,28 +194,18 @@ class Category[C0, C1: Category](Testable, ABC):
         :func:`discopy.axioms.inapplicable`, or every derivation reaching
         it is rejected.
 
-        >>> from hypothesis import HealthCheck, find, settings
-        >>> from discopy.axioms import Rule, inapplicable
+        >>> from hypothesis import find
+        >>> from discopy.axioms import Rule
         >>> from discopy.grammar import pregroup
-        >>> from discopy.monoidal import Diagram
         >>> n, s = pregroup.Ty('n'), pregroup.Ty('s')
-        >>> Alice, Bob = pregroup.Word('Alice', n), pregroup.Word('Bob', n)
-        >>> loves = pregroup.Word('loves', n.r @ s @ n.l)
+        >>> Alice, sleeps = pregroup.Word('Alice', n), pregroup.Word(
+        ...     'sleeps', n.r @ s)
         >>> class Sentence(pregroup.Diagram):
-        ...     strategy = Diagram.__dict__["strategy"]
-        ...     trace = inapplicable("No loop in a sentence.")(
-        ...         pregroup.Diagram.trace)
         ...     generators = {
         ...         "cups": pregroup.Diagram.generators["cups"],
-        ...         **{w.name: Rule.constant(w) for w in (Alice, loves, Bob)}}
-        >>> sentence = find(
-        ...     Sentence.strategy(dom=pregroup.Ty(), cod=s, min_leaves=5),
-        ...     lambda d: len([b for b in d.boxes if b.name == 'loves']) == 1,
-        ...     settings=settings(
-        ...         max_examples=2000,
-        ...         suppress_health_check=list(HealthCheck)))
-        >>> print(sentence.foliation())
-        Alice @ loves @ Bob >> Cup(n, n.r) @ s @ Cup(n.l, n)
+        ...         **{w.name: Rule.constant(w) for w in (Alice, sleeps)}}
+        >>> print(find(Sentence.strategy(min_leaves=3), bool).foliation())
+        Alice @ sleeps >> Cup(n, n.r) @ s
         """
         return {
             name: rule for name, rule in cls.rules.items()

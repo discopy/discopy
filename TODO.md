@@ -132,4 +132,4 @@ Rough edges met on the way, each worth an issue:
 
 > make pregroup and circuit define generators themselves instead of test subclasses
 
-- [WIP] @af1f3450-2026-09-13 `pregroup.Diagram.generators` over a module vocabulary and `Circuit.generators` over the gate set, with their strategies and the trace declared inapplicable, the tests drawing from the classes directly; the matrix keeps to the free categories; CHANGELOG, lint, `uv run pytest`, the fast matrix
+- [x] `pregroup.Diagram.generators` over a module vocabulary and `Circuit.generators` over the gate set, with their strategies and the trace declared inapplicable, the tests drawing from the classes directly; the matrix keeps to the free categories; CHANGELOG, lint, `uv run pytest`, the fast matrix
