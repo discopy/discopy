@@ -176,6 +176,51 @@ class Category[C0, C1: Category](Testable, ABC):
                         carried, category=cls, owner=carried.owner or base)
         return found
 
+    @classproperty
+    def generators(cls) -> dict[str, Rule]:
+        """
+        The generators the search may invoke: the rules of :attr:`rules`
+        that build a box from no premise — a free box, the structural
+        boxes of the level, its permutations — the inapplicable ones left
+        out, collected like :attr:`axioms`. A class adjusts the set by
+        assigning a dictionary
+        of rules instead, :meth:`discopy.axioms.Rule.constant` giving the
+        rule of one given box, so that its strategy draws from a fixed
+        vocabulary, e.g. the words of a pregroup grammar or the gates of
+        a circuit, while the structure of its :attr:`rules` stays.
+
+        A rule with premises stays invoked, so one whose premise the
+        vocabulary cannot derive, a trace, is declared
+        :func:`discopy.axioms.inapplicable`, or every derivation reaching
+        it is rejected.
+
+        >>> from hypothesis import HealthCheck, find, settings
+        >>> from discopy.axioms import Rule, inapplicable
+        >>> from discopy.grammar import pregroup
+        >>> from discopy.monoidal import Diagram
+        >>> n, s = pregroup.Ty('n'), pregroup.Ty('s')
+        >>> Alice, Bob = pregroup.Word('Alice', n), pregroup.Word('Bob', n)
+        >>> loves = pregroup.Word('loves', n.r @ s @ n.l)
+        >>> class Sentence(pregroup.Diagram):
+        ...     strategy = Diagram.__dict__["strategy"]
+        ...     trace = inapplicable("No loop in a sentence.")(
+        ...         pregroup.Diagram.trace)
+        ...     generators = {
+        ...         "cups": pregroup.Diagram.generators["cups"],
+        ...         **{w.name: Rule.constant(w) for w in (Alice, loves, Bob)}}
+        >>> sentence = find(
+        ...     Sentence.strategy(dom=pregroup.Ty(), cod=s, min_leaves=5),
+        ...     lambda d: len([b for b in d.boxes if b.name == 'loves']) == 1,
+        ...     settings=settings(
+        ...         max_examples=2000,
+        ...         suppress_health_check=list(HealthCheck)))
+        >>> print(sentence.foliation())
+        Alice @ loves @ Bob >> Cup(n, n.r) @ s @ Cup(n.l, n)
+        """
+        return {
+            name: rule for name, rule in cls.rules.items()
+            if rule.boxes and not rule.premises and rule.reason is None}
+
     @rule(applies=lambda cls, dom, cod, size: size == 1)
     def box(cls, draw, dom, cod, size, types):
         """ ``x ⊢ y`` with one box is a fresh generator. """

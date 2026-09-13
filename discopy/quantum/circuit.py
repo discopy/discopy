@@ -174,7 +174,18 @@ class Ty(frobenius.Ty):
     >>> print(bit ** 2 @ qubit ** 3)
     bit @ bit @ qubit @ qubit @ qubit
     """
-    strategy = no_strategy
+    @classmethod
+    def strategy(cls, *, min_length=0, max_length=3, dom=None, cod=None):
+        """
+        Generate words of qubits and bits of the given lengths, a circuit
+        having no colours for its wires to sit between.
+        """
+        from hypothesis import strategies as st
+
+        return st.lists(
+            st.sampled_from([Qudit(2), Digit(2)]),
+            min_size=min_length, max_size=max_length
+        ).map(lambda wires: cls(*wires))
     generator_factory = Wire
 
 

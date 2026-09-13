@@ -788,6 +788,8 @@ class Rule[T]:
         shape : A strategy for boundaries the rule fires on, given the
             cells, the sequent and the strategy for types, drawn as a
             middle boundary by a composition, see :func:`hints`.
+        candidates : The finite part of those boundaries, as a list given
+            the cells and the sequent, which :func:`derivable` tables.
         category : The class the rule is bound to, :obj:`None` until
             :meth:`bind` or the attribute access on a class binds it.
         owner : The class the rule is declared on, whose levels its
@@ -806,6 +808,7 @@ class Rule[T]:
     condition: Callable = None
     _: KW_ONLY
     shape: Callable = None
+    candidates: Callable = None
     category: type[T] = None
     owner: type = None
     name: str = None
@@ -835,6 +838,45 @@ class Rule[T]:
 
     def __get__(self, instance, owner: type[T]) -> Rule[T]:
         return self.bind(owner)
+
+    @classmethod
+    def constant(cls, box, name: str = None) -> Rule[T]:
+        """
+        The generator of one given box: the rule applies to the sequent of
+        the box with one box to place, builds it, and hints at the
+        boundary the box's codomain leaves where its domain sits, or the
+        other way round, so that a composition draws a middle the rule
+        fires on. A class assigns such rules to its ``generators`` to
+        draw from a fixed vocabulary, see
+        :attr:`discopy.abc.Category.generators`.
+        """
+        def condition(category, dom, cod, size):
+            return size == 1 and (dom, cod) == (box.dom, box.cod)
+
+        def procedure(category, draw, dom, cod, size, types):
+            return [], lambda: box
+
+        def replaced(boundary, source, target):
+            if not hasattr(boundary, "__len__"):
+                return [target] if boundary == source else []
+            return [
+                boundary[:start] @ target @ boundary[start + len(source):]
+                for start in range(len(boundary) - len(source) + 1)
+                if boundary[start:start + len(source)] == source]
+
+        def candidates(cells, dom, cod):
+            return replaced(dom, box.dom, box.cod)\
+                + replaced(cod, box.cod, box.dom)
+
+        def shape(cells, dom, cod):
+            from hypothesis import strategies as st
+
+            options = candidates(cells, dom, cod)
+            return st.sampled_from(options) if options else st.nothing()
+
+        procedure.__name__ = name or box.name
+        procedure.__doc__ = f"``{box.dom} ⊢ {box.cod}`` is {box}."
+        return cls(procedure, condition, shape=shape, candidates=candidates)
 
     @classmethod
     def of(cls, value) -> Rule[T] | None:
@@ -870,16 +912,18 @@ class Rule[T]:
 
     @property
     def premises(self) -> dict[str, Sequent]:
-        """ The sequent of each premise, by parameter name. """
+        """ The sequent of each premise, by name; a procedure has none. """
+        patterns = {} if self.pattern is None else self.pattern.patterns
         return {
-            name: pattern for name, pattern in self.pattern.patterns.items()
+            name: pattern for name, pattern in patterns.items()
             if isinstance(pattern, Sequent)}
 
     @property
     def arguments(self) -> dict[str, PatternBase]:
         """ The pattern of each other argument of the method, by name. """
+        patterns = {} if self.pattern is None else self.pattern.patterns
         return {
-            name: pattern for name, pattern in self.pattern.patterns.items()
+            name: pattern for name, pattern in patterns.items()
             if not isinstance(pattern, Sequent)}
 
     def cells(self, types=None) -> Cells:
@@ -893,6 +937,12 @@ class Rule[T]:
         from besides the types, see :func:`hints`.
         """
         return self.shape(self.cells(types).between(dom, cod), dom, cod)
+
+    def middle_values(self, dom, cod, types=None) -> list:
+        """ The finite boundaries the rule fires on, given a sequent. """
+        if self.candidates is None:
+            return []
+        return self.candidates(self.cells(types).between(dom, cod), dom, cod)
 
     def applies(self, cls, dom, cod, size: int) -> bool:
         """ Whether the rule applies to a sequent, without drawing. """
@@ -919,6 +969,43 @@ class Rule[T]:
                 for premise in self.premises.values()])
             and sum(needs) <= budget]
 
+    def feasible(self, draw: Callable, dom, cod, size: int, env: dict,
+                 unit) -> tuple[dict, list]:
+        """
+        The environment and the sizes of the premises drawn among those
+        that :func:`derivable` finds feasible, when the free box is not
+        invoked: the free type variables take the middles the rules hint
+        at, and the draw is rejected when nothing is feasible.
+        """
+        from hypothesis import reject
+        from hypothesis import strategies as st
+
+        free = [var for var in self.pattern.vars if var.name not in env]
+        if any(var.kind != "type" or var.boundaries for var in free):
+            raise TypeError(
+                f"{self} draws a variable no table of middles ranges over.")
+        middles = [{}] if not free else [
+            {var.name: middle for var in free}
+            for middle in feasible_middles(self.category, dom, cod)]
+        options = []
+        for bound in (dict(env, **middle) for middle in middles):
+            premises = [
+                sequent.instantiate(bound, unit)
+                for sequent in self.premises.values()]
+            needs = [
+                least(sequent, bound, unit)
+                for sequent in self.premises.values()]
+            if None in needs:
+                continue
+            options += [
+                (bound, list(sizes))
+                for sizes in compositions(size - self.boxes, tuple(needs))
+                if all(derivable(self.category, *sequent, n)
+                       for sequent, n in zip(premises, sizes))]
+        if not options:
+            reject()
+        return draw(st.sampled_from(options))
+
     def derive(self, draw: Callable, dom, cod, size: int, types
                ) -> tuple[list, Callable]:
         """
@@ -938,22 +1025,30 @@ class Rule[T]:
         cells = replace(
             cells, hints=lambda: hints(self.category, dom, cod, types))
         env = draw(st.sampled_from(self.matches(dom, cod, size)))
-        env = self.pattern.draw_vars(draw, cells, env)
-        unit = cells.unit()
-        premises = {
-            name: sequent.instantiate(env, unit)
-            for name, sequent in self.premises.items()}
-        needs = [
-            1 if need is None else need for need in (
-                least(sequent, env, unit)
-                for sequent in self.premises.values())]
-        names, sizes, budget = list(premises), [], size - self.boxes
-        for i, name in enumerate(names):
-            rest = sum(needs[i + 1:])
-            drawn = budget if i == len(names) - 1 else draw(st.integers(
-                min_value=needs[i], max_value=budget - rest))
-            sizes.append(drawn)
-            budget -= drawn
+        unit, free = cells.unit(), any(
+            rule.name == "box" for rule in invoked(self.category))
+        if not free and self.premises:
+            env, sizes = self.feasible(draw, dom, cod, size, env, unit)
+            premises = {
+                name: sequent.instantiate(env, unit)
+                for name, sequent in self.premises.items()}
+            names = list(premises)
+        else:
+            env = self.pattern.draw_vars(draw, cells, env)
+            premises = {
+                name: sequent.instantiate(env, unit)
+                for name, sequent in self.premises.items()}
+            needs = [
+                1 if need is None else need for need in (
+                    least(sequent, env, unit)
+                    for sequent in self.premises.values())]
+            names, sizes, budget = list(premises), [], size - self.boxes
+            for i, name in enumerate(names):
+                rest = sum(needs[i + 1:])
+                drawn = budget if i == len(names) - 1 else draw(st.integers(
+                    min_value=needs[i], max_value=budget - rest))
+                sizes.append(drawn)
+                budget -= drawn
         drawn = [(*premises[name], n) for name, n in zip(names, sizes)]
         expected = self.conclusion.instantiate(env, unit)
 
@@ -1029,12 +1124,12 @@ def hint_from(conclusion: Sequent) -> Callable:
     side of a composition, and otherwise a fresh instance of either
     pattern.
     """
+    def around(left, right):
+        return lambda middle: middle if left is None\
+            else left @ middle @ right
+
     def shape(cells: Cells, dom, cod):
         from hypothesis import strategies as st
-
-        def around(left, right):
-            return lambda middle: middle if left is None\
-                else left @ middle @ right
 
         options = []
         for dom_pattern, cod_pattern in conclusion.options:
@@ -1053,6 +1148,27 @@ def hint_from(conclusion: Sequent) -> Callable:
     return shape
 
 
+def candidates_from(conclusion: Sequent) -> Callable:
+    """
+    The finite part of :func:`hint_from`: the middles a window match
+    determines, every variable of the other side being bound by it.
+    """
+    def candidates(cells: Cells, dom, cod) -> list:
+        found = []
+        for dom_pattern, cod_pattern in conclusion.options:
+            for source, target, side in (
+                    (dom_pattern, cod_pattern, dom),
+                    (cod_pattern, dom_pattern, cod)):
+                for left, env, right in windows(source, side):
+                    if all(var.name in env for var in target.vars):
+                        middle = target.instantiate(env, unit_of(cells, env))
+                        found.append(
+                            middle if left is None else left @ middle @ right)
+        return found
+
+    return candidates
+
+
 def hints(category, dom, cod, types) -> list:
     """
     The strategies for boundaries the rules of a category fire on, given
@@ -1061,7 +1177,106 @@ def hints(category, dom, cod, types) -> list:
     """
     return [
         rule.middles(dom, cod, types)
-        for rule in category.rules.values() if rule.shape is not None]
+        for rule in invoked(category) if rule.shape is not None]
+
+
+def derivable(category, dom, cod, size: int, table: dict = None) -> bool:
+    """
+    Whether a sequent has a derivation with a number of boxes over the
+    rules a category invokes, tabled: a generator applying, or a rule
+    with premises whose premises are derivable for some match, some
+    sharing of the boxes and, for a free type variable, some middle
+    among the finite ones the rules hint at; a rule with a free variable
+    of another kind is taken to be derivable, as is every sequent of
+    size one or more when the free box is invoked. This is what keeps a
+    search over a fixed set of generators from dead ends, see
+    :attr:`discopy.abc.Category.generators`.
+    """
+    table = TABLES.setdefault(category, {}) if table is None else table
+    key = (dom, cod, size)
+    if key in table:
+        return table[key]
+    table[key] = False
+    rules = invoked(category)
+    if size and any(rule.name == "box" for rule in rules):
+        table[key] = True
+        return True
+    for rule in rules:
+        if not rule.applies(category, dom, cod, size):
+            continue
+        if rule.procedure is not None or not rule.premises:
+            table[key] = True
+            return True
+        unit = rule.cells().unit()
+        for env in rule.matches(dom, cod, size):
+            free = [
+                var for var in rule.pattern.vars if var.name not in env]
+            if any(var.kind != "type" or var.boundaries for var in free):
+                table[key] = True
+                return True
+            middles = [{}] if not free else [
+                {var.name: middle for var in free}
+                for middle in feasible_middles(category, dom, cod)]
+            for bound in (dict(env, **middle) for middle in middles):
+                premises = [
+                    sequent.instantiate(bound, unit)
+                    for sequent in rule.premises.values()]
+                needs = [
+                    least(sequent, bound, unit)
+                    for sequent in rule.premises.values()]
+                if None in needs:
+                    continue
+                for sizes in compositions(size - rule.boxes, tuple(needs)):
+                    if all(derivable(category, *sequent, n, table)
+                           for sequent, n in zip(premises, sizes)):
+                        table[key] = True
+                        return True
+    return False
+
+
+TABLES = {}
+""" The tables of :func:`derivable`, one per category. """
+
+
+def feasible_middles(category, dom, cod) -> list:
+    """ The finite middles the invoked rules hint at, for a sequent. """
+    found = {}
+    for rule in invoked(category):
+        for middle in rule.middle_values(dom, cod):
+            found.setdefault(middle, None)
+    return list(found)
+
+
+def compositions(total: int, minimums: tuple[int, ...]) -> Iterator[tuple]:
+    """
+    The tuples of numbers summing to ``total``, each at least its minimum.
+
+    >>> assert list(compositions(3, (1, 1))) == [(1, 2), (2, 1)]
+    >>> assert list(compositions(0, ())) == [()]
+    """
+    if not minimums:
+        if total == 0:
+            yield ()
+        return
+    first, rest = minimums[0], minimums[1:]
+    for n in range(first, total - sum(rest) + 1):
+        for others in compositions(total - n, rest):
+            yield (n, ) + others
+
+
+def invoked(category) -> list[Rule]:
+    """
+    The rules the search invokes for a category: the structure of its
+    ``rules`` — those with premises, or building no box, the identity —
+    and its ``generators``, which a class may adjust, each bound to it.
+    """
+    structure = [
+        rule for rule in category.rules.values()
+        if rule.premises or not rule.boxes]
+    generators = [
+        rule if rule.category is category else rule.bind(category)
+        for rule in category.generators.values()]
+    return structure + generators
 
 
 def declared(method: Callable) -> tuple[Sequent, Signature]:
@@ -1123,7 +1338,8 @@ def rule(
     conclusion, pattern = declared(method)
     method.__rule__ = Rule(
         method=method, conclusion=conclusion, pattern=pattern,
-        shape=hint_from(conclusion), boxes=boxes)
+        shape=hint_from(conclusion), candidates=candidates_from(conclusion),
+        boxes=boxes)
     return method
 
 
@@ -1158,17 +1374,21 @@ def search(
     those that apply, recurse on its premises and conclude. A boundary
     left :obj:`None` is drawn from ``types``, equal to the other one when no
     box may bridge them. Each application is reported as a Hypothesis
-    event, so the statistics of a cell say how often each rule fired.
+    event, so the statistics of a cell say how often each rule fired. A
+    sequent no rule derives, which a class drawing from a fixed set of
+    generators can reach, rejects the draw.
     """
-    from hypothesis import event
+    from hypothesis import event, reject
     from hypothesis import strategies as st
 
-    rules = list(category.rules.values())
+    rules = invoked(category)
 
     @st.composite
     def derive(draw, dom, cod, size):
         applicable = [
             rule for rule in rules if rule.applies(category, dom, cod, size)]
+        if not applicable:
+            reject()
         chosen = draw(st.sampled_from(applicable))
         event(f"rule: {chosen.name}")
         premises, conclude = chosen.derive(draw, dom, cod, size, types)

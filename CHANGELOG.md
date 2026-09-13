@@ -88,6 +88,19 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   gone, and every pattern draws through one composite strategy built
   once, where a fresh `st.composite` inspected its function at every
   draw, half the cost of generating an example.
+- `abc.Category.generators`, the generators the search may invoke — the
+  rules of `rules` that build a box from no premise: a free box, the
+  structural boxes of the level, its permutations — collected like
+  `axioms` and adjusted by assigning a dictionary of rules on a class,
+  `Rule.constant(box)` giving the rule of one given box: it applies to
+  the sequent of the box, builds it and hints at the boundary it leaves
+  where its domain sits, so that a composition draws a middle it fires
+  on. `axioms.invoked` lists what the search runs, the structure of the
+  rules and the generators of the class, so that a subclass of
+  `pregroup.Diagram` over the words of a vocabulary and the cups draws
+  grammatical sentences, and one of `quantum.circuit.Circuit` over a
+  gate set draws circuits, as `test/grammar/pregroup.py` and
+  `test/quantum/circuit.py` do.
 - Patterns work for 2-categorical shapes: `C0`, `C1` and `C2` are
   `Level`s rather than type variables, `C1[R, G]` the `Sequent` of the
   1-cells from the colour `R` to the colour `G`, and the bound of a type

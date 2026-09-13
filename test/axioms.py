@@ -270,6 +270,36 @@ def test_rules_are_inherited_and_bound():
         lambda _: True) == Arrow.id(x)
 
 
+def test_generators():
+    """ A class adjusts the generators its strategy invokes. """
+    from discopy import rigid
+    from discopy.axioms import Rule, invoked
+
+    assert set(Arrow.generators) == {"box"}
+    assert set(rigid.Diagram.generators) == {"box", "cups", "caps"}
+    assert set(rigid.Diagram.rules) > set(rigid.Diagram.generators)
+    x, y = Ob('x'), Ob('y')
+    f, g = Box('f', x, y), Box('g', y, x)
+
+    class Vocabulary(Arrow):
+        """ Arrows over two boxes, no free one. """
+        generators = {"f": Rule.constant(f), "g": Rule.constant(g)}
+
+    assert [rule.name for rule in invoked(Vocabulary)] == [
+        "id", "then", "f", "g"]
+    assert Vocabulary.generators["f"].applies(Vocabulary, x, y, 1)
+    assert not Vocabulary.generators["f"].applies(Vocabulary, y, x, 1)
+    loop = find(
+        Vocabulary.strategy(dom=x, cod=x, min_leaves=4),
+        lambda arrow: len(arrow.inside) == 4)
+    assert loop == f >> g >> f >> g
+    bound = Vocabulary.generators["f"].bind(Vocabulary)
+    assert find(bound.middles(x, x, Ob.strategy()), lambda _: True) == y
+    with raises(NoSuchExample):
+        find(Vocabulary.strategy(dom=x, cod=y), lambda arrow: any(
+            box.name not in "fg" for box in arrow.inside))
+
+
 def test_leaf_applies_only_on_its_shape():
     """ A leaf is offered exactly when its pattern matches the sequent. """
     from discopy.axioms import generator, inapplicable, search

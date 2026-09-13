@@ -82,3 +82,35 @@ def test_to_hypergraph():
     assert isinstance(round_trip, Diagram)
     assert round_trip.to_hypergraph() == hypergraph
     assert hash(round_trip.to_hypergraph()) == hash(hypergraph)
+
+def test_random_sentences():
+    """ The strategy of a vocabulary draws grammatical sentences. """
+    from hypothesis import HealthCheck, find, settings
+
+    from discopy import monoidal
+    from discopy.axioms import Rule, inapplicable
+
+    n, s = Ty('n'), Ty('s')
+    Alice, Bob = Word('Alice', n), Word('Bob', n)
+    loves, sees = Word('loves', n.r @ s @ n.l), Word('sees', n.r @ s @ n.l)
+
+    class Sentence(Diagram):
+        """ A sentence is a diagram of words and cups. """
+        strategy = monoidal.Diagram.__dict__["strategy"]
+        trace = inapplicable("No loop in a sentence.")(Diagram.trace)
+        generators = {
+            "cups": Diagram.generators["cups"], **{
+                word.name: Rule.constant(word)
+                for word in (Alice, Bob, loves, sees)}}
+
+    sentence = find(
+        Sentence.strategy(dom=Ty(), cod=s, min_leaves=5, max_leaves=5),
+        lambda diagram: any(box.name == 'sees' for box in diagram.boxes),
+        settings=settings(
+            max_examples=2000, suppress_health_check=list(HealthCheck)))
+    words = [box for box in sentence.boxes if isinstance(box, Word)]
+    assert sorted((word.cod for word in words), key=str) == [
+        n, n, n.r @ s @ n.l]
+    assert all(
+        isinstance(box, (Word, Cup)) for box in sentence.boxes)
+    assert (sentence.dom, sentence.cod) == (Ty(), s)

@@ -749,3 +749,31 @@ def test_logical_vs_physical_swap():
     # The gate is a box: it stays whiskered and it is drawn as a crossing.
     assert str(qubit @ physical) == "qubit @ SWAP"
     assert physical.to_drawing().boxes[0].is_crossing
+
+
+def test_random_circuits():
+    """ The strategy of a gate set draws circuits over it. """
+    from hypothesis import find
+
+    from discopy import monoidal
+    from discopy.axioms import Rule, inapplicable
+    from discopy.quantum.gates import CX, H, Rx, X
+
+    gates = [H, X, CX, Rx(0.25)]
+
+    class Circuits(Circuit):
+        """ Circuits over a gate set, free of any other box. """
+        strategy = monoidal.Diagram.__dict__["strategy"]
+        trace = inapplicable("A trace unfolds into kets and bras.")(
+            Circuit.trace)
+        generators = {
+            "swap": Circuit.generators["braid"],
+            **{gate.name: Rule.constant(gate) for gate in gates}}
+
+    circuit = find(
+        Circuits.strategy(
+            dom=qubit @ qubit, cod=qubit @ qubit, min_leaves=3, max_leaves=4),
+        lambda diagram: any(box.name == 'CX' for box in diagram.boxes)
+        and any(box.name == 'H' for box in diagram.boxes))
+    assert all(box in gates or isinstance(box, Swap) for box in circuit.boxes)
+    assert circuit.eval().array.shape == (2, 2, 2, 2)

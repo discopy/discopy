@@ -57,7 +57,6 @@ class Ty(rigid.Ty):
     >>> n.assert_isadjoint(n.l)
     >>> n.assert_isadjoint(n.r)
     """
-    strategy = no_strategy
 
     def assert_isadjoint(self, other):
         """
