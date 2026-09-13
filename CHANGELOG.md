@@ -9,6 +9,19 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `abc.DaggerCategory`, a `Category` with an abstract `dagger`, so that the
+  dagger laws — contravariance and involution — are stated only where there
+  is a dagger. `cat.Arrow` inherits it, and the diagram classes inherit it
+  down the hierarchy, while `cat.Functor` and `monoidal.Ty` do not: a functor
+  has no dagger and a type's generators need not either, so the property
+  tests of [#658](https://github.com/discopy/discopy/pull/658) can generate
+  the dagger axioms for the carriers that declare one instead of every
+  carrier opting out by hand. `cat.FreeCategory` keeps the implementation —
+  reversal by slicing, shared with `monoidal.Ty` — without the
+  declaration. `matrix.Matrix`, `hypergraph.Hypergraph` and `cmap.CMap`
+  declare it too: the conjugate transpose and the boundary swaps are
+  daggers of their own
+  ([#731](https://github.com/discopy/discopy/issues/731)).
 - `monoidal.List`, the free monoid on a generator type: `List[X]` is a
   tuple of instances of `X` with concatenation as `tensor` and the empty
   list as unit, an `abc.Monoid` parameterised as

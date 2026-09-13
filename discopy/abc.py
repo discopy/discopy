@@ -28,6 +28,7 @@ Summary
     :toctree:
 
     Category
+    DaggerCategory
     ColouredMonoid
     Monoid
     Nat
@@ -195,6 +196,25 @@ class Category[C0, C1: Category](ABC):
         f, g = pair
         return cls.ob.equation_factory(f.then(g).cod, g.cod)
 
+    __rshift__ = __llshift__ = lambda self, other: self.then(other)
+    __lshift__ = __lrshift__ = lambda self, other: other.then(self)
+
+
+class DaggerCategory[C0, C1: DaggerCategory](Category[C0, C1]):
+    """
+    A `dagger category <https://ncatlab.org/nlab/show/dagger+category>`_ is a
+    :class:`Category` with a method :code:`dagger` for the identity-on-objects
+    contravariant involution, i.e. such that
+    ``(f >> g).dagger() == g.dagger() >> f.dagger()``
+    and ``f.dagger().dagger() == f``.
+
+    Its two laws are stated here rather than on :class:`Category`, so that a
+    category with no dagger does not have to declare them inapplicable.
+    """
+    @abstractmethod
+    def dagger(self) -> C1:
+        """ The dagger of a morphism, to be instantiated. """
+
     @axiom
     def dagger_involution(
             cls, f: C1) -> Equation[C1]:
@@ -208,9 +228,6 @@ class Category[C0, C1: Category](ABC):
         f, g = pair
         return cls.equation_factory(
             f.then(g).dagger(), g.dagger().then(f.dagger()))
-
-    __rshift__ = __llshift__ = lambda self, other: self.then(other)
-    __lshift__ = __lrshift__ = lambda self, other: other.then(self)
 
 
 class ColouredMonoid[C0, C1: ColouredMonoid](Category[C0, C1]):
