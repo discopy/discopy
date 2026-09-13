@@ -119,4 +119,4 @@ Rough edges met on the way, each worth an issue:
 
 > make MonoidalCategory subclass TwoCategory[Colour, C0, C1] with real colours
 
-- [WIP] @af1f3450-2026-09-13 15:10 `abc.Colour`, the 0-cells, `MonoidalCategory(TwoCategory[Colour, C0, C1])` resolving to the category's own colours; a level substituted by a superclass of the positional cells keeps the cells; `BraidedCategory` and `RigidCategory` declare the one trivial colour crossing and bending wires need; tests, CHANGELOG, lint, `uv run pytest`, the matrices
+- [x] `abc.Colour`, the 0-cells, `MonoidalCategory(TwoCategory[Colour, C0, C1])` resolving to the category's own colours; a level substituted by a superclass of the positional cells keeps the cells; `BraidedCategory` and `RigidCategory` declare the one trivial colour crossing and bending wires need; tests, CHANGELOG, lint, `uv run pytest`, the matrices
