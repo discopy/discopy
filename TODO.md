@@ -127,3 +127,9 @@ Rough edges met on the way, each worth an issue:
 > allow diagrams to adjust the set of generators that the strategy can invoke. just like axioms collect all axioms, generators should be a similar method that can be overridden. use this to generate random sentences for pregroup or generate quantum circuits.
 
 - [x] `Category.generators`, the rules building a box from nothing, collected like `axioms` and overridable by a class attribute; `search` invokes the structure of `rules` and the generators of `generators`; `Rule.constant(box)` the generator of one given box; random sentences of a pregroup grammar and random quantum circuits from a gate set, in tests and doctests; CHANGELOG, lint, `uv run pytest`, the fast matrix
+
+## Round: generators in the modules
+
+> make pregroup and circuit define generators themselves instead of test subclasses
+
+- [WIP] @af1f3450-2026-09-13 `pregroup.Diagram.generators` over a module vocabulary and `Circuit.generators` over the gate set, with their strategies and the trace declared inapplicable, the tests drawing from the classes directly; the matrix keeps to the free categories; CHANGELOG, lint, `uv run pytest`, the fast matrix
