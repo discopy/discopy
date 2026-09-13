@@ -86,7 +86,7 @@ Rough edges met on the way, each worth an issue:
 > * consolidate Pattern as a strongly typed edsl with a base class PatternBase + concrete dataclass + closed type alias Pattern[T] as a union
 > * it would make more sense if Axiom[P, T].strategy returned a st.SearchStrategy[Equation[T]], and instead have the input strategy stored as self.pattern.strategy. make Axiom and Pattern inherit from Testable
 
-- [WIP] @af1f3450-2026-09-13 10:20 the `fast` profile in `proptest/conftest.py`, the `dev` settings, under which the matrix keeps one cell per declaration of a law: the enrolled type nearest the class declaring it; `CONTRIBUTING.md`
-- [WIP] @af1f3450-2026-09-13 10:20 `PatternBase` and the concrete dataclasses `Var`, `Adjoint`, `Delay`, `Exp`, `Word`, `Alternatives`, `Sequent`, `Hom`, `Signature`, with `Pattern[T]` the closed union; `Op`, `pattern`, `sequent`, `sequents`, `matching`, `resolve` gone; tests
-- [WIP] @af1f3450-2026-09-13 10:20 `Axiom` and `PatternBase` subclass `Testable`; `Axiom.pattern` is the `Signature` of its annotations and `Axiom.strategy` maps its strategy to equations; `falsify` returns the equation; the matrix and `assert_axioms` follow
-- [ ] docs, CHANGELOG, `uv run pflake8 discopy`, `uv run coverage run -m pytest`, `HYPOTHESIS_PROFILE=fast uv run pytest proptest/ -n auto -p no:benchmark`
+- [x] the `fast` profile in `proptest/conftest.py`, the `dev` settings, under which the matrix keeps one cell per declaration of a law: the enrolled type nearest the class declaring it; `CONTRIBUTING.md`; the broken cells checked without shrinking
+- [x] `PatternBase` and the concrete dataclasses `Var`, `Adjoint`, `Delay`, `Exp`, `Word`, `Alternatives`, `Sequent`, `Hom`, `Signature`, with `Pattern[T]` the closed union; `Op`, `pattern`, `sequent`, `sequents`, `matching`, `resolve` gone; tests
+- [x] `Axiom` and `PatternBase` subclass `Testable`; `Axiom.pattern` is the `Signature` of its annotations and `Axiom.strategy` maps its strategy to equations; `falsify` returns the equation; the matrix and `assert_axioms` follow
+- [x] docs, CHANGELOG, `uv run pflake8 discopy`, `uv run pytest`, `HYPOTHESIS_PROFILE=fast uv run pytest proptest/ -n auto -p no:benchmark`
