@@ -90,3 +90,9 @@ Rough edges met on the way, each worth an issue:
 - [x] `PatternBase` and the concrete dataclasses `Var`, `Adjoint`, `Delay`, `Exp`, `Word`, `Alternatives`, `Sequent`, `Hom`, `Signature`, with `Pattern[T]` the closed union; `Op`, `pattern`, `sequent`, `sequents`, `matching`, `resolve` gone; tests
 - [x] `Axiom` and `PatternBase` subclass `Testable`; `Axiom.pattern` is the `Signature` of its annotations and `Axiom.strategy` maps its strategy to equations; `falsify` returns the equation; the matrix and `assert_axioms` follow
 - [x] docs, CHANGELOG, `uv run pflake8 discopy`, `uv run pytest`, `HYPOTHESIS_PROFILE=fast uv run pytest proptest/ -n auto -p no:benchmark`
+
+## Round: the canonical equation
+
+> define Axiom.canonical which instantiates the pattern with the default names and returns the axiom schema as an equation over diagrams, then Axiom.draw which draws this canonical equation
+
+- [WIP] @af1f3450-2026-09-13 11:40 `PatternBase.canonical`: each metavariable an object named after it, each sequent a box named after its parameter; `Axiom.canonical` the law on those, `Axiom.draw` drawing it; tests, a drawn baseline, CHANGELOG, lint, `uv run pytest test/axioms.py`, the fast matrix
