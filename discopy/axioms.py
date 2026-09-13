@@ -1350,10 +1350,12 @@ class Cells:
             some: the middle of a composition is parallel to its ends.
 
     >>> from types import NoneType
+    >>> from discopy import rigid
     >>> from discopy.abc import TwoCategory
-    >>> from discopy.monoidal import Diagram, Ty
+    >>> from discopy.monoidal import Colour, Diagram, Ty
     >>> cells = Cells.of(Diagram, TwoCategory)
-    >>> assert (cells[2], cells[1], cells[0]) == (Diagram, Ty, NoneType)
+    >>> assert (cells[2], cells[1], cells[0]) == (Diagram, Ty, Colour)
+    >>> assert Cells.of(rigid.Diagram, TwoCategory)[0] is NoneType
     >>> assert Cells.of(Diagram).top == 1 and Cells.of(Diagram)[0] is Ty
     """
     category: type
@@ -1411,7 +1413,10 @@ def levels_of(category: type, owner: type = None) -> tuple:
     the single trivial colour of a monoidal category — and, where the
     substitution ends, resolved by depth from the top, the category's
     ``ob`` taken as many times as the parameter is from the last one.
-    The owner is the first generic class in the MRO by default.
+    A concrete type that the positional cells subclass is a bound rather
+    than a substitution, ``TwoCategory[Colour, C0, C1]`` leaving a
+    monoidal category the colours of its own types. The owner is the
+    first generic class in the MRO by default.
     """
     owner = next(
         (base for base in (owner or category).__mro__ if base.__type_params__),
@@ -1431,14 +1436,15 @@ def levels_of(category: type, owner: type = None) -> tuple:
         found = substituted(current, parameter)
         if found is not None and isinstance(found[1], TypeVar):
             return resolve(*found)
-        if found is not None and isinstance(found[1], type):
-            return found[1]
         parameters = current.__type_params__
         depth = len(parameters) - 1 - parameters.index(parameter)
         factory = category
         for _ in range(depth):
-            factory = factory.ob
-        return factory
+            factory = getattr(factory, "ob", None)
+        if found is None or (
+                isinstance(factory, type) and issubclass(factory, found[1])):
+            return factory
+        return found[1]
 
     return tuple(
         resolve(owner, parameter) for parameter in owner.__type_params__)
@@ -1714,8 +1720,8 @@ class Var[T](ItemBase[T]):
                   name: str = None) -> T:
         """
         What ``env`` binds the variable to, else a cell of its name
-        between its boundaries, a count of two or :obj:`True`, or the one
-        cell of a trivial level.
+        between its boundaries, a count of two or :obj:`True`; a colour
+        is the default one, that of the unit, so that the schema draws.
         """
         if env and self.name in env:
             return env[self.name]
@@ -1725,6 +1731,8 @@ class Var[T](ItemBase[T]):
             return True
         cells = Cells.of(cells)
         if cells[self.level] is NoneType:
+            return cells.trivial(self.level)
+        if cells.top - self.level >= 2:
             return cells.trivial(self.level)
         env = canonical_vars(self.vars[:-1], cells, env)
         factory, boundaries = cells[self.level], self.boundary_values(env)

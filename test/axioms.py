@@ -432,9 +432,11 @@ def test_two_categorical_patterns():
 
     law = Diagram.bifunctoriality
     assert law.owner is abc.TwoCategory
-    assert law.cells.levels == (NoneType, Ty, Diagram)
+    assert law.cells.levels == (Colour, Ty, Diagram)
     assert Cells.of(rigid.Diagram, abc.Category).levels == (
         rigid.Ty, rigid.Diagram)
+    assert Cells.of(rigid.Diagram, abc.TwoCategory).levels == (
+        NoneType, rigid.Ty, rigid.Diagram)
     assert str(law.result) == "A @ C ⊢ U @ V"
     A = law.pattern.patterns["f"].dom.items[0]
     assert str(A.boundaries) == "X ⊢ Y" and A.level == 1 and A.kind == "type"
@@ -449,16 +451,14 @@ def test_two_categorical_patterns():
     assert all(env["A"].cod == env["B"].cod == env["C"].dom
                for env in matches)
 
-    class Coloured(Diagram, abc.TwoCategory[Colour, Ty, "Coloured"]):
-        """ Monoidal diagrams as a 2-category with real colours. """
-
-    assert Cells.of(Coloured, abc.TwoCategory).levels == (
-        Colour, Ty, Coloured)
     equation = find(
-        Coloured.tensor_dom_typing.strategy(),
+        Diagram.tensor_dom_typing.strategy(),
         lambda equation: equation.terms[0].dom != Ty().dom)
     assert equation and equation.terms[0].dom == equation.terms[1].dom
-    assert Coloured.tensor_dom_typing.canonical()
+    assert Diagram.tensor_dom_typing.canonical()
+    with raises(NoSuchExample):
+        find(rigid.Diagram.tensor_dom_typing.strategy(),
+             lambda equation: equation.terms[0].dom != rigid.Ty().dom)
 
 
 def test_typechecking_on_call():

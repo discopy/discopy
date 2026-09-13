@@ -99,16 +99,19 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   states the tensor rule and the axioms of the tensor —
   `bifunctoriality`, `tensor_unitality`, `tensor_dom_typing`,
   `tensor_cod_typing`, `dagger_monoidality` — on colours, 1-cells and
-  2-cells, and `MonoidalCategory[C0, C1](TwoCategory[NoneType, C0,
-  C1])` inherits them with the one trivial colour, `Cells` resolving a
+  2-cells, and `MonoidalCategory[C0, C1](TwoCategory[Colour, C0, C1])`
+  inherits them with the real colours of its types, `abc.Colour` being
+  the 0-cells that `monoidal.Colour` implements: `Cells` resolves a
   level through the type parameters the classes substitute for those of
-  their bases, `levels_of`, a concrete type ending the chain and the
-  category's `ob` chain from the top otherwise. A class subclassing
-  `TwoCategory` with `monoidal.Colour` draws real colours, its free type
-  variables between the colours their neighbours fix, so that a word
-  composes and the middle of a composition is parallel to its ends;
-  from a braided or a rigid category on, crossing and bending wires need
-  the colours to coincide, which the trivial colour gives. The metaclass
+  their bases, `levels_of`, a concrete type ending the chain unless the
+  positional cells subclass it, and the category's `ob` chain from the
+  top otherwise. The free type variables of a word are drawn between the
+  colours their neighbours fix, so that it composes and the middle of a
+  composition is parallel to its ends. Crossing and bending wires and
+  taking exponentials need the colours to coincide, so
+  `BraidedCategory` and `BiclosedCategory` also subclass
+  `TwoCategory[NoneType, C0, C1]`, `NoneType` the one trivial colour,
+  which every category below them inherits. The metaclass
   of `Testable`, `Prepared`, prepares every class body with the three
   levels, since the type parameters of a class of the same names would
   otherwise shadow them in a bound, a `TypeVar` being no pattern.

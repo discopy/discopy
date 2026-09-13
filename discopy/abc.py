@@ -345,7 +345,17 @@ class Nat(Monoid["Nat"]):
         return type(self)(1)
 
 
-class TwoCategory[C0, C1: ColouredMonoid, C2: TwoCategory](
+class Colour(Testable):
+    """
+    The 0-cells of a :class:`TwoCategory`, the colours of the regions of
+    a diagram: the objects of the :class:`ColouredMonoid` of its 1-cells,
+    :class:`discopy.monoidal.Colour` for the diagrams of DisCoPy. A class
+    of colours implements :meth:`strategy` to be drawn as the colours of a
+    law of 2-categories.
+    """
+
+
+class TwoCategory[C0: Colour, C1: ColouredMonoid, C2: TwoCategory](
         Category[C1, C2]):
     """
     A 2-category is a :class:`Category` whose objects are the elements
@@ -416,12 +426,14 @@ class TwoCategory[C0, C1: ColouredMonoid, C2: TwoCategory](
 
 
 class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](
-        TwoCategory[NoneType, C0, C1]):
+        TwoCategory[Colour, C0, C1]):
     """
-    A monoidal category is a :class:`TwoCategory` with a single colour,
-    whose ``tensor`` composes both its objects and its morphisms: it
-    inherits the rules and the axioms of the tensor, its wires being the
-    1-cells and its boxes the 2-cells.
+    A monoidal category is a :class:`TwoCategory` whose 0-cells are the
+    colours of its objects, a coloured monoid, see :class:`Colour`, and whose
+    ``tensor`` composes both its objects and its morphisms: it inherits
+    the rules and the axioms of the tensor, its wires being the 1-cells
+    and its boxes the 2-cells. A subclass whose wires cross or bend
+    declares the one trivial colour instead, see :class:`BraidedCategory`.
 
     This base class also implements syntactic sugar :code:`@` for whiskering.
     """
@@ -554,14 +566,15 @@ class ResiduatedMonoid[C0, C1: ResiduatedMonoid](ColouredMonoid[C0, C1]):
         return other.under(self)
 
 
-class BiclosedCategory[
-        C0: ResiduatedMonoid, C1: BiclosedCategory](MonoidalCategory[C0, C1]):
+class BiclosedCategory[C0: ResiduatedMonoid, C1: BiclosedCategory](
+        MonoidalCategory[C0, C1], TwoCategory[NoneType, C0, C1]):
     """
     A biclosed category is a :class:`MonoidalCategory` with methods :code:`ev`
     and :code:`curry` for the evaluation and currying of morphisms.
 
     We also assume the type for objects comes with methods for left and right
-    exponentials :code`x << y` and :code`x >> y`.
+    exponentials :code`x << y` and :code`x >> y`, of uncoloured types: a
+    biclosed category has the one trivial colour, :class:`NoneType`.
     """
     @classmethod
     @generator
@@ -836,10 +849,12 @@ class PivotalCategory[C0, C1](RigidCategory[C0, C1], TracedCategory[C0, C1]):
         return cls.equation_factory(left_transpose, right_transpose)
 
 
-class BraidedCategory[C0, C1](MonoidalCategory[C0, C1]):
+class BraidedCategory[C0, C1](
+        MonoidalCategory[C0, C1], TwoCategory[NoneType, C0, C1]):
     """
     A braided category is a :class:`MonoidalCategory` with a method
-    :code:`braid` for the natural isomorphism :code:`x @ y -> y @ x`.
+    :code:`braid` for the natural isomorphism :code:`x @ y -> y @ x`: its
+    wires cross, so it has the one trivial colour, :class:`NoneType`.
     """
     @classmethod
     @generator

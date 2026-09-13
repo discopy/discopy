@@ -87,7 +87,7 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True)
-class Colour(cat.Ob):
+class Colour(cat.Ob, abc.Colour):
     """
     A 0-cell, drawn using its matplotlib-compatible ``name``, by default
     :data:`discopy.config.TRANSPARENT` so that the page shows through.
