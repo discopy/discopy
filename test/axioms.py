@@ -16,6 +16,7 @@ from discopy.axioms import (
     Axiom,
     AxiomFailure,
     Equation,
+    Hom,
     Pair,
     Testable,
     Var,
@@ -23,7 +24,6 @@ from discopy.axioms import (
     axiom,
     connected,
     no_strategy,
-    resolve,
 )
 from discopy.cat import Arrow, Box, Functor, Ob
 from discopy.monoidal import Layer
@@ -66,8 +66,12 @@ def test_annotated_sequents():
         return Equation(f.then(g).dom, f.dom)
 
     law = composing.bind(Arrow)
-    f, g = find(law.strategy(), lambda args: all(a.inside for a in args))
+    f, g = find(
+        law.pattern.strategy(Arrow), lambda args: all(a.inside for a in args))
     assert f.cod == g.dom and law(f, g)
+    assert list(law.pattern.match((f, g))) == [
+        {"A": f.dom, "B": f.cod, "C": g.cod}]
+    assert find(law.strategy(), lambda equation: equation)
     x, y = Ob('x'), Ob('y')
     assert law(Box('f', x, y), Box('g', y, x))
     with raises(NoSuchExample):
@@ -80,7 +84,8 @@ def test_annotated_sequents():
         return Equation(len(x @ y), 2)
 
     drawn = find(
-        atoms.bind(monoidal.Diagram).strategy(), lambda args: len(args[2]) > 1)
+        atoms.bind(monoidal.Diagram).pattern.strategy(monoidal.Diagram),
+        lambda args: len(args[2]) > 1)
     assert [len(value) for value in drawn[:2]] == [1, 1]
 
     @axiom
@@ -90,7 +95,7 @@ def test_annotated_sequents():
         return Equation(f.dom[:1], x)
 
     law = shared.bind(monoidal.Diagram)
-    f, x = find(law.strategy(), lambda args: args[0].boxes)
+    f, x = find(law.pattern.strategy(law.category), lambda args: args[0].boxes)
     assert f.dom[:1] == x == f.cod[:1] and law(f, x)
 
     @axiom
@@ -100,10 +105,10 @@ def test_annotated_sequents():
         return Equation(f.dom[-2:], mem.delay())
 
     law = delayed.bind(feedback.Diagram)
-    f, mem = find(law.strategy(), lambda args: args[0].boxes)
+    f, mem = find(law.pattern.strategy(law.category), lambda args: args[0].boxes)
     assert len(mem) == 2 and law(f, mem)
     with raises(TypeError):
-        resolve(int)
+        Hom(int)
 
 
 def test_axiom_binding():
@@ -117,6 +122,8 @@ def test_axiom_binding():
         Axiom(lambda cls: NotImplemented).falsify()
     with raises(TypeError):
         Axiom(lambda cls: NotImplemented).strategy()
+    with raises(TypeError):
+        Axiom(lambda cls: NotImplemented).pattern
     assert axiom(lambda cls: NotImplemented).bind(Arrow)() is NotImplemented
     box = Box('f', Ob('x'), Ob('y'))
     assert Arrow.unitality(box)
@@ -151,15 +158,16 @@ def test_modulo():
 def test_weaken():
     law = Arrow.unitality.weaken(loops).bind(Arrow)
     assert law.modulo(lambda term: term).subspace is loops
-    f, = find(law.strategy(), lambda args: args[0].inside)
-    assert f.dom == f.cod and law(f)
+    equation = find(law.strategy(), lambda equation: equation.terms[1].inside)
+    f = equation.terms[1]
+    assert f.dom == f.cod and equation
     x, y = monoidal.Ty('x'), monoidal.Ty('y')
     box, scalar = monoidal.Box('f', x, y), monoidal.Box('s', x[:0], x[:0])
     assert connected(Equation(box, box))
     assert not connected(Equation(box, box @ scalar))
     with raises(NoSuchExample):
-        find(monoidal.Diagram.bifunctoriality.strategy(), lambda args: any(
-            not arrow.is_boundary_connected for arrow in args))
+        find(monoidal.Diagram.bifunctoriality.strategy(), lambda eq: any(
+            not term.is_boundary_connected for term in eq.terms))
 
 
 def test_self_annotation():
@@ -169,8 +177,8 @@ def test_self_annotation():
         return Equation(cls.id(f.dom) >> f, f)
 
     law = absorbing.bind(Arrow)
-    args = find(law.strategy(), lambda _: True)
-    assert isinstance(args[0], Arrow) and law(*args)
+    equation = find(law.strategy(), lambda _: True)
+    assert isinstance(equation.terms[1], Arrow) and equation
 
 
 def test_falsify():
@@ -179,9 +187,12 @@ def test_falsify():
         """ Every arrow is an identity, which a box refutes. """
         return Equation(f, cls.id(f.dom))
 
-    counterexample, = trivial.bind(Arrow).falsify()
-    assert isinstance(counterexample, Arrow) and counterexample.inside
-    assert Arrow.unitality.failing("Never holds.").falsify()
+    counterexample = trivial.bind(Arrow).falsify()
+    assert isinstance(counterexample, Equation) and not counterexample
+    assert counterexample.terms[0].inside
+    assert not trivial.bind(Arrow).failing("Boxes exist.").falsify()
+    with raises(NoSuchExample):
+        Arrow.unitality.failing("Never holds.").falsify()
     with raises(NoSuchExample):
         Arrow.associativity.falsify()
 
@@ -311,12 +322,15 @@ def test_rules_from_patterns():
 
 def test_pattern_matching():
     from discopy import rigid
-    from discopy.axioms import Var, Pattern
+    from discopy.axioms import Var, Word
 
     X, Y = Var.atom('X'), Var.atom('Y')
     A, B = Var.type('A'), Var.type('B')
     a, b, c = map(rigid.Ty, "abc")
-    assert isinstance(X @ X.r, Pattern) and (X @ X.r).fixed
+    assert isinstance(X @ X.r, Word) and (X @ X.r).fixed
+    assert str(X @ X.r) == "X @ X.r" and str(X @ X.r | Word()) == "X @ X.r | ()"
+    assert str(X.l) == "X.l" and str(X.d) == "X.d" and str(X >> Y) == "(X >> Y)"
+    assert list(X.match(a)) == [{"X": a}] and X.r.instantiate({"X": a}) == a.r
     assert not (A @ X).fixed
     assert list((X @ X.r).match(a @ a.r)) == [{"X": a}]
     assert list((X @ X.r).match(a @ b.r)) == []
@@ -327,10 +341,10 @@ def test_pattern_matching():
         {"A": a, "X": b, "B": c},
         {"A": a @ b, "X": c, "B": rigid.Ty()}]
     assert list((A @ A).match(a @ b @ a @ b)) == [{"A": a @ b}]
-    assert list(Pattern().match(rigid.Ty())) == [{}]
+    assert list(Word().match(rigid.Ty())) == [{}]
     assert list((X @ Y).match(a)) == []
     x = cat.Ob('x')
-    assert list(Pattern((A, )).match(x)) == [{"A": x}]
+    assert list(Word((A, )).match(x)) == [{"A": x}]
 
 
 def test_pattern_exponentials_and_delays():
@@ -351,12 +365,12 @@ def test_pattern_exponentials_and_delays():
 
 def test_pattern_instantiation():
     from discopy import rigid
-    from discopy.axioms import Var, Pattern
+    from discopy.axioms import Var, Word
 
     X, A = Var.atom('X'), Var.type('A')
     a, b = map(rigid.Ty, "ab")
     assert (A @ X @ X.r).instantiate({"A": a @ b, "X": a}) == a @ b @ a @ a.r
-    assert Pattern().instantiate({}, unit=rigid.Ty()) == rigid.Ty()
+    assert Word().instantiate({}, unit=rigid.Ty()) == rigid.Ty()
     drawn = find(
         (X @ X.r).strategy(rigid.Diagram), lambda value: len(value) == 2)
     assert drawn[1:] == drawn[:1].r

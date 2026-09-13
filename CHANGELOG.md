@@ -61,6 +61,41 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   does not evaluate back
   ([#562](https://github.com/discopy/discopy/issues/562)). Each level's
   test file dry-runs its laws with `assert_axioms`.
+- A `fast` Hypothesis profile in `proptest/conftest.py`, the settings of
+  `dev` under which the matrix keeps one cell per declaration of a law:
+  the enrolled type nearest the class declaring it, so that a law is
+  tested once bound to its defining class rather than again on every
+  type inheriting it, a type restating an inherited law — broken,
+  weakened or modulo a quotient — declaring it anew. It is the profile
+  to develop with, 82 cells where the full matrix has 936, see
+  `CONTRIBUTING.md`. The laws declared broken are checked apart, by
+  `test_broken_axiom`, without the phases that shrink and explain the
+  counterexample: the first one is enough to confirm the declaration, and
+  `Axiom.falsify` shrinks one on demand, where the shrink of a single
+  `#742` roundtrip took a hundred seconds of every run.
+- The sequent-pattern language is a strongly typed EDSL: `PatternBase`
+  is the base of every pattern, a `Testable` of the values it stands for
+  — matching binds its metavariables, instantiating reads them, its
+  strategy draws the unbound ones by kind — and `Pattern[T]` the closed
+  union of the concrete frozen dataclasses: `Var`, and the `Adjoint`,
+  `Delay` and `Exp` derived from one, are the `Item`s of a `Word`, the
+  pattern for one boundary that `Pattern` was; `Alternatives` joins
+  words; `Sequent` stands for the arrows between two boundaries and
+  `Hom` for the terms of a testable class, `C1[A, B]` and `C1` in the
+  annotations of a law; and `Signature` for the arguments of a law, one
+  pattern per parameter with the metavariables shared. `Op` and the
+  `pattern`, `sequent`, `sequents`, `matching` and `resolve` helpers are
+  gone, and every pattern draws through one composite strategy built
+  once, where a fresh `st.composite` inspected its function at every
+  draw, half the cost of generating an example.
+- `Axiom` is a `Testable` whose terms are its equations: `Axiom.pattern`
+  is the `Signature` of its annotations, whose strategy is the input of
+  the law, and `Axiom.strategy` returns a `SearchStrategy[Equation[T]]`,
+  the law mapped over it, filtered by the subspace of a weakened law;
+  `Axiom.falsify` returns the false equation rather than the arguments,
+  the one a law declared broken raises included, and finds none when a
+  law declared broken holds on every example. The matrix and
+  `assert_axioms` draw equations and assert them.
 - A law declares its metavariables as its type parameters, their kind as
   the bound: `composition_cod_typing[A: C0, B: C0, C: C0](cls, f: C1[A,
   B], g: C1[B, C])`, `hexagon_left[X: Atom[C0], Y: Atom[C0], Z:

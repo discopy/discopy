@@ -62,8 +62,8 @@ from dataclasses import dataclass
 from typing import ClassVar
 
 from discopy.axioms import (  # noqa: F401
-    C0, C1, Atom, Axiom, Equation, NonEmpty, Pair, Pattern, Rule,
-    Serialisable, Testable, Var, axiom, leaf, rule)
+    C0, C1, Atom, Axiom, Equation, NonEmpty, Pair, Rule, Sequent,
+    Serialisable, Testable, Var, Word, axiom, leaf, rule)
 from discopy.utils import (  # noqa: F401
     NamedGeneric, classproperty, factory_name)
 
@@ -1234,7 +1234,7 @@ class HypergraphCategory[C0, C1](
         """
 
     @leaf(*(
-        (Pattern((Var.atom("X"), ) * m), Pattern((Var.atom("X"), ) * n))
+        Sequent(Word(m * (Var.atom("X"), )), Word(n * (Var.atom("X"), )))
         for m in range(5) for n in range(5)
         if 0 < m + n <= 4 and (m, n) != (1, 1)))
     def spidering(cls, dom, cod, X):

@@ -1,7 +1,7 @@
 """ Property tests for DisCoPy's principal categorical data structures. """
 
 import pytest
-from hypothesis import given, note
+from hypothesis import Phase, given, note, settings
 from hypothesis import strategies as st
 
 from conftest import PROFILE
@@ -23,8 +23,9 @@ def types() -> tuple[type[Testable], ...]:
     checked against them, and is checked as soon as it says how.
 
     Importing :mod:`discopy.axioms` imports the package that defines
-    them, so every subclass is in place by the time this is called.
-    :class:`Testable` itself states no law, so it gets no cell.
+    them, so every subclass is in place by the time this is called. A
+    class stating no law gets no cell: :class:`Testable` itself, and an
+    axiom or a pattern, which generate their terms without stating laws.
     """
     def generates(testable):
         try:
@@ -34,7 +35,8 @@ def types() -> tuple[type[Testable], ...]:
         return True
 
     return tuple(sorted(
-        filter(generates, Testable.subclasses()), key=factory_name))
+        (testable for testable in Testable.subclasses()
+         if testable.axioms and generates(testable)), key=factory_name))
 
 
 def declaring(testable: type[Testable], name: str) -> type:
@@ -68,10 +70,11 @@ def once_per_declaration(
         key=lambda cell: (factory_name(cell[0]), cell[1].name))
 
 
-def axiom_parameters():
+def axiom_parameters(broken: bool = False):
     """
     Translate every axiom of every testable type to a pytest parameter,
-    one per declaration under the ``fast`` profile.
+    one per declaration under the ``fast`` profile, the laws declared
+    broken and the others apart.
 
     An axiom taking no argument states its verdict without one, so we ask it
     here: :obj:`NotImplemented` means the structure does not apply and the
@@ -85,6 +88,8 @@ def axiom_parameters():
     if PROFILE == "fast":
         cells = once_per_declaration(cells)
     for testable, axiom in cells:
+        if axiom.broken != broken:
+            continue
         if not axiom.parameters and axiom() is NotImplemented:
             marks = pytest.mark.skip(reason=axiom.__doc__.strip())
         elif axiom.broken:
@@ -95,11 +100,27 @@ def axiom_parameters():
             axiom, marks=marks, id=f"{factory_name(testable)}.{axiom.name}")
 
 
+def check(axiom: Axiom, data: st.DataObject) -> None:
+    """ Check an axiom of a testable type on a generated equation. """
+    equation = data.draw(axiom.strategy(), label=axiom.name)
+    note(equation)
+    assert equation
+
+
 @pytest.mark.parametrize("axiom", axiom_parameters())
 @given(data=st.data())
 def test_axiom(axiom, data):
-    """ Check an axiom of a testable type against generated arguments. """
-    args = data.draw(axiom.strategy(), label=axiom.name)
-    verdict = axiom(*args)
-    note(verdict)
-    assert verdict
+    """ Check a law that is expected to hold. """
+    check(axiom, data)
+
+
+@pytest.mark.parametrize("axiom", axiom_parameters(broken=True))
+@settings(phases=(Phase.explicit, Phase.reuse, Phase.generate))
+@given(data=st.data())
+def test_broken_axiom(axiom, data):
+    """
+    Check a law declared broken, expecting the failure: the first
+    counterexample is enough, so the phases that shrink and explain it
+    are left to :meth:`discopy.axioms.Axiom.falsify`, on demand.
+    """
+    check(axiom, data)
