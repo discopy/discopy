@@ -102,3 +102,15 @@ Rough edges met on the way, each worth an issue:
 > remove rules and leaves and instead directly apply @rule or @leaf to the methods like feedback cups caps etc... no feeding_back cupping capping
 
 - [x] `@leaf`/`@rule` mark the structural method itself: the sequent it concludes read off its return annotation `-> C1[dom, cod]`, its premises off the parameters annotated `C1[..]`, `self` included, its other arguments off their patterns; `Count` and `Bool` kinds with `X ** N` and `L[a, b]` for the legs of a spider, the copies and the side of a trace or an evaluation; `inapplicable(reason)` on an override; `Category.rules` reads the rule a method carries through plain overrides; the named rules gone; tests, docs, CHANGELOG, lint, `uv run pytest`, the fast matrix
+
+## Round: two-categories
+
+> * everything in abc should be either a rule or a generator (what you called leaf) or an axiom
+> * axioms and rules should directly store a pattern
+> * patterns should automatically typecheck inputs and output upon call
+> * patterns should work for 2-categorical shapes as well. MonoidalCategory is actually a 2-category where 0-cells are colours, wires are 1-cells and boxes are 2-cells. I've started splitting a new TwoCategory class in abc, it should define all the axioms and rule, while MonoidalCategory should simply inherit them naturally. for now i've only covered tensor and bifunctoriality, do the rest.
+
+- [WIP] @af1f3450-2026-09-13 13:30 levels: `C0`, `C1`, `C2` are `Level` patterns, `C1[R, G]` a sequent of 1-cells, prepared into every class body by the metaclass of `Testable` so that a type parameter's bound may name them; a metavariable's kind is its bound, `Atom[C1[R, G]]` included, and a variable bounded by a sequent matches and draws its boundaries; `Cells(category, top)` resolves a level to the class of its cells, the top being the declaring class's last type parameter
+- [WIP] @af1f3450-2026-09-13 13:30 `Axiom` stores its `pattern` and `result` at decoration and its `owner` at `__set_name__`; calling it typechecks the arguments against the pattern and the terms of the equation against the result
+- [WIP] @af1f3450-2026-09-13 13:30 `Rule` stores its `conclusion` and `pattern`; one derivation for every rule: a feasible match drawn, an identity premise where the match allows, the unbound type variables drawn from the types and the hints, the proofs and the built cell typechecked; `id`, `then` and `tensor` declarative, `box` and `permutation` procedural; `identity`, `cut`, `tensoring`, `splits`, `atoms` gone, `hints` a function
+- [WIP] @af1f3450-2026-09-13 13:30 `TwoCategory` states the monoidal axioms and rules on 0-, 1- and 2-cells, `MonoidalCategory` inherits them; `generator` the name of `leaf`; tests, docs, CHANGELOG, lint, `uv run pytest`, the fast matrix
