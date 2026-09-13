@@ -112,6 +112,17 @@ your machine before any search; it reaches GitHub only when selected.
 HYPOTHESIS_PROFILE=explore uv run pytest proptest/ -n auto -p no:benchmark
 ```
 
+A fifth, `fast`, has the settings of `dev` but tests every law once,
+bound to the enrolled type nearest the class declaring it, rather than
+on every type inheriting it; a type restating an inherited law, as
+broken, weakened or modulo a quotient, declares it anew and gets its own
+cell. It is the profile to run while developing, the full matrix being
+for `main` and the nightly run:
+
+```shell
+HYPOTHESIS_PROFILE=fast uv run pytest proptest/ -n auto -p no:benchmark
+```
+
 `Axiom.falsify` searches for a shrunk counterexample to a law on demand,
 raising `NoSuchExample` when it finds none, which is how a failing cell
 becomes a concrete term to debug in a REPL: call
