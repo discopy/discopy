@@ -63,8 +63,8 @@ from dataclasses import dataclass, replace
 from typing import ClassVar
 
 from discopy.axioms import (  # noqa: F401
-    C0, C1, C2, Atom, Axiom, Bool, Count, Equation, NonEmpty, Pair, Rule,
-    Serialisable, Testable, Var, axiom, generator, inapplicable, rule)
+    C0, C1, C2, Atom, Axiom, Bool, Cells, Count, Equation, NonEmpty, Pair,
+    Rule, Serialisable, Testable, Var, axiom, generator, inapplicable, rule)
 from discopy.utils import (  # noqa: F401
     NamedGeneric, classproperty, factory_name, unbiased)
 
@@ -129,7 +129,8 @@ class Category[C0, C1: Category](Testable, ABC):
         Sequential composition of `n >= 1` morphisms, to be instantiated:
         as a rule, ``x ⊢ z`` is the composition of ``x ⊢ y`` and ``y ⊢
         z`` at a middle ``y`` drawn from the types or from a boundary
-        some rule :func:`discopy.axioms.hints` at.
+        some rule :func:`discopy.axioms.hints` at when both ``x`` and
+        ``z`` are known, and otherwise proved from the one that is.
 
         Parameters:
             other : The other morphism to compose sequentially.
@@ -211,13 +212,16 @@ class Category[C0, C1: Category](Testable, ABC):
             name: rule for name, rule in cls.rules.items()
             if rule.boxes and not rule.premises and rule.reason is None}
 
-    @rule(applies=lambda cls, dom, cod, size: size == 1)
-    def box(cls, draw, dom, cod, size, types):
-        """ ``x ⊢ y`` with one box is a fresh generator. """
+    @rule(applies=lambda cls, goal: goal.fuel == 1)
+    def box(cls, draw, goal, types):
+        """
+        ``x ⊢ y`` with one box is a fresh generator, a hole in either
+        boundary drawn from the types.
+        """
         from hypothesis import strategies as st
 
-        name = str(draw(st.uuids()))
-        return [], lambda: cls.box_factory(name, dom, cod)
+        dom, cod, _ = goal.draw(draw, Cells.of(cls, types=types))
+        return cls.box_factory(str(draw(st.uuids())), dom, cod)
 
     @axiom
     def unitality(
@@ -981,15 +985,39 @@ class SymmetricCategory[C0, C1](BraidedCategory[C0, C1]):
             if perm != tuple(range(len(dom)))
             and dom[:0].tensor(*(dom[i:i + 1] for i in perm)) == cod]
 
-    @rule(applies=lambda cls, dom, cod, size:
-          size == 1 and len(dom) == len(cod) >= 2 and dom != cod
-          and sorted(map(repr, dom)) == sorted(map(repr, cod)))
-    def permuting(cls, draw, dom, cod, size, types):
-        """ ``x ⊢ y`` is a permutation when ``y`` shuffles ``x``. """
+    @classmethod
+    def shuffling(cls, goal) -> list:
+        """
+        The permutations a goal is: the shuffles of its domain into its
+        codomain when both are known, every non-identity permutation of
+        the one known when the other is free, none otherwise.
+        """
+        dom, cod = goal.values
+        if dom is not None and cod is not None:
+            return cls.shuffles(dom, cod)
+        known = dom if cod is None else cod
+        if known is None or not goal.free(goal.cod if cod is None
+                                          else goal.dom):
+            return []
+        return [
+            perm for perm in permutations(range(len(known)))
+            if known[:0].tensor(*(known[i:i + 1] for i in perm)) != known]
+
+    @rule(applies=lambda cls, goal: goal.fuel == 1 and bool(
+        cls.shuffling(goal)))
+    def permuting(cls, draw, goal, types):
+        """
+        ``x ⊢ y`` is a permutation when ``y`` shuffles ``x``, any shuffle
+        of the one boundary known when the other is free.
+        """
         from hypothesis import strategies as st
 
-        perm = draw(st.sampled_from(cls.shuffles(dom, cod)))
-        return [], lambda: cls.permutation_factory(dom, list(perm))
+        perm = draw(st.sampled_from(cls.shuffling(goal)))
+        dom, cod = goal.values
+        if dom is None:
+            inverse = [perm.index(i) for i in range(len(perm))]
+            dom = cod[:0].tensor(*(cod[i:i + 1] for i in inverse))
+        return cls.permutation_factory(dom, list(perm))
 
     @permuting.hint
     def permuting(cells, dom, cod):

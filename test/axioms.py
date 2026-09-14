@@ -18,6 +18,7 @@ from discopy.axioms import (
     Cells,
     Count,
     Equation,
+    Goal,
     Level,
     Pair,
     Testable,
@@ -287,8 +288,9 @@ def test_generators():
 
     assert [rule.name for rule in invoked(Vocabulary)] == [
         "id", "then", "f", "g"]
-    assert Vocabulary.generators["f"].applies(Vocabulary, x, y, 1)
-    assert not Vocabulary.generators["f"].applies(Vocabulary, y, x, 1)
+    assert Vocabulary.generators["f"].applies(Vocabulary, Goal.of(x, y, 1))
+    assert not Vocabulary.generators["f"].applies(
+        Vocabulary, Goal.of(y, x, 1))
     loop = find(
         Vocabulary.strategy(dom=x, cod=x, min_leaves=4),
         lambda arrow: len(arrow.inside) == 4)
@@ -298,6 +300,51 @@ def test_generators():
     with raises(NoSuchExample):
         find(Vocabulary.strategy(dom=x, cod=y), lambda arrow: any(
             box.name not in "fg" for box in arrow.inside))
+
+
+def test_open_goals():
+    """ A boundary left open is a hole the proof fills. """
+    from discopy import frobenius, markov, rigid, symmetric
+    from discopy.axioms import alignments
+
+    x, y = symmetric.Ty('x'), symmetric.Ty('y')
+    goal = Goal.of(x @ y, None, 1, symmetric.Ty())
+    assert str(goal) == "x @ y ⊢ ?" and not goal.closed and goal.free(goal.cod)
+    swapping = symmetric.Diagram.rules["permuting"]
+    assert swapping.applies(symmetric.Diagram, goal)
+    swapped = find(
+        symmetric.Diagram.strategy(dom=x @ y, max_leaves=1),
+        lambda diagram: any(
+            isinstance(box, symmetric.Swap) for box in diagram.boxes))
+    assert swapped.cod == y @ x
+    cupping = rigid.Diagram.rules["cups"]
+    x = rigid.Ty('x')
+    aligned = alignments(
+        cupping.conclusion, Goal.of(x @ x.r, None, 1, rigid.Ty()))
+    assert len(aligned) == 1
+    assert aligned[0][0]["X"].instantiate(aligned[0][1]) == x
+    assert find(
+        rigid.Diagram.strategy(dom=x @ x.r, max_leaves=1),
+        lambda diagram: any(isinstance(box, rigid.Cup) for box in diagram.boxes)
+    ) == rigid.Cup(x, x.r)
+    x = markov.Ty('x')
+    copied = find(
+        markov.Diagram.strategy(dom=x, max_leaves=1),
+        lambda diagram: any(
+            isinstance(box, markov.Copy) for box in diagram.boxes)
+        and diagram.cod == x @ x @ x)
+    assert copied == markov.Copy(x, 3)
+    x = frobenius.Ty('x')
+    fused = find(
+        frobenius.Diagram.strategy(dom=x @ x, max_leaves=1),
+        lambda diagram: any(
+            isinstance(box, frobenius.Spider) for box in diagram.boxes)
+        and diagram.cod == x)
+    assert fused == frobenius.Spider(2, 1, x)
+    composed = find(
+        Arrow.strategy(cod=Ob('y'), min_leaves=2, max_leaves=2),
+        lambda arrow: True)
+    assert composed.cod == Ob('y') and len(composed.inside) == 2
 
 
 def test_leaf_applies_only_on_its_shape():
@@ -314,7 +361,7 @@ def test_leaf_applies_only_on_its_shape():
             return Box('loop', dom, dom)
 
     assert set(Toy.rules) == {"id", "then", "box", "loop"}
-    assert not Toy.rules["then"].applies(Toy, Ob('x'), Ob('x'), 2)
+    assert not Toy.rules["then"].applies(Toy, Goal.of(Ob('x'), Ob('x'), 2))
     x, y = Ob('x'), Ob('y')
     is_loop = lambda arrow: arrow.inside[0].name == 'loop'
     find(search(Toy, dom=x, cod=x, min_leaves=1, max_leaves=1,
@@ -339,7 +386,9 @@ def test_rule_from_annotations():
 
     looping = Toy.rules["looping"]
     a, b = map(traced.Ty, "ab")
-    assert looping.applies(Toy, a, b, 2) and not looping.applies(Toy, a, b, 1)
+    unit = traced.Ty()
+    assert looping.applies(Toy, Goal.of(a, b, 2, unit))
+    assert not looping.applies(Toy, Goal.of(a, b, 1, unit))
     from discopy.axioms import search
     looped = find(
         search(Toy, dom=a, cod=b, min_leaves=2, max_leaves=2,
@@ -353,11 +402,11 @@ def test_rules_from_patterns():
     from discopy import braided, rigid, traced
 
     x, y, z = map(rigid.Ty, "xyz")
-    cupping = rigid.Diagram.rules["cups"]
-    assert cupping.applies(rigid.Diagram, x @ x.r, rigid.Ty(), 1)
-    assert cupping.applies(rigid.Diagram, x.l @ x, rigid.Ty(), 1)
-    assert not cupping.applies(rigid.Diagram, x @ y.r, rigid.Ty(), 1)
-    assert not cupping.applies(rigid.Diagram, x @ x.r, rigid.Ty(), 2)
+    cupping, unit = rigid.Diagram.rules["cups"], rigid.Ty()
+    assert cupping.applies(rigid.Diagram, Goal.of(x @ x.r, unit, 1, unit))
+    assert cupping.applies(rigid.Diagram, Goal.of(x.l @ x, unit, 1, unit))
+    assert not cupping.applies(rigid.Diagram, Goal.of(x @ y.r, unit, 1, unit))
+    assert not cupping.applies(rigid.Diagram, Goal.of(x @ x.r, unit, 2, unit))
     types = rigid.Ty.strategy()
     assert find(cupping.middles(x @ x.r, rigid.Ty(), types),
                 lambda middle: not middle) == rigid.Ty()
@@ -366,9 +415,9 @@ def test_rules_from_patterns():
     hinted = find(braiding.middles(a @ b @ c, c, types),
                   lambda middle: middle == b @ a @ c)
     assert hinted == b @ a @ c
-    tracing = traced.Diagram.rules["trace"]
-    assert tracing.applies(traced.Diagram, a, b, 2)
-    assert not tracing.applies(traced.Diagram, a, b, 1)
+    tracing, unit = traced.Diagram.rules["trace"], traced.Ty()
+    assert tracing.applies(traced.Diagram, Goal.of(a, b, 2, unit))
+    assert not tracing.applies(traced.Diagram, Goal.of(a, b, 1, unit))
     traced_arrow = find(
         traced.Diagram.strategy(dom=a, cod=b, min_leaves=2, max_leaves=2),
         lambda value: any(isinstance(box, traced.Trace) and box.left
@@ -440,9 +489,10 @@ def test_pattern_counts_and_choices():
     with raises(TypeError):
         X[X, Y]
     spiders = frobenius.Diagram.rules["spiders"]
-    x = frobenius.Ty('x')
-    assert spiders.applies(frobenius.Diagram, x @ x, x, 1)
-    assert not spiders.applies(frobenius.Diagram, x @ x, x @ frobenius.Ty('y'), 1)
+    x, unit = frobenius.Ty('x'), frobenius.Ty()
+    assert spiders.applies(frobenius.Diagram, Goal.of(x @ x, x, 1, unit))
+    assert not spiders.applies(
+        frobenius.Diagram, Goal.of(x @ x, x @ frobenius.Ty('y'), 1, unit))
 
     class Toy(Arrow):
         """ A category dropping the cut by an inapplicable override. """
@@ -450,7 +500,7 @@ def test_pattern_counts_and_choices():
         def then(self, *others):
             return Arrow.then(self, *others)
 
-    assert not Toy.rules["then"].applies(Toy, Ob('x'), Ob('x'), 2)
+    assert not Toy.rules["then"].applies(Toy, Goal.of(Ob('x'), Ob('x'), 2))
     assert Toy.rules["then"].__doc__ == "Never composes."
 
 
@@ -476,7 +526,7 @@ def test_two_categorical_patterns():
     assert list(A.match(x)) == [{"X": r, "Y": g, "A": x}]
     tensor = Diagram.rules["tensor"]
     assert tensor.owner is abc.TwoCategory and tensor.boxes == 0
-    matches = tensor.matches(x @ y, x @ y, 2)
+    matches = tensor.instances(Goal.of(x @ y, x @ y, 2, Ty()))
     assert sorted(len(env["A"]) for env in matches) == [0, 1, 2]
     assert all(env["A"].cod == env["B"].cod == env["C"].dom
                for env in matches)

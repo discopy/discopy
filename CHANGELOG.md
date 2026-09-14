@@ -88,6 +88,28 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   gone, and every pattern draws through one composite strategy built
   once, where a fresh `st.composite` inspected its function at every
   draw, half the cost of generating an example.
+- The search proves goals with holes: an `axioms.Goal` is a sequent of
+  patterns over goal variables, one per atom of a boundary that is known
+  and a hole for what is not, with a fuel, the number of boxes left to
+  place, and a boundary left `None` is one hole, unconstrained, where
+  `search` used to draw it from the types before searching. A rule
+  aligns its conclusion with the goal, `axioms.alignments`: a type
+  variable takes any stretch of a boundary, splitting a hole where it
+  ends, an atom takes an atom or splits a hole, and what the rule has
+  already bound `axioms.unify`s with the rest, a hole absorbing what
+  faces it, bound when what it absorbed is known, an empty stretch
+  keeping the colour of its neighbours. The premises are proved in
+  sequence, the most constrained first, what each proof binds carried to
+  the next, so that a composition constrained on one side proves that
+  side first and the other from where it leads, and a tensor splits the
+  side it knows, the permutation, copy and spider rules of the level
+  shuffling, copying or fusing it before; a closed goal keeps drawing its
+  middle from the types and the hints, and the tables of `derivable`. The
+  procedural rules take a goal: the free box draws its holes from the
+  types, between the colours of the boundary it knows, and the
+  permutation shuffles the one boundary known when the other is free;
+  `Rule.applies` and a rule's `condition` take a goal, `Rule.matches` the
+  alignments and `Rule.instances` their values on a closed goal.
 - `abc.Category.generators`, the generators the search may invoke — the
   rules of `rules` that build a box from no premise: a free box, the
   structural boxes of the level, its permutations — collected like

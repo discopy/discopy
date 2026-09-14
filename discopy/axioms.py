@@ -26,6 +26,7 @@ Summary
     Axiom
     AxiomFailure
     Rule
+    Goal
     Prepared
     Testable
     PatternBase
@@ -78,12 +79,31 @@ system: an object is a sequent ``dom ⊢ cod``, an arrow is a proof, a layer
 is a rule application. Generating an arrow with both boundaries fixed —
 what every law of a square, a trace or a feedback loop needs — is type
 inhabitation in that system, and :func:`search` does it literally, as
-backward proof search: from a sequent and a ``size``, the number of boxes
-left to place, draw one of the :class:`Rule` that apply, recurse on its
-premises, conclude. Every choice is a Hypothesis draw, so Hypothesis's
-own search — random generation, shrinking, the example database — is the
-control strategy of the proof search, and the category's rules are its
-proof system.
+backward proof search: from a :class:`Goal`, a pattern sequent with a
+fuel, the number of boxes left to place, draw one of the :class:`Rule`
+that apply, prove its premises, conclude. Every choice is a Hypothesis
+draw, so Hypothesis's own search — random generation, shrinking, the
+example database — is the control strategy of the proof search, and the
+category's rules are its proof system.
+
+A goal is a sequent of patterns over goal variables, one per atom of a
+boundary that is known and a hole, unbound, for what is not: a boundary
+that is one hole is unconstrained, and ``Diagram.strategy(dom=x)`` proves
+``x ⊢ ?`` from the domain alone. A rule aligns its conclusion with the
+goal, :func:`alignments`: a type variable takes any stretch of a
+boundary, splitting a hole where it ends, an atom takes an atom or splits
+a hole, and what the rule has already bound :func:`unify`\\ s with the
+rest, a hole absorbing what faces it. The premises are then proved in
+sequence, the most constrained first, and what each proof binds is
+carried to the next: a composition ``x ⊢ ?`` proves ``x ⊢ ?`` first and
+``? ⊢ ?`` from where it leads, a composition ``? ⊢ y`` the other way
+round, and a tensor splits the side it knows, ``x ⊢ ?`` into ``x₁ ⊢ ?``
+and ``x₂ ⊢ ?``, the permutation, copy or spider rules of the level
+shuffling, copying or fusing the known side before it. A goal with both
+boundaries known is closed: a composition draws its middle from the
+types and the :func:`hints`, and over a fixed set of generators the
+search tables which sequents are :func:`derivable`. The free box proves
+any goal with one box, drawing its holes from the types.
 
 The rules are stated once on the abstract base classes of
 :mod:`discopy.abc`, beside the axioms that exercise the structure they
@@ -104,10 +124,10 @@ rules of its category, inside a diagram.
 
 Three facts about this search:
 
-- **It never dead-ends and never filters.** With ``size >= 1`` the
-  ``box`` rule always applies; a side that ``tensoring`` gives no box is a
+- **It never dead-ends and never filters.** With one box of fuel the
+  ``box`` rule always applies; a side that a tensor gives no box is a
   common prefix or suffix of the boundaries, hence an identity; a
-  structural leaf is offered only when its pattern matches. In the
+  structural leaf is offered only when its conclusion aligns. In the
   language of focusing :cite:`Andreoli92`, the invertible rules —
   identity, whiskering, cut through a fresh middle — apply freely and the
   non-invertible ones are pattern-matched. Inhabitation is trivial here
@@ -205,6 +225,7 @@ from collections.abc import Callable, Iterator
 from copy import deepcopy
 from dataclasses import KW_ONLY, dataclass, field, replace
 from functools import cache, wraps
+from itertools import chain, count
 from abc import ABCMeta
 from types import NoneType
 from typing import (
@@ -780,11 +801,10 @@ class Rule[T]:
 
     Parameters:
         procedure : For a procedural rule, from the category, a Hypothesis
-            ``draw``, the sequent and the strategy for ``types``, to the
-            list of premises ``(dom, cod, size)`` and the function
-            concluding the arrow from their proofs.
+            ``draw``, the :class:`Goal` and the strategy for ``types``,
+            to the arrow it builds, drawing the holes of the goal.
         condition : For a procedural rule, whether it applies to the
-            sequent, without drawing.
+            goal, without drawing.
         shape : A strategy for boundaries the rule fires on, given the
             cells, the sequent and the strategy for types, drawn as a
             middle boundary by a composition, see :func:`hints`.
@@ -850,11 +870,11 @@ class Rule[T]:
         draw from a fixed vocabulary, see
         :attr:`discopy.abc.Category.generators`.
         """
-        def condition(category, dom, cod, size):
-            return size == 1 and (dom, cod) == (box.dom, box.cod)
+        def condition(category, goal):
+            return goal.fuel == 1 and goal.match(box.dom, box.cod) is not None
 
-        def procedure(category, draw, dom, cod, size, types):
-            return [], lambda: box
+        def procedure(category, draw, goal, types):
+            return box
 
         def replaced(boundary, source, target):
             if not hasattr(boundary, "__len__"):
@@ -907,7 +927,7 @@ class Rule[T]:
         :func:`inapplicable`.
         """
         return replace(
-            self, condition=lambda cls, dom, cod, size: False, shape=None,
+            self, condition=lambda cls, goal: False, shape=None,
             reason=reason)
 
     @property
@@ -944,30 +964,58 @@ class Rule[T]:
             return []
         return self.candidates(self.cells(types).between(dom, cod), dom, cod)
 
-    def applies(self, cls, dom, cod, size: int) -> bool:
-        """ Whether the rule applies to a sequent, without drawing. """
+    def applies(self, cls, goal: Goal) -> bool:
+        """ Whether the rule applies to a goal, without drawing. """
         if self.condition is not None:
-            return self.condition(cls, dom, cod, size)
-        return bool(self.matches(dom, cod, size))
+            return self.condition(cls, goal)
+        return bool(self.matches(goal))
 
-    def matches(self, dom, cod, size: int) -> list[dict]:
+    def matches(self, goal: Goal) -> list[tuple[dict, dict]]:
         """
-        The environments matching the :attr:`conclusion` on a sequent that
+        The :func:`alignments` of the :attr:`conclusion` with a goal that
         leave the premises a feasible number of boxes: each needs
         :func:`least` one unless it is an identity, a rule adding no box
         needs one somewhere, and a rule with no premise takes them all.
         """
-        budget = size - self.boxes
+        budget = goal.fuel - self.boxes
         if budget < 0 or (not self.premises and budget) or (
                 self.premises and not self.boxes and not budget):
             return []
-        unit = self.cells().unit()
+        found = []
+        for rule_env, env in alignments(self.conclusion, goal):
+            needs = [
+                least_open(premise, rule_env, env, goal.unit)
+                for premise in self.premises.values()]
+            if None in needs or sum(needs) > budget or (
+                    goal.closed
+                    and self.instance(rule_env, env, goal.unit) is None):
+                continue
+            found.append((rule_env, env))
+        return found
+
+    def instance(self, rule_env: dict, env: dict, unit) -> dict | None:
+        """
+        The values an alignment binds the variables of the rule to, on
+        a closed goal, the colours a variable stands between bound too,
+        or :obj:`None` when a variable stands between the wrong ones.
+        """
+        values = {}
+        for var in self.pattern.vars + self.conclusion.vars:
+            if var.name not in rule_env or var.name in values:
+                continue
+            value = rule_env[var.name]
+            if isinstance(value, Word):
+                value = value.instantiate(env, unit)
+            values = bind(values, var, value)
+            if values is None:
+                return None
+        return values
+
+    def instances(self, goal: Goal) -> list[dict]:
+        """ The values of every alignment with a closed goal. """
         return [
-            env for env in self.conclusion.matches(dom, cod)
-            if None not in (needs := [
-                least(premise, env, unit)
-                for premise in self.premises.values()])
-            and sum(needs) <= budget]
+            self.instance(rule_env, env, goal.unit)
+            for rule_env, env in self.matches(goal)]
 
     def feasible(self, draw: Callable, dom, cod, size: int, env: dict,
                  unit) -> tuple[dict, list]:
@@ -1006,29 +1054,45 @@ class Rule[T]:
             reject()
         return draw(st.sampled_from(options))
 
-    def derive(self, draw: Callable, dom, cod, size: int, types
-               ) -> tuple[list, Callable]:
+    def derive(self, draw: Callable, goal: Goal, types, prove: Callable):
         """
-        The premises the rule reduces a sequent to, as triples ``(dom,
-        cod, size)``, and the function concluding the arrow from their
-        proofs: a procedural rule's own, and otherwise a feasible match of
-        the conclusion drawn, the unbound variables drawn from the types
-        and the :func:`hints`, the boxes shared out with an identity
-        where the match allows one, the proofs and the built arrow
-        checked against their sequents.
+        The arrow the rule builds for a goal, proving its premises with
+        ``prove``, a function from a goal to a proof and the environment
+        it binds: a procedural rule builds its own; a declarative one
+        draws an alignment of its conclusion with the goal and either
+        :meth:`close`\\ s the goal, when both boundaries are known, or
+        :meth:`open`\\ s it.
         """
         if self.procedure is not None:
-            return self.procedure(self.category, draw, dom, cod, size, types)
+            return self.procedure(self.category, draw, goal, types)
         from hypothesis import strategies as st
 
-        cells = self.cells(types).between(dom, cod)
+        rule_env, env = draw(st.sampled_from(self.matches(goal)))
+        goal = replace(goal, env=env)
+        if goal.closed:
+            return self.close(draw, goal, types, prove, rule_env)
+        return self.open(draw, goal, types, prove, rule_env)
+
+    def close(self, draw: Callable, goal: Goal, types, prove: Callable,
+              rule_env: dict):
+        """
+        Build the arrow for a closed goal, both boundaries known: the
+        unbound variables are drawn from the types and the :func:`hints`
+        — the middle of a composition among them — the boxes shared out
+        with an identity where the alignment allows one, feasibly when the
+        free box is not invoked, and each premise proved as a closed goal.
+        """
+        from hypothesis import strategies as st
+
+        dom, cod = goal.values
         cells = replace(
-            cells, hints=lambda: hints(self.category, dom, cod, types))
-        env = draw(st.sampled_from(self.matches(dom, cod, size)))
-        unit, free = cells.unit(), any(
-            rule.name == "box" for rule in invoked(self.category))
+            self.cells(types).between(dom, cod),
+            hints=lambda: hints(self.category, dom, cod, types))
+        unit = cells.unit()
+        env = self.instance(rule_env, goal.env, unit)
+        free = any(rule.name == "box" for rule in invoked(self.category))
         if not free and self.premises:
-            env, sizes = self.feasible(draw, dom, cod, size, env, unit)
+            env, sizes = self.feasible(draw, dom, cod, goal.fuel, env, unit)
             premises = {
                 name: sequent.instantiate(env, unit)
                 for name, sequent in self.premises.items()}
@@ -1042,29 +1106,579 @@ class Rule[T]:
                 1 if need is None else need for need in (
                     least(sequent, env, unit)
                     for sequent in self.premises.values())]
-            names, sizes, budget = list(premises), [], size - self.boxes
+            names, sizes, budget = list(premises), [], goal.fuel - self.boxes
             for i, name in enumerate(names):
                 rest = sum(needs[i + 1:])
                 drawn = budget if i == len(names) - 1 else draw(st.integers(
                     min_value=needs[i], max_value=budget - rest))
                 sizes.append(drawn)
                 budget -= drawn
-        drawn = [(*premises[name], n) for name, n in zip(names, sizes)]
-        expected = self.conclusion.instantiate(env, unit)
+        proofs = {}
+        for name, n in zip(names, sizes):
+            subgoal = Goal.of(*premises[name], n, goal.unit, goal.level)
+            proofs[name], _ = prove(subgoal)
+        term = apply(
+            cells.category, self.method, self.arguments, env, proofs, unit)
+        if (term.dom, term.cod) != self.conclusion.instantiate(env, unit):
+            raise AxiomError(f"{self} built {term} for {goal}.")
+        return term
 
-        def conclude(*proofs):
-            for (source, target, _), proof in zip(drawn, proofs):
-                if (proof.dom, proof.cod) != (source, target):
-                    raise AxiomError(
-                        f"{self} was given {proof} for {source} ⊢ {target}.")
-            term = apply(
-                cells.category, self.method, self.arguments, env,
-                dict(zip(names, proofs)), unit)
-            if (term.dom, term.cod) != expected:
-                raise AxiomError(f"{self} built {term} for {dom} ⊢ {cod}.")
-            return term
+    def open(self, draw: Callable, goal: Goal, types, prove: Callable,
+             rule_env: dict):
+        """
+        Build the arrow for an open goal, a boundary with a hole in it: a
+        count or a boolean the rule needs is drawn, every other unbound
+        variable of the rule becomes a hole, the premises are proved in
+        sequence, the most constrained first, the environment each proof
+        binds carried to the next — so that a composition constrained on
+        one side alone proves that side first and the other from where it
+        leads — and the holes an argument still has are drawn last.
+        """
+        from hypothesis import strategies as st
 
-        return drawn, conclude
+        cells = Cells.of(self.category, types=types)
+        unit, objects = goal.unit, self.cells().top - 1
+        rule_env = dict(rule_env)
+        for var in self.pattern.vars:
+            if var.name in rule_env:
+                continue
+            if var.kind in ("count", "bool"):
+                rule_env[var.name] = var.generate(draw, cells, {})
+            elif var.level == objects:
+                rule_env[var.name] = Word((fresh(var.kind, goal.level), ))
+        premises = {
+            name: (substitute(sequent.dom, rule_env),
+                   substitute(sequent.cod, rule_env))
+            for name, sequent in self.premises.items()}
+        env = goal.env
+        needs = [
+            1 if need is None else need for need in (
+                least_open(sequent, rule_env, env, unit)
+                for sequent in self.premises.values())]
+        names, sizes, budget = list(premises), {}, goal.fuel - self.boxes
+        for i, name in enumerate(names):
+            rest = sum(needs[i + 1:])
+            drawn = budget if i == len(names) - 1 else draw(st.integers(
+                min_value=needs[i], max_value=budget - rest))
+            sizes[name], budget = drawn, budget - drawn
+        proofs, remaining = {}, dict(premises)
+        while remaining:
+            name = max(remaining, key=lambda name: boundness(
+                *remaining[name], env))
+            subgoal = Goal(
+                *remaining.pop(name), env, sizes[name], unit, goal.level)
+            proofs[name], env = prove(subgoal)
+        kwargs = {}
+        for name, pattern in self.arguments.items():
+            value = substitute(pattern, rule_env)
+            if isinstance(value, Word):
+                env = value.draw_vars(draw, cells, env)
+                value = value.instantiate(env, unit)
+            kwargs[name] = value
+        ordered = {name: proofs[name] for name in self.premises}
+        receiver = ordered.pop("self", self.category)
+        return getattr(receiver, self.method.__name__)(
+            *ordered.values(), **kwargs)
+
+
+HOLES = count()
+""" The counter naming the goal variables, see :func:`fresh`. """
+
+
+def fresh(kind: str = "type", level: int = 0) -> Var:
+    """
+    A goal variable of a kind at a level, unbound: a hole in a
+    :class:`Goal`, standing for any cell of its kind until a proof binds
+    it, or an atom of a boundary once bound.
+    """
+    kinds = dict(atom=Atom, nonempty=NonEmpty, pair=Pair)
+    bound = Level(level) if kind == "type" else kinds[kind](Level(level))
+    return Var(f"?{next(HOLES)}", bound)
+
+
+def lift(value, level: int = 0) -> tuple[Word, dict]:
+    """
+    A known boundary as a goal word, one bound variable per atom, or
+    one for an empty boundary, and the environment binding them.
+    """
+    atoms = [value[i:i + 1] for i in range(len(value))] or [value]\
+        if hasattr(value, "__len__") else [value]
+    items = tuple(fresh("atom", level) for _ in atoms)
+    return Word(items), {var.name: atom for var, atom in zip(items, atoms)}
+
+
+@dataclass(frozen=True)
+class Goal:
+    """
+    A proof goal: a pattern sequent ``dom ⊢ cod`` over goal variables,
+    the environment binding those that are known, one per atom of a
+    boundary, and the fuel, the number of boxes left to place. A variable
+    left unbound is a hole, unconstrained until a proof binds it: a
+    boundary that is one hole is free, and :func:`search` proves what a
+    rule leaves open from where its other premises lead.
+
+    Parameters:
+        dom : The pattern of the domain.
+        cod : The pattern of the codomain.
+        env : The values of the bound variables.
+        fuel : The number of boxes left to place.
+        unit : The unit of the objects, for an empty boundary.
+        level : The level of the objects in the cells of the category.
+
+    >>> from discopy.monoidal import Ty
+    >>> x, y = Ty('x'), Ty('y')
+    >>> goal = Goal.of(x @ y, None, fuel=2, unit=Ty())
+    >>> print(goal)
+    x @ y ⊢ ?
+    >>> assert goal.values[0] == x @ y and goal.values[1] is None
+    >>> assert goal.closed is False and goal.free(goal.cod)
+    >>> assert goal.match(x @ y, y)[goal.cod.items[0].name] == y
+    """
+    dom: Word
+    cod: Word
+    env: dict = field(default_factory=dict, hash=False)
+    fuel: int = 0
+    unit: object = None
+    level: int = 0
+
+    @classmethod
+    def of(cls, dom, cod, fuel: int = 0, unit=None, level: int = 0) -> Goal:
+        """ The goal of a sequent, a boundary left :obj:`None` a hole. """
+        env, sides = {}, []
+        for value in (dom, cod):
+            if value is None:
+                sides.append(Word((fresh("type", level), )))
+                continue
+            word, bindings = lift(value, level)
+            env.update(bindings)
+            sides.append(word)
+        return cls(*sides, env, fuel, unit, level)
+
+    def __str__(self):
+        def show(word):
+            return " @ ".join(
+                str(self.env[item.name]) if isinstance(item, Var)
+                and item.name in self.env else "?" if isinstance(item, Var)
+                else str(item) for item in word.items) or "()"
+        return f"{show(self.dom)} ⊢ {show(self.cod)}"
+
+    def value(self, side: Word):
+        """ What a side stands for when it is known, else :obj:`None`. """
+        if all(var.name in self.env for var in side.vars):
+            return side.instantiate(self.env, self.unit)
+        return None
+
+    @property
+    def values(self) -> tuple:
+        """ The boundaries, each :obj:`None` while it has a hole. """
+        return self.value(self.dom), self.value(self.cod)
+
+    @property
+    def closed(self) -> bool:
+        """ Whether both boundaries are known. """
+        return None not in self.values
+
+    def free(self, side: Word) -> bool:
+        """ Whether a side is one hole, i.e. unconstrained. """
+        return len(side.items) == 1 and is_hole(side.items[0], self.env)
+
+    def match(self, dom, cod) -> dict | None:
+        """
+        The environment binding the holes so that the goal stands for the
+        sequent, or :obj:`None` when it does not: what a proof binds.
+        """
+        return next(
+            Sequent(self.dom, self.cod).matches(dom, cod, self.env), None)
+
+    def draw(self, draw: Callable, cells: Cells) -> tuple:
+        """
+        The boundaries with every hole drawn, the known one first and
+        the other between its colours when it has some, and the
+        environment.
+        """
+        env, values = dict(self.env), {}
+        for name, side in sorted(
+                dict(dom=self.dom, cod=self.cod).items(),
+                key=lambda item: self.value(item[1]) is None):
+            known = next(iter(values.values()), None)
+            between = cells if not hasattr(known, "dom")\
+                else replace(cells, boundaries=(known.dom, known.cod))
+            env = side.draw_vars(draw, between, env)
+            values[name] = side.instantiate(env, self.unit)
+        return values["dom"], values["cod"], env
+
+
+def is_hole(item, env: dict, kind: str = "type") -> bool:
+    """ Whether an item is an unbound goal variable of a kind. """
+    return isinstance(item, Var) and item.name not in env and (
+        item.kind == kind or kind == "type" and item.kind == "nonempty")
+
+
+def value_of(item, env: dict):
+    """ What a goal item stands for when its variables are bound. """
+    if all(var.name in env for var in item.vars):
+        return item.value(env)
+    return None
+
+
+def is_atomic(item, env: dict) -> bool:
+    """ Whether a goal item stands for one atom, known or not. """
+    value = value_of(item, env)
+    if value is not None:
+        return size(value) == 1
+    return item.vars[0].kind == "atom" or isinstance(item, Exp)
+
+
+def boundness(dom: Word, cod: Word, env: dict) -> int:
+    """ How many boundaries of a premise are known, its priority. """
+    return sum(
+        all(var.name in env for var in side.vars) for side in (dom, cod))
+
+
+def normalise(items: tuple, env: dict, level: int) -> tuple[tuple, dict]:
+    """
+    The items of a goal word with every known one an atom or an empty
+    boundary, a variable bound to a longer type replaced by one per atom.
+    """
+    found = []
+    for item in items:
+        value = value_of(item, env)
+        if value is None or size(value) <= 1:
+            found.append(item)
+            continue
+        word, bindings = lift(value, level)
+        found += word.items
+        env = dict(env, **bindings)
+    return tuple(found), env
+
+
+def is_empty(item, env: dict) -> bool:
+    """ Whether a goal item is known to stand for an empty boundary. """
+    value = value_of(item, env)
+    return value is not None and hasattr(value, "__len__") and not len(value)
+
+
+def empty_at(word: tuple, position: int, env: dict, unit, right: int = None):
+    """
+    The empty boundary between two items of a goal word, at the colour
+    of the known one next to it, the unit when neither is known.
+    """
+    right = position if right is None else right
+    for index, end in ((position - 1, "cod"), (right, "dom")):
+        if not 0 <= index < len(word):
+            continue
+        value = value_of(word[index], env)
+        if value is not None and hasattr(value, "__len__"):
+            return value[len(value):] if end == "cod" else value[:0]
+    return unit
+
+
+def expand(item, rule_env: dict) -> tuple:
+    """
+    The goal items a rule item stands for, its variables bound to goal
+    words: an adjoint, a delay or an exponential of a goal variable is
+    derived from it.
+    """
+    if isinstance(item, Var):
+        return rule_env[item.name].items
+    if isinstance(item, Exp):
+        (base, ), (exponent, ) = (
+            rule_env[var.name].items for var in (item.var, item.exponent))
+        return (Exp(base, exponent, item.left), )
+    if isinstance(item, Derived):
+        inner = rule_env[item.var.name].items
+        if not all(isinstance(var, Var) for var in inner):
+            raise TypeError(f"{item} cannot be derived from {inner}.")
+        derived = tuple(replace(item, var=var) for var in inner)
+        return tuple(reversed(derived)) if isinstance(item, Adjoint)\
+            else derived
+    raise TypeError(f"{item} cannot be expanded.")
+
+
+def substitute(pattern, rule_env: dict):
+    """
+    A pattern of a rule over the goal words its variables are bound to:
+    a word of goal items, a choice made, the first alternative bound, or
+    the value of a count or a boolean.
+    """
+    if isinstance(pattern, Word):
+        return Word(tuple(chain.from_iterable(
+            rule_env[item.count.name] * expand(item.item, rule_env)
+            if isinstance(item, Repeat) else expand(item, rule_env)
+            for item in pattern.items)))
+    if isinstance(pattern, Choice):
+        chosen = pattern.then if rule_env[pattern.var.name]\
+            else pattern.otherwise
+        return substitute(chosen, rule_env)
+    if isinstance(pattern, Alternatives):
+        return substitute(next(
+            option for option in pattern.options
+            if all(var.name in rule_env for var in option.vars)), rule_env)
+    if isinstance(pattern, Var) and pattern.kind in ("count", "bool"):
+        return rule_env[pattern.name]
+    return Word(expand(pattern, rule_env))
+
+
+def branches(side) -> list[tuple[dict, Word]]:
+    """ The words a boundary pattern may be, each with the choice made. """
+    if isinstance(side, Choice):
+        return [
+            (dict({side.var.name: flag}), word)
+            for flag, option in ((True, side.then), (False, side.otherwise))
+            for word in words(option)]
+    return [({}, word) for word in words(side)]
+
+
+def alignments(conclusion: Sequent, goal: Goal) -> list[tuple[dict, dict]]:
+    """
+    The ways a rule's conclusion stands for a goal, see :func:`align`: an
+    environment binding each variable of the conclusion to a goal word,
+    and the goal environment extended with what the alignment determines.
+    """
+    dom, env = normalise(goal.dom.items, goal.env, goal.level)
+    cod, env = normalise(goal.cod.items, env, goal.level)
+    found = []
+    for choices, dom_word in branches(conclusion.dom):
+        for other, cod_word in branches(conclusion.cod):
+            if any(choices.get(name, flag) != flag
+                   for name, flag in other.items()):
+                continue
+            for rule_env, bound in align(
+                    dom_word.items, dom, 0, env, dict(choices, **other),
+                    goal.unit, goal.level):
+                for further, more in align(
+                        cod_word.items, cod, 0, bound, rule_env, goal.unit,
+                        goal.level):
+                    found.append((further, more))
+    return found
+
+
+def align(items: tuple, word: tuple, position: int, env: dict,
+          rule_env: dict, unit, level: int) -> Iterator[tuple[dict, dict]]:
+    """
+    Align the items of a rule's boundary pattern with those of a goal
+    word from a position on, extending the rule environment and the goal
+    environment: a type variable takes any stretch of the word, the
+    empty one at the colour of its neighbours, a hole split where it
+    ends; an atom takes one atom or splits a hole; a repeated item is
+    expanded for each count; a run of items already bound stands for
+    goal items that :func:`unify` with the word.
+    """
+    if not items:
+        for index in range(position, len(word)):
+            if is_empty(word[index], env):
+                continue
+            empty = empty_at(word, index, env, unit, right=index + 1)
+            if not is_hole(word[index], env) or empty is None:
+                return
+            env = bind(env, word[index], empty)
+        yield rule_env, env
+        return
+    item, rest = items[0], items[1:]
+    if isinstance(item, Repeat):
+        name = item.count.name
+        counts = [rule_env[name]] if name in rule_env else range(4)
+        for n in counts:
+            yield from align(
+                n * (item.item, ) + rest, word, position, env,
+                dict(rule_env, **{name: n}), unit, level)
+        return
+    if isinstance(item, Var) and item.name not in rule_env:
+        if item.kind in ("type", "nonempty"):
+            for j in range(position, len(word) + 1):
+                if j > position or item.kind == "type":
+                    stretch, bound = word[position:j], env
+                    if not stretch:
+                        empty = empty_at(word, position, env, unit)
+                        stretch = (fresh("atom", level), )
+                        bound = None if empty is None\
+                            else bind(env, stretch[0], empty)
+                    if bound is not None:
+                        yield from align(
+                            rest, word, j, bound,
+                            dict(rule_env, **{item.name: Word(stretch)}),
+                            unit, level)
+                if j < len(word) and is_hole(word[j], env):
+                    first, second = fresh("type", level), fresh("type", level)
+                    stretch = Word(word[position:j] + (first, ))
+                    yield from align(
+                        rest, word[:j] + (first, second) + word[j + 1:],
+                        j + 1, env, dict(rule_env, **{item.name: stretch}),
+                        unit, level)
+            return
+        while position < len(word) and is_empty(word[position], env):
+            position += 1
+        width = 2 if item.kind == "pair" else 1
+        if position < len(word) and is_hole(word[position], env):
+            atoms = tuple(fresh("atom", level) for _ in range(width))
+            remainder = fresh("type", level)
+            yield from align(
+                rest, word[:position] + atoms + (remainder, )
+                + word[position + 1:], position + width, env,
+                dict(rule_env, **{item.name: Word(atoms)}), unit, level)
+        if position + width <= len(word) and all(
+                is_atomic(w, env) for w in word[position:position + width]):
+            stretch = Word(word[position:position + width])
+            yield from align(
+                rest, word, position + width, env,
+                dict(rule_env, **{item.name: stretch}), unit, level)
+        return
+    if any(var.name not in rule_env for var in item.vars):
+        yield from align_derived(
+            item, rest, word, position, env, rule_env, unit, level)
+        return
+    stretch, remaining = (), list(items)
+    while remaining and not isinstance(remaining[0], Repeat) and all(
+            var.name in rule_env for var in remaining[0].vars):
+        stretch += expand(remaining.pop(0), rule_env)
+    for bound, moved in unify(stretch, word, position, env, unit):
+        yield from align(
+            tuple(remaining), word, moved, bound, rule_env, unit, level)
+
+
+def align_derived(item, rest: tuple, word: tuple, position: int, env: dict,
+                  rule_env: dict, unit, level: int
+                  ) -> Iterator[tuple[dict, dict]]:
+    """
+    Align an item derived from variables not all bound yet, an adjoint or
+    an exponential: it takes a known atom by inverting it, binding its
+    variables, or splits a hole into the item over fresh atoms.
+    """
+    while position < len(word) and is_empty(word[position], env):
+        position += 1
+    if position >= len(word):
+        return
+    target = word[position]
+    if is_hole(target, env):
+        bound_rule = dict(rule_env, **{
+            var.name: Word((fresh("atom", level), )) for var in item.vars
+            if var.name not in rule_env})
+        try:
+            (derived, ) = expand(item, bound_rule)
+        except (TypeError, ValueError):
+            return
+        remainder = fresh("type", level)
+        yield from align(
+            rest, word[:position] + (derived, remainder) + word[position + 1:],
+            position + 1, env, bound_rule, unit, level)
+        return
+    value = value_of(target, env)
+    if value is None or size(value) != 1:
+        return
+    values = {}
+    for var in item.vars:
+        if var.name in rule_env:
+            stretch = rule_env[var.name]
+            if any(goal_var.name not in env for goal_var in stretch.vars):
+                return
+            values[var.name] = stretch.instantiate(env, unit)
+    inverted = item.invert(value, values)
+    if inverted is None:
+        return
+    bound_rule, bound_env = dict(rule_env), env
+    for var in item.vars:
+        if var.name not in rule_env:
+            stretch, bindings = lift(inverted[var.name], level)
+            bound_rule[var.name] = stretch
+            bound_env = dict(bound_env, **bindings)
+    yield from align(
+        rest, word, position + 1, bound_env, bound_rule, unit, level)
+
+
+def unify(left: tuple, word: tuple, position: int, env: dict, unit,
+          absorbing: tuple = None) -> Iterator[tuple[dict, int]]:
+    """
+    Unify a goal word with the items of another from a position on:
+    yield the environment binding what the items determine and the
+    position reached once the first word is used up. Two known items
+    must be equal, an empty one is passed over, an unknown atom takes a
+    known one, and a hole absorbs any number of items of the other word,
+    bound to them when they are all known, to the empty boundary at its
+    position when it absorbs none.
+    """
+    if absorbing is not None:
+        side, values = absorbing
+        hole = left[0] if side == "left" else word[position]
+        ended = env if values is False else None
+        if values:
+            ended = bind(env, hole, values[0] if len(values) == 1
+                         else values[0].tensor(*values[1:]))
+        elif values is not False:
+            empty = empty_at(
+                word, position, env, unit, right=position + (side == "right"))
+            ended = None if empty is None else bind(env, hole, empty)
+        if ended is not None:
+            yield from unify(
+                left[1:] if side == "left" else left,
+                word, position + (side == "right"), ended, unit)
+        other = word[position] if side == "left" and position < len(word)\
+            else left[0] if side == "right" and left else None
+        if other is not None:
+            value = value_of(other, env)
+            absorbed = values if is_empty(other, env)\
+                else False if values is False or value is None\
+                else values + [value]
+            yield from unify(
+                left if side == "left" else left[1:], word,
+                position + (side == "left"), env, unit, (side, absorbed))
+        return
+    if left and is_empty(left[0], env):
+        yield from unify(left[1:], word, position, env, unit)
+        return
+    if position < len(word) and is_empty(word[position], env):
+        yield from unify(left, word, position + 1, env, unit)
+        return
+    if not left:
+        yield env, position
+        return
+    item = left[0]
+    if position >= len(word):
+        empty = empty_at(word, position, env, unit)
+        if is_hole(item, env) and empty is not None:
+            bound = bind(env, item, empty)
+            if bound is not None:
+                yield from unify(left[1:], word, position, bound, unit)
+        return
+    other = word[position]
+    value, known = value_of(item, env), value_of(other, env)
+    if value is not None and known is not None:
+        if value == known:
+            yield from unify(left[1:], word, position + 1, env, unit)
+        return
+    if is_hole(item, env):
+        yield from unify(left, word, position, env, unit, ("left", []))
+    if is_hole(other, env):
+        yield from unify(left, word, position, env, unit, ("right", []))
+    if is_hole(item, env) or is_hole(other, env):
+        return
+    if value is not None:
+        bound = other.invert(value, env)
+    elif known is not None:
+        bound = item.invert(known, env)
+    else:
+        bound = env
+    if bound is not None:
+        yield from unify(left[1:], word, position + 1, bound, unit)
+
+
+def least_open(premise: Sequent, rule_env: dict, env: dict, unit
+               ) -> int | None:
+    """
+    The least number of boxes a premise needs on an open goal, see
+    :func:`least`: one while a boundary of it has a hole or a variable
+    the rule has not bound.
+    """
+    try:
+        dom, cod = (substitute(side, rule_env) for side in premise)
+        if any(var.name not in env for side in (dom, cod)
+               for var in side.vars):
+            return 1
+        dom, cod = dom.instantiate(env, unit), cod.instantiate(env, unit)
+    except (KeyError, TypeError):
+        return 1
+    if not size(dom) and not size(cod):
+        return None
+    return int(dom != cod)
 
 
 def least(premise: Sequent, env: dict, unit=None) -> int | None:
@@ -1201,14 +1815,15 @@ def derivable(category, dom, cod, size: int, table: dict = None) -> bool:
     if size and any(rule.name == "box" for rule in rules):
         table[key] = True
         return True
+    goal = Goal.of(dom, cod, size, Cells.of(category).unit())
     for rule in rules:
-        if not rule.applies(category, dom, cod, size):
+        if not rule.applies(category, goal):
             continue
         if rule.procedure is not None or not rule.premises:
             table[key] = True
             return True
         unit = rule.cells().unit()
-        for env in rule.matches(dom, cod, size):
+        for env in rule.instances(goal):
             free = [
                 var for var in rule.pattern.vars if var.name not in env]
             if any(var.kind != "type" or var.boundaries for var in free):
@@ -1326,10 +1941,10 @@ def rule(
     stands for, built by calling the method on the proofs of its
     premises and the values its other parameters stand for, counting the
     ``boxes`` it adds itself: none for a composition or a tensor. Given
-    ``applies``, the predicate saying when a rule applies, the decorated
-    function gives the premises instead, procedurally, e.g.
-    ``@rule(applies=lambda cls, dom, cod, size: size == 1)`` for a box,
-    and is replaced by the :class:`Rule`.
+    ``applies``, the predicate saying when a rule applies to a
+    :class:`Goal`, the decorated function builds the arrow itself,
+    procedurally, e.g. ``@rule(applies=lambda cls, goal: goal.fuel == 1)``
+    for a box, and is replaced by the :class:`Rule`.
     """
     if applies is not None:
         return lambda procedure: Rule(procedure, applies)
@@ -1357,7 +1972,7 @@ def inapplicable(reason: str) -> Callable:
             return method(*args, **kwargs)
 
         override.__rule__ = Rule(
-            method=override, condition=lambda cls, dom, cod, size: False,
+            method=override, condition=lambda cls, goal: False,
             reason=reason)
         return override
 
@@ -1369,49 +1984,57 @@ def search(
         min_leaves=None, max_leaves) -> st.SearchStrategy:
     """
     Generate arrows of the category by backward proof search over its
-    rules: from a sequent ``dom ⊢ cod`` with a ``size`` — the number of
-    boxes left to place, drawn within the given bounds — draw a rule among
-    those that apply, recurse on its premises and conclude. A boundary
-    left :obj:`None` is drawn from ``types``, equal to the other one when no
-    box may bridge them. Each application is reported as a Hypothesis
-    event, so the statistics of a cell say how often each rule fired. The
-    size is drawn among those the sequent is :func:`derivable` with, and
-    a sequent no rule derives, which a class drawing from a fixed set of
-    generators can reach, rejects the draw.
+    rules: from a :class:`Goal`, the sequent ``dom ⊢ cod`` with a fuel —
+    the number of boxes left to place, drawn within the given bounds —
+    draw a rule among those that apply, prove its premises and conclude.
+    A boundary left :obj:`None` is a hole, which the proof fills: a rule
+    proves the premise it constrains first and the rest from where it
+    leads, and the free box draws what is still open from ``types``. A
+    goal with both boundaries known draws its fuel among the sizes it is
+    :func:`derivable` with, and a rule composing through a middle draws
+    it from the types and the :func:`hints`. Each application is
+    reported as a Hypothesis event, so the statistics of a cell say how
+    often each rule fired. A goal no rule proves, which a class drawing
+    from a fixed set of generators can reach, rejects the draw.
     """
     from hypothesis import event, reject
     from hypothesis import strategies as st
 
-    rules = invoked(category)
+    rules, cells = invoked(category), Cells.of(category)
+    unit, level = cells.unit(), cells.top - 1
 
     @st.composite
-    def derive(draw, dom, cod, size):
-        applicable = [
-            rule for rule in rules if rule.applies(category, dom, cod, size)]
+    def prove(draw, goal):
+        applicable = [rule for rule in rules if rule.applies(category, goal)]
         if not applicable:
             reject()
         chosen = draw(st.sampled_from(applicable))
         event(f"rule: {chosen.name}")
-        premises, conclude = chosen.derive(draw, dom, cod, size, types)
-        term = conclude(*[draw(derive(*premise)) for premise in premises])
-        if (term.dom, term.cod) != (dom, cod):
-            raise AxiomError(
-                f"{chosen} built {term} for {dom} ⊢ {cod}.")
-        return term
+        term = chosen.derive(
+            draw, goal, types, lambda subgoal: draw(prove(subgoal)))
+        env = goal.match(term.dom, term.cod)
+        if env is None:
+            if goal.closed:
+                raise AxiomError(f"{chosen} built {term} for {goal}.")
+            reject()
+        return term, env
 
     @st.composite
     def arrows(draw):
-        source = draw(types) if dom is None else dom
-        target = cod if cod is not None\
-            else source if not max_leaves else draw(types)
-        source = target if dom is None and not max_leaves else source
-        sizes = [
-            size for size in range(
-                max(min_leaves or 0, int(source != target)), max_leaves + 1)
-            if derivable(category, source, target, size)]
-        if not sizes:
-            reject()
-        return draw(derive(source, target, draw(st.sampled_from(sizes))))
+        goal, low = Goal.of(dom, cod, 0, unit, level), min_leaves or 0
+        if goal.closed:
+            source, target = goal.values
+            sizes = [
+                fuel for fuel in range(
+                    max(low, int(source != target)), max_leaves + 1)
+                if derivable(category, source, target, fuel)]
+            if not sizes:
+                reject()
+            fuel = draw(st.sampled_from(sizes))
+        else:
+            fuel = draw(st.integers(min_value=low, max_value=max_leaves))
+        term, _ = draw(prove(replace(goal, fuel=fuel)))
+        return term
 
     return arrows()
 
