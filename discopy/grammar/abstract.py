@@ -412,8 +412,8 @@ def slots(word: Term, ty: categorial.Ty) -> Term:
     """
     The string term of a word of a categorial type: the word concatenated
     with a variable for each of its arguments, on the right of ``y << x``
-    and on the left of ``x >> y``, a higher-order argument being
-    :func:`saturate` d with empty strings first.
+    and on the left of ``x >> y``, a higher-order argument being saturated
+    with empty strings first, see :func:`saturate`.
 
     Parameters:
         word : A term of type :data:`string`.
