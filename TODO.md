@@ -21,9 +21,9 @@ wangdaphne:
 > Found a bug there: diagram.is_linear evaluates to True here (even if the variable v is copied). Apparently that comes from the class Box. In closed.py:215: `is_linear = True` automatically sets is_linear=True without looking into the box); but diagram.arg.is_linear evaluates to False.
 
 - [x] Merge `main` into the branch (`CHANGELOG.md` conflict).
-- [ ] Drop the `ob = Ty` on `Curry`, `Trace` and `Sum` if the factory closure holds without them, answer both threads.
-- [ ] `Lexicon` is a functor between abstract grammars (de Groote 2001, §2.2): atomic types to types, constants to terms; the string vocabulary of §4 (one atomic type, words as constants of type `* >> *`, concatenation as composition) and the string lexicon a categorial grammar comes with.
-- [ ] Replace `test_python_Functor_on_terms` with the finite-universe test: random predicates, the two sentences compile to the same truth value as the Python expressions.
-- [ ] Reproduce and fix `eval()` on the semantic lexicon's non-linear images, the new test evaluates them.
-- [ ] Reproduce and fix `is_linear` on `Curry`, `Trace`, `Sum` and on terms.
-- [ ] `CHANGELOG.md`, docstrings, `pflake8` and the full suite green, then delete `TODO.md`.
+- [WIP] @session_01JvjjihGD4ybHGeqLXyLqUi-2026-09-14 16:52 Drop the `ob = Ty` on `Curry`, `Trace` and `Sum` if the factory closure holds without them, answer both threads.
+- [WIP] @session_01JvjjihGD4ybHGeqLXyLqUi-2026-09-14 16:52 `Lexicon` is a functor between abstract grammars (de Groote 2001, §2.2): atomic types to types, constants to terms; the string vocabulary of §4 (one atomic type, words as constants of type `* >> *`, concatenation as composition) and the string lexicon a categorial grammar comes with.
+- [WIP] @session_01JvjjihGD4ybHGeqLXyLqUi-2026-09-14 16:52 Replace `test_python_Functor_on_terms` with the finite-universe test: random predicates, the two sentences compile to the same truth value as the Python expressions.
+- [WIP] @session_01JvjjihGD4ybHGeqLXyLqUi-2026-09-14 16:52 Reproduce and fix `eval()` on the semantic lexicon's non-linear images, the new test evaluates them.
+- [WIP] @session_01JvjjihGD4ybHGeqLXyLqUi-2026-09-14 16:52 Reproduce and fix `is_linear` on `Curry`, `Trace`, `Sum` and on terms.
+- [WIP] @session_01JvjjihGD4ybHGeqLXyLqUi-2026-09-14 16:52 `CHANGELOG.md`, docstrings, `pflake8` and the full suite green, then delete `TODO.md`.
