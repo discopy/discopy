@@ -11,11 +11,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 - Abstract categorial grammars, `discopy.grammar.abstract`, after de Groote's
   *Towards abstract categorial grammars* (2001): a vocabulary is the free
-  closed category on atomic types and constants, its terms the (almost)
-  linear lambda terms of `closed`, and `abstract.Lexicon` is a functor from
-  one vocabulary to another, sending atomic types to types and constants to
-  terms of the image of their type, which it checks, and composing with
-  `>>`. Strings are the paper's: `string` is `* >> *` on one atomic type,
+  closed category on atomic types and constants, its terms the lambda terms
+  of `closed`, which nothing forces to be linear since the category is
+  markov, and `abstract.Lexicon` is a functor from one vocabulary to
+  another, sending atomic types to types and constants to terms of the image
+  of their type, which it checks, and composing with `>>`. Strings are the
+  paper's: `string` is `* >> *` on one atomic type,
   a word is a constant of type `string`, `concat` composes strings and
   `concat()` is the empty one. A categorial grammar comes with two things:
   `abstract.Diagram.from_categorial`, which drops planarity from a

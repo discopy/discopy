@@ -3,8 +3,8 @@
 """
 An abstract categorial grammar is a free closed category with words as
 constants, after de Groote's `Towards abstract categorial grammars (2001)
-<https://aclanthology.org/P01-1033/>`_: derivations are (almost) linear
-lambda terms and lexicons are functors between free closed categories.
+<https://aclanthology.org/P01-1033/>`_: derivations are lambda terms and
+lexicons are functors between free closed categories.
 
 Summary
 -------
@@ -49,17 +49,20 @@ Summary
 Vocabularies and lexicons
 -------------------------
 
-A *vocabulary* is a higher-order linear signature: atomic types and constants,
-each with a linear implicative type ``x >> y`` built from the atoms, e.g. the
-words of a language with their grammatical types. It generates a free closed
-category, whose morphisms are the lambda terms of its internal language, here
-:class:`Term`: linear in the paper, with copying and discarding allowed here
-as the category is markov. A :class:`Lexicon` from one vocabulary to another
-sends atomic types to types and constants to terms of the image of their
-types: it is a :class:`Functor` between two free closed categories, and
-lexicons compose. An abstract categorial grammar is a lexicon together with
-a distinguished type ``s``: its abstract language is the set of closed terms
-of type ``s``, its object language is their image under the lexicon.
+A *vocabulary* is a higher-order signature: atomic types and constants, each
+with an implicative type ``x >> y`` built from the atoms, e.g. the words of a
+language with their grammatical types. It generates a free closed category,
+whose morphisms are the lambda terms of its internal language, here
+:class:`Term`. Nothing forces a term to be linear: the category is markov, so
+a variable may be copied and discarded, as the variables of ground type are in
+the semantics of the example below; the paper's linear terms are the special
+case where every variable occurs once, see ``is_linear``. A :class:`Lexicon`
+from one vocabulary to another sends atomic types to types and constants to
+terms of the image of their types: it is a :class:`Functor` between two free
+closed categories, and lexicons compose. An abstract categorial grammar is a
+lexicon together with a distinguished type ``s``: its abstract language is
+the set of closed terms of type ``s``, its object language is their image
+under the lexicon.
 
 Strings
 -------
@@ -92,6 +95,32 @@ a constant for each reading of *seeks* in the abstract vocabulary:
 ...     print(*[word.name for word in syntax(reading).normal_form().constants])
 John seeks a unicorn
 John seeks a unicorn
+
+The paper's semantic lexicon reads noun phrases as quantifiers. The image of
+*a* copies its variable of ground type, so the semantic terms are not linear
+and they normalise to the two readings all the same:
+
+>>> e, t = Ty("e"), Ty("t")
+>>> ET, NP = e >> t, (e >> t) >> t
+>>> JOHN, UNICORN = e("JOHN"), ET("UNICORN")
+>>> TRY_TO, FIND = (e >> NP)("TRY_TO"), (e >> ET)("FIND")
+>>> exists, and_ = NP("exists"), (t >> (t >> t))("and")
+>>> semantics = Lexicon(
+...     ob_map={n: ET, np: NP, s: t},
+...     ar_map={J: ET(lambda P: P(JOHN)), U: UNICORN,
+...             A: ET(lambda P: ET(lambda Q: exists(
+...                 e(lambda x: and_(P(x))(Q(x)))))),
+...             S_re: NP(lambda P: NP(lambda Q: Q(e(lambda x: P(
+...                 e(lambda y: TRY_TO(y)(e(lambda z: FIND(z)(x))))))))),
+...             S_dicto: NP(lambda P: NP(lambda Q: P(e(lambda x: TRY_TO(x)(
+...                 e(lambda y: Q(e(lambda z: FIND(y)(z)))))))))})
+>>> assert not semantics(A).is_linear
+>>> de_re = exists(e(lambda x: and_(UNICORN(x))(
+...     TRY_TO(JOHN)(e(lambda z: FIND(z)(x))))))
+>>> de_dicto = TRY_TO(JOHN)(e(lambda y: exists(e(lambda x: and_(
+...     UNICORN(x))(FIND(y)(x))))))
+>>> assert semantics(S_re(J)(A(U))).normal_form() == de_re
+>>> assert semantics(S_dicto(J)(A(U))).normal_form() == de_dicto
 """
 
 from __future__ import annotations
@@ -104,7 +133,7 @@ from discopy.utils import AxiomError
 
 @factory
 class Ty(closed.Ty):
-    "A linear implicative type, the type of an abstract categorial grammar."
+    "An implicative type, the type of an abstract categorial grammar."
 
     @classmethod
     def from_categorial(cls, old: categorial.Ty) -> Ty:

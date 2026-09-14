@@ -158,7 +158,8 @@ def test_Montague_semantics():
     as in the higher-order DisCoCat notebook: "Every woman married a man" is
     read de dicto, i.e. for every woman there is a man that she married, and
     "Every child learnt a song" de re, i.e. there is a song that every child
-    learnt.
+    learnt. The semantic terms copy their variables of ground type: they
+    normalise to the two first-order formulas and evaluate all the same.
     """
     n, np, s = map(categorial.Ty, ("n", "np", "s"))
     every, a = (np << n)("every"), (np << n)("a")
@@ -191,9 +192,15 @@ def test_Montague_semantics():
             "every": EVERY, "a": A, "woman": WOMAN, "man": MAN,
             "child": CHILD, "song": SONG,
             "married": de_dicto, "learnt": de_re}[word.name])
-    for term in (every_woman_married_a_man, every_child_learnt_a_song):
+    readings = [
+        (every_woman_married_a_man, forall(e(lambda x: implies(WOMAN(x))(
+            exists(e(lambda y: and_(MAN(y))(MARRIED(x)(y)))))))),
+        (every_child_learnt_a_song, exists(e(lambda y: and_(SONG(y))(
+            forall(e(lambda x: implies(CHILD(x))(LEARNT(x)(y))))))))]
+    for term, first_order in readings:
         formula = semantics(term)
         assert formula.cod == t and not formula.is_linear
+        assert formula.normal_form() == first_order
         diagram = formula.eval()
         assert (diagram.dom, diagram.cod) == (Ty(), t)
         assert not diagram.is_linear
