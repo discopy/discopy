@@ -110,7 +110,6 @@ def test_Term_context_order_and_composite_abstraction():
         Abstraction(var, over(var)),
         Abstraction(var, var(under, left=True), left=True)]
     assert [term.dom for term in abstractions] == [over.cod, under.cod]
-    assert abstractions[0].variables == [var, over]
     for term in abstractions:
         assert (term.eval().dom, term.eval().cod) == (term.dom, term.cod)
 

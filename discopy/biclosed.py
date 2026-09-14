@@ -84,8 +84,8 @@ from abc import abstractmethod
 from inspect import signature
 from typing import Callable, ClassVar
 
-from discopy import monoidal, cmap
-from discopy.abc import BiclosedCategory, ClosedCategory
+from discopy import cat, monoidal, cmap
+from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
 from discopy.cat import factory
 from discopy.utils import (
@@ -580,11 +580,6 @@ class TermBase(Box):
         rather than a morphism.
         """
 
-    @property
-    @abstractmethod
-    def variables(self) -> list[Variable]:
-        """The variables occurring in the term, both free and bound."""
-
     def draw(self, **kwargs):
         "Drawing a term by evaluating it in the free biclosed category."
         return self.eval().draw(**kwargs)
@@ -619,13 +614,8 @@ class Constant(TermBase):
     def constants(self):
         return [self]
 
-    @property
-    def variables(self):
-        return []
-
     def eval(self, functor=None):
-        functor = functor or self.functor
-        return functor.ar_map[self]
+        return cat.Functor.__call__(functor or self.functor, self)
 
     def map(self, functor):
         return functor.ar_map[self]
@@ -660,16 +650,25 @@ class Variable(TermBase):
     def constants(self):
         return []
 
-    @property
-    def variables(self):
-        return [self]
-
     @classmethod
     def fresh(cls, name, cod, *terms):
-        """Construct a variable whose name does not occur in ``terms``."""
+        """
+        A variable of a given type whose name is not free in any of the terms,
+        underscores being appended to the name until it is not.
+
+        Parameters:
+            name : The name to start from.
+            cod : The type of the variable.
+            terms : The terms in which the variable must not be free.
+
+        Example
+        -------
+        >>> x = Ty("x")
+        >>> assert Variable.fresh("v", x, Variable("v", x))\\
+        ...     == Variable("v_", x)
+        """
         names = {
-            variable.name
-            for term in terms for variable in term.variables}
+            variable.name for term in terms for variable in term.freevars}
         while name in names:
             name += "_"
         return cls(name, cod)
@@ -720,12 +719,8 @@ class Application(TermBase):
         return args @ func >> ev if self.left else func @ args >> ev
 
     def map(self, functor):
-        ob = functor.cod.ob
-        func, args = functor(self.func), functor(self.args)
-        is_closed = issubclass(get_origin(functor.cod), ClosedCategory)
-        left = self.left and (
-            not is_closed or bool(func.dom) and bool(args.dom))
-        return ob.application_factory(func, args, left)
+        return functor.cod.ob.application_factory(
+            functor(self.func), functor(self.args), self.left)
 
     def __repr__(self):
         func, args = repr(self.func), repr(self.args)
@@ -736,11 +731,6 @@ class Application(TermBase):
     def constants(self):
         return self.args.constants + self.func.constants if self.left\
             else self.func.constants + self.args.constants
-
-    @property
-    def variables(self):
-        return list(dict.fromkeys(
-            self.func.variables + self.args.variables))
 
 
 class Abstraction(TermBase):
@@ -777,11 +767,8 @@ class Abstraction(TermBase):
             not self.left)
 
     def map(self, functor):
-        ob = functor.cod.ob
-        is_closed = issubclass(get_origin(functor.cod), ClosedCategory)
-        left = self.left and not is_closed
-        return ob.abstraction_factory(
-            functor(self.var), functor(self.body), left)
+        return functor.cod.ob.abstraction_factory(
+            functor(self.var), functor(self.body), self.left)
 
     def __repr__(self):
         var, body = repr(self.var), repr(self.body)
@@ -791,10 +778,6 @@ class Abstraction(TermBase):
     @property
     def constants(self):
         return self.body.constants
-
-    @property
-    def variables(self):
-        return list(dict.fromkeys([self.var] + self.body.variables))
 
 
 type Term = Constant | Variable | Application | Abstraction

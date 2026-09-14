@@ -17,6 +17,7 @@ Summary
     Variable
     Application
     Abstraction
+    Substitution
     Diagram
     Box
     Eval
@@ -50,12 +51,12 @@ Axioms
 
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Dict, ClassVar
+from functools import reduce
+from typing import Dict
 
-from discopy import cat, monoidal, biclosed, markov, cmap, hypergraph
+from discopy import monoidal, biclosed, markov, cmap, hypergraph
 from discopy.abc import ClosedCategory
 from discopy.cat import factory
-from discopy.drawing import Drawing
 
 
 @factory
@@ -121,61 +122,6 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
     def ev(cls, base: Ty, exponent: Ty, left: bool = True):
         return cls.eval_factory(exponent >> base, left=left)
 
-    @classmethod
-    def fa(cls, left, right):
-        """
-        Forward application.
-
-        Parameters:
-            left : The base of the exponential, i.e. the result type.
-            right : The exponent, i.e. the type of the argument.
-        """
-        return cls.ev(left, right, left=True)
-
-    @classmethod
-    def ba(cls, left, right):
-        """
-        Backward application.
-
-        Parameters:
-            left : The exponent, i.e. the type of the argument.
-            right : The base of the exponential, i.e. the result type.
-        """
-        return cls.ev(right, left, left=False)
-
-    @classmethod
-    def fc(cls, left, middle, right):
-        """
-        Forward composition.
-
-        Parameters:
-            left : The base of the outer exponential.
-            middle : The shared type composed away.
-            right : The exponent of the result.
-        """
-        return (cls.id(left ** middle) @ cls.fa(middle, right)
-                >> cls.fa(left, middle)).curry(
-                    n=len(right), left=True)
-
-    @classmethod
-    def bc(cls, left, middle, right):
-        """
-        Backward composition.
-
-        Parameters:
-            left : The exponent of the result.
-            middle : The shared type composed away.
-            right : The base of the outer exponential.
-        """
-        return (cls.ba(left, middle) @ cls.id(middle >> right)
-                >> cls.ba(middle, right)).curry(n=len(left), left=False)
-
-    # Crossed composition coincides with harmonic composition here: a closed
-    # category does not distinguish the left and right exponentials that
-    # `fx`/`bx` cross in a categorial grammar, see `grammar.categorial`.
-    fx = fc
-    bx = bc
-
     def to_compact(self) -> Diagram:
         """
         Open the curry bubbles into coevaluation and feedback, which stays
@@ -225,7 +171,11 @@ class Coeval(biclosed.Coeval, Box):
 
 
 class Curry(biclosed.Curry, Box):
-    "The currying of a closed diagram."
+    "The currying of a closed diagram, linear when its argument is."
+
+    @property
+    def is_linear(self):
+        return self.arg.is_linear
 
 
 class Permutation(markov.Permutation, Box):
@@ -237,7 +187,11 @@ class Swap(Permutation, markov.Swap, Box):
 
 
 class Trace(markov.Trace, Box):
-    "A trace in a closed category."
+    "A trace in a closed category, linear when its argument is."
+
+    @property
+    def is_linear(self):
+        return self.arg.is_linear
 
 
 class Copy(markov.Copy, Box):
@@ -252,13 +206,17 @@ class Discard(markov.Discard, Copy):
 
 class Sum(markov.Sum, biclosed.Sum, Box):
     """
-    A markov sum is a symmetric sum and a markov box.
+    A markov sum is a symmetric sum and a markov box,
+    linear when every term is.
 
     Parameters:
         terms (tuple[Diagram, ...]) : The terms of the formal sum.
         dom (Ty) : The domain of the formal sum.
         cod (Ty) : The codomain of the formal sum.
     """
+    @property
+    def is_linear(self):
+        return all(term.is_linear for term in self.terms)
 
 
 class Functor(biclosed.Functor, markov.Functor):
@@ -273,15 +231,6 @@ class Functor(biclosed.Functor, markov.Functor):
         cod (Category) : The codomain of the functor.
     """
     dom = cod = Diagram
-
-    def __call__(self, other):
-        if self.cod is Drawing and isinstance(other, markov.Swap):
-            return other.to_drawing()
-        if isinstance(other, (
-                cat.Ob, biclosed.Eval, biclosed.Coeval, biclosed.Curry,
-                biclosed.TermBase)):
-            return biclosed.Functor.__call__(self, other)
-        return super().__call__(other)
 
 
 CMap = cmap.CMap[Diagram]
@@ -305,25 +254,88 @@ Id = Diagram.id
 
 class TermBase(Box, biclosed.TermBase):
     """
-    A term in the internal language of a closed category.
+    A term in the internal language of a closed category, i.e. a lambda term
+    which need not be linear: a variable may occur any number of times, since
+    a closed category is markov it can be copied and discarded.
+
+    A term is evaluated in a context, a list of distinct variables containing
+    its free ones: the variables that do not occur in the term are discarded,
+    the others are permuted into the order of its :attr:`freevars`, see
+    :meth:`weaken`. The context is :attr:`freevars` itself by default.
+
+    Note
+    ----
+    Closed terms accept the ``left`` argument of their biclosed counterparts
+    and ignore it: a closed category has one exponential, so an application
+    ``x(f, left=True)`` is ``f(x)`` and an abstraction on the left is one on
+    the right.
+
+    >>> X, Y = Ty("X"), Ty("Y")
+    >>> f, x = (X >> Y)("f"), X("x")
+    >>> assert x(f, left=True) == f(x)
     """
     functor = Functor.id(Diagram)
 
     def __call__(self, other, left=False):
-        args = (other, self, left) if left else (self, other, left)
+        args = (other, self) if left else (self, other)
         return self.cod.application_factory(*args)
 
+    def weaken(self, functor: Functor, context=None) -> Diagram:
+        """
+        The structural morphism from the image of a context to that of the
+        free variables of the term: it discards the variables that do not
+        occur in the term and permutes the others into the order of
+        :attr:`freevars`.
+
+        Parameters:
+            functor : The functor to evaluate the types.
+            context : A list of distinct variables containing the free ones,
+                the free variables themselves by default.
+
+        Example
+        -------
+        >>> X, Y = Ty("X"), Ty("Y")
+        >>> x, y = Variable("x", X), Variable("y", Y)
+        >>> assert x.weaken(x.functor, [y, x])\\
+        ...     == Diagram.swap(Y, X) >> X @ Diagram.discard(Y)
+        """
+        context = self.freevars if context is None else list(context)
+        if context == self.freevars:
+            return functor.cod.id(functor(self.dom))
+        unused = [x for x in context if x not in self.freevars]
+        permutation = functor.cod.permutation(
+            [context.index(x) for x in self.freevars + unused],
+            [functor(x.cod) for x in context])
+        if not unused:
+            return permutation
+        discard = functor.cod.discard(functor(
+            self.ob().tensor(*[x.cod for x in unused])))
+        return permutation >> functor.cod.id(functor(self.dom)) @ discard
+
     def occurrences(self, variable: Variable) -> int:
-        """Count the free occurrences of ``variable`` in the term."""
-        if isinstance(self, Variable):
-            return int(self == variable)
-        if isinstance(self, Application):
-            return self.func.occurrences(variable)\
-                + self.args.occurrences(variable)
-        if isinstance(self, Abstraction):
-            return 0 if self.var == variable\
-                else self.body.occurrences(variable)
+        "The number of free occurrences of a variable in the term."
         return 0
+
+    def substitute(self, substitution: Substitution) -> Term:
+        "The term with the free variables of a substitution replaced."
+        return self
+
+    def normal_form(self) -> Term:
+        """
+        The beta-normal form of a term, obtained by normal-order reduction.
+
+        Reduction may discard a free variable, since discarding is natural
+        in a markov category, but never copies an argument, since copying is
+        not: a redex whose variable occurs more than once in the body raises
+        ``ValueError``.
+
+        Example
+        -------
+        >>> X, Y = Ty("X"), Ty("Y")
+        >>> f, x = (X >> Y)("f"), X("x")
+        >>> assert X(lambda y: f(y))(x).normal_form() == f(x)
+        """
+        return self
 
     @classmethod
     def from_biclosed(cls, term: biclosed.Term) -> Term:
@@ -353,148 +365,139 @@ class TermBase(Box, biclosed.TermBase):
             dom=biclosed.Diagram, cod=cls.functor.cod)
         return functor(term)
 
-    def normal_form(self) -> Term:
-        """
-        The beta-normal form of a term, obtained by normal-order reduction.
-
-        Raises
-        ------
-        ValueError
-            If reduction changes the ordered free-variable context or would
-            duplicate an argument in a non-cartesian category.
-
-        Example
-        -------
-        >>> X, Y = Ty("X"), Ty("Y")
-        >>> f, x = (X >> Y)("f"), X("x")
-        >>> assert X(lambda y: f(y))(x).normal_form() == f(x)
-        """
-        def normalize(term):
-            if isinstance(term, Application):
-                func = normalize(term.func)
-                if isinstance(func, Abstraction):
-                    if func.body.occurrences(func.var) > 1:
-                        raise ValueError(
-                            "Beta reduction would duplicate an argument.")
-                    return normalize(
-                        Substitution({func.var: term.args})(func.body))
-                return type(term)(
-                    func, normalize(term.args), term.left)
-            if isinstance(term, Abstraction):
-                return type(term)(
-                    term.var, normalize(term.body), term.left)
-            return term
-
-        result = normalize(self)
-        if result.freevars != self.freevars:
-            raise ValueError(
-                "Beta reduction changed the free-variable context.")
-        return result
-
 
 type Term = Constant | Variable | Application | Abstraction
 
 
 class Constant(TermBase, biclosed.Constant):
+    "A constant term, evaluated in a context by discarding it."
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
-        if not context:
-            return super().eval(functor)
-        return functor.cod.discard(functor(context.dom)) >> super().eval(
-            functor)
+        return self.weaken(functor, context)\
+            >> biclosed.Constant.eval(self, functor)
 
 
 class Variable(TermBase, biclosed.Variable):
+    "A variable, evaluated in a context by discarding the other variables."
     def eval(self, functor=None, context=None):
-        functor = functor or self.functor
-        if not context:
-            return functor.cod.id(functor(self.cod))
-        return functor.cod.tensor(*[
-            functor.cod.id(functor(x.cod)) if x == self
-            else functor.cod.discard(functor(x.cod))
-            for x in context.inside])
+        return self.weaken(functor or self.functor, context)
+
+    def occurrences(self, variable):
+        return int(self == variable)
+
+    def substitute(self, substitution):
+        return substitution.inside.get(self, self)
 
 
 class Application(TermBase, biclosed.Application):
     """
-    The application of a term to another.
+    The application ``func(args)`` of a term to another.
 
     Attributes:
-        overlap : Whether ``func`` and ``args`` share a free variable, in
-            which case ``eval`` copies it rather than tensoring the two.
+        overlap : The variables free in both ``func`` and ``args``, which
+            :meth:`eval` copies.
     """
+    def __init__(self, func: Term, args: Term, left: bool = False):
+        biclosed.Application.__init__(self, func, args)
+
     def __check_dom__(self, func, args, left):
-        self.overlap = set(func.freevars).intersection(args.freevars)
-        freevars = args.freevars + func.freevars if left\
-            else func.freevars + args.freevars
-        self.freevars = list(dict.fromkeys(freevars))
+        self.overlap = [x for x in func.freevars if x in args.freevars]
+        self.freevars = list(dict.fromkeys(func.freevars + args.freevars))
         return self.ob().tensor(*[x.cod for x in self.freevars])
+
+    @property
+    def is_linear(self):
+        return not self.overlap\
+            and self.func.is_linear and self.args.is_linear
 
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
-        base, exponent = self.func.cod.base, self.func.cod.exponent
+        func, args = self.func, self.args
+        source = [(x, i) for x in self.freevars
+                  for i in range(2 if x in self.overlap else 1)]
+        target = [(x, 0) for x in func.freevars]\
+            + [(x, int(x in self.overlap)) for x in args.freevars]
+        copy = reduce(lambda left, right: left @ right, [
+            functor.cod.copy(functor(x.cod)) if x in self.overlap
+            else functor.cod.id(functor(x.cod)) for x in self.freevars],
+            functor.cod.id(functor.cod.ob()))
+        permutation = functor.cod.permutation(
+            [source.index(pair) for pair in target],
+            [functor(x.cod) for x, _ in source])
         evaluate = functor.cod.ev(
-            functor(base), functor(exponent), left=not self.left)
-        if context is None:
-            if not self.overlap:
-                func = self.func.eval(functor=functor)
-                args = self.args.eval(functor=functor)
-                return (args @ func if self.left else func @ args) >> evaluate
-            context = Context(self.freevars)
-        func = self.func.eval(functor=functor, context=context)
-        args = self.args.eval(functor=functor, context=context)
-        return functor.cod.copy(functor(context.dom))\
-            >> (args @ func if self.left else func @ args) >> evaluate
+            functor(func.cod.base), functor(func.cod.exponent))
+        return self.weaken(functor, context) >> copy >> permutation\
+            >> func.eval(functor) @ args.eval(functor) >> evaluate
+
+    def occurrences(self, variable):
+        return self.func.occurrences(variable)\
+            + self.args.occurrences(variable)
+
+    def substitute(self, substitution):
+        return type(self)(
+            self.func.substitute(substitution),
+            self.args.substitute(substitution))
+
+    def normal_form(self):
+        func, args = self.func.normal_form(), self.args.normal_form()
+        if not isinstance(func, Abstraction):
+            return type(self)(func, args)
+        if func.body.occurrences(func.var) > 1:
+            raise ValueError(f"{self} copies its argument {args}.")
+        return Substitution({func.var: args})(func.body).normal_form()
 
 
 class Abstraction(TermBase, biclosed.Abstraction):
+    """
+    The abstraction ``var.cod(lambda var: body)`` of a variable in a term,
+    which need not occur in it or may occur several times.
+    """
+    def __init__(self, var: Variable, body: Term, left: bool = False):
+        biclosed.Abstraction.__init__(self, var, body)
+
     def __check_dom__(self):
         self.freevars = [x for x in self.body.freevars if x != self.var]
         return self.ob().tensor(*[x.cod for x in self.freevars])
 
+    @property
+    def is_linear(self):
+        return self.body.is_linear and self.body.occurrences(self.var) == 1
+
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
-        if self.left:
-            return type(self)(self.var, self.body).eval(functor, context)
-        n = len(functor(self.var.cod))
-        if context:
-            new_context = Context([self.var] + context.inside)
-            body = self.body.eval(functor=functor, context=new_context)
-            return body.curry(n, left=False)
-        body = self.body.eval(functor=functor)
-        if self.var not in self.body.freevars:
-            discard = functor.cod.discard(functor(self.var.cod))
-            return (discard @ body.dom >> body).curry(n, left=False)
-        i = self.body.freevars.index(self.var)
-        widths = [len(functor(x.cod)) for x in self.body.freevars]
-        start = sum(widths[:i])
-        stop = start + widths[i]
-        p = (list(range(start, stop))
-             + list(range(start)) + list(range(stop, len(body.dom))))
-        doms = [self.ob(wire) for wire in body.dom.inside]
-        permute = body.permutation(p, doms).dagger()
-        return (permute >> body).curry(n, left=False)
+        body = self.body.eval(functor, [self.var] + self.freevars)
+        return self.weaken(functor, context)\
+            >> body.curry(len(functor(self.var.cod)), left=False)
 
+    def occurrences(self, variable):
+        return 0 if variable == self.var else self.body.occurrences(variable)
 
-@dataclass
-class Context:
-    inside: list[Variable]
-    category: ClassVar[type[ClosedCategory]] = Diagram
+    def substitute(self, substitution):
+        inside = {key: value for key, value in substitution.inside.items()
+                  if key != self.var and key in self.body.freevars}
+        var, body = self.var, self.body
+        if any(var in value.freevars for value in inside.values()):
+            var = type(var).fresh(var.name, var.cod, body, *inside.values())
+            body = Substitution({self.var: var})(body)
+        return type(self)(var, Substitution(inside)(body))
 
-    @property
-    def dom(self):
-        return self.category.ob().tensor(*[x.cod for x in self.inside])
+    def normal_form(self):
+        return type(self)(self.var, self.body.normal_form())
 
 
 @dataclass
 class Substitution:
     """
-    The simultaneous substitution of terms for free variables.
+    The simultaneous, capture-avoiding substitution of terms for variables.
 
-    Attributes:
-        inside : The mapping from variables to the terms substituted for them.
+    Parameters:
+        inside : The term substituted for each variable, of the same type.
 
-    Substitution is simultaneous and capture-avoiding.
+    Example
+    -------
+    >>> X, Y = Ty("X"), Ty("Y")
+    >>> f, x, y = (X >> Y)("f"), Variable("x", X), Variable("y", X)
+    >>> assert Substitution({x: y})(X(lambda y: f(x))) == X(lambda y_: f(y))
     """
     inside: Dict[Variable, Term]
 
@@ -508,24 +511,7 @@ class Substitution:
                     f"Expected {variable.cod}, got {term.cod}")
 
     def __call__(self, term: Term) -> Term:
-        if isinstance(term, Variable):
-            return self.inside.get(term, term)
-        if isinstance(term, Application):
-            return type(term)(self(term.func), self(term.args), term.left)
-        if isinstance(term, Abstraction):
-            other = Substitution(
-                {k: v for k, v in self.inside.items() if k != term.var})
-            capture = any(
-                key in term.body.freevars and term.var in value.freevars
-                for key, value in other.inside.items())
-            if not capture:
-                return type(term)(term.var, other(term.body), term.left)
-            var = type(term.var).fresh(
-                term.var.name, term.var.cod, term.body,
-                *other.inside, *other.inside.values())
-            body = Substitution({term.var: var})(term.body)
-            return type(term)(var, other(body), term.left)
-        return term
+        return term.substitute(self)
 
 
 Ty.variable_factory = Variable

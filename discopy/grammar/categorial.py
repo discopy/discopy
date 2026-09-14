@@ -225,9 +225,12 @@ class TermBase(Box, biclosed.TermBase):
         return BA(self, other) if left else FA(self, other)
 
     def to_abstract(self):
-        """Translate the term into an abstract categorial grammar."""
-        from discopy.grammar.abstract import TermBase
-        return TermBase.from_categorial(self)
+        """
+        The abstract term of a categorial term, dropping planarity,
+        see :meth:`discopy.grammar.abstract.Diagram.from_categorial`.
+        """
+        from discopy.grammar.abstract import Diagram
+        return Diagram.from_categorial(self)
 
 
 class Constant(TermBase, biclosed.Constant):
@@ -303,10 +306,6 @@ class TypeRaising(TermBase):
     def constants(self):
         return self.child.constants
 
-    @property
-    def variables(self):
-        return self.child.variables
-
 
 class FTR(TypeRaising):
     "Forward type raising ``Y << (X >> Y)`` with base ``Y`` and child ``X``."
@@ -363,11 +362,6 @@ class BinaryTerm(TermBase):
     @property
     def constants(self):
         return self.left.constants + self.right.constants
-
-    @property
-    def variables(self):
-        return list(dict.fromkeys(
-            self.left.variables + self.right.variables))
 
 
 @dataclass(frozen=True, repr=False)
@@ -469,9 +463,7 @@ class BX(BinaryTerm):
         f, g = functor(self.left), functor(self.right)
         var = ob.variable_factory.fresh(
             "x", functor(self.left.cod.exponent), f, g)
-        body = f(var)(g, left=True)\
-            if f.dom and g.dom else g(f(var))
-        return ob.abstraction_factory(var, body)
+        return ob.abstraction_factory(var, g(f(var)))
 
 
 type Term = (

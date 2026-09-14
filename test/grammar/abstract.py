@@ -1,72 +1,56 @@
+from random import Random
+
 from pytest import raises
 
 from discopy import cat, grammar
 from discopy.grammar import categorial
 from discopy.grammar.abstract import *
+from discopy.python import Function
 from discopy.utils import AxiomError
-
-
-def test_Diagram():
-    x, y, z = Ty('x'), Ty('y'), Ty('z')
-    assert Diagram.id(x) == Id(x)
-    assert Diagram.ev(y, x, left=False) == Eval(x >> y)
-    assert Diagram.swap(x, y) == Swap(x, y)
-    assert Diagram.copy(x) == Copy(x)
-    assert Diagram.discard(x) == Copy(x, 0)
-    assert Box('f', x @ y, y).curry() == Curry(Box('f', x @ y, y))
-
-    assert Diagram.fa(x, y) == Eval(x ** y, left=True)
-    assert Diagram.ba(x, y) == Eval(x >> y, left=False)
-    fc, bc = Diagram.fc(x, y, z), Diagram.bc(x, y, z)
-    assert fc.dom == (x ** y) @ (y ** z) and fc.cod == x ** z
-    assert bc.dom == (x >> y) @ (y >> z) and bc.cod == x >> z
-    assert Diagram.fx(x, y, z) == fc and Diagram.bx(x, y, z) == bc
-
-    left, middle, right = x @ y, y @ z, z @ x
-    assert Diagram.fc(left, middle, right).cod == left ** right
-    assert Diagram.bc(left, middle, right).cod == left >> right
 
 
 def test_factory_closure():
     x, y = Ty("x"), Ty("y")
     f, loop = Box("f", x, y), Box("loop", x @ y, x @ y)
-
-    assert type(loop.trace()) is Trace
-    assert type(f + f) is Sum
-    assert Curry.ob is Sum.ob is Trace.ob is Ty
+    assert type(Diagram.swap(x, y)) is Swap
+    assert type(Diagram.copy(x)) is Copy and type(Diagram.discard(x)) is Discard
+    assert type(loop.trace()) is Trace and type(f + f) is Sum
+    assert type(f.curry()) is Curry and type(f.curry().uncurry()) is Diagram
+    assert all(cls.ob is Ty for cls in (
+        Diagram, Box, Eval, Coeval, Curry, Copy, Discard,
+        Permutation, Swap, Trace, Sum, Constant, Variable))
     assert type(f.to_map()) is CMap and CMap.category is Diagram
     graph = f.to_hypergraph()
-    assert type(graph) is Hypergraph
-    assert graph.category is Diagram and graph.functor is Functor
-    assert type(graph.to_diagram()) is Diagram
-    traced = loop.trace().to_hypergraph().to_diagram()
-    assert type(traced.boxes[0]) is Trace
-    assert issubclass(Lexicon, Functor)
+    assert type(graph) is Hypergraph and type(graph.to_diagram()) is Diagram
+    assert Diagram.functor_factory is Functor
+    assert Lexicon.dom is Lexicon.cod is Diagram
 
 
-def test_Lexicon_on_diagrams():
-    x_, y_, z_ = map(categorial.Ty, "xyz")
-    w1, w2 = categorial.Word("w1", y_ << x_), categorial.Word("w2", z_ >> x_)
-    diagram = w1 @ w2 >> categorial.Diagram.fx(y_, x_, z_)
-    lexicon = Lexicon(
-        ob_map=lambda ob: Ty(ob.inside[0].name),
-        ar_map=lambda box: Box(box.name, Ty.from_categorial(box.dom),
-                               Ty.from_categorial(box.cod)))
-    assert lexicon(diagram).cod == Ty("z") >> Ty("y")
+def test_Diagram():
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
+    assert Diagram.fa(x, y) == Diagram.ev(x, y) == Eval(y >> x, left=True)
+    assert Diagram.ba(x, y) == Eval(x >> y, left=False)
+    fc, bc = Diagram.fc(x, y, z), Diagram.bc(x, y, z)
+    assert (fc.dom, fc.cod) == ((x << y) @ (y << z), x << z)
+    assert (bc.dom, bc.cod) == ((x >> y) @ (y >> z), x >> z)
+    assert Diagram.fx(x, y, z) == fc and Diagram.bx(x, y, z) == bc
+
+    left, middle, right = x @ y, y @ z, z @ x
+    assert Diagram.fc(left, middle, right).cod == left << right
+    assert Diagram.bc(left, middle, right).cod == left >> right
 
 
 def test_Term():
     x, y = Ty('x'), Ty('y')
     f, a = (x >> y)("f"), x("a")
-    assert type(f) is Constant
-    assert Word("a", x).cod == x and isinstance(Word("a", x), Constant)
+    assert type(f) is Constant is Word and f.cod == x >> y
     assert type(f(a)) is Application and f(a).cod == y
-    var = Variable("v", x)
-    assert type(Abstraction(var, f(var))) is Abstraction
-    assert Abstraction(var, f(var)).cod == x >> y
+    assert type(x(lambda v: f(v))) is Abstraction
+    assert x(lambda v: f(v)).cod == x >> y and a(f, left=True) == f(a)
     assert eval(str(f(a)), dict(locals())) == f(a)
     assert eval(repr(f(a)), {"grammar": grammar, "cat": cat}) == f(a)
-    assert isinstance(f(a).eval(), Diagram)
+    assert f(a).eval() == f @ a >> Diagram.fa(y, x)
+    assert x(lambda v: f(v))(a).normal_form() == f(a)
 
 
 def test_from_categorial():
@@ -74,47 +58,33 @@ def test_from_categorial():
     f, g, x = (X >> Y)("f"), (X >> Y)("g"), X("x")
     X_, Y_, Z_ = map(categorial.Ty, "XYZ")
     f_, g_, x_ = (Y_ << X_)("f"), (X_ >> Y_)("g"), X_("x")
+    assert Ty.from_categorial(Y_ << X_) == Ty.from_categorial(X_ >> Y_)\
+        == X >> Y
 
     assert type(f_.to_abstract()) is Constant
     assert f_(x_).to_abstract() == f(x)
     assert x_(g_, left=True).to_abstract() == g(x)
-
-    assert categorial.FX(f_, (Z_ >> X_)("g")).to_abstract()\
-        == Z(lambda x: f((Z >> X)("g")(x)))
-    assert categorial.BX(f_, (Y_ >> Z_)("g")).to_abstract()\
-        == X(lambda x: (Y >> Z)("g")(f(x)))
+    assert categorial.FX(f_, (Z_ >> X_)("h")).to_abstract()\
+        == Z(lambda x: f((Z >> X)("h")(x)))
+    assert categorial.BX(f_, (Y_ >> Z_)("h")).to_abstract()\
+        == X(lambda x: (Y >> Z)("h")(f(x)))
     assert categorial.FC((Z_ << Y_)("h"), f_).to_abstract()\
         == X(lambda x: (Y >> Z)("h")(f(x)))
-    assert categorial.FTR(Y_, x_).to_abstract()\
-        == (X >> Y)(lambda f: f(x))
+    assert categorial.BC(g_, (Y_ >> Z_)("h")).to_abstract()\
+        == X(lambda x: (Y >> Z)("h")(g(x)))
+    for raised in (categorial.FTR(Y_, x_), categorial.BTR(Y_, x_)):
+        assert raised.to_abstract() == (X >> Y)(lambda f: f(x))
 
-
-def test_open_categorial_terms_preserve_context():
-    X, Y, Z = map(categorial.Ty, "XYZ")
-    x = categorial.Variable("x", X)
-    f_left = categorial.Variable("f", Y << X)
-    g_left = categorial.Variable("g", Z << Y)
-    f_right = categorial.Variable("f", X >> Y)
-    g_right = categorial.Variable("g", Y >> Z)
-    terms = [
-        categorial.FA(f_left, x),
-        categorial.BA(x, f_right),
-        categorial.FC(g_left, f_left),
-        categorial.BC(f_right, g_right),
-        categorial.FX(g_left, f_right),
-        categorial.BX(f_left, g_right),
-        categorial.FTR(Y, x),
-        categorial.BTR(Y, x)]
-
-    for term in terms:
-        result = term.to_abstract()
-        assert result.dom == Ty.from_categorial(term.dom)
-        assert (result.eval().dom, result.eval().cod)\
-            == (result.dom, result.cod)
-
-    result = categorial.BX(
-        categorial.Variable("x", Y << X), g_right).to_abstract()
-    assert result.var.name == "x_"
+    n, s = categorial.Ty("n"), categorial.Ty("s")
+    N, S = Ty("n"), Ty("s")
+    Alice, loves, Bob = n("Alice"), ((n >> s) << n)("loves"), n("Bob")
+    diagram = Alice @ loves @ Bob\
+        >> n @ categorial.Diagram.fa(n >> s, n) >> categorial.Diagram.ba(n, s)
+    assert Diagram.from_categorial(diagram)\
+        == N("Alice") @ (N >> (N >> S))("loves") @ N("Bob")\
+        >> N @ Diagram.fa(N >> S, N) >> Diagram.ba(N, S)
+    word = categorial.Word("Alice", n, dom=n)
+    assert Diagram.from_categorial(word) == Box("Alice", N, N)
 
 
 def test_crossed_composition_requires_symmetry():
@@ -131,16 +101,64 @@ def test_crossed_composition_requires_symmetry():
         F(bx)
 
 
-def test_Lexicon_Montague_semantics():
-    """
-    Syntax: two sentences with the same grammatical structure.
+def test_Lexicon():
+    x, y, z = map(Ty, "xyz")
+    a, b, c = x("a"), y("b"), z("c")
+    first = Lexicon(ob_map={x: y}, ar_map={a: b})
+    second = Lexicon(ob_map={y: z}, ar_map={b: c})
+    assert first(a) == b and first(x >> x) == y >> y
+    assert first(x(lambda v: v)) == y(lambda v: v)
+    assert (first >> second)(a) == second(first(a)) == c
+    assert type(first >> second) is Lexicon
+    with raises(AxiomError):
+        Lexicon(ob_map={x: y}, ar_map={a: (y >> y)("b")})(a)
 
-    Semantics: logical formulas as lambda terms with higher-order constants
-    for the quantifiers and connectives. "married" is interpreted de dicto
-    and "learnt" de re, i.e. the object quantifier scopes below the subject
-    quantifier ("for every woman there exists a man that she married") in
-    the first and above it ("there exists a song that every child learnt")
-    in the second.
+
+def test_strings():
+    Alice, loves, Bob = map(string, ("Alice", "loves", "Bob"))
+    assert string == star >> star and concat() == star(lambda x: x)
+    assert concat(Alice, loves, Bob).is_linear
+    assert concat(concat(Alice, loves), Bob).normal_form()\
+        == concat(Alice, loves, Bob)\
+        == concat(Alice, concat(loves, Bob)).normal_form()
+
+    n, s = categorial.Ty("n"), categorial.Ty("s")
+    words = Alice_, loves_, Bob_, sleeps = (
+        n("Alice"), ((n >> s) << n)("loves"), n("Bob"), (n >> s)("sleeps"))
+    strings = Lexicon.from_categorial(*words)
+    assert strings(Ty("n")) == strings(Ty("s")) == string
+
+    def yield_of(derivation):
+        term = strings(Diagram.from_categorial(derivation)).normal_form()
+        return [word.name for word in term.constants]
+
+    sentence = Alice_(loves_(Bob_), left=True)
+    assert yield_of(sentence) == ["Alice", "loves", "Bob"]
+    raised = categorial.FC(categorial.FTR(s, Alice_), loves_)(Bob_)
+    assert yield_of(raised) == ["Alice", "loves", "Bob"]
+    raised_object = categorial.BTR(n >> s, Bob_)
+    assert yield_of(categorial.FTR(s, Alice_)(sleeps)) == ["Alice", "sleeps"]
+    assert yield_of(Alice_(loves_(raised_object, left=True), left=True))\
+        == ["Alice", "loves", "Bob"]
+
+    diagram = Alice_ @ loves_ @ Bob_\
+        >> n @ categorial.Diagram.fa(n >> s, n) >> categorial.Diagram.ba(n, s)
+    python = Functor(
+        ob_map={star: list},
+        ar_map=lambda word: lambda: lambda xs: [word.name] + xs,
+        cod=Function)
+    assert python(strings(Diagram.from_categorial(diagram)))()([])\
+        == ["Alice", "loves", "Bob"]
+
+
+def test_Montague_semantics():
+    """
+    Two sentences with the same grammatical structure and different
+    quantifier scopes, checked against Python over a random finite universe
+    as in the higher-order DisCoCat notebook: "Every woman married a man" is
+    read de dicto, i.e. for every woman there is a man that she married, and
+    "Every child learnt a song" de re, i.e. there is a song that every child
+    learnt.
     """
     n, np, s = map(categorial.Ty, ("n", "np", "s"))
     every, a = (np << n)("every"), (np << n)("a")
@@ -148,11 +166,10 @@ def test_Lexicon_Montague_semantics():
     married, learnt = (((np >> s) << np)(v) for v in ("married", "learnt"))
 
     def sentence(det1, noun1, verb, det2, noun2):
-        return det1(noun1)(verb(det2(noun2)), left=True)
+        return det1(noun1)(verb(det2(noun2)), left=True).to_abstract()
 
     every_woman_married_a_man = sentence(every, woman, married, a, man)
     every_child_learnt_a_song = sentence(every, child, learnt, a, song)
-    assert every_woman_married_a_man.cod == every_child_learnt_a_song.cod == s
 
     e, t = Ty("e"), Ty("t")
     ET, NP = e >> t, (e >> t) >> t
@@ -161,41 +178,42 @@ def test_Lexicon_Montague_semantics():
     WOMAN, MAN, CHILD, SONG = (
         ET(w) for w in ("WOMAN", "MAN", "CHILD", "SONG"))
     MARRIED, LEARNT = ((e >> (e >> t))(v) for v in ("MARRIED", "LEARNT"))
-
     EVERY = ET(lambda p: ET(lambda q: forall(
         e(lambda x: implies(p(x))(q(x))))))
-    A = ET(lambda p: ET(lambda q: exists(
-        e(lambda y: and_(p(y))(q(y))))))
+    A = ET(lambda p: ET(lambda q: exists(e(lambda y: and_(p(y))(q(y))))))
+    de_dicto = NP(lambda o: NP(lambda su: su(
+        e(lambda x: o(e(lambda y: MARRIED(x)(y)))))))
+    de_re = NP(lambda o: NP(lambda su: o(
+        e(lambda y: su(e(lambda x: LEARNT(x)(y)))))))
+    semantics = Lexicon(
+        ob_map={Ty("n"): ET, Ty("np"): NP, Ty("s"): t},
+        ar_map=lambda word: {
+            "every": EVERY, "a": A, "woman": WOMAN, "man": MAN,
+            "child": CHILD, "song": SONG,
+            "married": de_dicto, "learnt": de_re}[word.name])
+    for term in (every_woman_married_a_man, every_child_learnt_a_song):
+        formula = semantics(term)
+        assert formula.cod == t and not formula.is_linear
+        diagram = formula.eval()
+        assert (diagram.dom, diagram.cod) == (Ty(), t)
+        assert not diagram.is_linear
 
-    married_sem = NP(lambda o: NP(lambda su: su(
-        e(lambda z: o(e(lambda w: MARRIED(w)(z)))))))
-    learnt_sem = NP(lambda o: NP(lambda su: o(
-        e(lambda w: su(e(lambda z: LEARNT(w)(z)))))))
-
-    lexicon = Lexicon(
-        ob_map={n: ET, np: NP, s: t},
-        ar_map={every: EVERY, a: A,
-                woman: WOMAN, man: MAN, child: CHILD, song: SONG,
-                married: married_sem, learnt: learnt_sem})
-
-    de_dicto = forall(e(lambda x: implies(WOMAN(x))(
-        exists(e(lambda y: and_(MAN(y))(MARRIED(y)(x)))))))
-    de_re = exists(e(lambda y: and_(SONG(y))(
-        forall(e(lambda x: implies(CHILD(x))(LEARNT(y)(x)))))))
-
-    assert lexicon(every_woman_married_a_man).normal_form() == de_dicto
-    assert lexicon(every_child_learnt_a_song).normal_form() == de_re
-
-
-def test_python_Functor_on_terms():
-    from discopy.python import Function
-    n, s = categorial.Ty("n"), categorial.Ty("s")
-    Alice, sleeps = n("Alice"), (n >> s)("sleeps")
-    F = categorial.Functor(
-        ob_map={n: str, s: bool},
-        ar_map={Alice: Function(lambda: "Alice", dom=(), cod=(str, )),
-                sleeps: Function(
-                    lambda x: x == "Alice",
-                    dom=(str, ), cod=(bool, )).curry(left=True)},
-        cod=Function)
-    assert F(Alice(sleeps, left=True))()
+    random, U = Random(42), range(8)
+    Woman, Man, Child, Song = (
+        [random.choice([True, False]) for _ in U] for _ in range(4))
+    Married, Learnt = (
+        {(x, y): random.choice([True, False]) for x in U for y in U}
+        for _ in range(2))
+    python = Functor(ob_map={e: int, t: bool}, ar_map={
+        forall: lambda: lambda p: all(p(x) for x in U),
+        exists: lambda: lambda p: any(p(x) for x in U),
+        implies: lambda: lambda p: lambda q: not p or q,
+        and_: lambda: lambda p: lambda q: p and q,
+        WOMAN: lambda: lambda x: Woman[x], MAN: lambda: lambda x: Man[x],
+        CHILD: lambda: lambda x: Child[x], SONG: lambda: lambda x: Song[x],
+        MARRIED: lambda: lambda x: lambda y: Married[x, y],
+        LEARNT: lambda: lambda x: lambda y: Learnt[x, y]}, cod=Function)
+    assert python(semantics(every_woman_married_a_man))() == all(
+        not Woman[x] or any(Man[y] and Married[x, y] for y in U) for x in U)
+    assert python(semantics(every_child_learnt_a_song))() == any(
+        Song[y] and all(not Child[x] or Learnt[x, y] for x in U) for y in U)

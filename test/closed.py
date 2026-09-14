@@ -137,15 +137,40 @@ def test_nonlinear_eval():
 
     discarded, = Y(lambda y: X(lambda x: g(x)(x))).eval().boxes
     assert any(isinstance(box, Discard) for box in discarded.arg.boxes)
-def test_context_dom():
+
+
+def test_is_linear():
+    """ Bubbles, sums and terms are linear when their insides are. """
+    x, y = Ty("x"), Ty("y")
+    f, nonlinear = Box("f", x, y), Copy(x) >> Box("g", x @ x, x)
+    assert f.curry().is_linear and (f + f).is_linear
+    assert (Box("h", x @ y, x @ y) @ x).trace().is_linear
+    assert not nonlinear.is_linear
+    assert not nonlinear.curry().is_linear
+    assert not (nonlinear @ x).trace().is_linear
+    assert not (nonlinear + nonlinear).is_linear
+
+    g, a = (x >> (x >> y))("g"), x("a")
+    assert g(a)(a).is_linear and x(lambda v: g(v)(a)).is_linear
+    for term in [x(lambda v: g(v)(v)), x(lambda v: g(a)(a))]:
+        assert not term.is_linear and not term.eval().is_linear
+
+
+def test_eval_in_context():
     """
-    `Context.dom` instantiates `category.ob` before calling `.tensor`, so
-    it works both for an empty context (regression test for #549) and for
-    a non-empty one.
+    A term evaluated in a context discards the variables it does not use
+    and permutes the others, so that the diagram has the context as domain.
     """
-    X = Ty('X')
-    assert Context([]).dom == Ty()
-    assert Context([Variable('x', X)]).dom == X
+    X, Y = Ty("X"), Ty("Y")
+    x, y, f = Variable("x", X), Variable("y", Y), (X >> (Y >> Y))("f")
+    assert x.eval(context=[y, x]) == Diagram.swap(Y, X) >> X @ Discard(Y)
+    assert f.eval(context=[y]) == Discard(Y) >> f
+    assert f(x)(y).eval(context=[y, x]) == Diagram.swap(Y, X)\
+        >> f(x)(y).eval()
+    for context in ([x, y], [y, x], [x, y, Variable("z", X)]):
+        diagram = f(x)(y).eval(context=context)
+        assert diagram.dom == Ty().tensor(*[v.cod for v in context])
+        assert diagram.cod == Y
 
 
 def test_discard():
@@ -248,17 +273,15 @@ def test_normal_form():
 
     a = Variable("a", X)
     assert X(lambda x: f(x))(a).normal_form() == f(a)
-    with raises(ValueError, match="free-variable context"):
-        X(lambda x: Y("c"))(a).normal_form()
+    assert X(lambda x: Y("c"))(a).normal_form() == Y("c")
 
     h, x, y = (X >> (X >> Y))("h"), Variable("x", X), Variable("y", X)
     exchange = Abstraction(x, h(x)(y))(a)
     assert exchange.freevars == [y, a] and exchange.dom == X @ X
-    with raises(ValueError, match="free-variable context"):
-        exchange.normal_form()
+    assert exchange.normal_form() == h(a)(y)
 
     duplicate = X(lambda x: h(x)(x))(X("a"))
-    with raises(ValueError, match="duplicate an argument"):
+    with raises(ValueError, match="copies its argument"):
         duplicate.normal_form()
 
 

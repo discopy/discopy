@@ -9,14 +9,49 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
-- Abstract categorial grammars, `discopy.grammar.abstract`, where derivations
-  are (almost) linear lambda terms with words as constants and lexicons are
-  functors from free biclosed categories to free closed categories:
-  `closed.TermBase.from_biclosed` and `closed.Ty.from_biclosed` drop
-  planarity by collapsing left and right exponentials, `abstract.Lexicon`
-  subclasses `categorial.Functor` and `closed.Functor` so that crossed
-  compositions and type raising translate into lambda terms, and
-  `closed.TermBase.normal_form` beta-reduces a term
+- Abstract categorial grammars, `discopy.grammar.abstract`, after de Groote's
+  *Towards abstract categorial grammars* (2001): a vocabulary is the free
+  closed category on atomic types and constants, its terms the (almost)
+  linear lambda terms of `closed`, and `abstract.Lexicon` is a functor from
+  one vocabulary to another, sending atomic types to types and constants to
+  terms of the image of their type, which it checks, and composing with
+  `>>`. Strings are the paper's: `string` is `* >> *` on one atomic type,
+  a word is a constant of type `string`, `concat` composes strings and
+  `concat()` is the empty one. A categorial grammar comes with two things:
+  `abstract.Diagram.from_categorial`, which drops planarity from a
+  categorial diagram or term, collapsing left and right exponentials,
+  turning crossed compositions into compositions and type raising and
+  composition into lambda terms, and which `categorial.TermBase.to_abstract`
+  calls; and `abstract.Lexicon.from_categorial`, the string lexicon of its
+  words, concatenating each word with its arguments on the side its slashes
+  say (`slots`), higher-order arguments being applied to empty strings first
+  (`saturate`), so that the string of a derivation is its yield, except for
+  crossed compositions whose surface order breaks the slashes by design.
+  `abstract.Diagram` carries the rules `fa`, `ba`, `fc`, `bc`, `fx` and
+  `bx` of a categorial grammar as its closed structure. The tests compile
+  the two quantifier scopes of *Every woman married a man* and *Every child
+  learnt a song* to Python over a random finite universe
+  ([#398](https://github.com/discopy/discopy/issues/398)).
+- Closed terms take a context: `closed.TermBase.eval` reads a list of
+  distinct variables containing the free ones, discards the others and
+  permutes the rest into the order of `freevars` with `TermBase.weaken`,
+  the structural morphism it factors through, so `closed.Context` and the
+  wire-permuting branches of `Abstraction.eval` are gone; an `Application`
+  copies exactly the variables free on both sides, its `overlap`. Closed
+  terms accept and ignore the `left` of their biclosed counterparts, since a
+  closed category has one exponential, and `is_linear` says whether a term
+  is: an application with no overlap and an abstraction whose variable
+  occurs once. `TermBase.normal_form` beta-reduces a term, discarding an
+  unused argument but refusing to copy one, since copying is not natural in
+  a markov category; `Substitution` is simultaneous and capture-avoiding
+  through the `substitute` method of each term, `occurrences` counts the
+  free occurrences of a variable and `Variable.fresh` names one not free in
+  the given terms. `closed.Ty.from_biclosed` and
+  `closed.TermBase.from_biclosed` drop planarity, `biclosed.TermBase.map`
+  sends a term to a term whenever the codomain's objects are biclosed types
+  (a `CMap` excepted, which reuses its host category's types), which is what
+  a `biclosed.Functor` does on a term then, and `biclosed.Constant.eval`
+  wraps a raw callable in the codomain like every other box
   ([#398](https://github.com/discopy/discopy/issues/398)).
 - `monoidal.List`, the free monoid on a generator type: `List[X]` is a
   tuple of instances of `X` with concatenation as `tensor` and the empty
@@ -531,31 +566,20 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 - `biclosed.Curry`'s own constructor defaulted to `left=False`, disagreeing
   with `Diagram.curry`'s `left=True` default since #560 unified the two: a
-  bare `Curry(box)` curried the opposite side of `box.curry()`.
-  `closed.Diagram.bc` and `grammar.categorial.Diagram.bc` passed `n` without
-  `left`, so backward composition curried on the wrong side by the same
-  drift.
-  `closed.Application.__check_dom__` and `closed.Abstraction.eval` order
-  free variables and permute wires by variable count rather than by wire
-  width, so an abstracted or applied term with a multi-wire free variable
-  built the wrong domain or crashed `Diagram.permutation`; both now account
-  for each variable's width. `grammar.abstract` set `braid_factory` instead
-  of `swap_factory` (renamed by #440) and defined no `Permutation` class of
-  its own, so any swap or non-trivial permutation of abstract diagrams
-  silently built a `closed.Diagram` instead of a `grammar.abstract.Diagram`.
-- `biclosed.Functor.__call__`'s term dispatch (added alongside
-  `discopy.grammar.abstract` above) took `self.cod.ob`'s being a subclass of
-  `Ty` as a sign that the codomain is itself a term category and mapped the
-  term symbolically with `TermBase.map` instead of evaluating it — true of
-  every category built on `biclosed.Ty`, `CMap` included, since `CMap` reuses
-  its host category's own `Ty` as its object type. Calling `to_map()` on any
-  `Application` or `Abstraction` therefore returned the term unchanged rather
-  than a `CMap`, `AttributeError`-ing downstream the moment something tried
-  to read `.ports` off it. The check now also excludes `CMap` as a codomain.
-  `grammar.abstract.CMap` is a `cmap.CMap[Diagram]` alias like the rest of the
-  hierarchy rather than a hand-rolled subclass, and the dead
-  `Diagram.map_factory` assignment it carried (removed everywhere else by
-  #532) is dropped.
+  bare `Curry(box)` curried the opposite side of `box.curry()`, and
+  `grammar.categorial.Diagram.bc` passed `n` without `left`, so backward
+  composition curried on the wrong side by the same drift. Closed terms
+  evaluated a multi-wire free variable as one wire, building the wrong
+  domain or crashing `Diagram.permutation`: the context of a term is now
+  mapped wire by wire.
+- `closed.Box.is_linear` is a class attribute, so a `Curry`, a `Trace` or a
+  `Sum` read as linear whatever they held: `Copy(x) >> f` is not linear but
+  its curry, its trace and its formal sum were. Each now reads its inside.
+  `monoidal.Sum` pinned `ob = monoidal.Ty`, which came before the diagram
+  class in the resolution order of every level's `Sum`, so `closed.Sum.ob`
+  and `biclosed.Sum.ob` were `monoidal.Ty` rather than their own types and
+  a subclass had to pin its own; the pin is gone, `Sum.ob` is the `ob` of
+  the diagram it is a box of, as for every other box.
 - The marimo notebook previews in the docs follow the theme switch. The
   notebooks are exported with marimo's `system` theme and the docs relay
   the resolved theme into each notebook's iframe through marimo's

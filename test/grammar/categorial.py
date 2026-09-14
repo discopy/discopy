@@ -125,7 +125,6 @@ def test_terms_simplify_and_eval():
 
     for term in [FTR(Y, x), BTR(Y, x)]:
         assert term.freevars == []
-        assert term.variables == []
         assert str(term) == f"{type(term).__name__}({Y}, {x})"
         assert isinstance(term.simplify(), Abstraction)
         assert term.eval() == term.simplify().eval()
@@ -134,7 +133,6 @@ def test_terms_simplify_and_eval():
 
     fc, bc = FC(g_left, f_left), BC(f_right, g_right)
     assert fc.freevars == []
-    assert fc.variables == []
     assert str(fc) == f"FC({g_left}, {f_left})"
     x_var = Variable("x", X)
     assert fc.simplify() == Abstraction(x_var, g_left(f_left(x_var)))
