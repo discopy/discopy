@@ -24,8 +24,8 @@ def test_tensor_unit_is_none():
     that follow it. """
     f, g = Function.id((int, )), Function.id((bool, ))
     assert f.tensor() == f.tensor(None) == f
-    assert f.tensor(None, g).dom == f.tensor(g).dom == (int, bool)
-    assert f.tensor(g, None).dom == (int, bool)
+    assert f.tensor(None, g).dom == f.tensor(g).dom == Ty(int, bool)
+    assert f.tensor(g, None).dom == Ty(int, bool)
 
 
 def test_fixed_point():

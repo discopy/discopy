@@ -69,11 +69,11 @@ def test_strictification():
     X, Y, Z = Ty("X"), Ty("Y"), Ty("Z")
     F = Functor({typ: typ @ typ for typ in (X, Y, Z)}, {})
     assert F((X * Y) * Z) == (X @ X * (Y @ Y)) * (Z @ Z)
-    from discopy.python import Function
+    from discopy.python import Function, Ty as PyTy
     G = Functor({X: int, Y: bool, Z: float}, {}, cod=Function)
-    assert G((X * Y) * Z) == (int, bool, float) == G(X.product(Y, Z))
+    assert G((X * Y) * Z) == PyTy(int, bool, float) == G(X.product(Y, Z))
     packed = G(Pack(X * Y))
-    assert packed.dom == packed.cod == (int, bool)
+    assert packed.dom == packed.cod == PyTy(int, bool)
     assert packed(5, True) == (5, True)
 
 
