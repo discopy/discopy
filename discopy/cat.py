@@ -973,9 +973,7 @@ class Functor(Category):
         if isinstance(other, Ob):
             result = self.ob_map[other]
             origin = get_origin(self.cod.ob)
-            if isinstance(result, origin):
-                return result
-            return (result, ) if origin == tuple\
+            return result if isinstance(result, origin)\
                 else self.cod.ob(result)
         if isinstance(other, Sum):
             return sum(map(self, other.terms),

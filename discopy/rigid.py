@@ -131,11 +131,11 @@ out the two objects needed below as ``cat.Ob`` instances so that
 
 >>> eta = Transformation(
 ...     lambda obj: Function(
-...         lambda x: Free(Id_set(obj)[0])([x]), Id_set(obj), GF(obj)),
+...         lambda x: Free(Id_set(obj).inside[0])([x]), Id_set(obj), GF(obj)),
 ...     Id_set, GF)
 >>> epsilon = Transformation(
 ...     lambda obj: Morphism(
-...         lambda w: Id_monoid(obj)[0].id().tensor(*w.xs),
+...         lambda w: Id_monoid(obj).inside[0].id().tensor(*w.xs),
 ...         FG(obj), Id_monoid(obj)),
 ...     FG, Id_monoid)
 
