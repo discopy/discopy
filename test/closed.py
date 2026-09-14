@@ -1,12 +1,35 @@
 from __future__ import annotations
 
+from pytest import raises
+
 from discopy.closed import *
+
+
+U = Ty(Unitype())
+
+
+def church(n, X):
+    def body(f):
+        def inner(x):
+            result = x
+            for _ in range(n):
+                result = f(result)
+            return result
+        return X(inner)
+    return (X >> X)(body)
 
 
 def test_exp():
     X, Y = Ty('X'), Ty('Y')
     assert X >> Y == Y ** X == Y << X
     assert X @ Ty() == X == Ty() @ X
+
+
+def test_unitype_hash():
+    exp = Exp(U, U)
+    assert Unitype() == exp and hash(Unitype()) == hash(exp)
+    ob_map = {Unitype(): "unitype"}
+    assert ob_map[exp] == "unitype"
 
 
 def test_str():
@@ -28,6 +51,145 @@ def test_python_Functor():
 
     assert F(f.uncurry().curry())(True)(1j) == F(f)(True)(1j)
     assert F(g.curry().uncurry())(1j, True) == F(g)(1j, True)
+
+
+def test_church_addition():
+    X = Ty('X')
+    zero, one, two, three = [church(n, X) for n in range(4)]
+    N, I = two.cod, X >> X
+    add = N(lambda m: N(lambda n: I(lambda f: X(lambda x: m(f)(n(f)(x))))))
+    assert add(one)(two).normal_form() == three
+    assert add(zero)(two).normal_form() == two == add(two)(zero).normal_form()
+
+
+def test_church_multiplication():
+    X = Ty('X')
+    zero, two, three = church(0, X), church(2, X), church(3, X)
+    N, I = two.cod, X >> X
+    mul = N(lambda m: N(lambda n: I(lambda f: m(n(f)))))
+    assert mul(two)(three).normal_form() == church(6, X)
+    assert mul(two)(zero).normal_form() == zero
+
+
+def test_church_exponentiation():
+    assert U == U >> U and U.base == U == U.exponent
+    two, three = church(2, U), church(3, U)
+    N = two.cod
+    assert N == U
+    exp = N(lambda m: N(lambda n: (U >> U)(lambda f: n(m)(f))))
+    assert exp(two)(three).normal_form() == church(8, U)
+    assert exp(three)(two).normal_form() == church(9, U)
+
+
+def test_normal_form_idempotent():
+    two, three = church(2, U), church(3, U)
+    exp = two.cod(lambda m: two.cod(lambda n: n(m)))
+    result = exp(two)(three).normal_form()
+    assert result == result.normal_form()
+    x, y = Variable('x', U), Variable("x1", U)
+    body = y
+    for _ in range(8):
+        body = x(body)
+    assert result == Abstraction(x, Abstraction(y, body))
+
+
+def test_reduce_budget():
+    X = Ty('X')
+    h = Variable('h', X >> (X >> X))
+    c, d = Variable('c', X), Variable('d', X)
+    identity = X(lambda x: x)
+    term = h(identity(c))(identity(d))
+    scope = (h, c, d)
+
+    tree0 = term.reduce(budget=0)
+    assert (tree0.head_cod, tree0.variables, tree0.head) == (X, scope, 0)
+    assert tree0.spine == (identity(c), identity(d))
+    with raises(ValueError):
+        tree0[0]
+    with raises(ValueError):
+        tree0[1]
+    with raises(ValueError):
+        tree0.to_term()
+
+    tree_negative = term.reduce(budget=-1)
+    assert (tree_negative.head_cod, tree_negative.variables,
+            tree_negative.head) == (X, scope, 0)
+    with raises(ValueError):
+        tree_negative[0]
+
+    tree1 = term.reduce(budget=1)
+    assert tree1[0].to_term(len(scope)) == c
+    with raises(ValueError):
+        tree1[1]
+    with raises(ValueError):
+        tree1.to_term()
+
+    tree = term.reduce()
+    assert tree[0].to_term(len(scope)) == c
+    assert tree[1].to_term(len(scope)) == d
+    assert tree.to_term(len(scope)) == h(c)(d)
+
+    with raises(ValueError):
+        term.normal_form(budget=1)
+    assert term.normal_form(budget=2) == h(c)(d) == term.normal_form()
+
+
+def test_reduce_strategy():
+    X = Ty('X')
+    h = Variable('h', X >> (X >> X))
+    c, d = Variable('c', X), Variable('d', X)
+    term = h(X(lambda x: x)(c))(X(lambda x: x)(d))
+    scope = (h, c, d)
+
+    tree = term.reduce(budget=1, strategy=RightmostFirst)
+    assert tree.strategy.order(tree.spine) == (1, 0)
+    with raises(ValueError):
+        tree.to_term()
+    assert tree[1].to_term(len(scope)) == d
+    with raises(ValueError):
+        tree[0]
+
+    with raises(NotImplementedError):
+        Strategy().order((c, ))
+    with raises(TypeError):
+        Constant('e', X).reduce()
+
+
+def test_bohm_tree_cod():
+    X = Ty('X')
+    two = church(2, X)
+    tree = two.reduce()
+    assert tree.cod() == two.cod
+    assert tree.to_term() == two
+
+
+def test_bohm_tree_validation_and_equality():
+    X, Y = Ty('X'), Ty('Y')
+    x, y = Variable('x', X), Variable('y', Y)
+    term = (X >> X)(lambda f: X(lambda x: f(x)))
+    assert term.reduce() == term.reduce(budget=10)
+
+    with raises(AxiomError):
+        BohmTree(X, (x, ), 1, Strategy(), ())
+    with raises(AxiomError):
+        BohmTree(X, (x, ), 0, Strategy(), (x, ))
+    with raises(AxiomError):
+        BohmTree(X, (Variable('f', X >> X), ), 0, Strategy(), (y, ))
+    with raises(AxiomError):
+        BohmTree(Y, (x, ), 0, Strategy(), ())
+
+
+def test_substitution():
+    X = Ty('X')
+    c, g, x = Constant('c', X), Variable('g', X >> X), Variable('x', X)
+    assert Substitution({x: c})(g(x)) == g(c)
+    assert Substitution({x: c})(g(c)) == g(c)
+    h = Variable('h', X >> (X >> (X >> X)))
+    f, y = Variable('f', X >> X), Variable('y', X)
+    y_, y1 = Variable("y'", X), Variable("y1", X)
+    term = X(lambda y: f(y))
+    assert Substitution({f: h(y)(y_)})(term)\
+        == Abstraction(y1, h(y)(y_)(y1))
 
 
 def test_to_compact():
@@ -134,6 +296,8 @@ def test_nonlinear_eval():
 
     discarded, = Y(lambda y: X(lambda x: g(x)(x))).eval().boxes
     assert any(isinstance(box, Discard) for box in discarded.arg.boxes)
+
+
 def test_context_dom():
     """
     `Context.dom` instantiates `category.ob` before calling `.tensor`, so
