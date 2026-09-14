@@ -133,3 +133,23 @@ Rough edges met on the way, each worth an issue:
 > make pregroup and circuit define generators themselves instead of test subclasses
 
 - [x] `pregroup.Diagram.generators` over a module vocabulary and `Circuit.generators` over the gate set, with their strategies and the trace declared inapplicable, the tests drawing from the classes directly; the matrix keeps to the free categories; CHANGELOG, lint, `uv run pytest`, the fast matrix
+
+## Round: proof goals with holes
+
+> the proper proof search should work this way:
+> * each proof goal is a pattern sequent, possibly containing metavariables, and a fuel
+> * a single metavariable on either side means unconstrained search at this boundary
+> * at every step, walk through every possible rule:
+>    * tensor: depending on which side is constrained:
+>       * monoidal: sample an index, split at the given index
+>       * symmetric: same but before sample a permutation
+>       * markov: same but a function instead of a permutation
+>       * frobenius: same but sample two functions
+>       * ...
+>    * compose:
+>       * if only left is constrained, sample from that
+>       * same for right
+>       * if both are constrained, sample a middle type and search recursively
+>    * also rules for curry, trace, feedback, ...
+
+- [WIP] @af1f3450-2026-09-14 `axioms.Goal`, a pattern sequent over goal variables with an environment and a fuel, a side left open being a hole; `align` unifying a rule's conclusion with a goal, splitting holes and binding what a proof determines; premises proved in sequence with the environment threaded, the most constrained first, a closed goal drawing its middle from the types and the hints as before; the box, the permutation and a constant on goals; `search` from open boundaries; docs, CHANGELOG, tests, lint, `uv run pytest`, the fast matrix
