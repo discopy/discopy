@@ -204,7 +204,7 @@ from dataclasses import dataclass
 import networkx as nx
 
 from discopy.drawing import backend, Node, Point
-from discopy.config import BOX_DRAWING_ATTRIBUTES
+from discopy.config import BOX_DRAWING_ATTRIBUTES, TRANSPARENT
 from discopy.abc import TracedCategory
 from discopy.python import finset
 from discopy.utils import (
@@ -1184,7 +1184,7 @@ class Drawing(TracedCategory, RichDisplay):
 
     def add(self, other: Drawing, symbol="+", space=1):
         """ Concatenate two drawings with a symbol in between. """
-        from discopy.monoidal import Colour, Ty, Box
+        from discopy.monoidal import Box, Ty, transparent
         if getattr(self, "zero_drawing", False):
             return other
         if getattr(other, "zero_drawing", False):
@@ -1193,15 +1193,15 @@ class Drawing(TracedCategory, RichDisplay):
         self = self.stretch(height - self.height)
         other = other.stretch(height - other.height)
         scalar = Box(
-            symbol, Ty(), Ty(), draw_as_spider=True, color="white"
+            symbol, Ty(), Ty(), draw_as_spider=True, color=TRANSPARENT
         ).to_drawing()
-        white = Colour("white")
-        if self.cod.cod != white or other.dom.dom != white:
-            # The boundary colours are not white, e.g. an Equation between
-            # terms of different colours: give each term its own
-            # white-bordered slot, as for Drawing.frame.
+        if self.cod.cod != transparent or other.dom.dom != transparent:
+            # The boundary colours are painted, e.g. an Equation between
+            # terms of different colours: give each term its own transparent
+            # slot, as for Drawing.frame.
             self, other = (
-                term.slot(white, height=height) for term in (self, other))
+                term.slot(transparent, height=height)
+                for term in (self, other))
         result = self @ scalar @ other
         result.make_space(space - 1, self.width + 1)  # Right of the scalar.
         result.make_space(space - 1, self.width)  # Left of the scalar.
