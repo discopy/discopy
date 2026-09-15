@@ -49,4 +49,4 @@ Review round of 2026-09-15 by toumix on https://github.com/discopy/discopy/pull/
 
 > ok great findings now implement your propositions and push to the PR, make sure to clean previous slop rather than add on top of it
 
-- [ ] Refactor binding-aware maps, lexical boundaries, normalization and alpha-equivalence; replace slash saturation by a derivation interpretation; add grammar examples and validate the full change.
+- [WIP] @codex-acg-2026-09-15 19:59 Refactor binding-aware maps, lexical boundaries, normalization and alpha-equivalence; replace slash saturation by a derivation interpretation; add grammar examples and validate the full change.
