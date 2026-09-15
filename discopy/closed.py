@@ -53,8 +53,8 @@ from dataclasses import dataclass
 from typing import Dict, ClassVar
 
 from discopy import (
-    cat, monoidal, biclosed, markov, planar, cmap, hypergraph)
-from discopy.abc import ClosedCategory
+    cat, monoidal, biclosed, symmetric, markov, cmap, hypergraph)
+from discopy.abc import ClosedCategory, MarkovCategory
 from discopy.cat import factory
 
 
@@ -87,13 +87,21 @@ class Exp(biclosed.Exp):
 
 
 @factory
-class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
+class Diagram(
+        symmetric.Diagram, biclosed.Diagram, MarkovCategory, ClosedCategory):
     """
-    A closed diagram is both a markov and a biclosed diagram.
+    A closed diagram is both a symmetric and a biclosed diagram, together
+    with a supply of :class:`Copy` and :class:`Discard` borrowed from
+    :mod:`discopy.markov`, which its non-linear lambda terms use.
 
     A diagram applied to another post-composes their tensor with an `Eval`.
     """
     ob = Ty
+
+    spider_factory = classmethod(markov.Diagram.spider_factory.__func__)
+    copy = classmethod(markov.Diagram.copy.__func__)
+    merge = classmethod(markov.Diagram.merge.__func__)
+    discard = classmethod(markov.Diagram.discard.__func__)
 
     @property
     def is_linear(self):
@@ -103,43 +111,29 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
     def ev(cls, base: Ty, exponent: Ty, left: bool = True):
         return cls.eval_factory(exponent >> base, left=left)
 
-    trace = planar.Diagram.trace
-
-    def to_compact(self) -> Diagram:
+    def to_compact(self) -> "cmap.CMap":
         """
-        Open the curry bubbles into coevaluation and feedback, which stays
-        a :class:`Diagram` as a closed category is traced: each curry
-        becomes its argument followed by :class:`Coeval`, traced over the
-        curried wires, and each term is evaluated first.
+        Collapse the curry bubbles down to wiring structure, i.e. the
+        combinatorial map where each curry becomes its argument followed
+        by :class:`Coeval` with the curried wires fed back. A closed
+        category is not traced, so the result is a :class:`cmap.CMap`,
+        which is compact whatever category hosts it — the diagrams keep
+        their currying as a bubble, and only collapse when read through
+        the geometry of interaction.
 
         Example
         -------
         >>> x, y, z = map(Ty, "xyz")
         >>> f = Box("f", x @ y, z)
-        >>> assert f.curry().to_compact() == (
-        ...     f >> Coeval(z << y, left=True)).trace()
+        >>> assert f.curry().to_compact() == f.curry().to_map().to_compact()
         """
-        def image(box):
-            if isinstance(box, Curry):
-                return (box.arg.to_compact() >> Coeval(
-                    box.cod, left=box.left)).trace(
-                        len(box.cod.exponent), left=not box.left)
-            if isinstance(box, (Application, Abstraction)):
-                return box.eval(Functor.id(Diagram)).to_compact()
-            return box
-        result = self.id(self.dom)
-        for layer in self.inside:
-            for box, offset in layer.boxes_and_offsets:
-                cod = result.cod
-                result >>= cod[:offset] @ image(box)\
-                    @ cod[offset + len(box.dom):]
-        return result
+        return self.to_map().to_compact()
 
     def to_drawing(self):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
 
 
-class Box(markov.Box, biclosed.Box, Diagram):
+class Box(symmetric.Box, biclosed.Box, Diagram):
     "A closed box is a markov and biclosed box in a closed diagram."
     is_linear = True
 
@@ -157,40 +151,47 @@ class Curry(biclosed.Curry, Box):
     "The currying of a closed diagram."
 
 
-class Permutation(markov.Permutation, Box):
+class Permutation(symmetric.Permutation, Box):
     "A permutation in a closed diagram."
 
 
-class Swap(Permutation, markov.Swap, Box):
+class Swap(Permutation, symmetric.Swap, Box):
     "Symmetric swap in a closed diagram."
 
 
-class Trace(Box, planar.Trace):
+class Copy(Box, markov.Copy):
     """
-    A trace in a closed category, built by :meth:`Diagram.to_compact`.
-
-    The traced :class:`Box` comes first so that ``factory`` and ``ob``
-    resolve to the closed classes; the bubble methods are borrowed from
-    :class:`planar.Trace`.
+    A copy in a closed category: the :class:`Box` comes first so that
+    ``factory`` resolves to :class:`Diagram`.
     """
-    __init__ = planar.Trace.__init__
-    __repr__ = planar.Trace.__repr__
-    __str__ = planar.Trace.__str__
-    dagger = planar.Trace.dagger
-    to_drawing = planar.Trace.to_drawing
+    is_linear = False
+
+    __init__ = markov.Copy.__init__
+    __repr__ = markov.Copy.__repr__
+
+    def dagger(self) -> Merge:
+        return Merge(self.dom, len(self.cod))
 
 
-class Copy(markov.Copy, Box):
-    "A markov copy in a closed category"
+class Merge(Box, markov.Merge):
+    "A merge in a closed category."
 
     is_linear = False
 
+    __init__ = markov.Merge.__init__
+    __repr__ = markov.Merge.__repr__
 
-class Discard(markov.Discard, Copy):
-    "A markov discard in a closed category."
+    def dagger(self) -> Copy:
+        return Copy(self.cod, len(self.dom))
 
 
-class Sum(markov.Sum, biclosed.Sum, Box):
+class Discard(Copy):
+    "A discard in a closed category."
+    def __init__(self, x: Ty, *args, **kwargs):
+        super().__init__(x, 0)
+
+
+class Sum(symmetric.Sum, biclosed.Sum, Box):
     """
     A markov sum is a symmetric sum and a markov box.
 
@@ -201,7 +202,7 @@ class Sum(markov.Sum, biclosed.Sum, Box):
     """
 
 
-class Functor(biclosed.Functor, markov.Functor, planar.Functor):
+class Functor(biclosed.Functor, markov.Functor):
     """
     A closed functor is a markov functor
     that preserves evaluation and currying.
@@ -226,13 +227,12 @@ CMap = cmap.CMap[Diagram]
 
 Diagram.functor_factory = Functor
 Hypergraph = hypergraph.Hypergraph[Diagram]
-Diagram.copy_factory = Copy
+Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.swap_factory = Swap
 Diagram.permutation_factory = Permutation
 Diagram.curry_factory = Curry
 Diagram.eval_factory = Eval
 Diagram.coeval_factory = Coeval
-Diagram.trace_factory = Trace
 Diagram.discard_factory = Discard
 Diagram.sum_factory = Sum
 Ty.exp_factory = Ty.under_factory = Ty.over_factory = staticmethod(Exp)

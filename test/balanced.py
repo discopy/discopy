@@ -85,3 +85,22 @@ def test_to_braided_default_and_zero_width():
 
     # width=0 returns the diagram as is, i.e. without dual rails.
     assert twist.to_braided(width=0) == twist
+
+
+def test_trace_bubble():
+    from pytest import raises
+    from discopy.utils import AxiomError
+    assert repr(Box('f', 'x', 'x').trace()) == "balanced.Trace(f, left=False)"
+    with raises(AxiomError):
+        Box('f', 'x', 'y').trace()
+    f = Box('f', 'x', 'x')
+    assert f.trace().dagger() == f.dagger().trace()
+
+
+def test_trivial_delay_and_feedback():
+    x = Ty('x')
+    f = Box('f', x @ x, x @ x)
+    assert f.delay() == f and x.delay() == x
+    assert f.feedback() == f.trace()
+    assert f.feedback(mem=x @ x) == f.trace(2)
+    assert f.feedback(mem=Ty()) == f

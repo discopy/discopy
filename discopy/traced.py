@@ -5,7 +5,19 @@ The free traced category, i.e. feedback diagrams where the delay is trivial.
 
 A traced category is a feedback category where the delay is the identity and
 the feedback is given by the trace, see :class:`discopy.abc.TracedCategory`.
-See :mod:`planar` for the planar notion of trace, without crossing any wire.
+The trace operator feeds outputs back into inputs, on the right:
+
+>>> from discopy.monoidal import Equation as Eq
+>>> x, y, z = map(Ty, "xyz")
+>>> f = Box("f", x @ z, y @ z)
+>>> Eq(f, f.trace(), symbol="$\\mapsto$").draw(
+...     doctest='docs/_static/traced/right-trace.svg')
+
+or on the left:
+
+>>> g = Box("g", z @ x, z @ y)
+>>> Eq(g, g.trace(left=True), symbol="$\\mapsto$").draw(
+...     doctest='docs/_static/traced/left-trace.svg')
 
 Summary
 -------
@@ -112,7 +124,7 @@ Feedback
 
 from __future__ import annotations
 
-from discopy import monoidal, feedback, planar, hypergraph, cmap
+from discopy import monoidal, feedback, hypergraph, cmap
 from discopy.abc import TracedCategory
 from discopy.cat import factory
 
@@ -155,12 +167,18 @@ class Diagram(feedback.Diagram, TracedCategory):
 
         Example
         -------
+        >>> from discopy.monoidal import Equation as Eq
         >>> x = Ty('x')
         >>> f = Box('f', x @ x, x @ x)
         >>> assert f.trace(2) == Trace(Trace(f))
+        >>> LHS, RHS = f.trace(left=True), f.trace(left=False)
+        >>> Eq(Eq(LHS, f, symbol="$\\mapsfrom$"),
+        ...     RHS, symbol="$\\mapsto$").draw(
+        ...         doctest="docs/_static/traced/trace.svg")
+
+        .. image:: /_static/traced/trace.svg
         """
-        return self if n == 0\
-            else self.trace_factory(self, left).trace(n - 1, left)
+        return TracedCategory.trace(self, n, left)
 
     def delay(self, n_steps: int = 1) -> Diagram:
         """
@@ -172,9 +190,6 @@ class Diagram(feedback.Diagram, TracedCategory):
         return self
 
     feedback = TracedCategory.feedback
-
-    def to_drawing(self):
-        return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
 
 
 class Box(feedback.Box, Diagram):
@@ -189,12 +204,9 @@ class Box(feedback.Box, Diagram):
     delay = Diagram.delay
 
 
-class Trace(Box, planar.Trace):
+class Trace(monoidal.Trace, Box):
     """
     A trace is a diagram ``arg`` with an output wire fed back into an input.
-
-    The traced :class:`Box` comes first so that ``factory`` resolves to
-    :class:`Diagram`; the bubble methods come from :class:`planar.Trace`.
 
     Parameters:
         arg : The diagram to trace.
@@ -204,11 +216,6 @@ class Trace(Box, planar.Trace):
     --------
     :meth:`Diagram.trace`
     """
-    __init__ = planar.Trace.__init__
-    __repr__ = planar.Trace.__repr__
-    __str__ = planar.Trace.__str__
-    dagger = planar.Trace.dagger
-    to_drawing = planar.Trace.to_drawing
 
 
 class Permutation(feedback.Permutation, Box):
@@ -231,7 +238,7 @@ class Discard(feedback.Discard, Copy):
     "A discard in a traced diagram."
 
 
-class Functor(feedback.Functor, planar.Functor):
+class Functor(feedback.Functor):
     """
     A traced functor is a feedback functor that also preserves traces.
 

@@ -35,7 +35,7 @@ from __future__ import annotations
 from copy import copy
 from dataclasses import dataclass
 
-from discopy import config, monoidal, braided, planar, cmap, hypergraph
+from discopy import config, monoidal, braided, cmap, hypergraph
 from discopy.abc import BalancedCategory
 from discopy.cat import factory
 from discopy.monoidal import Colour, Ty  # noqa: F401
@@ -111,7 +111,7 @@ def double_rail(
 
 
 @factory
-class Diagram(braided.Diagram, planar.Diagram, BalancedCategory):
+class Diagram(braided.Diagram, BalancedCategory):
     """
     A balanced diagram is a braided diagram with :class:`Twist`.
 
@@ -179,7 +179,7 @@ class Diagram(braided.Diagram, planar.Diagram, BalancedCategory):
             else self.dual_rail_factory(width, colour)(self)
 
 
-class Box(braided.Box, planar.Box, Diagram):
+class Box(braided.Box, Diagram):
     """
     A braided box is a monoidal box in a braided diagram.
 
@@ -248,7 +248,7 @@ class DualRailTwist(braided.Box):
         return type(self)(self.dom, not self.is_dagger)
 
 
-class Trace(planar.Trace, Box):
+class Trace(monoidal.Trace, Box):
     """
     A trace in a balanced category.
 
@@ -302,7 +302,7 @@ class Sum(braided.Sum, Box):
     """
 
 
-class Functor(braided.Functor, planar.Functor):
+class Functor(braided.Functor):
     """
     A balanced functor is a braided functor that twists.
 
@@ -318,9 +318,7 @@ class Functor(braided.Functor, planar.Functor):
     def __call__(self, other):
         if isinstance(other, Twist) and hasattr(self.cod, "twist"):
             return self.cod.twist(self(other.dom))
-        if isinstance(other, Trace):
-            return planar.Functor.__call__(self, other)
-        return braided.Functor.__call__(self, other)
+        return super().__call__(other)
 
 
 class DualRail(Functor):

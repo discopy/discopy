@@ -138,9 +138,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   into one pull request, now that every action is pinned by commit
   ([#645](https://github.com/discopy/discopy/pull/645)).
 - `Diagram.to_compact` and `CMap.to_compact`, bending curry bubbles into
-  coevaluation and feedback. Since a biclosed category has no trace, the
-  `biclosed` method lands in `CMap`, which is compact whatever hosts it,
-  while the `closed` one stays in diagrams. Unlike `rigid.to_rigid` and
+  coevaluation and feedback. Since a (bi)closed category has no trace, the
+  method lands in `CMap`, which is compact whatever hosts it:
+  `closed.Diagram.to_compact` goes through `to_map`, so that currying
+  stays a bubble in the diagrams and only collapses down to wiring
+  structure when read through the geometry of interaction.
+  Unlike `rigid.to_rigid` and
   `interaction.Int`, this keeps the exponential atomic and bends the wire
   with `biclosed.Coeval`, the transpose of `Eval`, which a biclosed
   category only has when its exponential is read at a reflexive object
@@ -207,38 +210,49 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Changed
 
-- The diagram hierarchy follows `abc` around traces and feedback, in
-  four moves. **One**: `abc.TracedCategory` inherits from
+- The diagram hierarchy follows `abc` — and the literature — around
+  traces and feedback. `abc.TracedCategory` inherits from
   `abc.FeedbackCategory`, which moves down the hierarchy from
   `MarkovCategory` to `MonoidalCategory`: a traced category is a feedback
   category whose delay is trivial, so `TracedCategory` implements `delay`
-  as the identity and `feedback` as the trace over `mem`, stated once for
-  every traced carrier; `monoidal.Ty.delay` is the identity, the same way
-  `unwind` is trivial until `rigid.Ty` overrides it, and `stream.Stream`
-  declares the `FeedbackCategory` it always implemented. **Two**: the free
-  planar traced category moves from `traced.py` to a new module
-  `discopy.planar`, keeping its behaviour, its doctest images and the
-  `balanced` and `pivotal` subclasses. **Three**: `symmetric.Diagram`
-  inherits from `braided.Diagram` rather than `balanced.Diagram`, so the
-  free symmetric, markov, closed and feedback diagrams are no longer
-  traced nor twisted, matching `abc.SymmetricCategory` which extends
-  `abc.BraidedCategory` directly; `compact` keeps the identity twist the
-  way `abc.CompactCategory` states it, `closed.Diagram` keeps the `trace`
-  that `to_compact` bends its curry bubbles into, now read off `planar`,
-  and `feedback.Diagram` inherits from `symmetric.Diagram` — following
-  the definition of feedback categories over symmetric ones — while
-  keeping a supply of `Copy` and `Merge` borrowed from `markov`, which
-  `from_callable` and the stream examples use. **Four**: `traced.py` is
-  rebuilt on top of `feedback`: `traced.Wire`, `traced.Ty` and
-  `traced.Diagram` inherit from their `feedback` counterparts with the
-  delay trivial and the feedback given by the trace, `traced.Trace` reads
-  its bubble off `planar.Trace`, the traced axioms — vanishing,
-  superposing, yanking, naturality, dinaturality — are stated there on
-  the free carrier itself, and `para.Traced` wraps it. Code that traced
-  symmetric or markov diagrams should build them in `discopy.traced`;
-  the note in `discopy.feedback` showing that every traced category is a
-  feedback category used to monkey-patch `symmetric` and now just applies
-  a functor into `traced.Diagram`
+  as the identity, `feedback` as the trace over `mem` and the trace itself
+  as the recursion over `trace_factory`, each stated once;
+  `monoidal.Ty.delay` is the identity, the same way `unwind` is trivial
+  until `rigid.Ty` overrides it, and `stream.Stream` declares the
+  `FeedbackCategory` it always implemented. `symmetric.Diagram` inherits
+  from `braided.Diagram` rather than `balanced.Diagram`, so the free
+  symmetric, markov, closed and feedback diagrams are no longer traced nor
+  twisted, matching `abc.SymmetricCategory` which extends
+  `abc.BraidedCategory` directly since
+  [#349](https://github.com/discopy/discopy/issues/349); `compact` keeps
+  the identity twist the way `abc.CompactCategory` states it.
+  `feedback.Diagram` inherits from `symmetric.Diagram`, following the
+  definition of feedback categories over symmetric ones, and `traced.py`
+  is rebuilt on top of it: `traced.Wire`, `traced.Ty` and `traced.Diagram`
+  inherit from their `feedback` counterparts with the delay trivial and
+  the feedback given by the trace, and the traced axioms — vanishing,
+  superposing, yanking, naturality, dinaturality — are stated there on the
+  free carrier itself, with `para.Traced` wrapping it. `closed.Diagram`
+  inherits from `symmetric.Diagram` and `biclosed.Diagram` rather than
+  `markov.Diagram`, and `abc.ClosedCategory` extends `BiclosedCategory`
+  and `SymmetricCategory` accordingly; `closed` is not traced either:
+  currying stays a bubble and `closed.Diagram.to_compact` collapses it
+  down to wiring structure on the combinatorial map, through `to_map`.
+  `feedback` and `closed` keep a
+  supply of `Copy` and `Merge` borrowed from `markov` — declared as the
+  `abc.MarkovCategory` interface without the class edge — which
+  `from_callable`, the stream examples and the non-linear lambda terms
+  use. There is no planar traced module: the `Trace` bubble lives in
+  `monoidal` as pure syntax next to `Bubble` — monoidal diagrams
+  themselves have no trace — `monoidal.Functor` maps it whenever its
+  codomain has a `trace`, which also lets every traced diagram draw
+  without a dedicated functor, `balanced.Trace` subclasses it directly
+  and `pivotal` keeps deriving its trace from cups and caps, as the
+  literature defines it. Code that traced symmetric or markov diagrams
+  should build them in `discopy.traced`; the note in `discopy.feedback`
+  showing that every traced category is a feedback category used to
+  monkey-patch `symmetric` and now just applies a functor into
+  `traced.Diagram`
   ([#710](https://github.com/discopy/discopy/issues/710)).
 - `monoidal.Colour` is transparent by default rather than white, i.e. its
   `name` defaults to the new `config.TRANSPARENT` and `monoidal.white` is
