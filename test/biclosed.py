@@ -194,3 +194,26 @@ def test_to_compact():
         assert source.to_map().to_compact() == source.to_compact()
         assert not any(isinstance(box, Curry)
                        for box in source.to_compact().boxes)
+
+
+def test_mapping_preserves_binding_and_lexical_boundaries():
+    from discopy import closed
+    X, Y, Z = map(closed.Ty, "XYZ")
+    x, y = closed.Variable("v", X), closed.Variable("v", Y)
+    f = (X >> (Y >> X))("f")
+    g = (Z >> (Z >> Z))("g")
+    F = closed.Functor({X: Z, Y: Z}, {f: g})
+    term = closed.Abstraction(x, f(x)(y))
+    assert closed.Functor.id()(term) == term
+    assert closed.Functor.id()(f(x)(y)) == f(x)(y)
+    image = F(term)
+    assert len(image.freevars) == 1 and image.dom == Z
+    assert image.var != image.freevars[0]
+    assert len(F(f(x)(y)).freevars) == 2
+    a = X("a")
+    for bad in [closed.Variable("v", Z), closed.Box("bad", Z, Z)]:
+        with raises(AxiomError):
+            closed.Functor({X: Z}, {a: bad})(a)
+    unit = closed.Ty()
+    with raises(AxiomError):
+        closed.Functor({X: unit}, {a: closed.Variable("v", unit)})(a)

@@ -362,3 +362,66 @@ def test_then():
         u >> t
     with raises(AxiomError):
         X("a") >> t
+
+
+def test_normal_order_discards_unreduced_arguments():
+    X, Y = Ty("X"), Ty("Y")
+    g, a, b = (X >> (X >> Y))("g"), X("a"), Y("b")
+    duplicate = X(lambda x: g(x)(x))(a)
+    erase = Y(lambda ignored: b)
+    assert erase(duplicate).normal_form() == b
+    identity = (Y >> Y)(lambda f: f)
+    assert identity(erase)(duplicate).normal_form() == b
+
+
+def test_normal_form_copy():
+    X, Y = Ty("X"), Ty("Y")
+    g, a = (X >> (X >> Y))("g"), X("a")
+    duplicate = X(lambda x: g(x)(x))
+    v = Variable("v", X)
+    assert duplicate(v).normal_form() == g(v)(v)
+    assert X(lambda v: duplicate(v)).normal_form().alpha_equivalent(duplicate)
+    assert duplicate(a).normal_form(copy=True) == g(a)(a)
+    f = (X >> X)("f")
+    with raises(ValueError, match="copies its argument"):
+        duplicate(f(v)).normal_form()
+    assert duplicate(f(v)).normal_form(copy=True) == g(f(v))(f(v))
+    assert X(lambda v: duplicate(f(v))).normal_form(copy=True)\
+        == X(lambda v: g(f(v))(f(v)))
+
+
+def test_alpha_equivalent():
+    X, Y = Ty("X"), Ty("Y")
+    g, a = (X >> (X >> Y))("g"), X("a")
+    x, y, z = [Variable(name, X) for name in "xyz"]
+    assert X(lambda x: x).alpha_equivalent(X(lambda y: y))
+    assert not X(lambda x: x).alpha_equivalent(Y(lambda y: y))
+    assert not a.alpha_equivalent(x)
+    assert not a.alpha_equivalent(Y("a"))
+    assert not a.alpha_equivalent("a")
+    assert not x.alpha_equivalent(y)
+    assert Abstraction(x, g(x)(z)).alpha_equivalent(
+        Abstraction(y, g(y)(z)))
+    assert not Abstraction(x, g(x)(z)).alpha_equivalent(
+        Abstraction(y, g(y)(x)))
+    shadowed = Abstraction(x, Abstraction(x, x))
+    assert shadowed.alpha_equivalent(Abstraction(y, Abstraction(z, z)))
+    assert not shadowed.alpha_equivalent(Abstraction(y, Abstraction(z, y)))
+    assert X(lambda x: x)(a).normal_form().alpha_equivalent(a)
+
+
+def test_then_modulo_alpha_beta():
+    X, Y, Z = map(Ty, "XYZ")
+    t, u, v = (X >> Y)("t"), (Y >> Z)("u"), (Z >> X)("v")
+    expected = X(lambda a: v(u(t(a))))
+    for composed in [t.then(u, v), (t >> u) >> v, t >> (u >> v)]:
+        assert composed.normal_form().alpha_equivalent(expected)
+    identity = X(lambda x: x)
+    assert (identity >> t).normal_form().alpha_equivalent(
+        X(lambda a: t(a)))
+    assert (t >> Y(lambda y: y)).normal_form().alpha_equivalent(
+        X(lambda a: t(a)))
+    free = Variable("x", X >> Y)
+    assert free.then(u, v).freevars == [free]
+    with raises(AxiomError):
+        t.then(u, t)

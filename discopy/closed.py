@@ -91,10 +91,9 @@ class Ty(biclosed.Ty):
         >>> x, y = biclosed.Ty("x"), biclosed.Ty("y")
         >>> assert Ty.from_biclosed(x << y) == Ty.from_biclosed(y >> x)
         """
-        return cls().tensor(*[
-            cls.from_biclosed(ob.base) ** cls.from_biclosed(ob.exponent)
-            if isinstance(ob, biclosed.Exp) else cls(ob.name)
-            for ob in old.inside])
+        return biclosed.Functor(
+            ob_map=lambda x: cls(x.inside[0].name),
+            cod=cls.constant_factory.functor.cod)(old)
 
 
 class Exp(biclosed.Exp):
@@ -256,8 +255,8 @@ Id = Diagram.id
 class TermBase(Box, biclosed.TermBase):
     """
     A term in the internal language of a closed category, i.e. a lambda term
-    which need not be linear: a variable may occur any number of times, since
-    a closed category is markov it can be copied and discarded.
+    which need not be linear: this implementation includes copy and discard,
+    so a variable may occur any number of times.
 
     A term is evaluated in a context, a list of distinct variables containing
     its free ones: the variables that do not occur in the term are discarded,
@@ -300,17 +299,18 @@ class TermBase(Box, biclosed.TermBase):
         """
         if not others:
             return self
-        other, *rest = others
-        for term in (self, other):
+        terms = (self, ) + others
+        for term in terms:
             if not term.cod.is_exp:
                 raise AxiomError(f"{term} is not of a function type.")
-        if other.cod.exponent != self.cod.base:
-            raise AxiomError(messages.NOT_COMPOSABLE.format(
-                self, other, self.cod.base, other.cod.exponent))
+        for before, after in zip(terms, others):
+            if before.cod.base != after.cod.exponent:
+                raise AxiomError(messages.NOT_COMPOSABLE.format(
+                    before, after, before.cod.base, after.cod.exponent))
         var = self.cod.variable_factory.fresh(
-            "x", self.cod.exponent, self, other)
-        composite = self.cod.abstraction_factory(var, other(self(var)))
-        return composite.then(*rest)
+            "x", self.cod.exponent, *terms)
+        body = reduce(lambda argument, func: func(argument), terms, var)
+        return self.cod.abstraction_factory(var, body)
 
     def weaken(self, functor: Functor, context=None) -> Diagram:
         """
@@ -352,14 +352,40 @@ class TermBase(Box, biclosed.TermBase):
         "The term with the free variables of a substitution replaced."
         return self
 
-    def normal_form(self) -> Term:
+    def alpha_key(self, context=()):
+        """
+        A structural key modulo renaming bound variables.
+
+        ``context`` lists enclosing binders, innermost first. Free variables
+        and constants retain their identity; bound variables use their index
+        in the context.
+        """
+        return "constant", self
+
+    def alpha_equivalent(self, other: Term) -> bool:
+        "Equality up to renaming bound variables, without beta-reduction."
+        return isinstance(other, TermBase)\
+            and self.alpha_key() == other.alpha_key()
+
+    def weak_head_normal_form(self, copy: bool = False) -> Term:
+        """
+        Reduce the function spine, leaving bodies and arguments untouched.
+
+        The ``copy`` flag has the same meaning as in :meth:`normal_form`.
+        """
+        return self
+
+    def normal_form(self, copy: bool = False) -> Term:
         """
         The beta-normal form of a term, obtained by normal-order reduction.
 
-        Reduction may discard a free variable, since discarding is natural
-        in a markov category, but never copies an argument, since copying is
-        not: a redex whose variable occurs more than once in the body raises
-        ``ValueError``.
+        By default, reduction may discard arguments and copy variables,
+        but raises ``ValueError`` when it would duplicate a computation:
+        discarding is natural in a markov category, copying is not.
+
+        Set ``copy=True`` for unrestricted syntactic beta-reduction. This
+        assumes that all computations preserve copying, as in a cartesian
+        closed category; it need not preserve a markov interpretation.
 
         Example
         -------
@@ -413,6 +439,10 @@ class Variable(TermBase, biclosed.Variable):
     "A variable, evaluated in a context by discarding the other variables."
     def eval(self, functor=None, context=None):
         return self.weaken(functor or self.functor, context)
+
+    def alpha_key(self, context=()):
+        return ("bound", context.index(self), self.cod) if self in context\
+            else ("free", self)
 
     def occurrences(self, variable):
         return int(self == variable)
@@ -470,13 +500,26 @@ class Application(TermBase, biclosed.Application):
             self.func.substitute(substitution),
             self.args.substitute(substitution))
 
-    def normal_form(self):
-        func, args = self.func.normal_form(), self.args.normal_form()
+    def alpha_key(self, context=()):
+        return ("application", self.func.alpha_key(context),
+                self.args.alpha_key(context))
+
+    def weak_head_normal_form(self, copy=False):
+        func = self.func.weak_head_normal_form(copy=copy)
         if not isinstance(func, Abstraction):
-            return type(self)(func, args)
-        if func.body.occurrences(func.var) > 1:
-            raise ValueError(f"{self} copies its argument {args}.")
-        return Substitution({func.var: args})(func.body).normal_form()
+            return type(self)(func, self.args)
+        if not copy and func.body.occurrences(func.var) > 1\
+                and not isinstance(self.args, Variable):
+            raise ValueError(f"{self} copies its argument {self.args}.")
+        return Substitution({func.var: self.args})(func.body)\
+            .weak_head_normal_form(copy=copy)
+
+    def normal_form(self, copy=False):
+        term = self.weak_head_normal_form(copy=copy)
+        if not isinstance(term, Application):
+            return term.normal_form(copy=copy)
+        return type(term)(term.func.normal_form(copy=copy),
+                          term.args.normal_form(copy=copy))
 
 
 class Abstraction(TermBase, biclosed.Abstraction):
@@ -513,8 +556,12 @@ class Abstraction(TermBase, biclosed.Abstraction):
             body = Substitution({self.var: var})(body)
         return type(self)(var, Substitution(inside)(body))
 
-    def normal_form(self):
-        return type(self)(self.var, self.body.normal_form())
+    def alpha_key(self, context=()):
+        return ("abstraction", self.var.cod,
+                self.body.alpha_key((self.var, ) + tuple(context)))
+
+    def normal_form(self, copy=False):
+        return type(self)(self.var, self.body.normal_form(copy=copy))
 
 
 @dataclass

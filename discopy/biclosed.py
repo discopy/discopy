@@ -370,6 +370,17 @@ class Eval(Box):
             else (x.exponent @ x, x.base)
         super().__init__("Eval" + str(x), dom, cod)
 
+    def __repr__(self):
+        return f"{factory_name(type(self))}({self.x!r}, left={self.left!r})"
+
+    def to_tree(self):
+        return dict(factory=factory_name(type(self)),
+                    x=self.x.to_tree(), left=self.left)
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(from_tree(tree['x']), left=tree['left'])
+
     def dagger(self) -> Coeval:
         return self.coeval_factory(self.x, self.left)
 
@@ -395,6 +406,10 @@ class Coeval(Box):
     :meth:`Curry.to_drawing` and :meth:`Diagram.to_compact`.
     """
     drawing_name = "lambda"
+
+    __repr__ = Eval.__repr__
+    to_tree = Eval.to_tree
+    from_tree = classmethod(Eval.from_tree.__func__)
 
     def __init__(self, x: Exp, left=None):
         assert x.is_exp
@@ -435,6 +450,18 @@ class Curry(monoidal.Bubble, Box):
         monoidal.Bubble.__init__(
             self, arg, dom=dom, cod=cod, drawing_name="$\\Lambda$")
         Box.__init__(self, name, dom, cod)
+
+    def __repr__(self):
+        return f"{factory_name(type(self))}({self.arg!r}, " \
+            f"n={self.n}, left={self.left!r})"
+
+    def to_tree(self):
+        return dict(factory=factory_name(type(self)), arg=self.arg.to_tree(),
+                    n=self.n, left=self.left)
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(from_tree(tree['arg']), n=tree['n'], left=tree['left'])
 
     def __str__(self):
         return self.name
@@ -500,12 +527,7 @@ class Functor(monoidal.Functor):
         if isinstance(other, TermBase):
             if issubclass(get_origin(self.cod.ob), Ty) \
                     and not issubclass(get_origin(self.cod), cmap.CMap):
-                result = other.map(self)
-                if result.cod != self(other.cod):
-                    raise AxiomError(
-                        f"Expected a term of type {self(other.cod)} for "
-                        f"{other}, got {result} of type {result.cod}.")
-                return result
+                return self.map_term(other)
             return other.eval(self)
         for cls, attr in [(Over, "over"), (Under, "under"), (Exp, "exp")]:
             if isinstance(other, cls):
@@ -526,6 +548,43 @@ class Functor(monoidal.Functor):
                 # Avoid infinite recursion when drawing.
                 return self.ob_map[other]
         return super().__call__(other)
+
+    def map_variable(self, variable, context):
+        """Map a variable, freshening only when target identities collide."""
+        name, cod = variable.name, self(variable.cod)
+        result = self.cod.ob.variable_factory(name, cod)
+        while result in context.values():
+            name += "_"
+            result = self.cod.ob.variable_factory(name, cod)
+        return result
+
+    def map_term(self, term, context=None):
+        """
+        Map a term with an injective environment for its free variables.
+
+        Symmetric target terms may reorder their implicit context; a
+        biclosed target must preserve its order as well as its variables.
+        Constants must have closed term images, including at unit type.
+        """
+        if context is None:
+            context = {}
+            for variable in term.freevars:
+                context[variable] = self.map_variable(variable, context)
+        result = term.map(self, context)
+        if not isinstance(result, TermBase):
+            raise AxiomError(f"Expected a term for {term}, got {result}.")
+        if result.cod != self(term.cod):
+            raise AxiomError(
+                f"Expected a term of type {self(term.cod)} for "
+                f"{term}, got {result} of type {result.cod}.")
+        expected = [context[v] for v in term.freevars]
+        ordered = self.cod.ob.over_factory is not self.cod.ob.under_factory
+        valid = result.freevars == expected if ordered else (
+            set(result.freevars) == set(expected))
+        if not valid:
+            raise AxiomError(f"Expected context {expected} for {term}, "
+                             f"got {result.freevars}.")
+        return result
 
 
 CMap = cmap.CMap[Diagram]
@@ -586,7 +645,7 @@ class TermBase(Box):
         """
 
     @abstractmethod
-    def map(functor: Functor) -> Term:
+    def map(functor: Functor, context: dict) -> Term:
         """
         The image of a term under a :class:`Functor` whose codomain objects
         are biclosed types, i.e. a term in the codomain's internal language
@@ -623,6 +682,11 @@ class Constant(TermBase):
         super().__init__(name, dom=self.ob(), cod=cod, **kwargs)
         self.freevars = []
 
+    @classmethod
+    def from_tree(cls, tree):
+        kwargs = {k: tree[k] for k in ('data', 'is_dagger') if k in tree}
+        return cls(tree['name'], from_tree(tree['cod']), **kwargs)
+
     @property
     def constants(self):
         return [self]
@@ -630,7 +694,7 @@ class Constant(TermBase):
     def eval(self, functor=None):
         return cat.Functor.__call__(functor or self.functor, self)
 
-    def map(self, functor):
+    def map(self, functor, context):
         return functor.ar_map[self]
 
     def __repr__(self):
@@ -656,8 +720,8 @@ class Variable(TermBase):
         functor = functor or self.functor
         return functor.cod.id(functor(self.cod))
 
-    def map(self, functor):
-        return functor.cod.ob.variable_factory(self.name, functor(self.cod))
+    def map(self, functor, context):
+        return context[self]
 
     @property
     def constants(self):
@@ -731,9 +795,10 @@ class Application(TermBase):
             functor(base), functor(exponent), left=not self.left)
         return args @ func >> ev if self.left else func @ args >> ev
 
-    def map(self, functor):
+    def map(self, functor, context):
         return functor.cod.ob.application_factory(
-            functor(self.func), functor(self.args), self.left)
+            functor.map_term(self.func, context),
+            functor.map_term(self.args, context), self.left)
 
     def __repr__(self):
         func, args = repr(self.func), repr(self.args)
@@ -779,9 +844,13 @@ class Abstraction(TermBase):
             self.body.eval(functor), len(functor(self.var.cod)),
             not self.left)
 
-    def map(self, functor):
+    def map(self, functor, context):
+        context = {key: value for key, value in context.items()
+                   if key != self.var}
+        variable = functor.map_variable(self.var, context)
+        context[self.var] = variable
         return functor.cod.ob.abstraction_factory(
-            functor(self.var), functor(self.body), self.left)
+            variable, functor.map_term(self.body, context), self.left)
 
     def __repr__(self):
         var, body = repr(self.var), repr(self.body)

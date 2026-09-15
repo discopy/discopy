@@ -2,11 +2,12 @@ from random import Random
 
 from pytest import raises
 
+import discopy
 from discopy import cat, grammar
 from discopy.grammar import categorial
 from discopy.grammar.abstract import *
 from discopy.python import Function
-from discopy.utils import AxiomError
+from discopy.utils import AxiomError, dumps, loads
 
 
 def test_factory_closure():
@@ -53,7 +54,8 @@ def test_Term():
     assert x(lambda v: f(v))(a).normal_form() == f(a)
 
 
-def test_from_categorial():
+def test_from_biclosed():
+    forget = TermBase.from_biclosed
     X, Y, Z = Ty("X"), Ty("Y"), Ty("Z")
     f, g, x = (X >> Y)("f"), (X >> Y)("g"), X("x")
     X_, Y_, Z_ = map(categorial.Ty, "XYZ")
@@ -61,30 +63,19 @@ def test_from_categorial():
     assert Ty.from_categorial(Y_ << X_) == Ty.from_categorial(X_ >> Y_)\
         == X >> Y
 
-    assert type(f_.to_abstract()) is Constant
-    assert f_(x_).to_abstract() == f(x)
-    assert x_(g_, left=True).to_abstract() == g(x)
-    assert categorial.FX(f_, (Z_ >> X_)("h")).to_abstract()\
+    assert type(forget(f_)) is Constant
+    assert forget(f_(x_)) == f(x)
+    assert forget(x_(g_, left=True)) == g(x)
+    assert forget(categorial.FX(f_, (Z_ >> X_)("h")))\
         == Z(lambda x: f((Z >> X)("h")(x)))
-    assert categorial.BX(f_, (Y_ >> Z_)("h")).to_abstract()\
+    assert forget(categorial.BX(f_, (Y_ >> Z_)("h")))\
         == X(lambda x: (Y >> Z)("h")(f(x)))
-    assert categorial.FC((Z_ << Y_)("h"), f_).to_abstract()\
+    assert forget(categorial.FC((Z_ << Y_)("h"), f_))\
         == X(lambda x: (Y >> Z)("h")(f(x)))
-    assert categorial.BC(g_, (Y_ >> Z_)("h")).to_abstract()\
+    assert forget(categorial.BC(g_, (Y_ >> Z_)("h")))\
         == X(lambda x: (Y >> Z)("h")(g(x)))
     for raised in (categorial.FTR(Y_, x_), categorial.BTR(Y_, x_)):
-        assert raised.to_abstract() == (X >> Y)(lambda f: f(x))
-
-    n, s = categorial.Ty("n"), categorial.Ty("s")
-    N, S = Ty("n"), Ty("s")
-    Alice, loves, Bob = n("Alice"), ((n >> s) << n)("loves"), n("Bob")
-    diagram = Alice @ loves @ Bob\
-        >> n @ categorial.Diagram.fa(n >> s, n) >> categorial.Diagram.ba(n, s)
-    assert Diagram.from_categorial(diagram)\
-        == N("Alice") @ (N >> (N >> S))("loves") @ N("Bob")\
-        >> N @ Diagram.fa(N >> S, N) >> Diagram.ba(N, S)
-    word = categorial.Word("Alice", n, dom=n)
-    assert Diagram.from_categorial(word) == Box("Alice", N, N)
+        assert forget(raised) == (X >> Y)(lambda f: f(x))
 
 
 def test_crossed_composition_requires_symmetry():
@@ -128,12 +119,17 @@ def test_strings():
     n, s = categorial.Ty("n"), categorial.Ty("s")
     words = Alice_, loves_, Bob_, sleeps = (
         n("Alice"), ((n >> s) << n)("loves"), n("Bob"), (n >> s)("sleeps"))
-    strings = Lexicon.from_categorial(*words)
-    assert strings(Ty("n")) == strings(Ty("s")) == String
+    strings = Lexicon.from_categorial()
+    assert strings(Ty(CategorialType(n))) == String
+
+    python = Functor(
+        ob_map={Position: list},
+        ar_map=lambda word: lambda: lambda xs: xs + [word.name],
+        cod=Function)
 
     def yield_of(derivation):
-        term = strings(Diagram.from_categorial(derivation)).normal_form()
-        return [word.name for word in reversed(term.constants)]
+        term = strings(Diagram.from_categorial(derivation))
+        return python(term)()([])
 
     sentence = Alice_(loves_(Bob_), left=True)
     assert yield_of(sentence) == ["Alice", "loves", "Bob"]
@@ -170,7 +166,7 @@ def test_Montague_semantics():
     married, learnt = (((np >> s) << np)(v) for v in ("married", "learnt"))
 
     def sentence(det1, noun1, verb, det2, noun2):
-        return det1(noun1)(verb(det2(noun2)), left=True).to_abstract()
+        return det1(noun1)(verb(det2(noun2)), left=True)
 
     every_woman_married_a_man = sentence(every, woman, married, a, man)
     every_child_learnt_a_song = sentence(every, child, learnt, a, song)
@@ -190,8 +186,8 @@ def test_Montague_semantics():
         e(lambda x: o(e(lambda y: MARRIED(x)(y)))))))
     de_re = Quantifier(lambda o: Quantifier(lambda su: o(
         e(lambda y: su(e(lambda x: LEARNT(x)(y)))))))
-    semantics = Lexicon(
-        ob_map={Ty("n"): Predicate, Ty("np"): Quantifier, Ty("s"): t},
+    semantics = categorial.Functor(
+        ob_map={n: Predicate, np: Quantifier, s: t}, cod=Diagram,
         ar_map=lambda word: {
             "every": EVERY, "a": A, "woman": WOMAN, "man": MAN,
             "child": CHILD, "song": SONG,
@@ -228,3 +224,100 @@ def test_Montague_semantics():
         not Woman[x] or any(Man[y] and Married[x, y] for y in U) for x in U)
     assert python(semantics(every_child_learnt_a_song))() == any(
         Song[y] and all(not Child[x] or Learnt[x, y] for x in U) for y in U)
+
+
+def test_retained_categorial_derivations():
+    n, s = categorial.Ty("n"), categorial.Ty("s")
+    forward, backward, arg = (s << n)("w"), (n >> s)("w"), n("a")
+    strings = Lexicon.from_categorial()
+    assert (StringFunctor() >> Functor.id())(forward(arg).eval()) \
+        == StringFunctor()(forward(arg).eval())
+    python = Functor(
+        {Position: list}, lambda w: lambda: lambda xs: xs + [w.name],
+        cod=Function)
+    cases = [
+        (forward(arg), ["w", "a"]),
+        (arg(backward, left=True), ["a", "w"]),
+        (categorial.FX(forward, (n >> n)("g")), ["w", "g"]),
+        (categorial.BX((n << n)("g"), backward), ["g", "w"])]
+    for term, expected in cases:
+        diagram = term.to_abstract()
+        assert python(strings(diagram))()([]) == expected
+        assert eval(repr(diagram), vars(discopy)) == diagram
+        assert loads(dumps(diagram)) == diagram
+    assert forward.to_abstract() != backward.to_abstract()
+
+
+def test_Grammar():
+    S = Ty("S")
+    a, b = S("a"), S("b")
+    lexicon = Lexicon({S: String}, {a: String("a")})
+    grammar = Grammar((a,), lexicon, S)
+    assert a in grammar and grammar(a) == String("a")
+    for invalid in [b, Variable("x", S), String("a")]:
+        assert invalid not in grammar
+        with raises(AxiomError):
+            grammar(invalid)
+    with raises(TypeError):
+        Grammar((Variable("x", S),), lexicon, S)
+
+
+def test_categorial_semantic_lexicon():
+    n, s = categorial.Ty("n"), categorial.Ty("s")
+    N, S = Ty("N"), Ty("S")
+    alice, sleeps = n("Alice"), (n >> s)("sleeps")
+    interpretation = categorial.Functor(
+        {n: N, s: S}, {alice: N("Alice"), sleeps: (N >> S)("sleeps")},
+        cod=Diagram)
+    lexicon = Lexicon.from_categorial(interpretation)
+    source = alice(sleeps, left=True)
+    python = Functor({N: int, S: bool}, {
+        N("Alice"): lambda: 1,
+        (N >> S)("sleeps"): lambda: lambda x: x == 1}, cod=Function)
+    assert python(lexicon(source.to_abstract()))() \
+        == python(interpretation(source))() is True
+
+
+def test_categorial_composite_word():
+    n, s = categorial.Ty("n"), categorial.Ty("s")
+    word, rule = categorial.Word("w", n @ s), categorial.Box("f", n @ s, s)
+    diagram = Diagram.from_categorial(word >> rule)
+    assert len(diagram.cod) == 1 and len(diagram.boxes[0].cod) == 2
+
+
+def test_empty_vocabulary_and_unknown_types():
+    S, X = Ty("S"), Ty("X")
+    with raises(KeyError):
+        Grammar((), Lexicon({}, {}), S >> S)
+    grammar = Grammar((), Lexicon({S: S}, {}), S >> S)
+    identity = S(lambda x: x)
+    assert identity in grammar
+    assert grammar(identity).alpha_equivalent(identity)
+    alien = (X >> X)(lambda f: identity)(X(lambda x: x))
+    assert alien not in grammar
+
+
+def test_string_functor_contract():
+    n = categorial.Ty("n")
+    word = categorial.Word("w", n, dom=n)
+    strings = StringFunctor()
+    python = Functor({Position: list},
+                     lambda w: lambda: lambda xs: xs + [w.name], cod=Function)
+    assert (strings >> python)(word)(lambda xs: xs + ["a"])([]) == ["a", "w"]
+    assert python(strings.concatenate(0))()([]) == []
+    for box in [categorial.Box("unknown", n, n),
+                categorial.Word("pair", n @ n)]:
+        with raises(AxiomError):
+            strings(box)
+    with raises(AxiomError):
+        Lexicon.from_categorial(categorial.Functor.id())
+
+
+def test_retained_curry_serialization():
+    n = categorial.Ty("n")
+    for left in (False, True):
+        source = categorial.Box("f", n @ n, n).curry(left=left)
+        diagram = Diagram.from_categorial(source)
+        assert loads(dumps(diagram)) == diagram
+        evaluation = categorial.Eval(source.cod, left=left)
+        assert loads(dumps(evaluation.dagger())) == evaluation.dagger()

@@ -226,7 +226,7 @@ class TermBase(Box, biclosed.TermBase):
 
     def to_abstract(self):
         """
-        The abstract term of a categorial term, dropping planarity,
+        The abstract diagram retaining a categorial derivation,
         see :meth:`discopy.grammar.abstract.Diagram.from_categorial`.
         """
         from discopy.grammar.abstract import Diagram
@@ -296,8 +296,8 @@ class TypeRaising(TermBase):
     def eval(self, **kwargs):
         return self.simplify().eval(**kwargs)
 
-    def map(self, functor):
-        return functor(self.simplify())
+    def map(self, functor, context):
+        return functor.map_term(self.simplify(), context)
 
     def __repr__(self):
         return factory_name(type(self)) + f"({self.base!r}, {self.child!r})"
@@ -353,8 +353,8 @@ class BinaryTerm(TermBase):
     def eval(self, **kwargs):
         return self.simplify().eval(**kwargs)
 
-    def map(self, functor):
-        return functor(self.simplify())
+    def map(self, functor, context):
+        return functor.map_term(self.simplify(), context)
 
     def __repr__(self):
         return factory_name(type(self)) + f"({self.left!r}, {self.right!r})"
@@ -427,12 +427,13 @@ class FX(BinaryTerm):
         f, g = self.left.eval(functor), self.right.eval(functor)
         return f @ g >> functor.cod.fx(*map(functor, [X, Y, Z]))
 
-    def map(self, functor):
+    def map(self, functor, context):
         if not issubclass(get_origin(functor.cod), ClosedCategory):
             raise AxiomError(
                 "Crossed composition requires a closed codomain.")
         ob = functor.cod.ob
-        f, g = functor(self.left), functor(self.right)
+        f, g = (functor.map_term(term, context)
+                for term in (self.left, self.right))
         var = ob.variable_factory.fresh(
             "x", functor(self.right.cod.exponent), f, g)
         return ob.abstraction_factory(var, f(g(var)))
@@ -455,12 +456,13 @@ class BX(BinaryTerm):
         f, g = self.left.eval(functor), self.right.eval(functor)
         return f @ g >> functor.cod.bx(*map(functor, [X, Y, Z]))
 
-    def map(self, functor):
+    def map(self, functor, context):
         if not issubclass(get_origin(functor.cod), ClosedCategory):
             raise AxiomError(
                 "Crossed composition requires a closed codomain.")
         ob = functor.cod.ob
-        f, g = functor(self.left), functor(self.right)
+        f, g = (functor.map_term(term, context)
+                for term in (self.left, self.right))
         var = ob.variable_factory.fresh(
             "x", functor(self.left.cod.exponent), f, g)
         return ob.abstraction_factory(var, g(f(var)))
