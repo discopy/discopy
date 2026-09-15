@@ -78,6 +78,7 @@ class Diagram(symmetric.Diagram, ribbon.Diagram, CompactCategory):
     ob = Ty
     layer_factory = Layer
     trace_factory = ribbon.Diagram.trace_factory
+    twist_factory = classmethod(lambda cls, dom: cls.id(dom))
 
 
 class Box(symmetric.Box, ribbon.Box, Diagram):

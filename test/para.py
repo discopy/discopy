@@ -2,7 +2,7 @@
 
 from pytest import raises
 
-from discopy import closed, compact, feedback, frobenius, markov
+from discopy import closed, compact, feedback, frobenius, markov, traced
 from discopy.para import (
     Closed, Compact, Feedback, Hypergraph, Markov, Symmetric, Traced)
 from discopy import python
@@ -38,11 +38,12 @@ def test_symmetric_axioms():
 
 
 def test_trace():
-    t = Traced(x @ y, z @ y, Box('t', x @ y @ p, z @ y), p)
+    x, y, z, p = map(traced.Ty, "xyzp")
+    t = Traced(x @ y, z @ y, traced.Box('t', x @ y @ p, z @ y), p)
     assert t.trace(0) == t
-    inside = x @ Diagram.swap(p, y) >> t.inside
+    inside = x @ traced.Diagram.swap(p, y) >> t.inside
     assert t.trace() == Traced(x, z, inside.trace(), p)
-    u = Traced(y @ x, y @ z, Box('u', y @ x @ p, y @ z), p)
+    u = Traced(y @ x, y @ z, traced.Box('u', y @ x @ p, y @ z), p)
     assert u.trace(left=True) == Traced(x, z, u.inside.trace(left=True), p)
 
 
@@ -121,11 +122,11 @@ def test_copar():
 
 
 def test_copar_trace():
-    m = Ty('m')
-    t = Traced(x @ y, z @ y, Box('t', x @ y @ p, z @ y @ m), p, m)
+    x, y, z, p, m = map(traced.Ty, "xyzpm")
+    t = Traced(x @ y, z @ y, traced.Box('t', x @ y @ p, z @ y @ m), p, m)
     trace = t.trace()
     assert (trace.dom, trace.cod, trace.param, trace.copar) == (x, z, p, m)
-    u = Traced(y @ x, y @ z, Box('u', y @ x @ p, y @ z @ m), p, m)
+    u = Traced(y @ x, y @ z, traced.Box('u', y @ x @ p, y @ z @ m), p, m)
     assert u.trace(left=True).copar == m
 
 

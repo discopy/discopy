@@ -186,20 +186,6 @@ class Swap(Permutation, symmetric.Swap, Box):
     """
 
 
-class Trace(symmetric.Trace, Box):
-    """
-    A trace in a Markov category.
-
-    Parameters:
-        arg : The diagram to trace.
-        left : Whether to trace the wires on the left or right.
-
-    See also
-    --------
-    :meth:`Diagram.trace`
-    """
-
-
 class Copy(Box):
     """
     The copy of an atomic type :code:`x` some :code:`n` number of times.
@@ -318,7 +304,6 @@ Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.swap_factory = Swap
 Diagram.permutation_factory = Permutation
-Diagram.trace_factory = Trace
 Diagram.discard_factory = Discard
 Diagram.sum_factory = Sum
 Id = Diagram.id

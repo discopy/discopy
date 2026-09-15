@@ -396,9 +396,9 @@ class FeedbackCategory[C0: DelayedMonoid, C1](MonoidalCategory[C0, C1]):
     :code:`feedback` operator.
 
     The free feedback category :mod:`discopy.feedback` is built on top of a
-    :class:`MarkovCategory` but the interface itself needs only a monoidal
-    category, so that :class:`TracedCategory` can implement it with a
-    trivial delay.
+    :class:`SymmetricCategory` but the interface itself needs only a
+    monoidal category, so that :class:`TracedCategory` can implement it
+    with a trivial delay.
     """
     @abstractmethod
     def delay(self, n_steps: int = 1) -> C1:

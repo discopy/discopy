@@ -228,7 +228,7 @@ def test_Hypergraph_eq_fallback_scalars_and_empty_boundary():
 
 
 def test_simplify():
-    from discopy.markov import Box, Ty, Copy, Swap, Trace, Equation
+    from discopy.traced import Box, Ty, Copy, Swap, Trace, Equation
     C, T, P = map(Ty, "CTP")
     linear, param_linear, add, placeholder = (
         Box('linear', T @ P, T),

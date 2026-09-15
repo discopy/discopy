@@ -63,8 +63,13 @@ category, with the empty parameter space:
 
 >>> assert Symmetric.id(x) == Symmetric.lift(Diagram.id(x))
 >>> assert Symmetric.swap(x, y) == Symmetric.lift(Diagram.swap(x, y))
->>> t = Traced(x @ y, z @ y, Box('t', x @ y @ p, z @ y), p)
->>> assert t.trace().dom == x and t.trace().param == p
+
+:class:`Traced` wraps the free traced category :mod:`discopy.traced`:
+
+>>> from discopy import traced
+>>> xt, yt, zt, pt = map(traced.Ty, "xyzp")
+>>> t = Traced(xt @ yt, zt @ yt, traced.Box('t', xt @ yt @ pt, zt @ yt), pt)
+>>> assert t.trace().dom == xt and t.trace().param == pt
 
 The construction preserves each level of the hierarchy below symmetric:
 :class:`Traced`, :class:`Markov`, :class:`Closed`, :class:`Feedback`,
@@ -145,7 +150,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from discopy import symmetric, markov, closed, feedback, compact, frobenius
+from discopy import (
+    symmetric, markov, closed, traced, feedback, compact, frobenius)
 from discopy.abc import (
     ClosedCategory, CompactCategory, FeedbackCategory, HypergraphCategory,
     MarkovCategory, NamedGeneric, SymmetricCategory, TracedCategory)
@@ -318,6 +324,8 @@ class Traced(Symmetric, TracedCategory):
     Parametric maps over a traced symmetric underlying `category` form a
     traced category, with the parameters swapped out of the way.
     """
+    category = traced.Diagram
+
     def trace(self, n: int = 1, left: bool = False) -> Traced:
         """
         The trace of a parametric map is the trace of the underlying

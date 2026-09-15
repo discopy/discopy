@@ -342,29 +342,29 @@ def test_only_to_diagram_needs_the_structure():
 
 
 def test_explicit_trace_on_a_subclass():
-    from discopy import cmap, symmetric as sym
+    from discopy import cmap, traced
     from discopy.utils import factory
 
     @factory
-    class Recipe(sym.Diagram):
-        """ A user subclass of a symmetric category. """
+    class Recipe(traced.Diagram):
+        """ A user subclass of a traced category. """
 
-    class Step(sym.Box, Recipe):
+    class Step(traced.Box, Recipe):
         """ A box in a recipe. """
 
-    class Reduce(sym.Trace, Step):
+    class Reduce(traced.Trace, Step):
         """ A recipe knows how to feed one of its outputs back. """
 
     Recipe.trace_factory = Reduce
-    x = sym.Ty("x")
+    x = traced.Ty("x")
     f = Step("f", x, x)
 
-    planar = cmap.CMap[Recipe].from_box(f).trace()
-    assert planar.to_diagram() == Reduce(f, False)
+    result = cmap.CMap[Recipe].from_box(f).trace()
+    assert result.to_diagram() == Reduce(f, False)
     assert f.to_hypergraph().trace().to_diagram() == Reduce(f, False)
 
-    Recipe.trace_factory = sym.Trace
-    with raises(TypeError, match="Expected .*Recipe, got symmetric.Trace"):
+    Recipe.trace_factory = traced.Trace
+    with raises(TypeError, match="Expected .*Recipe, got traced.Trace"):
         cmap.CMap[Recipe].from_box(f).trace().to_diagram()
 
 

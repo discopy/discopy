@@ -92,7 +92,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from discopy import monoidal, balanced, hypergraph, cmap, messages
+from discopy import monoidal, braided, hypergraph, cmap, messages
 from discopy.abc import SymmetricCategory
 from discopy.cat import factory
 from discopy.monoidal import Wire, Ty, Nat  # noqa: F401
@@ -191,9 +191,9 @@ class Layer(monoidal.Layer):
 
 
 @factory
-class Diagram(balanced.Diagram, SymmetricCategory):
+class Diagram(braided.Diagram, SymmetricCategory):
     """
-    A symmetric diagram is a balanced diagram with :class:`Swap` boxes.
+    A symmetric diagram is a braided diagram with :class:`Swap` boxes.
 
     Parameters:
         inside(Layer) : The layers inside the diagram.
@@ -249,8 +249,8 @@ class Diagram(balanced.Diagram, SymmetricCategory):
 
     Note
     ----
-    As for :class:`discopy.balanced.Diagram`, our symmetric diagrams are traced
-    by default. However now we have that the axioms for trace hold on the nose.
+    Symmetric diagrams are not traced: the free symmetric traced category is
+    :class:`discopy.traced.Diagram`, a feedback category with trivial delay.
 
     Note
     ----
@@ -266,7 +266,6 @@ class Diagram(balanced.Diagram, SymmetricCategory):
     """
     braid_factory = classproperty(lambda cls: cls.swap_factory)
     layer_factory = Layer
-    twist_factory = classmethod(lambda cls, dom: cls.id(dom))
 
     @property
     def is_plumbing(self) -> bool:
@@ -284,7 +283,7 @@ class Diagram(balanced.Diagram, SymmetricCategory):
 
         Note
         ----
-        This calls :func:`balanced.hexagon` and :attr:`swap_factory`.
+        This calls :func:`braided.hexagon` and :attr:`swap_factory`.
         """
         return cls.braid(left, right)
 
@@ -405,9 +404,9 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         return self.to_hypergraph().depth()
 
 
-class Box(balanced.Box, Diagram):
+class Box(braided.Box, Diagram):
     """
-    A symmetric box is a balanced box in a symmetric diagram.
+    A symmetric box is a braided box in a symmetric diagram.
 
     Parameters:
         name (str) : The name of the box.
@@ -567,7 +566,7 @@ class Permutation(Box):
 Layer.plumbing = (monoidal.Ty, Permutation)
 
 
-class Swap(Permutation, balanced.Braid, Box):
+class Swap(Permutation, braided.Braid, Box):
     """
     The permutation ``[1, 0]`` of two atomic types.
 
@@ -591,7 +590,7 @@ class Swap(Permutation, balanced.Braid, Box):
                 raise ValueError
             left, right = left[:1], left[1:]
         self.perm = finset.Permutation([1, 0], 2)
-        balanced.Braid.__init__(self, left, right)
+        braided.Braid.__init__(self, left, right)
         Box.__init__(self, self.name, self.dom, self.cod,
                      draw_as_wires=True, draw_as_braid=False)
 
@@ -605,29 +604,15 @@ class Swap(Permutation, balanced.Braid, Box):
         return Box.to_drawing(self)
 
     def __repr__(self):
-        return balanced.Braid.__repr__(self)
+        return braided.Braid.__repr__(self)
 
     def __str__(self):
         return self.name
 
 
-class Trace(balanced.Trace, Box):
+class Sum(braided.Sum, Box):
     """
-    A trace in a symmetric category.
-
-    Parameters:
-        arg : The diagram to trace.
-        left : Whether to trace the wires on the left or right.
-
-    See also
-    --------
-    :meth:`Diagram.trace`
-    """
-
-
-class Sum(balanced.Sum, Box):
-    """
-    A symmetric sum is a balanced sum and a symmetric box.
+    A symmetric sum is a braided sum and a symmetric box.
 
     Parameters:
         terms (tuple[Diagram, ...]) : The terms of the formal sum.
@@ -636,7 +621,7 @@ class Sum(balanced.Sum, Box):
     """
 
 
-class Functor(balanced.Functor):
+class Functor(braided.Functor):
     """
     A symmetric functor is a monoidal functor that preserves swaps.
 
@@ -668,7 +653,6 @@ Diagram.functor_factory = Functor
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.swap_factory = Swap
 Diagram.permutation_factory = Permutation
-Diagram.trace_factory = Trace
 Diagram.sum_factory = Sum
 Id = Diagram.id
 

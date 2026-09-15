@@ -111,18 +111,18 @@ This can only be checked up to extensional equivalence of streams.
 Note
 ----
 Every traced category is a feedback category with a trivial delay, see
-:class:`discopy.abc.TracedCategory`, e.g. the free symmetric category:
+:class:`discopy.abc.TracedCategory` and its free case :mod:`discopy.traced`:
 
->>> from discopy import symmetric
+>>> from discopy import traced
 >>> F0 = Functor(
-...     ob_map=lambda x: symmetric.Ty(x.generator.name), ar_map={},
-...     cod=symmetric.Diagram)
+...     ob_map=lambda x: traced.Ty(x.generator.name), ar_map={},
+...     cod=traced.Diagram)
 >>> assert F0(x.delay()) == F0(x)
 
 >>> F = Functor(
 ...     ob_map=F0,
-...     ar_map=lambda f: symmetric.Box(f.name, F0(f.dom), F0(f.cod)),
-...     cod=symmetric.Diagram)
+...     ar_map=lambda f: traced.Box(f.name, F0(f.dom), F0(f.cod)),
+...     cod=traced.Diagram)
 >>> f = Box('f', x @ m.delay(), y @ m)
 >>> assert F(f.delay()) == F(f) and F(f.feedback()) == F(f).trace()
 
@@ -143,8 +143,8 @@ In the category of streams, this is just the identity.
 
 from __future__ import annotations
 
-from discopy import monoidal, braided, markov, hypergraph
-from discopy.abc import DelayedMonoid, FeedbackCategory
+from discopy import monoidal, braided, symmetric, markov, hypergraph
+from discopy.abc import DelayedMonoid, FeedbackCategory, MarkovCategory
 from discopy.utils import (
     deprecated_alias,
     factory, factory_name, assert_isinstance, AxiomError,
@@ -298,7 +298,7 @@ class Ty(monoidal.Ty, DelayedMonoid):
         return type(self)(*(x.tail for x in self.inside if x.tail))
 
 
-class Layer(markov.Layer):
+class Layer(symmetric.Layer):
     """ A feedback layer is a monoidal layer with a `delay` method. """
     def delay(self, n_steps=1):
         return type(self)(*(x.delay(n_steps) for x in self.boxes_or_types),
@@ -306,10 +306,11 @@ class Layer(markov.Layer):
 
 
 @factory
-class Diagram(markov.Diagram, FeedbackCategory):
+class Diagram(symmetric.Diagram, MarkovCategory, FeedbackCategory):
     """
-    A feedback diagram is a markov diagram with a :meth:`delay` endofunctor
-    and a :meth:`feedback` operator.
+    A feedback diagram is a symmetric diagram with a :meth:`delay` endofunctor
+    and a :meth:`feedback` operator, together with a supply of :class:`Copy`
+    and :class:`Merge` borrowed from :mod:`discopy.markov`.
 
     Parameters:
         inside(monoidal.Layer) : The layers inside the diagram.
@@ -331,6 +332,11 @@ class Diagram(markov.Diagram, FeedbackCategory):
     """
     ob = Ty
     layer_factory = Layer
+
+    spider_factory = classmethod(markov.Diagram.spider_factory.__func__)
+    copy = classmethod(markov.Diagram.copy.__func__)
+    merge = classmethod(markov.Diagram.merge.__func__)
+    discard = classmethod(markov.Diagram.discard.__func__)
 
     def delay(self, n_steps=1):
         """ The delay of a feedback diagram. """
@@ -389,9 +395,9 @@ class Diagram(markov.Diagram, FeedbackCategory):
     d = Wire.d
 
 
-class Box(markov.Box, Diagram):
+class Box(symmetric.Box, Diagram):
     """
-    A feedback box is a markov box in a feedback diagram.
+    A feedback box is a symmetric box in a feedback diagram.
 
     Parameters:
         name (str) : The name of the box.
@@ -405,7 +411,7 @@ class Box(markov.Box, Diagram):
 
     def __init__(self, name, dom, cod, time_step: int = 0, **params):
         self._time_step, self._params = time_step, params
-        markov.Box.__init__(self, name, dom, cod, **params)
+        symmetric.Box.__init__(self, name, dom, cod, **params)
         Diagram.__init__(self, self.inside, self.dom, self.cod)
 
     def to_drawing(self):
@@ -432,17 +438,17 @@ class Box(markov.Box, Diagram):
         return super().__repr__()[:-1] + time_step + ")"
 
     def setoid(self):
-        return markov.Box.setoid(self) + (self.time_step, )
+        return symmetric.Box.setoid(self) + (self.time_step, )
 
 
-class Permutation(markov.Permutation, Box):
+class Permutation(symmetric.Permutation, Box):
     "A permutation in a feedback diagram."
 
     def delay(self, n_steps=1):
         return type(self)(self.dom.delay(n_steps), self.perm)
 
 
-class Swap(Permutation, markov.Swap, Box):
+class Swap(Permutation, symmetric.Swap, Box):
     """
     The swap of feedback types :code:`left` and :code:`right`.
 
@@ -451,16 +457,19 @@ class Swap(Permutation, markov.Swap, Box):
         right : The type on the top right and bottom left.
     """
     def __init__(self, left, right):
-        markov.Swap.__init__(self, left, right)
+        symmetric.Swap.__init__(self, left, right)
         Box.__init__(self, self.name, self.dom, self.cod)
 
     def delay(self, n_steps=1):
         return type(self)(self.left.delay(n_steps), self.right.delay(n_steps))
 
 
-class Copy(markov.Copy, Box):
+class Copy(Box, markov.Copy):
     """
     The copy of an atomic type :code:`x` some :code:`n` number of times.
+
+    The :class:`Box` comes first so that ``factory`` resolves to
+    :class:`Diagram` rather than :class:`markov.Diagram`.
 
     Parameters:
         x : The type to copy.
@@ -470,11 +479,16 @@ class Copy(markov.Copy, Box):
         markov.Copy.__init__(self, x, n)
         Box.__init__(self, self.name, self.dom, self.cod)
 
+    def dagger(self) -> Merge:
+        return Merge(self.dom, len(self.cod))
+
+    __repr__ = markov.Copy.__repr__
+
     def delay(self, n_steps=1):
         return type(self)(self.dom.delay(n_steps), len(self.cod))
 
 
-class Merge(markov.Merge, Box):
+class Merge(Box, markov.Merge):
     """
     The merge of an atomic type :code:`x` some :code:`n` number of times.
 
@@ -486,8 +500,24 @@ class Merge(markov.Merge, Box):
         markov.Merge.__init__(self, x, n)
         Box.__init__(self, self.name, self.dom, self.cod)
 
+    def dagger(self) -> Copy:
+        return Copy(self.cod, len(self.dom))
+
+    __repr__ = markov.Merge.__repr__
+
     def delay(self, n_steps=1):
         return type(self)(self.cod.delay(n_steps), len(self.dom))
+
+
+class Discard(Copy):
+    """
+    The discard of an atomic type :code:`x`.
+
+    Parameters:
+        x : The type to discard.
+    """
+    def __init__(self, x: Ty, *args, **kwargs):
+        super().__init__(x, 0)
 
 
 class Head(monoidal.Bubble, Box):
@@ -665,6 +695,7 @@ Diagram.functor_factory = Functor
 Diagram.swap_factory = Swap
 Diagram.permutation_factory = Permutation
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
+Diagram.discard_factory = Discard
 Diagram.feedback_factory, Diagram.followed_by = Feedback, FollowedBy
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Id = Diagram.id

@@ -52,7 +52,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, ClassVar
 
-from discopy import cat, monoidal, biclosed, markov, cmap, hypergraph
+from discopy import (
+    cat, monoidal, biclosed, markov, planar, cmap, hypergraph)
 from discopy.abc import ClosedCategory
 from discopy.cat import factory
 
@@ -101,6 +102,8 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
     @classmethod
     def ev(cls, base: Ty, exponent: Ty, left: bool = True):
         return cls.eval_factory(exponent >> base, left=left)
+
+    trace = planar.Diagram.trace
 
     def to_compact(self) -> Diagram:
         """
@@ -162,8 +165,19 @@ class Swap(Permutation, markov.Swap, Box):
     "Symmetric swap in a closed diagram."
 
 
-class Trace(markov.Trace, Box):
-    "A trace in a closed category."
+class Trace(Box, planar.Trace):
+    """
+    A trace in a closed category, built by :meth:`Diagram.to_compact`.
+
+    The traced :class:`Box` comes first so that ``factory`` and ``ob``
+    resolve to the closed classes; the bubble methods are borrowed from
+    :class:`planar.Trace`.
+    """
+    __init__ = planar.Trace.__init__
+    __repr__ = planar.Trace.__repr__
+    __str__ = planar.Trace.__str__
+    dagger = planar.Trace.dagger
+    to_drawing = planar.Trace.to_drawing
 
 
 class Copy(markov.Copy, Box):
@@ -187,7 +201,7 @@ class Sum(markov.Sum, biclosed.Sum, Box):
     """
 
 
-class Functor(biclosed.Functor, markov.Functor):
+class Functor(biclosed.Functor, markov.Functor, planar.Functor):
     """
     A closed functor is a markov functor
     that preserves evaluation and currying.

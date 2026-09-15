@@ -207,29 +207,38 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Changed
 
-- `abc.TracedCategory` inherits from `abc.FeedbackCategory`, which moves
-  down the hierarchy from `MarkovCategory` to `MonoidalCategory`: a traced
-  category is a feedback category whose delay is trivial, so
-  `TracedCategory` implements `delay` as the identity and `feedback` as the
-  trace over `mem` — stated once for every traced carrier, i.e. the free
-  traced, balanced, symmetric, markov, pivotal, ribbon, compact and
-  frobenius diagrams, `Drawing` and `CMap`, while `stream.Stream` now
-  declares the `FeedbackCategory` it already implements.
-  `Hypergraph` keeps its `MonoidalCategory` base on purpose: a hypergraph
-  is parameterised by its host category, and over a feedback host such as
-  `feedback.Hypergraph` its delay is not trivial, so it must not inherit
-  the trace-based `feedback` — `feedback.Functor` keeps `Feedback` bubbles
-  as opaque boxes exactly when its codomain has no `feedback` method, which
-  is how `feedback.Equation` compares diagrams. `monoidal.Ty.delay` is
-  the identity, overridden by `feedback.Ty`, the same way `unwind` is
-  trivial until `rigid.Ty` overrides it. The note in `discopy.feedback`
-  showing that every traced category is a feedback category used to
-  monkey-patch `symmetric`; its doctest now runs on the built-in methods.
-  The free `feedback.Diagram` and `feedback.Ty` cannot conversely become
-  base classes of `traced.Diagram` and `traced.Ty`: they are already their
-  subclasses through `markov`, since the free feedback category is
-  symmetric with a non-trivial delay, so the concrete classes inherit the
-  other way around and the shared interface lives in `abc`
+- The diagram hierarchy follows `abc` around traces and feedback, in
+  four moves. **One**: `abc.TracedCategory` inherits from
+  `abc.FeedbackCategory`, which moves down the hierarchy from
+  `MarkovCategory` to `MonoidalCategory`: a traced category is a feedback
+  category whose delay is trivial, so `TracedCategory` implements `delay`
+  as the identity and `feedback` as the trace over `mem`, stated once for
+  every traced carrier; `monoidal.Ty.delay` is the identity, the same way
+  `unwind` is trivial until `rigid.Ty` overrides it, and `stream.Stream`
+  declares the `FeedbackCategory` it always implemented. **Two**: the free
+  planar traced category moves from `traced.py` to a new module
+  `discopy.planar`, keeping its behaviour, its doctest images and the
+  `balanced` and `pivotal` subclasses. **Three**: `symmetric.Diagram`
+  inherits from `braided.Diagram` rather than `balanced.Diagram`, so the
+  free symmetric, markov, closed and feedback diagrams are no longer
+  traced nor twisted, matching `abc.SymmetricCategory` which extends
+  `abc.BraidedCategory` directly; `compact` keeps the identity twist the
+  way `abc.CompactCategory` states it, `closed.Diagram` keeps the `trace`
+  that `to_compact` bends its curry bubbles into, now read off `planar`,
+  and `feedback.Diagram` inherits from `symmetric.Diagram` — following
+  the definition of feedback categories over symmetric ones — while
+  keeping a supply of `Copy` and `Merge` borrowed from `markov`, which
+  `from_callable` and the stream examples use. **Four**: `traced.py` is
+  rebuilt on top of `feedback`: `traced.Wire`, `traced.Ty` and
+  `traced.Diagram` inherit from their `feedback` counterparts with the
+  delay trivial and the feedback given by the trace, `traced.Trace` reads
+  its bubble off `planar.Trace`, the traced axioms — vanishing,
+  superposing, yanking, naturality, dinaturality — are stated there on
+  the free carrier itself, and `para.Traced` wraps it. Code that traced
+  symmetric or markov diagrams should build them in `discopy.traced`;
+  the note in `discopy.feedback` showing that every traced category is a
+  feedback category used to monkey-patch `symmetric` and now just applies
+  a functor into `traced.Diagram`
   ([#710](https://github.com/discopy/discopy/issues/710)).
 - `monoidal.Colour` is transparent by default rather than white, i.e. its
   `name` defaults to the new `config.TRANSPARENT` and `monoidal.white` is
