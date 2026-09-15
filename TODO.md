@@ -5,4 +5,4 @@
 
 - [x] Rebase the branch on `main` (done, force-pushed as instructed).
 - [x] Introduce `abc.DelayedMonoid` from `daydream6728/discopy:claude/diagram-search-strategies-766716`: a coloured monoid with a `delay` endomorphism and `d` sugar, the object bound of `FeedbackCategory`, declared by `feedback.Ty`.
-- [ ] Answer in the session what enabling `traced.Diagram(feedback.Diagram)` / `traced.Ty(feedback.Ty)` literally would take, with the module split it requires.
+- [x] Answer in the session what enabling `traced.Diagram(feedback.Diagram)` / `traced.Ty(feedback.Ty)` literally would take, with the module split it requires.
