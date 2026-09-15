@@ -318,10 +318,10 @@ class Diagram(balanced.Diagram, SymmetricCategory):
                 slice(0, i), i, slice(i + 1, None)
             )
         )
+        rest = left @ right if isinstance(doms, monoidal.Ty) else left + right
         return cls.swap(tensor(left), head) @ tensor(right)\
             >> head @ cls.permutation(
-                [x - 1 if x > i else x for x in xs[1:]],
-                left + right)
+                [x - 1 if x > i else x for x in xs[1:]], rest)
 
     @classmethod
     def from_permutation(cls, perm: Sequence[int], dom: monoidal.Ty = None
