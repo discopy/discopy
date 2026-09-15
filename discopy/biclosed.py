@@ -89,6 +89,7 @@ from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
 from discopy.cat import factory
 from discopy.utils import (
+    AxiomError,
     assert_isinstance,
     deprecated_alias,
     factory_name,
@@ -485,6 +486,13 @@ class Functor(monoidal.Functor):
     >>> F = Functor(ob_map={X: Ty("A"), Y: Ty("B")},
     ...             ar_map={f: (Ty("B") << Ty("A"))("g"), x: Ty("A")("a")})
     >>> assert F(f(x)) == F(f)(F(x))
+
+    The image of a term is checked to have the image of its type:
+
+    >>> Functor(ob_map={X: Ty("A"), Y: Ty("B")}, ar_map={f: Ty("A")("a")})(f)
+    Traceback (most recent call last):
+        ...
+    discopy.utils.AxiomError: Expected a term of type (B << A) for ...
     """
     dom = cod = Diagram
 
@@ -492,7 +500,12 @@ class Functor(monoidal.Functor):
         if isinstance(other, TermBase):
             if issubclass(get_origin(self.cod.ob), Ty) \
                     and not issubclass(get_origin(self.cod), cmap.CMap):
-                return other.map(self)
+                result = other.map(self)
+                if result.cod != self(other.cod):
+                    raise AxiomError(
+                        f"Expected a term of type {self(other.cod)} for "
+                        f"{other}, got {result} of type {result.cod}.")
+                return result
             return other.eval(self)
         for cls, attr in [(Over, "over"), (Under, "under"), (Exp, "exp")]:
             if isinstance(other, cls):

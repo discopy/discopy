@@ -37,9 +37,9 @@ Review round of 2026-09-15 by toumix on https://github.com/discopy/discopy/pull/
 
 (`discopy/grammar/abstract.py`, `Lexicon.__call__`)
 
-- [WIP] @session_01JvjjihGD4ybHGeqLXyLqUi-2026-09-15 16:35 Rename `ET`, `NP` to `Predicate`, `Quantifier` in the Montague test and the module example.
-- [WIP] @session_01JvjjihGD4ybHGeqLXyLqUi-2026-09-15 16:35 `Position = Ty("o")` and `String = Position >> Position` in place of `star` and `string`.
-- [WIP] @session_01JvjjihGD4ybHGeqLXyLqUi-2026-09-15 16:35 Composition of terms of function types as `closed.TermBase.then`, `concat` removed.
-- [WIP] @session_01JvjjihGD4ybHGeqLXyLqUi-2026-09-15 16:35 Link the paper from the `Lexicon` docstring.
-- [WIP] @session_01JvjjihGD4ybHGeqLXyLqUi-2026-09-15 16:35 Move the typing check of a mapped term to `biclosed.Functor`, drop `Lexicon.__call__`.
+- [x] Rename `ET`, `NP` to `Predicate`, `Quantifier` in the Montague test and the module example.
+- [x] `Position = Ty("o")` and `String = Position >> Position` in place of `star` and `string`.
+- [x] Composition of terms of function types as `closed.TermBase.then`, `concat` removed.
+- [x] Link the paper from the `Lexicon` docstring.
+- [x] Move the typing check of a mapped term to `biclosed.Functor`, drop `Lexicon.__call__`.
 - [ ] `saturate` and `slots` through a functor rather than a recursion on the categorial type.

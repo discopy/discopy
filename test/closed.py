@@ -349,3 +349,16 @@ def test_Application_context_order_is_stable():
     assert term.freevars == [x, y, z]
     assert term.dom == X @ Y @ Z
     assert (term.eval().dom, term.eval().cod) == (term.dom, term.cod)
+
+
+def test_then():
+    """ Terms of function types compose, the first one applied first. """
+    X, Y, Z = map(Ty, "XYZ")
+    t, u, v = (X >> Y)("t"), (Y >> Z)("u"), (Z >> X)("v")
+    assert t.then() == t and t >> u == X(lambda x: u(t(x)))
+    assert (t >> u >> v).normal_form() == X(lambda x: v(u(t(x))))\
+        == (t >> (u >> v)).normal_form()
+    with raises(AxiomError):
+        u >> t
+    with raises(AxiomError):
+        X("a") >> t

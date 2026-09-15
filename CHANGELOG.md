@@ -16,9 +16,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   markov, and `abstract.Lexicon` is a functor from one vocabulary to
   another, sending atomic types to types and constants to terms of the image
   of their type, which it checks, and composing with `>>`. Strings are the
-  paper's: `string` is `* >> *` on one atomic type,
-  a word is a constant of type `string`, `concat` composes strings and
-  `concat()` is the empty one. A categorial grammar comes with two things:
+  paper's: `String` is `Position >> Position` on one atomic type, a word is
+  a constant of type `String`, concatenation is the composition `>>` of
+  terms and `Position(lambda x: x)` is the empty string. A categorial
+  grammar comes with two things:
   `abstract.Diagram.from_categorial`, which drops planarity from a
   categorial diagram or term, collapsing left and right exponentials,
   turning crossed compositions into compositions and type raising and
@@ -42,7 +43,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   terms accept and ignore the `left` of their biclosed counterparts, since a
   closed category has one exponential, and `is_linear` says whether a term
   is: an application with no overlap and an abstraction whose variable
-  occurs once. `TermBase.normal_form` beta-reduces a term, discarding an
+  occurs once. `TermBase.then` composes terms of function types, `t >> u`
+  for `t : x >> y` and `u : y >> z` being `x(lambda v: u(t(v)))`, and
+  `biclosed.Functor` checks that the image of a term has the image of its
+  type. `TermBase.normal_form` beta-reduces a term, discarding an
   unused argument but refusing to copy one, since copying is not natural in
   a markov category; `Substitution` is simultaneous and capture-avoiding
   through the `substitute` method of each term, `occurrences` counts the

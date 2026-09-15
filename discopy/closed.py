@@ -54,9 +54,10 @@ from dataclasses import dataclass
 from functools import reduce
 from typing import Dict
 
-from discopy import monoidal, biclosed, markov, cmap, hypergraph
+from discopy import monoidal, biclosed, markov, cmap, hypergraph, messages
 from discopy.abc import ClosedCategory
 from discopy.cat import factory
+from discopy.utils import AxiomError
 
 
 @factory
@@ -279,6 +280,37 @@ class TermBase(Box, biclosed.TermBase):
     def __call__(self, other, left=False):
         args = (other, self) if left else (self, other)
         return self.cod.application_factory(*args)
+
+    def then(self, *others: Term) -> Term:
+        """
+        The composition of terms of function types: ``t >> u`` for
+        ``t : x >> y`` and ``u : y >> z`` is ``x(lambda v: u(t(v)))``, i.e.
+        ``t`` is applied first, as for diagrams.
+
+        Parameters:
+            others : Terms of function types, the exponent of each being
+                the base of the previous one.
+
+        Example
+        -------
+        >>> X, Y, Z = map(Ty, "XYZ")
+        >>> t, u = (X >> Y)("t"), (Y >> Z)("u")
+        >>> print(t >> u)
+        X(lambda x: (Y >> Z)('u')((X >> Y)('t')(x)))
+        """
+        if not others:
+            return self
+        other, *rest = others
+        for term in (self, other):
+            if not term.cod.is_exp:
+                raise AxiomError(f"{term} is not of a function type.")
+        if other.cod.exponent != self.cod.base:
+            raise AxiomError(messages.NOT_COMPOSABLE.format(
+                self, other, self.cod.base, other.cod.exponent))
+        var = self.cod.variable_factory.fresh(
+            "x", self.cod.exponent, self, other)
+        composite = self.cod.abstraction_factory(var, other(self(var)))
+        return composite.then(*rest)
 
     def weaken(self, functor: Functor, context=None) -> Diagram:
         """

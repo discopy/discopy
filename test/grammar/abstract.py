@@ -115,22 +115,25 @@ def test_Lexicon():
 
 
 def test_strings():
-    Alice, loves, Bob = map(string, ("Alice", "loves", "Bob"))
-    assert string == star >> star and concat() == star(lambda x: x)
-    assert concat(Alice, loves, Bob).is_linear
-    assert concat(concat(Alice, loves), Bob).normal_form()\
-        == concat(Alice, loves, Bob)\
-        == concat(Alice, concat(loves, Bob)).normal_form()
+    Alice, loves, Bob = map(String, ("Alice", "loves", "Bob"))
+    empty = Position(lambda x: x)
+    assert String == Position >> Position
+    assert (Alice >> loves >> Bob).is_linear
+    assert (Alice >> loves >> Bob).normal_form()\
+        == (Alice >> (loves >> Bob)).normal_form()\
+        == Position(lambda x: Bob(loves(Alice(x))))
+    assert (empty >> Alice).normal_form() == (Alice >> empty).normal_form()\
+        == Position(lambda x: Alice(x))
 
     n, s = categorial.Ty("n"), categorial.Ty("s")
     words = Alice_, loves_, Bob_, sleeps = (
         n("Alice"), ((n >> s) << n)("loves"), n("Bob"), (n >> s)("sleeps"))
     strings = Lexicon.from_categorial(*words)
-    assert strings(Ty("n")) == strings(Ty("s")) == string
+    assert strings(Ty("n")) == strings(Ty("s")) == String
 
     def yield_of(derivation):
         term = strings(Diagram.from_categorial(derivation)).normal_form()
-        return [word.name for word in term.constants]
+        return [word.name for word in reversed(term.constants)]
 
     sentence = Alice_(loves_(Bob_), left=True)
     assert yield_of(sentence) == ["Alice", "loves", "Bob"]
@@ -144,8 +147,8 @@ def test_strings():
     diagram = Alice_ @ loves_ @ Bob_\
         >> n @ categorial.Diagram.fa(n >> s, n) >> categorial.Diagram.ba(n, s)
     python = Functor(
-        ob_map={star: list},
-        ar_map=lambda word: lambda: lambda xs: [word.name] + xs,
+        ob_map={Position: list},
+        ar_map=lambda word: lambda: lambda xs: xs + [word.name],
         cod=Function)
     assert python(strings(Diagram.from_categorial(diagram)))()([])\
         == ["Alice", "loves", "Bob"]
@@ -173,21 +176,22 @@ def test_Montague_semantics():
     every_child_learnt_a_song = sentence(every, child, learnt, a, song)
 
     e, t = Ty("e"), Ty("t")
-    ET, NP = e >> t, (e >> t) >> t
-    forall, exists = (ET >> t)("forall"), (ET >> t)("exists")
+    Predicate, Quantifier = e >> t, (e >> t) >> t
+    forall, exists = Quantifier("forall"), Quantifier("exists")
     implies, and_ = (t >> (t >> t))("implies"), (t >> (t >> t))("and")
     WOMAN, MAN, CHILD, SONG = (
-        ET(w) for w in ("WOMAN", "MAN", "CHILD", "SONG"))
+        Predicate(w) for w in ("WOMAN", "MAN", "CHILD", "SONG"))
     MARRIED, LEARNT = ((e >> (e >> t))(v) for v in ("MARRIED", "LEARNT"))
-    EVERY = ET(lambda p: ET(lambda q: forall(
+    EVERY = Predicate(lambda p: Predicate(lambda q: forall(
         e(lambda x: implies(p(x))(q(x))))))
-    A = ET(lambda p: ET(lambda q: exists(e(lambda y: and_(p(y))(q(y))))))
-    de_dicto = NP(lambda o: NP(lambda su: su(
+    A = Predicate(lambda p: Predicate(lambda q: exists(
+        e(lambda y: and_(p(y))(q(y))))))
+    de_dicto = Quantifier(lambda o: Quantifier(lambda su: su(
         e(lambda x: o(e(lambda y: MARRIED(x)(y)))))))
-    de_re = NP(lambda o: NP(lambda su: o(
+    de_re = Quantifier(lambda o: Quantifier(lambda su: o(
         e(lambda y: su(e(lambda x: LEARNT(x)(y)))))))
     semantics = Lexicon(
-        ob_map={Ty("n"): ET, Ty("np"): NP, Ty("s"): t},
+        ob_map={Ty("n"): Predicate, Ty("np"): Quantifier, Ty("s"): t},
         ar_map=lambda word: {
             "every": EVERY, "a": A, "woman": WOMAN, "man": MAN,
             "child": CHILD, "song": SONG,

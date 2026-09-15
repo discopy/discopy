@@ -42,7 +42,6 @@ Summary
         :nosignatures:
         :toctree:
 
-        concat
         slots
         saturate
 
@@ -67,13 +66,17 @@ under the lexicon.
 Strings
 -------
 
-Strings are encoded with one atomic type ``*``: a string is a term of type
-``string = * >> *``, the empty string is the identity, concatenation is
-composition and a word is a constant of type ``string``, see :func:`concat`.
-A categorial grammar comes with a string lexicon that reads the word order
-off its slashes, see :meth:`Lexicon.from_categorial`, while the abstract
-term of one of its derivations drops planarity, see
-:meth:`Diagram.from_categorial`.
+Strings are the paper's, section 4: one atomic type :data:`Position` and a
+string is a map from positions to positions, a term of type
+``String = Position >> Position``. A word is a constant of that type, the
+empty string is the identity ``Position(lambda x: x)`` and concatenation is
+composition, ``John >> seeks`` for *John seeks*, see
+:meth:`discopy.closed.TermBase.then`: the paper writes it
+``lambda z. x (y z)`` with the first word applied last, here the first word
+is applied first, so a string reads its positions in order. A categorial
+grammar comes with a string lexicon that reads the word order off its
+slashes, see :meth:`Lexicon.from_categorial`, while the abstract term of
+one of its derivations drops planarity, see :meth:`Diagram.from_categorial`.
 
 Example
 -------
@@ -85,14 +88,15 @@ a constant for each reading of *seeks* in the abstract vocabulary:
 >>> J, U, A = np("J"), n("U"), (n >> np)("A")
 >>> S_re, S_dicto = ((np >> (np >> s))(S) for S in ("S_re", "S_dicto"))
 >>> John, seeks, a, unicorn = map(
-...     string, ("John", "seeks", "a", "unicorn"))
->>> seek = string(lambda x: string(lambda y: concat(x, seeks, y)))
+...     String, ("John", "seeks", "a", "unicorn"))
+>>> seek = String(lambda x: String(lambda y: x >> seeks >> y))
 >>> syntax = Lexicon(
-...     ob_map={n: string, np: string, s: string},
-...     ar_map={J: John, U: unicorn, A: string(lambda x: concat(a, x)),
+...     ob_map={n: String, np: String, s: String},
+...     ar_map={J: John, U: unicorn, A: String(lambda x: a >> x),
 ...             S_re: seek, S_dicto: seek})
 >>> for reading in (S_re(J)(A(U)), S_dicto(J)(A(U))):
-...     print(*[word.name for word in syntax(reading).normal_form().constants])
+...     string = syntax(reading).normal_form()
+...     print(*[word.name for word in reversed(string.constants)])
 John seeks a unicorn
 John seeks a unicorn
 
@@ -101,20 +105,21 @@ The paper's semantic lexicon reads noun phrases as quantifiers. The image of
 and they normalise to the two readings all the same:
 
 >>> e, t = Ty("e"), Ty("t")
->>> ET, NP = e >> t, (e >> t) >> t
->>> JOHN, UNICORN = e("JOHN"), ET("UNICORN")
->>> TRY_TO, FIND = (e >> NP)("TRY_TO"), (e >> ET)("FIND")
->>> exists, and_ = NP("exists"), (t >> (t >> t))("and")
+>>> Predicate, Quantifier = e >> t, (e >> t) >> t
+>>> JOHN, UNICORN = e("JOHN"), Predicate("UNICORN")
+>>> TRY_TO, FIND = (e >> Quantifier)("TRY_TO"), (e >> Predicate)("FIND")
+>>> exists, and_ = Quantifier("exists"), (t >> (t >> t))("and")
+>>> some = Predicate(lambda P: Predicate(lambda Q: exists(
+...     e(lambda x: and_(P(x))(Q(x))))))
+>>> seek_re = Quantifier(lambda P: Quantifier(lambda Q: Q(e(lambda x: P(
+...     e(lambda y: TRY_TO(y)(e(lambda z: FIND(z)(x)))))))))
+>>> seek_dicto = Quantifier(lambda P: Quantifier(lambda Q: P(e(lambda x:
+...     TRY_TO(x)(e(lambda y: Q(e(lambda z: FIND(y)(z)))))))))
 >>> semantics = Lexicon(
-...     ob_map={n: ET, np: NP, s: t},
-...     ar_map={J: ET(lambda P: P(JOHN)), U: UNICORN,
-...             A: ET(lambda P: ET(lambda Q: exists(
-...                 e(lambda x: and_(P(x))(Q(x)))))),
-...             S_re: NP(lambda P: NP(lambda Q: Q(e(lambda x: P(
-...                 e(lambda y: TRY_TO(y)(e(lambda z: FIND(z)(x))))))))),
-...             S_dicto: NP(lambda P: NP(lambda Q: P(e(lambda x: TRY_TO(x)(
-...                 e(lambda y: Q(e(lambda z: FIND(y)(z)))))))))})
->>> assert not semantics(A).is_linear
+...     ob_map={n: Predicate, np: Quantifier, s: t},
+...     ar_map={J: Predicate(lambda P: P(JOHN)), U: UNICORN,
+...             A: some, S_re: seek_re, S_dicto: seek_dicto})
+>>> assert not some.is_linear
 >>> de_re = exists(e(lambda x: and_(UNICORN(x))(
 ...     TRY_TO(JOHN)(e(lambda z: FIND(z)(x))))))
 >>> de_dicto = TRY_TO(JOHN)(e(lambda y: exists(e(lambda x: and_(
@@ -128,7 +133,6 @@ from __future__ import annotations
 from discopy import closed, cmap, hypergraph
 from discopy.cat import factory
 from discopy.grammar import categorial
-from discopy.utils import AxiomError
 
 
 @factory
@@ -295,7 +299,8 @@ class Lexicon(Functor):
     """
     A lexicon is a functor from one vocabulary to another, i.e. between two
     free closed categories: it sends atomic types to types and constants to
-    terms of the image of their types, section 2.2 of the paper.
+    terms of the image of their types, section 2.2 of de Groote's `Towards
+    abstract categorial grammars (2001) <https://aclanthology.org/P01-1033/>`_.
 
     Parameters:
         ob_map (Mapping[Ty, Ty]) : Map from atomic types to types.
@@ -318,20 +323,13 @@ class Lexicon(Functor):
     """
     dom = cod = Diagram
 
-    def __call__(self, other):
-        result = super().__call__(other)
-        if isinstance(other, Constant) and result.cod != self(other.cod):
-            raise AxiomError(
-                f"Expected a term of type {self(other.cod)} for {other}, "
-                f"got {result} of type {result.cod}.")
-        return result
-
     @classmethod
     def from_categorial(cls, *words: categorial.Word) -> Lexicon:
         """
-        The string lexicon of a categorial grammar, section 4 of the paper:
-        every atomic type is a :data:`string`, every word is concatenated
-        with its arguments in the order its slashes give, see :func:`slots`.
+        The string lexicon of a categorial grammar, after section 4 of de
+        Groote (2001): every atomic type is a :data:`String`, every word is
+        concatenated with its arguments in the order its slashes give, see
+        :func:`slots`.
 
         Parameters:
             words : The words of the categorial grammar, i.e. constants.
@@ -350,11 +348,12 @@ class Lexicon(Functor):
         >>> strings = Lexicon.from_categorial(Alice, loves, Bob)
         >>> sentence = strings(Diagram.from_categorial(
         ...     Alice(loves(Bob), left=True)))
-        >>> print(*[word.name for word in sentence.normal_form().constants])
+        >>> string = sentence.normal_form()
+        >>> print(*[word.name for word in reversed(string.constants)])
         Alice loves Bob
         """
-        return cls(ob_map=lambda _: string, ar_map={
-            Diagram.from_categorial(word): slots(string(word.name), word.cod)
+        return cls(ob_map=lambda _: String, ar_map={
+            Diagram.from_categorial(word): slots(String(word.name), word.cod)
             for word in words})
 
 
@@ -405,36 +404,16 @@ Ty.application_factory = Application
 Ty.abstraction_factory = Abstraction
 Hypergraph = hypergraph.Hypergraph[Diagram]
 
-star = Ty("*")
-""" The atomic type of strings, an arbitrary atom with strings as maps. """
+Position = Ty("o")
+""" The atomic type of positions in a string, an arbitrary atom. """
 
-string = star >> star
-""" The type of strings, i.e. of words and of their concatenations. """
-
-
-def concat(*terms: Term) -> Term:
-    """
-    The concatenation of string terms, i.e. their composition
-    ``*(lambda x: s(t(x)))``, the empty string ``*(lambda x: x)`` when there
-    are none.
-
-    Parameters:
-        terms : Terms of type :data:`string`, e.g. the words of a sentence.
-
-    Example
-    -------
-    >>> Alice, loves, Bob = map(string, ("Alice", "loves", "Bob"))
-    >>> print(concat(Alice, loves, Bob))
-    *(lambda x: (* >> *)('Alice')((* >> *)('loves')((* >> *)('Bob')(x))))
-    >>> assert concat(concat(Alice, loves), Bob).normal_form()\\
-    ...     == concat(Alice, loves, Bob)\\
-    ...     == concat(Alice, concat(loves, Bob)).normal_form()
-    """
-    var = Variable.fresh("x", star, *terms)
-    body = var
-    for term in reversed(terms):
-        body = term(body)
-    return Abstraction(var, body)
+String = Position >> Position
+"""
+The type of strings, maps from positions to positions: a word is a constant
+of type ``String``, ``Position(lambda x: x)`` is the empty string and
+``John >> seeks`` their concatenation, see
+:meth:`discopy.closed.TermBase.then`.
+"""
 
 
 def slots(word: Term, ty: categorial.Ty) -> Term:
@@ -445,25 +424,25 @@ def slots(word: Term, ty: categorial.Ty) -> Term:
     with empty strings first, see :func:`saturate`.
 
     Parameters:
-        word : A term of type :data:`string`.
+        word : A term of type :data:`String`.
         ty : The categorial type of the word.
 
     Example
     -------
     >>> from discopy.grammar import categorial
     >>> n, s = categorial.Ty("n"), categorial.Ty("s")
-    >>> loves = slots(string("loves"), (n >> s) << n)
-    >>> Alice, Bob = string("Alice"), string("Bob")
+    >>> loves = slots(String("loves"), (n >> s) << n)
+    >>> Alice, Bob = String("Alice"), String("Bob")
     >>> sentence = loves(Bob)(Alice).normal_form()
-    >>> print(*[word.name for word in sentence.constants])
+    >>> print(*[word.name for word in reversed(sentence.constants)])
     Alice loves Bob
     """
-    types = categorial.Functor(ob_map=lambda _: string, ar_map={}, cod=Diagram)
+    types = categorial.Functor(ob_map=lambda _: String, ar_map={}, cod=Diagram)
     if not ty.is_exp:
         return word
     var = Variable.fresh("v", types(ty.exponent), word)
     argument = saturate(var, ty.exponent)
-    result = concat(word, argument) if ty.is_over else concat(argument, word)
+    result = word >> argument if ty.is_over else argument >> word
     return Abstraction(var, slots(result, ty.base))
 
 
@@ -480,10 +459,11 @@ def saturate(term: Term, ty: categorial.Ty) -> Term:
     -------
     >>> from discopy.grammar import categorial
     >>> n, s = categorial.Ty("n"), categorial.Ty("s")
-    >>> sleeps = slots(string("sleeps"), n >> s)
+    >>> sleeps = slots(String("sleeps"), n >> s)
     >>> assert saturate(sleeps, n >> s).normal_form()\\
-    ...     == concat(string("sleeps"))
+    ...     == Position(lambda x: String("sleeps")(x))
     """
     if ty.is_exp:
-        return saturate(term(slots(concat(), ty.exponent)), ty.base)
+        empty = Position(lambda x: x)
+        return saturate(term(slots(empty, ty.exponent)), ty.base)
     return term
