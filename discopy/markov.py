@@ -73,12 +73,14 @@ in the same diagram they automatically satisfy the :mod:`frobenius` axioms.
 
 from __future__ import annotations
 
+from typing import Self
+
 from discopy import symmetric, monoidal, cmap, hypergraph
 from discopy.abc import MarkovCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import assert_isatomic, factory_name, from_tree
-from discopy.testing import Atomic, C0, axiom
+from discopy.axioms import Atomic, axiom
 
 Layer = symmetric.Layer
 
@@ -343,7 +345,7 @@ class Functor(symmetric.Functor):
         return super().__call__(other)
 
     @axiom
-    def markov(self, x: Atomic[C0]):
+    def markov(cls, self: Self, x: Atomic[Self.dom.ob]):
         """ A Markov functor preserves the copy. """
         x = x.value
         return self.cod.equation_factory(
