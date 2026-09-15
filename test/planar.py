@@ -1,11 +1,11 @@
 from pytest import raises
 
-from discopy.traced import *
+from discopy.planar import *
 from discopy.utils import AxiomError
 
 
 def test_trace_repr():
-    assert repr(Box('f', 'x', 'x').trace()) == "traced.Trace(f, left=False)"
+    assert repr(Box('f', 'x', 'x').trace()) == "planar.Trace(f, left=False)"
 
 
 def test_trace_error():

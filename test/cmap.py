@@ -170,7 +170,7 @@ def test_diagram_to_map_structure_and_errors():
         monoidal,
         pivotal,
         symmetric,
-        traced,
+        planar,
     )
     from discopy.cmap import Port, PortKind
 
@@ -192,9 +192,9 @@ def test_diagram_to_map_structure_and_errors():
     assert cup.to_map() == compact.CMap.cups(cx, cx.r)
     assert cap.to_map() == compact.CMap.caps(cx.r, cx)
 
-    tx = traced.Ty("x")
-    traced_box = traced.Box("f", tx, tx)
-    assert traced.Trace(traced_box).to_map() == traced_box.to_map().trace()
+    tx = planar.Ty("x")
+    traced_box = planar.Box("f", tx, tx)
+    assert planar.Trace(traced_box).to_map() == traced_box.to_map().trace()
 
     px, py = map(pivotal.Ty, "xy")
     pbox = pivotal.Box("f", px, py)
@@ -264,7 +264,7 @@ def test_diagram_to_map_structure_and_errors():
     t = monoidal.Box("t", monoidal.Ty(), monoidal.Ty())
     assert monoidal.CMap(
         monoidal.Ty(), monoidal.Ty(), (s, t), ()).to_diagram() == s >> t
-    for module in [closed, traced, symmetric]:
+    for module in [closed, planar, symmetric]:
         x = module.Ty("x")
         f = module.Box("f", x, x)
         g = module.Box("g", x, x)
@@ -272,11 +272,11 @@ def test_diagram_to_map_structure_and_errors():
             module.Ty(), module.Ty(), (f, g), (3, 2, 1, 0))
         assert not cycle.is_acyclic
 
-    x = traced.Ty("x")
+    x = planar.Ty("x")
     with raises(TypeError, match="Pregroup"):
-        traced.CMap.cups(x, x)
+        planar.CMap.cups(x, x)
     with raises(TypeError, match="Pregroup"):
-        traced.CMap.caps(x, x)
+        planar.CMap.caps(x, x)
     x, y = map(closed.Ty, "xy")
     assert closed.CMap.ev(y, x).boxes == (
         closed.CMap.category.ev(y, x), )
@@ -316,7 +316,7 @@ def test_rigid_handedness():
 
 
 def test_only_to_diagram_needs_the_structure():
-    from discopy import cmap, monoidal, pivotal, traced
+    from discopy import cmap, monoidal, pivotal, planar
 
     x = monoidal.Ty("x")
     f = monoidal.Box("f", x, x)
@@ -325,9 +325,9 @@ def test_only_to_diagram_needs_the_structure():
     with raises(AxiomError, match="has no traces"):
         cycle.to_diagram()
 
-    tx = traced.Ty("x")
-    feedback = traced.CMap(
-        tx, tx, (traced.Box("f", tx, tx), ), (3, 2, 1, 0))
+    tx = planar.Ty("x")
+    feedback = planar.CMap(
+        tx, tx, (planar.Box("f", tx, tx), ), (3, 2, 1, 0))
     assert not feedback.is_acyclic
 
     class Planar(symmetric.Diagram):
@@ -359,8 +359,8 @@ def test_explicit_trace_on_a_subclass():
     x = sym.Ty("x")
     f = Step("f", x, x)
 
-    traced = cmap.CMap[Recipe].from_box(f).trace()
-    assert traced.to_diagram() == Reduce(f, False)
+    planar = cmap.CMap[Recipe].from_box(f).trace()
+    assert planar.to_diagram() == Reduce(f, False)
     assert f.to_hypergraph().trace().to_diagram() == Reduce(f, False)
 
     Recipe.trace_factory = sym.Trace
@@ -502,13 +502,13 @@ def test_trace():
 
 
 def test_make_causal_cuts_every_backward_wire_at_once():
-    from discopy import traced
-    x = traced.Ty("x")
-    f, g = traced.Box("f", x @ x, x @ x), traced.Box("g", x, x)
+    from discopy import planar
+    x = planar.Ty("x")
+    f, g = planar.Box("f", x @ x, x @ x), planar.Box("g", x, x)
     cmap = (f.to_map() >> g.to_map() @ x).trace(2)
     assert not cmap.is_acyclic
     assert cmap.make_causal().boxes == (
-        traced.Trace(traced.Trace(f >> g @ x)), )
+        planar.Trace(planar.Trace(f >> g @ x)), )
     assert cmap.to_diagram().to_map() == cmap
 
 

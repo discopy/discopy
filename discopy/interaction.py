@@ -69,7 +69,7 @@ from functools import wraps
 
 from discopy import (
     balanced,
-    traced,
+    planar,
     rigid,
     pivotal,
     ribbon,
@@ -454,7 +454,7 @@ class Diagram(RibbonCategory, NamedGeneric['natural']):
         return type(self)(
             self.inside.naturality(i, left, down, braid), self.dom, self.cod)
 
-    trace = traced.Diagram.trace
+    trace = planar.Diagram.trace
     trace_factory = classmethod(pivotal.Diagram.trace_factory.__func__)
     transpose = rigid.Diagram.transpose
     # The remaining ribbon structure is derived from the concrete categories,
@@ -470,7 +470,7 @@ class Diagram(RibbonCategory, NamedGeneric['natural']):
 def Int(category: TracedCategory) -> RibbonCategory:
     """
     The Int construction, i.e. the free ribbon category on a given balanced
-    traced `category`, with :class:`interaction.Ty` as objects and
+    planar `category`, with :class:`interaction.Ty` as objects and
     :class:`interaction.Diagram` as arrows.
 
     Parameters:

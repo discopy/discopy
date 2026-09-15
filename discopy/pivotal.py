@@ -54,7 +54,7 @@ We also have its dagger and its transpose:
 
 from __future__ import annotations
 
-from discopy import cat, cmap, rigid, traced
+from discopy import cat, cmap, rigid, planar
 from discopy.abc import PivotalCategory
 from discopy.cat import factory
 from discopy.utils import deprecated_alias
@@ -106,7 +106,7 @@ class Nat(rigid.Nat, Ty):
 
 
 @factory
-class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
+class Diagram(rigid.Diagram, planar.Diagram, PivotalCategory):
     """
     A pivotal diagram is a rigid diagram and a traced diagram
     with pivotal types as domain and codomain.

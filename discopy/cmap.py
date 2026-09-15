@@ -1295,7 +1295,7 @@ class CMap[C0: Pregroup, C1: CMap](
 
         Example
         -------
-        >>> from discopy.traced import Ty, Box, Trace, CMap
+        >>> from discopy.planar import Ty, Box, Trace, CMap
         >>> f = Box("f", Ty("x"), Ty("x"))
         >>> assert f.to_map().trace().make_causal()\\
         ...     == CMap.from_box(Trace(f))
