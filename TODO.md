@@ -43,3 +43,10 @@ Review round of 2026-09-15 by toumix on https://github.com/discopy/discopy/pull/
 - [x] Link the paper from the `Lexicon` docstring.
 - [x] Move the typing check of a mapped term to `biclosed.Functor`, drop `Lexicon.__call__`.
 - [ ] `saturate` and `slots` through a functor rather than a recursion on the categorial type.
+
+
+## Approved implementation, 2026-09-15
+
+> ok great findings now implement your propositions and push to the PR, make sure to clean previous slop rather than add on top of it
+
+- [ ] Refactor binding-aware maps, lexical boundaries, normalization and alpha-equivalence; replace slash saturation by a derivation interpretation; add grammar examples and validate the full change.
