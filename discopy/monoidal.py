@@ -395,10 +395,10 @@ class Ty(cat.Ob, cat.FreeCategory, ColouredMonoid):
         """
         The delay of a type by ``n_steps``.
 
-        This is the identity for monoidal types, so that a traced category
-        is a feedback category where the delay is trivial, see
-        :class:`discopy.abc.TracedCategory`. It is overridden by
-        :class:`feedback.Ty`, which delays each of its generators.
+        This is the identity for monoidal types, so that the types of a
+        traced category form a :class:`discopy.abc.DelayedMonoid` where the
+        delay is trivial, see :class:`discopy.abc.TracedCategory`. It is
+        overridden by :class:`feedback.Ty`, which delays each generator.
 
         Parameters:
             n_steps : The number of time steps to delay.

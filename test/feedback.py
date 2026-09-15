@@ -5,6 +5,13 @@ from discopy import *
 from discopy.feedback import *
 
 
+def test_delayed_monoid():
+    from discopy.abc import DelayedMonoid
+    x = Ty('x')
+    assert isinstance(x, DelayedMonoid)
+    assert x.d == x.delay() and x.d.d == x.delay(2)
+
+
 def test_invalid_inputs():
     with raises(NotImplementedError):
         Ty('x').delay(-1)

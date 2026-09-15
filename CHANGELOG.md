@@ -9,6 +9,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `abc.DelayedMonoid`, a coloured monoid with a `delay` endomorphism
+  shortened to `.d`, the objects of a `FeedbackCategory`: its `C0` is now
+  bounded by it the way `BiclosedCategory` reads `C0: ResiduatedMonoid` and
+  `RigidCategory` reads `C0: Pregroup`. `feedback.Ty` declares it, getting
+  its `d` from the abc, and `monoidal.Ty.delay` implements it with the
+  trivial delay, so the types of a traced category form a delayed monoid
+  where the delay is the identity. Taken from the diagram-search branch,
+  where every monoidal level of `discopy.abc` bounds its objects
+  ([#710](https://github.com/discopy/discopy/issues/710)).
 - `monoidal.List`, the free monoid on a generator type: `List[X]` is a
   tuple of instances of `X` with concatenation as `tensor` and the empty
   list as unit, an `abc.Monoid` parameterised as

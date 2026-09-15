@@ -33,6 +33,7 @@ Summary
     Nat
     MonoidalCategory
     PRO
+    DelayedMonoid
     FeedbackCategory
     TracedCategory
     ResiduatedMonoid
@@ -367,10 +368,32 @@ class PRO[C1: PRO](MonoidalCategory[Nat, C1]):
     """
 
 
-class FeedbackCategory[C0, C1](MonoidalCategory[C0, C1]):
+class DelayedMonoid[C0, C1: DelayedMonoid](ColouredMonoid[C0, C1]):
     """
-    A feedback category is a :class:`MonoidalCategory` with a :code:`delay`
-    endofunctor and a :code:`feedback` operator.
+    A delayed monoid is a coloured monoid with a :meth:`delay` endomorphism,
+    the objects of a :class:`FeedbackCategory`: the memory it feeds back
+    is one time step later on the way in, shortened to :attr:`d`.
+    """
+    @abstractmethod
+    def delay(self, n_steps: int = 1) -> C1:
+        """
+        The delay of an object by some time steps, to be instantiated.
+
+        Parameters:
+            n_steps : The number of time steps to delay.
+        """
+
+    @property
+    def d(self) -> C1:
+        """ Syntactic sugar for :meth:`delay` by one time step. """
+        return self.delay()
+
+
+class FeedbackCategory[C0: DelayedMonoid, C1](MonoidalCategory[C0, C1]):
+    """
+    A feedback category is a :class:`MonoidalCategory` whose objects are a
+    :class:`DelayedMonoid`, with a :code:`delay` endofunctor and a
+    :code:`feedback` operator.
 
     The free feedback category :mod:`discopy.feedback` is built on top of a
     :class:`MarkovCategory` but the interface itself needs only a monoidal
