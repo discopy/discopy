@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from pytest import raises
+
+from discopy import biclosed
 from discopy.closed import *
 
 
@@ -134,15 +137,40 @@ def test_nonlinear_eval():
 
     discarded, = Y(lambda y: X(lambda x: g(x)(x))).eval().boxes
     assert any(isinstance(box, Discard) for box in discarded.arg.boxes)
-def test_context_dom():
+
+
+def test_is_linear():
+    """ Bubbles, sums and terms are linear when their insides are. """
+    x, y = Ty("x"), Ty("y")
+    f, nonlinear = Box("f", x, y), Copy(x) >> Box("g", x @ x, x)
+    assert f.curry().is_linear and (f + f).is_linear
+    assert (Box("h", x @ y, x @ y) @ x).trace().is_linear
+    assert not nonlinear.is_linear
+    assert not nonlinear.curry().is_linear
+    assert not (nonlinear @ x).trace().is_linear
+    assert not (nonlinear + nonlinear).is_linear
+
+    g, a = (x >> (x >> y))("g"), x("a")
+    assert g(a)(a).is_linear and x(lambda v: g(v)(a)).is_linear
+    for term in [x(lambda v: g(v)(v)), x(lambda v: g(a)(a))]:
+        assert not term.is_linear and not term.eval().is_linear
+
+
+def test_eval_in_context():
     """
-    `Context.dom` instantiates `category.ob` before calling `.tensor`, so
-    it works both for an empty context (regression test for #549) and for
-    a non-empty one.
+    A term evaluated in a context discards the variables it does not use
+    and permutes the others, so that the diagram has the context as domain.
     """
-    X = Ty('X')
-    assert Context([]).dom == Ty()
-    assert Context([Variable('x', X)]).dom == X
+    X, Y = Ty("X"), Ty("Y")
+    x, y, f = Variable("x", X), Variable("y", Y), (X >> (Y >> Y))("f")
+    assert x.eval(context=[y, x]) == Diagram.swap(Y, X) >> X @ Discard(Y)
+    assert f.eval(context=[y]) == Discard(Y) >> f
+    assert f(x)(y).eval(context=[y, x]) == Diagram.swap(Y, X)\
+        >> f(x)(y).eval()
+    for context in ([x, y], [y, x], [x, y, Variable("z", X)]):
+        diagram = f(x)(y).eval(context=context)
+        assert diagram.dom == Ty().tensor(*[v.cod for v in context])
+        assert diagram.cod == Y
 
 
 def test_discard():
@@ -210,3 +238,190 @@ def test_draw_copy_and_swap():
     # A non-linear term evaluates to such a diagram, so it draws too.
     X = Ty('X')
     assert X(lambda x: (X >> X)(lambda f: f(x))).eval().to_drawing()
+
+
+def test_from_biclosed():
+    x, y = biclosed.Ty("x"), biclosed.Ty("y")
+    X, Y = Ty("x"), Ty("y")
+    assert Ty.from_biclosed(x << y) == Ty.from_biclosed(y >> x) == Y >> X
+    assert Ty.from_biclosed(x @ (x >> y)) == X @ (X >> Y)
+
+    g, a, h = (y << x)("g"), x("a"), (x >> y)("h")
+    assert g(a).to_closed() == TermBase.from_biclosed(g(a))\
+        == Constant("g", X >> Y)(Constant("a", X))
+    assert a(h, left=True).to_closed()\
+        == Constant("h", X >> Y)(Constant("a", X))
+    assert TermBase.from_biclosed(x(lambda v: g(v)))\
+        == X(lambda v: Constant("g", X >> Y)(v))
+
+
+def test_normal_form():
+    X, Y = Ty("X"), Ty("Y")
+    f, a = (X >> Y)("f"), X("a")
+    var = Variable("v", X)
+    assert f.normal_form() == f
+    assert a.normal_form() == a
+    assert var.normal_form() == var
+    assert X(lambda z: f(z))(a).normal_form() == f(a)
+    assert X(lambda z: X(lambda w: f(w))(z)).normal_form()\
+        == X(lambda z: f(z))
+
+    g, y = (X >> (X >> Y))("g"), Variable("y", X)
+    term = X(lambda x: X(lambda y: g(x)(y)))(y)
+    var = Variable("y_", X)
+    assert term.normal_form() == Abstraction(var, g(y)(var))
+
+    a = Variable("a", X)
+    assert X(lambda x: f(x))(a).normal_form() == f(a)
+    assert X(lambda x: Y("c"))(a).normal_form() == Y("c")
+
+    h, x, y = (X >> (X >> Y))("h"), Variable("x", X), Variable("y", X)
+    exchange = Abstraction(x, h(x)(y))(a)
+    assert exchange.freevars == [y, a] and exchange.dom == X @ X
+    assert exchange.normal_form() == h(a)(y)
+
+    duplicate = X(lambda x: h(x)(x))(X("a"))
+    with raises(ValueError, match="copies its argument"):
+        duplicate.normal_form()
+
+
+def test_Substitution():
+    X, Y = Ty("X"), Ty("Y")
+    f, a = (X >> Y)("f"), X("a")
+    v, w = Variable("v", X), Variable("w", X)
+    sub = Substitution({v: a})
+    assert sub(f) == f
+    assert sub(v) == a and sub(w) == w
+    assert sub(f(v)) == f(a)
+    assert sub(Abstraction(v, f(v))) == Abstraction(v, f(v))
+    assert sub(Abstraction(w, f(v))) == Abstraction(w, f(a))
+    with raises(TypeError):
+        Substitution({a: v})
+    with raises(ValueError):
+        Substitution({v: Y("b")})
+
+
+def test_discard_and_nonlinear_eval():
+    x, y = Ty("x"), Ty("y")
+    assert Diagram.discard(x) == Copy(x, 0) == Discard(x)
+    assert not Copy(x).is_linear
+
+    g = (x >> (x >> y))("g")
+    shared_abstraction = x(lambda v: x(lambda w: g(w)(v))(v))
+    diagram = shared_abstraction.eval()
+    assert diagram.dom == Ty() and diagram.cod == x >> y
+
+
+def test_eval_with_context_and_composite_binders():
+    X, Y, Z = map(Ty, "XYZ")
+    x, y = Variable("x", X), Variable("y", Y)
+    g, h = (Y >> X)("g"), (Y >> (X >> Z))("h")
+
+    for left in [False, True]:
+        abstraction = Abstraction(x, h(y)(x), left=left)
+        argument = g(y)
+        application = argument(abstraction, left=True)\
+            if left else abstraction(argument)
+        assert application.overlap
+        assert (application.eval().dom, application.eval().cod)\
+            == (application.dom, application.cod)
+
+    XY, var = X @ Y, Variable("var", X @ Y)
+    for term in [
+            Abstraction(var, (XY >> Z)("f")(var)),
+            Abstraction(var, Z("z"))]:
+        assert (term.eval().dom, term.eval().cod) == (term.dom, term.cod)
+
+    nested = X(lambda x: (X >> Z)(lambda f: f(x)))
+    diagram, drawing = nested.eval(), nested.eval().to_drawing()
+    assert (drawing.dom, drawing.cod)\
+        == (diagram.dom.to_drawing(), diagram.cod.to_drawing())
+
+
+def test_Application_context_order_is_stable():
+    X, Y, Z, A, B = map(Ty, "XYZAB")
+    x, y, z = Variable("x", X), Variable("y", Y), Variable("z", Z)
+    func = (X >> (Y >> (A >> B)))("f")(x)(y)
+    args = (Y >> (Z >> A))("a")(y)(z)
+    term = func(args)
+
+    assert term.overlap
+    assert term.freevars == [x, y, z]
+    assert term.dom == X @ Y @ Z
+    assert (term.eval().dom, term.eval().cod) == (term.dom, term.cod)
+
+
+def test_then():
+    """ Terms of function types compose, the first one applied first. """
+    X, Y, Z = map(Ty, "XYZ")
+    t, u, v = (X >> Y)("t"), (Y >> Z)("u"), (Z >> X)("v")
+    assert t.then() == t and t >> u == X(lambda x: u(t(x)))
+    assert (t >> u >> v).normal_form() == X(lambda x: v(u(t(x))))\
+        == (t >> (u >> v)).normal_form()
+    with raises(AxiomError):
+        u >> t
+    with raises(AxiomError):
+        X("a") >> t
+
+
+def test_normal_order_discards_unreduced_arguments():
+    X, Y = Ty("X"), Ty("Y")
+    g, a, b = (X >> (X >> Y))("g"), X("a"), Y("b")
+    duplicate = X(lambda x: g(x)(x))(a)
+    erase = Y(lambda ignored: b)
+    assert erase(duplicate).normal_form() == b
+    identity = (Y >> Y)(lambda f: f)
+    assert identity(erase)(duplicate).normal_form() == b
+
+
+def test_normal_form_copy():
+    X, Y = Ty("X"), Ty("Y")
+    g, a = (X >> (X >> Y))("g"), X("a")
+    duplicate = X(lambda x: g(x)(x))
+    v = Variable("v", X)
+    assert duplicate(v).normal_form() == g(v)(v)
+    assert X(lambda v: duplicate(v)).normal_form().alpha_equivalent(duplicate)
+    assert duplicate(a).normal_form(copy=True) == g(a)(a)
+    f = (X >> X)("f")
+    with raises(ValueError, match="copies its argument"):
+        duplicate(f(v)).normal_form()
+    assert duplicate(f(v)).normal_form(copy=True) == g(f(v))(f(v))
+    assert X(lambda v: duplicate(f(v))).normal_form(copy=True)\
+        == X(lambda v: g(f(v))(f(v)))
+
+
+def test_alpha_equivalent():
+    X, Y = Ty("X"), Ty("Y")
+    g, a = (X >> (X >> Y))("g"), X("a")
+    x, y, z = [Variable(name, X) for name in "xyz"]
+    assert X(lambda x: x).alpha_equivalent(X(lambda y: y))
+    assert not X(lambda x: x).alpha_equivalent(Y(lambda y: y))
+    assert not a.alpha_equivalent(x)
+    assert not a.alpha_equivalent(Y("a"))
+    assert not a.alpha_equivalent("a")
+    assert not x.alpha_equivalent(y)
+    assert Abstraction(x, g(x)(z)).alpha_equivalent(
+        Abstraction(y, g(y)(z)))
+    assert not Abstraction(x, g(x)(z)).alpha_equivalent(
+        Abstraction(y, g(y)(x)))
+    shadowed = Abstraction(x, Abstraction(x, x))
+    assert shadowed.alpha_equivalent(Abstraction(y, Abstraction(z, z)))
+    assert not shadowed.alpha_equivalent(Abstraction(y, Abstraction(z, y)))
+    assert X(lambda x: x)(a).normal_form().alpha_equivalent(a)
+
+
+def test_then_modulo_alpha_beta():
+    X, Y, Z = map(Ty, "XYZ")
+    t, u, v = (X >> Y)("t"), (Y >> Z)("u"), (Z >> X)("v")
+    expected = X(lambda a: v(u(t(a))))
+    for composed in [t.then(u, v), (t >> u) >> v, t >> (u >> v)]:
+        assert composed.normal_form().alpha_equivalent(expected)
+    identity = X(lambda x: x)
+    assert (identity >> t).normal_form().alpha_equivalent(
+        X(lambda a: t(a)))
+    assert (t >> Y(lambda y: y)).normal_form().alpha_equivalent(
+        X(lambda a: t(a)))
+    free = Variable("x", X >> Y)
+    assert free.then(u, v).freevars == [free]
+    with raises(AxiomError):
+        t.then(u, t)

@@ -84,15 +84,17 @@ from abc import abstractmethod
 from inspect import signature
 from typing import Callable, ClassVar
 
-from discopy import monoidal, cmap
+from discopy import cat, monoidal, cmap
 from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
 from discopy.cat import factory
 from discopy.utils import (
+    AxiomError,
     assert_isinstance,
     deprecated_alias,
     factory_name,
     from_tree,
+    get_origin,
 )
 
 
@@ -368,6 +370,17 @@ class Eval(Box):
             else (x.exponent @ x, x.base)
         super().__init__("Eval" + str(x), dom, cod)
 
+    def __repr__(self):
+        return f"{factory_name(type(self))}({self.x!r}, left={self.left!r})"
+
+    def to_tree(self):
+        return dict(factory=factory_name(type(self)),
+                    x=self.x.to_tree(), left=self.left)
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(from_tree(tree['x']), left=tree['left'])
+
     def dagger(self) -> Coeval:
         return self.coeval_factory(self.x, self.left)
 
@@ -394,6 +407,10 @@ class Coeval(Box):
     """
     drawing_name = "lambda"
 
+    __repr__ = Eval.__repr__
+    to_tree = Eval.to_tree
+    from_tree = classmethod(Eval.from_tree.__func__)
+
     def __init__(self, x: Exp, left=None):
         assert x.is_exp
         self.x = x
@@ -414,15 +431,15 @@ class Curry(monoidal.Bubble, Box):
     Parameters:
         arg : The diagram to curry.
         n : The number of atomic types to curry.
-        left : Whether to curry on the left or right.
+        left : Whether to curry on the left or right, default is ``True``.
 
     Example
     -------
     >>> x, y, z = map(Ty, "xyz")
     >>> print(Curry(Box('f', x @ y, z)))
-    Curry(f, 1, False)
+    Curry(f, 1, True)
     """
-    def __init__(self, arg: Diagram, n=1, left=False):
+    def __init__(self, arg: Diagram, n=1, left=True):
         self.n, self.left = n, left
         name = f"Curry({arg}, {n}, {left})"
         if left:
@@ -433,6 +450,18 @@ class Curry(monoidal.Bubble, Box):
         monoidal.Bubble.__init__(
             self, arg, dom=dom, cod=cod, drawing_name="$\\Lambda$")
         Box.__init__(self, name, dom, cod)
+
+    def __repr__(self):
+        return f"{factory_name(type(self))}({self.arg!r}, " \
+            f"n={self.n}, left={self.left!r})"
+
+    def to_tree(self):
+        return dict(factory=factory_name(type(self)), arg=self.arg.to_tree(),
+                    n=self.n, left=self.left)
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(from_tree(tree['arg']), n=tree['n'], left=tree['left'])
 
     def __str__(self):
         return self.name
@@ -473,11 +502,32 @@ class Functor(monoidal.Functor):
             Map from atomic :class:`Ty` to :code:`cod.ob`.
         ar_map (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
+
+    Note
+    ----
+    When the codomain objects are biclosed types, the functor sends terms to
+    terms rather than evaluating them to morphisms:
+
+    >>> X, Y = Ty("X"), Ty("Y")
+    >>> f, x = (Y << X)("f"), X("x")
+    >>> F = Functor(ob_map={X: Ty("A"), Y: Ty("B")},
+    ...             ar_map={f: (Ty("B") << Ty("A"))("g"), x: Ty("A")("a")})
+    >>> assert F(f(x)) == F(f)(F(x))
+
+    The image of a term is checked to have the image of its type:
+
+    >>> Functor(ob_map={X: Ty("A"), Y: Ty("B")}, ar_map={f: Ty("A")("a")})(f)
+    Traceback (most recent call last):
+        ...
+    discopy.utils.AxiomError: Expected a term of type (B << A) for ...
     """
     dom = cod = Diagram
 
     def __call__(self, other):
         if isinstance(other, TermBase):
+            if issubclass(get_origin(self.cod.ob), Ty) \
+                    and not issubclass(get_origin(self.cod), cmap.CMap):
+                return self.map_term(other)
             return other.eval(self)
         for cls, attr in [(Over, "over"), (Under, "under"), (Exp, "exp")]:
             if isinstance(other, cls):
@@ -498,6 +548,43 @@ class Functor(monoidal.Functor):
                 # Avoid infinite recursion when drawing.
                 return self.ob_map[other]
         return super().__call__(other)
+
+    def map_variable(self, variable, context):
+        """Map a variable, freshening only when target identities collide."""
+        name, cod = variable.name, self(variable.cod)
+        result = self.cod.ob.variable_factory(name, cod)
+        while result in context.values():
+            name += "_"
+            result = self.cod.ob.variable_factory(name, cod)
+        return result
+
+    def map_term(self, term, context=None):
+        """
+        Map a term with an injective environment for its free variables.
+
+        Symmetric target terms may reorder their implicit context; a
+        biclosed target must preserve its order as well as its variables.
+        Constants must have closed term images, including at unit type.
+        """
+        if context is None:
+            context = {}
+            for variable in term.freevars:
+                context[variable] = self.map_variable(variable, context)
+        result = term.map(self, context)
+        if not isinstance(result, TermBase):
+            raise AxiomError(f"Expected a term for {term}, got {result}.")
+        if result.cod != self(term.cod):
+            raise AxiomError(
+                f"Expected a term of type {self(term.cod)} for "
+                f"{term}, got {result} of type {result.cod}.")
+        expected = [context[v] for v in term.freevars]
+        ordered = self.cod.ob.over_factory is not self.cod.ob.under_factory
+        valid = result.freevars == expected if ordered else (
+            set(result.freevars) == set(expected))
+        if not valid:
+            raise AxiomError(f"Expected context {expected} for {term}, "
+                             f"got {result.freevars}.")
+        return result
 
 
 CMap = cmap.CMap[Diagram]
@@ -557,9 +644,24 @@ class TermBase(Box):
         category, i.e. terms are compiled to diagrams with constants as boxes.
         """
 
+    @abstractmethod
+    def map(functor: Functor, context: dict) -> Term:
+        """
+        The image of a term under a :class:`Functor` whose codomain objects
+        are biclosed types, i.e. a term in the codomain's internal language
+        rather than a morphism.
+        """
+
     def draw(self, **kwargs):
         "Drawing a term by evaluating it in the free biclosed category."
         return self.eval().draw(**kwargs)
+
+    def to_closed(self):
+        """
+        Translate the term into the internal language of a closed category.
+        """
+        from discopy.closed import TermBase
+        return TermBase.from_biclosed(self)
 
     def __call__(self, other, left=False):
         args = (other, self, left) if left else (self, other, left)
@@ -580,12 +682,19 @@ class Constant(TermBase):
         super().__init__(name, dom=self.ob(), cod=cod, **kwargs)
         self.freevars = []
 
+    @classmethod
+    def from_tree(cls, tree):
+        kwargs = {k: tree[k] for k in ('data', 'is_dagger') if k in tree}
+        return cls(tree['name'], from_tree(tree['cod']), **kwargs)
+
     @property
     def constants(self):
         return [self]
 
     def eval(self, functor=None):
-        functor = functor or self.functor
+        return cat.Functor.__call__(functor or self.functor, self)
+
+    def map(self, functor, context):
         return functor.ar_map[self]
 
     def __repr__(self):
@@ -611,9 +720,35 @@ class Variable(TermBase):
         functor = functor or self.functor
         return functor.cod.id(functor(self.cod))
 
+    def map(self, functor, context):
+        return context[self]
+
     @property
     def constants(self):
         return []
+
+    @classmethod
+    def fresh(cls, name, cod, *terms):
+        """
+        A variable of a given type whose name is not free in any of the terms,
+        underscores being appended to the name until it is not.
+
+        Parameters:
+            name : The name to start from.
+            cod : The type of the variable.
+            terms : The terms in which the variable must not be free.
+
+        Example
+        -------
+        >>> x = Ty("x")
+        >>> assert Variable.fresh("v", x, Variable("v", x))\\
+        ...     == Variable("v_", x)
+        """
+        names = {
+            variable.name for term in terms for variable in term.freevars}
+        while name in names:
+            name += "_"
+        return cls(name, cod)
 
     __repr__ = Constant.__repr__
 
@@ -660,6 +795,11 @@ class Application(TermBase):
             functor(base), functor(exponent), left=not self.left)
         return args @ func >> ev if self.left else func @ args >> ev
 
+    def map(self, functor, context):
+        return functor.cod.ob.application_factory(
+            functor.map_term(self.func, context),
+            functor.map_term(self.args, context), self.left)
+
     def __repr__(self):
         func, args = repr(self.func), repr(self.args)
         left = ", left=True" if self.left else ""
@@ -694,10 +834,23 @@ class Abstraction(TermBase):
         if not self.left and index != len(body_freevars) - 1:
             raise ValueError("Expected abstraction of right-most variable.")
         self.freevars = body_freevars[1:] if self.left else body_freevars[:-1]
-        return self.body.dom[1:] if self.left else self.body.dom[:-1]
+        n = len(self.var.cod)
+        return self.body.dom[n:] if self.left\
+            else self.body.dom[:len(self.body.dom) - n]
 
     def eval(self, functor=None):
-        return (functor or self.functor)(self.body.curry(left=not self.left))
+        functor = functor or self.functor
+        return functor.cod.curry(
+            self.body.eval(functor), len(functor(self.var.cod)),
+            not self.left)
+
+    def map(self, functor, context):
+        context = {key: value for key, value in context.items()
+                   if key != self.var}
+        variable = functor.map_variable(self.var, context)
+        context[self.var] = variable
+        return functor.cod.ob.abstraction_factory(
+            variable, functor.map_term(self.body, context), self.left)
 
     def __repr__(self):
         var, body = repr(self.var), repr(self.body)

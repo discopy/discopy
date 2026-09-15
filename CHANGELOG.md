@@ -9,6 +9,24 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- Abstract categorial grammars after de Groote (2001): `grammar.abstract`
+  provides closed terms, composable `Lexicon` functors, and `Grammar` for a
+  finite vocabulary and distinguished type. `Position` and `String` encode
+  strings as functions, with term composition `>>` as concatenation.
+  `Diagram.from_categorial` retains lexical entries, categorial types and
+  derivation rules; `Lexicon.from_categorial` interprets the same derivation
+  as strings or semantics, preserving crossed-composition word order.
+  The examples cover Montague scope, CFGs and TAGs ([#398](https://github.com/discopy/discopy/issues/398)).
+- Closed terms support capture-avoiding substitution, alpha-equivalence,
+  evaluation in a context, and normal-order reduction. Reduction discards
+  unused arguments and permits copying variables; `normal_form(copy=True)`
+  additionally permits unrestricted syntactic beta-reduction, which need
+  not preserve an effectful interpretation. Function terms compose with
+  `then`; terms and compound diagrams report their linearity.
+- Biclosed functors map terms with a binding environment, preserving distinct
+  variables when their types coincide in the image, and validate lexical
+  image types and closure. `TermBase.from_biclosed` forgets planarity for
+  semantic lambda terms without conflating it with derivation translation.
 - `monoidal.List`, the free monoid on a generator type: `List[X]` is a
   tuple of instances of `X` with concatenation as `tensor` and the empty
   list as unit, an `abc.Monoid` parameterised as
@@ -520,6 +538,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- Biclosed currying defaults agree with `Diagram.curry`; composition and
+  abstraction handle composite types. Evaluation, coevaluation and curry
+  boxes round-trip through `repr`.
+- Closed term evaluation handles composite contexts and shared variables;
+  `Curry`, `Trace` and `Sum` inspect their contents for linearity. `Sum.ob`
+  inherits the diagram's object type instead of pinning `monoidal.Ty`.
 - The marimo notebook previews in the docs follow the theme switch. The
   notebooks are exported with marimo's `system` theme and the docs relay
   the resolved theme into each notebook's iframe through marimo's
