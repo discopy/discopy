@@ -32,10 +32,10 @@
 >
 > perform this refactor globally and simplify discopy as much as possible in the process.
 
-- [ ] `utils.Factory`, a class attribute building the generators of a category on demand from those of its bases, installed by `utils.factory` for every generator a decorated class inherits, with `utils.generators` listing them; doctests and unit tests.
-- [ ] `cat.Arrow` type-checks its boxes itself so that `monoidal.Diagram.generator_factory` can be `monoidal.Box` rather than `cat.Box`.
-- [ ] Replace every trivial generator subclass of `discopy/*.py` by `Name = Diagram.name_factory`, keeping the ones with behaviour assigned right after their definition; export the generators each level now builds (`Sum`, `Bubble`, `Trace`); `compact.Diagram.trace_factory` as a classmethod; `closed.Diagram.is_linear` without per-box flags.
-- [ ] Same for `discopy/grammar` and `discopy/quantum`.
-- [ ] README: the cooking example and the theory bullet on `swap_factory`.
-- [ ] Tests: `test/utils.py` for the mechanism, a test that every generator a library module builds is exported by name, existing tests adjusted.
-- [ ] `CHANGELOG.md` entry; `uv run pflake8 discopy`, `uv run coverage run -m pytest` and the property tests green.
+- [WIP] @session_01S8HY2Chfnczvn5kcoTY9wE-2026-09-16 13:42 `utils.Factory`, a class attribute building the generators of a category on demand from those of its bases, installed by `utils.factory` for every generator a decorated class inherits, with `utils.generators` listing them; doctests and unit tests.
+- [WIP] @session_01S8HY2Chfnczvn5kcoTY9wE-2026-09-16 13:42 `cat.Arrow` type-checks its boxes itself so that `monoidal.Diagram.generator_factory` can be `monoidal.Box` rather than `cat.Box`.
+- [WIP] @session_01S8HY2Chfnczvn5kcoTY9wE-2026-09-16 13:42 Replace every trivial generator subclass of `discopy/*.py` by `Name = Diagram.name_factory`, keeping the ones with behaviour assigned right after their definition; export the generators each level now builds (`Sum`, `Bubble`, `Trace`); `compact.Diagram.trace_factory` as a classmethod; `closed.Diagram.is_linear` without per-box flags.
+- [WIP] @session_01S8HY2Chfnczvn5kcoTY9wE-2026-09-16 13:42 Same for `discopy/grammar` and `discopy/quantum`.
+- [WIP] @session_01S8HY2Chfnczvn5kcoTY9wE-2026-09-16 13:42 README: the cooking example and the theory bullet on `swap_factory`.
+- [WIP] @session_01S8HY2Chfnczvn5kcoTY9wE-2026-09-16 13:42 Tests: `test/utils.py` for the mechanism, a test that every generator a library module builds is exported by name, existing tests adjusted.
+- [WIP] @session_01S8HY2Chfnczvn5kcoTY9wE-2026-09-16 13:42 `CHANGELOG.md` entry; `uv run pflake8 discopy`, `uv run coverage run -m pytest` and the property tests green.
