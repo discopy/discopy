@@ -47,7 +47,7 @@ Different dependency groups are available (switch with `uv sync --group <group-n
 - `docs`: for generating the documentation
 Since dependency groups are not standard, we also provide equivalents via optional dependencies.
 
-## Run the tests
+## Run the unit tests
 
 After cloning the repository, you should check you haven't broken anything by running the test suite.
 Use `uv sync --dev` before running any part of the test suite, and `uv sync --dev --group all`
@@ -61,6 +61,59 @@ uv run coverage report -m
 ```
 
 Without the extras installed, run `uv run pytest --skip-extra` to skip what needs them.
+
+## Run the property tests
+
+The Hypothesis property matrix lives in `proptest/`, outside
+pytest's default `testpaths`. Run them explicitly:
+
+```shell
+uv sync --group dev
+uv run pytest proptest/ -n auto -p no:benchmark -v
+```
+
+The cells of the matrix are independent, so `-n auto`
+([pytest-xdist](https://pytest-xdist.readthedocs.io)) runs them on all
+cores, with `-p no:benchmark` unloading the benchmark plugin that is
+incompatible with it; drop both to run serially, e.g. when debugging a
+single cell.
+
+Every cell of the matrix is one axiom of one category, named
+`<module>.<Category>.<law>`, so pytest's own `-k` selects cells for
+shorter, targeted tests.
+
+```shell
+uv run pytest proptest/ -k unitality -v
+uv run pytest proptest/ -k 'Arrow and not typing'
+```
+
+A cell is skipped when its axiom declares that the structure does not
+apply, and xfailed when the law is declared broken, each carrying its
+reason: pass `-rsxX` to list the skips, xfails and unexpected passes with
+their reasons, and `-x` to stop at the first genuine failure.
+
+`proptest/conftest.py` registers four Hypothesis profiles over the
+`.hypothesis/examples` database, selected by `HYPOTHESIS_PROFILE`: `dev`
+by default, `pr` for the small budget a pull request runs with, under a
+fixed `--hypothesis-seed` so that it draws the same examples every time,
+and `explore` for the large one `main` and the nightly run search with.
+A fourth, `shared`, is `dev` reading the database CI uploads as a workflow
+artifact, through a `GITHUB_TOKEN`, so a failure found on CI replays on
+your machine before any search; it reaches GitHub only when selected.
+
+```shell
+HYPOTHESIS_PROFILE=explore uv run pytest proptest/ -n auto -p no:benchmark
+```
+
+`Axiom.falsify` searches for a shrunk counterexample to a law on demand,
+raising `NoSuchExample` when it finds none, which is how a failing cell
+becomes a concrete term to debug in a REPL: call
+`<Category>.<law>.falsify()` on the category that breaks the law, then
+inspect the sides of the `Equation` the axiom returns on the arguments it
+hands back.
+
+The `proptest` GitHub workflow runs this suite on pull requests labelled
+`proptest`, on `main`, nightly and on manual dispatch.
 
 ## Run the benchmarks
 

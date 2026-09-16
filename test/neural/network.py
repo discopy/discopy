@@ -21,7 +21,7 @@ def test_lazy_torch_import():
 
 def test_dims():
     assert Dims(2, 3) == Dims(Dim(2), Dim(3)) == Dims(2) @ Dims(3)
-    assert Dims(2, 3) + Dims(4) == Dims(2, 3, 4) and Dims(2) ** 2 == Dims(2, 2)
+    assert Dims(2, 3) @ Dims(4) == Dims(2, 3, 4) and Dims(2) ** 2 == Dims(2, 2)
     assert Dims() != Dims(1) == Dims(Dim()) and Dims(Dim(2, 3)) != Dims(2, 3)
     assert Dims(2, 3) * Dims(4, 5) == Dims(Dim(2, 4), Dim(2, 5), Dim(3, 4),
                                            Dim(3, 5))
@@ -118,7 +118,7 @@ def test_functor():
                 add: lambda v, w: [i + j for i, j in zip(v, w)]},
         cod=python.Function)
     assert F(residual)([1, 2]) == [3, 6]
-    assert F(x @ x) == (list, list) and F(Dims()) == ()
+    assert F(x @ x) == python.Ty(list, list) and F(Dims()) == python.Ty()
     G = Functor(ob_map={x: x @ x},
                 ar_map={layer: add >> add.dagger(), add: add @ add})
     assert G(residual)\

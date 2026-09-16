@@ -4,7 +4,8 @@ import random
 
 from pytest import raises
 
-from discopy import cat, markov, monoidal, optics, symmetric
+from discopy import cat, markov, monoidal, optics, python, symmetric
+from discopy.abc import Nat
 from discopy.interaction import Ty as IntTy
 from discopy.optics import Lens, Optic, Traced, Ty
 from discopy.para import Symmetric
@@ -34,7 +35,8 @@ def traced():
 
 
 def test_ty():
-    assert Ty[int](1, 2) @ Ty[int](3, 4) == Ty[int](4, 6)
+    assert Ty[Nat](Nat(1), Nat(2)) @ Ty[Nat](Nat(3), Nat(4)) == Ty[Nat](
+        Nat(4), Nat(6))
     assert -(X @ Y) == -X @ -Y == Ty(x_ @ y_, x @ y)
     scope = {"cat": cat, "monoidal": monoidal, "optics": optics,
              "symmetric": symmetric, "markov": markov}
@@ -45,8 +47,9 @@ def test_ty():
         "optics.Lens[python.multiplicative.Function](")
     assert repr(Optic[Function].id(R)).startswith(
         "optics.Optic[python.multiplicative.Function](")
-    assert Ty[int]() == Ty[int](0, 0) and Ty.unit() == Ty()
-    assert Ty[int].unit() == Ty[int]() and Ty[tuple].unit() == Ty[tuple]()
+    assert Ty[Nat]() == Ty[Nat](Nat(0), Nat(0)) and Ty.unit() == Ty()
+    assert Ty[Nat].unit() == Ty[Nat]() \
+        and Ty[python.Ty].unit() == Ty[python.Ty]()
     assert Ty.negatives is tuple and IntTy.negatives is reversed
 
 
@@ -261,7 +264,7 @@ def test_lens_and_optic():
     assert optic.to_lens().get.to_hypergraph() == l.get.to_hypergraph()
 
 
-R = Ty[tuple]((float, ), (float, ))
+R = Ty[python.Ty]((float, ), (float, ))
 square = Lens[Function](
     R, R, Function(lambda a: a * a, (float, ), (float, )),
     Function(lambda a, da: 2 * a * da, (float, float), (float, )))

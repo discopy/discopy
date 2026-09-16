@@ -96,20 +96,22 @@ class Ty(NamedGeneric['natural']):
     ----
     Integer types are parameterised by natural types, e.g.
 
-    >>> assert Ty == Ty[pivotal.Ty] and Ty[int].natural == int
+    >>> from discopy.abc import Nat
+    >>> assert Ty == Ty[pivotal.Ty] and Ty[Nat].natural == Nat
 
     The prefix operator ``-`` reverses positive and negative, e.g.
 
-    >>> x, y, z = map(Ty[int], [1, 2, 3])
-    >>> assert x @ -y @ z == Ty[int](1 + 3, 2)
+    >>> x, y, z = (Ty[Nat](Nat(n)) for n in (1, 2, 3))
+    >>> assert x @ -y @ z == Ty[Nat](Nat(1) @ Nat(3), Nat(2))
 
     The negative halves of a tensor come in reverse order, as the duals of
     a rigid category do; :attr:`negatives` is the hook that orders them,
     which :class:`optics.Ty <discopy.optics.Ty>` overrides to keep them
     side by side.
 
-    >>> x, y = Ty[tuple](("x", ), ("x'", )), Ty[tuple](("y", ), ("y'", ))
-    >>> assert x @ y == Ty[tuple](("x", "y"), ("y'", "x'"))
+    >>> from discopy.pivotal import Ty as T
+    >>> x, y = Ty(T("x"), T("x'")), Ty(T("y"), T("y'"))
+    >>> assert x @ y == Ty(T("x") @ T("y"), T("y'") @ T("x'"))
     """
     natural = pivotal.Ty
     negatives = staticmethod(reversed)
@@ -121,7 +123,8 @@ class Ty(NamedGeneric['natural']):
         positive, negative = (
             self.natural() if x is None else x for x in (positive, negative))
         positive, negative = (
-            x if isinstance(x, type(self).natural) else type(self).natural(x)
+            x if isinstance(x, type(self).natural)
+            else type(self).natural.cast(x)
             for x in (positive, negative))
         self.positive, self.negative = positive, negative
 
@@ -150,12 +153,12 @@ class Ty(NamedGeneric['natural']):
         if any(not isinstance(other, type(self)) for other in others):
             return NotImplemented
         unit = type(self).natural()
-        positive = sum([x.positive for x in (self, ) + others], unit)
-        negative = sum(
-            [x.negative for x in self.negatives((self, ) + others)], unit)
+        positive = unit.tensor(*(x.positive for x in (self, ) + others))
+        negative = unit.tensor(
+            *(x.negative for x in self.negatives((self, ) + others)))
         return type(self)(positive, negative)
 
-    __matmul__ = __add__ = tensor
+    __matmul__ = tensor
 
     def __neg__(self):
         positive, negative = self
@@ -183,11 +186,13 @@ class Diagram(RibbonCategory, NamedGeneric['natural']):
     of boolean matrices with the direct sum has a trace given by reflexive
     transitive closure. We can use it to check the snake equations:
 
+    >>> from discopy.abc import Nat
     >>> from discopy.matrix import Matrix
-    >>> T, D = Ty[int], Diagram[Matrix[bool]]
-    >>> assert D.id(T(2, 2)).transpose()\\
-    ...     == D.id(T(2, 2))\\
-    ...     == D.id(T(2, 2)).transpose(left=True)
+    >>> T, D = Ty[Nat], Diagram[Matrix[bool]]
+    >>> two = T(Nat(2), Nat(2))
+    >>> assert D.id(two).transpose()\\
+    ...     == D.id(two)\\
+    ...     == D.id(two).transpose(left=True)
     """
     ar = classproperty(lambda cls: cls)
     natural = ribbon.Diagram
@@ -200,12 +205,12 @@ class Diagram(RibbonCategory, NamedGeneric['natural']):
 
     def __init__(self, inside: natural, dom: Ty, cod: Ty):
         assert_isinstance(inside, self.natural)
-        if inside.dom != dom.positive + cod.negative:
+        if inside.dom != dom.positive @ cod.negative:
             raise ValueError(messages.WRONG_DOM.format(
-                dom.positive + cod.negative, inside.dom))
-        if inside.cod != cod.positive + dom.negative:
+                dom.positive @ cod.negative, inside.dom))
+        if inside.cod != cod.positive @ dom.negative:
             raise ValueError(messages.WRONG_COD.format(
-                cod.positive + dom.negative, inside.cod))
+                cod.positive @ dom.negative, inside.cod))
         self.inside, self.dom, self.cod = inside, dom, cod
 
     @unbiased
@@ -392,7 +397,7 @@ class Diagram(RibbonCategory, NamedGeneric['natural']):
             :align: center
         """
         rigid.Ty.assert_isadjoint(left, right)
-        inside = cls.natural.id(left.positive + left.negative)
+        inside = cls.natural.id(left.positive @ left.negative)
         return cls(inside, left @ right, type(left)())
 
     @classmethod
@@ -405,7 +410,7 @@ class Diagram(RibbonCategory, NamedGeneric['natural']):
             right : The right-hand side of the caps.
         """
         rigid.Ty.assert_isadjoint(right, left)
-        inside = cls.natural.id(left.positive + left.negative)
+        inside = cls.natural.id(left.positive @ left.negative)
         return cls(inside, type(left)(), left @ right)
 
     def dagger(self):

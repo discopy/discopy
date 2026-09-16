@@ -1,6 +1,7 @@
 from pytest import raises
 
 from discopy.interaction import Diagram, Id, Ty
+from discopy.monoidal import List
 
 
 def test_Ty_repr():
@@ -22,8 +23,8 @@ def test_Ty_unit():
 
 def test_Ty_negatives():
     assert Ty.negatives is reversed
-    x, y = Ty[tuple]((1, ), (2, )), Ty[tuple]((3, ), (4, ))
-    assert x @ y == Ty[tuple]((1, 3), (4, 2))
+    x, y = Ty[List[int]]((1, ), (2, )), Ty[List[int]]((3, ), (4, ))
+    assert x @ y == Ty[List[int]]((1, 3), (4, 2))
     with raises(TypeError):
         x @ Ty[int](1, 2)
 
