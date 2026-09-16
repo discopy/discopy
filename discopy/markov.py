@@ -449,7 +449,9 @@ class Application(TermBase):
                 wiring = wiring @ term.eval(functor=functor)
             return wiring >> functor(self.symbol)
         context = Context(self.freevars) if context is None else context
-        copies = functor.cod.copy(functor(context.dom), len(self.args))
+        copies = functor.cod.id(functor(context.dom))\
+            if len(self.args) == 1\
+            else functor.cod.copy(functor(context.dom), len(self.args))
         wiring = functor.cod.id(functor(self.ob()))
         for term in self.args:
             wiring = wiring @ term.eval(functor=functor, context=context)

@@ -135,7 +135,58 @@ class Variable(markov.Variable, TermBase):
 
 
 class Application(markov.Application, TermBase):
-    "A constant applied to terms in a cartesian category."
+    """
+    A constant applied to terms in a cartesian category: by naturality of
+    copy, a repeated subterm is evaluated once and its result copied,
+    where :class:`markov.Application` evaluates it once per occurrence.
+
+    Example
+    -------
+    >>> X, Y, Z = Ty('X'), Ty('Y'), Ty('Z')
+    >>> x = Variable('x', X)
+    >>> g, f = Constant('g', X, Y), Constant('f', Y @ Y, Z)
+    >>> assert f(g(x), g(x)).eval() == g >> Copy(Y) >> f
+
+    whereas the markov evaluation samples ``g`` once per occurrence:
+
+    >>> from discopy import markov
+    >>> mx = markov.Variable('x', X)
+    >>> mg = markov.Constant('g', X, Y)
+    >>> mf = markov.Constant('f', Y @ Y, Z)
+    >>> assert mf(mg(mx), mg(mx)).eval() == (
+    ...     markov.Copy(X) >> mg @ mg >> mf)
+    """
+    def eval(self, functor=None, context=None):
+        functor = functor or self.functor
+        distinct = list(dict.fromkeys(self.args))
+        if len(distinct) == len(self.args):
+            return super().eval(functor=functor, context=context)
+        context = Context(self.freevars) if context is None else context
+        copies = functor.cod.id(functor(context.dom))\
+            if len(distinct) == 1\
+            else functor.cod.copy(functor(context.dom), len(distinct))
+        wiring = functor.cod.id(functor(self.ob()))
+        for term in distinct:
+            wiring = wiring @ term.eval(functor=functor, context=context)
+        results = functor.cod.id(functor(self.ob()))
+        for term in distinct:
+            results = results @ (
+                functor.cod.id(functor(term.cod))
+                if self.args.count(term) == 1 else functor.cod.copy(
+                    functor(term.cod), self.args.count(term)))
+        offsets, doms, perm = {}, [], []
+        for term in distinct:
+            for _ in range(self.args.count(term)):
+                offsets[term] = offsets.get(term, len(doms))
+                doms += [functor(self.ob(wire)) for wire in term.cod.inside]
+        seen = {term: 0 for term in distinct}
+        for term in self.args:
+            start = offsets[term] + seen[term] * len(term.cod)
+            perm += list(range(start, start + len(term.cod)))
+            seen[term] += 1
+        reorder = functor.cod.permutation(perm, doms)
+        return copies >> wiring >> results >> reorder\
+            >> functor(self.symbol)
 
 
 class Context(markov.Context):

@@ -12,10 +12,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `discopy.cartesian` and `abc.CartesianCategory`: a cartesian category
   is a Markov category where every morphism is deterministic, i.e. the
   copy is natural — `f >> copy == copy >> f @ f` — an axiom to be stated
-  once property testing reaches this level of the hierarchy, so for now
-  the free `cartesian.Diagram` and its terms are those of
-  `discopy.markov` read as deterministic. `python.Function` declares the
-  `CartesianCategory` it always implemented.
+  once property testing reaches this level of the hierarchy. The free
+  `cartesian.Diagram` is that of `discopy.markov` read as deterministic,
+  and its terms already use the naturality: `cartesian.Application.eval`
+  evaluates a repeated subterm once and copies its result, where
+  `markov.Application.eval` evaluates it once per occurrence — e.g.
+  `f(g(x), g(x))` evaluates to `g >> Copy(Y) >> f` in `cartesian` and to
+  `Copy(X) >> g @ g >> f` in `markov`, where sampling `g` twice differs.
+  `python.Function` declares the `CartesianCategory` it always
+  implemented.
 - `markov.Term`: `Variable`, `Constant` and `Application`, the
   first-order terms in the internal language of a Markov category, with
   `Context` moved from `discopy.closed`. A variable can be copied and
