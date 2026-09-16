@@ -23,25 +23,19 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   object language. Strings are the paper's: `String` is
   `Position >> Position` on one atomic type, a word is a constant of type
   `String`, concatenation is the composition `>>` of terms and
-  `Position(lambda x: x)` is the empty string. A categorial grammar is read
-  in two ways. `abstract.Diagram.from_categorial`, which
-  `categorial.TermBase.to_abstract` calls, retains a categorial derivation
-  as an abstract diagram: every type an atom with its slashes,
-  `abstract.CategorialType`, every word and rule a box carrying its source,
-  `abstract.CategorialBox`, currying included, through
-  `abstract.CategorialFunctor`, the monoidal functor from categorial
-  diagrams which reads currying as a generator; then
-  `abstract.Lexicon.from_categorial` interprets the retained derivation, as
-  its yield by default, `abstract.StringFunctor` sending every type to
-  `String`, a word to its name, a rule to the concatenation of its inputs in
-  surface order, crossed compositions included, and a currying to its
-  argument applied to empty strings, or through a `categorial.Functor` into
-  abstract terms for its semantics. `closed.Ty.from_biclosed` and
-  `closed.TermBase.from_biclosed` are the other reading, forgetting the
-  slashes into the one exponential of a closed category, so that crossed
-  compositions become compositions, and type raising and composition lambda
-  terms. `abstract.Diagram` carries the rules `fa`, `ba`, `fc`, `bc`, `fx`
-  and `bx` of a categorial grammar as its closed structure. The tests
+  `Position(lambda x: x)` is the empty string. A categorial grammar is a
+  vocabulary of its own, a planar one, and a lexicon out of it is a
+  `categorial.Functor` into abstract terms, sending each atom to a type and
+  each word to a term of the image of its type, its strings written per
+  word like every lexicon of the paper; `abstract.Diagram.from_categorial`,
+  which `categorial.TermBase.to_abstract` calls, forgets planarity instead,
+  collapsing left and right exponentials into the one exponential of a
+  closed category, so that a derivation becomes a closed term, application
+  evaluating, composition and type raising currying and crossed composition
+  composing. `closed.Ty.from_biclosed` and `closed.TermBase.from_biclosed`
+  are the same reading one level down. `abstract.Diagram` carries the rules
+  `fa`, `ba`, `fc`, `bc`, `fx` and `bx` of a categorial grammar as its closed
+  structure. The tests
   compile the paper's context-free and tree-adjoining examples to strings
   and the two quantifier scopes of *Every woman married a man* and *Every
   child learnt a song* to Python over a random finite universe

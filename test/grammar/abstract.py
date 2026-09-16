@@ -2,12 +2,11 @@ from random import Random
 
 from pytest import raises
 
-import discopy
 from discopy import cat, grammar
 from discopy.grammar import categorial
 from discopy.grammar.abstract import *
 from discopy.python import Function
-from discopy.utils import AxiomError, dumps, loads
+from discopy.utils import AxiomError
 
 
 def tokens(string):
@@ -72,28 +71,38 @@ def test_Term():
     assert x(lambda v: f(v))(a).normal_form() == f(a)
 
 
-def test_from_biclosed():
-    forget = TermBase.from_biclosed
+def test_from_categorial():
     X, Y, Z = Ty("X"), Ty("Y"), Ty("Z")
     f, g, x = (X >> Y)("f"), (X >> Y)("g"), X("x")
     X_, Y_, Z_ = map(categorial.Ty, "XYZ")
     f_, g_, x_ = (Y_ << X_)("f"), (X_ >> Y_)("g"), X_("x")
-    assert Ty.from_biclosed(Y_ << X_) == Ty.from_biclosed(X_ >> Y_) == X >> Y
-    assert Ty.from_categorial(Y_ << X_) != Ty.from_categorial(X_ >> Y_)
+    assert Ty.from_categorial(Y_ << X_) == Ty.from_categorial(X_ >> Y_)\
+        == Ty.from_biclosed(X_ >> Y_) == X >> Y
 
-    assert type(forget(f_)) is Constant
-    assert forget(f_(x_)) == f(x)
-    assert forget(x_(g_, left=True)) == g(x)
-    assert forget(categorial.FX(f_, (Z_ >> X_)("h")))\
+    assert type(f_.to_abstract()) is Constant
+    assert f_(x_).to_abstract() == TermBase.from_biclosed(f_(x_)) == f(x)
+    assert x_(g_, left=True).to_abstract() == g(x)
+    assert categorial.FX(f_, (Z_ >> X_)("h")).to_abstract()\
         == Z(lambda x: f((Z >> X)("h")(x)))
-    assert forget(categorial.BX(f_, (Y_ >> Z_)("h")))\
+    assert categorial.BX(f_, (Y_ >> Z_)("h")).to_abstract()\
         == X(lambda x: (Y >> Z)("h")(f(x)))
-    assert forget(categorial.FC((Z_ << Y_)("h"), f_))\
+    assert categorial.FC((Z_ << Y_)("h"), f_).to_abstract()\
         == X(lambda x: (Y >> Z)("h")(f(x)))
-    assert forget(categorial.BC(g_, (Y_ >> Z_)("h")))\
+    assert categorial.BC(g_, (Y_ >> Z_)("h")).to_abstract()\
         == X(lambda x: (Y >> Z)("h")(g(x)))
     for raised in (categorial.FTR(Y_, x_), categorial.BTR(Y_, x_)):
-        assert forget(raised) == (X >> Y)(lambda f: f(x))
+        assert raised.to_abstract() == (X >> Y)(lambda f: f(x))
+
+    n, s = categorial.Ty("n"), categorial.Ty("s")
+    N, S = Ty("n"), Ty("s")
+    Alice, loves, Bob = n("Alice"), ((n >> s) << n)("loves"), n("Bob")
+    diagram = Alice @ loves @ Bob\
+        >> n @ categorial.Diagram.fa(n >> s, n) >> categorial.Diagram.ba(n, s)
+    assert Diagram.from_categorial(diagram)\
+        == N("Alice") @ (N >> (N >> S))("loves") @ N("Bob")\
+        >> N @ Diagram.fa(N >> S, N) >> Diagram.ba(N, S)
+    word = categorial.Word("Alice", n, dom=n)
+    assert Diagram.from_categorial(word) == Box("Alice", N, N)
 
 
 def test_crossed_composition_requires_symmetry():
@@ -136,69 +145,36 @@ def test_strings():
     assert tokens(Alice >> loves >> Bob) == ["Alice", "loves", "Bob"]
 
 
-def test_retained_derivations():
+def test_categorial_lexicon():
+    "The string lexicon of a categorial grammar, written per word."
     n, s = categorial.Ty("n"), categorial.Ty("s")
     Alice, loves, Bob, sleeps = (
         n("Alice"), ((n >> s) << n)("loves"), n("Bob"), (n >> s)("sleeps"))
-    strings = Lexicon.from_categorial()
-    assert strings(Ty.from_categorial(n)) == String
-    assert len({CategorialType(n), CategorialType(n), CategorialType(s)}) == 2
-    assert (s << n)("w").to_abstract() != (n >> s)("w").to_abstract()
-    cases = [
-        (Alice(loves(Bob), left=True), ["Alice", "loves", "Bob"]),
-        (categorial.FC(categorial.FTR(s, Alice), loves)(Bob),
-         ["Alice", "loves", "Bob"]),
-        (Alice(loves(categorial.BTR(n >> s, Bob), left=True), left=True),
-         ["Alice", "loves", "Bob"]),
-        (categorial.FTR(s, Alice)(sleeps), ["Alice", "sleeps"]),
-        (categorial.FX((s << n)("w"), (n >> n)("g")), ["w", "g"]),
-        (categorial.BX((n << n)("g"), (n >> s)("w")), ["g", "w"]),
-        (Alice @ loves @ Bob >> n @ categorial.Diagram.fa(n >> s, n)
-         >> categorial.Diagram.ba(n, s), ["Alice", "loves", "Bob"]),
-        (categorial.Box("f", n @ n, n).curry(left=True), None),
-        (categorial.Box("f", n @ n, n).curry(left=False), None)]
-    for source, expected in cases:
-        retained = Diagram.from_categorial(source)
-        assert eval(repr(retained), vars(discopy)) == retained
-        assert loads(dumps(retained)) == retained
-        if expected is not None:
-            assert tokens(strings(retained)) == expected
-    composite = categorial.Word("w", n @ s) >> categorial.Box("f", n @ s, s)
-    retained = Diagram.from_categorial(composite)
-    assert len(retained.cod) == 1 and len(retained.boxes[0].cod) == 2
-
-
-def test_StringFunctor():
-    n, s = categorial.Ty("n"), categorial.Ty("s")
-    strings = StringFunctor()
-    assert tokens(strings.concatenate(0)) == []
-    assert strings(categorial.Word("w", n, dom=n)) == strings.concatenate(1)
-    assert strings(categorial.Box("f", n @ n, s)) == strings.concatenate(2)
-    arg = categorial.Box("f", n @ n, n)
-    assert strings(arg.curry(left=True)) == Diagram.id(String)\
-        @ strings.concatenate(0) >> strings.concatenate(2)
-    assert strings(arg.curry(left=False)) == strings.concatenate(0)\
-        @ Diagram.id(String) >> strings.concatenate(2)
-    with raises(AxiomError):
-        strings(categorial.Word("pair", n @ n))
-    with raises(AxiomError):
-        Lexicon.from_categorial(categorial.Functor.id())
-
-
-def test_Lexicon_from_categorial_semantics():
-    n, s = categorial.Ty("n"), categorial.Ty("s")
-    N, S = Ty("N"), Ty("S")
-    alice, sleeps = n("Alice"), (n >> s)("sleeps")
-    interpretation = categorial.Functor(
-        {n: N, s: S}, {alice: N("Alice"), sleeps: (N >> S)("sleeps")},
+    LOVES, SLEEPS = String("loves"), String("sleeps")
+    strings = categorial.Functor(
+        ob_map={n: String, s: String},
+        ar_map={Alice: String("Alice"), Bob: String("Bob"),
+                loves: String(lambda o: String(lambda x: x >> LOVES >> o)),
+                sleeps: String(lambda x: x >> SLEEPS)},
         cod=Diagram)
-    lexicon = Lexicon.from_categorial(interpretation)
-    source = alice(sleeps, left=True)
-    python = Functor({N: int, S: bool}, {
-        N("Alice"): lambda: 1,
-        (N >> S)("sleeps"): lambda: lambda x: x == 1}, cod=Function)
-    assert python(lexicon(source.to_abstract()))() \
-        == python(interpretation(source))() is True
+    assert strings(n >> s) == strings(s << n) == String >> String
+    sentences = [
+        Alice(loves(Bob), left=True),
+        categorial.FC(categorial.FTR(s, Alice), loves)(Bob),
+        Alice(loves(categorial.BTR(n >> s, Bob), left=True), left=True),
+        Alice @ loves @ Bob >> n @ categorial.Diagram.fa(n >> s, n)
+        >> categorial.Diagram.ba(n, s)]
+    for sentence in sentences:
+        assert tokens(strings(sentence)) == ["Alice", "loves", "Bob"]
+    raised = strings(categorial.FTR(s, Alice)(sleeps))
+    assert tokens(raised) == tokens(raised.normal_form()) == ["Alice", "sleeps"]
+
+    w, g = (s << n)("w"), (n >> n)("g")
+    crossed = categorial.Functor({n: String, s: String}, {
+        Alice: String("Alice"), w: String(lambda x: String("w") >> x),
+        g: String(lambda x: x >> String("g"))}, cod=Diagram)
+    assert tokens(crossed(Alice(categorial.FX(w, g), left=True)))\
+        == ["w", "Alice", "g"]
 
 
 def test_Montague_semantics():

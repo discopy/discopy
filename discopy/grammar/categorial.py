@@ -226,7 +226,7 @@ class TermBase(Box, biclosed.TermBase):
 
     def to_abstract(self):
         """
-        The abstract diagram retaining a categorial derivation,
+        The abstract term of a categorial term, dropping planarity,
         see :meth:`discopy.grammar.abstract.Diagram.from_categorial`.
         """
         from discopy.grammar.abstract import Diagram
