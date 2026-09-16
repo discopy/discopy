@@ -549,8 +549,15 @@ class Functor(monoidal.Functor):
                 return self.ob_map[other]
         return super().__call__(other)
 
-    def map_variable(self, variable, context):
-        """Map a variable, freshening only when target identities collide."""
+    def map_variable(self, variable: Variable, context: dict) -> Variable:
+        """
+        The image of a variable, of the image of its type, renamed with
+        underscores until it differs from the images already in the context.
+
+        Parameters:
+            variable : The variable to map.
+            context : The images of the variables bound so far.
+        """
         name, cod = variable.name, self(variable.cod)
         result = self.cod.ob.variable_factory(name, cod)
         while result in context.values():
@@ -558,13 +565,15 @@ class Functor(monoidal.Functor):
             result = self.cod.ob.variable_factory(name, cod)
         return result
 
-    def map_term(self, term, context=None):
+    def map_term(self, term: TermBase, context: dict = None) -> TermBase:
         """
-        Map a term with an injective environment for its free variables.
+        The image of a term, a term in the internal language of the codomain,
+        checked to have the image of its type and exactly the images of its
+        free variables, in order when the codomain is planar.
 
-        Symmetric target terms may reorder their implicit context; a
-        biclosed target must preserve its order as well as its variables.
-        Constants must have closed term images, including at unit type.
+        Parameters:
+            term : The term to map.
+            context : The images of the free variables, fresh ones by default.
         """
         if context is None:
             context = {}

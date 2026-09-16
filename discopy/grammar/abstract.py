@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
 
 """
-Abstract categorial grammars interpret closed lambda terms through lexicons,
-after de Groote's `Towards abstract categorial grammars (2001)
-<https://aclanthology.org/P01-1033/>`_. A vocabulary generates a free closed
-category, a lexicon is a functor, and :class:`Grammar` specifies a finite
-vocabulary and a distinguished type.
+Abstract categorial grammars after de Groote's `Towards abstract categorial
+grammars (2001) <https://aclanthology.org/P01-1033/>`_: a vocabulary
+generates a free closed category, a :class:`Lexicon` is a functor between two
+of them and a :class:`Grammar` is a lexicon with a distinguished type.
 
 Summary
 -------
@@ -30,17 +29,16 @@ Summary
     Sum
     Functor
     Lexicon
-    Grammar
-    CategorialType
-    CategorialBox
-    CategorialWord
-    StringFunctor
-    CategorialFunctor
     TermBase
     Constant
     Variable
     Application
     Abstraction
+    CategorialType
+    CategorialBox
+    CategorialFunctor
+    StringFunctor
+    Grammar
 
 Vocabularies and lexicons
 -------------------------
@@ -55,13 +53,10 @@ the semantics of the example below; the paper's linear terms are the special
 case where every variable occurs once, see ``is_linear``. A :class:`Lexicon`
 from one vocabulary to another sends atomic types to types and constants to
 terms of the image of their types: it is a :class:`Functor` between two free
-closed categories, and lexicons compose. An abstract categorial grammar is a
-lexicon together with a distinguished type ``s``: its abstract language is
-the set of closed terms of type ``s``, its object language is their image
-under the lexicon. :class:`Grammar` checks supplied abstract witnesses;
-inverse interpretation is separate. Transduction uses two lexicons with a
-common abstract vocabulary, inverting one then applying the other, whereas
-``first >> second`` is ordinary forward composition.
+closed categories, and lexicons compose. A :class:`Grammar` is a lexicon
+together with a distinguished type ``s`` of its vocabulary: its abstract
+language is the set of closed terms of type ``s``, its object language their
+image under the lexicon.
 
 Strings
 -------
@@ -75,12 +70,18 @@ composition, ``John >> seeks`` for *John seeks*, see
 ``lambda z. x (y z)`` with the first word applied last, here the first word
 is applied first, so a string reads its positions in order.
 
-:meth:`Diagram.from_categorial` retains categorial types as atomic types
-and derivation rules as generators. :meth:`Lexicon.from_categorial` then
-interprets this common abstract diagram as strings or as semantics. In
-particular, crossed composition retains its surface word order. Forgetting
-slashes directly is a different interpretation, available through
-:meth:`TermBase.from_biclosed` for terms.
+Categorial grammars
+-------------------
+
+:meth:`Diagram.from_categorial` retains a categorial derivation as an
+abstract diagram, every type an atom with its slashes and every rule a box,
+and :meth:`Lexicon.from_categorial` interprets it: as its yield, the
+:class:`StringFunctor` concatenating the inputs of every rule in surface
+order, crossed compositions included, or through a
+:class:`discopy.grammar.categorial.Functor` into abstract terms for its
+semantics. Forgetting the slashes into the one exponential of a closed
+category is the other reading, :meth:`TermBase.from_biclosed` for terms and
+:meth:`Ty.from_biclosed` for types.
 
 Example
 -------
@@ -98,11 +99,12 @@ a constant for each reading of *seeks* in the abstract vocabulary:
 ...     ob_map={n: String, np: String, s: String},
 ...     ar_map={J: John, U: unicorn, A: String(lambda x: a >> x),
 ...             S_re: seek, S_dicto: seek})
+>>> from discopy.python import Function
+>>> words = Functor(
+...     {Position: list}, lambda w: lambda: lambda xs: xs + [w.name],
+...     cod=Function)
 >>> for reading in (S_re(J)(A(U)), S_dicto(J)(A(U))):
-...     from discopy.python import Function
-...     strings = Functor({Position: list},
-...         lambda word: lambda: lambda xs: xs + [word.name], cod=Function)
-...     print(*strings(syntax(reading))()([]))
+...     print(*words(syntax(reading))()([]))
 John seeks a unicorn
 John seeks a unicorn
 
@@ -151,13 +153,14 @@ class Ty(closed.Ty):
     @classmethod
     def from_categorial(cls, old: categorial.Ty) -> Ty:
         """
-        Translate a categorial type into an abstract type, collapsing left
-        and right exponentials into a single exponential.
+        Retain a categorial type as one atom per wire, slashes included, see
+        :class:`CategorialType`; :meth:`from_biclosed` forgets them into the
+        one exponential of a closed category instead.
 
         Parameters:
-            old : The categorial type to translate.
+            old : The categorial type to retain.
         """
-        return cls.from_biclosed(old)
+        return cls(*map(CategorialType, old))
 
 
 class Exp(closed.Exp):
@@ -225,23 +228,30 @@ class Diagram(closed.Diagram):
     @classmethod
     def from_categorial(cls, diagram: categorial.Diagram) -> Diagram:
         """
-        Retain a categorial derivation as an abstract diagram.
-
-        Each categorial wire becomes an atom, including its slashes, and
-        each rule becomes a generator. Lexical entries and crossed rules
-        therefore remain distinct until a lexicon interprets them.
+        Retain a categorial derivation as an abstract diagram: every wire an
+        atom with its slashes, see :meth:`Ty.from_categorial`, every rule and
+        word a :class:`CategorialBox`, currying included. Nothing is
+        identified yet, a lexicon interprets the derivation afterwards, see
+        :meth:`Lexicon.from_categorial`.
 
         Parameters:
-            diagram : A categorial diagram or term.
+            diagram : A categorial diagram, or a term evaluated to one.
+
+        Example
+        -------
+        >>> from discopy.grammar import categorial
+        >>> n, s = categorial.Ty("n"), categorial.Ty("s")
+        >>> Alice, sleeps = n("Alice"), (n >> s)("sleeps")
+        >>> derivation = Diagram.from_categorial(Alice(sleeps, left=True))
+        >>> print(derivation)
+        Alice >> n @ sleeps >> Eval(n >> s)
+        >>> assert derivation.boxes[0].source == Alice
         """
         if isinstance(diagram, categorial.TermBase):
             diagram = diagram.eval()
         return CategorialFunctor(
-            ob_map=lambda ty: cls.ob(CategorialType(ty)),
-            ar_map=lambda box: CategorialWord(box)
-            if isinstance(box, (categorial.Constant, categorial.Word))
-            and not box.dom and len(box.cod) == 1 else CategorialBox(box),
-            dom=categorial.Diagram, cod=cls)(diagram)
+            cls.ob.from_categorial, lambda box: CategorialBox(box),
+            cod=cls)(diagram)
 
 
 class Box(closed.Box, Diagram):
@@ -326,17 +336,18 @@ class Lexicon(Functor):
     dom = cod = Diagram
 
     @classmethod
-    def from_categorial(cls, interpretation=None) -> Lexicon:
+    def from_categorial(cls, interpretation: CategorialFunctor = None
+                        ) -> Lexicon:
         """
-        Interpret a retained categorial derivation, as strings by default.
-
-        An optional categorial functor into :class:`Diagram` supplies a
-        semantic interpretation. Both lexicons have the same abstract
-        domain; no lexical entry or derivation rule has been erased.
+        The lexicon reading a retained categorial derivation, see
+        :meth:`Diagram.from_categorial`, through a functor from categorial
+        diagrams: the :class:`StringFunctor` by default, so that the image
+        of a derivation is its yield, or a
+        :class:`discopy.grammar.categorial.Functor` into abstract terms for
+        its semantics, the derivation being the abstract language they share.
 
         Parameters:
-            interpretation : A functor from categorial diagrams to abstract
-                diagrams; :class:`StringFunctor` by default.
+            interpretation : A functor from categorial to abstract diagrams.
 
         Example
         -------
@@ -345,18 +356,18 @@ class Lexicon(Functor):
         >>> n, s = categorial.Ty("n"), categorial.Ty("s")
         >>> Alice, sleeps = n("Alice"), (n >> s)("sleeps")
         >>> derivation = Alice(sleeps, left=True).to_abstract()
-        >>> syntax = Lexicon.from_categorial()
-        >>> strings = Functor({Position: list},
+        >>> words = Functor({Position: list},
         ...     lambda w: lambda: lambda xs: xs + [w.name], cod=Function)
-        >>> strings(syntax(derivation))()([])
+        >>> words(Lexicon.from_categorial()(derivation))()([])
         ['Alice', 'sleeps']
         """
-        interpretation = interpretation or StringFunctor()
+        if interpretation is None:
+            interpretation = StringFunctor()
         if interpretation.cod is not cls.cod:
-            raise AxiomError("The interpretation must have abstract codomain.")
-        return cls(
-            ob_map=lambda ty: interpretation(ty.inside[0].source),
-            ar_map=lambda box: interpretation(box.source))
+            raise AxiomError(f"Expected a functor into {factory_name(cls.cod)}"
+                             f", got {interpretation}.")
+        return cls(ob_map=lambda ty: interpretation(ty.inside[0].source),
+                   ar_map=lambda box: interpretation(box.source))
 
 
 CMap = cmap.CMap[Diagram]
@@ -418,8 +429,36 @@ of type ``String``, ``Position(lambda x: x)`` is the empty string and
 """
 
 
-class _CategorialSource:
-    """Serialize the retained source rather than duplicating its structure."""
+class CategorialType(monoidal.Wire):
+    """
+    A categorial type of length one retained as an abstract atom, slashes
+    included: ``n >> s`` and ``s << n`` stay two atoms where
+    :meth:`Ty.from_biclosed` would collapse them into one exponential.
+
+    Parameters:
+        source : The categorial type, of length one.
+
+    Example
+    -------
+    >>> from discopy.grammar import categorial
+    >>> n, s = categorial.Ty("n"), categorial.Ty("s")
+    >>> assert Ty.from_categorial(n >> s) == Ty(CategorialType(n >> s))
+    >>> assert Ty.from_categorial(n >> s) != Ty.from_categorial(s << n)
+    >>> print(Ty.from_categorial(n @ (n >> s)))
+    n @ (n >> s)
+    """
+    def __init__(self, source: categorial.Ty):
+        self.source = source
+        super().__init__(str(source))
+
+    def __eq__(self, other):
+        return type(self) is type(other) and self.source == other.source
+
+    def __hash__(self):
+        return hash((type(self), self.source))
+
+    def __repr__(self):
+        return f"{factory_name(type(self))}({self.source!r})"
 
     def to_tree(self):
         return dict(factory=factory_name(type(self)),
@@ -430,138 +469,162 @@ class _CategorialSource:
         return cls(from_tree(tree['source']))
 
 
-class CategorialType(_CategorialSource, monoidal.Wire):
-    """A categorial type retained as one abstract atom, with its slashes."""
+class CategorialBox(Box):
+    """
+    A word or a rule of a categorial derivation retained as an abstract box,
+    currying included, its wires retained as :class:`CategorialType` atoms.
 
-    def __init__(self, source):
+    Parameters:
+        source : The categorial box.
+
+    Example
+    -------
+    >>> from discopy.grammar import categorial
+    >>> n, s = categorial.Ty("n"), categorial.Ty("s")
+    >>> rule = CategorialBox(categorial.Eval(n >> s, left=False))
+    >>> print(rule.dom, "->", rule.cod)
+    n @ (n >> s) -> s
+    >>> assert rule.dom == Ty.from_categorial(n @ (n >> s))
+    """
+    def __init__(self, source: categorial.Box):
         self.source = source
-        super().__init__(repr(source))
+        super().__init__(source.name, *map(
+            self.ob.from_categorial, (source.dom, source.cod)))
 
-    def __str__(self):
-        return str(self.source)
+    def setoid(self):
+        return super().setoid() + (self.source, )
 
-    def __repr__(self):
-        return f"{factory_name(type(self))}({self.source!r})"
-
-
-class CategorialBox(_CategorialSource, Box):
-    """A retained derivation rule, interpreted by a categorial lexicon."""
-
-    def __init__(self, source):
-        self.source = source
-        types = lambda ty: Ty(*[
-            CategorialType(ty[i:i + 1]) for i in range(len(ty))])
-        super().__init__(source.name, types(source.dom), types(source.cod),
-                         data=source)
-
-    def __repr__(self):
-        return f"{factory_name(type(self))}({self.source!r})"
-
-
-class CategorialWord(_CategorialSource, Constant):
-    """A lexical entry whose identity includes its original categorial type."""
-
-    def __init__(self, source):
-        self.source = source
-        super().__init__(source.name, Ty(CategorialType(source.cod)),
-                         data=source)
-
-    def __repr__(self):
-        return f"{factory_name(type(self))}({self.source!r})"
+    __repr__, to_tree = CategorialType.__repr__, CategorialType.to_tree
+    from_tree = classmethod(CategorialType.from_tree.__func__)
 
 
 class CategorialFunctor(monoidal.Functor):
-    """Interpret derivation generators without imposing closed equations."""
+    """
+    A monoidal functor from categorial diagrams which reads currying as a
+    generator: where a :class:`discopy.grammar.categorial.Functor` sends a
+    :class:`discopy.grammar.categorial.Curry` to the currying of the image of
+    its argument, this asks :meth:`curry` for its image, ``ar_map`` like any
+    other rule by default.
+
+    Parameters:
+        ob_map (Mapping[categorial.Ty, Ty]) :
+            Map from categorial types of length one to abstract types.
+        ar_map (Mapping[categorial.Box, Diagram]) :
+            Map from categorial words and rules to abstract diagrams.
+    """
     dom, cod = categorial.Diagram, Diagram
 
     def __call__(self, other):
-        if isinstance(other, (categorial.FA, categorial.BA,
-                              categorial.Abstraction, categorial.TypeRaising,
-                              categorial.BinaryTerm)):
-            return self(other.eval())
-        if isinstance(other, categorial.Ty):
-            return self.cod.ob().tensor(*[
-                self.ob_map[other[i:i + 1]] for i in range(len(other))])
-        if isinstance(other, categorial.Box):
-            return self.ar_map[other]
+        if isinstance(other, categorial.Curry):
+            return self.curry(other)
         return super().__call__(other)
+
+    def curry(self, box: categorial.Curry) -> Diagram:
+        "The image of a currying, a generator like any other rule."
+        return self.ar_map[box]
 
 
 class StringFunctor(CategorialFunctor):
     """
-    The surface yield of a categorial derivation, as a string diagram.
+    The yield of a categorial derivation: every type is a :data:`String`, a
+    word, which has no input, is the string of its name, a rule concatenates
+    its inputs in surface order and a currying fills the hypothetical inputs
+    of its argument with empty strings. Crossed compositions concatenate like
+    every other rule, so that the yield keeps their surface order, which
+    forgetting their slashes into a closed category does not.
 
-    A categorial wire carries the yield of its constituent, regardless of
-    its slashes. Application and composition concatenate adjacent yields;
-    abstraction fills its hypothetical constituents with empty strings.
-    This is a monoidal interpretation of derivations, not a closed functor
-    identifying categorial function types with string functions.
+    Example
+    -------
+    >>> from discopy.grammar import categorial
+    >>> n, s = categorial.Ty("n"), categorial.Ty("s")
+    >>> strings = StringFunctor()
+    >>> assert strings(n >> s) == String
+    >>> assert strings(n("Alice")) == String("Alice")
+    >>> assert strings(categorial.Eval(n >> s)) == strings.concatenate(2)
     """
-    dom, cod = categorial.Diagram, Diagram
-
-    def __init__(self, ob_map=None, ar_map=None, **kwargs):
-        super().__init__(ob_map or (lambda _: String), ar_map or self.rule,
-                         **kwargs)
+    def __init__(self):
+        super().__init__(ob_map=lambda _: String, ar_map=self.rule)
 
     @staticmethod
-    def concatenate(n):
-        """Concatenate the yields on ``n`` adjacent input wires."""
-        variables = [Variable(f"x{i}", String) for i in range(n)]
-        empty = Position(lambda x: x)
-        return empty.then(*variables).eval(context=variables)
+    def concatenate(n: int) -> Diagram:
+        """
+        The concatenation of ``n`` strings as a diagram
+        ``String ** n -> String``, the empty string for ``n == 0``.
+        """
+        strings = [Variable(f"x{i}", String) for i in range(n)]
+        return Position(lambda x: x).then(*strings).eval(context=strings)
 
-    def rule(self, box):
+    def rule(self, box: categorial.Box) -> Diagram:
+        """
+        The yield of a rule, the concatenation of its inputs, or of a word,
+        which has none and yields its name.
+        """
         if len(box.cod) != 1:
-            raise AxiomError("A constituent must have one output category.")
-        if isinstance(box, (categorial.Word, categorial.Constant)):
-            return String(box.name) if not box.dom else (
-                self.concatenate(len(box.dom))
-                >> String(lambda x: x >> String(box.name)).eval().uncurry())
-        if isinstance(box, categorial.Curry):
-            empty = Position(lambda x: x)
-            inputs = Diagram.id(self(box.dom))
-            units = Diagram.id(Ty()).tensor(*[empty for _ in range(box.n)])
-            inputs = inputs @ units if box.left else units @ inputs
-            return inputs >> self(box.arg)
-        if isinstance(box, (categorial.Eval,
-                            categorial.ForwardCrossedComposition,
-                            categorial.BackwardCrossedComposition)):
-            return self.concatenate(len(box.dom))
-        raise AxiomError(f"No surface yield for {box}.")
+            raise AxiomError(f"{box} has {len(box.cod)} outputs, "
+                             "a yield needs one.")
+        return self.concatenate(len(box.dom)) if box.dom else String(box.name)
+
+    def curry(self, box: categorial.Curry) -> Diagram:
+        empties = self.cod.id().tensor(*box.n * [self.concatenate(0)])
+        inputs = self.cod.id(self(box.dom))
+        return (inputs @ empties if box.left else empties @ inputs)\
+            >> self(box.arg)
 
 
 @dataclass
 class Grammar:
     """
-    A finite abstract vocabulary, a lexicon and a distinguished start type.
+    An abstract categorial grammar, definition 3 of de Groote's `Towards
+    abstract categorial grammars (2001) <https://aclanthology.org/P01-1033/>`_:
+    an abstract vocabulary, its atomic types and constants, a lexicon from
+    it and a distinguished type ``start``. The abstract language is the set
+    of closed terms of type ``start`` over the vocabulary, decided by
+    ``term in grammar``, and the object language their image under the
+    lexicon, computed by ``grammar(term)``.
 
-    Constants declare the vocabulary; a candidate belongs to the abstract
-    language when it is closed, has the start type, and uses only those
-    constants. Non-linear terms are allowed. This checks a supplied witness,
-    not membership of an arbitrary object term: inverse interpretation and
-    transduction require a separate search algorithm.
+    Parameters:
+        atoms : The atomic types of the abstract vocabulary.
+        constants : The constants of the abstract vocabulary.
+        lexicon : A lexicon from the abstract vocabulary.
+        start : The distinguished type, built from the atoms.
+
+    Example
+    -------
+    The context-free grammar ``S -> epsilon | a S b`` of the paper's section
+    4.1, whose object language is ``a ** n >> b ** n``:
+
+    >>> S = Ty("S")
+    >>> A, B = S("A"), (S >> S)("B")
+    >>> lexicon = Lexicon({S: String}, {
+    ...     A: Position(lambda x: x),
+    ...     B: String(lambda x: String("a") >> x >> String("b"))})
+    >>> grammar = Grammar((S, ), (A, B), lexicon, S)
+    >>> assert B(B(A)) in grammar and B not in grammar
+    >>> print(grammar(B(A)).normal_form())
+    o(lambda x_: (o >> o)('b')((o >> o)('a')(x_)))
     """
+    atoms: tuple[Ty, ...]
     constants: tuple[Constant, ...]
     lexicon: Lexicon
     start: Ty
 
     def __post_init__(self):
-        self.constants = tuple(self.constants)
-        self.lexicon(self.start)
-        atoms = {}
-        collect = Functor(lambda atom: atoms.setdefault(atom, atom))
-        collect(self.start)
-        for constant in self.constants:
-            if not isinstance(constant, Constant):
-                raise TypeError("A vocabulary consists of constants.")
-            collect(constant.cod)
-            self.lexicon(constant)
-        self.vocabulary = Functor(
-            atoms, {c: c for c in self.constants})
+        for x in (self.start, ) + tuple(self.constants):
+            self.lexicon(self.vocabulary(x))
 
-    def __contains__(self, term):
-        if not isinstance(term, TermBase) or term.freevars \
-                or term.cod != self.start:
+    @property
+    def vocabulary(self) -> Functor:
+        """
+        The inclusion of the vocabulary: the identity functor defined on its
+        atoms and constants alone, so that it raises ``KeyError`` on any
+        other atom or constant.
+        """
+        return Functor({x: x for x in self.atoms},
+                       {c: c for c in self.constants})
+
+    def __contains__(self, term: Term) -> bool:
+        if not isinstance(term, TermBase)\
+                or term.freevars or term.cod != self.start:
             return False
         try:
             self.vocabulary(term)
@@ -569,7 +632,9 @@ class Grammar:
             return False
         return True
 
-    def __call__(self, term):
+    def __call__(self, term: Term) -> Term:
         if term not in self:
-            raise AxiomError("Expected a closed term of the language.")
+            raise AxiomError(
+                f"Expected a closed term of type {self.start} over the "
+                f"vocabulary, got {term}.")
         return self.lexicon(term)

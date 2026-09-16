@@ -255,8 +255,8 @@ Id = Diagram.id
 class TermBase(Box, biclosed.TermBase):
     """
     A term in the internal language of a closed category, i.e. a lambda term
-    which need not be linear: this implementation includes copy and discard,
-    so a variable may occur any number of times.
+    which need not be linear: a variable may occur any number of times, since
+    a closed category is markov it can be copied and discarded.
 
     A term is evaluated in a context, a list of distinct variables containing
     its free ones: the variables that do not occur in the term are discarded,
