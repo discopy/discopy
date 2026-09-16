@@ -24,7 +24,10 @@ Summary
     Eval
     Coeval
     Curry
+    Permutation
+    Swap
     Sum
+    Bubble
     Functor
     CMap
 
@@ -56,7 +59,7 @@ from typing import Dict
 from discopy import (
     cat, monoidal, biclosed, symmetric, cmap, hypergraph)
 from discopy.abc import ClosedCategory
-from discopy.cat import factory
+from discopy.cat import factory, Generator
 
 
 @factory
@@ -122,9 +125,12 @@ class Diagram(symmetric.Diagram, biclosed.Diagram, ClosedCategory):
     def to_drawing(self):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
 
+    @Generator()
+    def eval_factory(cls):
+        return Eval
 
-class Box(symmetric.Box, biclosed.Box, Diagram):
-    "A closed box is a symmetric and biclosed box in a closed diagram."
+
+Box = Diagram.generator_factory
 
 
 class Eval(biclosed.Eval, Box):
@@ -132,31 +138,10 @@ class Eval(biclosed.Eval, Box):
     drawing_name = "__call__"
 
 
-class Coeval(biclosed.Coeval, Box):
-    "The coevaluation of an exponential type, i.e. the dagger of an Eval."
-
-
-class Curry(biclosed.Curry, Box):
-    "The currying of a closed diagram."
-
-
-class Permutation(symmetric.Permutation, Box):
-    "A permutation in a closed diagram."
-
-
-class Swap(Permutation, symmetric.Swap, Box):
-    "Symmetric swap in a closed diagram."
-
-
-class Sum(symmetric.Sum, biclosed.Sum, Box):
-    """
-    A closed sum is a symmetric and biclosed sum.
-
-    Parameters:
-        terms (tuple[Diagram, ...]) : The terms of the formal sum.
-        dom (Ty) : The domain of the formal sum.
-        cod (Ty) : The codomain of the formal sum.
-    """
+Coeval, Curry, Permutation, Swap, Sum, Bubble = (
+    Diagram.coeval_factory, Diagram.curry_factory,
+    Diagram.permutation_factory, Diagram.swap_factory,
+    Diagram.sum_factory, Diagram.bubble_factory)
 
 
 class Functor(biclosed.Functor, symmetric.Functor):
@@ -184,12 +169,6 @@ CMap = cmap.CMap[Diagram]
 
 Diagram.functor_factory = Functor
 Hypergraph = hypergraph.Hypergraph[Diagram]
-Diagram.swap_factory = Swap
-Diagram.permutation_factory = Permutation
-Diagram.curry_factory = Curry
-Diagram.eval_factory = Eval
-Diagram.coeval_factory = Coeval
-Diagram.sum_factory = Sum
 Ty.exp_factory = Ty.under_factory = Ty.over_factory = staticmethod(Exp)
 
 Id = Diagram.id

@@ -23,6 +23,7 @@ Summary
     Layer
     Diagram
     Box
+    Permutation
     Swap
     Feedback
     FollowedBy
@@ -147,7 +148,7 @@ from discopy import monoidal, braided, symmetric, hypergraph
 from discopy.abc import DelayedMonoid, FeedbackCategory
 from discopy.utils import (
     deprecated_alias,
-    factory, factory_name, assert_isinstance, AxiomError,
+    factory, Generator, factory_name, assert_isinstance, AxiomError,
 )
 
 
@@ -384,6 +385,26 @@ class Diagram(symmetric.Diagram, FeedbackCategory):
 
     d = Wire.d
 
+    @Generator()
+    def generator_factory(cls):
+        return Box
+
+    @Generator()
+    def permutation_factory(cls):
+        return Permutation
+
+    @Generator("permutation_factory")
+    def swap_factory(cls):
+        return Swap
+
+    @Generator()
+    def feedback_factory(cls):
+        return Feedback
+
+    @Generator()
+    def followed_by(cls):
+        return FollowedBy
+
 
 class Box(symmetric.Box, Diagram):
     """
@@ -446,12 +467,11 @@ class Swap(Permutation, symmetric.Swap, Box):
         left : The type on the top left and bottom right.
         right : The type on the top right and bottom left.
     """
-    def __init__(self, left, right):
-        symmetric.Swap.__init__(self, left, right)
-        Box.__init__(self, self.name, self.dom, self.cod)
-
     def delay(self, n_steps=1):
         return type(self)(self.left.delay(n_steps), self.right.delay(n_steps))
+
+
+Sum, Bubble = Diagram.sum_factory, Diagram.bubble_factory
 
 
 class Head(monoidal.Bubble, Box):
@@ -463,7 +483,8 @@ class Head(monoidal.Bubble, Box):
         dom, cod = (
             getattr(x, _attr).delay(time_step) for x in [arg.dom, arg.cod])
         monoidal.Bubble.__init__(self, arg, dom=dom, cod=cod)
-        Box.__init__(self, f"({arg}).{_attr}", self.dom, self.cod, time_step)
+        self.generator_factory.__init__(
+            self, f"({arg}).{_attr}", self.dom, self.cod, time_step)
 
     delay, reset, __repr__ = HeadOb.delay, HeadOb.reset, HeadOb.__repr__
     __str__ = Box.__str__
@@ -509,7 +530,7 @@ class Feedback(monoidal.Bubble, Box):
             raise AxiomError
         self.mem, self.left = mem, left
         monoidal.Bubble.__init__(self, arg, dom=dom, cod=cod)
-        Box.__init__(self, self.name, dom, cod)
+        self.generator_factory.__init__(self, self.name, dom, cod)
 
     def delay(self, n_steps=1):
         return type(self)(self.arg.delay(n_steps), mem=self.mem.delay(n_steps))
@@ -625,9 +646,6 @@ class Functor(symmetric.Functor):
 
 
 Diagram.functor_factory = Functor
-Diagram.swap_factory = Swap
-Diagram.permutation_factory = Permutation
-Diagram.feedback_factory, Diagram.followed_by = Feedback, FollowedBy
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Id = Diagram.id
 

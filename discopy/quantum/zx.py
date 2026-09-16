@@ -13,6 +13,8 @@ Summary
 
     Diagram
     Box
+    Sum
+    Permutation
     Swap
     Spider
     Z
@@ -24,7 +26,7 @@ Summary
 from math import pi
 
 from discopy import cat, rigid, tensor, quantum
-from discopy.cat import factory
+from discopy.cat import factory, Generator
 from discopy.quantum.circuit import qubit, Circuit
 from discopy.quantum.gates import (
     Bra, Ket, Rz, Rx, CX, CZ, Controlled, format_number)
@@ -219,31 +221,14 @@ class Diagram(tensor.Diagram[complex]):
                 >> Id(target) @ hadamard @ Id(len(scan) - target - 1)
         return diagram
 
-
-class Box(tensor.Box[complex], Diagram):
-    """
-    A ZX box is a tensor box in a ZX diagram.
-
-    Parameters:
-        name (str) : The name of the box.
-        dom (rigid.Nat) : The domain of the box, i.e. its input.
-        cod (rigid.Nat) : The codomain of the box, i.e. its output.
-    """
+    @Generator("permutation_factory")
+    def swap_factory(cls):
+        return Swap
 
 
-class Sum(tensor.Sum[complex], Box):
-    """
-    A formal sum of ZX diagrams with the same domain and codomain.
-
-    Parameters:
-        terms (tuple[Diagram, ...]) : The terms of the formal sum.
-        dom (Dim) : The domain of the formal sum.
-        cod (Dim) : The codomain of the formal sum.
-    """
-
-
-class Permutation(tensor.Permutation[complex], Box):
-    "A permutation in a ZX diagram."
+Box, Sum, Permutation = (
+    Diagram.generator_factory, Diagram.sum_factory,
+    Diagram.permutation_factory)
 
 
 class Swap(Permutation, tensor.Swap[complex], Box):
@@ -396,6 +381,4 @@ H.drawing_name, H.tikzstyle_name, = '', 'H'
 H.color, H.shape = "yellow", "rectangle"
 
 SWAP = Swap(Nat(1), Nat(1))
-Diagram.swap_factory, Diagram.sum_factory = Swap, Sum
-Diagram.permutation_factory = Permutation
 Id = Diagram.id

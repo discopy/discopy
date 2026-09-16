@@ -16,6 +16,7 @@ Summary
     Box
     Braid
     Sum
+    Bubble
     Functor
 
 .. admonition:: Functions
@@ -62,7 +63,7 @@ from collections.abc import Callable
 
 from discopy import monoidal
 from discopy.abc import BraidedCategory
-from discopy.cat import factory
+from discopy.cat import factory, Generator
 from discopy.monoidal import Ty, Match
 from discopy.utils import (
     assert_isatomic, BinaryBoxConstructor, deprecated_alias, factory_name)
@@ -159,16 +160,12 @@ class Diagram(monoidal.Diagram, BraidedCategory):
                       right=right_wires if left else right_wires[1:])
         return match.substitute(target)
 
+    @Generator()
+    def braid_factory(cls):
+        return Braid
 
-class Box(monoidal.Box, Diagram):
-    """
-    A braided box is a monoidal box in a braided diagram.
 
-    Parameters:
-        name (str) : The name of the box.
-        dom (monoidal.Ty) : The domain of the box, i.e. its input.
-        cod (monoidal.Ty) : The codomain of the box, i.e. its output.
-    """
+Box = Diagram.generator_factory
 
 
 class Braid(BinaryBoxConstructor, Box):
@@ -191,7 +188,7 @@ class Braid(BinaryBoxConstructor, Box):
         name = type(self).__name__\
             + (f"({right}, {left})" if is_dagger else f"({left}, {right})")
         dom, cod = left @ right, right @ left
-        Box.__init__(
+        self.generator_factory.__init__(
             self, name, dom, cod, is_dagger=is_dagger, draw_as_braid=True)
         BinaryBoxConstructor.__init__(self, left, right)
 
@@ -228,15 +225,7 @@ def hexagon(cls: type, factory: Callable) -> Callable[[Ty, Ty], Diagram]:
     return method
 
 
-class Sum(monoidal.Sum, Box):
-    """
-    A braided sum is a monoidal sum and a braided box.
-
-    Parameters:
-        terms (tuple[Diagram, ...]) : The terms of the formal sum.
-        dom (Ty) : The domain of the formal sum.
-        cod (Ty) : The codomain of the formal sum.
-    """
+Sum, Bubble = Diagram.sum_factory, Diagram.bubble_factory
 
 
 class Functor(monoidal.Functor):
@@ -259,8 +248,6 @@ class Functor(monoidal.Functor):
         return super().__call__(other)
 
 
-Diagram.braid_factory = Braid
-Diagram.sum_factory = Sum
 Id = Diagram.id
 
 

@@ -18,6 +18,7 @@ Summary
     Circuit
     Box
     Sum
+    Permutation
     Swap
     Functor
 
@@ -71,7 +72,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from discopy import messages, tensor, frobenius
-from discopy.cat import factory
+from discopy.cat import factory, Generator
 from discopy.matrix import backend
 from discopy.tensor import Dim, Tensor
 from discopy.utils import assert_isinstance, deprecated_alias, factory_name
@@ -837,6 +838,22 @@ class Circuit(tensor.Diagram[complex]):
         return self\
             >> self.cod[:offset] @ gate @ self.cod[offset + len(gate.dom):]
 
+    @Generator()
+    def generator_factory(cls):
+        return Box
+
+    @Generator()
+    def sum_factory(cls):
+        return Sum
+
+    @Generator()
+    def permutation_factory(cls):
+        return Permutation
+
+    @Generator("permutation_factory")
+    def swap_factory(cls):
+        return Swap
+
 
 class Box(tensor.Box[complex], Circuit):
     """
@@ -981,8 +998,6 @@ def bitstring2index(bitstring):
     return sum(value * 2 ** i for i, value in enumerate(bitstring[::-1]))
 
 
-Circuit.swap_factory, Circuit.sum_factory = Swap, Sum
-Circuit.permutation_factory = Permutation
 bit, qubit = Ty(Digit(2)), Ty(Qudit(2))
 Id = Circuit.id
 

@@ -18,6 +18,8 @@ Summary
     Box
     Cup
     Cap
+    Sum
+    Bubble
     Functor
 
 Axioms
@@ -56,7 +58,7 @@ from __future__ import annotations
 
 from discopy import cat, cmap, rigid
 from discopy.abc import PivotalCategory
-from discopy.cat import factory
+from discopy.cat import factory, Generator
 from discopy.utils import deprecated_alias
 
 
@@ -178,6 +180,18 @@ class Diagram(rigid.Diagram, PivotalCategory):
             >> diagram @ traced_wire.r\
             >> cod @ cls.cup_factory(traced_wire, traced_wire.r)
 
+    @Generator()
+    def generator_factory(cls):
+        return Box
+
+    @Generator()
+    def cup_factory(cls):
+        return Cup
+
+    @Generator()
+    def cap_factory(cls):
+        return Cap
+
 
 class Box(rigid.Box, Diagram):
     """
@@ -239,6 +253,9 @@ class Cap(rigid.Cap, Box):
         return self.cup_factory(self.left, self.right)
 
 
+Sum, Bubble = Diagram.sum_factory, Diagram.bubble_factory
+
+
 class Functor(rigid.Functor):
     """
     A pivotal functor is a rigid functor on a pivotal category.
@@ -253,7 +270,6 @@ class Functor(rigid.Functor):
 
 
 Diagram.functor_factory = Functor
-Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 CMap = cmap.CMap[Diagram]
 Id = Diagram.id
 

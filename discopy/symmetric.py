@@ -11,12 +11,14 @@ Summary
     :nosignatures:
     :toctree:
 
-    Permutation
     Layer
     Diagram
     Box
+    Permutation
     Swap
+    Trace
     Sum
+    Bubble
     Functor
 
 Axioms
@@ -94,7 +96,7 @@ from collections.abc import Sequence
 
 from discopy import monoidal, braided, hypergraph, cmap, messages
 from discopy.abc import SymmetricCategory
-from discopy.cat import factory
+from discopy.cat import factory, Generator
 from discopy.monoidal import Wire, Ty, Nat  # noqa: F401
 from discopy.python import finset
 from discopy.utils import (
@@ -403,16 +405,16 @@ class Diagram(braided.Diagram, SymmetricCategory):
         """
         return self.to_hypergraph().depth()
 
+    @Generator()
+    def permutation_factory(cls):
+        return Permutation
 
-class Box(braided.Box, Diagram):
-    """
-    A symmetric box is a braided box in a symmetric diagram.
+    @Generator("permutation_factory")
+    def swap_factory(cls):
+        return Swap
 
-    Parameters:
-        name (str) : The name of the box.
-        dom (monoidal.Ty) : The domain of the box, i.e. its input.
-        cod (monoidal.Ty) : The codomain of the box, i.e. its output.
-    """
+
+Box = Diagram.generator_factory
 
 
 class Permutation(Box):
@@ -591,8 +593,9 @@ class Swap(Permutation, braided.Braid, Box):
             left, right = left[:1], left[1:]
         self.perm = finset.Permutation([1, 0], 2)
         braided.Braid.__init__(self, left, right)
-        Box.__init__(self, self.name, self.dom, self.cod,
-                     draw_as_wires=True, draw_as_braid=False)
+        self.generator_factory.__init__(
+            self, self.name, self.dom, self.cod,
+            draw_as_wires=True, draw_as_braid=False)
 
     def dagger(self):
         return type(self)(self.right, self.left)
@@ -610,15 +613,7 @@ class Swap(Permutation, braided.Braid, Box):
         return self.name
 
 
-class Sum(braided.Sum, Box):
-    """
-    A symmetric sum is a braided sum and a symmetric box.
-
-    Parameters:
-        terms (tuple[Diagram, ...]) : The terms of the formal sum.
-        dom (Ty) : The domain of the formal sum.
-        cod (Ty) : The codomain of the formal sum.
-    """
+Sum, Bubble = Diagram.sum_factory, Diagram.bubble_factory
 
 
 class Functor(braided.Functor):
@@ -651,9 +646,6 @@ CMap = cmap.CMap[Diagram]
 
 Diagram.functor_factory = Functor
 Hypergraph = hypergraph.Hypergraph[Diagram]
-Diagram.swap_factory = Swap
-Diagram.permutation_factory = Permutation
-Diagram.sum_factory = Sum
 Id = Diagram.id
 
 

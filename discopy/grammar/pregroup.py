@@ -15,7 +15,11 @@ Summary
     Box
     Cup
     Cap
+    Permutation
     Swap
+    Spider
+    Sum
+    Bubble
     Word
     Functor
 
@@ -31,7 +35,7 @@ Summary
 """
 
 from discopy import rigid, frobenius, messages
-from discopy.cat import factory
+from discopy.cat import factory, Generator
 from discopy.utils import AxiomError, deprecated_alias
 from discopy.grammar import thue
 from discopy.rigid import Wire  # noqa: F401
@@ -154,6 +158,18 @@ class Diagram(frobenius.Diagram):
     cups = classmethod(rigid.Diagram.cups.__func__)
     caps = classmethod(rigid.Diagram.caps.__func__)
 
+    @Generator()
+    def generator_factory(cls):
+        return Box
+
+    @Generator("permutation_factory")
+    def swap_factory(cls):
+        return Swap
+
+    @Generator()
+    def spider_factory(cls):
+        return Spider
+
 
 class Box(frobenius.Box, Diagram):
     """
@@ -162,20 +178,8 @@ class Box(frobenius.Box, Diagram):
     rotate = rigid.Box.rotate
 
 
-class Cup(frobenius.Cup, Box):
-    """
-    A pregroup cup is a frobenius cup in a pregroup diagram.
-    """
-
-
-class Cap(frobenius.Cap, Box):
-    """
-    A pregroup cap is a frobenius cap in a pregroup diagram.
-    """
-
-
-class Permutation(frobenius.Permutation, Box):
-    "A permutation in a pregroup diagram."
+Cup, Cap, Permutation = (
+    Diagram.cup_factory, Diagram.cap_factory, Diagram.permutation_factory)
 
 
 class Swap(Permutation, frobenius.Swap, Box):
@@ -196,6 +200,9 @@ class Spider(frobenius.Spider, Box):
         return type(self)(len(self.cod), len(self.dom), typ, self.phase)
 
 
+Sum, Bubble = Diagram.sum_factory, Diagram.bubble_factory
+
+
 class Word(thue.Word, Box):
     """
     A word is a rigid box with a ``name``, a grammatical type as ``cod`` and
@@ -203,7 +210,7 @@ class Word(thue.Word, Box):
     """
     def __init__(self, name: str, cod: rigid.Ty, dom: rigid.Ty = Ty(),
                  **params):
-        Box.__init__(self, name, dom, cod, **params)
+        self.generator_factory.__init__(self, name, dom, cod, **params)
 
     def __repr__(self):
         extra = f", dom={repr(self.dom)}" if self.dom else ""
@@ -251,10 +258,6 @@ def brute_force(*vocab, target=Ty('s')):
                 pass
             test.append(words + (word, ))
 
-
-Diagram.swap_factory, Diagram.spider_factory = Swap, Spider
-Diagram.permutation_factory = Permutation
-Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 
 Id = Diagram.id
 

@@ -126,7 +126,7 @@ from __future__ import annotations
 
 from discopy import monoidal, feedback, hypergraph, cmap
 from discopy.abc import TracedCategory
-from discopy.cat import factory
+from discopy.cat import factory, Generator
 
 
 class Wire(feedback.Wire):
@@ -191,6 +191,14 @@ class Diagram(feedback.Diagram, TracedCategory):
 
     feedback = TracedCategory.feedback
 
+    @Generator()
+    def generator_factory(cls):
+        return Box
+
+    @Generator()
+    def trace_factory(cls):
+        return Trace
+
 
 class Box(feedback.Box, Diagram):
     """
@@ -218,12 +226,9 @@ class Trace(monoidal.Trace, Box):
     """
 
 
-class Permutation(feedback.Permutation, Box):
-    "A permutation in a traced diagram."
-
-
-class Swap(feedback.Swap, Permutation):
-    "A swap in a traced diagram."
+Permutation, Swap, Sum, Bubble = (
+    Diagram.permutation_factory, Diagram.swap_factory,
+    Diagram.sum_factory, Diagram.bubble_factory)
 
 
 class Functor(feedback.Functor):
@@ -260,9 +265,6 @@ CMap = cmap.CMap[Diagram]
 Hypergraph = hypergraph.Hypergraph[Diagram]
 
 Diagram.functor_factory = Functor
-Diagram.trace_factory = Trace
-Diagram.swap_factory = Swap
-Diagram.permutation_factory = Permutation
 Id = Diagram.id
 
 

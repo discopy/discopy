@@ -19,6 +19,7 @@ Summary
     Cup
     Cap
     Sum
+    Bubble
     Functor
 
 Axioms
@@ -155,7 +156,7 @@ from typing import Iterator
 
 from discopy import cat, monoidal, biclosed, messages
 from discopy.abc import Pregroup, RigidCategory
-from discopy.cat import factory
+from discopy.cat import factory, Generator
 from discopy.utils import (
     assert_isatomic,
     assert_isinstance,
@@ -640,6 +641,22 @@ class Diagram(biclosed.Diagram, RigidCategory):
         """
         return super().normal_form(**params)
 
+    @Generator()
+    def generator_factory(cls):
+        return Box
+
+    @Generator()
+    def sum_factory(cls):
+        return Sum
+
+    @Generator()
+    def cup_factory(cls):
+        return Cup
+
+    @Generator()
+    def cap_factory(cls):
+        return Cap
+
 
 class Box(biclosed.Box, Diagram):
     """
@@ -660,6 +677,7 @@ class Box(biclosed.Box, Diagram):
     >>> assert f.r.l == f == f.l.r
     >>> assert f.l.l != f != f.r.r
     """
+    z = 0
 
     def __setstate__(self, state):
         if '_z' in state:  # Backward compatibility
@@ -748,7 +766,7 @@ class Cup(BinaryBoxConstructor, Box):
         name = f"Cup({left}, {right})"
         dom, cod = left @ right, self.ob(dom=left.dom, cod=left.dom)
         BinaryBoxConstructor.__init__(self, left, right)
-        Box.__init__(self, name, dom, cod, draw_as_cup=True)
+        self.generator_factory.__init__(self, name, dom, cod, draw_as_cup=True)
 
     def rotate(self, left=False):
         return self.cap_factory(self.right.l, self.left.l) if left\
@@ -786,7 +804,7 @@ class Cap(BinaryBoxConstructor, Box):
         name = f"Cap({left}, {right})"
         dom, cod = self.ob(dom=left.dom, cod=left.dom), left @ right
         BinaryBoxConstructor.__init__(self, left, right)
-        Box.__init__(self, name, dom, cod, draw_as_cap=True)
+        self.generator_factory.__init__(self, name, dom, cod, draw_as_cap=True)
 
     def rotate(self, left=False):
         return self.cup_factory(self.right.l, self.left.l) if left\
@@ -798,6 +816,9 @@ class Cap(BinaryBoxConstructor, Box):
         use a :class:`pivotal.Cap` instead.
         """
         raise AxiomError("Rigid caps have no dagger, use pivotal instead.")
+
+
+Bubble = Diagram.bubble_factory
 
 
 class Functor(biclosed.Functor):
@@ -883,7 +904,6 @@ def to_rigid(self):
 
 biclosed.Diagram.to_rigid = to_rigid
 
-Diagram.cup_factory, Diagram.cap_factory, Diagram.sum_factory = Cup, Cap, Sum
 Diagram.functor_factory = Functor
 
 Id = Diagram.id

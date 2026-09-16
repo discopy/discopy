@@ -23,6 +23,11 @@ Summary
     BX
     Diagram
     Box
+    Eval
+    Coeval
+    Curry
+    Sum
+    Bubble
     Word
     ForwardCrossedComposition
     BackwardCrossedComposition
@@ -124,10 +129,9 @@ class Diagram(biclosed.Diagram):
         return BackwardCrossedComposition(middle << left, middle >> right)
 
 
-class Box(biclosed.Box, Diagram):
-    """
-    A categorial box is a grammar rule in a categorial diagram.
-    """
+Box, Eval, Coeval, Curry, Sum, Bubble = (
+    Diagram.generator_factory, Diagram.eval_factory, Diagram.coeval_factory,
+    Diagram.curry_factory, Diagram.sum_factory, Diagram.bubble_factory)
 
 
 class Word(thue.Word, Box):
@@ -142,18 +146,6 @@ class Word(thue.Word, Box):
     """
 
 
-class Eval(biclosed.Eval, Box):
-    """
-    Evaluation box in a categorial grammar.
-    """
-
-
-class Curry(biclosed.Curry, Box):
-    """
-    The currying of a categorial diagram.
-    """
-
-
 class ForwardCrossedComposition(BinaryBoxConstructor, Box):
     """ Forward crossed composition rule. """
     def __init__(self, left, right):
@@ -164,7 +156,7 @@ class ForwardCrossedComposition(BinaryBoxConstructor, Box):
                 left, right, left.exponent, right.base))
         name = f"ForwardCrossedComposition({left}, {right})"
         dom, cod = left @ right, right.exponent >> left.base
-        Box.__init__(self, name, dom, cod)
+        self.generator_factory.__init__(self, name, dom, cod)
         BinaryBoxConstructor.__init__(self, left, right)
 
 
@@ -178,7 +170,7 @@ class BackwardCrossedComposition(BinaryBoxConstructor, Box):
                 left, right, left.base, right.exponent))
         name = f"BackwardCrossedComposition({left}, {right})"
         dom, cod = left @ right, right.base << left.exponent
-        Box.__init__(self, name, dom, cod)
+        self.generator_factory.__init__(self, name, dom, cod)
         BinaryBoxConstructor.__init__(self, left, right)
 
 
@@ -500,8 +492,6 @@ def tree2diagram(tree: dict, dom=Ty()) -> Diagram:
 
 Id = Diagram.id
 Diagram.functor_factory = Functor
-Diagram.curry_factory = Curry
-Diagram.eval_factory = Eval
 
 Ty.variable_factory = Variable
 Ty.constant_factory = Constant

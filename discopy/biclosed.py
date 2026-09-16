@@ -22,6 +22,7 @@ Summary
     Coeval
     Curry
     Sum
+    Bubble
     Functor
     CMap
     TermBase
@@ -87,7 +88,7 @@ from typing import Callable, ClassVar
 from discopy import monoidal, cmap
 from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
-from discopy.cat import factory
+from discopy.cat import factory, Generator
 from discopy.utils import (
     assert_isinstance,
     deprecated_alias,
@@ -340,16 +341,20 @@ class Diagram(monoidal.Diagram, BiclosedCategory):
     def to_drawing(self):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
 
+    @Generator()
+    def eval_factory(cls):
+        return Eval
 
-class Box(monoidal.Box, Diagram):
-    """
-    A biclosed box is a monoidal box in a biclosed diagram.
+    @Generator()
+    def coeval_factory(cls):
+        return Coeval
 
-    Parameters:
-        name (str) : The name of the box.
-        dom (Ty) : The domain of the box, i.e. its input.
-        cod (Ty) : The codomain of the box, i.e. its output.
-    """
+    @Generator()
+    def curry_factory(cls):
+        return Curry
+
+
+Box = Diagram.generator_factory
 
 
 class Eval(Box):
@@ -432,7 +437,7 @@ class Curry(monoidal.Bubble, Box):
             dom, cod = arg.dom[n:], arg.dom[:n] >> arg.cod
         monoidal.Bubble.__init__(
             self, arg, dom=dom, cod=cod, drawing_name="$\\Lambda$")
-        Box.__init__(self, name, dom, cod)
+        self.generator_factory.__init__(self, name, dom, cod)
 
     def __str__(self):
         return self.name
@@ -445,22 +450,8 @@ class Curry(monoidal.Bubble, Box):
         return (f >> e).to_drawing().trace(left=True)
 
 
-class Sum(monoidal.Sum, Box):
-    """
-    A biclosed sum is a monoidal sum and a biclosed box.
-
-    Parameters:
-        terms (tuple[Diagram, ...]) : The terms of the formal sum.
-        dom (Ty) : The domain of the formal sum.
-        cod (Ty) : The codomain of the formal sum.
-    """
-
-
+Sum, Bubble = Diagram.sum_factory, Diagram.bubble_factory
 Id = Diagram.id
-Diagram.curry_factory = Curry
-Diagram.eval_factory = Eval
-Diagram.coeval_factory = Coeval
-Diagram.sum_factory = Sum
 
 
 class Functor(monoidal.Functor):

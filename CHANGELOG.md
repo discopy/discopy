@@ -9,6 +9,58 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- The generators of a category are defined once, in the module that
+  introduces them, and built for every level below. `utils.Generator` is
+  a decorator declaring the factory of a generator as a method of the
+  `Diagram` introducing it, returning its class, e.g. `swap_factory`
+  returns `Swap` in `symmetric.Diagram`: on that class the attribute is
+  the class itself, on any other class decorated with `@factory` it is a
+  subclass built on first access, extending the value of the attribute
+  on each base of the class, then its `parents` — the box of the class
+  for every generator but the box, plus the generators it declares, e.g.
+  `@Generator("permutation_factory")` for a swap and `"copy_factory"`
+  for a discard — then the class itself, e.g. in `symmetric`:
+
+  ```python
+  @Generator("permutation_factory")
+  def swap_factory(cls):
+      return Swap
+  ```
+
+  The built class takes its name from the generator and its module from
+  the class, so that a level writes `Swap = Diagram.swap_factory` where it
+  used to write `class Swap(markov.Swap, Box)` and assign
+  `Diagram.swap_factory = Swap` at the bottom, and `closed.Swap` is a
+  `markov.Swap` that is a `closed.Permutation` and a `closed.Box`. A level
+  adding behaviour to a generator declares it again, e.g.
+  `compact.Permutation` rotates, and a class attribute assigned by hand
+  still wins, as `Recipe.swap_factory = CookingSwap` did. A class that is
+  not a factory, e.g. a box or a `NamedGeneric` subscript such as
+  `tensor.Diagram[complex]`, reads the factories of its `ar`. Fifty-six
+  trivial subclasses go, and the generators every level used to inherit
+  from the wrong one are now its own: `f.bubble()`, `f + f`, `f.trace()`,
+  `Diagram.copy(x)` and `Diagram.merge(x)` are diagrams of the level of
+  `f` at every level, where a symmetric bubble used to be a
+  `monoidal.Bubble`, a frobenius sum a `symmetric.Sum` that cannot rotate
+  and a closed merge a `markov.Merge`, none of which composes with the
+  diagram it came from; `markov.Copy.dagger` and `markov.Merge.dagger` go
+  through `merge_factory` and `copy_factory` for it. Every module exports
+  the generators its diagrams build by name. A root generator initialises
+  itself as a box of the level it is built in, through
+  `self.generator_factory.__init__` rather than the `Box` of its own
+  module, so `feedback.Swap`, `Copy` and `Merge` keep only their `delay`,
+  a compact swap has the winding number of a rigid box, `rigid.Box`
+  defaults `z` to zero once instead of six ribbon generators each, and
+  `ribbon.Functor` and `ribbon.DualRail` recognise any `balanced.Braid`, a
+  compact swap included, rather than only a `ribbon.Braid`. `cat.Arrow`
+  type-checks its boxes itself so that `monoidal.Diagram.generator_factory`
+  is `monoidal.Box` rather than `cat.Box`, `pivotal.Box` is a `traced.Box`
+  as `pivotal.Diagram` is a `traced.Diagram`, `tensor.Bubble` is a
+  `frobenius.Bubble`, `compact.Diagram` needs no `trace_factory` of its
+  own since its method resolution order reaches the pivotal one before the
+  traced generator, and `closed.Diagram.is_linear` reads its boxes rather
+  than an `is_linear` flag on `closed.Box` and `closed.Copy`, which are
+  built like the rest.
 - `discopy.cartesian`, `abc.CartesianCategory` and
   `abc.CartesianClosedCategory`: a cartesian category is a Markov category
   where every morphism is deterministic, i.e. the copy is natural —

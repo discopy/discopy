@@ -14,9 +14,14 @@ Summary
 
     Diagram
     Box
-    Swap
     Permutation
+    Swap
+    Trace
     Copy
+    Merge
+    Discard
+    Sum
+    Bubble
     Functor
     Context
     TermBase
@@ -84,7 +89,7 @@ from typing import ClassVar
 
 from discopy import symmetric, monoidal, cmap, hypergraph
 from discopy.abc import MarkovCategory
-from discopy.cat import factory
+from discopy.cat import factory, Generator
 from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import assert_isatomic, assert_isinstance, factory_name
 
@@ -163,36 +168,22 @@ class Diagram(symmetric.Diagram, MarkovCategory):
         """
         return cls.copy(x, 0)
 
+    @Generator()
+    def copy_factory(cls):
+        return Copy
 
-class Box(symmetric.Box, Diagram):
-    """
-    A Markov box is a symmetric box in a Markov diagram.
+    @Generator()
+    def merge_factory(cls):
+        return Merge
 
-    Parameters:
-        name (str) : The name of the box.
-        dom (monoidal.Ty) : The domain of the box, i.e. its input.
-        cod (monoidal.Ty) : The codomain of the box, i.e. its output.
-    """
-
-
-class Permutation(symmetric.Permutation, Box):
-    """
-    A permutation in a Markov category.
-
-    Parameters:
-        dom (monoidal.Ty) : The domain, i.e. the wires to permute.
-        perm : The permutation as a :class:`finset.Permutation` or a list.
-    """
+    @Generator("copy_factory")
+    def discard_factory(cls):
+        return Discard
 
 
-class Swap(Permutation, symmetric.Swap, Box):
-    """
-    Symmetric swap in a Markov diagram.
-
-    Parameters:
-        left (monoidal.Ty) : The type on the top left and bottom right.
-        right (monoidal.Ty) : The type on the top right and bottom left.
-    """
+Box, Permutation, Swap = (
+    Diagram.generator_factory, Diagram.permutation_factory,
+    Diagram.swap_factory)
 
 
 class Copy(Box):
@@ -206,15 +197,16 @@ class Copy(Box):
     def __init__(self, x: monoidal.Ty, n: int = 2):
         assert_isatomic(x, monoidal.Ty)
         name = f"Copy({x}" + ("" if n == 2 else f", {n}") + ")"
-        Box.__init__(self, name, dom=x, cod=x ** n,
-                     draw_as_spider=True, color="black", drawing_name="")
+        self.generator_factory.__init__(
+            self, name, dom=x, cod=x ** n,
+            draw_as_spider=True, color="black", drawing_name="")
 
     def __new__(cls, x: monoidal.Ty, n: int = 2):
         return super().__new__(cls) if n else\
             cls.discard_factory.__new__(cls.discard_factory, x)
 
     def dagger(self) -> Merge:
-        return Merge(self.dom, len(self.cod))
+        return self.merge_factory(self.dom, len(self.cod))
 
     def __repr__(self):
         return (
@@ -232,11 +224,12 @@ class Merge(Box):
     def __init__(self, x: monoidal.Ty, n: int = 2):
         assert_isatomic(x, monoidal.Ty)
         name = f"Merge({x}" + ("" if n == 2 else f", {n}") + ")"
-        Box.__init__(self, name, dom=x ** n, cod=x,
-                     draw_as_spider=True, color="black", drawing_name="")
+        self.generator_factory.__init__(
+            self, name, dom=x ** n, cod=x,
+            draw_as_spider=True, color="black", drawing_name="")
 
     def dagger(self) -> Copy:
-        return Copy(self.cod, len(self.dom))
+        return self.copy_factory(self.cod, len(self.dom))
 
     def __repr__(self):
         return (
@@ -254,15 +247,7 @@ class Discard(Copy):
         super().__init__(x, 0)
 
 
-class Sum(symmetric.Sum, Box):
-    """
-    A markov sum is a symmetric sum and a markov box.
-
-    Parameters:
-        terms (tuple[Diagram, ...]) : The terms of the formal sum.
-        dom (Ty) : The domain of the formal sum.
-        cod (Ty) : The codomain of the formal sum.
-    """
+Sum, Bubble = Diagram.sum_factory, Diagram.bubble_factory
 
 
 class Functor(symmetric.Functor):
@@ -310,11 +295,6 @@ CMap = cmap.CMap[Diagram]
 
 Diagram.functor_factory = Functor
 Hypergraph = hypergraph.Hypergraph[Diagram]
-Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
-Diagram.swap_factory = Swap
-Diagram.permutation_factory = Permutation
-Diagram.discard_factory = Discard
-Diagram.sum_factory = Sum
 Id = Diagram.id
 
 
