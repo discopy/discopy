@@ -84,12 +84,10 @@ Here is a simple example of cooking `Recipe` as a subclass of `Arrow`.
 
 ```python {.marimo}
 from __future__ import annotations
-from discopy.cat import factory
 
 class Ingredient(Ob):
     """ An ingredient is just an object. """
 
-@factory
 class Recipe(Arrow):
     """ A recipe is just an arrow. """
     ty_factory = Ingredient
@@ -101,7 +99,7 @@ class Step(Box, Recipe):
     """ A step is just a box in a recipe. """
 ```
 
-**Remark:** In order for the identity and the composition of recipes to return a recipe rather than an arrow, we use the [factory](../_api/discopy.cat.factory.rst) decorator.
+**Remark:** The identity and the composition of recipes return a recipe rather than an arrow: a subclass of `Arrow` is a category of its own, its class property `ar`.
 
 ```python {.marimo}
 white = Ingredient('white')
@@ -214,7 +212,6 @@ Mat_C = Matrix[complex]
 
 qubit = Ob("qubit")
 
-@factory
 class Circuit(Arrow):
     """ A Circuit is an Arrow with an eval method. """
     def eval(self):
@@ -322,7 +319,6 @@ from discopy.cat import Bubble
 
 Mat_B = Matrix[bool]
 
-@factory
 class Formula(Arrow):
     """ A Formula is an Arrow with methods
         for negation `~` and conjunction `&`. """

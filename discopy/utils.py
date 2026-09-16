@@ -566,52 +566,101 @@ def untuplify(stuff: tuple) -> any:
     return stuff[0] if len(stuff) == 1 else stuff
 
 
-def factory(cls):
+def is_subscript(cls: type) -> bool:
     """
-    Allows the identity and composition of an :class:`Arrow` subclass to
-    remain within the subclass, by setting ``cls.factory = cls``.
-
-    Parameters:
-        cls : Some subclass of :class:`Arrow`.
-
-    Note
-    ----
-    The factory method pattern (`FMP`_) is used all over DisCoPy. For
-    backward compatibility, the factory is also available as the class
-    property ``cls.ar``, see :class:`discopy.abc.Category`.
-
-    .. _FMP: https://en.wikipedia.org/wiki/Factory_method_pattern
+    Whether a class is a subscript of a :class:`NamedGeneric` such as
+    ``Tensor[int]``, rather than the generic itself or a subclass of a
+    subscript such as ``Circuit(tensor.Diagram[complex])``.
 
     Example
     -------
-    Let's create :code:`Circuit` as a subclass of :class:`Arrow` with an
-    :class:`Ob` subclass :code:`Qubit` as domain and codomain.
-
-    >>> from discopy.cat import Ob, Arrow, Box
-    >>> class Qubit(Ob):
-    ...     pass
-    >>> @factory
-    ... class Circuit(Arrow):
-    ...     ob = Qubit
-
-    The boxes of a :code:`Circuit` are a subclass of both :class:`Box` and
-    :code:`Circuit`, built by :attr:`Arrow.generator_factory`, a
-    :class:`cached_classproperty`.
-
-    >>> Gate = Circuit.generator_factory
-    >>> assert issubclass(Gate, Box) and issubclass(Gate, Circuit)
-    >>> assert Gate.__name__ == "Box" and Gate.__module__ == Circuit.__module__
-
-    The identity and composition of :code:`Circuit` is again a :code:`Circuit`.
-
-    >>> X = Gate('X', Qubit(), Qubit())
-    >>> assert isinstance(X >> X, Circuit)
-    >>> assert isinstance(Circuit.id(), Circuit)
-    >>> assert isinstance(Circuit.id().dom, Qubit)
-    >>> assert Circuit.factory is Circuit.ar is Circuit
+    >>> from discopy.tensor import Tensor
+    >>> assert is_subscript(Tensor[int]) and not is_subscript(Tensor)
     """
-    cls.factory = cls
-    return cls
+    return "__is_named_generic__" in vars(cls)
+
+
+class factory:
+    """
+    Declares the factory of a generator on the category that introduces it,
+    as a method returning its class, e.g. ``Swap`` in ``symmetric.Diagram``.
+
+    On that category the attribute is the class the method returns. On any
+    subclass that is a category of its own, i.e. whose ``ar`` is itself,
+    it is a subclass of the generators of its bases that lives in the
+    subclass, built on first access: it extends the value of the attribute
+    on each base, then the ``parents`` of the subclass, i.e. its box for
+    every generator but the box itself, then the subclass. It takes its
+    name from the first base generator and its module from the subclass,
+    so that a module defines it once as ``Swap = Diagram.swap_factory``. A
+    class that is not a category of its own, e.g. a box or a
+    :class:`NamedGeneric` subscript, has the generators of its ``ar``.
+
+    Parameters:
+        parents : The names of the generators of the same category that
+            this one extends, e.g. ``"permutation_factory"`` for a swap.
+
+    Example
+    -------
+    >>> from discopy import symmetric, markov, closed
+    >>> assert symmetric.Diagram.swap_factory is symmetric.Swap
+    >>> assert closed.Swap.__bases__ == (
+    ...     markov.Swap, closed.Permutation, closed.Box, closed.Diagram)
+    >>> assert closed.Swap.__module__ == "discopy.closed"
+    >>> assert closed.Swap.swap_factory is closed.Swap
+
+    A subclass of a diagram is a category of its own, with its own boxes.
+
+    >>> class Recipe(symmetric.Diagram): ...
+    >>> Step = Recipe.generator_factory
+    >>> assert issubclass(Step, symmetric.Box) and issubclass(Step, Recipe)
+    >>> egg = symmetric.Ty("egg")
+    >>> assert isinstance(Step("crack", egg, egg) >> Step("cook", egg, egg),
+    ...                   Recipe)
+
+    A generator with behaviour of its own is declared again on the
+    category adding it, e.g. :class:`discopy.compact.Permutation` rotates,
+    and a class attribute assigned by hand wins over the declaration.
+
+    >>> class Cooking(Step):
+    ...     colour = "yellow"
+    >>> Recipe.generator_factory = Cooking
+    >>> assert Recipe.swap_factory.__bases__ == (
+    ...     symmetric.Swap, Recipe.permutation_factory, Cooking, Recipe)
+    """
+    def __init__(self, *parents: str):
+        self.parents = parents
+
+    def __call__(self, root: Callable[[type], type]) -> factory:
+        self.root = root
+        return self
+
+    def __set_name__(self, owner: type, name: str):
+        self.owner, self.name, self.cache = owner, name, {}
+        if name != "generator_factory":
+            self.parents += ("generator_factory", )
+
+    def __get__(self, _, cls: type) -> type:
+        cls = cls.ar
+        if cls not in self.cache:
+            self.cache[cls] = self.root(cls) if cls is self.owner\
+                else self.build(cls)
+        return self.cache[cls]
+
+    def build(self, cls: type) -> type:
+        """ The subclass of the generators of the bases of ``cls``. """
+        roots = dict.fromkeys(
+            root for base in cls.__bases__
+            if isinstance(root := getattr(base, self.name, None), type))
+        parents = [getattr(cls, name) for name in self.parents]
+        root, *_ = roots
+        references = " and ".join(
+            f":class:`~{r.__module__}.{r.__name__}`" for r in roots)
+        return type(root.__name__, (*roots, *parents, cls), {
+            "__module__": cls.__module__,
+            "__qualname__": root.__name__,
+            "__doc__": f"A {references} in a "
+                       f":class:`~{cls.__module__}.{cls.__name__}`."})
 
 
 class AxiomError(Exception):
@@ -670,29 +719,6 @@ class classproperty(object):
 
     def __get__(self, _, x):
         return self.f(x)
-
-
-class cached_classproperty(classproperty):
-    """
-    A :class:`classproperty` computed once per factory, i.e. per ``cls.ar``,
-    so that a box or a :class:`NamedGeneric` subscript reads the value of
-    the class it is a factory for, and a subclass never reads that of its
-    bases: the factories of generators are such properties, e.g.
-
-    >>> from discopy import symmetric, closed, tensor
-    >>> assert symmetric.Diagram.swap_factory is symmetric.Swap
-    >>> assert closed.Diagram.swap_factory is closed.Swap is not symmetric.Swap
-    >>> assert tensor.Diagram[complex].swap_factory is tensor.Swap
-    """
-    def __init__(self, f):
-        super().__init__(f)
-        self.cache = {}
-
-    def __get__(self, _, x):
-        x = x.ar
-        if x not in self.cache:
-            self.cache[x] = self.f(x)
-        return self.cache[x]
 
 
 class Node:

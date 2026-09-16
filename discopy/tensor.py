@@ -64,7 +64,7 @@ from typing import TYPE_CHECKING, Sequence
 
 from discopy import (
     cat, monoidal, rigid, frobenius, cmap, config)
-from discopy.cat import factory, cached_classproperty, assert_iscomposable
+from discopy.cat import factory, assert_iscomposable
 from discopy.frobenius import Dim, Cup
 from discopy.matrix import (  # noqa: F401
     Matrix, backend, set_backend, get_backend,
@@ -80,7 +80,6 @@ if TYPE_CHECKING:
     import quimb
 
 
-@factory
 class Tensor(Matrix):
     """
     A tensor is a :class:`Matrix` with dimensions as domain and codomain and
@@ -506,7 +505,6 @@ class Functor(frobenius.Functor):
         return self.cod(array, self(other.dom), self(other.cod))
 
 
-@factory
 class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
     """
     A tensor diagram is a frobenius diagram with tensor boxes.
@@ -695,32 +693,17 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
             result += Box(str(var), Dim(1), dim, onehot.array) @ self.grad(var)
         return result
 
-    @cached_classproperty
+    @factory()
     def generator_factory(cls):
-        if cls is Diagram:
-            return Box
-        bases = [base.generator_factory for base in cls.__bases__
-                 if hasattr(base, "generator_factory")]
-        return type("Box", (*bases, cls),
-                    {"__module__": cls.__module__})
+        return Box
 
-    @cached_classproperty
+    @factory()
     def permutation_factory(cls):
-        if cls is Diagram:
-            return Permutation
-        bases = [base.permutation_factory for base in cls.__bases__
-                 if hasattr(base, "permutation_factory")]
-        return type("Permutation", (*bases, cls.generator_factory),
-                    {"__module__": cls.__module__})
+        return Permutation
 
-    @cached_classproperty
+    @factory()
     def bubble_factory(cls):
-        if cls is Diagram:
-            return Bubble
-        bases = [base.bubble_factory for base in cls.__bases__
-                 if hasattr(base, "bubble_factory")]
-        return type("Bubble", (*bases, cls.generator_factory),
-                    {"__module__": cls.__module__})
+        return Bubble
 
 
 CMap = cmap.CMap[Diagram]

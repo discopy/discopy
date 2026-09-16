@@ -28,7 +28,7 @@ def single_layer_tensor[D: monoidal.Diagram](box: D, k: int) -> D:
     """
     empty = box.dom[:0]
     layer = box.layer_factory(empty, box, empty, *([box, empty] * (k - 1)))
-    return box.factory((layer,), layer.dom, layer.cod)
+    return box.ar((layer,), layer.dom, layer.cod)
 
 
 def staircase[C1: MonoidalCategory](box: C1, k: int) -> C1:

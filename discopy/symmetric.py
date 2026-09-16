@@ -96,7 +96,7 @@ from collections.abc import Sequence
 
 from discopy import monoidal, balanced, hypergraph, cmap, messages
 from discopy.abc import SymmetricCategory
-from discopy.cat import factory, cached_classproperty
+from discopy.cat import factory
 from discopy.monoidal import Wire, Ty, Nat  # noqa: F401
 from discopy.python import finset
 from discopy.utils import (
@@ -192,7 +192,6 @@ class Layer(monoidal.Layer):
         return super().merge(other)
 
 
-@factory
 class Diagram(balanced.Diagram, SymmetricCategory):
     """
     A symmetric diagram is a balanced diagram with :class:`Swap` boxes.
@@ -406,23 +405,13 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         """
         return self.to_hypergraph().depth()
 
-    @cached_classproperty
+    @factory()
     def permutation_factory(cls):
-        if cls is Diagram:
-            return Permutation
-        bases = [base.permutation_factory for base in cls.__bases__
-                 if hasattr(base, "permutation_factory")]
-        return type("Permutation", (*bases, cls.generator_factory),
-                    {"__module__": cls.__module__})
+        return Permutation
 
-    @cached_classproperty
+    @factory("permutation_factory")
     def swap_factory(cls):
-        if cls is Diagram:
-            return Swap
-        bases = [base.swap_factory for base in cls.__bases__
-                 if hasattr(base, "swap_factory")]
-        return type("Swap", (*bases, cls.permutation_factory),
-                    {"__module__": cls.__module__})
+        return Swap
 
 
 Box = Diagram.generator_factory

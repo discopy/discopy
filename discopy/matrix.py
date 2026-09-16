@@ -44,7 +44,8 @@ from typing import Union, Literal as L, Callable, TYPE_CHECKING
 from discopy import monoidal, config, messages
 from discopy.abc import MonoidalCategory, NamedGeneric, Nat
 from discopy.cat import (
-    factory,
+    classproperty,
+    is_subscript,
     assert_iscomposable,
     assert_isparallel,
 )
@@ -54,7 +55,6 @@ if TYPE_CHECKING:
     import sympy
 
 
-@factory
 class Matrix(MonoidalCategory, NamedGeneric['dtype']):
     """
     A matrix is an ``array`` with natural numbers as ``dom`` and ``cod``.
@@ -129,6 +129,8 @@ class Matrix(MonoidalCategory, NamedGeneric['dtype']):
            [0, 4]])
     """
     ob = Nat
+    ar = classproperty(
+        lambda cls: next(b for b in cls.__mro__ if not is_subscript(b)))
 
     def cast(self, dtype: type) -> Matrix:
         """

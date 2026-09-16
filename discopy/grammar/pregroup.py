@@ -35,13 +35,12 @@ Summary
 """
 
 from discopy import rigid, frobenius, messages
-from discopy.cat import factory, cached_classproperty
+from discopy.cat import factory
 from discopy.utils import AxiomError, deprecated_alias
 from discopy.grammar import thue
 from discopy.rigid import Wire  # noqa: F401
 
 
-@factory
 class Ty(rigid.Ty):
     """
     A pregroup type is a rigid type.
@@ -71,7 +70,6 @@ class Ty(rigid.Ty):
             raise AxiomError(messages.NOT_ADJOINT.format(self, other))
 
 
-@factory
 class Diagram(frobenius.Diagram):
     """
     A pregroup diagram is a rigid diagram with :class:`Word` boxes.
@@ -158,32 +156,17 @@ class Diagram(frobenius.Diagram):
     cups = classmethod(rigid.Diagram.cups.__func__)
     caps = classmethod(rigid.Diagram.caps.__func__)
 
-    @cached_classproperty
+    @factory()
     def generator_factory(cls):
-        if cls is Diagram:
-            return Box
-        bases = [base.generator_factory for base in cls.__bases__
-                 if hasattr(base, "generator_factory")]
-        return type("Box", (*bases, cls),
-                    {"__module__": cls.__module__})
+        return Box
 
-    @cached_classproperty
+    @factory("permutation_factory")
     def swap_factory(cls):
-        if cls is Diagram:
-            return Swap
-        bases = [base.swap_factory for base in cls.__bases__
-                 if hasattr(base, "swap_factory")]
-        return type("Swap", (*bases, cls.permutation_factory),
-                    {"__module__": cls.__module__})
+        return Swap
 
-    @cached_classproperty
+    @factory()
     def spider_factory(cls):
-        if cls is Diagram:
-            return Spider
-        bases = [base.spider_factory for base in cls.__bases__
-                 if hasattr(base, "spider_factory")]
-        return type("Spider", (*bases, cls.generator_factory),
-                    {"__module__": cls.__module__})
+        return Spider
 
 
 class Box(frobenius.Box, Diagram):

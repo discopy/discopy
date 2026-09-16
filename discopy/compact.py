@@ -58,7 +58,7 @@ Coherence
 
 from discopy import symmetric, ribbon, rigid, cmap, hypergraph
 from discopy.abc import CompactCategory
-from discopy.cat import factory, cached_classproperty
+from discopy.cat import factory
 from discopy.utils import deprecated_alias
 from discopy.pivotal import Wire, Ty  # noqa: F401
 
@@ -67,7 +67,6 @@ class Layer(symmetric.Layer, rigid.Layer):
     """ A compact layer with permutation plumbing and rigid rotation. """
 
 
-@factory
 class Diagram(symmetric.Diagram, ribbon.Diagram, CompactCategory):
     """
     A compact diagram is a symmetric diagram and a ribbon diagram.
@@ -80,14 +79,9 @@ class Diagram(symmetric.Diagram, ribbon.Diagram, CompactCategory):
     ob = Ty
     layer_factory = Layer
 
-    @cached_classproperty
+    @factory()
     def permutation_factory(cls):
-        if cls is Diagram:
-            return Permutation
-        bases = [base.permutation_factory for base in cls.__bases__
-                 if hasattr(base, "permutation_factory")]
-        return type("Permutation", (*bases, cls.generator_factory),
-                    {"__module__": cls.__module__})
+        return Permutation
 
 
 Box, Cup, Cap = (

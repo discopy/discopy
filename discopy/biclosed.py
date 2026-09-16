@@ -88,7 +88,7 @@ from typing import Callable, ClassVar
 from discopy import monoidal, cmap
 from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
-from discopy.cat import factory, cached_classproperty
+from discopy.cat import factory
 from discopy.utils import (
     assert_isinstance,
     deprecated_alias,
@@ -97,7 +97,6 @@ from discopy.utils import (
 )
 
 
-@factory
 class Ty(monoidal.Ty):
     """
     A biclosed type is a monoidal type that can be exponentiated.
@@ -284,7 +283,6 @@ class Under(Exp):
         return f"({self.exponent} >> {self.base})"
 
 
-@factory
 class Diagram(monoidal.Diagram, BiclosedCategory):
     """
     A biclosed diagram is a monoidal diagram
@@ -341,32 +339,17 @@ class Diagram(monoidal.Diagram, BiclosedCategory):
     def to_drawing(self):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
 
-    @cached_classproperty
+    @factory()
     def eval_factory(cls):
-        if cls is Diagram:
-            return Eval
-        bases = [base.eval_factory for base in cls.__bases__
-                 if hasattr(base, "eval_factory")]
-        return type("Eval", (*bases, cls.generator_factory),
-                    {"__module__": cls.__module__})
+        return Eval
 
-    @cached_classproperty
+    @factory()
     def coeval_factory(cls):
-        if cls is Diagram:
-            return Coeval
-        bases = [base.coeval_factory for base in cls.__bases__
-                 if hasattr(base, "coeval_factory")]
-        return type("Coeval", (*bases, cls.generator_factory),
-                    {"__module__": cls.__module__})
+        return Coeval
 
-    @cached_classproperty
+    @factory()
     def curry_factory(cls):
-        if cls is Diagram:
-            return Curry
-        bases = [base.curry_factory for base in cls.__bases__
-                 if hasattr(base, "curry_factory")]
-        return type("Curry", (*bases, cls.generator_factory),
-                    {"__module__": cls.__module__})
+        return Curry
 
 
 Box = Diagram.generator_factory

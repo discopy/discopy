@@ -57,26 +57,23 @@ Or you can keep scrolling down, skip the theory and go straight to the examples 
 - the tensor of diagrams is decomposed in terms of composition and whiskering i.e. `f @ g = f @ g.dom >> f.cod @ g`, this is biased in the sense that `f` happens before `g` so that diagrams really live in a [premonoidal category](https://en.wikipedia.org/wiki/Premonoidal_category)
 - *the first gotcha of DisCoPy:* `Box` is a subclass of `Diagram` with a cyclic reference `list(box.inside) == [Layer(box)]`
 - every categorical structure is implemented with the factory method pattern so that e.g. the method `Diagram.swap` computes the symmetry of arbitrary types with `Diagram.swap_factory` as subroutine for generating the subclass of `Box` for the symmetry of atomic types
-- *the second gotcha of DisCoPy:* each `C: Category` comes with a class attribute `ar` such that `C.ar = C`; this happens with the decorator `@factory` and it allows for e.g. the subclass `Box` to know that it lives inside a bigger `Diagram` category
-- a generator is defined once, in the module that introduces it: `symmetric.Diagram.swap_factory` is a class property returning `Swap` on `symmetric.Diagram` itself and, on every subclass decorated with `@factory`, a subclass of the swaps of its bases built once, e.g. `closed.Swap = closed.Diagram.swap_factory` is a `markov.Swap` that is a `closed.Permutation` and a `closed.Box`; a level only writes a generator by hand when it adds behaviour to it, and defines the property again
+- *the second gotcha of DisCoPy:* each `C: Category` comes with a class property `ar` such that `C.ar = C`, except for a `Box` whose `ar` is the `Diagram` it lives inside, i.e. the first class of its method resolution order that is an `Arrow` but not a `Box`; any subclass of `Diagram` is thus a category of its own, with the identity and composition of its diagrams staying in the subclass
+- a generator is defined once, in the module that introduces it: `symmetric.Diagram` declares `swap_factory` with the `@factory` decorator as a method returning `Swap`, and every subclass of `Diagram` gets its own `Swap` built once from those of its bases, e.g. `closed.Swap = closed.Diagram.swap_factory` is a `markov.Swap` that is a `closed.Permutation` and a `closed.Box`; a level only writes a generator by hand when it adds behaviour to it, and declares it again
 
 ## Example: Cooking
 
 This example is inspired from Pawel Sobocinski's blog post [Crema di Mascarpone and Diagrammatic Reasoning](https://graphicallinearalgebra.net/2015/05/06/crema-di-mascarpone-rules-of-the-game-part-2-and-diagrammatic-reasoning/).
 
 ```python
-from discopy.utils import factory
 from discopy.symmetric import Ty, Box, Diagram
 
-@factory
 class Ingredient(Ty):
   "The objects of the category of recipe diagrams."
 
-@factory
 class Recipe(Diagram):
   ob = Ingredient
 
-# The decorator builds the boxes and swaps of recipes from those of diagrams.
+# The boxes and swaps of recipes are built from those of diagrams.
 CookingStep, CookingSwap = Recipe.generator_factory, Recipe.swap_factory
 
 egg, white, yolk = Ingredient("egg"), Ingredient("white"), Ingredient("yolk")

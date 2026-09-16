@@ -328,9 +328,6 @@ def test_Hypergraph_from_diagram_pinned_category():
 
 def test_subclass_to_hypergraph():
     from discopy import frobenius
-    from discopy.cat import factory
-
-    @factory
     class Circuit(frobenius.Diagram):
         """ A frobenius diagram with hypergraphs of its own category. """
 

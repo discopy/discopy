@@ -40,17 +40,17 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from discopy import monoidal
-from discopy.cat import factory, Functor
+from discopy.cat import Functor
 from discopy.grammar import thue
 from discopy.monoidal import Ty
 from discopy.utils import (
+    classproperty,
     assert_isinstance, factory_name, assert_isatomic, AxiomError)
 
 if TYPE_CHECKING:
     import nltk
 
 
-@factory
 class Tree:
     """
     A tree is a rule for the ``root`` and a list of trees called ``branches``.
@@ -69,6 +69,9 @@ class Tree:
     >>> sentence = S(VP(Caesar, crossed), NP(the, Rubicon))
     """
     ob = Ty
+    ar = classproperty(lambda cls: next(
+        base for base in cls.__mro__
+        if issubclass(base, Tree) and not issubclass(base, Rule)))
 
     def __init__(self, root: Rule, *branches: Tree):
         assert_isinstance(root, Rule)

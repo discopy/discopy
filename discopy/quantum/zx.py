@@ -26,7 +26,7 @@ Summary
 from math import pi
 
 from discopy import cat, rigid, tensor, quantum
-from discopy.cat import factory, cached_classproperty
+from discopy.cat import factory
 from discopy.quantum.circuit import qubit, Circuit
 from discopy.quantum.gates import (
     Bra, Ket, Rz, Rx, CX, CZ, Controlled, format_number)
@@ -35,7 +35,6 @@ from discopy.rigid import Sum, Nat
 from discopy.utils import factory_name
 
 
-@factory
 class Diagram(tensor.Diagram[complex]):
     """ ZX Diagram. """
     ob = Nat
@@ -221,14 +220,9 @@ class Diagram(tensor.Diagram[complex]):
                 >> Id(target) @ hadamard @ Id(len(scan) - target - 1)
         return diagram
 
-    @cached_classproperty
+    @factory("permutation_factory")
     def swap_factory(cls):
-        if cls is Diagram:
-            return Swap
-        bases = [base.swap_factory for base in cls.__bases__
-                 if hasattr(base, "swap_factory")]
-        return type("Swap", (*bases, cls.permutation_factory),
-                    {"__module__": cls.__module__})
+        return Swap
 
 
 Box, Sum, Permutation = (

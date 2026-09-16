@@ -58,7 +58,7 @@ from __future__ import annotations
 
 from discopy import cat, cmap, rigid, traced
 from discopy.abc import PivotalCategory
-from discopy.cat import factory, cached_classproperty
+from discopy.cat import factory
 from discopy.utils import deprecated_alias
 
 
@@ -82,7 +82,6 @@ class Wire(rigid.Wire):
         return self.l
 
 
-@factory
 class Ty(rigid.Ty):
     """
     A pivotal type is a rigid type with pivotal objects inside.
@@ -93,7 +92,6 @@ class Ty(rigid.Ty):
     generator_factory = Wire
 
 
-@factory
 class Nat(rigid.Nat, Ty):
     """
     A pivotal ``Nat`` is a natural number ``n``
@@ -107,7 +105,6 @@ class Nat(rigid.Nat, Ty):
     l = r = property(lambda self: self)
 
 
-@factory
 class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
     """
     A pivotal diagram is a rigid diagram and a traced diagram
@@ -180,32 +177,17 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
             >> diagram @ traced_wire.r\
             >> cod @ cls.cup_factory(traced_wire, traced_wire.r)
 
-    @cached_classproperty
+    @factory()
     def generator_factory(cls):
-        if cls is Diagram:
-            return Box
-        bases = [base.generator_factory for base in cls.__bases__
-                 if hasattr(base, "generator_factory")]
-        return type("Box", (*bases, cls),
-                    {"__module__": cls.__module__})
+        return Box
 
-    @cached_classproperty
+    @factory()
     def cup_factory(cls):
-        if cls is Diagram:
-            return Cup
-        bases = [base.cup_factory for base in cls.__bases__
-                 if hasattr(base, "cup_factory")]
-        return type("Cup", (*bases, cls.generator_factory),
-                    {"__module__": cls.__module__})
+        return Cup
 
-    @cached_classproperty
+    @factory()
     def cap_factory(cls):
-        if cls is Diagram:
-            return Cap
-        bases = [base.cap_factory for base in cls.__bases__
-                 if hasattr(base, "cap_factory")]
-        return type("Cap", (*bases, cls.generator_factory),
-                    {"__module__": cls.__module__})
+        return Cap
 
 
 class Box(rigid.Box, traced.Box, Diagram):

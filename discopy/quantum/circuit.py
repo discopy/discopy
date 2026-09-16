@@ -72,7 +72,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from discopy import messages, tensor, frobenius
-from discopy.cat import factory, cached_classproperty
+from discopy.cat import factory
 from discopy.matrix import backend
 from discopy.tensor import Dim, Tensor
 from discopy.utils import assert_isinstance, deprecated_alias, factory_name
@@ -152,7 +152,6 @@ class Qudit(Wire):
     __setstate__ = Digit.__setstate__
 
 
-@factory
 class Ty(frobenius.Ty):
     """
     A circuit type is a frobenius type with :class:`Digit` and :class:`Qudit`
@@ -175,7 +174,6 @@ class Ty(frobenius.Ty):
     generator_factory = Wire
 
 
-@factory
 class Circuit(tensor.Diagram[complex]):
     """
     A circuit is a tensor diagram with bits and qubits as ``dom`` and ``cod``.
@@ -838,41 +836,21 @@ class Circuit(tensor.Diagram[complex]):
         return self\
             >> self.cod[:offset] @ gate @ self.cod[offset + len(gate.dom):]
 
-    @cached_classproperty
+    @factory()
     def generator_factory(cls):
-        if cls is Circuit:
-            return Box
-        bases = [base.generator_factory for base in cls.__bases__
-                 if hasattr(base, "generator_factory")]
-        return type("Box", (*bases, cls),
-                    {"__module__": cls.__module__})
+        return Box
 
-    @cached_classproperty
+    @factory()
     def sum_factory(cls):
-        if cls is Circuit:
-            return Sum
-        bases = [base.sum_factory for base in cls.__bases__
-                 if hasattr(base, "sum_factory")]
-        return type("Sum", (*bases, cls.generator_factory),
-                    {"__module__": cls.__module__})
+        return Sum
 
-    @cached_classproperty
+    @factory()
     def permutation_factory(cls):
-        if cls is Circuit:
-            return Permutation
-        bases = [base.permutation_factory for base in cls.__bases__
-                 if hasattr(base, "permutation_factory")]
-        return type("Permutation", (*bases, cls.generator_factory),
-                    {"__module__": cls.__module__})
+        return Permutation
 
-    @cached_classproperty
+    @factory("permutation_factory")
     def swap_factory(cls):
-        if cls is Circuit:
-            return Swap
-        bases = [base.swap_factory for base in cls.__bases__
-                 if hasattr(base, "swap_factory")]
-        return type("Swap", (*bases, cls.permutation_factory),
-                    {"__module__": cls.__module__})
+        return Swap
 
 
 class Box(tensor.Box[complex], Circuit):

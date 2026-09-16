@@ -83,13 +83,12 @@ class Category[C0, C1: Category](ABC):
     >>> assert List([3]) << List([1, 2]) == List([1, 2, 3])
     """
     ob: ClassVar[type[C0]]
-    factory: ClassVar[type[C1]]
     dom: C0
     cod: C0
 
-    #: Backward-compatible alias for :attr:`factory`, since types are
-    #: themselves the objects of diagrams.
-    ar = classproperty(lambda cls: getattr(cls, "factory", cls))
+    #: The class whose arrows the identity and composition build: the class
+    #: itself, unless it is a generator, see :attr:`discopy.cat.Arrow.ar`.
+    ar = classproperty(lambda cls: cls)
 
     @classmethod
     def equation_factory(cls, *terms) -> Equation:

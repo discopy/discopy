@@ -67,7 +67,7 @@ from collections.abc import Callable
 from discopy import (
     monoidal, rigid, markov, compact, pivotal, cmap, hypergraph)
 from discopy.abc import HypergraphCategory
-from discopy.cat import factory, cached_classproperty
+from discopy.cat import factory
 from discopy.utils import assert_isatomic, deprecated_alias, factory_name
 
 
@@ -81,7 +81,6 @@ class Wire(pivotal.Wire):
     l = r = property(lambda self: self)
 
 
-@factory
 class Ty(pivotal.Ty):
     """
     A frobenius type is a pivotal type with frobenius objects inside.
@@ -92,7 +91,6 @@ class Ty(pivotal.Ty):
     generator_factory = Wire
 
 
-@factory
 class Nat(rigid.Nat, Ty):
     """
     A ``Nat`` is a natural number ``n`` seen as a frobenius type with
@@ -107,14 +105,12 @@ class Nat(rigid.Nat, Ty):
     l = r = property(lambda self: self)
 
 
-@factory
 class Dim(monoidal.Dim, Ty):
     """ A dimension is a tuple of integers greater than one seen as a type. """
 
     l = r = property(lambda self: self.ar(*self.inside[::-1]))
 
 
-@factory
 class Diagram(compact.Diagram, markov.Diagram, HypergraphCategory):
     """
     A frobenius diagram is a compact diagram and a Markov diagram.
@@ -170,14 +166,9 @@ class Diagram(compact.Diagram, markov.Diagram, HypergraphCategory):
             dom=Diagram, cod=Diagram)
         return F(self)
 
-    @cached_classproperty
+    @factory()
     def spider_factory(cls):
-        if cls is Diagram:
-            return Spider
-        bases = [base.spider_factory for base in cls.__bases__
-                 if hasattr(base, "spider_factory")]
-        return type("Spider", (*bases, cls.generator_factory),
-                    {"__module__": cls.__module__})
+        return Spider
 
 
 Box, Cup, Cap, Permutation, Swap = (

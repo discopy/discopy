@@ -343,9 +343,7 @@ def test_only_to_diagram_needs_the_structure():
 
 def test_explicit_trace_on_a_subclass():
     from discopy import cmap, symmetric as sym
-    from discopy.utils import factory
 
-    @factory
     class Recipe(sym.Diagram):
         """ A user subclass of a symmetric category. """
 
