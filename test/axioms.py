@@ -67,11 +67,7 @@ def test_axioms():
     assert_axioms(Arrow)
 
     class Classified(Arrow):
-        """
-        A category with a broken law and an inapplicable one, whose terms
-        are plain arrows so that their representation reads back.
-        """
-        ar = Arrow
+        """ A category with a broken law and an inapplicable one. """
         unitality = Arrow.unitality.failing("Never holds.")
         dagger_involution = Arrow.dagger_involution.inapplicable("No dagger.")
 
