@@ -392,15 +392,17 @@ class Ty(cat.Ob, cat.FreeCategory, ColouredMonoid):
         """
         return self
 
-    @property
-    def d(self) -> Ty:
+    def delay(self, n_steps: int = 1) -> Ty:
         """
-        The delay of a type by one time step.
+        The delay of a type by ``n_steps``.
 
         This is the identity for monoidal types, so that the types of a
         traced category form a :class:`discopy.abc.DelayedMonoid` where the
         delay is trivial, see :class:`discopy.abc.TracedCategory`. It is
         overridden by :class:`feedback.Ty`, which delays each generator.
+
+        Parameters:
+            n_steps : The number of time steps to delay.
         """
         return self
 

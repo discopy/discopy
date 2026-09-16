@@ -21,7 +21,7 @@ def test_errors():
 def test_python_stream():
     T, S = Ty[python.Ty], Stream[python.Function]
     x, y, m = int, bool, str
-    dom = T(x) @ T(m).d
+    dom = T(x) @ T(m).delay()
     cod = T(y) @ T(m)
     now = python.Function(lambda n: (bool(n % 2), str(n)), (x, ), (y, m))
     later = python.Function(

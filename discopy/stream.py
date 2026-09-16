@@ -20,11 +20,11 @@ Monoidal streams form a feedback category as follows:
 >>> from discopy import feedback
 >>> from discopy.monoidal import Equation
 >>> x, y, m = map(feedback.Ty, "xym")
->>> f = feedback.Box('f', x @ m.d, y @ m)
+>>> f = feedback.Box('f', x @ m.delay(), y @ m)
 >>> fb = f.feedback()
 
 >>> X, Y, M = [Ty.sequence(symmetric.Ty(n)) for n in "xym"]
->>> Ff = Stream.sequence("f", X @ M.d, Y @ M)
+>>> Ff = Stream.sequence("f", X @ M.delay(), Y @ M)
 
 >>> F = feedback.Functor(ob_map={x: X, y: Y, m: M}, ar_map={f: Ff},
 ...                      cod=Stream)
@@ -229,18 +229,20 @@ class Ty(NamedGeneric['base']):
         """
         return cls(now=x, _later=lambda: cls())
 
-    @property
-    def d(self) -> Ty:
+    @inductive
+    def delay(self) -> Ty:
         """
         Delays a stream of types by pre-pending with the unit.
 
-        >>> XY = Ty(symmetric.Ty('x', 'y')).d
+        >>> XY = Ty(symmetric.Ty('x', 'y')).delay()
         >>> for x in [XY.now, XY.later.now, XY.later.later.now]: print(x)
         Ty()
         x @ y
         x @ y
         """
         return type(self)(self.base(), lambda: self)
+
+    d = property(lambda self: self.delay())
 
     @classmethod
     def sequence(cls, x: base, n_steps: int = 0) -> Ty:
@@ -313,7 +315,7 @@ class Stream(FeedbackCategory, NamedGeneric['category']):
     >>> T, S = Ty[python.Ty], Stream[python.Function]
     >>> x, y, m = int, bool, str
     >>> now = python.Function(lambda n: (bool(n % 2), str(n)), x, (y, m))
-    >>> dom, cod, mem = T(x), T(y), T(m).d
+    >>> dom, cod, mem = T(x), T(y), T(m).delay()
     >>> later = S(lambda n, s: (bool(n % 2), f"{s} {n}"), dom, cod, mem.later)
     >>> f = S(now, dom, cod, mem, lambda: later)
     >>> f.unroll(2).now(1, 2, 3)
@@ -401,7 +403,7 @@ class Stream(FeedbackCategory, NamedGeneric['category']):
         Example
         -------
         >>> x, y, m = [Ty.sequence(symmetric.Ty(n)) for n in "xym"]
-        >>> f = Stream.sequence("f", x @ m.d, y @ m)
+        >>> f = Stream.sequence("f", x @ m.delay(), y @ m)
         >>> for fi in [f.now, f.later.now, f.later.later.now]:
         ...     print(fi, ":", fi.dom, "->", fi.cod)
         f0 : x0 -> y0 @ m0
@@ -414,12 +416,14 @@ class Stream(FeedbackCategory, NamedGeneric['category']):
         return cls(now, dom, cod, mem, _later=lambda: cls.sequence(
             name, dom.later, cod.later, mem.later, n_steps + 1, box_factory))
 
-    @property
-    def d(self) -> Stream:
-        """ Delay a stream by one time step. """
-        dom, cod, mem = self.dom.d, self.cod.d, self.mem.d
+    @inductive
+    def delay(self) -> Stream:
+        """ Delay a stream by one time step, shortened to `self.d`. """
+        dom, cod, mem = [x.delay() for x in (self.dom, self.cod, self.mem)]
         now, _later = self.category.id(self.mem.now), lambda: self
         return type(self)(now, dom, cod, mem, _later)
+
+    d = property(lambda self: self.delay())
 
     @inductive
     def unroll(self) -> Stream:
@@ -561,7 +565,7 @@ class Stream(FeedbackCategory, NamedGeneric['category']):
         Example
         -------
         >>> x, y, m = [Ty.sequence(symmetric.Ty(n)) for n in "xym"]
-        >>> f = Stream.sequence("f", x @ m.d, y @ m)
+        >>> f = Stream.sequence("f", x @ m.delay(), y @ m)
         >>> fb = f.feedback(x, y, m)
 
         >>> from discopy.monoidal import Equation
@@ -582,7 +586,7 @@ class Stream(FeedbackCategory, NamedGeneric['category']):
 
         def _later():
             return self.later.feedback(dom.later, cod.later, mem.later, False)
-        mem = mem.d if _first_call else mem
+        mem = mem.delay() if _first_call else mem
         return type(self)(self.now, dom, cod, mem @ self.mem, _later)
 
     followed_by = id

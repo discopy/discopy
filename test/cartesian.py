@@ -1,11 +1,12 @@
-from discopy import cartesian, cat, markov, monoidal  # noqa: F401
-from discopy.abc import CartesianCategory
+from discopy import cartesian, cat, closed, markov, monoidal  # noqa: F401
+from discopy.abc import CartesianCategory, CartesianClosedCategory
 from discopy.cartesian import *
 
 
 def test_hierarchy():
     assert issubclass(Diagram, markov.Diagram)
-    assert issubclass(Diagram, CartesianCategory)
+    assert issubclass(Diagram, closed.Diagram)
+    assert issubclass(Diagram, CartesianClosedCategory)
     assert not issubclass(markov.Diagram, CartesianCategory)
 
 

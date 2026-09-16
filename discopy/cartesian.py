@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 
 """
-The free cartesian category, i.e. markov diagrams where every morphism is
-deterministic.
+The free cartesian closed category, i.e. closed diagrams with a supply of
+copy where every morphism is deterministic.
 
-For now the free diagrams are the same as :mod:`discopy.markov`: the
-naturality of copy — ``f >> Diagram.copy(f.cod) == Diagram.copy(f.dom)
+The naturality of copy — ``f >> Diagram.copy(f.cod) == Diagram.copy(f.dom)
 >> f @ f`` — is the axiom that distinguishes
-:class:`discopy.abc.CartesianCategory`, to be checked with property
-testing. The main example is :class:`discopy.python.Function`.
+:class:`discopy.abc.CartesianCategory` from a Markov category, to be
+checked once property testing reaches this level of the hierarchy. The
+main example is :class:`discopy.python.Function`.
 
 Summary
 -------
@@ -25,6 +25,9 @@ Summary
     Copy
     Merge
     Discard
+    Eval
+    Coeval
+    Curry
     Functor
     Constant
     Variable
@@ -41,59 +44,78 @@ Example
 
 from __future__ import annotations
 
-from discopy import markov, cmap, hypergraph
-from discopy.abc import CartesianCategory
+from discopy import closed, markov, cmap, hypergraph
+from discopy.abc import CartesianClosedCategory
 from discopy.cat import factory
-from discopy.monoidal import Ty  # noqa: F401
+from discopy.closed import Ty  # noqa: F401
 
 
 @factory
-class Diagram(markov.Diagram, CartesianCategory):
+class Diagram(markov.Diagram, closed.Diagram, CartesianClosedCategory):
     """
-    A cartesian diagram is a markov diagram whose boxes are read as
-    deterministic morphisms.
+    A cartesian diagram is a markov diagram which is also closed, whose
+    boxes are read as deterministic morphisms.
 
     Parameters:
         inside(Layer) : The layers inside the diagram.
-        dom (monoidal.Ty) : The domain of the diagram, i.e. its input.
-        cod (monoidal.Ty) : The codomain of the diagram, i.e. its output.
+        dom (closed.Ty) : The domain of the diagram, i.e. its input.
+        cod (closed.Ty) : The codomain of the diagram, i.e. its output.
     """
+    ob = Ty
 
 
-class Box(markov.Box, Diagram):
+class Box(markov.Box, closed.Box, Diagram):
     """
-    A cartesian box is a markov box in a cartesian diagram.
+    A cartesian box is a markov and closed box in a cartesian diagram.
 
     Parameters:
         name (str) : The name of the box.
-        dom (monoidal.Ty) : The domain of the box, i.e. its input.
-        cod (monoidal.Ty) : The codomain of the box, i.e. its output.
+        dom (closed.Ty) : The domain of the box, i.e. its input.
+        cod (closed.Ty) : The codomain of the box, i.e. its output.
     """
 
 
-class Permutation(markov.Permutation, Box):
+class Permutation(markov.Permutation, closed.Permutation, Box):
     "A permutation in a cartesian diagram."
 
 
-class Swap(Permutation, markov.Swap, Box):
+class Swap(Permutation, markov.Swap, closed.Swap, Box):
     "A swap in a cartesian diagram."
 
 
 class Copy(markov.Copy, Box):
     "A copy in a cartesian diagram."
 
+    def dagger(self) -> Merge:
+        return Merge(self.dom, len(self.cod))
+
 
 class Merge(markov.Merge, Box):
     "A merge in a cartesian diagram."
+
+    def dagger(self) -> Copy:
+        return Copy(self.cod, len(self.dom))
 
 
 class Discard(markov.Discard, Copy):
     "A discard in a cartesian diagram."
 
 
-class Sum(markov.Sum, Box):
+class Eval(closed.Eval, Box):
+    "The evaluation of an exponential type in a cartesian diagram."
+
+
+class Coeval(closed.Coeval, Box):
+    "The coevaluation of an exponential type in a cartesian diagram."
+
+
+class Curry(closed.Curry, Box):
+    "The currying of a cartesian diagram."
+
+
+class Sum(markov.Sum, closed.Sum, Box):
     """
-    A cartesian sum is a markov sum in a cartesian diagram.
+    A cartesian sum is a markov and closed sum in a cartesian diagram.
 
     Parameters:
         terms (tuple[Diagram, ...]) : The terms of the formal sum.
@@ -102,13 +124,13 @@ class Sum(markov.Sum, Box):
     """
 
 
-class Functor(markov.Functor):
+class Functor(markov.Functor, closed.Functor):
     """
-    A cartesian functor is a markov functor between cartesian categories.
+    A cartesian functor is a markov and closed functor between cartesian
+    closed categories.
 
     Parameters:
-        ob_map (Mapping[monoidal.Ty, monoidal.Ty]) :
-            Map from :class:`monoidal.Ty` to :code:`cod.ob`.
+        ob_map (Mapping[Ty, Ty]) : Map from :class:`Ty` to :code:`cod.ob`.
         ar_map (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) :
             The codomain, :code:`Diagram` by default.
@@ -144,11 +166,12 @@ class Application(markov.Application, TermBase):
     whereas the markov evaluation samples ``g`` once per occurrence:
 
     >>> from discopy import markov
-    >>> mx = markov.Variable('x', X)
-    >>> mg = markov.Constant('g', X, Y)
-    >>> mf = markov.Constant('f', Y @ Y, Z)
+    >>> mX, mY, mZ = map(markov.Ty, "XYZ")
+    >>> mx = markov.Variable('x', mX)
+    >>> mg = markov.Constant('g', mX, mY)
+    >>> mf = markov.Constant('f', mY @ mY, mZ)
     >>> assert mf(mg(mx), mg(mx)).eval() == (
-    ...     markov.Copy(X) >> mg @ mg >> mf)
+    ...     markov.Copy(mX) >> mg @ mg >> mf)
     """
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
@@ -199,6 +222,9 @@ Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.swap_factory = Swap
 Diagram.permutation_factory = Permutation
 Diagram.discard_factory = Discard
+Diagram.curry_factory = Curry
+Diagram.eval_factory = Eval
+Diagram.coeval_factory = Coeval
 Diagram.sum_factory = Sum
 TermBase.functor = Functor.id(Diagram)
 TermBase.application_factory = Application

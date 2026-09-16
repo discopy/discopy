@@ -384,7 +384,7 @@ class DelayedMonoid[C0, C1: DelayedMonoid](ColouredMonoid[C0, C1]):
 class FeedbackCategory[C0: DelayedMonoid, C1](MonoidalCategory[C0, C1]):
     """
     A feedback category is a :class:`MonoidalCategory` whose objects are a
-    :class:`DelayedMonoid`, with a delay endofunctor :attr:`d` and a
+    :class:`DelayedMonoid`, with a :code:`delay` endofunctor and a
     :code:`feedback` operator.
 
     The free feedback category :mod:`discopy.feedback` is built on top of a
@@ -392,10 +392,14 @@ class FeedbackCategory[C0: DelayedMonoid, C1](MonoidalCategory[C0, C1]):
     monoidal category, so that :class:`TracedCategory` can implement it
     with a trivial delay.
     """
-    @property
     @abstractmethod
-    def d(self) -> C1:
-        """ The delay endofunctor applied to a morphism, one time step. """
+    def delay(self, n_steps: int = 1) -> C1:
+        """
+        The delay endofunctor applied to a morphism.
+
+        Parameters:
+            n_steps : The number of time steps to delay.
+        """
 
     @abstractmethod
     def feedback(self, dom: C0 = None, cod: C0 = None, mem: C0 = None) -> C1:
@@ -433,9 +437,13 @@ class TracedCategory[C0, C1](FeedbackCategory[C0, C1]):
         return self if n == 0\
             else self.trace_factory(self, left).trace(n - 1, left)
 
-    @property
-    def d(self) -> C1:
-        """ The delay of a traced category is trivial, i.e. the identity. """
+    def delay(self, n_steps: int = 1) -> C1:
+        """
+        The delay of a traced category is trivial, i.e. the identity.
+
+        Parameters:
+            n_steps : The number of time steps to delay.
+        """
         return self
 
     def feedback(self, dom: C0 = None, cod: C0 = None, mem: C0 = None) -> C1:
@@ -759,6 +767,14 @@ class ClosedCategory[C0, C1](
         BiclosedCategory[C0, C1], SymmetricCategory[C0, C1]):
     """
     A closed category is a symmetric :class:`BiclosedCategory`.
+    """
+
+
+class CartesianClosedCategory[C0, C1](
+        CartesianCategory[C0, C1], ClosedCategory[C0, C1]):
+    """
+    A cartesian closed category is a :class:`CartesianCategory` which is
+    also a :class:`ClosedCategory`.
     """
 
 

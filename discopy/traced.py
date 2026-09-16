@@ -117,7 +117,7 @@ Dinaturality
 Feedback
 ========
 
->>> assert f.d == f and x.d == x
+>>> assert f.delay() == f and x.delay() == x
 >>> assert f.feedback() == f.trace()
 >>> assert f.feedback(mem=x @ x) == f.trace(n=2)
 """
@@ -131,8 +131,7 @@ from discopy.cat import factory
 
 class Wire(feedback.Wire):
     """ A traced wire is a feedback wire with a trivial delay. """
-    @property
-    def d(self) -> Wire:
+    def delay(self, n_steps: int = 1) -> Wire:
         return self
 
 
@@ -141,8 +140,7 @@ class Ty(feedback.Ty):
     """ A traced type is a feedback type with a trivial delay. """
     generator_factory = Wire
 
-    @property
-    def d(self) -> Ty:
+    def delay(self, n_steps: int = 1) -> Ty:
         return self
 
 
@@ -182,9 +180,13 @@ class Diagram(feedback.Diagram, TracedCategory):
         """
         return TracedCategory.trace(self, n, left)
 
-    @property
-    def d(self) -> Diagram:
-        """ The delay of a traced diagram is trivial, i.e. the identity. """
+    def delay(self, n_steps: int = 1) -> Diagram:
+        """
+        The delay of a traced diagram is trivial, i.e. the identity.
+
+        Parameters:
+            n_steps : The number of time steps to delay.
+        """
         return self
 
     feedback = TracedCategory.feedback
@@ -199,7 +201,7 @@ class Box(feedback.Box, Diagram):
         dom (Ty) : The domain of the box, i.e. its input.
         cod (Ty) : The codomain of the box, i.e. its output.
     """
-    d = Diagram.d
+    delay = Diagram.delay
 
 
 class Trace(monoidal.Trace, Box):

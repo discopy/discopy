@@ -8,17 +8,16 @@ def test_delayed_monoid():
     from discopy.abc import DelayedMonoid
     x = Ty('x')
     assert isinstance(x, DelayedMonoid)
-    assert x.d == Ty(Wire('x', time_step=1))
-    assert x.d.d == Ty(Wire('x', time_step=2))
+    assert x.d == x.delay() and x.d.d == x.delay(2)
 
 
 def test_invalid_inputs():
     with raises(NotImplementedError):
-        Wire('x', time_step=-1)
+        Ty('x').delay(-1)
     with raises(ValueError):
-        HeadOb(Wire('x').d)
+        HeadOb(Wire('x').delay())
     with raises(ValueError):
-        TailOb(Wire('x').d)
+        TailOb(Wire('x').delay())
 
 
 def test_functor_python_stream():
@@ -31,10 +30,10 @@ def test_functor_python_stream():
     assert F(wait @ zero).unroll(2).now(1, 2, 3) == (0, ) + (1, 0) + (2, 0) + (3, )
 
 
-def test_Permutation_d():
+def test_Permutation_delay():
     x, y, z = map(Ty, "xyz")
     perm = Permutation(x @ y @ z, [2, 0, 1])
-    assert perm.d == Permutation((x @ y @ z).d, [2, 0, 1])
-    assert perm.d.d == Permutation((x @ y @ z).d.d, [2, 0, 1])
-    assert (perm >> Swap(z, x) @ y).d\
-        == perm.d >> Swap(z, x).d @ y.d
+    assert perm.delay() == Permutation((x @ y @ z).delay(), [2, 0, 1])
+    assert perm.delay(2) == perm.delay().delay()
+    assert (perm >> Swap(z, x) @ y).delay()\
+        == perm.delay() >> Swap(z, x).delay() @ y.delay()

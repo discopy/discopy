@@ -29,7 +29,7 @@ from collections.abc import Callable
 from itertools import accumulate
 from typing import Self
 
-from discopy.abc import CartesianCategory, ClosedCategory
+from discopy.abc import CartesianClosedCategory
 from discopy.utils import assert_isinstance, tuplify, untuplify, factory
 from discopy.python import finset, function
 from discopy.python.function import Ty
@@ -48,7 +48,7 @@ def exp(base: Ty, exponent: Ty) -> Ty:
 
 
 @factory
-class Function(function.Function, ClosedCategory, CartesianCategory):
+class Function(function.Function, CartesianClosedCategory):
     """
     Python function with tuple as tensor.
 

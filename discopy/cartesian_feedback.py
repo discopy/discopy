@@ -2,14 +2,7 @@
 
 """
 The free cartesian feedback category, i.e. feedback diagrams with a supply
-of copy, e.g. to output a stream and feed it back at once.
-
-The module is the meet of :mod:`discopy.feedback` and
-:mod:`discopy.cartesian`: every class is a subclass of its two namesakes
-and the module ends with the factory assignments. There is nothing else to
-define because every generator refers to the others through a factory
-resolved on the instance — e.g. :meth:`discopy.markov.Copy.dagger` builds
-`self.merge_factory` — so that the reference lands back in this module.
+of :class:`Copy` and :class:`Merge` borrowed from :mod:`discopy.markov`.
 
 Summary
 -------
@@ -21,33 +14,30 @@ Summary
 
     Diagram
     Box
-    Permutation
     Swap
     Copy
     Merge
     Discard
-    Head
-    Tail
-    Feedback
-    FollowedBy
     Functor
 """
 
 from __future__ import annotations
 
-from discopy import cartesian, feedback, hypergraph
+from discopy import markov, feedback, hypergraph
+from discopy.abc import CartesianCategory
 from discopy.cat import factory
 from discopy.feedback import Ty, Wire, HeadOb, TailOb  # noqa: F401
 
 
 @factory
-class Diagram(feedback.Diagram, cartesian.Diagram):
+class Diagram(feedback.Diagram, markov.Diagram, CartesianCategory):
     """
     A cartesian feedback diagram is a feedback diagram with a supply of
-    :class:`Copy`.
+    :class:`Copy` read as deterministic, e.g. to output a stream and feed
+    it back at once.
 
     Parameters:
-        inside(Layer) : The layers inside the diagram.
+        inside(monoidal.Layer) : The layers inside the diagram.
         dom (Ty) : The domain of the diagram, i.e. its input.
         cod (Ty) : The codomain of the diagram, i.e. its output.
 
@@ -57,7 +47,7 @@ class Diagram(feedback.Diagram, cartesian.Diagram):
     >>> zero = Box('0', Ty(), x.head)
     >>> rand = Box('rand', Ty(), x)
     >>> plus = Box('+', x @ x, x)
-    >>> walk = (rand.d @ x.d >> zero @ plus.d
+    >>> walk = (rand.delay() @ x.delay() >> zero @ plus.delay()
     ...         >> FollowedBy(x) >> Copy(x)).feedback()
     >>> walk.draw(doctest="docs/_static/feedback/feedback-random-walk.svg")
 
@@ -66,8 +56,18 @@ class Diagram(feedback.Diagram, cartesian.Diagram):
     """
     ob = Ty
 
+    @property
+    def head(self):
+        """ Syntactic sugar for :class:`Head`. """
+        return Head(self)
 
-class Box(feedback.Box, cartesian.Box, Diagram):
+    @property
+    def tail(self):
+        """ Syntactic sugar for :class:`Tail`. """
+        return Tail(self)
+
+
+class Box(feedback.Box, markov.Box, Diagram):
     """
     A cartesian feedback box is a feedback box in a cartesian feedback
     diagram.
@@ -87,24 +87,60 @@ class Swap(feedback.Swap, Permutation):
     "A swap in a cartesian feedback diagram."
 
 
-class Copy(cartesian.Copy, Box):
-    "The copy of an atomic feedback type some number of times."
+class Copy(Box, markov.Copy):
+    """
+    The copy of an atomic type :code:`x` some :code:`n` number of times.
 
-    @property
-    def d(self) -> Copy:
-        return type(self)(self.dom.d, len(self.cod))
+    The :class:`Box` comes first so that ``factory`` resolves to
+    :class:`Diagram` rather than :class:`markov.Diagram`.
+
+    Parameters:
+        x : The type to copy.
+        n : The number of copies.
+    """
+    def __init__(self, x: Ty, n: int = 2):
+        markov.Copy.__init__(self, x, n)
+        Box.__init__(self, self.name, self.dom, self.cod)
+
+    def dagger(self) -> Merge:
+        return Merge(self.dom, len(self.cod))
+
+    __repr__ = markov.Copy.__repr__
+
+    def delay(self, n_steps=1):
+        return type(self)(self.dom.delay(n_steps), len(self.cod))
 
 
-class Merge(cartesian.Merge, Box):
-    "The merge of an atomic feedback type some number of times."
+class Merge(Box, markov.Merge):
+    """
+    The merge of an atomic type :code:`x` some :code:`n` number of times.
 
-    @property
-    def d(self) -> Merge:
-        return type(self)(self.cod.d, len(self.dom))
+    Parameters:
+        x : The type of wires to merge.
+        n : The number of wires to merge.
+    """
+    def __init__(self, x: Ty, n: int = 2):
+        markov.Merge.__init__(self, x, n)
+        Box.__init__(self, self.name, self.dom, self.cod)
+
+    def dagger(self) -> Copy:
+        return Copy(self.cod, len(self.dom))
+
+    __repr__ = markov.Merge.__repr__
+
+    def delay(self, n_steps=1):
+        return type(self)(self.cod.delay(n_steps), len(self.dom))
 
 
-class Discard(cartesian.Discard, Copy):
-    "The discard of an atomic feedback type."
+class Discard(Copy):
+    """
+    The discard of an atomic type :code:`x`.
+
+    Parameters:
+        x : The type to discard.
+    """
+    def __init__(self, x: Ty, *args, **kwargs):
+        super().__init__(x, 0)
 
 
 class Head(feedback.Head, Box):
@@ -116,14 +152,14 @@ class Tail(feedback.Tail, Box):
 
 
 class Feedback(feedback.Feedback, Box):
-    "The feedback bubble of a cartesian feedback diagram."
+    "The feedback bubble on a cartesian feedback diagram."
 
 
 class FollowedBy(feedback.FollowedBy, Box):
-    "The isomorphism between `x.head @ x.tail.d` and `x`."
+    "The isomorphism between `x.head @ x.tail.delay()` and `x`."
 
 
-class Functor(feedback.Functor, cartesian.Functor):
+class Functor(feedback.Functor, markov.Functor):
     """
     A cartesian feedback functor is a feedback functor that also preserves
     copies.
@@ -131,7 +167,8 @@ class Functor(feedback.Functor, cartesian.Functor):
     Parameters:
         ob_map (Mapping[Ty, Ty]) : Map from :class:`Ty` to :code:`cod.ob`.
         ar_map (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
-        cod (Category) : The codomain, :code:`Diagram` by default.
+        cod (Category) :
+            The codomain, :code:`Diagram` by default.
     """
     dom = cod = Diagram
 
@@ -141,7 +178,6 @@ Diagram.swap_factory = Swap
 Diagram.permutation_factory = Permutation
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.discard_factory = Discard
-Diagram.head_factory, Diagram.tail_factory = Head, Tail
 Diagram.feedback_factory, Diagram.followed_by = Feedback, FollowedBy
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Id = Diagram.id
