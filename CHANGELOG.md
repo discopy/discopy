@@ -651,10 +651,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   [#652](https://github.com/discopy/discopy/issues/652)'s bug at all; the
   record passed because the replay's `xfail` accepted any exception, and
   it now names the exceptions it expects.
-- `Matrix.braid` is a `classproperty` reading `cls.swap` off the
-  subclass, instead of a static binding of the integer-typed
-  `Matrix.swap` that a subclass swapping other objects — `Tensor` on
-  `Dim`s — would silently inherit.
+- `Matrix.braid` is inherited from `abc.SymmetricCategory`, whose
+  classmethod reads `cls.swap` off the subclass, instead of a static
+  binding of the integer-typed `Matrix.swap` that a subclass swapping
+  other objects — `Tensor` on `Dim`s — would silently inherit.
 - `Hypergraph.to_graph` keyed spider nodes by the boundary's object
   rather than the spider's own type, creating a phantom attributeless
   node whenever a boundary wire reads an adjoint of its spider type, so

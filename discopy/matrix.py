@@ -49,12 +49,12 @@ from discopy.cat import (
     assert_isparallel,
 )
 from discopy.axioms import C0, Subsingleton, Testable
-from discopy.utils import assert_isinstance, classproperty, unbiased
+from discopy.utils import assert_isinstance, unbiased
 
 if TYPE_CHECKING:
     import sympy
 
-WRONG_COPY = "``Matrix.copy(x, n)`` is wrong for ``x, n >= 2``, see #652."
+WRONG_COPY = "Matrix.copy(x, n) is wrong for x, n >= 2 (#652)."
 
 
 @factory
@@ -334,8 +334,6 @@ class Matrix(MarkovCategory, Testable["Matrix"], NamedGeneric["dtype"]):
         array[left:, :right] = Matrix.id(right).array
         return cls(array, dom, cod)
 
-    braid = classproperty(lambda cls: cls.swap)
-
     def transpose(self) -> Matrix:
         return type(self)(self.array.transpose(), self.cod, self.dom)
 
@@ -445,16 +443,17 @@ class Matrix(MarkovCategory, Testable["Matrix"], NamedGeneric["dtype"]):
 
     copy_counitality = MarkovCategory.copy_counitality.failing(WRONG_COPY)
 
-    copy_monoidal_coherence = \
-        MarkovCategory.copy_monoidal_coherence.failing(WRONG_COPY)
+    copy_monoidal_coherence = (
+        MarkovCategory.copy_monoidal_coherence.failing(WRONG_COPY))
 
     #: The copy laws hold below dimension two, where the coherence does
     #: not: ``copy(x @ x)`` reaches dimension two from atomic ``x``.
-    copy_cocommutativity_small = \
-        MarkovCategory.copy_cocommutativity.weaken(x=Subsingleton[C0])
+    copy_cocommutativity_small = (
+        MarkovCategory.copy_cocommutativity.weaken(x=Subsingleton[C0]))
 
-    copy_counitality_small = \
-        MarkovCategory.copy_counitality.weaken(x=Subsingleton[C0])
+    #: Counitality too: it copies ``x`` alone, so it stays in the subspace.
+    copy_counitality_small = (
+        MarkovCategory.copy_counitality.weaken(x=Subsingleton[C0]))
 
 
 def array2string(array, **params):
