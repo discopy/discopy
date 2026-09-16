@@ -103,3 +103,120 @@ def test_wire_tree_roundtrip():
     with warns(DeprecationWarning):
         assert from_tree({'factory': 'discopy.frobenius.Ob', 'name': 'x'})\
             == frobenius.Wire('x')
+
+
+def test_generators():
+    from discopy import cat, closed
+    assert attributes(cat.Box)['generator_factory'] == (cat.Arrow, cat.Box)
+    assert generators(cat.Arrow) == {
+        'generator_factory': cat.Box,
+        'sum_factory': cat.Sum,
+        'bubble_factory': cat.Bubble}
+    assert set(generators(closed.Diagram)) == {
+        'generator_factory', 'sum_factory', 'bubble_factory',
+        'swap_factory', 'permutation_factory', 'trace_factory',
+        'copy_factory', 'merge_factory', 'discard_factory',
+        'curry_factory', 'eval_factory', 'coeval_factory'}
+    assert 'braid_factory' not in generators(closed.Diagram)
+    assert closed.Diagram.braid_factory is closed.Swap
+
+
+def test_Factory_bases():
+    from discopy import markov, closed, symmetric, ribbon, compact, frobenius
+    from discopy import tensor
+    assert closed.Swap.__bases__ == (
+        markov.Swap, closed.Permutation, closed.Box, closed.Diagram)
+    assert closed.Discard.__bases__ == (
+        markov.Discard, closed.Copy, closed.Box, closed.Diagram)
+    assert compact.Swap.__bases__ == (
+        symmetric.Swap, ribbon.Braid, compact.Permutation, compact.Box,
+        compact.Diagram)
+    assert frobenius.Swap.__bases__[:2] == (compact.Swap, markov.Swap)
+    assert issubclass(tensor.Swap, tensor.Permutation)
+    assert closed.Swap.__module__ == "discopy.closed"
+    assert closed.Swap.__name__ == closed.Swap.__qualname__ == "Swap"
+    assert factory_name(closed.Swap) == "closed.Swap"
+
+
+def test_Factory_override():
+    from discopy import symmetric, tensor
+
+    @factory
+    class Recipe(symmetric.Diagram):
+        pass
+
+    class Step(symmetric.Box, Recipe):
+        pass
+
+    Recipe.generator_factory = Step
+    assert Recipe.generator_factory is Step
+    assert Recipe.swap_factory.__bases__ == (
+        symmetric.Swap, Recipe.permutation_factory, Step, Recipe)
+    assert Recipe.swap_factory is Recipe.swap_factory
+
+    class Undecorated(Recipe):
+        pass
+
+    assert Undecorated.swap_factory is Recipe.swap_factory
+    assert tensor.Diagram[complex].swap_factory is tensor.Swap
+
+
+MODULES = [
+    "braided", "traced", "balanced", "symmetric", "markov", "closed",
+    "biclosed", "rigid", "pivotal", "ribbon", "compact", "frobenius",
+    "feedback", "tensor", "grammar.pregroup", "grammar.categorial"]
+
+
+def structure(module):
+    """ Every generator a level builds through its public methods. """
+    from importlib import import_module
+    from discopy import abc, monoidal
+    module = import_module(f"discopy.{module}")
+    D = module.Diagram
+    x, y = (D.ob(2), D.ob(3)) if issubclass(D.ob, monoidal.Dim)\
+        else (D.ob('x'), D.ob('y'))
+    f = module.Box('f', x @ x, x @ x)
+    terms = [f.bubble(), f + f]
+    if issubclass(D, abc.TracedCategory):
+        terms.append(f.trace())
+    if issubclass(D, abc.BraidedCategory):
+        terms.append(D.braid(x, y))
+    if issubclass(D, abc.BalancedCategory):
+        terms.append(D.twist(x))
+    if issubclass(D, abc.SymmetricCategory):
+        terms += [D.swap(x, y), D.permutation([1, 0], [x, y])]
+    if issubclass(D, abc.MarkovCategory):
+        terms += [D.copy(x), D.merge(x), D.discard(x)]
+    if issubclass(D, abc.BiclosedCategory):
+        terms += [f.curry(), D.ev(x, y)]
+    if issubclass(D, abc.RigidCategory):
+        terms += [D.cups(x, x.r), D.caps(x.r, x)]
+    if issubclass(D, abc.HypergraphCategory):
+        terms.append(D.spiders(1, 2, x))
+    return D, terms
+
+
+@pytest.mark.parametrize("module", MODULES)
+def test_Factory_exports(module):
+    """
+    Every generator a level builds is a diagram of that level, defined in
+    its module under its own name, so that its representation and its
+    pickle can find it.
+    """
+    import sys
+    D, terms = structure(module)
+    for term in terms:
+        for cls in {type(term)} | {type(box) for box in term.boxes}:
+            assert issubclass(cls, D)
+            assert getattr(sys.modules[cls.__module__], cls.__name__) is cls
+            assert pickle.loads(pickle.dumps(cls)) is cls
+
+
+@pytest.mark.parametrize("module", MODULES)
+def test_Factory_roots(module):
+    """ Every generator, built or written by hand, extends all its roots. """
+    D, _ = structure(module)
+    for name in generators(D):
+        generator = getattr(D, name)
+        assert all(issubclass(generator, root)
+                   for root in Factory(D, name).roots())

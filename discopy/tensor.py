@@ -782,7 +782,7 @@ Swap, Spider, Sum = (
     Diagram.swap_factory, Diagram.spider_factory, Diagram.sum_factory)
 
 
-class Bubble(monoidal.Bubble, Box):
+class Bubble(frobenius.Bubble, Box):
     """
     Bubble in a tensor diagram, applies a function elementwise.
 

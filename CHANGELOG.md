@@ -9,6 +9,49 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- The generators of a category are defined once, where their structure is
+  introduced, and built for every level below: `utils.factory` gives the
+  class it decorates, besides `cls.factory = cls`, its own subclass of every
+  generator it inherits, i.e. every class attribute of its bases whose
+  value is a subclass of the class defining it (`swap_factory`,
+  `cup_factory`, `bubble_factory`, `feedback.Diagram.followed_by`, ...),
+  as a `utils.Factory` descriptor that builds it on first access and
+  assigns it in place. The built generator extends the values of the
+  attribute on each base, under that name or under a class property of
+  the base reading the same generator (the `braid_factory` of a symmetric
+  diagram is its `swap_factory`, so `compact.Swap` is still a
+  `ribbon.Braid`), then the generators of the class that those roots
+  already extend (a `Swap` is a `Permutation`, a `Discard` a `Copy`), then
+  the class itself. It takes its name from the first root and its module
+  from the class, so that a level defines it as `Swap = Diagram.swap_factory`
+  where it used to write `class Swap(markov.Swap, Box)` and assign
+  `Diagram.swap_factory = Swap` at the bottom; the assignment idiom stays
+  for the generators with behaviour of their own, right after their
+  definition, and is never built if it comes first. `utils.generators`
+  lists the generators of a class by name and `utils.attributes` its class
+  attributes with the class defining each, along the method resolution
+  order, so that an attribute a level redefines as anything else — the
+  `trace_factory` of a pivotal diagram is a class method building cups and
+  caps, the `twist_factory` of a symmetric one the identity — is not a
+  generator of that level nor of the ones below. Fifty-six trivial
+  subclasses go, and the generators every level used to inherit from
+  the wrong one are now its own: `f.bubble()`, `f + f`, `f.trace()`,
+  `Diagram.copy(x)` and `Diagram.merge(x)` are diagrams of the level of
+  `f` at every level, where a symmetric bubble used to be a
+  `monoidal.Bubble`, a frobenius sum a `symmetric.Sum` that cannot rotate
+  and a closed merge a `markov.Merge`, none of which composes with the
+  diagram it came from; `markov.Copy.dagger` and `markov.Merge.dagger` go
+  through `merge_factory` and `copy_factory` for it. Every module exports
+  the generators its diagrams build by name, `cat.Arrow` type-checks its
+  boxes itself so that `monoidal.Diagram.generator_factory` is
+  `monoidal.Box` rather than `cat.Box`, `pivotal.Box` is a `traced.Box`
+  as `pivotal.Diagram` is a `traced.Diagram`, `tensor.Bubble` is a
+  `frobenius.Bubble`, `compact.Diagram.trace_factory` is the pivotal class
+  method bound to compact diagrams rather than to ribbon ones, and
+  `closed.Diagram.is_linear` reads its boxes rather than an `is_linear`
+  flag on `closed.Box` and `closed.Copy`, which are built like the rest.
+  The README's recipes get their steps and swaps from `Recipe` the same
+  way.
 - `monoidal.List`, the free monoid on a generator type: `List[X]` is a
   tuple of instances of `X` with concatenation as `tensor` and the empty
   list as unit, an `abc.Monoid` parameterised as

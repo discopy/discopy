@@ -184,7 +184,7 @@ class Copy(Box):
             cls.discard_factory.__new__(cls.discard_factory, x)
 
     def dagger(self) -> Merge:
-        return Merge(self.dom, len(self.cod))
+        return self.merge_factory(self.dom, len(self.cod))
 
     def __repr__(self):
         return (
@@ -208,8 +208,8 @@ class Merge(Box):
         Box.__init__(self, name, dom=x ** n, cod=x,
                      draw_as_spider=True, color="black", drawing_name="")
 
-    def dagger(self) -> Merge:
-        return Copy(self.cod, len(self.dom))
+    def dagger(self) -> Copy:
+        return self.copy_factory(self.cod, len(self.dom))
 
     def __repr__(self):
         return (
