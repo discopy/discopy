@@ -237,9 +237,9 @@ class Diagram(closed.Diagram):
         """
         The abstract diagram of a categorial diagram, or the abstract term of
         a categorial term, dropping planarity: left and right exponentials
-        collapse, words become constants, crossed compositions become
-        compositions and the composition and type-raising terms become
-        lambda terms.
+        collapse, constants stay constants and words become boxes, crossed
+        compositions become compositions and the composition and type-raising
+        terms become lambda terms.
 
         Parameters:
             diagram : The categorial diagram or term to translate.
@@ -255,7 +255,8 @@ class Diagram(closed.Diagram):
         functor = categorial.Functor(
             ob_map=lambda x: cls.ob(x.inside[0].name),
             ar_map=lambda box: cls.ob.constant_factory(
-                box.name, functor(box.cod)) if not box.dom
+                box.name, functor(box.cod))
+            if isinstance(box, categorial.Constant)
             else Box(box.name, functor(box.dom), functor(box.cod)),
             cod=cls)
         return functor(diagram)

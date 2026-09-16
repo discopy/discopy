@@ -102,6 +102,8 @@ def test_from_categorial():
         >> N @ Diagram.fa(N >> S, N) >> Diagram.ba(N, S)
     word = categorial.Word("Alice", n, dom=n)
     assert Diagram.from_categorial(word) == Box("Alice", N, N)
+    assert Diagram.from_categorial(categorial.Word("Bob", n))\
+        == Box("Bob", Ty(), N) != N("Bob")
 
 
 def test_crossed_composition_requires_symmetry():
