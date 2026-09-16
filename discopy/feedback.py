@@ -579,8 +579,7 @@ class Feedback(monoidal.Bubble, Box):
             raise AxiomError
         self.mem, self.left = mem, left
         monoidal.Bubble.__init__(self, arg, dom=dom, cod=cod)
-        self.generator_factory.__init__(
-            self, self.name, dom, cod)
+        self.generator_factory.__init__(self, self.name, dom, cod)
 
     def delay(self, n_steps=1):
         return type(self)(self.arg.delay(n_steps), mem=self.mem.delay(n_steps))

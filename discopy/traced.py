@@ -200,8 +200,7 @@ class Trace(Box, monoidal.Bubble):
         dom, cod = (arg.dom[1:], arg.cod[1:]) if left\
             else (arg.dom[:-1], arg.cod[:-1])
         monoidal.Bubble.__init__(self, arg, dom=dom, cod=cod)
-        self.generator_factory.__init__(
-            self, name, dom, cod)
+        self.generator_factory.__init__(self, name, dom, cod)
 
     def __str__(self):
         return self.name

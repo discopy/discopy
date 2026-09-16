@@ -156,8 +156,7 @@ class ForwardCrossedComposition(BinaryBoxConstructor, Box):
                 left, right, left.exponent, right.base))
         name = f"ForwardCrossedComposition({left}, {right})"
         dom, cod = left @ right, right.exponent >> left.base
-        self.generator_factory.__init__(
-            self, name, dom, cod)
+        self.generator_factory.__init__(self, name, dom, cod)
         BinaryBoxConstructor.__init__(self, left, right)
 
 
@@ -171,8 +170,7 @@ class BackwardCrossedComposition(BinaryBoxConstructor, Box):
                 left, right, left.base, right.exponent))
         name = f"BackwardCrossedComposition({left}, {right})"
         dom, cod = left @ right, right.base << left.exponent
-        self.generator_factory.__init__(
-            self, name, dom, cod)
+        self.generator_factory.__init__(self, name, dom, cod)
         BinaryBoxConstructor.__init__(self, left, right)
 
 

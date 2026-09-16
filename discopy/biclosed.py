@@ -437,8 +437,7 @@ class Curry(monoidal.Bubble, Box):
             dom, cod = arg.dom[n:], arg.dom[:n] >> arg.cod
         monoidal.Bubble.__init__(
             self, arg, dom=dom, cod=cod, drawing_name="$\\Lambda$")
-        self.generator_factory.__init__(
-            self, name, dom, cod)
+        self.generator_factory.__init__(self, name, dom, cod)
 
     def __str__(self):
         return self.name

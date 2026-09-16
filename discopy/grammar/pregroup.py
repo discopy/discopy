@@ -210,8 +210,7 @@ class Word(thue.Word, Box):
     """
     def __init__(self, name: str, cod: rigid.Ty, dom: rigid.Ty = Ty(),
                  **params):
-        self.generator_factory.__init__(
-            self, name, dom, cod, **params)
+        self.generator_factory.__init__(self, name, dom, cod, **params)
 
     def __repr__(self):
         extra = f", dom={repr(self.dom)}" if self.dom else ""
