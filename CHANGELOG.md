@@ -60,8 +60,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   own since its method resolution order reaches the pivotal one before the
   traced generator, and `closed.Diagram.is_linear` reads its boxes rather
   than an `is_linear` flag on `closed.Box` and `closed.Copy`, which are
-  built like the rest. The README's recipes get their steps and swaps from
-  `Recipe` the same way.
+  built like the rest.
 - `monoidal.List`, the free monoid on a generator type: `List[X]` is a
   tuple of instances of `X` with concatenation as `tensor` and the empty
   list as unit, an `abc.Monoid` parameterised as

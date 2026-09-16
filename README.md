@@ -66,7 +66,7 @@ This example is inspired from Pawel Sobocinski's blog post [Crema di Mascarpone 
 
 ```python
 from discopy.utils import factory
-from discopy.symmetric import Ty, Box, Diagram
+from discopy.symmetric import Ty, Box, Diagram, Permutation, Swap
 
 @factory
 class Ingredient(Ty):
@@ -76,8 +76,17 @@ class Ingredient(Ty):
 class Recipe(Diagram):
   ob = Ingredient
 
-# The decorator builds the boxes and swaps of recipes from those of diagrams.
-CookingStep, CookingSwap = Recipe.generator_factory, Recipe.swap_factory
+class CookingStep(Box, Recipe):
+  "A cooking step is a box in a recipe diagram."
+
+class CookingPermutation(Permutation, CookingStep):
+  "A permutation of ingredients."
+
+class CookingSwap(CookingPermutation, Swap, CookingStep):
+  "A cooking swap takes two ingredients `X @ Y` and gives `Y @ X`."
+
+Recipe.swap_factory = CookingSwap  # Recipes need to know how to swap.
+Recipe.permutation_factory = CookingPermutation
 
 egg, white, yolk = Ingredient("egg"), Ingredient("white"), Ingredient("yolk")
 crack = CookingStep("crack", egg, white @ yolk)
