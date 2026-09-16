@@ -409,19 +409,17 @@ class Closed(Symmetric, ClosedCategory):
 class Feedback(Markov, FeedbackCategory):
     """
     Parametric maps over a feedback underlying `category` form a feedback
-    category, with :meth:`delay` applied to all five components.
+    category, with the delay :attr:`d` applied to all five components.
     """
     category = feedback.Diagram
 
-    def delay(self, n_steps: int = 1) -> Feedback:
+    @property
+    def d(self) -> Feedback:
         """
         Delay a parametric map by delaying its underlying morphism together
         with its domain, codomain, parameter and coparameter spaces.
-
-        Parameters:
-            n_steps : The number of time steps to delay.
         """
-        return type(self)(*(x.delay(n_steps) for x in (
+        return type(self)(*(x.d for x in (
             self.dom, self.cod, self.inside, self.param, self.copar)))
 
     def feedback(self, dom: Symmetric.ob = None, cod: Symmetric.ob = None,
@@ -438,7 +436,7 @@ class Feedback(Markov, FeedbackCategory):
         mem = self.cod[-1:] if mem is None else mem
         dom = self.dom[:len(self.dom) - len(mem)] if dom is None else dom
         cod = self.cod[:len(self.cod) - len(mem)] if cod is None else cod
-        inside = dom @ self.category.swap(self.param, mem.delay())\
+        inside = dom @ self.category.swap(self.param, mem.d)\
             >> self.inside >> cod @ self.category.swap(mem, self.copar)
         return type(self)(
             dom, cod,

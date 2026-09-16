@@ -9,16 +9,17 @@ def test_delayed_monoid():
     from discopy.abc import DelayedMonoid
     x = Ty('x')
     assert isinstance(x, DelayedMonoid)
-    assert x.d == x.delay() and x.d.d == x.delay(2)
+    assert x.d == Ty(Wire('x', time_step=1))
+    assert x.d.d == Ty(Wire('x', time_step=2))
 
 
 def test_invalid_inputs():
     with raises(NotImplementedError):
-        Ty('x').delay(-1)
+        Wire('x', time_step=-1)
     with raises(ValueError):
-        HeadOb(Wire('x').delay())
+        HeadOb(Wire('x').d)
     with raises(ValueError):
-        TailOb(Wire('x').delay())
+        TailOb(Wire('x').d)
 
 
 def test_Diagram_repr():
@@ -28,8 +29,8 @@ def test_Diagram_repr():
     zero, one = Box('zero', Ty(), x.head), Box('one', Ty(), x.head)
     fib =  ((
             Copy(x) >> one @ Diagram.wait(x) @ x
-            >> FollowedBy(x) @ x >> plus).delay()
-        >> zero @ x.delay() >> FollowedBy(x) >> Copy(x)).feedback()
+            >> FollowedBy(x) @ x >> plus).d
+        >> zero @ x.d >> FollowedBy(x) >> Copy(x)).feedback()
     assert eval(str(fib)) == fib
     assert eval(repr(fib)) == fib
 
@@ -97,10 +98,10 @@ def test_fibonacci():
     assert F(fib).unroll(9).now()[:10] == (0, 1, 1, 2, 3, 5, 8, 13, 21, 34)
 
 
-def test_Permutation_delay():
+def test_Permutation_d():
     x, y, z = map(Ty, "xyz")
     perm = Permutation(x @ y @ z, [2, 0, 1])
-    assert perm.delay() == Permutation((x @ y @ z).delay(), [2, 0, 1])
-    assert perm.delay(2) == perm.delay().delay()
-    assert (perm >> Swap(z, x) @ y).delay()\
-        == perm.delay() >> Swap(z, x).delay() @ y.delay()
+    assert perm.d == Permutation((x @ y @ z).d, [2, 0, 1])
+    assert perm.d.d == Permutation((x @ y @ z).d.d, [2, 0, 1])
+    assert (perm >> Swap(z, x) @ y).d\
+        == perm.d >> Swap(z, x).d @ y.d

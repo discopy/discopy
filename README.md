@@ -295,7 +295,7 @@ A key axiom of traced monoidal categories which allows to simplify diagrams is t
 
 ![yanking](https://github.com/discopy/discopy/raw/main/docs/_static/traced/yanking.svg)
 
-If we relax this assumption we get the concept of a [`feedback`](https://docs.discopy.org/en/main/_api/discopy.feedback.html) category where the objects come with a [`delay`](https://docs.discopy.org/en/main/_api/discopy.feedback.Ob.html#discopy.feedback.Ob.delay) operation and the feedback loops have a more restricted shape:
+If we relax this assumption we get the concept of a [`feedback`](https://docs.discopy.org/en/main/_api/discopy.feedback.html) category where the objects come with a [`delay`](https://docs.discopy.org/en/main/_api/discopy.feedback.Wire.html#discopy.feedback.Wire.d) operation, shortened to `.d`, and the feedback loops have a more restricted shape:
 
 ![feedback operator](https://github.com/discopy/discopy/raw/main/docs/_static/feedback/feedback-operator.svg)
 
@@ -306,7 +306,7 @@ from discopy.stream import Ty, Stream
 
 N, S = Ty("N"), Ty("S")
 A, B = [Stream.sequence(f, N, N) for f in "AB"]
-L = Stream.sequence('L', S.head @ N.delay() @ N.delay(), N @ N)
+L = Stream.sequence('L', S.head @ N.d @ N.d, N @ N)
 ALB = (L >> A @ B).feedback(dom=S.head, cod=Ty(), mem=N @ N)
 ALB.unroll(2).now.foliation().draw()
 ```

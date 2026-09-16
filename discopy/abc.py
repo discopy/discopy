@@ -371,29 +371,20 @@ class PRO[C1: PRO](MonoidalCategory[Nat, C1]):
 
 class DelayedMonoid[C0, C1: DelayedMonoid](ColouredMonoid[C0, C1]):
     """
-    A delayed monoid is a coloured monoid with a :meth:`delay` endomorphism,
-    the objects of a :class:`FeedbackCategory`: the memory it feeds back
-    is one time step later on the way in, shortened to :attr:`d`.
+    A delayed monoid is a coloured monoid with a delay endomorphism
+    :attr:`d`, the objects of a :class:`FeedbackCategory`: the memory it
+    feeds back is one time step later on the way in.
     """
-    @abstractmethod
-    def delay(self, n_steps: int = 1) -> C1:
-        """
-        The delay of an object by some time steps, to be instantiated.
-
-        Parameters:
-            n_steps : The number of time steps to delay.
-        """
-
     @property
+    @abstractmethod
     def d(self) -> C1:
-        """ Syntactic sugar for :meth:`delay` by one time step. """
-        return self.delay()
+        """ The delay of an object by one time step, to be instantiated. """
 
 
 class FeedbackCategory[C0: DelayedMonoid, C1](MonoidalCategory[C0, C1]):
     """
     A feedback category is a :class:`MonoidalCategory` whose objects are a
-    :class:`DelayedMonoid`, with a :code:`delay` endofunctor and a
+    :class:`DelayedMonoid`, with a delay endofunctor :attr:`d` and a
     :code:`feedback` operator.
 
     The free feedback category :mod:`discopy.feedback` is built on top of a
@@ -401,14 +392,10 @@ class FeedbackCategory[C0: DelayedMonoid, C1](MonoidalCategory[C0, C1]):
     monoidal category, so that :class:`TracedCategory` can implement it
     with a trivial delay.
     """
+    @property
     @abstractmethod
-    def delay(self, n_steps: int = 1) -> C1:
-        """
-        The delay endofunctor applied to a morphism.
-
-        Parameters:
-            n_steps : The number of time steps to delay.
-        """
+    def d(self) -> C1:
+        """ The delay endofunctor applied to a morphism, one time step. """
 
     @abstractmethod
     def feedback(self, dom: C0 = None, cod: C0 = None, mem: C0 = None) -> C1:
@@ -446,13 +433,9 @@ class TracedCategory[C0, C1](FeedbackCategory[C0, C1]):
         return self if n == 0\
             else self.trace_factory(self, left).trace(n - 1, left)
 
-    def delay(self, n_steps: int = 1) -> C1:
-        """
-        The delay of a traced category is trivial, i.e. the identity.
-
-        Parameters:
-            n_steps : The number of time steps to delay.
-        """
+    @property
+    def d(self) -> C1:
+        """ The delay of a traced category is trivial, i.e. the identity. """
         return self
 
     def feedback(self, dom: C0 = None, cod: C0 = None, mem: C0 = None) -> C1:

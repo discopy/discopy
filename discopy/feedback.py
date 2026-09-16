@@ -33,12 +33,12 @@ Summary
 Axioms
 ------
 A feedback category is a symmetric monoidal category with a monoidal
-endofunctor :meth:`Diagram.delay`, shortened to `.d` and a method
+endofunctor, the delay property :attr:`Diagram.d`, and a method
 :meth:`Diagram.feedback` of the following shape:
 
 
 >>> x, y, m = map(Ty, "xym")
->>> f = Box('f', x @ m.delay(), y @ m)
+>>> f = Box('f', x @ m.d, y @ m)
 >>> Equation(f, f.feedback(), symbol="$\\\\mapsto$").draw(
 ...     doctest="docs/_static/feedback/feedback-operator.svg")
 
@@ -55,7 +55,7 @@ Vanishing
 Joining
 =======
 
->>> f = Box('f', x @ (m @ m).delay(), y @ m @ m)
+>>> f = Box('f', x @ (m @ m).d, y @ m @ m)
 >>> assert f.feedback(mem=m @ m) == f.feedback().feedback()
 
 Strength
@@ -71,7 +71,7 @@ This can only be checked up to a functor into streams.
 >>> all_eq = lambda xs: len(set(xs)) == 1
 >>> eq_up_to_F = lambda *fs, n=2: all_eq(F(f).unroll(2).now for f in fs)
 
->>> f, g = Box('f', x @ m.delay(), y @ m), Box('g', x, y)
+>>> f, g = Box('f', x @ m.d, y @ m), Box('g', x, y)
 >>> strength = Equation(g @ f.feedback(), (g @ f).feedback())
 >>> assert eq_up_to_F(*strength.terms)
 >>> strength.draw(
@@ -117,26 +117,26 @@ Every traced category is a feedback category with a trivial delay, see
 >>> F0 = Functor(
 ...     ob_map=lambda x: traced.Ty(x.generator.name), ar_map={},
 ...     cod=traced.Diagram)
->>> assert F0(x.delay()) == F0(x)
+>>> assert F0(x.d) == F0(x)
 
 >>> F = Functor(
 ...     ob_map=F0,
 ...     ar_map=lambda f: traced.Box(f.name, F0(f.dom), F0(f.cod)),
 ...     cod=traced.Diagram)
->>> f = Box('f', x @ m.delay(), y @ m)
->>> assert F(f.delay()) == F(f) and F(f.feedback()) == F(f).trace()
+>>> f = Box('f', x @ m.d, y @ m)
+>>> assert F(f.d) == F(f) and F(f.feedback()) == F(f).trace()
 
 Note
 ----
 We also implement endofunctors :class:`Head` and :class:`Tail` together with an
-isomorphism :class:`FollowedBy` between `x` and `x.head @ x.tail.delay()`.
+isomorphism :class:`FollowedBy` between `x` and `x.head @ x.tail.d`.
 
 This satisfies the following equations:
 
 >>> assert x.head.head == x.head
 >>> assert x.head.tail == Ty()
->>> assert x.delay().head == Ty()
->>> assert x.delay().tail == x
+>>> assert x.d.head == Ty()
+>>> assert x.d.tail == x
 
 In the category of streams, this is just the identity.
 """
@@ -152,7 +152,7 @@ from discopy.utils import (
 
 
 def str_delayed(time_step: int):
-    return time_step * ".d" if time_step <= 3 else f".delay({time_step})"
+    return time_step * ".d"
 
 
 class Wire(braided.Wire):
@@ -169,9 +169,10 @@ class Wire(braided.Wire):
         self.time_step, self.is_constant = time_step, is_constant
         super().__init__(name)
 
-    def delay(self, n_steps=1):
-        """ The delay of a feedback object. """
-        return Wire(self.name, self.time_step + n_steps, self.is_constant)
+    @property
+    def d(self) -> Wire:
+        """ The delay of a feedback object by one time step. """
+        return Wire(self.name, self.time_step + 1, self.is_constant)
 
     @property
     def head(self) -> HeadOb | None:
@@ -181,8 +182,9 @@ class Wire(braided.Wire):
     @property
     def tail(self) -> Wire | None:
         """ Syntactic sugar for :class:`TailOb` or `self` if `is_constant`. """
-        return self.delay(-1) if self.time_step > 0 else (
-            self if self.is_constant else TailOb(self))
+        if self.time_step > 0:
+            return Wire(self.name, self.time_step - 1, self.is_constant)
+        return self if self.is_constant else TailOb(self)
 
     def reset(self) -> Wire:
         """ Reset an object to time step zero, used in :class:`Functor`. """
@@ -219,11 +221,6 @@ class Wire(braided.Wire):
             tree['name'], tree.get('time_step', 0),
             tree.get('is_constant', True))
 
-    @property
-    def d(self):
-        """ Syntactic sugar for meth:`delay`. """
-        return self.delay()
-
 
 class HeadOb(Wire):
     """
@@ -243,8 +240,9 @@ class HeadOb(Wire):
         time_step = f", time_step={self.time_step}" if self.time_step else ""
         return factory_name(type(self)) + f"({repr(self.arg)}{time_step})"
 
-    def delay(self, n_steps=1):
-        return type(self)(self.arg, self.time_step + n_steps)
+    @property
+    def d(self) -> HeadOb:
+        return type(self)(self.arg, self.time_step + 1)
 
     def reset(self) -> HeadOb:
         return type(self)(self.arg)
@@ -255,7 +253,9 @@ class HeadOb(Wire):
 
     @property
     def tail(self):
-        return self.delay(-1) if self.time_step else None
+        if self.time_step:
+            return type(self)(self.arg, self.time_step - 1)
+        return None
 
 
 class TailOb(Wire):
@@ -275,17 +275,18 @@ class TailOb(Wire):
         self.arg = arg
         super().__init__(f"{arg}.tail", time_step, is_constant=False)
 
-    delay, reset, __repr__ = HeadOb.delay, HeadOb.reset, HeadOb.__repr__
+    d, reset, __repr__ = HeadOb.d, HeadOb.reset, HeadOb.__repr__
 
 
 @factory
 class Ty(monoidal.Ty, DelayedMonoid):
-    """ A feedback type is a monoidal type with `delay`, `head` and `tail`. """
+    """ A feedback type is a monoidal type with `d`, `head` and `tail`. """
     generator_factory = Wire
 
-    def delay(self, n_steps=1):
-        """ The delay of a feedback type by `n_steps`. """
-        return type(self)(*(x.delay(n_steps) for x in self.inside))
+    @property
+    def d(self) -> Ty:
+        """ The delay of a feedback type by one time step. """
+        return type(self)(*(x.d for x in self.inside))
 
     @property
     def head(self):
@@ -299,18 +300,19 @@ class Ty(monoidal.Ty, DelayedMonoid):
 
 
 class Layer(symmetric.Layer):
-    """ A feedback layer is a monoidal layer with a `delay` method. """
-    def delay(self, n_steps=1):
-        return type(self)(*(x.delay(n_steps) for x in self.boxes_or_types),
+    """ A feedback layer is a symmetric layer with a delay `d`. """
+    @property
+    def d(self) -> Layer:
+        return type(self)(*(x.d for x in self.boxes_or_types),
                           normalise=False)
 
 
 @factory
 class Diagram(symmetric.Diagram, MarkovCategory, FeedbackCategory):
     """
-    A feedback diagram is a symmetric diagram with a :meth:`delay` endofunctor
-    and a :meth:`feedback` operator, together with a supply of :class:`Copy`
-    and :class:`Merge` borrowed from :mod:`discopy.markov`.
+    A feedback diagram is a symmetric diagram with a delay endofunctor
+    :attr:`d` and a :meth:`feedback` operator, together with a supply of
+    :class:`Copy` and :class:`Merge` borrowed from :mod:`discopy.markov`.
 
     Parameters:
         inside(monoidal.Layer) : The layers inside the diagram.
@@ -323,7 +325,7 @@ class Diagram(symmetric.Diagram, MarkovCategory, FeedbackCategory):
     >>> zero = Box('0', Ty(), x.head)
     >>> rand = Box('rand', Ty(), x)
     >>> plus = Box('+', x @ x, x)
-    >>> walk = (rand.delay() @ x.delay() >> zero @ plus.delay()
+    >>> walk = (rand.d @ x.d >> zero @ plus.d
     ...         >> FollowedBy(x) >> Copy(x)).feedback()
     >>> walk.draw(doctest="docs/_static/feedback/feedback-random-walk.svg")
 
@@ -338,11 +340,11 @@ class Diagram(symmetric.Diagram, MarkovCategory, FeedbackCategory):
     merge = classmethod(markov.Diagram.merge.__func__)
     discard = classmethod(markov.Diagram.discard.__func__)
 
-    def delay(self, n_steps=1):
-        """ The delay of a feedback diagram. """
-        dom, cod = self.dom.delay(n_steps), self.cod.delay(n_steps)
-        inside = tuple(box.delay(n_steps) for box in self.inside)
-        return type(self)(inside, dom, cod, _scan=False)
+    @property
+    def d(self) -> Diagram:
+        """ The delay of a feedback diagram by one time step. """
+        inside = tuple(layer.d for layer in self.inside)
+        return type(self)(inside, self.dom.d, self.cod.d, _scan=False)
 
     def feedback(self, dom=None, cod=None, mem=None):
         """ Syntactic sugar for :class:`Feedback`. """
@@ -353,18 +355,18 @@ class Diagram(symmetric.Diagram, MarkovCategory, FeedbackCategory):
     @classmethod
     def wait(cls, dom: Ty) -> Diagram:
         """
-        Wait one time step, i.e. `Swap(x, x.delay()).feedback()`.
+        Wait one time step, i.e. `Swap(x, x.d).feedback()`.
 
         Example
         -------
         >>> x = Ty('x')
-        >>> assert Diagram.wait(x) == Swap(x, x.delay()).feedback()
+        >>> assert Diagram.wait(x) == Swap(x, x.d).feedback()
         >>> Diagram.wait(x).draw(doctest="docs/_static/feedback/wait.svg")
 
         .. image:: /_static/feedback/wait.svg
             :align: center
         """
-        return cls.swap(dom, dom.delay()).feedback()
+        return cls.swap(dom, dom.d).feedback()
 
     @property
     def time_step(self) -> int:
@@ -376,7 +378,7 @@ class Diagram(symmetric.Diagram, MarkovCategory, FeedbackCategory):
         Example
         -------
         >>> f = Box('f', 'x', 'y')
-        >>> assert f.delay(42).time_step == 42
+        >>> assert f.d.d.time_step == 2
         """
         if len(self) != 1 or self != self.boxes[0]:
             raise ValueError
@@ -391,8 +393,6 @@ class Diagram(symmetric.Diagram, MarkovCategory, FeedbackCategory):
     def tail(self):
         """ Syntactic sugar for :class:`Tail`. """
         return Tail(self)
-
-    d = Wire.d
 
 
 class Box(symmetric.Box, Diagram):
@@ -420,14 +420,16 @@ class Box(symmetric.Box, Diagram):
             result.box.drawing_name += str_delayed(self.time_step)
         return result
 
-    def delay(self, n_steps=1):
-        dom, cod = self.dom.delay(n_steps), self.cod.delay(n_steps)
-        time_step = self._time_step + n_steps
+    @property
+    def d(self) -> Box:
+        dom, cod, time_step = self.dom.d, self.cod.d, self._time_step + 1
         return type(self)(self.name, dom, cod, time_step, **self._params)
 
     def reset(self):
         """ Reset a box to time step zero, used in :class:`Functor`. """
-        dom, cod = [x.delay(-self.time_step) for x in (self.dom, self.cod)]
+        dom, cod = self.dom, self.cod
+        for _ in range(self.time_step):
+            dom, cod = dom.tail, cod.tail
         return type(self)(self.name, dom, cod, **self._params)
 
     def __str__(self):
@@ -444,8 +446,9 @@ class Box(symmetric.Box, Diagram):
 class Permutation(symmetric.Permutation, Box):
     "A permutation in a feedback diagram."
 
-    def delay(self, n_steps=1):
-        return type(self)(self.dom.delay(n_steps), self.perm)
+    @property
+    def d(self) -> Permutation:
+        return type(self)(self.dom.d, self.perm)
 
 
 class Swap(Permutation, symmetric.Swap, Box):
@@ -460,8 +463,9 @@ class Swap(Permutation, symmetric.Swap, Box):
         symmetric.Swap.__init__(self, left, right)
         Box.__init__(self, self.name, self.dom, self.cod)
 
-    def delay(self, n_steps=1):
-        return type(self)(self.left.delay(n_steps), self.right.delay(n_steps))
+    @property
+    def d(self) -> Swap:
+        return type(self)(self.left.d, self.right.d)
 
 
 class Copy(Box, markov.Copy):
@@ -484,8 +488,9 @@ class Copy(Box, markov.Copy):
 
     __repr__ = markov.Copy.__repr__
 
-    def delay(self, n_steps=1):
-        return type(self)(self.dom.delay(n_steps), len(self.cod))
+    @property
+    def d(self) -> Copy:
+        return type(self)(self.dom.d, len(self.cod))
 
 
 class Merge(Box, markov.Merge):
@@ -505,8 +510,9 @@ class Merge(Box, markov.Merge):
 
     __repr__ = markov.Merge.__repr__
 
-    def delay(self, n_steps=1):
-        return type(self)(self.cod.delay(n_steps), len(self.dom))
+    @property
+    def d(self) -> Merge:
+        return type(self)(self.cod.d, len(self.dom))
 
 
 class Discard(Copy):
@@ -526,12 +532,13 @@ class Head(monoidal.Bubble, Box):
     by the identity stream on the empty type.
     """
     def __init__(self, arg: Diagram, time_step=0, _attr="head"):
-        dom, cod = (
-            getattr(x, _attr).delay(time_step) for x in [arg.dom, arg.cod])
+        dom, cod = (getattr(x, _attr) for x in [arg.dom, arg.cod])
+        for _ in range(time_step):
+            dom, cod = dom.d, cod.d
         monoidal.Bubble.__init__(self, arg, dom=dom, cod=cod)
         Box.__init__(self, f"({arg}).{_attr}", self.dom, self.cod, time_step)
 
-    delay, reset, __repr__ = HeadOb.delay, HeadOb.reset, HeadOb.__repr__
+    d, reset, __repr__ = HeadOb.d, HeadOb.reset, HeadOb.__repr__
     __str__ = Box.__str__
 
 
@@ -543,19 +550,19 @@ class Tail(monoidal.Bubble, Box):
     def __init__(self, arg: Diagram, time_step=0):
         Head.__init__(self, arg, time_step, _attr="tail")
 
-    delay, reset, __repr__ = HeadOb.delay, HeadOb.reset, HeadOb.__repr__
+    d, reset, __repr__ = HeadOb.d, HeadOb.reset, HeadOb.__repr__
     __str__ = Box.__str__
 
 
 class Feedback(monoidal.Bubble, Box):
     """
-    Feedback is a bubble that takes a diagram from `dom @ mem.delay()` to
+    Feedback is a bubble that takes a diagram from `dom @ mem.d` to
     `cod @ mem` and returns a box from `dom` to `cod`.
 
     Examples
     --------
     >>> x, y, z = map(Ty, "xyz")
-    >>> f = Box('f', x @ y.delay(), z @ y)
+    >>> f = Box('f', x @ y.d, z @ y)
     >>> fb = f.feedback()
     >>> Equation(f, fb, symbol="$\\\\mapsto$").draw(
     ...     doctest="docs/_static/feedback/feedback-bubble.svg")
@@ -569,7 +576,7 @@ class Feedback(monoidal.Bubble, Box):
         mem = arg.cod[-1:] if mem is None else mem
         dom = arg.dom[:-len(mem)] if dom is None else dom
         cod = arg.cod[:-len(mem)] if cod is None else cod
-        if arg.dom != dom @ mem.delay():
+        if arg.dom != dom @ mem.d:
             raise AxiomError
         if arg.cod != cod @ mem:
             raise AxiomError
@@ -577,8 +584,9 @@ class Feedback(monoidal.Bubble, Box):
         monoidal.Bubble.__init__(self, arg, dom=dom, cod=cod)
         Box.__init__(self, self.name, dom, cod)
 
-    def delay(self, n_steps=1):
-        return type(self)(self.arg.delay(n_steps), mem=self.mem.delay(n_steps))
+    @property
+    def d(self) -> Feedback:
+        return type(self)(self.arg.d, mem=self.mem.d)
 
     def __str__(self):
         mem_name = "" if len(self.mem) == 1 else f"mem={self.mem}"
@@ -594,7 +602,7 @@ class Feedback(monoidal.Bubble, Box):
 
 class FollowedBy(Box):
     """
-    The isomorphism between `x.head @ x.tail.delay()` and `x`.
+    The isomorphism between `x.head @ x.tail.d` and `x`.
 
     In the category of streams, this is just the identity.
 
@@ -608,7 +616,7 @@ class FollowedBy(Box):
         :align: center
 
     >>> F = Functor({x: stream.Ty.sequence('x')}, cod=stream.Stream)
-    >>> X, Xh, Xtd = map(F, (x, x.head, x.tail.delay()))
+    >>> X, Xh, Xtd = map(F, (x, x.head, x.tail.d))
     >>> for xh, xtd in [(Xh.now, Xtd.now),
     ...                 (Xh.later.now, Xtd.later.now),
     ...                 (Xh.later.later.now, Xtd.later.later.now)]:
@@ -623,9 +631,10 @@ class FollowedBy(Box):
         self.arg = arg
         dagger_name = ", is_dagger=True" if is_dagger else ""
         name = f"FollowedBy({arg}{dagger_name})"
-        dom, cod = arg.head @ arg.tail.delay(), arg
+        dom, cod = arg.head @ arg.tail.d, arg
         dom, cod = (cod, dom) if is_dagger else (dom, cod)
-        dom, cod = [x.delay(time_step) for x in (dom, cod)]
+        for _ in range(time_step):
+            dom, cod = dom.d, cod.d
         super().__init__(name, dom, cod, time_step, is_dagger=is_dagger)
 
     def __repr__(self):
@@ -633,9 +642,9 @@ class FollowedBy(Box):
         time_step = f", time_step={self.time_step}" if self.time_step else ""
         return f"FollowedBy({repr(self.arg)}{is_dagger}{time_step})"
 
-    def delay(self, n_steps=1):
-        arg = self.dom if self.is_dagger else self.cod
-        return type(self)(arg, self.is_dagger, self.time_step + n_steps)
+    @property
+    def d(self) -> FollowedBy:
+        return type(self)(self.arg, self.is_dagger, self.time_step + 1)
 
     def reset(self):
         return type(self)(self.arg, self.is_dagger)
@@ -659,7 +668,7 @@ class Functor(markov.Functor):
     >>> g = Box('g', y.d @ m.d.d, x.d @ m.d)
     >>> F = Functor({x: y.d, y: x.d, m: m.d}, {f: g})
 
-    >>> assert F(f.delay()) == F(f).delay()
+    >>> assert F(f.d) == F(f).d
     >>> assert F(f.feedback()) == F(f).feedback()
     >>> assert F(x.head) == F(x).head and F(x.tail) == F(x).tail
     >>> assert F(FollowedBy(x)) == FollowedBy(F(x))
@@ -670,10 +679,10 @@ class Functor(markov.Functor):
     def __call__(self, other):
         if isinstance(other, (Wire, Box)) and other.time_step:
             cod = self.cod.ob if isinstance(other, Wire) else self.cod
-            if hasattr(cod, "delay"):
+            if hasattr(cod, "d"):
                 result = self(other.reset())
                 for _ in range(other.time_step):
-                    result = result.delay()
+                    result = result.d
                 return result
         if isinstance(other, (HeadOb, TailOb, Head, Tail)):
             cod = self.cod if isinstance(

@@ -73,11 +73,11 @@ def test_closed():
 
 def test_feedback():
     x, y, z, P = map(feedback.Ty, "xyzP")
-    f = Feedback(x @ y.delay(), z @ y,
-                 feedback.Box('f', x @ y.delay() @ P, z @ y), P)
+    f = Feedback(x @ y.d, z @ y,
+                 feedback.Box('f', x @ y.d @ P, z @ y), P)
     fb = f.feedback()
     assert (fb.dom, fb.cod, fb.param) == (x, z, P)
-    assert f.delay().param == P.delay()
+    assert f.d.param == P.d
 
 
 def test_compact():
@@ -132,11 +132,11 @@ def test_copar_trace():
 
 def test_copar_feedback():
     x, y, z, m, P = map(feedback.Ty, "xyzmP")
-    f = Feedback(x @ y.delay(), z @ y,
-                 feedback.Box('f', x @ y.delay() @ P, z @ y @ m), P, m)
+    f = Feedback(x @ y.d, z @ y,
+                 feedback.Box('f', x @ y.d @ P, z @ y @ m), P, m)
     fb = f.feedback()
     assert (fb.dom, fb.cod, fb.param, fb.copar) == (x, z, P, m)
-    assert f.delay().copar == m.delay()
+    assert f.d.copar == m.d
 
 
 def test_copar_python():

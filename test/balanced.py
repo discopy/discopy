@@ -100,7 +100,7 @@ def test_trace_bubble():
 def test_trivial_delay_and_feedback():
     x = Ty('x')
     f = Box('f', x @ x, x @ x)
-    assert f.delay() == f and x.delay() == x
+    assert f.d == f and x.d == x
     assert f.feedback() == f.trace()
     assert f.feedback(mem=x @ x) == f.trace(2)
     assert f.feedback(mem=Ty()) == f
