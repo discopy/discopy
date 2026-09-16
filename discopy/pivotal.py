@@ -18,6 +18,8 @@ Summary
     Box
     Cup
     Cap
+    Sum
+    Bubble
     Functor
 
 Axioms
@@ -179,9 +181,9 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
             >> cod @ cls.cup_factory(traced_wire, traced_wire.r)
 
 
-class Box(rigid.Box, Diagram):
+class Box(rigid.Box, traced.Box, Diagram):
     """
-    A pivotal box is a rigid box in a pivotal diagram.
+    A pivotal box is a rigid and traced box in a pivotal diagram.
 
     Parameters:
         name (str) : The name of the box.
@@ -211,6 +213,9 @@ class Box(rigid.Box, Diagram):
         return result
 
 
+Diagram.generator_factory = Box
+
+
 class Cup(rigid.Cup, Box):
     """
     A pivotal cup is a rigid cup of pivotal types.
@@ -223,6 +228,9 @@ class Cup(rigid.Cup, Box):
     def dagger(self) -> Cap:
         """ The dagger of a pivotal cup. """
         return self.cap_factory(self.left, self.right)
+
+
+Diagram.cup_factory = Cup
 
 
 class Cap(rigid.Cap, Box):
@@ -239,6 +247,10 @@ class Cap(rigid.Cap, Box):
         return self.cup_factory(self.left, self.right)
 
 
+Diagram.cap_factory = Cap
+Sum, Bubble = Diagram.sum_factory, Diagram.bubble_factory
+
+
 class Functor(rigid.Functor):
     """
     A pivotal functor is a rigid functor on a pivotal category.
@@ -253,7 +265,6 @@ class Functor(rigid.Functor):
 
 
 Diagram.functor_factory = Functor
-Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 CMap = cmap.CMap[Diagram]
 Id = Diagram.id
 

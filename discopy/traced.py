@@ -20,6 +20,8 @@ Summary
     Diagram
     Box
     Trace
+    Sum
+    Bubble
     Functor
 
 Axioms
@@ -171,15 +173,7 @@ class Diagram(monoidal.Diagram, TracedCategory):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
 
 
-class Box(monoidal.Box, Diagram):
-    """
-    A traced box is a monoidal box in a traced diagram.
-
-    Parameters:
-        name (str) : The name of the box.
-        dom (monoidal.Ty) : The domain of the box, i.e. its input.
-        cod (monoidal.Ty) : The codomain of the box, i.e. its output.
-    """
+Box = Diagram.generator_factory
 
 
 class Trace(Box, monoidal.Bubble):
@@ -215,6 +209,10 @@ class Trace(Box, monoidal.Bubble):
 
     def to_drawing(self):
         return self.ar.to_drawing(self)
+
+
+Diagram.trace_factory = Trace
+Sum, Bubble = Diagram.sum_factory, Diagram.bubble_factory
 
 
 class Functor(monoidal.Functor):
@@ -263,6 +261,5 @@ class Functor(monoidal.Functor):
 CMap = cmap.CMap[Diagram]
 
 Diagram.functor_factory = Functor
-Diagram.trace_factory = Trace
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Id = Diagram.id

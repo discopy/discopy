@@ -14,9 +14,14 @@ Summary
 
     Diagram
     Box
-    Swap
     Permutation
+    Swap
+    Trace
     Copy
+    Merge
+    Discard
+    Sum
+    Bubble
     Functor
 
 
@@ -155,49 +160,9 @@ class Diagram(symmetric.Diagram, MarkovCategory):
         return cls.copy(x, 0)
 
 
-class Box(symmetric.Box, Diagram):
-    """
-    A Markov box is a symmetric box in a Markov diagram.
-
-    Parameters:
-        name (str) : The name of the box.
-        dom (monoidal.Ty) : The domain of the box, i.e. its input.
-        cod (monoidal.Ty) : The codomain of the box, i.e. its output.
-    """
-
-
-class Permutation(symmetric.Permutation, Box):
-    """
-    A permutation in a Markov category.
-
-    Parameters:
-        dom (monoidal.Ty) : The domain, i.e. the wires to permute.
-        perm : The permutation as a :class:`finset.Permutation` or a list.
-    """
-
-
-class Swap(Permutation, symmetric.Swap, Box):
-    """
-    Symmetric swap in a Markov diagram.
-
-    Parameters:
-        left (monoidal.Ty) : The type on the top left and bottom right.
-        right (monoidal.Ty) : The type on the top right and bottom left.
-    """
-
-
-class Trace(symmetric.Trace, Box):
-    """
-    A trace in a Markov category.
-
-    Parameters:
-        arg : The diagram to trace.
-        left : Whether to trace the wires on the left or right.
-
-    See also
-    --------
-    :meth:`Diagram.trace`
-    """
+Box, Permutation, Swap, Trace = (
+    Diagram.generator_factory, Diagram.permutation_factory,
+    Diagram.swap_factory, Diagram.trace_factory)
 
 
 class Copy(Box):
@@ -226,6 +191,9 @@ class Copy(Box):
             factory_name(type(self)) + f"({repr(self.dom)}, {len(self.cod)})")
 
 
+Diagram.copy_factory = Copy
+
+
 class Merge(Box):
     """
     The merge of an atomic type :code:`x` some :code:`n` number of times.
@@ -248,6 +216,9 @@ class Merge(Box):
             factory_name(type(self)) + f"({repr(self.cod)}, {len(self.dom)})")
 
 
+Diagram.merge_factory = Merge
+
+
 class Discard(Copy):
     """
     The discard of an atomic type :code:`x`.
@@ -259,15 +230,8 @@ class Discard(Copy):
         super().__init__(x, 0)
 
 
-class Sum(symmetric.Sum, Box):
-    """
-    A markov sum is a symmetric sum and a markov box.
-
-    Parameters:
-        terms (tuple[Diagram, ...]) : The terms of the formal sum.
-        dom (Ty) : The domain of the formal sum.
-        cod (Ty) : The codomain of the formal sum.
-    """
+Diagram.discard_factory = Discard
+Sum, Bubble = Diagram.sum_factory, Diagram.bubble_factory
 
 
 class Functor(symmetric.Functor):
@@ -315,12 +279,6 @@ CMap = cmap.CMap[Diagram]
 
 Diagram.functor_factory = Functor
 Hypergraph = hypergraph.Hypergraph[Diagram]
-Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
-Diagram.swap_factory = Swap
-Diagram.permutation_factory = Permutation
-Diagram.trace_factory = Trace
-Diagram.discard_factory = Discard
-Diagram.sum_factory = Sum
 Id = Diagram.id
 
 

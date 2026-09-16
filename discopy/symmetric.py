@@ -11,12 +11,14 @@ Summary
     :nosignatures:
     :toctree:
 
-    Permutation
     Layer
     Diagram
     Box
+    Permutation
     Swap
+    Trace
     Sum
+    Bubble
     Functor
 
 Axioms
@@ -405,15 +407,7 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         return self.to_hypergraph().depth()
 
 
-class Box(balanced.Box, Diagram):
-    """
-    A symmetric box is a balanced box in a symmetric diagram.
-
-    Parameters:
-        name (str) : The name of the box.
-        dom (monoidal.Ty) : The domain of the box, i.e. its input.
-        cod (monoidal.Ty) : The codomain of the box, i.e. its output.
-    """
+Box = Diagram.generator_factory
 
 
 class Permutation(Box):
@@ -564,6 +558,7 @@ class Permutation(Box):
         return f"Permutation({self.dom}, {list(self.perm)})"
 
 
+Diagram.permutation_factory = Permutation
 Layer.plumbing = (monoidal.Ty, Permutation)
 
 
@@ -611,29 +606,9 @@ class Swap(Permutation, balanced.Braid, Box):
         return self.name
 
 
-class Trace(balanced.Trace, Box):
-    """
-    A trace in a symmetric category.
-
-    Parameters:
-        arg : The diagram to trace.
-        left : Whether to trace the wires on the left or right.
-
-    See also
-    --------
-    :meth:`Diagram.trace`
-    """
-
-
-class Sum(balanced.Sum, Box):
-    """
-    A symmetric sum is a balanced sum and a symmetric box.
-
-    Parameters:
-        terms (tuple[Diagram, ...]) : The terms of the formal sum.
-        dom (Ty) : The domain of the formal sum.
-        cod (Ty) : The codomain of the formal sum.
-    """
+Diagram.swap_factory = Swap
+Trace, Sum, Bubble = (
+    Diagram.trace_factory, Diagram.sum_factory, Diagram.bubble_factory)
 
 
 class Functor(balanced.Functor):
@@ -666,10 +641,6 @@ CMap = cmap.CMap[Diagram]
 
 Diagram.functor_factory = Functor
 Hypergraph = hypergraph.Hypergraph[Diagram]
-Diagram.swap_factory = Swap
-Diagram.permutation_factory = Permutation
-Diagram.trace_factory = Trace
-Diagram.sum_factory = Sum
 Id = Diagram.id
 
 

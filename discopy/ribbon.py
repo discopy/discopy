@@ -16,6 +16,9 @@ Summary
     Cup
     Cap
     Braid
+    Twist
+    Sum
+    Bubble
     Functor
 
 Axioms
@@ -76,7 +79,7 @@ cap becomes a ribbon folding back.
     :align: center
 """
 
-from discopy import rigid, pivotal, balanced
+from discopy import pivotal, balanced
 from discopy.abc import RibbonCategory
 from discopy.cat import factory
 from discopy.pivotal import Ty, Nat  # noqa: F401
@@ -152,35 +155,8 @@ class Diagram(pivotal.Diagram, balanced.Diagram, RibbonCategory):
         return self.to_braided(width, colour)
 
 
-class Box(pivotal.Box, balanced.Box, Diagram):
-    """
-    A ribbon box is a pivotal and balanced box in a ribbon diagram.
-
-    Parameters:
-        name (str) : The name of the box.
-        dom (pivotal.Ty) : The domain of the box, i.e. its input.
-        cod (pivotal.Ty) : The codomain of the box, i.e. its output.
-    """
-
-
-class Cup(pivotal.Cup, Box):
-    """
-    A ribbon cup is a pivotal cup in a ribbon diagram.
-
-    Parameters:
-        left (pivotal.Ty) : The atomic type.
-        right (pivotal.Ty) : Its adjoint.
-    """
-
-
-class Cap(pivotal.Cap, Box):
-    """
-    A ribbon cap is a pivotal cap in a ribbon diagram.
-
-    Parameters:
-        left (pivotal.Ty) : The atomic type.
-        right (pivotal.Ty) : Its adjoint.
-    """
+Box, Cup, Cap = (
+    Diagram.generator_factory, Diagram.cup_factory, Diagram.cap_factory)
 
 
 class Braid(balanced.Braid, Box):
@@ -199,6 +175,9 @@ class Braid(balanced.Braid, Box):
         del left
         braid = type(self)(*self.cod.r)
         return braid.dagger() if self.is_dagger else braid
+
+
+Diagram.braid_factory = Braid
 
 
 class DualRailBraid(balanced.DualRailBraid, Box):
@@ -298,15 +277,8 @@ class Twist(balanced.Twist, Box):
         return self
 
 
-class Sum(rigid.Sum, Box):
-    """
-    A ribbon sum is a sum of ribbon diagrams.
-
-    Parameters:
-        terms (tuple[Diagram, ...]) : The terms of the formal sum.
-        dom (Ty) : The domain of the formal sum.
-        cod (Ty) : The codomain of the formal sum.
-    """
+Diagram.twist_factory = Twist
+Sum, Bubble = Diagram.sum_factory, Diagram.bubble_factory
 
 
 class Functor(pivotal.Functor, balanced.Functor):
@@ -357,9 +329,6 @@ class DualRail(balanced.DualRail, Functor):
         return super().__call__(other)
 
 
-Diagram.braid_factory = Braid
-Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
-Diagram.twist_factory = Twist
 Diagram.dual_rail_factory = DualRail
 
 Id = Diagram.id

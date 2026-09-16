@@ -19,6 +19,7 @@ Summary
     Cup
     Cap
     Sum
+    Bubble
     Functor
 
 Axioms
@@ -706,6 +707,9 @@ class Box(biclosed.Box, Diagram):
         return result
 
 
+Diagram.generator_factory = Box
+
+
 class Sum(biclosed.Sum, Box):
     """
     A rigid sum is a biclosed sum that can be transposed.
@@ -722,6 +726,9 @@ class Sum(biclosed.Sum, Box):
                 tuple(term.l for term in self.terms), self.cod.l, self.dom.l)
         return self.sum_factory(
             tuple(term.r for term in self.terms), self.cod.r, self.dom.r)
+
+
+Diagram.sum_factory = Sum
 
 
 class Cup(BinaryBoxConstructor, Box):
@@ -762,6 +769,9 @@ class Cup(BinaryBoxConstructor, Box):
         raise AxiomError("Rigid cups have no dagger, use pivotal instead.")
 
 
+Diagram.cup_factory = Cup
+
+
 class Cap(BinaryBoxConstructor, Box):
     """
     The unit of the adjunction for an atomic type.
@@ -798,6 +808,10 @@ class Cap(BinaryBoxConstructor, Box):
         use a :class:`pivotal.Cap` instead.
         """
         raise AxiomError("Rigid caps have no dagger, use pivotal instead.")
+
+
+Diagram.cap_factory = Cap
+Bubble = Diagram.bubble_factory
 
 
 class Functor(biclosed.Functor):
@@ -883,7 +897,6 @@ def to_rigid(self):
 
 biclosed.Diagram.to_rigid = to_rigid
 
-Diagram.cup_factory, Diagram.cap_factory, Diagram.sum_factory = Cup, Cap, Sum
 Diagram.functor_factory = Functor
 
 Id = Diagram.id

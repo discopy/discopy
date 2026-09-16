@@ -568,8 +568,10 @@ def untuplify(stuff: tuple) -> any:
 
 def factory(cls):
     """
-    Allows the identity and composition of an :class:`Arrow` subclass to
-    remain within the subclass, by setting ``cls.factory = cls``.
+    Make a class the factory for its own arrows and generators: set
+    ``cls.factory = cls`` so that identity and composition stay in the
+    class, and give ``cls`` its own subclass of every generator it inherits,
+    built on first access by :class:`Factory`.
 
     Parameters:
         cls : Some subclass of :class:`Arrow`.
@@ -594,10 +596,12 @@ def factory(cls):
     ... class Circuit(Arrow):
     ...     ob = Qubit
 
-    The :code:`Circuit` subclass itself has a subclass :code:`Gate` as boxes.
+    The boxes of a :code:`Circuit` are a subclass of both :class:`Box` and
+    :code:`Circuit`, built by the decorator rather than by hand.
 
-    >>> class Gate(Box, Circuit):
-    ...     pass
+    >>> Gate = Circuit.generator_factory
+    >>> assert issubclass(Gate, Box) and issubclass(Gate, Circuit)
+    >>> assert Gate.__name__ == "Box" and Gate.__module__ == Circuit.__module__
 
     The identity and composition of :code:`Circuit` is again a :code:`Circuit`.
 
@@ -606,9 +610,145 @@ def factory(cls):
     >>> assert isinstance(Circuit.id(), Circuit)
     >>> assert isinstance(Circuit.id().dom, Qubit)
     >>> assert Circuit.factory is Circuit.ar is Circuit
+
+    A generator with behaviour of its own is written by hand and assigned
+    in place of the built one, which is never built if it is assigned first.
+
+    >>> class Measure(Gate):
+    ...     is_mixed = True
+    >>> Circuit.generator_factory = Measure
+    >>> assert Circuit.generator_factory is Measure
     """
     cls.factory = cls
+    for name in generators(cls):
+        if name not in vars(cls):
+            setattr(cls, name, Factory(cls, name))
     return cls
+
+
+def attributes(cls: type) -> dict[str, tuple[type, object]]:
+    """
+    The class attributes of ``cls`` by name, each with the class that
+    defines it, i.e. the first along the method resolution order.
+
+    Parameters:
+        cls : The class whose attributes to list.
+
+    Example
+    -------
+    >>> from discopy.cat import Arrow, Box
+    >>> assert attributes(Box)['generator_factory'] == (Arrow, Box)
+    """
+    result = {}
+    for base in cls.__mro__:
+        for name, value in vars(base).items():
+            result.setdefault(name, (base, value))
+    return result
+
+
+def generators(cls: type) -> dict[str, type | Factory]:
+    """
+    The generators of a class by name, i.e. its class attributes whose value
+    is a subclass of the class defining them, e.g. ``sum_factory`` for an
+    :class:`Arrow`, or a :class:`Factory` about to build one.
+
+    An attribute that a class redefines as anything else, e.g. the
+    ``trace_factory`` of a pivotal diagram is a class method building cups
+    and caps, is not a generator of that class nor of its subclasses.
+
+    Parameters:
+        cls : The class whose generators to list.
+
+    Example
+    -------
+    >>> from discopy.cat import Arrow, Box, Sum, Bubble
+    >>> assert generators(Arrow) == {
+    ...     'generator_factory': Box,
+    ...     'sum_factory': Sum,
+    ...     'bubble_factory': Bubble}
+    """
+    return {
+        name: value for name, (base, value) in attributes(cls).items()
+        if isinstance(value, Factory) or isinstance(value, type)
+        and value is not base and issubclass(value, base)}
+
+
+class Factory:
+    """
+    The class attribute ``name`` of a category ``owner``, a subclass of the
+    generators of its bases that lives in ``owner``, built on first access
+    and assigned to ``owner`` in place of this descriptor.
+
+    Parameters:
+        owner : The class decorated with :func:`factory`.
+        name : The name of the generator, e.g. ``swap_factory``.
+
+    Note
+    ----
+    The generator extends, in this order, its :meth:`roots`, then the
+    generators of ``owner`` that the roots already extend in their own class
+    (the swap of a symmetric diagram is a permutation, so is the swap of a
+    closed diagram), then ``owner``. It takes its name from the first root
+    and its module from ``owner``, so that a module defines it once as
+    ``Swap = Diagram.swap_factory``.
+
+    Example
+    -------
+    >>> from discopy import markov, closed
+    >>> assert closed.Swap.__bases__ == (
+    ...     markov.Swap, closed.Permutation, closed.Box, closed.Diagram)
+    >>> assert closed.Swap.__module__ == "discopy.closed"
+    """
+    def __init__(self, owner: type, name: str):
+        self.owner, self.name = owner, name
+
+    def __get__(self, _, owner=None) -> type:
+        result = self.build()
+        setattr(self.owner, self.name, result)
+        return result
+
+    def roots(self) -> dict[type, type]:
+        """
+        The generators the built one extends, each with the base of
+        ``owner`` it comes from: the value of ``name`` on each base, under
+        that name or under a class property of the base that reads the
+        same generator, e.g. the braid of a symmetric diagram is its swap,
+        so the swap of a compact diagram is also a ribbon braid.
+
+        Example
+        -------
+        >>> from discopy import symmetric, ribbon, compact
+        >>> assert compact.Swap.__bases__[:2] == (symmetric.Swap, ribbon.Braid)
+        """
+        names = {self.name} | {
+            name for base in self.owner.__bases__
+            for name, (_, value) in attributes(base).items()
+            if isinstance(value, classproperty)
+            and getattr(base, name) is getattr(base, self.name, None)}
+        return {
+            root: base
+            for base in self.owner.__bases__
+            for name in [self.name, *names - {self.name}]
+            if isinstance(root := getattr(base, name, None), type)}
+
+    def build(self) -> type:
+        """ Build the generator, see :class:`Factory`. """
+        roots, bases = self.roots(), {}
+        for root, base in roots.items():
+            siblings = {name: getattr(base, name) for name in generators(base)}
+            extended = [name for name, value in siblings.items()
+                        if value is not root and issubclass(root, value)]
+            for name in sorted(
+                    extended, key=lambda n: root.__mro__.index(siblings[n])):
+                bases.setdefault(getattr(self.owner, name))
+        root, *_ = roots
+        references = " and ".join(
+            f":class:`~{r.__module__}.{r.__name__}`" for r in roots)
+        return type(root.__name__, (*roots, *bases, self.owner), {
+            "__module__": self.owner.__module__,
+            "__qualname__": root.__name__,
+            "__doc__": f"A {references} in a :class:`~"
+                       f"{self.owner.__module__}.{self.owner.__name__}`."})
 
 
 class AxiomError(Exception):

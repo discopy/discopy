@@ -22,6 +22,7 @@ Summary
     Coeval
     Curry
     Sum
+    Bubble
     Functor
     CMap
     TermBase
@@ -341,15 +342,7 @@ class Diagram(monoidal.Diagram, BiclosedCategory):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
 
 
-class Box(monoidal.Box, Diagram):
-    """
-    A biclosed box is a monoidal box in a biclosed diagram.
-
-    Parameters:
-        name (str) : The name of the box.
-        dom (Ty) : The domain of the box, i.e. its input.
-        cod (Ty) : The codomain of the box, i.e. its output.
-    """
+Box = Diagram.generator_factory
 
 
 class Eval(Box):
@@ -374,6 +367,9 @@ class Eval(Box):
     @property
     def drawing_name(self):
         return "<<" if self.left else ">>"
+
+
+Diagram.eval_factory = Eval
 
 
 class Coeval(Box):
@@ -405,6 +401,9 @@ class Coeval(Box):
 
     def dagger(self) -> Eval:
         return self.eval_factory(self.x, self.left)
+
+
+Diagram.coeval_factory = Coeval
 
 
 class Curry(monoidal.Bubble, Box):
@@ -445,22 +444,9 @@ class Curry(monoidal.Bubble, Box):
         return (f >> e).to_drawing().trace(left=True)
 
 
-class Sum(monoidal.Sum, Box):
-    """
-    A biclosed sum is a monoidal sum and a biclosed box.
-
-    Parameters:
-        terms (tuple[Diagram, ...]) : The terms of the formal sum.
-        dom (Ty) : The domain of the formal sum.
-        cod (Ty) : The codomain of the formal sum.
-    """
-
-
-Id = Diagram.id
 Diagram.curry_factory = Curry
-Diagram.eval_factory = Eval
-Diagram.coeval_factory = Coeval
-Diagram.sum_factory = Sum
+Sum, Bubble = Diagram.sum_factory, Diagram.bubble_factory
+Id = Diagram.id
 
 
 class Functor(monoidal.Functor):

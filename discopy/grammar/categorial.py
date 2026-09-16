@@ -23,6 +23,11 @@ Summary
     BX
     Diagram
     Box
+    Eval
+    Coeval
+    Curry
+    Sum
+    Bubble
     Word
     ForwardCrossedComposition
     BackwardCrossedComposition
@@ -124,10 +129,9 @@ class Diagram(biclosed.Diagram):
         return BackwardCrossedComposition(middle << left, middle >> right)
 
 
-class Box(biclosed.Box, Diagram):
-    """
-    A categorial box is a grammar rule in a categorial diagram.
-    """
+Box, Eval, Coeval, Curry, Sum, Bubble = (
+    Diagram.generator_factory, Diagram.eval_factory, Diagram.coeval_factory,
+    Diagram.curry_factory, Diagram.sum_factory, Diagram.bubble_factory)
 
 
 class Word(thue.Word, Box):
@@ -139,18 +143,6 @@ class Word(thue.Word, Box):
         name (str) : The name of the word.
         cod (biclosed.Ty) : The grammatical type of the word.
         dom (biclosed.Ty) : An optional domain for the word, empty by default.
-    """
-
-
-class Eval(biclosed.Eval, Box):
-    """
-    Evaluation box in a categorial grammar.
-    """
-
-
-class Curry(biclosed.Curry, Box):
-    """
-    The currying of a categorial diagram.
     """
 
 
@@ -500,8 +492,6 @@ def tree2diagram(tree: dict, dom=Ty()) -> Diagram:
 
 Id = Diagram.id
 Diagram.functor_factory = Functor
-Diagram.curry_factory = Curry
-Diagram.eval_factory = Eval
 
 Ty.variable_factory = Variable
 Ty.constant_factory = Constant

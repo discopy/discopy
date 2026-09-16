@@ -16,6 +16,7 @@ Summary
     Box
     Braid
     Sum
+    Bubble
     Functor
 
 .. admonition:: Functions
@@ -160,15 +161,7 @@ class Diagram(monoidal.Diagram, BraidedCategory):
         return match.substitute(target)
 
 
-class Box(monoidal.Box, Diagram):
-    """
-    A braided box is a monoidal box in a braided diagram.
-
-    Parameters:
-        name (str) : The name of the box.
-        dom (monoidal.Ty) : The domain of the box, i.e. its input.
-        cod (monoidal.Ty) : The codomain of the box, i.e. its output.
-    """
+Box = Diagram.generator_factory
 
 
 class Braid(BinaryBoxConstructor, Box):
@@ -204,6 +197,9 @@ class Braid(BinaryBoxConstructor, Box):
         return type(self)(self.right, self.left, not self.is_dagger)
 
 
+Diagram.braid_factory = Braid
+
+
 def hexagon(cls: type, factory: Callable) -> Callable[[Ty, Ty], Diagram]:
     """
     Take a ``factory`` for braids of atomic types and extend it recursively.
@@ -228,15 +224,7 @@ def hexagon(cls: type, factory: Callable) -> Callable[[Ty, Ty], Diagram]:
     return method
 
 
-class Sum(monoidal.Sum, Box):
-    """
-    A braided sum is a monoidal sum and a braided box.
-
-    Parameters:
-        terms (tuple[Diagram, ...]) : The terms of the formal sum.
-        dom (Ty) : The domain of the formal sum.
-        cod (Ty) : The codomain of the formal sum.
-    """
+Sum, Bubble = Diagram.sum_factory, Diagram.bubble_factory
 
 
 class Functor(monoidal.Functor):
@@ -259,8 +247,6 @@ class Functor(monoidal.Functor):
         return super().__call__(other)
 
 
-Diagram.braid_factory = Braid
-Diagram.sum_factory = Sum
 Id = Diagram.id
 
 

@@ -13,6 +13,8 @@ Summary
 
     Diagram
     Box
+    Sum
+    Permutation
     Swap
     Spider
     Z
@@ -220,30 +222,9 @@ class Diagram(tensor.Diagram[complex]):
         return diagram
 
 
-class Box(tensor.Box[complex], Diagram):
-    """
-    A ZX box is a tensor box in a ZX diagram.
-
-    Parameters:
-        name (str) : The name of the box.
-        dom (rigid.Nat) : The domain of the box, i.e. its input.
-        cod (rigid.Nat) : The codomain of the box, i.e. its output.
-    """
-
-
-class Sum(tensor.Sum[complex], Box):
-    """
-    A formal sum of ZX diagrams with the same domain and codomain.
-
-    Parameters:
-        terms (tuple[Diagram, ...]) : The terms of the formal sum.
-        dom (Dim) : The domain of the formal sum.
-        cod (Dim) : The codomain of the formal sum.
-    """
-
-
-class Permutation(tensor.Permutation[complex], Box):
-    "A permutation in a ZX diagram."
+Box, Sum, Permutation = (
+    Diagram.generator_factory, Diagram.sum_factory,
+    Diagram.permutation_factory)
 
 
 class Swap(Permutation, tensor.Swap[complex], Box):
@@ -252,6 +233,9 @@ class Swap(Permutation, tensor.Swap[complex], Box):
         return "SWAP"
 
     __str__ = __repr__
+
+
+Diagram.swap_factory = Swap
 
 
 class Spider(tensor.Spider[complex], Box):
@@ -396,6 +380,4 @@ H.drawing_name, H.tikzstyle_name, = '', 'H'
 H.color, H.shape = "yellow", "rectangle"
 
 SWAP = Swap(Nat(1), Nat(1))
-Diagram.swap_factory, Diagram.sum_factory = Swap, Sum
-Diagram.permutation_factory = Permutation
 Id = Diagram.id

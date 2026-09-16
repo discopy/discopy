@@ -956,7 +956,7 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
                 assert_isinstance(layer, Layer)
                 if not layer.boxes:
                     raise ValueError(messages.LAYERS_MUST_HAVE_A_BOX)
-        super().__init__(inside, dom, cod, _scan=_scan)
+        cat.FreeCategory.__init__(self, inside, dom, cod, _scan=_scan)
 
     @property
     def size(self):
@@ -1799,6 +1799,7 @@ class Equation(cat.Equation, RichDisplay):
 Diagram.draw = drawing.draw
 Diagram.to_gif = drawing.to_gif
 
+Diagram.generator_factory = Box
 Diagram.sum_factory = Sum
 Diagram.bubble_factory = Bubble
 Diagram.functor_factory = Functor

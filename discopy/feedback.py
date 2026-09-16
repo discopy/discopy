@@ -23,7 +23,14 @@ Summary
     Layer
     Diagram
     Box
+    Permutation
     Swap
+    Trace
+    Copy
+    Merge
+    Discard
+    Sum
+    Bubble
     Feedback
     FollowedBy
     Head
@@ -440,11 +447,17 @@ class Box(markov.Box, Diagram):
         return markov.Box.setoid(self) + (self.time_step, )
 
 
+Diagram.generator_factory = Box
+
+
 class Permutation(markov.Permutation, Box):
     "A permutation in a feedback diagram."
 
     def delay(self, n_steps=1):
         return type(self)(self.dom.delay(n_steps), self.perm)
+
+
+Diagram.permutation_factory = Permutation
 
 
 class Swap(Permutation, markov.Swap, Box):
@@ -463,6 +476,9 @@ class Swap(Permutation, markov.Swap, Box):
         return type(self)(self.left.delay(n_steps), self.right.delay(n_steps))
 
 
+Diagram.swap_factory = Swap
+
+
 class Copy(markov.Copy, Box):
     """
     The copy of an atomic type :code:`x` some :code:`n` number of times.
@@ -479,6 +495,9 @@ class Copy(markov.Copy, Box):
         return type(self)(self.dom.delay(n_steps), len(self.cod))
 
 
+Diagram.copy_factory = Copy
+
+
 class Merge(markov.Merge, Box):
     """
     The merge of an atomic type :code:`x` some :code:`n` number of times.
@@ -493,6 +512,12 @@ class Merge(markov.Merge, Box):
 
     def delay(self, n_steps=1):
         return type(self)(self.cod.delay(n_steps), len(self.dom))
+
+
+Diagram.merge_factory = Merge
+Discard, Trace, Sum, Bubble = (
+    Diagram.discard_factory, Diagram.trace_factory,
+    Diagram.sum_factory, Diagram.bubble_factory)
 
 
 class Head(monoidal.Bubble, Box):
@@ -567,6 +592,9 @@ class Feedback(monoidal.Bubble, Box):
         return self.arg.to_drawing().trace()
 
 
+Diagram.feedback_factory = Feedback
+
+
 class FollowedBy(Box):
     """
     The isomorphism between `x.head @ x.tail.delay()` and `x`.
@@ -614,6 +642,9 @@ class FollowedBy(Box):
 
     def reset(self):
         return type(self)(self.arg, self.is_dagger)
+
+
+Diagram.followed_by = FollowedBy
 
 
 class Functor(markov.Functor):
@@ -667,10 +698,6 @@ class Functor(markov.Functor):
 
 
 Diagram.functor_factory = Functor
-Diagram.swap_factory = Swap
-Diagram.permutation_factory = Permutation
-Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
-Diagram.feedback_factory, Diagram.followed_by = Feedback, FollowedBy
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Id = Diagram.id
 

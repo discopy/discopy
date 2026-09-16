@@ -22,6 +22,7 @@ Summary
     Functor
     Transformation
     Equation
+    Factory
 
 .. admonition:: Functions
 
@@ -31,6 +32,7 @@ Summary
         :toctree:
 
         factory
+        generators
         dumps
         loads
 
@@ -86,6 +88,8 @@ from discopy.abc import Category
 from discopy.axioms import GENERATORS, Equation as AbstractEquation, Testable
 from discopy.utils import (  # noqa: F401
     factory,
+    Factory,
+    generators,
     factory_name,
     from_tree,
     rsubs,
@@ -181,26 +185,22 @@ class FreeCategory(Category):
 
     Note
     ----
-    Subclasses are assumed to have a ``generator_factory`` class attribute
-    for the type of the generators and an arrow factory ``ar`` whose
+    Subclasses are assumed to have an arrow factory ``ar`` whose
     constructor accepts ``inside``, ``dom``, ``cod`` and ``_scan`` as
     keyword arguments. New arrows are always built internally through that
     constructor by keyword (passing ``_scan=False`` to skip the
     composability check when it is guaranteed by construction), so that
     subclasses are free to expose a different, more user-friendly positional
-    signature without breaking the machinery below.
+    signature without breaking the machinery below. Subclasses check the
+    type of what they put ``inside`` themselves, e.g. :class:`Arrow` its
+    ``generator_factory`` and :class:`discopy.monoidal.Diagram` its layers.
     """
-
-    generator_factory = None
-
     def __init__(self, inside, dom, cod, _scan=True):
         ob = type(self).ob
         dom = dom if isinstance(dom, ob) else ob(dom)
         cod = cod if isinstance(cod, ob) else ob(cod)
         self.dom, self.cod, self.inside = dom, cod, tuple(inside)
         if _scan:
-            for generator in inside:
-                assert_isinstance(generator, self.generator_factory)
             previous = dom
             for generator in inside:
                 if previous != generator.dom:
@@ -307,6 +307,12 @@ class Arrow(FreeCategory, Testable["Arrow"]):
     see :class:`monoidal.Nat`.
     """
     ob = Ob
+
+    def __init__(self, inside, dom, cod, _scan=True):
+        if _scan:
+            for box in inside:
+                assert_isinstance(box, self.generator_factory)
+        super().__init__(inside, dom, cod, _scan=_scan)
 
     @classmethod
     def strategy(

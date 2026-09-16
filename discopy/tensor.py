@@ -17,12 +17,28 @@ Summary
     Diagram
     CMap
     Box
-    Swap
     Cup
     Cap
+    Permutation
+    Swap
     Spider
     Sum
     Bubble
+
+Spiders
+-------
+
+The spiders of a tensor diagram evaluate to the copy tensors of the
+frobenius algebra on each dimension.
+
+>>> vector = Box('vec', Dim(1), Dim(2), [0, 1])
+>>> spider = Spider(1, 2, Dim(2))
+>>> assert (vector >> spider).eval() == (vector @ vector).eval()
+>>> Equation(vector >> spider, vector @ vector).draw(figsize=(3, 2),
+...     doctest='docs/_static/tensor/frobenius-example.svg')
+
+.. image:: /_static/tensor/frobenius-example.svg
+    :align: center
 
 Tensor combinatorial maps
 -------------------------
@@ -747,24 +763,8 @@ class Box(frobenius.Box, Diagram):
         return (self.name, self.dom, self.cod, self.dtype) + data
 
 
-class Cup(frobenius.Cup, Box):
-    """
-    A tensor cup is a frobenius cup in a tensor diagram.
-
-    Parameters:
-        left (Dim) : The atomic type.
-        right (Dim) : Its adjoint.
-    """
-
-
-class Cap(frobenius.Cap, Box):
-    """
-    A tensor cap is a frobenius cap in a tensor diagram.
-
-    Parameters:
-        left (Dim) : The atomic type.
-        right (Dim) : Its adjoint.
-    """
+Diagram.generator_factory = Box
+Cup, Cap = Diagram.cup_factory, Diagram.cap_factory
 
 
 class Permutation(frobenius.Permutation, Box):
@@ -777,48 +777,9 @@ class Permutation(frobenius.Permutation, Box):
         return Tensor.permutation(self.perm, doms).array
 
 
-class Swap(Permutation, frobenius.Swap, Box):
-    """
-    A tensor swap is a frobenius swap in a tensor diagram.
-
-    Parameters:
-        left (Dim) : The type on the top left and bottom right.
-        right (Dim) : The type on the top right and bottom left.
-    """
-
-
-class Spider(frobenius.Spider, Box):
-    """
-    A tensor spider is a frobenius spider in a tensor diagram.
-
-    Parameters:
-        n_legs_in (int) : The number of legs in.
-        n_legs_out (int) : The number of legs out.
-        typ (Dim) : The dimension of the spider.
-        data : The phase of the spider.
-
-    Examples
-    --------
-    >>> vector = Box('vec', Dim(1), Dim(2), [0, 1])
-    >>> spider = Spider(1, 2, Dim(2))
-    >>> assert (vector >> spider).eval() == (vector @ vector).eval()
-    >>> Equation(vector >> spider, vector @ vector).draw(figsize=(3, 2),
-    ...     doctest='docs/_static/tensor/frobenius-example.svg')
-
-    .. image:: /_static/tensor/frobenius-example.svg
-        :align: center
-    """
-
-
-class Sum(monoidal.Sum, Box):
-    """
-    A formal sum of tensor diagrams with the same domain and codomain.
-
-    Parameters:
-        terms (tuple[Diagram, ...]) : The terms of the formal sum.
-        dom (Dim) : The domain of the formal sum.
-        cod (Dim) : The codomain of the formal sum.
-    """
+Diagram.permutation_factory = Permutation
+Swap, Spider, Sum = (
+    Diagram.swap_factory, Diagram.spider_factory, Diagram.sum_factory)
 
 
 class Bubble(monoidal.Bubble, Box):
@@ -893,10 +854,7 @@ class Bubble(monoidal.Bubble, Box):
             @ self.arg.grad(var) >> Spider(2, 1, self.cod)
 
 
-Diagram.sum_factory, Diagram.swap_factory = Sum, Swap
-Diagram.permutation_factory = Permutation
-Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
-Diagram.spider_factory, Diagram.bubble_factory = Spider, Bubble
+Diagram.bubble_factory = Bubble
 Id = Diagram.id
 
 

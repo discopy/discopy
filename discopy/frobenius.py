@@ -22,8 +22,10 @@ Summary
     Box
     Cup
     Cap
+    Permutation
     Swap
     Spider
+    Sum
     Bubble
     Functor
     CMap
@@ -169,53 +171,9 @@ class Diagram(compact.Diagram, markov.Diagram, HypergraphCategory):
         return F(self)
 
 
-class Box(compact.Box, markov.Box, Diagram):
-    """
-    A frobenius box is a compact and Markov box in a frobenius diagram.
-
-    Parameters:
-        name (str) : The name of the box.
-        dom (Ty) : The domain of the box, i.e. its input.
-        cod (Ty) : The codomain of the box, i.e. its output.
-    """
-
-
-class Cup(compact.Cup, Box):
-    """
-    A frobenius cup is a compact cup in a frobenius diagram.
-
-    Parameters:
-        left (Ty) : The atomic type.
-        right (Ty) : Its adjoint.
-    """
-
-
-class Cap(compact.Cap, Box):
-    """
-    A frobenius cap is a compact cap in a frobenius diagram.
-
-    Parameters:
-        left (Ty) : The atomic type.
-        right (Ty) : Its adjoint.
-    """
-
-
-class Permutation(compact.Permutation, markov.Permutation, Box):
-    "A permutation in a Frobenius diagram."
-
-
-class Swap(Permutation, compact.Swap, markov.Swap, Box):
-    """
-    A frobenius swap is a compact and Markov swap in a frobenius diagram.
-
-    Parameters:
-        left (Ty) : The type on the top left and bottom right.
-        right (Ty) : The type on the top right and bottom left.
-    """
-
-    def rotate(self, left=False):
-        del left
-        return self
+Box, Cup, Cap, Permutation, Swap = (
+    Diagram.generator_factory, Diagram.cup_factory, Diagram.cap_factory,
+    Diagram.permutation_factory, Diagram.swap_factory)
 
 
 class Spider(Box):
@@ -282,10 +240,8 @@ class Spider(Box):
             len(self.dom), len(self.cod), self.typ, self.phase)
 
 
-class Bubble(monoidal.Bubble, Box):
-    """
-    A Frobenius bubble is a monoidal bubble in a frobenius diagram.
-    """
+Diagram.spider_factory = Spider
+Sum, Bubble = Diagram.sum_factory, Diagram.bubble_factory
 
 
 class Functor(compact.Functor, markov.Functor):
@@ -387,10 +343,6 @@ def coherence(cls: type, factory: Callable
 CMap = cmap.CMap[Diagram]
 
 Diagram.functor_factory = Functor
-Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
-Diagram.swap_factory, Diagram.spider_factory = Swap, Spider
-Diagram.permutation_factory = Permutation
-Diagram.bubble_factory = Bubble
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Id = Diagram.id
 

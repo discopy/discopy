@@ -22,8 +22,14 @@ Summary
     Eval
     Coeval
     Curry
+    Permutation
+    Swap
+    Trace
+    Copy
+    Merge
     Discard
     Sum
+    Bubble
     Functor
     CMap
 
@@ -96,7 +102,8 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
 
     @property
     def is_linear(self):
-        return all(box.is_linear for box in self.boxes)
+        """ Whether the diagram has no copy or discard. """
+        return not any(isinstance(box, markov.Copy) for box in self.boxes)
 
     @classmethod
     def ev(cls, base: Ty, exponent: Ty, left: bool = True):
@@ -136,9 +143,7 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
 
 
-class Box(markov.Box, biclosed.Box, Diagram):
-    "A closed box is a markov and biclosed box in a closed diagram."
-    is_linear = True
+Box = Diagram.generator_factory
 
 
 class Eval(biclosed.Eval, Box):
@@ -146,45 +151,12 @@ class Eval(biclosed.Eval, Box):
     drawing_name = "__call__"
 
 
-class Coeval(biclosed.Coeval, Box):
-    "The coevaluation of an exponential type, i.e. the dagger of an Eval."
-
-
-class Curry(biclosed.Curry, Box):
-    "The currying of a closed diagram."
-
-
-class Permutation(markov.Permutation, Box):
-    "A permutation in a closed diagram."
-
-
-class Swap(Permutation, markov.Swap, Box):
-    "Symmetric swap in a closed diagram."
-
-
-class Trace(markov.Trace, Box):
-    "A trace in a closed category."
-
-
-class Copy(markov.Copy, Box):
-    "A markov copy in a closed category"
-
-    is_linear = False
-
-
-class Discard(markov.Discard, Copy):
-    "A markov discard in a closed category."
-
-
-class Sum(markov.Sum, biclosed.Sum, Box):
-    """
-    A markov sum is a symmetric sum and a markov box.
-
-    Parameters:
-        terms (tuple[Diagram, ...]) : The terms of the formal sum.
-        dom (Ty) : The domain of the formal sum.
-        cod (Ty) : The codomain of the formal sum.
-    """
+Diagram.eval_factory = Eval
+Coeval, Curry, Permutation, Swap, Trace, Copy, Merge, Discard, Sum, Bubble = (
+    Diagram.coeval_factory, Diagram.curry_factory,
+    Diagram.permutation_factory, Diagram.swap_factory, Diagram.trace_factory,
+    Diagram.copy_factory, Diagram.merge_factory, Diagram.discard_factory,
+    Diagram.sum_factory, Diagram.bubble_factory)
 
 
 class Functor(biclosed.Functor, markov.Functor):
@@ -212,15 +184,6 @@ CMap = cmap.CMap[Diagram]
 
 Diagram.functor_factory = Functor
 Hypergraph = hypergraph.Hypergraph[Diagram]
-Diagram.copy_factory = Copy
-Diagram.swap_factory = Swap
-Diagram.permutation_factory = Permutation
-Diagram.curry_factory = Curry
-Diagram.eval_factory = Eval
-Diagram.coeval_factory = Coeval
-Diagram.trace_factory = Trace
-Diagram.discard_factory = Discard
-Diagram.sum_factory = Sum
 Ty.exp_factory = Ty.under_factory = Ty.over_factory = staticmethod(Exp)
 
 Id = Diagram.id

@@ -18,6 +18,7 @@ Summary
     Circuit
     Box
     Sum
+    Permutation
     Swap
     Functor
 
@@ -892,6 +893,9 @@ class Box(tensor.Box[complex], Circuit):
         return self if self.z is None else super().rotate(left)
 
 
+Circuit.generator_factory = Box
+
+
 class Sum(tensor.Sum[complex], Box):
     """ Sums of circuits. """
     @property
@@ -926,6 +930,9 @@ class Sum(tensor.Sum[complex], Box):
         return [circuit.to_tk() for circuit in self.terms]
 
 
+Circuit.sum_factory = Sum
+
+
 class Permutation(tensor.Permutation[complex], Box):
     "A permutation in a quantum circuit."
 
@@ -938,6 +945,9 @@ class Permutation(tensor.Permutation[complex], Box):
     def is_classical(self):
         return not self.is_mixed\
             and all(isinstance(x.inside[0], Digit) for x in self.dom)
+
+
+Circuit.permutation_factory = Permutation
 
 
 class Swap(Permutation, tensor.Swap, Box):
@@ -954,6 +964,9 @@ class Swap(Permutation, tensor.Swap, Box):
         left, = self.left.inside
         right, = self.right.inside
         return Tensor[complex].swap(Dim(left.dim), Dim(right.dim)).array
+
+
+Circuit.swap_factory = Swap
 
 
 class Functor(frobenius.Functor):
@@ -981,8 +994,6 @@ def bitstring2index(bitstring):
     return sum(value * 2 ** i for i, value in enumerate(bitstring[::-1]))
 
 
-Circuit.swap_factory, Circuit.sum_factory = Swap, Sum
-Circuit.permutation_factory = Permutation
 bit, qubit = Ty(Digit(2)), Ty(Qudit(2))
 Id = Circuit.id
 

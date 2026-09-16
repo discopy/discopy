@@ -15,7 +15,9 @@ Summary
     Box
     Braid
     Twist
+    Trace
     Sum
+    Bubble
     Functor
 
 Axioms
@@ -179,21 +181,7 @@ class Diagram(braided.Diagram, traced.Diagram, BalancedCategory):
             else self.dual_rail_factory(width, colour)(self)
 
 
-class Box(braided.Box, traced.Box, Diagram):
-    """
-    A braided box is a monoidal box in a braided diagram.
-
-    Parameters:
-        name (str) : The name of the box.
-        dom (monoidal.Ty) : The domain of the box, i.e. its input.
-        cod (monoidal.Ty) : The codomain of the box, i.e. its output.
-    """
-
-
-class Braid(braided.Braid, Box):
-    """
-    Braid in a balanced category.
-    """
+Box, Braid = Diagram.generator_factory, Diagram.braid_factory
 
 
 class DualRailBraid(braided.Box):
@@ -248,20 +236,6 @@ class DualRailTwist(braided.Box):
         return type(self)(self.dom, not self.is_dagger)
 
 
-class Trace(traced.Trace, Box):
-    """
-    A trace in a balanced category.
-
-    Parameters:
-        arg : The diagram to trace.
-        left : Whether to trace the wires on the left or right.
-
-    See also
-    --------
-    :meth:`Diagram.trace`
-    """
-
-
 class Twist(Box):
     """
     The twist on atomic type :code:`dom`.
@@ -291,15 +265,9 @@ class Twist(Box):
         return type(self)(self.dom, not self.is_dagger)
 
 
-class Sum(braided.Sum, Box):
-    """
-    A balanced sum is a braided sum and a balanced box.
-
-    Parameters:
-        terms (tuple[Diagram, ...]) : The terms of the formal sum.
-        dom (Ty) : The domain of the formal sum.
-        cod (Ty) : The codomain of the formal sum.
-    """
+Diagram.twist_factory = Twist
+Trace, Sum, Bubble = (
+    Diagram.trace_factory, Diagram.sum_factory, Diagram.bubble_factory)
 
 
 class Functor(braided.Functor, traced.Functor):
@@ -364,10 +332,6 @@ class DualRail(Functor):
 Diagram.functor_factory = Functor
 CMap = cmap.CMap[Diagram]
 Hypergraph = hypergraph.Hypergraph[Diagram]
-Diagram.braid_factory = Braid
-Diagram.twist_factory = Twist
-Diagram.trace_factory = Trace
-Diagram.sum_factory = Sum
 Diagram.dual_rail_factory = DualRail
 Id = Diagram.id
 
