@@ -46,6 +46,7 @@ Summary
     SymmetricCategory
     PROP
     MarkovCategory
+    CartesianCategory
     ClosedCategory
     BalancedCategory
     RibbonCategory
@@ -760,6 +761,15 @@ class MarkovCategory[C0, C1](SymmetricCategory[C0, C1]):
             x : The object to copy.
             n : The number of copies.
         """
+
+
+class CartesianCategory[C0, C1](MarkovCategory[C0, C1]):
+    """
+    A cartesian category is a :class:`MarkovCategory` where every morphism
+    is deterministic, i.e. the copy is natural:
+    ``f >> copy(f.cod) == copy(f.dom) >> f @ f``, an axiom to be stated
+    once property testing reaches this level of the hierarchy.
+    """
 
 
 class ClosedCategory[C0, C1](

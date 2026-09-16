@@ -18,6 +18,7 @@ from discopy import (
     ribbon,
     compact,
     markov,
+    cartesian,
     closed,
     frobenius,
     hypergraph,

@@ -367,7 +367,7 @@ class Markov(Symmetric, MarkovCategory):
         return cls.lift(cls.category.copy(x, n))
 
 
-class Closed(Markov, ClosedCategory):
+class Closed(Symmetric, ClosedCategory):
     """
     Parametric maps over a closed underlying `category` form a closed
     category, currying with the parameters swapped out of the way.

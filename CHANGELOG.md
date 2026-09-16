@@ -9,6 +9,23 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `discopy.cartesian` and `abc.CartesianCategory`: a cartesian category
+  is a Markov category where every morphism is deterministic, i.e. the
+  copy is natural — `f >> copy == copy >> f @ f` — an axiom to be stated
+  once property testing reaches this level of the hierarchy, so for now
+  the free `cartesian.Diagram` and its terms are those of
+  `discopy.markov` read as deterministic. `python.Function` declares the
+  `CartesianCategory` it always implemented.
+- `markov.Term`: `Variable`, `Constant` and `Application`, the
+  first-order terms in the internal language of a Markov category, with
+  `Context` moved from `discopy.closed`. A variable can be copied and
+  discarded — a shared variable is copied by `Application.eval`, a
+  variable of the context unused by the term is discarded — and there is
+  no abstraction since a Markov category has no exponentials. The free
+  variables of a term keep their first-occurrence order
+  ([#543](https://github.com/discopy/discopy/issues/543)) and `Context`
+  keeps working on the empty context
+  ([#549](https://github.com/discopy/discopy/issues/549)).
 - `abc.DelayedMonoid`, a coloured monoid with a `delay` endomorphism
   shortened to `.d`, the objects of a `FeedbackCategory`: its `C0` is now
   bounded by it the way `BiclosedCategory` reads `C0: ResiduatedMonoid` and
@@ -210,6 +227,22 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Changed
 
+- `discopy.closed` is fully linear: `Copy`, `Merge` and `Discard` are
+  gone along with the markov supply and the `abc.MarkovCategory`
+  declaration, and its terms are the linear lambda calculus, the internal
+  language of a symmetric closed category. An application whose function
+  and arguments share a free variable raises, where it used to insert a
+  copy, and an abstraction over a variable that does not occur exactly
+  once in the body raises, where it used to insert a discard — reverting
+  the non-linear behaviour of
+  [#541](https://github.com/discopy/discopy/issues/541),
+  [#544](https://github.com/discopy/discopy/issues/544) and
+  [#562](https://github.com/discopy/discopy/issues/562) at the closed
+  level, whose examples become the first-order `markov.Term`s where
+  copy and discard belong; the abstracted variable can still sit at any
+  position in the body, the symmetry permutes it into place.
+  `closed.Functor` is a symmetric functor and `para.Closed` wraps a
+  symmetric base.
 - The diagram hierarchy follows `abc` — and the literature — around
   traces and feedback. `abc.TracedCategory` inherits from
   `abc.FeedbackCategory`, which moves down the hierarchy from
@@ -238,11 +271,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   and `SymmetricCategory` accordingly; `closed` is not traced either:
   currying stays a bubble and `closed.Diagram.to_compact` collapses it
   down to wiring structure on the combinatorial map, through `to_map`.
-  `feedback` and `closed` keep a
+  `feedback` keeps a
   supply of `Copy` and `Merge` borrowed from `markov` — declared as the
   `abc.MarkovCategory` interface without the class edge — which
-  `from_callable`, the stream examples and the non-linear lambda terms
-  use. There is no planar traced module: the `Trace` bubble lives in
+  `from_callable` and the stream examples use. There is no planar traced module: the `Trace` bubble lives in
   `monoidal` as pure syntax next to `Bubble` — monoidal diagrams
   themselves have no trace — `monoidal.Functor` maps it whenever its
   codomain has a `trace`, which also lets every traced diagram draw

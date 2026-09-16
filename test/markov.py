@@ -70,3 +70,50 @@ def test_Permutation():
     assert Permutation(x @ y, [1, 0]) == Swap(x, y)
     assert issubclass(Swap, Permutation)
     assert Equation(perm, perm.to_swaps())
+
+
+def test_term_copy_and_discard():
+    """ A shared variable is copied, an unused one is discarded — the
+    non-linear behaviour that used to live in `discopy.closed`. """
+    X, Y = Ty('X'), Ty('Y')
+    x, y = Variable('x', X), Variable('y', Y)
+    g = Constant('g', X @ X, Y)
+    copied = g(x, x).eval()
+    assert any(isinstance(box, Copy) for box in copied.boxes)
+    discarded = g(x, x).eval(context=Context([x, y]))
+    assert any(isinstance(box, Discard) for box in discarded.boxes)
+    assert discarded.dom == X @ Y and discarded.cod == Y
+
+
+def test_term_freevars_order():
+    """ Free variables keep first-occurrence order rather than going
+    through a set, whose iteration order depends on hashing, see #543. """
+    A, B, C, W, Z = map(Ty, "ABCWZ")
+    a, b, c = Variable('a', A), Variable('b', B), Variable('c', C)
+    f, F = Constant('f', A @ B @ C, W), Constant('F', W @ A, Z)
+    term = F(f(a, b, c), a)
+    assert [x.name for x in term.freevars] == ['a', 'b', 'c']
+    assert term.dom == A @ B @ C and term.cod == Z
+
+
+def test_term_functor():
+    """ A term with a shared variable evaluates to a python function that
+    copies its argument, the migration of #562's example. """
+    from discopy.python import Function
+    X, Y = Ty('X'), Ty('Y')
+    x, g = Variable('x', X), Constant('g', X @ X, Y)
+    F = Functor(
+        ob_map={X: int, Y: str},
+        ar_map={g: lambda n, m: f"{n}|{m}"}, cod=Function)
+    assert F(g(x, x).eval())(7) == "7|7"
+
+
+def test_context_dom():
+    """
+    `Context.dom` instantiates `category.ob` before calling `.tensor`, so
+    it works both for an empty context (regression test for #549) and for
+    a non-empty one.
+    """
+    X = Ty('X')
+    assert Context([]).dom == Ty()
+    assert Context([Variable('x', X)]).dom == X

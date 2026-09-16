@@ -1,6 +1,8 @@
 
 """
-The free closed markov category, i.e. with copy, discard and exponentials.
+The free closed category, i.e. symmetric diagrams with exponentials,
+whose terms are the linear lambda calculus: a variable is used exactly
+once, see :mod:`discopy.markov` for terms with copy and discard.
 
 Summary
 -------
@@ -22,7 +24,6 @@ Summary
     Eval
     Coeval
     Curry
-    Discard
     Sum
     Functor
     CMap
@@ -50,11 +51,11 @@ Axioms
 
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Dict, ClassVar
+from typing import Dict
 
 from discopy import (
-    cat, monoidal, biclosed, symmetric, markov, cmap, hypergraph)
-from discopy.abc import ClosedCategory, MarkovCategory
+    cat, monoidal, biclosed, symmetric, cmap, hypergraph)
+from discopy.abc import ClosedCategory
 from discopy.cat import factory
 
 
@@ -87,25 +88,14 @@ class Exp(biclosed.Exp):
 
 
 @factory
-class Diagram(
-        symmetric.Diagram, biclosed.Diagram, MarkovCategory, ClosedCategory):
+class Diagram(symmetric.Diagram, biclosed.Diagram, ClosedCategory):
     """
-    A closed diagram is both a symmetric and a biclosed diagram, together
-    with a supply of :class:`Copy` and :class:`Discard` borrowed from
-    :mod:`discopy.markov`, which its non-linear lambda terms use.
+    A closed diagram is both a symmetric and a biclosed diagram: it is
+    fully linear, with no copy nor discard, see :mod:`discopy.markov`.
 
     A diagram applied to another post-composes their tensor with an `Eval`.
     """
     ob = Ty
-
-    spider_factory = classmethod(markov.Diagram.spider_factory.__func__)
-    copy = classmethod(markov.Diagram.copy.__func__)
-    merge = classmethod(markov.Diagram.merge.__func__)
-    discard = classmethod(markov.Diagram.discard.__func__)
-
-    @property
-    def is_linear(self):
-        return all(box.is_linear for box in self.boxes)
 
     @classmethod
     def ev(cls, base: Ty, exponent: Ty, left: bool = True):
@@ -134,8 +124,7 @@ class Diagram(
 
 
 class Box(symmetric.Box, biclosed.Box, Diagram):
-    "A closed box is a markov and biclosed box in a closed diagram."
-    is_linear = True
+    "A closed box is a symmetric and biclosed box in a closed diagram."
 
 
 class Eval(biclosed.Eval, Box):
@@ -159,41 +148,9 @@ class Swap(Permutation, symmetric.Swap, Box):
     "Symmetric swap in a closed diagram."
 
 
-class Copy(Box, markov.Copy):
-    """
-    A copy in a closed category: the :class:`Box` comes first so that
-    ``factory`` resolves to :class:`Diagram`.
-    """
-    is_linear = False
-
-    __init__ = markov.Copy.__init__
-    __repr__ = markov.Copy.__repr__
-
-    def dagger(self) -> Merge:
-        return Merge(self.dom, len(self.cod))
-
-
-class Merge(Box, markov.Merge):
-    "A merge in a closed category."
-
-    is_linear = False
-
-    __init__ = markov.Merge.__init__
-    __repr__ = markov.Merge.__repr__
-
-    def dagger(self) -> Copy:
-        return Copy(self.cod, len(self.dom))
-
-
-class Discard(Copy):
-    "A discard in a closed category."
-    def __init__(self, x: Ty, *args, **kwargs):
-        super().__init__(x, 0)
-
-
 class Sum(symmetric.Sum, biclosed.Sum, Box):
     """
-    A markov sum is a symmetric sum and a markov box.
+    A closed sum is a symmetric and biclosed sum.
 
     Parameters:
         terms (tuple[Diagram, ...]) : The terms of the formal sum.
@@ -202,9 +159,9 @@ class Sum(symmetric.Sum, biclosed.Sum, Box):
     """
 
 
-class Functor(biclosed.Functor, markov.Functor):
+class Functor(biclosed.Functor, symmetric.Functor):
     """
-    A closed functor is a markov functor
+    A closed functor is a symmetric functor
     that preserves evaluation and currying.
 
     Parameters:
@@ -227,13 +184,11 @@ CMap = cmap.CMap[Diagram]
 
 Diagram.functor_factory = Functor
 Hypergraph = hypergraph.Hypergraph[Diagram]
-Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.swap_factory = Swap
 Diagram.permutation_factory = Permutation
 Diagram.curry_factory = Curry
 Diagram.eval_factory = Eval
 Diagram.coeval_factory = Coeval
-Diagram.discard_factory = Discard
 Diagram.sum_factory = Sum
 Ty.exp_factory = Ty.under_factory = Ty.over_factory = staticmethod(Exp)
 
@@ -242,7 +197,11 @@ Id = Diagram.id
 
 class TermBase(Box, biclosed.TermBase):
     """
-    A term in the internal language of a closed category.
+    A term in the internal language of a closed category, i.e. the linear
+    lambda calculus: an application shares no free variable between its
+    function and its arguments, an abstracted variable occurs exactly once
+    in the body, at any position since the category is symmetric. See
+    :class:`markov.TermBase` for terms with copy and discard.
     """
     functor = Functor.id(Diagram)
 
@@ -254,78 +213,47 @@ type Term = Constant | Variable | Application | Abstraction
 
 
 class Constant(TermBase, biclosed.Constant):
-    def eval(self, functor=None, context=None):
-        functor = functor or self.functor
-        if not context:
-            return super().eval(functor)
-        return functor.cod.discard(functor(context.dom)) >> super().eval(
-            functor)
+    "A constant term in a closed category."
 
 
 class Variable(TermBase, biclosed.Variable):
-    def eval(self, functor=None, context=None):
-        functor = functor or self.functor
-        if not context:
-            return functor.cod.id(functor(self.cod))
-        return functor.cod.tensor(*[
-            functor.cod.id(functor(x.cod)) if x == self
-            else functor.cod.discard(functor(x.cod))
-            for x in context.inside])
+    "A variable in a closed category, used exactly once."
 
 
 class Application(TermBase, biclosed.Application):
+    """
+    A linear application: the free variables of the function and of the
+    arguments are disjoint — a shared variable needs the copy of
+    :class:`markov.Application`.
+    """
     def __check_dom__(self, func, args, left):
-        self.overlap = set(func.freevars).intersection(args.freevars)
-        self.freevars = list(dict.fromkeys(func.freevars + args.freevars))
+        if set(func.freevars).intersection(args.freevars):
+            raise ValueError("Expected disjoint free variables.")
+        self.freevars = args.freevars + func.freevars if left\
+            else func.freevars + args.freevars
         return self.ob().tensor(*[x.cod for x in self.freevars])
-
-    def eval(self, functor=None, context=None):
-        functor = functor or self.functor
-        base, exponent = self.func.cod.base, self.func.cod.exponent
-        evaluate = functor.cod.ev(functor(base), functor(exponent))
-        if context is None:
-            if not self.overlap:
-                func = self.func.eval(functor=functor)
-                args = self.args.eval(functor=functor)
-                return func @ args >> evaluate
-            context = Context(self.freevars)
-        func = self.func.eval(functor=functor, context=context)
-        args = self.args.eval(functor=functor, context=context)
-        return functor.cod.copy(functor(context.dom))\
-            >> func @ args >> evaluate
 
 
 class Abstraction(TermBase, biclosed.Abstraction):
+    """
+    A linear abstraction: the variable occurs exactly once in the body,
+    at any position — the symmetry permutes it into place.
+    """
     def __check_dom__(self):
+        if self.body.freevars.count(self.var) != 1:
+            raise ValueError("Expected variable to occur exactly once.")
         self.freevars = [x for x in self.body.freevars if x != self.var]
         return self.ob().tensor(*[x.cod for x in self.freevars])
 
-    def eval(self, functor=None, context=None):
+    def eval(self, functor=None):
         functor = functor or self.functor
         if self.left:
-            return type(self)(self.var, self.body).eval(functor, context)
-        if context:
-            new_context = Context([self.var] + context.inside)
-            body = self.body.eval(functor=functor, context=new_context)
-            return body.curry(left=False)
+            return type(self)(self.var, self.body).eval(functor)
         body = self.body.eval(functor=functor)
-        if self.var not in self.body.freevars:
-            discard = functor.cod.discard(functor(self.var.cod))
-            return (discard @ body.dom >> body).curry(left=False)
         i, n = self.body.freevars.index(self.var), len(self.body.freevars)
         p = [i] + [j for j in range(n) if j != i]
         doms = [self.ob(wire) for wire in body.dom.inside]
         return (body.permutation(p, doms).dagger() >> body).curry(left=False)
-
-
-@dataclass
-class Context:
-    inside: list[Variable]
-    category: ClassVar[type[ClosedCategory]] = Diagram
-
-    @property
-    def dom(self):
-        return self.category.ob().tensor(*[x.cod for x in self.inside])
 
 
 @dataclass
@@ -349,5 +277,5 @@ Ty.application_factory = Application
 Ty.abstraction_factory = Abstraction
 
 
-class Equation(markov.Equation):
-    """ The :class:`markov.Equation` of closed diagrams. """
+class Equation(symmetric.Equation):
+    """ The :class:`symmetric.Equation` of closed diagrams. """

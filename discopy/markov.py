@@ -18,6 +18,11 @@ Summary
     Permutation
     Copy
     Functor
+    Context
+    TermBase
+    Constant
+    Variable
+    Application
 
 
 Axioms
@@ -73,11 +78,15 @@ in the same diagram they automatically satisfy the :mod:`frobenius` axioms.
 
 from __future__ import annotations
 
+from abc import abstractmethod
+from dataclasses import dataclass
+from typing import ClassVar
+
 from discopy import symmetric, monoidal, cmap, hypergraph
 from discopy.abc import MarkovCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty  # noqa: F401
-from discopy.utils import assert_isatomic, factory_name
+from discopy.utils import assert_isatomic, assert_isinstance, factory_name
 
 
 Layer = symmetric.Layer
@@ -312,3 +321,163 @@ Id = Diagram.id
 class Equation(symmetric.Equation):
     """ The :class:`symmetric.Equation` of Markov diagrams. """
     up_to = staticmethod(Diagram.to_hypergraph)
+
+
+class TermBase(Box):
+    """
+    A term in the internal language of a Markov category: a
+    :class:`Variable` can be copied and discarded, a :class:`Constant` is
+    applied to terms and there is no abstraction since there are no
+    exponentials — see :mod:`discopy.closed` for the linear lambda calculus.
+
+    The ``dom`` of a term is the tensor of the types of its free variables,
+    in order of first occurrence, and its ``cod`` is the type of the term.
+    """
+    functor: ClassVar[Functor] = None
+
+    @abstractmethod
+    def eval(self, functor: Functor = None, context: Context = None
+             ) -> MarkovCategory:
+        """
+        The evaluation of a :class:`Functor` on a term gives a morphism in
+        its codomain, from a ``context`` — the free variables of the term
+        by default, of which the unused ones are discarded.
+        """
+
+    def draw(self, **kwargs):
+        "Drawing a term by evaluating it in the free Markov category."
+        return self.eval().draw(**kwargs)
+
+
+type Term = Constant | Variable | Application
+
+
+class Constant(TermBase):
+    """
+    A function symbol with a ``dom`` and a ``cod``, applied to terms with
+    ``__call__``; a constant with an empty ``dom`` is itself a term.
+
+    Example
+    -------
+    >>> X, Y = Ty('X'), Ty('Y')
+    >>> f, x = Constant('f', X @ X, Y), Variable('x', X)
+    >>> assert f(x, x).eval() == Copy(X) >> f
+    """
+    def __init__(self, name: str, dom: monoidal.Ty, cod: monoidal.Ty):
+        super().__init__(name, dom, cod)
+        self.freevars = []
+
+    def __call__(self, *terms: Term) -> Application:
+        return self.application_factory(self, terms)
+
+    def eval(self, functor=None, context=None):
+        if len(self.dom):
+            raise ValueError("A constant with a domain must be applied.")
+        functor = functor or self.functor
+        if not context:
+            return functor(self)
+        return functor.cod.discard(functor(context.dom)) >> functor(self)
+
+    def __repr__(self):
+        return factory_name(type(self))\
+            + f"({self.name!r}, {self.dom!r}, {self.cod!r})"
+
+
+class Variable(TermBase):
+    """
+    A variable with a name and a type ``cod``.
+
+    Example
+    -------
+    >>> x = Variable('x', Ty('X'))
+    >>> assert x.eval() == Id(Ty('X'))
+    """
+    def __init__(self, name: str, cod: monoidal.Ty):
+        super().__init__(name, cod, cod)
+        self.freevars = [self]
+
+    def eval(self, functor=None, context=None):
+        functor = functor or self.functor
+        if not context:
+            return functor.cod.id(functor(self.cod))
+        return functor.cod.tensor(*[
+            functor.cod.id(functor(x.cod)) if x == self
+            else functor.cod.discard(functor(x.cod))
+            for x in context.inside])
+
+    def __repr__(self):
+        return factory_name(type(self)) + f"({self.name!r}, {self.cod!r})"
+
+
+class Application(TermBase):
+    """
+    A constant applied to terms: the free variables are listed in order of
+    first occurrence, a shared variable is copied and, in a context, an
+    unused one is discarded.
+
+    Example
+    -------
+    >>> X, Y, Z = Ty('X'), Ty('Y'), Ty('Z')
+    >>> x, y = Variable('x', X), Variable('y', Y)
+    >>> f, g = Constant('f', X @ X, Z), Constant('g', X @ Y, Z)
+    >>> assert f(x, x).eval() == Copy(X) >> f
+    >>> assert g(x, y).eval() == g
+    >>> assert Equation(
+    ...     g(x, y).eval(context=Context([y, x])), Swap(Y, X) >> g)
+    """
+    def __init__(self, symbol: Constant, args: tuple[Term, ...]):
+        assert_isinstance(symbol, Constant)
+        args = tuple(args)
+        for arg in args:
+            assert_isinstance(arg, TermBase)
+        args_cod = self.ob().tensor(*[t.cod for t in args])
+        if symbol.dom != args_cod:
+            raise ValueError(f"Expected {symbol.dom}, got {args_cod}.")
+        self.symbol, self.args = symbol, args
+        self.freevars = list(dict.fromkeys(
+            x for t in args for x in t.freevars))
+        name = f"{symbol.name}({', '.join(map(str, args))})"
+        dom = self.ob().tensor(*[x.cod for x in self.freevars])
+        super().__init__(name, dom, symbol.cod)
+
+    def eval(self, functor=None, context=None):
+        functor = functor or self.functor
+        if context is None and len(self.freevars)\
+                == sum(len(t.freevars) for t in self.args):
+            wiring = functor.cod.id(functor(self.ob()))
+            for term in self.args:
+                wiring = wiring @ term.eval(functor=functor)
+            return wiring >> functor(self.symbol)
+        context = Context(self.freevars) if context is None else context
+        copies = functor.cod.copy(functor(context.dom), len(self.args))
+        wiring = functor.cod.id(functor(self.ob()))
+        for term in self.args:
+            wiring = wiring @ term.eval(functor=functor, context=context)
+        return copies >> wiring >> functor(self.symbol)
+
+    def __repr__(self):
+        return f"{self.symbol!r}({', '.join(map(repr, self.args))})"
+
+
+@dataclass
+class Context:
+    """
+    A context is a list of variables, whose ``dom`` is the tensor of their
+    types.
+
+    Example
+    -------
+    >>> X = Ty('X')
+    >>> assert Context([]).dom == Ty()
+    >>> assert Context([Variable('x', X)]).dom == X
+    """
+    inside: list[Variable]
+    category: ClassVar[type[MarkovCategory]] = Diagram
+
+    @property
+    def dom(self):
+        return self.category.ob().tensor(*[x.cod for x in self.inside])
+
+
+TermBase.functor = Functor.id(Diagram)
+TermBase.application_factory = Application
