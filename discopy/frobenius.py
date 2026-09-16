@@ -67,7 +67,7 @@ from collections.abc import Callable
 from discopy import (
     monoidal, rigid, markov, compact, pivotal, cmap, hypergraph)
 from discopy.abc import HypergraphCategory
-from discopy.cat import factory, cached_classproperty
+from discopy.cat import factory, Generator
 from discopy.utils import assert_isatomic, deprecated_alias, factory_name
 
 
@@ -170,14 +170,9 @@ class Diagram(compact.Diagram, markov.Diagram, HypergraphCategory):
             dom=Diagram, cod=Diagram)
         return F(self)
 
-    @cached_classproperty
+    @Generator()
     def spider_factory(cls):
-        if cls is Diagram:
-            return Spider
-        bases = [base.spider_factory for base in cls.__bases__
-                 if hasattr(base, "spider_factory")]
-        return type("Spider", (*bases, cls.generator_factory),
-                    {"__module__": cls.__module__})
+        return Spider
 
 
 Box, Cup, Cap, Permutation, Swap = (

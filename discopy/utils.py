@@ -596,7 +596,7 @@ def factory(cls):
 
     The boxes of a :code:`Circuit` are a subclass of both :class:`Box` and
     :code:`Circuit`, built by :attr:`Arrow.generator_factory`, a
-    :class:`cached_classproperty`.
+    :class:`Generator`.
 
     >>> Gate = Circuit.generator_factory
     >>> assert issubclass(Gate, Box) and issubclass(Gate, Circuit)
@@ -672,27 +672,79 @@ class classproperty(object):
         return self.f(x)
 
 
-class cached_classproperty(classproperty):
+class Generator:
     """
-    A :class:`classproperty` computed once per factory, i.e. per ``cls.ar``,
-    so that a box or a :class:`NamedGeneric` subscript reads the value of
-    the class it is a factory for, and a subclass never reads that of its
-    bases: the factories of generators are such properties, e.g.
+    Declares the factory of a generator on the category that introduces it,
+    as a method returning its class, e.g. ``Swap`` in ``symmetric.Diagram``.
 
-    >>> from discopy import symmetric, closed, tensor
+    On that category the attribute is the class the method returns. On any
+    other category decorated with :func:`factory`, it is a subclass of the
+    generators of its bases that lives in the category, built on first
+    access: it extends the value of the attribute on each base, then the
+    ``parents`` of the category, i.e. its box for every generator but the
+    box itself, then the category. It takes its name from the first base
+    generator and its module from the category, so that a module defines
+    it once as ``Swap = Diagram.swap_factory``. A class that is not a
+    factory, e.g. a box or a :class:`NamedGeneric` subscript, has the
+    generators of its factory.
+
+    Parameters:
+        parents : The names of the generators of the same category that
+            this one extends, e.g. ``"permutation_factory"`` for a swap.
+
+    Example
+    -------
+    >>> from discopy import cat, symmetric, markov, closed
     >>> assert symmetric.Diagram.swap_factory is symmetric.Swap
-    >>> assert closed.Diagram.swap_factory is closed.Swap is not symmetric.Swap
-    >>> assert tensor.Diagram[complex].swap_factory is tensor.Swap
-    """
-    def __init__(self, f):
-        super().__init__(f)
-        self.cache = {}
+    >>> assert closed.Swap.__bases__ == (
+    ...     markov.Swap, closed.Permutation, closed.Box, closed.Diagram)
+    >>> assert closed.Swap.__module__ == "discopy.closed"
+    >>> assert closed.Swap.swap_factory is closed.Swap
 
-    def __get__(self, _, x):
-        x = x.ar
-        if x not in self.cache:
-            self.cache[x] = self.f(x)
-        return self.cache[x]
+    A generator with behaviour of its own is declared again on the
+    category adding it, e.g. :class:`discopy.compact.Permutation` rotates,
+    and a class attribute assigned by hand wins over the declaration.
+
+    >>> @cat.factory
+    ... class Recipe(symmetric.Diagram): ...
+    >>> class Step(symmetric.Box, Recipe): ...
+    >>> Recipe.generator_factory = Step
+    >>> assert Recipe.swap_factory.__bases__ == (
+    ...     symmetric.Swap, Recipe.permutation_factory, Step, Recipe)
+    """
+    def __init__(self, *parents: str):
+        self.parents = parents
+
+    def __call__(self, root: Callable[[type], type]) -> Generator:
+        self.root = root
+        return self
+
+    def __set_name__(self, owner: type, name: str):
+        self.owner, self.name, self.cache = owner, name, {}
+        if name != "generator_factory":
+            self.parents += ("generator_factory", )
+
+    def __get__(self, _, cls: type) -> type:
+        cls = cls.ar
+        if cls not in self.cache:
+            self.cache[cls] = self.root(cls) if cls is self.owner\
+                else self.build(cls)
+        return self.cache[cls]
+
+    def build(self, cls: type) -> type:
+        """ The subclass of the generators of the bases of ``cls``. """
+        roots = dict.fromkeys(
+            root for base in cls.__bases__
+            if isinstance(root := getattr(base, self.name, None), type))
+        parents = [getattr(cls, name) for name in self.parents]
+        root, *_ = roots
+        references = " and ".join(
+            f":class:`~{r.__module__}.{r.__name__}`" for r in roots)
+        return type(root.__name__, (*roots, *parents, cls), {
+            "__module__": cls.__module__,
+            "__qualname__": root.__name__,
+            "__doc__": f"A {references} in a "
+                       f":class:`~{cls.__module__}.{cls.__name__}`."})
 
 
 class Node:

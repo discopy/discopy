@@ -10,24 +10,21 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 ### Added
 
 - The generators of a category are defined once, in the module that
-  introduces them, and built for every level below. The factory of a
-  generator is a `utils.cached_classproperty` of the `Diagram` introducing
-  it — a `classproperty` computed once per factory, since `cached_property`
-  over `classmethod` returns the descriptor itself on Python 3.12 — that
-  returns its class on that `Diagram` and, on any other class decorated
-  with `@factory`, a subclass of the factories of its bases and of the box
-  of the class (its permutation for a swap, its copy for a discard), e.g.
-  in `symmetric`:
+  introduces them, and built for every level below. `utils.Generator` is
+  a decorator declaring the factory of a generator as a method of the
+  `Diagram` introducing it, returning its class, e.g. `swap_factory`
+  returns `Swap` in `symmetric.Diagram`: on that class the attribute is
+  the class itself, on any other class decorated with `@factory` it is a
+  subclass built on first access, extending the value of the attribute
+  on each base of the class, then its `parents` — the box of the class
+  for every generator but the box, plus the generators it declares, e.g.
+  `@Generator("permutation_factory")` for a swap and `"copy_factory"`
+  for a discard — then the class itself, e.g. in `symmetric`:
 
   ```python
-  @cached_classproperty
+  @Generator("permutation_factory")
   def swap_factory(cls):
-      if cls is Diagram:
-          return Swap
-      bases = [base.swap_factory for base in cls.__bases__
-               if hasattr(base, "swap_factory")]
-      return type("Swap", (*bases, cls.permutation_factory),
-                  {"__module__": cls.__module__})
+      return Swap
   ```
 
   The built class takes its name from the generator and its module from
@@ -35,7 +32,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   used to write `class Swap(markov.Swap, Box)` and assign
   `Diagram.swap_factory = Swap` at the bottom, and `closed.Swap` is a
   `markov.Swap` that is a `closed.Permutation` and a `closed.Box`. A level
-  adding behaviour to a generator defines the property again, e.g.
+  adding behaviour to a generator declares it again, e.g.
   `compact.Permutation` rotates, and a class attribute assigned by hand
   still wins, as `Recipe.swap_factory = CookingSwap` did. A class that is
   not a factory, e.g. a box or a `NamedGeneric` subscript such as

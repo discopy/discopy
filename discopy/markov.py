@@ -80,7 +80,7 @@ from __future__ import annotations
 
 from discopy import symmetric, monoidal, cmap, hypergraph
 from discopy.abc import MarkovCategory
-from discopy.cat import factory, cached_classproperty
+from discopy.cat import factory, Generator
 from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import assert_isatomic, factory_name
 
@@ -159,32 +159,17 @@ class Diagram(symmetric.Diagram, MarkovCategory):
         """
         return cls.copy(x, 0)
 
-    @cached_classproperty
+    @Generator()
     def copy_factory(cls):
-        if cls is Diagram:
-            return Copy
-        bases = [base.copy_factory for base in cls.__bases__
-                 if hasattr(base, "copy_factory")]
-        return type("Copy", (*bases, cls.generator_factory),
-                    {"__module__": cls.__module__})
+        return Copy
 
-    @cached_classproperty
+    @Generator()
     def merge_factory(cls):
-        if cls is Diagram:
-            return Merge
-        bases = [base.merge_factory for base in cls.__bases__
-                 if hasattr(base, "merge_factory")]
-        return type("Merge", (*bases, cls.generator_factory),
-                    {"__module__": cls.__module__})
+        return Merge
 
-    @cached_classproperty
+    @Generator("copy_factory")
     def discard_factory(cls):
-        if cls is Diagram:
-            return Discard
-        bases = [base.discard_factory for base in cls.__bases__
-                 if hasattr(base, "discard_factory")]
-        return type("Discard", (*bases, cls.copy_factory),
-                    {"__module__": cls.__module__})
+        return Discard
 
 
 Box, Permutation, Swap, Trace = (

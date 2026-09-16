@@ -157,7 +157,7 @@ from discopy import monoidal, braided, markov, hypergraph
 from discopy.abc import FeedbackCategory
 from discopy.utils import (
     deprecated_alias,
-    factory, cached_classproperty, factory_name, assert_isinstance, AxiomError,
+    factory, Generator, factory_name, assert_isinstance, AxiomError,
 )
 
 
@@ -400,68 +400,33 @@ class Diagram(markov.Diagram, FeedbackCategory):
 
     d = Wire.d
 
-    @cached_classproperty
+    @Generator()
     def generator_factory(cls):
-        if cls is Diagram:
-            return Box
-        bases = [base.generator_factory for base in cls.__bases__
-                 if hasattr(base, "generator_factory")]
-        return type("Box", (*bases, cls),
-                    {"__module__": cls.__module__})
+        return Box
 
-    @cached_classproperty
+    @Generator()
     def permutation_factory(cls):
-        if cls is Diagram:
-            return Permutation
-        bases = [base.permutation_factory for base in cls.__bases__
-                 if hasattr(base, "permutation_factory")]
-        return type("Permutation", (*bases, cls.generator_factory),
-                    {"__module__": cls.__module__})
+        return Permutation
 
-    @cached_classproperty
+    @Generator("permutation_factory")
     def swap_factory(cls):
-        if cls is Diagram:
-            return Swap
-        bases = [base.swap_factory for base in cls.__bases__
-                 if hasattr(base, "swap_factory")]
-        return type("Swap", (*bases, cls.permutation_factory),
-                    {"__module__": cls.__module__})
+        return Swap
 
-    @cached_classproperty
+    @Generator()
     def copy_factory(cls):
-        if cls is Diagram:
-            return Copy
-        bases = [base.copy_factory for base in cls.__bases__
-                 if hasattr(base, "copy_factory")]
-        return type("Copy", (*bases, cls.generator_factory),
-                    {"__module__": cls.__module__})
+        return Copy
 
-    @cached_classproperty
+    @Generator()
     def merge_factory(cls):
-        if cls is Diagram:
-            return Merge
-        bases = [base.merge_factory for base in cls.__bases__
-                 if hasattr(base, "merge_factory")]
-        return type("Merge", (*bases, cls.generator_factory),
-                    {"__module__": cls.__module__})
+        return Merge
 
-    @cached_classproperty
+    @Generator()
     def feedback_factory(cls):
-        if cls is Diagram:
-            return Feedback
-        bases = [base.feedback_factory for base in cls.__bases__
-                 if hasattr(base, "feedback_factory")]
-        return type("Feedback", (*bases, cls.generator_factory),
-                    {"__module__": cls.__module__})
+        return Feedback
 
-    @cached_classproperty
+    @Generator()
     def followed_by(cls):
-        if cls is Diagram:
-            return FollowedBy
-        bases = [base.followed_by for base in cls.__bases__
-                 if hasattr(base, "followed_by")]
-        return type("FollowedBy", (*bases, cls.generator_factory),
-                    {"__module__": cls.__module__})
+        return FollowedBy
 
 
 class Box(markov.Box, Diagram):

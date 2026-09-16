@@ -63,7 +63,7 @@ from collections.abc import Callable
 
 from discopy import monoidal
 from discopy.abc import BraidedCategory
-from discopy.cat import factory, cached_classproperty
+from discopy.cat import factory, Generator
 from discopy.monoidal import Ty, Match
 from discopy.utils import (
     assert_isatomic, BinaryBoxConstructor, deprecated_alias, factory_name)
@@ -160,14 +160,9 @@ class Diagram(monoidal.Diagram, BraidedCategory):
                       right=right_wires if left else right_wires[1:])
         return match.substitute(target)
 
-    @cached_classproperty
+    @Generator()
     def braid_factory(cls):
-        if cls is Diagram:
-            return Braid
-        bases = [base.braid_factory for base in cls.__bases__
-                 if hasattr(base, "braid_factory")]
-        return type("Braid", (*bases, cls.generator_factory),
-                    {"__module__": cls.__module__})
+        return Braid
 
 
 Box = Diagram.generator_factory

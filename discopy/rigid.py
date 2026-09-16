@@ -156,7 +156,7 @@ from typing import Iterator
 
 from discopy import cat, monoidal, biclosed, messages
 from discopy.abc import Pregroup, RigidCategory
-from discopy.cat import factory, cached_classproperty
+from discopy.cat import factory, Generator
 from discopy.utils import (
     assert_isatomic,
     assert_isinstance,
@@ -641,41 +641,21 @@ class Diagram(biclosed.Diagram, RigidCategory):
         """
         return super().normal_form(**params)
 
-    @cached_classproperty
+    @Generator()
     def generator_factory(cls):
-        if cls is Diagram:
-            return Box
-        bases = [base.generator_factory for base in cls.__bases__
-                 if hasattr(base, "generator_factory")]
-        return type("Box", (*bases, cls),
-                    {"__module__": cls.__module__})
+        return Box
 
-    @cached_classproperty
+    @Generator()
     def sum_factory(cls):
-        if cls is Diagram:
-            return Sum
-        bases = [base.sum_factory for base in cls.__bases__
-                 if hasattr(base, "sum_factory")]
-        return type("Sum", (*bases, cls.generator_factory),
-                    {"__module__": cls.__module__})
+        return Sum
 
-    @cached_classproperty
+    @Generator()
     def cup_factory(cls):
-        if cls is Diagram:
-            return Cup
-        bases = [base.cup_factory for base in cls.__bases__
-                 if hasattr(base, "cup_factory")]
-        return type("Cup", (*bases, cls.generator_factory),
-                    {"__module__": cls.__module__})
+        return Cup
 
-    @cached_classproperty
+    @Generator()
     def cap_factory(cls):
-        if cls is Diagram:
-            return Cap
-        bases = [base.cap_factory for base in cls.__bases__
-                 if hasattr(base, "cap_factory")]
-        return type("Cap", (*bases, cls.generator_factory),
-                    {"__module__": cls.__module__})
+        return Cap
 
 
 class Box(biclosed.Box, Diagram):

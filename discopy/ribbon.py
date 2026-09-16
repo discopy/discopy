@@ -81,7 +81,7 @@ cap becomes a ribbon folding back.
 
 from discopy import pivotal, balanced
 from discopy.abc import RibbonCategory
-from discopy.cat import factory, cached_classproperty
+from discopy.cat import factory, Generator
 from discopy.pivotal import Ty, Nat  # noqa: F401
 
 
@@ -154,23 +154,13 @@ class Diagram(pivotal.Diagram, balanced.Diagram, RibbonCategory):
         """
         return self.to_braided(width, colour)
 
-    @cached_classproperty
+    @Generator()
     def braid_factory(cls):
-        if cls is Diagram:
-            return Braid
-        bases = [base.braid_factory for base in cls.__bases__
-                 if hasattr(base, "braid_factory")]
-        return type("Braid", (*bases, cls.generator_factory),
-                    {"__module__": cls.__module__})
+        return Braid
 
-    @cached_classproperty
+    @Generator()
     def twist_factory(cls):
-        if cls is Diagram:
-            return Twist
-        bases = [base.twist_factory for base in cls.__bases__
-                 if hasattr(base, "twist_factory")]
-        return type("Twist", (*bases, cls.generator_factory),
-                    {"__module__": cls.__module__})
+        return Twist
 
 
 Box, Cup, Cap = (

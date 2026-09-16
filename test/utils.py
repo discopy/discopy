@@ -117,13 +117,18 @@ def test_factory_roots():
 def test_factory_bases():
     from discopy import markov, closed, symmetric, ribbon, compact, frobenius
     from discopy import biclosed, tensor
-    assert closed.Swap.__bases__ == (markov.Swap, closed.Permutation)
-    assert closed.Discard.__bases__ == (markov.Discard, closed.Copy)
-    assert closed.Sum.__bases__ == (markov.Sum, biclosed.Sum, closed.Box)
-    assert compact.Swap.__bases__ == (symmetric.Swap, compact.Permutation)
+    assert closed.Swap.__bases__ == (
+        markov.Swap, closed.Permutation, closed.Box, closed.Diagram)
+    assert closed.Discard.__bases__ == (
+        markov.Discard, closed.Copy, closed.Box, closed.Diagram)
+    assert closed.Sum.__bases__ == (
+        markov.Sum, biclosed.Sum, closed.Box, closed.Diagram)
+    assert compact.Swap.__bases__ == (
+        symmetric.Swap, compact.Permutation, compact.Box, compact.Diagram)
     assert not issubclass(compact.Swap, ribbon.Braid)
     assert frobenius.Permutation.__bases__ == (
-        compact.Permutation, markov.Permutation, frobenius.Box)
+        compact.Permutation, markov.Permutation, frobenius.Box,
+        frobenius.Diagram)
     assert issubclass(tensor.Swap, tensor.Permutation)
     assert closed.Swap.__module__ == "discopy.closed"
     assert closed.Swap.__name__ == closed.Swap.__qualname__ == "Swap"
@@ -143,9 +148,9 @@ def test_factory_override():
     Recipe.generator_factory = Step
     assert Recipe.generator_factory is Step
     assert Recipe.swap_factory.__bases__ == (
-        symmetric.Swap, Recipe.permutation_factory)
+        symmetric.Swap, Recipe.permutation_factory, Step, Recipe)
     assert Recipe.permutation_factory.__bases__ == (
-        symmetric.Permutation, Step)
+        symmetric.Permutation, Step, Recipe)
     assert Recipe.swap_factory is Recipe.swap_factory
 
     class Undecorated(Recipe):
@@ -225,7 +230,7 @@ def test_factory_extends_bases(module):
     for klass in reversed(D.__mro__):
         definitions.update(vars(klass))
     names = {name for name, value in definitions.items()
-             if isinstance(value, (type, cached_classproperty))
+             if isinstance(value, (type, Generator))
              and isinstance(getattr(D, name), type)
              and issubclass(getattr(D, name), D)}
     assert names and all(
@@ -250,7 +255,7 @@ def test_factory_subclass(module):
     for klass in reversed(D.__mro__):
         definitions.update(vars(klass))
     for name, value in definitions.items():
-        if isinstance(value, cached_classproperty):
+        if isinstance(value, Generator):
             generator = getattr(Sub, name)
             assert issubclass(generator, getattr(D, name))
             assert issubclass(generator, Sub)
