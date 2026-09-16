@@ -232,3 +232,26 @@ def test_factory_extends_bases(module):
         issubclass(getattr(D, name), root)
         for name in names for base in D.__bases__
         if isinstance(root := getattr(base, name, None), type))
+
+
+@pytest.mark.parametrize(
+    "module", MODULES + ["quantum.circuit", "quantum.zx"])
+def test_factory_subclass(module):
+    """ A factory subclass of any level builds every generator of its own. """
+    from importlib import import_module
+    module = import_module(f"discopy.{module}")
+    D = getattr(module, "Circuit", getattr(module, "Diagram", None))
+
+    @factory
+    class Sub(D):
+        pass
+
+    definitions = {}
+    for klass in reversed(D.__mro__):
+        definitions.update(vars(klass))
+    for name, value in definitions.items():
+        if isinstance(value, cached_classproperty):
+            generator = getattr(Sub, name)
+            assert issubclass(generator, getattr(D, name))
+            assert issubclass(generator, Sub)
+            assert generator.__module__ == Sub.__module__
