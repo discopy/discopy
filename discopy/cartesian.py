@@ -28,6 +28,7 @@ Summary
     Eval
     Coeval
     Curry
+    Projection
     Functor
     Constant
     Variable
@@ -46,8 +47,9 @@ from __future__ import annotations
 
 from discopy import closed, markov, cmap, hypergraph
 from discopy.abc import CartesianClosedCategory
-from discopy.cat import factory
+from discopy.cat import factory, Generator
 from discopy.closed import Ty  # noqa: F401
+from discopy.utils import factory_name
 
 
 @factory
@@ -63,6 +65,25 @@ class Diagram(markov.Diagram, closed.Diagram, CartesianClosedCategory):
     """
     ob = Ty
 
+    @classmethod
+    def projection(cls, x: Ty, i: int) -> Diagram:
+        """
+        Syntactic sugar for :class:`Projection`.
+
+        Parameters:
+            x : The product to project from.
+            i : The index of the factor to project onto.
+        """
+        return cls.projection_factory(x, i)
+
+    @Generator()
+    def projection_factory(cls):
+        return Projection
+
+    @Generator("term_factory")
+    def application_factory(cls):
+        return Application
+
 
 Box, Permutation, Swap, Copy, Merge, Discard = (
     Diagram.generator_factory, Diagram.permutation_factory,
@@ -73,10 +94,42 @@ Eval, Coeval, Curry, Sum, Bubble = (
     Diagram.sum_factory, Diagram.bubble_factory)
 
 
+class Projection(Box):
+    """
+    The projection of a product type :code:`x` onto its :code:`i`-th
+    factor, interpreted as the identity on it tensored with the discard
+    of every other factor, see :meth:`abc.CartesianCategory.projection`.
+
+    Parameters:
+        x : The product to project from.
+        i : The index of the factor to project onto.
+
+    Example
+    -------
+    >>> x, y, z = map(Ty, "xyz")
+    >>> p = Projection(x @ y @ z, 1)
+    >>> assert (p.dom, p.cod) == (x @ y @ z, y)
+
+    >>> from discopy import python
+    >>> F = Functor({x: int, y: bool, z: str}, {}, cod=python.Function)
+    >>> F(p)(42, True, "!")
+    True
+    """
+    def __init__(self, x: Ty, i: int):
+        if not 0 <= i < len(x):
+            raise IndexError
+        self.i = i
+        name = f"Projection({x}, {i})"
+        self.generator_factory.__init__(self, name, dom=x, cod=x[i:i + 1])
+
+    def __repr__(self):
+        return factory_name(type(self)) + f"({self.dom!r}, {self.i})"
+
+
 class Functor(markov.Functor, closed.Functor):
     """
     A cartesian functor is a markov and closed functor between cartesian
-    closed categories.
+    closed categories, which also preserves projections.
 
     Parameters:
         ob_map (Mapping[Ty, Ty]) : Map from :class:`Ty` to :code:`cod.ob`.
@@ -86,17 +139,15 @@ class Functor(markov.Functor, closed.Functor):
     """
     dom = cod = Diagram
 
-
-class TermBase(markov.TermBase, Box):
-    "A term in the internal language of a cartesian category."
-
-
-class Constant(markov.Constant, TermBase):
-    "A function symbol in a cartesian category."
+    def __call__(self, other):
+        if isinstance(other, Projection) and hasattr(self.cod, "projection"):
+            return self.cod.projection(self(other.dom), other.i)
+        return super().__call__(other)
 
 
-class Variable(markov.Variable, TermBase):
-    "A variable in a cartesian category."
+TermBase, Constant, Variable = (
+    Diagram.term_factory, Diagram.constant_factory,
+    Diagram.variable_factory)
 
 
 class Application(markov.Application, TermBase):
@@ -168,7 +219,6 @@ Hypergraph = hypergraph.Hypergraph[Diagram]
 
 Diagram.functor_factory = Functor
 TermBase.functor = Functor.id(Diagram)
-TermBase.application_factory = Application
 Id = Diagram.id
 
 

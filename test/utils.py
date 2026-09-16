@@ -195,6 +195,8 @@ def structure(module):
         terms += [D.swap(x, y), D.permutation([1, 0], [x, y])]
     if issubclass(D, abc.MarkovCategory):
         terms += [D.copy(x), D.merge(x), D.discard(x)]
+    if issubclass(D, abc.CartesianCategory):
+        terms.append(D.projection(x @ y, 1))
     if issubclass(D, abc.BiclosedCategory):
         terms += [f.curry(), D.ev(x, y)]
     if issubclass(D, abc.RigidCategory):

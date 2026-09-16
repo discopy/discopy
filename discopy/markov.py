@@ -180,6 +180,22 @@ class Diagram(symmetric.Diagram, MarkovCategory):
     def discard_factory(cls):
         return Discard
 
+    @Generator()
+    def term_factory(cls):
+        return TermBase
+
+    @Generator("term_factory")
+    def constant_factory(cls):
+        return Constant
+
+    @Generator("term_factory")
+    def variable_factory(cls):
+        return Variable
+
+    @Generator("term_factory")
+    def application_factory(cls):
+        return Application
+
 
 Box, Permutation, Swap = (
     Diagram.generator_factory, Diagram.permutation_factory,
@@ -462,4 +478,3 @@ class Context:
 
 
 TermBase.functor = Functor.id(Diagram)
-TermBase.application_factory = Application

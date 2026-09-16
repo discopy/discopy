@@ -288,8 +288,7 @@ class Twist(Box):
         return type(self)(self.dom, not self.is_dagger)
 
 
-Trace, Sum, Bubble = (
-    Diagram.trace_factory, Diagram.sum_factory, Diagram.bubble_factory)
+Sum, Bubble = Diagram.sum_factory, Diagram.bubble_factory
 
 
 class Functor(braided.Functor):

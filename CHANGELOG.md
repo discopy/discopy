@@ -61,6 +61,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   traced generator, and `closed.Diagram.is_linear` reads its boxes rather
   than an `is_linear` flag on `closed.Box` and `closed.Copy`, which are
   built like the rest.
+  The term factories of `markov` are declared the same way —
+  `term_factory`, `constant_factory`, `variable_factory` and
+  `application_factory` on `markov.Diagram` — so every markov level has
+  terms built for it, `cartesian` pulls `TermBase`, `Constant` and
+  `Variable` and declares only its `Application`; and `compact` drops its
+  hand assignment of `trace_factory`, which froze `ribbon`'s classmethod
+  bound to `ribbon.Diagram` where the method resolution order now binds
+  it to the category calling it.
 - `discopy.cartesian`, `abc.CartesianCategory` and
   `abc.CartesianClosedCategory`: a cartesian category is a Markov category
   where every morphism is deterministic, i.e. the copy is natural —
@@ -74,7 +82,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `f(g(x), g(x))` evaluates to `g >> Copy(Y) >> f` in `cartesian` and to
   `Copy(X) >> g @ g >> f` in `markov`, where sampling `g` twice differs.
   `python.Function` declares the `CartesianClosedCategory` it always
-  implemented.
+  implemented. `cartesian.Projection` and `abc.CartesianCategory.projection`
+  are the projection onto the `i`-th factor of a product: a generator of
+  the free cartesian category, which `Functor` maps to the projection of
+  its codomain, derived once on the abc as the identity tensored with
+  discards — how every concrete cartesian category interprets it.
 - `markov.Term`: `Variable`, `Constant` and `Application`, the
   first-order terms in the internal language of a Markov category, with
   `Context` moved from `discopy.closed`. A variable can be copied and

@@ -27,3 +27,25 @@ def test_terms():
     assert isinstance(term.eval(), Diagram)
     assert term.eval() == Copy(X) >> f
     assert eval(repr(term)) == term
+
+
+def test_projection():
+    x, y, z = map(Ty, "xyz")
+    p = Diagram.projection(x @ y @ z, 1)
+    assert isinstance(p, Projection)
+    assert (p.dom, p.cod) == (x @ y @ z, y)
+    assert eval(repr(p)) == p
+    assert Functor.id(Diagram)(p) == p
+    from pytest import raises
+    with raises(IndexError):
+        Projection(x @ y, 2)
+
+    from discopy import python
+    F = Functor({x: int, y: bool, z: str}, {}, cod=python.Function)
+    assert F(p)(42, True, "!") is True
+
+    from discopy import cartesian_feedback
+    X = cartesian_feedback.Ty('X')
+    q = cartesian_feedback.Diagram.projection(X @ X, 0)
+    assert (q.dom, q.cod) == (X @ X, X)
+    assert all(isinstance(box, cartesian_feedback.Discard) for box in q.boxes)

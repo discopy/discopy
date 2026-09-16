@@ -761,6 +761,18 @@ class CartesianCategory[C0, C1](MarkovCategory[C0, C1]):
     ``f >> copy(f.cod) == copy(f.dom) >> f @ f``, an axiom to be stated
     once property testing reaches this level of the hierarchy.
     """
+    @classmethod
+    def projection(cls, x: C0, i: int) -> C1:
+        """
+        The projection onto the ``i``-th factor of a product, i.e. the
+        identity on it tensored with the discard of every other factor.
+
+        Parameters:
+            x : The product of objects to project from.
+            i : The index of the factor to project onto.
+        """
+        return cls.copy(x[:i], 0) @ cls.id(x[i:i + 1])\
+            @ cls.copy(x[i + 1:], 0)
 
 
 class ClosedCategory[C0, C1](
