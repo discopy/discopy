@@ -255,36 +255,6 @@ def test_from_biclosed():
         == X(lambda v: Constant("g", X >> Y)(v))
 
 
-def test_normal_form():
-    X, Y = Ty("X"), Ty("Y")
-    f, a = (X >> Y)("f"), X("a")
-    var = Variable("v", X)
-    assert f.normal_form() == f
-    assert a.normal_form() == a
-    assert var.normal_form() == var
-    assert X(lambda z: f(z))(a).normal_form() == f(a)
-    assert X(lambda z: X(lambda w: f(w))(z)).normal_form()\
-        == X(lambda z: f(z))
-
-    g, y = (X >> (X >> Y))("g"), Variable("y", X)
-    term = X(lambda x: X(lambda y: g(x)(y)))(y)
-    var = Variable("y_", X)
-    assert term.normal_form() == Abstraction(var, g(y)(var))
-
-    a = Variable("a", X)
-    assert X(lambda x: f(x))(a).normal_form() == f(a)
-    assert X(lambda x: Y("c"))(a).normal_form() == Y("c")
-
-    h, x, y = (X >> (X >> Y))("h"), Variable("x", X), Variable("y", X)
-    exchange = Abstraction(x, h(x)(y))(a)
-    assert exchange.freevars == [y, a] and exchange.dom == X @ X
-    assert exchange.normal_form() == h(a)(y)
-
-    duplicate = X(lambda x: h(x)(x))(X("a"))
-    with raises(ValueError, match="copies its argument"):
-        duplicate.normal_form()
-
-
 def test_Substitution():
     X, Y = Ty("X"), Ty("Y")
     f, a = (X >> Y)("f"), X("a")
@@ -356,72 +326,11 @@ def test_compose():
     X, Y, Z = map(Ty, "XYZ")
     t, u, v = (X >> Y)("t"), (Y >> Z)("u"), (Z >> X)("v")
     assert t.compose() == t and t.compose(u) == X(lambda x: u(t(x)))
-    assert t.compose(u, v).normal_form() == X(lambda x: v(u(t(x))))\
-        == t.compose(u.compose(v)).normal_form()
+    assert t.compose(u, v) == X(lambda x: v(u(t(x))))
+    free = Variable("x", X >> Y)
+    assert free.compose(u, v).freevars == [free]
     for left, right in [(u, t), (X("a"), t), (t, u)]:
         with raises(AxiomError):
             left.compose(right) if right is not u else left >> right
-
-
-def test_normal_order_discards_unreduced_arguments():
-    X, Y = Ty("X"), Ty("Y")
-    g, a, b = (X >> (X >> Y))("g"), X("a"), Y("b")
-    duplicate = X(lambda x: g(x)(x))(a)
-    erase = Y(lambda ignored: b)
-    assert erase(duplicate).normal_form() == b
-    identity = (Y >> Y)(lambda f: f)
-    assert identity(erase)(duplicate).normal_form() == b
-
-
-def test_normal_form_copy():
-    X, Y = Ty("X"), Ty("Y")
-    g, a = (X >> (X >> Y))("g"), X("a")
-    duplicate = X(lambda x: g(x)(x))
-    v = Variable("v", X)
-    assert duplicate(v).normal_form() == g(v)(v)
-    assert X(lambda v: duplicate(v)).normal_form().alpha_equivalent(duplicate)
-    assert duplicate(a).normal_form(copy=True) == g(a)(a)
-    f = (X >> X)("f")
-    with raises(ValueError, match="copies its argument"):
-        duplicate(f(v)).normal_form()
-    assert duplicate(f(v)).normal_form(copy=True) == g(f(v))(f(v))
-    assert X(lambda v: duplicate(f(v))).normal_form(copy=True)\
-        == X(lambda v: g(f(v))(f(v)))
-
-
-def test_alpha_equivalent():
-    X, Y = Ty("X"), Ty("Y")
-    g, a = (X >> (X >> Y))("g"), X("a")
-    x, y, z = [Variable(name, X) for name in "xyz"]
-    assert X(lambda x: x).alpha_equivalent(X(lambda y: y))
-    assert not X(lambda x: x).alpha_equivalent(Y(lambda y: y))
-    assert not a.alpha_equivalent(x)
-    assert not a.alpha_equivalent(Y("a"))
-    assert not a.alpha_equivalent("a")
-    assert not x.alpha_equivalent(y)
-    assert Abstraction(x, g(x)(z)).alpha_equivalent(
-        Abstraction(y, g(y)(z)))
-    assert not Abstraction(x, g(x)(z)).alpha_equivalent(
-        Abstraction(y, g(y)(x)))
-    shadowed = Abstraction(x, Abstraction(x, x))
-    assert shadowed.alpha_equivalent(Abstraction(y, Abstraction(z, z)))
-    assert not shadowed.alpha_equivalent(Abstraction(y, Abstraction(z, y)))
-    assert X(lambda x: x)(a).normal_form().alpha_equivalent(a)
-
-
-def test_compose_modulo_alpha_beta():
-    X, Y, Z = map(Ty, "XYZ")
-    t, u, v = (X >> Y)("t"), (Y >> Z)("u"), (Z >> X)("v")
-    expected = X(lambda a: v(u(t(a))))
-    for composed in [
-            t.compose(u, v), t.compose(u).compose(v), t.compose(u.compose(v))]:
-        assert composed.normal_form().alpha_equivalent(expected)
-    identity = X(lambda x: x)
-    assert identity.compose(t).normal_form().alpha_equivalent(
-        X(lambda a: t(a)))
-    assert t.compose(Y(lambda y: y)).normal_form().alpha_equivalent(
-        X(lambda a: t(a)))
-    free = Variable("x", X >> Y)
-    assert free.compose(u, v).freevars == [free]
     with raises(AxiomError):
         t.compose(u, t)

@@ -16,10 +16,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   containing the free ones, through `closed.TermBase.weaken`, the structural
   morphism discarding the others and permuting the rest; `is_linear` says
   whether a term is, `compose` composes terms of function types,
-  `normal_form` beta-reduces in normal order through `weak_head_normal_form`
-  and a capture-avoiding `Substitution`, discarding an unused argument and
-  copying a variable but refusing to copy a computation unless `copy=True`,
-  and `alpha_equivalent` compares terms up to their bound variables.
+  `occurrences` counts the free occurrences of a variable and
+  `Substitution` is simultaneous and capture-avoiding, through the
+  `substitute` method of each term, where it recursed forever on an
+  abstraction.
   `closed.Ty.from_biclosed` and `closed.TermBase.from_biclosed` are
   functors dropping planarity, and `biclosed.Functor.map_term` sends a term
   to a term under a binding environment, checking the image against the

@@ -68,7 +68,6 @@ def test_Term():
     assert eval(str(f(a)), dict(locals())) == f(a)
     assert eval(repr(f(a)), {"grammar": grammar, "cat": cat}) == f(a)
     assert f(a).eval() == f @ a >> Diagram.fa(y, x)
-    assert x(lambda v: f(v))(a).normal_form() == f(a)
 
 
 def test_from_categorial():
@@ -137,12 +136,12 @@ def test_strings():
     empty = Position(lambda x: x)
     assert String == Position >> Position
     sentence = Alice.compose(loves, Bob)
-    assert sentence.is_linear and sentence.normal_form()\
-        == Alice.compose(loves.compose(Bob)).normal_form()\
-        == Position(lambda x: Bob(loves(Alice(x))))
-    assert empty.compose(Alice).normal_form()\
-        == Alice.compose(empty).normal_form() == Position(lambda x: Alice(x))
-    assert tokens(sentence) == ["Alice", "loves", "Bob"]
+    assert sentence.is_linear
+    assert sentence == Position(lambda x: Bob(loves(Alice(x))))
+    assert tokens(sentence) == tokens(Alice.compose(loves.compose(Bob)))\
+        == ["Alice", "loves", "Bob"]
+    assert tokens(empty.compose(Alice)) == tokens(Alice.compose(empty))\
+        == ["Alice"]
 
 
 def test_categorial_lexicon():
@@ -167,7 +166,7 @@ def test_categorial_lexicon():
     for sentence in sentences:
         assert tokens(strings(sentence)) == ["Alice", "loves", "Bob"]
     raised = strings(categorial.FTR(s, Alice)(sleeps))
-    assert tokens(raised) == tokens(raised.normal_form()) == ["Alice", "sleeps"]
+    assert tokens(raised) == ["Alice", "sleeps"]
 
     w, g = (s << n)("w"), (n >> n)("g")
     crossed = categorial.Functor({n: String, s: String}, {
@@ -219,15 +218,9 @@ def test_Montague_semantics():
             "every": EVERY, "a": A, "woman": WOMAN, "man": MAN,
             "child": CHILD, "song": SONG,
             "married": de_dicto, "learnt": de_re}[word.name])
-    readings = [
-        (every_woman_married_a_man, forall(e(lambda x: implies(WOMAN(x))(
-            exists(e(lambda y: and_(MAN(y))(MARRIED(x)(y)))))))),
-        (every_child_learnt_a_song, exists(e(lambda y: and_(SONG(y))(
-            forall(e(lambda x: implies(CHILD(x))(LEARNT(x)(y))))))))]
-    for term, first_order in readings:
+    for term in (every_woman_married_a_man, every_child_learnt_a_song):
         formula = semantics(term)
         assert formula.cod == t and not formula.is_linear
-        assert formula.normal_form() == first_order
         diagram = formula.eval()
         assert (diagram.dom, diagram.cod) == (Ty(), t)
         assert not diagram.is_linear
@@ -280,8 +273,7 @@ def test_context_free_grammar():
         assert term in grammar and term.is_linear
         image = grammar(term)
         assert image.cod == String and not image.freevars and image.is_linear
-        assert tokens(image) == tokens(image.normal_form())\
-            == n * ["a"] + n * ["b"]
+        assert tokens(image) == n * ["a"] + n * ["b"]
         term = B(term)
 
 
@@ -304,8 +296,7 @@ def test_tree_adjoining_grammar():
         assert term in grammar and term.is_linear
         image = grammar(term)
         assert image.cod == String and not image.freevars and image.is_linear
-        assert tokens(image) == tokens(image.normal_form())\
-            == [letter for letter in "abcd" for _ in range(n)]
+        assert tokens(image) == [letter for letter in "abcd" for _ in range(n)]
         adjunct = Spp(lambda x: B(x)(adjunct))
 
 
@@ -319,7 +310,6 @@ def test_Lexicon_composition():
     term = B(B(A))
     sequential = second(grammar(term))
     composed = (grammar.lexicon >> second)(term)
-    assert sequential.normal_form().alpha_equivalent(composed.normal_form())
     assert tokens(sequential) == tokens(composed) == list("AAAABB")
 
 
@@ -335,8 +325,8 @@ def test_ambiguity():
     semantics = Lexicon({n: e, s: t}, {
         river: RIVER, finance: FINANCE, visit: VISIT})
     readings = visit(river), visit(finance)
-    forms = [syntax(reading).normal_form() for reading in readings]
-    assert readings[0] != readings[1] and forms[0].alpha_equivalent(forms[1])
+    forms = [syntax(reading) for reading in readings]
+    assert readings[0] != readings[1]
     assert tokens(forms[0]) == tokens(forms[1]) == ["visit", "bank"]
     assert [semantics(reading) for reading in readings]\
         == [VISIT(RIVER), VISIT(FINANCE)]

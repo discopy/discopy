@@ -354,49 +354,6 @@ class TermBase(Box, biclosed.TermBase):
         "The term with the free variables of a substitution replaced."
         return self
 
-    def alpha_key(self, context=()):
-        """
-        A structural key modulo renaming bound variables.
-
-        ``context`` lists enclosing binders, innermost first. Free variables
-        and constants retain their identity; bound variables use their index
-        in the context.
-        """
-        return "constant", self
-
-    def alpha_equivalent(self, other: Term) -> bool:
-        "Equality up to renaming bound variables, without beta-reduction."
-        return isinstance(other, TermBase)\
-            and self.alpha_key() == other.alpha_key()
-
-    def weak_head_normal_form(self, copy: bool = False) -> Term:
-        """
-        Reduce the function spine, leaving bodies and arguments untouched.
-
-        The ``copy`` flag has the same meaning as in :meth:`normal_form`.
-        """
-        return self
-
-    def normal_form(self, copy: bool = False) -> Term:
-        """
-        The beta-normal form of a term, obtained by normal-order reduction.
-
-        By default, reduction may discard arguments and copy variables,
-        but raises ``ValueError`` when it would duplicate a computation:
-        discarding is natural in a markov category, copying is not.
-
-        Set ``copy=True`` for unrestricted syntactic beta-reduction. This
-        assumes that all computations preserve copying, as in a cartesian
-        closed category; it need not preserve a markov interpretation.
-
-        Example
-        -------
-        >>> X, Y = Ty("X"), Ty("Y")
-        >>> f, x = (X >> Y)("f"), X("x")
-        >>> assert X(lambda y: f(y))(x).normal_form() == f(x)
-        """
-        return self
-
     @classmethod
     def from_biclosed(cls, term: biclosed.Term) -> Term:
         """
@@ -441,10 +398,6 @@ class Variable(TermBase, biclosed.Variable):
     "A variable, evaluated in a context by discarding the other variables."
     def eval(self, functor=None, context=None):
         return self.weaken(functor or self.functor, context)
-
-    def alpha_key(self, context=()):
-        return ("bound", context.index(self), self.cod) if self in context\
-            else ("free", self)
 
     def occurrences(self, variable):
         return int(self == variable)
@@ -502,27 +455,6 @@ class Application(TermBase, biclosed.Application):
             self.func.substitute(substitution),
             self.args.substitute(substitution))
 
-    def alpha_key(self, context=()):
-        return ("application", self.func.alpha_key(context),
-                self.args.alpha_key(context))
-
-    def weak_head_normal_form(self, copy=False):
-        func = self.func.weak_head_normal_form(copy=copy)
-        if not isinstance(func, Abstraction):
-            return type(self)(func, self.args)
-        if not copy and func.body.occurrences(func.var) > 1\
-                and not isinstance(self.args, Variable):
-            raise ValueError(f"{self} copies its argument {self.args}.")
-        return Substitution({func.var: self.args})(func.body)\
-            .weak_head_normal_form(copy=copy)
-
-    def normal_form(self, copy=False):
-        term = self.weak_head_normal_form(copy=copy)
-        if not isinstance(term, Application):
-            return term.normal_form(copy=copy)
-        return type(term)(term.func.normal_form(copy=copy),
-                          term.args.normal_form(copy=copy))
-
 
 class Abstraction(TermBase, biclosed.Abstraction):
     """
@@ -557,13 +489,6 @@ class Abstraction(TermBase, biclosed.Abstraction):
             var = type(var).fresh(var.name, var.cod, body, *inside.values())
             body = Substitution({self.var: var})(body)
         return type(self)(var, Substitution(inside)(body))
-
-    def alpha_key(self, context=()):
-        return ("abstraction", self.var.cod,
-                self.body.alpha_key((self.var, ) + tuple(context)))
-
-    def normal_form(self, copy=False):
-        return type(self)(self.var, self.body.normal_form(copy=copy))
 
 
 @dataclass
