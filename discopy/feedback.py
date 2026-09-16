@@ -157,7 +157,7 @@ from discopy import monoidal, braided, markov, hypergraph
 from discopy.abc import FeedbackCategory
 from discopy.utils import (
     deprecated_alias,
-    factory, factory_name, assert_isinstance, AxiomError,
+    factory, cached_classproperty, factory_name, assert_isinstance, AxiomError,
 )
 
 
@@ -288,6 +288,7 @@ class TailOb(Wire):
     delay, reset, __repr__ = HeadOb.delay, HeadOb.reset, HeadOb.__repr__
 
 
+@factory
 class Ty(monoidal.Ty):
     """ A feedback type is a monoidal type with `delay`, `head` and `tail`. """
     generator_factory = Wire
@@ -316,6 +317,7 @@ class Layer(markov.Layer):
                           normalise=False)
 
 
+@factory
 class Diagram(markov.Diagram, FeedbackCategory):
     """
     A feedback diagram is a markov diagram with a :meth:`delay` endofunctor
@@ -398,33 +400,68 @@ class Diagram(markov.Diagram, FeedbackCategory):
 
     d = Wire.d
 
-    @factory()
+    @cached_classproperty
     def generator_factory(cls):
-        return Box
+        if cls is Diagram:
+            return Box
+        bases = [base.generator_factory for base in cls.__bases__
+                 if hasattr(base, "generator_factory")]
+        return type("Box", (*bases, cls),
+                    {"__module__": cls.__module__})
 
-    @factory()
+    @cached_classproperty
     def permutation_factory(cls):
-        return Permutation
+        if cls is Diagram:
+            return Permutation
+        bases = [base.permutation_factory for base in cls.__bases__
+                 if hasattr(base, "permutation_factory")]
+        return type("Permutation", (*bases, cls.generator_factory),
+                    {"__module__": cls.__module__})
 
-    @factory("permutation_factory")
+    @cached_classproperty
     def swap_factory(cls):
-        return Swap
+        if cls is Diagram:
+            return Swap
+        bases = [base.swap_factory for base in cls.__bases__
+                 if hasattr(base, "swap_factory")]
+        return type("Swap", (*bases, cls.permutation_factory),
+                    {"__module__": cls.__module__})
 
-    @factory()
+    @cached_classproperty
     def copy_factory(cls):
-        return Copy
+        if cls is Diagram:
+            return Copy
+        bases = [base.copy_factory for base in cls.__bases__
+                 if hasattr(base, "copy_factory")]
+        return type("Copy", (*bases, cls.generator_factory),
+                    {"__module__": cls.__module__})
 
-    @factory()
+    @cached_classproperty
     def merge_factory(cls):
-        return Merge
+        if cls is Diagram:
+            return Merge
+        bases = [base.merge_factory for base in cls.__bases__
+                 if hasattr(base, "merge_factory")]
+        return type("Merge", (*bases, cls.generator_factory),
+                    {"__module__": cls.__module__})
 
-    @factory()
+    @cached_classproperty
     def feedback_factory(cls):
-        return Feedback
+        if cls is Diagram:
+            return Feedback
+        bases = [base.feedback_factory for base in cls.__bases__
+                 if hasattr(base, "feedback_factory")]
+        return type("Feedback", (*bases, cls.generator_factory),
+                    {"__module__": cls.__module__})
 
-    @factory()
+    @cached_classproperty
     def followed_by(cls):
-        return FollowedBy
+        if cls is Diagram:
+            return FollowedBy
+        bases = [base.followed_by for base in cls.__bases__
+                 if hasattr(base, "followed_by")]
+        return type("FollowedBy", (*bases, cls.generator_factory),
+                    {"__module__": cls.__module__})
 
 
 class Box(markov.Box, Diagram):

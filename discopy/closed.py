@@ -60,9 +60,10 @@ from typing import Dict, ClassVar
 
 from discopy import cat, monoidal, biclosed, markov, cmap, hypergraph
 from discopy.abc import ClosedCategory
-from discopy.cat import factory
+from discopy.cat import factory, cached_classproperty
 
 
+@factory
 class Ty(biclosed.Ty):
     """
     A closed type is a biclosed type in a symmetric category where left and
@@ -90,6 +91,7 @@ class Exp(biclosed.Exp):
         return f"({self.exponent} >> {self.base})"
 
 
+@factory
 class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
     """
     A closed diagram is both a markov and a biclosed diagram.
@@ -140,9 +142,14 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
     def to_drawing(self):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
 
-    @factory()
+    @cached_classproperty
     def eval_factory(cls):
-        return Eval
+        if cls is Diagram:
+            return Eval
+        bases = [base.eval_factory for base in cls.__bases__
+                 if hasattr(base, "eval_factory")]
+        return type("Eval", (*bases, cls.generator_factory),
+                    {"__module__": cls.__module__})
 
 
 Box = Diagram.generator_factory

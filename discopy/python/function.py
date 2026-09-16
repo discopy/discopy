@@ -23,13 +23,14 @@ from discopy.abc import Category
 from discopy.monoidal import List
 from discopy.utils import (
     assert_iscomposable, assert_isinstance,
-    tuplify, untuplify, classproperty)
+    tuplify, untuplify, classproperty, factory)
 
 
 Ty = List[type]
 """ Lists of Python types, i.e. the free monoid on ``type``. """
 
 
+@factory
 @dataclass
 class Function(Category):
     """

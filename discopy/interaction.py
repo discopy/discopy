@@ -79,7 +79,7 @@ from discopy.abc import RibbonCategory, TracedCategory, NamedGeneric
 from discopy.cat import assert_iscomposable
 from discopy.python import finset
 from discopy.utils import (
-    classproperty, unbiased, assert_isinstance, factory_name)
+    factory, classproperty, unbiased, assert_isinstance, factory_name)
 
 
 @dataclass
@@ -154,6 +154,7 @@ class Ty(NamedGeneric['natural']):
     l = r = property(__neg__)
 
 
+@factory
 @dataclass
 class Diagram(RibbonCategory, NamedGeneric['natural']):
     """

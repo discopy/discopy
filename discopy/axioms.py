@@ -506,7 +506,7 @@ class Grid(Testable, NamedGeneric["factory"], tuple):
         """Generate a grid column-by-column using composable boundaries."""
         from hypothesis import strategies as st
 
-        factory = cls.ar
+        factory = cls.factory
         dom, cod = params.pop("dom", None), params.pop("cod", None)
 
         @st.composite

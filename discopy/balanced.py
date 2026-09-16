@@ -39,7 +39,7 @@ from dataclasses import dataclass
 
 from discopy import config, monoidal, braided, traced, cmap, hypergraph
 from discopy.abc import BalancedCategory
-from discopy.cat import factory
+from discopy.cat import factory, cached_classproperty
 from discopy.monoidal import Colour, Ty  # noqa: F401
 from discopy.utils import factory_name, assert_isatomic
 
@@ -112,6 +112,7 @@ def double_rail(
     return type(typ)(*rails)
 
 
+@factory
 class Diagram(braided.Diagram, traced.Diagram, BalancedCategory):
     """
     A balanced diagram is a braided diagram with :class:`Twist`.
@@ -179,9 +180,14 @@ class Diagram(braided.Diagram, traced.Diagram, BalancedCategory):
         return self if not width\
             else self.dual_rail_factory(width, colour)(self)
 
-    @factory()
+    @cached_classproperty
     def twist_factory(cls):
-        return Twist
+        if cls is Diagram:
+            return Twist
+        bases = [base.twist_factory for base in cls.__bases__
+                 if hasattr(base, "twist_factory")]
+        return type("Twist", (*bases, cls.generator_factory),
+                    {"__module__": cls.__module__})
 
 
 Box, Braid = Diagram.generator_factory, Diagram.braid_factory

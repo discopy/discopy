@@ -32,7 +32,9 @@ f >> g @ h
 
 ```python {.marimo}
 from discopy import monoidal, python
+from discopy.cat import factory
 
+@factory  # Ensure that composition of circuits remains a circuit.
 class Circuit(monoidal.Diagram):
     ob = monoidal.Nat
 
@@ -103,6 +105,7 @@ x_3 = ribbon.Ty('x')
 cup, cap, braid = (ribbon.Cup(x_3.r, x_3), ribbon.Cap(x_3.r, x_3), ribbon.Braid(x_3, x_3))
 link = cap >> x_3.r @ cap @ x_3 >> braid.r @ braid >> x_3.r @ cup @ x_3 >> cup
 
+@factory
 class Kauffman(ribbon.Diagram):
     ob = ribbon.Nat
 
@@ -182,6 +185,7 @@ from discopy.tensor import Dim, Tensor
 
 Tensor[bool].bubble = lambda self, **_: self.map(lambda x: not x)
 
+@factory
 class Formula(frobenius.Diagram):
     ob = frobenius.Nat
 

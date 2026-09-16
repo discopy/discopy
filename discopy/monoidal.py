@@ -70,7 +70,7 @@ from discopy.config import (
     COLOUR_DRAWING_ATTRIBUTES, TRANSPARENT)
 from discopy.utils import (
     factory,
-    factory,
+    cached_classproperty,
     factory_name,
     from_tree,
     assert_isinstance,
@@ -248,6 +248,7 @@ class List(Monoid, NamedGeneric['generator_factory']):
             + f"({', '.join(map(repr, self.inside))})"
 
 
+@factory
 class Ty(cat.Ob, cat.FreeCategory, ColouredMonoid):
     """
     A type is a composable path of objects with :meth:`Ty.tensor`
@@ -326,7 +327,7 @@ class Ty(cat.Ob, cat.FreeCategory, ColouredMonoid):
         cat.Ob.__init__(self, type(self).__name__)
 
     def tensor(self, *others: Ty) -> Ty:
-        if any(not isinstance(other, self.ar) for other in others):
+        if any(not isinstance(other, self.factory) for other in others):
             return NotImplemented  # This allows whiskering on the left.
         return cat.FreeCategory.then(self, *others)
 
@@ -336,7 +337,7 @@ class Ty(cat.Ob, cat.FreeCategory, ColouredMonoid):
         assert_isinstance(n_times, int)
         if n_times <= 0:
             assert self.dom == self.cod
-            return self.ar.id(self.dom)
+            return self.factory.id(self.dom)
         return self.tensor(*(n_times - 1) * [self])
 
     __iter__ = List.__iter__
@@ -495,6 +496,7 @@ class Ty(cat.Ob, cat.FreeCategory, ColouredMonoid):
         return offsets
 
 
+@factory
 class Nat(abc.Nat, Ty):
     """
     ``Nat`` is a natural number ``n`` seen as a type with addition as
@@ -521,7 +523,8 @@ class Nat(abc.Nat, Ty):
     any ``n: int`` into ``Nat(n)``. Thus ``Nat`` never needs to be called,
     and the resulting diagrams live in a :class:`discopy.abc.PRO`.
 
-    >>> class Circuit(abc.PRO, Diagram):
+    >>> @factory
+    ... class Circuit(abc.PRO, Diagram):
     ...     ob = Nat
     >>> class Gate(Box, Circuit): ...
     >>> CX = Gate('CX', 2, 2)
@@ -552,9 +555,9 @@ class Nat(abc.Nat, Ty):
         for other in others:
             if not isinstance(other, Ty):
                 return NotImplemented  # This allows whiskering on the left.
-            assert_isinstance(self, other.ar)
-            assert_isinstance(other, self.ar)
-        return self.ar(self.n + sum(other.n for other in others))
+            assert_isinstance(self, other.factory)
+            assert_isinstance(other, self.factory)
+        return self.factory(self.n + sum(other.n for other in others))
 
     then = tensor
 
@@ -565,13 +568,13 @@ class Nat(abc.Nat, Ty):
         return f"Nat({self.n})"
 
     def __eq__(self, other):
-        return isinstance(other, self.ar) and self.n == other.n
+        return isinstance(other, self.factory) and self.n == other.n
 
     def __hash__(self):
         return hash(repr(self))
 
     def __pow__(self, n_times):
-        return self.ar(n_times * self.n)
+        return self.factory(n_times * self.n)
 
     def to_tree(self):
         return {'factory': factory_name(type(self)), 'n': self.n}
@@ -581,6 +584,7 @@ class Nat(abc.Nat, Ty):
         return cls(tree['n'])
 
 
+@factory
 class Dim(Ty):
     """
     A dimension is a tuple of positive integers
@@ -609,8 +613,8 @@ class Dim(Ty):
 
     def __getitem__(self, key: int | slice) -> Dim:
         if isinstance(key, slice):
-            return self.ar(*self.inside[key])
-        return self.ar(self.inside[key])
+            return self.factory(*self.inside[key])
+        return self.factory(self.inside[key])
 
     def __repr__(self):
         return f"Dim({', '.join(map(repr, self.inside)) or '1'})"
@@ -913,6 +917,7 @@ class Layer(cat.Box, ColouredMonoid):
         return cls(*(map(from_tree, tree['inside'])))
 
 
+@factory
 class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
     """
     A diagram is a tuple of composable layers :code:`inside` with a pair of
@@ -1398,17 +1403,32 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
             return cls.decode(from_tree(tree['dom']), zip(boxes, offsets))
         return super().from_tree(tree)
 
-    @factory()
+    @cached_classproperty
     def generator_factory(cls):
-        return Box
+        if cls is Diagram:
+            return Box
+        bases = [base.generator_factory for base in cls.__bases__
+                 if hasattr(base, "generator_factory")]
+        return type("Box", (*bases, cls),
+                    {"__module__": cls.__module__})
 
-    @factory()
+    @cached_classproperty
     def sum_factory(cls):
-        return Sum
+        if cls is Diagram:
+            return Sum
+        bases = [base.sum_factory for base in cls.__bases__
+                 if hasattr(base, "sum_factory")]
+        return type("Sum", (*bases, cls.generator_factory),
+                    {"__module__": cls.__module__})
 
-    @factory()
+    @cached_classproperty
     def bubble_factory(cls):
-        return Bubble
+        if cls is Diagram:
+            return Bubble
+        bases = [base.bubble_factory for base in cls.__bases__
+                 if hasattr(base, "bubble_factory")]
+        return type("Bubble", (*bases, cls.generator_factory),
+                    {"__module__": cls.__module__})
 
 
 class Box(cat.Box, Diagram):
@@ -1701,7 +1721,7 @@ class Functor(cat.Functor):
         if isinstance(other, Dim):
             return self.cod.ob().tensor(*(self.ob_map[x] for x in other))
         if isinstance(other, Nat):
-            image = super().__call__(other.ar(1))
+            image = super().__call__(other.factory(1))
             return image[:0].tensor(*other.n * [image])
         if isinstance(other, Ty):
             if not other.inside:

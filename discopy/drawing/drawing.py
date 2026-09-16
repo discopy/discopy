@@ -208,7 +208,7 @@ from discopy.config import BOX_DRAWING_ATTRIBUTES, TRANSPARENT
 from discopy.abc import TracedCategory
 from discopy.python import finset
 from discopy.utils import (
-    assert_isinstance, assert_iscomposable, unbiased, RichDisplay)
+    assert_isinstance, assert_iscomposable, unbiased, factory, RichDisplay)
 
 if TYPE_CHECKING:
     from discopy import monoidal
@@ -227,6 +227,7 @@ class PlaneGraph(NamedTuple):
     positions: dict[Node, Point]
 
 
+@factory
 @dataclass
 class Drawing(TracedCategory, RichDisplay):
     """

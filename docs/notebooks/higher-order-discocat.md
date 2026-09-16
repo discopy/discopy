@@ -18,7 +18,9 @@ import marimo as mo
 ```python {.marimo}
 from discopy import frobenius
 from discopy.tensor import Dim, Tensor
+from discopy.cat import factory
 
+@factory
 class Formula(frobenius.Diagram):
     ob = frobenius.Nat
 

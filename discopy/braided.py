@@ -63,7 +63,7 @@ from collections.abc import Callable
 
 from discopy import monoidal
 from discopy.abc import BraidedCategory
-from discopy.cat import factory
+from discopy.cat import factory, cached_classproperty
 from discopy.monoidal import Ty, Match
 from discopy.utils import (
     assert_isatomic, BinaryBoxConstructor, deprecated_alias, factory_name)
@@ -80,6 +80,7 @@ class Wire(monoidal.Wire):
         return self
 
 
+@factory
 class Diagram(monoidal.Diagram, BraidedCategory):
     """
     A braided diagram is a monoidal diagram with :class:`Braid` boxes.
@@ -159,9 +160,14 @@ class Diagram(monoidal.Diagram, BraidedCategory):
                       right=right_wires if left else right_wires[1:])
         return match.substitute(target)
 
-    @factory()
+    @cached_classproperty
     def braid_factory(cls):
-        return Braid
+        if cls is Diagram:
+            return Braid
+        bases = [base.braid_factory for base in cls.__bases__
+                 if hasattr(base, "braid_factory")]
+        return type("Braid", (*bases, cls.generator_factory),
+                    {"__module__": cls.__module__})
 
 
 Box = Diagram.generator_factory

@@ -22,7 +22,6 @@ Summary
     Functor
     Transformation
     Equation
-    factory
 
 .. admonition:: Functions
 
@@ -31,6 +30,7 @@ Summary
         :nosignatures:
         :toctree:
 
+        factory
         dumps
         loads
 
@@ -86,8 +86,7 @@ from discopy.abc import Category
 from discopy.axioms import GENERATORS, Equation as AbstractEquation, Testable
 from discopy.utils import (  # noqa: F401
     factory,
-    is_subscript,
-    classproperty,
+    cached_classproperty,
     factory_name,
     from_tree,
     rsubs,
@@ -257,6 +256,7 @@ class FreeCategory(Category):
         return self[::-1]
 
 
+@factory
 class Arrow(FreeCategory, Testable["Arrow"]):
     """
     An arrow is a tuple of composable boxes :code:`inside` with a pair of
@@ -304,19 +304,6 @@ class Arrow(FreeCategory, Testable["Arrow"]):
     see :class:`monoidal.Nat`.
     """
     ob = Ob
-
-    @classproperty
-    def ar(cls):
-        """
-        The category an arrow class builds its arrows in: itself, unless it
-        is a box or a :class:`NamedGeneric` subscript such as ``Box[float]``,
-        which belong to the first class of their method resolution order
-        that is neither, e.g. a :class:`discopy.monoidal.Box` belongs to
-        :class:`discopy.monoidal.Diagram`.
-        """
-        return next(
-            base for base in cls.__mro__ if issubclass(base, Arrow)
-            and not issubclass(base, Box) and not is_subscript(base))
 
     def __init__(self, inside, dom, cod, _scan=True):
         if _scan:
@@ -564,17 +551,32 @@ class Arrow(FreeCategory, Testable["Arrow"]):
         inside = tuple(map(from_tree, tree['inside']))
         return cls(inside, dom, cod, _scan=False)
 
-    @factory()
+    @cached_classproperty
     def generator_factory(cls):
-        return Box
+        if cls is Arrow:
+            return Box
+        bases = [base.generator_factory for base in cls.__bases__
+                 if hasattr(base, "generator_factory")]
+        return type("Box", (*bases, cls),
+                    {"__module__": cls.__module__})
 
-    @factory()
+    @cached_classproperty
     def sum_factory(cls):
-        return Sum
+        if cls is Arrow:
+            return Sum
+        bases = [base.sum_factory for base in cls.__bases__
+                 if hasattr(base, "sum_factory")]
+        return type("Sum", (*bases, cls.generator_factory),
+                    {"__module__": cls.__module__})
 
-    @factory()
+    @cached_classproperty
     def bubble_factory(cls):
-        return Bubble
+        if cls is Arrow:
+            return Bubble
+        bases = [base.bubble_factory for base in cls.__bases__
+                 if hasattr(base, "bubble_factory")]
+        return type("Bubble", (*bases, cls.generator_factory),
+                    {"__module__": cls.__module__})
 
 
 @total_ordering
@@ -893,6 +895,7 @@ class Bubble(Box):
         return cls(*map(from_tree, args), dom=dom, cod=cod)
 
 
+@factory
 class Functor(Category):
     """
     A functor is a pair of maps :code:`ob_map` and :code:`ar_map` and an
@@ -1023,6 +1026,7 @@ class Functor(Category):
         return result
 
 
+@factory
 class Transformation(Category):
     """
     A (not necessarily natural) transformation between two parallel functors.

@@ -30,7 +30,7 @@ from itertools import accumulate
 from typing import Self
 
 from discopy.abc import ClosedCategory
-from discopy.utils import assert_isinstance, tuplify, untuplify
+from discopy.utils import assert_isinstance, tuplify, untuplify, factory
 from discopy.python import finset, function
 from discopy.python.function import Ty
 
@@ -47,6 +47,7 @@ def exp(base: Ty, exponent: Ty) -> Ty:
     return Ty(Callable[list(exponent.inside), tuple[base.inside]])
 
 
+@factory
 class Function(function.Function, ClosedCategory):
     """
     Python function with tuple as tensor.

@@ -678,8 +678,6 @@ class Representation(NamedGeneric["algebra"], frobenius.Dim):
     .. graphviz:: /_static/hopf/module.dot
         :align: center
     """
-    ar = Dim
-
     def __init__(self, dim=None, action=None):
         if self.algebra is None:
             raise ValueError(
@@ -899,7 +897,6 @@ class Intertwiner(NamedGeneric["algebra"], tensor.Diagram, RibbonCategory):
     ob = classproperty(
         lambda cls: frobenius.Dim if cls.algebra is None
         else Representation[cls.algebra])
-    ar = tensor.Diagram
 
     def __init__(self, inside, dom, cod, _scan=True):
         if not isinstance(inside, tuple):
