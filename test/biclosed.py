@@ -1,5 +1,6 @@
 from discopy.biclosed import *
-from discopy import cat
+from discopy import biclosed, cat
+from discopy.utils import dumps, loads
 from pytest import raises
 
 
@@ -217,3 +218,12 @@ def test_mapping_preserves_binding_and_lexical_boundaries():
     unit = closed.Ty()
     with raises(AxiomError):
         closed.Functor({X: unit}, {a: closed.Variable("v", unit)})(a)
+
+
+def test_transparency():
+    x, y = Ty('x'), Ty('y')
+    curry = Box('f', x @ y, x).curry
+    for box in [Eval(x << y), Eval(y >> x, left=False), Coeval(x << y),
+                curry(), curry(left=False), Constant('c', x)]:
+        assert eval(repr(box), {"biclosed": biclosed, "cat": cat}) == box
+        assert loads(dumps(box)) == box
