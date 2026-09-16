@@ -64,7 +64,7 @@ from typing import TYPE_CHECKING, Sequence
 
 from discopy import (
     cat, monoidal, rigid, frobenius, cmap, config)
-from discopy.cat import factory, Generator, assert_iscomposable
+from discopy.cat import factory, cached_classproperty, assert_iscomposable
 from discopy.frobenius import Dim, Cup
 from discopy.matrix import (  # noqa: F401
     Matrix, backend, set_backend, get_backend,
@@ -695,17 +695,32 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
             result += Box(str(var), Dim(1), dim, onehot.array) @ self.grad(var)
         return result
 
-    @Generator()
+    @cached_classproperty
     def generator_factory(cls):
-        return Box
+        if cls is Diagram:
+            return Box
+        bases = [base.generator_factory for base in cls.__bases__
+                 if hasattr(base, "generator_factory")]
+        return type("Box", (*bases, cls),
+                    {"__module__": cls.__module__})
 
-    @Generator()
+    @cached_classproperty
     def permutation_factory(cls):
-        return Permutation
+        if cls is Diagram:
+            return Permutation
+        bases = [base.permutation_factory for base in cls.__bases__
+                 if hasattr(base, "permutation_factory")]
+        return type("Permutation", (*bases, cls.generator_factory),
+                    {"__module__": cls.__module__})
 
-    @Generator()
+    @cached_classproperty
     def bubble_factory(cls):
-        return Bubble
+        if cls is Diagram:
+            return Bubble
+        bases = [base.bubble_factory for base in cls.__bases__
+                 if hasattr(base, "bubble_factory")]
+        return type("Bubble", (*bases, cls.generator_factory),
+                    {"__module__": cls.__module__})
 
 
 CMap = cmap.CMap[Diagram]

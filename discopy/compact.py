@@ -58,7 +58,7 @@ Coherence
 
 from discopy import symmetric, ribbon, rigid, cmap, hypergraph
 from discopy.abc import CompactCategory
-from discopy.cat import factory, Generator
+from discopy.cat import factory, cached_classproperty
 from discopy.utils import deprecated_alias
 from discopy.pivotal import Wire, Ty  # noqa: F401
 
@@ -80,9 +80,14 @@ class Diagram(symmetric.Diagram, ribbon.Diagram, CompactCategory):
     ob = Ty
     layer_factory = Layer
 
-    @Generator()
+    @cached_classproperty
     def permutation_factory(cls):
-        return Permutation
+        if cls is Diagram:
+            return Permutation
+        bases = [base.permutation_factory for base in cls.__bases__
+                 if hasattr(base, "permutation_factory")]
+        return type("Permutation", (*bases, cls.generator_factory),
+                    {"__module__": cls.__module__})
 
 
 Box, Cup, Cap = (

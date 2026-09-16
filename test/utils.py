@@ -105,7 +105,7 @@ def test_wire_tree_roundtrip():
             == frobenius.Wire('x')
 
 
-def test_Generator_roots():
+def test_factory_roots():
     from discopy import cat, symmetric, closed
     assert cat.Arrow.generator_factory is cat.Box
     assert symmetric.Diagram.swap_factory is symmetric.Swap
@@ -114,25 +114,23 @@ def test_Generator_roots():
     assert closed.Swap.swap_factory is closed.Swap
 
 
-def test_Generator_bases():
+def test_factory_bases():
     from discopy import markov, closed, symmetric, ribbon, compact, frobenius
-    from discopy import tensor
-    assert closed.Swap.__bases__ == (
-        markov.Swap, closed.Permutation, closed.Box, closed.Diagram)
-    assert closed.Discard.__bases__ == (
-        markov.Discard, closed.Copy, closed.Box, closed.Diagram)
-    assert compact.Swap.__bases__ == (
-        symmetric.Swap, compact.Permutation, compact.Box, compact.Diagram)
+    from discopy import biclosed, tensor
+    assert closed.Swap.__bases__ == (markov.Swap, closed.Permutation)
+    assert closed.Discard.__bases__ == (markov.Discard, closed.Copy)
+    assert closed.Sum.__bases__ == (markov.Sum, biclosed.Sum, closed.Box)
+    assert compact.Swap.__bases__ == (symmetric.Swap, compact.Permutation)
     assert not issubclass(compact.Swap, ribbon.Braid)
-    assert frobenius.Permutation.__bases__[:2] == (
-        compact.Permutation, markov.Permutation)
+    assert frobenius.Permutation.__bases__ == (
+        compact.Permutation, markov.Permutation, frobenius.Box)
     assert issubclass(tensor.Swap, tensor.Permutation)
     assert closed.Swap.__module__ == "discopy.closed"
     assert closed.Swap.__name__ == closed.Swap.__qualname__ == "Swap"
     assert factory_name(closed.Swap) == "closed.Swap"
 
 
-def test_Generator_override():
+def test_factory_override():
     from discopy import symmetric, tensor
 
     @factory
@@ -145,7 +143,9 @@ def test_Generator_override():
     Recipe.generator_factory = Step
     assert Recipe.generator_factory is Step
     assert Recipe.swap_factory.__bases__ == (
-        symmetric.Swap, Recipe.permutation_factory, Step, Recipe)
+        symmetric.Swap, Recipe.permutation_factory)
+    assert Recipe.permutation_factory.__bases__ == (
+        symmetric.Permutation, Step)
     assert Recipe.swap_factory is Recipe.swap_factory
 
     class Undecorated(Recipe):
@@ -155,7 +155,7 @@ def test_Generator_override():
     assert tensor.Diagram[complex].swap_factory is tensor.Swap
 
 
-def test_Generator_level_box():
+def test_factory_level_box():
     """ A root initialises as a box of the level it is built in. """
     from discopy import compact, feedback
     x = compact.Ty('x')
@@ -202,7 +202,7 @@ def structure(module):
 
 
 @pytest.mark.parametrize("module", MODULES)
-def test_Generator_exports(module):
+def test_factory_exports(module):
     """
     Every generator a level builds is a diagram of that level, defined in
     its module under its own name, so that its representation and its
@@ -218,13 +218,17 @@ def test_Generator_exports(module):
 
 
 @pytest.mark.parametrize("module", MODULES)
-def test_Generator_extends_bases(module):
-    """ Every generator of a level extends the generators of its bases. """
-    D, terms = structure(module)
-    names = {name for term in terms for name in vars(type(D))
-             if name.endswith("_factory")}
-    for name in names:
-        generator = getattr(D, name)
-        assert all(
-            issubclass(generator, root) for base in D.__bases__
-            if isinstance(root := getattr(base, name, None), type))
+def test_factory_extends_bases(module):
+    """ Every generator of a level extends those of each of its bases. """
+    D, _ = structure(module)
+    definitions = {}
+    for klass in reversed(D.__mro__):
+        definitions.update(vars(klass))
+    names = {name for name, value in definitions.items()
+             if isinstance(value, (type, cached_classproperty))
+             and isinstance(getattr(D, name), type)
+             and issubclass(getattr(D, name), D)}
+    assert names and all(
+        issubclass(getattr(D, name), root)
+        for name in names for base in D.__bases__
+        if isinstance(root := getattr(base, name, None), type))

@@ -70,7 +70,7 @@ from discopy.config import (
     COLOUR_DRAWING_ATTRIBUTES, TRANSPARENT)
 from discopy.utils import (
     factory,
-    Generator,
+    cached_classproperty,
     factory_name,
     from_tree,
     assert_isinstance,
@@ -1403,17 +1403,32 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
             return cls.decode(from_tree(tree['dom']), zip(boxes, offsets))
         return super().from_tree(tree)
 
-    @Generator()
+    @cached_classproperty
     def generator_factory(cls):
-        return Box
+        if cls is Diagram:
+            return Box
+        bases = [base.generator_factory for base in cls.__bases__
+                 if hasattr(base, "generator_factory")]
+        return type("Box", (*bases, cls),
+                    {"__module__": cls.__module__})
 
-    @Generator()
+    @cached_classproperty
     def sum_factory(cls):
-        return Sum
+        if cls is Diagram:
+            return Sum
+        bases = [base.sum_factory for base in cls.__bases__
+                 if hasattr(base, "sum_factory")]
+        return type("Sum", (*bases, cls.generator_factory),
+                    {"__module__": cls.__module__})
 
-    @Generator()
+    @cached_classproperty
     def bubble_factory(cls):
-        return Bubble
+        if cls is Diagram:
+            return Bubble
+        bases = [base.bubble_factory for base in cls.__bases__
+                 if hasattr(base, "bubble_factory")]
+        return type("Bubble", (*bases, cls.generator_factory),
+                    {"__module__": cls.__module__})
 
 
 class Box(cat.Box, Diagram):

@@ -58,7 +58,7 @@ Or you can keep scrolling down, skip the theory and go straight to the examples 
 - *the first gotcha of DisCoPy:* `Box` is a subclass of `Diagram` with a cyclic reference `list(box.inside) == [Layer(box)]`
 - every categorical structure is implemented with the factory method pattern so that e.g. the method `Diagram.swap` computes the symmetry of arbitrary types with `Diagram.swap_factory` as subroutine for generating the subclass of `Box` for the symmetry of atomic types
 - *the second gotcha of DisCoPy:* each `C: Category` comes with a class attribute `ar` such that `C.ar = C`; this happens with the decorator `@factory` and it allows for e.g. the subclass `Box` to know that it lives inside a bigger `Diagram` category
-- a generator is defined once, in the module that introduces it: `symmetric.Diagram` declares `swap_factory` with the `Generator` decorator as a method returning `Swap`, and every subclass decorated with `@factory` gets its own `Swap` built from those of its bases, e.g. `closed.Swap = closed.Diagram.swap_factory` is a `markov.Swap` that is a `closed.Permutation` and a `closed.Box`; a level only writes a generator by hand when it adds behaviour to it, and declares it again
+- a generator is defined once, in the module that introduces it: `symmetric.Diagram.swap_factory` is a class property returning `Swap` on `symmetric.Diagram` itself and, on every subclass decorated with `@factory`, a subclass of the swaps of its bases built once, e.g. `closed.Swap = closed.Diagram.swap_factory` is a `markov.Swap` that is a `closed.Permutation` and a `closed.Box`; a level only writes a generator by hand when it adds behaviour to it, and defines the property again
 
 ## Example: Cooking
 

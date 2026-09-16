@@ -22,7 +22,6 @@ Summary
     Functor
     Transformation
     Equation
-    Generator
 
 .. admonition:: Functions
 
@@ -87,7 +86,7 @@ from discopy.abc import Category
 from discopy.axioms import GENERATORS, Equation as AbstractEquation, Testable
 from discopy.utils import (  # noqa: F401
     factory,
-    Generator,
+    cached_classproperty,
     factory_name,
     from_tree,
     rsubs,
@@ -552,17 +551,32 @@ class Arrow(FreeCategory, Testable["Arrow"]):
         inside = tuple(map(from_tree, tree['inside']))
         return cls(inside, dom, cod, _scan=False)
 
-    @Generator()
+    @cached_classproperty
     def generator_factory(cls):
-        return Box
+        if cls is Arrow:
+            return Box
+        bases = [base.generator_factory for base in cls.__bases__
+                 if hasattr(base, "generator_factory")]
+        return type("Box", (*bases, cls),
+                    {"__module__": cls.__module__})
 
-    @Generator()
+    @cached_classproperty
     def sum_factory(cls):
-        return Sum
+        if cls is Arrow:
+            return Sum
+        bases = [base.sum_factory for base in cls.__bases__
+                 if hasattr(base, "sum_factory")]
+        return type("Sum", (*bases, cls.generator_factory),
+                    {"__module__": cls.__module__})
 
-    @Generator()
+    @cached_classproperty
     def bubble_factory(cls):
-        return Bubble
+        if cls is Arrow:
+            return Bubble
+        bases = [base.bubble_factory for base in cls.__bases__
+                 if hasattr(base, "bubble_factory")]
+        return type("Bubble", (*bases, cls.generator_factory),
+                    {"__module__": cls.__module__})
 
 
 @total_ordering
