@@ -77,7 +77,7 @@ from discopy import symmetric, monoidal, cmap, hypergraph
 from discopy.abc import MarkovCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty  # noqa: F401
-from discopy.utils import assert_isatomic, factory_name
+from discopy.utils import assert_isatomic, factory_name, from_tree
 
 
 Layer = symmetric.Layer
@@ -219,11 +219,15 @@ class Copy(Box):
             cls.discard_factory.__new__(cls.discard_factory, x)
 
     def dagger(self) -> Merge:
-        return Merge(self.dom, len(self.cod))
+        return self.merge_factory(self.dom, len(self.cod))
 
     def __repr__(self):
         return (
             factory_name(type(self)) + f"({repr(self.dom)}, {len(self.cod)})")
+
+    @classmethod
+    def from_tree(cls, tree: dict) -> Copy:
+        return cls(from_tree(tree['dom']), len(from_tree(tree['cod'])))
 
 
 class Merge(Box):
@@ -240,12 +244,16 @@ class Merge(Box):
         Box.__init__(self, name, dom=x ** n, cod=x,
                      draw_as_spider=True, color="black", drawing_name="")
 
-    def dagger(self) -> Merge:
-        return Copy(self.cod, len(self.dom))
+    def dagger(self) -> Copy:
+        return self.copy_factory(self.cod, len(self.dom))
 
     def __repr__(self):
         return (
             factory_name(type(self)) + f"({repr(self.cod)}, {len(self.dom)})")
+
+    @classmethod
+    def from_tree(cls, tree: dict) -> Merge:
+        return cls(from_tree(tree['cod']), len(from_tree(tree['dom'])))
 
 
 class Discard(Copy):
