@@ -64,64 +64,13 @@ class Diagram(markov.Diagram, closed.Diagram, CartesianClosedCategory):
     ob = Ty
 
 
-class Box(markov.Box, closed.Box, Diagram):
-    """
-    A cartesian box is a markov and closed box in a cartesian diagram.
-
-    Parameters:
-        name (str) : The name of the box.
-        dom (closed.Ty) : The domain of the box, i.e. its input.
-        cod (closed.Ty) : The codomain of the box, i.e. its output.
-    """
-
-
-class Permutation(markov.Permutation, closed.Permutation, Box):
-    "A permutation in a cartesian diagram."
-
-
-class Swap(Permutation, markov.Swap, closed.Swap, Box):
-    "A swap in a cartesian diagram."
-
-
-class Copy(markov.Copy, Box):
-    "A copy in a cartesian diagram."
-
-    def dagger(self) -> Merge:
-        return Merge(self.dom, len(self.cod))
-
-
-class Merge(markov.Merge, Box):
-    "A merge in a cartesian diagram."
-
-    def dagger(self) -> Copy:
-        return Copy(self.cod, len(self.dom))
-
-
-class Discard(markov.Discard, Copy):
-    "A discard in a cartesian diagram."
-
-
-class Eval(closed.Eval, Box):
-    "The evaluation of an exponential type in a cartesian diagram."
-
-
-class Coeval(closed.Coeval, Box):
-    "The coevaluation of an exponential type in a cartesian diagram."
-
-
-class Curry(closed.Curry, Box):
-    "The currying of a cartesian diagram."
-
-
-class Sum(markov.Sum, closed.Sum, Box):
-    """
-    A cartesian sum is a markov and closed sum in a cartesian diagram.
-
-    Parameters:
-        terms (tuple[Diagram, ...]) : The terms of the formal sum.
-        dom (Ty) : The domain of the formal sum.
-        cod (Ty) : The codomain of the formal sum.
-    """
+Box, Permutation, Swap, Copy, Merge, Discard = (
+    Diagram.generator_factory, Diagram.permutation_factory,
+    Diagram.swap_factory, Diagram.copy_factory, Diagram.merge_factory,
+    Diagram.discard_factory)
+Eval, Coeval, Curry, Sum, Bubble = (
+    Diagram.eval_factory, Diagram.coeval_factory, Diagram.curry_factory,
+    Diagram.sum_factory, Diagram.bubble_factory)
 
 
 class Functor(markov.Functor, closed.Functor):
@@ -218,14 +167,6 @@ CMap = cmap.CMap[Diagram]
 Hypergraph = hypergraph.Hypergraph[Diagram]
 
 Diagram.functor_factory = Functor
-Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
-Diagram.swap_factory = Swap
-Diagram.permutation_factory = Permutation
-Diagram.discard_factory = Discard
-Diagram.curry_factory = Curry
-Diagram.eval_factory = Eval
-Diagram.coeval_factory = Coeval
-Diagram.sum_factory = Sum
 TermBase.functor = Functor.id(Diagram)
 TermBase.application_factory = Application
 Id = Diagram.id

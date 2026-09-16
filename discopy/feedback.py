@@ -376,12 +376,12 @@ class Diagram(symmetric.Diagram, FeedbackCategory):
     @property
     def head(self):
         """ Syntactic sugar for :class:`Head`. """
-        return Head(self)
+        return self.head_factory(self)
 
     @property
     def tail(self):
         """ Syntactic sugar for :class:`Tail`. """
-        return Tail(self)
+        return self.tail_factory(self)
 
     d = Wire.d
 
@@ -396,6 +396,14 @@ class Diagram(symmetric.Diagram, FeedbackCategory):
     @Generator("permutation_factory")
     def swap_factory(cls):
         return Swap
+
+    @Generator()
+    def head_factory(cls):
+        return Head
+
+    @Generator()
+    def tail_factory(cls):
+        return Tail
 
     @Generator()
     def feedback_factory(cls):

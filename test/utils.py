@@ -171,7 +171,8 @@ def test_factory_level_box():
 MODULES = [
     "braided", "traced", "balanced", "symmetric", "markov", "closed",
     "biclosed", "rigid", "pivotal", "ribbon", "compact", "frobenius",
-    "feedback", "tensor", "grammar.pregroup", "grammar.categorial"]
+    "feedback", "cartesian", "cartesian_feedback", "tensor",
+    "grammar.pregroup", "grammar.categorial"]
 
 
 def structure(module):
