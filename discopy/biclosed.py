@@ -88,7 +88,7 @@ from typing import Callable, ClassVar
 from discopy import monoidal, cmap
 from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
-from discopy.cat import factory
+from discopy.cat import factory, Generator
 from discopy.utils import (
     assert_isinstance,
     deprecated_alias,
@@ -341,6 +341,18 @@ class Diagram(monoidal.Diagram, BiclosedCategory):
     def to_drawing(self):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
 
+    @Generator()
+    def eval_factory(cls):
+        return Eval
+
+    @Generator()
+    def coeval_factory(cls):
+        return Coeval
+
+    @Generator()
+    def curry_factory(cls):
+        return Curry
+
 
 Box = Diagram.generator_factory
 
@@ -367,9 +379,6 @@ class Eval(Box):
     @property
     def drawing_name(self):
         return "<<" if self.left else ">>"
-
-
-Diagram.eval_factory = Eval
 
 
 class Coeval(Box):
@@ -403,9 +412,6 @@ class Coeval(Box):
         return self.eval_factory(self.x, self.left)
 
 
-Diagram.coeval_factory = Coeval
-
-
 class Curry(monoidal.Bubble, Box):
     """
     The currying of a biclosed diagram.
@@ -431,7 +437,8 @@ class Curry(monoidal.Bubble, Box):
             dom, cod = arg.dom[n:], arg.dom[:n] >> arg.cod
         monoidal.Bubble.__init__(
             self, arg, dom=dom, cod=cod, drawing_name="$\\Lambda$")
-        Box.__init__(self, name, dom, cod)
+        self.generator_factory.__init__(
+            self, name, dom, cod)
 
     def __str__(self):
         return self.name
@@ -444,7 +451,6 @@ class Curry(monoidal.Bubble, Box):
         return (f >> e).to_drawing().trace(left=True)
 
 
-Diagram.curry_factory = Curry
 Sum, Bubble = Diagram.sum_factory, Diagram.bubble_factory
 Id = Diagram.id
 

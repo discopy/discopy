@@ -22,7 +22,7 @@ Summary
     Functor
     Transformation
     Equation
-    Factory
+    Generator
 
 .. admonition:: Functions
 
@@ -32,7 +32,6 @@ Summary
         :toctree:
 
         factory
-        generators
         dumps
         loads
 
@@ -88,8 +87,7 @@ from discopy.abc import Category
 from discopy.axioms import GENERATORS, Equation as AbstractEquation, Testable
 from discopy.utils import (  # noqa: F401
     factory,
-    Factory,
-    generators,
+    Generator,
     factory_name,
     from_tree,
     rsubs,
@@ -202,11 +200,11 @@ class FreeCategory(Category):
         self.dom, self.cod, self.inside = dom, cod, tuple(inside)
         if _scan:
             previous = dom
-            for generator in inside:
-                if previous != generator.dom:
+            for arrow in inside:
+                if previous != arrow.dom:
                     raise utils.AxiomError(messages.NOT_COMPOSABLE.format(
-                        previous, generator, previous, generator.dom))
-                previous = generator.cod
+                        previous, arrow, previous, arrow.dom))
+                previous = arrow.cod
             if previous != cod:
                 raise utils.AxiomError(messages.NOT_COMPOSABLE.format(
                     previous, cod, previous, cod))
@@ -553,6 +551,18 @@ class Arrow(FreeCategory, Testable["Arrow"]):
         dom, cod = map(from_tree, (tree['dom'], tree['cod']))
         inside = tuple(map(from_tree, tree['inside']))
         return cls(inside, dom, cod, _scan=False)
+
+    @Generator()
+    def generator_factory(cls):
+        return Box
+
+    @Generator()
+    def sum_factory(cls):
+        return Sum
+
+    @Generator()
+    def bubble_factory(cls):
+        return Bubble
 
 
 @total_ordering
@@ -1002,9 +1012,6 @@ class Functor(Category):
         return result
 
 
-Arrow.generator_factory = Box
-
-
 @factory
 class Transformation(Category):
     """
@@ -1130,6 +1137,4 @@ class Equation(AbstractEquation[Arrow]):
 
 
 Ob.equation_factory = Arrow.equation_factory = Equation
-Arrow.sum_factory = Sum
-Arrow.bubble_factory = Bubble
 Id = Arrow.id

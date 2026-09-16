@@ -39,7 +39,7 @@ from dataclasses import dataclass
 
 from discopy import config, monoidal, braided, traced, cmap, hypergraph
 from discopy.abc import BalancedCategory
-from discopy.cat import factory
+from discopy.cat import factory, Generator
 from discopy.monoidal import Colour, Ty  # noqa: F401
 from discopy.utils import factory_name, assert_isatomic
 
@@ -180,6 +180,10 @@ class Diagram(braided.Diagram, traced.Diagram, BalancedCategory):
         return self if not width\
             else self.dual_rail_factory(width, colour)(self)
 
+    @Generator()
+    def twist_factory(cls):
+        return Twist
+
 
 Box, Braid = Diagram.generator_factory, Diagram.braid_factory
 
@@ -200,7 +204,7 @@ class DualRailBraid(braided.Box):
     def __init__(self, left: monoidal.Ty, right: monoidal.Ty, is_dagger=False):
         self.left, self.right = left, right
         name = type(self).__name__ + f"({left}, {right})"
-        braided.Box.__init__(
+        self.generator_factory.__init__(
             self, name, left @ right, right @ left,
             is_dagger=is_dagger, draw_as_dual_rail_braid=True)
 
@@ -224,7 +228,7 @@ class DualRailTwist(braided.Box):
     """
     def __init__(self, dom: monoidal.Ty, is_dagger=False):
         name = type(self).__name__ + f"({dom})"
-        braided.Box.__init__(
+        self.generator_factory.__init__(
             self, name, dom, dom,
             is_dagger=is_dagger, draw_as_dual_rail_twist=True)
 
@@ -254,7 +258,8 @@ class Twist(Box):
     def __init__(self, dom: monoidal.Ty, is_dagger=False):
         assert_isatomic(dom, monoidal.Ty)
         name = type(self).__name__ + f"({dom})"
-        Box.__init__(self, name, dom, dom, is_dagger=is_dagger)
+        self.generator_factory.__init__(
+            self, name, dom, dom, is_dagger=is_dagger)
 
     def __repr__(self):
         if self.is_dagger:
@@ -265,7 +270,6 @@ class Twist(Box):
         return type(self)(self.dom, not self.is_dagger)
 
 
-Diagram.twist_factory = Twist
 Trace, Sum, Bubble = (
     Diagram.trace_factory, Diagram.sum_factory, Diagram.bubble_factory)
 

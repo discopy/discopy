@@ -70,6 +70,7 @@ from discopy.config import (
     COLOUR_DRAWING_ATTRIBUTES, TRANSPARENT)
 from discopy.utils import (
     factory,
+    Generator,
     factory_name,
     from_tree,
     assert_isinstance,
@@ -1402,6 +1403,18 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
             return cls.decode(from_tree(tree['dom']), zip(boxes, offsets))
         return super().from_tree(tree)
 
+    @Generator()
+    def generator_factory(cls):
+        return Box
+
+    @Generator()
+    def sum_factory(cls):
+        return Sum
+
+    @Generator()
+    def bubble_factory(cls):
+        return Bubble
+
 
 class Box(cat.Box, Diagram):
     """
@@ -1577,7 +1590,8 @@ class Bubble(cat.Bubble, Box):
             draw_as_square: bool = None,
             draw_vertically=False, **kwargs):
         cat.Bubble.__init__(self, *args, **kwargs)
-        Box.__init__(self, self.name, self.dom, self.cod)
+        self.generator_factory.__init__(
+            self, self.name, self.dom, self.cod)
         self.drawing_name = "" if drawing_name is None else drawing_name
         self.draw_vertically = draw_vertically
         self.frame_colour = BOX_DRAWING_ATTRIBUTES['frame_colour'](self)
@@ -1799,9 +1813,6 @@ class Equation(cat.Equation, RichDisplay):
 Diagram.draw = drawing.draw
 Diagram.to_gif = drawing.to_gif
 
-Diagram.generator_factory = Box
-Diagram.sum_factory = Sum
-Diagram.bubble_factory = Bubble
 Diagram.functor_factory = Functor
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Drawing.ob = Ty

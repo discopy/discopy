@@ -49,7 +49,7 @@ class Rule(monoidal.Box):
     def __init__(self, dom: monoidal.Ty, cod: monoidal.Ty, name: str = None,
                  **params):
         name = f"Rule({dom}, {cod})" if name is None else name
-        monoidal.Box.__init__(self, name, dom, cod, **params)
+        self.generator_factory.__init__(self, name, dom, cod, **params)
 
     def __repr__(self):
         name = f", name={self.name!r}" if self.name else ""

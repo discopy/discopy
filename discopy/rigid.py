@@ -156,7 +156,7 @@ from typing import Iterator
 
 from discopy import cat, monoidal, biclosed, messages
 from discopy.abc import Pregroup, RigidCategory
-from discopy.cat import factory
+from discopy.cat import factory, Generator
 from discopy.utils import (
     assert_isatomic,
     assert_isinstance,
@@ -641,6 +641,22 @@ class Diagram(biclosed.Diagram, RigidCategory):
         """
         return super().normal_form(**params)
 
+    @Generator()
+    def generator_factory(cls):
+        return Box
+
+    @Generator()
+    def sum_factory(cls):
+        return Sum
+
+    @Generator()
+    def cup_factory(cls):
+        return Cup
+
+    @Generator()
+    def cap_factory(cls):
+        return Cap
+
 
 class Box(biclosed.Box, Diagram):
     """
@@ -661,6 +677,7 @@ class Box(biclosed.Box, Diagram):
     >>> assert f.r.l == f == f.l.r
     >>> assert f.l.l != f != f.r.r
     """
+    z = 0
 
     def __setstate__(self, state):
         if '_z' in state:  # Backward compatibility
@@ -707,9 +724,6 @@ class Box(biclosed.Box, Diagram):
         return result
 
 
-Diagram.generator_factory = Box
-
-
 class Sum(biclosed.Sum, Box):
     """
     A rigid sum is a biclosed sum that can be transposed.
@@ -726,9 +740,6 @@ class Sum(biclosed.Sum, Box):
                 tuple(term.l for term in self.terms), self.cod.l, self.dom.l)
         return self.sum_factory(
             tuple(term.r for term in self.terms), self.cod.r, self.dom.r)
-
-
-Diagram.sum_factory = Sum
 
 
 class Cup(BinaryBoxConstructor, Box):
@@ -755,7 +766,8 @@ class Cup(BinaryBoxConstructor, Box):
         name = f"Cup({left}, {right})"
         dom, cod = left @ right, self.ob(dom=left.dom, cod=left.dom)
         BinaryBoxConstructor.__init__(self, left, right)
-        Box.__init__(self, name, dom, cod, draw_as_cup=True)
+        self.generator_factory.__init__(
+            self, name, dom, cod, draw_as_cup=True)
 
     def rotate(self, left=False):
         return self.cap_factory(self.right.l, self.left.l) if left\
@@ -767,9 +779,6 @@ class Cup(BinaryBoxConstructor, Box):
         use a :class:`pivotal.Cup` instead.
         """
         raise AxiomError("Rigid cups have no dagger, use pivotal instead.")
-
-
-Diagram.cup_factory = Cup
 
 
 class Cap(BinaryBoxConstructor, Box):
@@ -796,7 +805,8 @@ class Cap(BinaryBoxConstructor, Box):
         name = f"Cap({left}, {right})"
         dom, cod = self.ob(dom=left.dom, cod=left.dom), left @ right
         BinaryBoxConstructor.__init__(self, left, right)
-        Box.__init__(self, name, dom, cod, draw_as_cap=True)
+        self.generator_factory.__init__(
+            self, name, dom, cod, draw_as_cap=True)
 
     def rotate(self, left=False):
         return self.cup_factory(self.right.l, self.left.l) if left\
@@ -810,7 +820,6 @@ class Cap(BinaryBoxConstructor, Box):
         raise AxiomError("Rigid caps have no dagger, use pivotal instead.")
 
 
-Diagram.cap_factory = Cap
 Bubble = Diagram.bubble_factory
 
 

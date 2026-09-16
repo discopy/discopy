@@ -157,7 +157,7 @@ from discopy import monoidal, braided, markov, hypergraph
 from discopy.abc import FeedbackCategory
 from discopy.utils import (
     deprecated_alias,
-    factory, factory_name, assert_isinstance, AxiomError,
+    factory, Generator, factory_name, assert_isinstance, AxiomError,
 )
 
 
@@ -400,6 +400,34 @@ class Diagram(markov.Diagram, FeedbackCategory):
 
     d = Wire.d
 
+    @Generator()
+    def generator_factory(cls):
+        return Box
+
+    @Generator()
+    def permutation_factory(cls):
+        return Permutation
+
+    @Generator('permutation_factory')
+    def swap_factory(cls):
+        return Swap
+
+    @Generator()
+    def copy_factory(cls):
+        return Copy
+
+    @Generator()
+    def merge_factory(cls):
+        return Merge
+
+    @Generator()
+    def feedback_factory(cls):
+        return Feedback
+
+    @Generator()
+    def followed_by(cls):
+        return FollowedBy
+
 
 class Box(markov.Box, Diagram):
     """
@@ -447,17 +475,11 @@ class Box(markov.Box, Diagram):
         return markov.Box.setoid(self) + (self.time_step, )
 
 
-Diagram.generator_factory = Box
-
-
 class Permutation(markov.Permutation, Box):
     "A permutation in a feedback diagram."
 
     def delay(self, n_steps=1):
         return type(self)(self.dom.delay(n_steps), self.perm)
-
-
-Diagram.permutation_factory = Permutation
 
 
 class Swap(Permutation, markov.Swap, Box):
@@ -468,15 +490,8 @@ class Swap(Permutation, markov.Swap, Box):
         left : The type on the top left and bottom right.
         right : The type on the top right and bottom left.
     """
-    def __init__(self, left, right):
-        markov.Swap.__init__(self, left, right)
-        Box.__init__(self, self.name, self.dom, self.cod)
-
     def delay(self, n_steps=1):
         return type(self)(self.left.delay(n_steps), self.right.delay(n_steps))
-
-
-Diagram.swap_factory = Swap
 
 
 class Copy(markov.Copy, Box):
@@ -487,15 +502,8 @@ class Copy(markov.Copy, Box):
         x : The type to copy.
         n : The number of copies.
     """
-    def __init__(self, x: Ty, n: int = 2):
-        markov.Copy.__init__(self, x, n)
-        Box.__init__(self, self.name, self.dom, self.cod)
-
     def delay(self, n_steps=1):
         return type(self)(self.dom.delay(n_steps), len(self.cod))
-
-
-Diagram.copy_factory = Copy
 
 
 class Merge(markov.Merge, Box):
@@ -506,15 +514,10 @@ class Merge(markov.Merge, Box):
         x : The type of wires to merge.
         n : The number of wires to merge.
     """
-    def __init__(self, x: Ty, n: int = 2):
-        markov.Merge.__init__(self, x, n)
-        Box.__init__(self, self.name, self.dom, self.cod)
-
     def delay(self, n_steps=1):
         return type(self)(self.cod.delay(n_steps), len(self.dom))
 
 
-Diagram.merge_factory = Merge
 Discard, Trace, Sum, Bubble = (
     Diagram.discard_factory, Diagram.trace_factory,
     Diagram.sum_factory, Diagram.bubble_factory)
@@ -529,7 +532,8 @@ class Head(monoidal.Bubble, Box):
         dom, cod = (
             getattr(x, _attr).delay(time_step) for x in [arg.dom, arg.cod])
         monoidal.Bubble.__init__(self, arg, dom=dom, cod=cod)
-        Box.__init__(self, f"({arg}).{_attr}", self.dom, self.cod, time_step)
+        self.generator_factory.__init__(
+            self, f"({arg}).{_attr}", self.dom, self.cod, time_step)
 
     delay, reset, __repr__ = HeadOb.delay, HeadOb.reset, HeadOb.__repr__
     __str__ = Box.__str__
@@ -575,7 +579,8 @@ class Feedback(monoidal.Bubble, Box):
             raise AxiomError
         self.mem, self.left = mem, left
         monoidal.Bubble.__init__(self, arg, dom=dom, cod=cod)
-        Box.__init__(self, self.name, dom, cod)
+        self.generator_factory.__init__(
+            self, self.name, dom, cod)
 
     def delay(self, n_steps=1):
         return type(self)(self.arg.delay(n_steps), mem=self.mem.delay(n_steps))
@@ -590,9 +595,6 @@ class Feedback(monoidal.Bubble, Box):
 
     def to_drawing(self):
         return self.arg.to_drawing().trace()
-
-
-Diagram.feedback_factory = Feedback
 
 
 class FollowedBy(Box):
@@ -642,9 +644,6 @@ class FollowedBy(Box):
 
     def reset(self):
         return type(self)(self.arg, self.is_dagger)
-
-
-Diagram.followed_by = FollowedBy
 
 
 class Functor(markov.Functor):

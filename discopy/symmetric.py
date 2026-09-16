@@ -96,7 +96,7 @@ from collections.abc import Sequence
 
 from discopy import monoidal, balanced, hypergraph, cmap, messages
 from discopy.abc import SymmetricCategory
-from discopy.cat import factory
+from discopy.cat import factory, Generator
 from discopy.monoidal import Wire, Ty, Nat  # noqa: F401
 from discopy.python import finset
 from discopy.utils import (
@@ -406,6 +406,14 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         """
         return self.to_hypergraph().depth()
 
+    @Generator()
+    def permutation_factory(cls):
+        return Permutation
+
+    @Generator('permutation_factory')
+    def swap_factory(cls):
+        return Swap
+
 
 Box = Diagram.generator_factory
 
@@ -558,7 +566,6 @@ class Permutation(Box):
         return f"Permutation({self.dom}, {list(self.perm)})"
 
 
-Diagram.permutation_factory = Permutation
 Layer.plumbing = (monoidal.Ty, Permutation)
 
 
@@ -587,8 +594,9 @@ class Swap(Permutation, balanced.Braid, Box):
             left, right = left[:1], left[1:]
         self.perm = finset.Permutation([1, 0], 2)
         balanced.Braid.__init__(self, left, right)
-        Box.__init__(self, self.name, self.dom, self.cod,
-                     draw_as_wires=True, draw_as_braid=False)
+        self.generator_factory.__init__(
+            self, self.name, self.dom, self.cod,
+            draw_as_wires=True, draw_as_braid=False)
 
     def dagger(self):
         return type(self)(self.right, self.left)
@@ -606,7 +614,6 @@ class Swap(Permutation, balanced.Braid, Box):
         return self.name
 
 
-Diagram.swap_factory = Swap
 Trace, Sum, Bubble = (
     Diagram.trace_factory, Diagram.sum_factory, Diagram.bubble_factory)
 

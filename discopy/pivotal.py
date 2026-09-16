@@ -58,7 +58,7 @@ from __future__ import annotations
 
 from discopy import cat, cmap, rigid, traced
 from discopy.abc import PivotalCategory
-from discopy.cat import factory
+from discopy.cat import factory, Generator
 from discopy.utils import deprecated_alias
 
 
@@ -180,6 +180,18 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
             >> diagram @ traced_wire.r\
             >> cod @ cls.cup_factory(traced_wire, traced_wire.r)
 
+    @Generator()
+    def generator_factory(cls):
+        return Box
+
+    @Generator()
+    def cup_factory(cls):
+        return Cup
+
+    @Generator()
+    def cap_factory(cls):
+        return Cap
+
 
 class Box(rigid.Box, traced.Box, Diagram):
     """
@@ -213,9 +225,6 @@ class Box(rigid.Box, traced.Box, Diagram):
         return result
 
 
-Diagram.generator_factory = Box
-
-
 class Cup(rigid.Cup, Box):
     """
     A pivotal cup is a rigid cup of pivotal types.
@@ -228,9 +237,6 @@ class Cup(rigid.Cup, Box):
     def dagger(self) -> Cap:
         """ The dagger of a pivotal cup. """
         return self.cap_factory(self.left, self.right)
-
-
-Diagram.cup_factory = Cup
 
 
 class Cap(rigid.Cap, Box):
@@ -247,7 +253,6 @@ class Cap(rigid.Cap, Box):
         return self.cup_factory(self.left, self.right)
 
 
-Diagram.cap_factory = Cap
 Sum, Bubble = Diagram.sum_factory, Diagram.bubble_factory
 
 

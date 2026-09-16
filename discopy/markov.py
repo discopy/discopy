@@ -80,7 +80,7 @@ from __future__ import annotations
 
 from discopy import symmetric, monoidal, cmap, hypergraph
 from discopy.abc import MarkovCategory
-from discopy.cat import factory
+from discopy.cat import factory, Generator
 from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import assert_isatomic, factory_name
 
@@ -159,6 +159,18 @@ class Diagram(symmetric.Diagram, MarkovCategory):
         """
         return cls.copy(x, 0)
 
+    @Generator()
+    def copy_factory(cls):
+        return Copy
+
+    @Generator()
+    def merge_factory(cls):
+        return Merge
+
+    @Generator('copy_factory')
+    def discard_factory(cls):
+        return Discard
+
 
 Box, Permutation, Swap, Trace = (
     Diagram.generator_factory, Diagram.permutation_factory,
@@ -176,8 +188,9 @@ class Copy(Box):
     def __init__(self, x: monoidal.Ty, n: int = 2):
         assert_isatomic(x, monoidal.Ty)
         name = f"Copy({x}" + ("" if n == 2 else f", {n}") + ")"
-        Box.__init__(self, name, dom=x, cod=x ** n,
-                     draw_as_spider=True, color="black", drawing_name="")
+        self.generator_factory.__init__(
+            self, name, dom=x, cod=x ** n,
+            draw_as_spider=True, color="black", drawing_name="")
 
     def __new__(cls, x: monoidal.Ty, n: int = 2):
         return super().__new__(cls) if n else\
@@ -191,9 +204,6 @@ class Copy(Box):
             factory_name(type(self)) + f"({repr(self.dom)}, {len(self.cod)})")
 
 
-Diagram.copy_factory = Copy
-
-
 class Merge(Box):
     """
     The merge of an atomic type :code:`x` some :code:`n` number of times.
@@ -205,8 +215,9 @@ class Merge(Box):
     def __init__(self, x: monoidal.Ty, n: int = 2):
         assert_isatomic(x, monoidal.Ty)
         name = f"Merge({x}" + ("" if n == 2 else f", {n}") + ")"
-        Box.__init__(self, name, dom=x ** n, cod=x,
-                     draw_as_spider=True, color="black", drawing_name="")
+        self.generator_factory.__init__(
+            self, name, dom=x ** n, cod=x,
+            draw_as_spider=True, color="black", drawing_name="")
 
     def dagger(self) -> Copy:
         return self.copy_factory(self.cod, len(self.dom))
@@ -214,9 +225,6 @@ class Merge(Box):
     def __repr__(self):
         return (
             factory_name(type(self)) + f"({repr(self.cod)}, {len(self.dom)})")
-
-
-Diagram.merge_factory = Merge
 
 
 class Discard(Copy):
@@ -230,7 +238,6 @@ class Discard(Copy):
         super().__init__(x, 0)
 
 
-Diagram.discard_factory = Discard
 Sum, Bubble = Diagram.sum_factory, Diagram.bubble_factory
 
 

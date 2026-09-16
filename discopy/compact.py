@@ -56,9 +56,9 @@ Coherence
 ...     Cap(x, x.r) @ Cap(y, y.r) >> x @ Diagram.swap(x.r, y @ y.r))
 """
 
-from discopy import symmetric, ribbon, rigid, pivotal, cmap, hypergraph
+from discopy import symmetric, ribbon, rigid, cmap, hypergraph
 from discopy.abc import CompactCategory
-from discopy.cat import factory
+from discopy.cat import factory, Generator
 from discopy.utils import deprecated_alias
 from discopy.pivotal import Wire, Ty  # noqa: F401
 
@@ -79,7 +79,10 @@ class Diagram(symmetric.Diagram, ribbon.Diagram, CompactCategory):
     """
     ob = Ty
     layer_factory = Layer
-    trace_factory = classmethod(pivotal.Diagram.trace_factory.__func__)
+
+    @Generator()
+    def permutation_factory(cls):
+        return Permutation
 
 
 Box, Cup, Cap = (
@@ -102,7 +105,6 @@ class Permutation(symmetric.Permutation, Box):
     r = property(lambda self: self.rotate(left=False))
 
 
-Diagram.permutation_factory = Permutation
 Swap, Sum, Bubble = (
     Diagram.swap_factory, Diagram.sum_factory, Diagram.bubble_factory)
 

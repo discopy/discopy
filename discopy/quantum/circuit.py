@@ -72,7 +72,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from discopy import messages, tensor, frobenius
-from discopy.cat import factory
+from discopy.cat import factory, Generator
 from discopy.matrix import backend
 from discopy.tensor import Dim, Tensor
 from discopy.utils import assert_isinstance, deprecated_alias, factory_name
@@ -838,6 +838,22 @@ class Circuit(tensor.Diagram[complex]):
         return self\
             >> self.cod[:offset] @ gate @ self.cod[offset + len(gate.dom):]
 
+    @Generator()
+    def generator_factory(cls):
+        return Box
+
+    @Generator()
+    def sum_factory(cls):
+        return Sum
+
+    @Generator()
+    def permutation_factory(cls):
+        return Permutation
+
+    @Generator('permutation_factory')
+    def swap_factory(cls):
+        return Swap
+
 
 class Box(tensor.Box[complex], Circuit):
     """
@@ -893,9 +909,6 @@ class Box(tensor.Box[complex], Circuit):
         return self if self.z is None else super().rotate(left)
 
 
-Circuit.generator_factory = Box
-
-
 class Sum(tensor.Sum[complex], Box):
     """ Sums of circuits. """
     @property
@@ -930,9 +943,6 @@ class Sum(tensor.Sum[complex], Box):
         return [circuit.to_tk() for circuit in self.terms]
 
 
-Circuit.sum_factory = Sum
-
-
 class Permutation(tensor.Permutation[complex], Box):
     "A permutation in a quantum circuit."
 
@@ -945,9 +955,6 @@ class Permutation(tensor.Permutation[complex], Box):
     def is_classical(self):
         return not self.is_mixed\
             and all(isinstance(x.inside[0], Digit) for x in self.dom)
-
-
-Circuit.permutation_factory = Permutation
 
 
 class Swap(Permutation, tensor.Swap, Box):
@@ -964,9 +971,6 @@ class Swap(Permutation, tensor.Swap, Box):
         left, = self.left.inside
         right, = self.right.inside
         return Tensor[complex].swap(Dim(left.dim), Dim(right.dim)).array
-
-
-Circuit.swap_factory = Swap
 
 
 class Functor(frobenius.Functor):

@@ -81,7 +81,7 @@ cap becomes a ribbon folding back.
 
 from discopy import pivotal, balanced
 from discopy.abc import RibbonCategory
-from discopy.cat import factory
+from discopy.cat import factory, Generator
 from discopy.pivotal import Ty, Nat  # noqa: F401
 
 
@@ -154,6 +154,14 @@ class Diagram(pivotal.Diagram, balanced.Diagram, RibbonCategory):
         """
         return self.to_braided(width, colour)
 
+    @Generator()
+    def braid_factory(cls):
+        return Braid
+
+    @Generator()
+    def twist_factory(cls):
+        return Twist
+
 
 Box, Cup, Cap = (
     Diagram.generator_factory, Diagram.cup_factory, Diagram.cap_factory)
@@ -169,15 +177,10 @@ class Braid(balanced.Braid, Box):
         is_dagger (bool) : Braiding over or under.
     """
 
-    z = 0
-
     def rotate(self, left=False):
         del left
         braid = type(self)(*self.cod.r)
         return braid.dagger() if self.is_dagger else braid
-
-
-Diagram.braid_factory = Braid
 
 
 class DualRailBraid(balanced.DualRailBraid, Box):
@@ -188,8 +191,6 @@ class DualRailBraid(balanced.DualRailBraid, Box):
     --------
     :class:`discopy.balanced.DualRailBraid`
     """
-
-    z = 0
 
     def rotate(self, left=False):
         del left
@@ -205,8 +206,6 @@ class DualRailTwist(balanced.DualRailTwist, Box):
     :class:`discopy.balanced.DualRailTwist`
     """
 
-    z = 0
-
     def rotate(self, left=False):
         del left
         return self
@@ -221,12 +220,10 @@ class DualRailCup(Box):
         left : The ribbon (doubled type) on the outside left.
         right : The ribbon on the outside right.
     """
-    z = 0
-
     def __init__(self, left, right, is_dagger=False):
         self.left, self.right = left, right
         name = type(self).__name__ + f"({left}, {right})"
-        Box.__init__(
+        self.generator_factory.__init__(
             self, name, left @ right, type(left)(),
             is_dagger=is_dagger, draw_as_dual_rail_cup=True)
 
@@ -243,12 +240,10 @@ class DualRailCap(Box):
     A cap joining two ribbons in the dual rail encoding, see
     :class:`DualRailCup`.
     """
-    z = 0
-
     def __init__(self, left, right, is_dagger=False):
         self.left, self.right = left, right
         name = type(self).__name__ + f"({left}, {right})"
-        Box.__init__(
+        self.generator_factory.__init__(
             self, name, type(left)(), left @ right,
             is_dagger=is_dagger, draw_as_dual_rail_cap=True)
 
@@ -270,14 +265,11 @@ class Twist(balanced.Twist, Box):
         is_dagger (bool) : Braiding over or under.
     """
 
-    z = 0
-
     def rotate(self, left=False):
         del left
         return self
 
 
-Diagram.twist_factory = Twist
 Sum, Bubble = Diagram.sum_factory, Diagram.bubble_factory
 
 
@@ -294,7 +286,7 @@ class Functor(pivotal.Functor, balanced.Functor):
     dom = cod = Diagram
 
     def __call__(self, other):
-        if isinstance(other, Braid):
+        if isinstance(other, balanced.Braid):
             return balanced.Functor.__call__(self, other)
         return pivotal.Functor.__call__(self, other)
 
@@ -319,7 +311,7 @@ class DualRail(balanced.DualRail, Functor):
             return DualRailCup(self(other.dom[:1]), self(other.dom[1:]))
         if isinstance(other, Cap):
             return DualRailCap(self(other.cod[:1]), self(other.cod[1:]))
-        if isinstance(other, (Braid, Twist)):
+        if isinstance(other, (balanced.Braid, Twist)):
             return super().__call__(other)  # A single dual rail box crossing.
         if isinstance(other, Box) and not isinstance(other, Sum):
             # A generator is doubled into a box on the rails of its ribbons;

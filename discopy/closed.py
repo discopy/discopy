@@ -60,7 +60,7 @@ from typing import Dict, ClassVar
 
 from discopy import cat, monoidal, biclosed, markov, cmap, hypergraph
 from discopy.abc import ClosedCategory
-from discopy.cat import factory
+from discopy.cat import factory, Generator
 
 
 @factory
@@ -142,6 +142,10 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
     def to_drawing(self):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
 
+    @Generator()
+    def eval_factory(cls):
+        return Eval
+
 
 Box = Diagram.generator_factory
 
@@ -151,7 +155,6 @@ class Eval(biclosed.Eval, Box):
     drawing_name = "__call__"
 
 
-Diagram.eval_factory = Eval
 Coeval, Curry, Permutation, Swap, Trace, Copy, Merge, Discard, Sum, Bubble = (
     Diagram.coeval_factory, Diagram.curry_factory,
     Diagram.permutation_factory, Diagram.swap_factory, Diagram.trace_factory,

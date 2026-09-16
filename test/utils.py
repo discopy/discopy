@@ -105,23 +105,16 @@ def test_wire_tree_roundtrip():
             == frobenius.Wire('x')
 
 
-def test_generators():
-    from discopy import cat, closed
-    assert attributes(cat.Box)['generator_factory'] == (cat.Arrow, cat.Box)
-    assert generators(cat.Arrow) == {
-        'generator_factory': cat.Box,
-        'sum_factory': cat.Sum,
-        'bubble_factory': cat.Bubble}
-    assert set(generators(closed.Diagram)) == {
-        'generator_factory', 'sum_factory', 'bubble_factory',
-        'swap_factory', 'permutation_factory', 'trace_factory',
-        'copy_factory', 'merge_factory', 'discard_factory',
-        'curry_factory', 'eval_factory', 'coeval_factory'}
-    assert 'braid_factory' not in generators(closed.Diagram)
+def test_Generator_roots():
+    from discopy import cat, symmetric, closed
+    assert cat.Arrow.generator_factory is cat.Box
+    assert symmetric.Diagram.swap_factory is symmetric.Swap
+    assert symmetric.Diagram.braid_factory is symmetric.Swap
     assert closed.Diagram.braid_factory is closed.Swap
+    assert closed.Swap.swap_factory is closed.Swap
 
 
-def test_Factory_bases():
+def test_Generator_bases():
     from discopy import markov, closed, symmetric, ribbon, compact, frobenius
     from discopy import tensor
     assert closed.Swap.__bases__ == (
@@ -129,16 +122,17 @@ def test_Factory_bases():
     assert closed.Discard.__bases__ == (
         markov.Discard, closed.Copy, closed.Box, closed.Diagram)
     assert compact.Swap.__bases__ == (
-        symmetric.Swap, ribbon.Braid, compact.Permutation, compact.Box,
-        compact.Diagram)
-    assert frobenius.Swap.__bases__[:2] == (compact.Swap, markov.Swap)
+        symmetric.Swap, compact.Permutation, compact.Box, compact.Diagram)
+    assert not issubclass(compact.Swap, ribbon.Braid)
+    assert frobenius.Permutation.__bases__[:2] == (
+        compact.Permutation, markov.Permutation)
     assert issubclass(tensor.Swap, tensor.Permutation)
     assert closed.Swap.__module__ == "discopy.closed"
     assert closed.Swap.__name__ == closed.Swap.__qualname__ == "Swap"
     assert factory_name(closed.Swap) == "closed.Swap"
 
 
-def test_Factory_override():
+def test_Generator_override():
     from discopy import symmetric, tensor
 
     @factory
@@ -159,6 +153,17 @@ def test_Factory_override():
 
     assert Undecorated.swap_factory is Recipe.swap_factory
     assert tensor.Diagram[complex].swap_factory is tensor.Swap
+
+
+def test_Generator_level_box():
+    """ A root initialises as a box of the level it is built in. """
+    from discopy import compact, feedback
+    x = compact.Ty('x')
+    assert compact.Swap(x, x).z == 0
+    assert compact.Swap(x, x).r == compact.Swap(x.r, x.r)
+    y = feedback.Ty('y')
+    assert feedback.Copy(y).delay().dom == y.delay()
+    assert feedback.Swap(y, y).delay().dom == y.delay() @ y.delay()
 
 
 MODULES = [
@@ -197,7 +202,7 @@ def structure(module):
 
 
 @pytest.mark.parametrize("module", MODULES)
-def test_Factory_exports(module):
+def test_Generator_exports(module):
     """
     Every generator a level builds is a diagram of that level, defined in
     its module under its own name, so that its representation and its
@@ -213,10 +218,13 @@ def test_Factory_exports(module):
 
 
 @pytest.mark.parametrize("module", MODULES)
-def test_Factory_roots(module):
-    """ Every generator, built or written by hand, extends all its roots. """
-    D, _ = structure(module)
-    for name in generators(D):
+def test_Generator_extends_bases(module):
+    """ Every generator of a level extends the generators of its bases. """
+    D, terms = structure(module)
+    names = {name for term in terms for name in vars(type(D))
+             if name.endswith("_factory")}
+    for name in names:
         generator = getattr(D, name)
-        assert all(issubclass(generator, root)
-                   for root in Factory(D, name).roots())
+        assert all(
+            issubclass(generator, root) for base in D.__bases__
+            if isinstance(root := getattr(base, name, None), type))

@@ -67,7 +67,7 @@ from collections.abc import Callable
 from discopy import (
     monoidal, rigid, markov, compact, pivotal, cmap, hypergraph)
 from discopy.abc import HypergraphCategory
-from discopy.cat import factory
+from discopy.cat import factory, Generator
 from discopy.utils import assert_isatomic, deprecated_alias, factory_name
 
 
@@ -170,6 +170,10 @@ class Diagram(compact.Diagram, markov.Diagram, HypergraphCategory):
             dom=Diagram, cod=Diagram)
         return F(self)
 
+    @Generator()
+    def spider_factory(cls):
+        return Spider
+
 
 Box, Cup, Cap, Permutation, Swap = (
     Diagram.generator_factory, Diagram.cup_factory, Diagram.cap_factory,
@@ -204,7 +208,8 @@ class Spider(Box):
         name = type(self).__name__\
             + f"({n_legs_in}, {n_legs_out}, {typ}{str_data})"
         dom, cod = typ ** n_legs_in, typ ** n_legs_out
-        Box.__init__(self, name, dom, cod, data=data, **params)
+        self.generator_factory.__init__(
+            self, name, dom, cod, data=data, **params)
         self.drawing_name = "" if not data else str(data)
 
     def __setstate__(self, state):
@@ -240,7 +245,6 @@ class Spider(Box):
             len(self.dom), len(self.cod), self.typ, self.phase)
 
 
-Diagram.spider_factory = Spider
 Sum, Bubble = Diagram.sum_factory, Diagram.bubble_factory
 
 

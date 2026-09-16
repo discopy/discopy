@@ -26,7 +26,7 @@ Summary
 from math import pi
 
 from discopy import cat, rigid, tensor, quantum
-from discopy.cat import factory
+from discopy.cat import factory, Generator
 from discopy.quantum.circuit import qubit, Circuit
 from discopy.quantum.gates import (
     Bra, Ket, Rz, Rx, CX, CZ, Controlled, format_number)
@@ -221,6 +221,10 @@ class Diagram(tensor.Diagram[complex]):
                 >> Id(target) @ hadamard @ Id(len(scan) - target - 1)
         return diagram
 
+    @Generator('permutation_factory')
+    def swap_factory(cls):
+        return Swap
+
 
 Box, Sum, Permutation = (
     Diagram.generator_factory, Diagram.sum_factory,
@@ -233,9 +237,6 @@ class Swap(Permutation, tensor.Swap[complex], Box):
         return "SWAP"
 
     __str__ = __repr__
-
-
-Diagram.swap_factory = Swap
 
 
 class Spider(tensor.Spider[complex], Box):
