@@ -17,6 +17,7 @@ DisCoPy's mathematical core: a zoo of diagrams, categories and functors.
     discopy.cartesian
     discopy.closed
     discopy.feedback
+    discopy.cartesian_feedback
     discopy.traced
     discopy.biclosed
     discopy.rigid

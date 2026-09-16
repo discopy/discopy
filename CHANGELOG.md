@@ -31,14 +31,18 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   ([#543](https://github.com/discopy/discopy/issues/543)) and `Context`
   keeps working on the empty context
   ([#549](https://github.com/discopy/discopy/issues/549)).
-- `abc.DelayedMonoid`, a coloured monoid with a `delay` endomorphism
-  shortened to `.d`, the objects of a `FeedbackCategory`: its `C0` is now
-  bounded by it the way `BiclosedCategory` reads `C0: ResiduatedMonoid` and
-  `RigidCategory` reads `C0: Pregroup`. `feedback.Ty` declares it, getting
-  its `d` from the abc, and `monoidal.Ty.delay` implements it with the
-  trivial delay, so the types of a traced category form a delayed monoid
-  where the delay is the identity. Taken from the diagram-search branch,
-  where every monoidal level of `discopy.abc` bounds its objects
+- `abc.DelayedMonoid`, a coloured monoid with a delay endomorphism, the
+  abstract property `d`, the objects of a `FeedbackCategory`: its `C0` is
+  now bounded by it the way `BiclosedCategory` reads `C0: ResiduatedMonoid`
+  and `RigidCategory` reads `C0: Pregroup`. `feedback.Ty` declares it and
+  `monoidal.Ty.d` implements it with the trivial delay, so the types of a
+  traced category form a delayed monoid where the delay is the identity.
+  There is no `delay(n_steps)` method anywhere: a delay is one time step
+  and the `time_step` arithmetic of `feedback` goes through the
+  constructors — which fixes the old `FollowedBy.delay` re-delaying its
+  own already delayed boundary on a second application. Taken from the
+  diagram-search branch, where every monoidal level of `discopy.abc`
+  bounds its objects
   ([#710](https://github.com/discopy/discopy/issues/710)).
 - `monoidal.List`, the free monoid on a generator type: `List[X]` is a
   tuple of instances of `X` with concatenation as `tensor` and the empty
@@ -252,10 +256,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   traces and feedback. `abc.TracedCategory` inherits from
   `abc.FeedbackCategory`, which moves down the hierarchy from
   `MarkovCategory` to `MonoidalCategory`: a traced category is a feedback
-  category whose delay is trivial, so `TracedCategory` implements `delay`
-  as the identity, `feedback` as the trace over `mem` and the trace itself
-  as the recursion over `trace_factory`, each stated once;
-  `monoidal.Ty.delay` is the identity, the same way `unwind` is trivial
+  category whose delay is trivial, so `TracedCategory` implements the
+  delay `d` as the identity, `feedback` as the trace over `mem` and the
+  trace itself as the recursion over `trace_factory`, each stated once;
+  `monoidal.Ty.d` is the identity, the same way `unwind` is trivial
   until `rigid.Ty` overrides it, and `stream.Stream` declares the
   `FeedbackCategory` it always implemented. `symmetric.Diagram` inherits
   from `braided.Diagram` rather than `balanced.Diagram`, so the free
@@ -276,10 +280,17 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   and `SymmetricCategory` accordingly; `closed` is not traced either:
   currying stays a bubble and `closed.Diagram.to_compact` collapses it
   down to wiring structure on the combinatorial map, through `to_map`.
-  `feedback` keeps a
-  supply of `Copy` and `Merge` borrowed from `markov` — declared as the
-  `abc.MarkovCategory` interface without the class edge — which
-  `from_callable` and the stream examples use. There is no planar traced module: the `Trace` bubble lives in
+  `feedback` and `traced` are
+  purely symmetric — no supply of `Copy` — and the new
+  `discopy.cartesian_feedback` is the meet of `feedback` and `cartesian`,
+  hosting the stream examples that copy, e.g. to output a stream and feed
+  it back at once; `para.Feedback` wraps a symmetric base accordingly. A
+  meet module is one-line subclasses and factory assignments, nothing
+  else, because every cross-generator reference resolves through a
+  factory on the instance — `markov.Copy.dagger` builds
+  `self.merge_factory` and `feedback.Diagram.head` builds
+  `self.head_factory` — so combining two levels of structure repeats no
+  code. There is no planar traced module: the `Trace` bubble lives in
   `monoidal` as pure syntax next to `Bubble` — monoidal diagrams
   themselves have no trace — `monoidal.Functor` maps it whenever its
   codomain has a `trace`, which also lets every traced diagram draw

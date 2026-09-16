@@ -82,15 +82,9 @@ class Swap(Permutation, markov.Swap, Box):
 class Copy(markov.Copy, Box):
     "A copy in a cartesian diagram."
 
-    def dagger(self) -> Merge:
-        return Merge(self.dom, len(self.cod))
-
 
 class Merge(markov.Merge, Box):
     "A merge in a cartesian diagram."
-
-    def dagger(self) -> Copy:
-        return Copy(self.cod, len(self.dom))
 
 
 class Discard(markov.Discard, Copy):

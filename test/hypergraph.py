@@ -228,7 +228,8 @@ def test_Hypergraph_eq_fallback_scalars_and_empty_boundary():
 
 
 def test_simplify():
-    from discopy.traced import Box, Ty, Copy, Swap, Trace, Equation
+    from discopy.frobenius import Box, Ty, Diagram, Swap, Equation
+    Copy, Trace = Diagram.copy, Diagram.trace
     C, T, P = map(Ty, "CTP")
     linear, param_linear, add, placeholder = (
         Box('linear', T @ P, T),

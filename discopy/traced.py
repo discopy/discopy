@@ -224,18 +224,6 @@ class Swap(feedback.Swap, Permutation):
     "A swap in a traced diagram."
 
 
-class Copy(feedback.Copy, Box):
-    "A copy in a traced diagram."
-
-
-class Merge(feedback.Merge, Box):
-    "A merge in a traced diagram."
-
-
-class Discard(feedback.Discard, Copy):
-    "A discard in a traced diagram."
-
-
 class Functor(feedback.Functor):
     """
     A traced functor is a feedback functor that also preserves traces.
@@ -273,8 +261,6 @@ Diagram.functor_factory = Functor
 Diagram.trace_factory = Trace
 Diagram.swap_factory = Swap
 Diagram.permutation_factory = Permutation
-Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
-Diagram.discard_factory = Discard
 Id = Diagram.id
 
 

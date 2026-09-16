@@ -43,7 +43,7 @@ We can define the Fibonacci sequence as a feedback diagram interpreted in the
 category of streams of python types and functions.
 
 >>> from discopy import *
->>> from discopy.feedback import *
+>>> from discopy.cartesian_feedback import *
 
 >>> X = Ty('X')
 >>> fby, wait = FollowedBy(X), Swap(X, X.d).feedback()
@@ -69,7 +69,7 @@ category of streams of python types and functions.
     :align: center
 
 >>> cod = stream.Stream[python.Function]
->>> F = feedback.Functor(
+>>> F = cartesian_feedback.Functor(
 ...     ob_map={X: int},
 ...     ar_map={zero: cod.singleton(python.Function(lambda: 0, (), int)),
 ...         one: cod.singleton(python.Function(lambda: 1, (), int)),

@@ -406,7 +406,7 @@ class Closed(Symmetric, ClosedCategory):
         return type(self)(self.dom[:-n], inside.cod, inside, self.param)
 
 
-class Feedback(Markov, FeedbackCategory):
+class Feedback(Symmetric, FeedbackCategory):
     """
     Parametric maps over a feedback underlying `category` form a feedback
     category, with the delay :attr:`d` applied to all five components.

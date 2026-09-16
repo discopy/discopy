@@ -25,6 +25,7 @@ from discopy import (
     cmap,
     interaction,
     feedback,
+    cartesian_feedback,
     stream,
     para,
     python,

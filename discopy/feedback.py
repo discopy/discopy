@@ -143,8 +143,8 @@ In the category of streams, this is just the identity.
 
 from __future__ import annotations
 
-from discopy import monoidal, braided, symmetric, markov, hypergraph
-from discopy.abc import DelayedMonoid, FeedbackCategory, MarkovCategory
+from discopy import monoidal, braided, symmetric, hypergraph
+from discopy.abc import DelayedMonoid, FeedbackCategory
 from discopy.utils import (
     deprecated_alias,
     factory, factory_name, assert_isinstance, AxiomError,
@@ -308,11 +308,10 @@ class Layer(symmetric.Layer):
 
 
 @factory
-class Diagram(symmetric.Diagram, MarkovCategory, FeedbackCategory):
+class Diagram(symmetric.Diagram, FeedbackCategory):
     """
     A feedback diagram is a symmetric diagram with a delay endofunctor
-    :attr:`d` and a :meth:`feedback` operator, together with a supply of
-    :class:`Copy` and :class:`Merge` borrowed from :mod:`discopy.markov`.
+    :attr:`d` and a :meth:`feedback` operator.
 
     Parameters:
         inside(monoidal.Layer) : The layers inside the diagram.
@@ -321,24 +320,15 @@ class Diagram(symmetric.Diagram, MarkovCategory, FeedbackCategory):
 
     Example
     -------
-    >>> x = Ty('x')
-    >>> zero = Box('0', Ty(), x.head)
-    >>> rand = Box('rand', Ty(), x)
-    >>> plus = Box('+', x @ x, x)
-    >>> walk = (rand.d @ x.d >> zero @ plus.d
-    ...         >> FollowedBy(x) >> Copy(x)).feedback()
-    >>> walk.draw(doctest="docs/_static/feedback/feedback-random-walk.svg")
+    >>> x, y, m = map(Ty, "xym")
+    >>> f = Box('f', x @ m.d, y @ m)
+    >>> assert f.feedback().dom == x and f.feedback().cod == y
 
-    .. image:: /_static/feedback/feedback-random-walk.svg
-        :align: center
+    See :mod:`discopy.cartesian_feedback` for feedback diagrams with a
+    supply of copy, e.g. to output a stream and feed it back at once.
     """
     ob = Ty
     layer_factory = Layer
-
-    spider_factory = classmethod(markov.Diagram.spider_factory.__func__)
-    copy = classmethod(markov.Diagram.copy.__func__)
-    merge = classmethod(markov.Diagram.merge.__func__)
-    discard = classmethod(markov.Diagram.discard.__func__)
 
     @property
     def d(self) -> Diagram:
@@ -387,12 +377,12 @@ class Diagram(symmetric.Diagram, MarkovCategory, FeedbackCategory):
     @property
     def head(self):
         """ Syntactic sugar for :class:`Head`. """
-        return Head(self)
+        return self.head_factory(self)
 
     @property
     def tail(self):
         """ Syntactic sugar for :class:`Tail`. """
-        return Tail(self)
+        return self.tail_factory(self)
 
 
 class Box(symmetric.Box, Diagram):
@@ -466,64 +456,6 @@ class Swap(Permutation, symmetric.Swap, Box):
     @property
     def d(self) -> Swap:
         return type(self)(self.left.d, self.right.d)
-
-
-class Copy(Box, markov.Copy):
-    """
-    The copy of an atomic type :code:`x` some :code:`n` number of times.
-
-    The :class:`Box` comes first so that ``factory`` resolves to
-    :class:`Diagram` rather than :class:`markov.Diagram`.
-
-    Parameters:
-        x : The type to copy.
-        n : The number of copies.
-    """
-    def __init__(self, x: Ty, n: int = 2):
-        markov.Copy.__init__(self, x, n)
-        Box.__init__(self, self.name, self.dom, self.cod)
-
-    def dagger(self) -> Merge:
-        return Merge(self.dom, len(self.cod))
-
-    __repr__ = markov.Copy.__repr__
-
-    @property
-    def d(self) -> Copy:
-        return type(self)(self.dom.d, len(self.cod))
-
-
-class Merge(Box, markov.Merge):
-    """
-    The merge of an atomic type :code:`x` some :code:`n` number of times.
-
-    Parameters:
-        x : The type of wires to merge.
-        n : The number of wires to merge.
-    """
-    def __init__(self, x: Ty, n: int = 2):
-        markov.Merge.__init__(self, x, n)
-        Box.__init__(self, self.name, self.dom, self.cod)
-
-    def dagger(self) -> Copy:
-        return Copy(self.cod, len(self.dom))
-
-    __repr__ = markov.Merge.__repr__
-
-    @property
-    def d(self) -> Merge:
-        return type(self)(self.cod.d, len(self.dom))
-
-
-class Discard(Copy):
-    """
-    The discard of an atomic type :code:`x`.
-
-    Parameters:
-        x : The type to discard.
-    """
-    def __init__(self, x: Ty, *args, **kwargs):
-        super().__init__(x, 0)
 
 
 class Head(monoidal.Bubble, Box):
@@ -650,9 +582,9 @@ class FollowedBy(Box):
         return type(self)(self.arg, self.is_dagger)
 
 
-class Functor(markov.Functor):
+class Functor(symmetric.Functor):
     """
-    A feedback functor is a markov one that preserves delay and feedback.
+    A feedback functor is a symmetric one that preserves delay and feedback.
 
     Parameters:
         ob_map (Mapping[monoidal.Ty, monoidal.Ty]) :
@@ -703,15 +635,14 @@ class Functor(markov.Functor):
 Diagram.functor_factory = Functor
 Diagram.swap_factory = Swap
 Diagram.permutation_factory = Permutation
-Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
-Diagram.discard_factory = Discard
+Diagram.head_factory, Diagram.tail_factory = Head, Tail
 Diagram.feedback_factory, Diagram.followed_by = Feedback, FollowedBy
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Id = Diagram.id
 
 
-class Equation(markov.Equation):
-    """ The :class:`markov.Equation` of feedback diagrams. """
+class Equation(symmetric.Equation):
+    """ The :class:`symmetric.Equation` of feedback diagrams. """
     up_to = staticmethod(Diagram.to_hypergraph)
 
 
