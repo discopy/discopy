@@ -351,17 +351,16 @@ def test_Application_context_order_is_stable():
     assert (term.eval().dom, term.eval().cod) == (term.dom, term.cod)
 
 
-def test_then():
+def test_compose():
     """ Terms of function types compose, the first one applied first. """
     X, Y, Z = map(Ty, "XYZ")
     t, u, v = (X >> Y)("t"), (Y >> Z)("u"), (Z >> X)("v")
-    assert t.then() == t and t >> u == X(lambda x: u(t(x)))
-    assert (t >> u >> v).normal_form() == X(lambda x: v(u(t(x))))\
-        == (t >> (u >> v)).normal_form()
-    with raises(AxiomError):
-        u >> t
-    with raises(AxiomError):
-        X("a") >> t
+    assert t.compose() == t and t.compose(u) == X(lambda x: u(t(x)))
+    assert t.compose(u, v).normal_form() == X(lambda x: v(u(t(x))))\
+        == t.compose(u.compose(v)).normal_form()
+    for left, right in [(u, t), (X("a"), t), (t, u)]:
+        with raises(AxiomError):
+            left.compose(right) if right is not u else left >> right
 
 
 def test_normal_order_discards_unreduced_arguments():
@@ -410,18 +409,19 @@ def test_alpha_equivalent():
     assert X(lambda x: x)(a).normal_form().alpha_equivalent(a)
 
 
-def test_then_modulo_alpha_beta():
+def test_compose_modulo_alpha_beta():
     X, Y, Z = map(Ty, "XYZ")
     t, u, v = (X >> Y)("t"), (Y >> Z)("u"), (Z >> X)("v")
     expected = X(lambda a: v(u(t(a))))
-    for composed in [t.then(u, v), (t >> u) >> v, t >> (u >> v)]:
+    for composed in [
+            t.compose(u, v), t.compose(u).compose(v), t.compose(u.compose(v))]:
         assert composed.normal_form().alpha_equivalent(expected)
     identity = X(lambda x: x)
-    assert (identity >> t).normal_form().alpha_equivalent(
+    assert identity.compose(t).normal_form().alpha_equivalent(
         X(lambda a: t(a)))
-    assert (t >> Y(lambda y: y)).normal_form().alpha_equivalent(
+    assert t.compose(Y(lambda y: y)).normal_form().alpha_equivalent(
         X(lambda a: t(a)))
     free = Variable("x", X >> Y)
-    assert free.then(u, v).freevars == [free]
+    assert free.compose(u, v).freevars == [free]
     with raises(AxiomError):
-        t.then(u, t)
+        t.compose(u, t)

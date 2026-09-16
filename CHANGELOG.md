@@ -9,73 +9,21 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
-- Abstract categorial grammars, `discopy.grammar.abstract`, after de Groote's
-  *Towards abstract categorial grammars* (2001): a vocabulary is the free
-  closed category on atomic types and constants, its terms the lambda terms
-  of `closed`, which nothing forces to be linear since the category is
-  markov, and `abstract.Lexicon` is a functor from one vocabulary to
-  another, sending atomic types to types and constants to terms of the image
-  of their type, which it checks, and composing with `>>`. `abstract.Grammar`
-  is the paper's: an abstract vocabulary, its atoms and constants, a lexicon
-  from it and a distinguished type, `term in grammar` deciding the abstract
-  language, the closed terms of that type over the vocabulary, through the
-  inclusion functor of the vocabulary, and `grammar(term)` computing the
-  object language. Strings are the paper's: `String` is
-  `Position >> Position` on one atomic type, a word is a constant of type
-  `String`, concatenation is the composition `>>` of terms and
-  `Position(lambda x: x)` is the empty string. A categorial grammar is a
-  vocabulary of its own, a planar one, and a lexicon out of it is a
-  `categorial.Functor` into abstract terms, sending each atom to a type and
-  each word to a term of the image of its type, its strings written per
-  word like every lexicon of the paper; `abstract.Diagram.from_categorial`,
-  which `categorial.TermBase.to_abstract` calls, forgets planarity instead,
-  collapsing left and right exponentials into the one exponential of a
-  closed category, so that a derivation becomes a closed term, application
-  evaluating, composition and type raising currying and crossed composition
-  composing. `closed.Ty.from_biclosed` and `closed.TermBase.from_biclosed`
-  are the same reading one level down. `abstract.Diagram` carries the rules
-  `fa`, `ba`, `fc`, `bc`, `fx` and `bx` of a categorial grammar as its closed
-  structure. The tests
-  compile the paper's context-free and tree-adjoining examples to strings
-  and the two quantifier scopes of *Every woman married a man* and *Every
-  child learnt a song* to Python over a random finite universe
+- `grammar.abstract`, abstract categorial grammars after de Groote's
+  *Towards abstract categorial grammars* (2001)
   ([#398](https://github.com/discopy/discopy/issues/398)).
-- Closed terms take a context: `closed.TermBase.eval` reads a list of
-  distinct variables containing the free ones, discards the others and
-  permutes the rest into the order of `freevars` with `TermBase.weaken`,
-  the structural morphism it factors through, so `closed.Context` and the
-  wire-permuting branches of `Abstraction.eval` are gone; an `Application`
-  copies exactly the variables free on both sides, its `overlap`. Closed
-  terms accept and ignore the `left` of their biclosed counterparts, since a
-  closed category has one exponential, and `is_linear` says whether a term
-  is: an application with no overlap and an abstraction whose variable
-  occurs once. `TermBase.then` composes any number of terms of function
-  types, `t >> u` for `t : x >> y` and `u : y >> z` being
-  `x(lambda v: u(t(v)))`. `TermBase.normal_form` beta-reduces a term in
-  normal order, `weak_head_normal_form` reducing its head alone: an unused
-  argument is discarded and a variable substituted however often it occurs,
-  as the elementary affine terms of the examples copy their variables of
-  ground type, but an argument that is not a variable is refused when its
-  variable occurs twice, since copying a computation is not natural in a
-  markov category, unless `copy=True` asks for the full beta-reduction of a
-  cartesian closed category. `Substitution` is simultaneous and
-  capture-avoiding through the `substitute` method of each term,
-  `occurrences` counts the free occurrences of a variable, `Variable.fresh`
-  names one not free in the given terms and `TermBase.alpha_equivalent`
-  compares two terms up to the names of their bound variables, through the
-  `alpha_key` indexing each by its binder. `closed.Ty.from_biclosed` and
-  `closed.TermBase.from_biclosed` drop planarity, both as a
-  `biclosed.Functor`; `biclosed.TermBase.map` sends a term to a term
-  whenever the codomain's objects are biclosed types (a `CMap` excepted,
-  which reuses its host category's types), which is what a
-  `biclosed.Functor` does on a term then, through `Functor.map_term`: it
-  carries a binding environment from the variables of the term to those of
-  its image, `Functor.map_variable` renaming a variable only when its image
-  collides with another's, so that two variables whose types are identified
-  stay distinct, and it checks that the image has the image of the term's
-  type and exactly the images of its free variables, in order when the
-  codomain is planar. `biclosed.Constant.eval` wraps a raw callable in the
-  codomain like every other box
+- Closed terms are evaluated in a context, a list of distinct variables
+  containing the free ones, through `closed.TermBase.weaken`, the structural
+  morphism discarding the others and permuting the rest; `is_linear` says
+  whether a term is, `compose` composes terms of function types,
+  `normal_form` beta-reduces in normal order through `weak_head_normal_form`
+  and a capture-avoiding `Substitution`, discarding an unused argument and
+  copying a variable but refusing to copy a computation unless `copy=True`,
+  and `alpha_equivalent` compares terms up to their bound variables.
+  `closed.Ty.from_biclosed` and `closed.TermBase.from_biclosed` are
+  functors dropping planarity, and `biclosed.Functor.map_term` sends a term
+  to a term under a binding environment, checking the image against the
+  image of its type and of its free variables
   ([#398](https://github.com/discopy/discopy/issues/398)).
 - `monoidal.List`, the free monoid on a generator type: `List[X]` is a
   tuple of instances of `X` with concatenation as `tensor` and the empty

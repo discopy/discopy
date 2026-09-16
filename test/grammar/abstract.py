@@ -23,7 +23,7 @@ def context_free_grammar():
     A, B = S("A"), (S >> S)("B")
     lexicon = Lexicon({S: String}, {
         A: Position(lambda x: x),
-        B: String(lambda x: String("a") >> x >> String("b"))})
+        B: String(lambda x: String("a").compose(x, String("b")))})
     return Grammar((S, ), (A, B), lexicon, S)
 
 
@@ -136,13 +136,13 @@ def test_strings():
     Alice, loves, Bob = map(String, ("Alice", "loves", "Bob"))
     empty = Position(lambda x: x)
     assert String == Position >> Position
-    assert (Alice >> loves >> Bob).is_linear
-    assert (Alice >> loves >> Bob).normal_form()\
-        == (Alice >> (loves >> Bob)).normal_form()\
+    sentence = Alice.compose(loves, Bob)
+    assert sentence.is_linear and sentence.normal_form()\
+        == Alice.compose(loves.compose(Bob)).normal_form()\
         == Position(lambda x: Bob(loves(Alice(x))))
-    assert (empty >> Alice).normal_form() == (Alice >> empty).normal_form()\
-        == Position(lambda x: Alice(x))
-    assert tokens(Alice >> loves >> Bob) == ["Alice", "loves", "Bob"]
+    assert empty.compose(Alice).normal_form()\
+        == Alice.compose(empty).normal_form() == Position(lambda x: Alice(x))
+    assert tokens(sentence) == ["Alice", "loves", "Bob"]
 
 
 def test_categorial_lexicon():
@@ -154,8 +154,8 @@ def test_categorial_lexicon():
     strings = categorial.Functor(
         ob_map={n: String, s: String},
         ar_map={Alice: String("Alice"), Bob: String("Bob"),
-                loves: String(lambda o: String(lambda x: x >> LOVES >> o)),
-                sleeps: String(lambda x: x >> SLEEPS)},
+                loves: String(lambda o: String(lambda x: x.compose(LOVES, o))),
+                sleeps: String(lambda x: x.compose(SLEEPS))},
         cod=Diagram)
     assert strings(n >> s) == strings(s << n) == String >> String
     sentences = [
@@ -171,8 +171,8 @@ def test_categorial_lexicon():
 
     w, g = (s << n)("w"), (n >> n)("g")
     crossed = categorial.Functor({n: String, s: String}, {
-        Alice: String("Alice"), w: String(lambda x: String("w") >> x),
-        g: String(lambda x: x >> String("g"))}, cod=Diagram)
+        Alice: String("Alice"), w: String(lambda x: String("w").compose(x)),
+        g: String(lambda x: x.compose(String("g")))}, cod=Diagram)
     assert tokens(crossed(Alice(categorial.FX(w, g), left=True)))\
         == ["w", "Alice", "g"]
 
@@ -295,7 +295,7 @@ def test_tree_adjoining_grammar():
     lexicon = Lexicon({S: String, Sp: String, Spp: String}, {
         A: (String >> String)(lambda f: f(Position(lambda x: x))),
         B: String(lambda x: (String >> String)(
-            lambda g: a >> g(b >> x >> c) >> d)),
+            lambda g: a.compose(g(b.compose(x, c)), d))),
         C: String(lambda x: x)})
     grammar = Grammar((S, Sp, Spp), (A, B, C), lexicon, S)
     adjunct = C
@@ -314,7 +314,8 @@ def test_Lexicon_composition():
     grammar = context_free_grammar()
     A, B = grammar.constants
     second = Lexicon({Position: Position}, {
-        String("a"): String("A") >> String("A"), String("b"): String("B")})
+        String("a"): String("A").compose(String("A")),
+        String("b"): String("B")})
     term = B(B(A))
     sequential = second(grammar(term))
     composed = (grammar.lexicon >> second)(term)
@@ -329,7 +330,7 @@ def test_ambiguity():
     visit = (n >> s)("visit")
     syntax = Lexicon({n: String, s: String}, {
         river: String("bank"), finance: String("bank"),
-        visit: String(lambda x: String("visit") >> x)})
+        visit: String(lambda x: String("visit").compose(x))})
     RIVER, FINANCE, VISIT = e("RIVER"), e("FINANCE"), (e >> t)("VISIT")
     semantics = Lexicon({n: e, s: t}, {
         river: RIVER, finance: FINANCE, visit: VISIT})

@@ -43,8 +43,9 @@ A *vocabulary* is a higher-order signature: atomic types and constants, each
 with an implicative type ``x >> y`` built from the atoms, e.g. the words of a
 language with their grammatical types. It generates a free closed category,
 whose morphisms are the lambda terms of its internal language, here
-:class:`Term`. Nothing forces a term to be linear: the category is markov, so
-a variable may be copied and discarded, as the variables of ground type are in
+:class:`Term`. Nothing forces a term to be linear: the closed categories of
+DisCoPy are markov by design, so a variable may be copied and discarded, as
+the variables of ground type are in
 the semantics of the example below; the paper's linear terms are the special
 case where every variable occurs once, see ``is_linear``. A :class:`Lexicon`
 from one vocabulary to another sends atomic types to types and constants to
@@ -61,8 +62,8 @@ Strings are the paper's, section 4: one atomic type :data:`Position` and a
 string is a map from positions to positions, a term of type
 ``String = Position >> Position``. A word is a constant of that type, the
 empty string is the identity ``Position(lambda x: x)`` and concatenation is
-composition, ``John >> seeks`` for *John seeks*, see
-:meth:`discopy.closed.TermBase.then`: the paper writes it
+composition, ``John.compose(seeks)`` for *John seeks*, see
+:meth:`discopy.closed.TermBase.compose`: the paper writes it
 ``lambda z. x (y z)`` with the first word applied last, here the first word
 is applied first, so a string reads its positions in order.
 
@@ -77,10 +78,10 @@ a constant for each reading of *seeks* in the abstract vocabulary:
 >>> S_re, S_dicto = ((np >> (np >> s))(S) for S in ("S_re", "S_dicto"))
 >>> John, seeks, a, unicorn = map(
 ...     String, ("John", "seeks", "a", "unicorn"))
->>> seek = String(lambda x: String(lambda y: x >> seeks >> y))
+>>> seek = String(lambda x: String(lambda y: x.compose(seeks, y)))
 >>> syntax = Lexicon(
 ...     ob_map={n: String, np: String, s: String},
-...     ar_map={J: John, U: unicorn, A: String(lambda x: a >> x),
+...     ar_map={J: John, U: unicorn, A: String(lambda x: a.compose(x)),
 ...             S_re: seek, S_dicto: seek})
 >>> from discopy.python import Function
 >>> words = Functor(
@@ -137,7 +138,8 @@ raising curry, and crossed composition composes.
 >>> strings = categorial.Functor(
 ...     ob_map={N: String, S: String},
 ...     ar_map={Alice: String("Alice"), Bob: String("Bob"),
-...             loves: String(lambda o: String(lambda x: x >> LOVES >> o))},
+...             loves: String(lambda o: String(
+...                 lambda x: x.compose(LOVES, o)))},
 ...     cod=Diagram)
 >>> print(*words(strings(Alice(loves(Bob), left=True)))()([]))
 Alice loves Bob
@@ -398,8 +400,8 @@ String = Position >> Position
 """
 The type of strings, maps from positions to positions: a word is a constant
 of type ``String``, ``Position(lambda x: x)`` is the empty string and
-``John >> seeks`` their concatenation, see
-:meth:`discopy.closed.TermBase.then`.
+``John.compose(seeks)`` their concatenation, see
+:meth:`discopy.closed.TermBase.compose`.
 """
 
 
@@ -429,7 +431,7 @@ class Grammar:
     >>> A, B = S("A"), (S >> S)("B")
     >>> lexicon = Lexicon({S: String}, {
     ...     A: Position(lambda x: x),
-    ...     B: String(lambda x: String("a") >> x >> String("b"))})
+    ...     B: String(lambda x: String("a").compose(x, String("b")))})
     >>> grammar = Grammar((S, ), (A, B), lexicon, S)
     >>> assert B(B(A)) in grammar and B not in grammar
     >>> print(grammar(B(A)).normal_form())

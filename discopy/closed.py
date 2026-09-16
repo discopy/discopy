@@ -255,8 +255,9 @@ Id = Diagram.id
 class TermBase(Box, biclosed.TermBase):
     """
     A term in the internal language of a closed category, i.e. a lambda term
-    which need not be linear: a variable may occur any number of times, since
-    a closed category is markov it can be copied and discarded.
+    which need not be linear: this module implements closed markov categories
+    by design, so a variable may be copied and discarded, i.e. occur any
+    number of times.
 
     A term is evaluated in a context, a list of distinct variables containing
     its free ones: the variables that do not occur in the term are discarded,
@@ -280,11 +281,12 @@ class TermBase(Box, biclosed.TermBase):
         args = (other, self) if left else (self, other)
         return self.cod.application_factory(*args)
 
-    def then(self, *others: Term) -> Term:
+    def compose(self, *others: Term) -> Term:
         """
-        The composition of terms of function types: ``t >> u`` for
+        The composition of terms of function types: ``t.compose(u)`` for
         ``t : x >> y`` and ``u : y >> z`` is ``x(lambda v: u(t(v)))``, i.e.
-        ``t`` is applied first, as for diagrams.
+        ``t`` is applied first, in the order of ``t >> u``, which composes
+        the diagrams that terms also are and keeps its name.
 
         Parameters:
             others : Terms of function types, the exponent of each being
@@ -294,7 +296,7 @@ class TermBase(Box, biclosed.TermBase):
         -------
         >>> X, Y, Z = map(Ty, "XYZ")
         >>> t, u = (X >> Y)("t"), (Y >> Z)("u")
-        >>> print(t >> u)
+        >>> print(t.compose(u))
         X(lambda x: (Y >> Z)('u')((X >> Y)('t')(x)))
         """
         if not others:
