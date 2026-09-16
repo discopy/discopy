@@ -9,6 +9,22 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `grammar.abstract`, abstract categorial grammars after de Groote's
+  *Towards abstract categorial grammars* (2001)
+  ([#398](https://github.com/discopy/discopy/issues/398)).
+- Closed terms are evaluated in a context, a list of distinct variables
+  containing the free ones, through `closed.TermBase.weaken`, the structural
+  morphism discarding the others and permuting the rest; `is_linear` says
+  whether a term is, `compose` composes terms of function types,
+  `occurrences` counts the free occurrences of a variable and
+  `Substitution` is simultaneous and capture-avoiding, through the
+  `substitute` method of each term, where it recursed forever on an
+  abstraction.
+  `closed.Ty.from_biclosed` and `closed.TermBase.from_biclosed` are
+  functors dropping planarity, and `biclosed.Functor.map_term` sends a term
+  to a term under a binding environment, checking the image against the
+  image of its type and of its free variables
+  ([#398](https://github.com/discopy/discopy/issues/398)).
 - `monoidal.List`, the free monoid on a generator type: `List[X]` is a
   tuple of instances of `X` with concatenation as `tensor` and the empty
   list as unit, an `abc.Monoid` parameterised as
@@ -520,6 +536,29 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `biclosed.Curry`'s own constructor defaulted to `left=False`, disagreeing
+  with `Diagram.curry`'s `left=True` default since #560 unified the two: a
+  bare `Curry(box)` curried the opposite side of `box.curry()`, and
+  `grammar.categorial.Diagram.bc` passed `n` without `left`, so backward
+  composition curried on the wrong side by the same drift. Closed terms
+  evaluated a multi-wire free variable as one wire, building the wrong
+  domain or crashing `Diagram.permutation`: the context of a term is now
+  mapped wire by wire.
+- `closed.Box.is_linear` is a class attribute, so a `Curry`, a `Trace` or a
+  `Sum` read as linear whatever they held: `Copy(x) >> f` is not linear but
+  its curry, its trace and its formal sum were. Each now reads its inside.
+  `monoidal.Sum` pinned `ob = monoidal.Ty`, which came before the diagram
+  class in the resolution order of every level's `Sum`, so `closed.Sum.ob`
+  and `biclosed.Sum.ob` were `monoidal.Ty` rather than their own types and
+  a subclass had to pin its own; the pin is gone, `Sum.ob` is the `ob` of
+  the diagram it is a box of, as for every other box.
+- `biclosed.Eval`, `Coeval` and `Curry` read back from their `repr` and
+  from their tree, and `biclosed.Constant` from its tree: they printed and
+  serialised as a `Box`, with a name, a domain and a codomain their
+  constructors do not read, so `eval(repr(x))` and `loads(dumps(x))` raised
+  `TypeError` on every evaluation, coevaluation and currying, and
+  `loads(dumps(c))` on every constant
+  ([#398](https://github.com/discopy/discopy/issues/398)).
 - The marimo notebook previews in the docs follow the theme switch. The
   notebooks are exported with marimo's `system` theme and the docs relay
   the resolved theme into each notebook's iframe through marimo's

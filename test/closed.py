@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from pytest import raises
+
+from discopy import biclosed
 from discopy.closed import *
 
 
@@ -134,15 +137,40 @@ def test_nonlinear_eval():
 
     discarded, = Y(lambda y: X(lambda x: g(x)(x))).eval().boxes
     assert any(isinstance(box, Discard) for box in discarded.arg.boxes)
-def test_context_dom():
+
+
+def test_is_linear():
+    """ Bubbles, sums and terms are linear when their insides are. """
+    x, y = Ty("x"), Ty("y")
+    f, nonlinear = Box("f", x, y), Copy(x) >> Box("g", x @ x, x)
+    assert f.curry().is_linear and (f + f).is_linear
+    assert (Box("h", x @ y, x @ y) @ x).trace().is_linear
+    assert not nonlinear.is_linear
+    assert not nonlinear.curry().is_linear
+    assert not (nonlinear @ x).trace().is_linear
+    assert not (nonlinear + nonlinear).is_linear
+
+    g, a = (x >> (x >> y))("g"), x("a")
+    assert g(a)(a).is_linear and x(lambda v: g(v)(a)).is_linear
+    for term in [x(lambda v: g(v)(v)), x(lambda v: g(a)(a))]:
+        assert not term.is_linear and not term.eval().is_linear
+
+
+def test_eval_in_context():
     """
-    `Context.dom` instantiates `category.ob` before calling `.tensor`, so
-    it works both for an empty context (regression test for #549) and for
-    a non-empty one.
+    A term evaluated in a context discards the variables it does not use
+    and permutes the others, so that the diagram has the context as domain.
     """
-    X = Ty('X')
-    assert Context([]).dom == Ty()
-    assert Context([Variable('x', X)]).dom == X
+    X, Y = Ty("X"), Ty("Y")
+    x, y, f = Variable("x", X), Variable("y", Y), (X >> (Y >> Y))("f")
+    assert x.eval(context=[y, x]) == Diagram.swap(Y, X) >> X @ Discard(Y)
+    assert f.eval(context=[y]) == Discard(Y) >> f
+    assert f(x)(y).eval(context=[y, x]) == Diagram.swap(Y, X)\
+        >> f(x)(y).eval()
+    for context in ([x, y], [y, x], [x, y, Variable("z", X)]):
+        diagram = f(x)(y).eval(context=context)
+        assert diagram.dom == Ty().tensor(*[v.cod for v in context])
+        assert diagram.cod == Y
 
 
 def test_discard():
@@ -210,3 +238,99 @@ def test_draw_copy_and_swap():
     # A non-linear term evaluates to such a diagram, so it draws too.
     X = Ty('X')
     assert X(lambda x: (X >> X)(lambda f: f(x))).eval().to_drawing()
+
+
+def test_from_biclosed():
+    x, y = biclosed.Ty("x"), biclosed.Ty("y")
+    X, Y = Ty("x"), Ty("y")
+    assert Ty.from_biclosed(x << y) == Ty.from_biclosed(y >> x) == Y >> X
+    assert Ty.from_biclosed(x @ (x >> y)) == X @ (X >> Y)
+
+    g, a, h = (y << x)("g"), x("a"), (x >> y)("h")
+    assert g(a).to_closed() == TermBase.from_biclosed(g(a))\
+        == Constant("g", X >> Y)(Constant("a", X))
+    assert a(h, left=True).to_closed()\
+        == Constant("h", X >> Y)(Constant("a", X))
+    assert TermBase.from_biclosed(x(lambda v: g(v)))\
+        == X(lambda v: Constant("g", X >> Y)(v))
+
+
+def test_Substitution():
+    X, Y = Ty("X"), Ty("Y")
+    f, a = (X >> Y)("f"), X("a")
+    v, w = Variable("v", X), Variable("w", X)
+    sub = Substitution({v: a})
+    assert sub(f) == f
+    assert sub(v) == a and sub(w) == w
+    assert sub(f(v)) == f(a)
+    assert sub(Abstraction(v, f(v))) == Abstraction(v, f(v))
+    assert sub(Abstraction(w, f(v))) == Abstraction(w, f(a))
+    with raises(TypeError):
+        Substitution({a: v})
+    with raises(ValueError):
+        Substitution({v: Y("b")})
+
+
+def test_discard_and_nonlinear_eval():
+    x, y = Ty("x"), Ty("y")
+    assert Diagram.discard(x) == Copy(x, 0) == Discard(x)
+    assert not Copy(x).is_linear
+
+    g = (x >> (x >> y))("g")
+    shared_abstraction = x(lambda v: x(lambda w: g(w)(v))(v))
+    diagram = shared_abstraction.eval()
+    assert diagram.dom == Ty() and diagram.cod == x >> y
+
+
+def test_eval_with_context_and_composite_binders():
+    X, Y, Z = map(Ty, "XYZ")
+    x, y = Variable("x", X), Variable("y", Y)
+    g, h = (Y >> X)("g"), (Y >> (X >> Z))("h")
+
+    for left in [False, True]:
+        abstraction = Abstraction(x, h(y)(x), left=left)
+        argument = g(y)
+        application = argument(abstraction, left=True)\
+            if left else abstraction(argument)
+        assert application.overlap
+        assert (application.eval().dom, application.eval().cod)\
+            == (application.dom, application.cod)
+
+    XY, var = X @ Y, Variable("var", X @ Y)
+    for term in [
+            Abstraction(var, (XY >> Z)("f")(var)),
+            Abstraction(var, Z("z"))]:
+        assert (term.eval().dom, term.eval().cod) == (term.dom, term.cod)
+
+    nested = X(lambda x: (X >> Z)(lambda f: f(x)))
+    diagram, drawing = nested.eval(), nested.eval().to_drawing()
+    assert (drawing.dom, drawing.cod)\
+        == (diagram.dom.to_drawing(), diagram.cod.to_drawing())
+
+
+def test_Application_context_order_is_stable():
+    X, Y, Z, A, B = map(Ty, "XYZAB")
+    x, y, z = Variable("x", X), Variable("y", Y), Variable("z", Z)
+    func = (X >> (Y >> (A >> B)))("f")(x)(y)
+    args = (Y >> (Z >> A))("a")(y)(z)
+    term = func(args)
+
+    assert term.overlap
+    assert term.freevars == [x, y, z]
+    assert term.dom == X @ Y @ Z
+    assert (term.eval().dom, term.eval().cod) == (term.dom, term.cod)
+
+
+def test_compose():
+    """ Terms of function types compose, the first one applied first. """
+    X, Y, Z = map(Ty, "XYZ")
+    t, u, v = (X >> Y)("t"), (Y >> Z)("u"), (Z >> X)("v")
+    assert t.compose() == t and t.compose(u) == X(lambda x: u(t(x)))
+    assert t.compose(u, v) == X(lambda x: v(u(t(x))))
+    free = Variable("x", X >> Y)
+    assert free.compose(u, v).freevars == [free]
+    for left, right in [(u, t), (X("a"), t), (t, u)]:
+        with raises(AxiomError):
+            left.compose(right) if right is not u else left >> right
+    with raises(AxiomError):
+        t.compose(u, t)
