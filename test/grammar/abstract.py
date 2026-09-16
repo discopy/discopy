@@ -24,7 +24,7 @@ def context_free_grammar():
     lexicon = Lexicon({S: String}, {
         A: Position(lambda x: x),
         B: String(lambda x: String("a").compose(x, String("b")))})
-    return Grammar((S, ), (A, B), lexicon, S)
+    return A, B, lexicon
 
 
 def test_factory_closure():
@@ -131,6 +131,9 @@ def test_Lexicon():
     assert type(first >> second) is Lexicon
     with raises(AxiomError):
         Lexicon(ob_map={x: y}, ar_map={a: (y >> y)("b")})(a)
+    for outside in (z, c, z(lambda v: v)):
+        with raises(KeyError):
+            first(outside)
 
 
 def test_strings():
@@ -248,32 +251,11 @@ def test_Montague_semantics():
         Song[y] and all(not Child[x] or Learnt[x, y] for x in U) for y in U)
 
 
-def test_Grammar():
-    S, X = Ty("S"), Ty("X")
-    a, b = S("a"), S("b")
-    lexicon = Lexicon({S: String}, {a: String("a")})
-    grammar = Grammar((S, ), (a, ), lexicon, S)
-    assert a in grammar and grammar(a) == String("a")
-    for outside in [b, Variable("x", S), String("a"), S]:
-        assert outside not in grammar
-    with raises(AxiomError):
-        grammar(b)
-    identity = Grammar((S, ), (), Lexicon({S: S}, {}), S >> S)
-    assert S(lambda x: x) in identity
-    assert (X >> X)(lambda f: S(lambda x: x))(X(lambda x: x)) not in identity
-    for atoms, constants, lexicon in [
-            ((), (a, ), lexicon), ((S, ), (a, ), Lexicon({}, {})),
-            ((S, ), (X("c"), ), Lexicon({S: S, X: X}, {X("c"): X("c")}))]:
-        with raises(KeyError):
-            Grammar(atoms, constants, lexicon, S)
-
-
 def test_context_free_grammar():
-    grammar = context_free_grammar()
-    term, B = grammar.constants
+    term, B, lexicon = context_free_grammar()
     for n in range(5):
-        assert term in grammar and term.is_linear
-        image = grammar(term)
+        assert term.cod == Ty("S") and not term.freevars and term.is_linear
+        image = lexicon(term)
         assert image.cod == String and not image.freevars and image.is_linear
         assert tokens(image) == n * ["a"] + n * ["b"]
         term = B(term)
@@ -291,12 +273,11 @@ def test_tree_adjoining_grammar():
         B: String(lambda x: (String >> String)(
             lambda g: a.compose(g(b.compose(x, c)), d))),
         C: String(lambda x: x)})
-    grammar = Grammar((S, Sp, Spp), (A, B, C), lexicon, S)
     adjunct = C
     for n in range(5):
         term = A(adjunct)
-        assert term in grammar and term.is_linear
-        image = grammar(term)
+        assert term.cod == S and not term.freevars and term.is_linear
+        image = lexicon(term)
         assert image.cod == String and not image.freevars and image.is_linear
         assert tokens(image) == [letter for letter in "abcd" for _ in range(n)]
         adjunct = Spp(lambda x: B(x)(adjunct))
@@ -304,14 +285,12 @@ def test_tree_adjoining_grammar():
 
 def test_Lexicon_composition():
     "Section 6 of de Groote (2001): a second lexicon reads the object words."
-    grammar = context_free_grammar()
-    A, B = grammar.constants
+    A, B, first = context_free_grammar()
     second = Lexicon({Position: Position}, {
         String("a"): String("A").compose(String("A")),
         String("b"): String("B")})
     term = B(B(A))
-    sequential = second(grammar(term))
-    composed = (grammar.lexicon >> second)(term)
+    sequential, composed = second(first(term)), (first >> second)(term)
     assert tokens(sequential) == tokens(composed) == list("AAAABB")
 
 

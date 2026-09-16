@@ -3,8 +3,8 @@
 """
 Abstract categorial grammars after de Groote's `Towards abstract categorial
 grammars (2001) <https://aclanthology.org/P01-1033/>`_: a vocabulary
-generates a free closed category, a :class:`Lexicon` is a functor between two
-of them and a :class:`Grammar` is a lexicon with a distinguished type.
+generates a free closed category and a :class:`Lexicon` is a functor between
+two of them, which is all there is to a grammar.
 
 Summary
 -------
@@ -34,7 +34,6 @@ Summary
     Variable
     Application
     Abstraction
-    Grammar
 
 Vocabularies and lexicons
 -------------------------
@@ -50,10 +49,11 @@ the semantics of the example below; the paper's linear terms are the special
 case where every variable occurs once, see ``is_linear``. A :class:`Lexicon`
 from one vocabulary to another sends atomic types to types and constants to
 terms of the image of their types: it is a :class:`Functor` between two free
-closed categories, and lexicons compose. A :class:`Grammar` is a lexicon
-together with a distinguished type ``s`` of its vocabulary: its abstract
-language is the set of closed terms of type ``s``, its object language their
-image under the lexicon.
+closed categories, and lexicons compose. A lexicon is all there is to a
+grammar: its abstract vocabulary is the atoms and constants it is defined on,
+its abstract language the closed terms over them and its object language their
+image. The paper's distinguished type ``s`` picks the sentences out of the
+abstract language, the input of a parser to come.
 
 Strings
 -------
@@ -146,11 +146,8 @@ Alice loves Bob
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from discopy import closed, cmap, hypergraph
 from discopy.cat import factory
-from discopy.utils import AxiomError
 from discopy.grammar import categorial
 
 
@@ -401,71 +398,3 @@ of type ``String``, ``Position(lambda x: x)`` is the empty string and
 ``John.compose(seeks)`` their concatenation, see
 :meth:`discopy.closed.TermBase.compose`.
 """
-
-
-@dataclass
-class Grammar:
-    """
-    An abstract categorial grammar, definition 3 of de Groote's `Towards
-    abstract categorial grammars (2001) <https://aclanthology.org/P01-1033/>`_:
-    an abstract vocabulary, its atomic types and constants, a lexicon from
-    it and a distinguished type ``start``. The abstract language is the set
-    of closed terms of type ``start`` over the vocabulary, decided by
-    ``term in grammar``, and the object language their image under the
-    lexicon, computed by ``grammar(term)``.
-
-    Parameters:
-        atoms : The atomic types of the abstract vocabulary.
-        constants : The constants of the abstract vocabulary.
-        lexicon : A lexicon from the abstract vocabulary.
-        start : The distinguished type, built from the atoms.
-
-    Example
-    -------
-    The context-free grammar ``S -> epsilon | a S b`` of the paper's section
-    4.1, whose object language is ``a ** n >> b ** n``:
-
-    >>> S = Ty("S")
-    >>> A, B = S("A"), (S >> S)("B")
-    >>> lexicon = Lexicon({S: String}, {
-    ...     A: Position(lambda x: x),
-    ...     B: String(lambda x: String("a").compose(x, String("b")))})
-    >>> grammar = Grammar((S, ), (A, B), lexicon, S)
-    >>> assert B(B(A)) in grammar and B not in grammar
-    >>> assert grammar(B(A)).cod == String and not grammar(B(A)).freevars
-    """
-    atoms: tuple[Ty, ...]
-    constants: tuple[Constant, ...]
-    lexicon: Lexicon
-    start: Ty
-
-    def __post_init__(self):
-        for x in (self.start, ) + tuple(self.constants):
-            self.lexicon(self.vocabulary(x))
-
-    @property
-    def vocabulary(self) -> Functor:
-        """
-        The inclusion of the vocabulary: the identity functor defined on its
-        atoms and constants alone, so that it raises ``KeyError`` on any
-        other atom or constant.
-        """
-        return Functor({x: x for x in self.atoms},
-                       {c: c for c in self.constants})
-
-    def __contains__(self, term: Term) -> bool:
-        if not isinstance(term, TermBase)\
-                or term.freevars or term.cod != self.start:
-            return False
-        try:
-            self.vocabulary(term)
-        except KeyError:
-            return False
-        return True
-
-    def __call__(self, term: Term) -> Term:
-        if term not in self:
-            raise AxiomError(
-                f"Expected a closed term of type {self.start} over the "
-                f"vocabulary, got {term}.")
-        return self.lexicon(term)
