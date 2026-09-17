@@ -29,6 +29,7 @@ Summary
     Variable
     Application
     Abstraction
+    Substitution
     Sampler
     Renamed
     AlphaEquation
@@ -598,8 +599,9 @@ class TermBase(Box):
         to the names of their bound variables, in one pass over the terms.
 
         Free variables are compared by name and bound ones by the binder
-        they refer to, see :meth:`alpha_eq_under`. Alpha-equivalent terms
-        evaluate to the same diagram, the converse does not hold.
+        they refer to, through a :class:`Substitution` for each term, see
+        :meth:`alpha_eq_under`. Alpha-equivalent terms evaluate to the same
+        diagram, the converse does not hold.
 
         Example
         -------
@@ -613,33 +615,43 @@ class TermBase(Box):
         ...     X(lambda y: X(lambda x: h(y)(x))))
         >>> assert not X(lambda x: x).alpha_eq(Y(lambda y: y))
         """
-        return self.alpha_eq_under([{} for _ in (self, *others)], *others)
+        terms = (self, *others)
+        free = {variable.name for term in terms for variable in term.freevars}
+        return self.alpha_eq_under(
+            [Substitution({}) for _ in terms], *others, free=free)
 
     def alpha_eq_under(
-            self, substitutions: list[dict[Variable, int]], *others: Term,
-            depth: int = 0) -> bool:
+            self, substitutions: list[Substitution], *others: Term,
+            depth: int = 0, free: set[str] = frozenset()) -> bool:
         """
-        Whether the terms are alpha-equivalent under a substitution of their
-        bound variables by the depth of their binder, one for each term with
-        this one first.
+        Whether the terms are alpha-equivalent under a :class:`Substitution`
+        for each of them, this one first, of its bound variables by the
+        fresh variable of their binder, the same one in every term: the
+        terms are alpha-equivalent when the substituted terms are equal,
+        which is checked without building them. A leaf, i.e. a variable or
+        a constant, compares its images under the substitutions; every
+        other term former recurses into its subterms.
 
         Entering a binder extends every substitution in place with the
-        variable it binds at the current ``depth`` and leaving it restores
-        them, so that comparing the terms is one pass over them rather than
-        a renamed copy at every binder, i.e. linear in their size, and the
-        substitutions read the same after the call. A term with neither
-        binders nor variables, i.e. a constant, is alpha-equivalent to its
-        equals.
+        variable it binds, by a fresh variable named after the ``depth`` of
+        the binder and avoiding the names of the ``free`` variables of the
+        terms, and leaving it restores them, so that comparing the terms is
+        one pass over them, linear in their size, and the substitutions
+        read the same after the call.
 
         Example
         -------
         >>> X = Ty("X")
-        >>> x, y = Variable("x", X), Variable("y", X)
-        >>> assert x.alpha_eq_under([{x: 0}, {y: 0}], y)
-        >>> assert not x.alpha_eq_under([{x: 0}, {y: 1}], y)
-        >>> assert not x.alpha_eq_under([{x: 0}, {}], y)
+        >>> x, y, z = Variable("x", X), Variable("y", X), Variable("z", X)
+        >>> assert x.alpha_eq_under(
+        ...     [Substitution({x: z}), Substitution({y: z})], y)
+        >>> assert not x.alpha_eq_under(
+        ...     [Substitution({x: z}), Substitution({})], y)
         """
-        return all(other == self for other in others)
+        images = [
+            substitution(term)
+            for substitution, term in zip(substitutions, (self, *others))]
+        return all(image == images[0] for image in images[1:])
 
     @classmethod
     def generate(cls, cod: Ty, choices: Sequence[int], types: Sequence[Ty],
@@ -799,12 +811,6 @@ class Variable(TermBase):
 
     __repr__ = Constant.__repr__
 
-    def alpha_eq_under(self, substitutions, *others, depth=0):
-        images = [
-            substitution.get(term, term)
-            for substitution, term in zip(substitutions, (self, *others))]
-        return all(image == images[0] for image in images[1:])
-
 
 class Application(TermBase):
     """
@@ -858,14 +864,16 @@ class Application(TermBase):
         return self.args.constants + self.func.constants if self.left\
             else self.func.constants + self.args.constants
 
-    def alpha_eq_under(self, substitutions, *others, depth=0):
+    def alpha_eq_under(self, substitutions, *others, depth=0,
+                       free=frozenset()):
         if any(type(other) is not type(self) or other.left != self.left
                for other in others):
             return False
         return self.func.alpha_eq_under(
-            substitutions, *[other.func for other in others], depth=depth)\
-            and self.args.alpha_eq_under(
-                substitutions, *[other.args for other in others], depth=depth)
+            substitutions, *[other.func for other in others],
+            depth=depth, free=free) and self.args.alpha_eq_under(
+                substitutions, *[other.args for other in others],
+                depth=depth, free=free)
 
 
 class Abstraction(TermBase):
@@ -905,27 +913,53 @@ class Abstraction(TermBase):
     def constants(self):
         return self.body.constants
 
-    def alpha_eq_under(self, substitutions, *others, depth=0):
+    def alpha_eq_under(self, substitutions, *others, depth=0,
+                       free=frozenset()):
         if any(type(other) is not type(self)
                or (other.left, other.var.cod) != (self.left, self.var.cod)
                for other in others):
             return False
-        terms = (self, *others)
-        shadowed = [substitution.get(term.var)
+        terms, name = (self, *others), f"x{depth}"
+        while name in free:
+            name += "_"
+        fresh = type(self.var)(name, self.var.cod)
+        shadowed = [substitution.inside.get(term.var)
                     for substitution, term in zip(substitutions, terms)]
         for substitution, term in zip(substitutions, terms):
-            substitution[term.var] = depth
+            substitution.inside[term.var] = fresh
         result = self.body.alpha_eq_under(
-            substitutions, *[other.body for other in others], depth=depth + 1)
-        for substitution, term, level in zip(substitutions, terms, shadowed):
-            if level is None:
-                del substitution[term.var]
+            substitutions, *[other.body for other in others],
+            depth=depth + 1, free=free)
+        for substitution, term, image in zip(substitutions, terms, shadowed):
+            if image is None:
+                del substitution.inside[term.var]
             else:
-                substitution[term.var] = level
+                substitution.inside[term.var] = image
         return result
 
 
 type Term = Constant | Variable | Application | Abstraction
+
+
+@dataclass
+class Substitution:
+    """
+    A substitution of terms for variables, ``inside`` mapping each variable
+    to its image. Applied to a variable, it gives its image, the variable
+    itself when the substitution says nothing of it, as it does of any
+    other leaf; :mod:`discopy.closed` extends the application to every term.
+
+    Example
+    -------
+    >>> X = Ty("X")
+    >>> x, y = Variable("x", X), Variable("y", X)
+    >>> assert Substitution({x: y})(x) == y and Substitution({x: y})(y) == y
+    """
+    inside: dict[Variable, Term]
+
+    def __call__(self, variable: Variable) -> Term:
+        return self.inside.get(variable, variable)
+
 
 for law in (
         "unitality", "associativity", "identity_typing",

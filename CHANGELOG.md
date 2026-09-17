@@ -11,13 +11,18 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 - `biclosed.TermBase.alpha_eq`, the alpha-equivalence of lambda terms,
   i.e. equality up to the names of their bound variables, of any number
-  of terms in one pass: the helper `alpha_eq_under` carries a substitution
-  of the bound variables by the depth of their binder for each term,
-  extended in place on entering a binder and restored on leaving it, so
-  the check is linear in the size of the terms rather than a renamed copy
-  at every binder. Free variables are compared by name, bound ones by
-  their binder, applications by their `left` flag and abstractions by the
-  type they bind; `closed` terms inherit it. Terms are `Testable` in the
+  of terms in one pass: the helper `alpha_eq_under` carries a
+  `Substitution` for each term, of its bound variables by the fresh
+  variable of their binder, the same one in every term, extended in place
+  on entering a binder and restored on leaving it, so the terms are
+  alpha-equivalent when the substituted terms are equal and the check is
+  linear in the size of the terms rather than a renamed copy at every
+  binder. Free variables are compared by name, bound ones by their
+  binder, applications by their `left` flag and abstractions by the type
+  they bind; `closed` terms inherit it, `grammar.categorial`'s type
+  raisings and binary compositions recurse into their subterms, and
+  `biclosed.Substitution` is the dataclass `closed.Substitution` now
+  extends. Terms are `Testable` in the
   sense of `discopy.axioms`: `TermBase.generate` builds a planar linear
   term of a given type from a sequence of choices and the letters naming
   its bound variables, through a `Sampler` with one method per kind of

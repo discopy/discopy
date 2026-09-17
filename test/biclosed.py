@@ -158,11 +158,11 @@ def test_alpha_eq():
 
 def test_alpha_eq_under_restores_the_substitutions():
     X, Y = Ty("X"), Ty("Y")
-    f, x = (Y << X)("f"), Variable("x", X)
-    substitutions = [{x: 7}, {}]
+    f, x, z = (Y << X)("f"), Variable("x", X), Variable("z", X)
+    substitutions = [Substitution({x: z}), Substitution({})]
     assert X(lambda x: f(x)).alpha_eq_under(
         substitutions, X(lambda y: f(y)), depth=1)
-    assert substitutions == [{x: 7}, {}]
+    assert [s.inside for s in substitutions] == [{x: z}, {}]
 
 
 def test_generate():

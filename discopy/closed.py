@@ -50,7 +50,7 @@ Axioms
 
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Dict, ClassVar
+from typing import ClassVar
 
 from discopy import cat, monoidal, biclosed, markov, cmap, hypergraph
 from discopy.abc import ClosedCategory
@@ -315,12 +315,11 @@ class Context:
 
 
 @dataclass
-class Substitution:
-    inside: Dict[Variable, Term]
-
+class Substitution(biclosed.Substitution):
+    """ The :class:`biclosed.Substitution` applied to every closed term. """
     def __call__(self, term: Term) -> Term:
         if isinstance(term, Variable):
-            return self.inside.get(term, term)
+            return super().__call__(term)
         elif isinstance(term, Application):
             return self(term.func)(self(term.args))
         elif isinstance(term, Abstraction):

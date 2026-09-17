@@ -226,6 +226,13 @@ def test_alpha_eq_nonlinear():
         X(lambda x: X(lambda y: f(x)(x))))
 
 
+def test_alpha_eq_avoids_the_free_names():
+    X, Y = Ty("X"), Ty("Y")
+    f, x0 = (X >> Y)("f"), Variable("x0", X)
+    assert not X(lambda x0: f(x0)).alpha_eq(X(lambda y: f(x0)))
+    assert X(lambda x0: f(x0)).alpha_eq(X(lambda y: f(y)))
+
+
 def test_axioms():
     assert_axioms(TermBase)
 

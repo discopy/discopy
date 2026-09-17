@@ -286,6 +286,15 @@ class TypeRaising(TermBase):
     def eval(self, **kwargs):
         return self.simplify().eval(**kwargs)
 
+    def alpha_eq_under(self, substitutions, *others, depth=0,
+                       free=frozenset()):
+        if any(type(other) is not type(self) or other.base != self.base
+               for other in others):
+            return False
+        return self.child.alpha_eq_under(
+            substitutions, *[other.child for other in others],
+            depth=depth, free=free)
+
     def __repr__(self):
         return factory_name(type(self)) + f"({self.base!r}, {self.child!r})"
 
@@ -335,6 +344,16 @@ class BinaryTerm(TermBase):
 
     def eval(self, **kwargs):
         return self.simplify().eval(**kwargs)
+
+    def alpha_eq_under(self, substitutions, *others, depth=0,
+                       free=frozenset()):
+        if any(type(other) is not type(self) for other in others):
+            return False
+        return self.left.alpha_eq_under(
+            substitutions, *[other.left for other in others],
+            depth=depth, free=free) and self.right.alpha_eq_under(
+                substitutions, *[other.right for other in others],
+                depth=depth, free=free)
 
     def __repr__(self):
         return factory_name(type(self)) + f"({self.left!r}, {self.right!r})"
