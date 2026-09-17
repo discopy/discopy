@@ -538,6 +538,16 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `docs/conf.py` never set `author` and Sphinx 7.4 defaults it to that
   sentence, where 7.2 said `unknown`
   ([#723](https://github.com/discopy/discopy/pull/723)).
+- The architecture diagram is back, as `docs/architecture.rst` at the top of
+  the Reference API rather than embedded in the `discopy.abc` docstring.
+  Docutils resolves the `:file:` of a `raw` directive against the source the
+  docstring comes from, i.e. `discopy/`, so `api/architecture.html` was
+  looked for at `discopy/api/architecture.html`: the build said `CRITICAL`
+  and dropped the table, leaving the sentence under it describing nothing.
+  The table links its modules relative to the docs root
+  (`api/syntax.html`, `_api/discopy.cat.html`), which resolves on a
+  root-level page and nowhere else, so `discopy.abc` points at that page
+  rather than reaching into the docs tree for a file.
 - The marimo notebook previews in the docs follow the theme switch. The
   notebooks are exported with marimo's `system` theme and the docs relay
   the resolved theme into each notebook's iframe through marimo's
