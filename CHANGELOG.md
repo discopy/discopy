@@ -548,6 +548,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   (`api/syntax.html`, `_api/discopy.cat.html`), which resolves on a
   root-level page and nowhere else, so `discopy.abc` points at that page
   rather than reaching into the docs tree for a file.
+- `discopy.hopf`'s `Axioms` section is back. Napoleon turns an `Example`
+  section into an admonition and indents everything after it into the box,
+  a section title of its own included, so `Axioms` raised
+  `CRITICAL: Unexpected section title` and the rest of the module docstring
+  was dropped from the page -- `hopf` was the only module with a section
+  after an `Example`. That section is named `Link invariants` after what it
+  computes, which napoleon leaves alone, so the module reads as the three
+  plain sections it always meant: `Summary`, `Link invariants`, `Axioms`.
 - The marimo notebook previews in the docs follow the theme switch. The
   notebooks are exported with marimo's `system` theme and the docs relay
   the resolved theme into each notebook's iframe through marimo's

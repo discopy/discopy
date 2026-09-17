@@ -36,8 +36,8 @@ composing them, e.g. ``H.comult >> H.mult``, builds a fine-grained network; the
 network is only contracted (a single ``einsum``) when a morphism is evaluated —
 by the axiom checks, or by the ribbon :class:`Functor` on a knot.
 
-Example
--------
+Link invariants
+---------------
 The Drinfeld double of the group algebra of :math:`\\mathbb{Z}/2` gives a
 non-trivial link invariant: it separates the Hopf link from the two-component
 unlink.
