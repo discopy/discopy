@@ -165,6 +165,21 @@ def test_alpha_eq_under_restores_the_substitutions():
     assert [s.inside for s in substitutions] == [{x: z}, {}]
 
 
+def test_alpha_completeness():
+    X, Y = Ty("X"), Ty("Y")
+    same, other = [8, 0, 0], [8, 1, 0]
+
+    def shape(choices, letters):
+        return TermBase.generate(Y << X, choices, [X], letters)
+
+    assert TermBase.alpha_completeness(Canonical[TermBase](
+        [shape(same, "y"), shape(same, "z"), shape(same, "x"), shape(same, "x")]))
+    assert TermBase.alpha_completeness(Canonical[TermBase](
+        [shape(same, "y"), shape(other, "z"), shape(same, "x"), shape(other, "x")]))
+    assert not TermBase.alpha_completeness(Canonical[TermBase](
+        [shape(same, "y"), shape(other, "z"), shape(same, "x"), shape(same, "x")]))
+
+
 def test_generate():
     X, Y, Z = Ty("X"), Ty("Y"), Ty("Z")
     term = TermBase.generate(Y << X, [8, 0, 0], [X], "xy")

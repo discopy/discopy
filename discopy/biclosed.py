@@ -32,6 +32,7 @@ Summary
     Substitution
     Sampler
     Renamed
+    Canonical
     AlphaEquation
 
 Axioms
@@ -679,6 +680,13 @@ class TermBase(Box):
         return Sampler(cls, iter(choices), types, letters).term(cod)
 
     @classmethod
+    def choices(cls) -> st.SearchStrategy[list[int]]:
+        """ Generate the choices of :meth:`generate`, one per node. """
+        from hypothesis import strategies as st
+
+        return st.lists(st.integers(min_value=0, max_value=11), max_size=12)
+
+    @classmethod
     def shapes(cls, *, types=None, cod=None) -> st.SearchStrategy[tuple]:
         """
         Generate the arguments of :meth:`generate` but its letters: a type,
@@ -691,7 +699,7 @@ class TermBase(Box):
         cods = types if cod is None else st.just(cod)
         return st.tuples(
             cods,
-            st.lists(st.integers(min_value=0, max_value=11), max_size=12),
+            cls.choices(),
             st.lists(types, min_size=1, max_size=3))
 
     @classmethod
@@ -761,6 +769,18 @@ class TermBase(Box):
     def alpha_soundness(cls, terms: Renamed[Self]) -> Equation:
         """ Alpha-equivalent terms evaluate to the same diagram. """
         return Equation(*(term.eval() for term in terms))
+
+    @axiom
+    def alpha_completeness(cls, terms: Canonical[Self]) -> Equation:
+        """
+        Alpha-equivalence is decided by the canonical naming of the bound
+        variables: two terms are alpha-equivalent exactly when their
+        canonical forms are equal, see :class:`Canonical`. The other laws
+        only ask that alpha-equivalent terms be found so; this one fails
+        when terms that are not alpha-equivalent are.
+        """
+        first, second, *canonical = terms
+        return Equation(first.alpha_eq(second), canonical[0] == canonical[1])
 
 
 class Constant(TermBase):
@@ -1161,12 +1181,55 @@ class Renamed(Testable, NamedGeneric["factory"], tuple):
         """
         from hypothesis import strategies as st
 
-        factory = cls.factory
+        category = cls.factory
         return st.builds(
             lambda shape, namings: cls(
-                factory.generate(*shape, letters) for letters in namings),
-            factory.shapes(**params),
-            st.lists(factory.namings(), min_size=2, max_size=3))
+                category.generate(*shape, letters) for letters in namings),
+            category.shapes(**params),
+            st.lists(category.namings(), min_size=2, max_size=3))
+
+
+class Canonical(Testable, NamedGeneric["factory"], tuple):
+    """
+    Two terms of the ``factory`` followed by their canonical forms: two
+    shapes of one type, the second the first's or another, each generated
+    under its own naming and then under the one naming ``"x"``, which names
+    every bound variable by its level, so that the two terms are
+    alpha-equivalent exactly when their canonical forms are equal. Where
+    :class:`Renamed` draws terms alpha-equivalent by construction, this
+    decides the alpha-equivalence of any pair, see
+    :meth:`TermBase.alpha_completeness`.
+
+    Example
+    -------
+    >>> from hypothesis import find
+    >>> first, second, *canonical = find(
+    ...     Canonical[TermBase].strategy(),
+    ...     lambda terms: terms[0] != terms[1] and terms[2] == terms[3])
+    >>> assert first.alpha_eq(second)
+    """
+    @classmethod
+    def strategy(cls, **params) -> st.SearchStrategy[Canonical]:
+        """
+        Generate a shape, its choices again or others, and two namings.
+
+        Parameters:
+            params : Passed to :meth:`TermBase.shapes`.
+        """
+        from hypothesis import strategies as st
+
+        category = cls.factory
+
+        def build(shape, others, namings):
+            cod, choices, types = shape
+            shapes = (choices, choices if others is None else others)
+            return cls(
+                category.generate(cod, each, types, letters)
+                for each, letters in zip(2 * shapes, (*namings, "x", "x")))
+
+        return st.builds(
+            build, category.shapes(**params), st.none() | category.choices(),
+            st.tuples(category.namings(), category.namings()))
 
 
 Ty.variable_factory = Variable
