@@ -538,16 +538,16 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `docs/conf.py` never set `author` and Sphinx 7.4 defaults it to that
   sentence, where 7.2 said `unknown`
   ([#723](https://github.com/discopy/discopy/pull/723)).
-- The architecture diagram is back, as `docs/architecture.rst` at the top of
-  the Reference API rather than embedded in the `discopy.abc` docstring.
-  Docutils resolves the `:file:` of a `raw` directive against the source the
-  docstring comes from, i.e. `discopy/`, so `api/architecture.html` was
-  looked for at `discopy/api/architecture.html`: the build said `CRITICAL`
-  and dropped the table, leaving the sentence under it describing nothing.
-  The table links its modules relative to the docs root
-  (`api/syntax.html`, `_api/discopy.cat.html`), which resolves on a
-  root-level page and nowhere else, so `discopy.abc` points at that page
-  rather than reaching into the docs tree for a file.
+- The architecture diagram is back on the `discopy.abc` page, where its two
+  halves were each pointing at the wrong directory. Docutils resolves the
+  `:file:` of a `raw` directive against the source the docstring comes from,
+  i.e. `discopy/`, so `api/architecture.html` was looked for at
+  `discopy/api/architecture.html`: the build said `CRITICAL` and dropped the
+  table, leaving the sentence under it describing nothing. The directive
+  names `../docs/api/architecture.html` now. The table's own links were
+  written relative to the docs root (`api/syntax.html`,
+  `_api/discopy.cat.html`), where a docstring renders one level below it
+  under `_api/`, so every one of the thirty gains a `../`.
 - `discopy.hopf`'s `Axioms` section is back. Napoleon turns an `Example`
   section into an admonition and indents everything after it into the box,
   a section title of its own included, so `Axioms` raised

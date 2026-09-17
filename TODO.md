@@ -6,6 +6,6 @@
 Keep the table embedded in the `discopy.abc` docstring, which needs the two
 things that broke it fixed in place rather than sidestepped by a page:
 
-- [ ] make the `:file:` of the `raw` directive resolve from a docstring
-- [ ] make the table's links resolve from `_api/`, where the docstring renders
-- [ ] drop `docs/architecture.rst` and its toctree entry
+- [x] make the `:file:` of the `raw` directive resolve from a docstring
+- [x] make the table's links resolve from `_api/`, where the docstring renders
+- [x] drop `docs/architecture.rst` and its toctree entry

@@ -13,7 +13,6 @@ DisCoPy documentation
     :caption: Reference API
     :hidden:
 
-    architecture
     api/syntax
     api/semantics
     api/quantum
