@@ -19,14 +19,24 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `hexagon_right` are declared broken and recorded in the counterexample
   ledger. `serialisation` is declared inapplicable — a finite function is
   a list of integers rather than a tree, so it has no `to_tree` — while
-  `transparency` and `pickling` hold, the list being data.
+  `transparency` and `pickling` hold, the list being data. `abc.Nat` is a
+  `Testable` with a `strategy` of its own, so that a category whose objects
+  are `Nat` quantifies over them like any other: `finset.Function.ob` is
+  `Nat` ([#709](https://github.com/discopy/discopy/issues/709)) and the
+  matrix generates the objects of a category from its `ob`, which
+  `axioms.Natural` was standing in for
+  ([#758](https://github.com/discopy/discopy/issues/758)).
 - `discopy.cmap.CMap` and `discopy.hypergraph.Hypergraph` grow a
   `strategy` classmethod, drawing through their associated diagram
   category and adding closed components (loops, isolated spiders) beyond
   its image, and `discopy.abc.HypergraphCategory` grows its
   `frobenius`/`speciality`/`spider_fusion` axioms — enrolling `Hypergraph`
   and `CMap` at every monoidal-derived level that has one in
-  `proptest/`. The bugs this enrolment surfaced are fixed below, except
+  `proptest/`. `spider_fusion` quantifies over the number of legs of each
+  spider, so `axioms.Natural`, the non-negative integers with addition as
+  tensor, is stated here, this being its only user;
+  [#758](https://github.com/discopy/discopy/issues/758) asks whether
+  `abc.Nat` should serve in its place. The bugs this enrolment surfaced are fixed below, except
   one open family declared in the matrix: `CMap.to_diagram` and
   `Hypergraph.to_diagram` need swaps to decode a trace, cup or cap at
   `traced`, `balanced` and `pivotal`, and `Hypergraph.cups`/`caps` accept
@@ -48,19 +58,66 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `frobenius`) inherits it through a `Box.strategy` override — its own or
   its base's, e.g. `closed` and `compact` inherit theirs — adding its
   structural boxes (braids, cups and caps, copies, spiders, feedback
-  loops...) to the mix. Their axioms, stated in
+  loops...) to the mix. A terminal strategy declares the bounds it
+  implements rather than swallowing the rest: `monoidal.Nat.strategy`,
+  `monoidal.Dim.strategy` and `feedback.Wire.strategy` take the `dom` and
+  `cod` their callers forward and return `nothing()` for a colour they
+  cannot have, since `monoidal.is_monochrome` says those types are
+  transparent on both sides whatever they are built from — before, the
+  constraint was dropped and the search answered a question it had not
+  been asked. Their axioms, stated in
   `discopy.abc`, are enrolled in `proptest/`. The bugs the wider search
-  surfaced are fixed below, except two open ones declared in the matrix:
+  surfaced are fixed below, except one declared in the matrix —
   `feedback.Diagram.feedback` unrolls its memory in the wrong order
-  ([#606](https://github.com/discopy/discopy/issues/606)), and an
-  uncoloured `monoidal.Wire` reprs as the `cat.Ob` that `Ty` coerces,
-  which its type-strict equality rejects.
-- `discopy/testing.py`, a Hypothesis-based property-testing module:
-  `Axiom`, decorated with `@discopy.testing.axiom`, states a categorical
-  law once on `discopy.abc.Category`/`ColouredMonoid` and every subclass
-  inherits it; `.failing`/`.inapplicable` classify a law as broken or not
-  applicable to a carrier, and `.modulo`/`.weaken` are defined (compare up
-  to a function, quantify over a named subspace) but not used yet. A
+  ([#649](https://github.com/discopy/discopy/issues/649)) — and one the
+  matrix cannot reach: an uncoloured `monoidal.Wire` reprs as the `cat.Ob`
+  that `Ty` coerces, which its type-strict equality rejects
+  ([#650](https://github.com/discopy/discopy/issues/650)). `Wire` is the
+  generating 1-cell of `Ty`, not a category, so it states no axioms and has
+  no cell to declare; `Ty` does not stand in for it, since `Ty.__init__`
+  coerces the `cat.Ob` back into a `Wire` and its own `transparency`
+  passes. The issue tracks it, not a declaration.
+  `compact.Diagram.rotate_contravariance` is no longer declared broken: it
+  was declared so because `to_hypergraph` dropped the rotation of a box,
+  which #716 fixed, and its recorded counterexample — two endomorphisms on
+  one type, precisely the case the old `rotate` got right by accident — no
+  longer falsifies it. The strict xfail xpassed and failed the run the day
+  the fix arrived, which is the mechanism the ledger was built for. A
+  thousand examples turn up no replacement, so the declaration and the
+  record are both removed rather than rewritten.
+- `monoidal.List`, the free monoid on a generator type: `List[X]` is a
+  tuple of instances of `X` with concatenation as `tensor` and the empty
+  list as unit, an `abc.Monoid` parameterised as
+  `NamedGeneric["generator_factory"]` the way `Hypergraph[C]` is the
+  hypergraph category over `C`. Free monoids come at three levels: `Ty`
+  has arbitrary colours and generators, `List` a single colour and
+  arbitrary generators, `Nat` a single colour and a single generator. A
+  list is a sequence of its length-one sublists with the atoms as
+  `inside`, and `abc.ColouredMonoid.cast` embeds a tuple of atoms, or a
+  single atom, into any monoid. `List`, `Ty` and `hopf.Representation`
+  hash by their fields rather than their `repr`, and `List.tensor` raises
+  `TypeError` on anything but a list of the same type, `@` alone returning
+  `NotImplemented` so that a list still whiskers a morphism on the left.
+  `python.Function.ob` is `List[type]`
+  rather than `tuple[type, ...]`: the `dom` and `cod` of a function are
+  the free monoid on Python's `type`, a type or a tuple of types is cast
+  into one wherever a function is built, indexing a function's `dom` or
+  `cod` gives a list of length one and `dom.inside[i]` the type itself.
+  `python.Ty` is an alias of `List[type]`, defined in `python.function`
+  with `additive` and `multiplicative` re-exporting it; the package
+  imports `multiplicative` on first use, since it imports `monoidal`
+  which imports `python.finset`
+  ([#728](https://github.com/discopy/discopy/issues/728)).
+- `discopy/axioms.py`, a Hypothesis-based property-testing module, home
+  of `Equation` (formerly `discopy.abc.Equation`): a law is stated once
+  on `discopy.abc.Category` and every subclass inherits
+  it, as an `Axiom` decorated with `@axiom`: a classmethod of its
+  category — the class it is bound to — implicitly, its remaining
+  parameters generated from their annotations, `C0`, `C1` or `Self` for
+  the objects, arrows or terms of the category;
+  `.failing`/`.inapplicable` classify a
+  law as broken or not applicable to a category, and `.modulo`/`.weaken`
+  compare up to a function or quantify over a named subspace. A
   broken law raises `AxiomFailure` carrying its equation, which the
   recorded-counterexample replay checks, so a record's xfail is earned by
   its arguments falsifying the law and flips visibly when the bug is
@@ -69,47 +126,69 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   used to lose the subspaces a `.weaken` declared. The argument and
   subspace wrappers are parameterised with `NamedGeneric["factory"]` like
   `Hypergraph` and `Equation` — which moves `NamedGeneric` itself down to
-  `discopy.utils`, re-exported from `discopy.abc`, so `discopy.testing`
+  `discopy.utils`, re-exported from `discopy.abc`, so `discopy.axioms`
   can use it — making a subscripted wrapper a class whose
-  `strategy(cls, **params)` matches the contract `Strategy.strategy` now
-  states, so a subspace annotation like `NonEmpty[ComposablePair[C1]]`
+  `strategy(cls, **params)` matches the contract `Testable.strategy` now
+  states, so a subspace annotation like `ComposablePair[C1]`
   builds; an unbound axiom's `.strategy()` raises the same `TypeError`
   as `.falsify` and calling it. The
-  search itself is the canonical instantiation only — one atomic object or
-  one free/generator box per parameter, no recursive or compound
-  generation — wired up in `proptest/test_axioms.py`, enrolled so far for
-  `cat.Arrow` and `cat.Functor`, and run by the new `proptest` GitHub
+  recursive search is wired up in `proptest/test_axioms.py`, enrolled for
+  the free categories and their functors listed in `proptest/categories.py`,
+  and run by the new `proptest` GitHub
   workflow on PRs labelled `proptest`, on `main`, nightly and on manual
-  dispatch. `proptest/conftest.py` registers three Hypothesis profiles
-  over one example database, keyed per cell by node id: `pr` replays what
-  the database remembers and generates a few examples from a fixed seed,
-  `explore` searches with a large budget, and `dev` reads CI's database through a read-only
-  `GitHubArtifactDatabase` given a `GITHUB_TOKEN`. The workflow downloads
-  the database from the previous run's artifact and uploads its own after
-  every run, so a counterexample found by one night's search fails every
-  pull request until it is fixed or declared; a recorded counterexample
-  xfails strictly while its axiom is declared `.failing`, so a fixed bug
-  fails as an unexpected pass until the declaration moves. `Strategy`
+  dispatch. `proptest/conftest.py` registers four Hypothesis profiles
+  over one example database, keyed per cell: `pr` replays what the
+  database remembers and generates a few examples from a fixed seed,
+  `explore` searches with a large budget, `dev` works on the local
+  database alone and `shared`, registered only when selected, backs it
+  with CI's through a read-only `GitHubArtifactDatabase` and a
+  `GITHUB_TOKEN`. The workflow downloads the database from the previous
+  run's artifact, and a run of `main`, the nightly search or a dispatch
+  uploads its own afterwards — a pull request only reads it — so a
+  counterexample found by one night's search fails every pull request
+  until it is fixed or declared, and `Axiom.falsify` searches for one
+  on demand; a recorded counterexample xfails strictly while its axiom
+  is declared `.failing`, so a fixed bug fails as an unexpected pass
+  until the declaration moves. `Testable`
   states the laws of any type that generates its own instances, whatever
   its level: `transparency`, `pickling` and `serialisation` are cells of
-  the matrix for every carrier — `eval(repr(x))`, the pickle and the tree
+  the matrix for every category — `eval(repr(x))`, the pickle and the tree
   of a term read back to it, as `Equation`s like every other law — with
-  `Strategy.environment` for the namespace a representation reads back
+  `Testable.environment` for the namespace a representation reads back
   in — the package's public names and then those of the module the
-  carrier is defined in, so that a term printing bare names such as
+  category is defined in, so that a term printing bare names such as
   `Tensor[int]([0], dom=Dim(1), cod=Dim(1))` reads back without its
-  carrier declaring anything; the ad-hoc property
+  category declaring anything; the ad-hoc property
   files for representations, pickling and serialisation are gone, and a
-  known violation is a `.failing` declaration on its carrier like any
+  known violation is a `.failing` declaration on its category like any
   other broken law. The workflow
   for developing against the suite — laws stated before implementation,
   a failing cell debugged, its counterexample recorded, a strategy that
-  missed a bug audited — is the documentation of `discopy.testing`,
-  which joins the API docs under its own `testing` page; `AGENTS.md`
+  missed a bug audited — is the documentation of `discopy.axioms`,
+  which joins the API docs under its own `axioms` page, with
+  `CONTRIBUTING.md` saying how to run the suite; `AGENTS.md`
   points to it from `Where` rather than importing it into every agent's
   context, and links its other documents rather than importing them with
   the `@` syntax only `CLAUDE.md` is read with.
-
+- `abc.Nat`, a concrete dataclass for the free monoid on one generator
+  (`n: int` with addition as `tensor`), and `abc.PRO`/`abc.PROB`/`abc.PROP`,
+  the `MonoidalCategory`/`BraidedCategory`/`SymmetricCategory` whose objects
+  are `Nat` — `PROB(PRO, BraidedCategory[Nat, C1])` and
+  `PROP(PROB, SymmetricCategory[Nat, C1])`, mirroring how
+  `abc.SymmetricCategory` already extends `abc.BraidedCategory` directly.
+  `abc.Nat` also gets `__index__` (so `range(n)`/`int(n)` work whether `n`
+  is a plain `int` or a `Nat`) and its `tensor` now returns `NotImplemented`
+  for a non-`Nat` argument, like `monoidal.Ty.tensor` already does
+  — needed to let `@` fall back to the other operand's `__rmatmul__` for
+  whiskering, e.g. `Nat(1) @ some_morphism`, which previously crashed with
+  `AttributeError` instead of building the identity on `Nat(1)` first.
+  `python.finset.Function`/`Permutation.ob` changes from a raw `int` to
+  `Nat`, its `dom`/`cod` now genuinely `Nat` instances (auto-cast from `int`
+  at construction, the same convenience `monoidal.Diagram` already gives
+  any `ob = Nat` subclass) rather than merely claiming to be one without
+  the objects to match; `Permutation` inherits `abc.PROP` on the strength
+  of that, its first genuine user
+  ([#709](https://github.com/discopy/discopy/issues/709)).
 - A `workflows` job in `build.yml`, so that the code running our pull
   requests is checked like the code it checks: `actionlint` over the
   workflows, `pflake8` over `.github`, and `pytest .github/tests/*.py`
@@ -202,6 +281,100 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Changed
 
+- The monoidal property suite uses `discopy.axioms` and the category registry.
+  Functor laws quantify their functor with `Self` and their source types with
+  `Self.dom`; monoids inherit category unitality and associativity.
+  Search-strategy defaults follow transparent colours and `Nat` boundaries,
+  and unused natural-number helpers and classifications are removed.
+
+- `monoidal.Colour` is transparent by default rather than white, i.e. its
+  `name` defaults to the new `config.TRANSPARENT` and `monoidal.white` is
+  renamed to `monoidal.transparent`. The drawing code painted every region
+  but skipped the white ones, so the neutral background was spelt "white"
+  and a white region could not be asked for: the region was not filled, it
+  was left out of the legend, the wires around it adapted to a dark page as
+  if they lay on the bare canvas and a spider coloured white was drawn
+  unfilled. Each of those now tests for the transparent colour, so white is
+  a colour like any other and the neutral background is the one that is
+  actually transparent, as `savefig` already made the canvas
+  ([#751](https://github.com/discopy/discopy/issues/751), completing
+  [#725](https://github.com/discopy/discopy/pull/725) with what
+  [#497](https://github.com/discopy/discopy/pull/497) had right). Nothing
+  in the library asks for a white region, so the drawings are unchanged:
+  the symbol of an `Equation` and the slots around its terms are
+  transparent now rather than white. The one exception is TikZ, which
+  spelt the symbol `fill=white` where matplotlib already drew it unfilled
+  and now agrees with it, `TikZ.format_color` passing the transparent
+  colour through as TikZ spells it the same way.
+- `monoidal.Ty` is the free coloured monoid itself: it subclasses
+  `cat.Ob`, `cat.FreeCategory` and `abc.ColouredMonoid` directly, folding
+  in the unreleased `FreeMonoid` whose only subclass it was. Addition is
+  no longer an alias of the tensor on any object: `Ty.__add__`,
+  `stream.Ty.__add__` and `interaction.Ty.__add__` are removed, `+` raises
+  `TypeError` on a `List`, and every fold of objects with `sum` or `+` — in
+  `abc.SymmetricCategory.permutation`, `Hypergraph.from_graph`,
+  `interaction.Ty.tensor`, `stream.Ty.sequence` and `para` — goes through
+  `tensor`. `matrix.Matrix.ob` is `abc.Nat` rather than a bare `int`, its
+  `dom` and `cod` cast from `int` at construction as `python.finset` already
+  does ([#709](https://github.com/discopy/discopy/issues/709)): the
+  `Int`-construction over `Matrix[bool]` folds its objects with `tensor`,
+  which an `int` does not have, and `abc.Nat` prints as its number so a
+  matrix still reads `dom=2, cod=2`. `para.Symmetric` checks that its four
+  objects are `category.ob`, so a tuple of types is refused where it used
+  to be concatenated with `+`
+  ([#750](https://github.com/discopy/discopy/issues/750)).
+  `monoidal.Functor` folds the images of every object with `tensor` instead
+  of the `+` it fell back to while `python.Function.ob` was a bare tuple,
+  and `_map_atomic` goes with the tuple case it existed for, as do the
+  tuple special case of `stream.Ty` and `utils.is_tuple`
+  ([#728](https://github.com/discopy/discopy/issues/728)).
+- `monoidal.PRO` (and its counterparts `rigid.PRO`, `pivotal.PRO` and
+  `frobenius.PRO`) is renamed to `Nat`: it is the free monoid on one
+  generator, natural numbers with addition as tensor, and its unary
+  encoding was already exposed through the sequence protocol
+  (`len`, iteration and slicing, e.g. `Nat(3)[:1] == Nat(1)`), just under
+  the wrong name — `PRO` is the name for the monoidal category with `Nat`
+  as objects, see `abc.PRO` above. `abc.Nat` carries the concrete
+  behaviour (its dataclass field `n`, `tensor` as addition, the sequence
+  protocol), so `monoidal.Nat` only adds what a `Ty` needs on top: `dom`,
+  `cod`, `inside`, serialisation and the whiskering-aware `tensor` that
+  raises on a mismatched `Ty` rather than silently reinterpreting it.
+  `monoidal.Functor.__call__` maps a `Nat` by mapping its single generator
+  once and folding that image `other.n` times with `@`, rather than mapping
+  each of the `n` identical atoms separately: a `Nat` is a unary encoding,
+  so every atom is the same generator and its image need only be computed
+  once. The fold starts from the image's own unit (`image[:0]`) rather than
+  the declared codomain unit `cod.ob()`, since the latter can be a supertype
+  of the image — `Diagram.to_hypergraph` on a `Nat`-typed permutation maps a
+  `Nat` boundary through a functor whose `cod.ob` is the category's generic
+  `Ty`, and `Ty() @ Nat` is refused. The old names still work
+  through a `DeprecationWarning`, via a new `utils.deprecated_alias` taking a
+  mapping of every name a module deprecates. `utils.deprecated_ob`, the
+  single-purpose `Ob`→`Wire` wrapper it generalises, is removed: its six call
+  sites (`biclosed`, `braided`, `compact`, `feedback`, `grammar.pregroup`,
+  `quantum.circuit`) now call `deprecated_alias(__name__, {"Ob": "Wire"})`
+  directly, the same as `rigid`/`pivotal`/`frobenius`/`monoidal` already do
+  for their `PRO`→`Nat` alias
+  ([#709](https://github.com/discopy/discopy/issues/709)).
+- Matplotlib SVGs adapt to the page behind them: they are saved on a
+  transparent canvas and open with a `prefers-color-scheme: dark` media
+  query that turns the elements drawn black on that canvas — wires, braids,
+  wire labels, spiders and their labels, control dots — white on a dark
+  page, so a single SVG file reads on both light and dark backgrounds.
+  Elements whose readability does not depend on the page keep their static
+  colours: box interiors stay white with black labels, coloured regions
+  keep their fill and the black strokes over them. White spiders, e.g. the
+  symbol of an `Equation`, are drawn unfilled so they leave no white patch
+  on a non-white page, and raster formats keep their white background since
+  they cannot adapt. The docs let content images follow the theme toggle by
+  setting their `color-scheme`, which propagates into the SVG media query,
+  instead of painting a white plate behind them in dark mode
+  ([#453](https://github.com/discopy/discopy/issues/453), superseding the
+  static outlines of
+  [#497](https://github.com/discopy/discopy/pull/497)). The hand-drawn
+  snake equation of the README header adapts the same way, replacing its
+  separate `snake-equation-dark.svg`, and the unreferenced
+  `frobenius-axioms.svg` is deleted.
 - A `NamedGeneric` subscript reads its subscript's own `factory_name`
   instead of its bare `__name__`, so `Hypergraph[frobenius.Diagram]`
   reprs and hashes with its full dotted name rather than the collapsed
@@ -402,6 +575,24 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Removed
 
+- `cat.Bubble.dagger`: a bubble's dagger was inherited from `Box.dagger`,
+  which reconstructs with `type(self)(name, cod, dom, ...)` — positional
+  arguments `Bubble.__init__` reads as `*args`, so it crashed with
+  `AttributeError` on the very first (non-arrow) argument. `Bubble` now
+  daggers each of its `args`, swaps `dom`/`cod` and carries `data`/`is_dagger`
+  through like `Box.dagger` does
+  ([#55](https://github.com/discopy/discopy/issues/55)).
+- `style-review.yml`'s hand-over to the correctness reviewer, and its
+  token generation, ran on every style review rather than the intended
+  ones. Both conditions were written as `if: >` folding a wrapped
+  `${{ ... }}` into a string with a trailing newline: with characters
+  around it the expression is no longer the whole value, so GitHub read a
+  non-empty string and took it as true. `@cubic-dev-ai review` was
+  therefore posted whatever the style review found, where it is meant to
+  wait for a clean one. [#634](https://github.com/discopy/discopy/pull/634)
+  rewrote both conditions and the shape survived, so the fix is applied to
+  its versions: written bare, as the file's other five conditions are
+  ([#645](https://github.com/discopy/discopy/pull/645)).
 - The in-house style reviewer — `.github/style-review/` (the `review.py`,
   `post.py`, `history.py`, `thread.py` and `github.py` scripts and their
   `prompt.md`), the `style-review.yml` workflow, and their tests under
@@ -422,9 +613,30 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
-- `finset.Function.ob` is `discopy.testing.Natural` rather than the bare
-  `int`, which the strategy and axiom machinery could not treat as a
-  wire-like generating object.
+- The marimo notebook previews in the docs follow the theme switch. The
+  notebooks are exported with marimo's `system` theme and the docs relay
+  the resolved theme into each notebook's iframe through marimo's
+  host-theming bridge, since browsers do not forward the page's colour
+  scheme into an iframe: only the browser-level preference reached it,
+  turning the wires of the adaptive SVGs white on the notebook's white
+  background for dark-mode readers. The diagrams drawn inline in a
+  notebook read the browser preference rather than the notebook theme,
+  so the export inserts a stylesheet keying their adaptive colours to
+  marimo's theme class, which outweighs the media query of
+  `drawing.backend.DARK_MODE_STYLE`
+  ([#453](https://github.com/discopy/discopy/issues/453)).
+- `Hypergraph.rotate` exchanged the two boundaries of the hypergraph and
+  replaced each box by its rotation, but left the *ports* of those boxes
+  and the spiders where they were: the wires reading a box's domain went
+  on reading its domain although the rotated box's domain is its old
+  codomain, and a spider typed `a` stayed `a` under a rotation that made
+  every port around it `a.r`. Both are invisible on an endomorphism of a
+  self-dual type, which is most of what the drawing and conversion tests
+  rotate — `test_Hypergraph_rotate` rotated the identity and nothing
+  else. Anything else raised: a bare `ValueError` from
+  `Hypergraph.__init__` when the two arities differ, an `AxiomError` on
+  the spider types when they do not. `.l` and `.r` are involutions again
+  ([#716](https://github.com/discopy/discopy/issues/716)).
 - `Hypergraph.to_graph` keyed spider nodes by the boundary's object
   rather than the spider's own type, creating a phantom attributeless
   node whenever a boundary wire reads an adjoint of its spider type, so
@@ -451,8 +663,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   and `Feedback.dagger` raises a clean `AxiomError`, the delay being
   irreversible, instead of a `TypeError` from generic bubble
   reconstruction.
-
-
+- Region painting computes the exact extents of each coloured region —
+  polygons bounded by the wires on both sides, subdivided per height band —
+  instead of overpainting everything to the right of each wire up to the
+  full canvas width: translucent colours are no longer painted twice where
+  two regions of the same colour are adjacent, white regions are not
+  painted at all, so they erase to the background, and neither is the
+  inside of a box, which is a 2-cell rather than a region, so no colour
+  can bleed out around its border
+  ([#521](https://github.com/discopy/discopy/issues/521)).
 - Pivotal diagram-to-map conversion now encodes cups and caps as `CMap`
   wiring rather than keeping them as boxes
   ([#532](https://github.com/discopy/discopy/pull/532)).
@@ -523,6 +742,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   ([#387](https://github.com/discopy/discopy/pull/387)).
 - Bubble drawing
   ([#431](https://github.com/discopy/discopy/pull/431)).
+- A bubble whose inside and outside have a different number of wires keeps
+  its boundary. Drawing the sides of a square frame with zero width is now
+  the business of `Drawing.slot` and `Drawing.frame`, which have the colours
+  of the regions they separate to show the edge in their place, rather than
+  of every bubble drawn as a square, which has none and so came out with no
+  visible outline at all
+  ([#520](https://github.com/discopy/discopy/issues/520),
+  [#569](https://github.com/discopy/discopy/issues/569)).
 - Controlled gate drawing: the control wire is anchored on the indexed
   input of the controlled box rather than its first one, so gates with a
   classical wire or a distance other than one are drawn on the right wires
@@ -582,9 +809,56 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `then` and re-validating the whole prefix at every step. This speeds
   up `Diagram.eval` on every tensor backend
   ([#525](https://github.com/discopy/discopy/pull/525)).
+- `Hypergraph.from_diagram` is linear rather than quadratic in the number
+  of layers, mirroring `CMap.from_glued`: the new `Hypergraph.from_glued`
+  glues the image of every box onto a scan of open wires with a single
+  union-find pass, instead of folding the images with `then`, which
+  recomputes the pushout and relabels every spider and box built so far
+  at each layer. A closed loop left by gluing a cap directly onto a cup
+  survives as a scalar spider, since it is never referenced by the
+  scan and would otherwise vanish silently. This speeds up
+  `symmetric.Equation`, `compact.Equation`, `frobenius.Equation`,
+  `Hypergraph.simplify` and `Diagram.foliation`, all of which go through
+  `Diagram.to_hypergraph`
+  ([#623](https://github.com/discopy/discopy/issues/623)).
+- `CMap.ports` is a `cached_property`, confirmed with a regression test
+  rather than assumed from `CMap`'s immutability: `Hypergraph.from_map`
+  reads it once per box, so a plain `@property` rebuilding the whole port
+  list on every access made `CMap.to_hypergraph` quadratic in the number
+  of boxes, 226 s at 3200 boxes. It is now linear, e.g. 65.6 ms at 800
+  boxes and 294.9 ms at 3200, down from 5.4 s and 226 s
+  ([#624](https://github.com/discopy/discopy/issues/624)).
 
 ### Project
 
+- `build.yml`'s `test` job gets 25 minutes rather than 15. The axioms of
+  every category are checked once each by the unit suite as well as
+  searched by the matrix, which takes the job past the backstop
+  [#591](https://github.com/discopy/discopy/issues/591) set against a job
+  wedged with nothing to report: on this branch 3.14 finishes in nine
+  minutes and 3.12 and 3.13 are cancelled mid-run.
+- The docs build on Sphinx 7.4 rather than 7.2, whose `stringify_annotation`
+  handled a `TypeVar` but not a `ParamSpec`, so a signature such as
+  `Callable[Concatenate[type, P], T]` crashed autodoc on Python 3.14, where
+  `typing.get_type_hints` resolves the PEP 695 type parameter. The pin and
+  the lock move, `myst-parser == 2.0.*` allowing any Sphinx below 8, and the
+  `drawing`, `grammar`, `python` and `quantum` API pages list their
+  submodules without the module prefix, which Sphinx 7.4 warns against
+  under `automodule`
+  ([#722](https://github.com/discopy/discopy/issues/722)).
+- `CONTRIBUTING.md`'s LLM guidelines require an LLM contribution to be
+  authored under a GitHub handle separate from the human who prompted it,
+  and a pull request authored by an LLM to be approved by at least one
+  human other than the one who prompted it.
+- `.claude/hooks/session-start.sh`, registered in `.claude/settings.json`
+  as a `SessionStart` hook for Claude Code on the web, syncs the full
+  development environment before the session starts, so that the linter
+  and the whole test suite run as `CONTRIBUTING.md` says; without the
+  registration the script is inert. When `download.pytorch.org`, the index
+  `pyproject.toml` pins torch to on Linux, is not reachable from the
+  session, it syncs everything but torch and installs the locked version
+  from PyPI instead, whose wheels run on the CPU. Every agent session so
+  far ran `pytest --skip-extra` and reported the torch tests skipped.
 - The `TODO.md` rule of `RULES.md` is split in two: creation stays point 1,
   and a new point 2 has the agent delete its own `TODO.md` once every
   point is `[x]` or filed as an issue, taking the pull request out of draft:

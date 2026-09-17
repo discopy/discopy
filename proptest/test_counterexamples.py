@@ -1,16 +1,17 @@
 """
 Deterministic replay of recorded counterexamples, the memory of the
-property suite: :mod:`discopy.testing` documents the recording protocol.
+property suite: :mod:`discopy.axioms` documents the recording protocol.
 """
 
 from typing import NamedTuple
 
 import pytest
 
-from discopy import biclosed, braided, cat, compact, feedback, pivotal, ribbon
+from discopy import biclosed, braided, cat, feedback, pivotal, ribbon
+from discopy.abc import Nat
 from discopy.python import finset
-from discopy.testing import (
-    GENERATORS, Atomic, Axiom, AxiomFailure, Natural, Relabelling)
+from discopy.axioms import (
+    GENERATORS, Atomic, Axiom, AxiomFailure, Relabelling)
 from discopy.utils import AxiomError, factory_name
 
 
@@ -30,9 +31,9 @@ COLLAPSE = Relabelling(tuple(
 The relabelling the search shrunk to: every generator sent to the first.
 
 It names all of them because every functor the strategy builds does, see
-:obj:`discopy.testing.GENERATORS`. The images are what shrinking landed on
-rather than what the bug needs — composing on the left forgets the functor
-whatever it relabels, so the identity relabelling is a counterexample too.
+:obj:`discopy.axioms.GENERATORS`. The images are what shrinking landed on
+rather than what the bug needs: composing the identity functor on the
+left preserves its action but compares unequal (#648).
 """
 
 MEMORY = feedback.Ty("a") @ feedback.Ty("b")
@@ -41,9 +42,8 @@ COUNTEREXAMPLES = (
     Counterexample(
         axiom=cat.Functor.unitality,
         args=(cat.Functor(ob_map=COLLAPSE, ar_map=COLLAPSE), ),
-        reason="MappingOrCallable.then iterates the keys of the left-hand "
-               "map and the identity functor enumerates none, so id >> f "
-               "forgets everything f does."),
+        reason="Composing the identity functor on the left of a mapping "
+               "preserves its action but compares unequal (#648)."),
     Counterexample(
         axiom=braided.Diagram.braid_naturality,
         args=(braided.Box("f", braided.Ty("a"), braided.Ty("a")),
@@ -73,26 +73,20 @@ COUNTEREXAMPLES = (
         args=(Atomic(pivotal.Ty("a")), ),
         reason="A free twist is a box, not the trace of a braid."),
     Counterexample(
-        axiom=compact.Diagram.rotate_contravariance,
-        args=((compact.Box("f", compact.Ty("a"), compact.Ty("a")),
-               compact.Box("g", compact.Ty("a"), compact.Ty("a"))), ),
-        reason="to_hypergraph drops the rotation of a box, so the equation "
-               "holds but cannot be checked up to hypergraph."),
-    Counterexample(
         axiom=feedback.Diagram.feedback_joining,
         args=((feedback.Box(
                    "f", MEMORY[:1] @ MEMORY.delay(), MEMORY[:1] @ MEMORY),
                MEMORY), ),
         reason="feedback.Diagram.feedback unrolls its memory in the wrong "
-               "order (#606)"),
+               "order (#649)"),
     Counterexample(
         axiom=finset.Function.hexagon_left,
-        args=(Atomic(Natural(1)), Atomic(Natural(1)), Atomic(Natural(1))),
+        args=(Atomic(Nat(1)), Atomic(Nat(1)), Atomic(Nat(1))),
         reason="finset.Function.swap returns the inverse permutation "
                "(#657)"),
     Counterexample(
         axiom=finset.Function.hexagon_right,
-        args=(Atomic(Natural(1)), Atomic(Natural(1)), Atomic(Natural(1))),
+        args=(Atomic(Nat(1)), Atomic(Nat(1)), Atomic(Nat(1))),
         reason="finset.Function.swap returns the inverse permutation "
                "(#657)"),
     Counterexample(
@@ -116,7 +110,7 @@ def counterexample_parameters():
             if axiom.broken else ()
         yield pytest.param(
             axiom, args, marks=marks,
-            id=f"{factory_name(axiom.carrier)}.{axiom.name}")
+            id=f"{factory_name(axiom.category)}.{axiom.name}")
 
 
 @pytest.mark.parametrize("axiom, args", counterexample_parameters())

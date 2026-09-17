@@ -3,13 +3,24 @@
 from pytest import raises
 
 
+def test_permutation_strategy():
+    from hypothesis import find
+    from discopy.abc import Nat
+    from discopy.python.finset import Permutation
+
+    permutation = find(
+        Permutation.strategy(dom=Nat(3), cod=3), lambda p: p != (0, 1, 2))
+    assert permutation.dom == permutation.cod == Nat(3)
+    assert Permutation.strategy(dom=Nat(2), cod=3).is_empty
+
+
 def test_FinSet():
     from discopy.markov import Ty, Diagram, Functor
     from discopy.python import finset
 
     p = finset.Permutation.swap(2, 3)
     assert isinstance(p, finset.Function)
-    assert isinstance(p, finset.SymmetricCategory)
+    assert isinstance(p, finset.PROP)
     assert p == (3, 4, 0, 1, 2)
     assert p[-1] == 2
     assert p >> p.dagger() == finset.Permutation.id(5)
@@ -74,6 +85,7 @@ def test_FinSet():
 def test_strategy():
     from hypothesis import find
 
+    from discopy.abc import Nat
     from discopy.python import finset
 
     function = find(finset.Function.strategy(min_leaves=2, max_leaves=2),
@@ -81,14 +93,14 @@ def test_strategy():
     assert function.then(finset.Function.id(function.cod)) == function
     generator = find(finset.Function.generator_strategy(cod=1, max_size=1),
                      lambda value: True)
-    assert generator.dom == 1
+    assert generator.dom == Nat(1)
     permutation = find(finset.Permutation.strategy(dom=3),
                        lambda value: not value.is_identity)
-    assert permutation.dom == 3 == permutation.cod
+    assert permutation.dom == Nat(3) == permutation.cod
 
 
 def test_axioms():
-    from discopy import testing
+    from discopy import axioms
     from discopy.python import finset
 
-    testing.assert_axioms(finset.Function, finset.Permutation)
+    axioms.assert_axioms(finset.Function, finset.Permutation)
