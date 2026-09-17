@@ -620,7 +620,7 @@ class TermBase(Box):
         return self.alpha_eq_under(
             [Substitution({}) for _ in terms], *others, free=free)
 
-    def alpha_eq_under(
+    def alpha_eq_under(  # pylint: disable=unused-argument
             self, substitutions: list[Substitution], *others: Term,
             depth: int = 0, free: set[str] = frozenset()) -> bool:
         """
@@ -629,8 +629,9 @@ class TermBase(Box):
         fresh variable of their binder, the same one in every term: the
         terms are alpha-equivalent when the substituted terms are equal,
         which is checked without building them. A leaf, i.e. a variable or
-        a constant, compares its images under the substitutions; every
-        other term former recurses into its subterms.
+        a constant, compares its images under the substitutions and reads
+        neither ``depth`` nor ``free``, the binders' business; every other
+        term former recurses into its subterms.
 
         Entering a binder extends every substitution in place with the
         variable it binds, by a fresh variable named after the ``depth`` of
@@ -751,8 +752,10 @@ class TermBase(Box):
         terms.
         """
         x = cls.ob(GENERATORS[0])
-        f = ((x << x) << terms[0].cod)("f")
-        return AlphaEquation(*(x(lambda w: f(term)(w)) for term in terms))
+        f, w = ((x << x) << terms[0].cod)("f"), cls.ob.variable_factory("w", x)
+        return AlphaEquation(*(
+            cls.ob.abstraction_factory(w, f(term)(w), False)
+            for term in terms))
 
     @axiom
     def alpha_soundness(cls, terms: Renamed[Self]) -> Equation:
@@ -866,6 +869,7 @@ class Application(TermBase):
 
     def alpha_eq_under(self, substitutions, *others, depth=0,
                        free=frozenset()):
+        """ Applications on one side, functions and arguments alike. """
         if any(type(other) is not type(self) or other.left != self.left
                for other in others):
             return False
@@ -915,6 +919,7 @@ class Abstraction(TermBase):
 
     def alpha_eq_under(self, substitutions, *others, depth=0,
                        free=frozenset()):
+        """ Binders of one type on one side, bodies alike under a fresh. """
         if any(type(other) is not type(self)
                or (other.left, other.var.cod) != (self.left, self.var.cod)
                for other in others):
@@ -989,6 +994,9 @@ class Sampler:
         types : The types the exponents of applications are drawn from.
         letters : The letters naming the bound variables, one per level.
         counter : The numbers of the free variables and constants built.
+        linear : Whether each bound variable occurs exactly once, in the
+            order of the binders, as :mod:`biclosed` requires; a term of
+            :mod:`discopy.closed` may use one any number of times.
 
     Example
     -------
@@ -1004,6 +1012,7 @@ class Sampler:
     types: Sequence[Ty]
     letters: Sequence[str]
     counter: Iterator[int] = field(default_factory=count)
+    linear: bool = True
 
     def choose(self, options: Sequence):
         """ Pick an option by the next choice, the first when they ran out. """
@@ -1035,28 +1044,37 @@ class Sampler:
                 result, variable, False)
         return result
 
+    @staticmethod
+    def leaf(variable: Variable) -> Variable:
+        """ A bound variable as a leaf. """
+        return variable
+
     def leaves(self, cod: Ty, bound: tuple[Variable, ...],
                extra: bool) -> list[Callable[[], Term]]:
         """
         The leaves allowed: a constant or, if ``extra``, a free variable
-        when no variable is bound, the bound variable when it is the only
-        one and has the type.
+        when no variable is bound, and the bound variables of the type; a
+        linear term takes the only bound variable and nothing else.
         """
         result = []
-        if not bound:
+        if not bound or not self.linear:
             result.append(partial(self.constant, cod))
-        if not bound and extra:
+        if (not bound or not self.linear) and extra:
             result.append(partial(self.variable, cod))
-        if len(bound) == 1 and bound[0].cod == cod:
-            result.append(lambda: bound[0])
+        if not self.linear or len(bound) == 1:
+            result += [partial(self.leaf, variable)
+                       for variable in bound if variable.cod == cod]
         return result
 
     def splits(self, prefix: tuple, suffix: tuple, extra: bool) -> list:
         """
         The ways of splitting the constraints between two subterms in
         sequence: at a bound variable of the prefix, among the extras or at
-        a bound variable of the suffix, each a pair of constraints.
+        a bound variable of the suffix, each a pair of constraints; a term
+        that need not be linear passes every bound variable to both.
         """
+        if not self.linear:
+            return [((prefix, suffix, extra), (prefix, suffix, extra))]
         result = [((prefix[:i], (), False), (prefix[i:], suffix, extra))
                   for i in range(len(prefix) + 1)]
         result += [((prefix, (), True), ((), suffix, True))] if extra else []

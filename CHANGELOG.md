@@ -26,7 +26,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   sense of `discopy.axioms`: `TermBase.generate` builds a planar linear
   term of a given type from a sequence of choices and the letters naming
   its bound variables, through a `Sampler` with one method per kind of
-  node, `TermBase.strategy` draws them and `Renamed[C]`
+  node, linear and planar for `biclosed`, free to copy and discard for
+  `closed`, `TermBase.strategy` draws them and `Renamed[C]`
   draws one shape under several namings, so that the laws of
   alpha-equivalence are axioms of `TermBase` checked by the property
   matrix, where `biclosed.TermBase` and `closed.TermBase` are now

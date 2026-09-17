@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from discopy.closed import *
 from discopy.axioms import assert_axioms
+from discopy.biclosed import Sampler
 
 
 def test_exp():
@@ -231,6 +232,20 @@ def test_alpha_eq_avoids_the_free_names():
     f, x0 = (X >> Y)("f"), Variable("x0", X)
     assert not X(lambda x0: f(x0)).alpha_eq(X(lambda y: f(x0)))
     assert X(lambda x0: f(x0)).alpha_eq(X(lambda y: f(y)))
+
+
+def test_Sampler_nonlinear():
+    X, Y = Ty("X"), Ty("Y")
+    x0, x1 = Variable("x0", X), Variable("x1", X)
+    sampler = Sampler(TermBase, iter([]), [X], "x", linear=False)
+    assert [leaf() for leaf in sampler.leaves(X, (x0, x1), True)][2:] == [x0, x1]
+    assert len(sampler.leaves(Y, (x0, x1), False)) == 1
+    assert sampler.splits((x0, ), (x1, ), True) == [
+        (((x0, ), (x1, ), True), ((x0, ), (x1, ), True))]
+    choices = [4, 2, 0, 2, 0, 0, 2, 2]
+    term = TermBase.generate(Y << X, choices, [X], "x")
+    assert term.alpha_eq(TermBase.generate(Y << X, choices, [X], "y"))
+    assert str(term) == "X(lambda x0: (X >> (X >> Y))('c0')(x0)(x0))"
 
 
 def test_axioms():

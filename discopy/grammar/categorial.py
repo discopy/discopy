@@ -288,6 +288,7 @@ class TypeRaising(TermBase):
 
     def alpha_eq_under(self, substitutions, *others, depth=0,
                        free=frozenset()):
+        """ Type raisings of one base with alpha-equivalent children. """
         if any(type(other) is not type(self) or other.base != self.base
                for other in others):
             return False
@@ -347,6 +348,7 @@ class BinaryTerm(TermBase):
 
     def alpha_eq_under(self, substitutions, *others, depth=0,
                        free=frozenset()):
+        """ Compositions of one kind with alpha-equivalent sides. """
         if any(type(other) is not type(self) for other in others):
             return False
         return self.left.alpha_eq_under(
