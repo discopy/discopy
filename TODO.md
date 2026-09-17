@@ -11,11 +11,11 @@
 round: the six laws are all positive, stated on terms alpha-equivalent by construction, so an
 `alpha_eq` that never says no passes every cell; the negative direction lives in unit tests only.
 
-- [ ] `Canonical[C]`, a `Testable` tuple like `Renamed`: two shapes of one type, each generated
+- [WIP] @session_01NTmDuo6GWCjsJ4uV7FBmjQ-2026-09-17 19:31 `Canonical[C]`, a `Testable` tuple like `Renamed`: two shapes of one type, each generated
       under its own naming and under the one naming `"x"`, the second shape the first's or
       another; `TermBase.choices` shared with `shapes`
-- [ ] `alpha_completeness`: two terms are alpha-equivalent exactly when their canonical forms
+- [WIP] @session_01NTmDuo6GWCjsJ4uV7FBmjQ-2026-09-17 19:31 `alpha_completeness`: two terms are alpha-equivalent exactly when their canonical forms
       are equal, the direction the other laws lack; `assert_axioms` and the matrix cells green
       at both levels
-- [ ] the `proptest` label, so the matrix runs on CI rather than locally only
-- [ ] changelog, description, the thread answered
+- [WIP] @session_01NTmDuo6GWCjsJ4uV7FBmjQ-2026-09-17 19:31 the `proptest` label, so the matrix runs on CI rather than locally only
+- [WIP] @session_01NTmDuo6GWCjsJ4uV7FBmjQ-2026-09-17 19:31 changelog, description, the thread answered
