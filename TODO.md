@@ -6,4 +6,4 @@
 
 — coderabbitai, 2026-09-17 17:29 UTC, on `discopy/biclosed.py` line 673.
 
-- [WIP] @session_01NTmDuo6GWCjsJ4uV7FBmjQ-2026-09-17 17:35 `Sampler`, a dataclass holding the choices, the types, the letters and the counter, with one method per procedure — `choose`, `constant`, `variable`, `bound`, `spine`, `leaves`, `splits`, `application`, `applications`, `abstraction`, `term` — `TermBase.generate` reduced to building one and asking it for a term, the methods unit-tested
+- [x] `Sampler`, a dataclass holding the choices, the types, the letters and the counter, with one method per procedure — `choose`, `constant`, `variable`, `bound`, `spine`, `leaves`, `splits`, `application`, `applications`, `abstraction`, `term` — `TermBase.generate` reduced to building one and asking it for a term, the methods unit-tested

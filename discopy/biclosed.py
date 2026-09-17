@@ -29,6 +29,7 @@ Summary
     Variable
     Application
     Abstraction
+    Sampler
     Renamed
     AlphaEquation
 
@@ -83,9 +84,12 @@ which lands in :class:`CMap` as a biclosed category has no trace.
 from __future__ import annotations
 
 from abc import abstractmethod
+from dataclasses import dataclass, field
+from functools import partial
 from inspect import signature
 from itertools import count
-from typing import TYPE_CHECKING, Callable, ClassVar, Self, Sequence
+from typing import (
+    TYPE_CHECKING, Callable, ClassVar, Iterator, Self, Sequence)
 
 from discopy import monoidal, cmap
 from discopy.abc import BiclosedCategory
@@ -647,14 +651,8 @@ class TermBase(Box):
         each level of binders is named by the letter at that level, so that
         the same choices under other letters give an alpha-equivalent term.
         Free variables are named ``v0, v1, ...`` and constants ``c0, c1, ...``.
-
         The term is planar and linear, as any term of a closed category is
-        too: the free variables of each subterm open with a ``prefix`` and
-        close with a ``suffix`` of the bound variables in scope, with
-        ``extra`` free ones in between or not, which an application splits
-        between its function and its argument and an abstraction extends
-        with the variable it binds; a subterm that cannot be a leaf is a
-        constant applied to the bound variables in order.
+        too, see :class:`Sampler` for the procedure.
 
         Example
         -------
@@ -665,79 +663,7 @@ class TermBase(Box):
         >>> assert term.alpha_eq(
         ...     TermBase.generate(Y << X, [8, 0, 0], [X], "z"))
         """
-        choices, counter = iter(choices), count()
-
-        def choose(options):
-            return options[next(choices, 0) % len(options)]
-
-        def spine(cod, bound):
-            function_type = cod
-            for variable in reversed(bound):
-                function_type = function_type << variable.cod
-            result = cls.ob.constant_factory(
-                f"c{next(counter)}", function_type)
-            for variable in bound:
-                result = cls.ob.application_factory(result, variable, False)
-            return result
-
-        def leaves(cod, bound, extra):
-            result = []
-            if not bound:
-                result.append(lambda: cls.ob.constant_factory(
-                    f"c{next(counter)}", cod))
-            if not bound and extra:
-                result.append(lambda: cls.ob.variable_factory(
-                    f"v{next(counter)}", cod))
-            if len(bound) == 1 and bound[0].cod == cod:
-                result.append(lambda: bound[0])
-            return result
-
-        def applications(cod, prefix, suffix, extra, level):
-            splits = [((prefix[:i], (), False), (prefix[i:], suffix, extra))
-                      for i in range(len(prefix) + 1)]
-            splits += [((prefix, (), True), ((), suffix, True))] if extra\
-                else []
-            splits += [((prefix, suffix[:j], extra), (suffix[j:], (), False))
-                       for j in range(len(suffix) + 1)]
-
-            def application(first, second, left):
-                exponent = choose(types)
-                if left:
-                    args = term(exponent, *first, level)
-                    func = term(exponent >> cod, *second, level)
-                    return cls.ob.application_factory(func, args, True)
-                func = term(cod << exponent, *first, level)
-                args = term(exponent, *second, level)
-                return cls.ob.application_factory(func, args, False)
-
-            return [lambda split=split, left=left: application(*split, left)
-                    for split in splits for left in (False, True)]
-
-        def abstractions(cod, prefix, suffix, extra, level):
-            if not cod.is_exp:
-                return []
-
-            def abstraction(left):
-                var = cls.ob.variable_factory(
-                    f"{letters[level % len(letters)]}{level}", cod.exponent)
-                opening, closing = ((var, *prefix), suffix) if left\
-                    else (prefix, (*suffix, var))
-                body = term(cod.base, opening, closing, extra, level + 1)
-                return cls.ob.abstraction_factory(var, body, left)
-
-            return [lambda: abstraction(cod.is_under)]
-
-        def term(cod, prefix, suffix, extra, level):
-            bound = prefix + suffix
-            options = leaves(cod, bound, extra)
-            choice = next(choices, None)
-            if choice is None:
-                return options[0]() if options else spine(cod, bound)
-            options += applications(cod, prefix, suffix, extra, level)
-            options += abstractions(cod, prefix, suffix, extra, level)
-            return options[choice % len(options)]()
-
-        return term(cod, (), (), True, 0)
+        return Sampler(cls, iter(choices), types, letters).term(cod)
 
     @classmethod
     def shapes(cls, *, types=None, cod=None) -> st.SearchStrategy[tuple]:
@@ -1007,6 +933,158 @@ for law in (
         "dagger_involution", "dagger_contravariance"):
     setattr(TermBase, law, getattr(Box, law).inapplicable(
         "A term is a box: the laws of its category are the diagram's."))
+
+
+@dataclass
+class Sampler:
+    """
+    Samples a term from a sequence of choices, one per node, taking leaves
+    once it runs out, see :meth:`TermBase.generate`.
+
+    The term is planar and linear: the free variables of each subterm open
+    with a ``prefix`` and close with a ``suffix`` of the bound variables in
+    scope, with ``extra`` free ones in between or not, which an application
+    :meth:`splits` between its function and its argument and an
+    :meth:`abstraction` extends with the variable it binds; a subterm that
+    cannot be a leaf is a :meth:`spine`, a constant applied to the bound
+    variables in order.
+
+    Parameters:
+        category : The class of terms to sample.
+        choices : The choices left, consumed one per node.
+        types : The types the exponents of applications are drawn from.
+        letters : The letters naming the bound variables, one per level.
+        counter : The numbers of the free variables and constants built.
+
+    Example
+    -------
+    >>> X, Y = Ty("X"), Ty("Y")
+    >>> sampler = Sampler(TermBase, iter([]), [X], "x")
+    >>> print(sampler.spine(Y, (Variable("x0", X), )))
+    (Y << X)('c0')(x0)
+    >>> print(sampler.term(Y << X))
+    (Y << X)('c1')
+    """
+    category: type[TermBase]
+    choices: Iterator[int]
+    types: Sequence[Ty]
+    letters: Sequence[str]
+    counter: Iterator[int] = field(default_factory=count)
+
+    def choose(self, options: Sequence):
+        """ Pick an option by the next choice, the first when they ran out. """
+        return options[next(self.choices, 0) % len(options)]
+
+    def constant(self, cod: Ty) -> Constant:
+        """ A fresh constant of a given type. """
+        return self.category.ob.constant_factory(
+            f"c{next(self.counter)}", cod)
+
+    def variable(self, cod: Ty) -> Variable:
+        """ A fresh free variable of a given type. """
+        return self.category.ob.variable_factory(
+            f"v{next(self.counter)}", cod)
+
+    def bound(self, level: int, cod: Ty) -> Variable:
+        """ The variable bound at a given level, named by its letter. """
+        letter = self.letters[level % len(self.letters)]
+        return self.category.ob.variable_factory(f"{letter}{level}", cod)
+
+    def spine(self, cod: Ty, bound: tuple[Variable, ...]) -> Term:
+        """ A fresh constant applied to the bound variables in order. """
+        function_type = cod
+        for variable in reversed(bound):
+            function_type = function_type << variable.cod
+        result = self.constant(function_type)
+        for variable in bound:
+            result = self.category.ob.application_factory(
+                result, variable, False)
+        return result
+
+    def leaves(self, cod: Ty, bound: tuple[Variable, ...],
+               extra: bool) -> list[Callable[[], Term]]:
+        """
+        The leaves allowed: a constant or, if ``extra``, a free variable
+        when no variable is bound, the bound variable when it is the only
+        one and has the type.
+        """
+        result = []
+        if not bound:
+            result.append(partial(self.constant, cod))
+        if not bound and extra:
+            result.append(partial(self.variable, cod))
+        if len(bound) == 1 and bound[0].cod == cod:
+            result.append(lambda: bound[0])
+        return result
+
+    def splits(self, prefix: tuple, suffix: tuple, extra: bool) -> list:
+        """
+        The ways of splitting the constraints between two subterms in
+        sequence: at a bound variable of the prefix, among the extras or at
+        a bound variable of the suffix, each a pair of constraints.
+        """
+        result = [((prefix[:i], (), False), (prefix[i:], suffix, extra))
+                  for i in range(len(prefix) + 1)]
+        result += [((prefix, (), True), ((), suffix, True))] if extra else []
+        result += [((prefix, suffix[:j], extra), (suffix[j:], (), False))
+                   for j in range(len(suffix) + 1)]
+        return result
+
+    def application(self, cod: Ty, first: tuple, second: tuple, left: bool,
+                    level: int) -> Application:
+        """
+        A function applied to an argument of an exponent drawn from the
+        types, ``first`` the constraints of whichever comes first in the
+        free variables: the function, or the argument if ``left``.
+        """
+        exponent = self.choose(self.types)
+        if left:
+            args = self.term(exponent, *first, level)
+            func = self.term(exponent >> cod, *second, level)
+            return self.category.ob.application_factory(func, args, True)
+        func = self.term(cod << exponent, *first, level)
+        args = self.term(exponent, *second, level)
+        return self.category.ob.application_factory(func, args, False)
+
+    def applications(self, cod: Ty, prefix: tuple, suffix: tuple,
+                     extra: bool, level: int) -> list[Callable[[], Term]]:
+        """ The applications allowed, one per split and side. """
+        return [partial(self.application, cod, first, second, left, level)
+                for first, second in self.splits(prefix, suffix, extra)
+                for left in (False, True)]
+
+    def abstraction(self, cod: Ty, prefix: tuple, suffix: tuple, extra: bool,
+                    level: int) -> Abstraction:
+        """
+        The abstraction of the variable bound at this level, first in the
+        free variables of the body when the type is a left exponential and
+        last otherwise.
+        """
+        left = cod.is_under
+        var = self.bound(level, cod.exponent)
+        opening, closing = ((var, *prefix), suffix) if left\
+            else (prefix, (*suffix, var))
+        body = self.term(cod.base, opening, closing, extra, level + 1)
+        return self.category.ob.abstraction_factory(var, body, left)
+
+    def term(self, cod: Ty, prefix: tuple = (), suffix: tuple = (),
+             extra: bool = True, level: int = 0) -> Term:
+        """
+        A term of a given type under the constraints: a leaf when the
+        choices ran out, or the spine when none fits, else the option the
+        next choice picks among the leaves, the applications and the
+        abstraction if the type is an exponential.
+        """
+        bound = prefix + suffix
+        options = self.leaves(cod, bound, extra)
+        choice = next(self.choices, None)
+        if choice is None:
+            return options[0]() if options else self.spine(cod, bound)
+        options += self.applications(cod, prefix, suffix, extra, level)
+        if cod.is_exp:
+            options.append(partial(
+                self.abstraction, cod, prefix, suffix, extra, level))
+        return options[choice % len(options)]()
 
 
 class Renamed(Testable, NamedGeneric["factory"], tuple):

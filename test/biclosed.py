@@ -175,6 +175,19 @@ def test_generate():
     assert spine.alpha_eq(TermBase.generate((Z << Y) << X, [8, 8], [X], "yz"))
 
 
+def test_Sampler():
+    X, Y = Ty("X"), Ty("Y")
+    x0, x1 = Variable("x0", X), Variable("x1", Y)
+    sampler = Sampler(TermBase, iter([]), [X], "x")
+    assert sampler.spine(Y, (x0, x1)) == ((Y << Y) << X)("c0")(x0)(x1)
+    assert sampler.variable(X) == Variable("v1", X)
+    assert sampler.bound(1, Y) == x1 and sampler.choose("abc") == "a"
+    assert [leaf() for leaf in sampler.leaves(X, (x0, ), True)] == [x0]
+    assert sampler.leaves(Y, (x0, ), True) == []
+    assert len(sampler.splits((x0, ), (x1, ), True)) == 5
+    assert Sampler(TermBase, iter([1]), [X], "x").term(Y) == Variable("v0", Y)
+
+
 def test_axioms():
     assert_axioms(TermBase)
 
