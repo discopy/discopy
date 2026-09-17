@@ -7,10 +7,10 @@ rather than in any one of them.
 
 import pytest
 
-from discopy import cat
+from discopy import biclosed, cat, closed
 from discopy.utils import factory_name
 
-CATEGORIES = (cat.Arrow, )
+CATEGORIES = (cat.Arrow, biclosed.TermBase, closed.TermBase)
 
 
 def category_parameters(classify=lambda category: ()):

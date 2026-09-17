@@ -9,6 +9,31 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `biclosed.TermBase.alpha_eq`, the alpha-equivalence of lambda terms,
+  i.e. equality up to the names of their bound variables, of any number
+  of terms in one pass: the helper `alpha_eq_under` carries a substitution
+  of the bound variables by the depth of their binder for each term,
+  extended in place on entering a binder and restored on leaving it, so
+  the check is linear in the size of the terms rather than a renamed copy
+  at every binder. Free variables are compared by name, bound ones by
+  their binder, applications by their `left` flag and abstractions by the
+  type they bind; `closed` terms inherit it. Terms are `Testable` in the
+  sense of `discopy.axioms`: `TermBase.generate` builds a planar linear
+  term of a given type from a sequence of choices and the letters naming
+  its bound variables, `TermBase.strategy` draws them and `Renamed[C]`
+  draws one shape under several namings, so that the laws of
+  alpha-equivalence are axioms of `TermBase` checked by the property
+  matrix, where `biclosed.TermBase` and `closed.TermBase` are now
+  enrolled: reflexivity, renaming, symmetry, congruence with respect to
+  application and to abstraction, and soundness for evaluation, stated
+  with `biclosed.AlphaEquation`, an equation between terms which holds
+  when they are alpha-equivalent. `Testable.serialisation` is declared
+  failing on terms, which do not read back from their tree
+  ([#692](https://github.com/discopy/discopy/issues/692)), and
+  `Axiom.failing` reports a broken law whose terms fail to build as an
+  `AxiomFailure` carrying the error rather than letting it escape.
+  `biclosed.Ty.strategy` generates exponentials as well as atoms
+  ([#767](https://github.com/discopy/discopy/pull/767)).
 - `monoidal.List`, the free monoid on a generator type: `List[X]` is a
   tuple of instances of `X` with concatenation as `tensor` and the empty
   list as unit, an `abc.Monoid` parameterised as

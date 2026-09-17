@@ -29,6 +29,8 @@ Summary
     Variable
     Application
     Abstraction
+    Renamed
+    AlphaEquation
 
 Axioms
 ------
@@ -82,18 +84,24 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from inspect import signature
-from typing import Callable, ClassVar
+from itertools import count
+from typing import TYPE_CHECKING, Callable, ClassVar, Self, Sequence
 
 from discopy import monoidal, cmap
 from discopy.abc import BiclosedCategory
+from discopy.axioms import GENERATORS, Testable, axiom
 from discopy.drawing import Drawing
 from discopy.cat import factory
 from discopy.utils import (
+    NamedGeneric,
     assert_isinstance,
     deprecated_alias,
     factory_name,
     from_tree,
 )
+
+if TYPE_CHECKING:
+    from hypothesis import strategies as st
 
 
 @factory
@@ -146,6 +154,21 @@ class Ty(monoidal.Ty):
             var = self.variable_factory(varnames[0], self)
             return self.abstraction_factory(var, arg(var), left)
         raise ValueError
+
+    @classmethod
+    def strategy(cls, *, max_leaves=3):
+        """
+        Generate atomic types and their exponentials, ``max_leaves`` atoms
+        at most.
+        """
+        from hypothesis import strategies as st
+
+        def exponentials(types):
+            return st.builds(lambda x, y: x << y, types, types)\
+                | st.builds(lambda x, y: x >> y, types, types)
+
+        return st.recursive(
+            super().strategy(), exponentials, max_leaves=max_leaves)
 
     def __repr__(self):
         return factory_name(type(self))\
@@ -565,6 +588,239 @@ class TermBase(Box):
         args = (other, self, left) if left else (self, other, left)
         return self.cod.application_factory(*args)
 
+    def alpha_eq(self, *others: Term) -> bool:
+        """
+        Whether the terms are all alpha-equivalent to this one, i.e. equal up
+        to the names of their bound variables, in one pass over the terms.
+
+        Free variables are compared by name and bound ones by the binder
+        they refer to, see :meth:`alpha_eq_under`. Alpha-equivalent terms
+        evaluate to the same diagram, the converse does not hold.
+
+        Example
+        -------
+        >>> X, Y = Ty("X"), Ty("Y")
+        >>> f, x, y = (Y << X)("f"), Variable("x", X), Variable("y", X)
+        >>> assert X(lambda x: f(x)).alpha_eq(
+        ...     X(lambda y: f(y)), X(lambda z: f(z)))
+        >>> assert f(x).eval() == f(y).eval() and not f(x).alpha_eq(f(y))
+        >>> h = ((Y << X) << X)("h")
+        >>> assert X(lambda x: X(lambda y: h(x)(y))).alpha_eq(
+        ...     X(lambda y: X(lambda x: h(y)(x))))
+        >>> assert not X(lambda x: x).alpha_eq(Y(lambda y: y))
+        """
+        return self.alpha_eq_under([{} for _ in (self, *others)], *others)
+
+    def alpha_eq_under(
+            self, substitutions: list[dict[Variable, int]], *others: Term,
+            depth: int = 0) -> bool:
+        """
+        Whether the terms are alpha-equivalent under a substitution of their
+        bound variables by the depth of their binder, one for each term with
+        this one first.
+
+        Entering a binder extends every substitution in place with the
+        variable it binds at the current ``depth`` and leaving it restores
+        them, so that comparing the terms is one pass over them rather than
+        a renamed copy at every binder, i.e. linear in their size, and the
+        substitutions read the same after the call. A term with neither
+        binders nor variables, i.e. a constant, is alpha-equivalent to its
+        equals.
+
+        Example
+        -------
+        >>> X = Ty("X")
+        >>> x, y = Variable("x", X), Variable("y", X)
+        >>> assert x.alpha_eq_under([{x: 0}, {y: 0}], y)
+        >>> assert not x.alpha_eq_under([{x: 0}, {y: 1}], y)
+        >>> assert not x.alpha_eq_under([{x: 0}, {}], y)
+        """
+        return all(other == self for other in others)
+
+    @classmethod
+    def generate(cls, cod: Ty, choices: Sequence[int], types: Sequence[Ty],
+                 letters: Sequence[str]) -> Term:
+        """
+        Build a term of type ``cod`` from a sequence of ``choices``, one per
+        node of the term, taking leaves once it runs out; the exponents of
+        its applications are drawn from ``types`` and the variable bound at
+        each level of binders is named by the letter at that level, so that
+        the same choices under other letters give an alpha-equivalent term.
+        Free variables are named ``v0, v1, ...`` and constants ``c0, c1, ...``.
+
+        The term is planar and linear, as any term of a closed category is
+        too: the free variables of each subterm open with a ``prefix`` and
+        close with a ``suffix`` of the bound variables in scope, with
+        ``extra`` free ones in between or not, which an application splits
+        between its function and its argument and an abstraction extends
+        with the variable it binds; a subterm that cannot be a leaf is a
+        constant applied to the bound variables in order.
+
+        Example
+        -------
+        >>> X, Y = Ty("X"), Ty("Y")
+        >>> term = TermBase.generate(Y << X, [8, 0, 0], [X], "xy")
+        >>> print(term)
+        X(lambda x0: (Y << X)('c0')(x0))
+        >>> assert term.alpha_eq(
+        ...     TermBase.generate(Y << X, [8, 0, 0], [X], "z"))
+        """
+        choices, counter = iter(choices), count()
+
+        def choose(options):
+            return options[next(choices, 0) % len(options)]
+
+        def spine(cod, bound):
+            function_type = cod
+            for variable in reversed(bound):
+                function_type = function_type << variable.cod
+            result = cls.ob.constant_factory(
+                f"c{next(counter)}", function_type)
+            for variable in bound:
+                result = cls.ob.application_factory(result, variable, False)
+            return result
+
+        def leaves(cod, bound, extra):
+            result = []
+            if not bound:
+                result.append(lambda: cls.ob.constant_factory(
+                    f"c{next(counter)}", cod))
+            if not bound and extra:
+                result.append(lambda: cls.ob.variable_factory(
+                    f"v{next(counter)}", cod))
+            if len(bound) == 1 and bound[0].cod == cod:
+                result.append(lambda: bound[0])
+            return result
+
+        def applications(cod, prefix, suffix, extra, level):
+            splits = [((prefix[:i], (), False), (prefix[i:], suffix, extra))
+                      for i in range(len(prefix) + 1)]
+            splits += [((prefix, (), True), ((), suffix, True))] if extra\
+                else []
+            splits += [((prefix, suffix[:j], extra), (suffix[j:], (), False))
+                       for j in range(len(suffix) + 1)]
+
+            def application(first, second, left):
+                exponent = choose(types)
+                if left:
+                    args = term(exponent, *first, level)
+                    func = term(exponent >> cod, *second, level)
+                    return cls.ob.application_factory(func, args, True)
+                func = term(cod << exponent, *first, level)
+                args = term(exponent, *second, level)
+                return cls.ob.application_factory(func, args, False)
+
+            return [lambda split=split, left=left: application(*split, left)
+                    for split in splits for left in (False, True)]
+
+        def abstractions(cod, prefix, suffix, extra, level):
+            if not cod.is_exp:
+                return []
+
+            def abstraction(left):
+                var = cls.ob.variable_factory(
+                    f"{letters[level % len(letters)]}{level}", cod.exponent)
+                opening, closing = ((var, *prefix), suffix) if left\
+                    else (prefix, (*suffix, var))
+                body = term(cod.base, opening, closing, extra, level + 1)
+                return cls.ob.abstraction_factory(var, body, left)
+
+            return [lambda: abstraction(cod.is_under)]
+
+        def term(cod, prefix, suffix, extra, level):
+            bound = prefix + suffix
+            options = leaves(cod, bound, extra)
+            choice = next(choices, None)
+            if choice is None:
+                return options[0]() if options else spine(cod, bound)
+            options += applications(cod, prefix, suffix, extra, level)
+            options += abstractions(cod, prefix, suffix, extra, level)
+            return options[choice % len(options)]()
+
+        return term(cod, (), (), True, 0)
+
+    @classmethod
+    def shapes(cls, *, types=None, cod=None) -> st.SearchStrategy[tuple]:
+        """
+        Generate the arguments of :meth:`generate` but its letters: a type,
+        the choices and the types the exponents are drawn from, so that one
+        shape under several namings gives :class:`Renamed` terms.
+        """
+        from hypothesis import strategies as st
+
+        types = cls.ob.strategy() if types is None else types
+        cods = types if cod is None else st.just(cod)
+        return st.tuples(
+            cods,
+            st.lists(st.integers(min_value=0, max_value=11), max_size=12),
+            st.lists(types, min_size=1, max_size=3))
+
+    @classmethod
+    def namings(cls) -> st.SearchStrategy[list[str]]:
+        """ Generate the letters naming the bound variables, one per level. """
+        from hypothesis import strategies as st
+
+        return st.lists(st.sampled_from("xyz"), min_size=1, max_size=3)
+
+    @classmethod
+    def strategy(cls, **params) -> st.SearchStrategy[Term]:
+        """
+        Generate terms, one :meth:`generate` call per shape and naming.
+
+        Parameters:
+            params : Passed to :meth:`shapes`.
+        """
+        from hypothesis import strategies as st
+
+        return st.builds(
+            lambda shape, letters: cls.generate(*shape, letters),
+            cls.shapes(**params), cls.namings())
+
+    serialisation = Testable.serialisation.failing(
+        "A term does not read back from its tree, see #692.")
+
+    @axiom
+    def alpha_reflexivity(cls, term: Self) -> Equation:
+        """ A term is alpha-equivalent to itself. """
+        return AlphaEquation(term, term)
+
+    @axiom
+    def alpha_renaming(cls, terms: Renamed[Self]) -> Equation:
+        """ A term is alpha-equivalent to its renamings, however many. """
+        return AlphaEquation(*terms)
+
+    @axiom
+    def alpha_symmetry(cls, terms: Renamed[Self]) -> Equation:
+        """ Alpha-equivalence is symmetric. """
+        return AlphaEquation(*reversed(terms))
+
+    @axiom
+    def alpha_application(cls, terms: Renamed[Self]) -> Equation:
+        """
+        Alpha-equivalence is a congruence with respect to application: a
+        function applied to alpha-equivalent arguments gives alpha-equivalent
+        terms, and so do alpha-equivalent functions applied to an argument.
+        """
+        x = cls.ob(GENERATORS[0])
+        f, a = ((x << x) << terms[0].cod)("f"), x("a")
+        return AlphaEquation(*(f(term)(a) for term in terms))
+
+    @axiom
+    def alpha_abstraction(cls, terms: Renamed[Self]) -> Equation:
+        """
+        Alpha-equivalence is a congruence with respect to abstraction:
+        binding a variable in alpha-equivalent bodies gives alpha-equivalent
+        terms.
+        """
+        x = cls.ob(GENERATORS[0])
+        f = ((x << x) << terms[0].cod)("f")
+        return AlphaEquation(*(x(lambda w: f(term)(w)) for term in terms))
+
+    @axiom
+    def alpha_soundness(cls, terms: Renamed[Self]) -> Equation:
+        """ Alpha-equivalent terms evaluate to the same diagram. """
+        return Equation(*(term.eval() for term in terms))
+
 
 class Constant(TermBase):
     """
@@ -616,6 +872,12 @@ class Variable(TermBase):
         return []
 
     __repr__ = Constant.__repr__
+
+    def alpha_eq_under(self, substitutions, *others, depth=0):
+        images = [
+            substitution.get(term, term)
+            for substitution, term in zip(substitutions, (self, *others))]
+        return all(image == images[0] for image in images[1:])
 
 
 class Application(TermBase):
@@ -670,6 +932,15 @@ class Application(TermBase):
         return self.args.constants + self.func.constants if self.left\
             else self.func.constants + self.args.constants
 
+    def alpha_eq_under(self, substitutions, *others, depth=0):
+        if any(type(other) is not type(self) or other.left != self.left
+               for other in others):
+            return False
+        return self.func.alpha_eq_under(
+            substitutions, *[other.func for other in others], depth=depth)\
+            and self.args.alpha_eq_under(
+                substitutions, *[other.args for other in others], depth=depth)
+
 
 class Abstraction(TermBase):
     var: Variable
@@ -708,8 +979,65 @@ class Abstraction(TermBase):
     def constants(self):
         return self.body.constants
 
+    def alpha_eq_under(self, substitutions, *others, depth=0):
+        if any(type(other) is not type(self)
+               or (other.left, other.var.cod) != (self.left, self.var.cod)
+               for other in others):
+            return False
+        terms = (self, *others)
+        shadowed = [substitution.get(term.var)
+                    for substitution, term in zip(substitutions, terms)]
+        for substitution, term in zip(substitutions, terms):
+            substitution[term.var] = depth
+        result = self.body.alpha_eq_under(
+            substitutions, *[other.body for other in others], depth=depth + 1)
+        for substitution, term, level in zip(substitutions, terms, shadowed):
+            if level is None:
+                del substitution[term.var]
+            else:
+                substitution[term.var] = level
+        return result
+
 
 type Term = Constant | Variable | Application | Abstraction
+
+for law in (
+        "unitality", "associativity", "identity_typing",
+        "composition_dom_typing", "composition_cod_typing",
+        "dagger_involution", "dagger_contravariance"):
+    setattr(TermBase, law, getattr(Box, law).inapplicable(
+        "A term is a box: the laws of its category are the diagram's."))
+
+
+class Renamed(Testable, NamedGeneric["factory"], tuple):
+    """
+    Alpha-equivalent terms of the ``factory``: one shape generated under two
+    or more namings of its bound variables, see :meth:`TermBase.generate`.
+
+    Example
+    -------
+    >>> from hypothesis import find
+    >>> terms = find(
+    ...     Renamed[TermBase].strategy(), lambda terms: len(terms) == 3)
+    >>> assert terms[0].alpha_eq(*terms[1:])
+    """
+    @classmethod
+    def strategy(cls, **params) -> st.SearchStrategy[Renamed]:
+        """
+        Generate a shape and at least two namings of it.
+
+        Parameters:
+            params : Passed to :meth:`TermBase.shapes`.
+        """
+        from hypothesis import strategies as st
+
+        factory = cls.factory
+        return st.builds(
+            lambda shape, namings: cls(
+                factory.generate(*shape, letters) for letters in namings),
+            factory.shapes(**params),
+            st.lists(factory.namings(), min_size=2, max_size=3))
+
 
 Ty.variable_factory = Variable
 Ty.constant_factory = Constant
@@ -720,6 +1048,23 @@ Ty.over_factory, Ty.under_factory, Ty.exp_factory = Over, Under, Exp
 
 class Equation(monoidal.Equation):
     """ The :class:`monoidal.Equation` of biclosed diagrams. """
+
+
+class AlphaEquation(Equation):
+    """
+    An :class:`Equation` between terms which holds when they are
+    alpha-equivalent, see :meth:`TermBase.alpha_eq`.
+
+    Example
+    -------
+    >>> X, Y = Ty("X"), Ty("Y")
+    >>> f = (Y << X)("f")
+    >>> assert AlphaEquation(X(lambda x: f(x)), X(lambda y: f(y)))
+    >>> assert not AlphaEquation(f(Variable("x", X)), f(Variable("y", X)))
+    """
+    def __bool__(self):
+        term, *others = self.terms
+        return term.alpha_eq(*others)
 
 
 __getattr__ = deprecated_alias(__name__, {"Ob": "Wire"})

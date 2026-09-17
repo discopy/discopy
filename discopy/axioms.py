@@ -168,7 +168,8 @@ class AxiomFailure(AxiomError):
     """
     A law declared broken, raised when the bound axiom is called: the
     reason is the message and :attr:`equation` is the law evaluated on the
-    arguments, whose sides say how it failed.
+    arguments, whose sides say how it failed, or the error raised when its
+    terms could not be built.
     """
 
     def __init__(self, reason: str, equation):
@@ -271,12 +272,17 @@ class Axiom[**P, T]:
         """
         The same law declared broken: calling it raises an
         :class:`AxiomFailure` with the reason as message and the equation
-        evaluated on the arguments, e.g. ``braid_naturality =
+        evaluated on the arguments, or the error raised when the
+        implementation refuses to build its terms, e.g. ``braid_naturality =
         BraidedCategory.braid_naturality.failing("A free braid is a box.")``.
         """
         @wraps(self.equation)
         def equation(*args, **kwargs):
-            raise AxiomFailure(reason, self.equation(*args, **kwargs))
+            try:
+                evaluated = self.equation(*args, **kwargs)
+            except Exception as error:
+                raise AxiomFailure(reason, error) from error
+            raise AxiomFailure(reason, evaluated)
         equation.__doc__ = reason
         return replace(self, equation=equation, broken=True)
 

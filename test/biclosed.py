@@ -1,5 +1,6 @@
 from discopy.biclosed import *
 from discopy import cat
+from discopy.axioms import assert_axioms
 from pytest import raises
 
 
@@ -135,3 +136,45 @@ def test_to_compact():
         assert source.to_map().to_compact() == source.to_compact()
         assert not any(isinstance(box, Curry)
                        for box in source.to_compact().boxes)
+
+
+def test_alpha_eq():
+    X, Y = Ty("X"), Ty("Y")
+    f, g, h = (Y << X)("f"), (X >> Y)("g"), ((Y << X) << X)("h")
+    x, y = Variable("x", X), Variable("y", X)
+    assert X(lambda x: f(x)).alpha_eq(X(lambda y: f(y)), X(lambda z: f(z)))
+    assert not X(lambda x: f(x)).alpha_eq(X(lambda y: f(y)), f(x))
+    assert f(x).alpha_eq(f(x)) and not f(x).alpha_eq(f(y))
+    assert X(lambda x, left=True: x(g, left=True)).alpha_eq(
+        X(lambda y, left=True: y(g, left=True)))
+    assert not X(lambda x: f(x)).alpha_eq(
+        X(lambda x, left=True: x(g, left=True)))
+    assert not X(lambda x: x).alpha_eq(Y(lambda y: y))
+    assert X(lambda x: X(lambda y: h(x)(y))).alpha_eq(
+        X(lambda y: X(lambda x: h(y)(x))))
+    assert not X(lambda x: X(lambda y: h(x)(y))).alpha_eq(
+        X(lambda x: X(lambda y: ((Y << X) << X)("h_")(x)(y))))
+
+
+def test_alpha_eq_under_restores_the_substitutions():
+    X, Y = Ty("X"), Ty("Y")
+    f, x = (Y << X)("f"), Variable("x", X)
+    substitutions = [{x: 7}, {}]
+    assert X(lambda x: f(x)).alpha_eq_under(
+        substitutions, X(lambda y: f(y)), depth=1)
+    assert substitutions == [{x: 7}, {}]
+
+
+def test_generate():
+    X, Y, Z = Ty("X"), Ty("Y"), Ty("Z")
+    term = TermBase.generate(Y << X, [8, 0, 0], [X], "xy")
+    assert term == X(lambda x0: (Y << X)("c0")(x0))
+    assert term.alpha_eq(TermBase.generate(Y << X, [8, 0, 0], [X], "z"))
+    spine = TermBase.generate((Z << Y) << X, [8, 8], [X], "x")
+    assert spine == X(lambda x0: Y(lambda x1: ((Z << Y) << X)("c0")(x0)(x1)))
+    assert spine.alpha_eq(TermBase.generate((Z << Y) << X, [8, 8], [X], "yz"))
+
+
+def test_axioms():
+    assert_axioms(TermBase)
+

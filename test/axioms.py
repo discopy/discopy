@@ -74,6 +74,19 @@ def test_axioms():
     assert_axioms(Classified)
 
 
+def test_failing_when_the_terms_do_not_build():
+    class Refusing(Arrow):
+        @axiom
+        def refusing(cls, f: C1) -> Equation:
+            raise ValueError("No terms.")
+        refusing = refusing.failing("Declared broken.")
+
+    with raises(AxiomFailure) as error:
+        Refusing.refusing(Arrow.id(Ob('x')))
+    assert isinstance(error.value.equation, ValueError)
+    assert_axioms(Refusing)
+
+
 def test_strategy():
     x, y = Ob('x'), Ob('y')
     find(Ob.strategy(), lambda ob: ob.name == "a")

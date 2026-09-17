@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from discopy.closed import *
+from discopy.axioms import assert_axioms
 
 
 def test_exp():
@@ -210,3 +211,21 @@ def test_draw_copy_and_swap():
     # A non-linear term evaluates to such a diagram, so it draws too.
     X = Ty('X')
     assert X(lambda x: (X >> X)(lambda f: f(x))).eval().to_drawing()
+
+
+def test_alpha_eq_nonlinear():
+    X, Y = Ty("X"), Ty("Y")
+    f = (X >> (X >> Y))("f")
+    assert X(lambda x: X(lambda x: x)).alpha_eq(X(lambda x: X(lambda y: y)))
+    assert not X(lambda x: X(lambda x: x)).alpha_eq(X(lambda x: X(lambda y: x)))
+    assert X(lambda x: f(x)(x)).alpha_eq(X(lambda y: f(y)(y)))
+    assert not X(lambda x: X(lambda y: f(x)(y))).alpha_eq(
+        X(lambda x: X(lambda y: f(y)(x))))
+    assert X(lambda x: X(lambda y: y)).alpha_eq(X(lambda z: X(lambda y: y)))
+    assert not X(lambda x: X(lambda y: f(x)(y))).alpha_eq(
+        X(lambda x: X(lambda y: f(x)(x))))
+
+
+def test_axioms():
+    assert_axioms(TermBase)
+
