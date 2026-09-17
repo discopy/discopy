@@ -408,9 +408,12 @@ class TwoCategory[C0: Colour, C1: ColouredMonoid, C2: TwoCategory](
     @abstractmethod
     @unbiased
     def tensor[
-            X: C0, Y: C0, Z: C0, A: C1[X, Y], B: C1[X, Y],
-            C: C1[Y, Z], D: C1[Y, Z]](
-            self: C2[A, B], other: C2[C, D]) -> C2[A @ C, B @ D]:
+            X: C0, Y: C0, Z: C0,
+            A: C1[X, Y], B: C1[X, Y],
+            C: C1[Y, Z], D: C1[Y, Z]
+        ](
+            self: C2[A, B], other: C2[C, D]
+        ) -> C2[A @ C, B @ D]:
         """
         Parallel composition of ``n >= 0`` morphisms, to be instantiated:
         as a rule, ``a @ c ⊢ b @ d`` is the tensor of ``a ⊢ b`` and ``c ⊢
@@ -423,10 +426,12 @@ class TwoCategory[C0: Colour, C1: ColouredMonoid, C2: TwoCategory](
 
     @axiom
     def bifunctoriality[
-            X: C0, Y: C0, Z: C0, A: C1[X, Y], B: C1[X, Y], U: C1[X, Y],
-            C: C1[Y, Z], D: C1[Y, Z], V: C1[Y, Z]](
+            X: C0, Y: C0, Z: C0,
+            A: C1[X, Y], B: C1[X, Y], U: C1[X, Y],
+            C: C1[Y, Z], D: C1[Y, Z], V: C1[Y, Z]
+        ](
             cls, f: C2[A, B], g: C2[C, D], h: C2[B, U], k: C2[D, V]
-            ) -> Equation[C2[A @ C, U @ V]]:
+        ) -> Equation[C2[A @ C, U @ V]]:
         """ Bifunctoriality of the tensor. """
         return cls.equation_factory(
             f @ g >> h @ k, (f >> h) @ (g >> k))
@@ -507,9 +512,12 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
     """
     @rule
     @abstractmethod
-    def trace[A: C0, B: C0, M: Atom[C0], L: Bool](
-            self: C1[L[M @ A, A @ M], L[M @ B, B @ M]],
-            n: int = 1, left: L = False) -> C1[A, B]:
+    def trace[
+        A: C0, B: C0, M: Atom[C0], L: Bool
+    ](
+        self: C1[L[M @ A, A @ M], L[M @ B, B @ M]],
+        n: int = 1, left: L = False
+    ) -> C1[A, B]:
         """
         The trace of a morphism, to be instantiated.
 
