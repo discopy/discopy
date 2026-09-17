@@ -43,8 +43,10 @@ Lenses over :class:`Function <discopy.python.Function>` are the accessors of
 functional programming: `get` reads a part of a structure and `put` writes
 it back. The lens on the first component of a pair:
 
+>>> from discopy import python
 >>> from discopy.python import Function
->>> P, A = Ty[tuple]((int, str), (int, str)), Ty[tuple]((int, ), (int, ))
+>>> P = Ty[python.Ty]((int, str), (int, str))
+>>> A = Ty[python.Ty]((int, ), (int, ))
 >>> first = Lens[Function](P, A,
 ...     Function(lambda a, b: a, (int, str), (int, )),
 ...     Function(lambda a, b, a_: (a_, b), (int, str, int), (int, str)))
@@ -89,8 +91,10 @@ class Ty(interaction.Ty):
     :attr:`negatives` stay side by side and a gradient comes back in the
     order of the inputs.
 
-    >>> x, y = Ty[tuple](("x", ), ("x'", )), Ty[tuple](("y", ), ("y'", ))
-    >>> assert x @ y == Ty[tuple](("x", "y"), ("x'", "y'"))
+    >>> from discopy.monoidal import List
+    >>> x = Ty[List[str]](("x", ), ("x'", ))
+    >>> y = Ty[List[str]](("y", ), ("y'", ))
+    >>> assert x @ y == Ty[List[str]](("x", "y"), ("x'", "y'"))
     >>> assert -(x @ y) == -x @ -y
     """
     natural = monoidal.Ty
@@ -98,8 +102,8 @@ class Ty(interaction.Ty):
 
 
 def pairs(category) -> type:
-    """ The pairs of objects of a category, e.g. of tuples of types. """
-    return Ty[get_origin(category.ob)]
+    """ The pairs of objects of a category, e.g. of lists of types. """
+    return Ty[category.ob]
 
 
 @dataclass
@@ -164,9 +168,9 @@ class Optic(SymmetricCategory, NamedGeneric['category']):
         identity = self.category.id
         assert_iscomposable(identity(self.dom.positive), self.forward)
         assert_iscomposable(
-            self.forward, identity(self.cod.positive + self.residual))
+            self.forward, identity(self.cod.positive @ self.residual))
         assert_iscomposable(
-            identity(self.residual + self.cod.negative), self.backward)
+            identity(self.residual @ self.cod.negative), self.backward)
         assert_iscomposable(self.backward, identity(self.dom.negative))
 
     def __repr__(self):
@@ -248,7 +252,7 @@ class Optic(SymmetricCategory, NamedGeneric['category']):
             @ swap(other.residual, self.residual)
         backward = identity(self.residual) @ other.backward >> self.backward
         return type(self)(self.dom, other.cod, forward, backward,
-                          self.residual + other.residual)
+                          self.residual @ other.residual)
 
     @unbiased
     def tensor(self, other: Optic) -> Optic:
@@ -289,7 +293,7 @@ class Optic(SymmetricCategory, NamedGeneric['category']):
             @ swap(other.residual, self.cod.negative)\
             @ identity(other.cod.negative) >> self.backward @ other.backward
         return type(self)(self.dom @ other.dom, self.cod @ other.cod,
-                          forward, backward, self.residual + other.residual)
+                          forward, backward, self.residual @ other.residual)
 
     @classmethod
     def swap(cls, left: ob, right: ob) -> Optic:
@@ -359,7 +363,7 @@ class Optic(SymmetricCategory, NamedGeneric['category']):
         positive, negative, residual = *self.cod, self.residual
         get = self.forward >> identity(positive) @ discard(residual)
         put = self.forward @ identity(negative) >> discard(positive)\
-            @ identity(residual + negative) >> self.backward
+            @ identity(residual @ negative) >> self.backward
         return lens(self.dom, self.cod, get, put)
 
 
@@ -462,7 +466,7 @@ class Lens(SymmetricCategory, NamedGeneric['category']):
         assert_iscomposable(identity(self.dom.positive), self.get)
         assert_iscomposable(self.get, identity(self.cod.positive))
         assert_iscomposable(
-            identity(self.dom.positive + self.cod.negative), self.put)
+            identity(self.dom.positive @ self.cod.negative), self.put)
         assert_iscomposable(self.put, identity(self.dom.negative))
 
     def __repr__(self):
@@ -526,8 +530,9 @@ class Lens(SymmetricCategory, NamedGeneric['category']):
 
         Example
         -------
+        >>> from discopy import python
         >>> from discopy.python import Function
-        >>> R = Ty[tuple]((float, ), (float, ))
+        >>> R = Ty[python.Ty]((float, ), (float, ))
         >>> square = Lens[Function](R, R,
         ...     Function(lambda x: x * x, (float, ), (float, )),
         ...     Function(lambda x, dy: 2 * x * dy, (float, float), (float, )))
