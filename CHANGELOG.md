@@ -21,8 +21,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   binder, applications by their `left` flag and abstractions by the type
   they bind; `closed` terms inherit it, `grammar.categorial`'s type
   raisings and binary compositions recurse into their subterms, and
-  `biclosed.Substitution` is the dataclass `closed.Substitution` now
-  extends. Terms are `Testable` in the
+  `biclosed.Substitution` is the dataclass that `closed.Substitution`
+  now extends. Terms are `Testable` in the
   sense of `discopy.axioms`: `TermBase.generate` builds a planar linear
   term of a given type from a sequence of choices and the letters naming
   its bound variables, through a `Sampler` with one method per kind of

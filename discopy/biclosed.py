@@ -1209,6 +1209,19 @@ class Canonical(Testable, NamedGeneric["factory"], tuple):
     >>> assert first.alpha_eq(second)
     """
     @classmethod
+    def build(cls, shape: tuple, others: list[int] | None,
+              namings: tuple[Sequence[str], Sequence[str]]) -> Canonical:
+        """
+        The terms of a shape and of another, the same when ``others`` is
+        ``None``, under their namings and then under the canonical one.
+        """
+        cod, choices, types = shape
+        shapes = (choices, choices if others is None else others)
+        return cls(
+            cls.factory.generate(cod, each, types, letters)
+            for each, letters in zip(2 * shapes, (*namings, "x", "x")))
+
+    @classmethod
     def strategy(cls, **params) -> st.SearchStrategy[Canonical]:
         """
         Generate a shape, its choices again or others, and two namings.
@@ -1219,16 +1232,9 @@ class Canonical(Testable, NamedGeneric["factory"], tuple):
         from hypothesis import strategies as st
 
         category = cls.factory
-
-        def build(shape, others, namings):
-            cod, choices, types = shape
-            shapes = (choices, choices if others is None else others)
-            return cls(
-                category.generate(cod, each, types, letters)
-                for each, letters in zip(2 * shapes, (*namings, "x", "x")))
-
         return st.builds(
-            build, category.shapes(**params), st.none() | category.choices(),
+            cls.build, category.shapes(**params),
+            st.none() | category.choices(),
             st.tuples(category.namings(), category.namings()))
 
 
