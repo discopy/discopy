@@ -13,7 +13,10 @@ of the next, tensor ``@`` runs two side by side, :meth:`Network.copy` sends
 an activation to several layers, :meth:`Network.discard` drops one and
 :meth:`Network.trace` feeds an output back into an input, as a recurrent
 network does. Networks form the free traced Markov category on their boxes,
-see :mod:`discopy.markov` and :mod:`discopy.traced`.
+see :mod:`discopy.markov` and :mod:`discopy.traced`. A feedforward network
+compiles to a function on tensors with :meth:`Network.to_function`, which
+:mod:`discopy.neural.torch` wraps as a PyTorch module and ``jax.jit`` takes
+as it is.
 
 Summary
 -------
@@ -56,10 +59,11 @@ two back together; a recurrent cell feeds one of its outputs back in.
 
 from __future__ import annotations
 
-from discopy import markov, monoidal
+from discopy import markov, monoidal, python
 from discopy.cat import factory
 from discopy.monoidal import Dim
-from discopy.utils import assert_isinstance, factory_name
+from discopy.utils import (
+    AxiomError, assert_isinstance, factory_name, tuplify, untuplify)
 
 
 @factory
@@ -102,6 +106,32 @@ class Dims(monoidal.Ty):
 
     __str__ = __repr__
 
+    def check(self, *tensors) -> None:
+        """
+        Raise ``AxiomError`` unless there is one tensor per leg with the
+        shape of the leg as its trailing dimensions, whatever comes first.
+
+        Parameters:
+            tensors : One array per leg, with a ``shape``.
+
+        Example
+        -------
+        >>> import numpy as np
+        >>> Dims(2, Dim(2, 3)).check(np.ones((5, 2)), np.ones((5, 2, 3)))
+        >>> Dims(2).check(np.ones((5, 3)))
+        Traceback (most recent call last):
+            ...
+        discopy.utils.AxiomError: Expected a shape ending in (2,), got (5, 3).
+        """
+        if len(tensors) != len(self):
+            raise AxiomError(
+                f"Expected {len(self)} tensors, got {len(tensors)}.")
+        for tensor, dim in zip(tensors, self.inside):
+            shape = tuple(tensor.shape)
+            if shape[len(shape) - len(dim):] != dim.inside:
+                raise AxiomError(
+                    f"Expected a shape ending in {dim.inside}, got {shape}.")
+
 
 @factory
 class Network(markov.Diagram):
@@ -126,6 +156,44 @@ class Network(markov.Diagram):
     >>> assert residual == Network.copy(x) >> layer @ x >> add
     """
     ob = Dims
+
+    def to_function(self, tensor: type = object) -> python.Function:
+        """
+        Compile a feedforward network to a function on tensors, one per leg:
+        the functor sending every leg to ``tensor`` and every box to its
+        :meth:`Box.forward`, with the copy, discard and swap of
+        :class:`python.Function`. The function is what ``jax.jit`` compiles
+        and :class:`discopy.neural.torch.Module` runs.
+
+        Parameters:
+            tensor : The type of the tensors on the legs, e.g. ``jax.Array``
+                or ``torch.Tensor``, checked on every wire.
+
+        Example
+        -------
+        >>> import numpy as np
+        >>> x = Dims(2)
+        >>> double = Box('double', x, x, module=lambda v: 2 * v)
+        >>> add = Box('add', x @ x, x, module=lambda v, w: v + w)
+        >>> residual = Network.copy(x) >> double @ x >> add
+        >>> residual.to_function(np.ndarray)(np.array([1, 2]))
+        array([3, 6])
+        >>> (add >> double).trace().to_function()  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+            ...
+        NotImplementedError: Trace(add >> double) has a trace, only ...
+        """
+        if any(isinstance(box, Trace) for box in self.boxes):
+            raise NotImplementedError(
+                f"{self} has a trace, only feedforward networks compile.")
+
+        def forward(box):
+            if box.module is None:
+                raise ValueError(f"{box} has no module.")
+            return box.forward
+
+        return Functor(ob_map=lambda leg: (tensor, ), ar_map=forward,
+                       cod=python.Function)(self)
 
 
 class Box(markov.Box, Network):
@@ -172,6 +240,36 @@ class Box(markov.Box, Network):
         tree = super().to_tree()
         tree.pop('data', None)
         return tree
+
+    def forward(self, *tensors):
+        """
+        Apply the module to one tensor per leg of ``dom`` and return one per
+        leg of ``cod``, each checked against its leg by :meth:`Dims.check`.
+
+        Parameters:
+            tensors : One tensor per input leg.
+
+        Example
+        -------
+        >>> import numpy as np
+        >>> split = Box('split', Dims(4), Dims(2, 2),
+        ...             module=lambda v: (v[:2], v[2:]))
+        >>> split.forward(np.arange(4))
+        (array([0, 1]), array([2, 3]))
+        >>> Box('f', Dims(4), Dims(2), module=lambda v: v).forward(np.ones(4))
+        Traceback (most recent call last):
+            ...
+        discopy.utils.AxiomError: f: Expected a shape ending in (2,), got (4,).
+        """
+        if self.module is None:
+            raise ValueError(f"{self} has no module.")
+        try:
+            self.dom.check(*tensors)
+            outputs = tuplify(self.module(*tensors))
+            self.cod.check(*outputs)
+        except AxiomError as error:
+            raise AxiomError(f"{self}: {error}") from error
+        return untuplify(outputs)
 
 
 class Permutation(markov.Permutation, Box):

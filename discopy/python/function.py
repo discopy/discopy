@@ -31,7 +31,7 @@ Ty = List[type]
 
 
 @factory
-@dataclass
+@dataclass(unsafe_hash=True)
 class Function(Category):
     """
     Python function with sequential composition.
