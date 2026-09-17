@@ -520,34 +520,6 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
-- `Diagram.to_gif` embeds the animation in the `<img>` tag it returns, as a
-  `data:` URI, rather than pointing at the path it saved to. That path is
-  relative to the working directory, which is where a Jupyter notebook used
-  to be served from, but marimo exports a notebook to a self-contained page
-  under `docs/_static/notebooks/`: the `../_static/spiral.gif` that the two
-  notebooks drawing a spiral asked for resolved to
-  `_static/_static/spiral.gif` and the animation was gone from the docs.
-  Neither notebook passes a `path` anymore, so the docs build no longer
-  rewrites a tracked file in place
-  ([#724](https://github.com/discopy/discopy/issues/724)) -- both were
-  writing the same `docs/_static/spiral.gif`, which is now unreferenced and
-  deleted. Called with no path at all, `to_gif` writes the animation in the
-  temporary directory it already uses for the frames instead of leaving a
-  `tmp_*.gif` behind in the working directory.
-- The docs footer reads "By DisCoPy" rather than "By Author name not set":
-  `docs/conf.py` never set `author` and Sphinx 7.4 defaults it to that
-  sentence, where 7.2 said `unknown`
-  ([#723](https://github.com/discopy/discopy/pull/723)).
-- The architecture diagram is back, at the end of the index page rather
-  than in the `discopy.abc` docstring. Docutils resolves the `:file:` of a
-  `raw` directive against the source the docstring came from, i.e.
-  `discopy/`, so `api/architecture.html` was looked for at
-  `discopy/api/architecture.html`: the build said `CRITICAL` and dropped
-  the table, leaving the sentence under it describing nothing. The same
-  path resolves from `docs/index.rst`, which is also where the table's
-  links point: it addresses its modules from the docs root
-  (`api/syntax.html`, `_api/discopy.cat.html`), so the index page is the
-  one page it draws itself correctly on.
 - `discopy.hopf`'s `Axioms` section is back. Napoleon turns an `Example`
   section into an admonition and indents everything after it into the box,
   a section title of its own included, so `Axioms` raised
