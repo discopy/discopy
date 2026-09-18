@@ -140,6 +140,9 @@ def test_Arrow_dagger():
     h = Arrow((f, g), x, z)
     assert h.dagger() == g.dagger() >> f.dagger()
     assert h.dagger().dagger() == h
+    assert isinstance(h, DaggerCategory)
+    assert not issubclass(FreeCategory, DaggerCategory)
+    assert not issubclass(Functor, DaggerCategory)
 
 
 def test_Id_init():
