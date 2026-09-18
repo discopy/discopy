@@ -11,22 +11,23 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 - `biclosed.TermBase.alpha_eq`, the alpha-equivalence of lambda terms,
   i.e. equality up to the names of their bound variables, of any number
-  of terms in one pass: the helper `alpha_eq_under` carries a
-  `Substitution` for each term, of its bound variables by the fresh
-  variable of their binder, the same one in every term, extended in place
-  on entering a binder and restored on leaving it, so the terms are
-  alpha-equivalent when the substituted terms are equal and the check is
-  linear in the size of the terms rather than a renamed copy at every
-  binder. Free variables are compared by name, bound ones by their
-  binder, applications by their `left` flag and abstractions by the type
-  they bind; `closed` terms inherit it, `grammar.categorial`'s type
-  raisings and binary compositions recurse into their subterms, and
-  `biclosed.Substitution` is the dataclass that `closed.Substitution`
-  now extends. Terms are `Testable` in the
+  of terms in one pass: the helper `alpha_eq_under` carries a scope for
+  each term, mapping its bound variables to the depth of their binder,
+  i.e. their de Bruijn level, extended in place on entering a binder and
+  restored on leaving it, so the terms are alpha-equivalent when they are
+  equal with their bound variables read as levels and the check is linear
+  in the size of the terms, neither a renamed copy nor a fresh variable
+  at any binder. Free variables are compared by name, bound ones by their
+  level, applications by their `left` flag and abstractions by the type
+  they bind; `closed` terms inherit it and `grammar.categorial`'s type
+  raisings and binary compositions recurse into their subterms. Terms are
+  `Testable` in the
   sense of `discopy.axioms`: `TermBase.generate` builds a planar linear
   term of a given type from a sequence of choices and the letters naming
   its bound variables, through a `Sampler` with one method per kind of
-  node, linear and planar for `biclosed`, free to copy and discard for
+  node and the options of a choice deferred as closures, so that a term
+  nests as deep as the recursion limit allows, linear and planar for
+  `biclosed`, free to copy and discard for
   `closed`, `TermBase.strategy` draws them and `Renamed[C]`
   draws one shape under several namings, so that the laws of
   alpha-equivalence are axioms of `TermBase` checked by the property

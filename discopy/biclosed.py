@@ -29,7 +29,6 @@ Summary
     Variable
     Application
     Abstraction
-    Substitution
     Sampler
     Renamed
     Canonical
@@ -87,7 +86,6 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from dataclasses import dataclass, field
-from functools import partial
 from inspect import signature
 from itertools import count
 from typing import (
@@ -599,10 +597,10 @@ class TermBase(Box):
         Whether the terms are all alpha-equivalent to this one, i.e. equal up
         to the names of their bound variables, in one pass over the terms.
 
-        Free variables are compared by name and bound ones by the binder
-        they refer to, through a :class:`Substitution` for each term, see
-        :meth:`alpha_eq_under`. Alpha-equivalent terms evaluate to the same
-        diagram, the converse does not hold.
+        Free variables are compared by name and bound ones by the depth of
+        the binder they refer to, see :meth:`alpha_eq_under`.
+        Alpha-equivalent terms evaluate to the same diagram, the converse
+        does not hold.
 
         Example
         -------
@@ -616,44 +614,43 @@ class TermBase(Box):
         ...     X(lambda y: X(lambda x: h(y)(x))))
         >>> assert not X(lambda x: x).alpha_eq(Y(lambda y: y))
         """
-        terms = (self, *others)
-        free = {variable.name for term in terms for variable in term.freevars}
-        return self.alpha_eq_under(
-            [Substitution({}) for _ in terms], *others, free=free)
+        scopes = [{} for _ in (self, *others)]
+        return self.alpha_eq_under(scopes, list(others))
 
-    def alpha_eq_under(  # pylint: disable=unused-argument
-            self, substitutions: list[Substitution], *others: Term,
-            depth: int = 0, free: set[str] = frozenset()) -> bool:
+    def alpha_eq_under(  # pylint: disable=unused-argument  # a constant
+            self, scopes: list[dict[Variable, int]], others: list[Term],
+            depth: int = 0) -> bool:
         """
-        Whether the terms are alpha-equivalent under a :class:`Substitution`
-        for each of them, this one first, of its bound variables by the
-        fresh variable of their binder, the same one in every term: the
-        terms are alpha-equivalent when the substituted terms are equal,
-        which is checked without building them. A leaf, i.e. a variable or
-        a constant, compares its images under the substitutions and reads
-        neither ``depth`` nor ``free``, the binders' business; every other
-        term former recurses into its subterms.
+        Whether the terms, this one and the ``others``, are alpha-equivalent
+        under a scope for each of them, mapping each variable bound above it
+        to the depth of its binder, i.e. its de Bruijn level, the same in
+        every term: the terms are alpha-equivalent when they are equal with
+        their bound variables read as levels, which is checked without
+        building anything. A :class:`Variable` compares its levels, itself
+        when its scope says nothing of it; a term that binds nothing and
+        refers to no binder, i.e. a :class:`Constant`, is alpha-equivalent
+        to its equals, reading neither ``scopes`` nor ``depth``; every
+        other term former recurses into its subterms, with the arguments
+        spelt out rather than unpacked, so that the recursion runs in
+        Python frames, as deep as the recursion limit allows, rather than
+        through C.
 
-        Entering a binder extends every substitution in place with the
-        variable it binds, by a fresh variable named after the ``depth`` of
-        the binder and avoiding the names of the ``free`` variables of the
-        terms, and leaving it restores them, so that comparing the terms is
-        one pass over them, linear in their size, and the substitutions
-        read the same after the call.
+        Entering a binder extends every scope in place with the variable it
+        binds at the current ``depth`` and leaving it restores them, so that
+        comparing the terms is one pass over them, linear in their size, and
+        the scopes read the same after the call.
 
         Example
         -------
         >>> X = Ty("X")
-        >>> x, y, z = Variable("x", X), Variable("y", X), Variable("z", X)
-        >>> assert x.alpha_eq_under(
-        ...     [Substitution({x: z}), Substitution({y: z})], y)
-        >>> assert not x.alpha_eq_under(
-        ...     [Substitution({x: z}), Substitution({})], y)
+        >>> x, y, c = Variable("x", X), Variable("y", X), X("c")
+        >>> assert x.alpha_eq_under([{x: 0}, {y: 0}], [y])
+        >>> assert not x.alpha_eq_under([{x: 0}, {y: 1}], [y])
+        >>> assert not x.alpha_eq_under([{x: 0}, {}], [y])
+        >>> assert c.alpha_eq_under([{x: 0}, {}], [c])
+        >>> assert not c.alpha_eq_under([{}, {}], [X("d")])
         """
-        images = [
-            substitution(term)
-            for substitution, term in zip(substitutions, (self, *others))]
-        return all(image == images[0] for image in images[1:])
+        return all(other == self for other in others)
 
     @classmethod
     def generate(cls, cod: Ty, choices: Sequence[int], types: Sequence[Ty],
@@ -832,6 +829,15 @@ class Variable(TermBase):
     def constants(self):
         return []
 
+    def alpha_eq_under(  # pylint: disable=unused-argument  # depth: binders
+            self, scopes, others, depth=0):
+        """ Variables alike by the level of their binder, by name if free. """
+        if any(type(other) is not type(self) for other in others):
+            return False
+        images = [scope.get(term, term)
+                  for scope, term in zip(scopes, (self, *others))]
+        return all(image == images[0] for image in images[1:])
+
     __repr__ = Constant.__repr__
 
 
@@ -887,17 +893,15 @@ class Application(TermBase):
         return self.args.constants + self.func.constants if self.left\
             else self.func.constants + self.args.constants
 
-    def alpha_eq_under(self, substitutions, *others, depth=0,
-                       free=frozenset()):
+    def alpha_eq_under(self, scopes, others, depth=0):
         """ Applications on one side, functions and arguments alike. """
         if any(type(other) is not type(self) or other.left != self.left
                for other in others):
             return False
         return self.func.alpha_eq_under(
-            substitutions, *[other.func for other in others],
-            depth=depth, free=free) and self.args.alpha_eq_under(
-                substitutions, *[other.args for other in others],
-                depth=depth, free=free)
+            scopes, [other.func for other in others], depth)\
+            and self.args.alpha_eq_under(
+                scopes, [other.args for other in others], depth)
 
 
 class Abstraction(TermBase):
@@ -937,53 +941,27 @@ class Abstraction(TermBase):
     def constants(self):
         return self.body.constants
 
-    def alpha_eq_under(self, substitutions, *others, depth=0,
-                       free=frozenset()):
-        """ Binders of one type on one side, bodies alike under a fresh. """
+    def alpha_eq_under(self, scopes, others, depth=0):
+        """ Binders of one type on one side, bodies alike one level down. """
         if any(type(other) is not type(self)
                or (other.left, other.var.cod) != (self.left, self.var.cod)
                for other in others):
             return False
-        terms, name = (self, *others), f"x{depth}"
-        while name in free:
-            name += "_"
-        fresh = type(self.var)(name, self.var.cod)
-        shadowed = [substitution.inside.get(term.var)
-                    for substitution, term in zip(substitutions, terms)]
-        for substitution, term in zip(substitutions, terms):
-            substitution.inside[term.var] = fresh
+        terms = (self, *others)
+        shadowed = [scope.get(term.var) for scope, term in zip(scopes, terms)]
+        for scope, term in zip(scopes, terms):
+            scope[term.var] = depth
         result = self.body.alpha_eq_under(
-            substitutions, *[other.body for other in others],
-            depth=depth + 1, free=free)
-        for substitution, term, image in zip(substitutions, terms, shadowed):
-            if image is None:
-                del substitution.inside[term.var]
+            scopes, [other.body for other in others], depth + 1)
+        for scope, term, level in zip(scopes, terms, shadowed):
+            if level is None:
+                del scope[term.var]
             else:
-                substitution.inside[term.var] = image
+                scope[term.var] = level
         return result
 
 
 type Term = Constant | Variable | Application | Abstraction
-
-
-@dataclass
-class Substitution:
-    """
-    A substitution of terms for variables, ``inside`` mapping each variable
-    to its image. Applied to a variable, it gives its image, the variable
-    itself when the substitution says nothing of it, as it does of any
-    other leaf; :mod:`discopy.closed` extends the application to every term.
-
-    Example
-    -------
-    >>> X = Ty("X")
-    >>> x, y = Variable("x", X), Variable("y", X)
-    >>> assert Substitution({x: y})(x) == y and Substitution({x: y})(y) == y
-    """
-    inside: dict[Variable, Term]
-
-    def __call__(self, variable: Variable) -> Term:
-        return self.inside.get(variable, variable)
 
 
 for law in (
@@ -1006,7 +984,11 @@ class Sampler:
     :meth:`splits` between its function and its argument and an
     :meth:`abstraction` extends with the variable it binds; a subterm that
     cannot be a leaf is a :meth:`spine`, a constant applied to the bound
-    variables in order.
+    variables in order. The options of a choice are closures calling the
+    method that builds the node with its arguments spelt out, so that the
+    recursion runs in Python frames, as deep as the recursion limit allows:
+    :func:`functools.partial`, or a call through ``*args``, goes through C
+    at every level and overflows its stack a few thousand nodes deep.
 
     Parameters:
         category : The class of terms to sample.
@@ -1065,9 +1047,9 @@ class Sampler:
         return result
 
     @staticmethod
-    def leaf(variable: Variable) -> Variable:
-        """ A bound variable as a leaf. """
-        return variable
+    def leaf(variable: Variable) -> Callable[[], Variable]:
+        """ The option of a bound variable as a leaf. """
+        return lambda: variable
 
     def leaves(self, cod: Ty, bound: tuple[Variable, ...],
                extra: bool) -> list[Callable[[], Term]]:
@@ -1078,11 +1060,11 @@ class Sampler:
         """
         result = []
         if not bound or not self.linear:
-            result.append(partial(self.constant, cod))
+            result.append(lambda: self.constant(cod))
         if (not bound or not self.linear) and extra:
-            result.append(partial(self.variable, cod))
+            result.append(lambda: self.variable(cod))
         if not self.linear or len(bound) == 1:
-            result += [partial(self.leaf, variable)
+            result += [self.leaf(variable)
                        for variable in bound if variable.cod == cod]
         return result
 
@@ -1111,19 +1093,24 @@ class Sampler:
         """
         exponent = self.choose(self.types)
         if left:
-            args = self.term(exponent, *first, level)
-            func = self.term(exponent >> cod, *second, level)
+            args = self.term(exponent, first, level)
+            func = self.term(exponent >> cod, second, level)
             return self.category.ob.application_factory(func, args, True)
-        func = self.term(cod << exponent, *first, level)
-        args = self.term(exponent, *second, level)
+        func = self.term(cod << exponent, first, level)
+        args = self.term(exponent, second, level)
         return self.category.ob.application_factory(func, args, False)
 
     def applications(self, cod: Ty, prefix: tuple, suffix: tuple,
                      extra: bool, level: int) -> list[Callable[[], Term]]:
         """ The applications allowed, one per split and side. """
-        return [partial(self.application, cod, first, second, left, level)
+        return [self.split(cod, first, second, left, level)
                 for first, second in self.splits(prefix, suffix, extra)
                 for left in (False, True)]
+
+    def split(self, cod: Ty, first: tuple, second: tuple, left: bool,
+              level: int) -> Callable[[], Application]:
+        """ The option of an application with its constraints split. """
+        return lambda: self.application(cod, first, second, left, level)
 
     def abstraction(self, cod: Ty, prefix: tuple, suffix: tuple, extra: bool,
                     level: int) -> Abstraction:
@@ -1136,17 +1123,19 @@ class Sampler:
         var = self.bound(level, cod.exponent)
         opening, closing = ((var, *prefix), suffix) if left\
             else (prefix, (*suffix, var))
-        body = self.term(cod.base, opening, closing, extra, level + 1)
+        body = self.term(cod.base, (opening, closing, extra), level + 1)
         return self.category.ob.abstraction_factory(var, body, left)
 
-    def term(self, cod: Ty, prefix: tuple = (), suffix: tuple = (),
-             extra: bool = True, level: int = 0) -> Term:
+    def term(self, cod: Ty, constraints: tuple = ((), (), True),
+             level: int = 0) -> Term:
         """
-        A term of a given type under the constraints: a leaf when the
+        A term of a given type under the constraints, i.e. the prefix, the
+        suffix and whether extra free variables are allowed: a leaf when the
         choices ran out, or the spine when none fits, else the option the
         next choice picks among the leaves, the applications and the
         abstraction if the type is an exponential.
         """
+        prefix, suffix, extra = constraints
         bound = prefix + suffix
         options = self.leaves(cod, bound, extra)
         choice = next(self.choices, None)
@@ -1154,8 +1143,8 @@ class Sampler:
             return options[0]() if options else self.spine(cod, bound)
         options += self.applications(cod, prefix, suffix, extra, level)
         if cod.is_exp:
-            options.append(partial(
-                self.abstraction, cod, prefix, suffix, extra, level))
+            options.append(
+                lambda: self.abstraction(cod, prefix, suffix, extra, level))
         return options[choice % len(options)]()
 
 

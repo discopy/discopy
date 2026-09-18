@@ -1,3 +1,4 @@
+import sys
 from discopy.biclosed import *
 from discopy import cat
 from discopy.axioms import assert_axioms
@@ -156,13 +157,13 @@ def test_alpha_eq():
         X(lambda x: X(lambda y: ((Y << X) << X)("h_")(x)(y))))
 
 
-def test_alpha_eq_under_restores_the_substitutions():
+def test_alpha_eq_under_restores_the_scopes():
     X, Y = Ty("X"), Ty("Y")
-    f, x, z = (Y << X)("f"), Variable("x", X), Variable("z", X)
-    substitutions = [Substitution({x: z}), Substitution({})]
+    f, x = (Y << X)("f"), Variable("x", X)
+    scopes = [{x: 0}, {}]
     assert X(lambda x: f(x)).alpha_eq_under(
-        substitutions, X(lambda y: f(y)), depth=1)
-    assert [s.inside for s in substitutions] == [{x: z}, {}]
+        scopes, [X(lambda y: f(y))], depth=1)
+    assert scopes == [{x: 0}, {}]
 
 
 def test_alpha_completeness():
@@ -196,7 +197,23 @@ def test_Sampler():
     assert [leaf() for leaf in sampler.leaves(X, (x0, ), True)] == [x0]
     assert sampler.leaves(Y, (x0, ), True) == []
     assert len(sampler.splits((x0, ), (x1, ), True)) == 5
+    split = sampler.split(Y, ((), (), False), ((), (), True), False, 0)
+    assert isinstance(split(), Application)
     assert Sampler(TermBase, iter([1]), [X], "x").term(Y) == Variable("v0", Y)
+
+
+def test_deep_terms():
+    X, limit = Ty("X"), sys.getrecursionlimit()
+    sys.setrecursionlimit(100_000)
+    try:
+        term = TermBase.generate(X, [2, 0, 0] * 6000, [X], "x")
+        assert term.alpha_eq(TermBase.generate(X, [2, 0, 0] * 6000, [X], "y"))
+    finally:
+        sys.setrecursionlimit(limit)
+    depth = 0
+    while isinstance(term, Application):
+        depth, term = depth + 1, term.args
+    assert depth == 6000
 
 
 def test_axioms():
