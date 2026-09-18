@@ -5,6 +5,7 @@
 import doctest
 
 from discopy import (
+    axioms,
     abc,
     cat,
     monoidal,
@@ -33,7 +34,6 @@ from discopy import (
     grammar,
     drawing,
     utils,
-    testing,
     config,
     messages,
 )

@@ -149,10 +149,10 @@ from __future__ import annotations
 from discopy import monoidal, braided, markov, hypergraph
 from discopy.abc import FeedbackCategory
 from discopy.utils import (
-    deprecated_ob,
+    deprecated_alias,
     factory, factory_name, from_tree, assert_isinstance, AxiomError,
 )
-from discopy.testing import GENERATORS
+from discopy.axioms import GENERATORS
 
 
 def str_delayed(time_step: int):
@@ -174,11 +174,13 @@ class Wire(braided.Wire):
         super().__init__(name)
 
     @classmethod
-    def strategy(cls, **params):
+    def strategy(cls, *, dom=monoidal.transparent,
+                 cod=monoidal.transparent):
         """Generate constant feedback objects at time zero."""
         from hypothesis import strategies as st
 
-        del params
+        if not monoidal.is_monochrome(dom, cod):
+            return st.nothing()
         return st.sampled_from(GENERATORS).map(cls)
 
     def delay(self, n_steps=1):
@@ -406,7 +408,7 @@ class Diagram(markov.Diagram, FeedbackCategory):
 
     feedback_joining = FeedbackCategory.feedback_joining.failing(
         "``feedback`` unrolls heterogeneous memory in the wrong order, so "
-        "it refuses to build the joined loop at all, see #606 — and the "
+        "it refuses to build the joined loop at all, see #649 — and the "
         "search falsifies the law even on homogeneous memory, so there "
         "is no subspace to weaken it to.")
 
@@ -750,4 +752,4 @@ class Equation(markov.Equation):
 
 
 Diagram.equation_factory = Equation
-__getattr__ = deprecated_ob(__name__)
+__getattr__ = deprecated_alias(__name__, {"Ob": "Wire"})

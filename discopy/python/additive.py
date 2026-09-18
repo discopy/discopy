@@ -11,24 +11,24 @@ Summary
     :nosignatures:
     :toctree:
 
-    Ty
     Function
 """
 
 from __future__ import annotations
 
 from functools import cache
+from itertools import accumulate
 from typing import Self
 
 from discopy.abc import SymmetricCategory
-from discopy.testing import Strategy
-from discopy.utils import assert_isinstance, factory, tuplify
+from discopy.axioms import Testable
+from discopy.utils import assert_isinstance, factory
 from discopy.python import finset, function
 from discopy.python.function import Types
 
 
 Ty = Types
-"""Lists of types interpreted as disjoint union."""
+""" Lists of types interpreted as disjoint union. """
 
 OPAQUE = ("A python function is a callable, not syntax: its ``inside`` "
           "reprs as an address, pickles only when the interpreter can name "
@@ -36,7 +36,7 @@ OPAQUE = ("A python function is a callable, not syntax: its ``inside`` "
 
 
 @factory
-class Function(function.Function, SymmetricCategory, Strategy["Function"]):
+class Function(function.Function, SymmetricCategory, Testable["Function"]):
     """
     Python functions with disjoint union as tensor.
 
@@ -62,11 +62,11 @@ class Function(function.Function, SymmetricCategory, Strategy["Function"]):
 
     def __call__(self, obj, tag=0):
         if self.type_checking:
-            assert_isinstance(obj, self.dom[tag])
+            assert_isinstance(obj, self.dom.inside[tag])
         result = self.inside(obj, *(() if len(self.dom) == 1 else (tag, )))
         if self.type_checking:
             obj, tag = (result, 0) if len(self.cod) == 1 else result
-            assert_isinstance(obj, self.cod[tag])
+            assert_isinstance(obj, self.cod.inside[tag])
         return result
 
     def tensor(self, other: Function) -> Function:
@@ -76,7 +76,7 @@ class Function(function.Function, SymmetricCategory, Strategy["Function"]):
         Parameters:
             other : The other function to take the disjoint union with.
         """
-        dom, cod = self.dom + other.dom, self.cod + other.cod
+        dom, cod = self.dom @ other.dom, self.cod @ other.cod
 
         def inside(obj, tag=0):
             if tag < len(self.dom):
@@ -93,29 +93,28 @@ class Function(function.Function, SymmetricCategory, Strategy["Function"]):
     @cache
     def swap(x: Ty, y: Ty) -> Function:
         """
-        Swap the tags of a disjoint union from `x + y` to `y + x`.
+        Swap the tags of a disjoint union from `x @ y` to `y @ x`.
 
         Parameters:
-            x : The tuple of types on the left.
-            y : The tuple of types on the right.
+            x : The list of types on the left.
+            y : The list of types on the right.
         """
-        x, y = map(tuplify, (x, y))
+        x, y = map(Ty.cast, (x, y))
 
         def inside(obj, tag=0):
             new_tag = tag + len(y) if tag < len(x) else tag - len(x)
-            if len(x + y) == 1:
+            if len(x) + len(y) == 1:
                 assert new_tag == 0
                 return obj
             return (obj, new_tag)
-        return Function(inside, dom=x + y, cod=y + x, is_swap_of=(x, y))
+        return Function(inside, dom=x @ y, cod=y @ x, is_swap_of=(x, y))
 
     @classmethod
     def permutation(cls, xs, doms) -> Self:
         """ Permute the tags of a disjoint union. """
-        doms, xs = list(doms), finset.Permutation(xs, len(doms))
-        offsets = [0]
-        for dom in doms:
-            offsets.append(offsets[-1] + len(dom))
+        doms = list(map(cls.ob.cast, doms))
+        xs = finset.Permutation(xs, len(doms))
+        offsets = [0, *accumulate(map(len, doms))]
         inverse = xs.dagger()
 
         def inside(obj, tag=0):
@@ -125,8 +124,8 @@ class Function(function.Function, SymmetricCategory, Strategy["Function"]):
                 + tag - offsets[block]
             return obj if offsets[-1] == 1 else (obj, new_tag)
 
-        dom = sum(doms, ())
-        cod = sum((doms[i] for i in xs), ())
+        dom = cls.ob().tensor(*doms)
+        cod = cls.ob().tensor(*(doms[i] for i in xs))
         return cls(inside, dom, cod)
 
     def dagger(self):
@@ -137,15 +136,16 @@ class Function(function.Function, SymmetricCategory, Strategy["Function"]):
     dagger_involution = SymmetricCategory.dagger_involution.inapplicable(
         "Only a swap has a dagger.")
 
-    dagger_contravariance = SymmetricCategory.dagger_contravariance\
-        .inapplicable("Only a swap has a dagger.")
+    dagger_contravariance = (
+        SymmetricCategory.dagger_contravariance.inapplicable(
+            "Only a swap has a dagger."))
 
     dagger_monoidality = SymmetricCategory.dagger_monoidality.inapplicable(
         "Only a swap has a dagger.")
 
-    transparency = Strategy.transparency.inapplicable(OPAQUE)
-    pickling = Strategy.pickling.inapplicable(OPAQUE)
-    serialisation = Strategy.serialisation.inapplicable(OPAQUE)
+    transparency = Testable.transparency.inapplicable(OPAQUE)
+    pickling = Testable.pickling.inapplicable(OPAQUE)
+    serialisation = Testable.serialisation.inapplicable(OPAQUE)
 
     @classmethod
     def equation_factory(cls, *terms):
@@ -167,7 +167,7 @@ class Function(function.Function, SymmetricCategory, Strategy["Function"]):
         """
         return tuple(
             f(dom(seed), tag)
-            for tag, dom in enumerate(f.dom) for seed in (2, 3))
+            for tag, dom in enumerate(f.dom.inside) for seed in (2, 3))
 
     @classmethod
     def relabelling(cls, source, target, mapping) -> Function:
@@ -192,7 +192,7 @@ class Function(function.Function, SymmetricCategory, Strategy["Function"]):
         types = cls.ob.strategy(max_length=max_length)
 
         def functions(boundaries):
-            source, target = map(tuplify, boundaries)
+            source, target = boundaries
             if source and not target:
                 return st.nothing()
             return st.tuples(*(
@@ -230,12 +230,21 @@ class Function(function.Function, SymmetricCategory, Strategy["Function"]):
 
     @staticmethod
     def merge(x: Ty, n=2) -> Function:
+        """
+        Merge :code:`n` copies of a list of types :code:`x` into one.
+
+        Parameters:
+            x : The list of types to merge.
+            n : The number of copies.
+        """
+        x = Ty.cast(x)
+
         def inside(obj, tag=0):
             if len(x) == 1:
                 assert tag % len(x) == 0
                 return obj
             return (obj, tag % len(x))
-        return Function(inside, n * x, x)
+        return Function(inside, x ** n, x)
 
 
 Swap = Function.braid = Function.swap
