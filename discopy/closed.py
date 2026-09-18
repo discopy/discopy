@@ -235,6 +235,25 @@ class TermBase(Box, biclosed.TermBase):
     def __call__(self, other):
         return Application(self, other, left=False)
 
+    @classmethod
+    def generate(cls, cod, choices, types, letters):
+        """
+        Build a term as :meth:`biclosed.TermBase.generate` does, except
+        that a closed term need not be linear: its :class:`biclosed.Sampler`
+        may use a bound variable any number of times, or not at all.
+
+        Example
+        -------
+        >>> X, Y = Ty("X"), Ty("Y")
+        >>> choices = [4, 2, 0, 2, 0, 0, 2, 2]
+        >>> print(TermBase.generate(Y << X, choices, [X], "x"))
+        X(lambda x0: (X >> (X >> Y))('c0')(x0)(x0))
+        >>> print(TermBase.generate(Y << X, [4, 0], [X], "x"))
+        X(lambda x0: Y('c0'))
+        """
+        return biclosed.Sampler(
+            cls, iter(choices), types, letters, linear=False).term(cod)
+
 
 type Term = Constant | Variable | Application | Abstraction
 

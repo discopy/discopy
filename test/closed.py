@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from discopy.closed import *
+from discopy.axioms import assert_axioms
+from discopy.biclosed import Sampler
 
 
 def test_exp():
@@ -210,3 +212,42 @@ def test_draw_copy_and_swap():
     # A non-linear term evaluates to such a diagram, so it draws too.
     X = Ty('X')
     assert X(lambda x: (X >> X)(lambda f: f(x))).eval().to_drawing()
+
+
+def test_alpha_eq_nonlinear():
+    X, Y = Ty("X"), Ty("Y")
+    f = (X >> (X >> Y))("f")
+    assert X(lambda x: X(lambda x: x)).alpha_eq(X(lambda x: X(lambda y: y)))
+    assert not X(lambda x: X(lambda x: x)).alpha_eq(X(lambda x: X(lambda y: x)))
+    assert X(lambda x: f(x)(x)).alpha_eq(X(lambda y: f(y)(y)))
+    assert not X(lambda x: X(lambda y: f(x)(y))).alpha_eq(
+        X(lambda x: X(lambda y: f(y)(x))))
+    assert X(lambda x: X(lambda y: y)).alpha_eq(X(lambda z: X(lambda y: y)))
+    assert not X(lambda x: X(lambda y: f(x)(y))).alpha_eq(
+        X(lambda x: X(lambda y: f(x)(x))))
+
+
+def test_alpha_eq_tells_free_from_bound():
+    X, Y = Ty("X"), Ty("Y")
+    f, x0 = (X >> Y)("f"), Variable("x0", X)
+    assert not X(lambda x0: f(x0)).alpha_eq(X(lambda y: f(x0)))
+    assert X(lambda x0: f(x0)).alpha_eq(X(lambda y: f(y)))
+
+
+def test_Sampler_nonlinear():
+    X, Y = Ty("X"), Ty("Y")
+    x0, x1 = Variable("x0", X), Variable("x1", X)
+    sampler = Sampler(TermBase, iter([]), [X], "x", linear=False)
+    assert [leaf() for leaf in sampler.leaves(X, (x0, x1), True)][2:] == [x0, x1]
+    assert len(sampler.leaves(Y, (x0, x1), False)) == 1
+    assert sampler.splits((x0, ), (x1, ), True) == [
+        (((x0, ), (x1, ), True), ((x0, ), (x1, ), True))]
+    choices = [4, 2, 0, 2, 0, 0, 2, 2]
+    term = TermBase.generate(Y << X, choices, [X], "x")
+    assert term.alpha_eq(TermBase.generate(Y << X, choices, [X], "y"))
+    assert str(term) == "X(lambda x0: (X >> (X >> Y))('c0')(x0)(x0))"
+
+
+def test_axioms():
+    assert_axioms(TermBase)
+
