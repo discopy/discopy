@@ -51,7 +51,7 @@ from discopy.quantum.circuit import (
     Digit, Qudit)
 from discopy.quantum.gates import Discard, Measure, MixedState, Encode, Scalar
 from discopy.tensor import Dim, Tensor
-from discopy.utils import assert_isinstance
+from discopy.utils import assert_isinstance, unbiased
 
 
 class CQ:
@@ -184,9 +184,12 @@ class Channel(Tensor):
     def dagger(self) -> Channel:
         return type(self)(self.to_tensor().dagger().array, self.cod, self.dom)
 
-    def tensor(self, other: Channel = None, *others: Channel) -> Channel:
-        if other is None or others:
-            return super().tensor(other, *others)
+    @unbiased
+    def tensor(self, other: Channel) -> Channel:
+        """
+        The tensor of two channels, given by interleaving the classical and
+        quantum wires of their underlying tensors.
+        """
         assert_isinstance(other, type(self))
         f = Box('f', Ty('c00', 'q00', 'q00'), Ty('c10', 'q10', 'q10'))
         g = Box('g', Ty('c01', 'q01', 'q01'), Ty('c11', 'q11', 'q11'))

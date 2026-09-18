@@ -796,23 +796,33 @@ class Layer(cat.Box, ColouredMonoid):
         return factory_name(type(self))\
             + f"({', '.join(map(repr, self))})"
 
-    def tensor(self, other: Ty | Box | Layer) -> Layer:
+    def tensor(self, *others: Ty | Box | Layer) -> Layer:
         """
-        Tensor another layer on the right, normalising the common boundary.
+        Tensor more layers on the right, normalising each common boundary.
 
         A type is merged into the boundary rather than embedded as a layer,
         so that whiskering never builds one out of empty plumbing.
+
+        Parameters:
+            others : The types, boxes or layers to tensor on the right.
+
+        Example
+        -------
+        >>> x = Ty('x')
+        >>> f, g, h = (Box(name, x, x) for name in "fgh")
+        >>> assert Layer(f).tensor(Layer(g), Layer(h)) == Layer(f, g, h)
+        >>> assert Layer(f).tensor(x, Layer(g)) == Layer(f, x, g)
         """
-        other = type(self).whisker(other)
-        if isinstance(other, self.ob):
-            type(self).check((self[-1], other))
-            return type(self)(
-                *self[:-1], *type(self).normalise((self[-1], other)),
-                normalise=False)
-        type(self).check((self[-1], other[0]))
-        return type(self)(
-            *self[:-1], *type(self).normalise((self[-1], other[0])),
-            *other[1:], normalise=False)
+        factory = type(self)
+        inside = list(self.boxes_or_types)
+        for other in others:
+            other = factory.whisker(other)
+            pieces = (other, ) if isinstance(other, self.ob)\
+                else other.boxes_or_types
+            factory.check((inside[-1], pieces[0]))
+            inside[-1:] = [
+                *factory.normalise((inside[-1], pieces[0])), *pieces[1:]]
+        return factory(*inside, normalise=False)
 
     def __rmatmul__(self, other):
         other = type(self).whisker(other)
@@ -1000,13 +1010,12 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
 
         return decorator
 
-    def tensor(self, other: Diagram = None, *others: Diagram) -> Diagram:
+    def tensor(self, *others: Diagram) -> Diagram:
         """
         Parallel composition, called using :code:`@`.
 
         Parameters:
-            other : The other diagram to tensor.
-            rest : More diagrams to tensor.
+            others : The other diagrams to tensor.
 
         Important
         ---------
@@ -1014,11 +1023,15 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
 
             self @ other == self @ other.dom >> self.cod @ other
 
+        Each layer of the ``i``-th diagram is whiskered by the codomains of
+        the diagrams before it and the domains of those after it.
+
         Example
         -------
         >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
         >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
         >>> assert f0 @ f1 == f0.tensor(f1) == f0 @ Id(z) >> Id(y) @ f1
+        >>> assert f0 @ f1 @ f0 == f0.tensor(f1, f0)
 
         >>> (f0 @ f1).draw(
         ...     doctest='docs/_static/monoidal/tensor-example.svg')
@@ -1026,18 +1039,29 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
         .. image:: /_static/monoidal/tensor-example.svg
             :align: center
         """
-        if other is None:
+        if not others:
             return self
-        if others:
-            return self.tensor(other).tensor(*others)
-        if isinstance(other, Sum):
-            return self.sum_factory((self, )).tensor(other)
-        assert_isinstance(other, self.ar)
-        assert_isinstance(self, other.ar)
-        inside = tuple(layer @ other.dom for layer in self.inside)\
-            + tuple(self.cod @ layer for layer in other.inside)
-        dom, cod = self.dom @ other.dom, self.cod @ other.cod
-        return self.ar(inside, dom, cod, _scan=False)
+        for other in others:
+            if isinstance(other, Sum):
+                return self.sum_factory((self, )).tensor(*others)
+            assert_isinstance(other, self.ar)
+            assert_isinstance(self, other.ar)
+        suffixes = [others[-1].dom]
+        for other in reversed(others[:-1]):
+            suffixes.append(other.dom @ suffixes[-1])
+        dom, prefix, inside = self.dom @ suffixes[-1], None, []
+        for diagram in (self, ) + others:
+            suffix = suffixes.pop() if suffixes else None
+            if prefix and suffix:
+                inside += [prefix @ layer @ suffix for layer in diagram.inside]
+            elif prefix:
+                inside += [prefix @ layer for layer in diagram.inside]
+            elif suffix:
+                inside += [layer @ suffix for layer in diagram.inside]
+            else:
+                inside += diagram.inside
+            prefix = diagram.cod if prefix is None else prefix @ diagram.cod
+        return self.ar(tuple(inside), dom, prefix, _scan=False)
 
     @property
     def boxes(self) -> list[Box]:
@@ -1504,13 +1528,25 @@ class Sum(cat.Sum, Box):
     def size(self):
         return 1
 
-    def tensor(self, other=None, *others):
-        if other is None or others:
-            return Diagram.tensor(self, other, *others)
-        other = other if isinstance(other, Sum)\
-            else self.sum_factory((other, ))
-        dom, cod = self.dom @ other.dom, self.cod @ other.cod
-        terms = tuple(f.tensor(g) for f in self.terms for g in other.terms)
+    def tensor(self, *others):
+        """
+        The tensor of sums distributes over the sum, i.e. its terms are the
+        ``n``-ary tensors of one term from each factor.
+
+        >>> f = Box('f', 'x', 'x')
+        >>> assert (f + f) @ (f + f) == sum(4 * [f @ f])
+        """
+        if not others:
+            return self
+        sums = [
+            other if isinstance(other, Sum) else self.sum_factory((other, ))
+            for other in others]
+        dom = self.dom.tensor(*(other.dom for other in sums))
+        cod = self.cod.tensor(*(other.cod for other in sums))
+        terms = tuple(
+            term.tensor(*rest) for term in self.terms
+            for rest in itertools.product(
+                *(other.terms for other in sums)))
         return self.sum_factory(terms, dom, cod)
 
     to_drawing = Diagram.to_drawing
