@@ -8,9 +8,11 @@ An :class:`Axiom` is an equation stated once on an abstract base class of
 category breaks it or has no such structure. A :class:`Testable` category
 generates its own objects and arrows, and states the laws every type that
 does so obeys: a term reads back from its representation, its pickle and
-its tree. The matrix in ``proptest/`` checks every axiom of every
-category against generated arguments, one cell per pair; CONTRIBUTING.md
-says how to run it.
+its tree. An :class:`Equivalence` is a testable type with an equivalence
+relation besides equality, and states the laws of one once: reflexivity,
+symmetry and transitivity. The matrix in ``proptest/`` checks every axiom
+of every category against generated arguments, one cell per pair;
+CONTRIBUTING.md says how to run it.
 
 Summary
 -------
@@ -24,6 +26,8 @@ Summary
     Axiom
     AxiomFailure
     Testable
+    Equivalence
+    Related
     Grid
     ComposablePair
     ComposableTriple
@@ -57,6 +61,7 @@ from discopy.utils import (
     AxiomError,
     NamedGeneric,
     assert_iscomposable,
+    classproperty,
     dumps,
     factory_name,
     from_tree,
@@ -460,6 +465,22 @@ class Testable[T](ABC):
         module = sys.modules[cls.__module__]
         return dict(public(vars(discopy)), **public(vars(module)))
 
+    @classproperty
+    def axioms(cls) -> dict[str, Axiom]:
+        """
+        The axioms inherited by ``cls``, by name, subclasses overriding bases.
+
+        Names are collected before they are filtered, so that assigning
+        anything that is not an axiom over an inherited one drops it
+        altogether, rather than restating it.
+        """
+        visible = {
+            name: value
+            for base in reversed(cls.__mro__)
+            for name, value in base.__dict__.items()}
+        return {name: value.bind(cls) for name, value in visible.items()
+                if isinstance(value, Axiom)}
+
     @axiom
     def transparency(cls, term: Self) -> Equation:
         """
@@ -485,6 +506,89 @@ class Testable[T](ABC):
         A type without a tree declares the law inapplicable.
         """
         return Equation(from_tree(term.to_tree()), loads(dumps(term)), term)
+
+
+class Equivalence(Testable):
+    """
+    A type with an equivalence relation on its instances besides equality,
+    e.g. lambda terms up to the names of their bound variables, and the
+    laws of an equivalence relation stated once: reflexivity, symmetry and
+    transitivity.
+
+    The relation is the :class:`Equation` subclass ``equivalence_factory``,
+    which holds when its terms are related. A search over arbitrary
+    instances would rarely meet related ones, so the two laws that need
+    them quantify over :class:`Related` instances, which the type generates
+    with :meth:`related`: two related by construction and a third that may
+    be or not, so that a law runs in both directions.
+
+    Example
+    -------
+    >>> from discopy.biclosed import Ty, TermBase
+    >>> X = Ty("X")
+    >>> f, g = (X << X)("f"), (X << X)("g")
+    >>> terms = X(lambda x: f(x)), X(lambda y: f(y)), g
+    >>> assert TermBase.equivalent(*terms[:2])
+    >>> assert not TermBase.equivalent(terms[0], g)
+    >>> assert TermBase.transitivity(Related[TermBase](terms))
+    """
+    equivalence_factory: ClassVar[type[Equation]]
+
+    @classmethod
+    @abstractmethod
+    def related(cls, **params) -> st.SearchStrategy[tuple]:
+        """
+        Generate three instances: two related by construction and a third
+        comparable to them, related or not.
+        """
+
+    @classmethod
+    def equivalent(cls, *terms) -> bool:
+        """ Whether the terms are related, by the ``equivalence_factory``. """
+        return bool(cls.equivalence_factory(*terms))
+
+    @axiom
+    def reflexivity(cls, term: Self) -> Equation:
+        """ A term is related to itself. """
+        return cls.equivalence_factory(term, term)
+
+    @axiom
+    def symmetry(cls, terms: Related[Self]) -> Equation:
+        """ A term is related to another exactly when the other is to it. """
+        first, _, third = terms
+        return Equation(
+            cls.equivalent(first, third), cls.equivalent(third, first))
+
+    @axiom
+    def transitivity(cls, terms: Related[Self]) -> Equation:
+        """
+        Terms related to each other are related to the same terms: a third
+        term is related to the first exactly when it is to the second,
+        which is transitivity in both directions given symmetry.
+        """
+        first, second, third = terms
+        return Equation(
+            cls.equivalent(first, third), cls.equivalent(second, third))
+
+
+class Related(Testable, NamedGeneric["factory"], tuple):
+    """
+    Three instances of the ``factory``, an :class:`Equivalence`: two related
+    by construction and a third that may be or not, see
+    :meth:`Equivalence.related`.
+    """
+    def __new__(cls, terms):
+        terms = tuple(terms)
+        if len(terms) != 3:
+            raise ValueError("Expected three terms.")
+        return super().__new__(cls, terms)
+
+    @classmethod
+    def strategy(cls, **params) -> st.SearchStrategy[Related]:
+        """ Generate the triples the factory relates. """
+        from hypothesis import strategies as st
+
+        return st.builds(cls, cls.factory.related(**params))
 
 
 class Grid(Testable, NamedGeneric["factory"], tuple):

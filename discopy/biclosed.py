@@ -93,7 +93,7 @@ from typing import (
 
 from discopy import monoidal, cmap
 from discopy.abc import BiclosedCategory
-from discopy.axioms import GENERATORS, Testable, axiom
+from discopy.axioms import GENERATORS, Equivalence, Testable, axiom
 from discopy.drawing import Drawing
 from discopy.cat import factory
 from discopy.utils import (
@@ -533,9 +533,11 @@ CMap = cmap.CMap[Diagram]
 Diagram.functor_factory = Functor
 
 
-class TermBase(Box):
+class TermBase(Box, Equivalence):
     """
-    A term in the internal language of biclosed categories.
+    A term in the internal language of biclosed categories, an
+    :class:`discopy.axioms.Equivalence` up to the names of its bound
+    variables, see :meth:`alpha_eq`.
 
     Attributes:
         dom (Ty): The tensor of the types for each free variable.
@@ -720,23 +722,30 @@ class TermBase(Box):
             lambda shape, letters: cls.generate(*shape, letters),
             cls.shapes(**params), cls.namings())
 
+    @classmethod
+    def related(cls, **params) -> st.SearchStrategy[tuple]:
+        """
+        Generate a term, its canonical form and a second term of the same
+        type, the first again under another naming or another shape, see
+        :class:`Canonical`: the first two alpha-equivalent by construction,
+        the third alpha-equivalent to them or not.
+
+        Parameters:
+            params : Passed to :meth:`shapes`.
+        """
+        from hypothesis import strategies as st
+
+        return st.builds(
+            lambda terms: (terms[0], terms[2], terms[1]),
+            Canonical[cls].strategy(**params))
+
     serialisation = Testable.serialisation.failing(
         "A term does not read back from its tree, see #692.")
-
-    @axiom
-    def alpha_reflexivity(cls, term: Self) -> Equation:
-        """ A term is alpha-equivalent to itself. """
-        return AlphaEquation(term, term)
 
     @axiom
     def alpha_renaming(cls, terms: Renamed[Self]) -> Equation:
         """ A term is alpha-equivalent to its renamings, however many. """
         return AlphaEquation(*terms)
-
-    @axiom
-    def alpha_symmetry(cls, terms: Renamed[Self]) -> Equation:
-        """ Alpha-equivalence is symmetric. """
-        return AlphaEquation(*reversed(terms))
 
     @axiom
     def alpha_application(cls, terms: Renamed[Self]) -> Equation:
@@ -773,8 +782,8 @@ class TermBase(Box):
         Alpha-equivalence is decided by the canonical naming of the bound
         variables: two terms are alpha-equivalent exactly when their
         canonical forms are equal, see :class:`Canonical`. The other laws
-        only ask that alpha-equivalent terms be found so; this one fails
-        when terms that are not alpha-equivalent are.
+        hold of a relation that says yes too often; this one fails when
+        terms that are not alpha-equivalent are.
         """
         first, second, *canonical = terms
         return Equation(first.alpha_eq(second), canonical[0] == canonical[1])
@@ -1254,5 +1263,7 @@ class AlphaEquation(Equation):
         term, *others = self.terms
         return term.alpha_eq(*others)
 
+
+TermBase.equivalence_factory = AlphaEquation
 
 __getattr__ = deprecated_alias(__name__, {"Ob": "Wire"})

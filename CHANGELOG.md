@@ -32,15 +32,24 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   draws one shape under several namings, so that the laws of
   alpha-equivalence are axioms of `TermBase` checked by the property
   matrix, where `biclosed.TermBase` and `closed.TermBase` are now
-  enrolled: reflexivity, renaming, symmetry, congruence with respect to
-  application and to abstraction, soundness for evaluation, stated with
-  `biclosed.AlphaEquation`, an equation between terms which holds when
-  they are alpha-equivalent, and completeness: two terms are
+  enrolled. `TermBase` is an `axioms.Equivalence`, the abstract class of
+  a type with an equivalence relation besides equality, which states
+  reflexivity, symmetry and transitivity once for any such relation: the
+  relation is the `Equation` subclass `equivalence_factory`, which holds
+  when its terms are related, `biclosed.AlphaEquation` here, and the two
+  laws that need related terms quantify over `Related[C]`, two instances
+  related by construction and a third that may not be, drawn by the
+  type's `related`, so that each verdict runs both ways. Then the laws of
+  alpha-equivalence itself: renaming, congruence with respect to
+  application and to abstraction, soundness for evaluation, and
+  completeness: two terms are
   alpha-equivalent exactly when regenerating each under one naming of
   its bound variables gives equal terms, drawn by `Canonical[C]` as two
   shapes under their own namings and under the canonical one, the one
-  law an `alpha_eq` that says yes too often fails where the others only
-  ask that alpha-equivalent terms be found so. `Testable.serialisation`
+  law an `alpha_eq` that says yes too often fails where the others hold
+  of it. `Testable.axioms`, the laws a type inherits by name, moves there
+  from `abc.Category`, so that any testable type has them.
+  `Testable.serialisation`
   is declared
   failing on terms, which do not read back from their tree
   ([#692](https://github.com/discopy/discopy/issues/692)), and

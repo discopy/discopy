@@ -61,7 +61,7 @@ from dataclasses import dataclass
 from typing import ClassVar
 
 from discopy.axioms import (
-    Axiom, ComposablePair, ComposableTriple, Equation, axiom)
+    ComposablePair, ComposableTriple, Equation, axiom)
 from discopy.utils import NamedGeneric, classproperty  # noqa: F401
 
 
@@ -103,22 +103,6 @@ class Category[C0, C1: Category](ABC):
         further.
         """
         return Equation(*terms)
-
-    @classproperty
-    def axioms(cls) -> dict[str, Axiom]:
-        """
-        The axioms inherited by ``cls``, by name, subclasses overriding bases.
-
-        Names are collected before they are filtered, so that assigning
-        anything that is not an axiom over an inherited one drops it
-        altogether, rather than restating it.
-        """
-        visible = {
-            name: value
-            for base in reversed(cls.__mro__)
-            for name, value in base.__dict__.items()}
-        return {name: value.bind(cls) for name, value in visible.items()
-                if isinstance(value, Axiom)}
 
     @classmethod
     @abstractmethod

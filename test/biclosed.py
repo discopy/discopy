@@ -1,7 +1,7 @@
 import sys
 from discopy.biclosed import *
 from discopy import cat
-from discopy.axioms import assert_axioms
+from discopy.axioms import Related, assert_axioms
 from pytest import raises
 
 
@@ -175,6 +175,19 @@ def test_alpha_completeness():
     first, second, canonical, _ = build(shape, other, "yz")
     assert first != second and not TermBase.alpha_completeness(
         Canonical[TermBase]([first, second, canonical, canonical]))
+
+
+def test_related():
+    X, Y = Ty("X"), Ty("Y")
+    shape = (Y << X, [8, 0, 0], [X])
+    first, second, canonical, _ = Canonical[TermBase].build(
+        shape, [8, 1, 0], "yz")
+    terms = Related[TermBase]((first, canonical, second))
+    assert TermBase.symmetry(terms) and TermBase.transitivity(terms)
+    assert not TermBase.transitivity(
+        Related[TermBase]((first, second, canonical)))
+    assert TermBase.equivalent(first, canonical)
+    assert not TermBase.equivalent(first, second)
 
 
 def test_generate():

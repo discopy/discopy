@@ -18,7 +18,9 @@ from discopy.axioms import (
     ComposablePair,
     ComposableTriple,
     Equation,
+    Equivalence,
     Grid,
+    Related,
     Testable,
     assert_axioms,
     axiom,
@@ -63,6 +65,33 @@ class Row(Grid):
     n_rows, n_columns = 1, 2
 
 
+class ParityEquation(Equation):
+    """ An equation between integers which holds up to their parity. """
+
+    up_to = staticmethod(lambda n: n % 2)
+
+
+class Parity(int, Equivalence):
+    """ An integer up to parity, an equivalence relation besides equality. """
+
+    equivalence_factory = ParityEquation
+    serialisation = Testable.serialisation.inapplicable(
+        "An integer has no tree.")
+
+    @classmethod
+    def strategy(cls, **params):
+        """Generate an integer."""
+        return st.integers().map(cls)
+
+    @classmethod
+    def related(cls, **params):
+        """Generate an integer, another of the same parity and any third."""
+        return st.tuples(st.integers(), st.integers(), st.integers()).map(
+            lambda triple: (
+                cls(triple[0]), cls(triple[0] + 2 * triple[1]),
+                cls(triple[2])))
+
+
 def test_axioms():
     assert_axioms(Arrow)
 
@@ -72,6 +101,20 @@ def test_axioms():
         dagger_involution = Arrow.dagger_involution.inapplicable("No dagger.")
 
     assert_axioms(Classified)
+
+
+def test_Equivalence():
+    assert_axioms(Parity)
+    assert Parity.equivalent(Parity(1), Parity(3), Parity(-5))
+    assert not Parity.equivalent(Parity(1), Parity(2))
+    assert Parity.reflexivity(Parity(2))
+    assert Parity.symmetry(Related[Parity]((1, 3, 4)))
+    assert Parity.transitivity(Related[Parity]((1, 3, 5)))
+    assert Parity.transitivity(Related[Parity]((1, 3, 4)))
+    assert not Parity.transitivity(Related[Parity]((1, 2, 3)))
+    assert find(Related[Parity].strategy(), lambda t: t[2] % 2 == 1)[2] % 2
+    with raises(ValueError):
+        Related[Parity]((1, 3))
 
 
 def test_failing_when_the_terms_do_not_build():
