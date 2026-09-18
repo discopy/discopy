@@ -339,9 +339,6 @@ class Nat(Testable["Nat"], Monoid["Nat"]):
             st.just(1),
             st.integers(min_value=0, max_value=max_size)).map(cls)
 
-    serialisation = Testable.serialisation.inapplicable(
-        "A natural number has no tree.")
-
 
 class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](
         Category[C0, C1]):
