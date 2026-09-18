@@ -9,6 +9,60 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `axioms.Serialisable`, the serialisation interface of DisCoPy, one hook
+  driving all three mechanisms: the class attribute `serialised_attrs`
+  names the attributes that are also keyword arguments of `__init__`,
+  from which follow a generic pair of inverse methods `to_tree` and
+  `from_tree`, a generic `__repr__` such that `eval(repr(x)) == x`, and
+  `__setstate__`, the terminal that every pickle migration shim chains
+  into. A class with a different constructor declares its attributes
+  once instead of reimplementing each method: `cat.Ob`, `Arrow`, `Box`,
+  `Sum` and `utils.BinaryBoxConstructor` drop their hand-written
+  `to_tree` and `from_tree` pairs for declarations that produce
+  byte-identical trees, and `cat.Ob`, `cat.Box` (all but its dagger
+  case), `rigid.Box` and `BinaryBoxConstructor` drop the hand-written
+  reprs the generic one reproduces. An umbrella issue collects every
+  implementor still missing
+  ([#742](https://github.com/discopy/discopy/issues/742)). An arrow
+  decoded by the generic method has its composition checked again, where
+  `Arrow.from_tree` used to skip the check, and an explicit
+  `"is_dagger": false` in a tree decodes as `False`, where the old
+  key-presence test read it as `True`.
+- Each mechanism comes with the law that it is a roundtrip, stated on
+  `axioms.Serialisable` as an axiom like any other: `repr_transparency`
+  for the
+  representation, `pickling` and `copying` for the pickle protocol and
+  `serialisation` for the tree, with `environment` for the namespace a
+  representation reads back in. `copying` is new — a deep
+  copy goes through the same reduction as a pickle without the bytes,
+  which is how the `NamedGeneric` parameters were lost below. Stating an
+  axiom is no longer the business of `Category` alone: both it and
+  `Serialisable` subclass `axioms.Testable`, which carries the `axioms`
+  classproperty they share, so that a type stating the roundtrips
+  without being a category — the objects of a category, say — is
+  enrolled like the rest. One class both states the laws and says how to
+  draw the terms they quantify over, since the two never come apart in
+  practice: every abstract base class that states laws is one a subclass
+  will generate eventually, and the wrappers that generate a law's
+  arguments — `Grid`, `ComposablePair`, `ComposableTriple` — state the
+  composability their constructor enforces, rather than being generators
+  of nothing.
+  `Testable.strategy` is deliberately not an `abstractmethod`: that would
+  make every category which has not implemented one uninstantiable
+  rather than merely unchecked, 66 concrete classes among them, so the
+  default raises `NotImplementedError` instead. `Testable.subclasses`
+  walks the transitive subclasses and `proptest/test_axioms.py` reads
+  the matrix off it, rather than off a list kept beside the suite: a
+  class enrols itself by implementing `strategy`, and one that would
+  inherit a strategy for the wrong terms — a `monoidal.Ty` is not the
+  `cat.Ob` it subclasses — declares `strategy = no_strategy` until it
+  implements its own. So a category states its laws from the moment it
+  has them, is checked as soon as it says how to generate their terms,
+  and says which of the two it is where it is defined. That is `cat.Ob`,
+  `cat.Arrow` and `cat.Box` to begin with, where the matrix reached the
+  objects and boxes only through the arrows containing them; the eight
+  classes below them that generate nothing yet — `cat.Sum`,
+  `cat.Bubble` and the six of `monoidal` — carry the opt-out.
 - `monoidal.List`, the free monoid on a generator type: `List[X]` is a
   tuple of instances of `X` with concatenation as `tensor` and the empty
   list as unit, an `abc.Monoid` parameterised as
@@ -71,16 +125,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   uploads its own afterwards — a pull request only reads it — so a
   counterexample found by one night's search fails every pull request
   until it is fixed or declared, and `Axiom.falsify` searches for one on
-  demand. `Testable`
-  states the laws of any type that generates its own instances, whatever
-  its level: `transparency`, `pickling` and `serialisation` are cells of
-  the matrix for every category — `eval(repr(x))`, the pickle and the tree
-  of a term read back to it, as `Equation`s like every other law — with
-  `Testable.environment` for the namespace a representation reads back
-  in — the package's public names and then those of the module the
-  category is defined in, so that a term printing bare names such as
-  `Tensor[int]([0], dom=Dim(1), cod=Dim(1))` reads back without its
-  category declaring anything; the ad-hoc property
+  demand. `Testable.strategy`
+  generates the terms a law quantifies over, whatever its level, while
+  the laws that a term reads back from its representation, its pickle
+  and its tree are stated on `axioms.Serialisable` above; the ad-hoc property
   files for representations, pickling and serialisation are gone, and a
   known violation is a `.failing` declaration on its category like any
   other broken law. `discopy.axioms` joins the API docs under its own
@@ -520,6 +568,25 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- Pickling an instance of a parameterised `NamedGeneric` class silently
+  lost the parameter: `__reduce__` stashed the values for a
+  `NamedGeneric.__setstate__` that no subclass inherits, since the
+  parameterised classes subclass `typing.Generic` instead. A module-level
+  reconstructor now parameterises the class before pickle restores the
+  state, fixing `pickle` and `copy.deepcopy` of `Hypergraph`, `CMap`,
+  `Matrix`, `Tensor`, `interaction.Ty` and `hopf.Representation`, which
+  came back with `category` or `dtype` `None` and a stray
+  `__class_getitem__values__` attribute
+  ([#742](https://github.com/discopy/discopy/issues/742)).
+- `rigid.Box` keeps its winding number through `dumps` and `loads`:
+  `z` is one of its `serialised_attrs`, where a rotated box used to round-trip
+  silently to an unrotated one
+  ([#742](https://github.com/discopy/discopy/issues/742)).
+- `utils.from_tree` resolves a parameterised factory name such as
+  `"tensor.Box[float]"` to its origin class instead of raising
+  `AttributeError`, and `cat.Bubble.from_tree` warns on the outdated
+  singular `'arg'` key like the other outdated-dumps shims
+  ([#742](https://github.com/discopy/discopy/issues/742)).
 - The marimo notebook previews in the docs follow the theme switch. The
   notebooks are exported with marimo's `system` theme and the docs relay
   the resolved theme into each notebook's iframe through marimo's

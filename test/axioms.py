@@ -22,10 +22,12 @@ from discopy.axioms import (
     Testable,
     assert_axioms,
     axiom,
+    no_strategy,
     resolve,
     substitute,
 )
 from discopy.cat import Arrow, Box, Functor, Ob
+from discopy.monoidal import Diagram
 from discopy.utils import AxiomError, NamedGeneric
 
 
@@ -190,3 +192,35 @@ def test_axioms_of_category():
         unitality = None
 
     assert "unitality" not in Hidden.axioms
+
+
+def test_no_strategy():
+    """ A class that does not generate its terms says so on `strategy`. """
+    with raises(NotImplementedError) as err:
+        Diagram.strategy()
+    assert "No search strategy implemented for Diagram" in str(err.value)
+
+    class Opted(Arrow):
+        """ A class that would inherit a strategy for the wrong terms. """
+        strategy = no_strategy
+
+    with raises(NotImplementedError):
+        Opted.strategy()
+    assert Opted.axioms["unitality"] == Opted.unitality
+
+
+def test_grid_states_its_law():
+    """
+    A grid is testable like any other: it states the composability its
+    constructor enforces, and is checked against it once subscripted.
+    """
+    x, y = Ob('x'), Ob('y')
+    composability = ComposablePair[Arrow].composability
+    assert composability(ComposablePair(Box('f', x, y), Box('g', y, x)))
+    drawn, = find(composability.strategy(), lambda _: True)
+    assert composability(drawn)
+    with raises(NoSuchExample):
+        composability.falsify()
+
+    with raises(NotImplementedError):
+        ComposablePair.strategy()  # no factory to draw the cells from

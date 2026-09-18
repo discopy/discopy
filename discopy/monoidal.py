@@ -64,6 +64,7 @@ from warnings import warn
 from discopy import abc, cat, drawing, hypergraph, cmap, messages
 from discopy.abc import (
     ColouredMonoid, Monoid, MonoidalCategory, NamedGeneric)
+from discopy.axioms import no_strategy
 from discopy.drawing import Drawing
 from discopy.config import (
     BOX_DRAWING_ATTRIBUTES, WIRE_DRAWING_ATTRIBUTES,
@@ -98,6 +99,7 @@ class Colour(cat.Ob):
 
     name: str = TRANSPARENT
     label: "str | None" = field(default=None, compare=False)
+    strategy = no_strategy
 
     def __post_init__(self):
         assert_isinstance(self.name, str)
@@ -129,6 +131,8 @@ transparent = Colour(TRANSPARENT)
 
 class Wire(cat.Ob):
     """A generating 1-cell with a colour on either side."""
+
+    strategy = no_strategy
 
     def __init__(self, name: str, dom: Colour = transparent,
                  cod: Colour = transparent, is_dagger: bool = False):
@@ -290,6 +294,7 @@ class Ty(cat.Ob, cat.FreeCategory, ColouredMonoid):
     """
     ob = Colour
     generator_factory = Wire
+    strategy = no_strategy
 
     def cast_wire(self, x: str | cat.Ob) -> cat.Ob:
         """
@@ -634,6 +639,7 @@ class Layer(cat.Box, ColouredMonoid):
             tensoring ``n`` layers takes linear rather than quadratic time.
     """
     ob = Ty
+    strategy = no_strategy
 
     def __setstate__(self, state):
         if 'boxes_or_types' not in state:
@@ -941,6 +947,7 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
     """
     ob = Ty
     layer_factory = Layer
+    strategy = no_strategy
 
     def __setstate__(self, state):
         if 'inside' not in state:  # Backward compatibility
@@ -1396,7 +1403,7 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
 
     @classmethod
     def from_tree(cls, tree):
-        if "inside" not in tree:
+        if "boxes" in tree:  # Backward compatibility
             warn("Outdated dumps", DeprecationWarning)
             boxes, offsets = map(from_tree, tree['boxes']), tree['offsets']
             return cls.decode(from_tree(tree['dom']), zip(boxes, offsets))
@@ -1456,6 +1463,8 @@ class Box(cat.Box, Diagram):
     .. image:: /_static/monoidal/coloured-box.svg
         :align: center
     """
+
+    strategy = no_strategy
 
     def __init__(self, name: str, dom: Ty, cod: Ty, **params):
         dom = dom if isinstance(dom, self.ob) else self.ob(dom)
