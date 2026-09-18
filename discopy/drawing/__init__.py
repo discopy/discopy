@@ -1,8 +1,9 @@
 """ DisCoPy's drawing modules. """
 
 import os
+from base64 import b64encode
 from PIL import Image
-from tempfile import NamedTemporaryFile, TemporaryDirectory
+from tempfile import TemporaryDirectory
 
 from discopy.utils import Node, Point
 from discopy.drawing import backend, drawing
@@ -87,12 +88,16 @@ def to_gif(diagram, *diagrams, **params):  # pragma: no cover
     """
     Builds a gif with the normalisation steps.
 
+    The gif is embedded in the :code:`<img>` tag that gets returned, so that
+    it displays wherever the notebook gets rendered rather than only
+    relative to the working directory.
+
     Parameters
     ----------
     diagrams : :class:`Diagram`, optional
         Sequence of diagrams to draw.
     path : str
-        Where to save the image, if :code:`None` a gif gets created.
+        Where to save the image, if :code:`None` the gif is only embedded.
     timestep : int, optional
         Time step in milliseconds, default is :code:`500`.
     loop : bool, optional
@@ -105,8 +110,6 @@ def to_gif(diagram, *diagrams, **params):  # pragma: no cover
     timestep = params.get("timestep", 500)
     loop = params.get("loop", False)
     steps, frames = [d.to_drawing() for d in (diagram, ) + diagrams], []
-    path = path or os.path.basename(NamedTemporaryFile(
-        suffix='.gif', prefix='tmp_', dir='.').name)
     if 'figsize' not in params:
         params['figsize'] = tuple(
             max(getattr(step, attr) for step in steps)
@@ -125,16 +128,20 @@ def to_gif(diagram, *diagrams, **params):  # pragma: no cover
                 save_all=True, duration=timestep,
                 **{'loop': 0} if loop else {})
 
+        path = path or os.path.join(directory, 'tmp.gif')
         if compare:
             backend.save_and_compare(
                 path, save, tol=params.get("tol", backend.DEFAULT['plt_tol']))
         else:
             save(path)
-        try:
-            from IPython.display import HTML
-            return HTML(f'<img src="{path}">')
-        except ImportError:
-            return f'<img src="{path}">'
+        with open(path, 'rb') as file:
+            source = b64encode(file.read()).decode()
+    image = f'<img src="data:image/gif;base64,{source}">'
+    try:
+        from IPython.display import HTML
+        return HTML(image)
+    except ImportError:
+        return image
 
 
 def spiral(n_cups):
