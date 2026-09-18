@@ -42,20 +42,23 @@ from types import ModuleType
 from typing import Union, Literal as L, Callable, TYPE_CHECKING
 
 from discopy import monoidal, config, messages
-from discopy.abc import MonoidalCategory, NamedGeneric, Nat
+from discopy.abc import MarkovCategory, NamedGeneric, Nat
 from discopy.cat import (
     factory,
     assert_iscomposable,
     assert_isparallel,
 )
+from discopy.axioms import C0, Subsingleton, Testable
 from discopy.utils import assert_isinstance, unbiased
 
 if TYPE_CHECKING:
     import sympy
 
+WRONG_COPY = "Matrix.copy(x, n) is wrong for x, n >= 2 (#652)."
+
 
 @factory
-class Matrix(MonoidalCategory, NamedGeneric['dtype']):
+class Matrix(MarkovCategory, Testable["Matrix"], NamedGeneric["dtype"]):
     """
     A matrix is an ``array`` with natural numbers as ``dom`` and ``cod``.
 
@@ -129,6 +132,30 @@ class Matrix(MonoidalCategory, NamedGeneric['dtype']):
            [0, 4]])
     """
     ob = Nat
+
+    @classmethod
+    def strategy(cls, *, dom=None, cod=None, max_size=3, max_entry=3):
+        """
+        Generate matrices with entries in ``range(max_entry + 1)``.
+
+        Small integers are exact elements of every ``dtype``, so the
+        equational cells stay free of rounding noise.
+        """
+        from hypothesis import strategies as st
+
+        factory = cls[cls.dtype or int]
+        sizes = st.integers(min_value=0, max_value=max_size)
+        entries = st.integers(min_value=0, max_value=max_entry)
+        return st.tuples(
+            sizes if dom is None else st.just(dom),
+            sizes if cod is None else st.just(cod)).map(
+                lambda shape: tuple(map(index, shape))).flatmap(
+                lambda shape: st.lists(
+                    entries, min_size=shape[0] * shape[1],
+                    max_size=shape[0] * shape[1]).map(
+                        lambda array: factory(array, *shape)))
+
+    serialisation = Testable.serialisation.inapplicable(messages.NO_SYNTAX)
 
     def cast(self, dtype: type) -> Matrix:
         """
@@ -307,8 +334,6 @@ class Matrix(MonoidalCategory, NamedGeneric['dtype']):
         array[left:, :right] = Matrix.id(right).array
         return cls(array, dom, cod)
 
-    braid = swap
-
     def transpose(self) -> Matrix:
         return type(self)(self.array.transpose(), self.cod, self.dom)
 
@@ -329,7 +354,7 @@ class Matrix(MonoidalCategory, NamedGeneric['dtype']):
         return type(self)(array, self.dom, self.cod)
 
     @classmethod
-    def copy(cls, x: Nat, n: int) -> Matrix:
+    def copy(cls, x: Nat, n: int = 2) -> Matrix:
         x = index(x)
         array = [[i + int(j % n * x) == j
                   for j in range(n * x)] for i in range(x)]
@@ -412,6 +437,23 @@ class Matrix(MonoidalCategory, NamedGeneric['dtype']):
         """ Gradient with respect to variables. """
         return self.map(lambda x:
                         getattr(x, "diff", lambda _: 0)(var, **params))
+
+    copy_cocommutativity = MarkovCategory.copy_cocommutativity.failing(
+        WRONG_COPY)
+
+    copy_counitality = MarkovCategory.copy_counitality.failing(WRONG_COPY)
+
+    copy_monoidal_coherence = (
+        MarkovCategory.copy_monoidal_coherence.failing(WRONG_COPY))
+
+    #: The copy laws hold below dimension two, where the coherence does
+    #: not: ``copy(x @ x)`` reaches dimension two from atomic ``x``.
+    copy_cocommutativity_small = (
+        MarkovCategory.copy_cocommutativity.weaken(x=Subsingleton[C0]))
+
+    #: Counitality too: it copies ``x`` alone, so it stays in the subspace.
+    copy_counitality_small = (
+        MarkovCategory.copy_counitality.weaken(x=Subsingleton[C0]))
 
 
 def array2string(array, **params):

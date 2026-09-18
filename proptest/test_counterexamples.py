@@ -8,6 +8,8 @@ from typing import NamedTuple
 import pytest
 
 from discopy import biclosed, braided, cat, feedback, pivotal, ribbon
+from discopy.abc import Nat
+from discopy.matrix import Matrix
 from discopy.axioms import (
     GENERATORS, Atomic, Axiom, AxiomFailure, Relabelling)
 from discopy.utils import AxiomError, factory_name
@@ -37,6 +39,19 @@ left preserves its action but compares unequal (#648).
 MEMORY = feedback.Ty("a") @ feedback.Ty("b")
 
 COUNTEREXAMPLES = (
+    Counterexample(
+        axiom=Matrix[int].copy_cocommutativity,
+        args=(Nat(2), ),
+        reason="Matrix.copy(x, n) is wrong for x, n >= 2 (#652)"),
+    Counterexample(
+        axiom=Matrix[int].copy_counitality,
+        args=(Nat(2), ),
+        reason="Matrix.copy(x, n) is wrong for x, n >= 2 (#652)"),
+    Counterexample(
+        axiom=Matrix[int].copy_monoidal_coherence,
+        args=(Nat(1), ),
+        reason="Matrix.copy(x, n) is wrong for x, n >= 2, reachable "
+               "from atomic arguments through the coherence (#652)"),
     Counterexample(
         axiom=cat.Functor.unitality,
         args=(cat.Functor(ob_map=COLLAPSE, ar_map=COLLAPSE), ),
