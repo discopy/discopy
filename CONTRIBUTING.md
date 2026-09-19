@@ -105,12 +105,17 @@ your machine before any search; it reaches GitHub only when selected.
 HYPOTHESIS_PROFILE=explore uv run pytest proptest/ -n auto -p no:benchmark
 ```
 
-`Axiom.falsify` searches for a shrunk counterexample to a law on demand,
-raising `NoSuchExample` when it finds none, which is how a failing cell
-becomes a concrete term to debug in a REPL: call
-`<Category>.<law>.falsify()` on the category that breaks the law, then
-inspect the sides of the `Equation` the axiom returns on the arguments it
-hands back.
+`proptest/test_counterexamples.py` replays every recorded counterexample —
+the bound axiom and the arguments a search once shrunk a failure to — so
+known bugs reproduce deterministically on every run. The documentation of
+[`discopy.axioms`](discopy/axioms.py) describes the whole workflow: stating
+laws before implementing, debugging a failing cell, recording its
+counterexample and auditing a strategy that missed a bug. `Axiom.falsify`
+searches for a shrunk counterexample to a law on demand, raising
+`NoSuchExample` when it finds none, which is how a failing cell becomes a
+concrete term to debug in a REPL: call `<Category>.<law>.falsify()` on the
+category that breaks the law, then inspect the sides of the `Equation` the
+axiom returns on the arguments it hands back.
 
 The `proptest` GitHub workflow runs this suite on pull requests labelled
 `proptest`, on `main`, nightly and on manual dispatch.

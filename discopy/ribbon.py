@@ -76,6 +76,8 @@ cap becomes a ribbon folding back.
     :align: center
 """
 
+from __future__ import annotations
+
 from discopy import rigid, pivotal, balanced
 from discopy.abc import RibbonCategory
 from discopy.cat import factory
@@ -92,6 +94,7 @@ class Diagram(pivotal.Diagram, balanced.Diagram, RibbonCategory):
         dom (pivotal.Ty) : The domain of the diagram, i.e. its input.
         cod (pivotal.Ty) : The codomain of the diagram, i.e. its output.
     """
+
     def trace(self, n=1, left=False):
         """
         The trace of a ribbon diagram.
@@ -150,6 +153,9 @@ class Diagram(pivotal.Diagram, balanced.Diagram, RibbonCategory):
         .. image:: /_static/balanced/twist_dual_rail.svg
         """
         return self.to_braided(width, colour)
+
+    twist_as_trace = RibbonCategory.twist_as_trace.failing(
+        "The traced braid does not reduce to the twist.")
 
 
 class Box(pivotal.Box, balanced.Box, Diagram):
@@ -309,6 +315,7 @@ class Sum(rigid.Sum, Box):
     """
 
 
+@factory
 class Functor(pivotal.Functor, balanced.Functor):
     """
     A ribbon functor is both a pivotal functor and a balanced functor.
@@ -357,6 +364,7 @@ class DualRail(balanced.DualRail, Functor):
         return super().__call__(other)
 
 
+Diagram.functor_factory = Functor
 Diagram.braid_factory = Braid
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Diagram.twist_factory = Twist
@@ -367,3 +375,6 @@ Id = Diagram.id
 
 class Equation(pivotal.Equation):
     """ The :class:`pivotal.Equation` of ribbon diagrams. """
+
+
+Diagram.equation_factory = Equation

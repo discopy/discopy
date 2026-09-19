@@ -351,6 +351,30 @@ class CMap[C0: Pregroup, C1: CMap](
         return len(self.boxes) == 1 and not self.loops
 
     @property
+    def is_boundary_connected(self) -> bool:
+        """
+        Whether the boundary reaches every box, i.e. each connected
+        component has at least one port on the boundary.
+
+        Unlike :attr:`discopy.hypergraph.Hypergraph.is_boundary_connected`
+        this is defined for every map, in particular for the left-handed
+        cups and caps of a rigid diagram, whose hypergraph is partial.
+
+        Example
+        -------
+        >>> from discopy.compact import Ty, Box, Diagram
+        >>> x = Ty('x')
+        >>> assert Box('f', x, x).to_map().is_boundary_connected
+        >>> scalar = Box('s', Ty(), Ty()).to_map()
+        >>> assert not scalar.is_boundary_connected
+        >>> assert Diagram.id(Ty()).to_map().is_boundary_connected
+        """
+        return all(
+            len(component.dom) or len(component.cod)
+            for component in self.connected_components
+            if component.boxes or component.loops)
+
+    @property
     def is_planar(self) -> bool:
         """
         Whether the combinatorial map is planar, i.e. all of its non-scalar

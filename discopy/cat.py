@@ -83,7 +83,9 @@ from typing import (
 
 from discopy import messages, utils
 from discopy.abc import Category
-from discopy.axioms import GENERATORS, Equation as AbstractEquation, Testable
+from discopy.axioms import (
+    C1, GENERATORS, ComposablePair, Equation as AbstractEquation, Relabelling,
+    Testable, axiom)
 from discopy.utils import (  # noqa: F401
     factory,
     factory_name,
@@ -312,14 +314,7 @@ class Arrow(FreeCategory, Testable["Arrow"]):
     def strategy(
             cls, *, types=None, dom=None, cod=None,
             min_leaves=None, max_leaves=10):
-        """
-        Generate the canonical instantiation: a single identity or a single
-        generator box with the requested (or an arbitrary) boundary.
-
-        Callers bound the number of generators of a composite term with
-        :code:`min_leaves` and :code:`max_leaves`; a canonical
-        instantiation has at most one, so both are ignored.
-        """
+        """Generate typed paths recursively from identities and boxes."""
         from hypothesis import strategies as st
 
         types = cls.ob.strategy() if types is None else types
@@ -329,13 +324,40 @@ class Arrow(FreeCategory, Testable["Arrow"]):
             return cls.generator_factory.strategy(
                 types=types, dom=dom, cod=cod)
 
-        if dom is not None and cod is not None:
-            if dom == cod:
-                return st.just(cls.id(dom))
-            return generators(dom=dom, cod=cod)
+        atoms = st.one_of(types.map(cls.id), generators())
+
+        def extend(children):
+            def bridge(pair):
+                left, right = pair
+                return generators(dom=left.cod, cod=right.dom).map(
+                    lambda middle: left >> middle >> right)
+
+            return st.tuples(children, children).flatmap(bridge)
+
+        arrows = st.recursive(
+            atoms, extend,
+            min_leaves=min_leaves, max_leaves=max_leaves)
+
         if dom is not None or cod is not None:
-            return generators(dom=dom, cod=cod)
-        return st.one_of(types.map(cls.id), generators())
+            def set_boundaries(arrow):
+                source = arrow.dom if dom is None else dom
+                target = arrow.cod if cod is None else cod
+                if not arrow.inside:
+                    return st.just(cls.id(source)) if source == target\
+                        else generators(dom=source, cod=target)
+                boundaries = (source, ) + tuple(
+                    box.cod for box in arrow.inside[:-1]) + (target, )
+                return st.tuples(*(generators(left, right)
+                                   for left, right in zip(
+                                       boundaries, boundaries[1:])))\
+                    .map(lambda inside: cls(
+                        inside, source, target, _scan=False))
+
+            arrows = arrows.flatmap(set_boundaries)
+
+        return arrows.filter(
+                lambda arrow: len(set(arrow.inside))
+                == len(arrow.inside))
 
     def __setstate__(self, state):
         if '_dom' in state:  # Backward compatibility
@@ -866,7 +888,7 @@ class Bubble(Box):
 
 
 @factory
-class Functor(Category):
+class Functor(Category, Testable["Functor"]):
     """
     A functor is a pair of maps :code:`ob_map` and :code:`ar_map` and an
     optional codomain category :code:`cod`.
@@ -994,6 +1016,59 @@ class Functor(Category):
         for box in other.inside:
             result = result >> self(box)
         return result
+
+    @classmethod
+    def strategy(cls, *, dom=None, cod=None):
+        """Generate an endofunctor relabelling every generator."""
+        from hypothesis import strategies as st
+
+        atoms = [cls.dom.ob(name) for name in GENERATORS]
+
+        def relabel(images):
+            """ The endofunctor sending each atom to its image. """
+            labelling = Relabelling(tuple(zip(atoms, images)))
+            return cls(labelling, labelling)
+
+        return st.tuples(
+            *(st.sampled_from(atoms) for _ in atoms)).map(relabel).filter(
+                lambda functor: dom in (None, functor.dom)
+                and cod in (None, functor.cod))
+
+    serialisation = Testable.serialisation.inapplicable(
+        "A functor has no tree.")
+    unitality = Category.unitality.failing(
+        "The identity functor is a pair of functions: composing it on the "
+        "left of a functor given by mappings acts the same but compares "
+        "unequal (#648).")
+
+    dagger_involution = Category.dagger_involution.inapplicable(
+        "A functor has no dagger.")
+
+    dagger_contravariance = Category.dagger_contravariance.inapplicable(
+        "A functor has no dagger.")
+
+    @axiom
+    def identity_typing(cls):
+        """
+        Typing of the identity functor.
+
+        The objects of ``Cat`` are categories, which the property matrix does
+        not generate, so this is stated of the one the functor maps.
+        """
+        identity = cls.id(cls.dom)
+        return AbstractEquation(identity.dom, cls.dom, identity.cod)
+
+    @axiom
+    def composition_dom_typing(cls, pair: ComposablePair[C1]):
+        """ Composition of functors preserves the source category. """
+        f, g = pair
+        return AbstractEquation(f.then(g).dom, f.dom)
+
+    @axiom
+    def composition_cod_typing(cls, pair: ComposablePair[C1]):
+        """ Composition of functors preserves the target category. """
+        f, g = pair
+        return AbstractEquation(f.then(g).cod, g.cod)
 
 
 Arrow.generator_factory = Box
