@@ -482,6 +482,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Removed
 
+- `biclosed.Variable` and `closed.Variable` require an atomic codomain:
+  the abstraction machinery indexes contexts and free variables by
+  variable, counting on that index to coincide with a wire index, so a
+  variable of type `x @ y` used to bind only the last wire, leaving the
+  other one silently free in `biclosed`, and crash from inside `finset`
+  in `closed`, where `Abstraction.eval` permutes as many wires as there
+  are free variables
+  ([#609](https://github.com/discopy/discopy/issues/609)).
 - `quantum.circuit`'s module-level `backend` (the array-backend context
   manager imported from `discopy.matrix`) is renamed `array_backend`, so it
   is no longer shadowed within the bodies of `Circuit.eval` and
