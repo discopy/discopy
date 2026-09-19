@@ -125,7 +125,7 @@ Dinaturality
 
 from __future__ import annotations
 
-from discopy import cmap, hypergraph, monoidal
+from discopy import cmap, hypergraph, messages, monoidal
 from discopy.abc import TracedCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty  # noqa: F401
@@ -135,7 +135,6 @@ from discopy.utils import (
     assert_isinstance,
     assert_istraceable,
 )
-FREE_TRACE = "A free trace is a box, not a rewrite."
 
 
 @factory
@@ -176,22 +175,25 @@ class Diagram(monoidal.Diagram, TracedCategory):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
 
     trace_dinaturality_left = \
-        TracedCategory.trace_dinaturality_left.inapplicable(FREE_TRACE)
+        TracedCategory.trace_dinaturality_left.inapplicable(
+            messages.FREE_TRACE)
 
     trace_dinaturality_right = \
-        TracedCategory.trace_dinaturality_right.inapplicable(FREE_TRACE)
+        TracedCategory.trace_dinaturality_right.inapplicable(
+            messages.FREE_TRACE)
 
     trace_naturality_left = \
-        TracedCategory.trace_naturality_left.inapplicable(FREE_TRACE)
+        TracedCategory.trace_naturality_left.inapplicable(messages.FREE_TRACE)
 
     trace_naturality_right = \
-        TracedCategory.trace_naturality_right.inapplicable(FREE_TRACE)
+        TracedCategory.trace_naturality_right.inapplicable(messages.FREE_TRACE)
 
     trace_superposing_left = \
-        TracedCategory.trace_superposing_left.inapplicable(FREE_TRACE)
+        TracedCategory.trace_superposing_left.inapplicable(messages.FREE_TRACE)
 
     trace_superposing_right = \
-        TracedCategory.trace_superposing_right.inapplicable(FREE_TRACE)
+        TracedCategory.trace_superposing_right.inapplicable(
+            messages.FREE_TRACE)
 
 
 class Box(monoidal.Box, Diagram):

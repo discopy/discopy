@@ -24,6 +24,7 @@ Summary
     Axiom
     AxiomFailure
     Testable
+    Natural
     Atomic
     NonEmpty
     Subsingleton
@@ -719,6 +720,42 @@ class Testable[T](ABC):
         A type without a tree declares the law inapplicable.
         """
         return Equation(from_tree(term.to_tree()), loads(dumps(term)), term)
+
+
+class Natural(int, Testable["Natural"]):
+    """ A non-negative integer with tensor given by addition. """
+
+    def __new__(cls, value=0):
+        if not isinstance(value, int) or value < 0:
+            raise ValueError("Expected a non-negative integer.")
+        return super().__new__(cls, value)
+
+    def __matmul__(self, other):
+        return type(self)(self + other) if isinstance(other, int)\
+            else NotImplemented
+
+    __rmatmul__ = __matmul__
+    __len__ = lambda self: int(self)
+
+    def __repr__(self):
+        return factory_name(type(self)) + f"({int(self)})"
+
+    @classmethod
+    def equation_factory(cls, *terms):
+        """ Construct an equation between natural numbers. """
+        return Equation(*terms)
+
+    @classmethod
+    def strategy(cls, *, max_size=3):
+        """Generate non-negative integers."""
+        from hypothesis import strategies as st
+
+        return st.one_of(
+            st.just(1),
+            st.integers(min_value=0, max_value=max_size)).map(cls)
+
+    serialisation = Testable.serialisation.inapplicable(
+        "A natural number has no tree.")
 
 
 @dataclass(frozen=True)
