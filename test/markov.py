@@ -75,15 +75,15 @@ def test_Permutation():
 def test_strategy():
     from hypothesis import find
 
-    from discopy import testing
+    from discopy import axioms
 
-    testing.assert_strategy_finds(Diagram, Copy)
+    axioms.assert_strategy_finds(Diagram, Copy)
     discard = find(Box.strategy(), lambda value:
                    isinstance(value, Copy) and not value.cod)
     assert not discard.cod
 
 
 def test_axioms():
-    from discopy import testing
+    from discopy import axioms
 
-    testing.assert_axioms(Diagram, Hypergraph, CMap, Functor)
+    axioms.assert_axioms(Diagram, Hypergraph, CMap, Functor)
