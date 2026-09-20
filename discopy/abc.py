@@ -63,8 +63,9 @@ from typing import ClassVar
 from discopy.axioms import (
     Atomic, Axiom, Equation, ComposablePair, ComposableTriple, FeedbackJoining,
     FeedbackVanishing, HorizontalPair, LeftCurrying, Natural, NonEmpty,
-    RightCurrying, Square, TraceDinaturalityLeft, TraceDinaturalityRight,
-    TraceNaturalityLeft, TraceNaturalityRight, TraceSuperposing, axiom)
+    RightCurrying, Square, Testable, TraceDinaturalityLeft,
+    TraceDinaturalityRight, TraceNaturalityLeft, TraceNaturalityRight,
+    TraceSuperposing, axiom)
 from discopy.utils import NamedGeneric, classproperty  # noqa: F401
 
 
@@ -287,7 +288,7 @@ class Monoid[C1: Monoid](ColouredMonoid[type(None), C1]):
 
 
 @dataclass
-class Nat(Monoid["Nat"]):
+class Nat(Testable["Nat"], Monoid["Nat"]):
     """
     ``Nat`` is the free monoid on one generator, i.e. the natural numbers
     with addition as tensor. It is also a sequence over its unary encoding:
@@ -325,6 +326,18 @@ class Nat(Monoid["Nat"]):
         if key >= self.n or key < -self.n:
             raise IndexError
         return type(self)(1)
+
+    @classmethod
+    def strategy(cls, *, max_size=3):
+        """
+        Generate natural numbers, so that a category whose objects are
+        ``Nat`` quantifies over them like any other :class:`Testable`.
+        """
+        from hypothesis import strategies as st
+
+        return st.one_of(
+            st.just(1),
+            st.integers(min_value=0, max_value=max_size)).map(cls)
 
 
 class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](

@@ -193,6 +193,7 @@ def test_Natural():
     with raises(ValueError):
         Natural(-1)
     assert repr(Natural(2)) == "axioms.Natural(2)"
+    assert str(Natural(2)) == "2"
     assert eval(repr(Natural(2)), Natural.environment()) == Natural(2)
     assert Natural.equation_factory(Natural(1), Natural(1))
     assert find(Natural.strategy(), lambda number: number == 1) == 1
