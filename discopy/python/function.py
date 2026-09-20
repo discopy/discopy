@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from contextlib import contextmanager
 
 from discopy.abc import Category
+from discopy.axioms import Testable
 from discopy.monoidal import List
 from discopy.utils import (
     assert_iscomposable, assert_isinstance,
@@ -28,6 +29,29 @@ from discopy.utils import (
 
 Ty = List[type]
 """ Lists of Python types, i.e. the free monoid on ``type``. """
+
+
+class Types(Ty, Testable["Types"]):
+    """
+    Lists of Python types that generate themselves: the property matrix
+    quantifies over the one-type universe of :class:`int`, so that a
+    function is drawn over objects it can build elements of.
+    """
+    @classmethod
+    def strategy(cls, *, min_length=0, max_length=3, **_):
+        """Generate lists of the integer type."""
+        from hypothesis import strategies as st
+
+        return st.integers(
+            min_value=min_length, max_value=max_length).map(
+                lambda length: cls(*(length * (int, ))))
+
+    @classmethod
+    def equation_factory(cls, *terms):
+        """ Lists of types are compared on the nose. """
+        from discopy.cat import Equation
+
+        return Equation(*terms)
 
 
 @factory

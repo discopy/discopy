@@ -30,9 +30,26 @@ from itertools import accumulate
 from typing import Self
 
 from discopy.abc import ClosedCategory
+from discopy.axioms import Testable
 from discopy.utils import assert_isinstance, tuplify, untuplify, factory
 from discopy.python import finset, function
-from discopy.python.function import Ty
+
+
+class Types(function.Types):
+    """ Lists of types with the exponential as ``<<`` and ``>>``. """
+    def __lshift__(self, other):
+        return exp(self, other)
+
+    def __rshift__(self, other):
+        return exp(other, self)
+
+
+Ty = Types
+""" Lists of Python types interpreted as tuples. """
+
+OPAQUE = ("A python function is a callable, not syntax: its ``inside`` "
+          "reprs as an address, pickles only when the interpreter can name "
+          "it, and has no tree.")
 
 
 def exp(base: Ty, exponent: Ty) -> Ty:
@@ -48,7 +65,7 @@ def exp(base: Ty, exponent: Ty) -> Ty:
 
 
 @factory
-class Function(function.Function, ClosedCategory):
+class Function(function.Function, ClosedCategory, Testable["Function"]):
     """
     Python function with tuple as tensor.
 
@@ -71,6 +88,8 @@ class Function(function.Function, ClosedCategory):
             fix
             trace
     """
+
+    ob = Types
 
     def __call__(self, *xs):
         if self.type_checking:
@@ -230,4 +249,81 @@ class Function(function.Function, ClosedCategory):
         return self.copy(dom) >> dom @ fixed\
             >> self >> cod @ self.discard(traced)
 
-    exp = over = under = staticmethod(lambda x, y: exp(x, y))
+    exp = staticmethod(exp)
+
+    dagger_involution = ClosedCategory.dagger_involution.inapplicable(
+        "A python function has no dagger.")
+
+    dagger_contravariance = ClosedCategory.dagger_contravariance\
+        .inapplicable("A python function has no dagger.")
+
+    dagger_monoidality = ClosedCategory.dagger_monoidality.inapplicable(
+        "A python function has no dagger.")
+
+    transparency = Testable.transparency.inapplicable(OPAQUE)
+    pickling = Testable.pickling.inapplicable(OPAQUE)
+    serialisation = Testable.serialisation.inapplicable(OPAQUE)
+
+    @classmethod
+    def equation_factory(cls, *terms):
+        """
+        Functions are compared extensionally, i.e. up to probing both
+        sides on canonical arguments.
+        """
+        from discopy.cat import Equation
+
+        return Equation(*terms, up_to=cls.probe)
+
+    @classmethod
+    def probe(cls, f) -> tuple:
+        """ The observations of a function on canonical arguments. """
+        xs = tuple(
+            cls.inhabitant(t, seed) for seed, t in enumerate(f.dom.inside, 2))
+        return tuple(
+            cls.observe(y, t) for y, t in zip(tuplify(f(*xs)), f.cod.inside))
+
+    @classmethod
+    def inhabitant(cls, typ: type, seed: int):
+        """ A canonical element of a type: an integer or a callable. """
+        if typ is int:
+            return seed
+        base = typ.__args__[-1].__args__
+        return lambda *xs: untuplify(tuple(
+            cls.inhabitant(b, seed + i + sum(
+                x if isinstance(x, int) else 1 for x in xs))
+            for i, b in enumerate(base)))
+
+    @classmethod
+    def observe(cls, value, typ: type):
+        """ Observe a value at a type, applying a callable to inhabitants. """
+        if typ is int:
+            return value
+        base, exponent = typ.__args__[-1].__args__, typ.__args__[:-1]
+        arguments = tuple(
+            cls.inhabitant(t, seed) for seed, t in enumerate(exponent, 2))
+        return tuple(
+            cls.observe(y, t)
+            for y, t in zip(tuplify(value(*arguments)), base))
+
+    @classmethod
+    def strategy(cls, *, dom=None, cod=None, max_length=3, **_):
+        """Generate functions selecting their arguments or small constants."""
+        from hypothesis import strategies as st
+
+        types = cls.ob.strategy(max_length=max_length)
+
+        def functions(boundaries):
+            source, target = boundaries
+
+            def build(choices):
+                def inside(*xs):
+                    return untuplify(tuple(
+                        xs[i] if i >= 0 else -1 - i for i in choices))
+                return cls(inside, source, target)
+            return st.tuples(*(
+                st.integers(min_value=-2, max_value=len(source) - 1)
+                for _ in target)).map(build)
+
+        return st.tuples(
+            types if dom is None else st.just(dom),
+            types if cod is None else st.just(cod)).flatmap(functions)
