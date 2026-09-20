@@ -80,3 +80,27 @@ def test_FinSet():
     assert F(copy >> discard @ x) == F(Diagram.id(x)) == F(copy >> x @ discard)
     assert F(copy >> copy @ x) == F(Diagram.copy(x, 3)) == F(copy >> x @ copy)
     assert F(copy >> swap) == F(copy)
+
+
+def test_strategy():
+    from hypothesis import find
+
+    from discopy.abc import Nat
+    from discopy.python import finset
+
+    function = find(finset.Function.strategy(min_leaves=2, max_leaves=2),
+                    lambda value: True)
+    assert function.then(finset.Function.id(function.cod)) == function
+    generator = find(finset.Function.generator_strategy(cod=1, max_size=1),
+                     lambda value: True)
+    assert generator.dom == Nat(1)
+    permutation = find(finset.Permutation.strategy(dom=3),
+                       lambda value: not value.is_identity)
+    assert permutation.dom == Nat(3) == permutation.cod
+
+
+def test_axioms():
+    from discopy import axioms
+    from discopy.python import finset
+
+    axioms.assert_axioms(finset.Function, finset.Permutation)
