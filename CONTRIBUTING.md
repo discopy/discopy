@@ -78,12 +78,13 @@ cores, with `-p no:benchmark` unloading the benchmark plugin that is
 incompatible with it; drop both to run serially, e.g. when debugging a
 single cell.
 
-Every cell of the matrix is one axiom of one carrier, and the `--axioms`
-flag selects cells by glob, which can be used for shorter, targeted tests.
+Every cell of the matrix is one axiom of one category, named
+`<module>.<Category>.<law>`, so pytest's own `-k` selects cells for
+shorter, targeted tests.
 
 ```shell
-uv run pytest proptest/ --axioms '*.unitality' -v
-uv run pytest proptest/ --axioms 'cat.Functor.*'
+uv run pytest proptest/ -k unitality -v
+uv run pytest proptest/ -k 'Arrow and not typing'
 ```
 
 A cell is skipped when its axiom declares that the structure does not
@@ -91,14 +92,14 @@ apply, and xfailed when the law is declared broken, each carrying its
 reason: pass `-rsxX` to list the skips, xfails and unexpected passes with
 their reasons, and `-x` to stop at the first genuine failure.
 
-`proptest/conftest.py` registers three Hypothesis profiles over the
+`proptest/conftest.py` registers four Hypothesis profiles over the
 `.hypothesis/examples` database, selected by `HYPOTHESIS_PROFILE`: `dev`
 by default, `pr` for the small budget a pull request runs with, under a
 fixed `--hypothesis-seed` so that it draws the same examples every time,
 and `explore` for the large one `main` and the nightly run search with.
-With a `GITHUB_TOKEN` in the environment, `dev` also reads the database
-CI uploads as a workflow artifact, so a failure found on CI replays on
-your machine before any search.
+A fourth, `shared`, is `dev` reading the database CI uploads as a workflow
+artifact, through a `GITHUB_TOKEN`, so a failure found on CI replays on
+your machine before any search; it reaches GitHub only when selected.
 
 ```shell
 HYPOTHESIS_PROFILE=explore uv run pytest proptest/ -n auto -p no:benchmark
@@ -107,12 +108,14 @@ HYPOTHESIS_PROFILE=explore uv run pytest proptest/ -n auto -p no:benchmark
 `proptest/test_counterexamples.py` replays every recorded counterexample —
 the bound axiom and the arguments a search once shrunk a failure to — so
 known bugs reproduce deterministically on every run. The documentation of
-[`discopy.testing`](discopy/testing.py) describes the whole workflow: stating
+[`discopy.axioms`](discopy/axioms.py) describes the whole workflow: stating
 laws before implementing, debugging a failing cell, recording its
-counterexample and auditing a strategy that missed a bug. `Axiom.falsify`,
-which searches afresh for a shrunk counterexample and raises `NoSuchExample`
-when it finds none, remains for interactive exploration when no failure is
-in hand.
+counterexample and auditing a strategy that missed a bug. `Axiom.falsify`
+searches for a shrunk counterexample to a law on demand, raising
+`NoSuchExample` when it finds none, which is how a failing cell becomes a
+concrete term to debug in a REPL: call `<Category>.<law>.falsify()` on the
+category that breaks the law, then inspect the sides of the `Equation` the
+axiom returns on the arguments it hands back.
 
 The `proptest` GitHub workflow runs this suite on pull requests labelled
 `proptest`, on `main`, nightly and on manual dispatch.
@@ -268,7 +271,9 @@ That is, we do our best to make sure that critical parts of the reasoning / impl
 
 ## LLM guidelines
 
-We accept contributions from large language models so long as they are explicitly indicated as such.
+We accept contributions from large language models so long as they are explicitly indicated as such and authored under a GitHub handle separate from the human who prompted them, so that authorship stays traceable.
+Each LLM handle is clearly linked to the one human who runs it, and that human must never publish under their own personal handle what should go through it instead: this way, a human can review their own agent's pull requests directly on GitHub without it looking like they are talking to themselves.
+The resulting pull request needs to be approved by at least one human other than that prompter, in addition to any other review it requires.
 The [RULES.md](RULES.md) bind every agent working on a branch or pull request in this repo; they define the checkbox mutex and append-only shared-branch protocol.
 Use our [AGENTS.md](AGENTS.md) in your prompts so that the model has enough context to give quality results.
 

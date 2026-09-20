@@ -76,6 +76,7 @@ html_theme = 'sphinx_book_theme'
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static', '_style']
 html_css_files = ["custom.css"]
+html_js_files = ["marimo-theme.js"]
 html_favicon = "_static/logo.svg"
 
 html_title = "DisCoPy"

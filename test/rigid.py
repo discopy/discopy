@@ -58,8 +58,8 @@ def test_Ty_z():
     assert Ty('x').l.z == -1
 
 
-def test_PRO_r():
-    assert PRO(2).r == PRO(2)
+def test_Nat_r():
+    assert Nat(2).r == Nat(2)
 
 
 def test_Diagram_cups():
@@ -179,12 +179,19 @@ def test_curry_zero():
 
 
 def test_strategy():
-    from discopy import testing
+    from discopy import axioms
 
-    testing.assert_strategy_finds(Diagram, Cup, Cap)
+    axioms.assert_strategy_finds(Diagram, Cup, Cap)
 
 
 def test_axioms():
-    from discopy import testing
+    from discopy import axioms
 
-    testing.assert_axioms(Ty, Diagram, Functor)
+    axioms.assert_axioms(Ty, Diagram, Functor)
+
+
+def test_functor_factory():
+    """ The functor of a rigid diagram rotates, so a boundary keeps its z. """
+    x, y = Ty('x'), Ty('y')
+    assert Diagram.functor_factory is Functor
+    assert Diagram.functor_factory({x: y}, {})(x.r) == y.r
