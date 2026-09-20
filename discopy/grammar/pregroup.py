@@ -212,6 +212,7 @@ class Word(thue.Word, Box):
         return f"Word({repr(self.name)}, {repr(self.cod)}{extra})"
 
 
+@factory
 class Functor(frobenius.Functor):
     """ A pregroup functor is a frobenius functor with a pregroup domain. """
     dom = cod = Diagram

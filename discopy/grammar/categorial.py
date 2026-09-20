@@ -182,6 +182,7 @@ class BackwardCrossedComposition(BinaryBoxConstructor, Box):
         BinaryBoxConstructor.__init__(self, left, right)
 
 
+@factory
 class Functor(biclosed.Functor):
     """
     A categorial functor is a biclosed functor with a predefined mapping
