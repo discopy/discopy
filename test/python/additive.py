@@ -46,3 +46,33 @@ def test_trace_unequal_arity():
 
     f = Function(inside, (int, int), (int, int, int))
     assert f.trace()(7) == (7, 1)
+
+
+def test_strategy():
+    from hypothesis import find
+    from discopy.python.additive import Function
+
+    find(Function.strategy(), lambda f: len(f.dom) > len(f.cod) >= 1)
+
+
+def test_Types_tensor():
+    from discopy.python import function
+    from discopy.python.additive import Ty
+
+    assert Ty(int) @ Ty(str) == Ty(int, str) == Ty.cast((int, str))
+    assert isinstance(Ty(int) @ Ty(str), Ty)
+    assert issubclass(Ty, function.Ty) and Ty is not function.Ty
+
+
+def test_probe_non_integer_domain():
+    from discopy.python.additive import Function, Ty
+
+    f = Function(lambda obj: obj.upper(), Ty(str), Ty(str))
+    assert Function.equation_factory(f, f)
+
+
+def test_axioms():
+    from discopy import axioms
+    from discopy.python.additive import Function
+
+    axioms.assert_axioms(Function)
