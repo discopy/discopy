@@ -736,7 +736,7 @@ class Natural(int, Testable["Natural"]):
 
     __rmatmul__ = __matmul__
     __len__ = lambda self: int(self)
-    __str__ = int.__repr__
+    __str__ = lambda self: str(int(self))
 
     def __repr__(self):
         return factory_name(type(self)) + f"({int(self)})"
