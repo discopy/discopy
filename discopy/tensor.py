@@ -53,8 +53,9 @@ from discopy.frobenius import Dim, Cup
 from discopy.matrix import (  # noqa: F401
     Matrix, backend, set_backend, get_backend,
     NumPy, JAX, PyTorch, TensorFlow)
-from discopy.abc import NamedGeneric
+from discopy.abc import MarkovCategory, NamedGeneric
 from discopy.python import finset
+from discopy.axioms import Testable
 from discopy.utils import (
     factory_name, assert_isinstance, product, assert_isatomic)
 
@@ -188,6 +189,50 @@ class Tensor(Matrix):
     def caps(cls, left: Dim, right: Dim) -> Tensor:
         return cls.cups(left, right).dagger()
 
+    #: The copy of a tensor is a correct spider, where the matrix one is
+    #: wrong for ``x, n >= 2`` (#652), so the plain laws are restored.
+    copy_counitality = MarkovCategory.copy_counitality
+
+    copy_cocommutativity = MarkovCategory.copy_cocommutativity
+
+    copy_monoidal_coherence = MarkovCategory.copy_monoidal_coherence
+
+    #: The subsingleton weakenings ``Matrix`` states beside its broken
+    #: laws say strictly less than the laws restored above, so they are
+    #: dropped rather than restated: a name assigned anything that is not
+    #: an :class:`discopy.axioms.Axiom` leaves the matrix.
+    copy_cocommutativity_small = None
+
+    copy_counitality_small = None
+
+    #: Above ``config.NUMPY_THRESHOLD`` entries the array prints elided,
+    #: and the ``...`` it prints is ``Ellipsis`` rather than a number, so
+    #: the representation does not even parse back (#714). ``Matrix``
+    #: shares the repr and escapes only because its strategy stays under
+    #: the threshold.
+    transparency = Testable.transparency.failing(
+        "repr elides an array of more than config.NUMPY_THRESHOLD "
+        "entries (#714)")
+
+    @classmethod
+    def strategy(cls, *, dom=None, cod=None, max_dim=3, max_entry=3):
+        """Generate tensors with integer entries and small dimensions."""
+        from hypothesis import strategies as st
+
+        factory = cls[cls.dtype or int]
+        dims = Dim.strategy(max_dim=max_dim)
+        entries = st.integers(min_value=0, max_value=max_entry)
+        return st.tuples(
+            dims if dom is None else st.just(dom),
+            dims if cod is None else st.just(cod)).flatmap(
+                lambda shape: st.lists(
+                    entries,
+                    min_size=product(shape[0].inside)
+                    * product(shape[1].inside),
+                    max_size=product(shape[0].inside)
+                    * product(shape[1].inside)).map(
+                        lambda array: factory(array, *shape)))
+
     @classmethod
     def swap(cls, left: Dim, right: Dim) -> Tensor:
         dom, cod = left @ right, right @ left
@@ -248,7 +293,7 @@ class Tensor(Matrix):
             cls, n_legs_in, n_legs_out, typ, phase)
 
     @classmethod
-    def copy(cls, x: Dim, n: int) -> Tensor:
+    def copy(cls, x: Dim, n: int = 2) -> Tensor:
         """
         Constructs spiders of dimension `x` with one leg in and `n` legs out.
 
@@ -345,6 +390,7 @@ class Tensor(Matrix):
         return result
 
 
+@factory
 class Functor(frobenius.Functor):
     """
     A tensor functor is a frobenius functor with a domain category ``dom``
@@ -901,3 +947,6 @@ Id = Diagram.id
 
 class Equation(frobenius.Equation):
     """ The :class:`frobenius.Equation` of tensor diagrams. """
+
+
+Diagram.equation_factory = Equation
