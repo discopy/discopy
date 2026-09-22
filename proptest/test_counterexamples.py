@@ -7,7 +7,7 @@ from typing import NamedTuple
 
 import pytest
 
-from discopy import biclosed, braided, cat, feedback, pivotal, ribbon
+from discopy import biclosed, braided, cat, feedback, hopf, pivotal, ribbon
 from discopy.abc import Nat
 from discopy.matrix import Matrix
 from discopy.axioms import (
@@ -38,7 +38,24 @@ left preserves its action but compares unequal (#648).
 
 MEMORY = feedback.Ty("a") @ feedback.Ty("b")
 
+INTERTWINER = hopf.Intertwiner[hopf.Double(hopf.Algebra.cyclic(2))]
+
+ANYONS = INTERTWINER.ob.direct_sum([
+    INTERTWINER.ob.anyon(0, -1), INTERTWINER.ob.anyon(1, 1)])
+
 COUNTEREXAMPLES = (
+    Counterexample(
+        axiom=INTERTWINER.reidemeister_1_cap,
+        args=(ANYONS @ ANYONS, ),
+        reason="Reidemeister 1 fails on a composite module, where the "
+               "swap is the braiding and the pivotal correction fires "
+               "on a structural comparison with the unit."),
+    Counterexample(
+        axiom=INTERTWINER.reidemeister_1_cup,
+        args=(ANYONS @ ANYONS, ),
+        reason="Reidemeister 1 fails on a composite module, where the "
+               "swap is the braiding and the pivotal correction fires "
+               "on a structural comparison with the unit."),
     Counterexample(
         axiom=Matrix[int].copy_cocommutativity,
         args=(Nat(2), ),
