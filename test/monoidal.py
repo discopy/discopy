@@ -13,7 +13,7 @@ from discopy.utils import AxiomError, from_tree
 def test_Ty():
     x, y, z = Ty('x'), Ty('y'), Ty('z')
     assert Ty.ob is Colour and Ty.ar is Ty
-    assert isinstance(white, cat.Ob)
+    assert isinstance(transparent, cat.Ob)
     assert isinstance(x, cat.FreeCategory)
     assert isinstance(x, cat.Ob) and not isinstance(x, Wire)
     assert x @ y != y @ x
@@ -28,7 +28,7 @@ def test_coloured_Ty():
     y = Ty(Wire("y", green, blue))
     path = x @ y
 
-    assert Ty() == Ty.id(white)
+    assert Ty() == Ty.id(transparent) == Ty.id(Colour())
     assert path.dom == red and path.cod == blue
     assert Ty.id(red) >> path == path == path >> Ty.id(blue)
     assert path[:0] == Ty.id(red)
@@ -146,46 +146,50 @@ def test_Ty_pow():
         Ty('x') ** Ty('y')
 
 
-def test_PRO_init():
-    assert list(PRO(0)) == []
-    assert all(len(PRO(n)) == n for n in range(5))
+def test_Nat_init():
+    assert list(Nat(0)) == []
+    assert all(len(Nat(n)) == n for n in range(5))
 
 
-def test_PRO_tensor():
-    assert PRO(2) @ PRO(3) @ PRO(7) == PRO(12) == PRO(2).tensor(PRO(3), PRO(7))
+def test_Nat_tensor():
+    assert Nat(2) @ Nat(3) @ Nat(7) == Nat(12) == Nat(2).tensor(Nat(3), Nat(7))
     with raises(TypeError) as err:
-        PRO(2) @ Ty('x')
+        Nat(2) @ Ty('x')
 
 
-def test_PRO_repr():
-    assert repr((PRO(0), PRO(1))) == "(monoidal.PRO(0), monoidal.PRO(1))"
+def test_Nat_repr():
+    assert repr((Nat(0), Nat(1))) == "(monoidal.Nat(0), monoidal.Nat(1))"
 
 
-def test_PRO_hash():
-    assert hash(PRO(0)) == hash(PRO(0)) != hash(PRO(1))
+def test_Nat_hash():
+    assert hash(Nat(0)) == hash(Nat(0)) != hash(Nat(1))
 
 
-def test_PRO_to_tree():
-    assert PRO(0).to_tree() == {'factory': 'monoidal.PRO', 'n': 0}
-    assert PRO.from_tree(PRO(0).to_tree()) == PRO(0)
+def test_Nat_to_tree():
+    assert Nat(0).to_tree() == {'factory': 'monoidal.Nat', 'n': 0}
+    assert Nat.from_tree(Nat(0).to_tree()) == Nat(0)
 
 
-def test_PRO_str():
-    assert str(PRO(2 * 3 * 7)) == "PRO(42)"
+def test_Nat_str():
+    assert str(Nat(2 * 3 * 7)) == "Nat(42)"
 
 
-def test_PRO_getitem():
-    assert PRO(42)[2: 4] == PRO(2)
-    assert all(PRO(42)[i] == PRO(1) for i in range(42))
+def test_Nat_getitem():
+    assert Nat(42)[2: 4] == Nat(2)
+    assert all(Nat(42)[i] == Nat(1) for i in range(42))
 
 
-def test_PRO_identity_and_dagger():
-    # PRO(0) is the monoidal unit and identity.
-    assert PRO(0) @ PRO(3) == PRO(3) == PRO(3) @ PRO(0)
-    assert PRO.id() == PRO(0) == PRO.id(PRO(0))
-    # Reversing a PRO is a no-op: all wires are interchangeable.
-    assert PRO(3)[::-1] == PRO(3)
-    assert PRO(3).dagger() == PRO(3)
+def test_Nat_sequence_protocol():
+    assert len(Nat(3)) == 3
+    assert list(Nat(3)) == 3 * [Nat(1)]
+    assert Nat(3)[:1] == Nat(1)
+
+
+def test_Nat_identity_and_dagger():
+    assert Nat(0) @ Nat(3) == Nat(3) == Nat(3) @ Nat(0)
+    assert Nat.id() == Nat(0) == Nat.id(Nat(0))
+    assert Nat(3)[::-1] == Nat(3)
+    assert Nat(3).dagger() == Nat(3)
 
 
 def test_Dim_identity_and_slicing():
@@ -428,6 +432,13 @@ def test_Diagram_size():
     assert len(diagram) == 1 and diagram.size == 2
 
 
+def test_Bubble_dagger():
+    x, y = Ty('x'), Ty('y')
+    f = Box('f', x, y)
+    assert f.bubble().dagger() == f.dagger().bubble()
+    assert f.bubble().dagger().dagger() == f.bubble()
+
+
 def test_Box_globularity():
     red, green, blue = map(Colour, ("red", "green", "blue"))
     x, y = Ty(Wire("x", red, green)), Ty(Wire("y", red, green))
@@ -547,13 +558,21 @@ def test_Functor_call():
         F(F)
 
 
-def test_PRO_Functor():
-    class PRODiagram(Diagram):
-        ob = PRO
+def test_Nat_Functor():
+    class NatDiagram(Diagram):
+        ob = Nat
 
-    G = Functor(lambda x: x @ x, lambda f: f, cod=PRODiagram)
-    assert G(PRO(2)) == PRO(4)
-    assert Functor(lambda x: x, lambda f: f)(PRO(2)) == PRO(2)
+    G = Functor(lambda x: x @ x, lambda f: f, cod=NatDiagram)
+    assert G(Nat(2)) == Nat(4)
+    assert Functor(lambda x: x, lambda f: f, cod=NatDiagram)(Nat(2)) == Nat(2)
+
+
+def test_Nat_Functor_list_ob():
+    class ListDiagram(Diagram):
+        ob = List[bool]
+
+    F = Functor(lambda _: bool, lambda f: f, cod=ListDiagram)
+    assert F(Nat(3)) == List[bool](bool, bool, bool)
 
 
 def test_Functor_sum():
@@ -706,9 +725,9 @@ def test_strategy():
     from hypothesis import find
     from hypothesis import strategies as st
 
-    from discopy import testing
+    from discopy import axioms
 
-    testing.assert_strategy_finds(Diagram, Box)
+    axioms.assert_strategy_finds(Diagram, Box)
     x = Ty('x')
     composition = find(
         Diagram.strategy(types=st.just(x), min_leaves=2, max_leaves=2),
@@ -737,6 +756,40 @@ def test_strategy():
 
 
 def test_axioms():
-    from discopy import testing
+    from discopy import axioms
 
-    testing.assert_axioms(Ty, PRO, Diagram, Hypergraph, CMap, Functor)
+    axioms.assert_axioms(Ty, Nat, Diagram, Hypergraph, CMap, Functor)
+
+
+def test_List():
+    from discopy import abc, monoidal
+
+    # List[X] is a NamedGeneric on the generator type, cached like Hypergraph.
+    assert List[int].generator_factory is int and List[int] is List[int]
+    a, b = List[int](2, 3), List[int](4)
+    assert a @ b == List[int](2, 3, 4)
+    with raises(TypeError):
+        a + b
+    assert List[int].cast(2) == List[int].cast((2, )) == List[int](2)
+    assert a ** 2 == a @ a == List[int](2, 3, 2, 3) and a ** 0 == List[int]()
+    assert hash(a) == hash(List[int](2, 3)) != hash(b) and eval(repr(a)) == a
+
+    # A list is a sequence of its sublists, the atoms are its inside.
+    assert len(a) == 2 and a.inside == (2, 3)
+    assert list(a) == [a[0], a[1]] == [List[int](2), List[int](3)]
+    assert a[1:] == a[-1] == List[int](3) and not a[:0]
+    assert a[::-1] == List[int](3, 2)
+    assert List[int]() == List[int]() != List[str]("x") != List[int](2)
+    with raises(IndexError):
+        a[2]
+
+    assert issubclass(List, abc.Monoid) and a.dom is a.cod is None
+    assert not issubclass(Ty, List) and Ty.generator_factory is Wire
+    assert all(issubclass(Ty, base)
+               for base in (cat.Ob, cat.FreeCategory, abc.ColouredMonoid))
+    assert Dim(2, 3)[::-1] == Dim(3, 2) and Dim(2, 3)[0] == Dim(2)
+    red = monoidal.Colour('red')
+    assert Ty.cast(('x', 'y')) == Ty('x', 'y') == Ty.cast(Ty('x', 'y'))
+    assert eval(repr(Ty.id(red))) == Ty.id(red)
+    with raises(AxiomError):
+        Ty(Wire('x', red, red), Wire('y'))

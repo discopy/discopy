@@ -59,7 +59,7 @@ from __future__ import annotations
 from discopy import abc, cmap, hypergraph, ribbon, rigid, symmetric
 from discopy.abc import CompactCategory
 from discopy.cat import factory
-from discopy.utils import deprecated_ob
+from discopy.utils import deprecated_alias
 from discopy.pivotal import Wire, Ty  # noqa: F401
 
 
@@ -88,10 +88,6 @@ class Diagram(symmetric.Diagram, ribbon.Diagram, CompactCategory):
     pivotality = abc.PivotalCategory.pivotality
 
     twist_as_trace = abc.RibbonCategory.twist_as_trace
-
-    rotate_contravariance = abc.RigidCategory.rotate_contravariance.failing(
-        "``to_hypergraph`` drops the rotation of a box, so the equation "
-        "holds but cannot be checked up to hypergraph.")
 
 
 class Box(symmetric.Box, ribbon.Box, Diagram):
@@ -191,4 +187,4 @@ class Equation(symmetric.Equation):
 
 
 Diagram.equation_factory = Equation
-__getattr__ = deprecated_ob(__name__)
+__getattr__ = deprecated_alias(__name__, {"Ob": "Wire"})

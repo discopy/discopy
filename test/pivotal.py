@@ -30,15 +30,15 @@ def test_to_hypergraph_rejects_non_boundary_connected_diagrams():
 def test_strategy():
     from hypothesis import find
 
-    from discopy import testing
+    from discopy import axioms
 
-    testing.assert_strategy_finds(Diagram, Cup, Cap)
+    axioms.assert_strategy_finds(Diagram, Cup, Cap)
     winding = find(Ty.strategy(min_length=1),
                    lambda value: value.inside[0].z)
     assert winding.inside[0].z == 1
 
 
 def test_axioms():
-    from discopy import testing
+    from discopy import axioms
 
-    testing.assert_axioms(Ty, Diagram, Hypergraph, CMap, Functor)
+    axioms.assert_axioms(Ty, Diagram, Hypergraph, CMap, Functor)

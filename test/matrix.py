@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 from pytest import raises
 
+from discopy.abc import Nat
 from discopy.matrix import Matrix, backend
 from discopy.utils import AxiomError
 
@@ -53,20 +54,20 @@ def test_strategy():
 
     generated = find(Matrix.strategy(dom=2, cod=3),
                      lambda value: bool(value.array.any()))
-    assert (generated.dom, generated.cod) == (2, 3)
+    assert (generated.dom, generated.cod) == (Nat(2), Nat(3))
     assert generated.array.shape == (2, 3)
 
 
 def test_axioms():
-    from discopy import testing
+    from discopy import axioms
 
-    testing.assert_axioms(Matrix[int])
+    axioms.assert_axioms(Matrix[int])
 
 
 def test_weakened_axioms():
     from hypothesis import find
 
-    from discopy.testing import Subsingleton
+    from discopy.axioms import Subsingleton
 
     weakened = Matrix[int].axioms["copy_cocommutativity_small"]
     assert weakened.subspaces and not weakened.broken

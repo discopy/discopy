@@ -37,27 +37,28 @@ See also
 from __future__ import annotations
 
 from contextlib import contextmanager
+from operator import index
 from types import ModuleType
 from typing import Union, Literal as L, Callable, TYPE_CHECKING
 
 from discopy import monoidal, config, messages
-from discopy.abc import MarkovCategory, NamedGeneric
+from discopy.abc import MarkovCategory, NamedGeneric, Nat
 from discopy.cat import (
     factory,
     assert_iscomposable,
     assert_isparallel,
 )
-from discopy.testing import C0, Natural, Strategy, Subsingleton
-from discopy.utils import assert_isinstance, classproperty, unbiased
+from discopy.axioms import C0, Subsingleton, Testable
+from discopy.utils import assert_isinstance, unbiased
 
 if TYPE_CHECKING:
     import sympy
 
-WRONG_COPY = "``Matrix.copy(x, n)`` is wrong for ``x, n >= 2``, see #652."
+WRONG_COPY = "Matrix.copy(x, n) is wrong for x, n >= 2 (#652)."
 
 
 @factory
-class Matrix(MarkovCategory, Strategy["Matrix"], NamedGeneric["dtype"]):
+class Matrix(MarkovCategory, Testable["Matrix"], NamedGeneric["dtype"]):
     """
     A matrix is an ``array`` with natural numbers as ``dom`` and ``cod``.
 
@@ -130,7 +131,7 @@ class Matrix(MarkovCategory, Strategy["Matrix"], NamedGeneric["dtype"]):
            [0, 2],
            [0, 4]])
     """
-    ob = Natural
+    ob = Nat
 
     @classmethod
     def strategy(cls, *, dom=None, cod=None, max_size=3, max_entry=3):
@@ -147,13 +148,14 @@ class Matrix(MarkovCategory, Strategy["Matrix"], NamedGeneric["dtype"]):
         entries = st.integers(min_value=0, max_value=max_entry)
         return st.tuples(
             sizes if dom is None else st.just(dom),
-            sizes if cod is None else st.just(cod)).flatmap(
+            sizes if cod is None else st.just(cod)).map(
+                lambda shape: tuple(map(index, shape))).flatmap(
                 lambda shape: st.lists(
                     entries, min_size=shape[0] * shape[1],
                     max_size=shape[0] * shape[1]).map(
                         lambda array: factory(array, *shape)))
 
-    serialisation = Strategy.serialisation.inapplicable(messages.NO_SYNTAX)
+    serialisation = Testable.serialisation.inapplicable(messages.NO_SYNTAX)
 
     def cast(self, dtype: type) -> Matrix:
         """
@@ -179,12 +181,14 @@ class Matrix(MarkovCategory, Strategy["Matrix"], NamedGeneric["dtype"]):
                 return cls.__new__(cls[dtype], array, *args, **kwargs)
             return object.__new__(cls)
 
-    def __init__(self, array, dom: int, cod: int):
-        assert_isinstance(dom, int)
-        assert_isinstance(cod, int)
-        self.dom, self.cod = map(self.ob, (dom, cod))
+    def __init__(self, array, dom: Nat, cod: Nat):
+        dom, cod = (Nat(x) if isinstance(x, int) else x for x in (dom, cod))
+        assert_isinstance(dom, Nat)
+        assert_isinstance(cod, Nat)
+        self.dom, self.cod = dom, cod
         with backend() as np:
-            self.array = np.array(array, dtype=self.dtype).reshape((dom, cod))
+            self.array = np.array(array, dtype=self.dtype).reshape(
+                (index(dom), index(cod)))
 
     def __eq__(self, other):
         return isinstance(other, self.ar)\
@@ -263,7 +267,8 @@ class Matrix(MarkovCategory, Strategy["Matrix"], NamedGeneric["dtype"]):
     @classmethod
     def id(cls, dom=0) -> Matrix:
         with backend('numpy') as np:
-            return cls(np.identity(dom, dtype=cls.dtype or int), dom, dom)
+            array = np.identity(index(dom), dtype=cls.dtype or int)
+        return cls(array, dom, dom)
 
     twist = id
 
@@ -279,7 +284,7 @@ class Matrix(MarkovCategory, Strategy["Matrix"], NamedGeneric["dtype"]):
         if others or other is None:
             return monoidal.Diagram.tensor(self, other, *others)
         assert_isinstance(other, type(self))
-        dom, cod = self.dom + other.dom, self.cod + other.cod
+        dom, cod = self.dom @ other.dom, self.cod @ other.cod
         array = self.zero(dom, cod).array
         array[:self.dom, :self.cod] = self.array
         array[self.dom:, self.cod:] = other.array
@@ -294,7 +299,7 @@ class Matrix(MarkovCategory, Strategy["Matrix"], NamedGeneric["dtype"]):
         return self if other == 0 else self.__add__(other)
 
     @classmethod
-    def zero(cls, dom: int, cod: int) -> Matrix:
+    def zero(cls, dom: Nat, cod: Nat) -> Matrix:
         """
         Returns the zero matrix of a given shape.
 
@@ -303,10 +308,11 @@ class Matrix(MarkovCategory, Strategy["Matrix"], NamedGeneric["dtype"]):
         >>> assert Matrix.zero(2, 2) == Matrix([0, 0, 0, 0], 2, 2)
         """
         with backend() as np:
-            return cls(np.zeros((dom, cod), dtype=cls.dtype or int), dom, cod)
+            return cls(np.zeros(
+                (index(dom), index(cod)), dtype=cls.dtype or int), dom, cod)
 
     @classmethod
-    def swap(cls, left: int, right: int) -> Matrix:
+    def swap(cls, left: Nat, right: Nat) -> Matrix:
         """
         The matrix that swaps left and right dimensions.
 
@@ -321,13 +327,12 @@ class Matrix(MarkovCategory, Strategy["Matrix"], NamedGeneric["dtype"]):
         >>> Matrix.swap(2,1)
         Matrix[int64]([0, 1, 0, 0, 0, 1, 1, 0, 0], dom=3, cod=3)
         """
+        left, right = index(left), index(right)
         dom = cod = left + right
         array = Matrix.zero(dom, cod).array
         array[:left, right:] = Matrix.id(left).array
         array[left:, :right] = Matrix.id(right).array
         return cls(array, dom, cod)
-
-    braid = classproperty(lambda cls: cls.swap)
 
     def transpose(self) -> Matrix:
         return type(self)(self.array.transpose(), self.cod, self.dom)
@@ -349,25 +354,26 @@ class Matrix(MarkovCategory, Strategy["Matrix"], NamedGeneric["dtype"]):
         return type(self)(array, self.dom, self.cod)
 
     @classmethod
-    def copy(cls, x: int, n: int = 2) -> Matrix:
+    def copy(cls, x: Nat, n: int = 2) -> Matrix:
+        x = index(x)
         array = [[i + int(j % n * x) == j
                   for j in range(n * x)] for i in range(x)]
         return cls(array, x, n * x)
 
     @classmethod
-    def discard(cls, x: int) -> Matrix:
+    def discard(cls, x: Nat) -> Matrix:
         return cls.copy(x, 0)
 
     @classmethod
-    def merge(cls, x: int, n: int) -> Matrix:
+    def merge(cls, x: Nat, n: int) -> Matrix:
         return cls.copy(x, n).dagger()
 
     @classmethod
-    def ones(cls, x: int) -> Matrix:
+    def ones(cls, x: Nat) -> Matrix:
         return cls.merge(x, 0)
 
     @classmethod
-    def basis(cls, x: int, i: int) -> Matrix:
+    def basis(cls, x: Nat, i: int) -> Matrix:
         """
         The ``i``-th basis vector of dimension ``x``.
 
@@ -380,7 +386,7 @@ class Matrix(MarkovCategory, Strategy["Matrix"], NamedGeneric["dtype"]):
         >>> Matrix.basis(4, 2)
         Matrix[int64]([0, 0, 1, 0], dom=1, cod=4)
         """
-        return cls([[int(i == j) for j in range(x)]], x ** 0, x)
+        return cls([[int(i == j) for j in range(index(x))]], 1, x)
 
     def repeat(self) -> Matrix:
         """
@@ -393,8 +399,8 @@ class Matrix(MarkovCategory, Strategy["Matrix"], NamedGeneric["dtype"]):
         """
         if self.dtype != bool or self.dom != self.cod:
             raise TypeError(messages.MATRIX_REPEAT_ERROR)
-        return sum(
-            self.id(self.dom).then(*n * [self]) for n in range(self.dom + 1))
+        return sum(self.id(self.dom).then(*n * [self])
+                   for n in range(index(self.dom) + 1))
 
     def trace(self, n=1, left=False) -> Matrix:
         """
@@ -407,11 +413,12 @@ class Matrix(MarkovCategory, Strategy["Matrix"], NamedGeneric["dtype"]):
         -------
         >>> assert Matrix[bool].swap(1, 1).trace() == Matrix[bool].id(1)
         """
+        dom, cod = index(self.dom) - n, index(self.cod) - n
         A, B, C, D = (row >> self >> column
-                      for row in [self.id(self.dom - n) @ self.ones(n),
-                                  self.ones(self.dom - n) @ self.id(n)]
-                      for column in [self.id(self.cod - n) @ self.discard(n),
-                                     self.discard(self.cod - n) @ self.id(n)])
+                      for row in [self.id(dom) @ self.ones(n),
+                                  self.ones(dom) @ self.id(n)]
+                      for column in [self.id(cod) @ self.discard(n),
+                                     self.discard(cod) @ self.id(n)])
         return A + (B >> D.repeat() >> C)
 
     def lambdify(
@@ -436,16 +443,17 @@ class Matrix(MarkovCategory, Strategy["Matrix"], NamedGeneric["dtype"]):
 
     copy_counitality = MarkovCategory.copy_counitality.failing(WRONG_COPY)
 
-    copy_monoidal_coherence = \
-        MarkovCategory.copy_monoidal_coherence.failing(WRONG_COPY)
+    copy_monoidal_coherence = (
+        MarkovCategory.copy_monoidal_coherence.failing(WRONG_COPY))
 
     #: The copy laws hold below dimension two, where the coherence does
     #: not: ``copy(x @ x)`` reaches dimension two from atomic ``x``.
-    copy_cocommutativity_small = \
-        MarkovCategory.copy_cocommutativity.weaken(x=Subsingleton[C0])
+    copy_cocommutativity_small = (
+        MarkovCategory.copy_cocommutativity.weaken(x=Subsingleton[C0]))
 
-    copy_counitality_small = \
-        MarkovCategory.copy_counitality.weaken(x=Subsingleton[C0])
+    #: Counitality too: it copies ``x`` alone, so it stays in the subspace.
+    copy_counitality_small = (
+        MarkovCategory.copy_counitality.weaken(x=Subsingleton[C0]))
 
 
 def array2string(array, **params):

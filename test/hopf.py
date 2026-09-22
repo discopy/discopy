@@ -485,6 +485,6 @@ def test_strategy():
 
 
 def test_axioms():
-    from discopy import testing
+    from discopy import axioms
 
-    testing.assert_axioms(Intertwiner[Double(Algebra.cyclic(2))])
+    axioms.assert_axioms(Intertwiner[Double(Algebra.cyclic(2))])

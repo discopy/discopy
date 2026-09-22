@@ -3,13 +3,24 @@
 from pytest import raises
 
 
+def test_permutation_strategy():
+    from hypothesis import find
+    from discopy.abc import Nat
+    from discopy.python.finset import Permutation
+
+    permutation = find(
+        Permutation.strategy(dom=Nat(3), cod=3), lambda p: p != (0, 1, 2))
+    assert permutation.dom == permutation.cod == Nat(3)
+    assert Permutation.strategy(dom=Nat(2), cod=3).is_empty
+
+
 def test_FinSet():
     from discopy.markov import Ty, Diagram, Functor
     from discopy.python import finset
 
     p = finset.Permutation.swap(2, 3)
     assert isinstance(p, finset.Function)
-    assert isinstance(p, finset.SymmetricCategory)
+    assert isinstance(p, finset.PROP)
     assert p == (3, 4, 0, 1, 2)
     assert p[-1] == 2
     assert p >> p.dagger() == finset.Permutation.id(5)
