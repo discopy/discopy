@@ -391,9 +391,9 @@ def test_Functor_bubble():
 def test_strategy():
     from hypothesis import find
 
-    from discopy import testing
+    from discopy import axioms
 
-    testing.assert_strategy_finds(Diagram, Spider)
+    axioms.assert_strategy_finds(Diagram, Spider)
     generated = find(Tensor.strategy(dom=Dim(2), cod=Dim(3)),
                      lambda value: bool(value.array.any()))
     assert (generated.dom, generated.cod) == (Dim(2), Dim(3))
@@ -401,6 +401,7 @@ def test_strategy():
 
 
 def test_axioms():
-    from discopy import testing
+    from discopy import axioms
 
-    testing.assert_axioms(Dim, Diagram, Tensor[int])
+    axioms.assert_axioms(Dim, Diagram, Tensor[int])
+    assert not [name for name in Tensor[int].axioms if name.endswith("_small")]

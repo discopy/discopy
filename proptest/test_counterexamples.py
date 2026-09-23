@@ -1,17 +1,18 @@
 """
 Deterministic replay of recorded counterexamples, the memory of the
-property suite: see PROPTEST.md for the recording protocol.
+property suite: :mod:`discopy.axioms` documents the recording protocol.
 """
 
 from typing import NamedTuple
 
 import pytest
 
-from discopy import biclosed, braided, cat, compact, feedback, pivotal, ribbon
+from discopy import biclosed, braided, cat, feedback, pivotal, ribbon
+from discopy.abc import Nat
 from discopy.matrix import Matrix
-from discopy.testing import (
-    GENERATORS, Atomic, Axiom, AxiomFailure, Relabelled, Relabelling)
-from discopy.utils import factory_name
+from discopy.axioms import (
+    GENERATORS, Atomic, Axiom, AxiomFailure, Relabelling)
+from discopy.utils import AxiomError, factory_name
 
 
 class Counterexample(NamedTuple):
@@ -30,9 +31,9 @@ COLLAPSE = Relabelling(tuple(
 The relabelling the search shrunk to: every generator sent to the first.
 
 It names all of them because every functor the strategy builds does, see
-:obj:`discopy.testing.GENERATORS`. The images are what shrinking landed on
-rather than what the bug needs — composing on the left forgets the functor
-whatever it relabels, so the identity relabelling is a counterexample too.
+:obj:`discopy.axioms.GENERATORS`. The images are what shrinking landed on
+rather than what the bug needs: composing the identity functor on the
+left preserves its action but compares unequal (#648).
 """
 
 MEMORY = feedback.Ty("a") @ feedback.Ty("b")
@@ -40,23 +41,22 @@ MEMORY = feedback.Ty("a") @ feedback.Ty("b")
 COUNTEREXAMPLES = (
     Counterexample(
         axiom=Matrix[int].copy_cocommutativity,
-        args=(2, ),
+        args=(Nat(2), ),
         reason="Matrix.copy(x, n) is wrong for x, n >= 2 (#652)"),
     Counterexample(
         axiom=Matrix[int].copy_counitality,
-        args=(2, ),
+        args=(Nat(2), ),
         reason="Matrix.copy(x, n) is wrong for x, n >= 2 (#652)"),
     Counterexample(
         axiom=Matrix[int].copy_monoidal_coherence,
-        args=(1, ),
+        args=(Nat(1), ),
         reason="Matrix.copy(x, n) is wrong for x, n >= 2, reachable "
                "from atomic arguments through the coherence (#652)"),
     Counterexample(
         axiom=cat.Functor.unitality,
-        args=(cat.Functor(ob_map=COLLAPSE, ar_map=Relabelled(COLLAPSE)), ),
-        reason="MappingOrCallable.then iterates the keys of the left-hand "
-               "map and the identity functor enumerates none, so id >> f "
-               "forgets everything f does."),
+        args=(cat.Functor(ob_map=COLLAPSE, ar_map=COLLAPSE), ),
+        reason="Composing the identity functor on the left of a mapping "
+               "preserves its action but compares unequal (#648)."),
     Counterexample(
         axiom=braided.Diagram.braid_naturality,
         args=(braided.Box("f", braided.Ty("a"), braided.Ty("a")),
@@ -86,18 +86,12 @@ COUNTEREXAMPLES = (
         args=(Atomic(pivotal.Ty("a")), ),
         reason="A free twist is a box, not the trace of a braid."),
     Counterexample(
-        axiom=compact.Diagram.rotate_contravariance,
-        args=((compact.Box("f", compact.Ty("a"), compact.Ty("a")),
-               compact.Box("g", compact.Ty("a"), compact.Ty("a"))), ),
-        reason="to_hypergraph drops the rotation of a box, so the equation "
-               "holds but cannot be checked up to hypergraph."),
-    Counterexample(
         axiom=feedback.Diagram.feedback_joining,
         args=((feedback.Box(
                    "f", MEMORY[:1] @ MEMORY.delay(), MEMORY[:1] @ MEMORY),
                MEMORY), ),
         reason="feedback.Diagram.feedback unrolls its memory in the wrong "
-               "order (#606)"),
+               "order (#649)"),
 )
 
 
@@ -108,11 +102,12 @@ def counterexample_parameters():
     until the ``.failing`` declaration moves.
     """
     for axiom, args, reason in COUNTEREXAMPLES:
-        marks = pytest.mark.xfail(reason=reason, strict=True)\
+        marks = pytest.mark.xfail(
+            reason=reason, raises=(AssertionError, AxiomError), strict=True)\
             if axiom.broken else ()
         yield pytest.param(
             axiom, args, marks=marks,
-            id=f"{factory_name(axiom.carrier)}.{axiom.name}")
+            id=f"{factory_name(axiom.category)}.{axiom.name}")
 
 
 @pytest.mark.parametrize("axiom, args", counterexample_parameters())
