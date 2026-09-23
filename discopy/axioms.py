@@ -298,7 +298,7 @@ class Axiom[**P, T]:
         documentation, e.g. ``trace_vanishing =
         TracedCategory.trace_vanishing.inapplicable("No trace.")``.
         """
-        def law(cls):
+        def law(_category):
             return NotImplemented
         law.__doc__ = reason
         return replace(self, equation=law, subspaces={}, broken=False)
