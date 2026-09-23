@@ -11,9 +11,11 @@ def axiom(equation):
     return equation
 
 
-class Category:
+class Meta(type):
     attribute = 1
 
+
+class Category(metaclass=Meta):
     @axiom
     def law(cls, x):
         return cls.attribute
@@ -32,9 +34,15 @@ def messages(path, *options):
 
 
 def test_axiom_is_a_classmethod(tmp_path):
+    """
+    Without the plugin, the law is a method wanting ``self`` and its first
+    argument an instance, which has no member of the metaclass; with it,
+    the argument is the class and the member is found.
+    """
     path = tmp_path / "law.py"
     path.write_text(LAW)
-    assert "no-self-argument" in messages(path)
+    plain = messages(path)
+    assert "no-self-argument" in plain and "no-member" in plain
     assert not messages(
         path, f"--init-hook=import sys; sys.path.append({str(SCRIPTS)!r})",
         "--load-plugins=pylint_axioms").strip()
