@@ -34,6 +34,14 @@ def test_Circuit_eval():
     assert MixedState().eval() == Discard().eval().dagger()
 
 
+def test_array_backend_not_shadowed_by_eval_backend_param():
+    from discopy.quantum.circuit import array_backend
+    from discopy.matrix import backend as matrix_backend
+    assert array_backend is matrix_backend
+    with array_backend('numpy'):
+        assert (X >> X).eval(backend=None).array.shape == (2, 2)
+
+
 def test_Circuit_cups_and_caps():
     assert Circuit.cups(bit, bit) == Match() >> Discard(bit)
     assert Circuit.caps(bit, bit) == MixedState(bit) >> Copy()
