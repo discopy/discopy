@@ -4,7 +4,7 @@ from pytest import raises
 
 from discopy.closed import *
 from discopy.axioms import assert_axioms
-from discopy.biclosed import Sampler
+from discopy.biclosed import Constraints, Sampler
 
 
 def test_exp():
@@ -261,8 +261,8 @@ def test_Sampler_nonlinear():
     sampler = Sampler(TermBase, iter([]), [X], "x", linear=False)
     assert [leaf() for leaf in sampler.leaves(X, (x0, x1), True)][2:] == [x0, x1]
     assert len(sampler.leaves(Y, (x0, x1), False)) == 1
-    assert sampler.splits((x0, ), (x1, ), True) == [
-        (((x0, ), (x1, ), True), ((x0, ), (x1, ), True))]
+    constraints = Constraints((x0, ), (x1, ))
+    assert sampler.splits(constraints) == [(constraints, constraints)]
     choices = [4, 2, 0, 2, 0, 0, 2, 2]
     term = TermBase.generate(Y << X, choices, [X], "x")
     assert term.alpha_eq(TermBase.generate(Y << X, choices, [X], "y"))

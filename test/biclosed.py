@@ -223,8 +223,8 @@ def test_Sampler():
     assert sampler.bound(1, Y) == x1 and sampler.choose("abc") == "a"
     assert [leaf() for leaf in sampler.leaves(X, (x0, ), True)] == [x0]
     assert sampler.leaves(Y, (x0, ), True) == []
-    assert len(sampler.splits((x0, ), (x1, ), True)) == 5
-    split = sampler.split(Y, ((), (), False), ((), (), True), False, 0)
+    assert len(sampler.splits(Constraints((x0, ), (x1, )))) == 5
+    split = sampler.split(Y, Constraints(extra=False), Constraints(), False)
     assert isinstance(split(), Application)
     assert Sampler(TermBase, iter([1]), [X], "x").term(Y) == Variable("v0", Y)
 

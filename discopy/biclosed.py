@@ -30,6 +30,7 @@ Summary
     Application
     Abstraction
     Sampler
+    Constraints
     Renamed
     Canonical
     AlphaEquation
@@ -85,7 +86,7 @@ which lands in :class:`CMap` as a biclosed category has no trace.
 from __future__ import annotations
 
 from abc import abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from inspect import signature
 from itertools import count
 from typing import (
@@ -995,10 +996,10 @@ class Sampler:
     once it runs out, see :meth:`TermBase.generate`.
 
     The term is planar and linear: the free variables of each subterm open
-    with a ``prefix`` and close with a ``suffix`` of the bound variables in
-    scope, with ``extra`` free ones in between or not, which an application
-    :meth:`splits` between its function and its argument and an
-    :meth:`abstraction` extends with the variable it binds; a subterm that
+    with a prefix and close with a suffix of the bound variables in scope,
+    with extra free ones in between or not, its :class:`Constraints`, which
+    an application :meth:`splits` between its function and its argument and
+    an :meth:`abstraction` extends with the variable it binds; a subterm that
     cannot be a leaf is a :meth:`spine`, a constant applied to the bound
     variables in order. The options of a choice are closures calling the
     method that builds the node with its arguments spelt out, so that the
@@ -1084,7 +1085,8 @@ class Sampler:
                        for variable in bound if variable.cod == cod]
         return result
 
-    def splits(self, prefix: tuple, suffix: tuple, extra: bool) -> list:
+    def splits(self, constraints: Constraints
+               ) -> list[tuple[Constraints, Constraints]]:
         """
         The ways of splitting the constraints between two subterms in
         sequence: at a bound variable of the prefix, among the extras or at
@@ -1092,16 +1094,23 @@ class Sampler:
         that need not be linear passes every bound variable to both.
         """
         if not self.linear:
-            return [((prefix, suffix, extra), (prefix, suffix, extra))]
-        result = [((prefix[:i], (), False), (prefix[i:], suffix, extra))
-                  for i in range(len(prefix) + 1)]
-        result += [((prefix, (), True), ((), suffix, True))] if extra else []
-        result += [((prefix, suffix[:j], extra), (suffix[j:], (), False))
-                   for j in range(len(suffix) + 1)]
+            return [(constraints, constraints)]
+        prefix, suffix = constraints.prefix, constraints.suffix
+        result = [(
+            replace(constraints, prefix=prefix[:i], suffix=(), extra=False),
+            replace(constraints, prefix=prefix[i:]))
+            for i in range(len(prefix) + 1)]
+        result += [(
+            replace(constraints, suffix=()),
+            replace(constraints, prefix=()))] if constraints.extra else []
+        result += [(
+            replace(constraints, suffix=suffix[:j]),
+            replace(constraints, prefix=(), suffix=suffix[j:], extra=False))
+            for j in range(len(suffix) + 1)]
         return result
 
-    def application(self, cod: Ty, first: tuple, second: tuple, left: bool,
-                    level: int) -> Application:
+    def application(self, cod: Ty, first: Constraints, second: Constraints,
+                    left: bool) -> Application:
         """
         A function applied to an argument of an exponent drawn from the
         types, ``first`` the constraints of whichever comes first in the
@@ -1109,59 +1118,82 @@ class Sampler:
         """
         exponent = self.choose(self.types)
         if left:
-            args = self.term(exponent, first, level)
-            func = self.term(exponent >> cod, second, level)
+            args = self.term(exponent, first)
+            func = self.term(exponent >> cod, second)
             return self.category.ob.application_factory(func, args, True)
-        func = self.term(cod << exponent, first, level)
-        args = self.term(exponent, second, level)
+        func = self.term(cod << exponent, first)
+        args = self.term(exponent, second)
         return self.category.ob.application_factory(func, args, False)
 
-    def applications(self, cod: Ty, prefix: tuple, suffix: tuple,
-                     extra: bool, level: int) -> list[Callable[[], Term]]:
+    def applications(self, cod: Ty, constraints: Constraints
+                     ) -> list[Callable[[], Term]]:
         """ The applications allowed, one per split and side. """
-        return [self.split(cod, first, second, left, level)
-                for first, second in self.splits(prefix, suffix, extra)
+        return [self.split(cod, first, second, left)
+                for first, second in self.splits(constraints)
                 for left in (False, True)]
 
-    def split(self, cod: Ty, first: tuple, second: tuple, left: bool,
-              level: int) -> Callable[[], Application]:
+    def split(self, cod: Ty, first: Constraints, second: Constraints,
+              left: bool) -> Callable[[], Application]:
         """ The option of an application with its constraints split. """
-        return lambda: self.application(cod, first, second, left, level)
+        return lambda: self.application(cod, first, second, left)
 
-    def abstraction(self, cod: Ty, prefix: tuple, suffix: tuple, extra: bool,
-                    level: int) -> Abstraction:
+    def abstraction(self, cod: Ty, constraints: Constraints) -> Abstraction:
         """
         The abstraction of the variable bound at this level, first in the
         free variables of the body when the type is a left exponential and
         last otherwise.
         """
         left = cod.is_under
-        var = self.bound(level, cod.exponent)
-        opening, closing = ((var, *prefix), suffix) if left\
-            else (prefix, (*suffix, var))
-        body = self.term(cod.base, (opening, closing, extra), level + 1)
+        var = self.bound(constraints.level, cod.exponent)
+        opening, closing = ((var, *constraints.prefix), constraints.suffix)\
+            if left else (constraints.prefix, (*constraints.suffix, var))
+        body = self.term(cod.base, replace(
+            constraints, prefix=opening, suffix=closing,
+            level=constraints.level + 1))
         return self.category.ob.abstraction_factory(var, body, left)
 
-    def term(self, cod: Ty, constraints: tuple = ((), (), True),
-             level: int = 0) -> Term:
+    def term(self, cod: Ty, constraints: Constraints = None) -> Term:
         """
-        A term of a given type under the constraints, i.e. the prefix, the
-        suffix and whether extra free variables are allowed: a leaf when the
-        choices ran out, or the spine when none fits, else the option the
-        next choice picks among the leaves, the applications and the
-        abstraction if the type is an exponential.
+        A term of a given type under the constraints, none by default: a
+        leaf when the choices ran out, or the spine when none fits, else the
+        option the next choice picks among the leaves, the applications and
+        the abstraction if the type is an exponential.
         """
-        prefix, suffix, extra = constraints
-        bound = prefix + suffix
-        options = self.leaves(cod, bound, extra)
+        constraints = Constraints() if constraints is None else constraints
+        bound = constraints.variables
+        options = self.leaves(cod, bound, constraints.extra)
         choice = next(self.choices, None)
         if choice is None:
             return options[0]() if options else self.spine(cod, bound)
-        options += self.applications(cod, prefix, suffix, extra, level)
+        options += self.applications(cod, constraints)
         if cod.is_exp:
-            options.append(
-                lambda: self.abstraction(cod, prefix, suffix, extra, level))
+            options.append(lambda: self.abstraction(cod, constraints))
         return options[choice % len(options)]()
+
+
+@dataclass(frozen=True)
+class Constraints:
+    """
+    The constraints on a subterm of a :class:`Sampler`: its free variables
+    open with a ``prefix`` and close with a ``suffix`` of the bound
+    variables in scope, with ``extra`` free ones in between or not, and its
+    binders are named from ``level``.
+
+    Example
+    -------
+    >>> X = Ty("X")
+    >>> x = Variable("x0", X)
+    >>> assert Constraints((x, )).variables == (x, ) and Constraints().extra
+    """
+    prefix: tuple[Variable, ...] = ()
+    suffix: tuple[Variable, ...] = ()
+    extra: bool = True
+    level: int = 0
+
+    @property
+    def variables(self) -> tuple[Variable, ...]:
+        """ The bound variables in scope, the prefix then the suffix. """
+        return self.prefix + self.suffix
 
 
 class Renamed(Testable, NamedGeneric["factory"], tuple):
