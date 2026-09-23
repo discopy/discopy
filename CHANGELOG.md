@@ -566,6 +566,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Removed
 
+- Parameters nothing read: `grammar.cfg.Tree.to_diagram`'s
+  `contravariant`, a placeholder since the module's first commit;
+  `Tree.from_nltk`'s `lexicalised` and `word_types`, which the grammar
+  refactor stopped reading; `Drawing.id`'s `length`;
+  `markov.Diagram.discard`'s `n`; and `drawing.backend.Backend`'s
+  `linewidth` ([#768](https://github.com/discopy/discopy/pull/768)).
 - `biclosed.Variable` and `closed.Variable` require an atomic codomain:
   the abstraction machinery indexes contexts and free variables by
   variable, counting on that index to coincide with a wire index, so a
@@ -612,6 +618,17 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `Matrix.trace` reads its `left` flag: a left trace is the right trace
+  of the matrix conjugated by swaps, where it traced the last `n`
+  dimensions whatever was asked. `Tensor.to_quimb` passes its `dtype` to
+  the spiders, as its docstring promised; `Tensor.jacobian` and
+  `tensor.Diagram.jacobian` forward their `params` to `grad`, which they
+  dropped; `markov.Discard` refuses a number of copies other than zero
+  where it swallowed any argument; and `para.Feedback` reads its
+  underlying category from `feedback.Diagram` imported as a class, where
+  the module name was shadowed by the `feedback` method below it. Every
+  one was an unused argument the linter had been reporting
+  ([#768](https://github.com/discopy/discopy/pull/768)).
 - The marimo notebook previews in the docs follow the theme switch. The
   notebooks are exported with marimo's `system` theme and the docs relay
   the resolved theme into each notebook's iframe through marimo's
@@ -807,6 +824,21 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Project
 
+- The `lint` job fails on any unused import, variable, argument, wildcard
+  import or private member, and on a pylint score below `fail-under`, set
+  to the score of `main` at the time so that it never goes down:
+  `.pylintrc`'s `fail-on` names the six messages, `fail-under` rises from
+  7 to 8.58, and its `suggestion-mode` option, which the pylint in the
+  lock no longer knows and reported as an error on every run, is gone.
+  The 65 findings on `main` are fixed or excepted explicitly on their
+  line with the reason: the re-exports carry `pylint: disable` beside
+  their `noqa`, and the drawing backend's interface primitives keep the
+  parameters a backend reads. `AGENTS.md` and `CONTRIBUTING.md` list
+  `pylint discopy` beside `pflake8`, and `CONTRIBUTING.md` says what to do
+  with a finding and when to raise the threshold. Proposed on
+  [#767](https://github.com/discopy/discopy/pull/767#discussion_r4040064818)
+  after an unused parameter was the whole bug
+  ([#768](https://github.com/discopy/discopy/pull/768)).
 - The docs build on Sphinx 7.4 rather than 7.2, whose `stringify_annotation`
   handled a `TypeVar` but not a `ParamSpec`, so a signature such as
   `Callable[Concatenate[type, P], T]` crashed autodoc on Python 3.14, where
