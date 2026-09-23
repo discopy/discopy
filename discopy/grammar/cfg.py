@@ -110,7 +110,7 @@ class Tree:
     def __eq__(self, other):
         return self.root == other.root and self.branches == other.branches
 
-    def to_diagram(self, contravariant=False) -> monoidal.Diagram:
+    def to_diagram(self) -> monoidal.Diagram:
         """
         Interface between Tree and monoidal.Diagram.
 
@@ -127,7 +127,7 @@ class Tree:
             << monoidal.Id().tensor(*[t.to_diagram() for t in self.branches])
 
     @staticmethod
-    def from_nltk(tree: nltk.Tree, lexicalised=True, word_types=False) -> Tree:
+    def from_nltk(tree: nltk.Tree) -> Tree:
         """
         Interface with NLTK
 
