@@ -889,7 +889,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   score by a hundredth between two runs of the same tree, which a
   threshold cannot tolerate. `fail-under` rises from 8.58 to 8.75, the
   score of `main` once these categories are gone, the first four of the
-  ones [#770](https://github.com/discopy/discopy/issues/770) lists.
+  ones [#770](https://github.com/discopy/discopy/issues/770) lists
+  ([#776](https://github.com/discopy/discopy/pull/776)).
 - The `lint` job fails on any unused import, variable, argument, wildcard
   import or private member, and on a pylint score below `fail-under`, set
   to the score of `main` at the time so that it never goes down:
