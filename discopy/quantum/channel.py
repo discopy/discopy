@@ -306,6 +306,7 @@ class Channel(Tensor):
         return Channel(array, dom, CQ())
 
 
+@factory
 class Functor(tensor.Functor):
     """
     A channel functor is a tensor functor into classical-quantum channels.

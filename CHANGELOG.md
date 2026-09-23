@@ -9,6 +9,19 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `discopy.quantum.circuit.Circuit` joins the property matrix, with a
+  `strategy` adding the standard gate set (Pauli, Clifford, rotations,
+  kets/bras, scalars) to the inherited tensor-box distribution. It has
+  no cloning or spiders, so the corresponding Markov/Frobenius axioms are
+  declared inapplicable, and its cups, caps and traces are Bell
+  preparations equal to wiring only up to evaluation. The bugs this
+  enrolment surfaced are fixed below, except one that is not this
+  carrier's to fix: `serialisation` is declared `.failing` because a
+  gate's array is a list of Python `complex` and `json` cannot encode
+  one, so `utils.dumps` crashes on any box carrying an array — true on
+  `main` today and filed as
+  [#775](https://github.com/discopy/discopy/issues/775), whose fix is a
+  choice of on-disk format for every complex-valued box.
 - `discopy.tensor.Tensor` and `Diagram` join the property matrix, with a
   `strategy` generating small integer-entried tensors over `Dim`
   boundaries drawn from `Dim.strategy`; unlike `Matrix`'s, its `copy` is
@@ -644,6 +657,29 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `quantum.gates.Ket` and `Bra` inherited `QuantumGate`'s repr, which
+  takes a name where their constructors take a bitstring, so
+  `eval(repr(x))` did not round-trip; each now has its own repr printing
+  the bitstring. Their *tree* had the same shape of bug and now round-trips
+  too: `to_tree` writes the bitstring and `from_tree` reads it, where the
+  inherited pair wrote a name and handed it to a constructor that takes
+  none, raising `TypeError` on `from_tree(Ket(0).to_tree())`.
+- `quantum.gates.Controlled.__repr__` printed an unqualified
+  `Controlled(...)` where every other gate qualifies its name through
+  `utils.factory_name`, so `eval(repr(x))` raised `NameError` outside the
+  module that defines it. It is qualified now, but still names
+  `Controlled` rather than `type(self)`: a subclass such as `CRz` takes a
+  phase where `Controlled` takes the gate it controls, and the two compare
+  equal, so reading back through the base constructor is what round-trips.
+  `__str__` is unchanged, a controlled gate still reading as
+  `Controlled(X)` on the board.
+- `quantum.circuit.Box.__setstate__` demanded a `_mixed` key that
+  plumbing like `quantum.circuit.Swap` never stores, crashing on any
+  pickled circuit built from such boxes; the key is now only read and
+  renamed when it is present.
+- `QuantumGate` equality compares reprs and `complex(v)` keeps IEEE
+  signed zeros, so numerically equal gates (`-1j` vs `(-0-1j)`) compared
+  unequal; the zeros are normalised on construction (`complex(v) + 0j`).
 - A subscripted `NamedGeneric` instance — `Matrix[int]`, `Tensor[...]`,
   `Hypergraph[...]`, `CMap[...]` — unpickled as its bare origin class:
   `NamedGeneric.__setstate__` was defined on a class its subscripts never

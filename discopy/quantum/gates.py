@@ -234,7 +234,7 @@ class QuantumGate(Box):
 
     def __init__(self, name: str, dom: Ty, cod: Ty, data=None, **params):
         if data is not None and hasattr(data, "__len__"):
-            data = [complex(v) for v in data]
+            data = [complex(v) + 0j for v in data]
         super().__init__(name, dom, cod, data, **params)
 
     def __setstate__(self, state):
@@ -373,6 +373,17 @@ class Ket(SelfConjugate, QuantumGate):
         super().__init__(name, dom, cod)
         self._digits, self._dim, self.draw_as_brakets = bitstring, 2, True
 
+    def __repr__(self):
+        return (factory_name(type(self))
+                + f"({', '.join(map(repr, self.bitstring))})")
+
+    def to_tree(self) -> dict:
+        return dict(bitstring=self.bitstring, **SelfConjugate.to_tree(self))
+
+    @classmethod
+    def from_tree(cls, tree: dict):
+        return cls(*tree['bitstring'])
+
     @property
     def bitstring(self):
         """ The bitstring of a Ket. """
@@ -405,6 +416,10 @@ class Bra(SelfConjugate, QuantumGate):
         dom, cod = qubit ** len(bitstring), qubit ** 0
         super().__init__(name, dom, cod)
         self._digits, self._dim, self.draw_as_brakets = bitstring, 2, True
+
+    __repr__ = Ket.__repr__
+    to_tree = Ket.to_tree
+    from_tree = classmethod(Ket.from_tree.__func__)
 
     @property
     def bitstring(self):
@@ -467,7 +482,11 @@ class Controlled(QuantumGate):
         return type(self)(controlled, distance=self.distance)
 
     def __repr__(self):
-        return f'Controlled({self.controlled!r}, distance={self.distance!r})'
+        # Not ``type(self)``: a subclass such as ``CRz`` takes a phase where
+        # ``Controlled`` takes the gate it controls, and the two are equal,
+        # so every subclass reads back through the base constructor.
+        return (factory_name(Controlled)
+                + f"({self.controlled!r}, distance={self.distance!r})")
 
     def __str__(self):
         return self.name if self.distance == 1\

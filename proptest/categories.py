@@ -26,6 +26,7 @@ from discopy import (
     traced,
 )
 from discopy.matrix import Matrix
+from discopy.quantum import circuit
 from discopy.utils import factory_name
 
 CATEGORIES = (
@@ -52,6 +53,7 @@ CATEGORIES = (
     frobenius.Functor,
     Matrix[int],
     frobenius.Dim, tensor.Diagram, tensor.Tensor[int],
+    circuit.Circuit,
 )
 
 
