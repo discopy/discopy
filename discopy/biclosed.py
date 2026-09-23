@@ -757,7 +757,8 @@ class TermBase(Box, Equivalence):
         terms, and so do alpha-equivalent functions applied to an argument.
         """
         x = cls.ob(GENERATORS[0])
-        f, a = ((x << x) << terms[0].cod)("f"), x("a")
+        f = ((x << x) << terms[0].cod)("f")
+        a = x("a")  # pylint: disable=not-callable  # x is a Ty
         return AlphaEquation(*(f(term)(a) for term in terms))
 
     @axiom
