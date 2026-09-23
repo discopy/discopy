@@ -301,3 +301,14 @@ def test_tree2diagram():
         >> Box("custom", Ty("NP"), Ty("S"))
     assert tree2diagram({"word": "word", "cat": "NP"}, dom=Ty("D"))\
         == Word("word", Ty("NP"), dom=Ty("D"))
+
+
+def test_alpha_eq():
+    X, Y, Z = Ty("X"), Ty("Y"), Ty("Z")
+    f, g = Constant("f", Y << X), Constant("g", X << Z)
+    x, w = Variable("x", X), Variable("w", X)
+    assert FC(Abstraction(x, f(x)), g).alpha_eq(FC(Abstraction(w, f(w)), g))
+    assert not FC(Abstraction(x, f(x)), g).alpha_eq(FTR(Y, Abstraction(x, f(x))))
+    assert FTR(Y, Abstraction(x, f(x))).alpha_eq(FTR(Y, Abstraction(w, f(w))))
+    assert not FTR(Y, Abstraction(x, f(x))).alpha_eq(FTR(Z, Abstraction(x, f(x))))
+
