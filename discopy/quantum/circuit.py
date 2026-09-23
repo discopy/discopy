@@ -267,6 +267,13 @@ class Circuit(tensor.Diagram[complex]):
 
     caps_coherence = tensor.Diagram.caps_coherence.inapplicable(BELL_WIRING)
 
+    #: A gate's array is a list of Python ``complex``, which ``json``
+    #: cannot encode, so a circuit decodes from its tree but not from the
+    #: JSON of its tree (#775). The fix is a choice of on-disk format for
+    #: every complex-valued box, not just this carrier.
+    serialisation = tensor.Diagram.serialisation.failing(
+        "json cannot encode the complex entries of a gate's array (#775)")
+
     @classmethod
     def id(cls, dom: int | Ty = None):
         """
