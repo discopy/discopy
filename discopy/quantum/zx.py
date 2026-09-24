@@ -69,6 +69,13 @@ class Diagram(tensor.Diagram[complex]):
     snake_equations = tensor.Diagram.snake_equations.inapplicable(
         SEMANTIC_SPIDERS)
 
+    #: A scalar's ``data`` is a Python ``complex``, which ``json`` cannot
+    #: encode, so a ZX diagram decodes from its tree but not from the JSON
+    #: of its tree (#775). The fix is a choice of on-disk format for every
+    #: complex-valued box, not just this carrier.
+    serialisation = tensor.Diagram.serialisation.failing(
+        "json cannot encode the complex data of a scalar (#775)")
+
     @staticmethod
     def swap(left, right):
         left = left if isinstance(left, Nat) else Nat(left)
@@ -269,7 +276,7 @@ class Box(tensor.Box[complex], Diagram):
         return cls.extend_strategy(
             base, Spider, lambda _: st.sampled_from((
                 H, Z(1, 1, 0.5), Z(0, 2), Z(2, 0), Z(2, 1),
-                X(1, 2, 0.25), X(1, 0), Scalar(0.5))), **params)
+                X(1, 2, 0.25), X(1, 0), Scalar(0.5), Scalar(1j))), **params)
 
 
 class Sum(tensor.Sum[complex], Box):
@@ -397,6 +404,10 @@ class Scalar(Box):
     def dagger(self):
         return Scalar(self.data.conjugate())
 
+    def rotate(self, left=False):
+        del left
+        return self
+
     def grad(self, var, **params):
         if var not in self.free_symbols:
             return Sum((), self.dom, self.cod)
@@ -452,8 +463,9 @@ circuit2zx = quantum.circuit.Functor(
     ob_map={qubit: Nat(1)}, ar_map=gate2zx,
     dom=Circuit, cod=Diagram)
 
+
 class Hadamard(Box):
-    """ The Hadamard box, its own dagger. """
+    """ The Hadamard box, its own dagger and its own transpose. """
     draw_as_spider = True
     drawing_name, tikzstyle_name = '', 'H'
     color, shape = "yellow", "rectangle"
@@ -465,6 +477,10 @@ class Hadamard(Box):
         return factory_name(type(self)) + "()"
 
     def dagger(self):
+        return self
+
+    def rotate(self, left=False):
+        del left
         return self
 
     def to_tree(self):

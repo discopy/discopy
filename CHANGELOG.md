@@ -11,13 +11,23 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 - `discopy.quantum.zx.Diagram` joins the property matrix, with a
   `strategy` adding Z/X spiders, the Hadamard and scalars to the
-  inherited tensor-box distribution. Its copy/discard, Frobenius and
+  inherited tensor-box distribution. A ZX scalar is where complex
+  numbers enter the calculus, so the distribution draws a complex one as
+  well as a real one: with only `Scalar(0.5)` in it the `serialisation`
+  cell was green while `dumps` raised on the very box the carrier exists
+  to hold, i.e. the cell could not fail. Its copy/discard, Frobenius and
   snake-equation axioms are declared inapplicable — a Z or X spider is a
   semantic box, equal to wiring only up to evaluation. The bugs this
-  enrolment surfaced are fixed below, except one open bug declared in
-  the matrix: `zx.Diagram` inherits `tensor`'s `spider_factory`, which
-  expects dimensions rather than `PRO` types, so a functor cannot
-  rebuild a ZX spider — xfailed in `proptest/test_normal_form.py`.
+  enrolment surfaced are fixed below, except two open ones declared in
+  the matrix rather than fixed here, neither this carrier's: `json`
+  cannot encode a scalar's complex `data`, so `serialisation` is
+  declared `.failing` citing
+  [#775](https://github.com/discopy/discopy/issues/775), whose fix is a
+  choice of on-disk format for every complex-valued box; and
+  `zx.Diagram` inherits `tensor`'s `spider_factory`, which expects
+  dimensions rather than `Nat` types, so a disconnected diagram cannot
+  be rebuilt — xfailed in `proptest/test_normal_form.py` citing
+  [#656](https://github.com/discopy/discopy/issues/656).
 - `discopy.tensor.Tensor` and `Diagram` join the property matrix, with a
   `strategy` generating small integer-entried tensors over `Dim`
   boundaries drawn from `Dim.strategy`; unlike `Matrix`'s, its `copy` is
@@ -656,10 +666,21 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `zx.Spider`, `Scalar` and `H` serialise with their own signatures
   instead of inheriting `__repr__`, `to_tree` or `from_tree` from
   `tensor.Box`/`Bubble`, whose `(name, dom, cod)` keys their own
-  `__init__` rejects, so `eval(repr(x))` and `dumps`/`loads` roundtrip
-  every ZX diagram; and `zx.H` is a `Hadamard` class that is its own
-  dagger rather than a `Box` carrying a `lambda` as its dagger,
-  unpicklable by construction.
+  `__init__` rejects, so `eval(repr(x))` roundtrips every ZX diagram and
+  `dumps`/`loads` every one whose scalars are real — a complex scalar is
+  #775 above, which is about `json` rather than about these keys; and
+  `zx.H` is a `Hadamard` class that is its own dagger rather than a
+  `Box` carrying a `lambda` as its dagger, unpicklable by construction.
+- `zx.Scalar.rotate` and `zx.Hadamard.rotate` return the box itself,
+  where the inherited `pivotal.Box.rotate` rebuilt it as
+  `type(self)(name, dom=..., cod=..., ...)` — keyword arguments neither
+  `__init__` takes, so transposing either one raised `TypeError`. A
+  scalar has no wires to bend and the Hadamard matrix is symmetric, so
+  each is its own transpose, as `Spider` already declared itself to be.
+  `Scalar` is broken this way on `main` today; `Hadamard` arrived with
+  the class above, whose narrower `__init__` is exactly what a rebuild
+  from the full `Box` signature cannot call — the same shape of defect
+  as the `to_tree` mismatch it replaced.
 - A subscripted `NamedGeneric` instance — `Matrix[int]`, `Tensor[...]`,
   `Hypergraph[...]`, `CMap[...]` — unpickled as its bare origin class:
   `NamedGeneric.__setstate__` was defined on a class its subscripts never

@@ -8,6 +8,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from discopy import monoidal, pivotal, ribbon, rigid
+from discopy.quantum import zx
 from discopy.utils import factory_name
 
 from proptest.categories import CATEGORIES
@@ -16,24 +17,28 @@ PARTIAL_HYPERGRAPH = pytest.mark.xfail(reason=(
     "to_hypergraph rejects a left-handed cup or cap: Hypergraph.cups and "
     "caps only accept the right-adjoint orientation."))
 
+WRONG_SPIDER_FACTORY = pytest.mark.xfail(reason=(
+    "zx.Diagram inherits tensor's spider factory, which expects dimensions "
+    "rather than Nat types, so a disconnected diagram cannot be rebuilt: "
+    "https://github.com/discopy/discopy/issues/656"))
 
-def diagram_parameters():
+
+def diagram_parameters(xfail):
     """ One parameter per diagram category, with per-test expected failures. """
     for category in CATEGORIES:
         if not (isinstance(category, type)
                 and issubclass(category, monoidal.Diagram)):
             continue
-        if category is rigid.Diagram:
-            marks = PARTIAL_HYPERGRAPH
-        else:
-            marks = ()
-        yield pytest.param(category, marks=marks, id=factory_name(category))
+        yield pytest.param(
+            category, marks=xfail.get(category, ()), id=factory_name(category))
 
 
-DIAGRAMS = tuple(diagram_parameters())
+NORMAL_FORMS = tuple(diagram_parameters({rigid.Diagram: PARTIAL_HYPERGRAPH}))
+FOLIATIONS = tuple(diagram_parameters({
+    rigid.Diagram: PARTIAL_HYPERGRAPH, zx.Diagram: WRONG_SPIDER_FACTORY}))
 
 
-@pytest.mark.parametrize("category", DIAGRAMS)
+@pytest.mark.parametrize("category", NORMAL_FORMS)
 @given(data=st.data())
 def test_normal_form(category, data):
     """
@@ -47,7 +52,7 @@ def test_normal_form(category, data):
     assert normal.to_hypergraph() == diagram.to_hypergraph()
 
 
-@pytest.mark.parametrize("category", DIAGRAMS)
+@pytest.mark.parametrize("category", FOLIATIONS)
 @given(data=st.data())
 def test_foliation(category, data):
     """
