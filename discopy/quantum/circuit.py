@@ -74,7 +74,7 @@ from discopy import messages, tensor, frobenius
 from discopy.cat import factory
 from discopy.matrix import backend
 from discopy.tensor import Dim, Tensor
-from discopy.utils import assert_isinstance, deprecated_ob, factory_name
+from discopy.utils import assert_isinstance, deprecated_alias, factory_name
 
 
 class Wire(frobenius.Wire):
@@ -987,4 +987,4 @@ bit, qubit = Ty(Digit(2)), Ty(Qudit(2))
 Id = Circuit.id
 
 
-__getattr__ = deprecated_ob(__name__)
+__getattr__ = deprecated_alias(__name__, {"Ob": "Wire"})

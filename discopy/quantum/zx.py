@@ -29,7 +29,7 @@ from discopy.quantum.circuit import qubit, Circuit
 from discopy.quantum.gates import (
     Bra, Ket, Rz, Rx, CX, CZ, Controlled, format_number)
 from discopy.quantum.gates import Scalar as GatesScalar
-from discopy.rigid import Sum, PRO
+from discopy.rigid import Sum, Nat
 from discopy.utils import factory_name
 
 
@@ -41,7 +41,7 @@ SEMANTIC_SPIDERS = (
 @factory
 class Diagram(tensor.Diagram[complex]):
     """ ZX Diagram. """
-    ob = PRO
+    ob = Nat
 
     copy_counitality = tensor.Diagram.copy_counitality.inapplicable(
         SEMANTIC_SPIDERS)
@@ -71,8 +71,8 @@ class Diagram(tensor.Diagram[complex]):
 
     @staticmethod
     def swap(left, right):
-        left = left if isinstance(left, PRO) else PRO(left)
-        right = right if isinstance(right, PRO) else PRO(right)
+        left = left if isinstance(left, Nat) else Nat(left)
+        right = right if isinstance(right, Nat) else Nat(right)
         return tensor.Diagram.swap.__func__(Diagram, left, right)
 
     @staticmethod
@@ -257,8 +257,8 @@ class Box(tensor.Box[complex], Diagram):
 
     Parameters:
         name (str) : The name of the box.
-        dom (rigid.PRO) : The domain of the box, i.e. its input.
-        cod (rigid.PRO) : The codomain of the box, i.e. its output.
+        dom (rigid.Nat) : The domain of the box, i.e. its input.
+        cod (rigid.Nat) : The codomain of the box, i.e. its output.
     """
     @classmethod
     def strategy(cls, **params):
@@ -301,7 +301,7 @@ class Spider(tensor.Spider[complex], Box):
     """ Abstract spider box. """
 
     def __init__(self, n_legs_in, n_legs_out, phase=0):
-        super().__init__(n_legs_in, n_legs_out, PRO(1), phase)
+        super().__init__(n_legs_in, n_legs_out, Nat(1), phase)
         factory_str = type(self).__name__
         phase_str = f", {self.phase}" if self.phase else ""
         self.name = f"{factory_str}({n_legs_in}, {n_legs_out}{phase_str})"
@@ -374,7 +374,7 @@ class X(Spider):
 class Scalar(Box):
     """ Scalar in a ZX diagram. """
     def __init__(self, data):
-        super().__init__("scalar", PRO(0), PRO(0), data=data)
+        super().__init__("scalar", Nat(0), Nat(0), data=data)
         self.drawing_name = format_number(data)
 
     def __str__(self):
@@ -449,9 +449,8 @@ def gate2zx(box):
 
 
 circuit2zx = quantum.circuit.Functor(
-    ob_map={qubit: PRO(1)}, ar_map=gate2zx,
+    ob_map={qubit: Nat(1)}, ar_map=gate2zx,
     dom=Circuit, cod=Diagram)
-
 
 class Hadamard(Box):
     """ The Hadamard box, its own dagger. """
@@ -460,7 +459,7 @@ class Hadamard(Box):
     color, shape = "yellow", "rectangle"
 
     def __init__(self):
-        super().__init__('H', PRO(1), PRO(1))
+        super().__init__('H', Nat(1), Nat(1))
 
     def __repr__(self):
         return factory_name(type(self)) + "()"
@@ -478,7 +477,7 @@ class Hadamard(Box):
 
 H = Hadamard()
 
-SWAP = Swap(PRO(1), PRO(1))
+SWAP = Swap(Nat(1), Nat(1))
 Diagram.swap_factory, Diagram.sum_factory = Swap, Sum
 Diagram.permutation_factory = Permutation
 Id = Diagram.id
