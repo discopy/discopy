@@ -66,12 +66,7 @@ Without the extras installed, run `uv run pytest --skip-extra` to skip what need
 `pylint` fails on any unused import, variable or argument, and on a score below the
 `fail-under` of `.pylintrc`, which is the score of `main` when it was last raised: fix the
 finding, or disable the message on that line with the reason, and raise `fail-under` to the
-new score when your change lifts it, so that the score never goes down. A law stated with
-`@axiom` is read as the classmethod it is by `.github/scripts/pylint_axioms.py`, the plugin
-`.pylintrc` loads, which also declares the `factory` members a `NamedGeneric` subscript sets and
-lets `hypothesis.strategies` be imported inside a method, where a strategy is built, so that the
-package never imports it; a category of messages the code is not going to follow is disabled
-there with its reason, as `cyclic-import` is: the package imports every module.
+new score when your change lifts it, so that the score never goes down.
 
 ## Run the property tests
 

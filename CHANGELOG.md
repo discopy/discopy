@@ -864,25 +864,6 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Project
 
-- pylint reads a law stated with `@axiom` as the classmethod it is,
-  through `.github/scripts/pylint_axioms.py`, a plugin `.pylintrc` loads
-  and `.github/tests` checks: the decorator returns a descriptor binding
-  the law to its category, and astroid infers a classmethod from the
-  `classmethod` decorator alone, so every law read as a method wanting
-  `self`, with the members of its category read as those of an instance.
-  The configuration also declares the `factory` a `NamedGeneric` subscript
-  sets and the `*_factory` attributes a module sets after its class as
-  `generated-members`, lets `hypothesis.strategies` be imported where a
-  strategy is built, the convention keeping hypothesis out of the
-  package's imports, and reads the code as the 3.12 that `pyproject.toml`
-  requires rather than 3.10. `cyclic-import` is disabled: the package
-  imports every module, so the graph is cyclic by design, and pylint
-  reported 63 cycles on one run of `main` and 67 on the next, moving the
-  score by a hundredth between two runs of the same tree, which a
-  threshold cannot tolerate. `fail-under` rises from 8.58 to 8.75, the
-  score of `main` once these categories are gone, the first four of the
-  ones [#770](https://github.com/discopy/discopy/issues/770) lists
-  ([#776](https://github.com/discopy/discopy/pull/776)).
 - The `lint` job fails on any unused import, variable, argument, wildcard
   import or private member, and on a pylint score below `fail-under`, set
   to the score of `main` at the time so that it never goes down:
