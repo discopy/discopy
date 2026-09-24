@@ -80,6 +80,23 @@ def test_parameterised_box_pickle():
     assert pickle.loads(pickle.dumps(box)) == box
 
 
+def test_parameterised_pickle_and_deepcopy():
+    from copy import deepcopy
+    from discopy import frobenius, interaction, matrix, symmetric
+    x = frobenius.Ty('x')
+    f = frobenius.Box('f', x, x @ x)
+    for original in (matrix.Matrix[int]([0, 1, 1, 0], 2, 2),
+                     interaction.Ty[symmetric.Ty](symmetric.Ty('a')),
+                     (f >> f @ x).to_hypergraph()):
+        for copy in (pickle.loads(pickle.dumps(original)), deepcopy(original)):
+            assert type(copy) is type(original) and copy == original
+            assert '__class_getitem__values__' not in vars(copy)
+
+
+def test_parameterised_factory_name():
+    assert from_tree({'factory': 'cat.Ob[int]', 'name': 'x'}) == Ob('x')
+
+
 def test_deprecated_ob():
     from discopy import (
         biclosed, braided, compact, feedback, frobenius, pivotal, rigid)
