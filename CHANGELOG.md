@@ -22,6 +22,90 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   declare it too: the conjugate transpose and the boundary swaps are
   daggers of their own
   ([#731](https://github.com/discopy/discopy/issues/731)).
+- `CMap.is_scalar` is `not dom and not cod`, i.e. a scalar is an
+  endomorphism of the unit, where it used to be "a single box with no ports,
+  or a single scalar loop". Scalars are closed under tensor and that
+  definition was not: a tensor of two scalar boxes has two boxes, so it
+  answered `False`. `genus` keys its degenerate case on `n_vertices` rather
+  than on this, since what Euler's formula cannot count is a map with no
+  vertex to subdivide its loop, not a map with no boundary -- a closed map
+  with many boxes is a scalar and still has a genus worth computing
+  ([#690](https://github.com/discopy/discopy/pull/690)).
+- `CMap.genus`, the number of handles of the smallest orientable surface a
+  connected map embeds in, i.e. `(2 - χ) / 2`, deferring to
+  `euler_characteristic` and raising with it on a map that is not connected.
+  Zero for a map with no vertex, i.e. a loop, which is the one degenerate
+  case: a circle does embed in the sphere, but Euler's formula only counts it
+  once a vertex has subdivided it. A scalar is not degenerate — a standard
+  combinatorial map is a connected scalar and has a genus like any other.
+  `euler_characteristic` and `is_planar` were
+  both here already, but a map that is not planar is not thereby all the
+  same: the genus says *how far* from planar it is, which is the question
+  asked by anything reading a topological obstruction off a map rather than
+  just testing for one. `is_planar` is now "every component has genus zero"
+  instead of repeating the scalar special case and the comparison against
+  two ([#690](https://github.com/discopy/discopy/pull/690)).
+- The style review keeps score. Every review it posts records the remarks
+  it made, hidden in its own body, so the next round can read them back
+  whole rather than parse its own prose. That next round is one request
+  as before: the model is shown the past remarks with the replies they
+  drew, alongside the revision it is reviewing, and says what became of
+  each — `accepted` when the file now does what the remark asked,
+  `declined` when someone answered that they would not do it, and neither
+  while nobody has answered and nothing has moved. Each review then
+  carries the tally of the remarks **it** made and no others, `3 style
+  remarks: 1 accepted / 1 declined / 1 still open` — or `all accepted`, a
+  state nothing is in being left out rather than counted at nought — so
+  that a review says how what it asked for landed, read where it asked
+  it. A round is scored by the ones that follow it, so the review being
+  posted carries no tally yet and every round already posted is written
+  again. A verdict that decided something survives a later round that
+  forgets it: each tally carries the verdicts it recorded, hidden beside
+  the line it shows, and a round merges its answers into them rather than
+  recomputing the lot — a remark accepted while its file was in the diff stays
+  accepted once the diff has moved on, where asking a model that can no
+  longer see that file made the tally oscillate. A round is one review and
+  says which round it is, so the reader sees how the review is landing
+  without counting them. The prompt is ordered from what never moves to
+  what moves every round — instructions, `STYLE.md`, context files, the
+  past remarks as a list that only grows at its end, and last the revision
+  under review — so that two rounds of one pull request share a prefix the
+  gateway can serve from its cache rather than reading again
+  ([#672](https://github.com/discopy/discopy/pull/672)).
+- The style review never posts a review of a revision that is gone. Its
+  concurrency group keyed on the event's action as well as the pull
+  request, so a push cancelled the round another push had started but not
+  one started by `ready_for_review` or by asking for it in a comment:
+  those ran on, and posted a review of the head they had read minutes
+  earlier, with line numbers belonging to a revision nobody could see any
+  more. The group is now the pull request alone, so a newer trigger
+  cancels the round in flight whatever started either of them, and
+  `post.py` re-reads the head before posting and stands down when it has
+  moved, leaving the review to the round that push starts. The base
+  branch advancing is not this and never was: a merge base does not move
+  when its target gains commits, so the diff both we and GitHub compute —
+  and every line number in it — is the same before and after
+  ([#672](https://github.com/discopy/discopy/pull/672)).
+- The style review comments on the diff, and says where it could not.
+  Whole files are what it reads to judge a change against the
+  conventions around it, not an invitation to review code the change
+  does not touch, so the prompt asks for findings on the lines the diff
+  adds and says that going outside them is allowed but discouraged —
+  for the case where what is wrong with a change is somewhere it did not
+  touch. Every remark is a comment on the line it is about wherever
+  GitHub takes one there, which is any line one of the diff's hunks
+  shows; a remark further out goes in the review body, as do the ones
+  past the ten-finding cap and, where GitHub refuses the inline comments
+  outright, all of them. Left as a review of the file at large, the
+  ten-finding cap went on code nobody was changing, and under the tally
+  above those remarks stayed open forever, since fixing them was out of
+  the pull request's scope
+  ([#673](https://github.com/discopy/discopy/issues/673)). The body also
+  names the changed files that did not fit one prompt — reviewed from
+  their diff alone, or not reviewed at all — where that was said in the
+  job's log and nowhere a reader would look, so a review with nothing to
+  say about a file it never read whole read exactly like one that had
+  read it.
 - `monoidal.List`, the free monoid on a generator type: `List[X]` is a
   tuple of instances of `X` with concatenation as `tensor` and the empty
   list as unit, an `abc.Monoid` parameterised as
@@ -495,6 +579,20 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Removed
 
+- Parameters nothing read: `grammar.cfg.Tree.to_diagram`'s
+  `contravariant`, a placeholder since the module's first commit;
+  `Tree.from_nltk`'s `lexicalised` and `word_types`, which the grammar
+  refactor stopped reading; `Drawing.id`'s `length`;
+  `markov.Diagram.discard`'s `n`; and `drawing.backend.Backend`'s
+  `linewidth` ([#768](https://github.com/discopy/discopy/pull/768)).
+- `biclosed.Variable` and `closed.Variable` require an atomic codomain:
+  the abstraction machinery indexes contexts and free variables by
+  variable, counting on that index to coincide with a wire index, so a
+  variable of type `x @ y` used to bind only the last wire, leaving the
+  other one silently free in `biclosed`, and crash from inside `finset`
+  in `closed`, where `Abstraction.eval` permutes as many wires as there
+  are free variables
+  ([#609](https://github.com/discopy/discopy/issues/609)).
 - `cat.Bubble.dagger`: a bubble's dagger was inherited from `Box.dagger`,
   which reconstructs with `type(self)(name, cod, dom, ...)` — positional
   arguments `Bubble.__init__` reads as `*args`, so it crashed with
@@ -533,6 +631,17 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `Matrix.trace` reads its `left` flag: a left trace is the right trace
+  of the matrix conjugated by swaps, where it traced the last `n`
+  dimensions whatever was asked. `Tensor.to_quimb` passes its `dtype` to
+  the spiders, as its docstring promised; `Tensor.jacobian` and
+  `tensor.Diagram.jacobian` forward their `params` to `grad`, which they
+  dropped; `markov.Discard` refuses a number of copies other than zero
+  where it swallowed any argument; and `para.Feedback` reads its
+  underlying category from `feedback.Diagram` imported as a class, where
+  the module name was shadowed by the `feedback` method below it. Every
+  one was an unused argument the linter had been reporting
+  ([#768](https://github.com/discopy/discopy/pull/768)).
 - The marimo notebook previews in the docs follow the theme switch. The
   notebooks are exported with marimo's `system` theme and the docs relay
   the resolved theme into each notebook's iframe through marimo's
@@ -728,6 +837,21 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Project
 
+- The `lint` job fails on any unused import, variable, argument, wildcard
+  import or private member, and on a pylint score below `fail-under`, set
+  to the score of `main` at the time so that it never goes down:
+  `.pylintrc`'s `fail-on` names the six messages, `fail-under` rises from
+  7 to 8.58, and its `suggestion-mode` option, which the pylint in the
+  lock no longer knows and reported as an error on every run, is gone.
+  The 65 findings on `main` are fixed or excepted explicitly on their
+  line with the reason: the re-exports carry `pylint: disable` beside
+  their `noqa`, and the drawing backend's interface primitives keep the
+  parameters a backend reads. `AGENTS.md` and `CONTRIBUTING.md` list
+  `pylint discopy` beside `pflake8`, and `CONTRIBUTING.md` says what to do
+  with a finding and when to raise the threshold. Proposed on
+  [#767](https://github.com/discopy/discopy/pull/767#discussion_r4040064818)
+  after an unused parameter was the whole bug
+  ([#768](https://github.com/discopy/discopy/pull/768)).
 - The docs build on Sphinx 7.4 rather than 7.2, whose `stringify_annotation`
   handled a `TypeVar` but not a `ParamSpec`, so a signature such as
   `Callable[Concatenate[type, P], T]` crashed autodoc on Python 3.14, where

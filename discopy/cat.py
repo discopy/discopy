@@ -320,6 +320,7 @@ class Arrow(FreeCategory, DaggerCategory, Testable["Arrow"]):
         :code:`min_leaves` and :code:`max_leaves`; a canonical
         instantiation has at most one, so both are ignored.
         """
+        # pylint: disable=unused-argument  # a canonical term has one leaf
         from hypothesis import strategies as st
 
         types = cls.ob.strategy() if types is None else types
