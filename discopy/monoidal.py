@@ -539,6 +539,7 @@ class Nat(abc.Nat, Ty):
 
     def __init__(self, inside: int | tuple = 0, dom: Colour = None,
                  cod: Colour = None, _scan: bool = True):
+        # pylint: disable=unused-argument  # a Nat has one colour
         self.n = inside if isinstance(inside, int) else len(inside)
         self.dom = self.cod = transparent
         cat.Ob.__init__(self, type(self).__name__)
