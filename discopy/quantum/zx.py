@@ -33,10 +33,48 @@ from discopy.rigid import Sum, Nat
 from discopy.utils import factory_name
 
 
+SEMANTIC_SPIDERS = (
+    "A Z or X spider is a semantic box, equal to wiring only up to "
+    "evaluation.")
+
+
 @factory
 class Diagram(tensor.Diagram[complex]):
     """ ZX Diagram. """
     ob = Nat
+
+    copy_counitality = tensor.Diagram.copy_counitality.inapplicable(
+        SEMANTIC_SPIDERS)
+
+    copy_coassociativity = tensor.Diagram.copy_coassociativity.inapplicable(
+        SEMANTIC_SPIDERS)
+
+    copy_cocommutativity = tensor.Diagram.copy_cocommutativity.inapplicable(
+        SEMANTIC_SPIDERS)
+
+    copy_monoidal_coherence = (
+        tensor.Diagram.copy_monoidal_coherence.inapplicable(
+            SEMANTIC_SPIDERS))
+
+    discard_coherence = tensor.Diagram.discard_coherence.inapplicable(
+        SEMANTIC_SPIDERS)
+
+    frobenius = tensor.Diagram.frobenius.inapplicable(SEMANTIC_SPIDERS)
+
+    speciality = tensor.Diagram.speciality.inapplicable(SEMANTIC_SPIDERS)
+
+    spider_fusion = tensor.Diagram.spider_fusion.inapplicable(
+        SEMANTIC_SPIDERS)
+
+    snake_equations = tensor.Diagram.snake_equations.inapplicable(
+        SEMANTIC_SPIDERS)
+
+    #: A scalar's ``data`` is a Python ``complex``, which ``json`` cannot
+    #: encode, so a ZX diagram decodes from its tree but not from the JSON
+    #: of its tree (#775). The fix is a choice of on-disk format for every
+    #: complex-valued box, not just this carrier.
+    serialisation = tensor.Diagram.serialisation.failing(
+        "json cannot encode the complex data of a scalar (#775)")
 
     @staticmethod
     def swap(left, right):
@@ -229,6 +267,16 @@ class Box(tensor.Box[complex], Diagram):
         dom (rigid.Nat) : The domain of the box, i.e. its input.
         cod (rigid.Nat) : The codomain of the box, i.e. its output.
     """
+    @classmethod
+    def strategy(cls, **params):
+        """Add spiders, the Hadamard and a scalar to the box distribution."""
+        from hypothesis import strategies as st
+
+        base = super().strategy(**params)
+        return cls.extend_strategy(
+            base, Spider, lambda _: st.sampled_from((
+                H, Z(1, 1, 0.5), Z(0, 2), Z(2, 0), Z(2, 1),
+                X(1, 2, 0.25), X(1, 0), Scalar(0.5), Scalar(1j))), **params)
 
 
 class Sum(tensor.Sum[complex], Box):
@@ -249,9 +297,11 @@ class Permutation(tensor.Permutation[complex], Box):
 class Swap(Permutation, tensor.Swap[complex], Box):
     """ Swap in a ZX diagram. """
     def __repr__(self):
-        return "SWAP"
+        return factory_name(type(self))\
+            + f"({self.left!r}, {self.right!r})"
 
-    __str__ = __repr__
+    def __str__(self):
+        return "SWAP"
 
 
 class Spider(tensor.Spider[complex], Box):
@@ -275,6 +325,16 @@ class Spider(tensor.Spider[complex], Box):
 
     def __repr__(self):
         return str(self).replace(type(self).__name__, factory_name(type(self)))
+
+    def to_tree(self):
+        tree = {'factory': factory_name(type(self)),
+                'n_legs_in': len(self.dom), 'n_legs_out': len(self.cod)}
+        return dict(tree, phase=self.phase) if self.phase else tree
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(
+            tree['n_legs_in'], tree['n_legs_out'], tree.get('phase', 0))
 
     def subs(self, *args):
         phase = cat.rsubs(self.phase, *args)
@@ -327,12 +387,26 @@ class Scalar(Box):
     def __str__(self):
         return f"scalar({format_number(self.data)})"
 
+    def __repr__(self):
+        return factory_name(type(self)) + f"({self.data!r})"
+
+    def to_tree(self):
+        return {'factory': factory_name(type(self)), 'data': self.data}
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(tree['data'])
+
     def subs(self, *args):
         data = cat.rsubs(self.data, *args)
         return Scalar(data)
 
     def dagger(self):
         return Scalar(self.data.conjugate())
+
+    def rotate(self, left=False):
+        del left
+        return self
 
     def grad(self, var, **params):
         if var not in self.free_symbols:
@@ -389,11 +463,35 @@ circuit2zx = quantum.circuit.Functor(
     ob_map={qubit: Nat(1)}, ar_map=gate2zx,
     dom=Circuit, cod=Diagram)
 
-H = Box('H', Nat(1), Nat(1))
-H.dagger = lambda: H
-H.draw_as_spider = True
-H.drawing_name, H.tikzstyle_name, = '', 'H'
-H.color, H.shape = "yellow", "rectangle"
+
+class Hadamard(Box):
+    """ The Hadamard box, its own dagger and its own transpose. """
+    draw_as_spider = True
+    drawing_name, tikzstyle_name = '', 'H'
+    color, shape = "yellow", "rectangle"
+
+    def __init__(self):
+        super().__init__('H', Nat(1), Nat(1))
+
+    def __repr__(self):
+        return factory_name(type(self)) + "()"
+
+    def dagger(self):
+        return self
+
+    def rotate(self, left=False):
+        del left
+        return self
+
+    def to_tree(self):
+        return {'factory': factory_name(type(self))}
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls()
+
+
+H = Hadamard()
 
 SWAP = Swap(Nat(1), Nat(1))
 Diagram.swap_factory, Diagram.sum_factory = Swap, Sum
