@@ -41,3 +41,9 @@ def test_trace_vanishing():
 
     k = multiplicative.Function(lambda i, j: (i, j), (int, int), (int, int))
     assert k.trace(0) == k
+
+
+def test_Sum():
+    f = Box('f', 'x', 'x')
+    assert Sum([f]) == f
+    assert isinstance(f + f, Sum) and (f + f).terms == (f, f)

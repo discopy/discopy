@@ -9,6 +9,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `traced.Sum`, `pivotal.Sum`, `compact.Sum` and `frobenius.Sum`, the formal
+  sum of morphisms at the four levels of the hierarchy that had none, each
+  mirroring its `Diagram`'s own bases and wired into `Diagram.sum_factory`.
+  A functor with a formal sum in its codomain (e.g. `ar_map=lambda x: x + x`)
+  crashed on any diagram in one of these four categories, unlike every other
+  level ([#207](https://github.com/discopy/discopy/issues/207)).
 - `CMap.is_scalar` is `not dom and not cod`, i.e. a scalar is an
   endomorphism of the unit, where it used to be "a single box with no ports,
   or a single scalar loop". Scalars are closed under tensor and that
