@@ -50,7 +50,7 @@ from discopy import (
     cat, monoidal, rigid, frobenius, cmap, config)
 from discopy.cat import factory, assert_iscomposable
 from discopy.frobenius import Dim, Cup
-from discopy.matrix import (  # noqa: F401
+from discopy.matrix import (  # noqa: F401  pylint: disable=unused-import
     Matrix, backend, set_backend, get_backend,
     NumPy, JAX, PyTorch, TensorFlow)
 from discopy.abc import NamedGeneric
@@ -289,6 +289,7 @@ class Tensor(Matrix):
         ----
         This is *not* the same as the algebraic transpose for non-atomic dims.
         """
+        # pylint: disable=unused-argument  # Dim is self-dual: one transpose
         return type(self)(
             self.array.transpose(), self.cod[::-1], self.dom[::-1])
 
@@ -355,7 +356,7 @@ class Tensor(Matrix):
         for i, var in enumerate(variables):
             onehot = self.zero(Dim(1), dim)
             onehot.array[i] = 1
-            result += onehot @ self.grad(var)
+            result += onehot @ self.grad(var, **params)
         return result
 
 
@@ -558,12 +559,15 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
         >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
         >>> t_net = (vector >> vector[::-1]).to_quimb()  # doctest: +EXTRA
         >>> assert t_net.contract(preserve_tensor=True).data == 1
+        >>> t_net = vector[::-1].to_quimb(dtype=complex)  # doctest: +EXTRA
+        >>> assert t_net.contract(preserve_tensor=True).data.dtype == complex
         """
         import quimb.tensor as qtn
+        spider_params = {} if dtype is None else {"dtype": dtype}
         inputs = [
                 qtn.COPY_tensor(
                     d=getattr(dim, 'dim', dim),
-                    inds=(f'inp{i}', f'inp{i}_end')
+                    inds=(f'inp{i}', f'inp{i}_end'), **spider_params
                 ) for i, dim in enumerate(self.dom.inside)]
         tensors = inputs[:]
         scan = [(t, 1) for t in inputs]
@@ -593,7 +597,7 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
         for i, (t, j) in enumerate(scan):
             output = qtn.COPY_tensor(
                 d=t.data.shape[j],
-                inds=(f'out{i}_start', f'out{i}')
+                inds=(f'out{i}_start', f'out{i}'), **spider_params
             )
             qtn.connect(t, output, j, 0)
             tensors.append(output)
@@ -690,7 +694,8 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
         for i, var in enumerate(variables):
             onehot = Tensor.zero(Dim(1), dim)
             onehot.array[i] = 1
-            result += Box(str(var), Dim(1), dim, onehot.array) @ self.grad(var)
+            result += Box(str(var), Dim(1), dim, onehot.array)\
+                @ self.grad(var, **params)
         return result
 
 
