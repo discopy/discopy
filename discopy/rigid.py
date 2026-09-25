@@ -13,7 +13,7 @@ Summary
 
     Wire
     Ty
-    PRO
+    Nat
     Diagram
     Box
     Cup
@@ -131,11 +131,11 @@ out the two objects needed below as ``cat.Ob`` instances so that
 
 >>> eta = Transformation(
 ...     lambda obj: Function(
-...         lambda x: Free(Id_set(obj)[0])([x]), Id_set(obj), GF(obj)),
+...         lambda x: Free(Id_set(obj).inside[0])([x]), Id_set(obj), GF(obj)),
 ...     Id_set, GF)
 >>> epsilon = Transformation(
 ...     lambda obj: Morphism(
-...         lambda w: Id_monoid(obj)[0].id().tensor(*w.xs),
+...         lambda w: Id_monoid(obj).inside[0].id().tensor(*w.xs),
 ...         FG(obj), Id_monoid(obj)),
 ...     FG, Id_monoid)
 
@@ -161,7 +161,7 @@ from discopy.utils import (
     assert_isinstance,
     AxiomError,
     BinaryBoxConstructor,
-    deprecated_ob,
+    deprecated_alias,
     factory_name,
 )
 
@@ -194,8 +194,8 @@ class Wire(monoidal.Wire):
         super().__setstate__(state)
 
     def __init__(self, name: str, z: int = 0,
-                 dom: monoidal.Colour = monoidal.white,
-                 cod: monoidal.Colour = monoidal.white):
+                 dom: monoidal.Colour = monoidal.transparent,
+                 cod: monoidal.Colour = monoidal.transparent):
         assert_isinstance(z, int)
         self.z = z
         super().__init__(name, dom, cod)
@@ -229,7 +229,7 @@ class Wire(monoidal.Wire):
     def __repr__(self):
         cls_name = factory_name(type(self))
         z_repr = ', z=' + repr(self.z) if self.z else ''
-        if self.dom == self.cod == monoidal.white:
+        if self.dom == self.cod == monoidal.transparent:
             return f"{cls_name}({self.name!r}{z_repr})"
         return f"{cls_name}({self.name!r}{z_repr}, " \
             f"dom={self.dom!r}, cod={self.cod!r})"
@@ -317,14 +317,15 @@ class Ty(Pregroup, biclosed.Ty):
 
 
 @factory
-class PRO(monoidal.PRO, Ty):
+class Nat(monoidal.Nat, Ty):
     """
-    A rigid PRO is a natural number ``n`` seen as a rigid type of length ``n``.
+    A rigid ``Nat`` is a natural number ``n`` seen as a rigid type of
+    length ``n``.
 
     Parameters
     ----------
     n : int
-        The length of the PRO type.
+        The natural number.
     """
     l = r = property(lambda self: self)
 
@@ -883,6 +884,7 @@ def to_rigid(self):
 biclosed.Diagram.to_rigid = to_rigid
 
 Diagram.cup_factory, Diagram.cap_factory, Diagram.sum_factory = Cup, Cap, Sum
+Diagram.functor_factory = Functor
 
 Id = Diagram.id
 
@@ -891,4 +893,4 @@ class Equation(biclosed.Equation):
     """ The :class:`biclosed.Equation` of rigid diagrams. """
 
 
-__getattr__ = deprecated_ob(__name__)
+__getattr__ = deprecated_alias(__name__, {"Ob": "Wire", "PRO": "Nat"})

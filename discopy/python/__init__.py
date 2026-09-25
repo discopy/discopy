@@ -7,10 +7,20 @@ Categories of Python functions.
     :template: module.rst
     :toctree: ../_api
 
-    discopy.python.finset
-    discopy.python.function
-    discopy.python.additive
-    discopy.python.multiplicative
+    finset
+    function
+    additive
+    multiplicative
 """
 
-from discopy.python.multiplicative import exp, Ty, Function
+from importlib import import_module
+
+
+def __getattr__(name):
+    """
+    The functions are imported on first use rather than with the package:
+    :mod:`multiplicative` imports :mod:`monoidal`, which imports :mod:`finset`.
+    """
+    if name not in ("exp", "Ty", "Function"):
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    return getattr(import_module("discopy.python.multiplicative"), name)

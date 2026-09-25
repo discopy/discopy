@@ -19,6 +19,13 @@ def test_port_sides():
     assert adjoint_ports[1].side == "down"
 
 
+def test_ports_is_cached():
+    from discopy.compact import Ty, Box, CMap as M
+    x, y = map(Ty, "xy")
+    cm = M.from_box(Box("f", x, y))
+    assert cm.ports is cm.ports
+
+
 def test_default_compact_setting():
     from discopy.compact import Ty, Box, CMap as M
     x, y = map(Ty, "xy")
@@ -732,6 +739,52 @@ def test_euler_characteristic():
     t = compact.Box("t", compact.Ty(), compact.Ty()).to_map()
     assert (s @ t).connected_components == [s, t]
     assert compact.CMap.id().connected_components == [compact.CMap.id()]
+
+
+def test_scalars_are_closed_under_tensor():
+    """A scalar is an endomorphism of the unit, so a tensor of them is one."""
+    from discopy.compact import Ty, Box, CMap
+
+    x = Ty("x")
+    loop = CMap.caps(x.r, x) >> CMap.cups(x.r, x)
+    box = Box("s", Ty(), Ty()).to_map()
+    assert loop.is_scalar and box.is_scalar
+    assert (loop @ box).is_scalar
+    assert (box @ box).is_scalar
+    assert not CMap.id(x).is_scalar
+    assert not Box("f", x, x).to_map().is_scalar
+
+
+def test_genus():
+    from discopy import compact, symmetric
+
+    x, y = map(symmetric.Ty, "xy")
+    f = symmetric.Box("f", x @ y, x @ y).to_map()
+    assert f.genus == 0
+    assert f.is_planar
+
+    crossed = (symmetric.Swap(y, x) >> symmetric.Box("f", x @ y, x)).to_map()
+    assert crossed.euler_characteristic == 0
+    assert crossed.genus == 1
+    assert not crossed.is_planar
+
+    cx, cy = map(compact.Ty, "xy")
+    scalar = compact.CMap.caps(cx.r, cx) >> compact.CMap.cups(cx.r, cx)
+    assert scalar.euler_characteristic == 0
+    assert scalar.genus == 0
+    assert scalar.is_planar
+
+    torus = (compact.Swap(cy, cx) >> compact.Box("f", cx @ cy, cx)).to_map()
+    assert torus.genus == 1
+    assert not (torus @ scalar).is_planar
+    with raises(ValueError):
+        (torus @ scalar).genus
+
+    # A disconnected map has no genus even with nothing to subdivide.
+    loops = compact.CMap(compact.Ty(), compact.Ty(), (), [], loops=(cx, cy))
+    assert loops.n_vertices == 0
+    with raises(ValueError):
+        loops.genus
 
 
 def test_draw_plain_path(tmp_path):
