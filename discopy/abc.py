@@ -7,7 +7,7 @@ the characteristic generator of its categorical structure as an
 :class:`MonoidalCategory` with an abstract :meth:`BraidedCategory.braid`.
 
 .. raw:: html
-    :file: api/architecture.html
+    :file: ../docs/api/architecture.html
 
 Software dependencies between modules go top-to-bottom, left-to-right and
 forgetful functors between categories go the other way.
