@@ -406,3 +406,15 @@ def test_coloured_Layer_boxes_and_types():
     assert Layer(f).boxes_and_types == (empty_red, f, empty_green)
     assert Layer(empty_red, f, empty_green).boxes_and_types\
         == (empty_red, f, empty_green)
+
+
+def test_tensor_coalesces_plumbing():
+    from functools import reduce
+    x = Ty('x')
+    perm = Permutation(x @ x, [1, 0])
+    assert perm.tensor(x, perm) == Permutation(x ** 5, [1, 0, 2, 4, 3])
+    assert perm.tensor() == perm
+    f = Box('f', x, x)
+    assert perm.tensor(f, perm) == reduce(
+        lambda g, h: g.tensor(h), [perm, f, perm])
+    assert perm.tensor(x, f) == reduce(lambda g, h: g.tensor(h), [perm, x, f])
