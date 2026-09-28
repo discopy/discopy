@@ -6,6 +6,13 @@ from discopy.matrix import Matrix, backend
 from discopy.utils import AxiomError
 
 
+def test_Matrix_trace_left():
+    f = Matrix[bool]([[1, 1], [0, 0]], 2, 2)
+    assert f.trace() == Matrix[bool]([[1]], 1, 1)
+    assert f.trace(left=True) == Matrix[bool]([[0]], 1, 1)
+    assert Matrix[bool].swap(1, 1).trace(left=True) == Matrix[bool].id(1)
+
+
 def test_bad_composition():
     m = Matrix([1, 2, 3, 4, 5, 6], 2, 3)
 

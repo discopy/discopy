@@ -32,10 +32,15 @@ extension-pkg-whitelist=
 # Return non-zero exit code if any of these messages/categories are detected,
 # even if score is above --fail-under value. Syntax same as enable. Messages
 # specified are enabled, while categories only check already-enabled messages.
-fail-on=
+fail-on=unused-import,
+        unused-variable,
+        unused-argument,
+        unused-wildcard-import,
+        unused-private-member,
+        possibly-unused-variable
 
 # Specify a score threshold under which the program will exit with error.
-fail-under=7
+fail-under=8.58
 
 # Interpret the stdin as a python script, whose filename needs to be passed as
 # the module_or_package argument.
@@ -88,10 +93,6 @@ py-version=3.10
 
 # Discover python modules and packages in the file system subtree.
 recursive=no
-
-# When enabled, pylint would attempt to guess common misconfiguration and emit
-# user-friendly hints instead of false-positive error messages.
-suggestion-mode=yes
 
 # Allow loading of arbitrary C extensions. Extensions are imported into the
 # active Python interpreter and may run arbitrary code.

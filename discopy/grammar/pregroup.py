@@ -34,7 +34,7 @@ from discopy import rigid, frobenius, messages
 from discopy.cat import factory
 from discopy.utils import AxiomError, deprecated_alias
 from discopy.grammar import thue
-from discopy.rigid import Wire  # noqa: F401
+from discopy.rigid import Wire  # noqa: F401  pylint: disable=unused-import
 
 
 @factory

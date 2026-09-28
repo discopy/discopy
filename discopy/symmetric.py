@@ -95,7 +95,8 @@ from collections.abc import Sequence
 from discopy import monoidal, balanced, hypergraph, cmap, messages
 from discopy.abc import SymmetricCategory
 from discopy.cat import factory
-from discopy.monoidal import Wire, Ty, Nat  # noqa: F401
+from discopy.monoidal import (  # noqa: F401  pylint: disable=unused-import
+    Wire, Ty, Nat)
 from discopy.python import finset
 from discopy.utils import (
     AxiomError, assert_iscomposable, classproperty, factory_name, from_tree)
