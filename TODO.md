@@ -73,4 +73,4 @@ Review round on [#730](https://github.com/discopy/discopy/pull/730):
 - [x] Decided: `UnionFind` unions by size as upstream, `union` returns the
       new root, and `__iter__`/`__eq__`/`repr` label each class by its least
       element; `CMap.from_glued` uses the returned root
-- [WIP] @ad18a368-2026-09-29 13:30 Merge `main` into the branch, `pflake8`, `pytest`, coverage, sphinx
+- [x] Merge `main` into the branch, `pflake8`, `pytest`, coverage, sphinx
