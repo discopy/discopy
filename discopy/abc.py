@@ -671,7 +671,23 @@ class MarkovCategory[C0, C1](SymmetricCategory[C0, C1]):
     """
     A Markov category is a :class:`SymmetricCategory` with methods
     :code:`copy` and :code:`merge` for the supply of commutative comonoids.
+
+    The comonoids need not be natural. The class attributes say how natural
+    they are, i.e. which morphisms they commute with:
+
+    * :attr:`is_affine` when discarding commutes with every morphism, i.e. the
+      category is semicartesian, a Markov category in the sense of
+      :cite:t:`FritzLiang23`,
+    * :attr:`is_cartesian` when copying does as well, i.e. every morphism is
+      deterministic and the category is cartesian.
+
+    Both are ``False`` by default, which is what the free hypergraph category
+    of :mod:`discopy.frobenius` needs: a spider discards and copies, but it is
+    natural for no box.
     """
+    is_affine: ClassVar[bool] = False
+    is_cartesian: ClassVar[bool] = False
+
     @classmethod
     @abstractmethod
     def copy(cls, x: C0, n: int = 2) -> C1:

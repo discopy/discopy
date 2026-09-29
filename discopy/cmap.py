@@ -61,6 +61,7 @@ from discopy.cat import Ob
 from discopy.python.finset import Permutation
 from discopy.utils import (
     AxiomError,
+    UnionFind,
     assert_isatomic,
     assert_isinstance,
     classproperty,
@@ -822,25 +823,18 @@ class CMap[C0: Pregroup, C1: CMap](
         ...     (CMap.caps(x.r, x), 0), (CMap.cups(x.r, x), 0)]).loops == (x, )
         True
         """
-        wires, ends, objects = [], [], []
+        wires, ends, objects = UnionFind(), [], []
+        find = wires.find
 
         def fresh(obj):
-            wires.append(len(wires))
             ends.append([])
             objects.append(obj)
-            return len(wires) - 1
-
-        def find(wire):
-            while wires[wire] != wire:
-                wires[wire] = wires[wires[wire]]
-                wire = wires[wire]
-            return wire
+            return wires.fresh()
 
         def union(source, target):
             source, target = sorted([find(source), find(target)])
             if source != target:
-                ends[source] += ends[target]
-                wires[target] = source
+                ends[wires.union(source, target)] = ends[source] + ends[target]
 
         scan = []
         for i, obj in enumerate(dom):
@@ -866,15 +860,15 @@ class CMap[C0: Pregroup, C1: CMap](
             ends[find(wire)].append(start + i)
 
         edges = list(range(start + len(cod)))
-        for wire in {find(wire) for wire in range(len(wires))}:
-            if not ends[wire]:
+        for wire in set(wires):
+            if not ends[find(wire)]:
                 loop = objects[wire]
                 loop = loop if isinstance(loop, cls.category.ob)\
                     else cls.ob(loop)
                 loops = loops + (
                     loop.r if getattr(loop, "z", 0) % 2 else loop, )
             else:
-                source, target = ends[wire]
+                source, target = ends[find(wire)]
                 edges[source], edges[target] = target, source
         return cls(dom, cod, boxes, edges, loops=loops)
 
