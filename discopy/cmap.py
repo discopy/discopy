@@ -834,8 +834,7 @@ class CMap[C0: Pregroup, C1: CMap](
         def union(source, target):
             source, target = sorted([find(source), find(target)])
             if source != target:
-                ends[source] += ends[target]
-                wires.union(source, target)
+                ends[wires.union(source, target)] = ends[source] + ends[target]
 
         scan = []
         for i, obj in enumerate(dom):
@@ -862,14 +861,14 @@ class CMap[C0: Pregroup, C1: CMap](
 
         edges = list(range(start + len(cod)))
         for wire in set(wires):
-            if not ends[wire]:
+            if not ends[find(wire)]:
                 loop = objects[wire]
                 loop = loop if isinstance(loop, cls.category.ob)\
                     else cls.ob(loop)
                 loops = loops + (
                     loop.r if getattr(loop, "z", 0) % 2 else loop, )
             else:
-                source, target = ends[wire]
+                source, target = ends[find(wire)]
                 edges[source], edges[target] = target, source
         return cls(dom, cod, boxes, edges, loops=loops)
 

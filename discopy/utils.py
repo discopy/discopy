@@ -450,30 +450,33 @@ class UnionFind:
     """
     A union-find over consecutive integers, e.g. the wires of a diagram.
 
-    The root of a tree is the least of its elements, so that the parents
-    depend on the partition and not on the order of the merges.
+    Trees are merged by size, the smaller under the larger, and paths are
+    compressed, so that each operation takes amortised inverse Ackermann
+    time. The roots depend on the order of the merges, so a class is labelled
+    by its least element instead: iterating, comparing and printing a
+    union-find only depend on the partition.
 
     Parameters:
-        parent : The parent of each element, itself for a fresh one.
+        parent : The label of each element, itself for a fresh one.
 
     Example
     -------
     >>> union_find = UnionFind()
     >>> a, b, c = [union_find.fresh() for _ in range(3)]
-    >>> union_find.union(b, c)
-    >>> union_find.find(b), union_find.find(c), union_find.find(a)
-    (1, 1, 0)
+    >>> assert union_find.union(b, c) == union_find.find(c)
+    >>> union_find.find(b) == union_find.find(c) != union_find.find(a)
+    True
     >>> union_find
     utils.UnionFind([0, 1, 1])
 
     The order of the merges does not matter:
 
     >>> left, right = UnionFind([0, 0, 0]), UnionFind([0, 1, 1])
-    >>> right.union(0, 1)
+    >>> assert right.union(0, 1) == right.find(2)
     >>> assert left == right
     """
     def __init__(self, parent: Iterable[int] = ()):
-        self.parent = []
+        self.parent, self.size = [], []
         for element, root in enumerate(parent):
             self.fresh()
             if element != root:
@@ -482,6 +485,7 @@ class UnionFind:
     def fresh(self) -> int:
         """ Add an element in a tree of its own and return it. """
         self.parent.append(len(self.parent))
+        self.size.append(1)
         return len(self.parent) - 1
 
     def find(self, element: int) -> int:
@@ -498,16 +502,22 @@ class UnionFind:
             self.parent[element], element = root, self.parent[element]
         return root
 
-    def union(self, left: int, right: int):
+    def union(self, left: int, right: int) -> int:
         """
-        Merge the trees of two elements.
+        Merge the trees of two elements and return the root of the result.
 
         Parameters:
             left : The first element.
             right : The second element.
         """
-        left, right = sorted((self.find(left), self.find(right)))
+        left, right = self.find(left), self.find(right)
+        if left == right:
+            return left
+        if self.size[left] < self.size[right]:
+            left, right = right, left
         self.parent[right] = left
+        self.size[left] += self.size[right]
+        return left
 
     def __len__(self) -> int:
         return len(self.parent)
@@ -516,7 +526,10 @@ class UnionFind:
         return isinstance(other, UnionFind) and list(self) == list(other)
 
     def __iter__(self) -> Iterable[int]:
-        return (self.find(element) for element in range(len(self.parent)))
+        """ The label of each element, i.e. the least of its class. """
+        least = {}
+        for element in range(len(self.parent)):
+            yield least.setdefault(self.find(element), element)
 
     def __repr__(self) -> str:
         return f"{factory_name(type(self))}({list(self)})"

@@ -127,3 +127,11 @@ def test_UnionFind_path_compression():
     union_find.union(2, 3)
     union_find.union(1, 3)
     assert union_find.find(3) == 0 and union_find.parent[3] == 0
+
+
+def test_UnionFind_by_size():
+    union_find = UnionFind(range(3))
+    union_find.union(1, 2)
+    assert union_find.union(0, 1) == union_find.find(0) == 1
+    assert list(union_find) == [0, 0, 0] and union_find.size[1] == 3
+    assert union_find == UnionFind(3 * [0])

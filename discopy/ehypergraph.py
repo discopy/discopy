@@ -389,7 +389,8 @@ class EHypergraph(NamedGeneric['category']):
         produced = {
             wire for _, _, _, tgt in self.scan() for wire in map(
                 self.uf.find, tgt)}
-        cost = {wire: 0 for wire in set(self.uf) if wire not in produced}
+        cost = {wire: 0 for wire in set(map(self.uf.find, range(len(self.uf))))
+                if wire not in produced}
         chosen = {}
         for _ in range(len(self.rows) + 1):
             stable = True
