@@ -59,7 +59,7 @@ Review round on [#730](https://github.com/discopy/discopy/pull/730):
       canonizers with the canonizer/rebuild fixpoint
 - [WIP] @ad18a368-2026-09-29 12:35 Add a determinism/affineness attribute to `abc.MarkovCategory` so the
       supply can derive copy/discard absorption and the congruence knob
-- [ ] Decided: `EHypergraph` is a setoid. `setoid()` numbers the vertices
+- [WIP] @ad18a368-2026-09-29 12:35 Decided: `EHypergraph` is a setoid. `setoid()` numbers the vertices
       (union-find classes) by a walk from the boundary and lists the live
       cells in that order; `__eq__`/`__hash__` compare it, with an isomorphism
       fallback as `Hypergraph` has. `equiv` stays the semantic equality, it
