@@ -66,7 +66,7 @@ Review round on [#730](https://github.com/discopy/discopy/pull/730):
       is not transitive once there are alternatives
 - [x] Extract `cat.Arrow`'s setoid mechanism (`__eq__`/`__hash__` from
       `setoid()`) into a `utils` mixin used by `cat.Arrow` and `EHypergraph`
-- [ ] `Wires` as a `Monoid`: moot once `Wires` is deleted by the fusion
+- [WIP] @ad18a368-2026-09-29 12:35 `Wires` as a `Monoid`: moot once `Wires` is deleted by the fusion
 - [WIP] @ad18a368-2026-09-29 12:35 Decided: `Shard` is a `ColouredMonoid` coloured by its arity
       `(n_in, n_out)`: `tensor` concatenates rows, `append` stays the in-place
       builder; the disjoint union behind `then`/`tensor` concatenates shards
