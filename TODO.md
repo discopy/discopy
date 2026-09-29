@@ -17,12 +17,12 @@ says so.
 
 - [x] Measure the claim first: which cells of the matrix exhaust their strategy's support on `main`,
       at two budgets, rather than asserting that some do
-- [WIP] @01YLq8Jk-2026-09-29 00:35 `proptest/report.py`: the outcomes of a run, the cells that cannot fail, the cells that
+- [x] `proptest/report.py`: the outcomes of a run, the cells that cannot fail, the cells that
       stopped being checked against a baseline, and the JSON both halves travel in — pure functions
-- [ ] `proptest/conftest.py`: the plugin — the two options, the fixture that counts what a cell
+- [x] `proptest/conftest.py`: the plugin — the two options, the fixture that counts what a cell
       drew, collection that survives `-n auto`, and the terminal summary
-- [ ] `proptest/test_axioms.py`: record the terms each cell actually drew
-- [ ] `proptest/test_report.py`: unit tests for the pure half
+- [x] `proptest/test_axioms.py`: record the terms each cell actually drew
+- [WIP] @01YLq8Jk-2026-09-29 00:48 `proptest/test_report.py`: unit tests for the pure half
 - [ ] `proptest.yml`: carry the report between runs, so "was passing, now skipped" has a baseline
 - [ ] `CONTRIBUTING.md`: what the two reports mean and how to pass a baseline
 - [ ] `CHANGELOG.md`: an `[Unreleased]` entry
