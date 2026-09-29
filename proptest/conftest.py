@@ -47,13 +47,18 @@ if PROFILE != "shared":
 
 def pytest_configure(config):
     """
-    Register and load the ``shared`` profile on demand: the ``dev`` budget
-    over the local database backed by CI's, read-only, so that a developer
-    with a ``GITHUB_TOKEN`` replays what CI found without recording
-    anything. Building the artifact database touches storage, which
-    Hypothesis warns against at conftest import, so it happens only when
-    the profile is asked for.
+    Register the marker the report keys on, and the ``shared`` profile on
+    demand.
+
+    ``shared`` is the ``dev`` budget over the local database backed by CI's,
+    read-only, so that a developer with a ``GITHUB_TOKEN`` replays what CI
+    found without recording anything. Building the artifact database touches
+    storage, which Hypothesis warns against at conftest import, so it happens
+    only when the profile is asked for.
     """
+    config.addinivalue_line(
+        "markers", f"{CELL}: a cell of the property matrix, i.e. one law of "
+        "one category, whose outcome and draws the report collects")
     if PROFILE == "shared":
         database = MultiplexedDatabase(LOCAL, ReadOnlyDatabase(
             GitHubArtifactDatabase("discopy", "discopy")))
@@ -61,6 +66,13 @@ def pytest_configure(config):
             "shared", max_examples=100, **dict(COMMON, database=database))
         settings.load_profile("shared")
 
+
+CELL = "cell"
+"""
+The marker every test of the matrix carries. The suite also holds unit tests
+of its own reading of itself, and those are parametrised too, so the report
+asks for the marker rather than taking any bracketed node id for a cell.
+"""
 
 CELLS = {}
 """
@@ -127,6 +139,8 @@ def pytest_runtest_logreport(report):
     matrix declares inapplicable. Teardown is where the properties arrive,
     so the numbers are merged into what is already there.
     """
+    if CELL not in report.keywords:
+        return
     if (name := cell_name(report.nodeid)) is None:
         return
     known = CELLS.get(name, Cell(name, PASSED))

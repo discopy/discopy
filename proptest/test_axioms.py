@@ -32,6 +32,7 @@ def axiom_parameters():
                 id=f"{factory_name(category)}.{axiom.name}")
 
 
+@pytest.mark.cell
 @pytest.mark.parametrize("axiom", axiom_parameters())
 @given(data=st.data())
 def test_axiom(axiom, drawn, data):

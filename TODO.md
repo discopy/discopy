@@ -22,8 +22,8 @@ says so.
 - [x] `proptest/conftest.py`: the plugin — the two options, the fixture that counts what a cell
       drew, collection that survives `-n auto`, and the terminal summary
 - [x] `proptest/test_axioms.py`: record the terms each cell actually drew
-- [WIP] @01YLq8Jk-2026-09-29 00:48 `proptest/test_report.py`: unit tests for the pure half
-- [ ] `proptest.yml`: carry the report between runs, so "was passing, now skipped" has a baseline
+- [x] `proptest/test_report.py`: unit tests for the pure half
+- [WIP] @01YLq8Jk-2026-09-29 01:02 `proptest.yml`: carry the report between runs, so "was passing, now skipped" has a baseline
 - [ ] `CONTRIBUTING.md`: what the two reports mean and how to pass a baseline
 - [ ] `CHANGELOG.md`: an `[Unreleased]` entry
 - [ ] Validate before pushing: `pflake8`, the matrix at `dev` and at `pr`, serially and under
