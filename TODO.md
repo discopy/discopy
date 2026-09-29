@@ -15,9 +15,9 @@ Siblings: [#773](https://github.com/discopy/discopy/issues/773) — `transparenc
 [#775](https://github.com/discopy/discopy/issues/775) — `dumps` crashes on complex data and no cell
 says so.
 
-- [ ] Measure the claim first: which cells of the matrix exhaust their strategy's support on `main`,
+- [x] Measure the claim first: which cells of the matrix exhaust their strategy's support on `main`,
       at two budgets, rather than asserting that some do
-- [ ] `proptest/report.py`: the outcomes of a run, the cells that cannot fail, the cells that
+- [WIP] @01YLq8Jk-2026-09-29 00:35 `proptest/report.py`: the outcomes of a run, the cells that cannot fail, the cells that
       stopped being checked against a baseline, and the JSON both halves travel in — pure functions
 - [ ] `proptest/conftest.py`: the plugin — the two options, the fixture that counts what a cell
       drew, collection that survives `-n auto`, and the terminal summary
