@@ -64,7 +64,7 @@ Review round on [#730](https://github.com/discopy/discopy/pull/730):
       cells in that order; `__eq__`/`__hash__` compare it, with an isomorphism
       fallback as `Hypergraph` has. `equiv` stays the semantic equality, it
       is not transitive once there are alternatives
-- [ ] Extract `cat.Arrow`'s setoid mechanism (`__eq__`/`__hash__` from
+- [WIP] @ad18a368-2026-09-29 12:20 Extract `cat.Arrow`'s setoid mechanism (`__eq__`/`__hash__` from
       `setoid()`) into a `utils` mixin used by `cat.Arrow` and `EHypergraph`
 - [ ] `Wires` as a `Monoid`: moot once `Wires` is deleted by the fusion
 - [ ] Decided: `Shard` is a `ColouredMonoid` coloured by its arity
