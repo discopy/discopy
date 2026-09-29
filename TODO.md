@@ -70,7 +70,7 @@ Review round on [#730](https://github.com/discopy/discopy/pull/730):
 - [ ] Decided: `Shard` is a `ColouredMonoid` coloured by its arity
       `(n_in, n_out)`: `tensor` concatenates rows, `append` stays the in-place
       builder; the disjoint union behind `then`/`tensor` concatenates shards
-- [ ] Decided: `UnionFind` unions by size as upstream, `union` returns the
+- [WIP] @ad18a368-2026-09-29 12:12 Decided: `UnionFind` unions by size as upstream, `union` returns the
       new root, and `__iter__`/`__eq__`/`repr` label each class by its least
       element; `CMap.from_glued` uses the returned root
 - [ ] Merge `main` into the branch, `pflake8`, `pytest`, coverage, sphinx
