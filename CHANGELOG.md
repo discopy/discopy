@@ -23,7 +23,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   collects, since a law nobody states is as green as one that held —
   learning that one merge had lost no cell cost two full matrix runs
   captured cell by cell and a diff of the two by hand. A run that
-  collected no cell at all reports that too, being the largest loss there is.
+  collected no cell at all reports that too, being the largest loss there is,
+  and so does a cell that started and never finished: a cell is `passed` only
+  once a phase settles it, never from a passing setup, since a run interrupted
+  between setup and call would otherwise report a law nobody stated as one
+  that held on a distinct term per example.
   `--proptest-report` writes a run's reading and `--proptest-baseline` names
   the one to compare against; the `proptest` workflow carries it between runs
   as an artifact, on narrower terms than the example database, since a

@@ -34,10 +34,20 @@ PASSED, SKIPPED, XFAILED, XPASSED = (
 GONE = "gone"
 """The outcome of a cell the baseline had and the matrix no longer collects."""
 
-STOPPED = (SKIPPED, XFAILED)
+UNSETTLED = "unsettled"
 """
-The outcomes of a cell that is no longer checking its law: skipped because
-the structure does not apply, or xfailed because the law is declared broken.
+The outcome of a cell that started and never finished: its setup passed and
+no phase settled it, because the run was interrupted, timed out, or lost the
+worker it was running on. Distinct from :data:`PASSED` on purpose — a cell
+whose body never ran is the one thing this module must never call checked,
+and a collector seeded with ``passed`` would have called it exactly that.
+"""
+
+STOPPED = (SKIPPED, XFAILED, UNSETTLED)
+"""
+The outcomes of a cell that is not checking its law: skipped because the
+structure does not apply, xfailed because the law is declared broken, or
+unsettled because the run never reached its body.
 """
 
 CHECKED = (PASSED, XPASSED)
@@ -160,18 +170,28 @@ def render(cells, baseline=None):
     """
     passing = [cell for cell in cells if cell.outcome == PASSED]
     lines = []
+    if unsettled := tuple(
+            cell for cell in cells if cell.outcome == UNSETTLED):
+        lines.append(
+            f"{len(unsettled)} cell(s) started and never finished, so this "
+            "run says nothing about their law(s):")
+        lines += [f"  {cell.name}" for cell in sorted(
+            unsettled, key=lambda cell: cell.name)]
     if not cells:
         lines.append("no cell of the matrix was collected at all")
-    elif not (out_of_terms := exhausted(cells)):
+    elif not passing:
         lines.append(
-            f"every one of the {len(passing)} passing cell(s) drew a distinct "
-            "term for each example it was given")
-    else:
+            f"no cell of the matrix passed, of {len(cells)} collected")
+    elif out_of_terms := exhausted(cells):
         lines.append(
             f"{len(out_of_terms)} of {len(passing)} passing cell(s) drew "
             "fewer distinct terms than the budget allowed:")
         lines += [f"  {cell.name}: {cell.distinct} distinct term(s) "
                   f"of {cell.budget} examples" for cell in out_of_terms]
+    else:
+        lines.append(
+            f"every one of the {len(passing)} passing cell(s) drew a distinct "
+            "term for each example it was given")
     if baseline is None:
         lines.append("no baseline to compare against: "
                      "pass --proptest-baseline to name one")

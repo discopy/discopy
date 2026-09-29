@@ -17,7 +17,7 @@ from hypothesis.database import (
     MultiplexedDatabase, ReadOnlyDatabase)
 
 from proptest.report import (
-    PASSED, Cell, classify, dumps, loads, render)
+    PASSED, UNSETTLED, Cell, classify, dumps, loads, render)
 
 LOCAL = DirectoryBasedExampleDatabase(".hypothesis/examples")
 """
@@ -138,12 +138,17 @@ def pytest_runtest_logreport(report):
     or whichever phase did not pass — a skip at setup, for the cells the
     matrix declares inapplicable. Teardown is where the properties arrive,
     so the numbers are merged into what is already there.
+
+    Until a phase settles it the cell is :data:`~proptest.report.UNSETTLED`,
+    not passing: a run interrupted between setup and call would otherwise
+    report a cell whose body never ran as one that held on a distinct term
+    per example, which is the defect this suite reports on.
     """
     if CELL not in report.keywords:
         return
     if (name := cell_name(report.nodeid)) is None:
         return
-    known = CELLS.get(name, Cell(name, PASSED))
+    known = CELLS.get(name, Cell(name, UNSETTLED))
     settled = report.when == "call" or report.outcome != PASSED
     properties = dict(report.user_properties)
     CELLS[name] = Cell(

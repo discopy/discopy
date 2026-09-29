@@ -9,10 +9,79 @@ JSON is a round trip.
 
 import pytest
 
+import proptest.conftest as plugin
 from proptest.conftest import cell_name
 from proptest.report import (
-    GONE, PASSED, SKIPPED, XFAILED, XPASSED,
+    GONE, PASSED, SKIPPED, UNSETTLED, XFAILED, XPASSED,
     Cell, classify, dumps, exhausted, loads, render, stopped)
+
+CELL = "proptest/test_axioms.py::test_axiom[cat.Arrow.unitality]"
+
+
+class Phase:
+    """ One phase of one cell, as pytest hands it to the plugin. """
+    def __init__(self, when, outcome, properties=(), wasxfail=False):
+        self.when, self.outcome, self.nodeid = when, outcome, CELL
+        self.user_properties = list(properties)
+        self.keywords = {plugin.CELL: 1}
+        if wasxfail:
+            self.wasxfail = ""
+
+
+@pytest.fixture
+def collected(monkeypatch):
+    """ Drive the plugin's collector over a fresh, isolated dictionary. """
+    monkeypatch.setattr(plugin, "CELLS", {})
+
+    def run(*phases):
+        for phase in phases:
+            plugin.pytest_runtest_logreport(phase)
+        return plugin.CELLS["cat.Arrow.unitality"]
+    return run
+
+
+def test_a_cell_whose_body_never_ran_is_not_passing(collected):
+    """
+    Setup passing is not the law holding. A collector seeded with `passed`
+    reported a cell interrupted between setup and call as one that held on a
+    distinct term per example, which is the defect this module reports on.
+    """
+    assert collected(Phase("setup", PASSED)).outcome == UNSETTLED
+
+
+def test_the_call_phase_settles_a_cell(collected):
+    """ And teardown carries the numbers `drawn` recorded. """
+    cell = collected(
+        Phase("setup", PASSED), Phase("call", PASSED),
+        Phase("teardown", PASSED,
+              [(plugin.DISTINCT, 20), (plugin.BUDGET, 20)]))
+    assert (cell.outcome, cell.distinct, cell.budget) == (PASSED, 20, 20)
+
+
+def test_a_skip_at_setup_settles_a_cell(collected):
+    """ A cell the matrix declares inapplicable never reaches a call. """
+    assert collected(Phase("setup", SKIPPED)).outcome == SKIPPED
+
+
+def test_a_declared_failure_settles_a_cell(collected):
+    """ An xfail is a skip at call carrying `wasxfail`. """
+    assert collected(
+        Phase("setup", PASSED),
+        Phase("call", SKIPPED, wasxfail=True)).outcome == XFAILED
+
+
+def test_an_unsettled_cell_is_reported_in_its_own_right():
+    """ A run that did not finish says so before anything else. """
+    assert render([Cell("a", UNSETTLED)])[:2] == [
+        "1 cell(s) started and never finished, so this run says nothing "
+        "about their law(s):",
+        "  a"]
+
+
+def test_losing_a_cell_to_an_unsettled_run_is_lost_coverage():
+    """ A law the baseline checked and this run never reached. """
+    lost, = stopped([Cell("a", PASSED)], [Cell("a", UNSETTLED)])
+    assert lost.outcome == UNSETTLED
 
 
 def test_classify_reads_an_expected_failure():

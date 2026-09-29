@@ -147,7 +147,8 @@ Compare whole runs: `-k` and `-m` deselect cells, and a deselected cell is
 one the baseline checked and this run did not, which is true and unhelpful.
 A run that collected no cell at all still reports, as long as a baseline or a
 report was asked for — a matrix that collects nothing is the largest loss
-there is. A baseline that cannot be read is named and skipped rather than
+there is — and a cell that started and never finished is reported as unsettled
+rather than passing, since a passing setup is not a law holding. A baseline that cannot be read is named and skipped rather than
 failing the run that asked for it, since it is an artifact an older run
 uploaded.
 

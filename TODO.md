@@ -24,12 +24,12 @@ render says:
 
 A law that was never stated, reported as one checked on a distinct term per example.
 
-- [ ] A cell reads `passed` only when a `call` phase says so: seed the collector with an outcome
+- [x] A cell reads `passed` only when a `call` phase says so: seed the collector with an outcome
       that means *started and never settled* instead of `PASSED`
-- [ ] That outcome counts as no longer checking its law, so a baseline cell that becomes it is lost
+- [x] That outcome counts as no longer checking its law, so a baseline cell that becomes it is lost
       coverage, and the summary names it in its own right
-- [ ] Tests: the hook driven phase by phase — setup alone, setup then call, a skip at setup — and
+- [x] Tests: the hook driven phase by phase — setup alone, setup then call, a skip at setup — and
       the baseline transition
-- [ ] Re-validate: `pflake8`, the matrix at `dev` and `pr`, serial and `-n auto`, the full suite,
+- [x] Re-validate: `pflake8`, the matrix at `dev` and `pr`, serial and `-n auto`, the full suite,
       and confirm every cell still reads `passed` under `-n auto` where three phases do arrive
-- [ ] Reply on the review, saying which of the three were already fixed and which this round fixes
+- [x] Reply on the review, saying which of the three were already fixed and which this round fixes
