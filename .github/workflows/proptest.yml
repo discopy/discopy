@@ -51,10 +51,35 @@ jobs:
         search_artifacts: true
         workflow_conclusion: completed
         if_no_artifact_found: warn
+    - name: Download the previous report
+      # The cells the previous run checked, so that this one can name the
+      # ones it no longer checks. Missing on the first run and on a branch
+      # whose only ancestor runs predate this artifact, which the comparison
+      # reports as no baseline rather than failing.
+      uses: dawidd6/action-download-artifact@ac66b43f0e6a346234dd65d4d0c8fbb31cb316e5 # v11
+      with:
+        name: proptest-report
+        path: baseline
+        search_artifacts: true
+        workflow_conclusion: completed
+        if_no_artifact_found: warn
     - name: Run property tests
       run:
         uv run pytest proptest/ -n auto -p no:benchmark -vrxX
         --hypothesis-show-statistics
+        --proptest-baseline=baseline/proptest-report.json
+        --proptest-report=report/proptest-report.json
+    - name: Upload the report
+      # Written whether the suite passed or not, and uploaded on the same
+      # terms as the database below: a pull request reads the shared reading
+      # and never rewrites it, since a branch that skips a cell would
+      # otherwise make the skip the baseline everyone compares against.
+      if: always() && github.event_name != 'pull_request'
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: proptest-report
+        path: report
+        retention-days: 90
     - name: Upload the example database
       # A pull request reads the shared memory but never rewrites it: a
       # branch fixing a bug would prune main's memory before it merges, and

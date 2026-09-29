@@ -23,8 +23,8 @@ says so.
       drew, collection that survives `-n auto`, and the terminal summary
 - [x] `proptest/test_axioms.py`: record the terms each cell actually drew
 - [x] `proptest/test_report.py`: unit tests for the pure half
-- [WIP] @01YLq8Jk-2026-09-29 01:02 `proptest.yml`: carry the report between runs, so "was passing, now skipped" has a baseline
-- [ ] `CONTRIBUTING.md`: what the two reports mean and how to pass a baseline
-- [ ] `CHANGELOG.md`: an `[Unreleased]` entry
-- [ ] Validate before pushing: `pflake8`, the matrix at `dev` and at `pr`, serially and under
+- [x] `proptest.yml`: carry the report between runs, so "was passing, now skipped" has a baseline
+- [x] `CONTRIBUTING.md`: what the two reports mean and how to pass a baseline
+- [x] `CHANGELOG.md`: an `[Unreleased]` entry
+- [WIP] @01YLq8Jk-2026-09-29 01:12 Validate before pushing: `pflake8`, the matrix at `dev` and at `pr`, serially and under
       `-n auto`, and the baseline comparison against a report captured before the change

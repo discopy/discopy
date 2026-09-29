@@ -118,8 +118,45 @@ becomes a concrete term to debug in a REPL: call
 inspect the sides of the `Equation` the axiom returns on the arguments it
 hands back.
 
+### What the matrix checked
+
+A green cell says the law held on the terms its strategy drew, which is
+weaker than the law holding. Every run therefore ends with a section saying
+what it actually checked, and every line of it is a report rather than a
+gate:
+
+- **the cells that cannot fail**, i.e. those that drew fewer distinct terms
+  than the budget allowed. `cat.Arrow.identity_typing` quantifies over one
+  object and `Ob.strategy` samples `axioms.GENERATORS`, so it draws five
+  terms under `pr`'s twenty examples and the same five under `explore`'s
+  thousand: it is green about `Ob('a')` through `Ob('e')` and says nothing
+  about the law. A finite support is not a bug — knowing which cells have
+  one is what stops a passing cell being read as evidence a fix is right.
+- **the cells a baseline checked and this run did not**, named with
+  `--proptest-baseline`. A law skipped as inapplicable or declared broken is
+  as green as one that held, so a change that stops checking a law reads
+  exactly like one that keeps it. `--proptest-report` writes the report a
+  later run reads:
+
+```shell
+uv run pytest proptest/ --proptest-report=report/proptest-report.json
+uv run pytest proptest/ --proptest-baseline=report/proptest-report.json
+```
+
+Compare whole runs: `-k` and `-m` deselect cells, and a deselected cell is
+one the baseline checked and this run did not, which is true and unhelpful.
+A baseline that cannot be read is named and skipped rather than failing the
+run that asked for it, since it is an artifact an older run uploaded.
+
+A test of the matrix carries `pytest.mark.cell`, which is what the report
+keys on: `proptest/test_report.py` holds the suite's unit tests of its own
+reading, and those are parametrised too.
+
 The `proptest` GitHub workflow runs this suite on pull requests labelled
-`proptest`, on `main`, nightly and on manual dispatch.
+`proptest`, on `main`, nightly and on manual dispatch. It carries the report
+between runs as an artifact on the same terms as the example database: every
+run reads the previous one's, and a pull request never rewrites it, since a
+branch that skips a cell would otherwise make the skip the baseline.
 
 ## Run the benchmarks
 

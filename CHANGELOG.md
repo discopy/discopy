@@ -9,6 +9,35 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- The property matrix says what it checked, not only that it was green. A
+  passing cell says the law held on the terms its strategy drew, and two
+  things make that weaker than it reads while changing no pass count, so
+  every run now ends with a section naming both. **A cell that cannot
+  fail**: one that drew fewer distinct terms than its budget allowed, so a
+  larger budget buys it nothing — `cat.Arrow.identity_typing` quantifies
+  over one object and `Ob.strategy` samples `axioms.GENERATORS`, so it draws
+  five terms under `pr`'s twenty examples and the same five under
+  `explore`'s thousand, and is green about `Ob('a')` through `Ob('e')`
+  rather than about the law. **A cell that stopped being checked**: one a
+  baseline run passed and this one skips, declares broken, or no longer
+  collects, since a law nobody states is as green as one that held —
+  learning that one merge had lost no cell cost two full matrix runs
+  captured cell by cell and a diff of the two by hand. `--proptest-report`
+  writes a run's reading and `--proptest-baseline` names the one to compare
+  against; the `proptest` workflow carries it between runs as an artifact on
+  the same terms as the example database, every run reading the previous
+  one's and a pull request never rewriting it, since a branch that skips a
+  cell would otherwise make the skip the baseline. Neither reading is a
+  gate: a law that becomes inapplicable and a strategy with a finite support
+  are both legitimate, and failing the run for either would only teach
+  everyone to declare their way past it. `proptest/report.py` is the pure
+  half, `proptest/conftest.py` the plugin — the count of distinct terms
+  reaches the summary through `record_property`, since `-n auto` collects it
+  in a worker and prints it in the controller — and a cell is a test marked
+  `pytest.mark.cell` rather than any parametrised one, the suite's own unit
+  tests in `proptest/test_report.py` being parametrised too
+  ([#773](https://github.com/discopy/discopy/issues/773),
+  [#775](https://github.com/discopy/discopy/issues/775)).
 - `CMap.is_scalar` is `not dom and not cod`, i.e. a scalar is an
   endomorphism of the unit, where it used to be "a single box with no ports,
   or a single scalar loop". Scalars are closed under tensor and that
