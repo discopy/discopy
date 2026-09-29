@@ -325,7 +325,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         boxes = self.boxes if boxes is None else boxes
         box_wires, i = [], len(dom)
         dom_wires = tuple(flat_wires[:i])
-        for depth, box in enumerate(boxes):
+        for box in boxes:
             box_wires.append(tuple(map(tuple, (
                 flat_wires[i:i + len(box.dom)],
                 flat_wires[i + len(box.dom):i + len(box.dom @ box.cod)]))))
@@ -1238,7 +1238,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         >>> assert h.boxes == (Spider(2, 1, Ty('x')), )
         >>> assert h.wires == ((0, 1), (((0, 1), (2,)),), (2, 2, 2))
         """
-        for spider, (typ, (input_wires, output_wires)) in enumerate(
+        for spider, (typ, (input_wires, _)) in enumerate(
                 zip(self.spider_types, self.spider_wires)):
             if len(input_wires) == 1:
                 continue
@@ -1540,7 +1540,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
 
         for depth, (box, offset) in enumerate(zip(self.boxes, self.offsets)):
             dom_wires, cod_wires = self.box_wires[depth]
-            for i, obj in enumerate(box.dom):
+            for i in range(len(box.dom)):
                 j = scan.index(dom_wires[i])
                 if i == 0 and offset is None:
                     offset = j
@@ -1657,8 +1657,8 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
                     [inputs, outputs, box_nodes, spider_nodes]):
                 if node.kind == kind:
                     nodelist.append(node)
-        dom = sum([n.obj for n in inputs], cls.category.ob())
-        cod = sum([n.obj for n in outputs], cls.category.ob())
+        dom = cls.category.ob().tensor(*(n.obj for n in inputs))
+        cod = cls.category.ob().tensor(*(n.obj for n in outputs))
         boxes = tuple(n.box for n in box_nodes)
         offsets = tuple(n.offset for n in box_nodes)
         spider_types = {n: n.obj for n in spider_nodes}
@@ -1731,7 +1731,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
                 rng.uniform(-width / 2, width / 2),
                 rng.uniform(0, height))
             for kind, wires in [("dom", dom_wires), ("cod", cod_wires)]:
-                for j, spider in enumerate(wires):
+                for j in range(len(wires)):
                     pos[Node(kind, i=i, j=j)] = pos[box_node]
         for i, obj in enumerate(self.spider_types):
             pos[Node("spider", i=i, obj=obj)] = (
@@ -1771,7 +1771,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
                 zip(self.boxes, self.box_wires)):
             box_node = Node("box", i=i, box=box)
             for kind, wires in [("dom", dom_wires), ("cod", cod_wires)]:
-                for j, spider in enumerate(wires):
+                for j in range(len(wires)):
                     port_node = Node(kind, i=i, j=j)
                     x, y = pos[box_node]
                     if not getattr(box, "draw_as_spider", False):

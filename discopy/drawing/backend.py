@@ -39,9 +39,10 @@ from PIL import Image, ImageSequence
 from discopy import config
 from discopy.drawing import Node, Point
 
-from discopy.config import (  # noqa: F401
+from discopy.config import (  # noqa: F401  pylint: disable=unused-import
     BOX_DRAWING_ATTRIBUTES as ATTRIBUTES,
-    DRAWING_DEFAULT as DEFAULT, COLORS, SHAPES, RIBBON_FOLD_DEPTH)
+    DRAWING_DEFAULT as DEFAULT, COLORS, SHAPES, RIBBON_FOLD_DEPTH,
+    TRANSPARENT)
 
 if TYPE_CHECKING:
     from discopy.drawing import PlaneGraph
@@ -380,19 +381,22 @@ def bezier_subcurve(points, t0, t1):
 
 class Backend(ABC):
     """ Abstract drawing backend. """
-    def __init__(self, linewidth=1):
+    def __init__(self):
         self.max_width = 0
 
     def draw_text(self, text, i, j, **params):
         """ Draws a piece of text at a given position. """
+        # pylint: disable=unused-argument  # the base only measures the width
         self.max_width = max(self.max_width, i)
 
     def draw_node(self, i, j, **params):
         """ Draws a node for a given position, color and shape. """
+        # pylint: disable=unused-argument  # the base only measures the width
         self.max_width = max(self.max_width, i)
 
     def draw_polygon(self, *points, facecolor=None, edgecolor=None):
         """ Draws a polygon given a list of points. """
+        # pylint: disable=unused-argument  # the base only measures the width
         self.max_width = max(self.max_width, max(i for i, _ in points))
 
     @staticmethod
@@ -421,18 +425,21 @@ class Backend(ABC):
         """ Draws a wire from source to target, possibly with a Bezier.
         An ``adaptive`` wire lies on the neutral canvas, so its stroke may
         adapt to a dark page, see :meth:`Matplotlib.dark_gid`. """
+        # pylint: disable=unused-argument  # the base only measures the width
         self.max_width = max(self.max_width, source[0], target[0])
 
     def draw_bezier(self, points, adaptive=True):
         """ Draws a cubic Bezier curve from a list of four control points. """
+        # pylint: disable=unused-argument  # the base only measures the width
         self.max_width = max(self.max_width, max(x for x, _ in points))
 
     @staticmethod
     def on_neutral_canvas(*types):
         """
-        Whether wires of the given types only border white regions, i.e. the
-        neutral canvas, so that their strokes and labels may adapt to a dark
-        page rather than keep a static colour readable over their region.
+        Whether wires of the given types only border transparent regions,
+        i.e. the neutral canvas, so that their strokes and labels may adapt
+        to a dark page rather than keep a static colour readable over their
+        region.
         """
         for typ in types:
             colours = [getattr(typ, "dom", None), getattr(typ, "cod", None)]
@@ -440,7 +447,7 @@ class Backend(ABC):
                 colour for obj in getattr(typ, "inside", ())
                 for colour in (
                     getattr(obj, "dom", None), getattr(obj, "cod", None))]
-            if any(colour is not None and colour.name != "white"
+            if any(colour is not None and colour.name != TRANSPARENT
                    for colour in colours):
                 return False
         return True
@@ -453,6 +460,7 @@ class Backend(ABC):
         is filled with ``color`` and drawn without an outline, e.g. behind the
         wires to colour the inside of a ribbon.
         """
+        # pylint: disable=unused-argument  # the base only measures the width
         points = [start] + [step[-1] for step in steps]
         self.max_width = max([self.max_width] + [x for x, _ in points])
 
@@ -545,6 +553,7 @@ class Backend(ABC):
 
     def draw_spiders(self, graph, draw_box_labels=True, **params):
         """ Draws a list of boxes depicted as spiders. """
+        # pylint: disable=unused-argument  # the base only measures the width
         spider_widths = [
             p.x for n, p in graph.positions.items()
             if n.kind == 'box' and n.box.draw_as_spider]
@@ -556,6 +565,7 @@ class Backend(ABC):
         """ Output the drawing. """
 
     def draw_boundary(self, graph, boundary_color="white", **params):
+        # pylint: disable=unused-argument  # params are a backend's
         x, y = graph.width, graph.height
         self.draw_polygon(
             (0, 0), (x, 0), (x, y), (0, y),
@@ -577,11 +587,12 @@ class Backend(ABC):
     @staticmethod
     def region_colours(graph):
         """
-        The distinct non-white region colours of a diagram, keyed by colour.
+        The distinct painted region colours of a diagram, keyed by colour.
 
         Returns an order-preserving mapping from each colour's name to its
-        :class:`monoidal.Colour`, suitable for a drawing legend. White is
-        omitted as it is the neutral background.
+        :class:`monoidal.Colour`, suitable for a drawing legend.
+        :data:`discopy.config.TRANSPARENT` is omitted as it is the neutral
+        background.
         """
         colours = {}
         types = [graph.dom, graph.cod]
@@ -593,7 +604,7 @@ class Backend(ABC):
                 candidates += [
                     getattr(obj, "dom", None), getattr(obj, "cod", None)]
             for colour in candidates:
-                if colour is not None and colour.name != "white":
+                if colour is not None and colour.name != TRANSPARENT:
                     colours.setdefault(colour.name, colour)
         return colours
 
@@ -677,7 +688,7 @@ class Backend(ABC):
         bands, each consecutive pair of separators bounds one cell, filled
         with the colour that its left boundary carries -- ``graph.dom.dom``
         for the leftmost cell, with the sides of the canvas as outermost
-        boundaries. White cells are left out as they are the neutral
+        boundaries. Transparent cells are left out as they are the neutral
         background, see :meth:`region_colours`, and so are the cells
         underneath a box, whose left side carries no colour at all.
 
@@ -702,7 +713,8 @@ class Backend(ABC):
             cells.append((left, (
                 Point(graph.width, top), Point(graph.width, bottom),
                 Point(graph.width, bottom)), colour))
-        return [cell for cell in cells if cell[-1] not in (None, "white")]
+        return [
+            cell for cell in cells if cell[-1] not in (None, TRANSPARENT)]
 
     def draw_region_cell(self, left, right, facecolor):
         """
@@ -710,6 +722,7 @@ class Backend(ABC):
         given as ``(top, control, bottom)`` triples spanning the same
         height band, see :meth:`region_cells`.
         """
+        # pylint: disable=unused-argument  # the base only measures the width
         self.max_width = max(
             self.max_width, max(x for x, _ in left + right))
 
@@ -726,6 +739,12 @@ class Backend(ABC):
             yield source, target
 
     def draw_wire_label(self, x, i, j, **params):
+        """
+        Draw the label of a wire, in a colour readable over the region to
+        its right, which :meth:`draw_regions` paints underneath it. A
+        transparent region is the page, taken to be white and adapted to
+        when it is dark, see :meth:`Matplotlib.dark_gid`.
+        """
         draw_label_anyway = params.get('draw_box_labels', True) and getattr(
             x, "always_draw_label", False)
         if not params.get('wire_labels', True) and not draw_label_anyway:
@@ -739,10 +758,8 @@ class Backend(ABC):
         i += pad_i
         j -= pad_j
         fontsize = params.get('fontsize_types', params.get('fontsize', None))
-        # The region to the right of this wire, coloured the same way as
-        # in draw_regions, is what the label is drawn on top of.
         background = getattr(x, "cod", None)
-        adaptive = background is None or background.name == "white"
+        adaptive = background is None or background.name == TRANSPARENT
         color = self.readable_foreground(
             "white" if adaptive else background.name)
         self.draw_text(
@@ -823,6 +840,7 @@ class Backend(ABC):
         rails of two ribbons, filled with the colour of their region. A wide
         cup is flattened into a half ellipse, see :meth:`fold_depths`.
         """
+        # pylint: disable=unused-argument  # draw_boxes passes params to all
         box, j = node.box, node.j
         xs = [positions[Node("box_dom", i=i, j=j, x=box.dom[i])]
               for i in range(4)]
@@ -846,6 +864,7 @@ class Backend(ABC):
         rails of two ribbons, filled with the colour of their region. A wide
         cap is flattened into a half ellipse, see :meth:`fold_depths`.
         """
+        # pylint: disable=unused-argument  # draw_boxes passes params to all
         box, j = node.box, node.j
         xs = [positions[Node("box_cod", i=i, j=j, x=box.cod[i])]
               for i in range(4)]
@@ -940,6 +959,7 @@ class Backend(ABC):
 
     def draw_discard(self, positions, node, **params):
         """ Draws a :class:`discopy.quantum.circuit.Discard` box. """
+        # pylint: disable=unused-argument  # draw_boxes passes params to all
         box, j = node.box, node.j
         for i in range(len(box.dom)):
             x = box.dom[i]
@@ -968,6 +988,7 @@ class Backend(ABC):
         Draws a :class:`discopy.balanced.DualRailBraid`, i.e. the two ribbons
         ``(0, 1)`` and ``(2, 3)`` crossing as a whole rather than wire by wire.
         """
+        # pylint: disable=unused-argument  # draw_boxes passes params to all
         box, j = node.box, node.j
         dom = [positions[Node("box_dom", i=i, j=j, x=box.dom[i])]
                for i in range(len(box.dom))]
@@ -997,6 +1018,7 @@ class Backend(ABC):
         Draws a :class:`discopy.balanced.DualRailTwist`, i.e. the two rails of
         a ribbon crossing each other twice in quick succession.
         """
+        # pylint: disable=unused-argument  # draw_boxes passes params to all
         box, j = node.box, node.j
         dom = [positions[Node("box_dom", i=i, j=j, x=box.dom[i])]
                for i in range(2)]
@@ -1176,7 +1198,9 @@ class TikZ(Backend):
 
     @staticmethod
     def format_color(color):
-        """ Formats a color. """
+        """ Formats a color, TikZ spelling transparency like matplotlib. """
+        if color == TRANSPARENT:
+            return color
         hexcode = COLORS[color]
         rgb = [
             int(hex, 16) for hex in [hexcode[1:3], hexcode[3:5], hexcode[5:]]]
@@ -1488,9 +1512,9 @@ class Matplotlib(Backend):
         """
         Draws the spiders, grouped by shape and by whether they adapt to a
         dark page: black spiders lie on the neutral canvas so they turn
-        white, coloured ones keep their colour. White spiders are drawn
-        unfilled, e.g. the symbol of an :class:`discopy.monoidal.Equation`
-        is just its label, with no white patch on a non-white page.
+        white, coloured ones keep their colour. A transparent spider is just
+        its label, e.g. the symbol of an :class:`discopy.monoidal.Equation`,
+        which leaves no patch on a coloured page.
         """
         import networkx as nx
         nodes = [node for node in graph.nodes
@@ -1502,9 +1526,8 @@ class Matplotlib(Backend):
         for (shape, adaptive), group in groups.items():
             nx.draw_networkx_nodes(
                 *graph.inside, nodelist=group,
-                node_color=[
-                    "none" if node.box.color == "white"
-                    else COLORS[node.box.color] for node in group],
+                node_color=[COLORS.get(node.box.color, node.box.color)
+                            for node in group],
                 node_shape=SHAPES[shape], ax=self.axis,
                 node_size=300 * params.get("nodesize", 1)
             ).set_gid(self.dark_gid("fill") if adaptive else None)
@@ -1513,7 +1536,7 @@ class Matplotlib(Backend):
                     self.draw_text(
                         node.box.drawing_name, *graph.positions[node],
                         ha='center', va='center',
-                        adaptive=node.box.color == "white")
+                        adaptive=node.box.color == TRANSPARENT)
         super().draw_spiders(graph, draw_box_labels)
 
     def output(self, path=None, show=True, **params):
