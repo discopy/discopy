@@ -10,20 +10,40 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 ### Added
 
 - E-hypergraphs, `discopy.ehypergraph`, encoding a set of diagrams as an
-  `EHypergraph`: a table of cells over a union-find of wires. Each tree of
-  the union-find is a vertex of the underlying hypergraph, so merging two
-  wires fuses two spiders and a vertex with more than one producing cell
-  holds alternatives, which a `Hypergraph` cannot express: it reads the same
-  incidence data as a Frobenius merge, and indeed `(f + g).to_hypergraph()`
-  raises today. `EHypergraph.from_diagram` interns a diagram in one pass and
-  `Morphism.to_diagram` reads back the cheapest section, so the two are
-  inverse up to the wiring laws. Ported from the `metatheory`
-  equality-saturation engine
+  `EHypergraph`: an open hypergraph whose wires sit in a union-find, stored
+  as a table of cells sharded by box and arity. Each tree of the union-find
+  is a vertex, so merging two wires fuses two spiders and a vertex with more
+  than one producing cell holds alternatives, which a `Hypergraph` cannot
+  express: it reads the same incidence data as a Frobenius merge, and indeed
+  `(f + g).to_hypergraph()` raises today. E-hypergraphs are the arrows of a
+  monoidal category, the tensor being their disjoint union and composition
+  the merge of the shared boundary, and a setoid whose `==` compares their
+  incidence hypergraphs, so the laws hold on the nose. Where each structural
+  law holds is read off the `Supply` of the category, derived from its
+  classes in `discopy.abc`: `EHypergraph.from_diagram` lowers a diagram in
+  one pass, turning permutations, symmetric traces and natural copy and
+  discard into wiring; `fuse_spiders` and `yank_snakes` are canonizers that
+  add the fused spider or the straight wire next to what they simplify;
+  `rebuild` closes congruence unless the boxes are stochastic, and
+  `saturate` runs all three to a fixpoint. `equiv` decides equality modulo
+  that structure, and `to_diagram` reads back the cheapest section. Ported
+  from the enrichment of the `metatheory` equality-saturation engine,
+  without its rewrite rules
   ([#730](https://github.com/discopy/discopy/pull/730)).
-- A `utils.UnionFind`, used by `ehypergraph.EHypergraph` and by the two
-  places that had their own copy: `CMap.from_glued` and
+- A `utils.UnionFind` with union by size and path compression, labelling
+  each class by its least element so that comparing and printing it only
+  depends on the partition. It is used by `ehypergraph.EHypergraph` and by
+  the two places that had their own copy: `CMap.from_glued` and
   `Hypergraph.is_boundary_connected`
   ([#730](https://github.com/discopy/discopy/pull/730)).
+- `utils.Setoid`, the equality and hash of a class given by a `setoid`
+  method, extracted from `cat.Arrow`, which now inherits it, and used by
+  `ehypergraph.EHypergraph`
+  ([#730](https://github.com/discopy/discopy/pull/730)).
+- `abc.MarkovCategory.is_affine` and `is_cartesian`, saying whether
+  discarding, resp. copying as well, is natural: `markov.Diagram` is affine,
+  i.e. a Markov category in the sense of Fritz, while `frobenius.Diagram` is
+  neither ([#730](https://github.com/discopy/discopy/pull/730)).
 - `CMap.is_scalar` is `not dom and not cod`, i.e. a scalar is an
   endomorphism of the unit, where it used to be "a single box with no ports,
   or a single scalar loop". Scalars are closed under tensor and that
