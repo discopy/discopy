@@ -76,6 +76,20 @@ class Cell:
     budget: int | None = None
 
     @property
+    def counted(self):
+        """
+        Whether the cell recorded both of its numbers, which a cell that
+        never reached its body has not, and neither has one whose test does
+        not take the ``drawn`` fixture.
+
+        >>> Cell("a", PASSED, distinct=5, budget=100).counted
+        True
+        >>> Cell("b", PASSED, distinct=5).counted
+        False
+        """
+        return self.distinct is not None and self.budget is not None
+
+    @property
     def exhausted(self):
         """
         Whether the cell drew fewer distinct terms than its budget allowed —
@@ -83,14 +97,20 @@ class Cell:
         stopped early. Whichever it is, the terms this cell can fail on have
         run out, so a larger budget buys it nothing.
 
+        An uncounted cell is not this, and not its opposite either: nothing
+        is known about how hard its law was tried, which :func:`render`
+        reports rather than comparing a number against :obj:`None`.
+
         >>> Cell("a", PASSED, distinct=5, budget=100).exhausted
         True
         >>> Cell("b", PASSED, distinct=100, budget=100).exhausted
         False
         >>> Cell("c", SKIPPED).exhausted
         False
+        >>> Cell("d", PASSED, distinct=5).exhausted
+        False
         """
-        if self.outcome != PASSED or self.distinct is None:
+        if self.outcome != PASSED or not self.counted:
             return False
         return self.distinct < self.budget
 
@@ -182,16 +202,27 @@ def render(cells, baseline=None):
     elif not passing:
         lines.append(
             f"no cell of the matrix passed, of {len(cells)} collected")
-    elif out_of_terms := exhausted(cells):
-        lines.append(
-            f"{len(out_of_terms)} of {len(passing)} passing cell(s) drew "
-            "fewer distinct terms than the budget allowed:")
-        lines += [f"  {cell.name}: {cell.distinct} distinct term(s) "
-                  f"of {cell.budget} examples" for cell in out_of_terms]
     else:
-        lines.append(
-            f"every one of the {len(passing)} passing cell(s) drew a distinct "
-            "term for each example it was given")
+        uncounted = tuple(sorted(
+            (cell for cell in passing if not cell.counted),
+            key=lambda cell: cell.name))
+        out_of_terms = exhausted(cells)
+        if uncounted:
+            lines.append(
+                f"{len(uncounted)} of {len(passing)} passing cell(s) recorded "
+                "no distinct-term count, so this run does not say how hard "
+                "their law(s) were tried:")
+            lines += [f"  {cell.name}" for cell in uncounted]
+        if out_of_terms:
+            lines.append(
+                f"{len(out_of_terms)} of {len(passing)} passing cell(s) drew "
+                "fewer distinct terms than the budget allowed:")
+            lines += [f"  {cell.name}: {cell.distinct} distinct term(s) "
+                      f"of {cell.budget} examples" for cell in out_of_terms]
+        elif not uncounted:
+            lines.append(
+                f"every one of the {len(passing)} passing cell(s) drew a "
+                "distinct term for each example it was given")
     if baseline is None:
         lines.append("no baseline to compare against: "
                      "pass --proptest-baseline to name one")

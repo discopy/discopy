@@ -196,6 +196,40 @@ def test_render_tells_no_baseline_from_an_empty_one():
         "the baseline names no cell to compare against")
 
 
+@pytest.mark.parametrize("cell", [
+    Cell("a", PASSED, distinct=5), Cell("a", PASSED, budget=20),
+    Cell("a", PASSED)])
+def test_a_passing_cell_with_a_missing_count_is_not_exhausted(cell):
+    """
+    And comparing the one it has against the one it has not used to raise
+    `TypeError: '<' not supported between instances of 'int' and 'NoneType'`.
+    """
+    assert not cell.exhausted
+    assert not exhausted([cell])
+
+
+def test_a_passing_cell_with_no_count_is_reported_as_unknown():
+    """
+    Not as one that drew a distinct term per example, which is what the
+    all-distinct line used to claim about it. A cell whose test does not take
+    the `drawn` fixture is the reachable case.
+    """
+    assert render([Cell("a", PASSED), Cell("b", PASSED, distinct=9, budget=9)],
+                  baseline=())[:2] == [
+        "1 of 2 passing cell(s) recorded no distinct-term count, so this run "
+        "does not say how hard their law(s) were tried:",
+        "  a"]
+
+
+def test_the_all_distinct_line_needs_every_count():
+    """ A claim about every passing cell, so one unknown withholds it. """
+    counted = [Cell("b", PASSED, distinct=9, budget=9)]
+    assert render(counted, baseline=())[0].startswith("every one of the 1")
+    assert not any(line.startswith("every one of")
+                   for line in render(counted + [Cell("a", PASSED)],
+                                      baseline=()))
+
+
 def test_the_report_is_a_round_trip():
     """ What one run writes is what the next one reads. """
     cells = (Cell("a", PASSED, distinct=5, budget=100), Cell("b", SKIPPED))
