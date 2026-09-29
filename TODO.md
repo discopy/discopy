@@ -57,7 +57,7 @@ Review round on [#730](https://github.com/discopy/discopy/pull/730):
       union, `loop` cell), copy and discard where the supply allows; the
       `hashcons` congruence knob; the `SpiderFusion` and `SnakeYank`
       canonizers with the canonizer/rebuild fixpoint
-- [ ] Add a determinism/affineness attribute to `abc.MarkovCategory` so the
+- [WIP] @ad18a368-2026-09-29 12:35 Add a determinism/affineness attribute to `abc.MarkovCategory` so the
       supply can derive copy/discard absorption and the congruence knob
 - [ ] Decided: `EHypergraph` is a setoid. `setoid()` numbers the vertices
       (union-find classes) by a walk from the boundary and lists the live
