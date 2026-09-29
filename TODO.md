@@ -47,10 +47,30 @@ Review round on [#730](https://github.com/discopy/discopy/pull/730):
 
 - [x] Rename `discopy.table` to `discopy.ehypergraph` and `Carrier` to
       `EHypergraph`
-- [ ] Decide and apply: fuse `Morphism` into `EHypergraph` (open e-hypergraph)
-- [ ] Decide and apply: structural morphisms as wiring vs generators
-- [ ] Decide and apply: `__eq__` as `equiv`, or a setoid
-- [ ] Decide and apply: `Wires` as a `Monoid`
-- [ ] Decide and apply: `Shard` as a `Monoid`
-- [ ] Decide and apply: union by rank in `UnionFind`
+- [ ] Decided (A): fuse `Morphism` into `EHypergraph`, one immutable open
+      e-hypergraph with `dom, cod: Ty`; `then` = copy + union + merge boundary,
+      `tensor` = disjoint union, `Wires` deleted
+- [ ] Decided: structural morphisms follow metatheory's enrichment. A
+      `Supply` derived from the `abc` hierarchy of `EHypergraph.category`
+      (overridable as a class attribute, for descent); a one-pass lowering
+      over `boxes, offsets` absorbing identities, swaps, traces (feedback
+      union, `loop` cell), copy and discard where the supply allows; the
+      `hashcons` congruence knob; the `SpiderFusion` and `SnakeYank`
+      canonizers with the canonizer/rebuild fixpoint
+- [ ] Add a determinism/affineness attribute to `abc.MarkovCategory` so the
+      supply can derive copy/discard absorption and the congruence knob
+- [ ] Decided: `EHypergraph` is a setoid. `setoid()` numbers the vertices
+      (union-find classes) by a walk from the boundary and lists the live
+      cells in that order; `__eq__`/`__hash__` compare it, with an isomorphism
+      fallback as `Hypergraph` has. `equiv` stays the semantic equality, it
+      is not transitive once there are alternatives
+- [ ] Extract `cat.Arrow`'s setoid mechanism (`__eq__`/`__hash__` from
+      `setoid()`) into a `utils` mixin used by `cat.Arrow` and `EHypergraph`
+- [ ] `Wires` as a `Monoid`: moot once `Wires` is deleted by the fusion
+- [ ] Decided: `Shard` is a `ColouredMonoid` coloured by its arity
+      `(n_in, n_out)`: `tensor` concatenates rows, `append` stays the in-place
+      builder; the disjoint union behind `then`/`tensor` concatenates shards
+- [ ] Decided: `UnionFind` unions by size as upstream, `union` returns the
+      new root, and `__iter__`/`__eq__`/`repr` label each class by its least
+      element; `CMap.from_glued` uses the returned root
 - [ ] Merge `main` into the branch, `pflake8`, `pytest`, coverage, sphinx
