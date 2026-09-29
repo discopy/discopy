@@ -28,13 +28,13 @@ All five reproduce, and two of them are this change failing its own stated princ
 that vanishes when it has nothing to say, and a baseline that crashes the suite the docstring
 promises it cannot.
 
-- [ ] `loads` raises `ValueError` on a top-level value that is not an object — reproduced on `[]`,
+- [x] `loads` raises `ValueError` on a top-level value that is not an object — reproduced on `[]`,
       `null`, `"x"` and `3`, all `AttributeError` today
-- [ ] `stopped` counts an `XPASSED` baseline cell as checked, plus a test for that transition
-- [ ] the terminal summary runs when a baseline or a report was asked for, even with no cell — and
+- [x] `stopped` counts an `XPASSED` baseline cell as checked, plus a test for that transition
+- [x] the terminal summary runs when a baseline or a report was asked for, even with no cell — and
       stays silent when neither was and there is nothing to report
-- [ ] `proptest.yml` takes its baseline from `main` only, and only from a run that succeeded;
+- [x] `proptest.yml` takes its baseline from `main` only, and only from a run that succeeded;
       verified against the pinned action's own `action.yml` rather than the finding's word
-- [ ] Re-validate: `pflake8`, the matrix at `dev` and `pr`, serial and `-n auto`, the baseline
+- [x] Re-validate: `pflake8`, the matrix at `dev` and `pr`, serial and `-n auto`, the baseline
       round trip, and each of the five findings turned into a test or shown fixed
-- [ ] Reply on all five threads and resolve them
+- [x] Reply on all five threads and resolve them

@@ -38,8 +38,13 @@ STOPPED = (SKIPPED, XFAILED)
 """
 The outcomes of a cell that is no longer checking its law: skipped because
 the structure does not apply, or xfailed because the law is declared broken.
-An ``xpassed`` cell did check its law — pytest reports the stale declaration
-itself — so it is not one of these.
+"""
+
+CHECKED = (PASSED, XPASSED)
+"""
+The outcomes of a cell that did check its law. An ``xpassed`` cell checked
+it and held — pytest reports the stale declaration itself — so losing one is
+lost coverage like losing a passing cell, and gaining one is not a loss.
 """
 
 
@@ -113,8 +118,9 @@ def exhausted(cells):
 
 def stopped(baseline, cells):
     """
-    The cells a baseline run checked and this one did not: passing there,
-    and here skipped, declared broken, or gone from the matrix altogether.
+    The cells a baseline run checked and this one did not: checked there —
+    passing, or xpassed and so checked all the same — and here skipped,
+    declared broken, or gone from the matrix altogether.
 
     A cell that fails is not one of these — a failure reports itself — and
     neither is a cell the baseline had never checked.
@@ -123,10 +129,12 @@ def stopped(baseline, cells):
     >>> now = [Cell("a", SKIPPED), Cell("c", PASSED)]
     >>> [(cell.name, cell.outcome) for cell in stopped(was, now)]
     [('a', 'skipped'), ('b', 'gone')]
+    >>> [cell.outcome for cell in stopped([Cell("d", XPASSED)], [])]
+    ['gone']
     """
     here = {cell.name: cell for cell in cells}
     checked = sorted(
-        (cell.name for cell in baseline if cell.outcome == PASSED))
+        (cell.name for cell in baseline if cell.outcome in CHECKED))
     now = (here.get(name, Cell(name, GONE)) for name in checked)
     return tuple(cell for cell in now if cell.outcome in STOPPED + (GONE, ))
 
@@ -152,7 +160,9 @@ def render(cells, baseline=None):
     """
     passing = [cell for cell in cells if cell.outcome == PASSED]
     lines = []
-    if not (out_of_terms := exhausted(cells)):
+    if not cells:
+        lines.append("no cell of the matrix was collected at all")
+    elif not (out_of_terms := exhausted(cells)):
         lines.append(
             f"every one of the {len(passing)} passing cell(s) drew a distinct "
             "term for each example it was given")
@@ -199,17 +209,26 @@ def dumps(cells):
 def loads(source):
     """
     Read a report back, dropping a cell whose entry is not a mapping of the
-    fields :class:`Cell` writes: the file is an artifact a previous run
-    uploaded, and a baseline we cannot parse must not fail the suite that
-    reads it.
+    fields :class:`Cell` writes, and raising :class:`ValueError` on a
+    top-level value that is not an object at all: the file is an artifact a
+    previous run uploaded, so a baseline we cannot parse must be *reported*
+    by the suite that reads it rather than crash it, and `json` raises
+    nothing at all for a valid `[]` or `null`.
 
     >>> loads(dumps([Cell("a", PASSED, distinct=1, budget=2)]))
     (Cell(name='a', outcome='passed', distinct=1, budget=2),)
     >>> loads('{"a": "passed", "b": {"outcome": "passed"}}')
     (Cell(name='b', outcome='passed', distinct=None, budget=None),)
+    >>> loads("[]")
+    Traceback (most recent call last):
+     ...
+    ValueError: a report is an object keyed by cell, not a list
     """
+    if not isinstance(entries := json.loads(source), dict):
+        raise ValueError(f"a report is an object keyed by cell, not a "
+                         f"{type(entries).__name__}")
     return tuple(
         Cell(name, entry["outcome"],
              distinct=entry.get("distinct"), budget=entry.get("budget"))
-        for name, entry in sorted(json.loads(source).items())
+        for name, entry in sorted(entries.items())
         if isinstance(entry, dict) and "outcome" in entry)

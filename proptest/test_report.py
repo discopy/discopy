@@ -70,6 +70,30 @@ def test_a_failure_and_a_stale_declaration_are_not_lost_coverage(outcome):
     assert not stopped([Cell("a", PASSED)], [Cell("a", outcome)])
 
 
+@pytest.mark.parametrize("outcome", [SKIPPED, XFAILED, GONE])
+def test_losing_an_xpassed_baseline_cell_is_lost_coverage(outcome):
+    """
+    An `xpassed` cell checked its law and the law held; pytest reports the
+    stale declaration, not the coverage. So a run that stops checking it has
+    lost exactly what a lost passing cell loses.
+    """
+    now = [] if outcome == GONE else [Cell("a", outcome)]
+    lost, = stopped([Cell("a", XPASSED)], now)
+    assert (lost.name, lost.outcome) == ("a", outcome)
+
+
+def test_a_run_that_collected_no_cell_says_so():
+    """
+    A matrix that collects nothing is the largest loss there is, and a
+    section that disappears rather than saying so is the defect this module
+    exists to remove.
+    """
+    assert render([], baseline=[Cell("a", PASSED)]) == [
+        "no cell of the matrix was collected at all",
+        "1 cell(s) the baseline checked and this run did not:",
+        "  a: gone"]
+
+
 def test_a_cell_the_baseline_had_not_checked_either_is_not_a_loss():
     """
     A law that was already skipped and still is has lost nothing, and one
@@ -116,6 +140,18 @@ def test_an_entry_that_is_not_a_cell_is_dropped():
     """
     assert loads('{"a": null, "b": {}, "c": {"outcome": "passed"}}') == (
         Cell("c", PASSED), )
+
+
+@pytest.mark.parametrize("source", ["[]", "null", '"passed"', "3"])
+def test_a_report_that_is_not_an_object_raises_ValueError(source):
+    """
+    `json` raises nothing for a valid `[]` or `null`, and the caller catches
+    `OSError` and `ValueError` only: without this the unreadable-baseline
+    diagnostic the docstring promises would be an `AttributeError` that takes
+    the whole suite down.
+    """
+    with pytest.raises(ValueError):
+        loads(source)
 
 
 def test_cell_name_is_the_parameter_pytest_prints():

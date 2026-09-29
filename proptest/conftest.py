@@ -159,22 +159,32 @@ def pytest_terminal_summary(terminalreporter, config):
     Print what the matrix checked, and write the report the next run reads
     as its baseline. A baseline that cannot be read is named and skipped: it
     is an artifact of an older run and must not fail the suite reading it.
+
+    A run that collected no cell still reports, as long as it was asked for
+    a baseline or a report: a matrix that collects nothing is the largest
+    loss there is, and a section that disappears rather than saying so is
+    the defect :mod:`proptest.report` exists to remove. With neither option
+    and no cell there is nothing to say, which is a run of the suite's own
+    unit tests alone.
     """
     cells = tuple(CELLS.values())
-    if not cells:
+    baseline_path = config.getoption("--proptest-baseline")
+    report_path = config.getoption("--proptest-report")
+    if not (cells or baseline_path or report_path):
         return
     terminalreporter.section("what the matrix checked")
-    baseline, path = None, config.getoption("--proptest-baseline")
-    if path is not None:
+    baseline = None
+    if baseline_path is not None:
         try:
-            baseline = loads(pathlib.Path(path).read_text())
+            baseline = loads(pathlib.Path(baseline_path).read_text())
         except (OSError, ValueError) as error:
             baseline = ()
-            terminalreporter.write_line(f"unreadable baseline {path}: {error}")
+            terminalreporter.write_line(
+                f"unreadable baseline {baseline_path}: {error}")
     for line in render(cells, baseline):
         terminalreporter.write_line(line)
-    if (path := config.getoption("--proptest-report")) is not None:
-        destination = pathlib.Path(path)
+    if report_path is not None:
+        destination = pathlib.Path(report_path)
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_text(dumps(cells))
-        terminalreporter.write_line(f"report written to {path}")
+        terminalreporter.write_line(f"report written to {report_path}")

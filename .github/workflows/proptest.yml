@@ -56,12 +56,22 @@ jobs:
       # ones it no longer checks. Missing on the first run and on a branch
       # whose only ancestor runs predate this artifact, which the comparison
       # reports as no baseline rather than failing.
+      #
+      # Narrower than the database above, because a baseline is a claim about
+      # what `main` checks rather than a pile of examples any run may add to.
+      # `branch: main` because the action searches every branch without it and
+      # a dispatch may be run anywhere, so a feature branch that legitimately
+      # skips a cell would otherwise become the baseline that cell is missing
+      # from. `success` because the upload below is `always()`: a run that died
+      # mid-suite uploads a partial report, which stays available to look at
+      # and must not be what the next run compares against.
       uses: dawidd6/action-download-artifact@ac66b43f0e6a346234dd65d4d0c8fbb31cb316e5 # v11
       with:
         name: proptest-report
         path: baseline
+        branch: main
         search_artifacts: true
-        workflow_conclusion: completed
+        workflow_conclusion: success
         if_no_artifact_found: warn
     - name: Run property tests
       run:

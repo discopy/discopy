@@ -145,8 +145,11 @@ uv run pytest proptest/ --proptest-baseline=report/proptest-report.json
 
 Compare whole runs: `-k` and `-m` deselect cells, and a deselected cell is
 one the baseline checked and this run did not, which is true and unhelpful.
-A baseline that cannot be read is named and skipped rather than failing the
-run that asked for it, since it is an artifact an older run uploaded.
+A run that collected no cell at all still reports, as long as a baseline or a
+report was asked for — a matrix that collects nothing is the largest loss
+there is. A baseline that cannot be read is named and skipped rather than
+failing the run that asked for it, since it is an artifact an older run
+uploaded.
 
 A test of the matrix carries `pytest.mark.cell`, which is what the report
 keys on: `proptest/test_report.py` holds the suite's unit tests of its own
@@ -154,9 +157,13 @@ reading, and those are parametrised too.
 
 The `proptest` GitHub workflow runs this suite on pull requests labelled
 `proptest`, on `main`, nightly and on manual dispatch. It carries the report
-between runs as an artifact on the same terms as the example database: every
-run reads the previous one's, and a pull request never rewrites it, since a
-branch that skips a cell would otherwise make the skip the baseline.
+between runs as an artifact, and on narrower terms than the example database:
+a baseline is a claim about what `main` checks rather than a pile of examples
+any run may add to, so it is taken from a **successful** run **of `main`**
+only. A pull request never uploads one, a dispatch on a feature branch that
+legitimately skips a cell cannot become the baseline that cell is missing
+from, and a run that died mid-suite stays available to look at without being
+compared against.
 
 ## Run the benchmarks
 

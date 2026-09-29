@@ -22,12 +22,16 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   baseline run passed and this one skips, declares broken, or no longer
   collects, since a law nobody states is as green as one that held —
   learning that one merge had lost no cell cost two full matrix runs
-  captured cell by cell and a diff of the two by hand. `--proptest-report`
-  writes a run's reading and `--proptest-baseline` names the one to compare
-  against; the `proptest` workflow carries it between runs as an artifact on
-  the same terms as the example database, every run reading the previous
-  one's and a pull request never rewriting it, since a branch that skips a
-  cell would otherwise make the skip the baseline. Neither reading is a
+  captured cell by cell and a diff of the two by hand. A run that
+  collected no cell at all reports that too, being the largest loss there is.
+  `--proptest-report` writes a run's reading and `--proptest-baseline` names
+  the one to compare against; the `proptest` workflow carries it between runs
+  as an artifact, on narrower terms than the example database, since a
+  baseline is a claim about what `main` checks rather than a pile of examples
+  any run may add to: a **successful** run of **`main`** only, so that a
+  dispatch on a branch that legitimately skips a cell cannot become the
+  baseline that cell is missing from and a run that died mid-suite stays
+  available to look at without being compared against. Neither reading is a
   gate: a law that becomes inapplicable and a strategy with a finite support
   are both legitimate, and failing the run for either would only teach
   everyone to declare their way past it. `proptest/report.py` is the pure
