@@ -63,7 +63,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from discopy import (
-    monoidal, rigid, markov, compact, pivotal, cmap, hypergraph, table)
+    monoidal, rigid, markov, compact, pivotal, cmap, hypergraph, ehypergraph)
 from discopy.abc import HypergraphCategory
 from discopy.cat import factory
 from discopy.utils import assert_isatomic, deprecated_ob, factory_name
@@ -392,7 +392,7 @@ Diagram.swap_factory, Diagram.spider_factory = Swap, Spider
 Diagram.permutation_factory = Permutation
 Diagram.bubble_factory = Bubble
 Hypergraph = hypergraph.Hypergraph[Diagram]
-Carrier = table.Carrier[Diagram]
+EHypergraph = ehypergraph.EHypergraph[Diagram]
 Id = Diagram.id
 
 

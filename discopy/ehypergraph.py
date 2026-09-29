@@ -1,33 +1,33 @@
 # -*- coding: utf-8 -*-
 
 """
-Diagrams as tables, i.e. the carrier of an e-graph of string diagrams.
+E-hypergraphs, i.e. string diagrams with alternatives as a table of cells.
 
-A :class:`Carrier` is a table of cells over a
+An :class:`EHypergraph` is a table of cells over a
 :class:`discopy.utils.UnionFind` of wires. A cell is one occurrence of a box:
 its row holds the wires on the box's input and output ports. Rows are sharded
 by generator and arity so that each :class:`Shard` is a rectangular table of
 integers.
 
 Each tree of the union-find is a vertex of the underlying hypergraph, i.e. the
-spider whose legs are its member wires. Thus :meth:`Carrier.merge` fuses two
-vertices and a vertex with more than one producing cell holds *alternatives*.
-This is what makes a carrier an e-graph rather than a
+spider whose legs are its member wires. Thus :meth:`EHypergraph.merge` fuses
+two vertices and a vertex with more than one producing cell holds
+*alternatives*. This is the difference with a
 :class:`discopy.hypergraph.Hypergraph`, which reads the same incidence data as
 a Frobenius merge and cannot hold a formal sum at all.
 
-Composition is a side effect on the carrier: :meth:`Morphism.then` asserts that
-the wires it composes are equal. Diagrams stay pure, the carrier is the
-effectful codomain of :meth:`Carrier.from_diagram`.
+Composition is a side effect on the e-hypergraph: :meth:`Morphism.then`
+asserts that the wires it composes are equal. Diagrams stay pure, the
+e-hypergraph is the effectful codomain of :meth:`EHypergraph.from_diagram`.
 
-There are two ways to add a cell. :meth:`Carrier.append` adds one on wires the
-caller has already minted, which is what :meth:`Carrier.from_diagram` does: the
-boxes of a diagram are occurrences, and two of them are resources rather than
-one shared cell. :meth:`Carrier.intern` instead keys a cell on its box and the
-classes of its inputs and mints the outputs itself, so that interning the same
-box on the same inputs twice gives one cell. That is how an e-graph interns a
-term: it enforces at once the functional dependency that
-:meth:`Carrier.rebuild` would otherwise restore, and so assumes a box is a
+There are two ways to add a cell. :meth:`EHypergraph.append` adds one on wires
+the caller has already minted, which is what :meth:`EHypergraph.from_diagram`
+does: the boxes of a diagram are occurrences, and two of them are resources
+rather than one shared cell. :meth:`EHypergraph.intern` instead keys a cell on
+its box and the classes of its inputs and mints the outputs itself, so that
+interning the same box on the same inputs twice gives one cell. That is how an
+e-graph interns a term: it enforces at once the functional dependency that
+:meth:`EHypergraph.rebuild` would otherwise restore, and so assumes a box is a
 function of its inputs, which a Markov category does not grant.
 
 Summary
@@ -40,29 +40,29 @@ Summary
 
     SymbolTable
     Shard
-    Carrier
+    EHypergraph
     Wires
     Morphism
 
 Example
 -------
->>> from discopy.frobenius import Ty, Box, Carrier
+>>> from discopy.frobenius import Ty, Box, EHypergraph
 >>> x, y = Ty('x'), Ty('y')
 >>> f, g = Box('f', x, y), Box('g', y, x)
->>> morphism = Carrier.from_diagram(f >> g)
+>>> morphism = EHypergraph.from_diagram(f >> g)
 >>> print(morphism.to_diagram())
 f >> g
 
 Two occurrences of the same box on the same wires are one row, and merging two
 wires makes two rows congruent:
 
->>> carrier = Carrier()
->>> a, b = carrier.wires(x), carrier.wires(x)
->>> u, v = carrier.intern(f, a.inside), carrier.intern(f, b.inside)
->>> assert u != v and carrier.intern(f, a.inside) == u
->>> carrier.merge(a.inside[0], b.inside[0])
->>> carrier.rebuild()
->>> assert carrier.uf.find(u[0]) == carrier.uf.find(v[0])
+>>> graph = EHypergraph()
+>>> a, b = graph.wires(x), graph.wires(x)
+>>> u, v = graph.intern(f, a.inside), graph.intern(f, b.inside)
+>>> assert u != v and graph.intern(f, a.inside) == u
+>>> graph.merge(a.inside[0], b.inside[0])
+>>> graph.rebuild()
+>>> assert graph.uf.find(u[0]) == graph.uf.find(v[0])
 """
 
 from __future__ import annotations
@@ -152,7 +152,7 @@ class SymbolTable:
 
 class Shard:
     """
-    The rows of a carrier that share a generator and an arity.
+    The rows of an e-hypergraph that share a generator and an arity.
 
     Parameters:
         n_in : The number of input ports of every row.
@@ -166,7 +166,7 @@ class Shard:
     >>> shard.src.tolist(), shard.tgt.tolist()
     ([[0], [3]], [[1, 2], [4, 5]])
     >>> shard
-    table.Shard(1, 2, [(0, 1, 2), (3, 4, 5)])
+    ehypergraph.Shard(1, 2, [(0, 1, 2), (3, 4, 5)])
     """
     def __init__(self, n_in: int, n_out: int,
                  rows: list[tuple[int, ...]] = ()):
@@ -218,7 +218,7 @@ class Shard:
             + f"({self.n_in}, {self.n_out}, {list(self)})"
 
 
-class Carrier(NamedGeneric['category']):
+class EHypergraph(NamedGeneric['category']):
     """
     A table of cells over a union-find of wires.
 
@@ -229,12 +229,12 @@ class Carrier(NamedGeneric['category']):
 
     Example
     -------
-    >>> from discopy.frobenius import Ty, Box, Carrier
+    >>> from discopy.frobenius import Ty, Box, EHypergraph
     >>> x = Ty('x')
     >>> f = Box('f', x, x)
-    >>> carrier = Carrier([x, x], [(f, 0, 1)])
-    >>> assert carrier.cells == ((f, 0, 1), )
-    >>> assert carrier.shards[carrier.boxes.intern(f), 1, 1][0] == (0, 1)
+    >>> graph = EHypergraph([x, x], [(f, 0, 1)])
+    >>> assert graph.cells == ((f, 0, 1), )
+    >>> assert graph.shards[graph.boxes.intern(f), 1, 1][0] == (0, 1)
     """
     category = None
     ob = classproperty(lambda cls: cls.category.ob)
@@ -327,12 +327,12 @@ class Carrier(NamedGeneric['category']):
 
         Example
         -------
-        >>> from discopy.frobenius import Ty, Box, Carrier
+        >>> from discopy.frobenius import Ty, Box, EHypergraph
         >>> x = Ty('x')
-        >>> carrier = Carrier()
-        >>> a, = carrier.wires(x).inside
-        >>> b, = carrier.intern(Box('f', x, x), (a, ))
-        >>> assert carrier.depends_on(b, a) and not carrier.depends_on(a, b)
+        >>> graph = EHypergraph()
+        >>> a, = graph.wires(x).inside
+        >>> b, = graph.intern(Box('f', x, x), (a, ))
+        >>> assert graph.depends_on(b, a) and not graph.depends_on(a, b)
         """
         producers = {}
         for gid, box, src, tgt in self.scan():
@@ -350,9 +350,9 @@ class Carrier(NamedGeneric['category']):
 
     def rebuild(self):
         """
-        Close the carrier under congruence: when two live cells have the same
-        box on the same input classes, their output wires get merged and the
-        later cell is marked dead.
+        Close the e-hypergraph under congruence: when two live cells have the
+        same box on the same input classes, their output wires get merged and
+        the later cell is marked dead.
         """
         while True:
             index, stable = {}, True
@@ -476,30 +476,30 @@ class Carrier(NamedGeneric['category']):
     @classmethod
     def from_diagram(cls, diagram: Diagram) -> Morphism:
         """
-        Intern a diagram into a fresh carrier, one cell for each box.
+        Intern a diagram into a fresh e-hypergraph, one cell for each box.
 
         Parameters:
             diagram : The diagram to intern.
 
         Example
         -------
-        >>> from discopy.frobenius import Ty, Box, Carrier
+        >>> from discopy.frobenius import Ty, Box, EHypergraph
         >>> x = Ty('x')
         >>> f = Box('f', x, x)
-        >>> carrier = Carrier.from_diagram(f >> f).carrier
-        >>> len(carrier.rows), len(carrier.uf)
+        >>> graph = EHypergraph.from_diagram(f >> f).ehypergraph
+        >>> len(graph.rows), len(graph.uf)
         (2, 3)
         """
         factory = cls if cls.category else cls[type(diagram).ar]
-        carrier = factory()
-        dom = carrier.wires(diagram.dom)
+        graph = factory()
+        dom = graph.wires(diagram.dom)
         scan = list(dom.inside)
         for box, offset in zip(diagram.boxes, diagram.offsets):
             src = tuple(scan[offset:offset + len(box.dom)])
-            tgt = tuple(carrier.wire(obj) for obj in box.cod)
-            carrier.append(box, src, tgt)
+            tgt = tuple(graph.wire(obj) for obj in box.cod)
+            graph.append(box, src, tgt)
             scan[offset:offset + len(box.dom)] = tgt
-        return Morphism(dom, Wires(carrier, tuple(scan), diagram.cod))
+        return Morphism(dom, Wires(graph, tuple(scan), diagram.cod))
 
     def __getitem__(self, gid: int) -> tuple[Box, tuple, tuple]:
         key, row = self.rows[gid]
@@ -507,7 +507,7 @@ class Carrier(NamedGeneric['category']):
         return self.boxes[key[0]], wires[:key[1]], wires[key[1]:]
 
     def __eq__(self, other) -> bool:
-        return isinstance(other, Carrier) and (
+        return isinstance(other, EHypergraph) and (
             self.category, self.wire_types, self.cells, self.uf) == (
                 other.category, other.wire_types, other.cells, other.uf)
 
@@ -522,21 +522,21 @@ class Carrier(NamedGeneric['category']):
 class Wires:
     """
     The wires on the boundary of a :class:`Morphism`, i.e. an object of the
-    category presented by a carrier.
+    category presented by an e-hypergraph.
 
     Parameters:
-        carrier : The carrier holding the wires.
+        ehypergraph : The e-hypergraph holding the wires.
         inside : The wires themselves.
         ty : The type they carry.
 
     Example
     -------
-    >>> from discopy.frobenius import Ty, Carrier
+    >>> from discopy.frobenius import Ty, EHypergraph
     >>> x, y = Ty('x'), Ty('y')
-    >>> carrier = Carrier()
-    >>> assert (carrier.wires(x) @ carrier.wires(y)).ty == x @ y
+    >>> graph = EHypergraph()
+    >>> assert (graph.wires(x) @ graph.wires(y)).ty == x @ y
     """
-    carrier: Carrier
+    ehypergraph: EHypergraph
     inside: tuple[int, ...]
     ty: Ty
 
@@ -548,16 +548,17 @@ class Wires:
         Parameters:
             other : The other object.
         """
-        if self.carrier is not other.carrier:
+        if self.ehypergraph is not other.ehypergraph:
             raise AxiomError(messages.TYPE_ERROR.format(
-                self.carrier, other.carrier))
+                self.ehypergraph, other.ehypergraph))
         return Wires(
-            self.carrier, self.inside + other.inside, self.ty @ other.ty)
+            self.ehypergraph, self.inside + other.inside, self.ty @ other.ty)
 
     __matmul__ = tensor
 
     def __eq__(self, other) -> bool:
-        return isinstance(other, Wires) and self.carrier is other.carrier\
+        return isinstance(other, Wires)\
+            and self.ehypergraph is other.ehypergraph\
             and (self.inside, self.ty) == (other.inside, other.ty)
 
     def __len__(self) -> int:
@@ -566,11 +567,12 @@ class Wires:
 
 class Morphism(MonoidalCategory):
     """
-    An arrow of the category presented by a carrier, i.e. a pair of boundaries.
+    An arrow of the category presented by an e-hypergraph, i.e. a pair of
+    boundaries.
 
     An arrow is a pair of boundaries, so the laws of a monoidal category hold
     on the nose; what composition does is assert that the wires it composes
-    are equal. Two arrows built separately are equal only when the carrier
+    are equal. Two arrows built separately are equal only when the e-hypergraph
     records the equations that identify their boundaries, which is what
     :meth:`equiv` reads.
 
@@ -580,11 +582,11 @@ class Morphism(MonoidalCategory):
 
     Example
     -------
-    >>> from discopy.frobenius import Ty, Box, Carrier
+    >>> from discopy.frobenius import Ty, Box, EHypergraph
     >>> x = Ty('x')
     >>> f, g = Box('f', x, x), Box('g', x, x)
-    >>> carrier = Carrier()
-    >>> u, v = map(carrier.from_box, (f, g))
+    >>> graph = EHypergraph()
+    >>> u, v = map(graph.from_box, (f, g))
     >>> assert (u >> v).dom == u.dom and (u >> v).cod == v.cod
     >>> assert Morphism.id(u.dom).then(u).equiv(u)
     """
@@ -594,9 +596,9 @@ class Morphism(MonoidalCategory):
         self.dom, self.cod = dom, cod
 
     @property
-    def carrier(self) -> Carrier:
-        """ The carrier this morphism is a boundary of. """
-        return self.dom.carrier
+    def ehypergraph(self) -> EHypergraph:
+        """ The e-hypergraph this morphism is a boundary of. """
+        return self.dom.ehypergraph
 
     @classmethod
     def id(cls, dom: Wires) -> Morphism:
@@ -609,7 +611,8 @@ class Morphism(MonoidalCategory):
         return cls(dom, dom)
 
     def is_composable(self, other: Morphism) -> bool:
-        return self.carrier is other.carrier and self.cod.ty == other.dom.ty
+        return self.ehypergraph is other.ehypergraph\
+            and self.cod.ty == other.dom.ty
 
     @unbiased
     def then(self, other: Morphism) -> Morphism:
@@ -622,13 +625,14 @@ class Morphism(MonoidalCategory):
         if not self.is_composable(other):
             raise AxiomError(messages.NOT_COMPOSABLE.format(
                 self, other, self.cod.ty, other.dom.ty))
+        graph = self.ehypergraph
         glued = [(left, right)
                  for left, right in zip(self.cod.inside, other.dom.inside)
-                 if self.carrier.uf.find(left) != self.carrier.uf.find(right)]
-        if any(self.carrier.depends_on(left, right) for left, right in glued):
+                 if graph.uf.find(left) != graph.uf.find(right)]
+        if any(graph.depends_on(left, right) for left, right in glued):
             raise AxiomError(messages.CLOSES_A_LOOP.format(self, other))
         for left, right in glued:
-            self.carrier.merge(left, right)
+            graph.merge(left, right)
         return Morphism(self.dom, other.cod)
 
     @unbiased
@@ -644,21 +648,21 @@ class Morphism(MonoidalCategory):
     def equiv(self, other: Morphism) -> bool:
         """
         Whether two morphisms have the same boundary up to the equations
-        asserted in the carrier.
+        asserted in the e-hypergraph.
 
         Parameters:
             other : The other morphism.
         """
-        find = self.carrier.uf.find
-        return self.carrier is other.carrier and all(
+        find = self.ehypergraph.uf.find
+        return self.ehypergraph is other.ehypergraph and all(
             len(x) == len(y) and all(map(
                 lambda i, j: find(i) == find(j), x.inside, y.inside))
             for x, y in [(self.dom, other.dom), (self.cod, other.cod)])
 
     def to_hypergraph(self) -> hypergraph.Hypergraph:
         """
-        The hypergraph of the cheapest section of the carrier producing this
-        morphism, i.e. one alternative for each vertex.
+        The hypergraph of the cheapest section of the e-hypergraph producing
+        this morphism, i.e. one alternative for each vertex.
 
         A cell with no inputs is copied once for each of the ports that
         consume it, so that hash-consing two occurrences of the same state
@@ -666,27 +670,28 @@ class Morphism(MonoidalCategory):
 
         Example
         -------
-        >>> from discopy.frobenius import Ty, Box, Carrier
+        >>> from discopy.frobenius import Ty, Box, EHypergraph
         >>> x = Ty('x')
         >>> f, s = Box('f', x, x), Box('s', Ty(), x)
-        >>> assert Carrier.from_diagram(f).to_hypergraph()\\
+        >>> assert EHypergraph.from_diagram(f).to_hypergraph()\\
         ...     == f.to_hypergraph()
-        >>> assert len(Carrier.from_diagram(s @ s).to_hypergraph().boxes) == 2
+        >>> morphism = EHypergraph.from_diagram(s @ s)
+        >>> assert len(morphism.to_hypergraph().boxes) == 2
         """
-        carrier, labels, spider_types = self.carrier, {}, {}
+        graph, labels, spider_types = self.ehypergraph, {}, {}
 
         def label(wire):
-            root = carrier.uf.find(wire)
+            root = graph.uf.find(wire)
             if root not in labels:
                 labels[root] = len(spider_types)
-                spider_types[labels[root]] = carrier.wire_types[root]
+                spider_types[labels[root]] = graph.wire_types[root]
             return labels[root]
 
-        section = carrier.section(self.cod.inside)
+        section = graph.section(self.cod.inside)
         dom_wires = tuple(map(label, self.dom.inside))
-        boxes = [carrier[gid][0] for gid in section]
-        box_wires = [(tuple(map(label, carrier[gid][1])),
-                      tuple(map(label, carrier[gid][2]))) for gid in section]
+        boxes = [graph[gid][0] for gid in section]
+        box_wires = [(tuple(map(label, graph[gid][1])),
+                      tuple(map(label, graph[gid][2]))) for gid in section]
         states = {cod[0]: i for i, (dom, cod) in enumerate(box_wires)
                   if not dom and len(cod) == 1}
         occupied = set()
@@ -704,21 +709,21 @@ class Morphism(MonoidalCategory):
             box_wires[i] = (
                 tuple(map(consume, box_wires[i][0])), box_wires[i][1])
         cod_wires = tuple(map(consume, map(label, self.cod.inside)))
-        factory = hypergraph.Hypergraph[type(carrier).category]
+        factory = hypergraph.Hypergraph[type(graph).category]
         return factory(self.dom.ty, self.cod.ty, tuple(boxes),
                        (dom_wires, tuple(box_wires), cod_wires), spider_types)
 
     def to_diagram(self) -> Diagram:
         """
-        The diagram of the cheapest section of the carrier producing this
+        The diagram of the cheapest section of the e-hypergraph producing this
         morphism, see :meth:`to_hypergraph`.
 
         Example
         -------
-        >>> from discopy.frobenius import Ty, Box, Carrier
+        >>> from discopy.frobenius import Ty, Box, EHypergraph
         >>> x, y = Ty('x'), Ty('y')
         >>> f, g = Box('f', x, y), Box('g', x, y)
-        >>> print(Carrier.from_diagram(f @ g).to_diagram())
+        >>> print(EHypergraph.from_diagram(f @ g).to_diagram())
         f @ g
         """
         return self.to_hypergraph().to_diagram()
