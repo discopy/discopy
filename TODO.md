@@ -50,7 +50,7 @@ Review round on [#730](https://github.com/discopy/discopy/pull/730):
 - [WIP] @ad18a368-2026-09-29 12:35 Decided (A): fuse `Morphism` into `EHypergraph`, one immutable open
       e-hypergraph with `dom, cod: Ty`; `then` = copy + union + merge boundary,
       `tensor` = disjoint union, `Wires` deleted
-- [ ] Decided: structural morphisms follow metatheory's enrichment. A
+- [WIP] @ad18a368-2026-09-29 12:35 Decided: structural morphisms follow metatheory's enrichment. A
       `Supply` derived from the `abc` hierarchy of `EHypergraph.category`
       (overridable as a class attribute, for descent); a one-pass lowering
       over `boxes, offsets` absorbing identities, swaps, traces (feedback
