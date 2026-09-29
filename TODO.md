@@ -47,27 +47,27 @@ Review round on [#730](https://github.com/discopy/discopy/pull/730):
 
 - [x] Rename `discopy.table` to `discopy.ehypergraph` and `Carrier` to
       `EHypergraph`
-- [WIP] @ad18a368-2026-09-29 12:35 Decided (A): fuse `Morphism` into `EHypergraph`, one immutable open
+- [x] Decided (A): fuse `Morphism` into `EHypergraph`, one immutable open
       e-hypergraph with `dom, cod: Ty`; `then` = copy + union + merge boundary,
       `tensor` = disjoint union, `Wires` deleted
-- [WIP] @ad18a368-2026-09-29 12:35 Decided: structural morphisms follow metatheory's enrichment. A
+- [x] Decided: structural morphisms follow metatheory's enrichment. A
       `Supply` derived from the `abc` hierarchy of `EHypergraph.category`
       (overridable as a class attribute, for descent); a one-pass lowering
       over `boxes, offsets` absorbing identities, swaps, traces (feedback
       union, `loop` cell), copy and discard where the supply allows; the
       `hashcons` congruence knob; the `SpiderFusion` and `SnakeYank`
       canonizers with the canonizer/rebuild fixpoint
-- [WIP] @ad18a368-2026-09-29 12:35 Add a determinism/affineness attribute to `abc.MarkovCategory` so the
+- [x] Add a determinism/affineness attribute to `abc.MarkovCategory` so the
       supply can derive copy/discard absorption and the congruence knob
-- [WIP] @ad18a368-2026-09-29 12:35 Decided: `EHypergraph` is a setoid. `setoid()` numbers the vertices
+- [x] Decided: `EHypergraph` is a setoid. `setoid()` numbers the vertices
       (union-find classes) by a walk from the boundary and lists the live
       cells in that order; `__eq__`/`__hash__` compare it, with an isomorphism
       fallback as `Hypergraph` has. `equiv` stays the semantic equality, it
       is not transitive once there are alternatives
 - [x] Extract `cat.Arrow`'s setoid mechanism (`__eq__`/`__hash__` from
       `setoid()`) into a `utils` mixin used by `cat.Arrow` and `EHypergraph`
-- [WIP] @ad18a368-2026-09-29 12:35 `Wires` as a `Monoid`: moot once `Wires` is deleted by the fusion
-- [WIP] @ad18a368-2026-09-29 12:35 Decided: `Shard` is a `ColouredMonoid` coloured by its arity
+- [x] `Wires` as a `Monoid`: moot once `Wires` is deleted by the fusion
+- [x] Decided: `Shard` is a `ColouredMonoid` coloured by its arity
       `(n_in, n_out)`: `tensor` concatenates rows, `append` stays the in-place
       builder; the disjoint union behind `then`/`tensor` concatenates shards
 - [x] Decided: `UnionFind` unions by size as upstream, `union` returns the

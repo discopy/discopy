@@ -124,6 +124,7 @@ class Diagram(compact.Diagram, markov.Diagram, HypergraphCategory):
     """
 
     ob = Ty
+    is_affine = False
 
     @classmethod
     def caps(cls, left, right):

@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 import json
 from functools import lru_cache, wraps
 from math import ceil
@@ -758,7 +759,7 @@ class classproperty(object):
         return self.f(x)
 
 
-class Setoid:
+class Setoid(ABC):
     """
     A `setoid <https://en.wikipedia.org/wiki/Setoid>`_, i.e. a type together
     with an equivalence relation, given by a key: two instances of
@@ -782,9 +783,9 @@ class Setoid:
     """
     setoid_type = classproperty(lambda cls: cls)
 
+    @abstractmethod
     def setoid(self) -> Any:
         """ The data that describes an instance up to equivalence. """
-        raise NotImplementedError
 
     def __eq__(self, other):
         return isinstance(other, self.setoid_type)\
