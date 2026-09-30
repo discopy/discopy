@@ -618,6 +618,22 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `utils.dumps` no longer crashes on a box whose `data` carries a complex
+  number, i.e. on every quantum gate with an array — `H`, `X`, `Y`, `Z`,
+  `CX`, ... — where `Rz(0.25)` escaped only because its data is a float.
+  JSON has no complex numbers and a complex number is a pair of reals, so
+  `utils.encode_complex` writes one as `{"factory": "complex", "re": ...,
+  "im": ...}` and `utils.decode_complex` reads it back, as the `default` of
+  `dumps` and the `object_hook` of `loads`. The encoding lives at the JSON
+  boundary rather than in `to_tree`, which stays a tree of Python objects,
+  and it is tagged with its factory like every other node of a tree, so a
+  box whose `data` is a dictionary of its own — `{"re": ..., "im": ...}`
+  included — is left alone. Fixing it in `utils` rather than in
+  `QuantumGate.to_tree` is what the extent of the crash asks for: `dumps`
+  raised on `Scalar(1j)` and on `tensor.Box('f', Dim(1), Dim(1), [1j])`
+  too, and neither is a `QuantumGate`; and it changes no output that works
+  today, since every tree holding a complex raised
+  ([#775](https://github.com/discopy/discopy/issues/775)).
 - `Matrix.trace` reads its `left` flag: a left trace is the right trace
   of the matrix conjugated by swaps, where it traced the last `n`
   dimensions whatever was asked. `Tensor.to_quimb` passes its `dtype` to
