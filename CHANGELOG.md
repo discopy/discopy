@@ -712,6 +712,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - Tensor networks are contracted with `opt_einsum` when the number of
   indices exceeds `numpy.einsum`'s 52-index limit
   ([#448](https://github.com/discopy/discopy/pull/448)).
+- Contracting a tensor network with more than `config.MAX_EINSUM_INDICES`
+  indices imports `opt_einsum`, which is not a declared dependency; a plain
+  install now raises a clear `ImportError` naming the package to install
+  instead of `ModuleNotFoundError` with no context
+  ([#596](https://github.com/discopy/discopy/issues/596)).
 - `grammar.categorial.cat2ty` reads a fully parenthesized category such as
   `(S\NP)` as a category rather than an atom, strips CCGbank features
   wherever they occur rather than on atoms only, and associates slashes to
