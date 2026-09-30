@@ -306,6 +306,54 @@ def from_tree(tree: dict):
     return getattr(module, factory).from_tree(tree)
 
 
+def encode_complex(number: complex) -> dict:
+    """
+    A complex number as a node of a tree, since JSON has only reals.
+
+    :math:`\\mathbb{C}` is :math:`\\mathbb{R}^2` as a real vector space, so a
+    complex number travels as the pair of its real and imaginary parts, tagged
+    with its factory like every other node. This is the ``default`` of
+    :func:`dumps`, i.e. it is called on whatever JSON cannot encode by itself
+    and raises on anything else, as :mod:`json` asks.
+
+    Example
+    -------
+    >>> encode_complex(1 + 2j)
+    {'factory': 'complex', 're': 1.0, 'im': 2.0}
+    >>> encode_complex({1, 2})
+    Traceback (most recent call last):
+    ...
+    TypeError: Object of type set is not JSON serialisable.
+    """
+    if not isinstance(number, complex):
+        raise TypeError(messages.NOT_JSON_SERIALISABLE.format(
+            type(number).__name__))
+    return {'factory': factory_name(complex),
+            're': number.real, 'im': number.imag}
+
+
+def decode_complex(tree: dict) -> Any:
+    """
+    Read back what :func:`encode_complex` wrote, leaving other nodes alone.
+
+    This is the ``object_hook`` of :func:`loads`, i.e. :mod:`json` calls it on
+    every object it decodes, so it answers a node that is not a complex number
+    with that node itself. A box whose ``data`` is a dictionary of its own is
+    left alone by the factory tag, which a tree reserves.
+
+    Example
+    -------
+    >>> assert decode_complex(encode_complex(1 + 2j)) == 1 + 2j
+    >>> tree = {'factory': 'cat.Ob', 'name': 'x'}
+    >>> assert decode_complex(tree) == tree
+    >>> assert decode_complex({'re': 1, 'im': 2}) == {'re': 1, 'im': 2}
+    """
+    if tree.keys() == {'factory', 're', 'im'} \
+            and tree['factory'] == factory_name(complex):
+        return complex(tree['re'], tree['im'])
+    return tree
+
+
 def dumps(obj, **kwargs):
     """
     Serialise a DisCoPy object as JSON.
@@ -347,6 +395,7 @@ def dumps(obj, **kwargs):
         }
     }
     """
+    kwargs.setdefault('default', encode_complex)
     return json.dumps(obj.to_tree(), **kwargs)
 
 
@@ -362,7 +411,7 @@ def loads(raw):
     >>> assert dumps(loads(raw)) == raw
     >>> assert loads(dumps(Ob('x'))) == Ob('x')
     """
-    obj = json.loads(raw)
+    obj = json.loads(raw, object_hook=decode_complex)
     if isinstance(obj, list):
         return [from_tree(o) for o in obj]
     return from_tree(obj)
