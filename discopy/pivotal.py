@@ -57,7 +57,7 @@ from __future__ import annotations
 from discopy import cat, cmap, rigid, traced
 from discopy.abc import PivotalCategory
 from discopy.cat import factory
-from discopy.utils import deprecated_ob
+from discopy.utils import deprecated_alias
 
 
 class Wire(rigid.Wire):
@@ -92,15 +92,15 @@ class Ty(rigid.Ty):
 
 
 @factory
-class PRO(rigid.PRO, Ty):
+class Nat(rigid.Nat, Ty):
     """
-    A pivotal PRO is a natural number ``n``
+    A pivotal ``Nat`` is a natural number ``n``
     seen as a pivotal type of length ``n``.
 
     Parameters
     ----------
     n : int
-        The length of the PRO type.
+        The natural number.
     """
     l = r = property(lambda self: self)
 
@@ -262,4 +262,4 @@ class Equation(rigid.Equation):
     """ The :class:`rigid.Equation` of pivotal diagrams. """
 
 
-__getattr__ = deprecated_ob(__name__)
+__getattr__ = deprecated_alias(__name__, {"Ob": "Wire", "PRO": "Nat"})

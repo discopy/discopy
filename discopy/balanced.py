@@ -38,7 +38,8 @@ from dataclasses import dataclass
 from discopy import config, monoidal, braided, traced, cmap, hypergraph
 from discopy.abc import BalancedCategory
 from discopy.cat import factory
-from discopy.monoidal import Colour, Ty  # noqa: F401
+from discopy.monoidal import (  # noqa: F401  pylint: disable=unused-import
+    Colour, Ty)
 from discopy.utils import factory_name, assert_isatomic
 
 

@@ -7,6 +7,13 @@ from discopy.markov import *
 from discopy import *
 
 
+def test_Discard_has_no_copies():
+    x = Ty('x')
+    assert Copy(x, 0) == Discard(x) == Discard(x, 0)
+    with raises(ValueError):
+        Discard(x, 2)
+
+
 def test_spider_factory():
     with raises(ValueError):
         Diagram.spider_factory(2, 2, Ty('x'))
