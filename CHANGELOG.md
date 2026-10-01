@@ -618,9 +618,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
-- `monoidal.List` is transparent, i.e. `eval(repr(x)) == x`, which is
-  `STYLE.md`'s own line and failed on `main` for the public
-  `discopy.python.Ty`: `repr(Ty(int, str))` printed
+- A `monoidal.List` whose atoms have an evaluable representation is
+  transparent, i.e. `eval(repr(x)) == x`, which is `STYLE.md`'s own line
+  and failed on `main` for the public `discopy.python.Ty`: `repr(Ty(int, str))` printed
   `monoidal.List[type](<class 'int'>, <class 'str'>)`, which is not an
   expression, so `eval` raised `SyntaxError`. `List.__repr__` joined `repr`
   over its atoms, which is right for every generator in the library but

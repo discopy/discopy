@@ -767,14 +767,10 @@ def test_List_repr():
     from discopy import cat, monoidal
     from discopy.python import Ty as PyTy
 
-    # An atom prints as an expression, so that a list reads back from its
-    # representation: repr(int) is "<class 'int'>", which is not one, where
-    # the name int is (issue #773).
     assert repr(List[int](2, 3)) == "monoidal.List[int](2, 3)"
     assert repr(List[type](int, str)) == "monoidal.List[type](int, str)"
     assert repr(List[type](cat.Ob)) == "monoidal.List[type](cat.Ob)"
 
-    # python.Ty is the free monoid on type, so this is its transparency too.
     assert PyTy is monoidal.List[type]
     for x in (List[int](2, 3), List[type](int, str), PyTy(int), PyTy()):
         assert eval(repr(x)) == x and eval(str(x)) == x
