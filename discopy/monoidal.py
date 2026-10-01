@@ -201,6 +201,24 @@ class List(Monoid, NamedGeneric['generator_factory']):
     A list is a sequence of its length-one sublists, e.g.
     ``List[int](2, 3)[0] == List[int](2)``; the atoms themselves are its
     :attr:`inside`, e.g. ``List[int](2, 3).inside[0] == 2``.
+
+    Note
+    ----
+    A ``List[X]`` is transparent, i.e. ``eval(repr(x)) == x``, exactly when
+    the representation of an atom of ``X`` is an expression that evaluates
+    back to it. :meth:`generator_repr` is what secures that for every
+    generator the library uses: ``repr`` is such an expression for an
+    ``int``, and for a class it is not — ``repr(int)`` is ``<class 'int'>``
+    where the name ``int`` is what reads back — so the free monoid on
+    Python's ``type``, i.e. :obj:`discopy.python.Ty`, prints its atoms with
+    :func:`.factory_name` instead. A generator with no such representation
+    at all, e.g. ``object``, has no transparent list until it overrides the
+    hook.
+
+    >>> from discopy import monoidal
+    >>> x = List[type](int, str)
+    >>> assert repr(x) == "monoidal.List[type](int, str)"
+    >>> assert eval(repr(x)) == x
     """
     ob = type(None)
     dom = cod = None
@@ -242,9 +260,30 @@ class List(Monoid, NamedGeneric['generator_factory']):
     def __hash__(self):
         return hash((type(self), self.inside))
 
+    @classmethod
+    def generator_repr(cls, generator) -> str:
+        """
+        The representation of one atom, which :meth:`__repr__` joins.
+
+        It is the ``repr`` of a generator whose own representation is an
+        expression, e.g. an ``int``, and :func:`.factory_name` for a class,
+        whose is not: ``repr(int)`` is ``<class 'int'>`` where ``int`` is
+        the name that evaluates back to it. A generator with neither — one
+        printing its address, say — overrides this to say what reads back
+        to it, since nothing can be inferred from such a ``repr``.
+
+        Example
+        -------
+        >>> assert List[int].generator_repr(2) == "2"
+        >>> assert List[type].generator_repr(int) == "int"
+        >>> assert List[type].generator_repr(cat.Ob) == "cat.Ob"
+        """
+        return factory_name(generator) if isinstance(generator, type)\
+            else repr(generator)
+
     def __repr__(self):
         return factory_name(type(self))\
-            + f"({', '.join(map(repr, self.inside))})"
+            + f"({', '.join(map(self.generator_repr, self.inside))})"
 
 
 @factory
