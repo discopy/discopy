@@ -201,6 +201,18 @@ class List(Monoid, NamedGeneric['generator_factory']):
     A list is a sequence of its length-one sublists, e.g.
     ``List[int](2, 3)[0] == List[int](2)``; the atoms themselves are its
     :attr:`inside`, e.g. ``List[int](2, 3).inside[0] == 2``.
+
+    Note
+    ----
+    A list is transparent, i.e. ``eval(repr(x)) == x``, which is why its
+    atoms print through :meth:`generator_repr` rather than ``repr``: the
+    free monoid on Python's ``type`` is :obj:`discopy.python.Ty` and
+    ``repr(int)`` is ``<class 'int'>``, which is not an expression.
+
+    >>> from discopy import monoidal
+    >>> x = List[type](int, str)
+    >>> assert repr(x) == "monoidal.List[type](int, str)"
+    >>> assert eval(repr(x)) == x
     """
     ob = type(None)
     dom = cod = None
@@ -242,9 +254,28 @@ class List(Monoid, NamedGeneric['generator_factory']):
     def __hash__(self):
         return hash((type(self), self.inside))
 
+    @classmethod
+    def generator_repr(cls, generator) -> str:
+        """
+        The representation of one atom, which :meth:`__repr__` joins.
+
+        It is the ``repr`` of a generator whose own representation is an
+        expression, e.g. an ``int``, and :func:`.factory_name` for a class,
+        whose is not: ``repr(int)`` is ``<class 'int'>`` where ``int`` is
+        the name that evaluates back to it.
+
+        Example
+        -------
+        >>> assert List[int].generator_repr(2) == "2"
+        >>> assert List[type].generator_repr(int) == "int"
+        >>> assert List[type].generator_repr(cat.Ob) == "cat.Ob"
+        """
+        return factory_name(generator) if isinstance(generator, type)\
+            else repr(generator)
+
     def __repr__(self):
         return factory_name(type(self))\
-            + f"({', '.join(map(repr, self.inside))})"
+            + f"({', '.join(map(self.generator_repr, self.inside))})"
 
 
 @factory

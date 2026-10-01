@@ -618,6 +618,22 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `monoidal.List` is transparent, i.e. `eval(repr(x)) == x`, which is
+  `STYLE.md`'s own line and failed on `main` for the public
+  `discopy.python.Ty`: `repr(Ty(int, str))` printed
+  `monoidal.List[type](<class 'int'>, <class 'str'>)`, which is not an
+  expression, so `eval` raised `SyntaxError`. `List.__repr__` joined `repr`
+  over its atoms, which is right for every generator in the library but
+  one -- `type`, whose `repr` is `<class 'int'>` where the name `int` is
+  what reads back -- and `python.Ty` became `List[type]` with
+  [#728](https://github.com/discopy/discopy/issues/728). An atom now prints
+  through the new `List.generator_repr`, which defaults to `repr` and gives
+  a class to `utils.factory_name`, the printer the library already uses for
+  one: a list of DisCoPy classes therefore reads back qualified by module
+  too, e.g. `List[type](cat.Ob)`. Nothing caught it because `Ty` and `List`
+  are not enrolled in `proptest/categories.py`, so the matrix quantifies
+  *over* them without ever stating `transparency` *of* them
+  ([#773](https://github.com/discopy/discopy/issues/773)).
 - `Matrix.trace` reads its `left` flag: a left trace is the right trace
   of the matrix conjugated by swaps, where it traced the last `n`
   dimensions whatever was asked. `Tensor.to_quimb` passes its `dtype` to
