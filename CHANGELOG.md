@@ -618,6 +618,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- A regression test for `stream.Stream.__init__`'s codomain-mismatch
+  `AxiomError`, which reports `cod`/`now.cod` rather than the `dom`/`now.dom`
+  it once printed on both sides of `!=`. The message was corrected in passing
+  by the `+`→`@` object rewrite; the test pins it so a future refactor cannot
+  silently reintroduce the bug
+  ([#605](https://github.com/discopy/discopy/issues/605)).
 - `Matrix.trace` reads its `left` flag: a left trace is the right trace
   of the matrix conjugated by swaps, where it traced the last `n`
   dimensions whatever was asked. `Tensor.to_quimb` passes its `dtype` to
