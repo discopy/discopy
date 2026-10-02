@@ -63,6 +63,15 @@ uv run coverage report -m
 
 Without the extras installed, run `uv run pytest --skip-extra` to skip what needs them.
 
+A sandboxed environment can block some of the extras outright (e.g. no network access to fetch
+the `torch`/`pytket` wheels, no `graphviz` binary), so `--skip-extra` may still leave a fixed set
+of environment-only failures that look identical to a real regression. Diff the failure set
+against the same command run on the merge base rather than guessing: what's new is a regression
+candidate to investigate — your change, a flake, or the environment — and what was already failing
+there is pre-existing, not introduced by your change, though whether either one's cause is the
+sandbox or a latent bug is a separate question to chase down. CI on the pushed branch is the
+authority on the real suite: claim local green only for the checks you actually ran locally.
+
 `pylint` fails on any unused import, variable or argument, and on a score below the
 `fail-under` of `.pylintrc`, which is the score of `main` when it was last raised: fix the
 finding, or disable the message on that line with the reason, and raise `fail-under` to the
