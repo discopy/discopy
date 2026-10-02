@@ -618,6 +618,31 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- A `NamedGeneric` survives a pickle. `pickle.loads(pickle.dumps(x))` gave
+  back a member of the bare origin, so a term compared **unequal to itself**
+  — measured on `Tensor[float]`, `Matrix[float]`, `List[int]`, `List[type]`,
+  i.e. `python.Ty`, and on `Hypergraph`, whose `__eq__` then raised
+  `AttributeError` on a `None` category. `__reduce__` did stash the subscript
+  in the state, under `__class_getitem__values__`, and
+  `NamedGeneric.__setstate__` does read it back — but
+  `NamedGeneric["..."]` returns a `Result(Generic[...])` that **does not
+  subclass `NamedGeneric`**, so the hook was inherited by nothing and the key
+  sat orphaned in every instance's `__dict__`. `tensor.Box` was the one class
+  that round-tripped, and the only one calling that hook by hand. The
+  subscript now travels on the *reconstruction* path instead, through the new
+  `utils.resubscript`: the member is rebuilt as one of its origin, subscripted
+  back and only then given its state, so it reads its own `__setstate__` like
+  any other unpickling and no orphan is left behind. Putting the hook on
+  `Result` instead cannot work, which is why only `tensor.Box` ever had it:
+  `Result` sits at index 3 of `quantum.Circuit`'s MRO where
+  `monoidal.Diagram.__setstate__` and `cat.Arrow.__setstate__` sit at 15 and
+  16, so a `__setstate__` there becomes the *first* one pickle calls and
+  shadows the backward-compatible chain below it — the 0.6-era fixtures then
+  restore a `Circuit` with no `inside`.
+  `NamedGeneric.__setstate__` stays, for pickles written before this, and now
+  pops the key rather than leaving it in the state
+  ([#784](https://github.com/discopy/discopy/issues/784)).
+
 - `Matrix.trace` reads its `left` flag: a left trace is the right trace
   of the matrix conjugated by swaps, where it traced the last `n`
   dimensions whatever was asked. `Tensor.to_quimb` passes its `dtype` to

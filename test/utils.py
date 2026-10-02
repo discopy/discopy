@@ -103,3 +103,31 @@ def test_wire_tree_roundtrip():
     with warns(DeprecationWarning):
         assert from_tree({'factory': 'discopy.frobenius.Ob', 'name': 'x'})\
             == frobenius.Wire('x')
+
+
+def test_named_generic_pickle_roundtrip():
+    from discopy.frobenius import Diagram, Ty
+    from discopy.matrix import Matrix
+    from discopy.monoidal import List
+    from discopy.quantum import Circuit, Ket, qubit
+    from discopy.tensor import Dim, Tensor
+    for x in (Tensor[float]([1.0], dom=Dim(1), cod=Dim(1)),
+              Matrix[float]([1.0], 1, 1),
+              List[int]((1, 2)), List[type]((int, )),
+              Box("f", Dim(1), Dim(1), data=[1.0]),
+              Diagram.id(Ty('x')).to_hypergraph(),
+              Ket(0) >> Circuit.id(qubit)):
+        y = pickle.loads(pickle.dumps(x))
+        assert type(y) is type(x) and y == x
+        assert "__class_getitem__values__" not in y.__dict__
+
+
+def test_named_generic_setstate_reads_an_old_pickle():
+    from discopy.tensor import Dim
+    box, state = Box.__new__(Box), {
+        "z": 0, "name": "f", "data": None, "is_dagger": False,
+        "dom": Dim(1), "cod": Dim(1), "inside": (),
+        "__class_getitem__values__": (float, )}
+    box.__setstate__(state)
+    assert type(box) is Box[float] and box.dtype is float
+    assert "__class_getitem__values__" not in box.__dict__

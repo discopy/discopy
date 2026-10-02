@@ -120,6 +120,31 @@ def get_origin(typ):
     return getattr(typ, "__origin__", typ)
 
 
+def resubscript(reconstruct, args, values):
+    """
+    Reconstruct a member of a subscripted :class:`NamedGeneric` as a member of
+    its origin, then subscript it back.
+
+    The subscript goes back before the state is applied, so that a term reads
+    its own ``__setstate__`` and comes back a member of the class it was
+    pickled from. Carrying the subscript in the state instead left it to the
+    class to read, which only :class:`discopy.tensor.Box` did: every other
+    ``NamedGeneric`` came back a member of the bare origin and compared
+    unequal to itself, and a ``__setstate__`` on the ``NamedGeneric`` itself
+    cannot do it, see :meth:`NamedGeneric.__setstate__`.
+
+    Example
+    -------
+    >>> import pickle
+    >>> from discopy.monoidal import List
+    >>> x = List[int]((1, 2))
+    >>> assert pickle.loads(pickle.dumps(x)) == x
+    """
+    member = reconstruct(*args)
+    member.__class__ = member.__class__[values]
+    return member
+
+
 class NamedGeneric(Generic[TypeVar('T')]):
     """
     A ``NamedGeneric`` is a ``Generic`` where the type parameter has a name.
@@ -175,16 +200,17 @@ class NamedGeneric(Generic[TypeVar('T')]):
                         def __reduce__(self):
                             """
                             Pickle a member of the subscripted class as a
-                            member of its origin carrying the values, since
-                            a class created inside a function cannot be
-                            found by name, see `how can I pickle a
+                            member of its origin, with
+                            :func:`resubscript` to put the subscript back,
+                            since a class created inside a function cannot
+                            be found by name, see `how can I pickle a
                             dynamically created nested class
                             <https://stackoverflow.com/questions/1947904>`_.
                             """
                             func, args, data = super().__reduce__()
                             if '[' in args[0].__name__:
-                                args = (origin, ) + args[1:]
-                                data |= {"__class_getitem__values__": values}
+                                return resubscript, (
+                                    func, (origin, ) + args[1:], values), data
                             return func, args, data
 
                     C.__module__ = origin.__module__
@@ -205,9 +231,16 @@ class NamedGeneric(Generic[TypeVar('T')]):
         return Result
 
     def __setstate__(self, state):
+        """
+        Read back a pickle written before :func:`resubscript`, which carried
+        the subscript in the state rather than in the reconstruction. Called
+        by hand where a class needs it, since a ``__setstate__`` on a
+        ``NamedGeneric`` would come before the backward-compatible ones of
+        every class below it, see :class:`discopy.tensor.Box`.
+        """
         if "__class_getitem__values__" in state:
-            new_cls = self.__class__[state["__class_getitem__values__"]]
-            self.__class__ = new_cls
+            self.__class__ = self.__class__[
+                state.pop("__class_getitem__values__")]
 
 
 def product(xs: list, unit=1):
