@@ -535,10 +535,15 @@ class Controlled(QuantumGate):
 
     @classmethod
     def from_tree(cls, tree: dict):
-        # Not ``cls``: a subclass such as ``CRz`` takes the phase of the
-        # rotation it controls where ``Controlled`` takes the gate itself.
-        # ``__eq__`` compares ``controlled`` and ``distance`` rather than the
-        # class, so every subclass reads back through the base constructor.
+        """
+        Reads back through :class:`Controlled` rather than through ``cls``: a
+        subclass such as :class:`CRz` takes the phase of the rotation it
+        controls where :class:`Controlled` takes the gate itself, and
+        :meth:`__eq__` compares the gate and the distance rather than the
+        class, so the two are equal.
+
+        >>> assert from_tree(CRz(.25).to_tree()) == CRz(.25)
+        """
         return Controlled(
             from_tree(tree['controlled']), distance=tree['distance'])
 
@@ -814,8 +819,13 @@ class Scalar(Parametrized):
 
     @classmethod
     def from_tree(cls, tree: dict):
-        # Positionally, as ``dagger`` builds one: ``tensor.Box.__new__`` reads
-        # ``name`` as its own first argument, where a scalar's is its ``data``.
+        """
+        Passes its arguments positionally, as :meth:`dagger` builds one:
+        :meth:`tensor.Box.__new__` reads ``name`` as its own first argument,
+        where a scalar's first argument is its ``data``.
+
+        >>> assert from_tree(Scalar(.5).to_tree()) == Scalar(.5)
+        """
         return cls(tree['data'], tree['name'], tree['is_mixed'])
 
 
