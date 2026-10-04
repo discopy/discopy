@@ -48,7 +48,8 @@ from discopy.cat import (
     assert_iscomposable,
     assert_isparallel,
 )
-from discopy.utils import assert_isinstance, unbiased
+from discopy.utils import (
+    assert_isinstance, factory_name, from_tree, unbiased)
 
 if TYPE_CHECKING:
     import sympy
@@ -220,6 +221,52 @@ class Matrix(MonoidalCategory, NamedGeneric['dtype']):
         np_array = getattr(self.array, 'numpy', lambda: self.array)()
         return type(self).__name__ + f"({array2string(np_array.reshape(-1))},"\
                                      f" dom={self.dom}, cod={self.cod})"
+
+    def to_tree(self) -> dict:
+        """
+        Serialise a matrix, see :func:`discopy.utils.dumps`.
+
+        The ``dtype`` travels in the factory name, as it does in the
+        ``repr``, so that a matrix comes back with the entries it was
+        written with rather than the ones its array implies.
+
+        Example
+        -------
+        >>> from discopy.utils import dumps, loads
+        >>> m = Matrix[float]([1], 1, 1)
+        >>> m.to_tree()['factory']
+        'matrix.Matrix[float]'
+        >>> assert loads(dumps(m)) == m != Matrix([1], 1, 1)
+        """
+        with backend() as np:
+            array = np.array(self.array).reshape(-1).tolist()
+        return {
+            'factory': factory_name(type(self)),
+            'array': array,
+            'dom': self.dom.to_tree(),
+            'cod': self.cod.to_tree()}
+
+    @classmethod
+    def from_tree(cls, tree: dict) -> Matrix:
+        """
+        Decode a serialised matrix, see :func:`discopy.utils.loads`.
+
+        Parameters:
+            tree : DisCoPy serialisation.
+
+        The class the tree names is the subscripted one, so the pair is
+        read through :func:`discopy.utils.from_tree` rather than off the
+        bare class, which would infer a ``dtype`` from the array instead.
+
+        Example
+        -------
+        >>> from discopy.utils import from_tree
+        >>> m = Matrix[int]([0, 1, 1, 0], 2, 2)
+        >>> assert from_tree(m.to_tree()) == m
+        >>> assert Matrix.from_tree(m.to_tree()).dtype != int
+        """
+        dom, cod = map(from_tree, (tree['dom'], tree['cod']))
+        return cls(tree['array'], dom, cod)
 
     def __iter__(self):
         for i in self.array:
