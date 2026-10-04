@@ -298,12 +298,90 @@ def from_tree(tree: dict):
     >>> f = Box('f', 'x', 'y', data=42)
     >>> assert from_tree(tree) == f >> f[::-1]
     """
-    *modules, factory = tree['factory'].removeprefix('discopy.').split('.')
+    return from_name(tree['factory']).from_tree(tree)
+
+
+def from_name(name: str) -> type:
+    """
+    The class that :func:`factory_name` spells as ``name``, i.e. the inverse
+    of :func:`factory_name` on the names that reach a tree.
+
+    A name is the dotted path of a class inside :mod:`discopy`, subscripted
+    by the parameters of a :class:`NamedGeneric` when it has any. Each
+    parameter is a name in its own right, so that ``tensor.Box[float64]``
+    comes back as the class it was serialised from rather than as a class
+    the module does not have.
+
+    Parameters:
+        name : The name of a DisCoPy class.
+
+    Example
+    -------
+    >>> from numpy import float64
+    >>> from discopy import cat, tensor
+    >>> assert from_name('cat.Box') == cat.Box
+    >>> assert from_name('tensor.Box[float64]') == tensor.Box[float64]
+    """
+    path, _, parameters = name.partition('[')
+    cls = class_from_path(path)
+    if not parameters:
+        return cls
+    return cls[tuple(
+        map(from_name, split_parameters(parameters.removesuffix(']'))))]
+
+
+def class_from_path(path: str) -> type:
+    """
+    The class at a dotted ``path``, looked up inside :mod:`discopy` when the
+    path has a module and in ``builtins`` then ``numpy`` when it does not,
+    the two places a data type parameterising a category comes from.
+
+    Parameters:
+        path : The dotted path of a class, with no subscript.
+
+    Example
+    -------
+    >>> from discopy.cat import Box
+    >>> assert class_from_path('cat.Box') == Box
+    >>> assert class_from_path('float') == float
+    """
+    import builtins
+    import numpy
     import discopy
+    *modules, attribute = path.removeprefix('discopy.').split('.')
+    if not modules:
+        for module in (builtins, numpy):
+            if hasattr(module, attribute):
+                return getattr(module, attribute)
+        raise AttributeError(messages.NO_SUCH_TYPE.format(attribute))
     module = discopy
-    for attr in modules:
-        module = getattr(module, attr)
-    return getattr(module, factory).from_tree(tree)
+    for name in modules:
+        module = getattr(module, name)
+    return getattr(module, attribute)
+
+
+def split_parameters(parameters: str) -> list[str]:
+    """
+    The parameters of a subscripted name, i.e. the comma-separated names
+    between its outermost brackets, split where a name is not itself
+    subscripted.
+
+    Parameters:
+        parameters : Everything between the outermost brackets of a name.
+
+    Example
+    -------
+    >>> assert split_parameters('float64') == ['float64']
+    >>> assert split_parameters('List[int], float') == ['List[int]', 'float']
+    """
+    depth, result = 0, [""]
+    for character in parameters:
+        if character == "," and depth == 0:
+            result.append("")
+        else:
+            depth += (character == "[") - (character == "]")
+            result[-1] += character
+    return [parameter.strip() for parameter in result]
 
 
 def dumps(obj, **kwargs):

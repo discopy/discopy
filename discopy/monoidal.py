@@ -576,13 +576,6 @@ class Nat(abc.Nat, Ty):
     def __pow__(self, n_times):
         return self.factory(n_times * self.n)
 
-    def to_tree(self):
-        return {'factory': factory_name(type(self)), 'n': self.n}
-
-    @classmethod
-    def from_tree(cls, tree):
-        return cls(tree['n'])
-
 
 @factory
 class Dim(Ty):
@@ -620,6 +613,15 @@ class Dim(Ty):
         return f"Dim({', '.join(map(repr, self.inside)) or '1'})"
 
     __str__ = __repr__
+
+    def to_tree(self):
+        return {
+            'factory': factory_name(type(self)),
+            'inside': list(self.inside)}
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(*tree['inside'])
 
 
 class Layer(cat.Box, ColouredMonoid):

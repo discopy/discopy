@@ -63,7 +63,7 @@ from typing import ClassVar
 from discopy.axioms import (
     Axiom, ComposablePair, ComposableTriple, Equation, axiom)
 from discopy.utils import (  # noqa: F401  pylint: disable=unused-import
-    NamedGeneric, classproperty)
+    NamedGeneric, classproperty, factory_name)
 
 
 class Category[C0, C1: Category](ABC):
@@ -323,6 +323,13 @@ class Nat(Monoid["Nat"]):
         if key >= self.n or key < -self.n:
             raise IndexError
         return type(self)(1)
+
+    def to_tree(self) -> dict:
+        return {'factory': factory_name(type(self)), 'n': self.n}
+
+    @classmethod
+    def from_tree(cls, tree: dict) -> Nat:
+        return cls(tree['n'])
 
 
 class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](

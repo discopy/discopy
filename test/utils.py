@@ -103,3 +103,33 @@ def test_wire_tree_roundtrip():
     with warns(DeprecationWarning):
         assert from_tree({'factory': 'discopy.frobenius.Ob', 'name': 'x'})\
             == frobenius.Wire('x')
+
+
+def test_from_name():
+    import numpy as np
+    from discopy import cat, tensor
+    assert from_name('cat.Box') == cat.Box
+    assert from_name('discopy.cat.Box') == cat.Box
+    assert from_name('float') == float
+    assert from_name('float64') == np.float64
+    assert from_name('tensor.Box[float]') == tensor.Box[float]
+    assert from_name('tensor.Box[float64]') == tensor.Box[np.float64]
+    with pytest.raises(AttributeError):
+        from_name('tensor.Box[NotAType]')
+
+
+def test_split_parameters():
+    assert split_parameters('float64') == ['float64']
+    assert split_parameters('List[int], float') == ['List[int]', 'float']
+
+
+def test_tensor_tree_roundtrip():
+    # No tensor box round-tripped through its tree, see #781.
+    from discopy.tensor import Dim
+    box = Box('f', Dim(2), Dim(3), [[1., 2., 3.], [4., 5., 6.]])
+    for x in (box, box >> box.dagger(), Box('g', Dim(1), Dim(1), [2.])):
+        assert loads(dumps(x)) == x
+    # A dtype asked for explicitly is not the one the array implies.
+    subscripted = Box[complex]('f', Dim(1), Dim(1), [1.])
+    assert loads(dumps(subscripted)) == subscripted\
+        != Box('f', Dim(1), Dim(1), [1.])

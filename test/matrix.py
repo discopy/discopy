@@ -3,7 +3,7 @@ import pytest
 from pytest import raises
 
 from discopy.matrix import Matrix, backend
-from discopy.utils import AxiomError
+from discopy.utils import AxiomError, dumps, loads
 
 
 def test_Matrix_trace_left():
@@ -53,3 +53,12 @@ def test_autotyping():
     with backend('pytorch'):
         assert Matrix([0.5, 0.5], dom=1, cod=2).dtype == torch.float32
 
+
+def test_Matrix_to_tree():
+    # A matrix had no tree at all, see #781.
+    for m in (Matrix[float]([1], 1, 1), Matrix([0, 1, 1, 0], 2, 2),
+              Matrix[bool]([1, 0], 1, 2), Matrix[int].zero(2, 3)):
+        assert loads(dumps(m)) == m
+    # The dtype is part of the matrix, so it has to travel with it.
+    assert Matrix[float]([1], 1, 1) != Matrix([1], 1, 1)
+    assert loads(dumps(Matrix[float]([1], 1, 1))).dtype == float
