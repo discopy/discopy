@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 from pytest import raises
 
+from discopy.abc import Nat
 from discopy.matrix import Matrix, backend
 from discopy.utils import AxiomError
 
@@ -53,3 +54,36 @@ def test_autotyping():
     with backend('pytorch'):
         assert Matrix([0.5, 0.5], dom=1, cod=2).dtype == torch.float32
 
+
+def test_Matrix_copy():
+    assert Matrix.copy(3, 2) == Matrix(
+        [[1, 0, 0, 1, 0, 0],
+         [0, 1, 0, 0, 1, 0],
+         [0, 0, 1, 0, 0, 1]], 3, 6)
+    for x in range(4):
+        for n in range(4):
+            copy = Matrix.copy(x, n)
+            assert (copy.dom, copy.cod) == (Nat(x), Nat(n * x))
+            assert (copy.array == np.array(
+                [[j % x == i for j in range(n * x)] for i in range(x)]
+            ).reshape(x, n * x)).all()
+
+
+def test_Matrix_comonoid():
+    for x in range(4):
+        identity, copy = Matrix.id(x), Matrix.copy(x, 2)
+        assert copy >> identity @ Matrix.discard(x) == identity
+        assert copy >> Matrix.discard(x) @ identity == identity
+        assert copy >> Matrix.swap(x, x) == copy
+        assert copy >> copy @ identity == Matrix.copy(x, 3)
+        assert copy >> identity @ copy == Matrix.copy(x, 3)
+        assert Matrix.ones(x) @ identity >> Matrix.merge(x, 2) == identity
+
+
+def test_Matrix_copy_dtype():
+    for x in range(4):
+        dtype = Matrix.id(x).dtype
+        assert Matrix.copy(x, 2).dtype == dtype
+        assert Matrix.discard(x).dtype == Matrix.ones(x).dtype == dtype
+    for dtype in (bool, int, float, complex):
+        assert Matrix[dtype].copy(2, 2).dtype == dtype
