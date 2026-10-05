@@ -342,7 +342,7 @@ class Expand(Rewrite):
 
 expand = Expand()
 
-K = zx.Box('K', zx.PRO(1), zx.PRO(1))
+K = zx.Box('K', zx.Nat(1), zx.Nat(1))
 
 
 def replace(diagram, index, box):
