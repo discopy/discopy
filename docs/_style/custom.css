@@ -8,6 +8,18 @@
 
 .diagram-frame { width: 100%; border: none; }
 
+/* DisCoPy SVGs adapt to prefers-color-scheme, which an embedded SVG reads
+   from the color-scheme of its <img> element: make content images follow
+   the docs theme and drop the plate the theme paints behind them. */
+html[data-theme="light"] .bd-content img:not(.only-dark):not(.dark-light) {
+    color-scheme: light;
+}
+html[data-theme="dark"] .bd-content img:not(.only-dark):not(.dark-light) {
+    background: transparent;
+    filter: none;
+    color-scheme: dark;
+}
+
 #architecture-diagram .api-title { font-size: smaller; font-style: italic; vertical-align: bottom; }
 #architecture-diagram .syntax { background-color: rgba(250,250,250); }
 #architecture-diagram .semantics { background-color: rgba(250,250,250); }

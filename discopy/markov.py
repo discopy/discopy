@@ -76,7 +76,7 @@ from __future__ import annotations
 from discopy import symmetric, monoidal, cmap, hypergraph
 from discopy.abc import MarkovCategory
 from discopy.cat import factory
-from discopy.monoidal import Ty  # noqa: F401
+from discopy.monoidal import Ty  # noqa: F401  pylint: disable=unused-import
 from discopy.utils import assert_isatomic, factory_name
 
 
@@ -145,7 +145,7 @@ class Diagram(symmetric.Diagram, MarkovCategory):
         return cls.copy(x, n).dagger()
 
     @classmethod
-    def discard(cls, x: monoidal.Ty, n=2) -> Diagram:
+    def discard(cls, x: monoidal.Ty) -> Diagram:
         """
         The discard of an atomic type :code:`x`.
 
@@ -255,7 +255,9 @@ class Discard(Copy):
     Parameters:
         x : The type to discard.
     """
-    def __init__(self, x: monoidal.Ty, *args, **kwargs):
+    def __init__(self, x: monoidal.Ty, n: int = 0):
+        if n:
+            raise ValueError(f"A discard has no copies, got n={n}.")
         super().__init__(x, 0)
 
 

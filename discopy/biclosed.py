@@ -89,8 +89,9 @@ from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
 from discopy.cat import factory
 from discopy.utils import (
+    assert_isatomic,
     assert_isinstance,
-    deprecated_ob,
+    deprecated_alias,
     factory_name,
     from_tree,
 )
@@ -204,7 +205,7 @@ class Wire(monoidal.Wire):
     """
     A biclosed object is a self-dagger :class:`monoidal.Wire`, i.e. its left
     and right colours always match. Exponentials do not interact meaningfully
-    with colours, so for now we assume everything is white.
+    with colours, so for now we assume everything is transparent.
     """
     def dagger(self) -> Wire:
         return self
@@ -597,13 +598,19 @@ class Constant(TermBase):
 
 class Variable(TermBase):
     """
-    A variable with a string as name and a :class:`Ty`.
+    A variable with a string as name and an atomic :class:`Ty`.
+
+    A variable stands for exactly one wire in the internal language of a
+    (bi)closed category, the way a lambda term binds one variable at a
+    time: the abstraction machinery indexes contexts and free variables by
+    variable, counting on that index to coincide with a wire index.
 
     Attributes:
         name (str): The name of the variable
-        cod (Ty): The type of the variable.
+        cod (Ty): The atomic type of the variable.
     """
     def __init__(self, name: str, cod: Ty):
+        assert_isatomic(cod)
         super().__init__(name, dom=cod, cod=cod)
         self.freevars = [self]
 
@@ -722,4 +729,4 @@ class Equation(monoidal.Equation):
     """ The :class:`monoidal.Equation` of biclosed diagrams. """
 
 
-__getattr__ = deprecated_ob(__name__)
+__getattr__ = deprecated_alias(__name__, {"Ob": "Wire"})

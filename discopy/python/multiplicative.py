@@ -11,7 +11,6 @@ Summary
     :nosignatures:
     :toctree:
 
-    Ty
     Function
 
 .. admonition:: Functions
@@ -27,26 +26,25 @@ Summary
 from __future__ import annotations
 
 from collections.abc import Callable
+from itertools import accumulate
 from typing import Self
 
 from discopy.abc import ClosedCategory
 from discopy.utils import assert_isinstance, tuplify, untuplify, factory
 from discopy.python import finset, function
-
-
-""" Functions have lists of types as input and output. """
-Ty = tuple[type, ...]
+from discopy.python.function import Ty
 
 
 def exp(base: Ty, exponent: Ty) -> Ty:
     """
-    The exponential of a tuple of Python types by another.
+    The exponential of a list of Python types by another.
 
     Parameters:
-        base (python.Ty) : The base type.
-        exponent (python.Ty) : The exponent type.
+        base : The base types.
+        exponent : The exponent types.
     """
-    return (Callable[list(exponent), tuple[base]], )
+    base, exponent = map(Ty.cast, (base, exponent))
+    return Ty(Callable[list(exponent.inside), tuple[base.inside]])
 
 
 @factory
@@ -74,20 +72,18 @@ class Function(function.Function, ClosedCategory):
             trace
     """
 
-    ob = Ty
-
     def __call__(self, *xs):
         if self.type_checking:
             if len(xs) != len(self.dom):
                 raise ValueError
-            for (x, t) in zip(xs, self.dom):
+            for (x, t) in zip(xs, self.dom.inside):
                 callable(x) or assert_isinstance(x, t)
         ys = self.inside(*xs)
         if self.type_checking:
             if len(self.cod) != 1 and (
                     not isinstance(ys, tuple) or len(self.cod) != len(ys)):
                 raise RuntimeError
-            for (y, t) in zip(tuplify(ys), self.cod):
+            for (y, t) in zip(tuplify(ys), self.cod.inside):
                 callable(y) or assert_isinstance(y, t)
         return ys
 
@@ -101,36 +97,37 @@ class Function(function.Function, ClosedCategory):
         def inside(*xs):
             left, right = xs[:len(self.dom)], xs[len(self.dom):]
             return untuplify(tuplify(self(*left)) + tuplify(other(*right)))
-        return Function(inside, self.dom + other.dom, self.cod + other.cod)
+        return Function(inside, self.dom @ other.dom, self.cod @ other.cod)
 
     @staticmethod
     def swap(x: Ty, y: Ty) -> Function:
         """
-        The function for swapping two tuples of types :code:`x` and :code:`y`.
+        The function for swapping two lists of types :code:`x` and :code:`y`.
 
         Parameters:
-            x : The tuple of types on the left.
-            y : The tuple of types on the right.
+            x : The list of types on the left.
+            y : The list of types on the right.
         """
+        x, y = map(Ty.cast, (x, y))
+
         def inside(*xs):
             return untuplify(tuplify(xs)[len(x):] + tuplify(xs)[:len(x)])
-        return Function(inside, dom=x + y, cod=y + x)
+        return Function(inside, dom=x @ y, cod=y @ x)
 
     @classmethod
     def permutation(cls, xs, doms) -> Self:
         """ Permute blocks of arguments. """
-        doms, xs = list(doms), finset.Permutation(xs, len(doms))
-        offsets = [0]
-        for dom in doms:
-            offsets.append(offsets[-1] + len(dom))
+        doms = list(map(cls.ob.cast, doms))
+        xs = finset.Permutation(xs, len(doms))
+        offsets = [0, *accumulate(map(len, doms))]
 
         def inside(*args):
             blocks = [args[offsets[i]:offsets[i + 1]]
                       for i in range(len(doms))]
             return untuplify(sum((blocks[i] for i in xs), ()))
 
-        dom = sum(doms, ())
-        cod = sum((doms[i] for i in xs), ())
+        dom = cls.ob().tensor(*doms)
+        cod = cls.ob().tensor(*(doms[i] for i in xs))
         return cls(inside, dom, cod)
 
     braid = swap
@@ -138,21 +135,22 @@ class Function(function.Function, ClosedCategory):
     @staticmethod
     def copy(x: Ty, n=2) -> Function:
         """
-        The function for making :code:`n` copies of a tuple of types :code:`x`.
+        The function for making :code:`n` copies of a list of types :code:`x`.
 
         Parameters:
-            x : The tuple of types to copy.
+            x : The list of types to copy.
             n : The number of copies.
         """
-        return Function(lambda *xs: n * xs, dom=x, cod=n * x)
+        x = Ty.cast(x)
+        return Function(lambda *xs: n * xs, dom=x, cod=x ** n)
 
     @staticmethod
     def discard(dom: Ty) -> Function:
         """
-        The function discarding a tuple of types, i.e. making zero copies.
+        The function discarding a list of types, i.e. making zero copies.
 
         Parameters:
-            dom : The tuple of types to discard.
+            dom : The list of types to discard.
         """
         return Function.copy(dom, 0)
 
@@ -167,10 +165,11 @@ class Function(function.Function, ClosedCategory):
             exponent : The input type.
             left : Whether to take the function on the left or right.
         """
+        base, exponent = map(Ty.cast, (base, exponent))
         if left:
-            dom, cod = Function.exp(base, exponent) + exponent, base
+            dom, cod = Function.exp(base, exponent) @ exponent, base
             return Function(lambda f, *xs: f(*xs), dom, cod)
-        dom, cod = exponent + Function.exp(base, exponent), base
+        dom, cod = exponent @ Function.exp(base, exponent), base
         return Function(lambda *xs: xs[-1](*xs[:-1]), dom, cod)
 
     def curry(self, n=1, left=True) -> Function:
@@ -197,8 +196,8 @@ class Function(function.Function, ClosedCategory):
         Parameters:
             left : Whether to uncurry on the left or right.
         """
-        traced = self.cod[0].__args__
-        base, exponent = traced[-1].__args__, traced[:-1]
+        traced = self.cod.inside[0].__args__
+        base, exponent = map(Ty.cast, (traced[-1].__args__, traced[:-1]))
         return self @ exponent >> Function.ev(base, exponent) if left\
             else exponent @ self >> Function.ev(base, exponent, left=False)
 
