@@ -348,10 +348,12 @@ class TermBase(Box, biclosed.TermBase):
 
     def occurrences(self, variable: Variable) -> int:
         "The number of free occurrences of a variable in the term."
+        # pylint: disable=unused-argument  # a constant has no variable
         return 0
 
     def substitute(self, substitution: Substitution) -> Term:
         "The term with the free variables of a substitution replaced."
+        # pylint: disable=unused-argument  # a constant has no variable
         return self
 
     @classmethod
@@ -415,6 +417,7 @@ class Application(TermBase, biclosed.Application):
             :meth:`eval` copies.
     """
     def __init__(self, func: Term, args: Term, left: bool = False):
+        # pylint: disable=unused-argument  # a closed category is symmetric
         biclosed.Application.__init__(self, func, args)
 
     def __check_dom__(self, func, args, left):
@@ -462,6 +465,7 @@ class Abstraction(TermBase, biclosed.Abstraction):
     which need not occur in it or may occur several times.
     """
     def __init__(self, var: Variable, body: Term, left: bool = False):
+        # pylint: disable=unused-argument  # a closed category is symmetric
         biclosed.Abstraction.__init__(self, var, body)
 
     def __check_dom__(self):

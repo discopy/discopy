@@ -62,7 +62,8 @@ from typing import ClassVar
 
 from discopy.axioms import (
     Axiom, ComposablePair, ComposableTriple, Equation, axiom)
-from discopy.utils import NamedGeneric, classproperty  # noqa: F401
+from discopy.utils import (  # noqa: F401  pylint: disable=unused-import
+    NamedGeneric, classproperty)
 
 
 class Category[C0, C1: Category](ABC):
@@ -447,6 +448,7 @@ class BiclosedCategory[
             n : The number of objects to uncurry.
             left : Whether to uncurry on the left or right.
         """
+        # pylint: disable=unused-argument  # the exponential says the side
         if not self.cod.is_exp:
             raise ValueError
         base, exponent = self.cod.base, self.cod.exponent
