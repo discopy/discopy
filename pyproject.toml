@@ -162,10 +162,15 @@ norecursedirs = [
     "test/fixtures",
 ]
 # The import mode is importlib so that test/abc.py does not clash with the
-# standard library module of the same name.
+# standard library module of the same name, and namespace packages are
+# considered so that it imports a file given as a path under the dotted name
+# the package already answers to. Without that, selecting discopy/x.py for its
+# doctests beside test/x.py leaves two of every class in the module and the
+# type-strict __eq__ rejects the cross.
 addopts = """
     --doctest-modules --ignore=test/fixtures -p plugin
     --import-mode=importlib"""
+consider_namespace_packages = true
 
 [tool.coverage.run]
 # The skip paths are unreachable unless --skip-extra is passed, and coverage
