@@ -330,21 +330,71 @@ class Matrix(MonoidalCategory, NamedGeneric['dtype']):
 
     @classmethod
     def copy(cls, x: Nat, n: int) -> Matrix:
+        """
+        The diagonal :code:`x -> n * x`, i.e. the comultiplication of the
+        comonoid that the direct sum supplies on every dimension: it sends the
+        :code:`i`-th basis vector to the :code:`i`-th basis vector of each of
+        the :code:`n` summands.
+
+        Parameters:
+            x : The dimension to copy.
+            n : The number of copies.
+
+        Example
+        -------
+        >>> Matrix.copy(2, 2)
+        Matrix[int64]([1, 0, 1, 0, 0, 1, 0, 1], dom=2, cod=4)
+        >>> copy, discard = Matrix.copy(2, 2), Matrix.discard(2)
+        >>> assert copy >> Matrix.id(2) @ discard == Matrix.id(2)
+        >>> assert copy >> Matrix.swap(2, 2) == copy
+        """
         x = index(x)
-        array = [[i + int(j % n * x) == j
-                  for j in range(n * x)] for i in range(x)]
+        with backend() as np:
+            array = np.array(
+                [j % x == i for i in range(x) for j in range(n * x)],
+                dtype=cls.dtype or int)
         return cls(array, x, n * x)
 
     @classmethod
     def discard(cls, x: Nat) -> Matrix:
+        """
+        The counit :code:`x -> 0` of the comonoid on :code:`x`, i.e. the
+        unique matrix into the zero dimension.
+
+        Example
+        -------
+        >>> assert Matrix.discard(2).array.shape == (2, 0)
+        """
         return cls.copy(x, 0)
 
     @classmethod
     def merge(cls, x: Nat, n: int) -> Matrix:
+        """
+        The codiagonal :code:`n * x -> x`, i.e. the dagger of
+        :meth:`Matrix.copy` and the multiplication of the monoid on
+        :code:`x`.
+
+        Parameters:
+            x : The dimension to merge.
+            n : The number of copies to merge.
+
+        Example
+        -------
+        >>> Matrix.merge(2, 2)
+        Matrix[int64]([1, 0, 0, 1, 1, 0, 0, 1], dom=4, cod=2)
+        """
         return cls.copy(x, n).dagger()
 
     @classmethod
     def ones(cls, x: Nat) -> Matrix:
+        """
+        The unit :code:`0 -> x` of the monoid on :code:`x`, i.e. the unique
+        matrix out of the zero dimension.
+
+        Example
+        -------
+        >>> assert Matrix.ones(2).array.shape == (0, 2)
+        """
         return cls.merge(x, 0)
 
     @classmethod

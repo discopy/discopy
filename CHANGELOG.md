@@ -618,6 +618,23 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `Matrix.copy(x, n)` is the diagonal `x -> n * x` again, i.e. the
+  comultiplication the direct sum supplies on every dimension. Its condition
+  read `i + (j % n) * x == j` where the diagonal wants `j % x == i`: the two
+  agree at `x = 1` and at `n <= 1` and differ everywhere else, so
+  `Matrix.copy(3, 2)` came out with an empty middle row and was not even a
+  function. `copy`, and with it `discard`, `merge` and `ones`, also builds its
+  array through `Matrix.zero`, so the four carry the `dtype` of their carrier
+  the way `id` and `zero` already do, instead of whatever NumPy infers from a
+  list of Python booleans — `bool`, or `float64` once `n` or `x` is zero and
+  the list is empty. That second half is what the counit law needed: since
+  `Matrix.__eq__` compares `dtype` outright,
+  `copy(x, 2) >> id(x) @ discard(x) == id(x)` was false at *every* `x`
+  including `0` and `1`, on `dtype` alone, where the arrays already agreed.
+  All three `MarkovCategory` copy laws now hold on the full carrier, which is
+  what [#661](https://github.com/discopy/discopy/pull/661) restates over small
+  objects and declares `.failing`
+  ([#652](https://github.com/discopy/discopy/issues/652)).
 - `Matrix.trace` reads its `left` flag: a left trace is the right trace
   of the matrix conjugated by swaps, where it traced the last `n`
   dimensions whatever was asked. `Tensor.to_quimb` passes its `dtype` to
