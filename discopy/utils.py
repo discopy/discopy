@@ -188,7 +188,11 @@ class NamedGeneric(Generic[TypeVar('T')]):
                             return func, args, data
 
                     C.__module__ = origin.__module__
-                    names = [getattr(v, "__name__", str(v)) for v in values]
+                    names = [
+                        factory_name(v)
+                        if isinstance(v, type)
+                        and v.__module__.startswith("discopy")
+                        else getattr(v, "__name__", str(v)) for v in values]
                     C.__name__ = C.__qualname__ = origin.__name__\
                         + f"[{', '.join(names)}]"
                     C.__origin__ = cls
@@ -197,17 +201,22 @@ class NamedGeneric(Generic[TypeVar('T')]):
                     NamedGeneric._cache[cls][values] = C
                 return NamedGeneric._cache[cls][values]
 
+            def __setstate__(self, state):
+                if "__class_getitem__values__" in state:
+                    values = state.pop("__class_getitem__values__")
+                    self.__class__ = self.__class__[values]
+                setstate = getattr(super(), "__setstate__", None)
+                if setstate is None:
+                    self.__dict__.update(state)
+                else:
+                    setstate(state)
+
             __name__ = __qualname__\
                 = f"NamedGeneric[{', '.join(map(repr, attributes))}]"
 
         for attr in attributes:
             setattr(Result, attr, getattr(Result, attr, None))
         return Result
-
-    def __setstate__(self, state):
-        if "__class_getitem__values__" in state:
-            new_cls = self.__class__[state["__class_getitem__values__"]]
-            self.__class__ = new_cls
 
 
 def product(xs: list, unit=1):

@@ -758,7 +758,8 @@ def test_strategy():
 def test_axioms():
     from discopy import axioms
 
-    axioms.assert_axioms(Ty, Nat, Diagram, Functor)
+    axioms.assert_axioms(Ty, Nat, Diagram, Hypergraph, CMap, Functor)
+
 
 def test_List():
     from discopy import abc, monoidal

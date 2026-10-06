@@ -701,7 +701,6 @@ class Box(frobenius.Box, Diagram):
     """
 
     def __setstate__(self, state):
-        NamedGeneric.__setstate__(self, state)
         if "data" not in state and state.get("_array", None) is not None:
             state['data'] = state['_array']
             del state["_array"]

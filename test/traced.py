@@ -48,4 +48,4 @@ def test_strategy():
 def test_axioms():
     from discopy import axioms
 
-    axioms.assert_axioms(Diagram, Functor)
+    axioms.assert_axioms(Diagram, Hypergraph, CMap, Functor)
