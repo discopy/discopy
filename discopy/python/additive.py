@@ -21,12 +21,22 @@ from itertools import accumulate
 from typing import Self
 
 from discopy.abc import SymmetricCategory
-from discopy.utils import assert_isinstance
+from discopy.axioms import Testable
+from discopy.utils import assert_isinstance, factory
 from discopy.python import finset, function
-from discopy.python.function import Ty
+from discopy.python.function import Types
 
 
-class Function(function.Function, SymmetricCategory):
+Ty = Types
+""" Lists of types interpreted as disjoint union. """
+
+OPAQUE = ("A python function is a callable, not syntax: its ``inside`` "
+          "reprs as an address, pickles only when the interpreter can name "
+          "it, and has no tree.")
+
+
+@factory
+class Function(function.Function, SymmetricCategory, Testable["Function"]):
     """
     Python functions with disjoint union as tensor.
 
@@ -43,6 +53,8 @@ class Function(function.Function, SymmetricCategory):
             swap
             trace
     """
+
+    ob = Types
 
     def __init__(self, inside, dom, cod, is_swap_of=None):
         self.is_swap_of = is_swap_of
@@ -62,7 +74,7 @@ class Function(function.Function, SymmetricCategory):
         The disjoint union of two functions, called with :code:`@`.
 
         Parameters:
-            other : The other function to compose in sequence.
+            other : The other function to take the disjoint union with.
         """
         dom, cod = self.dom @ other.dom, self.cod @ other.cod
 
@@ -120,6 +132,77 @@ class Function(function.Function, SymmetricCategory):
         if self.is_swap_of is None:
             raise ValueError
         return Function.swap(*self.is_swap_of[::-1])
+
+    dagger_involution = SymmetricCategory.dagger_involution.inapplicable(
+        "Only a swap has a dagger.")
+
+    dagger_contravariance = (
+        SymmetricCategory.dagger_contravariance.inapplicable(
+            "Only a swap has a dagger."))
+
+    dagger_monoidality = SymmetricCategory.dagger_monoidality.inapplicable(
+        "Only a swap has a dagger.")
+
+    transparency = Testable.transparency.inapplicable(OPAQUE)
+    pickling = Testable.pickling.inapplicable(OPAQUE)
+    serialisation = Testable.serialisation.inapplicable(OPAQUE)
+
+    @classmethod
+    def equation_factory(cls, *terms):
+        """
+        Functions are compared extensionally, i.e. up to probing both
+        sides on a canonical element of every tag.
+        """
+        from discopy.cat import Equation
+
+        return Equation(*terms, up_to=cls.probe)
+
+    @classmethod
+    def probe(cls, f) -> tuple:
+        """
+        The observations of a function on two canonical elements of
+        every tag, each built by calling the tag's domain type on a
+        small integer seed — the identity on the integer universe of
+        :meth:`Types.strategy`.
+        """
+        return tuple(
+            f(dom(seed), tag)
+            for tag, dom in enumerate(f.dom.inside) for seed in (2, 3))
+
+    @classmethod
+    def relabelling(cls, source, target, mapping) -> Function:
+        """
+        The function sending each tag of ``source`` to its image under
+        ``mapping``, keeping the object.
+
+        Parameters:
+            source : The domain types, one per tag.
+            target : The codomain types, one per tag.
+            mapping : The image in ``target`` of each tag of ``source``.
+        """
+        def inside(obj, tag=0):
+            return obj if len(target) == 1 else (obj, mapping[tag])
+        return cls(inside, source, target)
+
+    @classmethod
+    def strategy(cls, *, dom=None, cod=None, max_length=3, **_):
+        """Generate tag relabellings, i.e. finite maps between the tags."""
+        from hypothesis import strategies as st
+
+        types = cls.ob.strategy(max_length=max_length)
+
+        def functions(boundaries):
+            source, target = boundaries
+            if source and not target:
+                return st.nothing()
+            return st.tuples(*(
+                st.integers(min_value=0, max_value=len(target) - 1)
+                for _ in source)).map(
+                    lambda mapping: cls.relabelling(source, target, mapping))
+
+        return st.tuples(
+            types if dom is None else st.just(dom),
+            types if cod is None else st.just(cod)).flatmap(functions)
 
     def trace(self, n=1, left=False):
         """
