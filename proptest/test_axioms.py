@@ -32,11 +32,18 @@ def axiom_parameters():
                 id=f"{factory_name(category)}.{axiom.name}")
 
 
+@pytest.mark.cell
 @pytest.mark.parametrize("axiom", axiom_parameters())
 @given(data=st.data())
-def test_axiom(axiom, data):
-    """ Check an axiom of a category against generated arguments. """
+def test_axiom(axiom, drawn, data):
+    """
+    Check an axiom of a category against generated arguments, recording the
+    distinct terms it was checked on: a cell whose strategy draws the same
+    handful however long the search runs is green about those terms rather
+    than about the law, see :mod:`proptest.report`.
+    """
     args = data.draw(axiom.strategy(), label=axiom.name)
+    drawn.add(repr(args))
     verdict = axiom(*args)
     note(verdict)
     assert verdict
