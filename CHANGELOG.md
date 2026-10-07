@@ -618,6 +618,33 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- Sixteen boxes of `discopy.quantum.gates` come back from their tree.
+  `cat.Box.from_tree` rebuilds a box as
+  `cls(name=, dom=, cod=, data=, is_dagger=)`, so every subclass whose
+  `__init__` takes something else raised instead: `Controlled` (hence `CX`,
+  `CZ`), `CRz`, `CU1`, `Scalar`, `MixedScalar`, `Sqrt`, `Ket`, `Bra`, `Copy`,
+  `Match`, `Digits`, and — not named by the issue, found by round-tripping
+  every box the module exposes rather than the ten it listed — `Discard`,
+  `MixedState`, `Measure` and `Encode`. For six of them the tree did not hold
+  what the constructor reads, so those get a `to_tree` as well as a
+  `from_tree`: `Controlled` writes the gate it controls and its `distance`,
+  `Scalar` its `is_mixed`, `Digits` its digits and their dimension, `Measure`
+  and `Encode` their two flags each. A subclass reads back through
+  `Controlled` itself rather than through `cls`, since `CRz` takes the phase
+  of the rotation it controls where `Controlled` takes the gate, and
+  `Controlled.__eq__` compares the gate and the distance rather than the
+  class, so the two are equal. `Discard` and `MixedState` need no `to_tree`:
+  their one argument is the boundary the tree already carries.
+  `Ket`/`Bra` are written as [#664](https://github.com/discopy/discopy/pull/664)
+  writes them, which fixes those two locally, so the two heads agree rather
+  than collide. This is what keeps the `serialisation` cell of the property
+  matrix honest for the quantum categories
+  ([#780](https://github.com/discopy/discopy/issues/780)). The same defect
+  reaches beyond this module — `markov.Copy`/`Merge`/`Discard`,
+  `frobenius.Spider`, `traced.Trace`, `zx.Scalar`/`Spider`, `grammar.cfg.Id`
+  and `grammar.categorial.Constant` all raise the same way — which is a
+  maintainer's call on one mechanism against another two dozen pairs, measured
+  and reported on #780 rather than folded in here.
 - `Matrix.trace` reads its `left` flag: a left trace is the right trace
   of the matrix conjugated by swaps, where it traced the last `n`
   dimensions whatever was asked. `Tensor.to_quimb` passes its `dtype` to
