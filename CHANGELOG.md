@@ -20,8 +20,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   the goal, failing exactly when the net is not correct, so that two linear
   terms have the same net if and only if they are equal up to beta and eta.
   `Sequent.decode` takes the linking of maximum score, block by block with
-  `hungarian`, an assignment solver in numpy
-  ([#371](https://github.com/discopy/discopy/issues/371)).
+  `hungarian`, an assignment solver in numpy.
 - `grammar.neural`, a parser into proof nets with PyTorch, over the states
   of any encoder: a constructive `Tagger` writing the type of each word in
   the Polish notation of a `Signature`, only ever writing what can be
