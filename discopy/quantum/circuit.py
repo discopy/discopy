@@ -228,7 +228,7 @@ class Circuit(tensor.Diagram[complex]):
         return circuit
 
     def eval(self, *others, backend=None, mixed=False,
-             contractor=None, **params):
+             contractor=None, contract=None, **params):
         """
         Evaluate a circuit on a backend, or simulate it with numpy.
 
@@ -245,6 +245,9 @@ class Circuit(tensor.Diagram[complex]):
         contractor : callable, optional
             Use :class:`tensornetwork` contraction
             instead of discopy's basic eval feature.
+        contract : str, optional
+            The contraction engine, either ``"einsum"``, ``"opt_einsum"``
+            or ``"quimb"``, see :meth:`discopy.tensor.Functor.contract`.
         params : kwargs, optional
             Get passed to Circuit.get_counts.
 
@@ -295,6 +298,10 @@ class Circuit(tensor.Diagram[complex]):
         """
         from discopy.quantum import channel
         if contractor is not None:
+            if contract is not None:
+                raise ValueError(
+                    "Provide either a tensornetwork contractor "
+                    "or a contraction engine, not both.")
             array = contractor(*self.to_tn(mixed=mixed)).tensor
             if self.is_mixed or mixed:
                 f = channel.Functor({}, {}, dom=Circuit)
@@ -303,20 +310,21 @@ class Circuit(tensor.Diagram[complex]):
                 lambda x: x.inside[0].dim, {},
                 dtype=complex, dom=Circuit)
             return Tensor[complex](array, f(self.dom), f(self.cod))
-
-        from discopy.quantum import channel
         if backend is None:
             if others:
-                return [circuit.eval(mixed=mixed, **params)
-                        for circuit in (self, ) + others]
+                return [
+                    circuit.eval(mixed=mixed, contract=contract, **params)
+                    for circuit in (self, ) + others]
             if mixed or self.is_mixed:
                 return channel.Functor(
-                    {}, {}, dom=Circuit, dtype=complex)(self)
+                    {}, {}, dom=Circuit, dtype=complex,
+                    contract=contract)(self)
             return tensor.Functor(
                 lambda x: x.inside[0].dim,
                 lambda f: f.array,
                 dom=Circuit,
-                dtype=complex)(self)
+                dtype=complex,
+                contract=contract)(self)
         circuits = [circuit.to_tk() for circuit in (self, ) + others]
         results, counts = [], circuits[0].get_counts(
             *circuits[1:], backend=backend, **params)
