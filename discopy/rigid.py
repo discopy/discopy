@@ -659,7 +659,11 @@ class Box(biclosed.Box, Diagram):
     >>> assert f.l.z == -1 and f.z == 0 and f.r.z == 1
     >>> assert f.r.l == f == f.l.r
     >>> assert f.l.l != f != f.r.r
+    >>> from discopy.utils import dumps, loads
+    >>> assert loads(dumps(f.r)) == f.r
     """
+    z = 0
+    serialised_attrs = cat.Box.serialised_attrs + ('z', )
 
     def __setstate__(self, state):
         if '_z' in state:  # Backward compatibility
@@ -674,12 +678,6 @@ class Box(biclosed.Box, Diagram):
     def __str__(self):
         return cat.Box.__str__(self) if not self.z\
             else str(self.r) + '.l' if self.z < 0 else str(self.l) + '.r'
-
-    def __repr__(self):
-        if self.is_dagger:
-            return biclosed.Box.__repr__(self)
-        return biclosed.Box.__repr__(self)[:-1] + (
-            f', z={self.z})' if self.z else ')')
 
     def setoid(self):
         """
