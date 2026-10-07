@@ -9,6 +9,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `discopy.python.multiplicative.Function` joins the property matrix,
+  with a `strategy` generating functions that select an argument or
+  return a small constant, compared extensionally through curried types.
+  The enrolment surfaced no new bugs: every inherited `ClosedCategory`
+  axiom is green. `transparency`, `pickling` and `serialisation` are
+  declared inapplicable: a python function is a callable, so its `inside`
+  reprs as an address rather than an expression, pickles only when the
+  interpreter can name it, and has no tree.
 - `discopy.cmap.CMap` and `discopy.hypergraph.Hypergraph` grow a
   `strategy` classmethod, drawing through their associated diagram
   category and adding closed components (loops, isolated spiders) beyond
