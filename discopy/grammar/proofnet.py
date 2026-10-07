@@ -252,13 +252,13 @@ class ProofNet:
             (int(negative), int(positive))
             for negative, positive in self.links)))
         ports_ = self.sequent.ports
+        if sorted(sum(self.links, ())) != list(range(len(ports_))):
+            raise AxiomError("Every port must be linked exactly once.")
         for negative, positive in self.links:
             if ports_[negative][1] or not ports_[positive][1]\
                     or ports_[negative][0] != ports_[positive][0]:
                 raise AxiomError(
                     f"Cannot link port {negative} to port {positive}.")
-        if sorted(sum(self.links, ())) != list(range(len(ports_))):
-            raise AxiomError("Every port must be linked exactly once.")
 
     @classmethod
     def from_term(cls, term: Term, words=None) -> ProofNet:
