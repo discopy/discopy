@@ -2,6 +2,6 @@
 
 Stacked on #798 (`grammar.proofnet` and `grammar.neural`).
 
-- [WIP] @session_01SRPjfa1mCGgEnfpQuTsP3F-2026-10-07 09:40 `docs/notebooks/parsing-arithmetic.md`: formulae as terms, the two readings of `a + b * c` as two linkings of one sequent, gold nets by precedence climbing, a contextual encoder with `Parser`, training, held-out accuracy and longer formulae
-- [ ] the notebook in the docs toctree, CHANGELOG
-- [ ] `export_notebooks.py --check` runs it, under a minute on CPU
+- [x] `docs/notebooks/parsing-arithmetic.md`: formulae as terms, the two readings of `a + b * c` as two linkings of one sequent, gold nets by precedence climbing, a contextual encoder with `Parser`, training, held-out accuracy and longer formulae
+- [x] the notebook in the docs toctree, CHANGELOG
+- [x] `export_notebooks.py --check` runs it, under a minute on CPU
