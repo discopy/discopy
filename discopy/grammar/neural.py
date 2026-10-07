@@ -83,8 +83,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import torch
-from torch import nn
+import torch  # pylint: disable=import-error  # torch is an extra
+from torch import nn  # pylint: disable=import-error  # torch is an extra
 
 from discopy.grammar.abstract import Ty
 from discopy.grammar.proofnet import Sequent, ProofNet, ports
