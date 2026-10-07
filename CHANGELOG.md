@@ -19,7 +19,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   term and `ProofNet.to_term` reads its beta-normal eta-long term back from
   the goal, failing exactly when the net is not correct, so that two linear
   terms have the same net if and only if they are equal up to beta and eta.
-  `Sequent.decode` takes the linking of maximum score, block by block with
+  Equal words are told apart by order only: `from_term` gives each
+  occurrence of a constant the first equal word no earlier one took, so
+  words whose links matter, e.g. the two `the` of a sentence, should be
+  distinct constants, with their position as `data`. `Sequent.decode` takes the linking of maximum score, block by block with
   `hungarian`, an assignment solver in numpy.
 - `grammar.neural`, a parser into proof nets with PyTorch, over the states
   of any encoder: a constructive `Tagger` writing the type of each word in
