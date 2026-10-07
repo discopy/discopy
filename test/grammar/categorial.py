@@ -301,3 +301,7 @@ def test_tree2diagram():
         >> Box("custom", Ty("NP"), Ty("S"))
     assert tree2diagram({"word": "word", "cat": "NP"}, dom=Ty("D"))\
         == Word("word", Ty("NP"), dom=Ty("D"))
+
+
+def test_functor_factory():
+    assert Functor.ar is Functor
