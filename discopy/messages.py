@@ -34,3 +34,5 @@ NOT_RIGID = "{} has no cups or caps for the wiring of this map."
 NOT_TRACED = "{} has no traces for the cycles of this map."
 NOT_SYMMETRIC = "{} has no swaps to downgrade this map."
 NOT_ACYCLIC = "{} has a directed cycle, its boxes cannot be ordered."
+NO_SUCH_TYPE = "No type named {!r} in builtins or numpy, so the name of the "\
+               "class it parameterises cannot be resolved."

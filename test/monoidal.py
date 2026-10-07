@@ -170,6 +170,13 @@ def test_Nat_to_tree():
     assert Nat.from_tree(Nat(0).to_tree()) == Nat(0)
 
 
+def test_Dim_to_tree():
+    assert Dim(2, 3).to_tree() == {
+        'factory': 'monoidal.Dim', 'inside': [2, 3]}
+    for dim in (Dim(1), Dim(2), Dim(2, 3, 5)):
+        assert from_tree(dim.to_tree()) == dim
+
+
 def test_Nat_str():
     assert str(Nat(2 * 3 * 7)) == "Nat(42)"
 

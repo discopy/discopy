@@ -618,6 +618,36 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- The `tensor` and `matrix` categories round-trip through JSON, where
+  neither did and `tensor` could not even be written. Four defects, of
+  which the issue named two and measuring found the other two:
+  `monoidal.Dim.to_tree` inherited `Ty`'s, which maps `to_tree` over
+  `inside` — and a dimension's `inside` is a tuple of integers, so
+  `dumps` raised `AttributeError` on every `Dim` other than the unit and
+  no tensor diagram of any real dimension was serialisable at all;
+  `Box.to_tree` wrote `factory_name(type(self))`, which for a
+  `NamedGeneric` is the *subscripted* class — `tensor.Box[float64]` —
+  where the module only has `Box`, so `dumps` succeeded and `loads` never
+  could; `matrix.Matrix` had no `to_tree` at all, so `dumps` raised on
+  one; and `abc.Nat`, the objects of `Matrix`, had none either. A `Dim`
+  now serialises its integers the way `Nat` serialises its number, the
+  subscript resolves on the way back through the new `utils.from_name`
+  rather than being written differently — so a tree written by today's
+  `dumps`, which is where the dtype already is, reads back, and nothing
+  about the format or any `repr` moves — and `Matrix` gains the
+  `to_tree`/`from_tree` pair that `tensor.Tensor` inherits. The dtype has
+  to travel: `Matrix[float]` and `Matrix[int64]` are not equal matrices
+  and `Box[complex]` is not `Box[float64]`, so re-inferring it from the
+  array would give back something else. `utils.from_name` and its two
+  subroutines `class_from_path` and `split_parameters` are the inverse of
+  `factory_name` on the names that reach a tree: a dotted path inside
+  `discopy`, subscripted by parameters that are names in their own right,
+  looked up in `builtins` and then in `numpy` since the parameters that
+  reach a tree are data types — a dtype outside those two, e.g. sympy's
+  `Expr`, raises rather than guessing, and its arrays are not
+  JSON-serialisable anyway. `abc.Nat` carries the pair that
+  `monoidal.Nat` used to repeat
+  ([#781](https://github.com/discopy/discopy/issues/781)).
 - `Matrix.trace` reads its `left` flag: a left trace is the right trace
   of the matrix conjugated by swaps, where it traced the last `n`
   dimensions whatever was asked. `Tensor.to_quimb` passes its `dtype` to
