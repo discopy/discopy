@@ -135,6 +135,7 @@ def test_tensor_swap():
     g = Tensor(list(range(9)), Dim(3), Dim(3))
     swap = Tensor.swap(Dim(2), Dim(3))
     assert f @ g >> swap == swap >> g @ f
+    assert Tensor.braid(Dim(2), Dim(3)) == swap
 
 
 def test_tensor_spiders():
