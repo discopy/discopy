@@ -23,12 +23,20 @@ from collections.abc import Sequence
 
 from dataclasses import dataclass
 
-from discopy import messages
-from discopy.abc import MonoidalCategory, PROP, Nat
+from discopy import abc, messages
+from discopy.abc import Nat, PROP, SymmetricCategory
+from discopy.axioms import Testable
+
+WRONG_SWAP = \
+    "``Function.swap`` returns the inverse permutation, see #657; the "\
+    "law would only hold where every swap has equal halves, a joint "\
+    "constraint that per-argument generation cannot state."
+
+NO_DAGGER = "Only a permutation has a dagger."
 
 
 @dataclass
-class Function(MonoidalCategory, Sequence):
+class Function(SymmetricCategory, Sequence, Testable["Function"]):
     """
     A function between finite sets encoded as a Python list.
 
@@ -55,6 +63,59 @@ class Function(MonoidalCategory, Sequence):
     cod: Nat
 
     ob = Nat
+
+    @classmethod
+    def generator_strategy(
+            cls, *, dom=None, cod=None, max_size=400):
+        """Generate finite functions with optional exact boundaries."""
+        from hypothesis import strategies as st
+
+        @st.composite
+        def functions(sample):
+            source = sample(st.integers(
+                min_value=0, max_value=max_size)) if dom is None else int(dom)
+            target = sample(st.integers(
+                min_value=0,
+                max_value=0 if source == 0 else max_size))\
+                if cod is None else int(cod)
+            if source == 0 and target:
+                return sample(st.nothing())
+            inside = sample(st.lists(
+                st.integers(min_value=0, max_value=max(0, source - 1)),
+                min_size=target, max_size=target)) if target else []
+            return cls(inside, source, target)
+
+        return functions()
+
+    @classmethod
+    def strategy(
+            cls, *, min_leaves=None, max_leaves=10, max_size=400,
+            dom=None, cod=None):
+        """Generate finite functions recursively under tensor and compose."""
+        from hypothesis import strategies as st
+
+        if dom is not None or cod is not None:
+            return cls.generator_strategy(
+                dom=dom, cod=cod, max_size=max_size)
+        objects = cls.ob.strategy(max_size=max_size)
+        atoms = st.one_of(
+            objects.map(cls.id),
+            cls.generator_strategy(max_size=max_size))
+
+        def extend(children):
+            compositions = children.flatmap(
+                lambda left: cls.generator_strategy(
+                    dom=left.cod, max_size=max_size).map(
+                        lambda right: left >> right))
+            tensors = st.tuples(children, children).map(
+                lambda pair: pair[0] @ pair[1])
+            return st.booleans().flatmap(
+                lambda take_tensor: tensors if take_tensor
+                else compositions)
+
+        return st.recursive(
+            atoms, extend,
+            min_leaves=min_leaves, max_leaves=max_leaves)
 
     def __post_init__(self):
         self.dom = self.dom if isinstance(self.dom, Nat) else Nat(self.dom)
@@ -115,6 +176,25 @@ class Function(MonoidalCategory, Sequence):
         k = int(x)
         return Function([i % k for i in range(n * k)], k, n * k)
 
+    braid_naturality = abc.BraidedCategory.braid_naturality.failing(
+        WRONG_SWAP)
+
+    hexagon_left = abc.BraidedCategory.hexagon_left.failing(WRONG_SWAP)
+
+    hexagon_right = abc.BraidedCategory.hexagon_right.failing(WRONG_SWAP)
+
+    dagger_involution = abc.Category.dagger_involution.inapplicable(
+        NO_DAGGER)
+
+    dagger_contravariance = abc.Category.dagger_contravariance.inapplicable(
+        NO_DAGGER)
+
+    dagger_monoidality = abc.MonoidalCategory.dagger_monoidality.inapplicable(
+        NO_DAGGER)
+
+    serialisation = Testable.serialisation.inapplicable(
+        "A finite function is a list of integers, not a tree.")
+
 
 type Cycle = Iterable[int]
 type Cycles = Iterable[Cycle]
@@ -135,6 +215,12 @@ class Permutation(Function, PROP):
     >>> Permutation((1, 0)).is_fixpoint_free_involution()
     True
     """
+    dagger_involution = abc.Category.dagger_involution
+
+    dagger_contravariance = abc.Category.dagger_contravariance
+
+    dagger_monoidality = abc.MonoidalCategory.dagger_monoidality
+
     @classmethod
     def strategy(
             cls, *, max_size=10, dom=None, cod=None):
@@ -348,3 +434,9 @@ class Permutation(Function, PROP):
         """ Whether this is a product of disjoint 2-cycles. """
         return all(self[i] != i and self[self[i]] == i
                    for i in range(len(self)))
+
+    braid_naturality = abc.BraidedCategory.braid_naturality
+
+    hexagon_left = abc.BraidedCategory.hexagon_left
+
+    hexagon_right = abc.BraidedCategory.hexagon_right

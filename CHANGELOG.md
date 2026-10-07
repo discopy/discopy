@@ -9,6 +9,23 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `discopy.python.finset.Function` and `Permutation` join the property
+  matrix, with a recursive `strategy` generating finite functions under
+  tensor and composition. One open bug is declared in the matrix rather
+  than fixed: `finset.Function.swap` returns the inverse permutation
+  ([#657](https://github.com/discopy/discopy/issues/657)), correct only
+  where both halves have equal length — a joint constraint per-argument
+  generation cannot state — so `braid_naturality`, `hexagon_left` and
+  `hexagon_right` are declared broken and recorded in the counterexample
+  ledger. `serialisation` is declared inapplicable — a finite function is
+  a list of integers rather than a tree, so it has no `to_tree` — while
+  `transparency` and `pickling` hold, the list being data. `abc.Nat` is a
+  `Testable` with a `strategy` of its own, so that a category whose objects
+  are `Nat` quantifies over them like any other: `finset.Function.ob` is
+  `Nat` ([#709](https://github.com/discopy/discopy/issues/709)) and the
+  matrix generates the objects of a category from its `ob`, which
+  `axioms.Natural` was standing in for
+  ([#758](https://github.com/discopy/discopy/issues/758)).
 - `discopy.cmap.CMap` and `discopy.hypergraph.Hypergraph` grow a
   `strategy` classmethod, drawing through their associated diagram
   category and adding closed components (loops, isolated spiders) beyond
