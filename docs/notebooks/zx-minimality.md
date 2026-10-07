@@ -676,9 +676,12 @@ for _k in (3, 4):
 mo.md("  \n".join(generalisation_report))
 ```
 
-So the countermodels of this shape are classified: they are the admissible
-perturbations modulo the trivial ones, a space of dimension $0, 0, 1, 12$
-on $1, 2, 3, 4$ qubits. In particular:
+So the admissible perturbations modulo the trivial ones form a space of
+dimension $0, 0, 1, 12$ on $1, 2, 3, 4$ qubits, and on up to three qubits
+these are exactly the countermodels of this shape, every rule having been
+checked on its full instance family. On four qubits the rules were only
+checked on their smaller instances, so the twelve dimensions there are
+candidate countermodels rather than a classification. In particular:
 
 * **three qubits is the least possible size** for a countermodel of the
   paper's shape, and
