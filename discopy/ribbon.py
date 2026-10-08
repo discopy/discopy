@@ -81,7 +81,8 @@ from __future__ import annotations
 from discopy import rigid, pivotal, balanced
 from discopy.abc import RibbonCategory
 from discopy.cat import factory
-from discopy.pivotal import Ty, Nat  # noqa: F401
+from discopy.pivotal import (  # noqa: F401  pylint: disable=unused-import
+    Ty, Nat)
 
 
 @factory

@@ -60,7 +60,8 @@ from discopy import abc, cmap, hypergraph, ribbon, rigid, symmetric
 from discopy.abc import CompactCategory
 from discopy.cat import factory
 from discopy.utils import deprecated_alias
-from discopy.pivotal import Wire, Ty  # noqa: F401
+from discopy.pivotal import (  # noqa: F401  pylint: disable=unused-import
+    Wire, Ty)
 
 
 class Layer(symmetric.Layer, rigid.Layer):

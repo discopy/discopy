@@ -128,7 +128,7 @@ from __future__ import annotations
 from discopy import cmap, hypergraph, monoidal
 from discopy.abc import TracedCategory
 from discopy.cat import factory
-from discopy.monoidal import Ty  # noqa: F401
+from discopy.monoidal import Ty  # noqa: F401  pylint: disable=unused-import
 from discopy.utils import (
     factory_name,
     from_tree,

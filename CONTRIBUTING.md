@@ -56,11 +56,22 @@ if you want to run the full test suite involving all extra dependencies.
 ```shell
 uv sync --dev --group all
 uv run pflake8 discopy
+uv run pylint discopy
 uv run coverage run -m pytest
 uv run coverage report -m
 ```
 
 Without the extras installed, run `uv run pytest --skip-extra` to skip what needs them.
+
+`pylint` fails on any unused import, variable or argument, and on a score below the
+`fail-under` of `.pylintrc`, which is the score of `main` when it was last raised: fix the
+finding, or disable the message on that line with the reason, and raise `fail-under` to the
+new score when your change lifts it, so that the score never goes down. A law stated with
+`@axiom` is read as the classmethod it is by `.github/scripts/pylint_axioms.py`, the plugin
+`.pylintrc` loads, which also declares the `factory` members a `NamedGeneric` subscript sets and
+lets `hypothesis.strategies` be imported inside a method, where a strategy is built, so that the
+package never imports it; a category of messages the code is not going to follow is disabled
+there with its reason, as `cyclic-import` is: the package imports every module.
 
 ## Run the property tests
 
@@ -195,6 +206,7 @@ Then run:
 
 ```shell
 pflake8 discopy
+pylint discopy
 coverage run -m pytest
 coverage report -m
 ```
