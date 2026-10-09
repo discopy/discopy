@@ -47,3 +47,5 @@ def test_Sum():
     f = Box('f', 'x', 'x')
     assert Sum([f]) == f
     assert isinstance(f + f, Sum) and (f + f).terms == (f, f)
+    image = Functor(lambda x: x, {f: f + f})(f)
+    assert isinstance(image, Sum) and image.terms == (f, f)
