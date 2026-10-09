@@ -49,14 +49,6 @@ def test_pack_to_tree():
 
 
 def test_term_to_tree():
-    """
-    ``Tuple``, ``Projection`` and ``Let`` round-trip through their own
-    ``to_tree``/``from_tree`` for terms with no ``Variable`` or ``Constant``
-    leaf: those two inherit ``Box.from_tree`` from ``biclosed`` and its
-    ``name``/``dom``/``cod`` kwargs don't match either of their
-    constructors, a pre-existing gap this test does not cover, see
-    https://github.com/discopy/discopy/pull/489#discussion_r3896298502.
-    """
     empty = Tuple()
     assert loads(dumps(empty)) == empty
     nested = Tuple(Tuple(), Tuple())

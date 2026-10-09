@@ -458,12 +458,14 @@ class Functor(biclosed.Functor, markov.Functor):
     dom = cod = Diagram
 
     def __call__(self, other):
-        if isinstance(other, Product) and self.cod is not Drawing:
+        if self.cod is Drawing:
+            return super().__call__(other)
+        if isinstance(other, Product):
             if hasattr(self.cod.ob, "product"):
                 return self.cod.ob(self.cod.ob.product_factory(
                     *map(self, other.factors)))
             return self(self.dom.ob().tensor(*other.factors))
-        if isinstance(other, (Pack, Unpack)) and self.cod is not Drawing:
+        if isinstance(other, (Pack, Unpack)):
             typ = other.cod if isinstance(other, Pack) else other.dom
             if not hasattr(self.cod.ob, "product"):
                 return self.cod.id(self(typ))
