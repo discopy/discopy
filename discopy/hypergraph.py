@@ -61,6 +61,7 @@ from discopy.utils import (
     factory_name,
     assert_isinstance,
     pushout,
+    UnionFind,
     unbiased,
     AxiomError,
     assert_isatomic,
@@ -705,27 +706,15 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         """
         n_boxes = len(self.boxes)
         n_spiders_and_boxes = self.n_spiders + n_boxes
-        parent = list(range(n_spiders_and_boxes + 1))
-
-        def find(i):
-            while parent[i] != i:
-                parent[i] = parent[parent[i]]
-                i = parent[i]
-            return i
-
-        def union(i, j):
-            i, j = find(i), find(j)
-            if i != j:
-                parent[i] = j
-
+        union_find = UnionFind(range(n_spiders_and_boxes + 1))
         for i, (box_dom, box_cod) in enumerate(self.box_wires):
             for spider in box_dom + box_cod:
-                union(self.n_spiders + i, spider)
+                union_find.union(self.n_spiders + i, spider)
         for spider in self.dom_wires:
-            union(n_spiders_and_boxes, spider)
+            union_find.union(n_spiders_and_boxes, spider)
         for spider in self.cod_wires:
-            union(n_spiders_and_boxes, spider)
-        return len({find(i) for i in range(n_spiders_and_boxes + 1)}) == 1
+            union_find.union(n_spiders_and_boxes, spider)
+        return len(set(union_find)) == 1
 
     @cached_property
     def is_fast_eligible(self) -> bool:
