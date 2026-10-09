@@ -892,6 +892,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Project
 
+- `fail-under` rises from 8.75 to 8.76, the score once `closed` gains its
+  products and let statements
+  ([#489](https://github.com/discopy/discopy/pull/489)).
 - pylint reads a law stated with `@axiom` as the classmethod it is,
   through `.github/scripts/pylint_axioms.py`, a plugin `.pylintrc` loads
   and `.github/tests` checks: the decorator returns a descriptor binding

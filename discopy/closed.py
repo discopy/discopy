@@ -299,11 +299,11 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
     def box_to_term(cls, box, args):
         "The application of a box as a constant to variables for its inputs."
         if not box.dom:
-            return cls.ob.constant_factory(box.name, box.cod)
+            return box.cod(box.name)
         factors = [box.dom[i:i + 1] for i in range(len(box.dom))]
         exponent = box.dom if len(factors) == 1\
             else factors[0].product(*factors[1:])
-        constant = cls.ob.constant_factory(box.name, exponent >> box.cod)
+        constant = (exponent >> box.cod)(box.name)
         return constant(args[0] if len(args) == 1 else Tuple(*args))
 
 
@@ -843,6 +843,7 @@ class Tuple(TermBase):
 
     @property
     def constants(self):
+        "The constants of the term, in order of occurrence."
         return sum([term.constants for term in self.terms], [])
 
     def to_tree(self):
@@ -907,6 +908,7 @@ class Projection(TermBase):
 
     @property
     def constants(self):
+        "The constants of the term, in order of occurrence."
         return self.arg.constants
 
     def to_tree(self):
@@ -1029,6 +1031,7 @@ class Let(TermBase):
 
     @property
     def constants(self):
+        "The constants of the term, in order of occurrence."
         return self.expression.constants + self.body.constants
 
     def to_tree(self):
