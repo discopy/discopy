@@ -13,4 +13,4 @@ Review round on [#730](https://github.com/discopy/discopy/pull/730):
       `EHypergraph.section`, which fail the `lint` job
 - [x] Merge `main` into the branch, resolving `CHANGELOG.md`
 - [x] `pflake8`, `pylint`, `pytest`
-- [WIP] @c0de730-2026-10-09 10:30 Reply to and resolve the outdated review threads of the last round
+- [x] Reply to and resolve the outdated review threads of the last round
