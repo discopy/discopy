@@ -11,6 +11,6 @@ Review round on [#730](https://github.com/discopy/discopy/pull/730):
 - [x] Restore the "setoid hell" warning in the docstring of `Arrow.setoid`
 - [x] Drop the unused loop variables of `EHypergraph.costs` and
       `EHypergraph.section`, which fail the `lint` job
-- [WIP] @c0de730-2026-10-09 10:15 Merge `main` into the branch, resolving `CHANGELOG.md`
-- [ ] `pflake8`, `pylint`, `pytest`
+- [x] Merge `main` into the branch, resolving `CHANGELOG.md`
+- [x] `pflake8`, `pylint`, `pytest`
 - [ ] Reply to and resolve the outdated review threads of the last round
