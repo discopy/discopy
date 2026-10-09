@@ -734,7 +734,7 @@ class EHypergraph(MonoidalCategory, NamedGeneric['category'], Setoid):
         chosen = {}
         for _ in range(len(self.rows) + 1):
             stable = True
-            for gid, box, src, tgt in self.scan():
+            for gid, _, src, tgt in self.scan():
                 if any(find(wire) not in cost for wire in src):
                     continue
                 weight = 1 + sum(cost[find(wire)] for wire in src)
@@ -744,7 +744,7 @@ class EHypergraph(MonoidalCategory, NamedGeneric['category'], Setoid):
                         stable = False
             if stable:
                 break
-        for gid, box, src, tgt in self.scan():
+        for gid, _, _, tgt in self.scan():
             for vertex in map(find, tgt):
                 chosen.setdefault(vertex, gid)
         return cost, chosen
@@ -758,7 +758,7 @@ class EHypergraph(MonoidalCategory, NamedGeneric['category'], Setoid):
             boundary : The wires the section has to produce.
         """
         chosen, keep, scan = self.costs()[1], set(), list(boundary)
-        for gid, box, src, tgt in self.scan():
+        for gid, _, src, tgt in self.scan():
             if not tgt:
                 keep.add(gid)
                 scan += list(src)
