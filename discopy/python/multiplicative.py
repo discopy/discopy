@@ -92,8 +92,8 @@ class Function(function.Function, ClosedCategory):
         The parallel composition of two functions, called with :code:`@`.
 
         Parameters:
-            other : The other function to compose in sequence.
-            others : Any further functions to compose in sequence.
+            other : The other function to compose in parallel.
+            others : Any further functions to compose in parallel.
         """
         if others:
             return self.tensor(other).tensor(*others)
