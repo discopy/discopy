@@ -22,6 +22,7 @@ Summary
     Tuple
     Projection
     Let
+    Substitution
     Diagram
     Box
     Eval
@@ -66,14 +67,16 @@ Axioms
 
 from __future__ import annotations
 from dataclasses import dataclass
+from functools import reduce
 from inspect import signature
-from typing import Callable, Dict, ClassVar
+from typing import Callable, Dict
 
-from discopy import cat, monoidal, biclosed, markov, cmap, hypergraph
+from discopy import monoidal, biclosed, markov, cmap, hypergraph, messages
 from discopy.abc import ClosedCategory
 from discopy.cat import factory
 from discopy.drawing import Drawing
-from discopy.utils import assert_isinstance, factory_name, from_tree
+from discopy.utils import (
+    AxiomError, assert_isinstance, factory_name, from_tree)
 
 
 @factory
@@ -117,6 +120,24 @@ class Ty(biclosed.Ty):
         "The factors of a product type, assumes ``self.is_product``."
         assert self.is_product
         return self.inside[0].factors
+
+    @classmethod
+    def from_biclosed(cls, old: biclosed.Ty) -> Ty:
+        """
+        Translate a biclosed type into a closed type, collapsing left and
+        right exponentials into a single exponential.
+
+        Parameters:
+            old : The biclosed type to translate.
+
+        Example
+        -------
+        >>> x, y = biclosed.Ty("x"), biclosed.Ty("y")
+        >>> assert Ty.from_biclosed(x << y) == Ty.from_biclosed(y >> x)
+        """
+        return biclosed.Functor(
+            ob_map=lambda x: cls(x.inside[0].name),
+            cod=cls.constant_factory.functor.cod)(old)
 
 
 class Exp(biclosed.Exp):
@@ -221,7 +242,8 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
                 return (box.arg.to_compact() >> Coeval(
                     box.cod, left=box.left)).trace(
                         len(box.cod.exponent), left=not box.left)
-            if isinstance(box, (Application, Abstraction)):
+            if isinstance(box, (
+                    Application, Abstraction, Tuple, Projection, Let)):
                 return box.eval(Functor.id(Diagram)).to_compact()
             return box
         result = self.id(self.dom)
@@ -255,15 +277,15 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
         >>> assert Diagram.swap(X, Y).to_term()\\
         ...     == Tuple(Variable("x1", Y), Variable("x0", X))
         """
-        hypergraph = Hypergraph.from_diagram(self)
-        if not hypergraph.is_causal:
+        graph = Hypergraph.from_diagram(self)
+        if not graph.is_causal:
             raise ValueError(f"Expected a causal diagram, got {self}")
         variables = [self.ob.variable_factory(f"x{i}", typ)
-                     for i, typ in enumerate(hypergraph.spider_types)]
-        outputs = [variables[i] for i in hypergraph.cod_wires]
+                     for i, typ in enumerate(graph.spider_types)]
+        outputs = [variables[i] for i in graph.cod_wires]
         result = outputs[0] if len(outputs) == 1 else Tuple(*outputs)
         for box, (dom_wires, cod_wires) in reversed(list(zip(
-                hypergraph.boxes, hypergraph.box_wires))):
+                graph.boxes, graph.box_wires))):
             expression = self.box_to_term(
                 box, [variables[i] for i in dom_wires])
             bound = [variables[i] for i in cod_wires]
@@ -300,7 +322,11 @@ class Coeval(biclosed.Coeval, Box):
 
 
 class Curry(biclosed.Curry, Box):
-    "The currying of a closed diagram."
+    "The currying of a closed diagram, linear when its argument is."
+
+    @property
+    def is_linear(self):
+        return self.arg.is_linear
 
 
 class Pack(Box):
@@ -382,7 +408,11 @@ class Swap(Permutation, markov.Swap, Box):
 
 
 class Trace(markov.Trace, Box):
-    "A trace in a closed category."
+    "A trace in a closed category, linear when its argument is."
+
+    @property
+    def is_linear(self):
+        return self.arg.is_linear
 
 
 class Copy(markov.Copy, Box):
@@ -397,13 +427,17 @@ class Discard(markov.Discard, Copy):
 
 class Sum(markov.Sum, biclosed.Sum, Box):
     """
-    A markov sum is a symmetric sum and a markov box.
+    A markov sum is a symmetric sum and a markov box,
+    linear when every term is.
 
     Parameters:
         terms (tuple[Diagram, ...]) : The terms of the formal sum.
         dom (Ty) : The domain of the formal sum.
         cod (Ty) : The codomain of the formal sum.
     """
+    @property
+    def is_linear(self):
+        return all(term.is_linear for term in self.terms)
 
 
 class Functor(biclosed.Functor, markov.Functor):
@@ -434,12 +468,9 @@ class Functor(biclosed.Functor, markov.Functor):
             if not hasattr(self.cod.ob, "product"):
                 return self.cod.id(self(typ))
             if hasattr(self.cod, "pack_factory"):
-                factory = self.cod.pack_factory if isinstance(other, Pack)\
+                box = self.cod.pack_factory if isinstance(other, Pack)\
                     else self.cod.unpack_factory
-                return factory(self(typ))
-        if isinstance(other, (
-                cat.Ob, biclosed.Eval, biclosed.Coeval, biclosed.Curry)):
-            return biclosed.Functor.__call__(self, other)
+                return box(self(typ))
         return super().__call__(other)
 
 
@@ -466,12 +497,128 @@ Id = Diagram.id
 
 class TermBase(Box, biclosed.TermBase):
     """
-    A term in the internal language of a closed category.
+    A term in the internal language of a closed category, i.e. a lambda term
+    which need not be linear: this module implements closed markov categories
+    by design, so a variable may be copied and discarded, i.e. occur any
+    number of times.
+
+    A term is evaluated in a context, a list of distinct variables containing
+    its free ones: the variables that do not occur in the term are discarded,
+    the others are permuted into the order of its :attr:`freevars`, see
+    :meth:`weaken`. The context is :attr:`freevars` itself by default.
+
+    Note
+    ----
+    Closed terms accept the ``left`` argument of their biclosed counterparts
+    and ignore it: a closed category has one exponential, so an application
+    ``x(f, left=True)`` is ``f(x)`` and an abstraction on the left is one on
+    the right.
+
+    >>> X, Y = Ty("X"), Ty("Y")
+    >>> f, x = (X >> Y)("f"), X("x")
+    >>> assert x(f, left=True) == f(x)
     """
     functor = Functor.id(Diagram)
 
-    def __call__(self, other):
-        return Application(self, other, left=False)
+    def __call__(self, other, left=False):
+        args = (other, self) if left else (self, other)
+        return self.cod.application_factory(*args)
+
+    def compose(self, *others: Term) -> Term:
+        """
+        The composition of terms of function types: ``t.compose(u)`` for
+        ``t : x >> y`` and ``u : y >> z`` is ``x(lambda v: u(t(v)))``, i.e.
+        ``t`` is applied first, in the order of ``t >> u``, which composes
+        the diagrams that terms also are and keeps its name.
+
+        Parameters:
+            others : Terms of function types, the exponent of each being
+                the base of the previous one.
+
+        Example
+        -------
+        >>> X, Y, Z = map(Ty, "XYZ")
+        >>> t, u = (X >> Y)("t"), (Y >> Z)("u")
+        >>> print(t.compose(u))
+        X(lambda x: u(t(x)))
+        """
+        if not others:
+            return self
+        terms = (self, ) + others
+        for term in terms:
+            if not term.cod.is_exp:
+                raise AxiomError(f"{term} is not of a function type.")
+        for before, after in zip(terms, others):
+            if before.cod.base != after.cod.exponent:
+                raise AxiomError(messages.NOT_COMPOSABLE.format(
+                    before, after, before.cod.base, after.cod.exponent))
+        var = self.cod.variable_factory.fresh(
+            "x", self.cod.exponent, *terms)
+        body = reduce(lambda argument, func: func(argument), terms, var)
+        return self.cod.abstraction_factory(var, body)
+
+    def weaken(self, functor: Functor, context=None) -> Diagram:
+        """
+        The structural morphism from the image of a context to that of the
+        free variables of the term: it discards the variables that do not
+        occur in the term and permutes the others into the order of
+        :attr:`freevars`.
+
+        Parameters:
+            functor : The functor to evaluate the types.
+            context : A list of distinct variables containing the free ones,
+                the free variables themselves by default.
+
+        Example
+        -------
+        >>> X, Y = Ty("X"), Ty("Y")
+        >>> x, y = Variable("x", X), Variable("y", Y)
+        >>> assert x.weaken(x.functor, [y, x])\\
+        ...     == Diagram.swap(Y, X) >> X @ Diagram.discard(Y)
+        """
+        context = self.freevars if context is None else list(context)
+        if context == self.freevars:
+            return functor.cod.id(functor(self.dom))
+        unused = [x for x in context if x not in self.freevars]
+        permutation = functor.cod.permutation(
+            [context.index(x) for x in self.freevars + unused],
+            [functor(x.cod) for x in context])
+        if not unused:
+            return permutation
+        discard = functor.cod.discard(functor(
+            self.ob().tensor(*[x.cod for x in unused])))
+        return permutation >> functor.cod.id(functor(self.dom)) @ discard
+
+    def share(self, functor: Functor, *contexts: list[Variable]) -> Diagram:
+        """
+        The structural morphism from the image of the free variables of the
+        term to that of the concatenation of ``contexts``, copying each
+        variable once for each of the contexts it is in, i.e. how the
+        subterms of a term share its free variables.
+
+        Parameters:
+            functor : The functor to evaluate the types.
+            contexts : Lists of distinct free variables, one per subterm,
+                each variable being in at least one of them.
+
+        Example
+        -------
+        >>> X, Y = Ty("X"), Ty("Y")
+        >>> x, y = Variable("x", X), Variable("y", Y)
+        >>> term = Tuple(x, y, x)
+        >>> assert term.share(term.functor, [x], [y], [x])\\
+        ...     == Diagram.copy(X) @ Y >> X @ Diagram.swap(X, Y)
+        """
+        counts = {x: sum(x in c for c in contexts) for x in self.freevars}
+        source = [(x, i) for x in self.freevars for i in range(counts[x])]
+        target = [(x, sum(x in c for c in contexts[:j]))
+                  for j, context in enumerate(contexts) for x in context]
+        copy = functor.cod.id(functor(self.ob())).tensor(*[
+            functor.cod.copy(functor(x.cod), counts[x]) if counts[x] > 1
+            else functor.cod.id(functor(x.cod)) for x in self.freevars])
+        return copy >> functor.cod.permutation(
+            [source.index(pair) for pair in target],
+            [functor(x.cod) for x, _ in source])
 
     def eval_unpacked(self, functor=None, context=None):
         """
@@ -481,9 +628,47 @@ class TermBase(Box, biclosed.TermBase):
         :class:`Unpack`.
         """
         functor = functor or self.functor
-        result = self.eval(functor=functor, context=context)
+        result = self.eval(functor, context)
         return result >> functor(Unpack(self.cod))\
             if self.cod.is_product else result
+
+    def occurrences(self, variable: Variable) -> int:
+        "The number of free occurrences of a variable in the term."
+        # pylint: disable=unused-argument  # a constant has no variable
+        return 0
+
+    def substitute(self, substitution: Substitution) -> Term:
+        "The term with the free variables of a substitution replaced."
+        # pylint: disable=unused-argument  # a constant has no variable
+        return self
+
+    @classmethod
+    def from_biclosed(cls, term: biclosed.Term) -> Term:
+        """
+        Translate a biclosed term into a closed term, dropping planarity by
+        collapsing left and right exponentials and applications.
+
+        Parameters:
+            term : The biclosed term to translate.
+
+        Note
+        ----
+        This method is inherited by :class:`Constant`, :class:`Variable`,
+        :class:`Application` and :class:`Abstraction`, i.e. every closed
+        :class:`Term`.
+
+        Example
+        -------
+        >>> X, Y = biclosed.Ty("X"), biclosed.Ty("Y")
+        >>> g, x = (Y << X)("g"), X("x")
+        >>> print(TermBase.from_biclosed(g(x)))
+        g(x)
+        """
+        functor = biclosed.Functor(
+            ob_map=lambda x: cls.ob(x.inside[0].name),
+            ar_map=lambda c: cls.ob.constant_factory(c.name, functor(c.cod)),
+            dom=biclosed.Diagram, cod=cls.functor.cod)
+        return functor(term)
 
 
 type Term = Constant | Variable | Application | Abstraction\
@@ -492,84 +677,107 @@ type Term = Constant | Variable | Application | Abstraction\
 
 class Constant(TermBase, biclosed.Constant):
     """
-    A constant term prints as its bare name, so that terms read like
-    textbook effectful lambda calculus and ``eval(str(term)) == term``
-    under the obvious variable naming convention, e.g.
-    ``query = (E >> E)("query")``.
+    A constant term, evaluated in a context by discarding it. It prints as
+    its bare name, so that terms read like textbook effectful lambda
+    calculus and ``eval(str(term)) == term`` under the obvious variable
+    naming convention, e.g. ``query = (E >> E)("query")``.
     """
     def __str__(self):
         return self.name
 
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
-        if not context:
-            return super().eval(functor)
-        return functor.cod.discard(functor(context.dom)) >> super().eval(
-            functor)
+        return self.weaken(functor, context)\
+            >> biclosed.Constant.eval(self, functor)
 
 
 class Variable(TermBase, biclosed.Variable):
+    "A variable, evaluated in a context by discarding the other variables."
     def eval(self, functor=None, context=None):
-        functor = functor or self.functor
-        if not context:
-            return functor.cod.id(functor(self.cod))
-        return functor.cod.tensor(*[
-            functor.cod.id(functor(x.cod)) if x == self
-            else functor.cod.discard(functor(x.cod))
-            for x in context.inside])
+        return self.weaken(functor or self.functor, context)
+
+    def occurrences(self, variable):
+        return int(self == variable)
+
+    def substitute(self, substitution):
+        return substitution.inside.get(self, self)
 
 
 class Application(TermBase, biclosed.Application):
+    """
+    The application ``func(args)`` of a term to another.
+
+    Attributes:
+        overlap : The variables free in both ``func`` and ``args``, which
+            :meth:`eval` copies.
+    """
+    def __init__(self, func: Term, args: Term, left: bool = False):
+        # pylint: disable=unused-argument  # a closed category is symmetric
+        biclosed.Application.__init__(self, func, args)
+
     def __check_dom__(self, func, args, left):
-        self.overlap = set(func.freevars).intersection(args.freevars)
+        self.overlap = [x for x in func.freevars if x in args.freevars]
         self.freevars = list(dict.fromkeys(func.freevars + args.freevars))
         return self.ob().tensor(*[x.cod for x in self.freevars])
 
+    @property
+    def is_linear(self):
+        return not self.overlap\
+            and self.func.is_linear and self.args.is_linear
+
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
-        base, exponent = self.func.cod.base, self.func.cod.exponent
-        evaluate = functor.cod.ev(functor(base), functor(exponent))
-        if context is None:
-            if not self.overlap:
-                func = self.func.eval(functor=functor)
-                args = self.args.eval(functor=functor)
-                return func @ args >> evaluate
-            context = Context(self.freevars)
-        if not self.func.freevars:
-            func = self.func.eval(functor=functor)
-            args = self.args.eval(functor=functor, context=context)
-            return func @ args >> evaluate
-        if not self.args.freevars:
-            func = self.func.eval(functor=functor, context=context)
-            args = self.args.eval(functor=functor)
-            return func @ args >> evaluate
-        func = self.func.eval(functor=functor, context=context)
-        args = self.args.eval(functor=functor, context=context)
-        return functor.cod.copy(functor(context.dom))\
-            >> func @ args >> evaluate
+        func, args = self.func, self.args
+        evaluate = functor.cod.ev(
+            functor(func.cod.base), functor(func.cod.exponent))
+        return self.weaken(functor, context)\
+            >> self.share(functor, func.freevars, args.freevars)\
+            >> func.eval(functor) @ args.eval(functor) >> evaluate
+
+    def occurrences(self, variable):
+        return self.func.occurrences(variable)\
+            + self.args.occurrences(variable)
+
+    def substitute(self, substitution):
+        return type(self)(
+            self.func.substitute(substitution),
+            self.args.substitute(substitution))
 
 
 class Abstraction(TermBase, biclosed.Abstraction):
+    """
+    The abstraction ``var.cod(lambda var: body)`` of a variable in a term,
+    which need not occur in it or may occur several times.
+    """
+    def __init__(self, var: Variable, body: Term, left: bool = False):
+        # pylint: disable=unused-argument  # a closed category is symmetric
+        biclosed.Abstraction.__init__(self, var, body)
+
     def __check_dom__(self):
         self.freevars = [x for x in self.body.freevars if x != self.var]
         return self.ob().tensor(*[x.cod for x in self.freevars])
 
+    @property
+    def is_linear(self):
+        return self.body.is_linear and self.body.occurrences(self.var) == 1
+
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
-        if self.left:
-            return type(self)(self.var, self.body).eval(functor, context)
-        if context:
-            new_context = Context([self.var] + context.inside)
-            body = self.body.eval(functor=functor, context=new_context)
-            return body.curry(left=False)
-        body = self.body.eval(functor=functor)
-        if self.var not in self.body.freevars:
-            discard = functor.cod.discard(functor(self.var.cod))
-            return (discard @ body.dom >> body).curry(left=False)
-        i, n = self.body.freevars.index(self.var), len(self.body.freevars)
-        p = [i] + [j for j in range(n) if j != i]
-        doms = [self.ob(wire) for wire in body.dom.inside]
-        return (body.permutation(p, doms).dagger() >> body).curry(left=False)
+        body = self.body.eval(functor, [self.var] + self.freevars)
+        return self.weaken(functor, context)\
+            >> body.curry(len(functor(self.var.cod)), left=False)
+
+    def occurrences(self, variable):
+        return 0 if variable == self.var else self.body.occurrences(variable)
+
+    def substitute(self, substitution):
+        inside = {key: value for key, value in substitution.inside.items()
+                  if key != self.var and key in self.body.freevars}
+        var, body = self.var, self.body
+        if any(var in value.freevars for value in inside.values()):
+            var = type(var).fresh(var.name, var.cod, body, *inside.values())
+            body = Substitution({self.var: var})(body)
+        return type(self)(var, Substitution(inside)(body))
 
 
 class Tuple(TermBase):
@@ -593,34 +801,41 @@ class Tuple(TermBase):
         for term in terms:
             assert_isinstance(term, TermBase)
         self.terms = terms
-        freevars = sum([term.freevars for term in terms], [])
-        self.freevars = list(dict.fromkeys(freevars))
-        self.overlap = len(freevars) != len(self.freevars)
+        self.freevars = list(dict.fromkeys(
+            sum([term.freevars for term in terms], [])))
         dom = self.ob().tensor(*[x.cod for x in self.freevars])
         cod = self.ob(self.ob.product_factory(*[t.cod for t in terms]))\
             if terms else self.ob()
         name = f"Tuple({', '.join(map(str, terms))})"
         super().__init__(name, dom, cod)
 
+    @property
+    def is_linear(self):
+        return all(term.is_linear for term in self.terms) and len(
+            self.freevars) == sum(len(term.freevars) for term in self.terms)
+
     def eval(self, functor=None, context=None, pack=True):
         functor = functor or self.functor
-        identity = functor.cod.id(functor(self.ob()))
-        splits = not self.overlap\
-            and (context is None or self.freevars == context.inside)
-        if splits:
-            result = identity.tensor(
-                *[t.eval(functor=functor) for t in self.terms])
-        else:
-            context = context or Context(self.freevars)
-            terms = [t.eval(functor=functor, context=context)
-                     for t in self.terms]
-            result = functor.cod.copy(functor(context.dom), len(terms))\
-                >> identity.tensor(*terms)
+        result = self.weaken(functor, context)\
+            >> self.share(functor, *[term.freevars for term in self.terms])\
+            >> functor.cod.id(functor(self.ob())).tensor(
+                *[term.eval(functor) for term in self.terms])
         return result >> functor(Pack(self.cod))\
             if pack and self.terms else result
 
     def eval_unpacked(self, functor=None, context=None):
-        return self.eval(functor=functor, context=context, pack=False)
+        return self.eval(functor, context, pack=False)
+
+    def occurrences(self, variable):
+        return sum(term.occurrences(variable) for term in self.terms)
+
+    def substitute(self, substitution):
+        return type(self)(*[
+            term.substitute(substitution) for term in self.terms])
+
+    def map(self, functor, context):
+        return type(self)(*[
+            functor.map_term(term, context) for term in self.terms])
 
     def __repr__(self):
         return factory_name(type(self))\
@@ -666,14 +881,26 @@ class Projection(TermBase):
         name = f"Projection({arg}, {index})"
         super().__init__(name, arg.dom, arg.cod.factors[index])
 
+    @property
+    def is_linear(self):
+        return self.arg.is_linear and len(self.arg.cod.factors) == 1
+
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
         discards = functor.cod.id(functor(self.ob())).tensor(*[
             functor.cod.id(functor(typ)) if i == self.index
             else functor.cod.discard(functor(typ))
             for i, typ in enumerate(self.arg.cod.factors)])
-        return self.arg.eval_unpacked(
-            functor=functor, context=context) >> discards
+        return self.arg.eval_unpacked(functor, context) >> discards
+
+    def occurrences(self, variable):
+        return self.arg.occurrences(variable)
+
+    def substitute(self, substitution):
+        return type(self)(self.arg.substitute(substitution), self.index)
+
+    def map(self, functor, context):
+        return type(self)(functor.map_term(self.arg, context), self.index)
 
     def __repr__(self):
         return factory_name(type(self)) + f"({self.arg!r}, {self.index!r})"
@@ -708,6 +935,15 @@ class Let(TermBase):
     :class:`Product` type or as the tensor of the variables' types. Bound
     variables may be discarded or copied by the body, see :func:`let` for
     the introspection helper that builds the statement from a function.
+
+    Example
+    -------
+    >>> X, Y = Ty("X"), Ty("Y")
+    >>> f, x, y = (X >> Y)("f"), Variable("x", X), Variable("y", Y)
+    >>> term = Let(f(x), (y, ), Tuple(y, y))
+    >>> print(term)
+    let(f(x), lambda y: Tuple(y, y))
+    >>> assert term.cod == Y * Y and not term.is_linear
     """
     def __init__(self, expression: Term, variables: tuple[Variable, ...],
                  body: Term):
@@ -737,37 +973,55 @@ class Let(TermBase):
             else f"let({expression}, lambda: {body})"
         super().__init__(name, dom, body.cod)
 
+    @property
+    def rest(self) -> list[Variable]:
+        "The free variables of the body that the statement does not bind."
+        return [x for x in self.freevars if x in self.body.freevars]
+
+    @property
+    def is_linear(self):
+        return self.expression.is_linear and self.body.is_linear\
+            and not set(self.expression.freevars).intersection(self.rest)\
+            and all(self.body.occurrences(x) == 1 for x in self.variables)
+
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
-        shared = set(self.expression.freevars).intersection(
-            self.body.freevars)
-        if context is None and not shared:
-            rest = [x for x in self.body.freevars
-                    if x not in self.variables]
-            expression = self.expression.eval_unpacked(functor=functor)
-            body = self.body.eval(functor=functor, context=Context(
-                list(self.variables) + rest))
-            identity = functor.cod.id(functor(
-                self.ob().tensor(*[x.cod for x in rest])))
-            return expression @ identity >> body
-        context = context or Context(self.freevars)
-        shadowed = set(self.variables).intersection(context.inside)
-        if shadowed:
-            raise ValueError(
-                f"{sorted(shadowed, key=str)} would shadow a variable of "
-                f"the enclosing context {context.inside}")
-        expression = self.expression.eval_unpacked(
-            functor=functor, context=context)
-        if not shared and all(x in self.expression.freevars
-                              for x in context.inside):
-            body = self.body.eval(
-                functor=functor, context=Context(list(self.variables)))
-            return expression >> body
-        body = self.body.eval(functor=functor, context=Context(
-            list(self.variables) + context.inside))
-        return functor.cod.copy(functor(context.dom))\
-            >> expression @ functor.cod.id(functor(context.dom))\
-            >> body
+        rest = functor.cod.id(functor(
+            self.ob().tensor(*[x.cod for x in self.rest])))
+        return self.weaken(functor, context)\
+            >> self.share(functor, self.expression.freevars, self.rest)\
+            >> self.expression.eval_unpacked(functor) @ rest\
+            >> self.body.eval(functor, list(self.variables) + self.rest)
+
+    def occurrences(self, variable):
+        return self.expression.occurrences(variable) + (
+            0 if variable in self.variables
+            else self.body.occurrences(variable))
+
+    def substitute(self, substitution):
+        inside = {key: value for key, value in substitution.inside.items()
+                  if key not in self.variables and key in self.body.freevars}
+        expression = self.expression.substitute(substitution)
+        variables, body = list(self.variables), self.body
+        for i, var in enumerate(variables):
+            if any(var in value.freevars for value in inside.values()):
+                variables[i] = type(var).fresh(
+                    var.name, var.cod, expression, body,
+                    *variables, *inside.values())
+                body = Substitution({var: variables[i]})(body)
+        return type(self)(
+            expression, tuple(variables), Substitution(inside)(body))
+
+    def map(self, functor, context):
+        expression = functor.map_term(self.expression, context)
+        context = {key: value for key, value in context.items()
+                   if key not in self.variables}
+        variables = []
+        for var in self.variables:
+            context[var] = functor.map_variable(var, context)
+            variables.append(context[var])
+        return type(self)(expression, tuple(variables),
+                          functor.map_term(self.body, context))
 
     def __repr__(self):
         return factory_name(type(self)) + f"({self.expression!r}, "\
@@ -841,63 +1095,32 @@ def let(expression: Term, body: Callable) -> Let:
 
 
 @dataclass
-class Context:
-    inside: list[Variable]
-    category: ClassVar[type[ClosedCategory]] = Diagram
-
-    @property
-    def dom(self):
-        return self.category.ob().tensor(*[x.cod for x in self.inside])
-
-
-@dataclass
 class Substitution:
+    """
+    The simultaneous, capture-avoiding substitution of terms for variables.
+
+    Parameters:
+        inside : The term substituted for each variable, of the same type.
+
+    Example
+    -------
+    >>> X, Y = Ty("X"), Ty("Y")
+    >>> f, x, y = (X >> Y)("f"), Variable("x", X), Variable("y", X)
+    >>> assert Substitution({x: y})(X(lambda y: f(x))) == X(lambda y_: f(y))
+    """
     inside: Dict[Variable, Term]
 
-    def without(self, *variables: Variable) -> Substitution:
-        "The restriction of a substitution away from bound ``variables``."
-        return type(self)({k: v for k, v in self.inside.items()
-                           if k not in variables})
-
-    def bind(self, *variables: Variable, body: Term = None) -> Substitution:
-        """
-        The restriction of a substitution under binding ``variables`` in
-        ``body``, which raises when a replacement free in ``body`` has one
-        of them as a free variable: substituting it would capture the
-        variable and change the term. A replacement whose key does not
-        occur free in ``body`` is dropped from ``result`` before applying
-        it, so it is never checked: it would not be substituted anyway.
-        """
-        result = self.without(*variables)
-        if body is not None:
-            result = type(self)({k: v for k, v in result.inside.items()
-                                 if k in body.freevars})
-        captured = [x for term in result.inside.values()
-                    for x in term.freevars if x in variables]
-        if captured:
-            raise ValueError(
-                f"Expected replacements free from the bound {captured}, "
-                "rename the variables first.")
-        return result
+    def __post_init__(self):
+        for variable, term in self.inside.items():
+            if not isinstance(variable, Variable)\
+                    or not isinstance(term, TermBase):
+                raise TypeError
+            if variable.cod != term.cod:
+                raise ValueError(
+                    f"Expected {variable.cod}, got {term.cod}")
 
     def __call__(self, term: Term) -> Term:
-        match term:
-            case Variable():
-                return self.inside.get(term, term)
-            case Application(func=func, args=args, left=left):
-                return type(term)(self(func), self(args), left)
-            case Abstraction(var=var, body=body, left=left):
-                return type(term)(
-                    var, self.bind(var, body=body)(body), left)
-            case Tuple(terms=terms):
-                return type(term)(*map(self, terms))
-            case Projection(arg=arg, index=index):
-                return type(term)(self(arg), index)
-            case Let(expression=expression, variables=variables, body=body):
-                return type(term)(self(expression), variables,
-                                  self.bind(*variables, body=body)(body))
-            case _:
-                return term
+        return term.substitute(self)
 
 
 Ty.variable_factory = Variable

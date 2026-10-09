@@ -9,12 +9,34 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `grammar.abstract`, abstract categorial grammars after de Groote's
+  *Towards abstract categorial grammars* (2001)
+  ([#398](https://github.com/discopy/discopy/issues/398)).
+- Closed terms are evaluated in a context, a list of distinct variables
+  containing the free ones, through `closed.TermBase.weaken`, the structural
+  morphism discarding the others and permuting the rest; `is_linear` says
+  whether a term is, `compose` composes terms of function types,
+  `occurrences` counts the free occurrences of a variable and
+  `Substitution` is simultaneous and capture-avoiding, through the
+  `substitute` method of each term, where it recursed forever on an
+  abstraction.
+  `closed.Ty.from_biclosed` and `closed.TermBase.from_biclosed` are
+  functors dropping planarity, and `biclosed.Functor.map_term` sends a term
+  to a term under a binding environment, checking the image against the
+  image of its type and of its free variables
+  ([#398](https://github.com/discopy/discopy/issues/398)).
 - Products and let statements in the term language of `discopy.closed`:
   a not-strictly-associative `Product` type constructor called with `*`,
   `Pack`/`Unpack` boxes witnessing the isomorphism with the strict tensor,
   the `Tuple`, `Projection` and `Let` terms with a `let` introspection
   helper, and `Diagram.to_term` printing any causal diagram as a compact
-  term in fine-grain call-by-value style via `Hypergraph`
+  term in fine-grain call-by-value style via `Hypergraph`. The new terms
+  are evaluated in a context through `weaken` like the others, substitute
+  capture-avoidingly by renaming their bound variables, and say whether
+  they are linear; `TermBase.share` is the structural morphism copying
+  the free variables of a term into those of its subterms, which
+  `Application`, `Tuple` and `Let` evaluate through. A closed constant
+  prints as its bare name
   ([#370](https://github.com/discopy/discopy/issues/370),
   [#458](https://github.com/discopy/discopy/issues/458),
   [#489](https://github.com/discopy/discopy/pull/489)).
@@ -581,14 +603,6 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   refactor stopped reading; `Drawing.id`'s `length`;
   `markov.Diagram.discard`'s `n`; and `drawing.backend.Backend`'s
   `linewidth` ([#768](https://github.com/discopy/discopy/pull/768)).
-- `biclosed.Variable` and `closed.Variable` require an atomic codomain:
-  the abstraction machinery indexes contexts and free variables by
-  variable, counting on that index to coincide with a wire index, so a
-  variable of type `x @ y` used to bind only the last wire, leaving the
-  other one silently free in `biclosed`, and crash from inside `finset`
-  in `closed`, where `Abstraction.eval` permutes as many wires as there
-  are free variables
-  ([#609](https://github.com/discopy/discopy/issues/609)).
 - `cat.Bubble.dagger`: a bubble's dagger was inherited from `Box.dagger`,
   which reconstructs with `type(self)(name, cod, dom, ...)` — positional
   arguments `Bubble.__init__` reads as `*args`, so it crashed with
@@ -627,6 +641,35 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `biclosed.Curry`'s own constructor defaulted to `left=False`, disagreeing
+  with `Diagram.curry`'s `left=True` default since #560 unified the two: a
+  bare `Curry(box)` curried the opposite side of `box.curry()`, and
+  `grammar.categorial.Diagram.bc` passed `n` without `left`, so backward
+  composition curried on the wrong side by the same drift.
+- A variable of a composite type, e.g. `Variable("v", x @ y)`, is bound
+  whole. The abstraction machinery indexed contexts and free variables by
+  variable, counting on that index to coincide with a wire index, so such
+  a variable used to bind only its last wire in `biclosed`, leaving the
+  other one silently free, and crash `Diagram.permutation` in `closed`:
+  the context of a term is now mapped wire by wire. This replaces the
+  atomicity check on `Variable` that
+  [#642](https://github.com/discopy/discopy/pull/642) had added for the
+  same bug ([#609](https://github.com/discopy/discopy/issues/609)).
+- `closed.Box.is_linear` is a class attribute, so a `Curry`, a `Trace` or a
+  `Sum` read as linear whatever they held: `Copy(x) >> f` is not linear but
+  its curry, its trace and its formal sum were. Each now reads its inside.
+  `monoidal.Sum` pinned `ob = monoidal.Ty`, which came before the diagram
+  class in the resolution order of every level's `Sum`, so `closed.Sum.ob`
+  and `biclosed.Sum.ob` were `monoidal.Ty` rather than their own types and
+  a subclass had to pin its own; the pin is gone, `Sum.ob` is the `ob` of
+  the diagram it is a box of, as for every other box.
+- `biclosed.Eval`, `Coeval` and `Curry` read back from their `repr` and
+  from their tree, and `biclosed.Constant` from its tree: they printed and
+  serialised as a `Box`, with a name, a domain and a codomain their
+  constructors do not read, so `eval(repr(x))` and `loads(dumps(x))` raised
+  `TypeError` on every evaluation, coevaluation and currying, and
+  `loads(dumps(c))` on every constant
+  ([#398](https://github.com/discopy/discopy/issues/398)).
 - `Matrix.trace` reads its `left` flag: a left trace is the right trace
   of the matrix conjugated by swaps, where it traced the last `n`
   dimensions whatever was asked. `Tensor.to_quimb` passes its `dtype` to
@@ -714,12 +757,6 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   ([#640](https://github.com/discopy/discopy/issues/640)).
 - `build.yml` timeouts and a bounded, retried Graphviz install
   ([#591](https://github.com/discopy/discopy/issues/591)).
-- `closed.Substitution` no longer drops constants, loses the `left` flag
-  on applications or recurses forever on abstractions, and it covers the
-  new term formers; substituting under a binder raises rather than
-  capturing a free variable of a replacement
-  ([#492](https://github.com/discopy/discopy/issues/492),
-  [#489](https://github.com/discopy/discopy/pull/489)).
 - `python.Function.tensor` is variadic like `monoidal.Diagram.tensor`
   ([#493](https://github.com/discopy/discopy/issues/493),
   [#489](https://github.com/discopy/discopy/pull/489)).
@@ -731,13 +768,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   through `pack_factory`/`unpack_factory` instead of always rebuilding a
   `closed.Pack`/`Unpack`, so converting a diagram with either box to a
   `Hypergraph` (or any other non-`Diagram` codomain with product types) no
-  longer raises. `Let.eval` raises when a bound variable would shadow one
-  already in scope, instead of building a diagram whose two occurrences
-  collapse into one. `Substitution.bind` only raises on a replacement that
-  is actually free in the term it is entering, rather than every
-  replacement surviving `without`, so substituting into an abstraction or
-  a let no longer rejects substitutions that could not have captured
-  anything. `Pack`, `Unpack`, `Tuple`, `Projection` and `Let` have their
+  longer raises. `Pack`, `Unpack`, `Tuple`, `Projection` and `Let` have their
   own `to_tree`/`from_tree` pair, like `Product` already did, instead of
   inheriting `Box`'s, which builds them with a `name` keyword none of
   their constructors accept
@@ -861,6 +892,25 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Project
 
+- pylint reads a law stated with `@axiom` as the classmethod it is,
+  through `.github/scripts/pylint_axioms.py`, a plugin `.pylintrc` loads
+  and `.github/tests` checks: the decorator returns a descriptor binding
+  the law to its category, and astroid infers a classmethod from the
+  `classmethod` decorator alone, so every law read as a method wanting
+  `self`, with the members of its category read as those of an instance.
+  The configuration also declares the `factory` a `NamedGeneric` subscript
+  sets and the `*_factory` attributes a module sets after its class as
+  `generated-members`, lets `hypothesis.strategies` be imported where a
+  strategy is built, the convention keeping hypothesis out of the
+  package's imports, and reads the code as the 3.12 that `pyproject.toml`
+  requires rather than 3.10. `cyclic-import` is disabled: the package
+  imports every module, so the graph is cyclic by design, and pylint
+  reported 63 cycles on one run of `main` and 67 on the next, moving the
+  score by a hundredth between two runs of the same tree, which a
+  threshold cannot tolerate. `fail-under` rises from 8.58 to 8.75, the
+  score of `main` once these categories are gone, the first four of the
+  ones [#770](https://github.com/discopy/discopy/issues/770) lists
+  ([#776](https://github.com/discopy/discopy/pull/776)).
 - The `lint` job fails on any unused import, variable, argument, wildcard
   import or private member, and on a pylint score below `fail-under`, set
   to the score of `main` at the time so that it never goes down:
