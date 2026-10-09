@@ -19,6 +19,7 @@ Summary
     Variable
     Application
     Abstraction
+    Compound
     Tuple
     Projection
     Let
@@ -67,7 +68,7 @@ Axioms
 
 from __future__ import annotations
 from dataclasses import dataclass
-from functools import reduce
+from functools import cached_property, reduce
 from inspect import signature
 from typing import Callable, Dict
 
@@ -782,7 +783,32 @@ class Abstraction(TermBase, biclosed.Abstraction):
         return type(self)(var, Substitution(inside)(body))
 
 
-class Tuple(TermBase):
+class Compound(TermBase):
+    """
+    A term built from other terms, its :attr:`parts`: a :class:`Tuple`, a
+    :class:`Projection` or a :class:`Let`. Two compound terms are equal when
+    their parts are, and the name is printed from the parts when first read
+    rather than when the term is built, so that building a term is linear in
+    its size where printing every subterm made it quadratic.
+
+    Parameters:
+        dom : The domain of the term, i.e. the types of its free variables.
+        cod : The codomain of the term.
+    """
+    def __init__(self, dom: Ty, cod: Ty):
+        super().__init__(type(self).__name__, dom, cod)
+        del self.name
+
+    @property
+    def parts(self) -> tuple:
+        "The terms and other data the compound term is built from."
+        raise NotImplementedError
+
+    def setoid(self):
+        return (type(self), ) + self.parts
+
+
+class Tuple(Compound):
     """
     The tupling of terms, its codomain is the :class:`Product` of theirs.
     The empty tuple has the empty type as codomain, i.e. the nullary
@@ -808,8 +834,16 @@ class Tuple(TermBase):
         dom = self.ob().tensor(*[x.cod for x in self.freevars])
         cod = self.ob(self.ob.product_factory(*[t.cod for t in terms]))\
             if terms else self.ob()
-        name = f"Tuple({', '.join(map(str, terms))})"
-        super().__init__(name, dom, cod)
+        super().__init__(dom, cod)
+
+    @property
+    def parts(self):
+        return self.terms
+
+    @cached_property
+    def name(self):  # pylint: disable=method-hidden  # Compound deletes it
+        "The term as printed, computed once from its parts when first read."
+        return f"Tuple({', '.join(map(str, self.terms))})"
 
     @property
     def is_linear(self):
@@ -857,7 +891,7 @@ class Tuple(TermBase):
         return cls(*map(from_tree, tree['terms']))
 
 
-class Projection(TermBase):
+class Projection(Compound):
     """
     The projection onto one factor of a term with a :class:`Product` type,
     which evaluation interprets by discarding the other factors.
@@ -881,8 +915,16 @@ class Projection(TermBase):
             raise IndexError(f"{arg.cod!r} has no factor {index}")
         self.arg, self.index = arg, index
         self.freevars = arg.freevars
-        name = f"Projection({arg}, {index})"
-        super().__init__(name, arg.dom, arg.cod.factors[index])
+        super().__init__(arg.dom, arg.cod.factors[index])
+
+    @property
+    def parts(self):
+        return self.arg, self.index
+
+    @cached_property
+    def name(self):  # pylint: disable=method-hidden  # Compound deletes it
+        "The term as printed, computed once from its parts when first read."
+        return f"Projection({self.arg}, {self.index})"
 
     @property
     def is_linear(self):
@@ -922,7 +964,7 @@ class Projection(TermBase):
         return cls(from_tree(tree['arg']), tree['index'])
 
 
-class Let(TermBase):
+class Let(Compound):
     """
     The evaluation of an ``expression`` term, binding a tuple of
     ``variables`` to the factors of its result inside a ``body`` term,
@@ -972,10 +1014,18 @@ class Let(TermBase):
         self.freevars = list(dict.fromkeys(expression.freevars + [
             x for x in body.freevars if x not in variables]))
         dom = self.ob().tensor(*[x.cod for x in self.freevars])
-        params = ", ".join(x.name for x in variables)
-        name = f"let({expression}, lambda {params}: {body})" if variables\
-            else f"let({expression}, lambda: {body})"
-        super().__init__(name, dom, body.cod)
+        super().__init__(dom, body.cod)
+
+    @property
+    def parts(self):
+        return self.expression, self.variables, self.body
+
+    @cached_property
+    def name(self):  # pylint: disable=method-hidden  # Compound deletes it
+        "The term as printed, computed once from its parts when first read."
+        params = " " + ", ".join(x.name for x in self.variables)\
+            if self.variables else ""
+        return f"let({self.expression}, lambda{params}: {self.body})"
 
     @property
     def rest(self) -> list[Variable]:

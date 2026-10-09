@@ -36,7 +36,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   they are linear; `TermBase.share` is the structural morphism copying
   the free variables of a term into those of its subterms, which
   `Application`, `Tuple` and `Let` evaluate through. A closed constant
-  prints as its bare name
+  prints as its bare name. `Tuple`, `Projection` and `Let` are `Compound`
+  terms, equal when their parts are and printed only when their name is
+  first read, so that `to_term` is linear rather than quadratic in the
+  number of boxes ([#694](https://github.com/discopy/discopy/issues/694))
   ([#370](https://github.com/discopy/discopy/issues/370),
   [#458](https://github.com/discopy/discopy/issues/458),
   [#489](https://github.com/discopy/discopy/pull/489)).
@@ -892,7 +895,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Project
 
-- `fail-under` rises from 8.75 to 8.76, the score once `closed` gains its
+- `fail-under` rises from 8.75 to 8.77, the score once `closed` gains its
   products and let statements
   ([#489](https://github.com/discopy/discopy/pull/489)).
 - pylint reads a law stated with `@axiom` as the classmethod it is,

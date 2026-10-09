@@ -550,3 +550,15 @@ def test_compose():
             left.compose(right) if right is not u else left >> right
     with raises(AxiomError):
         t.compose(u, t)
+
+
+def test_compound_name_is_lazy():
+    X = Ty("X")
+    x, y = Variable("x", X), Variable("y", X)
+    f = (X >> X)("f")
+    term = Let(f(x), (y, ), Tuple(y, Projection(Tuple(x, y), 0)))
+    assert "name" not in vars(term) and "name" not in vars(term.body)
+    assert str(term)\
+        == "let(f(x), lambda y: Tuple(y, Projection(Tuple(x, y), 0)))"
+    assert Tuple(x, y) == Tuple(x, y) != Tuple(y, x)
+    assert hash(Tuple(x, y)) == hash(Tuple(x, y))
