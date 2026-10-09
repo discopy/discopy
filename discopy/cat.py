@@ -389,6 +389,13 @@ class Arrow(FreeCategory, Testable["Arrow"], Setoid):
         >>> f_ = f >> Id(f.cod)
         >>> assert f.setoid() == f_.setoid()
         >>> assert f is not f_ and f == f_
+
+        Warning
+        -------
+        Messing around with this method can lead to so-called **setoid hell**.
+        In Python there is no way to give a formal proof that a function, e.g.
+        functor application, is in fact a morphism of setoids, i.e. that it
+        sends equal inputs to equal outputs.
         """
         generator = self.generator
         if generator is None:
