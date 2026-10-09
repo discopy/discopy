@@ -25,6 +25,24 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   to a term under a binding environment, checking the image against the
   image of its type and of its free variables
   ([#398](https://github.com/discopy/discopy/issues/398)).
+- Products and let statements in the term language of `discopy.closed`:
+  a not-strictly-associative `Product` type constructor called with `*`,
+  `Pack`/`Unpack` boxes witnessing the isomorphism with the strict tensor,
+  the `Tuple`, `Projection` and `Let` terms with a `let` introspection
+  helper, and `Diagram.to_term` printing any causal diagram as a compact
+  term in fine-grain call-by-value style via `Hypergraph`. The new terms
+  are evaluated in a context through `weaken` like the others, substitute
+  capture-avoidingly by renaming their bound variables, and say whether
+  they are linear; `TermBase.share` is the structural morphism copying
+  the free variables of a term into those of its subterms, which
+  `Application`, `Tuple` and `Let` evaluate through. A closed constant
+  prints as its bare name. `Tuple`, `Projection` and `Let` are `Compound`
+  terms, equal when their parts are and printed only when their name is
+  first read, so that `to_term` is linear rather than quadratic in the
+  number of boxes ([#694](https://github.com/discopy/discopy/issues/694))
+  ([#370](https://github.com/discopy/discopy/issues/370),
+  [#458](https://github.com/discopy/discopy/issues/458),
+  [#489](https://github.com/discopy/discopy/pull/489)).
 - `CMap.is_scalar` is `not dom and not cod`, i.e. a scalar is an
   endomorphism of the unit, where it used to be "a single box with no ports,
   or a single scalar loop". Scalars are closed under tensor and that
@@ -742,6 +760,22 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   ([#640](https://github.com/discopy/discopy/issues/640)).
 - `build.yml` timeouts and a bounded, retried Graphviz install
   ([#591](https://github.com/discopy/discopy/issues/591)).
+- `python.Function.tensor` is variadic like `monoidal.Diagram.tensor`
+  ([#493](https://github.com/discopy/discopy/issues/493),
+  [#489](https://github.com/discopy/discopy/pull/489)).
+- `closed.Product` no longer subclasses the deprecated `biclosed.Ob`
+  alias. Its `str` prints `X.product(Y, Z)` rather than `(X * Y * Z)` at
+  any arity but two, since the infix form is ambiguous with the pairwise
+  nesting `(X * Y) * Z` it is deliberately distinct from and does not
+  round-trip through `eval` there. `closed.Functor` routes `Pack`/`Unpack`
+  through `pack_factory`/`unpack_factory` instead of always rebuilding a
+  `closed.Pack`/`Unpack`, so converting a diagram with either box to a
+  `Hypergraph` (or any other non-`Diagram` codomain with product types) no
+  longer raises. `Pack`, `Unpack`, `Tuple`, `Projection` and `Let` have their
+  own `to_tree`/`from_tree` pair, like `Product` already did, instead of
+  inheriting `Box`'s, which builds them with a `name` keyword none of
+  their constructors accept
+  ([#489](https://github.com/discopy/discopy/pull/489)).
 - `frobenius.Diagram.unfuse`'s doctest no longer sets `Spider.color = "red"`
   to draw its example, which was leaking into every later doctest in the
   same pytest process
@@ -861,6 +895,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Project
 
+- `fail-under` rises from 8.75 to 8.77, the score once `closed` gains its
+  products and let statements
+  ([#489](https://github.com/discopy/discopy/pull/489)).
 - pylint reads a law stated with `@axiom` as the classmethod it is,
   through `.github/scripts/pylint_axioms.py`, a plugin `.pylintrc` loads
   and `.github/tests` checks: the decorator returns a descriptor binding

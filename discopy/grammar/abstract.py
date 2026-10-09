@@ -141,7 +141,7 @@ raising curry, and crossed composition composes.
 >>> print(*words(strings(Alice(loves(Bob), left=True)))()([]))
 Alice loves Bob
 >>> print(Alice(loves(Bob), left=True).to_abstract())
-(n >> (n >> s))('loves')(n('Bob'))(n('Alice'))
+loves(Bob)(Alice)
 """
 
 from __future__ import annotations
@@ -247,7 +247,7 @@ class Diagram(closed.Diagram):
         >>> n, s = categorial.Ty("n"), categorial.Ty("s")
         >>> Alice, loves, Bob = n("Alice"), ((n >> s) << n)("loves"), n("Bob")
         >>> print(Diagram.from_categorial(Alice(loves(Bob), left=True)))
-        (n >> (n >> s))('loves')(n('Bob'))(n('Alice'))
+        loves(Bob)(Alice)
         """
         functor = categorial.Functor(
             ob_map=lambda x: cls.ob(x.inside[0].name),
@@ -336,7 +336,7 @@ class Lexicon(Functor):
     >>> Lexicon(ob_map={x: y}, ar_map={x("a"): (y >> y)("b")})(x("a"))
     Traceback (most recent call last):
         ...
-    discopy.utils.AxiomError: Expected a term of type y for x('a'), got ...
+    discopy.utils.AxiomError: Expected a term of type y for a, got ...
     """
     dom = cod = Diagram
 
