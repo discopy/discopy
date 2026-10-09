@@ -12,6 +12,27 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `grammar.abstract`, abstract categorial grammars after de Groote's
   *Towards abstract categorial grammars* (2001)
   ([#398](https://github.com/discopy/discopy/issues/398)).
+- `grammar.proofnet`, parses as proof nets: a `Sequent` is words with their
+  abstract types and a goal, its ports are the atoms of the types with their
+  polarity, and a `ProofNet` links each negative port to a positive port of
+  the same atom. `ProofNet.from_term` is the axiom linking of a closed linear
+  term and `ProofNet.to_term` reads its beta-normal eta-long term back from
+  the goal, failing exactly when the net is not correct, so that two linear
+  terms have the same net if and only if they are equal up to beta and eta.
+  Equal words are told apart by order only: `from_term` gives each
+  occurrence of a constant the first equal word no earlier one took, so
+  words whose links matter, e.g. the two `the` of a sentence, should be
+  distinct constants, with their position as `data`. `Sequent.decode`
+  takes the linking of maximum score, block by block with `hungarian`, an
+  assignment solver in numpy.
+- `grammar.neural`, a parser into proof nets with PyTorch, over the states
+  of any encoder: a constructive `Tagger` writing the type of each word in
+  the Polish notation of a `Signature`, only ever writing what can be
+  completed into a type, and a bilinear `Linker` trained on the likelihood
+  of the gold linking after `sinkhorn` normalisation, jointly in `Parser`.
+  Moved from the trilingual parser of
+  [rel-int/lambek#8](https://github.com/rel-int/lambek/pull/8), without its
+  datasets or experiments.
 - Closed terms are evaluated in a context, a list of distinct variables
   containing the free ones, through `closed.TermBase.weaken`, the structural
   morphism discarding the others and permuting the rest; `is_linear` says
@@ -861,6 +882,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Project
 
+- `fail-under` rises from 8.75 to 8.79, the score of `main` with
+  `grammar.proofnet` and `grammar.neural` as the `lint` job measures it, on
+  Python 3.14 without the extras, where `torch` cannot be imported.
 - pylint reads a law stated with `@axiom` as the classmethod it is,
   through `.github/scripts/pylint_axioms.py`, a plugin `.pylintrc` loads
   and `.github/tests` checks: the decorator returns a descriptor binding
