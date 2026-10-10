@@ -100,6 +100,31 @@ def test_wire_tree_roundtrip():
               pivotal.Wire('x'), frobenius.Wire('x'), feedback.Wire('x'),
               circuit.Digit(2)):
         assert from_tree(x.to_tree()) == x
+
+
+def test_structural_box_tree_roundtrip():
+    from discopy import (
+        balanced, biclosed, braided, closed, feedback, frobenius, markov,
+        traced)
+    x, y = braided.Ty('x'), braided.Ty('y')
+    fb = feedback.Ty('x')
+    exp = biclosed.Ty('x') << biclosed.Ty('y')
+    for box in (
+            braided.Braid(x, y), braided.Braid(x, y, is_dagger=True),
+            balanced.Twist(balanced.Ty('x')),
+            balanced.Twist(balanced.Ty('x')).dagger(),
+            traced.Box('f', x, x).trace(),
+            feedback.Box('f', fb @ fb.delay(), fb @ fb).feedback(),
+            markov.Copy(markov.Ty('x'), 3), markov.Merge(markov.Ty('x'), 3),
+            markov.Discard(markov.Ty('x')),
+            frobenius.Spider(1, 2, frobenius.Ty('x')),
+            frobenius.Spider(1, 2, frobenius.Ty('x'), data=0.5),
+            biclosed.Eval(exp), biclosed.Coeval(exp),
+            biclosed.Curry(biclosed.Box(
+                'f', biclosed.Ty('x') @ biclosed.Ty('y'), biclosed.Ty('z'))),
+            closed.Eval(closed.Ty('x') << closed.Ty('y'))):
+        assert from_tree(box.to_tree()) == box
+        assert loads(dumps(box)) == box
     with warns(DeprecationWarning):
         assert from_tree({'factory': 'discopy.frobenius.Ob', 'name': 'x'})\
             == frobenius.Wire('x')

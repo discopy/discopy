@@ -240,6 +240,16 @@ def test_draw_copy_and_swap():
     assert X(lambda x: (X >> X)(lambda f: f(x))).eval().to_drawing()
 
 
+def test_strategy():
+    from discopy import axioms
+
+    axioms.assert_strategy_finds(Diagram, Eval, Copy)
+
+
+def test_axioms():
+    from discopy import axioms
+
+    axioms.assert_axioms(Ty, Diagram, Functor)
 def test_from_biclosed():
     x, y = biclosed.Ty("x"), biclosed.Ty("y")
     X, Y = Ty("x"), Ty("y")

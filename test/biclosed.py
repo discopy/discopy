@@ -197,6 +197,16 @@ def test_to_compact():
                        for box in source.to_compact().boxes)
 
 
+def test_strategy():
+    from discopy import axioms
+
+    axioms.assert_strategy_finds(Diagram, Eval)
+
+
+def test_axioms():
+    from discopy import axioms
+
+    axioms.assert_axioms(Ty, Diagram, Functor)
 def test_mapping_preserves_binding_and_lexical_boundaries():
     from discopy import closed
     X, Y, Z = map(closed.Ty, "XYZ")
