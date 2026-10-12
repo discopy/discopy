@@ -860,7 +860,7 @@ class CMap[C0: Pregroup, C1: CMap](
             ends[find(wire)].append(start + i)
 
         edges = list(range(start + len(cod)))
-        for wire in set(wires):
+        for wire in dict.fromkeys(wires):
             if not ends[find(wire)]:
                 loop = objects[wire]
                 loop = loop if isinstance(loop, cls.category.ob)\
