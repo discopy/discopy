@@ -733,21 +733,34 @@ class EHypergraph(MonoidalCategory, NamedGeneric['category'], Setoid):
                 if vertex not in produced}
         chosen = {}
         for _ in range(len(self.rows) + 1):
-            stable = True
-            for gid, _, src, tgt in self.scan():
-                if any(find(wire) not in cost for wire in src):
-                    continue
-                weight = 1 + sum(cost[find(wire)] for wire in src)
-                for vertex in map(find, tgt):
-                    if vertex not in cost or weight < cost[vertex]:
-                        cost[vertex], chosen[vertex] = weight, gid
-                        stable = False
-            if stable:
+            if not self.relax(cost, chosen):
                 break
         for gid, _, _, tgt in self.scan():
             for vertex in map(find, tgt):
                 chosen.setdefault(vertex, gid)
         return cost, chosen
+
+    def relax(self, cost: dict[int, int], chosen: dict[int, int]) -> bool:
+        """
+        One pass of the relaxation behind :meth:`costs`: each cell whose inputs
+        all have a cost lowers the cost of its outputs, in place.
+
+        Parameters:
+            cost : The least known number of cells producing each vertex.
+            chosen : The cheapest known cell producing each vertex.
+
+        Returns whether any cost was lowered.
+        """
+        find, lowered = self.uf.find, False
+        for gid, _, src, tgt in self.scan():
+            if any(find(wire) not in cost for wire in src):
+                continue
+            weight = 1 + sum(cost[find(wire)] for wire in src)
+            for vertex in map(find, tgt):
+                if vertex not in cost or weight < cost[vertex]:
+                    cost[vertex], chosen[vertex] = weight, gid
+                    lowered = True
+        return lowered
 
     def section(self, boundary: tuple[int, ...]) -> list[int]:
         """
