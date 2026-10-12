@@ -12,3 +12,4 @@ grammar
     categorial
     pregroup
     dependency
+    abstract
