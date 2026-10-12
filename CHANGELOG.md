@@ -33,8 +33,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - A `utils.UnionFind` with union by size and path compression, labelling
   each class by its least element so that comparing and printing it only
   depends on the partition. It is used by `ehypergraph.EHypergraph` and by
-  the two places that had their own copy: `CMap.from_glued` and
-  `Hypergraph.is_boundary_connected`
+  the three places that had their own copy: `CMap.from_glued`,
+  `Hypergraph.from_glued` and `Hypergraph.is_boundary_connected`
   ([#730](https://github.com/discopy/discopy/pull/730)).
 - `utils.Setoid`, the equality and hash of a class given by a `setoid`
   method, extracted from `cat.Arrow`, which now inherits it, and used by

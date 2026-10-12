@@ -1388,23 +1388,11 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         ...     (caps, 0), (cups, 0)]).scalar_spiders
         [0]
         """
-        parent, objects = [], []
+        union_find, objects = UnionFind(), []
 
         def fresh(obj):
-            parent.append(len(parent))
             objects.append(obj)
-            return len(parent) - 1
-
-        def find(spider):
-            while parent[spider] != spider:
-                parent[spider] = parent[parent[spider]]
-                spider = parent[spider]
-            return spider
-
-        def union(source, target):
-            source, target = sorted([find(source), find(target)])
-            if source != target:
-                parent[target] = source
+            return union_find.fresh()
 
         dom_wires = tuple(fresh(obj) for obj in dom)
         scan = list(dom_wires)
@@ -1412,7 +1400,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         for image, offset in images:
             local = [fresh(t) for t in image.spider_types]
             for i, spider in enumerate(image.dom_wires):
-                union(scan[offset + i], local[spider])
+                union_find.union(scan[offset + i], local[spider])
             boxes += list(image.boxes)
             box_wires += [
                 (tuple(local[s] for s in x), tuple(local[s] for s in y))
@@ -1422,14 +1410,16 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
                 local[s] for s in image.cod_wires]
         cod_wires = tuple(scan)
 
-        relabel = lambda wires: tuple(find(spider) for spider in wires)
+        labels = list(union_find)
+
+        def relabel(wires):
+            return tuple(labels[spider] for spider in wires)
+
         wires = (
             relabel(dom_wires),
             tuple((relabel(x), relabel(y)) for x, y in box_wires),
             relabel(cod_wires))
-        spider_types = {
-            find(spider): objects[find(spider)]
-            for spider in range(len(parent))}
+        spider_types = {label: objects[label] for label in labels}
         return cls(
             dom, cod, tuple(boxes), wires, spider_types, tuple(offsets))
 
