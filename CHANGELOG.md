@@ -666,7 +666,6 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
-<<<<<<< HEAD
 - Pickling an instance of a parameterised `NamedGeneric` class silently
   lost the parameter: `__reduce__` stashed the values for a
   `NamedGeneric.__setstate__` that no subclass inherits, since the
@@ -686,7 +685,6 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `AttributeError`, and `cat.Bubble.from_tree` warns on the outdated
   singular `'arg'` key like the other outdated-dumps shims
   ([#742](https://github.com/discopy/discopy/issues/742)).
-=======
 - `Matrix.trace` reads its `left` flag: a left trace is the right trace
   of the matrix conjugated by swaps, where it traced the last `n`
   dimensions whatever was asked. `Tensor.to_quimb` passes its `dtype` to
@@ -698,7 +696,6 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   the module name was shadowed by the `feedback` method below it. Every
   one was an unused argument the linter had been reporting
   ([#768](https://github.com/discopy/discopy/pull/768)).
->>>>>>> origin/main
 - The marimo notebook previews in the docs follow the theme switch. The
   notebooks are exported with marimo's `system` theme and the docs relay
   the resolved theme into each notebook's iframe through marimo's
